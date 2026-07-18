@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
-  const imgUrl = `${proto}://${host}/cards/art/${slug}.png`;
+  const imgUrl = `${proto}://${host}/cards/art/${slug}.webp`;
 
   try {
     const imgResp = await fetch(imgUrl);
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: b64 } },
+          { type: 'image', source: { type: 'base64', media_type: "image/webp", data: b64 } },
           { type: 'text', text: 'Read this card and write its living lore.' },
         ],
       }],
