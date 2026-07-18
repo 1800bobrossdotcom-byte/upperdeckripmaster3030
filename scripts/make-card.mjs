@@ -19,17 +19,20 @@ export const rootDir = resolve(here, '..');
 const cardsDir = join(rootDir, 'cards');
 
 export const SEASON_TITLES = { 1: 'Bloom', 2: 'Melt', 3: 'Fractal', 4: 'Void' };
+// flat frame colors sampled from the reference cards
+export const PALETTE = ['#ff6b57', '#ffd93b', '#63b3ff', '#ff5fd0', '#2ad4c8', '#9b5cff', '#ff9a3b', '#9be34f'];
+export const frameFor = slug =>
+  PALETTE[[...slug].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+// battle triggers: powers that read the same live chain state the renderers read
+export const TRIGGERS = ['GAS STORM', 'STILL AIR', 'BURN WAVE', 'MOON CANDLE',
+  'RUG WIND', 'DEEP WATER', 'BLOCK OMEN', 'WHALE SONG'];
+export const statsFor = slug => {
+  const h = [...slug].reduce((a, c) => a + c.charCodeAt(0), 0);
+  return { atk: 1 + (h * 7) % 9, def: 1 + (h * 13) % 9, trigger: TRIGGERS[(h * 31) % TRIGGERS.length] };
+};
 export const slugify = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const roman = n => ['0','I','II','III','IV','V','VI','VII','VIII','IX','X'][+n] || n;
 
-const CORNER_SVG = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
-  <path d="M6 94 C6 46 46 6 94 6"/>
-  <path d="M6 70 C6 34 34 6 70 6"/>
-  <path d="M14 50 C20 28 28 20 50 14"/>
-  <path d="M50 14 c8 -2 12 4 8 9 c-3 4 -9 2 -8 -3"/>
-  <path d="M14 50 c-2 8 4 12 9 8 c4 -3 2 -9 -3 -8"/>
-  <circle cx="11" cy="11" r="3.5" fill="currentColor" stroke="none"/>
-</svg>`;
 
 // procedural placeholder: sunburst + cosmic egg, until real art lands in the slot
 function placeholderArt() {
@@ -57,7 +60,10 @@ function placeholderArt() {
 }
 
 // Wrap one card. opts: { name, season, number, of, flavor, seasonTitle, prompt, seed,
-//   img (path) | placeholder (true) }. Returns the written page path.
+//   frame (css color, default from PALETTE by slug), atk/def (1-9), trigger (name),
+//   img (path) | placeholder (true) }. Stats default deterministically from the slug —
+// the onchain version derives them from the mint block hash instead (docs/BATTLE.md).
+// Returns the written page path.
 export function mintCard(opts) {
   const { name } = opts;
   const season = String(opts.season);
@@ -85,7 +91,11 @@ export function mintCard(opts) {
     .replaceAll('{{FLAVOR}}', opts.flavor || '')
     .replaceAll('{{PROMPT}}', opts.prompt || '(unrecorded)')
     .replaceAll('{{SEED}}', opts.seed || '(unrecorded)')
-    .replaceAll('{{CORNER_SVG}}', CORNER_SVG)
+    .replaceAll('{{FRAME}}', opts.frame || frameFor(slug))
+    .replaceAll('{{STARS}}', '<b>✦</b>'.repeat(Math.max(1, Math.min(8, +season || 1))))
+    .replaceAll('{{ATK}}', String(opts.atk ?? statsFor(slug).atk))
+    .replaceAll('{{DEF}}', String(opts.def ?? statsFor(slug).def))
+    .replaceAll('{{TRIGGER}}', opts.trigger || statsFor(slug).trigger)
     .replaceAll('{{ART}}', art);
 
   const out = join(cardsDir, `${slug}.html`);
@@ -110,7 +120,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   if (!args.img && !args.placeholder) { console.error('need --img <png> or --placeholder'); process.exit(1); }
   const out = mintCard({
     name, season: args.season, number: args.number, of: args.of,
-    flavor: args.flavor, seasonTitle: args['season-title'],
+    flavor: args.flavor, seasonTitle: args['season-title'], frame: args.frame,
+    atk: args.atk, def: args.def, trigger: args.trigger,
     prompt: args.prompt, seed: args.seed,
     img: args.img, placeholder: !!args.placeholder,
   });

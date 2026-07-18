@@ -1,18 +1,29 @@
 # Namecheap → GitHub Pages
 
-Wire a Namecheap domain to this repo's site. ~15 minutes of clicking, then DNS propagation.
+Wire `upperdeckripmaster3030.com` to this repo's site. ~15 minutes of clicking, then
+DNS propagation.
 
-## 1. Enable GitHub Pages
+> **Status (July 18):** DNS A/CNAME records are in place at Namecheap ✔, the `CNAME`
+> file is in the repo ✔. Two things remain, both below: **enable Pages in repo
+> settings** (that's what the 404 means) and **delete the stray `216.150.1.1` A record**.
+
+## 1. Enable GitHub Pages  ← the 404 fix
 
 Repo → **Settings → Pages**:
 
 - Source: *Deploy from a branch*
-- Branch: the default branch, folder `/ (root)` (the site lives at the repo root)
-- Save. The site appears at `https://1800bobrossdotcom-byte.github.io/upperdeckripmaster3030/` within a minute or two.
+- Branch: **`claude/superrare-trading-cards-71ajcx`** (that's where the site lives),
+  folder `/ (root)` — or merge the branch to `main` first and select `main`.
+- Save. "There isn't a GitHub Pages site here" = this step hasn't been done yet;
+  DNS can be perfect and you'll still 404 until Pages is enabled.
+- Then in the same screen: **Custom domain** → `upperdeckripmaster3030.com` → Save →
+  once the DNS check passes, tick **Enforce HTTPS** (cert can take up to ~1 hour).
 
 ## 2. Point the domain at Pages (Namecheap)
 
-Namecheap → Domain List → your domain → **Advanced DNS**. Remove any parking records, then add:
+Namecheap → Domain List → your domain → **Advanced DNS**. **Delete the stray
+`A @ 216.150.1.1` record** (Namecheap parking — it makes the domain resolve to the
+wrong server intermittently). Keep exactly these:
 
 | Type | Host | Value | TTL |
 |---|---|---|---|

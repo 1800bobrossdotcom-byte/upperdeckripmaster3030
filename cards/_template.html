@@ -8,8 +8,8 @@
   seed/sref: {{SEED}}
   ═══════════════════════════════════════
   A self-contained live foil work. No dependencies, no build.
-  Tilt with pointer (desktop) or gyroscope (mobile — iOS asks permission on tap).
-  Foil heat breathes with Ethereum gas; sparkle reseeds each block (graceful offline).
+  Tilt with pointer (desktop) or gyroscope (mobile — tap to activate on iOS).
+  Foil heat breathes with Ethereum gas; block ticker in the footer (silent offline).
 -->
 <html lang="en">
 <head>
@@ -20,61 +20,111 @@
   :root{
     --px: 0; --py: 0;          /* tilt, -1..1 */
     --heat: .35;               /* eth gas → foil heat, 0..1 */
-    --gold1:#f6e27a; --gold2:#8a6d1f; --gold3:#fff7c9;
-    --ink:#0b0710;
+    --frame: {{FRAME}};
+    --plate:#f6ecc9;           /* parchment plates */
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; }
   body{
-    background: radial-gradient(120% 90% at 50% 0%, #1b0f2b 0%, var(--ink) 60%, #000 100%);
     display:grid; place-items:center; overflow:hidden;
+    background:#1a0b2e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1350'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.007 0.01' numOctaves='3' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='170'/%3E%3C/filter%3E%3Cg filter='url(%23t)'%3E%3Crect width='900' height='1350' fill='%237b2ff7'/%3E%3Ccircle cx='450' cy='675' r='640' fill='%232a6cff'/%3E%3Ccircle cx='450' cy='675' r='540' fill='%2337d34a'/%3E%3Ccircle cx='450' cy='675' r='440' fill='%23ffe93b'/%3E%3Ccircle cx='450' cy='675' r='340' fill='%23ff9a3b'/%3E%3Ccircle cx='450' cy='675' r='250' fill='%23ff4b4b'/%3E%3Ccircle cx='450' cy='675' r='165' fill='%23ff5fd0'/%3E%3Ccircle cx='450' cy='675' r='85' fill='%23ffe93b'/%3E%3C/g%3E%3C/svg%3E") center/cover no-repeat fixed;
     font-family: Georgia, 'Times New Roman', serif;
     -webkit-tap-highlight-color: transparent;
   }
   .scene{ perspective: 1100px; touch-action: none; }
   .card{
     position:relative;
-    width:min(88vw, 62vh, 420px);
+    width:min(88vw, 60vh, 420px);
     aspect-ratio: 5/7;
-    border-radius: 4.2% / 3%;
-    transform: rotateY(calc(var(--px) * 13deg)) rotateX(calc(var(--py) * -13deg));
+    border-radius: 14px;
+    transform: rotateY(calc(var(--px) * 12deg)) rotateX(calc(var(--py) * -12deg));
     transform-style: preserve-3d;
-    background:
-      linear-gradient(calc(120deg + var(--px)*40deg),
-        var(--gold2) 0%, var(--gold1) 22%, var(--gold3) 38%,
-        var(--gold1) 52%, var(--gold2) 70%, var(--gold1) 100%);
+    background: var(--frame);
+    border: 3px solid #000;
     box-shadow:
-      0 30px 60px -18px rgba(0,0,0,.85),
-      0 0 40px -10px rgba(246,226,122,.28),
-      inset 0 0 2px 1px rgba(255,247,201,.7);
+      inset 0 0 0 2px rgba(255,255,255,.55),
+      0 26px 50px -14px rgba(0,0,0,.75);
     user-select:none;
-  }
-  /* ─── ornate frame ─── */
-  .bezel{
-    position:absolute; inset: 2.6%;
-    border-radius: 3% / 2.2%;
-    background: var(--ink);
-    box-shadow: inset 0 0 0 1.5px rgba(246,226,122,.85), inset 0 0 22px rgba(0,0,0,.9);
+    display:flex; flex-direction:column;
+    padding: 3.4% 4%;
     overflow:hidden;
   }
-  .corner{ position:absolute; width:17%; aspect-ratio:1; color:var(--gold1);
-    filter: drop-shadow(0 0 3px rgba(246,226,122,.5)); z-index:6; pointer-events:none; }
-  .corner svg{ width:100%; height:100%; display:block; }
-  .c-tl{ top:3.6%; left:5%; } .c-tr{ top:3.6%; right:5%; transform:scaleX(-1); }
-  .c-bl{ bottom:3.6%; left:5%; transform:scaleY(-1); } .c-br{ bottom:3.6%; right:5%; transform:scale(-1); }
-
+  /* ─── title bar ─── */
+  .title-bar{
+    position:relative;
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    background: var(--plate);
+    border:3px solid #000; border-radius:8px;
+    padding: 2.2% 4%;
+  }
+  .name{
+    font-family:'Arial Black','Arial Bold',Arial,sans-serif;
+    font-size: clamp(13px, 4.6vw, 22px);
+    letter-spacing:.02em; color:#111; text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .stars{ display:flex; gap:3px; flex:none; }
+  .stars b{
+    width: clamp(13px,4vw,19px); aspect-ratio:1; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #ffe93b, #d78400 75%);
+    border:2px solid #000; color:#7a2c00;
+    display:grid; place-items:center;
+    font-size: clamp(8px,2.4vw,11px); font-weight:900;
+  }
   /* ─── art window ─── */
   .art{
-    position:absolute; inset: 9% 7% 19% 7%;
-    border-radius: 2.5%;
-    overflow:hidden;
-    background:#160d22;
-    box-shadow: inset 0 0 0 1.5px rgba(246,226,122,.6), inset 0 0 30px rgba(0,0,0,.75);
+    position:relative; flex:1; margin-top:3.4%;
+    border:3px solid #000; border-radius:6px;
+    overflow:hidden; background:#160d22;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.5);
   }
   .art > img, .art > svg{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
 
-  /* ─── foil stack ─── */
-  .foil,.glare,.glitter{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+  /* ─── text box ─── */
+  .text-box{
+    margin-top:3.4%;
+    background: var(--plate);
+    border:3px solid #000; border-radius:8px;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
+    padding: 2.6% 4% 2.2%;
+    text-align:center;
+  }
+  .statline{
+    display:flex; justify-content:space-between; align-items:center; gap:4px;
+    margin-bottom:2%;
+  }
+  .chip{
+    font-family:'Arial Black',Arial,sans-serif;
+    font-size: clamp(7px, 2.3vw, 10px); letter-spacing:.04em;
+    border:2px solid #000; border-radius:999px;
+    padding: 1.2% 2.6%; white-space:nowrap; color:#111;
+  }
+  .chip.atk{ background:#ff6b57; }
+  .chip.def{ background:#63b3ff; }
+  .chip.trig{ background:#ffe93b; overflow:hidden; text-overflow:ellipsis; }
+  .flavor{
+    font-style:italic; color:#241a05;
+    font-size: clamp(9px, 2.9vw, 13px); line-height:1.35;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .meta{
+    margin-top:1.6%;
+    font-family:'Arial Black',Arial,sans-serif;
+    font-size: clamp(7px, 2.2vw, 9px); letter-spacing:.28em; text-indent:.28em;
+    text-transform:uppercase; color:#6b5312;
+  }
+  /* ─── corner medallions ─── */
+  .medal{
+    position:absolute; z-index:6; width:6.4%; aspect-ratio:1; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #fff7c9, #d7a400 80%);
+    border:2px solid #000; display:grid; place-items:center;
+    font-size: clamp(7px,2.2vw,11px); color:#111; pointer-events:none;
+  }
+  .m-tl{ top:1.6%; left:2%; } .m-tr{ top:1.6%; right:2%; }
+  .m-bl{ bottom:1.6%; left:2%; } .m-br{ bottom:1.6%; right:2%; }
+
+  /* ─── foil stack (over the whole card, like a foil print) ─── */
+  .foil,.glare,.glitter{ position:absolute; inset:0; border-radius:11px; pointer-events:none; }
   .foil{
     z-index:3;
     background: repeating-linear-gradient(calc(115deg + var(--px)*10deg),
@@ -83,7 +133,7 @@
     background-size: 260% 260%;
     background-position: calc(50% + var(--px)*70%) calc(50% + var(--py)*70%);
     mix-blend-mode: color-dodge;
-    opacity: calc(.16 + var(--heat)*.30);
+    opacity: calc(.10 + var(--heat)*.26);
     filter: brightness(.8) contrast(1.9)
             saturate(calc(.75 + var(--heat)*1.3))
             hue-rotate(calc(var(--heat)*55deg));
@@ -92,8 +142,8 @@
     z-index:4;
     background: radial-gradient(farthest-corner circle at
         calc(50% + var(--px)*55%) calc(50% + var(--py)*55%),
-      rgba(255,255,255,.85) 4%, rgba(255,255,255,.13) 22%, rgba(0,0,0,.55) 120%);
-    mix-blend-mode: overlay; opacity:.85;
+      rgba(255,255,255,.75) 4%, rgba(255,255,255,.10) 22%, rgba(0,0,0,.38) 130%);
+    mix-blend-mode: overlay; opacity:.9;
   }
   .glitter{
     z-index:5;
@@ -107,69 +157,60 @@
       calc(var(--px)*-14px) calc(var(--py)*26px),
       calc(var(--px)*30px) calc(var(--py)*-12px);
     mix-blend-mode: color-dodge;
-    opacity: calc(.25 + .5 * var(--heat));
-  }
-
-  /* ─── plates ─── */
-  .plate-top,.plate-name{
-    position:absolute; left:0; right:0; text-align:center; z-index:6;
-    color:transparent;
-    background: linear-gradient(calc(100deg + var(--px)*60deg),
-      var(--gold2), var(--gold3) 45%, var(--gold1) 55%, var(--gold2));
-    -webkit-background-clip:text; background-clip:text;
-  }
-  .plate-top{
-    top: 4.2%; font-size: clamp(8px, 2.6vw, 12px);
-    letter-spacing:.42em; text-indent:.42em; text-transform:uppercase;
-  }
-  .plate-name{
-    bottom: 8.8%; font-size: clamp(17px, 5.4vw, 26px);
-    letter-spacing:.18em; text-indent:.18em; font-variant: small-caps;
-  }
-  .plate-sub{
-    position:absolute; bottom:5.4%; left:17%; right:17%; text-align:center; z-index:6;
-    font-size: clamp(7px, 2.1vw, 9px); letter-spacing:.12em; text-indent:.12em;
-    color:rgba(246,226,122,.75); text-transform:uppercase;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    opacity: calc(.2 + .45 * var(--heat));
   }
   .chain{
-    position:fixed; bottom: max(10px, env(safe-area-inset-bottom)); left:0; right:0;
-    text-align:center; font-size:10px; letter-spacing:.28em; text-indent:.28em;
-    color:rgba(246,226,122,.4); text-transform:uppercase;
+    position:fixed; bottom: max(10px, env(safe-area-inset-bottom)); left:50%;
+    transform:translateX(-50%);
+    background:rgba(0,0,0,.65); border:2px solid #000; border-radius:999px;
+    padding:4px 14px;
+    font-family:'Arial Black',Arial,sans-serif;
+    font-size:9px; letter-spacing:.24em; text-indent:.24em;
+    color:#ffe93b; text-transform:uppercase; white-space:nowrap;
   }
-  /* ─── gyro blessing (iOS permission gate) ─── */
+  .chain:empty{ display:none; }
+  /* ─── gyro gate (iOS permission needs a tap) ─── */
   .bless{
     position:fixed; inset:0; z-index:50; display:none; place-items:center;
-    background: rgba(6,3,10,.55); backdrop-filter: blur(3px);
-    border:0; width:100%; color:var(--gold1); font: inherit;
-    font-size:13px; letter-spacing:.38em; text-indent:.38em; text-transform:uppercase;
-    cursor:pointer;
+    background: rgba(6,3,10,.5); backdrop-filter: blur(3px);
+    border:0; width:100%; cursor:pointer; font-family:'Arial Black',Arial,sans-serif;
+  }
+  .bless span{
+    background:var(--plate); border:3px solid #000; border-radius:999px;
+    padding:12px 22px; font-size:12px; letter-spacing:.24em; text-indent:.24em;
+    text-transform:uppercase; color:#111;
   }
   .bless.show{ display:grid; }
   @media (prefers-reduced-motion: reduce){
-    .card{ transform:none; } .foil,.glitter{ opacity:.18; }
+    .card{ transform:none; } .foil,.glitter{ opacity:.14; }
   }
 </style>
 </head>
 <body>
   <div class="scene" id="scene">
     <div class="card" id="card">
-      <div class="bezel">
-        <div class="art">{{ART}}</div>
-        <div class="foil"></div>
-        <div class="glare"></div>
-        <div class="glitter"></div>
+      <div class="title-bar">
+        <span class="name">{{NAME}}</span>
+        <span class="stars">{{STARS}}</span>
       </div>
-      <span class="corner c-tl">{{CORNER_SVG}}</span>
-      <span class="corner c-tr">{{CORNER_SVG}}</span>
-      <span class="corner c-bl">{{CORNER_SVG}}</span>
-      <span class="corner c-br">{{CORNER_SVG}}</span>
-      <div class="plate-top">{{SEASON_TITLE}} · Season {{SEASON}}</div>
-      <div class="plate-name">{{NAME}}</div>
-      <div class="plate-sub">{{FLAVOR}} · №{{NUMBER}} of {{OF}}</div>
+      <div class="art">{{ART}}</div>
+      <div class="text-box">
+        <div class="statline">
+          <span class="chip atk">ATK {{ATK}}</span>
+          <span class="chip trig">{{TRIGGER}}</span>
+          <span class="chip def">DEF {{DEF}}</span>
+        </div>
+        <div class="flavor">{{FLAVOR}}</div>
+        <div class="meta">{{SEASON_TITLE}} · Season {{SEASON}} · №{{NUMBER}} of {{OF}}</div>
+      </div>
+      <span class="medal m-tl">✦</span><span class="medal m-tr">✦</span>
+      <span class="medal m-bl">✦</span><span class="medal m-br">✦</span>
+      <div class="foil"></div>
+      <div class="glare"></div>
+      <div class="glitter"></div>
     </div>
   </div>
-  <button class="bless" id="bless">✦ tap to activate the foil ✦</button>
+  <button class="bless" id="bless"><span>✦ tap to activate the foil ✦</span></button>
   <div class="chain" id="chain"></div>
 
 <script>
@@ -253,7 +294,7 @@
   };
   requestAnimationFrame(loop);
 
-  // ethereum breath — gas → foil heat, block → glitter reseed (fails silent offline)
+  // ethereum breath — gas → foil heat, block ticker (fails silent offline)
   const RPCS = ['https://eth.llamarpc.com', 'https://cloudflare-eth.com'];
   const rpc = async method => {
     for (const url of RPCS) {

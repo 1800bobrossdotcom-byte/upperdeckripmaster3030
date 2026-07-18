@@ -16,7 +16,7 @@
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, resolve, basename } from 'node:path';
-import { mintCard, rootDir, SEASON_TITLES } from './make-card.mjs';
+import { mintCard, rootDir, SEASON_TITLES, frameFor } from './make-card.mjs';
 
 const args = {};
 const argv = process.argv.slice(2);
@@ -55,6 +55,7 @@ function ingest(dir, manifestPath) {
       name: meta.name || titleCase(slug),
       season, number,
       of: meta.of, flavor: meta.flavor, seasonTitle: meta.seasonTitle,
+      frame: meta.frame, atk: meta.atk, def: meta.def, trigger: meta.trigger,
       prompt: meta.prompt, seed: meta.seed,
       img: join(resolve(dir), file),
     });
@@ -85,10 +86,10 @@ function buildGallery() {
   const seasons = [...new Set(entries.map(e => e.season))];
   const sections = seasons.map(s => {
     const tiles = entries.filter(e => e.season === s).map(e => `
-      <a class="tile" href="${e.file}">
-        ${e.thumb
+      <a class="tile" href="${e.file}" style="--f:${frameFor(e.file.replace(/\.html$/, ''))}">
+        <span class="tile-art">${e.thumb
           ? `<img src="${e.thumb}" alt="${e.name}" loading="lazy">`
-          : '<div class="tile-blank">✦</div>'}
+          : '<i>✦</i>'}</span>
         <span class="tile-name">${e.name}</span>
         <span class="tile-num">№${String(e.number).padStart(2, '0')}</span>
       </a>`).join('');
@@ -105,41 +106,50 @@ function buildGallery() {
 <title>The Deck · Upperdeck Ripmaster 3030</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#0b0710;color:#e9ddff;font-family:Georgia,'Times New Roman',serif;
-    background-image:radial-gradient(80% 50% at 50% -10%,#2a1450 0%,transparent 60%)}
-  header{text-align:center;padding:40px 16px 10px}
-  h1{font-variant:small-caps;letter-spacing:.2em;text-indent:.2em;font-size:clamp(24px,6vw,40px);
-    color:transparent;background:linear-gradient(100deg,#ff5fd0,#f6e27a,#a6ff4d,#5fd0ff,#ff5fd0);
-    background-size:300% 100%;-webkit-background-clip:text;background-clip:text;
-    animation:hue 9s linear infinite}
-  @keyframes hue{to{background-position:300% 0}}
-  .back{display:block;text-align:center;margin:8px 0 0;font-size:11px;letter-spacing:.35em;
-    text-indent:.35em;text-transform:uppercase;color:#a6ff4d;text-decoration:none}
-  main{max-width:1100px;margin:0 auto;padding:10px 16px 60px}
-  h2{margin:34px 0 14px;text-align:center;font-size:12px;letter-spacing:.5em;text-indent:.5em;
-    text-transform:uppercase;color:#f6e27a}
+  body{font-family:Georgia,'Times New Roman',serif;padding:18px 10px 40px;
+    background:#7b2ff7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1350'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.007 0.01' numOctaves='3' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='170'/%3E%3C/filter%3E%3Cg filter='url(%23t)'%3E%3Crect width='900' height='1350' fill='%237b2ff7'/%3E%3Ccircle cx='450' cy='675' r='640' fill='%232a6cff'/%3E%3Ccircle cx='450' cy='675' r='540' fill='%2337d34a'/%3E%3Ccircle cx='450' cy='675' r='440' fill='%23ffe93b'/%3E%3Ccircle cx='450' cy='675' r='340' fill='%23ff9a3b'/%3E%3Ccircle cx='450' cy='675' r='250' fill='%23ff4b4b'/%3E%3Ccircle cx='450' cy='675' r='165' fill='%23ff5fd0'/%3E%3Ccircle cx='450' cy='675' r='85' fill='%23ffe93b'/%3E%3C/g%3E%3C/svg%3E") center/cover no-repeat fixed}
+  .board{max-width:1100px;margin:0 auto;background:#ffd93b;border:3px solid #000;border-radius:16px;
+    box-shadow:0 0 0 10px #ff6b57,0 0 0 13px #000,0 24px 50px rgba(0,0,0,.5);
+    padding:clamp(12px,3vw,26px)}
+  header{text-align:center}
+  .plate{display:block;background:#f6ecc9;border:3px solid #000;border-radius:10px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.6);padding:10px 14px}
+  h1{font-family:'Arial Black',Arial,sans-serif;font-size:clamp(20px,5.5vw,34px);
+    letter-spacing:.03em;color:#111;text-transform:uppercase}
+  .back{display:inline-block;margin:12px auto 4px;background:#63b3ff;border:3px solid #000;
+    border-radius:999px;padding:8px 18px;font-family:'Arial Black',Arial,sans-serif;
+    font-size:10px;letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
+    color:#111;text-decoration:none}
+  h2{margin:26px 0 12px;text-align:center}
+  h2 span{display:inline-block;background:#ff6b57;border:3px solid #000;border-radius:999px;
+    padding:6px 18px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+    letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:#111}
   .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-  .tile{position:relative;display:block;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
-    border:1px solid rgba(246,226,122,.35);text-decoration:none;color:#e9ddff;
-    background:linear-gradient(160deg,#1c0f33,#35176b);transition:transform .18s}
-  .tile:hover{transform:translateY(-4px) rotate(-1deg)}
-  .tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .tile-blank{position:absolute;inset:0;display:grid;place-items:center;font-size:34px;color:#f6e27a}
-  .tile-name,.tile-num{position:absolute;left:0;right:0;text-align:center;font-size:10px;
-    letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
-    text-shadow:0 1px 4px #000, 0 0 10px #000}
-  .tile-name{bottom:16px}
-  .tile-num{bottom:4px;opacity:.6;font-size:8px}
-  @media(prefers-reduced-motion:reduce){h1{animation:none}}
+  .tile{display:flex;flex-direction:column;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
+    background:var(--f);border:3px solid #000;text-decoration:none;color:#111;
+    padding:5%;transition:transform .18s;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+  .tile:hover{transform:translateY(-4px) rotate(-1.5deg)}
+  .tile-art{position:relative;flex:1;border:2px solid #000;border-radius:5px;overflow:hidden;
+    background:#160d22;display:grid;place-items:center}
+  .tile-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .tile-art i{font-style:normal;font-size:30px;color:#ffe93b}
+  .tile-name{margin-top:5%;background:#f6ecc9;border:2px solid #000;border-radius:5px;
+    text-align:center;padding:3px 4px;font-family:'Arial Black',Arial,sans-serif;
+    font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile-num{margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
+    font-size:8px;letter-spacing:.24em;text-indent:.24em;color:rgba(0,0,0,.55)}
 </style>
 </head>
 <body>
-  <header>
-    <h1>The Deck</h1>
-    <a class="back" href="../">← back to the shrine</a>
-  </header>
-  <main>${sections}
-  </main>
+  <div class="board">
+    <header>
+      <span class="plate"><h1>✦ The Deck ✦</h1></span>
+      <a class="back" href="../">← back to the pack</a>
+    </header>
+    <main>${sections}
+    </main>
+  </div>
 </body>
 </html>
 `;

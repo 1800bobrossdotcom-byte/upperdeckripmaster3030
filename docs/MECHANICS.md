@@ -135,7 +135,15 @@ Two lanes into a season's candidate pool, both hand‑approved:
   block hash picks theme × character × palette from the prompt kit's tables; you
   run the prompt, keep or kill the result). The chain proposes, the artist disposes.
 
-## 8. Testnet plan
+## 8. Battles
+
+Cards fight — pog-style wagers (pairings of 1/2/3, stacks of 3/4/7), triggers powered
+by the same on-chain market state the renderers read, winner takes the cards, captured
+cards list in a token-denominated Bazaar (with burn cuts) or burn for permanent notches.
+Full design: `BATTLE.md`. Sequencing: exhibition mode (no stakes) ships with Season 1;
+staked escrow battles only after audit + a Sepolia season.
+
+## 9. Testnet plan
 
 1. Clone `github.com/superrare/liquid-editions-starter-kit` (Foundry workspace; has
    render-only and renderer+721-lens example patterns, `.env.eth.sepolia` template, and

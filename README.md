@@ -28,6 +28,7 @@ flowchart LR
 3. **The pack** — when the season closes, the top cards are enshrined as an ERC‑721 **Companion Lens Collection** (the format SuperRare's Liquid Editions docs describe): each card is a lens over the same living market.
 4. **The living artwork** — the ERC‑20's render contract reads burn progress, vote tallies, price, and liquidity at `tokenURI()` fetch time. The edition's artwork *is* the state of the game.
 5. **The cards** — pog‑spirited trading cards. Art is hand‑curated (Midjourney‑generated or manually created: textless, psychedelic, hyperfoil, rubber‑hose cartoon spirits), then wrapped in a live HTML foil frame.
+6. **The slam** — cards battle. Every card carries ATK/DEF and a trigger that reads live chain state (gas, burns, price, liquidity). Wager pog‑style — pairings of 1/2/3 or stacks of 3/4/7 — winner takes the cards, then lists them in the Bazaar for the liquid token or burns them for notches. Full rules: `docs/BATTLE.md`.
 
 ## Repo layout
 
@@ -41,6 +42,7 @@ scripts/ingest-batch.mjs → bulk ingest + gallery rebuild (thousands of cards O
 docs/ART-VAULT.md     → how to upload/organize the big curated art collection
 prompts/PROMPT-KIT.md → the Midjourney prompt system + season card lists
 docs/MECHANICS.md     → season / burn-to-vote / tokenomics design
+docs/BATTLE.md        → battle rules: triggers, pog wagers, arena contract design
 docs/INTAKE-DRAFT.md  → drafted answers for the SuperRare cohort intake form
 docs/NAMECHEAP-SETUP.md → domain → GitHub Pages wiring
 ```
@@ -71,3 +73,4 @@ node scripts/ingest-batch.mjs --dir ../art-vault/season-01 --manifest ../art-vau
 - [ ] Testnet deploy via `rare` CLI (Sepolia first — never straight to mainnet)
 - [ ] Season ballot contract + render contract
 - [ ] Season 1 candidate art run
+- [ ] Exhibition battles on the site (no stakes) → staked arena after audit
