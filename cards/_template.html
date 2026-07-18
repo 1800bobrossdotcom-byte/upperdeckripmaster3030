@@ -191,26 +191,52 @@
   });
   scene.addEventListener('pointerleave', () => { lastInput = 0; });
 
-  // gyroscope tilt (mobile)
+  // gyroscope tilt (mobile). Two paths on purpose: inside marketplace iframes,
+  // iOS WebKit blocks deviceorientation unless the embedder allows magnetometer
+  // (which allow-lists rarely include), while devicemotion needs only
+  // gyroscope+accelerometer — so we request both and fall back to motion-derived tilt.
+  const clamp = v => Math.max(-1, Math.min(1, v));
+  let orientAlive = false;
   const onOrient = e => {
     if (e.gamma == null) return;
-    tx = Math.max(-1, Math.min(1, e.gamma / 28));
-    ty = Math.max(-1, Math.min(1, (e.beta - 45) / 28));
+    orientAlive = true;
+    tx = clamp(e.gamma / 28);
+    ty = clamp((e.beta - 45) / 28);
     lastInput = performance.now();
   };
+  const onMotion = e => {
+    if (orientAlive) return;
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    tx = clamp(-g.x / 4.5);
+    ty = clamp(-(g.y + 5.5) / 4.5);
+    lastInput = performance.now();
+  };
+  const listen = () => {
+    addEventListener('deviceorientation', onOrient);
+    addEventListener('devicemotion', onMotion);
+  };
+  const ask = async C => {
+    try {
+      if (C && typeof C.requestPermission === 'function')
+        return await C.requestPermission() === 'granted';
+    } catch {}
+    return false;
+  };
   const bless = document.getElementById('bless');
-  if (typeof DeviceOrientationEvent !== 'undefined') {
-    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-      // iOS: needs a user gesture
-      if ('ontouchstart' in window) bless.classList.add('show');
-      bless.addEventListener('click', async () => {
-        try { if (await DeviceOrientationEvent.requestPermission() === 'granted')
-          addEventListener('deviceorientation', onOrient); } catch {}
-        bless.classList.remove('show');
-      });
-    } else {
-      addEventListener('deviceorientation', onOrient);
-    }
+  const needsGesture =
+    (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') ||
+    (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function');
+  if (needsGesture) {
+    if ('ontouchstart' in window) bless.classList.add('show');
+    bless.addEventListener('click', async () => {
+      const o = await ask(typeof DeviceOrientationEvent !== 'undefined' ? DeviceOrientationEvent : null);
+      const m = await ask(typeof DeviceMotionEvent !== 'undefined' ? DeviceMotionEvent : null);
+      if (o || m) listen();
+      bless.classList.remove('show');
+    });
+  } else if (typeof DeviceOrientationEvent !== 'undefined' || typeof DeviceMotionEvent !== 'undefined') {
+    listen();
   }
 
   // idle drift so the card is alive untouched

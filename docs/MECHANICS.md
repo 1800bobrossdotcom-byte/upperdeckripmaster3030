@@ -10,9 +10,18 @@ One Liquid Edition ERC‑20 for the life of the game (not one per season).
 - Deployed via `rare liquid-edition deploy multicurve "<NAME>" "<SYMBOL>" --curve-preset ...`
   from **the wallet connected to the SuperRare artist profile** (the "Golden Rule" in the CLI
   guide — otherwise the drop won't surface on the profile).
-- The bonding curve gives the game a permanent live market. Collectors enter at any scale.
+- The bonding curve gives the game a permanent live market, **paired with RARE as the
+  reserve/base token** in an embedded liquidity pool (prices and quotes are denominated
+  in RARE; `rare swap buy-rare` exists for acquiring it).
+- Liquid Editions run on **Ethereum mainnet and Sepolia only** (verified July 2026 —
+  Base is supported by the CLI for other flows, but not Liquid Editions).
 - Burning is the game's only sink, so every vote is deflationary. Four seasons a year means
   four scheduled scarcity events, forever.
+- Version note: npm `@rareprotocol/rare-cli` latest is **2.0.0** (July 8, 2026) while
+  rare.xyz/docs documents v1.2.2 — re-check `rare liquid-edition --help` after install
+  in case v2 added/renamed subcommands. Documented liquid-edition subcommands today:
+  `deploy multicurve`, `status`, `token-uri`, `set-render-contract`. The only documented
+  curve preset is `medium-demand` ("instant" and "graduated" were removed in June 2026).
 
 Why one token instead of per‑season tokens: a single market accrues history and liquidity;
 season packs (the 721 lenses) carry the season identity instead. This also keeps the
@@ -50,10 +59,13 @@ SeasonBallot
 - **Linear voting for v1** (1 token burned = 1 vote). Quadratic resists whales but is
   sybil‑trivial on-chain; linear is honest and legible. Revisit if a whale distorts S1.
 - Votes are burns — no refunds, no delegation, no snapshot games. Conviction = combustion.
-- **Open question to confirm against the starter kit** (`liquid-editions-starter-kit`,
-  linked from the CLI guide): the exact burn interface on the Liquid Edition ERC‑20
-  (public `burn(uint256)` vs. transfer‑to‑dead vs. protocol burn hook), so the ballot's
-  burn call matches what the render contract's "burn progress" actually reads.
+- **Burn interface — confirmed (July 2026)**: the starter kit's `ILiquid` interface
+  (which `is IERC20Metadata`) declares `burn(uint256)`, so the ballot can
+  `transferFrom` then `burn`. There is **no dedicated burn-progress getter** — derive it
+  as `maxTotalSupply() − currentSupply` (from `getMarketState()` / `totalSupply()`).
+  The CLI itself has no burn command; burns are contract calls (ballot, site, or `cast`).
+  Remaining check: whether tokens held by the ballot burn cleanly, or votes should
+  instead pull straight from the voter's wallet in the same call.
 
 ## 4. The Living Pack (the ERC‑20's artwork)
 
@@ -61,11 +73,32 @@ The render contract is pull‑based view logic (per the CLI guide), so the editi
 can be a live collage of the current season:
 
 - reads `SeasonBallot.tally(...)` → candidate cards scale/glow by vote share
-- reads burn progress → the pack "wax seal" visibly melts as supply burns
-- reads price/liquidity → foil intensity and palette heat
-- `animation_url` → a thin HTML work (same foil engine as the site's cards)
+- reads burn progress (`maxTotalSupply() − currentSupply`) → the pack "wax seal"
+  visibly melts as supply burns
+- reads `getCurrentPrice()` / `getMarketState()` liquidity → foil intensity and palette heat
+- `animation_url` → a thin HTML work (same foil engine as the site's cards); the starter
+  kit's `LiquidLensHTMLExample.sol` is direct precedent for HTML metadata from a renderer
 
 Between seasons it shows the sealed pack of the last season's winners.
+
+**Constraints for the NFT-context version of the cards (verified against 2025–26
+marketplace behavior):**
+
+- Marketplace iframes are sandboxed with a null origin and no `window.ethereum`; treat
+  **live RPC reads as progressive enhancement only** — the canonical dynamic state must
+  be baked into the metadata by the render contract at `tokenURI()` time.
+- Always ship a **static `image` fallback** (≥3000×3000) — wallets and several
+  marketplaces render only that field, never the HTML.
+- Cards must be **self-contained and deterministic** from a baked seed (no CDNs); our
+  template already fails silent offline, and chase-variant selection by lock-block hash
+  gives each card its deterministic seed.
+- iOS gyro inside third-party iframes is gated in WebKit on a magnetometer permission
+  embedders rarely grant — the card template therefore requests **DeviceMotion as well
+  as DeviceOrientation** and derives tilt from motion when orientation never fires
+  (pointer/drag always works regardless).
+- **SuperRare's own support for HTML `animation_url` is publicly unconfirmed** — ask the
+  team (tracked in INTAKE-DRAFT.md); worst case the lens metadata uses image/video from
+  the renderer and the live HTML lives on our site.
 
 ## 5. Season packs as Companion 721 Lenses
 
@@ -104,6 +137,14 @@ Two lanes into a season's candidate pool, both hand‑approved:
 
 ## 8. Testnet plan
 
-1. Sepolia deploy via CLI (`--preview` first, per the guide), burner supply, fake season
+1. Clone `github.com/superrare/liquid-editions-starter-kit` (Foundry workspace; has
+   render-only and renderer+721-lens example patterns, `.env.eth.sepolia` template, and
+   `AGENTS.md`/`skills/` AI workflow guides). Sepolia create flow lives at
+   `dev.superrare.co/create/liquid-edition`.
+2. Sepolia deploy via CLI (`--preview` first, per the guide), burner supply, fake season
    with 4 candidates, exercise ballot + render + lens mint end‑to‑end.
-2. Only after a full dress rehearsal: mainnet, S1.
+3. Only after a full dress rehearsal: mainnet, S1.
+
+Bonus: the CLI ships `rare mcp serve` — an MCP server over the protocol. That means
+Claude can be wired directly to deploys, status checks, and marketplace ops during
+development ("connect Claude to the CLI" is a supported pattern, not a hack).

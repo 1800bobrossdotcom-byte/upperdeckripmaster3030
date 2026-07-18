@@ -59,9 +59,15 @@ custom ballot mechanics. Acknowledge the support boundary: renderer + front end 
 
 ## Open questions for the SuperRare team (@im_jonooo)
 
-1. Exact burn interface on the Liquid Edition ERC-20 (public `burn()`? protocol hook?)
-   so the season ballot contract's burns register as the burn progress the renderer reads.
+1. Burn mechanics — `ILiquid.burn(uint256)` and derived burn progress
+   (`maxTotalSupply() − currentSupply`) are confirmed from the starter kit; please
+   confirm a companion ballot contract burning via `transferFrom → burn` is the
+   intended pattern, and that nothing in the pool accounting objects to third-party
+   contract burns.
 2. Can the assisted Companion Lens setup mint *from* our ballot contract's winners list,
    or is the lens mint list manual?
-3. Any indexer constraints on `animation_url` HTML works (sandbox flags, size)?
+3. Does SuperRare.com render HTML `animation_url` works (and with what iframe
+   sandbox/allow flags and size limits)? Public docs don't say — this decides whether
+   the live-foil card is the NFT itself or a companion view on our site.
 4. Timing: which cohort window should S1 target?
+5. CLI v2.0.0 (July 8) vs docs at v1.2.2 — any liquid-edition changes we should know?
