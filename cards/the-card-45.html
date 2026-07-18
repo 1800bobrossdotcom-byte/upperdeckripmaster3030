@@ -202,7 +202,8 @@
   const $ = id => document.getElementById(id);
   const TRIGGER = ($('b-trig').textContent || '').trim().toUpperCase();
   const set = (id, v) => { if (v != null && v !== '') $(id).textContent = v; };
-  fetch('data/the-card-45.json').then(r => r.ok ? r.json() : null).then(d => {
+  fetch('data/the-card-45.json').then(r => r.ok ? r.json()
+    : fetch('/api/lore?slug=the-card-45').then(r => r.ok ? r.json() : null)).then(d => {
     if (!d) return;
     if (d.title) { set('b-title', d.title.toUpperCase()); }
     set('b-lore', d.lore); set('b-omen', d.omen ? '“' + d.omen + '”' : '');
