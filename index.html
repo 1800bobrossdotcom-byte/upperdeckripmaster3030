@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UPPERDECK RIPMASTER 3030</title>
+<meta name="description" content="A liquid trading card game. Burn the token, vote the canon, rip the pack. Four seasons a year.">
+<style>
+  :root{
+    --gold1:#f6e27a; --gold2:#8a6d1f; --gold3:#fff7c9;
+    --pink:#ff5fd0; --violet:#7b2ff7; --acid:#a6ff4d;
+    --ink:#0b0710;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{
+    background:
+      radial-gradient(90% 60% at 50% -10%, #2a1450 0%, transparent 60%),
+      radial-gradient(70% 50% at 85% 100%, #300b3a 0%, transparent 55%),
+      var(--ink);
+    color:#e9ddff;
+    font-family: Georgia, 'Times New Roman', serif;
+    overflow-x:hidden;
+  }
+  .gold{
+    color:transparent;
+    background: linear-gradient(100deg, var(--gold2), var(--gold3) 45%, var(--gold1) 55%, var(--gold2));
+    -webkit-background-clip:text; background-clip:text;
+  }
+  header{ text-align:center; padding: clamp(40px,9vh,90px) 20px 8px; }
+  .halo{
+    font-size:11px; letter-spacing:.55em; text-indent:.55em; text-transform:uppercase;
+    color:var(--acid); opacity:.8;
+  }
+  h1{
+    margin:14px 0 10px;
+    font-size: clamp(30px, 8.5vw, 64px);
+    letter-spacing:.14em; text-indent:.14em;
+    font-variant: small-caps; font-weight:600;
+    text-shadow: 0 0 40px rgba(255,95,208,.35);
+  }
+  .creed{
+    font-size: clamp(14px, 3.6vw, 17px); font-style:italic; opacity:.85;
+    max-width: 34em; margin: 0 auto; line-height:1.6;
+  }
+  .rip{ display:block; width:min(72vw,300px); margin: 26px auto 0; border:0; height:1px;
+    background: linear-gradient(90deg, transparent, var(--gold1), transparent); }
+
+  /* card shrine */
+  .shrine{ display:grid; place-items:center; padding: 34px 0 10px; }
+  .shrine iframe{
+    border:0; width:min(92vw, 400px); aspect-ratio: 4/6.2; overflow:hidden;
+    border-radius:16px;
+  }
+  .shrine-cap{ text-align:center; font-size:10px; letter-spacing:.4em; text-indent:.4em;
+    text-transform:uppercase; color:rgba(233,221,255,.45); padding:10px 20px 0; }
+
+  /* liturgy: hold / burn / rip */
+  .liturgy{
+    display:grid; gap:14px; padding: 48px 20px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    max-width: 980px; margin:0 auto;
+  }
+  .rite{
+    border:1px solid rgba(246,226,122,.25); border-radius:14px;
+    padding:22px 20px; background: rgba(24,12,44,.5);
+    box-shadow: inset 0 0 30px rgba(0,0,0,.4);
+  }
+  .rite b{ display:block; font-size:19px; letter-spacing:.22em; text-indent:.22em;
+    font-variant:small-caps; margin-bottom:8px; }
+  .rite p{ font-size:14px; line-height:1.65; opacity:.85; }
+
+  /* seasons */
+  .seasons{ max-width:980px; margin:0 auto; padding: 6px 20px 60px; }
+  .seasons h2{ text-align:center; font-size:13px; letter-spacing:.5em; text-indent:.5em;
+    text-transform:uppercase; margin-bottom:20px; opacity:.9; }
+  .strip{ display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .season{
+    text-align:center; padding:18px 10px; border-radius:12px;
+    border:1px dashed rgba(166,255,77,.3); font-size:13px; line-height:1.7;
+  }
+  .season em{ display:block; font-style:normal; color:var(--pink); font-size:11px;
+    letter-spacing:.3em; text-indent:.3em; text-transform:uppercase; }
+  footer{
+    text-align:center; padding: 30px 20px calc(30px + env(safe-area-inset-bottom));
+    font-size:11px; letter-spacing:.3em; text-indent:.3em; text-transform:uppercase;
+    color:rgba(233,221,255,.4); line-height:2.2;
+  }
+  footer a{ color:var(--gold1); text-decoration:none; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="halo">✦ a liquid edition · four seasons a year ✦</div>
+    <h1 class="gold">Upperdeck Ripmaster 3030</h1>
+    <p class="creed">The sacred texts of the world, retold as psychedelic hyperfoil
+    cartoon cards — voted into the canon by fire. Burn the token. Choose the deck.
+    Rip the pack.</p>
+    <hr class="rip">
+  </header>
+
+  <section class="shrine">
+    <iframe src="cards/the-egg.html" title="The Egg — live foil card" loading="lazy"></iframe>
+    <div class="shrine-cap">season i candidate · live foil — tilt your phone</div>
+  </section>
+
+  <section class="liturgy">
+    <div class="rite"><b class="gold">I. Hold</b>
+      <p>One living ERC-20 with a bonding-curve market. Tokens are votes not yet cast —
+      potential energy standing in the open market.</p></div>
+    <div class="rite"><b class="gold">II. Burn</b>
+      <p>Each season opens a ballot of candidate cards. Burning tokens casts votes —
+      permanent, deflationary, on-chain. Conviction is combustion.</p></div>
+    <div class="rite"><b class="gold">III. Rip</b>
+      <p>At the close block, the top eight are enshrined as the season pack — card lenses
+      over the same market. Your burns are your rip rights.</p></div>
+  </section>
+
+  <section class="seasons">
+    <h2 class="gold">The First Year</h2>
+    <div class="strip">
+      <div class="season"><em>Season I</em>Origins</div>
+      <div class="season"><em>Season II</em>Floods &amp; Trials</div>
+      <div class="season"><em>Season III</em>Prophets &amp; Visions</div>
+      <div class="season"><em>Season IV</em>Apocalypses</div>
+    </div>
+  </section>
+
+  <footer>
+    burn progress · gas weather · block sparkle<br>
+    <a href="https://superrare.com">superrare</a> · liquid editions cohort 01
+  </footer>
+</body>
+</html>
