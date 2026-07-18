@@ -31,17 +31,17 @@ SuperRare story clean — one living work that four times a year contracts and c
 
 | Phase | Weeks | What happens |
 |---|---|---|
-| **Revelation** | 1–6 | Candidate cards drop on the site (curated + generated). Community discusses. |
+| **The Reveal** | 1–6 | Candidate cards drop on the site (curated + generated). Community discusses. |
 | **The Burn** | 7–10 | Voting window. Burn N tokens = N votes on a candidate. Live leaderboard. |
 | **The Lock** | 11 | Season closes at a pre‑announced block. Top 8 cards make the pack. |
 | **The Rip** | 12–13 | Pack mints as an ERC‑721 Companion Lens Collection. Next season teased. |
 
-Year‑one arc (one testament per quarter):
+Year‑one arc (one visual theme per quarter):
 
-- **S1 — Origins**: creation stories (Genesis, Enūma Eliš, Popol Vuh, the Cosmic Egg…)
-- **S2 — Floods & Trials**: Noah/Utnapishtim, Job, Jonah, the desert…
-- **S3 — Prophets & Visions**: Ezekiel's wheel, burning bush, Jacob's ladder…
-- **S4 — Apocalypses**: Revelation, Ragnarök, Kali Yuga…
+- **S1 — Bloom**: neon flora, spores, vines, impossible gardens
+- **S2 — Melt**: liquid foil, dripping suns, molten gold, lava-lamp physics
+- **S3 — Fractal**: kaleidoscopes, tessellation, infinite recursion
+- **S4 — Void**: cosmic dark, negative holo, starfields, deep static
 
 ## 3. Burn‑to‑vote
 
@@ -132,7 +132,7 @@ Two lanes into a season's candidate pool, both hand‑approved:
 - **Curated**: you commission/select art directly (manual updates always possible —
   cards are just files in `cards/`).
 - **Imagined**: generated candidates seeded from chain data (e.g. weekly, the latest
-  block hash picks scripture × character × palette from the prompt kit's tables; you
+  block hash picks theme × character × palette from the prompt kit's tables; you
   run the prompt, keep or kill the result). The chain proposes, the artist disposes.
 
 ## 8. Testnet plan

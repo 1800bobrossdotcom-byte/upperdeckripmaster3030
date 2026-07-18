@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Deck · Upperdeck Ripmaster 3030</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0b0710;color:#e9ddff;font-family:Georgia,'Times New Roman',serif;
+    background-image:radial-gradient(80% 50% at 50% -10%,#2a1450 0%,transparent 60%)}
+  header{text-align:center;padding:40px 16px 10px}
+  h1{font-variant:small-caps;letter-spacing:.2em;text-indent:.2em;font-size:clamp(24px,6vw,40px);
+    color:transparent;background:linear-gradient(100deg,#ff5fd0,#f6e27a,#a6ff4d,#5fd0ff,#ff5fd0);
+    background-size:300% 100%;-webkit-background-clip:text;background-clip:text;
+    animation:hue 9s linear infinite}
+  @keyframes hue{to{background-position:300% 0}}
+  .back{display:block;text-align:center;margin:8px 0 0;font-size:11px;letter-spacing:.35em;
+    text-indent:.35em;text-transform:uppercase;color:#a6ff4d;text-decoration:none}
+  main{max-width:1100px;margin:0 auto;padding:10px 16px 60px}
+  h2{margin:34px 0 14px;text-align:center;font-size:12px;letter-spacing:.5em;text-indent:.5em;
+    text-transform:uppercase;color:#f6e27a}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .tile{position:relative;display:block;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
+    border:1px solid rgba(246,226,122,.35);text-decoration:none;color:#e9ddff;
+    background:linear-gradient(160deg,#1c0f33,#35176b);transition:transform .18s}
+  .tile:hover{transform:translateY(-4px) rotate(-1deg)}
+  .tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .tile-blank{position:absolute;inset:0;display:grid;place-items:center;font-size:34px;color:#f6e27a}
+  .tile-name,.tile-num{position:absolute;left:0;right:0;text-align:center;font-size:10px;
+    letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
+    text-shadow:0 1px 4px #000, 0 0 10px #000}
+  .tile-name{bottom:16px}
+  .tile-num{bottom:4px;opacity:.6;font-size:8px}
+  @media(prefers-reduced-motion:reduce){h1{animation:none}}
+</style>
+</head>
+<body>
+  <header>
+    <h1>The Deck</h1>
+    <a class="back" href="../">← back to the shrine</a>
+  </header>
+  <main>
+    <h2><span>Season 1 · Bloom</span></h2>
+    <div class="grid">
+      <a class="tile" href="the-egg.html">
+        <div class="tile-blank">✦</div>
+        <span class="tile-name">The Egg</span>
+        <span class="tile-num">№04</span>
+      </a></div>
+  </main>
+</body>
+</html>

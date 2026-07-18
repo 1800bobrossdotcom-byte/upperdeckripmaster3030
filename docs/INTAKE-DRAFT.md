@@ -7,11 +7,11 @@ these are written to be pasted into the form.
 
 **The Core Concept**
 
-> A liquid trading card game where the world's sacred texts are retold as psychedelic
-> hyperfoil cartoon cards. The token is the game: four seasons a year, holders burn it to
-> vote scripture-scenes into the season's pack, and the edition's artwork is the living
-> state of that ritual — a pack that melts as the community burns, and crystallizes into
-> cards when the season locks.
+> A liquid trading card game of psychedelic hyperfoil cartoon cards — the wild old
+> rubber-hose spirits of the public domain in blacklight. The token is the game: four
+> seasons a year, holders burn it to vote candidate cards into the season's pack, and
+> the edition's artwork is the living state of that ritual — a pack that melts as the
+> community burns, and crystallizes into cards when the season locks.
 
 **The Mechanics**
 

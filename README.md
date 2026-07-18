@@ -3,9 +3,9 @@
 **A liquid trading card game on SuperRare.** One living ERC‑20 artwork, four seasons a year,
 and a deck of psychedelic hyperfoil cards — voted into existence by burning the token.
 
-The sacred texts of the world, retold through rubber‑hose cartoon spirits, printed on
-cards that are alive: each card is a thin, self‑contained HTML work with real holographic
-foil that tilts with your phone and breathes with the Ethereum network.
+The wild old cartoon spirits of the public domain, soaked in blacklight and pressed in
+foil: each card is a thin, self‑contained HTML work with real holographic foil that
+tilts with your phone and breathes with the Ethereum network.
 
 ---
 
@@ -27,15 +27,18 @@ flowchart LR
 2. **The vote** — each season opens a ballot of candidate cards. Burning tokens casts votes; burns are permanent, so every season the supply gets scarcer and the deck gets realer.
 3. **The pack** — when the season closes, the top cards are enshrined as an ERC‑721 **Companion Lens Collection** (the format SuperRare's Liquid Editions docs describe): each card is a lens over the same living market.
 4. **The living artwork** — the ERC‑20's render contract reads burn progress, vote tallies, price, and liquidity at `tokenURI()` fetch time. The edition's artwork *is* the state of the game.
-5. **The cards** — pog‑spirited trading cards. Art is generated in Midjourney (textless, psychedelic, hyperfoil, rubber‑hose cartoon spirits × world scripture), curated by hand, then wrapped in a live HTML foil frame.
+5. **The cards** — pog‑spirited trading cards. Art is hand‑curated (Midjourney‑generated or manually created: textless, psychedelic, hyperfoil, rubber‑hose cartoon spirits), then wrapped in a live HTML foil frame.
 
 ## Repo layout
 
 ```
 index.html            → the site (GitHub Pages, mobile-first)
 cards/                → each card: one self-contained HTML file (live foil work)
-art/inbox/            → drop curated Midjourney PNGs here for ingestion
-scripts/make-card.mjs → wraps a PNG into a live foil card page (no deps)
+cards/index.html      → the deck gallery (generated — do not hand-edit)
+art/inbox/            → drop curated renders here for ingestion
+scripts/make-card.mjs → wraps one image into a live foil card page (no deps)
+scripts/ingest-batch.mjs → bulk ingest + gallery rebuild (thousands of cards OK)
+docs/ART-VAULT.md     → how to upload/organize the big curated art collection
 prompts/PROMPT-KIT.md → the Midjourney prompt system + season card lists
 docs/MECHANICS.md     → season / burn-to-vote / tokenomics design
 docs/INTAKE-DRAFT.md  → drafted answers for the SuperRare cohort intake form
@@ -48,17 +51,20 @@ docs/NAMECHEAP-SETUP.md → domain → GitHub Pages wiring
 # preview the site locally
 python3 -m http.server 8000    # → http://localhost:8000
 
-# wrap a curated Midjourney render into a card page
+# wrap one curated render into a card page
 node scripts/make-card.mjs \
-  --img art/inbox/s01-c01-the-serpent.png \
-  --name "The Serpent" \
-  --season 1 --number 1 \
-  --scripture "Genesis 3"
+  --img art/inbox/s01-c01-the-vine.png \
+  --name "The Vine" --season 1 --number 1 \
+  --flavor "tangled in neon"
+
+# bulk-ingest a whole folder (thousands OK) + rebuild the deck gallery
+node scripts/ingest-batch.mjs --dir art/inbox
+node scripts/ingest-batch.mjs --dir ../art-vault/season-01 --manifest ../art-vault/manifest.json
 ```
 
 ## Status
 
-- [x] Aesthetic prototype: live hyperfoil card frame (`cards/the-serpent.html`)
+- [x] Aesthetic prototype: live hyperfoil card frame (`cards/the-egg.html`)
 - [x] Prompt kit v1
 - [x] Mechanics design v1
 - [ ] Domain (Namecheap) → GitHub Pages

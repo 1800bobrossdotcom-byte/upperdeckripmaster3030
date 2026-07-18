@@ -1,38 +1,25 @@
 #!/usr/bin/env node
 // Wrap a curated Midjourney render into a live foil card page. Zero dependencies.
 //
-//   node scripts/make-card.mjs --img art/inbox/s01-c01-the-serpent.png \
-//     --name "The Serpent" --season 1 --number 1 --of 16 \
-//     --scripture "Genesis 3" --season-title "Origins" \
-//     --prompt "proto-Betty Boop as the serpent..." --seed "1234 / sref v1"
+//   node scripts/make-card.mjs --img art/inbox/s01-c01-the-vine.png \
+//     --name "The Vine" --season 1 --number 1 --of 16 \
+//     --flavor "hatched from the cosmic soup" --season-title "Bloom" \
+//     --prompt "the exact Midjourney prompt" --seed "1234 / sref v1"
 //
 //   node scripts/make-card.mjs --placeholder --name "The Egg" ...   (procedural art, no image)
+//
+// For bulk ingestion of a whole drop, use scripts/ingest-batch.mjs instead.
 
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, extname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const rootDir = resolve(here, '..');
+export const rootDir = resolve(here, '..');
 const cardsDir = join(rootDir, 'cards');
 
-const args = {};
-const argv = process.argv.slice(2);
-for (let i = 0; i < argv.length; i++) {
-  if (argv[i].startsWith('--')) {
-    const key = argv[i].slice(2);
-    const val = (argv[i + 1] && !argv[i + 1].startsWith('--')) ? argv[++i] : true;
-    args[key] = val;
-  }
-}
-
-const need = k => { if (!args[k]) { console.error(`missing --${k}`); process.exit(1); } return args[k]; };
-const name = need('name');
-const season = String(need('season'));
-const number = String(need('number')).padStart(2, '0');
-if (!args.img && !args.placeholder) { console.error('need --img <png> or --placeholder'); process.exit(1); }
-
-const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+export const SEASON_TITLES = { 1: 'Bloom', 2: 'Melt', 3: 'Fractal', 4: 'Void' };
+export const slugify = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 const roman = n => ['0','I','II','III','IV','V','VI','VII','VIII','IX','X'][+n] || n;
 
 const CORNER_SVG = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
@@ -69,31 +56,63 @@ function placeholderArt() {
 </svg>`;
 }
 
-let art;
-if (args.placeholder) {
-  art = placeholderArt();
-} else {
-  const src = resolve(args.img);
-  const artDir = join(cardsDir, 'art');
-  mkdirSync(artDir, { recursive: true });
-  const dest = `art/${slug}${extname(src) || '.png'}`;
-  copyFileSync(src, join(cardsDir, dest));
-  art = `<img src="${dest}" alt="${name}">`;
+// Wrap one card. opts: { name, season, number, of, flavor, seasonTitle, prompt, seed,
+//   img (path) | placeholder (true) }. Returns the written page path.
+export function mintCard(opts) {
+  const { name } = opts;
+  const season = String(opts.season);
+  const number = String(opts.number).padStart(2, '0');
+  const slug = slugify(name);
+
+  let art;
+  if (opts.placeholder) {
+    art = placeholderArt();
+  } else {
+    const src = resolve(opts.img);
+    mkdirSync(join(cardsDir, 'art'), { recursive: true });
+    const dest = `art/${slug}${extname(src) || '.png'}`;
+    copyFileSync(src, join(cardsDir, dest));
+    art = `<img src="${dest}" alt="${name}">`;
+  }
+
+  const html = readFileSync(join(cardsDir, '_template.html'), 'utf8')
+    .replaceAll('{{NAME}}', name)
+    .replaceAll('{{SEASON}}', roman(season))
+    .replaceAll('{{SEASON_NUM}}', season)
+    .replaceAll('{{SEASON_TITLE}}', opts.seasonTitle || SEASON_TITLES[+opts.season] || 'Bloom')
+    .replaceAll('{{NUMBER}}', number)
+    .replaceAll('{{OF}}', String(opts.of || 16))
+    .replaceAll('{{FLAVOR}}', opts.flavor || '')
+    .replaceAll('{{PROMPT}}', opts.prompt || '(unrecorded)')
+    .replaceAll('{{SEED}}', opts.seed || '(unrecorded)')
+    .replaceAll('{{CORNER_SVG}}', CORNER_SVG)
+    .replaceAll('{{ART}}', art);
+
+  const out = join(cardsDir, `${slug}.html`);
+  writeFileSync(out, html);
+  return out;
 }
 
-const html = readFileSync(join(cardsDir, '_template.html'), 'utf8')
-  .replaceAll('{{NAME}}', name)
-  .replaceAll('{{SEASON}}', roman(season))
-  .replaceAll('{{SEASON_NUM}}', season)
-  .replaceAll('{{SEASON_TITLE}}', args['season-title'] || 'Origins')
-  .replaceAll('{{NUMBER}}', number)
-  .replaceAll('{{OF}}', String(args.of || 16))
-  .replaceAll('{{SCRIPTURE}}', args.scripture || '')
-  .replaceAll('{{PROMPT}}', args.prompt || '(unrecorded)')
-  .replaceAll('{{SEED}}', args.seed || '(unrecorded)')
-  .replaceAll('{{CORNER_SVG}}', CORNER_SVG)
-  .replaceAll('{{ART}}', art);
-
-const out = join(cardsDir, `${slug}.html`);
-writeFileSync(out, html);
-console.log(`✦ minted ${out.replace(rootDir + '/', '')}`);
+// ─── CLI ───
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const args = {};
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith('--')) {
+      const key = argv[i].slice(2);
+      const val = (argv[i + 1] && !argv[i + 1].startsWith('--')) ? argv[++i] : true;
+      args[key] = val;
+    }
+  }
+  const need = k => { if (!args[k]) { console.error(`missing --${k}`); process.exit(1); } return args[k]; };
+  const name = need('name');
+  need('season'); need('number');
+  if (!args.img && !args.placeholder) { console.error('need --img <png> or --placeholder'); process.exit(1); }
+  const out = mintCard({
+    name, season: args.season, number: args.number, of: args.of,
+    flavor: args.flavor, seasonTitle: args['season-title'],
+    prompt: args.prompt, seed: args.seed,
+    img: args.img, placeholder: !!args.placeholder,
+  });
+  console.log(`✦ minted ${out.replace(rootDir + '/', '')}`);
+}

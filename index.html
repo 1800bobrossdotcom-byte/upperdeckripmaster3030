@@ -4,125 +4,182 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>UPPERDECK RIPMASTER 3030</title>
-<meta name="description" content="A liquid trading card game. Burn the token, vote the canon, rip the pack. Four seasons a year.">
+<meta name="description" content="A liquid trading card game. Burn the token, vote the deck, rip the pack. Four seasons a year.">
 <style>
   :root{
-    --gold1:#f6e27a; --gold2:#8a6d1f; --gold3:#fff7c9;
-    --pink:#ff5fd0; --violet:#7b2ff7; --acid:#a6ff4d;
-    --ink:#0b0710;
+    --pink:#ff5fd0; --violet:#7b2ff7; --acid:#a6ff4d; --cyan:#5fd0ff;
+    --gold1:#f6e27a; --gold3:#fff7c9; --ink:#0b0710;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
   body{
-    background:
-      radial-gradient(90% 60% at 50% -10%, #2a1450 0%, transparent 60%),
-      radial-gradient(70% 50% at 85% 100%, #300b3a 0%, transparent 55%),
-      var(--ink);
-    color:#e9ddff;
+    background:var(--ink); color:#f2e9ff; overflow-x:hidden;
     font-family: Georgia, 'Times New Roman', serif;
-    overflow-x:hidden;
   }
-  .gold{
+  /* ─── trip layer: spinning sunburst + breathing blacklight blobs ─── */
+  .trip{ position:fixed; inset:0; z-index:-2; overflow:hidden; }
+  .rays{
+    position:absolute; left:50%; top:38%; width:240vmax; height:240vmax;
+    transform:translate(-50%,-50%);
+    background: repeating-conic-gradient(from 0deg,
+      #ff5fd0 0deg 7deg, #7b2ff7 7deg 14deg, #0b0710 14deg 21deg,
+      #a6ff4d 21deg 28deg, #5fd0ff 28deg 35deg, #0b0710 35deg 42deg);
+    opacity:.16; animation: spin 140s linear infinite;
+  }
+  .blob{ position:absolute; border-radius:50%; filter:blur(70px); opacity:.5;
+    animation: breathe 11s ease-in-out infinite alternate; }
+  .b1{ width:60vmax; height:60vmax; left:-20vmax; top:-18vmax; background:#7b2ff7; }
+  .b2{ width:50vmax; height:50vmax; right:-18vmax; top:22vh; background:#ff5fd0; animation-delay:-4s; }
+  .b3{ width:46vmax; height:46vmax; left:12vw; bottom:-22vmax; background:#0e5f4d; animation-delay:-8s; }
+  .grain{ position:fixed; inset:0; z-index:-1; opacity:.5; mix-blend-mode:overlay;
+    background-image:
+      radial-gradient(circle at 22% 34%, rgba(255,255,255,.16) 0 1px, transparent 2px),
+      radial-gradient(circle at 74% 61%, rgba(255,255,255,.12) 0 1px, transparent 2px),
+      radial-gradient(circle at 48% 86%, rgba(255,255,255,.1) 0 1px, transparent 2px);
+    background-size: 240px 210px, 190px 230px, 260px 190px; }
+  @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+  @keyframes breathe{ from{ transform:scale(1); } to{ transform:scale(1.25); } }
+
+  .rainbow{
     color:transparent;
-    background: linear-gradient(100deg, var(--gold2), var(--gold3) 45%, var(--gold1) 55%, var(--gold2));
+    background: linear-gradient(100deg, var(--pink), var(--gold1), var(--acid), var(--cyan), var(--violet), var(--pink));
+    background-size: 300% 100%;
     -webkit-background-clip:text; background-clip:text;
+    animation: slide 8s linear infinite;
   }
-  header{ text-align:center; padding: clamp(40px,9vh,90px) 20px 8px; }
-  .halo{
-    font-size:11px; letter-spacing:.55em; text-indent:.55em; text-transform:uppercase;
-    color:var(--acid); opacity:.8;
-  }
+  @keyframes slide{ to{ background-position: 300% 0; } }
+
+  header{ text-align:center; padding: clamp(46px,10vh,100px) 20px 6px; }
+  .halo{ font-size:11px; letter-spacing:.55em; text-indent:.55em; text-transform:uppercase;
+    color:var(--acid); text-shadow:0 0 12px rgba(166,255,77,.7); }
   h1{
-    margin:14px 0 10px;
-    font-size: clamp(30px, 8.5vw, 64px);
-    letter-spacing:.14em; text-indent:.14em;
+    margin:16px 0 12px;
+    font-size: clamp(30px, 8.5vw, 66px);
+    letter-spacing:.12em; text-indent:.12em;
     font-variant: small-caps; font-weight:600;
-    text-shadow: 0 0 40px rgba(255,95,208,.35);
+    filter: drop-shadow(0 0 26px rgba(255,95,208,.45));
   }
   .creed{
-    font-size: clamp(14px, 3.6vw, 17px); font-style:italic; opacity:.85;
-    max-width: 34em; margin: 0 auto; line-height:1.6;
+    font-size: clamp(14px, 3.6vw, 17px); font-style:italic;
+    max-width: 34em; margin: 0 auto; line-height:1.65; color:#e9d9ff;
+    text-shadow:0 0 18px rgba(123,47,247,.55);
   }
-  .rip{ display:block; width:min(72vw,300px); margin: 26px auto 0; border:0; height:1px;
-    background: linear-gradient(90deg, transparent, var(--gold1), transparent); }
+  .wave{ display:block; width:min(80vw,420px); margin:26px auto 0; height:22px; }
+  .wave path{ fill:none; stroke-width:2.5;
+    stroke:url(#wavegrad); stroke-linecap:round; }
 
   /* card shrine */
-  .shrine{ display:grid; place-items:center; padding: 34px 0 10px; }
-  .shrine iframe{
-    border:0; width:min(92vw, 400px); aspect-ratio: 4/6.2; overflow:hidden;
-    border-radius:16px;
-  }
+  .shrine{ display:grid; place-items:center; padding: 30px 0 6px; }
+  .frame-glow{ position:relative; border-radius:20px; padding:4px;
+    background: conic-gradient(from var(--a,0deg), var(--pink), var(--gold1), var(--acid), var(--cyan), var(--violet), var(--pink));
+    animation: hueflow 6s linear infinite; box-shadow:0 0 44px rgba(255,95,208,.35); }
+  @property --a { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+  @keyframes hueflow{ to{ --a:360deg; } }
+  .shrine iframe{ display:block; border:0; width:min(90vw, 390px); aspect-ratio: 4/6.2;
+    border-radius:16px; background:var(--ink); }
   .shrine-cap{ text-align:center; font-size:10px; letter-spacing:.4em; text-indent:.4em;
-    text-transform:uppercase; color:rgba(233,221,255,.45); padding:10px 20px 0; }
+    text-transform:uppercase; color:rgba(242,233,255,.5); padding:12px 20px 0; }
+  .deck-link{ display:block; width:max-content; margin:18px auto 0; padding:10px 22px;
+    border:1px solid var(--acid); border-radius:999px; text-decoration:none;
+    font-size:11px; letter-spacing:.4em; text-indent:.4em; text-transform:uppercase;
+    color:var(--acid); text-shadow:0 0 10px rgba(166,255,77,.8);
+    box-shadow:0 0 18px rgba(166,255,77,.25), inset 0 0 14px rgba(166,255,77,.12); }
+  .deck-link:hover{ background:rgba(166,255,77,.12); }
 
-  /* liturgy: hold / burn / rip */
-  .liturgy{
-    display:grid; gap:14px; padding: 48px 20px;
+  /* the ritual: hold / burn / rip */
+  .ritual{
+    display:grid; gap:16px; padding: 50px 20px;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     max-width: 980px; margin:0 auto;
   }
-  .rite{
-    border:1px solid rgba(246,226,122,.25); border-radius:14px;
-    padding:22px 20px; background: rgba(24,12,44,.5);
-    box-shadow: inset 0 0 30px rgba(0,0,0,.4);
-  }
+  .rite{ position:relative; border-radius:16px; padding:24px 22px;
+    background: rgba(16,8,30,.72); overflow:hidden; }
+  .rite::before{ content:''; position:absolute; inset:0; border-radius:16px; padding:1.5px;
+    background:linear-gradient(140deg, var(--c1), transparent 45%, var(--c2));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; }
+  .rite:nth-child(1){ --c1:var(--pink); --c2:var(--violet); }
+  .rite:nth-child(2){ --c1:var(--gold1); --c2:var(--pink); }
+  .rite:nth-child(3){ --c1:var(--acid); --c2:var(--cyan); }
   .rite b{ display:block; font-size:19px; letter-spacing:.22em; text-indent:.22em;
-    font-variant:small-caps; margin-bottom:8px; }
-  .rite p{ font-size:14px; line-height:1.65; opacity:.85; }
+    font-variant:small-caps; margin-bottom:8px; color:var(--c1);
+    text-shadow:0 0 14px var(--c1); }
+  .rite p{ font-size:14px; line-height:1.65; color:#e6dbff; }
 
   /* seasons */
-  .seasons{ max-width:980px; margin:0 auto; padding: 6px 20px 60px; }
-  .seasons h2{ text-align:center; font-size:13px; letter-spacing:.5em; text-indent:.5em;
-    text-transform:uppercase; margin-bottom:20px; opacity:.9; }
-  .strip{ display:grid; gap:10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .season{
-    text-align:center; padding:18px 10px; border-radius:12px;
-    border:1px dashed rgba(166,255,77,.3); font-size:13px; line-height:1.7;
-  }
-  .season em{ display:block; font-style:normal; color:var(--pink); font-size:11px;
-    letter-spacing:.3em; text-indent:.3em; text-transform:uppercase; }
+  .seasons{ max-width:980px; margin:0 auto; padding: 4px 20px 64px; text-align:center; }
+  .seasons h2{ font-size:13px; letter-spacing:.5em; text-indent:.5em;
+    text-transform:uppercase; margin-bottom:22px; }
+  .strip{ display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .season{ padding:20px 10px; border-radius:14px; font-variant:small-caps; font-size:19px;
+    letter-spacing:.24em; text-indent:.24em; border:1px dashed; }
+  .season em{ display:block; font-style:normal; font-size:10px; letter-spacing:.32em;
+    text-indent:.32em; text-transform:uppercase; margin-bottom:6px; opacity:.75; }
+  .s1{ color:var(--pink); border-color:var(--pink); text-shadow:0 0 16px var(--pink); }
+  .s2{ color:var(--gold1); border-color:var(--gold1); text-shadow:0 0 16px var(--gold1); }
+  .s3{ color:var(--acid); border-color:var(--acid); text-shadow:0 0 16px var(--acid); }
+  .s4{ color:var(--cyan); border-color:var(--cyan); text-shadow:0 0 16px var(--cyan); }
+
   footer{
-    text-align:center; padding: 30px 20px calc(30px + env(safe-area-inset-bottom));
+    text-align:center; padding: 26px 20px calc(30px + env(safe-area-inset-bottom));
     font-size:11px; letter-spacing:.3em; text-indent:.3em; text-transform:uppercase;
-    color:rgba(233,221,255,.4); line-height:2.2;
+    color:rgba(242,233,255,.45); line-height:2.2;
   }
   footer a{ color:var(--gold1); text-decoration:none; }
+  @media (prefers-reduced-motion: reduce){
+    .rays,.blob,.rainbow,.frame-glow{ animation:none; }
+  }
 </style>
 </head>
 <body>
+  <div class="trip" aria-hidden="true">
+    <div class="rays"></div>
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
   <header>
     <div class="halo">✦ a liquid edition · four seasons a year ✦</div>
-    <h1 class="gold">Upperdeck Ripmaster 3030</h1>
-    <p class="creed">The sacred texts of the world, retold as psychedelic hyperfoil
-    cartoon cards — voted into the canon by fire. Burn the token. Choose the deck.
+    <h1 class="rainbow">Upperdeck Ripmaster 3030</h1>
+    <p class="creed">Psychedelic hyperfoil trading cards starring the wild old cartoon
+    spirits — voted into the deck by fire. Burn the token. Choose the canon.
     Rip the pack.</p>
-    <hr class="rip">
+    <svg class="wave" viewBox="0 0 420 22" aria-hidden="true">
+      <defs><linearGradient id="wavegrad" x1="0" x2="1">
+        <stop offset="0" stop-color="#ff5fd0"/><stop offset=".5" stop-color="#f6e27a"/>
+        <stop offset="1" stop-color="#5fd0ff"/></linearGradient></defs>
+      <path d="M2 11 Q 28 -6 54 11 T 106 11 T 158 11 T 210 11 T 262 11 T 314 11 T 366 11 T 418 11"/>
+    </svg>
   </header>
 
   <section class="shrine">
-    <iframe src="cards/the-egg.html" title="The Egg — live foil card" loading="lazy"
-      allow="accelerometer; gyroscope; magnetometer"></iframe>
+    <div class="frame-glow">
+      <iframe src="cards/the-egg.html" title="The Egg — live foil card" loading="lazy"
+        allow="accelerometer; gyroscope; magnetometer"></iframe>
+    </div>
     <div class="shrine-cap">season i candidate · live foil — tilt your phone</div>
+    <a class="deck-link" href="cards/">browse the deck →</a>
   </section>
 
-  <section class="liturgy">
-    <div class="rite"><b class="gold">I. Hold</b>
+  <section class="ritual">
+    <div class="rite"><b>I. Hold</b>
       <p>One living ERC-20 with a bonding-curve market. Tokens are votes not yet cast —
       potential energy standing in the open market.</p></div>
-    <div class="rite"><b class="gold">II. Burn</b>
+    <div class="rite"><b>II. Burn</b>
       <p>Each season opens a ballot of candidate cards. Burning tokens casts votes —
       permanent, deflationary, on-chain. Conviction is combustion.</p></div>
-    <div class="rite"><b class="gold">III. Rip</b>
-      <p>At the close block, the top eight are enshrined as the season pack — card lenses
+    <div class="rite"><b>III. Rip</b>
+      <p>At the close block, the top eight are pressed into the season pack — card lenses
       over the same market. Your burns are your rip rights.</p></div>
   </section>
 
   <section class="seasons">
-    <h2 class="gold">The First Year</h2>
+    <h2 class="rainbow">The First Year</h2>
     <div class="strip">
-      <div class="season"><em>Season I</em>Origins</div>
-      <div class="season"><em>Season II</em>Floods &amp; Trials</div>
-      <div class="season"><em>Season III</em>Prophets &amp; Visions</div>
-      <div class="season"><em>Season IV</em>Apocalypses</div>
+      <div class="season s1"><em>Season I</em>Bloom</div>
+      <div class="season s2"><em>Season II</em>Melt</div>
+      <div class="season s3"><em>Season III</em>Fractal</div>
+      <div class="season s4"><em>Season IV</em>Void</div>
     </div>
   </section>
 

@@ -3,9 +3,9 @@
   ═══════════ CARD PROVENANCE ═══════════
   name:      The Egg
   season:    I · card 04
-  scripture: the cosmic egg
-  prompt:    Felix the Cat meditating atop an enormous cracked cosmic egg, galaxies leaking out, lotus position + base style block (PROMPT-KIT.md)
-  seed/sref: placeholder art — awaiting Midjourney render
+  flavor:    hatched from the cosmic soup
+  prompt:    a rubber-hose chick hatching from an enormous cracked cosmic egg leaking galaxies and neon flowers + base style block (PROMPT-KIT.md)
+  seed/sref: placeholder art — awaiting first curated upload
   ═══════════════════════════════════════
   A self-contained live foil work. No dependencies, no build.
   Tilt with pointer (desktop) or gyroscope (mobile — iOS asks permission on tap).
@@ -127,9 +127,10 @@
     letter-spacing:.18em; text-indent:.18em; font-variant: small-caps;
   }
   .plate-sub{
-    position:absolute; bottom:5.2%; left:0; right:0; text-align:center; z-index:6;
-    font-size: clamp(7px, 2.2vw, 10px); letter-spacing:.34em; text-indent:.34em;
+    position:absolute; bottom:5.4%; left:17%; right:17%; text-align:center; z-index:6;
+    font-size: clamp(7px, 2.1vw, 9px); letter-spacing:.12em; text-indent:.12em;
     color:rgba(246,226,122,.75); text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .chain{
     position:fixed; bottom: max(10px, env(safe-area-inset-bottom)); left:0; right:0;
@@ -201,12 +202,12 @@
   <path d="M14 50 c-2 8 4 12 9 8 c4 -3 2 -9 -3 -8"/>
   <circle cx="11" cy="11" r="3.5" fill="currentColor" stroke="none"/>
 </svg></span>
-      <div class="plate-top">Origins · Season I</div>
+      <div class="plate-top">Bloom · Season I</div>
       <div class="plate-name">The Egg</div>
-      <div class="plate-sub">the cosmic egg · №04 of 16</div>
+      <div class="plate-sub">hatched from the cosmic soup · №04 of 16</div>
     </div>
   </div>
-  <button class="bless" id="bless">✦ tap to bless the foil ✦</button>
+  <button class="bless" id="bless">✦ tap to activate the foil ✦</button>
   <div class="chain" id="chain"></div>
 
 <script>

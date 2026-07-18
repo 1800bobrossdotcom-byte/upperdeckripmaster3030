@@ -1,19 +1,20 @@
 # Midjourney Prompt Kit — v1
 
 The system for generating card art. Goal: every render looks like it fell out of the same
-blessed foil pack — vintage occult trading card × rubber-hose cartoon × blacklight
-psychedelia — with **zero text in the art** (the HTML frame supplies all typography, so
-names/numbers stay crisp, editable, and localizable).
+molten foil pack — vintage trading card × rubber-hose cartoon × blacklight psychedelia —
+with **zero text in the art** (the HTML frame supplies all typography, so names/numbers
+stay crisp, editable, and localizable).
 
 ## 1. The base style block
 
 Append to every card prompt:
 
 ```
-vintage occult tarot trading card art, 1920s rubber-hose cartoon character, pie-cut eyes,
+vintage tarot trading card art, 1920s rubber-hose cartoon character, pie-cut eyes,
 noodle limbs, white gloves, psychedelic blacklight poster palette, holographic foil
-texture, prismatic light leak, ornate engraved art-nouveau frame, halftone print grain,
-aged card stock, centered single figure, full body, flat background rays
+texture, prismatic light leak, melting rainbow gradients, ornate engraved art-nouveau
+frame, halftone print grain, aged card stock, centered single figure, full body,
+flat background rays
 --ar 5:7 --stylize 400 --chaos 10
 --no text, letters, words, numbers, typography, caption, watermark, signature, border text
 ```
@@ -86,31 +87,33 @@ the era look, never the protected character.
 **Trademark trap:** copyright expiry doesn't kill trademarks (Disney's Steamboat Willie
 marks, Fleischer's BETTY BOOP marks, NBCU's Felix marks, King Features' POPEYE marks).
 Rules: character names never appear in the project's branding, collection title, or card
-titles (our card names are "The Serpent", not "Felix card"); characters live *inside*
+titles (our card names are "The Vine", not "Felix card"); characters live *inside*
 the expressive art only; ship a "not affiliated with or endorsed by…" disclaimer on the
 site and in collection metadata. An IP attorney should see the final card set before a
 mainnet mint — this file is research, not legal advice.
 
-## 4. Season 1 — "Origins" candidate list
+## 4. Season 1 — "Bloom" candidate list
 
-Sixteen candidates; 8 survive the burn. Format: **subject line + base style block**.
+Sixteen candidates; 8 survive the burn. Season themes for year one: **Bloom** (neon
+flora) → **Melt** (liquid foil) → **Fractal** (impossible geometry) → **Void** (cosmic
+dark). Format: **subject line + base style block**.
 
-1. **The Serpent** — `1930 poodle-eared proto-Betty Boop as the serpent of Eden coiled around a glowing forbidden fruit tree, hypnotic spiral eyes, garden of neon flowers`
-2. **The Light** — `Koko the Clown pouring liquid light out of an inkwell splitting darkness in half, rays of first dawn`
-3. **The Waters Divided** — `Steamboat Willie era mouse captain steering a paddle-wheel boat between two towering walls of sea, moon overhead`
-4. **The Egg** — `Felix the Cat meditating atop an enormous cracked cosmic egg, galaxies leaking out, lotus position`
-5. **The Gardener** — `Oswald the Lucky Rabbit planting stars in black soil like seeds, watering can pouring the milky way`
-6. **The Naming** — `Bimbo the dog surrounded by a spiral parade of rubber-hose animals awaiting names, procession mandala`
-7. **The Tower** — `Flip the Frog stacking a spiraling ziggurat of gramophones and player pianos toward a wrathful sun`
-8. **The Rib** — `two mirrored rubber-hose figures emerging from one glowing ribcage flower, symmetrical`
-9. **The Flood Seed** — `Popeye the sailor hammering one golden nail into an ark hull under a bruised violet storm sky`
-10. **The First Fire** — `Felix the Cat juggling stolen embers, feather-serpent watching from a pyramid, Popol Vuh jungle`
-11. **The Churning Sea** — `rubber-hose monkey spirit churning an ocean of milk with a mountain, nectar droplets rising` *(Samudra Manthana)*
-12. **The Dreaming** — `Koko the Clown asleep on a crescent moon dreaming a river of animals into being, songline dots`
-13. **The Clay** — `the Skeleton Dance skeletons as potters spinning a little glowing golem on a wheel, breath of life spiral`
-14. **The Word** — `Oswald the Lucky Rabbit blowing a trumpet whose sound-waves are visible as blooming geometry` *(no glyphs — pure waveform)*
-15. **The Apple Core** — `a single enormous bitten fruit revealing a tiny paradise inside, rubber-hose birds circling`
-16. **The Seventh Day** — `Steamboat Willie era mouse asleep in a hammock strung between two planets, tools downed, halo`
+1. **The Vine** — `1930 poodle-eared proto-Betty Boop tangled in hypnotic neon vines, spiral eyes, jungle of blacklight flowers`
+2. **The Lotus** — `Felix the Cat meditating on a giant glowing lotus in a kaleidoscope pond, ripples of liquid rainbow`
+3. **The Spore** — `Koko the Clown conducting an orchestra of dancing mushrooms under a dripping ultraviolet sky`
+4. **The Egg** — `a rubber-hose chick hatching from an enormous cracked cosmic egg leaking galaxies and neon flowers`
+5. **The Honey** — `1930 white-form Bimbo swimming through a hexagon honeycomb dripping liquid gold light`
+6. **The Cactus** — `Oswald the Lucky Rabbit in a blooming desert of neon cacti beneath a swirling melted sun`
+7. **The Tower** — `Flip the Frog stacking a spiraling ziggurat of gramophones and player pianos toward a smiling sun`
+8. **The Rose** — `the Skeleton Dance skeletons tending a midnight garden of glowing blacklight roses`
+9. **The Fern** — `a 1930 rubber-hose bloodhound sniffing an enormous spiraling fern that curls into infinity`
+10. **The Melon** — `1929 comic-strip Popeye cracking open a giant watermelon full of stars and nebulae`
+11. **The Root** — `Fitz the dog digging up a glowing root system that branches like subway maps of light`
+12. **The Pollen** — `1928 Minnie sneezing a cloud of glitter pollen that becomes a swarm of neon butterflies`
+13. **The Peel** — `Felix the Cat unpeeling a banana that unrolls into an ascending rainbow staircase`
+14. **The Thorn** — `Oswald the Lucky Rabbit fencing en garde against the thorns of a giant rose`
+15. **The Canopy** — `Koko the Clown asleep in a hammock of vines beneath bioluminescent leaves and paper moons`
+16. **The Sprout** — `Steamboat Willie era mouse watering a tiny sprout that towers into fractal flowers overhead`
 
 ## 5. Chain-imagined candidates (the "CLI dreams" lane)
 
@@ -118,14 +121,14 @@ Weekly, let Ethereum propose a card (artist always curates the result):
 
 ```
 seed   = latest block hash
-pick   scripture  = SCRIPTURES[seed % len]        (table below)
+pick   theme      = THEMES[seed % len]            (table below)
 pick   character  = TIER_A[seed >> 8 % len]
 pick   palette    = PALETTES[seed >> 16 % len]
 pick   chaos      = 5 + (seed >> 24 % 10)
 ```
 
-- `SCRIPTURES`: Genesis · Exodus · Psalms · Revelation · Tao Te Ching · Dhammapada ·
-  Bhagavad Gita · Popol Vuh · Book of the Dead · Eddas · Gilgamesh · Analects
+- `THEMES`: bloom · melt · fractal · void · deep sea · outer space · carnival ·
+  arcade · candy · disco · tiki · static
 - `PALETTES`: blacklight pink/purple · acid green/gold · teal/rust hyperfoil ·
   candy mosaic · sepia + one neon · negative holo (dark foil)
 

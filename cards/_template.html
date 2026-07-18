@@ -3,7 +3,7 @@
   ═══════════ CARD PROVENANCE ═══════════
   name:      {{NAME}}
   season:    {{SEASON}} · card {{NUMBER}}
-  scripture: {{SCRIPTURE}}
+  flavor:    {{FLAVOR}}
   prompt:    {{PROMPT}}
   seed/sref: {{SEED}}
   ═══════════════════════════════════════
@@ -127,9 +127,10 @@
     letter-spacing:.18em; text-indent:.18em; font-variant: small-caps;
   }
   .plate-sub{
-    position:absolute; bottom:5.2%; left:0; right:0; text-align:center; z-index:6;
-    font-size: clamp(7px, 2.2vw, 10px); letter-spacing:.34em; text-indent:.34em;
+    position:absolute; bottom:5.4%; left:17%; right:17%; text-align:center; z-index:6;
+    font-size: clamp(7px, 2.1vw, 9px); letter-spacing:.12em; text-indent:.12em;
     color:rgba(246,226,122,.75); text-transform:uppercase;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .chain{
     position:fixed; bottom: max(10px, env(safe-area-inset-bottom)); left:0; right:0;
@@ -165,10 +166,10 @@
       <span class="corner c-br">{{CORNER_SVG}}</span>
       <div class="plate-top">{{SEASON_TITLE}} · Season {{SEASON}}</div>
       <div class="plate-name">{{NAME}}</div>
-      <div class="plate-sub">{{SCRIPTURE}} · №{{NUMBER}} of {{OF}}</div>
+      <div class="plate-sub">{{FLAVOR}} · №{{NUMBER}} of {{OF}}</div>
     </div>
   </div>
-  <button class="bless" id="bless">✦ tap to bless the foil ✦</button>
+  <button class="bless" id="bless">✦ tap to activate the foil ✦</button>
   <div class="chain" id="chain"></div>
 
 <script>
