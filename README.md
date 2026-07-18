@@ -43,6 +43,10 @@ docs/ART-VAULT.md     → how to upload/organize the big curated art collection
 prompts/PROMPT-KIT.md → the Midjourney prompt system + season card lists
 docs/MECHANICS.md     → season / burn-to-vote / tokenomics design
 docs/BATTLE.md        → battle rules: triggers, pog wagers, arena contract design
+docs/TESTNET.md       → Sepolia deploy runbook (token, ballot, renderer)
+contracts/            → SeasonBallot.sol (burn-to-vote) + Liquid Edition interface
+scripts/generate-lore.mjs → Claude reads each card, writes the living-dossier back
+js/chain-config.js    → chain the site reads (Sepolia/mainnet, contract addresses)
 docs/INTAKE-DRAFT.md  → drafted answers for the SuperRare cohort intake form
 docs/NAMECHEAP-SETUP.md → domain → GitHub Pages wiring
 ```

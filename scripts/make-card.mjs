@@ -81,7 +81,11 @@ export function mintCard(opts) {
     art = `<img src="${dest}" alt="${name}">`;
   }
 
-  const html = readFileSync(join(cardsDir, '_template.html'), 'utf8')
+  // full-art mode: the image already carries its own printed frame, so use the
+  // frameless flip template (front art + foil, back living dossier).
+  const template = opts.fullArt ? '_full.html' : '_template.html';
+  const html = readFileSync(join(cardsDir, template), 'utf8')
+    .replaceAll('{{SLUG}}', slug)
     .replaceAll('{{NAME}}', name)
     .replaceAll('{{SEASON}}', roman(season))
     .replaceAll('{{SEASON_NUM}}', season)
@@ -121,7 +125,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const out = mintCard({
     name, season: args.season, number: args.number, of: args.of,
     flavor: args.flavor, seasonTitle: args['season-title'], frame: args.frame,
-    atk: args.atk, def: args.def, trigger: args.trigger,
+    atk: args.atk, def: args.def, trigger: args.trigger, fullArt: !!args['full-art'],
     prompt: args.prompt, seed: args.seed,
     img: args.img, placeholder: !!args.placeholder,
   });

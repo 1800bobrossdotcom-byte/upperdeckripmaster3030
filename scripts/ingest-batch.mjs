@@ -56,6 +56,7 @@ function ingest(dir, manifestPath) {
       season, number,
       of: meta.of, flavor: meta.flavor, seasonTitle: meta.seasonTitle,
       frame: meta.frame, atk: meta.atk, def: meta.def, trigger: meta.trigger,
+      fullArt: args['full-art'] || meta.fullArt,
       prompt: meta.prompt, seed: meta.seed,
       img: join(resolve(dir), file),
     });
