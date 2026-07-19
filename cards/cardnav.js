@@ -9,23 +9,32 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .cardpeek{ position:fixed; top:50%; z-index:2; width:clamp(56px,13vw,138px); cursor:pointer;
-      opacity:.4; text-decoration:none; filter:drop-shadow(0 10px 24px rgba(0,0,0,.55));
+    .cardpeek{ position:fixed; top:50%; z-index:2; width:clamp(60px,14vw,150px); cursor:pointer;
+      opacity:.64; text-decoration:none; filter:drop-shadow(0 10px 24px rgba(0,0,0,.55));
       transition:opacity .25s ease, transform .25s ease; -webkit-tap-highlight-color:transparent; }
-    .cardpeek img{ width:100%; display:block; border-radius:9px; border:2px solid rgba(255,255,255,.28); background:#0a0414; }
-    .cardpeek .cp-x{ position:absolute; top:50%; transform:translateY(-50%); font-family:'Arial Black',Arial,sans-serif;
-      font-size:clamp(16px,3.4vw,22px); color:#fff; text-shadow:0 0 8px #000,0 0 15px rgba(43,255,128,.75); }
-    .cardpeek.left{ left:0; transform:translateY(-50%) translateX(-42%) rotate(-7deg) scale(.8); }
-    .cardpeek.right{ right:0; transform:translateY(-50%) translateX(42%) rotate(7deg) scale(.8); }
-    .cardpeek.left .cp-x{ right:9%; } .cardpeek.right .cp-x{ left:9%; }
-    .cardpeek.left:hover,.cardpeek.left:focus-visible{ opacity:.95; transform:translateY(-50%) translateX(-22%) rotate(-5deg) scale(.87); outline:none; }
-    .cardpeek.right:hover,.cardpeek.right:focus-visible{ opacity:.95; transform:translateY(-50%) translateX(22%) rotate(5deg) scale(.87); outline:none; }
-    .cardpeek .cp-nm{ position:absolute; left:50%; bottom:-1.4em; transform:translateX(-50%); white-space:nowrap;
+    .cardpeek img{ width:100%; display:block; border-radius:10px; border:2px solid rgba(255,255,255,.3); background:#0a0414; }
+    /* the arrow is a solid pulsing chip — the "you can go here" indicator */
+    .cardpeek .cp-x{ position:absolute; top:50%; width:clamp(26px,6vw,38px); height:clamp(26px,6vw,38px); border-radius:50%;
+      display:grid; place-items:center; font-family:'Arial Black',Arial,sans-serif; font-size:clamp(13px,3vw,18px);
+      color:#04120a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:2px solid #01130a;
+      box-shadow:0 0 14px rgba(43,255,128,.65); animation:cpPulse 1.5s ease-in-out infinite; }
+    @keyframes cpPulse{ 50%{ box-shadow:0 0 22px rgba(43,255,128,.95); } }
+    .cardpeek.left{ left:0; transform:translateY(-50%) translateX(-28%) rotate(-7deg) scale(.82); animation:cpNudgeL 2.6s ease-in-out infinite; }
+    .cardpeek.right{ right:0; transform:translateY(-50%) translateX(28%) rotate(7deg) scale(.82); animation:cpNudgeR 2.6s ease-in-out infinite; }
+    @keyframes cpNudgeL{ 50%{ transform:translateY(-50%) translateX(-19%) rotate(-6deg) scale(.84); } }
+    @keyframes cpNudgeR{ 50%{ transform:translateY(-50%) translateX(19%) rotate(6deg) scale(.84); } }
+    .cardpeek.left .cp-x{ right:6%; transform:translateY(-50%); } .cardpeek.right .cp-x{ left:6%; transform:translateY(-50%); }
+    .cardpeek.left:hover,.cardpeek.left:focus-visible{ opacity:1; animation:none; transform:translateY(-50%) translateX(-6%) rotate(-4deg) scale(.94); outline:none; }
+    .cardpeek.right:hover,.cardpeek.right:focus-visible{ opacity:1; animation:none; transform:translateY(-50%) translateX(6%) rotate(4deg) scale(.94); outline:none; }
+    .cardpeek .cp-nm{ position:absolute; left:50%; bottom:-1.5em; transform:translateX(-50%); white-space:nowrap;
       font:9px 'Courier New',monospace; letter-spacing:.08em; color:#cfe9ee; text-shadow:0 1px 3px #000; opacity:0; transition:opacity .2s; }
-    .cardpeek:hover .cp-nm,.cardpeek:focus-visible .cp-nm{ opacity:.9; }
-    .cp-hint{ position:fixed; bottom:6px; left:50%; transform:translateX(-50%); z-index:2; pointer-events:none;
-      font:10px 'Courier New',monospace; letter-spacing:.2em; color:#b8ffd6; opacity:.55; text-transform:uppercase; }
-    @media (max-width:600px){ .cardpeek{ opacity:.6; } }
+    .cardpeek:hover .cp-nm,.cardpeek:focus-visible .cp-nm{ opacity:.95; }
+    .cp-hint{ position:fixed; bottom:8px; left:50%; transform:translateX(-50%); z-index:2; pointer-events:none;
+      font:10px 'Courier New',monospace; letter-spacing:.2em; color:#b8ffd6; opacity:.72; text-transform:uppercase; }
+    @media (max-width:600px){ .cardpeek{ opacity:.75; width:clamp(58px,18vw,118px); }
+      .cardpeek.left{ transform:translateY(-50%) translateX(-22%) rotate(-6deg) scale(.82); }
+      .cardpeek.right{ transform:translateY(-50%) translateX(22%) rotate(6deg) scale(.82); } }
+    @media (prefers-reduced-motion:reduce){ .cardpeek.left,.cardpeek.right,.cardpeek .cp-x{ animation:none; } }
     body.cp-leaving{ opacity:.25; transition:opacity .18s ease; }`;
   document.head.appendChild(style);
 
