@@ -111,7 +111,7 @@ contract CardVault is ERC1155 {
     // unilaterally delete it — removal is a community verdict.
     mapping(uint256 => mapping(address => bool)) public didDownvote;  // id => wallet => voted down?
     mapping(uint256 => uint32) public downvoterCount;                 // id => distinct downvoters
-    uint32 public retireQuorum = 5;                                   // distinct wallets to retire
+    uint32 public retireQuorum = 9;                                   // distinct wallets to retire
 
     // ─── live supply, per id (maintained in _update) ───
     // Enables "corner the edition": own every circulating copy and you may burn
@@ -145,6 +145,7 @@ contract CardVault is ERC1155 {
     error UnknownCard();
     error ZeroAmount();
     error NotWholeEdition();                  // destroyEdition needs every copy
+    error NotRetired();                       // destroyEdition needs a prior court verdict
 
     modifier onlyCurator() { if (msg.sender != curator) revert NotCurator(); _; }
 
@@ -381,17 +382,19 @@ contract CardVault is ERC1155 {
 
     // ─── corner the edition: own it all, and you may end it ───
 
-    /// @notice If you hold EVERY circulating copy of a card, you may destroy the
-    /// whole edition — burn all copies and retire the id forever. This is how the
-    /// field is culled toward the 33-card standard deck: an edition is burned down
-    /// (downvotes retire it from play, cornering gathers the last copies), and the
-    /// keeper of the final card ends it here. Costs a burn toll on top of torching
-    /// the cards, so it is maximally deflationary. As the reward for holding the
-    /// last card, the destroyer is minted an **Ash Trophy** — a soulbound badge
-    /// commemorating the retired edition. The 1/1 marquee is indestructible.
+    /// @notice Deliver the killing blow to a card the community has ALREADY voted
+    /// off the island. This is how the field is culled toward the 77-card standard
+    /// deck: the crowd downvotes a card until it retires (needs the quorum), its
+    /// copies dwindle, and whoever corners the last of them ends it here. Two gates,
+    /// deliberately: the card must be `retired` (a community verdict, not one
+    /// whale's whim) AND you must hold every circulating copy. Then all copies burn,
+    /// a destroyToll burns on top, and the keeper is minted an **Ash Trophy** + paid
+    /// the last-standing bounty. A healthy, un-retired card cannot be destroyed — no
+    /// bounty-farming a beloved edition. The 1/1 marquee is indestructible.
     function destroyEdition(uint256 id) external returns (uint256 trophyId) {
         if (id == MARQUEE_ID) revert MarqueeNotPlayable();
         if (!cardInfo[id].exists) revert UnknownCard();
+        if (!retired[id]) revert NotRetired();  // the court must condemn it first
         uint256 sup = supplyOf[id];
         if (sup == 0) revert UnknownCard();
         if (balanceOf(msg.sender, id) != sup) revert NotWholeEdition();  // must corner it all

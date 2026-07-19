@@ -54,7 +54,7 @@ Defaults (curator-tunable via `setTolls` / `setDestroyToll` / `setReward`).
 | `voteRarity(id, true, amt)` | **up**vote / promote a card (at prizm → HODL) | `amt` → 🎨 |
 | `voteRarity(id, false, amt)` | **down**vote / demote (clears HODL buffer first) | `amt` → 🔥 |
 | `voteHodl(id, amt)` | ⛨ anchor a card in place | `amt` → 🎨 |
-| `destroyEdition(id)` | own every copy, burn them all, retire forever; mints the keeper an Ash Trophy + pays them from 🏦 | cards + 50 $UR3030 → 🔥 |
+| `destroyEdition(id)` | on a **court-retired** card, own every copy + burn them all forever; mints the keeper an Ash Trophy + pays them from 🏦 | cards + 50 $UR3030 → 🔥 |
 | `fundReward(amt)` | top up the house bounty | `amt` → 🏦 |
 | marquee transfer | see §3 | 25 $UR3030 → 🔥 |
 
@@ -91,7 +91,7 @@ feeds the fire.
   bar bring it back (`CardRestored`).
 - **Retirement takes a crowd, not a whale.** Sliding a card *down* the tiers is
   pure conviction, but the final step *off the island* also needs a **quorum of
-  distinct downvoter wallets** (`retireQuorum`, default **5**, curator-tunable).
+  distinct downvoter wallets** (`retireQuorum`, default **9**, curator-tunable).
   One deep pocket can drag a card to Common and bank scorn there, but the card
   only retires once `retireQuorum` different addresses have voted it down — so
   removal is a community verdict, not a bankroll. The moment the quorum-completing
@@ -161,7 +161,7 @@ delete.
 maintained in `_update`). If a wallet holds **every circulating copy** of a card
 it may `destroyEdition(id)`:
 
-- guard: `balanceOf(caller, id) == supplyOf[id]` and `supplyOf[id] > 0`;
+- guard: the card must already be **`retired`** by the court (no destroying a healthy edition), `balanceOf(caller, id) == supplyOf[id]`, and `supplyOf[id] > 0`;
 - **burns every copy** + a `destroyToll` (default 50), marks the id
   `!exists` + `retired` — gone from packs, arena, and the court, permanently.
 
