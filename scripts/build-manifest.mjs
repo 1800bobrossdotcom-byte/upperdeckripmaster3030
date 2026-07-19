@@ -11,6 +11,9 @@ const cardsDir = join(rootDir, 'cards'), dataDir = join(cardsDir, 'data');
 const cards = [];
 for (const f of readdirSync(dataDir).filter(f => f.endsWith('.json') && !f.startsWith('_'))) {
   const d = JSON.parse(readFileSync(join(dataDir, f), 'utf8'));
+  // marquee / non-playable cards (the 1-of-1) never enter the playable manifest —
+  // the arena and the pack-rip pull only from here, so they can't be wagered or pulled.
+  if (d.rarity === 'marquee' || d.playable === false) continue;
   const html = existsSync(join(cardsDir, `${d.slug}.html`)) ? readFileSync(join(cardsDir, `${d.slug}.html`), 'utf8') : '';
   const m = html.match(/<title>[^<]*·\s*S(\d+)\s*№(\d+)<\/title>/i);
   cards.push({

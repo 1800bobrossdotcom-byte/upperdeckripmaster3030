@@ -1,0 +1,138 @@
+<!doctype html>
+<!--
+  ═══════════ MARQUEE · 1 of 1 ═══════════
+  Lovebeing — the rarest card in the set. Not playable, not burnable. A pure
+  collectible: hold it, trade it, send it, exchange it — nothing else. Every
+  transfer burns the liquid token. Unlocks in a later season.
+  ════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lovebeing · 1 of 1 · Marquee</title>
+<style>
+  :root{ --px:0; --py:0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:min(2.4vh,14px); padding:min(4vh,24px) 14px; overflow:hidden;
+    background:#05010f url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1350'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.009' numOctaves='3' seed='4'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='160'/%3E%3C/filter%3E%3Cg filter='url(%23t)'%3E%3Crect width='900' height='1350' fill='%2305010f'/%3E%3Ccircle cx='450' cy='675' r='560' fill='%231a0636'/%3E%3Ccircle cx='450' cy='675' r='420' fill='%234a1d7a'/%3E%3Ccircle cx='450' cy='675' r='300' fill='%23c7d0ff'/%3E%3Ccircle cx='450' cy='675' r='170' fill='%23fff7fb'/%3E%3C/g%3E%3C/svg%3E") center/cover no-repeat fixed;
+    font-family:'Arial Black','Arial Bold',Arial,sans-serif; -webkit-tap-highlight-color:transparent; color:#eafcff; }
+  .scene{ perspective:1300px; touch-action:none; }
+  .card{ position:relative; width:min(90vw,66vh,460px); aspect-ratio:896/1344;
+    transform-style:preserve-3d; cursor:pointer;
+    transform:rotateY(calc(var(--px)*10deg + var(--flip,0deg))) rotateX(calc(var(--py)*-10deg));
+    transition:transform .12s linear; }
+  .card.flipped{ --flip:180deg; transition:transform .7s cubic-bezier(.5,1.4,.4,1); }
+  .face{ position:absolute; inset:0; border-radius:22px; overflow:hidden;
+    -webkit-backface-visibility:hidden; backface-visibility:hidden;
+    box-shadow:0 2px 3px rgba(255,255,255,.6) inset, 0 30px 60px -14px rgba(0,0,0,.8); }
+  .front{ background:#000; }
+  .front>img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  .holo,.spark,.glare,.sweep{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+  /* max prismatic foil */
+  .holo{ z-index:3; mix-blend-mode:color-dodge; opacity:calc(.34 + .001*var(--px));
+    background:repeating-linear-gradient(calc(112deg + var(--px)*12deg),
+      hsl(283 85% 66%) 0%, hsl(2 85% 64%) 8%, hsl(53 98% 66%) 16%, hsl(120 80% 60%) 24%,
+      hsl(190 90% 66%) 32%, hsl(255 85% 68%) 40%, hsl(283 85% 66%) 48%);
+    background-size:250% 250%; background-position:calc(50% + var(--px)*70%) calc(50% + var(--py)*70%);
+    filter:brightness(.9) contrast(2) saturate(1.7) hue-rotate(calc(var(--px)*40deg)); }
+  .spark{ z-index:5; mix-blend-mode:color-dodge; opacity:.5;
+    background-image:
+      radial-gradient(circle at 22% 28%, rgba(255,255,255,.95) 0 .6px, transparent 1.5px),
+      radial-gradient(circle at 68% 58%, rgba(220,240,255,.95) 0 .5px, transparent 1.3px),
+      radial-gradient(circle at 44% 82%, rgba(255,240,220,.95) 0 .5px, transparent 1.2px);
+    background-size:2.8em 2.5em, 2.1em 3.1em, 3.4em 2em;
+    background-position:calc(var(--px)*22px) calc(var(--py)*18px), calc(var(--px)*-14px) calc(var(--py)*24px), calc(var(--px)*28px) calc(var(--py)*-12px); }
+  .glare{ z-index:6; mix-blend-mode:overlay; opacity:.8;
+    background:radial-gradient(farthest-corner circle at calc(50% + var(--px)*55%) calc(50% + var(--py)*55%),
+      rgba(255,255,255,.55) 3%, rgba(255,255,255,.05) 22%, rgba(0,0,0,.4) 130%); }
+  .sweep{ z-index:7; mix-blend-mode:screen;
+    background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.6) 48%, rgba(200,240,255,.4) 52%, transparent 60%);
+    background-size:250% 100%; animation:shine 4.6s ease-in-out infinite; }
+  @keyframes shine{ 0%,100%{ background-position:130% 0 } 50%{ background-position:-30% 0 } }
+  /* badges */
+  .oneof{ position:absolute; z-index:9; top:10px; left:10px; background:linear-gradient(180deg,#fff,#c7d0ff);
+    color:#1a0636; border:2px solid #1a0636; border-radius:8px; padding:5px 9px; font-size:13px;
+    letter-spacing:.04em; box-shadow:0 0 16px rgba(199,208,255,.8); }
+  .marquee{ position:absolute; z-index:9; top:12px; right:10px; background:rgba(6,2,20,.6);
+    border:1px solid #c7d0ff; border-radius:999px; padding:4px 10px; font-size:8px;
+    letter-spacing:.22em; text-transform:uppercase; color:#eafcff; }
+  .lock{ position:absolute; z-index:9; bottom:10px; left:50%; transform:translateX(-50%);
+    background:rgba(6,2,20,.72); border:1px solid #9be34f; border-radius:999px; padding:6px 14px;
+    font-size:8px; letter-spacing:.16em; text-transform:uppercase; color:#9be34f;
+    white-space:nowrap; box-shadow:0 0 14px rgba(155,227,79,.4); }
+  .hint{ position:absolute; z-index:9; bottom:10px; right:12px; background:rgba(0,0,0,.55);
+    border-radius:999px; padding:4px 10px; font-size:9px; letter-spacing:.14em; color:#ffe93b; text-transform:uppercase; }
+  /* back */
+  .back{ transform:rotateY(180deg); background:linear-gradient(160deg,#140a26,#0a0518);
+    border:3px solid #c7d0ff; display:flex; flex-direction:column; padding:7%; gap:4%;
+    box-shadow:0 0 40px rgba(199,208,255,.3) inset; }
+  .back h1{ font-size:clamp(18px,6vw,30px); letter-spacing:.03em; text-transform:uppercase; text-align:center;
+    background:linear-gradient(180deg,#fff,#c7d0ff 60%,#8aa0ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .back .rank{ text-align:center; font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#c7d0ff; }
+  .rules{ flex:1; background:rgba(255,255,255,.05); border:1px solid rgba(199,208,255,.4); border-radius:12px;
+    padding:6%; font-family:Georgia,serif; font-style:italic; font-size:clamp(11px,3.1vw,14px); line-height:1.55; color:#dfe6ff; }
+  .rules b{ font-style:normal; font-family:'Arial Black',Arial,sans-serif; color:#fff; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+  .tag{ font-size:8px; letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border-radius:999px;
+    border:1px solid; }
+  .tag.no{ color:#ff6b8a; border-color:#ff6b8a; } .tag.yes{ color:#9be34f; border-color:#9be34f; }
+  .sig{ text-align:center; font-family:Georgia,serif; font-style:italic; color:#9be34f; font-size:11px; }
+  @media (prefers-reduced-motion:reduce){ .card{ transition:none; } .sweep{ animation:none; } }
+</style>
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="card" id="card">
+      <div class="face front">
+        <img src="art/lovebeing.webp" alt="Lovebeing — 1 of 1">
+        <div class="holo"></div><div class="spark"></div><div class="glare"></div><div class="sweep"></div>
+        <span class="oneof">1&thinsp;/&thinsp;1</span>
+        <span class="marquee">✦ Marquee</span>
+        <span class="lock">🔒 Unlocks in a later season</span>
+        <span class="hint">tap ⟲</span>
+      </div>
+      <div class="face back">
+        <h1>Lovebeing</h1>
+        <div class="rank">The 1 of 1 · Marquee · Rarest in the set</div>
+        <div class="rules">
+          The marquee card. Pressed once and never again. <b>Not playable. Not burnable.</b>
+          You cannot wager it, slam it, or send it up in smoke — it only ever changes hands.
+          Hold it, trade it, send it, exchange it. <b>Every transfer burns the liquid token.</b>
+          Sealed until a later season opens the vault.
+        </div>
+        <div class="tags">
+          <span class="tag no">no play</span><span class="tag no">no burn</span>
+          <span class="tag yes">trade</span><span class="tag yes">send</span><span class="tag yes">exchange</span>
+        </div>
+        <div class="sig">0n3 l0v3, lovebeing</div>
+      </div>
+    </div>
+  </div>
+<script>
+(() => {
+  const root = document.documentElement, scene = document.getElementById('scene'), card = document.getElementById('card');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let tx=0, ty=0, px=0, py=0, lastInput=0, down=false, downX=0, downY=0, moved=0;
+  const setVars = () => { root.style.setProperty('--px', px.toFixed(4)); root.style.setProperty('--py', py.toFixed(4)); };
+  const track = (cx, cy) => { const r = scene.getBoundingClientRect();
+    tx = ((cx-r.left)/r.width)*2-1; ty = ((cy-r.top)/r.height)*2-1; lastInput = performance.now(); };
+  scene.addEventListener('pointermove', e => track(e.clientX, e.clientY));
+  scene.addEventListener('mousemove', e => track(e.clientX, e.clientY));
+  scene.addEventListener('pointerleave', () => { lastInput = 0; });
+  scene.addEventListener('pointerdown', e => { down=true; moved=0; downX=e.clientX; downY=e.clientY; });
+  addEventListener('pointermove', e => { if (down) moved = Math.max(moved, Math.hypot(e.clientX-downX, e.clientY-downY)); });
+  addEventListener('pointerup', () => { if (down && moved < 10) card.classList.toggle('flipped'); down=false; });
+  const loop = t => {
+    if (!reduced) { const idle = !lastInput || (t-lastInput > 2600);
+      const gx = idle ? Math.sin(t/2400)*.4 : tx, gy = idle ? Math.cos(t/3100)*.3 : ty;
+      px += (gx-px)*.06; py += (gy-py)*.06; setVars(); }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

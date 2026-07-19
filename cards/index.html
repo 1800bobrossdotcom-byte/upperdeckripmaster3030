@@ -20,25 +20,51 @@
     border-radius:999px;padding:8px 18px;font-family:'Arial Black',Arial,sans-serif;
     font-size:10px;letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
     color:#111;text-decoration:none}
-  h2{margin:26px 0 12px;text-align:center}
-  h2 span{display:inline-block;background:#ff6b57;border:3px solid #000;border-radius:999px;
-    padding:6px 18px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+  h2.tier{margin:30px 0 12px;text-align:center}
+  h2.tier span{display:inline-block;border:3px solid #000;border-radius:999px;
+    padding:6px 20px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
     letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:#111}
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-  .tile{display:flex;flex-direction:column;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
+  .t-common span{background:#cbd5c0} .t-uncommon span{background:#9be34f}
+  .t-rare span{background:#63b3ff} .t-mythic span{background:#ff5fd0;color:#fff}
+  .t-prizm span{background:linear-gradient(90deg,#ff5fd0,#ffe93b,#63b3ff,#9be34f);color:#111}
+  .t-marquee span{background:linear-gradient(90deg,#fff,#c7d0ff,#8aa0ff);color:#1a0636;box-shadow:0 0 18px rgba(199,208,255,.7)}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));perspective:900px}
+  .tile{position:relative;display:flex;flex-direction:column;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
     background:var(--f);border:3px solid #000;text-decoration:none;color:#111;
-    padding:5%;transition:transform .18s;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
-  .tile:hover{transform:translateY(-4px) rotate(-1.5deg)}
+    padding:5%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);
+    transform-style:preserve-3d;transition:transform .12s ease,box-shadow .12s ease;will-change:transform}
+  .tile.lit{transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg)) scale(1.05);
+    box-shadow:0 16px 34px rgba(0,0,0,.55);z-index:3}
   .tile-art{position:relative;flex:1;border:2px solid #000;border-radius:5px;overflow:hidden;
     background:#160d22;display:grid;place-items:center}
   .tile-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .tile-art i{font-style:normal;font-size:30px;color:#ffe93b}
-  .tile-name{margin-top:5%;background:#f6ecc9;border:2px solid #000;border-radius:5px;
+  /* cursor-follow holographic sheen (intensity scales with rarity) */
+  .sheen{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:color-dodge;
+    transition:opacity .16s;z-index:2;
+    background:
+      radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.6), transparent 42%),
+      repeating-linear-gradient(115deg, hsl(283 80% 60%) 0%, hsl(2 80% 60%) 12%, hsl(53 95% 60%) 24%,
+        hsl(120 75% 55%) 36%, hsl(200 80% 60%) 48%, hsl(283 80% 60%) 60%);
+    background-size:auto,300% 300%;background-position:0 0,var(--fx,50%) var(--fy,50%)}
+  .tile.lit .sheen{opacity:var(--so,.3)}
+  .r-common{--so:.12} .r-uncommon{--so:.24} .r-rare{--so:.4} .r-mythic{--so:.58} .r-prizm{--so:.8} .r-marquee{--so:.9}
+  .tile.marquee{border-color:#c7d0ff;box-shadow:0 0 0 2px #c7d0ff,0 0 26px rgba(199,208,255,.6)}
+  .rr{position:absolute;top:4px;right:4px;z-index:4;font-family:'Arial Black',Arial,sans-serif;
+    font-size:7px;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:99px;
+    background:rgba(0,0,0,.62);color:#fff}
+  .r-prizm .rr{background:linear-gradient(90deg,#ff5fd0,#63b3ff);color:#fff}
+  .marquee .rr{background:linear-gradient(90deg,#fff,#c7d0ff);color:#1a0636}
+  .locktag{position:absolute;bottom:4px;left:4px;z-index:4;font-family:'Arial Black',Arial,sans-serif;
+    font-size:7px;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:99px;
+    background:rgba(6,2,20,.72);color:#9be34f}
+  .tile-name{position:relative;z-index:3;margin-top:5%;background:#f6ecc9;border:2px solid #000;border-radius:5px;
     text-align:center;padding:3px 4px;font-family:'Arial Black',Arial,sans-serif;
     font-size:9px;letter-spacing:.06em;text-transform:uppercase;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tile-num{margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
-    font-size:8px;letter-spacing:.24em;text-indent:.24em;color:rgba(0,0,0,.55)}
+  .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
+    font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
+  @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
 </style>
 </head>
 <body>
@@ -48,621 +74,658 @@
       <a class="back" href="../">← back to the pack</a>
     </header>
     <main>
-    <h2><span>Season 1 · Bloom</span></h2>
+    <h2 class="tier t-marquee"><span>Marquee · 1 of 1 · 1</span></h2>
     <div class="grid">
-      <a class="tile" href="oscar-acosta.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/oscar-acosta.webp" alt="Oscar Acosta" loading="lazy"></span>
-        <span class="tile-name">Oscar Acosta</span>
-        <span class="tile-num">№01</span>
-      </a>
-      <a class="tile" href="doctor-gonzo.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/doctor-gonzo.webp" alt="Doctor Gonzo" loading="lazy"></span>
-        <span class="tile-name">Doctor Gonzo</span>
-        <span class="tile-num">№02</span>
-      </a>
-      <a class="tile" href="dennis-mckenna.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/dennis-mckenna.webp" alt="Dennis McKenna" loading="lazy"></span>
-        <span class="tile-name">Dennis McKenna</span>
-        <span class="tile-num">№03</span>
-      </a>
-      <a class="tile" href="sonny-barger.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/sonny-barger.webp" alt="Sonny Barger" loading="lazy"></span>
-        <span class="tile-name">Sonny Barger</span>
-        <span class="tile-num">№04</span>
-      </a>
-      <a class="tile" href="kat-harrison.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/kat-harrison.webp" alt="Kat Harrison" loading="lazy"></span>
-        <span class="tile-name">Kat Harrison</span>
-        <span class="tile-num">№05</span>
-      </a>
-      <a class="tile" href="walter-sisulu.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/walter-sisulu.webp" alt="Walter Sisulu" loading="lazy"></span>
-        <span class="tile-name">Walter Sisulu</span>
-        <span class="tile-num">№06</span>
-      </a>
-      <a class="tile" href="bill-cardoso.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/bill-cardoso.webp" alt="Bill Cardoso" loading="lazy"></span>
-        <span class="tile-name">Bill Cardoso</span>
-        <span class="tile-num">№07</span>
-      </a>
-      <a class="tile" href="maharaji.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/maharaji.webp" alt="Maharaji" loading="lazy"></span>
-        <span class="tile-name">Maharaji</span>
-        <span class="tile-num">№08</span>
-      </a>
-      <a class="tile" href="oliver-tambo.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/oliver-tambo.webp" alt="Oliver Tambo" loading="lazy"></span>
-        <span class="tile-name">Oliver Tambo</span>
-        <span class="tile-num">№09</span>
-      </a>
-      <a class="tile" href="lao-tzu.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/lao-tzu.webp" alt="Lao Tzu" loading="lazy"></span>
-        <span class="tile-name">Lao Tzu</span>
-        <span class="tile-num">№10</span>
-      </a>
-      <a class="tile" href="chief-luthuli.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/chief-luthuli.webp" alt="Chief Luthuli" loading="lazy"></span>
-        <span class="tile-name">Chief Luthuli</span>
-        <span class="tile-num">№11</span>
-      </a>
-      <a class="tile" href="vanessa.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/vanessa.webp" alt="Vanessa" loading="lazy"></span>
-        <span class="tile-name">Vanessa</span>
-        <span class="tile-num">№12</span>
-      </a>
-      <a class="tile" href="paul-kemp.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/paul-kemp.webp" alt="Paul Kemp" loading="lazy"></span>
-        <span class="tile-name">Paul Kemp</span>
-        <span class="tile-num">№13</span>
-      </a>
-      <a class="tile" href="govan-mbeki.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/govan-mbeki.webp" alt="Govan Mbeki" loading="lazy"></span>
-        <span class="tile-name">Govan Mbeki</span>
-        <span class="tile-num">№14</span>
-      </a>
-      <a class="tile" href="scottie-pippen.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/scottie-pippen.webp" alt="Scottie Pippen" loading="lazy"></span>
-        <span class="tile-name">Scottie Pippen</span>
-        <span class="tile-num">№15</span>
-      </a>
-      <a class="tile" href="steve-kerr.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/steve-kerr.webp" alt="Steve Kerr" loading="lazy"></span>
-        <span class="tile-name">Steve Kerr</span>
-        <span class="tile-num">№16</span>
-      </a>
-      <a class="tile" href="marshall-mcluhan.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/marshall-mcluhan.webp" alt="Marshall McLuhan" loading="lazy"></span>
-        <span class="tile-name">Marshall McLuhan</span>
-        <span class="tile-num">№17</span>
-      </a>
-      <a class="tile" href="chuang-tzu.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/chuang-tzu.webp" alt="Chuang Tzu" loading="lazy"></span>
-        <span class="tile-name">Chuang Tzu</span>
-        <span class="tile-num">№18</span>
-      </a>
-      <a class="tile" href="bhagavan-das.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/bhagavan-das.webp" alt="Bhagavan Das" loading="lazy"></span>
-        <span class="tile-name">Bhagavan Das</span>
-        <span class="tile-num">№19</span>
-      </a>
-      <a class="tile" href="alfred-whitehead.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/alfred-whitehead.webp" alt="Alfred Whitehead" loading="lazy"></span>
-        <span class="tile-name">Alfred Whitehead</span>
-        <span class="tile-num">№20</span>
-      </a>
-      <a class="tile" href="neem-karoli.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/neem-karoli.webp" alt="Neem Karoli" loading="lazy"></span>
-        <span class="tile-name">Neem Karoli</span>
-        <span class="tile-num">№21</span>
-      </a>
-      <a class="tile" href="krishna-das.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/krishna-das.webp" alt="Krishna Das" loading="lazy"></span>
-        <span class="tile-name">Krishna Das</span>
-        <span class="tile-num">№22</span>
-      </a>
-      <a class="tile" href="ralph-steadman.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/ralph-steadman.webp" alt="Ralph Steadman" loading="lazy"></span>
-        <span class="tile-name">Ralph Steadman</span>
-        <span class="tile-num">№23</span>
-      </a>
-      <a class="tile" href="bodhidharma.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/bodhidharma.webp" alt="Bodhidharma" loading="lazy"></span>
-        <span class="tile-name">Bodhidharma</span>
-        <span class="tile-num">№24</span>
-      </a>
-      <a class="tile" href="teilhard-chardin.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/teilhard-chardin.webp" alt="Teilhard Chardin" loading="lazy"></span>
-        <span class="tile-name">Teilhard Chardin</span>
-        <span class="tile-num">№25</span>
-      </a>
-      <a class="tile" href="robert-sobukwe.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/robert-sobukwe.webp" alt="Robert Sobukwe" loading="lazy"></span>
-        <span class="tile-name">Robert Sobukwe</span>
-        <span class="tile-num">№26</span>
-      </a>
-      <a class="tile" href="ahmed-kathrada.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/ahmed-kathrada.webp" alt="Ahmed Kathrada" loading="lazy"></span>
-        <span class="tile-name">Ahmed Kathrada</span>
-        <span class="tile-num">№27</span>
-      </a>
-      <a class="tile" href="ev.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/ev.webp" alt="Ev" loading="lazy"></span>
-        <span class="tile-name">Ev</span>
-        <span class="tile-num">№28</span>
-      </a>
-      <a class="tile" href="frank-mankiewicz.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/frank-mankiewicz.webp" alt="Frank Mankiewicz" loading="lazy"></span>
-        <span class="tile-name">Frank Mankiewicz</span>
-        <span class="tile-num">№29</span>
-      </a>
-      <a class="tile" href="chris-hani.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/chris-hani.webp" alt="Chris Hani" loading="lazy"></span>
-        <span class="tile-name">Chris Hani</span>
-        <span class="tile-num">№30</span>
-      </a>
-      <a class="tile" href="dennis-rodman.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/dennis-rodman.webp" alt="Dennis Rodman" loading="lazy"></span>
-        <span class="tile-name">Dennis Rodman</span>
-        <span class="tile-num">№31</span>
-      </a>
-      <a class="tile" href="nagarjuna.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/nagarjuna.webp" alt="Nagarjuna" loading="lazy"></span>
-        <span class="tile-name">Nagarjuna</span>
-        <span class="tile-num">№32</span>
-      </a>
-      <a class="tile" href="phil-jackson.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/phil-jackson.webp" alt="Phil Jackson" loading="lazy"></span>
-        <span class="tile-name">Phil Jackson</span>
-        <span class="tile-num">№33</span>
-      </a>
-      <a class="tile" href="d-t-suzuki.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/d-t-suzuki.webp" alt="D.T. Suzuki" loading="lazy"></span>
-        <span class="tile-name">D.T. Suzuki</span>
-        <span class="tile-num">№34</span>
-      </a>
-      <a class="tile" href="rinzai.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/rinzai.webp" alt="Rinzai" loading="lazy"></span>
-        <span class="tile-name">Rinzai</span>
-        <span class="tile-num">№35</span>
-      </a>
-      <a class="tile" href="richard-nixon.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/richard-nixon.webp" alt="Richard Nixon" loading="lazy"></span>
-        <span class="tile-name">Richard Nixon</span>
-        <span class="tile-num">№36</span>
-      </a>
-      <a class="tile" href="muhammad-ali.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/muhammad-ali.webp" alt="Muhammad Ali" loading="lazy"></span>
-        <span class="tile-name">Muhammad Ali</span>
-        <span class="tile-num">№37</span>
-      </a>
-      <a class="tile" href="george-mcgovern.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/george-mcgovern.webp" alt="George McGovern" loading="lazy"></span>
-        <span class="tile-name">George McGovern</span>
-        <span class="tile-num">№38</span>
-      </a>
-      <a class="tile" href="joshu.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/joshu.webp" alt="Joshu" loading="lazy"></span>
-        <span class="tile-name">Joshu</span>
-        <span class="tile-num">№39</span>
-      </a>
-      <a class="tile" href="yeamon.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/yeamon.webp" alt="Yeamon" loading="lazy"></span>
-        <span class="tile-name">Yeamon</span>
-        <span class="tile-num">№40</span>
-      </a>
-      <a class="tile" href="toni-kukoc.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/toni-kukoc.webp" alt="Toni Kukoc" loading="lazy"></span>
-        <span class="tile-name">Toni Kukoc</span>
-        <span class="tile-num">№41</span>
-      </a>
-      <a class="tile" href="steve-biko.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/steve-biko.webp" alt="Steve Biko" loading="lazy"></span>
-        <span class="tile-name">Steve Biko</span>
-        <span class="tile-num">№42</span>
-      </a>
-      <a class="tile" href="isiah-thomas.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/isiah-thomas.webp" alt="Isiah Thomas" loading="lazy"></span>
-        <span class="tile-name">Isiah Thomas</span>
-        <span class="tile-num">№43</span>
-      </a>
-      <a class="tile" href="chief-jongintaba.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/chief-jongintaba.webp" alt="Chief Jongintaba" loading="lazy"></span>
-        <span class="tile-name">Chief Jongintaba</span>
-        <span class="tile-num">№44</span>
-      </a>
-      <a class="tile" href="horace-grant.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/horace-grant.webp" alt="Horace Grant" loading="lazy"></span>
-        <span class="tile-name">Horace Grant</span>
-        <span class="tile-num">№45</span>
-      </a>
-      <a class="tile" href="bram-fischer.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/bram-fischer.webp" alt="Bram Fischer" loading="lazy"></span>
-        <span class="tile-name">Bram Fischer</span>
-        <span class="tile-num">№46</span>
-      </a>
-      <a class="tile" href="clyde-drexler.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/clyde-drexler.webp" alt="Clyde Drexler" loading="lazy"></span>
-        <span class="tile-name">Clyde Drexler</span>
-        <span class="tile-num">№47</span>
-      </a>
-      <a class="tile" href="chenault.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/chenault.webp" alt="Chenault" loading="lazy"></span>
-        <span class="tile-name">Chenault</span>
-        <span class="tile-num">№48</span>
-      </a>
-      <a class="tile" href="moburg.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/moburg.webp" alt="Moburg" loading="lazy"></span>
-        <span class="tile-name">Moburg</span>
-        <span class="tile-num">№49</span>
-      </a>
-      <a class="tile" href="denis-goldberg.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/denis-goldberg.webp" alt="Denis Goldberg" loading="lazy"></span>
-        <span class="tile-name">Denis Goldberg</span>
-        <span class="tile-num">№50</span>
-      </a>
-      <a class="tile" href="confucius.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/confucius.webp" alt="Confucius" loading="lazy"></span>
-        <span class="tile-name">Confucius</span>
-        <span class="tile-num">№51</span>
-      </a>
-      <a class="tile" href="ma-tsu.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/ma-tsu.webp" alt="Ma Tsu" loading="lazy"></span>
-        <span class="tile-name">Ma Tsu</span>
-        <span class="tile-num">№52</span>
-      </a>
-      <a class="tile" href="sala.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/sala.webp" alt="Sala" loading="lazy"></span>
-        <span class="tile-name">Sala</span>
-        <span class="tile-num">№53</span>
-      </a>
-      <a class="tile" href="krishnamurti.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/krishnamurti.webp" alt="Krishnamurti" loading="lazy"></span>
-        <span class="tile-name">Krishnamurti</span>
-        <span class="tile-num">№54</span>
-      </a>
-      <a class="tile" href="han-shan.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/han-shan.webp" alt="Han Shan" loading="lazy"></span>
-        <span class="tile-name">Han Shan</span>
-        <span class="tile-num">№55</span>
-      </a>
-      <a class="tile" href="lono.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/lono.webp" alt="Lono" loading="lazy"></span>
-        <span class="tile-name">Lono</span>
-        <span class="tile-num">№56</span>
-      </a>
-      <a class="tile" href="lama-govinda.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/lama-govinda.webp" alt="Lama Govinda" loading="lazy"></span>
-        <span class="tile-name">Lama Govinda</span>
-        <span class="tile-num">№57</span>
-      </a>
-      <a class="tile" href="magic-johnson.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/magic-johnson.webp" alt="Magic Johnson" loading="lazy"></span>
-        <span class="tile-name">Magic Johnson</span>
-        <span class="tile-num">№58</span>
-      </a>
-      <a class="tile" href="hari-dass.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/hari-dass.webp" alt="Hari Dass" loading="lazy"></span>
-        <span class="tile-name">Hari Dass</span>
-        <span class="tile-num">№59</span>
-      </a>
-      <a class="tile" href="gautama.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/gautama.webp" alt="Gautama" loading="lazy"></span>
-        <span class="tile-name">Gautama</span>
-        <span class="tile-num">№60</span>
-      </a>
-      <a class="tile" href="yun-men.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/yun-men.webp" alt="Yun Men" loading="lazy"></span>
-        <span class="tile-name">Yun Men</span>
-        <span class="tile-num">№61</span>
-      </a>
-      <a class="tile" href="seng-tsan.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/seng-tsan.webp" alt="Seng Tsan" loading="lazy"></span>
-        <span class="tile-name">Seng Tsan</span>
-        <span class="tile-num">№62</span>
-      </a>
-      <a class="tile" href="timothy-leary.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/timothy-leary.webp" alt="Timothy Leary" loading="lazy"></span>
-        <span class="tile-name">Timothy Leary</span>
-        <span class="tile-num">№63</span>
-      </a>
-      <a class="tile" href="jimmy-carter.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/jimmy-carter.webp" alt="Jimmy Carter" loading="lazy"></span>
-        <span class="tile-name">Jimmy Carter</span>
-        <span class="tile-num">№64</span>
-      </a>
-      <a class="tile" href="layman-pang.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/layman-pang.webp" alt="Layman Pang" loading="lazy"></span>
-        <span class="tile-name">Layman Pang</span>
-        <span class="tile-num">№65</span>
-      </a>
-      <a class="tile" href="john-paxson.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/john-paxson.webp" alt="John Paxson" loading="lazy"></span>
-        <span class="tile-name">John Paxson</span>
-        <span class="tile-num">№66</span>
-      </a>
-      <a class="tile" href="hubert-humphrey.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/hubert-humphrey.webp" alt="Hubert Humphrey" loading="lazy"></span>
-        <span class="tile-name">Hubert Humphrey</span>
-        <span class="tile-num">№67</span>
-      </a>
-      <a class="tile" href="andrew-mlangeni.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/andrew-mlangeni.webp" alt="Andrew Mlangeni" loading="lazy"></span>
-        <span class="tile-name">Andrew Mlangeni</span>
-        <span class="tile-num">№68</span>
-      </a>
-      <a class="tile" href="richard-alpert.html" style="--f:#63b3ff">
-        <span class="tile-art"><img src="art/richard-alpert.webp" alt="Richard Alpert" loading="lazy"></span>
-        <span class="tile-name">Richard Alpert</span>
-        <span class="tile-num">№69</span>
-      </a>
-      <a class="tile" href="charles-barkley.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/charles-barkley.webp" alt="Charles Barkley" loading="lazy"></span>
-        <span class="tile-name">Charles Barkley</span>
-        <span class="tile-num">№70</span>
-      </a>
-      <a class="tile" href="winnie-mandela.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/winnie-mandela.webp" alt="Winnie Mandela" loading="lazy"></span>
-        <span class="tile-name">Winnie Mandela</span>
-        <span class="tile-num">№71</span>
-      </a>
-      <a class="tile" href="yusuf-dadoo.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/yusuf-dadoo.webp" alt="Yusuf Dadoo" loading="lazy"></span>
-        <span class="tile-name">Yusuf Dadoo</span>
-        <span class="tile-num">№72</span>
-      </a>
-      <a class="tile" href="nan-chuan.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/nan-chuan.webp" alt="Nan Chuan" loading="lazy"></span>
-        <span class="tile-name">Nan Chuan</span>
-        <span class="tile-num">№73</span>
-      </a>
-      <a class="tile" href="kumarajiva.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/kumarajiva.webp" alt="Kumarajiva" loading="lazy"></span>
-        <span class="tile-name">Kumarajiva</span>
-        <span class="tile-num">№74</span>
-      </a>
-      <a class="tile" href="tokusan.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/tokusan.webp" alt="Tokusan" loading="lazy"></span>
-        <span class="tile-name">Tokusan</span>
-        <span class="tile-num">№75</span>
-      </a>
-      <a class="tile" href="raymond-mhlaba.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/raymond-mhlaba.webp" alt="Raymond Mhlaba" loading="lazy"></span>
-        <span class="tile-name">Raymond Mhlaba</span>
-        <span class="tile-num">№76</span>
-      </a>
-      <a class="tile" href="elias-motsoaledi.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/elias-motsoaledi.webp" alt="Elias Motsoaledi" loading="lazy"></span>
-        <span class="tile-name">Elias Motsoaledi</span>
-        <span class="tile-num">№77</span>
-      </a>
-      <a class="tile" href="hyakujo.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/hyakujo.webp" alt="Hyakujo" loading="lazy"></span>
-        <span class="tile-name">Hyakujo</span>
-        <span class="tile-num">№78</span>
-      </a>
-      <a class="tile" href="chao-chou.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/chao-chou.webp" alt="Chao Chou" loading="lazy"></span>
-        <span class="tile-name">Chao Chou</span>
-        <span class="tile-num">№79</span>
-      </a>
-      <a class="tile" href="lucy.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/lucy.webp" alt="Lucy" loading="lazy"></span>
-        <span class="tile-name">Lucy</span>
-        <span class="tile-num">№80</span>
-      </a>
-      <a class="tile" href="reggie-miller.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/reggie-miller.webp" alt="Reggie Miller" loading="lazy"></span>
-        <span class="tile-name">Reggie Miller</span>
-        <span class="tile-num">№81</span>
-      </a>
-      <a class="tile" href="karl-malone.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/karl-malone.webp" alt="Karl Malone" loading="lazy"></span>
-        <span class="tile-name">Karl Malone</span>
-        <span class="tile-num">№82</span>
-      </a>
-      <a class="tile" href="wei-lang.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/wei-lang.webp" alt="Wei Lang" loading="lazy"></span>
-        <span class="tile-name">Wei Lang</span>
-        <span class="tile-num">№83</span>
-      </a>
-      <a class="tile" href="john-stockton.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/john-stockton.webp" alt="John Stockton" loading="lazy"></span>
-        <span class="tile-name">John Stockton</span>
-        <span class="tile-num">№84</span>
+      <a class="tile r-marquee marquee" href="lovebeing.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/lovebeing.webp" alt="Lovebeing" loading="lazy"><span class="sheen"></span><span class="rr">1/1</span><span class="locktag">🔒 later</span></span>
+        <span class="tile-name">Lovebeing</span>
+        <span class="tile-num">1 of 1 · marquee</span>
       </a></div>
-    <h2><span>Season 2 · Melt</span></h2>
+    <h2 class="tier t-prizm"><span>Prizm · 5</span></h2>
     <div class="grid">
-      <a class="tile" href="terry-the-tramp.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/terry-the-tramp.webp" alt="Terry the Tramp" loading="lazy"></span>
-        <span class="tile-name">Terry the Tramp</span>
-        <span class="tile-num">№01</span>
+      <a class="tile r-prizm" href="mirror-twins.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/mirror-twins.webp" alt="Mirror Twins" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
+        <span class="tile-name">Mirror Twins</span>
+        <span class="tile-num">S1 · №57</span>
       </a>
-      <a class="tile" href="tozan.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/tozan.webp" alt="Tozan" loading="lazy"></span>
-        <span class="tile-name">Tozan</span>
-        <span class="tile-num">№02</span>
+      <a class="tile r-prizm" href="neon-crown.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/neon-crown.webp" alt="Neon Crown" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
+        <span class="tile-name">Neon Crown</span>
+        <span class="tile-num">S1 · №58</span>
       </a>
-      <a class="tile" href="fatima-meer.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/fatima-meer.webp" alt="Fatima Meer" loading="lazy"></span>
-        <span class="tile-name">Fatima Meer</span>
-        <span class="tile-num">№03</span>
+      <a class="tile r-prizm" href="glow-pair.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/glow-pair.webp" alt="Glow Pair" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
+        <span class="tile-name">Glow Pair</span>
+        <span class="tile-num">S1 · №59</span>
       </a>
-      <a class="tile" href="basho.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/basho.webp" alt="Basho" loading="lazy"></span>
-        <span class="tile-name">Basho</span>
-        <span class="tile-num">№04</span>
+      <a class="tile r-prizm" href="last-light.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/last-light.webp" alt="Last Light" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
+        <span class="tile-name">Last Light</span>
+        <span class="tile-num">S1 · №60</span>
       </a>
-      <a class="tile" href="mumon.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/mumon.webp" alt="Mumon" loading="lazy"></span>
-        <span class="tile-name">Mumon</span>
-        <span class="tile-num">№05</span>
+      <a class="tile r-prizm" href="ink-sketch.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/ink-sketch.webp" alt="Ink Sketch" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
+        <span class="tile-name">Ink Sketch</span>
+        <span class="tile-num">S2 · №23</span>
+      </a></div>
+    <h2 class="tier t-mythic"><span>Mythic · 21</span></h2>
+    <div class="grid">
+      <a class="tile r-mythic" href="meltdown.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/meltdown.webp" alt="Meltdown" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Meltdown</span>
+        <span class="tile-num">S1 · №07</span>
       </a>
-      <a class="tile" href="ryokan.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/ryokan.webp" alt="Ryokan" loading="lazy"></span>
-        <span class="tile-name">Ryokan</span>
-        <span class="tile-num">№06</span>
+      <a class="tile r-mythic" href="caped-hound.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/caped-hound.webp" alt="Caped Hound" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Caped Hound</span>
+        <span class="tile-num">S1 · №11</span>
       </a>
-      <a class="tile" href="ummon.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/ummon.webp" alt="Ummon" loading="lazy"></span>
-        <span class="tile-name">Ummon</span>
-        <span class="tile-num">№07</span>
+      <a class="tile r-mythic" href="rainbow-maw.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/rainbow-maw.webp" alt="Rainbow Maw" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Rainbow Maw</span>
+        <span class="tile-num">S1 · №20</span>
       </a>
-      <a class="tile" href="hakuin.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/hakuin.webp" alt="Hakuin" loading="lazy"></span>
-        <span class="tile-name">Hakuin</span>
-        <span class="tile-num">№08</span>
+      <a class="tile r-mythic" href="solar-jester.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/solar-jester.webp" alt="Solar Jester" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Solar Jester</span>
+        <span class="tile-num">S1 · №23</span>
       </a>
-      <a class="tile" href="ron-harper.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/ron-harper.webp" alt="Ron Harper" loading="lazy"></span>
-        <span class="tile-name">Ron Harper</span>
-        <span class="tile-num">№09</span>
+      <a class="tile r-mythic" href="red-wraith.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/red-wraith.webp" alt="Red Wraith" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Red Wraith</span>
+        <span class="tile-num">S1 · №26</span>
       </a>
-      <a class="tile" href="albertina-sisulu.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/albertina-sisulu.webp" alt="Albertina Sisulu" loading="lazy"></span>
-        <span class="tile-name">Albertina Sisulu</span>
-        <span class="tile-num">№10</span>
+      <a class="tile r-mythic" href="feather-mage.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/feather-mage.webp" alt="Feather Mage" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Feather Mage</span>
+        <span class="tile-num">S1 · №32</span>
       </a>
-      <a class="tile" href="huang-po.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/huang-po.webp" alt="Huang Po" loading="lazy"></span>
-        <span class="tile-name">Huang Po</span>
-        <span class="tile-num">№11</span>
+      <a class="tile r-mythic" href="blue-phoenix.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/blue-phoenix.webp" alt="Blue Phoenix" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Blue Phoenix</span>
+        <span class="tile-num">S1 · №33</span>
       </a>
-      <a class="tile" href="bj-armstrong.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/bj-armstrong.webp" alt="BJ Armstrong" loading="lazy"></span>
-        <span class="tile-name">BJ Armstrong</span>
-        <span class="tile-num">№12</span>
+      <a class="tile r-mythic" href="ink-cat.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/ink-cat.webp" alt="Ink Cat" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Ink Cat</span>
+        <span class="tile-num">S1 · №44</span>
       </a>
-      <a class="tile" href="mac-maharaj.html" style="--f:#63b3ff">
-        <span class="tile-art"><img src="art/mac-maharaj.webp" alt="Mac Maharaj" loading="lazy"></span>
-        <span class="tile-name">Mac Maharaj</span>
-        <span class="tile-num">№13</span>
+      <a class="tile r-mythic" href="neon-court.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/neon-court.webp" alt="Neon Court" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Neon Court</span>
+        <span class="tile-num">S1 · №45</span>
       </a>
-      <a class="tile" href="dogen.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/dogen.webp" alt="Dogen" loading="lazy"></span>
-        <span class="tile-name">Dogen</span>
-        <span class="tile-num">№14</span>
+      <a class="tile r-mythic" href="moon-cat.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/moon-cat.webp" alt="Moon Cat" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Moon Cat</span>
+        <span class="tile-num">S1 · №47</span>
       </a>
-      <a class="tile" href="sengai.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/sengai.webp" alt="Sengai" loading="lazy"></span>
-        <span class="tile-name">Sengai</span>
-        <span class="tile-num">№15</span>
+      <a class="tile r-mythic" href="three-minds.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/three-minds.webp" alt="Three Minds" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Three Minds</span>
+        <span class="tile-num">S1 · №49</span>
       </a>
-      <a class="tile" href="bill-cartwright.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/bill-cartwright.webp" alt="Bill Cartwright" loading="lazy"></span>
-        <span class="tile-name">Bill Cartwright</span>
-        <span class="tile-num">№16</span>
+      <a class="tile r-mythic" href="eruption.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/eruption.webp" alt="Eruption" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Eruption</span>
+        <span class="tile-num">S1 · №56</span>
       </a>
-      <a class="tile" href="helen-suzman.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/helen-suzman.webp" alt="Helen Suzman" loading="lazy"></span>
-        <span class="tile-name">Helen Suzman</span>
-        <span class="tile-num">№17</span>
+      <a class="tile r-mythic" href="filament.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/filament.webp" alt="Filament" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Filament</span>
+        <span class="tile-num">S1 · №62</span>
       </a>
-      <a class="tile" href="raoul-duke.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/raoul-duke.webp" alt="Raoul Duke" loading="lazy"></span>
-        <span class="tile-name">Raoul Duke</span>
-        <span class="tile-num">№18</span>
+      <a class="tile r-mythic" href="card-sharp.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/card-sharp.webp" alt="Card Sharp" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Card Sharp</span>
+        <span class="tile-num">S1 · №66</span>
       </a>
-      <a class="tile" href="gary-payton.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/gary-payton.webp" alt="Gary Payton" loading="lazy"></span>
-        <span class="tile-name">Gary Payton</span>
-        <span class="tile-num">№19</span>
+      <a class="tile r-mythic" href="ruby-idol.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/ruby-idol.webp" alt="Ruby Idol" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Ruby Idol</span>
+        <span class="tile-num">S1 · №71</span>
       </a>
-      <a class="tile" href="ruth-first.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/ruth-first.webp" alt="Ruth First" loading="lazy"></span>
-        <span class="tile-name">Ruth First</span>
-        <span class="tile-num">№20</span>
+      <a class="tile r-mythic" href="mad-king.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/mad-king.webp" alt="Mad King" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Mad King</span>
+        <span class="tile-num">S1 · №72</span>
       </a>
-      <a class="tile" href="luc-longley.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/luc-longley.webp" alt="Luc Longley" loading="lazy"></span>
-        <span class="tile-name">Luc Longley</span>
-        <span class="tile-num">№21</span>
+      <a class="tile r-mythic" href="portal-sage.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/portal-sage.webp" alt="Portal Sage" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Portal Sage</span>
+        <span class="tile-num">S1 · №74</span>
       </a>
-      <a class="tile" href="dean-smith.html" style="--f:#63b3ff">
-        <span class="tile-art"><img src="art/dean-smith.webp" alt="Dean Smith" loading="lazy"></span>
-        <span class="tile-name">Dean Smith</span>
-        <span class="tile-num">№22</span>
+      <a class="tile r-mythic" href="fractal-grin.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/fractal-grin.webp" alt="Fractal Grin" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Fractal Grin</span>
+        <span class="tile-num">S1 · №79</span>
       </a>
-      <a class="tile" href="zindzi-mandela.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/zindzi-mandela.webp" alt="Zindzi Mandela" loading="lazy"></span>
-        <span class="tile-name">Zindzi Mandela</span>
-        <span class="tile-num">№23</span>
+      <a class="tile r-mythic" href="bat-country.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/bat-country.webp" alt="Bat Country" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Bat Country</span>
+        <span class="tile-num">S2 · №18</span>
       </a>
-      <a class="tile" href="desmond-tutu.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/desmond-tutu.webp" alt="Desmond Tutu" loading="lazy"></span>
-        <span class="tile-name">Desmond Tutu</span>
-        <span class="tile-num">№24</span>
+      <a class="tile r-mythic" href="glitch.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/glitch.webp" alt="Glitch" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">Glitch</span>
+        <span class="tile-num">S2 · №31</span>
       </a>
-      <a class="tile" href="ikkyu.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/ikkyu.webp" alt="Ikkyu" loading="lazy"></span>
-        <span class="tile-name">Ikkyu</span>
-        <span class="tile-num">№25</span>
+      <a class="tile r-mythic" href="the-crowd.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/the-crowd.webp" alt="The Crowd" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
+        <span class="tile-name">The Crowd</span>
+        <span class="tile-num">S2 · №33</span>
+      </a></div>
+    <h2 class="tier t-rare"><span>Rare · 43</span></h2>
+    <div class="grid">
+      <a class="tile r-rare" href="red-rustler.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/red-rustler.webp" alt="Red Rustler" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Red Rustler</span>
+        <span class="tile-num">S1 · №03</span>
       </a>
-      <a class="tile" href="craig-ehlo.html" style="--f:#ff5fd0">
-        <span class="tile-art"><img src="art/craig-ehlo.webp" alt="Craig Ehlo" loading="lazy"></span>
-        <span class="tile-name">Craig Ehlo</span>
-        <span class="tile-num">№26</span>
+      <a class="tile r-rare" href="ghost-chef.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/ghost-chef.webp" alt="Ghost Chef" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Ghost Chef</span>
+        <span class="tile-num">S1 · №05</span>
       </a>
-      <a class="tile" href="bryon-russell.html" style="--f:#ffd93b">
-        <span class="tile-art"><img src="art/bryon-russell.webp" alt="Bryon Russell" loading="lazy"></span>
-        <span class="tile-name">Bryon Russell</span>
-        <span class="tile-num">№27</span>
+      <a class="tile r-rare" href="bone-pop.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/bone-pop.webp" alt="Bone Pop" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Bone Pop</span>
+        <span class="tile-num">S1 · №08</span>
       </a>
-      <a class="tile" href="lazlo.html" style="--f:#63b3ff">
-        <span class="tile-art"><img src="art/lazlo.webp" alt="Lazlo" loading="lazy"></span>
-        <span class="tile-name">Lazlo</span>
-        <span class="tile-num">№28</span>
+      <a class="tile r-rare" href="mad-grin.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/mad-grin.webp" alt="Mad Grin" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Mad Grin</span>
+        <span class="tile-num">S1 · №10</span>
       </a>
-      <a class="tile" href="jerry-krause.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/jerry-krause.webp" alt="Jerry Krause" loading="lazy"></span>
-        <span class="tile-name">Jerry Krause</span>
-        <span class="tile-num">№29</span>
+      <a class="tile r-rare" href="sly-chef.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/sly-chef.webp" alt="Sly Chef" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Sly Chef</span>
+        <span class="tile-num">S1 · №12</span>
       </a>
-      <a class="tile" href="kobe-bryant.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/kobe-bryant.webp" alt="Kobe Bryant" loading="lazy"></span>
-        <span class="tile-name">Kobe Bryant</span>
-        <span class="tile-num">№30</span>
+      <a class="tile r-rare" href="blade-prince.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/blade-prince.webp" alt="Blade Prince" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Blade Prince</span>
+        <span class="tile-num">S1 · №15</span>
       </a>
-      <a class="tile" href="tex-winter.html" style="--f:#9be34f">
-        <span class="tile-art"><img src="art/tex-winter.webp" alt="Tex Winter" loading="lazy"></span>
-        <span class="tile-name">Tex Winter</span>
-        <span class="tile-num">№31</span>
+      <a class="tile r-rare" href="drip-dog.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/drip-dog.webp" alt="Drip Dog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Drip Dog</span>
+        <span class="tile-num">S1 · №17</span>
       </a>
-      <a class="tile" href="joe-slovo.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/joe-slovo.webp" alt="Joe Slovo" loading="lazy"></span>
-        <span class="tile-name">Joe Slovo</span>
-        <span class="tile-num">№32</span>
+      <a class="tile r-rare" href="gold-sage.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/gold-sage.webp" alt="Gold Sage" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Gold Sage</span>
+        <span class="tile-num">S1 · №21</span>
       </a>
-      <a class="tile" href="makgatho.html" style="--f:#2ad4c8">
-        <span class="tile-art"><img src="art/makgatho.webp" alt="Makgatho" loading="lazy"></span>
-        <span class="tile-name">Makgatho</span>
-        <span class="tile-num">№33</span>
+      <a class="tile r-rare" href="cracked-heart.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/cracked-heart.webp" alt="Cracked Heart" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Cracked Heart</span>
+        <span class="tile-num">S1 · №22</span>
       </a>
-      <a class="tile" href="evelyn-mase.html" style="--f:#ff9a3b">
-        <span class="tile-art"><img src="art/evelyn-mase.webp" alt="Evelyn Mase" loading="lazy"></span>
-        <span class="tile-name">Evelyn Mase</span>
-        <span class="tile-num">№34</span>
+      <a class="tile r-rare" href="blue-bones.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/blue-bones.webp" alt="Blue Bones" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Blue Bones</span>
+        <span class="tile-num">S1 · №25</span>
       </a>
-      <a class="tile" href="bankei.html" style="--f:#63b3ff">
-        <span class="tile-art"><img src="art/bankei.webp" alt="Bankei" loading="lazy"></span>
-        <span class="tile-name">Bankei</span>
-        <span class="tile-num">№35</span>
+      <a class="tile r-rare" href="fuzz-totem.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/fuzz-totem.webp" alt="Fuzz Totem" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Fuzz Totem</span>
+        <span class="tile-num">S1 · №30</span>
       </a>
-      <a class="tile" href="doug-collins.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/doug-collins.webp" alt="Doug Collins" loading="lazy"></span>
-        <span class="tile-name">Doug Collins</span>
-        <span class="tile-num">№36</span>
+      <a class="tile r-rare" href="blue-beak.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/blue-beak.webp" alt="Blue Beak" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Blue Beak</span>
+        <span class="tile-num">S1 · №31</span>
       </a>
-      <a class="tile" href="patrick-ewing.html" style="--f:#9b5cff">
-        <span class="tile-art"><img src="art/patrick-ewing.webp" alt="Patrick Ewing" loading="lazy"></span>
-        <span class="tile-name">Patrick Ewing</span>
-        <span class="tile-num">№37</span>
+      <a class="tile r-rare" href="moon-rat.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/moon-rat.webp" alt="Moon Rat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Moon Rat</span>
+        <span class="tile-num">S1 · №36</span>
       </a>
-      <a class="tile" href="larry-bird.html" style="--f:#ff6b57">
-        <span class="tile-art"><img src="art/larry-bird.webp" alt="Larry Bird" loading="lazy"></span>
-        <span class="tile-name">Larry Bird</span>
-        <span class="tile-num">№38</span>
+      <a class="tile r-rare" href="guffaw.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/guffaw.webp" alt="Guffaw" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Guffaw</span>
+        <span class="tile-num">S1 · №38</span>
+      </a>
+      <a class="tile r-rare" href="masked-hare.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/masked-hare.webp" alt="Masked Hare" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Masked Hare</span>
+        <span class="tile-num">S1 · №40</span>
+      </a>
+      <a class="tile r-rare" href="sly-imp.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/sly-imp.webp" alt="Sly Imp" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Sly Imp</span>
+        <span class="tile-num">S1 · №43</span>
+      </a>
+      <a class="tile r-rare" href="purple-fang.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/purple-fang.webp" alt="Purple Fang" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Purple Fang</span>
+        <span class="tile-num">S1 · №48</span>
+      </a>
+      <a class="tile r-rare" href="drool-ghost.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/drool-ghost.webp" alt="Drool Ghost" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Drool Ghost</span>
+        <span class="tile-num">S1 · №50</span>
+      </a>
+      <a class="tile r-rare" href="coin-baron.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/coin-baron.webp" alt="Coin Baron" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Coin Baron</span>
+        <span class="tile-num">S1 · №51</span>
+      </a>
+      <a class="tile r-rare" href="smoke-imp.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/smoke-imp.webp" alt="Smoke Imp" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Smoke Imp</span>
+        <span class="tile-num">S1 · №53</span>
+      </a>
+      <a class="tile r-rare" href="melt-waltz.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/melt-waltz.webp" alt="Melt Waltz" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Melt Waltz</span>
+        <span class="tile-num">S1 · №61</span>
+      </a>
+      <a class="tile r-rare" href="riddle-cat.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/riddle-cat.webp" alt="Riddle Cat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Riddle Cat</span>
+        <span class="tile-num">S1 · №64</span>
+      </a>
+      <a class="tile r-rare" href="scarlet-mage.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/scarlet-mage.webp" alt="Scarlet Mage" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Scarlet Mage</span>
+        <span class="tile-num">S1 · №67</span>
+      </a>
+      <a class="tile r-rare" href="third-eye.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/third-eye.webp" alt="Third Eye" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Third Eye</span>
+        <span class="tile-num">S1 · №73</span>
+      </a>
+      <a class="tile r-rare" href="lunar-fowl.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/lunar-fowl.webp" alt="Lunar Fowl" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Lunar Fowl</span>
+        <span class="tile-num">S1 · №75</span>
+      </a>
+      <a class="tile r-rare" href="cosmic-shrug.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/cosmic-shrug.webp" alt="Cosmic Shrug" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Cosmic Shrug</span>
+        <span class="tile-num">S1 · №78</span>
+      </a>
+      <a class="tile r-rare" href="coin-alchemist.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/coin-alchemist.webp" alt="Coin Alchemist" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Coin Alchemist</span>
+        <span class="tile-num">S1 · №80</span>
+      </a>
+      <a class="tile r-rare" href="shade-rise.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/shade-rise.webp" alt="Shade Rise" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Shade Rise</span>
+        <span class="tile-num">S1 · №84</span>
+      </a>
+      <a class="tile r-rare" href="bog-beast.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/bog-beast.webp" alt="Bog Beast" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Bog Beast</span>
+        <span class="tile-num">S2 · №01</span>
+      </a>
+      <a class="tile r-rare" href="citrus-haze.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/citrus-haze.webp" alt="Citrus Haze" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Citrus Haze</span>
+        <span class="tile-num">S2 · №03</span>
+      </a>
+      <a class="tile r-rare" href="neon-motel.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/neon-motel.webp" alt="Neon Motel" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Neon Motel</span>
+        <span class="tile-num">S2 · №06</span>
+      </a>
+      <a class="tile r-rare" href="bow-frog.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/bow-frog.webp" alt="Bow Frog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Bow Frog</span>
+        <span class="tile-num">S2 · №09</span>
+      </a>
+      <a class="tile r-rare" href="tux-frog.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/tux-frog.webp" alt="Tux Frog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Tux Frog</span>
+        <span class="tile-num">S2 · №11</span>
+      </a>
+      <a class="tile r-rare" href="elder-ace.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/elder-ace.webp" alt="Elder Ace" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Elder Ace</span>
+        <span class="tile-num">S2 · №13</span>
+      </a>
+      <a class="tile r-rare" href="vapor-wave.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/vapor-wave.webp" alt="Vapor Wave" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Vapor Wave</span>
+        <span class="tile-num">S2 · №15</span>
+      </a>
+      <a class="tile r-rare" href="desert-robe.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/desert-robe.webp" alt="Desert Robe" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Desert Robe</span>
+        <span class="tile-num">S2 · №17</span>
+      </a>
+      <a class="tile r-rare" href="red-hood.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/red-hood.webp" alt="Red Hood" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Red Hood</span>
+        <span class="tile-num">S2 · №20</span>
+      </a>
+      <a class="tile r-rare" href="paisley.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/paisley.webp" alt="Paisley" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Paisley</span>
+        <span class="tile-num">S2 · №21</span>
+      </a>
+      <a class="tile r-rare" href="fedora.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/fedora.webp" alt="Fedora" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Fedora</span>
+        <span class="tile-num">S2 · №27</span>
+      </a>
+      <a class="tile r-rare" href="red-eyes.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/red-eyes.webp" alt="Red Eyes" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Red Eyes</span>
+        <span class="tile-num">S2 · №28</span>
+      </a>
+      <a class="tile r-rare" href="silver-fox.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/silver-fox.webp" alt="Silver Fox" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Silver Fox</span>
+        <span class="tile-num">S2 · №30</span>
+      </a>
+      <a class="tile r-rare" href="free.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/free.webp" alt="Free" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Free</span>
+        <span class="tile-num">S2 · №32</span>
+      </a>
+      <a class="tile r-rare" href="cloud-cat.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/cloud-cat.webp" alt="Cloud Cat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
+        <span class="tile-name">Cloud Cat</span>
+        <span class="tile-num">S2 · №38</span>
+      </a></div>
+    <h2 class="tier t-uncommon"><span>Uncommon · 40</span></h2>
+    <div class="grid">
+      <a class="tile r-uncommon" href="blue-boar.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/blue-boar.webp" alt="Blue Boar" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Blue Boar</span>
+        <span class="tile-num">S1 · №01</span>
+      </a>
+      <a class="tile r-uncommon" href="pick-boss.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/pick-boss.webp" alt="Pick Boss" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Pick Boss</span>
+        <span class="tile-num">S1 · №04</span>
+      </a>
+      <a class="tile r-uncommon" href="beast-hug.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/beast-hug.webp" alt="Beast Hug" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Beast Hug</span>
+        <span class="tile-num">S1 · №06</span>
+      </a>
+      <a class="tile r-uncommon" href="bone-bard.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/bone-bard.webp" alt="Bone Bard" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Bone Bard</span>
+        <span class="tile-num">S1 · №09</span>
+      </a>
+      <a class="tile r-uncommon" href="big-grin.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/big-grin.webp" alt="Big Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Big Grin</span>
+        <span class="tile-num">S1 · №13</span>
+      </a>
+      <a class="tile r-uncommon" href="chef-fang.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/chef-fang.webp" alt="Chef Fang" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Chef Fang</span>
+        <span class="tile-num">S1 · №14</span>
+      </a>
+      <a class="tile r-uncommon" href="streetwise.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/streetwise.webp" alt="Streetwise" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Streetwise</span>
+        <span class="tile-num">S1 · №16</span>
+      </a>
+      <a class="tile r-uncommon" href="fond-beast.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/fond-beast.webp" alt="Fond Beast" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Fond Beast</span>
+        <span class="tile-num">S1 · №19</span>
+      </a>
+      <a class="tile r-uncommon" href="shadow-pair.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/shadow-pair.webp" alt="Shadow Pair" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Shadow Pair</span>
+        <span class="tile-num">S1 · №24</span>
+      </a>
+      <a class="tile r-uncommon" href="twin-hounds.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/twin-hounds.webp" alt="Twin Hounds" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Twin Hounds</span>
+        <span class="tile-num">S1 · №27</span>
+      </a>
+      <a class="tile r-uncommon" href="fuzz-trio.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/fuzz-trio.webp" alt="Fuzz Trio" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Fuzz Trio</span>
+        <span class="tile-num">S1 · №29</span>
+      </a>
+      <a class="tile r-uncommon" href="joy-blast.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/joy-blast.webp" alt="Joy Blast" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Joy Blast</span>
+        <span class="tile-num">S1 · №34</span>
+      </a>
+      <a class="tile r-uncommon" href="noodle-arms.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/noodle-arms.webp" alt="Noodle Arms" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Noodle Arms</span>
+        <span class="tile-num">S1 · №37</span>
+      </a>
+      <a class="tile r-uncommon" href="red-hound.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/red-hound.webp" alt="Red Hound" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Red Hound</span>
+        <span class="tile-num">S1 · №41</span>
+      </a>
+      <a class="tile r-uncommon" href="barn-rooster.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/barn-rooster.webp" alt="Barn Rooster" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Barn Rooster</span>
+        <span class="tile-num">S1 · №42</span>
+      </a>
+      <a class="tile r-uncommon" href="count-fuzz.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/count-fuzz.webp" alt="Count Fuzz" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Count Fuzz</span>
+        <span class="tile-num">S1 · №46</span>
+      </a>
+      <a class="tile r-uncommon" href="blaze-grin.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/blaze-grin.webp" alt="Blaze Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Blaze Grin</span>
+        <span class="tile-num">S1 · №52</span>
+      </a>
+      <a class="tile r-uncommon" href="spun-grin.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/spun-grin.webp" alt="Spun Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Spun Grin</span>
+        <span class="tile-num">S1 · №54</span>
+      </a>
+      <a class="tile r-uncommon" href="green-drifter.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/green-drifter.webp" alt="Green Drifter" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Green Drifter</span>
+        <span class="tile-num">S1 · №55</span>
+      </a>
+      <a class="tile r-uncommon" href="neon-garden.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/neon-garden.webp" alt="Neon Garden" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Neon Garden</span>
+        <span class="tile-num">S1 · №63</span>
+      </a>
+      <a class="tile r-uncommon" href="unfinished.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/unfinished.webp" alt="Unfinished" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Unfinished</span>
+        <span class="tile-num">S1 · №65</span>
+      </a>
+      <a class="tile r-uncommon" href="sugar-rooster.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/sugar-rooster.webp" alt="Sugar Rooster" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Sugar Rooster</span>
+        <span class="tile-num">S1 · №68</span>
+      </a>
+      <a class="tile r-uncommon" href="kindled-rat.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/kindled-rat.webp" alt="Kindled Rat" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Kindled Rat</span>
+        <span class="tile-num">S1 · №70</span>
+      </a>
+      <a class="tile r-uncommon" href="fuzz-tower.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/fuzz-tower.webp" alt="Fuzz Tower" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Fuzz Tower</span>
+        <span class="tile-num">S1 · №76</span>
+      </a>
+      <a class="tile r-uncommon" href="pink-nomad.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/pink-nomad.webp" alt="Pink Nomad" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Pink Nomad</span>
+        <span class="tile-num">S1 · №77</span>
+      </a>
+      <a class="tile r-uncommon" href="reach-wolf.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/reach-wolf.webp" alt="Reach Wolf" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Reach Wolf</span>
+        <span class="tile-num">S1 · №81</span>
+      </a>
+      <a class="tile r-uncommon" href="tux-brain.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/tux-brain.webp" alt="Tux Brain" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Tux Brain</span>
+        <span class="tile-num">S1 · №82</span>
+      </a>
+      <a class="tile r-uncommon" href="sonder.html" style="--f:#ff5fd0">
+        <span class="tile-art"><img src="art/sonder.webp" alt="Sonder" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Sonder</span>
+        <span class="tile-num">S2 · №02</span>
+      </a>
+      <a class="tile r-uncommon" href="rug-cowboy.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/rug-cowboy.webp" alt="Rug Cowboy" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Rug Cowboy</span>
+        <span class="tile-num">S2 · №04</span>
+      </a>
+      <a class="tile r-uncommon" href="white-robe.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/white-robe.webp" alt="White Robe" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">White Robe</span>
+        <span class="tile-num">S2 · №05</span>
+      </a>
+      <a class="tile r-uncommon" href="pink-tango.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/pink-tango.webp" alt="Pink Tango" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Pink Tango</span>
+        <span class="tile-num">S2 · №08</span>
+      </a>
+      <a class="tile r-uncommon" href="green-geezer.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/green-geezer.webp" alt="Green Geezer" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Green Geezer</span>
+        <span class="tile-num">S2 · №12</span>
+      </a>
+      <a class="tile r-uncommon" href="red-tropic.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/red-tropic.webp" alt="Red Tropic" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Red Tropic</span>
+        <span class="tile-num">S2 · №14</span>
+      </a>
+      <a class="tile r-uncommon" href="red-bloom.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/red-bloom.webp" alt="Red Bloom" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Red Bloom</span>
+        <span class="tile-num">S2 · №16</span>
+      </a>
+      <a class="tile r-uncommon" href="checker-frog.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/checker-frog.webp" alt="Checker Frog" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Checker Frog</span>
+        <span class="tile-num">S2 · №19</span>
+      </a>
+      <a class="tile r-uncommon" href="scrapbook.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/scrapbook.webp" alt="Scrapbook" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Scrapbook</span>
+        <span class="tile-num">S2 · №22</span>
+      </a>
+      <a class="tile r-uncommon" href="purple-haze.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/purple-haze.webp" alt="Purple Haze" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Purple Haze</span>
+        <span class="tile-num">S2 · №25</span>
+      </a>
+      <a class="tile r-uncommon" href="gold-chain.html" style="--f:#ff9a3b">
+        <span class="tile-art"><img src="art/gold-chain.webp" alt="Gold Chain" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Gold Chain</span>
+        <span class="tile-num">S2 · №29</span>
+      </a>
+      <a class="tile r-uncommon" href="velvet-lounge.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/velvet-lounge.webp" alt="Velvet Lounge" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Velvet Lounge</span>
+        <span class="tile-num">S2 · №34</span>
+      </a>
+      <a class="tile r-uncommon" href="spawn.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/spawn.webp" alt="Spawn" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
+        <span class="tile-name">Spawn</span>
+        <span class="tile-num">S2 · №37</span>
+      </a></div>
+    <h2 class="tier t-common"><span>Common · 13</span></h2>
+    <div class="grid">
+      <a class="tile r-common" href="cosmic-yawn.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/cosmic-yawn.webp" alt="Cosmic Yawn" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Cosmic Yawn</span>
+        <span class="tile-num">S1 · №02</span>
+      </a>
+      <a class="tile r-common" href="neon-sage.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/neon-sage.webp" alt="Neon Sage" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Neon Sage</span>
+        <span class="tile-num">S1 · №18</span>
+      </a>
+      <a class="tile r-common" href="alley-trio.html" style="--f:#63b3ff">
+        <span class="tile-art"><img src="art/alley-trio.webp" alt="Alley Trio" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Alley Trio</span>
+        <span class="tile-num">S1 · №28</span>
+      </a>
+      <a class="tile r-common" href="pajama-bear.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/pajama-bear.webp" alt="Pajama Bear" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Pajama Bear</span>
+        <span class="tile-num">S1 · №35</span>
+      </a>
+      <a class="tile r-common" href="blue-gulp.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/blue-gulp.webp" alt="Blue Gulp" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Blue Gulp</span>
+        <span class="tile-num">S1 · №39</span>
+      </a>
+      <a class="tile r-common" href="soaked-grin.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/soaked-grin.webp" alt="Soaked Grin" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Soaked Grin</span>
+        <span class="tile-num">S1 · №69</span>
+      </a>
+      <a class="tile r-common" href="sourpuss.html" style="--f:#2ad4c8">
+        <span class="tile-art"><img src="art/sourpuss.webp" alt="Sourpuss" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Sourpuss</span>
+        <span class="tile-num">S1 · №83</span>
+      </a>
+      <a class="tile r-common" href="faded-frog.html" style="--f:#9be34f">
+        <span class="tile-art"><img src="art/faded-frog.webp" alt="Faded Frog" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Faded Frog</span>
+        <span class="tile-num">S2 · №07</span>
+      </a>
+      <a class="tile r-common" href="pink-tabby.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/pink-tabby.webp" alt="Pink Tabby" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Pink Tabby</span>
+        <span class="tile-num">S2 · №10</span>
+      </a>
+      <a class="tile r-common" href="stray-loteria.html" style="--f:#ff6b57">
+        <span class="tile-art"><img src="art/stray-loteria.webp" alt="Stray Loteria" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Stray Loteria</span>
+        <span class="tile-num">S2 · №24</span>
+      </a>
+      <a class="tile r-common" href="pastel-ten.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/pastel-ten.webp" alt="Pastel Ten" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Pastel Ten</span>
+        <span class="tile-num">S2 · №26</span>
+      </a>
+      <a class="tile r-common" href="reefer.html" style="--f:#ffd93b">
+        <span class="tile-art"><img src="art/reefer.webp" alt="Reefer" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Reefer</span>
+        <span class="tile-num">S2 · №35</span>
+      </a>
+      <a class="tile r-common" href="bow-cat.html" style="--f:#9b5cff">
+        <span class="tile-art"><img src="art/bow-cat.webp" alt="Bow Cat" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
+        <span class="tile-name">Bow Cat</span>
+        <span class="tile-num">S2 · №36</span>
       </a></div>
     </main>
   </div>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('.tile').forEach(function(t){
+    t.addEventListener('pointermove', function(e){
+      var r = t.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      if (!reduce){
+        t.style.setProperty('--rx', ((px - 0.5) * 16).toFixed(2) + 'deg');
+        t.style.setProperty('--ry', ((0.5 - py) * 16).toFixed(2) + 'deg');
+      }
+      t.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
+      t.style.setProperty('--my', (py * 100).toFixed(1) + '%');
+      t.style.setProperty('--fx', (px * 100).toFixed(1) + '%');
+      t.style.setProperty('--fy', (py * 100).toFixed(1) + '%');
+      t.classList.add('lit');
+    });
+    t.addEventListener('pointerleave', function(){
+      t.classList.remove('lit');
+      t.style.removeProperty('--rx'); t.style.removeProperty('--ry');
+    });
+  });
+})();
+</script>
 </body>
 </html>

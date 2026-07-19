@@ -72,30 +72,42 @@ function ingest(dir, manifestPath) {
 }
 
 function buildGallery() {
+  const dataDir = join(cardsDir, 'data');
   const pages = readdirSync(cardsDir)
-    .filter(f => f.endsWith('.html') && f !== '_template.html' && f !== 'index.html');
+    .filter(f => f.endsWith('.html') && !f.startsWith('_') && f !== 'index.html' && f !== 'battle.html');
+  const RANK = { marquee: -1, prizm: 0, mythic: 1, rare: 2, uncommon: 3, common: 4 };
+  const LABEL = { marquee: 'Marquee · 1 of 1', prizm: 'Prizm', mythic: 'Mythic', rare: 'Rare', uncommon: 'Uncommon', common: 'Common' };
   const entries = [];
   for (const f of pages) {
     const html = readFileSync(join(cardsDir, f), 'utf8');
+    const slug = f.replace(/\.html$/, '');
+    let data = {};
+    const dj = join(dataDir, `${slug}.json`);
+    if (existsSync(dj)) { try { data = JSON.parse(readFileSync(dj, 'utf8')); } catch {} }
+    const rarity = data.rarity || 'common';
     const t = html.match(/<title>(.+?) · S(\d+) №(\d+)<\/title>/);
-    if (!t) continue;
     const img = html.match(/<img src="(art\/[^"]+)"/);
-    entries.push({ file: f, name: t[1], season: +t[2], number: +t[3], thumb: img ? img[1] : null });
+    let name, season, number;
+    if (t) { name = t[1]; season = +t[2]; number = +t[3]; }
+    else if (rarity === 'marquee') { name = data.title || slug; season = 99; number = 1; }
+    else continue;
+    entries.push({ file: f, slug, name, season, number, thumb: img ? img[1] : null, rarity, marquee: rarity === 'marquee' });
   }
-  entries.sort((a, b) => a.season - b.season || a.number - b.number);
 
-  const seasons = [...new Set(entries.map(e => e.season))];
-  const sections = seasons.map(s => {
-    const tiles = entries.filter(e => e.season === s).map(e => `
-      <a class="tile" href="${e.file}" style="--f:${frameFor(e.file.replace(/\.html$/, ''))}">
+  // sort by rarity (rarest → most common), then by season/number within a tier
+  const tiers = Object.keys(RANK).filter(r => entries.some(e => e.rarity === r));
+  const sections = tiers.map(r => {
+    const list = entries.filter(e => e.rarity === r).sort((a, b) => a.season - b.season || a.number - b.number);
+    const tiles = list.map(e => `
+      <a class="tile r-${e.rarity}${e.marquee ? ' marquee' : ''}" href="${e.file}" style="--f:${frameFor(e.slug)}">
         <span class="tile-art">${e.thumb
           ? `<img src="${e.thumb}" alt="${e.name}" loading="lazy">`
-          : '<i>✦</i>'}</span>
+          : '<i>✦</i>'}<span class="sheen"></span><span class="rr">${e.marquee ? '1/1' : e.rarity}</span>${e.marquee ? '<span class="locktag">🔒 later</span>' : ''}</span>
         <span class="tile-name">${e.name}</span>
-        <span class="tile-num">№${String(e.number).padStart(2, '0')}</span>
+        <span class="tile-num">${e.marquee ? '1 of 1 · marquee' : 'S' + e.season + ' · №' + String(e.number).padStart(2, '0')}</span>
       </a>`).join('');
     return `
-    <h2><span>Season ${s} · ${SEASON_TITLES[s] || ''}</span></h2>
+    <h2 class="tier t-${r}"><span>${LABEL[r]} · ${list.length}</span></h2>
     <div class="grid">${tiles}</div>`;
   }).join('');
 
@@ -121,25 +133,51 @@ function buildGallery() {
     border-radius:999px;padding:8px 18px;font-family:'Arial Black',Arial,sans-serif;
     font-size:10px;letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
     color:#111;text-decoration:none}
-  h2{margin:26px 0 12px;text-align:center}
-  h2 span{display:inline-block;background:#ff6b57;border:3px solid #000;border-radius:999px;
-    padding:6px 18px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+  h2.tier{margin:30px 0 12px;text-align:center}
+  h2.tier span{display:inline-block;border:3px solid #000;border-radius:999px;
+    padding:6px 20px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
     letter-spacing:.24em;text-indent:.24em;text-transform:uppercase;color:#111}
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-  .tile{display:flex;flex-direction:column;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
+  .t-common span{background:#cbd5c0} .t-uncommon span{background:#9be34f}
+  .t-rare span{background:#63b3ff} .t-mythic span{background:#ff5fd0;color:#fff}
+  .t-prizm span{background:linear-gradient(90deg,#ff5fd0,#ffe93b,#63b3ff,#9be34f);color:#111}
+  .t-marquee span{background:linear-gradient(90deg,#fff,#c7d0ff,#8aa0ff);color:#1a0636;box-shadow:0 0 18px rgba(199,208,255,.7)}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));perspective:900px}
+  .tile{position:relative;display:flex;flex-direction:column;aspect-ratio:5/7;border-radius:10px;overflow:hidden;
     background:var(--f);border:3px solid #000;text-decoration:none;color:#111;
-    padding:5%;transition:transform .18s;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
-  .tile:hover{transform:translateY(-4px) rotate(-1.5deg)}
+    padding:5%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);
+    transform-style:preserve-3d;transition:transform .12s ease,box-shadow .12s ease;will-change:transform}
+  .tile.lit{transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg)) scale(1.05);
+    box-shadow:0 16px 34px rgba(0,0,0,.55);z-index:3}
   .tile-art{position:relative;flex:1;border:2px solid #000;border-radius:5px;overflow:hidden;
     background:#160d22;display:grid;place-items:center}
   .tile-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .tile-art i{font-style:normal;font-size:30px;color:#ffe93b}
-  .tile-name{margin-top:5%;background:#f6ecc9;border:2px solid #000;border-radius:5px;
+  /* cursor-follow holographic sheen (intensity scales with rarity) */
+  .sheen{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:color-dodge;
+    transition:opacity .16s;z-index:2;
+    background:
+      radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.6), transparent 42%),
+      repeating-linear-gradient(115deg, hsl(283 80% 60%) 0%, hsl(2 80% 60%) 12%, hsl(53 95% 60%) 24%,
+        hsl(120 75% 55%) 36%, hsl(200 80% 60%) 48%, hsl(283 80% 60%) 60%);
+    background-size:auto,300% 300%;background-position:0 0,var(--fx,50%) var(--fy,50%)}
+  .tile.lit .sheen{opacity:var(--so,.3)}
+  .r-common{--so:.12} .r-uncommon{--so:.24} .r-rare{--so:.4} .r-mythic{--so:.58} .r-prizm{--so:.8} .r-marquee{--so:.9}
+  .tile.marquee{border-color:#c7d0ff;box-shadow:0 0 0 2px #c7d0ff,0 0 26px rgba(199,208,255,.6)}
+  .rr{position:absolute;top:4px;right:4px;z-index:4;font-family:'Arial Black',Arial,sans-serif;
+    font-size:7px;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:99px;
+    background:rgba(0,0,0,.62);color:#fff}
+  .r-prizm .rr{background:linear-gradient(90deg,#ff5fd0,#63b3ff);color:#fff}
+  .marquee .rr{background:linear-gradient(90deg,#fff,#c7d0ff);color:#1a0636}
+  .locktag{position:absolute;bottom:4px;left:4px;z-index:4;font-family:'Arial Black',Arial,sans-serif;
+    font-size:7px;text-transform:uppercase;letter-spacing:.05em;padding:1px 5px;border-radius:99px;
+    background:rgba(6,2,20,.72);color:#9be34f}
+  .tile-name{position:relative;z-index:3;margin-top:5%;background:#f6ecc9;border:2px solid #000;border-radius:5px;
     text-align:center;padding:3px 4px;font-family:'Arial Black',Arial,sans-serif;
     font-size:9px;letter-spacing:.06em;text-transform:uppercase;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tile-num{margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
-    font-size:8px;letter-spacing:.24em;text-indent:.24em;color:rgba(0,0,0,.55)}
+  .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
+    font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
+  @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
 </style>
 </head>
 <body>
@@ -151,6 +189,30 @@ function buildGallery() {
     <main>${sections}
     </main>
   </div>
+<script>
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('.tile').forEach(function(t){
+    t.addEventListener('pointermove', function(e){
+      var r = t.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      if (!reduce){
+        t.style.setProperty('--rx', ((px - 0.5) * 16).toFixed(2) + 'deg');
+        t.style.setProperty('--ry', ((0.5 - py) * 16).toFixed(2) + 'deg');
+      }
+      t.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
+      t.style.setProperty('--my', (py * 100).toFixed(1) + '%');
+      t.style.setProperty('--fx', (px * 100).toFixed(1) + '%');
+      t.style.setProperty('--fy', (py * 100).toFixed(1) + '%');
+      t.classList.add('lit');
+    });
+    t.addEventListener('pointerleave', function(){
+      t.classList.remove('lit');
+      t.style.removeProperty('--rx'); t.style.removeProperty('--ry');
+    });
+  });
+})();
+</script>
 </body>
 </html>
 `;

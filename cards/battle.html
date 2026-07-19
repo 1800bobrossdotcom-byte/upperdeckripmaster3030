@@ -86,22 +86,41 @@
   .side-label{ font-size:10px; letter-spacing:.26em; text-transform:uppercase; color:#9fb3c0; margin:12px 2px 6px; }
   .row{ display:grid; grid-template-columns:repeat(auto-fill,minmax(92px,1fr)); gap:8px; }
   .tile{ position:relative; border:2px solid var(--rc,#345); border-radius:9px; overflow:hidden;
-    background:#120a1e; cursor:pointer; aspect-ratio:4/5.4; transition:transform .12s, box-shadow .12s; }
+    background:#120a1e; cursor:pointer; aspect-ratio:4/5.4;
+    transform-style:preserve-3d; transition:transform .12s ease, box-shadow .12s ease, filter .3s, opacity .3s; }
+  .tile.deal{ animation:dealIn .5s cubic-bezier(.5,1.3,.4,1) both; animation-delay:var(--dd,0ms); }
+  @keyframes dealIn{ from{ opacity:0; transform:translateY(26px) rotateZ(-7deg) scale(.9); } }
   .tile img{ width:100%; height:64%; object-fit:cover; display:block; }
-  .tile.sel{ transform:translateY(-4px); box-shadow:0 0 0 2px var(--amber),0 0 18px var(--amber); }
+  .tile .sheen{ position:absolute; inset:0; pointer-events:none; opacity:0; mix-blend-mode:color-dodge;
+    transition:opacity .15s; z-index:2;
+    background:radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.55), transparent 45%),
+      repeating-linear-gradient(115deg,hsl(283 80% 60%) 0%,hsl(2 80% 60%) 14%,hsl(53 95% 60%) 28%,hsl(160 75% 55%) 42%,hsl(283 80% 60%) 56%);
+    background-size:auto,300% 300%; background-position:0 0,var(--fx,50%) var(--fy,50%); }
+  .tile.lit{ transform:rotateX(var(--ry,0deg)) rotateY(var(--rx,0deg)) translateZ(6px) scale(1.06); z-index:6; }
+  .tile.lit .sheen{ opacity:.42; }
+  .tile.sel{ transform:translateY(-6px) scale(1.05); box-shadow:0 0 0 2px var(--amber),0 0 22px var(--amber); z-index:4; }
   .tile.surge{ box-shadow:0 0 0 2px var(--hot),0 0 20px var(--hot); }
-  .tile .meta{ padding:3px 4px 4px; }
+  .tile.win{ box-shadow:0 0 0 2px var(--lime),0 0 26px var(--lime); animation:winPulse 1s ease-in-out infinite; }
+  @keyframes winPulse{ 50%{ box-shadow:0 0 0 3px var(--lime),0 0 38px var(--lime); } }
+  .tile.lose{ filter:grayscale(.7) brightness(.5); opacity:.55; }
+  .tile .meta{ padding:3px 4px 4px; position:relative; z-index:3; }
   .tile .nm{ font-family:var(--fat); font-size:9px; text-transform:uppercase; letter-spacing:.02em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tile .st{ display:flex; justify-content:space-between; font-size:9px; margin-top:2px; color:#bfe; }
   .tile .st .a{ color:var(--coral); } .tile .st .d{ color:var(--cyan); }
   .tile .tg{ font-size:7.5px; letter-spacing:.04em; color:#9aa; white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; text-transform:uppercase; }
-  .tile .rr{ position:absolute; top:3px; right:3px; font-size:7px; font-family:var(--fat);
+  .tile .rr{ position:absolute; top:3px; right:3px; z-index:3; font-size:7px; font-family:var(--fat);
     text-transform:uppercase; padding:1px 4px; border-radius:99px; background:rgba(0,0,0,.6); color:var(--rc); }
   .tile.surge .rr::after{ content:" ⚡"; }
-  .tile.back img,.tile.back .meta{ visibility:hidden; }
+  .tile.back img,.tile.back .meta,.tile.back .sheen{ visibility:hidden; }
   .tile.back{ background:repeating-linear-gradient(45deg,#1a0636 0 8px,#250a44 8px 16px); }
+  /* slam impact flash + shake */
+  .flash{ position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0; background:radial-gradient(circle at 50% 45%, rgba(255,255,255,.8), rgba(255,42,109,.2) 40%, transparent 70%); }
+  .flash.go{ animation:flashHit .5s ease-out; }
+  @keyframes flashHit{ 0%{ opacity:0; } 12%{ opacity:1; } 100%{ opacity:0; } }
+  .row.shake{ animation:shake .4s; }
+  @keyframes shake{ 0%,100%{ transform:translateX(0); } 20%{ transform:translateX(-6px); } 40%{ transform:translateX(6px); } 60%{ transform:translateX(-4px); } 80%{ transform:translateX(3px); } }
 
   .score{ display:flex; justify-content:space-around; align-items:center; margin-top:14px; text-align:center; }
   .score .n{ font-family:var(--fat); font-size:clamp(28px,10vw,46px); }
@@ -205,9 +224,12 @@
   function tile(card, opts={}){
     const surge = card.trigger === gas;
     const cls = ['tile', opts.back?'back':'', card._sel?'sel':'', (surge&&!opts.back)?'surge':''].join(' ');
-    return `<div class="${cls}" style="--rc:var(${RC[card.rarity]||'--common'})" data-slug="${card.slug}">
+    const deal = opts.deal ? ` deal` : '';
+    const dd = opts.deal ? `--dd:${(opts.i||0)*70}ms;` : '';
+    return `<div class="${cls}${deal}" style="${dd}--rc:var(${RC[card.rarity]||'--common'})" data-slug="${card.slug}">
       <span class="rr">${card.rarity}</span>
       <img src="${card.art}" alt="${card.title}" loading="lazy" onerror="this.style.opacity=0">
+      <span class="sheen"></span>
       <div class="meta">
         <div class="nm">${card.title}</div>
         <div class="st"><span class="a">ATK ${card.atk}</span><span class="d">DEF ${card.def}</span></div>
@@ -215,9 +237,9 @@
       </div></div>`;
   }
 
-  function renderHand(){
+  function renderHand(animate){
     hand.forEach(c => c._sel = selected.includes(c.slug));
-    $('handRow').innerHTML = hand.map(c => tile(c)).join('');
+    $('handRow').innerHTML = hand.map((c,i) => tile(c, animate ? {deal:true, i} : {})).join('');
     $('handRow').querySelectorAll('.tile').forEach(el => el.onclick = () => {
       if (busy) return;
       const s = el.dataset.slug, i = selected.indexOf(s);
@@ -229,7 +251,7 @@
   }
 
   function renderHouse(reveal){
-    $('houseRow').innerHTML = houseStack.map(c => tile(c, {back:!reveal})).join('');
+    $('houseRow').innerHTML = houseStack.map((c,i) => tile(c, {back:!reveal, deal:reveal, i})).join('');
     $('houseInfo').textContent = reveal ? `${houseStack.length} committed` : (houseStack.length?`${houseStack.length} face-down`:'waiting');
   }
 
@@ -258,7 +280,7 @@
     if (busy) return;
     selected = []; houseStack = [];
     hand = pick(DECK, 7);
-    renderHand(); renderHouse(false);
+    renderHand(true); renderHouse(false);
     $('verdict').className = 'verdict'; $('verdict').textContent = '';
     $('youScore').textContent = '0'; $('houseScore').textContent = '0';
     $('log').innerHTML = `Fresh hand of 7. Build a stack of <b class="b">${mode}</b> and slam.`;
@@ -276,6 +298,7 @@
     renderHouse(false);
     await wait(450);
     renderHouse(true);
+    hitFlash();
     await wait(350);
     const P = power(you), Q = power(houseStack);
     animateCount('youScore', P.total); animateCount('houseScore', Q.total);
@@ -285,13 +308,13 @@
     log += `You: ${P.breakdown.join(', ')}${P.combo?` · combo +${P.combo}`:''}${P.size?` · size +${P.size}`:''} = <b class="b">${P.total}</b>. `;
     log += `House = <b class="b">${Q.total}</b>. `;
     if (P.total > Q.total){
-      v.className = 'verdict win'; v.textContent = 'YOU COLLECT';
+      v.className = 'verdict win'; v.textContent = 'YOU COLLECT'; markTiles('you');
       collect(houseStack); log += `You slam the house flat and rake ${houseStack.length} card${houseStack.length>1?'s':''} into the vault.`;
     } else if (P.total < Q.total){
-      v.className = 'verdict lose'; v.textContent = 'THE HOUSE EATS';
+      v.className = 'verdict lose'; v.textContent = 'THE HOUSE EATS'; markTiles('house');
       log += `The house takes your stack. Buy another ticket.`;
     } else {
-      v.className = 'verdict tie'; v.textContent = 'PUSH · HOUSE KEEPS';
+      v.className = 'verdict tie'; v.textContent = 'PUSH · HOUSE KEEPS'; markTiles('house');
       log += `Dead even — and ties go to the house. Of course they do.`;
     }
     $('log').innerHTML = log;
@@ -319,6 +342,33 @@
     const el = $(id); let n = 0; const step = Math.max(1, Math.ceil(to/16));
     const iv = setInterval(() => { n += step; if (n>=to){ n=to; clearInterval(iv);} el.textContent = n; }, 28);
   }
+
+  // slam impact: white flash + shake both rows
+  const flashEl = document.createElement('div'); flashEl.className = 'flash'; document.body.appendChild(flashEl);
+  function hitFlash(){
+    flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go');
+    ['handRow','houseRow'].forEach(id => { const r = $(id); r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake'); });
+  }
+  function markTiles(winner){
+    $('handRow').querySelectorAll('.tile').forEach(t => { if (selected.includes(t.dataset.slug)) t.classList.add(winner === 'you' ? 'win' : 'lose'); });
+    $('houseRow').querySelectorAll('.tile').forEach(t => t.classList.add(winner === 'house' ? 'win' : 'lose'));
+  }
+  // cursor-follow holographic tilt on the hand + house rows (delegated, survives re-render)
+  ['handRow','houseRow'].forEach(id => {
+    const row = $(id);
+    row.addEventListener('pointermove', e => {
+      const t = e.target.closest('.tile'); if (!t || t.classList.contains('back')) return;
+      const r = t.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      t.style.setProperty('--rx', ((px - .5) * 14).toFixed(2) + 'deg');
+      t.style.setProperty('--ry', ((.5 - py) * 14).toFixed(2) + 'deg');
+      t.style.setProperty('--mx', (px*100).toFixed(1)+'%'); t.style.setProperty('--my', (py*100).toFixed(1)+'%');
+      t.style.setProperty('--fx', (px*100).toFixed(1)+'%'); t.style.setProperty('--fy', (py*100).toFixed(1)+'%');
+      row.querySelectorAll('.tile.lit').forEach(o => { if (o !== t) o.classList.remove('lit'); });
+      t.classList.add('lit');
+    });
+    row.addEventListener('pointerleave', () => row.querySelectorAll('.tile.lit').forEach(o => o.classList.remove('lit')));
+  });
 
   $('dealBtn').onclick = deal;
   $('slamBtn').onclick = slam;
