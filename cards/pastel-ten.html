@@ -29,24 +29,36 @@
     font-family:'Arial Black','Arial Bold',Arial,sans-serif;
     -webkit-tap-highlight-color:transparent;
   }
-  .scene{ perspective:1300px; touch-action:none; }
+  .scene{ perspective:920px; touch-action:none; }
   .card{
     position:relative; width:min(90vw, 66vh, 460px); aspect-ratio:896/1344;
     transform-style:preserve-3d; cursor:pointer;
-    transform: rotateY(calc(var(--px)*11deg + var(--flip,0deg))) rotateX(calc(var(--py)*-11deg));
+    /* deeper tilt for real 3D; the shadow (below) sells the lift off the page */
+    transform: rotateY(calc(var(--px)*16deg + var(--flip,0deg))) rotateX(calc(var(--py)*-16deg));
     transition: transform .12s linear;
+    /* tilt-driven cast shadow — the card feels like a raised slab, not a sticker */
+    box-shadow:
+      calc(var(--px)*-26px) calc(28px - var(--py)*20px) 40px -10px rgba(0,0,0,.7),
+      calc(var(--px)*-10px) calc(12px - var(--py)*8px)  18px -8px  rgba(0,0,0,.5);
+    border-radius:22px;
   }
   .card.flipped{ --flip:180deg; transition: transform .6s cubic-bezier(.5,1.4,.4,1); }
   .face{
     position:absolute; inset:0; border-radius:22px; overflow:hidden;
     -webkit-backface-visibility:hidden; backface-visibility:hidden;
     box-shadow:
-      0 2px 3px rgba(255,255,255,.6) inset, 0 -10px 26px rgba(0,0,0,.28) inset,
-      0 30px 55px -14px rgba(0,0,0,.7), 0 10px 26px -6px rgba(0,0,0,.5);
+      0 2px 3px rgba(255,255,255,.5) inset, 0 -10px 26px rgba(0,0,0,.3) inset;
   }
   /* ─── FRONT: art + foil ─── */
   .front{ background:#000; }
-  .front > img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+  /* art sits slightly oversized and parallaxes UNDER the fixed frame — depth map:
+     the picture plane recesses behind the glossy coating as you tilt */
+  .front > img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;
+    transform: scale(1.1) translate(calc(var(--px)*-7px), calc(var(--py)*7px)); }
+  /* recessed inner bevel — reads as a physical rim above the picture */
+  .depth{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:2;
+    box-shadow: inset 0 0 26px rgba(0,0,0,.5),
+      inset calc(var(--px)*14px) calc(var(--py)*-14px) 30px rgba(0,0,0,.4); }
   .foil,.glare,.glitter,.inflate,.crackle,.sweep{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
   .foil{
     z-index:3;
@@ -54,16 +66,17 @@
       hsl(283 75% 62%) 0%, hsl(2 78% 60%) 7%, hsl(53 95% 62%) 14%,
       hsl(93 75% 56%) 21%, hsl(176 75% 56%) 28%, hsl(228 75% 62%) 35%, hsl(283 75% 62%) 42%);
     background-size:260% 260%; background-position: calc(50% + var(--px)*70%) calc(50% + var(--py)*70%);
-    mix-blend-mode:color-dodge; opacity: calc(.2 + var(--heat)*.3);
-    filter: brightness(.8) contrast(1.9) saturate(calc(.75 + var(--heat)*1.3)) hue-rotate(calc(var(--heat)*55deg));
+    mix-blend-mode:color-dodge; opacity: calc(.1 + var(--heat)*.18);
+    filter: brightness(.85) contrast(1.35) saturate(calc(.55 + var(--heat)*.7)) hue-rotate(calc(var(--heat)*45deg));
   }
-  .inflate{ z-index:4; mix-blend-mode:screen; opacity:.7;
-    background: radial-gradient(60% 45% at calc(50% + var(--px)*40%) calc(30% + var(--py)*30%),
-      rgba(255,255,255,.5), rgba(255,255,255,.12) 45%, transparent 70%); }
-  .glare{ z-index:5; mix-blend-mode:overlay; opacity:.85;
-    background: radial-gradient(farthest-corner circle at calc(50% + var(--px)*55%) calc(50% + var(--py)*55%),
-      rgba(255,255,255,.5) 3%, rgba(255,255,255,.06) 20%, rgba(0,0,0,.42) 130%); }
-  .glitter{ z-index:6; mix-blend-mode:color-dodge; opacity: calc(.18 + .4*var(--heat));
+  /* soft moving key-light — the coating catches the light as a broad sheen */
+  .inflate{ z-index:4; mix-blend-mode:screen; opacity:.42;
+    background: radial-gradient(65% 50% at calc(50% + var(--px)*42%) calc(32% + var(--py)*34%),
+      rgba(255,255,255,.4), rgba(255,255,255,.08) 48%, transparent 72%); }
+  .glare{ z-index:5; mix-blend-mode:soft-light; opacity:.6;
+    background: radial-gradient(farthest-corner circle at calc(50% + var(--px)*58%) calc(50% + var(--py)*58%),
+      rgba(255,255,255,.42) 4%, rgba(255,255,255,.04) 22%, rgba(0,0,0,.34) 130%); }
+  .glitter{ z-index:6; mix-blend-mode:color-dodge; opacity: calc(.08 + .18*var(--heat));
     background-image:
       radial-gradient(circle at 20% 30%, rgba(255,255,255,.9) 0 .6px, transparent 1.4px),
       radial-gradient(circle at 70% 60%, rgba(255,240,200,.9) 0 .5px, transparent 1.3px),
@@ -81,20 +94,20 @@
   .card.t-prizm .sweep{ display:block; animation:shine 4.8s ease-in-out infinite; }
   @keyframes shine{ 0%,100%{ background-position:130% 0 } 50%{ background-position:-30% 0 } }
   /* ─── per-card holographic treatment, gated by rarity ─── */
-  .card.t-common .foil{ opacity:.05; filter:none; }
-  .card.t-common .glitter, .card.t-common .inflate{ display:none; }
-  .card.t-common .glare{ opacity:.35; }
-  .card.t-uncommon .foil{ opacity:calc(.08 + var(--heat)*.16); }
-  .card.t-uncommon .glitter{ opacity:.07; }
-  .card.t-rare .glitter{ opacity:calc(.16 + .32*var(--heat)); }
-  .card.t-mythic .foil{ opacity:calc(.26 + var(--heat)*.36); }
-  .card.t-mythic .glitter{ opacity:calc(.24 + .45*var(--heat)); }
-  .card.t-mythic .crackle{ display:block; opacity:.5; }
-  .card.t-mythic .glare{ opacity:.95; }
-  .card.t-prizm .foil{ opacity:calc(.32 + var(--heat)*.42);
-    filter:brightness(.85) contrast(2) saturate(1.7) hue-rotate(calc(var(--heat)*70deg)); }
-  .card.t-prizm .glitter{ opacity:calc(.32 + .5*var(--heat)); }
-  .card.t-prizm .crackle{ display:block; opacity:.72; }
+  .card.t-common .foil{ opacity:.03; filter:none; }
+  .card.t-common .glitter{ display:none; }
+  .card.t-common .glare{ opacity:.28; }
+  .card.t-uncommon .foil{ opacity:calc(.05 + var(--heat)*.1); }
+  .card.t-uncommon .glitter{ opacity:.04; }
+  .card.t-rare .glitter{ opacity:calc(.08 + .18*var(--heat)); }
+  .card.t-mythic .foil{ opacity:calc(.14 + var(--heat)*.22); }
+  .card.t-mythic .glitter{ opacity:calc(.12 + .24*var(--heat)); }
+  .card.t-mythic .crackle{ display:block; opacity:.32; }
+  .card.t-mythic .glare{ opacity:.7; }
+  .card.t-prizm .foil{ opacity:calc(.18 + var(--heat)*.28);
+    filter:brightness(.9) contrast(1.5) saturate(1.1) hue-rotate(calc(var(--heat)*55deg)); }
+  .card.t-prizm .glitter{ opacity:calc(.18 + .3*var(--heat)); }
+  .card.t-prizm .crackle{ display:block; opacity:.5; }
   .card.t-prizm .front{ box-shadow:0 0 0 2px rgba(255,255,255,.25) inset, 0 0 22px rgba(120,220,255,.5); }
   /* hint chip sits UNDER the card, never over the art */
   .flip-hint{
@@ -145,7 +158,7 @@
     <div class="card t-common" id="card">
       <div class="face front">
         <img src="art/pastel-ten.webp" alt="Pastel Ten">
-        <div class="foil"></div><div class="inflate"></div><div class="crackle"></div><div class="glare"></div><div class="glitter"></div><div class="sweep"></div>
+        <div class="depth"></div><div class="foil"></div><div class="inflate"></div><div class="crackle"></div><div class="glare"></div><div class="glitter"></div><div class="sweep"></div>
       </div>
       <div class="face back">
         <div class="plate">
