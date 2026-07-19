@@ -26,7 +26,12 @@ One vault contract holds the whole deck. Token id = `season × 200 + №`
 (S1 №01 = 201, S2 №18 = 418 — keeps seasons apart and clears id 1000 for the
 marquee); many copies of a common can exist, and packs mint more. Each id
 carries `(season, tier)` where tier ∈ {common, uncommon, rare, mythic, prizm} —
-the same five tiers the gallery sorts by and the foil engine renders.
+the same five tiers the gallery sorts by and the foil engine renders. The
+**initial** tier is not hand-assigned: it is *derived from the art's traits* —
+measured pixel traits (foil sparkle, gold leaf, colorfulness, palette breadth,
+full-bleed vs framed) plus a vision-read archetype/subject scarcity — ranked and
+bucketed into a fixed pyramid (`scripts/extract-traits.mjs` → `derive-rarity.mjs`;
+74/60/40/17/5). After mint the rarity court (§2.5) can still move any card.
 `scripts/export-vault-registration.mjs` prints the id/tier batches straight from
 `cards/manifest.json`.
 
