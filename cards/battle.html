@@ -388,19 +388,26 @@
     busy = false; $('dealBtn').disabled = false; updateSlam();
   }
 
-  // vault (localStorage)
+  // vault (localStorage). Entries store only the slug — art and title resolve
+  // against the live manifest at render time, and anything the deck no longer
+  // knows (renamed or voted off) is pruned instead of showing a broken thumb.
   function vault(){ try { return JSON.parse(localStorage.getItem('urm_vault')||'[]'); } catch { return []; } }
+  function saveVault(v){ try { localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200))); } catch {} }
   function collect(cards){
     const v = vault();
-    cards.forEach(c => v.push({slug:c.slug, art:c.art, title:c.title}));
-    try { localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200))); } catch {}
-    renderVault();
+    cards.forEach(c => v.push({slug:c.slug}));
+    saveVault(v); renderVault();
   }
   function renderVault(){
+    const bySlug = new Map(DECK.map(c => [c.slug, c]));
     const v = vault();
-    $('vaultCnt').textContent = v.length;
-    $('vaultMini').innerHTML = v.slice(-8).reverse().map(c =>
-      `<img src="${c.art}" alt="${c.title}" title="${c.title}" loading="lazy">`).join('');
+    const clean = v.filter(e => e && bySlug.has(e.slug));
+    if (clean.length !== v.length) saveVault(clean);
+    $('vaultCnt').textContent = clean.length;
+    $('vaultMini').innerHTML = clean.slice(-8).reverse().map(e => {
+      const c = bySlug.get(e.slug);
+      return `<img src="${c.art}" alt="" title="${c.title}" loading="lazy" onerror="this.remove()">`;
+    }).join('');
   }
   $('clearVault').onclick = () => { try{ localStorage.removeItem('urm_vault'); }catch{}; renderVault(); };
 
