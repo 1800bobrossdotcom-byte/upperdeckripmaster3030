@@ -1,151 +1,137 @@
-# Testnet wiring — Sepolia
+# Sepolia dress rehearsal — a first-timer's walkthrough
 
-Get the token, the ballot, and the renderer live on Sepolia before mainnet.
-Everything here uses the Rare CLI (verified July 2026) and needs a **funded
-Sepolia wallet** — the deploy itself is the one step I can't run for you (it
-signs with your private key), but every command is ready to paste.
+**Goal:** deploy the `$UR3030` Liquid Edition to **Sepolia** (Ethereum's free practice
+network) and do a full mock run — buy some tokens, burn them (a "rip"), watch the
+render change — *before* we ever touch real money on mainnet.
 
-> Golden rule (from the CLI guide): deploy the Liquid Edition from the **wallet
-> connected to your SuperRare artist profile**, or the drop won't surface on it.
+**This is safe.** Sepolia coins are worthless test tokens you get for free from a
+faucet. You cannot lose real money here. The only hard rule is the same one as
+everywhere in crypto: **never paste your seed phrase or private key into a website,
+a chat, or anyone's DM — including mine.** I never need it and never ask for it.
 
-## 0. Prerequisites
+We ship a **pure Liquid Edition**: one ERC-20 token + a render contract. There is no
+ballot contract, no vault contract, nothing else to deploy. That keeps this short.
 
-- Node.js 22+
-- A Sepolia wallet with test ETH ([sepoliafaucet.com](https://sepoliafaucet.com) or Alchemy's faucet)
-- Some Sepolia RARE to seed the pool (ask @im_jonooo / the cohort where to get it)
-- An Alchemy or Infura Sepolia RPC URL (public RPCs are rate-limited)
-- Foundry (`curl -L https://foundry.paradigm.xyz | bash && foundryup`) for the ballot contract
+---
 
-## 1. Install + configure the Rare CLI
+## Who does what
 
+| Step | You | Me |
+|---|---|---|
+| Make a throwaway "deployer" wallet | ✅ (2 min) | — |
+| Get free Sepolia test-ETH | ✅ (2 min) | — |
+| Get a free Alchemy RPC key | ✅ (5 min) | — |
+| Install Node 22 + the Rare CLI | ✅ (I give exact commands) | — |
+| Run the deploy command | ✅ (you sign; it's your key) | I write the exact command |
+| Paste the printed contract address back to me | ✅ (copy/paste) | — |
+| Wire the address into the site + build the render + rip flow | — | ✅ |
+
+The single thing only you can do is the deploy itself — it's signed by your wallet's
+private key, which lives only on your machine. Everything around it, I do.
+
+---
+
+## Your shopping list (get these 4 things first)
+
+### 1. A throwaway wallet ("deployer")
+Install the **MetaMask** browser extension (metamask.io). Create a **brand-new
+account** just for this test — don't use a wallet that holds anything real.
+- In MetaMask, switch the network dropdown to **Sepolia** (turn on "Show test
+  networks" in Settings → Advanced if you don't see it).
+- Copy your new address (starts with `0x…`). That's your **deployer address** —
+  safe to share with me.
+- Your **Secret Recovery Phrase / private key stays with you.** Write it down
+  offline. Never type it anywhere online.
+
+### 2. Free Sepolia test-ETH (to pay gas)
+Every action costs a tiny "gas" fee, paid in test-ETH. Get some free:
+- **Google Cloud faucet:** https://cloud.google.com/application/web3/faucet/ethereum/sepolia
+- or **Alchemy faucet:** https://sepoliafaucet.com (needs a free Alchemy login)
+Paste your deployer address, request ~0.5 Sepolia ETH. It arrives in a minute.
+
+### 3. A free RPC key (your private door to the network)
+An "RPC" is just the URL your tools use to talk to Ethereum. Public ones are
+slow/flaky, so grab a free dedicated one:
+- Sign up at **alchemy.com** (free), create an app, choose **Ethereum → Sepolia**.
+- Copy the **HTTPS URL** it gives you — looks like
+  `https://eth-sepolia.g.alchemy.com/v2/XXXXXXXX`.
+This URL is *slightly* sensitive (it's your quota). Paste it into your terminal;
+sharing it with me here for setup is fine.
+
+### 4. Node.js 22+
+The CLI needs Node 22 or newer. Check with `node -v`. If it's older or missing,
+install from nodejs.org (LTS) or via `nvm install 22`.
+
+> **Sepolia RARE?** Seeding the pool with reserve RARE is optional for a first
+> smoke test; the cohort can point you to test RARE if we want a funded curve. We
+> can skip it for the very first deploy and add it on a second pass.
+
+---
+
+## The flow (once you have the 4 things)
+
+### Step 1 — install + configure the CLI
 ```bash
 npm install -g @rareprotocol/rare-cli
-rare --help
-rare liquid-edition --help          # confirm subcommands (docs lag npm; latest is v2.0.0)
+rare --help                                   # confirms it installed
+rare liquid-edition --help                    # confirms the deploy subcommand
 
-# store your deployer key (1Password reference recommended; plaintext shown for testnet)
-rare configure --chain sepolia --private-key 0xYOUR_SEPOLIA_KEY
+# point it at Sepolia, your key, your RPC (run these in YOUR terminal only)
+rare configure --chain sepolia --private-key 0xYOUR_DEPLOYER_KEY
 rare configure --chain sepolia --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-rare configure --show
+rare configure --show                         # keys show masked — good
 ```
+*Storing the key in 1Password instead of plaintext is nicer (`--private-key-ref
+op://…`), but plaintext is fine for a throwaway testnet wallet.*
 
-## 2. Deploy the Liquid Edition token
-
+### Step 2 — preview the token, then deploy it
+**Always `--preview` first** — it shows the bonding curve without spending anything.
 ```bash
-# preview the bonding curve first — never deploy blind
 rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
   --curve-preset medium-demand \
-  --description "A liquid trading card game of psychedelic hyperfoil cartoon spirits." \
-  --image ./cards/art/the-card-01.png \
+  --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
+  --image ./marquee-header.webp \
   --preview
-
-# when the curve looks right, deploy for real
-rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
-  --curve-preset medium-demand \
-  --description "A liquid trading card game of psychedelic hyperfoil cartoon spirits." \
-  --image ./cards/art/the-card-01.png \
-  --yes
 ```
+When the curve looks right, run the **same line with `--yes`** instead of `--preview`.
+Your key signs it, and after a minute the CLI prints a **contract address** (`0x…`).
 
-Note the printed **contract address** → paste into `js/chain-config.js`
-(`contracts.liquidEdition`).
+**→ Copy that address and send it to me.** That's the whole handoff.
 
-## 3. Deploy the SeasonBallot (burn-to-vote)
+### Step 3 — I take it from there
+With the address I will:
+1. paste it into `js/chain-config.js` so the live site starts reading real Sepolia
+   state (block, price, supply, burn progress);
+2. build + deploy the **render contract** — the `tokenURI()` that turns live market
+   state into the card art, from SuperRare's
+   [starter-kit examples](https://github.com/superrare/liquid-editions-starter-kit/tree/main/src/examples) —
+   and wire it with `rare liquid-edition set-render-contract`;
+3. wire the site's **"rip a pack"** button to the real thing — connect wallet on
+   Sepolia → **buy ~350 `$UR3030` on the curve → `burn()` it** — so a rip becomes a
+   real on-chain buy+burn instead of the current local demo;
+4. we then run the full mock season together: rips, watch the burn-progress
+   milestones retire cards, check the holding-threshold states.
 
-```bash
-# one-time Foundry setup
-forge init --force --no-git .
-forge install OpenZeppelin/openzeppelin-contracts
+---
 
-# deploy the ballot, pointing at the token from step 2
-forge create contracts/SeasonBallot.sol:SeasonBallot \
-  --rpc-url $SEPOLIA_RPC \
-  --private-key $DEPLOYER_KEY \
-  --constructor-args <LIQUID_EDITION_ADDRESS>
-```
+## Notes & gotchas
+- **Docs vs npm:** the CLI moves fast; if a flag differs, `rare liquid-edition
+  deploy --help` is the source of truth. Paste me what it prints and I'll adjust.
+- **Golden rule (for mainnet later, not now):** the *real* S1 drop must be deployed
+  from the wallet linked to your SuperRare artist profile, or it won't surface on
+  SuperRare.com. For Sepolia practice, the throwaway wallet is correct and safer.
+- **If a command errors,** copy the whole message to me — testnet errors are
+  usually "out of gas" (get more from the faucet) or "wrong network" (re-run
+  `rare configure --show`).
+- **Optional power move:** `rare mcp serve` exposes the protocol over MCP. If you
+  run it, you can connect me to it directly and I can run the status checks /
+  reads with you instead of copy-pasting outputs back and forth.
+- **When we go to mainnet,** we repeat this with real ETH/RARE and your
+  SuperRare-linked wallet, and flip `js/chain-config.js` `network` to `"mainnet"`.
 
-Paste the ballot address into `js/chain-config.js` (`contracts.seasonBallot`).
-Then open the first season (card IDs are the deck numbers, e.g. 1..16; close
-block ≈ now + ~2 weeks of Sepolia blocks):
-
-```bash
-cast send <BALLOT_ADDRESS> \
-  "openSeason(uint32,uint32[],uint64)" 1 "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]" <CLOSE_BLOCK> \
-  --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
-```
-
-## 4. Deploy + wire the render contract
-
-The Living Pack's artwork comes from a render contract that reads
-`SeasonBallot.tally(...)` and `burnProgress()`. Start from the starter kit's
-`LiquidLensHTMLExample.sol` (it returns HTML metadata — same foil engine as our
-cards):
-
-```bash
-# clone the starter kit for the interfaces + example renderers
-git clone https://github.com/superrare/liquid-editions-starter-kit
-# build your renderer against ILiquid + SeasonBallot, deploy it, then:
-rare liquid-edition set-render-contract \
-  --contract <LIQUID_EDITION_ADDRESS> \
-  --render-contract <RENDER_ADDRESS> \
-  --chain sepolia
-```
-
-Paste the render address into `js/chain-config.js` (`contracts.renderContract`).
-
-## 5. Deploy the CardVault (cards on-chain, every transaction burns)
-
-The game economy — send / trade / pog-wager escrow / rip-a-pack, plus the
-marquee 1/1's lock — lives in `contracts/CardVault.sol`. Full design, tolls,
-and rehearsal checklist: **docs/CARD-ECONOMY-SPEC.md**.
-
-```bash
-forge create contracts/CardVault.sol:CardVault \
-  --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY \
-  --constructor-args <LIQUID_EDITION_ADDRESS> "https://upperdeckripmaster3030.com/api/card/{id}"
-
-# register the deck (prints cast-ready id/tier batches from the manifest)
-node scripts/export-vault-registration.mjs
-cast send <VAULT_ADDRESS> "registerCards(uint256[],uint32,uint8[])" <IDS> <SEASON> <TIERS> \
-  --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
-cast send <VAULT_ADDRESS> "setSeason(uint32)" 2 --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
-```
-
-Paste the vault address into `js/chain-config.js` (`contracts.cardVault`).
-
-## 6. Point the site at Sepolia
-
-`js/chain-config.js` already targets Sepolia. Include it before the card scripts
-if you want the card backs' "trigger status" to read Sepolia gas instead of
-mainnet — add to any page's `<head>`:
-
-```html
-<script src="/js/chain-config.js"></script>
-```
-
-(The card pages read `window.RIPMASTER_CHAIN` if present and fall back to mainnet
-gas otherwise, so this is optional until the contracts are live.)
-
-## 7. Dress rehearsal, then mainnet
-
-Run a full fake season on Sepolia (open ballot → burn-vote from a couple of
-wallets → lock at the close block → read `winners()` → mint the lens pack) before
-touching mainnet. Checklist lives in `docs/MECHANICS.md §9`.
-
-Bonus: `rare mcp serve` exposes the protocol over MCP — you can connect me
-directly to run these deploys and status checks during development instead of
-copy-pasting.
+---
 
 ## Status
-
-- [x] `SeasonBallot.sol` written (burn-to-vote, winners, burn progress)
-- [x] `CardVault.sol` written (send/trade/wager/rip, all tolls burned, marquee 1/1 rules)
-- [x] `docs/CARD-ECONOMY-SPEC.md` — economy design + rehearsal checklist
-- [x] `scripts/export-vault-registration.mjs` — manifest → registerCards batches
-- [x] `js/chain-config.js` scaffolded (Sepolia + starter-kit factory/RARE addresses + vault slot)
-- [ ] Fund a Sepolia wallet + get Sepolia RARE
-- [ ] `rare liquid-edition deploy multicurve … --preview` then `--yes`
-- [ ] Deploy SeasonBallot, open season 1
-- [ ] Deploy CardVault + registerCards + setSeason
-- [ ] Deploy + `set-render-contract`
-- [ ] Full fake-season + card-economy rehearsal (spec §8)
+- `js/chain-config.js` is pre-filled with the Sepolia Liquid Factory + RARE
+  addresses and `network: "sepolia"`; the `liquidEdition` / `renderContract`
+  address slots are zero until you deploy (Step 2) and hand me the address.

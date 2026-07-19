@@ -13,11 +13,12 @@ window.RIPMASTER_CHAIN = {
     "https://ethereum-sepolia-rpc.publicnode.com",
     "https://rpc.sepolia.org",
   ],
+  // Pure Liquid Edition: just the ERC-20 token + its render contract. No ballot/vault
+  // contracts (see docs/LAUNCH-ARCHITECTURE.md). Fill these after the Sepolia deploy
+  // (docs/TESTNET.md) and commit — the site starts reading real testnet state.
   contracts: {
     liquidEdition: "0x0000000000000000000000000000000000000000", // rare liquid-edition deploy → address
-    seasonBallot:  "0x0000000000000000000000000000000000000000", // SeasonBallot deploy → address
     renderContract:"0x0000000000000000000000000000000000000000", // set-render-contract → address
-    cardVault:     "0x0000000000000000000000000000000000000000", // CardVault deploy → address (CARD-ECONOMY-SPEC.md)
   },
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
   protocol: {
