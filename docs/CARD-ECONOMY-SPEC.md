@@ -4,9 +4,9 @@ The site now plays the whole game client-side (arena, pack rips, the vault in
 localStorage). This spec moves ownership on-chain on **Sepolia**, around one
 house rule that splits every action by what it *does*:
 
-> **Constructive acts pay the creator; everything else burns.** Making and
-> championing art — forging a new card, upvoting one in the rarity court, HODL —
-> transfers the toll to the **creator** wallet as a transparent royalty.
+> **Constructive acts pay the creator; everything else burns.** Championing art —
+> upvoting a card in the rarity court, HODL — transfers the toll to the **creator**
+> wallet as a transparent royalty.
 > Everything else — sending, trading, wagering, ripping, **down**voting, and
 > destroying an edition — **burns** the liquid token. There is still no treasury
 > catching fees; burns are destroyed, the creator cut is a plain transfer, and
@@ -40,8 +40,8 @@ only through the vault's named actions, so no path can skip the toll.
 
 ## 2. The actions, and where the toll goes
 
-Defaults (curator-tunable via `setTolls` / `setForgeToll` / `setDestroyToll`).
-**→ 🔥** = burned, **→ 🎨** = paid to the creator wallet.
+Defaults (curator-tunable via `setTolls` / `setDestroyToll` / `setReward`).
+**→ 🔥** = burned, **→ 🎨** = paid to the creator wallet, **→ 🏦** = house reward pool.
 
 | Action | What happens | Toll |
 |---|---|---|
@@ -50,12 +50,12 @@ Defaults (curator-tunable via `setTolls` / `setForgeToll` / `setDestroyToll`).
 | `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side → 🔥 |
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
-| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 → 🔥 |
-| `forge(inputs[2..3])` | trade 2–3 owned cards to the house, mint a new collaged card (lineage in `forgeInputs`) | 15 $UR3030 → 🎨 |
+| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 → 🔥 (1 → 🏦) |
 | `voteRarity(id, true, amt)` | **up**vote / promote a card (at prizm → HODL) | `amt` → 🎨 |
 | `voteRarity(id, false, amt)` | **down**vote / demote (clears HODL buffer first) | `amt` → 🔥 |
 | `voteHodl(id, amt)` | ⛨ anchor a card in place | `amt` → 🎨 |
-| `destroyEdition(id)` | own every copy, burn them all, retire the id forever | cards + 50 $UR3030 → 🔥 |
+| `destroyEdition(id)` | own every copy, burn them all, retire forever; mints the keeper an Ash Trophy + pays them from 🏦 | cards + 50 $UR3030 → 🔥 |
+| `fundReward(amt)` | top up the house bounty | `amt` → 🏦 |
 | marquee transfer | see §3 | 25 $UR3030 → 🔥 |
 
 The **creator** wallet (set in the constructor, retargetable via `setCreator`)
@@ -130,12 +130,11 @@ The same page is the **market bench**. It is an order book, not a treasury:
   real fill **settles on-chain** through the primitives that already exist —
   `trade(b, idA, idB)` for a swap, `sendCard(to, id)` for a paid hand-off —
   each of which burns. No new escrow contract is required for v1.
-- **House market** — cards the vault holds (forge inputs traded in via §2.5's
-  sibling `forge()`, plus a curated shelf) are offered back. **Buy** burns the
-  ask and mints/transfers the card to you; **Trade for it** swaps one of your
-  cards for it and burns `tradeToll` per side. This is the house re-issuing the
-  cards it absorbed — a sink on the way in (forge toll) and a sink on the way
-  out (buy/trade burn).
+- **House market** — cards the vault holds (culled into the house, plus a
+  curated shelf) are offered back. **Buy** burns the ask and mints/transfers the
+  card to you; **Trade for it** swaps one of your cards for it and burns
+  `tradeToll` per side. This is the house re-issuing the cards it absorbed — a
+  sink on the way out (buy/trade burn).
 - A device-local **🔥 burned** meter tallies every settle for flavor; the real
   accounting is `totalSupply` on-chain.
 
@@ -144,22 +143,44 @@ pair on the vault so listings hold the card in the contract and settle
 trustlessly — still all burns, still no treasury. v1 ships on the existing
 send/trade rails.
 
-## 2.7 Corner the edition — own it all, end it forever
+## 2.7 The burn-down — a season culled to the standard 77
 
-The endgame of the market. The vault tracks live per-id supply (`supplyOf`,
-maintained in `_update` on every mint/burn). If a wallet holds **every
-circulating copy** of a card, it may call `destroyEdition(id)`:
+A season **opens with the whole field in play** — every registered card — and
+the community **burns it down**. Two forces do the culling:
+
+1. **Downvotes** (§2.5) drag cards down the tiers and, on quorum, retire them off
+   the island.
+2. **Cornering + destruction** takes editions all the way to ash.
+
+The season resolves toward a **standard UR3030 deck of 77 survivors**
+(`STANDARD_DECK = 77`). The highest-ranked non-survivors seed the *next* season's
+opening field, so nothing is wasted — the cull is a rolling tournament, not a
+delete.
+
+**Corner the edition.** The vault tracks live per-id supply (`supplyOf`,
+maintained in `_update`). If a wallet holds **every circulating copy** of a card
+it may `destroyEdition(id)`:
 
 - guard: `balanceOf(caller, id) == supplyOf[id]` and `supplyOf[id] > 0`;
-- it **burns every copy** and burns a `destroyToll` (default 50 $UR3030) on top,
-  then marks the id `!exists` + `retired` — gone from packs, arena, and the
-  court, permanently. `EditionDestroyed(id, by, copies, burned)` is the epitaph.
+- **burns every copy** + a `destroyToll` (default 50), marks the id
+  `!exists` + `retired` — gone from packs, arena, and the court, permanently.
 
-Buying a card out completely is expensive (you're cornering the whole float on
-the market, §2.6), and destroying it is maximally deflationary — you burn the
-cards *and* a toll. It's a real power: a collector can will an edition out of
-existence, making the survivors scarcer. The **1/1 marquee is indestructible**
-(reverts `MarqueeNotPlayable`).
+**The last keeper is rewarded.** Whoever ends an edition (holds its final card
+when it burns) gets two things:
+
+- an **Ash Trophy card** — a minted, soulbound "last of its kind" collectible
+  (`isAshTrophy`, id space 9000+) that commemorates the retired edition
+  (`trophyEdition[trophyId]`); and
+- a **$UR3030 payout from the house** — `min(rewardPool, lastStandingReward)`,
+  transferred out of the vault's **house reward pool**.
+
+The reward pool is a **player bounty, not an operator treasury**: a slice of
+every pack rip (`rewardCut`, default 1 of the 10) seeds it, and anyone can top it
+up with `fundReward`. Ripping packs *adds* cards to the field; that inflow funds
+the bounty for whoever later *culls* one back down — a closed loop that pays the
+community to reach the 77-card deck. `AshTrophy(editionId, keeper, trophyId,
+reward)` + `EditionDestroyed(...)` are the epitaph. The **1/1 marquee is
+indestructible**.
 
 ## 3. The marquee (Lovebeing, id 1000)
 

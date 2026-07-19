@@ -150,7 +150,6 @@
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
     <a class="back" href="battle.html" style="margin-left:14px">⚔ the arena</a>
-    <a class="back" href="forge.html" style="margin-left:14px">⚒ the forge</a>
     <h1>The Binder</h1>
     <div class="sub">collect · turn the page · deal the market</div>
     <div class="burned" id="burned"></div>
@@ -363,7 +362,7 @@
   function seedHouse(){
     let m=load('urm_market'); if(m.some(l=>l.by==='house')) return m;
     const bs=bySlug();
-    // house cards traded in via forge + a curated shelf so the board is never bare
+    // cards culled to the house + a curated shelf so the board is never bare
     const houseSlugs = load('urm_house').filter(s=>bs.has(s));
     const shelf = [];
     for(let i=6;i<DECK.length && shelf.length<8;i+=Math.max(1,Math.floor(DECK.length/8))) shelf.push(DECK[i].slug);
@@ -377,7 +376,7 @@
     const house=m.filter(l=>l.by==='house'), mine=m.filter(l=>l.by==='you');
     $('houseN').textContent = house.length+' offered';
     $('mineN').textContent = mine.length+' posted';
-    $('houseBoard').innerHTML = house.length ? house.map(listingHTML).join('') : '<div class="board-empty">the house shelf is empty — forge cards in and they land here</div>';
+    $('houseBoard').innerHTML = house.length ? house.map(listingHTML).join('') : '<div class="board-empty">the house shelf is empty right now</div>';
     $('mineBoard').innerHTML = mine.length ? mine.map(listingHTML).join('') : '<div class="board-empty">nothing listed — open a card in your binder to sell or trade it</div>';
     $('houseBoard').querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyHouse(b.dataset.buy));
     $('houseBoard').querySelectorAll('[data-offer]').forEach(b=>b.onclick=()=>offerTrade(b.dataset.offer));

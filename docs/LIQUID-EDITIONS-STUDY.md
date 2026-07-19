@@ -42,14 +42,14 @@ Three honest, separable forces — no promises, this is a volatile crypto asset:
    (CardVault enforces it, no treasury either way): **destructive/circulatory**
    moves — pack rips, wagers, sends, trades, **down**votes, and cornering-then-
    destroying an edition — *burn* $UR3030, permanently shrinking supply.
-   **Constructive** moves — forging a new card, **up**voting, and HODL — pay the
-   **creator** wallet as a transparent royalty. Against a curve, the burns mean a
+   **Constructive** moves — **up**voting and HODL — pay the **creator** wallet as
+   a transparent royalty. Against a curve, the burns mean a
    shrinking float clears the same demand at a higher price; the creator stream
    aligns the artist with the deck's activity without ever pooling a treasury.
    Either way, wanting to *do* things drives token demand.
 
 3. **Utility demand.** You cannot do *anything* without holding and spending the
-   token — no free plays. Wanting to rip, battle, curate packs, or forge is a
+   token — no free plays. Wanting to rip, battle, or curate packs is a
    standing reason to acquire $UR3030. On top of that sits collectible pull: the
    1/1 marquee, the prizm chase, and the ability to *curate the deck itself* by
    voting (a reason to hold conviction, not just flip).
@@ -85,7 +85,7 @@ We already have the render; we make it on-chain. The path:
    - `SeasonBallot.burnProgress()` → a wax-seal / burn meter that fills as the
      edition burns down.
    - `CardVault` reads → a card's **rarity-court net**, HODL buffer, battle W/L,
-     times wagered, forge lineage → printed as living provenance on the back.
+     times wagered, ash-trophy lineage → printed as living provenance on the back.
 3. **`set-render-contract`** points the edition at it. Now every metadata refresh
    redraws the card from real state — the art literally evolves with the market
    and with how the community treats the card.
@@ -95,7 +95,7 @@ Concrete "art evolves" hooks we can ship into the lens:
   today with gas; swap to `getMarketState`).
 - **Burn bloom** → the more the edition is burned, the more the frame chars /
   gilds / cracks (prizm crackle already exists — gate it on `burnProgress`).
-- **Provenance patina** → battles won, times wagered, forge generation age the
+- **Provenance patina** → battles won, times wagered, and burns survived age the
   card visibly (a veteran card looks veteran).
 - **Rarity shimmer** → a card the court is promoting glows warmer; one being
   demoted desaturates; a HODL-shielded card gets an anchor sigil.
@@ -108,36 +108,35 @@ Already in `CardVault.sol`: send, trade, pog-wager escrow, rip, the rarity court
 (promote/demote/HODL), the sealed 1/1 marquee. New utility to add (each one a
 fresh $UR3030 sink, i.e. more §1 pressure):
 
-- **Forge / card creator** (LIVE at `cards/forge.html`, on-chain path in
-  `CardVault.forge()`): add 2-3 owned cards as **layers**, then sculpt — drag /
-  scale, pick a **blend mode**, and **key out a color** (eyedrop the art to punch
-  it transparent so a layer beneath shows through) before framing and minting.
-  The consumed inputs become **house cards** the vault holds/re-issues;
-  `forgeInputs[newId]` records the lineage on chain while the composited art
-  lives off-chain keyed by the id. Forged cards are first-class — playable in the
-  arena and listable in the binder. New art from old art, real sink.
-- **Binder + market** (LIVE at `cards/binder.html`): a nine-pocket collector
-  folder with turning pages (owned cards, or the full-set checklist with unowned
-  pockets ghosted) that doubles as the **marketplace** — list cards for sale or
-  trade, or buy/trade the house's re-issued forge stock. Listings are a local
-  order book that settles on-chain through the existing `trade`/`sendCard` burns
-  (no treasury); every settle shrinks supply. See CARD-ECONOMY-SPEC §2.6.
-- **Evolve / level a card** — `feed(id, amount)` burns tokens into a card to
-  raise a cosmetic level the lens reads (more foil, more particles, a level pip).
-  Pure art evolution driven by conviction.
-- **Stake-to-curate** — lock $UR3030 behind a card to lend it standing in packs
-  (soft version of HODL that returns the stake).
+- **The burn-down season** (LIVE in `CardVault`) — the headline loop. A season
+  opens with the whole field and the community burns it **down** to a standard
+  **77-card** deck via downvotes + edition destruction. The lens can render each
+  card's descent live (downvoter count filling toward quorum, supply ticking
+  down). Runner-ups seed the next season.
+- **Last-of-its-kind reward** (LIVE in `CardVault.destroyEdition`) — whoever
+  holds an edition's final card when it burns is minted an **Ash Trophy** card
+  (soulbound, id 9000+) *and* paid **$UR3030 from the house reward pool** (seeded
+  by a slice of every pack rip + `fundReward`). The lens renders the trophy as a
+  charred "last of [name]" collectible. A player bounty, not a treasury.
 - **Corner-and-destroy** (LIVE in `CardVault.destroyEdition`) — own every
-  circulating copy of a card and you may burn them all (plus a toll) to retire
-  the id forever. The lens can render survivors of a destroyed sibling with a
-  black-bar "last of its kind" mark. Maximal deflation as an endgame move.
+  circulating copy and you may burn them all (plus a toll) to retire the id
+  forever; this is how the final copies are gathered and ended.
 - **Consensus retire** (LIVE) — a card only falls off the island once a *quorum*
   of distinct wallets has downvoted it, not when one whale out-burns everyone;
   the lens can show a card's downvoter count filling toward the quorum.
+- **Binder + market** (LIVE at `cards/binder.html`): a nine-pocket collector
+  folder with turning pages (owned cards, or the full-set checklist with unowned
+  pockets ghosted) that doubles as the **marketplace** — list cards for sale or
+  trade, or buy/trade the house shelf. Listings are a local order book that
+  settles on-chain through the existing `trade`/`sendCard` burns (no treasury);
+  every settle shrinks supply. See CARD-ECONOMY-SPEC §2.6.
+- **Evolve / level a card** — `feed(id, amount)` burns tokens into a card to
+  raise a cosmetic level the lens reads (more foil, more particles, a level pip).
+  Pure art evolution driven by conviction.
 - **Burn-to-reveal** — hidden variants that only render once a global burn
   threshold is crossed.
 - **Provenance feed** — every event (`CardSent`/`MatchResolved`/`PackRipped`/
-  `RarityShifted`/forge) is already emitted; the lens turns them into the living
+  `RarityShifted`/`AshTrophy`) is already emitted; the lens turns them into the living
   dossier on the back.
 
 None of these need a treasury — they're all burns, which is the point.

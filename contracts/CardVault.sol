@@ -10,8 +10,7 @@ import {ILiquid} from "./interfaces/ILiquid.sol";
 /// changes hands runs through it — send, trade, wager, rip. The house rule is the
 /// economy, and it splits by intent:
 ///
-///   CONSTRUCTIVE acts pay the CREATOR (not burned) — making and championing art:
-///     forge     — mint a new collaged card               (forge toll → creator)
+///   CONSTRUCTIVE acts pay the CREATOR (not burned) — championing art:
 ///     upvote    — promote a card in the rarity court      (vote amount → creator)
 ///     hodl      — ⛨ anchor / prizm upvote                 (vote amount → creator)
 ///
@@ -60,12 +59,29 @@ contract CardVault is ERC1155 {
     uint256 public wagerToll   = 2e18;       // per side of an arena match
     uint256 public marqueeToll = 25e18;      // moving the 1/1 costs real conviction
     uint256 public packPrice   = 10e18;      // rip rights for a 7-card pack
-    uint256 public forgeToll   = 15e18;      // collage owned cards into a new one
 
-    // forged cards get their own id space; their art/lineage lives off-chain
-    // (the collage) keyed by this id. Inputs are traded to the house on forge.
-    uint256 public nextForged = 5000;
-    mapping(uint256 => uint256[]) public forgeInputs;   // forgedId => consumed card ids
+    // ─── the burn-down: a season starts with the full field and is culled ───
+    // A season opens with every registered card in play and the community burns
+    // it DOWN — downvoting cards off the island (§rarity court) and cornering +
+    // destroying editions — until a **standard deck of 77 survivors** remains.
+    // The highest-ranked non-survivors seed the next season. When an edition is
+    // burned down and its last copy destroyed, the keeper of that final card is
+    // rewarded: a payout of $UR3030 FROM THE HOUSE reward pool, plus a minted
+    // ASH TROPHY card — a "last of its kind" collectible commemorating the edition.
+    uint256 public constant STANDARD_DECK = 77;
+    uint256 public nextTrophy = 9000;
+    mapping(uint256 => uint256) public trophyForEdition;  // destroyed id => trophy id
+    mapping(uint256 => uint256) public trophyEdition;     // trophy id => the id it commemorates
+    mapping(uint256 => bool) public isAshTrophy;          // trophy ids (not deck cards)
+    event AshTrophy(uint256 indexed editionId, address indexed keeper, uint256 trophyId, uint256 reward);
+
+    // ─── the house reward pool ($UR3030 the vault holds to pay last-standers) ───
+    // Not a treasury for an operator: it is a player bounty. A slice of every pack
+    // rip seeds it, anyone can top it up (fundReward), and it pays out to whoever
+    // ends an edition. Packs (adding cards) fund the bounty for culling cards.
+    uint256 public rewardPool;                    // $UR3030 held for last-stander payouts
+    uint256 public lastStandingReward = 50e18;    // paid to the keeper who ends an edition
+    uint256 public rewardCut = 1e18;              // of each pack price, this seeds the pool
 
     // ─── arena escrow ───
     struct Match {
@@ -119,7 +135,6 @@ contract CardVault is ERC1155 {
     event MatchResolved(uint256 indexed matchId, address indexed winner, uint256 burned);
     event PackRipped(address indexed player, uint256[] ids, uint256 burned);
     event MarqueeMoved(address indexed from, address indexed to, uint256 burned);
-    event Forged(address indexed forger, uint256 indexed newId, uint256[] inputs, uint256 burned);
 
     error NotCurator();
     error NotResolver();
@@ -194,10 +209,16 @@ contract CardVault is ERC1155 {
     function setTolls(uint256 s, uint256 t, uint256 w, uint256 m, uint256 p) external onlyCurator {
         sendToll = s; tradeToll = t; wagerToll = w; marqueeToll = m; packPrice = p;
     }
-    function setForgeToll(uint256 f) external onlyCurator { forgeToll = f; }
     function setCreator(address c) external onlyCurator { creator = c; }
     function setRetireQuorum(uint32 q) external onlyCurator { retireQuorum = q; }
     function setDestroyToll(uint256 d) external onlyCurator { destroyToll = d; }
+    function setReward(uint256 r, uint256 cut) external onlyCurator { lastStandingReward = r; rewardCut = cut; }
+
+    /// @notice Top up the house reward pool for last-standers (anyone can seed it).
+    function fundReward(uint256 amount) external {
+        require(token.transferFrom(msg.sender, address(this), amount), "fund");
+        rewardPool += amount;
+    }
 
     // ─── send: a gift still feeds the fire ───
 
@@ -290,32 +311,6 @@ contract CardVault is ERC1155 {
         for (uint256 i = 0; i < m.stakeA.length; i++) _safeTransferFrom(address(this), m.a, m.stakeA[i], 1, "");
     }
 
-    // ─── the forge: trade owned cards in, mint a collaged new one ───
-
-    /// @notice Burn the forge toll, trade 2-3 owned cards to the house, and mint
-    /// a fresh forged card to the caller. The collaged artwork + lineage live
-    /// off-chain keyed by the returned id (the site's forge bench composites it).
-    /// Inputs become house stock (held by the vault) that can be re-issued.
-    function forge(uint256[] calldata inputs) external returns (uint256 newId) {
-        if (inputs.length < 2 || inputs.length > 3) revert BadStackSize();
-        for (uint256 i = 0; i < inputs.length; i++) {
-            if (inputs[i] == MARQUEE_ID) revert MarqueeNotPlayable();
-            if (!cardInfo[inputs[i]].exists) revert UnknownCard();
-        }
-        newId = ++nextForged;
-        // forging is CONSTRUCTIVE — the toll pays the creator, not the fire
-        _toCreator(msg.sender, newId, forgeToll, "forge");
-        // trade the inputs in — they move to the vault as house cards
-        for (uint256 i = 0; i < inputs.length; i++)
-            _safeTransferFrom(msg.sender, address(this), inputs[i], 1, "");
-        forgeInputs[newId] = inputs;
-        // forged cards enter as Rare by default; the court can move them after
-        cardInfo[newId] = CardInfo(currentSeason, Tier.Rare, true);
-        _pool[currentSeason][uint8(Tier.Rare)].push(newId);
-        _mint(msg.sender, newId, 1, "");
-        emit Forged(msg.sender, newId, inputs, forgeToll);
-    }
-
     // ─── the rarity court: any holder, any card, any time ───
 
     /// @notice The price of moving one rung, up or down, from tier `t`.
@@ -387,11 +382,14 @@ contract CardVault is ERC1155 {
     // ─── corner the edition: own it all, and you may end it ───
 
     /// @notice If you hold EVERY circulating copy of a card, you may destroy the
-    /// whole edition — burn all copies and retire the id forever. This is the
-    /// endgame of the market: buy a card out completely and you earn the right to
-    /// take it out of the game. Costs a burn toll on top of torching the cards, so
-    /// it is maximally deflationary. The 1/1 marquee is indestructible.
-    function destroyEdition(uint256 id) external {
+    /// whole edition — burn all copies and retire the id forever. This is how the
+    /// field is culled toward the 33-card standard deck: an edition is burned down
+    /// (downvotes retire it from play, cornering gathers the last copies), and the
+    /// keeper of the final card ends it here. Costs a burn toll on top of torching
+    /// the cards, so it is maximally deflationary. As the reward for holding the
+    /// last card, the destroyer is minted an **Ash Trophy** — a soulbound badge
+    /// commemorating the retired edition. The 1/1 marquee is indestructible.
+    function destroyEdition(uint256 id) external returns (uint256 trophyId) {
         if (id == MARQUEE_ID) revert MarqueeNotPlayable();
         if (!cardInfo[id].exists) revert UnknownCard();
         uint256 sup = supplyOf[id];
@@ -401,6 +399,15 @@ contract CardVault is ERC1155 {
         _burn(msg.sender, id, sup);          // every copy to ash (supplyOf → 0 via _update)
         cardInfo[id].exists = false;
         retired[id] = true;
+        // reward the last keeper: an Ash Trophy card + a $UR3030 payout from the house
+        trophyId = ++nextTrophy;
+        trophyForEdition[id] = trophyId;
+        trophyEdition[trophyId] = id;
+        isAshTrophy[trophyId] = true;
+        _mint(msg.sender, trophyId, 1, "");
+        uint256 payout = rewardPool < lastStandingReward ? rewardPool : lastStandingReward;
+        if (payout > 0) { rewardPool -= payout; require(token.transfer(msg.sender, payout), "reward"); }
+        emit AshTrophy(id, msg.sender, trophyId, payout);
         emit EditionDestroyed(id, msg.sender, sup, destroyToll);
     }
 
@@ -444,7 +451,11 @@ contract CardVault is ERC1155 {
     // weights mirror the site's pack.js: common 48 / uncommon 30 / rare 15 / mythic 6 / prizm 1
 
     function ripPack() external returns (uint256[] memory ids) {
-        _burnToll(msg.sender, packPrice);
+        // ripping adds cards to the field; a slice of the price seeds the house
+        // bounty that pays whoever later culls one back down. The rest burns.
+        uint256 cut = rewardCut < packPrice ? rewardCut : 0;
+        if (cut > 0) { require(token.transferFrom(msg.sender, address(this), cut), "toll"); rewardPool += cut; }
+        _burnToll(msg.sender, packPrice - cut);
         ids = new uint256[](7);
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender, _nonce++));
         for (uint256 i = 0; i < 7; i++) {
