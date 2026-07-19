@@ -157,9 +157,10 @@
           <div class="omen" id="b-omen"></div>
           <div class="rule"></div>
           <div class="grid">
-            <span class="k">ATK</span><span class="v" id="b-atk">5</span>
-            <span class="k">DEF</span><span class="v" id="b-def">2</span>
-            <span class="k">Trigger</span><span class="v" id="b-trig">DEEP WATER</span>
+            <span class="k">Base ATK</span><span class="v" id="b-atk">5</span>
+            <span class="k">Base DEF</span><span class="v" id="b-def">2</span>
+            <span class="k">Base total</span><span class="v">Σ 7</span>
+            <span class="k">Amplifier</span><span class="v" id="b-trig">DEEP WATER ⚡+4</span>
             <span class="k">Rarity</span><span class="v" id="b-rarity">—</span>
             <span class="k">Battles W/L</span><span class="v" id="b-wl">0 / 0</span>
             <span class="k">Times wagered</span><span class="v" id="b-wag">0</span>
@@ -227,7 +228,7 @@
 
   // ─── living data: lore/provenance from JSON, trigger status from chain ───
   const $ = id => document.getElementById(id);
-  const TRIGGER = ($('b-trig').textContent || '').trim().toUpperCase();
+  const TRIGGER = 'DEEP WATER';
   const set = (id, v) => { if (v != null && v !== '') $(id).textContent = v; };
   fetch('data/orange-wrap.json').then(r => r.ok ? r.json()
     : fetch('/api/lore?slug=orange-wrap').then(r => r.ok ? r.json() : null)).then(d => {
@@ -259,13 +260,13 @@
     if (gas != null) {
       const gwei = gas/1e9;
       root.style.setProperty('--heat', Math.max(.12, Math.min(1, gwei/25)).toFixed(3));
-      const stormy = gwei > 25, calm = gwei < 5;
-      let active = false, label = TRIGGER + ' · dormant';
-      if (TRIGGER === 'GAS STORM' && stormy) { active = true; label = 'GAS STORM · ACTIVE +2 ATK'; }
-      else if (TRIGGER === 'STILL AIR' && calm) { active = true; label = 'STILL AIR · ACTIVE +2 DEF'; }
-      else if (TRIGGER === 'MOON CANDLE' || TRIGGER === 'WHALE SONG') { label = TRIGGER + ' · reads market'; }
-      else label = TRIGGER + ` · ${gwei.toFixed(1)} gwei`;
-      live.textContent = label;
+      // live weather: one trigger amplified per ~25 blocks — same rule the arena uses
+      const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
+      const weather = block != null ? TRIGGERS[Math.floor(block / 25) % 8] : null;
+      const active = weather === TRIGGER;
+      live.textContent = active
+        ? `⚡ AMP LIVE · ${TRIGGER} +4 (${gwei.toFixed(1)} gwei)`
+        : `amp dormant · weather now: ${weather || '…'} · ${gwei.toFixed(1)} gwei`;
       live.classList.toggle('hot', active);
     }
     if (block != null) chainEl.textContent = '⛓ ' + (cfg.label || 'block') + ' ' + block.toLocaleString('en-US');

@@ -65,6 +65,28 @@
   .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
     font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
   @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
+  /* ── the rarity court: burn-to-vote on every tile ── */
+  .tile{cursor:pointer}
+  .court-note{margin:14px auto 0;max-width:640px;text-align:center;background:#f6ecc9;
+    border:3px solid #000;border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.55;
+    font-style:italic}
+  .court-note b{font-style:normal;font-family:'Arial Black',Arial,sans-serif;font-size:11px}
+  .vote{position:relative;z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-top:4%;}
+  .vbtn{width:30px;height:24px;border-radius:6px;border:2px solid #000;cursor:pointer;
+    font-size:11px;line-height:1;font-family:'Arial Black',Arial,sans-serif;
+    box-shadow:0 2px 0 #000;transition:transform .06s}
+  .vbtn:active{transform:translateY(2px);box-shadow:none}
+  .vup{background:#9be34f}.vdn{background:#ff6b57}
+  .vnet{min-width:34px;text-align:center;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+    background:#f6ecc9;border:2px solid #000;border-radius:6px;padding:2px 6px}
+  .vnet.pos{background:#c9f3a1}.vnet.neg{background:#ffc2b5}
+  .vote.exempt{font-size:8px;font-style:italic;color:rgba(0,0,0,.55);border:0;justify-content:center}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;
+    background:#111;color:#ffe93b;border:3px solid #000;border-radius:999px;padding:10px 18px;
+    font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    opacity:0;pointer-events:none;transition:opacity .25s}
+  .toast.show{opacity:1}
   /* laughing-man tiled watermark over the backdrop */
   .lm{position:fixed;inset:0;z-index:0;pointer-events:none;
     background:url("../Laughing_man.svg") repeat;background-size:140px;
@@ -78,1010 +100,2225 @@
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
+      <div class="court-note"><b>▲▼ THE RARITY COURT</b> — burn $UR3030 to vote any card up or
+      down the ladder. Enough conviction moves its rarity; enough scorn votes it off the
+      island. <b>(preview — burns go on-chain with the vault)</b></div>
     </header>
     <main>
     <h2 class="tier t-marquee"><span>Marquee · 1 of 1 · 1</span></h2>
     <div class="grid">
-      <a class="tile r-marquee marquee" href="lovebeing.html" style="--f:#ff5fd0">
+      <div class="tile r-marquee marquee" data-href="lovebeing.html" tabindex="0" role="link" aria-label="Lovebeing" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/lovebeing.webp" alt="Lovebeing" loading="lazy"><span class="sheen"></span><span class="rr">1/1</span><span class="locktag">🔒 later</span></span>
         <span class="tile-name">Lovebeing</span>
         <span class="tile-num">1 of 1 · marquee</span>
-      </a></div>
+        <span class="vote exempt">the court has no jurisdiction</span>
+      </div></div>
     <h2 class="tier t-prizm"><span>Prizm · 11</span></h2>
     <div class="grid">
-      <a class="tile r-prizm" href="solar-jester.html" style="--f:#ff5fd0">
+      <div class="tile r-prizm" data-href="solar-jester.html" tabindex="0" role="link" aria-label="Solar Jester" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/solar-jester.webp" alt="Solar Jester" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Solar Jester</span>
         <span class="tile-num">S1 · №23</span>
-      </a>
-      <a class="tile r-prizm" href="eruption.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="solar-jester" aria-label="burn to promote Solar Jester">▲</button>
+          <b class="vnet" data-net="solar-jester">0</b>
+          <button type="button" class="vbtn vdn" data-slug="solar-jester" aria-label="burn to demote Solar Jester">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="eruption.html" tabindex="0" role="link" aria-label="Eruption" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/eruption.webp" alt="Eruption" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Eruption</span>
         <span class="tile-num">S1 · №56</span>
-      </a>
-      <a class="tile r-prizm" href="neon-crown.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="eruption" aria-label="burn to promote Eruption">▲</button>
+          <b class="vnet" data-net="eruption">0</b>
+          <button type="button" class="vbtn vdn" data-slug="eruption" aria-label="burn to demote Eruption">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="neon-crown.html" tabindex="0" role="link" aria-label="Neon Crown" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/neon-crown.webp" alt="Neon Crown" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Neon Crown</span>
         <span class="tile-num">S1 · №58</span>
-      </a>
-      <a class="tile r-prizm" href="ruby-idol.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="neon-crown" aria-label="burn to promote Neon Crown">▲</button>
+          <b class="vnet" data-net="neon-crown">0</b>
+          <button type="button" class="vbtn vdn" data-slug="neon-crown" aria-label="burn to demote Neon Crown">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="ruby-idol.html" tabindex="0" role="link" aria-label="Ruby Idol" style="--f:#9be34f">
         <span class="tile-art"><img src="art/ruby-idol.webp" alt="Ruby Idol" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Ruby Idol</span>
         <span class="tile-num">S1 · №71</span>
-      </a>
-      <a class="tile r-prizm" href="fractal-grin.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="ruby-idol" aria-label="burn to promote Ruby Idol">▲</button>
+          <b class="vnet" data-net="ruby-idol">0</b>
+          <button type="button" class="vbtn vdn" data-slug="ruby-idol" aria-label="burn to demote Ruby Idol">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="fractal-grin.html" tabindex="0" role="link" aria-label="Fractal Grin" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/fractal-grin.webp" alt="Fractal Grin" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Fractal Grin</span>
         <span class="tile-num">S1 · №79</span>
-      </a>
-      <a class="tile r-prizm" href="glitch.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fractal-grin" aria-label="burn to promote Fractal Grin">▲</button>
+          <b class="vnet" data-net="fractal-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fractal-grin" aria-label="burn to demote Fractal Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="glitch.html" tabindex="0" role="link" aria-label="Glitch" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/glitch.webp" alt="Glitch" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Glitch</span>
         <span class="tile-num">S2 · №31</span>
-      </a>
-      <a class="tile r-prizm" href="free-throw.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="glitch" aria-label="burn to promote Glitch">▲</button>
+          <b class="vnet" data-net="glitch">0</b>
+          <button type="button" class="vbtn vdn" data-slug="glitch" aria-label="burn to demote Glitch">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="free-throw.html" tabindex="0" role="link" aria-label="Free Throw" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/free-throw.webp" alt="Free Throw" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Free Throw</span>
         <span class="tile-num">S2 · №51</span>
-      </a>
-      <a class="tile r-prizm" href="laughing-elder.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="free-throw" aria-label="burn to promote Free Throw">▲</button>
+          <b class="vnet" data-net="free-throw">0</b>
+          <button type="button" class="vbtn vdn" data-slug="free-throw" aria-label="burn to demote Free Throw">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="laughing-elder.html" tabindex="0" role="link" aria-label="Laughing Elder" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/laughing-elder.webp" alt="Laughing Elder" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Laughing Elder</span>
         <span class="tile-num">S2 · №60</span>
-      </a>
-      <a class="tile r-prizm" href="madiba.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="laughing-elder" aria-label="burn to promote Laughing Elder">▲</button>
+          <b class="vnet" data-net="laughing-elder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="laughing-elder" aria-label="burn to demote Laughing Elder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="madiba.html" tabindex="0" role="link" aria-label="Madiba" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/madiba.webp" alt="Madiba" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Madiba</span>
         <span class="tile-num">S2 · №83</span>
-      </a>
-      <a class="tile r-prizm" href="peace-sign.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="madiba" aria-label="burn to promote Madiba">▲</button>
+          <b class="vnet" data-net="madiba">0</b>
+          <button type="button" class="vbtn vdn" data-slug="madiba" aria-label="burn to demote Madiba">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="peace-sign.html" tabindex="0" role="link" aria-label="Peace Sign" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/peace-sign.webp" alt="Peace Sign" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Peace Sign</span>
         <span class="tile-num">S2 · №91</span>
-      </a>
-      <a class="tile r-prizm" href="pixel-madiba.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="peace-sign" aria-label="burn to promote Peace Sign">▲</button>
+          <b class="vnet" data-net="peace-sign">0</b>
+          <button type="button" class="vbtn vdn" data-slug="peace-sign" aria-label="burn to demote Peace Sign">▼</button>
+        </span>
+      </div>
+      <div class="tile r-prizm" data-href="pixel-madiba.html" tabindex="0" role="link" aria-label="Pixel Madiba" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/pixel-madiba.webp" alt="Pixel Madiba" loading="lazy"><span class="sheen"></span><span class="rr">prizm</span></span>
         <span class="tile-name">Pixel Madiba</span>
         <span class="tile-num">S2 · №104</span>
-      </a></div>
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pixel-madiba" aria-label="burn to promote Pixel Madiba">▲</button>
+          <b class="vnet" data-net="pixel-madiba">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pixel-madiba" aria-label="burn to demote Pixel Madiba">▼</button>
+        </span>
+      </div></div>
     <h2 class="tier t-mythic"><span>Mythic · 29</span></h2>
     <div class="grid">
-      <a class="tile r-mythic" href="meltdown.html" style="--f:#63b3ff">
+      <div class="tile r-mythic" data-href="meltdown.html" tabindex="0" role="link" aria-label="Meltdown" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/meltdown.webp" alt="Meltdown" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Meltdown</span>
         <span class="tile-num">S1 · №07</span>
-      </a>
-      <a class="tile r-mythic" href="caped-hound.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="meltdown" aria-label="burn to promote Meltdown">▲</button>
+          <b class="vnet" data-net="meltdown">0</b>
+          <button type="button" class="vbtn vdn" data-slug="meltdown" aria-label="burn to demote Meltdown">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="caped-hound.html" tabindex="0" role="link" aria-label="Caped Hound" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/caped-hound.webp" alt="Caped Hound" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Caped Hound</span>
         <span class="tile-num">S1 · №11</span>
-      </a>
-      <a class="tile r-mythic" href="rainbow-maw.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="caped-hound" aria-label="burn to promote Caped Hound">▲</button>
+          <b class="vnet" data-net="caped-hound">0</b>
+          <button type="button" class="vbtn vdn" data-slug="caped-hound" aria-label="burn to demote Caped Hound">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="rainbow-maw.html" tabindex="0" role="link" aria-label="Rainbow Maw" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/rainbow-maw.webp" alt="Rainbow Maw" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Rainbow Maw</span>
         <span class="tile-num">S1 · №20</span>
-      </a>
-      <a class="tile r-mythic" href="red-wraith.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rainbow-maw" aria-label="burn to promote Rainbow Maw">▲</button>
+          <b class="vnet" data-net="rainbow-maw">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rainbow-maw" aria-label="burn to demote Rainbow Maw">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="red-wraith.html" tabindex="0" role="link" aria-label="Red Wraith" style="--f:#9be34f">
         <span class="tile-art"><img src="art/red-wraith.webp" alt="Red Wraith" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Red Wraith</span>
         <span class="tile-num">S1 · №26</span>
-      </a>
-      <a class="tile r-mythic" href="feather-mage.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-wraith" aria-label="burn to promote Red Wraith">▲</button>
+          <b class="vnet" data-net="red-wraith">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-wraith" aria-label="burn to demote Red Wraith">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="feather-mage.html" tabindex="0" role="link" aria-label="Feather Mage" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/feather-mage.webp" alt="Feather Mage" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Feather Mage</span>
         <span class="tile-num">S1 · №32</span>
-      </a>
-      <a class="tile r-mythic" href="blue-phoenix.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="feather-mage" aria-label="burn to promote Feather Mage">▲</button>
+          <b class="vnet" data-net="feather-mage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="feather-mage" aria-label="burn to demote Feather Mage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="blue-phoenix.html" tabindex="0" role="link" aria-label="Blue Phoenix" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/blue-phoenix.webp" alt="Blue Phoenix" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Blue Phoenix</span>
         <span class="tile-num">S1 · №33</span>
-      </a>
-      <a class="tile r-mythic" href="ink-cat.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-phoenix" aria-label="burn to promote Blue Phoenix">▲</button>
+          <b class="vnet" data-net="blue-phoenix">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-phoenix" aria-label="burn to demote Blue Phoenix">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="ink-cat.html" tabindex="0" role="link" aria-label="Ink Cat" style="--f:#9be34f">
         <span class="tile-art"><img src="art/ink-cat.webp" alt="Ink Cat" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Ink Cat</span>
         <span class="tile-num">S1 · №44</span>
-      </a>
-      <a class="tile r-mythic" href="neon-court.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="ink-cat" aria-label="burn to promote Ink Cat">▲</button>
+          <b class="vnet" data-net="ink-cat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="ink-cat" aria-label="burn to demote Ink Cat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="neon-court.html" tabindex="0" role="link" aria-label="Neon Court" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/neon-court.webp" alt="Neon Court" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Neon Court</span>
         <span class="tile-num">S1 · №45</span>
-      </a>
-      <a class="tile r-mythic" href="moon-cat.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="neon-court" aria-label="burn to promote Neon Court">▲</button>
+          <b class="vnet" data-net="neon-court">0</b>
+          <button type="button" class="vbtn vdn" data-slug="neon-court" aria-label="burn to demote Neon Court">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="moon-cat.html" tabindex="0" role="link" aria-label="Moon Cat" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/moon-cat.webp" alt="Moon Cat" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Moon Cat</span>
         <span class="tile-num">S1 · №47</span>
-      </a>
-      <a class="tile r-mythic" href="three-minds.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="moon-cat" aria-label="burn to promote Moon Cat">▲</button>
+          <b class="vnet" data-net="moon-cat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="moon-cat" aria-label="burn to demote Moon Cat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="three-minds.html" tabindex="0" role="link" aria-label="Three Minds" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/three-minds.webp" alt="Three Minds" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Three Minds</span>
         <span class="tile-num">S1 · №49</span>
-      </a>
-      <a class="tile r-mythic" href="mirror-twins.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="three-minds" aria-label="burn to promote Three Minds">▲</button>
+          <b class="vnet" data-net="three-minds">0</b>
+          <button type="button" class="vbtn vdn" data-slug="three-minds" aria-label="burn to demote Three Minds">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="mirror-twins.html" tabindex="0" role="link" aria-label="Mirror Twins" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/mirror-twins.webp" alt="Mirror Twins" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Mirror Twins</span>
         <span class="tile-num">S1 · №57</span>
-      </a>
-      <a class="tile r-mythic" href="glow-pair.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="mirror-twins" aria-label="burn to promote Mirror Twins">▲</button>
+          <b class="vnet" data-net="mirror-twins">0</b>
+          <button type="button" class="vbtn vdn" data-slug="mirror-twins" aria-label="burn to demote Mirror Twins">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="glow-pair.html" tabindex="0" role="link" aria-label="Glow Pair" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/glow-pair.webp" alt="Glow Pair" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Glow Pair</span>
         <span class="tile-num">S1 · №59</span>
-      </a>
-      <a class="tile r-mythic" href="last-light.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="glow-pair" aria-label="burn to promote Glow Pair">▲</button>
+          <b class="vnet" data-net="glow-pair">0</b>
+          <button type="button" class="vbtn vdn" data-slug="glow-pair" aria-label="burn to demote Glow Pair">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="last-light.html" tabindex="0" role="link" aria-label="Last Light" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/last-light.webp" alt="Last Light" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Last Light</span>
         <span class="tile-num">S1 · №60</span>
-      </a>
-      <a class="tile r-mythic" href="filament.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="last-light" aria-label="burn to promote Last Light">▲</button>
+          <b class="vnet" data-net="last-light">0</b>
+          <button type="button" class="vbtn vdn" data-slug="last-light" aria-label="burn to demote Last Light">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="filament.html" tabindex="0" role="link" aria-label="Filament" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/filament.webp" alt="Filament" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Filament</span>
         <span class="tile-num">S1 · №62</span>
-      </a>
-      <a class="tile r-mythic" href="card-sharp.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="filament" aria-label="burn to promote Filament">▲</button>
+          <b class="vnet" data-net="filament">0</b>
+          <button type="button" class="vbtn vdn" data-slug="filament" aria-label="burn to demote Filament">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="card-sharp.html" tabindex="0" role="link" aria-label="Card Sharp" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/card-sharp.webp" alt="Card Sharp" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Card Sharp</span>
         <span class="tile-num">S1 · №66</span>
-      </a>
-      <a class="tile r-mythic" href="mad-king.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="card-sharp" aria-label="burn to promote Card Sharp">▲</button>
+          <b class="vnet" data-net="card-sharp">0</b>
+          <button type="button" class="vbtn vdn" data-slug="card-sharp" aria-label="burn to demote Card Sharp">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="mad-king.html" tabindex="0" role="link" aria-label="Mad King" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/mad-king.webp" alt="Mad King" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Mad King</span>
         <span class="tile-num">S1 · №72</span>
-      </a>
-      <a class="tile r-mythic" href="portal-sage.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="mad-king" aria-label="burn to promote Mad King">▲</button>
+          <b class="vnet" data-net="mad-king">0</b>
+          <button type="button" class="vbtn vdn" data-slug="mad-king" aria-label="burn to demote Mad King">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="portal-sage.html" tabindex="0" role="link" aria-label="Portal Sage" style="--f:#9be34f">
         <span class="tile-art"><img src="art/portal-sage.webp" alt="Portal Sage" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Portal Sage</span>
         <span class="tile-num">S1 · №74</span>
-      </a>
-      <a class="tile r-mythic" href="bat-country.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="portal-sage" aria-label="burn to promote Portal Sage">▲</button>
+          <b class="vnet" data-net="portal-sage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="portal-sage" aria-label="burn to demote Portal Sage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="bat-country.html" tabindex="0" role="link" aria-label="Bat Country" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/bat-country.webp" alt="Bat Country" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Bat Country</span>
         <span class="tile-num">S2 · №18</span>
-      </a>
-      <a class="tile r-mythic" href="ink-sketch.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bat-country" aria-label="burn to promote Bat Country">▲</button>
+          <b class="vnet" data-net="bat-country">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bat-country" aria-label="burn to demote Bat Country">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="ink-sketch.html" tabindex="0" role="link" aria-label="Ink Sketch" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/ink-sketch.webp" alt="Ink Sketch" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Ink Sketch</span>
         <span class="tile-num">S2 · №23</span>
-      </a>
-      <a class="tile r-mythic" href="the-crowd.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="ink-sketch" aria-label="burn to promote Ink Sketch">▲</button>
+          <b class="vnet" data-net="ink-sketch">0</b>
+          <button type="button" class="vbtn vdn" data-slug="ink-sketch" aria-label="burn to demote Ink Sketch">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="the-crowd.html" tabindex="0" role="link" aria-label="The Crowd" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/the-crowd.webp" alt="The Crowd" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">The Crowd</span>
         <span class="tile-num">S2 · №33</span>
-      </a>
-      <a class="tile r-mythic" href="rainbow-elder.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="the-crowd" aria-label="burn to promote The Crowd">▲</button>
+          <b class="vnet" data-net="the-crowd">0</b>
+          <button type="button" class="vbtn vdn" data-slug="the-crowd" aria-label="burn to demote The Crowd">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="rainbow-elder.html" tabindex="0" role="link" aria-label="Rainbow Elder" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/rainbow-elder.webp" alt="Rainbow Elder" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Rainbow Elder</span>
         <span class="tile-num">S2 · №39</span>
-      </a>
-      <a class="tile r-mythic" href="old-friends.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rainbow-elder" aria-label="burn to promote Rainbow Elder">▲</button>
+          <b class="vnet" data-net="rainbow-elder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rainbow-elder" aria-label="burn to demote Rainbow Elder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="old-friends.html" tabindex="0" role="link" aria-label="Old Friends" style="--f:#9be34f">
         <span class="tile-art"><img src="art/old-friends.webp" alt="Old Friends" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Old Friends</span>
         <span class="tile-num">S2 · №40</span>
-      </a>
-      <a class="tile r-mythic" href="pure-joy.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="old-friends" aria-label="burn to promote Old Friends">▲</button>
+          <b class="vnet" data-net="old-friends">0</b>
+          <button type="button" class="vbtn vdn" data-slug="old-friends" aria-label="burn to demote Old Friends">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="pure-joy.html" tabindex="0" role="link" aria-label="Pure Joy" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/pure-joy.webp" alt="Pure Joy" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Pure Joy</span>
         <span class="tile-num">S2 · №72</span>
-      </a>
-      <a class="tile r-mythic" href="blue-idol.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pure-joy" aria-label="burn to promote Pure Joy">▲</button>
+          <b class="vnet" data-net="pure-joy">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pure-joy" aria-label="burn to demote Pure Joy">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="blue-idol.html" tabindex="0" role="link" aria-label="Blue Idol" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/blue-idol.webp" alt="Blue Idol" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Blue Idol</span>
         <span class="tile-num">S2 · №73</span>
-      </a>
-      <a class="tile r-mythic" href="royal-purple.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-idol" aria-label="burn to promote Blue Idol">▲</button>
+          <b class="vnet" data-net="blue-idol">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-idol" aria-label="burn to demote Blue Idol">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="royal-purple.html" tabindex="0" role="link" aria-label="Royal Purple" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/royal-purple.webp" alt="Royal Purple" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Royal Purple</span>
         <span class="tile-num">S2 · №79</span>
-      </a>
-      <a class="tile r-mythic" href="the-touch.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="royal-purple" aria-label="burn to promote Royal Purple">▲</button>
+          <b class="vnet" data-net="royal-purple">0</b>
+          <button type="button" class="vbtn vdn" data-slug="royal-purple" aria-label="burn to demote Royal Purple">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="the-touch.html" tabindex="0" role="link" aria-label="The Touch" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/the-touch.webp" alt="The Touch" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">The Touch</span>
         <span class="tile-num">S2 · №87</span>
-      </a>
-      <a class="tile r-mythic" href="court-cackle.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="the-touch" aria-label="burn to promote The Touch">▲</button>
+          <b class="vnet" data-net="the-touch">0</b>
+          <button type="button" class="vbtn vdn" data-slug="the-touch" aria-label="burn to demote The Touch">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="court-cackle.html" tabindex="0" role="link" aria-label="Court Cackle" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/court-cackle.webp" alt="Court Cackle" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Court Cackle</span>
         <span class="tile-num">S2 · №106</span>
-      </a>
-      <a class="tile r-mythic" href="two-legends.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="court-cackle" aria-label="burn to promote Court Cackle">▲</button>
+          <b class="vnet" data-net="court-cackle">0</b>
+          <button type="button" class="vbtn vdn" data-slug="court-cackle" aria-label="burn to demote Court Cackle">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="two-legends.html" tabindex="0" role="link" aria-label="Two Legends" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/two-legends.webp" alt="Two Legends" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Two Legends</span>
         <span class="tile-num">S2 · №108</span>
-      </a>
-      <a class="tile r-mythic" href="prism-prayer.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="two-legends" aria-label="burn to promote Two Legends">▲</button>
+          <b class="vnet" data-net="two-legends">0</b>
+          <button type="button" class="vbtn vdn" data-slug="two-legends" aria-label="burn to demote Two Legends">▼</button>
+        </span>
+      </div>
+      <div class="tile r-mythic" data-href="prism-prayer.html" tabindex="0" role="link" aria-label="Prism Prayer" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/prism-prayer.webp" alt="Prism Prayer" loading="lazy"><span class="sheen"></span><span class="rr">mythic</span></span>
         <span class="tile-name">Prism Prayer</span>
         <span class="tile-num">S2 · №109</span>
-      </a></div>
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="prism-prayer" aria-label="burn to promote Prism Prayer">▲</button>
+          <b class="vnet" data-net="prism-prayer">0</b>
+          <button type="button" class="vbtn vdn" data-slug="prism-prayer" aria-label="burn to demote Prism Prayer">▼</button>
+        </span>
+      </div></div>
     <h2 class="tier t-rare"><span>Rare · 70</span></h2>
     <div class="grid">
-      <a class="tile r-rare" href="red-rustler.html" style="--f:#ffd93b">
+      <div class="tile r-rare" data-href="red-rustler.html" tabindex="0" role="link" aria-label="Red Rustler" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/red-rustler.webp" alt="Red Rustler" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Rustler</span>
         <span class="tile-num">S1 · №03</span>
-      </a>
-      <a class="tile r-rare" href="ghost-chef.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-rustler" aria-label="burn to promote Red Rustler">▲</button>
+          <b class="vnet" data-net="red-rustler">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-rustler" aria-label="burn to demote Red Rustler">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="ghost-chef.html" tabindex="0" role="link" aria-label="Ghost Chef" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/ghost-chef.webp" alt="Ghost Chef" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Ghost Chef</span>
         <span class="tile-num">S1 · №05</span>
-      </a>
-      <a class="tile r-rare" href="bone-pop.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="ghost-chef" aria-label="burn to promote Ghost Chef">▲</button>
+          <b class="vnet" data-net="ghost-chef">0</b>
+          <button type="button" class="vbtn vdn" data-slug="ghost-chef" aria-label="burn to demote Ghost Chef">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="bone-pop.html" tabindex="0" role="link" aria-label="Bone Pop" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/bone-pop.webp" alt="Bone Pop" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Bone Pop</span>
         <span class="tile-num">S1 · №08</span>
-      </a>
-      <a class="tile r-rare" href="mad-grin.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bone-pop" aria-label="burn to promote Bone Pop">▲</button>
+          <b class="vnet" data-net="bone-pop">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bone-pop" aria-label="burn to demote Bone Pop">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="mad-grin.html" tabindex="0" role="link" aria-label="Mad Grin" style="--f:#9be34f">
         <span class="tile-art"><img src="art/mad-grin.webp" alt="Mad Grin" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Mad Grin</span>
         <span class="tile-num">S1 · №10</span>
-      </a>
-      <a class="tile r-rare" href="sly-chef.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="mad-grin" aria-label="burn to promote Mad Grin">▲</button>
+          <b class="vnet" data-net="mad-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="mad-grin" aria-label="burn to demote Mad Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="sly-chef.html" tabindex="0" role="link" aria-label="Sly Chef" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/sly-chef.webp" alt="Sly Chef" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Sly Chef</span>
         <span class="tile-num">S1 · №12</span>
-      </a>
-      <a class="tile r-rare" href="blade-prince.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="sly-chef" aria-label="burn to promote Sly Chef">▲</button>
+          <b class="vnet" data-net="sly-chef">0</b>
+          <button type="button" class="vbtn vdn" data-slug="sly-chef" aria-label="burn to demote Sly Chef">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="blade-prince.html" tabindex="0" role="link" aria-label="Blade Prince" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/blade-prince.webp" alt="Blade Prince" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Blade Prince</span>
         <span class="tile-num">S1 · №15</span>
-      </a>
-      <a class="tile r-rare" href="drip-dog.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blade-prince" aria-label="burn to promote Blade Prince">▲</button>
+          <b class="vnet" data-net="blade-prince">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blade-prince" aria-label="burn to demote Blade Prince">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="drip-dog.html" tabindex="0" role="link" aria-label="Drip Dog" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/drip-dog.webp" alt="Drip Dog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Drip Dog</span>
         <span class="tile-num">S1 · №17</span>
-      </a>
-      <a class="tile r-rare" href="gold-sage.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="drip-dog" aria-label="burn to promote Drip Dog">▲</button>
+          <b class="vnet" data-net="drip-dog">0</b>
+          <button type="button" class="vbtn vdn" data-slug="drip-dog" aria-label="burn to demote Drip Dog">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="gold-sage.html" tabindex="0" role="link" aria-label="Gold Sage" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/gold-sage.webp" alt="Gold Sage" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Gold Sage</span>
         <span class="tile-num">S1 · №21</span>
-      </a>
-      <a class="tile r-rare" href="cracked-heart.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="gold-sage" aria-label="burn to promote Gold Sage">▲</button>
+          <b class="vnet" data-net="gold-sage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="gold-sage" aria-label="burn to demote Gold Sage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="cracked-heart.html" tabindex="0" role="link" aria-label="Cracked Heart" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/cracked-heart.webp" alt="Cracked Heart" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Cracked Heart</span>
         <span class="tile-num">S1 · №22</span>
-      </a>
-      <a class="tile r-rare" href="blue-bones.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cracked-heart" aria-label="burn to promote Cracked Heart">▲</button>
+          <b class="vnet" data-net="cracked-heart">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cracked-heart" aria-label="burn to demote Cracked Heart">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="blue-bones.html" tabindex="0" role="link" aria-label="Blue Bones" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/blue-bones.webp" alt="Blue Bones" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Blue Bones</span>
         <span class="tile-num">S1 · №25</span>
-      </a>
-      <a class="tile r-rare" href="fuzz-totem.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-bones" aria-label="burn to promote Blue Bones">▲</button>
+          <b class="vnet" data-net="blue-bones">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-bones" aria-label="burn to demote Blue Bones">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="fuzz-totem.html" tabindex="0" role="link" aria-label="Fuzz Totem" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/fuzz-totem.webp" alt="Fuzz Totem" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Fuzz Totem</span>
         <span class="tile-num">S1 · №30</span>
-      </a>
-      <a class="tile r-rare" href="blue-beak.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fuzz-totem" aria-label="burn to promote Fuzz Totem">▲</button>
+          <b class="vnet" data-net="fuzz-totem">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fuzz-totem" aria-label="burn to demote Fuzz Totem">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="blue-beak.html" tabindex="0" role="link" aria-label="Blue Beak" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/blue-beak.webp" alt="Blue Beak" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Blue Beak</span>
         <span class="tile-num">S1 · №31</span>
-      </a>
-      <a class="tile r-rare" href="moon-rat.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-beak" aria-label="burn to promote Blue Beak">▲</button>
+          <b class="vnet" data-net="blue-beak">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-beak" aria-label="burn to demote Blue Beak">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="moon-rat.html" tabindex="0" role="link" aria-label="Moon Rat" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/moon-rat.webp" alt="Moon Rat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Moon Rat</span>
         <span class="tile-num">S1 · №36</span>
-      </a>
-      <a class="tile r-rare" href="guffaw.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="moon-rat" aria-label="burn to promote Moon Rat">▲</button>
+          <b class="vnet" data-net="moon-rat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="moon-rat" aria-label="burn to demote Moon Rat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="guffaw.html" tabindex="0" role="link" aria-label="Guffaw" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/guffaw.webp" alt="Guffaw" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Guffaw</span>
         <span class="tile-num">S1 · №38</span>
-      </a>
-      <a class="tile r-rare" href="masked-hare.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="guffaw" aria-label="burn to promote Guffaw">▲</button>
+          <b class="vnet" data-net="guffaw">0</b>
+          <button type="button" class="vbtn vdn" data-slug="guffaw" aria-label="burn to demote Guffaw">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="masked-hare.html" tabindex="0" role="link" aria-label="Masked Hare" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/masked-hare.webp" alt="Masked Hare" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Masked Hare</span>
         <span class="tile-num">S1 · №40</span>
-      </a>
-      <a class="tile r-rare" href="sly-imp.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="masked-hare" aria-label="burn to promote Masked Hare">▲</button>
+          <b class="vnet" data-net="masked-hare">0</b>
+          <button type="button" class="vbtn vdn" data-slug="masked-hare" aria-label="burn to demote Masked Hare">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="sly-imp.html" tabindex="0" role="link" aria-label="Sly Imp" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/sly-imp.webp" alt="Sly Imp" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Sly Imp</span>
         <span class="tile-num">S1 · №43</span>
-      </a>
-      <a class="tile r-rare" href="purple-fang.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="sly-imp" aria-label="burn to promote Sly Imp">▲</button>
+          <b class="vnet" data-net="sly-imp">0</b>
+          <button type="button" class="vbtn vdn" data-slug="sly-imp" aria-label="burn to demote Sly Imp">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="purple-fang.html" tabindex="0" role="link" aria-label="Purple Fang" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/purple-fang.webp" alt="Purple Fang" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Purple Fang</span>
         <span class="tile-num">S1 · №48</span>
-      </a>
-      <a class="tile r-rare" href="drool-ghost.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="purple-fang" aria-label="burn to promote Purple Fang">▲</button>
+          <b class="vnet" data-net="purple-fang">0</b>
+          <button type="button" class="vbtn vdn" data-slug="purple-fang" aria-label="burn to demote Purple Fang">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="drool-ghost.html" tabindex="0" role="link" aria-label="Drool Ghost" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/drool-ghost.webp" alt="Drool Ghost" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Drool Ghost</span>
         <span class="tile-num">S1 · №50</span>
-      </a>
-      <a class="tile r-rare" href="coin-baron.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="drool-ghost" aria-label="burn to promote Drool Ghost">▲</button>
+          <b class="vnet" data-net="drool-ghost">0</b>
+          <button type="button" class="vbtn vdn" data-slug="drool-ghost" aria-label="burn to demote Drool Ghost">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="coin-baron.html" tabindex="0" role="link" aria-label="Coin Baron" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/coin-baron.webp" alt="Coin Baron" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Coin Baron</span>
         <span class="tile-num">S1 · №51</span>
-      </a>
-      <a class="tile r-rare" href="smoke-imp.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="coin-baron" aria-label="burn to promote Coin Baron">▲</button>
+          <b class="vnet" data-net="coin-baron">0</b>
+          <button type="button" class="vbtn vdn" data-slug="coin-baron" aria-label="burn to demote Coin Baron">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="smoke-imp.html" tabindex="0" role="link" aria-label="Smoke Imp" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/smoke-imp.webp" alt="Smoke Imp" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Smoke Imp</span>
         <span class="tile-num">S1 · №53</span>
-      </a>
-      <a class="tile r-rare" href="melt-waltz.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="smoke-imp" aria-label="burn to promote Smoke Imp">▲</button>
+          <b class="vnet" data-net="smoke-imp">0</b>
+          <button type="button" class="vbtn vdn" data-slug="smoke-imp" aria-label="burn to demote Smoke Imp">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="melt-waltz.html" tabindex="0" role="link" aria-label="Melt Waltz" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/melt-waltz.webp" alt="Melt Waltz" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Melt Waltz</span>
         <span class="tile-num">S1 · №61</span>
-      </a>
-      <a class="tile r-rare" href="riddle-cat.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="melt-waltz" aria-label="burn to promote Melt Waltz">▲</button>
+          <b class="vnet" data-net="melt-waltz">0</b>
+          <button type="button" class="vbtn vdn" data-slug="melt-waltz" aria-label="burn to demote Melt Waltz">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="riddle-cat.html" tabindex="0" role="link" aria-label="Riddle Cat" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/riddle-cat.webp" alt="Riddle Cat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Riddle Cat</span>
         <span class="tile-num">S1 · №64</span>
-      </a>
-      <a class="tile r-rare" href="scarlet-mage.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="riddle-cat" aria-label="burn to promote Riddle Cat">▲</button>
+          <b class="vnet" data-net="riddle-cat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="riddle-cat" aria-label="burn to demote Riddle Cat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="scarlet-mage.html" tabindex="0" role="link" aria-label="Scarlet Mage" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/scarlet-mage.webp" alt="Scarlet Mage" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Scarlet Mage</span>
         <span class="tile-num">S1 · №67</span>
-      </a>
-      <a class="tile r-rare" href="third-eye.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="scarlet-mage" aria-label="burn to promote Scarlet Mage">▲</button>
+          <b class="vnet" data-net="scarlet-mage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="scarlet-mage" aria-label="burn to demote Scarlet Mage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="third-eye.html" tabindex="0" role="link" aria-label="Third Eye" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/third-eye.webp" alt="Third Eye" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Third Eye</span>
         <span class="tile-num">S1 · №73</span>
-      </a>
-      <a class="tile r-rare" href="lunar-fowl.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="third-eye" aria-label="burn to promote Third Eye">▲</button>
+          <b class="vnet" data-net="third-eye">0</b>
+          <button type="button" class="vbtn vdn" data-slug="third-eye" aria-label="burn to demote Third Eye">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="lunar-fowl.html" tabindex="0" role="link" aria-label="Lunar Fowl" style="--f:#9be34f">
         <span class="tile-art"><img src="art/lunar-fowl.webp" alt="Lunar Fowl" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Lunar Fowl</span>
         <span class="tile-num">S1 · №75</span>
-      </a>
-      <a class="tile r-rare" href="cosmic-shrug.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="lunar-fowl" aria-label="burn to promote Lunar Fowl">▲</button>
+          <b class="vnet" data-net="lunar-fowl">0</b>
+          <button type="button" class="vbtn vdn" data-slug="lunar-fowl" aria-label="burn to demote Lunar Fowl">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="cosmic-shrug.html" tabindex="0" role="link" aria-label="Cosmic Shrug" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/cosmic-shrug.webp" alt="Cosmic Shrug" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Cosmic Shrug</span>
         <span class="tile-num">S1 · №78</span>
-      </a>
-      <a class="tile r-rare" href="coin-alchemist.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cosmic-shrug" aria-label="burn to promote Cosmic Shrug">▲</button>
+          <b class="vnet" data-net="cosmic-shrug">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cosmic-shrug" aria-label="burn to demote Cosmic Shrug">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="coin-alchemist.html" tabindex="0" role="link" aria-label="Coin Alchemist" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/coin-alchemist.webp" alt="Coin Alchemist" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Coin Alchemist</span>
         <span class="tile-num">S1 · №80</span>
-      </a>
-      <a class="tile r-rare" href="shade-rise.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="coin-alchemist" aria-label="burn to promote Coin Alchemist">▲</button>
+          <b class="vnet" data-net="coin-alchemist">0</b>
+          <button type="button" class="vbtn vdn" data-slug="coin-alchemist" aria-label="burn to demote Coin Alchemist">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="shade-rise.html" tabindex="0" role="link" aria-label="Shade Rise" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/shade-rise.webp" alt="Shade Rise" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Shade Rise</span>
         <span class="tile-num">S1 · №84</span>
-      </a>
-      <a class="tile r-rare" href="bog-beast.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="shade-rise" aria-label="burn to promote Shade Rise">▲</button>
+          <b class="vnet" data-net="shade-rise">0</b>
+          <button type="button" class="vbtn vdn" data-slug="shade-rise" aria-label="burn to demote Shade Rise">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="bog-beast.html" tabindex="0" role="link" aria-label="Bog Beast" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/bog-beast.webp" alt="Bog Beast" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Bog Beast</span>
         <span class="tile-num">S2 · №01</span>
-      </a>
-      <a class="tile r-rare" href="citrus-haze.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bog-beast" aria-label="burn to promote Bog Beast">▲</button>
+          <b class="vnet" data-net="bog-beast">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bog-beast" aria-label="burn to demote Bog Beast">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="citrus-haze.html" tabindex="0" role="link" aria-label="Citrus Haze" style="--f:#9be34f">
         <span class="tile-art"><img src="art/citrus-haze.webp" alt="Citrus Haze" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Citrus Haze</span>
         <span class="tile-num">S2 · №03</span>
-      </a>
-      <a class="tile r-rare" href="neon-motel.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="citrus-haze" aria-label="burn to promote Citrus Haze">▲</button>
+          <b class="vnet" data-net="citrus-haze">0</b>
+          <button type="button" class="vbtn vdn" data-slug="citrus-haze" aria-label="burn to demote Citrus Haze">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="neon-motel.html" tabindex="0" role="link" aria-label="Neon Motel" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/neon-motel.webp" alt="Neon Motel" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Neon Motel</span>
         <span class="tile-num">S2 · №06</span>
-      </a>
-      <a class="tile r-rare" href="bow-frog.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="neon-motel" aria-label="burn to promote Neon Motel">▲</button>
+          <b class="vnet" data-net="neon-motel">0</b>
+          <button type="button" class="vbtn vdn" data-slug="neon-motel" aria-label="burn to demote Neon Motel">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="bow-frog.html" tabindex="0" role="link" aria-label="Bow Frog" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/bow-frog.webp" alt="Bow Frog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Bow Frog</span>
         <span class="tile-num">S2 · №09</span>
-      </a>
-      <a class="tile r-rare" href="tux-frog.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bow-frog" aria-label="burn to promote Bow Frog">▲</button>
+          <b class="vnet" data-net="bow-frog">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bow-frog" aria-label="burn to demote Bow Frog">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="tux-frog.html" tabindex="0" role="link" aria-label="Tux Frog" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/tux-frog.webp" alt="Tux Frog" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Tux Frog</span>
         <span class="tile-num">S2 · №11</span>
-      </a>
-      <a class="tile r-rare" href="elder-ace.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="tux-frog" aria-label="burn to promote Tux Frog">▲</button>
+          <b class="vnet" data-net="tux-frog">0</b>
+          <button type="button" class="vbtn vdn" data-slug="tux-frog" aria-label="burn to demote Tux Frog">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="elder-ace.html" tabindex="0" role="link" aria-label="Elder Ace" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/elder-ace.webp" alt="Elder Ace" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Elder Ace</span>
         <span class="tile-num">S2 · №13</span>
-      </a>
-      <a class="tile r-rare" href="vapor-wave.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="elder-ace" aria-label="burn to promote Elder Ace">▲</button>
+          <b class="vnet" data-net="elder-ace">0</b>
+          <button type="button" class="vbtn vdn" data-slug="elder-ace" aria-label="burn to demote Elder Ace">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="vapor-wave.html" tabindex="0" role="link" aria-label="Vapor Wave" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/vapor-wave.webp" alt="Vapor Wave" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Vapor Wave</span>
         <span class="tile-num">S2 · №15</span>
-      </a>
-      <a class="tile r-rare" href="desert-robe.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="vapor-wave" aria-label="burn to promote Vapor Wave">▲</button>
+          <b class="vnet" data-net="vapor-wave">0</b>
+          <button type="button" class="vbtn vdn" data-slug="vapor-wave" aria-label="burn to demote Vapor Wave">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="desert-robe.html" tabindex="0" role="link" aria-label="Desert Robe" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/desert-robe.webp" alt="Desert Robe" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Desert Robe</span>
         <span class="tile-num">S2 · №17</span>
-      </a>
-      <a class="tile r-rare" href="red-hood.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="desert-robe" aria-label="burn to promote Desert Robe">▲</button>
+          <b class="vnet" data-net="desert-robe">0</b>
+          <button type="button" class="vbtn vdn" data-slug="desert-robe" aria-label="burn to demote Desert Robe">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="red-hood.html" tabindex="0" role="link" aria-label="Red Hood" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/red-hood.webp" alt="Red Hood" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Hood</span>
         <span class="tile-num">S2 · №20</span>
-      </a>
-      <a class="tile r-rare" href="paisley.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-hood" aria-label="burn to promote Red Hood">▲</button>
+          <b class="vnet" data-net="red-hood">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-hood" aria-label="burn to demote Red Hood">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="paisley.html" tabindex="0" role="link" aria-label="Paisley" style="--f:#9be34f">
         <span class="tile-art"><img src="art/paisley.webp" alt="Paisley" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Paisley</span>
         <span class="tile-num">S2 · №21</span>
-      </a>
-      <a class="tile r-rare" href="fedora.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="paisley" aria-label="burn to promote Paisley">▲</button>
+          <b class="vnet" data-net="paisley">0</b>
+          <button type="button" class="vbtn vdn" data-slug="paisley" aria-label="burn to demote Paisley">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="fedora.html" tabindex="0" role="link" aria-label="Fedora" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/fedora.webp" alt="Fedora" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Fedora</span>
         <span class="tile-num">S2 · №27</span>
-      </a>
-      <a class="tile r-rare" href="red-eyes.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fedora" aria-label="burn to promote Fedora">▲</button>
+          <b class="vnet" data-net="fedora">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fedora" aria-label="burn to demote Fedora">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="red-eyes.html" tabindex="0" role="link" aria-label="Red Eyes" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/red-eyes.webp" alt="Red Eyes" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Eyes</span>
         <span class="tile-num">S2 · №28</span>
-      </a>
-      <a class="tile r-rare" href="silver-fox.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-eyes" aria-label="burn to promote Red Eyes">▲</button>
+          <b class="vnet" data-net="red-eyes">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-eyes" aria-label="burn to demote Red Eyes">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="silver-fox.html" tabindex="0" role="link" aria-label="Silver Fox" style="--f:#9be34f">
         <span class="tile-art"><img src="art/silver-fox.webp" alt="Silver Fox" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Silver Fox</span>
         <span class="tile-num">S2 · №30</span>
-      </a>
-      <a class="tile r-rare" href="free.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="silver-fox" aria-label="burn to promote Silver Fox">▲</button>
+          <b class="vnet" data-net="silver-fox">0</b>
+          <button type="button" class="vbtn vdn" data-slug="silver-fox" aria-label="burn to demote Silver Fox">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="free.html" tabindex="0" role="link" aria-label="Free" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/free.webp" alt="Free" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Free</span>
         <span class="tile-num">S2 · №32</span>
-      </a>
-      <a class="tile r-rare" href="cloud-cat.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="free" aria-label="burn to promote Free">▲</button>
+          <b class="vnet" data-net="free">0</b>
+          <button type="button" class="vbtn vdn" data-slug="free" aria-label="burn to demote Free">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="cloud-cat.html" tabindex="0" role="link" aria-label="Cloud Cat" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/cloud-cat.webp" alt="Cloud Cat" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Cloud Cat</span>
         <span class="tile-num">S2 · №38</span>
-      </a>
-      <a class="tile r-rare" href="kinchui.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cloud-cat" aria-label="burn to promote Cloud Cat">▲</button>
+          <b class="vnet" data-net="cloud-cat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cloud-cat" aria-label="burn to demote Cloud Cat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="kinchui.html" tabindex="0" role="link" aria-label="Kinchui" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/kinchui.webp" alt="Kinchui" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Kinchui</span>
         <span class="tile-num">S2 · №42</span>
-      </a>
-      <a class="tile r-rare" href="candidate.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="kinchui" aria-label="burn to promote Kinchui">▲</button>
+          <b class="vnet" data-net="kinchui">0</b>
+          <button type="button" class="vbtn vdn" data-slug="kinchui" aria-label="burn to demote Kinchui">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="candidate.html" tabindex="0" role="link" aria-label="Candidate" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/candidate.webp" alt="Candidate" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Candidate</span>
         <span class="tile-num">S2 · №44</span>
-      </a>
-      <a class="tile r-rare" href="purple-scarf.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="candidate" aria-label="burn to promote Candidate">▲</button>
+          <b class="vnet" data-net="candidate">0</b>
+          <button type="button" class="vbtn vdn" data-slug="candidate" aria-label="burn to demote Candidate">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="purple-scarf.html" tabindex="0" role="link" aria-label="Purple Scarf" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/purple-scarf.webp" alt="Purple Scarf" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Purple Scarf</span>
         <span class="tile-num">S2 · №45</span>
-      </a>
-      <a class="tile r-rare" href="greenback.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="purple-scarf" aria-label="burn to promote Purple Scarf">▲</button>
+          <b class="vnet" data-net="purple-scarf">0</b>
+          <button type="button" class="vbtn vdn" data-slug="purple-scarf" aria-label="burn to demote Purple Scarf">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="greenback.html" tabindex="0" role="link" aria-label="Greenback" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/greenback.webp" alt="Greenback" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Greenback</span>
         <span class="tile-num">S2 · №46</span>
-      </a>
-      <a class="tile r-rare" href="red-fez.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="greenback" aria-label="burn to promote Greenback">▲</button>
+          <b class="vnet" data-net="greenback">0</b>
+          <button type="button" class="vbtn vdn" data-slug="greenback" aria-label="burn to demote Greenback">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="red-fez.html" tabindex="0" role="link" aria-label="Red Fez" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/red-fez.webp" alt="Red Fez" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Fez</span>
         <span class="tile-num">S2 · №52</span>
-      </a>
-      <a class="tile r-rare" href="gold-crooner.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-fez" aria-label="burn to promote Red Fez">▲</button>
+          <b class="vnet" data-net="red-fez">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-fez" aria-label="burn to demote Red Fez">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="gold-crooner.html" tabindex="0" role="link" aria-label="Gold Crooner" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/gold-crooner.webp" alt="Gold Crooner" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Gold Crooner</span>
         <span class="tile-num">S2 · №54</span>
-      </a>
-      <a class="tile r-rare" href="turquoise.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="gold-crooner" aria-label="burn to promote Gold Crooner">▲</button>
+          <b class="vnet" data-net="gold-crooner">0</b>
+          <button type="button" class="vbtn vdn" data-slug="gold-crooner" aria-label="burn to demote Gold Crooner">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="turquoise.html" tabindex="0" role="link" aria-label="Turquoise" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/turquoise.webp" alt="Turquoise" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Turquoise</span>
         <span class="tile-num">S2 · №55</span>
-      </a>
-      <a class="tile r-rare" href="red-guard.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="turquoise" aria-label="burn to promote Turquoise">▲</button>
+          <b class="vnet" data-net="turquoise">0</b>
+          <button type="button" class="vbtn vdn" data-slug="turquoise" aria-label="burn to demote Turquoise">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="red-guard.html" tabindex="0" role="link" aria-label="Red Guard" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/red-guard.webp" alt="Red Guard" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Guard</span>
         <span class="tile-num">S2 · №59</span>
-      </a>
-      <a class="tile r-rare" href="green-velvet.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-guard" aria-label="burn to promote Red Guard">▲</button>
+          <b class="vnet" data-net="red-guard">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-guard" aria-label="burn to demote Red Guard">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="green-velvet.html" tabindex="0" role="link" aria-label="Green Velvet" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/green-velvet.webp" alt="Green Velvet" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Green Velvet</span>
         <span class="tile-num">S2 · №61</span>
-      </a>
-      <a class="tile r-rare" href="number-nine.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="green-velvet" aria-label="burn to promote Green Velvet">▲</button>
+          <b class="vnet" data-net="green-velvet">0</b>
+          <button type="button" class="vbtn vdn" data-slug="green-velvet" aria-label="burn to demote Green Velvet">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="number-nine.html" tabindex="0" role="link" aria-label="Number Nine" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/number-nine.webp" alt="Number Nine" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Number Nine</span>
         <span class="tile-num">S2 · №64</span>
-      </a>
-      <a class="tile r-rare" href="mad-goggles.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="number-nine" aria-label="burn to promote Number Nine">▲</button>
+          <b class="vnet" data-net="number-nine">0</b>
+          <button type="button" class="vbtn vdn" data-slug="number-nine" aria-label="burn to demote Number Nine">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="mad-goggles.html" tabindex="0" role="link" aria-label="Mad Goggles" style="--f:#9be34f">
         <span class="tile-art"><img src="art/mad-goggles.webp" alt="Mad Goggles" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Mad Goggles</span>
         <span class="tile-num">S2 · №66</span>
-      </a>
-      <a class="tile r-rare" href="orange-wrap.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="mad-goggles" aria-label="burn to promote Mad Goggles">▲</button>
+          <b class="vnet" data-net="mad-goggles">0</b>
+          <button type="button" class="vbtn vdn" data-slug="mad-goggles" aria-label="burn to demote Mad Goggles">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="orange-wrap.html" tabindex="0" role="link" aria-label="Orange Wrap" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/orange-wrap.webp" alt="Orange Wrap" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Orange Wrap</span>
         <span class="tile-num">S2 · №68</span>
-      </a>
-      <a class="tile r-rare" href="banquet.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="orange-wrap" aria-label="burn to promote Orange Wrap">▲</button>
+          <b class="vnet" data-net="orange-wrap">0</b>
+          <button type="button" class="vbtn vdn" data-slug="orange-wrap" aria-label="burn to demote Orange Wrap">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="banquet.html" tabindex="0" role="link" aria-label="Banquet" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/banquet.webp" alt="Banquet" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Banquet</span>
         <span class="tile-num">S2 · №75</span>
-      </a>
-      <a class="tile r-rare" href="bronze-think.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="banquet" aria-label="burn to promote Banquet">▲</button>
+          <b class="vnet" data-net="banquet">0</b>
+          <button type="button" class="vbtn vdn" data-slug="banquet" aria-label="burn to demote Banquet">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="bronze-think.html" tabindex="0" role="link" aria-label="Bronze Think" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/bronze-think.webp" alt="Bronze Think" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Bronze Think</span>
         <span class="tile-num">S2 · №77</span>
-      </a>
-      <a class="tile r-rare" href="laser-stare.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bronze-think" aria-label="burn to promote Bronze Think">▲</button>
+          <b class="vnet" data-net="bronze-think">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bronze-think" aria-label="burn to demote Bronze Think">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="laser-stare.html" tabindex="0" role="link" aria-label="Laser Stare" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/laser-stare.webp" alt="Laser Stare" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Laser Stare</span>
         <span class="tile-num">S2 · №78</span>
-      </a>
-      <a class="tile r-rare" href="night-elder.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="laser-stare" aria-label="burn to promote Laser Stare">▲</button>
+          <b class="vnet" data-net="laser-stare">0</b>
+          <button type="button" class="vbtn vdn" data-slug="laser-stare" aria-label="burn to demote Laser Stare">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="night-elder.html" tabindex="0" role="link" aria-label="Night Elder" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/night-elder.webp" alt="Night Elder" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Night Elder</span>
         <span class="tile-num">S2 · №81</span>
-      </a>
-      <a class="tile r-rare" href="red-sparkle.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="night-elder" aria-label="burn to promote Night Elder">▲</button>
+          <b class="vnet" data-net="night-elder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="night-elder" aria-label="burn to demote Night Elder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="red-sparkle.html" tabindex="0" role="link" aria-label="Red Sparkle" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/red-sparkle.webp" alt="Red Sparkle" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Red Sparkle</span>
         <span class="tile-num">S2 · №86</span>
-      </a>
-      <a class="tile r-rare" href="crimson-robe.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-sparkle" aria-label="burn to promote Red Sparkle">▲</button>
+          <b class="vnet" data-net="red-sparkle">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-sparkle" aria-label="burn to demote Red Sparkle">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="crimson-robe.html" tabindex="0" role="link" aria-label="Crimson Robe" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/crimson-robe.webp" alt="Crimson Robe" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Crimson Robe</span>
         <span class="tile-num">S2 · №89</span>
-      </a>
-      <a class="tile r-rare" href="low-rider.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="crimson-robe" aria-label="burn to promote Crimson Robe">▲</button>
+          <b class="vnet" data-net="crimson-robe">0</b>
+          <button type="button" class="vbtn vdn" data-slug="crimson-robe" aria-label="burn to demote Crimson Robe">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="low-rider.html" tabindex="0" role="link" aria-label="Low Rider" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/low-rider.webp" alt="Low Rider" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Low Rider</span>
         <span class="tile-num">S2 · №90</span>
-      </a>
-      <a class="tile r-rare" href="blacklight-kid.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="low-rider" aria-label="burn to promote Low Rider">▲</button>
+          <b class="vnet" data-net="low-rider">0</b>
+          <button type="button" class="vbtn vdn" data-slug="low-rider" aria-label="burn to demote Low Rider">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="blacklight-kid.html" tabindex="0" role="link" aria-label="Blacklight Kid" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/blacklight-kid.webp" alt="Blacklight Kid" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Blacklight Kid</span>
         <span class="tile-num">S2 · №96</span>
-      </a>
-      <a class="tile r-rare" href="white-garden.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blacklight-kid" aria-label="burn to promote Blacklight Kid">▲</button>
+          <b class="vnet" data-net="blacklight-kid">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blacklight-kid" aria-label="burn to demote Blacklight Kid">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="white-garden.html" tabindex="0" role="link" aria-label="White Garden" style="--f:#9be34f">
         <span class="tile-art"><img src="art/white-garden.webp" alt="White Garden" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">White Garden</span>
         <span class="tile-num">S2 · №97</span>
-      </a>
-      <a class="tile r-rare" href="the-scholar.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="white-garden" aria-label="burn to promote White Garden">▲</button>
+          <b class="vnet" data-net="white-garden">0</b>
+          <button type="button" class="vbtn vdn" data-slug="white-garden" aria-label="burn to demote White Garden">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="the-scholar.html" tabindex="0" role="link" aria-label="The Scholar" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/the-scholar.webp" alt="The Scholar" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">The Scholar</span>
         <span class="tile-num">S2 · №98</span>
-      </a>
-      <a class="tile r-rare" href="disco-wire.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="the-scholar" aria-label="burn to promote The Scholar">▲</button>
+          <b class="vnet" data-net="the-scholar">0</b>
+          <button type="button" class="vbtn vdn" data-slug="the-scholar" aria-label="burn to demote The Scholar">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="disco-wire.html" tabindex="0" role="link" aria-label="Disco Wire" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/disco-wire.webp" alt="Disco Wire" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Disco Wire</span>
         <span class="tile-num">S2 · №100</span>
-      </a>
-      <a class="tile r-rare" href="drip-claus.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="disco-wire" aria-label="burn to promote Disco Wire">▲</button>
+          <b class="vnet" data-net="disco-wire">0</b>
+          <button type="button" class="vbtn vdn" data-slug="disco-wire" aria-label="burn to demote Disco Wire">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="drip-claus.html" tabindex="0" role="link" aria-label="Drip Claus" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/drip-claus.webp" alt="Drip Claus" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Drip Claus</span>
         <span class="tile-num">S2 · №101</span>
-      </a>
-      <a class="tile r-rare" href="white-turban.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="drip-claus" aria-label="burn to promote Drip Claus">▲</button>
+          <b class="vnet" data-net="drip-claus">0</b>
+          <button type="button" class="vbtn vdn" data-slug="drip-claus" aria-label="burn to demote Drip Claus">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="white-turban.html" tabindex="0" role="link" aria-label="White Turban" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/white-turban.webp" alt="White Turban" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">White Turban</span>
         <span class="tile-num">S2 · №105</span>
-      </a>
-      <a class="tile r-rare" href="gold-kid.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="white-turban" aria-label="burn to promote White Turban">▲</button>
+          <b class="vnet" data-net="white-turban">0</b>
+          <button type="button" class="vbtn vdn" data-slug="white-turban" aria-label="burn to demote White Turban">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="gold-kid.html" tabindex="0" role="link" aria-label="Gold Kid" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/gold-kid.webp" alt="Gold Kid" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Gold Kid</span>
         <span class="tile-num">S2 · №111</span>
-      </a>
-      <a class="tile r-rare" href="motllociater.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="gold-kid" aria-label="burn to promote Gold Kid">▲</button>
+          <b class="vnet" data-net="gold-kid">0</b>
+          <button type="button" class="vbtn vdn" data-slug="gold-kid" aria-label="burn to demote Gold Kid">▼</button>
+        </span>
+      </div>
+      <div class="tile r-rare" data-href="motllociater.html" tabindex="0" role="link" aria-label="Motllociater" style="--f:#9be34f">
         <span class="tile-art"><img src="art/motllociater.webp" alt="Motllociater" loading="lazy"><span class="sheen"></span><span class="rr">rare</span></span>
         <span class="tile-name">Motllociater</span>
         <span class="tile-num">S2 · №112</span>
-      </a></div>
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="motllociater" aria-label="burn to promote Motllociater">▲</button>
+          <b class="vnet" data-net="motllociater">0</b>
+          <button type="button" class="vbtn vdn" data-slug="motllociater" aria-label="burn to demote Motllociater">▼</button>
+        </span>
+      </div></div>
     <h2 class="tier t-uncommon"><span>Uncommon · 62</span></h2>
     <div class="grid">
-      <a class="tile r-uncommon" href="blue-boar.html" style="--f:#ffd93b">
+      <div class="tile r-uncommon" data-href="blue-boar.html" tabindex="0" role="link" aria-label="Blue Boar" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/blue-boar.webp" alt="Blue Boar" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Blue Boar</span>
         <span class="tile-num">S1 · №01</span>
-      </a>
-      <a class="tile r-uncommon" href="pick-boss.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-boar" aria-label="burn to promote Blue Boar">▲</button>
+          <b class="vnet" data-net="blue-boar">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-boar" aria-label="burn to demote Blue Boar">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="pick-boss.html" tabindex="0" role="link" aria-label="Pick Boss" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/pick-boss.webp" alt="Pick Boss" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Pick Boss</span>
         <span class="tile-num">S1 · №04</span>
-      </a>
-      <a class="tile r-uncommon" href="beast-hug.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pick-boss" aria-label="burn to promote Pick Boss">▲</button>
+          <b class="vnet" data-net="pick-boss">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pick-boss" aria-label="burn to demote Pick Boss">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="beast-hug.html" tabindex="0" role="link" aria-label="Beast Hug" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/beast-hug.webp" alt="Beast Hug" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Beast Hug</span>
         <span class="tile-num">S1 · №06</span>
-      </a>
-      <a class="tile r-uncommon" href="bone-bard.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="beast-hug" aria-label="burn to promote Beast Hug">▲</button>
+          <b class="vnet" data-net="beast-hug">0</b>
+          <button type="button" class="vbtn vdn" data-slug="beast-hug" aria-label="burn to demote Beast Hug">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="bone-bard.html" tabindex="0" role="link" aria-label="Bone Bard" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/bone-bard.webp" alt="Bone Bard" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Bone Bard</span>
         <span class="tile-num">S1 · №09</span>
-      </a>
-      <a class="tile r-uncommon" href="big-grin.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bone-bard" aria-label="burn to promote Bone Bard">▲</button>
+          <b class="vnet" data-net="bone-bard">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bone-bard" aria-label="burn to demote Bone Bard">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="big-grin.html" tabindex="0" role="link" aria-label="Big Grin" style="--f:#9be34f">
         <span class="tile-art"><img src="art/big-grin.webp" alt="Big Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Big Grin</span>
         <span class="tile-num">S1 · №13</span>
-      </a>
-      <a class="tile r-uncommon" href="chef-fang.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="big-grin" aria-label="burn to promote Big Grin">▲</button>
+          <b class="vnet" data-net="big-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="big-grin" aria-label="burn to demote Big Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="chef-fang.html" tabindex="0" role="link" aria-label="Chef Fang" style="--f:#9be34f">
         <span class="tile-art"><img src="art/chef-fang.webp" alt="Chef Fang" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Chef Fang</span>
         <span class="tile-num">S1 · №14</span>
-      </a>
-      <a class="tile r-uncommon" href="streetwise.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="chef-fang" aria-label="burn to promote Chef Fang">▲</button>
+          <b class="vnet" data-net="chef-fang">0</b>
+          <button type="button" class="vbtn vdn" data-slug="chef-fang" aria-label="burn to demote Chef Fang">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="streetwise.html" tabindex="0" role="link" aria-label="Streetwise" style="--f:#9be34f">
         <span class="tile-art"><img src="art/streetwise.webp" alt="Streetwise" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Streetwise</span>
         <span class="tile-num">S1 · №16</span>
-      </a>
-      <a class="tile r-uncommon" href="fond-beast.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="streetwise" aria-label="burn to promote Streetwise">▲</button>
+          <b class="vnet" data-net="streetwise">0</b>
+          <button type="button" class="vbtn vdn" data-slug="streetwise" aria-label="burn to demote Streetwise">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="fond-beast.html" tabindex="0" role="link" aria-label="Fond Beast" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/fond-beast.webp" alt="Fond Beast" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Fond Beast</span>
         <span class="tile-num">S1 · №19</span>
-      </a>
-      <a class="tile r-uncommon" href="shadow-pair.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fond-beast" aria-label="burn to promote Fond Beast">▲</button>
+          <b class="vnet" data-net="fond-beast">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fond-beast" aria-label="burn to demote Fond Beast">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="shadow-pair.html" tabindex="0" role="link" aria-label="Shadow Pair" style="--f:#9be34f">
         <span class="tile-art"><img src="art/shadow-pair.webp" alt="Shadow Pair" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Shadow Pair</span>
         <span class="tile-num">S1 · №24</span>
-      </a>
-      <a class="tile r-uncommon" href="twin-hounds.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="shadow-pair" aria-label="burn to promote Shadow Pair">▲</button>
+          <b class="vnet" data-net="shadow-pair">0</b>
+          <button type="button" class="vbtn vdn" data-slug="shadow-pair" aria-label="burn to demote Shadow Pair">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="twin-hounds.html" tabindex="0" role="link" aria-label="Twin Hounds" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/twin-hounds.webp" alt="Twin Hounds" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Twin Hounds</span>
         <span class="tile-num">S1 · №27</span>
-      </a>
-      <a class="tile r-uncommon" href="fuzz-trio.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="twin-hounds" aria-label="burn to promote Twin Hounds">▲</button>
+          <b class="vnet" data-net="twin-hounds">0</b>
+          <button type="button" class="vbtn vdn" data-slug="twin-hounds" aria-label="burn to demote Twin Hounds">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="fuzz-trio.html" tabindex="0" role="link" aria-label="Fuzz Trio" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/fuzz-trio.webp" alt="Fuzz Trio" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Fuzz Trio</span>
         <span class="tile-num">S1 · №29</span>
-      </a>
-      <a class="tile r-uncommon" href="joy-blast.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fuzz-trio" aria-label="burn to promote Fuzz Trio">▲</button>
+          <b class="vnet" data-net="fuzz-trio">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fuzz-trio" aria-label="burn to demote Fuzz Trio">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="joy-blast.html" tabindex="0" role="link" aria-label="Joy Blast" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/joy-blast.webp" alt="Joy Blast" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Joy Blast</span>
         <span class="tile-num">S1 · №34</span>
-      </a>
-      <a class="tile r-uncommon" href="noodle-arms.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="joy-blast" aria-label="burn to promote Joy Blast">▲</button>
+          <b class="vnet" data-net="joy-blast">0</b>
+          <button type="button" class="vbtn vdn" data-slug="joy-blast" aria-label="burn to demote Joy Blast">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="noodle-arms.html" tabindex="0" role="link" aria-label="Noodle Arms" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/noodle-arms.webp" alt="Noodle Arms" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Noodle Arms</span>
         <span class="tile-num">S1 · №37</span>
-      </a>
-      <a class="tile r-uncommon" href="red-hound.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="noodle-arms" aria-label="burn to promote Noodle Arms">▲</button>
+          <b class="vnet" data-net="noodle-arms">0</b>
+          <button type="button" class="vbtn vdn" data-slug="noodle-arms" aria-label="burn to demote Noodle Arms">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="red-hound.html" tabindex="0" role="link" aria-label="Red Hound" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/red-hound.webp" alt="Red Hound" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Red Hound</span>
         <span class="tile-num">S1 · №41</span>
-      </a>
-      <a class="tile r-uncommon" href="barn-rooster.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-hound" aria-label="burn to promote Red Hound">▲</button>
+          <b class="vnet" data-net="red-hound">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-hound" aria-label="burn to demote Red Hound">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="barn-rooster.html" tabindex="0" role="link" aria-label="Barn Rooster" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/barn-rooster.webp" alt="Barn Rooster" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Barn Rooster</span>
         <span class="tile-num">S1 · №42</span>
-      </a>
-      <a class="tile r-uncommon" href="count-fuzz.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="barn-rooster" aria-label="burn to promote Barn Rooster">▲</button>
+          <b class="vnet" data-net="barn-rooster">0</b>
+          <button type="button" class="vbtn vdn" data-slug="barn-rooster" aria-label="burn to demote Barn Rooster">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="count-fuzz.html" tabindex="0" role="link" aria-label="Count Fuzz" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/count-fuzz.webp" alt="Count Fuzz" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Count Fuzz</span>
         <span class="tile-num">S1 · №46</span>
-      </a>
-      <a class="tile r-uncommon" href="blaze-grin.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="count-fuzz" aria-label="burn to promote Count Fuzz">▲</button>
+          <b class="vnet" data-net="count-fuzz">0</b>
+          <button type="button" class="vbtn vdn" data-slug="count-fuzz" aria-label="burn to demote Count Fuzz">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="blaze-grin.html" tabindex="0" role="link" aria-label="Blaze Grin" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/blaze-grin.webp" alt="Blaze Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Blaze Grin</span>
         <span class="tile-num">S1 · №52</span>
-      </a>
-      <a class="tile r-uncommon" href="spun-grin.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blaze-grin" aria-label="burn to promote Blaze Grin">▲</button>
+          <b class="vnet" data-net="blaze-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blaze-grin" aria-label="burn to demote Blaze Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="spun-grin.html" tabindex="0" role="link" aria-label="Spun Grin" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/spun-grin.webp" alt="Spun Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Spun Grin</span>
         <span class="tile-num">S1 · №54</span>
-      </a>
-      <a class="tile r-uncommon" href="green-drifter.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="spun-grin" aria-label="burn to promote Spun Grin">▲</button>
+          <b class="vnet" data-net="spun-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="spun-grin" aria-label="burn to demote Spun Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="green-drifter.html" tabindex="0" role="link" aria-label="Green Drifter" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/green-drifter.webp" alt="Green Drifter" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Green Drifter</span>
         <span class="tile-num">S1 · №55</span>
-      </a>
-      <a class="tile r-uncommon" href="neon-garden.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="green-drifter" aria-label="burn to promote Green Drifter">▲</button>
+          <b class="vnet" data-net="green-drifter">0</b>
+          <button type="button" class="vbtn vdn" data-slug="green-drifter" aria-label="burn to demote Green Drifter">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="neon-garden.html" tabindex="0" role="link" aria-label="Neon Garden" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/neon-garden.webp" alt="Neon Garden" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Neon Garden</span>
         <span class="tile-num">S1 · №63</span>
-      </a>
-      <a class="tile r-uncommon" href="unfinished.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="neon-garden" aria-label="burn to promote Neon Garden">▲</button>
+          <b class="vnet" data-net="neon-garden">0</b>
+          <button type="button" class="vbtn vdn" data-slug="neon-garden" aria-label="burn to demote Neon Garden">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="unfinished.html" tabindex="0" role="link" aria-label="Unfinished" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/unfinished.webp" alt="Unfinished" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Unfinished</span>
         <span class="tile-num">S1 · №65</span>
-      </a>
-      <a class="tile r-uncommon" href="sugar-rooster.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="unfinished" aria-label="burn to promote Unfinished">▲</button>
+          <b class="vnet" data-net="unfinished">0</b>
+          <button type="button" class="vbtn vdn" data-slug="unfinished" aria-label="burn to demote Unfinished">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="sugar-rooster.html" tabindex="0" role="link" aria-label="Sugar Rooster" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/sugar-rooster.webp" alt="Sugar Rooster" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Sugar Rooster</span>
         <span class="tile-num">S1 · №68</span>
-      </a>
-      <a class="tile r-uncommon" href="kindled-rat.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="sugar-rooster" aria-label="burn to promote Sugar Rooster">▲</button>
+          <b class="vnet" data-net="sugar-rooster">0</b>
+          <button type="button" class="vbtn vdn" data-slug="sugar-rooster" aria-label="burn to demote Sugar Rooster">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="kindled-rat.html" tabindex="0" role="link" aria-label="Kindled Rat" style="--f:#9be34f">
         <span class="tile-art"><img src="art/kindled-rat.webp" alt="Kindled Rat" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Kindled Rat</span>
         <span class="tile-num">S1 · №70</span>
-      </a>
-      <a class="tile r-uncommon" href="fuzz-tower.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="kindled-rat" aria-label="burn to promote Kindled Rat">▲</button>
+          <b class="vnet" data-net="kindled-rat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="kindled-rat" aria-label="burn to demote Kindled Rat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="fuzz-tower.html" tabindex="0" role="link" aria-label="Fuzz Tower" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/fuzz-tower.webp" alt="Fuzz Tower" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Fuzz Tower</span>
         <span class="tile-num">S1 · №76</span>
-      </a>
-      <a class="tile r-uncommon" href="pink-nomad.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="fuzz-tower" aria-label="burn to promote Fuzz Tower">▲</button>
+          <b class="vnet" data-net="fuzz-tower">0</b>
+          <button type="button" class="vbtn vdn" data-slug="fuzz-tower" aria-label="burn to demote Fuzz Tower">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="pink-nomad.html" tabindex="0" role="link" aria-label="Pink Nomad" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/pink-nomad.webp" alt="Pink Nomad" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Pink Nomad</span>
         <span class="tile-num">S1 · №77</span>
-      </a>
-      <a class="tile r-uncommon" href="reach-wolf.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pink-nomad" aria-label="burn to promote Pink Nomad">▲</button>
+          <b class="vnet" data-net="pink-nomad">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pink-nomad" aria-label="burn to demote Pink Nomad">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="reach-wolf.html" tabindex="0" role="link" aria-label="Reach Wolf" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/reach-wolf.webp" alt="Reach Wolf" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Reach Wolf</span>
         <span class="tile-num">S1 · №81</span>
-      </a>
-      <a class="tile r-uncommon" href="tux-brain.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="reach-wolf" aria-label="burn to promote Reach Wolf">▲</button>
+          <b class="vnet" data-net="reach-wolf">0</b>
+          <button type="button" class="vbtn vdn" data-slug="reach-wolf" aria-label="burn to demote Reach Wolf">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="tux-brain.html" tabindex="0" role="link" aria-label="Tux Brain" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/tux-brain.webp" alt="Tux Brain" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Tux Brain</span>
         <span class="tile-num">S1 · №82</span>
-      </a>
-      <a class="tile r-uncommon" href="sonder.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="tux-brain" aria-label="burn to promote Tux Brain">▲</button>
+          <b class="vnet" data-net="tux-brain">0</b>
+          <button type="button" class="vbtn vdn" data-slug="tux-brain" aria-label="burn to demote Tux Brain">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="sonder.html" tabindex="0" role="link" aria-label="Sonder" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/sonder.webp" alt="Sonder" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Sonder</span>
         <span class="tile-num">S2 · №02</span>
-      </a>
-      <a class="tile r-uncommon" href="rug-cowboy.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="sonder" aria-label="burn to promote Sonder">▲</button>
+          <b class="vnet" data-net="sonder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="sonder" aria-label="burn to demote Sonder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="rug-cowboy.html" tabindex="0" role="link" aria-label="Rug Cowboy" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/rug-cowboy.webp" alt="Rug Cowboy" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Rug Cowboy</span>
         <span class="tile-num">S2 · №04</span>
-      </a>
-      <a class="tile r-uncommon" href="white-robe.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rug-cowboy" aria-label="burn to promote Rug Cowboy">▲</button>
+          <b class="vnet" data-net="rug-cowboy">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rug-cowboy" aria-label="burn to demote Rug Cowboy">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="white-robe.html" tabindex="0" role="link" aria-label="White Robe" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/white-robe.webp" alt="White Robe" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">White Robe</span>
         <span class="tile-num">S2 · №05</span>
-      </a>
-      <a class="tile r-uncommon" href="pink-tango.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="white-robe" aria-label="burn to promote White Robe">▲</button>
+          <b class="vnet" data-net="white-robe">0</b>
+          <button type="button" class="vbtn vdn" data-slug="white-robe" aria-label="burn to demote White Robe">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="pink-tango.html" tabindex="0" role="link" aria-label="Pink Tango" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/pink-tango.webp" alt="Pink Tango" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Pink Tango</span>
         <span class="tile-num">S2 · №08</span>
-      </a>
-      <a class="tile r-uncommon" href="green-geezer.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pink-tango" aria-label="burn to promote Pink Tango">▲</button>
+          <b class="vnet" data-net="pink-tango">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pink-tango" aria-label="burn to demote Pink Tango">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="green-geezer.html" tabindex="0" role="link" aria-label="Green Geezer" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/green-geezer.webp" alt="Green Geezer" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Green Geezer</span>
         <span class="tile-num">S2 · №12</span>
-      </a>
-      <a class="tile r-uncommon" href="red-tropic.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="green-geezer" aria-label="burn to promote Green Geezer">▲</button>
+          <b class="vnet" data-net="green-geezer">0</b>
+          <button type="button" class="vbtn vdn" data-slug="green-geezer" aria-label="burn to demote Green Geezer">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="red-tropic.html" tabindex="0" role="link" aria-label="Red Tropic" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/red-tropic.webp" alt="Red Tropic" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Red Tropic</span>
         <span class="tile-num">S2 · №14</span>
-      </a>
-      <a class="tile r-uncommon" href="red-bloom.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-tropic" aria-label="burn to promote Red Tropic">▲</button>
+          <b class="vnet" data-net="red-tropic">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-tropic" aria-label="burn to demote Red Tropic">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="red-bloom.html" tabindex="0" role="link" aria-label="Red Bloom" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/red-bloom.webp" alt="Red Bloom" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Red Bloom</span>
         <span class="tile-num">S2 · №16</span>
-      </a>
-      <a class="tile r-uncommon" href="checker-frog.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-bloom" aria-label="burn to promote Red Bloom">▲</button>
+          <b class="vnet" data-net="red-bloom">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-bloom" aria-label="burn to demote Red Bloom">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="checker-frog.html" tabindex="0" role="link" aria-label="Checker Frog" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/checker-frog.webp" alt="Checker Frog" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Checker Frog</span>
         <span class="tile-num">S2 · №19</span>
-      </a>
-      <a class="tile r-uncommon" href="scrapbook.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="checker-frog" aria-label="burn to promote Checker Frog">▲</button>
+          <b class="vnet" data-net="checker-frog">0</b>
+          <button type="button" class="vbtn vdn" data-slug="checker-frog" aria-label="burn to demote Checker Frog">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="scrapbook.html" tabindex="0" role="link" aria-label="Scrapbook" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/scrapbook.webp" alt="Scrapbook" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Scrapbook</span>
         <span class="tile-num">S2 · №22</span>
-      </a>
-      <a class="tile r-uncommon" href="purple-haze.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="scrapbook" aria-label="burn to promote Scrapbook">▲</button>
+          <b class="vnet" data-net="scrapbook">0</b>
+          <button type="button" class="vbtn vdn" data-slug="scrapbook" aria-label="burn to demote Scrapbook">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="purple-haze.html" tabindex="0" role="link" aria-label="Purple Haze" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/purple-haze.webp" alt="Purple Haze" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Purple Haze</span>
         <span class="tile-num">S2 · №25</span>
-      </a>
-      <a class="tile r-uncommon" href="gold-chain.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="purple-haze" aria-label="burn to promote Purple Haze">▲</button>
+          <b class="vnet" data-net="purple-haze">0</b>
+          <button type="button" class="vbtn vdn" data-slug="purple-haze" aria-label="burn to demote Purple Haze">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="gold-chain.html" tabindex="0" role="link" aria-label="Gold Chain" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/gold-chain.webp" alt="Gold Chain" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Gold Chain</span>
         <span class="tile-num">S2 · №29</span>
-      </a>
-      <a class="tile r-uncommon" href="velvet-lounge.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="gold-chain" aria-label="burn to promote Gold Chain">▲</button>
+          <b class="vnet" data-net="gold-chain">0</b>
+          <button type="button" class="vbtn vdn" data-slug="gold-chain" aria-label="burn to demote Gold Chain">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="velvet-lounge.html" tabindex="0" role="link" aria-label="Velvet Lounge" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/velvet-lounge.webp" alt="Velvet Lounge" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Velvet Lounge</span>
         <span class="tile-num">S2 · №34</span>
-      </a>
-      <a class="tile r-uncommon" href="spawn.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="velvet-lounge" aria-label="burn to promote Velvet Lounge">▲</button>
+          <b class="vnet" data-net="velvet-lounge">0</b>
+          <button type="button" class="vbtn vdn" data-slug="velvet-lounge" aria-label="burn to demote Velvet Lounge">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="spawn.html" tabindex="0" role="link" aria-label="Spawn" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/spawn.webp" alt="Spawn" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Spawn</span>
         <span class="tile-num">S2 · №37</span>
-      </a>
-      <a class="tile r-uncommon" href="swole-toad.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="spawn" aria-label="burn to promote Spawn">▲</button>
+          <b class="vnet" data-net="spawn">0</b>
+          <button type="button" class="vbtn vdn" data-slug="spawn" aria-label="burn to demote Spawn">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="swole-toad.html" tabindex="0" role="link" aria-label="Swole Toad" style="--f:#9be34f">
         <span class="tile-art"><img src="art/swole-toad.webp" alt="Swole Toad" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Swole Toad</span>
         <span class="tile-num">S2 · №41</span>
-      </a>
-      <a class="tile r-uncommon" href="small-counsel.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="swole-toad" aria-label="burn to promote Swole Toad">▲</button>
+          <b class="vnet" data-net="swole-toad">0</b>
+          <button type="button" class="vbtn vdn" data-slug="swole-toad" aria-label="burn to demote Swole Toad">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="small-counsel.html" tabindex="0" role="link" aria-label="Small Counsel" style="--f:#9be34f">
         <span class="tile-art"><img src="art/small-counsel.webp" alt="Small Counsel" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Small Counsel</span>
         <span class="tile-num">S2 · №43</span>
-      </a>
-      <a class="tile r-uncommon" href="pipe-dream.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="small-counsel" aria-label="burn to promote Small Counsel">▲</button>
+          <b class="vnet" data-net="small-counsel">0</b>
+          <button type="button" class="vbtn vdn" data-slug="small-counsel" aria-label="burn to demote Small Counsel">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="pipe-dream.html" tabindex="0" role="link" aria-label="Pipe Dream" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/pipe-dream.webp" alt="Pipe Dream" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Pipe Dream</span>
         <span class="tile-num">S2 · №48</span>
-      </a>
-      <a class="tile r-uncommon" href="lotus-elder.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pipe-dream" aria-label="burn to promote Pipe Dream">▲</button>
+          <b class="vnet" data-net="pipe-dream">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pipe-dream" aria-label="burn to demote Pipe Dream">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="lotus-elder.html" tabindex="0" role="link" aria-label="Lotus Elder" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/lotus-elder.webp" alt="Lotus Elder" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Lotus Elder</span>
         <span class="tile-num">S2 · №49</span>
-      </a>
-      <a class="tile r-uncommon" href="rain-rider.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="lotus-elder" aria-label="burn to promote Lotus Elder">▲</button>
+          <b class="vnet" data-net="lotus-elder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="lotus-elder" aria-label="burn to demote Lotus Elder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="rain-rider.html" tabindex="0" role="link" aria-label="Rain Rider" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/rain-rider.webp" alt="Rain Rider" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Rain Rider</span>
         <span class="tile-num">S2 · №50</span>
-      </a>
-      <a class="tile r-uncommon" href="space-pink.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rain-rider" aria-label="burn to promote Rain Rider">▲</button>
+          <b class="vnet" data-net="rain-rider">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rain-rider" aria-label="burn to demote Rain Rider">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="space-pink.html" tabindex="0" role="link" aria-label="Space Pink" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/space-pink.webp" alt="Space Pink" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Space Pink</span>
         <span class="tile-num">S2 · №56</span>
-      </a>
-      <a class="tile r-uncommon" href="glitter-grin.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="space-pink" aria-label="burn to promote Space Pink">▲</button>
+          <b class="vnet" data-net="space-pink">0</b>
+          <button type="button" class="vbtn vdn" data-slug="space-pink" aria-label="burn to demote Space Pink">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="glitter-grin.html" tabindex="0" role="link" aria-label="Glitter Grin" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/glitter-grin.webp" alt="Glitter Grin" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Glitter Grin</span>
         <span class="tile-num">S2 · №58</span>
-      </a>
-      <a class="tile r-uncommon" href="nap-stack.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="glitter-grin" aria-label="burn to promote Glitter Grin">▲</button>
+          <b class="vnet" data-net="glitter-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="glitter-grin" aria-label="burn to demote Glitter Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="nap-stack.html" tabindex="0" role="link" aria-label="Nap Stack" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/nap-stack.webp" alt="Nap Stack" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Nap Stack</span>
         <span class="tile-num">S2 · №62</span>
-      </a>
-      <a class="tile r-uncommon" href="red-cackle.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="nap-stack" aria-label="burn to promote Nap Stack">▲</button>
+          <b class="vnet" data-net="nap-stack">0</b>
+          <button type="button" class="vbtn vdn" data-slug="nap-stack" aria-label="burn to demote Nap Stack">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="red-cackle.html" tabindex="0" role="link" aria-label="Red Cackle" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/red-cackle.webp" alt="Red Cackle" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Red Cackle</span>
         <span class="tile-num">S2 · №67</span>
-      </a>
-      <a class="tile r-uncommon" href="long-carry.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="red-cackle" aria-label="burn to promote Red Cackle">▲</button>
+          <b class="vnet" data-net="red-cackle">0</b>
+          <button type="button" class="vbtn vdn" data-slug="red-cackle" aria-label="burn to demote Red Cackle">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="long-carry.html" tabindex="0" role="link" aria-label="Long Carry" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/long-carry.webp" alt="Long Carry" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Long Carry</span>
         <span class="tile-num">S2 · №69</span>
-      </a>
-      <a class="tile r-uncommon" href="number-five.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="long-carry" aria-label="burn to promote Long Carry">▲</button>
+          <b class="vnet" data-net="long-carry">0</b>
+          <button type="button" class="vbtn vdn" data-slug="long-carry" aria-label="burn to demote Long Carry">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="number-five.html" tabindex="0" role="link" aria-label="Number Five" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/number-five.webp" alt="Number Five" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Number Five</span>
         <span class="tile-num">S2 · №70</span>
-      </a>
-      <a class="tile r-uncommon" href="rainbow-gate.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="number-five" aria-label="burn to promote Number Five">▲</button>
+          <b class="vnet" data-net="number-five">0</b>
+          <button type="button" class="vbtn vdn" data-slug="number-five" aria-label="burn to demote Number Five">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="rainbow-gate.html" tabindex="0" role="link" aria-label="Rainbow Gate" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/rainbow-gate.webp" alt="Rainbow Gate" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Rainbow Gate</span>
         <span class="tile-num">S2 · №71</span>
-      </a>
-      <a class="tile r-uncommon" href="chrome-blank.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rainbow-gate" aria-label="burn to promote Rainbow Gate">▲</button>
+          <b class="vnet" data-net="rainbow-gate">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rainbow-gate" aria-label="burn to demote Rainbow Gate">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="chrome-blank.html" tabindex="0" role="link" aria-label="Chrome Blank" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/chrome-blank.webp" alt="Chrome Blank" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Chrome Blank</span>
         <span class="tile-num">S2 · №76</span>
-      </a>
-      <a class="tile r-uncommon" href="orange-monk.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="chrome-blank" aria-label="burn to promote Chrome Blank">▲</button>
+          <b class="vnet" data-net="chrome-blank">0</b>
+          <button type="button" class="vbtn vdn" data-slug="chrome-blank" aria-label="burn to demote Chrome Blank">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="orange-monk.html" tabindex="0" role="link" aria-label="Orange Monk" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/orange-monk.webp" alt="Orange Monk" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Orange Monk</span>
         <span class="tile-num">S2 · №80</span>
-      </a>
-      <a class="tile r-uncommon" href="citrus-pool.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="orange-monk" aria-label="burn to promote Orange Monk">▲</button>
+          <b class="vnet" data-net="orange-monk">0</b>
+          <button type="button" class="vbtn vdn" data-slug="orange-monk" aria-label="burn to demote Orange Monk">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="citrus-pool.html" tabindex="0" role="link" aria-label="Citrus Pool" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/citrus-pool.webp" alt="Citrus Pool" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Citrus Pool</span>
         <span class="tile-num">S2 · №82</span>
-      </a>
-      <a class="tile r-uncommon" href="white-tux.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="citrus-pool" aria-label="burn to promote Citrus Pool">▲</button>
+          <b class="vnet" data-net="citrus-pool">0</b>
+          <button type="button" class="vbtn vdn" data-slug="citrus-pool" aria-label="burn to demote Citrus Pool">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="white-tux.html" tabindex="0" role="link" aria-label="White Tux" style="--f:#9be34f">
         <span class="tile-art"><img src="art/white-tux.webp" alt="White Tux" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">White Tux</span>
         <span class="tile-num">S2 · №85</span>
-      </a>
-      <a class="tile r-uncommon" href="black-tie.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="white-tux" aria-label="burn to promote White Tux">▲</button>
+          <b class="vnet" data-net="white-tux">0</b>
+          <button type="button" class="vbtn vdn" data-slug="white-tux" aria-label="burn to demote White Tux">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="black-tie.html" tabindex="0" role="link" aria-label="Black Tie" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/black-tie.webp" alt="Black Tie" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Black Tie</span>
         <span class="tile-num">S2 · №88</span>
-      </a>
-      <a class="tile r-uncommon" href="big-laugh.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="black-tie" aria-label="burn to promote Black Tie">▲</button>
+          <b class="vnet" data-net="black-tie">0</b>
+          <button type="button" class="vbtn vdn" data-slug="black-tie" aria-label="burn to demote Black Tie">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="big-laugh.html" tabindex="0" role="link" aria-label="Big Laugh" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/big-laugh.webp" alt="Big Laugh" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Big Laugh</span>
         <span class="tile-num">S2 · №92</span>
-      </a>
-      <a class="tile r-uncommon" href="pink-prophet.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="big-laugh" aria-label="burn to promote Big Laugh">▲</button>
+          <b class="vnet" data-net="big-laugh">0</b>
+          <button type="button" class="vbtn vdn" data-slug="big-laugh" aria-label="burn to demote Big Laugh">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="pink-prophet.html" tabindex="0" role="link" aria-label="Pink Prophet" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/pink-prophet.webp" alt="Pink Prophet" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Pink Prophet</span>
         <span class="tile-num">S2 · №94</span>
-      </a>
-      <a class="tile r-uncommon" href="silver-press.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pink-prophet" aria-label="burn to promote Pink Prophet">▲</button>
+          <b class="vnet" data-net="pink-prophet">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pink-prophet" aria-label="burn to demote Pink Prophet">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="silver-press.html" tabindex="0" role="link" aria-label="Silver Press" style="--f:#9be34f">
         <span class="tile-art"><img src="art/silver-press.webp" alt="Silver Press" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Silver Press</span>
         <span class="tile-num">S2 · №102</span>
-      </a>
-      <a class="tile r-uncommon" href="number-six.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="silver-press" aria-label="burn to promote Silver Press">▲</button>
+          <b class="vnet" data-net="silver-press">0</b>
+          <button type="button" class="vbtn vdn" data-slug="silver-press" aria-label="burn to demote Silver Press">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="number-six.html" tabindex="0" role="link" aria-label="Number Six" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/number-six.webp" alt="Number Six" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Number Six</span>
         <span class="tile-num">S2 · №103</span>
-      </a>
-      <a class="tile r-uncommon" href="holo-blank.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="number-six" aria-label="burn to promote Number Six">▲</button>
+          <b class="vnet" data-net="number-six">0</b>
+          <button type="button" class="vbtn vdn" data-slug="number-six" aria-label="burn to demote Number Six">▼</button>
+        </span>
+      </div>
+      <div class="tile r-uncommon" data-href="holo-blank.html" tabindex="0" role="link" aria-label="Holo Blank" style="--f:#9be34f">
         <span class="tile-art"><img src="art/holo-blank.webp" alt="Holo Blank" loading="lazy"><span class="sheen"></span><span class="rr">uncommon</span></span>
         <span class="tile-name">Holo Blank</span>
         <span class="tile-num">S2 · №107</span>
-      </a></div>
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="holo-blank" aria-label="burn to promote Holo Blank">▲</button>
+          <b class="vnet" data-net="holo-blank">0</b>
+          <button type="button" class="vbtn vdn" data-slug="holo-blank" aria-label="burn to demote Holo Blank">▼</button>
+        </span>
+      </div></div>
     <h2 class="tier t-common"><span>Common · 24</span></h2>
     <div class="grid">
-      <a class="tile r-common" href="cosmic-yawn.html" style="--f:#63b3ff">
+      <div class="tile r-common" data-href="cosmic-yawn.html" tabindex="0" role="link" aria-label="Cosmic Yawn" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/cosmic-yawn.webp" alt="Cosmic Yawn" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Cosmic Yawn</span>
         <span class="tile-num">S1 · №02</span>
-      </a>
-      <a class="tile r-common" href="neon-sage.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cosmic-yawn" aria-label="burn to promote Cosmic Yawn">▲</button>
+          <b class="vnet" data-net="cosmic-yawn">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cosmic-yawn" aria-label="burn to demote Cosmic Yawn">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="neon-sage.html" tabindex="0" role="link" aria-label="Neon Sage" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/neon-sage.webp" alt="Neon Sage" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Neon Sage</span>
         <span class="tile-num">S1 · №18</span>
-      </a>
-      <a class="tile r-common" href="alley-trio.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="neon-sage" aria-label="burn to promote Neon Sage">▲</button>
+          <b class="vnet" data-net="neon-sage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="neon-sage" aria-label="burn to demote Neon Sage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="alley-trio.html" tabindex="0" role="link" aria-label="Alley Trio" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/alley-trio.webp" alt="Alley Trio" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Alley Trio</span>
         <span class="tile-num">S1 · №28</span>
-      </a>
-      <a class="tile r-common" href="pajama-bear.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="alley-trio" aria-label="burn to promote Alley Trio">▲</button>
+          <b class="vnet" data-net="alley-trio">0</b>
+          <button type="button" class="vbtn vdn" data-slug="alley-trio" aria-label="burn to demote Alley Trio">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="pajama-bear.html" tabindex="0" role="link" aria-label="Pajama Bear" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/pajama-bear.webp" alt="Pajama Bear" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Pajama Bear</span>
         <span class="tile-num">S1 · №35</span>
-      </a>
-      <a class="tile r-common" href="blue-gulp.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pajama-bear" aria-label="burn to promote Pajama Bear">▲</button>
+          <b class="vnet" data-net="pajama-bear">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pajama-bear" aria-label="burn to demote Pajama Bear">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="blue-gulp.html" tabindex="0" role="link" aria-label="Blue Gulp" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/blue-gulp.webp" alt="Blue Gulp" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Blue Gulp</span>
         <span class="tile-num">S1 · №39</span>
-      </a>
-      <a class="tile r-common" href="soaked-grin.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="blue-gulp" aria-label="burn to promote Blue Gulp">▲</button>
+          <b class="vnet" data-net="blue-gulp">0</b>
+          <button type="button" class="vbtn vdn" data-slug="blue-gulp" aria-label="burn to demote Blue Gulp">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="soaked-grin.html" tabindex="0" role="link" aria-label="Soaked Grin" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/soaked-grin.webp" alt="Soaked Grin" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Soaked Grin</span>
         <span class="tile-num">S1 · №69</span>
-      </a>
-      <a class="tile r-common" href="sourpuss.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="soaked-grin" aria-label="burn to promote Soaked Grin">▲</button>
+          <b class="vnet" data-net="soaked-grin">0</b>
+          <button type="button" class="vbtn vdn" data-slug="soaked-grin" aria-label="burn to demote Soaked Grin">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="sourpuss.html" tabindex="0" role="link" aria-label="Sourpuss" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/sourpuss.webp" alt="Sourpuss" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Sourpuss</span>
         <span class="tile-num">S1 · №83</span>
-      </a>
-      <a class="tile r-common" href="faded-frog.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="sourpuss" aria-label="burn to promote Sourpuss">▲</button>
+          <b class="vnet" data-net="sourpuss">0</b>
+          <button type="button" class="vbtn vdn" data-slug="sourpuss" aria-label="burn to demote Sourpuss">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="faded-frog.html" tabindex="0" role="link" aria-label="Faded Frog" style="--f:#9be34f">
         <span class="tile-art"><img src="art/faded-frog.webp" alt="Faded Frog" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Faded Frog</span>
         <span class="tile-num">S2 · №07</span>
-      </a>
-      <a class="tile r-common" href="pink-tabby.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="faded-frog" aria-label="burn to promote Faded Frog">▲</button>
+          <b class="vnet" data-net="faded-frog">0</b>
+          <button type="button" class="vbtn vdn" data-slug="faded-frog" aria-label="burn to demote Faded Frog">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="pink-tabby.html" tabindex="0" role="link" aria-label="Pink Tabby" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/pink-tabby.webp" alt="Pink Tabby" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Pink Tabby</span>
         <span class="tile-num">S2 · №10</span>
-      </a>
-      <a class="tile r-common" href="stray-loteria.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pink-tabby" aria-label="burn to promote Pink Tabby">▲</button>
+          <b class="vnet" data-net="pink-tabby">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pink-tabby" aria-label="burn to demote Pink Tabby">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="stray-loteria.html" tabindex="0" role="link" aria-label="Stray Loteria" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/stray-loteria.webp" alt="Stray Loteria" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Stray Loteria</span>
         <span class="tile-num">S2 · №24</span>
-      </a>
-      <a class="tile r-common" href="pastel-ten.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="stray-loteria" aria-label="burn to promote Stray Loteria">▲</button>
+          <b class="vnet" data-net="stray-loteria">0</b>
+          <button type="button" class="vbtn vdn" data-slug="stray-loteria" aria-label="burn to demote Stray Loteria">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="pastel-ten.html" tabindex="0" role="link" aria-label="Pastel Ten" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/pastel-ten.webp" alt="Pastel Ten" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Pastel Ten</span>
         <span class="tile-num">S2 · №26</span>
-      </a>
-      <a class="tile r-common" href="reefer.html" style="--f:#ffd93b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pastel-ten" aria-label="burn to promote Pastel Ten">▲</button>
+          <b class="vnet" data-net="pastel-ten">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pastel-ten" aria-label="burn to demote Pastel Ten">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="reefer.html" tabindex="0" role="link" aria-label="Reefer" style="--f:#ffd93b">
         <span class="tile-art"><img src="art/reefer.webp" alt="Reefer" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Reefer</span>
         <span class="tile-num">S2 · №35</span>
-      </a>
-      <a class="tile r-common" href="bow-cat.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="reefer" aria-label="burn to promote Reefer">▲</button>
+          <b class="vnet" data-net="reefer">0</b>
+          <button type="button" class="vbtn vdn" data-slug="reefer" aria-label="burn to demote Reefer">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="bow-cat.html" tabindex="0" role="link" aria-label="Bow Cat" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/bow-cat.webp" alt="Bow Cat" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Bow Cat</span>
         <span class="tile-num">S2 · №36</span>
-      </a>
-      <a class="tile r-common" href="plaid-elder.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="bow-cat" aria-label="burn to promote Bow Cat">▲</button>
+          <b class="vnet" data-net="bow-cat">0</b>
+          <button type="button" class="vbtn vdn" data-slug="bow-cat" aria-label="burn to demote Bow Cat">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="plaid-elder.html" tabindex="0" role="link" aria-label="Plaid Elder" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/plaid-elder.webp" alt="Plaid Elder" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Plaid Elder</span>
         <span class="tile-num">S2 · №47</span>
-      </a>
-      <a class="tile r-common" href="pastel-duo.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="plaid-elder" aria-label="burn to promote Plaid Elder">▲</button>
+          <b class="vnet" data-net="plaid-elder">0</b>
+          <button type="button" class="vbtn vdn" data-slug="plaid-elder" aria-label="burn to demote Plaid Elder">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="pastel-duo.html" tabindex="0" role="link" aria-label="Pastel Duo" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/pastel-duo.webp" alt="Pastel Duo" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Pastel Duo</span>
         <span class="tile-num">S2 · №53</span>
-      </a>
-      <a class="tile r-common" href="mug-shots.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pastel-duo" aria-label="burn to promote Pastel Duo">▲</button>
+          <b class="vnet" data-net="pastel-duo">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pastel-duo" aria-label="burn to demote Pastel Duo">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="mug-shots.html" tabindex="0" role="link" aria-label="Mug Shots" style="--f:#9be34f">
         <span class="tile-art"><img src="art/mug-shots.webp" alt="Mug Shots" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Mug Shots</span>
         <span class="tile-num">S2 · №57</span>
-      </a>
-      <a class="tile r-common" href="pink-room.html" style="--f:#2ad4c8">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="mug-shots" aria-label="burn to promote Mug Shots">▲</button>
+          <b class="vnet" data-net="mug-shots">0</b>
+          <button type="button" class="vbtn vdn" data-slug="mug-shots" aria-label="burn to demote Mug Shots">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="pink-room.html" tabindex="0" role="link" aria-label="Pink Room" style="--f:#2ad4c8">
         <span class="tile-art"><img src="art/pink-room.webp" alt="Pink Room" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Pink Room</span>
         <span class="tile-num">S2 · №63</span>
-      </a>
-      <a class="tile r-common" href="cloud-collage.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="pink-room" aria-label="burn to promote Pink Room">▲</button>
+          <b class="vnet" data-net="pink-room">0</b>
+          <button type="button" class="vbtn vdn" data-slug="pink-room" aria-label="burn to demote Pink Room">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="cloud-collage.html" tabindex="0" role="link" aria-label="Cloud Collage" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/cloud-collage.webp" alt="Cloud Collage" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Cloud Collage</span>
         <span class="tile-num">S2 · №65</span>
-      </a>
-      <a class="tile r-common" href="parlor-scene.html" style="--f:#ff5fd0">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cloud-collage" aria-label="burn to promote Cloud Collage">▲</button>
+          <b class="vnet" data-net="cloud-collage">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cloud-collage" aria-label="burn to demote Cloud Collage">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="parlor-scene.html" tabindex="0" role="link" aria-label="Parlor Scene" style="--f:#ff5fd0">
         <span class="tile-art"><img src="art/parlor-scene.webp" alt="Parlor Scene" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Parlor Scene</span>
         <span class="tile-num">S2 · №74</span>
-      </a>
-      <a class="tile r-common" href="cactus-walk.html" style="--f:#9be34f">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="parlor-scene" aria-label="burn to promote Parlor Scene">▲</button>
+          <b class="vnet" data-net="parlor-scene">0</b>
+          <button type="button" class="vbtn vdn" data-slug="parlor-scene" aria-label="burn to demote Parlor Scene">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="cactus-walk.html" tabindex="0" role="link" aria-label="Cactus Walk" style="--f:#9be34f">
         <span class="tile-art"><img src="art/cactus-walk.webp" alt="Cactus Walk" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Cactus Walk</span>
         <span class="tile-num">S2 · №84</span>
-      </a>
-      <a class="tile r-common" href="rogue-sheet.html" style="--f:#ff6b57">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="cactus-walk" aria-label="burn to promote Cactus Walk">▲</button>
+          <b class="vnet" data-net="cactus-walk">0</b>
+          <button type="button" class="vbtn vdn" data-slug="cactus-walk" aria-label="burn to demote Cactus Walk">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="rogue-sheet.html" tabindex="0" role="link" aria-label="Rogue Sheet" style="--f:#ff6b57">
         <span class="tile-art"><img src="art/rogue-sheet.webp" alt="Rogue Sheet" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Rogue Sheet</span>
         <span class="tile-num">S2 · №93</span>
-      </a>
-      <a class="tile r-common" href="soft-ghost.html" style="--f:#ff9a3b">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="rogue-sheet" aria-label="burn to promote Rogue Sheet">▲</button>
+          <b class="vnet" data-net="rogue-sheet">0</b>
+          <button type="button" class="vbtn vdn" data-slug="rogue-sheet" aria-label="burn to demote Rogue Sheet">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="soft-ghost.html" tabindex="0" role="link" aria-label="Soft Ghost" style="--f:#ff9a3b">
         <span class="tile-art"><img src="art/soft-ghost.webp" alt="Soft Ghost" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Soft Ghost</span>
         <span class="tile-num">S2 · №95</span>
-      </a>
-      <a class="tile r-common" href="green-fuzz.html" style="--f:#9b5cff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="soft-ghost" aria-label="burn to promote Soft Ghost">▲</button>
+          <b class="vnet" data-net="soft-ghost">0</b>
+          <button type="button" class="vbtn vdn" data-slug="soft-ghost" aria-label="burn to demote Soft Ghost">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="green-fuzz.html" tabindex="0" role="link" aria-label="Green Fuzz" style="--f:#9b5cff">
         <span class="tile-art"><img src="art/green-fuzz.webp" alt="Green Fuzz" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Green Fuzz</span>
         <span class="tile-num">S2 · №99</span>
-      </a>
-      <a class="tile r-common" href="silver-stroll.html" style="--f:#63b3ff">
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="green-fuzz" aria-label="burn to promote Green Fuzz">▲</button>
+          <b class="vnet" data-net="green-fuzz">0</b>
+          <button type="button" class="vbtn vdn" data-slug="green-fuzz" aria-label="burn to demote Green Fuzz">▼</button>
+        </span>
+      </div>
+      <div class="tile r-common" data-href="silver-stroll.html" tabindex="0" role="link" aria-label="Silver Stroll" style="--f:#63b3ff">
         <span class="tile-art"><img src="art/silver-stroll.webp" alt="Silver Stroll" loading="lazy"><span class="sheen"></span><span class="rr">common</span></span>
         <span class="tile-name">Silver Stroll</span>
         <span class="tile-num">S2 · №110</span>
-      </a></div>
+        
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="silver-stroll" aria-label="burn to promote Silver Stroll">▲</button>
+          <b class="vnet" data-net="silver-stroll">0</b>
+          <button type="button" class="vbtn vdn" data-slug="silver-stroll" aria-label="burn to demote Silver Stroll">▼</button>
+        </span>
+      </div></div>
     </main>
   </div>
 <script>
 (function(){
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // navigate on tile click/Enter (vote buttons excluded)
+  document.querySelectorAll('.tile[data-href]').forEach(function(t){
+    t.addEventListener('click', function(ev){
+      if (ev.target.closest('.vote')) return;
+      location.href = t.dataset.href;
+    });
+    t.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' && !ev.target.closest('.vote')) location.href = t.dataset.href;
+    });
+  });
+  // the rarity court (preview): each ▲/▼ simulates a 1 $UR3030 burn, kept on this
+  // device until the vault contract goes live and votes become real burns.
+  var toast = document.createElement('div'); toast.className = 'toast'; document.body.appendChild(toast);
+  var toastTimer;
+  function say(msg){ toast.textContent = msg; toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200); }
+  function votes(){ try { return JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { return {}; } }
+  function renderNet(slug){
+    var v = votes()[slug]||0;
+    document.querySelectorAll('[data-net="'+slug+'"]').forEach(function(el){
+      el.textContent = (v>0?'+':'')+v;
+      el.classList.toggle('pos', v>0); el.classList.toggle('neg', v<0);
+    });
+  }
+  Object.keys(votes()).forEach(renderNet);
+  document.querySelectorAll('.vbtn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var slug = b.dataset.slug, up = b.classList.contains('vup');
+      var v = votes(); v[slug] = (v[slug]||0) + (up?1:-1);
+      try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {}
+      renderNet(slug);
+      say(up ? '▲ 1 $UR3030 burned to promote — on-chain at vault launch'
+             : '▼ 1 $UR3030 burned to demote — on-chain at vault launch');
+    });
+  });
   document.querySelectorAll('.tile').forEach(function(t){
     t.addEventListener('pointermove', function(e){
       var r = t.getBoundingClientRect();

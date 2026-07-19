@@ -108,8 +108,9 @@
   .tile .meta{ padding:3px 4px 4px; position:relative; z-index:3; }
   .tile .nm{ font-family:var(--fat); font-size:9px; text-transform:uppercase; letter-spacing:.02em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .tile .st{ display:flex; justify-content:space-between; font-size:9px; margin-top:2px; color:#bfe; }
+  .tile .st{ display:flex; justify-content:space-between; gap:3px; font-size:9px; margin-top:2px; color:#bfe; }
   .tile .st .a{ color:var(--coral); } .tile .st .d{ color:var(--cyan); }
+  .tile .st .t{ color:var(--amber); font-family:var(--fat); }
   .tile .tg{ font-size:7.5px; letter-spacing:.04em; color:#9aa; white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; text-transform:uppercase; }
   .tile .rr{ position:absolute; top:3px; right:3px; z-index:3; font-size:7px; font-family:var(--fat);
@@ -193,19 +194,21 @@
 
     <div class="panel">
       <h2>The rules, such as they are</h2>
-      <p>Every slam runs on the <b>gas weather</b> — one live trigger rolled from the chain's
-      mood. Any card whose trigger <b>matches the gas</b> catches a <b>⚡ surge</b> (+4 ATK).
-      Wager like pogs: a clean <b>single</b>, a <b>pair</b>, <b>trips</b>, a <b>quad</b>, or the
-      all-in <b>full slam</b> of seven. Stacks reward <b>combos</b> — matching triggers inside
-      your stack pay <b>+3</b> a pair, and going deep pays a size bonus. Highest power takes the
-      pot and <b>collects</b> the loser's cards into the vault. <span class="omen">Ties go to
-      the house. The house always eats.</span></p>
+      <p>Every card counts its whole self: <b>Σ = ATK + DEF</b>. The <b>weather</b> comes
+      live off the chain — one trigger amplified per ~25 blocks — and any card whose trigger
+      matches it catches a <b>⚡ +4 amp</b> into its Σ. That's the strategy: read the weather,
+      build the stack. Wager like pogs — <b>single</b>, <b>pair</b>, <b>trips</b>, <b>quad</b>,
+      or the all-in <b>full slam</b> of seven. Matching triggers inside your stack pay
+      <b>+3</b> a pair, going deep pays a size bonus. Highest total takes the pot and
+      <b>collects</b> the loser's cards. <span class="omen">Ties go to the house. The house
+      always eats.</span></p>
     </div>
 
     <div class="gas">
       <span class="lbl">Gas weather</span>
       <span class="val" id="gasVal">—</span>
-      <button class="mode" id="reroll" title="roll the weather">↻ roll</button>
+      <button class="mode" id="reroll" title="re-sync the weather">↻ sync</button>
+      <span class="lbl" id="gasSrc" style="flex-basis:100%;text-align:center">reading the chain…</span>
     </div>
 
     <div class="panel">
@@ -272,7 +275,7 @@
       <span class="sheen"></span>
       <div class="meta">
         <div class="nm">${card.title}</div>
-        <div class="st"><span class="a">ATK ${card.atk}</span><span class="d">DEF ${card.def}</span></div>
+        <div class="st"><span class="a">A${card.atk}</span><span class="d">D${card.def}</span><span class="t">Σ${card.atk + card.def + (surge ? 4 : 0)}${surge ? '⚡' : ''}</span></div>
         <div class="tg">▸ ${card.trigger}</div>
       </div></div>`;
   }
@@ -297,14 +300,16 @@
 
   function updateSlam(){ $('slamBtn').disabled = busy || selected.length !== mode; }
 
+  // every card counts its whole self: base total = ATK + DEF, plus the live
+  // chain amplifier (+4 when the card's trigger matches the weather)
   function power(stack){
     let total = 0, breakdown = [];
     const counts = {};
     stack.forEach(c => { counts[c.trigger] = (counts[c.trigger]||0)+1; });
     stack.forEach(c => {
-      const surge = c.trigger === gas ? 4 : 0;
-      total += c.atk + surge;
-      breakdown.push(`${c.title} ${c.atk}${surge?`+${surge}⚡`:''}`);
+      const amp = c.trigger === gas ? 4 : 0;
+      total += c.atk + c.def + amp;
+      breakdown.push(`${c.title} Σ${c.atk + c.def}${amp?`+${amp}⚡`:''}`);
     });
     // combo: +3 per matching-trigger pair inside the stack
     let comboPairs = 0;
@@ -327,7 +332,28 @@
     updateSlam();
   }
 
-  function rollGas(silent){ gas = TRIGGERS[rnd(TRIGGERS.length)]; $('gasVal').textContent = gas; renderHand(); if(houseStack.length) renderHouse(false); if(!silent && $('log')) {} }
+  // the amplifier weather comes LIVE off the chain: one trigger per ~25 blocks.
+  // read it, plan your stack around it — that's the strategy layer. offline
+  // (or on reroll failure) we simulate instead.
+  const RPCS = (window.RIPMASTER_CHAIN && window.RIPMASTER_CHAIN.rpcs) || ['https://eth.llamarpc.com','https://cloudflare-eth.com'];
+  async function chainWeather(){
+    for (const url of RPCS){ try{
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 4000);
+      const r = await fetch(url, { method:'POST', headers:{'content-type':'application/json'},
+        body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'eth_blockNumber', params: [] }), signal: ctl.signal });
+      clearTimeout(tm);
+      const j = await r.json();
+      if (j.result){ const b = parseInt(j.result, 16); return { block:b, trig:TRIGGERS[Math.floor(b/25)%8] }; }
+    } catch {} }
+    return null;
+  }
+  async function rollGas(){
+    const w = await chainWeather();
+    if (w){ gas = w.trig; $('gasSrc').textContent = `⛓ live · block ${w.block.toLocaleString('en-US')} · weather shifts every 25 blocks`; }
+    else { gas = TRIGGERS[rnd(TRIGGERS.length)]; $('gasSrc').textContent = 'offline · simulated weather'; }
+    $('gasVal').textContent = gas;
+    renderHand(); if(houseStack.length) renderHouse(false);
+  }
 
   async function slam(){
     if (busy || selected.length !== mode) return;
@@ -417,7 +443,7 @@
   // boot
   fetch('manifest.json').then(r => r.json()).then(m => {
     DECK = m.cards;
-    renderModes(); rollGas(true); deal(); renderVault();
+    renderModes(); rollGas(); deal(); renderVault();
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });

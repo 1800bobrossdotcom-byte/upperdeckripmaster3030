@@ -99,13 +99,19 @@ function buildGallery() {
   const sections = tiers.map(r => {
     const list = entries.filter(e => e.rarity === r).sort((a, b) => a.season - b.season || a.number - b.number);
     const tiles = list.map(e => `
-      <a class="tile r-${e.rarity}${e.marquee ? ' marquee' : ''}" href="${e.file}" style="--f:${frameFor(e.slug)}">
+      <div class="tile r-${e.rarity}${e.marquee ? ' marquee' : ''}" data-href="${e.file}" tabindex="0" role="link" aria-label="${e.name}" style="--f:${frameFor(e.slug)}">
         <span class="tile-art">${e.thumb
           ? `<img src="${e.thumb}" alt="${e.name}" loading="lazy">`
           : '<i>✦</i>'}<span class="sheen"></span><span class="rr">${e.marquee ? '1/1' : e.rarity}</span>${e.marquee ? '<span class="locktag">🔒 later</span>' : ''}</span>
         <span class="tile-name">${e.name}</span>
         <span class="tile-num">${e.marquee ? '1 of 1 · marquee' : 'S' + e.season + ' · №' + String(e.number).padStart(2, '0')}</span>
-      </a>`).join('');
+        ${e.marquee ? '<span class="vote exempt">the court has no jurisdiction</span>' : `
+        <span class="vote">
+          <button type="button" class="vbtn vup" data-slug="${e.slug}" aria-label="burn to promote ${e.name}">▲</button>
+          <b class="vnet" data-net="${e.slug}">0</b>
+          <button type="button" class="vbtn vdn" data-slug="${e.slug}" aria-label="burn to demote ${e.name}">▼</button>
+        </span>`}
+      </div>`).join('');
     return `
     <h2 class="tier t-${r}"><span>${LABEL[r]} · ${list.length}</span></h2>
     <div class="grid">${tiles}</div>`;
@@ -178,6 +184,28 @@ function buildGallery() {
   .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
     font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
   @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
+  /* ── the rarity court: burn-to-vote on every tile ── */
+  .tile{cursor:pointer}
+  .court-note{margin:14px auto 0;max-width:640px;text-align:center;background:#f6ecc9;
+    border:3px solid #000;border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.55;
+    font-style:italic}
+  .court-note b{font-style:normal;font-family:'Arial Black',Arial,sans-serif;font-size:11px}
+  .vote{position:relative;z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-top:4%;}
+  .vbtn{width:30px;height:24px;border-radius:6px;border:2px solid #000;cursor:pointer;
+    font-size:11px;line-height:1;font-family:'Arial Black',Arial,sans-serif;
+    box-shadow:0 2px 0 #000;transition:transform .06s}
+  .vbtn:active{transform:translateY(2px);box-shadow:none}
+  .vup{background:#9be34f}.vdn{background:#ff6b57}
+  .vnet{min-width:34px;text-align:center;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
+    background:#f6ecc9;border:2px solid #000;border-radius:6px;padding:2px 6px}
+  .vnet.pos{background:#c9f3a1}.vnet.neg{background:#ffc2b5}
+  .vote.exempt{font-size:8px;font-style:italic;color:rgba(0,0,0,.55);border:0;justify-content:center}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:60;
+    background:#111;color:#ffe93b;border:3px solid #000;border-radius:999px;padding:10px 18px;
+    font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    opacity:0;pointer-events:none;transition:opacity .25s}
+  .toast.show{opacity:1}
   /* laughing-man tiled watermark over the backdrop */
   .lm{position:fixed;inset:0;z-index:0;pointer-events:none;
     background:url("../Laughing_man.svg") repeat;background-size:140px;
@@ -191,6 +219,9 @@ function buildGallery() {
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
+      <div class="court-note"><b>▲▼ THE RARITY COURT</b> — burn $UR3030 to vote any card up or
+      down the ladder. Enough conviction moves its rarity; enough scorn votes it off the
+      island. <b>(preview — burns go on-chain with the vault)</b></div>
     </header>
     <main>${sections}
     </main>
@@ -198,6 +229,41 @@ function buildGallery() {
 <script>
 (function(){
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // navigate on tile click/Enter (vote buttons excluded)
+  document.querySelectorAll('.tile[data-href]').forEach(function(t){
+    t.addEventListener('click', function(ev){
+      if (ev.target.closest('.vote')) return;
+      location.href = t.dataset.href;
+    });
+    t.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter' && !ev.target.closest('.vote')) location.href = t.dataset.href;
+    });
+  });
+  // the rarity court (preview): each ▲/▼ simulates a 1 $UR3030 burn, kept on this
+  // device until the vault contract goes live and votes become real burns.
+  var toast = document.createElement('div'); toast.className = 'toast'; document.body.appendChild(toast);
+  var toastTimer;
+  function say(msg){ toast.textContent = msg; toast.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200); }
+  function votes(){ try { return JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { return {}; } }
+  function renderNet(slug){
+    var v = votes()[slug]||0;
+    document.querySelectorAll('[data-net="'+slug+'"]').forEach(function(el){
+      el.textContent = (v>0?'+':'')+v;
+      el.classList.toggle('pos', v>0); el.classList.toggle('neg', v<0);
+    });
+  }
+  Object.keys(votes()).forEach(renderNet);
+  document.querySelectorAll('.vbtn').forEach(function(b){
+    b.addEventListener('click', function(){
+      var slug = b.dataset.slug, up = b.classList.contains('vup');
+      var v = votes(); v[slug] = (v[slug]||0) + (up?1:-1);
+      try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {}
+      renderNet(slug);
+      say(up ? '▲ 1 $UR3030 burned to promote — on-chain at vault launch'
+             : '▼ 1 $UR3030 burned to demote — on-chain at vault launch');
+    });
+  });
   document.querySelectorAll('.tile').forEach(function(t){
     t.addEventListener('pointermove', function(e){
       var r = t.getBoundingClientRect();
