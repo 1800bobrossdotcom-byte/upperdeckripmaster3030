@@ -38,7 +38,10 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   function open() { modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); rip(); }
-  function close() { modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {} }
+  function close() {
+    if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {}
+  }
 
   function rip() {
     if (busy) return; busy = true;
@@ -91,8 +94,61 @@
     reveal.querySelectorAll('.fcard').forEach(f => f.addEventListener('click', () => view(+f.dataset.i)));
     document.getElementById('pvPrev').onclick = () => view((cur + n - 1) % n);
     document.getElementById('pvNext').onclick = () => view((cur + 1) % n);
+    document.getElementById('pvCard').addEventListener('click', e => {
+      if (e.metaKey || e.ctrlKey || e.button !== 0) return; // let open-in-new-tab through
+      e.preventDefault(); openZoom();
+    });
     view(0);
     setTimeout(() => { actions.hidden = false; busy = false; }, n * 130 + 700);
+  }
+
+  // ── z-space shift: the viewed card flies forward into its full live page,
+  //    the pull recedes behind it; "back to the pull" reverses the move ──
+  let zoomEl = null;
+  function openZoom() {
+    const c = cards[cur]; if (!c || zoomEl) return;
+    const zoom = document.createElement('div');
+    zoom.className = 'zoom';
+    zoom.innerHTML =
+      '<div class="zoom-panel"><iframe src="cards/' + esc(c.slug) + '.html" title="' + esc(c.title) + ' — live card"' +
+      ' allow="accelerometer; gyroscope; magnetometer"></iframe></div>' +
+      '<button type="button" class="zoom-back">◀ back to the pull</button>';
+    document.body.appendChild(zoom);
+    zoomEl = zoom;
+    const panel = zoom.querySelector('.zoom-panel');
+    const from = document.getElementById('pvCard').getBoundingClientRect();
+    requestAnimationFrame(() => {
+      const to = panel.getBoundingClientRect();
+      const dx = (from.left + from.width / 2) - (to.left + to.width / 2);
+      const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
+      const s = from.width / to.width;
+      panel.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')';
+      panel.style.opacity = '.35';
+      void panel.offsetWidth;
+      panel.classList.add('go');
+      panel.style.transform = ''; panel.style.opacity = '';
+    });
+    modal.querySelector('.pack-inner').classList.add('recede');
+    zoom.querySelector('.zoom-back').onclick = closeZoom;
+    zoom.addEventListener('click', e => { if (e.target === zoom) closeZoom(); });
+  }
+  function closeZoom() {
+    if (!zoomEl) return;
+    const z = zoomEl; zoomEl = null;
+    const panel = z.querySelector('.zoom-panel');
+    const to = document.getElementById('pvCard') && document.getElementById('pvCard').getBoundingClientRect();
+    if (to) {
+      const now = panel.getBoundingClientRect();
+      const dx = (to.left + to.width / 2) - (now.left + now.width / 2);
+      const dy = (to.top + to.height / 2) - (now.top + now.height / 2);
+      const s = to.width / now.width;
+      panel.classList.add('go');
+      panel.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')';
+      panel.style.opacity = '.2';
+    }
+    z.classList.add('fade');
+    modal.querySelector('.pack-inner').classList.remove('recede');
+    setTimeout(() => z.remove(), 560);
   }
 
   function view(i) {
@@ -116,8 +172,8 @@
   document.getElementById('packAgain') && document.getElementById('packAgain').addEventListener('click', rip);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   addEventListener('keydown', e => {
-    if (e.key === 'Escape') return close();
-    if (!modal.classList.contains('show') || !cards.length) return;
+    if (e.key === 'Escape') return zoomEl ? closeZoom() : close();
+    if (!modal.classList.contains('show') || !cards.length || zoomEl) return;
     if (e.key === 'ArrowLeft') view((cur + cards.length - 1) % cards.length);
     if (e.key === 'ArrowRight') view((cur + 1) % cards.length);
   });

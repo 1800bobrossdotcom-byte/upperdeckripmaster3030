@@ -65,9 +65,15 @@
   .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
     font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
   @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
+  /* laughing-man tiled watermark over the backdrop */
+  .lm{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:url("../Laughing_man.svg") repeat;background-size:140px;
+    filter:grayscale(1) brightness(2.8);opacity:.12}
+  .board{position:relative;z-index:1}
 </style>
 </head>
 <body>
+  <div class="lm" aria-hidden="true"></div>
   <div class="board">
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>

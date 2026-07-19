@@ -9,11 +9,13 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root{
-    --bg:#0a0118; --ink:#eafcff;
-    --cyan:#05f2ff; --magenta:#ff2a6d; --hot:#ff3caf; --purple:#9b5cff;
-    --amber:#ffd93b; --lime:#9be34f; --coral:#ff6b57;
+    /* balloon technical mil-spec palette (var names kept, values remapped) */
+    --bg:#31352a; --ink:#e9e1c4;
+    --cyan:#ffd23b; --magenta:#c8452c; --hot:#f26a1b; --purple:#7a8163;
+    --amber:#ffd23b; --lime:#7fa653; --coral:#f26a1b;
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
-    --common:#8fd7e0; --uncommon:#9be34f; --rare:#05f2ff; --mythic:#ff3caf; --prizm:#ffd93b;
+    --common:#cbc4a6; --uncommon:#7fa653; --rare:#ffd23b; --mythic:#f26a1b; --prizm:#c8452c;
+    --drabink:#191c13; --paper:#ddd3b0; --stamp:#e9e1c4;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ background:var(--bg); }
@@ -140,11 +142,52 @@
   .vault .mini{ display:flex; gap:4px; flex-wrap:wrap; }
   .vault .mini img{ width:34px; height:46px; object-fit:cover; border-radius:4px; border:1px solid var(--rare); }
   @media (prefers-reduced-motion:reduce){ .bg::after{ animation:none; } }
+
+  /* ── balloon technical mil-spec overrides: lose the neon ── */
+  .bg,.sun,.crt{ display:none; }
+  body{
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 120px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 120px),
+      var(--bg);
+  }
+  .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:url("../Laughing_man.svg") repeat; background-size:140px;
+    filter:grayscale(1) brightness(2.8); opacity:.09; }
+  *{ text-shadow:none !important; }
+  h1{ background:none; -webkit-background-clip:initial; background-clip:initial; color:var(--paper);
+    -webkit-text-fill-color:var(--paper); filter:none; text-shadow:0 4px 0 var(--drabink) !important; }
+  .panel,.gas{ background:linear-gradient(180deg,var(--stamp),var(--paper)); color:var(--drabink);
+    border:3px solid var(--drabink); border-radius:14px;
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.6), 0 6px 0 var(--drabink); backdrop-filter:none; }
+  .panel h2{ color:var(--drabink); } .panel p{ color:#3a3f2c; } .panel .omen{ color:var(--magenta); }
+  .gas .lbl{ color:#565c44; } .gas .val{ color:var(--magenta); }
+  .mode,.btn,.pv-nav{ border-radius:999px; border:3px solid var(--drabink); }
+  .mode{ background:linear-gradient(180deg,var(--stamp),var(--paper)); color:var(--drabink);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 4px 0 var(--drabink); }
+  .mode.on{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#e9b722); color:var(--drabink);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.55), 0 4px 0 var(--drabink); }
+  .btn{ background:linear-gradient(180deg,#ff9a58,var(--hot) 55%,#d05512); color:var(--stamp);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 6px 0 var(--drabink); }
+  .btn.slam{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#e9b722); color:var(--drabink); }
+  .btn:active:not(:disabled){ transform:translateY(4px); box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 2px 0 var(--drabink); }
+  .tile{ border-width:3px; border-radius:10px; }
+  .score .you{ color:#4e7a2e; } .score .house{ color:var(--magenta); }
+  .side-label{ color:var(--paper); opacity:.8; }
+  .panel .side-label{ color:#565c44; opacity:1; }
+  .log{ color:#3a3f2c; }
+  .log .b{ color:var(--magenta); }
+  .vault .cnt{ color:var(--amber); }
+  a.back{ color:var(--amber); }
+  .sub{ color:var(--paper); opacity:.85; }
 </style>
 </head>
 <body>
   <div class="bg" aria-hidden="true"></div><div class="sun" aria-hidden="true"></div>
   <div class="crt" aria-hidden="true"></div>
+  <div class="lm" aria-hidden="true"></div>
 
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
