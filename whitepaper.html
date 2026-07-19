@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transparent Whitepaper · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="What the game is, how the token works, where every $UR3030 goes, and the risks — in the open, for frens.">
+<style>
+  :root{
+    --void:#020804; --panel:#04140b; --ink:#01130a;
+    --phos:#2bff80; --phosdim:#0f5c33; --phosdeep:#0a3d22;
+    --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b; --red:#ff4b3a; --text:#b8ffd6;
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black','Arial Bold',Arial,sans-serif;
+    --accent:var(--phos);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--void); }
+  body{ font-family:var(--mono); color:var(--text); line-height:1.6;
+    background:
+      radial-gradient(120% 60% at 85% -5%, rgba(43,255,128,.10), transparent 55%),
+      radial-gradient(90% 60% at 0% 100%, rgba(255,42,217,.07), transparent 55%),
+      var(--void);
+    background-attachment:fixed; }
+  body::before{ content:""; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.3;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.25) 2px 3px); }
+  .wrap{ position:relative; z-index:2; max-width:960px; margin:0 auto; padding:0 20px 80px; }
+  a{ color:var(--cyan); }
+  code{ font-family:var(--mono); color:var(--cyan); background:rgba(39,247,228,.08);
+    border:1px solid rgba(39,247,228,.22); border-radius:4px; padding:0 5px; font-size:.92em; }
+  b,strong{ color:#d9ffe8; }
+
+  /* top bar */
+  .topbar{ position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+    justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--phosdeep);
+    background:rgba(1,10,5,.86); backdrop-filter:blur(6px); }
+  .brand{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.14em; font-size:12px;
+    color:var(--phos); text-decoration:none; }
+  .topnav{ display:flex; gap:6px; flex-wrap:wrap; }
+  .topnav a{ text-decoration:none; font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em;
+    font-size:11px; color:var(--text); padding:6px 10px; border:1px solid var(--phosdim); border-radius:7px; }
+  .topnav a.on{ color:var(--void); background:var(--accent); border-color:var(--ink); }
+  .nfa-badge{ font-family:var(--fat); font-size:10px; letter-spacing:.14em; color:var(--amber);
+    border:1px solid #6b5a12; border-radius:6px; padding:5px 9px; background:rgba(255,210,59,.06); }
+
+  /* hero */
+  header.hero{ padding:46px 0 26px; border-bottom:1px solid var(--phosdeep); margin-bottom:26px; }
+  .hero .kick{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.24em; font-size:12px;
+    color:var(--accent); margin-bottom:12px; }
+  .hero h1{ font-family:var(--fat); font-size:clamp(30px,6vw,52px); line-height:1; margin:0 0 12px;
+    color:#eafff2; letter-spacing:-.02em; text-shadow:0 0 26px rgba(43,255,128,.3); }
+  .hero p.sub{ font-size:15px; color:var(--text); margin:0; max-width:62ch; }
+  .hero .cta{ margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+  .btn{ display:inline-block; text-decoration:none; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.06em; font-size:12px; color:var(--void); padding:11px 16px; border:2px solid var(--ink);
+    border-radius:9px; background:linear-gradient(180deg,#8bffbb,var(--phos) 55%,#0fae56);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.4), 0 5px 0 var(--ink), 0 0 18px rgba(43,255,128,.3); }
+  .btn.cy{ background:linear-gradient(180deg,#6ff3ff,var(--cyan) 60%,#0fb9ab); }
+
+  h2{ font-family:var(--fat); font-size:22px; color:#eafff2; margin:38px 0 12px; letter-spacing:-.01em;
+    padding-bottom:6px; border-bottom:1px solid var(--phosdeep); }
+  h2 .n{ color:var(--accent); margin-right:8px; }
+  h3{ font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--phos);
+    margin:22px 0 6px; }
+  p{ font-size:14.5px; }
+  ul{ padding-left:20px; } li{ font-size:14.5px; margin-bottom:7px; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } .cols3{ grid-template-columns:1fr!important; } }
+  .stat{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(1,10,5,.6); padding:13px 15px; }
+  .stat b{ display:block; font-family:var(--fat); font-size:26px; color:var(--phos); line-height:1;
+    text-shadow:0 0 14px rgba(43,255,128,.35); }
+  .stat span{ font-size:11.5px; color:var(--text); }
+  .statgrid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:640px){ .statgrid{ grid-template-columns:1fr 1fr; } }
+
+  .card{ border:1px solid var(--phosdim); border-radius:12px; background:rgba(1,10,5,.55); padding:16px 18px; }
+  .card.burn{ border-color:#7c2a20; } .card.creator{ border-color:#7c1668; } .card.house{ border-color:#0f5c33; }
+  .cols3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .co-h{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em; font-size:13px; margin-bottom:8px; }
+  .burn .co-h{ color:var(--red); } .creator .co-h{ color:var(--acid); } .house .co-h{ color:var(--phos); }
+
+  .callout{ border:1px solid var(--phosdim); border-left:4px solid var(--accent); border-radius:10px;
+    background:rgba(4,20,11,.7); padding:14px 16px; margin:16px 0; }
+  .callout.amber{ border-left-color:var(--amber); } .callout.red{ border-left-color:var(--red); }
+  .callout.cy{ border-left-color:var(--cyan); }
+  .callout .co-h{ color:#eafff2; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; display:block; overflow-x:auto; }
+  th,td{ border:1px solid var(--phosdim); padding:8px 10px; text-align:left; white-space:nowrap; }
+  th{ background:rgba(43,255,128,.09); color:#eafff2; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.05em; font-size:11px; }
+  .fire{ color:var(--red); } .to-c{ color:var(--acid); } .to-h{ color:var(--phos); }
+
+  .fine{ font-size:12px; color:var(--phosdim); }
+  .ribbon{ margin-top:30px; border:1px dashed var(--amber); border-radius:10px; padding:12px 16px;
+    background:rgba(255,210,59,.05); font-size:12.5px; color:#ffe9a8; }
+  .ribbon b{ color:var(--amber); }
+
+  footer.foot{ margin-top:46px; border-top:1px solid var(--phosdeep); padding-top:16px; font-size:12px;
+    color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
+  .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
+    font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
+</style></head>
+<body>
+  <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
+  <div class="topbar">
+    <a class="brand" href="index.html">◂ Ripmaster 3030</a>
+    <nav class="topnav">
+      <a href="index.html">Home</a>
+      <a href="whitepaper.html" class="on">Whitepaper</a>
+      <a href="tokenomics.html">Tokenomics</a>
+      <a href="audit.html">Audit</a>
+    </nav>
+    <span class="nfa-badge">$UR3030 · NFA</span>
+  </div>
+  <div class="wrap">
+    <header class="hero">
+      <div class="kick">Upperdeck Ripmaster 3030 · $UR3030 · NFA</div>
+      <h1>Transparent Whitepaper</h1>
+      <p class="sub">What the game is, how the token works, where every $UR3030 goes, and the risks — in the open, for frens.</p>
+    </header>
+    
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn" href="whitepaper.pdf" target="_blank" rel="noopener">📄 Download the PDF deck</a>
+    <a class="btn cy" href="tokenomics.html">📈 Tokenomics</a>
+    <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
+
+  <h2><span class="n">01</span>TL;DR</h2>
+  <p>Upperdeck Ripmaster 3030 is a <b>liquid trading-card game</b>. Every card is a live SuperRare
+  Liquid Edition priced by a bonding curve in <b>RARE</b>; <b>$UR3030</b> is the token you rip packs,
+  vote, wager, and settle with. A full field of ~196 cards opens each season and the community
+  <b>burns it down to a deck of 77</b>. Two clean flows go to people — a creator cut and a house
+  bounty — and <b>everything else burns</b>. No treasury, no team pre-mint, no fee wallet.</p>
+  <div class="callout cy"><div class="co-h">This is transparency, not a pitch.</div>
+    <p>$UR3030 is a collectible game token, not an investment. It can go to zero. The cards are art,
+    parody, and memes. Play for the fun of it — see <a href="#legal">Legal &amp; NFA</a>.</p></div>
+
+  <h2><span class="n">02</span>The game</h2>
+  <ul>
+    <li><b>The field opens</b> — every registered card is in play, each its own liquid edition.</li>
+    <li><b>Rip &amp; collect</b> — packs mint ERC-1155 copies across five tiers: Common → Uncommon → Rare → Mythic → Prizm.</li>
+    <li><b>The Rarity Court</b> — holders burn to promote, demote, or ⛨ HODL a card. Up pays the creator; down burns.</li>
+    <li><b>The cull</b> — downvotes (on a quorum of 9) retire cards; owning a whole edition lets you destroy it forever.</li>
+    <li><b>Survivors</b> — the field resolves to a standard <b>deck of 77</b>. Hold one and you hold 1 of 77 that outlived the rest.</li>
+  </ul>
+
+  <h2><span class="n">03</span>The token · $UR3030</h2>
+  <div class="statgrid">
+    <div class="stat"><b>3.03M</b><span>hard cap</span></div>
+    <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
+    <div class="stat"><b>RARE</b><span>reserve currency</span></div>
+    <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+  </div>
+  <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
+  <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and minted on <i>buy</i> — the cap is a
+  live-supply ceiling, not a lifetime budget. Opening price ≈ 1 RARE/token keeps every toll and vote a
+  micro-move. Full-curve FDV ≈ $606k is an <b>artist-scale niche edition, by choice</b>.</p>
+
+  <h2><span class="n">04</span>The economy · where every token goes</h2>
+  <p>Nearly every move burns. Two flows go to people — visible on-chain, never to a wallet we control.</p>
+  <div class="cols3">
+    <div class="card burn"><div class="co-h">🔥 Burn</div>
+      <ul><li>send 1 · trade 1/side · wager 2/side · marquee 25</li><li>downvotes</li>
+      <li>most of every pack (~349 of ~350)</li><li>destroyed editions + toll</li></ul></div>
+    <div class="card creator"><div class="co-h">🎨 Creator</div>
+      <ul><li>upvotes / promotions</li><li>HODL ⛨ votes</li><li>a royalty stream — <code>CreatorPaid</code></li></ul></div>
+    <div class="card house"><div class="co-h">🏦 House bounty</div>
+      <ul><li>1 token / pack seeds it</li><li>pays whoever ends an edition</li><li>a player pool — anyone can <code>fundReward</code></li></ul></div>
+  </div>
+
+  <h2><span class="n">05</span>Packs · a $7 premium, escalating</h2>
+  <p>A pack is the one <b>premium</b> action: a bundle of <b>~350 $UR3030 ≈ $7</b> (seven cards, ~$1 a card),
+  <b>not</b> a token reprice — so FDV is unchanged. Each rip is a real <b>buy-and-burn of hundreds of tokens</b>,
+  the engine of steady pressure, not a pump. Price escalates <b>within</b> a season (base→ceil as the allotment
+  sells) and <b>across</b> seasons (the field shrinks, so the allotment dwindles and the floor rises).</p>
+  <table><tr><th>Season</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
+    <tr><td>I · Summer</td><td>10,000 packs</td><td>$7.00</td></tr>
+    <tr><td>II · Fall</td><td>7,500 packs</td><td>$9.00</td></tr>
+    <tr><td>III · Winter</td><td>5,000 packs</td><td>$12.00</td></tr>
+    <tr><td>IV · Spring</td><td>2,500 packs</td><td>$16.00</td></tr></table>
+  <p class="fine">*Floor at the launch spot ($0.02); token appreciation rides on top. See <a href="tokenomics.html">Tokenomics</a>.</p>
+
+  <h2><span class="n">06</span>Seasons</h2>
+  <p>Four a year, on the calendar — and we launch in the season we're in: <b>Summer</b> (live), then Fall,
+  Winter, Spring. Each season opens a full field and the crowd burns it to 77; the best non-survivors seed
+  the next season — a rolling tournament, not a delete. Every retirement mints the last keeper a soulbound
+  <b>Ash Trophy</b> + a token bounty. The render reads live market + game state, so the art evolves with price.</p>
+
+  <h2><span class="n">07</span>Steady, not a pump</h2>
+  <ul>
+    <li><b>Un-pullable liquidity</b> — the RARE reserve lives in the pool, not a yankable LP. Sells walk down the curve.</li>
+    <li><b>No team pre-mint</b> — nothing minted at genesis to dump.</li>
+    <li><b>Buy-and-burn packs</b> — RARE flows in on every buy, tokens vanish on every burn; fewer tokens on a deeper reserve.</li>
+    <li><b>Adding liquidity</b> — seed RARE at deploy, let buys deepen the reserve, and recycle a share of the creator cut / house pool back into RARE reserve.</li>
+  </ul>
+  <div class="callout amber"><div class="co-h">What this is NOT.</div>
+    <p>Not a promise the price goes up. Net supply moves with <b>buys − burns</b> — the sign is not guaranteed.
+    Deflationary <i>pressure</i> is a goal, not a floor. Read the real trajectory live from <code>totalSupply()</code>.</p></div>
+
+  <h2><span class="n">08</span>Transparency</h2>
+  <ul>
+    <li><b>Open economy contract</b> — <code>CardVault.sol</code>: tolls, votes, packs, destruction, bounty.</li>
+    <li><b>Reproducible model</b> — <code>scripts/token-model.mjs</code> re-derives every number here.</li>
+    <li><b>Legible flows</b> — <code>CreatorPaid</code>, burn, <code>AshTrophy</code>, <code>EditionDestroyed</code> events are the receipts.</li>
+    <li><b>Our own audit notes</b> — what we reviewed and what's still pending: see the <a href="audit.html">Audit</a> page.</li>
+    <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
+  </ul>
+
+  <h2><span class="n">09</span>Risks</h2>
+  <ul>
+    <li><b>The token can go to zero.</b> Experimental and highly volatile — only spend what you can lose entirely.</li>
+    <li><b>Smart-contract risk.</b> Code can have bugs. Assume unaudited unless a published audit says otherwise (<a href="audit.html">Audit</a>).</li>
+    <li><b>Liquidity &amp; slippage.</b> A thin market moves price hard; you may not exit at the quoted price.</li>
+    <li><b>Design risk.</b> Game economies can behave unexpectedly, even when tuned and modeled.</li>
+    <li><b>Regulatory &amp; key risk.</b> Rules vary and change; a lost key is lost funds.</li>
+  </ul>
+
+  <h2 id="legal"><span class="n">10</span>Legal &amp; NFA</h2>
+  <p><b>Not financial advice.</b> Nothing here or on upperdeckripmaster3030.com is financial, investment, legal,
+  or tax advice, nor an offer or solicitation to buy or sell any asset. <b>$UR3030</b> is an experimental,
+  volatile utility/collectible <b>game token</b> intended for play and collecting — <b>not an investment
+  contract</b> and <b>not a security</b>. There is <b>no promise, guarantee, or expectation of profit, value,
+  liquidity, or future development</b>. You may lose everything you put in.</p>
+  <p><b>All memes are memes.</b> The cards, characters, names, and imagery are works of <b>art, parody, satire,
+  and commentary</b> — transformative by intent. Any resemblance to real people, brands, or trademarks is used
+  as cultural reference and critique, not endorsement or affiliation. The project will review and, where
+  appropriate, retire content in response to good-faith legal requests.</p>
+  <p><b>Do your own research.</b> Crypto assets and smart contracts carry risk, including total loss and bugs.
+  Interact at your own risk, comply with the laws of your jurisdiction, and consult your own qualified
+  professionals. By acquiring or using $UR3030 you accept these risks and that the artist, contributors, and
+  SuperRare make <b>no warranties</b> of any kind.</p>
+  <p class="fine">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · $UR3030</p>
+    <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
+      collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
+      to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.
+      Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
+    <footer class="foot">
+      <span>$UR3030 · a game token, not an investment</span>
+      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
+      <span>upperdeckripmaster3030.com</span>
+    </footer>
+  </div>
+</body></html>

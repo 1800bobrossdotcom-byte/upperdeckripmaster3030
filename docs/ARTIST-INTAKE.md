@@ -6,9 +6,10 @@ court, arena, 1/1 marquee, Ash Trophies, creator cut + house reward pool). Token
 in Part 3 are finalized in `docs/TOKEN-MATH.md`. Fields only the artist can supply are
 flagged **[ARTIST TO SUPPLY]**.
 
-- **Artist / Project:** Gianni Arone — *Upperdeck Ripmaster 3030*
+- **Artist / Project:** Gianni Arone (**lovebeing**) — *Upperdeck Ripmaster 3030*
 - **Token:** `$UR3030` · **Site:** https://upperdeckripmaster3030.com
-- **X / handle:** **[ARTIST TO SUPPLY]** · **Launch date:** **[ARTIST TO SUPPLY]**
+- **X / handle:** **@_lovebeing_** · **Launch date:** **[ARTIST TO SUPPLY]**
+- **Cohort:** SuperRare **Liquid Editions — Cohort 1** (with @CreamyDreamy, @takenstheorem, @tyaagnliu)
 
 ---
 
@@ -80,7 +81,7 @@ bug-fixes for our custom renderer + front end are ours.
   fewer cards (S1 **10,000 packs** → S4 2,500; floor 350 → 800 tokens). Each rip is a real
   buy-and-burn of hundreds of tokens — the engine of steady upward pressure, not a pump.
 - **ERC-721 "Lenses"? — Yes.** The card render is an HTML Liquid Lens reading live market
-  + game state; the sealed **1/1 marquee** (Lovebeing) is its own lens. Per-card copies are
+  + game state; the sealed **1/1 marquee** — *Lovebeing*, the artist's own name — is its own lens. Per-card copies are
   `CardVault` ERC-1155 ids; Ash Trophies mint into id space 9000+. Edition sizes finalized
   with SuperRare during assisted setup.
 - **Deploy on an L2** (or batch actions): the micro-tolls (1-token sends/votes) are
@@ -92,31 +93,35 @@ bug-fixes for our custom renderer + front end are ours.
 
 | Ask | Ours |
 |---|---|
-| Artist / Project Name | Gianni Arone — Upperdeck Ripmaster 3030 |
-| Artist X handle | **[ARTIST TO SUPPLY]** |
+| Artist / Project Name | Gianni Arone (lovebeing) — Upperdeck Ripmaster 3030 |
+| Artist X handle | **@_lovebeing_** |
 | Mint page / front-end URL | https://upperdeckripmaster3030.com |
 | Render contract address | **[0x… after Sepolia deploy]** |
 | Hero image/video | screen-capture of a prizm card tilting under live foil (the site *is* the demo) |
 | Mechanics explainer | the storyboard below |
-| Artist backstory | the 152-word piece below |
+| Artist backstory | the ~185-word piece below |
 | Social drafts | the three tweets below |
 | Drive link | **[ARTIST TO SUPPLY]** |
 
-### Artist backstory ("why liquid") — 152 words
+### Artist backstory ("why liquid") — ~185 words
 
-> I've been painting cards that don't exist for games nobody's played for about fifteen
-> years. Hyperfoil monsters, prizm-tier freaks, whole decks I'd finish and file away,
-> because a trading card only means something when it's in a pile of other cards with
-> stakes on the table. Static NFTs never fixed that. You'd mint a thing, it'd sit in a
-> wallet, and the "game" was just watching a number. Dead art in a nice frame.
+> I'm Gianni Arone — a multidisciplinary artist working as **lovebeing**, out of New York.
+> For years I've moved between painting, silkscreen, zines, motion, sound, and code, all of
+> it chasing the same feeling I've had since I was a kid. I grew up on trading cards, pogs,
+> MAD magazine, and the backs of cereal boxes — the first memes, if you'll let me call them
+> that. That's where I learned a picture could be a joke, a trophy, and a currency all at
+> once: something you'd trade at recess and still guard with your life.
 >
-> Liquid Editions are the first format where the card is *alive* — priced by a curve,
-> played by a crowd, and able to actually die. That last part is why I'm here. Ripmaster
-> is built to burn: a full field opens, the community rips it down to 77, and the rest
-> turn to ash you can hold. I wanted a card game where losing is real and permanent.
-> Liquid is the only medium that lets a card lose.
+> Static NFTs never caught that. You'd mint a thing, it'd sit in a wallet, and the "game"
+> was just watching a number. Liquid Editions are the first format where the card is
+> *alive* — priced by a curve, played by a crowd, and able to win and to actually die.
+> Ripmaster is that recess table rebuilt on-chain: a full field opens, the crowd plays it
+> down to 77, and the rest turn to ash you can hold. I'm honored to build it in SuperRare's
+> first Liquid Editions cohort — and the 1/1 at the top of the deck carries my name,
+> *Lovebeing*.
 
-*[ARTIST TO SUPPLY: any personal detail to swap in — city, prior projects, the card/deck that started this.]*
+*Optional personal swaps if you want them in: your city, a specific childhood set (the pogs/cards
+that started it), or a nod to your cohort peers. The upbringing above is drawn from your own words.*
 
 ### Mechanics explainer (storyboard, 6 beats — ~45–60s video or one scrollable diagram)
 
@@ -137,11 +142,11 @@ bug-fixes for our custom renderer + front end are ours.
    77 lock into a STANDARD DECK frame; SUMMER → FALL. → *"Land the final blow, keep the ash.
    Hold a survivor, hold 1 of 77."*
 
-### Launch tweets (3 — X handle + link **[ARTIST TO SUPPLY]**)
+### Launch tweets (3 — from **@_lovebeing_**; link **[ARTIST TO SUPPLY]**)
 
 > **1 — hook.** A full field of psychedelic hyperfoil cards just went liquid. Upperdeck
-> Ripmaster 3030 by Gianni Arone: 196 living editions, and the community burns it down to a
-> deck of 77. The losers don't get delisted — they turn to ash. `$UR3030` → **[link + @handle]**
+> Ripmaster 3030 by Gianni Arone (@_lovebeing_): 196 living editions, and the community burns it
+> down to a deck of 77. The losers don't get delisted — they turn to ash. `$UR3030` → **[link]**
 
 > **2 — mechanic.** Rip a pack — seven cards, ~$7. Nearly all of it burns; a sliver seeds
 > the bounty. Play your cards up the rarity court — Common to Prizm. Then help cull the

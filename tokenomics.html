@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokenomics · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="Supply, the bonding curve, pack allotments, the burn schedule, and pre-mainnet verification — every number reproducible.">
+<style>
+  :root{
+    --void:#020804; --panel:#04140b; --ink:#01130a;
+    --phos:#2bff80; --phosdim:#0f5c33; --phosdeep:#0a3d22;
+    --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b; --red:#ff4b3a; --text:#b8ffd6;
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black','Arial Bold',Arial,sans-serif;
+    --accent:var(--amber);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--void); }
+  body{ font-family:var(--mono); color:var(--text); line-height:1.6;
+    background:
+      radial-gradient(120% 60% at 85% -5%, rgba(43,255,128,.10), transparent 55%),
+      radial-gradient(90% 60% at 0% 100%, rgba(255,42,217,.07), transparent 55%),
+      var(--void);
+    background-attachment:fixed; }
+  body::before{ content:""; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.3;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.25) 2px 3px); }
+  .wrap{ position:relative; z-index:2; max-width:960px; margin:0 auto; padding:0 20px 80px; }
+  a{ color:var(--cyan); }
+  code{ font-family:var(--mono); color:var(--cyan); background:rgba(39,247,228,.08);
+    border:1px solid rgba(39,247,228,.22); border-radius:4px; padding:0 5px; font-size:.92em; }
+  b,strong{ color:#d9ffe8; }
+
+  /* top bar */
+  .topbar{ position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+    justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--phosdeep);
+    background:rgba(1,10,5,.86); backdrop-filter:blur(6px); }
+  .brand{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.14em; font-size:12px;
+    color:var(--phos); text-decoration:none; }
+  .topnav{ display:flex; gap:6px; flex-wrap:wrap; }
+  .topnav a{ text-decoration:none; font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em;
+    font-size:11px; color:var(--text); padding:6px 10px; border:1px solid var(--phosdim); border-radius:7px; }
+  .topnav a.on{ color:var(--void); background:var(--accent); border-color:var(--ink); }
+  .nfa-badge{ font-family:var(--fat); font-size:10px; letter-spacing:.14em; color:var(--amber);
+    border:1px solid #6b5a12; border-radius:6px; padding:5px 9px; background:rgba(255,210,59,.06); }
+
+  /* hero */
+  header.hero{ padding:46px 0 26px; border-bottom:1px solid var(--phosdeep); margin-bottom:26px; }
+  .hero .kick{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.24em; font-size:12px;
+    color:var(--accent); margin-bottom:12px; }
+  .hero h1{ font-family:var(--fat); font-size:clamp(30px,6vw,52px); line-height:1; margin:0 0 12px;
+    color:#eafff2; letter-spacing:-.02em; text-shadow:0 0 26px rgba(43,255,128,.3); }
+  .hero p.sub{ font-size:15px; color:var(--text); margin:0; max-width:62ch; }
+  .hero .cta{ margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+  .btn{ display:inline-block; text-decoration:none; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.06em; font-size:12px; color:var(--void); padding:11px 16px; border:2px solid var(--ink);
+    border-radius:9px; background:linear-gradient(180deg,#8bffbb,var(--phos) 55%,#0fae56);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.4), 0 5px 0 var(--ink), 0 0 18px rgba(43,255,128,.3); }
+  .btn.cy{ background:linear-gradient(180deg,#6ff3ff,var(--cyan) 60%,#0fb9ab); }
+
+  h2{ font-family:var(--fat); font-size:22px; color:#eafff2; margin:38px 0 12px; letter-spacing:-.01em;
+    padding-bottom:6px; border-bottom:1px solid var(--phosdeep); }
+  h2 .n{ color:var(--accent); margin-right:8px; }
+  h3{ font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--phos);
+    margin:22px 0 6px; }
+  p{ font-size:14.5px; }
+  ul{ padding-left:20px; } li{ font-size:14.5px; margin-bottom:7px; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } .cols3{ grid-template-columns:1fr!important; } }
+  .stat{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(1,10,5,.6); padding:13px 15px; }
+  .stat b{ display:block; font-family:var(--fat); font-size:26px; color:var(--phos); line-height:1;
+    text-shadow:0 0 14px rgba(43,255,128,.35); }
+  .stat span{ font-size:11.5px; color:var(--text); }
+  .statgrid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:640px){ .statgrid{ grid-template-columns:1fr 1fr; } }
+
+  .card{ border:1px solid var(--phosdim); border-radius:12px; background:rgba(1,10,5,.55); padding:16px 18px; }
+  .card.burn{ border-color:#7c2a20; } .card.creator{ border-color:#7c1668; } .card.house{ border-color:#0f5c33; }
+  .cols3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .co-h{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em; font-size:13px; margin-bottom:8px; }
+  .burn .co-h{ color:var(--red); } .creator .co-h{ color:var(--acid); } .house .co-h{ color:var(--phos); }
+
+  .callout{ border:1px solid var(--phosdim); border-left:4px solid var(--accent); border-radius:10px;
+    background:rgba(4,20,11,.7); padding:14px 16px; margin:16px 0; }
+  .callout.amber{ border-left-color:var(--amber); } .callout.red{ border-left-color:var(--red); }
+  .callout.cy{ border-left-color:var(--cyan); }
+  .callout .co-h{ color:#eafff2; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; display:block; overflow-x:auto; }
+  th,td{ border:1px solid var(--phosdim); padding:8px 10px; text-align:left; white-space:nowrap; }
+  th{ background:rgba(43,255,128,.09); color:#eafff2; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.05em; font-size:11px; }
+  .fire{ color:var(--red); } .to-c{ color:var(--acid); } .to-h{ color:var(--phos); }
+
+  .fine{ font-size:12px; color:var(--phosdim); }
+  .ribbon{ margin-top:30px; border:1px dashed var(--amber); border-radius:10px; padding:12px 16px;
+    background:rgba(255,210,59,.05); font-size:12.5px; color:#ffe9a8; }
+  .ribbon b{ color:var(--amber); }
+
+  footer.foot{ margin-top:46px; border-top:1px solid var(--phosdeep); padding-top:16px; font-size:12px;
+    color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
+  .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
+    font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
+</style></head>
+<body>
+  <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
+  <div class="topbar">
+    <a class="brand" href="index.html">◂ Ripmaster 3030</a>
+    <nav class="topnav">
+      <a href="index.html">Home</a>
+      <a href="whitepaper.html">Whitepaper</a>
+      <a href="tokenomics.html" class="on">Tokenomics</a>
+      <a href="audit.html">Audit</a>
+    </nav>
+    <span class="nfa-badge">$UR3030 · NFA</span>
+  </div>
+  <div class="wrap">
+    <header class="hero">
+      <div class="kick">$UR3030 · supply · burns · pricing · liquidity</div>
+      <h1>Tokenomics</h1>
+      <p class="sub">Supply, the bonding curve, pack allotments, the burn schedule, and pre-mainnet verification — every number reproducible.</p>
+    </header>
+    
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html">📄 Whitepaper</a>
+    <a class="btn cy" href="audit.html">🛡 Audit notes</a></div>
+
+  <h2><span class="n">01</span>At a glance</h2>
+  <div class="statgrid">
+    <div class="stat"><b>3.03M</b><span>supply cap (capped)</span></div>
+    <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
+    <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
+    <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+  </div>
+  <p style="margin-top:14px" class="fine">*<code>medium-demand</code> preset, verified on-chain with <code>--preview</code> before mainnet.
+  RARE≈$0.02 assumed for USD columns; re-peg on deploy day. Everything below is reproduced by
+  <code>scripts/token-model.mjs</code> — run it to re-derive.</p>
+
+  <h2><span class="n">02</span>What a Liquid Edition is</h2>
+  <p>Not a single-formula bond. Each edition is a <b>Uniswap-v4 pool</b> whose liquidity is placed by
+  <b>Doppler Multicurve</b> — concentrated positions approximating a log-normal shape, so it "sells a constant
+  number of tokens per price bucket." That gives a clean law: price is <b>exponential in supply</b>, which is
+  <b>exactly linear in RARE reserve</b>:</p>
+  <div class="callout"><p style="margin:0"><code>P(f) = P0 · M^f</code> &nbsp;·&nbsp; <code>P = P0 + a·R</code>, &nbsp;<code>a = ln(M)/cap</code>
+    &nbsp; (f = tokens sold ÷ cap). A buy of ΔR RARE raises price by exactly <code>a·ΔR</code>.</p></div>
+
+  <h2><span class="n">03</span>Price schedule</h2>
+  <p>The pack column holds the bundle fixed at 350 tokens and reprices it by the token's spot — isolating one
+  of the two pack escalators (token appreciation). The designed escalation is in <a href="#packs">§6</a>.</p>
+  <table><tr><th>f (sold)</th><th>spot (RARE)</th><th>spot ($)</th><th>pack of 350 ($)</th><th>FDV ($)</th><th>reserve (RARE)</th></tr>
+    <tr><td>0.00 (launch)</td><td>1.000</td><td>$0.0200</td><td><b>$7.00</b></td><td>$60,600</td><td>0</td></tr>
+    <tr><td>0.10</td><td>1.259</td><td>$0.0252</td><td>$8.81</td><td>$76,291</td><td>340,723</td></tr>
+    <tr><td>0.25</td><td>1.778</td><td>$0.0356</td><td>$12.45</td><td>$107,764</td><td>1,024,147</td></tr>
+    <tr><td>0.50</td><td>3.162</td><td>$0.0632</td><td>$22.14</td><td>$191,634</td><td>2,845,368</td></tr>
+    <tr><td>0.75</td><td>5.623</td><td>$0.1125</td><td>$39.36</td><td>$340,779</td><td>6,084,006</td></tr>
+    <tr><td>1.00 (full)</td><td>10.000</td><td>$0.2000</td><td>$70.00</td><td>$606,000</td><td>11,843,211</td></tr></table>
+  <p class="fine">Walking the curve to full takes ~11.84M RARE (~$237k) of net buys; avg fill ~3.91 RARE/token.
+  FDV is the <b>token</b> line — unchanged by the pack size.</p>
+
+  <h2><span class="n">04</span>Demand-multiple sensitivity</h2>
+  <table><tr><th>M</th><th>pack@0</th><th>pack@50%</th><th>pack@100%</th><th>FDV@100%</th><th>RARE to fill</th></tr>
+    <tr><td>3 (flat)</td><td>$7.00</td><td>$12.12</td><td>$21.00</td><td>$181,800</td><td>5.52M</td></tr>
+    <tr><td><b>10 (medium — rec.)</b></td><td>$7.00</td><td>$22.14</td><td>$70.00</td><td>$606,000</td><td>11.84M</td></tr>
+    <tr><td>30 (steep)</td><td>$7.00</td><td>$38.34</td><td>$210.00</td><td>$1,818,000</td><td>25.84M</td></tr></table>
+
+  <h2><span class="n">05</span>Slippage &amp; steady growth</h2>
+  <p>Price-impact at launch is exact: <code>impact = a·ΔR / P0</code>.</p>
+  <table><tr><th>buy</th><th>impact @ launch</th></tr>
+    <tr><td>$20</td><td>0.08%</td></tr><tr><td>$200</td><td>0.76%</td></tr>
+    <tr><td>$2,000</td><td>7.60%</td></tr><tr><td>$20,000</td><td>76%</td></tr></table>
+  <p>Small plays barely move price; the reserve is <b>un-pullable</b> (it lives in the pool), there is <b>no team
+  pre-mint</b>, and packs are a <b>buy-and-burn</b> that ratchets a shrinking float against a deepening reserve.
+  Add liquidity by seeding RARE at deploy, letting buys deepen the pool, and recycling a share of the creator
+  cut / house pool back into RARE reserve.</p>
+
+  <h2 id="packs"><span class="n">06</span>The pack allotment (dwindling + escalating)</h2>
+  <p>Pack allotment for a season = <b>cards issued ÷ 7</b> (<code>CARDS_PER_PACK</code>). As the field burns down,
+  fewer cards issue, so the allotment shrinks and the floor rises. Within a season, <code>packPrice()</code> walks
+  a line from <code>packBase</code> → <code>packCeil</code> as the allotment sells. Sell out → packs close for the
+  season (secondary market only).</p>
+  <table><tr><th>Season</th><th>Cards issued</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th></tr>
+    <tr><td>I · Summer</td><td>70,000</td><td>10,000 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td></tr>
+    <tr><td>II · Fall</td><td>52,500</td><td>7,500 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td></tr>
+    <tr><td>III · Winter</td><td>35,000</td><td>5,000 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td></tr>
+    <tr><td>IV · Spring</td><td>17,500</td><td>2,500 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td></tr></table>
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. Curator-set at
+  <code>openSeason()</code>, recalibrated to the live token price.</p>
+
+  <h2><span class="n">07</span>The burn / spend schedule</h2>
+  <p>"→" = destination: <span class="fire">🔥 burn</span> · <span class="to-c">🎨 creator</span> · <span class="to-h">🏦 house pool</span>. Curator-tunable.</p>
+  <table><tr><th>Action</th><th>Toll</th><th>→</th></tr>
+    <tr><td>sendCard</td><td>1</td><td class="fire">🔥</td></tr>
+    <tr><td>trade</td><td>1 / side</td><td class="fire">🔥</td></tr>
+    <tr><td>openMatch / joinMatch</td><td>2 / side</td><td class="fire">🔥</td></tr>
+    <tr><td>ripPack (7 cards)</td><td><code>packPrice()</code> — ~350 → escalates</td><td>(all − 1) <span class="fire">🔥</span> + 1 <span class="to-h">🏦</span></td></tr>
+    <tr><td>voteRarity up / voteHodl</td><td>amt</td><td class="to-c">🎨</td></tr>
+    <tr><td>voteRarity down</td><td>amt</td><td class="fire">🔥</td></tr>
+    <tr><td>destroyEdition (retired)</td><td>50 + all copies</td><td class="fire">🔥</td></tr>
+    <tr><td>last-standing reward</td><td>50</td><td class="to-h">🏦 → keeper</td></tr>
+    <tr><td>marquee transfer</td><td>25</td><td class="fire">🔥</td></tr></table>
+  <p class="fine">Rarity-court step costs (one tier): C↔U 50, U↔R 150, R↔M 500, M↔P 2,000 (full climb 2,700).
+  Retiring a card off the island also needs a <b>quorum of 9 distinct downvoters</b>.</p>
+
+  <h2><span class="n">08</span>Burn pressure per season</h2>
+  <p>Bounded by the S1 allotment (10,000 packs); scenarios are the fraction sold. A rip destroys ~437 tokens
+  (~48× the old 9), so packs dominate. Illustrative, not a forecast.</p>
+  <table><tr><th>scenario</th><th>packs sold</th><th>pack 🔥</th><th>play 🔥</th><th>cull 🔥</th><th>total 🔥/season</th></tr>
+    <tr><td>QUIET (30%)</td><td>3,000</td><td>1,309,500</td><td>18,000</td><td>10,500</td><td><b>1,338,000</b> (0.44× cap)</td></tr>
+    <tr><td>STEADY (70%)</td><td>7,000</td><td>3,055,500</td><td>42,000</td><td>26,250</td><td><b>3,123,750</b> (1.03× cap)</td></tr>
+    <tr><td>SELLOUT (100%)</td><td>10,000</td><td>4,365,000</td><td>60,000</td><td>41,650</td><td><b>4,466,650</b> (1.47× cap)</td></tr></table>
+  <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate). A sold-out season
+    cycling ~1.4× the cap through burns is the proof that the cap <b>refills</b> — burns pull totalSupply below
+    what was bought; the next buy re-mints into the gap. Read the real trajectory from <code>totalSupply()</code>.</p></div>
+
+  <h2><span class="n">09</span>House reward pool</h2>
+  <p><code>destroyEdition</code> pays <code>min(pool, 50)</code>; each pack seeds <code>1</code>. The invariant
+  <b>lastStandingReward (50) = destroyToll (50)</b> makes culling <b>toll-neutral → non-farmable</b> — and
+  destruction requires a <b>court-retired</b>, fully-cornered edition, so you can't manufacture the bounty. The
+  model shows the pool solvent by season end in every scenario; the curator can <code>fundReward()</code> at
+  season open to pre-fund the early window.</p>
+
+  <h2><span class="n">10</span>Before mainnet — what we verify</h2>
+  <ul>
+    <li><b>★ Mint/burn semantics</b> — does a burn reopen mint headroom (re-mint on next buy)? The whole "3M is enough" verdict assumes yes.</li>
+    <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
+    <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
+    <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm ~10k RARE with the cohort.</li>
+    <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
+    <li><b>Chain</b> — micro-tolls are gas-dominated on L1; deploy on an L2 (or batch actions).</li>
+  </ul>
+    <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
+      collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
+      to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.
+      Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
+    <footer class="foot">
+      <span>$UR3030 · a game token, not an investment</span>
+      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
+      <span>upperdeckripmaster3030.com</span>
+    </footer>
+  </div>
+</body></html>

@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our Own Audit Notes · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="An honest accounting of the review we have done, the bugs we found and fixed, and what a third-party audit still needs to cover.">
+<style>
+  :root{
+    --void:#020804; --panel:#04140b; --ink:#01130a;
+    --phos:#2bff80; --phosdim:#0f5c33; --phosdeep:#0a3d22;
+    --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b; --red:#ff4b3a; --text:#b8ffd6;
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black','Arial Bold',Arial,sans-serif;
+    --accent:var(--cyan);
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--void); }
+  body{ font-family:var(--mono); color:var(--text); line-height:1.6;
+    background:
+      radial-gradient(120% 60% at 85% -5%, rgba(43,255,128,.10), transparent 55%),
+      radial-gradient(90% 60% at 0% 100%, rgba(255,42,217,.07), transparent 55%),
+      var(--void);
+    background-attachment:fixed; }
+  body::before{ content:""; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.3;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.25) 2px 3px); }
+  .wrap{ position:relative; z-index:2; max-width:960px; margin:0 auto; padding:0 20px 80px; }
+  a{ color:var(--cyan); }
+  code{ font-family:var(--mono); color:var(--cyan); background:rgba(39,247,228,.08);
+    border:1px solid rgba(39,247,228,.22); border-radius:4px; padding:0 5px; font-size:.92em; }
+  b,strong{ color:#d9ffe8; }
+
+  /* top bar */
+  .topbar{ position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center;
+    justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--phosdeep);
+    background:rgba(1,10,5,.86); backdrop-filter:blur(6px); }
+  .brand{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.14em; font-size:12px;
+    color:var(--phos); text-decoration:none; }
+  .topnav{ display:flex; gap:6px; flex-wrap:wrap; }
+  .topnav a{ text-decoration:none; font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em;
+    font-size:11px; color:var(--text); padding:6px 10px; border:1px solid var(--phosdim); border-radius:7px; }
+  .topnav a.on{ color:var(--void); background:var(--accent); border-color:var(--ink); }
+  .nfa-badge{ font-family:var(--fat); font-size:10px; letter-spacing:.14em; color:var(--amber);
+    border:1px solid #6b5a12; border-radius:6px; padding:5px 9px; background:rgba(255,210,59,.06); }
+
+  /* hero */
+  header.hero{ padding:46px 0 26px; border-bottom:1px solid var(--phosdeep); margin-bottom:26px; }
+  .hero .kick{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.24em; font-size:12px;
+    color:var(--accent); margin-bottom:12px; }
+  .hero h1{ font-family:var(--fat); font-size:clamp(30px,6vw,52px); line-height:1; margin:0 0 12px;
+    color:#eafff2; letter-spacing:-.02em; text-shadow:0 0 26px rgba(43,255,128,.3); }
+  .hero p.sub{ font-size:15px; color:var(--text); margin:0; max-width:62ch; }
+  .hero .cta{ margin-top:18px; display:flex; gap:10px; flex-wrap:wrap; }
+  .btn{ display:inline-block; text-decoration:none; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.06em; font-size:12px; color:var(--void); padding:11px 16px; border:2px solid var(--ink);
+    border-radius:9px; background:linear-gradient(180deg,#8bffbb,var(--phos) 55%,#0fae56);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.4), 0 5px 0 var(--ink), 0 0 18px rgba(43,255,128,.3); }
+  .btn.cy{ background:linear-gradient(180deg,#6ff3ff,var(--cyan) 60%,#0fb9ab); }
+
+  h2{ font-family:var(--fat); font-size:22px; color:#eafff2; margin:38px 0 12px; letter-spacing:-.01em;
+    padding-bottom:6px; border-bottom:1px solid var(--phosdeep); }
+  h2 .n{ color:var(--accent); margin-right:8px; }
+  h3{ font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--phos);
+    margin:22px 0 6px; }
+  p{ font-size:14.5px; }
+  ul{ padding-left:20px; } li{ font-size:14.5px; margin-bottom:7px; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .grid2{ grid-template-columns:1fr; } .cols3{ grid-template-columns:1fr!important; } }
+  .stat{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(1,10,5,.6); padding:13px 15px; }
+  .stat b{ display:block; font-family:var(--fat); font-size:26px; color:var(--phos); line-height:1;
+    text-shadow:0 0 14px rgba(43,255,128,.35); }
+  .stat span{ font-size:11.5px; color:var(--text); }
+  .statgrid{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  @media (max-width:640px){ .statgrid{ grid-template-columns:1fr 1fr; } }
+
+  .card{ border:1px solid var(--phosdim); border-radius:12px; background:rgba(1,10,5,.55); padding:16px 18px; }
+  .card.burn{ border-color:#7c2a20; } .card.creator{ border-color:#7c1668; } .card.house{ border-color:#0f5c33; }
+  .cols3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .co-h{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em; font-size:13px; margin-bottom:8px; }
+  .burn .co-h{ color:var(--red); } .creator .co-h{ color:var(--acid); } .house .co-h{ color:var(--phos); }
+
+  .callout{ border:1px solid var(--phosdim); border-left:4px solid var(--accent); border-radius:10px;
+    background:rgba(4,20,11,.7); padding:14px 16px; margin:16px 0; }
+  .callout.amber{ border-left-color:var(--amber); } .callout.red{ border-left-color:var(--red); }
+  .callout.cy{ border-left-color:var(--cyan); }
+  .callout .co-h{ color:#eafff2; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; margin:10px 0; display:block; overflow-x:auto; }
+  th,td{ border:1px solid var(--phosdim); padding:8px 10px; text-align:left; white-space:nowrap; }
+  th{ background:rgba(43,255,128,.09); color:#eafff2; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.05em; font-size:11px; }
+  .fire{ color:var(--red); } .to-c{ color:var(--acid); } .to-h{ color:var(--phos); }
+
+  .fine{ font-size:12px; color:var(--phosdim); }
+  .ribbon{ margin-top:30px; border:1px dashed var(--amber); border-radius:10px; padding:12px 16px;
+    background:rgba(255,210,59,.05); font-size:12.5px; color:#ffe9a8; }
+  .ribbon b{ color:var(--amber); }
+
+  footer.foot{ margin-top:46px; border-top:1px solid var(--phosdeep); padding-top:16px; font-size:12px;
+    color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
+  .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
+    font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
+</style></head>
+<body>
+  <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
+  <div class="topbar">
+    <a class="brand" href="index.html">◂ Ripmaster 3030</a>
+    <nav class="topnav">
+      <a href="index.html">Home</a>
+      <a href="whitepaper.html">Whitepaper</a>
+      <a href="tokenomics.html">Tokenomics</a>
+      <a href="audit.html" class="on">Audit</a>
+    </nav>
+    <span class="nfa-badge">$UR3030 · NFA</span>
+  </div>
+  <div class="wrap">
+    <header class="hero">
+      <div class="kick">Self-review · what we checked · what is pending</div>
+      <h1>Our Own Audit Notes</h1>
+      <p class="sub">An honest accounting of the review we have done, the bugs we found and fixed, and what a third-party audit still needs to cover.</p>
+    </header>
+    
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html">📄 Whitepaper</a>
+    <a class="btn cy" href="tokenomics.html">📈 Tokenomics</a></div>
+
+  <div class="callout red"><div class="co-h">Status: self-reviewed, NOT yet third-party audited.</div>
+    <p>This page is our <b>own</b> honest accounting of the review we've done and what we haven't. The contracts
+    are <b>experimental and unaudited by an independent firm</b>. A formal external audit is <b>pending</b> before
+    any mainnet deploy. Interact at your own risk. This is not a security assurance and not financial advice.</p></div>
+
+  <h2><span class="n">01</span>What we reviewed, and how</h2>
+  <ul>
+    <li><b>Clean compile.</b> <code>CardVault.sol</code> compiles with <b>solc 0.8.24</b> + <b>OpenZeppelin 5.0.2</b>,
+      <b>0 warnings</b>; runtime bytecode ~20.3 KB, under the 24.576 KB EIP-170 limit.</li>
+    <li><b>Reproducible economics.</b> Every tokenomics number is derived by <code>scripts/token-model.mjs</code> —
+      you can run it and re-derive the price schedule, slippage, allotments, burn pressure, and pool solvency yourself.</li>
+    <li><b>Adversarial modeling pass.</b> The tokenomics were pressure-tested by an adversarial pass — multiple
+      independent models, each checked by a skeptic — to catch hand-wavy claims and hidden assumptions.</li>
+    <li><b>Hand-review of the pack economy.</b> The escalating-allotment code (<code>packPrice()</code> bounds,
+      the <code>ripPack</code> allotment gate, overflow on the interpolation) was checked by hand and cross-checked
+      against the model.</li>
+  </ul>
+
+  <h2><span class="n">02</span>Things we found and fixed (in the open)</h2>
+  <ul>
+    <li><b>destroyEdition could kill a healthy card.</b> An earlier version let anyone who cornered an edition
+      burn it to farm the bounty. <b>Fixed:</b> destruction now requires the card be <b>court-retired first</b>
+      (a <code>NotRetired</code> guard) <i>and</i> fully cornered — and the reward equals the toll, so it's
+      toll-neutral and non-farmable.</li>
+    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
+      ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
+    <li><b>Over-claimed "supply only goes down."</b> <b>Fixed:</b> the docs now state plainly that net supply =
+      buys − burns (sign indeterminate); deflation is <i>pressure</i>, not a guarantee.</li>
+  </ul>
+
+  <h2><span class="n">03</span>Invariants we designed for</h2>
+  <div class="grid2">
+    <div class="stat"><b>No pre-mint</b><span>supply is minted only on buy — nothing sits at genesis to dump</span></div>
+    <div class="stat"><b>Un-pullable reserve</b><span>RARE lives in the v4 pool, not a yankable LP; sells walk the curve</span></div>
+    <div class="stat"><b>Non-farmable cull</b><span>reward = destroyToll; needs a retired, fully-cornered edition</span></div>
+    <div class="stat"><b>Quorum retire</b><span>9 distinct downvoters — no single-whale can condemn a card</span></div>
+    <div class="stat"><b>No fee wallet</b><span>burns are destroyed; creator + house flows are direct, legible transfers</span></div>
+    <div class="stat"><b>Pool solvency</b><span>reward pool modeled solvent across quiet → sellout seasons</span></div>
+  </div>
+
+  <h2><span class="n">04</span>What is still pending before mainnet</h2>
+  <ul>
+    <li><b>Independent third-party security audit</b> — not yet performed. Assume the code is unaudited until a
+      published report says otherwise.</li>
+    <li><b>On-chain parameter verification</b> via <code>--preview</code> / <code>getMarketState</code>: the effective
+      demand multiple <b>M</b>, the <b>sell-fraction</b>, and the crucial <b>mint/burn semantics</b> (does a burn
+      re-open mint headroom on the next buy?).</li>
+    <li><b>Full Sepolia dress rehearsal</b> of the whole loop — approve → rip → play → vote → retire → destroy →
+      reward — before any mainnet deploy.</li>
+  </ul>
+
+  <h2><span class="n">05</span>Verify us yourself</h2>
+  <ul>
+    <li><b>Read the contract</b> — <code>contracts/CardVault.sol</code> (tolls, votes, packs, destruction, bounty; curator setters are all visible).</li>
+    <li><b>Run the model</b> — <code>node scripts/token-model.mjs</code> reproduces every number on the <a href="tokenomics.html">Tokenomics</a> page.</li>
+    <li><b>Watch the events</b> — <code>CreatorPaid</code>, burns, <code>AshTrophy</code>, <code>EditionDestroyed</code> are the on-chain receipts.</li>
+  </ul>
+  <div class="callout amber"><div class="co-h">The honest bottom line.</div>
+    <p>We've been transparent about what we checked and what we didn't. Self-review and a clean compile are
+    <b>not</b> a substitute for a professional audit. Treat $UR3030 as experimental software that can lose your
+    money. NFA — see the <a href="whitepaper.html#legal">whitepaper</a>.</p></div>
+    <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
+      collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
+      to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.
+      Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
+    <footer class="foot">
+      <span>$UR3030 · a game token, not an investment</span>
+      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
+      <span>upperdeckripmaster3030.com</span>
+    </footer>
+  </div>
+</body></html>
