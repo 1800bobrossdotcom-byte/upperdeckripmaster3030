@@ -34,9 +34,10 @@ private key, which lives only on your machine. Everything around it, I do.
   — the real Season-1 edition **must** be deployed from this address so it surfaces
   on the SuperRare.com profile (the golden rule). Public address only; the key stays
   with the artist.
-- **Sepolia deployer:** a *fresh throwaway* wallet (TBD) — do **not** load the
-  mainnet key above into a plaintext testnet CLI config. Testnet doesn't surface on
-  the profile, so a burner is both correct and safer.
+- **Sepolia deployer:** `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` — a *fresh
+  throwaway* wallet. Do **not** load the mainnet key above into a plaintext testnet
+  CLI config. Testnet doesn't surface on the profile, so a burner is both correct and
+  safer. (Treat this burner as public — testnet only, never mainnet.)
 
 ---
 
@@ -141,6 +142,16 @@ With the address I will:
 ---
 
 ## Status
-- `js/chain-config.js` is pre-filled with the Sepolia Liquid Factory + RARE
-  addresses and `network: "sepolia"`; the `liquidEdition` / `renderContract`
-  address slots are zero until you deploy (Step 2) and hand me the address.
+- ✅ **Deployed to Sepolia 2026-07-19.** `$UR3030` Liquid Edition (fair-launch,
+  1,000,000 supply, medium-demand curve):
+  - **token / `liquidEdition`:** `0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C`
+  - deploy tx: `0x2e4f4d9ede1039c806a5ca9b45f4a573a5ff9674fcab14926e957b712acabe29`
+  - SuperRare: https://superrare.com/liquid-editions/11155111/0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C
+  - metadata: https://upperdeckripmaster3030.com/token-metadata.json
+  - `js/chain-config.js` → `contracts.liquidEdition` is wired to this address, so the
+    site now reads real Sepolia state and the arena's `$UR3030` burn ante is live.
+- ⏳ `renderContract` still zero — next step is to build + `set-render-contract` so the
+  tokenURI turns live market state into card art.
+- 🧾 Reserve: the launcher is fair-launch (no premine knob), so the ~13% creator/
+  treasury reserve is acquired by **buying off the curve** at launch — no free tokens,
+  disclosed + vested on mainnet.
