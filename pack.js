@@ -56,24 +56,58 @@
     setTimeout(finish, 4200); // hard cap so the reveal always lands
   }
 
+  // ── the pull browser: seven splayed like a held hand, one big up front ──
+  let cards = [], cur = 0;
+
   function showCards() {
     stage.classList.add('hidden'); stage.classList.remove('spin');
     if (title) title.textContent = 'your pull';
-    const cards = pull(PACK);
-    reveal.innerHTML = cards.map((c, i) =>
-      '<div class="pull r-' + esc(c.rarity) + '" style="--d:' + (i * 150) + 'ms">' +
-        '<div class="pull-inner">' +
-          '<div class="pull-back"><span>✦</span></div>' +
-          '<a class="pull-front" href="cards/' + esc(c.slug) + '.html">' +
-            '<img src="cards/' + esc(c.art) + '" alt="' + esc(c.title) + '" decoding="async">' +
-            '<span class="pull-rr">' + esc(c.rarity) + '</span>' +
-            '<span class="pull-nm">' + esc(c.title) + '</span>' +
-          '</a>' +
-        '</div></div>').join('');
-    void reveal.offsetHeight; // force initial (face-down) layout so the flip transition triggers
+    cards = pull(PACK); cur = 0;
+    const n = cards.length, mid = (n - 1) / 2;
+    const fan = cards.map((c, i) => {
+      const rot = ((i - mid) * 9).toFixed(1);
+      const drop = (Math.abs(i - mid) * Math.abs(i - mid) * 5).toFixed(0);
+      return '<button type="button" class="fcard r-' + esc(c.rarity) + '" data-i="' + i + '"' +
+        ' style="--d:' + (i * 130) + 'ms;--rot:' + rot + 'deg;--drop:' + drop + 'px"' +
+        ' aria-label="view ' + esc(c.title) + '">' +
+        '<span class="fcard-inner"><span class="fback">✦</span>' +
+        '<img src="cards/' + esc(c.art) + '" alt="" decoding="async"></span></button>';
+    }).join('');
+    reveal.innerHTML =
+      '<div class="pv">' +
+        '<button type="button" class="pv-nav" id="pvPrev" aria-label="previous card">◀</button>' +
+        '<a class="pv-card" id="pvCard" href="#">' +
+          '<img id="pvImg" alt="" decoding="async">' +
+          '<span class="pv-rr" id="pvRr"></span>' +
+          '<span class="pv-open">open card ↗</span>' +
+        '</a>' +
+        '<button type="button" class="pv-nav" id="pvNext" aria-label="next card">▶</button>' +
+      '</div>' +
+      '<div class="pv-meta"><span class="pv-nm" id="pvNm"></span><span class="pv-count" id="pvCount"></span></div>' +
+      '<div class="fan" id="fan">' + fan + '</div>';
+    void reveal.offsetHeight; // force face-down layout so the flip transition triggers
     requestAnimationFrame(() => requestAnimationFrame(() =>
-      reveal.querySelectorAll('.pull').forEach(p => p.classList.add('flip'))));
-    setTimeout(() => { actions.hidden = false; busy = false; }, PACK * 150 + 800);
+      reveal.querySelectorAll('.fcard').forEach(f => f.classList.add('flip'))));
+    reveal.querySelectorAll('.fcard').forEach(f => f.addEventListener('click', () => view(+f.dataset.i)));
+    document.getElementById('pvPrev').onclick = () => view((cur + n - 1) % n);
+    document.getElementById('pvNext').onclick = () => view((cur + 1) % n);
+    view(0);
+    setTimeout(() => { actions.hidden = false; busy = false; }, n * 130 + 700);
+  }
+
+  function view(i) {
+    const c = cards[i]; if (!c) return;
+    cur = i;
+    const card = document.getElementById('pvCard');
+    card.href = 'cards/' + esc(c.slug) + '.html';
+    card.className = 'pv-card r-' + esc(c.rarity);
+    document.getElementById('pvImg').src = 'cards/' + c.art;
+    document.getElementById('pvImg').alt = c.title;
+    document.getElementById('pvRr').textContent = c.rarity;
+    document.getElementById('pvNm').textContent = c.title;
+    document.getElementById('pvCount').textContent = (i + 1) + ' / ' + cards.length;
+    card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
+    reveal.querySelectorAll('.fcard').forEach((f, j) => f.classList.toggle('on', j === i));
   }
 
   document.getElementById('packOpen') && document.getElementById('packOpen').addEventListener('click', open);
@@ -81,5 +115,10 @@
   document.getElementById('packDone') && document.getElementById('packDone').addEventListener('click', close);
   document.getElementById('packAgain') && document.getElementById('packAgain').addEventListener('click', rip);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
-  addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  addEventListener('keydown', e => {
+    if (e.key === 'Escape') return close();
+    if (!modal.classList.contains('show') || !cards.length) return;
+    if (e.key === 'ArrowLeft') view((cur + cards.length - 1) % cards.length);
+    if (e.key === 'ArrowRight') view((cur + 1) % cards.length);
+  });
 })();

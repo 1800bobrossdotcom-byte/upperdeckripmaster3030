@@ -238,7 +238,7 @@
     set('b-wl', `${p.battlesWon ?? 0} / ${p.battlesLost ?? 0}`);
     set('b-wag', p.timesWagered ?? 0);
     set('b-burn', p.burnsSurvived ?? 0);
-    if (p.floor != null) set('b-floor', p.floor + ' $UDR');
+    if (p.floor != null) set('b-floor', p.floor + ' $UR3030');
   }).catch(() => {});
 
   const cfg = (typeof window !== 'undefined' && window.RIPMASTER_CHAIN) || {};

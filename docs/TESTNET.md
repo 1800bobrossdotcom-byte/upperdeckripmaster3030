@@ -33,14 +33,14 @@ rare configure --show
 
 ```bash
 # preview the bonding curve first — never deploy blind
-rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UDR" \
+rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
   --curve-preset medium-demand \
   --description "A liquid trading card game of psychedelic hyperfoil cartoon spirits." \
   --image ./cards/art/the-card-01.png \
   --preview
 
 # when the curve looks right, deploy for real
-rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UDR" \
+rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
   --curve-preset medium-demand \
   --description "A liquid trading card game of psychedelic hyperfoil cartoon spirits." \
   --image ./cards/art/the-card-01.png \

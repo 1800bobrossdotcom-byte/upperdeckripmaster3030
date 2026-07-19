@@ -14,7 +14,7 @@ Three contracts, two already written:
 
 | Contract | Role | Status |
 |---|---|---|
-| Liquid Edition ($UDR) | the ERC-20 + bonding curve (SuperRare protocol) | deploy via Rare CLI (TESTNET.md §2) |
+| Liquid Edition ($UR3030) | the ERC-20 + bonding curve (SuperRare protocol) | deploy via Rare CLI (TESTNET.md §2) |
 | `SeasonBallot.sol` | burn-to-vote: which cards make each season | written (TESTNET.md §3) |
 | `CardVault.sol` | **this spec** — cards as ERC-1155, send/trade/wager/rip, marquee rules | written |
 
@@ -37,13 +37,13 @@ Defaults (curator-tunable via `setTolls`):
 
 | Action | What happens | Burned |
 |---|---|---|
-| `sendCard(to, id)` | gift a card | 1 $UDR |
-| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $UDR **per side** |
-| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UDR per side |
+| `sendCard(to, id)` | gift a card | 1 $UR3030 |
+| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $UR3030 **per side** |
+| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side |
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
-| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UDR |
-| marquee transfer | see §3 | 25 $UDR |
+| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 |
+| marquee transfer | see §3 | 25 $UR3030 |
 
 ## 3. The marquee (Lovebeing, id 1000)
 
@@ -55,7 +55,7 @@ code, not convention:
 - **Sealed** — every marquee move reverts until `currentSeason ≥ marqueeUnlockSeason`
   (constructor default: season 3). `releaseMarquee(to)` is the curator's one-time
   hand-off to the first keeper once unlocked.
-- **Moves cost conviction** — `sendCard` on id 1000 burns the 25 $UDR marquee toll.
+- **Moves cost conviction** — `sendCard` on id 1000 burns the 25 $UR3030 marquee toll.
 
 ## 4. Arena resolution — testnet shape, mainnet path
 
@@ -131,6 +131,6 @@ cast send <VAULT> "setSeason(uint32)" 2
 - [ ] `cancelMatch` refunds the stack, not the toll
 - [ ] marquee: every move reverts while `currentSeason < 3`; wager/trade of id
       1000 always reverts; after `setSeason(3)` + `releaseMarquee`, `sendCard`
-      burns 25 $UDR
+      burns 25 $UR3030
 - [ ] site: pack rip animates from the chain event; arena vault = `balanceOf`
 - [ ] `SeasonBallot.burnProgress()` visibly climbs from game activity alone

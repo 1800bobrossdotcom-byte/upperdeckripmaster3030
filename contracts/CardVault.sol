@@ -29,7 +29,7 @@ import {ILiquid} from "./interfaces/ILiquid.sol";
 /// for the path to trustless resolution). Deploy per docs/TESTNET.md §5.
 contract CardVault is ERC1155 {
     // ─── the cast ───
-    ILiquid public immutable token;          // the liquid edition ($UDR) — the thing that burns
+    ILiquid public immutable token;          // the liquid edition ($UR3030) — the thing that burns
     address public curator;                  // opens seasons, registers cards, sets tolls
     address public resolver;                 // reports arena results (testnet: the site's engine)
 
@@ -43,7 +43,7 @@ contract CardVault is ERC1155 {
     mapping(uint256 => CardInfo) public cardInfo;          // id => info (id = deck number)
     mapping(uint32 => mapping(uint8 => uint256[])) private _pool; // season => tier => ids (pack pulls)
 
-    // ─── the burn schedule (all 18-decimals $UDR, all destroyed on use) ───
+    // ─── the burn schedule (all 18-decimals $UR3030, all destroyed on use) ───
     uint256 public sendToll    = 1e18;       // gift a card
     uint256 public tradeToll   = 1e18;       // per side of a swap
     uint256 public wagerToll   = 2e18;       // per side of an arena match

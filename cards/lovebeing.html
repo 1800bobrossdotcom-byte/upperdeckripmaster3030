@@ -115,20 +115,18 @@
 (() => {
   const root = document.documentElement, scene = document.getElementById('scene'), card = document.getElementById('card');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let tx=0, ty=0, px=0, py=0, lastInput=0, down=false, downX=0, downY=0, moved=0;
+  // The marquee holds still: no pointer-follow — only a slow, sovereign idle
+  // drift moves the prism. It doesn't chase anyone's cursor.
+  let px=0, py=0, down=false, downX=0, downY=0, moved=0;
   const setVars = () => { root.style.setProperty('--px', px.toFixed(4)); root.style.setProperty('--py', py.toFixed(4)); };
-  const track = (cx, cy) => { const r = scene.getBoundingClientRect();
-    tx = ((cx-r.left)/r.width)*2-1; ty = ((cy-r.top)/r.height)*2-1; lastInput = performance.now(); };
-  scene.addEventListener('pointermove', e => track(e.clientX, e.clientY));
-  scene.addEventListener('mousemove', e => track(e.clientX, e.clientY));
-  scene.addEventListener('pointerleave', () => { lastInput = 0; });
   scene.addEventListener('pointerdown', e => { down=true; moved=0; downX=e.clientX; downY=e.clientY; });
   addEventListener('pointermove', e => { if (down) moved = Math.max(moved, Math.hypot(e.clientX-downX, e.clientY-downY)); });
   addEventListener('pointerup', () => { if (down && moved < 10) card.classList.toggle('flipped'); down=false; });
   const loop = t => {
-    if (!reduced) { const idle = !lastInput || (t-lastInput > 2600);
-      const gx = idle ? Math.sin(t/2400)*.4 : tx, gy = idle ? Math.cos(t/3100)*.3 : ty;
-      px += (gx-px)*.06; py += (gy-py)*.06; setVars(); }
+    if (!reduced) {
+      const gx = Math.sin(t/2600)*.35, gy = Math.cos(t/3300)*.28;
+      px += (gx-px)*.05; py += (gy-py)*.05; setVars();
+    }
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
