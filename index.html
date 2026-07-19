@@ -185,33 +185,41 @@
   .adzone .adtag{ text-align:center; font-family:var(--fat); text-transform:uppercase; letter-spacing:.06em;
     font-size:clamp(13px,3.6vw,17px); color:var(--amber); margin-top:6px; text-shadow:0 0 12px rgba(255,210,59,.35); }
   .ads{ margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; }
-  .ad{ position:relative; overflow:hidden; border-radius:7px; padding:18px 15px 16px; text-align:center;
-    border:3px solid #140a02; box-shadow:6px 6px 0 rgba(0,0,0,.55); transform:rotate(var(--tw,-1deg));
-    color:#1a0c02; isolation:isolate; }
-  .ad::before{ content:""; position:absolute; inset:-45%; z-index:0;
-    background:repeating-conic-gradient(from 0deg at 50% 40%, var(--r1) 0 7deg, var(--r2) 7deg 14deg);
-    opacity:.92; animation:adspin 26s linear infinite; }
-  .ad::after{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
-    background:radial-gradient(rgba(0,0,0,.18) 22%, transparent 24%) 0 0/6px 6px; mix-blend-mode:multiply; opacity:.55; }
-  @keyframes adspin{ to{ transform:rotate(360deg); } }
+  /* the banners are now PHOTOS of the real unopened packs; text glows on top */
+  .ad{ position:relative; overflow:hidden; border-radius:9px; padding:14px 12px 13px; text-align:center;
+    min-height:320px; display:flex; flex-direction:column; align-items:stretch;
+    border:3px solid #140a02; box-shadow:6px 6px 0 rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.5) inset;
+    transform:rotate(var(--tw,-1deg)); color:#fff; --glow:#2bff80;
+    background:#050303 center/cover no-repeat; }
+  /* readability scrim: darker at top+bottom (where text sits), pack shows through the middle */
+  .ad::before{ content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+    background:linear-gradient(180deg, rgba(2,4,3,.82) 0%, rgba(2,4,3,.12) 30%, rgba(2,4,3,.10) 60%, rgba(2,4,3,.88) 100%); }
+  /* faint animated foil sheen sweeping over the pack */
+  .ad::after{ content:""; position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.5;
+    background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.16) 46%, rgba(255,255,255,.02) 52%, transparent 66%);
+    background-size:260% 100%; animation:foil 5.5s ease-in-out infinite; }
+  @keyframes foil{ 0%,100%{ background-position:130% 0; } 50%{ background-position:-30% 0; } }
   .ad > *{ position:relative; z-index:2; }
-  .ad .star{ display:inline-block; font-family:var(--fat); font-size:10px; letter-spacing:.14em; padding:4px 10px;
-    background:#140a02; color:#ffe95f; border-radius:2px; text-transform:uppercase; box-shadow:2px 2px 0 rgba(0,0,0,.4); }
-  .ad h4{ margin:10px 0 3px; font-family:var(--fat); text-transform:uppercase; line-height:.96;
-    font-size:clamp(19px,5vw,29px); letter-spacing:-.01em; text-shadow:2px 2px 0 rgba(255,255,255,.45); }
-  .ad h4.jp{ font-size:clamp(21px,5.6vw,32px); line-height:1.08; letter-spacing:0; }
-  .ad p{ margin:7px 0 0; font-family:var(--fat); font-size:12px; text-transform:uppercase; letter-spacing:.01em; color:#33160a; }
-  .ad p.jp{ text-transform:none; font-size:13px; }
-  .ad .price{ margin-top:11px; display:inline-block; font-family:var(--fat); background:#e01b12; color:#fff;
+  .ad .star{ align-self:center; margin-bottom:auto; display:inline-block; font-family:var(--fat); font-size:10px;
+    letter-spacing:.14em; padding:4px 10px; background:rgba(2,8,4,.82); color:#ffe95f; border:1px solid rgba(255,233,95,.5);
+    border-radius:2px; text-transform:uppercase; box-shadow:0 0 12px rgba(0,0,0,.7); backdrop-filter:blur(2px); }
+  .ad h4{ margin:0; font-family:var(--fat); text-transform:uppercase; line-height:.98; letter-spacing:-.01em;
+    font-size:clamp(15px,3.9vw,22px); color:#fff;
+    text-shadow:0 0 7px var(--glow), 0 0 18px var(--glow), 0 2px 3px #000, 1px 1px 0 #000; }
+  .ad h4.jp{ font-size:clamp(16px,4.4vw,24px); line-height:1.12; letter-spacing:0; }
+  .ad p{ margin:6px 0 0; font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.02em;
+    color:#eafff2; text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.85); }
+  .ad p.jp{ text-transform:none; font-size:12px; }
+  .ad .price{ align-self:center; margin-top:11px; display:inline-block; font-family:var(--fat); background:#e01b12; color:#fff;
     padding:6px 15px; border-radius:999px; border:2px solid #140a02; transform:rotate(-3deg);
-    font-size:13px; letter-spacing:.03em; box-shadow:2px 2px 0 rgba(0,0,0,.4); }
-  .ad.a1{ --r1:#ffd23b; --r2:#ff7a1a; background:#ffcf4d; --tw:-1.5deg; }
-  .ad.a2{ --r1:#ff2ad9; --r2:#7b2ff7; background:#ff92e6; --tw:1.3deg; color:#2b0322; }
-  .ad.a3{ --r1:#27f7e4; --r2:#2f7bff; background:#66eef0; --tw:-1deg; color:#052430; }
-  .ad.a4{ --r1:#9be34f; --r2:#0fae56; background:#bff06a; --tw:1.6deg; color:#0c2a08; }
-  .ad.a5{ --r1:#ff7a1a; --r2:#e01b12; background:#ff9d52; --tw:-1.8deg; color:#2a0d02; }
-  .ad.a6{ --r1:#ffe95f; --r2:#ff2ad9; background:#ffd98a; --tw:1.1deg; color:#2a1206; }
-  .ad .price.dark{ background:#140a02; color:#ffe95f; }
+    font-size:13px; letter-spacing:.03em; box-shadow:0 0 14px rgba(224,27,18,.6), 2px 2px 0 rgba(0,0,0,.5); }
+  .ad .price.dark{ background:#140a02; color:#ffe95f; box-shadow:0 0 14px rgba(255,233,95,.4), 2px 2px 0 rgba(0,0,0,.5); }
+  .ad.a1{ background-image:url("pack_1_ad.webp"); --glow:#ffd23b; --tw:-1.5deg; }
+  .ad.a2{ background-image:url("pack_2_ad.webp"); --glow:#ff2ad9; --tw:1.3deg; }
+  .ad.a3{ background-image:url("pack_3_ad.webp"); --glow:#27f7e4; --tw:-1deg; }
+  .ad.a4{ background-image:url("pack_4_ad.webp"); --glow:#9be34f; --tw:1.6deg; }
+  .ad.a5{ background-image:url("pack_1_ad.webp"); --glow:#ff7a1a; --tw:-1.8deg; }
+  .ad.a6{ background-image:url("pack_3_ad.webp"); --glow:#ffe95f; --tw:1.1deg; }
   /* animated bits inside banners (the "gif" feel, done in CSS) */
   @keyframes blink{ 50%{ opacity:0; } }
   .blink{ animation:blink 1s steps(1) infinite; }
@@ -363,7 +371,7 @@
     #rain,h1{ animation:none; }
     .pack-fallback,.fcard-inner,.pv-card.pop,.caret{ animation:none; transition:none; }
     .zoom-panel.go,.pack-inner{ transition:none; }
-    .ad::before{ animation:none; }
+    .ad::after{ animation:none; }
   }
 </style>
 </head>
