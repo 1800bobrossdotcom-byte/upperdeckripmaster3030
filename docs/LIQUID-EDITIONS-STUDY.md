@@ -105,10 +105,13 @@ Already in `CardVault.sol`: send, trade, pog-wager escrow, rip, the rarity court
 (promote/demote/HODL), the sealed 1/1 marquee. New utility to add (each one a
 fresh $UR3030 sink, i.e. more §1 pressure):
 
-- **Forge / card creator** (building now, §see FORGE): trade in (burn) owned
-  cards + pay a forge toll to mint a new collaged card; the consumed inputs
-  become **house cards** the vault re-issues. New art from old art, on-chain
-  lineage, big sink.
+- **Forge / card creator** (LIVE at `cards/forge.html`, on-chain path in
+  `CardVault.forge()`): trade in 2-3 owned cards + a forge toll to mint a new
+  card collaged from sections of the inputs (top of one, middle of another,
+  bottom of a third) inside a frame you pick. The consumed inputs become **house
+  cards** the vault holds/re-issues; `forgeInputs[newId]` records the lineage on
+  chain while the collage art lives off-chain keyed by the id. Forged cards are
+  first-class — playable in the arena. New art from old art, real sink.
 - **Evolve / level a card** — `feed(id, amount)` burns tokens into a card to
   raise a cosmetic level the lens reads (more foil, more particles, a level pip).
   Pure art evolution driven by conviction.

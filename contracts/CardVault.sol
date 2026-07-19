@@ -49,6 +49,12 @@ contract CardVault is ERC1155 {
     uint256 public wagerToll   = 2e18;       // per side of an arena match
     uint256 public marqueeToll = 25e18;      // moving the 1/1 costs real conviction
     uint256 public packPrice   = 10e18;      // rip rights for a 7-card pack
+    uint256 public forgeToll   = 15e18;      // collage owned cards into a new one
+
+    // forged cards get their own id space; their art/lineage lives off-chain
+    // (the collage) keyed by this id. Inputs are traded to the house on forge.
+    uint256 public nextForged = 5000;
+    mapping(uint256 => uint256[]) public forgeInputs;   // forgedId => consumed card ids
 
     // ─── arena escrow ───
     struct Match {
@@ -85,6 +91,7 @@ contract CardVault is ERC1155 {
     event MatchResolved(uint256 indexed matchId, address indexed winner, uint256 burned);
     event PackRipped(address indexed player, uint256[] ids, uint256 burned);
     event MarqueeMoved(address indexed from, address indexed to, uint256 burned);
+    event Forged(address indexed forger, uint256 indexed newId, uint256[] inputs, uint256 burned);
 
     error NotCurator();
     error NotResolver();
@@ -139,6 +146,7 @@ contract CardVault is ERC1155 {
     function setTolls(uint256 s, uint256 t, uint256 w, uint256 m, uint256 p) external onlyCurator {
         sendToll = s; tradeToll = t; wagerToll = w; marqueeToll = m; packPrice = p;
     }
+    function setForgeToll(uint256 f) external onlyCurator { forgeToll = f; }
 
     // ─── send: a gift still feeds the fire ───
 
@@ -229,6 +237,31 @@ contract CardVault is ERC1155 {
         if (!m.open || m.b != address(0) || msg.sender != m.a) revert MatchState();
         m.open = false;
         for (uint256 i = 0; i < m.stakeA.length; i++) _safeTransferFrom(address(this), m.a, m.stakeA[i], 1, "");
+    }
+
+    // ─── the forge: trade owned cards in, mint a collaged new one ───
+
+    /// @notice Burn the forge toll, trade 2-3 owned cards to the house, and mint
+    /// a fresh forged card to the caller. The collaged artwork + lineage live
+    /// off-chain keyed by the returned id (the site's forge bench composites it).
+    /// Inputs become house stock (held by the vault) that can be re-issued.
+    function forge(uint256[] calldata inputs) external returns (uint256 newId) {
+        if (inputs.length < 2 || inputs.length > 3) revert BadStackSize();
+        for (uint256 i = 0; i < inputs.length; i++) {
+            if (inputs[i] == MARQUEE_ID) revert MarqueeNotPlayable();
+            if (!cardInfo[inputs[i]].exists) revert UnknownCard();
+        }
+        _burnToll(msg.sender, forgeToll);
+        // trade the inputs in — they move to the vault as house cards
+        for (uint256 i = 0; i < inputs.length; i++)
+            _safeTransferFrom(msg.sender, address(this), inputs[i], 1, "");
+        newId = ++nextForged;
+        forgeInputs[newId] = inputs;
+        // forged cards enter as Rare by default; the court can move them after
+        cardInfo[newId] = CardInfo(currentSeason, Tier.Rare, true);
+        _pool[currentSeason][uint8(Tier.Rare)].push(newId);
+        _mint(msg.sender, newId, 1, "");
+        emit Forged(msg.sender, newId, inputs, forgeToll);
     }
 
     // ─── the rarity court: any holder, any card, any time ───

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Forge · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="Trade in cards you own to collage a new one — sections and frames from the cards you burn. Forged cards are yours to play; the inputs become house cards.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<style>
+  :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
+    --cyan:#27f7e4; --amber:#ffd23b; --drabink:#01130a;
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ background:var(--bg); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
+    min-height:100vh; overflow-x:hidden; padding:0 12px 60px; -webkit-tap-highlight-color:transparent; }
+  .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none; background:url("../Laughing_man.svg") repeat;
+    background-size:min(46vw,340px); filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6); opacity:.1; }
+  .wrap{ position:relative; z-index:1; max-width:1000px; margin:0 auto; }
+  a.back{ display:inline-block; margin-top:14px; color:var(--phos); text-decoration:none;
+    font-size:11px; letter-spacing:.2em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
+  h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
+    font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
+  .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
+  .panel{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(2,16,9,.82);
+    box-shadow:inset 0 0 26px rgba(43,255,128,.05); padding:14px; margin-top:16px; }
+  .panel h2{ font-family:var(--fat); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); margin-bottom:8px; }
+  .panel p{ font-size:12.5px; line-height:1.6; color:var(--ink); } .panel .b{ color:var(--acid); }
+
+  .bench{ display:grid; grid-template-columns:minmax(220px,300px) 1fr; gap:18px; margin-top:16px; }
+  @media (max-width:640px){ .bench{ grid-template-columns:1fr; } }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+  canvas#card{ width:100%; max-width:300px; aspect-ratio:2/3; border-radius:14px; border:1px solid var(--phosdim);
+    box-shadow:0 0 26px rgba(43,255,128,.18); background:#020a05; }
+  .frames{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .fr{ width:30px; height:30px; border-radius:6px; border:2px solid var(--drabink); cursor:pointer; }
+  .fr.on{ outline:2px solid var(--phos); outline-offset:2px; }
+  .namerow{ display:flex; gap:8px; width:100%; max-width:300px; }
+  .namerow input{ flex:1; background:rgba(1,10,5,.9); border:1px solid var(--phosdim); color:var(--ink);
+    font-family:var(--mono); font-size:13px; padding:8px 10px; border-radius:8px; }
+
+  .slots{ display:flex; flex-direction:column; gap:8px; }
+  .slot{ display:flex; align-items:center; gap:10px; border:1px dashed var(--phosdim); border-radius:8px; padding:8px;
+    background:rgba(1,10,5,.5); cursor:pointer; }
+  .slot.active{ border-style:solid; border-color:var(--phos); box-shadow:0 0 12px rgba(43,255,128,.25); }
+  .slot .band{ font-family:var(--fat); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); width:58px; }
+  .slot .who{ flex:1; font-size:12px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .slot .who.empty{ color:#5fcf8f; font-style:italic; }
+  .slot img{ width:34px; height:46px; object-fit:cover; border-radius:4px; border:1px solid var(--phosdim); }
+
+  .tray-h{ display:flex; justify-content:space-between; align-items:baseline; margin-top:16px; }
+  .tray-h .n{ font-size:11px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; }
+  .tray{ display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:8px; margin-top:8px; max-height:340px; overflow:auto;
+    border:1px solid var(--phosdim); border-radius:10px; padding:10px; background:rgba(1,10,5,.4); }
+  .ing{ position:relative; border:2px solid var(--phosdim); border-radius:8px; overflow:hidden; cursor:pointer; aspect-ratio:2/3; background:#020a05; }
+  .ing img{ width:100%; height:74%; object-fit:cover; display:block; }
+  .ing .nm{ font-size:7.5px; text-align:center; padding:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:uppercase; }
+  .ing.used{ outline:2px solid var(--amber); outline-offset:-2px; }
+  .empty-note{ grid-column:1/-1; text-align:center; color:#5fcf8f; padding:24px 8px; font-style:italic; }
+
+  .btns{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .btn{ font-family:var(--fat); font-size:12px; letter-spacing:.12em; text-transform:uppercase; cursor:pointer;
+    padding:14px 22px; border-radius:999px; border:2px solid var(--drabink); color:#fff;
+    background:linear-gradient(180deg,#ff7ae8,var(--acid) 55%,#b3129a);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.35), 0 5px 0 var(--drabink), 0 0 18px rgba(255,42,217,.4); }
+  .btn.ghost{ background:rgba(2,16,9,.9); color:var(--phos); box-shadow:0 0 12px rgba(43,255,128,.2); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
+  .btn:active:not(:disabled){ transform:translateY(3px); }
+
+  .forged-h{ margin-top:26px; font-family:var(--fat); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--phos); }
+  .forged{ display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; margin-top:10px; }
+  .forged .fc{ border:2px solid var(--acid); border-radius:8px; overflow:hidden; background:#020a05; box-shadow:0 0 12px rgba(255,42,217,.3); }
+  .forged .fc img{ width:100%; display:block; }
+  .forged .fc .nm{ font-size:8px; text-align:center; padding:3px; text-transform:uppercase; }
+  .toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60; background:#01130a;
+    color:var(--phos); border:1px solid var(--phos); border-radius:999px; padding:10px 18px; font-family:var(--fat);
+    font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <div class="lm" aria-hidden="true"></div>
+  <div class="wrap">
+    <a class="back" href="../index.html">◄ back to the pack</a>
+    <h1>The Forge</h1>
+    <div class="sub">trade in · collage · mint</div>
+
+    <div class="panel">
+      <h2>How the forge works</h2>
+      <p>Pick <b>2 or 3 cards you own</b> and slot them into the bands — the forge takes the
+      <b>top of one</b>, the <b>middle of another</b>, the <b>bottom of a third</b>, and a frame
+      of your choosing, and collages a brand-new card. <b>Forging trades the inputs in</b>: they
+      leave your collection and become <b>house cards</b> the vault can re-issue. Your forged card
+      is yours to play in the arena. Every forge burns $UR3030. <span class="b">(preview — burns
+      go on-chain with the vault's forge())</span></p>
+    </div>
+
+    <div class="bench">
+      <div class="stage">
+        <canvas id="card" width="512" height="768" aria-label="forged card preview"></canvas>
+        <div class="frames" id="frames"></div>
+        <div class="namerow"><input id="cname" maxlength="22" placeholder="name your card…"></div>
+      </div>
+      <div>
+        <div class="slots" id="slots"></div>
+        <div class="tray-h"><span class="n">Your cards</span><span class="n" id="ownN">0 owned</span></div>
+        <div class="tray" id="tray"></div>
+        <div class="btns">
+          <button class="btn" id="forge" disabled>⚒ Forge (burn inputs + toll)</button>
+          <button class="btn ghost" id="clear">Reset bench</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="forged-h">Your forged cards</div>
+    <div class="forged" id="forgedList"></div>
+  </div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('card'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const FRAMES = [ {k:'phos',c:'#2bff80'}, {k:'acid',c:'#ff2ad9'}, {k:'amber',c:'#ffd23b'}, {k:'cyan',c:'#27f7e4'} ];
+  const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
+  let DECK = [], owned = [], slots = [null,null,null], active = 0, frame = FRAMES[0], imgCache = new Map();
+
+  const say = (() => { const t = document.createElement('div'); t.className='toast'; document.body.appendChild(t);
+    let tm; return m => { t.textContent=m; t.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove('show'),2400); }; })();
+
+  // ── stores (on-device, same schema the arena reads) ──
+  const load = k => { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; } };
+  const save = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const vault = () => load('urm_vault');
+  const forged = () => load('urm_forged');
+  const hashStats = name => { let h=0; for(const c of name) h=(h+c.charCodeAt(0))|0; h=Math.abs(h);
+    return { atk:1+(h*7)%9, def:1+(h*13)%9, trigger:TRIGGERS[(h*31)%8] }; };
+
+  function getImg(src){ if(imgCache.has(src)) return Promise.resolve(imgCache.get(src));
+    return new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous';
+      im.onload=()=>{ imgCache.set(src,im); res(im); }; im.onerror=()=>res(null); im.src=src; }); }
+
+  // draw a source band (0=top third,1=mid,2=bottom) cover-fit into a dest rect
+  function drawBand(img, band, dx, dy, dw, dh){
+    if(!img){ ctx.fillStyle='#04140b'; ctx.fillRect(dx,dy,dw,dh); return; }
+    const sh = img.height/3, sy = band*sh, sw = img.width;
+    // cover: scale source band to fill dest
+    const scale = Math.max(dw/sw, dh/sh); const rw=sw*scale, rh=sh*scale;
+    const ox=dx+(dw-rw)/2, oy=dy+(dh-rh)/2;
+    ctx.save(); ctx.beginPath(); ctx.rect(dx,dy,dw,dh); ctx.clip();
+    ctx.drawImage(img, 0, sy, sw, sh, ox, oy, rw, rh); ctx.restore();
+  }
+
+  async function draw(){
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#020a05'; ctx.fillRect(0,0,W,H);
+    const pad=22, iw=W-pad*2, ih=H-pad*2, bandH=ih/3;
+    const imgs = await Promise.all(slots.map(s => s ? getImg(s.art) : null));
+    for(let i=0;i<3;i++) drawBand(imgs[i], i, pad, pad+i*bandH, iw, bandH);
+    // seam glints between bands
+    ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.lineWidth=1;
+    for(let i=1;i<3;i++){ ctx.beginPath(); ctx.moveTo(pad,pad+i*bandH); ctx.lineTo(pad+iw,pad+i*bandH); ctx.stroke(); }
+    // frame
+    ctx.strokeStyle=frame.c; ctx.lineWidth=8; roundRect(6,6,W-12,H-12,16); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; roundRect(pad-4,pad-4,iw+8,ih+8,10); ctx.stroke();
+    // corner ticks
+    ctx.fillStyle=frame.c; [[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(([x,y])=>{ ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill(); });
+    // title plate
+    const nm=($('cname').value||'untitled').toUpperCase();
+    ctx.fillStyle='rgba(1,10,5,.82)'; roundRect(pad, H-pad-46, iw, 40, 8); ctx.fill();
+    ctx.strokeStyle=frame.c; ctx.lineWidth=2; roundRect(pad, H-pad-46, iw, 40, 8); ctx.stroke();
+    ctx.fillStyle='#eafff2'; ctx.font='700 22px Arial Black, Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(nm.slice(0,20), W/2, H-pad-26);
+    ctx.fillStyle=frame.c; ctx.font='700 10px Arial'; ctx.fillText('◆ FORGED', W/2, H-pad-46-10);
+  }
+  function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  function renderFrames(){ $('frames').innerHTML = FRAMES.map((f,i)=>`<span class="fr ${f===frame?'on':''}" data-i="${i}" style="background:${f.c}"></span>`).join('');
+    $('frames').querySelectorAll('.fr').forEach(el=>el.onclick=()=>{ frame=FRAMES[+el.dataset.i]; renderFrames(); draw(); }); }
+
+  function renderSlots(){
+    const B=['Top','Middle','Bottom'];
+    $('slots').innerHTML = slots.map((s,i)=>`
+      <div class="slot ${i===active?'active':''}" data-i="${i}">
+        <span class="band">${B[i]}</span>
+        ${s?`<img src="${s.art}" alt=""><span class="who">${s.title}</span>`:'<span class="who empty">choose a card…</span>'}
+      </div>`).join('');
+    $('slots').querySelectorAll('.slot').forEach(el=>el.onclick=()=>{ const i=+el.dataset.i;
+      if(slots[i]){ slots[i]=null; } active=i; renderSlots(); renderTray(); draw(); updateForge(); });
+  }
+
+  function resolveOwned(){
+    const bySlug=new Map(DECK.map(c=>[c.slug,c])), fById=new Map(forged().map(f=>[f.id,f]));
+    owned = vault().map((e,idx)=>{ const c = e.forged ? fById.get(e.forged) : bySlug.get(e.slug);
+      return c ? {...c, _vaultIdx:idx, art: c.art.startsWith('data:')||c.art.startsWith('http')?c.art:c.art, key:e.forged?('f:'+e.forged):('s:'+e.slug)} : null; }).filter(Boolean);
+  }
+  function renderTray(){
+    resolveOwned();
+    $('ownN').textContent = owned.length+' owned';
+    const usedKeys = new Set(slots.filter(Boolean).map(s=>s._vaultIdx));
+    if(!owned.length){ $('tray').innerHTML='<div class="empty-note">No cards yet — rip a pack, then come forge.</div>'; return; }
+    $('tray').innerHTML = owned.map(c=>`
+      <div class="ing ${usedKeys.has(c._vaultIdx)?'used':''}" data-idx="${c._vaultIdx}">
+        <img src="${c.art}" alt="" crossorigin="anonymous"><div class="nm">${c.title}</div></div>`).join('');
+    $('tray').querySelectorAll('.ing').forEach(el=>el.onclick=()=>{
+      const idx=+el.dataset.idx, c=owned.find(o=>o._vaultIdx===idx); if(!c) return;
+      if(slots.some(s=>s&&s._vaultIdx===idx)){ say('already on the bench'); return; }
+      slots[active]={ title:c.title, art:c.art, slug:c.slug, _vaultIdx:idx };
+      active=Math.min(2, slots.findIndex(s=>!s)>=0 ? slots.findIndex(s=>!s) : 2);
+      renderSlots(); renderTray(); draw(); updateForge();
+    });
+  }
+
+  function updateForge(){ $('forge').disabled = slots.filter(Boolean).length < 2 || !$('cname').value.trim(); }
+
+  async function doForge(){
+    const ing = slots.filter(Boolean); if(ing.length<2) return;
+    const name = $('cname').value.trim(); if(!name) return;
+    await draw();
+    const art = cv.toDataURL('image/webp', .85);
+    const st = hashStats(name);
+    const id = 'fg-' + name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + (owned.length) + '-' + (forged().length);
+    const rec = { id, slug:id, title:name, rarity:'forged', art, atk:st.atk, def:st.def, trigger:st.trigger,
+      inputs:ing.map(s=>s.slug||s.title) };
+    const F = forged(); F.push(rec); save('urm_forged', F);
+    // remove the input entries from the vault (highest idx first), add the forged card, move inputs to house
+    let v = vault(); const drop = new Set(ing.map(s=>s._vaultIdx));
+    const house = load('urm_house'); ing.forEach(s=>house.push(s.slug||s.title)); save('urm_house', house);
+    v = v.filter((_,i)=>!drop.has(i)); v.push({ forged:id }); save('urm_vault', v);
+    say('⚒ forged '+name+' — '+ing.length+' cards traded to the house');
+    slots=[null,null,null]; active=0; $('cname').value='';
+    renderSlots(); renderTray(); draw(); updateForge(); renderForged();
+  }
+  function renderForged(){
+    const F=forged();
+    $('forgedList').innerHTML = F.length ? F.slice().reverse().map(f=>`
+      <div class="fc"><img src="${f.art}" alt="${f.title}"><div class="nm">${f.title}</div></div>`).join('')
+      : '<div class="empty-note">nothing forged yet</div>';
+  }
+
+  $('cname').addEventListener('input', ()=>{ draw(); updateForge(); });
+  $('forge').onclick = doForge;
+  $('clear').onclick = ()=>{ slots=[null,null,null]; active=0; renderSlots(); renderTray(); draw(); updateForge(); };
+
+  fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[];
+    renderFrames(); renderSlots(); renderTray(); renderForged(); draw();
+  }).catch(()=>{ renderFrames(); renderSlots(); renderTray(); renderForged(); draw(); });
+})();
+</script>
+<script src="../theme.js"></script>
+</body>
+</html>

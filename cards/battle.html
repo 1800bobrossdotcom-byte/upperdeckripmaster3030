@@ -192,6 +192,7 @@
 
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
+    <a class="back" href="forge.html" style="margin-left:14px">⚒ the forge</a>
     <h1>The Arena</h1>
     <div class="sub">slam · wager · collect</div>
 
@@ -286,10 +287,13 @@
       </div></div>`;
   }
 
+  function forgedById(){ try { return new Map(JSON.parse(localStorage.getItem('urm_forged')||'[]').map(f=>[f.id,f])); } catch { return new Map(); } }
+  function resolveEntry(e, bySlug, fById){ return e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null; }
+
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
-    const bySlug = new Map(DECK.map(c => [c.slug, c]));
-    hand = vault().map(e => bySlug.get(e.slug)).filter(Boolean);
+    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+    hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
       $('handInfo').textContent = '0 owned';
@@ -418,13 +422,13 @@
     renderVault();
   }
   function renderVault(){
-    const bySlug = new Map(DECK.map(c => [c.slug, c]));
+    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
     const v = vault();
-    const clean = v.filter(e => e && bySlug.has(e.slug));
+    const clean = v.filter(e => resolveEntry(e, bySlug, fById));
     if (clean.length !== v.length) saveVault(clean);
     $('vaultCnt').textContent = clean.length;
     $('vaultMini').innerHTML = clean.slice(-8).reverse().map(e => {
-      const c = bySlug.get(e.slug);
+      const c = resolveEntry(e, bySlug, fById);
       return `<img src="${c.art}" alt="" title="${c.title}" loading="lazy" onerror="this.remove()">`;
     }).join('');
   }
