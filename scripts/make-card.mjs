@@ -100,6 +100,7 @@ export function mintCard(opts) {
     .replaceAll('{{ATK}}', String(opts.atk ?? statsFor(slug).atk))
     .replaceAll('{{DEF}}', String(opts.def ?? statsFor(slug).def))
     .replaceAll('{{TRIGGER}}', opts.trigger || statsFor(slug).trigger)
+    .replaceAll('{{TREATMENT}}', opts.treatment || `t-${(opts.rarity || 'rare')}`)
     .replaceAll('{{ART}}', art);
 
   const out = join(cardsDir, `${slug}.html`);

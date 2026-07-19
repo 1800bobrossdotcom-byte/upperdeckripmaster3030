@@ -47,7 +47,7 @@
   /* ─── FRONT: art + foil ─── */
   .front{ background:#000; }
   .front > img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
-  .foil,.glare,.glitter,.inflate{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
+  .foil,.glare,.glitter,.inflate,.crackle,.sweep{ position:absolute; inset:0; border-radius:inherit; pointer-events:none; }
   .foil{
     z-index:3;
     background: repeating-linear-gradient(calc(115deg + var(--px)*10deg),
@@ -70,6 +70,32 @@
       radial-gradient(circle at 45% 85%, rgba(200,240,255,.9) 0 .5px, transparent 1.2px);
     background-size:3.1em 2.7em, 2.3em 3.3em, 3.7em 2.1em;
     background-position: calc(var(--px)*22px) calc(var(--py)*18px), calc(var(--px)*-14px) calc(var(--py)*26px), calc(var(--px)*30px) calc(var(--py)*-12px); }
+  /* cracked-foil texture — mythic / prizm only */
+  .crackle{ z-index:4; display:none; mix-blend-mode:color-dodge;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 -2.2 1.15'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23c)'/%3E%3C/svg%3E");
+    background-size:170px 170px; background-position: calc(var(--px)*10px) calc(var(--py)*10px); }
+  /* diagonal shine sweep — prizm only (animated) */
+  .sweep{ z-index:7; display:none; mix-blend-mode:screen;
+    background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.6) 48%, rgba(190,240,255,.42) 52%, transparent 60%);
+    background-size:250% 100%; }
+  .card.t-prizm .sweep{ display:block; animation:shine 4.8s ease-in-out infinite; }
+  @keyframes shine{ 0%,100%{ background-position:130% 0 } 50%{ background-position:-30% 0 } }
+  /* ─── per-card holographic treatment, gated by rarity ─── */
+  .card.t-common .foil{ opacity:.05; filter:none; }
+  .card.t-common .glitter, .card.t-common .inflate{ display:none; }
+  .card.t-common .glare{ opacity:.35; }
+  .card.t-uncommon .foil{ opacity:calc(.08 + var(--heat)*.16); }
+  .card.t-uncommon .glitter{ opacity:.07; }
+  .card.t-rare .glitter{ opacity:calc(.16 + .32*var(--heat)); }
+  .card.t-mythic .foil{ opacity:calc(.26 + var(--heat)*.36); }
+  .card.t-mythic .glitter{ opacity:calc(.24 + .45*var(--heat)); }
+  .card.t-mythic .crackle{ display:block; opacity:.5; }
+  .card.t-mythic .glare{ opacity:.95; }
+  .card.t-prizm .foil{ opacity:calc(.32 + var(--heat)*.42);
+    filter:brightness(.85) contrast(2) saturate(1.7) hue-rotate(calc(var(--heat)*70deg)); }
+  .card.t-prizm .glitter{ opacity:calc(.32 + .5*var(--heat)); }
+  .card.t-prizm .crackle{ display:block; opacity:.72; }
+  .card.t-prizm .front{ box-shadow:0 0 0 2px rgba(255,255,255,.25) inset, 0 0 22px rgba(120,220,255,.5); }
   .flip-hint{
     position:absolute; z-index:7; bottom:10px; right:12px; pointer-events:none;
     background:rgba(0,0,0,.55); border:2px solid #000; border-radius:999px; padding:4px 10px;
@@ -110,15 +136,15 @@
     font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:#111;
     box-shadow:0 4px 0 #000, inset 0 3px 5px rgba(255,255,255,.7); }
   .bless.show{ display:grid; }
-  @media (prefers-reduced-motion:reduce){ .card{ transform:none; } .foil,.glitter{ opacity:.12; } }
+  @media (prefers-reduced-motion:reduce){ .card{ transition:none; } .sweep{ animation:none; } }
 </style>
 </head>
 <body>
   <div class="scene" id="scene">
-    <div class="card" id="card">
+    <div class="card {{TREATMENT}}" id="card">
       <div class="face front">
         {{ART}}
-        <div class="foil"></div><div class="inflate"></div><div class="glare"></div><div class="glitter"></div>
+        <div class="foil"></div><div class="inflate"></div><div class="crackle"></div><div class="glare"></div><div class="glitter"></div><div class="sweep"></div>
         <div class="flip-hint">tap to flip ⟲</div>
       </div>
       <div class="face back">
