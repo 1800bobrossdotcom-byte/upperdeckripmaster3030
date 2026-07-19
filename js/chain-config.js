@@ -17,6 +17,7 @@ window.RIPMASTER_CHAIN = {
     liquidEdition: "0x0000000000000000000000000000000000000000", // rare liquid-edition deploy → address
     seasonBallot:  "0x0000000000000000000000000000000000000000", // SeasonBallot deploy → address
     renderContract:"0x0000000000000000000000000000000000000000", // set-render-contract → address
+    cardVault:     "0x0000000000000000000000000000000000000000", // CardVault deploy → address (CARD-ECONOMY-SPEC.md)
   },
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
   protocol: {

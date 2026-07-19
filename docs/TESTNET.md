@@ -93,7 +93,27 @@ rare liquid-edition set-render-contract \
 
 Paste the render address into `js/chain-config.js` (`contracts.renderContract`).
 
-## 5. Point the site at Sepolia
+## 5. Deploy the CardVault (cards on-chain, every transaction burns)
+
+The game economy — send / trade / pog-wager escrow / rip-a-pack, plus the
+marquee 1/1's lock — lives in `contracts/CardVault.sol`. Full design, tolls,
+and rehearsal checklist: **docs/CARD-ECONOMY-SPEC.md**.
+
+```bash
+forge create contracts/CardVault.sol:CardVault \
+  --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY \
+  --constructor-args <LIQUID_EDITION_ADDRESS> "https://upperdeckripmaster3030.com/api/card/{id}"
+
+# register the deck (prints cast-ready id/tier batches from the manifest)
+node scripts/export-vault-registration.mjs
+cast send <VAULT_ADDRESS> "registerCards(uint256[],uint32,uint8[])" <IDS> <SEASON> <TIERS> \
+  --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
+cast send <VAULT_ADDRESS> "setSeason(uint32)" 2 --rpc-url $SEPOLIA_RPC --private-key $DEPLOYER_KEY
+```
+
+Paste the vault address into `js/chain-config.js` (`contracts.cardVault`).
+
+## 6. Point the site at Sepolia
 
 `js/chain-config.js` already targets Sepolia. Include it before the card scripts
 if you want the card backs' "trigger status" to read Sepolia gas instead of
@@ -106,7 +126,7 @@ mainnet — add to any page's `<head>`:
 (The card pages read `window.RIPMASTER_CHAIN` if present and fall back to mainnet
 gas otherwise, so this is optional until the contracts are live.)
 
-## 6. Dress rehearsal, then mainnet
+## 7. Dress rehearsal, then mainnet
 
 Run a full fake season on Sepolia (open ballot → burn-vote from a couple of
 wallets → lock at the close block → read `winners()` → mint the lens pack) before
@@ -119,9 +139,13 @@ copy-pasting.
 ## Status
 
 - [x] `SeasonBallot.sol` written (burn-to-vote, winners, burn progress)
-- [x] `js/chain-config.js` scaffolded (Sepolia + starter-kit factory/RARE addresses)
+- [x] `CardVault.sol` written (send/trade/wager/rip, all tolls burned, marquee 1/1 rules)
+- [x] `docs/CARD-ECONOMY-SPEC.md` — economy design + rehearsal checklist
+- [x] `scripts/export-vault-registration.mjs` — manifest → registerCards batches
+- [x] `js/chain-config.js` scaffolded (Sepolia + starter-kit factory/RARE addresses + vault slot)
 - [ ] Fund a Sepolia wallet + get Sepolia RARE
 - [ ] `rare liquid-edition deploy multicurve … --preview` then `--yes`
 - [ ] Deploy SeasonBallot, open season 1
+- [ ] Deploy CardVault + registerCards + setSeason
 - [ ] Deploy + `set-render-contract`
-- [ ] Full fake-season rehearsal
+- [ ] Full fake-season + card-economy rehearsal (spec §8)
