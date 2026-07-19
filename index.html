@@ -433,6 +433,22 @@
     animation:introBar 5s linear forwards; }
   @keyframes introBar{ to{ width:100%; } }
   @media (prefers-reduced-motion:reduce){ .intro-wordmark,.intro-frame,.intro-roundel,.intro-cap{ animation:none; } }
+
+  /* ── "slam to say it" — mashable button that shouts UPPERDECK RIPMASTER 3030 ── */
+  .say-wrap{ text-align:center; margin-top:14px; }
+  .say-it{ display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+    font-family:var(--fat,'Arial Black',sans-serif); font-size:clamp(13px,3.2vw,17px); letter-spacing:.1em;
+    text-transform:uppercase; color:#2a0730; padding:14px 26px; border-radius:999px; border:3px solid #01130a;
+    background:linear-gradient(180deg,#ffe089,#ffd23b 50%,#ff9a3b);
+    box-shadow:0 6px 0 #7a2c00, 0 0 26px rgba(255,210,59,.5); transition:transform .06s, filter .12s;
+    -webkit-tap-highlight-color:transparent; }
+  .say-it:hover{ filter:brightness(1.07); }
+  .say-it:active{ transform:translateY(5px); box-shadow:0 1px 0 #7a2c00, 0 0 20px rgba(255,210,59,.5); }
+  .say-it.slammed{ animation:sayShout .5s ease-out; }
+  @keyframes sayShout{ 0%{ transform:scale(1.15); } 40%{ transform:scale(.95) rotate(-1.5deg); } 100%{ transform:scale(1); } }
+  .say-it .si-ico{ font-size:1.3em; display:inline-block; animation:sayWiggle 2.6s ease-in-out infinite; }
+  @keyframes sayWiggle{ 46%,54%{ transform:rotate(-12deg); } 50%{ transform:rotate(12deg); } }
+  @media (prefers-reduced-motion:reduce){ .say-it .si-ico,.say-it.slammed{ animation:none; } }
 </style>
 </head>
 <body>
@@ -454,9 +470,12 @@
   (() => {
     const s = document.getElementById('introSplash'); if (!s) return;
     const v = document.getElementById('introVid');
+    let voc = null; try { voc = new Audio('UR3030_VOCAL_INTRO.mp3'); } catch {}
     let dead = false;
-    const kill = () => { if (dead) return; dead = true; s.classList.add('gone'); try { v.pause(); } catch {} setTimeout(() => s.remove(), 520); };
+    const kill = () => { if (dead) return; dead = true; s.classList.add('gone'); try { v.pause(); } catch {} try { if (voc) voc.pause(); } catch {} setTimeout(() => s.remove(), 520); };
     try { v.muted = true; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch {}
+    // say the name over the logo — allowed on browsers with media engagement; silently ignored otherwise
+    try { if (voc) { const vp = voc.play(); if (vp && vp.catch) vp.catch(() => {}); } } catch {}
     document.getElementById('introSkip').addEventListener('click', e => { e.stopPropagation(); kill(); });
     const um = document.getElementById('introUnmute');
     um.addEventListener('click', e => { e.stopPropagation(); v.muted = !v.muted; um.textContent = v.muted ? '🔇' : '🔊'; if (!v.muted) v.play().catch(() => {}); });
@@ -491,6 +510,19 @@
           width="1200" height="600" decoding="async">
         <img class="torch" src="torch.gif" alt="" aria-hidden="true">
       </div>
+      <div class="say-wrap">
+        <button type="button" class="say-it" id="sayIt" aria-label="Slam it — hear Upperdeck Ripmaster 3030">
+          <span class="si-ico" aria-hidden="true">📢</span><span class="si-txt">Slam to say it</span>
+        </button>
+      </div>
+      <script>/* slam button: shout the name (UR3030_VOCAL_INTRO.mp3) */(function(){
+        var b=document.getElementById('sayIt'); if(!b) return;
+        var a=new Audio('UR3030_VOCAL_INTRO.mp3'); a.preload='auto';
+        b.addEventListener('click',function(){
+          try{ a.currentTime=0; var p=a.play(); if(p&&p.catch) p.catch(function(){}); }catch(e){}
+          b.classList.remove('slammed'); void b.offsetWidth; b.classList.add('slammed');
+        });
+      })();</script>
       <div class="dataplate">Type UR-3030 · Liquid trading-card system · token $UR3030 · spec rev. 03</div>
       <div class="stars" title="four seasons a year"><b>I</b><b>II</b><b>III</b><b>IV</b></div>
     </header>
