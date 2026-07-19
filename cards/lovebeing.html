@@ -123,10 +123,11 @@
   addEventListener('pointermove', e => { if (down) moved = Math.max(moved, Math.hypot(e.clientX-downX, e.clientY-downY)); });
   addEventListener('pointerup', () => { if (down && moved < 10) card.classList.toggle('flipped'); down=false; });
   const loop = t => {
-    if (!reduced) {
-      const gx = Math.sin(t/2600)*.35, gy = Math.cos(t/3300)*.28;
-      px += (gx-px)*.05; py += (gy-py)*.05; setVars();
-    }
+    // the marquee's slow prism drift is its signature — keep it, but calm it
+    // right down under reduced-motion rather than freezing entirely.
+    const amp = reduced ? .12 : 1;
+    const gx = Math.sin(t/2600)*.35*amp, gy = Math.cos(t/3300)*.28*amp;
+    px += (gx-px)*.05; py += (gy-py)*.05; setVars();
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

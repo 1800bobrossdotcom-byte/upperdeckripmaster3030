@@ -217,11 +217,12 @@
   } else if (typeof DeviceOrientationEvent!=='undefined' || typeof DeviceMotionEvent!=='undefined') { listen(); }
 
   const loop = t => {
-    if (!reduced) {
-      const idle = !lastInput || (t - lastInput > 2600);
-      const gx = idle ? Math.sin(t/2400)*.4 : tx, gy = idle ? Math.cos(t/3100)*.3 : ty;
-      px += (gx - px)*.06; py += (gy - py)*.06; setVars();
-    }
+    // pointer/gyro tilt ALWAYS runs — it's a direct response to input, the core
+    // holographic feel. Only the autonomous idle drift honors reduced-motion.
+    const idle = !lastInput || (t - lastInput > 2600);
+    const gx = (idle && !reduced) ? Math.sin(t/2400)*.4 : (idle ? 0 : tx);
+    const gy = (idle && !reduced) ? Math.cos(t/3100)*.3 : (idle ? 0 : ty);
+    px += (gx - px)*.06; py += (gy - py)*.06; setVars();
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);

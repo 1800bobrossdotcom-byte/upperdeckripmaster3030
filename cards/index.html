@@ -89,7 +89,7 @@
   .toast.show{opacity:1}
   /* laughing-man tiled watermark over the backdrop */
   .lm{position:fixed;inset:0;z-index:0;pointer-events:none;
-    background:url("../Laughing_man.svg") repeat;background-size:140px;
+    background:url("../Laughing_man.svg") repeat;background-size:min(46vw,340px);
     filter:grayscale(1) brightness(2.8);opacity:.12}
   .board{position:relative;z-index:1}
 </style>
@@ -2533,10 +2533,9 @@
     t.addEventListener('pointermove', function(e){
       var r = t.getBoundingClientRect();
       var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-      if (!reduce){
-        t.style.setProperty('--rx', ((px - 0.5) * 16).toFixed(2) + 'deg');
-        t.style.setProperty('--ry', ((0.5 - py) * 16).toFixed(2) + 'deg');
-      }
+      // cursor tilt is a direct response to the mouse — always on
+      t.style.setProperty('--rx', ((px - 0.5) * 16).toFixed(2) + 'deg');
+      t.style.setProperty('--ry', ((0.5 - py) * 16).toFixed(2) + 'deg');
       t.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
       t.style.setProperty('--my', (py * 100).toFixed(1) + '%');
       t.style.setProperty('--fx', (px * 100).toFixed(1) + '%');
