@@ -18,7 +18,7 @@ window.RIPMASTER_CHAIN = {
   // (docs/TESTNET.md) and commit — the site starts reading real testnet state.
   contracts: {
     liquidEdition: "0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C", // Sepolia deploy 2026-07-19 (rare liquid-edition deploy multicurve)
-    renderContract:"0x0000000000000000000000000000000000000000", // set-render-contract → address
+    renderContract:"0xEB5Dc23130A7E422239a99493A12dB586feFDFF7", // Sepolia render prototype (set-render-contract 2026-07-19)
   },
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
   protocol: {

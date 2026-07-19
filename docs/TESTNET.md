@@ -150,8 +150,16 @@ With the address I will:
   - metadata: https://upperdeckripmaster3030.com/token-metadata.json
   - `js/chain-config.js` → `contracts.liquidEdition` is wired to this address, so the
     site now reads real Sepolia state and the arena's `$UR3030` burn ante is live.
-- ⏳ `renderContract` still zero — next step is to build + `set-render-contract` so the
-  tokenURI turns live market state into card art.
+- ✅ **Render contract wired 2026-07-19.** `UR3030RenderPrototype`
+  (`contracts/UR3030RenderPrototype.sol`) deployed to Sepolia and set on the token:
+  - **`renderContract`:** `0xEB5Dc23130A7E422239a99493A12dB586feFDFF7`
+  - `token.tokenURI()` now returns a **live on-chain SVG** "market card" that reads
+    supply / tokens-per-RARE / market tick straight off the token — verified on-chain.
+  - `js/chain-config.js` → `contracts.renderContract` wired to this address.
+  - This visual is a **prototype**; final art gets swapped in later via a fresh render
+    contract (`setRenderContract` is re-callable). Whole-token math floors sub-1 price
+    to `0` and shows an un-ripped-supply meter — both refine once trades/burns happen
+    and in the final art pass.
 - 🧾 Reserve: the launcher is fair-launch (no premine knob), so the ~13% creator/
   treasury reserve is acquired by **buying off the curve** at launch — no free tokens,
   disclosed + vested on mainnet.
