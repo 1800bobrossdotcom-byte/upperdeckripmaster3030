@@ -310,6 +310,78 @@
     filter:drop-shadow(0 0 16px rgba(43,255,128,.5)) drop-shadow(0 0 40px rgba(255,42,217,.35));
     animation:arenaGlow 3s ease-in-out infinite; }
   @keyframes arenaGlow{ 50%{ filter:drop-shadow(0 0 26px rgba(43,255,128,.8)) drop-shadow(0 0 62px rgba(255,42,217,.55)); } }
+
+  /* ── THE LOBBY: who's online, seek a fight, live challenges ── */
+  .lobby{ border-color:rgba(255,42,217,.4); box-shadow:inset 0 0 26px rgba(255,42,217,.05), 0 0 18px rgba(255,42,217,.14); }
+  .lob-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .lob-live{ display:flex; align-items:center; gap:8px; font-family:var(--fat); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--lime); }
+  .lob-live b{ color:var(--amber); } .lob-live .seek-n{ color:var(--magenta); }
+  .lob-dot{ width:9px; height:9px; border-radius:50%; background:var(--lime); box-shadow:0 0 9px var(--lime); animation:lobPing 1.6s ease-in-out infinite; }
+  @keyframes lobPing{ 50%{ opacity:.35; } }
+  .lob-seek{ font-family:var(--fat); font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:9px 15px; border-radius:999px;
+    cursor:pointer; border:2px solid var(--drabink); background:rgba(2,16,9,.9); color:var(--ink); }
+  .lob-seek.on{ background:linear-gradient(180deg,#ffb0f0,var(--magenta) 60%,#b3129a); color:#fff;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 0 16px rgba(255,42,217,.5); animation:seekGlow 1.4s ease-in-out infinite; }
+  @keyframes seekGlow{ 50%{ box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 0 28px rgba(255,42,217,.9); } }
+  .lob-me{ display:flex; align-items:center; gap:8px; margin:9px 0 2px; font-size:11px; color:#7fd8a8; letter-spacing:.04em; flex-wrap:wrap; }
+  .lob-me input{ background:rgba(1,10,5,.7); border:1px solid var(--purple); border-radius:7px; color:var(--stamp);
+    font-family:var(--fat); font-size:12px; letter-spacing:.03em; padding:6px 9px; max-width:190px; }
+  .lob-me input:focus{ outline:none; border-color:var(--lime); box-shadow:0 0 10px rgba(43,255,128,.3); }
+  .lob-list{ display:flex; flex-direction:column; gap:6px; margin-top:9px; max-height:340px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .lob-row{ display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; padding:8px 10px; border-radius:9px;
+    border:1px solid rgba(43,255,128,.16); background:rgba(1,12,6,.6); }
+  .lob-row.me{ border-color:rgba(255,210,59,.42); background:rgba(20,14,2,.5); }
+  .lob-st{ width:9px; height:9px; border-radius:50%; background:#3c6b52; flex:none; }
+  .lob-st.seeking{ background:var(--magenta); box-shadow:0 0 9px var(--magenta); animation:lobPing 1.15s ease-in-out infinite; }
+  .lob-st.battling{ background:var(--amber); box-shadow:0 0 9px var(--amber); }
+  .lob-nm{ font-family:var(--fat); font-size:12px; letter-spacing:.02em; color:var(--stamp);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lob-meta{ font-size:10px; color:#8fbfa4; letter-spacing:.04em; margin-top:1px; }
+  .lob-meta b{ color:var(--amber); font-family:var(--fat); }
+  .lob-chal{ font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:8px 13px; border-radius:999px;
+    cursor:pointer; border:2px solid #5c0a2c; color:#fff; white-space:nowrap; background:linear-gradient(180deg,var(--hot),var(--magenta));
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.25); }
+  .lob-chal:active{ transform:translateY(2px); }
+  .lob-chal:disabled{ opacity:.35; cursor:not-allowed; box-shadow:none; }
+  .lob-chal.seek{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#c79a12); color:var(--bg); border-color:#5c2a00;
+    animation:seekGlow 1.4s ease-in-out infinite; }
+  .lob-empty{ font-size:11px; color:#6fae8c; text-align:center; padding:14px 6px; letter-spacing:.04em; }
+
+  /* incoming-challenge toast */
+  .lob-toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(24px); z-index:98; opacity:0; pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease; display:flex; align-items:center; gap:12px; max-width:94vw;
+    padding:12px 16px; border-radius:12px; border:2px solid var(--magenta); background:rgba(10,2,20,.95);
+    box-shadow:0 22px 60px -18px #000, 0 0 28px rgba(255,42,217,.5); }
+  .lob-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .lob-toast .lt-txt{ font-size:12px; color:var(--stamp); letter-spacing:.02em; } .lob-toast .lt-txt b{ font-family:var(--fat); color:var(--magenta); }
+  .lob-toast button{ font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:9px 13px; border-radius:999px;
+    cursor:pointer; border:1px solid var(--drabink); }
+  .lt-yes{ background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); color:var(--bg); }
+  .lt-no{ background:transparent; color:#b8ffd6; border:1px solid var(--purple); }
+  /* mini status toast */
+  .mini-toast{ position:fixed; left:50%; bottom:76px; transform:translateX(-50%) translateY(12px); z-index:96; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; font-family:var(--fat); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--lime); background:rgba(1,12,6,.94); border:1px solid var(--purple); border-radius:999px; padding:8px 15px; box-shadow:0 0 18px rgba(43,255,128,.25); }
+  .mini-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* PvP stake modal */
+  .pvp{ position:fixed; inset:0; z-index:97; display:none; place-items:center; padding:16px;
+    background:rgba(1,6,3,.82); backdrop-filter:blur(6px); overflow-y:auto; }
+  .pvp.show{ display:grid; }
+  .pvp-card{ width:min(540px,96vw); background:#02140b; border:1px solid var(--magenta); border-radius:14px; padding:18px;
+    box-shadow:0 30px 90px -20px #000, 0 0 34px rgba(255,42,217,.18); }
+  .pvp-hd{ font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:var(--magenta);
+    text-shadow:0 0 12px rgba(255,42,217,.5); }
+  .pvp-opp{ display:flex; align-items:center; gap:10px; margin:9px 0 6px; padding:9px 11px; border-radius:9px;
+    border:1px solid rgba(255,42,217,.3); background:rgba(20,4,20,.5); font-size:11px; color:#e7b7dd; letter-spacing:.03em; }
+  .pvp-opp b{ font-family:var(--fat); color:var(--stamp); }
+  .pvp-sub{ font-size:11.5px; color:#7fd8a8; letter-spacing:.03em; line-height:1.5; margin:7px 0; }
+  .pvp-sub b{ font-family:var(--fat); }
+  .pvp-hand{ display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:6px; max-height:210px; overflow-y:auto; padding:2px; }
+  .pvp-burn{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:12px 0 2px; padding-top:11px; border-top:1px dashed rgba(255,42,217,.22); }
+  .pvp-note{ font-size:10.5px; color:#8fbfa4; line-height:1.55; margin-top:7px; } .pvp-note b{ color:var(--amber); }
+  .pvp-btns{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+  .pvp-btns .btn.go{ background:linear-gradient(180deg,#ff9a6b,#ff5a3c 60%,#c22); border-color:#601; }
 </style>
 </head>
 <body>
@@ -325,6 +397,20 @@
       <img class="arena-title" src="../the-arena.png" alt="The Arena" width="1456" height="816">
     </div>
     <div class="sub">slam · wager · collect</div>
+
+    <div class="panel lobby" id="lobbyPanel">
+      <div class="lob-head">
+        <span class="lob-live"><span class="lob-dot"></span><b id="lobCount">0</b>&nbsp;rippers online · <span class="seek-n" id="lobSeekers">0</span>&nbsp;seeking</span>
+        <button class="lob-seek" id="lobSeek">☆ seek a fight</button>
+      </div>
+      <div class="lob-me">
+        <span>your handle</span>
+        <input id="lobHandle" maxlength="24" spellcheck="false" autocomplete="off" aria-label="your lobby handle">
+        <span class="lob-meta">others can call you out by it</span>
+      </div>
+      <div class="lob-list" id="lobList"><div class="lob-empty">warming up the room…</div></div>
+      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner keeps or burns the loser's staked cards. Both burn a <b style="color:#ffd23b">$UR3030</b> ante to enter. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
+    </div>
 
     <div class="panel">
       <h2>The rules, such as they are</h2>
@@ -387,6 +473,15 @@
     <div class="btns"><button class="mode" id="clearVault" title="Deletes only the demo cards saved in this browser. Your wallet and on-chain assets are never touched.">reset demo cards · this device only</button></div>
   </div>
 
+  <!-- incoming-challenge toast + PvP stake modal -->
+  <div class="lob-toast" id="lobToast" role="alert">
+    <span class="lt-txt" id="lobToastTxt"></span>
+    <button class="lt-yes" id="ltYes">⚔ accept</button>
+    <button class="lt-no" id="ltNo">back down</button>
+  </div>
+  <div class="pvp" id="pvp" role="dialog" aria-modal="true" aria-label="face-off stake"></div>
+
+<script src="arena-net.js"></script>
 <script>
 (() => {
   const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
@@ -552,17 +647,20 @@
       e.style.animation = 'emberUp ' + (600 + Math.random() * 500).toFixed(0) + 'ms ease-out forwards';
       document.body.appendChild(e); setTimeout(() => e.remove(), 1200); }
   }
-  function openFaceoff(you, house, P, Q, outcome, ante){
+  function openFaceoff(you, house, P, Q, outcome, ante, opts = {}){
     return new Promise(resolve => {
+      const oppLabel = opts.oppLabel || 'the house';
+      const anteTxt = opts.anteText != null ? opts.anteText : (ante > 0 ? `ante ${ante}` : '');
+      const potTxt = opts.potText != null ? opts.potText : (ante > 0 ? `pot ${ante * 2} $UR` : '');
       const fo = document.createElement('div'); fo.className = 'faceoff'; fo.tabIndex = -1;
       fo.innerHTML =
         `<div class="fo-weather">gas weather · <b>${escFO(gas)}</b></div>` +
         `<div class="fo-arena">` +
           `<div class="fo-side you" id="foYou"><div class="fo-side-label">you</div>${stackCards(you)}` +
-            `<div class="fo-sigma" id="foYouSig">0</div>${ante > 0 ? `<div class="fo-ante">ante ${ante}</div>` : ''}</div>` +
-          `<div class="fo-mid"><span class="fo-vs-mark">VS</span>${ante > 0 ? `<span class="fo-pot">pot ${ante * 2} $UR</span>` : ''}</div>` +
-          `<div class="fo-side house" id="foHouse"><div class="fo-side-label">the house</div>${stackCards(house)}` +
-            `<div class="fo-sigma" id="foHouseSig">0</div></div>` +
+            `<div class="fo-sigma" id="foYouSig">0</div>${anteTxt ? `<div class="fo-ante">${escFO(anteTxt)}</div>` : ''}</div>` +
+          `<div class="fo-mid"><span class="fo-vs-mark">VS</span>${potTxt ? `<span class="fo-pot">${escFO(potTxt)}</span>` : ''}</div>` +
+          `<div class="fo-side house" id="foHouse"><div class="fo-side-label">${escFO(oppLabel)}</div>${stackCards(house)}` +
+            `<div class="fo-sigma" id="foHouseSig">0</div>${(opts.push && anteTxt) ? `<div class="fo-ante">${escFO(anteTxt)}</div>` : ''}</div>` +
         `</div>` +
         `<div class="fo-banner" id="foBanner"></div><div class="fo-spoils" id="foSpoils"></div><div class="fo-actions" id="foActions"></div>`;
       document.body.appendChild(fo);
@@ -587,8 +685,10 @@
         // the loser's staked cards fly across to the winner
         const flyAway = (sideEl, dir) => sideEl.querySelectorAll('.fo-cw').forEach((el, i) =>
           setTimeout(() => el.classList.add(dir === 'left' ? 'fly-left' : 'fly-right'), i * 80));
+        const loseTxt = opts.oppLabel ? (String(opts.oppLabel).toUpperCase() + ' WINS') : 'THE HOUSE EATS';
         if (outcome === 'win'){ b.className = 'fo-banner win'; b.textContent = 'YOU WIN'; youS.classList.add('win'); houseS.classList.add('lose'); flyAway(houseS, 'left'); }
-        else if (outcome === 'lose'){ b.className = 'fo-banner lose'; b.textContent = 'THE HOUSE EATS'; houseS.classList.add('win'); youS.classList.add('lose'); flyAway(youS, 'right'); }
+        else if (outcome === 'lose'){ b.className = 'fo-banner lose'; b.textContent = loseTxt; houseS.classList.add('win'); youS.classList.add('lose'); flyAway(youS, 'right'); }
+        else if (opts.push){ b.className = 'fo-banner tie'; b.textContent = 'PUSH · CARDS STAND'; }   // PvP tie: nobody's cards move
         else { b.className = 'fo-banner tie'; b.textContent = 'PUSH · HOUSE KEEPS'; houseS.classList.add('win'); youS.classList.add('lose'); flyAway(youS, 'right'); }
         await wait(reduce ? 40 : 620);
         const spoils = $('foSpoils'), actions = $('foActions');
@@ -724,6 +824,199 @@
     row.addEventListener('pointerleave', () => row.querySelectorAll('.tile.lit').forEach(o => o.classList.remove('lit')));
   });
 
+  // ── THE LOBBY: live presence + player-vs-player challenges ──────────────────
+  //   Presence + matchmaking come from window.RipNet (arena-net.js). LocalNet gives
+  //   REAL cross-tab presence plus a bot population today; a KVNet adapter swaps in
+  //   for an internet-wide room with zero changes here (docs/MULTIPLAYER.md). The
+  //   PvP stake = the same cards as house-play + a $UR3030 BURN ante both sides pay
+  //   to enter (a real on-chain burn once the token is live; practice chips until then).
+  const net = window.RipNet || null;
+  let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [];
+
+  function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
+  function myProfile(){ return { handle: netHandle(), balance: tokens(), cards: vault().length }; }
+  function pushProfile(){ if (net) net.join(myProfile()); }
+  const statusWord = s => s === 'seeking' ? 'seeking a fight' : s === 'battling' ? 'mid-battle' : 'idle';
+  function liveToken(){ try { const a = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
+    return /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0+$/.test(a); } catch { return false; } }
+  function ownedHand(){ const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+    return vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean); }
+
+  function toastMini(msg){
+    let t = $('miniToast'); if (!t){ t = document.createElement('div'); t.id = 'miniToast'; t.className = 'mini-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show'); clearTimeout(toastMini._t); toastMini._t = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  function renderLobby(players){
+    lobbyPlayers = players || [];
+    const others = lobbyPlayers.filter(p => !p.me);
+    $('lobCount').textContent = lobbyPlayers.length;
+    $('lobSeekers').textContent = others.filter(p => p.status === 'seeking').length;
+    const list = $('lobList'); if (!list) return;
+    if (!lobbyPlayers.length){ list.innerHTML = '<div class="lob-empty">nobody here yet — open a second tab, or seek a fight and wait for a challenger</div>'; return; }
+    list.innerHTML = lobbyPlayers.map(p => {
+      const st = p.status || 'idle';
+      const btn = p.me
+        ? '<span class="lob-meta" style="color:#ffd23b;font-family:var(--fat)">◈ you</span>'
+        : `<button class="lob-chal${st === 'seeking' ? ' seek' : ''}" data-id="${escFO(p.id)}" ${st === 'battling' ? 'disabled' : ''}>${st === 'seeking' ? '⚔ answer' : '⚔ challenge'}</button>`;
+      return `<div class="lob-row${p.me ? ' me' : ''}">` +
+        `<span class="lob-st ${st}" title="${statusWord(st)}"></span>` +
+        `<div style="min-width:0"><div class="lob-nm">${escFO(p.handle)}</div>` +
+        `<div class="lob-meta"><b>${(p.balance || 0).toLocaleString('en-US')}</b> $UR · ${p.cards || 0} cards${p.wl ? ' · ' + escFO(p.wl) : ''}${p.bot ? '' : ' · <span style="color:#27f7e4">live</span>'}</div></div>` +
+        btn + `</div>`;
+    }).join('');
+    list.querySelectorAll('.lob-chal').forEach(b => b.onclick = () => {
+      if (busy){ toastMini('finish this fight first'); return; }
+      const p = lobbyPlayers.find(x => x.id === b.dataset.id);
+      net.challenge(b.dataset.id);
+      toastMini('calling out ' + (p ? p.handle : 'a ripper') + '…');
+    });
+  }
+
+  function onIncoming(ch){
+    if (busy || !ch || !ch.from) return;
+    curChallenge = ch;
+    $('lobToastTxt').innerHTML = '<b>' + escFO(ch.from.handle || 'a ripper') + '</b> wants to slam you';
+    $('lobToast').classList.add('show');
+    clearTimeout(onIncoming._t);
+    onIncoming._t = setTimeout(() => { if (curChallenge === ch){ net.decline(ch); hideToast(); } }, 14000);
+  }
+  function hideToast(){ $('lobToast').classList.remove('show'); curChallenge = null; clearTimeout(onIncoming._t); }
+
+  // resolve an opponent's stack (rarity hints from the net layer, or unknown) into real deck cards
+  function resolveOppStack(oppStack, n){
+    const byRar = {}; DECK.forEach(c => { (byRar[c.rarity] = byRar[c.rarity] || []).push(c); });
+    const hints = (oppStack && oppStack.length) ? oppStack : Array.from({ length: n }, () => ({}));
+    const out = [];
+    for (const h of hints.slice(0, n)){
+      const pool = (h.rarity && byRar[h.rarity] && byRar[h.rarity].length) ? byRar[h.rarity] : DECK;
+      out.push(pool[rnd(pool.length)]);
+    }
+    while (out.length < n && DECK.length) out.push(DECK[rnd(DECK.length)]);
+    return out;
+  }
+
+  // a real (or practice) $UR3030 burn — the ante to enter a PvP fight, gone either way
+  async function anteBurn(amount){
+    if (!amount || amount <= 0) return { mode: 'none' };
+    const addr = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
+    if (liveToken() && window.ethereum){
+      try {
+        const accts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const from = accts && accts[0]; if (!from) throw new Error('no account');
+        // ERC20Burnable burn(uint256): selector 0x42966c68 + amount (assume 18 decimals)
+        const wei = BigInt(Math.round(amount)) * 1000000000000000000n;
+        const data = '0x42966c68' + wei.toString(16).padStart(64, '0');
+        const tx = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: addr, data }] });
+        return { mode: 'onchain', tx };
+      } catch { return { mode: 'cancelled' }; }
+    }
+    setTokens(Math.max(0, tokens() - amount));          // practice burn — this device only
+    return { mode: 'practice' };
+  }
+
+  // the PvP stake modal — pick your cards, set the burn ante, then FIGHT
+  function openPvp(opponent, oppStack){
+    if (!opponent){ if (net) net.setStatus('idle'); return; }
+    hand = ownedHand();
+    if (!hand.length){ toastMini('rip a pack first — no cards to stake'); if (net) net.setStatus('idle'); pushProfile(); return; }
+    const n = Math.max(1, Math.min(mode, hand.length));
+    const oppCards = resolveOppStack(oppStack, n);
+    pvpSel = []; let burn = 0;
+    const modal = $('pvp');
+    const render = () => {
+      const bal = tokens(), live = liveToken();
+      modal.innerHTML =
+        `<div class="pvp-card">` +
+        `<div class="pvp-hd">⚔ face-off · ${escFO(opponent.handle)}</div>` +
+        `<div class="pvp-opp"><span class="lob-st ${opponent.status || 'idle'}"></span>` +
+          `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $UR · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
+        `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner keeps or burns the loser's stack, ties stand.</div>` +
+        `<div class="pvp-hand" id="pvpHand"></div>` +
+        `<div class="pvp-burn"><span class="tstake-lbl">🔥 burn ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
+        `<div class="pvp-note" id="pvpNote"></div>` +
+        `<div class="pvp-btns"><button class="mode" id="pvpNo">back down</button><button class="btn go" id="pvpGo" disabled>🔥 FIGHT</button></div>` +
+        `</div>`;
+      const hh = $('pvpHand');
+      hh.innerHTML = hand.map((c, i) => tile(c, { idx: i, sel: pvpSel.includes(i) })).join('');
+      hh.querySelectorAll('.tile').forEach(el => el.onclick = () => {
+        const i = +el.dataset.idx, at = pvpSel.indexOf(i);
+        if (at >= 0) pvpSel.splice(at, 1);
+        else { if (pvpSel.length >= n) pvpSel.shift(); pvpSel.push(i); }
+        render();
+      });
+      $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no burn' : '🔥' + v}</button>`).join('');
+      $('pvpChips').querySelectorAll('.tchip').forEach(b => b.onclick = () => { burn = +b.dataset.v; render(); });
+      $('pvpNote').innerHTML = burn > 0
+        ? (live ? `You'll sign a real on-chain <b>burn of ${burn} $UR3030</b> — gone forever, feeding the deflation. The winner still takes the cards.`
+                : `$UR3030 isn't live yet, so this burns <b>${burn} practice chips</b> (this device only). On mainnet it becomes a real signed burn.`)
+        : `No token burn — cards only.`;
+      $('pvpGo').disabled = pvpSel.length !== n;
+      $('pvpGo').onclick = () => { modal.classList.remove('show'); runPvp(opponent, pvpSel.map(i => hand[i]), pvpSel.slice(), oppCards, burn); };
+      $('pvpNo').onclick = () => { modal.classList.remove('show'); if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile(); toastMini('backed down'); };
+    };
+    render();
+    modal.classList.add('show');
+  }
+
+  async function runPvp(opponent, you, youIdx, oppCards, burn){
+    if (busy) return;
+    busy = true; updateSlam(); $('dealBtn').disabled = true;
+    if (net) net.setStatus('battling');
+    const P = power(you), Q = power(oppCards);
+    const outcome = P.total > Q.total ? 'win' : (P.total < Q.total ? 'lose' : 'tie');
+    const br = await anteBurn(burn);                       // both sides burn to enter — real or practice
+    if (br.mode === 'cancelled'){
+      busy = false; updateSlam(); $('dealBtn').disabled = false;
+      if (net) net.setStatus('idle'); pushProfile(); toastMini('burn cancelled — fight called off'); return;
+    }
+    const oppName = opponent.handle || 'rival';
+    const burnTag = burn ? (br.mode === 'onchain' ? ' · burn sent on-chain' : ' · burn (practice)') : '';
+    const res = await openFaceoff(you, oppCards, P, Q, outcome, 0, {
+      oppLabel: oppName, push: true,
+      potText: burn > 0 ? `🔥 ${burn} $UR each` : 'cards only',
+      anteText: burn > 0 ? `🔥 ${burn}` : ''
+    });
+    const v = $('verdict');
+    let log = `⚔ <b class="b">${escFO(oppName)}</b> · you <b class="b">${P.total}</b> vs <b class="b">${Q.total}</b>. `;
+    if (outcome === 'win'){
+      v.className = 'verdict win'; v.textContent = 'YOU WIN';
+      collect(res.kept);
+      const burned = oppCards.length - res.kept.length;
+      log += `Beat ${escFO(oppName)} — kept <b class="b">${res.kept.length}</b>${burned ? `, burned ${burned}` : ''}${burnTag}.`;
+    } else if (outcome === 'lose'){
+      v.className = 'verdict lose'; v.textContent = escFO(oppName.toUpperCase()) + ' WINS';
+      removeOwned(youIdx);
+      log += `${escFO(oppName)} took your ${you.length} staked card${you.length > 1 ? 's' : ''}${burnTag}.`;
+    } else {
+      v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
+      log += `Dead even — both keep their cards${burn ? `, but the ${burn} $UR ante is burned` : ''}.`;
+    }
+    $('log').innerHTML = log; $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
+    selected = []; renderHand(); renderTokenWager();
+    busy = false; $('dealBtn').disabled = false; updateSlam();
+    if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile();
+  }
+
+  function syncSeek(){ const b = $('lobSeek'); if (!b) return;
+    b.classList.toggle('on', seeking); b.textContent = seeking ? '✓ seeking a fight' : '☆ seek a fight'; }
+
+  function initLobby(){
+    if (!net){ const p = $('lobbyPanel'); if (p) p.style.display = 'none'; return; }
+    const hIn = $('lobHandle');
+    if (hIn){ hIn.value = netHandle();
+      hIn.onchange = () => { const val = (hIn.value || '').trim().slice(0, 24) || 'you'; net.setHandle(val); hIn.value = net.me().handle; toastMini('handle set — ' + net.me().handle); };
+    }
+    $('lobSeek').onclick = () => { if (busy){ toastMini('finish this fight first'); return; } seeking = !seeking; syncSeek(); net.setStatus(seeking ? 'seeking' : 'idle'); };
+    $('ltYes').onclick = () => { if (!curChallenge) return; const ch = curChallenge; hideToast(); net.accept(ch); toastMini('accepted — stack up'); };
+    $('ltNo').onclick = () => { if (!curChallenge) return; net.decline(curChallenge); hideToast(); };
+    net.onLobby(renderLobby);
+    net.onChallenge(onIncoming);
+    net.onMatch(m => { hideToast(); openPvp(m.opponent, m.oppStack); });
+    net.join(myProfile());
+    addEventListener('focus', pushProfile);
+  }
+
   $('dealBtn').onclick = deal;
   $('slamBtn').onclick = slam;
   $('reroll').onclick = () => { if(!busy) rollGas(); };
@@ -731,7 +1024,7 @@
   // boot
   fetch('manifest.json').then(r => r.json()).then(m => {
     DECK = m.cards;
-    renderModes(); rollGas(); renderVault(); renderTokenWager(); deal();
+    renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby();
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });
