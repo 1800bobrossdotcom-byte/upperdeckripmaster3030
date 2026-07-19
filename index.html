@@ -34,7 +34,7 @@
   body{
     background:transparent;
     font-family:var(--mono); color:var(--text);
-    min-height:100vh; overflow-x:hidden; padding:0 12px 60px;
+    min-height:100vh; overflow-x:hidden; padding:0 12px 74px;
     -webkit-tap-highlight-color:transparent;
   }
   /* digital rain (canvas) — slow acid hue drift does the "on acid" part */
@@ -373,6 +373,25 @@
     .zoom-panel.go,.pack-inner{ transition:none; }
     .ad::after{ animation:none; }
   }
+  /* ── fixed bottom news ticker: Mandela-Effect "sightings" (for fun) ── */
+  .ticker-bar{ position:fixed; left:0; right:0; bottom:0; z-index:55; height:32px; display:flex; align-items:stretch;
+    background:#01110a; border-top:2px solid var(--phos); box-shadow:0 -6px 20px rgba(0,0,0,.55), 0 0 18px rgba(43,255,128,.18); }
+  .tk-label{ flex:none; display:grid; place-items:center; padding:0 10px; background:var(--red); color:#fff;
+    font-family:var(--fat); font-size:8.5px; line-height:1.05; letter-spacing:.05em; text-transform:uppercase; text-align:center; }
+  .tk-vp{ flex:1; overflow:hidden; position:relative; }
+  .tk-run{ position:absolute; top:0; height:100%; display:flex; align-items:center; width:max-content;
+    will-change:transform; animation:tkcrawl 95s linear infinite; }
+  @keyframes tkcrawl{ from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
+  .tk-seq{ display:inline-flex; align-items:center; }
+  .tk-seq > span{ padding:0 22px; font-family:var(--mono); font-size:12px; color:var(--text); white-space:nowrap; }
+  .tk-seq b{ color:var(--amber); } .tk-seq .hot{ color:var(--acid); }
+  .tk-seq .me{ color:var(--phos); font-family:var(--fat); font-size:9px; letter-spacing:.12em; }
+  .tk-seq .sho{ color:var(--cyan); font-family:var(--fat); font-size:11px; letter-spacing:.06em; }
+  .tk-badge{ flex:none; display:grid; place-items:center; padding:0 11px; background:#04140b; border-left:1px solid var(--phosdim);
+    color:var(--cyan); font-family:var(--fat); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; text-align:center; line-height:1.1; }
+  .ticker-bar:hover .tk-run{ animation-play-state:paused; }
+  @media (max-width:600px){ .tk-label,.tk-badge{ font-size:7px; padding:0 6px; } .tk-seq > span{ font-size:11px; padding:0 15px; } }
+  @media (prefers-reduced-motion:reduce){ .tk-run{ animation:none; left:0; } }
 </style>
 </head>
 <body>
@@ -560,6 +579,7 @@
       burn progress · gas weather · block sparkle · pure bad craziness
       <div class="ticker" id="ticker">▓ 196 spirits + 1 marquee · burn the field down to 77 · the pack is open ▓</div>
       <div class="credit">song produced by lovebeing &amp; sean, an unhoused friend from the street</div>
+      <div class="credit">3030 forever · a bow to <strong>DELTRON 3030</strong> — Dan the Automator × Del the Funky Homosapien × Kid Koala</div>
       <a href="https://superrare.com">superrare</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a> · <a href="audit.html">audit</a> · buy the ticket, take the ride
     </footer>
   </div>
@@ -642,6 +662,27 @@
   fall();
 })();
 </script>
+<div class="ticker-bar" aria-label="Mandela Effect sightings — for fun">
+  <div class="tk-label">⚠ MANDELA<br>EFFECT</div>
+  <div class="tk-vp"><div class="tk-run"><div class="tk-seq" id="tkSeq">
+    <span><span class="me">SIGHTING ▸</span> millions <b>remember</b> Nelson Mandela dying in prison in the 1980s — he walked free in 1990 and passed in <b>2013</b>. the deck remembers too.</span>
+    <span>◆ it's the <b>Berenstain</b> Bears — not Berenst<span class="hot">e</span>in. always was. <span class="hot">probably.</span></span>
+    <span>◆ there is <b>no cornucopia</b> in the Fruit of the Loom logo. there never was. <span class="hot">look again.</span></span>
+    <span>◆ Darth Vader never said "Luke, I am your father." the line is <b>"No, I am your father."</b></span>
+    <span>◆ the Monopoly Man has <b>no monocle</b>. it's <b>Febreze</b> (one E), <b>Kit Kat</b> (no hyphen), <b>Oscar Mayer</b> (not Meyer).</span>
+    <span>◆ the Queen says <b>"Magic mirror on the wall"</b> — never "Mirror, mirror."</span>
+    <span>◆ Curious George <b>never had a tail</b>. Pikachu's tail was <b>never</b> black-tipped. C-3PO has <b>one silver leg</b>.</span>
+    <span>◆ Sinbad did <b>not</b> star in a genie movie called "Shazaam." the whole internet remembers it anyway.</span>
+    <span>◆ Forrest said life <b>"was"</b> like a box of chocolates — not "is." <span class="hot">timeline drift confirmed.</span></span>
+    <span>◆ "We Are the Champions" <b>does not end</b> with "of the world." Queen just… stops.</span>
+    <span><span class="me">FILE 3030 ▸</span> was the field 196 cards… or <b>200</b>? the ledger says <b>196</b>. your memory says otherwise.</span>
+    <span class="sho">★ SHOUT OUT ▸ <b>DELTRON 3030</b> × <b>DAN THE AUTOMATOR</b> × Del the Funky Homosapien × Kid Koala — 3030 forever ★</span>
+    <span>◆ "Hello, Clarice" is <b>never said</b> in Silence of the Lambs. "Beam me up, Scotty" — <b>never said</b> either.</span>
+    <span>◆ it's <b>Looney Tunes</b> (not Toons), <b>Chick-fil-A</b>, <b>Skechers</b> (not Sketchers), Double <b>Stuf</b> Oreos (one F).</span>
+  </div></div></div>
+  <div class="tk-badge">✶ 3030 ✶<br>DELTRON</div>
+</div>
+<script>(function(){var r=document.querySelector('.tk-run'),s=document.getElementById('tkSeq');if(r&&s)r.appendChild(s.cloneNode(true));})();</script>
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>

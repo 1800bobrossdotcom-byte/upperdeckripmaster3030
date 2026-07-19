@@ -77,7 +77,7 @@
   addEventListener('DOMContentLoaded', () => {
     btn = document.createElement('button');
     btn.id = 'soundToggle';
-    btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:60;font-family:' +
+    btn.style.cssText = 'position:fixed;right:12px;bottom:42px;z-index:60;font-family:' +
       "'Courier New',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;" +
       'padding:10px 14px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
       'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer';

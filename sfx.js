@@ -118,7 +118,7 @@
     btn.textContent = muted ? '🔇' : '🔊';
     btn.title = muted ? 'SFX off — click for funny noises' : 'SFX on';
     btn.setAttribute('aria-label', 'toggle sound effects');
-    btn.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:130;width:40px;height:40px;border-radius:50%;' +
+    btn.style.cssText = 'position:fixed;left:12px;bottom:42px;z-index:130;width:40px;height:40px;border-radius:50%;' +
       'border:1px solid #0f5c33;background:rgba(1,10,5,.82);color:#2bff80;font-size:17px;cursor:pointer;' +
       'backdrop-filter:blur(4px);box-shadow:0 0 14px rgba(43,255,128,.25);line-height:1;padding:0';
     btn.onclick = () => setMute();
