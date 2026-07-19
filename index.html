@@ -722,10 +722,11 @@
   }
   const spawn = () => ({ x: (Math.random() * 2 - 1) * w, y: (Math.random() * 2 - 1) * h, z: Math.random() * w || 1 });
   const seed = () => { stars = Array.from({ length: N }, spawn); };
+  const SPEED = reduce ? 3.1 : 6.2;   // the warp keeps flying even under reduce-motion, just calmer
   function frame(){
     ctx.fillStyle = 'rgba(1,8,4,0.34)'; ctx.fillRect(0, 0, w, h);   // motion trails
     for (const s of stars){
-      const pz = s.z; s.z -= 6.2;
+      const pz = s.z; s.z -= SPEED;
       if (s.z <= 1){ Object.assign(s, spawn()); s.z = w; continue; }
       const k = 130 / s.z, pk = 130 / pz;
       const a = Math.min(1, (1 - s.z / w) * 1.4);
@@ -735,13 +736,7 @@
     }
     raf = requestAnimationFrame(frame);
   }
-  function start(){
-    size(); seed();
-    if (reduce){ ctx.fillStyle = '#010804'; ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = 'rgba(220,255,230,.85)';
-      for (const s of stars){ const k = 130 / s.z; ctx.fillRect(cx + s.x * k, cy + s.y * k, 1.5, 1.5); } return; }
-    cancelAnimationFrame(raf); frame();
-  }
+  function start(){ size(); seed(); cancelAnimationFrame(raf); frame(); }
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
   new MutationObserver(() => modal.classList.contains('show') ? start() : stop())
     .observe(modal, { attributes: true, attributeFilter: ['class'] });
