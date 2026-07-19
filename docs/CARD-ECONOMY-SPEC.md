@@ -1,5 +1,12 @@
 # Card Economy Spec — cards on-chain, split by intent
 
+> ⚠️ **PHASE 2 REFERENCE DESIGN — NOT the launch architecture.** The project ships as
+> **one pure Liquid Edition** (ERC-20 + render + optional 721 lenses); we are not at
+> liberty to deploy other contracts, so the ERC-1155 vault below is **not deployed**.
+> The authoritative launch design is **`docs/LAUNCH-ARCHITECTURE.md`** (burn-milestone
+> deck). This spec is retained as a reviewed, compiling reference for a future phase,
+> if a companion game contract is ever permitted.
+
 The site now plays the whole game client-side (arena, pack rips, the vault in
 localStorage). This spec moves ownership on-chain on **Sepolia**, around one
 house rule that splits every action by what it *does*:

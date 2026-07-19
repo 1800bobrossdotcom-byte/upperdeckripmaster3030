@@ -242,13 +242,14 @@
 
     <div class="panel vault">
       <div>
-        <h2>The vault</h2>
-        <div class="side-label">cards collected across your slams (saved on this device)</div>
+        <h2>The practice vault</h2>
+        <div class="side-label">demo cards from your slams — saved in this browser only. not your
+        wallet, not on-chain: nothing here can touch anything you own.</div>
       </div>
       <div style="text-align:right"><div class="cnt" id="vaultCnt">0</div></div>
       <div class="mini" id="vaultMini"></div>
     </div>
-    <div class="btns"><button class="mode" id="clearVault">clear vault</button></div>
+    <div class="btns"><button class="mode" id="clearVault" title="Deletes only the demo cards saved in this browser. Your wallet and on-chain assets are never touched.">reset demo cards · this device only</button></div>
   </div>
 
 <script>
@@ -437,7 +438,11 @@
       return `<img src="${c.art}" alt="" title="${c.title}" loading="lazy" onerror="this.remove()">`;
     }).join('');
   }
-  $('clearVault').onclick = () => { try{ localStorage.removeItem('urm_vault'); }catch{}; renderVault(); };
+  $('clearVault').onclick = () => {
+    // demo-only: wipes the localStorage practice vault. Never touches a wallet or chain.
+    if (!confirm('Reset your DEMO cards? This only clears practice cards saved in this browser — your wallet and anything on-chain are never touched.')) return;
+    try{ localStorage.removeItem('urm_vault'); }catch{}; renderVault();
+  };
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
   function animateCount(id, to){

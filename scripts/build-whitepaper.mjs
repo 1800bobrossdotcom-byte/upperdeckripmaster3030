@@ -72,14 +72,14 @@ S.push(`<section class="slide cover">
 
 // 2 — TL;DR / what this is
 S.push(slide('TL;DR — read this first', `
-  <h2>A card game whose losers actually leave the table.</h2>
+  <h2>One token. One fire. A deck that burns down to 77.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li>Every card is a <b>live SuperRare Liquid Edition</b> priced by a bonding curve in <b>RARE</b>.</li>
-      <li><b>$UR3030</b> is the in-game token you rip packs, vote, wager, and settle with.</li>
-      <li>A full field of <b>~196</b> cards opens each season; the crowd <b>burns it down to a deck of 77</b>.</li>
-      <li>Two clean flows go <b>to people</b> — a creator cut and a house bounty. Everything else <b>burns</b>.</li>
-      <li><b>No treasury. No team pre-mint. No fee wallet.</b> The reserve can't be pulled.</li>
+      <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$UR3030</b> on a bonding curve in <b>RARE</b>.</li>
+      <li>The <b>196-card deck is the artwork</b> of that one edition, drawn live by a render contract. No per-card tokens.</li>
+      <li>The crowd <b>burns the field down to 77</b> by burning the token — a published milestone queue, ash in real time.</li>
+      <li>Season's end: survivors + <b>compressed</b> retirees live on as <b>1/1 lenses</b> (ERC-721, assisted setup).</li>
+      <li><b>No treasury. No team pre-mint. No fee wallet.</b> No other contract for one to hide in.</li>
     </ul>
     <div class="callout">
       <div class="co-h">This document is transparency, not a pitch.</div>
@@ -91,20 +91,20 @@ S.push(slide('TL;DR — read this first', `
 
 // 3 — the card game
 S.push(slide('The game', `
-  <h2>Open the field. Play it down to 77.</h2>
+  <h2>Open the field. Burn it down to 77.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li><b>The field opens</b> — every registered card is in play, each its own liquid edition.</li>
-      <li><b>Rip &amp; collect</b> — packs mint ERC-1155 copies across five tiers: Common → Uncommon → Rare → Mythic → Prizm.</li>
-      <li><b>The Rarity Court</b> — holders burn to <b>promote</b>, <b>demote</b>, or <b>⛨ HODL</b> a card. Up pays the creator; down burns.</li>
-      <li><b>The cull</b> — downvotes (on a <b>quorum</b>) retire cards; owning a whole edition lets you <b>destroy</b> it forever.</li>
-      <li><b>Survivors</b> — the field resolves to a <b>standard deck of 77</b>. Hold one and you hold 1 of 77 that outlived the rest.</li>
+      <li><b>The field opens</b> — all 196 cards alive in the render of the one edition, five tiers: Common → Prizm.</li>
+      <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $UR3030, burned in full</b>; your 7 pulls come off your burn tx.</li>
+      <li><b>The published queue</b> — weakest first, fixed at season open. Every milestone of cumulative burn turns the next card to <b>ash</b>: first at ~15k, all 119 at ~4.36M ≈ a sold-out season.</li>
+      <li><b>Court &amp; arena</b> — votes, wagers, trades run <b>site-side</b> as signal shaping next season. <b>Burns are the consensus.</b></li>
+      <li><b>Season's end</b> — 77 survivors mint as <b>1/1 lenses</b>; retired cards can be <b>compressed</b> into 1/1s; the rest stand as ash.</li>
     </ul>
     <div class="statwrap">
       <div class="stat"><b>196</b><span>cards open the field</span></div>
       <div class="stat"><b>77</b><span>survivors per deck</span></div>
-      <div class="stat"><b>5</b><span>rarity tiers</span></div>
-      <div class="stat"><b>∞</b><span>ash — retired is forever</span></div>
+      <div class="stat"><b>119</b><span>published burn milestones</span></div>
+      <div class="stat"><b>1/1</b><span>every card's possible afterlife</span></div>
     </div>
   </div>`, C.phos));
 
@@ -129,46 +129,47 @@ S.push(slide('The token · $UR3030', `
 
 // 5 — the economy / money map
 S.push(slide('The economy · where every token goes', `
-  <h2>Nearly every move burns. Two flows go to people.</h2>
+  <h2>One direction: the fire.</h2>
   <div class="moneymap">
     <div class="mm burn">
-      <div class="mm-h">🔥 BURN (destroyed)</div>
+      <div class="mm-h">🔥 BURNS (on-chain, real)</div>
       <ul>
-        <li>send 1 · trade 1/side · wager 2/side · marquee 25</li>
-        <li>downvotes (demote a card)</li>
-        <li>most of every pack (~349 of ~350)</li>
-        <li>destroyed editions + their toll</li>
+        <li>every pack — <b>in full</b> (~350/rip)</li>
+        <li>voluntary conviction burns</li>
+        <li>season-end <b>compression</b> costs</li>
+        <li>irreversible, public, final</li>
       </ul>
     </div>
     <div class="mm creator">
-      <div class="mm-h">🎨 CREATOR (direct transfer)</div>
+      <div class="mm-h">📈 THE CURVE (on-chain, real)</div>
       <ul>
-        <li>upvotes / promotions</li>
-        <li>HODL ⛨ votes</li>
-        <li>a royalty stream, not a treasury — visible in <code>CreatorPaid</code></li>
+        <li>buys deepen the RARE reserve</li>
+        <li>sells walk back down it</li>
+        <li>burned supply re-mints only on new buys</li>
+        <li>read it live: <code>getMarketState()</code></li>
       </ul>
     </div>
     <div class="mm house">
-      <div class="mm-h">🏦 HOUSE BOUNTY (player pool)</div>
+      <div class="mm-h">🃏 SITE-LAYER (signal, honest)</div>
       <ul>
-        <li>1 token from each pack seeds it</li>
-        <li>pays whoever ends an edition (last-standing reward)</li>
-        <li>a bounty, not an operator wallet — anyone can <code>fundReward</code></li>
+        <li>court votes, wagers, trades, binder</li>
+        <li>shape next season's queue</li>
+        <li>no tokens move — <b>burns are the consensus</b></li>
       </ul>
     </div>
   </div>
-  <p class="fine">There is no fee wallet and no treasury. The burn is destroyed; the creator cut and house bounty are direct, legible on-chain transfers. Curator-tunable, all in the open contract <code>CardVault.sol</code>.</p>`, C.red));
+  <p class="fine">There is no toll wallet, no creator-cut contract, no house pool — because there is no other contract at all. One ERC-20 + one read-only render; the chain is the receipt.</p>`, C.red));
 
 // 6 — packs
 S.push(slide('Packs · a $7 premium, escalating', `
-  <h2>The one premium action. Everything else is a micro-toll.</h2>
+  <h2>The one premium ritual — a real buy-and-burn.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li>A pack is a <b>bundle of ~350 $UR3030 ≈ $7</b> (seven cards, ~$1 a card) — <b>not</b> a token reprice. FDV is unchanged.</li>
-      <li>Each rip is a real <b>buy-and-burn of hundreds of tokens</b> — the engine of steady pressure, not a pump.</li>
+      <li>A pack is a site-guided <b>buy of ~350 $UR3030 ≈ $7</b> (seven cards, ~$1 a card), <b>burned in full</b> — native curve operations, no pack contract.</li>
+      <li>Your 7 pulls derive from your burn tx; your collection is your rip history + holdings — <b>not</b> a token reprice, FDV unchanged.</li>
       <li><b>Within a season:</b> price walks a line from base → ceil as the allotment sells (S1 350 → 525 tokens).</li>
       <li><b>Across seasons:</b> the field shrinks, so the <b>allotment (cards ÷ 7) dwindles</b> and the floor rises.</li>
-      <li>Sell out the allotment and packs <b>close for the season</b> — cards trade secondary only.</li>
+      <li>Sell out the allotment and packs <b>close for the season</b> — the schedule is site-enforced and auditable from the burn txs.</li>
     </ul>
     <table class="tbl">
       <tr><th>Season</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
@@ -178,11 +179,11 @@ S.push(slide('Packs · a $7 premium, escalating', `
       <tr><td>IV · Spring</td><td>2,500 packs</td><td>$16.00</td></tr>
     </table>
   </div>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>`, C.acid));
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. Recalibrated to the live token price at each season open.</p>`, C.acid));
 
-// 7 — seasons
-S.push(slide('Seasons · on the calendar', `
-  <h2>Four a year. We launch in the season we're in.</h2>
+// 7 — seasons + compression
+S.push(slide('Seasons · ash or a 1/1', `
+  <h2>Four a year — and every card gets an afterlife.</h2>
   <div class="seasonrow">
     <div class="sea live"><em>Season I</em><b>SUMMER</b><span>live at launch</span></div>
     <div class="sea"><em>Season II</em><b>FALL</b><span>soon</span></div>
@@ -190,9 +191,9 @@ S.push(slide('Seasons · on the calendar', `
     <div class="sea"><em>Season IV</em><b>SPRING</b><span>soon</span></div>
   </div>
   <ul class="bullets wide">
-    <li>Each season <b>opens a full field</b> and the crowd burns it down to <b>77 survivors</b>; the best non-survivors seed the next season's field — a rolling tournament, not a delete.</li>
-    <li>Every retirement mints the last keeper a <b>soulbound Ash Trophy</b> + a token bounty from the house.</li>
-    <li>The render reads <b>live market + game state</b>, so a card's art evolves with its price and how the crowd treats it.</li>
+    <li>Each season <b>opens a full field</b> and the crowd burns it down the milestone queue to <b>77 survivors</b>, who mint as <b>1/1 lenses</b> — the standard deck, ownable.</li>
+    <li><b>The Compression rite:</b> corner a retired card's claim set and choose — let it <b>stand as ash</b>, or burn the compression cost and it is <b>reborn as a 1/1</b>. Land a final blow, claim the <b>Ash-Trophy</b> lens.</li>
+    <li><b>The end state:</b> potentially the entire original <b>196 live on as 1/1 collectibles</b> — a permanent museum of a field that no longer exists.</li>
   </ul>`, C.cyan));
 
 // 8 — steady not a pump
@@ -203,7 +204,7 @@ S.push(slide('Steady, not a pump', `
       <li><b>Un-pullable liquidity</b> — the RARE reserve lives in the pool, not a yankable LP. Sells walk down the curve; they can't drain it to zero.</li>
       <li><b>No team pre-mint</b> — nothing is minted at genesis to dump on you.</li>
       <li><b>Buy-and-burn packs</b> — RARE flows in on every buy, tokens vanish on every burn, so fewer tokens sit on a deeper reserve.</li>
-      <li><b>Adding liquidity</b> — seed real RARE at deploy, let buys deepen the reserve, and <b>recycle a share of the creator cut / house pool back into RARE reserve</b> on a schedule.</li>
+      <li><b>Adding liquidity</b> — seed real RARE at deploy and let every buy deepen the reserve organically; the curve itself is the standing liquidity.</li>
     </ul>
     <div class="callout amber">
       <div class="co-h">What this is NOT.</div>
@@ -218,10 +219,11 @@ S.push(slide('Transparency', `
   <h2>Everything that matters is on-chain and reproducible.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li><b>Open economy contract</b> — <code>CardVault.sol</code>: tolls, votes, packs, destruction, bounty. Curator setters are visible.</li>
-      <li><b>Reproducible model</b> — <code>scripts/token-model.mjs</code> re-derives every number in this deck. Run it yourself.</li>
-      <li><b>Legible flows</b> — <code>CreatorPaid</code>, burn, <code>AshTrophy</code>, <code>EditionDestroyed</code> events are the receipts.</li>
-      <li><b>No hidden wallet</b> — no fee address, no treasury, no admin mint of the token supply.</li>
+      <li><b>One contract surface</b> — the edition + a read-only render. Nothing else to trust, nothing else to exploit.</li>
+      <li><b>Published retirement queue</b> — <code>cards/data/_milestones.json</code>: every milestone and every card's fate, fixed at season open.</li>
+      <li><b>Reproducible models</b> — <code>token-model.mjs</code> + <code>burn-milestones.mjs</code> re-derive every number in this deck.</li>
+      <li><b>Legible actions</b> — packs, conviction, compression: all burn txs on the one token. The chain is the receipt.</li>
+      <li><b>Phase 2 in the open</b> — the contract game design (<code>CardVault.sol</code>) is public, reviewed, and clearly labeled <b>undeployed</b>.</li>
       <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
     </ul>
     <div class="callout">
@@ -239,7 +241,9 @@ S.push(slide('Risks · read honestly', `
       <li><b>The token can go to zero.</b> It is experimental and highly volatile. Only spend what you can lose entirely.</li>
       <li><b>Smart-contract risk.</b> Code can have bugs. Assume it is unaudited unless a published audit says otherwise.</li>
       <li><b>Liquidity &amp; slippage.</b> A thin market means large trades move price hard; you may not be able to exit at the quoted price.</li>
-      <li><b>Design risk.</b> Curve/preset parameters, burn balance, and reward solvency are tuned and verified — but game economies can behave in unexpected ways.</li>
+      <li><b>Design risk.</b> Curve/preset parameters and the milestone escalator are tuned and modeled — but game economies can behave in unexpected ways.</li>
+      <li><b>Dependency risk.</b> The 721 lens mints (survivors, compression, trophies) run through SuperRare's assisted setup — scope and timing are not solely ours.</li>
+      <li><b>Site-layer honesty.</b> Court votes, wagers, and trades are community signal, not on-chain settlement. Only burns are consensus.</li>
       <li><b>Regulatory &amp; key risk.</b> Rules vary by jurisdiction and can change; self-custody means a lost key is lost funds.</li>
     </ul>
     <div class="callout red">

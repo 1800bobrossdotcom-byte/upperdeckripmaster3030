@@ -12,6 +12,14 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 > the curve actually sells). One assumption — that burns re-mint on the next buy —
 > is the linchpin; verify it too.
 
+> 🏗️ **Architecture note (2026-07-19).** The project launches as a **pure Liquid
+> Edition** — one ERC-20, a render contract, optional 721 lenses; **no game
+> contract** (see `docs/LAUNCH-ARCHITECTURE.md`). The curve math here (§1, §2, §4,
+> §4a, §5) describes the ERC-20 and **stands unchanged**. The CardVault toll/pool
+> mechanics referenced in §3 and §7 are **Phase 2 reference design**: at launch,
+> packs are site-guided buy+burns that burn **in full**, and the burn-down runs on
+> the published milestone schedule (`scripts/burn-milestones.mjs`).
+
 ---
 
 ## 0. Final decisions (TL;DR)

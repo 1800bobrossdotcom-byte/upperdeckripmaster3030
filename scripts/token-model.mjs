@@ -26,10 +26,14 @@ const M          = 10;          // demand multiple = end/start price ("medium-de
 const RARE_USD   = 0.02;        // rough current-era RARE/USD — the whole $ column rides on this
 const SELL_FRAC  = 1.0;         // fraction of cap actually sold on the curve (poolLaunchSupply/cap); verify via --preview
 
-// ── pack assumptions (the $7 premium on-ramp; contract: packBase/packCeil, CARDS_PER_PACK) ──
+// ── pack assumptions (the $7 premium ritual — site-guided buy + burn IN FULL) ──
+// LAUNCH (pure liquid edition, docs/LAUNCH-ARCHITECTURE.md): there is no game
+// contract, so there is no house pool and no reward cut — a rip burns 100%.
+// The Phase-2 vault design (docs/CARD-ECONOMY-SPEC.md) would set REWARD_CUT=1
+// and LAST_STAND=50; kept here as constants so §6 can print the reference numbers.
 const CARDS_PER_PACK = 7;
-const REWARD_CUT     = 1;       // tokens of each pack that seed the house bounty (rest burns)
-const LAST_STAND     = 50;      // tokens paid to whoever ends an edition (+ an Ash Trophy)
+const REWARD_CUT     = 0;       // LAUNCH: packs burn in full (Phase-2 vault: 1)
+const LAST_STAND     = 50;      // Phase-2 reference only (no on-chain bounty at launch)
 // Reference seasonal schedule. Card budget dwindles, price floor rises, each season.
 // base/ceil are $UR3030; ceil = 1.5*base (within-season line). The curator recalibrates
 // base at each openSeason to hold the USD target against the then-live token price.
@@ -151,16 +155,16 @@ console.log('vanish on every burn, so fewer tokens sit on a bigger reserve. Cap 
 console.log('NOTE: net supply change = BUYS − BURNS (sign indeterminate). "Deflation" holds only while');
 console.log('buy-demand < burn-demand; these are burn FLOWS over a whole season, not an instant snapshot.');
 
-// 6. reward-pool funding
-line(); console.log('6. HOUSE REWARD POOL');
-console.log(`each destroyEdition pays min(pool, ${LAST_STAND}); each pack seeds ${REWARD_CUT}. lastStandingReward(${LAST_STAND}) = destroyToll(${LAST_STAND}) => culling is toll-neutral (non-farmable; also needs a retired card you have cornered).`);
+// 6. reward pool — LAUNCH: none (pure liquid edition). Phase-2 reference below.
+line(); console.log('6. HOUSE REWARD POOL — LAUNCH: NONE. Packs burn in full; the season-end rewards');
+console.log('(survivor 1/1s, compression rebirths, Ash-Trophy honors) are 721 LENS MINTS via');
+console.log('SuperRare assisted setup, not token payouts. Phase-2 vault reference (cut=1, reward=50):');
 for (const s of scen) {
   const packsSold = Math.floor(s.fill * S1_PACKS);
-  const seeded = packsSold * REWARD_CUT;
+  const seeded = packsSold * 1;                                    // Phase-2 rewardCut reference
   const maxOut = s.editionsCulled * LAST_STAND;
-  console.log(`  ${s.name.padEnd(7)} seeded ${fmt(seeded,0).padStart(8)} · max payout ${fmt(maxOut,0).padStart(6)} · ${seeded>=maxOut?'SOLVENT by season end':'pre-fund via fundReward()'} (worst-case gap ${fmt(Math.max(0,maxOut-seeded),0)})`);
+  console.log(`  ${s.name.padEnd(7)} would seed ${fmt(seeded,0).padStart(8)} · max payout ${fmt(maxOut,0).padStart(6)} · ${seeded>=maxOut?'solvent':'pre-fund'}`);
 }
-console.log('Timing fix (no param change): curator calls fundReward() at season open to pre-fund the early window.');
 line();
 console.log('Verify before mainnet: mint/burn semantics, effective M, sell-fraction (--preview/getMarketState),');
 console.log('and recalibrate packBase to the $7-and-up USD target against the live token price at each openSeason.\n');

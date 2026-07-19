@@ -26,38 +26,43 @@ flagged **[ARTIST TO SUPPLY]**.
 
 **Mechanics**
 
-> You rip a pack — **seven cards for about $7** in `$UR3030`, the one premium move — and
-> pull the copies as ERC-1155 editions; nearly all of the price burns, a sliver seeds the
-> house reward pool. From there the whole game is small on-chain moves: send a
-> card (toll 1), trade it (1 a side), wager it (2 a side), marquee it to the top of the
-> feed (25). Cards climb and fall through five rarity tiers — Common, Uncommon, Rare,
-> Mythic, Prizm — in the rarity court, where moving a card **up pays its creator** and
-> moving it **down burns** tokens (50 to 2,000 per tier step). When the field gets culled
-> to 77, whoever lands the final blow on a dying edition collects the 50-token
-> last-standing bounty and a soulbound **Ash Trophy**. The render reads live market state
-> (`getMarketState`) and burn progress, so the art evolves with price and with how the
-> community treats each card. Four seasons a year, on the calendar: Summer, Fall, Winter, Spring.
+> The whole 196-card deck is the **artwork of one Liquid Edition** — no side contracts.
+> You rip a pack — **seven cards for about $7** — by buying ~350 `$UR3030` on the curve
+> and **burning it in full**; your pulls derive from your burn tx, your collection is
+> your on-chain rip history. The field is culled by a **published burn-milestone
+> schedule**: every time cumulative burn crosses the next milestone, the next card in
+> the weakest-first retirement queue turns to ash in the render — 119 milestones,
+> escalating (first card ~15k burned, the last near 4.36M ≈ a sold-out season of
+> packs), until a standard deck of **77 survivors** locks in. The rarity court, arena,
+> and binder run site-side as community signal; **burns are the consensus**. At season
+> end the survivors — and Ash-Trophy honors for whoever's burn landed each final blow —
+> mint as a **Companion 721 Lens Collection** (assisted setup). The render reads live
+> market state (`getMarketState`) and burn progress, so the art evolves with price and
+> with the fire. Four seasons a year, on the calendar: Summer, Fall, Winter, Spring.
 
 **Collector Value**
 
-> There's no treasury and no team unlock — value comes from scarcity you can watch happen.
-> Roughly 119 of the ~196 editions are retired every season, and the game is deflationary
-> by construction: packs net-burn, tolls burn, downvotes burn, dead editions burn. Two
-> flows stay transparent and go *to people*, not a pool: the **creator cut** (upvotes,
-> HODL votes, tier-ups) and the **house bounty** (last-standing reward). Holding a survivor
-> means holding one of 77 cards that outlived a field that no longer exists — and an Ash
-> Trophy is a permanent, non-transferable receipt that you were the one who ended something.
+> There's no treasury, no team unlock, no fee wallet — and at launch there is no other
+> contract for one to hide in. Value comes from scarcity you can watch happen: every pack
+> is a **full buy-and-burn**, 119 of the 196 cards retire on the published milestone
+> schedule, and the render grays them to ash in real time. Holding into season end means
+> holding a claim on the **survivor lenses** — one of 77 cards that outlived a field that
+> no longer exists — and an Ash-Trophy lens is a permanent receipt that your burn was the
+> one that ended something.
 
 ---
 
 ## Part 2 — Deployment Path & Responsibilities
 
-**☑ Path B: The CLI (Custom) Route.** We supply the custom front end (this card site —
-gallery, arena, binder, rarity court), the custom renderer (the `_full.html` foil engine
-ported to a Liquid Lens render contract), the game economy contract (`CardVault.sol`),
-metadata, and full technical execution. **We acknowledge the support boundary:** SuperRare
-provides the base protocol, indexing/whitelisting, and cohort splash-page support; QA and
-bug-fixes for our custom renderer + front end are ours.
+**☑ Path B: The CLI (Custom) Route.** We deploy **one Liquid Edition** (the ERC-20
+multicurve) and supply the custom front end (this card site — gallery, arena, binder,
+rarity court), the custom **render contract** (the `_full.html` foil engine reading
+market state + burn progress, driving the milestone burn-down), metadata, and full
+technical execution. The optional **Companion 721 Lens Collection** (survivors, Ash
+Trophies, the sealed 1/1) goes through SuperRare's assisted setup. **No other
+contracts.** **We acknowledge the support boundary:** SuperRare provides the base
+protocol, indexing/whitelisting, and cohort splash-page support; QA and bug-fixes for
+our custom renderer + front end are ours.
 
 ---
 
@@ -74,18 +79,24 @@ bug-fixes for our custom renderer + front end are ours.
   reserve in **RARE**), previewed with `--preview` and tuned to the **steadiest** slope.
   **Opening price ≈ 1 RARE/token (~$0.02)** — the token stays a cheap micro-token, so every
   toll and vote is a micro-move. **Reserve seed ≈ 10,000 RARE** at deploy.
-- **Packs — the premium on-ramp (~$7, escalating).** A pack is a *bundle* of ~350 `$UR3030`
-  ≈ **$7 at launch** (seven cards, ~$1 a card), **not** a token reprice — so FDV stays ~$606k.
-  It rises two ways: **within** a season as the pack allotment (cards issued ÷ 7) is spent
-  (`packPrice()` walks packBase→packCeil), and **across** seasons as the burning field issues
-  fewer cards (S1 **10,000 packs** → S4 2,500; floor 350 → 800 tokens). Each rip is a real
-  buy-and-burn of hundreds of tokens — the engine of steady upward pressure, not a pump.
-- **ERC-721 "Lenses"? — Yes.** The card render is an HTML Liquid Lens reading live market
-  + game state; the sealed **1/1 marquee** — *Lovebeing*, the artist's own name — is its own lens. Per-card copies are
-  `CardVault` ERC-1155 ids; Ash Trophies mint into id space 9000+. Edition sizes finalized
-  with SuperRare during assisted setup.
-- **Deploy on an L2** (or batch actions): the micro-tolls (1-token sends/votes) are
-  gas-dominated on L1; the $7 pack survives L1 gas, but moment-to-moment play does not.
+- **Packs — the premium ritual (~$7, escalating).** A pack is a **site-guided buy of
+  ~350 `$UR3030` on the curve, burned in full** — native ILiquid operations, no side
+  contract. ≈ **$7 at launch** (seven cards, ~$1 a card), **not** a token reprice — so
+  FDV stays ~$606k. The schedule escalates **within** a season (base→ceil as the
+  allotment sells) and **across** seasons (the burning field shrinks the allotment:
+  S1 **10,000 packs** → S4 2,500; floor 350 → 800 tokens), enforced by the site and
+  auditable from the burn txs. Each rip is real buy-and-burn — steady pressure, not a pump.
+- **The burn-down = burn milestones.** A published weakest-first retirement queue
+  (`cards/data/_milestones.json`); each time cumulative burn crosses the next milestone
+  the next card turns to ash in the render — first at ~15k burned, all 119 at ~4.36M
+  (≈ a sold-out season). 77 survive.
+- **ERC-721 "Lenses"? — Yes.** The render contract is the HTML foil engine reading live
+  market state + burn progress; the sealed **1/1 marquee** — *Lovebeing*, the artist's
+  own name — is its own lens. At season end the **77 survivors** and the **Ash-Trophy
+  honors** mint as the Companion 721 Lens Collection; scope finalized with SuperRare
+  during assisted setup.
+- **Deploy on an L2** (or batch): a $7 buy+burn survives L1 gas, but frequent small
+  rips and community burns breathe easier on an L2 — decide with the cohort.
 
 ---
 

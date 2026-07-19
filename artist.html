@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Our Own Audit Notes · Upperdeck Ripmaster 3030</title>
-<meta name="description" content="An honest accounting of the review we have done, the bugs we found and fixed, and what a third-party audit still needs to cover.">
+<title>The Artist · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="The multidisciplinary artist behind Upperdeck Ripmaster 3030 — and the 1/1 at the top of the deck.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="canonical" href="https://upperdeckripmaster3030.com/audit.html">
+<link rel="canonical" href="https://upperdeckripmaster3030.com/artist.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Upperdeck Ripmaster 3030">
-<meta property="og:title" content="Our Own Audit Notes · Upperdeck Ripmaster 3030">
-<meta property="og:description" content="An honest accounting of the review we have done, the bugs we found and fixed, and what a third-party audit still needs to cover.">
-<meta property="og:url" content="https://upperdeckripmaster3030.com/audit.html">
+<meta property="og:title" content="The Artist · Upperdeck Ripmaster 3030">
+<meta property="og:description" content="The multidisciplinary artist behind Upperdeck Ripmaster 3030 — and the 1/1 at the top of the deck.">
+<meta property="og:url" content="https://upperdeckripmaster3030.com/artist.html">
 <meta property="og:image" content="https://upperdeckripmaster3030.com/marquee-header.webp">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -18,7 +18,7 @@
     --phos:#2bff80; --phosdim:#0f5c33; --phosdeep:#0a3d22;
     --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b; --red:#ff4b3a; --text:#b8ffd6;
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black','Arial Bold',Arial,sans-serif;
-    --accent:var(--cyan);
+    --accent:var(--acid);
   }
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; background:var(--void); }
@@ -114,100 +114,62 @@
     <a class="brand" href="index.html">◂ Ripmaster 3030</a>
     <nav class="topnav">
       <a href="index.html">Home</a>
-      <a href="artist.html">Artist</a>
+      <a href="artist.html" class="on">Artist</a>
       <a href="whitepaper.html">Whitepaper</a>
       <a href="tokenomics.html">Tokenomics</a>
-      <a href="audit.html" class="on">Audit</a>
+      <a href="audit.html">Audit</a>
     </nav>
     <span class="nfa-badge">$UR3030 · NFA</span>
   </div>
   <div class="wrap">
     <header class="hero">
-      <div class="kick">Self-review · what we checked · what is pending</div>
-      <h1>Our Own Audit Notes</h1>
-      <p class="sub">An honest accounting of the review we have done, the bugs we found and fixed, and what a third-party audit still needs to cover.</p>
+      <div class="kick">Gianni Arone · lovebeing · @_lovebeing_</div>
+      <h1>The Artist</h1>
+      <p class="sub">The multidisciplinary artist behind Upperdeck Ripmaster 3030 — and the 1/1 at the top of the deck.</p>
     </header>
     
-  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html">📄 Whitepaper</a>
-    <a class="btn cy" href="tokenomics.html">📈 Tokenomics</a></div>
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn" href="https://x.com/_lovebeing_" target="_blank" rel="noopener">𝕏 @_lovebeing_</a>
+    <a class="btn cy" href="cards/lovebeing.html">✦ View the 1/1</a></div>
 
-  <div class="callout red"><div class="co-h">Status: self-reviewed, NOT yet third-party audited.</div>
-    <p>This page is our <b>own</b> honest accounting of the review we've done and what we haven't. Everything
-    here is <b>experimental and unaudited by an independent firm</b>. A formal external audit is <b>pending</b>
-    before any mainnet deploy. Interact at your own risk. Not a security assurance, not financial advice.</p></div>
+  <h2><span class="n">01</span>Who</h2>
+  <p><b>Gianni Arone</b> works as <b>lovebeing</b> — a multidisciplinary artist out of <b>New York</b>
+  whose catalog runs from 1982 to now, moving between <b>painting, silkscreen, zines, digital work,
+  motion, sound, and code</b>. Upperdeck Ripmaster 3030 is what happens when all of that gets pointed
+  at a single lifelong obsession: <b>the trading card</b>.</p>
 
-  <div class="callout amber"><div class="co-h">Architecture at launch: one Liquid Edition, no game contract.</div>
-    <p>The project ships as a <b>pure Liquid Edition</b> — one ERC-20 + a read-only render + (via assisted
-    setup) a Companion 721 Lens Collection. The ERC-1155 game contract reviewed below (<code>CardVault.sol</code>)
-    is a <b>Phase 2 reference design and is NOT deployed</b>; its mechanics run site-side at launch, with real
-    burns as the only on-chain action. Authoritative design: <code>docs/LAUNCH-ARCHITECTURE.md</code>.</p></div>
+  <h2><span class="n">02</span>Why liquid — in his words</h2>
+  <div class="callout"><p style="margin:0 0 10px">I'm a multidisciplinary artist working as lovebeing, out of New York.
+  For years I've moved between painting, silkscreen, zines, motion, sound, and code, all of it chasing the same
+  feeling I've had since I was a kid. I grew up on <b>trading cards, pogs, MAD magazine, and the backs of cereal
+  boxes — the first memes</b>, if you'll let me call them that. That's where I learned a picture could be a joke,
+  a trophy, and a currency all at once: something you'd trade at recess and still guard with your life.</p>
+  <p style="margin:0">Static NFTs never caught that. Liquid Editions are the first format where the card is
+  <b>alive</b> — priced by a curve, played by a crowd, and able to win and to actually die. Ripmaster is that
+  recess table rebuilt on-chain: a full field opens, the crowd plays it down to 77, and the rest turn to ash you
+  can hold. The 1/1 at the top of the deck carries my name, <b>Lovebeing</b>.</p></div>
 
-  <h2><span class="n">01</span>What we reviewed, and how</h2>
-  <ul>
-    <li><b>The launch surface is deliberately tiny.</b> One ERC-20 (deployed by SuperRare's audited factory
-      via the Rare CLI — not our code) + a read-only render contract + a published milestone schedule.
-      The less we deploy, the less there is to get wrong.</li>
-    <li><b>Reproducible economics.</b> Every tokenomics number is derived by <code>scripts/token-model.mjs</code>
-      and <code>scripts/burn-milestones.mjs</code> — run them and re-derive the price schedule, slippage,
-      allotments, milestone escalator, and burn pressure yourself.</li>
-    <li><b>Adversarial modeling pass.</b> The tokenomics were pressure-tested by an adversarial pass — multiple
-      independent models, each checked by a skeptic — to catch hand-wavy claims and hidden assumptions.</li>
-    <li><b>Phase 2 reference contract.</b> <code>CardVault.sol</code> (the undeployed ERC-1155 game design)
-      compiles with <b>solc 0.8.24</b> + <b>OpenZeppelin 5.0.2</b>, <b>0 warnings</b>, ~20.3 KB — reviewed and
-      kept in the open even though it does not ship.</li>
-  </ul>
+  <h2><span class="n">03</span>SuperRare Liquid Editions · Cohort 1</h2>
+  <p>lovebeing is one of <b>four artists</b> in SuperRare's first <b>Liquid Editions</b> cohort — a program for
+  artworks designed to <i>live, evolve, and circulate across networks</i> — alongside
+  <a href="https://x.com/CreamyDreamy" target="_blank" rel="noopener">@CreamyDreamy</a>,
+  <a href="https://x.com/takenstheorem" target="_blank" rel="noopener">@takenstheorem</a>, and
+  <a href="https://x.com/tyaagnliu" target="_blank" rel="noopener">@tyaagnliu</a>.</p>
 
-  <h2><span class="n">02</span>Things we found and fixed (in the open)</h2>
-  <ul>
-    <li><b>The architecture itself.</b> We initially designed a custom ERC-1155 game contract — then
-      re-read the cohort docs: a Liquid Edition is <b>one ERC-20 + render + optional 721 lenses</b>, and we
-      are not at liberty to deploy other contracts. <b>Fixed:</b> the whole game was remapped onto pure
-      liquid-edition primitives (burn milestones, guided buy+burns, lens mints) — see
-      <code>docs/LAUNCH-ARCHITECTURE.md</code>. The vault became Phase 2.</li>
-    <li><b>destroyEdition could kill a healthy card</b> (Phase 2 design). <b>Fixed</b> with a court-retired
-      guard + toll-neutral reward before we shelved it.</li>
-    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
-      ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
-    <li><b>Over-claimed "supply only goes down."</b> <b>Fixed:</b> the docs now state plainly that net supply =
-      buys − burns (sign indeterminate); deflation is <i>pressure</i>, not a guarantee.</li>
-  </ul>
+  <h2><span class="n">04</span>The namesake card</h2>
+  <p>The sealed <b>1/1 marquee</b> at the top of the deck is <b>Lovebeing</b> — the artist's own name. It never
+  appears in a pack and can't be burned; it can only ever change hands, and it's released later in the run.</p>
+  <p><a class="btn" href="cards/lovebeing.html">✦ View the 1/1 marquee →</a></p>
 
-  <h2><span class="n">03</span>Invariants we designed for (launch)</h2>
-  <div class="grid2">
-    <div class="stat"><b>No pre-mint</b><span>supply is minted only on buy — nothing sits at genesis to dump</span></div>
-    <div class="stat"><b>Un-pullable reserve</b><span>RARE lives in the v4 pool, not a yankable LP; sells walk the curve</span></div>
-    <div class="stat"><b>No fee wallet</b><span>every on-chain spend is a burn of the one token — nothing is routed anywhere</span></div>
-    <div class="stat"><b>Published queue</b><span>the retirement order + milestones are fixed and public at season open</span></div>
-    <div class="stat"><b>Full-burn packs</b><span>a rip burns 100% — no slice to any pool or wallet</span></div>
-    <div class="stat"><b>One trust surface</b><span>burns are the only consensus; site play is labeled signal, never settlement</span></div>
+  <h2><span class="n">05</span>Elsewhere</h2>
+  <div class="cta">
+    <a class="btn cy" href="https://x.com/_lovebeing_" target="_blank" rel="noopener">𝕏 X · @_lovebeing_</a>
+    <a class="btn cy" href="https://www.gianniaronestudio.com/" target="_blank" rel="noopener">◆ Studio</a>
+    <a class="btn cy" href="https://www.lovebeing.world/" target="_blank" rel="noopener">▤ Archive</a>
+    <a class="btn cy" href="https://www.instagram.com/gianniarone/" target="_blank" rel="noopener">◎ Instagram</a>
+    <a class="btn cy" href="https://soundcloud.com/gianniarone" target="_blank" rel="noopener">♪ SoundCloud</a>
   </div>
-
-  <h2><span class="n">04</span>What is still pending before mainnet</h2>
-  <ul>
-    <li><b>Independent third-party security audit</b> of the render contract — not yet performed. (The ERC-20
-      + curve come from SuperRare's protocol; the render is ours.)</li>
-    <li><b>★ The burn metric</b> — confirm the canonical cumulative-burn read in the
-      liquid-editions-starter-kit that the render's milestone logic keys on.</li>
-    <li><b>On-chain parameter verification</b> via <code>--preview</code> / <code>getMarketState</code>: effective
-      demand multiple <b>M</b>, <b>sell-fraction</b>, and <b>mint/burn semantics</b> (does a burn re-open mint
-      headroom on the next buy?).</li>
-    <li><b>Lens scope with SuperRare</b> — assisted-setup coverage for survivor 1/1s, the Compression rite,
-      Ash-Trophy honors, and the sealed marquee.</li>
-    <li><b>Full Sepolia dress rehearsal</b> — deploy, wire the render, run a mock season: rips (buy+burn),
-      milestone crossings, retirement renders, threshold states, a compression.</li>
-  </ul>
-
-  <h2><span class="n">05</span>Verify us yourself</h2>
-  <ul>
-    <li><b>Read the schedule</b> — <code>cards/data/_milestones.json</code>: every milestone and every card's fate, fixed in the open.</li>
-    <li><b>Run the models</b> — <code>node scripts/token-model.mjs</code> · <code>node scripts/burn-milestones.mjs</code> reproduce every number on the <a href="tokenomics.html">Tokenomics</a> page.</li>
-    <li><b>Watch the chain</b> — packs, conviction, and compression are all burn txs on the one token; <code>getMarketState()</code> is live.</li>
-    <li><b>Read Phase 2</b> — <code>contracts/CardVault.sol</code> + <code>docs/CARD-ECONOMY-SPEC.md</code>, clearly labeled undeployed.</li>
-  </ul>
-  <div class="callout amber"><div class="co-h">The honest bottom line.</div>
-    <p>We've been transparent about what we checked and what we didn't. Self-review and a clean compile are
-    <b>not</b> a substitute for a professional audit. Treat $UR3030 as experimental software that can lose your
-    money. NFA — see the <a href="whitepaper.html#legal">whitepaper</a>.</p></div>
+  <p class="fine" style="margin-top:14px">The game's soundtrack was produced by <b>lovebeing &amp; sean</b>, an
+  unhoused friend from the street. <span style="color:var(--phosdim)">Links are the artist's own — verify before sharing.</span></p>
     <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
       collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
       to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.
