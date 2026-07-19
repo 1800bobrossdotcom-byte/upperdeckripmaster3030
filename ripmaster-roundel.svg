@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="Upperdeck Ripmaster 3030 roundel">
+  <defs>
+    <radialGradient id="rmSun" cx="50%" cy="40%" r="65%">
+      <stop offset="0" stop-color="#fff6c8"/>
+      <stop offset=".38" stop-color="#ffd23b"/>
+      <stop offset=".72" stop-color="#ff6b57"/>
+      <stop offset="1" stop-color="#ff2a6d"/>
+    </radialGradient>
+    <clipPath id="rmDisc"><circle cx="120" cy="120" r="76"/></clipPath>
+    <path id="rmTop" d="M120,120 m-94,0 a94,94 0 0,1 188,0" fill="none"/>
+    <path id="rmBot" d="M120,120 m94,0 a94,94 0 0,1 -188,0" fill="none"/>
+  </defs>
+  <!-- coin body -->
+  <circle cx="120" cy="120" r="117" fill="#0a0118"/>
+  <circle cx="120" cy="120" r="117" fill="none" stroke="#05f2ff" stroke-width="3" opacity=".9"/>
+  <circle cx="120" cy="120" r="105" fill="#160333"/>
+  <circle cx="120" cy="120" r="105" fill="none" stroke="#ff3caf" stroke-width="2"/>
+  <!-- wordmark ring -->
+  <text font-family="Arial Black, Arial, sans-serif" font-size="16.5" fill="#ffe93b" letter-spacing="2.4" font-weight="900" paint-order="stroke" stroke="#2a0730" stroke-width=".6">
+    <textPath href="#rmTop" startOffset="50%" text-anchor="middle">UPPERDECK ★ RIPMASTER</textPath>
+  </text>
+  <text font-family="Arial Black, Arial, sans-serif" font-size="15.5" fill="#27f7e4" letter-spacing="2.6" font-weight="900" paint-order="stroke" stroke="#04121f" stroke-width=".6">
+    <textPath href="#rmBot" startOffset="50%" text-anchor="middle">★ RIP THE PACK ★ SEASON ONE ★</textPath>
+  </text>
+  <!-- sun disc -->
+  <circle cx="120" cy="120" r="76" fill="url(#rmSun)"/>
+  <g clip-path="url(#rmDisc)" fill="#0a0118">
+    <rect x="44" y="150" width="152" height="5"/>
+    <rect x="44" y="163" width="152" height="7"/>
+    <rect x="44" y="178" width="152" height="11"/>
+  </g>
+  <!-- neon horizon grid on the lower disc -->
+  <g clip-path="url(#rmDisc)" stroke="#ff2a6d" stroke-width="2" opacity=".92">
+    <line x1="120" y1="150" x2="120" y2="196"/>
+    <line x1="96" y1="150" x2="64" y2="196"/>
+    <line x1="144" y1="150" x2="176" y2="196"/>
+    <line x1="74" y1="150" x2="20" y2="196"/>
+    <line x1="166" y1="150" x2="220" y2="196"/>
+  </g>
+  <!-- 3030 wordmark across the sun -->
+  <text x="120" y="112" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-size="34" font-weight="900" fill="#2a0730" opacity=".95" paint-order="stroke" stroke="#fff6c8" stroke-width="1.2">3030</text>
+  <circle cx="120" cy="120" r="76" fill="none" stroke="#2a0730" stroke-width="3"/>
+</svg>
