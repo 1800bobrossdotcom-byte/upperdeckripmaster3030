@@ -212,6 +212,39 @@
   .ad.a5{ --r1:#ff7a1a; --r2:#e01b12; background:#ff9d52; --tw:-1.8deg; color:#2a0d02; }
   .ad.a6{ --r1:#ffe95f; --r2:#ff2ad9; background:#ffd98a; --tw:1.1deg; color:#2a1206; }
   .ad .price.dark{ background:#140a02; color:#ffe95f; }
+  /* animated bits inside banners (the "gif" feel, done in CSS) */
+  @keyframes blink{ 50%{ opacity:0; } }
+  .blink{ animation:blink 1s steps(1) infinite; }
+  @keyframes gspin{ to{ transform:rotate(360deg); } }
+  .gspin{ display:inline-block; animation:gspin 2.6s linear infinite; }
+  @keyframes wiggle{ 0%,100%{ transform:rotate(-7deg);} 50%{ transform:rotate(7deg);} }
+  .wiggle{ display:inline-block; animation:wiggle .5s ease-in-out infinite; }
+  @keyframes flamef{ 0%,100%{ transform:scale(1) translateY(0);} 50%{ transform:scale(1.18) translateY(-2px);} }
+  .flame{ display:inline-block; animation:flamef .45s ease-in-out infinite; }
+  @keyframes rainbow{ 0%{color:#ff2a2a}17%{color:#ffa32a}34%{color:#ffe72a}50%{color:#3cff2a}67%{color:#2ad4ff}84%{color:#7b5cff}100%{color:#ff2ad9} }
+  .rainbow{ animation:rainbow 2.2s linear infinite; }
+  @keyframes throb{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.14);} }
+  .throb{ display:inline-block; animation:throb .7s ease-in-out infinite; }
+
+  /* ── geocities furniture around the ads ── */
+  .gc-marquee{ margin-top:14px; overflow:hidden; white-space:nowrap; border-top:2px solid var(--phosdim);
+    border-bottom:2px solid var(--phosdim); background:#02140b; }
+  .gc-marquee > span{ display:inline-block; padding:7px 0; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.12em; font-size:12px; color:var(--phos); animation:marq 22s linear infinite; }
+  @keyframes marq{ from{ transform:translateX(100%);} to{ transform:translateX(-100%);} }
+  .gc-uc{ display:flex; align-items:center; gap:12px; margin-top:14px; justify-content:center; }
+  .gc-uc .bar{ flex:1; max-width:170px; height:15px; border:2px solid #120a1e; border-radius:3px;
+    background:repeating-linear-gradient(45deg,#ffd23b 0 12px,#120a1e 12px 24px); background-size:34px 34px; animation:uc 1s linear infinite; }
+  @keyframes uc{ to{ background-position:34px 0; } }
+  .gc-uc .txt{ font-family:var(--fat); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); white-space:nowrap; }
+  .gc-row{ display:flex; align-items:center; justify-content:center; gap:10px 16px; flex-wrap:wrap; margin-top:16px;
+    font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#7fd8a8; }
+  .gc-row .gc-badge{ border:1px solid var(--phosdim); border-radius:4px; padding:5px 9px; background:rgba(1,10,5,.6); }
+  .gc-row .gc-counter{ font-family:var(--mono); background:#000; color:#2bff80; border:1px solid #0f5c33; padding:3px 8px; letter-spacing:.34em; font-size:13px; }
+  .gc-star{ color:#ffe95f; }
+  @media (prefers-reduced-motion:reduce){
+    .blink,.gspin,.wiggle,.flame,.rainbow,.throb,.gc-marquee>span,.gc-uc .bar{ animation:none; }
+  }
 
   /* ── seasons ── */
   .seasons{ margin-top:26px; }
@@ -422,19 +455,25 @@
 
     <section class="adzone" aria-label="collector ads">
       <div class="adlbl">◆ the back page · 新聞 3030 · rip along the dotted line ◆</div>
-      <div class="adtag">You are NOT supposed to like all the cards.</div>
+      <div class="adtag">You are <span class="blink">NOT</span> supposed to <em>like</em> all the cards.<br>
+        You are supposed to <span class="rainbow throb">LOVE</span> them <span class="throb">💚</span></div>
+
+      <div class="gc-marquee"><span>★ WELCOME 2 UPPERDECK RIPMASTER 3030 ★ SEASON 1 · SUMMER · NOW OPEN ★
+        全部好きにならなくていい、でも愛せ ★ 196 IN · 77 OUT · REST = ASH ★ SIGN THE GUESTBOOK ★
+        コレクター必見 ★ $UR3030 ★ RIP · BURN · CURATE · LOVE ★ </span></div>
+
       <div class="ads">
         <div class="ad a1">
-          <span class="star">★ Season 1 · Summer ★</span>
+          <span class="star"><span class="gspin">★</span> Season 1 · Summer <span class="gspin">★</span></span>
           <h4>Collect<br>to Curate</h4>
           <p>which 77 make the deck?<br>the crowd decides · you don't</p>
           <span class="price">RIP IT ▸</span>
         </div>
         <div class="ad a2">
-          <span class="star">★ 限定 · LIMITED ★</span>
+          <span class="star">★ 限定 · <span class="blink">LIMITED</span> ★</span>
           <h4 class="jp" lang="ja">全部好きに<br>ならなくていい</h4>
-          <p class="jp" lang="ja">気に入らないカードを、燃やせ。</p>
-          <p>you don't have to like them all</p>
+          <p class="jp" lang="ja">でも、<span class="rainbow">愛せ</span>。</p>
+          <p>don't like them all — LOVE them</p>
           <span class="price dark">集めて、選べ</span>
         </div>
         <div class="ad a3">
@@ -444,14 +483,14 @@
           <span class="price">$UR3030</span>
         </div>
         <div class="ad a4">
-          <span class="star">★ 新登場 · NOW OPEN ★</span>
+          <span class="star">★ 新登場 · <span class="blink">NOW OPEN</span> ★</span>
           <h4 class="jp" lang="ja">アッパーデック<br>リップマスター3030</h4>
           <p class="jp" lang="ja">第一シーズン・夏エディション・TCGパック</p>
           <span class="price dark">パックを開けろ</span>
         </div>
         <div class="ad a5">
           <span class="star">★ As Seen On-Chain ★</span>
-          <h4>Burn the Field<br>Down to 77</h4>
+          <h4><span class="flame">🔥</span> Burn the Field<br>Down to 77 <span class="flame">🔥</span></h4>
           <p>196 open · 77 survive ·<br>the rest turn to ash</p>
           <span class="price">RIP ▸ BURN ▸ KEEP</span>
         </div>
@@ -462,6 +501,40 @@
           <p>which cards make the deck?</p>
           <span class="price dark">SS1 · 夏</span>
         </div>
+        <div class="ad a1">
+          <span class="star"><span class="wiggle">💌</span> BUILD UR DECK <span class="wiggle">💌</span></span>
+          <h4 class="jp" lang="ja">君だけの<br>デッキを作れ</h4>
+          <p>build the deck only you would keep</p>
+          <span class="price">GUESTBOOK ▸</span>
+        </div>
+        <div class="ad a2">
+          <span class="star">★ <span class="blink">灰</span> · ASH · <span class="blink">灰</span> ★</span>
+          <h4 class="jp" lang="ja">負けたカードは<br>灰になる</h4>
+          <p class="jp" lang="ja">the losers turn to ash</p>
+          <p>corner it → compress it → 1/1</p>
+          <span class="price dark">1 OF 1</span>
+        </div>
+        <div class="ad a4">
+          <span class="star">★ <span class="rainbow">FIRST DROP</span> ★</span>
+          <h4>Love Them,<br>Then Judge</h4>
+          <p>77 survive on your vote &amp; your fire</p>
+          <span class="price">第1弾 ▸</span>
+        </div>
+        <div class="ad a3">
+          <span class="star">★ 24 HRS A DAY ★</span>
+          <h4 class="jp" lang="ja"><span class="throb">全</span>カード<br>ライブ更新</h4>
+          <p>every card is alive — art moves with the market</p>
+          <span class="price dark">LIVE ● ON-CHAIN</span>
+        </div>
+      </div>
+
+      <div class="gc-uc"><span class="bar"></span><span class="txt">🚧 デッキ工事中 · deck under construction 🚧</span><span class="bar"></span></div>
+      <div class="gc-row">
+        <span class="gc-badge">You are visitor <span class="gc-counter">0003030</span></span>
+        <span class="gc-badge"><span class="gspin">🌐</span> ◀ RIPMASTER WEBRING ▶</span>
+        <span class="gc-badge"><span class="gc-star gspin">★</span> best viewed in Netscape @ 800×600</span>
+        <span class="gc-badge">✉ sign my guestbook</span>
+        <span class="gc-badge"><span class="flame">🔥</span> hot new drop <span class="flame">🔥</span></span>
       </div>
     </section>
 
@@ -563,5 +636,6 @@
 </script>
 <script src="theme.js"></script>
 <script src="pack.js"></script>
+<script src="sfx.js"></script>
 </body>
 </html>

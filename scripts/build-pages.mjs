@@ -158,6 +158,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       <span>upperdeckripmaster3030.com</span>
     </footer>
   </div>
+  <script src="sfx.js"></script>
 </body></html>`;
 
 // ─────────────────────────── WHITEPAPER ───────────────────────────
