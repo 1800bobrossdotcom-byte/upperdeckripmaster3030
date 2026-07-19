@@ -45,6 +45,39 @@ Defaults (curator-tunable via `setTolls`):
 | `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 |
 | marquee transfer | see §3 | 25 $UR3030 |
 
+## 2.5 The Rarity Court — cards voted up, down, and off
+
+Rarity is not fixed at print. Any token holder can burn $UR3030 at any time to
+vote any card **up** (promote) or **down** (demote); the ballot never closes.
+
+- `voteRarity(id, up, amount)` — burns `amount` and adds it to the card's signed
+  **net conviction** (promote adds, demote subtracts). Settles immediately.
+- Crossing the current tier's **step cost** moves the card one rung and consumes
+  that much conviction (remainder carries forward):
+
+  | Step | Cost |
+  |---|---|
+  | Common ↔ Uncommon | 50 $UR3030 |
+  | Uncommon ↔ Rare | 150 $UR3030 |
+  | Rare ↔ Mythic | 500 $UR3030 |
+  | Mythic ↔ Prizm | 2,000 $UR3030 (both directions — griefing the top costs what earning it did) |
+
+- Demoted past Common a card is **retired — voted off the island**: it stops
+  appearing in packs and can't enter the arena, but holders keep it and can still
+  send/trade it (a dead card is a collector's item). Promote votes at the Common
+  bar bring it back (`CardRestored`).
+- The marquee is exempt — the court has no jurisdiction over the 1/1.
+- Pack pulls read each card's **current** tier live, so a promotion changes its
+  pull odds the same block. (Testnet does this with an O(deck) scan; mainnet
+  should re-index tier pools on every `RarityShifted` event.)
+- Events (`RarityVote`, `RarityShifted`, `CardRetired`, `CardRestored`) are the
+  feed for the site: gallery tiers re-sort from the chain, and each card back
+  can show its net conviction as living provenance.
+
+This is deliberately the same physics as the season ballot: conviction is
+combustion. A community that loves a common enough literally burns it into a
+prizm; a card the deck turns on burns out of the game.
+
 ## 3. The marquee (Lovebeing, id 1000)
 
 Minted **once, supply 1**, straight into the vault at deploy. Rules enforced in

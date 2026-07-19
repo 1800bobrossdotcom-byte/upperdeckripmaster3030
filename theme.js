@@ -18,9 +18,8 @@
     btn.id = 'soundToggle';
     btn.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:60;font-family:' +
       "'Courier New',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;" +
-      'padding:10px 14px;border-radius:99px;border:3px solid #191c13;color:#191c13;' +
-      'background:linear-gradient(180deg,#e9e1c4,#ddd3b0);' +
-      'box-shadow:inset 0 2px 0 rgba(255,255,255,.55),0 4px 0 #191c13;cursor:pointer';
+      'padding:10px 14px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
+      'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer';
     const render = () => {
       const on = audio && !audio.paused;
       btn.textContent = on ? '♪ sound: on' : '♪ sound: off';

@@ -9,13 +9,13 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root{
-    /* balloon technical mil-spec palette (var names kept, values remapped) */
-    --bg:#31352a; --ink:#e9e1c4;
-    --cyan:#ffd23b; --magenta:#c8452c; --hot:#f26a1b; --purple:#7a8163;
-    --amber:#ffd23b; --lime:#7fa653; --coral:#f26a1b;
+    /* acid terminal palette (var names kept, values remapped) */
+    --bg:#020804; --ink:#b8ffd6;
+    --cyan:#27f7e4; --magenta:#ff2ad9; --hot:#ff2ad9; --purple:#0f5c33;
+    --amber:#ffd23b; --lime:#2bff80; --coral:#ff6b57;
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
-    --common:#cbc4a6; --uncommon:#7fa653; --rare:#ffd23b; --mythic:#f26a1b; --prizm:#c8452c;
-    --drabink:#191c13; --paper:#ddd3b0; --stamp:#e9e1c4;
+    --common:#7ea892; --uncommon:#2bff80; --rare:#ffd23b; --mythic:#ff2ad9; --prizm:#27f7e4;
+    --drabink:#01130a; --paper:#b8ffd6; --stamp:#d9ffe9;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ background:var(--bg); }
@@ -143,45 +143,42 @@
   .vault .mini img{ width:34px; height:46px; object-fit:cover; border-radius:4px; border:1px solid var(--rare); }
   @media (prefers-reduced-motion:reduce){ .bg::after{ animation:none; } }
 
-  /* ── balloon technical mil-spec overrides: lose the neon ── */
-  .bg,.sun,.crt{ display:none; }
-  body{
-    background:
-      repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
-      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 24px),
-      repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 120px),
-      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 120px),
-      var(--bg);
-  }
+  /* ── acid terminal overrides ── */
+  .bg,.sun{ display:none; }
+  body{ background:var(--bg); }
+  .crt{ display:block; background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
   .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none;
     background:url("../Laughing_man.svg") repeat; background-size:140px;
-    filter:grayscale(1) brightness(2.8); opacity:.09; }
-  *{ text-shadow:none !important; }
-  h1{ background:none; -webkit-background-clip:initial; background-clip:initial; color:var(--paper);
-    -webkit-text-fill-color:var(--paper); filter:none; text-shadow:0 4px 0 var(--drabink) !important; }
-  .panel,.gas{ background:linear-gradient(180deg,var(--stamp),var(--paper)); color:var(--drabink);
-    border:3px solid var(--drabink); border-radius:14px;
-    box-shadow: inset 0 3px 0 rgba(255,255,255,.6), 0 6px 0 var(--drabink); backdrop-filter:none; }
-  .panel h2{ color:var(--drabink); } .panel p{ color:#3a3f2c; } .panel .omen{ color:var(--magenta); }
-  .gas .lbl{ color:#565c44; } .gas .val{ color:var(--magenta); }
-  .mode,.btn,.pv-nav{ border-radius:999px; border:3px solid var(--drabink); }
-  .mode{ background:linear-gradient(180deg,var(--stamp),var(--paper)); color:var(--drabink);
-    box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 4px 0 var(--drabink); }
-  .mode.on{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#e9b722); color:var(--drabink);
-    box-shadow: inset 0 3px 0 rgba(255,255,255,.55), 0 4px 0 var(--drabink); }
-  .btn{ background:linear-gradient(180deg,#ff9a58,var(--hot) 55%,#d05512); color:var(--stamp);
-    box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 6px 0 var(--drabink); }
-  .btn.slam{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#e9b722); color:var(--drabink); }
+    filter:grayscale(1) brightness(4) sepia(1) hue-rotate(90deg) saturate(3); opacity:.05; }
+  h1{ background:none; -webkit-background-clip:initial; background-clip:initial; color:var(--lime);
+    -webkit-text-fill-color:var(--lime); filter:none;
+    text-shadow:0 0 18px rgba(43,255,128,.55) !important; animation:acidTitle 24s linear infinite; }
+  @keyframes acidTitle{ 50%{ filter:hue-rotate(60deg); } }
+  .panel,.gas{ background:rgba(2,16,9,.85); color:var(--ink);
+    border:1px solid var(--purple); border-radius:10px;
+    box-shadow: inset 0 0 26px rgba(43,255,128,.05), 0 0 18px rgba(43,255,128,.12); backdrop-filter:blur(2px); }
+  .panel h2{ color:var(--amber); } .panel p{ color:var(--ink); } .panel .omen{ color:var(--magenta); }
+  .gas .lbl{ color:#5fcf8f; } .gas .val{ color:var(--magenta); text-shadow:0 0 14px var(--magenta) !important; }
+  .mode,.btn,.pv-nav{ border-radius:999px; border:2px solid var(--drabink); }
+  .mode{ background:rgba(2,16,9,.9); color:var(--ink); border:1px solid var(--purple);
+    box-shadow:0 0 10px rgba(43,255,128,.12); }
+  .mode.on{ background:linear-gradient(180deg,#8bffbb,var(--lime) 55%,#0fae56); color:var(--bg);
+    border:2px solid var(--drabink); box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 0 16px rgba(43,255,128,.5); }
+  .btn{ background:linear-gradient(180deg,#ff7ae8,var(--magenta) 55%,#b3129a); color:#fff;
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.35), 0 6px 0 var(--drabink), 0 0 18px rgba(255,42,217,.4); }
+  .btn.slam{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#c79a12); color:var(--bg);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,.45), 0 6px 0 var(--drabink), 0 0 18px rgba(255,210,59,.35); }
   .btn:active:not(:disabled){ transform:translateY(4px); box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 2px 0 var(--drabink); }
-  .tile{ border-width:3px; border-radius:10px; }
-  .score .you{ color:#4e7a2e; } .score .house{ color:var(--magenta); }
-  .side-label{ color:var(--paper); opacity:.8; }
-  .panel .side-label{ color:#565c44; opacity:1; }
-  .log{ color:#3a3f2c; }
+  .tile{ border-width:2px; border-radius:10px; }
+  .score .you{ color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.5) !important; }
+  .score .house{ color:var(--magenta); text-shadow:0 0 14px rgba(255,42,217,.5) !important; }
+  .side-label{ color:#5fcf8f; opacity:1; }
+  .panel .side-label{ color:#5fcf8f; }
+  .log{ color:var(--ink); }
   .log .b{ color:var(--magenta); }
   .vault .cnt{ color:var(--amber); }
-  a.back{ color:var(--amber); }
-  .sub{ color:var(--paper); opacity:.85; }
+  a.back{ color:var(--lime); text-shadow:0 0 8px rgba(43,255,128,.5) !important; }
+  .sub{ color:#5fcf8f; }
 </style>
 </head>
 <body>

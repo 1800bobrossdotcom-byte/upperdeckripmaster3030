@@ -96,9 +96,10 @@
   .card.t-prizm .glitter{ opacity:calc(.32 + .5*var(--heat)); }
   .card.t-prizm .crackle{ display:block; opacity:.72; }
   .card.t-prizm .front{ box-shadow:0 0 0 2px rgba(255,255,255,.25) inset, 0 0 22px rgba(120,220,255,.5); }
+  /* hint chip sits UNDER the card, never over the art */
   .flip-hint{
-    position:absolute; z-index:7; bottom:10px; right:12px; pointer-events:none;
-    background:rgba(0,0,0,.55); border:2px solid #000; border-radius:999px; padding:4px 10px;
+    pointer-events:none;
+    background:rgba(0,0,0,.55); border:2px solid #000; border-radius:999px; padding:5px 12px;
     font-size:9px; letter-spacing:.14em; color:#ffe93b; text-transform:uppercase; }
   /* ─── BACK: living dossier ─── */
   .back{
@@ -145,7 +146,6 @@
       <div class="face front">
         <img src="art/purple-fang.webp" alt="Purple Fang">
         <div class="foil"></div><div class="inflate"></div><div class="crackle"></div><div class="glare"></div><div class="glitter"></div><div class="sweep"></div>
-        <div class="flip-hint">tap to flip ⟲</div>
       </div>
       <div class="face back">
         <div class="plate">
@@ -172,6 +172,7 @@
       </div>
     </div>
   </div>
+  <div class="flip-hint">tap to flip ⟲</div>
   <button class="bless" id="bless"><span>✦ tap to activate the foil ✦</span></button>
 
 <script>

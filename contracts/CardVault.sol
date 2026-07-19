@@ -61,6 +61,20 @@ contract CardVault is ERC1155 {
 
     uint256 private _nonce;                  // pack randomness (testnet-grade)
 
+    // ─── the rarity court: standing promote/demote burn-votes on every card ───
+    // Net conviction is signed burned supply: promote adds, demote subtracts.
+    // Crossing the current tier's step cost moves the card one rung and consumes
+    // that much conviction; demoted past Common the card is RETIRED — voted off
+    // the island (no packs, no arena; still holdable/tradable). Promote votes can
+    // bring a retired card back. The ballot never closes.
+    mapping(uint256 => int256) public rarityNet;
+    mapping(uint256 => bool) public retired;
+
+    event RarityVote(uint256 indexed id, address indexed voter, bool up, uint256 amount);
+    event RarityShifted(uint256 indexed id, Tier newTier);
+    event CardRetired(uint256 indexed id);
+    event CardRestored(uint256 indexed id);
+
     // ─── events: the provenance feed the card backs read ───
     event CardSent(address indexed from, address indexed to, uint256 indexed id, uint256 burned);
     event CardsTraded(address indexed a, address indexed b, uint256 idA, uint256 idB, uint256 burned);
@@ -77,6 +91,7 @@ contract CardVault is ERC1155 {
     error BadStackSize();                    // pog stacks are 1/2/3/4/7 only
     error MatchState();
     error UnknownCard();
+    error ZeroAmount();
 
     modifier onlyCurator() { if (msg.sender != curator) revert NotCurator(); _; }
 
@@ -167,6 +182,7 @@ contract CardVault is ERC1155 {
         for (uint256 i = 0; i < n; i++) {
             if (ids[i] == MARQUEE_ID) revert MarqueeNotPlayable();
             if (!cardInfo[ids[i]].exists) revert UnknownCard();
+            if (retired[ids[i]]) revert UnknownCard();   // voted off = not playable
         }
     }
 
@@ -213,6 +229,55 @@ contract CardVault is ERC1155 {
         for (uint256 i = 0; i < m.stakeA.length; i++) _safeTransferFrom(address(this), m.a, m.stakeA[i], 1, "");
     }
 
+    // ─── the rarity court: any holder, any card, any time ───
+
+    /// @notice The price of moving one rung, up or down, from tier `t`.
+    /// Climbing gets steeper the higher you go; falling out of prizm costs the
+    /// same conviction it took to get in, so griefing the top is expensive.
+    function stepCost(Tier t) public pure returns (uint256) {
+        if (t == Tier.Common) return 50e18;
+        if (t == Tier.Uncommon) return 150e18;
+        if (t == Tier.Rare) return 500e18;
+        return 2000e18;                      // Mythic <-> Prizm, both directions
+    }
+
+    /// @notice Burn `amount` to vote a card up (promote) or down (demote).
+    /// Votes settle immediately: cross the bar and the card moves that block.
+    function voteRarity(uint256 id, bool up, uint256 amount) external {
+        if (id == MARQUEE_ID) revert MarqueeNotPlayable();
+        if (!cardInfo[id].exists) revert UnknownCard();
+        if (amount == 0) revert ZeroAmount();
+        _burnToll(msg.sender, amount);
+        rarityNet[id] += up ? int256(amount) : -int256(amount);
+        emit RarityVote(id, msg.sender, up, amount);
+        _settleRarity(id);
+    }
+
+    function _settleRarity(uint256 id) internal {
+        CardInfo storage info = cardInfo[id];
+        int256 net = rarityNet[id];
+        // revival first: a retired card claws back in at the Common bar
+        if (retired[id] && net >= int256(stepCost(Tier.Common))) {
+            net -= int256(stepCost(Tier.Common));
+            retired[id] = false;
+            emit CardRestored(id);
+        }
+        // climb while conviction clears each bar
+        while (!retired[id] && info.tier != Tier.Prizm && net >= int256(stepCost(info.tier))) {
+            net -= int256(stepCost(info.tier));
+            info.tier = Tier(uint8(info.tier) + 1);
+            emit RarityShifted(id, info.tier);
+        }
+        // fall while scorn clears each bar; falling past Common retires the card
+        while (!retired[id] && net <= -int256(stepCost(info.tier))) {
+            net += int256(stepCost(info.tier));
+            if (info.tier == Tier.Common) { retired[id] = true; emit CardRetired(id); break; }
+            info.tier = Tier(uint8(info.tier) - 1);
+            emit RarityShifted(id, info.tier);
+        }
+        rarityNet[id] = net;
+    }
+
     // ─── rip a pack: burn the price, pull 7 by rarity weight ───
     // weights mirror the site's pack.js: common 48 / uncommon 30 / rare 15 / mythic 6 / prizm 1
 
@@ -223,11 +288,14 @@ contract CardVault is ERC1155 {
         for (uint256 i = 0; i < 7; i++) {
             seed = keccak256(abi.encodePacked(seed, i));
             uint8 tier = _rollTier(uint256(seed) % 100);
-            // walk down the tiers until one has cards (a season may lack prizms etc.)
-            uint256[] storage pool = _pool[currentSeason][tier];
-            while (pool.length == 0 && tier > 0) { tier--; pool = _pool[currentSeason][tier]; }
-            require(pool.length > 0, "season empty");
-            uint256 id = pool[(uint256(seed) / 100) % pool.length];
+            // draw at the card's CURRENT tier (the rarity court moves cards between
+            // tiers after registration) and skip anything voted off; walk down the
+            // tiers when the rolled one is empty.
+            uint256 id = 0;
+            for (uint8 t = tier + 1; t > 0 && id == 0; t--) {
+                id = _drawCurrentTier(t - 1, uint256(seed) / 100);
+            }
+            require(id != 0, "season empty");
             ids[i] = id;
             _mint(msg.sender, id, 1, "");
         }
@@ -240,6 +308,30 @@ contract CardVault is ERC1155 {
         if (roll < 93) return 2;             // rare
         if (roll < 99) return 3;             // mythic
         return 4;                            // prizm
+    }
+
+    /// @dev Uniform pick among registered cards whose CURRENT tier is `want`
+    /// (registration pools are the census; tier and retirement checked live).
+    /// Two O(deck) scans — fine for a testnet deck; mainnet wants pools that
+    /// are re-indexed on every RarityShifted (see CARD-ECONOMY-SPEC.md).
+    function _drawCurrentTier(uint8 want, uint256 rand) private view returns (uint256) {
+        uint256 count;
+        for (uint8 p = 0; p < 5; p++) {
+            uint256[] storage pool = _pool[currentSeason][p];
+            for (uint256 i = 0; i < pool.length; i++)
+                if (!retired[pool[i]] && uint8(cardInfo[pool[i]].tier) == want) count++;
+        }
+        if (count == 0) return 0;
+        uint256 kth = rand % count;
+        for (uint8 p = 0; p < 5; p++) {
+            uint256[] storage pool = _pool[currentSeason][p];
+            for (uint256 i = 0; i < pool.length; i++)
+                if (!retired[pool[i]] && uint8(cardInfo[pool[i]].tier) == want) {
+                    if (kth == 0) return pool[i];
+                    kth--;
+                }
+        }
+        return 0;
     }
 
     // ─── reads for the site / card backs ───

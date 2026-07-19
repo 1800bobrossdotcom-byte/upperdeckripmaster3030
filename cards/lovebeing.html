@@ -63,8 +63,8 @@
     background:rgba(6,2,20,.72); border:1px solid #9be34f; border-radius:999px; padding:6px 14px;
     font-size:8px; letter-spacing:.16em; text-transform:uppercase; color:#9be34f;
     white-space:nowrap; box-shadow:0 0 14px rgba(155,227,79,.4); }
-  .hint{ position:absolute; z-index:9; bottom:10px; right:12px; background:rgba(0,0,0,.55);
-    border-radius:999px; padding:4px 10px; font-size:9px; letter-spacing:.14em; color:#ffe93b; text-transform:uppercase; }
+  .hint{ display:block; width:max-content; margin:10px auto 0; background:rgba(0,0,0,.55);
+    border-radius:999px; padding:5px 12px; font-size:9px; letter-spacing:.14em; color:#ffe93b; text-transform:uppercase; }
   /* back */
   .back{ transform:rotateY(180deg); background:linear-gradient(160deg,#140a26,#0a0518);
     border:3px solid #c7d0ff; display:flex; flex-direction:column; padding:7%; gap:4%;
@@ -92,7 +92,6 @@
         <span class="oneof">1&thinsp;/&thinsp;1</span>
         <span class="marquee">✦ Marquee</span>
         <span class="lock">🔒 Unlocks in a later season</span>
-        <span class="hint">tap ⟲</span>
       </div>
       <div class="face back">
         <h1>Lovebeing</h1>
@@ -111,6 +110,7 @@
       </div>
     </div>
   </div>
+  <div class="hint">tap to flip ⟲</div>
 <script>
 (() => {
   const root = document.documentElement, scene = document.getElementById('scene'), card = document.getElementById('card');
