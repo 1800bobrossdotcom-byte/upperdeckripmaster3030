@@ -169,7 +169,7 @@
   const MAXP = 400;
 
   let DECK=[], owned=[], pieces=[], active=-1, frame=FRAMES[0], cat='critters', imgCache=new Map();
-  let brush=null, brushScale=0.46, mode='paint', armEyedrop=false, bitsCard=null;
+  let brush=null, brushScale=0.46, mode='paint', armEyedrop=false, bitsCard=null, GIFS=[], gifTimer=null;
   let live={trig:null,block:0}, chainBind=false, fuse=false;
 
   const say=(()=>{ const t=document.createElement('div'); t.className='toast'; document.body.appendChild(t);
@@ -199,8 +199,9 @@
       if(dist<=tol) p[i+3]=0; else if(dist<tol+feather) p[i+3]=Math.round(p[i+3]*(dist-tol)/feather); }
     g.putImageData(d,0,0); return c; }
   function canvasOf(im){ const c=document.createElement('canvas'); c.width=im.width; c.height=im.height; c.getContext('2d').drawImage(im,0,0); return c; }
-  function baseSize(src,mode){ if(mode==='full'){ const b=Math.min(IW/src.width, IH/src.height); return { w:src.width*b, h:src.height*b }; }
-    const b=200/Math.max(src.width,src.height); return { w:src.width*b, h:src.height*b }; }
+  const dimOf=s=>({ w:s.width||s.naturalWidth||64, h:s.height||s.naturalHeight||64 });
+  function baseSize(src,mode){ const s=dimOf(src); if(mode==='full'){ const b=Math.min(IW/s.w, IH/s.h); return { w:s.w*b, h:s.h*b }; }
+    const b=200/Math.max(s.w,s.h); return { w:s.w*b, h:s.h*b }; }
   function bakeText(text,color){ const g0=document.createElement('canvas').getContext('2d'); g0.font='900 120px Arial Black';
     const w=Math.min(1400,Math.ceil(g0.measureText(text).width)+40), h=170; const c=document.createElement('canvas'); c.width=w; c.height=h;
     const g=c.getContext('2d'); g.font='900 120px Arial Black'; g.textAlign='center'; g.textBaseline='middle';
@@ -222,6 +223,8 @@
       crop.getContext('2d').drawImage(raw, col*cw, r*ch, cw, ch, 0,0, crop.width, crop.height); const keyed=applyChroma(crop,key);
       out.push({ raw:crop, src:keyed }); } return out; }); }
   function loadBit(bit, c){ const bs=baseSize(bit.src,'part'); setBrush({ kind:'bit', title:c.title+' bit', _vaultIdx:c._vaultIdx, atk:c.atk, def:c.def, trigger:c.trigger, _raw:bit.raw, key:{...(dominantEdge(bit.raw)||{r:0,g:0,b:0,tol:0})}, _src:bit.src, baseW:bs.w, baseH:bs.h }); }
+  function loadGif(g){ if(!g._img){ say('gif not ready'); return; } const bs=baseSize(g._img,'part');
+    setBrush({ kind:'gif', title:g.name, _raw:g._img, key:null, _src:g._img, baseW:bs.w, baseH:bs.h, gif:true }); }
   function loadText(text){ const src=bakeText(text.toUpperCase(),FRAMES[2].c); const bs=baseSize(src,'part');
     const p={ id:pid(), kind:'text', text:text.toUpperCase(), color:FRAMES[2].c, _raw:src, key:null, _src:src, baseW:bs.w*1.4, baseH:bs.h*1.4, x:W/2, y:H*0.4, scale:1, rot:0, flipH:false, flipV:false, opacity:1, blend:'source-over' };
     pieces.push(p); active=pieces.length-1; mode='edit'; brush=null; cv.className='edit'; sync(); }
@@ -236,8 +239,21 @@
   // ── draw ──
   function xform(g,p){ g.translate(p.x,p.y); g.rotate(p.rot); g.scale((p.flipH?-1:1),(p.flipV?-1:1)); }
   function drawPiece(g,p){ const w=p.baseW*p.scale, h=p.baseH*p.scale; g.save(); g.globalAlpha=p.opacity; g.globalCompositeOperation=p.blend||'source-over'; xform(g,p); g.drawImage(p._src,-w/2,-h/2,w,h); g.restore(); }
+  function watermark(){ // every forged card wears the house mark, tiled on the diagonal
+    ctx.save(); ctx.beginPath(); roundRect(PAD-4,PAD-4,IW+8,IH+8,10); ctx.clip();
+    ctx.translate(W/2,H/2); ctx.rotate(-Math.PI/9);
+    ctx.globalAlpha=.09; ctx.fillStyle='#eafff2'; ctx.font='700 15px "Courier New",monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const wm='UPPERDECK  RIPMASTER  3030   '; const line=wm.repeat(4);
+    for(let y=-H; y<H; y+=30) ctx.fillText(line, 0, y);
+    ctx.restore(); }
+  function vhsTag(){ // small "old VHS" print in the corner
+    ctx.save(); ctx.textAlign='left'; ctx.textBaseline='top'; ctx.font='700 11px "Courier New",monospace';
+    ctx.fillStyle='rgba(39,247,228,.85)'; ctx.fillText('▶ FORGED', PAD+7, PAD+18);
+    ctx.fillStyle='rgba(234,255,242,.7)'; ctx.font='700 9px "Courier New",monospace'; ctx.fillText('SP  EP-∞  UR3030', PAD+7, PAD+32);
+    ctx.restore(); }
   function draw(){ ctx.clearRect(0,0,W,H); ctx.fillStyle='#020a05'; ctx.fillRect(0,0,W,H);
     for(const p of pieces) drawPiece(ctx,p);
+    watermark();
     ctx.strokeStyle=frame.c; ctx.lineWidth=8; roundRect(6,6,W-12,H-12,16); ctx.stroke();
     ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; roundRect(PAD-4,PAD-4,IW+8,IH+8,10); ctx.stroke();
     ctx.fillStyle=frame.c; [[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(([x,y])=>{ ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill(); });
@@ -245,7 +261,8 @@
     ctx.fillStyle='rgba(1,10,5,.82)'; roundRect(PAD, H-PAD-46, IW, 40, 8); ctx.fill();
     ctx.strokeStyle=frame.c; ctx.lineWidth=2; roundRect(PAD, H-PAD-46, IW, 40, 8); ctx.stroke();
     ctx.fillStyle='#eafff2'; ctx.font='700 22px Arial Black, Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(nm.slice(0,20), W/2, H-PAD-26);
-    ctx.fillStyle=frame.c; ctx.font='700 10px Arial'; ctx.fillText('◆ FORGED', W/2, H-PAD-46-10);
+    ctx.fillStyle=frame.c; ctx.font='700 9px "Courier New",monospace'; ctx.fillText('UPPERDECK RIPMASTER 3030', W/2, H-PAD-46-9);
+    vhsTag();
     const p=pieces[active]; if(p && mode==='edit'){ const w=p.baseW*p.scale, h=p.baseH*p.scale; ctx.save(); xform(ctx,p);
       ctx.strokeStyle=frame.c; ctx.setLineDash([9,7]); ctx.lineWidth=2; ctx.strokeRect(-w/2,-h/2,w,h); ctx.setLineDash([]); ctx.fillStyle=frame.c; ctx.beginPath(); ctx.arc(w/2,h/2,7,0,7); ctx.fill(); ctx.restore(); } }
   function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
@@ -254,6 +271,7 @@
   const CATS=[ {k:'critters',label:'✂ Critters',desc:'whole characters keyed out of their card. load one and drag to paint a swarm.'},
     {k:'bits',label:'⛏ Bits',desc:'slice a card into keyed-out portions — grab a face, a fist, an eye — and multiply it.'},
     {k:'backdrops',label:'▚ Backdrops',desc:'a full card as the scene behind everything (placed once).'},
+    {k:'gifs',label:'▷ GIFs',desc:'lo-fi web gifs — sparkles, flames, a ufo — free to stamp, and they animate live. drop more in cards/gifs/.'},
     {k:'frames',label:'▢ Frames',desc:'border colour of the finished card.'},
     {k:'type',label:'A Type',desc:'drop a word on the card.'} ];
   function renderCats(){ $('cats').innerHTML=CATS.map(c=>`<button class="cat ${c.k===cat?'on':''}" data-k="${c.k}">${c.label}</button>`).join('');
@@ -275,6 +293,9 @@
           pal.querySelectorAll('[data-bit]').forEach(el=>{ const b=bits[+el.dataset.bit]; const tc=document.createElement('canvas'); tc.width=64; tc.height=64;
             const gg=tc.getContext('2d'); const s=Math.min(64/b.src.width,64/b.src.height); gg.drawImage(b.src,(64-b.src.width*s)/2,(64-b.src.height*s)/2,b.src.width*s,b.src.height*s); el.appendChild(tc);
             el.onclick=()=>loadBit(b,c); }); }); }
+    } else if(cat==='gifs'){ if(!GIFS.length){ pal.innerHTML='<div class="empty-note">no gifs yet — run scripts/make-gifs.mjs, or drop .gif files in cards/gifs/</div>'; return; }
+      pal.innerHTML=GIFS.map((g,i)=>`<div class="pc sq ${brush&&brush.gif&&brush.title===g.name?'loaded':''}" data-gif="${i}"><img src="gifs/${g.file}" alt="${g.name}" style="image-rendering:pixelated"><div class="nm">${g.name}</div></div>`).join('');
+      pal.querySelectorAll('.pc').forEach(el=>el.onclick=()=>loadGif(GIFS[+el.dataset.gif]));
     } else if(cat==='frames'){ pal.innerHTML=FRAMES.map((f,i)=>`<div class="pc sq" data-fr="${i}" style="background:${f.c}"><div class="nm" style="color:#0a0a0a">${f.k}</div></div>`).join('');
       pal.querySelectorAll('.pc').forEach(el=>el.onclick=()=>{ frame=FRAMES[+el.dataset.fr]; draw(); say('frame: '+frame.k); });
     } else if(cat==='type'){ pal.innerHTML=`<div class="pc sq add" data-add="1">＋ add<br>a word</div>`;
@@ -286,7 +307,7 @@
   // ── brush chip + selection ──
   function renderChip(){ const c=$('brushChip');
     if(brush){ c.innerHTML=`<canvas width="34" height="34"></canvas><span class="t">${brush.title}<small>drag to paint · size ↓</small></span>`;
-      const tc=c.querySelector('canvas'), gg=tc.getContext('2d'); const s=Math.min(34/brush._src.width,34/brush._src.height); gg.drawImage(brush._src,(34-brush._src.width*s)/2,(34-brush._src.height*s)/2,brush._src.width*s,brush._src.height*s);
+      const tc=c.querySelector('canvas'), gg=tc.getContext('2d'); const bd=dimOf(brush._src); const s=Math.min(34/bd.w,34/bd.h); gg.drawImage(brush._src,(34-bd.w*s)/2,(34-bd.h*s)/2,bd.w*s,bd.h*s);
     } else c.innerHTML='<span class="t" style="color:#5fcf8f">no brush — tap a part below</span>';
     $('editBtn').classList.toggle('on', mode==='edit'); }
   function renderSel(){ const p=pieces[active]; const show=(mode==='edit'&&!!p); $('sel').classList.toggle('show',show); if(!show) return;
@@ -357,9 +378,13 @@
 
   // ── forge / save ──
   function canForge(){ const n=usedIdx().size; return n>=2&&n<=3&&!!$('cname').value.trim(); }
-  function sync(){ renderCats(); renderPalette(); renderChip(); renderSel(); renderPowers(); draw(); $('forge').disabled=!canForge();
+  function sync(){ renderCats(); renderPalette(); renderChip(); renderSel(); renderPowers(); draw(); $('forge').disabled=!canForge(); tickGifs();
     $('hint').textContent = brush?('🖌 '+brush.title+' — drag to paint · tap for one · ✋ edit to move')
       : (mode==='edit'?(pieces.length?'tap a piece to select · drag to move · wheel to size':'nothing painted yet'):'pick a drawer → load a brush → drag to paint'); }
+  // keep the canvas repainting while animated gifs are on it, so they play live
+  function tickGifs(){ const has = pieces.some(p=>p.gif) || (brush&&brush.gif);
+    if(has && !gifTimer){ gifTimer=setInterval(()=>{ if(!drag&&!stroke) draw(); }, 100); }
+    else if(!has && gifTimer){ clearInterval(gifTimer); gifTimer=null; } }
   function doForge(){ if(!canForge()){ say('paint parts from 2–3 of your cards + a name'); return; } const wasActive=active; active=-1; const wasBrush=brush; brush=null; draw();
     const art=cv.toDataURL('image/webp',.85); brush=wasBrush; active=wasActive;
     const d=derive(); const name=$('cname').value.trim(); const idxs=[...usedIdx()];
@@ -403,6 +428,7 @@
     else if(e.key==='e'||e.key==='E') $('editBtn').onclick(); });
 
   fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[]; sync(); renderForged(); }).catch(()=>{ sync(); renderForged(); });
+  fetch('gifs/gifs.json').then(r=>r.json()).then(j=>{ GIFS=(j.gifs||[]).map(g=>{ const im=new Image(); im.src='gifs/'+g.file; return {...g,_img:im}; }); if(cat==='gifs') renderPalette(); }).catch(()=>{});
   chainWeather().then(w=>{ if(w){ live=w; renderPowers(); } });
 })();
 </script>
