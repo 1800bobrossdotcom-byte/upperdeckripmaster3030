@@ -17,8 +17,11 @@
     --fat:'Arial Black','Arial Bold',Arial,sans-serif;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  html,body{ background:var(--void); }
+  /* page color lives on html — body stays transparent so the fixed rain /
+     watermark / scanline layers (negative z-index) show through everywhere */
+  html{ background:var(--void); }
   body{
+    background:transparent;
     font-family:var(--mono); color:var(--text);
     min-height:100vh; overflow-x:hidden; padding:0 12px 60px;
     -webkit-tap-highlight-color:transparent;

@@ -68,9 +68,11 @@ contract CardVault is ERC1155 {
     // the island (no packs, no arena; still holdable/tradable). Promote votes can
     // bring a retired card back. The ballot never closes.
     mapping(uint256 => int256) public rarityNet;
+    mapping(uint256 => uint256) public hodlBuffer;   // ⛨ anchor: demotes burn through this first
     mapping(uint256 => bool) public retired;
 
     event RarityVote(uint256 indexed id, address indexed voter, bool up, uint256 amount);
+    event HodlVote(uint256 indexed id, address indexed voter, uint256 amount);
     event RarityShifted(uint256 indexed id, Tier newTier);
     event CardRetired(uint256 indexed id);
     event CardRestored(uint256 indexed id);
@@ -243,14 +245,44 @@ contract CardVault is ERC1155 {
 
     /// @notice Burn `amount` to vote a card up (promote) or down (demote).
     /// Votes settle immediately: cross the bar and the card moves that block.
+    /// At PRIZM there is nowhere left to climb, so upvotes become HODL votes.
+    /// Demotes must burn through the card's HODL buffer before touching net.
     function voteRarity(uint256 id, bool up, uint256 amount) external {
         if (id == MARQUEE_ID) revert MarqueeNotPlayable();
         if (!cardInfo[id].exists) revert UnknownCard();
         if (amount == 0) revert ZeroAmount();
         _burnToll(msg.sender, amount);
-        rarityNet[id] += up ? int256(amount) : -int256(amount);
+        if (up) {
+            if (cardInfo[id].tier == Tier.Prizm && !retired[id]) {
+                hodlBuffer[id] += amount;
+                emit HodlVote(id, msg.sender, amount);
+                return;
+            }
+            rarityNet[id] += int256(amount);
+        } else {
+            uint256 buf = hodlBuffer[id];
+            if (buf >= amount) {
+                hodlBuffer[id] = buf - amount;      // fully absorbed by the anchor
+                emit RarityVote(id, msg.sender, false, amount);
+                return;
+            }
+            if (buf > 0) { hodlBuffer[id] = 0; amount -= buf; }
+            rarityNet[id] -= int256(amount);
+        }
         emit RarityVote(id, msg.sender, up, amount);
         _settleRarity(id);
+    }
+
+    /// @notice ⛨ HODL: anchor a card where it is. Adds to its buffer — future
+    /// demotes burn through the buffer before they can move the card. Works at
+    /// any tier, so curators can shield the packs they believe in.
+    function voteHodl(uint256 id, uint256 amount) external {
+        if (id == MARQUEE_ID) revert MarqueeNotPlayable();
+        if (!cardInfo[id].exists) revert UnknownCard();
+        if (amount == 0) revert ZeroAmount();
+        _burnToll(msg.sender, amount);
+        hodlBuffer[id] += amount;
+        emit HodlVote(id, msg.sender, amount);
     }
 
     function _settleRarity(uint256 id) internal {

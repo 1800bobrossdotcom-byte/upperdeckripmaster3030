@@ -107,8 +107,9 @@ function buildGallery() {
         <span class="tile-num">${e.marquee ? '1 of 1 · marquee' : 'S' + e.season + ' · №' + String(e.number).padStart(2, '0')}</span>
         ${e.marquee ? '<span class="vote exempt">the court has no jurisdiction</span>' : `
         <span class="vote">
-          <button type="button" class="vbtn vup" data-slug="${e.slug}" aria-label="burn to promote ${e.name}">▲</button>
+          ${e.rarity === 'prizm' ? '' : `<button type="button" class="vbtn vup" data-slug="${e.slug}" aria-label="burn to promote ${e.name}">▲</button>`}
           <b class="vnet" data-net="${e.slug}">0</b>
+          <button type="button" class="vbtn vhodl" data-slug="${e.slug}" aria-label="burn to HODL ${e.name} — buffers downvotes" title="HODL: buffers downvotes">⛨</button>
           <button type="button" class="vbtn vdn" data-slug="${e.slug}" aria-label="burn to demote ${e.name}">▼</button>
         </span>`}
       </div>`).join('');
@@ -196,7 +197,7 @@ function buildGallery() {
     font-size:11px;line-height:1;font-family:'Arial Black',Arial,sans-serif;
     box-shadow:0 2px 0 #000;transition:transform .06s}
   .vbtn:active{transform:translateY(2px);box-shadow:none}
-  .vup{background:#9be34f}.vdn{background:#ff6b57}
+  .vup{background:#9be34f}.vdn{background:#ff6b57}.vhodl{background:#63b3ff}
   .vnet{min-width:34px;text-align:center;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
     background:#f6ecc9;border:2px solid #000;border-radius:6px;padding:2px 6px}
   .vnet.pos{background:#c9f3a1}.vnet.neg{background:#ffc2b5}
@@ -219,9 +220,12 @@ function buildGallery() {
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
-      <div class="court-note"><b>▲▼ THE RARITY COURT</b> — burn $UR3030 to vote any card up or
+      <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $UR3030 to vote any card up or
       down the ladder. Enough conviction moves its rarity; enough scorn votes it off the
-      island. <b>(preview — burns go on-chain with the vault)</b></div>
+      island. <b>⛨ HODL votes</b> anchor a card where it is — downvotes must burn through
+      the HODL buffer first. At prizm there's nowhere left to climb, so ▲ becomes ⛨.
+      No cards needed to vote — only tokens to burn.
+      <b>(preview — burns go on-chain with the vault)</b></div>
     </header>
     <main>${sections}
     </main>
@@ -245,23 +249,34 @@ function buildGallery() {
   var toastTimer;
   function say(msg){ toast.textContent = msg; toast.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2200); }
-  function votes(){ try { return JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { return {}; } }
+  function votes(){
+    var raw; try { raw = JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { raw = {}; }
+    Object.keys(raw).forEach(function(k){ if (typeof raw[k] === 'number') raw[k] = { net: raw[k], hodl: 0 }; });
+    return raw;
+  }
   function renderNet(slug){
-    var v = votes()[slug]||0;
+    var e = votes()[slug] || { net:0, hodl:0 };
     document.querySelectorAll('[data-net="'+slug+'"]').forEach(function(el){
-      el.textContent = (v>0?'+':'')+v;
-      el.classList.toggle('pos', v>0); el.classList.toggle('neg', v<0);
+      el.textContent = (e.net>0?'+':'')+e.net + (e.hodl>0 ? ' ⛨'+e.hodl : '');
+      el.classList.toggle('pos', e.net>0); el.classList.toggle('neg', e.net<0);
     });
   }
   Object.keys(votes()).forEach(renderNet);
   document.querySelectorAll('.vbtn').forEach(function(b){
     b.addEventListener('click', function(){
-      var slug = b.dataset.slug, up = b.classList.contains('vup');
-      var v = votes(); v[slug] = (v[slug]||0) + (up?1:-1);
+      var slug = b.dataset.slug;
+      var v = votes(); var e = v[slug] || { net:0, hodl:0 };
+      if (b.classList.contains('vup')) {
+        e.net += 1; say('▲ 1 $UR3030 burned to promote — on-chain at vault launch');
+      } else if (b.classList.contains('vhodl')) {
+        e.hodl += 1; say('⛨ 1 $UR3030 burned to HODL — buffers downvotes');
+      } else {
+        if (e.hodl > 0) { e.hodl -= 1; say('▼ demote absorbed by the HODL buffer — burn still counts'); }
+        else { e.net -= 1; say('▼ 1 $UR3030 burned to demote — on-chain at vault launch'); }
+      }
+      v[slug] = e;
       try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {}
       renderNet(slug);
-      say(up ? '▲ 1 $UR3030 burned to promote — on-chain at vault launch'
-             : '▼ 1 $UR3030 burned to demote — on-chain at vault launch');
     });
   });
   document.querySelectorAll('.tile').forEach(function(t){

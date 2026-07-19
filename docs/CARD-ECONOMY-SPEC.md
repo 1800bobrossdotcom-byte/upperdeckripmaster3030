@@ -66,6 +66,12 @@ vote any card **up** (promote) or **down** (demote); the ballot never closes.
   appearing in packs and can't enter the arena, but holders keep it and can still
   send/trade it (a dead card is a collector's item). Promote votes at the Common
   bar bring it back (`CardRestored`).
+- **⛨ HODL votes** (`voteHodl`) anchor a card where it is: they add to its
+  **HODL buffer**, and demotes must burn through the buffer before they can touch
+  net conviction. HODL works at **any tier** — curation by shield, for holders who
+  want the pack to stay exactly as printed. At **prizm** there's nowhere left to
+  climb, so `voteRarity(id, up)` automatically becomes a HODL vote. Buffers never
+  push a card up; they only make it expensive to drag down.
 - The marquee is exempt — the court has no jurisdiction over the 1/1.
 - Pack pulls read each card's **current** tier live, so a promotion changes its
   pull odds the same block. (Testnet does this with an O(deck) scan; mainnet

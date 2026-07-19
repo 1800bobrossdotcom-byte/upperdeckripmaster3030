@@ -66,6 +66,13 @@
     stage.classList.add('hidden'); stage.classList.remove('spin');
     if (title) title.textContent = 'your pull';
     cards = pull(PACK); cur = 0;
+    // the pull is YOURS: pulls join the on-device collection the arena plays from
+    try {
+      const v = JSON.parse(localStorage.getItem('urm_vault') || '[]');
+      cards.forEach(c => v.push({ slug: c.slug }));
+      localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
+    } catch {}
+    if (title) title.textContent = 'your pull · added to your cards';
     const n = cards.length, mid = (n - 1) / 2;
     const fan = cards.map((c, i) => {
       const rot = ((i - mid) * 9).toFixed(1);
