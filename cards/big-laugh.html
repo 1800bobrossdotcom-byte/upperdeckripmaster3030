@@ -152,6 +152,7 @@
   .bless.show{ display:grid; }
   @media (prefers-reduced-motion:reduce){ .card{ transition:none; } .sweep{ animation:none; } }
 </style>
+  <link rel="stylesheet" href="cardback.css">
 </head>
 <body>
   <div class="scene" id="scene">
@@ -161,29 +162,40 @@
         <div class="depth"></div><div class="foil"></div><div class="inflate"></div><div class="crackle"></div><div class="glare"></div><div class="glitter"></div><div class="sweep"></div>
       </div>
       <div class="face back">
-        <div class="plate">
-          <h1 id="b-title">Bad Craziness</h1>
-          <div class="sub">Fall · Season II · №92 of 112</div>
-        </div>
-        <div class="dossier">
-          <div class="lore" id="b-lore">A spirit not yet named. Its dossier is still forming in the foil…</div>
-          <div class="omen" id="b-omen"></div>
-          <div class="rule"></div>
-          <div class="grid">
-            <span class="k">Base ATK</span><span class="v" id="b-atk">5</span>
-            <span class="k">Base DEF</span><span class="v" id="b-def">2</span>
-            <span class="k">Base total</span><span class="v">Σ 7</span>
-            <span class="k">Amplifier</span><span class="v" id="b-trig">GAS STORM ⚡+4</span>
-            <span class="k">Rarity</span><span class="v" id="b-rarity">—</span>
-            <span class="k">Why rated</span><span class="v" id="b-why" style="font-size:.78em;text-align:right;max-width:62%">—</span>
-            <span class="k">Battles W/L</span><span class="v" id="b-wl">0 / 0</span>
-            <span class="k">Times wagered</span><span class="v" id="b-wag">0</span>
-            <span class="k">Burns survived</span><span class="v" id="b-burn">0</span>
-            <span class="k">Floor</span><span class="v" id="b-floor">—</span>
+        <div class="vb">
+          <div class="vb-hdr">
+            <svg class="vb-torn" viewBox="0 0 140 140" aria-hidden="true"><polygon points="70.0,8.0 80.4,21.1 94.4,15.2 100.6,27.9 116.8,27.8 112.4,45.5 128.0,51.1 122.7,64.5 133.6,76.7 118.5,85.8 121.1,99.5 110.1,106.1 106.4,120.2 89.5,113.9 82.5,128.7 70.0,122.0 56.9,131.6 49.7,115.7 34.1,119.4 30.6,105.5 16.3,101.0 23.4,85.1 10.3,76.3 16.3,64.4 10.1,50.5 25.8,44.5 26.2,30.5 39.4,27.9 45.2,14.3 59.6,21.1"/></svg>
+            <img class="vb-disc" src="../ripmaster-roundel.svg" alt="" loading="lazy">
+            <div class="vb-band">
+              <div class="vb-team">Upperdeck ★ Ripmaster 3030</div>
+              <div class="vb-name" id="b-title">Bad Craziness</div>
+            </div>
           </div>
-          <div class="factoid" id="b-fact" style="margin-top:5%;font-size:.78em;line-height:1.55;color:#5a3413"></div>
-          <div class="trigger-live" id="b-live">trigger status · reading chain…</div>
-          <div class="chain" id="chain"></div>
+          <div class="vb-qrow">
+            <div class="vb-num">92</div>
+            <div class="vb-qa">
+              <div class="vb-q"><b>Q:</b> Identify the suspect.</div>
+              <div class="vb-a"><span class="vb-al">A:</span> <span class="vb-flip" id="b-title-a">Bad Craziness</span></div>
+            </div>
+          </div>
+          <div class="vb-vitals">
+            <div class="vb-vit"><span class="k">Base ATK</span><span class="v" id="b-atk">5</span></div>
+            <div class="vb-vit"><span class="k">Amplifier</span><span class="v hot" id="b-trig">GAS STORM ⚡</span></div>
+            <div class="vb-vit"><span class="k">Base DEF</span><span class="v" id="b-def">2</span></div>
+            <div class="vb-vit"><span class="k">Rarity</span><span class="v" id="b-rarity">rare</span></div>
+            <div class="vb-vit"><span class="k">Edition</span><span class="v">№92 / 112</span></div>
+            <div class="vb-vit"><span class="k">Debut</span><span class="v">Fall · S2</span></div>
+          </div>
+          <div class="vb-stitle">Card Statistics</div>
+          <table class="vb-stats"><thead><tr><th></th><th>ATK</th><th>DEF</th><th>Σ</th><th>W–L</th><th>WAG</th><th>BURN</th></tr></thead>
+            <tbody>
+              <tr><th>S2</th><td>5</td><td>2</td><td>7</td><td id="b-wl">0–0</td><td id="b-wag">0</td><td id="b-burn">0</td></tr>
+              <tr><th>LIFE</th><td>5</td><td>2</td><td>7</td><td>0–0</td><td>0</td><td>0</td></tr>
+            </tbody></table>
+          <div class="vb-why">▸ <span id="b-why">—</span></div>
+          <div class="vb-bio"><span id="b-fact"><b style="letter-spacing:.08em">◉ DID YOU KNOW</b><br>Whatever he took is working. The rainbow comes from inside the man now. The teeth are a separate matter.</span><span class="vb-lore" id="b-lore">A laugh so wide the rainbow got involved. Medically inadvisable, spiritually mandatory.</span></div>
+          <div class="vb-foot"><span>$UR3030 · SuperRare Liquid Edition</span><span class="vb-live" id="b-live">reading chain…</span></div>
+          <span class="vb-hide" id="b-omen"></span><span class="vb-hide" id="b-floor"></span><span class="vb-hide" id="chain"></span>
         </div>
       </div>
     </div>
@@ -256,7 +268,7 @@
   fetch('data/big-laugh.json').then(r => r.ok ? r.json()
     : fetch('/api/lore?slug=big-laugh').then(r => r.ok ? r.json() : null)).then(d => {
     if (!d) return;
-    if (d.title) { set('b-title', d.title.toUpperCase()); }
+    if (d.title) { set('b-title', d.title.toUpperCase()); set('b-title-a', d.title.toUpperCase()); }
     set('b-lore', d.lore); set('b-omen', d.omen ? '“' + d.omen + '”' : '');
     set('b-rarity', d.rarity);
     const _tags = (d.traits && d.traits.tags) || []; if (_tags.length) $('b-why').textContent = _tags.join(' · ');

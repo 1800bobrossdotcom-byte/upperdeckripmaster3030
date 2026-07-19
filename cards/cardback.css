@@ -1,0 +1,81 @@
+/* Upperdeck Ripmaster 3030 — vintage sports-card BACK.
+   Shared across every card page (injected by scripts/restyle-backs.mjs). All sizing is
+   in cqw (1% of the card-back width) so the layout scales with the card, not the viewport.
+   The thick outer frame keeps each card's own --f color; the stock is manila. */
+.back{ container-type:size;
+  background:var(--f,#2f74c0) !important; border:0 !important;
+  padding:3.4cqw !important; display:block !important; color:#241b10; }
+
+.back .vb{ height:100%; border-radius:3.4cqw; padding:3.4cqw 3.2cqw 2.6cqw;
+  background:
+    radial-gradient(120% 90% at 20% 0%, #f6ebcf, transparent 55%),
+    repeating-linear-gradient(0deg, rgba(120,90,40,.05) 0 .5cqw, transparent .5cqw 1cqw),
+    linear-gradient(160deg,#f0e2bd,#e7d4a6);
+  border:.45cqw solid #2a2118; box-shadow:inset 0 0 0 .9cqw #f0e2bd, inset 0 0 7cqw rgba(120,80,20,.14);
+  display:flex; flex-direction:column; gap:1.9cqw; overflow:hidden;
+  font-family:'Arial Black',Arial,sans-serif; }
+
+/* header band + torn-paper punch-through with the roundel */
+.back .vb-hdr{ position:relative; min-height:27cqw; }
+.back .vb-band{ position:absolute; left:25cqw; right:0; top:1.6cqw; min-height:17.5cqw;
+  border:.55cqw solid #2a2118; border-radius:2.6cqw;
+  background:linear-gradient(180deg,#f5c021,#e8a913);
+  box-shadow:inset 0 .4cqw 0 rgba(255,255,255,.4), .4cqw .6cqw 0 rgba(0,0,0,.18);
+  padding:1.7cqw 2.6cqw 1.7cqw 3.4cqw; text-align:right;
+  display:flex; flex-direction:column; justify-content:center; }
+.back .vb-team{ font-size:2.3cqw; letter-spacing:.14em; color:#3a2c07; text-transform:uppercase; }
+.back .vb-name{ font-size:4.5cqw; line-height:1.04; letter-spacing:.01em; color:#1a1206;
+  text-transform:uppercase; text-shadow:.2cqw .2cqw 0 rgba(255,255,255,.35); word-break:break-word; }
+.back .vb-torn{ position:absolute; left:-.9cqw; top:-.9cqw; width:27cqw; height:27cqw; z-index:3;
+  filter:drop-shadow(.4cqw .9cqw .6cqw rgba(0,0,0,.35)); }
+.back .vb-torn polygon{ fill:#fbf4e2; stroke:#cdbb90; stroke-width:1; }
+.back .vb-disc{ position:absolute; left:2.9cqw; top:2.9cqw; width:20cqw; height:20cqw; z-index:4;
+  filter:drop-shadow(.2cqw .4cqw .4cqw rgba(0,0,0,.4)); }
+
+/* trivia: number badge + Q/A with the answer upside-down */
+.back .vb-qrow{ display:grid; grid-template-columns:auto 1fr; gap:2.4cqw; align-items:center;
+  border-top:.45cqw solid #2a2118; border-bottom:.45cqw solid #2a2118; padding:1.7cqw .4cqw; }
+.back .vb-num{ width:11cqw; height:11cqw; border-radius:50%; border:.55cqw solid #2a2118;
+  background:radial-gradient(circle at 40% 35%,#f5c021,#e8a913); display:grid; place-items:center;
+  font-size:5cqw; color:#1a1206; box-shadow:inset 0 .4cqw 0 rgba(255,255,255,.4); }
+.back .vb-qa{ font-family:Georgia,'Times New Roman',serif; font-size:2.7cqw; line-height:1.35; }
+.back .vb-q{ font-style:italic; color:#2b2115; }
+.back .vb-q b{ font-family:'Arial Black',Arial,sans-serif; font-style:normal; font-size:2.2cqw; }
+.back .vb-a{ margin-top:.4cqw; }
+.back .vb-al{ font-family:'Arial Black',Arial,sans-serif; font-size:2cqw; letter-spacing:.1em; color:#9a7a3a; }
+.back .vb-flip{ display:inline-block; transform:rotate(180deg); font-family:'Arial Black',Arial,sans-serif;
+  font-size:3cqw; letter-spacing:.02em; color:#7a3b12; text-transform:uppercase; }
+
+/* vitals 2x2 */
+.back .vb-vitals{ display:grid; grid-template-columns:1fr 1fr; gap:.6cqw 3cqw; font-size:2.4cqw; }
+.back .vb-vit{ display:flex; justify-content:space-between; gap:1cqw;
+  border-bottom:1px dotted #b09a63; padding:.6cqw 0; }
+.back .vb-vit .k{ font-family:'Courier New',monospace; letter-spacing:.05em; color:#5a4526; text-transform:uppercase; }
+.back .vb-vit .v{ color:#231a0d; text-align:right; }
+.back .vb-vit .v.hot{ color:#c2185b; }
+
+/* statistics table */
+.back .vb-stitle{ text-align:center; font-size:3.2cqw; letter-spacing:.08em; text-transform:uppercase;
+  color:#1a1206; position:relative; margin-top:.4cqw; }
+.back .vb-stitle::before,.back .vb-stitle::after{ content:""; position:absolute; top:50%; width:11%; height:.4cqw; background:#2a2118; }
+.back .vb-stitle::before{ left:1cqw; } .back .vb-stitle::after{ right:1cqw; }
+.back .vb-stats{ width:100%; border-collapse:collapse; font-family:'Courier New',monospace; }
+.back .vb-stats th,.back .vb-stats td{ border:1px solid #9c854f; padding:.7cqw .3cqw; text-align:center; font-size:2.3cqw; }
+.back .vb-stats thead th{ background:rgba(42,33,24,.9); color:#f0e2bd; font-family:'Arial Black',Arial,sans-serif; }
+.back .vb-stats tbody th{ background:rgba(245,192,33,.35); font-family:'Arial Black',Arial,sans-serif; font-size:2.4cqw; }
+.back .vb-stats tbody td{ color:#231a0d; }
+.back .vb-stats tbody tr:nth-child(2) td{ color:#6a5230; }
+
+.back .vb-why{ font-size:2.1cqw; font-family:'Courier New',monospace; letter-spacing:.04em; color:#6a5230;
+  text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.back .vb-bio{ font-family:Georgia,'Times New Roman',serif; font-size:2.7cqw; line-height:1.45; color:#3a2c17;
+  padding:1.6cqw 2cqw; background:rgba(255,255,255,.28); border:1px solid #c3ad78; border-radius:1.6cqw;
+  flex:1; overflow:auto; }
+.back .vb-bio b{ font-variant:small-caps; letter-spacing:.06em; color:#7a3b12; }
+.back .vb-lore{ display:block; margin-top:.8cqw; font-style:italic; color:#5a4526; }
+.back .vb-foot{ display:flex; justify-content:space-between; align-items:center; gap:1cqw;
+  font-family:'Courier New',monospace; font-size:1.9cqw; letter-spacing:.04em; color:#6a5732; text-transform:uppercase; }
+.back .vb-live{ color:#1d4f8f; font-family:'Arial Black',Arial,sans-serif; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:52%; }
+.back .vb-live.hot{ color:#c2185b; }
+.back .vb-hide{ display:none !important; }
