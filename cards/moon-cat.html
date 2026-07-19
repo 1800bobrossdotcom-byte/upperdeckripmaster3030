@@ -317,5 +317,14 @@
   N();
 })();
 </script>
+<nav class="pgnav" aria-label="site navigation">
+  <style>.pgnav{position:fixed;top:12px;left:12px;z-index:90;display:flex;gap:8px;font-family:'Courier New',ui-monospace,monospace}
+  .pgnav a{color:#b8ffd6;background:rgba(1,10,5,.74);border:1px solid #0f5c33;border-radius:999px;padding:7px 13px;font-size:11px;letter-spacing:.12em;text-decoration:none;text-transform:uppercase;backdrop-filter:blur(4px)}
+  .pgnav a:hover{color:#2bff80;border-color:#2bff80;text-shadow:0 0 8px rgba(43,255,128,.5)}
+  @media print{.pgnav{display:none}}</style>
+  <a href="./" data-back>&#9666; back</a><a href="../index.html">&#8962; home</a>
+</nav>
+<script>(function(){var n=document.querySelector('.pgnav');if(window.self!==window.top){n.style.display='none';return}
+var b=n.querySelector('[data-back]');try{if(document.referrer&&new URL(document.referrer).origin===location.origin&&history.length>1){b.addEventListener('click',function(e){e.preventDefault();history.back()})}}catch(e){}})();</script>
 </body>
 </html>

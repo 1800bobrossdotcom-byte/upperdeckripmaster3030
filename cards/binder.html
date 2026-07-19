@@ -18,6 +18,28 @@
   .wrap{ position:relative; z-index:1; max-width:1080px; margin:0 auto; }
   a.back{ display:inline-block; margin-top:14px; color:var(--phos); text-decoration:none;
     font-size:11px; letter-spacing:.2em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
+
+  /* ── branded dialog — replaces browser prompt()/confirm() popups ── */
+  .urm-modal{ position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:18px;
+    background:rgba(1,6,3,.72); backdrop-filter:blur(6px); }
+  .urm-box{ width:min(440px,94vw); background:#02140b; border:1px solid var(--phosdim); border-radius:14px;
+    padding:18px; box-shadow:0 30px 80px -20px #000, 0 0 30px rgba(43,255,128,.12); }
+  .urm-box h4{ margin:0 0 4px; font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em;
+    font-size:14px; color:var(--phos); }
+  .urm-box .urm-sub{ font-size:12px; color:#7fd8a8; margin-bottom:12px; line-height:1.5; }
+  .urm-box input{ width:100%; box-sizing:border-box; background:#010a06; border:1px solid var(--phosdim);
+    border-radius:8px; color:var(--ink); font-family:var(--mono); font-size:14px; padding:10px 12px; outline:none; }
+  .urm-box input:focus{ border-color:var(--phos); box-shadow:0 0 0 2px rgba(43,255,128,.18); }
+  .urm-acts{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+  .urm-acts button{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.06em; font-size:11px;
+    padding:9px 16px; border-radius:8px; cursor:pointer; border:1px solid var(--phosdim); background:transparent; color:var(--ink); }
+  .urm-acts .ok{ background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56); color:#01130a; border-color:#01130a; }
+  .urm-list{ display:grid; gap:6px; max-height:40vh; overflow:auto; margin-top:4px; }
+  .urm-list button{ display:flex; align-items:center; gap:10px; text-align:left; background:#010a06;
+    border:1px solid var(--phosdim); border-radius:8px; color:var(--ink); font-family:var(--mono);
+    font-size:13px; padding:8px 10px; cursor:pointer; width:100%; }
+  .urm-list button:hover{ border-color:var(--phos); }
+  .urm-list img{ width:30px; height:42px; object-fit:cover; border-radius:4px; flex:none; }
   h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
   .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
@@ -330,21 +352,46 @@
   function closeSheet(){ $('scrim').classList.remove('show'); }
   $('scrim').addEventListener('click', e=>{ if(e.target===$('scrim')) closeSheet(); });
 
-  function doAction(kind, cell){
+  // ── branded dialog (no browser prompt()/confirm() popups) ──
+  // urmDialog({title, sub, input:true, def, options:[{label,img}], okText}) → Promise:
+  //   input mode resolves the string (null on cancel); options mode resolves the index.
+  function urmDialog(o){
+    return new Promise(res=>{
+      const m=document.createElement('div'); m.className='urm-modal';
+      m.innerHTML=`<div class="urm-box" role="dialog" aria-modal="true"><h4>${o.title}</h4>
+        ${o.sub?`<div class="urm-sub">${o.sub}</div>`:''}
+        ${o.input?`<input autocomplete="off" spellcheck="false">`:''}
+        ${o.options?`<div class="urm-list">${o.options.map((x,i)=>`<button data-i="${i}">${x.img?`<img src="${x.img}" alt="" onerror="this.style.opacity=.2">`:''}<span>${x.label}</span></button>`).join('')}</div>`:''}
+        <div class="urm-acts">${o.options?'':`<button class="ok">${o.okText||'OK'}</button>`}<button class="no">Cancel</button></div></div>`;
+      document.body.appendChild(m);
+      const done=v=>{ m.remove(); document.removeEventListener('keydown', esc); res(v); };
+      const esc=e=>{ if(e.key==='Escape') done(null); };
+      document.addEventListener('keydown', esc);
+      const inp=m.querySelector('input');
+      if(inp){ inp.value=o.def??''; setTimeout(()=>{ inp.focus(); inp.select(); },0);
+        inp.addEventListener('keydown',e=>{ if(e.key==='Enter') done(inp.value); }); }
+      const ok=m.querySelector('.ok'); if(ok) ok.onclick=()=>done(inp?inp.value:true);
+      m.querySelector('.no').onclick=()=>done(null);
+      m.addEventListener('click',e=>{ if(e.target===m) done(null); });
+      m.querySelectorAll('.urm-list button').forEach(b=>b.onclick=()=>done(+b.dataset.i));
+    });
+  }
+
+  async function doAction(kind, cell){
     const c=cell.card;
     if(kind==='sell'){
       const def=ASK[cell.ref&&cell.ref.forged?'forged':(c.rarity||'rare')]||10;
-      const ask=prompt(`List "${c.title}" for sale.\nAsking price in $UR3030:`, def);
+      const ask=await urmDialog({ title:'List for sale', sub:`Set an asking price for “${c.title}”, in $UR3030.`, input:true, def, okText:'List it' });
       if(ask===null) return; const n=Math.max(1, Math.round(+ask)||def);
       pushListing({ kind:'sell', by:'you', ask:n, key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
       say('listed '+c.title+' for '+n+' $UR3030'); closeSheet(); go();
     } else if(kind==='trade'){
-      const want=prompt(`List "${c.title}" for trade.\nWhat do you want for it?`, 'any prizm');
+      const want=await urmDialog({ title:'List for trade', sub:`What do you want in exchange for “${c.title}”?`, input:true, def:'any prizm', okText:'Post it' });
       if(want===null) return;
       pushListing({ kind:'trade', by:'you', want:(want||'open to offers').slice(0,40), key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
       say('put '+c.title+' up for trade'); closeSheet(); go();
     } else if(kind==='send'){
-      const to=prompt(`Send "${c.title}" to another collector.\nWallet / handle:`, '');
+      const to=await urmDialog({ title:'Send / gift', sub:`Send “${c.title}” to another collector — wallet or handle. The ${TOLL.send} $UR3030 send toll burns.`, input:true, def:'', okText:'Send it' });
       if(!to) return;
       // a gift still feeds the fire — one copy leaves your vault, sendToll burns
       removeOneFromVault(cell.ref);
@@ -398,11 +445,12 @@
     addToVault(l.ref);
     save('urm_market', m.filter(x=>x.id!==id));
     renderMarket(); }
-  function offerTrade(id){ const m=load('urm_market'); const l=m.find(x=>x.id===id); if(!l) return;
+  async function offerTrade(id){ const m=load('urm_market'); const l=m.find(x=>x.id===id); if(!l) return;
     const owned=ownedCards(); if(!owned.length){ say('you have no cards to trade'); return; }
-    const list=owned.map((o,i)=>`${i+1}. ${o.card.title}`).join('\n');
-    const pick=prompt(`Trade one of your cards for "${l.title}" (house).\nBurns ${TOLL.trade} $UR3030 each side.\n\n${list}\n\nEnter a number:`, '1');
-    if(pick===null) return; const idx=(parseInt(pick,10)||0)-1; const give=owned[idx];
+    const idx=await urmDialog({ title:'Trade for it',
+      sub:`Pick one of your cards to swap for “${l.title}” (house). Burns ${TOLL.trade} $UR3030 each side.`,
+      options: owned.map(o=>({ label:o.card.title, img:o.card.art })) });
+    if(idx===null) return; const give=owned[idx];
     if(!give){ say('no card at that slot'); return; }
     removeOneFromVault(give.ref); addToVault(l.ref);
     burn(TOLL.trade*2, 'traded '+give.card.title+' ⇄ '+l.title);

@@ -440,8 +440,21 @@
   }
   $('clearVault').onclick = () => {
     // demo-only: wipes the localStorage practice vault. Never touches a wallet or chain.
-    if (!confirm('Reset your DEMO cards? This only clears practice cards saved in this browser — your wallet and anything on-chain are never touched.')) return;
-    try{ localStorage.removeItem('urm_vault'); }catch{}; renderVault();
+    // branded in-page dialog — no browser confirm() popup.
+    const m = document.createElement('div');
+    m.style.cssText = 'position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:18px;background:rgba(1,6,3,.72);backdrop-filter:blur(6px)';
+    m.innerHTML = `<div role="dialog" aria-modal="true" style="width:min(430px,94vw);background:#02140b;border:1px solid #0f5c33;border-radius:14px;padding:18px;box-shadow:0 30px 80px -20px #000,0 0 30px rgba(43,255,128,.12)">
+      <h4 style="margin:0 0 6px;font-family:'Arial Black',Arial,sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:14px;color:#2bff80">Reset demo cards?</h4>
+      <div style="font-size:12.5px;color:#7fd8a8;line-height:1.55">This only clears the practice cards saved in <b style="color:#d9ffe8">this browser</b>. Your wallet and anything on-chain are <b style="color:#d9ffe8">never touched</b>.</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+        <button data-ok style="font-family:'Arial Black',Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:9px 16px;border-radius:8px;cursor:pointer;border:1px solid #01130a;background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56);color:#01130a">Reset · device only</button>
+        <button data-no style="font-family:'Arial Black',Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:9px 16px;border-radius:8px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#b8ffd6">Cancel</button>
+      </div></div>`;
+    document.body.appendChild(m);
+    const close = () => m.remove();
+    m.querySelector('[data-no]').onclick = close;
+    m.addEventListener('click', e => { if (e.target === m) close(); });
+    m.querySelector('[data-ok]').onclick = () => { try{ localStorage.removeItem('urm_vault'); }catch{}; renderVault(); close(); };
   };
 
   const wait = ms => new Promise(r => setTimeout(r, ms));
