@@ -391,7 +391,9 @@
     color:var(--cyan); font-family:var(--fat); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; text-align:center; line-height:1.1; }
   .ticker-bar:hover .tk-run{ animation-play-state:paused; }
   @media (max-width:600px){ .tk-label,.tk-badge{ font-size:7px; padding:0 6px; } .tk-seq > span{ font-size:11px; padding:0 15px; } }
-  @media (prefers-reduced-motion:reduce){ .tk-run{ animation:none; left:0; } }
+  /* a ticker must scroll to be readable — keep it moving even under reduce-motion,
+     just a little calmer. hover pauses it so you can read a sighting. */
+  @media (prefers-reduced-motion:reduce){ .tk-run{ animation-duration:120s; } }
 </style>
 </head>
 <body>
