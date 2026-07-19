@@ -16,9 +16,11 @@
   font-family:'Arial Black',Arial,sans-serif; }
 /* RIPMASTER marquee wordmark as a faint watermark filling the lower card, behind all text */
 .back .vb > *{ position:relative; z-index:1; }
-.back .vb-wm{ position:absolute; z-index:0; left:50%; top:62%; width:128%; max-width:none;
-  transform:translate(-50%,-50%) rotate(-5deg); opacity:.15; mix-blend-mode:multiply;
+.back .vb-wm{ position:absolute; z-index:0; left:50%; bottom:7%; top:auto; width:134%; max-width:none;
+  transform:translateX(-50%) rotate(-4deg); opacity:.2; mix-blend-mode:multiply;
   pointer-events:none; user-select:none; }
+/* let the bio be its own height and give the lower card a filled spacer the watermark lives on */
+.back .vb-fill{ flex:1 1 auto; min-height:8cqw; }
 
 /* header band + torn-paper punch-through with the roundel */
 .back .vb-hdr{ position:relative; min-height:27cqw; }
@@ -74,8 +76,8 @@
 .back .vb-why{ font-size:2.1cqw; font-family:'Courier New',monospace; letter-spacing:.04em; color:#6a5230;
   text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .back .vb-bio{ font-family:Georgia,'Times New Roman',serif; font-size:2.7cqw; line-height:1.45; color:#3a2c17;
-  padding:1.6cqw 2cqw; background:rgba(255,255,255,.28); border:1px solid #c3ad78; border-radius:1.6cqw;
-  flex:1; overflow:auto; }
+  padding:1.6cqw 2cqw; background:rgba(255,255,255,.22); border:1px solid #c3ad78; border-radius:1.6cqw;
+  flex:0 0 auto; }
 .back .vb-bio b{ font-variant:small-caps; letter-spacing:.06em; color:#7a3b12; }
 .back .vb-lore{ display:block; margin-top:.8cqw; font-style:italic; color:#5a4526; }
 .back .vb-foot{ display:flex; justify-content:space-between; align-items:center; gap:1cqw;

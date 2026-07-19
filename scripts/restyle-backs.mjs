@@ -57,6 +57,7 @@ function backHTML({ name, num, of, season, seasonTitle, atk, def, trig, rarity, 
             </tbody></table>
           <div class="vb-why">▸ <span id="b-why">—</span></div>
           <div class="vb-bio"><span id="b-fact">${factHTML}</span><span class="vb-lore" id="b-lore">${loreHTML}</span></div>
+          <div class="vb-fill" aria-hidden="true"></div>
           <div class="vb-foot"><span>$UR3030 · SuperRare Liquid Edition</span><span class="vb-live" id="b-live">reading chain…</span></div>
           <span class="vb-hide" id="b-omen"></span><span class="vb-hide" id="b-floor"></span><span class="vb-hide" id="chain"></span>
         </div>
@@ -104,6 +105,8 @@ for (const f of readdirSync(cardsDir)) {
 
   // link the shared stylesheet
   if (!h.includes('cardback.css')) h = h.replace('</head>', '  <link rel="stylesheet" href="cardback.css">\n</head>');
+  // deck navigation: staggered prev/next peeks + swipe/arrow (skip the framed lens itself)
+  if (!h.includes('cardnav.js')) h = h.replace('</body>', '  <script src="cardnav.js"></script>\n</body>');
   // teach the populate-JS to also fill the upside-down answer
   if (!h.includes("set('b-title-a'"))
     h = h.replace("if (d.title) { set('b-title', d.title.toUpperCase()); }",
