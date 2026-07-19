@@ -86,8 +86,7 @@
     reveal.innerHTML =
       '<div class="pv">' +
         '<button type="button" class="pv-nav" id="pvPrev" aria-label="previous card">◀</button>' +
-        '<a class="pv-card" id="pvCard" href="#">' +
-          '<img id="pvImg" alt="" decoding="async">' +
+        '<a class="pv-card" id="pvCard" href="#" aria-label="selected card">' +
           '<span class="pv-rr" id="pvRr"></span>' +
           '<span class="pv-open">open card ↗</span>' +
         '</a>' +
@@ -175,8 +174,10 @@
     const card = document.getElementById('pvCard');
     card.href = 'cards/' + esc(c.slug) + '.html';
     card.className = 'pv-card r-' + esc(c.rarity);
-    document.getElementById('pvImg').src = 'cards/' + c.art;
-    document.getElementById('pvImg').alt = c.title;
+    // paint the art as a CSS background (reliable on every mobile browser/WebView;
+    // a JS-assigned <img>.src can fail to repaint on Samsung Internet et al.)
+    card.style.backgroundImage = "url('cards/" + c.art + "')";
+    card.setAttribute('aria-label', c.title);
     document.getElementById('pvRr').textContent = c.rarity;
     document.getElementById('pvNm').textContent = c.title;
     document.getElementById('pvCount').textContent = (i + 1) + ' / ' + cards.length;
