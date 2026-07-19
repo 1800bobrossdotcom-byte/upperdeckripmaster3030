@@ -3,222 +3,329 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>UPPERDECK RIPMASTER 3030 · Bat Country Trading Cards</title>
+<title>UPPERDECK RIPMASTER 3030</title>
 <meta name="description" content="A liquid trading-card game for degenerates and believers. Burn the token, vote the deck, rip the pack. Buy the ticket, take the ride.">
+<meta name="theme-color" content="#0a0118">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   :root{
-    --coral:#ff6b57; --yellow:#ffd93b; --sky:#63b3ff; --pink:#ff5fd0;
-    --teal:#2ad4c8; --purple:#9b5cff; --lime:#9be34f; --plate:#f6ecc9; --ink:#111;
+    --bg:#0a0118; --ink:#eafcff;
+    --cyan:#05f2ff; --magenta:#ff2a6d; --hot:#ff3caf;
+    --purple:#9b5cff; --amber:#ffd93b; --lime:#9be34f; --coral:#ff6b57;
+    --mono:'Courier New',ui-monospace,monospace;
+    --fat:'Arial Black','Arial Bold',Arial,sans-serif;
   }
   *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ background:var(--bg); }
   body{
-    font-family: Georgia, 'Times New Roman', serif; color:var(--ink);
-    padding: 22px 10px 46px;
-    background:#7b2ff7;
+    font-family:var(--mono); color:var(--ink);
+    min-height:100vh; overflow-x:hidden;
+    padding:0 12px 60px;
+    -webkit-tap-highlight-color:transparent;
   }
-  /* tie-dye trip layer (fixed, hue-cycles slowly) */
-  .trip{
-    position:fixed; inset:0; z-index:-1;
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1350'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.007 0.01' numOctaves='3' seed='7'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='170'/%3E%3C/filter%3E%3Cg filter='url(%23t)'%3E%3Crect width='900' height='1350' fill='%237b2ff7'/%3E%3Ccircle cx='450' cy='675' r='640' fill='%232a6cff'/%3E%3Ccircle cx='450' cy='675' r='540' fill='%2337d34a'/%3E%3Ccircle cx='450' cy='675' r='440' fill='%23ffe93b'/%3E%3Ccircle cx='450' cy='675' r='340' fill='%23ff9a3b'/%3E%3Ccircle cx='450' cy='675' r='250' fill='%23ff4b4b'/%3E%3Ccircle cx='450' cy='675' r='165' fill='%23ff5fd0'/%3E%3Ccircle cx='450' cy='675' r='85' fill='%23ffe93b'/%3E%3C/g%3E%3C/svg%3E") center/cover no-repeat;
-    animation: acid 40s linear infinite;
+  /* ── animated synthwave grid (canvas, fixed) ── */
+  #grid{ position:fixed; inset:0; z-index:-2; width:100%; height:100%; display:block; }
+  /* CRT scanlines + vignette overlay */
+  .crt{
+    position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(3,0,12,.85) 100%);
+    mix-blend-mode:multiply;
+    animation:flick 5s steps(60) infinite;
   }
-  @keyframes acid{ 50%{ filter:hue-rotate(180deg) saturate(1.15); } }
+  @keyframes flick{ 0%,97%{opacity:1} 98%{opacity:.86} 100%{opacity:1} }
 
-  /* ─── the whole site is one giant card ─── */
-  .board{
-    position:relative; max-width:1040px; margin:0 auto;
-    background:var(--yellow);
-    border:3px solid #000; border-radius:18px;
-    box-shadow: 0 0 0 12px var(--coral), 0 0 0 15px #000, 0 30px 60px rgba(0,0,0,.55);
-    padding: clamp(14px, 3.2vw, 30px);
-  }
-  .medal{
-    position:absolute; z-index:5; width:clamp(26px,4.5vw,40px); aspect-ratio:1; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, #fff7c9, #d7a400 80%);
-    border:3px solid #000; display:grid; place-items:center;
-    font-size:clamp(11px,2vw,16px); color:#111;
-  }
-  .m-tl{ top:-24px; left:-24px; } .m-tr{ top:-24px; right:-24px; }
-  .m-bl{ bottom:-24px; left:-24px; } .m-br{ bottom:-24px; right:-24px; }
+  .wrap{ max-width:1000px; margin:0 auto; }
 
-  .bar{
-    background:var(--plate); border:3px solid #000; border-radius:12px;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,.6);
-    padding: clamp(10px,2.4vw,18px);
+  /* ── boot terminal ── */
+  .term{
+    margin:16px auto 0; border:1px solid var(--cyan);
+    box-shadow:0 0 0 1px rgba(5,242,255,.25), 0 0 22px rgba(5,242,255,.28), inset 0 0 30px rgba(5,242,255,.06);
+    background:rgba(4,2,16,.72); backdrop-filter:blur(2px);
+    border-radius:8px; padding:12px 14px; font-size:12.5px; line-height:1.7;
   }
+  .term .row{ white-space:pre-wrap; }
+  .term .k{ color:var(--cyan); } .term .g{ color:var(--lime); } .term .m{ color:var(--hot); } .term .a{ color:var(--amber); }
+  .caret{ display:inline-block; width:9px; height:15px; vertical-align:-2px;
+    background:var(--lime); animation:blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{opacity:0} }
+
+  /* ── title ── */
+  header{ text-align:center; margin-top:22px; }
+  .kicker{ font-size:11px; letter-spacing:.5em; text-indent:.5em; color:var(--cyan);
+    text-transform:uppercase; text-shadow:0 0 10px var(--cyan); }
   h1{
-    font-family:'Arial Black','Arial Bold',Arial,sans-serif;
-    font-size: clamp(19px, 4.9vw, 42px); line-height:1.05;
-    letter-spacing:.02em; text-transform:uppercase; text-align:center; color:#111;
+    position:relative; margin-top:8px;
+    font-family:var(--fat); font-size:clamp(28px,9vw,74px); line-height:.92;
+    letter-spacing:.01em; text-transform:uppercase;
+    background:linear-gradient(180deg,#fff 6%,#ffe6fb 24%,var(--hot) 52%,var(--magenta) 62%,#7a1140 63%,var(--amber) 64%,#fff5c2 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    -webkit-text-stroke:1px rgba(255,60,175,.35);
+    filter:drop-shadow(0 2px 0 #3a0a5e) drop-shadow(0 0 22px rgba(255,42,109,.55));
   }
-  .star-row{ display:flex; justify-content:center; gap:8px; margin-top:12px; }
-  .star{
-    width:clamp(22px,4vw,30px); aspect-ratio:1; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, #ffe93b, #d78400 75%);
-    border:3px solid #000; display:grid; place-items:center;
-    font-size:clamp(10px,1.8vw,14px); font-weight:900; color:#7a2c00;
-  }
-  /* art window with sunburst */
-  .window{
-    position:relative; margin-top:16px;
-    border:3px solid #000; border-radius:12px; overflow:hidden;
-    background:var(--pink);
-    box-shadow: inset 0 0 0 3px rgba(255,255,255,.55);
-    display:grid; place-items:center; padding: clamp(16px,4vw,34px) 0;
-  }
-  .burst{
-    position:absolute; left:50%; top:50%; width:250vmax; height:250vmax;
-    transform:translate(-50%,-50%);
-    background: repeating-conic-gradient(from 0deg, #ff5fd0 0deg 5deg, #d926a8 5deg 10deg);
-    animation: spin 90s linear infinite;
-  }
-  @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
-  .window iframe{
-    position:relative; display:block; border:0;
-    width:min(84vw, 372px); aspect-ratio: 4/6.1;
-    border-radius:14px;
-  }
-  .window-cap{
-    position:relative; margin-top:12px;
-    background:var(--plate); border:3px solid #000; border-radius:999px;
-    padding:7px 16px;
-    font-family:'Arial Black',Arial,sans-serif; font-size:9px;
-    letter-spacing:.24em; text-indent:.24em; text-transform:uppercase;
-  }
-  /* creed text box */
-  .creed{
-    margin-top:16px; text-align:center;
-    font-style:italic; font-size: clamp(14px,3.4vw,17px); line-height:1.6;
-  }
-  .creed b{ font-style:normal; font-family:'Arial Black',Arial,sans-serif; font-size:.82em;
-    text-transform:uppercase; letter-spacing:.06em; }
-  .deck-link{
-    display:block; width:max-content; margin:16px auto 0;
-    background:var(--lime); border:3px solid #000; border-radius:999px;
-    padding:12px 26px; text-decoration:none; color:#111;
-    font-family:'Arial Black',Arial,sans-serif; font-size:12px;
-    letter-spacing:.2em; text-indent:.2em; text-transform:uppercase;
-    box-shadow: 0 4px 0 #000;
-  }
-  .deck-link:active{ transform:translateY(3px); box-shadow:0 1px 0 #000; }
+  h1 .glitch{ position:absolute; inset:0; background:inherit; -webkit-background-clip:text; background-clip:text; color:transparent; }
+  h1 .glitch.c{ mix-blend-mode:screen; text-shadow:2px 0 var(--cyan); animation:gx 3.4s steps(2) infinite; }
+  h1 .glitch.m{ mix-blend-mode:screen; text-shadow:-2px 0 var(--magenta); animation:gx 2.7s steps(2) infinite reverse; }
+  @keyframes gx{ 0%,92%,100%{ transform:none; opacity:0 } 93%{ transform:translate(-2px,1px); opacity:.9 } 96%{ transform:translate(2px,-1px); opacity:.9 } }
+  .stars{ display:flex; justify-content:center; gap:10px; margin-top:14px; }
+  .stars b{ font-family:var(--fat); font-size:13px; color:var(--bg);
+    width:26px; height:26px; display:grid; place-items:center; border-radius:50%;
+    background:linear-gradient(180deg,var(--amber),var(--coral)); border:2px solid #2a0730;
+    box-shadow:0 0 12px rgba(255,217,59,.6); font-style:normal; }
 
-  /* the ritual: three mini trading cards */
-  .ritual{
-    display:grid; gap:14px; margin-top:16px;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  /* ── neon cabinet / featured card ── */
+  .cabinet{
+    position:relative; margin:26px auto 0; width:max-content; max-width:100%;
+    padding:16px; border-radius:16px;
+    border:2px solid var(--magenta);
+    box-shadow:0 0 0 2px rgba(5,242,255,.35), 0 0 34px rgba(255,42,109,.5), inset 0 0 40px rgba(155,92,255,.14);
+    background:linear-gradient(180deg, rgba(20,4,40,.7), rgba(6,2,18,.7));
+    overflow:hidden;
   }
-  .mini{
-    background:var(--f); border:3px solid #000; border-radius:12px;
-    padding:5% 5.5%;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,.5);
-    transform: rotate(var(--tilt, 0deg));
-  }
-  .mini:nth-child(1){ --f:var(--pink); --tilt:-.6deg; }
-  .mini:nth-child(2){ --f:var(--coral); --tilt:.4deg; }
-  .mini:nth-child(3){ --f:var(--sky); --tilt:-.3deg; }
-  .mini-title{
-    background:var(--plate); border:3px solid #000; border-radius:8px;
-    text-align:center; padding:6px 8px;
-    font-family:'Arial Black',Arial,sans-serif; font-size:15px;
-    letter-spacing:.1em; text-indent:.1em; text-transform:uppercase;
-  }
-  .mini-body{
-    margin-top:10px; background:var(--plate); border:3px solid #000; border-radius:8px;
-    padding:10px 12px; font-size:13.5px; line-height:1.55; font-style:italic;
-  }
-  /* seasons */
-  .seasons{ margin-top:16px; }
-  .seasons-title{
-    width:max-content; margin:0 auto;
-    background:var(--purple); border:3px solid #000; border-radius:999px;
-    padding:7px 20px; color:#fff;
-    font-family:'Arial Black',Arial,sans-serif; font-size:11px;
-    letter-spacing:.26em; text-indent:.26em; text-transform:uppercase;
-    -webkit-text-stroke:.5px #000;
-  }
-  .strip{ display:grid; gap:12px; margin-top:12px;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-  .season{
-    border:3px solid #000; border-radius:12px; text-align:center;
-    padding:14px 8px; background:var(--f);
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,.5);
-    font-family:'Arial Black',Arial,sans-serif;
-  }
-  .season em{ display:block; font-style:normal; font-size:9px; letter-spacing:.26em;
-    text-indent:.26em; text-transform:uppercase; margin-bottom:4px; opacity:.7; }
-  .season span{ font-size:17px; letter-spacing:.08em; text-transform:uppercase; }
-  .season:nth-child(1){ --f:var(--lime); } .season:nth-child(2){ --f:var(--coral); }
-  .season:nth-child(3){ --f:var(--teal); } .season:nth-child(4){ --f:var(--purple); color:#fff; }
+  .cabinet::before{ content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+    background:linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent);
+    animation:sweep 5.5s ease-in-out infinite; }
+  @keyframes sweep{ 0%{ left:-60% } 60%,100%{ left:130% } }
+  .cabinet iframe{ position:relative; display:block; border:0; border-radius:12px;
+    width:min(80vw,340px); aspect-ratio:4/6.1; background:#120a1e; }
+  .cap{ position:relative; text-align:center; margin-top:12px; font-size:11px;
+    letter-spacing:.28em; text-indent:.28em; text-transform:uppercase; color:var(--cyan);
+    text-shadow:0 0 10px var(--cyan); }
 
-  footer{
-    margin-top:16px; background:#111; border:3px solid #000; border-radius:10px;
-    text-align:center; padding:12px 14px; color:var(--yellow);
-    font-family:'Arial Black',Arial,sans-serif; font-size:9px;
-    letter-spacing:.22em; text-indent:.22em; text-transform:uppercase; line-height:2.1;
+  /* ── generic neon panel ── */
+  .panel{
+    border:1px solid rgba(5,242,255,.5); border-radius:10px;
+    background:rgba(6,2,20,.66); backdrop-filter:blur(2px);
+    box-shadow:inset 0 0 30px rgba(5,242,255,.06), 0 0 18px rgba(0,0,0,.4);
+    padding:clamp(14px,3vw,22px);
   }
-  footer a{ color:var(--lime); text-decoration:none; }
-  @media (prefers-reduced-motion: reduce){ .trip,.burst{ animation:none; } }
-  @media (max-width:700px){ .m-tl,.m-tr,.m-bl,.m-br{ display:none; } }
+  .creed{ margin-top:22px; text-align:center; font-size:clamp(13px,3.4vw,16px); line-height:1.7; }
+  .creed b{ color:var(--amber); text-shadow:0 0 10px rgba(255,217,59,.6); }
+  .creed .neon{ color:var(--hot); text-shadow:0 0 12px var(--hot); font-family:var(--fat);
+    letter-spacing:.04em; display:block; margin-top:12px; font-size:clamp(15px,4.6vw,26px);
+    text-transform:uppercase; }
+
+  .btns{ display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:22px; }
+  .btn{
+    display:inline-block; text-decoration:none; font-family:var(--fat);
+    font-size:12px; letter-spacing:.18em; text-indent:.18em; text-transform:uppercase;
+    padding:14px 22px; border-radius:8px; color:var(--bg);
+    background:linear-gradient(180deg,var(--cyan),#02a7c4); border:2px solid #063;
+    box-shadow:0 0 16px rgba(5,242,255,.55), 0 4px 0 #023a44;
+    transition:transform .08s;
+  }
+  .btn.alt{ background:linear-gradient(180deg,var(--hot),var(--magenta)); border-color:#5c0a2c;
+    box-shadow:0 0 16px rgba(255,42,109,.6), 0 4px 0 #5c0a2c; color:#fff; }
+  .btn.gold{ background:linear-gradient(180deg,var(--amber),var(--coral)); border-color:#5c2a00;
+    box-shadow:0 0 16px rgba(255,217,59,.6), 0 4px 0 #5c2a00; }
+  .btn:active{ transform:translateY(3px); box-shadow:0 0 10px rgba(5,242,255,.4), 0 1px 0 #023a44; }
+
+  /* ── the ritual: HOLD / BURN / RIP ── */
+  .ritual{ display:grid; gap:14px; margin-top:22px;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+  .card{ border:1px solid; border-radius:10px; padding:16px; background:rgba(6,2,20,.7);
+    box-shadow:inset 0 0 26px rgba(0,0,0,.4); }
+  .card:nth-child(1){ border-color:var(--cyan); box-shadow:inset 0 0 26px rgba(5,242,255,.1),0 0 16px rgba(5,242,255,.25); }
+  .card:nth-child(2){ border-color:var(--hot); box-shadow:inset 0 0 26px rgba(255,42,109,.1),0 0 16px rgba(255,42,109,.25); }
+  .card:nth-child(3){ border-color:var(--amber); box-shadow:inset 0 0 26px rgba(255,217,59,.1),0 0 16px rgba(255,217,59,.22); }
+  .card h3{ font-family:var(--fat); font-size:16px; letter-spacing:.14em; text-transform:uppercase; }
+  .card:nth-child(1) h3{ color:var(--cyan); text-shadow:0 0 10px var(--cyan); }
+  .card:nth-child(2) h3{ color:var(--hot); text-shadow:0 0 10px var(--hot); }
+  .card:nth-child(3) h3{ color:var(--amber); text-shadow:0 0 10px var(--amber); }
+  .card p{ margin-top:10px; font-size:13px; line-height:1.6; color:#cfe9ee; }
+
+  /* ── seasons ── */
+  .seasons{ margin-top:26px; }
+  .seasons .lbl{ text-align:center; font-size:11px; letter-spacing:.4em; text-indent:.4em;
+    text-transform:uppercase; color:var(--purple); text-shadow:0 0 10px var(--purple); }
+  .strip{ display:grid; gap:12px; margin-top:14px; grid-template-columns:repeat(4,1fr); }
+  @media (max-width:560px){ .strip{ grid-template-columns:repeat(2,1fr); } }
+  .season{ border:1px solid var(--purple); border-radius:10px; text-align:center; padding:16px 8px;
+    background:rgba(12,4,30,.7); box-shadow:inset 0 0 24px rgba(155,92,255,.12); }
+  .season em{ display:block; font-style:normal; font-size:9px; letter-spacing:.28em; text-indent:.28em;
+    text-transform:uppercase; opacity:.7; }
+  .season span{ display:block; margin-top:6px; font-family:var(--fat); font-size:17px; letter-spacing:.06em;
+    text-transform:uppercase; }
+  .season.live span{ color:var(--lime); text-shadow:0 0 12px var(--lime); }
+  .season.live em{ color:var(--lime); opacity:1; }
+  .season.soon span{ color:#6a5a8a; }
+  .season.soon em::after{ content:" · soon"; }
+
+  footer{ margin-top:30px; text-align:center; font-size:10px; letter-spacing:.24em; text-indent:.24em;
+    text-transform:uppercase; color:#8fd7e0; line-height:2.2; }
+  footer a{ color:var(--lime); text-decoration:none; text-shadow:0 0 8px rgba(155,227,79,.5); }
+  .ticker{ margin-top:8px; color:var(--amber); text-shadow:0 0 8px rgba(255,217,59,.4); }
+
+  @media (prefers-reduced-motion:reduce){
+    .crt,.cabinet::before,.caret,h1 .glitch{ animation:none; }
+  }
 </style>
 </head>
 <body>
-  <div class="trip" aria-hidden="true"></div>
+  <canvas id="grid" aria-hidden="true"></canvas>
+  <div class="crt" aria-hidden="true"></div>
 
-  <div class="board">
-    <span class="medal m-tl">✦</span><span class="medal m-tr">✦</span>
-    <span class="medal m-bl">✦</span><span class="medal m-br">✦</span>
-
-    <header class="bar">
-      <h1>Upperdeck Ripmaster 3030</h1>
-      <div class="star-row" title="four seasons a year">
-        <span class="star">I</span><span class="star">II</span>
-        <span class="star">III</span><span class="star">IV</span>
-      </div>
-    </header>
-
-    <section class="window">
-      <div class="burst" aria-hidden="true"></div>
-      <iframe src="cards/adrenochrome.html" title="Adrenochrome — live foil card" loading="lazy"
-        allow="accelerometer; gyroscope; magnetometer"></iframe>
-      <div class="window-cap">live foil · tilt your phone</div>
-    </section>
-
-    <div class="bar creed">
-      Psychedelic hyperfoil trading cards starring the wild old cartoon spirits —
-      voted into the deck by fire.<br>
-      <b>Burn the token. Choose the canon. Rip the pack.</b>
+  <div class="wrap">
+    <!-- boot terminal -->
+    <div class="term" id="term" role="img" aria-label="Retro boot sequence: RIPMASTER OS online. Burn the token. Rip the pack.">
+      <div class="row" id="boot"></div><span class="caret" id="caret"></span>
     </div>
 
-    <a class="deck-link" href="cards/">✦ browse the deck ✦</a>
+    <header>
+      <div class="kicker">Liquid Editions · Cohort 01</div>
+      <h1 data-txt="Upperdeck Ripmaster 3030">Upperdeck Ripmaster 3030
+        <span class="glitch c" aria-hidden="true">Upperdeck Ripmaster 3030</span>
+        <span class="glitch m" aria-hidden="true">Upperdeck Ripmaster 3030</span>
+      </h1>
+      <div class="stars" title="four seasons a year"><b>I</b><b>II</b><b>III</b><b>IV</b></div>
+    </header>
 
-    <section class="ritual">
-      <div class="mini"><div class="mini-title">I. Hold</div>
-        <div class="mini-body">One living ERC-20 with a bonding-curve market. Tokens are
-        votes not yet cast — potential energy standing in the open market.</div></div>
-      <div class="mini"><div class="mini-title">II. Burn</div>
-        <div class="mini-body">Each season opens a ballot of candidate cards. Burning
-        tokens casts votes — permanent, deflationary, on-chain. Conviction is
-        combustion.</div></div>
-      <div class="mini"><div class="mini-title">III. Rip</div>
-        <div class="mini-body">At the close block, the top eight are pressed into the
-        season pack — card lenses over the same market. Your burns are your rip
-        rights.</div></div>
+    <section class="cabinet">
+      <iframe src="cards/duke.html" title="Duke — live foil card" loading="lazy"
+        allow="accelerometer; gyroscope; magnetometer"></iframe>
+      <div class="cap">live foil · tilt it till it screams</div>
+    </section>
+
+    <div class="panel creed">
+      Sweet Jesus, look at them all. Somewhere past the edge of the market there's a
+      deck of psychedelic hyperfoil freaks — wild old cartoon spirits and gonzo frog
+      degenerates, voted in by fire and printed on pure bad craziness. No brakes, no
+      refunds, no adult supervision. You bought the ticket. Now take the ride.
+      <span class="neon">Burn the token · Choose the canon · Rip the pack</span>
+    </div>
+
+    <div class="btns">
+      <a class="btn" href="cards/">▚ Into the deck</a>
+      <a class="btn alt" href="cards/battle.html">⚔ Enter the arena</a>
+      <a class="btn gold" href="#ritual">◈ How it works</a>
+    </div>
+
+    <section class="ritual" id="ritual">
+      <div class="card"><h3>I · Hold</h3>
+        <p>One living ERC-20 riding a bonding curve straight up and sideways. Every
+        token is a vote you haven't screamed yet — potential energy, loaded and legal.</p></div>
+      <div class="card"><h3>II · Burn</h3>
+        <p>Each season the ballot goes up and the only ink that counts is fire. Burn
+        tokens to vote — permanent, deflationary, no refunds. Conviction is combustion.</p></div>
+      <div class="card"><h3>III · Rip</h3>
+        <p>At the close block the top freaks get pressed into the pack and the losers go
+        up in smoke. Your burns are your rip rights. Tear it open before the Fear sets in.</p></div>
     </section>
 
     <section class="seasons">
-      <div class="seasons-title">The First Year</div>
+      <div class="lbl">The First Savage Year</div>
       <div class="strip">
-        <div class="season"><em>Season I</em><span>Bloom</span></div>
-        <div class="season"><em>Season II</em><span>Melt</span></div>
-        <div class="season"><em>Season III</em><span>Fractal</span></div>
-        <div class="season"><em>Season IV</em><span>Void</span></div>
+        <div class="season live"><em>Season I</em><span>Bloom</span></div>
+        <div class="season live"><em>Season II</em><span>Melt</span></div>
+        <div class="season soon"><em>Season III</em><span>Fractal</span></div>
+        <div class="season soon"><em>Season IV</em><span>Void</span></div>
       </div>
     </section>
 
     <footer>
-      burn progress · gas weather · block sparkle<br>
-      <a href="https://superrare.com">superrare</a> · liquid editions cohort 01
+      burn progress · gas weather · block sparkle · pure bad craziness
+      <div class="ticker" id="ticker">▓ 122 spirits in the deck · 2 seasons live · the pack is open ▓</div>
+      <a href="https://superrare.com">superrare</a> · buy the ticket, take the ride
     </footer>
   </div>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── boot terminal typewriter ──
+  const lines = [
+    ['> RIPMASTER OS v3030 ', 'k'], ['[', ''], ['OK', 'g'], [']\n', ''],
+    ['> mounting liquid editions ....... ', 'k'], ['ONLINE\n', 'g'],
+    ['> reading the deck ............... ', 'k'], ['122 SPIRITS\n', 'a'],
+    ['> gas weather .................... ', 'k'], ['SAVAGE\n', 'm'],
+    ['> WARNING: ', 'm'], ['we can\'t stop here, this is bat country\n', ''],
+    ['> burn the token. rip the pack.', 'g'],
+  ];
+  const boot = document.getElementById('boot'), caret = document.getElementById('caret');
+  if (reduce) {
+    boot.innerHTML = lines.map(([t,c]) => c ? `<span class="${c}">${t}</span>` : t).join('');
+  } else {
+    let li = 0, ci = 0;
+    const tick = () => {
+      if (li >= lines.length) { return; }
+      const [txt, cls] = lines[li];
+      if (ci === 0 && cls) { boot.insertAdjacentHTML('beforeend', `<span class="${cls}"></span>`); }
+      const target = cls ? boot.lastElementChild : boot;
+      const ch = txt[ci++];
+      if (cls) target.textContent += ch; else target.append(ch);
+      if (ci >= txt.length) { li++; ci = 0; }
+      setTimeout(tick, ch === '\n' ? 180 : 16 + Math.random()*22);
+    };
+    tick();
+  }
+
+  // ── synthwave perspective grid on canvas ──
+  const cv = document.getElementById('grid'), ctx = cv.getContext('2d');
+  let W, H, DPR, stars = [];
+  const resize = () => {
+    DPR = Math.min(2, devicePixelRatio || 1);
+    W = cv.width = innerWidth * DPR; H = cv.height = innerHeight * DPR;
+    cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+    stars = Array.from({length: 90}, () => ({
+      x: Math.random()*W, y: Math.random()*H*0.52,
+      r: Math.random()*1.6*DPR + .3, tw: Math.random()*Math.PI*2
+    }));
+  };
+  addEventListener('resize', resize); resize();
+
+  let t = 0;
+  const draw = () => {
+    const horizon = H * 0.52;
+    // sky gradient
+    let sky = ctx.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, '#0a0118'); sky.addColorStop(.6, '#1a0636'); sky.addColorStop(1, '#3a0a5e');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, horizon);
+    // stars
+    for (const s of stars) {
+      const a = .35 + .45 * Math.sin(t*0.05 + s.tw);
+      ctx.fillStyle = `rgba(234,252,255,${a})`;
+      ctx.fillRect(s.x, s.y, s.r, s.r);
+    }
+    // sun with scan-bands
+    const sunR = Math.min(W, H) * 0.17, cx = W/2, cy = horizon - sunR*0.15;
+    let sg = ctx.createLinearGradient(0, cy - sunR, 0, cy + sunR);
+    sg.addColorStop(0, '#ffe93b'); sg.addColorStop(.5, '#ff6b57'); sg.addColorStop(1, '#ff2a6d');
+    ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, sunR, 0, Math.PI*2); ctx.clip();
+    ctx.fillStyle = sg; ctx.fillRect(cx - sunR, cy - sunR, sunR*2, sunR*2);
+    ctx.fillStyle = '#0a0118';
+    for (let i = 0; i < 9; i++) { const bh = (i+1)*1.4*DPR; ctx.fillRect(cx - sunR, cy + sunR*0.12 + i*(sunR*0.13), sunR*2, bh); }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,60,175,.5)'; ctx.lineWidth = DPR;
+    ctx.beginPath(); ctx.arc(cx, cy, sunR, 0, Math.PI*2); ctx.stroke();
+    // ground
+    ctx.fillStyle = '#07010f'; ctx.fillRect(0, horizon, W, H - horizon);
+    ctx.lineWidth = DPR; ctx.strokeStyle = 'rgba(255,42,109,.7)';
+    ctx.shadowColor = 'rgba(255,42,109,.7)'; ctx.shadowBlur = 8*DPR;
+    // horizontal lines scrolling toward viewer
+    const speed = reduce ? 0 : 1;
+    const phase = (t * 0.012 * speed) % 1;
+    for (let i = 0; i < 16; i++) {
+      let f = (i + phase) / 16;              // 0..1 near->far reversed
+      let y = horizon + (H - horizon) * (f*f);
+      ctx.globalAlpha = 0.15 + 0.85*(1-f);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+    // vertical lines converging to vanishing point
+    ctx.globalAlpha = .6;
+    for (let i = -10; i <= 10; i++) {
+      const vx = cx + i * (W*0.06);
+      ctx.beginPath(); ctx.moveTo(cx + i*(W*0.5/10), horizon); ctx.lineTo(cx + i*(W*1.9/10), H); ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    t++;
+    if (!reduce) requestAnimationFrame(draw);
+  };
+  draw();
+  if (reduce) draw(); // one static frame
+})();
+</script>
+<script src="theme.js"></script>
 </body>
 </html>
