@@ -29,6 +29,15 @@ ballot contract, no vault contract, nothing else to deploy. That keeps this shor
 The single thing only you can do is the deploy itself — it's signed by your wallet's
 private key, which lives only on your machine. Everything around it, I do.
 
+### Wallets on record
+- **Mainnet / SuperRare artist wallet:** `0x432D71bA14D2602B566dD9e3e098E24859d166c9`
+  — the real Season-1 edition **must** be deployed from this address so it surfaces
+  on the SuperRare.com profile (the golden rule). Public address only; the key stays
+  with the artist.
+- **Sepolia deployer:** a *fresh throwaway* wallet (TBD) — do **not** load the
+  mainnet key above into a plaintext testnet CLI config. Testnet doesn't surface on
+  the profile, so a burner is both correct and safer.
+
 ---
 
 ## Your shopping list (get these 4 things first)

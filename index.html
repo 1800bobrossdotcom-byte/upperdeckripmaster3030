@@ -399,9 +399,74 @@
   /* a ticker must scroll to be readable — keep it moving even under reduce-motion,
      just a little calmer. hover pauses it so you can read a sighting. */
   @media (prefers-reduced-motion:reduce){ .tk-run{ animation-duration:120s; } }
+
+  /* ── intro splash: animated Ripmaster logo + founder transmission. Plays every load, ~5s, skippable. ── */
+  #introSplash{ position:fixed; inset:0; z-index:99999; display:grid; place-items:center;
+    background:radial-gradient(120% 100% at 50% 0%, #180a2e, #04040a 70%); overflow:hidden;
+    cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  #introSplash.gone{ opacity:0; pointer-events:none; transition:opacity .5s ease; }
+  .intro-inner{ display:flex; flex-direction:column; align-items:center; gap:clamp(12px,3vh,24px);
+    padding:18px; max-width:min(680px,94vw); }
+  .intro-wordmark{ width:min(540px,86vw); filter:drop-shadow(0 6px 24px rgba(255,42,217,.35));
+    animation:introDrop .8s cubic-bezier(.3,1.5,.4,1) both; }
+  @keyframes introDrop{ from{ transform:translateY(-26px) scale(.7); opacity:0; } }
+  .intro-frame{ position:relative; border-radius:16px; overflow:hidden; border:2px solid rgba(43,255,128,.55);
+    box-shadow:0 0 0 3px #04040a, 0 0 40px rgba(43,255,128,.35), 0 24px 60px -12px #000; background:#000;
+    animation:introFrame .7s ease-out both .2s; }
+  @keyframes introFrame{ from{ transform:scale(.9); opacity:0; } }
+  #introVid{ display:block; width:min(520px,86vw); max-height:52vh; height:auto; background:#000; }
+  .intro-roundel{ position:absolute; left:10px; bottom:10px; width:clamp(46px,10vw,70px); z-index:2;
+    filter:drop-shadow(0 2px 8px rgba(0,0,0,.6)); animation:introSpin 6s linear infinite; }
+  @keyframes introSpin{ to{ transform:rotate(360deg); } }
+  .intro-cap{ font-family:var(--fat,'Arial Black',sans-serif); font-size:11px; letter-spacing:.28em;
+    text-transform:uppercase; color:#8bffbb; text-shadow:0 0 10px rgba(43,255,128,.5); animation:introBlink 1.2s steps(2) infinite; }
+  @keyframes introBlink{ 50%{ opacity:.4; } }
+  .intro-skip{ position:absolute; right:16px; top:16px; z-index:3; font-family:var(--fat,'Arial Black',sans-serif);
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#04040a; cursor:pointer;
+    background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:2px solid #01130a; border-radius:999px;
+    padding:9px 18px; box-shadow:0 4px 0 #01130a, 0 0 16px rgba(43,255,128,.4); }
+  .intro-skip:active{ transform:translateY(3px); box-shadow:0 1px 0 #01130a; }
+  .intro-unmute{ position:absolute; left:16px; top:16px; z-index:3; width:42px; height:42px; border-radius:50%;
+    border:2px solid #063; background:rgba(2,16,9,.9); color:#8bffbb; font-size:16px; cursor:pointer; }
+  .intro-bar{ position:absolute; left:0; bottom:0; height:4px; width:0;
+    background:linear-gradient(90deg,#2bff80,#27f7e4,#ff2ad9); box-shadow:0 0 12px rgba(43,255,128,.6);
+    animation:introBar 5s linear forwards; }
+  @keyframes introBar{ to{ width:100%; } }
+  @media (prefers-reduced-motion:reduce){ .intro-wordmark,.intro-frame,.intro-roundel,.intro-cap{ animation:none; } }
 </style>
 </head>
 <body>
+  <div id="introSplash" role="dialog" aria-label="Intro — transmission from the founder">
+    <div class="intro-bar" aria-hidden="true"></div>
+    <button type="button" class="intro-skip" id="introSkip">Skip ▸</button>
+    <button type="button" class="intro-unmute" id="introUnmute" aria-label="toggle sound" title="sound">🔇</button>
+    <div class="intro-inner">
+      <img class="intro-wordmark" src="marquee-header.webp" alt="Upperdeck Ripmaster 3030">
+      <div class="intro-frame">
+        <video id="introVid" src="HAL%20MITT.mp4" muted playsinline autoplay preload="auto"></video>
+        <img class="intro-roundel" src="ripmaster-roundel.svg" alt="" aria-hidden="true">
+      </div>
+      <div class="intro-cap">▸ transmission from the founder ◂ &nbsp; tap anywhere to skip</div>
+    </div>
+  </div>
+  <script>
+  /* intro splash — animated logo + founder video, EVERY load, ~5s, skippable (tap / Skip / Esc). */
+  (() => {
+    const s = document.getElementById('introSplash'); if (!s) return;
+    const v = document.getElementById('introVid');
+    let dead = false;
+    const kill = () => { if (dead) return; dead = true; s.classList.add('gone'); try { v.pause(); } catch {} setTimeout(() => s.remove(), 520); };
+    try { v.muted = true; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch {}
+    document.getElementById('introSkip').addEventListener('click', e => { e.stopPropagation(); kill(); });
+    const um = document.getElementById('introUnmute');
+    um.addEventListener('click', e => { e.stopPropagation(); v.muted = !v.muted; um.textContent = v.muted ? '🔇' : '🔊'; if (!v.muted) v.play().catch(() => {}); });
+    s.addEventListener('click', kill);
+    addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') kill(); });
+    v.addEventListener('ended', kill);
+    v.addEventListener('error', kill);       // broken/missing video never hangs the splash
+    setTimeout(kill, 5000);                   // hard 5s cap
+  })();
+  </script>
   <canvas id="rain" aria-hidden="true"></canvas>
   <div class="lm" aria-hidden="true"></div>
   <div class="crt" aria-hidden="true"></div>
