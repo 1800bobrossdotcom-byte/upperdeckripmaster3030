@@ -175,11 +175,13 @@
             <span class="k">Base total</span><span class="v">Σ 15</span>
             <span class="k">Amplifier</span><span class="v" id="b-trig">STILL AIR ⚡+4</span>
             <span class="k">Rarity</span><span class="v" id="b-rarity">—</span>
+            <span class="k">Why rated</span><span class="v" id="b-why" style="font-size:.78em;text-align:right;max-width:62%">—</span>
             <span class="k">Battles W/L</span><span class="v" id="b-wl">0 / 0</span>
             <span class="k">Times wagered</span><span class="v" id="b-wag">0</span>
             <span class="k">Burns survived</span><span class="v" id="b-burn">0</span>
             <span class="k">Floor</span><span class="v" id="b-floor">—</span>
           </div>
+          <div class="factoid" id="b-fact" style="margin-top:5%;font-size:.78em;line-height:1.55;color:#5a3413"></div>
           <div class="trigger-live" id="b-live">trigger status · reading chain…</div>
           <div class="chain" id="chain"></div>
         </div>
@@ -187,6 +189,13 @@
     </div>
   </div>
   <div class="flip-hint">tap to flip ⟲</div>
+  <div id="court" style="display:flex;align-items:center;justify-content:center;gap:9px;margin-top:8px;font-family:'Arial Black',Arial,sans-serif">
+    <button id="v-up" type="button" aria-label="burn to promote" style="width:36px;height:36px;border-radius:9px;border:2px solid #0a2a17;background:#9be34f;color:#0a2a17;font-size:15px;cursor:pointer">▲</button>
+    <b id="v-net" style="min-width:46px;text-align:center;font-size:14px;color:#eafff2;text-shadow:0 1px 2px #000">0</b>
+    <button id="v-hodl" type="button" aria-label="burn to HODL" style="width:36px;height:36px;border-radius:9px;border:2px solid #06131f;background:#63b3ff;color:#04121f;font-size:14px;cursor:pointer">⛨</button>
+    <button id="v-dn" type="button" aria-label="burn to demote" style="width:36px;height:36px;border-radius:9px;border:2px solid #2a0a0a;background:#ff6b57;color:#2a0a0a;font-size:15px;cursor:pointer">▼</button>
+  </div>
+  <div id="v-toast" style="text-align:center;font:11px 'Courier New',monospace;letter-spacing:.06em;color:#b8ffd6;opacity:.7;transition:opacity .25s;margin-top:5px;min-height:14px">the rarity court · burn $UR3030 to vote</div>
   <button class="bless" id="bless"><span>✦ tap to activate the foil ✦</span></button>
 
 <script>
@@ -250,6 +259,8 @@
     if (d.title) { set('b-title', d.title.toUpperCase()); }
     set('b-lore', d.lore); set('b-omen', d.omen ? '“' + d.omen + '”' : '');
     set('b-rarity', d.rarity);
+    const _tags = (d.traits && d.traits.tags) || []; if (_tags.length) $('b-why').textContent = _tags.join(' · ');
+    if (d.factoid) $('b-fact').innerHTML = '<b style="letter-spacing:.08em">◉ DID YOU KNOW</b><br>' + d.factoid;
     const p = d.provenance || {};
     set('b-wl', `${p.battlesWon ?? 0} / ${p.battlesLost ?? 0}`);
     set('b-wag', p.timesWagered ?? 0);
@@ -286,6 +297,24 @@
     if (block != null) chainEl.textContent = '⛓ ' + (cfg.label || 'block') + ' ' + block.toLocaleString('en-US');
   };
   breathe(); setInterval(breathe, 45000);
+
+  // ─── the rarity court: burn $UR3030 to vote on THIS card (urm_court, same as the gallery) ───
+  const SLUG = "small-counsel";
+  const V = () => { let r; try { r = JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { r = {}; }
+    Object.keys(r).forEach(k => { if (typeof r[k] === 'number') r[k] = { net:r[k], hodl:0 }; }); return r; };
+  const N = () => { const e = V()[SLUG] || { net:0, hodl:0 }; const el = $('v-net');
+    if (el){ el.textContent = (e.net>0?'+':'')+e.net + (e.hodl>0?' ⛨'+e.hodl:''); el.style.color = e.net>0?'#9be34f':e.net<0?'#ff6b57':'#eafff2'; } };
+  let vtm; const vsay = m => { const t = $('v-toast'); if(!t) return; t.textContent = m; t.style.opacity = 1;
+    clearTimeout(vtm); vtm = setTimeout(() => { t.style.opacity = .6; t.textContent = 'the rarity court · burn $UR3030 to vote'; }, 2300); };
+  const vote = k => { const v = V(), e = v[SLUG] || { net:0, hodl:0 };
+    if (k==='up'){ e.net += 1; vsay('▲ 1 $UR3030 burned to promote'); }
+    else if (k==='hodl'){ e.hodl += 1; vsay('⛨ 1 $UR3030 to HODL — buffers downvotes'); }
+    else { if (e.hodl>0){ e.hodl -= 1; vsay('▼ absorbed by the HODL buffer — burn still counts'); } else { e.net -= 1; vsay('▼ 1 $UR3030 burned to demote'); } }
+    v[SLUG] = e; try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {} N(); };
+  $('v-up') && ($('v-up').onclick = () => vote('up'));
+  $('v-hodl') && ($('v-hodl').onclick = () => vote('hodl'));
+  $('v-dn') && ($('v-dn').onclick = () => vote('dn'));
+  N();
 })();
 </script>
 </body>
