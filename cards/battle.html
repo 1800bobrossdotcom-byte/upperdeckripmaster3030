@@ -211,9 +211,16 @@
   /* center info column — VS + pot + battle info */
   .fo-mid{ display:flex; flex-direction:column; align-items:center; gap:5px; padding:0 2px;
     transform:translate(calc(var(--px)*8px), calc(var(--py)*5px)); }
-  .fo-vs-mark{ font-family:var(--fat); font-size:clamp(26px,7vw,50px); color:#fff;
-    text-shadow:0 0 5px #ff2ad9, 0 0 20px #ff2ad9, 0 0 34px #ff2ad9; animation:foVs 1.1s ease-in-out infinite; }
-  @keyframes foVs{ 50%{ transform:scale(1.12); } }
+  /* Street-Fighter VS: skewed chrome→red, dark outline, red slash behind */
+  .fo-vs-mark{ font-family:var(--fat); font-size:clamp(36px,10vw,72px); font-style:italic; letter-spacing:-.03em;
+    display:inline-block; position:relative; transform:skewX(-9deg);
+    background:linear-gradient(180deg,#fff 8%,#ffe93b 36%,#ff7a1e 64%,#ff2a6d 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+    filter:drop-shadow(2px 3px 0 #12021f) drop-shadow(0 0 3px #12021f) drop-shadow(0 0 22px rgba(255,42,109,.75));
+    animation:foVs 1.1s ease-in-out infinite; }
+  .fo-vs-mark::before{ content:""; position:absolute; left:-26%; right:-26%; top:43%; height:15%; z-index:-1;
+    background:linear-gradient(90deg,transparent,#ff2a6d 38% 62%,transparent); transform:skewY(-9deg); filter:blur(1px); opacity:.9; }
+  @keyframes foVs{ 50%{ transform:skewX(-9deg) scale(1.09); } }
   .fo-pot{ font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); font-family:var(--fat);
     text-align:center; text-shadow:0 0 10px rgba(255,210,59,.4); background:rgba(1,8,4,.6); padding:2px 9px; border-radius:99px; white-space:nowrap; }
   .fo-ante{ font-size:9px; letter-spacing:.06em; color:var(--amber); font-family:var(--fat); }
@@ -296,6 +303,13 @@
   .vault .cnt{ color:var(--amber); }
   a.back{ color:var(--lime); text-shadow:0 0 8px rgba(43,255,128,.5) !important; }
   .sub{ color:#5fcf8f; }
+  /* ── arena title: the chrome/gold logo with a pulsing glow + sparkle particles ── */
+  .arena-title-wrap{ position:relative; width:min(560px,90vw); margin:6px auto 0; aspect-ratio:1456/816; }
+  .arena-particles{ position:absolute; inset:-14% -8%; width:116%; height:128%; pointer-events:none; z-index:0; }
+  .arena-title{ position:relative; z-index:1; width:100%; height:auto; display:block;
+    filter:drop-shadow(0 0 16px rgba(43,255,128,.5)) drop-shadow(0 0 40px rgba(255,42,217,.35));
+    animation:arenaGlow 3s ease-in-out infinite; }
+  @keyframes arenaGlow{ 50%{ filter:drop-shadow(0 0 26px rgba(43,255,128,.8)) drop-shadow(0 0 62px rgba(255,42,217,.55)); } }
 </style>
 </head>
 <body>
@@ -306,7 +320,10 @@
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
     <a class="back" href="binder.html" style="margin-left:14px">▤ the binder</a>
-    <h1>The Arena</h1>
+    <div class="arena-title-wrap">
+      <canvas class="arena-particles" id="arenaParticles" aria-hidden="true"></canvas>
+      <img class="arena-title" src="../the-arena.png" alt="The Arena" width="1456" height="816">
+    </div>
     <div class="sub">slam · wager · collect</div>
 
     <div class="panel">
@@ -722,5 +739,36 @@
 </script>
 <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
+<script>
+/* arena title sparkle particles — rising twinkles in the acid palette (calmer, but still moving, under reduce-motion) */
+(() => {
+  const cv = document.getElementById('arenaParticles'); if (!cv) return;
+  const wrap = cv.parentElement, ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const COLORS = ['#2bff80', '#27f7e4', '#ff2ad9', '#ffd23b', '#ffffff'];
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  let W = 0, H = 0, parts = [], raf = 0;
+  function size(){ const r = wrap.getBoundingClientRect(); W = (r.width || 300) * 1.16; H = (r.height || 170) * 1.28;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  const spawn = () => ({ x: Math.random() * W, y: H + Math.random() * 30, vy: -(0.25 + Math.random() * 0.7),
+    vx: (Math.random() - .5) * 0.3, r: 0.8 + Math.random() * 2.1, c: COLORS[(Math.random() * COLORS.length) | 0],
+    ph: Math.random() * 6.28, tw: 0.03 + Math.random() * 0.05 });
+  function seed(){ parts = Array.from({ length: 46 }, () => { const p = spawn(); p.y = Math.random() * H; return p; }); }
+  function frame(){
+    ctx.clearRect(0, 0, W, H);
+    for (const p of parts){
+      p.y += p.vy * (reduce ? .5 : 1); p.x += p.vx; p.ph += p.tw;
+      if (p.y < -8) Object.assign(p, spawn());
+      const a = (0.35 + 0.45 * (Math.sin(p.ph) * .5 + .5)) * Math.min(1, (H - p.y) / H + .3);
+      ctx.globalAlpha = a; ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    raf = requestAnimationFrame(frame);
+  }
+  const boot = () => { size(); seed(); cancelAnimationFrame(raf); frame(); };
+  boot(); addEventListener('resize', size);
+})();
+</script>
 </body>
 </html>
