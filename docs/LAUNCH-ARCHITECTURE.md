@@ -130,6 +130,36 @@ the next season's** published queue and field. The one hard on-chain action is t
 burn — real, irreversible, and the only thing the render trusts. All public copy must
 say this plainly: *votes are community signal; burns are consensus.*
 
+### 2.6 Wallet & how users interact (where the wallet lives)
+
+Three surfaces, and **wallet-connect + signing happen at exactly one of them — the
+top-level page — never inside an embedded card iframe.** The iframe is the painting;
+the wallet lives in the gallery around it.
+
+1. **The render / lens (the card art) — read-only, NO wallet.** The card page is the
+   artwork the render contract points to (`tokenURI` → `animation_url`). Wherever it's
+   embedded — SuperRare's edition page, a marketplace, our own homepage zoom — it's a
+   sandboxed iframe with no injected provider and no reason to ask for one; it only
+   **reads** public chain state over RPC to render live. This is why our card pages
+   already no-op their interactive/wallet bits when framed (`window.self !== window.top`)
+   and render display-only. **Never** trigger a wallet prompt from inside the lens.
+2. **SuperRare.com — native buy/sell, their wallet UI.** Because `$UR3030` is a standard
+   ERC-20 Liquid Edition, SuperRare surfaces it on the artist's profile with *their own*
+   connect-wallet + trade UI (backed by the Uniswap-v4 pool). Anyone can buy/sell the
+   token there with zero code from us — the "collect the edition" path.
+3. **Our custom front end (upperdeckripmaster3030.com) — the game actions, our wallet.**
+   The game-specific moves aren't native SuperRare buttons, so they live on our
+   **top-level** site, where we connect a wallet (injected **EIP-1193 / MetaMask** on
+   desktop, **WalletConnect** for mobile), on the right chain, and send the txs:
+   - **rip a pack** = buy ~350 `$UR3030` on the pool → `burn()` it (two txs, or one via a
+     small router/helper the *user* calls — still just the token + pool, no game contract);
+   - **voluntary/conviction burns** toward the milestone queue;
+   - **season-end compression** (a burn) — all from the top window.
+
+**Sepolia dress rehearsal** exercises exactly this: deploy the edition via the Rare CLI
+on Sepolia, wire the render, connect a test wallet to Sepolia on our site, and run
+rip (buy+burn) → milestone crossings → a compression. See §4.
+
 ## 3. What dies, what survives
 
 | Phase-2 contract mechanic | Launch replacement |
