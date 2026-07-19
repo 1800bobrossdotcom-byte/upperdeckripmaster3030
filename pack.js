@@ -116,13 +116,24 @@
     const c = cards[cur]; if (!c || zoomEl) return;
     const zoom = document.createElement('div');
     zoom.className = 'zoom';
+    // Poster the card art instantly (already cached from the reveal) so the panel is
+    // never a blank black box; the live card page fades in on top once it loads.
     zoom.innerHTML =
-      '<div class="zoom-panel"><iframe src="cards/' + esc(c.slug) + '.html" title="' + esc(c.title) + ' — live card"' +
-      ' allow="accelerometer; gyroscope; magnetometer"></iframe></div>' +
+      '<div class="zoom-panel">' +
+        '<img class="zoom-poster" src="cards/' + esc(c.art || '') + '" alt="' + esc(c.title) + '" onerror="this.style.display=\'none\'">' +
+        '<iframe src="cards/' + esc(c.slug) + '.html" title="' + esc(c.title) + ' — live card" loading="eager"' +
+        ' allow="accelerometer; gyroscope; magnetometer"></iframe>' +
+        '<span class="zoom-spin">summoning live card…</span>' +
+      '</div>' +
       '<button type="button" class="zoom-back">◀ back to the pull</button>';
     document.body.appendChild(zoom);
     zoomEl = zoom;
     const panel = zoom.querySelector('.zoom-panel');
+    const frame = panel.querySelector('iframe');
+    // reveal the live page when it finishes; hard-cap so it never hangs on the poster
+    const showFrame = () => frame.classList.add('ready');
+    frame.addEventListener('load', showFrame);
+    setTimeout(showFrame, 6000);
     const from = document.getElementById('pvCard').getBoundingClientRect();
     requestAnimationFrame(() => {
       const to = panel.getBoundingClientRect();

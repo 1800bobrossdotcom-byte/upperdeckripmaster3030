@@ -73,28 +73,54 @@ so-far, all of it auditable from the burn txs themselves.
 balances. Holding pack-scale amounts unlocks binder/arena views; whale-scale holdings
 can unlock marquee states. No contract needed.
 
-### 2.4 The Companion 721 Lens Collection → every card can end as a 1/1
+### 2.4 Season end → the ownership layer (four kinds of lens)
 
-Via SuperRare's **assisted setup**, at the right moments:
+During a season, "cards" are shared render-states; "owning" a card is a **rip-claim**
+tracked from your burn txs (site-layer at launch — there is no card token). At season
+end the Companion 721 Lens Collection (assisted setup) is where ownership becomes real,
+resolved on **two independent axes**: *survived?* (beat the milestones) and *cornered?*
+(does one wallet hold a card's **entire** claim set).
 
-- **The 1/1 marquee — *Lovebeing*** — its own lens over the market (sealed, released later).
-- **Season end — the survivors:** the **77 survivors** mint as **1/1 lenses** — each
-  rendering the shared market through one card's art. The standard deck becomes a
-  real, ownable set.
-- **Season end — the Compression rite:** every *retired* card faces a choice. The
-  collector who holds its **full claim set** (all rip-claims of that card, tracked
-  from the season's burn txs — "cornering the edition," site-layer) may either
-  **let it stand as ash**, or **compress it**: burn a compression cost in `$UR3030`
-  and the card is reborn as a **1/1 lens** — retired from the deck, alive as a
-  collectible. Uncompressed retirees stay pure ash.
-- **Ash Trophies:** the site records which address's burn tx crossed each milestone
-  (the "final blow"); at season end those keepers are offered trophy lenses. The
-  emotional reward survives — as art, not as a contract payout.
+A **1/1 means one owner, one object** — so a card is a 1/1 **only** when cornered.
+Survival does not make a 1/1; a survivor held by many is held by many.
 
-**The end state:** potentially the **entire original 196** lives on as 1/1
-collectible cards — 77 survivor lenses + up to 119 compressed 1/1s — a permanent
-museum of the field that no longer exists. Nothing is deleted; everything is either
-a survivor, a reborn 1/1, or ash with a name on it.
+- **Deck lenses — the 77 survivors (the playable deck).** Each surviving card mints as a
+  **collectible lens edition sized to its surviving holders** — you own your serial
+  (e.g. *Moon Cat #3 / 8*). These are **buy / sell / trade** on the marketplace and are
+  the cards you actually play. A survivor only two wallets held becomes a **2-edition**
+  lens; one forty wallets held, a 40-edition — **scarcity is emergent, by provenance,
+  not decree.** (Edition sizes finalized in assisted setup; claim-tracking is site-layer
+  until the mint.)
+- **1/1 lenses — the Compression rite (any fully-cornered card).** Hold **100%** of a
+  card — survivor *or* retired — and you may **compress**: burn a compression cost in
+  `$UR3030` and collapse every claim into a **single 1/1 lens**, pulled out of
+  circulation (its deck edition ceases). Cornering a *survivor* into a 1/1 is the apex
+  flex; cornering a *retired* card **rescues it from ash**.
+- **Ash + Ash-Trophy lenses.** Retired cards **no one corners stay ash** (gone for good).
+  Whoever's burn crossed each milestone (the "final blow") is offered a soulbound
+  **Ash-Trophy lens** — the reward is art, not a token payout.
+- **The marquee — *Lovebeing*** — always the sealed **1/1**.
+
+**The honest end state:** they do **not** all become 1/1s. Every survivor lives on as a
+tradeable **deck edition**; every *fully-cornered* card (survivor or retired) can be
+pulled to a **1/1**; the uncornered dead stay **ash**. The dream — "the whole 196 live
+on" — is a *reachable* outcome (corner and compress enough of them), not an automatic one.
+
+### 2.4a Provenance & stats compound across seasons
+
+Cards that survive into later seasons carry their record, and the render reads it:
+**seasons survived, cumulative burn withstood, holder count, final-blow trophies.** Two
+native effects (the render already reads live + historical state — no new contract):
+
+- **Provenance** — a multi-season survivor shows its history on the lens; a card that
+  outlived three culls is visibly older and rarer than a first-season pull.
+- **Stats** — a card's **ATK / DEF / trigger harden with longevity**, so a battle-tested
+  survivor out-plays a fresh one.
+
+The deck becomes a **living pedigree**: the longer a card lasts, the more it's worth — in
+scarcity, in story, and in play. This is also the incentive to *not* just corner-and-1/1
+everything: a card left in the living deck keeps accruing provenance; a compressed 1/1
+freezes it forever at that moment. Two different kinds of value, by design.
 
 ### 2.5 Court, arena, binder → site-layer (honest about it)
 
@@ -108,11 +134,12 @@ say this plainly: *votes are community signal; burns are consensus.*
 
 | Phase-2 contract mechanic | Launch replacement |
 |---|---|
-| ERC-1155 card copies | render-states of the one edition + rip history |
+| ERC-1155 card copies (in-season) | render-states of the one edition + your rip-claims (site-layer) |
+| ERC-1155 editions (at season end) | **deck lenses** — each survivor an ERC-721 lens edition sized to its holders (the tradeable playable deck) |
 | `ripPack()` mint + toll | guided buy + `burn()` (~350; full burn) |
 | Send/trade/wager tolls | site-side play; no toll (nothing to toll) |
 | On-chain rarity court | site-side votes → next-season queue |
-| `destroyEdition` / corner | burn milestones + the **Compression rite** (corner a retired card's claim set → burn to compress it into a 1/1 lens, or let it stand as ash) |
+| `destroyEdition` / corner | burn milestones (collective cull) + the **Compression rite** (corner ANY card's full claim set → burn → a 1/1 lens; else survivors stay editioned deck lenses, uncornered retirees stay ash) |
 | House reward pool + bounty | Ash-Trophy lenses at season end |
 | Creator cut (upvote → artist) | the artist's position in / around the edition (cohort terms) |
 | Ash Trophy ERC-1155 ids | trophy lenses in the 721 collection |

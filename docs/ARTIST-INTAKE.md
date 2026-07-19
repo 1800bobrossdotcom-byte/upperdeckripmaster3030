@@ -33,12 +33,16 @@ flagged **[ARTIST TO SUPPLY]**.
 > schedule**: every time cumulative burn crosses the next milestone, the next card in
 > the weakest-first retirement queue turns to ash in the render — 119 milestones,
 > escalating (first card ~15k burned, the last near 4.36M ≈ a sold-out season of
-> packs), until a standard deck of **77 survivors** locks in. The rarity court, arena,
-> and binder run site-side as community signal; **burns are the consensus**. At season
-> end the survivors — and Ash-Trophy honors for whoever's burn landed each final blow —
-> mint as a **Companion 721 Lens Collection** (assisted setup). The render reads live
-> market state (`getMarketState`) and burn progress, so the art evolves with price and
-> with the fire. Four seasons a year, on the calendar: Summer, Fall, Winter, Spring.
+> packs), until a standard deck of **77 survivors** locks in. At season end those
+> survivors mint as a **Companion 721 Lens Collection** (assisted setup): each is a
+> **collectible lens edition sized to its holders** — the tradeable playable deck.
+> A **1/1** is always *earned* — corner a card's whole claim set (survivor or retired)
+> and **compress** it (one last burn) into a single 1/1; uncornered retirees stay ash,
+> final blows earn Ash-Trophy lenses, and cards that survive into later seasons accrue
+> **provenance and stronger stats**. The rarity court, arena, and binder run site-side
+> as signal; **burns are the consensus**. The render reads live market state
+> (`getMarketState`) and burn progress, so the art evolves with price and with the fire.
+> Four seasons a year, on the calendar: Summer, Fall, Winter, Spring.
 
 **Collector Value**
 

@@ -191,9 +191,9 @@ S.push(slide('Seasons · ash or a 1/1', `
     <div class="sea"><em>Season IV</em><b>SPRING</b><span>soon</span></div>
   </div>
   <ul class="bullets wide">
-    <li>Each season <b>opens a full field</b> and the crowd burns it down the milestone queue to <b>77 survivors</b>, who mint as <b>1/1 lenses</b> — the standard deck, ownable.</li>
-    <li><b>The Compression rite:</b> corner a retired card's claim set and choose — let it <b>stand as ash</b>, or burn the compression cost and it is <b>reborn as a 1/1</b>. Land a final blow, claim the <b>Ash-Trophy</b> lens.</li>
-    <li><b>The end state:</b> potentially the entire original <b>196 live on as 1/1 collectibles</b> — a permanent museum of a field that no longer exists.</li>
+    <li><b>Deck lenses — the 77 survivors:</b> each mints as a <b>collectible lens edition sized to its holders</b> (own your serial, <i>Moon Cat #3/8</i>) — the <b>playable deck</b> you buy, sell, and trade. Scarcity is emergent: fewer holders → smaller edition.</li>
+    <li><b>1/1 lenses — Compression:</b> hold <b>100%</b> of a card (survivor <i>or</i> retired) and burn to collapse it into a single <b>1/1</b>. A 1/1 is always <b>earned by owning the whole thing</b> — survival alone never mints one. Final-blow burners get an <b>Ash-Trophy</b> lens; the marquee stays the sealed 1/1.</li>
+    <li><b>Provenance compounds:</b> survive into later seasons and a card carries its record — and its <b>stats harden with age</b>. The deck is a living pedigree.</li>
   </ul>`, C.cyan));
 
 // 8 — steady not a pump

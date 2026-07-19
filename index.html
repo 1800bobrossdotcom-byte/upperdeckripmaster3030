@@ -275,7 +275,15 @@
     border:1px solid var(--phosdim); background:#020a05; will-change:transform;
     box-shadow:0 0 44px rgba(43,255,128,.3), 0 34px 90px rgba(0,0,0,.7); }
   .zoom-panel.go{ transition:transform .55s cubic-bezier(.35,1.1,.3,1), opacity .45s; }
-  .zoom-panel iframe{ width:100%; height:100%; border:0; display:block; }
+  /* instant art poster behind the live iframe so the panel is never a blank black box */
+  .zoom-poster{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
+  .zoom-spin{ position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:2;
+    font-family:var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos);
+    background:rgba(1,10,5,.7); border:1px solid var(--phosdim); border-radius:999px; padding:5px 12px; }
+  .zoom-panel iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; display:block;
+    z-index:1; opacity:0; transition:opacity .45s ease; }
+  .zoom-panel iframe.ready{ opacity:1; }
+  .zoom-panel iframe.ready ~ .zoom-spin{ display:none; }
   .zoom-back{ position:fixed; top:14px; left:14px; z-index:121; cursor:pointer;
     font-family:var(--fat); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
     padding:12px 18px; border-radius:999px; border:2px solid var(--ink); color:var(--void);
@@ -361,11 +369,11 @@
           count; each milestone crossed turns the next card to <strong>ash in the render</strong>,
           down to the standard <strong>77-card deck</strong>. Court votes and arena slams are the
           crowd's signal; <strong>burns are the consensus</strong>.</p></div>
-        <div class="card"><div class="spec">Rite §4 · Compression</div><h3><b>4</b> Ash — or a 1/1</h3>
-          <p>Season's end, every card gets a fate: the <strong>77 survivors mint as 1/1 lenses</strong>.
-          Corner a retired card's claims and choose — let it stand as ash, or <strong>compress it</strong>
-          (one last burn) into a <strong>1/1 collectible</strong>. Land a final blow, claim the
-          <strong>Ash Trophy</strong>. The whole 196 can live forever as 1/1s.</p></div>
+        <div class="card"><div class="spec">Rite §4 · Lenses</div><h3><b>4</b> Deck, 1/1, or ash</h3>
+          <p>Season's end, the <strong>77 survivors mint as tradeable deck lenses</strong> — your serial
+          of the card, sized to how few held it. Corner a card's <strong>whole claim set</strong> — survivor
+          or retired — and <strong>compress it into a 1/1</strong>. The uncornered dead stay ash; final blows
+          earn an <strong>Ash Trophy</strong>. Survive more seasons, gain provenance &amp; stats.</p></div>
       </div>
       <div class="one-rule"><span>⚠ The house rule:</span> on-chain there is exactly <strong>one
         token and one move</strong> — burn $UR3030. Packs burn in full, conviction burns, compression
