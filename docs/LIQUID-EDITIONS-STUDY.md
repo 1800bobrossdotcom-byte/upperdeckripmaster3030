@@ -38,12 +38,15 @@ Three honest, separable forces — no promises, this is a volatile crypto asset:
    up along the curve, selling pushes it down. More net buyers → higher price.
    Nothing game-specific — it's the pool.
 
-2. **Deflation — the game is one giant sink.** *Every* action burns $UR3030 and
-   there is no treasury or fee wallet catching it (CardVault enforces this): pack
-   rips, wagers, sends, trades, the rarity court (▲/⛨/▼), and forging (§4) all
-   pull tokens from the player and destroy them. Burning permanently shrinks
-   supply; against a curve, a shrinking float means the same demand clears at a
-   higher price. Activity itself is the deflation.
+2. **Deflation + a creator royalty — split by intent.** Actions split two ways
+   (CardVault enforces it, no treasury either way): **destructive/circulatory**
+   moves — pack rips, wagers, sends, trades, **down**votes, and cornering-then-
+   destroying an edition — *burn* $UR3030, permanently shrinking supply.
+   **Constructive** moves — forging a new card, **up**voting, and HODL — pay the
+   **creator** wallet as a transparent royalty. Against a curve, the burns mean a
+   shrinking float clears the same demand at a higher price; the creator stream
+   aligns the artist with the deck's activity without ever pooling a treasury.
+   Either way, wanting to *do* things drives token demand.
 
 3. **Utility demand.** You cannot do *anything* without holding and spending the
    token — no free plays. Wanting to rip, battle, curate packs, or forge is a
@@ -124,6 +127,13 @@ fresh $UR3030 sink, i.e. more §1 pressure):
   Pure art evolution driven by conviction.
 - **Stake-to-curate** — lock $UR3030 behind a card to lend it standing in packs
   (soft version of HODL that returns the stake).
+- **Corner-and-destroy** (LIVE in `CardVault.destroyEdition`) — own every
+  circulating copy of a card and you may burn them all (plus a toll) to retire
+  the id forever. The lens can render survivors of a destroyed sibling with a
+  black-bar "last of its kind" mark. Maximal deflation as an endgame move.
+- **Consensus retire** (LIVE) — a card only falls off the island once a *quorum*
+  of distinct wallets has downvoted it, not when one whale out-burns everyone;
+  the lens can show a card's downvoter count filling toward the quorum.
 - **Burn-to-reveal** — hidden variants that only render once a global burn
   threshold is crossed.
 - **Provenance feed** — every event (`CardSent`/`MatchResolved`/`PackRipped`/

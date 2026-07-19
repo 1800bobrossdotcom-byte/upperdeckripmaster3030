@@ -8,15 +8,25 @@ import {ILiquid} from "./interfaces/ILiquid.sol";
 /// @notice The deck as on-chain items. One contract holds every card as an ERC-1155
 /// id (many copies of a common, exactly one of the marquee), and every way a card
 /// changes hands runs through it — send, trade, wager, rip. The house rule is the
-/// whole economy: **every transaction burns the liquid token**. There is no fee
-/// wallet and no treasury; tolls are pulled from the caller and destroyed, so all
-/// activity is deflation, and deflation is burn progress the renderer already reads.
+/// economy, and it splits by intent:
 ///
-///   send      — gift a card to another player            (burns SEND toll)
-///   trade     — atomic card-for-card swap between two players (burns TRADE toll, both sides)
-///   wager     — pog-stack escrow for the arena: 1/2/3/4/7 cards a side,
-///               winner collects the loser's stack        (burns WAGER toll each side)
-///   ripPack   — burn the pack price, mint 7 cards weighted by rarity
+///   CONSTRUCTIVE acts pay the CREATOR (not burned) — making and championing art:
+///     forge     — mint a new collaged card               (forge toll → creator)
+///     upvote    — promote a card in the rarity court      (vote amount → creator)
+///     hodl      — ⛨ anchor / prizm upvote                 (vote amount → creator)
+///
+///   Everything else BURNS the liquid token — circulation and destruction:
+///     send      — gift a card to another player            (burns SEND toll)
+///     trade     — atomic card-for-card swap                (burns TRADE toll, both sides)
+///     wager     — pog-stack escrow for the arena           (burns WAGER toll each side)
+///     ripPack   — mint 7 cards weighted by rarity          (burns PACK price)
+///     downvote  — demote / vote a card off the island      (burns vote amount)
+///     destroy   — corner a whole edition, burn every copy  (burns cards + toll)
+///
+/// There is still no treasury: burns are destroyed, and the creator cut is a
+/// transparent, transfer-based royalty on creation and conviction. Burns remain
+/// burn progress the renderer reads; the creator stream aligns the artist with
+/// the deck they made.
 ///
 /// The MARQUEE (Lovebeing, id 1000, supply 1) is the one exception to play, not to
 /// the burn rule: it can never be wagered and never burned — hold, trade, send,
@@ -32,6 +42,7 @@ contract CardVault is ERC1155 {
     ILiquid public immutable token;          // the liquid edition ($UR3030) — the thing that burns
     address public curator;                  // opens seasons, registers cards, sets tolls
     address public resolver;                 // reports arena results (testnet: the site's engine)
+    address public creator;                  // receives the constructive cut (forge / upvote / hodl)
 
     // ─── cards ───
     uint256 public constant MARQUEE_ID = 1000;
@@ -77,11 +88,28 @@ contract CardVault is ERC1155 {
     mapping(uint256 => uint256) public hodlBuffer;   // ⛨ anchor: demotes burn through this first
     mapping(uint256 => bool) public retired;
 
+    // ─── consensus retire: it takes a crowd, not a whale ───
+    // A card only falls OFF the island (retired) when scorn has both cleared the
+    // conviction bar AND been cast by at least `retireQuorum` distinct wallets.
+    // One deep-pocketed downvoter can drag a card down the tiers but can never
+    // unilaterally delete it — removal is a community verdict.
+    mapping(uint256 => mapping(address => bool)) public didDownvote;  // id => wallet => voted down?
+    mapping(uint256 => uint32) public downvoterCount;                 // id => distinct downvoters
+    uint32 public retireQuorum = 5;                                   // distinct wallets to retire
+
+    // ─── live supply, per id (maintained in _update) ───
+    // Enables "corner the edition": own every circulating copy and you may burn
+    // them all to destroy the card forever.
+    mapping(uint256 => uint256) public supplyOf;
+    uint256 public destroyToll = 50e18;              // burned to enact a destruction
+
     event RarityVote(uint256 indexed id, address indexed voter, bool up, uint256 amount);
     event HodlVote(uint256 indexed id, address indexed voter, uint256 amount);
     event RarityShifted(uint256 indexed id, Tier newTier);
     event CardRetired(uint256 indexed id);
     event CardRestored(uint256 indexed id);
+    event CreatorPaid(address indexed from, uint256 indexed id, uint256 amount, bytes32 kind);
+    event EditionDestroyed(uint256 indexed id, address indexed by, uint256 copies, uint256 burned);
 
     // ─── events: the provenance feed the card backs read ───
     event CardSent(address indexed from, address indexed to, uint256 indexed id, uint256 burned);
@@ -101,6 +129,7 @@ contract CardVault is ERC1155 {
     error MatchState();
     error UnknownCard();
     error ZeroAmount();
+    error NotWholeEdition();                  // destroyEdition needs every copy
 
     modifier onlyCurator() { if (msg.sender != curator) revert NotCurator(); _; }
 
@@ -108,14 +137,33 @@ contract CardVault is ERC1155 {
         token = _token;
         curator = msg.sender;
         resolver = msg.sender;
+        creator = msg.sender;               // artist wallet; retarget with setCreator
         marqueeUnlockSeason = 3;             // "not released till later seasons"
         _mint(address(this), MARQUEE_ID, 1, ""); // the 1/1 waits in the vault
     }
 
-    // ─── the one rule: pull it, burn it ───
+    /// @dev Track live per-id supply across every mint/burn/transfer so
+    /// destroyEdition can prove a caller owns the whole edition.
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal override
+    {
+        super._update(from, to, ids, values);
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (from == address(0)) supplyOf[ids[i]] += values[i];   // mint
+            if (to == address(0))   supplyOf[ids[i]] -= values[i];   // burn
+        }
+    }
+
+    // ─── burn: pull it, destroy it ───
     function _burnToll(address payer, uint256 amount) internal {
         require(token.transferFrom(payer, address(this), amount), "toll");
         token.burn(amount);
+    }
+
+    // ─── creator cut: pull it, pay the artist (constructive acts only) ───
+    function _toCreator(address payer, uint256 id, uint256 amount, bytes32 kind) internal {
+        require(token.transferFrom(payer, creator, amount), "toll");
+        emit CreatorPaid(payer, id, amount, kind);
     }
 
     /// @dev All card movement goes through the vault's named actions so no path
@@ -147,6 +195,9 @@ contract CardVault is ERC1155 {
         sendToll = s; tradeToll = t; wagerToll = w; marqueeToll = m; packPrice = p;
     }
     function setForgeToll(uint256 f) external onlyCurator { forgeToll = f; }
+    function setCreator(address c) external onlyCurator { creator = c; }
+    function setRetireQuorum(uint32 q) external onlyCurator { retireQuorum = q; }
+    function setDestroyToll(uint256 d) external onlyCurator { destroyToll = d; }
 
     // ─── send: a gift still feeds the fire ───
 
@@ -251,11 +302,12 @@ contract CardVault is ERC1155 {
             if (inputs[i] == MARQUEE_ID) revert MarqueeNotPlayable();
             if (!cardInfo[inputs[i]].exists) revert UnknownCard();
         }
-        _burnToll(msg.sender, forgeToll);
+        newId = ++nextForged;
+        // forging is CONSTRUCTIVE — the toll pays the creator, not the fire
+        _toCreator(msg.sender, newId, forgeToll, "forge");
         // trade the inputs in — they move to the vault as house cards
         for (uint256 i = 0; i < inputs.length; i++)
             _safeTransferFrom(msg.sender, address(this), inputs[i], 1, "");
-        newId = ++nextForged;
         forgeInputs[newId] = inputs;
         // forged cards enter as Rare by default; the court can move them after
         cardInfo[newId] = CardInfo(currentSeason, Tier.Rare, true);
@@ -276,23 +328,32 @@ contract CardVault is ERC1155 {
         return 2000e18;                      // Mythic <-> Prizm, both directions
     }
 
-    /// @notice Burn `amount` to vote a card up (promote) or down (demote).
-    /// Votes settle immediately: cross the bar and the card moves that block.
-    /// At PRIZM there is nowhere left to climb, so upvotes become HODL votes.
-    /// Demotes must burn through the card's HODL buffer before touching net.
+    /// @notice Vote a card up (promote) or down (demote). Votes settle
+    /// immediately: cross the bar and the card moves that block. UP is a
+    /// constructive act — the amount PAYS THE CREATOR (at prizm it becomes a
+    /// HODL vote, still to the creator). DOWN is destructive — the amount BURNS,
+    /// and it must clear the card's HODL buffer before touching net. Retiring a
+    /// card off the island additionally needs a quorum of distinct downvoters.
     function voteRarity(uint256 id, bool up, uint256 amount) external {
         if (id == MARQUEE_ID) revert MarqueeNotPlayable();
         if (!cardInfo[id].exists) revert UnknownCard();
         if (amount == 0) revert ZeroAmount();
-        _burnToll(msg.sender, amount);
         if (up) {
+            // championing art pays the artist
             if (cardInfo[id].tier == Tier.Prizm && !retired[id]) {
+                _toCreator(msg.sender, id, amount, "hodl");   // nowhere to climb → anchor
                 hodlBuffer[id] += amount;
                 emit HodlVote(id, msg.sender, amount);
                 return;
             }
+            _toCreator(msg.sender, id, amount, "upvote");
             rarityNet[id] += int256(amount);
+            emit RarityVote(id, msg.sender, true, amount);
+            _settleRarity(id);
         } else {
+            // scorn feeds the fire, and is counted as a distinct verdict
+            _burnToll(msg.sender, amount);
+            _recordDownvoter(id, msg.sender);
             uint256 buf = hodlBuffer[id];
             if (buf >= amount) {
                 hodlBuffer[id] = buf - amount;      // fully absorbed by the anchor
@@ -301,21 +362,46 @@ contract CardVault is ERC1155 {
             }
             if (buf > 0) { hodlBuffer[id] = 0; amount -= buf; }
             rarityNet[id] -= int256(amount);
+            emit RarityVote(id, msg.sender, false, amount);
+            _settleRarity(id);
         }
-        emit RarityVote(id, msg.sender, up, amount);
-        _settleRarity(id);
+    }
+
+    function _recordDownvoter(uint256 id, address who) internal {
+        if (!didDownvote[id][who]) { didDownvote[id][who] = true; downvoterCount[id]++; }
     }
 
     /// @notice ⛨ HODL: anchor a card where it is. Adds to its buffer — future
     /// demotes burn through the buffer before they can move the card. Works at
-    /// any tier, so curators can shield the packs they believe in.
+    /// any tier, so curators can shield the packs they believe in. HODL is
+    /// constructive conviction, so the amount pays the creator.
     function voteHodl(uint256 id, uint256 amount) external {
         if (id == MARQUEE_ID) revert MarqueeNotPlayable();
         if (!cardInfo[id].exists) revert UnknownCard();
         if (amount == 0) revert ZeroAmount();
-        _burnToll(msg.sender, amount);
+        _toCreator(msg.sender, id, amount, "hodl");
         hodlBuffer[id] += amount;
         emit HodlVote(id, msg.sender, amount);
+    }
+
+    // ─── corner the edition: own it all, and you may end it ───
+
+    /// @notice If you hold EVERY circulating copy of a card, you may destroy the
+    /// whole edition — burn all copies and retire the id forever. This is the
+    /// endgame of the market: buy a card out completely and you earn the right to
+    /// take it out of the game. Costs a burn toll on top of torching the cards, so
+    /// it is maximally deflationary. The 1/1 marquee is indestructible.
+    function destroyEdition(uint256 id) external {
+        if (id == MARQUEE_ID) revert MarqueeNotPlayable();
+        if (!cardInfo[id].exists) revert UnknownCard();
+        uint256 sup = supplyOf[id];
+        if (sup == 0) revert UnknownCard();
+        if (balanceOf(msg.sender, id) != sup) revert NotWholeEdition();  // must corner it all
+        _burnToll(msg.sender, destroyToll);
+        _burn(msg.sender, id, sup);          // every copy to ash (supplyOf → 0 via _update)
+        cardInfo[id].exists = false;
+        retired[id] = true;
+        emit EditionDestroyed(id, msg.sender, sup, destroyToll);
     }
 
     function _settleRarity(uint256 id) internal {
@@ -333,10 +419,21 @@ contract CardVault is ERC1155 {
             info.tier = Tier(uint8(info.tier) + 1);
             emit RarityShifted(id, info.tier);
         }
-        // fall while scorn clears each bar; falling past Common retires the card
+        // fall while scorn clears each bar. Tiers slide on conviction alone, but
+        // the final step OFF the island (retire) also needs a crowd: at least
+        // `retireQuorum` distinct wallets must have downvoted. Short of quorum the
+        // card sits at Common with its scorn banked, and retires the moment the
+        // quorum-completing vote lands.
         while (!retired[id] && net <= -int256(stepCost(info.tier))) {
+            if (info.tier == Tier.Common) {
+                if (downvoterCount[id] >= retireQuorum) {
+                    net += int256(stepCost(Tier.Common));
+                    retired[id] = true;
+                    emit CardRetired(id);
+                }
+                break;                       // at the floor: retired, or waiting on quorum
+            }
             net += int256(stepCost(info.tier));
-            if (info.tier == Tier.Common) { retired[id] = true; emit CardRetired(id); break; }
             info.tier = Tier(uint8(info.tier) - 1);
             emit RarityShifted(id, info.tier);
         }

@@ -1,14 +1,16 @@
-# Card Economy Spec — cards on-chain, every transaction burns
+# Card Economy Spec — cards on-chain, split by intent
 
 The site now plays the whole game client-side (arena, pack rips, the vault in
-localStorage). This spec moves ownership on-chain on **Sepolia**, keeping one
-house rule at the center:
+localStorage). This spec moves ownership on-chain on **Sepolia**, around one
+house rule that splits every action by what it *does*:
 
-> **Every transaction burns the liquid token.** Send a card — burn. Trade — both
-> sides burn. Wager — both sides burn. Rip a pack — burn. There is no fee wallet
-> and no treasury anywhere in the system; tolls are destroyed on use, so all
-> activity is deflation, and deflation is the burn progress the renderer and the
-> card backs already read.
+> **Constructive acts pay the creator; everything else burns.** Making and
+> championing art — forging a new card, upvoting one in the rarity court, HODL —
+> transfers the toll to the **creator** wallet as a transparent royalty.
+> Everything else — sending, trading, wagering, ripping, **down**voting, and
+> destroying an edition — **burns** the liquid token. There is still no treasury
+> catching fees; burns are destroyed, the creator cut is a plain transfer, and
+> burns remain the burn progress the renderer and card backs read.
 
 Three contracts, two already written:
 
@@ -31,28 +33,43 @@ the same five tiers the gallery sorts by and the foil engine renders.
 Bare ERC-1155 transfers are **closed** (`safeTransferFrom` reverts). Cards move
 only through the vault's named actions, so no path can skip the toll.
 
-## 2. The actions and their burns
+## 2. The actions, and where the toll goes
 
-Defaults (curator-tunable via `setTolls`):
+Defaults (curator-tunable via `setTolls` / `setForgeToll` / `setDestroyToll`).
+**→ 🔥** = burned, **→ 🎨** = paid to the creator wallet.
 
-| Action | What happens | Burned |
+| Action | What happens | Toll |
 |---|---|---|
-| `sendCard(to, id)` | gift a card | 1 $UR3030 |
-| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $UR3030 **per side** |
-| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side |
+| `sendCard(to, id)` | gift a card | 1 $UR3030 → 🔥 |
+| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $UR3030 **per side** → 🔥 |
+| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side → 🔥 |
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
-| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 |
-| `forge(inputs[2..3])` | trade 2–3 owned cards to the house, mint a new collaged card (art keyed/layered off-chain, lineage in `forgeInputs`) | 15 $UR3030 |
-| marquee transfer | see §3 | 25 $UR3030 |
+| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 → 🔥 |
+| `forge(inputs[2..3])` | trade 2–3 owned cards to the house, mint a new collaged card (lineage in `forgeInputs`) | 15 $UR3030 → 🎨 |
+| `voteRarity(id, true, amt)` | **up**vote / promote a card (at prizm → HODL) | `amt` → 🎨 |
+| `voteRarity(id, false, amt)` | **down**vote / demote (clears HODL buffer first) | `amt` → 🔥 |
+| `voteHodl(id, amt)` | ⛨ anchor a card in place | `amt` → 🎨 |
+| `destroyEdition(id)` | own every copy, burn them all, retire the id forever | cards + 50 $UR3030 → 🔥 |
+| marquee transfer | see §3 | 25 $UR3030 → 🔥 |
+
+The **creator** wallet (set in the constructor, retargetable via `setCreator`)
+is the artist. Constructive volume — people minting new cards and burning
+conviction to champion their favourites — becomes a royalty stream that aligns
+the artist with the deck; destructive and circulatory volume still feeds the
+fire. Neither path is a treasury: the burn is destroyed and the creator cut is a
+direct transfer, both fully on-chain and legible in `CreatorPaid` / burn events.
 
 ## 2.5 The Rarity Court — cards voted up, down, and off
 
-Rarity is not fixed at print. Any token holder can burn $UR3030 at any time to
+Rarity is not fixed at print. Any token holder can spend $UR3030 at any time to
 vote any card **up** (promote) or **down** (demote); the ballot never closes.
+**Up pays the creator, down burns** — championing art is constructive, scorn
+feeds the fire.
 
-- `voteRarity(id, up, amount)` — burns `amount` and adds it to the card's signed
-  **net conviction** (promote adds, demote subtracts). Settles immediately.
+- `voteRarity(id, up, amount)` — `amount` moves the card's signed **net
+  conviction** (promote adds, demote subtracts) and settles immediately. On an
+  upvote the amount is paid to the creator (🎨); on a downvote it burns (🔥).
 - Crossing the current tier's **step cost** moves the card one rung and consumes
   that much conviction (remainder carries forward):
 
@@ -67,12 +84,21 @@ vote any card **up** (promote) or **down** (demote); the ballot never closes.
   appearing in packs and can't enter the arena, but holders keep it and can still
   send/trade it (a dead card is a collector's item). Promote votes at the Common
   bar bring it back (`CardRestored`).
-- **⛨ HODL votes** (`voteHodl`) anchor a card where it is: they add to its
-  **HODL buffer**, and demotes must burn through the buffer before they can touch
-  net conviction. HODL works at **any tier** — curation by shield, for holders who
-  want the pack to stay exactly as printed. At **prizm** there's nowhere left to
-  climb, so `voteRarity(id, up)` automatically becomes a HODL vote. Buffers never
-  push a card up; they only make it expensive to drag down.
+- **Retirement takes a crowd, not a whale.** Sliding a card *down* the tiers is
+  pure conviction, but the final step *off the island* also needs a **quorum of
+  distinct downvoter wallets** (`retireQuorum`, default **5**, curator-tunable).
+  One deep pocket can drag a card to Common and bank scorn there, but the card
+  only retires once `retireQuorum` different addresses have voted it down — so
+  removal is a community verdict, not a bankroll. The moment the quorum-completing
+  vote lands, the banked scorn settles the retirement. `didDownvote[id][wallet]`
+  and `downvoterCount[id]` track the tally.
+- **⛨ HODL votes** (`voteHodl`, paid to the creator 🎨) anchor a card where it
+  is: they add to its **HODL buffer**, and demotes must burn through the buffer
+  before they can touch net conviction. HODL works at **any tier** — curation by
+  shield, for holders who want the pack to stay exactly as printed. At **prizm**
+  there's nowhere left to climb, so `voteRarity(id, up)` automatically becomes a
+  HODL vote. Buffers never push a card up; they only make it expensive to drag
+  down. (HODL is constructive conviction, hence the creator cut.)
 - The marquee is exempt — the court has no jurisdiction over the 1/1.
 - Pack pulls read each card's **current** tier live, so a promotion changes its
   pull odds the same block. (Testnet does this with an O(deck) scan; mainnet
@@ -112,6 +138,23 @@ Mainnet hardening (optional v2): a `list(id, price)` / `fill(listingId)` escrow
 pair on the vault so listings hold the card in the contract and settle
 trustlessly — still all burns, still no treasury. v1 ships on the existing
 send/trade rails.
+
+## 2.7 Corner the edition — own it all, end it forever
+
+The endgame of the market. The vault tracks live per-id supply (`supplyOf`,
+maintained in `_update` on every mint/burn). If a wallet holds **every
+circulating copy** of a card, it may call `destroyEdition(id)`:
+
+- guard: `balanceOf(caller, id) == supplyOf[id]` and `supplyOf[id] > 0`;
+- it **burns every copy** and burns a `destroyToll` (default 50 $UR3030) on top,
+  then marks the id `!exists` + `retired` — gone from packs, arena, and the
+  court, permanently. `EditionDestroyed(id, by, copies, burned)` is the epitaph.
+
+Buying a card out completely is expensive (you're cornering the whole float on
+the market, §2.6), and destroying it is maximally deflationary — you burn the
+cards *and* a toll. It's a real power: a collector can will an edition out of
+existence, making the survivors scarcer. The **1/1 marquee is indestructible**
+(reverts `MarqueeNotPlayable`).
 
 ## 3. The marquee (Lovebeing, id 1000)
 
