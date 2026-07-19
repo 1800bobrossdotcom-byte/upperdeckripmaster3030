@@ -100,7 +100,7 @@ Concrete "art evolves" hooks we can ship into the lens:
 - **Rarity shimmer** → a card the court is promoting glows warmer; one being
   demoted desaturates; a HODL-shielded card gets an anchor sigil.
 - **Seasonal render swap** → point the edition at a new render each season
-  (Bloom → Melt → Fractal → Void) so the whole deck re-skins on the calendar.
+  (Summer → Fall → Winter → Spring) so the whole deck re-skins on the calendar.
 
 ## 4. More ways the contract can interact + the art can evolve
 

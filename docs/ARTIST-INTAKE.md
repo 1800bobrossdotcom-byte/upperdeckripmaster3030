@@ -34,7 +34,7 @@ flagged **[ARTIST TO SUPPLY]**.
 > to 77, whoever lands the final blow on a dying edition collects the 50-token
 > last-standing bounty and a soulbound **Ash Trophy**. The render reads live market state
 > (`getMarketState`) and burn progress, so the art evolves with price and with how the
-> community treats each card. Four seasons a year: Bloom, Melt, Fractal, Void.
+> community treats each card. Four seasons a year, on the calendar: Summer, Fall, Winter, Spring.
 
 **Collector Value**
 
@@ -112,7 +112,7 @@ bug-fixes for our custom renderer + front end are ours.
 
 ### Mechanics explainer (storyboard, 6 beats — ~45–60s video or one scrollable diagram)
 
-1. **THE FIELD OPENS.** A season banner drops (BLOOM); ~196 hyperfoil cards fan out,
+1. **THE FIELD OPENS.** A season banner drops (SUMMER); ~196 hyperfoil cards fan out,
    shimmering, RARE prices flickering. → *"Every season, the whole field wakes up. 196
    living cards, each its own liquid edition."*
 2. **YOU RIP.** A hand tears a pack; 10 `$UR3030` fly in — 9 dissolve to smoke, 1 drops
@@ -125,7 +125,7 @@ bug-fixes for our custom renderer + front end are ours.
 5. **BURN IT DOWN TO 77.** The 196 collapse card by card into embers until 77 remain. →
    *"Then we cull. ~119 editions retired. A 196-card field becomes a 77-card deck."*
 6. **ASH & SURVIVORS.** The final kill stamps a soulbound Ash Trophy + 50-token bounty; the
-   77 lock into a STANDARD DECK frame; BLOOM → MELT. → *"Land the final blow, keep the ash.
+   77 lock into a STANDARD DECK frame; SUMMER → FALL. → *"Land the final blow, keep the ash.
    Hold a survivor, hold 1 of 77."*
 
 ### Launch tweets (3 — X handle + link **[ARTIST TO SUPPLY]**)
@@ -136,7 +136,7 @@ bug-fixes for our custom renderer + front end are ours.
 
 > **2 — mechanic.** Rip a pack. Nine tokens burn, one seeds the bounty. Play your cards up
 > the rarity court — Common to Prizm. Then help cull the field to 77 survivors. Land the
-> final blow on a dying edition and keep a soulbound Ash Trophy. Forever. Season 1: BLOOM. **[date]**
+> final blow on a dying edition and keep a soulbound Ash Trophy. Forever. Season 1: SUMMER. **[date]**
 
 > **3 — ethos.** No treasury. No team unlock. No pump. Just a card game where losing is
 > real: ~119 editions retired every season, burns all the way down, two clean flows — one

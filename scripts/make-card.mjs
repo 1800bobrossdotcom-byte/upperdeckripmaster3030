@@ -18,7 +18,9 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const rootDir = resolve(here, '..');
 const cardsDir = join(rootDir, 'cards');
 
-export const SEASON_TITLES = { 1: 'Bloom', 2: 'Melt', 3: 'Fractal', 4: 'Void' };
+// Seasons follow the real calendar from the launch season. Release is Summer 2026,
+// so Season 1 = Summer, then Fall, Winter, Spring.
+export const SEASON_TITLES = { 1: 'Summer', 2: 'Fall', 3: 'Winter', 4: 'Spring' };
 // flat frame colors sampled from the reference cards
 export const PALETTE = ['#ff6b57', '#ffd93b', '#63b3ff', '#ff5fd0', '#2ad4c8', '#9b5cff', '#ff9a3b', '#9be34f'];
 export const frameFor = slug =>
