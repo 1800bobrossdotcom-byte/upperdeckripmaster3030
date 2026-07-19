@@ -186,11 +186,14 @@
     font-size:clamp(13px,3.6vw,17px); color:var(--amber); margin-top:6px; text-shadow:0 0 12px rgba(255,210,59,.35); }
   .ads{ margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; }
   /* the banners are now PHOTOS of the real unopened packs; text glows on top */
-  .ad{ position:relative; overflow:hidden; border-radius:9px; padding:14px 12px 13px; text-align:center;
+  .ad{ position:relative; overflow:hidden; border-radius:9px; padding:14px 12px 13px; text-align:center; cursor:pointer;
     min-height:320px; display:flex; flex-direction:column; align-items:stretch;
     border:3px solid #140a02; box-shadow:6px 6px 0 rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.5) inset;
     transform:rotate(var(--tw,-1deg)); color:#fff; --glow:#2bff80;
-    background:#050303 center/cover no-repeat; }
+    background:#050303 center/cover no-repeat; transition:transform .12s ease, box-shadow .12s ease; }
+  .ad:hover,.ad:focus-visible{ transform:rotate(var(--tw,-1deg)) scale(1.03); outline:none;
+    box-shadow:6px 6px 0 rgba(0,0,0,.55), 0 0 26px var(--glow); }
+  .ad:active{ transform:rotate(var(--tw,-1deg)) scale(.99); }
   /* readability scrim: darker at top+bottom (where text sits), pack shows through the middle */
   .ad::before{ content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
     background:linear-gradient(180deg, rgba(2,4,3,.82) 0%, rgba(2,4,3,.12) 30%, rgba(2,4,3,.10) 60%, rgba(2,4,3,.88) 100%); }
@@ -685,6 +688,10 @@
   <div class="tk-badge">✶ 3030 ✶<br>DELTRON</div>
 </div>
 <script>(function(){var r=document.querySelector('.tk-run'),s=document.getElementById('tkSeq');if(r&&s)r.appendChild(s.cloneNode(true));})();</script>
+<script>/* every fake ad rips a pack */(function(){var open=function(){var b=document.getElementById('packOpen');if(b)b.click();};
+document.querySelectorAll('.adzone .ad').forEach(function(a){a.setAttribute('role','button');a.tabIndex=0;
+a.setAttribute('aria-label','Rip a pack');a.addEventListener('click',open);
+a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});})();</script>
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>
