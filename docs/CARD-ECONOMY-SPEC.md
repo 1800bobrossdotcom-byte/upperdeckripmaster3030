@@ -50,7 +50,7 @@ Defaults (curator-tunable via `setTolls` / `setDestroyToll` / `setReward`).
 | `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side → 🔥 |
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
-| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 → 🔥 (1 → 🏦) |
+| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js); gated by the season's pack allotment (§2.8) | `packPrice()` — ~350 $UR3030 ≈ **$7** at launch, rising → 🔥 (1 → 🏦) |
 | `voteRarity(id, true, amt)` | **up**vote / promote a card (at prizm → HODL) | `amt` → 🎨 |
 | `voteRarity(id, false, amt)` | **down**vote / demote (clears HODL buffer first) | `amt` → 🔥 |
 | `voteHodl(id, amt)` | ⛨ anchor a card in place | `amt` → 🎨 |
@@ -175,12 +175,38 @@ when it burns) gets two things:
   transferred out of the vault's **house reward pool**.
 
 The reward pool is a **player bounty, not an operator treasury**: a slice of
-every pack rip (`rewardCut`, default 1 of the 10) seeds it, and anyone can top it
+every pack rip (`rewardCut`, default 1 token) seeds it, and anyone can top it
 up with `fundReward`. Ripping packs *adds* cards to the field; that inflow funds
 the bounty for whoever later *culls* one back down — a closed loop that pays the
 community to reach the 77-card deck. `AshTrophy(editionId, keeper, trophyId,
 reward)` + `EditionDestroyed(...)` are the epitaph. The **1/1 marquee is
 indestructible**.
+
+## 2.8 The pack — a $7 premium on-ramp, on a dwindling seasonal allotment
+
+The pack is the one **premium** action; every other move stays a micro-toll. It is
+priced in dollars, not pegged to the token's spot, so it holds ≈ **$7 at launch**
+(a bundle of ~350 `$UR3030`) while the token itself stays cheap. Two things make it
+**escalate**, by design (full math in `docs/TOKEN-MATH.md` §4a):
+
+- **`packPrice()`** is not a constant. It rises on a straight line from `packBase`
+  (the season's first rip) to `packCeil` (its last), indexed by how much of the
+  season's card budget has been ripped — **within-season** escalation as the
+  allotment dwindles. S1: 350 → 525 tokens.
+- **The pack allotment** for a season = **cards issued that season ÷ 7**
+  (`CARDS_PER_PACK`). Because the field burns **down** toward 77 survivors, each
+  season issues fewer cards, so its allotment shrinks and its floor rises —
+  **across-season** escalation. Reference: S1 70,000 cards / **10,000 packs** →
+  S4 17,500 / 2,500 packs; base 350 → 800 tokens.
+
+`ripPack` enforces the allotment (`cardsIssued + 7 ≤ seasonCardBudget`, else
+`AllotmentSpent`) and increments `cardsIssued`. When a season sells out its
+allotment, **packs close** for that season — remaining cards trade on the secondary
+market only, which is the scarcity that lifts the floor into the next season. The
+curator rolls it all with **`openSeason(season, cardBudget, base, ceil)`** (resets
+`cardsIssued`) and can fine-tune mid-season with **`setPackPrice(base, ceil)`**;
+**`packsLeft()`** and **`packPrice()`** are the reads the site shows. Set
+`cardBudget = 0` to leave packs uncapped (early testnet).
 
 ## 3. The marquee (Lovebeing, id 1000)
 

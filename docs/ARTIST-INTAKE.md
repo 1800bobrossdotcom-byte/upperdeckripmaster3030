@@ -25,8 +25,9 @@ flagged **[ARTIST TO SUPPLY]**.
 
 **Mechanics**
 
-> You rip packs for 10 `$UR3030` — 9 burn, 1 seeds the house reward pool — and pull card
-> copies as ERC-1155 editions. From there the whole game is small on-chain moves: send a
+> You rip a pack — **seven cards for about $7** in `$UR3030`, the one premium move — and
+> pull the copies as ERC-1155 editions; nearly all of the price burns, a sliver seeds the
+> house reward pool. From there the whole game is small on-chain moves: send a
 > card (toll 1), trade it (1 a side), wager it (2 a side), marquee it to the top of the
 > feed (25). Cards climb and fall through five rarity tiers — Common, Uncommon, Rare,
 > Mythic, Prizm — in the rarity court, where moving a card **up pays its creator** and
@@ -70,13 +71,20 @@ bug-fixes for our custom renderer + front end are ours.
   meter. Full-curve FDV ≈ $606k — an artist-scale niche edition, by choice.)
 - **Curve / Price:** multicurve **`--curve-preset medium-demand`** (Uniswap-v4 + Doppler,
   reserve in **RARE**), previewed with `--preview` and tuned to the **steadiest** slope.
-  **Opening price ≈ 1 RARE/token → pack ≈ $0.20**, staying $0.20–$2.00 across the whole
-  curve. **Reserve seed ≈ 10,000 RARE** at deploy.
+  **Opening price ≈ 1 RARE/token (~$0.02)** — the token stays a cheap micro-token, so every
+  toll and vote is a micro-move. **Reserve seed ≈ 10,000 RARE** at deploy.
+- **Packs — the premium on-ramp (~$7, escalating).** A pack is a *bundle* of ~350 `$UR3030`
+  ≈ **$7 at launch** (seven cards, ~$1 a card), **not** a token reprice — so FDV stays ~$606k.
+  It rises two ways: **within** a season as the pack allotment (cards issued ÷ 7) is spent
+  (`packPrice()` walks packBase→packCeil), and **across** seasons as the burning field issues
+  fewer cards (S1 **10,000 packs** → S4 2,500; floor 350 → 800 tokens). Each rip is a real
+  buy-and-burn of hundreds of tokens — the engine of steady upward pressure, not a pump.
 - **ERC-721 "Lenses"? — Yes.** The card render is an HTML Liquid Lens reading live market
   + game state; the sealed **1/1 marquee** (Lovebeing) is its own lens. Per-card copies are
   `CardVault` ERC-1155 ids; Ash Trophies mint into id space 9000+. Edition sizes finalized
   with SuperRare during assisted setup.
-- **Deploy on an L2** (or batch actions): a $0.20 pack is gas-dominated on L1.
+- **Deploy on an L2** (or batch actions): the micro-tolls (1-token sends/votes) are
+  gas-dominated on L1; the $7 pack survives L1 gas, but moment-to-moment play does not.
 
 ---
 
@@ -115,8 +123,9 @@ bug-fixes for our custom renderer + front end are ours.
 1. **THE FIELD OPENS.** A season banner drops (SUMMER); ~196 hyperfoil cards fan out,
    shimmering, RARE prices flickering. → *"Every season, the whole field wakes up. 196
    living cards, each its own liquid edition."*
-2. **YOU RIP.** A hand tears a pack; 10 `$UR3030` fly in — 9 dissolve to smoke, 1 drops
-   into a glowing HOUSE POOL jar; copies spill out. → *"Rip a pack for 10. Nine burn. One
+2. **YOU RIP.** A hand tears a pack; a fat stack of `$UR3030` flies in (~$7 worth) — most
+   dissolves to smoke, a sliver drops into a glowing HOUSE POOL jar; seven copies spill
+   out. → *"Rip a pack — seven cards, about seven bucks. Nearly all of it burns. A sliver
    seeds the bounty."*
 3. **YOU PLAY.** Montage — send / trade / wager / marquee, tiny toll numbers popping. →
    *"Send it, trade it, wager it, marquee it. Small moves, all on-chain."*
@@ -134,9 +143,10 @@ bug-fixes for our custom renderer + front end are ours.
 > Ripmaster 3030 by Gianni Arone: 196 living editions, and the community burns it down to a
 > deck of 77. The losers don't get delisted — they turn to ash. `$UR3030` → **[link + @handle]**
 
-> **2 — mechanic.** Rip a pack. Nine tokens burn, one seeds the bounty. Play your cards up
-> the rarity court — Common to Prizm. Then help cull the field to 77 survivors. Land the
-> final blow on a dying edition and keep a soulbound Ash Trophy. Forever. Season 1: SUMMER. **[date]**
+> **2 — mechanic.** Rip a pack — seven cards, ~$7. Nearly all of it burns; a sliver seeds
+> the bounty. Play your cards up the rarity court — Common to Prizm. Then help cull the
+> field to 77 survivors. Land the final blow on a dying edition and keep a soulbound Ash
+> Trophy. Forever. Season 1: SUMMER. **[date]**
 
 > **3 — ethos.** No treasury. No team unlock. No pump. Just a card game where losing is
 > real: ~119 editions retired every season, burns all the way down, two clean flows — one

@@ -19,7 +19,8 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 | Knob | **Final** | Why |
 |---|---|---|
 | **Supply cap** | **3,030,000 `$UR3030` — KEEP** | 3M is **not** too low; see §2. The cap is a live-supply ceiling on the curve, not a lifetime burn budget. |
-| Opening price **P₀** | **≈ 1 RARE / token** → ~$0.02/token → **pack ≈ $0.20** (band 0.5–2.5 RARE) | set by price, not cap; a real micro-play the whole way up |
+| Opening price **P₀** | **≈ 1 RARE / token** → **~$0.02/token** (band 0.5–2.5 RARE) | set by price, not cap; keeps every toll + vote a micro-move |
+| **Pack price** | **~350 `$UR3030` ≈ $7 at launch**, escalating within + across seasons | the ONE premium action; each rip is a real buy-and-burn of hundreds of tokens (§4a) |
 | Demand multiple **M** | `medium-demand` preset, assume **M ≈ 10**, **verify via `--preview`** | pick the *steadiest* slope even if that's low-demand |
 | Reserve currency | **RARE** | `baseToken()` = RARE |
 | Reserve seed | **~10,000 RARE** (`max(2×minRareLiquidityWei, 10k)`) | bootstrap floor; confirm with cohort |
@@ -28,8 +29,10 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 | Creator cut | upvote + HODL → creator | **add vesting + recycle 25–50% into RARE reserve** |
 | `retireQuorum` | **9** (was 5) | harder for a clique to condemn a card |
 
-**FDV at full curve ≈ $606k** (3.03M × $0.20). That is an "artist-scale niche
-edition," and it is a deliberate choice — see §2.
+**FDV at full curve ≈ $606k** (3.03M tokens × $0.20 *token spot-at-full*, not the
+pack price). That is an "artist-scale niche edition," and it is a deliberate choice —
+see §2. The **pack** is $7-and-up, but that is a *bundle size* (~350 cheap tokens),
+not the token price — the two never got conflated again (§4a).
 
 ---
 
@@ -74,15 +77,17 @@ counter — only `totalSupply()` and `maxTotalSupply()`. So lifetime burns are
 effectively unbounded and the cap never "runs dry." Every reason to raise it then
 collapses:
 
-1. **Runway** — void. (The HIGH scenario in §6 "burns 300% of the cap per season" —
+1. **Runway** — void. (A sold-out season in §6 cycles **~1.4× the cap through burns** —
    which is *only possible because the cap refills*. Self-refuting as a runway
    argument.)
 2. **Toll granularity** — 3.03M is comfortable: a full Common→Prizm climb (2,700) is
-   **0.089%** of supply; a pack is **0.00033%**. Granularity only ever argues
+   **0.089%** of supply; a pack (~350) is **0.012%**. Granularity only ever argues
    *against going lower*.
-3. **Cheap micro-plays** — set by **opening price, not cap**. At P₀≈1 RARE the pack
-   is **$0.20 → $2.00 across the entire curve** (§4). A bigger cap doesn't make packs
-   cheaper.
+3. **Cheap micro-moves** — the tolls and votes that make up moment-to-moment play stay
+   tiny because the **token** is cheap (set by **opening price, not cap**): a send is
+   1 token ≈ $0.02, a tier step 50–2,000. The **pack** is the one deliberate premium
+   ($7+), and it is priced as a *token bundle*, not by the token's spot — so a bigger
+   cap changes neither the micro-tolls nor the pack.
 4. **Steady-not-pump** — the anti-rug protection is *structural* (un-pullable RARE
    reserve, no team pre-mint), independent of cap. A **larger** cap actively *harms*
    steady upward growth: at 30.3M, realistic niche volume barely lifts price off the
@@ -90,7 +95,7 @@ collapses:
 
 The only *verified* nudge upward is slippage: to hold a single **$2,000** launch buy
 under 2% impact you'd need cap ≥ **~11.5M** (§5). Take that **only if** you expect
-routine $2k+ single tickets — which does not fit a cheap-micro-play card game. **For
+routine $2k+ single tickets — which does not fit a $7-pack, micro-toll card game. **For
 the stated goals, hold 3,030,000.** (The 30.3M idea was motif-driven — it spells
 "3030" — and undershoots even its own 5-year target math; rejected.)
 
@@ -108,7 +113,7 @@ full-curve FDV). Only reopen the cap question if the ambition is genuinely bigge
 | `sendCard` | **1** | 🔥 |
 | `trade` | **1 / side** (2) | 🔥 |
 | `openMatch`/`joinMatch` | **2 / side** (4) | 🔥 |
-| `ripPack` (7 cards) | **10** | 9 🔥 + 1 🏦 |
+| `ripPack` (7 cards) | **`packPrice()`** — ~350 (S1 base) → escalates, §4a | (all − 1) 🔥 + 1 🏦 |
 | `voteRarity` up / `voteHodl` | vote `amt` | 🎨 |
 | `voteRarity` down | vote `amt` | 🔥 |
 | `destroyEdition` (retired card) | **50** + all copies | 🔥 |
@@ -121,35 +126,88 @@ Uncommon↔Rare **150**, Rare↔Mythic **500**, Mythic↔Prizm **2,000**. Full c
 **2,700**. Retiring a card off the island also needs a **quorum of 9 distinct
 downvoters**.
 
-**Sizing** is pegged to the 1-token base: casual moves 1–4, a pack 10, ending an
-edition 50, tier moves 50→2,000. Deflation comes from **volume** (thousands of small
-burns), not a few big ones.
+**Sizing** is pegged to the 1-token base: casual moves 1–4, ending an edition 50,
+tier moves 50→2,000. The one exception is the **pack (~350, the premium on-ramp)** —
+sized in dollars, not pegged to the base, so it stays ≈$7 while the token stays cheap.
+Deflation comes from **volume**: thousands of small burns *plus* the pack — now the
+single biggest per-action burn (§4a, §6).
 
 ---
 
 ## 4. Price schedule (cap 3.03M, P₀ = 1 RARE, M = 10, RARE ≈ $0.02)
 
-From `scripts/token-model.mjs` §1:
+From `scripts/token-model.mjs` §1. The pack column holds the bundle **fixed at 350
+tokens** and reprices it by the token's spot — so it isolates *one* of the two pack
+escalators (token appreciation). The designed escalation (base→ceil, per-season) is §4a.
 
-| f (sold) | spot (RARE) | spot ($) | **pack ($)** | FDV ($) | reserve (RARE) |
+| f (sold) | spot (RARE) | spot ($) | **pack of 350 ($)** | FDV ($) | reserve (RARE) |
 |---|---|---|---|---|---|
-| 0.00 (launch) | 1.000 | $0.0200 | **$0.20** | $60,600 | 0 |
-| 0.10 | 1.259 | $0.0252 | **$0.25** | $76,291 | 340,723 |
-| 0.50 | 3.162 | $0.0632 | **$0.63** | $191,634 | 2,845,368 |
-| 0.75 | 5.623 | $0.1125 | **$1.12** | $340,779 | 6,084,006 |
-| 1.00 (full) | 10.000 | $0.2000 | **$2.00** | $606,000 | 11,843,211 |
+| 0.00 (launch) | 1.000 | $0.0200 | **$7.00** | $60,600 | 0 |
+| 0.10 | 1.259 | $0.0252 | **$8.81** | $76,291 | 340,723 |
+| 0.25 | 1.778 | $0.0356 | **$12.45** | $107,764 | 1,024,147 |
+| 0.50 | 3.162 | $0.0632 | **$22.14** | $191,634 | 2,845,368 |
+| 0.75 | 5.623 | $0.1125 | **$39.36** | $340,779 | 6,084,006 |
+| 1.00 (full) | 10.000 | $0.2000 | **$70.00** | $606,000 | 11,843,211 |
 
-**Headline:** the pack stays **$0.20 → $2.00 the whole way up** — a genuine
-micro-play across the entire curve. Walking the curve to full takes **~11.84M RARE
-(~$237k)** of net buys; average fill price **3.91 RARE/token**.
+**Headline:** the **token** stays a cheap micro-token ($0.02 → $0.20 spot across the
+whole curve); the **pack** is deliberately premium and *rises* — the same 350-token
+bundle runs $7 at launch to $70 at a full curve on token appreciation alone. Walking
+the curve to full takes **~11.84M RARE (~$237k)** of net buys; average fill price
+**3.91 RARE/token**. FDV is the *token* line and is unchanged by the pack size.
 
-**Demand-multiple sensitivity** (bracketing the unknown preset — §8 verify):
+**Demand-multiple sensitivity** (pack = 350 tokens @ spot; bracketing the unknown
+preset — §8 verify):
 
 | M | pack@0 | pack@50% | pack@100% | FDV@100% | RARE to fill |
 |---|---|---|---|---|---|
-| 3 (flat) | $0.20 | $0.35 | $0.60 | $181,800 | 5.52M |
-| **10 (medium — rec.)** | $0.20 | $0.63 | $2.00 | $606,000 | 11.84M |
-| 30 (steep) | $0.20 | $1.10 | $6.00 | $1,818,000 | 25.84M |
+| 3 (flat) | $7.00 | $12.12 | $21.00 | $181,800 | 5.52M |
+| **10 (medium — rec.)** | $7.00 | $22.14 | $70.00 | $606,000 | 11.84M |
+| 30 (steep) | $7.00 | $38.34 | $210.00 | $1,818,000 | 25.84M |
+
+---
+
+## 4a. The pack: a $7 premium bundle on a dwindling seasonal allotment
+
+Packs are **$7.00 at launch, not $0.20** — and they *go up*. This is deliberate, and
+it is done **without repricing the token**:
+
+- A pack is a **bundle of ~350 `$UR3030`** (≈ $7 at the $0.02 launch spot), not 10.
+  The token stays cheap (so every toll/vote stays a micro-move); only the *pack* is
+  premium. Repricing the token to make 10 tokens = $7 would have blown FDV to ~$21M —
+  pump territory, and it would reopen the "is 3M too low" verdict (§2). Rejected.
+- **Why a big pack is the right lever for "steady growth, not a pump":** each rip is a
+  real **buy-and-burn of ~350 tokens**. The buyer must buy the tokens off the curve
+  (RARE flows *into* the reserve, price ticks up), then the game **burns** them (supply
+  falls, so the deeper reserve now backs *fewer* tokens → price ticks up again). Packs
+  are the engine of the ratchet, not a spike.
+
+**Two escalators, stacked** — packs get scarcer and dearer the deeper the game runs:
+
+1. **Within a season** — `packPrice()` rises on a straight line from `packBase` (the
+   season's first rip) to `packCeil` (its last), indexed by how much of the season's
+   card budget has been ripped. S1: **350 → 525** tokens.
+2. **Across seasons** — the field is burned **down** toward the 77-survivor deck, so
+   each season issues **fewer cards**, so its **pack allotment** (= cards issued ÷ 7)
+   **shrinks** and its **floor rises**. Reference schedule (`token-model.mjs` §4;
+   curator-set at `openSeason`, recalibrated to the live token price):
+
+| Season | Cards issued | Pack allotment | base → ceil (tok) | base ≈ $* | ceil ≈ $* |
+|---|---|---|---|---|---|
+| **I · Summer** (launch) | 70,000 | **10,000 packs** | 350 → 525 | **$7.00** | $10.50 |
+| II · Fall | 52,500 | 7,500 packs | 450 → 675 | $9.00 | $13.50 |
+| III · Winter | 35,000 | 5,000 packs | 600 → 900 | $12.00 | $18.00 |
+| IV · Spring | 17,500 | 2,500 packs | 800 → 1,200 | $16.00 | $24.00 |
+
+*\* priced at the **launch** spot ($0.02) — a conservative floor. Token appreciation
+(the §4 column) rides on **top** of these, so real USD pack prices are higher again as
+the curve fills.* When a season's allotment is spent, **`ripPack` closes for the
+season** (`AllotmentSpent`) — the only cards left come off the secondary market, which
+is the scarcity that lifts the floor into the next season.
+
+**Contract surface** (`CardVault.sol`): `packPrice()` / `packsLeft()` (views),
+`openSeason(season, cardBudget, base, ceil)` (sets the allotment + price line, resets
+`cardsIssued`), `setPackPrice(base, ceil)` (mid-season recalibration), and the
+`ripPack` gate `cardsIssued + 7 ≤ seasonCardBudget`. `CARDS_PER_PACK = 7`.
 
 ---
 
@@ -186,19 +244,22 @@ raw v4 position management, not a first-class multicurve feature.)*
 
 ## 6. Burn pressure per season (illustrative, reproducible)
 
-From `scripts/token-model.mjs` §4 — transparent inputs, **not a forecast**:
+From `scripts/token-model.mjs` §5 — **bounded by the S1 allotment (10,000 packs)**;
+scenarios are the fraction of that allotment sold. Transparent inputs, **not a
+forecast**. Packs now dominate burn (a rip destroys ~437 tokens, ~48× the old 9):
 
-| scenario | players | pack 🔥 | play 🔥 | cull 🔥 | total 🔥/season |
+| scenario | packs sold | pack 🔥 | play 🔥 | cull 🔥 | total 🔥/season |
 |---|---|---|---|---|---|
-| LOW | 500 | 22,500 | 8,000 | 14,000 | **44,500** (1.5% of cap) |
-| MED | 5,000 | 450,000 | 150,000 | 31,500 | **631,500** (20.8% of cap) |
-| HIGH | 50,000 | 6,750,000 | 2,300,000 | 41,650 | **9,091,650** (300% of cap) |
+| QUIET (30%) | 3,000 | 1,309,500 | 18,000 | 10,500 | **1,338,000** (0.44× cap) |
+| STEADY (70%) | 7,000 | 3,055,500 | 42,000 | 26,250 | **3,123,750** (1.03× cap) |
+| SELLOUT (100%) | 10,000 | 4,365,000 | 60,000 | 41,650 | **4,466,650** (1.47× cap) |
 
 **Read this correctly:** net supply change = **buys − burns** (sign *indeterminate*).
 Burns are downward **pressure**; "deflation" holds only while buy-demand < burn-demand
-— it is not a guaranteed permanent decline. The HIGH row exceeding 100% of the cap is
-exactly the proof that the cap refills (§2). Read the real net trajectory live from
-`totalSupply()`.
+— it is not a guaranteed permanent decline. A sold-out season **cycling ~1.4× the cap
+through burns** is exactly the proof that the cap refills (§2): buys re-mint into the
+gap, so the curve churns and the reserve climbs — that churn *is* the steady upward
+pressure. Read the real net trajectory live from `totalSupply()`.
 
 ---
 
@@ -246,15 +307,20 @@ rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
    it.
 4. **RARE seed floor** — read `minRareLiquidityWei()`; confirm ~10k RARE with the cohort.
 5. **Live RARE/USD** — the entire $-column assumes $0.02; re-peg P₀ on deploy day.
-6. **Chain choice** — a $0.20 pack is **gas-dominated on L1** ($1–5/tx). **Deploy on an
-   L2** (or batch actions) or the micro-play thesis breaks.
+6. **Chain choice** — the **micro-tolls** (a 1-token send ≈ $0.02, votes, trades) are
+   **gas-dominated on L1** ($1–5/tx swamps a $0.02 toll). The $7 pack survives L1 gas,
+   but moment-to-moment play does not. **Deploy on an L2** (or batch actions) or the
+   cheap-move layer breaks.
 
 ---
 
 ## 9. Doc corrections applied
 
 - Removed the erroneous "0.5–1 RARE per **100** `$UR3030`" peg (implied a ~$0.001
-  pack, ~100× off). The peg is **~1 RARE per token → pack ~$0.20**.
+  pack). The peg is **~1 RARE per token**; the pack is a **~350-token bundle ≈ $7**
+  (§4a), escalating within and across seasons.
+- **Pack repriced $0.20 → $7** as a *bundle size*, not a token reprice — the token
+  stays cheap and FDV stays $606k (§4a). Packs are now the biggest single burn.
 - Reframed the "runway / % of cap consumed" framing as **burn *pressure* / demand to
   hold the float flat** — the cap is not a fuel tank.
 - Creator-cut "floor" removed (see §7).

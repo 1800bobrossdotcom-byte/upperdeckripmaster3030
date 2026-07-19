@@ -58,7 +58,26 @@ contract CardVault is ERC1155 {
     uint256 public tradeToll   = 1e18;       // per side of a swap
     uint256 public wagerToll   = 2e18;       // per side of an arena match
     uint256 public marqueeToll = 25e18;      // moving the 1/1 costs real conviction
-    uint256 public packPrice   = 10e18;      // rip rights for a 7-card pack
+    // packPrice is NOT a fixed toll — packs are the premium on-ramp and their
+    // price floats on the season's dwindling allotment. See the pack economy
+    // block below and the packPrice() view.
+
+    // ─── the seasonal pack allotment: dwindling supply, escalating price ───
+    // A pack is the one premium action (~$7 to enter with 7 cards); every other
+    // move stays cheap. Packs are the ONLY way to mint card copies — 7 to a pack —
+    // so each season's PACK ALLOTMENT is its card-copy budget over 7. The price of
+    // a pack is not fixed: it rises along a straight line from packBase (the
+    // season's first rip) to packCeil (its last), indexed by how much of the card
+    // budget has been ripped. And because the field is burned DOWN toward the
+    // 77-survivor deck, every season opens with a SMALLER card budget and a HIGHER
+    // floor than the last — packs get scarcer and dearer the deeper the game runs.
+    // packBase/packCeil are $UR3030 amounts, recalibrated by the curator at each
+    // openSeason to track the USD target ($7 opening, rising) against live price.
+    uint256 public constant CARDS_PER_PACK = 7;
+    uint256 public seasonCardBudget;         // card copies mintable via packs this season (0 = uncapped)
+    uint256 public cardsIssued;              // copies minted via packs this season
+    uint256 public packBase = 350e18;        // pack price at the season's first rip   (≈ $7 at launch)
+    uint256 public packCeil = 525e18;        // pack price once the allotment is spent  (≈ $10.50, ×1.5)
 
     // ─── the burn-down: a season starts with the full field and is culled ───
     // A season opens with every registered card in play and the community burns
@@ -146,6 +165,7 @@ contract CardVault is ERC1155 {
     error ZeroAmount();
     error NotWholeEdition();                  // destroyEdition needs every copy
     error NotRetired();                       // destroyEdition needs a prior court verdict
+    error AllotmentSpent();                   // the season's pack allotment is exhausted
 
     modifier onlyCurator() { if (msg.sender != curator) revert NotCurator(); _; }
 
@@ -207,8 +227,31 @@ contract CardVault is ERC1155 {
 
     function setSeason(uint32 s) external onlyCurator { currentSeason = s; }
     function setResolver(address r) external onlyCurator { resolver = r; }
-    function setTolls(uint256 s, uint256 t, uint256 w, uint256 m, uint256 p) external onlyCurator {
-        sendToll = s; tradeToll = t; wagerToll = w; marqueeToll = m; packPrice = p;
+    function setTolls(uint256 s, uint256 t, uint256 w, uint256 m) external onlyCurator {
+        sendToll = s; tradeToll = t; wagerToll = w; marqueeToll = m;
+    }
+
+    /// @notice Open a season: set the live season, its pack allotment (via the
+    /// card-copy budget), and the season's pack price line, resetting cardsIssued so
+    /// the new, smaller allotment starts fresh. By design the budget dwindles and
+    /// the floor rises each season — see the schedule in docs/TOKEN-MATH.md. Pass
+    /// cardBudget = 0 to leave the allotment uncapped (early testnet).
+    function openSeason(uint32 s, uint256 cardBudget, uint256 base, uint256 ceil)
+        external onlyCurator
+    {
+        require(ceil >= base, "ceil<base");
+        currentSeason = s;
+        seasonCardBudget = cardBudget;
+        cardsIssued = 0;
+        packBase = base;
+        packCeil = ceil;
+    }
+
+    /// @notice Fine-tune the pack price line mid-season (recalibrate the $7-and-up
+    /// USD target against the live token price without rolling the season).
+    function setPackPrice(uint256 base, uint256 ceil) external onlyCurator {
+        require(ceil >= base, "ceil<base");
+        packBase = base; packCeil = ceil;
     }
     function setCreator(address c) external onlyCurator { creator = c; }
     function setRetireQuorum(uint32 q) external onlyCurator { retireQuorum = q; }
@@ -453,15 +496,40 @@ contract CardVault is ERC1155 {
     // ─── rip a pack: burn the price, pull 7 by rarity weight ───
     // weights mirror the site's pack.js: common 48 / uncommon 30 / rare 15 / mythic 6 / prizm 1
 
+    /// @notice Live pack price: a straight line from packBase (fresh allotment) to
+    /// packCeil (allotment exhausted), indexed by the fraction of the season's card
+    /// budget already ripped. Constant at packBase when the budget is uncapped.
+    function packPrice() public view returns (uint256) {
+        uint256 budget = seasonCardBudget;
+        if (budget == 0 || packCeil <= packBase) return packBase;
+        uint256 issued = cardsIssued;
+        if (issued >= budget) return packCeil;                 // allotment spent → the ceiling
+        return packBase + (packCeil - packBase) * issued / budget;
+    }
+
+    /// @notice Packs remaining in this season's allotment (uint max when uncapped).
+    function packsLeft() external view returns (uint256) {
+        if (seasonCardBudget == 0) return type(uint256).max;
+        if (cardsIssued >= seasonCardBudget) return 0;
+        return (seasonCardBudget - cardsIssued) / CARDS_PER_PACK;
+    }
+
     function ripPack() external returns (uint256[] memory ids) {
-        // ripping adds cards to the field; a slice of the price seeds the house
-        // bounty that pays whoever later culls one back down. The rest burns.
-        uint256 cut = rewardCut < packPrice ? rewardCut : 0;
+        // packs are the season's dwindling allotment: 7 copies a rip, capped by the
+        // card-copy budget. Price rises as that budget is spent (packPrice()). A
+        // sliver of the price seeds the house bounty that pays whoever later culls a
+        // card back down; the rest burns. When the allotment is gone, packs close
+        // for the season — the only cards left come off the secondary market.
+        if (seasonCardBudget != 0 && cardsIssued + CARDS_PER_PACK > seasonCardBudget)
+            revert AllotmentSpent();
+        uint256 price = packPrice();
+        uint256 cut = rewardCut < price ? rewardCut : 0;
         if (cut > 0) { require(token.transferFrom(msg.sender, address(this), cut), "toll"); rewardPool += cut; }
-        _burnToll(msg.sender, packPrice - cut);
-        ids = new uint256[](7);
+        _burnToll(msg.sender, price - cut);
+        cardsIssued += CARDS_PER_PACK;
+        ids = new uint256[](CARDS_PER_PACK);
         bytes32 seed = keccak256(abi.encodePacked(blockhash(block.number - 1), msg.sender, _nonce++));
-        for (uint256 i = 0; i < 7; i++) {
+        for (uint256 i = 0; i < CARDS_PER_PACK; i++) {
             seed = keccak256(abi.encodePacked(seed, i));
             uint8 tier = _rollTier(uint256(seed) % 100);
             // draw at the card's CURRENT tier (the rarity court moves cards between
@@ -475,7 +543,7 @@ contract CardVault is ERC1155 {
             ids[i] = id;
             _mint(msg.sender, id, 1, "");
         }
-        emit PackRipped(msg.sender, ids, packPrice);
+        emit PackRipped(msg.sender, ids, price);
     }
 
     function _rollTier(uint256 roll) private pure returns (uint8) {
