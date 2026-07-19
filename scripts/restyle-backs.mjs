@@ -25,6 +25,7 @@ function backHTML({ name, num, of, season, seasonTitle, atk, def, trig, rarity, 
   const loreHTML = lore ? esc(lore) : '';
   return `
         <div class="vb">
+          <img class="vb-wm" src="../marquee-header.webp" alt="" aria-hidden="true" loading="lazy">
           <div class="vb-hdr">
             <svg class="vb-torn" viewBox="0 0 140 140" aria-hidden="true"><polygon points="${TORN}"/></svg>
             <img class="vb-disc" src="../ripmaster-roundel.svg" alt="" loading="lazy">
@@ -69,13 +70,23 @@ for (const f of readdirSync(cardsDir)) {
   if (skip.has(slug)) continue;
   const fp = join(cardsDir, f);
   let h = readFileSync(fp, 'utf8');
-  if (h.includes('class="vb"')) { skipped++; continue; }        // already restyled
+  const alreadyVb = h.includes('class="vb"');
 
+  // name + season/number/of come from EITHER the original dossier back (h1 + .sub) or an
+  // already-restyled vb back (vb-name + Edition/Debut vitals), so this is safely re-runnable.
   const ROMAN = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
-  const name = (h.match(/<h1 id="b-title">([\s\S]*?)<\/h1>/) || [])[1];
+  let name, seasonTitle, season, num, of;
+  const h1 = h.match(/<h1 id="b-title">([\s\S]*?)<\/h1>/);
   const sub = h.match(/<div class="sub">([^<·]*?) · Season ([IVX]+) · №(\d+) of (\d+)<\/div>/);
-  if (!name || !sub) { console.warn(`  ! could not parse ${f}`); missed++; continue; }
-  const seasonTitle = sub[1].trim(), season = ROMAN[sub[2]] || 1, num = +sub[3], of = +sub[4];
+  if (h1 && sub) {
+    name = h1[1].trim(); seasonTitle = sub[1].trim(); season = ROMAN[sub[2]] || 1; num = +sub[3]; of = +sub[4];
+  } else {
+    const vn = h.match(/<div class="vb-name" id="b-title">([\s\S]*?)<\/div>/);
+    const ed = h.match(/№(\d+) \/ (\d+)<\/span>/);
+    const db = h.match(/Debut<\/span><span class="v">([^<·]+?) · S(\d+)<\/span>/);
+    if (vn && ed && db) { name = vn[1].trim(); num = +ed[1]; of = +ed[2]; seasonTitle = db[1].trim(); season = +db[2]; }
+  }
+  if (!name || num == null) { console.warn(`  ! could not parse ${f}`); missed++; continue; }
   // pull the printed stats straight from the page so the table always matches the card
   const atk = +((h.match(/id="b-atk">(\d+)/) || [])[1] || 0);
   const def = +((h.match(/id="b-def">(\d+)/) || [])[1] || 0);
