@@ -84,6 +84,7 @@
     overflow:hidden;
   }
   .cabinet::before{ content:""; position:absolute; top:0; left:-60%; width:40%; height:100%;
+    pointer-events:none; z-index:2;
     background:linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent);
     animation:sweep 5.5s ease-in-out infinite; }
   @keyframes sweep{ 0%{ left:-60% } 60%,100%{ left:130% } }
@@ -182,7 +183,7 @@
     </header>
 
     <section class="cabinet">
-      <iframe src="cards/duke.html" title="Duke — live foil card" loading="lazy"
+      <iframe src="cards/savage-journey.html" title="Savage Journey — live foil card" loading="lazy"
         allow="accelerometer; gyroscope; magnetometer"></iframe>
       <div class="cap">live foil · tilt it till it screams</div>
     </section>

@@ -1,11 +1,11 @@
 <!doctype html>
 <!--
   ═══════════ CARD PROVENANCE ═══════════
-  name:      {{NAME}}
-  season:    {{SEASON}} · card {{NUMBER}}
-  flavor:    {{FLAVOR}}
-  prompt:    {{PROMPT}}
-  seed/sref: {{SEED}}
+  name:      Brutal Ecstasy
+  season:    I · card 38
+  flavor:    
+  prompt:    (unrecorded)
+  seed/sref: (unrecorded)
   mode:      full-art flip card (image carries its own printed frame)
   ═══════════════════════════════════════
   Front: the art + live holographic foil (pointer/gyro tilt, gas-driven heat).
@@ -17,9 +17,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>{{NAME}} · S{{SEASON_NUM}} №{{NUMBER}}</title>
+<title>Brutal Ecstasy · S1 №38</title>
 <style>
-  :root{ --px:0; --py:0; --heat:.5; --f: {{FRAME}}; --plate:#f6ecc9; }
+  :root{ --px:0; --py:0; --heat:.5; --f: #ff5fd0; --plate:#f6ecc9; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; }
   body{
@@ -117,23 +117,23 @@
   <div class="scene" id="scene">
     <div class="card" id="card">
       <div class="face front">
-        {{ART}}
+        <img src="art/brutal-ecstasy.webp" alt="Brutal Ecstasy">
         <div class="foil"></div><div class="inflate"></div><div class="glare"></div><div class="glitter"></div>
         <div class="flip-hint">tap to flip ⟲</div>
       </div>
       <div class="face back">
         <div class="plate">
-          <h1 id="b-title">{{NAME}}</h1>
-          <div class="sub">{{SEASON_TITLE}} · Season {{SEASON}} · №{{NUMBER}} of {{OF}}</div>
+          <h1 id="b-title">Brutal Ecstasy</h1>
+          <div class="sub">Bloom · Season I · №38 of 84</div>
         </div>
         <div class="dossier">
           <div class="lore" id="b-lore">A spirit not yet named. Its dossier is still forming in the foil…</div>
           <div class="omen" id="b-omen"></div>
           <div class="rule"></div>
           <div class="grid">
-            <span class="k">ATK</span><span class="v" id="b-atk">{{ATK}}</span>
-            <span class="k">DEF</span><span class="v" id="b-def">{{DEF}}</span>
-            <span class="k">Trigger</span><span class="v" id="b-trig">{{TRIGGER}}</span>
+            <span class="k">ATK</span><span class="v" id="b-atk">8</span>
+            <span class="k">DEF</span><span class="v" id="b-def">5</span>
+            <span class="k">Trigger</span><span class="v" id="b-trig">DEEP WATER</span>
             <span class="k">Rarity</span><span class="v" id="b-rarity">—</span>
             <span class="k">Battles W/L</span><span class="v" id="b-wl">0 / 0</span>
             <span class="k">Times wagered</span><span class="v" id="b-wag">0</span>
@@ -202,8 +202,8 @@
   const $ = id => document.getElementById(id);
   const TRIGGER = ($('b-trig').textContent || '').trim().toUpperCase();
   const set = (id, v) => { if (v != null && v !== '') $(id).textContent = v; };
-  fetch('data/{{SLUG}}.json').then(r => r.ok ? r.json()
-    : fetch('/api/lore?slug={{SLUG}}').then(r => r.ok ? r.json() : null)).then(d => {
+  fetch('data/brutal-ecstasy.json').then(r => r.ok ? r.json()
+    : fetch('/api/lore?slug=brutal-ecstasy').then(r => r.ok ? r.json() : null)).then(d => {
     if (!d) return;
     if (d.title) { set('b-title', d.title.toUpperCase()); }
     set('b-lore', d.lore); set('b-omen', d.omen ? '“' + d.omen + '”' : '');
