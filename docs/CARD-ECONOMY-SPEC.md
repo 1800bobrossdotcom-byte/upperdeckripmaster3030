@@ -43,6 +43,7 @@ Defaults (curator-tunable via `setTolls`):
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
 | `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js) | 10 $UR3030 |
+| `forge(inputs[2..3])` | trade 2–3 owned cards to the house, mint a new collaged card (art keyed/layered off-chain, lineage in `forgeInputs`) | 15 $UR3030 |
 | marquee transfer | see §3 | 25 $UR3030 |
 
 ## 2.5 The Rarity Court — cards voted up, down, and off
@@ -83,6 +84,34 @@ vote any card **up** (promote) or **down** (demote); the ballot never closes.
 This is deliberately the same physics as the season ballot: conviction is
 combustion. A community that loves a common enough literally burns it into a
 prizm; a card the deck turns on burns out of the game.
+
+## 2.6 The Binder & market — collect, list, settle
+
+`cards/binder.html` is the collector's folder: nine-pocket pages you turn like a
+book, showing your owned cards (**My cards**) or the whole deck as a checklist
+with unowned pockets ghosted **FIND IT** (**Full set**). Opening a pocket gives
+the card's stats and its market actions.
+
+The same page is the **market bench**. It is an order book, not a treasury:
+
+- **Sell / trade** — list a card from your binder for an ask in $UR3030 or an
+  open want. Listings persist on-device (`urm_market`) as a signed intent; a
+  real fill **settles on-chain** through the primitives that already exist —
+  `trade(b, idA, idB)` for a swap, `sendCard(to, id)` for a paid hand-off —
+  each of which burns. No new escrow contract is required for v1.
+- **House market** — cards the vault holds (forge inputs traded in via §2.5's
+  sibling `forge()`, plus a curated shelf) are offered back. **Buy** burns the
+  ask and mints/transfers the card to you; **Trade for it** swaps one of your
+  cards for it and burns `tradeToll` per side. This is the house re-issuing the
+  cards it absorbed — a sink on the way in (forge toll) and a sink on the way
+  out (buy/trade burn).
+- A device-local **🔥 burned** meter tallies every settle for flavor; the real
+  accounting is `totalSupply` on-chain.
+
+Mainnet hardening (optional v2): a `list(id, price)` / `fill(listingId)` escrow
+pair on the vault so listings hold the card in the contract and settle
+trustlessly — still all burns, still no treasury. v1 ships on the existing
+send/trade rails.
 
 ## 3. The marquee (Lovebeing, id 1000)
 

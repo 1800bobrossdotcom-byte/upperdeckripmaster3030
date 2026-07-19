@@ -106,12 +106,19 @@ Already in `CardVault.sol`: send, trade, pog-wager escrow, rip, the rarity court
 fresh $UR3030 sink, i.e. more §1 pressure):
 
 - **Forge / card creator** (LIVE at `cards/forge.html`, on-chain path in
-  `CardVault.forge()`): trade in 2-3 owned cards + a forge toll to mint a new
-  card collaged from sections of the inputs (top of one, middle of another,
-  bottom of a third) inside a frame you pick. The consumed inputs become **house
-  cards** the vault holds/re-issues; `forgeInputs[newId]` records the lineage on
-  chain while the collage art lives off-chain keyed by the id. Forged cards are
-  first-class — playable in the arena. New art from old art, real sink.
+  `CardVault.forge()`): add 2-3 owned cards as **layers**, then sculpt — drag /
+  scale, pick a **blend mode**, and **key out a color** (eyedrop the art to punch
+  it transparent so a layer beneath shows through) before framing and minting.
+  The consumed inputs become **house cards** the vault holds/re-issues;
+  `forgeInputs[newId]` records the lineage on chain while the composited art
+  lives off-chain keyed by the id. Forged cards are first-class — playable in the
+  arena and listable in the binder. New art from old art, real sink.
+- **Binder + market** (LIVE at `cards/binder.html`): a nine-pocket collector
+  folder with turning pages (owned cards, or the full-set checklist with unowned
+  pockets ghosted) that doubles as the **marketplace** — list cards for sale or
+  trade, or buy/trade the house's re-issued forge stock. Listings are a local
+  order book that settles on-chain through the existing `trade`/`sendCard` burns
+  (no treasury); every settle shrinks supply. See CARD-ECONOMY-SPEC §2.6.
 - **Evolve / level a card** — `feed(id, amount)` burns tokens into a card to
   raise a cosmetic level the lens reads (more foil, more particles, a level pip).
   Pure art evolution driven by conviction.

@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Binder · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="Your collector's binder — nine-pocket pages you turn like a book — and the market bench where you list cards for sale, trade, or send. Every settle burns $UR3030.">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<style>
+  :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
+    --cyan:#27f7e4; --amber:#ffd23b; --drabink:#01130a; --leaf:#03160c;
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ background:var(--bg); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
+    min-height:100vh; overflow-x:hidden; padding:0 12px 80px; -webkit-tap-highlight-color:transparent; }
+  .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none; background:url("../Laughing_man.svg") repeat;
+    background-size:min(46vw,340px); filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6); opacity:.09; }
+  .wrap{ position:relative; z-index:1; max-width:1080px; margin:0 auto; }
+  a.back{ display:inline-block; margin-top:14px; color:var(--phos); text-decoration:none;
+    font-size:11px; letter-spacing:.2em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
+  h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
+    font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
+  .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
+  .burned{ text-align:center; font-size:10.5px; color:var(--amber); letter-spacing:.14em; text-transform:uppercase; margin-top:6px; }
+
+  .tabs{ display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .tab{ font-family:var(--fat); font-size:11px; letter-spacing:.1em; text-transform:uppercase; padding:9px 16px;
+    border:1px solid var(--phosdim); background:rgba(2,16,9,.85); color:var(--ink); border-radius:999px; cursor:pointer; }
+  .tab.on{ border-color:var(--phos); color:var(--phos); box-shadow:0 0 14px rgba(43,255,128,.28); }
+
+  /* ── the book ── */
+  .book{ position:relative; margin:20px auto 0; max-width:960px; perspective:2200px; }
+  .binder{ display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:14px; overflow:hidden;
+    border:1px solid var(--phosdim); box-shadow:0 24px 60px -18px #000, inset 0 0 40px rgba(0,0,0,.6); background:#010a06; }
+  @media (max-width:640px){ .binder{ grid-template-columns:1fr; } .book .page.right{ display:none; } }
+  .page{ position:relative; padding:20px 16px; min-height:420px; background:
+      linear-gradient(180deg, rgba(43,255,128,.05), rgba(0,0,0,0)),
+      repeating-linear-gradient(90deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(0deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px), var(--leaf); }
+  .page.left{ border-right:1px solid #000; box-shadow:inset -22px 0 40px -22px #000; }
+  .page.right{ box-shadow:inset 22px 0 40px -22px #000; }
+  .rings{ position:absolute; top:0; bottom:0; width:22px; display:flex; flex-direction:column; justify-content:space-around; padding:26px 0; }
+  .left .rings{ right:-11px; } .right .rings{ left:-11px; }
+  .ring{ width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #0a2a19, #000);
+    border:1px solid #123; box-shadow:0 0 6px rgba(0,0,0,.8), inset 0 0 3px rgba(43,255,128,.25); }
+  .page-no{ position:absolute; bottom:8px; font-size:9px; letter-spacing:.2em; color:#3f8f63; text-transform:uppercase; }
+  .left .page-no{ left:18px; } .right .page-no{ right:18px; }
+
+  .pockets{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .pk{ position:relative; aspect-ratio:2/3; border-radius:8px; border:1px solid var(--phosdim);
+    background:rgba(0,0,0,.35); box-shadow:inset 0 0 14px rgba(0,0,0,.7); overflow:hidden; cursor:pointer;
+    transition:transform .12s, box-shadow .12s; }
+  .pk:hover{ transform:translateY(-2px); box-shadow:0 6px 16px -6px #000, inset 0 0 14px rgba(0,0,0,.5); }
+  .pk .sheen{ position:absolute; inset:0; pointer-events:none; z-index:2;
+    background:linear-gradient(135deg, rgba(255,255,255,.16), transparent 42%); mix-blend-mode:screen; }
+  .pk img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .pk.empty{ cursor:default; } .pk.empty:hover{ transform:none; }
+  .pk.empty::after{ content:'∅'; position:absolute; inset:0; display:grid; place-items:center; color:#1c4c32; font-size:26px; }
+  .pk.ghost img{ filter:grayscale(1) brightness(.32) contrast(.9); }
+  .pk.ghost::before{ content:'FIND IT'; position:absolute; z-index:3; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-8deg);
+    font-family:var(--fat); font-size:10px; letter-spacing:.14em; color:var(--amber); text-shadow:0 0 8px #000; }
+  .pk .cnt{ position:absolute; z-index:3; right:4px; top:4px; background:#01130a; border:1px solid var(--phos); color:var(--phos);
+    font-size:9px; padding:1px 5px; border-radius:99px; font-family:var(--fat); }
+  .pk .nm{ position:absolute; z-index:3; left:0; right:0; bottom:0; padding:3px 4px; font-size:7.5px; text-align:center;
+    background:linear-gradient(0deg, rgba(1,10,5,.92), transparent); text-transform:uppercase; letter-spacing:.04em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pk .tag{ position:absolute; z-index:3; left:4px; top:4px; font-size:7px; padding:1px 4px; border-radius:3px;
+    font-family:var(--fat); text-transform:uppercase; letter-spacing:.05em; }
+  .pk .tag.forged{ background:var(--acid); color:#180016; }
+  .pk .tag.listed{ background:var(--amber); color:#241a00; }
+
+  /* page-turn leaf */
+  .leaf{ position:absolute; top:0; bottom:0; width:50%; z-index:20; pointer-events:none; transform-origin:left center;
+    background:linear-gradient(90deg, rgba(0,0,0,.5), rgba(43,255,128,.05)),
+      repeating-linear-gradient(0deg, rgba(43,255,128,.05) 0 1px, transparent 1px 34px), var(--leaf);
+    border:1px solid var(--phosdim); box-shadow:0 0 40px rgba(0,0,0,.8); backface-visibility:hidden; opacity:0; }
+  .leaf.right{ left:50%; transform-origin:left center; }
+  .leaf.left{ left:0; transform-origin:right center; }
+  @media (max-width:640px){ .leaf{ width:100%; } .leaf.right{ left:0; } }
+  .leaf.turn-fwd{ opacity:1; animation:turnFwd .5s ease-in forwards; }
+  .leaf.turn-bwd{ opacity:1; animation:turnBwd .5s ease-in forwards; }
+  @keyframes turnFwd{ from{ transform:rotateY(0deg);} to{ transform:rotateY(-172deg);} }
+  @keyframes turnBwd{ from{ transform:rotateY(0deg);} to{ transform:rotateY(172deg);} }
+
+  .nav{ display:flex; align-items:center; justify-content:center; gap:16px; margin-top:16px; }
+  .nav button{ font-family:var(--fat); font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:11px 18px;
+    border-radius:999px; border:2px solid var(--drabink); color:var(--phos); background:rgba(2,16,9,.9);
+    box-shadow:0 0 12px rgba(43,255,128,.2); cursor:pointer; }
+  .nav button:disabled{ opacity:.3; cursor:not-allowed; box-shadow:none; }
+  .nav .where{ font-size:11px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; min-width:120px; text-align:center; }
+
+  /* ── market bench ── */
+  .market{ display:none; margin-top:18px; }
+  .market.show{ display:block; }
+  .board{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:14px; }
+  .listing{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(2,16,9,.7); overflow:hidden; display:flex; flex-direction:column; }
+  .listing .top{ display:flex; gap:8px; padding:8px; }
+  .listing img{ width:52px; height:70px; object-fit:cover; border-radius:5px; border:1px solid var(--phosdim); flex:none; }
+  .listing .meta{ flex:1; min-width:0; }
+  .listing .meta .t{ font-size:11.5px; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .listing .meta .k{ font-size:9px; margin-top:3px; letter-spacing:.08em; text-transform:uppercase; }
+  .listing .meta .k.sell{ color:var(--phos); } .listing .meta .k.trade{ color:var(--cyan); } .listing .meta .k.want{ color:var(--amber); }
+  .listing .meta .by{ font-size:8.5px; color:#5fcf8f; margin-top:2px; text-transform:uppercase; letter-spacing:.06em; }
+  .listing .price{ font-family:var(--fat); font-size:13px; color:var(--amber); padding:0 8px 6px; }
+  .listing .price small{ font-size:8px; color:#5fcf8f; font-family:var(--mono); }
+  .listing .act{ display:flex; gap:6px; padding:8px; border-top:1px solid var(--phosdim); margin-top:auto; }
+  .listing .act button{ flex:1; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:8px 6px;
+    border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); border-radius:6px; cursor:pointer; }
+  .listing .act button.buy{ border-color:var(--amber); color:var(--amber); }
+  .listing .act button.cancel{ border-color:var(--acid); color:var(--acid); }
+  .board-empty{ grid-column:1/-1; text-align:center; color:#5fcf8f; font-style:italic; padding:30px 8px; }
+  .mkt-h{ display:flex; justify-content:space-between; align-items:baseline; margin-top:20px; }
+  .mkt-h .n{ font-family:var(--fat); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
+  .mkt-note{ font-size:11.5px; line-height:1.6; color:var(--ink); margin-top:6px; }
+  .mkt-note .b{ color:var(--acid); }
+
+  /* ── card sheet (detail modal) ── */
+  .scrim{ position:fixed; inset:0; z-index:80; background:rgba(0,4,2,.82); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:18px; }
+  .scrim.show{ display:flex; }
+  .sheet{ width:min(420px,94vw); border:1px solid var(--phos); border-radius:14px; background:#020e08;
+    box-shadow:0 0 44px rgba(43,255,128,.28); overflow:hidden; max-height:92vh; overflow-y:auto; }
+  .sheet .hero{ position:relative; aspect-ratio:2/3; max-height:52vh; background:#010a06; }
+  .sheet .hero img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .sheet .body{ padding:14px 16px 18px; }
+  .sheet h3{ font-family:var(--fat); font-size:20px; text-transform:uppercase; color:var(--phos); }
+  .sheet .rar{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); margin-top:2px; }
+  .sheet .stats{ display:flex; gap:10px; margin-top:10px; }
+  .sheet .stat{ flex:1; border:1px solid var(--phosdim); border-radius:8px; padding:8px; text-align:center; background:rgba(1,10,5,.5); }
+  .sheet .stat .l{ font-size:8px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; }
+  .sheet .stat .v{ font-family:var(--fat); font-size:18px; color:var(--ink); margin-top:2px; }
+  .sheet .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+  .sheet .actions a, .sheet .actions button{ font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    padding:11px 10px; border-radius:8px; border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos);
+    text-align:center; text-decoration:none; cursor:pointer; }
+  .sheet .actions .wide{ grid-column:1/-1; }
+  .sheet .actions .warm{ border-color:var(--amber); color:var(--amber); }
+  .sheet .actions .hot{ border-color:var(--acid); color:var(--acid); }
+  .sheet .close{ position:absolute; top:8px; right:8px; z-index:4; width:30px; height:30px; border-radius:50%; border:1px solid var(--phos);
+    background:rgba(1,10,5,.9); color:var(--phos); font-family:var(--fat); cursor:pointer; }
+  .sheet .miss{ font-size:12px; color:var(--amber); text-align:center; margin-top:8px; line-height:1.6; }
+
+  .toast{ position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:90; background:#01130a;
+    color:var(--phos); border:1px solid var(--phos); border-radius:999px; padding:10px 18px; font-family:var(--fat);
+    font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
+  .toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+  <div class="lm" aria-hidden="true"></div>
+  <div class="wrap">
+    <a class="back" href="../index.html">◄ back to the pack</a>
+    <a class="back" href="battle.html" style="margin-left:14px">⚔ the arena</a>
+    <a class="back" href="forge.html" style="margin-left:14px">⚒ the forge</a>
+    <h1>The Binder</h1>
+    <div class="sub">collect · turn the page · deal the market</div>
+    <div class="burned" id="burned"></div>
+
+    <div class="tabs">
+      <button class="tab on" data-view="mine">◈ My cards</button>
+      <button class="tab" data-view="set">▚ Full set</button>
+      <button class="tab" data-view="market">⇄ The market</button>
+    </div>
+
+    <!-- BINDER -->
+    <div id="binderView">
+      <div class="book">
+        <div class="binder" id="binder">
+          <div class="page left"><div class="rings" id="ringsL"></div><div class="pockets" id="pkL"></div><span class="page-no" id="noL"></span></div>
+          <div class="page right"><div class="rings" id="ringsR"></div><div class="pockets" id="pkR"></div><span class="page-no" id="noR"></span></div>
+        </div>
+        <div class="leaf right" id="leaf"></div>
+      </div>
+      <div class="nav">
+        <button id="prev">◄ turn back</button>
+        <span class="where" id="where">page 1</span>
+        <button id="next">turn ahead ►</button>
+      </div>
+    </div>
+
+    <!-- MARKET -->
+    <div class="market" id="marketView">
+      <p class="mkt-note">List cards from your binder for <span class="b">sale</span> or <span class="b">trade</span>, or
+      pick up <b>house cards</b> the vault re-issues. Nothing here is play money — a settle <b>burns $UR3030</b> on-chain
+      (via <code>CardVault.sendCard / trade</code>); this bench is your on-device order book until a counterparty burns.</p>
+
+      <div class="mkt-h"><span class="n">House market — burn to acquire</span><span class="n" style="color:#5fcf8f" id="houseN"></span></div>
+      <div class="board" id="houseBoard"></div>
+
+      <div class="mkt-h"><span class="n">Your listings</span><span class="n" style="color:#5fcf8f" id="mineN"></span></div>
+      <div class="board" id="mineBoard"></div>
+    </div>
+  </div>
+
+  <!-- CARD SHEET -->
+  <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const PER = 9; // nine-pocket page
+  const ASK = { common:5, uncommon:8, rare:15, mythic:40, prizm:120, forged:24 };
+  const TOLL = { send:1, trade:3 };
+  let DECK = [], view = 'mine', spread = 0, turning = false;
+
+  const say = (() => { const t=document.createElement('div'); t.className='toast'; document.body.appendChild(t);
+    let tm; return m=>{ t.textContent=m; t.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove('show'),2600); }; })();
+
+  const load = k => { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; } };
+  const save = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+  const vault = () => load('urm_vault');
+  const forgedById = () => new Map(load('urm_forged').map(f=>[f.id,f]));
+  const bySlug = () => new Map(DECK.map(c=>[c.slug,c]));
+  const burnedTotal = () => { try { return +(localStorage.getItem('urm_burned')||0); } catch { return 0; } };
+  const burn = (n, why) => { try { localStorage.setItem('urm_burned', String(burnedTotal()+n)); } catch {}
+    renderBurned(); say('🔥 '+n+' $UR3030 burned — '+why); };
+  function renderBurned(){ $('burned').textContent = '🔥 '+burnedTotal()+' $UR3030 burned on this device'; }
+
+  // resolve a vault entry {slug}|{forged} → card object
+  function resolve(e, bs, fb){ if(!e) return null; return e.forged ? fb.get(e.forged) : bs.get(e.slug); }
+
+  // owned distinct cards, with counts + a stable ref
+  function ownedCards(){
+    const bs=bySlug(), fb=forgedById(), counts=new Map(), order=[];
+    for(const e of vault()){ const c=resolve(e,bs,fb); if(!c) continue;
+      const key = e.forged?('f:'+e.forged):('s:'+e.slug);
+      if(!counts.has(key)){ counts.set(key,{ card:c, ref:e.forged?{forged:e.forged}:{slug:e.slug}, key, n:0 }); order.push(key); }
+      counts.get(key).n++; }
+    return order.map(k=>counts.get(k));
+  }
+  function ownedKeySet(){ const s=new Set(); for(const o of ownedCards()) s.add(o.key); return s; }
+
+  // pages depend on view
+  function pagesFor(){
+    if(view==='mine'){ return chunk(ownedCards().map(o=>({ ...o, mode:'own' }))); }
+    // full set: every deck card, filled if owned
+    const owned = new Map(ownedCards().map(o=>[o.card.slug, o]));
+    return chunk(DECK.map(c=>{ const o=owned.get(c.slug);
+      return { card:c, ref:{slug:c.slug}, key:'s:'+c.slug, n:o?o.n:0, mode: o?'own':'ghost' }; }));
+  }
+  function chunk(arr){ const out=[]; for(let i=0;i<arr.length;i+=PER) out.push(arr.slice(i,i+PER));
+    return out.length?out:[[]]; }
+
+  // is a card currently listed by you?
+  function listedKeys(){ const s=new Set(); for(const l of load('urm_market')) if(l.by==='you') s.add(l.key); return s; }
+
+  function pocketHTML(cell, listed){
+    if(!cell) return `<div class="pk empty" aria-hidden="true"></div>`;
+    const c=cell.card, ghost=cell.mode==='ghost';
+    const forged = cell.ref && cell.ref.forged;
+    const tag = forged?'<span class="tag forged">forged</span>' : (listed.has(cell.key)&&!ghost?'<span class="tag listed">listed</span>':'');
+    const cnt = (!ghost && cell.n>1)?`<span class="cnt">×${cell.n}</span>`:'';
+    return `<div class="pk ${ghost?'ghost':''}" data-key="${cell.key}">
+      <div class="sheen"></div>${tag}${cnt}
+      <img src="${c.art}" alt="${c.title}" loading="lazy" onerror="this.style.opacity=.15">
+      <div class="nm">${ghost?'???':c.title}</div></div>`;
+  }
+
+  function renderRings(el){ el.innerHTML = Array.from({length:6},()=>'<span class="ring"></span>').join(''); }
+
+  function paintPages(){
+    renderRings($('ringsL')); renderRings($('ringsR'));
+    const pages=pagesFor(), listed=listedKeys();
+    const L=pages[spread]||[], R=pages[spread+1]||null;
+    $('pkL').innerHTML = Array.from({length:PER},(_,i)=>pocketHTML(L[i],listed)).join('');
+    $('noL').textContent = 'leaf '+(spread+1);
+    if(R){ $('pkR').innerHTML = Array.from({length:PER},(_,i)=>pocketHTML(R[i],listed)).join('');
+      $('noR').textContent = 'leaf '+(spread+2); $('pkR').closest('.page').style.visibility='visible'; }
+    else { $('pkR').innerHTML=''; $('noR').textContent=''; }
+    const total=pages.length;
+    $('where').textContent = total>1 ? `leaves ${spread+1}${R?'–'+(spread+2):''} / ${total}` : (L.length?`${L.length} card${L.length>1?'s':''}`:'empty');
+    $('prev').disabled = spread<=0 || turning;
+    $('next').disabled = spread+2>=total || turning;
+    bindPockets();
+  }
+  function bindPockets(){
+    document.querySelectorAll('.pk[data-key]').forEach(el=>el.onclick=()=>openSheet(el.dataset.key));
+  }
+
+  function turn(dir){
+    if(turning) return; const pages=pagesFor();
+    if(dir>0 && spread+2>=pages.length) return; if(dir<0 && spread<=0) return;
+    turning=true; const leaf=$('leaf');
+    leaf.className = 'leaf '+(dir>0?'right turn-fwd':'left turn-bwd');
+    $('prev').disabled=$('next').disabled=true;
+    const done=()=>{ leaf.removeEventListener('animationend',done); leaf.className='leaf right';
+      spread = Math.max(0, spread + dir*2); turning=false; paintPages(); };
+    leaf.addEventListener('animationend',done);
+  }
+
+  // ── card sheet ──
+  function openSheet(key){
+    const isGhostSet = view==='set';
+    const bs=bySlug(), fb=forgedById();
+    // find the cell in current pages
+    let cell=null; for(const pg of pagesFor()) for(const cc of pg) if(cc&&cc.key===key){ cell=cc; break; }
+    if(!cell) return; const c=cell.card, ghost=cell.mode==='ghost';
+    const forged = cell.ref && cell.ref.forged;
+    const rar = (c.rarity||'rare');
+    if(ghost){
+      const houseHas = load('urm_market').some(l=>l.by==='house' && l.key==='s:'+c.slug);
+      $('sheet').innerHTML = `<div class="hero"><button class="close" id="x">✕</button>
+          <img src="${c.art}" alt="" style="filter:grayscale(1) brightness(.4)"></div>
+        <div class="body"><h3>${c.title}</h3><div class="rar">${rar} · not in your binder</div>
+          <div class="miss">You don't own this one yet.<br>Rip a pack or check the market to fill the pocket.</div>
+          <div class="actions">
+            <a class="wide" href="../index.html#ritual">✦ Rip a pack</a>
+            ${houseHas?'<button class="wide warm" id="toMkt">⇄ See it on the market</button>':''}
+          </div></div>`;
+    } else {
+      const t = c.trigger||'—';
+      $('sheet').innerHTML = `<div class="hero"><button class="close" id="x">✕</button>
+          <img src="${c.art}" alt="${c.title}"></div>
+        <div class="body"><h3>${c.title}</h3><div class="rar">${forged?'forged':rar}${cell.n>1?' · ×'+cell.n+' owned':''}</div>
+          <div class="stats">
+            <div class="stat"><div class="l">ATK</div><div class="v">${c.atk??'—'}</div></div>
+            <div class="stat"><div class="l">DEF</div><div class="v">${c.def??'—'}</div></div>
+            <div class="stat"><div class="l">Amp trigger</div><div class="v" style="font-size:10px">${t}</div></div>
+          </div>
+          <div class="actions">
+            <button class="warm" data-do="sell">✚ List for sale</button>
+            <button class="warm" data-do="trade">⇄ List for trade</button>
+            <button data-do="send">✉ Send / gift</button>
+            <a href="${c.slug}.html">◈ View card</a>
+          </div></div>`;
+    }
+    $('scrim').classList.add('show');
+    $('x') && ($('x').onclick=closeSheet);
+    const toMkt=$('toMkt'); if(toMkt) toMkt.onclick=()=>{ closeSheet(); setView('market'); };
+    $('sheet').querySelectorAll('[data-do]').forEach(b=>b.onclick=()=>doAction(b.dataset.do, cell));
+  }
+  function closeSheet(){ $('scrim').classList.remove('show'); }
+  $('scrim').addEventListener('click', e=>{ if(e.target===$('scrim')) closeSheet(); });
+
+  function doAction(kind, cell){
+    const c=cell.card;
+    if(kind==='sell'){
+      const def=ASK[cell.ref&&cell.ref.forged?'forged':(c.rarity||'rare')]||10;
+      const ask=prompt(`List "${c.title}" for sale.\nAsking price in $UR3030:`, def);
+      if(ask===null) return; const n=Math.max(1, Math.round(+ask)||def);
+      pushListing({ kind:'sell', by:'you', ask:n, key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
+      say('listed '+c.title+' for '+n+' $UR3030'); closeSheet(); go();
+    } else if(kind==='trade'){
+      const want=prompt(`List "${c.title}" for trade.\nWhat do you want for it?`, 'any prizm');
+      if(want===null) return;
+      pushListing({ kind:'trade', by:'you', want:(want||'open to offers').slice(0,40), key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
+      say('put '+c.title+' up for trade'); closeSheet(); go();
+    } else if(kind==='send'){
+      const to=prompt(`Send "${c.title}" to another collector.\nWallet / handle:`, '');
+      if(!to) return;
+      // a gift still feeds the fire — one copy leaves your vault, sendToll burns
+      removeOneFromVault(cell.ref);
+      burn(TOLL.send, 'sent '+c.title+' → '+to.slice(0,16));
+      closeSheet(); go();
+    }
+  }
+
+  function pushListing(l){ l.id='mk-'+Math.random().toString(36).slice(2,9); const m=load('urm_market'); m.push(l); save('urm_market', m); }
+  function removeOneFromVault(ref){ const v=vault(); const i=v.findIndex(e=> ref.forged? e.forged===ref.forged : e.slug===ref.slug);
+    if(i>=0){ v.splice(i,1); save('urm_vault', v); } }
+  function addToVault(ref){ const v=vault(); v.push(ref.forged?{forged:ref.forged}:{slug:ref.slug}); save('urm_vault', v.slice(-200)); }
+
+  // ── market ──
+  function seedHouse(){
+    let m=load('urm_market'); if(m.some(l=>l.by==='house')) return m;
+    const bs=bySlug();
+    // house cards traded in via forge + a curated shelf so the board is never bare
+    const houseSlugs = load('urm_house').filter(s=>bs.has(s));
+    const shelf = [];
+    for(let i=6;i<DECK.length && shelf.length<8;i+=Math.max(1,Math.floor(DECK.length/8))) shelf.push(DECK[i].slug);
+    const uniq=[...new Set([...houseSlugs, ...shelf])].slice(0,12);
+    for(const slug of uniq){ const c=bs.get(slug); if(!c) continue;
+      m.push({ id:'hs-'+slug, kind:'sell', by:'house', ask:ASK[c.rarity||'rare']||10, key:'s:'+slug, ref:{slug}, title:c.title, art:c.art, rar:c.rarity }); }
+    save('urm_market', m); return m;
+  }
+  function renderMarket(){
+    const m=seedHouse();
+    const house=m.filter(l=>l.by==='house'), mine=m.filter(l=>l.by==='you');
+    $('houseN').textContent = house.length+' offered';
+    $('mineN').textContent = mine.length+' posted';
+    $('houseBoard').innerHTML = house.length ? house.map(listingHTML).join('') : '<div class="board-empty">the house shelf is empty — forge cards in and they land here</div>';
+    $('mineBoard').innerHTML = mine.length ? mine.map(listingHTML).join('') : '<div class="board-empty">nothing listed — open a card in your binder to sell or trade it</div>';
+    $('houseBoard').querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>buyHouse(b.dataset.buy));
+    $('houseBoard').querySelectorAll('[data-offer]').forEach(b=>b.onclick=()=>offerTrade(b.dataset.offer));
+    document.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>cancelListing(b.dataset.cancel));
+  }
+  function listingHTML(l){
+    const kc = l.kind==='sell'?'sell':(l.kind==='trade'?'trade':'want');
+    const line = l.kind==='sell' ? `${l.ask} <small>$UR3030</small>` : (l.kind==='trade'? `wants: ${l.want}` : `${l.ask} <small>$UR3030</small>`);
+    const acts = l.by==='house'
+      ? `<button class="buy" data-buy="${l.id}">Buy · burn ${l.ask}</button><button data-offer="${l.id}">Trade for it</button>`
+      : `<button class="cancel" data-cancel="${l.id}">Cancel listing</button>`;
+    return `<div class="listing"><div class="top">
+        <img src="${l.art}" alt="${l.title}" onerror="this.style.opacity=.2">
+        <div class="meta"><div class="t">${l.title}</div><div class="k ${kc}">${l.kind}</div><div class="by">${l.by==='house'?'house card':'your card'}</div></div>
+      </div><div class="price">${line}</div><div class="act">${acts}</div></div>`;
+  }
+  function buyHouse(id){ const m=load('urm_market'); const l=m.find(x=>x.id===id); if(!l) return;
+    burn(l.ask, 'bought '+l.title);
+    addToVault(l.ref);
+    save('urm_market', m.filter(x=>x.id!==id));
+    renderMarket(); }
+  function offerTrade(id){ const m=load('urm_market'); const l=m.find(x=>x.id===id); if(!l) return;
+    const owned=ownedCards(); if(!owned.length){ say('you have no cards to trade'); return; }
+    const list=owned.map((o,i)=>`${i+1}. ${o.card.title}`).join('\n');
+    const pick=prompt(`Trade one of your cards for "${l.title}" (house).\nBurns ${TOLL.trade} $UR3030 each side.\n\n${list}\n\nEnter a number:`, '1');
+    if(pick===null) return; const idx=(parseInt(pick,10)||0)-1; const give=owned[idx];
+    if(!give){ say('no card at that slot'); return; }
+    removeOneFromVault(give.ref); addToVault(l.ref);
+    burn(TOLL.trade*2, 'traded '+give.card.title+' ⇄ '+l.title);
+    save('urm_market', m.filter(x=>x.id!==id));
+    renderMarket(); go(); }
+  function cancelListing(id){ const m=load('urm_market'); save('urm_market', m.filter(x=>x.id!==id));
+    say('listing cancelled'); renderMarket(); go(); }
+
+  // ── view switching ──
+  function setView(v){ view=v; spread=0;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.view===v));
+    $('binderView').style.display = v==='market'?'none':'';
+    $('marketView').classList.toggle('show', v==='market');
+    go();
+  }
+  function go(){ if(view==='market') renderMarket(); else paintPages(); }
+
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setView(t.dataset.view));
+  $('prev').onclick=()=>turn(-1); $('next').onclick=()=>turn(1);
+  window.addEventListener('keydown', e=>{ if($('scrim').classList.contains('show')){ if(e.key==='Escape') closeSheet(); return; }
+    if(view!=='market'){ if(e.key==='ArrowRight') turn(1); if(e.key==='ArrowLeft') turn(-1); } });
+
+  renderBurned();
+  fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[]; go(); })
+    .catch(()=>{ DECK=[]; go(); });
+})();
+</script>
+<script src="../theme.js"></script>
+</body>
+</html>
