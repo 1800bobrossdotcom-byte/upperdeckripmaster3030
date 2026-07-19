@@ -228,6 +228,58 @@ cost drifts.
 
 ---
 
-*Confirm the `medium-demand` schedule with `--preview`, and the recommended RARE
-seed with the cohort, before mainnet. Everything here is tunable on-chain via the
-curator setters — nothing is locked but the cap and the curve.*
+## 8. Designing for steady growth, not a pump
+
+The anti-goal (a shared chart of it): a token that spikes on thin liquidity and
+then craters — a vertical candle up, a vertical candle down, holders left
+underwater. That shape comes from **thin, pullable liquidity + a supply overhang
+someone dumps**. We're built to resist all three:
+
+**Why a Liquid Edition resists the rug.**
+- **The reserve can't be pulled.** Liquidity lives in the curve's RARE reserve
+  inside the edition contract, not a Uniswap LP a dev can yank. There is no "remove
+  liquidity" button to rug. Sells move price *down the curve* gradually; they don't
+  drain a pool to zero.
+- **No team pre-mint overhang.** Tokens are minted on the curve as people buy —
+  there is no giant founder bag minted at genesis waiting to be dumped. Any creator
+  allocation should be **small, disclosed, and vested/locked** (recommend: take
+  income from the **creator cut** stream, not a pre-mint).
+- **Price is a known function of supply.** Buyers can read exactly what the next
+  buy/sell does (`getMarketState`, `--preview`). No hidden tax, no honeypot.
+
+**What produces *steady upward* pressure (by design, not hype).**
+1. **Deflation under steady demand.** Every season burns a few percent of the cap
+   (§7). On a fixed curve, a shrinking float means the *same* recurring demand
+   clears at a *higher* price — a gentle ratchet, not a spike.
+2. **Must-hold-to-play utility = continuous organic buys.** You can't rip, battle,
+   trade, or curate without acquiring `$UR3030`. New players are a steady bid, not
+   a one-off speculative pump.
+3. **Pick the gentler curve.** `--preview` several presets and choose the one whose
+   slope is **steady**, not the steepest — a flatter curve grows calmly and absorbs
+   sells without cratering. Confirm the low-demand vs medium-demand shapes with the
+   cohort; steadiness beats a vertical launch candle.
+
+**Adding to liquidity over time (the second ask).**
+- **Seed real RARE reserve at deploy** so the opening curve is deep — thin reserve
+  is exactly what makes a chart jumpy. Ask the cohort what to seed for our cap.
+- **Buys auto-deepen it** — every purchase adds RARE to the reserve; genuine growth
+  *is* added liquidity, no LP to babysit.
+- **Recycle revenue into liquidity.** Commit a share of the **creator cut** and/or
+  the **house pool** to *buying $UR3030 and/or seeding RARE back into the reserve*
+  on a schedule (e.g., monthly), instead of taking it all off the table. This is the
+  concrete "ability to add to the liquidity pools": the game's own income funds
+  standing liquidity, which steadies price and signals we're not here to dump.
+- **Optional secondary pool later.** A modest Uniswap v3 `$UR3030`/RARE position in
+  a target band can add depth once there's volume; keep it small and let arbitrage
+  hold it to the curve. Never the primary market, never a rug lever.
+
+Net: the growth engine is **burns + utility demand on un-pullable curve liquidity,
+with revenue recycled back into the reserve** — a slow ratchet, the opposite of the
+spike-and-dump chart.
+
+---
+
+*Confirm the curve schedule with `--preview` (compare presets for the steadiest
+slope), and the recommended RARE seed with the cohort, before mainnet. Everything
+here is tunable on-chain via the curator setters — nothing is locked but the cap
+and the curve.*
