@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Forge · Upperdeck Ripmaster 3030</title>
-<meta name="description" content="Trade in cards you own to collage a new one — key out colors, stack layers, blend and frame. Forged cards are yours to play; the inputs become house cards.">
+<meta name="description" content="A sticker bench: our cards are stripped into cut-out parts — critters, backdrops, faces, FX — that you place, scale, rotate, flip and blend into a brand-new card. Trade the source cards in; the forged card is yours to play.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
@@ -12,97 +12,101 @@
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ background:var(--bg); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
-    min-height:100vh; overflow-x:hidden; padding:0 12px 60px; -webkit-tap-highlight-color:transparent; }
+    min-height:100vh; overflow-x:hidden; padding:0 12px 70px; -webkit-tap-highlight-color:transparent; }
   .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none; background:url("../Laughing_man.svg") repeat;
-    background-size:min(46vw,340px); filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6); opacity:.1; }
-  .wrap{ position:relative; z-index:1; max-width:1040px; margin:0 auto; }
+    background-size:min(46vw,340px); filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6); opacity:.09; }
+  .wrap{ position:relative; z-index:1; max-width:1060px; margin:0 auto; }
   a.back{ display:inline-block; margin-top:14px; color:var(--phos); text-decoration:none;
     font-size:11px; letter-spacing:.2em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
   h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
-  .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
+  .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.2em; text-transform:uppercase; margin-top:4px; }
   .panel{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(2,16,9,.82);
-    box-shadow:inset 0 0 26px rgba(43,255,128,.05); padding:14px; margin-top:16px; }
-  .panel h2{ font-family:var(--fat); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); margin-bottom:8px; }
-  .panel p{ font-size:12.5px; line-height:1.6; color:var(--ink); } .panel .b{ color:var(--acid); }
+    box-shadow:inset 0 0 26px rgba(43,255,128,.05); padding:12px 14px; margin-top:14px; }
+  .panel p{ font-size:12px; line-height:1.6; color:var(--ink); } .panel .b{ color:var(--acid); }
+  .panel b{ color:var(--phos); }
 
-  .bench{ display:grid; grid-template-columns:minmax(220px,320px) 1fr; gap:18px; margin-top:16px; }
-  @media (max-width:680px){ .bench{ grid-template-columns:1fr; } }
-  .stage{ display:flex; flex-direction:column; align-items:center; gap:12px; }
-  .canvas-hold{ position:relative; width:100%; max-width:320px; }
+  .bench{ display:grid; grid-template-columns:minmax(240px,340px) 1fr; gap:18px; margin-top:16px; align-items:start; }
+  @media (max-width:720px){ .bench{ grid-template-columns:1fr; } }
+  .stage{ display:flex; flex-direction:column; align-items:center; gap:10px; position:sticky; top:8px; }
+  @media (max-width:720px){ .stage{ position:static; } }
+  .canvas-hold{ position:relative; width:100%; max-width:340px; }
   canvas#card{ width:100%; aspect-ratio:2/3; border-radius:14px; border:1px solid var(--phosdim);
-    box-shadow:0 0 26px rgba(43,255,128,.18); background:#020a05; touch-action:none; cursor:grab; }
-  canvas#card.eyedrop{ cursor:crosshair; }
-  canvas#card.dragging{ cursor:grabbing; }
-  .stage-hint{ font-size:10px; color:#5fcf8f; letter-spacing:.1em; text-transform:uppercase; text-align:center; }
-  .frames{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
-  .fr{ width:30px; height:30px; border-radius:6px; border:2px solid var(--drabink); cursor:pointer; }
-  .fr.on{ outline:2px solid var(--phos); outline-offset:2px; }
-  .namerow{ display:flex; gap:8px; width:100%; max-width:320px; }
+    box-shadow:0 0 26px rgba(43,255,128,.18); background:#020a05; touch-action:none; cursor:grab; display:block; }
+  canvas#card.eyedrop{ cursor:crosshair; } canvas#card.dragging{ cursor:grabbing; }
+  .stage-hint{ font-size:10px; color:#5fcf8f; letter-spacing:.08em; text-transform:uppercase; text-align:center; min-height:12px; }
+  .namerow{ display:flex; gap:8px; width:100%; max-width:340px; }
   .namerow input{ flex:1; background:rgba(1,10,5,.9); border:1px solid var(--phosdim); color:var(--ink);
     font-family:var(--mono); font-size:13px; padding:8px 10px; border-radius:8px; }
 
-  /* layer list */
-  .layers{ display:flex; flex-direction:column; gap:6px; }
-  .lay{ display:flex; align-items:center; gap:8px; border:1px solid var(--phosdim); border-radius:8px; padding:6px 8px;
-    background:rgba(1,10,5,.55); cursor:pointer; }
-  .lay.active{ border-color:var(--phos); box-shadow:0 0 12px rgba(43,255,128,.22); background:rgba(2,22,12,.7); }
-  .lay img{ width:30px; height:40px; object-fit:cover; border-radius:4px; border:1px solid var(--phosdim); flex:none; }
-  .lay .li{ flex:1; min-width:0; }
-  .lay .li .t{ font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .lay .li .m{ font-size:9px; color:#5fcf8f; text-transform:uppercase; letter-spacing:.08em; }
-  .lay .z{ display:flex; gap:3px; flex:none; }
-  .lay .z button{ font-family:var(--mono); font-size:12px; line-height:1; width:22px; height:22px; border-radius:5px;
-    border:1px solid var(--phosdim); background:rgba(1,10,5,.9); color:var(--phos); cursor:pointer; }
-  .lay .z button.del{ color:var(--acid); }
-  .lay-empty{ text-align:center; color:#5fcf8f; font-style:italic; font-size:11.5px; padding:14px 8px; border:1px dashed var(--phosdim); border-radius:8px; }
+  /* selection controls */
+  .sel{ width:100%; max-width:340px; border:1px solid var(--phosdim); border-radius:10px; background:rgba(1,10,5,.5); padding:10px; display:none; }
+  .sel.show{ display:block; }
+  .sel .st{ font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--amber); margin-bottom:8px;
+    display:flex; justify-content:space-between; align-items:center; }
+  .sel .st b{ color:var(--phos); }
+  .sel .row{ display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  .sel label{ font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:#5fcf8f; width:44px; flex:none; }
+  .sel input[type=range]{ flex:1; accent-color:var(--phos); }
+  .sel select{ flex:1; background:rgba(1,10,5,.9); border:1px solid var(--phosdim); color:var(--ink); font-family:var(--mono); font-size:11px; padding:5px 6px; border-radius:6px; }
+  .sel .btnrow{ display:flex; gap:5px; flex-wrap:wrap; }
+  .sel .mini{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; padding:6px 8px;
+    border:1px solid var(--phosdim); background:rgba(2,16,9,.85); color:var(--phos); border-radius:6px; cursor:pointer; }
+  .sel .mini.on{ border-color:var(--acid); color:var(--acid); }
+  .sel .mini.del{ color:var(--acid); border-color:var(--acid); margin-left:auto; }
+  .sel .sw{ width:18px; height:18px; border-radius:4px; border:1px solid var(--phosdim); cursor:pointer; }
+  .sel .sw.on{ outline:2px solid var(--phos); outline-offset:1px; }
 
-  /* active-layer controls */
-  .ctl{ margin-top:10px; border-top:1px dashed var(--phosdim); padding-top:10px; display:none; }
-  .ctl.show{ display:block; }
-  .ctl .row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-  .ctl label{ font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--amber); width:52px; flex:none; }
-  .seg{ display:flex; gap:4px; flex-wrap:wrap; }
-  .seg button{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:5px 8px;
-    border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--ink); border-radius:6px; cursor:pointer; }
-  .seg button.on{ border-color:var(--phos); color:var(--phos); box-shadow:0 0 8px rgba(43,255,128,.25); }
-  .ctl select{ flex:1; background:rgba(1,10,5,.9); border:1px solid var(--phosdim); color:var(--ink);
-    font-family:var(--mono); font-size:12px; padding:6px 8px; border-radius:6px; }
-  .ctl input[type=range]{ flex:1; accent-color:var(--phos); }
-  .val{ font-size:10px; color:#5fcf8f; width:34px; text-align:right; flex:none; }
-  .keyrow{ display:flex; align-items:center; gap:8px; }
-  .swatch{ width:22px; height:22px; border-radius:5px; border:1px solid var(--phosdim); flex:none; background:#000; }
-  .mini{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:6px 9px;
-    border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); border-radius:6px; cursor:pointer; }
-  .mini.on{ border-color:var(--acid); color:var(--acid); box-shadow:0 0 8px rgba(255,42,217,.3); }
-
-  .tray-h{ display:flex; justify-content:space-between; align-items:baseline; margin-top:16px; }
-  .tray-h .n{ font-size:11px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; }
-  .tray{ display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:8px; margin-top:8px; max-height:280px; overflow:auto;
-    border:1px solid var(--phosdim); border-radius:10px; padding:10px; background:rgba(1,10,5,.4); }
-  .ing{ position:relative; border:2px solid var(--phosdim); border-radius:8px; overflow:hidden; cursor:pointer; aspect-ratio:2/3; background:#020a05; }
-  .ing img{ width:100%; height:74%; object-fit:cover; display:block; }
-  .ing .nm{ font-size:7.5px; text-align:center; padding:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-transform:uppercase; }
-  .ing.used{ outline:2px solid var(--amber); outline-offset:-2px; }
-  .empty-note{ grid-column:1/-1; text-align:center; color:#5fcf8f; padding:24px 8px; font-style:italic; }
-
-  .btns{ display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
-  .btn{ font-family:var(--fat); font-size:12px; letter-spacing:.12em; text-transform:uppercase; cursor:pointer;
-    padding:14px 22px; border-radius:999px; border:2px solid var(--drabink); color:#fff;
+  .btns{ display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:4px; width:100%; max-width:340px; }
+  .btn{ font-family:var(--fat); font-size:11px; letter-spacing:.08em; text-transform:uppercase; cursor:pointer;
+    padding:12px 16px; border-radius:999px; border:2px solid var(--drabink); color:#fff; flex:1; min-width:130px;
     background:linear-gradient(180deg,#ff7ae8,var(--acid) 55%,#b3129a);
     box-shadow: inset 0 3px 0 rgba(255,255,255,.35), 0 5px 0 var(--drabink), 0 0 18px rgba(255,42,217,.4); }
   .btn.ghost{ background:rgba(2,16,9,.9); color:var(--phos); box-shadow:0 0 12px rgba(43,255,128,.2); }
+  .btn.small{ flex:0 0 auto; min-width:0; font-size:10px; padding:10px 12px; }
   .btn:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
   .btn:active:not(:disabled){ transform:translateY(3px); }
 
-  .forged-h{ margin-top:26px; font-family:var(--fat); font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--phos); }
+  .powers{ width:100%; max-width:340px; border:1px solid var(--phosdim); border-radius:10px; background:rgba(1,10,5,.5); padding:10px; display:none; }
+  .powers.show{ display:block; }
+  .powers .ph{ font-family:var(--fat); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-bottom:7px; }
+  .powers .derived{ display:flex; gap:7px; margin-bottom:8px; }
+  .powers .dstat{ flex:1; text-align:center; border:1px solid var(--phosdim); border-radius:7px; padding:5px 3px; background:rgba(2,16,9,.6); }
+  .powers .dstat .l{ font-size:7.5px; color:#5fcf8f; letter-spacing:.08em; text-transform:uppercase; }
+  .powers .dstat .v{ font-family:var(--fat); font-size:15px; color:var(--phos); }
+  .powers .dstat .v.sm{ font-size:8px; color:var(--amber); line-height:1.25; padding-top:3px; }
+  .powers .tg{ display:flex; align-items:center; gap:8px; font-size:10px; text-transform:uppercase; letter-spacing:.04em; cursor:pointer; user-select:none; color:var(--ink); }
+  .powers .tg .box{ width:15px; height:15px; border-radius:4px; border:1px solid var(--phosdim); flex:none; display:grid; place-items:center; font-size:10px; color:var(--acid); }
+  .powers .tg.on .box{ border-color:var(--acid); }
+  .powers .tg .hint{ color:#5fcf8f; }
+
+  /* palette */
+  .cat-tabs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .cat{ font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase; padding:8px 12px;
+    border:1px solid var(--phosdim); background:rgba(2,16,9,.85); color:var(--ink); border-radius:999px; cursor:pointer; }
+  .cat.on{ border-color:var(--phos); color:var(--phos); box-shadow:0 0 12px rgba(43,255,128,.25); }
+  .cat-desc{ font-size:11px; color:#5fcf8f; margin:8px 2px 0; line-height:1.5; }
+  .palette{ display:grid; grid-template-columns:repeat(auto-fill,minmax(78px,1fr)); gap:8px; margin-top:8px; max-height:60vh; overflow:auto;
+    border:1px solid var(--phosdim); border-radius:10px; padding:10px; background:rgba(1,10,5,.4); }
+  .pc{ position:relative; border:2px solid var(--phosdim); border-radius:8px; overflow:hidden; cursor:pointer; background:#020a05;
+    aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; }
+  .pc.tall{ aspect-ratio:2/3; }
+  .pc:hover{ border-color:var(--phos); box-shadow:0 0 10px rgba(43,255,128,.25); }
+  .pc img, .pc canvas{ width:100%; height:100%; object-fit:contain; display:block; }
+  .pc.used{ outline:2px solid var(--amber); outline-offset:-2px; }
+  .pc .nm{ position:absolute; left:0; right:0; bottom:0; font-size:7px; text-align:center; padding:2px 1px; text-transform:uppercase;
+    background:linear-gradient(0deg,rgba(1,10,5,.9),transparent); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pc.add{ font-family:var(--fat); color:var(--phos); font-size:11px; text-align:center; letter-spacing:.05em; }
+  .fr-swatch{ width:100%; height:100%; }
+  .empty-note{ grid-column:1/-1; text-align:center; color:#5fcf8f; padding:22px 8px; font-style:italic; font-size:12px; }
+
+  .forged-h{ margin-top:24px; font-family:var(--fat); font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:var(--phos); }
   .forged{ display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:10px; margin-top:10px; }
   .forged .fc{ border:2px solid var(--acid); border-radius:8px; overflow:hidden; background:#020a05; box-shadow:0 0 12px rgba(255,42,217,.3); }
-  .forged .fc img{ width:100%; display:block; }
-  .forged .fc .nm{ font-size:8px; text-align:center; padding:3px; text-transform:uppercase; }
+  .forged .fc img{ width:100%; display:block; } .forged .fc .nm{ font-size:8px; text-align:center; padding:3px; text-transform:uppercase; }
   .toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:60; background:#01130a;
     color:var(--phos); border:1px solid var(--phos); border-radius:999px; padding:10px 18px; font-family:var(--fat);
-    font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; }
+    font-size:10px; letter-spacing:.06em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:92vw; text-align:center; }
   .toast.show{ opacity:1; }
 </style>
 </head>
@@ -110,74 +114,40 @@
   <div class="lm" aria-hidden="true"></div>
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
-    <a class="back" href="binder.html" style="margin-left:14px">▚ the binder</a>
+    <a class="back" href="binder.html" style="margin-left:14px">▤ the binder</a>
     <h1>The Forge</h1>
-    <div class="sub">key · layer · blend · mint</div>
+    <div class="sub">strip · sticker · scramble · mint</div>
 
     <div class="panel">
-      <h2>How the forge works</h2>
-      <p>Add <b>cards you own</b> as <b>layers</b>, then sculpt: drag to move, scale, pick a
-      <b>blend mode</b>, and <span class="b">key out a color</span> (eyedrop the art to punch it
-      transparent) so the layer beneath shows through. Stack top, cut a face out of another, drop
-      it on a third — frame it and mint. <b>Forging trades the source cards in</b>: 2–3 of them
-      leave your collection and become <b>house cards</b>. Your forged card is yours to play.
-      Every forge burns $UR3030. <span class="b">(preview — burns settle on-chain via the vault's forge())</span></p>
+      <p>The deck is <b>stripped into parts</b>. Flip through the drawers — <b>critters</b>
+      (cards cut out of their backgrounds), <b>backdrops</b>, <b>faces</b>, <b>FX</b> and
+      <b>type</b> — tap to drop a sticker on the card, then <b>drag, scale, spin, flip, blend</b>
+      and key it. Hit <b>scramble</b> for a random mash-up, <b>s</b> to save a PNG. Forging
+      <b>trades in the 2–3 cards</b> whose parts you used — they become house cards — and mints
+      your new one, playable in the arena. <span class="b">(the forge toll pays the creator; see the binder to trade it)</span></p>
     </div>
 
     <div class="bench">
       <div class="stage">
-        <div class="canvas-hold">
-          <canvas id="card" width="512" height="768" aria-label="forged card preview"></canvas>
-        </div>
-        <div class="stage-hint" id="stageHint">add a layer, then drag it on the card</div>
-        <div class="frames" id="frames"></div>
+        <div class="canvas-hold"><canvas id="card" width="512" height="768" aria-label="forged card preview"></canvas></div>
+        <div class="stage-hint" id="hint">pick a drawer → tap a part to drop it on the card</div>
+
+        <div class="sel" id="sel"></div>
+
         <div class="namerow"><input id="cname" maxlength="22" placeholder="name your card…"></div>
-      </div>
-      <div>
-        <div class="tray-h"><span class="n">Layers <span style="color:#5fcf8f">(front → back)</span></span><span class="n" id="layN">0</span></div>
-        <div class="layers" id="layers"></div>
-
-        <div class="ctl" id="ctl">
-          <div class="row"><label>Placement</label>
-            <div class="seg" id="modeSeg">
-              <button data-m="full">Full</button><button data-m="0">Top</button>
-              <button data-m="1">Mid</button><button data-m="2">Bottom</button>
-            </div>
-          </div>
-          <div class="row"><label>Blend</label>
-            <select id="blend">
-              <option value="source-over">Normal</option>
-              <option value="multiply">Multiply</option>
-              <option value="screen">Screen</option>
-              <option value="overlay">Overlay</option>
-              <option value="lighten">Lighten</option>
-              <option value="darken">Darken</option>
-              <option value="color-dodge">Color dodge</option>
-              <option value="hard-light">Hard light</option>
-              <option value="soft-light">Soft light</option>
-              <option value="difference">Difference</option>
-              <option value="hue">Hue</option>
-              <option value="luminosity">Luminosity</option>
-            </select>
-          </div>
-          <div class="row"><label>Opacity</label><input id="opacity" type="range" min="0" max="100" value="100"><span class="val" id="opacityV">100</span></div>
-          <div class="row" id="scaleRow"><label>Scale</label><input id="scale" type="range" min="20" max="260" value="100"><span class="val" id="scaleV">1.0×</span></div>
-          <div class="row"><label>Key out</label>
-            <div class="keyrow">
-              <button class="mini" id="eyedrop">◎ eyedrop</button>
-              <span class="swatch" id="keySwatch"></span>
-              <button class="mini" id="keyOff">clear key</button>
-            </div>
-          </div>
-          <div class="row" id="tolRow" style="display:none"><label>Spread</label><input id="tol" type="range" min="0" max="200" value="70"><span class="val" id="tolV">70</span></div>
-        </div>
-
-        <div class="tray-h"><span class="n">Your cards — tap to add a layer</span><span class="n" id="ownN">0 owned</span></div>
-        <div class="tray" id="tray"></div>
         <div class="btns">
-          <button class="btn" id="forge" disabled>⚒ Forge (burn inputs + toll)</button>
-          <button class="btn ghost" id="clear">Reset bench</button>
+          <button class="btn" id="forge" disabled>⚒ Forge</button>
+          <button class="btn ghost small" id="scramble" title="random mash-up">🎲 Scramble</button>
+          <button class="btn ghost small" id="savepng" title="download a PNG (or press s)">⬇ PNG</button>
+          <button class="btn ghost small" id="clear">Reset</button>
         </div>
+        <div class="powers" id="powers"></div>
+      </div>
+
+      <div class="palette-col">
+        <div class="cat-tabs" id="cats"></div>
+        <div class="cat-desc" id="catDesc"></div>
+        <div class="palette" id="palette"></div>
       </div>
     </div>
 
@@ -189,225 +159,301 @@
 (() => {
   const $ = id => document.getElementById(id);
   const cv = $('card'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height, PAD = 22;
-  const FRAMES = [ {k:'phos',c:'#2bff80'}, {k:'acid',c:'#ff2ad9'}, {k:'amber',c:'#ffd23b'}, {k:'cyan',c:'#27f7e4'} ];
+  const W = cv.width, H = cv.height, PAD = 22, IW = W-PAD*2, IH = H-PAD*2;
+  const FRAMES = [ {k:'phos',c:'#2bff80'}, {k:'acid',c:'#ff2ad9'}, {k:'amber',c:'#ffd23b'}, {k:'cyan',c:'#27f7e4'}, {k:'bone',c:'#eafff2'} ];
   const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
-  let DECK = [], owned = [], layers = [], active = -1, frame = FRAMES[0], imgCache = new Map(), armEyedrop = false;
+  const COLORS = ['#2bff80','#ff2ad9','#ffd23b','#27f7e4','#eafff2','#0a0a0a'];
+  const PARTS = ['eyes','grin','shades','thirdeye','tongue','bolt','star','swirl','halo','boom','drip','skull'];
+  const RPCS = (window.RIPMASTER_CHAIN && window.RIPMASTER_CHAIN.rpcs) || ['https://eth.llamarpc.com','https://cloudflare-eth.com'];
 
-  const say = (() => { const t = document.createElement('div'); t.className='toast'; document.body.appendChild(t);
-    let tm; return m => { t.textContent=m; t.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove('show'),2400); }; })();
+  let DECK=[], owned=[], pieces=[], active=-1, frame=FRAMES[0], cat='critters', armEyedrop=false, imgCache=new Map();
+  let live={ trig:null, block:0 }, chainBind=false, fuse=false;
 
-  const load = k => { try { return JSON.parse(localStorage.getItem(k)||'[]'); } catch { return []; } };
-  const save = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-  const vault = () => load('urm_vault');
-  const forged = () => load('urm_forged');
-  const hashStats = name => { let h=0; for(const c of name) h=(h+c.charCodeAt(0))|0; h=Math.abs(h);
-    return { atk:1+(h*7)%9, def:1+(h*13)%9, trigger:TRIGGERS[(h*31)%8] }; };
+  const say=(()=>{ const t=document.createElement('div'); t.className='toast'; document.body.appendChild(t);
+    let tm; return m=>{ t.textContent=m; t.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove('show'),2400); }; })();
+  const load=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'[]'); }catch{ return []; } };
+  const save=(k,v)=>{ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} };
+  const vault=()=>load('urm_vault'); const forged=()=>load('urm_forged');
+  // deterministic-ish rng seeded off a mutable counter (Math.random ok in-browser)
+  const rnd=n=>Math.floor(Math.random()*n);
 
   function getImg(src){ if(imgCache.has(src)) return Promise.resolve(imgCache.get(src));
     return new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous';
       im.onload=()=>{ imgCache.set(src,im); res(im); }; im.onerror=()=>res(null); im.src=src; }); }
 
-  // ── bake a layer's raw source (band crop or full) + its chroma-keyed copy ──
-  function bake(L){
-    const im = L._img; if(!im){ L._src=null; L._keyed=null; return; }
-    const src = document.createElement('canvas');
-    if(L.mode==='band'){ const sh=im.height/3; src.width=im.width; src.height=Math.round(sh);
-      src.getContext('2d').drawImage(im, 0, L.band*sh, im.width, sh, 0, 0, im.width, Math.round(sh)); }
-    else { src.width=im.width; src.height=im.height; src.getContext('2d').drawImage(im,0,0); }
-    L._src = src;
-    L._keyed = L.key ? applyChroma(src, L.key) : src;
+  // ── strip: find the card's background colour and key it out ──
+  function dominantEdge(src){
+    const g=src.getContext('2d'); let d; try{ d=g.getImageData(0,0,src.width,src.height).data; }catch{ return null; }
+    const w=src.width,h=src.height, tally=new Map(), sample=(x,y)=>{ const i=(y*w+x)*4; if(d[i+3]<8) return;
+      const key=((d[i]>>4)<<8)|((d[i+1]>>4)<<4)|(d[i+2]>>4); const e=tally.get(key)||{n:0,r:0,g:0,b:0};
+      e.n++; e.r+=d[i]; e.g+=d[i+1]; e.b+=d[i+2]; tally.set(key,e); };
+    const step=Math.max(2,Math.floor(w/40));
+    for(let x=0;x<w;x+=step){ sample(x,0); sample(x,h-1); sample(x,1); sample(x,h-2); }
+    for(let y=0;y<h;y+=step){ sample(0,y); sample(w-1,y); sample(1,y); sample(w-2,y); }
+    let best=null; for(const e of tally.values()) if(!best||e.n>best.n) best=e;
+    if(!best) return null; return { r:Math.round(best.r/best.n), g:Math.round(best.g/best.n), b:Math.round(best.b/best.n), tol:64 };
   }
-  function applyChroma(src, key){
-    const c=document.createElement('canvas'); c.width=src.width; c.height=src.height;
-    const g=c.getContext('2d'); g.drawImage(src,0,0);
-    let d; try { d=g.getImageData(0,0,c.width,c.height); } catch { return src; }
+  function applyChroma(src,key){ const c=document.createElement('canvas'); c.width=src.width; c.height=src.height;
+    const g=c.getContext('2d'); g.drawImage(src,0,0); let d; try{ d=g.getImageData(0,0,c.width,c.height); }catch{ return src; }
     const p=d.data, feather=46, tol=key.tol;
-    for(let i=0;i<p.length;i+=4){ const dr=p[i]-key.r, dg=p[i+1]-key.g, db=p[i+2]-key.b;
-      const dist=Math.sqrt(dr*dr+dg*dg+db*db);
+    for(let i=0;i<p.length;i+=4){ const dr=p[i]-key.r,dg=p[i+1]-key.g,db=p[i+2]-key.b; const dist=Math.sqrt(dr*dr+dg*dg+db*db);
       if(dist<=tol) p[i+3]=0; else if(dist<tol+feather) p[i+3]=Math.round(p[i+3]*(dist-tol)/feather); }
-    g.putImageData(d,0,0); return c;
-  }
+    g.putImageData(d,0,0); return c; }
 
-  // placement rect for a layer (canvas coords)
-  function rectOf(L){ const iw=W-PAD*2, ih=H-PAD*2, s=L._src||{width:2,height:3};
-    if(L.mode==='full'){ const base=Math.min(iw/s.width, ih/s.height), sc=base*L.scale;
-      const w=s.width*sc, h=s.height*sc; return { x:PAD+(iw-w)/2+L.x, y:PAD+(ih-h)/2+L.y, w, h, cover:false }; }
-    const bandH=ih/3; return { x:PAD, y:PAD+L.band*bandH, w:iw, h:bandH, cover:true };
-  }
-  function blit(target, canvasSrc, r){
-    if(!canvasSrc) return;
-    if(r.cover){ const sw=canvasSrc.width, sh=canvasSrc.height, scale=Math.max(r.w/sw, r.h/sh);
-      const rw=sw*scale, rh=sh*scale, ox=r.x+(r.w-rw)/2, oy=r.y+(r.h-rh)/2;
-      target.save(); target.beginPath(); target.rect(r.x,r.y,r.w,r.h); target.clip();
-      target.drawImage(canvasSrc,0,0,sw,sh, ox,oy,rw,rh); target.restore();
-    } else target.drawImage(canvasSrc, r.x, r.y, r.w, r.h);
-  }
+  // ── vector parts (drawn to an offscreen so they act like image stickers) ──
+  function bakePart(kind,color){ const S=256, c=document.createElement('canvas'); c.width=S; c.height=S; const g=c.getContext('2d');
+    g.lineJoin='round'; g.lineCap='round'; g.strokeStyle=color; g.fillStyle=color; const mid=S/2;
+    const ink = color==='#0a0a0a' ? '#eafff2' : '#0a0a0a';
+    if(kind==='eyes'){ [ -1,1 ].forEach(s=>{ g.beginPath(); g.arc(mid+s*54,mid,52,0,7); g.fillStyle='#fff'; g.fill();
+        g.lineWidth=8; g.strokeStyle=ink; g.stroke(); g.beginPath(); g.arc(mid+s*54+s*12,mid+10,20,0,7); g.fillStyle=ink; g.fill(); }); }
+    else if(kind==='grin'){ g.lineWidth=14; g.strokeStyle=ink; g.beginPath(); g.arc(mid,mid-30,90,.15*Math.PI,.85*Math.PI); g.stroke();
+        g.fillStyle='#fff'; g.beginPath(); g.moveTo(mid-80,mid+8); g.quadraticCurveTo(mid,mid+120,mid+80,mid+8); g.closePath(); g.fill(); g.lineWidth=6; g.stroke();
+        g.strokeStyle=ink; for(let i=-2;i<=2;i++){ g.beginPath(); g.moveTo(mid+i*30,mid+8); g.lineTo(mid+i*30,mid+58); g.stroke(); } }
+    else if(kind==='shades'){ g.fillStyle=ink; [ -1,1 ].forEach(s=>{ g.beginPath(); g.roundRect(mid+s*18-((s<0)?92:2),mid-40,90,70,14); g.fill(); });
+        g.fillStyle=color; [ -1,1 ].forEach(s=>{ g.beginPath(); g.roundRect(mid+s*18-((s<0)?82:-8),mid-30,70,50,10); g.fill(); });
+        g.lineWidth=12; g.strokeStyle=ink; g.beginPath(); g.moveTo(mid-8,mid-30); g.lineTo(mid+8,mid-30); g.stroke(); }
+    else if(kind==='thirdeye'){ g.fillStyle='#fff'; g.beginPath(); g.ellipse(mid,mid,96,58,0,0,7); g.fill(); g.lineWidth=10; g.strokeStyle=ink; g.stroke();
+        g.fillStyle=color; g.beginPath(); g.arc(mid,mid,34,0,7); g.fill(); g.fillStyle=ink; g.beginPath(); g.arc(mid,mid,15,0,7); g.fill();
+        g.strokeStyle=color; g.lineWidth=8; for(let a=0;a<12;a++){ const an=a/12*7; g.beginPath(); g.moveTo(mid+Math.cos(an)*70,mid+Math.sin(an)*44); g.lineTo(mid+Math.cos(an)*100,mid+Math.sin(an)*64); g.stroke(); } }
+    else if(kind==='tongue'){ g.fillStyle=color; g.beginPath(); g.moveTo(mid-56,mid-70); g.quadraticCurveTo(mid-70,mid+90,mid,mid+96);
+        g.quadraticCurveTo(mid+70,mid+90,mid+56,mid-70); g.closePath(); g.fill(); g.strokeStyle=ink; g.lineWidth=8; g.stroke();
+        g.beginPath(); g.moveTo(mid,mid-20); g.lineTo(mid,mid+70); g.stroke(); }
+    else if(kind==='bolt'){ g.beginPath(); g.moveTo(mid+30,20); g.lineTo(mid-52,mid+16); g.lineTo(mid-4,mid+16); g.lineTo(mid-34,S-20);
+        g.lineTo(mid+58,mid-24); g.lineTo(mid+8,mid-24); g.closePath(); g.fill(); g.lineWidth=8; g.strokeStyle=ink; g.stroke(); }
+    else if(kind==='star'){ g.beginPath(); for(let i=0;i<10;i++){ const an=Math.PI/5*i-Math.PI/2, rr=i%2? 40:112;
+        g[i?'lineTo':'moveTo'](mid+Math.cos(an)*rr,mid+Math.sin(an)*rr); } g.closePath(); g.fill(); g.lineWidth=6; g.strokeStyle=ink; g.stroke(); }
+    else if(kind==='swirl'){ g.lineWidth=16; g.beginPath(); for(let t=0;t<7.2;t+=.08){ const rr=8+t*15; const x=mid+Math.cos(t*2)*rr, y=mid+Math.sin(t*2)*rr; g[t?'lineTo':'moveTo'](x,y); } g.stroke(); }
+    else if(kind==='halo'){ g.lineWidth=18; g.beginPath(); g.ellipse(mid,mid,100,40,0,0,7); g.stroke(); g.globalAlpha=.5; g.lineWidth=8; g.beginPath(); g.ellipse(mid,mid,120,52,0,0,7); g.stroke(); g.globalAlpha=1; }
+    else if(kind==='boom'){ g.beginPath(); for(let i=0;i<24;i++){ const an=i/24*7, rr=i%2?54:118; g[i?'lineTo':'moveTo'](mid+Math.cos(an)*rr,mid+Math.sin(an)*rr); } g.closePath(); g.fill(); g.fillStyle=ink; g.font='700 40px Arial Black'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('POW',mid,mid); }
+    else if(kind==='drip'){ g.beginPath(); g.moveTo(40,40); g.lineTo(S-40,40); g.lineTo(S-40,120);
+        for(let x=S-40;x>=40;x-=40){ g.quadraticCurveTo(x-20,120+(x%80?90:150),x-40,120); } g.closePath(); g.fill(); }
+    else if(kind==='skull'){ g.beginPath(); g.arc(mid,mid-20,84,0,7); g.fill(); g.fillRect(mid-46,mid-20,92,90);
+        g.fillStyle=ink; [ -1,1 ].forEach(s=>{ g.beginPath(); g.arc(mid+s*34,mid-20,24,0,7); g.fill(); });
+        g.beginPath(); g.moveTo(mid,mid+4); g.lineTo(mid-16,mid+34); g.lineTo(mid+16,mid+34); g.closePath(); g.fill();
+        for(let i=-2;i<=2;i++) g.fillRect(mid+i*18-6,mid+62,12,26); }
+    return c; }
+  function bakeText(text,color){ const g0=document.createElement('canvas').getContext('2d'); g0.font='900 120px Arial Black';
+    const w=Math.min(1400,Math.ceil(g0.measureText(text).width)+40), h=170; const c=document.createElement('canvas'); c.width=w; c.height=h;
+    const g=c.getContext('2d'); g.font='900 120px Arial Black'; g.textAlign='center'; g.textBaseline='middle';
+    g.lineWidth=12; g.strokeStyle= color==='#0a0a0a'?'#eafff2':'#0a0a0a'; g.strokeText(text,w/2,h/2);
+    g.fillStyle=color; g.fillText(text,w/2,h/2); return c; }
 
-  function draw(){
-    ctx.clearRect(0,0,W,H); ctx.fillStyle='#020a05'; ctx.fillRect(0,0,W,H);
-    const iw=W-PAD*2, ih=H-PAD*2;
-    for(const L of layers){ if(!L._keyed) continue;
-      ctx.save(); ctx.globalAlpha=L.opacity; ctx.globalCompositeOperation=L.blend||'source-over';
-      blit(ctx, L._keyed, rectOf(L)); ctx.restore(); }
-    // frame + inner keyline
+  // ── piece bake / geometry ──
+  function baseSize(src,mode){ if(mode==='card'){ const b=Math.min(IW/src.width, IH/src.height); return { w:src.width*b, h:src.height*b }; }
+    const b=200/Math.max(src.width,src.height); return { w:src.width*b, h:src.height*b }; }
+  function rebakeCard(p){ p._src = p.key ? applyChroma(p._raw, p.key) : p._raw; }
+
+  function addCard(c, strip){ getImg(c.art).then(im=>{ if(!im){ say('art failed'); return; }
+    const raw=document.createElement('canvas'); raw.width=im.width; raw.height=im.height; raw.getContext('2d').drawImage(im,0,0);
+    const key = strip ? dominantEdge(raw) : null; const bs=baseSize(raw,'card');
+    const p={ id:pid(), kind:'card', title:c.title, slug:c.slug, _vaultIdx:c._vaultIdx, atk:c.atk, def:c.def, trigger:c.trigger,
+      _raw:raw, key, baseW:bs.w, baseH:bs.h, x:W/2, y:H/2, scale: strip?0.82: Math.max(IW/bs.w, IH/bs.h), rot:0, flipH:false, flipV:false, opacity:1, blend:'source-over' };
+    rebakeCard(p); pieces.push(p); active=pieces.length-1; sync(); }); }
+  function addPart(kind){ const color=COLORS[0]; const raw=bakePart(kind,color); const bs=baseSize(raw,'part');
+    const p={ id:pid(), kind:'part', part:kind, color, _raw:raw, _src:raw, baseW:bs.w, baseH:bs.h, x:W/2, y:H/2, scale:1, rot:0, flipH:false, flipV:false, opacity:1, blend:'source-over' };
+    pieces.push(p); active=pieces.length-1; sync(); }
+  function addText(text){ const color=COLORS[2]; const raw=bakeText(text.toUpperCase(),color); const bs=baseSize(raw,'part');
+    const p={ id:pid(), kind:'text', text:text.toUpperCase(), color, _raw:raw, _src:raw, baseW:bs.w*1.4, baseH:bs.h*1.4, x:W/2, y:H*0.4, scale:1, rot:0, flipH:false, flipV:false, opacity:1, blend:'source-over' };
+    pieces.push(p); active=pieces.length-1; sync(); }
+  let _pid=0; const pid=()=>'p'+(_pid++);
+
+  // ── draw ──
+  function xform(g,p){ g.translate(p.x,p.y); g.rotate(p.rot); g.scale((p.flipH?-1:1), (p.flipV?-1:1)); }
+  function drawPiece(g,p){ const w=p.baseW*p.scale, h=p.baseH*p.scale; g.save(); g.globalAlpha=p.opacity; g.globalCompositeOperation=p.blend||'source-over';
+    xform(g,p); g.drawImage(p._src, -w/2, -h/2, w, h); g.restore(); }
+  function draw(){ ctx.clearRect(0,0,W,H); ctx.fillStyle='#020a05'; ctx.fillRect(0,0,W,H);
+    for(const p of pieces) drawPiece(ctx,p);
+    // frame + keyline + title
     ctx.strokeStyle=frame.c; ctx.lineWidth=8; roundRect(6,6,W-12,H-12,16); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; roundRect(PAD-4,PAD-4,iw+8,ih+8,10); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1.5; roundRect(PAD-4,PAD-4,IW+8,IH+8,10); ctx.stroke();
     ctx.fillStyle=frame.c; [[16,16],[W-16,16],[16,H-16],[W-16,H-16]].forEach(([x,y])=>{ ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill(); });
-    // title plate
     const nm=($('cname').value||'untitled').toUpperCase();
-    ctx.fillStyle='rgba(1,10,5,.82)'; roundRect(PAD, H-PAD-46, iw, 40, 8); ctx.fill();
-    ctx.strokeStyle=frame.c; ctx.lineWidth=2; roundRect(PAD, H-PAD-46, iw, 40, 8); ctx.stroke();
+    ctx.fillStyle='rgba(1,10,5,.82)'; roundRect(PAD, H-PAD-46, IW, 40, 8); ctx.fill();
+    ctx.strokeStyle=frame.c; ctx.lineWidth=2; roundRect(PAD, H-PAD-46, IW, 40, 8); ctx.stroke();
     ctx.fillStyle='#eafff2'; ctx.font='700 22px Arial Black, Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText(nm.slice(0,20), W/2, H-PAD-26);
     ctx.fillStyle=frame.c; ctx.font='700 10px Arial'; ctx.fillText('◆ FORGED', W/2, H-PAD-46-10);
+    // selection outline
+    const p=pieces[active]; if(p){ const w=p.baseW*p.scale, h=p.baseH*p.scale; ctx.save(); xform(ctx,p);
+      ctx.strokeStyle=frame.c; ctx.setLineDash([9,7]); ctx.lineWidth=2; ctx.strokeRect(-w/2,-h/2,w,h); ctx.setLineDash([]);
+      ctx.fillStyle=frame.c; ctx.beginPath(); ctx.arc(w/2,h/2,7,0,7); ctx.fill(); ctx.restore(); }
   }
   function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
-  // ── active-layer controls ──
-  function syncCtl(){
-    const L = layers[active];
-    $('ctl').classList.toggle('show', !!L);
-    $('stageHint').textContent = L ? (L.mode==='full' ? 'drag the active layer on the card · scale below' : 'this layer fills a band') : 'add a layer, then drag it on the card';
-    if(!L) return;
-    $('modeSeg').querySelectorAll('button').forEach(b=>{
-      const on = (b.dataset.m==='full' && L.mode==='full') || (b.dataset.m!=='full' && L.mode==='band' && +b.dataset.m===L.band);
-      b.classList.toggle('on', on); });
-    $('blend').value = L.blend||'source-over';
-    $('opacity').value = Math.round(L.opacity*100); $('opacityV').textContent = Math.round(L.opacity*100);
-    $('scaleRow').style.display = L.mode==='full' ? '' : 'none';
-    $('scale').value = Math.round(L.scale*100); $('scaleV').textContent = L.scale.toFixed(1)+'×';
-    $('keySwatch').style.background = L.key ? `rgb(${L.key.r},${L.key.g},${L.key.b})` : '#000';
-    $('tolRow').style.display = L.key ? '' : 'none';
-    if(L.key){ $('tol').value = L.key.tol; $('tolV').textContent = L.key.tol; }
-    $('eyedrop').classList.toggle('on', armEyedrop);
-  }
-
-  function renderLayers(){
-    $('layN').textContent = layers.length;
-    if(!layers.length){ $('layers').innerHTML = '<div class="lay-empty">no layers — tap a card below to start</div>'; syncCtl(); updateForge(); return; }
-    // front-to-back display = reverse of paint order (last painted = front)
-    $('layers').innerHTML = layers.map((L,i)=>i).reverse().map(i=>{ const L=layers[i];
-      const modeLabel = L.mode==='full' ? 'full' : ['top','mid','bottom'][L.band];
-      return `<div class="lay ${i===active?'active':''}" data-i="${i}">
-        <img src="${L.art}" alt="">
-        <div class="li"><div class="t">${L.title}</div><div class="m">${modeLabel}${L.key?' · keyed':''} · ${(L.blend||'normal').replace('source-over','normal')}</div></div>
-        <div class="z"><button data-a="up" title="forward">▲</button><button data-a="dn" title="back">▼</button><button class="del" data-a="del" title="remove">✕</button></div>
-      </div>`; }).join('');
-    $('layers').querySelectorAll('.lay').forEach(el=>{
-      el.onclick=e=>{ const i=+el.dataset.i;
-        const a=e.target.closest('button')?.dataset.a;
-        if(a==='del'){ layers.splice(i,1); active=Math.min(active, layers.length-1); }
-        else if(a==='up'){ if(i<layers.length-1){ [layers[i],layers[i+1]]=[layers[i+1],layers[i]]; active=i+1; } }
-        else if(a==='dn'){ if(i>0){ [layers[i],layers[i-1]]=[layers[i-1],layers[i]]; active=i-1; } }
-        else active=i;
-        armEyedrop=false; cv.classList.remove('eyedrop');
-        renderLayers(); renderTray(); draw(); syncCtl(); updateForge();
-      };
-    });
-    syncCtl();
-  }
-
-  function renderFrames(){ $('frames').innerHTML = FRAMES.map((f,i)=>`<span class="fr ${f===frame?'on':''}" data-i="${i}" style="background:${f.c}"></span>`).join('');
-    $('frames').querySelectorAll('.fr').forEach(el=>el.onclick=()=>{ frame=FRAMES[+el.dataset.i]; renderFrames(); draw(); }); }
-
-  function resolveOwned(){
-    const bySlug=new Map(DECK.map(c=>[c.slug,c])), fById=new Map(forged().map(f=>[f.id,f]));
-    owned = vault().map((e,idx)=>{ const c = e.forged ? fById.get(e.forged) : bySlug.get(e.slug);
-      return c ? {...c, _vaultIdx:idx} : null; }).filter(Boolean);
-  }
-  async function addLayer(c){
-    const im = await getImg(c.art); if(!im){ say('art failed to load'); return; }
-    const L = { title:c.title, art:c.art, slug:c.slug, _vaultIdx:c._vaultIdx, _img:im,
-      mode:'full', band:0, x:0, y:0, scale:1, blend:'source-over', opacity:1, key:null };
-    bake(L); layers.push(L); active=layers.length-1;
-    renderLayers(); renderTray(); draw(); updateForge();
-  }
-  function renderTray(){
-    resolveOwned();
-    $('ownN').textContent = owned.length+' owned';
-    const usedKeys = new Set(layers.map(L=>L._vaultIdx));
-    if(!owned.length){ $('tray').innerHTML='<div class="empty-note">No cards yet — rip a pack, then come forge.</div>'; return; }
-    $('tray').innerHTML = owned.map(c=>`
-      <div class="ing ${usedKeys.has(c._vaultIdx)?'used':''}" data-idx="${c._vaultIdx}">
+  // ── categories + palette ──
+  const CATS=[ {k:'critters',label:'✂ Critters',desc:'cards cut out of their backgrounds — the subjects. using one trades that card in.'},
+    {k:'backdrops',label:'▚ Backdrops',desc:'full card art as a scene behind everything. also trades the card in.'},
+    {k:'faces',label:'☺ Faces',desc:'googly eyes, grins, shades — house parts, free to slap on.'},
+    {k:'fx',label:'✦ FX',desc:'bolts, bursts, halos, drips — house effect stickers, free.'},
+    {k:'frames',label:'▢ Frames',desc:'pick the border colour of the finished card.'},
+    {k:'type',label:'A Type',desc:'drop a word on the card.'} ];
+  function renderCats(){ $('cats').innerHTML=CATS.map(c=>`<button class="cat ${c.k===cat?'on':''}" data-k="${c.k}">${c.label}</button>`).join('');
+    $('cats').querySelectorAll('.cat').forEach(el=>el.onclick=()=>{ cat=el.dataset.k; renderCats(); renderPalette(); });
+    $('catDesc').textContent = (CATS.find(c=>c.k===cat)||{}).desc||''; }
+  function usedIdx(){ return new Set(pieces.filter(p=>p.kind==='card').map(p=>p._vaultIdx)); }
+  function renderPalette(){ const pal=$('palette'), used=usedIdx();
+    if(cat==='critters'||cat==='backdrops'){ resolveOwned();
+      if(!owned.length){ pal.innerHTML='<div class="empty-note">No cards yet — rip a pack, then come strip some parts.</div>'; return; }
+      pal.innerHTML=owned.map(c=>`<div class="pc tall ${used.has(c._vaultIdx)?'used':''}" data-idx="${c._vaultIdx}">
         <img src="${c.art}" alt="" crossorigin="anonymous"><div class="nm">${c.title}</div></div>`).join('');
-    $('tray').querySelectorAll('.ing').forEach(el=>el.onclick=()=>{
-      const idx=+el.dataset.idx, c=owned.find(o=>o._vaultIdx===idx); if(c) addLayer(c);
-    });
+      pal.querySelectorAll('.pc').forEach(el=>el.onclick=()=>{ const c=owned.find(o=>o._vaultIdx===+el.dataset.idx); if(c) addCard(c, cat==='critters'); });
+    } else if(cat==='faces'||cat==='fx'){ const set = cat==='faces'? ['eyes','grin','shades','thirdeye','tongue','skull'] : ['bolt','star','swirl','halo','boom','drip'];
+      pal.innerHTML=set.map(k=>`<div class="pc" data-part="${k}"></div>`).join('');
+      pal.querySelectorAll('.pc').forEach(el=>{ const k=el.dataset.part; const th=bakePart(k,COLORS[0]); const tc=document.createElement('canvas');
+        tc.width=64; tc.height=64; tc.getContext('2d').drawImage(th,0,0,64,64); el.appendChild(tc);
+        const nm=document.createElement('div'); nm.className='nm'; nm.textContent=k; el.appendChild(nm); el.onclick=()=>addPart(k); });
+    } else if(cat==='frames'){ pal.innerHTML=FRAMES.map((f,i)=>`<div class="pc" data-fr="${i}" style="background:${f.c}"><div class="nm" style="color:#0a0a0a">${f.k}</div></div>`).join('');
+      pal.querySelectorAll('.pc').forEach(el=>el.onclick=()=>{ frame=FRAMES[+el.dataset.fr]; draw(); say('frame: '+frame.k); });
+    } else if(cat==='type'){ pal.innerHTML=`<div class="pc add" data-add="1">＋ add<br>a word</div>`;
+      pal.querySelector('[data-add]').onclick=()=>{ const t=prompt('word to drop (max 14):',''); if(t&&t.trim()) addText(t.trim().slice(0,14)); }; }
   }
 
-  // distinct owned source cards referenced by the layer stack
-  function inputIdxs(){ return [...new Set(layers.map(L=>L._vaultIdx))]; }
-  function updateForge(){ const n=inputIdxs().length;
-    $('forge').disabled = n < 2 || n > 3 || !$('cname').value.trim() || !layers.length; }
+  function resolveOwned(){ const bySlug=new Map(DECK.map(c=>[c.slug,c])), fById=new Map(forged().map(f=>[f.id,f]));
+    owned=vault().map((e,idx)=>{ const c=e.forged?fById.get(e.forged):bySlug.get(e.slug); return c?{...c,_vaultIdx:idx}:null; }).filter(Boolean); }
 
-  // ── canvas interactions: eyedrop / drag / (wheel scale) ──
-  function toCanvas(ev){ const r=cv.getBoundingClientRect();
-    return { x:(ev.clientX-r.left)*W/r.width, y:(ev.clientY-r.top)*H/r.height }; }
-  function sampleActive(px,py){ const L=layers[active]; if(!L||!L._src) return null;
-    const off=document.createElement('canvas'); off.width=W; off.height=H; const g=off.getContext('2d');
-    blit(g, L._src, rectOf(L)); let d; try{ d=g.getImageData(Math.max(0,Math.min(W-1,px|0)), Math.max(0,Math.min(H-1,py|0)),1,1).data; }catch{ return null; }
-    return d[3]>8 ? {r:d[0],g:d[1],b:d[2]} : null;
+  // ── selection controls ──
+  function renderSel(){ const p=pieces[active]; $('sel').classList.toggle('show',!!p); if(!p) return;
+    const isCard=p.kind==='card', recolor=(p.kind==='part'||p.kind==='text');
+    $('sel').innerHTML=`
+      <div class="st"><span>editing: <b>${p.kind==='card'?p.title:(p.kind==='text'?'“'+p.text+'”':p.part)}</b></span><button class="mini del" data-a="del">✕ remove</button></div>
+      <div class="row"><label>Size</label><input type="range" id="s_scale" min="8" max="320" value="${Math.round(p.scale*100)}"></div>
+      <div class="row"><label>Spin</label><input type="range" id="s_rot" min="-180" max="180" value="${Math.round(p.rot*180/Math.PI)}"></div>
+      <div class="row"><label>Fade</label><input type="range" id="s_op" min="10" max="100" value="${Math.round(p.opacity*100)}"></div>
+      <div class="row"><label>Blend</label><select id="s_blend">
+        ${['source-over:normal','multiply:multiply','screen:screen','overlay:overlay','lighten:lighten','darken:darken','color-dodge:dodge','hard-light:hard','difference:difference'].map(o=>{const[v,l]=o.split(':');return `<option value="${v}" ${p.blend===v?'selected':''}>${l}</option>`;}).join('')}
+      </select></div>
+      <div class="row btnrow">
+        <button class="mini ${p.flipH?'on':''}" data-a="flipH">⇋ flip</button>
+        <button class="mini ${p.flipV?'on':''}" data-a="flipV">⇅ flip</button>
+        <button class="mini" data-a="fwd">▲ front</button>
+        <button class="mini" data-a="back">▼ back</button>
+        ${isCard?`<button class="mini ${armEyedrop?'on':''}" data-a="key">◎ key</button>${p.key?'<button class="mini" data-a="unkey">clear</button>':''}`:''}
+      </div>
+      ${recolor?`<div class="row"><label>Colour</label><div class="btnrow">${COLORS.map(c=>`<span class="sw ${p.color===c?'on':''}" data-col="${c}" style="background:${c}"></span>`).join('')}</div></div>`:''}
+      ${isCard&&p.key?`<div class="row"><label>Spread</label><input type="range" id="s_tol" min="0" max="200" value="${p.key.tol}"></div>`:''}`;
+    const on=(id,ev,fn)=>{ const el=$(id); if(el) el.addEventListener(ev,fn); };
+    on('s_scale','input',e=>{ p.scale=+e.target.value/100; draw(); });
+    on('s_rot','input',e=>{ p.rot=+e.target.value*Math.PI/180; draw(); });
+    on('s_op','input',e=>{ p.opacity=+e.target.value/100; draw(); });
+    on('s_blend','change',e=>{ p.blend=e.target.value; draw(); renderSelLabel(); });
+    on('s_tol','input',e=>{ p.key.tol=+e.target.value; rebakeCard(p); draw(); });
+    $('sel').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>selAct(b.dataset.a));
+    $('sel').querySelectorAll('[data-col]').forEach(s=>s.onclick=()=>{ p.color=s.dataset.col;
+      p._raw = p.kind==='text'?bakeText(p.text,p.color):bakePart(p.part,p.color); p._src=p._raw; draw(); renderSel(); });
   }
+  function renderSelLabel(){}
+  function selAct(a){ const p=pieces[active]; if(!p) return;
+    if(a==='del'){ pieces.splice(active,1); active=Math.min(active,pieces.length-1); armEyedrop=false; cv.classList.remove('eyedrop'); sync(); return; }
+    if(a==='flipH') p.flipH=!p.flipH;
+    else if(a==='flipV') p.flipV=!p.flipV;
+    else if(a==='fwd'){ if(active<pieces.length-1){ [pieces[active],pieces[active+1]]=[pieces[active+1],pieces[active]]; active++; } }
+    else if(a==='back'){ if(active>0){ [pieces[active],pieces[active-1]]=[pieces[active-1],pieces[active]]; active--; } }
+    else if(a==='key'){ armEyedrop=!armEyedrop; cv.classList.toggle('eyedrop',armEyedrop); say(armEyedrop?'tap the card to key that colour':''); }
+    else if(a==='unkey'){ p.key=null; rebakeCard(p); }
+    draw(); renderSel();
+  }
+
+  // ── canvas hit-test / drag / eyedrop ──
+  function toCanvas(ev){ const r=cv.getBoundingClientRect(); return { x:(ev.clientX-r.left)*W/r.width, y:(ev.clientY-r.top)*H/r.height }; }
+  function localOf(p,x,y){ const dx=x-p.x, dy=y-p.y, cos=Math.cos(-p.rot), sin=Math.sin(-p.rot);
+    let lx=dx*cos-dy*sin, ly=dx*sin+dy*cos; if(p.flipH) lx=-lx; if(p.flipV) ly=-ly; return { lx, ly }; }
+  function hitTest(x,y){ for(let i=pieces.length-1;i>=0;i--){ const p=pieces[i]; const {lx,ly}=localOf(p,x,y);
+    const w=p.baseW*p.scale, h=p.baseH*p.scale; if(Math.abs(lx)<=w/2 && Math.abs(ly)<=h/2) return i; } return -1; }
+  function sampleActive(px,py){ const p=pieces[active]; if(!p||!p._raw) return null; const off=document.createElement('canvas'); off.width=W; off.height=H;
+    const g=off.getContext('2d'); const w=p.baseW*p.scale,h=p.baseH*p.scale; g.save(); xform(g,p); g.drawImage(p._raw,-w/2,-h/2,w,h); g.restore();
+    let d; try{ d=g.getImageData(Math.max(0,Math.min(W-1,px|0)),Math.max(0,Math.min(H-1,py|0)),1,1).data; }catch{ return null; } return d[3]>8?{r:d[0],g:d[1],b:d[2]}:null; }
   let drag=null;
-  cv.addEventListener('pointerdown', ev=>{ ev.preventDefault(); const p=toCanvas(ev); const L=layers[active];
-    if(armEyedrop && L){ const s=sampleActive(p.x,p.y);
-      if(s){ L.key={ r:s.r, g:s.g, b:s.b, tol:(L.key?L.key.tol:70) }; bake(L); say('color keyed out'); }
-      else say('nothing to sample there');
-      armEyedrop=false; cv.classList.remove('eyedrop'); renderLayers(); draw(); syncCtl(); return; }
-    if(L && L.mode==='full'){ drag={ id:ev.pointerId, sx:p.x, sy:p.y, ox:L.x, oy:L.y }; cv.setPointerCapture(ev.pointerId); cv.classList.add('dragging'); }
-  });
-  cv.addEventListener('pointermove', ev=>{ if(!drag||ev.pointerId!==drag.id) return; const p=toCanvas(ev); const L=layers[active];
-    if(!L) return; L.x=drag.ox+(p.x-drag.sx); L.y=drag.oy+(p.y-drag.sy); draw(); });
-  const endDrag = ev=>{ if(drag&&ev.pointerId===drag.id){ drag=null; cv.classList.remove('dragging'); } };
-  cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
-  cv.addEventListener('wheel', ev=>{ const L=layers[active]; if(!L||L.mode!=='full') return; ev.preventDefault();
-    L.scale=Math.max(.2, Math.min(2.6, L.scale*(ev.deltaY<0?1.06:.94))); $('scale').value=Math.round(L.scale*100);
-    $('scaleV').textContent=L.scale.toFixed(1)+'×'; draw(); }, {passive:false});
+  cv.addEventListener('pointerdown',ev=>{ ev.preventDefault(); const q=toCanvas(ev); const p=pieces[active];
+    if(armEyedrop&&p&&p.kind==='card'){ const s=sampleActive(q.x,q.y);
+      if(s){ p.key={r:s.r,g:s.g,b:s.b,tol:p.key?p.key.tol:64}; rebakeCard(p); say('keyed'); } else say('nothing to sample');
+      armEyedrop=false; cv.classList.remove('eyedrop'); draw(); renderSel(); return; }
+    const hit=hitTest(q.x,q.y); if(hit>=0){ active=hit; const pp=pieces[hit]; drag={id:ev.pointerId,sx:q.x,sy:q.y,ox:pp.x,oy:pp.y};
+      cv.setPointerCapture(ev.pointerId); cv.classList.add('dragging'); draw(); renderSel(); }
+    else { active=-1; draw(); renderSel(); } });
+  cv.addEventListener('pointermove',ev=>{ if(!drag||ev.pointerId!==drag.id) return; const q=toCanvas(ev); const p=pieces[active]; if(!p) return;
+    p.x=drag.ox+(q.x-drag.sx); p.y=drag.oy+(q.y-drag.sy); draw(); });
+  const endDrag=ev=>{ if(drag&&ev.pointerId===drag.id){ drag=null; cv.classList.remove('dragging'); } };
+  cv.addEventListener('pointerup',endDrag); cv.addEventListener('pointercancel',endDrag);
+  cv.addEventListener('wheel',ev=>{ const p=pieces[active]; if(!p) return; ev.preventDefault();
+    p.scale=Math.max(.08,Math.min(3.2,p.scale*(ev.deltaY<0?1.06:.94))); draw(); renderSel(); },{passive:false});
 
-  // control wiring
-  $('modeSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{ const L=layers[active]; if(!L) return;
-    if(b.dataset.m==='full'){ L.mode='full'; } else { L.mode='band'; L.band=+b.dataset.m; }
-    bake(L); renderLayers(); draw(); syncCtl(); });
-  $('blend').onchange = ()=>{ const L=layers[active]; if(L){ L.blend=$('blend').value; renderLayers(); draw(); } };
-  $('opacity').oninput = ()=>{ const L=layers[active]; if(L){ L.opacity=+$('opacity').value/100; $('opacityV').textContent=$('opacity').value; draw(); } };
-  $('scale').oninput = ()=>{ const L=layers[active]; if(L&&L.mode==='full'){ L.scale=+$('scale').value/100; $('scaleV').textContent=L.scale.toFixed(1)+'×'; draw(); } };
-  $('eyedrop').onclick = ()=>{ if(active<0){ say('add a layer first'); return; } armEyedrop=!armEyedrop; cv.classList.toggle('eyedrop',armEyedrop); syncCtl(); if(armEyedrop) say('tap the card to key that color'); };
-  $('keyOff').onclick = ()=>{ const L=layers[active]; if(L&&L.key){ L.key=null; bake(L); renderLayers(); draw(); syncCtl(); } };
-  $('tol').oninput = ()=>{ const L=layers[active]; if(L&&L.key){ L.key.tol=+$('tol').value; $('tolV').textContent=$('tol').value; bake(L); draw(); } };
-
-  async function doForge(){
-    const idxs = inputIdxs(); if(idxs.length<2||idxs.length>3){ say('use 2–3 different cards'); return; }
-    const name = $('cname').value.trim(); if(!name) return;
-    draw();
-    const art = cv.toDataURL('image/webp', .85);
-    const st = hashStats(name);
-    const id = 'fg-' + name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + (owned.length) + '-' + (forged().length);
-    const rec = { id, slug:id, title:name, rarity:'forged', art, atk:st.atk, def:st.def, trigger:st.trigger,
-      inputs: idxs.map(i => (owned.find(o=>o._vaultIdx===i)||{}).slug || 'card') };
-    const F = forged(); F.push(rec); save('urm_forged', F);
-    // trade the distinct input cards to the house, drop them from the vault, add the forged card
-    let v = vault(); const drop = new Set(idxs);
-    const house = load('urm_house'); idxs.forEach(i=>{ const o=owned.find(x=>x._vaultIdx===i); house.push(o?(o.slug||o.title):'card'); }); save('urm_house', house);
-    v = v.filter((_,i)=>!drop.has(i)); v.push({ forged:id }); save('urm_vault', v);
-    say('⚒ forged '+name+' — '+idxs.length+' cards traded to the house');
-    layers=[]; active=-1; armEyedrop=false; cv.classList.remove('eyedrop'); $('cname').value='';
-    renderLayers(); renderTray(); draw(); renderForged(); updateForge();
-  }
-  function renderForged(){
-    const F=forged();
-    $('forgedList').innerHTML = F.length ? F.slice().reverse().map(f=>`
-      <div class="fc"><img src="${f.art}" alt="${f.title}"><div class="nm">${f.title}</div></div>`).join('')
-      : '<div class="empty-note">nothing forged yet</div>';
+  // ── powers ──
+  function inputCards(){ return [...usedIdx()].map(i=>owned.find(o=>o._vaultIdx===i)).filter(Boolean); }
+  function derive(){ const s=inputCards(); if(!s.length) return null;
+    const atk=Math.min(9,Math.max(...s.map(c=>+c.atk||0))), def=Math.min(9,Math.max(...s.map(c=>+c.def||0)));
+    const ranked=[...s].sort((a,b)=>((b.atk+b.def)-(a.atk+a.def))); return { s, atk, def, trig:ranked[0].trigger, trig2:(ranked[1]||{}).trigger||null }; }
+  function renderPowers(){ const d=derive(); $('powers').classList.toggle('show',!!d); if(!d) return;
+    const ampTxt = chainBind ? '⛓ LIVE'+(live.trig?' · '+live.trig:'') : (fuse&&d.trig2&&d.trig2!==d.trig ? d.trig+' + '+d.trig2 : d.trig);
+    $('powers').innerHTML=`<div class="ph">inherited powers · from ${d.s.length} card${d.s.length>1?'s':''}</div>
+      <div class="derived">
+        <div class="dstat"><div class="l">ATK</div><div class="v">${d.atk}</div></div>
+        <div class="dstat"><div class="l">DEF</div><div class="v">${d.def}</div></div>
+        <div class="dstat"><div class="l">Amp</div><div class="v sm">${ampTxt}</div></div>
+      </div>
+      <label class="tg ${fuse?'on':''}" id="tgFuse"><span class="box">${fuse?'✓':''}</span><span>Fuse 2nd amp <span class="hint">${d.trig2&&d.trig2!==d.trig?'('+d.trig2+')':'— need 2 triggers'}</span></span></label>
+      <label class="tg ${chainBind?'on':''}" id="tgLive" style="margin-top:6px"><span class="box">${chainBind?'✓':''}</span><span>Chain-bind amp <span class="hint">${live.trig?'(live: '+live.trig+')':'(reading chain…)'}</span></span></label>`;
+    $('tgFuse').onclick=()=>{ if(!(d.trig2&&d.trig2!==d.trig)){ say('need two different triggers'); return; } fuse=!fuse; renderPowers(); };
+    $('tgLive').onclick=()=>{ chainBind=!chainBind; renderPowers(); };
   }
 
-  $('cname').addEventListener('input', ()=>{ draw(); updateForge(); });
-  $('forge').onclick = doForge;
-  $('clear').onclick = ()=>{ layers=[]; active=-1; armEyedrop=false; cv.classList.remove('eyedrop'); renderLayers(); renderTray(); draw(); updateForge(); };
+  // ── forge / save ──
+  function canForge(){ const n=usedIdx().size; return n>=2 && n<=3 && !!$('cname').value.trim(); }
+  function sync(){ renderPalette(); renderSel(); renderPowers(); draw(); $('forge').disabled=!canForge();
+    $('hint').textContent = pieces.length? (pieces[active]?'drag to move · wheel to size · handles below':'tap a piece to select it') : 'pick a drawer → tap a part to drop it on the card'; }
 
-  fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[];
-    renderFrames(); renderLayers(); renderTray(); renderForged(); draw();
-  }).catch(()=>{ renderFrames(); renderLayers(); renderTray(); renderForged(); draw(); });
+  function doForge(){ if(!canForge()){ say('use parts from 2–3 of your cards + a name'); return; }
+    active=-1; draw(); const art=cv.toDataURL('image/webp',.85);
+    const d=derive(); const name=$('cname').value.trim();
+    const idxs=[...usedIdx()]; const id='fg-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+owned.length+'-'+forged().length;
+    const rec={ id, slug:id, title:name, rarity:'forged', art, atk:d.atk, def:d.def, trigger:d.trig,
+      amp2: (fuse&&d.trig2&&d.trig2!==d.trig)?d.trig2:null, live: chainBind||false,
+      inputs: idxs.map(i=>(owned.find(o=>o._vaultIdx===i)||{}).slug||'card') };
+    const F=forged(); F.push(rec); save('urm_forged',F);
+    let v=vault(); const drop=new Set(idxs); const house=load('urm_house');
+    idxs.forEach(i=>{ const o=owned.find(x=>x._vaultIdx===i); house.push(o?(o.slug||o.title):'card'); }); save('urm_house',house);
+    v=v.filter((_,i)=>!drop.has(i)); v.push({forged:id}); save('urm_vault', v.slice(-200));
+    say('⚒ forged '+name+' — '+idxs.length+' cards to the house');
+    pieces=[]; active=-1; armEyedrop=false; cv.classList.remove('eyedrop'); $('cname').value=''; fuse=false; chainBind=false;
+    sync(); renderForged(); }
+  function savePNG(){ active=-1; draw(); const url=cv.toDataURL('image/png'); const a=document.createElement('a');
+    a.href=url; a.download=(($('cname').value||'forge').toLowerCase().replace(/[^a-z0-9]+/g,'-'))+'.png'; a.click(); say('saved png'); }
+
+  function renderForged(){ const F=forged();
+    $('forgedList').innerHTML = F.length ? F.slice().reverse().map(f=>`<div class="fc"><img src="${f.art}" alt="${f.title}"><div class="nm">${f.title}</div></div>`).join('') : '<div class="empty-note">nothing forged yet</div>'; }
+
+  // ── scramble: a random flooneybin mash-up ──
+  function scramble(){ resolveOwned(); pieces=[]; active=-1;
+    frame=FRAMES[rnd(FRAMES.length)];
+    if(owned.length){ const pick=[...owned].sort(()=>Math.random()-.5);
+      addCard(pick[0], false);                                   // a backdrop
+      const nCrit=Math.min(pick.length-1, 1+rnd(2));
+      for(let i=1;i<=nCrit;i++) if(pick[i]) addCard(pick[i], true); }
+    const faces=['eyes','grin','shades','thirdeye','tongue','skull'], fx=['bolt','star','swirl','halo','boom','drip'];
+    setTimeout(()=>{ // let card images bake first
+      if(Math.random()<.8) scatterAdd(faces[rnd(faces.length)]);
+      if(Math.random()<.8) scatterAdd(fx[rnd(fx.length)]);
+      pieces.forEach(p=>{ if(p.kind!=='card'||p.scale<1){ p.x=PAD+40+rnd(IW-80); p.y=PAD+40+rnd(IH-120); p.rot=(rnd(60)-30)*Math.PI/180; p.scale=Math.max(p.scale, .4+Math.random()*1.1); } });
+      active=-1; sync(); say('🎲 scrambled'); },140);
+  }
+  function scatterAdd(kind){ const color=COLORS[rnd(COLORS.length)]; const raw=bakePart(kind,color); const bs=baseSize(raw,'part');
+    pieces.push({ id:pid(), kind:'part', part:kind, color, _raw:raw, _src:raw, baseW:bs.w, baseH:bs.h,
+      x:PAD+40+rnd(IW-80), y:PAD+40+rnd(IH-120), scale:.5+Math.random(), rot:(rnd(60)-30)*Math.PI/180, flipH:Math.random()<.5, flipV:false, opacity:1, blend:'source-over' }); }
+
+  // ── chain weather (same read as the arena) ──
+  async function chainWeather(){ for(const url of RPCS){ try{ const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),4000);
+    const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_blockNumber',params:[]}),signal:ctl.signal});
+    clearTimeout(tm); const j=await r.json(); if(j.result){ const b=parseInt(j.result,16); return {block:b,trig:TRIGGERS[Math.floor(b/25)%8]}; } }catch{} } return null; }
+
+  // wiring
+  $('cname').addEventListener('input',()=>{ draw(); $('forge').disabled=!canForge(); });
+  $('forge').onclick=doForge; $('savepng').onclick=savePNG; $('scramble').onclick=scramble;
+  $('clear').onclick=()=>{ pieces=[]; active=-1; armEyedrop=false; cv.classList.remove('eyedrop'); sync(); };
+  window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT') return; if(e.key==='s'||e.key==='S'){ savePNG(); }
+    else if((e.key==='Delete'||e.key==='Backspace')&&active>=0){ selAct('del'); } });
+
+  fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[]; renderCats(); renderPalette(); renderForged(); sync(); })
+    .catch(()=>{ renderCats(); renderPalette(); renderForged(); sync(); });
+  chainWeather().then(w=>{ if(w){ live=w; renderPowers(); } });
 })();
 </script>
 <script src="../theme.js"></script>

@@ -319,15 +319,20 @@
   function updateSlam(){ $('slamBtn').disabled = busy || !hand.length || selected.length !== mode; }
 
   // every card counts its whole self: base total = ATK + DEF, plus the live
-  // chain amplifier (+4 when the card's trigger matches the weather)
+  // chain amplifier (+4 when the card's trigger matches the weather).
+  // forged cards carry extra powers: a fused 2nd trigger (amp2) gives a second
+  // way to match, and a chain-bound amp (live) is tuned to the weather so it
+  // always catches — the reward for spending cards + the forge toll.
   function power(stack){
     let total = 0, breakdown = [];
     const counts = {};
     stack.forEach(c => { counts[c.trigger] = (counts[c.trigger]||0)+1; });
     stack.forEach(c => {
-      const amp = c.trigger === gas ? 4 : 0;
+      const matched = c.live || c.trigger === gas || (c.amp2 && c.amp2 === gas);
+      const amp = matched ? 4 : 0;
+      const mark = c.live ? '+4⛓' : (amp ? '+4⚡' : '');
       total += c.atk + c.def + amp;
-      breakdown.push(`${c.title} Σ${c.atk + c.def}${amp?`+${amp}⚡`:''}`);
+      breakdown.push(`${c.title} Σ${c.atk + c.def}${mark}`);
     });
     // combo: +3 per matching-trigger pair inside the stack
     let comboPairs = 0;
