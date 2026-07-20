@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — CARD POWERS.
+/* upperdeckripmaster3030 — CARD POWERS.
  *
  * Your cards are an ARMORY. Stake them into a game and they arm you: each card
  * amplifies your craft/operative (damage, fire-rate, shields, speed, score) and

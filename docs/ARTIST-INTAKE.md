@@ -6,7 +6,7 @@ court, arena, 1/1 marquee, Ash Trophies, creator cut + house reward pool). Token
 in Part 3 are finalized in `docs/TOKEN-MATH.md`. Fields only the artist can supply are
 flagged **[ARTIST TO SUPPLY]**.
 
-- **Artist / Project:** Gianni Arone (**lovebeing**) — *Upperdeck Ripmaster 3030*
+- **Artist / Project:** Gianni Arone (**lovebeing**) — *upperdeckripmaster3030*
 - **Token:** `$UR3030` · **Site:** https://upperdeckripmaster3030.com
 - **X / handle:** **@_lovebeing_** · **Launch date:** **[ARTIST TO SUPPLY]**
 - **Cohort:** SuperRare **Liquid Editions — Cohort 1** (with @CreamyDreamy, @takenstheorem, @tyaagnliu)
@@ -17,7 +17,7 @@ flagged **[ARTIST TO SUPPLY]**.
 
 **Core Concept**
 
-> Upperdeck Ripmaster 3030 is a liquid trading-card game: a full field of psychedelic
+> upperdeckripmaster3030 is a liquid trading-card game: a full field of psychedelic
 > hyperfoil cards opens each season, and the community plays it down to a standard deck
 > of 77 survivors by burning the rest. Every card is a live SuperRare Liquid Edition
 > denominated in RARE; the token `$UR3030` is the currency you rip packs, cast votes,
@@ -108,7 +108,7 @@ our custom renderer + front end are ours.
 
 | Ask | Ours |
 |---|---|
-| Artist / Project Name | Gianni Arone (lovebeing) — Upperdeck Ripmaster 3030 |
+| Artist / Project Name | Gianni Arone (lovebeing) — upperdeckripmaster3030 |
 | Artist X handle | **@_lovebeing_** |
 | Mint page / front-end URL | https://upperdeckripmaster3030.com |
 | Render contract address | **[0x… after Sepolia deploy]** |

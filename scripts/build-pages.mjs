@@ -25,13 +25,13 @@ const NAV = [
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} · Upperdeck Ripmaster 3030</title>
+<title>${title} · upperdeckripmaster3030</title>
 <meta name="description" content="${subtitle}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://upperdeckripmaster3030.com/${slug}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Upperdeck Ripmaster 3030">
-<meta property="og:title" content="${title} · Upperdeck Ripmaster 3030">
+<meta property="og:site_name" content="upperdeckripmaster3030">
+<meta property="og:title" content="${title} · upperdeckripmaster3030">
 <meta property="og:description" content="${subtitle}">
 <meta property="og:url" content="https://upperdeckripmaster3030.com/${slug}">
 <meta property="og:image" content="https://upperdeckripmaster3030.com/marquee-header.webp">
@@ -168,7 +168,7 @@ const whitepaper = `
     <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
 
   <h2><span class="n">01</span>TL;DR</h2>
-  <p>Upperdeck Ripmaster 3030 is a <b>liquid trading-card game</b> that is, on-chain, exactly
+  <p>upperdeckripmaster3030 is a <b>liquid trading-card game</b> that is, on-chain, exactly
   <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token
   (<b>$UR3030</b>) priced by a bonding curve in <b>RARE</b> on Uniswap-v4. The 196-card deck is
   the <b>artwork of that one edition</b>, drawn by a render contract that reads the market live.
@@ -532,7 +532,7 @@ const artist = `
   <h2><span class="n">01</span>Who</h2>
   <p><b>Gianni Arone</b> works as <b>lovebeing</b> — a multidisciplinary artist out of <b>New York</b>
   whose catalog runs from 1982 to now, moving between <b>painting, silkscreen, zines, digital work,
-  motion, sound, and code</b>. Upperdeck Ripmaster 3030 is what happens when all of that gets pointed
+  motion, sound, and code</b>. upperdeckripmaster3030 is what happens when all of that gets pointed
   at a single lifelong obsession: <b>the trading card</b>.</p>
 
   <h2><span class="n">02</span>Why liquid — in his words</h2>
@@ -572,9 +572,9 @@ const artist = `
 // ─────────────────────────── write ───────────────────────────
 const pages = [
   { slug: 'artist.html', title: 'The Artist', kicker: 'Gianni Arone · lovebeing · @_lovebeing_',
-    subtitle: 'The multidisciplinary artist behind Upperdeck Ripmaster 3030 — and the 1/1 at the top of the deck.',
+    subtitle: 'The multidisciplinary artist behind upperdeckripmaster3030 — and the 1/1 at the top of the deck.',
     accent: 'var(--acid)', body: artist },
-  { slug: 'whitepaper.html', title: 'Transparent Whitepaper', kicker: 'Upperdeck Ripmaster 3030 · $UR3030 · NFA',
+  { slug: 'whitepaper.html', title: 'Transparent Whitepaper', kicker: 'upperdeckripmaster3030 · $UR3030 · NFA',
     subtitle: 'What the game is, how the token works, where every $UR3030 goes, and the risks — in the open, for frens.',
     accent: 'var(--phos)', body: whitepaper },
   { slug: 'tokenomics.html', title: 'Tokenomics', kicker: '$UR3030 · supply · burns · pricing · liquidity',

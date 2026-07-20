@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — shared inline-SVG icon set.
+/* upperdeckripmaster3030 — shared inline-SVG icon set.
  *
  * Replaces emoji across the site with consistent line-icons that inherit the
  * surrounding text colour (currentColor). Self-contained: no external assets.

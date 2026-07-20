@@ -21,7 +21,7 @@ interface ILiquid {
         );
 }
 
-/// @title Upperdeck Ripmaster 3030 — render prototype
+/// @title upperdeckripmaster3030 — render prototype
 /// @notice PROTOTYPE renderer for the $UR3030 Liquid Edition. Proves the
 ///         mechanism: the token's tokenURI() delegates here, and this reads
 ///         LIVE market state (supply, price, tick) off the token to draw a

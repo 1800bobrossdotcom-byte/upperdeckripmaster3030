@@ -1,7 +1,7 @@
 # Liquid Editions study + token economics answers
 
 Grounded in SuperRare's own docs (help.superrare.com "Introduction to Liquid
-Editions" and rare.xyz/docs), then applied to Upperdeck Ripmaster 3030. Short
+Editions" and rare.xyz/docs), then applied to upperdeckripmaster3030. Short
 version of what the protocol actually gives us, then straight answers to your
 questions.
 

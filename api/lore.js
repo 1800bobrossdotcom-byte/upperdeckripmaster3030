@@ -26,7 +26,7 @@ const SCHEMA = {
   },
 };
 
-const SYSTEM = `You are the lore-keeper for "Upperdeck Ripmaster 3030", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name/number/stats appear, then write living lore. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically); keep it short. Return only the structured object.`;
+const SYSTEM = `You are the lore-keeper for "upperdeckripmaster3030", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name/number/stats appear, then write living lore. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically); keep it short. Return only the structured object.`;
 
 export default async function handler(req, res) {
   const slug = String(req.query.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '');

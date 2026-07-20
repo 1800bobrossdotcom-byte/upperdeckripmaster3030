@@ -56,7 +56,7 @@ const S = [];
 S.push(`<section class="slide cover">
   <div class="scan"></div><div class="grid"></div>
   <div class="cover-glow"></div>
-  <img class="hero" src="${HERO}" alt="Upperdeck Ripmaster 3030">
+  <img class="hero" src="${HERO}" alt="upperdeckripmaster3030">
   <div class="cover-mid">
     <div class="eyebrow">TRANSPARENT WHITEPAPER · v1 · <span style="color:${C.amber}">NFA</span></div>
     <h1 class="big">UPPERDECK<br>RIPMASTER 3030</h1>
@@ -277,7 +277,7 @@ S.push(slide('Legal &amp; NFA · the fine print', `
 
 // ── document ──
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<title>Upperdeck Ripmaster 3030 — Transparent Whitepaper</title>
+<title>upperdeckripmaster3030 — Transparent Whitepaper</title>
 <style>
   @page { size: 13.333in 7.5in; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {ILiquid} from "./interfaces/ILiquid.sol";
 
-/// @title CardVault — card ownership + the burn economy for Upperdeck Ripmaster 3030
+/// @title CardVault — card ownership + the burn economy for upperdeckripmaster3030
 /// @notice The deck as on-chain items. One contract holds every card as an ERC-1155
 /// id (many copies of a common, exactly one of the marquee), and every way a card
 /// changes hands runs through it — send, trade, wager, rip. The house rule is the

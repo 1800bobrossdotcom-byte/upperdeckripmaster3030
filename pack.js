@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — rip a pack.
+/* upperdeckripmaster3030 — rip a pack.
  * Opens a popup, plays the "rip popup loading.mp4" tear animation, then reveals a
  * 7-card pack pulled from cards/manifest.json — weighted by rarity so commons show
  * up often and prizms almost never. Rare+ pulls flip in with a glow. If the video is

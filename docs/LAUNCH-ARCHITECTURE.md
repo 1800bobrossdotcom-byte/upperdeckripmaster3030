@@ -1,6 +1,6 @@
 # Launch Architecture — a pure Liquid Edition
 
-**The decision (settled 2026-07-19):** Upperdeck Ripmaster 3030 ships as **one SuperRare
+**The decision (settled 2026-07-19):** upperdeckripmaster3030 ships as **one SuperRare
 Liquid Edition and nothing else** — we are not at liberty to deploy other contracts.
 This doc is the authoritative description of what that means and how the whole game
 maps onto the format. It supersedes the contract-based design in

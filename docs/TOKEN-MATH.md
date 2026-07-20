@@ -1,6 +1,6 @@
 # $UR3030 — token math (finalized)
 
-Supply, burn costs, pricing, and liquidity for Upperdeck Ripmaster 3030, grounded
+Supply, burn costs, pricing, and liquidity for upperdeckripmaster3030, grounded
 in how SuperRare Liquid Editions actually work and pressure-tested by an
 adversarial modeling pass (5 independent models, each verified by a skeptic).
 Every number here is reproduced by `scripts/token-model.mjs` — run it to re-derive.
@@ -296,7 +296,7 @@ dumped) and recycle a share into liquidity (§5).
 
 **Deploy / wire (Rare CLI):**
 ```
-rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
+rare liquid-edition deploy multicurve "upperdeckripmaster3030" "UR3030" \
   --curve-preset medium-demand --description "…" --image ./cards/art/<hero>.png --preview
 rare liquid-edition status            --contract 0x…
 rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…

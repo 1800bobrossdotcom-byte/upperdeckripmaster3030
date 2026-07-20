@@ -1,4 +1,4 @@
-# UPPERDECK RIPMASTER 3030
+# UPPERDECKRIPMASTER3030
 
 **A liquid trading card game on SuperRare.** One living ERC‑20 artwork, four seasons a year,
 and a deck of psychedelic hyperfoil cards — voted into existence by burning the token.

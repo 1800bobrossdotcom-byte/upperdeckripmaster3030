@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — site song + persistent audio toggle.
+/* upperdeckripmaster3030 — site song + persistent audio toggle.
  *
  * Plays smilingman.mp3 (looping) behind a ♪ toggle. Because the site is many
  * separate HTML pages, the song is made to feel CONTINUOUS across navigation:
@@ -42,7 +42,7 @@
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: 'smilingman', artist: 'lovebeing & sean',
-          album: 'Upperdeck Ripmaster 3030'
+          album: 'upperdeckripmaster3030'
         });
       } catch {}
     }

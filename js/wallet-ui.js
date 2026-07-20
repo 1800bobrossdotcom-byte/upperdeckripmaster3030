@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — the Tavern Ledger (window.RipTavern).
+/* upperdeckripmaster3030 — the Tavern Ledger (window.RipTavern).
  *
  * A snazzy old-tavern wallet control that wraps window.RipWallet:
  *   • disconnected → a wax-sealed wooden shingle, "Sign the Ledger" (connect)

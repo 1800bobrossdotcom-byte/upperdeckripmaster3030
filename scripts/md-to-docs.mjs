@@ -51,7 +51,7 @@ const CSS = `
   h1, h2 { page-break-after: avoid; } table, pre, blockquote { page-break-inside: avoid; }
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${CSS}</style></head>
-<body><div class="head"><div class="kicker">Upperdeck Ripmaster 3030 · $UR3030</div><h1>${title}</h1>${subtitle ? `<div class="sub">${subtitle}</div>` : ''}</div>
+<body><div class="head"><div class="kicker">upperdeckripmaster3030 · $UR3030</div><h1>${title}</h1>${subtitle ? `<div class="sub">${subtitle}</div>` : ''}</div>
 ${body}</body></html>`;
 
 const htmlPath = outBase + '.html';

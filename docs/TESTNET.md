@@ -97,7 +97,7 @@ op://…`), but plaintext is fine for a throwaway testnet wallet.*
 ### Step 2 — preview the token, then deploy it
 **Always `--preview` first** — it shows the bonding curve without spending anything.
 ```bash
-rare liquid-edition deploy multicurve "Upperdeck Ripmaster 3030" "UR3030" \
+rare liquid-edition deploy multicurve "upperdeckripmaster3030" "UR3030" \
   --curve-preset medium-demand \
   --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
   --image ./marquee-header.webp \

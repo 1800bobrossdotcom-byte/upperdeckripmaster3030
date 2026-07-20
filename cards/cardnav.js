@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — card-page deck navigation.
+/* upperdeckripmaster3030 — card-page deck navigation.
    Peeks the previous/next card staggered on each side and lets you flip through the whole
    deck: swipe on touch, ◀/▶ arrows on desktop, or tap a peek. Deck order = manifest order,
    wrapping around. No-ops inside an embedded lens iframe (read-only art). */

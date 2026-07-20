@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import {ILiquid} from "./interfaces/ILiquid.sol";
 
-/// @title SeasonBallot — burn-to-vote for Upperdeck Ripmaster 3030
+/// @title SeasonBallot — burn-to-vote for upperdeckripmaster3030
 /// @notice Each season, holders burn the Liquid Edition token to vote candidate
 /// cards into that season's pack. Burns are permanent and deflationary — voting
 /// is the game's sink. The render contract and the site read `tally()` to make

@@ -59,7 +59,7 @@ const SCHEMA = {
   },
 };
 
-const SYSTEM = `You are the lore-keeper for "Upperdeck Ripmaster 3030", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name, number, or stats appear on the card, then write living lore for it. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically instead); keep it short. Return only the structured object.`;
+const SYSTEM = `You are the lore-keeper for "upperdeckripmaster3030", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name, number, or stats appear on the card, then write living lore for it. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically instead); keep it short. Return only the structured object.`;
 
 function listArt() {
   if (!existsSync(artDir)) return [];

@@ -1,4 +1,4 @@
-/* Upperdeck Ripmaster 3030 — the wallet layer (window.RipWallet).
+/* upperdeckripmaster3030 — the wallet layer (window.RipWallet).
  *
  * The site does NOT rebuild the exchange: buying/selling $UR3030 happens on
  * SuperRare's Collect page and on DEXes. What the site owns is BURNING — the
@@ -91,7 +91,7 @@
           11155111: (CFG().rpcs || [])[0] || 'https://ethereum-sepolia-rpc.publicnode.com',
         },
         metadata: {
-          name: 'Upperdeck Ripmaster 3030',
+          name: 'upperdeckripmaster3030',
           description: 'A liquid trading-card game on SuperRare Liquid Editions.',
           url: 'https://upperdeckripmaster3030.com',
           icons: ['https://upperdeckripmaster3030.com/favicon.svg'],
