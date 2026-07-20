@@ -11,7 +11,7 @@ window.RIPMASTER_CHAIN = {
   // WalletConnect (mobile wallets). Free project id from https://cloud.reown.com —
   // paste it here and mobile users can connect + burn. Empty = WC option hidden,
   // injected/MetaMask still works. (js/wallet.js)
-  walletConnectProjectId: "",
+  walletConnectProjectId: "8b9d15349eb2a2cd42434a8c3de9c579",   // Reown (WalletConnect) — publishable id; domain-allowlisted to upperdeckripmaster3030.com
   // $UR3030 burned per pack rip (the "buy the ticket" — deflationary). Tune for mainnet.
   packBurn: 350,
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
