@@ -62,7 +62,8 @@
       bots.push(b); players.set(b.id, b);
     }
 
-    const roster = () => [...players.values()].sort((a, b) => (a.me ? -1 : b.me ? 1 : 0) || b.balance - a.balance);
+    const roster = () => [...players.values()].sort((a, b) =>
+      (a.me ? -1 : b.me ? 1 : 0) || ((a.bot ? 1 : 0) - (b.bot ? 1 : 0)) || b.balance - a.balance);   // you → real humans → bots
     const pushLobby = () => emit('lobby', roster());
 
     // presence heartbeat + receive
@@ -76,6 +77,30 @@
       else if (m.t === 'decline' && m.to === me.id) { emit('lobby', roster()); }
     };
     addEventListener('beforeunload', () => bc && bc.postMessage({ t: 'bye', p: me.id }));
+
+    // ── internet-wide presence: heartbeat /api/presence (Vercel + Upstash KV) and
+    //    merge the live roster in. Auto-detects: where the API isn't deployed or the
+    //    KV isn't configured it goes quiet after one probe and tabs+bots carry on.
+    let kvLive = null;                         // null = unprobed, false = unavailable
+    async function kvBeat() {
+      if (kvLive === false) return;
+      try {
+        const r = await fetch('/api/presence', { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ id: me.id, handle: me.handle, balance: me.balance, cards: me.cards,
+            status: me.status, verified: me.verified, address: me.address,
+            game: /dogfight/.test(location.pathname) ? 'dogfight' : /section9/.test(location.pathname) ? 'section9' : 'arena' }) });
+        if (r.status === 503 || r.status === 404) { kvLive = false; return; }
+        const j = await r.json().catch(() => null);
+        if (!j || !j.ok) { if (kvLive === null) kvLive = false; return; }
+        kvLive = true; let changed = false;
+        for (const p of (j.players || [])) {
+          if (!p || p.id === me.id) continue;
+          players.set(p.id, { ...p, remote: true, lastSeen: Date.now() }); changed = true;
+        }
+        if (changed) pushLobby();
+      } catch { if (kvLive === null) kvLive = false; }
+    }
+    kvBeat(); const kvTick = setInterval(kvBeat, 5000);
 
     // prune stale tabs; cycle bot statuses; occasional bot callout (a nudge!)
     const tick = setInterval(() => {
@@ -118,7 +143,7 @@
       onLobby: cb => { listeners.lobby.push(cb); cb(roster()); },
       onChallenge: cb => listeners.challenge.push(cb),
       onMatch: cb => listeners.match.push(cb),
-      dispose() { clearInterval(tick); bc && bc.postMessage({ t: 'bye', p: me.id }); },
+      dispose() { clearInterval(tick); clearInterval(kvTick); bc && bc.postMessage({ t: 'bye', p: me.id }); },
     };
   }
 

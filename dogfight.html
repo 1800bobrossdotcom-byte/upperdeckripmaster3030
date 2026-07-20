@@ -365,8 +365,12 @@
   const HANDLES=['Raoul Duke','Chuck Meltdown','Baron Von Blazed','Denim Reaper','Cogito Ribbit','Slim Bridger',
     'Duck Loathing','Reservoir Frog','Deltoid Zeus','Bail Denied','Technicolor Yawn','Kitchen Bandido','Rug-Pull Rick','Too Weird To Live'];
   let roster=[];
-  if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0 });
-    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); refreshPot(); }); }catch{} }
+  if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
+      address:(window.RipWallet&&RipWallet.account())||undefined });
+    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); refreshPot(); });
+    // wallet linked/unlinked → carry the address into the live roster
+    if(window.RipWallet) RipWallet.on(st=>{ try{ RipNet.join({ address:(st&&st.account)||undefined }); }catch{} });
+  }catch{} }
 
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
@@ -403,9 +407,11 @@
     $('potLine').innerHTML=`POT · <b>${tokPot.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} · winner takes all`;
     // seat preview from live roster + filler
     const others=[]; const seen=new Set([myHandle()]);
-    (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
+    (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
-    $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+'</span> · '+others.map(o=>(o.v?'⚜ ':'')+esc(o.h)).join(' · ');
+    const meA=(window.RipWallet&&RipWallet.account())||null;
+    const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
+    $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
     // gate the real-ante button
     const Wt=window.RipWallet, canReal=liveToken()&&Wt&&Wt.hasWallet();
     const enoughCards=wager.picked.length===wager.cards;
