@@ -179,6 +179,7 @@
     <div class="h-lbl" style="margin-top:5px">boost</div>
     <div class="bg-wrap"><div class="bg-bar"><div class="bg-fill" id="bgFill"></div></div></div>
     <div class="h-sub">frags <b id="hKills">0</b> · gun Lv.<span id="hGun">1</span></div>
+    <div class="h-sub" id="hLoad" style="color:#ffd23b"></div>
   </div>
   <div class="hud hud-tr" id="hudR" style="display:none">
     <div class="h-timer" id="hTimer">1:40</div>
@@ -188,7 +189,7 @@
   <div class="powmsg" id="powMsg"></div>
   <div class="comms" id="comms"><div class="comms-por" id="commsPor">W</div><div class="comms-txt"><b id="commsNm">WINGMATE</b><span id="commsLn"></span></div></div>
 
-  <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx">🔊 sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
+  <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
   <div class="pad thrust" id="padThrust">THRUST</div>
   <div class="pad fire" id="padFire">FIRE</div>
   <div class="controls" id="controls">
@@ -212,21 +213,22 @@
           <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
         <div class="wrow"><span class="wlbl">◆ cards staked each</span>
           <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
-        <div class="wrow"><span class="wlbl">⚔ players at the table</span>
+        <div class="wrow"><span class="wlbl"><span class="ic" data-ic="swords"></span> players at the table</span>
           <span class="pchips" id="pChips"><span class="pchip" data-p="2">2</span><span class="pchip on" data-p="3">3</span><span class="pchip" data-p="4">4</span><span class="pchip" data-p="6">6</span></span></div>
         <div class="cardsHd">pick your <span id="pickN">2</span> cards for the pot</div>
         <div class="grid" id="cardGrid"></div>
         <div class="cardsInfo" id="cardsInfo">0 owned</div>
+        <div class="cardsInfo" id="loadoutInfo" style="color:#ffd23b"></div>
       </div>
 
       <div class="pot" id="potLine"></div>
       <div class="roster" id="roster"></div>
 
-      <div><button class="go" id="btnAnte">🔥 Ante up &amp; fly</button></div>
+      <div><button class="go" id="btnAnte"><span class="ic" data-ic="flame"></span> Ante up &amp; fly</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice dogfight (no stakes)</button></div>
       <div class="mininote" id="lobNote"></div>
       <div class="tavern-slot"><div id="tavern"></div></div>
-      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="riprocketer.html">🚀 riprocketer</a></div>
+      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="riprocketer.html"><span class="ic" data-ic="rocket"></span> riprocketer</a></div>
     </div>
   </div>
 
@@ -241,7 +243,7 @@
         <div class="won-cards" id="wonCards"></div>
       </div>
       <div class="scanote" id="scaNote"></div>
-      <div style="margin-top:12px"><button class="go" id="btnRematch">🔥 Ante up &amp; rematch</button></div>
+      <div style="margin-top:12px"><button class="go" id="btnRematch"><span class="ic" data-ic="flame"></span> Ante up &amp; rematch</button></div>
       <div><button class="go alt" id="btnLobby">▶ Back to the table</button></div>
       <div class="mininote"><a href="cards/battle.html">◄ arena</a> · <a href="index.html">the pack</a></div>
     </div>
@@ -254,6 +256,8 @@
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
 <script src="cards/arena-net.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/card-powers.js"></script>
 <script>
 (() => {
   const cv=document.getElementById('df'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
@@ -349,7 +353,7 @@
       buildGrid(); refreshPot(); });
     const kinds=groups.size, total=own.length;
     $('cardsInfo').textContent=`${total} owned · ${kinds} kinds · ${wager.picked.length}/${wager.cards} in the pot`;
-    refreshPot();
+    refreshLoadoutPreview(); refreshPot();
   }
   function refreshPot(){
     $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
@@ -428,17 +432,23 @@
     const myImg=craftImgs.length?craftImgs[0]:null;
     G.me=makeShip({ name:myHandle(), me:true, tint:'#27f7e4', img:myImg, verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.x=0; G.me.y=0; G.me.alt=1.2; G.me.h=0; G.me.spd=7; G.ships.push(G.me);
+    // arm YOUR craft from the cards you staked (or your top owned cards in practice), scaled by the live market
+    G.loadout=null; try{ if(window.RipPowers){ const src=wager.picked.length?wager.picked:ownedSlugs().slice(0,wager.cards);
+      const picks=src.map(sl=>bySlug.get(sl)).filter(Boolean);
+      if(picks.length){ G.loadout=RipPowers.loadout(picks,RipPowers.getMarket()); applyLoadout(G.me,G.loadout); } } }catch(e){}
     others.forEach((o,i)=>{ const im=craftImgs.length?craftImgs[(i+1)%craftImgs.length]:null;
       const s=makeShip({ name:o.h, tint:['#ff2ad9','#ffd23b','#ff6b57','#2bff80','#b070ff'][i%5], img:im, verified:o.v });
       const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI; G.ships.push(s); });
     // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
-    for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr); }
+    for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
+      try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
     G.mode='play';
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show');
     $('hudL').style.display='block'; $('hudR').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
     $('hMe').textContent=(G.me.verified?'⚜ ':'')+'you';
+    $('hLoad').textContent=G.loadout?G.loadout.summary:'';
     if(window.RipNet){ try{ RipNet.setStatus('battling'); }catch{} }
     playMusic(); sfxWarp(); powMsg('◈ '+world().name.toUpperCase()); setTimeout(()=>commsRnd('start','#0e5a68'),700);
   }
@@ -461,7 +471,7 @@
   pF.addEventListener('pointerdown',e=>{e.preventDefault();padFire=true;}); pF.addEventListener('pointerup',()=>padFire=false); pF.addEventListener('pointerleave',()=>padFire=false);
 
   function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
-  function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); $('tgSfx').textContent=sfxOn?'🔊 sfx':'🔇 sfx'; }
+  function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
   function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
   function toggleView(){ G.view=G.view==='chase'?'cockpit':'chase'; const b=$('tgView'); if(b)b.textContent=G.view==='cockpit'?'◉ cockpit':'◉ chase'; }
   $('tgPause').onclick=togglePause; $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic; { const b=$('tgView'); if(b)b.onclick=toggleView; }
@@ -473,14 +483,14 @@
   function meAimHeading(){ if(G.lock&&G.lock.alive){ const t=G.lock, dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
     return Math.atan2(wdel(t.y+Math.sin(t.h)*t.spd*lead-G.me.y), wdel(t.x+Math.cos(t.h)*t.spd*lead-G.me.x)); } return G.me.h; }
   function emitBolt(s){ const wp=WEAP[Math.min(WEAP.length,s.weapon)-1]; const base=s.isMe?meAimHeading():s.h; const home=s.isMe?G.lock:null;
-    const sp=s.zoom?54:BOLTSPD, dmgM=s.zoom?1.5:1;          // zoomed = faster, harder-hitting precision shots
+    const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1);          // zoomed precision shots; staked cards amplify damage
     for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
       G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser, me:s.isMe, home }); }
     if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4); } else sfxEfire(); }
   // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
-  function tryFire(s,want){ const now=performance.now();
-    if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(s.rapid>0?46:82); if(s.burstQ<=0)s.burstCool=now+(s.rapid>0?240:480); } return; }
-    if(want && now>=(s.burstCool||0)){ s.burstQ=(s.weapon>=3?4:3); s.burstNext=0; } }
+  function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive), rt=s.cardRate||1;   // cards lift rate of fire
+    if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(rap?46:82)/rt; if(s.burstQ<=0)s.burstCool=now+(rap?240:480)/rt; } return; }
+    if(want && now>=(s.burstCool||0)){ s.burstQ=((s.weapon>=3||rap)?4:3); s.burstNext=0; } }
   function boom(x,y,alt,tint,big){ const n=big?26:12; for(let i=0;i<n;i++) G.bursts.push({x,y,alt:(alt||0)+rnd(0.4,-0.2),vx:rnd(6,-6),vy:rnd(6,-6),va:rnd(4,-1),life:1,col:tint});
     G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)(); }
 
@@ -489,6 +499,22 @@
     else if(t==='rapid') s.rapid=6; else if(t==='gun') s.weapon=Math.min(WEAP.length,s.weapon+1);
     else if(t==='shield'){ s.sh=5; s.hp=Math.min(s.maxHp,s.hp+16); }
     if(s.isMe){ sfxPow(); powMsg(t==='repair'?'✚ HULL PATCH':t==='rapid'?'» RAPID FIRE':t==='gun'?'GUN ▲ Lv.'+s.weapon:'◆ SHIELD UP'); } }
+  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
+  function applyLoadout(s,L){ if(!s||!L)return;
+    s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.overdrive=false;
+    if(L.shield>0){ const bonus=Math.round(L.shield*8); s.maxHp+=bonus; s.hp+=bonus; }
+    let wl=1;                                                    // guns/triggers unlock a starting weapon tier
+    if(L.guns.includes('twin'))wl=Math.max(wl,2);
+    if(L.guns.includes('tri')||L.guns.includes('rapid')||L.guns.includes('homing'))wl=Math.max(wl,3);
+    if(L.guns.includes('spread'))wl=Math.max(wl,3);
+    if(L.guns.includes('laser')||L.guns.includes('pierce'))wl=Math.max(wl,WEAP.length);
+    s.weapon=clamp(wl,1,WEAP.length);
+    if(L.powerups.includes('overdrive'))s.overdrive=true;        // prizm → permanent rapid fire
+    if(L.powerups.includes('shield')||L.guns.includes('shield'))s.sh=Math.max(s.sh,5); }
+  function refreshLoadoutPreview(){ const el=$('loadoutInfo'); if(!el)return;
+    if(!window.RipPowers||!wager.picked.length){ el.textContent=''; return; }
+    const picks=wager.picked.map(sl=>bySlug.get(sl)).filter(Boolean);
+    el.textContent='▣ armory · '+RipPowers.loadout(picks,RipPowers.getMarket()).summary; }
   const shortName=n=>{ n=String(n||''); return n.length>12?n.slice(0,11)+'…':n; };
   function step(dt){ G.t+=dt;
     // power-up spawns near the action
@@ -499,7 +525,7 @@
     for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.spawnT>0)s.spawnT-=dt;
       if(s.isMe) stepMe(s,dt); else stepBot(s,dt);
       tryFire(s, s.wantFire);
-      const mx=s.boost?22:9; s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground
+      const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
       s.x=wpos(s.x+Math.cos(s.h)*s.spd*dt); s.y=wpos(s.y+Math.sin(s.h)*s.spd*dt); s.alt=clamp(s.alt,ALT_MIN,ALT_MAX);
       if(s.spd>2){ s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>16)s.trail.shift(); } else if(s.trail.length) s.trail.shift(); }
     // chase camera trails the player (smooth heading/altitude, banks into turns)
@@ -844,6 +870,8 @@
   let last=performance.now();
   function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt); if(G.mode!=='lobby')draw(); requestAnimationFrame(frame); }
   loadDeck().then(()=>{ refreshPot(); });
+  if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
+    setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }
   requestAnimationFrame(frame);
 })();
 </script>
