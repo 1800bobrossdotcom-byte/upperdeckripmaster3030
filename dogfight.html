@@ -445,6 +445,7 @@
     for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
       try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
     G.mode='play';
+    if(location.hash==='#debug') window.__DF={G,cam};   // headless-test hook (inert in normal play)
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show');
     $('hudL').style.display='block'; $('hudR').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
     $('hMe').textContent=(G.me.verified?'⚜ ':'')+'you';
@@ -730,28 +731,18 @@
     for(const bu of G.bursts){ const p=project(bu.x,bu.y,bu.alt); if(!p)continue; ctx.globalAlpha=clamp(bu.life,0,1); ctx.fillStyle=bu.col; const r=Math.max(1,2.4*Math.min(3,p.scale*0.02)); ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); ctx.globalAlpha=1; }
   }
   function drawEnemy(p,s,w){ const sz=clamp(p.scale*0.9,10,150), rel=angd(s.h-cam.h);
-    const gp=project(s.x,s.y,0); ctx.save(); ctx.translate(p.x,p.y);
-    if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x-p.x,gp.y-p.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
-    ctx.rotate(rel + (s.bank||0)*0.35); ctx.scale(1, clamp(0.55+Math.abs(Math.cos(rel))*0.6,0.5,1.1));   // orient to flight axis, bank into turns, foreshorten
-    if(s.thrust){ ctx.save(); ctx.globalCompositeOperation='lighter'; const fl=sz*0.8; const g=ctx.createRadialGradient(0,sz*0.7,0,0,sz*0.7,fl); g.addColorStop(0,'rgba(255,240,150,.8)'); g.addColorStop(.5,s.tint+'88'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,sz*0.7,fl,0,TAU); ctx.fill(); ctx.restore(); }
-    if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,sz*0.95,0,TAU); ctx.stroke(); }
-    ctx.lineJoin='round'; const ex=sz*0.17;                     // extrusion depth → reads as a solid 3D body
-    const wing=sg=>{ ctx.beginPath(); ctx.moveTo(sg*sz*0.24,-sz*0.24); ctx.lineTo(sg*sz*1.2,sz*0.14); ctx.lineTo(sg*sz*1.14,sz*0.42); ctx.lineTo(sg*sz*0.2,sz*0.32); ctx.closePath(); };
-    const hull=()=>{ ctx.beginPath(); ctx.moveTo(0,-sz*0.86); ctx.lineTo(sz*0.34,-sz*0.24); ctx.lineTo(sz*0.28,sz*0.5); ctx.lineTo(-sz*0.28,sz*0.5); ctx.lineTo(-sz*0.34,-sz*0.24); ctx.closePath(); };
-    // dark under-belly (extruded copy shifted down) = thickness
-    ctx.save(); ctx.translate(0,ex); ctx.fillStyle='#03090f'; [-1,1].forEach(sg=>{ wing(sg); ctx.fill(); }); hull(); ctx.fill(); ctx.restore();
-    // lit top wings (directional shading)
-    ctx.shadowColor=s.tint; ctx.shadowBlur=8; ctx.strokeStyle=s.tint; ctx.lineWidth=Math.max(1.1,sz*0.05);
-    [-1,1].forEach(sg=>{ const wg=ctx.createLinearGradient(sg*sz*0.2,-sz*0.3,sg*sz*1.1,sz*0.42); wg.addColorStop(0,'rgba(220,250,255,.5)'); wg.addColorStop(0.5,'rgba(14,32,42,.95)'); wg.addColorStop(1,'#0a1a24'); ctx.fillStyle=wg; wing(sg); ctx.fill(); ctx.stroke(); });
-    [-1,1].forEach(sg=>{ ctx.fillStyle=s.tint; ctx.beginPath(); ctx.arc(sg*sz*1.05,sz*0.3,sz*0.08,0,TAU); ctx.fill(); });
-    // hull top face — strong top-light gradient (volume)
-    ctx.shadowBlur=13; const fg=ctx.createLinearGradient(-sz*0.28,-sz*0.9,sz*0.28,sz*0.55); fg.addColorStop(0,'#ffffff'); fg.addColorStop(.38,s.tint); fg.addColorStop(1,'#05121a');
-    ctx.fillStyle=fg; ctx.strokeStyle='#ffffff'; ctx.lineWidth=Math.max(1,sz*0.045); hull(); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
-    // spine highlight + canopy with glint
-    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=Math.max(1,sz*0.03); ctx.beginPath(); ctx.moveTo(0,-sz*0.8); ctx.lineTo(0,sz*0.42); ctx.stroke();
-    ctx.fillStyle='rgba(6,22,30,.94)'; ctx.beginPath(); ctx.ellipse(0,-sz*0.4,sz*0.14,sz*0.2,0,0,TAU); ctx.fill();
-    ctx.fillStyle='rgba(190,244,255,.55)'; ctx.beginPath(); ctx.ellipse(-sz*0.045,-sz*0.46,sz*0.05,sz*0.09,0,0,TAU); ctx.fill();
-    ctx.restore();
+    const gp=project(s.x,s.y,0);
+    if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x,gp.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
+    if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,sz*0.95,0,TAU); ctx.stroke(); }
+    if(!s._pal){ const hx=String(s.tint).replace('#',''); const t=[parseInt(hx.slice(0,2),16)||0,parseInt(hx.slice(2,4),16)||0,parseInt(hx.slice(4,6),16)||0];
+      s._pal={h:t.map(v=>v*0.52),hd:t.map(v=>v*0.34),w:t.map(v=>v*0.24),b:t.map(v=>v*0.1),f:t.map(v=>v*0.2)};
+      s._eRGB=t.map(v=>Math.round(v+(255-v)*0.45)); }
+    // the SAME 3D fuselage as your craft — oriented by its true flight heading, banking into turns
+    fuse3D(p.x,p.y,sz*0.72,{ yaw:rel,
+      roll:(s.bank||0)*1.05 + (s.rollT>0 ? (1-s.rollT/0.55)*TAU*(s.rollDir||1) : 0),
+      pal:s._pal, edge:s.tint, eRGB:s._eRGB, glow:s.tint, navL:s.tint, navR:s.tint,
+      img:s.img, boost:s.boost, thrust:s.thrust!==false,
+      alpha:(s.spawnT>0 ? (Math.sin(G.t*26)>0?0.45:1) : 1) });
     // nameplate + hp + lock bracket (unrotated)
     ctx.save(); ctx.textAlign='center'; ctx.font='900 '+clamp(sz*0.34,9,15)+'px Arial'; ctx.fillStyle='#d9ffe9'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
     ctx.fillText((s.verified?'⚜ ':'')+shortName(s.name), p.x, p.y-sz*1.5); ctx.shadowBlur=0;
@@ -764,77 +755,86 @@
     const p=project(wpos(t.x+Math.cos(t.h)*t.spd*lead),wpos(t.y+Math.sin(t.h)*t.spd*lead),t.alt); if(!p)return; const r=Math.min(W,H)*0.016;
     ctx.save(); ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU);
     ctx.moveTo(p.x-r*1.6,p.y); ctx.lineTo(p.x-r*0.6,p.y); ctx.moveTo(p.x+r*0.6,p.y); ctx.lineTo(p.x+r*1.6,p.y); ctx.stroke(); ctx.restore(); }
-  // your own craft in third-person chase — a real dimensional fuselage: a model-space
-  // interceptor spun by bank-roll + climb-pitch, viewed down a chase-cam angle, painter-
-  // sorted + top-light shaded, with your card plated onto the lit hull deck.
-  function drawCraft(){ const base=clamp(W*0.062,38,88), bx=cx, by=H-base*1.5, k=G.me;
-    const roll=(k.bank||0)*1.05 + (k.rollT>0 ? (1-k.rollT/0.55)*TAU*(k.rollDir||1) : 0);   // bank + barrel-roll spin
-    const pc=clamp((k.pitchIn||0)*0.32,-0.5,0.5);                       // nose tips with climb/dive
-    const V=-0.52;                                                       // chase-cam look-down (we see the top + back)
-    const cr=Math.cos(roll),sr=Math.sin(roll),cpc=Math.cos(pc),spc=Math.sin(pc),cv=Math.cos(V),sv=Math.sin(V), S=base;
-    function rot(x,y,z){ const x1=x*cr-y*sr, y1=x*sr+y*cr;               // roll about forward axis
-      const y2=y1*cpc-z*spc, z2=y1*spc+z*cpc;                           // craft pitch about right axis
-      return [x1, y2*cv-z2*sv, y2*sv+z2*cv]; }                          // camera look-down about right axis
-    function pj(p){ const r=rot(p[0],p[1],p[2]), sc=1/(1+r[2]*0.11); return [bx+r[0]*S*sc, by-r[1]*S*sc, r[2]]; }
-    const L=(()=>{ const l=[-0.3,0.82,-0.48], m=Math.hypot(l[0],l[1],l[2]); return [l[0]/m,l[1]/m,l[2]/m]; })();
-    function fn(a,b,c){ const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+  // ── shared 3D fuselage renderer — YOUR chase craft and EVERY enemy use this same model ──
+  // A model-space interceptor spun by bank-roll + pitch + heading-yaw, viewed down a chase-cam
+  // look-down angle, painter-sorted + top-light shaded, with a card plated onto the dorsal deck.
+  // o: { yaw, roll, pitch, look, pal:{h,hd,w,b,f}, edge, eRGB, glow, navL, navR, img, boost, thrust, alpha }
+  function fuse3D(bx,by,S,o){
+    const roll=o.roll||0, pc=o.pitch||0, yw=o.yaw||0, V=(o.look!=null?o.look:-0.52);
+    const cr=Math.cos(roll),sr=Math.sin(roll),cpc=Math.cos(pc),spc=Math.sin(pc),cyw=Math.cos(yw),syw=Math.sin(yw),cv=Math.cos(V),sv=Math.sin(V);
+    const rot=(x,y,z)=>{ const x1=x*cr-y*sr, y1=x*sr+y*cr;             // bank-roll about the forward axis
+      const y2=y1*cpc-z*spc, z2=y1*spc+z*cpc;                          // pitch about the right axis
+      const x3=x1*cyw+z2*syw, z3=-x1*syw+z2*cyw;                       // heading yaw about the up axis
+      return [x3, y2*cv-z3*sv, y2*sv+z3*cv]; };                        // camera look-down
+    const pj=p=>{ const r=rot(p[0],p[1],p[2]), sc=1/(1+r[2]*0.11); return [bx+r[0]*S*sc, by-r[1]*S*sc, r[2]]; };
+    const L=[-0.297,0.812,-0.505];                                     // key light (normalized)
+    const fn=(a,b,c)=>{ const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
       const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx, m=Math.hypot(nx,ny,nz)||1, r=rot(nx/m,ny/m,nz/m);
-      return r[0]*L[0]+r[1]*L[1]+r[2]*L[2]; }                           // lambert term in view space
+      return r[0]*L[0]+r[1]*L[1]+r[2]*L[2]; };                         // lambert term in view space
     const RGB=(c,kk)=>'rgb('+(clamp(c[0]*kk,0,255)|0)+','+(clamp(c[1]*kk,0,255)|0)+','+(clamp(c[2]*kk,0,255)|0)+')';
-    // model verts — x=right, y=up, z=forward(nose). tail sits near the camera, nose far + high.
+    // model verts — x=right, y=up, z=forward(nose)
     const N=[0,0.03,1.36],SF=[0,0.27,0.52],SM=[0,0.31,-0.16],TT=[0,0.19,-0.96],
       HFL=[-0.31,0.03,0.42],HFR=[0.31,0.03,0.42],HML=[-0.36,0,-0.2],HMR=[0.36,0,-0.2],HRL=[-0.28,-0.02,-0.9],HRR=[0.28,-0.02,-0.9],
       BF=[0,-0.17,0.34],BM=[0,-0.2,-0.2],BR=[0,-0.13,-0.86],
       WL1=[-1.55,-0.06,0.48],WL2=[-1.72,-0.04,-0.06],WR1=[1.55,-0.06,0.48],WR2=[1.72,-0.04,-0.06];
-    const HULL=[16,116,138],HULLD=[10,74,92],WING=[12,48,64],BELLY=[5,22,30],FIN=[10,46,60];
+    const P=o.pal;
     const F=[
-      {v:[SM,SF,HFL,HML],c:HULL},{v:[SM,SF,HFR,HMR],c:HULL},            // upper hull, front L/R
-      {v:[TT,SM,HML,HRL],c:HULLD},{v:[TT,SM,HMR,HRR],c:HULLD},          // upper hull, rear L/R
-      {v:[SF,N,HFL],c:HULL},{v:[SF,N,HFR],c:HULL},                      // nose deck L/R
-      {v:[N,HFL,BF],c:HULLD},{v:[N,HFR,BF],c:HULLD},                    // nose cheeks
-      {v:[HML,WL1,WL2,HRL],c:WING},{v:[HMR,WR1,WR2,HRR],c:WING},        // swept wings
-      {v:[HFL,HML,WL1],c:WING},{v:[HFR,HMR,WR1],c:WING},                // wing leading fillets
-      {v:[HFL,BF,BM,HML],c:BELLY},{v:[HFR,BF,BM,HMR],c:BELLY},          // belly front
-      {v:[HML,BM,BR,HRL],c:BELLY},{v:[HMR,BM,BR,HRR],c:BELLY},          // belly rear
-      {v:[TT,[0,0.56,-1.06],[0,0.5,-0.72],[0,0.12,-0.62]],c:FIN},       // tail fin
+      {v:[SM,SF,HFL,HML],c:P.h},{v:[SM,SF,HFR,HMR],c:P.h},             // upper hull, front L/R
+      {v:[TT,SM,HML,HRL],c:P.hd},{v:[TT,SM,HMR,HRR],c:P.hd},           // upper hull, rear L/R
+      {v:[SF,N,HFL],c:P.h},{v:[SF,N,HFR],c:P.h},                       // nose deck L/R
+      {v:[N,HFL,BF],c:P.hd},{v:[N,HFR,BF],c:P.hd},                     // nose cheeks
+      {v:[HML,WL1,WL2,HRL],c:P.w},{v:[HMR,WR1,WR2,HRR],c:P.w},         // swept wings
+      {v:[HFL,HML,WL1],c:P.w},{v:[HFR,HMR,WR1],c:P.w},                 // wing leading fillets
+      {v:[HFL,BF,BM,HML],c:P.b},{v:[HFR,BF,BM,HMR],c:P.b},             // belly front
+      {v:[HML,BM,BR,HRL],c:P.b},{v:[HMR,BM,BR,HRR],c:P.b},             // belly rear
+      {v:[TT,[0,0.56,-1.06],[0,0.5,-0.72],[0,0.12,-0.62]],c:P.f},      // tail fin
     ];
-    const cardQ=[[-0.28,0.32,-0.62],[0.28,0.32,-0.62],[0.2,0.32,0.56],[-0.2,0.32,0.56]];  // flat dorsal deck plate (your card)
-    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+    const cardQ=[[-0.28,0.32,-0.62],[0.28,0.32,-0.62],[0.2,0.32,0.56],[-0.2,0.32,0.56]];  // dorsal deck plate (the card)
+    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round'; if(o.alpha!=null)ctx.globalAlpha=o.alpha;
     // engine bloom (additive) behind the tail
-    ctx.save(); ctx.globalCompositeOperation='lighter'; const thr=k.boost?2.2:1;
-    [[-1.02,0,-0.62],[1.02,0,-0.62]].forEach(o=>{ const e=pj(o), fl=base*(0.42+0.34*Math.random())*thr;
-      const g=ctx.createRadialGradient(e[0],e[1],0,e[0],e[1],fl); g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.4,'rgba(120,240,255,.6)'); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e[0],e[1],fl,0,TAU); ctx.fill(); }); ctx.restore();
-    // renderables (hull faces + card deck), sorted far→near
-    const R=F.map(f=>{ const pv=f.v.map(pj); return {pv, az:pv.reduce((s,p)=>s+p[2],0)/pv.length, d:fn(f.v[0],f.v[1],f.v[2]), c:f.c}; });
-    const cpv=cardQ.map(pj); R.push({pv:cpv, az:cpv.reduce((s,p)=>s+p[2],0)/cpv.length, card:true});
+    if(o.thrust!==false){ ctx.save(); ctx.globalCompositeOperation='lighter'; const thr=o.boost?2.2:1;
+      [[-1.02,0,-0.62],[1.02,0,-0.62]].forEach(t=>{ const e=pj(t), fl=S*(0.42+0.34*Math.random())*thr;
+        const g=ctx.createRadialGradient(e[0],e[1],0,e[0],e[1],fl); g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.4,'rgba(120,240,255,.6)'); g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e[0],e[1],fl,0,TAU); ctx.fill(); }); ctx.restore(); }
+    // renderables (hull faces + card deck), painter-sorted far→near
+    const R=F.map(f=>{ const pv=f.v.map(pj); return {pv, az:pv.reduce((s,q)=>s+q[2],0)/pv.length, d:fn(f.v[0],f.v[1],f.v[2]), c:f.c}; });
+    const cpv=cardQ.map(pj); R.push({pv:cpv, az:cpv.reduce((s,q)=>s+q[2],0)/cpv.length, card:true});
     R.sort((a,b)=>b.az-a.az);
-    ctx.shadowColor='#27f7e4';
+    ctx.shadowColor=o.glow;
     for(const r of R){ const p=r.pv;
       ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]); ctx.closePath();
-      if(r.card){ ctx.shadowBlur=18; ctx.fillStyle='#0a3038'; ctx.fill(); ctx.shadowBlur=0;
-        const card=craftImgs.length?craftImgs[0]:null;
-        if(card&&card.im.complete&&card.im.naturalWidth){ const iw=card.im.naturalWidth, ih=card.im.naturalHeight, O=p[3];
+      if(r.card){ ctx.shadowBlur=Math.min(18,S*0.28); ctx.fillStyle='#0a3038'; ctx.fill(); ctx.shadowBlur=0;
+        const card=o.img;
+        if(card&&card.im&&card.im.complete&&card.im.naturalWidth){ const iw=card.im.naturalWidth, ih=card.im.naturalHeight, O=p[3];
           const ux=(p[2][0]-O[0])/iw, uy=(p[2][1]-O[1])/iw, vx=(p[0][0]-O[0])/ih, vy=(p[0][1]-O[1])/ih;
-          ctx.save(); ctx.clip(); ctx.setTransform(DPR*ux,DPR*uy,DPR*vx,DPR*vy,DPR*O[0],DPR*O[1]); ctx.globalAlpha=.96; ctx.drawImage(card.im,0,0,iw,ih); ctx.globalAlpha=1; ctx.restore();
+          ctx.save(); ctx.clip(); ctx.transform(ux,uy,vx,vy,O[0],O[1]); ctx.globalAlpha=.96; ctx.drawImage(card.im,0,0,iw,ih); ctx.restore();
           ctx.save(); ctx.clip(); const gg=ctx.createLinearGradient(p[3][0],p[3][1],p[1][0],p[1][1]);
           gg.addColorStop(0,'rgba(190,255,245,.22)'); gg.addColorStop(.5,'rgba(120,240,255,.04)'); gg.addColorStop(1,'rgba(4,30,38,.24)');
           ctx.fillStyle=gg; ctx.fill(); ctx.restore();
-        } else { ctx.fillStyle='#0e5a68'; ctx.fill(); }
-        ctx.strokeStyle='#5ffdec'; ctx.lineWidth=Math.max(1.4,base*0.04); ctx.stroke();
+        } else { ctx.fillStyle=RGB(P.h,1.15); ctx.fill(); }
+        ctx.strokeStyle=o.edge; ctx.lineWidth=Math.max(1.2,S*0.04); ctx.stroke();
       } else { const kk=0.4+0.72*Math.max(0,r.d);
-        ctx.shadowBlur=r.d>0.25?10:0; ctx.fillStyle=RGB(r.c,kk); ctx.fill(); ctx.shadowBlur=0;
-        ctx.strokeStyle='rgba(95,253,236,'+(0.22+0.5*Math.max(0,r.d)).toFixed(2)+')'; ctx.lineWidth=Math.max(1,base*0.028); ctx.stroke(); }
+        ctx.shadowBlur=r.d>0.25?Math.min(10,S*0.16):0; ctx.fillStyle=RGB(r.c,kk); ctx.fill(); ctx.shadowBlur=0;
+        ctx.strokeStyle='rgba('+o.eRGB[0]+','+o.eRGB[1]+','+o.eRGB[2]+','+(0.22+0.5*Math.max(0,r.d)).toFixed(2)+')'; ctx.lineWidth=Math.max(1,S*0.028); ctx.stroke(); }
     }
     // canopy bubble + glint, wingtip nav lights, nose beacon
-    const cp=pj([0,0.35,0.74]); ctx.save(); ctx.shadowColor='#dffffa'; ctx.shadowBlur=10;
+    const cp=pj([0,0.35,0.74]); ctx.save(); ctx.shadowColor='#dffffa'; ctx.shadowBlur=Math.min(10,S*0.16);
     ctx.fillStyle='rgba(8,30,40,.92)'; ctx.strokeStyle='#dffffa'; ctx.lineWidth=1.4;
-    ctx.beginPath(); ctx.ellipse(cp[0],cp[1],base*0.12,base*0.16,roll,0,TAU); ctx.fill(); ctx.stroke();
-    const gl=pj([-0.04,0.41,0.82]); ctx.fillStyle='rgba(210,255,250,.9)'; ctx.beginPath(); ctx.ellipse(gl[0],gl[1],base*0.045,base*0.07,roll,0,TAU); ctx.fill(); ctx.restore();
-    [[WL2,'#ff2ad9'],[WR2,'#27f7e4']].forEach(([w,col])=>{ const q=pj(w); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=9; ctx.beginPath(); ctx.arc(q[0],q[1],base*0.055,0,TAU); ctx.fill(); ctx.shadowBlur=0; });
-    const nz=pj(N); ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=10; ctx.beginPath(); ctx.arc(nz[0],nz[1],base*0.05,0,TAU); ctx.fill(); ctx.shadowBlur=0;
-    if(k.iframe>0){ ctx.strokeStyle='rgba(140,255,240,'+(0.35+0.4*Math.sin(G.t*20))+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(bx,by-base*0.2,base*1.7,0,TAU); ctx.stroke(); }
-    ctx.restore(); }
+    ctx.beginPath(); ctx.ellipse(cp[0],cp[1],S*0.12,S*0.16,roll,0,TAU); ctx.fill(); ctx.stroke();
+    const gl=pj([-0.04,0.41,0.82]); ctx.fillStyle='rgba(210,255,250,.9)'; ctx.beginPath(); ctx.ellipse(gl[0],gl[1],S*0.045,S*0.07,roll,0,TAU); ctx.fill(); ctx.restore();
+    [[WL2,o.navL],[WR2,o.navR]].forEach(([wv,col])=>{ const q=pj(wv); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=9; ctx.beginPath(); ctx.arc(q[0],q[1],Math.max(1.6,S*0.055),0,TAU); ctx.fill(); ctx.shadowBlur=0; });
+    const nz=pj(N); ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=Math.min(10,S*0.16); ctx.beginPath(); ctx.arc(nz[0],nz[1],Math.max(1.4,S*0.05),0,TAU); ctx.fill(); ctx.shadowBlur=0;
+    ctx.restore();
+  }
+  // your own craft in third-person chase — the shared fuselage, teal, seen from dead astern
+  function drawCraft(){ const base=clamp(W*0.062,38,88), k=G.me;
+    fuse3D(cx, H-base*1.5, base, {
+      roll:(k.bank||0)*1.05 + (k.rollT>0 ? (1-k.rollT/0.55)*TAU*(k.rollDir||1) : 0),   // bank + barrel-roll spin
+      pitch:clamp((k.pitchIn||0)*0.32,-0.5,0.5),                                        // nose tips with climb/dive
+      pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
+      edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
+      img:(craftImgs.length?craftImgs[0]:null), boost:k.boost });
+    if(k.iframe>0){ ctx.strokeStyle='rgba(140,255,240,'+(0.35+0.4*Math.sin(G.t*20))+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,H-base*1.7,base*1.7,0,TAU); ctx.stroke(); } }
   function drawCockpit(){ const k=G.me||{spd:0,alt:0,bank:0}; ctx.save();
     ctx.translate(cx, H); ctx.rotate(-(k.bank||0)*0.14); ctx.translate(-cx,-H);   // canopy rolls a touch into turns → you feel the craft move
     // canopy glass tint + top bar
