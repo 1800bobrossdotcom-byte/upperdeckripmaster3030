@@ -19,10 +19,10 @@
   .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
   .back{ font-size:12px; letter-spacing:.06em; color:#9fe6c8; } .back:hover{ color:var(--lime); }
   .tav{ display:flex; }
-  h1{ font-family:var(--fat); font-size:clamp(40px,12vw,96px); line-height:.9; letter-spacing:.02em; text-align:center; margin:18px 0 2px;
-    background:linear-gradient(180deg,#fff,var(--cyan) 38%,var(--magenta) 70%,var(--amber)); -webkit-background-clip:text; background-clip:text; color:transparent;
-    filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)); animation:hue 22s linear infinite; }
-  @keyframes hue{ from{filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)) hue-rotate(0)} to{filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)) hue-rotate(360deg)} }
+  .arcade-logo{ position:relative; width:min(760px,94vw); margin:18px auto 2px; }
+  .arcade-logo img{ display:block; width:100%; height:auto; }
+  .al-base{ mix-blend-mode:screen; }
+  .al-over{ position:absolute; inset:0; mix-blend-mode:screen; opacity:.85; filter:drop-shadow(0 0 26px rgba(255,42,217,.35)); }
   .sub{ text-align:center; font-size:12.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); margin-bottom:24px; }
   .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
   .cab{ position:relative; display:block; border-radius:16px; overflow:hidden; padding:20px 18px 18px; min-height:200px;
@@ -47,13 +47,13 @@
       <a class="back" href="index.html">◄ back to the pack</a>
       <div class="tav"><div id="tavern"></div></div>
     </div>
-    <h1>ARCADE</h1>
+    <div class="arcade-logo"><img src="arcade2.png" alt="ARCADE" class="al-base"><img src="arcade23.png" alt="" aria-hidden="true" class="al-over"></div>
     <div class="sub">upperdeck ripmaster 3030 · your deck is the machine</div>
 
     <div class="grid">
       <a class="cab" href="riprocketer.html">
         <span class="rr">on-rails</span>
-        <div class="ic">🚀</div>
+        <div class="ic" data-ic="rocket" data-ic-size="40"></div>
         <div class="nm">RIP ROCKETER</div>
         <div class="tag">burn · score · boss</div>
         <div class="dsc">Your deck builds a starfighter. Burn 25 $UR3030, throttle through living worlds, blast chain-spawned targets and the PRIZM DREADNOUGHT.</div>
@@ -62,16 +62,16 @@
 
       <a class="cab" href="dogfight.html">
         <span class="rr">all-range</span>
-        <div class="ic">⚔️</div>
+        <div class="ic" data-ic="swords" data-ic-size="40"></div>
         <div class="nm">DOGFIGHT</div>
         <div class="tag">winner takes all</div>
-        <div class="dsc">A psychedelic Star-Fox deathmatch. Ante $UR3030 + cards, barrel-roll and boost through the arena, rack up frags — most kills takes the pot.</div>
+        <div class="dsc">An all-range aerial deathmatch. Ante $UR3030 + cards, barrel-roll and boost through the arena, rack up frags — most kills takes the pot.</div>
         <span class="play">▶ Play</span>
       </a>
 
       <a class="cab" href="cards/battle.html">
         <span class="rr">1v1</span>
-        <div class="ic">🃏</div>
+        <div class="ic" data-ic="cards" data-ic-size="40"></div>
         <div class="nm">THE ARENA</div>
         <div class="tag">street-fighter reveal</div>
         <div class="dsc">Call out rippers in the live lobby, ante a real $UR3030 burn, and settle it in a face-off over your staked cards.</div>
@@ -80,7 +80,7 @@
 
       <span class="cab soon" id="section9">
         <span class="rr">tactical fps</span>
-        <div class="ic">🎯</div>
+        <div class="ic" data-ic="target" data-ic-size="40"></div>
         <div class="nm">SECTION 9 TASK FORCE</div>
         <div class="tag">deathmatch · coming soon</div>
         <div class="dsc">A low-poly tactical shooter — rooms, stairs, snipers, and the same winner-takes-all wagering. Booting up.</div>
@@ -91,6 +91,7 @@
     <div class="foot">Every cabinet runs on your $UR3030 deck · <a href="index.html">rip a pack</a> to load up · <a href="cards/">the deck</a></div>
   </div>
 
+<script src="js/icons.js"></script>
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>

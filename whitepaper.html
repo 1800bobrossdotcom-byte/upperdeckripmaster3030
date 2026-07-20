@@ -107,7 +107,7 @@
     color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
   .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
     font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
-</style></head>
+</style><script src="js/icons.js"></script></head>
 <body>
   <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
   <div class="topbar">
@@ -128,9 +128,9 @@
       <p class="sub">What the game is, how the token works, where every $UR3030 goes, and the risks — in the open, for frens.</p>
     </header>
     
-  <div class="cta" style="margin:-8px 0 4px"><a class="btn" href="whitepaper.pdf" target="_blank" rel="noopener">📄 Download the PDF deck</a>
-    <a class="btn cy" href="tokenomics.html">📈 Tokenomics</a>
-    <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn" href="whitepaper.pdf" target="_blank" rel="noopener"><span class="ic" data-ic="cards"></span> Download the PDF deck</a>
+    <a class="btn cy" href="tokenomics.html"><span class="ic" data-ic="coin"></span> Tokenomics</a>
+    <a class="btn cy" href="audit.html"><span class="ic" data-ic="shield"></span> Our audit notes</a></div>
 
   <h2><span class="n">01</span>TL;DR</h2>
   <p>Upperdeck Ripmaster 3030 is a <b>liquid trading-card game</b> that is, on-chain, exactly
@@ -191,13 +191,13 @@
   <p>One direction: <b>the fire</b>. There is no toll wallet, no creator-cut contract, no house
   pool — because there is no other contract at all.</p>
   <div class="cols3">
-    <div class="card burn"><div class="co-h">🔥 Burns (on-chain, real)</div>
+    <div class="card burn"><div class="co-h"><span class="ic" data-ic="flame"></span> Burns (on-chain, real)</div>
       <ul><li>every pack — <b>in full</b> (~350/rip)</li><li>voluntary conviction burns</li>
       <li>season-end <b>compression</b> costs</li><li>all irreversible, all public</li></ul></div>
-    <div class="card creator"><div class="co-h">📈 The curve (on-chain, real)</div>
+    <div class="card creator"><div class="co-h"><span class="ic" data-ic="coin"></span> The curve (on-chain, real)</div>
       <ul><li>buys deepen the RARE reserve</li><li>sells walk back down it</li>
       <li>burned supply re-mints only on new buys</li><li>read it live: <code>getMarketState()</code></li></ul></div>
-    <div class="card house"><div class="co-h">🃏 Site-layer (signal, honest)</div>
+    <div class="card house"><div class="co-h"><span class="ic" data-ic="cards"></span> Site-layer (signal, honest)</div>
       <ul><li>court votes, wagers, trades, binder</li><li>shape next season's queue</li>
       <li>no tokens move — <b>burns are the consensus</b></li></ul></div>
   </div>

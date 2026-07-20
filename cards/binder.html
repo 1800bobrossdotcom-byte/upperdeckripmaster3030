@@ -166,12 +166,13 @@
     font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
   .toast.show{ opacity:1; }
 </style>
+<script src="../js/icons.js"></script>
 </head>
 <body>
   <div class="lm" aria-hidden="true"></div>
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
-    <a class="back" href="battle.html" style="margin-left:14px">⚔ the arena</a>
+    <a class="back" href="battle.html" style="margin-left:14px"><span class="ic" data-ic="swords"></span> the arena</a>
     <h1>The Binder</h1>
     <div class="sub">collect · turn the page · deal the market</div>
     <div class="burned" id="burned"></div>
@@ -234,7 +235,7 @@
   const burnedTotal = () => { try { return +(localStorage.getItem('urm_burned')||0); } catch { return 0; } };
   const burn = (n, why) => { try { localStorage.setItem('urm_burned', String(burnedTotal()+n)); } catch {}
     renderBurned(); say('🔥 '+n+' $UR3030 burned — '+why); };
-  function renderBurned(){ $('burned').textContent = '🔥 '+burnedTotal()+' $UR3030 burned on this device'; }
+  function renderBurned(){ const el = $('burned'); el.innerHTML = '<span class="ic" data-ic="flame"></span> '+burnedTotal()+' $UR3030 burned on this device'; window.RipIcons && RipIcons.hydrate(el); }
 
   // resolve a vault entry {slug}|{forged} → card object
   function resolve(e, bs, fb){ if(!e) return null; return e.forged ? fb.get(e.forged) : bs.get(e.slug); }

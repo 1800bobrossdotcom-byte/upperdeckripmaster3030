@@ -154,9 +154,10 @@
       '<div class="fan" id="fan">' + fan + '</div>';
     if (!practice && lastTx && W()) {
       const banner = document.createElement('div'); banner.className = 'pack-tx';
-      banner.innerHTML = '🔥 burned ' + packBurn() + ' $UR3030 · <a href="' + W().explorerTx(lastTx) +
+      banner.innerHTML = '<span class="ic" data-ic="flame"></span> burned ' + packBurn() + ' $UR3030 · <a href="' + W().explorerTx(lastTx) +
         '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
       reveal.prepend(banner);
+      window.RipIcons && RipIcons.hydrate(banner);
     }
     void reveal.offsetHeight; // force face-down layout so the flip transition triggers
     requestAnimationFrame(() => requestAnimationFrame(() =>

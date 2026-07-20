@@ -413,8 +413,8 @@
   <div class="wrap">
     <a class="back" href="../index.html">◄ back to the pack</a>
     <a class="back" href="binder.html" style="margin-left:14px">▤ the binder</a>
-    <a class="back" href="../riprocketer.html" style="margin-left:14px">🚀 riprocketer</a>
-    <a class="back" href="../dogfight.html" style="margin-left:14px">⚔ dogfight</a>
+    <a class="back" href="../riprocketer.html" style="margin-left:14px"><span class="ic" data-ic="rocket"></span> riprocketer</a>
+    <a class="back" href="../dogfight.html" style="margin-left:14px"><span class="ic" data-ic="swords"></span> dogfight</a>
     <div class="arena-title-wrap">
       <canvas class="arena-particles" id="arenaParticles" aria-hidden="true"></canvas>
       <img class="arena-title" src="../the-arena.png" alt="The Arena" width="1456" height="816">
@@ -471,7 +471,7 @@
       </div>
       <div class="btns">
         <button class="btn" id="dealBtn">⟲ Reset stack</button>
-        <button class="btn slam" id="slamBtn" disabled>⚔ SLAM</button>
+        <button class="btn slam" id="slamBtn" disabled><span class="ic" data-ic="swords"></span> SLAM</button>
       </div>
       <div class="score">
         <div><div class="n you" id="youScore">0</div><div class="side-label">you</div></div>
@@ -504,11 +504,12 @@
   <!-- incoming-challenge toast + PvP stake modal -->
   <div class="lob-toast" id="lobToast" role="alert">
     <span class="lt-txt" id="lobToastTxt"></span>
-    <button class="lt-yes" id="ltYes">⚔ accept</button>
+    <button class="lt-yes" id="ltYes"><span class="ic" data-ic="swords"></span> accept</button>
     <button class="lt-no" id="ltNo">back down</button>
   </div>
   <div class="pvp" id="pvp" role="dialog" aria-modal="true" aria-label="face-off stake"></div>
 
+<script src="../js/icons.js"></script>
 <script src="../js/chain-config.js"></script>
 <script src="../js/wallet.js"></script>
 <script src="../js/wallet-ui.js"></script>
@@ -739,7 +740,8 @@
           spoils.innerHTML = `<div class="fo-spoils-hd">you took ${house.length} card${house.length > 1 ? 's' : ''} — keep or burn each</div><div class="fo-spoils-row">` +
             house.map((c, i) => `<div class="fo-spoil" data-i="${i}" style="--rc:var(${RC[c.rarity] || '--common'})"><span class="fo-rr">${escFO(c.rarity)}</span>` +
               `<img src="${escFO(c.art)}" alt="" loading="lazy" onerror="this.style.opacity=0"><div class="fo-spoil-nm">${escFO(c.title)}</div>` +
-              `<div class="fo-kb"><button type="button" class="fo-keep">✓ keep</button><button type="button" class="fo-burn">🔥 burn</button></div></div>`).join('') + '</div>';
+              `<div class="fo-kb"><button type="button" class="fo-keep">✓ keep</button><button type="button" class="fo-burn"><span class="ic" data-ic="flame"></span> burn</button></div></div>`).join('') + '</div>';
+          window.RipIcons && RipIcons.hydrate(spoils);
           const decided = new Set();
           const done = () => { if (decided.size === house.length){ actions.innerHTML = '<button class="btn" id="foDone">✦ collect &amp; continue ✦</button>'; $('foDone').onclick = finish; } };
           spoils.querySelectorAll('.fo-spoil').forEach(el => {
@@ -910,7 +912,7 @@
       const st = p.status || 'idle';
       const btn = p.me
         ? '<span class="lob-meta" style="color:#ffd23b;font-family:var(--fat)">◈ you</span>'
-        : `<button class="lob-chal${st === 'seeking' ? ' seek' : ''}" data-id="${escFO(p.id)}" ${st === 'battling' ? 'disabled' : ''}>${st === 'seeking' ? '⚔ answer' : '⚔ challenge'}</button>`;
+        : `<button class="lob-chal${st === 'seeking' ? ' seek' : ''}" data-id="${escFO(p.id)}" ${st === 'battling' ? 'disabled' : ''}>${st === 'seeking' ? '<span class="ic" data-ic="swords"></span> answer' : '<span class="ic" data-ic="swords"></span> challenge'}</button>`;
       const seal = p.verified ? ' <span class="lob-seal" title="signed the ledger — stakes real $UR3030">⚜</span>' : '';
       const addr = (p.verified && p.address) ? ' · <span class="lob-addr">' + escFO(p.address.slice(0, 6) + '…' + p.address.slice(-4)) + '</span>' : '';
       const liveTag = p.bot ? '' : (p.verified ? '' : ' · <span style="color:#27f7e4">live</span>');
@@ -920,6 +922,7 @@
         `<div class="lob-meta"><b>${(p.balance || 0).toLocaleString('en-US')}</b> $UR · ${p.cards || 0} cards${p.wl ? ' · ' + escFO(p.wl) : ''}${addr}${liveTag}</div></div>` +
         btn + `</div>`;
     }).join('');
+    window.RipIcons && RipIcons.hydrate(list);
     list.querySelectorAll('.lob-chal').forEach(b => b.onclick = () => {
       if (busy){ toastMini('finish this fight first'); return; }
       const p = lobbyPlayers.find(x => x.id === b.dataset.id);
@@ -979,14 +982,14 @@
       const bal = tokens(), live = liveToken();
       modal.innerHTML =
         `<div class="pvp-card">` +
-        `<div class="pvp-hd">⚔ face-off · ${escFO(opponent.handle)}</div>` +
+        `<div class="pvp-hd"><span class="ic" data-ic="swords"></span> face-off · ${escFO(opponent.handle)}</div>` +
         `<div class="pvp-opp"><span class="lob-st ${opponent.status || 'idle'}"></span>` +
           `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $UR · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
         `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner keeps or burns the loser's stack, ties stand.</div>` +
         `<div class="pvp-hand" id="pvpHand"></div>` +
-        `<div class="pvp-burn"><span class="tstake-lbl">🔥 burn ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
+        `<div class="pvp-burn"><span class="tstake-lbl"><span class="ic" data-ic="flame"></span> burn ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
         `<div class="pvp-note" id="pvpNote"></div>` +
-        `<div class="pvp-btns"><button class="mode" id="pvpNo">back down</button><button class="btn go" id="pvpGo" disabled>🔥 FIGHT</button></div>` +
+        `<div class="pvp-btns"><button class="mode" id="pvpNo">back down</button><button class="btn go" id="pvpGo" disabled><span class="ic" data-ic="flame"></span> FIGHT</button></div>` +
         `</div>`;
       const hh = $('pvpHand');
       hh.innerHTML = hand.map((c, i) => tile(c, { idx: i, sel: pvpSel.includes(i) })).join('');
@@ -996,7 +999,8 @@
         else { if (pvpSel.length >= n) pvpSel.shift(); pvpSel.push(i); }
         render();
       });
-      $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no burn' : '🔥' + v}</button>`).join('');
+      $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no burn' : '<span class="ic" data-ic="flame"></span>' + v}</button>`).join('');
+      window.RipIcons && RipIcons.hydrate(modal);
       $('pvpChips').querySelectorAll('.tchip').forEach(b => b.onclick = () => { burn = +b.dataset.v; render(); });
       $('pvpNote').innerHTML = burn > 0
         ? (live ? `You'll sign a real on-chain <b>burn of ${burn} $UR3030</b> — gone forever, feeding the deflation. The winner still takes the cards.`
@@ -1029,7 +1033,7 @@
       anteText: burn > 0 ? `🔥 ${burn}` : ''
     });
     const v = $('verdict');
-    let log = `⚔ <b class="b">${escFO(oppName)}</b> · you <b class="b">${P.total}</b> vs <b class="b">${Q.total}</b>. `;
+    let log = `<span class="ic" data-ic="swords"></span> <b class="b">${escFO(oppName)}</b> · you <b class="b">${P.total}</b> vs <b class="b">${Q.total}</b>. `;
     if (outcome === 'win'){
       v.className = 'verdict win'; v.textContent = 'YOU WIN';
       collect(res.kept);
@@ -1043,7 +1047,7 @@
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
       log += `Dead even — both keep their cards${burn ? `, but the ${burn} $UR ante is burned` : ''}.`;
     }
-    $('log').innerHTML = log; $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
+    $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();
     busy = false; $('dealBtn').disabled = false; updateSlam();
     if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile(); walletRefresh();

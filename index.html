@@ -7,6 +7,7 @@
 <meta name="description" content="A liquid trading-card game for degenerates and believers. Burn the token, vote the deck, rip the pack. Buy the ticket, take the ride.">
 <meta name="theme-color" content="#020804">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="js/icons.js"></script>
 <link rel="canonical" href="https://upperdeckripmaster3030.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Upperdeck Ripmaster 3030">
@@ -468,7 +469,7 @@
       <div class="intro-frame">
         <video id="introVid" src="hal-mitt.mp4" muted playsinline autoplay preload="auto"></video>
         <img class="intro-roundel" src="ripmaster-roundel.svg" alt="" aria-hidden="true">
-        <button type="button" class="intro-unmute" id="introUnmute" aria-label="toggle video sound" title="sound">🔊 Sound</button>
+        <button type="button" class="intro-unmute" id="introUnmute" aria-label="toggle video sound" title="sound"><span class="ic" data-ic="sound"></span> Sound</button>
       </div>
       <div class="intro-cap">▸ transmission from the founder ◂ &nbsp; tap anywhere to skip</div>
     </div>
@@ -483,7 +484,7 @@
     try { v.muted = true; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch {}   // just the video (its own audio); no separate vocal track
     document.getElementById('introSkip').addEventListener('click', e => { e.stopPropagation(); kill(); });
     const um = document.getElementById('introUnmute');
-    const setUm = () => { um.textContent = v.muted ? '🔊 Sound' : '🔇 Mute'; um.classList.toggle('on', !v.muted); };
+    const setUm = () => { um.innerHTML = (v.muted ? '<span class="ic" data-ic="sound"></span> Sound' : '<span class="ic" data-ic="sound"></span> Mute'); um.classList.toggle('on', !v.muted); window.RipIcons && RipIcons.hydrate(um); };
     setUm();
     um.addEventListener('click', e => { e.stopPropagation(); v.muted = !v.muted; if (!v.muted) v.play().catch(() => {}); setUm(); });
     s.addEventListener('click', kill);
@@ -519,7 +520,7 @@
       </div>
       <div class="say-wrap">
         <button type="button" class="say-it" id="sayIt" aria-label="Slam it — hear Upperdeck Ripmaster 3030">
-          <span class="si-ico" aria-hidden="true">📢</span><span class="si-txt">Slam to say it</span>
+          <span class="si-ico" aria-hidden="true"><span class="ic" data-ic="sound"></span></span><span class="si-txt">Slam to say it</span>
         </button>
       </div>
       <div class="say-wrap" style="margin-top:12px"><div id="tavern"></div></div>
@@ -538,7 +539,7 @@
     <section class="cabinet">
       <div class="cab-label">
         <span class="tag">Specimen 1/1</span>
-        <span class="tag red">🔒 Sealed · later season</span>
+        <span class="tag red"><span class="ic" data-ic="shield"></span> Sealed · later season</span>
       </div>
       <iframe src="cards/lovebeing.html" title="Lovebeing — the 1 of 1 marquee card" loading="lazy"
         allow="accelerometer; gyroscope; magnetometer"></iframe>
@@ -556,8 +557,8 @@
       <button class="btn rip" id="packOpen" type="button">✦ Rip a pack ✦</button>
       <a class="btn gold" id="buyLink" href="https://superrare.com" target="_blank" rel="noopener noreferrer">$ Buy $UR3030 ↗</a>
       <a class="btn" href="cards/">▚ Into the deck</a>
-      <a class="btn alt" href="cards/battle.html">⚔ Enter the arena</a>
-      <a class="btn" href="arcade.html">🕹 Arcade</a>
+      <a class="btn alt" href="cards/battle.html"><span class="ic" data-ic="swords"></span> Enter the arena</a>
+      <a class="btn" href="arcade.html"><span class="ic" data-ic="arcade"></span> Arcade</a>
       <a class="btn gold" href="cards/binder.html">▤ The binder</a>
       <a class="btn" href="#ritual">◈ How it works</a>
       <a class="btn alt" href="whitepaper.html">§ Whitepaper · NFA</a>
@@ -589,9 +590,9 @@
         token and one move</strong> — burn $UR3030. Packs burn in full, conviction burns, compression
         burns. No tolls, no fee wallet, no treasury, <strong>no other contract for one to hide in</strong>.
         Court votes &amp; wagers are site-side signal; the fire is the only consensus.
-        <br><a class="wp-link" href="whitepaper.html">📄 Whitepaper</a>
-        <a class="wp-link" href="tokenomics.html">📈 Tokenomics</a>
-        <a class="wp-link" href="audit.html">🛡 Our audit notes</a></div>
+        <br><a class="wp-link" href="whitepaper.html"><span class="ic" data-ic="cards"></span> Whitepaper</a>
+        <a class="wp-link" href="tokenomics.html"><span class="ic" data-ic="coin"></span> Tokenomics</a>
+        <a class="wp-link" href="audit.html"><span class="ic" data-ic="shield"></span> Our audit notes</a></div>
     </section>
 
     <section class="adzone" aria-label="collector ads">
@@ -631,7 +632,7 @@
         </div>
         <div class="ad a5">
           <span class="star">★ As Seen On-Chain ★</span>
-          <h4><span class="flame">🔥</span> Burn the Field<br>Down to 77 <span class="flame">🔥</span></h4>
+          <h4><span class="flame"><span class="ic" data-ic="flame"></span></span> Burn the Field<br>Down to 77 <span class="flame"><span class="ic" data-ic="flame"></span></span></h4>
           <p>196 open · 77 survive ·<br>the rest turn to ash</p>
           <span class="price">RIP ▸ BURN ▸ KEEP</span>
         </div>
@@ -643,7 +644,7 @@
           <span class="price dark">SS1 · 夏</span>
         </div>
         <div class="ad a1">
-          <span class="star"><span class="wiggle">💌</span> BUILD UR DECK <span class="wiggle">💌</span></span>
+          <span class="star"><span class="wiggle"><span class="ic" data-ic="cards"></span></span> BUILD UR DECK <span class="wiggle"><span class="ic" data-ic="cards"></span></span></span>
           <h4 class="jp" lang="ja">君だけの<br>デッキを作れ</h4>
           <p>build the deck only you would keep</p>
           <span class="price">GUESTBOOK ▸</span>
@@ -672,10 +673,10 @@
       <div class="gc-uc"><span class="bar"></span><span class="txt">🚧 デッキ工事中 · deck under construction 🚧</span><span class="bar"></span></div>
       <div class="gc-row">
         <span class="gc-badge">You are visitor <span class="gc-counter">0003030</span></span>
-        <span class="gc-badge"><span class="gspin">🌐</span> ◀ RIPMASTER WEBRING ▶</span>
+        <span class="gc-badge"><span class="gspin"><span class="ic" data-ic="crosshair"></span></span> ◀ RIPMASTER WEBRING ▶</span>
         <span class="gc-badge"><span class="gc-star gspin">★</span> best viewed in Netscape @ 800×600</span>
         <span class="gc-badge">✉ sign my guestbook</span>
-        <span class="gc-badge"><span class="flame">🔥</span> hot new drop <span class="flame">🔥</span></span>
+        <span class="gc-badge"><span class="flame"><span class="ic" data-ic="flame"></span></span> hot new drop <span class="flame"><span class="ic" data-ic="flame"></span></span></span>
       </div>
     </section>
 

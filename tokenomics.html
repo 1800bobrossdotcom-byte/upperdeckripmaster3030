@@ -107,7 +107,7 @@
     color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
   .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
     font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
-</style></head>
+</style><script src="js/icons.js"></script></head>
 <body>
   <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
   <div class="topbar">
@@ -128,8 +128,8 @@
       <p class="sub">Supply, the bonding curve, pack allotments, the burn schedule, and pre-mainnet verification — every number reproducible.</p>
     </header>
     
-  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html">📄 Whitepaper</a>
-    <a class="btn cy" href="audit.html">🛡 Audit notes</a></div>
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html"><span class="ic" data-ic="cards"></span> Whitepaper</a>
+    <a class="btn cy" href="audit.html"><span class="ic" data-ic="shield"></span> Audit notes</a></div>
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
@@ -193,12 +193,12 @@
   <code>openSeason()</code>, recalibrated to the live token price.</p>
 
   <h2><span class="n">07</span>The burn schedule (launch — everything burns in full)</h2>
-  <p>At launch the only on-chain spend is the <span class="fire">🔥 burn</span> of the one token. There
+  <p>At launch the only on-chain spend is the <span class="fire"><span class="ic" data-ic="flame"></span> burn</span> of the one token. There
   are no tolls, no creator-cut contract, no house pool — nothing to route, nothing to skim.</p>
   <table><tr><th>Action</th><th>Cost</th><th>→</th></tr>
-    <tr><td>rip a pack (7 cards, site-guided)</td><td>~350 → escalates (§6)</td><td class="fire">🔥 in full</td></tr>
-    <tr><td>conviction burn (push the milestone)</td><td>any amount</td><td class="fire">🔥</td></tr>
-    <tr><td>season-end <b>compression</b> (retired card → 1/1 lens)</td><td>compression cost (set at season end)</td><td class="fire">🔥</td></tr>
+    <tr><td>rip a pack (7 cards, site-guided)</td><td>~350 → escalates (§6)</td><td class="fire"><span class="ic" data-ic="flame"></span> in full</td></tr>
+    <tr><td>conviction burn (push the milestone)</td><td>any amount</td><td class="fire"><span class="ic" data-ic="flame"></span></td></tr>
+    <tr><td>season-end <b>compression</b> (retired card → 1/1 lens)</td><td>compression cost (set at season end)</td><td class="fire"><span class="ic" data-ic="flame"></span></td></tr>
     <tr><td>court votes · wagers · trades · binder</td><td>site-side signal</td><td>no tokens move</td></tr></table>
   <p class="fine">The retirement itself is priced by the <b>milestone escalator</b> (§8a): the k-th card falls
   when cumulative burn crosses its published milestone — killing card k costs the crowd 15,000 + 360·k more
@@ -207,7 +207,7 @@
   <h2><span class="n">08</span>Burn pressure per season</h2>
   <p>Bounded by the S1 allotment (10,000 packs); scenarios are the fraction sold. A rip burns ~437 tokens
   in full, so packs dominate. Illustrative, not a forecast.</p>
-  <table><tr><th>scenario</th><th>packs sold</th><th>pack 🔥</th><th>other 🔥*</th><th>total 🔥/season</th></tr>
+  <table><tr><th>scenario</th><th>packs sold</th><th>pack <span class="ic" data-ic="flame"></span></th><th>other <span class="ic" data-ic="flame"></span>*</th><th>total <span class="ic" data-ic="flame"></span>/season</th></tr>
     <tr><td>QUIET (30%)</td><td>3,000</td><td>1,312,500</td><td>28,500</td><td><b>~1,341,000</b> (0.44× cap)</td></tr>
     <tr><td>STEADY (70%)</td><td>7,000</td><td>3,062,500</td><td>68,250</td><td><b>~3,130,750</b> (1.03× cap)</td></tr>
     <tr><td>SELLOUT (100%)</td><td>10,000</td><td>4,375,000</td><td>101,650</td><td><b>~4,476,650</b> (1.48× cap)</td></tr></table>
