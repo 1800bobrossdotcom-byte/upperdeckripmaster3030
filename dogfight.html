@@ -353,8 +353,8 @@
   const G={ mode:'lobby', t:0, dur:100, timeLeft:100, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], powT:6, shake:0,
     real:false, myStake:[], oppStakes:[], me:null, over:false, view:'chase', theme:0, lock:null, gscroll:0, sunAz:0 };
   // ── toroidal world: an "infinite self-contained map" whose edges portal over ──
-  const WS=64, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=3.4, VIEW_FAR=30, BOLTSPD=26;
-  const cam={ x:0, y:0, h:0, alt:1.2, roll:0, ph:0 };
+  const WS=64, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=3.4, VIEW_FAR=30, BOLTSPD=26, TANK_ALT=0.16;
+  const cam={ x:0, y:0, h:0, alt:1.2, roll:0, ph:0, camH:1.2, camBack:2.4 };
   const wdel=v=>{ v-=Math.round(v/WS)*WS; return v; };          // nearest wrapped delta (−WS/2..WS/2)
   const wpos=v=>{ v%=WS; return v<0?v+WS:v; };                   // canonical 0..WS
   const angd=a=>{ a%=TAU; if(a>Math.PI)a-=TAU; if(a<-Math.PI)a+=TAU; return a; };
@@ -375,8 +375,9 @@
     return { x:cx+rgt*scale, y:HORIZON+(CAM_H-(alt||0))*scale, scale, fwd }; }
 
   function makeShip(opt){ const a=rnd(TAU), r=rnd(WS*0.34,WS*0.14);
+    const hp=opt.me?150:100;
     return { name:opt.name, x:wpos(cam.x+Math.cos(a)*r), y:wpos(cam.y+Math.sin(a)*r), alt:rnd(1.9,0.7), h:rnd(TAU),
-      spd:6, hp:100, maxHp:100, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
+      spd:6, hp, maxHp:hp, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
       verified:!!opt.verified, weapon:1, fireT:0, thrust:true, boost:false, bank:0, pitchIn:0, rapid:0, sh:0,
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
 
@@ -429,10 +430,14 @@
   // ── weapons / combat (world-space bolts) ──
   const WEAP=[ {bolts:[0],rate:220,dmg:12,name:'cannon'}, {bolts:[-0.05,0.05],rate:200,dmg:11,name:'twin'},
     {bolts:[-0.08,0,0.08],rate:180,dmg:11,name:'tri'}, {bolts:[-0.1,-0.033,0.033,0.1],rate:140,dmg:12,name:'quad',laser:true} ];
-  function meAimHeading(){ if(G.lock&&G.lock.alive){ const b=Math.atan2(wdel(G.lock.y-G.me.y),wdel(G.lock.x-G.me.x)); return G.me.h+clamp(angd(b-G.me.h),-0.16,0.16); } return G.me.h; }
+  // when you have a lock, your bolts fly straight at the lead point (strong aim-assist, so the gun connects)
+  function meAimHeading(){ if(G.lock&&G.lock.alive){ const t=G.lock, dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
+    return Math.atan2(wdel(t.y+Math.sin(t.h)*t.spd*lead-G.me.y), wdel(t.x+Math.cos(t.h)*t.spd*lead-G.me.x)); } return G.me.h; }
   function fire(s){ const wp=WEAP[Math.min(WEAP.length,s.weapon)-1]; const now=performance.now(); const rate=wp.rate*(s.rapid>0?0.55:1);
     if(now-s.fireT<rate)return; s.fireT=now; const base=s.isMe?meAimHeading():s.h;
-    for(const off of wp.bolts){ const a=base+off; G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:1.5, own:s, dmg:wp.dmg, laser:!!wp.laser, me:s.isMe }); }
+    const home=s.isMe?G.lock:null;                                             // your shots seek the locked target
+    for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
+      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:1.6, own:s, dmg:wp.dmg, laser:!!wp.laser, me:s.isMe, home }); }
     s.isMe?sfxFire():sfxEfire(); }
   function boom(x,y,alt,tint,big){ const n=big?26:12; for(let i=0;i<n;i++) G.bursts.push({x,y,alt:(alt||0)+rnd(0.4,-0.2),vx:rnd(6,-6),vy:rnd(6,-6),va:rnd(4,-1),life:1,col:tint});
     G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)(); }
@@ -460,13 +465,15 @@
     // target lock: nearest enemy inside the forward cone
     G.lock=null; if(G.me&&G.me.alive){ let best=1e9; for(const s of G.ships){ if(s===G.me||!s.alive)continue;
       const b=Math.atan2(wdel(s.y-G.me.y),wdel(s.x-G.me.x)), off=Math.abs(angd(b-G.me.h)), d=Math.hypot(wdel(s.x-G.me.x),wdel(s.y-G.me.y));
-      if(off<0.4&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }
+      if(off<0.5&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }
     for(const s of G.ships){ if(!s.alive)continue; for(const pw of G.pows){ if(pw.got)continue; if(Math.hypot(wdel(pw.x-s.x),wdel(pw.y-s.y))<0.9&&Math.abs(pw.alt-s.alt)<0.7){ pw.got=1; applyPow(s,pw.type); } } }
     G.pows=G.pows.filter(pw=>!pw.got && pw.t<20);
     // bolts
-    for(const b of G.bolts){ b.x=wpos(b.x+Math.cos(b.h)*BOLTSPD*dt); b.y=wpos(b.y+Math.sin(b.h)*BOLTSPD*dt); b.life-=dt;
+    for(const b of G.bolts){ if(b.home&&b.home.alive){ const bear=Math.atan2(wdel(b.home.y-b.y),wdel(b.home.x-b.x)); b.h+=clamp(angd(bear-b.h),-3.4*dt,3.4*dt); }
+      b.x=wpos(b.x+Math.cos(b.h)*BOLTSPD*dt); b.y=wpos(b.y+Math.sin(b.h)*BOLTSPD*dt); b.life-=dt;
+      const hr=b.me?1.4:1.0, av=b.me?1.1:0.85;
       for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
-        if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<0.85&&Math.abs(b.alt-s.alt)<0.7){ b.life=0; let dmg=b.dmg; if(s.sh>0)dmg*=0.4; s.hp-=dmg;
+        if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<hr&&Math.abs(b.alt-s.alt)<av){ b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg;
           G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:b.me?'#ffd23b':'#ff5a3c'});
           if(s.isMe){ G.shake=Math.max(G.shake,8); sfxHit(); }
           if(s.hp<=0){ s.alive=false; boom(s.x,s.y,s.alt,s.tint,true); if(b.own){ b.own.kills++; if(b.own.isMe)powMsg('✖ '+shortName(s.name)+' DOWN'); } }
@@ -495,7 +502,7 @@
     if(s.evade>0){ s.evade-=dt; if(t) desiredH=Math.atan2(wdel(s.y-t.y),wdel(s.x-t.x)); s.boost=true; }
     else if(t){ const dx=wdel(t.x-s.x), dy=wdel(t.y-s.y), dist=Math.hypot(dx,dy), lead=dist/BOLTSPD;
       desiredH=Math.atan2(dy+Math.sin(t.h)*t.spd*lead, dx+Math.cos(t.h)*t.spd*lead); climb=clamp((t.alt-s.alt)*1.2,-1,1); s.boost=dist>16;
-      if(dist<18 && Math.abs(angd(desiredH-s.h))<0.16 && Math.random()<0.92) fire(s);
+      if(dist<18 && Math.abs(angd(desiredH-s.h))<0.12 && Math.random()<0.32) fire(s);
     } else { desiredH=s.h+Math.sin(G.t*0.5+s.aiT)*0.4; s.boost=false; }
     const dh=angd(desiredH-s.h); s.h+=clamp(dh,-2.0*dt,2.0*dt); s.alt+=climb*1.6*dt; s.bank+=(clamp(dh*3,-1,1)-s.bank)*Math.min(1,dt*5); s.thrust=true;
   }
@@ -671,6 +678,15 @@
     ctx.save(); ctx.strokeStyle='rgba(43,255,128,.8)'; ctx.lineWidth=2; ctx.shadowColor='#2bff80'; ctx.shadowBlur=6;
     ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.moveTo(cx-r*1.7,cy); ctx.lineTo(cx-r*0.6,cy); ctx.moveTo(cx+r*0.6,cy); ctx.lineTo(cx+r*1.7,cy); ctx.moveTo(cx,cy-r*1.7); ctx.lineTo(cx,cy-r*0.6); ctx.stroke();
     if(G.lock){ ctx.fillStyle='rgba(255,42,217,.92)'; ctx.font='900 10px Arial'; ctx.textAlign='center'; ctx.shadowColor='#ff2ad9'; ctx.fillText('◈ LOCK',cx,cy-r*1.9); } ctx.restore(); }
+  // motion-blur speed streaks: radial warp lines that intensify with throttle / boost
+  function drawSpeedFx(){ if(!G.me||!G.me.alive)return; const sp=G.me.spd, boost=G.me.boost; if(sp<8.5&&!boost)return;
+    const amt=clamp((sp-7)/8,0,1)*(boost?1:0.7); if(amt<=0.02)return; const R=Math.min(W,H);
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(let i=0;i<28;i++){ const a=(i/28)*TAU+(i%2?0.11:0), r0=R*(0.14+(i%3)*0.03), r1=r0+R*(0.18+amt*0.55);
+      const g=ctx.createLinearGradient(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0,cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+      g.addColorStop(0,'rgba(190,245,255,0)'); g.addColorStop(1,'rgba(190,245,255,'+(0.1+amt*0.22)+')');
+      ctx.strokeStyle=g; ctx.lineWidth=1+amt*2.2; ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0); ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1); ctx.stroke(); }
+    ctx.restore(); }
   // the reused Tron disk, now a corner radar: blips are wrap-aware, rotated so your nose points up
   function drawRadar(){ if(!G.me)return; const RR=clamp(H*0.09,44,66), rx=cx, ry=RR+14;
     ctx.save(); ctx.translate(rx,ry);
@@ -700,7 +716,7 @@
     ctx.restore();
     // foreground: your craft / cockpit + centre reticle (screen space)
     if(G.view==='cockpit') drawCockpit(); else if(G.me&&G.me.alive) drawCraft();
-    drawReticle();
+    drawReticle(); drawSpeedFx();
     ctx.restore();     // end shake
     drawRadar();       // the reused Tron disk, stable in the corner
     // HUD
