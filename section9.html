@@ -323,6 +323,7 @@
   'use strict';
   const cv=document.getElementById('cv'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
   const DPR=Math.min(devicePixelRatio||1,1.5);
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;   // respect motion sensitivity (shake/drift)
   let W=0,H=0,HW=0,HH=0,FOCAL=600;
   const NEAR=0.06, FAR=52;
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(2,Math.round(r.width)); H=Math.max(2,Math.round(r.height));
@@ -462,8 +463,10 @@
       if(ai) out.push(a);
       if(ai!==bi){ const t=(NEAR-a.z)/(b.z-a.z); out.push({ x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t, z:NEAR }); } }
     return out; }
-  const FOG=[9,12,17];
+  const FOG=[9,12,17];                       // contents driven per-frame in draw() so distant geometry melts into the drifting sky
   function fogT(z){ return clamp((z-16)/(FAR-16),0,0.86); }
+  // per-frame lighting "breath": a subtle warm/cool multiplier applied at flush time (see draw())
+  let LMr=1, LMg=1, LMb=1;
 
   // draw list, filled each frame then z-sorted (painter's algorithm)
   let DL=[], dlN=0;
@@ -505,17 +508,28 @@
       const nrm=[f[4],f[5],f[6]]; const col=shade(base,nrm);
       pushFace([V[f[0]],V[f[1]],V[f[2]],V[f[3]]], nrm, col, bias); }
   }
-  // directional light shading → returns numeric rgb (fog applied later per-frame)
-  const LX=-0.42, LY=0.86, LZ=0.28;
-  function shade(base,n){ const d=Math.max(0, n[0]*LX+n[1]*LY+n[2]*LZ); const k=0.44+0.56*d;
-    return [base[0]*k, base[1]*k, base[2]*k]; }
+  // directional light shading → returns numeric rgb (fog + breath applied later per-frame).
+  // two lights: a WARM key (upper-left) and a COOL cyan fill from the opposite azimuth, so lit
+  // sides read warm and shadowed sides pick up a subtle neon-noir rim. Baked once into faces.
+  const LX=-0.42, LY=0.86, LZ=0.28;          // warm key direction
+  const FLX=0.50, FLY=0.30, FLZ=-0.46;       // cool fill direction (roughly opposite)
+  function shade(base,n){
+    const d=Math.max(0, n[0]*LX+n[1]*LY+n[2]*LZ);
+    const fl=Math.max(0, n[0]*FLX+n[1]*FLY+n[2]*FLZ);
+    const k=0.40+0.50*d, fa=0.17*fl;
+    return [ base[0]*(k*1.06 + fa*0.32),      // warm key + faint cyan fill
+             base[1]*(k*1.00 + fa*0.80),
+             base[2]*(k*0.92 + fa*1.05) ]; }
 
   function flushDrawList(){
     DL.length=Math.max(DL.length,dlN);
     const list=DL.slice(0,dlN);
     list.sort((a,b)=>b.z-a.z);
-    for(let i=0;i<list.length;i++){ const f=list[i]; const t=fogT(f.z);
-      ctx.fillStyle=rgb(t>0?lerpCol(f.col,FOG,t):f.col);
+    const mr=LMr,mg=LMg,mb=LMb, f0=FOG[0],f1=FOG[1],f2=FOG[2];   // breath + drifting fog, hoisted out of the loop
+    for(let i=0;i<list.length;i++){ const f=list[i]; const t=fogT(f.z); const c=f.col;
+      let r=c[0]*mr, g=c[1]*mg, b=c[2]*mb;
+      if(t>0){ r+=(f0-r)*t; g+=(f1-g)*t; b+=(f2-b)*t; }
+      ctx.fillStyle='rgb('+(r|0)+','+(g|0)+','+(b|0)+')';
       const p=f.pts; ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]);
       for(let j=1;j<p.length;j++) ctx.lineTo(p[j][0],p[j][1]); ctx.closePath(); ctx.fill(); }
     dlN=0;
@@ -650,6 +664,38 @@
     }
   }
   function drawMapFaces(){ const F=MAP.faces; for(let i=0;i<F.length;i++){ const f=F[i]; pushFace(f.v,f.n,f.col,f.bias); } }
+  // ── neon emissive trim: glowing accent edges along wall tops / floor perimeter / stair & cover edges.
+  //    Precomputed ONCE per map (like MAP.faces); long runs are split so near-plane clipping stays graceful.
+  const NEON_COL={ wall:'#27f7e4', plat:'#2bff80', pillar:'#ff2ad9', crate:'#ffd23b', cover:'#39ff9e', stair:'#27f7e4', shelf:'#ffd23b' };
+  function bakeNeon(M){ if(M.neon) return; const N=[]; M.neon=N;
+    const strip=(x0,y0,z0,x1,y1,z1,col)=>{ const dx=x1-x0,dy=y1-y0,dz=z1-z0; const L=Math.hypot(dx,dy,dz), seg=Math.max(1,Math.ceil(L/7));
+      for(let i=0;i<seg;i++){ const t0=i/seg,t1=(i+1)/seg;
+        N.push({ ax:x0+dx*t0, ay:y0+dy*t0, az:z0+dz*t0, bx:x0+dx*t1, by:y0+dy*t1, bz:z0+dz*t1, col }); } };
+    // floor perimeter, just inside the outer walls (Tron signature)
+    const px0=M.x0+0.1, px1=M.x1-0.1, pz0=M.z0+0.1, pz1=M.z1-0.1, py=0.05, PER='#27f7e4';
+    strip(px0,py,pz0, px1,py,pz0, PER); strip(px1,py,pz0, px1,py,pz1, PER);
+    strip(px1,py,pz1, px0,py,pz1, PER); strip(px0,py,pz1, px0,py,pz0, PER);
+    // top-edge trim on interior solids, coloured by kind (skip the big enclosing perimeter walls)
+    for(const b of M.solids){ const col=NEON_COL[b.kind||'wall']; if(!col) continue; const y=b.y1+0.015;
+      strip(b.x0,y,b.z0, b.x1,y,b.z0, col); strip(b.x1,y,b.z0, b.x1,y,b.z1, col);
+      strip(b.x1,y,b.z1, b.x0,y,b.z1, col); strip(b.x0,y,b.z1, b.x0,y,b.z0, col); }
+  }
+  // additive projection post-pass: two strokes (fat faint glow + thin bright core), fogged by depth
+  function drawNeon(){ const N=MAP.neon; if(!N) return;
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(let i=0;i<N.length;i++){ const s=N[i];
+      const a=projectPoint(s.ax,s.ay,s.az); if(!a) continue;
+      const b=projectPoint(s.bx,s.by,s.bz); if(!b) continue;
+      const z=a.z<b.z?a.z:b.z; if(z>FAR) continue;
+      const fade=1-fogT(z)/0.86; if(fade<0.05) continue;
+      if((a.x<-30&&b.x<-30)||(a.x>W+30&&b.x>W+30)||(a.y<-30&&b.y<-30)||(a.y>H+30&&b.y>H+30)) continue;
+      const near=a.s>b.s?a.s:b.s;
+      ctx.strokeStyle=s.col; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+      ctx.globalAlpha=0.20*fade; ctx.lineWidth=clamp(near*0.045,1.4,6); ctx.stroke();     // fat faint glow
+      ctx.globalAlpha=0.68*fade; ctx.lineWidth=clamp(near*0.012,0.7,1.8); ctx.stroke();   // thin bright core
+    }
+    ctx.globalAlpha=1; ctx.restore();
+  }
 
   // ══════════════════ COLLISION ══════════════════
   const STEP=0.62, GRAV=20, JUMP=7.4;
@@ -693,7 +739,8 @@
 
   // ══════════════════ MATCH ══════════════════
   const G={ mode:'lobby', t:0, dur:150, timeLeft:150, ents:[], me:null, real:false, over:false,
-    tracers:[], sparks:[], chunks:[], flashes:[], kills:[], myStake:[], oppStakes:[], hitmark:0, dmgFlash:0, mapIdx:0 };
+    tracers:[], sparks:[], chunks:[], flashes:[], kills:[], myStake:[], oppStakes:[], hitmark:0, dmgFlash:0, mapIdx:0,
+    shake:0, fireFlash:0, fireHeavy:false, fireCol:[255,224,150], horizonHue:200 };
 
   function farSpawn(avoidList,minD){ let best=null,bestScore=-1;
     for(let i=0;i<MAP.spawns.length;i++){ const s=MAP.spawns[(i+rint(MAP.spawns.length))%MAP.spawns.length];
@@ -710,12 +757,12 @@
 
   function startMatch(real){
     // choose map
-    G.mapIdx=rint(MAPS.length); MAP=MAPS[G.mapIdx]; bakeFaces(MAP);
+    G.mapIdx=rint(MAPS.length); MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP);
     // roster fill
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
-    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0;
+    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0;
     G.t=0; G.timeLeft=G.dur; G.real=!!real; G.over=false;
     G.me=makeEnt({ name:myHandle(), me:true, tint:[64,220,200], verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
@@ -750,7 +797,10 @@
     e.mag--; e.fireT=w.rate; e.recoil=Math.min(1.4,e.recoil+w.kick*0.5); e.muzzle=0.05;
     const mo=muzzleOrigin(e);
     G.flashes.push({ x:mo.x,y:mo.y,z:mo.z, t:0.06, big:w.key==='shotgun'||w.key==='sniper' });
-    if(e.isMe){ SFX[w.sfx](); G.dmgFlash=Math.max(G.dmgFlash,0); }
+    if(e.isMe){ SFX[w.sfx]();
+      const heavy=(w.key==='shotgun'||w.key==='sniper');
+      G.shake=Math.max(G.shake, w.kick*1.3);                 // pistol tiny · smg small · shotgun/sniper bigger
+      G.fireFlash=1; G.fireHeavy=heavy; G.fireCol = w.key==='sniper'?[210,235,255]:[255,224,150]; }
     else SFX[w.sfx]&&(Math.hypot(e.x-cam.x,e.z-cam.z)<26)&&SFX[w.sfx]();
     const scopeAcc=(e.isMe&&e.scoped)?0.35:1;
     for(let p=0;p<w.pellets;p++){
@@ -761,7 +811,8 @@
       if(hit.ent){ const head = hit.y > hit.ent.y + hit.ent.h*0.78;
         let dmg=w.dmg*(head?1.85:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);
         if(e.isMe){ G.hitmark=0.14; head?SFX.headshot():SFX.hit(); }
-      } else if(hit.wall){ spark(hit.x,hit.y,hit.z, [200,200,180], 6); }
+      } else if(hit.wall){ spark(hit.x,hit.y,hit.z, [210,205,180], 8);
+        G.flashes.push({ x:hit.x,y:hit.y,z:hit.z, t:0.05, big:false, col:[255,220,150] }); }   // brief additive impact spark
     }
   }
   function startReload(e){ if(e.reloading) return; const w=WEAPONS[e.weapon]; if(e.mag>=w.mag) return; e.reloading=true; e.reloadT=w.reload; if(e.isMe)SFX.reload(); }
@@ -778,15 +829,19 @@
     // armor soaks 45% until gone
     if(e.armor>0){ const soak=Math.min(e.armor, dmg*0.45); e.armor-=soak; dmg-=soak; }
     e.hp-=dmg;
-    spark(hx,hy,hz, head?[255,220,80]:e.tint, head?9:5);
-    if(e.isMe){ G.dmgFlash=Math.min(1,G.dmgFlash+0.5); SFX.hurt(); }
+    spark(hx,hy,hz, head?[255,220,80]:e.tint, head?11:7);
+    if(e.isMe){ G.dmgFlash=Math.min(1,G.dmgFlash+clamp(dmg*0.02,0.3,0.7)); G.shake=Math.max(G.shake, 3+Math.min(dmg,40)*0.12); SFX.hurt(); }
     if(e.hp<=0){ downEnt(e, src, head, hx,hy,hz); }
   }
   function downEnt(e, src, head){
     e.alive=false; e.respawnT=e.isMe?2.4:rnd(2.6,1.8); e.deaths++;
     chunkBurst(e.x, e.y+e.h*0.5, e.z, e.tint, 16); chunkBurst(e.x, e.y+e.h*0.85, e.z, [150,140,120], 6);
-    if(Math.hypot(e.x-cam.x,e.z-cam.z)<30) SFX.down();
+    G.flashes.push({ x:e.x,y:e.y+e.h*0.55,z:e.z, t:0.13, big:true, col:e.tint });   // colored death pop
+    const dcam=Math.hypot(e.x-cam.x,e.z-cam.z);
+    if(dcam<30) SFX.down();
+    if(dcam<26) G.shake=Math.max(G.shake, (1-dcam/26)*6.5);                          // nearby frag concussion
     if(src && src!==e){ src.kills++; src.killStreak=(src.killStreak||0)+1;
+      if(src.isMe) G.shake=Math.max(G.shake, 2.4);                                    // your own kill kick
       if(src.isMe){ SFX.frag(); powMsg((head?'✖ HEADSHOT · ':'✖ FRAG · ')+shortName(e.name), head?'#ffd23b':'#2bff80');
         if(src.killStreak>=3 && src.killStreak%2===1) powMsg('▲ '+src.killStreak+' FRAG STREAK','#ff2ad9'); } }
     else if(e.isMe){ powMsg('✖ YOU WERE DOWNED','#ff6b57'); }
