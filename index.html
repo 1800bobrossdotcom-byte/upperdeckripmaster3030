@@ -366,6 +366,11 @@
   .fcard.r-mythic img{ box-shadow:0 0 12px rgba(255,42,217,.55); }
   .fcard.r-prizm img{ box-shadow:0 0 14px rgba(39,247,228,.6); }
   .pack-actions{ display:flex; gap:12px; justify-content:center; margin-top:16px; }
+  /* honesty note — the pull saves locally today; only the token burn is on-chain */
+  .pack-honesty{ max-width:520px; margin:16px auto 2px; padding-top:12px; text-align:center;
+    border-top:1px dashed var(--phosdim); font-size:10.5px; line-height:1.6; letter-spacing:.02em;
+    color:#5fcf8f; opacity:.85; }
+  .pack-honesty b{ color:var(--amber); }
   /* z-space zoom */
   .zoom{ position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:14px;
     background:rgba(1,8,4,.55); transition:opacity .45s; }
@@ -612,6 +617,9 @@
         token and one move</strong> — burn $UR3030. Packs burn in full, conviction burns, compression
         burns. No tolls, no fee wallet, no treasury, <strong>no other contract for one to hide in</strong>.
         Court votes &amp; wagers are site-side signal; the fire is the only consensus.
+        <br><strong style="color:#8fe0b6">Today the pack, binder, arena &amp; companion cards are a
+        testnet prototype</strong> — pulls and card ownership save in your browser, and on-chain cards
+        ship in a later phase. The one thing that's real right now: the <strong>$UR3030</strong> buy &amp; burn.
         <br><a class="wp-link" href="whitepaper.html"><span class="ic" data-ic="cards"></span> Whitepaper</a>
         <a class="wp-link" href="tokenomics.html"><span class="ic" data-ic="coin"></span> Tokenomics</a>
         <a class="wp-link" href="audit.html"><span class="ic" data-ic="shield"></span> Our audit notes</a></div>
@@ -701,6 +709,8 @@
       <button class="btn rip" id="packAgain" type="button">✦ Rip another ✦</button>
       <button class="btn" id="packDone" type="button">Close</button>
     </div>
+    <div class="pack-honesty">Cards rip &amp; save in your browser today — real, on-chain card
+      ownership is a later phase. Only the <b>$UR3030</b> buy &amp; burn are on-chain right now.</div>
   </div>
 </div>
 <script>

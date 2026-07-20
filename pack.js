@@ -130,7 +130,7 @@
       cards.forEach(c => v.push({ slug: c.slug }));
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
-    if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · ripped on-chain';
+    if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $UR3030 burned on-chain · cards saved in-browser';
     const n = cards.length, mid = (n - 1) / 2;
     const fan = cards.map((c, i) => {
       const rot = ((i - mid) * 9).toFixed(1);

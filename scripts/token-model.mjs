@@ -18,13 +18,23 @@
 // bundle of ~350 $UR3030 ≈ $7 at launch, so every rip is a real buy-and-burn of
 // hundreds of tokens (steady upward pressure), NOT a token reprice. Pack price
 // escalates within a season (allotment dwindles) and across seasons (field shrinks).
+//
+// MINT-ONCE (per SuperRare audit 2026-07): the edition mints its whole supply into
+// the pool ONCE and burned tokens DO NOT re-mint — every burn is PERMANENT. So the
+// LIFETIME burn is bounded by the cap. We size the whole field-retirement arc (all
+// four seasons of pack rips) to a fixed budget below the cap, leaving a deliberate
+// live float. Numbers below are our provisional target; the exact curve/supply/pack
+// sizing is co-designed with SuperRare (see the audit reply + burn-milestones.mjs).
 
 // ── token assumptions (swap in live values before locking) ──
-const CAP        = 3_030_000;   // maxTotalSupply ($UR3030), capped
+const CAP        = 3_030_000;   // maxTotalSupply ($UR3030), minted once, burns permanent
 const P0         = 1;           // opening price, RARE per token
 const M          = 10;          // demand multiple = end/start price ("medium-demand", verify via --preview)
 const RARE_USD   = 0.02;        // rough current-era RARE/USD — the whole $ column rides on this
 const SELL_FRAC  = 1.0;         // fraction of cap actually sold on the curve (poolLaunchSupply/cap); verify via --preview
+// ── mint-once burn ceiling (matches scripts/burn-milestones.mjs) ──
+const LIFETIME_BURN_BUDGET = 2_020_000;   // ≈ ⅔ of cap — total permanent burn to retire the whole field
+const FLOOR_SUPPLY         = CAP - LIFETIME_BURN_BUDGET;   // ≈ 1,010,000 live tokens survive the retirement
 
 // ── pack assumptions (the $7 premium ritual — site-guided buy + burn IN FULL) ──
 // LAUNCH (pure liquid edition, docs/LAUNCH-ARCHITECTURE.md): there is no game
@@ -37,11 +47,15 @@ const LAST_STAND     = 50;      // Phase-2 reference only (no on-chain bounty at
 // Reference seasonal schedule. Card budget dwindles, price floor rises, each season.
 // base/ceil are $UR3030; ceil = 1.5*base (within-season line). The curator recalibrates
 // base at each openSeason to hold the USD target against the then-live token price.
+// Allotments are sized so a full four-season SELLOUT burns ≈ the lifetime budget
+// (retiring the field to 77) and no more — permanent burns, so the arc fits under
+// the cap by construction. Card budget (pack pulls) dwindles and the price floor
+// rises each season. base/ceil are $UR3030; ceil = 1.5·base (within-season line).
 const SEASONS = [
-  { s: 'I · Summer',  budget: 70_000, base: 350, ceil: 525  },
-  { s: 'II · Fall',   budget: 52_500, base: 450, ceil: 675  },
-  { s: 'III · Winter', budget: 35_000, base: 600, ceil: 900  },
-  { s: 'IV · Spring', budget: 17_500, base: 800, ceil: 1200 },
+  { s: 'I · Summer',  budget: 11_200, base: 350, ceil: 525  },   // 1,600 packs
+  { s: 'II · Fall',   budget:  7_700, base: 450, ceil: 675  },   // 1,100 packs
+  { s: 'III · Winter', budget:  4_200, base: 600, ceil: 900  },   //   600 packs
+  { s: 'IV · Spring', budget:  1_820, base: 800, ceil: 1200 },   //   260 packs
 ];
 
 const usd = r => r * RARE_USD;
@@ -125,46 +139,34 @@ console.log('  rise. Two escalators stack: the within-season base→ceil line AN
 console.log('  each season opens with a smaller allotment + higher floor. Allotment gone => packs close');
 console.log('  for the season (secondary market only). Numbers are curator-set defaults, tune at openSeason.');
 
-// 5. per-season BURN PRESSURE — BOUNDED by the season's pack allotment
-line(); console.log('5. PER-SEASON BURN PRESSURE  (S1 allotment = 10,000 packs; scenarios = fraction sold)');
-const CULL_PER_EDITION = 300;   // avg downvote-conviction burned to retire an edition (through tiers)
-const AVG_PACK = (SEASONS[0].base + SEASONS[0].ceil) / 2;   // S1 mean pack price in tokens (437.5)
-const S1_PACKS = Math.floor(SEASONS[0].budget / CARDS_PER_PACK);
-const scen = [
-  { name: 'QUIET',   fill: 0.30, editionsCulled: 30  },
-  { name: 'STEADY',  fill: 0.70, editionsCulled: 75  },
-  { name: 'SELLOUT', fill: 1.00, editionsCulled: 119 },
-];
-console.log(['scenario','packs sold','pack🔥','play🔥','cull🔥','TOTAL 🔥/season'].map((s,i)=>s.padStart(i?12:8)).join(''));
-for (const s of scen) {
-  const packsSold = Math.floor(s.fill * S1_PACKS);
-  const packBurn = packsSold * (AVG_PACK - REWARD_CUT);            // whole pack burns but the 1-token cut
-  const playBurn = packsSold * 6;                                  // a few small tolled moves per pack of activity
-  const cullBurn = s.editionsCulled * (CULL_PER_EDITION + 50);     // conviction + destroyToll
-  const total = packBurn + playBurn + cullBurn;
+// 5. LIFETIME BURN — PERMANENT, bounded by the cap (mint-once)
+line(); console.log('5. LIFETIME BURN  (whole-field retirement across all 4 seasons; burns are PERMANENT)');
+const seasonBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2);
+let selloutTotal = 0;
+console.log(['season','packs','avg pack','season 🔥','cum 🔥','% of mint'].map((s,i)=>s.padStart(i?12:11)).join(''));
+for (const S of SEASONS) {
+  const packs = Math.floor(S.budget / CARDS_PER_PACK), avg = (S.base + S.ceil) / 2, burn = packs * avg;
+  selloutTotal += burn;
   console.log([
-    s.name.padStart(8), packsSold.toLocaleString().padStart(12),
-    fmt(packBurn,0).padStart(12), fmt(playBurn,0).padStart(12), fmt(cullBurn,0).padStart(12),
-    (fmt(total,0)+`  (${fmt(total/CAP,2)}× cap)`).padStart(26),
+    S.s.padStart(11), packs.toLocaleString().padStart(12), fmt(avg,0).padStart(12),
+    fmt(burn,0).padStart(12), fmt(selloutTotal,0).padStart(12), (fmt(selloutTotal/CAP*100,1)+'%').padStart(12),
   ].join(''));
 }
-console.log('Packs dominate burn: a rip destroys ~437 $UR3030 (S1 avg), ~48× the old 9. A SOLD-OUT season');
-console.log('cycles ~1.4× the cap through burns — buys re-mint into the gap, so the curve churns and the');
-console.log('reserve climbs. That churn is the "steady upward pressure": RARE flows in on every buy, tokens');
-console.log('vanish on every burn, so fewer tokens sit on a bigger reserve. Cap never "runs out".');
-console.log('NOTE: net supply change = BUYS − BURNS (sign indeterminate). "Deflation" holds only while');
-console.log('buy-demand < burn-demand; these are burn FLOWS over a whole season, not an instant snapshot.');
+console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — that is the arc that retires the field to 77.`);
+console.log(`It lands at ${fmt(selloutTotal/CAP*100,1)}% of the ${fmt(CAP,0)} mint (budget ${fmt(LIFETIME_BURN_BUDGET,0)}, target ⅔).`);
+console.log(`Burns are PERMANENT: supply only falls. After the field fully retires, ~${fmt(FLOOR_SUPPLY,0)} $UR3030`);
+console.log(`survive as the settled live float — a ${fmt(CAP/FLOOR_SUPPLY,1)}× permanent contraction from the mint.`);
+console.log(`INVARIANT (mint-once): cumulative lifetime burn ≤ cap. Sellout ${selloutTotal < CAP ? '< cap ✓' : '> CAP ✗'}`);
+console.log('A partial life (fewer rips) simply retires fewer cards and settles at a higher float — the deck');
+console.log('only reaches 77 if the community truly burns across the seasons. No burn ever re-mints.');
 
 // 6. reward pool — LAUNCH: none (pure liquid edition). Phase-2 reference below.
-line(); console.log('6. HOUSE REWARD POOL — LAUNCH: NONE. Packs burn in full; the season-end rewards');
-console.log('(survivor 1/1s, compression rebirths, Ash-Trophy honors) are 721 LENS MINTS via');
-console.log('SuperRare assisted setup, not token payouts. Phase-2 vault reference (cut=1, reward=50):');
-for (const s of scen) {
-  const packsSold = Math.floor(s.fill * S1_PACKS);
-  const seeded = packsSold * 1;                                    // Phase-2 rewardCut reference
-  const maxOut = s.editionsCulled * LAST_STAND;
-  console.log(`  ${s.name.padEnd(7)} would seed ${fmt(seeded,0).padStart(8)} · max payout ${fmt(maxOut,0).padStart(6)} · ${seeded>=maxOut?'solvent':'pre-fund'}`);
-}
+line(); console.log('6. HOUSE REWARD POOL — LAUNCH: NONE. Packs burn IN FULL (mint-once: those tokens are');
+console.log('gone for good). The season-end rewards (survivor 1/1s, compression rebirths, Ash-Trophy');
+console.log('honors) are 721 LENS MINTS via SuperRare assisted setup, not token payouts. A Phase-2');
+console.log(`vault (REWARD_CUT=${REWARD_CUT?REWARD_CUT:1} ref, LAST_STAND=${LAST_STAND}) would divert a per-pack cut to a bounty pool`);
+console.log('INSTEAD of burning it — which would REDUCE lifetime burn below the budget above, never raise');
+console.log('it. Any such pool is seeded only from real rips, so it is solvent by construction (no pre-mint).');
 line();
 console.log('Verify before mainnet: mint/burn semantics, effective M, sell-fraction (--preview/getMarketState),');
 console.log('and recalibrate packBase to the $7-and-up USD target against the live token price at each openSeason.\n');

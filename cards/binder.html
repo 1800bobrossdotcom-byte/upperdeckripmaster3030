@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Binder · upperdeckripmaster3030</title>
-<meta name="description" content="Your collector's binder — nine-pocket pages you turn like a book — and the market bench where you list cards for sale, trade, or send. Every settle burns $UR3030.">
+<meta name="description" content="Your collector's binder — nine-pocket pages you turn like a book — and the market bench where you list cards for sale, trade, or send. A testnet prototype today: cards save in your browser; only the $UR3030 buy & burn are on-chain.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
@@ -44,6 +44,10 @@
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
   .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
   .burned{ text-align:center; font-size:10.5px; color:var(--amber); letter-spacing:.14em; text-transform:uppercase; margin-top:6px; }
+  /* honesty note — the binder is a local prototype today */
+  .honesty-note{ text-align:center; max-width:580px; margin:10px auto 0; font-size:10.5px; line-height:1.6;
+    letter-spacing:.02em; color:#5fcf8f; opacity:.85; }
+  .honesty-note b{ color:var(--amber); }
 
   .tabs{ display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
   .tab{ font-family:var(--fat); font-size:11px; letter-spacing:.1em; text-transform:uppercase; padding:9px 16px;
@@ -176,6 +180,9 @@
     <h1>The Binder</h1>
     <div class="sub">collect · turn the page · deal the market</div>
     <div class="burned" id="burned"></div>
+    <div class="honesty-note">Your binder is a <b>testnet prototype</b> — cards, listings &amp; the burn
+      tally save in your browser today, and real on-chain card ownership is a later phase. Only the
+      <b>$UR3030</b> buy &amp; burn are on-chain right now.</div>
 
     <div class="tabs">
       <button class="tab on" data-view="mine">◈ My cards</button>
@@ -202,8 +209,9 @@
     <!-- MARKET -->
     <div class="market" id="marketView">
       <p class="mkt-note">List cards from your binder for <span class="b">sale</span> or <span class="b">trade</span>, or
-      pick up <b>house cards</b> the vault re-issues. Nothing here is play money — a settle <b>burns $UR3030</b> on-chain
-      (via <code>CardVault.sendCard / trade</code>); this bench is your on-device order book until a counterparty burns.</p>
+      pick up <b>house cards</b> the vault re-issues. This bench is a <b>local prototype</b> — listings, trades and the
+      burn tally all save on <b>this device</b> (the <code>CardVault</code> settlement contract is <b>Phase 2, not deployed</b>).
+      Real, on-chain card trading is a later phase; only the <span class="b">$UR3030</span> buy &amp; burn are on-chain today.</p>
 
       <div class="mkt-h"><span class="n">House market — burn to acquire</span><span class="n" style="color:#5fcf8f" id="houseN"></span></div>
       <div class="board" id="houseBoard"></div>
