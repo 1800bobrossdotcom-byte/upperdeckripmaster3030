@@ -546,6 +546,7 @@
 
     <div class="btns">
       <button class="btn rip" id="packOpen" type="button">✦ Rip a pack ✦</button>
+      <a class="btn gold" id="buyLink" href="https://superrare.com" target="_blank" rel="noopener noreferrer">$ Buy $UR3030 ↗</a>
       <a class="btn" href="cards/">▚ Into the deck</a>
       <a class="btn alt" href="cards/battle.html">⚔ Enter the arena</a>
       <a class="btn gold" href="cards/binder.html">▤ The binder</a>
@@ -831,6 +832,14 @@
 document.querySelectorAll('.adzone .ad').forEach(function(a){a.setAttribute('role','button');a.tabIndex=0;
 a.setAttribute('aria-label','Rip a pack');a.addEventListener('click',open);
 a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});})();</script>
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script>
+  /* deep-link the Buy button to this token's SuperRare Collect page (when a real
+     token address is configured); otherwise it points at superrare.com. */
+  (() => { const a = document.getElementById('buyLink');
+    if (a && window.RipWallet) a.href = window.RipWallet.buyUrl(); })();
+</script>
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>

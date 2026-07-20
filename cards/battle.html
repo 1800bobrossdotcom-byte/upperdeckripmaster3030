@@ -311,6 +311,20 @@
     animation:arenaGlow 3s ease-in-out infinite; }
   @keyframes arenaGlow{ 50%{ filter:drop-shadow(0 0 26px rgba(43,255,128,.8)) drop-shadow(0 0 62px rgba(255,42,217,.55)); } }
 
+  /* ── wallet bar: connect · balance · buy on SuperRare ── */
+  .wbar{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:12px;
+    padding:9px 14px; border:1px solid var(--purple); border-radius:999px; background:rgba(2,16,9,.72); }
+  .wbtn{ font-family:var(--fat); font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:8px 14px; border-radius:999px;
+    cursor:pointer; border:2px solid var(--drabink); color:var(--bg); background:linear-gradient(180deg,#8bffbb,var(--lime) 55%,#0fae56);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.4); }
+  .wbtn:active{ transform:translateY(2px); }
+  .wbtn.on{ background:linear-gradient(180deg,#123,#0a1a12); color:var(--lime); border-color:var(--purple); box-shadow:none; }
+  .wstat{ font-size:11px; color:#9fdcb8; letter-spacing:.04em; } .wstat b{ color:var(--amber); font-family:var(--fat); }
+  .wbuy{ font-family:var(--fat); font-size:11px; letter-spacing:.06em; text-transform:uppercase; padding:8px 14px; border-radius:999px;
+    text-decoration:none; color:#fff; border:2px solid #5c0a2c; white-space:nowrap;
+    background:linear-gradient(180deg,var(--hot),var(--magenta)); box-shadow:inset 0 2px 0 rgba(255,255,255,.25); }
+  .wbuy:active{ transform:translateY(2px); }
+
   /* ── THE LOBBY: who's online, seek a fight, live challenges ── */
   .lobby{ border-color:rgba(255,42,217,.4); box-shadow:inset 0 0 26px rgba(255,42,217,.05), 0 0 18px rgba(255,42,217,.14); }
   .lob-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
@@ -398,6 +412,12 @@
     </div>
     <div class="sub">slam · wager · collect</div>
 
+    <div class="wbar" id="wbar">
+      <button type="button" class="wbtn" id="wConnect">◈ Connect wallet</button>
+      <span class="wstat" id="wStat"></span>
+      <a class="wbuy" id="wBuy" href="https://superrare.com" target="_blank" rel="noopener noreferrer">Buy $UR3030 ↗</a>
+    </div>
+
     <div class="panel lobby" id="lobbyPanel">
       <div class="lob-head">
         <span class="lob-live"><span class="lob-dot"></span><b id="lobCount">0</b>&nbsp;rippers online · <span class="seek-n" id="lobSeekers">0</span>&nbsp;seeking</span>
@@ -481,6 +501,8 @@
   </div>
   <div class="pvp" id="pvp" role="dialog" aria-modal="true" aria-label="face-off stake"></div>
 
+<script src="../js/chain-config.js"></script>
+<script src="../js/wallet.js"></script>
 <script src="arena-net.js"></script>
 <script>
 (() => {
@@ -831,7 +853,7 @@
   //   PvP stake = the same cards as house-play + a $UR3030 BURN ante both sides pay
   //   to enter (a real on-chain burn once the token is live; practice chips until then).
   const net = window.RipNet || null;
-  let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [];
+  let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {};
 
   function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
   function myProfile(){ return { handle: netHandle(), balance: tokens(), cards: vault().length }; }
@@ -896,20 +918,16 @@
     return out;
   }
 
-  // a real (or practice) $UR3030 burn — the ante to enter a PvP fight, gone either way
+  // a real (or practice) $UR3030 burn — the ante to enter a PvP fight, gone either way.
+  // routes through RipWallet (js/wallet.js): connect → network guard → burn(). When the
+  // token is live and a wallet is present, this is a REAL signed burn on the right chain.
   async function anteBurn(amount){
     if (!amount || amount <= 0) return { mode: 'none' };
-    const addr = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
-    if (liveToken() && window.ethereum){
-      try {
-        const accts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const from = accts && accts[0]; if (!from) throw new Error('no account');
-        // ERC20Burnable burn(uint256): selector 0x42966c68 + amount (assume 18 decimals)
-        const wei = BigInt(Math.round(amount)) * 1000000000000000000n;
-        const data = '0x42966c68' + wei.toString(16).padStart(64, '0');
-        const tx = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from, to: addr, data }] });
-        return { mode: 'onchain', tx };
-      } catch { return { mode: 'cancelled' }; }
+    if (liveToken() && window.RipWallet && window.RipWallet.hasWallet()){
+      const r = await window.RipWallet.burn(amount);     // handles connect + chain switch + tx
+      if (r.ok) return { mode: 'onchain', tx: r.tx };
+      if (r.reason === 'no-wallet') { setTokens(Math.max(0, tokens() - amount)); return { mode: 'practice' }; }
+      return { mode: 'cancelled', reason: r.reason, why: window.RipWallet.explain(r.reason) };
     }
     setTokens(Math.max(0, tokens() - amount));          // practice burn — this device only
     return { mode: 'practice' };
@@ -968,7 +986,7 @@
     const br = await anteBurn(burn);                       // both sides burn to enter — real or practice
     if (br.mode === 'cancelled'){
       busy = false; updateSlam(); $('dealBtn').disabled = false;
-      if (net) net.setStatus('idle'); pushProfile(); toastMini('burn cancelled — fight called off'); return;
+      if (net) net.setStatus('idle'); pushProfile(); toastMini(br.why || 'burn cancelled — fight called off'); return;
     }
     const oppName = opponent.handle || 'rival';
     const burnTag = burn ? (br.mode === 'onchain' ? ' · burn sent on-chain' : ' · burn (practice)') : '';
@@ -995,7 +1013,7 @@
     $('log').innerHTML = log; $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();
     busy = false; $('dealBtn').disabled = false; updateSlam();
-    if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile();
+    if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile(); walletRefresh();
   }
 
   function syncSeek(){ const b = $('lobSeek'); if (!b) return;
@@ -1017,6 +1035,34 @@
     addEventListener('focus', pushProfile);
   }
 
+  // ── wallet bar: connect · $UR3030 balance · buy on SuperRare ──
+  function initWallet(){
+    const W = window.RipWallet; const bar = $('wbar'); if (!bar) return;
+    const btn = $('wConnect'), stat = $('wStat'), buy = $('wBuy');
+    if (buy && W) buy.href = W.buyUrl();
+    async function refresh(){
+      if (!W){ stat.textContent = ''; return; }
+      const a = W.account();
+      if (a){
+        btn.textContent = a.slice(0, 6) + '…' + a.slice(-4); btn.classList.add('on');
+        if (W.isLive()){ const b = await W.balance(); stat.innerHTML = '<b>' + b.tokens.toLocaleString('en-US') + '</b> $UR3030 · ' + W.chainName(); }
+        else stat.innerHTML = 'connected · burn ante is <b>practice</b> until $UR3030 is live here';
+      } else {
+        btn.textContent = '◈ Connect wallet'; btn.classList.remove('on');
+        stat.innerHTML = W.isLive() ? 'connect to burn $UR3030 on-chain' : 'burn ante runs in <b>practice</b> until $UR3030 is live on this network';
+      }
+    }
+    walletRefresh = refresh;
+    if (btn) btn.onclick = async () => {
+      if (!W || !W.hasWallet()){ toastMini('No wallet found — install MetaMask to burn on-chain'); return; }
+      const c = await W.connect(); if (!c.ok){ toastMini(W.explain(c.reason)); return; }
+      if (W.isLive()){ const g = await W.ensureChain(); if (!g.ok){ toastMini(W.explain(g.reason)); } }
+      refresh();
+    };
+    if (W) W.on(refresh);
+    refresh();
+  }
+
   $('dealBtn').onclick = deal;
   $('slamBtn').onclick = slam;
   $('reroll').onclick = () => { if(!busy) rollGas(); };
@@ -1024,7 +1070,7 @@
   // boot
   fetch('manifest.json').then(r => r.json()).then(m => {
     DECK = m.cards;
-    renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby();
+    renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby(); initWallet();
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });
