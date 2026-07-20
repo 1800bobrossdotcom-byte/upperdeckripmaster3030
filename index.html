@@ -129,25 +129,36 @@
     color:var(--phos); border:1px solid var(--phosdim); border-radius:8px; background:rgba(1,10,5,.85);
     padding:8px 16px; text-shadow:0 0 14px rgba(43,255,128,.5); }
 
-  /* ── balloon buttons, phosphor + acid ── */
-  .btns{ display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:24px; }
+  /* ── scroll buttons: unrolled parchment + rolled tube ends, neon ink ── */
+  .btns{ display:flex; flex-wrap:wrap; gap:18px 30px; justify-content:center; margin-top:24px; }
   .btn{
-    display:inline-block; text-decoration:none; font-family:var(--fat); cursor:pointer;
+    position:relative; display:inline-block; text-decoration:none; font-family:var(--fat); cursor:pointer;
     font-size:12px; letter-spacing:.14em; text-indent:.14em; text-transform:uppercase;
-    padding:15px 24px; border-radius:999px; color:var(--void);
-    border:2px solid var(--ink);
-    background:linear-gradient(180deg,#8bffbb,var(--phos) 55%,#0fae56);
-    box-shadow: inset 0 4px 0 rgba(255,255,255,.4), inset 0 -8px 12px rgba(0,0,0,.18),
-      0 6px 0 var(--ink), 0 0 18px rgba(43,255,128,.35);
+    padding:15px 26px; border-radius:5px; color:#0d5a2c;
+    border:1.5px solid #9a7b45;
+    background:
+      repeating-linear-gradient(0deg, rgba(120,90,40,.07) 0 2px, transparent 2px 4px),
+      radial-gradient(120% 160% at 50% 40%, rgba(255,248,222,.5), transparent 70%),
+      linear-gradient(180deg,#f2e3b8,#e2cd97 55%,#cfb37c);
+    box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
+      0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(43,255,128,.3);
+    text-shadow:0 1px 0 rgba(255,248,220,.55);
     transition:transform .08s;
   }
-  .btn:active{ transform:translateY(5px); box-shadow: inset 0 4px 0 rgba(255,255,255,.4), 0 1px 0 var(--ink); }
-  .btn.alt{ background:linear-gradient(180deg,#7dfff3,var(--cyan) 55%,#0e9c8f);
-    box-shadow: inset 0 4px 0 rgba(255,255,255,.4), inset 0 -8px 12px rgba(0,0,0,.18), 0 6px 0 var(--ink), 0 0 18px rgba(39,247,228,.35); }
-  .btn.gold{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#c79a12);
-    box-shadow: inset 0 4px 0 rgba(255,255,255,.45), inset 0 -8px 12px rgba(0,0,0,.16), 0 6px 0 var(--ink), 0 0 18px rgba(255,210,59,.3); }
-  .btn.rip{ background:linear-gradient(180deg,#ff7ae8,var(--acid) 55%,#b3129a); color:#fff;
-    box-shadow: inset 0 4px 0 rgba(255,255,255,.35), inset 0 -8px 12px rgba(0,0,0,.2), 0 6px 0 var(--ink), 0 0 20px rgba(255,42,217,.45); }
+  .btn::before,.btn::after{                            /* the rolled ends */
+    content:''; position:absolute; top:-6px; bottom:-6px; width:15px; border-radius:7px;
+    background:linear-gradient(90deg,#5e4620,#a98c54 22%,#f7ecc9 50%,#a98c54 78%,#4a3517);
+    border:1px solid #3e2d12; box-shadow:0 3px 7px rgba(0,0,0,.5);
+  }
+  .btn::before{ left:-10px; } .btn::after{ right:-10px; }
+  .btn:hover{ transform:translateY(-1px) scaleX(1.015); }
+  .btn:active{ transform:translateY(4px); box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6), 0 1px 0 rgba(30,20,6,.55); }
+  .btn.alt{ color:#0a5a54; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
+    0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(39,247,228,.32); }
+  .btn.gold{ color:#7a520e; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
+    0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(255,210,59,.32); }
+  .btn.rip{ color:#96116f; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
+    0 5px 0 rgba(30,20,6,.55), 0 0 22px rgba(255,42,217,.42); }
 
   /* ── how to play ── */
   .ritual{ margin-top:26px; }
