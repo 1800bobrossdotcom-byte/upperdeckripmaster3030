@@ -9,7 +9,8 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
-    --ink:#b8ffd6; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+    --ink:#b8ffd6; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
+    --bez:clamp(10px,2.2vw,26px); }   /* cabinet bezel inset — same var as the other Ripmaster cabinets; touch pads respect it */
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; background:#02040a; overflow:hidden; }
   body{ font-family:var(--mono); color:var(--ink); -webkit-tap-highlight-color:transparent; touch-action:none; }
@@ -58,11 +59,22 @@
   .key kbd{ font-family:var(--fat); font-size:9.5px; min-width:18px; text-align:center; padding:3px 5px; border-radius:5px;
     color:#031; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
   @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
-  /* touch boost button */
-  .tbtn{ position:fixed; z-index:6; bottom:70px; right:16px; width:74px; height:74px; border-radius:50%; display:none; pointer-events:auto;
-    align-items:center; justify-content:center; font-family:var(--fat); font-size:12px; color:#031; user-select:none;
+  /* touch action cluster + floating flight stick (shared Ripmaster cabinet language) */
+  .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none; touch-action:none;
+    align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; letter-spacing:.05em; color:#031; }
+  .pad.on{ filter:brightness(1.35); transform:scale(.94); }
+  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px); width:92px; height:92px;
+    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
+  .pad.boost{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px); width:66px; height:66px;
     background:radial-gradient(circle at 40% 34%,#bfffd8,#2bff80 60%,#0fae56); border:2px solid #063; box-shadow:0 0 18px rgba(43,255,128,.5); }
-  @media (hover:none){ .tbtn{ display:flex; } }
+  /* floating left-thumb flight stick (touch) */
+  .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
+  #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
+    background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
+    box-shadow:0 0 24px rgba(39,247,228,.25), inset 0 0 18px rgba(39,247,228,.18); }
+  #stickNub{ width:52px; height:52px; margin:-26px 0 0 -26px; background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 62%,#0e5a68);
+    border:1px solid #0a4a44; box-shadow:0 0 16px rgba(39,247,228,.6); }
+  @media (hover:none){ .pad{ display:flex; } }
   .toggles{ position:fixed; z-index:6; top:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; }
   .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
     color:var(--ink); background:rgba(2,10,6,.7); border:1px solid rgba(43,255,128,.3); border-radius:999px; padding:7px 11px; }
@@ -137,7 +149,9 @@
   <div class="toggles" id="toggles" style="display:none">
     <button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button>
   </div>
-  <div class="tbtn" id="tBoost">BOOST</div>
+  <div class="pad boost" id="tBoost">BOOST</div>
+  <div class="pad fire" id="tFire">FIRE</div>
+  <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="controls" id="controls" style="display:none">
     <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
     <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
@@ -145,7 +159,7 @@
     <span class="key desk"><kbd>Z</kbd> brake</span>
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>P</kbd> pause</span>
-    <span class="key touch">drag steer · tap fire · hold BOOST</span>
+    <span class="key touch">left thumb: flight stick · hold FIRE / BOOST</span>
   </div>
 
   <div class="ov show" id="ovStart">
@@ -156,7 +170,7 @@
       <div class="keys-preview">
         <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span><span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
         <span class="key desk"><kbd>⇧</kbd> boost</span><span class="key desk"><kbd>Z</kbd> brake</span><span class="key desk"><kbd>SPC</kbd> fire</span>
-        <span class="key touch">drag steer · tap fire · hold BOOST</span>
+        <span class="key touch">left thumb: flight stick · hold FIRE / BOOST</span>
       </div>
       <div><button class="go" id="btnBurn"><span class="ic" data-ic="flame"></span> Burn 25 &amp; launch</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice launch (no burn)</button></div>
@@ -391,13 +405,32 @@
     keys[e.key]=true; keys[e.key.toLowerCase&&e.key.toLowerCase()]=true;
     if(e.key===' ')tryFire(); if(e.key==='p'||e.key==='P')togglePause(); if(e.key==='m'||e.key==='M')toggleSfx(); });
   addEventListener('keyup',e=>{ keys[e.key]=false; if(e.key.toLowerCase)keys[e.key.toLowerCase()]=false; });
+  // mouse (desktop, unchanged): drag = absolute steer, click = fire
   let dragging=false;
-  cv.addEventListener('pointerdown',e=>{ dragging=true; steerTo(e); tryFire(); });
-  cv.addEventListener('pointermove',e=>{ if(dragging)steerTo(e); });
-  addEventListener('pointerup',()=>dragging=false);
+  // touch: a floating flight stick spawns under the thumb — relative steer, so the finger never covers the ship and steering never fires
+  const stick={ id:null, cx:0, cy:0, x:0, y:0 };
+  const sB=$('stickBase'), sN=$('stickNub');
+  function stickShow(x,y){ sB.style.display='block'; sN.style.display='block'; sB.style.left=x+'px'; sB.style.top=y+'px'; sN.style.left=x+'px'; sN.style.top=y+'px'; }
+  function stickHide(){ sB.style.display='none'; sN.style.display='none'; stick.id=null; stick.x=0; stick.y=0; }
+  cv.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'){ dragging=true; steerTo(e); tryFire(); return; }
+    e.preventDefault();                                       // the canvas is the stick zone (the DOM pads swallow their own touches)
+    if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY); } });
+  cv.addEventListener('pointermove',e=>{ if(dragging && e.pointerType==='mouse') steerTo(e); });
+  addEventListener('pointermove',e=>{ if(e.pointerType!=='mouse' && e.pointerId===stick.id){
+    const R=56, dz=10; let dx=e.clientX-stick.cx, dy=e.clientY-stick.cy; const m=Math.hypot(dx,dy);
+    if(m>R){ const s=R/m; dx*=s; dy*=s; }
+    stick.x=(m<dz)?0:clamp(dx/R,-1,1); stick.y=(m<dz)?0:clamp(dy/R,-1,1);
+    sN.style.left=(stick.cx+dx)+'px'; sN.style.top=(stick.cy+dy)+'px'; } });
+  function ptrEnd(e){ if(e.pointerType==='mouse'){ dragging=false; return; } if(e.pointerId===stick.id) stickHide(); }
+  addEventListener('pointerup',ptrEnd); addEventListener('pointercancel',ptrEnd);
   function steerTo(e){ const tx=(e.clientX/W)*2.6-1.3, ty=(e.clientY/H)*2-1; G.ship.ox=clamp(tx,-1.2,1.2); G.ship.oy=clamp(ty,-0.6,0.85); }
-  let touchBoost=false; const tb=$('tBoost');
-  tb.addEventListener('pointerdown',e=>{e.preventDefault();touchBoost=true;}); addEventListener('pointerup',()=>touchBoost=false);
+  // hold-pads (multi-touch safe: each pad owns its pointer, cancel-proof)
+  let touchBoost=false, touchFire=false;
+  function bindPad(el,dn,up){ if(!el)return; el.addEventListener('pointerdown',e=>{ e.preventDefault(); el.classList.add('on'); dn(); });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,()=>{ el.classList.remove('on'); up(); })); }
+  bindPad($('tBoost'),()=>touchBoost=true,()=>touchBoost=false);
+  bindPad($('tFire'),()=>{ touchFire=true; tryFire(); },()=>touchFire=false);
   function tryFire(){ if(G.mode!=='play')return; const wp=WEAPONS[G.weapon-1]; const now=performance.now();
     const rate=wp.rate*(G.rapidT>0?0.55:1); if(now-G.fireT<rate)return; G.fireT=now;
     for(const a of wp.bolts) G.shots.push({ ox:G.ship.ox+a*0.06, oy:G.ship.oy, z:ZSHIP, dvx:a*0.9, size:wp.size, dmg:wp.dmg, laser:!!wp.laser });
@@ -490,9 +523,12 @@
       G.ambT-=dt; if(G.ambT<=0){ ambientSpawn(); G.ambT=(0.7/market.heat)*rnd(1.4,0.7); }
     }
     // ship
+    if(touchFire) tryFire();                                             // FIRE pad held → autofire on the same cadence as space
     const acc=3.4,k=G.ship;
     if(keys.ArrowLeft||keys.a)k.vx-=acc*dt; if(keys.ArrowRight||keys.d)k.vx+=acc*dt;
     if(keys.ArrowUp||keys.w)k.vy-=acc*dt; if(keys.ArrowDown||keys.s)k.vy+=acc*dt;
+    if(stick.id!==null){ k.vx=(clamp(stick.x*1.2,-1.2,1.2)-k.ox)*10;     // flight stick: deflection → steer target,
+      k.vy=(clamp(stick.y*0.85,-0.6,0.85)-k.oy)*10; }                    // eased through vx/vy so bank/pitch still animate
     k.vx*=0.86; k.vy*=0.86; k.ox=clamp(k.ox+k.vx*dt,-1.2,1.2); k.oy=clamp(k.oy+k.vy*dt,-0.6,0.85);
     k.bank+=((clamp(k.vx*0.95,-0.6,0.6))-k.bank)*Math.min(1,dt*8); k.pitch+=((clamp(k.vy*0.5,-0.3,0.3))-k.pitch)*Math.min(1,dt*8);
     // exhaust
