@@ -63,7 +63,8 @@ async function roster() {
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
   const { url, tok } = env();
-  if (!url || !tok) return res.status(503).json({ ok: false, reason: 'kv-not-configured' });
+  if (!url || !tok) return res.status(503).json({ ok: false, reason: 'kv-not-configured',
+    envSeen: Object.keys(process.env).filter(k => /KV|UPSTASH|REDIS|STORAGE/i.test(k)).sort() });   // names only — helps wire the integration
   try {
     if (req.method === 'POST') {
       let b = req.body;
