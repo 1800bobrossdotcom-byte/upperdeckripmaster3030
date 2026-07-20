@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RIPROCKETER · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="Fly the deck like an Arwing. Burn 25 $UR3030, dodge the rogue cards, and ride a starfield that breathes with the live liquid market.">
+<meta name="theme-color" content="#02040a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
+    --ink:#b8ffd6; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; background:#02040a; overflow:hidden; }
+  body{ font-family:var(--mono); color:var(--ink); -webkit-tap-highlight-color:transparent; touch-action:none; }
+  #rr{ position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .hud{ position:fixed; z-index:5; pointer-events:none; font-family:var(--mono); text-shadow:0 0 8px #000,0 1px 2px #000; }
+  .hud-tl{ top:12px; left:14px; } .hud-tr{ top:12px; right:14px; text-align:right; }
+  .hud b{ font-family:var(--fat); }
+  .h-score{ font-family:var(--fat); font-size:clamp(20px,5vw,30px); color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.6); }
+  .h-lbl{ font-size:9px; letter-spacing:.26em; text-transform:uppercase; color:#6fdca0; }
+  .h-shields{ font-size:clamp(16px,4vw,22px); letter-spacing:2px; }
+  .h-wx{ font-size:10px; letter-spacing:.08em; color:var(--cyan); margin-top:5px; text-transform:uppercase; }
+  .h-wx b{ color:var(--magenta); } .h-wx .blk{ color:var(--amber); }
+  /* on-screen keyboard controls */
+  .controls{ position:fixed; z-index:5; left:50%; bottom:12px; transform:translateX(-50%); display:flex; gap:8px 14px; flex-wrap:wrap;
+    justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px;
+    background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); backdrop-filter:blur(2px); }
+  .key{ display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:#bfe9d3; }
+  .key kbd{ font-family:var(--fat); font-size:10px; min-width:20px; text-align:center; padding:3px 6px; border-radius:5px;
+    color:#031; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
+  .key.touch{ color:#7fd8a8; } @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
+  /* toggles */
+  .toggles{ position:fixed; z-index:6; top:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink); background:rgba(2,10,6,.7); border:1px solid rgba(43,255,128,.3); border-radius:999px; padding:7px 11px; }
+  .tg.off{ opacity:.5; }
+  /* overlays */
+  .ov{ position:fixed; inset:0; z-index:10; display:none; place-items:center; padding:20px; text-align:center;
+    background:radial-gradient(120% 100% at 50% 30%, rgba(20,4,40,.6), rgba(1,2,6,.94)); backdrop-filter:blur(3px); }
+  .ov.show{ display:grid; }
+  .ov h1{ font-family:var(--fat); font-size:clamp(34px,11vw,84px); letter-spacing:.02em; line-height:.95;
+    background:linear-gradient(180deg,#fff,var(--cyan) 40%,var(--magenta) 72%,var(--amber));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.5)); }
+  .ov .tag{ font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:10px 0 4px; }
+  .ov .sub{ font-size:12.5px; color:#bfe9d3; max-width:440px; margin:6px auto 16px; line-height:1.6; }
+  .ov .sub b{ color:var(--amber); }
+  .go{ font-family:var(--fat); font-size:15px; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; color:#2a0012;
+    padding:15px 26px; border-radius:12px; border:2px solid #5c0a2c; margin:5px;
+    background:linear-gradient(180deg,#ff9a6b,#ff5a3c 55%,#c22); color:#fff; box-shadow:0 6px 0 #5c0a2c,0 0 22px rgba(255,90,60,.5); }
+  .go.alt{ background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); color:#031; border-color:#063; box-shadow:0 6px 0 #063,0 0 20px rgba(43,255,128,.4); }
+  .go:active{ transform:translateY(4px); box-shadow:0 2px 0 #5c0a2c; }
+  .go.alt:active{ box-shadow:0 2px 0 #063; }
+  .keys-preview{ display:flex; gap:10px 16px; flex-wrap:wrap; justify-content:center; margin:6px auto 16px; }
+  .mininote{ font-size:11px; color:#7fd8a8; margin-top:10px; } .mininote a{ color:var(--lime); }
+  .score-big{ font-family:var(--fat); font-size:clamp(30px,9vw,56px); color:var(--lime); text-shadow:0 0 20px rgba(43,255,128,.6); }
+  .back-link{ position:fixed; z-index:6; top:12px; right:14px; }
+  @media (prefers-reduced-motion:reduce){ }
+</style>
+</head>
+<body>
+  <canvas id="rr"></canvas>
+
+  <div class="hud hud-tl">
+    <div class="h-score" id="hScore">0</div>
+    <div class="h-lbl">distance</div>
+  </div>
+  <div class="hud hud-tr" id="hudTR" style="display:none">
+    <div class="h-shields" id="hShields">◆◆◆</div>
+    <div class="h-wx" id="hWx">◉ market · —</div>
+  </div>
+  <div class="toggles" id="toggles" style="display:none">
+    <button class="tg" id="tgMusic" title="soundtrack">♪ music</button>
+    <button class="tg" id="tgSfx" title="sound effects">🔊 sfx</button>
+    <button class="tg" id="tgPause">⏸ pause</button>
+  </div>
+
+  <div class="controls" id="controls" style="display:none">
+    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
+    <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb/dive</span>
+    <span class="key desk"><kbd>SPC</kbd> fire</span>
+    <span class="key desk"><kbd>P</kbd> pause</span>
+    <span class="key desk"><kbd>M</kbd> mute</span>
+    <span class="key touch">drag to steer · tap to fire</span>
+  </div>
+
+  <!-- start gate -->
+  <div class="ov show" id="ovStart">
+    <div>
+      <h1>RIPROCKETER</h1>
+      <div class="tag">upperdeck ripmaster 3030</div>
+      <div class="sub">Your deck folds into a ship. <b>Burn 25 $UR3030</b> to launch, dodge the rogue cards, and shoot them down. The starfield breathes with the <b>live liquid market</b>.</div>
+      <div class="keys-preview">
+        <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
+        <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
+        <span class="key desk"><kbd>SPC</kbd> fire</span>
+        <span class="key touch">drag to steer · tap to fire</span>
+      </div>
+      <div><button class="go" id="btnBurn">🔥 Burn 25 &amp; launch</button></div>
+      <div><button class="go alt" id="btnPractice">▶ Practice launch (no burn)</button></div>
+      <div class="mininote" id="startNote"></div>
+      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a></div>
+    </div>
+  </div>
+
+  <!-- game over -->
+  <div class="ov" id="ovOver">
+    <div>
+      <h1 style="font-size:clamp(30px,9vw,60px)">DOWNED</h1>
+      <div class="tag">the rogues got you</div>
+      <div class="score-big"><span id="overScore">0</span></div>
+      <div class="h-lbl" style="letter-spacing:.24em">distance flown · best <b id="overBest">0</b></div>
+      <div style="margin-top:16px"><button class="go" id="btnAgain">🔥 Burn 25 &amp; fly again</button></div>
+      <div><button class="go alt" id="btnAgainP">▶ Practice again</button></div>
+      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="index.html">the pack</a></div>
+    </div>
+  </div>
+
+  <!-- soundtrack: drop your song in as riprocketer-theme.mp3 at the site root -->
+  <audio id="rrMusic" loop preload="none" src="riprocketer-theme.mp3"></audio>
+
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script>
+(() => {
+  const cv = document.getElementById('rr'), ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const DPR = Math.min(devicePixelRatio || 1, 2);
+  let W = 0, H = 0, cx = 0, cy = 0;
+  function resize(){ W = innerWidth; H = innerHeight; cx = W/2; cy = H*0.44;
+    cv.width = W*DPR; cv.height = H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
+  resize(); addEventListener('resize', resize);
+
+  const rnd = (a=1,b=0) => b + Math.random()*(a-b);
+  const clamp = (v,a,b) => v<a?a:v>b?b:v;
+
+  // ── live liquid market → starfield weather ──────────────────────────────
+  const CFG = window.RIPMASTER_CHAIN || {};
+  const RPCS = CFG.rpcs || ['https://ethereum-sepolia-rpc.publicnode.com'];
+  const TOKEN = (CFG.contracts||{}).liquidEdition || '';
+  const tokenLive = /^0x[0-9a-fA-F]{40}$/.test(TOKEN) && !/^0x0+$/.test(TOKEN);
+  const WX = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
+  const market = { block:0, lastBlock:0, hue:145, speed:1, weather:'reading…', heat:1, tick:0 };
+  async function rpc(method, params){ for(const u of RPCS){ try{
+    const c=new AbortController(), t=setTimeout(()=>c.abort(),4000);
+    const r=await fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params:params||[]}),signal:c.signal});
+    clearTimeout(t); const j=await r.json(); if(j.result!=null) return j.result; }catch{} } return null; }
+  async function pollMarket(){
+    const b = await rpc('eth_blockNumber');
+    if(b){ const bn=parseInt(b,16); const d = market.lastBlock? Math.max(0,bn-market.lastBlock):1; market.lastBlock=bn; market.block=bn;
+      market.weather = WX[Math.floor(bn/25)%8]; market.hue = (bn*7)%360;
+      market.heat = clamp(0.7 + d*0.12, 0.7, 2.4);                 // more blocks since last poll = hotter
+      market.speed = clamp(0.8 + d*0.18, 0.8, 2.6); }
+    if(tokenLive){ const ms = await rpc('eth_call',[{to:TOKEN,data:'0x2c0a3f89'},'latest']).catch(()=>null); /* getMarketState optional */ }
+    setTimeout(pollMarket, 4200);
+  }
+  pollMarket();
+
+  // ── ship cards (your deck) ───────────────────────────────────────────────
+  const imgs = [];
+  function loadShip(){
+    fetch('cards/manifest.json').then(r=>r.json()).then(m=>{
+      const deck = m.cards||[]; const bySlug=new Map(deck.map(c=>[c.slug,c]));
+      let owned=[]; try{ owned = JSON.parse(localStorage.getItem('urm_vault')||'[]').map(e=>bySlug.get(e.slug)).filter(Boolean); }catch{}
+      let pick = owned.length>=3 ? owned.slice(-7) : deck.slice(0,7);
+      if(!pick.length) return;
+      // arrange as a delta: center nose, swept wings
+      const order = pick.slice(0,7);
+      order.forEach(c=>{ const im=new Image(); im.src='cards/'+c.art; im.dataset.rar=c.rarity; imgs.push({im,rar:c.rarity}); });
+    }).catch(()=>{});
+  }
+  loadShip();
+  const RC = { common:'#7ea892', uncommon:'#2bff80', rare:'#ffd23b', mythic:'#ff2ad9', prizm:'#27f7e4' };
+
+  // ── SFX (WebAudio synth — no files) ───────────────────────────────────────
+  let AC=null, sfxOn=true;
+  const ac = () => AC || (AC = new (window.AudioContext||window.webkitAudioContext)());
+  function blip(f0,f1,dur,type='square',vol=0.18){ if(!sfxOn) return; try{ const a=ac(),o=a.createOscillator(),g=a.createGain();
+    o.type=type; o.frequency.setValueAtTime(f0,a.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+dur);
+    g.gain.setValueAtTime(vol,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+dur);}catch{} }
+  function noise(dur,vol=0.3){ if(!sfxOn) return; try{ const a=ac(), n=a.createBufferSource(), b=a.createBuffer(1,a.sampleRate*dur,a.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length); const g=a.createGain(); g.gain.value=vol;
+    n.buffer=b; n.connect(g).connect(a.destination); n.start(); }catch{} }
+  const sfxFire=()=>blip(880,220,0.12,'square',0.12), sfxHit=()=>{noise(0.18,0.25);blip(180,60,0.2,'sawtooth',0.15);},
+        sfxBoom=()=>{noise(0.4,0.4);blip(120,40,0.4,'sawtooth',0.2);}, sfxBurn=()=>blip(120,900,0.5,'sawtooth',0.2),
+        sfxWarp=()=>blip(300,1200,0.3,'sine',0.1);
+
+  // ── music ──
+  const music = $('rrMusic'); let musicOn=true;
+  function playMusic(){ if(!musicOn) return; try{ music.volume=0.55; const p=music.play(); if(p&&p.catch)p.catch(()=>{}); }catch{} }
+
+  // ── game state ────────────────────────────────────────────────────────────
+  const G = { mode:'gate', score:0, best:+(localStorage.getItem('urm_rr_best')||0), shields:3,
+    ship:{ ox:0, oy:0.15, vx:0, vy:0, bank:0 }, stars:[], obs:[], shots:[], t:0, spawnT:0, fireT:0, staked:false };
+  const ZSHIP = 0.16;
+  function seedStars(){ G.stars = Array.from({length:220},()=>({ox:rnd(1.3,-1.3),oy:rnd(1,-1),z:rnd(1,0.02),pz:0})); }
+  seedStars();
+
+  const keys = {};
+  addEventListener('keydown', e=>{ if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+    keys[e.key]=true; if(e.key===' ') tryFire();
+    if(e.key==='p'||e.key==='P') togglePause(); if(e.key==='m'||e.key==='M') toggleSfx(); });
+  addEventListener('keyup', e=>{ keys[e.key]=false; });
+  // pointer / touch steering + fire
+  let dragging=false;
+  cv.addEventListener('pointerdown', e=>{ dragging=true; steerTo(e); tryFire(); });
+  cv.addEventListener('pointermove', e=>{ if(dragging) steerTo(e); });
+  addEventListener('pointerup', ()=>dragging=false);
+  function steerTo(e){ const tx=(e.clientX/W)*2.4-1.2, ty=(e.clientY/H)*2-1; G.ship.ox=clamp(tx,-1.15,1.15); G.ship.oy=clamp(ty,-0.6,0.8); }
+
+  function tryFire(){ if(G.mode!=='play') return; const now=performance.now(); if(now-G.fireT<140) return; G.fireT=now;
+    G.shots.push({ox:G.ship.ox,oy:G.ship.oy,z:ZSHIP}); sfxFire(); }
+
+  function spawnObs(){ G.obs.push({ ox:rnd(1.05,-1.05), oy:rnd(0.85,-0.85), z:1, rot:rnd(6.28), spin:rnd(0.06,-0.06),
+    hue:(market.hue+rnd(80,-40))%360, r:rnd(0.16,0.1) }); }
+
+  function start(staked){
+    G.mode='play'; G.score=0; G.shields=3; G.obs=[]; G.shots=[]; G.spawnT=0; G.staked=staked;
+    G.ship.ox=0; G.ship.oy=0.15; seedStars();
+    $('ovStart').classList.remove('show'); $('ovOver').classList.remove('show');
+    $('hudTR').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
+    playMusic(); sfxWarp();
+  }
+  function gameOver(){ G.mode='over'; sfxBoom(); music.pause();
+    G.best=Math.max(G.best, Math.floor(G.score)); try{ localStorage.setItem('urm_rr_best', G.best); }catch{}
+    $('overScore').textContent = Math.floor(G.score).toLocaleString('en-US');
+    $('overBest').textContent = G.best.toLocaleString('en-US');
+    $('hudTR').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
+    $('ovOver').classList.add('show');
+  }
+
+  function togglePause(){ if(G.mode==='play'){ G.mode='pause'; music.pause(); $('tgPause').textContent='▶ resume'; }
+    else if(G.mode==='pause'){ G.mode='play'; playMusic(); $('tgPause').textContent='⏸ pause'; } }
+  function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); $('tgSfx').textContent=sfxOn?'🔊 sfx':'🔇 sfx'; }
+  function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
+  $('tgPause').onclick=togglePause; $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic;
+
+  // ── launch buttons (burn 25 or practice) ──
+  const ANTE = 25;
+  function refreshGate(){ const note=$('startNote'); const W2=window.RipWallet;
+    if(!(W2 && W2.isLive())){ note.innerHTML='$UR3030 isn’t live on this network yet — launches run in <b>practice</b>.'; $('btnBurn').style.display='none'; }
+    else if(W2 && !W2.hasWallet()){ note.innerHTML='No wallet found — <b>practice</b> only. Install MetaMask to burn.'; }
+    else note.innerHTML='Burning is real: <b>25 $UR3030</b> gone to launch, feeding the deflation.'; }
+  async function launch(burn, againOverlay){
+    if(burn){ const W2=window.RipWallet;
+      if(!(W2&&W2.isLive()&&W2.hasWallet())){ start(false); return; }
+      (againOverlay?$('btnAgain'):$('btnBurn')).textContent='confirm burn…';
+      sfxBurn(); const r=await W2.burn(ANTE);
+      (againOverlay?$('btnAgain'):$('btnBurn')).innerHTML='🔥 Burn 25 &amp; '+(againOverlay?'fly again':'launch');
+      if(!r.ok){ toast(W2.explain(r.reason)); return; }
+      start(true);
+    } else start(false);
+  }
+  $('btnBurn').onclick=()=>launch(true,false); $('btnPractice').onclick=()=>launch(false,false);
+  $('btnAgain').onclick=()=>launch(true,true); $('btnAgainP').onclick=()=>launch(false,true);
+  function toast(msg){ let t=$('rrToast'); if(!t){ t=document.createElement('div'); t.id='rrToast';
+    t.style.cssText='position:fixed;left:50%;bottom:80px;transform:translateX(-50%);z-index:20;background:rgba(2,10,6,.95);border:1px solid #0f5c33;border-radius:10px;padding:10px 16px;font-size:12px;color:#d9ffe9';
+    document.body.appendChild(t);} t.textContent=msg; t.style.opacity='1'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.opacity='0',3000); }
+  if(window.RipWallet) window.RipWallet.on(refreshGate); refreshGate();
+
+  // ── update ──
+  function persp(z){ return 1/(z*0.9+0.12); }
+  function update(dt){
+    const sp = (reduce?0.55:1) * market.speed;
+    // stars warp
+    for(const s of G.stars){ s.pz=s.z; s.z-=dt*0.55*sp; if(s.z<0.02){ s.z=1; s.ox=rnd(1.3,-1.3); s.oy=rnd(1,-1); s.pz=1; } }
+    if(G.mode!=='play') return;
+    G.t+=dt; G.score += dt*38*sp;
+    // ship control (keys → velocity → bank)
+    const acc=3.2, k=G.ship;
+    if(keys.ArrowLeft) k.vx-=acc*dt; if(keys.ArrowRight) k.vx+=acc*dt;
+    if(keys.ArrowUp) k.vy-=acc*dt; if(keys.ArrowDown) k.vy+=acc*dt;
+    k.vx*=0.86; k.vy*=0.86; k.ox=clamp(k.ox+k.vx*dt,-1.15,1.15); k.oy=clamp(k.oy+k.vy*dt,-0.6,0.8);
+    k.bank += ((clamp(k.vx*0.9,-0.6,0.6)) - k.bank)*Math.min(1,dt*8);
+    // spawn obstacles by market heat
+    G.spawnT-=dt; const rate = 0.62/market.heat;
+    if(G.spawnT<=0){ spawnObs(); G.spawnT=rate*rnd(1.3,0.7); }
+    // obstacles approach
+    for(const o of G.obs){ o.z-=dt*0.5*sp; o.rot+=o.spin;
+      if(o.z<ZSHIP+0.02 && o.z>ZSHIP-0.06 && !o.hit){ if(Math.abs(o.ox-k.ox)<0.22 && Math.abs(o.oy-k.oy)<0.24){ o.hit='crash'; hitShip(); } } }
+    // shots travel outward
+    for(const sh of G.shots){ sh.z+=dt*1.4;
+      for(const o of G.obs){ if(!o.dead && Math.abs(o.z-sh.z)<0.05 && Math.abs(o.ox-sh.ox)<0.16 && Math.abs(o.oy-sh.oy)<0.16){ o.dead=true; sh.dead=true; G.score+=50; sfxHit(); boom(o); } } }
+    G.obs = G.obs.filter(o=>o.z>0.02 && !o.dead);
+    G.shots = G.shots.filter(s=>s.z<1.05 && !s.dead);
+  }
+  const bursts=[];
+  function boom(o){ for(let i=0;i<10;i++) bursts.push({ox:o.ox,oy:o.oy,z:o.z,vx:rnd(.4,-.4),vy:rnd(.4,-.4),life:1,hue:o.hue}); }
+  function hitShip(){ G.shields--; sfxHit(); flash=1; if(G.shields<=0) gameOver(); }
+  let flash=0;
+
+  // ── draw ──
+  function proj(ox,oy,z){ const p=persp(z); return [cx+ox*p*(W*0.34), cy+oy*p*(H*0.34), p]; }
+  function draw(){
+    ctx.fillStyle='#02040a'; ctx.fillRect(0,0,W,H);
+    // starfield streaks (hue from market)
+    ctx.lineCap='round';
+    for(const s of G.stars){ const [x,y]=proj(s.ox,s.oy,s.z); const [px,py]=proj(s.ox,s.oy,Math.min(1,s.pz));
+      const a=clamp((1-s.z)*0.9+0.1,0,1); ctx.strokeStyle='hsla('+market.hue+','+(70)+'%,'+(70)+'%,'+a+')';
+      ctx.lineWidth=clamp((1-s.z)*2.4,0.4,2.6); ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(x,y); ctx.stroke(); }
+    // obstacles (rogue cards), far→near
+    const obs=[...G.obs].sort((a,b)=>b.z-a.z);
+    for(const o of obs){ const [x,y,p]=proj(o.ox,o.oy,o.z); const sz=o.r*p*(W*0.34);
+      ctx.save(); ctx.translate(x,y); ctx.rotate(o.rot); ctx.globalAlpha=clamp(1.1-o.z,0.15,1);
+      ctx.fillStyle='rgba(6,2,14,.92)'; ctx.strokeStyle='hsl('+o.hue+',90%,60%)'; ctx.lineWidth=Math.max(1.5,sz*0.06);
+      rrect(-sz*0.7,-sz,sz*1.4,sz*2,sz*0.18); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='hsl('+o.hue+',90%,65%)'; ctx.font='900 '+Math.max(9,sz*0.9)+'px '+"Arial"; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✗',0,0);
+      ctx.restore(); }
+    // shots (coins)
+    for(const sh of G.shots){ const [x,y,p]=proj(sh.ox,sh.oy,sh.z); ctx.fillStyle='rgba(255,210,59,.95)';
+      ctx.beginPath(); ctx.arc(x,y,Math.max(2,3*p*0.6),0,6.28); ctx.fill();
+      ctx.strokeStyle='rgba(255,120,30,.6)'; ctx.beginPath(); ctx.moveTo(x,y+8*p*0.5); ctx.lineTo(x,y); ctx.stroke(); }
+    // bursts
+    for(const b of bursts){ b.z-=0.004; b.life-=0.03; b.ox+=b.vx*0.02; b.oy+=b.vy*0.02;
+      const [x,y,p]=proj(b.ox,b.oy,Math.max(0.05,b.z)); ctx.globalAlpha=clamp(b.life,0,1);
+      ctx.fillStyle='hsl('+b.hue+',95%,65%)'; ctx.beginPath(); ctx.arc(x,y,Math.max(1,3*p*0.5),0,6.28); ctx.fill(); ctx.globalAlpha=1; }
+    for(let i=bursts.length-1;i>=0;i--) if(bursts[i].life<=0) bursts.splice(i,1);
+    // ── the SHIP: the deck folded into an Arwing ──
+    if(G.mode==='play'||G.mode==='pause') drawShip();
+    // damage flash
+    if(flash>0){ ctx.fillStyle='rgba(255,42,109,'+(flash*0.4)+')'; ctx.fillRect(0,0,W,H); flash-=0.05; }
+    $('hScore').textContent = Math.floor(G.score).toLocaleString('en-US');
+    $('hShields').textContent = '◆'.repeat(Math.max(0,G.shields)) + '◇'.repeat(Math.max(0,3-G.shields));
+    $('hWx').innerHTML = '◉ market · <span class="blk">block '+(market.block?market.block.toLocaleString('en-US'):'—')+'</span> · <b>'+market.weather+'</b>';
+  }
+  function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function drawShip(){
+    const [sx,sy,p]=proj(G.ship.ox,G.ship.oy,ZSHIP); const base=clamp(W*0.05,34,64);
+    const layout=[ [0,-0.15,0,1.0], [-0.95,0.05,-0.32,0.82], [0.95,0.05,0.32,0.82], [-1.7,0.28,-0.5,0.66], [1.7,0.28,0.5,0.66], [-0.5,0.5,-0.16,0.6], [0.5,0.5,0.16,0.6] ];
+    ctx.save(); ctx.translate(sx,sy); ctx.rotate(G.ship.bank*0.5);
+    ctx.scale(1, 1-clamp(G.ship.vy*0.08,-0.18,0.18));  // pitch squash (z tilt feel)
+    // engine glow
+    ctx.fillStyle='rgba(43,255,128,.25)'; ctx.beginPath(); ctx.ellipse(0, base*0.9, base*1.6, base*0.5, 0,0,6.28); ctx.fill();
+    const n=Math.min(layout.length, imgs.length||layout.length);
+    for(let i=0;i<layout.length;i++){ const [lx,ly,rot,sc]=layout[i]; const card=imgs[i%(imgs.length||1)];
+      const w=base*0.9*sc, h=base*1.28*sc, X=lx*base*0.9, Y=ly*base*1.1;
+      ctx.save(); ctx.translate(X,Y); ctx.rotate(rot);
+      const col = card? (RC[card.rar]||'#2bff80') : '#2bff80';
+      // card body
+      ctx.shadowColor=col; ctx.shadowBlur=10; ctx.fillStyle='#0a0414'; rrect(-w/2,-h/2,w,h,w*0.16); ctx.fill(); ctx.shadowBlur=0;
+      if(card && card.im.complete && card.im.naturalWidth){ ctx.save(); rrect(-w/2,-h/2,w,h,w*0.16); ctx.clip();
+        ctx.drawImage(card.im,-w/2,-h/2,w,h); ctx.restore(); }
+      ctx.strokeStyle=col; ctx.lineWidth=Math.max(1.4,w*0.07); rrect(-w/2,-h/2,w,h,w*0.16); ctx.stroke();
+      ctx.restore(); }
+    ctx.restore();
+  }
+
+  let last=performance.now();
+  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; update(dt); draw(); requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
