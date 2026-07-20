@@ -207,6 +207,7 @@
 
   window.RipWallet = {
     connect, disconnect, ensureChain, balance, burn,
+    request: req,               // raw EIP-1193 passthrough on the ACTIVE provider (js/eth-play.js pays on Base with it)
     account: () => account,
     kind: () => kind,
     isConnected: () => !!account,

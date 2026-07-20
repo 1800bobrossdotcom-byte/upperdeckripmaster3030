@@ -148,6 +148,15 @@
     background:rgba(2,10,6,.6); }
   .pchip.on{ color:#031; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border-color:#063; }
   .cardsHd{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8fe0b6; margin:12px 0 6px; }
+  /* ETH coin slot */
+  .ethbox{ border-color:rgba(255,210,59,.34); background:rgba(16,11,2,.62); }
+  .ethbox .cardsHd{ margin-top:0; }
+  .ethbox .wlbl{ color:#e8cf8f; }
+  .ethbox .step button{ background:linear-gradient(180deg,#ffe089,#ffd23b 60%,#c79a12); border-color:#5c4406; }
+  .wbtn{ cursor:pointer; font-family:var(--fat); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:#dff5ff;
+    padding:9px 13px; border-radius:9px; border:1px solid rgba(120,220,255,.4); background:rgba(10,30,44,.72); }
+  .wbtn.gold{ color:#031; border-color:#5c4406; background:linear-gradient(180deg,#ffe089,#ffd23b 60%,#c79a12); }
+  .wbtn:active{ transform:translateY(1px); }
   .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:7px; max-height:198px; overflow:auto; padding:3px; }
   .tile{ position:relative; border-radius:9px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; border:1.5px solid rgba(120,200,160,.28);
     background:#0a0414; box-shadow:0 2px 8px rgba(0,0,0,.5); }
@@ -239,6 +248,18 @@
         <div class="cardsInfo" id="loadoutInfo" style="color:#ffd23b"></div>
       </div>
 
+      <!-- ETH coin slot · Base L2 -->
+      <div class="wbox ethbox">
+        <div class="cardsHd" style="color:#ffd23b">⟠ play for ETH · base L2 · 25¢ a flight</div>
+        <div class="wrow"><span class="wlbl" id="ethWho">no wallet linked</span>
+          <button class="wbtn" id="btnEthConnect" type="button">⟠ link wallet</button></div>
+        <div class="wrow"><span class="wlbl">flights banked · <b id="ethPlays">0</b></span>
+          <button class="wbtn gold" id="btnEthBuy" type="button">insert $1.00 ≈ <span id="ethBuyEth">—</span> ETH → 4 flights</button></div>
+        <div class="wrow"><span class="wlbl">ETH side-pot each · ≤ $3</span>
+          <span class="step"><button data-ethw="-1" type="button">−</button><span class="val" id="ethWagerVal">$0.00</span><button data-ethw="1" type="button">+</button></span></div>
+        <div class="mininote" id="ethNote">the coin drops to the hangar wallet on Base — plain transfer, nothing custodied. side-pots are pledges between the pilots at the table until the Phase-2 escrow contract lands.</div>
+      </div>
+
       <div class="pot" id="potLine"></div>
       <div class="roster" id="roster"></div>
 
@@ -273,6 +294,7 @@
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
+<script src="js/eth-play.js"></script>
 <script src="cards/arena-net.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/card-powers.js"></script>
@@ -349,6 +371,7 @@
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
   const wager={ ante:50, cards:2, players:3, picked:[] };   // picked = slugs
+  const ethW={ usdEach:0 };                                  // ETH side-pot pledge per pilot (≤ $3)
   function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
 
   function buildGrid(){
@@ -376,7 +399,8 @@
   function refreshPot(){
     $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
     const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
-    $('potLine').innerHTML=`POT · <b>${tokPot.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards · winner takes all`;
+    const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
+    $('potLine').innerHTML=`POT · <b>${tokPot.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} · winner takes all`;
     // seat preview from live roster + filler
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
@@ -402,6 +426,33 @@
   document.querySelectorAll('[data-ante]').forEach(b=>b.onclick=()=>{ wager.ante=clamp(wager.ante+(+b.dataset.ante)*W_ANTE.step,W_ANTE.min,W_ANTE.max); refreshPot(); });
   document.querySelectorAll('[data-cards]').forEach(b=>b.onclick=()=>{ wager.cards=clamp(wager.cards+(+b.dataset.cards),W_CARDS.min,W_CARDS.max);
     while(wager.picked.length>wager.cards) wager.picked.pop(); buildGrid(); });
+
+  // ── ETH coin slot wiring (Base L2 · js/eth-play.js) ──
+  async function refreshEth(){ const E=window.RipEth, Wt=window.RipWallet; if(!E||!Wt||!$('ethWho')) return;
+    const a=Wt.account();
+    $('ethWho').innerHTML=a ? '⟠ '+a.slice(0,6)+'…'+a.slice(-4)+' · <span style="color:#ffd23b">base</span>' : 'no wallet linked';
+    $('btnEthConnect').textContent=a?'unlink':'⟠ link wallet';
+    $('ethPlays').textContent=E.plays();
+    await E.price();
+    $('ethBuyEth').textContent=E.fmtEth(E.eth(E.PLAY_USD));
+    $('btnEthBuy').disabled=!(E.usd()>0);
+    $('ethWagerVal').textContent='$'+ethW.usdEach.toFixed(2)+(ethW.usdEach>0&&E.usd()>0?' ≈ '+E.fmtEth(E.eth(ethW.usdEach)):'');
+    refreshPot(); }
+  $('btnEthConnect').onclick=async()=>{ const Wt=window.RipWallet; if(!Wt) return;
+    if(Wt.isConnected()) await Wt.disconnect(); else await Wt.connect(); refreshEth(); };
+  $('btnEthBuy').onclick=async()=>{ const E=window.RipEth, Wt=window.RipWallet; if(!E) return; const n=$('ethNote');
+    n.textContent='dropping the coin…';
+    const r=await E.insertCoin();
+    if(r.ok) n.innerHTML='coin dropped — <b>+'+E.PLAYS_PER+' flights</b> banked · <a target="_blank" rel="noopener" href="'+E.txUrl(r.tx)+'">'+r.tx.slice(0,10)+'…</a> confirming on Base';
+    else if(r.reason==='no-price') n.textContent='can’t read the ETH price right now — try again in a minute.';
+    else if(r.reason!=='cancelled'&&r.reason!=='user-rejected') n.textContent=(Wt?Wt.explain(r.reason):r.reason);
+    else n.textContent='no coin dropped.';
+    refreshEth(); };
+  document.querySelectorAll('[data-ethw]').forEach(b=>b.onclick=()=>{ const E=window.RipEth;
+    const max=E?E.WAGER_MAX_USD:3, step=E?E.WAGER_STEP_USD:0.25;
+    ethW.usdEach=clamp(Math.round((ethW.usdEach+(+b.dataset.ethw)*step)*100)/100,0,max); refreshEth(); });
+  if(window.RipWallet) RipWallet.on(()=>refreshEth());
+  if(window.RipEth) RipEth.on(()=>refreshEth());
 
   // ── the match ──
   const G={ mode:'lobby', t:0, dur:120, timeLeft:120, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], gates:[], powT:6, shake:0,
@@ -460,6 +511,9 @@
     // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
+    // ETH coin-op: a real table game consumes one banked flight; the side-pot pledge rides
+    G.ethFlight=!!(real && window.RipEth && RipEth.plays()>0 && RipEth.spendPlay());
+    G.ethEachUsd=ethW.usdEach; G.ethPotUsd=ethW.usdEach>0 ? Math.round(ethW.usdEach*wager.players*100)/100 : 0;
     for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
       try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
     G.mode='play';
@@ -670,6 +724,10 @@
     $('scaNote').innerHTML = G.real
       ? 'Antes are <b>real $UR3030 burns</b> — they leave supply forever (deflation). Card stakes moved for keeps in your local vault. Trustless token-pot escrow (winner’s payout on-chain) ships with the <b>CardVault</b> contract — Phase-2.'
       : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play for keeps.';
+    if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
+      ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'
+      : '<br>⟠ ETH side-pot: your <b>$'+G.ethEachUsd.toFixed(2)+'</b> pledge rides to the winner — settle on Base; Phase-2 escrow will hold pots on-chain.';
+    if(G.ethFlight) $('scaNote').innerHTML += '<br>⟠ 1 ETH flight credit used · <b>'+(window.RipEth?RipEth.plays():0)+'</b> left in the bank.';
     if(iWon)sfxWin(); else sfxBoom();
     $('ovResult').classList.add('show');
     buildGrid();   // vault changed — refresh the picker
@@ -953,7 +1011,7 @@
 
   let last=performance.now();
   function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt); if(G.mode!=='lobby')draw(); requestAnimationFrame(frame); }
-  loadDeck().then(()=>{ refreshPot(); });
+  loadDeck().then(()=>{ refreshPot(); refreshEth(); });
   if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
     setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }
   requestAnimationFrame(frame);
