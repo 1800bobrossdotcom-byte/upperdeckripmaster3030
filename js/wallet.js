@@ -101,13 +101,45 @@
     }
   }
 
+  // ── mobile with no injected provider: one-tap "open in your wallet" deep links.
+  //    Each opens THIS page inside the wallet's in-app browser, where the provider
+  //    injects and connect/pay flows work with zero extra setup.
+  const isMobileUA = () => matchMedia('(hover:none)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  function deepLinkPanel() {
+    return new Promise(resolve => {
+      const here = location.href, host = location.host + location.pathname + location.search;
+      const links = [
+        ['🦊', 'MetaMask', 'https://metamask.app.link/dapp/' + host],
+        ['🔵', 'Coinbase Wallet', 'https://go.cb-w.com/dapp?cb_url=' + encodeURIComponent(here)],
+        ['🛡', 'Trust Wallet', 'https://link.trustwallet.com/open_url?coin_id=60&url=' + encodeURIComponent(here)],
+      ];
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:18px;background:rgba(1,6,3,.82);backdrop-filter:blur(5px);font-family:Arial,sans-serif';
+      ov.innerHTML =
+        '<div style="width:min(360px,94vw);background:#02140b;border:1px solid #0f5c33;border-radius:14px;padding:18px;box-shadow:0 30px 80px -20px #000">' +
+        '<div style="font-family:\'Arial Black\',Arial;text-transform:uppercase;letter-spacing:.06em;font-size:14px;color:#2bff80;margin-bottom:6px">Open in your wallet</div>' +
+        '<div style="font-size:11.5px;line-height:1.5;color:#9fd8b8;margin-bottom:12px">This page reopens inside your wallet’s built-in browser — it connects automatically and Base payments work.</div>' +
+        links.map(([ic, nm, href]) =>
+          '<a href="' + href + '" rel="noopener" style="display:block;text-decoration:none;font-size:13px;padding:13px 14px;margin-bottom:8px;border-radius:10px;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">' + ic + ' &nbsp;' + nm + '</a>').join('') +
+        '<button data-x="1" style="width:100%;font-size:12px;padding:9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#7fd8a8">cancel</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      const done = () => { ov.remove(); resolve(null); };
+      ov.querySelector('[data-x]').onclick = done;
+      ov.addEventListener('click', e => { if (e.target === ov) done(); });
+    });
+  }
+
   // a tiny self-contained chooser (only shown when BOTH injected + WalletConnect are available)
   function chooser() {
     return new Promise(resolve => {
       const hasInj = !!injected(), hasWC = !!wcProjectId();
       if (hasInj && !hasWC) return resolve('injected');
       if (!hasInj && hasWC) return resolve('walletconnect');
-      if (!hasInj && !hasWC) return resolve('injected');   // -> surfaces the 'no-wallet' reason
+      if (!hasInj && !hasWC) {
+        if (isMobileUA()) return deepLinkPanel().then(() => resolve(null));   // phones: hand off to the wallet app
+        return resolve('injected');                                          // desktop -> surfaces the 'no-wallet' reason
+      }
       const ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:grid;place-items:center;padding:18px;background:rgba(1,6,3,.82);backdrop-filter:blur(5px);font-family:Arial,sans-serif';
       ov.innerHTML =
