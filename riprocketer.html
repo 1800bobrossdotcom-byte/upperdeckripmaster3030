@@ -24,6 +24,16 @@
   .h-wx b{ color:var(--magenta); } .h-wx .blk{ color:var(--amber); }
   .h-world{ font-size:10px; letter-spacing:.2em; color:#9fe6c8; text-transform:uppercase; margin-top:3px; }
   .h-gun{ font-size:11px; letter-spacing:.06em; color:var(--amber); font-family:var(--fat); margin-top:4px; text-transform:uppercase; }
+  .h-dist{ font-size:11px; letter-spacing:.06em; color:#9fe6c8; margin-top:2px; } .h-dist b{ color:var(--magenta); font-family:var(--fat); }
+  /* leaderboard */
+  .lb{ margin:14px auto 4px; max-width:340px; text-align:left; }
+  .lb-hd{ text-align:center; font-family:var(--fat); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
+  .lb-row{ display:grid; grid-template-columns:22px 1fr auto; gap:8px; padding:4px 8px; border-radius:6px; align-items:baseline; font-size:12.5px; }
+  .lb-row.me{ background:rgba(255,210,59,.16); border:1px solid rgba(255,210,59,.45); }
+  .lb-rank{ color:#6fdca0; font-family:var(--fat); } .lb-nm{ color:#d9ffe9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lb-sc{ color:var(--lime); font-family:var(--fat); }
+  .lb-name-in{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#7fd8a8; margin:8px 0 2px; }
+  .lb-name-in input{ background:rgba(2,16,9,.85); border:1px solid #0f5c33; border-radius:6px; color:#eafff2; font-family:var(--fat); font-size:12px; letter-spacing:.06em; padding:6px 9px; width:150px; text-align:center; }
   .powmsg{ position:fixed; z-index:5; top:58%; left:50%; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
     font-family:var(--fat); font-size:clamp(13px,3.2vw,22px); letter-spacing:.05em; text-transform:uppercase; text-align:center;
     color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.85),0 2px 4px #000; }
@@ -80,7 +90,7 @@
 <body>
   <canvas id="rr"></canvas>
 
-  <div class="hud hud-tl"><div class="h-score" id="hScore">0</div><div class="h-lbl">distance</div><div class="h-gun" id="hGun"></div></div>
+  <div class="hud hud-tl"><div class="h-score" id="hScore">0</div><div class="h-lbl">score</div><div class="h-dist" id="hDist"></div><div class="h-gun" id="hGun"></div></div>
   <div class="hud hud-tr" id="hudTR" style="display:none">
     <div class="h-shields" id="hShields">◆◆◆</div>
     <div class="h-wx" id="hWx">◉ market · —</div>
@@ -116,6 +126,7 @@
       <div><button class="go" id="btnBurn">🔥 Burn 25 &amp; launch</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice launch (no burn)</button></div>
       <div class="mininote" id="startNote"></div>
+      <div class="lb" id="lbGate"></div>
       <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a></div>
     </div>
   </div>
@@ -124,8 +135,10 @@
       <h1 style="font-size:clamp(30px,9vw,60px)">DOWNED</h1>
       <div class="tag" id="overTag">the targets got you</div>
       <div class="score-big"><span id="overScore">0</span></div>
-      <div class="h-lbl" style="letter-spacing:.24em">distance flown · best <b id="overBest">0</b></div>
-      <div style="margin-top:16px"><button class="go" id="btnAgain">🔥 Burn 25 &amp; fly again</button></div>
+      <div class="h-lbl" style="letter-spacing:.24em">score · best <b id="overBest">0</b></div>
+      <div class="lb" id="lbOver"></div>
+      <div class="lb-name-in">sign the board as <input id="lbName" maxlength="14" spellcheck="false" autocomplete="off"></div>
+      <div style="margin-top:14px"><button class="go" id="btnAgain">🔥 Burn 25 &amp; fly again</button></div>
       <div><button class="go alt" id="btnAgainP">▶ Practice again</button></div>
       <div class="mininote"><a href="cards/battle.html">◄ arena</a> · <a href="index.html">the pack</a></div>
     </div>
@@ -254,9 +267,18 @@
   }
 
   // ── game state ─────────────────────────────────────────────────────────────
-  const G={ mode:'gate', score:0, best:+(localStorage.getItem('urm_rr_best')||0), shields:3, staked:false,
+  const G={ mode:'gate', score:0, dist:0, mult:1, lastMultLvl:0, best:+(localStorage.getItem('urm_rr_best')||0), shields:3, staked:false,
     ship:{ox:0,oy:0.12,vx:0,vy:0,bank:0,pitch:0}, stars:[], obs:[], shots:[], bursts:[], exhaust:[], pows:[],
     throttle:1, weapon:1, rapidT:0, t:0, ambT:0, fireT:0, powT:8 };
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // ── leaderboard (local now; a KV backend can swap in later, like RipNet) ──
+  let lbState={list:[],idx:-1};
+  function lbLoad(){ try{ return JSON.parse(localStorage.getItem('urm_rr_scores')||'[]'); }catch{ return []; } }
+  function lbSave(a){ try{ localStorage.setItem('urm_rr_scores', JSON.stringify(a.slice(0,10))); }catch{} }
+  function getName(){ try{ return (localStorage.getItem('urm_net_handle')||'RIPPER').slice(0,14)||'RIPPER'; }catch{ return 'RIPPER'; } }
+  function lbRender(el,hi){ if(!el)return; const a=lbLoad();
+    if(!a.length){ el.innerHTML='<div class="lb-hd">top rippers</div><div class="lb-row"><span class="lb-rank">—</span><span class="lb-nm">be the first to sign</span><span class="lb-sc"></span></div>'; return; }
+    el.innerHTML='<div class="lb-hd">top rippers</div>'+a.map((e,i)=>'<div class="lb-row'+(i===hi?' me':'')+'"><span class="lb-rank">'+(i+1)+'</span><span class="lb-nm">'+esc(e.name)+'</span><span class="lb-sc">'+(e.score||0).toLocaleString('en-US')+'</span></div>').join(''); }
   const ZSHIP=0.16;
   let PCX=0, PCY=0;                                    // dynamic vanishing point (course drift)
 
@@ -300,7 +322,7 @@
     else if(t==='bomb'){ bombClear(); powMsg('✸ BURN BOMB'); }
     sfxPow();
   }
-  function bombClear(){ let n=0; for(const o of G.obs){ if(!o.dead){ o.dead=true; boom(o); n++; } } G.score+=n*40; flash=1; sfxBoom(); }
+  function bombClear(){ let n=0; for(const o of G.obs){ if(!o.dead){ o.dead=true; boom(o); n++; } } G.score+=Math.round(n*40*G.mult); flash=1; sfxBoom(); }
   function updatePows(dt){ const sp=(reduce?0.6:1)*market.speed*G.throttle;
     G.powT-=dt; if(G.powT<=0){ G.powT=rnd(15,9); const p=POWS[0]; G.pows.push({ox:rnd(1,-1),oy:rnd(0.8,-0.8),z:1,type:p.t,ch:p.ch,col:p.col}); }
     for(const pw of G.pows){ pw.z-=dt*0.5*sp;
@@ -347,15 +369,22 @@
     G.obs.push({ ox:(rng()*2-1)*1.05, oy:(rng()*2-1)*0.85, z:1, rot:rng()*6.28, spin:(rng()*2-1)*0.05,
       hue:(market.hue+rng()*70-35)%360, r:rnd(0.14,0.09), big:false, hp:1 }); }
 
-  function start(staked){ G.mode='play'; G.score=0; G.shields=3; G.obs=[]; G.shots=[]; G.bursts=[]; G.exhaust=[]; G.pows=[]; G.staked=staked;
+  function start(staked){ G.mode='play'; G.score=0; G.dist=0; G.mult=1; G.lastMultLvl=0; G.shields=3; G.obs=[]; G.shots=[]; G.bursts=[]; G.exhaust=[]; G.pows=[]; G.staked=staked;
     G.weapon=1; G.rapidT=0; G.powT=8; G.ship.ox=0; G.ship.oy=0.12; G.throttle=1; seedStars(); market.pendingWave=true;
     course.turn=0; course.pitch=0; course.roll=0; course.tTarget=0; course.pTarget=0; course.seg='straight'; course.segT=2.6; course.loopV=0;
     $('ovStart').classList.remove('show'); $('ovOver').classList.remove('show');
     $('hudTR').style.display='block'; $('thr').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
     playMusic(); sfxWarp(); }
   function gameOver(){ G.mode='over'; sfxBoom(); music.pause();
-    G.best=Math.max(G.best,Math.floor(G.score)); try{ localStorage.setItem('urm_rr_best',G.best);}catch{}
-    $('overScore').textContent=Math.floor(G.score).toLocaleString('en-US'); $('overBest').textContent=G.best.toLocaleString('en-US');
+    const e={ name:getName(), score:Math.floor(G.score), dist:Math.floor(G.dist), mult:+G.mult.toFixed(1), ts:Date.now() };
+    const list=lbLoad(); list.push(e); list.sort((x,y)=>y.score-x.score); const top=list.slice(0,10); lbSave(top);
+    const idx=top.indexOf(e); lbState={list:top, idx};
+    G.best=top.length?top[0].score:Math.max(G.best,e.score); try{ localStorage.setItem('urm_rr_best',G.best);}catch{}
+    $('overScore').textContent=e.score.toLocaleString('en-US'); $('overBest').textContent=G.best.toLocaleString('en-US');
+    $('overTag').textContent = idx===0?'★ NEW HIGH SCORE ★' : idx>=0?('you made #'+(idx+1)+' on the board') : 'the targets got you';
+    lbRender($('lbOver'), idx); lbRender($('lbGate'), -1);
+    const ni=$('lbName'); if(ni){ ni.value=getName();
+      ni.oninput=()=>{ const v=(ni.value||'').trim().slice(0,14)||'RIPPER'; if(idx>=0){ lbState.list[idx].name=v; lbSave(lbState.list); } try{ localStorage.setItem('urm_net_handle',v); }catch{} lbRender($('lbOver'),idx); lbRender($('lbGate'),-1); }; }
     $('hudTR').style.display='none'; $('thr').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
     $('ovOver').classList.add('show'); }
   function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
@@ -378,6 +407,7 @@
     t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:20;background:rgba(2,10,6,.95);border:1px solid #0f5c33;border-radius:10px;padding:10px 16px;font-size:12px;color:#d9ffe9'; document.body.appendChild(t);}
     t.textContent=msg; t.style.opacity='1'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.opacity='0',3000); }
   if(window.RipWallet) window.RipWallet.on(refreshGate); refreshGate();
+  lbRender($('lbGate'), -1);                              // show top rippers on the gate
 
   // ── update ──
   let flash=0;
@@ -390,7 +420,11 @@
     for(const s of G.stars){ s.pz=s.z; s.z-=dt*0.6*sp; if(s.z<0.02){ s.z=1; s.ox=rnd(1.4,-1.4); s.oy=rnd(1.1,-1.1); s.pz=1; } }
     courseStep(dt);
     if(G.mode!=='play') return;
-    G.t+=dt; G.score+=dt*40*sp;
+    G.t+=dt; G.dist+=dt*40*sp;
+    // going further ramps the multiplier (every 700m → +0.5×, capped ×10)
+    const ml=Math.floor(G.dist/700); G.mult=Math.min(10,1+ml*0.5);
+    if(ml>G.lastMultLvl){ G.lastMultLvl=ml; powMsg('×'+G.mult.toFixed(1)+' MULTIPLIER'); }
+    G.score+=dt*9*sp*G.mult;                              // survival points, multiplied
     // generative waves
     if(market.pendingWave){ market.pendingWave=false; spawnWave(); }
     G.ambT-=dt; if(G.ambT<=0){ ambientSpawn(); G.ambT=(0.7/market.heat)*rnd(1.4,0.7); }
@@ -408,7 +442,7 @@
     for(const o of G.obs){ o.z-=dt*0.52*sp; o.rot+=o.spin;
       if(o.z<ZSHIP+0.02 && o.z>ZSHIP-0.06 && !o.hit){ if(Math.abs(o.ox-k.ox)<0.2+o.r && Math.abs(o.oy-k.oy)<0.22+o.r){ o.hit=1; o.dead=true; hitShip(); boom(o);} } }
     for(const sh of G.shots){ sh.z+=dt*1.55; sh.ox+=(sh.dvx||0)*dt;
-      for(const o of G.obs){ if(!o.dead && Math.abs(o.z-sh.z)<0.05 && Math.abs(o.ox-sh.ox)<0.13+o.r && Math.abs(o.oy-sh.oy)<0.13+o.r){ o.hp-=(sh.dmg||1); sh.dead=true; if(o.hp<=0){ o.dead=true; G.score+=o.big?120:60; boom(o); maybeDropPow(o);} sfxHit(); } } }
+      for(const o of G.obs){ if(!o.dead && Math.abs(o.z-sh.z)<0.05 && Math.abs(o.ox-sh.ox)<0.13+o.r && Math.abs(o.oy-sh.oy)<0.13+o.r){ o.hp-=(sh.dmg||1); sh.dead=true; if(o.hp<=0){ o.dead=true; G.score+=Math.round((o.big?120:60)*G.mult); boom(o); maybeDropPow(o);} sfxHit(); } } }
     G.obs=G.obs.filter(o=>o.z>0.02 && !o.dead); G.shots=G.shots.filter(s=>s.z<1.05 && !s.dead);
     for(const b of G.bursts){ b.life-=dt*1.6; b.ox+=b.vx*dt; b.oy+=b.vy*dt; b.z-=dt*0.3; }
     G.bursts=G.bursts.filter(b=>b.life>0);
@@ -458,6 +492,7 @@
     if(flash>0){ ctx.fillStyle='rgba(255,42,109,'+(flash*0.4)+')'; ctx.fillRect(0,0,W,H); }
     // HUD text (outside the course transform)
     $('hScore').textContent=Math.floor(G.score).toLocaleString('en-US');
+    $('hDist').innerHTML=Math.floor(G.dist).toLocaleString('en-US')+' m · <b>×'+G.mult.toFixed(1)+'</b>';
     $('hShields').textContent='◆'.repeat(Math.min(5,Math.max(0,G.shields)))+(G.shields<3?'◇'.repeat(3-G.shields):'');
     $('hGun').innerHTML='⚙ Gun Lv.'+G.weapon+(G.rapidT>0?' <span style="color:#27f7e4">»rapid</span>':'');
     $('hWx').innerHTML='◉ <span class="blk">block '+(market.block?market.block.toLocaleString('en-US'):'—')+'</span> · <b>'+market.weather+'</b>';

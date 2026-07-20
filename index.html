@@ -426,8 +426,16 @@
     background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:2px solid #01130a; border-radius:999px;
     padding:9px 18px; box-shadow:0 4px 0 #01130a, 0 0 16px rgba(43,255,128,.4); }
   .intro-skip:active{ transform:translateY(3px); box-shadow:0 1px 0 #01130a; }
-  .intro-unmute{ position:absolute; left:16px; top:16px; z-index:3; width:42px; height:42px; border-radius:50%;
-    border:2px solid #063; background:rgba(2,16,9,.9); color:#8bffbb; font-size:16px; cursor:pointer; }
+  /* unmute lives ON the video (bottom-center) and pulses — the intro is quick, so grab sound fast */
+  .intro-unmute{ position:absolute; left:50%; bottom:12px; transform:translateX(-50%); z-index:3;
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--fat,'Arial Black',sans-serif); font-size:12px;
+    letter-spacing:.08em; text-transform:uppercase; color:#031; cursor:pointer; padding:9px 16px; border-radius:999px;
+    border:2px solid #01130a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56);
+    box-shadow:0 3px 0 #01130a, 0 0 16px rgba(43,255,128,.5); animation:umPulse 1.1s ease-in-out infinite; }
+  @keyframes umPulse{ 50%{ transform:translateX(-50%) scale(1.06); box-shadow:0 3px 0 #01130a, 0 0 28px rgba(43,255,128,.95); } }
+  .intro-unmute:active{ transform:translateX(-50%) translateY(3px); box-shadow:0 1px 0 #01130a; }
+  .intro-unmute.on{ animation:none; color:#8bffbb; background:rgba(2,16,9,.92); border-color:#063; }
+  @media (prefers-reduced-motion:reduce){ .intro-unmute{ animation:none; } }
   .intro-bar{ position:absolute; left:0; bottom:0; height:4px; width:0;
     background:linear-gradient(90deg,#2bff80,#27f7e4,#ff2ad9); box-shadow:0 0 12px rgba(43,255,128,.6);
     animation:introBar 5s linear forwards; }
@@ -455,12 +463,12 @@
   <div id="introSplash" role="dialog" aria-label="Intro — transmission from the founder">
     <div class="intro-bar" aria-hidden="true"></div>
     <button type="button" class="intro-skip" id="introSkip">Skip ▸</button>
-    <button type="button" class="intro-unmute" id="introUnmute" aria-label="toggle sound" title="sound">🔇</button>
     <div class="intro-inner">
       <img class="intro-wordmark" src="marquee-header.webp" alt="Upperdeck Ripmaster 3030">
       <div class="intro-frame">
         <video id="introVid" src="hal-mitt.mp4" muted playsinline autoplay preload="auto"></video>
         <img class="intro-roundel" src="ripmaster-roundel.svg" alt="" aria-hidden="true">
+        <button type="button" class="intro-unmute" id="introUnmute" aria-label="toggle video sound" title="sound">🔊 Sound</button>
       </div>
       <div class="intro-cap">▸ transmission from the founder ◂ &nbsp; tap anywhere to skip</div>
     </div>
@@ -470,15 +478,14 @@
   (() => {
     const s = document.getElementById('introSplash'); if (!s) return;
     const v = document.getElementById('introVid');
-    let voc = null; try { voc = new Audio('UR3030_VOCAL_INTRO.mp3'); } catch {}
     let dead = false;
-    const kill = () => { if (dead) return; dead = true; s.classList.add('gone'); try { v.pause(); } catch {} try { if (voc) voc.pause(); } catch {} setTimeout(() => s.remove(), 520); };
-    try { v.muted = true; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch {}
-    // say the name over the logo — allowed on browsers with media engagement; silently ignored otherwise
-    try { if (voc) { const vp = voc.play(); if (vp && vp.catch) vp.catch(() => {}); } } catch {}
+    const kill = () => { if (dead) return; dead = true; s.classList.add('gone'); try { v.pause(); } catch {} setTimeout(() => s.remove(), 520); };
+    try { v.muted = true; const p = v.play(); if (p && p.catch) p.catch(() => {}); } catch {}   // just the video (its own audio); no separate vocal track
     document.getElementById('introSkip').addEventListener('click', e => { e.stopPropagation(); kill(); });
     const um = document.getElementById('introUnmute');
-    um.addEventListener('click', e => { e.stopPropagation(); v.muted = !v.muted; um.textContent = v.muted ? '🔇' : '🔊'; if (!v.muted) v.play().catch(() => {}); });
+    const setUm = () => { um.textContent = v.muted ? '🔊 Sound' : '🔇 Mute'; um.classList.toggle('on', !v.muted); };
+    setUm();
+    um.addEventListener('click', e => { e.stopPropagation(); v.muted = !v.muted; if (!v.muted) v.play().catch(() => {}); setUm(); });
     s.addEventListener('click', kill);
     addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === ' ' || e.key === 'Enter') kill(); });
     v.addEventListener('ended', kill);
