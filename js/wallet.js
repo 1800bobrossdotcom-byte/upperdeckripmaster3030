@@ -76,13 +76,20 @@
     try {
       if (!wcMod) wcMod = await import('https://esm.sh/@walletconnect/ethereum-provider@2.17.0');
       const EP = wcMod.EthereumProvider || (wcMod.default && wcMod.default.EthereumProvider) || wcMod.default;
-      const want = wantChainId();
+      // REQUIRE mainnet only — every wallet satisfies it. Everything else is optional:
+      // a REQUIRED testnet (e.g. Sepolia) makes MetaMask mobile & friends silently
+      // reject the session proposal ("connecting…" forever, nothing in connected sites).
       const wc = await EP.init({
         projectId: pid,
-        chains: [want],
-        optionalChains: [1, 11155111, 8453, 84532],
+        chains: [1],
+        optionalChains: [8453, 84532, 11155111],
         showQrModal: true,
-        rpcMap: { [want]: (CFG().rpcs || [])[0] || '' },
+        rpcMap: {
+          1: 'https://ethereum-rpc.publicnode.com',
+          8453: 'https://mainnet.base.org',
+          84532: 'https://sepolia.base.org',
+          11155111: (CFG().rpcs || [])[0] || 'https://ethereum-sepolia-rpc.publicnode.com',
+        },
         metadata: {
           name: 'Upperdeck Ripmaster 3030',
           description: 'A liquid trading-card game on SuperRare Liquid Editions.',
@@ -159,7 +166,11 @@
   async function connect(kindArg) {
     const k = kindArg || await chooser();
     if (!k) return { ok: false, reason: 'cancelled' };
-    return k === 'walletconnect' ? connectWalletConnect() : connectInjected();
+    const r = k === 'walletconnect' ? await connectWalletConnect() : await connectInjected();
+    // WC hiccuped on a phone with no injected wallet → offer the in-wallet deep links instead of a dead end
+    if (!r.ok && k === 'walletconnect' && r.reason !== 'user-rejected' && r.reason !== 'cancelled'
+        && isMobileUA() && !injected()) { await deepLinkPanel(); return { ok: false, reason: 'cancelled' }; }
+    return r;
   }
 
   async function ensureChain() {
