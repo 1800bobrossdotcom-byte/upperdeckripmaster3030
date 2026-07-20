@@ -87,6 +87,21 @@
     background:linear-gradient(180deg,#fff,var(--cyan) 40%,var(--magenta) 72%,var(--amber));
     -webkit-background-clip:text; background-clip:text; color:transparent;
     filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.5)); }
+  /* RIP ROCKETER hero logo (artwork is on black → screen-blend drops the black, glows over the intro) */
+  .rr-logo{ position:relative; width:min(600px,90vw); margin:2px auto 2px; }
+  .rr-logo::before{ content:''; position:absolute; inset:-16% -10%; z-index:0; pointer-events:none;
+    background:radial-gradient(closest-side, rgba(255,210,59,.30), rgba(255,42,217,.16) 52%, transparent 72%);
+    filter:blur(8px); animation:rrAura 3.4s ease-in-out infinite; }
+  .rr-logo img{ position:relative; z-index:1; display:block; width:100%; height:auto; mix-blend-mode:screen;
+    animation:rrIn 1s cubic-bezier(.2,.9,.25,1.25) both, rrFloat 5.2s ease-in-out 1s infinite, rrGlow 3.2s ease-in-out infinite; }
+  .rr-logo.sm{ width:min(320px,64vw); margin:0 auto 2px; } .rr-logo.sm::before{ animation:none; opacity:.7; }
+  .rr-logo.sm img{ animation:rrGlow 3.2s ease-in-out infinite; }
+  @keyframes rrIn{ 0%{ opacity:0; transform:scale(.62) translateY(26px) rotate(-3deg); } 60%{ opacity:1; } 100%{ opacity:1; transform:scale(1) translateY(0) rotate(0); } }
+  @keyframes rrFloat{ 0%,100%{ transform:translateY(0) rotate(-.7deg); } 50%{ transform:translateY(-10px) rotate(.7deg); } }
+  @keyframes rrAura{ 0%,100%{ opacity:.55; transform:scale(1); } 50%{ opacity:1; transform:scale(1.07); } }
+  @keyframes rrGlow{ 0%,100%{ filter:drop-shadow(0 0 16px rgba(255,210,59,.42)) drop-shadow(0 0 34px rgba(255,42,217,.22)); }
+                     50%{ filter:drop-shadow(0 0 28px rgba(255,210,59,.72)) drop-shadow(0 0 62px rgba(255,42,217,.42)); } }
+  @media (prefers-reduced-motion:reduce){ .rr-logo img{ animation:rrIn .35s both; } .rr-logo::before{ animation:none; } }
   .ov .tag{ font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:10px 0 4px; }
   .ov .sub{ font-size:12.5px; color:#bfe9d3; max-width:460px; margin:6px auto 16px; line-height:1.6; }
   .ov .sub b{ color:var(--amber); }
@@ -131,7 +146,7 @@
 
   <div class="ov show" id="ovStart">
     <div>
-      <h1>RIPROCKETER</h1>
+      <div class="rr-logo"><img src="riprocketer.png" alt="RIP ROCKETER" fetchpriority="high"></div>
       <div class="tag">upperdeck ripmaster 3030</div>
       <div class="sub">Your deck builds a starfighter. <b>Burn 25 $UR3030</b> to launch, throttle through shifting worlds, and blast <b>targets generated live from the chain</b> — every block spawns a new formation.</div>
       <div class="keys-preview">
@@ -143,11 +158,12 @@
       <div><button class="go alt" id="btnPractice">▶ Practice launch (no burn)</button></div>
       <div class="mininote" id="startNote"></div>
       <div class="lb" id="lbGate"></div>
-      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a></div>
+      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="dogfight.html">⚔ dogfight</a></div>
     </div>
   </div>
   <div class="ov" id="ovOver">
     <div>
+      <div class="rr-logo sm"><img src="riprocketer.png" alt="RIP ROCKETER"></div>
       <h1 style="font-size:clamp(30px,9vw,60px)">DOWNED</h1>
       <div class="tag" id="overTag">the targets got you</div>
       <div class="score-big"><span id="overScore">0</span></div>
