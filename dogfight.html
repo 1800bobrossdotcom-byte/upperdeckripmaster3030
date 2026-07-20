@@ -95,18 +95,34 @@
   .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
     color:var(--ink); background:rgba(2,10,6,.7); border:1px solid rgba(43,255,128,.3); border-radius:999px; padding:7px 11px; }
   .tg.off{ opacity:.5; }
-  .controls{ position:fixed; z-index:5; left:50%; bottom:calc(var(--bez) + 10px); transform:translateX(-50%); display:none; gap:7px 12px; flex-wrap:wrap;
+  .controls{ position:fixed; z-index:5; left:50%; bottom:calc(var(--bez) + 10px); transform:translateX(-50%); display:none; gap:7px 12px; flex-wrap:wrap; pointer-events:none;
     justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px; max-width:96vw;
     background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); backdrop-filter:blur(2px); }
   .key{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:#bfe9d3; }
   .key kbd{ font-family:var(--fat); font-size:9.5px; min-width:18px; text-align:center; padding:3px 5px; border-radius:5px;
     color:#031; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
   @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
-  .pad{ position:fixed; z-index:6; bottom:calc(var(--bez) + 18px); display:none; width:78px; height:78px; border-radius:50%; pointer-events:auto; user-select:none;
-    align-items:center; justify-content:center; font-family:var(--fat); font-size:12px; color:#031; }
-  .pad.thrust{ left:calc(var(--bez) + 12px); background:radial-gradient(circle at 40% 34%,#bfffd8,#2bff80 60%,#0fae56); border:2px solid #063; box-shadow:0 0 18px rgba(43,255,128,.5); }
-  .pad.fire{ right:calc(var(--bez) + 12px); background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); color:#fff; }
-  @media (hover:none){ .pad{ display:flex; } }
+  .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none; touch-action:none;
+    align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; letter-spacing:.05em; color:#031; }
+  .pad.on{ filter:brightness(1.35); transform:scale(.94); }
+  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px); width:92px; height:92px;
+    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
+  .pad.boost{ right:calc(var(--bez) + 118px); bottom:calc(var(--bez) + 30px); width:66px; height:66px;
+    background:radial-gradient(circle at 40% 34%,#bfffd8,#2bff80 60%,#0fae56); border:2px solid #063; box-shadow:0 0 18px rgba(43,255,128,.5); }
+  .pad.zoom{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px); width:58px; height:58px; font-size:10px;
+    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0e5a68); border:2px solid #064; box-shadow:0 0 18px rgba(39,247,228,.5); }
+  /* floating left-thumb flight stick (touch) */
+  .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
+  #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
+    background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
+    box-shadow:0 0 24px rgba(39,247,228,.25), inset 0 0 18px rgba(39,247,228,.18); }
+  #stickNub{ width:52px; height:52px; margin:-26px 0 0 -26px; background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 62%,#0e5a68);
+    border:1px solid #0a4a44; box-shadow:0 0 16px rgba(39,247,228,.6); }
+  @media (hover:none){ .pad{ display:flex; } .tg{ padding:9px 12px; font-size:11px; }
+    /* phone layout: drop the toggles below the HUD readouts, lift the hint + comms clear of the pads */
+    .toggles{ top:calc(var(--bezTop) + 96px); }
+    .controls{ left:calc(var(--bez) + 12px); right:auto; transform:none; bottom:calc(var(--bez) + 168px); max-width:44vw; justify-content:flex-start; text-align:left; }
+    .comms{ bottom:calc(var(--bez) + 230px); max-width:60vw; } }
   /* overlays */
   .ov{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad); z-index:10; display:none; place-items:center; padding:18px 14px; overflow:auto;
     background:radial-gradient(120% 100% at 50% 26%, rgba(12,26,40,.72), rgba(1,3,7,.96)); backdrop-filter:blur(3px); }
@@ -190,15 +206,17 @@
   <div class="comms" id="comms"><div class="comms-por" id="commsPor">W</div><div class="comms-txt"><b id="commsNm">WINGMATE</b><span id="commsLn"></span></div></div>
 
   <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
-  <div class="pad thrust" id="padThrust">THRUST</div>
+  <div class="pad boost" id="padBoost">BOOST</div>
+  <div class="pad zoom" id="padZoom">ZOOM</div>
   <div class="pad fire" id="padFire">FIRE</div>
+  <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="controls" id="controls">
     <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
     <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
     <span class="key desk"><kbd>⇧</kbd> boost</span>
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>V</kbd> view</span>
-    <span class="key touch">drag to steer · FIRE · THRUST</span>
+    <span class="key touch">left thumb: flight stick · FIRE / BOOST / ZOOM · double-tap stick: roll</span>
   </div>
 
   <!-- LOBBY / WAGER -->
@@ -455,7 +473,12 @@
   }
 
   // ── input (all-range flight: yaw + climb + boost + fire) ──
-  const keys={}; let aim={x:0,y:0}, ptrAim=false, ptrFire=false, fireHeld=false, padThrust=false, padFire=false, rmZoom=false;
+  const keys={}; let aim={x:0,y:0}, ptrAim=false, ptrFire=false, fireHeld=false, padBoost=false, padFire=false, padZoom=false, rmZoom=false;
+  // floating touch flight stick — relative control: it spawns under your thumb, drag = yaw/climb
+  const stick={ id:null, cx:0, cy:0, x:0, y:0, lastX:1 };
+  const sB=$('stickBase'), sN=$('stickNub');
+  function stickShow(x,y){ sB.style.display='block'; sN.style.display='block'; sB.style.left=x+'px'; sB.style.top=y+'px'; sN.style.left=x+'px'; sN.style.top=y+'px'; }
+  function stickHide(){ sB.style.display='none'; sN.style.display='none'; stick.id=null; stick.x=0; stick.y=0; }
   addEventListener('keydown',e=>{ const fresh=!keys[e.key]; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
     keys[e.key]=true; if(e.key===' ')fireHeld=true;
     if(fresh&&(e.key==='ArrowLeft'||e.key==='a')){ const n=performance.now(); if(n-_tapL<330)doRoll(-1); _tapL=n; }
@@ -463,13 +486,28 @@
     if(e.key==='p'||e.key==='P')togglePause(); if(e.key==='m'||e.key==='M')toggleSfx(); if(e.key==='v'||e.key==='V')toggleView(); });
   addEventListener('keyup',e=>{ keys[e.key]=false; if(e.key===' ')fireHeld=false; });
   function setAim(e){ const r=cv.getBoundingClientRect(); aim.x=clamp(((e.clientX-r.left)-W/2)/(W*0.5),-1,1); aim.y=clamp(((e.clientY-r.top)-H/2)/(H*0.5),-1,1); }
-  cv.addEventListener('pointerdown',e=>{ if(e.button===2){ rmZoom=true; e.preventDefault(); return; } ptrAim=true; ptrFire=true; setAim(e); const n=performance.now(); if(n-_tapC<300)doRoll(aim.x>=0?1:-1); _tapC=n; });
-  cv.addEventListener('pointermove',e=>{ if(ptrAim)setAim(e); });
+  cv.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'){ if(e.button===2){ rmZoom=true; e.preventDefault(); return; }
+      ptrAim=true; ptrFire=true; setAim(e); const n=performance.now(); if(n-_tapC<300)doRoll(aim.x>=0?1:-1); _tapC=n; return; }
+    // touch: the canvas is the stick zone (the DOM pads sit on top and swallow their own touches)
+    e.preventDefault();
+    if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY);
+      const n=performance.now(); if(n-_tapC<300)doRoll(stick.lastX>=0?1:-1); _tapC=n; } });
+  addEventListener('pointermove',e=>{
+    if(e.pointerType==='mouse'){ if(ptrAim)setAim(e); return; }
+    if(e.pointerId===stick.id){ const R=56, dz=10; let dx=e.clientX-stick.cx, dy=e.clientY-stick.cy; const m=Math.hypot(dx,dy);
+      if(m>R){ const k=R/m; dx*=k; dy*=k; }
+      stick.x=(m<dz)?0:clamp(dx/R,-1,1); stick.y=(m<dz)?0:clamp(dy/R,-1,1); if(stick.x)stick.lastX=stick.x;
+      sN.style.left=(stick.cx+dx)+'px'; sN.style.top=(stick.cy+dy)+'px'; } });
+  function ptrEnd(e){ if(e.pointerType==='mouse'){ ptrAim=false; ptrFire=false; rmZoom=false; return; } if(e.pointerId===stick.id) stickHide(); }
+  addEventListener('pointerup',ptrEnd); addEventListener('pointercancel',ptrEnd);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
-  addEventListener('pointerup',()=>{ ptrAim=false; ptrFire=false; rmZoom=false; });
-  const pT=$('padThrust'), pF=$('padFire');
-  pT.addEventListener('pointerdown',e=>{e.preventDefault();padThrust=true;}); pT.addEventListener('pointerup',()=>padThrust=false); pT.addEventListener('pointerleave',()=>padThrust=false);
-  pF.addEventListener('pointerdown',e=>{e.preventDefault();padFire=true;}); pF.addEventListener('pointerup',()=>padFire=false); pF.addEventListener('pointerleave',()=>padFire=false);
+  // hold-pads (multi-touch safe: each pad owns its pointer, cancel-proof)
+  function bindPad(el,dn,up){ if(!el)return; el.addEventListener('pointerdown',e=>{ e.preventDefault(); el.classList.add('on'); dn(); });
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,()=>{ el.classList.remove('on'); up(); })); }
+  bindPad($('padBoost'),()=>padBoost=true,()=>padBoost=false);
+  bindPad($('padFire'),()=>padFire=true,()=>padFire=false);
+  bindPad($('padZoom'),()=>padZoom=true,()=>padZoom=false);
 
   function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
   function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
@@ -576,13 +614,14 @@
     if(keys.ArrowLeft||keys.a)yaw-=1; if(keys.ArrowRight||keys.d)yaw+=1;
     if(keys.ArrowUp||keys.w)pitch-=1; if(keys.ArrowDown||keys.s)pitch+=1;
     if(ptrAim){ yaw+=clamp(aim.x*1.5,-1,1); pitch+=clamp(aim.y*1.5,-1,1); }
+    yaw+=stick.x; pitch+=stick.y;                    // touch flight stick (relative)
     yaw=clamp(yaw,-1,1); pitch=clamp(pitch,-1,1);
     s.h+=yaw*2.4*dt; s.alt-=pitch*2.2*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6); s.pitchIn=pitch;
     // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up)
-    const wantB=!!(keys.Shift||keys.shift||padThrust);
+    const wantB=!!(keys.Shift||keys.shift||padBoost);
     if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
     s.thrust=true;
-    s.zoom=!!(keys.Control||keys.control||rmZoom);          // hold Ctrl / right-click to zoom (precision fire)
+    s.zoom=!!(keys.Control||keys.control||rmZoom||padZoom);  // hold Ctrl / right-click / ZOOM pad (precision fire)
     s.wantFire=!!(fireHeld||ptrFire||padFire);
   }
   function stepBot(s,dt){ s.aiT-=dt; s.wantFire=false;
