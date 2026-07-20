@@ -360,6 +360,9 @@
   .lob-chal.seek{ background:linear-gradient(180deg,#ffe089,var(--amber) 55%,#c79a12); color:var(--bg); border-color:#5c2a00;
     animation:seekGlow 1.4s ease-in-out infinite; }
   .lob-empty{ font-size:11px; color:#6fae8c; text-align:center; padding:14px 6px; letter-spacing:.04em; }
+  .lob-row.signed{ border-color:rgba(255,210,59,.4); }
+  .lob-seal{ color:var(--amber); font-size:11px; text-shadow:0 0 8px rgba(255,210,59,.7); }
+  .lob-addr{ font-family:'Courier New',monospace; color:#c79a5a; letter-spacing:.02em; }
 
   /* incoming-challenge toast */
   .lob-toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(24px); z-index:98; opacity:0; pointer-events:none;
@@ -413,9 +416,8 @@
     <div class="sub">slam · wager · collect</div>
 
     <div class="wbar" id="wbar">
-      <button type="button" class="wbtn" id="wConnect">◈ Connect wallet</button>
+      <div id="tavern"></div>
       <span class="wstat" id="wStat"></span>
-      <a class="wbuy" id="wBuy" href="https://superrare.com" target="_blank" rel="noopener noreferrer">Buy $UR3030 ↗</a>
     </div>
 
     <div class="panel lobby" id="lobbyPanel">
@@ -503,6 +505,7 @@
 
 <script src="../js/chain-config.js"></script>
 <script src="../js/wallet.js"></script>
+<script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
 <script>
 (() => {
@@ -854,9 +857,18 @@
   //   to enter (a real on-chain burn once the token is live; practice chips until then).
   const net = window.RipNet || null;
   let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {};
+  let walletState = { connected: false, address: null, balance: 0 };
 
   function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
-  function myProfile(){ return { handle: netHandle(), balance: tokens(), cards: vault().length }; }
+  // your lobby identity. Signing the tavern ledger (connecting a wallet) upgrades it:
+  // your presence shows your REAL $UR3030 purse + a verified seal, and your stakes
+  // become real on-chain burns. Unsigned = practice chips.
+  function myProfile(){
+    const w = walletState;
+    return w.connected
+      ? { handle: netHandle(), balance: w.balance, cards: vault().length, address: w.address, verified: true }
+      : { handle: netHandle(), balance: tokens(), cards: vault().length, verified: false };
+  }
   function pushProfile(){ if (net) net.join(myProfile()); }
   const statusWord = s => s === 'seeking' ? 'seeking a fight' : s === 'battling' ? 'mid-battle' : 'idle';
   function liveToken(){ try { const a = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
@@ -881,10 +893,13 @@
       const btn = p.me
         ? '<span class="lob-meta" style="color:#ffd23b;font-family:var(--fat)">◈ you</span>'
         : `<button class="lob-chal${st === 'seeking' ? ' seek' : ''}" data-id="${escFO(p.id)}" ${st === 'battling' ? 'disabled' : ''}>${st === 'seeking' ? '⚔ answer' : '⚔ challenge'}</button>`;
-      return `<div class="lob-row${p.me ? ' me' : ''}">` +
+      const seal = p.verified ? ' <span class="lob-seal" title="signed the ledger — stakes real $UR3030">⚜</span>' : '';
+      const addr = (p.verified && p.address) ? ' · <span class="lob-addr">' + escFO(p.address.slice(0, 6) + '…' + p.address.slice(-4)) + '</span>' : '';
+      const liveTag = p.bot ? '' : (p.verified ? '' : ' · <span style="color:#27f7e4">live</span>');
+      return `<div class="lob-row${p.me ? ' me' : ''}${p.verified ? ' signed' : ''}">` +
         `<span class="lob-st ${st}" title="${statusWord(st)}"></span>` +
-        `<div style="min-width:0"><div class="lob-nm">${escFO(p.handle)}</div>` +
-        `<div class="lob-meta"><b>${(p.balance || 0).toLocaleString('en-US')}</b> $UR · ${p.cards || 0} cards${p.wl ? ' · ' + escFO(p.wl) : ''}${p.bot ? '' : ' · <span style="color:#27f7e4">live</span>'}</div></div>` +
+        `<div style="min-width:0"><div class="lob-nm">${escFO(p.handle)}${seal}</div>` +
+        `<div class="lob-meta"><b>${(p.balance || 0).toLocaleString('en-US')}</b> $UR · ${p.cards || 0} cards${p.wl ? ' · ' + escFO(p.wl) : ''}${addr}${liveTag}</div></div>` +
         btn + `</div>`;
     }).join('');
     list.querySelectorAll('.lob-chal').forEach(b => b.onclick = () => {
@@ -1035,32 +1050,29 @@
     addEventListener('focus', pushProfile);
   }
 
-  // ── wallet bar: connect · $UR3030 balance · buy on SuperRare ──
+  // ── the Tavern Ledger (wallet) + the identity bridge into the lobby ──
   function initWallet(){
-    const W = window.RipWallet; const bar = $('wbar'); if (!bar) return;
-    const btn = $('wConnect'), stat = $('wStat'), buy = $('wBuy');
-    if (buy && W) buy.href = W.buyUrl();
-    async function refresh(){
-      if (!W){ stat.textContent = ''; return; }
-      const a = W.account();
-      if (a){
-        btn.textContent = a.slice(0, 6) + '…' + a.slice(-4); btn.classList.add('on');
-        if (W.isLive()){ const b = await W.balance(); stat.innerHTML = '<b>' + b.tokens.toLocaleString('en-US') + '</b> $UR3030 · ' + W.chainName(); }
-        else stat.innerHTML = 'connected · burn ante is <b>practice</b> until $UR3030 is live here';
+    const W = window.RipWallet, stat = $('wStat');
+    if (window.RipTavern) RipTavern.mount('#tavern');           // the snazzy sign-in
+    async function sync(){
+      if (W && W.isConnected()){
+        walletState.connected = true; walletState.address = W.account();
+        walletState.balance = W.isLive() ? (await W.balance()).tokens : 0;
+        if (stat) stat.innerHTML = W.isLive()
+          ? 'ledger signed · <b>' + walletState.balance.toLocaleString('en-US') + '</b> $UR3030 on the line'
+          : 'signed · burn ante is <b>practice</b> until $UR3030 is live here';
       } else {
-        btn.textContent = '◈ Connect wallet'; btn.classList.remove('on');
-        stat.innerHTML = W.isLive() ? 'connect to burn $UR3030 on-chain' : 'burn ante runs in <b>practice</b> until $UR3030 is live on this network';
+        walletState = { connected: false, address: null, balance: 0 };
+        if (stat) stat.innerHTML = (W && W.isLive())
+          ? '<b>Sign the ledger</b> to stake real $UR3030 in the arena'
+          : 'burn ante runs in <b>practice</b> until $UR3030 is live';
       }
+      if (window.RipTavern) RipTavern.refresh();
+      pushProfile();                                            // lobby sees the real purse + seal
     }
-    walletRefresh = refresh;
-    if (btn) btn.onclick = async () => {
-      if (!W || !W.hasWallet()){ toastMini('No wallet found — install MetaMask to burn on-chain'); return; }
-      const c = await W.connect(); if (!c.ok){ toastMini(W.explain(c.reason)); return; }
-      if (W.isLive()){ const g = await W.ensureChain(); if (!g.ok){ toastMini(W.explain(g.reason)); } }
-      refresh();
-    };
-    if (W) W.on(refresh);
-    refresh();
+    walletRefresh = sync;
+    if (W) W.on(sync);
+    sync();
   }
 
   $('dealBtn').onclick = deal;

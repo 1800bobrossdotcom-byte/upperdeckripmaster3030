@@ -66,7 +66,7 @@
     const pushLobby = () => emit('lobby', roster());
 
     // presence heartbeat + receive
-    const announce = () => bc && bc.postMessage({ t: 'hi', p: { id: me.id, handle: me.handle, balance: me.balance, cards: me.cards, status: me.status } });
+    const announce = () => bc && bc.postMessage({ t: 'hi', p: { id: me.id, handle: me.handle, balance: me.balance, cards: me.cards, status: me.status, verified: me.verified, address: me.address } });
     if (bc) bc.onmessage = e => {
       const m = e.data || {};
       if (m.t === 'hi' && m.p && m.p.id !== me.id) { players.set(m.p.id, { ...m.p, lastSeen: Date.now() }); announce(); pushLobby(); }

@@ -515,6 +515,7 @@
           <span class="si-ico" aria-hidden="true">📢</span><span class="si-txt">Slam to say it</span>
         </button>
       </div>
+      <div class="say-wrap" style="margin-top:12px"><div id="tavern"></div></div>
       <script>/* slam button: shout the name (UR3030_VOCAL_INTRO.mp3) */(function(){
         var b=document.getElementById('sayIt'); if(!b) return;
         var a=new Audio('UR3030_VOCAL_INTRO.mp3'); a.preload='auto';
@@ -834,11 +835,14 @@ a.setAttribute('aria-label','Rip a pack');a.addEventListener('click',open);
 a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});});})();</script>
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
+<script src="js/wallet-ui.js"></script>
 <script>
   /* deep-link the Buy button to this token's SuperRare Collect page (when a real
-     token address is configured); otherwise it points at superrare.com. */
+     token address is configured); otherwise it points at superrare.com. Mount the
+     Tavern Ledger wallet control. */
   (() => { const a = document.getElementById('buyLink');
-    if (a && window.RipWallet) a.href = window.RipWallet.buyUrl(); })();
+    if (a && window.RipWallet) a.href = window.RipWallet.buyUrl();
+    if (window.RipTavern) RipTavern.mount('#tavern'); })();
 </script>
 <script src="theme.js"></script>
 <script src="pack.js"></script>

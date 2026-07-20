@@ -180,6 +180,19 @@
     }
   }
 
+  async function disconnect() {
+    try {
+      if (kind === 'walletconnect' && provider && provider.disconnect) { await provider.disconnect(); }
+      else if (kind === 'injected' && injected() && injected().request) {
+        // best-effort: revoke the site's account permission (newer MetaMask) so a
+        // reconnect re-prompts. Older wallets ignore this; we still clear app state.
+        try { await injected().request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }); } catch {}
+      }
+    } catch {}
+    account = null; provider = null; kind = null; emit();
+    return { ok: true };
+  }
+
   const buyUrl = () => isLive()
     ? `https://superrare.com/liquid-editions/${wantChainId()}/${token()}`
     : 'https://superrare.com';
@@ -193,7 +206,7 @@
   })();
 
   window.RipWallet = {
-    connect, ensureChain, balance, burn,
+    connect, disconnect, ensureChain, balance, burn,
     account: () => account,
     kind: () => kind,
     isConnected: () => !!account,
