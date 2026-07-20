@@ -16,6 +16,24 @@
   const PACK = 7;
   let DECK = [], busy = false;
 
+  // ── on-chain rip: a rip BURNS $UR3030 (buy the ticket, take the ride). Buying the
+  //    token happens on SuperRare / DEXes; this site owns the burn. Falls back to a
+  //    practice pull when the token isn't live or there's no wallet. ──
+  const W = () => window.RipWallet || null;
+  const onchainRip = () => !!(W() && W().isLive() && W().hasWallet());
+  const packBurn = () => Math.max(1, ((window.RIPMASTER_CHAIN || {}).packBurn) || 350);
+  let lastTx = null, practice = false;
+
+  const pstyle = document.createElement('style');
+  pstyle.textContent =
+    '.pack-note{ text-align:center; font-size:13px; line-height:1.6; color:#cfe9ee; max-width:440px; margin:24px auto 6px; padding:0 12px; }' +
+    '.pack-note b{ color:#ffd23b; }' +
+    '.pack-cta{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:14px auto 8px; }' +
+    '.pack-cta .btn{ font-size:12px; padding:11px 16px; }' +
+    '.pack-tx{ text-align:center; font-size:11px; letter-spacing:.04em; color:#ffb08a; margin:2px auto 10px; }' +
+    '.pack-tx a{ color:#2bff80; }';
+  document.head.appendChild(pstyle);
+
   fetch('cards/manifest.json').then(r => r.json()).then(m => { DECK = m.cards || []; }).catch(() => {});
 
   const rnd = n => Math.floor(Math.random() * n);
@@ -37,7 +55,47 @@
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  function open() { modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); rip(); }
+  function open() { modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); startRip(); }
+
+  // decide: real on-chain rip (burn $UR3030) or a practice pull
+  async function startRip() {
+    lastTx = null; practice = true;
+    if (onchainRip()) return onchainStart();
+    rip();
+  }
+  async function onchainStart() {
+    if (busy) return;
+    const w = W();
+    showBusy('checking your $UR3030…');
+    if (!w.isConnected()) { const c = await w.connect(); if (!c.ok) return ripBlocked(w.explain(c.reason)); }
+    const g = await w.ensureChain(); if (!g.ok) return ripBlocked(w.explain(g.reason));
+    const need = packBurn(), bal = await w.balance();
+    if (bal.tokens < need) return ripNeedTokens(bal.tokens, need);
+    showBusy('confirm the burn of ' + need + ' $UR3030 in your wallet…');
+    const r = await w.burn(need);
+    if (!r.ok) return ripBlocked(w.explain(r.reason));
+    lastTx = r.tx; practice = false;
+    busy = false;                           // release the status latch so rip() can run
+    rip();                                  // burned for real → play the tear + reveal
+  }
+  function showBusy(msg) { busy = true; if (title) title.textContent = msg; actions.hidden = true;
+    stage.classList.add('hidden'); reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>'; }
+  function ctaRow() {
+    const buy = W() ? W().buyUrl() : 'https://superrare.com';
+    return '<div class="pack-cta">' +
+      '<a class="btn gold" href="' + buy + '" target="_blank" rel="noopener noreferrer">$ Buy $UR3030 ↗</a>' +
+      '<button type="button" class="btn" id="ripRetry">↻ Try again</button>' +
+      '<button type="button" class="btn alt" id="ripPractice">Practice pull</button></div>';
+  }
+  function wireCta() {
+    const r = document.getElementById('ripRetry'); if (r) r.onclick = () => startRip();
+    const p = document.getElementById('ripPractice'); if (p) p.onclick = () => { practice = true; lastTx = null; rip(); };
+  }
+  function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
+    reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
+  function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $UR3030';
+    reveal.innerHTML = '<div class="pack-note">A rip burns <b>' + need + ' $UR3030</b>. You hold <b>' +
+      have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
   function close() {
     if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
     modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {}
@@ -72,7 +130,7 @@
       cards.forEach(c => v.push({ slug: c.slug }));
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
-    if (title) title.textContent = 'your pull · added to your cards';
+    if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · ripped on-chain';
     const n = cards.length, mid = (n - 1) / 2;
     const fan = cards.map((c, i) => {
       const rot = ((i - mid) * 9).toFixed(1);
@@ -94,6 +152,12 @@
       '</div>' +
       '<div class="pv-meta"><span class="pv-nm" id="pvNm"></span><span class="pv-count" id="pvCount"></span></div>' +
       '<div class="fan" id="fan">' + fan + '</div>';
+    if (!practice && lastTx && W()) {
+      const banner = document.createElement('div'); banner.className = 'pack-tx';
+      banner.innerHTML = '🔥 burned ' + packBurn() + ' $UR3030 · <a href="' + W().explorerTx(lastTx) +
+        '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
+      reveal.prepend(banner);
+    }
     void reveal.offsetHeight; // force face-down layout so the flip transition triggers
     requestAnimationFrame(() => requestAnimationFrame(() =>
       reveal.querySelectorAll('.fcard').forEach(f => f.classList.add('flip'))));
@@ -188,7 +252,7 @@
   document.getElementById('packOpen') && document.getElementById('packOpen').addEventListener('click', open);
   document.getElementById('packClose') && document.getElementById('packClose').addEventListener('click', close);
   document.getElementById('packDone') && document.getElementById('packDone').addEventListener('click', close);
-  document.getElementById('packAgain') && document.getElementById('packAgain').addEventListener('click', rip);
+  document.getElementById('packAgain') && document.getElementById('packAgain').addEventListener('click', startRip);
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
   addEventListener('keydown', e => {
     if (e.key === 'Escape') return zoomEl ? closeZoom() : close();

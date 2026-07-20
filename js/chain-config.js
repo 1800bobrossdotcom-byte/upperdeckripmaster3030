@@ -8,6 +8,12 @@ window.RIPMASTER_CHAIN = {
   network: "sepolia",              // "sepolia" while testing, "mainnet" for S1
   label: "sepolia block",
   chainId: 11155111,               // Sepolia (mainnet = 1)
+  // WalletConnect (mobile wallets). Free project id from https://cloud.reown.com —
+  // paste it here and mobile users can connect + burn. Empty = WC option hidden,
+  // injected/MetaMask still works. (js/wallet.js)
+  walletConnectProjectId: "",
+  // $UR3030 burned per pack rip (the "buy the ticket" — deflationary). Tune for mainnet.
+  packBurn: 350,
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
   rpcs: [
     "https://ethereum-sepolia-rpc.publicnode.com",
