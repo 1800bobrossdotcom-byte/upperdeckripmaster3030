@@ -21,7 +21,7 @@
   const W = () => window.RipWallet || null;
   const LSK = 'urm_eth_plays_v1', LSP = 'urm_ethusd_v1';
   const listeners = [];
-  const emit = () => listeners.forEach(f => { try { f(); } catch {} });
+  const emit = ev => listeners.forEach(f => { try { f(ev); } catch {} });
 
   // ── ETH/USD spot: Coinbase → CoinGecko → stale cache (never a made-up number) ──
   let usd = 0;
@@ -68,14 +68,19 @@
     }
   }
 
-  // best-effort receipt watch: if the coin drop reverts, claw the credits back
+  // receipt watch on Base's PUBLIC RPC (works whatever chain the wallet moved to):
+  // confirmed → say so; reverted → claw the credits back
   function watch(tx) { let n = 0; const iv = setInterval(async () => {
-    if (++n > 40) { clearInterval(iv); return; }
-    try { const r = await W().request('eth_getTransactionReceipt', [tx]); if (!r) return; clearInterval(iv);
-      if (r.status === '0x0') { const a = acct(); if (a) { const l = ledger(), k = a.toLowerCase();
-        if (l[k]) { l[k].plays = Math.max(0, (l[k].plays | 0) - PLAYS_PER); saveLedger(l); } } }
-      emit();
-    } catch {} }, 4500); }
+    if (++n > 60) { clearInterval(iv); emit({ type: 'lost', tx }); return; }
+    try {
+      const r = await fetch(BASE.rpcs[0], { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [tx] }) });
+      const j = await r.json(); const rc = j && j.result; if (!rc) return; clearInterval(iv);
+      if (rc.status === '0x0') { const a = acct(); if (a) { const l = ledger(), k = a.toLowerCase();
+        if (l[k]) { l[k].plays = Math.max(0, (l[k].plays | 0) - PLAYS_PER); saveLedger(l); } }
+        emit({ type: 'reverted', tx });
+      } else emit({ type: 'confirmed', tx });
+    } catch {} }, 3500); }
 
   // ── the coin slot: $1.00 → 4 flights, straight to the hangar on Base ──
   async function insertCoin() {

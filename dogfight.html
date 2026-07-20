@@ -412,16 +412,16 @@
     const meA=(window.RipWallet&&RipWallet.account())||null;
     const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
     $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
-    // gate the real-ante button
-    const Wt=window.RipWallet, canReal=liveToken()&&Wt&&Wt.hasWallet();
+    // gate the table button — TWO lanes in: the $UR3030 burn + full card stake, OR a banked ETH flight
+    const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
+    const canToken=liveToken()&&Wt&&Wt.hasWallet();
     const enoughCards=wager.picked.length===wager.cards;
-    const btn=$('btnAnte');
-    if(!canReal){ btn.disabled=true; }
-    else if(!enoughCards){ btn.disabled=true; }
-    else btn.disabled=false;
+    $('btnAnte').disabled=!((canToken&&enoughCards)||hasFlights);
     // note
     const note=$('lobNote');
-    if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — the wager runs as a <b>practice</b> scrimmage.';
+    if(hasFlights) note.innerHTML='⟠ <b>flight credit armed</b> — Ante up &amp; fly uses 1 of your <b>'+RipEth.plays()+'</b> banked flights.'
+      +(enoughCards?' Your '+wager.cards+' picked cards ride the pot for keeps.':' Pick '+wager.cards+' cards to also stake them (optional).');
+    else if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
     else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
     else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
     else note.innerHTML='Real ante: <b>'+wager.ante+' $UR3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
@@ -458,7 +458,10 @@
     const max=E?E.WAGER_MAX_USD:3, step=E?E.WAGER_STEP_USD:0.25;
     ethW.usdEach=clamp(Math.round((ethW.usdEach+(+b.dataset.ethw)*step)*100)/100,0,max); refreshEth(); });
   if(window.RipWallet) RipWallet.on(()=>refreshEth());
-  if(window.RipEth) RipEth.on(()=>refreshEth());
+  if(window.RipEth) RipEth.on(ev=>{ const n=$('ethNote');
+    if(n&&ev&&ev.type==='confirmed') n.innerHTML='⟠ coin <b>confirmed</b> on Base — flights banked for keeps.';
+    else if(n&&ev&&ev.type==='reverted') n.innerHTML='coin drop <b>reverted</b> on Base — flights clawed back.';
+    refreshEth(); });
 
   // ── the match ──
   const G={ mode:'lobby', t:0, dur:120, timeLeft:120, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], gates:[], powT:6, shake:0,
@@ -494,7 +497,7 @@
       rollT:0, iframe:0, rollDir:0, boostGauge:1, respawnT:0, deaths:0, lives:3, burstQ:0, burstNext:0, burstCool:0, wantFire:false,
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
 
-  function startMatch(real){
+  function startMatch(real,ethFlight){
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
@@ -517,8 +520,8 @@
     // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
-    // ETH coin-op: a real table game consumes one banked flight; the side-pot pledge rides
-    G.ethFlight=!!(real && window.RipEth && RipEth.plays()>0 && RipEth.spendPlay());
+    // ETH coin-op: the flight credit was consumed in ante() (the ETH entry lane); the side-pot pledge rides
+    G.ethFlight=!!ethFlight;
     G.ethEachUsd=ethW.usdEach; G.ethPotUsd=ethW.usdEach>0 ? Math.round(ethW.usdEach*wager.players*100)/100 : 0;
     for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
       try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
@@ -743,7 +746,12 @@
   $('btnRematch').onclick=()=>ante(true);
   $('btnPractice').onclick=()=>startMatch(false);
   $('btnLobby').onclick=()=>{ $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
-  async function ante(rematch){ const Wt=window.RipWallet;
+  async function ante(rematch){ const Wt=window.RipWallet, E=window.RipEth;
+    if(E&&E.plays()>0){                                    // ⟠ ETH lane: a banked flight IS the entry fee
+      const stake=wager.picked.length===wager.cards;       // cards ride the pot only with a full pick
+      E.spendPlay(); toast('⟠ 1 flight used · '+E.plays()+' left in the bank');
+      startMatch(stake,true); return;
+    }
     if(!(liveToken()&&Wt&&Wt.hasWallet())){ startMatch(false); return; }
     if(wager.picked.length!==wager.cards){ toast('Pick '+wager.cards+' cards for the pot first.'); return; }
     const btn=rematch?$('btnRematch'):$('btnAnte'); const label=btn.innerHTML; btn.innerHTML='confirm burn…'; btn.disabled=true;
