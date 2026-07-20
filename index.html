@@ -60,46 +60,33 @@
     padding:clamp(14px,3vw,22px);
   }
 
-  /* boot terminal */
-  .term{
-    margin:16px auto 0; border:1px solid var(--phosdim); border-radius:10px;
-    background:rgba(1,10,5,.9);
-    box-shadow: inset 0 0 30px rgba(43,255,128,.06), 0 0 22px rgba(43,255,128,.16);
-    padding:12px 14px; font-size:12.5px; line-height:1.7; color:var(--phos);
-  }
-  .term .row{ white-space:pre-wrap; }
-  .term .k{ color:#5fcf8f; } .term .g{ color:var(--phos); } .term .m{ color:var(--acid); } .term .a{ color:var(--amber); }
-  .caret{ display:inline-block; width:9px; height:15px; vertical-align:-2px;
-    background:var(--phos); animation:blink 1s steps(1) infinite; }
-  @keyframes blink{ 50%{opacity:0} }
-
   /* ── masthead ── */
-  header{ text-align:center; margin-top:24px; }
-  .built{ display:inline-flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:18px;
-    padding:14px 30px; border:1px solid var(--phosdim); border-radius:12px;
-    background:rgba(2,16,9,.82); text-decoration:none;
-    box-shadow: inset 0 0 20px rgba(43,255,128,.05), 0 0 16px rgba(43,255,128,.14);
+  header{ text-align:center; margin-top:clamp(18px,4vh,40px); }
+  .built{ display:inline-flex; flex-direction:row; align-items:center; gap:12px; margin-bottom:6px;
+    padding:8px 18px; border:1px solid var(--phosdim); border-radius:999px;
+    background:rgba(2,16,9,.72); text-decoration:none;
+    box-shadow: inset 0 0 16px rgba(43,255,128,.05), 0 0 14px rgba(43,255,128,.12);
     transition:box-shadow .15s, transform .08s; }
-  .built:hover{ box-shadow: inset 0 0 20px rgba(43,255,128,.08), 0 0 26px rgba(43,255,128,.3); }
+  .built:hover{ box-shadow: inset 0 0 16px rgba(43,255,128,.08), 0 0 24px rgba(43,255,128,.28); }
   .built:active{ transform:translateY(1px); }
-  .built-lbl{ font-size:10px; letter-spacing:.42em; text-indent:.42em; text-transform:uppercase; color:#5fcf8f; }
-  .sr-logo{ height:clamp(22px,5.4vw,34px); width:auto; display:block;
+  .built-lbl{ font-size:9px; letter-spacing:.34em; text-indent:.34em; text-transform:uppercase; color:#5fcf8f; }
+  .sr-logo{ height:clamp(18px,4.4vw,24px); width:auto; display:block;
     filter:invert(1) sepia(1) saturate(4) hue-rotate(85deg) brightness(1.2)
       drop-shadow(0 0 8px rgba(43,255,128,.5)); }
-  .kicker{ font-size:11px; letter-spacing:.5em; text-indent:.5em; color:#5fcf8f; text-transform:uppercase; }
+  .kicker{ font-size:10.5px; letter-spacing:.5em; text-indent:.5em; color:#5fcf8f; text-transform:uppercase; margin-top:4px; }
   /* marquee sign: the psychedelic wordmark flanked by two live torches */
   .marquee-sign{ display:flex; align-items:center; justify-content:center; gap:clamp(4px,2vw,26px);
-    margin-top:12px; }
-  .marquee-art{ width:min(78vw,720px); height:auto; display:block;
+    margin-top:clamp(2px,1vh,10px); }
+  .marquee-art{ width:min(80vw,760px); height:auto; display:block;
     filter:drop-shadow(0 0 26px rgba(43,255,128,.35)) drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
   .torch{ flex:none; width:auto; height:clamp(70px,15vw,150px); image-rendering:auto;
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(52px,13vw,90px); } }
-  .dataplate{ width:max-content; max-width:94%; margin:14px auto 0;
-    border:1px solid var(--phosdim); border-radius:8px; background:rgba(1,10,5,.85); color:#5fcf8f;
+  .dataplate{ width:max-content; max-width:94%; margin:clamp(8px,2vh,14px) auto 0;
+    border:1px solid var(--phosdim); border-radius:999px; background:rgba(1,10,5,.72); color:#5fcf8f;
     font-size:9px; letter-spacing:.22em; text-indent:.22em; text-transform:uppercase;
-    padding:6px 14px; box-shadow:0 0 12px rgba(43,255,128,.14); }
-  .stars{ display:flex; justify-content:center; gap:10px; margin-top:14px; }
+    padding:6px 16px; box-shadow:0 0 12px rgba(43,255,128,.12); }
+  .stars{ display:flex; justify-content:center; gap:10px; margin-top:12px; }
   .stars b{ font-family:var(--fat); font-size:13px; color:var(--void);
     width:28px; height:28px; display:grid; place-items:center; border-radius:50%;
     background:linear-gradient(180deg,#6effa8,var(--phos) 60%,#0fae56); border:2px solid var(--ink);
@@ -129,36 +116,34 @@
     color:var(--phos); border:1px solid var(--phosdim); border-radius:8px; background:rgba(1,10,5,.85);
     padding:8px 16px; text-shadow:0 0 14px rgba(43,255,128,.5); }
 
-  /* ── scroll buttons: unrolled parchment + rolled tube ends, neon ink ── */
-  .btns{ display:flex; flex-wrap:wrap; gap:18px 30px; justify-content:center; margin-top:24px; }
+  /* ── nav buttons: neon-glass chips with a sweeping sheen ── */
+  .btns{ display:flex; flex-wrap:wrap; gap:12px 14px; justify-content:center; margin-top:clamp(18px,4vh,30px); }
   .btn{
-    position:relative; display:inline-block; text-decoration:none; font-family:var(--fat); cursor:pointer;
-    font-size:12px; letter-spacing:.14em; text-indent:.14em; text-transform:uppercase;
-    padding:15px 26px; border-radius:5px; color:#0d5a2c;
-    border:1.5px solid #9a7b45;
-    background:
-      repeating-linear-gradient(0deg, rgba(120,90,40,.07) 0 2px, transparent 2px 4px),
-      radial-gradient(120% 160% at 50% 40%, rgba(255,248,222,.5), transparent 70%),
-      linear-gradient(180deg,#f2e3b8,#e2cd97 55%,#cfb37c);
-    box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
-      0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(43,255,128,.3);
-    text-shadow:0 1px 0 rgba(255,248,220,.55);
-    transition:transform .08s;
-  }
-  .btn::before,.btn::after{                            /* the rolled ends */
-    content:''; position:absolute; top:-6px; bottom:-6px; width:15px; border-radius:7px;
-    background:linear-gradient(90deg,#5e4620,#a98c54 22%,#f7ecc9 50%,#a98c54 78%,#4a3517);
-    border:1px solid #3e2d12; box-shadow:0 3px 7px rgba(0,0,0,.5);
-  }
-  .btn::before{ left:-10px; } .btn::after{ right:-10px; }
-  .btn:hover{ transform:translateY(-1px) scaleX(1.015); }
-  .btn:active{ transform:translateY(4px); box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6), 0 1px 0 rgba(30,20,6,.55); }
-  .btn.alt{ color:#0a5a54; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
-    0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(39,247,228,.32); }
-  .btn.gold{ color:#7a520e; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
-    0 5px 0 rgba(30,20,6,.55), 0 0 18px rgba(255,210,59,.32); }
-  .btn.rip{ color:#96116f; box-shadow: inset 0 0 24px rgba(110,84,38,.38), inset 0 2px 0 rgba(255,250,230,.6),
-    0 5px 0 rgba(30,20,6,.55), 0 0 22px rgba(255,42,217,.42); }
+    --bc:43,255,128;                                   /* accent colour (rgb) — variants override */
+    position:relative; display:inline-flex; align-items:center; gap:8px; overflow:hidden;
+    text-decoration:none; font-family:var(--fat); cursor:pointer;
+    font-size:11.5px; letter-spacing:.13em; text-indent:.13em; text-transform:uppercase;
+    padding:13px 22px; border-radius:12px; color:#eafff2;
+    border:1px solid rgba(var(--bc),.5);
+    background:linear-gradient(180deg, rgba(var(--bc),.16), rgba(2,14,8,.72) 60%, rgba(1,8,5,.85));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 0 0 1px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.45),
+      0 0 18px rgba(var(--bc),.22);
+    text-shadow:0 0 10px rgba(var(--bc),.55);
+    transition:transform .12s cubic-bezier(.3,1.4,.5,1), box-shadow .2s, border-color .2s; }
+  .btn::before{                                        /* sweeping sheen on hover */
+    content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.18) 48%, transparent 62%);
+    transform:translateX(-120%); transition:transform .55s ease; }
+  .btn:hover{ transform:translateY(-2px); border-color:rgba(var(--bc),.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px rgba(0,0,0,.3), 0 10px 24px rgba(0,0,0,.5),
+      0 0 30px rgba(var(--bc),.5); }
+  .btn:hover::before{ transform:translateX(120%); }
+  .btn:active{ transform:translateY(0); }
+  .btn:focus-visible{ outline:2px solid rgba(var(--bc),.9); outline-offset:3px; }
+  .btn .ic{ filter:drop-shadow(0 0 6px rgba(var(--bc),.7)); }
+  .btn.alt{ --bc:39,247,228; }
+  .btn.gold{ --bc:255,210,59; color:#fff7e0; }
+  .btn.rip{ --bc:255,42,217; color:#fff; }
 
   /* ── how to play ── */
   .ritual{ margin-top:26px; }
@@ -510,12 +495,8 @@
   <div class="crt" aria-hidden="true"></div>
 
   <div class="wrap">
-    <div class="term" id="term" role="img" aria-label="Terminal boot: RIPMASTER OS online. Burn the token. Rip the pack.">
-      <div class="row" id="boot"></div><span class="caret" id="caret"></span>
-    </div>
-
     <header>
-      <div style="margin-top:22px">
+      <div>
         <a class="built" href="https://superrare.com" target="_blank" rel="noopener noreferrer">
           <span class="built-lbl">built on</span>
           <img class="sr-logo" src="logosuperare.svg" alt="SuperRare"
@@ -768,33 +749,6 @@
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ── boot terminal typewriter ──
-  const lines = [
-    ['> RIPMASTER OS v3030 ', 'k'], ['[', ''], ['OK', 'g'], [']\n', ''],
-    ['> mounting liquid editions ....... ', 'k'], ['ONLINE\n', 'g'],
-    ['> reading the deck ............... ', 'k'], ['196 SPIRITS + 1 MARQUEE\n', 'a'],
-    ['> gas weather .................... ', 'k'], ['SAVAGE\n', 'm'],
-    ['> WARNING: ', 'm'], ['we can\'t stop here, this is bat country\n', ''],
-    ['> burn the token. rip the pack.', 'g'],
-  ];
-  const boot = document.getElementById('boot');
-  if (reduce) {
-    boot.innerHTML = lines.map(([t,c]) => c ? `<span class="${c}">${t}</span>` : t).join('');
-  } else {
-    let li = 0, ci = 0;
-    const tick = () => {
-      if (li >= lines.length) return;
-      const [txt, cls] = lines[li];
-      if (ci === 0 && cls) boot.insertAdjacentHTML('beforeend', `<span class="${cls}"></span>`);
-      const target = cls ? boot.lastElementChild : boot;
-      const ch = txt[ci++];
-      if (cls) target.textContent += ch; else target.append(ch);
-      if (ci >= txt.length) { li++; ci = 0; }
-      setTimeout(tick, ch === '\n' ? 180 : 16 + Math.random()*22);
-    };
-    tick();
-  }
 
   // ── digital rain, on acid (hue drift is CSS; glyphs fall here) ──
   const cv = document.getElementById('rain'), ctx = cv.getContext('2d');
