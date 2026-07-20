@@ -132,6 +132,8 @@
     background:linear-gradient(180deg,#fff,var(--cyan) 40%,var(--magenta) 72%,var(--amber));
     -webkit-background-clip:text; background-clip:text; color:transparent;
     filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.5)); }
+  .dflogo{ display:block; width:min(440px,82%); max-width:100%; height:auto; margin:2px auto 6px;
+    filter: drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.55)); }
   .tag{ font-size:11.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:8px 0 2px; }
   .sub{ font-size:12.5px; color:#bfe9d3; max-width:480px; margin:6px auto 14px; line-height:1.55; }
   .sub b{ color:var(--amber); }
@@ -196,7 +198,7 @@
   <div class="crt" aria-hidden="true"><div class="crt-glare"></div><div class="crt-flick"></div><div class="crt-curve"></div><div class="crt-scan"></div></div>
   <div class="bezel" aria-hidden="true"></div>
   <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
-  <div class="marquee" aria-hidden="true"><span class="dot">◈</span> Upperdeck Ripmaster 3030 <span class="dot">·</span> Dogfight <span class="dot">◈</span></div>
+  <div class="marquee" aria-hidden="true"><span class="dot">◈</span> Upperdeck Ripmaster 3030 <span class="dot">·</span> <img src="dogfight.png" alt="" style="height:1.15em;vertical-align:-0.24em"> <span class="dot">◈</span></div>
 
   <div class="hud hud-tl" id="hudL" style="display:none">
     <div class="h-lbl">hull · <span id="hMe">you</span></div>
@@ -231,7 +233,7 @@
   <!-- LOBBY / WAGER -->
   <div class="ov show" id="ovLobby">
     <div class="panel">
-      <h1>DOGFIGHT</h1>
+      <img class="dflogo" src="dogfight.png" alt="DOGFIGHT">
       <div class="tag">winner takes all</div>
       <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$UR3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
 
@@ -361,7 +363,7 @@
     box.classList.remove('on'); void box.offsetWidth; box.classList.add('on'); }
   function commsRnd(kind,col){ const a=WINGLINES[kind]; if(a) comms(a[(Math.random()*a.length)|0],col); }
   let _tapL=0,_tapR=0,_tapC=0;
-  function doRoll(d){ const s=G.me; if(!s||!s.alive||s.rollT>0||s.respawnT>0)return; s.rollT=0.55; s.iframe=0.6; s.rollDir=d; sfxRoll(); powMsg('◈ BARREL ROLL'); }
+  function doRoll(d){ const s=G.me; if(!s||!s.alive||s.rollT>0||s.respawnT>0)return; s.rollT=0.55; s.iframe=0.62; s.rollDir=d; sfxRoll(); powMsg('◈ DEFLECTOR SHIELD'); }
 
   // ── net roster (RipNet): who's at the table ──
   const HANDLES=['Raoul Duke','Chuck Meltdown','Baron Von Blazed','Denim Reaper','Cogito Ribbit','Slim Bridger',
@@ -987,7 +989,13 @@
       pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
       edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
       img:(craftImgs.length?craftImgs[0]:null), boost:k.boost });
-    if(k.iframe>0){ ctx.strokeStyle='rgba(140,255,240,'+(0.35+0.4*Math.sin(G.t*20))+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(cx,H-base*1.7,base*1.7,0,TAU); ctx.stroke(); } }
+    if(k.iframe>0){ const cyb=H-base*1.7, R=base*1.85, pul=0.5+0.5*Math.sin(G.t*22); ctx.save();
+      // deflector shield bubble — glowing hex dome that flares while it blocks
+      const g=ctx.createRadialGradient(cx,cyb,R*0.35,cx,cyb,R); g.addColorStop(0,'rgba(40,247,228,0)'); g.addColorStop(.72,'rgba(40,247,228,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(120,255,240,'+(0.18+0.14*pul)+')');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyb,R,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(150,255,244,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=16;
+      ctx.beginPath(); for(let i=0;i<6;i++){ const a=G.t*1.5+i*TAU/6; const px=cx+Math.cos(a)*R, py=cyb+Math.sin(a)*R*0.94; i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.stroke();
+      ctx.restore(); } }
   function drawCockpit(){ const k=G.me||{spd:0,alt:0,bank:0}; ctx.save();
     ctx.translate(cx, H); ctx.rotate(-(k.bank||0)*0.14); ctx.translate(-cx,-H);   // canopy rolls a touch into turns → you feel the craft move
     // canopy glass tint + top bar
