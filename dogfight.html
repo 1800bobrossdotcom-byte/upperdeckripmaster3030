@@ -305,7 +305,7 @@
   const music=$('dfMusic');
   function playMusic(){ if(!musicOn)return; try{ music.volume=0.5; const p=music.play(); if(p&&p.catch)p.catch(()=>{});}catch{} }
   function powMsg(t){ const el=$('powMsg'); el.textContent=t; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
-  // ── wingmate radio comms (Star Fox flavour) ──
+  // ── wingmate radio comms ──
   const WINGLINES={ start:['Break and attack!','All craft, engage!','Let’s tear it up!'], kill:['Enemy down!','Nice shot!','Scratch one!','Boom — got ’em!'],
     hit:['You’re hit! Roll!','Pull up!','Shake ’em off!'], ring:['Nice flying!','Right through it!','Keep it up!'],
     respawn:['Back in the fight!','Rejoin the fray!'], win:['Mission complete!','We did it!'], lose:['We’ll get ’em next time.','Regroup!'] };
@@ -672,7 +672,7 @@
     else if(kind==='spire'){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.16,-sz*2.4); ctx.lineTo(sz*0.16,-sz*2.4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
     else if(kind==='tower'){ ctx.beginPath(); ctx.rect(-sz*0.34,-sz*2.2,sz*0.68,sz*2.2); ctx.fill(); ctx.stroke(); }
     else { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.5,-sz*0.9); ctx.lineTo(0,-sz*1.9); ctx.lineTo(sz*0.5,-sz*0.9); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
-  // Star Fox boost rings — fly through to refill boost
+  // boost rings — fly through to refill boost
   function drawGates(){ for(const gt of G.gates){ const p=project(gt.x,gt.y,gt.alt); if(!p||p.fwd>VIEW_FAR)continue; const R=clamp(p.scale*0.9,8,130), a=clamp(1-p.fwd/VIEW_FAR,0.15,1);
     ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=a; ctx.strokeStyle='#ffd23b'; ctx.shadowColor='#ffd23b'; ctx.shadowBlur=16; ctx.lineWidth=Math.max(2,R*0.16);
     ctx.beginPath(); ctx.ellipse(0,0,R,R*0.8,0,0,TAU); ctx.stroke();
@@ -706,19 +706,25 @@
   function drawEnemy(p,s,w){ const sz=clamp(p.scale*0.9,10,150), rel=angd(s.h-cam.h);
     const gp=project(s.x,s.y,0); ctx.save(); ctx.translate(p.x,p.y);
     if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x-p.x,gp.y-p.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
-    ctx.rotate(rel); ctx.scale(1, clamp(0.55+Math.abs(Math.cos(rel))*0.6,0.5,1.1));   // orient to flight axis + foreshorten head-on/tail-on
+    ctx.rotate(rel + (s.bank||0)*0.35); ctx.scale(1, clamp(0.55+Math.abs(Math.cos(rel))*0.6,0.5,1.1));   // orient to flight axis, bank into turns, foreshorten
     if(s.thrust){ ctx.save(); ctx.globalCompositeOperation='lighter'; const fl=sz*0.8; const g=ctx.createRadialGradient(0,sz*0.7,0,0,sz*0.7,fl); g.addColorStop(0,'rgba(255,240,150,.8)'); g.addColorStop(.5,s.tint+'88'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,sz*0.7,fl,0,TAU); ctx.fill(); ctx.restore(); }
     if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,sz*0.95,0,TAU); ctx.stroke(); }
-    // big swept wings (wide + angular)
-    ctx.shadowColor=s.tint; ctx.shadowBlur=8; ctx.fillStyle='rgba(12,26,34,.9)'; ctx.strokeStyle=s.tint; ctx.lineWidth=Math.max(1.1,sz*0.05); ctx.lineJoin='round';
-    [-1,1].forEach(sg=>{ ctx.beginPath(); ctx.moveTo(sg*sz*0.24,-sz*0.24); ctx.lineTo(sg*sz*1.2,sz*0.14); ctx.lineTo(sg*sz*1.14,sz*0.42); ctx.lineTo(sg*sz*0.2,sz*0.32); ctx.closePath(); ctx.fill(); ctx.stroke(); });
+    ctx.lineJoin='round'; const ex=sz*0.17;                     // extrusion depth → reads as a solid 3D body
+    const wing=sg=>{ ctx.beginPath(); ctx.moveTo(sg*sz*0.24,-sz*0.24); ctx.lineTo(sg*sz*1.2,sz*0.14); ctx.lineTo(sg*sz*1.14,sz*0.42); ctx.lineTo(sg*sz*0.2,sz*0.32); ctx.closePath(); };
+    const hull=()=>{ ctx.beginPath(); ctx.moveTo(0,-sz*0.86); ctx.lineTo(sz*0.34,-sz*0.24); ctx.lineTo(sz*0.28,sz*0.5); ctx.lineTo(-sz*0.28,sz*0.5); ctx.lineTo(-sz*0.34,-sz*0.24); ctx.closePath(); };
+    // dark under-belly (extruded copy shifted down) = thickness
+    ctx.save(); ctx.translate(0,ex); ctx.fillStyle='#03090f'; [-1,1].forEach(sg=>{ wing(sg); ctx.fill(); }); hull(); ctx.fill(); ctx.restore();
+    // lit top wings (directional shading)
+    ctx.shadowColor=s.tint; ctx.shadowBlur=8; ctx.strokeStyle=s.tint; ctx.lineWidth=Math.max(1.1,sz*0.05);
+    [-1,1].forEach(sg=>{ const wg=ctx.createLinearGradient(sg*sz*0.2,-sz*0.3,sg*sz*1.1,sz*0.42); wg.addColorStop(0,'rgba(220,250,255,.5)'); wg.addColorStop(0.5,'rgba(14,32,42,.95)'); wg.addColorStop(1,'#0a1a24'); ctx.fillStyle=wg; wing(sg); ctx.fill(); ctx.stroke(); });
     [-1,1].forEach(sg=>{ ctx.fillStyle=s.tint; ctx.beginPath(); ctx.arc(sg*sz*1.05,sz*0.3,sz*0.08,0,TAU); ctx.fill(); });
-    // central hull (hexagon — wider than tall)
-    ctx.shadowColor=s.tint; ctx.shadowBlur=13; const fg=ctx.createLinearGradient(0,-sz*0.85,0,sz*0.6); fg.addColorStop(0,'#ffffff'); fg.addColorStop(.4,s.tint); fg.addColorStop(1,'#06141c');
-    ctx.fillStyle=fg; ctx.strokeStyle='#ffffff'; ctx.lineWidth=Math.max(1,sz*0.045);
-    ctx.beginPath(); ctx.moveTo(0,-sz*0.86); ctx.lineTo(sz*0.34,-sz*0.24); ctx.lineTo(sz*0.28,sz*0.5); ctx.lineTo(-sz*0.28,sz*0.5); ctx.lineTo(-sz*0.34,-sz*0.24); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
-    // canopy
-    ctx.fillStyle='rgba(6,22,30,.9)'; ctx.beginPath(); ctx.ellipse(0,-sz*0.4,sz*0.14,sz*0.2,0,0,TAU); ctx.fill();
+    // hull top face — strong top-light gradient (volume)
+    ctx.shadowBlur=13; const fg=ctx.createLinearGradient(-sz*0.28,-sz*0.9,sz*0.28,sz*0.55); fg.addColorStop(0,'#ffffff'); fg.addColorStop(.38,s.tint); fg.addColorStop(1,'#05121a');
+    ctx.fillStyle=fg; ctx.strokeStyle='#ffffff'; ctx.lineWidth=Math.max(1,sz*0.045); hull(); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+    // spine highlight + canopy with glint
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=Math.max(1,sz*0.03); ctx.beginPath(); ctx.moveTo(0,-sz*0.8); ctx.lineTo(0,sz*0.42); ctx.stroke();
+    ctx.fillStyle='rgba(6,22,30,.94)'; ctx.beginPath(); ctx.ellipse(0,-sz*0.4,sz*0.14,sz*0.2,0,0,TAU); ctx.fill();
+    ctx.fillStyle='rgba(190,244,255,.55)'; ctx.beginPath(); ctx.ellipse(-sz*0.045,-sz*0.46,sz*0.05,sz*0.09,0,0,TAU); ctx.fill();
     ctx.restore();
     // nameplate + hp + lock bracket (unrotated)
     ctx.save(); ctx.textAlign='center'; ctx.font='900 '+clamp(sz*0.34,9,15)+'px Arial'; ctx.fillStyle='#d9ffe9'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
