@@ -37,7 +37,7 @@
     font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.30em; text-transform:uppercase;
     color:#8ffdf0; text-shadow:0 0 10px rgba(39,247,228,.7),0 0 2px #000; }
   .marquee .dot{ color:var(--magenta); text-shadow:0 0 10px rgba(255,42,217,.85); }
-  #cv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block;
+  #cv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
     width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
     border-radius:var(--rad); background:#05070b; box-shadow:inset 0 0 90px rgba(0,0,0,.9), inset 0 0 30px rgba(39,247,228,.05); cursor:crosshair; }
   /* ── heavy CRT: scanlines + phosphor flicker + curvature + glare, clipped to the tube ── */
@@ -111,23 +111,28 @@
   .key kbd{ font-family:var(--fat); font-size:9px; min-width:16px; text-align:center; padding:3px 5px; border-radius:5px;
     color:#05121a; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
   @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
-  .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none;
-    align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; color:#05121a; }
-  .stick{ left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 22px); width:104px; height:104px;
-    background:radial-gradient(circle at 50% 50%,rgba(43,255,128,.12),rgba(2,10,14,.5)); border:2px solid rgba(43,255,128,.35); }
-  .stick .nub{ position:absolute; width:44px; height:44px; border-radius:50%; left:30px; top:30px;
-    background:radial-gradient(circle at 40% 34%,#bfffd8,#2bff80 60%,#0fae56); border:2px solid #063; box-shadow:0 0 14px rgba(43,255,128,.5); }
-  .btn-fire{ right:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 92px); width:88px; height:88px;
-    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); color:#fff; }
-  .btn-jump{ right:calc(var(--bez) + 112px); bottom:calc(var(--bez) + 40px); width:60px; height:60px;
-    background:radial-gradient(circle at 40% 34%,#bfe8ff,#59baff 60%,#1f6fc0); border:2px solid #0a2b52; color:#04121f; }
-  .btn-rl{ right:calc(var(--bez) + 22px); bottom:calc(var(--bez) + 8px); width:52px; height:52px; font-size:10px;
-    background:radial-gradient(circle at 40% 34%,#ffe9a8,#ffd23b 60%,#c89400); border:2px solid #5c4400; color:#3a2b00; }
-  .btn-spr{ right:calc(var(--bez) + 100px); bottom:calc(var(--bez) + 108px); width:52px; height:52px; font-size:9px;
-    background:radial-gradient(circle at 40% 34%,#cfeee0,#7ea892 60%,#3f6650); border:2px solid #14321f; color:#04121f; }
-  .btn-wp{ right:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 190px); width:46px; height:46px; font-size:15px;
-    background:radial-gradient(circle at 40% 34%,#dfeef6,#8fb6c8 60%,#4a6d7c); border:2px solid #16323c; color:#04121f; }
-  @media (hover:none){ .pad{ display:flex; } }
+  .pad{ position:fixed; z-index:7; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none;
+    touch-action:none; align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; color:#05121a; opacity:.92; }
+  .pad.dn{ transform:scale(.92); filter:brightness(1.3); }
+  .btn-fire{ right:calc(var(--bez) + 18px); bottom:calc(var(--bez) + 74px); width:92px; height:92px; font-size:15px; color:#fff;
+    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 62%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); }
+  .btn-ads{ right:calc(var(--bez) + 122px); bottom:calc(var(--bez) + 46px); width:64px; height:64px; font-size:10px; color:#04252c;
+    background:radial-gradient(circle at 40% 34%,#c8fffa,#27f7e4 62%,#0c9d94); border:2px solid #06413f; box-shadow:0 0 14px rgba(39,247,228,.45); }
+  .btn-jump{ right:calc(var(--bez) + 134px); bottom:calc(var(--bez) + 124px); width:64px; height:64px; font-size:10px; color:#04121f;
+    background:radial-gradient(circle at 40% 34%,#d8ffbe,#2bff80 62%,#0fae56); border:2px solid #063; box-shadow:0 0 14px rgba(43,255,128,.4); }
+  .btn-rl{ right:calc(var(--bez) + 30px); bottom:calc(var(--bez) + 180px); width:56px; height:56px; font-size:9px; color:#3a2b00;
+    background:radial-gradient(circle at 40% 34%,#ffe9a8,#ffd23b 62%,#c89400); border:2px solid #5c4400; box-shadow:0 0 12px rgba(255,210,59,.4); }
+  /* floating move stick: base ring + nub spawned under the finger on the left half of the tube */
+  .tstick,.tstick-nub{ position:fixed; left:0; top:0; z-index:7; display:none; pointer-events:none; border-radius:50%; }
+  .tstick{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
+    background:radial-gradient(circle,rgba(39,247,228,.10),rgba(39,247,228,.03) 62%,transparent 72%);
+    box-shadow:0 0 18px rgba(39,247,228,.28), inset 0 0 14px rgba(39,247,228,.15); }
+  .tstick-nub{ width:52px; height:52px; margin:-26px 0 0 -26px; border:2px solid #06413f;
+    background:radial-gradient(circle at 42% 36%,#bffef5,#27f7e4 60%,#0c9d94); box-shadow:0 0 16px rgba(39,247,228,.6); }
+  @media (hover:none){ .pad{ display:flex; } .hud-br{ bottom:calc(var(--bez) + 252px); }
+    .weap-slots{ pointer-events:auto; } .wslot{ font-size:11px; padding:10px 12px; } }
+  body.touchmode .pad{ display:flex; } body.touchmode .hud-br{ bottom:calc(var(--bez) + 252px); }
+  body.touchmode .weap-slots{ pointer-events:auto; } body.touchmode .wslot{ font-size:11px; padding:10px 12px; }
   /* overlays */
   .ov{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad); z-index:10; display:none; place-items:center; padding:18px 14px; overflow:auto;
     background:radial-gradient(120% 100% at 50% 26%, rgba(10,22,32,.74), rgba(1,3,6,.96)); backdrop-filter:blur(3px); }
@@ -230,13 +235,13 @@
 
   <div class="toggles" id="toggles"><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx">🔊 sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
 
-  <!-- touch -->
-  <div class="pad stick" id="padStick"><div class="nub" id="stickNub"></div></div>
+  <!-- touch: floating move stick (spawns on the left half) + action cluster (bottom-right) -->
+  <div class="tstick" id="tsBase" aria-hidden="true"></div>
+  <div class="tstick-nub" id="tsNub" aria-hidden="true"></div>
   <div class="pad btn-fire" id="padFire">FIRE</div>
+  <div class="pad btn-ads" id="padADS">ADS</div>
   <div class="pad btn-jump" id="padJump">JUMP</div>
-  <div class="pad btn-rl" id="padRL">RELOAD</div>
-  <div class="pad btn-spr" id="padSpr">SPRINT</div>
-  <div class="pad btn-wp" id="padWp">⇄</div>
+  <div class="pad btn-rl" id="padRL">RL</div>
 
   <div class="controls" id="controls">
     <span class="key desk"><kbd>WASD</kbd> move</span>
@@ -247,7 +252,7 @@
     <span class="key desk"><kbd>SPC</kbd> jump</span>
     <span class="key desk"><kbd>R</kbd> reload</span>
     <span class="key desk"><kbd>1-4</kbd> weapon</span>
-    <span class="key touch">L-stick move · drag look · buttons fire/jump</span>
+    <span class="key touch">left: move stick (full tilt = sprint) · right: drag to look · hold FIRE / ADS · tap weapon chips</span>
   </div>
 
   <!-- LOBBY / WAGER -->
@@ -306,7 +311,7 @@
   <div class="ov" id="ovPause">
     <div class="panel">
       <h1 style="font-size:clamp(26px,8vw,54px)">PAUSED</h1>
-      <div class="sub">Pointer released. Click to lock the mouse and drop back in.</div>
+      <div class="sub" id="pauseSub">Pointer released. Click to lock the mouse and drop back in.</div>
       <div><button class="go alt" id="btnResume">▶ Resume</button></div>
       <div><button class="go" id="btnAbort">✕ Abort to briefing</button></div>
     </div>
@@ -784,7 +789,8 @@
     tryLock();
   }
   function buildWeapSlots(){ $('weapSlots').innerHTML=WEAPONS.map((w,i)=>`<span class="wslot" data-w="${i}">${i+1}·${w.key}</span>`).join('');
-    $('weapSlots').querySelectorAll('.wslot').forEach(el=>el.onclick=()=>switchWeapon(+el.dataset.w)); }
+    $('weapSlots').querySelectorAll('.wslot').forEach(el=>{ el.onclick=()=>switchWeapon(+el.dataset.w);
+      el.addEventListener('pointerdown',e=>{ if(e.pointerType==='touch'){ e.preventDefault(); switchWeapon(+el.dataset.w); } }); }); }
 
   function addKill(killer,victim,head){ G.kills.unshift({ k:killer?killer.name:'', v:victim.name, me:(killer&&killer.isMe)||victim.isMe, kMe:killer&&killer.isMe, head:!!head, t:2.6 });
     if(G.kills.length>5)G.kills.pop(); }
@@ -910,7 +916,8 @@
     const spd=(e.sprinting?7.0:4.3)*(e.scoped?0.5:1);
     const s=Math.sin(e.yaw), c=Math.cos(e.yaw);
     let mx=(s*fwd + c*strafe), mz=(c*fwd - s*strafe); const ml=Math.hypot(mx,mz);
-    if(ml>0.001){ mx/=ml; mz/=ml; moveEnt(e, mx*spd*dt, mz*spd*dt); e.moving=true; e.bob+=dt*(e.sprinting?13:9);
+    const mag=Math.min(1,ml);   // analog stick magnitude (keys always saturate to 1)
+    if(ml>0.001){ mx/=ml; mz/=ml; moveEnt(e, mx*spd*mag*dt, mz*spd*mag*dt); e.moving=true; e.bob+=dt*(e.sprinting?13:9);
       if(e.onGround){ e._stepT=(e._stepT||0)-dt; if(e._stepT<=0){ e._stepT=e.sprinting?0.28:0.4; SFX.step(); } } }
     else e.moving=false;
     // jump
@@ -926,6 +933,10 @@
 
   // ══════════════════ MAIN STEP ══════════════════
   function step(dt){ G.t+=dt;
+    // decay FIRST so a kick set later this same step still renders for at least one frame
+    if(G.shake>0)G.shake=Math.max(0,G.shake-dt*40);                    // shake: sharp kick, fast settle
+    if(G.fireFlash>0)G.fireFlash=Math.max(0,G.fireFlash-dt*8);         // muzzle light dies quicker still
+    if(!reduce) G.horizonHue=(G.horizonHue+dt*2.4)%360;                // slow sky-phase walk (mapped into the 180-300 band in draw)
     for(const e of G.ents){ if(e.reloadT>0){ e.reloadT-=dt*1000; if(e.reloadT<=0) finishReload(e); }
       if(e.fireT>0)e.fireT-=dt*1000; if(e.iframe>0)e.iframe-=dt; if(e.recoil>0)e.recoil=Math.max(0,e.recoil-dt*4.5); if(e.muzzle>0)e.muzzle-=dt;
       if(!e.alive){ e.respawnT-=dt; if(e.respawnT<=0){ spawnEnt(e, e.isMe?(wager.loadout|0):e.weapon); if(e.isMe){ powMsg('◈ RESPAWN','#59e0ff'); SFX.spawn(); } } continue; }
@@ -952,7 +963,19 @@
   // ══════════════════ DRAW ══════════════════
   function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,H);
     g.addColorStop(0,'#0a0f16'); g.addColorStop(0.5,'#070b11'); g.addColorStop(1,'#04070c');
-    ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
+    ctx.fillStyle=g; ctx.fillRect(-24,-24,W+48,H+48);                  // overdrawn so screen shake never reveals stale edges
+    // drifting neon horizon: G.horizonHue is a slow phase, mapped into the tactical 180-300 hue band (never rainbow)
+    const hue=240+60*Math.sin(G.horizonHue*(Math.PI/180));
+    const hr=hue>240?(hue-240)/60:0, hg=hue<240?(240-hue)/60:0;
+    FOG[0]=9+hr*4.5; FOG[1]=10.5+hg*4; FOG[2]=16.5;                    // fog chases the same family → distant geometry melts into the sky
+    const hy=HH + FOCAL*Math.tan(cam.pitch), bh=H*0.16;                // horizon line on screen
+    if(hy>-bh && hy<H+bh){
+      const b=ctx.createLinearGradient(0,hy-bh,0,hy+bh*0.45);
+      b.addColorStop(0,'hsla('+(hue|0)+',85%,62%,0)');
+      b.addColorStop(0.8,'hsla('+(hue|0)+',85%,62%,0.10)');
+      b.addColorStop(1,'hsla('+(hue|0)+',85%,62%,0)');
+      ctx.fillStyle=b; ctx.fillRect(-24,hy-bh,W+48,bh*1.45); }
+  }
   // an operative = stacked AA boxes (legs, torso, head) + a gun box offset toward facing
   function drawEntities(){
     for(const e of G.ents){ if(!e.alive||e.isMe) continue;
@@ -972,6 +995,18 @@
       if(e.muzzle>0){ boxFaces(gx-0.12,gy-0.1,gz-0.12, gx+0.12,gy+0.14,gz+0.12, [255,230,120], {skipBottom:false,bias:-0.4}); }
     }
   }
+  // faint additive ground-glow under each operative in their tint — an emissive read that pops them out of the fog
+  function drawEntGlow(){ ctx.save(); ctx.globalCompositeOperation='lighter';
+    for(const e of G.ents){ if(!e.alive||e.isMe) continue;
+      const dd=Math.hypot(e.x-cam.x,e.z-cam.z); if(dd>FAR) continue;
+      if(!losClear(cam.x,cam.y,cam.z, e.x,e.y+e.h*0.6,e.z)) continue;         // no glow through walls
+      const p=projectPoint(e.x, e.y+0.06, e.z); if(!p) continue;
+      const r=clamp(p.s*0.62,6,64), a=(0.10+0.10*fogT(p.z))*((e.spawnT>0||e.iframe>0)?0.5:1);
+      const c=e.tint, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);
+      g.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); g.addColorStop(1,'rgba('+cs+',0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(p.x,p.y,r,r*0.34,0,0,TAU); ctx.fill(); }
+    ctx.restore(); }
   function drawChunks(){ for(const c of G.chunks){ const p=projectPoint(c.x,c.y,c.z); if(!p)continue; const s=Math.max(1.5,c.s*p.s);
       ctx.fillStyle=rgb(lerpCol(c.col,FOG,fogT(p.z))); ctx.globalAlpha=clamp(c.t*1.4,0,1); ctx.fillRect(p.x-s/2,p.y-s/2,s,s); } ctx.globalAlpha=1; }
   function drawTracers(){ ctx.save(); ctx.lineCap='round';
@@ -1070,12 +1105,29 @@
     camTrig();
     // fov / focal (scope zoom)
     const fov=1.06/ (G.scopeZoom||1); FOCAL=HH/Math.tan(fov/2);
+    // light breath: two slow warm/cool sines (~7s / ~11s) modulate the baked shading ±3-4%; frozen under reduced-motion
+    if(reduce){ LMr=1; LMg=1; LMb=1; }
+    else { const wa=Math.sin(G.t*(TAU/7)), co=Math.sin(G.t*(TAU/11)+1.7);
+      LMr=1+0.035*wa-0.012*co; LMg=1+0.018*wa+0.010*co; LMb=1-0.020*wa+0.038*co; }
+    // screen shake: jitter the WORLD passes only — viewmodel/crosshair/HUD stay steady
+    const sh=(!reduce&&G.shake>0)?Math.min(G.shake,14):0;
+    const jx=sh?rnd(sh,-sh):0, jy=sh?rnd(sh,-sh)*0.8:0;
+    ctx.save(); if(sh)ctx.translate(jx,jy);
     drawBackground();
     drawMapFaces();
     drawEntities();
     flushDrawList();
+    drawNeon();
+    drawEntGlow();
     drawChunks(); drawTracers(); drawFlashes(); drawSparks();
     drawNameplates();
+    ctx.restore();
+    // muzzle-light kick: subtle center-weighted additive tint on heavy shots (not a whiteout)
+    if(G.fireFlash>0 && G.fireHeavy){ const a=G.fireFlash*0.10, c=G.fireCol, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const rg=ctx.createRadialGradient(HW,HH,0,HW,HH,Math.max(W,H)*0.62);
+      rg.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); rg.addColorStop(1,'rgba('+cs+',0)');
+      ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
     drawViewmodel();
     drawCrosshair();
     // damage vignette (DOM)
@@ -1185,7 +1237,9 @@
   // ── toggles / pause ──
   function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); $('tgSfx').textContent=sfxOn?'🔊 sfx':'🔇 sfx'; }
   function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
-  function togglePause(force){ if(G.mode==='play'){ G.mode='pause'; music.pause(); $('ovPause').classList.add('show'); $('tgPause').textContent='▶ resume'; }
+  function togglePause(force){ if(G.mode==='play'){ G.mode='pause'; music.pause();
+    $('pauseSub').textContent=isTouch?'Deployment on hold. Tap resume to drop back in.':'Pointer released. Click to lock the mouse and drop back in.';
+    $('ovPause').classList.add('show'); $('tgPause').textContent='▶ resume'; }
     else if(G.mode==='pause' && !force){ resume(); } }
   function resume(){ if(G.mode!=='pause')return; G.mode='play'; $('ovPause').classList.remove('show'); $('tgPause').textContent='⏸ pause'; playMusic(); tryLock(); }
   $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic; $('tgPause').onclick=()=>togglePause();
@@ -1193,30 +1247,58 @@
     ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='none'); $('killfeed').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
     $('ovLobby').classList.add('show'); music.pause(); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
 
-  // ══════════════════ TOUCH ══════════════════
-  const isTouch=matchMedia('(hover:none)').matches || ('ontouchstart' in window);
-  const touch={ move:{active:false,x:0,y:0,id:-1}, look:{active:false,id:-1,lx:0,ly:0}, fire:false, jump:false, sprint:false, scope:false };
-  const stick=$('padStick'), nub=$('stickNub');
-  function bindPad(el,on,off){ el.addEventListener('touchstart',e=>{e.preventDefault();on(e);},{passive:false});
-    el.addEventListener('touchend',e=>{e.preventDefault();off(e);},{passive:false}); el.addEventListener('touchcancel',off); }
-  if(isTouch){
-    stick.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.changedTouches[0]; touch.move.active=true; touch.move.id=t.identifier; stickAt(t); },{passive:false});
-    stick.addEventListener('touchmove',e=>{ e.preventDefault(); for(const t of e.changedTouches){ if(t.identifier===touch.move.id) stickAt(t); } },{passive:false});
-    stick.addEventListener('touchend',e=>{ for(const t of e.changedTouches){ if(t.identifier===touch.move.id){ touch.move.active=false; touch.move.x=0; touch.move.y=0; nub.style.left='30px'; nub.style.top='30px'; } } });
-    function stickAt(t){ const r=stick.getBoundingClientRect(); let dx=(t.clientX-(r.left+r.width/2))/(r.width/2), dy=(t.clientY-(r.top+r.height/2))/(r.height/2);
-      const m=Math.hypot(dx,dy); if(m>1){dx/=m;dy/=m;} touch.move.x=dx; touch.move.y=dy; nub.style.left=(30+dx*30)+'px'; nub.style.top=(30+dy*30)+'px'; }
-    // look drag on right half of canvas
-    cv.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){ if(t.clientX>innerWidth*0.42 && !touch.look.active){ touch.look.active=true; touch.look.id=t.identifier; touch.look.lx=t.clientX; touch.look.ly=t.clientY; } } },{passive:false});
-    cv.addEventListener('touchmove',e=>{ if(G.mode!=='play')return; for(const t of e.changedTouches){ if(t.identifier===touch.look.id){ e.preventDefault(); const dx=t.clientX-touch.look.lx, dy=t.clientY-touch.look.ly; touch.look.lx=t.clientX; touch.look.ly=t.clientY;
-      if(G.me){ G.me.yaw+=dx*0.006; G.me.pitch=clamp(G.me.pitch - dy*0.006,-1.45,1.45); } } } },{passive:false});
-    cv.addEventListener('touchend',e=>{ for(const t of e.changedTouches){ if(t.identifier===touch.look.id) touch.look.active=false; } });
-    bindPad($('padFire'),()=>touch.fire=true,()=>touch.fire=false);
-    bindPad($('padJump'),()=>touch.jump=true,()=>{});
-    bindPad($('padSpr'),()=>touch.sprint=true,()=>touch.sprint=false);
-    bindPad($('padRL'),()=>startReload(G.me),()=>{});
-    bindPad($('padWp'),()=>switchWeapon((G.me.weapon+1)%WEAPONS.length),()=>{});
-    // long-press fire with sniper = scope? add a scope pad only when sniper — keep simple: double-tap look area toggles scope
+  // ══════════════════ TOUCH (pointer events: floating stick · look-drag · action cluster) ══════════════════
+  let isTouch=matchMedia('(hover:none)').matches || ('ontouchstart' in window);
+  if(isTouch){ try{ document.body.classList.add('touchmode'); }catch{} }
+  function touchUpgrade(){ if(!isTouch){ isTouch=true; document.body.classList.add('touchmode'); } }   // hybrid: first real touch flips us
+  const touch={ move:{active:false,x:0,y:0,id:-1,cx:0,cy:0}, look:{active:false,id:-1,lx:0,ly:0}, fire:false, jump:false, sprint:false, scope:false };
+  const tsBase=$('tsBase'), tsNub=$('tsNub');
+  const T_RAD=56, T_DEAD=10, LOOK_X=0.0065, LOOK_Y=0.0055;             // shared Ripmaster touch language
+  function stickShow(x,y){ tsBase.style.display='block'; tsNub.style.display='block';
+    tsBase.style.transform='translate('+x+'px,'+y+'px)'; tsNub.style.transform='translate('+x+'px,'+y+'px)'; }
+  function stickHide(){ tsBase.style.display='none'; tsNub.style.display='none';
+    touch.move.active=false; touch.move.id=-1; touch.move.x=0; touch.move.y=0; touch.sprint=false; }
+  function stickMove(px,py){ const m=touch.move; let dx=px-m.cx, dy=py-m.cy; const d=Math.hypot(dx,dy);
+    if(d>T_RAD){ const k=T_RAD/d; dx*=k; dy*=k; }
+    tsNub.style.transform='translate('+(m.cx+dx)+'px,'+(m.cy+dy)+'px)';
+    if(d<T_DEAD){ m.x=0; m.y=0; touch.sprint=false; return; }
+    m.x=dx/T_RAD; m.y=dy/T_RAD;                                        // y<0 = forward (stepMe does fwd += -y)
+    touch.sprint = d>=T_RAD*0.85 && m.y<-0.35;                         // pushed to the rim, mostly forward → auto-sprint
   }
+  cv.addEventListener('pointerdown',e=>{ if(e.pointerType!=='touch') return;
+    touchUpgrade(); e.preventDefault();
+    if(G.mode==='pause'){ resume(); return; }                          // tap the tube to resume — never pointer-locks on touch
+    if(G.mode!=='play') return;
+    const r=cv.getBoundingClientRect();
+    if(e.clientX < r.left + r.width/2){                                // LEFT half → spawn the move stick under the finger
+      if(!touch.move.active){ touch.move.active=true; touch.move.id=e.pointerId; touch.move.cx=e.clientX; touch.move.cy=e.clientY;
+        touch.move.x=0; touch.move.y=0; stickShow(e.clientX,e.clientY); try{ cv.setPointerCapture(e.pointerId); }catch{} } }
+    else if(!touch.look.active){                                       // RIGHT half → camera look-drag
+      touch.look.active=true; touch.look.id=e.pointerId; touch.look.lx=e.clientX; touch.look.ly=e.clientY;
+      try{ cv.setPointerCapture(e.pointerId); }catch{} }
+  });
+  cv.addEventListener('pointermove',e=>{ if(e.pointerType!=='touch') return;
+    if(touch.move.active && e.pointerId===touch.move.id){ e.preventDefault(); stickMove(e.clientX,e.clientY); }
+    else if(touch.look.active && e.pointerId===touch.look.id && G.mode==='play' && G.me){ e.preventDefault();
+      const dx=e.clientX-touch.look.lx, dy=e.clientY-touch.look.ly; touch.look.lx=e.clientX; touch.look.ly=e.clientY;
+      const z=G.scopeZoom||1;
+      G.me.yaw+=dx*LOOK_X/z; G.me.pitch=clamp(G.me.pitch - dy*LOOK_Y/z, -1.45,1.45); }
+  });
+  function touchEnd(e){ if(e.pointerType!=='touch') return;
+    if(e.pointerId===touch.move.id) stickHide();
+    if(e.pointerId===touch.look.id){ touch.look.active=false; touch.look.id=-1; } }
+  cv.addEventListener('pointerup',touchEnd); cv.addEventListener('pointercancel',touchEnd);
+  // action cluster: FIRE hold · ADS hold · JUMP tap · RL tap (pressed state via .dn; buttons only render under hover:none)
+  function bindPad(el,on,off){
+    el.addEventListener('pointerdown',e=>{ e.preventDefault(); if(e.pointerType==='touch')touchUpgrade();
+      el.classList.add('dn'); try{ el.setPointerCapture(e.pointerId); }catch{} on(); });
+    const up=()=>{ el.classList.remove('dn'); if(off)off(); };
+    el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up); el.addEventListener('pointerleave',up);
+  }
+  bindPad($('padFire'),()=>{ touch.fire=true; },()=>{ touch.fire=false; });
+  bindPad($('padADS'), ()=>{ touch.scope=true; },()=>{ touch.scope=false; });
+  bindPad($('padJump'),()=>{ touch.jump=true; },null);                 // consumed on next grounded step (mini jump-buffer)
+  bindPad($('padRL'),  ()=>{ if(G.me&&G.mode==='play')startReload(G.me); },null);
 
   // tavern widget + gate refresh on connect
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
@@ -1230,6 +1312,7 @@
     requestAnimationFrame(frame);
   }
   G.scopeZoom=1;
+  if(location.hash==='#debug') window.__S9={G,cam,touch,WEAPONS,get MAP(){return MAP;}};   // headless-test hook (inert in normal play)
   loadDeck().then(()=>{ refreshPot(); });
   requestAnimationFrame(frame);
 })();
