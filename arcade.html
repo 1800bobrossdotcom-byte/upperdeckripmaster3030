@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ARCADE · Upperdeck Ripmaster 3030</title>
+<meta name="description" content="The Upperdeck Ripmaster 3030 arcade — fly Riprocketer, dogfight for the pot, and more. Every cabinet runs on your $UR3030 deck.">
+<meta name="theme-color" content="#02040a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
+    --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ min-height:100%; }
+  body{ font-family:var(--mono); color:var(--ink); background:radial-gradient(130% 100% at 50% -10%, #14042e 0%, #06030f 52%, #02040a 100%);
+    padding:24px 16px 60px; overflow-x:hidden; }
+  a{ color:inherit; text-decoration:none; }
+  .wrap{ max-width:1000px; margin:0 auto; }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+  .back{ font-size:12px; letter-spacing:.06em; color:#9fe6c8; } .back:hover{ color:var(--lime); }
+  .tav{ display:flex; }
+  h1{ font-family:var(--fat); font-size:clamp(40px,12vw,96px); line-height:.9; letter-spacing:.02em; text-align:center; margin:18px 0 2px;
+    background:linear-gradient(180deg,#fff,var(--cyan) 38%,var(--magenta) 70%,var(--amber)); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)); animation:hue 22s linear infinite; }
+  @keyframes hue{ from{filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)) hue-rotate(0)} to{filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 30px rgba(255,42,217,.5)) hue-rotate(360deg)} }
+  .sub{ text-align:center; font-size:12.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); margin-bottom:24px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
+  .cab{ position:relative; display:block; border-radius:16px; overflow:hidden; padding:20px 18px 18px; min-height:200px;
+    background:linear-gradient(180deg, rgba(10,20,30,.8), rgba(3,6,12,.92)); border:1px solid rgba(39,247,228,.28);
+    box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 40px rgba(39,247,228,.05); transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+  .cab:hover{ transform:translateY(-4px); border-color:rgba(39,247,228,.6); box-shadow:0 16px 40px rgba(0,0,0,.6), 0 0 30px rgba(39,247,228,.18), inset 0 0 40px rgba(39,247,228,.08); }
+  .cab.soon{ opacity:.72; } .cab.soon:hover{ transform:none; }
+  .ic{ font-size:40px; line-height:1; filter:drop-shadow(0 0 12px rgba(39,247,228,.5)); }
+  .nm{ font-family:var(--fat); font-size:20px; letter-spacing:.02em; margin:12px 0 4px; color:#eafff6; }
+  .tag{ font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-bottom:8px; }
+  .dsc{ font-size:12.5px; line-height:1.55; color:#bfe9d3; }
+  .play{ position:absolute; right:16px; bottom:14px; font-family:var(--fat); font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#031;
+    background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:1px solid #063; border-radius:8px; padding:7px 12px; box-shadow:0 3px 0 #063; }
+  .cab.soon .play{ background:#1a2733; color:#7fd8a8; border-color:#2a3a48; box-shadow:0 3px 0 #12202c; }
+  .cab .rr{ position:absolute; top:12px; right:14px; font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--magenta); }
+  .foot{ text-align:center; font-size:11px; color:#7fd8a8; margin-top:26px; } .foot a{ color:var(--lime); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="back" href="index.html">◄ back to the pack</a>
+      <div class="tav"><div id="tavern"></div></div>
+    </div>
+    <h1>ARCADE</h1>
+    <div class="sub">upperdeck ripmaster 3030 · your deck is the machine</div>
+
+    <div class="grid">
+      <a class="cab" href="riprocketer.html">
+        <span class="rr">on-rails</span>
+        <div class="ic">🚀</div>
+        <div class="nm">RIP ROCKETER</div>
+        <div class="tag">burn · score · boss</div>
+        <div class="dsc">Your deck builds a starfighter. Burn 25 $UR3030, throttle through living worlds, blast chain-spawned targets and the PRIZM DREADNOUGHT.</div>
+        <span class="play">▶ Play</span>
+      </a>
+
+      <a class="cab" href="dogfight.html">
+        <span class="rr">all-range</span>
+        <div class="ic">⚔️</div>
+        <div class="nm">DOGFIGHT</div>
+        <div class="tag">winner takes all</div>
+        <div class="dsc">A psychedelic Star-Fox deathmatch. Ante $UR3030 + cards, barrel-roll and boost through the arena, rack up frags — most kills takes the pot.</div>
+        <span class="play">▶ Play</span>
+      </a>
+
+      <a class="cab" href="cards/battle.html">
+        <span class="rr">1v1</span>
+        <div class="ic">🃏</div>
+        <div class="nm">THE ARENA</div>
+        <div class="tag">street-fighter reveal</div>
+        <div class="dsc">Call out rippers in the live lobby, ante a real $UR3030 burn, and settle it in a face-off over your staked cards.</div>
+        <span class="play">▶ Enter</span>
+      </a>
+
+      <span class="cab soon" id="section9">
+        <span class="rr">tactical fps</span>
+        <div class="ic">🎯</div>
+        <div class="nm">SECTION 9 TASK FORCE</div>
+        <div class="tag">deathmatch · coming soon</div>
+        <div class="dsc">A low-poly tactical shooter — rooms, stairs, snipers, and the same winner-takes-all wagering. Booting up.</div>
+        <span class="play">◷ Soon</span>
+      </span>
+    </div>
+
+    <div class="foot">Every cabinet runs on your $UR3030 deck · <a href="index.html">rip a pack</a> to load up · <a href="cards/">the deck</a></div>
+  </div>
+
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/wallet-ui.js"></script>
+<script>
+  // if Section 9 has been deployed, light it up as playable
+  fetch('section9.html', { method:'HEAD' }).then(r=>{ if(r.ok){ const el=document.getElementById('section9');
+    el.className='cab'; el.setAttribute('role','link'); el.style.cursor='pointer';
+    el.querySelector('.tag').textContent='deathmatch · tactical fps';
+    el.querySelector('.play').textContent='▶ Play'; el.onclick=()=>location.href='section9.html'; } }).catch(()=>{});
+  if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
+</script>
+</body>
+</html>
