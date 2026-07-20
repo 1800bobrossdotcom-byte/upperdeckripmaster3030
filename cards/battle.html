@@ -115,6 +115,10 @@
     text-overflow:ellipsis; text-transform:uppercase; }
   .tile .rr{ position:absolute; top:3px; right:3px; z-index:3; font-size:7px; font-family:var(--fat);
     text-transform:uppercase; padding:1px 4px; border-radius:99px; background:rgba(0,0,0,.6); color:var(--rc); }
+  .tile .mult{ position:absolute; top:3px; left:3px; z-index:3; font-size:8px; font-family:var(--fat); letter-spacing:.02em;
+    padding:1px 5px; border-radius:99px; background:rgba(0,0,0,.72); color:var(--amber); }
+  .tile .mstk{ position:absolute; top:3px; left:3px; z-index:4; font-size:8px; font-family:var(--fat); letter-spacing:.02em;
+    padding:1px 5px; border-radius:99px; color:#031; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); box-shadow:0 0 8px rgba(43,255,128,.6); }
   .tile.surge .rr::after{ content:" ⚡"; }
   .tile.back img,.tile.back .meta,.tile.back .sheen{ visibility:hidden; }
   .tile.back{ background:repeating-linear-gradient(45deg,#1a0636 0 8px,#250a44 8px 16px); }
@@ -533,9 +537,13 @@
     const cls = ['tile', opts.back?'back':'', opts.sel?'sel':'', (surge&&!opts.back)?'surge':''].join(' ');
     const deal = opts.deal ? ` deal` : '';
     const dd = opts.deal ? `--dd:${(opts.i||0)*70}ms;` : '';
-    const key = opts.idx != null ? `data-idx="${opts.idx}" data-slug="${card.slug}"` : `data-slug="${card.slug}"`;
+    const key = opts.gi != null ? `data-gi="${opts.gi}" data-slug="${card.slug}"`
+      : (opts.idx != null ? `data-idx="${opts.idx}" data-slug="${card.slug}"` : `data-slug="${card.slug}"`);
+    const badge = (opts.staked > 0)
+      ? `<span class="mstk">▲${opts.staked}${opts.count > 1 ? '/' + opts.count : ''}</span>`
+      : (opts.count > 1 ? `<span class="mult">×${opts.count}</span>` : '');
     return `<div class="${cls}${deal}" style="${dd}--rc:var(${RC[card.rarity]||'--common'})" ${key}>
-      <span class="rr">${card.rarity}</span>
+      <span class="rr">${card.rarity}</span>${badge}
       <img src="${card.art}" alt="${card.title}" loading="lazy" onerror="this.style.opacity=0">
       <span class="sheen"></span>
       <div class="meta">
@@ -557,15 +565,23 @@
       $('handInfo').textContent = '0 owned';
       selected = []; updateSlam(); return;
     }
-    $('handRow').innerHTML = hand.map((c,i) => tile(c, {idx:i, sel:selected.includes(i), deal:!!animate, i})).join('');
+    // compress multiples: one tile per unique card with a ×N badge (declutter the grid)
+    const groups = new Map(), order = [];
+    hand.forEach((c, i) => { const gk = c.slug || ('forged_' + i);
+      if (!groups.has(gk)) { groups.set(gk, { card: c, idxs: [] }); order.push(gk); }
+      groups.get(gk).idxs.push(i); });
+    const gArr = order.map(gk => groups.get(gk));
+    $('handRow').innerHTML = gArr.map((g, gi) => { const staked = g.idxs.filter(i => selected.includes(i)).length;
+      return tile(g.card, { gi, count: g.idxs.length, staked, sel: staked > 0, deal: !!animate, i: gi }); }).join('');
     $('handRow').querySelectorAll('.tile').forEach(el => el.onclick = () => {
       if (busy) return;
-      const i = +el.dataset.idx, at = selected.indexOf(i);
-      if (at >= 0) selected.splice(at,1);
-      else { if (selected.length >= mode) selected.shift(); selected.push(i); }
+      const g = gArr[+el.dataset.gi]; if (!g) return;
+      const staked = g.idxs.filter(i => selected.includes(i)).length;
+      if (staked >= g.idxs.length) selected = selected.filter(i => !g.idxs.includes(i));   // all copies staked → clear this card
+      else { if (selected.length >= mode) selected.shift(); const nx = g.idxs.find(i => !selected.includes(i)); if (nx != null) selected.push(nx); }
       renderHand(); updateSlam();
     });
-    $('handInfo').textContent = `${hand.length} owned · ${selected.length}/${mode} staked`;
+    $('handInfo').textContent = `${hand.length} owned · ${gArr.length} kinds · ${selected.length}/${mode} staked`;
   }
 
   function renderHouse(reveal){
