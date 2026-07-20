@@ -87,7 +87,7 @@
       try {
         const r = await fetch('/api/presence', { method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id: me.id, handle: me.handle, balance: me.balance, cards: me.cards,
-            status: me.status, verified: me.verified, address: me.address,
+            status: me.status, verified: me.verified, address: me.address, seek: !!me.seek,
             game: /dogfight/.test(location.pathname) ? 'dogfight' : /section9/.test(location.pathname) ? 'section9' : 'arena' }) });
         if (r.status === 503 || r.status === 404) { kvLive = false; return; }
         const j = await r.json().catch(() => null);
@@ -123,6 +123,7 @@
     return {
       join(profile) { me = { ...me, ...(profile || {}), id: myId, me: true }; players.set(me.id, me); announce(); pushLobby(); },
       setStatus(s) { me.status = s; players.set(me.id, me); announce(); pushLobby(); },
+      setSeek(v) { me.seek = !!v; },           // pvp matchmaking flag, carried by the KV heartbeat
       setHandle(h) { me.handle = (h == null ? '' : String(h)).trim().slice(0, 24) || me.handle;
         store.set('urm_net_handle', me.handle); ses.set('urm_net_shandle', me.handle); players.set(me.id, me); announce(); pushLobby(); },
       me: () => me,
@@ -154,6 +155,7 @@
     _a() { return adapter || (adapter = LocalNet()); },
     join(p) { return this._a().join(p); },
     setStatus(s) { return this._a().setStatus(s); },
+    setSeek(v) { return this._a().setSeek(v); },
     setHandle(h) { return this._a().setHandle(h); },
     me() { return this._a().me(); },
     challenge(id) { return this._a().challenge(id); },

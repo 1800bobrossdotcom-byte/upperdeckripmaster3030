@@ -41,6 +41,7 @@ const cleanRec = b => {
     balance: Math.max(0, Math.min(1e9, +b.balance || 0)),
     cards: Math.max(0, Math.min(9999, +b.cards | 0)),
     verified: !!b.verified,
+    ...(b.seek ? { seek: true } : {}),          // hunting a human dogfight
     ...(addr ? { address: addr } : {}),
     ...(b.sig ? { sig: S(b.sig, 200) } : {}),
     t: Date.now() };

@@ -265,6 +265,7 @@
 
       <div><button class="go" id="btnAnte"><span class="ic" data-ic="flame"></span> Ante up &amp; fly</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice dogfight (no stakes)</button></div>
+      <div><button class="go alt" id="btnSeek"><span class="ic" data-ic="swords"></span> Seek human dogfight</button></div>
       <div class="mininote" id="lobNote"></div>
       <div class="tavern-slot"><div id="tavern"></div></div>
       <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="riprocketer.html"><span class="ic" data-ic="rocket"></span> riprocketer</a></div>
@@ -295,6 +296,7 @@
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
 <script src="js/eth-play.js"></script>
+<script src="js/df-net.js"></script>
 <script src="cards/arena-net.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/card-powers.js"></script>
@@ -457,6 +459,25 @@
   document.querySelectorAll('[data-ethw]').forEach(b=>b.onclick=()=>{ const E=window.RipEth;
     const max=E?E.WAGER_MAX_USD:3, step=E?E.WAGER_STEP_USD:0.25;
     ethW.usdEach=clamp(Math.round((ethW.usdEach+(+b.dataset.ethw)*step)*100)/100,0,max); refreshEth(); });
+  // ── human dogfights (RipFight): seek → WebRTC mesh → the same arena, real pilots ──
+  if(window.RipFight&&$('btnSeek')){ const bs=$('btnSeek');
+    bs.onclick=()=>{ if(RipFight.seeking()){ RipFight.cancel(); bs.textContent='⚔ Seek human dogfight'; return; }
+      bs.textContent='⚔ seeking pilots…';
+      RipFight.seek(n=>{ if(RipFight.seeking()) bs.textContent='⚔ seeking pilots… ('+n+' in range)'; }); };
+    RipFight.onMatch(list=>{ const E=window.RipEth, hasF=!!(E&&E.plays()>0);
+      if(hasF){ E.spendPlay(); toast('⟠ 1 flight used · '+E.plays()+' left in the bank'); }
+      bs.textContent='⚔ Seek human dogfight';
+      G.netPeers=list; startMatch(false,hasF); });   // cards never move in human matches (v1) — ETH side-pot pledges ride
+    RipFight.onMsg((pid,m)=>{ if(!G.netMatch)return; const s=G.ships&&G.ships.find(sh=>sh.netId===pid);
+      if(m.k==='s'&&s){ s._tgt=m; if(m.n)s.name=m.n; if(!s._init){ s.x=m.x; s.y=m.y; s.alt=m.alt; s.h=m.h; s._init=1; } }
+      else if(m.k==='f'&&s){ G.bolts.push({x:m.x,y:m.y,alt:m.alt,h:m.h,life:1.4,dmg:0,me:false,own:s,noHit:true,sp:m.sp||BOLTSPD}); }
+      else if(m.k==='hit'&&G.me&&G.me.alive&&G.mode==='play'){ if(G.me.iframe>0)return;   // barrel roll still deflects
+        let d=(+m.dmg||0)*0.55; if(G.me.sh>0)d*=0.4; G.me.hp-=d; G.shake=Math.max(G.shake,8); sfxHit(); G._lastBy=pid;
+        if(G.me.hp<=0){ G.me.alive=false; G.me.respawnT=2.6; G.me.deaths++; boom(G.me.x,G.me.y,G.me.alt,G.me.tint,true);
+          powMsg('✖ YOU WERE DOWNED'); RipFight.send({k:'down',by:G._lastBy}); } }
+      else if(m.k==='down'){ if(s){ s.alive=false; s.respawnT=2.2; boom(s.x,s.y,s.alt,s.tint,true); }
+        if(m.by===RipFight.id()&&G.me){ G.me.kills++; powMsg('✖ '+shortName(s?s.name:'PILOT')+' DOWN'); commsRnd('kill','#0e5a68'); } } });
+  }
   if(window.RipWallet) RipWallet.on(()=>refreshEth());
   if(window.RipEth) RipEth.on(ev=>{ const n=$('ethNote');
     if(n&&ev&&ev.type==='confirmed') n.innerHTML='⟠ coin <b>confirmed</b> on Base — flights banked for keeps.';
@@ -498,9 +519,13 @@
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
 
   function startMatch(real,ethFlight){
+    const netP=G.netPeers||null; G.netPeers=null; G.netMatch=!!(netP&&netP.length);
     const others=[]; const seen=new Set([myHandle()]);
-    (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
-    let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+    if(G.netMatch){ netP.forEach(p=>others.push({ h:p.handle||('pilot '+String(p.id).slice(2,6)), v:false, net:true, nid:p.id })); }
+    else{
+      (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
+      let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+    }
     G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
     G.timeLeft=G.dur; G.real=real; G.theme=Math.random()*WORLDS.length|0; G.sunAz=rnd(TAU);
     cam.x=0; cam.y=0; cam.h=0; cam.alt=1.2; cam.roll=0; cam.ph=0;
@@ -516,7 +541,9 @@
       if(picks.length){ G.loadout=RipPowers.loadout(picks,RipPowers.getMarket()); applyLoadout(G.me,G.loadout); } } }catch(e){}
     others.forEach((o,i)=>{ const im=craftImgs.length?craftImgs[(i+1)%craftImgs.length]:null;
       const s=makeShip({ name:o.h, tint:['#ff2ad9','#ffd23b','#ff6b57','#2bff80','#b070ff'][i%5], img:im, verified:o.v });
-      const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI; G.ships.push(s); });
+      const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI;
+      if(o.net){ s.net=true; s.netId=o.nid; s._tgt=null; s._init=0; }   // a REAL pilot: driven by their broadcasts, not the bot AI
+      G.ships.push(s); });
     // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
@@ -588,7 +615,8 @@
     const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1);          // zoomed precision shots; staked cards amplify damage
     for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
       G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser, me:s.isMe, home }); }
-    if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4); } else sfxEfire(); }
+    if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
+      if(G.netMatch&&window.RipFight) RipFight.send({k:'f',x:s.x,y:s.y,alt:s.alt,h:base,sp}); } else sfxEfire(); }
   // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
   function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive), rt=s.cardRate||1;   // cards lift rate of fire
     if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(rap?46:82)/rt; if(s.burstQ<=0)s.burstCool=now+(rap?240:480)/rt; } return; }
@@ -625,7 +653,7 @@
     for(const pw of G.pows){ pw.t+=dt; pw.spin+=dt*2; }
     // fly the ships (yaw + climb + thrust, positions wrap over the toroidal map)
     for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.spawnT>0)s.spawnT-=dt;
-      if(s.isMe) stepMe(s,dt); else stepBot(s,dt);
+      if(s.isMe) stepMe(s,dt); else if(s.net) stepNet(s,dt); else stepBot(s,dt);
       tryFire(s, s.wantFire);
       const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
       s.x=wpos(s.x+Math.cos(s.h)*s.spd*dt); s.y=wpos(s.y+Math.sin(s.h)*s.spd*dt); s.alt=clamp(s.alt,ALT_MIN,ALT_MAX);
@@ -639,12 +667,20 @@
       if(off<0.5&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }
     for(const s of G.ships){ if(!s.alive)continue; for(const pw of G.pows){ if(pw.got)continue; if(Math.hypot(wdel(pw.x-s.x),wdel(pw.y-s.y))<0.9&&Math.abs(pw.alt-s.alt)<0.7){ pw.got=1; applyPow(s,pw.type); } } }
     G.pows=G.pows.filter(pw=>!pw.got && pw.t<20);
+    // net: broadcast my craft state at ~11Hz (combat itself is peer-to-peer)
+    if(G.netMatch&&window.RipFight&&G.me){ G._ns=(G._ns||0)-dt; if(G._ns<=0){ G._ns=0.09;
+      RipFight.send({k:'s',n:G.me.name,x:G.me.x,y:G.me.y,alt:G.me.alt,h:G.me.h,spd:G.me.spd,bank:G.me.bank||0,
+        hp:G.me.hp,maxHp:G.me.maxHp,kills:G.me.kills,boost:G.me.boost?1:0}); } }
     // bolts
     for(const b of G.bolts){ if(b.home&&b.home.alive){ const bear=Math.atan2(wdel(b.home.y-b.y),wdel(b.home.x-b.x)); b.h+=clamp(angd(bear-b.h),-3.4*dt,3.4*dt); }
       const bsp=b.sp||BOLTSPD; b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
       const hr=b.me?1.4:1.0, av=b.me?1.1:0.85;
+      if(b.noHit) continue;                                          // a net peer's bolt: visual here; its damage arrives as a hit msg
       for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
         if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<hr&&Math.abs(b.alt-s.alt)<av){
+          if(s.net){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:'#ffd23b'});
+            if(b.me&&window.RipFight) RipFight.sendTo(s.netId,{k:'hit',dmg:b.dmg});   // shooter-authoritative: owner applies it
+            break; }
           if(s.iframe>0){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(4,-4),vy:rnd(4,-4),va:0,life:.4,col:'#8ffff0'}); break; }   // barrel-roll deflects
           b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg;
           G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:b.me?'#ffd23b':'#ff5a3c'});
@@ -687,6 +723,12 @@
     s.zoom=!!(keys.Control||keys.control||rmZoom||padZoom);  // hold Ctrl / right-click / ZOOM pad (precision fire)
     s.wantFire=!!(fireHeld||ptrFire||padFire);
   }
+  // a net peer's craft: chase their broadcast state (wrap-aware lerp), stats come from the owner
+  function stepNet(s,dt){ const t=s._tgt; if(!t) return; const k=Math.min(1,dt*8);
+    s.x=wpos(s.x+wdel(t.x-s.x)*k); s.y=wpos(s.y+wdel(t.y-s.y)*k);
+    s.alt+=(t.alt-s.alt)*k; s.h+=angd(t.h-s.h)*Math.min(1,dt*10); s.spd=t.spd||6; s.bank=t.bank||0;
+    s.maxHp=t.maxHp||s.maxHp; if(t.hp!=null)s.hp=t.hp; s.kills=t.kills|0; s.boost=!!t.boost; s.thrust=true;
+    s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>30)s.trail.shift(); }
   function stepBot(s,dt){ s.aiT-=dt; s.wantFire=false;
     if(!s.tgt||!s.tgt.alive||s.aiT<=0){ s.aiT=rnd(1.6,0.7); const foes=G.ships.filter(o=>o!==s&&o.alive);
       if(foes.length){ foes.sort((a,b)=>Math.hypot(wdel(a.x-s.x),wdel(a.y-s.y))-Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))); s.tgt=foes[Math.random()<0.75?0:(Math.random()*foes.length|0)]; } else s.tgt=null; }
