@@ -9,8 +9,9 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 > **Not financial advice.** `$UR3030` is an experimental, volatile crypto token.
 > Two numbers must be confirmed on-chain with `--preview` before mainnet (§8): the
 > effective demand multiple **M**, and the **sell-fraction** (how much of the cap
-> the curve actually sells). One assumption — that burns re-mint on the next buy —
-> is the linchpin; verify it too.
+> the curve actually sells). The burn model is now **settled — MINT-ONCE (per SuperRare
+> audit 2026-07):** the whole supply mints into the pool once at launch and **burned
+> tokens do NOT re-mint. Every burn is permanent, so lifetime burn is bounded by the cap.**
 
 > 🏗️ **Architecture note (2026-07-19).** The project launches as a **pure Liquid
 > Edition** — one ERC-20, a render contract, optional 721 lenses; **no game
@@ -26,7 +27,7 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 
 | Knob | **Final** | Why |
 |---|---|---|
-| **Supply cap** | **3,030,000 `$UR3030` — KEEP** | 3M is **not** too low; see §2. The cap is a live-supply ceiling on the curve, not a lifetime burn budget. |
+| **Supply cap** | **3,030,000 `$UR3030` — KEEP** (provisional, co-designed with SuperRare — §8) | 3M is **not** too low; see §2. **Mint-once:** the whole supply mints once at launch; burns are permanent, so **lifetime burn ≤ cap**. The full field-retirement burns ⅔ (**2,020,025**) and settles at a **~1,009,975** floor. |
 | Opening price **P₀** | **≈ 1 RARE / token** → **~$0.02/token** (band 0.5–2.5 RARE) | set by price, not cap; keeps every toll + vote a micro-move |
 | **Pack price** | **~350 `$UR3030` ≈ $7 at launch**, escalating within + across seasons | the ONE premium action; each rip is a real buy-and-burn of hundreds of tokens (§4a) |
 | Demand multiple **M** | `medium-demand` preset, assume **M ≈ 10**, **verify via `--preview`** | pick the *steadiest* slope even if that's low-demand |
@@ -75,19 +76,29 @@ slippage — don't reinvent it), `maxTotalSupply()`, `poolLaunchSupply()`, `burn
 
 ---
 
-## 2. Is 3,030,000 too low? — **No. Keep it.**
+## 2. Is 3,030,000 too low? — **No. Keep it.** (mint-once)
 
-The tempting answer was "raise it 10× to 30.3M." It's wrong, and the reason is one
-fact: **the cap is a live-supply ceiling on the curve, not a lifetime burn budget.**
-Tokens are minted on *buy*; game burns pull `totalSupply` *below* what's been
-bought; the next buy re-mints into the gap. `ILiquid` has no cumulative-mint
-counter — only `totalSupply()` and `maxTotalSupply()`. So lifetime burns are
-effectively unbounded and the cap never "runs dry." Every reason to raise it then
-collapses:
+> **MINT-ONCE (per SuperRare audit 2026-07).** The whole supply mints into the pool
+> **once at launch**, and **burned tokens do NOT re-mint** — every burn is permanent.
+> So **lifetime burn is bounded by the cap** (`Σ burns ≤ 3,030,000`) and supply only ever
+> falls, from the mint toward a floor. The old model assumed burns re-mint on the next buy
+> and the cap "never runs dry"; the auditor flagged that as impossible — it overstated
+> lifetime burn to **4.36M**, *above* the cap.
 
-1. **Runway** — void. (A sold-out season in §6 cycles **~1.4× the cap through burns** —
-   which is *only possible because the cap refills*. Self-refuting as a runway
-   argument.)
+The tempting answer was "raise it 10× to 30.3M." It's wrong. Under mint-once the cap is
+sized by **one** requirement: it must hold the entire designed **burn-down** and still
+leave a healthy live float — and 3.03M does, with room to spare. The whole-field
+retirement (119 cards culled to the 77-survivor deck) permanently burns **2,020,025**
+`$UR3030` (**66.7%**, ⅔ of the mint; `scripts/burn-milestones.mjs`), settling supply at a
+**~1,009,975** floor — a **3× permanent contraction**. Every reason to *raise* the cap
+then collapses, and a reason *not to lower* it appears:
+
+1. **Runway** — real, and it *fits*. The full multi-season burn-down (2.02M) lands well
+   under the 3.03M cap (§6). Raising to 30.3M would shrink the whole burn-down to a ~7%
+   rounding error — the float would barely contract and "burn the field to 77" would lose
+   its meaning. Lowering is worse: the Sepolia rehearsal deployed at **1,000,000** supply,
+   which **can't even fit** the 2.02M burn-down — too aggressive for a $7 / 350-token pack
+   (§8). 3.03M is the smallest cap that gives the burn-down room *and* a real ⅓ floor.
 2. **Toll granularity** — 3.03M is comfortable: a full Common→Prizm climb (2,700) is
    **0.089%** of supply; a pack (~350) is **0.012%**. Granularity only ever argues
    *against going lower*.
@@ -107,8 +118,11 @@ routine $2k+ single tickets — which does not fit a $7-pack, micro-toll card ga
 the stated goals, hold 3,030,000.** (The 30.3M idea was motif-driven — it spells
 "3030" — and undershoots even its own 5-year target math; rejected.)
 
-Keeping 3.03M is an implicit choice of **artist-scale niche edition** (~$606k
-full-curve FDV). Only reopen the cap question if the ambition is genuinely bigger.
+Keeping 3.03M is an implicit choice of **artist-scale niche edition** (~$606k full-curve
+FDV) with a **~1,009,975 (⅓) floor** after the field fully retires. *The exact cap, curve
+preset, and pack sizing are **provisional — co-designed with SuperRare** (§8): only the
+`medium-demand` preset is documented, and the Sepolia deploy's 1M supply is a placeholder
+they will help re-size.* Only reopen the cap question if the ambition is genuinely bigger.
 
 ---
 
@@ -197,14 +211,15 @@ it is done **without repricing the token**:
 2. **Across seasons** — the field is burned **down** toward the 77-survivor deck, so
    each season issues **fewer cards**, so its **pack allotment** (= cards issued ÷ 7)
    **shrinks** and its **floor rises**. Reference schedule (`token-model.mjs` §4;
-   curator-set at `openSeason`, recalibrated to the live token price):
+   **provisional — co-designed with SuperRare**, curator-set at `openSeason`,
+   recalibrated to the live token price):
 
 | Season | Cards issued | Pack allotment | base → ceil (tok) | base ≈ $* | ceil ≈ $* |
 |---|---|---|---|---|---|
-| **I · Summer** (launch) | 70,000 | **10,000 packs** | 350 → 525 | **$7.00** | $10.50 |
-| II · Fall | 52,500 | 7,500 packs | 450 → 675 | $9.00 | $13.50 |
-| III · Winter | 35,000 | 5,000 packs | 600 → 900 | $12.00 | $18.00 |
-| IV · Spring | 17,500 | 2,500 packs | 800 → 1,200 | $16.00 | $24.00 |
+| **I · Summer** (launch) | 11,200 | **1,600 packs** | 350 → 525 | **$7.00** | $10.50 |
+| II · Fall | 7,700 | 1,100 packs | 450 → 675 | $9.00 | $13.50 |
+| III · Winter | 4,200 | 600 packs | 600 → 900 | $12.00 | $18.00 |
+| IV · Spring | 1,820 | 260 packs | 800 → 1,200 | $16.00 | $24.00 |
 
 *\* priced at the **launch** spot ($0.02) — a conservative floor. Token appreciation
 (the §4 column) rides on **top** of these, so real USD pack prices are higher again as
@@ -250,24 +265,28 @@ raw v4 position management, not a first-class multicurve feature.)*
 
 ---
 
-## 6. Burn pressure per season (illustrative, reproducible)
+## 6. Lifetime burn — mint-once, permanent (across all four seasons)
 
-From `scripts/token-model.mjs` §5 — **bounded by the S1 allotment (10,000 packs)**;
-scenarios are the fraction of that allotment sold. Transparent inputs, **not a
-forecast**. Packs now dominate burn (a rip destroys ~437 tokens, ~48× the old 9):
+From `scripts/token-model.mjs` §5. Under **mint-once** every pack burn is **permanent** —
+supply only ever falls — so the meaningful quantity is not per-season churn but
+**cumulative lifetime burn**, which retires the field over the whole multi-season arc.
+Transparent inputs, **not a forecast** (a rip destroys ~438 tokens at the S1 base, rising):
 
-| scenario | packs sold | pack 🔥 | play 🔥 | cull 🔥 | total 🔥/season |
+| season | packs | avg pack 🔥 | season 🔥 | cumulative 🔥 | % of mint |
 |---|---|---|---|---|---|
-| QUIET (30%) | 3,000 | 1,309,500 | 18,000 | 10,500 | **1,338,000** (0.44× cap) |
-| STEADY (70%) | 7,000 | 3,055,500 | 42,000 | 26,250 | **3,123,750** (1.03× cap) |
-| SELLOUT (100%) | 10,000 | 4,365,000 | 60,000 | 41,650 | **4,466,650** (1.47× cap) |
+| I · Summer | 1,600 | 438 | 700,000 | 700,000 | 23.1% |
+| II · Fall | 1,100 | 563 | 618,750 | 1,318,750 | 43.5% |
+| III · Winter | 600 | 750 | 450,000 | 1,768,750 | 58.4% |
+| IV · Spring | 260 | 1,000 | 260,000 | **2,028,750** | **67.0%** |
 
-**Read this correctly:** net supply change = **buys − burns** (sign *indeterminate*).
-Burns are downward **pressure**; "deflation" holds only while buy-demand < burn-demand
-— it is not a guaranteed permanent decline. A sold-out season **cycling ~1.4× the cap
-through burns** is exactly the proof that the cap refills (§2): buys re-mint into the
-gap, so the curve churns and the reserve climbs — that churn *is* the steady upward
-pressure. Read the real net trajectory live from `totalSupply()`.
+**Read this correctly:** a full four-season **sellout burns ~2,028,750 `$UR3030`
+lifetime** (≈ the **2,020,025** milestone budget that retires the field to 77 — §2,
+`burn-milestones.mjs`), which is **67% (⅔) of the mint** and lands **under the cap**.
+Because burns never re-mint, supply settles at a **~1,009,975 floor** — a **3× permanent
+contraction**. **Invariant (mint-once): `Σ lifetime burn ≤ cap`; a full sellout (2.03M)
+< cap ✓.** A partial life simply retires fewer cards and settles at a *higher* float —
+the deck only reaches 77 if the community truly burns across the seasons. Read the real
+trajectory live from `totalSupply()`; no burn ever re-mints.
 
 ---
 
@@ -303,11 +322,21 @@ rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
 ```
 `rare mcp serve` exposes all of this over MCP.
 
+> **Provisional — co-designed with SuperRare.** Only the `medium-demand` preset is
+> documented here; the exact **cap, curve preset, and pack size are not final**. The
+> Sepolia dress-rehearsal edition deployed at **1,000,000** supply — **too aggressive**
+> for a $7 / 350-token pack (1M can't even hold the 2.02M burn-down; §2). Treat
+> **3,030,000 / `medium-demand` / ~350-token packs** as the working target SuperRare
+> will help finalize before mainnet.
+
 **Verify BEFORE locking numbers (these can overturn the model):**
-1. **★ Mint/burn semantics** — does a burn reopen mint headroom (re-mint on next buy)?
-   The whole "3M is enough" verdict assumes yes. If burns *permanently* consume curve
-   inventory, runway becomes real and the target moves to **~40M**. Check via
-   `getMarketState`/`--preview` on a live edition.
+1. **★ Mint/burn semantics — SETTLED: MINT-ONCE (SuperRare audit 2026-07).** The whole
+   supply mints into the pool once at launch and **burns are permanent — they do NOT
+   re-mint on the next buy**. Lifetime burn is therefore **bounded by the cap**, and the
+   full burn-down (2.02M, ⅔ of the mint) fits under 3.03M with a **~1,009,975** floor
+   (§2, §6). The old model assumed re-mint and an unbounded runway (target "~40M") —
+   **withdrawn**. Still confirm the exact burn getter the render reads via
+   `getMarketState`/`--preview`.
 2. **Effective M** — back the real end/start multiple out of the preset's `Curve[]`
    (`--preview`). Pick the steadiest slope.
 3. **Sell-fraction** — is the whole cap sold on the curve, or is some reserved
@@ -329,8 +358,12 @@ rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
   (§4a), escalating within and across seasons.
 - **Pack repriced $0.20 → $7** as a *bundle size*, not a token reprice — the token
   stays cheap and FDV stays $606k (§4a). Packs are now the biggest single burn.
-- Reframed the "runway / % of cap consumed" framing as **burn *pressure* / demand to
-  hold the float flat** — the cap is not a fuel tank.
+- **Mint-once correction (SuperRare audit 2026-07):** burns are **permanent**, lifetime
+  burn ≤ cap, and the full field-retirement (**2,020,025**, ⅔ of the mint) settles supply
+  at a **~1,009,975 floor** (3× contraction). This **replaces** the old re-mint framing
+  ("the cap never runs dry", "a sold-out season burns ~1.4× the cap", "buys re-mint into
+  the gap") — that overstated lifetime burn to **4.36M**, above the cap, and was the
+  overflow the auditor flagged.
 - Creator-cut "floor" removed (see §7).
 
 *Everything here is tunable on-chain via the curator setters; only the cap and the

@@ -203,8 +203,12 @@ priced in dollars, not pegged to the token's spot, so it holds ≈ **$7 at launc
 - **The pack allotment** for a season = **cards issued that season ÷ 7**
   (`CARDS_PER_PACK`). Because the field burns **down** toward 77 survivors, each
   season issues fewer cards, so its allotment shrinks and its floor rises —
-  **across-season** escalation. Reference: S1 70,000 cards / **10,000 packs** →
-  S4 17,500 / 2,500 packs; base 350 → 800 tokens.
+  **across-season** escalation. Reference (provisional — co-designed with SuperRare):
+  S1 11,200 cards / **1,600 packs** → S2 7,700 / 1,100 → S3 4,200 / 600 → S4 1,820 /
+  260 packs; base 350 → 800 tokens. A full four-season sellout burns **~2.03M `$UR3030`
+  lifetime** (≈ the 2,020,025 milestone budget that retires the field to 77) — **not**
+  per-season: under **mint-once (SuperRare audit 2026-07)** those burns are permanent and
+  bounded by the cap, settling supply at a ~1,009,975 floor.
 
 `ripPack` enforces the allotment (`cardsIssued + 7 ≤ seasonCardBudget`, else
 `AllotmentSpent`) and increments `cardsIssued`. When a season sells out its

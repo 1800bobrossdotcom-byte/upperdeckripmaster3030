@@ -36,16 +36,23 @@ states of the render, not separate assets.
 
 ### 2.1 The burn-down → burn milestones (`scripts/burn-milestones.mjs`)
 
+> **MINT-ONCE (per SuperRare audit 2026-07).** The whole supply mints into the pool once
+> at launch; **burned tokens do NOT re-mint**. Every burn is permanent, so cumulative
+> lifetime burn is **bounded by the cap** and supply only falls — the burn-down is a
+> one-way ratchet from the 3,030,000 mint toward the ~1,009,975 survivor floor.
+
 The community burns the field down **by burning the token** — the format's first-class
 mechanic. A **published retirement queue** (weakest first: by rarity tier, then
 ascending trait-score, deterministic tie-breaks) is fixed at season open in
 `cards/data/_milestones.json`. Every time **cumulative witnessed burn** crosses the
 next milestone, the next queued card retires — permanently grayed to ash in the render.
 
-- **Escalator:** retirement *k* costs `15,000 + 360·k` more burn than the last.
-  First card falls at **15,360** burned (~44 packs); clearing all **119** takes
-  **4,355,400** — almost exactly a **sold-out season of packs** (~10,000 rips ≈ 4.37M).
-  The deck only reaches **77 survivors** if the season truly burns.
+- **Escalator (mint-once):** retirement *k* costs `7,975 + 150·k` more burn than the
+  last. First card falls at **~8,125** burned (~23 packs at the S1 base); clearing all
+  **119** permanently burns **2,020,025** — the whole-field retirement, **66.7% (⅔) of
+  the 3,030,000 mint**, spread across a **multi-season arc** (not one season). It leaves a
+  **~1,009,975** live float — a **3× permanent contraction** — and fits under the cap. The
+  deck only reaches **77 survivors** if the community truly burns across the seasons.
 - **Survivors:** the strongest 77 (15 uncommon / 40 rare / 17 mythic / 5 prizm).
   The **1/1 marquee (Lovebeing) is indestructible** and outside the queue.
 - **Burn measure:** the render reads the protocol's canonical burn metric.
@@ -184,8 +191,11 @@ verifiable — there is no other contract to hide one in.
 
 1. **★ Burn metric** — find the canonical cumulative-burn read in the starter kit
    (`src/examples`); confirm the render can read it in `tokenURI()`.
-2. **Burn semantics** — does burning reopen mint headroom on the curve (re-mint into
-   the gap)? The milestone escalator assumes cumulative burn is unbounded.
+2. **Burn semantics — SETTLED: mint-once (SuperRare audit 2026-07).** Burns are
+   **permanent** — they do **not** reopen mint headroom on the curve. The milestone
+   escalator assumes cumulative burn is **bounded by the cap**: the full 119-card
+   burn-down is **2,020,025** (⅔ of the mint), settling at a **~1,009,975** float. Still
+   confirm the exact cumulative-burn getter the render reads (item 1).
 3. **Effective M / sell-fraction** — `--preview`, as before (`docs/TOKEN-MATH.md` §8).
 4. **Lens path** — confirm assisted-setup scope with SuperRare (@im_jonooo): survivor
    lenses at season end, trophy lenses, the sealed 1/1.

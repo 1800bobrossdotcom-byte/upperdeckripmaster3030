@@ -32,8 +32,9 @@ flagged **[ARTIST TO SUPPLY]**.
 > your on-chain rip history. The field is culled by a **published burn-milestone
 > schedule**: every time cumulative burn crosses the next milestone, the next card in
 > the weakest-first retirement queue turns to ash in the render — 119 milestones,
-> escalating (first card ~15k burned, the last near 4.36M ≈ a sold-out season of
-> packs), until a standard deck of **77 survivors** locks in. At season end those
+> escalating (first card ~8k burned, the last at 2,020,025 ≈ ⅔ of the mint burned
+> over the field's multi-season life — mint-once, burns are permanent), until a
+> standard deck of **77 survivors** locks in. At season end those
 > survivors mint as a **Companion 721 Lens Collection** (assisted setup): each is a
 > **collectible lens edition sized to its holders** — the tradeable playable deck.
 > A **1/1** is always *earned* — corner a card's whole claim set (survivor or retired)
@@ -88,12 +89,14 @@ our custom renderer + front end are ours.
   contract. ≈ **$7 at launch** (seven cards, ~$1 a card), **not** a token reprice — so
   FDV stays ~$606k. The schedule escalates **within** a season (base→ceil as the
   allotment sells) and **across** seasons (the burning field shrinks the allotment:
-  S1 **10,000 packs** → S4 2,500; floor 350 → 800 tokens), enforced by the site and
-  auditable from the burn txs. Each rip is real buy-and-burn — steady pressure, not a pump.
+  S1 **1,600 packs** → S4 260; floor 350 → 800 tokens; provisional, co-designed with
+  SuperRare), enforced by the site and auditable from the burn txs. Each rip is real
+  buy-and-burn — steady pressure, not a pump.
 - **The burn-down = burn milestones.** A published weakest-first retirement queue
   (`cards/data/_milestones.json`); each time cumulative burn crosses the next milestone
-  the next card turns to ash in the render — first at ~15k burned, all 119 at ~4.36M
-  (≈ a sold-out season). 77 survive.
+  the next card turns to ash in the render — first at ~8k burned, all 119 at 2,020,025
+  (⅔ of the 3,030,000 mint, burned over the field's life; burns are permanent, so
+  supply settles at a ~1,009,975 floor). 77 survive.
 - **ERC-721 "Lenses"? — Yes.** The render contract is the HTML foil engine reading live
   market state + burn progress; the sealed **1/1 marquee** — *Lovebeing*, the artist's
   own name — is its own lens. At season end the **77 survivors** and the **Ash-Trophy
