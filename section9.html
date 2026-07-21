@@ -384,6 +384,10 @@
     step(){ if(Math.random()<0.5) noise(0.03,0.05,700); },
     win(){ [523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>tone(f,f,0.16,'triangle',0.13),i*130)); },
     pickup(){ tone(600,1200,0.1,'square',0.1); },
+    jump(){ noise(0.05,0.07,1400); tone(320,540,0.09,'sine',0.05); },
+    land(){ noise(0.13,0.26,650); tone(150,55,0.15,'sine',0.13); },
+    impact(){ noise(0.05,0.14,2200); tone(240,120,0.05,'square',0.05); },
+    ricochet(){ tone(2500,900,0.15,'sawtooth',0.06); setTimeout(()=>tone(1700,650,0.1,'square',0.04),30); },
   };
   const music=$('s9Music');
   function playMusic(){ if(!musicOn)return; try{ music.volume=0.45; const p=music.play(); if(p&&p.catch)p.catch(()=>{});}catch{} }
@@ -595,15 +599,20 @@
   }
   // cast against world solids + entities; returns {t, ent|null, wall, point}
   function raycast(ox,oy,oz, dx,dy,dz, maxT, ignore){
-    let bestT=maxT, ent=null, wall=false;
-    for(const b of MAP.solids){ const t=rayAABB(ox,oy,oz,dx,dy,dz,b,bestT); if(t>=0 && t<bestT){ bestT=t; ent=null; wall=true; } }
+    let bestT=maxT, ent=null, wall=false, wallBox=null;
+    for(const b of MAP.solids){ const t=rayAABB(ox,oy,oz,dx,dy,dz,b,bestT); if(t>=0 && t<bestT){ bestT=t; ent=null; wall=true; wallBox=b; } }
     // ground plane y=0
-    if(dy<0){ const t=(0-oy)/dy; if(t>0 && t<bestT){ bestT=t; ent=null; wall=true; } }
+    if(dy<0){ const t=(0-oy)/dy; if(t>0 && t<bestT){ bestT=t; ent=null; wall=true; wallBox=null; } }
     for(const e of G.ents){ if(!e.alive||e===ignore||e.spawnT>0) continue;
       const bb={ x0:e.x-e.r, x1:e.x+e.r, y0:e.y, y1:e.y+e.h, z0:e.z-e.r, z1:e.z+e.r };
-      const t=rayAABB(ox,oy,oz,dx,dy,dz,bb,bestT); if(t>=0 && t<bestT){ bestT=t; ent=e; wall=false; } }
-    return { t:bestT, ent, wall, x:ox+dx*bestT, y:oy+dy*bestT, z:oz+dz*bestT };
+      const t=rayAABB(ox,oy,oz,dx,dy,dz,bb,bestT); if(t>=0 && t<bestT){ bestT=t; ent=e; wall=false; wallBox=null; } }
+    return { t:bestT, ent, wall, wallBox, x:ox+dx*bestT, y:oy+dy*bestT, z:oz+dz*bestT };
   }
+  // surface normal at a wall hit (closest AABB face; ground → up)
+  function hitNormal(res){ const b=res.wallBox; if(!b) return [0,1,0];
+    const px=res.x,py=res.y,pz=res.z;
+    const d=[[px-b.x0,-1,0,0],[b.x1-px,1,0,0],[py-b.y0,0,-1,0],[b.y1-py,0,1,0],[pz-b.z0,0,0,-1],[b.z1-pz,0,0,1]];
+    let best=d[0]; for(const q of d) if(q[0]<best[0]) best=q; return [best[1],best[2],best[3]]; }
   // line-of-sight: is target eye visible from origin eye (no wall between)?
   function losClear(ox,oy,oz, tx,ty,tz){ const dx=tx-ox,dy=ty-oy,dz=tz-oz; const d=Math.hypot(dx,dy,dz); if(d<0.001)return true;
     const idx=dx/d,idy=dy/d,idz=dz/d;
@@ -793,8 +802,10 @@
     for(const b of MAP.solids){ if(b.x1<=fx0||b.x0>=fx1||b.z1<=fz0||b.z0>=fz1) continue;
       if(b.y1<=e.y+STEP+0.01 && b.y1>s) s=b.y1; }
     return s; }
-  function gravity(e,dt){ const sup=supportY(e); e.vy-=GRAV*dt; e.y+=e.vy*dt;
-    if(e.y<=sup+0.001){ e.y=sup; e.vy=0; e.onGround=true; } else e.onGround=false;
+  function gravity(e,dt){ const sup=supportY(e); const wasAir=!e.onGround; e.vy-=GRAV*dt; e.y+=e.vy*dt;
+    if(e.y<=sup+0.001){ const vimp=e.vy; e.y=sup; e.vy=0;
+      if(wasAir && vimp<-3){ if(e.isMe||Math.hypot(e.x-cam.x,e.z-cam.z)<18) SFX.land(); if(e.isMe)G.shake=Math.max(G.shake,Math.min(4,-vimp*0.4)); }   // landing thud
+      e.onGround=true; } else e.onGround=false;
     if(e.y<-8){ e.y=sup; e.vy=0; e.onGround=true; } }
 
   // ══════════════════ ENTITIES ══════════════════
@@ -841,7 +852,7 @@
   // ══════════════════ MATCH ══════════════════
   const G={ mode:'lobby', t:0, dur:150, timeLeft:150, ents:[], me:null, real:false, over:false,
     tracers:[], sparks:[], chunks:[], flashes:[], kills:[], myStake:[], oppStakes:[], hitmark:0, dmgFlash:0, mapIdx:0,
-    pows:[], powT:6, loadout:null, shake:0, fireFlash:0, fireHeavy:false, fireCol:[255,224,150], horizonHue:200 };
+    pows:[], powT:6, loadout:null, decals:[], shake:0, fireFlash:0, fireHeavy:false, fireCol:[255,224,150], horizonHue:200 };
 
   function farSpawn(avoidList,minD){ let best=null,bestScore=-1;
     for(let i=0;i<MAP.spawns.length;i++){ const s=MAP.spawns[(i+rint(MAP.spawns.length))%MAP.spawns.length];
@@ -863,7 +874,7 @@
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
-    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0; G.pows=[]; G.powT=6;
+    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0; G.pows=[]; G.powT=6; G.decals=[];
     G.t=0; G.timeLeft=G.dur; G.real=!!real; G.over=false;
     G.me=makeEnt({ name:myHandle(), me:true, tint:[64,220,200], verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
@@ -918,8 +929,10 @@
       if(hit.ent){ const head = hit.y > hit.ent.y + hit.ent.h*0.78;
         let dmg=w.dmg*(head?1.85:1)*(e.cardDmg||1)*(e.surgeT>0?1.6:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);   // staked-card + surge damage
         if(e.isMe){ G.hitmark=0.14; head?SFX.headshot():SFX.hit(); }
-      } else if(hit.wall){ spark(hit.x,hit.y,hit.z, [210,205,180], 8);
-        G.flashes.push({ x:hit.x,y:hit.y,z:hit.z, t:0.05, big:false, col:[255,220,150] }); }   // brief additive impact spark
+      } else if(hit.wall){ const nrm=hitNormal(hit); spark(hit.x,hit.y,hit.z, [210,205,180], 8);
+        G.flashes.push({ x:hit.x,y:hit.y,z:hit.z, t:0.05, big:false, col:[255,220,150] });   // brief additive impact spark
+        addDecal(hit.x,hit.y,hit.z, nrm, e.surgeT>0?'laser':'bullet');                        // sticks to the surface
+        const dcam=Math.hypot(hit.x-cam.x,hit.z-cam.z); if(dcam<24){ SFX.impact(); if(Math.random()<0.22)SFX.ricochet(); } }
     }
   }
   function startReload(e){ if(e.reloading) return; const w=WEAPONS[e.weapon]; if(e.mag>=w.mag) return; e.reloading=true; e.reloadT=w.reload; if(e.isMe)SFX.reload(); }
@@ -1022,7 +1035,7 @@
       if(e.onGround){ e._stepT=(e._stepT||0)-dt; if(e._stepT<=0){ e._stepT=e.sprinting?0.28:0.4; SFX.step(); } } }
     else e.moving=false;
     // jump
-    if((keys[' ']||touch.jump) && e.onGround){ e.vy=JUMP; e.onGround=false; touch.jump=false; }
+    if((keys[' ']||touch.jump) && e.onGround){ e.vy=JUMP; e.onGround=false; touch.jump=false; SFX.jump(); }
     // fire
     const w=WEAPONS[e.weapon];
     const wantFire=(mouse.left||keys['control']||touch.fire);
@@ -1062,6 +1075,7 @@
     for(const s of G.sparks){ s.t-=dt; s.vy-=GRAV*0.5*dt; s.x+=s.vx*dt; s.y+=s.vy*dt; s.z+=s.vz*dt; } G.sparks=G.sparks.filter(s=>s.t>0);
     for(const c of G.chunks){ c.t-=dt; c.vy-=GRAV*dt; c.x+=c.vx*dt; c.y+=c.vy*dt; c.z+=c.vz*dt; if(c.y<0){c.y=0;c.vy*=-0.35;c.vx*=0.6;c.vz*=0.6;} } G.chunks=G.chunks.filter(c=>c.t>0);
     for(const k of G.kills) k.t-=dt; G.kills=G.kills.filter(k=>k.t>0);
+    for(const dc of G.decals) dc.life-=dt; G.decals=G.decals.filter(dc=>dc.life>0);
     if(G.hitmark>0)G.hitmark-=dt; if(G.dmgFlash>0)G.dmgFlash=Math.max(0,G.dmgFlash-dt*1.6);
     // scope fov animate
     G.scopeZoom = lerp(G.scopeZoom||1, (G.me&&G.me.scoped)?WEAPONS[G.me.weapon].zoom:1, Math.min(1,dt*12));
@@ -1189,6 +1203,26 @@
     ctx.restore(); }
   function drawSparks(){ for(const s of G.sparks){ const p=projectPoint(s.x,s.y,s.z); if(!p)continue; const r=Math.max(1,2.2*clamp(p.s*0.02,0.4,3));
       ctx.globalAlpha=clamp(s.t*3,0,1); ctx.fillStyle=rgb(s.col); ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); } ctx.globalAlpha=1; }
+  // bullet holes + laser scorch that stick to surfaces (oriented to the hit normal, capped, fade over time)
+  function addDecal(x,y,z,n,type){ G.decals.push({ x:x+n[0]*0.02, y:y+n[1]*0.02, z:z+n[2]*0.02, n, type,
+      r:type==='laser'?0.17:0.1, life:type==='laser'?4:10, max:type==='laser'?4:10 });
+    if(G.decals.length>60) G.decals.shift(); }
+  function drawDecals(){ if(!G.decals.length) return; ctx.save();
+    for(const dc of G.decals){ if(!losClear(cam.x,cam.y,cam.z, dc.x,dc.y,dc.z)) continue;   // hidden behind nearer geometry
+      const n=dc.n; const t1=(Math.abs(n[1])>0.9)?[1,0,0]:[0,1,0];
+      let a=_cross(t1,n); const al=Math.hypot(a[0],a[1],a[2])||1; a=[a[0]/al,a[1]/al,a[2]/al]; const b=_cross(n,a);
+      const r=dc.r, fade=clamp(dc.life/dc.max,0,1);
+      const C=(sa,sb)=>projectPoint(dc.x+a[0]*r*sa+b[0]*r*sb, dc.y+a[1]*r*sa+b[1]*r*sb, dc.z+a[2]*r*sa+b[2]*r*sb);
+      const P=[C(-1,-1),C(1,-1),C(1,1),C(-1,1)]; if(P.some(p=>!p)) continue;
+      const cx=(P[0].x+P[2].x)/2, cy=(P[0].y+P[2].y)/2, rr=Math.max(1.2,Math.hypot(P[0].x-P[2].x,P[0].y-P[2].y)/2);
+      if(dc.type==='laser'){ ctx.globalCompositeOperation='lighter';
+        const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rr); g.addColorStop(0,'rgba(255,180,60,'+(0.7*fade).toFixed(2)+')'); g.addColorStop(0.5,'rgba(255,90,40,'+(0.35*fade).toFixed(2)+')'); g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,rr,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+      } else { ctx.globalAlpha=0.82*fade; ctx.fillStyle='#181410';
+        ctx.beginPath(); ctx.moveTo(P[0].x,P[0].y); for(let i=1;i<4;i++)ctx.lineTo(P[i].x,P[i].y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#05040a'; ctx.beginPath(); ctx.arc(cx,cy,rr*0.42,0,TAU); ctx.fill(); ctx.globalAlpha=1; }
+    }
+    ctx.restore(); }
   // floating card/market supply drops — glowing tokens that bob above the sand
   function drawPows(){ ctx.save();
     for(const pw of G.pows){ if(pw.got)continue; const fy=pw.y+0.25+Math.sin((G.t+pw.t)*3)*0.12;
@@ -1307,6 +1341,7 @@
     drawMapFaces();
     drawEntities();
     flushDrawList();
+    drawDecals();      // bullet holes / laser scorch, painted onto the drawn surfaces
     drawNeon();
     drawEntGlow();
     drawChunks(); drawTracers(); drawFlashes(); drawSparks(); drawPows();
