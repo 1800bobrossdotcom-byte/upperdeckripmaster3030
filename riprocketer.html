@@ -696,48 +696,95 @@
     // cockpit (front, cyan)
     [0,-0.55,0,0.82,'cockpit'],
   ];
+  // ── shared 3D fuselage renderer (ported from dogfight) — a model-space interceptor spun by
+  //    bank-roll + pitch + heading-yaw, viewed down a chase-cam angle, painter-sorted + top-lit,
+  //    with a staked card plated onto the dorsal deck.
+  const TAU=Math.PI*2;
+  function fuse3D(bx,by,S,o){
+    const roll=o.roll||0, pc=o.pitch||0, yw=o.yaw||0, V=(o.look!=null?o.look:-0.52);
+    const cr=Math.cos(roll),sr=Math.sin(roll),cpc=Math.cos(pc),spc=Math.sin(pc),cyw=Math.cos(yw),syw=Math.sin(yw),cv=Math.cos(V),sv=Math.sin(V);
+    const rot=(x,y,z)=>{ const x1=x*cr-y*sr, y1=x*sr+y*cr;
+      const y2=y1*cpc-z*spc, z2=y1*spc+z*cpc;
+      const x3=x1*cyw+z2*syw, z3=-x1*syw+z2*cyw;
+      return [x3, y2*cv-z3*sv, y2*sv+z3*cv]; };
+    const pj=p=>{ const r=rot(p[0],p[1],p[2]), sc=1/(1+r[2]*0.11); return [bx+r[0]*S*sc, by-r[1]*S*sc, r[2]]; };
+    const L=[-0.297,0.812,-0.505];
+    const fn=(a,b,c)=>{ const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+      const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx, m=Math.hypot(nx,ny,nz)||1, r=rot(nx/m,ny/m,nz/m);
+      return r[0]*L[0]+r[1]*L[1]+r[2]*L[2]; };
+    const RGB=(c,kk)=>'rgb('+(clamp(c[0]*kk,0,255)|0)+','+(clamp(c[1]*kk,0,255)|0)+','+(clamp(c[2]*kk,0,255)|0)+')';
+    const N=[0,0.03,1.36],SF=[0,0.27,0.52],SM=[0,0.31,-0.16],TT=[0,0.19,-0.96],
+      HFL=[-0.31,0.03,0.42],HFR=[0.31,0.03,0.42],HML=[-0.36,0,-0.2],HMR=[0.36,0,-0.2],HRL=[-0.28,-0.02,-0.9],HRR=[0.28,-0.02,-0.9],
+      BF=[0,-0.17,0.34],BM=[0,-0.2,-0.2],BR=[0,-0.13,-0.86],
+      WL1=[-1.55,-0.06,0.48],WL2=[-1.72,-0.04,-0.06],WR1=[1.55,-0.06,0.48],WR2=[1.72,-0.04,-0.06];
+    const P=o.pal;
+    const F=[
+      {v:[SM,SF,HFL,HML],c:P.h},{v:[SM,SF,HFR,HMR],c:P.h},
+      {v:[TT,SM,HML,HRL],c:P.hd},{v:[TT,SM,HMR,HRR],c:P.hd},
+      {v:[SF,N,HFL],c:P.h},{v:[SF,N,HFR],c:P.h},
+      {v:[N,HFL,BF],c:P.hd},{v:[N,HFR,BF],c:P.hd},
+      {v:[HML,WL1,WL2,HRL],c:P.w},{v:[HMR,WR1,WR2,HRR],c:P.w},
+      {v:[HFL,HML,WL1],c:P.w},{v:[HFR,HMR,WR1],c:P.w},
+      {v:[HFL,BF,BM,HML],c:P.b},{v:[HFR,BF,BM,HMR],c:P.b},
+      {v:[HML,BM,BR,HRL],c:P.b},{v:[HMR,BM,BR,HRR],c:P.b},
+      {v:[TT,[0,0.56,-1.06],[0,0.5,-0.72],[0,0.12,-0.62]],c:P.f},
+    ];
+    const cardQ=[[-0.28,0.32,-0.62],[0.28,0.32,-0.62],[0.2,0.32,0.56],[-0.2,0.32,0.56]];
+    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round'; if(o.alpha!=null)ctx.globalAlpha=o.alpha;
+    if(o.thrust!==false){ ctx.save(); ctx.globalCompositeOperation='lighter'; const thr=o.boost?2.2:1;
+      [[-1.02,0,-0.62],[1.02,0,-0.62]].forEach(t=>{ const e=pj(t), fl=S*(0.42+0.34*Math.random())*thr;
+        const g=ctx.createRadialGradient(e[0],e[1],0,e[0],e[1],fl); g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.4,'rgba(120,240,255,.6)'); g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e[0],e[1],fl,0,TAU); ctx.fill(); }); ctx.restore(); }
+    const R=F.map(f=>{ const pv=f.v.map(pj); return {pv, az:pv.reduce((s,q)=>s+q[2],0)/pv.length, d:fn(f.v[0],f.v[1],f.v[2]), c:f.c}; });
+    const cpv=cardQ.map(pj); R.push({pv:cpv, az:cpv.reduce((s,q)=>s+q[2],0)/cpv.length, card:true});
+    R.sort((a,b)=>b.az-a.az);
+    ctx.shadowColor=o.glow;
+    for(const r of R){ const p=r.pv;
+      ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]); ctx.closePath();
+      if(r.card){ ctx.shadowBlur=Math.min(18,S*0.28); ctx.fillStyle='#0a3038'; ctx.fill(); ctx.shadowBlur=0;
+        const card=o.img;
+        if(card&&card.im&&card.im.complete&&card.im.naturalWidth){ const iw=card.im.naturalWidth, ih=card.im.naturalHeight, O=p[3];
+          const ux=(p[2][0]-O[0])/iw, uy=(p[2][1]-O[1])/iw, vx=(p[0][0]-O[0])/ih, vy=(p[0][1]-O[1])/ih;
+          ctx.save(); ctx.clip(); ctx.transform(ux,uy,vx,vy,O[0],O[1]); ctx.globalAlpha=.96; ctx.drawImage(card.im,0,0,iw,ih); ctx.restore();
+          ctx.save(); ctx.clip(); const gg=ctx.createLinearGradient(p[3][0],p[3][1],p[1][0],p[1][1]);
+          gg.addColorStop(0,'rgba(190,255,245,.22)'); gg.addColorStop(.5,'rgba(120,240,255,.04)'); gg.addColorStop(1,'rgba(4,30,38,.24)');
+          ctx.fillStyle=gg; ctx.fill(); ctx.restore();
+        } else { ctx.fillStyle=RGB(P.h,1.15); ctx.fill(); }
+        ctx.strokeStyle=o.edge; ctx.lineWidth=Math.max(1.2,S*0.04); ctx.stroke();
+      } else { const kk=0.4+0.72*Math.max(0,r.d);
+        ctx.shadowBlur=r.d>0.25?Math.min(10,S*0.16):0; ctx.fillStyle=RGB(r.c,kk); ctx.fill(); ctx.shadowBlur=0;
+        ctx.strokeStyle='rgba('+o.eRGB[0]+','+o.eRGB[1]+','+o.eRGB[2]+','+(0.22+0.5*Math.max(0,r.d)).toFixed(2)+')'; ctx.lineWidth=Math.max(1,S*0.028); ctx.stroke(); }
+    }
+    const cp=pj([0,0.35,0.74]); ctx.save(); ctx.shadowColor='#dffffa'; ctx.shadowBlur=Math.min(10,S*0.16);
+    ctx.fillStyle='rgba(8,30,40,.92)'; ctx.strokeStyle='#dffffa'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.ellipse(cp[0],cp[1],S*0.12,S*0.16,roll,0,TAU); ctx.fill(); ctx.stroke();
+    const gl=pj([-0.04,0.41,0.82]); ctx.fillStyle='rgba(210,255,250,.9)'; ctx.beginPath(); ctx.ellipse(gl[0],gl[1],S*0.045,S*0.07,roll,0,TAU); ctx.fill(); ctx.restore();
+    [[WL2,o.navL],[WR2,o.navR]].forEach(([wv,col])=>{ const q=pj(wv); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=9; ctx.beginPath(); ctx.arc(q[0],q[1],Math.max(1.6,S*0.055),0,TAU); ctx.fill(); ctx.shadowBlur=0; });
+    const nz=pj(N); ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=Math.min(10,S*0.16); ctx.beginPath(); ctx.arc(nz[0],nz[1],Math.max(1.4,S*0.05),0,TAU); ctx.fill(); ctx.shadowBlur=0;
+    ctx.restore();
+  }
   function drawCraft(){
     const [sx,sy]=proj(G.ship.ox,G.ship.oy,ZSHIP), base=clamp(W*0.052,34,68), k=G.ship;
-    ctx.save(); ctx.translate(sx,sy); ctx.rotate(k.bank*0.55 + course.turn*0.18); ctx.scale(1+Math.abs(k.bank)*0.06, 1-clamp(k.pitch,-0.2,0.2)-Math.min(0.14,(G.throttle-1)*0.1));
-    // thruster exhaust (behind hull)
+    // thruster exhaust trail (behind the hull) — screen-space plume
     const thr=G.throttle; ctx.save(); ctx.globalCompositeOperation='lighter';
-    for(const e of G.exhaust){ const y=base*(1.9+e.y*2.4); const r=base*0.5*e.life*(0.6+thr*0.4);
-      const g=ctx.createRadialGradient(e.x*base,y,0,e.x*base,y,r); g.addColorStop(0,'rgba(255,240,140,'+(e.life*0.8)+')'); g.addColorStop(0.5,'rgba(43,255,128,'+(e.life*0.5)+')'); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e.x*base,y,r,0,6.28); ctx.fill(); }
+    for(const e of G.exhaust){ const x=sx+e.x*base, y=sy+base*(1.6+e.y*2.4), r=base*0.5*e.life*(0.6+thr*0.4);
+      const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,'rgba(255,240,140,'+(e.life*0.8)+')'); g.addColorStop(0.5,'rgba(43,255,128,'+(e.life*0.5)+')'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,6.28); ctx.fill(); }
     ctx.restore();
-    // hull path (reused for the extruded underbelly + the lit top face)
-    const hull=()=>{ ctx.beginPath(); HULL.forEach(([x,y],i)=>{ const X=x*base*0.92,Y=y*base; i?ctx.lineTo(X,Y):ctx.moveTo(X,Y); }); ctx.closePath(); };
-    const ex=base*0.17;                                        // extrusion depth → the fighter reads as a solid body
-    // dark extruded underbelly (same silhouette shifted down) = thickness
-    ctx.save(); ctx.translate(0,ex); ctx.fillStyle='#02090f'; hull(); ctx.fill(); ctx.restore();
-    // top-lit hull plate (strong top→bottom light gradient for volume)
-    ctx.save(); const hg=ctx.createLinearGradient(0,-base*2,0,base*2.2); hg.addColorStop(0,'#2c3d4c'); hg.addColorStop(0.34,'#14202b'); hg.addColorStop(0.72,'#0a1620'); hg.addColorStop(1,'#04161f');
-    ctx.fillStyle=hg; ctx.strokeStyle='rgba(43,255,128,.55)'; ctx.lineWidth=2; ctx.shadowColor='rgba(43,255,128,.5)'; ctx.shadowBlur=14;
-    hull(); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0; ctx.restore();
-    // card panels
-    PANELS.forEach((pn,i)=>{ const [lx,ly,rot,sc,tag]=pn; const card=imgs.length?imgs[i%imgs.length]:null;
-      const w=base*0.82*sc, h=base*1.15*sc, X=lx*base*0.92, Y=ly*base;
-      ctx.save(); ctx.translate(X,Y); ctx.rotate(rot);
-      const col= tag==='cockpit'?'#27f7e4':(card?(RC[card.rar]||'#2bff80'):'#2bff80');
-      ctx.shadowColor=col; ctx.shadowBlur=tag==='cockpit'?14:7; ctx.fillStyle='#0a0414'; rrect(-w/2,-h/2,w,h,w*0.18); ctx.fill(); ctx.shadowBlur=0;
-      if(card&&card.im.complete&&card.im.naturalWidth){ ctx.save(); rrect(-w/2,-h/2,w,h,w*0.18); ctx.clip(); ctx.drawImage(card.im,-w/2,-h/2,w,h);
-        if(tag==='cockpit'){ ctx.fillStyle='rgba(39,247,228,.34)'; ctx.fillRect(-w/2,-h/2,w,h); const gl=ctx.createLinearGradient(-w/2,-h/2,w/2,h/2); gl.addColorStop(0,'rgba(255,255,255,.55)'); gl.addColorStop(0.4,'transparent'); ctx.fillStyle=gl; ctx.fillRect(-w/2,-h/2,w,h); } ctx.restore(); }
-      // panel shading → each card plate reads as a raised, top-lit surface (card art stays visible)
-      ctx.save(); rrect(-w/2,-h/2,w,h,w*0.18); ctx.clip(); const psh=ctx.createLinearGradient(0,-h/2,0,h/2); psh.addColorStop(0,'rgba(255,255,255,.18)'); psh.addColorStop(0.42,'rgba(255,255,255,0)'); psh.addColorStop(1,'rgba(0,8,14,.42)'); ctx.fillStyle=psh; ctx.fillRect(-w/2,-h/2,w,h); ctx.restore();
-      ctx.strokeStyle=col; ctx.lineWidth=Math.max(1.3,w*0.08); rrect(-w/2,-h/2,w,h,w*0.18); ctx.stroke();
-      ctx.restore(); });
-    // spine highlight down the keel → catches the top light, adds a raised centreline
-    ctx.strokeStyle='rgba(210,255,238,.4)'; ctx.lineWidth=Math.max(1,base*0.045); ctx.beginPath(); ctx.moveTo(0,-base*1.9); ctx.lineTo(0,base*1.5); ctx.stroke();
-    // wingtip lights
-    const blink=0.5+0.5*Math.sin(G.t*8);
-    [[-2.5,0.95],[2.5,0.95]].forEach(([lx,ly])=>{ ctx.fillStyle='rgba(255,42,217,'+(0.4+blink*0.6)+')'; ctx.beginPath(); ctx.arc(lx*base*0.92,ly*base,base*0.09,0,6.28); ctx.fill(); });
-    // muzzle flash on recent fire (additive burst at the gun ports)
+    // the real 3D fuselage — banks with steering, pitches with climb, staked card on the deck
+    const card = imgs.length ? imgs[0] : null;
+    fuse3D(sx, sy, base*1.35, {
+      roll:(k.bank||0)*1.2 + (course.turn||0)*0.22,
+      pitch:clamp((k.pitch||0)*0.55, -0.45, 0.45), yaw:0,
+      pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
+      edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
+      img:card, boost:G.throttle>1.2, thrust:true });
+    // muzzle flash on recent fire (additive burst at the gun ports), over the ship nose
     if(G.muzzle>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; const m=G.muzzle, wp=WEAPONS[G.weapon-1];
-      for(const a of wp.bolts){ const mx=a*base*0.34, my=-base*1.98, r=base*0.5*m;
+      for(const a of wp.bolts){ const mx=sx+a*base*0.34, my=sy-base*1.5, r=base*0.5*m;
         const mgr=ctx.createRadialGradient(mx,my,0,mx,my,r); mgr.addColorStop(0,'rgba(255,252,214,'+(0.9*m)+')'); mgr.addColorStop(0.4,'rgba(255,180,70,'+(0.5*m)+')'); mgr.addColorStop(1,'transparent');
         ctx.fillStyle=mgr; ctx.beginPath(); ctx.arc(mx,my,r,0,6.28); ctx.fill(); }
       ctx.restore(); }
-    ctx.restore();
   }
 
   let last=performance.now();
