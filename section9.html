@@ -479,7 +479,7 @@
 
   // draw list, filled each frame then z-sorted (painter's algorithm)
   let DL=[], dlN=0;
-  function pushFace(verts, n, col, bias){
+  function pushFace(verts, n, col, bias, det){
     // backface cull: camera must be on the +normal side of the face
     let cxw=0,cyw=0,czw=0; const m=verts.length;
     for(let i=0;i<m;i++){ cxw+=verts[i][0]; cyw+=verts[i][1]; czw+=verts[i][2]; }
@@ -497,7 +497,8 @@
     if(allL||allR||allT||allB) return;
     if(zmin>FAR) return;
     const az=zsum/cl.length;
-    const f=DL[dlN]; if(f){ f.pts=pts; f.z=az+(bias||0); f.col=col; } else DL[dlN]={pts:pts,z:az+(bias||0),col:col};
+    const d=(pts.length===4)?(det||null):null;   // masonry detail only on unclipped quads
+    const f=DL[dlN]; if(f){ f.pts=pts; f.z=az+(bias||0); f.col=col; f.det=d; } else DL[dlN]={pts:pts,z:az+(bias||0),col:col,det:d};
     dlN++;
   }
   // a box (AABB) → up to 6 faces. inv=false → outward normals (solid, seen from outside)
@@ -530,6 +531,7 @@
              base[1]*(k*1.02 + fa*1.00),
              base[2]*(k*0.90 + fa*0.78) ]; }
 
+  const DETAIL_FAR=26;   // masonry/plank grain fades out past this depth (perf + it'd be sub-pixel anyway)
   function flushDrawList(){
     DL.length=Math.max(DL.length,dlN);
     const list=DL.slice(0,dlN);
@@ -540,9 +542,42 @@
       if(t>0){ r+=(f0-r)*t; g+=(f1-g)*t; b+=(f2-b)*t; }
       ctx.fillStyle='rgb('+(r|0)+','+(g|0)+','+(b|0)+')';
       const p=f.pts; ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]);
-      for(let j=1;j<p.length;j++) ctx.lineTo(p[j][0],p[j][1]); ctx.closePath(); ctx.fill(); }
+      for(let j=1;j<p.length;j++) ctx.lineTo(p[j][0],p[j][1]); ctx.closePath(); ctx.fill();
+      if(f.det && f.z<DETAIL_FAR) faceDetail(p, f.det, r,g,b, clamp(1-f.z/DETAIL_FAR,0,1));   // procedural masonry grain
+    }
     dlN=0;
   }
+  // bilinear procedural surface grain over a projected quad: sandstone courses, cobble grid, crate planks.
+  // pts = [P0(0,0),P1(1,0),P2(1,1),P3(0,1)] in surface UV winding; r,g,b = the face's fogged fill.
+  const _a=[0,0],_c=[0,0];
+  function faceDetail(pts, det, r,g,b, fade){ const P0=pts[0],P1=pts[1],P2=pts[2],P3=pts[3];
+    const B=(u,v,o)=>{ o[0]=(1-v)*((1-u)*P0[0]+u*P1[0])+v*((1-u)*P3[0]+u*P2[0]); o[1]=(1-v)*((1-u)*P0[1]+u*P1[1])+v*((1-u)*P3[1]+u*P2[1]); };
+    ctx.save(); ctx.beginPath(); ctx.moveTo(P0[0],P0[1]); ctx.lineTo(P1[0],P1[1]); ctx.lineTo(P2[0],P2[1]); ctx.lineTo(P3[0],P3[1]); ctx.closePath(); ctx.clip();
+    const mortar='rgba('+((r*0.52)|0)+','+((g*0.47)|0)+','+((b*0.42)|0)+','+(0.85*fade).toFixed(2)+')';
+    const hi='rgba('+Math.min(255,(r*1.24)|0)+','+Math.min(255,(g*1.21)|0)+','+Math.min(255,(b*1.16)|0)+','+(0.42*fade).toFixed(2)+')';
+    ctx.lineWidth=1.1; ctx.lineCap='butt';
+    if(det.k==='brick'||det.k==='cobble'){ const R=det.rows,C=det.cols, stagger=(det.k==='brick');
+      ctx.strokeStyle=mortar; ctx.beginPath();
+      for(let i=1;i<R;i++){ const v=i/R; B(0,v,_a); B(1,v,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]); }
+      for(let i=0;i<R;i++){ const v0=i/R,v1=(i+1)/R, off=(stagger&&(i%2))?0.5/C:0;
+        for(let j=0;j<=C;j++){ const u=j/C+off; if(u<=0.001||u>=0.999)continue; B(u,v0,_a); B(u,v1,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]); } }
+      ctx.stroke();
+      ctx.strokeStyle=hi; ctx.beginPath();                                   // a thin lit lip under each course → carved relief
+      for(let i=1;i<R;i++){ const v=i/R+0.5/R*0.12; B(0.02,v,_a); B(0.98,v,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]); }
+      ctx.stroke();
+    } else if(det.k==='plank'){ const C=det.cols;                             // vertical planks + X-brace + frame
+      ctx.strokeStyle=mortar; ctx.beginPath();
+      for(let j=1;j<C;j++){ const u=j/C; B(u,0.03,_a); B(u,0.97,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]); }
+      B(0.06,0.06,_a); B(0.94,0.94,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]);
+      B(0.94,0.06,_a); B(0.06,0.94,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]);
+      B(0.05,0.05,_a); ctx.moveTo(_a[0],_a[1]); B(0.95,0.05,_c); ctx.lineTo(_c[0],_c[1]); B(0.95,0.95,_a); ctx.lineTo(_a[0],_a[1]); B(0.05,0.95,_c); ctx.lineTo(_c[0],_c[1]); ctx.closePath();
+      ctx.stroke();
+    } else if(det.k==='ammo'){ const R=det.rows;                              // stamped horizontal ribs
+      ctx.strokeStyle=mortar; ctx.beginPath();
+      for(let i=1;i<R;i++){ const v=i/R; B(0.06,v,_a); B(0.94,v,_c); ctx.moveTo(_a[0],_a[1]); ctx.lineTo(_c[0],_c[1]); }
+      ctx.stroke();
+    }
+    ctx.restore(); }
   function projectPoint(x,y,z){ const v=toView(x,y,z); if(v.z<NEAR) return null;
     const inv=FOCAL/v.z; return { x:HW+v.x*inv, y:HH-v.y*inv, z:v.z, s:inv }; }
 
@@ -659,18 +694,29 @@
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
   const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
+  const PLANKED={ crate:1, shelf:1, cover:1 };
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  // pick the procedural surface grain for a face by kind + orientation, sized to its world extent
+  function detFor(kind, horiz, wu, wv){
+    if(PLANKED[kind]) return {k:'plank', cols:clamp(Math.round(wu/0.55),2,8)};
+    if(kind==='ammo') return horiz?{k:'plank',cols:clamp(Math.round(wu/0.55),2,7)}:{k:'ammo', rows:clamp(Math.round(wv/0.5),2,7)};
+    if(horiz) return {k:'cobble', cols:clamp(Math.round(wu/1.7),1,10), rows:clamp(Math.round(wv/1.7),1,10)};
+    return {k:'brick', cols:clamp(Math.round(wu/1.15),1,16), rows:clamp(Math.round(wv/0.55),1,12)};   // sandstone courses
+  }
   function bakeFaces(M){ if(M.faces) return; const F=[]; M.faces=F;
     const TILE=6;
-    // sand floor (subtle two-tone flagstones) — no ceiling: the courtyard is open to the red sky
+    // sand floor (cobbled flagstones) — no ceiling: the courtyard is open to the red sky
     for(let x=M.x0;x<M.x1-0.01;x+=TILE){ for(let z=M.z0;z<M.z1-0.01;z+=TILE){
       const x1=Math.min(x+TILE,M.x1), z1=Math.min(z+TILE,M.z1);
       const chk=(((x/TILE)|0)+((z/TILE)|0))&1; const base=chk?PAL.floorA:PAL.floorB;
-      F.push({ v:[[x,0,z],[x1,0,z],[x1,0,z1],[x,0,z1]], n:[0,1,0], col:shade(base,[0,1,0]), bias:0.35 });
+      F.push({ v:[[x,0,z],[x1,0,z],[x1,0,z1],[x,0,z1]], n:[0,1,0], col:shade(base,[0,1,0]), bias:0.35, det:{k:'cobble',cols:4,rows:4} });
     }}
     // solids → faces (+ a banded decal on crates/cover so they read as stacked ammo/wood crates)
     for(const b of M.solids){ const {x0,y0,z0,x1,y1,z1,base}=b; const V=[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]];
       const faces=[ [4,5,6,7,0,1,0],[0,1,5,4,0,0,-1],[2,3,7,6,0,0,1],[1,2,6,5,1,0,0],[3,0,4,7,-1,0,0] ];
-      for(const f of faces){ const n=[f[4],f[5],f[6]]; F.push({ v:[V[f[0]],V[f[1]],V[f[2]],V[f[3]]], n, col:shade(base,n), bias:0 }); }
+      for(const f of faces){ const n=[f[4],f[5],f[6]]; const q=[V[f[0]],V[f[1]],V[f[2]],V[f[3]]];
+        const det=detFor(b.kind||'wall', n[1]!==0, dist(q[0],q[1]), dist(q[0],q[3]));
+        F.push({ v:q, n, col:shade(base,n), bias:0, det }); }
       if(BANDED[b.kind]){ const bandCol = (b.kind==='ammo'||b.kind==='cover')?PAL.hazard:PAL.band;
         const yb0=y0+(y1-y0)*0.52, yb1=y0+(y1-y0)*0.70, e=0.02;
         // a horizontal band proud of each vertical side face
@@ -693,7 +739,7 @@
     for(let x=M.x0+GAP; x<M.x1-2; x+=GAP){ niche(x,M.z0,0,1); niche(x,M.z1,0,-1); }
     for(let z=M.z0+GAP; z<M.z1-2; z+=GAP){ niche(M.x0,z,1,0); niche(M.x1,z,-1,0); }
   }
-  function drawMapFaces(){ const F=MAP.faces; for(let i=0;i<F.length;i++){ const f=F[i]; pushFace(f.v,f.n,f.col,f.bias); } }
+  function drawMapFaces(){ const F=MAP.faces; for(let i=0;i<F.length;i++){ const f=F[i]; pushFace(f.v,f.n,f.col,f.bias,f.det); } }
   // ── neon emissive trim: glowing accent edges along wall tops / floor perimeter / stair & cover edges.
   //    Precomputed ONCE per map (like MAP.faces); long runs are split so near-plane clipping stays graceful.
   const NEON_COL={ wall:'#27f7e4', plat:'#2bff80', pillar:'#ff2ad9', crate:'#ffd23b', cover:'#39ff9e', stair:'#27f7e4', shelf:'#ffd23b' };
@@ -1044,6 +1090,16 @@
       const sg=ctx.createRadialGradient(W*0.62,hy,0,W*0.62,hy,H*0.55);
       sg.addColorStop(0,'rgba(255,214,150,0.55)'); sg.addColorStop(0.4,'rgba(232,120,60,0.20)'); sg.addColorStop(1,'transparent');
       ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(W*0.62,hy,H*0.55,0,TAU); ctx.fill(); ctx.restore(); }
+    // distant mesa ridge lines on the horizon (parallax with yaw) — two dark silhouettes behind the walls
+    if(hy>-30 && hy<H+80){ const drift=(cam.yaw/TAU)*W*1.3;
+      ctx.fillStyle='rgba(70,38,32,0.5)'; ctx.beginPath(); ctx.moveTo(-24,hy+H*0.5);
+      for(let x=-24;x<=W+24;x+=44){ const n=Math.sin((x+drift)*0.011)+Math.sin((x+drift)*0.03+1.3)*0.55+Math.sin((x+drift)*0.052)*0.28;
+        ctx.lineTo(x, hy-(n+1.7)*H*0.042-H*0.008); }
+      ctx.lineTo(W+24,hy+H*0.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(46,24,24,0.62)'; ctx.beginPath(); ctx.moveTo(-24,hy+H*0.5);
+      for(let x=-24;x<=W+24;x+=38){ const n=Math.sin((x+drift*1.5)*0.02+2)+Math.sin((x+drift*1.5)*0.041)*0.5;
+        ctx.lineTo(x, hy-(n+1.5)*H*0.028); }
+      ctx.lineTo(W+24,hy+H*0.5); ctx.closePath(); ctx.fill(); }
     // dust haze band right at the horizon
     const bh=H*0.14;
     if(hy>-bh && hy<H+bh){ const b=ctx.createLinearGradient(0,hy-bh*0.3,0,hy+bh);
