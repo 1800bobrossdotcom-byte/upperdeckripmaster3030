@@ -207,6 +207,7 @@
     <div class="bg-wrap"><div class="bg-bar"><div class="bg-fill" id="bgFill"></div></div></div>
     <div class="h-sub">frags <b id="hKills">0</b> · gun Lv.<span id="hGun">1</span></div>
     <div class="h-sub" id="hLoad" style="color:#ffd23b"></div>
+    <div class="h-sub" id="hMkt" style="color:#27f7e4"></div>
   </div>
   <div class="hud hud-tr" id="hudR" style="display:none">
     <div class="h-timer" id="hTimer">1:40</div>
@@ -518,6 +519,7 @@
       spd:6, hp, maxHp:hp, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
       verified:!!opt.verified, weapon:1, fireT:0, thrust:true, boost:false, bank:0, pitchIn:0, rapid:0, sh:0,
       rollT:0, iframe:0, rollDir:0, boostGauge:1, respawnT:0, deaths:0, lives:3, burstQ:0, burstNext:0, burstCool:0, wantFire:false,
+      cardAmp:1, surgeT:0, turnRamp:0, muzzle:-9, sigGun:'',
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
 
   function startMatch(real,ethFlight){
@@ -613,27 +615,47 @@
   // when you have a lock, your bolts fly straight at the lead point (strong aim-assist, so the gun connects)
   function meAimHeading(){ if(G.lock&&G.lock.alive){ const t=G.lock, dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
     return Math.atan2(wdel(t.y+Math.sin(t.h)*t.spd*lead-G.me.y), wdel(t.x+Math.cos(t.h)*t.spd*lead-G.me.x)); } return G.me.h; }
-  function emitBolt(s){ const wp=WEAP[Math.min(WEAP.length,s.weapon)-1]; const base=s.isMe?meAimHeading():s.h; const home=s.isMe?G.lock:null;
-    const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1);          // zoomed precision shots; staked cards amplify damage
+  function nearestFoe(s){ let best=1e9,f=null; for(const o of G.ships){ if(o===s||!o.alive||o.spawnT>0)continue;
+    const d=Math.hypot(wdel(o.x-s.x),wdel(o.y-s.y)); if(d<best){best=d;f=o;} } return f; }
+  function emitBolt(s){ const surge=(s.surgeT>0);                                        // OVERCHARGE: card+market power-up
+    const wp=surge?WEAP[WEAP.length-1]:WEAP[Math.min(WEAP.length,s.weapon)-1];           // surge fires the top gun regardless of tier
+    const base=s.isMe?meAimHeading():s.h; const home=s.isMe?(G.lock||(surge?nearestFoe(s):null)):null;
+    const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1)*(surge?1.6:1);        // zoomed precision + staked-card damage + surge
     for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
-      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser, me:s.isMe, home }); }
-    if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
+      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser||surge, me:s.isMe, home, surge }); }
+    if(s.isMe){ s.muzzle=G.t; (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
       if(G.netMatch&&window.RipFight) RipFight.send({k:'f',x:s.x,y:s.y,alt:s.alt,h:base,sp}); } else sfxEfire(); }
   // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
-  function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive), rt=s.cardRate||1;   // cards lift rate of fire
+  function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive||s.surgeT>0), rt=s.cardRate||1;   // cards lift rate of fire
     if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(rap?46:82)/rt; if(s.burstQ<=0)s.burstCool=now+(rap?240:480)/rt; } return; }
     if(want && now>=(s.burstCool||0)){ s.burstQ=((s.weapon>=3||rap)?4:3); s.burstNext=0; } }
   function boom(x,y,alt,tint,big){ const n=big?26:12; for(let i=0;i<n;i++) G.bursts.push({x,y,alt:(alt||0)+rnd(0.4,-0.2),vx:rnd(6,-6),vy:rnd(6,-6),va:rnd(4,-1),life:1,col:tint});
     G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)(); }
 
+  // live $UR3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
+  function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
   const POWS=[ {t:'repair',ch:'✚',col:'#2bff80'}, {t:'rapid',ch:'»',col:'#27f7e4'}, {t:'gun',ch:'G',col:'#ffd23b'}, {t:'shield',ch:'◆',col:'#b070ff'} ];
-  function applyPow(s,t){ if(t==='repair') s.hp=Math.min(s.maxHp,s.hp+40);
-    else if(t==='rapid') s.rapid=6; else if(t==='gun') s.weapon=Math.min(WEAP.length,s.weapon+1);
-    else if(t==='shield'){ s.sh=5; s.hp=Math.min(s.maxHp,s.hp+16); }
-    if(s.isMe){ sfxPow(); powMsg(t==='repair'?'✚ HULL PATCH':t==='rapid'?'» RAPID FIRE':t==='gun'?'GUN ▲ Lv.'+s.weapon:'◆ SHIELD UP'); } }
+  const AMPPOW={ t:'amp', ch:'★', col:'#ffd76a' };               // market-heat OVERCHARGE cell — spawns hotter the hotter the chain
+  // pickup potency scales with the grabber's card amp (your staked cards × the live market)
+  function applyPow(s,t){ const a=s.cardAmp||1;
+    if(t==='repair') s.hp=Math.min(s.maxHp,s.hp+Math.round(38*a));
+    else if(t==='rapid') s.rapid=Math.max(s.rapid,4+Math.round(3*a));
+    else if(t==='gun') s.weapon=Math.min(WEAP.length,s.weapon+1);
+    else if(t==='shield'){ s.sh=Math.max(s.sh,4+2*a); s.hp=Math.min(s.maxHp,s.hp+Math.round(14*a)); }
+    else if(t==='amp'){ s.surgeT=Math.max(s.surgeT||0,5.5+2.5*a); s.rapid=Math.max(s.rapid,s.surgeT); s.hp=Math.min(s.maxHp,s.hp+Math.round(10*a)); }
+    if(s.isMe){ sfxPow(); powMsg(t==='repair'?'✚ HULL PATCH':t==='rapid'?'» RAPID FIRE':t==='gun'?'GUN ▲ Lv.'+s.weapon:t==='shield'?'◆ SHIELD UP':'★ OVERCHARGE'+(s.sigGun?' · '+s.sigGun.toUpperCase():'')); } }
+  function spawnPow(){ const a=mktAmp();
+    // weighted pool; a hot chain skews toward the strong pickups and unlocks the golden OVERCHARGE cell
+    const pool=[ [POWS[0],3],[POWS[1],3],[POWS[2],2],[POWS[3],2] ];
+    const ampW=Math.max(0,(a-0.95))*6; if(ampW>0.15) pool.push([AMPPOW,ampW]);
+    let tot=0; for(const e of pool)tot+=e[1]; let r=Math.random()*tot, pick=pool[0][0];
+    for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
+    const ang=rnd(TAU), rr2=rnd(26,4);
+    G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(1.8,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
   // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
   function applyLoadout(s,L){ if(!s||!L)return;
-    s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.overdrive=false;
+    s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.cardAmp=L.amp||1; s.overdrive=false;
+    s.sigGun=(L.guns&&L.guns.length)?L.guns[L.guns.length-1]:'';   // signature gun the OVERCHARGE flavors
     if(L.shield>0){ const bonus=Math.round(L.shield*8); s.maxHp+=bonus; s.hp+=bonus; }
     let wl=1;                                                    // guns/triggers unlock a starting weapon tier
     if(L.guns.includes('twin'))wl=Math.max(wl,2);
@@ -650,11 +672,10 @@
   const shortName=n=>{ n=String(n||''); return n.length>12?n.slice(0,11)+'…':n; };
   function step(dt){ G.t+=dt;
     // power-up spawns near the action
-    G.powT-=dt; if(G.powT<=0 && G.pows.length<4){ G.powT=rnd(9,5); const p=POWS[(Math.random()*POWS.length)|0];
-      const a=rnd(TAU), r=rnd(26,4); G.pows.push({ x:wpos(cam.x+Math.cos(a)*r), y:wpos(cam.y+Math.sin(a)*r), alt:rnd(1.8,0.6), type:p.t, ch:p.ch, col:p.col, spin:0, t:0 }); }
+    G.powT-=dt; if(G.powT<=0 && G.pows.length<5){ G.powT=rnd(9,5)/(0.85+(mktAmp()-0.75)*0.55); spawnPow(); }   // hotter chain → pickups drop faster
     for(const pw of G.pows){ pw.t+=dt; pw.spin+=dt*2; }
     // fly the ships (yaw + climb + thrust, positions wrap over the toroidal map)
-    for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.spawnT>0)s.spawnT-=dt;
+    for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.surgeT>0)s.surgeT-=dt; if(s.spawnT>0)s.spawnT-=dt;
       if(s.isMe) stepMe(s,dt); else if(s.net) stepNet(s,dt); else stepBot(s,dt);
       tryFire(s, s.wantFire);
       const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
@@ -674,17 +695,23 @@
       RipFight.send({k:'s',n:G.me.name,x:G.me.x,y:G.me.y,alt:G.me.alt,h:G.me.h,spd:G.me.spd,bank:G.me.bank||0,
         hp:G.me.hp,maxHp:G.me.maxHp,kills:G.me.kills,boost:G.me.boost?1:0}); } }
     // bolts
-    for(const b of G.bolts){ if(b.home&&b.home.alive){ const bear=Math.atan2(wdel(b.home.y-b.y),wdel(b.home.x-b.x)); b.h+=clamp(angd(bear-b.h),-7*dt,7*dt); }   // homing bolts curve hard onto the lock
-      const bsp=b.sp||BOLTSPD; b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
-      const hr=b.me?2.3:1.0, av=b.me?1.7:0.85;                        // forgiving hitbox on YOUR shots
+    for(const b of G.bolts){ const bsp=b.sp||BOLTSPD;
+      if(b.home&&b.home.alive){ const t=b.home;                                       // full-3D homing onto the lead point
+        const d=Math.hypot(wdel(t.x-b.x),wdel(t.y-b.y)), lead=Math.min(0.6,d/bsp);
+        const tx=wpos(t.x+Math.cos(t.h)*t.spd*lead), ty=wpos(t.y+Math.sin(t.h)*t.spd*lead);
+        const bear=Math.atan2(wdel(ty-b.y),wdel(tx-b.x)), rate=(b.surge?17:12);
+        b.h+=clamp(angd(bear-b.h),-rate*dt,rate*dt);                                  // hard horizontal seek
+        b.alt+=clamp(t.alt-b.alt,-5*dt,5*dt); }                                       // vertical seek — the axis that was missing
+      b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
+      const hr=b.me?2.4:1.0, av=b.me?2.0:0.85;                        // forgiving hitbox on YOUR shots
       if(b.noHit) continue;                                          // a net peer's bolt: visual here; its damage arrives as a hit msg
       for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
         if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<hr&&Math.abs(b.alt-s.alt)<av){
           if(s.net){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:'#ffd23b'});
-            if(b.me&&window.RipFight) RipFight.sendTo(s.netId,{k:'hit',dmg:b.dmg});   // shooter-authoritative: owner applies it
+            if(b.me){ G.hitT=G.t; if(window.RipFight) RipFight.sendTo(s.netId,{k:'hit',dmg:b.dmg}); }   // shooter-authoritative: owner applies it
             break; }
           if(s.iframe>0){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(4,-4),vy:rnd(4,-4),va:0,life:.4,col:'#8ffff0'}); break; }   // barrel-roll deflects
-          b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg;
+          b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg; if(b.me)G.hitT=G.t;   // hit-marker feedback
           G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:b.me?'#ffd23b':'#ff5a3c'});
           if(s.isMe){ G.shake=Math.max(G.shake,8); sfxHit(); if(s.hp>0&&s.hp<55&&Math.random()<0.05)commsRnd('hit','#7a1e2a'); }
           if(s.hp<=0){ s.alive=false; s.respawnT=s.isMe?2.6:2.2; s.deaths++; boom(s.x,s.y,s.alt,s.tint,true);
@@ -717,7 +744,10 @@
     if(ptrAim){ yaw+=clamp(aim.x*1.5,-1,1); pitch+=clamp(aim.y*1.5,-1,1); }
     yaw+=stick.x; pitch+=stick.y;                    // touch flight stick (relative)
     yaw=clamp(yaw,-1,1); pitch=clamp(pitch,-1,1);
-    s.h+=yaw*2.4*dt; s.alt-=pitch*2.2*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6); s.pitchIn=pitch;
+    // rate-building turn: a sustained hard bank tightens your turn over ~0.4s (dogfight feel); armed craft handle sharper
+    s.turnRamp=clamp((s.turnRamp||0)+(Math.abs(yaw)>0.55?dt*2.4:-dt*3.2),0,1);
+    const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1));
+    s.h+=yaw*turnRate*dt; s.alt-=pitch*2.4*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6.5); s.pitchIn=pitch;
     // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up)
     const wantB=!!(keys.Shift||keys.shift||padBoost);
     if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
@@ -868,10 +898,15 @@
       for(let i=1;i<s.trail.length;i++){ const p=project(s.trail[i-1][0],s.trail[i-1][1],s.trail[i-1][2]), q=project(s.trail[i][0],s.trail[i][1],s.trail[i][2]); if(!p||!q)continue;
         const a=i/s.trail.length; ctx.globalAlpha=a*0.4; ctx.lineWidth=a*3*Math.min(2,q.scale*0.01)+0.3; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); } ctx.restore(); ctx.globalAlpha=1; }
     // power-ups
-    for(const pw of G.pows){ const p=project(pw.x,pw.y,pw.alt); if(!p||p.fwd>VIEW_FAR)continue; const r=clamp(p.scale*0.5,6,26);
+    for(const pw of G.pows){ const p=project(pw.x,pw.y,pw.alt); if(!p||p.fwd>VIEW_FAR)continue; const r=clamp(p.scale*0.5,6,26); const amp=(pw.type==='amp');
       ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=pw.t>17?(0.4+0.6*Math.sin(pw.t*12)):clamp(1-p.fwd/VIEW_FAR,0.2,1);
-      const g=ctx.createRadialGradient(0,0,0,0,0,r*1.5); g.addColorStop(0,pw.col); g.addColorStop(.6,pw.col+'55'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r*1.5,0,TAU); ctx.fill();
-      ctx.fillStyle='#02040a'; ctx.beginPath(); ctx.arc(0,0,r*0.7,0,TAU); ctx.fill(); ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.stroke();
+      const halo=r*(amp?2.1:1.5)*(1+0.08*Math.sin(pw.t*4));
+      const g=ctx.createRadialGradient(0,0,0,0,0,halo); g.addColorStop(0,pw.col); g.addColorStop(.55,pw.col+'55'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,halo,0,TAU); ctx.fill();
+      // orbiting ticks (spin) — the golden OVERCHARGE cell spins faster and gets an extra ring
+      ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.shadowColor=pw.col; ctx.shadowBlur=amp?12:6;
+      const ticks=amp?6:4; ctx.beginPath(); for(let i=0;i<ticks;i++){ const a=pw.spin*(amp?1.4:1)+i*TAU/ticks; ctx.moveTo(Math.cos(a)*r*1.15,Math.sin(a)*r*1.15); ctx.lineTo(Math.cos(a)*r*1.42,Math.sin(a)*r*1.42); } ctx.stroke();
+      if(amp){ ctx.beginPath(); ctx.arc(0,0,r*1.3,0,TAU); ctx.stroke(); }
+      ctx.shadowBlur=0; ctx.fillStyle='#02040a'; ctx.beginPath(); ctx.arc(0,0,r*0.7,0,TAU); ctx.fill(); ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.stroke();
       ctx.fillStyle=pw.col; ctx.font='900 '+(r*0.9)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pw.ch,0,0); ctx.restore(); }
     // bolts
     for(const b of G.bolts){ const p=project(b.x,b.y,b.alt); if(!p)continue; const p2=project(wpos(b.x-Math.cos(b.h)*0.6),wpos(b.y-Math.sin(b.h)*0.6),b.alt);
@@ -889,6 +924,7 @@
     const gp=project(s.x,s.y,0);
     if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x,gp.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
     if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,sz*0.95,0,TAU); ctx.stroke(); }
+    if(s.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,215,106,'+(0.4+0.4*Math.sin(G.t*16))+')'; ctx.lineWidth=2.5; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(p.x,p.y,sz*1.05,0,TAU); ctx.stroke(); ctx.restore(); }
     if(!s._pal){ const hx=String(s.tint).replace('#',''); const t=[parseInt(hx.slice(0,2),16)||0,parseInt(hx.slice(2,4),16)||0,parseInt(hx.slice(4,6),16)||0];
       s._pal={h:t.map(v=>v*0.52),hd:t.map(v=>v*0.34),w:t.map(v=>v*0.24),b:t.map(v=>v*0.1),f:t.map(v=>v*0.2)};
       s._eRGB=t.map(v=>Math.round(v+(255-v)*0.45)); }
@@ -989,6 +1025,16 @@
       pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
       edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
       img:(craftImgs.length?craftImgs[0]:null), boost:k.boost });
+    // OVERCHARGE aura — golden bloom + orbiting sparks while the market-heat surge is live
+    if(k.surgeT>0){ const cyg=H-base*1.7, R=base*1.7, pul=0.5+0.5*Math.sin(G.t*18); ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(cx,cyg,R*0.4,cx,cyg,R); g.addColorStop(0,'rgba(255,215,106,0)'); g.addColorStop(.7,'rgba(255,200,80,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(255,230,150,'+(0.16+0.12*pul)+')');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyg,R,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(255,225,140,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=14;
+      for(let i=0;i<5;i++){ const a=G.t*3+i*TAU/5; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*R*0.9,cyg+Math.sin(a)*R*0.72,base*0.05,0,TAU); ctx.stroke(); } ctx.restore(); }
+    // muzzle flash — a quick additive bloom off the nose the instant you fire
+    if(G.t-(k.muzzle||-9)<0.07){ const my=H-base*1.5-base*1.15, fr=base*(0.5+Math.random()*0.35); ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(cx,my,0,cx,my,fr); g.addColorStop(0,'rgba(255,244,200,.95)'); g.addColorStop(.45,'rgba(255,180,60,.5)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,my,fr,0,TAU); ctx.fill(); ctx.restore(); }
     if(k.iframe>0){ const cyb=H-base*1.7, R=base*1.85, pul=0.5+0.5*Math.sin(G.t*22); ctx.save();
       // deflector shield bubble — glowing hex dome that flares while it blocks
       const g=ctx.createRadialGradient(cx,cyb,R*0.35,cx,cyb,R); g.addColorStop(0,'rgba(40,247,228,0)'); g.addColorStop(.72,'rgba(40,247,228,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(120,255,240,'+(0.18+0.14*pul)+')');
@@ -1024,7 +1070,11 @@
       ctx.fillStyle='rgba(43,255,128,.9)'; ctx.font='900 9px Arial'; ctx.textAlign='center'; ctx.fillText('◎ ZOOM',cx,cy+rad*0.55); ctx.restore(); }
     ctx.save(); ctx.strokeStyle='rgba(43,255,128,.8)'; ctx.lineWidth=2; ctx.shadowColor='#2bff80'; ctx.shadowBlur=6;
     ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.moveTo(cx-r*1.7,cy); ctx.lineTo(cx-r*0.6,cy); ctx.moveTo(cx+r*0.6,cy); ctx.lineTo(cx+r*1.7,cy); ctx.moveTo(cx,cy-r*1.7); ctx.lineTo(cx,cy-r*0.6); ctx.stroke();
-    if(G.lock){ ctx.fillStyle='rgba(255,42,217,.92)'; ctx.font='900 10px Arial'; ctx.textAlign='center'; ctx.shadowColor='#ff2ad9'; ctx.fillText('◈ LOCK',cx,cy-r*1.9); } ctx.restore(); }
+    if(G.lock){ ctx.fillStyle='rgba(255,42,217,.92)'; ctx.font='900 10px Arial'; ctx.textAlign='center'; ctx.shadowColor='#ff2ad9'; ctx.fillText('◈ LOCK',cx,cy-r*1.9); } ctx.restore();
+    // hit-marker: a quick expanding cyan cross the instant one of YOUR bolts connects
+    const ht=G.t-(G.hitT!=null?G.hitT:-9); if(ht<0.2){ const k=ht/0.2, d=r*(0.8+k*1.4); ctx.save(); ctx.globalAlpha=1-k;
+      ctx.strokeStyle='#8ffff0'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=8; ctx.lineCap='round';
+      [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sy])=>{ ctx.beginPath(); ctx.moveTo(cx+sx*d,cy+sy*d); ctx.lineTo(cx+sx*d*0.6,cy+sy*d*0.6); ctx.stroke(); }); ctx.restore(); } }
   // motion-blur speed streaks: radial warp lines that intensify with throttle / boost
   function drawSpeedFx(){ if(!G.me||!G.me.alive)return; const sp=G.me.spd, boost=G.me.boost; if(sp<8.5&&!boost)return;
     const amt=clamp((sp-7)/8,0,1)*(boost?1:0.7); if(amt<=0.02)return; const R=Math.min(W,H);
@@ -1067,7 +1117,9 @@
     ctx.restore();     // end shake
     drawRadar();       // the reused Tron disk, stable in the corner
     // HUD
-    if(G.me){ $('hpFill').style.width=clamp(G.me.hp/G.me.maxHp*100,0,100)+'%'; $('bgFill').style.width=clamp(G.me.boostGauge*100,0,100)+'%'; $('hKills').textContent=G.me.kills; $('hGun').textContent=G.me.weapon; }
+    if(G.me){ $('hpFill').style.width=clamp(G.me.hp/G.me.maxHp*100,0,100)+'%'; $('bgFill').style.width=clamp(G.me.boostGauge*100,0,100)+'%'; $('hKills').textContent=G.me.kills; $('hGun').textContent=G.me.weapon;
+      const a=mktAmp(), mk=$('hMkt'); if(mk){ mk.textContent=(G.me.surgeT>0?'★ OVERCHARGE '+G.me.surgeT.toFixed(1)+'s':'◈ market ×'+a.toFixed(2)+(a>1.25?' · HOT — cells drop faster':a<0.95?' · cold':''));
+        mk.style.color=G.me.surgeT>0?'#ffd76a':(a>1.25?'#ff2ad9':'#27f7e4'); } }
     const alive=G.ships.filter(s=>s.alive).length; $('hAlive').textContent=alive;
     const tl=Math.max(0,G.timeLeft); $('hTimer').textContent=Math.floor(tl/60)+':'+String(Math.floor(tl%60)).padStart(2,'0');
     $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $UR3030 + '+(wager.cards*wager.players)+' cards';
