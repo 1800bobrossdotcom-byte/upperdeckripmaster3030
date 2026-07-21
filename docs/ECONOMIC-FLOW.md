@@ -16,18 +16,27 @@ fungible token; it is both the **currency** and the **burn meter**
 
 - Cap **3,030,000** · opening **≈ 1 RARE/token (~$0.02)** ⏳ (curve calibration — see `CURVE-TARGET.md`)
 
-## 2 · The cards are LENSES (ERC-1155) ✅
+## 2 · The cards are LENSES (ERC-721 editions) ✅
 
-Every card in the 196-card field is a **Lens**: an ERC-1155 render token whose
-`tokenURI` reads `$UR3030`'s live market + burn state, so the card art evolves
-with price and with the fire. A card's **print run = its 1155 supply cap** (the
-"denomination"). Rarer tier → smaller run. The sealed **1/1 marquee** (*Lovebeing*)
-is its own lens.
+Every card in the 196-card field is a **Lens**: a render token whose `tokenURI`
+reads `$UR3030`'s live market + burn state, so the card art evolves with price and
+with the fire. **Per the Cohort-01 docs, Lenses are ERC-721** ("Companion 721 Lens
+Collections… supported through an assisted setup"; CLI: "a combined renderer plus
+**ERC721** contract where each NFT is a different lens"). **1155 is not on the
+supported path** — a custom 1155 would forfeit SuperRare's indexing/surfacing and
+their support boundary, so we stay **721**.
 
-⏳ *For SuperRare:* confirm Lenses can be **ERC-1155** (fungible copies per card).
-If the assisted Lens setup is 721-only, the same denominations become **numbered
-editions** (many token-ids sharing one card's art) — the economics are identical,
-only the token standard differs.
+A card's **print run = its edition size** (the "denomination"): card *Blue Boar*
+mints as #1/62 … #62/62, all sharing that card's lens/render. Rarer tier → smaller
+edition. The sealed **1/1 marquee** (*Lovebeing*) is its own lens. Economics are
+identical to the 1155 sketch — only the token standard changes (and numbered
+editions read as *stronger* trading-card provenance).
+
+⏳ *For SuperRare:* their "each NFT is a different lens" phrasing suggests a lens
+collection is a handful of distinct views. Confirm the **assisted 721 lens setup
+supports our structure** — 196 distinct card-lenses, each editioned — or whether we
+deploy our own editioned **721 renderer+lens contract** via the CLI (self-supported).
+Either way it is 721.
 
 ### Denominations (from `scripts/print-runs.mjs`)
 
@@ -83,9 +92,9 @@ Cumulative pack burn crosses a **published weakest-first milestone schedule**
 survive**, and **~1,010,000 `$UR3030` remain** as the settled live float (a **3×
 permanent contraction**). Invariant: **Σ lifetime burn ≤ cap** ✅.
 
-**Print run and retirement are separate axes.** A card *sells out* when its 1155
-supply cap is hit (no more pulls); it *retires* when the burn crosses its milestone
-(render → ash). The tiers align by design: **commons** have the biggest runs **and**
+**Print run and retirement are separate axes.** A card *sells out* when its 721
+edition is fully minted (no more pulls); it *retires* when the burn crosses its
+milestone (render → ash). The tiers align by design: **commons** have the biggest runs **and**
 retire first (they flood, then turn to ash you can hold); **prizm** have the tiniest
 runs **and** survive (scarce lenses that endure into the 77-card deck).
 
@@ -101,8 +110,11 @@ runs **and** survive (scarce lenses that endure into the 77-card deck).
 
 ### Open ⏳ (needs SuperRare)
 1. Curve calibration to open at ~1 RARE/token on the 3,030,000 supply (`CURVE-TARGET.md`).
-2. Lens token standard — ERC-1155 vs. 721 numbered editions — and the **pack-mint
-   mechanism** (a pack contract that takes the burn + mints lenses, vs. assisted setup).
+2. Lens standard is **settled: ERC-721 numbered editions** (per the Cohort-01 docs).
+   Open part is the **structure + pack-mint mechanism** — does the assisted 721 lens
+   setup support 196 distinct editioned card-lenses, or do we deploy our own editioned
+   721 renderer+lens contract via the CLI, and does a **pack contract** take the burn +
+   mint the lenses (vs. assisted setup).
 3. Whether lens minting is **per-pack at launch** (bigger contract surface) or the
    launch stays **one edition + render**, with lenses minting the survivors at season
    end (the original intake posture). Going per-pack makes the card layer real on-chain
