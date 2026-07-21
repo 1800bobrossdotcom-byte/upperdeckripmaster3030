@@ -88,6 +88,24 @@ made the whole site consistent to that form. We hear you that trading cards is t
 category as Upper Deck, so we'll get a professional clearance on the fused mark rather
 than assume; happy to talk it through if you have a view.
 
+## 6 · The lens layer — we read the Cohort-01 docs; one structural question
+
+We went back through the **Overview** and **Technical CLI Guide** to settle how the
+cards should exist on-chain, and your docs answered it: Liquid Edition lenses are
+**ERC-721** — *"Companion 721 Lens Collections… supported through an assisted setup,"*
+and the CLI's *"combined renderer plus ERC721 contract where each NFT is a different
+lens."* So we're **not** trying to force a custom 1155 — that's off the supported/
+surfaced path, and 721 numbered editions actually read as *stronger* card provenance
+(a card mints as #1/62 … #62/62).
+
+The one thing we can't tell from the docs: our field is **196 distinct card-lenses,
+each editioned** (print run = edition size, per rarity). Does the **assisted 721 lens
+setup** support a collection of that shape, or is the intended path that we deploy our
+own **editioned 721 renderer + lens contract** via the CLI (self-supported)? And on the
+mint side — should a **pack contract** take the $UR3030 burn and mint the 7 lenses, or
+does that sit in the assisted layer? That's the one design fork we'd like your read on
+before we build it.
+
 ## The rehearsal
 
 Please do send the **25,000 test RARE** — that covers the three rehearsals plus the
