@@ -30,6 +30,15 @@ window.GLR = (function () {
     let y0 = z1 * x2 - z2 * x1, y1 = z2 * x0 - z0 * x2, y2 = z0 * x1 - z1 * x0;
     return [x0, y0, z0, 0, x1, y1, z1, 0, x2, y2, z2, 0,
       -(x0 * e[0] + x1 * e[1] + x2 * e[2]), -(y0 * e[0] + y1 * e[1] + y2 * e[2]), -(z0 * e[0] + z1 * e[1] + z2 * e[2]), 1]; }
+  // view matrix built directly from yaw+pitch (matches the canvas toView, negated z for GL) — STABLE at all pitches,
+  // unlike lookAt which degenerates as the view direction nears the world-up vector (the "look-up flip").
+  function viewMat(e, yaw, pitch) {
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const tx = -(cy * e[0] - sy * e[2]);
+    const ty = -(-sy * sp * e[0] + cp * e[1] - cy * sp * e[2]);
+    const tz = -(-sy * cp * e[0] - sp * e[1] - cy * cp * e[2]);
+    return [cy, -sy * sp, -sy * cp, 0, 0, cp, -sp, 0, -sy, -cy * sp, -cy * cp, 0, tx, ty, tz, 1];
+  }
   function mul(a, b) { const o = new Array(16);
     for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++)
       o[i * 4 + j] = a[j] * b[i * 4] + a[4 + j] * b[i * 4 + 1] + a[8 + j] * b[i * 4 + 2] + a[12 + j] * b[i * 4 + 3];
@@ -275,9 +284,8 @@ window.GLR = (function () {
     // world
     gl.useProgram(prog);
     const fovy = 0.97 / (G.scopeZoom || 1), asp = cv.width / cv.height;   // match the canvas FOV so aim/look feel is identical
-    const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), f = [cp * Math.sin(cam.yaw), sp, cp * Math.cos(cam.yaw)];
     const eye = [cam.x, cam.y, cam.z];
-    const mvp = mul(persp(fovy, asp, 0.06, 60), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
+    const mvp = mul(persp(fovy, asp, 0.06, 60), viewMat(eye, cam.yaw, cam.pitch));
     gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(mvp));
     gl.uniform3fv(loc.uCam, eye);
     gl.uniform3fv(loc.uLightDir, ENV.lightDir); gl.uniform3fv(loc.uLightCol, ENV.lightCol); gl.uniform3fv(loc.uAmbient, ENV.ambient);
