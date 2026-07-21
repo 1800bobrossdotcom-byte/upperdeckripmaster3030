@@ -60,16 +60,23 @@ Each card's market trigger maps to a gun it can activate
 `heat ∈ [0.7, 2.6]` → amplifier `amp ∈ [0.75, 1.7]` applied to every axis.
 The chain literally turns the damage dial.
 
-## 3 · Where each axis lands per game
+## 3 · Where each axis lands per game (all three cabinets LIVE)
 
 | Axis | DOGFIGHT | RIP ROCKETER | SECTION 9 |
 |---|---|---|---|
-| `dmg` | bolt damage mult (`emitBolt`) | gun damage | weapon damage (planned) |
-| `rate` | burst cadence (`tryFire`) | fire cadence | reload/cadence (planned) |
-| `shield` | +8 hp per charge, max-hp bump | hull bonus | armor bonus (planned) |
-| `speed` | thrust ceiling nudge | scroll/boost | sprint (planned) |
-| `guns[]` | weapon-level unlocks | gun level | slot unlocks (planned) |
-| `overdrive` | rapid without pickup | — | — |
+| `dmg` | bolt damage mult (`emitBolt`) | gun damage | weapon damage mult (`fireWeapon`) |
+| `rate` | burst cadence (`tryFire`) | fire cadence | fire-rate → shorter `fireT` |
+| `shield` | +8 hp per charge, max-hp bump | hull bonus | +armor & max-armor bonus |
+| `speed` | thrust ceiling nudge | scroll/boost | move / sprint speed |
+| `guns[]` | weapon-level unlocks | gun level | starting weapon tier |
+| `overdrive` | rapid without pickup | — | permanent surge-fire (prizm) |
+
+### In-arena supply drops + OVERCHARGE (live: dogfight + section 9)
+Beyond the passive loadout, cards + market drive the **pickups** that spawn
+mid-match. Pickup potency scales with your staked-card amplifier, and a **hot
+chain drops them faster** and unlocks a golden **OVERCHARGE cell** — a timed
+surge (top gun + homing/rapid + bonus damage), flavored by your cards'
+signature gun. The live market literally makes better power-ups rain.
 
 Cards are also the **stake**: a full pick rides the pot and moves on a real
 wager — you can arm yourself with them AND lose them.
