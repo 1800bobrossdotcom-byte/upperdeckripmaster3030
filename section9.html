@@ -1108,21 +1108,32 @@
   }
   // an operative = stacked AA boxes (legs, torso, head) + a gun box offset toward facing
   function drawEntities(){
+    // AABB helper that tolerates facing-relative offsets (keeps min<max so normals stay outward)
+    const bf=(ax,ay,az,bx,by,bz,col,opt)=>boxFaces(Math.min(ax,bx),ay,Math.min(az,bz),Math.max(ax,bx),by,Math.max(az,bz),col,opt);
     for(const e of G.ents){ if(!e.alive||e.isMe) continue;
-      // rough distance cull
       const dd=Math.hypot(e.x-cam.x,e.z-cam.z); if(dd>FAR) continue;
       const flick=(e.spawnT>0||e.iframe>0)? (Math.sin(G.t*30)>0?0.4:1) : 1;
-      const legs=[70,74,82], torso=e.tint.map(v=>v*flick), head=[168,150,126].map(v=>v*flick), gun=[36,38,44];
-      const y0=e.y;
-      boxFaces(e.x-0.24,y0,e.z-0.2, e.x+0.24,y0+0.82,e.z+0.2, legs, {skipBottom:true});
-      boxFaces(e.x-0.3,y0+0.82,e.z-0.24, e.x+0.3,y0+1.36,e.z+0.24, torso, {skipBottom:false});
-      boxFaces(e.x-0.17,y0+1.36,e.z-0.17, e.x+0.17,y0+1.7,e.z+0.17, head, {skipBottom:false});
-      // gun: a small box offset forward+right at torso height
-      const d=lookDir(e.yaw,0); const rx=Math.cos(e.yaw), rz=-Math.sin(e.yaw);
-      const gx=e.x+d.x*0.34+rx*0.18, gz=e.z+d.z*0.34+rz*0.18, gy=y0+1.02;
-      boxFaces(gx-0.1,gy-0.06,gz-0.1, gx+0.1,gy+0.06,gz+0.1, gun, {skipBottom:false, bias:-0.2});
-      // muzzle flash box
-      if(e.muzzle>0){ boxFaces(gx-0.12,gy-0.1,gz-0.12, gx+0.12,gy+0.14,gz+0.12, [255,230,120], {skipBottom:false,bias:-0.4}); }
+      const mul=a=>a.map(v=>v*flick);
+      const khaki=mul([150,132,92]), boot=mul([50,42,36]), vest=mul(e.tint), pack=mul([120,104,72]),
+            skin=mul([196,150,116]), cap=mul([64,70,48]), gun=mul([42,44,50]);
+      const y0=e.y; const d=lookDir(e.yaw,0); const rx=Math.cos(e.yaw), rz=-Math.sin(e.yaw);
+      // two legs (khaki fatigues) + boots
+      bf(e.x-0.22,y0+0.12,e.z-0.15, e.x-0.02,y0+0.86,e.z+0.15, khaki,{skipBottom:true});
+      bf(e.x+0.02,y0+0.12,e.z-0.15, e.x+0.22,y0+0.86,e.z+0.15, khaki,{skipBottom:true});
+      bf(e.x-0.22,y0,e.z-0.17, e.x-0.02,y0+0.15,e.z+0.2, boot,{skipBottom:true});
+      bf(e.x+0.02,y0,e.z-0.17, e.x+0.22,y0+0.15,e.z+0.2, boot,{skipBottom:true});
+      // torso vest (team tint) + backpack slung behind (opposite facing)
+      bf(e.x-0.3,y0+0.86,e.z-0.2, e.x+0.3,y0+1.4,e.z+0.2, vest,{skipBottom:false});
+      const bxp=e.x-d.x*0.26, bzp=e.z-d.z*0.26;
+      bf(bxp-0.2,y0+0.92,bzp-0.15, bxp+0.2,y0+1.36,bzp+0.15, pack,{skipBottom:false,bias:0.05});
+      // head (skin) + cap
+      bf(e.x-0.15,y0+1.4,e.z-0.15, e.x+0.15,y0+1.7,e.z+0.15, skin,{skipBottom:false});
+      bf(e.x-0.16,y0+1.66,e.z-0.16, e.x+0.16,y0+1.79,e.z+0.16, cap,{skipBottom:false});
+      // arms bringing the rifle up + a short rifle held forward at chest height
+      const hx=e.x+d.x*0.26+rx*0.14, hz=e.z+d.z*0.26+rz*0.14, gy=y0+1.06;
+      bf(e.x+rx*0.16,gy-0.05,e.z+rz*0.16, hx,gy+0.07,hz, vest,{skipBottom:false,bias:-0.05});   // arm
+      bf(hx-0.05,gy-0.05,hz-0.05, hx+d.x*0.42,gy+0.06,hz+d.z*0.42, gun,{skipBottom:false,bias:-0.2});  // rifle
+      if(e.muzzle>0){ const mx=hx+d.x*0.46, mz=hz+d.z*0.46; bf(mx-0.11,gy-0.09,mz-0.11, mx+0.11,gy+0.11,mz+0.11, [255,230,120], {skipBottom:false,bias:-0.4}); }
     }
   }
   // faint additive ground-glow under each operative in their tint — an emissive read that pops them out of the fog
