@@ -805,7 +805,7 @@
     weapon:opt.weapon||0, mag:0, fireT:0, reloadT:0, reloading:false, triggerConsumed:false, spawnT:0, iframe:0, respawnT:0,
     onGround:true, boost:1, state:'patrol', aiT:0, tgt:null, wp:null, strafe:1, strafeT:0, reactT:0, seenT:0, wantFire:false, bob:0, moving:false,
     recoil:0, muzzle:0, scoped:false, killStreak:0,
-    cardDmg:1, cardRate:1, cardSpeed:1, cardArmor:0, cardAmp:1, surgeT:0, overdrive:false, sigGun:'' }; }
+    cardDmg:1, cardRate:1, cardSpeed:1, cardArmor:0, cardAmp:1, surgeT:0, overdrive:false, sigGun:'', gait:0 }; }
 
   // weapon definitions
   const WEAPONS=[
@@ -998,7 +998,7 @@
     // occasional jump to mount steps
     if(e.onGround && Math.random()<dt*0.25) e.vy=JUMP*0.7;
     const spd=(sprint?6.6:3.9)*(e.cardSpeed||1); const ml=Math.hypot(mvx,mvz)||1; moveEnt(e, (mvx/ml)*spd*dt, (mvz/ml)*spd*dt);
-    e.moving=(Math.abs(mvx)+Math.abs(mvz))>0.05;
+    e.moving=(Math.abs(mvx)+Math.abs(mvz))>0.05; e.sprinting=sprint&&e.moving;
   }
   function angDiff(a){ a%=TAU; if(a>Math.PI)a-=TAU; if(a<-Math.PI)a+=TAU; return a; }
 
@@ -1045,6 +1045,7 @@
       if(e.isMe) stepMe(e,dt); else stepBot(e,dt);
       if(e.bot && e.wantFire && e.fireT<=0 && !e.reloading) fireWeapon(e);
       gravity(e,dt);
+      e.gait=(e.gait||0)+(e.moving?(e.sprinting?11:7):0)*dt;   // walk/run cycle phase (drives the limb rig)
     }
     // ── supply drops: card/market power-ups (hot chain drops them faster + unlocks OVERCHARGE) ──
     G.powT-=dt; if(G.powT<=0 && G.pows.length<4){ G.powT=rnd(11,7)/(0.85+(mktAmp()-0.75)*0.5); spawnPow(); }
@@ -1107,33 +1108,59 @@
       ctx.fillStyle=b; ctx.fillRect(-24,hy-bh*0.3,W+48,bh*1.3); }
   }
   // an operative = stacked AA boxes (legs, torso, head) + a gun box offset toward facing
+  // ── rigged operative: an articulated body drawn from oriented limb boxes, animated by a gait cycle ──
+  const _cross=(a,b)=>[a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  // an oriented box spanning joints A→B (its long axis), half-thick rR × rF, shaded per face
+  function limbBox(A,B,rR,rF,base){
+    const ax=[B[0]-A[0],B[1]-A[1],B[2]-A[2]]; const L=Math.hypot(ax[0],ax[1],ax[2])||1e-4; const u=[ax[0]/L,ax[1]/L,ax[2]/L];
+    const ref=(Math.abs(u[1])>0.9)?[0,0,1]:[0,1,0];
+    let r=_cross(ref,u); const rl=Math.hypot(r[0],r[1],r[2])||1e-4; r=[r[0]/rl,r[1]/rl,r[2]/rl];
+    const f=_cross(u,r);
+    const cx=(A[0]+B[0])/2,cy=(A[1]+B[1])/2,cz=(A[2]+B[2])/2, hL=L/2;
+    const C=(sr,su,sf)=>[cx+r[0]*rR*sr+u[0]*hL*su+f[0]*rF*sf, cy+r[1]*rR*sr+u[1]*hL*su+f[1]*rF*sf, cz+r[2]*rR*sr+u[2]*hL*su+f[2]*rF*sf];
+    const V=[C(-1,-1,-1),C(1,-1,-1),C(1,-1,1),C(-1,-1,1),C(-1,1,-1),C(1,1,-1),C(1,1,1),C(-1,1,1)];
+    const nr=r, nf=f, nu=u;
+    const F=[[4,5,6,7,nu],[0,1,2,3,[-nu[0],-nu[1],-nu[2]]],[1,2,6,5,nr],[0,3,7,4,[-nr[0],-nr[1],-nr[2]]],[2,3,7,6,nf],[0,1,5,4,[-nf[0],-nf[1],-nf[2]]]];
+    for(const fc of F){ const n=fc[4]; pushFace([V[fc[0]],V[fc[1]],V[fc[2]],V[fc[3]]], n, shade(base,n), 0); }
+  }
   function drawEntities(){
-    // AABB helper that tolerates facing-relative offsets (keeps min<max so normals stay outward)
-    const bf=(ax,ay,az,bx,by,bz,col,opt)=>boxFaces(Math.min(ax,bx),ay,Math.min(az,bz),Math.max(ax,bx),by,Math.max(az,bz),col,opt);
     for(const e of G.ents){ if(!e.alive||e.isMe) continue;
       const dd=Math.hypot(e.x-cam.x,e.z-cam.z); if(dd>FAR) continue;
-      const flick=(e.spawnT>0||e.iframe>0)? (Math.sin(G.t*30)>0?0.4:1) : 1;
-      const mul=a=>a.map(v=>v*flick);
-      const khaki=mul([150,132,92]), boot=mul([50,42,36]), vest=mul(e.tint), pack=mul([120,104,72]),
-            skin=mul([196,150,116]), cap=mul([64,70,48]), gun=mul([42,44,50]);
-      const y0=e.y; const d=lookDir(e.yaw,0); const rx=Math.cos(e.yaw), rz=-Math.sin(e.yaw);
-      // two legs (khaki fatigues) + boots
-      bf(e.x-0.22,y0+0.12,e.z-0.15, e.x-0.02,y0+0.86,e.z+0.15, khaki,{skipBottom:true});
-      bf(e.x+0.02,y0+0.12,e.z-0.15, e.x+0.22,y0+0.86,e.z+0.15, khaki,{skipBottom:true});
-      bf(e.x-0.22,y0,e.z-0.17, e.x-0.02,y0+0.15,e.z+0.2, boot,{skipBottom:true});
-      bf(e.x+0.02,y0,e.z-0.17, e.x+0.22,y0+0.15,e.z+0.2, boot,{skipBottom:true});
-      // torso vest (team tint) + backpack slung behind (opposite facing)
-      bf(e.x-0.3,y0+0.86,e.z-0.2, e.x+0.3,y0+1.4,e.z+0.2, vest,{skipBottom:false});
-      const bxp=e.x-d.x*0.26, bzp=e.z-d.z*0.26;
-      bf(bxp-0.2,y0+0.92,bzp-0.15, bxp+0.2,y0+1.36,bzp+0.15, pack,{skipBottom:false,bias:0.05});
-      // head (skin) + cap
-      bf(e.x-0.15,y0+1.4,e.z-0.15, e.x+0.15,y0+1.7,e.z+0.15, skin,{skipBottom:false});
-      bf(e.x-0.16,y0+1.66,e.z-0.16, e.x+0.16,y0+1.79,e.z+0.16, cap,{skipBottom:false});
-      // arms bringing the rifle up + a short rifle held forward at chest height
-      const hx=e.x+d.x*0.26+rx*0.14, hz=e.z+d.z*0.26+rz*0.14, gy=y0+1.06;
-      bf(e.x+rx*0.16,gy-0.05,e.z+rz*0.16, hx,gy+0.07,hz, vest,{skipBottom:false,bias:-0.05});   // arm
-      bf(hx-0.05,gy-0.05,hz-0.05, hx+d.x*0.42,gy+0.06,hz+d.z*0.42, gun,{skipBottom:false,bias:-0.2});  // rifle
-      if(e.muzzle>0){ const mx=hx+d.x*0.46, mz=hz+d.z*0.46; bf(mx-0.11,gy-0.09,mz-0.11, mx+0.11,gy+0.11,mz+0.11, [255,230,120], {skipBottom:false,bias:-0.4}); }
+      const flick=(e.spawnT>0||e.iframe>0)? (Math.sin(G.t*30)>0?0.45:1) : 1; const mul=a=>[a[0]*flick,a[1]*flick,a[2]*flick];
+      const khaki=mul([150,132,92]), boot=mul([46,40,34]), vest=mul(e.tint), pack=mul([120,104,72]),
+            skin=mul([196,150,116]), cap=mul([64,70,48]), gunC=mul([44,46,52]), hands=mul([176,134,104]);
+      const yaw=e.yaw, fwd=[Math.sin(yaw),0,Math.cos(yaw)], rgt=[Math.cos(yaw),0,-Math.sin(yaw)];
+      const J=(lx,ly,lz)=>[ e.x+rgt[0]*lx+fwd[0]*lz, e.y+ly, e.z+rgt[2]*lx+fwd[2]*lz ];   // local(right,up,fwd)→world
+      // ── animation state from movement ──
+      const air=!e.onGround, run=e.sprinting, p=e.gait||0;
+      const A=air?0.35:(run?0.95:0.55), swL=A*Math.sin(p), swR=A*Math.sin(p+Math.PI);
+      const bounce=air?0:(run?0.055:0.03)*Math.abs(Math.sin(p*2))*0.5, lean=air?0.1:(run?0.17:(e.moving?0.06:0));
+      const hipH=0.84-(air?0.05:0)+bounce, chestY=hipH+0.44, headY=chestY+0.2, lz=lean*0.42;
+      // torso + hips + backpack
+      limbBox(J(0,hipH,0), J(0,chestY,lz), 0.24,0.15, vest);
+      limbBox(J(0,hipH-0.03,0), J(0,hipH+0.05,0), 0.27,0.18, khaki);
+      limbBox(J(0,chestY+0.06,-0.19), J(0,chestY-0.16,-0.24), 0.18,0.12, pack);
+      // head + cap (follows the lean)
+      limbBox(J(0,chestY+0.04,lz), J(0,headY+0.12,lz), 0.15,0.15, skin);
+      limbBox(J(0,headY+0.07,lz), J(0,headY+0.17,lz-0.02), 0.17,0.16, cap);
+      // ── legs: thigh + shin + boot, fore/aft swing about the character's right axis ──
+      const leg=(side,sw)=>{ const t=sw, TH=0.44, SH=0.42;
+        const b=air?0.85:Math.max(0,0.9*Math.sin(p+(side<0?0:Math.PI)+0.4));   // knee flex during lift
+        const hip=J(side*0.1,hipH,0);
+        const knee=[hip[0]+fwd[0]*(-TH*Math.sin(t)), hip[1]-TH*Math.cos(t), hip[2]+fwd[2]*(-TH*Math.sin(t))];
+        const ta=t+b; const ankle=[knee[0]+fwd[0]*(-SH*Math.sin(ta)), knee[1]-SH*Math.cos(ta), knee[2]+fwd[2]*(-SH*Math.sin(ta))];
+        limbBox(hip,knee,0.12,0.12,khaki); limbBox(knee,ankle,0.10,0.10,khaki);
+        limbBox([ankle[0],ankle[1],ankle[2]], [ankle[0]+fwd[0]*0.17,ankle[1]-0.02,ankle[2]+fwd[2]*0.17], 0.11,0.09, boot); };
+      leg(-1,swL); leg(1,swR);
+      // ── arms bring the rifle up (both hands forward), rifle + mag ──
+      const rSh=J(0.2,chestY+0.02,lz), lSh=J(-0.2,chestY+0.02,lz);
+      const rHand=J(0.12,chestY-0.12,0.34), lHand=J(-0.05,chestY-0.05,0.46);
+      const rElb=J(0.24,chestY-0.1,0.12), lElb=J(-0.18,chestY-0.06,0.22);
+      limbBox(rSh,rElb,0.08,0.08,vest); limbBox(rElb,rHand,0.07,0.07,hands);
+      limbBox(lSh,lElb,0.08,0.08,vest); limbBox(lElb,lHand,0.07,0.07,hands);
+      const muzJ=J(0.03,chestY-0.06,0.64); limbBox(rHand,muzJ,0.05,0.05,gunC);         // rifle body
+      limbBox(J(0.07,chestY-0.24,0.36), J(0.07,chestY-0.08,0.4), 0.04,0.05, gunC);     // magazine
+      if(e.muzzle>0){ limbBox(muzJ, J(0.03,chestY-0.06,0.74), 0.1,0.1, [255,230,120]); }
     }
   }
   // faint additive ground-glow under each operative in their tint — an emissive read that pops them out of the fog
