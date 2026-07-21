@@ -1555,8 +1555,8 @@
     try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
     ctx.clearRect(0,0,W,H);
     // world-space effects on the transparent overlay — sync the 2D projection to the GL camera so they land correctly
-    FOCAL=HH/Math.tan((1.06/(G.scopeZoom||1))*0.5);
-    drawDecals(); drawChunks(); drawTracers(); drawSparks(); drawFlashes(); drawPows(); drawNameplates();
+    FOCAL=HH/Math.tan((0.97/(G.scopeZoom||1))*0.5);
+    drawChunks(); drawTracers(); drawSparks(); drawFlashes(); drawPows(); drawNameplates();   // decals are drawn depth-tested inside GL
     if(G.fireFlash>0 && G.fireHeavy){ const a=G.fireFlash*0.10, c=G.fireCol, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
       ctx.save(); ctx.globalCompositeOperation='lighter'; const rg=ctx.createRadialGradient(HW,HH,0,HW,HH,Math.max(W,H)*0.62);
       rg.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); rg.addColorStop(1,'rgba('+cs+',0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }

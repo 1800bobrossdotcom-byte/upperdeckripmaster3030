@@ -47,7 +47,7 @@ window.GLR = (function () {
       float d=max(dot(normalize(vN),uLightDir),0.0);
       vec3 lit=base*(uAmbient + d*uLightCol);
       float fog=clamp((vDist-uFogNear)/(uFogFar-uFogNear),0.0,1.0);
-      gl_FragColor=vec4(mix(lit,uFog,fog),1.0); }`;
+      gl_FragColor=vec4(mix(lit,uFog,fog), t.a); }`;   // t.a=1 for opaque world; <1 for blended decals
   const SKY_VS = `attribute vec2 aP; varying vec2 vUv; void main(){ vUv=aP*0.5+0.5; gl_Position=vec4(aP,1.0,1.0); }`;
   const SKY_FS = `precision mediump float; varying vec2 vUv; uniform vec3 uTop,uMid,uHorizon;
     void main(){ float y=vUv.y; vec3 c = y>0.5 ? mix(uMid,uTop,(y-0.5)*2.0) : mix(uHorizon,uMid,y*2.0); gl_FragColor=vec4(c,1.0); }`;
@@ -92,6 +92,24 @@ window.GLR = (function () {
     x.fillStyle = 'rgba(30,26,16,0.85)'; for (let i = -S; i < S * 2; i += 28) { x.beginPath(); x.moveTo(i, by); x.lineTo(i + bh, by + bh); x.lineTo(i + bh + 14, by + bh); x.lineTo(i + 14, by); x.closePath(); x.fill(); }
     x.fillStyle = 'rgba(30,36,20,0.9)'; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { if (Math.random() < 0.5) continue; x.beginPath(); x.arc((a + 0.5) * S / 4, (b + 0.5) * S / 4, 3, 0, 7); x.fill(); }
     x.strokeStyle = 'rgba(30,36,20,0.9)'; x.lineWidth = 6; x.strokeRect(3, 3, S - 6, S - 6); }
+  function drawHole(x, S) { x.clearRect(0, 0, S, S); const c = S / 2;
+    const g = x.createRadialGradient(c, c, 0, c, c, c); g.addColorStop(0, 'rgba(10,8,6,0.96)'); g.addColorStop(0.4, 'rgba(22,18,13,0.82)'); g.addColorStop(0.7, 'rgba(44,37,28,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(c, c, c, 0, 7); x.fill();
+    x.strokeStyle = 'rgba(14,11,8,0.7)'; x.lineWidth = 1.6; for (let i = 0; i < 8; i++) { const a = Math.random() * 7, rr = c * (0.5 + Math.random() * 0.42); x.beginPath(); x.moveTo(c, c); x.lineTo(c + Math.cos(a) * rr, c + Math.sin(a) * rr); x.stroke(); }
+    x.strokeStyle = 'rgba(205,185,150,0.28)'; x.lineWidth = 2; x.beginPath(); x.arc(c, c, c * 0.3, 0, 7); x.stroke(); }
+  function drawScorch(x, S) { x.clearRect(0, 0, S, S); const c = S / 2; const g = x.createRadialGradient(c, c, 0, c, c, c);
+    g.addColorStop(0, 'rgba(255,205,95,0.95)'); g.addColorStop(0.5, 'rgba(255,95,40,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(c, c, c, 0, 7); x.fill(); }
+  // a decal quad on a surface → pushed into arr (STRIDE format), UV 0..1, fade dimmed via vertex color
+  function decalQuad(arr, dc) {
+    const n = dc.n || [0, 1, 0]; const t1 = (Math.abs(n[1]) > 0.9) ? [1, 0, 0] : [0, 1, 0];
+    let a = cross(t1, n); const al = Math.hypot(a[0], a[1], a[2]) || 1; a = [a[0] / al, a[1] / al, a[2] / al]; const b = cross(n, a);
+    const r = (dc.r || 0.1) * 1.35, f = Math.max(0, Math.min(1, (dc.life || 1) / (dc.max || 1))), col = [f, f, f];
+    const P = (sa, sb) => [dc.x + a[0] * r * sa + b[0] * r * sb, dc.y + a[1] * r * sa + b[1] * r * sb, dc.z + a[2] * r * sa + b[2] * r * sb];
+    const p0 = P(-1, -1), p1 = P(1, -1), p2 = P(1, 1), p3 = P(-1, 1);
+    const push = (p, u, v) => arr.push(p[0], p[1], p[2], n[0], n[1], n[2], u, v, col[0], col[1], col[2]);
+    push(p0, 0, 0); push(p1, 1, 0); push(p2, 1, 1); push(p0, 0, 0); push(p2, 1, 1); push(p3, 0, 1);
+  }
+  function buildDecals(G) { const hole = [], scorch = []; if (G.decals) for (const dc of G.decals) decalQuad(dc.type === 'laser' ? scorch : hole, dc); return { hole, scorch }; }
   function whiteTex() { const c = document.createElement('canvas'); c.width = c.height = 2; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 2, 2);
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -237,6 +255,7 @@ window.GLR = (function () {
     ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
     skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
     tex.wall = makeTex(256, drawWall); tex.floor = makeTex(256, drawFloor); tex.crate = makeTex(256, drawCrate); tex.ammo = makeTex(256, drawAmmo); tex.white = whiteTex();
+    tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch);
     dynBuf = gl.createBuffer();
     skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
@@ -255,7 +274,7 @@ window.GLR = (function () {
     gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
     // world
     gl.useProgram(prog);
-    const fovy = 1.06 / (G.scopeZoom || 1), asp = cv.width / cv.height;
+    const fovy = 0.97 / (G.scopeZoom || 1), asp = cv.width / cv.height;   // match the canvas FOV so aim/look feel is identical
     const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch), f = [cp * Math.sin(cam.yaw), sp, cp * Math.cos(cam.yaw)];
     const eye = [cam.x, cam.y, cam.z];
     const mvp = mul(persp(fovy, asp, 0.06, 60), lookAt(eye, [eye[0] + f[0], eye[1] + f[1], eye[2] + f[2]], [0, 1, 0]));
@@ -267,6 +286,16 @@ window.GLR = (function () {
     for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
     const ea = buildEntities(G);
     if (ea.length) { gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
+    // ── decals: depth-tested against the world (so they STICK to surfaces + occlude correctly), blended, no depth write ──
+    const D = buildDecals(G);
+    if (D.hole.length || D.scorch.length) {
+      gl.enable(gl.BLEND); gl.depthMask(false);
+      if (D.hole.length) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.bindTexture(gl.TEXTURE_2D, tex.hole);
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(D.hole), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, D.hole.length / STRIDE); }
+      if (D.scorch.length) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.bindTexture(gl.TEXTURE_2D, tex.scorch);
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(D.scorch), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, D.scorch.length / STRIDE); }
+      gl.depthMask(true); gl.disable(gl.BLEND);
+    }
     // ── first-person weapon viewmodel: rendered over the world on its own cleared depth ──
     if (G.me && G.me.alive && !G.me.scoped) {
       const va = buildViewmodel(G);
