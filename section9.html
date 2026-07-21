@@ -340,9 +340,9 @@
   const glcv=document.getElementById('glcv');
   const GLWANT=(location.hash.indexOf('gl')>=0)||/[?&]gl(\b|=1)/.test(location.search);
   let glReady=false;
-  const ENV={ skyTop:[0.14,0.075,0.12], skyMid:[0.61,0.29,0.15], skyHorizon:[0.82,0.55,0.32],
-    lightDir:(()=>{ const v=[-0.5,0.62,-0.36], l=Math.hypot(v[0],v[1],v[2]); return [v[0]/l,v[1]/l,v[2]/l]; })(),
-    lightCol:[0.92,0.82,0.62], ambient:[0.44,0.40,0.36], fog:[0.77,0.59,0.41] };
+  const ENV={ skyTop:[0.13,0.07,0.11], skyMid:[0.62,0.29,0.15], skyHorizon:[0.86,0.57,0.33],
+    lightDir:(()=>{ const v=[-0.5,0.66,-0.34], l=Math.hypot(v[0],v[1],v[2]); return [v[0]/l,v[1]/l,v[2]/l]; })(),
+    lightCol:[1.15,0.98,0.68], ambient:[0.33,0.30,0.29], fog:[0.77,0.59,0.41] };   // stronger warm key + lower ambient → more 3D relief
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(2,Math.round(r.width)); H=Math.max(2,Math.round(r.height));
     HW=W/2; HH=H/2; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
     if(glcv){ glcv.width=Math.round(W*DPR); glcv.height=Math.round(H*DPR); } }

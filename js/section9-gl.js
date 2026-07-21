@@ -209,7 +209,7 @@ window.GLR = (function () {
     const key = G.__weapKey || 'smg';
     const bx = Math.sin(e.bob || 0) * 0.007 * (e.moving ? 1 : 0.25), by = Math.abs(Math.cos(e.bob || 0)) * 0.006 * (e.moving ? 1 : 0.25);
     const kick = e.recoil || 0, sway = Math.sin((e.bob || 0) * 0.5) * 0.01;
-    const ox = 0.15 + bx + sway, oy = -0.19 + by - kick * 0.015, oz = -0.5 + kick * 0.05;   // gun anchor in view space
+    const ox = 0.17 + bx + sway, oy = -0.23 + by - kick * 0.015, oz = -0.44 + kick * 0.05;   // gun anchor (lower-right, close) in view space
     const metal = [0.14, 0.15, 0.17], wood = [0.5, 0.34, 0.18], rail = [0.09, 0.09, 0.11], glove = [0.22, 0.21, 0.19], skin = [0.72, 0.55, 0.42], ir = [0.6, 0.3, 0.28];
     const long = key === 'sniper', pistol = key === 'pistol', shotgun = key === 'shotgun';
     const bl = pistol ? 0.16 : (long ? 0.34 : 0.24);     // barrel length forward from receiver front
@@ -301,7 +301,7 @@ window.GLR = (function () {
       const va = buildViewmodel(G);
       if (va.length) {
         gl.clear(gl.DEPTH_BUFFER_BIT);
-        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(persp(1.15, asp, 0.01, 6)));
+        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(persp(1.02, asp, 0.01, 6)));
         gl.uniform3fv(loc.uCam, [0, 0, 3]);
         gl.uniform1f(loc.uFogNear, 900); gl.uniform1f(loc.uFogFar, 1000);
         gl.uniform3fv(loc.uLightDir, VMLIGHT); gl.uniform3fv(loc.uLightCol, [0.85, 0.8, 0.72]); gl.uniform3fv(loc.uAmbient, [0.5, 0.49, 0.47]);
