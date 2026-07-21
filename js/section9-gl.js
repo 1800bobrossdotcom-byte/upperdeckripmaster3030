@@ -19,6 +19,7 @@ window.GLR = (function () {
   const STRIDE = 11;                        // pos3 + nrm3 + uv2 + col3
   const MATS = ['floor', 'wall', 'crate', 'ammo'];
   const TILE = { floor: 2.2, wall: 2.4, crate: 1.05, ammo: 1.05 };
+  const VMLIGHT = (() => { const v = [-0.3, 0.5, 0.7], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
 
   // ── matrices (column-major) ──
   function persp(fovy, asp, n, f) { const t = 1 / Math.tan(fovy * 0.5), nf = 1 / (n - f);
@@ -125,19 +126,100 @@ window.GLR = (function () {
     for (const k of MATS) if (A[k].length) buffers[k] = makeVBO(A[k]);
   }
 
-  // ── operatives: simple textured boxes (full rig comes in W2); tint via vertex color ──
+  // ── oriented geometry for rigs (limb boxes + axis boxes) ──
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  function quadN(a, p0, p1, p2, p3, n, col) { const v = p => a.push(p[0], p[1], p[2], n[0], n[1], n[2], 0, 0, col[0], col[1], col[2]);
+    v(p0); v(p1); v(p2); v(p0); v(p2); v(p3); }
+  // an oriented box spanning joints A→B (long axis u), half-thick rR × rF, one flat color, shaded by GL lighting
+  function limbBox(a, A, B, rR, rF, col) {
+    const ax = [B[0] - A[0], B[1] - A[1], B[2] - A[2]]; const L = Math.hypot(ax[0], ax[1], ax[2]) || 1e-4; const u = [ax[0] / L, ax[1] / L, ax[2] / L];
+    const ref = (Math.abs(u[1]) > 0.9) ? [0, 0, 1] : [0, 1, 0];
+    let r = cross(ref, u); const rl = Math.hypot(r[0], r[1], r[2]) || 1e-4; r = [r[0] / rl, r[1] / rl, r[2] / rl];
+    const f = cross(u, r);
+    const cx = (A[0] + B[0]) / 2, cy = (A[1] + B[1]) / 2, cz = (A[2] + B[2]) / 2, hL = L / 2;
+    const C = (sr, su, sf) => [cx + r[0] * rR * sr + u[0] * hL * su + f[0] * rF * sf, cy + r[1] * rR * sr + u[1] * hL * su + f[1] * rF * sf, cz + r[2] * rR * sr + u[2] * hL * su + f[2] * rF * sf];
+    const V = [C(-1, -1, -1), C(1, -1, -1), C(1, -1, 1), C(-1, -1, 1), C(-1, 1, -1), C(1, 1, -1), C(1, 1, 1), C(-1, 1, 1)];
+    const nn = v => [-v[0], -v[1], -v[2]];
+    quadN(a, V[4], V[5], V[6], V[7], u, col); quadN(a, V[0], V[1], V[2], V[3], nn(u), col);
+    quadN(a, V[1], V[2], V[6], V[5], r, col); quadN(a, V[0], V[3], V[7], V[4], nn(r), col);
+    quadN(a, V[2], V[3], V[7], V[6], f, col); quadN(a, V[0], V[1], V[5], V[4], nn(f), col);
+  }
+  // axis-aligned box from center + half extents (order-safe), flat color
+  function cbox(a, cx, cy, cz, hx, hy, hz, col) { box(a, cx - hx, cy - hy, cz - hz, cx + hx, cy + hy, cz + hz, 1, col); }
+
+  // ── operatives: the full articulated rig ported to GL (walk/run/jump), lit by the scene ──
   function buildEntities(G) {
-    const a = []; const cam = G.__cam || null;
+    const a = [], T = G.t || 0;
     for (const e of G.ents) { if (!e.alive || e.isMe) continue;
-      const t = e.tint, tint = [t[0] / 255, t[1] / 255, t[2] / 255], khaki = [0.59, 0.52, 0.36], skin = [0.77, 0.59, 0.46], gun = [0.17, 0.18, 0.2];
-      const y0 = e.y, d = { x: Math.sin(e.yaw), z: Math.cos(e.yaw) }, rx = Math.cos(e.yaw), rz = -Math.sin(e.yaw);
-      box(a, e.x - 0.22, y0, e.z - 0.16, e.x - 0.02, y0 + 0.86, e.z + 0.16, 1, khaki);
-      box(a, e.x + 0.02, y0, e.z - 0.16, e.x + 0.22, y0 + 0.86, e.z + 0.16, 1, khaki);
-      box(a, e.x - 0.3, y0 + 0.86, e.z - 0.2, e.x + 0.3, y0 + 1.4, e.z + 0.2, 1, tint);
-      box(a, e.x - 0.15, y0 + 1.4, e.z - 0.15, e.x + 0.15, y0 + 1.72, e.z + 0.15, 1, skin);
-      const gx = e.x + d.x * 0.34 + rx * 0.14, gz = e.z + d.z * 0.34 + rz * 0.14, gy = y0 + 1.06;
-      box(a, Math.min(e.x, gx) - 0.05, gy - 0.05, Math.min(e.z, gz) - 0.05, Math.max(e.x, gx) + 0.05, gy + 0.06, Math.max(e.z, gz) + 0.05, 1, gun);
+      const flick = (e.spawnT > 0 || e.iframe > 0) ? (Math.sin(T * 30) > 0 ? 0.45 : 1) : 1, m = c => [c[0] * flick, c[1] * flick, c[2] * flick];
+      const khaki = m([0.59, 0.52, 0.36]), boot = m([0.18, 0.16, 0.13]), vest = m([e.tint[0] / 255, e.tint[1] / 255, e.tint[2] / 255]),
+        pack = m([0.47, 0.41, 0.28]), skin = m([0.77, 0.59, 0.45]), cap = m([0.25, 0.27, 0.19]), gunC = m([0.17, 0.18, 0.2]), hands = m([0.69, 0.52, 0.41]);
+      const yaw = e.yaw, fwd = [Math.sin(yaw), 0, Math.cos(yaw)], rgt = [Math.cos(yaw), 0, -Math.sin(yaw)];
+      const J = (lx, ly, lz) => [e.x + rgt[0] * lx + fwd[0] * lz, e.y + ly, e.z + rgt[2] * lx + fwd[2] * lz];
+      const air = !e.onGround, run = e.sprinting, p = e.gait || 0;
+      const A = air ? 0.35 : (run ? 0.95 : 0.55), swL = A * Math.sin(p), swR = A * Math.sin(p + Math.PI);
+      const bounce = air ? 0 : (run ? 0.055 : 0.03) * Math.abs(Math.sin(p * 2)) * 0.5, lean = air ? 0.1 : (run ? 0.17 : (e.moving ? 0.06 : 0));
+      const hipH = 0.84 - (air ? 0.05 : 0) + bounce, chestY = hipH + 0.44, headY = chestY + 0.2, lz = lean * 0.42;
+      limbBox(a, J(0, hipH, 0), J(0, chestY, lz), 0.24, 0.15, vest);
+      limbBox(a, J(0, hipH - 0.03, 0), J(0, hipH + 0.05, 0), 0.27, 0.18, khaki);
+      limbBox(a, J(0, chestY + 0.06, -0.19), J(0, chestY - 0.16, -0.24), 0.18, 0.12, pack);
+      limbBox(a, J(0, chestY + 0.04, lz), J(0, headY + 0.12, lz), 0.15, 0.15, skin);
+      limbBox(a, J(0, headY + 0.07, lz), J(0, headY + 0.17, lz - 0.02), 0.17, 0.16, cap);
+      const leg = (side, sw) => { const t = sw, TH = 0.44, SH = 0.42;
+        const b = air ? 0.85 : Math.max(0, 0.9 * Math.sin(p + (side < 0 ? 0 : Math.PI) + 0.4));
+        const hip = J(side * 0.1, hipH, 0);
+        const knee = [hip[0] + fwd[0] * (-TH * Math.sin(t)), hip[1] - TH * Math.cos(t), hip[2] + fwd[2] * (-TH * Math.sin(t))];
+        const ta = t + b, ankle = [knee[0] + fwd[0] * (-SH * Math.sin(ta)), knee[1] - SH * Math.cos(ta), knee[2] + fwd[2] * (-SH * Math.sin(ta))];
+        limbBox(a, hip, knee, 0.12, 0.12, khaki); limbBox(a, knee, ankle, 0.1, 0.1, khaki);
+        limbBox(a, ankle, [ankle[0] + fwd[0] * 0.17, ankle[1] - 0.02, ankle[2] + fwd[2] * 0.17], 0.11, 0.09, boot); };
+      leg(-1, swL); leg(1, swR);
+      const rSh = J(0.2, chestY + 0.02, lz), lSh = J(-0.2, chestY + 0.02, lz);
+      const rHand = J(0.12, chestY - 0.12, 0.34), lHand = J(-0.05, chestY - 0.05, 0.46);
+      const rElb = J(0.24, chestY - 0.1, 0.12), lElb = J(-0.18, chestY - 0.06, 0.22);
+      limbBox(a, rSh, rElb, 0.08, 0.08, vest); limbBox(a, rElb, rHand, 0.07, 0.07, hands);
+      limbBox(a, lSh, lElb, 0.08, 0.08, vest); limbBox(a, lElb, lHand, 0.07, 0.07, hands);
+      const muzJ = J(0.03, chestY - 0.06, 0.64); limbBox(a, rHand, muzJ, 0.05, 0.05, gunC);
+      limbBox(a, J(0.07, chestY - 0.24, 0.36), J(0.07, chestY - 0.08, 0.4), 0.04, 0.05, gunC);
+      if (e.muzzle > 0) limbBox(a, muzJ, J(0.03, chestY - 0.06, 0.74), 0.1, 0.1, [1, 0.9, 0.47]);
     }
+    return a;
+  }
+
+  // ── first-person weapon viewmodel (built in view space: camera at origin, looking down -z) ──
+  function buildViewmodel(G) {
+    const e = G.me; if (!e || !e.alive) return []; const a = [];
+    const key = G.__weapKey || 'smg';
+    const bx = Math.sin(e.bob || 0) * 0.007 * (e.moving ? 1 : 0.25), by = Math.abs(Math.cos(e.bob || 0)) * 0.006 * (e.moving ? 1 : 0.25);
+    const kick = e.recoil || 0, sway = Math.sin((e.bob || 0) * 0.5) * 0.01;
+    const ox = 0.15 + bx + sway, oy = -0.19 + by - kick * 0.015, oz = -0.5 + kick * 0.05;   // gun anchor in view space
+    const metal = [0.14, 0.15, 0.17], wood = [0.5, 0.34, 0.18], rail = [0.09, 0.09, 0.11], glove = [0.22, 0.21, 0.19], skin = [0.72, 0.55, 0.42], ir = [0.6, 0.3, 0.28];
+    const long = key === 'sniper', pistol = key === 'pistol', shotgun = key === 'shotgun';
+    const bl = pistol ? 0.16 : (long ? 0.34 : 0.24);     // barrel length forward from receiver front
+    // receiver
+    cbox(a, ox, oy, oz - 0.16, 0.035, 0.04, 0.16, metal);
+    // handguard / foregrip (wood on shotgun, rail otherwise)
+    cbox(a, ox, oy + 0.012, oz - 0.34, 0.03, 0.032, 0.11, shotgun ? wood : rail);
+    // barrel + muzzle
+    cbox(a, ox, oy + 0.016, oz - 0.34 - bl * 0.5, 0.013, 0.013, bl * 0.5, metal);
+    if (!pistol) cbox(a, ox, oy + 0.06, oz - 0.5, 0.008, 0.03, 0.012, metal);   // front sight post
+    // optic / rear sight
+    if (long) { cbox(a, ox, oy + 0.085, oz - 0.16, 0.02, 0.022, 0.11, metal); cbox(a, ox, oy + 0.107, oz - 0.05, 0.026, 0.026, 0.028, rail); cbox(a, ox, oy + 0.107, oz - 0.27, 0.026, 0.026, 0.028, ir); }
+    else { cbox(a, ox, oy + 0.06, oz - 0.02, 0.02, 0.02, 0.05, metal); cbox(a, ox, oy + 0.086, oz - 0.06, 0.018, 0.018, 0.075, metal); cbox(a, ox, oy + 0.086, oz - 0.135, 0.02, 0.02, 0.006, ir); }
+    // magazine (curved-ish: two stacked slanted boxes)
+    if (!pistol) { cbox(a, ox + 0.005, oy - 0.1, oz - 0.06, 0.02, 0.07, 0.028, metal); cbox(a, ox + 0.012, oy - 0.19, oz - 0.02, 0.018, 0.05, 0.024, metal); }
+    else cbox(a, ox, oy - 0.09, oz - 0.02, 0.018, 0.06, 0.02, metal);
+    // pistol grip
+    cbox(a, ox + 0.004, oy - 0.06, oz - 0.02, 0.02, 0.05, 0.022, metal);
+    // stock (behind receiver)
+    if (!pistol) cbox(a, ox, oy - 0.004, oz + 0.02, 0.026, shotgun ? 0.035 : 0.03, 0.09, shotgun ? wood : metal);
+    // hands (gloved) + forearms coming up from the bottom of the screen
+    const rGrip = [ox + 0.012, oy - 0.075, oz - 0.02], lGrip = [ox - 0.022, oy - 0.02, oz - 0.36];
+    cbox(a, rGrip[0], rGrip[1], rGrip[2], 0.03, 0.04, 0.035, glove);
+    cbox(a, lGrip[0], lGrip[1], lGrip[2], 0.036, 0.036, 0.05, glove);
+    limbBox(a, [ox + 0.13, oy - 0.42, oz + 0.16], rGrip, 0.04, 0.04, glove);     // right forearm (gloved)
+    limbBox(a, [ox - 0.17, oy - 0.44, oz + 0.02], lGrip, 0.04, 0.04, glove);     // left forearm (gloved)
+    // muzzle flash
+    if (e.muzzle > 0) cbox(a, ox, oy + 0.016, oz - 0.34 - bl, 0.05, 0.05, 0.05, [1, 0.92, 0.5]);
     return a;
   }
 
@@ -185,6 +267,19 @@ window.GLR = (function () {
     for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
     const ea = buildEntities(G);
     if (ea.length) { gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
+    // ── first-person weapon viewmodel: rendered over the world on its own cleared depth ──
+    if (G.me && G.me.alive && !G.me.scoped) {
+      const va = buildViewmodel(G);
+      if (va.length) {
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(persp(1.15, asp, 0.01, 6)));
+        gl.uniform3fv(loc.uCam, [0, 0, 3]);
+        gl.uniform1f(loc.uFogNear, 900); gl.uniform1f(loc.uFogFar, 1000);
+        gl.uniform3fv(loc.uLightDir, VMLIGHT); gl.uniform3fv(loc.uLightCol, [0.85, 0.8, 0.72]); gl.uniform3fv(loc.uAmbient, [0.5, 0.49, 0.47]);
+        gl.bindTexture(gl.TEXTURE_2D, tex.white);
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(va), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, va.length / STRIDE);
+      }
+    }
   }
 
   return { init, buildMap, frame, supported: () => ok };

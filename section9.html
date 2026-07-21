@@ -1551,12 +1551,13 @@
 
   // GL path: GPU renders the 3D world; the 2D canvas becomes a transparent overlay for viewmodel/crosshair/HUD
   function drawGL(){ if(!G.me) return; camTrig();
+    G.__weapKey=(WEAPONS[G.me.weapon]||{}).key||'smg';                     // tell the GL viewmodel which gun
     try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
     ctx.clearRect(0,0,W,H);
     if(G.fireFlash>0 && G.fireHeavy){ const a=G.fireFlash*0.10, c=G.fireCol, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
       ctx.save(); ctx.globalCompositeOperation='lighter'; const rg=ctx.createRadialGradient(HW,HH,0,HW,HH,Math.max(W,H)*0.62);
       rg.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); rg.addColorStop(1,'rgba('+cs+',0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
-    drawViewmodel(); drawCrosshair();
+    drawCrosshair();   // the 3D weapon viewmodel is rendered by GL; only the reticle/scope stays on the 2D overlay
     if(G.me.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; const pul=0.5+0.5*Math.sin(G.t*10);
       const rg=ctx.createRadialGradient(HW,HH,Math.min(W,H)*0.28,HW,HH,Math.max(W,H)*0.62);
       rg.addColorStop(0,'rgba(255,200,80,0)'); rg.addColorStop(1,'rgba(255,190,70,'+(0.06+0.05*pul).toFixed(3)+')'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
@@ -1571,7 +1572,7 @@
     requestAnimationFrame(frame);
   }
   G.scopeZoom=1;
-  if(location.hash==='#debug') window.__S9={G,cam,touch,WEAPONS,get me(){return G.me;},get MAP(){return MAP;}};   // headless-test hook (inert in normal play)
+  if(location.hash.indexOf('debug')>=0) window.__S9={G,cam,touch,WEAPONS,get me(){return G.me;},get MAP(){return MAP;}};   // headless-test hook (inert in normal play)
   loadDeck().then(()=>{ refreshPot(); });
   if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')buildGrid(); });
     setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')buildGrid(); }); }, 45000); }
