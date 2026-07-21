@@ -198,7 +198,7 @@
   <div class="crt" aria-hidden="true"><div class="crt-glare"></div><div class="crt-flick"></div><div class="crt-curve"></div><div class="crt-scan"></div></div>
   <div class="bezel" aria-hidden="true"></div>
   <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
-  <div class="marquee" aria-hidden="true"><span class="dot">◈</span> upperdeckripmaster3030 <span class="dot">·</span> <img src="dogfight.png" alt="" style="height:1.15em;vertical-align:-0.24em"> <span class="dot">◈</span></div>
+  <div class="marquee" aria-hidden="true"><span class="dot">◈</span> <img src="dogfight.png" alt="DOGFIGHT" style="height:clamp(20px,4.6vh,46px);width:auto;filter:drop-shadow(0 0 10px rgba(255,42,217,.5))"> <span class="dot">◈</span></div>
 
   <div class="hud hud-tl" id="hudL" style="display:none">
     <div class="h-lbl">hull · <span id="hMe">you</span></div>
@@ -616,7 +616,7 @@
   function emitBolt(s){ const wp=WEAP[Math.min(WEAP.length,s.weapon)-1]; const base=s.isMe?meAimHeading():s.h; const home=s.isMe?G.lock:null;
     const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1);          // zoomed precision shots; staked cards amplify damage
     for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
-      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser, me:s.isMe, home }); }
+      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser, me:s.isMe, home }); }
     if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
       if(G.netMatch&&window.RipFight) RipFight.send({k:'f',x:s.x,y:s.y,alt:s.alt,h:base,sp}); } else sfxEfire(); }
   // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
@@ -666,7 +666,7 @@
     // target lock: nearest enemy inside the forward cone
     G.lock=null; if(G.me&&G.me.alive){ let best=1e9; for(const s of G.ships){ if(s===G.me||!s.alive)continue;
       const b=Math.atan2(wdel(s.y-G.me.y),wdel(s.x-G.me.x)), off=Math.abs(angd(b-G.me.h)), d=Math.hypot(wdel(s.x-G.me.x),wdel(s.y-G.me.y));
-      if(off<0.5&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }
+      if(off<0.92&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }   // wide ~53° acquire cone → you almost always lock what's ahead
     for(const s of G.ships){ if(!s.alive)continue; for(const pw of G.pows){ if(pw.got)continue; if(Math.hypot(wdel(pw.x-s.x),wdel(pw.y-s.y))<0.9&&Math.abs(pw.alt-s.alt)<0.7){ pw.got=1; applyPow(s,pw.type); } } }
     G.pows=G.pows.filter(pw=>!pw.got && pw.t<20);
     // net: broadcast my craft state at ~11Hz (combat itself is peer-to-peer)
@@ -674,9 +674,9 @@
       RipFight.send({k:'s',n:G.me.name,x:G.me.x,y:G.me.y,alt:G.me.alt,h:G.me.h,spd:G.me.spd,bank:G.me.bank||0,
         hp:G.me.hp,maxHp:G.me.maxHp,kills:G.me.kills,boost:G.me.boost?1:0}); } }
     // bolts
-    for(const b of G.bolts){ if(b.home&&b.home.alive){ const bear=Math.atan2(wdel(b.home.y-b.y),wdel(b.home.x-b.x)); b.h+=clamp(angd(bear-b.h),-3.4*dt,3.4*dt); }
+    for(const b of G.bolts){ if(b.home&&b.home.alive){ const bear=Math.atan2(wdel(b.home.y-b.y),wdel(b.home.x-b.x)); b.h+=clamp(angd(bear-b.h),-7*dt,7*dt); }   // homing bolts curve hard onto the lock
       const bsp=b.sp||BOLTSPD; b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
-      const hr=b.me?1.4:1.0, av=b.me?1.1:0.85;
+      const hr=b.me?2.3:1.0, av=b.me?1.7:0.85;                        // forgiving hitbox on YOUR shots
       if(b.noHit) continue;                                          // a net peer's bolt: visual here; its damage arrives as a hit msg
       for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
         if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<hr&&Math.abs(b.alt-s.alt)<av){
