@@ -225,6 +225,7 @@
     <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill ar-fill" id="arFill"></div></div></div>
     <div class="h-lbl" style="margin-top:6px">sprint</div>
     <div class="stat-wrap"><div class="stat-bar" style="height:6px"><div class="stat-fill bo-fill" id="boFill"></div></div></div>
+    <div class="h-lbl" id="hMkt" style="margin-top:6px;color:#59e0ff;letter-spacing:.04em"></div>
   </div>
   <div class="hud hud-br" id="hudBR" style="display:none">
     <div class="ammo"><span class="mag" id="magNum">12</span> <span class="res" id="resNum">/ ∞</span></div>
@@ -322,6 +323,7 @@
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
+<script src="js/card-powers.js"></script>
 <script src="cards/arena-net.js"></script>
 <script>
 (() => {
@@ -398,7 +400,7 @@
 
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
-  const LOADOUTS=['pistol','smg','shotgun','sniper'];
+  const LOADOUTS=['pistol','ak','shotgun','sniper'];
   const wager={ ante:50, cards:2, players:4, picked:[], loadout:1 };
   // player-count chips 2..8
   $('pChips').innerHTML=[2,3,4,5,6,7,8].map(n=>`<span class="pchip${n===wager.players?' on':''}" data-p="${n}">${n}</span>`).join('');
@@ -422,7 +424,9 @@
       while(wager.picked.length>wager.cards) wager.picked.shift();
       buildGrid(); refreshPot(); });
     const kinds=groups.size, total=own.length;
-    $('cardsInfo').textContent=`${total} owned · ${kinds} kinds · ${wager.picked.length}/${wager.cards} in the pot`;
+    let info=`${total} owned · ${kinds} kinds · ${wager.picked.length}/${wager.cards} in the pot`;
+    try{ if(window.RipPowers && wager.picked.length){ const L=RipPowers.loadout(wager.picked.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); info+=' · '+L.summary; } }catch{}
+    $('cardsInfo').textContent=info;
     refreshPot();
   }
   function refreshPot(){
@@ -516,15 +520,15 @@
   // directional light shading → returns numeric rgb (fog + breath applied later per-frame).
   // two lights: a WARM key (upper-left) and a COOL cyan fill from the opposite azimuth, so lit
   // sides read warm and shadowed sides pick up a subtle neon-noir rim. Baked once into faces.
-  const LX=-0.42, LY=0.86, LZ=0.28;          // warm key direction
-  const FLX=0.50, FLY=0.30, FLZ=-0.46;       // cool fill direction (roughly opposite)
+  const LX=-0.50, LY=0.62, LZ=-0.36;         // low warm sun (sunset azimuth, behind-left)
+  const FLX=0.34, FLY=0.66, FLZ=0.30;        // warm sky bounce from the opposite side
   function shade(base,n){
     const d=Math.max(0, n[0]*LX+n[1]*LY+n[2]*LZ);
     const fl=Math.max(0, n[0]*FLX+n[1]*FLY+n[2]*FLZ);
-    const k=0.40+0.50*d, fa=0.17*fl;
-    return [ base[0]*(k*1.06 + fa*0.32),      // warm key + faint cyan fill
-             base[1]*(k*1.00 + fa*0.80),
-             base[2]*(k*0.92 + fa*1.05) ]; }
+    const k=0.62+0.42*d, fa=0.12*fl;          // high ambient floor → sandstone never goes black
+    return [ base[0]*(k*1.10 + fa*1.15),      // warm desert sun + warm sky fill (no cool cast)
+             base[1]*(k*1.02 + fa*1.00),
+             base[2]*(k*0.90 + fa*0.78) ]; }
 
   function flushDrawList(){
     DL.length=Math.max(DL.length,dlN);
@@ -574,9 +578,11 @@
   // ══════════════════ MAPS ══════════════════
   // A map = { name, x0,x1,z0,z1 bounds, ceilY, tint(fog+floor bias), solids[], faces built once, spawns[] }
   // solids: {x0,x1,y0,y1,z0,z1, base:[r,g,b], kind}
+  // ── de_dust2 dust palette: warm sandstone, tan sand, weathered wood + olive ammo crates ──
   const PAL={
-    floorA:[54,58,64], floorB:[46,50,56], wall:[78,80,86], perim:[64,66,72], ceil:[30,33,38],
-    crate:[110,102,78], pillar:[70,74,82], cover:[64,84,66], stair:[92,90,84], plat:[84,86,92], shelf:[96,90,70],
+    floorA:[199,178,133], floorB:[186,164,120], wall:[201,180,138], perim:[176,154,113], ceil:[150,120,86],
+    crate:[150,109,60], pillar:[190,169,128], cover:[120,120,78], stair:[196,176,134], plat:[200,181,140], shelf:[150,109,60],
+    ammo:[96,108,66], hazard:[196,164,60], band:[42,38,30], sand:[205,185,142], sandstoneDk:[150,128,92],
   };
   function newMap(name,x0,x1,z0,z1,ceilY){ return { name, x0,x1,z0,z1, ceilY, solids:[], spawns:[], faces:null }; }
   function addBox(M,x0,z0,x1,z1,y0,y1,base,kind){ M.solids.push({ x0:Math.min(x0,x1),x1:Math.max(x0,x1), z0:Math.min(z0,z1),z1:Math.max(z0,z1), y0,y1, base, kind:kind||'wall' }); }
@@ -609,11 +615,11 @@
       addBox(M,16,-14,21,-4, 0,3.2, PAL.plat,'plat');
       addStairs(M,15,-14,'-z',6,4,0.55,0.7,PAL.stair);
       // crates & cover
-      addBox(M,-18,10,-16,12, 0,1.4, PAL.crate,'crate');
-      addBox(M,-16.2,10.2,-14.8,11.6, 0,2.6, PAL.crate,'crate');
+      addBox(M,-18,10,-16,12, 0,1.4, PAL.ammo,'ammo');
+      addBox(M,-16.2,10.2,-14.8,11.6, 0,2.6, PAL.ammo,'ammo');
       addBox(M,12,10,14,12, 0,1.2, PAL.cover,'cover');
       addBox(M,8,-15,10,-13, 0,1.2, PAL.cover,'cover');
-      addBox(M,-14,-14,-12,-12, 0,1.6, PAL.crate,'crate');
+      addBox(M,-14,-14,-12,-12, 0,1.6, PAL.ammo,'ammo');
       addBox(M,0,12,1.4,13.4, 0,1.1, PAL.cover,'cover');
       addBox(M,-10,2,-8.5,3.5, 0,1.1, PAL.cover,'cover');
       addBox(M,9,3,10.5,4.5, 0,1.1, PAL.cover,'cover');
@@ -635,12 +641,12 @@
       addStairs(M,-18,-2.5,'+x',5,5,0.64,0.8,PAL.stair);
       addStairs(M,18,-2.5,'-x',5,5,0.64,0.8,PAL.stair);
       // stacked crates in the corners
-      addBox(M,-21,-17,-18,-14, 0,1.6, PAL.crate,'crate');
-      addBox(M,-20.4,-16.4,-18.6,-14.6, 0,3.0, PAL.crate,'crate');
-      addBox(M,18,15,21,18, 0,1.6, PAL.crate,'crate');
-      addBox(M,18.6,15.6,20.4,17.4, 0,3.0, PAL.crate,'crate');
-      addBox(M,-21,15,-18,18, 0,2.0, PAL.crate,'crate');
-      addBox(M,18,-18,21,-15, 0,2.0, PAL.crate,'crate');
+      addBox(M,-21,-17,-18,-14, 0,1.6, PAL.ammo,'ammo');
+      addBox(M,-20.4,-16.4,-18.6,-14.6, 0,3.0, PAL.ammo,'ammo');
+      addBox(M,18,15,21,18, 0,1.6, PAL.ammo,'ammo');
+      addBox(M,18.6,15.6,20.4,17.4, 0,3.0, PAL.ammo,'ammo');
+      addBox(M,-21,15,-18,18, 0,2.0, PAL.ammo,'ammo');
+      addBox(M,18,-18,21,-15, 0,2.0, PAL.ammo,'ammo');
       // central low cover under the bridge
       addBox(M,-2,-6,2,-4.5, 0,1.1, PAL.cover,'cover');
       addBox(M,-2,4.5,2,6, 0,1.1, PAL.cover,'cover');
@@ -652,21 +658,40 @@
   const MAPS=buildMaps();
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
+  const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
   function bakeFaces(M){ if(M.faces) return; const F=[]; M.faces=F;
     const TILE=6;
+    // sand floor (subtle two-tone flagstones) — no ceiling: the courtyard is open to the red sky
     for(let x=M.x0;x<M.x1-0.01;x+=TILE){ for(let z=M.z0;z<M.z1-0.01;z+=TILE){
       const x1=Math.min(x+TILE,M.x1), z1=Math.min(z+TILE,M.z1);
       const chk=(((x/TILE)|0)+((z/TILE)|0))&1; const base=chk?PAL.floorA:PAL.floorB;
       F.push({ v:[[x,0,z],[x1,0,z],[x1,0,z1],[x,0,z1]], n:[0,1,0], col:shade(base,[0,1,0]), bias:0.35 });
-      // ceiling tile
-      F.push({ v:[[x,M.ceilY,z1],[x1,M.ceilY,z1],[x1,M.ceilY,z],[x,M.ceilY,z]], n:[0,-1,0], col:shade(PAL.ceil,[0,-1,0]), bias:0.35 });
     }}
-    // solids → faces
-    const FI=[ [0,1,0,'top'],[0,0,-1,'nz'],[0,0,1,'pz'],[1,0,0,'px'],[-1,0,0,'nx'] ];
+    // solids → faces (+ a banded decal on crates/cover so they read as stacked ammo/wood crates)
     for(const b of M.solids){ const {x0,y0,z0,x1,y1,z1,base}=b; const V=[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[x0,y1,z0],[x1,y1,z0],[x1,y1,z1],[x0,y1,z1]];
       const faces=[ [4,5,6,7,0,1,0],[0,1,5,4,0,0,-1],[2,3,7,6,0,0,1],[1,2,6,5,1,0,0],[3,0,4,7,-1,0,0] ];
       for(const f of faces){ const n=[f[4],f[5],f[6]]; F.push({ v:[V[f[0]],V[f[1]],V[f[2]],V[f[3]]], n, col:shade(base,n), bias:0 }); }
+      if(BANDED[b.kind]){ const bandCol = (b.kind==='ammo'||b.kind==='cover')?PAL.hazard:PAL.band;
+        const yb0=y0+(y1-y0)*0.52, yb1=y0+(y1-y0)*0.70, e=0.02;
+        // a horizontal band proud of each vertical side face
+        F.push({ v:[[x1+e,yb0,z0],[x1+e,yb0,z1],[x1+e,yb1,z1],[x1+e,yb1,z0]], n:[1,0,0], col:shade(bandCol,[1,0,0]), bias:-0.06 });
+        F.push({ v:[[x0-e,yb0,z1],[x0-e,yb0,z0],[x0-e,yb1,z0],[x0-e,yb1,z1]], n:[-1,0,0], col:shade(bandCol,[-1,0,0]), bias:-0.06 });
+        F.push({ v:[[x0,yb0,z1+e],[x1,yb0,z1+e],[x1,yb1,z1+e],[x0,yb1,z1+e]], n:[0,0,1], col:shade(bandCol,[0,0,1]), bias:-0.06 });
+        F.push({ v:[[x1,yb0,z0-e],[x0,yb0,z0-e],[x0,yb1,z0-e],[x1,yb1,z0-e]], n:[0,0,-1], col:shade(bandCol,[0,0,-1]), bias:-0.06 }); }
     }
+    // arched blind niches recessed into the perimeter walls — the de_dust2 sandstone signature
+    bakeNiches(F, M);
+  }
+  // evenly-spaced arched recesses along all four inner perimeter faces
+  function bakeNiches(F, M){ const dark=PAL.sand.map(v=>v*0.44), key=PAL.sandstoneDk, y0=0.8, yTop=3.1, yArch=3.7, w=0.95, GAP=7;
+    const niche=(cx,cz,nx,nz)=>{ const e=0.04*(nx+nz>0?1:-1);      // proud of the inner face, into the arena
+      // side axis is perpendicular to the wall normal (x for N/S walls, z for E/W)
+      const ax= nx!==0?0:1;   // 0 → span in z, 1 → span in x
+      const P=(sx,y)=> ax? [cx+sx*w, y, cz+ (nz*e)] : [cx+(nx*e), y, cz+sx*w];
+      F.push({ v:[P(-1,y0),P(1,y0),P(1,yTop),P(-1,yTop)], n:[nx,0,nz], col:shade(dark,[nx,0,nz]), bias:-0.05 });
+      F.push({ v:[P(-1,yTop),P(1,yTop),P(0.55,yArch),P(-0.55,yArch)], n:[nx,0,nz], col:shade(key,[nx,0,nz]), bias:-0.05 }); };
+    for(let x=M.x0+GAP; x<M.x1-2; x+=GAP){ niche(x,M.z0,0,1); niche(x,M.z1,0,-1); }
+    for(let z=M.z0+GAP; z<M.z1-2; z+=GAP){ niche(M.x0,z,1,0); niche(M.x1,z,-1,0); }
   }
   function drawMapFaces(){ const F=MAP.faces; for(let i=0;i<F.length;i++){ const f=F[i]; pushFace(f.v,f.n,f.col,f.bias); } }
   // ── neon emissive trim: glowing accent edges along wall tops / floor perimeter / stair & cover edges.
@@ -686,7 +711,8 @@
       strip(b.x1,y,b.z1, b.x0,y,b.z1, col); strip(b.x0,y,b.z1, b.x0,y,b.z0, col); }
   }
   // additive projection post-pass: two strokes (fat faint glow + thin bright core), fogged by depth
-  function drawNeon(){ const N=MAP.neon; if(!N) return;
+  function drawNeon(){ return;   // dust theme: no Tron emissive trim — flat sandstone shading carries the read
+    const N=MAP.neon; if(!N) return;
     ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
     for(let i=0;i<N.length;i++){ const s=N[i];
       const a=projectPoint(s.ax,s.ay,s.az); if(!a) continue;
@@ -732,20 +758,44 @@
     tint:opt.tint||[120,200,220], team:opt.team, verified:!!opt.verified, kills:0, deaths:0,
     weapon:opt.weapon||0, mag:0, fireT:0, reloadT:0, reloading:false, triggerConsumed:false, spawnT:0, iframe:0, respawnT:0,
     onGround:true, boost:1, state:'patrol', aiT:0, tgt:null, wp:null, strafe:1, strafeT:0, reactT:0, seenT:0, wantFire:false, bob:0, moving:false,
-    recoil:0, muzzle:0, scoped:false, killStreak:0 }; }
+    recoil:0, muzzle:0, scoped:false, killStreak:0,
+    cardDmg:1, cardRate:1, cardSpeed:1, cardArmor:0, cardAmp:1, surgeT:0, overdrive:false, sigGun:'' }; }
 
   // weapon definitions
   const WEAPONS=[
     { name:'RIP-9 PISTOL',  key:'pistol',  dmg:30, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
-    { name:'BUZZSAW SMG',   key:'smg',     dmg:16, spread:0.055, rate:82,  mag:30, reload:1450, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:48, kick:0.4 },
+    { name:'AK RIPMASTER',  key:'smg',     dmg:26, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
     { name:'STREET SWEEPER',key:'shotgun', dmg:12, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
     { name:'LONG RIFLE',    key:'sniper',  dmg:96, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
   ];
 
+  // ══════════════════ CARD POWERS + LIVE $UR3030 MARKET ══════════════════
+  // your staked cards arm the operative (dmg / fire-rate / armor / speed), all flexing with the live chain.
+  function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
+  function applyLoadout(e,L){ if(!e||!L)return;
+    e.cardDmg=L.dmg||1; e.cardRate=L.rate||1; e.cardSpeed=Math.min(1.35,L.speed||1); e.cardAmp=L.amp||1;
+    e.sigGun=(L.guns&&L.guns.length)?L.guns[L.guns.length-1]:'';
+    if(L.shield>0){ const bonus=Math.round(L.shield*6); e.maxArmor+=bonus; e.armor=Math.min(e.maxArmor,e.armor+bonus); }
+    if(L.powerups&&L.powerups.includes('overdrive'))e.overdrive=true; }   // prizm → permanent surge-fire
+  // in-arena pickups (dust supply drops). A hot chain drops them faster + unlocks the golden OVERCHARGE cell.
+  const POWS=[ {t:'med',ch:'✚',col:[70,230,110]}, {t:'armor',ch:'▣',col:[90,180,255]}, {t:'ammo',ch:'▪',col:[230,200,90]} ];
+  const AMPPOW={ t:'amp', ch:'★', col:[255,214,90] };
+  function spawnPow(){ const a=mktAmp();
+    const pool=[[POWS[0],3],[POWS[1],2],[POWS[2],3]]; const ampW=Math.max(0,(a-0.95))*6; if(ampW>0.15) pool.push([AMPPOW,ampW]);
+    let tot=0; for(const q of pool)tot+=q[1]; let r=Math.random()*tot, pick=pool[0][0];
+    for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
+    const s=MAP.spawns[rint(MAP.spawns.length)]; G.pows.push({ x:s[0]+rnd(2,-2), z:s[1]+rnd(2,-2), y:0.5, type:pick.t, ch:pick.ch, col:pick.col, t:0 }); }
+  function applyPow(e,t){ const a=e.cardAmp||1;
+    if(t==='med') e.hp=Math.min(e.maxHp,e.hp+Math.round(34*a));
+    else if(t==='armor') e.armor=Math.min(e.maxArmor,e.armor+Math.round(30*a));
+    else if(t==='ammo'){ e.mag=WEAPONS[e.weapon].mag; e.reloading=false; e.reloadT=0; }
+    else if(t==='amp'){ e.surgeT=Math.max(e.surgeT||0,5.5+2.5*a); e.hp=Math.min(e.maxHp,e.hp+Math.round(8*a)); }
+    if(e.isMe){ SFX.pickup(); powMsg(t==='med'?'✚ MEDKIT':t==='armor'?'▣ ARMOR':t==='ammo'?'▪ AMMO':'★ OVERCHARGE'+(e.sigGun?' · '+e.sigGun.toUpperCase():''), t==='amp'?'#ffd23b':'#59e0ff'); } }
+
   // ══════════════════ MATCH ══════════════════
   const G={ mode:'lobby', t:0, dur:150, timeLeft:150, ents:[], me:null, real:false, over:false,
     tracers:[], sparks:[], chunks:[], flashes:[], kills:[], myStake:[], oppStakes:[], hitmark:0, dmgFlash:0, mapIdx:0,
-    shake:0, fireFlash:0, fireHeavy:false, fireCol:[255,224,150], horizonHue:200 };
+    pows:[], powT:6, loadout:null, shake:0, fireFlash:0, fireHeavy:false, fireCol:[255,224,150], horizonHue:200 };
 
   function farSpawn(avoidList,minD){ let best=null,bestScore=-1;
     for(let i=0;i<MAP.spawns.length;i++){ const s=MAP.spawns[(i+rint(MAP.spawns.length))%MAP.spawns.length];
@@ -767,7 +817,7 @@
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
-    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0;
+    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0; G.pows=[]; G.powT=6;
     G.t=0; G.timeLeft=G.dur; G.real=!!real; G.over=false;
     G.me=makeEnt({ name:myHandle(), me:true, tint:[64,220,200], verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
@@ -778,6 +828,11 @@
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
     for(let s=1;s<G.ents.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ if(DECK.length) arr.push(DECK[rint(DECK.length)].slug); } G.oppStakes.push(arr); }
+    // arm operatives from their staked cards, scaled by the live $UR3030 market (yours = picked, or top-owned in practice)
+    G.loadout=null; try{ if(window.RipPowers){ const src=wager.picked.length?wager.picked:ownedSlugs().slice(0,wager.cards);
+      const picks=src.map(sl=>bySlug.get(sl)).filter(Boolean);
+      if(picks.length){ G.loadout=RipPowers.loadout(picks,RipPowers.getMarket()); applyLoadout(G.me,G.loadout); }
+      for(let s=1;s<G.ents.length;s++){ if(G.oppStakes[s-1]){ const bl=RipPowers.loadout(G.oppStakes[s-1].map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ents[s],bl); } } } }catch(e){}
     // UI
     G.mode='play';
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show'); $('ovPause').classList.remove('show');
@@ -788,7 +843,7 @@
     playMusic(); SFX.spawn(); powMsg('◈ '+MAP.name, '#59e0ff');
     tryLock();
   }
-  function buildWeapSlots(){ $('weapSlots').innerHTML=WEAPONS.map((w,i)=>`<span class="wslot" data-w="${i}">${i+1}·${w.key}</span>`).join('');
+  function buildWeapSlots(){ $('weapSlots').innerHTML=WEAPONS.map((w,i)=>`<span class="wslot" data-w="${i}">${i+1}·${w.key==='smg'?'ak':w.key}</span>`).join('');
     $('weapSlots').querySelectorAll('.wslot').forEach(el=>{ el.onclick=()=>switchWeapon(+el.dataset.w);
       el.addEventListener('pointerdown',e=>{ if(e.pointerType==='touch'){ e.preventDefault(); switchWeapon(+el.dataset.w); } }); }); }
 
@@ -800,7 +855,7 @@
     return { x:e.x+d.x*0.4+rx*0.16, y:e.y+e.eye-0.08+d.y*0.4, z:e.z+d.z*0.4+rz*0.16, d }; }
   function fireWeapon(e){ const w=WEAPONS[e.weapon]; if(e.reloading||e.fireT>0) return;
     if(e.mag<=0){ if(e.isMe) SFX.empty(); startReload(e); return; }
-    e.mag--; e.fireT=w.rate; e.recoil=Math.min(1.4,e.recoil+w.kick*0.5); e.muzzle=0.05;
+    e.mag--; e.fireT=w.rate/((e.cardRate||1)*((e.surgeT>0||e.overdrive)?1.35:1)); e.recoil=Math.min(1.4,e.recoil+w.kick*0.5); e.muzzle=0.05;   // cards + OVERCHARGE lift rate of fire
     const mo=muzzleOrigin(e);
     G.flashes.push({ x:mo.x,y:mo.y,z:mo.z, t:0.06, big:w.key==='shotgun'||w.key==='sniper' });
     if(e.isMe){ SFX[w.sfx]();
@@ -815,7 +870,7 @@
       // tracer
       G.tracers.push({ x0:mo.x,y0:mo.y,z0:mo.z, x1:hit.x,y1:hit.y,z1:hit.z, me:e.isMe, t:0.06 });
       if(hit.ent){ const head = hit.y > hit.ent.y + hit.ent.h*0.78;
-        let dmg=w.dmg*(head?1.85:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);
+        let dmg=w.dmg*(head?1.85:1)*(e.cardDmg||1)*(e.surgeT>0?1.6:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);   // staked-card + surge damage
         if(e.isMe){ G.hitmark=0.14; head?SFX.headshot():SFX.hit(); }
       } else if(hit.wall){ spark(hit.x,hit.y,hit.z, [210,205,180], 8);
         G.flashes.push({ x:hit.x,y:hit.y,z:hit.z, t:0.05, big:false, col:[255,220,150] }); }   // brief additive impact spark
@@ -896,7 +951,7 @@
     }
     // occasional jump to mount steps
     if(e.onGround && Math.random()<dt*0.25) e.vy=JUMP*0.7;
-    const spd=(sprint?6.6:3.9); const ml=Math.hypot(mvx,mvz)||1; moveEnt(e, (mvx/ml)*spd*dt, (mvz/ml)*spd*dt);
+    const spd=(sprint?6.6:3.9)*(e.cardSpeed||1); const ml=Math.hypot(mvx,mvz)||1; moveEnt(e, (mvx/ml)*spd*dt, (mvz/ml)*spd*dt);
     e.moving=(Math.abs(mvx)+Math.abs(mvz))>0.05;
   }
   function angDiff(a){ a%=TAU; if(a>Math.PI)a-=TAU; if(a<-Math.PI)a+=TAU; return a; }
@@ -913,7 +968,7 @@
     const wantSprint=(keys['shift']||touch.sprint) && fwd>0.1;
     if(wantSprint && e.boost>0.02){ e.sprinting=true; e.boost=Math.max(0,e.boost-dt*0.42); }
     else { e.sprinting=false; e.boost=Math.min(1,e.boost+dt*0.3); }
-    const spd=(e.sprinting?7.0:4.3)*(e.scoped?0.5:1);
+    const spd=(e.sprinting?7.0:4.3)*(e.scoped?0.5:1)*(e.cardSpeed||1);
     const s=Math.sin(e.yaw), c=Math.cos(e.yaw);
     let mx=(s*fwd + c*strafe), mz=(c*fwd - s*strafe); const ml=Math.hypot(mx,mz);
     const mag=Math.min(1,ml);   // analog stick magnitude (keys always saturate to 1)
@@ -939,11 +994,18 @@
     if(!reduce) G.horizonHue=(G.horizonHue+dt*2.4)%360;                // slow sky-phase walk (mapped into the 180-300 band in draw)
     for(const e of G.ents){ if(e.reloadT>0){ e.reloadT-=dt*1000; if(e.reloadT<=0) finishReload(e); }
       if(e.fireT>0)e.fireT-=dt*1000; if(e.iframe>0)e.iframe-=dt; if(e.recoil>0)e.recoil=Math.max(0,e.recoil-dt*4.5); if(e.muzzle>0)e.muzzle-=dt;
+      if(e.surgeT>0){ e.surgeT-=dt; if(e.alive)e.hp=Math.min(e.maxHp,e.hp+dt*6*(e.cardAmp||1)); }   // OVERCHARGE: timed surge + light regen
       if(!e.alive){ e.respawnT-=dt; if(e.respawnT<=0){ spawnEnt(e, e.isMe?(wager.loadout|0):e.weapon); if(e.isMe){ powMsg('◈ RESPAWN','#59e0ff'); SFX.spawn(); } } continue; }
       if(e.isMe) stepMe(e,dt); else stepBot(e,dt);
       if(e.bot && e.wantFire && e.fireT<=0 && !e.reloading) fireWeapon(e);
       gravity(e,dt);
     }
+    // ── supply drops: card/market power-ups (hot chain drops them faster + unlocks OVERCHARGE) ──
+    G.powT-=dt; if(G.powT<=0 && G.pows.length<4){ G.powT=rnd(11,7)/(0.85+(mktAmp()-0.75)*0.5); spawnPow(); }
+    for(const pw of G.pows) pw.t+=dt;
+    for(const e of G.ents){ if(!e.alive||e.spawnT>0)continue; for(const pw of G.pows){ if(pw.got)continue;
+      if(Math.hypot(e.x-pw.x,e.z-pw.z)<0.95 && Math.abs((e.y+0.6)-pw.y)<1.3){ pw.got=1; applyPow(e,pw.type); } } }
+    G.pows=G.pows.filter(pw=>!pw.got && pw.t<26);
     // camera follows player eye + recoil pitch
     if(G.me){ cam.x=G.me.x; cam.z=G.me.z; cam.y=G.me.y+G.me.eye + (G.me.moving&&G.me.onGround?Math.sin(G.me.bob)*0.045:0);
       cam.yaw=G.me.yaw; cam.pitch=clamp(G.me.pitch - G.me.recoil*0.05, -1.45,1.45); }
@@ -961,20 +1023,32 @@
   }
 
   // ══════════════════ DRAW ══════════════════
-  function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0,'#0a0f16'); g.addColorStop(0.5,'#070b11'); g.addColorStop(1,'#04070c');
-    ctx.fillStyle=g; ctx.fillRect(-24,-24,W+48,H+48);                  // overdrawn so screen shake never reveals stale edges
-    // drifting neon horizon: G.horizonHue is a slow phase, mapped into the tactical 180-300 hue band (never rainbow)
-    const hue=240+60*Math.sin(G.horizonHue*(Math.PI/180));
-    const hr=hue>240?(hue-240)/60:0, hg=hue<240?(240-hue)/60:0;
-    FOG[0]=9+hr*4.5; FOG[1]=10.5+hg*4; FOG[2]=16.5;                    // fog chases the same family → distant geometry melts into the sky
-    const hy=HH + FOCAL*Math.tan(cam.pitch), bh=H*0.16;                // horizon line on screen
-    if(hy>-bh && hy<H+bh){
-      const b=ctx.createLinearGradient(0,hy-bh,0,hy+bh*0.45);
-      b.addColorStop(0,'hsla('+(hue|0)+',85%,62%,0)');
-      b.addColorStop(0.8,'hsla('+(hue|0)+',85%,62%,0.10)');
-      b.addColorStop(1,'hsla('+(hue|0)+',85%,62%,0)');
-      ctx.fillStyle=b; ctx.fillRect(-24,hy-bh,W+48,bh*1.45); }
+  function drawBackground(){ const hy=HH + FOCAL*Math.tan(cam.pitch);   // horizon line on screen
+    // ── de_dust2 sunset: dusky maroon zenith → oxblood → burnt orange → hazy tan at the horizon ──
+    const g=ctx.createLinearGradient(0,-24,0,H+24);
+    g.addColorStop(0,   '#241320'); g.addColorStop(0.40,'#5a2822');
+    g.addColorStop(0.66,'#9c4a26'); g.addColorStop(0.86,'#cf8a4e'); g.addColorStop(1,'#8f6238');
+    ctx.fillStyle=g; ctx.fillRect(-24,-24,W+48,H+48);                    // overdrawn so screen shake never reveals stale edges
+    // warm dust haze: distant sandstone melts into the horizon (no cool cast)
+    FOG[0]=196; FOG[1]=150; FOG[2]=104;
+    // parallax cloud bands drifting across the upper sky (dark red, wispy) — shift as you turn
+    if(!reduce && hy>-40){ ctx.save(); ctx.globalCompositeOperation='multiply'; const drift=(cam.yaw/TAU)*W*2;
+      for(let i=0;i<5;i++){ const cy=hy-(i+1)*H*0.085-H*0.02; if(cy<-50) continue;
+        const off=((G.t*(5+i*3)+drift+i*430)%(W+560))-280;
+        ctx.fillStyle='rgba('+(72-i*7)+',26,28,'+(0.30-i*0.03).toFixed(2)+')';
+        ctx.beginPath(); ctx.ellipse(off,cy,W*0.34,H*(0.03+i*0.006),0,0,TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(off-W*0.42,cy+6,W*0.24,H*0.026,0,0,TAU); ctx.fill(); }
+      ctx.restore(); }
+    // low sun glow on the horizon (ahead-right)
+    if(hy>-80 && hy<H+140){ ctx.save(); ctx.globalCompositeOperation='lighter';
+      const sg=ctx.createRadialGradient(W*0.62,hy,0,W*0.62,hy,H*0.55);
+      sg.addColorStop(0,'rgba(255,214,150,0.55)'); sg.addColorStop(0.4,'rgba(232,120,60,0.20)'); sg.addColorStop(1,'transparent');
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(W*0.62,hy,H*0.55,0,TAU); ctx.fill(); ctx.restore(); }
+    // dust haze band right at the horizon
+    const bh=H*0.14;
+    if(hy>-bh && hy<H+bh){ const b=ctx.createLinearGradient(0,hy-bh*0.3,0,hy+bh);
+      b.addColorStop(0,'rgba(217,170,120,0)'); b.addColorStop(0.5,'rgba(212,176,130,0.30)'); b.addColorStop(1,'rgba(196,150,104,0)');
+      ctx.fillStyle=b; ctx.fillRect(-24,hy-bh*0.3,W+48,bh*1.3); }
   }
   // an operative = stacked AA boxes (legs, torso, head) + a gun box offset toward facing
   function drawEntities(){
@@ -1021,6 +1095,24 @@
     ctx.restore(); }
   function drawSparks(){ for(const s of G.sparks){ const p=projectPoint(s.x,s.y,s.z); if(!p)continue; const r=Math.max(1,2.2*clamp(p.s*0.02,0.4,3));
       ctx.globalAlpha=clamp(s.t*3,0,1); ctx.fillStyle=rgb(s.col); ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); } ctx.globalAlpha=1; }
+  // floating card/market supply drops — glowing tokens that bob above the sand
+  function drawPows(){ ctx.save();
+    for(const pw of G.pows){ if(pw.got)continue; const fy=pw.y+0.25+Math.sin((G.t+pw.t)*3)*0.12;
+      const p=projectPoint(pw.x,fy,pw.z); if(!p||p.z>FAR)continue;
+      if(!losClear(cam.x,cam.y,cam.z, pw.x,fy,pw.z)) continue;                 // occluded by a wall
+      const r=clamp(p.s*0.5,7,34), c=pw.col, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0), amp=(pw.type==='amp');
+      ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*(amp?2.0:1.4));
+      g.addColorStop(0,'rgba('+cs+',0.85)'); g.addColorStop(0.5,'rgba('+cs+',0.30)'); g.addColorStop(1,'rgba('+cs+',0)');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(p.x,p.y,r*(amp?2.0:1.4),0,TAU); ctx.fill();
+      ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='rgba(10,12,10,0.9)'; ctx.strokeStyle='rgb('+cs+')'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(p.x,p.y,r*0.62,0,TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgb('+cs+')'; ctx.font='900 '+(r*0.9)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pw.ch,p.x,p.y+1);
+      if(amp){ ctx.strokeStyle='rgba('+cs+',0.9)'; ctx.lineWidth=2; ctx.shadowColor='rgb('+cs+')'; ctx.shadowBlur=8;
+        ctx.beginPath(); for(let i=0;i<6;i++){ const a=(G.t+pw.t)*2+i*TAU/6; ctx.moveTo(p.x+Math.cos(a)*r*0.9,p.y+Math.sin(a)*r*0.9); ctx.lineTo(p.x+Math.cos(a)*r*1.15,p.y+Math.sin(a)*r*1.15); } ctx.stroke(); ctx.shadowBlur=0; }
+    }
+    ctx.restore(); }
   function drawNameplates(){ ctx.save(); ctx.textAlign='center';
     for(const e of G.ents){ if(!e.alive||e.isMe)continue; const dd=Math.hypot(e.x-cam.x,e.z-cam.z); if(dd>44)continue;
       const p=projectPoint(e.x, e.y+e.h+0.22, e.z); if(!p)continue;
@@ -1048,12 +1140,16 @@
       draw([[86,20],[150,20],[160,-150],[150,-210],[92,-210],[74,-150]],GM.mid);            // grip/frame
       draw([[96,-150],[152,-150],[152,-280],[128,-320],[98,-296]],GM.lite);                 // slide
       draw([[128,-300],[300,-300],[300,-330],[128,-330]],GM.dark); }                        // barrel
-    else if(w.key==='smg'){
-      draw([[70,-30],[200,-30],[200,110],[70,110]],GM.hand);                                // fist
-      draw([[40,40],[220,40],[220,-70],[40,-70]],GM.mid);                                   // body
-      draw([[64,-70],[184,-70],[178,-270],[120,-330],[86,-306],[64,-210]],GM.lite);         // upper receiver
-      draw([[108,-40],[158,-40],[158,150],[108,150]],GM.dark);                              // magazine
-      draw([[184,-40],[330,-40],[330,4],[184,4]],GM.dark); }                                // barrel/suppressor
+    else if(w.key==='smg'){   // AK RIPMASTER — wood furniture + banana mag
+      draw([[-70,58],[36,20],[44,-4],[-30,30],[-96,66]],GM.wood);                           // wooden stock (back-left)
+      draw([[40,26],[300,26],[300,-44],[40,-44]],'#24272e');                                // black lower receiver
+      draw([[70,-8],[188,-8],[196,128],[64,128]],GM.hand);                                  // firing hand on the grip
+      draw([[96,26],[152,26],[180,150],[150,252],[100,260],[72,150]],'#2a2018');            // curved banana magazine
+      draw([[108,52],[150,52],[168,150],[150,232],[112,240]],GM.woodL);                     // mag wood highlight
+      draw([[210,-44],[382,-44],[382,-92],[210,-92]],GM.wood);                              // upper wood handguard
+      draw([[300,-20],[470,-14],[470,-44],[300,-50]],'#2b2f37');                            // barrel
+      draw([[300,-92],[372,-92],[372,-108],[300,-108]],'#3a3f48');                          // gas tube
+      draw([[452,-14],[470,-14],[470,-70],[452,-70]],'#20232a'); }                          // front sight post
     else if(w.key==='shotgun'){
       draw([[70,40],[150,40],[160,210],[80,230]],GM.hand);                                  // forward hand
       draw([[30,40],[280,40],[320,-46],[320,-116],[30,-116]],GM.wood);                      // wood stock/pump
@@ -1068,7 +1164,7 @@
       draw([[250,-30],[500,-22],[500,-52],[250,-58]],GM.dark); }                            // long barrel
     // muzzle flash on the model
     if(e.muzzle>0){ ctx.save(); ctx.globalCompositeOperation='lighter';
-      const mx=w.key==='shotgun'?470:w.key==='sniper'?500:w.key==='pistol'?300:330, my=w.key==='shotgun'?-72:w.key==='pistol'?-315:w.key==='sniper'?-40:-18;
+      const mx=w.key==='shotgun'?470:w.key==='sniper'?500:w.key==='pistol'?300:475, my=w.key==='shotgun'?-72:w.key==='pistol'?-315:w.key==='sniper'?-40:-32;
       const g=ctx.createRadialGradient(mx,my,0,mx,my,140); g.addColorStop(0,'rgba(255,246,205,.95)'); g.addColorStop(.5,'rgba(255,170,50,.55)'); g.addColorStop(1,'transparent');
       ctx.fillStyle=g; ctx.beginPath(); ctx.arc(mx,my,140,0,TAU); ctx.fill(); ctx.restore(); }
     ctx.restore();
@@ -1119,7 +1215,7 @@
     flushDrawList();
     drawNeon();
     drawEntGlow();
-    drawChunks(); drawTracers(); drawFlashes(); drawSparks();
+    drawChunks(); drawTracers(); drawFlashes(); drawSparks(); drawPows();
     drawNameplates();
     ctx.restore();
     // muzzle-light kick: subtle center-weighted additive tint on heavy shots (not a whiteout)
@@ -1130,6 +1226,11 @@
       ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
     drawViewmodel();
     drawCrosshair();
+    // OVERCHARGE surge: warm golden screen bloom while the market-heat surge is live
+    if(G.me&&G.me.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; const pul=0.5+0.5*Math.sin(G.t*10);
+      const rg=ctx.createRadialGradient(HW,HH,Math.min(W,H)*0.28,HW,HH,Math.max(W,H)*0.62);
+      rg.addColorStop(0,'rgba(255,200,80,0)'); rg.addColorStop(1,'rgba(255,190,70,'+(0.06+0.05*pul).toFixed(3)+')');
+      ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
     // damage vignette (DOM)
     $('dmgVig').style.opacity=(G.dmgFlash*0.8).toFixed(3);
     updateHUD();
@@ -1138,6 +1239,8 @@
     $('hpNum').textContent=Math.max(0,Math.ceil(e.hp)); $('hpFill').style.width=clamp(e.hp/e.maxHp*100,0,100)+'%';
     $('arNum').textContent=Math.max(0,Math.ceil(e.armor)); $('arFill').style.width=clamp(e.armor/e.maxArmor*100,0,100)+'%';
     $('boFill').style.width=clamp(e.boost*100,0,100)+'%';
+    const amp=mktAmp(), mk=$('hMkt'); if(mk){ mk.textContent=(e.surgeT>0?'★ OVERCHARGE '+e.surgeT.toFixed(1)+'s':'◈ market ×'+amp.toFixed(2)+(amp>1.25?' · HOT':amp<0.95?' · cold':''));
+      mk.style.color=e.surgeT>0?'#ffd23b':(amp>1.25?'#ff2ad9':'#59e0ff'); }
     const w=WEAPONS[e.weapon]; $('magNum').textContent=e.reloading?'…':e.mag; $('resNum').textContent='/ ∞'; $('weapName').textContent=w.name;
     $('weapSlots').querySelectorAll('.wslot').forEach(el=>{ const on=+el.dataset.w===e.weapon; el.classList.toggle('on',on); el.classList.toggle('rl', on&&e.reloading); });
     $('fMe').textContent=e.kills;
@@ -1312,8 +1415,10 @@
     requestAnimationFrame(frame);
   }
   G.scopeZoom=1;
-  if(location.hash==='#debug') window.__S9={G,cam,touch,WEAPONS,get MAP(){return MAP;}};   // headless-test hook (inert in normal play)
+  if(location.hash==='#debug') window.__S9={G,cam,touch,WEAPONS,get me(){return G.me;},get MAP(){return MAP;}};   // headless-test hook (inert in normal play)
   loadDeck().then(()=>{ refreshPot(); });
+  if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')buildGrid(); });
+    setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')buildGrid(); }); }, 45000); }
   requestAnimationFrame(frame);
 })();
 </script>
