@@ -1554,10 +1554,13 @@
     G.__weapKey=(WEAPONS[G.me.weapon]||{}).key||'smg';                     // tell the GL viewmodel which gun
     try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
     ctx.clearRect(0,0,W,H);
+    // world-space effects on the transparent overlay — sync the 2D projection to the GL camera so they land correctly
+    FOCAL=HH/Math.tan((1.06/(G.scopeZoom||1))*0.5);
+    drawDecals(); drawChunks(); drawTracers(); drawSparks(); drawFlashes(); drawPows(); drawNameplates();
     if(G.fireFlash>0 && G.fireHeavy){ const a=G.fireFlash*0.10, c=G.fireCol, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
       ctx.save(); ctx.globalCompositeOperation='lighter'; const rg=ctx.createRadialGradient(HW,HH,0,HW,HH,Math.max(W,H)*0.62);
       rg.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); rg.addColorStop(1,'rgba('+cs+',0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
-    drawCrosshair();   // the 3D weapon viewmodel is rendered by GL; only the reticle/scope stays on the 2D overlay
+    drawCrosshair();   // the 3D weapon viewmodel is rendered by GL; the reticle/scope + world FX stay on the 2D overlay
     if(G.me.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; const pul=0.5+0.5*Math.sin(G.t*10);
       const rg=ctx.createRadialGradient(HW,HH,Math.min(W,H)*0.28,HW,HH,Math.max(W,H)*0.62);
       rg.addColorStop(0,'rgba(255,200,80,0)'); rg.addColorStop(1,'rgba(255,190,70,'+(0.06+0.05*pul).toFixed(3)+')'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
