@@ -37,9 +37,10 @@
     font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.30em; text-transform:uppercase;
     color:#8ffdf0; text-shadow:0 0 10px rgba(39,247,228,.7),0 0 2px #000; }
   .marquee .dot{ color:var(--magenta); text-shadow:0 0 10px rgba(255,42,217,.85); }
-  #cv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
+  #cv,#glcv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
     width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
     border-radius:var(--rad); background:#05070b; box-shadow:inset 0 0 90px rgba(0,0,0,.9), inset 0 0 30px rgba(39,247,228,.05); cursor:crosshair; }
+  #glcv{ z-index:1; }
   /* ── heavy CRT: scanlines + phosphor flicker + curvature + glare, clipped to the tube ── */
   .crt{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad);
     z-index:11; pointer-events:none; overflow:hidden; }
@@ -202,6 +203,7 @@
 </head>
 <body>
   <canvas id="cv"></canvas>
+  <canvas id="glcv" style="display:none"></canvas>
   <div class="crt" aria-hidden="true"><div class="crt-glare"></div><div class="crt-flick"></div><div class="crt-curve"></div><div class="crt-scan"></div></div>
   <div class="dmg-vig" id="dmgVig" aria-hidden="true"></div>
   <div class="bezel" aria-hidden="true"></div>
@@ -324,6 +326,7 @@
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
 <script src="js/card-powers.js"></script>
+<script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
 <script>
 (() => {
@@ -333,9 +336,19 @@
   const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;   // respect motion sensitivity (shake/drift)
   let W=0,H=0,HW=0,HH=0,FOCAL=600;
   const NEAR=0.06, FAR=52;
+  // ── WebGL renderer (opt-in via #gl while it reaches parity; then it becomes default) ──
+  const glcv=document.getElementById('glcv');
+  const GLWANT=(location.hash.indexOf('gl')>=0)||/[?&]gl(\b|=1)/.test(location.search);
+  let glReady=false;
+  const ENV={ skyTop:[0.14,0.075,0.12], skyMid:[0.61,0.29,0.15], skyHorizon:[0.82,0.55,0.32],
+    lightDir:(()=>{ const v=[-0.5,0.62,-0.36], l=Math.hypot(v[0],v[1],v[2]); return [v[0]/l,v[1]/l,v[2]/l]; })(),
+    lightCol:[0.92,0.82,0.62], ambient:[0.44,0.40,0.36], fog:[0.77,0.59,0.41] };
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(2,Math.round(r.width)); H=Math.max(2,Math.round(r.height));
-    HW=W/2; HH=H/2; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0); }
+    HW=W/2; HH=H/2; cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
+    if(glcv){ glcv.width=Math.round(W*DPR); glcv.height=Math.round(H*DPR); } }
   resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
+  if(GLWANT && window.GLR){ try{ glReady=GLR.init(glcv); }catch(e){ glReady=false; }
+    if(glReady){ glcv.style.display='block'; cv.style.background='transparent'; cv.style.zIndex='2'; } }
   const rnd=(a=1,b=0)=>b+Math.random()*(a-b), rint=n=>Math.floor(Math.random()*n),
         clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
   const TAU=Math.PI*2;
@@ -869,7 +882,7 @@
 
   function startMatch(real){
     // choose map
-    G.mapIdx=rint(MAPS.length); MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP);
+    G.mapIdx=rint(MAPS.length); MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(glReady){ try{ GLR.buildMap(MAP); }catch(e){} }
     // roster fill
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
@@ -1536,11 +1549,25 @@
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
   if(window.RipWallet){ window.RipWallet.on(()=>{ refreshPot(); }); }
 
+  // GL path: GPU renders the 3D world; the 2D canvas becomes a transparent overlay for viewmodel/crosshair/HUD
+  function drawGL(){ if(!G.me) return; camTrig();
+    try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
+    ctx.clearRect(0,0,W,H);
+    if(G.fireFlash>0 && G.fireHeavy){ const a=G.fireFlash*0.10, c=G.fireCol, cs=(c[0]|0)+','+(c[1]|0)+','+(c[2]|0);
+      ctx.save(); ctx.globalCompositeOperation='lighter'; const rg=ctx.createRadialGradient(HW,HH,0,HW,HH,Math.max(W,H)*0.62);
+      rg.addColorStop(0,'rgba('+cs+','+a.toFixed(3)+')'); rg.addColorStop(1,'rgba('+cs+',0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
+    drawViewmodel(); drawCrosshair();
+    if(G.me.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; const pul=0.5+0.5*Math.sin(G.t*10);
+      const rg=ctx.createRadialGradient(HW,HH,Math.min(W,H)*0.28,HW,HH,Math.max(W,H)*0.62);
+      rg.addColorStop(0,'rgba(255,200,80,0)'); rg.addColorStop(1,'rgba(255,190,70,'+(0.06+0.05*pul).toFixed(3)+')'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H); ctx.restore(); }
+    $('dmgVig').style.opacity=(G.dmgFlash*0.8).toFixed(3);
+    updateHUD();
+  }
   // ══════════════════ LOOP ══════════════════
   let last=now();
   function frame(t){ const dt=Math.min(0.05,(t-last)/1000); last=t;
     if(G.mode==='play') step(dt);
-    if(G.mode==='play'||G.mode==='pause'||G.mode==='result') { if(G.me) draw(); }
+    if(G.mode==='play'||G.mode==='pause'||G.mode==='result') { if(G.me){ glReady?drawGL():draw(); } }
     requestAnimationFrame(frame);
   }
   G.scopeZoom=1;
