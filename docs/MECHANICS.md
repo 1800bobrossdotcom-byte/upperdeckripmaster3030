@@ -1,5 +1,13 @@
 # Mechanics — Seasons, Burn‑to‑Vote, and the Living Pack
 
+> **↻ Superseded in detail by model v2.2 (2026-07).** The deck is a **fixed 100 handmade
+> cards** — packs do **not** mint the top-voted cards; the Rarity Court is community-vote
+> signal over the fixed deck (adjusts rarity, never removes a card). Cards are ERC-721
+> **lenses** (33 hero 1/1s + 67 render-only field cards + holder-bound Lovebeing);
+> **cards never retire or ash**; the burn is **token deflation** (3.03M→~1.01M); game antes
+> are **net-zero wagers** and staked cards **transfer** (never burned). Canonical:
+> **`docs/ECONOMIC-FLOW.md`**.
+
 Design v1 · maps the game onto SuperRare Liquid Editions primitives (ERC‑20 + bonding curve,
 pull‑based render contracts, Companion 721 Lenses).
 

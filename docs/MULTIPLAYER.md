@@ -1,5 +1,11 @@
 # The Arena Lobby — multiplayer presence & PvP
 
+> **↻ Superseded in detail by model v2.2 (2026-07).** PvP antes are **net-zero WAGERS**
+> (both wager `$UR3030`, winner takes the pot) — **not burns**; the winner **takes** the
+> loser's staked cards, which **transfer** (cards are never burned/destroyed). Any Phase-2
+> escrow is on the ERC-721 **lens** contract, not an ERC-1155 `CardVault`. Canonical:
+> **`docs/ECONOMIC-FLOW.md`**.
+
 **What ships today:** a live lobby in `cards/battle.html` — you can see other
 rippers online, seek a fight, call someone out, and slam your cards straight into
 theirs. Cross-tab presence is **real** (open two tabs and they see each other); the

@@ -1,5 +1,10 @@
 # The Slam — battle rules & onchain design
 
+> **↻ Superseded in detail by model v2.2 (2026-07).** Cards **survive** — there is no
+> "burn the card" option; the winner **takes** (transfers) won cards, which can be kept,
+> traded, or compressed. Token sinks are **packs** (buy-and-burn), not card destruction;
+> game antes are **net-zero wagers**. Canonical: **`docs/ECONOMIC-FLOW.md`**.
+
 Design v1 for card battles. Yes, it makes sense — and the key insight is that the same
 live market state the render contracts already read (via the Rare Protocol interfaces)
 can drive combat: **the cards' art and their powers breathe from one source of truth.**

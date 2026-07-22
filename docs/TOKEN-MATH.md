@@ -1,5 +1,13 @@
 # $UR3030 — token math (finalized)
 
+> **↻ Model v2.2 update (2026-07):** the token/curve **math and numbers below remain valid**
+> (cap 3,030,000, ~1 RARE open, lifetime burn ≈2,020,000 ≈ ⅔ cap, ~1,010,000 floor, ≈3×
+> contraction). What changed is **framing**: the burn is **token deflation, not a card
+> cull** — there is **no 196→77 card retirement, no ash, no ERC-1155 CardVault**. Every card
+> is an ERC-721 render-by-id **lens** (33 hero 1/1s + 67 render-only field cards + a
+> holder-bound Lovebeing lens); pack allotment is **1,600/1,100/600/260**, bounded by the
+> burn budget (not card supply). Canonical: **`docs/ECONOMIC-FLOW.md`**.
+
 Supply, burn costs, pricing, and liquidity for upperdeckripmaster3030, grounded
 in how SuperRare Liquid Editions actually work and pressure-tested by an
 adversarial modeling pass (5 independent models, each verified by a skeptic).

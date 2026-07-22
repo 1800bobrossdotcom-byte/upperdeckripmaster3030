@@ -1,5 +1,11 @@
 # Sepolia dress rehearsal — a first-timer's walkthrough
 
+> **↻ Superseded in detail by model v2.2 (2026-07).** Burn milestones are **token
+> deflation** (they evolve the render + shrink the pack allotment), **not** card
+> retirement — cards never retire or ash. The arena ante is a **net-zero `$UR3030` wager**,
+> not a burn. The card layer is one combined renderer + ERC-721 **lens** contract (33 hero
+> 1/1s + 67 render-only field cards), no ERC-1155. Canonical: **`docs/ECONOMIC-FLOW.md`**.
+
 **Goal:** deploy the `$UR3030` Liquid Edition to **Sepolia** (Ethereum's free practice
 network) and do a full mock run — buy some tokens, burn them (a "rip"), watch the
 render change — *before* we ever touch real money on mainnet.

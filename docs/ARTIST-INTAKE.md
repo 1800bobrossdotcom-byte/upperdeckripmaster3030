@@ -1,5 +1,14 @@
 # Liquid Editions — Artist Intake & Launch Agreement (final)
 
+> **↻ Model v2.2 update (2026-07) — re-export before re-submitting.** The game description
+> in this agreement predates model v2.2 and reflects a **retired** design (196→77 burn-down,
+> Ash-Trophies, house pool, Lovebeing-as-1/1). The **current** game: a **100-card handmade
+> deck** of ERC-721 **lenses** — **33 hero 1/1s** (11 gacha + 22 earned game titles) + **67
+> render-only field cards** (mint later) + a **holder-bound Lovebeing lens**; packs are
+> buy-and-burns (**token** deflation 3.03M→~1.01M, **no card retirement/ash**); rarity by
+> community vote; compression corners an edition into a 1/1 (the card survives). Artist
+> identity, cohort, links, and token figures stay accurate. Canonical: **`docs/ECONOMIC-FLOW.md`**.
+
 Copy-paste-ready answers for the SuperRare *Liquid Editions: Artist Intake & Launch
 Agreement*, for the game as it stands (196-card field → 77-survivor burn-down, rarity
 court, arena, 1/1 marquee, Ash Trophies, creator cut + house reward pool). Tokenomics

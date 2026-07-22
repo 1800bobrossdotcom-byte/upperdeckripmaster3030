@@ -1,5 +1,12 @@
 # Liquid Editions study + token economics answers
 
+> **↻ Superseded in detail by model v2.2 (2026-07).** Parts below reflect an earlier design
+> (196→77 card retirement / ash / ERC-1155 `CardVault` / burn-antes). Under **v2.2**: a
+> 100-card deck of ERC-721 **lenses** (33 hero 1/1s + 67 render-only field cards +
+> holder-bound Lovebeing); **cards never retire or ash**; the burn is **token deflation**
+> (3.03M→~1.01M); game antes are **net-zero wagers** (winner takes the pot), staked cards
+> **transfer** (never burned). Canonical: **`docs/ECONOMIC-FLOW.md`**.
+
 Grounded in SuperRare's own docs (help.superrare.com "Introduction to Liquid
 Editions" and rare.xyz/docs), then applied to upperdeckripmaster3030. Short
 version of what the protocol actually gives us, then straight answers to your
