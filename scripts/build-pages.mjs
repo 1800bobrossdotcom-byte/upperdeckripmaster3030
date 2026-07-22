@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// Build the on-site transparency pages — whitepaper.html, tokenomics.html, audit.html —
-// in the UR3030 acid-terminal style, from one shared shell. Reproducible:
+// Build the on-site transparency pages — whitepaper.html, tokenomics.html, audit.html,
+// artist.html — in the UR3030 acid-terminal style, from one shared shell. Reproducible:
 //
 //   node scripts/build-pages.mjs
 //
-// Numbers mirror docs/TOKEN-MATH.md (reproduced by scripts/token-model.mjs). These are
-// site pages served at the repo root; they reference site assets (marquee, PDF) by
-// relative URL. Strong NFA / "all memes are memes" throughout.
+// Numbers mirror docs/ECONOMIC-FLOW.md + docs/TOKEN-MATH.md (reproduced by
+// scripts/token-model.mjs). Model v2.2: 100-card deck, every card a LENS (render keyed by
+// id), 33 minted hero 1/1s (11 gacha + 22 earned) + 67 render-only field cards + Lovebeing
+// holder lens; packs burn the token (mint-once, 3× contraction); cards do NOT retire/ash.
+// Strong NFA / "all memes are memes" throughout.
 
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -168,34 +170,34 @@ const whitepaper = `
     <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
 
   <h2><span class="n">01</span>TL;DR</h2>
-  <p>upperdeckripmaster3030 is a <b>liquid trading-card game</b> that is, on-chain, exactly
-  <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token
-  (<b>$UR3030</b>) priced by a bonding curve in <b>RARE</b> on Uniswap-v4. The 196-card deck is
-  the <b>artwork of that one edition</b>, drawn by a render contract that reads the market live.
-  The community <b>burns the field down to a deck of 77</b> by burning the token itself. At season end
-  the 77 survivors mint as tradeable <b>collectible lenses</b> (ERC-721), and any card whose whole claim
-  set one wallet <b>corners</b> can be <b>compressed into a 1/1</b>. Everything burns; nothing is skimmed. No treasury, no team
-  pre-mint, no fee wallet — and no other contract for one to hide in.</p>
+  <p>upperdeckripmaster3030 is a <b>liquid trading-card game</b> that is, on-chain, one primitive:
+  a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token (<b>$UR3030</b>) priced by a bonding
+  curve in <b>RARE</b> on Uniswap-v4. The <b>100-card deck</b> is the <b>artwork</b>, and <b>every card is a
+  LENS</b> — a render that reads the live market + burn. <b>33 hero cards</b> mint as <b>1/1 lenses</b>
+  (11 pulled from packs, 22 earned in the games); the other <b>67 field cards</b> are <b>render-only lenses</b>
+  (live on-chain, <b>unminted</b>) that you collect and can mint later. Packs <b>burn</b> the token — supply
+  <b>contracts ≈3×</b> over the deck's life (3.03M → ~1.01M) — but <b>the cards survive</b>. <i>The token burns
+  so the art can live.</i> No treasury, no team pre-mint, no fee wallet.</p>
 
-  <h3>The stack — one edition, three surfaces</h3>
+  <h3>The stack — one edition, one lens contract</h3>
   <div class="cols3">
     <div class="card house"><div class="co-h">$UR3030 · ERC-20</div>
       <p style="font-size:13px;margin:0">The <b>edition</b>. One token on a Uniswap-v4 + Doppler
       multicurve, reserve in RARE — chartable like any ERC-20. Buy it, sell it, <b>burn</b> it.
-      In SuperRare's words: <i>"the token is not separate from the art."</i></p></div>
-    <div class="card creator"><div class="co-h">The render</div>
-      <p style="font-size:13px;margin:0">The <b>deck</b>. A read-only render contract draws all 196
-      cards from live market state — price, supply, balances, and <b>burn progress</b>, which
-      retires cards one by one down the published milestone queue.</p></div>
+      <b>Minted once</b>; burns are <b>permanent</b>. In SuperRare's words: <i>"the token is not separate
+      from the art."</i></p></div>
+    <div class="card creator"><div class="co-h">The render — every card is a lens</div>
+      <p style="font-size:13px;margin:0">A <b>lens</b> is a render <b>keyed by card id</b> in one
+      renderer+721 contract, reading price, supply, and <b>burn</b> live. A card is a live lens <b>before</b>
+      any token exists for it — so field cards are lenses today, unminted.</p></div>
     <div class="card burn"><div class="co-h">Lenses · ERC-721</div>
-      <p style="font-size:13px;margin:0">The <b>1/1s</b>. A Companion Lens Collection (assisted
-      setup): the sealed marquee, season-end survivor 1/1s, compressed retirees, Ash-Trophy
-      honors — each lens a different view over the same market.</p></div>
+      <p style="font-size:13px;margin:0">The <b>owned</b> layer. <b>33 hero 1/1s</b> minted now, plus
+      <b>Lovebeing</b>, the holder lens every $UR3030 wallet carries. The 67 field cards mint <b>later</b>,
+      against the same render — so they stay lenses, never turning to static art.</p></div>
   </div>
-  <p class="fine">There are <b>no per-card tokens</b> at launch — no ERC-1155, no 196 mini-tokens.
-  Cards are states of the one artwork; your collection is your on-chain rip history + balance.
-  A contract-based game layer exists as a reviewed <b>Phase 2 reference design</b> (see the
-  <a href="audit.html">audit notes</a>) and ships only if the format ever permits it.</p>
+  <p class="fine"><b>No ERC-1155, no per-copy editions, no flood of mints.</b> The on-chain footprint is
+  deliberately tiny — 33 hero 1/1s now — while all 100 cards are live lenses. Your field-card collection is
+  a site-layer collectible (chain-readable) until you choose to mint it.</p>
 
   <div class="callout cy"><div class="co-h">This is transparency, not a pitch.</div>
     <p>$UR3030 is a collectible game token, not an investment. It can go to zero. The cards are art,
@@ -203,86 +205,84 @@ const whitepaper = `
 
   <h2><span class="n">02</span>The game</h2>
   <ul>
-    <li><b>The field opens</b> — all 196 cards alive in the render, five tiers: Common → Uncommon → Rare → Mythic → Prizm.</li>
-    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $UR3030, burned in full</b>; your 7 pulls derive from your burn tx. Your collection = your rip history + holdings.</li>
-    <li><b>The burn-down</b> — a <b>published retirement queue</b> (weakest first). Every time cumulative burn crosses the next milestone, the next card turns to ash — first at ~15k burned, all 119 at ~4.36M ≈ a sold-out season of packs.</li>
-    <li><b>The court &amp; arena</b> — voting, wagers, and trades run <b>site-side</b> as community signal shaping next season's queue. <b>Burns are the consensus</b> — the only on-chain action, and the only one the render trusts.</li>
-    <li><b>Season end</b> — the <b>77 survivors</b> mint as tradeable <b>deck-edition lenses</b> (your serial of the card); corner a card's whole claim set and <b>compress it into a 1/1</b> (§6); the uncornered dead stay ash with the final burner's name on the trophy.</li>
+    <li><b>The field</b> — 100 cards, all live lenses, five tiers (Common → Prizm). <b>Rarity is set by
+      community vote</b> (the Rarity Court), not decreed.</li>
+    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $UR3030, burned in full</b>; you pull
+      <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
+    <li><b>The 33 hero lenses</b> — <b>11 gacha</b> (pull the claim from a pack → mint the 1/1) + <b>22 earned</b>
+      (win a one-of-a-kind game title → mint). One owner each.</li>
+    <li><b>Play &amp; wager</b> — the games ante $UR3030 (<b>wagers</b> that transfer to the winner, net-zero to
+      supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
+    <li><b>The burn-down</b> — packs deflate the token ≈3×; <b>nothing retires</b>. Scarcity comes from
+      dwindling pack allotments, rarity votes, and <b>compression</b> (corner a field card's copies → 1/1).</li>
   </ul>
 
   <h2><span class="n">03</span>The token · $UR3030</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.03M</b><span>hard cap</span></div>
+    <div class="stat"><b>3.03M</b><span>hard cap (mint-once)</span></div>
     <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
     <div class="stat"><b>RARE</b><span>reserve currency</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
   </div>
   <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
-  <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and minted on <i>buy</i> — the cap is a
-  live-supply ceiling, not a lifetime budget. Opening price ≈ 1 RARE/token keeps every toll and vote a
+  <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and <b>minted once</b> into the pool at
+  launch — burns are <b>permanent</b> and never re-mint. Opening price ≈ 1 RARE/token keeps every pack a
   micro-move. Full-curve FDV ≈ $606k is an <b>artist-scale niche edition, by choice</b>.</p>
 
   <h2><span class="n">04</span>The economy · where every token goes</h2>
   <p>One direction: <b>the fire</b>. There is no toll wallet, no creator-cut contract, no house
-  pool — because there is no other contract at all.</p>
+  pool — the only on-chain spend is a burn of the one token.</p>
   <div class="cols3">
     <div class="card burn"><div class="co-h">🔥 Burns (on-chain, real)</div>
       <ul><li>every pack — <b>in full</b> (~350/rip)</li><li>voluntary conviction burns</li>
-      <li>season-end <b>compression</b> costs</li><li>all irreversible, all public</li></ul></div>
+      <li><b>compression</b> costs</li><li>all irreversible, all public</li></ul></div>
     <div class="card creator"><div class="co-h">📈 The curve (on-chain, real)</div>
       <ul><li>buys deepen the RARE reserve</li><li>sells walk back down it</li>
-      <li>burned supply re-mints only on new buys</li><li>read it live: <code>getMarketState()</code></li></ul></div>
+      <li><b>mint-once</b> — burns never re-mint</li><li>read it live: <code>getMarketState()</code></li></ul></div>
     <div class="card house"><div class="co-h">🃏 Site-layer (signal, honest)</div>
-      <ul><li>court votes, wagers, trades, binder</li><li>shape next season's queue</li>
-      <li>no tokens move — <b>burns are the consensus</b></li></ul></div>
+      <ul><li>rarity votes, wagers, trades, binder</li><li>field-card pulls (render-only lenses)</li>
+      <li>no tokens burned — <b>only packs burn</b></li></ul></div>
   </div>
 
   <h2><span class="n">05</span>Packs · a $7 premium, escalating</h2>
   <p>A pack is the one <b>premium</b> action, and it uses only native curve operations: the site walks
-  you through <b>buying ~350 $UR3030 ≈ $7</b> (seven cards, ~$1 a card) and <b>burning it in full</b>.
-  Your pulls derive deterministically from your burn tx. It is <b>not</b> a token reprice — FDV is
-  unchanged — and every rip is a real buy-and-burn, the engine of steady pressure, not a pump. The
+  you through <b>buying ~350 $UR3030 ≈ $7</b> and <b>burning it in full</b>. It is <b>not</b> a token reprice —
+  FDV is unchanged — and every rip is a real buy-and-burn, the engine of steady pressure, not a pump. The
   schedule (site-enforced, auditable from the burn txs) escalates <b>within</b> a season (base→ceil as
-  the allotment sells) and <b>across</b> seasons (the field shrinks, so the allotment dwindles and the
-  floor rises).</p>
+  the allotment sells) and <b>across</b> seasons (the allotment dwindles and the floor rises). The pack count
+  is bounded by the <b>burn budget, not card supply</b>.</p>
   <table><tr><th>Season</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
-    <tr><td>I · Summer</td><td>10,000 packs</td><td>$7.00</td></tr>
-    <tr><td>II · Fall</td><td>7,500 packs</td><td>$9.00</td></tr>
-    <tr><td>III · Winter</td><td>5,000 packs</td><td>$12.00</td></tr>
-    <tr><td>IV · Spring</td><td>2,500 packs</td><td>$16.00</td></tr></table>
-  <p class="fine">*Floor at the launch spot ($0.02); token appreciation rides on top. See <a href="tokenomics.html">Tokenomics</a>.</p>
+    <tr><td>I · Summer</td><td>1,600 packs</td><td>$7.00</td></tr>
+    <tr><td>II · Fall</td><td>1,100 packs</td><td>$9.00</td></tr>
+    <tr><td>III · Winter</td><td>600 packs</td><td>$12.00</td></tr>
+    <tr><td>IV · Spring</td><td>260 packs</td><td>$16.00</td></tr></table>
+  <p class="fine">*Floor at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total. See <a href="tokenomics.html">Tokenomics</a>.</p>
 
-  <h2><span class="n">06</span>Seasons, lenses &amp; the Compression rite</h2>
-  <p>Four a year, on the calendar — we launch in the season we're in: <b>Summer</b> (live), then Fall,
-  Winter, Spring. Each season burns the field to 77 on the milestone queue. At season end the Companion
-  721 Lens Collection is where ownership becomes real — resolved on two axes: <b>survived?</b> and
-  <b>cornered?</b> (does one wallet hold a card's <i>entire</i> claim set). A <b>1/1 means one owner</b>,
-  so it is <i>always earned by cornering</i> — survival alone never mints a 1/1.</p>
+  <h2><span class="n">06</span>Lenses, minting &amp; the Compression rite</h2>
+  <p>Every card is a lens — a render keyed by id — so the deck exists as art from day one. What changes over
+  time is <b>who owns a token</b>:</p>
   <div class="cols3">
-    <div class="card house"><div class="co-h">Deck lenses · the 77</div>
-      <p style="font-size:13px;margin:0">Each survivor mints as a <b>collectible lens edition sized to its
-      holders</b> (own your serial — <i>Moon Cat #3/8</i>). This is the <b>playable deck</b>: buy, sell,
-      trade it. A card two wallets held is a 2-edition; scarcity is <b>emergent</b>, not decreed.</p></div>
-    <div class="card creator"><div class="co-h">1/1 lenses · Compression</div>
-      <p style="font-size:13px;margin:0">Hold <b>100%</b> of a card — survivor <i>or</i> retired — and
-      <b>compress</b>: burn to collapse every claim into a single <b>1/1</b>, pulled from circulation.
-      Cornering a survivor is the apex flex; cornering a retiree rescues it from ash.</p></div>
-    <div class="card burn"><div class="co-h">Ash · Trophies · 1/1 marquee</div>
-      <p style="font-size:13px;margin:0">Retired cards nobody corners stay <b>ash</b>. Final-blow burners
-      get a soulbound <b>Ash-Trophy</b> lens. The marquee <i>Lovebeing</i> is the always-sealed <b>1/1</b>.</p></div>
+    <div class="card house"><div class="co-h">33 hero lenses · minted now</div>
+      <p style="font-size:13px;margin:0"><b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b>
+      (win a game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed. One owner each.</p></div>
+    <div class="card creator"><div class="co-h">67 field lenses · render-only</div>
+      <p style="font-size:13px;margin:0"><b>Live on-chain, unminted</b> (readable via the CLI). Collect their
+      copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>,
+      against the same render — they stay lenses, never static art.</p></div>
+    <div class="card burn"><div class="co-h">Lovebeing · the holder lens</div>
+      <p style="font-size:13px;margin:0">The 1/1 marquee, <b>distributed to every $UR3030 holder</b> — one per
+      wallet regardless of balance, <b>non-transferable</b>, <b>non-burnable</b>. Hold the token, you carry it.
+      Never minted per-person.</p></div>
   </div>
-  <p><b>Provenance compounds.</b> A card that survives into later seasons carries its record — seasons
-  survived, burn withstood, holders — and its <b>ATK/DEF/trigger harden with age</b>: the deck is a
-  <b>living pedigree</b>, and a card left alive keeps accruing it, while a compressed 1/1 freezes it forever.</p>
-  <p class="fine">So they do <b>not</b> all become 1/1s: survivors are tradeable <b>deck editions</b>; a 1/1
-  is the reward for owning the whole thing. "The entire 196 live on" is a reachable outcome — corner and
-  compress enough of them — not an automatic one.</p>
+  <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
+  emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
 
   <h2><span class="n">07</span>Steady, not a pump</h2>
   <ul>
     <li><b>Un-pullable liquidity</b> — the RARE reserve lives in the pool, not a yankable LP. Sells walk down the curve.</li>
     <li><b>No team pre-mint</b> — nothing minted at genesis to dump.</li>
-    <li><b>Buy-and-burn packs</b> — RARE flows in on every buy, tokens vanish on every burn; fewer tokens on a deeper reserve.</li>
+    <li><b>Mint-once, buy-and-burn</b> — supply is minted once; RARE flows in on every buy, tokens vanish on
+      every pack burn and never re-mint; a shrinking float on a deepening reserve.</li>
     <li><b>Adding liquidity</b> — seed real RARE at deploy and let every buy deepen the reserve organically; the curve itself is the standing liquidity.</li>
   </ul>
   <div class="callout amber"><div class="co-h">What this is NOT.</div>
@@ -291,11 +291,11 @@ const whitepaper = `
 
   <h2><span class="n">08</span>Transparency</h2>
   <ul>
-    <li><b>One contract surface</b> — the edition + a read-only render. Nothing else to trust, nothing else to exploit.</li>
-    <li><b>Published retirement queue</b> — <code>cards/data/_milestones.json</code>: every milestone, every card, fixed at season open. You can see the fire coming.</li>
-    <li><b>Reproducible model</b> — <code>scripts/token-model.mjs</code> + <code>scripts/burn-milestones.mjs</code> re-derive every number here.</li>
-    <li><b>Legible actions</b> — packs, conviction, and compression are all burn txs on the one token; the chain is the receipt.</li>
-    <li><b>Phase 2 in the open</b> — the contract-based game design (<code>CardVault.sol</code>) is public, reviewed, and clearly labeled undeployed: see the <a href="audit.html">Audit</a> page.</li>
+    <li><b>One contract surface</b> — the edition + a renderer+721 lens contract. A deliberately tiny mint
+      footprint (33 hero 1/1s), nothing else to trust or exploit.</li>
+    <li><b>Reproducible model</b> — <code>scripts/token-model.mjs</code> re-derives every number here.</li>
+    <li><b>Legible actions</b> — packs and conviction burns are burn txs on the one token; hero-lens mints are
+      wallet-signed. The chain is the receipt.</li>
     <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
   </ul>
 
@@ -305,8 +305,10 @@ const whitepaper = `
     <li><b>Smart-contract risk.</b> Code can have bugs. Assume unaudited unless a published audit says otherwise (<a href="audit.html">Audit</a>).</li>
     <li><b>Liquidity &amp; slippage.</b> A thin market moves price hard; you may not exit at the quoted price.</li>
     <li><b>Design risk.</b> Game economies can behave unexpectedly, even when tuned and modeled.</li>
-    <li><b>Dependency risk.</b> The 721 lens mints (survivors, compression, trophies) run through SuperRare's assisted setup — scope and timing are not solely in our hands.</li>
-    <li><b>Site-layer honesty.</b> Court votes, wagers, and trades are community signal on the site, not on-chain settlement. Only burns are consensus.</li>
+    <li><b>Dependency risk.</b> The 721 lens mints run through SuperRare's assisted setup (or our own CLI-deployed
+      lens contract) — scope and timing are not solely in our hands.</li>
+    <li><b>Site-layer honesty.</b> Rarity votes, wagers, trades, and field-card pulls are community signal /
+      render-only on the site, not on-chain settlement. Only packs burn; only hero-lens mints are owned tokens.</li>
     <li><b>Regulatory &amp; key risk.</b> Rules vary and change; a lost key is lost funds.</li>
   </ul>
 
@@ -333,7 +335,7 @@ const tokenomics = `
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.03M</b><span>supply cap (capped)</span></div>
+    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -380,65 +382,54 @@ const tokenomics = `
   itself is the standing liquidity.</p>
 
   <h2 id="packs"><span class="n">06</span>The pack allotment (dwindling + escalating)</h2>
-  <p>Pack allotment for a season = <b>cards issued ÷ 7</b>. As the field burns down, fewer cards issue, so
-  the allotment shrinks and the floor rises. Within a season the price walks a line from base → ceil as the
-  allotment sells; sell out → packs close for the season. The schedule is <b>site-enforced</b> (packs are
-  guided buy+burns of the one token — there is no pack contract) and fully auditable from the burn txs.</p>
-  <table><tr><th>Season</th><th>Cards issued</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th></tr>
-    <tr><td>I · Summer</td><td>70,000</td><td>10,000 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td></tr>
-    <tr><td>II · Fall</td><td>52,500</td><td>7,500 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td></tr>
-    <tr><td>III · Winter</td><td>35,000</td><td>5,000 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td></tr>
-    <tr><td>IV · Spring</td><td>17,500</td><td>2,500 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td></tr></table>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. Curator-set at
-  <code>openSeason()</code>, recalibrated to the live token price.</p>
+  <p>Each season opens a fixed <b>allotment</b> of packs; within a season the price walks a line from base → ceil
+  as it sells, then <b>packs close</b> for the season (secondary market only). The allotment shrinks and the floor
+  rises each season. Allotments are sized so a full four-season sellout burns the whole ⅔-cap budget (§7) and no
+  more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
+  contract) and fully auditable from the burn txs.</p>
+  <table><tr><th>Season</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>season 🔥 (tok)</th></tr>
+    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>700,000</td></tr>
+    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>618,750</td></tr>
+    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>450,000</td></tr>
+    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>260,000</td></tr></table>
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
+  full sellout ≈ 2,028,750 🔥 (⅔ of cap). Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
 
-  <h2><span class="n">07</span>The burn schedule (launch — everything burns in full)</h2>
-  <p>At launch the only on-chain spend is the <span class="fire">🔥 burn</span> of the one token. There
-  are no tolls, no creator-cut contract, no house pool — nothing to route, nothing to skim.</p>
+  <h2><span class="n">07</span>The burn schedule (everything burns in full)</h2>
+  <p>The only on-chain spend is the <span class="fire">🔥 burn</span> of the one token. There are no tolls, no
+  creator-cut contract, no house pool — nothing to route, nothing to skim. Hero-lens <b>mints</b> are wallet-signed
+  721 mints, not token payouts.</p>
   <table><tr><th>Action</th><th>Cost</th><th>→</th></tr>
-    <tr><td>rip a pack (7 cards, site-guided)</td><td>~350 → escalates (§6)</td><td class="fire">🔥 in full</td></tr>
-    <tr><td>conviction burn (push the milestone)</td><td>any amount</td><td class="fire">🔥</td></tr>
-    <tr><td>season-end <b>compression</b> (retired card → 1/1 lens)</td><td>compression cost (set at season end)</td><td class="fire">🔥</td></tr>
-    <tr><td>court votes · wagers · trades · binder</td><td>site-side signal</td><td>no tokens move</td></tr></table>
-  <p class="fine">The retirement itself is priced by the <b>milestone escalator</b> (§8a): the k-th card falls
-  when cumulative burn crosses its published milestone — killing card k costs the crowd 15,000 + 360·k more
-  than card k−1. The Phase-2 toll/court table lives in <code>docs/CARD-ECONOMY-SPEC.md</code>, clearly undeployed.</p>
+    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>~350 → escalates (§6)</td><td class="fire">🔥 in full</td></tr>
+    <tr><td>conviction burn (voluntary)</td><td>any amount</td><td class="fire">🔥</td></tr>
+    <tr><td><b>compression</b> (own every copy of a field card → 1/1)</td><td>compression cost</td><td class="fire">🔥</td></tr>
+    <tr><td>rarity votes · wagers · trades · binder · field-card pulls</td><td>site-side signal</td><td>no burn</td></tr></table>
 
-  <h2><span class="n">08</span>Burn pressure per season</h2>
-  <p>Bounded by the S1 allotment (10,000 packs); scenarios are the fraction sold. A rip burns ~437 tokens
-  in full, so packs dominate. Illustrative, not a forecast.</p>
-  <table><tr><th>scenario</th><th>packs sold</th><th>pack 🔥</th><th>other 🔥*</th><th>total 🔥/season</th></tr>
-    <tr><td>QUIET (30%)</td><td>3,000</td><td>1,312,500</td><td>28,500</td><td><b>~1,341,000</b> (0.44× cap)</td></tr>
-    <tr><td>STEADY (70%)</td><td>7,000</td><td>3,062,500</td><td>68,250</td><td><b>~3,130,750</b> (1.03× cap)</td></tr>
-    <tr><td>SELLOUT (100%)</td><td>10,000</td><td>4,375,000</td><td>101,650</td><td><b>~4,476,650</b> (1.48× cap)</td></tr></table>
-  <p class="fine">*conviction + compression burns, illustrative. A sold-out season (~4.37M pack burn) clears
-  the full 119-milestone schedule (4,355,400) almost exactly — the deck only reaches 77 if the season truly burns.</p>
-  <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate). A sold-out season
-    cycling ~1.5× the cap through burns is the proof that the cap <b>refills</b> — burns pull totalSupply below
-    what was bought; the next buy re-mints into the gap. Read the real trajectory from <code>totalSupply()</code>.</p></div>
+  <h2><span class="n">08</span>Lifetime burn &amp; the 3× contraction</h2>
+  <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
+  cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
+  retire or ash</b> — this is token deflation only.</p>
+  <table><tr><th>metric</th><th>value</th><th>note</th></tr>
+    <tr><td>Full four-season sellout 🔥</td><td><b>2,028,750</b></td><td>≈ ⅔ of the 3,030,000 cap</td></tr>
+    <tr><td>Settled live float</td><td><b>~1,010,000</b></td><td>survives as the permanent float</td></tr>
+    <tr><td>Permanent contraction</td><td><b>≈ 3×</b></td><td>3.03M → ~1.01M</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>2.03M &lt; 3.03M</td></tr></table>
+  <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
+  fully-deflated float only if the community truly burns across the seasons. No burn ever re-mints.</p>
+  <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
+    run). Over the deck's life the <b>burns dominate</b>: ⅔ of the mint is retired permanently. Read the real
+    trajectory from <code>totalSupply()</code> — burn progress is <code>maxTotalSupply − totalSupply</code>.</p></div>
 
-  <h2 id="milestones"><span class="n">8a</span>The milestone escalator</h2>
-  <p>The published queue (<code>cards/data/_milestones.json</code>, generated by
-  <code>scripts/burn-milestones.mjs</code>): 119 retirements, weakest first (tier, then trait-score).
-  Retirement k lands at cumulative burn <code>Σ (15,000 + 360·i)</code>:</p>
-  <table><tr><th>milestone</th><th>falls at (cum. burn)</th><th>≈ packs of burn†</th></tr>
-    <tr><td>#1 (first common)</td><td>15,360</td><td>~35</td></tr>
-    <tr><td>#25</td><td>492,000</td><td>~1,125</td></tr>
-    <tr><td>#60</td><td>1,558,800</td><td>~3,563</td></tr>
-    <tr><td>#100</td><td>3,318,000</td><td>~7,584</td></tr>
-    <tr><td>#119 (last cut — deck locks at 77)</td><td>4,355,400</td><td>~9,955</td></tr></table>
-  <p class="fine">†at the S1 average pack (~437.5 tokens). Survivors: 15 uncommon · 40 rare · 17 mythic ·
-  5 prizm = 77. The 1/1 marquee is indestructible and outside the queue. Every retired card can be
-  <b>compressed into a 1/1 lens</b> at season end by whoever cornered its claim set — or stand as ash forever.</p>
-
-  <h2><span class="n">10</span>Before mainnet — what we verify</h2>
+  <h2><span class="n">09</span>Before mainnet — what we verify</h2>
   <ul>
-    <li><b>★ Mint/burn semantics</b> — does a burn reopen mint headroom (re-mint on next buy)? The whole "3M is enough" verdict assumes yes.</li>
+    <li><b>Mint/burn semantics — settled.</b> Per SuperRare's audit, the edition is <b>minted once</b> and burns
+      are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm ~10k RARE with the cohort.</li>
+    <li><b>Opening price</b> — calibrate the multicurve to open at ~1 RARE/token on the 3.03M supply (see <a href="audit.html">Audit</a>).</li>
+    <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
-    <li><b>Chain</b> — micro-tolls are gas-dominated on L1; deploy on an L2 (or batch actions).</li>
+    <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>
   </ul>`;
 
 // ─────────────────────────── AUDIT ───────────────────────────
@@ -451,73 +442,75 @@ const audit = `
     here is <b>experimental and unaudited by an independent firm</b>. A formal external audit is <b>pending</b>
     before any mainnet deploy. Interact at your own risk. Not a security assurance, not financial advice.</p></div>
 
-  <div class="callout amber"><div class="co-h">Architecture at launch: one Liquid Edition, no game contract.</div>
-    <p>The project ships as a <b>pure Liquid Edition</b> — one ERC-20 + a read-only render + (via assisted
-    setup) a Companion 721 Lens Collection. The ERC-1155 game contract reviewed below (<code>CardVault.sol</code>)
-    is a <b>Phase 2 reference design and is NOT deployed</b>; its mechanics run site-side at launch, with real
-    burns as the only on-chain action. Authoritative design: <code>docs/LAUNCH-ARCHITECTURE.md</code>.</p></div>
+  <div class="callout amber"><div class="co-h">Architecture at launch: one Liquid Edition + one lens contract.</div>
+    <p>The project ships as a <b>Liquid Edition</b> — one ERC-20 + a <b>renderer+721 lens contract</b> where
+    every card is a render keyed by id. <b>33 hero 1/1s</b> mint at launch; the 67 field cards are render-only
+    (unminted). There is <b>no ERC-1155</b> and no separate game contract at launch — wagers, votes, and
+    field-card pulls run site-side, with real pack burns + hero-lens mints as the on-chain actions.
+    Authoritative design: <code>docs/ECONOMIC-FLOW.md</code>.</p></div>
 
   <h2><span class="n">01</span>What we reviewed, and how</h2>
   <ul>
     <li><b>The launch surface is deliberately tiny.</b> One ERC-20 (deployed by SuperRare's audited factory
-      via the Rare CLI — not our code) + a read-only render contract + a published milestone schedule.
+      via the Rare CLI — not our code) + one renderer+721 lens contract with a tiny mint footprint (33 hero 1/1s).
       The less we deploy, the less there is to get wrong.</li>
     <li><b>Reproducible economics.</b> Every tokenomics number is derived by <code>scripts/token-model.mjs</code>
-      and <code>scripts/burn-milestones.mjs</code> — run them and re-derive the price schedule, slippage,
-      allotments, milestone escalator, and burn pressure yourself.</li>
+      — run it and re-derive the price schedule, slippage, allotments, and lifetime burn yourself.</li>
     <li><b>Adversarial modeling pass.</b> The tokenomics were pressure-tested by an adversarial pass — multiple
       independent models, each checked by a skeptic — to catch hand-wavy claims and hidden assumptions.</li>
-    <li><b>Phase 2 reference contract.</b> <code>CardVault.sol</code> (the undeployed ERC-1155 game design)
-      compiles with <b>solc 0.8.24</b> + <b>OpenZeppelin 5.0.2</b>, <b>0 warnings</b>, ~20.3 KB — reviewed and
-      kept in the open even though it does not ship.</li>
+    <li><b>SuperRare Sepolia audit.</b> A testnet rehearsal drew a five-item review from SuperRare; our
+      point-by-point reply is in <code>docs/AUDIT-REPLY.md</code>. Highlights below.</li>
   </ul>
 
   <h2><span class="n">02</span>Things we found and fixed (in the open)</h2>
   <ul>
-    <li><b>The architecture itself.</b> We initially designed a custom ERC-1155 game contract — then
-      re-read the cohort docs: a Liquid Edition is <b>one ERC-20 + render + optional 721 lenses</b>, and we
-      are not at liberty to deploy other contracts. <b>Fixed:</b> the whole game was remapped onto pure
-      liquid-edition primitives (burn milestones, guided buy+burns, lens mints) — see
-      <code>docs/LAUNCH-ARCHITECTURE.md</code>. The vault became Phase 2.</li>
-    <li><b>destroyEdition could kill a healthy card</b> (Phase 2 design). <b>Fixed</b> with a court-retired
-      guard + toll-neutral reward before we shelved it.</li>
+    <li><b>The burn schedule overflowed the cap.</b> An early card-retirement schedule totalled 4.36M burn
+      against a 3.03M mint-once cap — impossible. <b>Fixed by removing the mechanic:</b> v2.2 cut forced card
+      retirement / ash entirely. The burn is now pure <b>token deflation</b> (⅔ of the cap, ~2.02M), and the
+      deck <b>survives</b>. The only rule left is the trivial Σ burns ≤ cap.</li>
+    <li><b>Mint/burn assumption, corrected.</b> We'd assumed burns re-mint on the next buy. SuperRare confirmed
+      the opposite — <b>minted once, burns permanent</b>. The whole model was rebuilt on that (3× contraction).</li>
+    <li><b>The lens standard.</b> We'd sketched a custom ERC-1155. The cohort docs are clear: lenses are
+      <b>ERC-721</b>. <b>Fixed:</b> every card is a render-by-id lens on one renderer+721 contract — 33 minted,
+      67 render-only, Lovebeing a holder lens — a tiny mint footprint, no 1155.</li>
+    <li><b>Renderer display bugs.</b> The render read 100% "circulating" and 0 per-RARE; <b>fixed</b> to read
+      BURNED % (<code>max − total</code>) and a 2-dp per-RARE value in <code>contracts/UR3030RenderPrototype.sol</code>
+      (re-callable <code>setRenderContract</code>, no token redeploy).</li>
     <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
       ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
     <li><b>Over-claimed "supply only goes down."</b> <b>Fixed:</b> the docs now state plainly that net supply =
-      buys − burns (sign indeterminate); deflation is <i>pressure</i>, not a guarantee.</li>
+      buys − burns (sign indeterminate short-term); deflation is <i>pressure</i>, and over the deck's life burns dominate.</li>
   </ul>
 
   <h2><span class="n">03</span>Invariants we designed for (launch)</h2>
   <div class="grid2">
-    <div class="stat"><b>No pre-mint</b><span>supply is minted only on buy — nothing sits at genesis to dump</span></div>
+    <div class="stat"><b>Mint-once</b><span>whole supply minted into the pool at launch; burns are permanent, never re-mint</span></div>
     <div class="stat"><b>Un-pullable reserve</b><span>RARE lives in the v4 pool, not a yankable LP; sells walk the curve</span></div>
     <div class="stat"><b>No fee wallet</b><span>every on-chain spend is a burn of the one token — nothing is routed anywhere</span></div>
-    <div class="stat"><b>Published queue</b><span>the retirement order + milestones are fixed and public at season open</span></div>
+    <div class="stat"><b>Tiny mint footprint</b><span>33 hero 1/1s at launch; the deck is lenses, not a flood of editions</span></div>
     <div class="stat"><b>Full-burn packs</b><span>a rip burns 100% — no slice to any pool or wallet</span></div>
-    <div class="stat"><b>One trust surface</b><span>burns are the only consensus; site play is labeled signal, never settlement</span></div>
+    <div class="stat"><b>Cards survive</b><span>no forced retirement/ash; scarcity is votes + dwindling packs + compression</span></div>
   </div>
 
   <h2><span class="n">04</span>What is still pending before mainnet</h2>
   <ul>
-    <li><b>Independent third-party security audit</b> of the render contract — not yet performed. (The ERC-20
-      + curve come from SuperRare's protocol; the render is ours.)</li>
-    <li><b>★ The burn metric</b> — confirm the canonical cumulative-burn read in the
-      liquid-editions-starter-kit that the render's milestone logic keys on.</li>
-    <li><b>On-chain parameter verification</b> via <code>--preview</code> / <code>getMarketState</code>: effective
-      demand multiple <b>M</b>, <b>sell-fraction</b>, and <b>mint/burn semantics</b> (does a burn re-open mint
-      headroom on the next buy?).</li>
-    <li><b>Lens scope with SuperRare</b> — assisted-setup coverage for survivor 1/1s, the Compression rite,
-      Ash-Trophy honors, and the sealed marquee.</li>
-    <li><b>Full Sepolia dress rehearsal</b> — deploy, wire the render, run a mock season: rips (buy+burn),
-      milestone crossings, retirement renders, threshold states, a compression.</li>
+    <li><b>Independent third-party security audit</b> of the renderer+721 lens contract — not yet performed.
+      (The ERC-20 + curve come from SuperRare's protocol; the render/lens is ours.)</li>
+    <li><b>Curve calibration</b> — open at ~1 RARE/token on the 3.03M supply (with SuperRare).</li>
+    <li><b>Lens setup with SuperRare</b> — does the assisted 721 setup support render-by-id across 100 card-lenses
+      (33 minted, 67 render-only), or do we deploy our own combined renderer+721 lens contract via the CLI?</li>
+    <li><b>Mint mechanism</b> — a claim/voucher redeemer for the 11 gacha lenses (pack burn) and the 22 earned
+      lenses (signed game vouchers).</li>
+    <li><b>Full Sepolia dress rehearsal</b> — deploy, wire the render, run a mock season: rips (buy+burn), a
+      hero-lens mint, and watch the burn meter climb in the render.</li>
   </ul>
 
   <h2><span class="n">05</span>Verify us yourself</h2>
   <ul>
-    <li><b>Read the schedule</b> — <code>cards/data/_milestones.json</code>: every milestone and every card's fate, fixed in the open.</li>
-    <li><b>Run the models</b> — <code>node scripts/token-model.mjs</code> · <code>node scripts/burn-milestones.mjs</code> reproduce every number on the <a href="tokenomics.html">Tokenomics</a> page.</li>
-    <li><b>Watch the chain</b> — packs, conviction, and compression are all burn txs on the one token; <code>getMarketState()</code> is live.</li>
-    <li><b>Read Phase 2</b> — <code>contracts/CardVault.sol</code> + <code>docs/CARD-ECONOMY-SPEC.md</code>, clearly labeled undeployed.</li>
+    <li><b>Run the model</b> — <code>node scripts/token-model.mjs</code> reproduces every number on the <a href="tokenomics.html">Tokenomics</a> page.</li>
+    <li><b>Watch the chain</b> — packs and conviction are burn txs on the one token; hero-lens mints are wallet-signed; <code>getMarketState()</code> is live.</li>
+    <li><b>Read the design</b> — <code>docs/ECONOMIC-FLOW.md</code> (canonical) + <code>docs/AUDIT-REPLY.md</code> (the SuperRare reply).</li>
+    <li><b>Read the render fix</b> — <code>contracts/UR3030RenderPrototype.sol</code> (BURNED %, per-RARE).</li>
   </ul>
   <div class="callout amber"><div class="co-h">The honest bottom line.</div>
     <p>We've been transparent about what we checked and what we didn't. Self-review and a clean compile are
@@ -542,9 +535,10 @@ const artist = `
   boxes — the first memes</b>, if you'll let me call them that. That's where I learned a picture could be a joke,
   a trophy, and a currency all at once: something you'd trade at recess and still guard with your life.</p>
   <p style="margin:0">Static NFTs never caught that. Liquid Editions are the first format where the card is
-  <b>alive</b> — priced by a curve, played by a crowd, and able to win and to actually die. Ripmaster is that
-  recess table rebuilt on-chain: a full field opens, the crowd plays it down to 77, and the rest turn to ash you
-  can hold. The 1/1 at the top of the deck carries my name, <b>Lovebeing</b>.</p></div>
+  <b>alive</b> — priced by a curve, played by a crowd, a living lens over the market. Ripmaster is that recess
+  table rebuilt on-chain: a full field of <b>100 living lenses</b>, a token that <b>burns down ≈3×</b> while the
+  deck <b>survives</b>, and a handful of hero cards you <b>earn or pull</b> and mint as real 1/1s. The 1/1 at the
+  top of the deck carries my name, <b>Lovebeing</b> — and every holder carries one.</p></div>
 
   <h2><span class="n">03</span>SuperRare Liquid Editions · Cohort 1</h2>
   <p>lovebeing is one of <b>four artists</b> in SuperRare's first <b>Liquid Editions</b> cohort — a program for
@@ -553,9 +547,10 @@ const artist = `
   <a href="https://x.com/takenstheorem" target="_blank" rel="noopener">@takenstheorem</a>, and
   <a href="https://x.com/tyaagnliu" target="_blank" rel="noopener">@tyaagnliu</a>.</p>
 
-  <h2><span class="n">04</span>The namesake card</h2>
-  <p>The sealed <b>1/1 marquee</b> at the top of the deck is <b>Lovebeing</b> — the artist's own name. It never
-  appears in a pack and can't be burned; it can only ever change hands, and it's released later in the run.</p>
+  <h2><span class="n">04</span>The namesake lens</h2>
+  <p>The <b>1/1 marquee</b> at the top of the deck is <b>Lovebeing</b> — the artist's own name. It is a
+  <b>holder-bound lens</b>: every $UR3030 holder carries one, one per wallet, and it <b>can't be burned</b> or
+  duplicated. It never appears in a pack — hold the token and it's yours.</p>
   <p><a class="btn" href="cards/lovebeing.html">✦ View the 1/1 marquee →</a></p>
 
   <h2><span class="n">05</span>Elsewhere</h2>

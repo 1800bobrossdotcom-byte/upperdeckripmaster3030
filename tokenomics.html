@@ -107,7 +107,7 @@
     color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
   .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
     font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
-</style><script src="js/icons.js"></script></head>
+</style></head>
 <body>
   <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
   <div class="topbar">
@@ -128,12 +128,12 @@
       <p class="sub">Supply, the bonding curve, pack allotments, the burn schedule, and pre-mainnet verification — every number reproducible.</p>
     </header>
     
-  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html"><span class="ic" data-ic="cards"></span> Whitepaper</a>
-    <a class="btn cy" href="audit.html"><span class="ic" data-ic="shield"></span> Audit notes</a></div>
+  <div class="cta" style="margin:-8px 0 4px"><a class="btn cy" href="whitepaper.html">📄 Whitepaper</a>
+    <a class="btn cy" href="audit.html">🛡 Audit notes</a></div>
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.03M</b><span>supply cap (capped)</span></div>
+    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -180,65 +180,54 @@
   itself is the standing liquidity.</p>
 
   <h2 id="packs"><span class="n">06</span>The pack allotment (dwindling + escalating)</h2>
-  <p>Pack allotment for a season = <b>cards issued ÷ 7</b>. As the field burns down, fewer cards issue, so
-  the allotment shrinks and the floor rises. Within a season the price walks a line from base → ceil as the
-  allotment sells; sell out → packs close for the season. The schedule is <b>site-enforced</b> (packs are
-  guided buy+burns of the one token — there is no pack contract) and fully auditable from the burn txs.</p>
-  <table><tr><th>Season</th><th>Cards issued</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th></tr>
-    <tr><td>I · Summer</td><td>70,000</td><td>10,000 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td></tr>
-    <tr><td>II · Fall</td><td>52,500</td><td>7,500 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td></tr>
-    <tr><td>III · Winter</td><td>35,000</td><td>5,000 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td></tr>
-    <tr><td>IV · Spring</td><td>17,500</td><td>2,500 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td></tr></table>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. Curator-set at
-  <code>openSeason()</code>, recalibrated to the live token price.</p>
+  <p>Each season opens a fixed <b>allotment</b> of packs; within a season the price walks a line from base → ceil
+  as it sells, then <b>packs close</b> for the season (secondary market only). The allotment shrinks and the floor
+  rises each season. Allotments are sized so a full four-season sellout burns the whole ⅔-cap budget (§7) and no
+  more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
+  contract) and fully auditable from the burn txs.</p>
+  <table><tr><th>Season</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>season 🔥 (tok)</th></tr>
+    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>700,000</td></tr>
+    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>618,750</td></tr>
+    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>450,000</td></tr>
+    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>260,000</td></tr></table>
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
+  full sellout ≈ 2,028,750 🔥 (⅔ of cap). Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
 
-  <h2><span class="n">07</span>The burn schedule (launch — everything burns in full)</h2>
-  <p>At launch the only on-chain spend is the <span class="fire"><span class="ic" data-ic="flame"></span> burn</span> of the one token. There
-  are no tolls, no creator-cut contract, no house pool — nothing to route, nothing to skim.</p>
+  <h2><span class="n">07</span>The burn schedule (everything burns in full)</h2>
+  <p>The only on-chain spend is the <span class="fire">🔥 burn</span> of the one token. There are no tolls, no
+  creator-cut contract, no house pool — nothing to route, nothing to skim. Hero-lens <b>mints</b> are wallet-signed
+  721 mints, not token payouts.</p>
   <table><tr><th>Action</th><th>Cost</th><th>→</th></tr>
-    <tr><td>rip a pack (7 cards, site-guided)</td><td>~350 → escalates (§6)</td><td class="fire"><span class="ic" data-ic="flame"></span> in full</td></tr>
-    <tr><td>conviction burn (push the milestone)</td><td>any amount</td><td class="fire"><span class="ic" data-ic="flame"></span></td></tr>
-    <tr><td>season-end <b>compression</b> (retired card → 1/1 lens)</td><td>compression cost (set at season end)</td><td class="fire"><span class="ic" data-ic="flame"></span></td></tr>
-    <tr><td>court votes · wagers · trades · binder</td><td>site-side signal</td><td>no tokens move</td></tr></table>
-  <p class="fine">The retirement itself is priced by the <b>milestone escalator</b> (§8a): the k-th card falls
-  when cumulative burn crosses its published milestone — killing card k costs the crowd 15,000 + 360·k more
-  than card k−1. The Phase-2 toll/court table lives in <code>docs/CARD-ECONOMY-SPEC.md</code>, clearly undeployed.</p>
+    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>~350 → escalates (§6)</td><td class="fire">🔥 in full</td></tr>
+    <tr><td>conviction burn (voluntary)</td><td>any amount</td><td class="fire">🔥</td></tr>
+    <tr><td><b>compression</b> (own every copy of a field card → 1/1)</td><td>compression cost</td><td class="fire">🔥</td></tr>
+    <tr><td>rarity votes · wagers · trades · binder · field-card pulls</td><td>site-side signal</td><td>no burn</td></tr></table>
 
-  <h2><span class="n">08</span>Burn pressure per season</h2>
-  <p>Bounded by the S1 allotment (10,000 packs); scenarios are the fraction sold. A rip burns ~437 tokens
-  in full, so packs dominate. Illustrative, not a forecast.</p>
-  <table><tr><th>scenario</th><th>packs sold</th><th>pack <span class="ic" data-ic="flame"></span></th><th>other <span class="ic" data-ic="flame"></span>*</th><th>total <span class="ic" data-ic="flame"></span>/season</th></tr>
-    <tr><td>QUIET (30%)</td><td>3,000</td><td>1,312,500</td><td>28,500</td><td><b>~1,341,000</b> (0.44× cap)</td></tr>
-    <tr><td>STEADY (70%)</td><td>7,000</td><td>3,062,500</td><td>68,250</td><td><b>~3,130,750</b> (1.03× cap)</td></tr>
-    <tr><td>SELLOUT (100%)</td><td>10,000</td><td>4,375,000</td><td>101,650</td><td><b>~4,476,650</b> (1.48× cap)</td></tr></table>
-  <p class="fine">*conviction + compression burns, illustrative. A sold-out season (~4.37M pack burn) clears
-  the full 119-milestone schedule (4,355,400) almost exactly — the deck only reaches 77 if the season truly burns.</p>
-  <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate). A sold-out season
-    cycling ~1.5× the cap through burns is the proof that the cap <b>refills</b> — burns pull totalSupply below
-    what was bought; the next buy re-mints into the gap. Read the real trajectory from <code>totalSupply()</code>.</p></div>
+  <h2><span class="n">08</span>Lifetime burn &amp; the 3× contraction</h2>
+  <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
+  cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
+  retire or ash</b> — this is token deflation only.</p>
+  <table><tr><th>metric</th><th>value</th><th>note</th></tr>
+    <tr><td>Full four-season sellout 🔥</td><td><b>2,028,750</b></td><td>≈ ⅔ of the 3,030,000 cap</td></tr>
+    <tr><td>Settled live float</td><td><b>~1,010,000</b></td><td>survives as the permanent float</td></tr>
+    <tr><td>Permanent contraction</td><td><b>≈ 3×</b></td><td>3.03M → ~1.01M</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>2.03M &lt; 3.03M</td></tr></table>
+  <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
+  fully-deflated float only if the community truly burns across the seasons. No burn ever re-mints.</p>
+  <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
+    run). Over the deck's life the <b>burns dominate</b>: ⅔ of the mint is retired permanently. Read the real
+    trajectory from <code>totalSupply()</code> — burn progress is <code>maxTotalSupply − totalSupply</code>.</p></div>
 
-  <h2 id="milestones"><span class="n">8a</span>The milestone escalator</h2>
-  <p>The published queue (<code>cards/data/_milestones.json</code>, generated by
-  <code>scripts/burn-milestones.mjs</code>): 119 retirements, weakest first (tier, then trait-score).
-  Retirement k lands at cumulative burn <code>Σ (15,000 + 360·i)</code>:</p>
-  <table><tr><th>milestone</th><th>falls at (cum. burn)</th><th>≈ packs of burn†</th></tr>
-    <tr><td>#1 (first common)</td><td>15,360</td><td>~35</td></tr>
-    <tr><td>#25</td><td>492,000</td><td>~1,125</td></tr>
-    <tr><td>#60</td><td>1,558,800</td><td>~3,563</td></tr>
-    <tr><td>#100</td><td>3,318,000</td><td>~7,584</td></tr>
-    <tr><td>#119 (last cut — deck locks at 77)</td><td>4,355,400</td><td>~9,955</td></tr></table>
-  <p class="fine">†at the S1 average pack (~437.5 tokens). Survivors: 15 uncommon · 40 rare · 17 mythic ·
-  5 prizm = 77. The 1/1 marquee is indestructible and outside the queue. Every retired card can be
-  <b>compressed into a 1/1 lens</b> at season end by whoever cornered its claim set — or stand as ash forever.</p>
-
-  <h2><span class="n">10</span>Before mainnet — what we verify</h2>
+  <h2><span class="n">09</span>Before mainnet — what we verify</h2>
   <ul>
-    <li><b>★ Mint/burn semantics</b> — does a burn reopen mint headroom (re-mint on next buy)? The whole "3M is enough" verdict assumes yes.</li>
+    <li><b>Mint/burn semantics — settled.</b> Per SuperRare's audit, the edition is <b>minted once</b> and burns
+      are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm ~10k RARE with the cohort.</li>
+    <li><b>Opening price</b> — calibrate the multicurve to open at ~1 RARE/token on the 3.03M supply (see <a href="audit.html">Audit</a>).</li>
+    <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
-    <li><b>Chain</b> — micro-tolls are gas-dominated on L1; deploy on an L2 (or batch actions).</li>
+    <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>
   </ul>
     <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
       collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
