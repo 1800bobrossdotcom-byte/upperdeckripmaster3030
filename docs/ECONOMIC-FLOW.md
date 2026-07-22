@@ -1,123 +1,145 @@
 # $UR3030 — the economic flow (canonical)
 
-*How the token, the packs, the lenses, the games, and the burn-down fit
-together. Decisions locked with the artist are marked ✅; items still needing
-SuperRare are marked ⏳.*
+*How the token, the packs, the lenses, the games, and the burn fit together.
+**Model v2.2 — the handmade 100-card deck.** Decisions locked with the artist are
+marked ✅; items still needing SuperRare are marked ⏳.*
 
 ---
 
 ## 1 · The one primitive — `$UR3030` (ERC-20, mint-once)
 
-A single SuperRare Liquid Edition. **Minted once** into the AMM pool (Uniswap v4
-+ Doppler, reserve in RARE) at launch. **Burns are permanent — nothing
-re-mints.** No treasury, no team unlock, no fee wallet. `$UR3030` is the only
-fungible token; it is both the **currency** and the **burn meter**
-(`burnProgress = maxTotalSupply − totalSupply`).
+A single SuperRare Liquid Edition. **Minted once** into the AMM pool (Uniswap v4 +
+Doppler, reserve in RARE) at launch. **Burns are permanent — nothing re-mints.** No
+treasury, no team unlock, no fee wallet. `$UR3030` is the only fungible token; it is
+both the **currency** and the **burn meter** (`burnProgress = maxTotalSupply −
+totalSupply`).
 
 - Cap **3,030,000** · opening **≈ 1 RARE/token (~$0.02)** ⏳ (curve calibration — see `CURVE-TARGET.md`)
 
-## 2 · The cards are LENSES (ERC-721 editions) ✅
+## 2 · Every card is a LENS — the render, not the token ✅
 
-Every card in the 196-card field is a **Lens**: a render token whose `tokenURI`
-reads `$UR3030`'s live market + burn state, so the card art evolves with price and
-with the fire. **Per the Cohort-01 docs, Lenses are ERC-721** ("Companion 721 Lens
-Collections… supported through an assisted setup"; CLI: "a combined renderer plus
-**ERC721** contract where each NFT is a different lens"). **1155 is not on the
-supported path** — a custom 1155 would forfeit SuperRare's indexing/surfacing and
-their support boundary, so we stay **721**.
+A **lens** is a *render*: art whose `tokenURI` reads `$UR3030`'s live market + burn,
+so the card evolves with price and with the fire. **Lenses are ERC-721** (per the
+Cohort-01 docs: *"Companion 721 Lens Collections… supported through an assisted
+setup"*; CLI: *"a combined renderer plus **ERC721** contract where each NFT is a
+different lens"*). **There is no ERC-1155 anywhere.**
 
-A card's **print run = its edition size** (the "denomination"): card *Blue Boar*
-mints as #1/62 … #62/62, all sharing that card's lens/render. Rarer tier → smaller
-edition. The sealed **1/1 marquee** (*Lovebeing*) is its own lens. Economics are
-identical to the 1155 sketch — only the token standard changes (and numbered
-editions read as *stronger* trading-card provenance).
+The load-bearing idea: **the lens is keyed by card id in one combined renderer+721
+contract, so a card is a live lens *before* any token is minted for it.** That splits
+the deck into two states of the *same* thing:
 
-⏳ *For SuperRare:* their "each NFT is a different lens" phrasing suggests a lens
-collection is a handful of distinct views. Confirm the **assisted 721 lens setup
-supports our structure** — 196 distinct card-lenses, each editioned — or whether we
-deploy our own editioned **721 renderer+lens contract** via the CLI (self-supported).
-Either way it is 721.
+- **Minted lens** = render **+** an owned 1/1 token (tradeable, surfaced on the marketplace).
+- **Render-only lens** = the *same* live render, readable via the CLI / view calls,
+  with **no token minted yet** (0 mints, no marketplace clutter).
 
-### Denominations (from `scripts/print-runs.mjs`)
+So **all 100 cards are lenses**; they differ only by whether a token has been attached.
+Minting never *creates* a lens — the render already is one — it just **bolts ownership
+on**. That is why the field cards can be **render-only today and minted later without
+their art logic changing** (see §3).
 
-| Tier | Cards | Run / card | Tier supply |
+## 3 · The 100-card deck ✅
+
+*(The art is **hand-made by the artist**; any card art/names on the site today are
+**placeholder**.)*
+
+| Layer | Count | On-chain state | How you get it |
 |---|---|---|---|
-| common | 74 | 200 | 14,800 |
-| uncommon | 60 | 105 | 6,300 |
-| rare | 40 | 62 | 2,480 |
-| mythic | 17 | 45 | 765 |
-| prizm | 5 | 22 | 110 |
-| marquee | 1 | 1/1 | 1 |
-| **total** | **196** | — | **24,456** |
+| **Hero lenses** | **33** | **minted 1/1 ERC-721** (live lens) | 11 pulled from packs · 22 earned as game titles |
+| **Field cards** | **67** | **render-only lens** (chain-readable, unminted) | pulled from packs · site-layer collectible |
+| **Lovebeing** | +1 | **holder-bound lens** | every `$UR3030` holder carries one |
 
-Sized against **3,560 packs × 7 = 24,920 lens pulls** over the field's four-season
-life (numbers are curator-set knobs; re-run the script to retune).
+### The 33 hero lenses — 11 gacha + 22 earned ✅
+- **11 GACHA** — a lens claim is seeded **rarely** across the pack stream; pull it →
+  **mint** (wallet signs). 11 exist, ever.
+- **22 EARNED** — each a one-of-a-kind game **title** (12 season champions + 6
+  first-blood feats + 4 grand titles); win it → a signed claim **voucher** → **mint**.
+  One winner per title.
 
-## 3 · Packs — the BURN engine ✅
+### The 67 field cards — **B now, C later** ✅
+- **B (now):** **render-only lenses.** Their attributes live in an on-chain
+  **registry / merkle root**, and their render reads the live market — so they are
+  **readable via the CLI without being minted** (0 mints). They **survive**: no ash, no
+  forced retirement. **Rarity is set by community vote** (Rarity Court), and copies can
+  be **compressed** (corner-the-edition → 1/1 — a *voluntary* upgrade, not destruction).
+- **C (later):** an optional phase that **mints** field cards for real. Because they
+  mint **against the same lens render** (same id), a minted field card **stays a lens** —
+  C only attaches ownership; the art logic never changes. *(If C is ever done via a
+  separate Manifold contract, its `tokenURI` must point back at the render — otherwise
+  it is static art, not a lens.)*
 
-A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**, that
-mints you **7 lens copies**. It is the *only* thing that burns supply, so it is
-the sole driver of the burn-down.
+### Lovebeing — the holder lens ✅
+The 1/1 marquee, **distributed to every `$UR3030` holder**: **one per wallet regardless
+of balance**, **non-transferable**, **non-burnable**, with special CLI properties. It is
+a **holder-bound lens** — every holding wallet resolves its render — so it is **never
+minted per-person** (no flood). Hold the token, you carry Lovebeing.
+
+## 4 · Packs — the BURN engine ✅
+
+A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**. It is the
+*only* thing that burns supply, so it is the sole driver of the burn-down.
 
 - **Allotment (site-enforced, dwindling):** S1 **1,600** → S2 **1,100** → S3 **600**
-  → S4 **260** = **3,560 packs**. Allotment gone ⇒ packs close for the season
-  (secondary/lens market only).
-- **Price escalates** within a season (base→ceil as the allotment sells) and
-  across seasons: **~350 tok (~$7)** in S1 → **~1,200 tok (~$24)** by S4, on top of
-  token appreciation.
-- **Full four-season sellout burns ≈ 2,028,750** (`token-model.mjs`) — the arc that
-  retires the field.
+  → S4 **260** = **≈3,560 packs**. The pack count is bounded by the **burn budget, not
+  card supply** — allotment gone ⇒ packs close for the season (secondary market only).
+- **Price escalates** within a season (base→ceil as the allotment sells) and across
+  seasons: **~350 tok (~$7)** in S1 → **~1,200 tok (~$24)** by S4, on top of token
+  appreciation.
+- A pack reveals **field cards** (site-layer). **Rarely** it carries one of the **11
+  gacha lens-claims** — mint it and you have a hero lens. **Lovebeing is not in packs.**
+- **Full four-season sellout burns ≈ 2.02M** (`token-model.mjs`) — see §6.
 
-## 4 · Games — WAGERS, net-zero to supply ✅
+## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 
-Playing costs `$UR3030`, but **game token-antes are wagers, not burns** — the pot
-transfers to the winner, so play is **net-zero to supply and does not touch the
-burn-down**. **Lens stakes** (the cards you field) likewise **transfer** between
-players — you arm with them and can lose them. This keeps the retirement pace
-**fully controlled by the pack allotment**, not by how much people play.
+Playing costs `$UR3030`, but **antes are wagers, not burns** — the pot transfers to the
+winner, so play is **net-zero to supply**. **Staked cards/lenses transfer** too (you arm
+with them and can lose them). Card → in-game power is live today (`js/card-powers.js`,
+see `CARD-POWER-MAPPING.md`).
 
-*(Optional future knob: a small fixed % of each ante could burn as a "rake to the
-fire" — a minor, budgeted accelerant. Off by default.)*
+The **22 earned hero lenses** are the prestige track: each maps to a single,
+unrepeatable **title** across the three cabinets — **12 season champions**, **6
+first-blood feats**, **4 grand titles**. Win a title → signed voucher → mint the 1/1.
 
-Cards → in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPING.md`):
-staked lenses arm damage / fire-rate / shield / speed / weapon tier, scaled by
-live chain heat, with a market-driven OVERCHARGE.
+## 6 · The burn-down — token deflation, **not** card death ✅
 
-## 5 · The burn-down → retirement → ash ✅
+Packs burn `$UR3030` permanently, so supply only falls: from the **3,030,000** mint
+toward a **~1,010,000 floor** once the field's four-season life sells through — a **≈3×
+permanent contraction** (`token-model.mjs`). **Lifetime burn ≈ 2,020,000 (⅔ of the
+cap)**; the invariant **Σ lifetime burn ≤ cap** holds trivially.
 
-Cumulative pack burn crosses a **published weakest-first milestone schedule**
-(`scripts/burn-milestones.mjs`, `cards/data/_milestones.json`): first card at
-**~8,125** burned … last at **2,020,025**. Each crossing **retires the next card**
-— its lens render flips to **ASH**. After the full clear, **119 cards retire, 77
-survive**, and **~1,010,000 `$UR3030` remain** as the settled live float (a **3×
-permanent contraction**). Invariant: **Σ lifetime burn ≤ cap** ✅.
+**Cards do not retire or ash.** The deck **survives**. Scarcity comes from **dwindling
+pack allotments** (harder to *acquire*), **community rarity votes**, and **compression** —
+never from destroying cards. *The token burns so the art can live.*
 
-**Print run and retirement are separate axes.** A card *sells out* when its 721
-edition is fully minted (no more pulls); it *retires* when the burn crosses its
-milestone (render → ash). The tiers align by design: **commons** have the biggest runs **and**
-retire first (they flood, then turn to ash you can hold); **prizm** have the tiniest
-runs **and** survive (scarce lenses that endure into the 77-card deck).
+- **Corner-the-edition:** own every copy of a field card → **compress** into a **1/1**.
+  A collector's flourish, not a retirement.
 
-- **Corner-the-edition:** own every copy of a card's lens → **compress** (burn the
-  copies) → mint a **1/1**. Final blows on a dying card earn **Ash-Trophy** lenses.
+## 7 · Wallet & minting mechanics ✅
 
-## 6 · The loop, in one line
+| Action | Wallet? | Why |
+|---|---|---|
+| Buy pack / burn `$UR3030` | **required** | a real buy + burn tx — this is the audited-real part |
+| Mint a hero lens (1 of 33) | **required** | a token can't be minted without the owner's signature |
+| Field-card pulls / game practice | not required | site-layer prototype, honestly labeled |
+| Lovebeing (holder lens) | **connected to read** | the render reads that your address holds — no mint |
 
-**buy `$UR3030` → burn it as a pack → mint 7 lenses → play/wager/trade the lenses
-→ burns cross milestones → cards retire to ash → 77 survive → season turns.**
+The site can **never** mint *for* someone or move their tokens on their behalf — that is
+fundamental to wallets and the correct security posture. The two moments that need a
+connected, signing wallet are **buying/burning a pack** and **minting a hero lens**.
+
+## 8 · The loop, in one line
+
+**buy `$UR3030` → burn it as a pack → get field cards + a rare gacha lens → play for the
+22 title lenses → the token deflates 3× while the deck survives.**
 
 ---
 
 ### Open ⏳ (needs SuperRare)
 1. Curve calibration to open at ~1 RARE/token on the 3,030,000 supply (`CURVE-TARGET.md`).
-2. Lens standard is **settled: ERC-721 numbered editions** (per the Cohort-01 docs).
-   Open part is the **structure + pack-mint mechanism** — does the assisted 721 lens
-   setup support 196 distinct editioned card-lenses, or do we deploy our own editioned
-   721 renderer+lens contract via the CLI, and does a **pack contract** take the burn +
-   mint the lenses (vs. assisted setup).
-3. Whether lens minting is **per-pack at launch** (bigger contract surface) or the
-   launch stays **one edition + render**, with lenses minting the survivors at season
-   end (the original intake posture). Going per-pack makes the card layer real on-chain
-   from day one — which directly closes the audit's "local prototype" gap.
+2. Whether the **assisted 721 lens setup** supports **render-by-id over 100 card-lenses**
+   (33 minted now, 67 render-only) — or we deploy our **own combined renderer+721 lens
+   contract** via the CLI (self-supported). Either way it is 721, and either way the
+   render-by-id split (**B now / C later**) is the target.
+3. The **mint mechanism** — a claim/voucher redeemer that takes the pack burn (for the 11
+   gacha lenses) and the signed game vouchers (for the 22 earned lenses), vs. assisted setup.
 
 *Not financial advice. `$UR3030` is an experimental, volatile testnet token.*

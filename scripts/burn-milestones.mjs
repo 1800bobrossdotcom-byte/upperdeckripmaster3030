@@ -1,4 +1,14 @@
 #!/usr/bin/env node
+// ⚠ DEPRECATED (model v2.2, 2026-07) — CARD RETIREMENT IS CUT. ─────────────────────
+// v2.2 removed forced card retirement / ash entirely: the 100-card deck SURVIVES; the
+// burn is TOKEN DEFLATION only (3,030,000 → ~1,010,000 float, ⅔ contraction — see
+// scripts/token-model.mjs §5 and docs/ECONOMIC-FLOW.md §6). Scarcity now comes from
+// dwindling pack allotments + community rarity votes + voluntary compression, NOT from
+// destroying cards. This script and cards/data/_milestones.json describe the OLD
+// weakest-first card-retirement queue and are retained only until any UI that reads
+// _milestones.json is migrated off it, then both will be deleted. Do not treat the
+// output below as current model. ────────────────────────────────────────────────────
+//
 // The burn-milestone schedule — the launch-architecture heart of the game.
 //
 // One ERC-20 (the Liquid Edition). No card contracts. The 196-card deck is the

@@ -8,30 +8,29 @@ Hey — thank you, genuinely. This is exactly the kind of review the testnet reh
 was for, and every point landed. Here's where we are on each, with the fixes already
 in the repo where we could make them.
 
-## 1 · The burn-milestone overflow — you're right, and it's fixed
+## 1 · The burn-milestone overflow — you're right; we fixed it *and then removed the mechanic*
 
 You caught the load-bearing mistake. Our schedule totalled **4,355,400** tokens of
 burn against a **3,030,000** max supply, and it only "worked" because our model
 assumed **burns re-mint on the next buy**. Your correction — *minted into the pool
 once, burned tokens do not re-mint* — is the truth about the protocol, and under it
-that schedule is simply impossible. We'd actually flagged "burns reopen mint
-headroom" as an unverified pre-mainnet assumption in our own launch doc; you've now
-verified it, in the other direction.
+that schedule was impossible.
 
-So we've rebuilt the schedule around a **fixed, mint-once lifetime burn budget**:
+Rather than just re-size it, we **simplified the design so the problem can't recur**:
+we **removed forced card retirement entirely.** There is no longer a card-death
+schedule that could overflow the cap. What remains is only **token deflation**:
 
 - **3,030,000 minted once, every burn permanent.**
-- Retiring the whole field (119 cards → 77 survivors) now burns **2,020,025 total
-  (66.7% of the mint)** — sized to ⅔ of supply by design, with the escalator's base
-  *derived* from that budget so the full clear can never exceed the cap.
-- **~1,009,975 $UR3030 survive** the full retirement as the settled live float — a
-  **3× permanent contraction** from the mint. That's the deflation story, now honest.
-- Retirement is a **multi-season arc**, not one season. We rescaled the pack
-  allotments (S1 1,600 packs → S4 260) so a full four-season sellout burns ~2.03M —
-  right at the retirement total, and comfortably under the cap.
+- Packs burn `$UR3030` down toward a **~1,010,000 floor** over the field's four-season
+  life — **lifetime burn ≈ 2,020,000 (⅔ of the mint)**, a **3× permanent contraction**.
+- The only burn rule is the trivial **Σ pack burns ≤ ⅔ cap**, enforced in
+  `scripts/token-model.mjs`. Pack allotments (S1 1,600 → S4 260) are sized so a full
+  four-season sellout lands right at that budget.
+- **Cards do not retire or ash.** The 100-card deck **survives**; scarcity comes from
+  dwindling pack allotments, community rarity votes, and voluntary compression. *The
+  token burns so the art can live.*
 
-The generator (`scripts/burn-milestones.mjs`) and model (`scripts/token-model.mjs`)
-both enforce `cumulative burn ≤ cap` as an invariant now.
+So the audit item is resolved by **deletion, not patching** — the cleanest possible fix.
 
 ## 2 · The curve — let's design it together, exactly as you proposed
 
@@ -74,11 +73,14 @@ Compiles clean on 0.8.24 with viaIR.
 
 ## 4 · Honesty about what's on-chain vs. prototype — doing it now
 
-Fair and important. We're relabelling the pack rip, binder, battles/wagers, and
-card-power mechanics as a **testnet prototype / later phase** across the site. The one
-thing that stays framed as real is the **$UR3030 buy + burn** — because that part *is*
-real and irreversible. Card pulls generate and save in the browser today; on-chain
-card ownership is an explicitly-labelled future phase.
+Fair and important — and the v2.2 card design draws the line cleanly. **Two things are
+real on-chain:** the **`$UR3030` buy + burn** (irreversible), and the **33 hero-lens
+mints** (11 gacha + 22 earned — real 1/1 ERC-721 tokens, wallet-signed). Everything else
+— the **67 render-only field cards** (chain-readable but unminted), the binder,
+battles/wagers, and card-powers — is labelled **testnet prototype / later phase**. Field
+pulls generate and save in the browser today; minting them for real is an explicit later
+phase (the render already exists, so it's a pure ownership add). This directly narrows
+the "local prototype" gap you flagged — a third of the deck is real from day one.
 
 ## 5 · The name
 
@@ -88,23 +90,33 @@ made the whole site consistent to that form. We hear you that trading cards is t
 category as Upper Deck, so we'll get a professional clearance on the fused mark rather
 than assume; happy to talk it through if you have a view.
 
-## 6 · The lens layer — we read the Cohort-01 docs; one structural question
+## 6 · The lens layer — we read the Cohort-01 docs and rebuilt the card design around them
 
 We went back through the **Overview** and **Technical CLI Guide** to settle how the
 cards should exist on-chain, and your docs answered it: Liquid Edition lenses are
 **ERC-721** — *"Companion 721 Lens Collections… supported through an assisted setup,"*
 and the CLI's *"combined renderer plus ERC721 contract where each NFT is a different
-lens."* So we're **not** trying to force a custom 1155 — that's off the supported/
-surfaced path, and 721 numbered editions actually read as *stronger* card provenance
-(a card mints as #1/62 … #62/62).
+lens."* We took the render-by-id idea and built the whole card layer on it:
 
-The one thing we can't tell from the docs: our field is **196 distinct card-lenses,
-each editioned** (print run = edition size, per rarity). Does the **assisted 721 lens
-setup** support a collection of that shape, or is the intended path that we deploy our
-own **editioned 721 renderer + lens contract** via the CLI (self-supported)? And on the
-mint side — should a **pack contract** take the $UR3030 burn and mint the 7 lenses, or
-does that sit in the assisted layer? That's the one design fork we'd like your read on
-before we build it.
+- **Every card is a lens = a render keyed by card id** in one renderer+721 contract, so
+  a card is a live lens **before** any token exists for it. Minting just attaches
+  ownership; it never changes the render.
+- The deck is **100 hand-made cards**. **33 are minted 1/1 hero lenses now** (11 pulled
+  from packs, 22 earned as game titles). The **other 67 are render-only lenses** —
+  readable on-chain via the CLI, **zero mints, zero marketplace clutter** — and can be
+  minted later against the *same* render without becoming static art.
+- Plus **Lovebeing**, a **holder-bound lens**: every `$UR3030` holder resolves its
+  render, one per wallet, non-transferable, non-burnable. No per-person mints.
+
+So we're firmly on **721**, with a deliberately tiny mint footprint (33 + optional
+later mints), not a flood of editions.
+
+**The fork we'd like your read on:** does the **assisted 721 lens setup** support
+**render-by-id across 100 card-lenses** (33 minted, 67 render-only), or is the intended
+path that we deploy our **own combined renderer+721 lens contract** via the CLI
+(self-supported)? And on the mint side — should a **claim/voucher redeemer** take the
+pack burn (for the 11 gacha lenses) and the signed game vouchers (for the 22 earned),
+or does that sit in the assisted layer?
 
 ## The rehearsal
 

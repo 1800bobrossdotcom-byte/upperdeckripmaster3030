@@ -21,10 +21,11 @@
 //
 // MINT-ONCE (per SuperRare audit 2026-07): the edition mints its whole supply into
 // the pool ONCE and burned tokens DO NOT re-mint — every burn is PERMANENT. So the
-// LIFETIME burn is bounded by the cap. We size the whole field-retirement arc (all
-// four seasons of pack rips) to a fixed budget below the cap, leaving a deliberate
-// live float. Numbers below are our provisional target; the exact curve/supply/pack
-// sizing is co-designed with SuperRare (see the audit reply + burn-milestones.mjs).
+// LIFETIME burn is bounded by the cap. We size the whole four-season pack arc to a
+// fixed budget below the cap, leaving a deliberate live float. This is TOKEN DEFLATION,
+// not card death (model v2.2): packs burn the token; the 100-card deck SURVIVES. Numbers
+// below are our provisional target; the exact curve/supply/pack sizing is co-designed
+// with SuperRare (see the audit reply + docs/ECONOMIC-FLOW.md).
 
 // ── token assumptions (swap in live values before locking) ──
 const CAP        = 3_030_000;   // maxTotalSupply ($UR3030), minted once, burns permanent
@@ -48,8 +49,8 @@ const LAST_STAND     = 50;      // Phase-2 reference only (no on-chain bounty at
 // base/ceil are $UR3030; ceil = 1.5*base (within-season line). The curator recalibrates
 // base at each openSeason to hold the USD target against the then-live token price.
 // Allotments are sized so a full four-season SELLOUT burns ≈ the lifetime budget
-// (retiring the field to 77) and no more — permanent burns, so the arc fits under
-// the cap by construction. Card budget (pack pulls) dwindles and the price floor
+// (the full ⅔-cap token contraction) and no more — permanent burns, so the arc fits
+// under the cap by construction. Card budget (pack pulls) dwindles and the price floor
 // rises each season. base/ceil are $UR3030; ceil = 1.5·base (within-season line).
 const SEASONS = [
   { s: 'I · Summer',  budget: 11_200, base: 350, ceil: 525  },   // 1,600 packs
@@ -140,7 +141,7 @@ console.log('  each season opens with a smaller allotment + higher floor. Allotm
 console.log('  for the season (secondary market only). Numbers are curator-set defaults, tune at openSeason.');
 
 // 5. LIFETIME BURN — PERMANENT, bounded by the cap (mint-once)
-line(); console.log('5. LIFETIME BURN  (whole-field retirement across all 4 seasons; burns are PERMANENT)');
+line(); console.log('5. LIFETIME BURN  (token contraction across all 4 seasons; burns are PERMANENT; the deck survives)');
 const seasonBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2);
 let selloutTotal = 0;
 console.log(['season','packs','avg pack','season 🔥','cum 🔥','% of mint'].map((s,i)=>s.padStart(i?12:11)).join(''));
@@ -152,19 +153,19 @@ for (const S of SEASONS) {
     fmt(burn,0).padStart(12), fmt(selloutTotal,0).padStart(12), (fmt(selloutTotal/CAP*100,1)+'%').padStart(12),
   ].join(''));
 }
-console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — that is the arc that retires the field to 77.`);
+console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — the full token-contraction arc (model v2.2).`);
 console.log(`It lands at ${fmt(selloutTotal/CAP*100,1)}% of the ${fmt(CAP,0)} mint (budget ${fmt(LIFETIME_BURN_BUDGET,0)}, target ⅔).`);
-console.log(`Burns are PERMANENT: supply only falls. After the field fully retires, ~${fmt(FLOOR_SUPPLY,0)} $UR3030`);
+console.log(`Burns are PERMANENT: supply only falls. After the field's four-season life sells through, ~${fmt(FLOOR_SUPPLY,0)} $UR3030`);
 console.log(`survive as the settled live float — a ${fmt(CAP/FLOOR_SUPPLY,1)}× permanent contraction from the mint.`);
 console.log(`INVARIANT (mint-once): cumulative lifetime burn ≤ cap. Sellout ${selloutTotal < CAP ? '< cap ✓' : '> CAP ✗'}`);
-console.log('A partial life (fewer rips) simply retires fewer cards and settles at a higher float — the deck');
-console.log('only reaches 77 if the community truly burns across the seasons. No burn ever re-mints.');
+console.log('CARDS DO NOT RETIRE OR ASH — this is token deflation only. A partial life (fewer rips) simply');
+console.log('settles the token at a higher float. Scarcity is dwindling allotments + rarity votes, not card death.');
 
 // 6. reward pool — LAUNCH: none (pure liquid edition). Phase-2 reference below.
 line(); console.log('6. HOUSE REWARD POOL — LAUNCH: NONE. Packs burn IN FULL (mint-once: those tokens are');
-console.log('gone for good). The season-end rewards (survivor 1/1s, compression rebirths, Ash-Trophy');
-console.log('honors) are 721 LENS MINTS via SuperRare assisted setup, not token payouts. A Phase-2');
-console.log(`vault (REWARD_CUT=${REWARD_CUT?REWARD_CUT:1} ref, LAST_STAND=${LAST_STAND}) would divert a per-pack cut to a bounty pool`);
+console.log('gone for good). The hero-lens mints (11 gacha claims + 22 earned game titles) are 721 LENS');
+console.log('MINTS on the renderer+721 lens contract, not token payouts. A Phase-2 vault');
+console.log(`(REWARD_CUT=${REWARD_CUT?REWARD_CUT:1} ref) would divert a per-pack cut to a bounty pool`);
 console.log('INSTEAD of burning it — which would REDUCE lifetime burn below the budget above, never raise');
 console.log('it. Any such pool is seeded only from real rips, so it is solvent by construction (no pre-mint).');
 line();

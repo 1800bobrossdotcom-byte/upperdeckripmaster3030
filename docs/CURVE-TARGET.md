@@ -14,7 +14,7 @@ needs SuperRare's side to build; items 1/3/4/5 are already fixed in this repo.*
 | **Opening price** | ~16 RARE/token (→ 5,700 RARE/pack) | **~1 RARE/token** (≈ $0.02) | a 350-token pack should cost ~350 RARE ≈ **$7**, not 5,700 |
 | **Pack** | — | **350 $UR3030, bought + burned in full** | ≈ $7 at launch, seven cards; a *fixed-USD ritual*, escalating base→ceil within a season |
 | **Reserve seed** | — | **≈ 10,000 RARE** (to confirm) | seeds the opening price; exact figure depends on the multicurve shape |
-| **Lifetime burn** | schedule totalled 4,355,400 (impossible) | **2,020,025 total** (66.7% of cap) | mint-once, burns permanent; `scripts/burn-milestones.mjs`, `_milestones.json` |
+| **Lifetime burn** | schedule totalled 4,355,400 (impossible) | **≈2,020,000 total** (66.7% of cap) | mint-once, burns permanent; TOKEN deflation only (no card retirement); `scripts/token-model.mjs` |
 
 ### The key realization on slippage
 The 5,700-RARE quote was **not** a cap problem — it was the **opening price** (the
@@ -38,7 +38,7 @@ a **~$7 buy-and-burn**; the token count flexes to the curve, not the reverse.
 
 | # | Audit item | Status | Where |
 |---|---|---|---|
-| 1 | Milestones 4,355,400 > 3,030,000 (mint-once can't complete) | **Fixed** | `scripts/burn-milestones.mjs` → 2,020,025 ≤ cap, invariant enforced; `_milestones.json` |
+| 1 | Milestones 4,355,400 > 3,030,000 (mint-once can't complete) | **Resolved — mechanic removed** | v2.2 cut forced card retirement entirely; only TOKEN deflation remains (Σ pack burns ≤ ⅔ cap ≈ 2.02M), `scripts/token-model.mjs` |
 | 2 | Curve too expensive (5,700 RARE/pack); decide supply+pack+burn together | **Spec above** | this doc — build target for SuperRare |
 | 3 | Renderer: 100% circulating + 0 per-RARE | **Fixed** | `contracts/UR3030RenderPrototype.sol` → BURNED% (`max−total`), per-RARE ×100→2dp; re-callable `setRenderContract`, no token redeploy |
 | 4 | Real burn vs. local card pulls — label prototype | **Doing** | pack / binder / battle / card-powers relabelled testnet-prototype site-wide; only the **$UR3030 buy+burn** stays framed as real |
@@ -49,7 +49,7 @@ a **~$7 buy-and-burn**; the token count flexes to the curve, not the reverse.
    curve-calibration answer above.
 2. Request **25,000 test RARE** (≈ three 350-token rehearsals + a partial-sell test).
 3. Redeploy on Sepolia at **3,030,000 / ~1 RARE open**, point the token at the
-   **fixed renderer** (`setRenderContract`), and run the corrected buy/burn + a
-   milestone-crossing test to watch a card retire in the render.
+   **fixed renderer** (`setRenderContract`), and run the corrected buy/burn to watch the
+   **burn meter climb** in the render (BURNED %) — no card retirement to test anymore.
 
 *Not financial advice. `$UR3030` is an experimental, volatile testnet token.*
