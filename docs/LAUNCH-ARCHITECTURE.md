@@ -61,10 +61,15 @@ the card survives). The pack count is bounded by the **burn budget, not card sup
 
 ## Games
 
-Token antes are **wagers** (net-zero transfers — winner takes the pot); staked cards
-**transfer** to the winner (never burned). Card → in-game power is live
-(`js/card-powers.js`). The **22 earned hero lenses** are won as one-of-a-kind game titles
-(12 season champions + 6 first-blood feats + 4 grand titles).
+Token antes are **wagers** (net-zero) — **1v1** the winner takes the pot + the loser's
+staked cards; **multiplayer (3+)** pays the **podium (1st 50% / 2nd 30% / 3rd 20%**, cards
+to 1st). Staked cards **transfer**, never burned. Card → in-game power is live
+(`js/card-powers.js`). The **22 earned hero lenses** are won as one-of-a-kind **Season-1**
+game titles (12 cabinet titles + 6 first-blood feats + 4 grand titles).
+
+**The 33 hero lenses are a Season-1 genesis set** — established at launch and **persisting
+through all four seasons**; no new special cards mint after S1. Seasons 2–4 continue the
+field-card packs and the token burn-down only.
 
 ## Open ⏳ (needs SuperRare)
 

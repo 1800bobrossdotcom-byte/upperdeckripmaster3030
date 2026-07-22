@@ -30,8 +30,9 @@ artist can supply are flagged **[ARTIST TO SUPPLY]**.
 
 > **Every card is a lens keyed by its id on one combined renderer+721 contract** — a card
 > is a live lens *before* any token is minted for it. The deck splits three ways:
-> **33 hero cards** mint as real **1/1 lenses** now — **11 pulled from packs (gacha)** and
-> **22 earned in the games** (each a one-of-a-kind title); the other **67 field cards** are
+> **33 hero cards** — a **Season-1 genesis set that persists through all four seasons** (no
+> new special cards mint after S1) — mint as real **1/1 lenses**: **11 pulled from packs
+> (gacha)** and **22 earned in the games** (each a one-of-a-kind title); the other **67 field cards** are
 > **render-only lenses** (live and readable on-chain, unminted) that mint for real later on
 > the *same* render; and **Lovebeing** — the artist's namesake — is a **holder-bound lens**
 > every `$UR3030` holder carries (one per wallet, non-transferable, non-burnable).

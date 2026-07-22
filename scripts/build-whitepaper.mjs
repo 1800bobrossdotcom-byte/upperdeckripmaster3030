@@ -191,7 +191,7 @@ S.push(slide('Lenses · minting &amp; compression', `
     <div class="sea"><em>Season IV</em><b>SPRING</b><span>soon</span></div>
   </div>
   <ul class="bullets wide">
-    <li><b>33 hero lenses — minted now:</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
+    <li><b>33 hero lenses — a Season-1 genesis set (persists all four seasons):</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
     <li><b>67 field lenses — render-only now:</b> live on-chain, unminted (readable via the CLI). Collect their copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>, on the same render — so they stay lenses, never static art.</li>
     <li><b>Lovebeing — the holder lens:</b> distributed to <b>every $UR3030 holder</b>, one per wallet, <b>non-transferable</b> and <b>non-burnable</b>. Nothing turns to ash — the deck survives; the token deflates.</li>
   </ul>`, C.cyan));

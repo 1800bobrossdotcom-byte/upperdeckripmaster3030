@@ -48,12 +48,16 @@ their art logic changing** (see §3).
 | **Field cards** | **67** | **render-only lens** (chain-readable, unminted) | pulled from packs · site-layer collectible |
 | **Lovebeing** | +1 | **holder-bound lens** | every `$UR3030` holder carries one |
 
-### The 33 hero lenses — 11 gacha + 22 earned ✅
-- **11 GACHA** — a lens claim is seeded **rarely** across the pack stream; pull it →
+### The 33 hero lenses — a **Season-1 genesis set** (11 gacha + 22 earned) ✅
+**The 33 are established in Season 1 only, and persist through all four seasons** — no new
+hero/special cards are ever minted after S1. They are the permanent elite of the deck; later
+seasons (S2–S4) continue the field-card packs and the token burn-down, but the special tier
+is locked at launch.
+- **11 GACHA** — a lens claim is seeded **rarely** across the (Season-1) pack stream; pull it →
   **mint** (wallet signs). 11 exist, ever.
-- **22 EARNED** — each a one-of-a-kind game **title** (12 season champions + 6
-  first-blood feats + 4 grand titles); win it → a signed claim **voucher** → **mint**.
-  One winner per title.
+- **22 EARNED** — each a one-of-a-kind **Season-1 game title** (**12 cabinet titles** — 4 per
+  game across the three cabinets — **+ 6 first-blood feats + 4 grand titles**); win it → a
+  signed claim **voucher** → **mint**. One winner per title.
 
 ### The 67 field cards — **B now, C later** ✅
 - **B (now):** **render-only lenses.** Their attributes live in an on-chain
@@ -98,9 +102,10 @@ cards go to 1st**. Either way it's net-zero, so the burn-down stays driven only 
 **Staked cards/lenses transfer** (you arm with them and can lose them — never burned). Card
 → in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPING.md`).
 
-The **22 earned hero lenses** are the prestige track: each maps to a single,
-unrepeatable **title** across the three cabinets — **12 season champions**, **6
-first-blood feats**, **4 grand titles**. Win a title → signed voucher → mint the 1/1.
+The **22 earned hero lenses** are the prestige track — all **Season-1 titles** (the 33 are a
+genesis set; §3): each maps to a single, unrepeatable **title** across the three cabinets —
+**12 cabinet titles** (4 per game), **6 first-blood feats**, **4 grand titles**. Win a title
+→ signed voucher → mint the 1/1.
 
 ## 6 · The burn-down — token deflation, **not** card death ✅
 
