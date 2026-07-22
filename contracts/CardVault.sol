@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// ⚠ RETIRED — DO NOT DEPLOY (economic model v2.2, 2026-07).
+// This ERC-1155 "CardVault" (card retirement, edition destruction, ash trophies,
+// Lovebeing-as-1155-item) is fully superseded. v2.2 has NO ERC-1155 anywhere: every
+// card is an ERC-721 render-by-id LENS on a single combined renderer+721 contract
+// (33 hero 1/1s minted now + 67 render-only field cards + a holder-bound Lovebeing
+// lens); cards never retire/ash; the burn is TOKEN deflation only. Canonical design:
+// docs/ECONOMIC-FLOW.md. Kept only as historical reference — safe to delete.
+
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {ILiquid} from "./interfaces/ILiquid.sol";
 

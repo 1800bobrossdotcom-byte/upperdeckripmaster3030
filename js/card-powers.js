@@ -4,7 +4,8 @@
  * amplifies your craft/operative (damage, fire-rate, shields, speed, score) and
  * can ACTIVATE specific guns and power-ups — and the whole thing flexes with LIVE
  * $UR3030 market activity read straight off the chain. Hotter chain = hotter cards.
- * You stake them, so you can lose them (they're the wager). ikyk.
+ * The $UR3030 ante is the WAGER (net-zero — winner takes the pot); your staked cards
+ * ride along and transfer to the winner. You can lose them, but they're never burned. ikyk.
  *
  * Shared by every cabinet (dogfight, riprocketer, section 9):
  *

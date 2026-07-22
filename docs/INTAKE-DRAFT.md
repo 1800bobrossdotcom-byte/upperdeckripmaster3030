@@ -1,5 +1,13 @@
 # SuperRare Intake Form — Draft Answers
 
+> ⛔ **OBSOLETE DRAFT — SUPERSEDED (2026-07).** These early drafts describe a retired
+> model (holders vote candidate cards into season packs; fixed multi-copy editions).
+> The current game is **model v2.2**: a fixed **100-card handmade deck** of live ERC-721
+> lenses (33 hero 1/1s + 67 render-only field cards + a holder-bound Lovebeing lens),
+> packs are buy-and-burns (token deflation, no card retirement), rarity by community
+> vote. See **`docs/ECONOMIC-FLOW.md`** (canonical) and **`docs/ARTIST-INTAKE.md`** for
+> the live intake answers. Kept for history only.
+
 Drafts for *Liquid Editions: Artist Intake & Launch Agreement*. Edit voice as needed —
 these are written to be pasted into the form.
 

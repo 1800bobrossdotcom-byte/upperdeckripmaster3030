@@ -444,7 +444,7 @@
         <span class="lob-meta">others can call you out by it</span>
       </div>
       <div class="lob-list" id="lobList"><div class="lob-empty">warming up the room…</div></div>
-      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner keeps or burns the loser's staked cards. Both burn a <b style="color:#ffd23b">$UR3030</b> ante to enter. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
+      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$UR3030</b> ante (net-zero — winner takes the pot). Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
     </div>
 
     <div class="panel">
@@ -745,21 +745,13 @@
         await wait(reduce ? 40 : 620);
         const spoils = $('foSpoils'), actions = $('foActions');
         if (outcome === 'win'){
-          spoils.innerHTML = `<div class="fo-spoils-hd">you took ${house.length} card${house.length > 1 ? 's' : ''} — keep or burn each</div><div class="fo-spoils-row">` +
-            house.map((c, i) => `<div class="fo-spoil" data-i="${i}" style="--rc:var(${RC[c.rarity] || '--common'})"><span class="fo-rr">${escFO(c.rarity)}</span>` +
-              `<img src="${escFO(c.art)}" alt="" loading="lazy" onerror="this.style.opacity=0"><div class="fo-spoil-nm">${escFO(c.title)}</div>` +
-              `<div class="fo-kb"><button type="button" class="fo-keep">✓ keep</button><button type="button" class="fo-burn"><span class="ic" data-ic="flame"></span> burn</button></div></div>`).join('') + '</div>';
+          // v2.2: cards SURVIVE — the winner takes the loser's stack (no card burning).
+          spoils.innerHTML = `<div class="fo-spoils-hd">you took ${house.length} card${house.length > 1 ? 's' : ''} — they're yours</div><div class="fo-spoils-row">` +
+            house.map((c, i) => `<div class="fo-spoil kept" data-i="${i}" style="--rc:var(${RC[c.rarity] || '--common'})"><span class="fo-rr">${escFO(c.rarity)}</span>` +
+              `<img src="${escFO(c.art)}" alt="" loading="lazy" onerror="this.style.opacity=0"><div class="fo-spoil-nm">${escFO(c.title)}</div></div>`).join('') + '</div>';
           window.RipIcons && RipIcons.hydrate(spoils);
-          const decided = new Set();
-          const done = () => { if (decided.size === house.length){ actions.innerHTML = '<button class="btn" id="foDone">✦ collect &amp; continue ✦</button>'; $('foDone').onclick = finish; } };
-          spoils.querySelectorAll('.fo-spoil').forEach(el => {
-            const i = +el.dataset.i;
-            el.querySelector('.fo-keep').onclick = () => { if (decided.has(i)) return; decided.add(i); kept.push(house[i]); el.classList.add('kept'); el.querySelectorAll('button').forEach(x => x.disabled = true); done(); };
-            el.querySelector('.fo-burn').onclick = () => { if (decided.has(i)) return; decided.add(i); emberBurst(el); el.classList.add('gone'); el.querySelectorAll('button').forEach(x => x.disabled = true); done(); };
-          });
-          actions.innerHTML = '<button class="mode" id="foKeepAll">keep all</button><button class="mode" id="foBurnAll">burn all</button>';
-          $('foKeepAll').onclick = () => spoils.querySelectorAll('.fo-spoil').forEach(el => { if (!decided.has(+el.dataset.i)) el.querySelector('.fo-keep').click(); });
-          $('foBurnAll').onclick = () => spoils.querySelectorAll('.fo-spoil').forEach(el => { if (!decided.has(+el.dataset.i)) el.querySelector('.fo-burn').click(); });
+          house.forEach(c => kept.push(c));                    // winner keeps them all — nothing is destroyed
+          actions.innerHTML = '<button class="btn" id="foDone">✦ collect &amp; continue ✦</button>'; $('foDone').onclick = finish;
         } else {
           actions.innerHTML = '<button class="btn" id="foDone">continue</button>'; $('foDone').onclick = finish;
         }
@@ -784,8 +776,7 @@
       v.className = 'verdict win'; v.textContent = 'YOU COLLECT';
       collect(res.kept);                                 // only KEPT cards enter the vault
       if (ante > 0) setTokens(tokens() + ante);
-      const burned = houseStack.length - res.kept.length;
-      log += `Won ${houseStack.length} — kept <b class="b">${res.kept.length}</b>${burned ? `, burned ${burned}` : ''}${ante ? `, +${ante} $UR3030` : ''}.`;
+      log += `Won <b class="b">${res.kept.length}</b> card${res.kept.length !== 1 ? 's' : ''} — they're yours${ante ? `, +${ante} $UR3030` : ''}.`;
     } else if (outcome === 'lose'){
       v.className = 'verdict lose'; v.textContent = 'THE HOUSE EATS';
       removeOwned(selected); if (ante > 0) setTokens(tokens() - ante);
@@ -993,9 +984,9 @@
         `<div class="pvp-hd"><span class="ic" data-ic="swords"></span> face-off · ${escFO(opponent.handle)}</div>` +
         `<div class="pvp-opp"><span class="lob-st ${opponent.status || 'idle'}"></span>` +
           `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $UR · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
-        `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner keeps or burns the loser's stack, ties stand.</div>` +
+        `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner takes the loser's stack, ties stand.</div>` +
         `<div class="pvp-hand" id="pvpHand"></div>` +
-        `<div class="pvp-burn"><span class="tstake-lbl"><span class="ic" data-ic="flame"></span> burn ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
+        `<div class="pvp-burn"><span class="tstake-lbl"><span class="ic" data-ic="flame"></span> wager ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
         `<div class="pvp-note" id="pvpNote"></div>` +
         `<div class="pvp-btns"><button class="mode" id="pvpNo">back down</button><button class="btn go" id="pvpGo" disabled><span class="ic" data-ic="flame"></span> FIGHT</button></div>` +
         `</div>`;
@@ -1053,7 +1044,7 @@
       log += `${escFO(oppName)} took your ${you.length} staked card${you.length > 1 ? 's' : ''}${burnTag}.`;
     } else {
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
-      log += `Dead even — both keep their cards${burn ? `, but the ${burn} $UR ante is burned` : ''}.`;
+      log += `Dead even — both keep their cards${burn ? `, and the ${burn} $UR ante is returned` : ''}.`;
     }
     $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();

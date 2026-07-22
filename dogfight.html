@@ -805,7 +805,7 @@
     else wc.innerHTML='';
     // scarcity / escrow honesty
     $('scaNote').innerHTML = G.real
-      ? 'Antes are <b>real $UR3030 burns</b> — they leave supply forever (deflation). Card stakes moved for keeps in your local vault. Trustless token-pot escrow (winner’s payout on-chain) ships with the <b>CardVault</b> contract — Phase-2.'
+      ? 'Antes are <b>real $UR3030 wagers</b> — the pot transfers to the winner (net-zero to supply). Card stakes move for keeps in your local vault. Trustless token-pot escrow (winner’s payout on-chain) ships with the <b>721 lens</b> contract — Phase-2.'
       : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play for keeps.';
     if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
       ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'

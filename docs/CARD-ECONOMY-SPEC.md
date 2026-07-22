@@ -1,11 +1,13 @@
 # Card Economy Spec — cards on-chain, split by intent
 
-> ⚠️ **PHASE 2 REFERENCE DESIGN — NOT the launch architecture.** The project ships as
-> **one pure Liquid Edition** (ERC-20 + render + optional 721 lenses); we are not at
-> liberty to deploy other contracts, so the ERC-1155 vault below is **not deployed**.
-> The authoritative launch design is **`docs/LAUNCH-ARCHITECTURE.md`** (burn-milestone
-> deck). This spec is retained as a reviewed, compiling reference for a future phase,
-> if a companion game contract is ever permitted.
+> ⛔ **RETIRED — SUPERSEDED BY MODEL v2.2 (2026-07).** The ERC-1155 `CardVault` design
+> below (card retirement, edition destruction, Ash-Trophies, Lovebeing-as-1155-item) is
+> **no longer the plan**. Under v2.2 there is **no ERC-1155 anywhere**: every card is an
+> **ERC-721 render-by-id lens** on one combined renderer+721 contract — **33 hero 1/1s**
+> minted now (11 gacha + 22 earned) + **67 render-only field cards** (mintable later) +
+> a **holder-bound Lovebeing lens**; **cards never retire or ash**; the burn is **token
+> deflation only** (3.03M → ~1.01M). Canonical: **`docs/ECONOMIC-FLOW.md`**. The 1155
+> spec below is kept only as historical reference — its mechanics are not deployed.
 
 The site now plays the whole game client-side (arena, pack rips, the vault in
 localStorage). This spec moves ownership on-chain on **Sepolia**, around one
