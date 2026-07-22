@@ -90,10 +90,13 @@ A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**. It i
 
 ## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 
-Playing costs `$UR3030`, but **antes are wagers, not burns** — the pot transfers to the
-winner, so play is **net-zero to supply**. **Staked cards/lenses transfer** too (you arm
-with them and can lose them). Card → in-game power is live today (`js/card-powers.js`,
-see `CARD-POWER-MAPPING.md`).
+Playing costs `$UR3030`, but **antes are wagers, not burns** — the pot **transfers**, so
+play is **net-zero to supply**. Payout by match size: **1v1** — the winner takes the whole
+pot **and** the loser's staked cards. **Multiplayer (3+)** — the pot pays the **podium:
+1st 50% · 2nd 30% · 3rd 20%** (4th+ forfeit their ante into the pot), and the **staked
+cards go to 1st**. Either way it's net-zero, so the burn-down stays driven only by packs.
+**Staked cards/lenses transfer** (you arm with them and can lose them — never burned). Card
+→ in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPING.md`).
 
 The **22 earned hero lenses** are the prestige track: each maps to a single,
 unrepeatable **title** across the three cabinets — **12 season champions**, **6
