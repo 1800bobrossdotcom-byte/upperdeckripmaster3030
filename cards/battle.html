@@ -998,7 +998,7 @@
         else { if (pvpSel.length >= n) pvpSel.shift(); pvpSel.push(i); }
         render();
       });
-      $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no burn' : '<span class="ic" data-ic="flame"></span>' + v}</button>`).join('');
+      $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no ante' : '<span class="ic" data-ic="flame"></span>' + v}</button>`).join('');
       window.RipIcons && RipIcons.hydrate(modal);
       $('pvpChips').querySelectorAll('.tchip').forEach(b => b.onclick = () => { burn = +b.dataset.v; render(); });
       $('pvpNote').innerHTML = burn > 0
@@ -1025,7 +1025,7 @@
       if (net) net.setStatus('idle'); pushProfile(); toastMini(br.why || 'burn cancelled — fight called off'); return;
     }
     const oppName = opponent.handle || 'rival';
-    const burnTag = burn ? (br.mode === 'onchain' ? ' · burn sent on-chain' : ' · burn (practice)') : '';
+    const burnTag = burn ? (br.mode === 'onchain' ? ' · wager (on-chain)' : ' · wager (practice)') : '';
     const res = await openFaceoff(you, oppCards, P, Q, outcome, 0, {
       oppLabel: oppName, push: true,
       potText: burn > 0 ? `🔥 ${burn} $UR each` : 'cards only',
@@ -1081,12 +1081,12 @@
         walletState.balance = W.isLive() ? (await W.balance()).tokens : 0;
         if (stat) stat.innerHTML = W.isLive()
           ? 'ledger signed · <b>' + walletState.balance.toLocaleString('en-US') + '</b> $UR3030 on the line'
-          : 'signed · burn ante is <b>practice</b> until $UR3030 is live here';
+          : 'signed · wager ante is <b>practice</b> until $UR3030 is live here';
       } else {
         walletState = { connected: false, address: null, balance: 0 };
         if (stat) stat.innerHTML = (W && W.isLive())
           ? '<b>Sign the ledger</b> to stake real $UR3030 in the arena'
-          : 'burn ante runs in <b>practice</b> until $UR3030 is live';
+          : 'wager ante runs in <b>practice</b> until $UR3030 is live';
       }
       if (window.RipTavern) RipTavern.refresh();
       pushProfile();                                            // lobby sees the real purse + seal
