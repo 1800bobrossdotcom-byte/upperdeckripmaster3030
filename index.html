@@ -563,6 +563,62 @@
       <div class="stars" title="four seasons a year"><b>I</b><b>II</b><b>III</b><b>IV</b></div>
     </header>
 
+    <section class="launch-countdown" id="launchClock" aria-label="Launch countdown to Season I">
+      <style>
+        .launch-countdown{ position:relative; z-index:2; max-width:640px; margin:26px auto 8px; padding:18px 20px 16px;
+          border:1px solid #0f5c33; border-radius:14px; text-align:center;
+          background:radial-gradient(120% 120% at 50% 0%, rgba(43,255,128,.08), rgba(1,10,5,.72) 62%);
+          box-shadow:0 0 40px rgba(43,255,128,.10), inset 0 0 30px rgba(1,10,5,.6); }
+        .lc-kick{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.28em;
+          font-size:11px; color:#ffd23b; margin-bottom:12px; }
+        .lc-kick b{ color:#27f7e4; }
+        .lc-grid{ display:flex; align-items:baseline; justify-content:center; gap:6px; }
+        .lc-cell{ display:flex; flex-direction:column; align-items:center; min-width:60px; }
+        .lc-cell b{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(30px,8vw,50px); line-height:.95;
+          color:#2bff80; text-shadow:0 0 18px rgba(43,255,128,.45); font-variant-numeric:tabular-nums; }
+        .lc-cell span{ font-family:'Courier New',monospace; font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+          color:#7fcea4; margin-top:6px; }
+        .lc-sep{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(26px,7vw,44px); color:#0f5c33;
+          transform:translateY(-6px); }
+        .lc-date{ font-family:'Courier New',monospace; font-size:12px; letter-spacing:.16em; color:#b8ffd6; margin-top:14px; }
+        .lc-date b{ color:#ff2ad9; }
+        .lc-live{ font-family:'Arial Black',Arial,sans-serif; letter-spacing:.24em; font-size:16px; color:#2bff80;
+          text-shadow:0 0 22px rgba(43,255,128,.6); padding:8px 0; }
+        @media (prefers-reduced-motion:no-preference){ .lc-live{ animation:lcPulse 1.1s ease-in-out infinite; } }
+        @keyframes lcPulse{ 50%{ opacity:.55; } }
+      </style>
+      <div class="lc-kick">◈ Season <b>I</b> · Summer — the drop ◈</div>
+      <div class="lc-grid" id="lcGrid">
+        <div class="lc-cell"><b id="lcD">--</b><span>days</span></div>
+        <div class="lc-sep">:</div>
+        <div class="lc-cell"><b id="lcH">--</b><span>hrs</span></div>
+        <div class="lc-sep">:</div>
+        <div class="lc-cell"><b id="lcM">--</b><span>min</span></div>
+        <div class="lc-sep">:</div>
+        <div class="lc-cell"><b id="lcS">--</b><span>sec</span></div>
+      </div>
+      <div class="lc-live" id="lcLive" hidden>▓ THE PACK IS OPEN ▓</div>
+      <div class="lc-date">OCTOBER 6, 2026 · <b>11:11 PM</b> ET · <span id="lcTz">$UR3030 goes live</span></div>
+      <script>(function(){
+        /* 11:11 PM America/New_York on 2026-10-06 = 2026-10-07T03:11:00Z (EDT, UTC-4) */
+        var TARGET = Date.UTC(2026, 9, 7, 3, 11, 0);
+        var grid = document.getElementById('lcGrid'), live = document.getElementById('lcLive');
+        var el = { D: document.getElementById('lcD'), H: document.getElementById('lcH'), M: document.getElementById('lcM'), S: document.getElementById('lcS') };
+        var p2 = function(n){ return (n < 10 ? '0' : '') + n; };
+        function tick(){
+          var ms = TARGET - Date.now();
+          if (ms <= 0) { if (grid) grid.hidden = true; if (live) live.hidden = false; return true; }
+          var s = Math.floor(ms / 1000);
+          el.D.textContent = Math.floor(s / 86400);
+          el.H.textContent = p2(Math.floor(s % 86400 / 3600));
+          el.M.textContent = p2(Math.floor(s % 3600 / 60));
+          el.S.textContent = p2(s % 60);
+          return false;
+        }
+        if (!tick()) { var t = setInterval(function(){ if (tick()) clearInterval(t); }, 1000); }
+      })();</script>
+    </section>
+
     <section class="cabinet">
       <div class="cab-label">
         <span class="tag">Holder lens</span>
