@@ -133,7 +133,8 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
     color:var(--phosdim); display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; }
   .wm{ position:fixed; right:-40px; top:40%; transform:rotate(90deg); transform-origin:right center; z-index:0;
     font-family:var(--fat); font-size:13px; letter-spacing:.5em; color:rgba(43,255,128,.10); white-space:nowrap; }
-</style></head>
+</style>
+<script src="/gate.js"></script></head>
 <body>
   <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
   <div class="topbar">
