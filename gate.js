@@ -2,15 +2,14 @@
  *
  * Hides the whole site behind an admin login until launch. Fail-closed: with JS
  * off, or before you log in, nothing is visible. Access is remembered per-device
- * (localStorage), so you log in once.
+ * (localStorage), so you log in once. Styled to match the landing page (torches,
+ * marquee logo, acid-terminal palette).
  *
- * ⚠ This is a SOFT veil — because the site is static and deployed from git, the
- * password below ships in the page source and a determined visitor can read it.
- * It stops search engines and every casual visitor, which is the point pre-launch.
- * For HARD protection, also turn on Vercel → Settings → Deployment Protection →
- * Password (server-side; the HTML never leaves Vercel without the password).
+ * ⚠ Soft veil — the password ships in the page source, so it stops search engines
+ * and casual visitors but not a determined one. For HARD protection also enable
+ * Vercel → Settings → Deployment Protection → Password (server-side).
  *
- * To change the password: edit PASS below.  Admin email: ADMIN below.
+ * Change the password: edit PASS below.  Admin email: ADMIN below.
  */
 (function () {
   var ADMIN = '1800bobrossdotcom@gmail.com';
@@ -25,24 +24,54 @@
   hide.textContent = 'body>*{visibility:hidden!important}#urm-gate,#urm-gate *{visibility:visible!important}html,body{overflow:hidden!important}';
   (document.head || document.documentElement).appendChild(hide);
 
-  var kf = document.createElement('style');
-  kf.textContent = '@keyframes urmShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}';
-  (document.head || document.documentElement).appendChild(kf);
+  var css = document.createElement('style');
+  css.id = 'urm-css';
+  css.textContent = [
+    '#urm-gate{position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:min(4.5vh,26px);padding:24px 20px;overflow:auto;',
+      'font-family:"Courier New",ui-monospace,monospace;color:#b8ffd6;',
+      'background:radial-gradient(130% 90% at 50% -12%,#06180d 0%,#04110a 52%,#020604 100%);}',
+    '#urm-gate .u-scan{position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.5;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);}',
+    '#urm-gate .u-fire{position:fixed;left:0;right:0;bottom:0;height:46%;pointer-events:none;z-index:0;background:radial-gradient(120% 100% at 50% 132%,rgba(255,120,40,.22),rgba(255,42,60,.08) 42%,transparent 68%);}',
+    '@keyframes u-flick{0%,100%{opacity:.9}45%{opacity:.62}70%{opacity:1}}',
+    '@media (prefers-reduced-motion:no-preference){#urm-gate .u-fire{animation:u-flick 3.2s ease-in-out infinite}}',
+    '.u-sign{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:clamp(6px,3vw,26px);width:100%;}',
+    '.u-torch{flex:none;height:clamp(58px,12vw,124px);width:auto;filter:drop-shadow(0 0 18px rgba(255,150,40,.5));}',
+    '.u-logo{width:min(74vw,500px);height:auto;display:block;filter:drop-shadow(0 0 26px rgba(43,255,128,.28));}',
+    '.u-kick{position:relative;z-index:2;font-family:"Arial Black",Arial,sans-serif;letter-spacing:.26em;font-size:12px;color:#ffd23b;text-align:center;text-shadow:0 0 14px rgba(255,210,59,.35);}',
+    '.u-card{position:relative;z-index:2;width:min(92vw,380px);text-align:center;border:1px solid #0f5c33;border-radius:16px;padding:22px 24px 18px;',
+      'background:rgba(1,10,5,.86);box-shadow:0 0 60px rgba(43,255,128,.14),inset 0 0 30px rgba(1,10,5,.5);backdrop-filter:blur(3px);}',
+    '.u-card .u-h{font-family:"Arial Black",Arial,sans-serif;font-size:11px;letter-spacing:.2em;color:#5fcf8f;margin-bottom:16px;text-transform:uppercase;}',
+    '.u-card input{width:100%;box-sizing:border-box;margin:0 0 11px;padding:12px 14px;border:1px solid #0f5c33;border-radius:9px;background:#02120a;color:#d9ffe8;font-family:inherit;font-size:14px;outline:none;}',
+    '.u-card input::placeholder{color:#3f8f63;}',
+    '.u-card input:focus{border-color:#2bff80;box-shadow:0 0 0 2px rgba(43,255,128,.2);}',
+    '.u-card button{width:100%;margin-top:3px;padding:13px;border:2px solid #01130a;border-radius:10px;cursor:pointer;',
+      'background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56);color:#02120a;font-family:"Arial Black",Arial,sans-serif;text-transform:uppercase;letter-spacing:.12em;font-size:13px;',
+      'box-shadow:inset 0 2px 0 rgba(255,255,255,.45),0 5px 0 #01130a,0 0 20px rgba(43,255,128,.3);}',
+    '.u-card button:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,.45),0 3px 0 #01130a;}',
+    '.u-err{height:16px;margin-top:11px;font-size:11px;color:#ff4b3a;letter-spacing:.06em;}',
+    '@keyframes urmShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}',
+    '@media (max-width:520px){.u-torch{height:clamp(44px,13vw,74px)}}',
+  ].join('');
+  (document.head || document.documentElement).appendChild(css);
 
   function build() {
     if (document.getElementById('urm-gate')) return;
     var g = document.createElement('div');
     g.id = 'urm-gate';
-    g.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 100% at 50% 0%,#06180d,#010704 70%);font-family:\'Courier New\',monospace;color:#b8ffd6');
     g.innerHTML =
-      '<form id="urm-gform" style="width:min(90vw,380px);text-align:center;border:1px solid #0f5c33;border-radius:16px;padding:30px 26px;background:rgba(1,10,5,.82);box-shadow:0 0 50px rgba(43,255,128,.12)">' +
-        '<div style="font-family:\'Arial Black\',Arial;letter-spacing:.22em;font-size:12px;color:#ffd23b;margin-bottom:6px">◈ PRIVATE · PRE-LAUNCH ◈</div>' +
-        '<div style="font-family:\'Arial Black\',Arial;font-size:20px;color:#eafff2;letter-spacing:-.01em;margin-bottom:4px">UPPERDECK RIPMASTER 3030</div>' +
-        '<div style="font-size:11px;color:#5fcf8f;letter-spacing:.14em;margin-bottom:20px">ADMIN ACCESS ONLY</div>' +
-        '<input id="urm-email" type="email" placeholder="admin email" autocomplete="username" style="width:100%;box-sizing:border-box;margin:0 0 10px;padding:11px 13px;border:1px solid #0f5c33;border-radius:9px;background:#02120a;color:#d9ffe8;font-family:inherit;font-size:14px">' +
-        '<input id="urm-pass" type="password" placeholder="password" autocomplete="current-password" style="width:100%;box-sizing:border-box;margin:0 0 14px;padding:11px 13px;border:1px solid #0f5c33;border-radius:9px;background:#02120a;color:#d9ffe8;font-family:inherit;font-size:14px">' +
-        '<button type="submit" style="width:100%;padding:12px;border:2px solid #01130a;border-radius:10px;background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56);color:#02120a;font-family:\'Arial Black\',Arial;text-transform:uppercase;letter-spacing:.08em;font-size:13px;cursor:pointer">Enter</button>' +
-        '<div id="urm-err" style="height:16px;margin-top:10px;font-size:11px;color:#ff4b3a;letter-spacing:.06em"></div>' +
+      '<div class="u-scan"></div><div class="u-fire"></div>' +
+      '<div class="u-sign">' +
+        '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
+        '<img class="u-logo" src="/upperdeckripmaster3030_01_marquee.png" alt="upperdeckripmaster3030">' +
+        '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
+      '</div>' +
+      '<div class="u-kick">◈ PRIVATE · PRE-LAUNCH ◈</div>' +
+      '<form class="u-card" id="urm-gform">' +
+        '<div class="u-h">Admin access only</div>' +
+        '<input id="urm-email" type="email" placeholder="admin email" autocomplete="username">' +
+        '<input id="urm-pass" type="password" placeholder="password" autocomplete="current-password">' +
+        '<button type="submit">Enter the drop</button>' +
+        '<div class="u-err" id="urm-err"></div>' +
       '</form>';
     document.body.appendChild(g);
     var form = document.getElementById('urm-gform');
