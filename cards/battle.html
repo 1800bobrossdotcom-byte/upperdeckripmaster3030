@@ -558,6 +558,7 @@
 <script src="../js/card-hover.js"></script>
 <script src="../js/arena-lobby.js"></script>
 <script src="../js/wager-payout.js"></script>
+<script src="../js/card-fight.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
 <script>
@@ -774,6 +775,9 @@
         if (!reduce) arena.animate([{ filter: 'brightness(2.2) contrast(1.1)' }, { filter: 'brightness(1)' }], { duration: 400, easing: 'ease-out' });
         animateCount('foYouSig', P.total); animateCount('foHouseSig', Q.total);
         await wait(reduce ? 60 : 700);
+        // ── the cards actually fight: each staked card throws its signature ability across
+        //    the arena and HP drains to the pre-decided result (choreography, never a re-decision) ──
+        if (window.CardFight) { try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce }); } catch (e) {} }
         const b = $('foBanner'), youS = $('foYou'), houseS = $('foHouse');
         // the loser's staked cards fly across to the winner
         const flyAway = (sideEl, dir) => sideEl.querySelectorAll('.fo-cw').forEach((el, i) =>
