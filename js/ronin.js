@@ -65,8 +65,13 @@
     return { id: idc(), arch: archKey, a, name: name || a.name, isMe: !!isMe, x, yLift: 0, vx: 0, vy: 0, air: false,
       face: isMe ? 1 : -1, maxHp: hp, hp, meter: 0, state: 'idle', stT: 0, walkPh: rnd(0, 6.28), swing: null,
       combo: 0, comboT: 0, stun: 0, invuln: 0.6, col: a.col, tint: a.tint, weapon: a.weapon,
-      rage: 0, glow: 0, shuri: a.shuri, kos: 0, dead: false, deadT: 0, aiT: rnd(0.2, 0.7), aiMove: 0,
-      pow: a.pow * (isMe ? cardPow : rnd(0.85, 1.12)), spd: a.spd * (isMe ? cardSpd : rnd(0.9, 1.08)) };
+      rage: 0, glow: 0, shuri: a.shuri, kos: 0, dead: false, deadT: 0, ragdoll: false, koDir: 1, aiT: rnd(0.2, 0.7), aiMove: 0,
+      pow: a.pow * (isMe ? cardPow : rnd(0.85, 1.12)), spd: a.spd * (isMe ? cardSpd : rnd(0.9, 1.08)),
+      // spring-driven skeleton — every channel has value+velocity so limbs carry momentum,
+      // overshoot their target pose, and flail on impact (the Soul-Calibur weight). trail = blade tip streak.
+      rig: { lean: 0, leanV: 0, head: 0, headV: 0, aF: -0.6, aFV: 0, eF: 0.5, eFV: 0, aB: 0.6, aBV: 0, eB: 0.5, eBV: 0,
+        hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: -0.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
+      trail: [] };
   }
 
   function startBrawl(real) {
@@ -124,8 +129,8 @@
     G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); sfxSpecial();
     // spin-blade nova: hits everything nearby
     G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 110) {
-      const dmg = 26 * f.pow; t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += Math.sign(t.x - f.x || 1) * 320; t.vy = -240; t.air = true;
-      for (let i = 0; i < 8; i++) spark(t.x, groundY - 40, f.tint); if (t.hp <= 0) ko(t, f); } });
+      const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
+      impulse(t, dir, 1.4, true); for (let i = 0; i < 8; i++) spark(t.x, groundY - 40, f.tint); if (t.hp <= 0) ko(t, f); } });
     if (f.isMe) updMeter();
   }
 
@@ -152,12 +157,14 @@
     att.combo++; att.comboT = 1.3; att.meter = Math.min(1, att.meter + 0.06 * att.a.meter); tgt.meter = Math.min(1, tgt.meter + 0.03);
     const knock = atk.knock * mul; const knockdown = (att.combo % 3 === 0) || (atk.kind === 'kick' && att.combo >= 2);
     tgt.vx += att.face * knock * (knockdown ? 1.4 : 1); if (knockdown) { tgt.vy = -300; tgt.air = true; tgt.stun = 0.55; }
+    impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.7), knockdown);
     for (let i = 0; i < (knockdown ? 8 : 4); i++) spark(hx + rnd(-8, 8), hy + rnd(-10, 10), att.tint);
     G.hitstop = Math.max(G.hitstop, knockdown ? 0.08 : 0.04); G.shake = Math.max(G.shake, knockdown ? 8 : 4);
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
   }
   function ko(tgt, killer) { if (tgt.dead) return; tgt.dead = true; tgt.deadT = 0; tgt.state = 'ko'; tgt.stT = 0; tgt.vy = -180; tgt.vx = (killer ? killer.face : 1) * 180;
+    tgt.ragdoll = true; tgt.koDir = killer ? killer.face : (tgt.vx >= 0 ? 1 : -1); tgt.rig.bodyRotV += tgt.koDir * 6.5; tgt.rig.aFV += 12; tgt.rig.aBV += 10; tgt.rig.headV += tgt.koDir * 8;
     G.order.unshift(tgt);                                     // earlier deaths end up lower on the board
     if (killer && killer !== tgt) { killer.kos++; if (killer.isMe) { $('myKos').textContent = killer.kos + ' KO'; toast('K.O. ×' + killer.kos); } }
     if (Math.random() < 0.7) dropPickup(tgt.x, tgt);
@@ -223,6 +230,52 @@
       if ((keys['s'] || keys['arrowdown'] || touch.block) && (f.state === 'idle' || f.state === 'walk' || f.state === 'block')) f.state = 'block';
       else if (f.state === 'block') f.state = 'idle';
     }
+    stepRig(f, dt);
+  }
+
+  // ── spring-driven skeleton: each joint chases its pose target with inertia + damping,
+  //    so limbs lag, overshoot and settle (weight). Hits inject velocity; KO goes limp. ──
+  function springTo(r, key, target, k, d, dt) { const vk = key + 'V'; const a = (target - r[key]) * k - r[vk] * d; r[vk] += a * dt; r[key] += r[vk] * dt; }
+  function poseTargets(f) {
+    const t = f.stT, st = f.state;
+    const T = { lean: 0, head: 0, aF: -0.55, eF: 0.5, aB: 0.5, eB: 0.5, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: -0.45, bob: 0 };
+    const spd = Math.min(1, Math.abs(f.vx) / 260);
+    if (st === 'idle') { T.bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; T.aF = -0.5 + Math.sin(G.t * 2.2) * 0.08; T.aB = 0.5 - Math.sin(G.t * 2.2) * 0.06; T.sw = -0.4; T.lean = 0.03; }
+    else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.75; T.hB = -s * 0.75; T.kF = Math.max(0, -s) * 0.8; T.kB = Math.max(0, s) * 0.8; T.aF = -0.35 - s * 0.55; T.aB = 0.35 - s * 0.55; T.lean = 0.16 * spd; T.bob = Math.abs(Math.cos(f.walkPh)) * 2; }
+    else if (st === 'block') { T.lean = -0.14; T.aF = -1.5; T.eF = 1.5; T.aB = -1.1; T.eB = 1.2; T.sw = -2.0; T.hF = 0.35; T.hB = -0.35; }
+    else if (st === 'punch') { const ex = Math.sin(clamp(t / (ATK.punch.st + ATK.punch.ac), 0, 1) * Math.PI); T.aF = -1.7 * ex - 0.35; T.eF = 0.9 - 0.85 * ex; T.lean = 0.1 * ex; T.aB = 0.7; }
+    else if (st === 'kick') { const ex = Math.sin(clamp(t / (ATK.kick.st + ATK.kick.ac), 0, 1) * Math.PI); T.hF = 1.5 * ex; T.kF = -0.25 * ex; T.lean = -0.18 * ex; T.aB = 0.95; T.aF = 0.2; }
+    else if (st === 'slash') { const ph = clamp((t - ATK.slash.st) / ATK.slash.ac, 0, 1); const a = lerp(-2.0, 1.0, ph); T.sw = a; T.aF = a - 0.25; T.eF = 0.15; T.lean = 0.12 * ph - 0.04; }
+    else if (st === 'special') { T.sw = t * 26; T.aF = -1.2; T.eF = 0.1; T.lean = 0; }
+    else if (st === 'hurt') { T.lean = -0.34; T.aF = 0.5; T.aB = 0.9; T.eF = 0.2; T.sw = 0.5; T.head = -0.3; T.hF = -0.2; }
+    return T;
+  }
+  function stepRig(f, dt) {
+    const r = f.rig; if (!r) return;
+    if (f.ragdoll) {                                          // limp: limbs hang, body tumbles under its spin + gravity
+      const K = 34, D = 8;
+      springTo(r, 'aF', 1.5, K, D, dt); springTo(r, 'aB', 1.4, K, D, dt); springTo(r, 'eF', 0.25, K, D, dt); springTo(r, 'eB', 0.3, K, D, dt);
+      springTo(r, 'hF', 0.3, K, D, dt); springTo(r, 'hB', -0.15, K, D, dt); springTo(r, 'kF', 0.5, K, D, dt); springTo(r, 'kB', 0.45, K, D, dt);
+      springTo(r, 'sw', 1.3, 26, 7, dt); springTo(r, 'head', 0.5 * f.koDir, K, D, dt); springTo(r, 'bob', 0, 30, 8, dt);
+      const rest = f.koDir * 1.5;                             // fall flat in the knock direction
+      r.bodyRotV += (rest - r.bodyRot) * 26 * dt - r.bodyRotV * 7 * dt; r.bodyRot += r.bodyRotV * dt;
+      return;
+    }
+    const T = poseTargets(f);
+    const K = 210, D = 24;                                    // underdamped a touch → follow-through overshoot
+    springTo(r, 'lean', T.lean, 120, 15, dt); springTo(r, 'head', T.head, 90, 13, dt);
+    springTo(r, 'aF', T.aF, K, D, dt); springTo(r, 'eF', T.eF, K, D, dt);
+    springTo(r, 'aB', T.aB, K * 0.8, D, dt); springTo(r, 'eB', T.eB, K * 0.8, D, dt);
+    springTo(r, 'hF', T.hF, K, D, dt); springTo(r, 'kF', T.kF, K, D, dt);
+    springTo(r, 'hB', T.hB, K, D, dt); springTo(r, 'kB', T.kB, K, D, dt);
+    springTo(r, 'sw', T.sw, (f.state === 'slash' || f.state === 'special') ? 320 : 150, 22, dt);   // stiffer mid-swing so the edge tracks
+    springTo(r, 'bob', T.bob, 150, 16, dt);
+    r.bodyRotV += (0 - r.bodyRot) * 150 * dt - r.bodyRotV * 15 * dt; r.bodyRot += r.bodyRotV * dt;  // torso rights itself; impacts rock it
+  }
+  function impulse(f, worldDir, mag, knockdown) {             // inject momentum on a hit
+    const r = f.rig; if (!r) return;
+    r.bodyRotV += worldDir * mag * (knockdown ? 1.1 : 0.5);
+    r.aFV += 9 * mag; r.aBV += 7 * mag; r.headV += worldDir * 5 * mag; r.leanV -= 6 * mag;
   }
 
   function stepPickups(dt) {
@@ -245,7 +298,7 @@
       e.x += e.vx * dt; e.spin += dt * 22; e.y = e.y; let hit = false;
       G.fighters.forEach(t => { if (t.dead || t.id === e.side || hit) return; if (Math.abs(t.x - e.x) < 24 && t.yLift < 60) {
         hit = true; if (t.state === 'block' && Math.sign(e.vx) === -t.face) { t.hp -= e.dmg * 0.2; spark(t.x, groundY - 44, '#8ffff0'); }
-        else { t.hp -= e.dmg; t.stun = 0.2; t.state = 'hurt'; t.stT = 0; t.vx += Math.sign(e.vx) * 120; spark(t.x, groundY - 44, '#8ffff0');
+        else { t.hp -= e.dmg; t.stun = 0.2; t.state = 'hurt'; t.stT = 0; t.vx += Math.sign(e.vx) * 120; impulse(t, Math.sign(e.vx), 0.5, false); spark(t.x, groundY - 44, '#8ffff0');
           const att = G.fighters.find(f => f.id === e.side); if (t.hp <= 0) ko(t, att); } } });
       if (hit || e.x < G.cam.x - 60 || e.x > G.cam.x + W + 60) G.fx.splice(i, 1);
     }
@@ -321,52 +374,51 @@
     ctx.shadowBlur = 0; ctx.fillStyle = t.c; ctx.font = '14px "Arial Black",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.g, x, y + 1); ctx.restore();
   }
 
-  // procedural articulated ninja
+  // procedural articulated ninja — every limb is driven by the spring rig (f.rig),
+  // the whole body rotates by rig.bodyRot (stagger / ragdoll), and the blade leaves a trail.
   function drawFighter(f) {
-    const x = f.x - G.cam.x, gy = groundY - f.yLift; const fc = f.face;
-    const t = f.stT, st = f.state;
-    // pose angles (radians; 0 = down)
-    let lean = 0, ha = -0.2, la = 0.3, ra = 0.2, sw = 0.2;   // arm hint, sword angle
-    let hipF = 0.25, hipB = -0.25, kneeF = 0, kneeB = 0, bob = Math.sin(f.walkPh) * 0;
-    let armFront = -0.6, armBack = 0.6, elbowF = 0.5, elbowB = 0.5, swordA = -0.5;
-    if (st === 'idle') { bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; armFront = -0.5 + Math.sin(G.t * 2.4) * 0.06; armBack = 0.5; swordA = -0.4; }
-    else if (st === 'walk') { const s = Math.sin(f.walkPh); hipF = s * 0.7; hipB = -s * 0.7; kneeF = Math.max(0, -s) * 0.7; kneeB = Math.max(0, s) * 0.7; armFront = -0.4 - s * 0.5; armBack = 0.4 - s * 0.5; }
-    else if (st === 'block') { lean = -0.12 * fc; armFront = -1.5; elbowF = 1.4; armBack = -1.2; elbowB = 1.2; swordA = -1.9; }
-    else if (st === 'punch') { const p = clamp((t - ATK.punch.st) / ATK.punch.ac, 0, 1); const ex = st === 'punch' ? Math.sin(clamp(t / (ATK.punch.st + ATK.punch.ac), 0, 1) * Math.PI) : 0; armFront = -1.6 * ex - 0.4; elbowF = 0.9 - 0.8 * ex; lean = -0.08 * fc; }
-    else if (st === 'kick') { const ex = Math.sin(clamp(t / (ATK.kick.st + ATK.kick.ac), 0, 1) * Math.PI); hipF = 1.4 * ex; kneeF = -0.2 * ex; lean = 0.16 * fc; armBack = 0.9; }
-    else if (st === 'slash') { const ph = clamp((t - ATK.slash.st) / ATK.slash.ac, 0, 1); const a = lerp(-1.9, 0.9, ph); swordA = a; armFront = a - 0.2; elbowF = 0.2; lean = -0.1 * fc; }
-    else if (st === 'special') { const spin = t * 24; swordA = spin; armFront = -1.2; lean = 0; }
-    else if (st === 'hurt') { lean = 0.3 * fc; armFront = 0.4; armBack = 0.8; swordA = 0.4; }
-    else if (st === 'ko') { /* handled below (lie down) */ }
+    const x = f.x - G.cam.x, gy = groundY - f.yLift, fc = f.face, r = f.rig, rot = r.bodyRot;
+    drawTrail(f);
+    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc, 1);
+    let alpha = f.dead ? Math.max(0.22, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
+    const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.4 : 1;
+    ctx.globalAlpha = alpha * flick;
 
-    ctx.save(); ctx.translate(x, gy);
-    if (st === 'ko') { ctx.rotate(fc * Math.min(1.4, f.deadT * 4)); ctx.globalAlpha = Math.max(0.3, 1 - f.deadT * 0.25); }
-    ctx.scale(fc, 1);                                          // face right by default; flip
-    const flick = f.invuln > 0 && Math.floor(G.t * 20) % 2 ? 0.4 : 1;
-    ctx.globalAlpha *= flick;
-
-    // aura for buffs
-    if (f.rage > 0 || f.glow > 0 || f.meter >= 1) { ctx.save(); ctx.shadowColor = f.rage > 0 ? '#ff6b57' : (f.glow > 0 ? '#ffd23b' : f.tint); ctx.shadowBlur = 22;
+    if (!f.dead && (f.rage > 0 || f.glow > 0 || f.meter >= 1)) { ctx.save(); ctx.shadowColor = f.rage > 0 ? '#ff6b57' : (f.glow > 0 ? '#ffd23b' : f.tint); ctx.shadowBlur = 22;
       ctx.fillStyle = 'rgba(0,0,0,0.001)'; ctx.beginPath(); ctx.arc(0, -46, 40, 0, 6.28); ctx.fill(); ctx.restore(); }
 
-    const hipY = -40 - bob, shY = -70 - bob, headY = -84 - bob;
-    const lw = f.a.weapon === 'nodachi' ? 8 : 7;
+    const bob = r.bob, hipY = -40 - bob, shY = -70 - bob, headY = -84 - bob, tx = r.lean * 26;
+    const lw = f.weapon === 'nodachi' ? 8 : 7;
     // legs
-    limb(0, hipY, footPt(hipF, kneeF, hipY), lw, f.col, true);
-    limb(0, hipY, footPt(hipB, kneeB, hipY), lw, shade(f.col, -20), true);
+    limb(0, hipY, footPt(r.hF, r.kF, hipY), lw, f.col);
+    limb(0, hipY, footPt(r.hB, r.kB, hipY), lw, shade(f.col, -20));
     // torso
     ctx.strokeStyle = f.col; ctx.lineWidth = lw + 4; ctx.lineCap = 'round'; ctx.shadowColor = f.tint; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.moveTo(lean * 20, hipY); ctx.lineTo(lean * 26, shY); ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(r.lean * 20, hipY); ctx.lineTo(tx, shY); ctx.stroke(); ctx.shadowBlur = 0;
     // back arm
-    drawArm(lean * 26, shY, armBack, elbowB, lw, shade(f.col, -25), null);
-    // head
-    drawHead(lean * 26, headY, f);
-    // front arm (+ weapon)
+    drawArm(tx, shY, r.aB, r.eB, lw, shade(f.col, -25), null);
+    // head (tilts with rig.head)
+    drawHead(tx + r.head * 5, headY, f, r.head);
+    // front arm + weapon → returns the local blade tip
     const wpn = { katana: 46, tanto: 30, nodachi: 62 }[f.weapon] || 44;
-    drawArm(lean * 26, shY, armFront, elbowF, lw, f.col, { len: wpn * (f.glow > 0 ? 1.2 : 1), ang: swordA, glow: f.glow > 0, tint: f.tint, spin: st === 'special' });
+    const tip = drawArm(tx, shY, r.aF, r.eF, lw, f.col, { len: wpn * (f.glow > 0 ? 1.2 : 1), ang: r.sw, glow: f.glow > 0, tint: f.tint, spin: f.state === 'special' });
     ctx.restore();
 
-    // combo/blocked cue handled in HUD; nothing else here
+    // record the blade tip in WORLD space (x is world, y is screen — no vertical scroll) for the streak
+    if (tip && !f.dead) { const c = Math.cos(rot), s = Math.sin(rot), px = tip.bx * fc, py = tip.by;
+      f.trail.unshift({ x: f.x + (px * c - py * s), y: gy + (px * s + py * c) }); if (f.trail.length > 9) f.trail.pop(); }
+    else if (f.trail.length) f.trail.pop();
+  }
+  // blade streak — additive, alpha scaled by tip speed so only fast swings smear (idle stays clean)
+  function drawTrail(f) {
+    const tr = f.trail; if (tr.length < 2) return;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    for (let i = 0; i < tr.length - 1; i++) { const a = tr[i], b = tr[i + 1]; const spd = Math.hypot(a.x - b.x, a.y - b.y);
+      const al = (1 - i / tr.length) * clamp(spd / 30, 0, 1); if (al < 0.03) continue;
+      ctx.strokeStyle = (f.glow > 0 ? 'rgba(255,240,180,' : 'rgba(206,240,255,') + al.toFixed(3) + ')';
+      ctx.lineWidth = (1 - i / tr.length) * 9 + 1; ctx.shadowColor = f.glow > 0 ? '#ffd23b' : f.tint; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.moveTo(a.x - G.cam.x, a.y); ctx.lineTo(b.x - G.cam.x, b.y); ctx.stroke(); }
+    ctx.restore();
   }
   function footPt(hip, knee, hipY) { const thigh = 24, shin = 22; const kx = Math.sin(hip) * thigh, ky = hipY + Math.cos(hip) * thigh;
     const fx2 = kx + Math.sin(hip + knee) * shin, fy = ky + Math.cos(hip + knee) * shin; return { kx, ky, fx: fx2, fy }; }
@@ -382,10 +434,12 @@
       ctx.shadowColor = weapon.glow ? '#ffd23b' : weapon.tint; ctx.shadowBlur = weapon.spin ? 26 : 12;
       ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(bx, by); ctx.stroke();
       // guard
-      ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - Math.cos(a) * 5, hy + Math.sin(a) * 5); ctx.lineTo(hx + Math.cos(a) * 5, hy - Math.sin(a) * 5); ctx.stroke(); ctx.restore(); }
+      ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - Math.cos(a) * 5, hy + Math.sin(a) * 5); ctx.lineTo(hx + Math.cos(a) * 5, hy - Math.sin(a) * 5); ctx.stroke(); ctx.restore();
+      return { bx, by }; }
+    return null;
   }
-  function drawHead(x, y, f) {
-    ctx.save(); ctx.translate(x, y);
+  function drawHead(x, y, f, tilt) {
+    ctx.save(); ctx.translate(x, y); if (tilt) ctx.rotate(clamp(tilt, -0.6, 0.6));
     ctx.fillStyle = f.col; ctx.shadowColor = f.tint; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(0, 0, 11, 0, 6.28); ctx.fill(); ctx.shadowBlur = 0;
     // headband + ribbons
     ctx.fillStyle = f.tint; ctx.fillRect(-11, -4, 22, 5);
