@@ -252,12 +252,13 @@
     <span class="key desk"><kbd>WASD</kbd> move</span>
     <span class="key desk"><kbd>MOUSE</kbd> look</span>
     <span class="key desk"><kbd>LMB</kbd> fire</span>
-    <span class="key desk"><kbd>RMB</kbd> reload · aim (rifle)</span>
-    <span class="key desk"><kbd>⇧</kbd> sprint</span>
-    <span class="key desk"><kbd>SPC</kbd> jump</span>
-    <span class="key desk"><kbd>R</kbd> reload</span>
+    <span class="key desk"><kbd>RMB</kbd> aim / zoom</span>
+    <span class="key desk"><kbd>⇧</kbd> run</span>
+    <span class="key desk"><kbd>ALT</kbd> jump</span>
+    <span class="key desk"><kbd>MMB</kbd> · <kbd>R</kbd> reload</span>
     <span class="key desk"><kbd>1-4</kbd> weapon</span>
-    <span class="key touch">left: move stick (full tilt = sprint) · right: drag to look · hold FIRE / ADS · tap weapon chips</span>
+    <span class="key touch">left: move stick (full tilt = run) · right: drag to look · hold FIRE / ADS · tap weapon chips</span>
+    <span class="key" style="opacity:.72">arena wall art: <a href="https://darkfarms.wtf" target="_blank" rel="noopener noreferrer" style="color:#2bff80;text-decoration:underline">DarkFarms</a> · CC0</span>
   </div>
 
   <!-- LOBBY / WAGER -->
@@ -831,7 +832,7 @@
     tint:opt.tint||[120,200,220], team:opt.team, verified:!!opt.verified, kills:0, deaths:0,
     weapon:opt.weapon||0, mag:0, fireT:0, reloadT:0, reloading:false, triggerConsumed:false, spawnT:0, iframe:0, respawnT:0,
     onGround:true, boost:1, state:'patrol', aiT:0, tgt:null, wp:null, strafe:1, strafeT:0, reactT:0, seenT:0, wantFire:false, bob:0, moving:false,
-    recoil:0, muzzle:0, scoped:false, killStreak:0,
+    recoil:0, muzzle:0, scoped:false, ads:false, killStreak:0,
     cardDmg:1, cardRate:1, cardSpeed:1, cardArmor:0, cardAmp:1, surgeT:0, overdrive:false, sigGun:'', gait:0 }; }
 
   // weapon definitions
@@ -936,7 +937,7 @@
       G.shake=Math.max(G.shake, w.kick*1.3);                 // pistol tiny · smg small · shotgun/sniper bigger
       G.fireFlash=1; G.fireHeavy=heavy; G.fireCol = w.key==='sniper'?[210,235,255]:[255,224,150]; }
     else SFX[w.sfx]&&(Math.hypot(e.x-cam.x,e.z-cam.z)<26)&&SFX[w.sfx]();
-    const scopeAcc=(e.isMe&&e.scoped)?0.35:1;
+    const scopeAcc=(e.isMe&&e.scoped)?0.35:((e.isMe&&e.ads)?0.55:1);
     for(let p=0;p<w.pellets;p++){
       const sp=w.spread*scopeAcc; const ay=e.yaw+rnd(sp,-sp)+(e.isMe?0:rnd(0.03,-0.03)); const ap=e.pitch+rnd(sp,-sp)+(e.isMe?0:rnd(0.022,-0.022));
       const d=lookDir(ay,ap); const hit=raycast(mo.x,mo.y,mo.z, d.x,d.y,d.z, w.range, e);
@@ -1043,7 +1044,7 @@
     const wantSprint=(keys['shift']||touch.sprint) && fwd>0.1;
     if(wantSprint && e.boost>0.02){ e.sprinting=true; e.boost=Math.max(0,e.boost-dt*0.42); }
     else { e.sprinting=false; e.boost=Math.min(1,e.boost+dt*0.3); }
-    const spd=(e.sprinting?7.0:4.3)*(e.scoped?0.5:1)*(e.cardSpeed||1);
+    const spd=(e.sprinting?7.0:4.3)*(e.scoped?0.5:(e.ads?0.72:1))*(e.cardSpeed||1);
     const s=Math.sin(e.yaw), c=Math.cos(e.yaw);
     let mx=(s*fwd + c*strafe), mz=(c*fwd - s*strafe); const ml=Math.hypot(mx,mz);
     const mag=Math.min(1,ml);   // analog stick magnitude (keys always saturate to 1)
@@ -1051,14 +1052,14 @@
       if(e.onGround){ e._stepT=(e._stepT||0)-dt; if(e._stepT<=0){ e._stepT=e.sprinting?0.28:0.4; SFX.step(); } } }
     else e.moving=false;
     // jump
-    if((keys[' ']||touch.jump) && e.onGround){ e.vy=JUMP; e.onGround=false; touch.jump=false; SFX.jump(); }
+    if((keys[' ']||keys['alt']||touch.jump) && e.onGround){ e.vy=JUMP; e.onGround=false; touch.jump=false; SFX.jump(); }
     // fire
     const w=WEAPONS[e.weapon];
     const wantFire=(mouse.left||keys['control']||touch.fire);
     if(wantFire){ if(w.auto){ if(e.fireT<=0)fireWeapon(e); } else { if(!e.triggerConsumed){ fireWeapon(e); e.triggerConsumed=true; } } }
     else e.triggerConsumed=false;
     // scope (right mouse hold / touch handled elsewhere)
-    e.scoped=(mouse.right||touch.scope) && w.zoom>1 && e.alive;
+    e.ads=(mouse.right||touch.scope) && e.alive; e.scoped=e.ads && w.zoom>1;   // RMB aims in on every gun; true optical scope only on the rifle
   }
 
   // ══════════════════ MAIN STEP ══════════════════
@@ -1094,7 +1095,7 @@
     for(const dc of G.decals) dc.life-=dt; G.decals=G.decals.filter(dc=>dc.life>0);
     if(G.hitmark>0)G.hitmark-=dt; if(G.dmgFlash>0)G.dmgFlash=Math.max(0,G.dmgFlash-dt*1.6);
     // scope fov animate
-    G.scopeZoom = lerp(G.scopeZoom||1, (G.me&&G.me.scoped)?WEAPONS[G.me.weapon].zoom:1, Math.min(1,dt*12));
+    G.scopeZoom = lerp(G.scopeZoom||1, (G.me&&G.me.ads)?(WEAPONS[G.me.weapon].zoom>1?WEAPONS[G.me.weapon].zoom:1.3):1, Math.min(1,dt*12));   // hip guns get a mild 1.3× ADS; rifle uses its scope zoom
     G.timeLeft-=dt;
     if(!G.over && G.timeLeft<=0) endMatch();
   }
@@ -1474,10 +1475,9 @@
   cv.addEventListener('mousedown',e=>{ if(G.mode==='pause'){ resume(); return; }
     if(G.mode!=='play') return; if(!locked){ tryLock(); return; }
     if(e.button===0) mouse.left=true;
-    if(e.button===2){ mouse.right=true;
-      // RMB = reload on everything that doesn't scope; the LONG RIFLE keeps RMB for its glass
-      const me=G.me; if(me&&me.alive&&WEAPONS[me.weapon].zoom<=1) startReload(me);
-    } });
+    else if(e.button===2) mouse.right=true;                                    // RMB = aim/zoom (handled in step via e.ads)
+    else if(e.button===1){ e.preventDefault(); startReload(G.me); }            // MIDDLE mouse (wheel click) = reload
+  });
   addEventListener('mouseup',e=>{ if(e.button===0)mouse.left=false; if(e.button===2)mouse.right=false; });
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   // headless-test/debug peephole (read-only snapshot + a drain helper so reload can be
@@ -1565,6 +1565,7 @@
     G.__weapKey=(WEAPONS[G.me.weapon]||{}).key||'smg';                     // tell the GL viewmodel which gun
     const _rw=WEAPONS[G.me.weapon];                                        // 0..1 reload progress → GL reload animation
     G.__reloadP=(G.me.reloading&&_rw&&_rw.reload)?1-G.me.reloadT/_rw.reload:-1;
+    G.__ads=!!(G.me.ads && _rw && _rw.zoom<=1);                            // hip-fire ADS → pull the GL viewmodel toward the sightline
     try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
     ctx.clearRect(0,0,W,H);
     // world-space effects on the transparent overlay — sync the 2D projection to the GL camera so they land correctly

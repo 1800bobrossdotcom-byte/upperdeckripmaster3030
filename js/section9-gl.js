@@ -155,6 +155,69 @@ window.GLR = (function () {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; }
 
+  // ── DarkFarms cards as arena wall-art. CC0 — credit: darkfarms.wtf. The images
+  //    are DISPLAYED live from DarkFarms' own permanent Arweave storage (not copied
+  //    into this repo); a themed card-back is drawn as the fallback so a wall is
+  //    never blank if a fetch/CORS load fails. Attribution shown in-game + CREDITS.md. ──
+  const DARKFARMS = [
+    '-lIrnWW_8qHmHPuxtjB1K10OKJSo2OsmZApluUAy6HI', '1rAArvT-RVdUYm0tm3nPpSRjGBCBnu1WL3RPb3cHJFk',
+    '70lM_ct0FJx7EoZjFfF49E0hpl_AXf939vrGTuDv3As', '7p1zzHKsmZbLuM8tzlC3GDOe-L543rsDkJcBfNDdjyA',
+    '9jYORfFqwwrtecM9xrEKD3LlVRuWcxLIX1nDdh9vB48', '9uD0330Wcr0MhG3nG5NeVg7YkyKgL_kLkiAMHkrKagM',
+    '9w3jBtRZqAik8t-yGxfEZOO2FR4xfUp3_q42GfDSBH4', 'A_D7G-HZYo5rdvckeA0rGTt5Zyy0K8LcJEkEGn2xRuw',
+  ];
+  function drawCardBack(x, S) { x.fillStyle = '#0a2417'; x.fillRect(0, 0, S, S);
+    x.strokeStyle = 'rgba(43,255,128,0.35)'; x.lineWidth = S * 0.03; x.strokeRect(S * 0.06, S * 0.06, S * 0.88, S * 0.88);
+    x.fillStyle = 'rgba(43,255,128,0.5)'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = 'bold ' + (S * 0.18) + 'px Arial'; x.fillText('◈', S / 2, S * 0.42);
+    x.font = 'bold ' + (S * 0.075) + 'px monospace'; x.fillText('DARKFARMS', S / 2, S * 0.62); }
+  function makeImgTex(url) {
+    const t = makeTex(128, drawCardBack);   // themed fallback until (or unless) the real image loads
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => { try {
+      gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    } catch (e) {} };
+    img.onerror = () => {}; img.src = url;
+    return t;
+  }
+  // a poster quad (STRIDE format) centered at C, spanning right-vec R × up, normal N
+  function posterQuad(a, C, R, N, hw, hh, col) {
+    const P = (sr, su) => [C[0] + R[0] * hw * sr, C[1] + hh * su, C[2] + R[2] * hw * sr];
+    const bl = P(-1, -1), br = P(1, -1), tr = P(1, 1), tl = P(-1, 1);
+    const push = (p, u, v) => a.push(p[0], p[1], p[2], N[0], N[1], N[2], u, v, col[0], col[1], col[2]);
+    push(bl, 0, 0); push(br, 1, 0); push(tr, 1, 1); push(bl, 0, 0); push(tr, 1, 1); push(tl, 0, 1);
+  }
+  let posters = null;
+  function buildPosters(MAP) {
+    if (posters) { if (posters.frameVBO) gl.deleteBuffer(posters.frameVBO); for (const c of posters.cards) gl.deleteBuffer(c.vbo); }
+    const hw = 0.72, hh = 1.0, off = 0.07;   // ~5:7 card, off the wall face
+    const walls = [
+      { ax: 'x', fixed: MAP.z0, n: [0, 0, 1],  R: [1, 0, 0] },
+      { ax: 'x', fixed: MAP.z1, n: [0, 0, -1], R: [1, 0, 0] },
+      { ax: 'z', fixed: MAP.x0, n: [1, 0, 0],  R: [0, 0, 1] },
+      { ax: 'z', fixed: MAP.x1, n: [-1, 0, 0], R: [0, 0, 1] },
+    ];
+    const frameA = [], cards = []; let idx = 0;
+    for (const w of walls) {
+      const lo = w.ax === 'x' ? MAP.x0 : MAP.z0, hi = w.ax === 'x' ? MAP.x1 : MAP.z1;
+      for (const f of [0.34, 0.66]) {
+        const t = lo + (hi - lo) * f;
+        const C = w.ax === 'x' ? [t, 1.95, w.fixed + w.n[2] * off] : [w.fixed + w.n[0] * off, 1.95, t];
+        const ptex = tex.posters[idx % tex.posters.length]; idx++;
+        const ca = []; posterQuad(ca, C, w.R, w.n, hw, hh, [1, 1, 1]);
+        const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ca), gl.STATIC_DRAW);
+        cards.push({ tex: ptex, vbo: b, count: ca.length / STRIDE });
+        const Cf = w.ax === 'x' ? [t, 1.95, w.fixed + w.n[2] * (off - 0.02)] : [w.fixed + w.n[0] * (off - 0.02), 1.95, t];
+        posterQuad(frameA, Cf, w.R, w.n, hw + 0.1, hh + 0.12, [0.03, 0.05, 0.04]);
+      }
+    }
+    const fb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, fb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(frameA), gl.STATIC_DRAW);
+    posters = { frameVBO: fb, frameCount: frameA.length / STRIDE, cards };
+  }
+
   // ── geometry emit ──
   function quad(a, p0, p1, p2, p3, n, su, sv, col) {
     const v = (p, u, w) => { a.push(p[0], p[1], p[2], n[0], n[1], n[2], u, w, col[0], col[1], col[2]); };
@@ -191,6 +254,7 @@ window.GLR = (function () {
     quad(A.floor, [MAP.x0, 0, MAP.z0], [MAP.x1, 0, MAP.z0], [MAP.x1, 0, MAP.z1], [MAP.x0, 0, MAP.z1], [0, 1, 0], (MAP.x1 - MAP.x0) / TILE.floor, (MAP.z1 - MAP.z0) / TILE.floor, WHITE);
     for (const b of MAP.solids) { const m = matForKind(b.kind); box(A[m], b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, TILE[m], WHITE); }
     for (const k of MATS) if (A[k].length) buffers[k] = makeVBO(A[k]);
+    buildPosters(MAP);
   }
 
   // ── oriented geometry for rigs (limb boxes + axis boxes) ──
@@ -262,7 +326,9 @@ window.GLR = (function () {
     const rp = (typeof G.__reloadP === 'number' && G.__reloadP >= 0) ? Math.min(1, G.__reloadP) : -1;
     const bell = rp >= 0 ? Math.sin(rp * Math.PI) : 0;
     const magDrop = rp >= 0 ? -0.24 * Math.sin(Math.min(1, rp * 1.45) * Math.PI) : 0;
-    const ox = 0.17 + bx + sway + bell * 0.05, oy = -0.23 + by - kick * 0.015 - bell * 0.11, oz = -0.44 + kick * 0.05 + bell * 0.06;   // gun anchor (lower-right, close) in view space
+    // ADS: as the FOV zooms (scopeZoom 1→1.3 on hip guns), pull the gun to the sightline
+    const adsAmt = Math.max(0, Math.min(1, ((G.scopeZoom || 1) - 1) / 0.3));
+    const ox = (0.17 + bx + sway + bell * 0.05) * (1 - adsAmt * 0.82), oy = -0.23 + by - kick * 0.015 - bell * 0.11 + adsAmt * 0.115, oz = -0.44 + kick * 0.05 + bell * 0.06 - adsAmt * 0.05;   // gun anchor (lower-right, close) in view space
     const metal = [0.14, 0.15, 0.17], wood = [0.5, 0.34, 0.18], rail = [0.09, 0.09, 0.11], glove = [0.22, 0.21, 0.19], skin = [0.72, 0.55, 0.42], ir = [0.6, 0.3, 0.28];
     const long = key === 'sniper', pistol = key === 'pistol', shotgun = key === 'shotgun';
     const bl = pistol ? 0.16 : (long ? 0.34 : 0.24);     // barrel length forward from receiver front
@@ -309,6 +375,7 @@ window.GLR = (function () {
     skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon', 'uSunDir', 'uYaw', 'uPitch', 'uAspect', 'uFov', 'uT'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
     tex.wall = makeTex(256, drawWall); tex.floor = makeTex(256, drawFloor); tex.crate = makeTex(256, drawCrate); tex.ammo = makeTex(256, drawAmmo); tex.white = whiteTex();
     tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch); tex.shadow = makeTex(64, drawShadow);
+    tex.posters = DARKFARMS.map(t => makeImgTex('https://arweave.net/' + t));   // CC0 wall-art, darkfarms.wtf
     dynBuf = gl.createBuffer();
     skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
@@ -348,6 +415,13 @@ window.GLR = (function () {
     for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.uniform1f(loc.uGloss, GLOSS[k]); gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
     const ea = buildEntities(G);
     if (ea.length) { gl.uniform1f(loc.uGloss, 0.28); gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
+    // ── DarkFarms wall-art posters (CC0 · darkfarms.wtf): dark frame, then each card ──
+    if (posters) {
+      gl.uniform1f(loc.uGloss, 0.04); gl.bindTexture(gl.TEXTURE_2D, tex.white);
+      gl.bindBuffer(gl.ARRAY_BUFFER, posters.frameVBO); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, posters.frameCount);
+      gl.uniform1f(loc.uGloss, 0.12);
+      for (const c of posters.cards) { gl.bindTexture(gl.TEXTURE_2D, c.tex); gl.bindBuffer(gl.ARRAY_BUFFER, c.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, c.count); }
+    }
     // ── blended ground work: blob shadows under operatives, then bullet/laser decals.
     //    Depth-tested against the world (stick + occlude), no depth write. ──
     const D = buildDecals(G); const SH = buildShadows(G);
