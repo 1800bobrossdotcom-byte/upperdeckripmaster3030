@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CLOUD RACER · upperdeckripmaster3030</title>
+<meta name="description" content="An anti-gravity meme pod-racer through fluffy clouds — pepes and wojacks on the grid. Ante $UR3030, stake your cards, and take the podium. WipEout, but you fly the clouds.">
+<meta name="theme-color" content="#0a1030">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="/gate.js"></script>
+<script src="/banner.js" defer></script>
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/wallet-ui.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/card-hover.js"></script>
+<script src="js/arena-lobby.js"></script>
+<script src="js/wager-payout.js"></script>
+<script src="js/card-powers.js"></script>
+<script src="js/cloudracer-gl.js"></script>
+<script src="cards/arena-net.js"></script>
+<style>
+  :root{ --lime:#2bff80; --cyan:#3df0ff; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
+    --ink:#dff2ff; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; background:#0a1030; color:var(--ink); font-family:var(--mono); }
+  #gl{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  .hidden{ display:none!important; }
+  /* HUD */
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:5; }
+  .h-tl{ position:absolute; top:14px; left:16px; }
+  .h-tr{ position:absolute; top:14px; right:16px; text-align:right; }
+  .h-spd{ position:absolute; bottom:18px; right:22px; text-align:right; }
+  .h-spd .n{ font-family:var(--fat); font-size:54px; line-height:.9; color:#fff; text-shadow:0 0 18px rgba(61,240,255,.7); }
+  .h-spd .u{ font-size:12px; letter-spacing:.28em; color:var(--cyan); }
+  .lap{ font-family:var(--fat); font-size:22px; color:#fff; text-shadow:0 0 12px rgba(0,0,0,.6); }
+  .lap small{ font-size:12px; color:var(--cyan); letter-spacing:.14em; }
+  .place{ font-family:var(--fat); font-size:40px; color:var(--amber); text-shadow:0 0 14px rgba(255,210,59,.5); }
+  .place small{ font-size:13px; color:#cfe9d8; }
+  .boost{ position:absolute; bottom:20px; left:22px; width:180px; }
+  .boost .lbl{ font-size:10px; letter-spacing:.2em; color:var(--lime); margin-bottom:4px; }
+  .boost .bar{ height:12px; border-radius:7px; background:rgba(0,0,0,.5); border:1px solid rgba(43,255,128,.4); overflow:hidden; }
+  .boost .bar i{ display:block; height:100%; width:100%; background:linear-gradient(90deg,#0fae56,#2bff80,#8bffbb); transition:width .1s; }
+  .pos{ position:absolute; top:64px; right:16px; font-size:11px; line-height:1.55; text-align:right; }
+  .pos .r{ opacity:.85; } .pos .r.me{ color:var(--amber); font-family:var(--fat); }
+  .pilot{ position:absolute; bottom:18px; left:212px; width:56px; height:56px; border-radius:12px; overflow:hidden;
+    border:2px solid rgba(61,240,255,.6); box-shadow:0 0 18px rgba(61,240,255,.3); background:#0a1030; }
+  .pilot img{ width:100%; height:100%; display:block; }
+  .cd{ position:fixed; inset:0; display:grid; place-items:center; z-index:8; pointer-events:none; }
+  .cd b{ font-family:var(--fat); font-size:19vw; color:#fff; text-shadow:0 0 40px rgba(61,240,255,.8),0 0 8px rgba(255,42,217,.6); animation:cdPop .9s ease both; }
+  @keyframes cdPop{ from{ transform:scale(2.4); opacity:0; } 60%{ opacity:1; } to{ transform:scale(1); opacity:0; } }
+  .toast{ position:fixed; left:50%; top:16%; transform:translateX(-50%); z-index:9; font-family:var(--fat); font-size:26px; color:#fff;
+    text-shadow:0 0 22px rgba(255,42,217,.8); opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show{ opacity:1; }
+  /* overlays (lobby / result) — same family as the other cabinets */
+  .ov{ position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:18px; overflow-y:auto;
+    background:radial-gradient(120% 100% at 50% -10%,#14184a 0%,#0a1030 55%,#05061a 100%); }
+  .ov.show{ display:grid; }
+  .panel{ width:min(560px,96vw); border:1px solid rgba(61,240,255,.4); border-radius:16px; padding:20px 20px 16px;
+    background:rgba(6,10,32,.86); box-shadow:0 30px 90px -20px #000, inset 0 0 40px rgba(61,240,255,.05); text-align:center; }
+  h1{ font-family:var(--fat); font-size:40px; letter-spacing:.02em; line-height:.95;
+    background:linear-gradient(180deg,#fff,#8bd8ff 45%,#3df0ff 70%,#ff2ad9); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 4px 14px rgba(61,240,255,.35)); }
+  .tag{ font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--cyan); margin:6px 0 4px; }
+  .sub{ font-size:12px; line-height:1.6; color:#a9c8e6; margin:8px auto 14px; max-width:440px; }
+  .sub b{ color:#fff; }
+  .wrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 2px; }
+  .wlbl{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:#9fc; }
+  .step{ display:inline-flex; align-items:center; gap:8px; }
+  .step button{ width:34px; height:34px; border-radius:9px; cursor:pointer; border:1px solid rgba(61,240,255,.4); background:rgba(61,240,255,.1); color:#fff; font-family:var(--fat); font-size:16px; }
+  .step .val{ min-width:56px; font-family:var(--fat); font-size:17px; color:var(--amber); }
+  .pchip,.lchip{ display:inline-grid; place-items:center; min-width:30px; height:30px; padding:0 8px; border-radius:8px; cursor:pointer; margin:0 2px;
+    border:1px solid rgba(61,240,255,.35); background:rgba(6,10,32,.6); color:#bfe; font-size:13px; }
+  .pchip.on,.lchip.on{ background:var(--lime); color:#04140b; border-color:var(--lime); }
+  #cardGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(74px,1fr)); gap:8px; max-height:200px; overflow-y:auto; padding:6px 2px; margin:6px 0; }
+  .tile{ position:relative; border:2px solid var(--rc,#345); border-radius:9px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; background:#0a1030;
+    transition:transform .13s, box-shadow .13s; }
+  @media(hover:hover){ .tile:hover{ transform:translateY(-4px) scale(1.12); z-index:6; box-shadow:0 12px 26px rgba(0,0,0,.6),0 0 20px rgba(61,240,255,.4); } }
+  .tile.sel{ transform:translateY(-3px) scale(1.05); box-shadow:0 0 0 2px var(--lime),0 0 20px rgba(43,255,128,.6); }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .rr{ position:absolute; top:3px; right:3px; font-size:7px; font-family:var(--fat); text-transform:uppercase; background:rgba(0,0,0,.6); color:#fff; padding:1px 4px; border-radius:4px; }
+  .tile .mult{ position:absolute; top:3px; left:3px; font-size:8px; font-family:var(--fat); background:rgba(0,0,0,.6); color:var(--amber); padding:1px 4px; border-radius:4px; }
+  .tile .stk{ position:absolute; bottom:2px; right:3px; font-size:9px; font-family:var(--fat); color:var(--lime); }
+  .cardsInfo{ font-size:11px; color:#9fc; margin:2px 0 6px; }
+  .pot{ font-family:var(--fat); font-size:16px; color:#fff; margin:6px 0; }
+  .pot .c{ color:var(--magenta); }
+  .roster{ font-size:11px; color:#9fe6c8; margin:4px auto 2px; }
+  .go{ display:block; width:100%; margin:8px 0 0; cursor:pointer; font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em;
+    padding:14px; border-radius:11px; border:2px solid #061; color:#04140b; background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); box-shadow:0 4px 0 #061; }
+  .go.alt{ background:linear-gradient(180deg,#8bd8ff,#3df0ff 55%,#1786c8); border-color:#046; box-shadow:0 4px 0 #046; }
+  .go:active{ transform:translateY(2px); box-shadow:none; }
+  .mininote{ font-size:10.5px; color:#7f9; line-height:1.5; margin-top:8px; }
+  .back{ position:fixed; top:12px; left:14px; z-index:22; font-size:12px; color:#9fe6c8; text-decoration:none; }
+  .back:hover{ color:var(--lime); }
+  /* result */
+  .prize{ font-family:var(--fat); font-size:30px; margin:6px 0; }
+  .prizeSub{ font-size:12px; color:#a9c8e6; }
+  .board{ margin:12px 0; font-size:12px; }
+  .board .r{ display:flex; justify-content:space-between; padding:4px 8px; border-radius:6px; }
+  .board .r.me{ background:rgba(255,210,59,.14); color:var(--amber); font-family:var(--fat); }
+  .board .r .k{ color:var(--cyan); }
+  .wonCards{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
+  .wonCards .tile{ width:44px; height:58px; aspect-ratio:auto; }
+  .ctrls{ position:fixed; bottom:6px; left:50%; transform:translateX(-50%); z-index:5; font-size:10px; letter-spacing:.05em; color:#8fb; opacity:.8; pointer-events:none; }
+  /* touch pads */
+  .pad{ position:fixed; z-index:6; width:74px; height:74px; border-radius:50%; display:none; place-items:center; user-select:none; touch-action:none;
+    font-family:var(--fat); font-size:11px; color:#04140b; background:rgba(61,240,255,.25); border:2px solid rgba(61,240,255,.6); }
+  @media (hover:none){ .pad{ display:grid; } .ctrls{ display:none; } }
+  .pL{ left:18px; bottom:90px; } .pR{ left:104px; bottom:90px; } .pBoost{ right:18px; bottom:120px; background:rgba(43,255,128,.3); border-color:var(--lime); } .pBrake{ right:104px; bottom:70px; background:rgba(255,107,87,.3); border-color:var(--coral); }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<a class="back" href="index.html">◀ back to the pack</a>
+
+<div id="hud" class="hidden">
+  <div class="h-tl"><div class="lap"><span id="lapN">1</span><small>/<span id="lapT">3</span> LAP</small></div>
+    <div class="place"><span id="placeN">1</span><small id="placeOf">/ 6</small></div></div>
+  <div class="pos" id="posList"></div>
+  <div class="boost"><div class="lbl">BOOST</div><div class="bar"><i id="boostBar"></i></div></div>
+  <div class="pilot"><img id="pilotImg" alt=""></div>
+  <div class="h-spd"><div class="n" id="spdN">0</div><div class="u">KM/H</div></div>
+</div>
+<div class="cd hidden" id="cd"><b id="cdB">3</b></div>
+<div class="toast" id="toast"></div>
+<div class="ctrls">◀ ▶ steer · <b>W/⇧</b> boost · <b>SPACE</b> airbrake</div>
+<div class="pad pL" id="padL">◀</div><div class="pad pR" id="padR">▶</div>
+<div class="pad pBoost" id="padBoost">BOOST</div><div class="pad pBrake" id="padBrake">BRAKE</div>
+
+<!-- LOBBY -->
+<div class="ov show" id="ovLobby">
+  <div class="panel">
+    <h1>CLOUD RACER</h1>
+    <div class="tag">anti-grav meme pod racing · take the podium</div>
+    <div class="sub">Blast a hover-pod through <b>fluffy clouds</b> on a banked sky-circuit — <b>pepes &amp; wojacks</b> on the grid. Everyone antes <b>$UR3030</b> and stakes cards into one pot; a small rake burns and the <b>podium (1st/2nd/3rd)</b> splits the rest. Boost the light-strips, ride the airbrakes, cross the line first.</div>
+    <div class="wrow"><span class="wlbl">◆ Ante · $UR3030 each</span>
+      <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
+    <div class="wrow"><span class="wlbl">◆ Cards staked each</span>
+      <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
+    <div class="wrow"><span class="wlbl">▤ Pilots on the grid</span><span id="pChips"></span></div>
+    <div class="wrow"><span class="wlbl">◈ Laps</span><span id="lChips"></span></div>
+    <div style="font-size:11px;color:#9fc;text-align:left;margin:6px 0 2px">Pick your <b id="pickN">2</b> cards for the pot — they arm your pod:</div>
+    <div id="cardGrid"></div>
+    <div class="cardsInfo" id="cardsInfo">0 owned</div>
+    <div class="pot" id="potLine"></div>
+    <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
+    <div class="roster" id="roster"></div>
+    <div><button class="go" id="btnAnte">🔥 Ante up &amp; race</button></div>
+    <div><button class="go alt" id="btnPractice">▶ Practice race (no stakes)</button></div>
+    <div class="mininote" id="lobNote"></div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="ov" id="ovResult">
+  <div class="panel">
+    <h1 id="resTitle">FINISH</h1>
+    <div class="tag" id="resTag"></div>
+    <div class="prize" id="prizeBig"></div>
+    <div class="prizeSub" id="prizeSub"></div>
+    <div class="wonCards" id="wonCards"></div>
+    <div class="board" id="board"></div>
+    <div class="mininote" id="scaNote"></div>
+    <div><button class="go" id="btnRematch">🔥 Ante up &amp; rematch</button></div>
+    <div><button class="go alt" id="btnLobby">▶ Back to the grid</button></div>
+  </div>
+</div>
+
+<script src="js/cloudracer.js"></script>
+</body>
+</html>
