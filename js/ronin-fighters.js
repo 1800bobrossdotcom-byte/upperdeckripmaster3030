@@ -18,6 +18,30 @@ window.RoninArt = (function () {
 
   const WLEN = { katana: 74, tanto: 44, nodachi: 104, club: 84, sickle: 40, light: 84 };
   function weaponKind(f) { return f.a && f.a.weaponArt ? f.a.weaponArt : (f.weapon || 'katana'); }
+  // 2-bone IK: given a hip and a foot target, solve the knee (bends toward +x = forward)
+  function ikLeg(hip, foot, L1, L2) {
+    let dx = foot.x - hip.x, dy = foot.y - hip.y, d = Math.hypot(dx, dy) || 0.001;
+    const maxD = L1 + L2 - 0.5, minD = Math.abs(L1 - L2) + 0.5;
+    if (d > maxD) { const k = maxD / d; dx *= k; dy *= k; foot = { x: hip.x + dx, y: hip.y + dy }; d = maxD; }
+    else if (d < minD) { const k = minD / d; dx *= k; dy *= k; foot = { x: hip.x + dx, y: hip.y + dy }; d = minD; }
+    const a = Math.atan2(dy, dx);
+    const B = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
+    const ka = a - B;                                          // knee kicks forward (+x)
+    return [hip, { x: hip.x + Math.cos(ka) * L1, y: hip.y + Math.sin(ka) * L1 }, foot];
+  }
+  // where each foot wants to be (local, y=0 is the floor). idle = braced stance, walk = a real gait.
+  function legFeet(f) {
+    const r = f.rig, st = f.state;
+    if (f.air || f.ragdoll || st === 'ko') return null;       // airborne / limp → angle-driven legs
+    let fx = 16, fy = 0, bx = -18, by = 0;
+    if (st === 'walk') { const ph = f.walkPh, stride = 18, lift = 14;
+      fx = 8 + Math.cos(ph) * stride; fy = -Math.max(0, Math.sin(ph)) * lift;
+      bx = -8 + Math.cos(ph + Math.PI) * stride; by = -Math.max(0, Math.sin(ph + Math.PI)) * lift; }
+    else if (st === 'kick') { const kp = Math.max(0, Math.min(1, r.hF / 1.6)); fx = 16 + kp * 60; fy = -kp * 50; bx = -20; }
+    else if (st === 'slash' || st === 'punch' || st === 'special') { fx = 22 + r.lean * 10; bx = -20; }   // lunge into the strike
+    else if (st === 'block') { fx = 12; bx = -22; }
+    return { front: { x: fx, y: fy }, back: { x: bx, y: by } };
+  }
   function skel(f) {
     const r = f.rig, bob = r.bob;
     const HIP = -58 - bob, CHEST = -106 - bob, HEADY = -140 - bob;
@@ -26,9 +50,10 @@ window.RoninArt = (function () {
     const pelvis = { x: r.lean * 8, y: HIP };
     const chest = { x: r.lean * 30 + hunch * 10, y: CHEST + hunch * 8 };
     const head = { x: chest.x + r.head * 8 + hunch * 6, y: HEADY + hunch * 10 };
-    const thigh = 40 * (build.legLen || 1), shin = 38 * (build.legLen || 1), upper = 34, fore = 30;
-    const legF = chain(pelvis, [r.hF, r.hF + r.kF], [thigh, shin]);
-    const legB = chain(pelvis, [r.hB, r.hB + r.kB], [thigh, shin]);
+    const thigh = 42 * (build.legLen || 1), shin = 40 * (build.legLen || 1), upper = 34, fore = 30;
+    const feet = legFeet(f); let legF, legB;
+    if (feet) { legF = ikLeg(pelvis, feet.front, thigh, shin); legB = ikLeg(pelvis, feet.back, thigh, shin); }
+    else { legF = chain(pelvis, [r.hF, r.hF + r.kF], [thigh, shin]); legB = chain(pelvis, [r.hB, r.hB + r.kB], [thigh, shin]); }
     const armF = chain(chest, [r.aF, r.aF + r.eF], [upper, fore]);
     const armB = chain(chest, [r.aB, r.aB + r.eB], [upper, fore]);
     const wlen = (WLEN[weaponKind(f)] || 70) * (f.glow > 0 ? 1.18 : 1);
@@ -41,12 +66,17 @@ window.RoninArt = (function () {
   function taper(ctx, a, b, w0, w1, col) { const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
     const path = () => { ctx.beginPath(); ctx.moveTo(a.x + nx * w0, a.y + ny * w0); ctx.lineTo(b.x + nx * w1, b.y + ny * w1);
       ctx.lineTo(b.x - nx * w1, b.y - ny * w1); ctx.lineTo(a.x - nx * w0, a.y - ny * w0); ctx.closePath(); };
-    ctx.fillStyle = col; path(); ctx.fill();
-    dot(ctx, a.x, a.y, w0, col); dot(ctx, b.x, b.y, w1, col);
-    // dark contour + a soft rim light on the lit edge — gives the limbs form against the neon
+    // volumetric shade across the limb — lit edge → core → shadow edge (a cylinder, not a flat slab)
+    let fill = col;
+    if (typeof col === 'string') { const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, w = (w0 + w1) / 2 + 1;
+      const g = ctx.createLinearGradient(mx + nx * w, my + ny * w, mx - nx * w, my - ny * w);
+      g.addColorStop(0, shade(col, 30)); g.addColorStop(0.5, col); g.addColorStop(1, shade(col, -34)); fill = g; }
+    ctx.fillStyle = fill; path(); ctx.fill();
+    dot(ctx, a.x, a.y, w0, typeof col === 'string' ? shade(col, 8) : col); dot(ctx, b.x, b.y, w1, typeof col === 'string' ? shade(col, 8) : col);
+    // dark contour + a soft rim light on the lit edge
     ctx.save(); ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,.24)'; ctx.lineWidth = 1.8; path(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.x + nx * w0 * 0.72, a.y + ny * w0 * 0.72); ctx.lineTo(b.x + nx * w1 * 0.72, b.y + ny * w1 * 0.72); ctx.stroke(); ctx.restore(); }
+    ctx.strokeStyle = 'rgba(0,0,0,.26)'; ctx.lineWidth = 1.8; path(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.20)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.x + nx * w0 * 0.72, a.y + ny * w0 * 0.72); ctx.lineTo(b.x + nx * w1 * 0.72, b.y + ny * w1 * 0.72); ctx.stroke(); ctx.restore(); }
   function limb(ctx, p, w0, w1, w2, col) { taper(ctx, p[0], p[1], w0, w1, col); taper(ctx, p[1], p[2], w1, w2, col); }
   function dot(ctx, x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill(); }
   function poly(ctx, pts, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); ctx.fill(); }
@@ -154,9 +184,10 @@ window.RoninArt = (function () {
     // KUNOICHI — lithe, long trailing scarf, hood + one eye, chain-sickle (kusarigama)
     kunoichi(ctx, f, K) { const c = f.col, ac = f.tint, dk = shade(c, -34), t = performance ? 0 : 0;
       shadowAt(ctx, K, 0.85);
-      // long scarf trailing behind (waves)
-      const nk = { x: K.chest.x - 4, y: K.chest.y - 10 }; ctx.strokeStyle = ac; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.shadowColor = ac; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.moveTo(nk.x, nk.y); ctx.quadraticCurveTo(nk.x - 34, nk.y - 6, nk.x - 46, nk.y + 20); ctx.quadraticCurveTo(nk.x - 52, nk.y + 40, nk.x - 40, nk.y + 54); ctx.stroke(); ctx.shadowBlur = 0;
+      // scarf trailing behind — shorter, softly waving
+      const wv = Math.sin((window.__rnT || 0) * 5) * 5;
+      const nk = { x: K.chest.x - 4, y: K.chest.y - 8 }; ctx.strokeStyle = ac; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.shadowColor = ac; ctx.shadowBlur = 7;
+      ctx.beginPath(); ctx.moveTo(nk.x, nk.y); ctx.quadraticCurveTo(nk.x - 22, nk.y - 2 + wv, nk.x - 30, nk.y + 16); ctx.quadraticCurveTo(nk.x - 34, nk.y + 28 - wv, nk.x - 26, nk.y + 36); ctx.stroke(); ctx.shadowBlur = 0;
       limb(ctx, K.legB, 8, 6, 5, dk); tabi(ctx, K.legB[2], -1, dk); limb(ctx, K.armB, 6, 5, 4, dk);
       // chain + weight off the back hand
       const bh = K.armB[2]; ctx.strokeStyle = '#9aa'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(bh.x, bh.y); ctx.quadraticCurveTo(bh.x - 18, bh.y + 16, bh.x - 30, bh.y + 30); ctx.stroke(); dot(ctx, bh.x - 30, bh.y + 30, 4, '#c8ccd6');
