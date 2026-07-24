@@ -16,7 +16,7 @@ mainnet launch.
 - **RARE is the reserve/base token** of the embedded liquidity pool; prices quoted in RARE.
 - Starter kit `github.com/superrare/liquid-editions-starter-kit` (Foundry): `ILiquid is
   IERC20Metadata` declaring `burn(uint256)`, `maxTotalSupply`, `poolLaunchSupply`,
-  `getCurrentPrice`, `getMarketState` (returns tokenPerRare, rarePerToken, sqrtPriceX96,
+  `getCurrentPrice`, `getMarketState` (returns rarePerToken, tokenPerRare, sqrtPriceX96,
   currentTick, liquidity, currentSupply), `quoteBuy`, `quoteSell`, `lpLiquidity`,
   `totalLiquidity`, `lpTickLower`, `lpTickUpper`, `tokenCreator`, `baseToken`.
   **No burn-progress getter — derive from maxTotalSupply vs currentSupply.**
