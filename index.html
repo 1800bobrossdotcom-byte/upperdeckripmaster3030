@@ -366,6 +366,7 @@
   .fcard.r-mythic img{ box-shadow:0 0 12px rgba(255,42,217,.55); }
   .fcard.r-prizm img{ box-shadow:0 0 14px rgba(39,247,228,.6); }
   .pack-actions{ display:flex; gap:12px; justify-content:center; margin-top:16px; }
+  .pack-actions[hidden]{ display:none; } /* the hidden attr must beat display:flex (busy/refusal screens) */
   /* honesty note — the pull saves locally today; only the token burn is on-chain */
   .pack-honesty{ max-width:520px; margin:16px auto 2px; padding-top:12px; text-align:center;
     border-top:1px dashed var(--phosdim); font-size:10.5px; line-height:1.6; letter-spacing:.02em;
