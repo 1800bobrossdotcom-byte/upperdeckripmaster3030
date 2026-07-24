@@ -113,8 +113,15 @@ window.Ronin3D = (function () {
   function orb(fm, x, y, z, sx, sy, sz, color, emis, alpha) { draw('sph', M.mul(fm, M.mul(M.T(x, -y, z), M.S(sx, sy, sz))), color, emis, alpha); }
   // rotated slab (cloth panel / scarf / shard) in local skeleton space
   function slab(fm, x, y, z, sx, sy, sz, rot, color, emis, alpha) { draw('cube', M.mul(fm, M.mul(M.mul(M.T(x, -y, z), M.Rz(rot)), M.S(sx, sy, sz))), color, emis, alpha); }
+  // ── world-space primitives for FX (not tied to a fighter matrix) ──
+  const clampf = (v, a, b) => Math.max(a, Math.min(b, v));
+  function xform(m, x, y, z) { return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]; }
+  function orb3(p, r, color, emis, alpha) { draw('sph', M.mul(M.T(p[0], p[1], p[2]), M.S(r * 2, r * 2, r * 2)), color, emis, alpha); }
+  function beam3(a, b, r, color, emis, alpha) {   // cylinder between two world points (segments assumed ~in the x-y plane)
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy, b[2] - a[2]) || 0.001, th = Math.atan2(dy, dx);
+    draw('cyl', M.mul(M.mul(M.T((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), M.Rz(th - PI / 2)), M.S(r * 2, L, r * 2)), color, emis, alpha); }
 
-  function fighterMatrix(f, mirror) { let fm = M.mul(M.mul(M.mul(M.T(f.x * SC, f.yLift * SC, 0), M.Ry(f.face < 0 ? PI : 0)), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
+  function fighterMatrix(f, mirror) { let fm = M.mul(M.mul(M.mul(M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC), M.Ry(f.face < 0 ? PI : 0)), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
     return mirror ? M.mul(M.S(1, -1, 1), fm) : fm; }
 
   // material picks per archetype: 1 cloth · 3 scale · 4 crystal · 5 skin · 7 wraps
@@ -124,6 +131,8 @@ window.Ronin3D = (function () {
 
   function drawFighter(f, mirror) {
     const K = RoninArt.skel(f); const fm = fighterMatrix(f, mirror);
+    if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
+      (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 11) f.trail3.pop(); }
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const col = sc(hex(f.col), dk), colB = sc(col, 0.82), tint = sc(hex(f.tint), dk);
     const bm = bodyMat(f), lm = limbMat(f);
@@ -135,9 +144,10 @@ window.Ronin3D = (function () {
     bit(fm, K.legF[2].x, K.legF[2].y, 22, 8, 15, sc([0.06, 0.06, 0.09], dk), 0.3, a); bit(fm, K.legB[2].x, K.legB[2].y, 20, 8, 14, sc([0.05, 0.05, 0.07], dk), 0.3, a);
     // cloak / scarf draped behind the torso
     archBack(fm, f, K, col, tint, a, dk);
-    // torso + hips/chest
+    // torso + hips/chest + a wrapped obi belt
     _mat = bm;
     ball(fm, K.pelvis, 13, col, 0, a); beam(fm, K.pelvis, K.chest, 14, col, 0, a); ball(fm, K.chest, 15, col, 0, a);
+    _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, sc(hex(f.tint), dk * 0.9), 0.12, a);
     // back arm
     _mat = lm;
     beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 6, colB, 0, a); ball(fm, K.armB[1], 6.5, colB, 0, a);
@@ -152,6 +162,10 @@ window.Ronin3D = (function () {
     const wm = bladeMat(f); _mat = wm;
     const blade = f.glow > 0 ? [1, 0.9, 0.5] : f.arch === 'prizm' ? [0.82, 0.6, 1] : [0.92, 0.97, 1];
     beam(fm, K.sword.hand, K.sword.tip, (f.glow > 0 || wm === 6) ? 5 : 3.5, wm === 6 ? blade : sc(blade, dk), wm === 6 ? 0.55 : 0.4, a);
+    // katana furniture — tsuba guard at the grip + a pommel (skip the light blade / club)
+    if (wm !== 6 && f.arch !== 'oni') { const sh = K.sword.hand, st = K.sword.tip, bl = Math.hypot(st.x - sh.x, st.y - sh.y) || 1, bx = (st.x - sh.x) / bl, by = (st.y - sh.y) / bl; _mat = 2;
+      orb(fm, sh.x + bx * 4, sh.y + by * 4, 0, 15, 4, 15, sc([0.74, 0.56, 0.22], dk), 0.15, a);   // tsuba disc
+      orb(fm, sh.x - bx * 7, sh.y - by * 7, 0, 6, 6, 6, sc([0.32, 0.24, 0.12], dk), 0.1, a); }     // pommel
     if (f.arch === 'oni') { const t = K.sword.tip; _mat = 2; for (const s of [-1, 1]) orb(fm, t.x, t.y, s * 4, 7, 7, 7, sc([0.3, 0.3, 0.34], dk), 0.2, a); }   // spiked club head
     _mat = 0;
     if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
@@ -190,7 +204,36 @@ window.Ronin3D = (function () {
       slab(fm, c.x + rx, c.y + ry, Math.sin(ang) * 9, 6, 22, 6, ang * 1.4, base, 0.55, a); }
     _mat = 0;
   }
-  function drawShadow(f) { const x = f.x * SC, r = 0.55; const m = M.mul(M.mul(M.T(x, 0.02, 0), M.S(r * 2.2, 1, r * 1.3)), M.ident());
+  // ── 3D combat FX (additive): blade streak, slash arcs, sparks, dust, ground shock ring ──
+  function drawTrail3(f) {
+    const tr = f.trail3; if (!tr || tr.length < 2) return;
+    const col = f.glow > 0 ? [1, 0.92, 0.55] : hex(f.tint || '#cfe0ff');
+    for (let i = 0; i < tr.length - 1; i++) { const a = tr[i], b = tr[i + 1];
+      const spd = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+      const al = (1 - i / tr.length) * clampf(spd / 0.16, 0, 1); if (al < 0.05) continue;
+      beam3(a, b, (1 - i / tr.length) * 0.085 + 0.02, col, 1, al * 0.9); }
+  }
+  function drawArc3(e, gY) {
+    const cx = e.x * SC, cy = (gY - e.y) * SC, rO = e.r * SC * 0.66, col = hex(e.col || '#eaf6ff'), fade = 1 - clampf(e.t / e.life, 0, 1);
+    const pt = th => { const px = e.face * Math.cos(th) * rO, py = Math.sin(th) * rO; return [cx + px, cy - py, 0]; };
+    const N = 9; let prev = pt(e.a0);
+    for (let i = 1; i <= N; i++) { const p = pt(e.a0 + (e.a1 - e.a0) * (i / N)), k = 1 - (i - 1) / N;
+      beam3(prev, p, 0.14 * k + 0.03, col, 1, 0.5 * fade);          // coloured glow
+      beam3(prev, p, 0.055 * k + 0.012, [1, 1, 1], 1, 0.9 * fade);  // bright white leading core
+      prev = p; }
+  }
+  function drawFx(G) {
+    const gY = G.groundY || 500, fx = G.fx || [];
+    for (const e of fx) {
+      if (e.kind === 'spark') { const k = 1 - e.t / e.life; orb3([e.x * SC, (gY - e.y) * SC, 0], e.r * SC * 2.4 * (0.55 + k * 0.6), hex(e.col), 1, k); }
+      else if (e.kind === 'dust') { const pr = e.t / e.life; orb3([e.x * SC, (gY - e.y) * SC, 0], e.r * SC * 1.5 * (1 + pr * 1.5), [0.52, 0.44, 0.62], 0.4, (1 - pr) * 0.26); }
+      else if (e.kind === 'arc') drawArc3(e, gY);
+    }
+    const s = G.shock;                                              // expanding ground shock ring at the impact
+    if (s) { const R = s.t * 10 + 0.3, al = Math.max(0, 1 - s.t / 0.5) * 0.8 * (s.str || 1), cx = (s.wx || 0) * SC, N = 26;
+      for (let i = 0; i < N; i++) { const a = i / N * TAU; orb3([cx + Math.cos(a) * R, 0.09, Math.sin(a) * R], 0.085 + s.t * 0.05, [1, 0.45, 0.9], 1, al); } }
+  }
+  function drawShadow(f) { const x = f.x * SC, r = 0.55; const m = M.mul(M.mul(M.T(x, 0.02, (f.z || 0) * SC), M.S(r * 2.2, 1, r * 1.3)), M.ident());
     if (curMesh !== 'quad') { bind('quad'); curMesh = 'quad'; }
     gl.uniformMatrix4fv(u(litProg, 'uMVP'), false, M.mul(VP, m)); gl.uniformMatrix4fv(u(litProg, 'uModel'), false, m);
     gl.uniform3fv(u(litProg, 'uColor'), [0, 0, 0]); gl.uniform1f(u(litProg, 'uEmis'), 1); gl.uniform1f(u(litProg, 'uMat'), 0); gl.uniform1f(u(litProg, 'uAlpha'), f.dead ? 0.15 : 0.42); gl.drawArrays(gl.TRIANGLES, 0, 6); }
@@ -228,6 +271,11 @@ window.Ronin3D = (function () {
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
       // 5. fighters
       for (const f of G.fighters) if (f) drawFighter(f, false);
+      // 6. combat FX — additive glow (blade streaks, slash arcs, sparks, dust, shock ring)
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false); _mat = 0;
+      for (const f of G.fighters) if (f && !f.dead) drawTrail3(f);
+      drawFx(G);
+      gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.flush(); return true;
     } catch (e) { ok = false; return false; }
   }

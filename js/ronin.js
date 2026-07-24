@@ -56,7 +56,7 @@
 
   // ── game state ──
   const wager = { ante: 50, cards: 2, players: 2, arch: 'ronin', picked: [] };   // NEON RONIN is a 1v1 duel
-  let G = null, keys = {}, touch = { mx: 0, jump: false, block: false }, running = false, last = 0, glowT = 0;
+  let G = null, keys = {}, touch = { mx: 0, mz: 0, jump: false, block: false }, running = false, last = 0, glowT = 0;
   let cardPow = 1, cardHpMul = 1, cardSpd = 1;
   const idc = () => Math.random().toString(36).slice(2, 8);
 
@@ -71,8 +71,8 @@
       // spring-driven skeleton — every channel has value+velocity so limbs carry momentum,
       // overshoot their target pose, and flail on impact (the Soul-Calibur weight). trail = blade tip streak.
       rig: { lean: 0, leanV: 0, head: 0, headV: 0, aF: -0.6, aFV: 0, eF: 0.5, eFV: 0, aB: 0.6, aBV: 0, eB: 0.5, eBV: 0,
-        hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: -0.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
-      trail: [] };
+        hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: 2.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
+      z: 0, zv: 0, trail: [] };
   }
 
   function startBrawl(real, forceMe, forceFoe) {
@@ -113,16 +113,43 @@
     G && G.pickups.push({ x, y: from ? -20 : 0, vy: from ? -180 : 0, type, bob: rnd(0, 6.28), t: 0 }); }
 
   // ── combat ──
+  // ── special combos: recent attack strings unlock named finishers ──
+  function pushSeq(f, kind) { const now = G ? G.t : 0; f.seq = (f.seq || []).filter(s => now - s.t < 1.1); f.seq.push({ k: kind, t: now }); if (f.seq.length > 5) f.seq.shift(); }
+  function detectCombo(f) { const s = (f.seq || []).map(x => x.k), n = s.length;
+    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'slash' && s[n - 3] === 'slash') return 'TEMPEST';        // slash·slash·slash → spinning nova cut
+    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'kick' && s[n - 3] === 'punch') return 'CREST WAVE';      // punch·kick·slash → sweeping crest
+    if (n >= 2 && s[n - 1] === 'kick' && s[n - 2] === 'punch') return 'DRAGON KICK';                             // punch·kick → launcher
+    return null; }
+  const COMBO = {
+    'TEMPEST':     { base: 'slash', dmg: 30, knock: 240, reach: 92, big: true },
+    'CREST WAVE':  { base: 'slash', dmg: 26, knock: 260, reach: 88, big: true },
+    'DRAGON KICK': { base: 'kick',  dmg: 22, knock: 300, reach: 62, launch: true },
+  };
+  function comboAtk(move) { const d = COMBO[move], a = Object.assign({}, ATK[d.base]); a.dmg = d.dmg; a.knock = d.knock; a.reach = d.reach; a.combo = move; if (d.launch) a.launch = true; if (d.big) a.big = true; return a; }
+  function comboFx(f, move) { if (f.isMe) toast(move); flash(f.tint || '#e6c8ff', 0.3); G.shake = Math.max(G.shake, 8);
+    triggerShock(f.x + f.face * 24, groundY - 116, 1.2);
+    G.fx.push({ kind: 'arc', x: f.x + f.face * 20, y: groundY - 116, face: f.face, r: 158, a0: -2.7, a1: 1.05, col: f.tint || '#eaf6ff', t: 0, life: 0.32 });   // oversized signature crescent
+    sfxSpecial(); }
+
   function tryAttack(f, kind) {
     if (f.dead || f.stun > 0 || f.state === 'hurt' || f.state === 'ko' || f.state === 'special') return;
     if (f.swing) return;                                      // already mid-swing
-    const atk = ATK[kind]; if (!atk) return;
-    f.state = kind; f.stT = 0; f.swing = { atk, hits: new Set(), fired: false };
-    if (kind === 'slash') sfxSlash(); else sfxWhiff();
+    const base = ATK[kind]; if (!base) return;
+    pushSeq(f, kind);
+    const move = detectCombo(f); let atk = base, special = null;
+    if (move) { special = move; f.seq = []; atk = comboAtk(move); comboFx(f, move); f.state = COMBO[move].base; }
+    else f.state = kind;
+    f.stT = 0; f.swing = { atk, hits: new Set(), fired: false, special };
+    if (f.state === 'slash' || special) sfxSlash(); else sfxWhiff();
   }
   function tryBlock(f, on) { if (f.dead) return; if (on && f.state === 'idle' || on && f.state === 'walk') { f.state = 'block'; } if (!on && f.state === 'block') { f.state = 'idle'; } }
   function tryJump(f) { if (f.dead || f.air || f.stun > 0 || f.state === 'ko') return; if (f.state === 'block') f.state = 'idle';
-    f.vy = -430; f.air = true; }
+    f.vy = -480; f.air = true; }
+  // quick ground dash (double-tap a direction) — a burst of speed + brief i-frames for agility
+  function tryDash(f, dir) { if (f.dead || f.stun > 0 || f.air || f.state === 'special' || (f.dashCd || 0) > 0) return;
+    f.vx = dir * 760 * f.spd; f.face = dir; f.invuln = Math.max(f.invuln, 0.16); f.dashCd = 0.42; if (!f.swing) f.state = 'walk';
+    f.rig.lean += dir * f.face * 0.12; spawnDust(f.x - dir * 12, 4); sfxWhiff(); }
+  function checkDash(f, dir) { const now = G ? G.t : 0; if (f._tapDir === dir && now - (f._tapT || -9) < 0.24) { tryDash(f, dir); f._tapT = -9; } else { f._tapDir = dir; f._tapT = now; } }
   function tryShuri(f) { if (f.dead || f.shuri <= 0 || f.stun > 0 || f.air) return; f.shuri--;
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
@@ -145,7 +172,8 @@
       const onSide = Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;
       const near = Math.abs(t.x - hx) < reach * 0.6 + 20;
       const vClose = Math.abs((t.yLift) - (f.yLift)) < 60;
-      if (onSide && near && vClose) { sw.hits.add(t.id); resolveHit(f, t, atk, hx, hy); }
+      const zClose = Math.abs((t.z || 0) - (f.z || 0)) < 58;      // strafed off the line → the cut whiffs
+      if (onSide && near && vClose && zClose) { sw.hits.add(t.id); resolveHit(f, t, atk, hx, hy); }
     });
   }
   function resolveHit(att, tgt, atk, hx, hy) {
@@ -156,12 +184,16 @@
       if (att.isMe) updMeter(); return; }
     tgt.hp -= atk.dmg * mul; tgt.stun = 0.26; tgt.state = 'hurt'; tgt.stT = 0; tgt.swing = null;
     att.combo++; att.comboT = 1.3; att.meter = Math.min(1, att.meter + 0.06 * att.a.meter); tgt.meter = Math.min(1, tgt.meter + 0.03);
-    const knock = atk.knock * mul; const knockdown = (att.combo % 3 === 0) || (atk.kind === 'kick' && att.combo >= 2);
-    tgt.vx += att.face * knock * (knockdown ? 1.4 : 1); if (knockdown) { tgt.vy = -300; tgt.air = true; tgt.stun = 0.55; }
-    impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.7), knockdown);
-    for (let i = 0; i < (knockdown ? 8 : 4); i++) spark(hx + rnd(-8, 8), hy + rnd(-10, 10), att.tint);
-    G.hitstop = Math.max(G.hitstop, knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, knockdown ? 9 : 5);
-    if (knockdown) triggerShock(hx, hy, 1);
+    const finisher = atk.combo;                               // a named special-combo finisher landed
+    const knockdown = !!atk.launch || (att.combo % 3 === 0) || (atk.kind === 'kick' && att.combo >= 2);
+    const knock = atk.knock * mul;
+    tgt.vx += att.face * knock * (knockdown ? 1.4 : 1);
+    if (atk.launch) { tgt.vy = -430; tgt.air = true; tgt.stun = 0.75; }                                   // DRAGON KICK launches
+    else if (knockdown) { tgt.vy = -300; tgt.air = true; tgt.stun = 0.55; }
+    impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.8), knockdown);
+    for (let i = 0; i < (finisher ? 12 : knockdown ? 8 : 4); i++) spark(hx + rnd(-10, 10), hy + rnd(-12, 12), finisher ? (att.tint || '#fff') : att.tint);
+    G.hitstop = Math.max(G.hitstop, finisher ? 0.13 : knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, finisher ? 12 : knockdown ? 9 : 5);
+    if (knockdown || finisher) triggerShock(hx, hy, finisher ? 1.5 : 1);
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
   }
@@ -186,14 +218,16 @@
     if (f.aiT <= 0) {
       f.aiT = rnd(0.25, 0.7);
       if (f.meter >= 1 && best < 210 && Math.random() < 0.6) { trySpecial(f); return; }
-      if (best < 150) {                                       // in range → strike / block
+      if (best < 150) {                                       // in range → strike / block / sidestep
         const r = Math.random();
-        if (tgt.state && /punch|kick|slash/.test(tgt.state) && Math.sign(f.x - tgt.x) === tgt.face && r < 0.34) { f.state = 'block'; f.aiT = rnd(0.2, 0.4); }
-        else { tryAttack(f, r < 0.4 ? 'punch' : r < 0.72 ? 'slash' : 'kick'); f.aiMove = 0; }
-      } else if (best < 300) { f.aiMove = f.face; if (lowHp && Math.random() < 0.4) f.aiMove = -f.face;
+        const incoming = tgt.state && /punch|kick|slash/.test(tgt.state) && Math.sign(f.x - tgt.x) === tgt.face;
+        if (incoming && r < 0.30) { f.aiStrafe = Math.random() < 0.5 ? 1 : -1; f.aiT = rnd(0.22, 0.42); }   // strafe off the line to dodge
+        else if (incoming && r < 0.52) { f.state = 'block'; f.aiStrafe = 0; f.aiT = rnd(0.2, 0.4); }
+        else { tryAttack(f, r < 0.4 ? 'punch' : r < 0.72 ? 'slash' : 'kick'); f.aiMove = 0; f.aiStrafe = 0; }
+      } else { f.aiStrafe = 0; if (best < 300) { f.aiMove = f.face; if (lowHp && Math.random() < 0.4) f.aiMove = -f.face;
         if (f.shuri > 0 && best > 140 && Math.random() < 0.4) tryShuri(f);
         if (!f.air && Math.random() < 0.08) tryJump(f); }
-      else { f.aiMove = f.face; }
+      else { f.aiMove = f.face; } }
     }
     // grab a nearby pickup opportunistically
     G.pickups.forEach(p => { if (Math.abs(p.x - f.x) < 60 && Math.abs(p.x - f.x) > 8) f.aiMove = Math.sign(p.x - f.x); });
@@ -211,18 +245,21 @@
       if (f.isMe) { mv = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0) + touch.mx; mv = clamp(mv, -1, 1); }
       else mv = f.aiMove || 0;
     }
-    if (f.wallT > 0) f.wallT -= dt;
+    if (f.wallT > 0) f.wallT -= dt; if (f.dashCd > 0) f.dashCd -= dt;
     const canMove = !f.dead && f.stun <= 0 && f.state !== 'block' && !f.swing && f.state !== 'special';
-    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 3300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk';
-      f.walkPh += Math.abs(mv) * dt * 15; f.stepT = (f.stepT || 0) - dt; if (!f.air && f.stepT <= 0) { spawnDust(f.x - f.face * 6, 2); f.stepT = 0.26; } }
+    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 4300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk';   // snappier acceleration
+      f.walkPh += Math.abs(mv) * dt * 16; f.stepT = (f.stepT || 0) - dt; if (!f.air && f.stepT <= 0) { spawnDust(f.x - f.face * 6, 2); f.stepT = 0.24; } }
     else if (!f.air && f.state === 'walk') f.state = 'idle';
     // friction + integrate + wall bounce (a hard knock into the stage edge rebounds)
-    f.vx *= f.air ? 0.99 : 0.76; f.x += f.vx * dt;
+    f.vx *= f.air ? 0.99 : 0.75; f.x += f.vx * dt;
     if ((f.x <= 30 || f.x >= worldW - 30) && Math.abs(f.vx) > 240 && (f.wallT || 0) <= 0) { f.vx *= -0.45; f.wallT = 0.25; G.shake = Math.max(G.shake, 6); spawnDust(f.x, 6); triggerShock(f.x, groundY - 70, 0.8); sfxHit(false); }
     f.x = clamp(f.x, 30, worldW - 30);
-    const maxRun = 390 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 450, maxRun + 450);
+    const maxRun = 470 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 520, maxRun + 520);
+    // depth strafe (z) — sidestep into fore/background; recentres on the fight line, strong when not actively strafing
+    let zin = 0; if (canMove) { zin = f.isMe ? ((keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0) + (touch.mz || 0)) : (f.aiStrafe || 0); }
+    f.zv += zin * 3000 * f.spd * dt; f.zv += (0 - f.z) * (Math.abs(zin) > 0.05 ? 1.4 : 7.5) * dt; f.zv *= 0.82; f.z += f.zv * dt; f.z = clamp(f.z, -120, 120);
     // vertical (jump) — dust + a thud on landing
-    if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); } if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
+    if (f.air || f.yLift > 0) { f.vy += 1750 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); } if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
     if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.atk.st) { sw.arced = true; spawnArc(f, sw.atk); }
       activeHit(f); if (f.stT > sw.atk.st + sw.atk.ac + sw.atk.rc) { f.swing = null; if (f.state !== 'hurt' && f.state !== 'ko') f.state = 'idle'; } }
@@ -245,23 +282,27 @@
   function springTo(r, key, target, k, d, dt) { const vk = key + 'V'; const a = (target - r[key]) * k - r[vk] * d; r[vk] += a * dt; r[key] += r[vk] * dt; }
   function poseTargets(f) {
     const t = f.stT, st = f.state;
-    const T = { lean: 0, head: 0, aF: -0.55, eF: 0.5, aB: 0.5, eB: 0.5, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: -0.45, bob: 0 };
+    // sword angle sw: 0 = blade straight down · π/2 = forward · π = straight up. Ready = jodan-no-kamae:
+    // both hands raised, blade held UPRIGHT above the head, ready to cut down.
+    const T = { lean: 0, head: 0, aF: 2.35, eF: 0.35, aB: 2.1, eB: 0.45, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: 2.7, bob: 0 };
     const spd = Math.min(1, Math.abs(f.vx) / 260);
-    if (st === 'idle') { T.bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; T.aF = -0.5 + Math.sin(G.t * 2.2) * 0.08; T.aB = 0.5 - Math.sin(G.t * 2.2) * 0.06; T.sw = -0.4; T.lean = 0.03; }
-    else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.75; T.hB = -s * 0.75; T.kF = Math.max(0, -s) * 0.8; T.kB = Math.max(0, s) * 0.8; T.aF = -0.35 - s * 0.55; T.aB = 0.35 - s * 0.55; T.lean = 0.16 * spd; T.bob = Math.abs(Math.cos(f.walkPh)) * 2; }
-    else if (st === 'block') { T.lean = -0.14; T.aF = -1.5; T.eF = 1.5; T.aB = -1.1; T.eB = 1.2; T.sw = -2.0; T.hF = 0.35; T.hB = -0.35; }
-    else if (st === 'punch') { const P = ATK.punch;
-      if (t < P.st) { const w = t / P.st; T.aF = -0.35 + 0.5 * w; T.eF = 1.5; T.lean = -0.06 * w; }   // cock the fist back
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aF = -1.75 * ex - 0.3; T.eF = 1.2 - 1.1 * ex; T.lean = 0.14 * ex; T.aB = 0.7 + 0.3 * ex; } }
-    else if (st === 'kick') { const P = ATK.kick;
-      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; }        // chamber the knee
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.6 * ex; T.kF = -0.35 * ex; T.lean = -0.22 * ex; T.aB = 1.0; T.aF = 0.25; } }
+    if (st === 'idle') { const b = Math.sin(G.t * 2.2); T.bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05; }   // sword up, subtle breathing
+    else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.75; T.hB = -s * 0.75; T.kF = Math.max(0, -s) * 0.8; T.kB = Math.max(0, s) * 0.8; T.aF = 2.3 - s * 0.12; T.aB = 2.05; T.sw = 2.62; T.lean = 0.16 * spd; T.bob = Math.abs(Math.cos(f.walkPh)) * 2; }   // blade stays overhead on the advance
+    else if (st === 'block') { T.lean = -0.14; T.aF = -1.35; T.eF = 1.35; T.aB = -1.0; T.eB = 1.1; T.sw = 1.85; T.hF = 0.35; T.hB = -0.35; }   // drop to a cross guard, blade forward-high
+    else if (st === 'punch') { const P = ATK.punch;                                                   // off-hand jab; the sword hand stays up on guard
+      T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
+      if (t < P.st) { const w = t / P.st; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; }
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.14 * ex; } }
+    else if (st === 'kick') { const P = ATK.kick;                                                     // spinning kick; sword held clear overhead
+      T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
+      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; }
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.6 * ex; T.kF = -0.35 * ex; T.lean = -0.22 * ex; T.aB = 1.0; } }
     else if (st === 'slash') { const P = ATK.slash;
-      if (t < P.st) { const w = t / P.st; T.sw = lerp(-1.4, -2.8, w); T.aF = T.sw - 0.15; T.eF = 0.7; T.lean = -0.16 * w; T.head = 0.14 * w; }   // wind-up: blade cocks back over the shoulder
-      else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the arc
-        T.sw = lerp(-2.8, 1.8, e); T.aF = T.sw - 0.1; T.eF = lerp(0.7, 0.05, e); T.lean = lerp(-0.16, 0.28, e); T.head = lerp(0.14, -0.12, e); } }
-    else if (st === 'special') { T.sw = t * 30; T.aF = -1.2; T.eF = 0.1; T.lean = 0; }
-    else if (st === 'hurt') { T.lean = -0.34; T.aF = 0.5; T.aB = 0.9; T.eF = 0.2; T.sw = 0.5; T.head = -0.3; T.hF = -0.2; }
+      if (t < P.st) { const w = t / P.st; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.18 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.14 * w; }   // wind-up: cock the raised blade back over the shoulder
+      else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the cut
+        T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.18, 0.32, e); T.head = lerp(0.14, -0.12, e); T.hF = 0.26; } }   // committed two-handed overhead cut, down through the front
+    else if (st === 'special') { T.sw = 2.5 + t * 30; T.aF = 2.4; T.eF = 0.1; T.lean = 0; }           // whirling nova
+    else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; }
     return T;
   }
   function stepRig(f, dt) {
@@ -324,7 +365,7 @@
   // dust puffs kicked up at the feet — landings, footsteps, wall bounces
   function spawnDust(x, n) { for (let i = 0; i < n; i++) G.fx.push({ kind: 'dust', x: x + rnd(-8, 8), y: groundY - rnd(0, 6), vx: rnd(-70, 70), vy: rnd(-70, -10), t: 0, life: rnd(0.35, 0.65), r: rnd(3, 7) }); }
   // a screen-space shockwave ripple through the GL compositor at a world impact point
-  function triggerShock(worldX, screenY, str) { if (!G) return; G.shock = { ux: clamp((worldX - G.cam.x) / Math.max(1, W), 0, 1), uy: 1 - clamp(screenY / Math.max(1, H), 0, 1), t: 0, spd: 2.4, str: str || 1 }; }
+  function triggerShock(worldX, screenY, str) { if (!G) return; G.shock = { ux: clamp((worldX - G.cam.x) / Math.max(1, W), 0, 1), uy: 1 - clamp(screenY / Math.max(1, H), 0, 1), wx: worldX, wy: screenY, t: 0, spd: 2.4, str: str || 1 }; }
   // anime slash-arc: a bright crescent swept in front of the fighter the moment the strike goes active
   function spawnArc(f, atk) {
     const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY;
@@ -336,13 +377,13 @@
   }
 
   function update(dt) {
-    G.t += dt; window.__rnT = G.t;
+    G.t += dt; window.__rnT = G.t; G.groundY = groundY; G.BODY = BODY;
     if (G.hitstop > 0) { G.hitstop -= dt; dt = Math.min(dt, 0.006); }
     if (G.started && G.mode === 'play') { G.timeLeft -= dt; if (G.timeLeft <= 0) { G.timeLeft = 0; endBrawl(); } }
     if (G.started) G.fighters.forEach(f => { if (!f.isMe) stepAI(f, dt); });
     G.fighters.forEach(f => stepFighter(f, dt));
     // soft body separation — keep the two big duellists from fully overlapping at melee range
-    { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30) {
+    { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30 && Math.abs((a.z || 0) - (b.z || 0)) < 60) {
       const dx = b.x - a.x, d = Math.abs(dx), minD = 66; if (d < minD) { const s = (dx < 0 ? -1 : 1), push = (minD - d) / 2 * s;
         a.x = clamp(a.x - push, 30, worldW - 30); b.x = clamp(b.x + push, 30, worldW - 30); } } }
     stepPickups(dt); stepShuriken(dt);
@@ -411,10 +452,10 @@
   // big detailed fighter — the spring rig drives the skeleton (RoninArt.skel), each
   // archetype draws its own body/gear/weapon (RoninArt.draw), body rotates by bodyRot.
   function drawFighter(f) {
-    const x = f.x - G.cam.x, gy = groundY - f.yLift, fc = f.face, r = f.rig, rot = r.bodyRot;
+    const zo = f.z || 0, x = f.x - G.cam.x, gy = groundY - f.yLift - zo * 0.34, fc = f.face, r = f.rig, rot = r.bodyRot, zs = 1 - zo * 0.0009;   // fake depth for the 2D fallback
     drawTrail(f);
     const K = RoninArt.skel(f);
-    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc * BODY, BODY);
+    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc * BODY * zs, BODY * zs);
     const alpha = f.dead ? Math.max(0.2, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
     const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.45 : 1;
     ctx.globalAlpha = alpha * flick;
@@ -657,8 +698,10 @@
   }
   const RN_CONTROLS = [
     { type: 'stick', act: 'Move / Jump', touch: 'Left stick · flick ↑ = jump', key: 'A D · ◀ ▶ · W jump' },
+    { type: 'dtap', act: 'Dash · Strafe depth', touch: 'Double-flick stick', key: 'dbl-tap A/D · Q E strafe' },
     { type: 'hold', act: 'Block', touch: 'Hold stick down', key: 'S · ↓' },
-    { type: 'tap', act: 'Punch · Kick · Slash', touch: 'P / K / S buttons · tap to combo', key: 'J · K · L' },
+    { type: 'tap', act: 'Punch · Kick · Slash', touch: 'P / K / S buttons', key: 'J · K · L' },
+    { type: 'combo', act: 'Combos: S·S·S · P·K·S · P·K', touch: 'chain the buttons', key: 'Tempest · Crest · Dragon' },
     { type: 'dtap', act: 'Special (meter)', touch: 'SP button when it glows', key: 'Space' },
   ];
   function practice() { if (window.GameHelp) GameHelp.show({ title: 'NEON RONIN', kicker: '1v1 ninja duel', controls: RN_CONTROLS, startLabel: '▶ Start practice', onStart: () => startBrawl(false) }); else startBrawl(false); }
@@ -671,6 +714,8 @@
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
     if (!G || G.mode !== 'play' || !G.started || G.me.dead) return; const me = G.me;
+    if (!e.repeat && (k === 'a' || k === 'arrowleft')) checkDash(me, -1);          // double-tap → dash
+    else if (!e.repeat && (k === 'd' || k === 'arrowright')) checkDash(me, 1);
     if (k === 'j') tryAttack(me, 'punch'); else if (k === 'k') tryAttack(me, 'kick'); else if (k === 'l') tryAttack(me, 'slash');
     else if (k === 'w' || k === 'arrowup') tryJump(me); else if (k === ' ') trySpecial(me); else if (k === 'u') tryShuri(me);
   });

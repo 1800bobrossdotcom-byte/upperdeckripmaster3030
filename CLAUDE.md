@@ -88,9 +88,16 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   (ronin straw-hat+haori cloak, kappa scaled shell+bulbous eyes, doomer cowl hood+coat, oni
   upswept horns+spiked club, kunoichi wrapped limbs+trailing scarf+face-mask, prizm crystal
   body+orbiting shards+light blade), neon-grid arena with wet-floor reflections + soft contact
-  shadows, moon/skyline, fog; Milestone 3, preferred when WebGL is up. Dev hook
+  shadows, moon/skyline, fog, plus native additive **3D combat FX** (blade streaks, overhead
+  slash-arc crescents, sparks, dust, an expanding ground shock-ring — mapped from `G.fx`/
+  `G.shock` via `G.groundY`); Milestone 4, preferred when WebGL is up. Dev hook
   `__rn._brawl(meArch, foeArch)` forces a matchup for headless capture.) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
+  **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
+  overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
+  **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target
+  whiff melee; **special combos** via recent-attack strings (`detectCombo`): slash·slash·slash
+  = TEMPEST, punch·kick·slash = CREST WAVE, punch·kick = DRAGON KICK launcher.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).
