@@ -12,8 +12,11 @@ window.RIPMASTER_CHAIN = {
   // paste it here and mobile users can connect + burn. Empty = WC option hidden,
   // injected/MetaMask still works. (js/wallet.js)
   walletConnectProjectId: "8b9d15349eb2a2cd42434a8c3de9c579",   // Reown (WalletConnect) — publishable id; domain-allowlisted to upperdeckripmaster3030.com
-  // $UR3030 burned per pack rip (the "buy the ticket" — deflationary). Tune for mainnet.
-  packBurn: 350,
+  // $UR3030 burned per pack rip (the "buy the ticket" — deflationary).
+  // ⚠ TESTNET REHEARSAL VALUE: the uncalibrated Sepolia test curve prices 1 UR3030
+  // at ~16 RARE, so 350 would cost ~5,600 test RARE. 2 keeps the full buy→rip→burn
+  // loop affordable on ~100 test RARE. RESTORE 350 FOR THE CALIBRATED LAUNCH DEPLOY.
+  packBurn: 2,
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
   rpcs: [
     "https://ethereum-sepolia-rpc.publicnode.com",

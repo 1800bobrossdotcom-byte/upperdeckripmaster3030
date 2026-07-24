@@ -236,8 +236,12 @@
     return { ok: true };
   }
 
+  // Testnet editions only resolve on SuperRare's dev environment — the prod
+  // collect page 404s for Sepolia/Base-Sepolia tokens (verified 2026-07-24).
+  const srHost = () => (wantChainId() === 11155111 || wantChainId() === 84532)
+    ? 'https://dev.superrare.co' : 'https://superrare.com';
   const buyUrl = () => isLive()
-    ? `https://superrare.com/liquid-editions/${wantChainId()}/${token()}`
+    ? `${srHost()}/liquid-editions/${wantChainId()}/${token()}`
     : 'https://superrare.com';
   const explorerAddr = a => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/address/${a}`;
   const explorerTx = h => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/tx/${h}`;
