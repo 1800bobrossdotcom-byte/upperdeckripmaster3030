@@ -15,6 +15,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const RANK = { common: 0, uncommon: 1, rare: 2, mythic: 3, prizm: 4 };
   const RC = { common: '--cyan', uncommon: '--lime', rare: '--violet', mythic: '--amber', prizm: '--magenta' };
+  const BODY = 1.4;   // uniform render scale of the fighters — bigger, chunkier duellists
 
   const cv = $('cv'), ctx = cv.getContext('2d');
   let W = 0, H = 0, dpr = 1, groundY = 0, worldW = 2000;
@@ -122,22 +123,22 @@
   function tryJump(f) { if (f.dead || f.air || f.stun > 0 || f.state === 'ko') return; if (f.state === 'block') f.state = 'idle';
     f.vy = -430; f.air = true; }
   function tryShuri(f) { if (f.dead || f.shuri <= 0 || f.stun > 0 || f.air) return; f.shuri--;
-    G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: -46, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
+    G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
   function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7;
     G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); sfxSpecial();
     // spin-blade nova: hits everything nearby
-    G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 150) {
+    G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 200) {
       const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
-      impulse(t, dir, 1.4, true); for (let i = 0; i < 8; i++) spark(t.x, groundY - 40, f.tint); if (t.hp <= 0) ko(t, f); } });
+      impulse(t, dir, 1.4, true); for (let i = 0; i < 8; i++) spark(t.x, groundY - 116, f.tint); if (t.hp <= 0) ko(t, f); } });
     if (f.isMe) updMeter();
   }
 
   function activeHit(f) {
     const sw = f.swing; if (!sw) return; const atk = sw.atk;
     if (f.stT < atk.st || f.stT > atk.st + atk.ac) return;    // outside active window
-    const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 + (f.glow > 0 && atk.kind === 'slash' ? 30 : 0);   // ×1.5 for the bigger bodies
-    const hx = f.x + f.face * (22 + reach * 0.5), hy = groundY - 90 - f.yLift;
+    const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY + (f.glow > 0 && atk.kind === 'slash' ? 30 : 0);   // scaled to the bigger bodies
+    const hx = f.x + f.face * (26 + reach * 0.5), hy = groundY - 116 - f.yLift;
     G.fighters.forEach(t => {
       if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0) return;
       const onSide = Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;
@@ -182,8 +183,8 @@
     const lowHp = f.hp < f.maxHp * 0.3;
     if (f.aiT <= 0) {
       f.aiT = rnd(0.25, 0.7);
-      if (f.meter >= 1 && best < 160 && Math.random() < 0.6) { trySpecial(f); return; }
-      if (best < 112) {                                       // in range → strike / block
+      if (f.meter >= 1 && best < 210 && Math.random() < 0.6) { trySpecial(f); return; }
+      if (best < 150) {                                       // in range → strike / block
         const r = Math.random();
         if (tgt.state && /punch|kick|slash/.test(tgt.state) && Math.sign(f.x - tgt.x) === tgt.face && r < 0.34) { f.state = 'block'; f.aiT = rnd(0.2, 0.4); }
         else { tryAttack(f, r < 0.4 ? 'punch' : r < 0.72 ? 'slash' : 'kick'); f.aiMove = 0; }
@@ -296,8 +297,8 @@
     for (let i = G.fx.length - 1; i >= 0; i--) { const e = G.fx[i]; if (e.kind !== 'shuri') continue;
       e.x += e.vx * dt; e.spin += dt * 22; e.y = e.y; let hit = false;
       G.fighters.forEach(t => { if (t.dead || t.id === e.side || hit) return; if (Math.abs(t.x - e.x) < 24 && t.yLift < 60) {
-        hit = true; if (t.state === 'block' && Math.sign(e.vx) === -t.face) { t.hp -= e.dmg * 0.2; spark(t.x, groundY - 44, '#8ffff0'); }
-        else { t.hp -= e.dmg; t.stun = 0.2; t.state = 'hurt'; t.stT = 0; t.vx += Math.sign(e.vx) * 120; impulse(t, Math.sign(e.vx), 0.5, false); spark(t.x, groundY - 44, '#8ffff0');
+        hit = true; if (t.state === 'block' && Math.sign(e.vx) === -t.face) { t.hp -= e.dmg * 0.2; spark(t.x, groundY - 116, '#8ffff0'); }
+        else { t.hp -= e.dmg; t.stun = 0.2; t.state = 'hurt'; t.stT = 0; t.vx += Math.sign(e.vx) * 120; impulse(t, Math.sign(e.vx), 0.5, false); spark(t.x, groundY - 116, '#8ffff0');
           const att = G.fighters.find(f => f.id === e.side); if (t.hp <= 0) ko(t, att); } } });
       if (hit || e.x < G.cam.x - 60 || e.x > G.cam.x + W + 60) G.fx.splice(i, 1);
     }
@@ -314,7 +315,7 @@
     G.fighters.forEach(f => stepFighter(f, dt));
     // soft body separation — keep the two big duellists from fully overlapping at melee range
     { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30) {
-      const dx = b.x - a.x, d = Math.abs(dx), minD = 48; if (d < minD) { const s = (dx < 0 ? -1 : 1), push = (minD - d) / 2 * s;
+      const dx = b.x - a.x, d = Math.abs(dx), minD = 66; if (d < minD) { const s = (dx < 0 ? -1 : 1), push = (minD - d) / 2 * s;
         a.x = clamp(a.x - push, 30, worldW - 30); b.x = clamp(b.x + push, 30, worldW - 30); } } }
     stepPickups(dt); stepShuriken(dt);
     // fx
@@ -383,7 +384,7 @@
     const x = f.x - G.cam.x, gy = groundY - f.yLift, fc = f.face, r = f.rig, rot = r.bodyRot;
     drawTrail(f);
     const K = RoninArt.skel(f);
-    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc, 1);
+    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc * BODY, BODY);
     const alpha = f.dead ? Math.max(0.2, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
     const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.45 : 1;
     ctx.globalAlpha = alpha * flick;
@@ -391,8 +392,8 @@
       ctx.fillStyle = 'rgba(0,0,0,0.001)'; ctx.beginPath(); ctx.arc(0, -86, 54, 0, 6.28); ctx.fill(); ctx.restore(); }
     try { RoninArt.draw(ctx, f, K); } catch (e) {}
     ctx.restore();
-    // record the blade tip in WORLD space for the streak (x world, y screen)
-    if (!f.dead) { const tip = K.sword.tip, c = Math.cos(rot), s = Math.sin(rot), px = tip.x * fc, py = tip.y;
+    // record the blade tip in WORLD space for the streak (x world, y screen), scaled by BODY
+    if (!f.dead) { const tip = K.sword.tip, c = Math.cos(rot), s = Math.sin(rot), px = tip.x * fc * BODY, py = tip.y * BODY;
       f.trail.unshift({ x: f.x + (px * c - py * s), y: gy + (px * s + py * c) }); if (f.trail.length > 9) f.trail.pop(); }
     else if (f.trail.length) f.trail.pop();
   }
@@ -449,7 +450,7 @@
   function drawFx(e) {
     if (e.kind === 'spark') { const x = e.x - G.cam.x, y = e.y; ctx.save(); ctx.globalAlpha = 1 - e.t / e.life; ctx.fillStyle = e.col; ctx.shadowColor = e.col; ctx.shadowBlur = 8;
       ctx.beginPath(); ctx.arc(x, y, e.r * (1 - e.t / e.life * 0.5), 0, 6.28); ctx.fill(); ctx.restore(); }
-    else if (e.kind === 'shuri') { const x = e.x - G.cam.x, y = groundY - 46 + e.y; ctx.save(); ctx.translate(x, y); ctx.rotate(e.spin); ctx.strokeStyle = '#d8fff0'; ctx.fillStyle = '#8ffff0'; ctx.shadowColor = '#2bffb0'; ctx.shadowBlur = 10;
+    else if (e.kind === 'shuri') { const x = e.x - G.cam.x, y = groundY - 116 + e.y; ctx.save(); ctx.translate(x, y); ctx.rotate(e.spin); ctx.strokeStyle = '#d8fff0'; ctx.fillStyle = '#8ffff0'; ctx.shadowColor = '#2bffb0'; ctx.shadowBlur = 10;
       for (let i = 0; i < 4; i++) { ctx.rotate(1.57); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(3, -3); ctx.lineTo(0, -11); ctx.lineTo(-3, -3); ctx.closePath(); ctx.fill(); } ctx.restore(); }
   }
   function drawFlash() { const f = G.fx.find(e => e.kind === 'flash'); if (!f) return; ctx.save(); ctx.globalAlpha = f.a * (1 - f.t / f.life); ctx.fillStyle = f.col; ctx.fillRect(0, 0, W, H); ctx.restore(); }
