@@ -90,7 +90,11 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   body+orbiting shards+light blade), neon-grid arena with wet-floor reflections + soft contact
   shadows, moon/skyline, fog, plus native additive **3D combat FX** (blade streaks, overhead
   slash-arc crescents, sparks, dust, an expanding ground shock-ring — mapped from `G.fx`/
-  `G.shock` via `G.groundY`); Milestone 4, preferred when WebGL is up. Dev hook
+  `G.shock` via `G.groundY`), a full-scene **bloom post-pass** (scene→FBO→bright→separable
+  gaussian→composite w/ vignette+grain+chromatic-aberration, falls back to direct draw if the
+  FBO chain fails), and a **dynamic fight-camera** that orbits gently and pulls-in+swings on
+  hero moments (`G.camZoom`/`G.camDir`, fired from ko/finishers/special); Milestone 5, preferred
+  when WebGL is up. Dev hook
   `__rn._brawl(meArch, foeArch)` forces a matchup for headless capture.) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
@@ -98,6 +102,8 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target
   whiff melee; **special combos** via recent-attack strings (`detectCombo`): slash·slash·slash
   = TEMPEST, punch·kick·slash = CREST WAVE, punch·kick = DRAGON KICK launcher.
+  **Controls:** desktop **mouse** — L=slash, R=kick, middle=punch (chain for combos); keyboard
+  L/K/J attacks, A/D move, W jump, S block, Q/E strafe, Shift or dbl-tap A/D dash, Space special.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).

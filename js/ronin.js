@@ -154,7 +154,7 @@
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
   function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7;
-    G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); triggerShock(f.x, groundY - 116, 1.6); sfxSpecial();
+    G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); triggerShock(f.x, groundY - 116, 1.6); cineKick(0.85, f.face); sfxSpecial();
     // spin-blade nova: hits everything nearby
     G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 200) {
       const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
@@ -193,7 +193,7 @@
     impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.8), knockdown);
     for (let i = 0; i < (finisher ? 12 : knockdown ? 8 : 4); i++) spark(hx + rnd(-10, 10), hy + rnd(-12, 12), finisher ? (att.tint || '#fff') : att.tint);
     G.hitstop = Math.max(G.hitstop, finisher ? 0.13 : knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, finisher ? 12 : knockdown ? 9 : 5);
-    if (knockdown || finisher) triggerShock(hx, hy, finisher ? 1.5 : 1);
+    if (knockdown || finisher) { triggerShock(hx, hy, finisher ? 1.5 : 1); cineKick(finisher ? 0.72 : 0.36, att.face); }
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
   }
@@ -202,7 +202,7 @@
     G.order.unshift(tgt);                                     // earlier deaths end up lower on the board
     if (killer && killer !== tgt) { killer.kos++; if (killer.isMe) { $('myKos').textContent = killer.kos + ' KO'; toast('K.O. ×' + killer.kos); } }
     if (Math.random() < 0.7) dropPickup(tgt.x, tgt);
-    flash('#ff2ad9', 0.35); G.shake = Math.max(G.shake, 9); triggerShock(tgt.x, groundY - 116, 1.5); spawnDust(tgt.x, 8); sfxKo();
+    flash('#ff2ad9', 0.35); G.shake = Math.max(G.shake, 9); triggerShock(tgt.x, groundY - 116, 1.5); cineKick(1.0, killer ? killer.face : 1); spawnDust(tgt.x, 8); sfxKo();
     const aliveN = G.fighters.filter(f => !f.dead).length;
     if (tgt.isMe) endBrawl();
     else if (aliveN <= 1) endBrawl();
@@ -366,6 +366,8 @@
   function spawnDust(x, n) { for (let i = 0; i < n; i++) G.fx.push({ kind: 'dust', x: x + rnd(-8, 8), y: groundY - rnd(0, 6), vx: rnd(-70, 70), vy: rnd(-70, -10), t: 0, life: rnd(0.35, 0.65), r: rnd(3, 7) }); }
   // a screen-space shockwave ripple through the GL compositor at a world impact point
   function triggerShock(worldX, screenY, str) { if (!G) return; G.shock = { ux: clamp((worldX - G.cam.x) / Math.max(1, W), 0, 1), uy: 1 - clamp(screenY / Math.max(1, H), 0, 1), wx: worldX, wy: screenY, t: 0, spd: 2.4, str: str || 1 }; }
+  // cinematic camera punch — the 3D renderer eases toward a pulled-in, swung-round shot on hero moments
+  function cineKick(amt, dir) { if (!G) return; if (amt >= (G.camZoom || 0)) { G.camZoom = amt; G.camDir = dir < 0 ? -1 : 1; } }
   // anime slash-arc: a bright crescent swept in front of the fighter the moment the strike goes active
   function spawnArc(f, atk) {
     const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY;
@@ -396,6 +398,7 @@
     const midX = (G.me.x + G.foe.x) / 2;
     G.cam.x = lerp(G.cam.x, clamp(midX - W / 2, 0, Math.max(0, worldW - W)), Math.min(1, dt * 6));
     if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 40);
+    if (G.camZoom > 0) G.camZoom = Math.max(0, G.camZoom - dt * 2.4);
     if (G.shock) { G.shock.t += dt; if (G.shock.t > 0.5) G.shock = null; }
     updateHUD();
   }
@@ -697,12 +700,12 @@
     startBrawl(true);
   }
   const RN_CONTROLS = [
-    { type: 'stick', act: 'Move / Jump', touch: 'Left stick · flick ↑ = jump', key: 'A D · ◀ ▶ · W jump' },
-    { type: 'dtap', act: 'Dash · Strafe depth', touch: 'Double-flick stick', key: 'dbl-tap A/D · Q E strafe' },
+    { type: 'tap', act: 'Attack — Slash · Kick · Punch', touch: 'S / K / P buttons', key: 'Mouse L · R · Middle   (or L · K · J)' },
+    { type: 'combo', act: 'Combos — chain attacks', touch: 'chain the buttons', key: 'S·S·S Tempest · P·K·S Crest · P·K Dragon' },
+    { type: 'stick', act: 'Move · Jump', touch: 'Left stick · flick ↑', key: 'A D move · W jump' },
+    { type: 'dtap', act: 'Dash · Strafe depth', touch: 'Double-flick stick', key: 'Shift / dbl-tap A·D · Q E strafe' },
     { type: 'hold', act: 'Block', touch: 'Hold stick down', key: 'S · ↓' },
-    { type: 'tap', act: 'Punch · Kick · Slash', touch: 'P / K / S buttons', key: 'J · K · L' },
-    { type: 'combo', act: 'Combos: S·S·S · P·K·S · P·K', touch: 'chain the buttons', key: 'Tempest · Crest · Dragon' },
-    { type: 'dtap', act: 'Special (meter)', touch: 'SP button when it glows', key: 'Space' },
+    { type: 'dtap', act: 'Special (when meter glows)', touch: 'SP button', key: 'Space' },
   ];
   function practice() { if (window.GameHelp) GameHelp.show({ title: 'NEON RONIN', kicker: '1v1 ninja duel', controls: RN_CONTROLS, startLabel: '▶ Start practice', onStart: () => startBrawl(false) }); else startBrawl(false); }
   $('btnPractice').onclick = practice;
@@ -718,8 +721,16 @@
     else if (!e.repeat && (k === 'd' || k === 'arrowright')) checkDash(me, 1);
     if (k === 'j') tryAttack(me, 'punch'); else if (k === 'k') tryAttack(me, 'kick'); else if (k === 'l') tryAttack(me, 'slash');
     else if (k === 'w' || k === 'arrowup') tryJump(me); else if (k === ' ') trySpecial(me); else if (k === 'u') tryShuri(me);
+    else if (!e.repeat && (k === 'shift')) { const dd = (keys['a'] || keys['arrowleft']) ? -1 : (keys['d'] || keys['arrowright']) ? 1 : me.face; tryDash(me, dd); }   // Shift = dash
   });
   addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  // ── desktop mouse combat: Left = Slash · Right = Kick · Middle = Punch (chain them for the same combos) ──
+  const playing = () => G && G.mode === 'play' && G.started && G.me && !G.me.dead;
+  const overUI = t => t && t.closest && t.closest('button, a, input, select, textarea, .pad, #ovLobby, #ovResult, #hud .top');
+  addEventListener('mousedown', e => { if ((window.GameHelp && GameHelp.isTouch) || !playing() || overUI(e.target)) return;
+    if (e.button === 0) tryAttack(G.me, 'slash'); else if (e.button === 2) tryAttack(G.me, 'kick'); else if (e.button === 1) { e.preventDefault(); tryAttack(G.me, 'punch'); } });
+  addEventListener('contextmenu', e => { if (playing() && !overUI(e.target)) e.preventDefault(); });
 
   // touch: floating left move-stick (drag = move, flick up = jump, hold-down = block) + right action pads
   const isTouch = (window.GameHelp && GameHelp.isTouch);
