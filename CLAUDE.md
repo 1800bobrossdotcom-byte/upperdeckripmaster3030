@@ -82,9 +82,14 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
   2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
   lit depth-tested 3D fighters built from the same IK skeleton with cylinder limbs + sphere
-  joints/heads and per-arch touches (ronin hat, oni horns, kappa shell), neon-grid arena with
-  wet-floor reflections + soft contact shadows, moon/skyline, fog; Milestone 2, preferred when
-  WebGL is up) + `js/ronin-gl.js` (2D bloom compositor, the
+  joints/heads, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
+  2 brushed-metal / 3 reptile-scale / 4 iridescent-crystal / 5 skin / 6 energy-pulse / 7 wrap
+  bands, textured stably in object space via `vL`), and a distinct silhouette per archetype
+  (ronin straw-hat+haori cloak, kappa scaled shell+bulbous eyes, doomer cowl hood+coat, oni
+  upswept horns+spiked club, kunoichi wrapped limbs+trailing scarf+face-mask, prizm crystal
+  body+orbiting shards+light blade), neon-grid arena with wet-floor reflections + soft contact
+  shadows, moon/skyline, fog; Milestone 3, preferred when WebGL is up. Dev hook
+  `__rn._brawl(meArch, foeArch)` forces a matchup for headless capture.) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates

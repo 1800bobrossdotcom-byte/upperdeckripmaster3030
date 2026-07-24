@@ -75,7 +75,7 @@
       trail: [] };
   }
 
-  function startBrawl(real) {
+  function startBrawl(real, forceMe, forceFoe) {
     cardPow = cardHpMul = cardSpd = 1;
     try { if (window.RipPowers && wager.picked.length) { const L = RipPowers.loadout(wager.picked.map(sl => bySlug.get(sl)).filter(Boolean), RipPowers.getMarket());
       cardPow = 1 + Math.min(0.35, (L.dmg - 1)); cardHpMul = 1 + Math.min(0.4, (L.shield || 0) / 30); cardSpd = 1 + Math.min(0.12, (L.speed - 1)); } } catch {}
@@ -83,11 +83,12 @@
     const N = 2;
     const fighters = [];
     // me — centred-left
-    const me = mkFighter(wager.arch, worldW * 0.42, true, myHandle().slice(0, 10));
+    const meArch = forceMe && ARCH[forceMe] ? forceMe : wager.arch;
+    const me = mkFighter(meArch, worldW * 0.42, true, myHandle().slice(0, 10));
     me.face = 1; fighters.push(me);
     // the rival — a DIFFERENT archetype so the duel reads as two distinct fighters
-    const others = ARCH_KEYS.filter(k => k !== wager.arch);
-    const rivalArch = others[Math.floor(Math.random() * others.length)] || 'oni';
+    const others = ARCH_KEYS.filter(k => k !== meArch);
+    const rivalArch = (forceFoe && ARCH[forceFoe]) ? forceFoe : (others[Math.floor(Math.random() * others.length)] || 'oni');
     const names = { ronin: 'RONIN', kappa: 'KAPPA', doomer: 'DOOMER', oni: 'ONI', kunoichi: 'KUNOICHI', prizm: 'PRIZMANCER' };
     const rival = mkFighter(rivalArch, worldW * 0.58, false, names[rivalArch] || 'RIVAL'); rival.face = -1; fighters.push(rival);
     G = { mode: 'play', t: 0, fighters, me, foe: rival, pickups: [], fx: [], cam: { x: clamp((me.x + rival.x) / 2 - W / 2, 0, Math.max(0, worldW - W)) },
@@ -713,7 +714,7 @@
   window.__rn = { get s() { return G && G.mode !== 'lobby' ? { mode: G.mode, started: G.started, alive: G.fighters.filter(f => !f.dead).length, hp: G.me.hp | 0, myKos: G.me.kos, meter: +G.me.meter.toFixed(2), t: +G.t.toFixed(1) } : { lobby: true, arch: wager.arch }; },
     _hit() { if (G && G.me) tryAttack(G.me, 'slash'); }, get fighters() { return G && G.fighters; },
     // headless-test drivers (rAF is throttled in CI; step the sim directly)
-    _brawl() { startBrawl(false); }, _start() { if (G) { G.started = true; const cd = $('cd'); if (cd) cd.classList.add('hidden'); } },
+    _brawl(meK, foeK) { startBrawl(false, meK, foeK); }, _start() { if (G) { G.started = true; const cd = $('cd'); if (cd) cd.classList.add('hidden'); } },
     _step(n) { if (!G) return; for (let i = 0; i < (n || 1); i++) update(0.016); },
     _rosterUnlocked() { const u = unlocked(); return Object.keys(u).filter(k => u[k].ok); } };
   try { if (window.RoninGL && RoninGL.init($('glcv'))) { glOk = true; $('glcv').style.display = 'block'; } } catch (e) { glOk = false; }
