@@ -307,6 +307,7 @@
 <script src="js/icons.js"></script>
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
+<script src="js/wager-payout.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
@@ -416,8 +417,9 @@
   function refreshPot(){
     $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
     const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
+    const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
     const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
-    $('potLine').innerHTML=`POT · <b>${tokPot.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} · winner takes all`;
+    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
     // seat preview from live roster + filler
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
@@ -786,35 +788,40 @@
   function endMatch(){ G.over=true; G.mode='result'; music.pause();
     if(window.RipNet){ try{ RipNet.setStatus('idle'); }catch{} }
     // deathmatch: winner is whoever racked up the most kills over the clock
-    let winner = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp))[0];
+    const ranked = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp));
+    let winner = ranked[0];
     const iWon = winner && winner.isMe; commsRnd(iWon?'win':'lose', iWon?'#0e5a68':'#7a1e2a');
-    const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
-    // card payout — only for REAL wagers (practice moves nothing).
-    // winner gets their own stake back PLUS every opponent's pot cards; wonSlugs = the cards actually taken.
+    const myRank=ranked.findIndex(s=>s.isMe);
+    const P=WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);   // podium split: 1st/2nd/3rd take pot + cards
+    const onPodium=P.myPlace>=0;
+    // card payout — only for REAL wagers (practice moves nothing). Podium share, top-down.
     let wonSlugs=[];
-    if(G.real && iWon){ let v=vault(); const back=G.myStake.slice(); wonSlugs=[].concat(...G.oppStakes);
-      back.concat(wonSlugs).forEach(sl=>{ if(bySlug.has(sl)) v.push({slug:sl}); }); saveVault(v);
-    } // if you lost a real wager, your staked cards were already pulled into the pot at launch
+    if(G.real && onPodium && P.myCards>0){ let v=vault();
+      const pool=G.myStake.concat([].concat(...G.oppStakes)).filter(sl=>bySlug.has(sl));
+      wonSlugs=pool.slice(0,P.myCards);
+      while(wonSlugs.length<P.myCards){ const all=[...bySlug.keys()]; wonSlugs.push(all[Math.floor(Math.random()*all.length)]); }
+      wonSlugs.forEach(sl=>{ if(bySlug.has(sl)) v.push({slug:sl}); }); saveVault(v);
+    }
     // UI
     $('hudL').style.display='none'; $('hudR').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
-    const box=$('prizeBox'); box.classList.toggle('lose',!iWon);
-    $('resTitle').textContent=iWon?'VICTORY':'DOWNED';
-    $('resTitle').style.background=iWon?'':'linear-gradient(180deg,#fff,#ff6b57 55%,#c22)';
+    const box=$('prizeBox'); box.classList.toggle('lose',!onPodium);
+    $('resTitle').textContent = iWon ? 'VICTORY' : (onPodium ? 'PODIUM' : 'DOWNED');
+    $('resTitle').style.background = onPodium ? '' : 'linear-gradient(180deg,#fff,#ff6b57 55%,#c22)';
     $('resTitle').style.webkitBackgroundClip='text'; $('resTitle').style.backgroundClip='text';
-    $('resTag').textContent=iWon ? ('most kills when time ran out · '+(G.me?G.me.kills:0)+' downed') : ('out-flown by '+shortName((winner&&winner.name)||'the field')+' ('+((winner&&winner.kills)||0)+' kills)');
-    if(!G.real) $('prizeBig').textContent = iWon ? '★ YOU TOOK THE POT' : 'BETTER LUCK NEXT RUN';
-    else $('prizeBig').textContent = iWon ? '+'+tokPot.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards'
-                                          : '−'+wager.ante+' $UR3030 · −'+G.myStake.length+' cards';
-    $('prizeSub').textContent = iWon ? ('you took the pot · '+ (G.me?G.me.kills:0) +' kills') : ('winner: '+shortName((winner&&winner.name)||'—')+' · '+(G.me?G.me.kills:0)+' kills');
+    $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' place · '+(G.me?G.me.kills:0)+' downed') : ('off the podium · out-flown by '+shortName((winner&&winner.name)||'the field'));
+    if(!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ '+WagerPayout.ordinal(P.myPlace)+' — ON THE PODIUM') : 'BETTER LUCK NEXT RUN');
+    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards')
+                                              : ('off the podium · 🔥'+P.anteBurn+' rake burned');
+    $('prizeSub').textContent = onPodium ? ('you placed '+WagerPayout.ordinal(P.myPlace)+' of '+wager.players+' · '+(G.me?G.me.kills:0)+' kills') : ('winner: '+shortName((winner&&winner.name)||'—')+' · '+(G.me?G.me.kills:0)+' kills');
     // show won cards
     const wc=$('wonCards');
-    if(iWon && G.real && wonSlugs.length){ wc.innerHTML=wonSlugs.slice(0,12).map(sl=>{ const c=bySlug.get(sl); if(!c)return'';
+    if(onPodium && G.real && wonSlugs.length){ wc.innerHTML=wonSlugs.slice(0,12).map(sl=>{ const c=bySlug.get(sl); if(!c)return'';
       return `<div class="tile" style="--rc:var(${RC[c.rarity]||'--common'})"><span class="rr">${c.rarity}</span><img src="cards/${c.art}" onerror="this.style.opacity=.15"></div>`; }).join(''); }
     else wc.innerHTML='';
     // scarcity / escrow honesty
     $('scaNote').innerHTML = G.real
-      ? 'Antes are <b>real $UR3030 wagers</b> — the pot transfers to the winner (net-zero to supply). Card stakes move for keeps in your local vault. Trustless token-pot escrow (winner’s payout on-chain) ships with the <b>721 lens</b> contract — Phase-2.'
-      : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play for keeps.';
+      ? 'Your <b>🔥'+P.anteBurn+' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+      : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
     if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
       ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'
       : '<br>⟠ ETH side-pot: your <b>$'+G.ethEachUsd.toFixed(2)+'</b> pledge rides to the winner — settle on Base; Phase-2 escrow will hold pots on-chain.';
@@ -837,7 +844,7 @@
     if(!(liveToken()&&Wt&&Wt.hasWallet())){ startMatch(false); return; }
     if(wager.picked.length!==wager.cards){ toast('Pick '+wager.cards+' cards for the pot first.'); return; }
     const btn=rematch?$('btnRematch'):$('btnAnte'); const label=btn.innerHTML; btn.innerHTML='confirm burn…'; btn.disabled=true;
-    const r=await Wt.burn(wager.ante); btn.innerHTML=label; btn.disabled=false;
+    const r=await Wt.burn(WagerPayout.rake(wager.ante)); btn.innerHTML=label; btn.disabled=false;   // burn only the small rake; the rest is the pot stake
     if(!r.ok){ toast(Wt.explain?Wt.explain(r.reason):'Burn failed.'); return; }
     startMatch(true);
   }

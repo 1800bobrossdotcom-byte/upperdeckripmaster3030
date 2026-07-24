@@ -479,7 +479,7 @@
         <span class="lob-meta">others can call you out by it</span>
       </div>
       <div class="lob-list" id="lobList"><div class="lob-empty">warming up the room…</div></div>
-      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$UR3030</b> ante (net-zero — winner takes the pot). Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
+      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$UR3030</b> ante — a small rake burns, the winner takes the pot. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
     </div>
 
     <div class="panel">
@@ -557,6 +557,7 @@
 <script src="../js/wallet.js"></script>
 <script src="../js/card-hover.js"></script>
 <script src="../js/arena-lobby.js"></script>
+<script src="../js/wager-payout.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
 <script>
@@ -977,7 +978,7 @@
   async function anteBurn(amount){
     if (!amount || amount <= 0) return { mode: 'none' };
     if (liveToken() && window.RipWallet && window.RipWallet.hasWallet()){
-      const r = await window.RipWallet.burn(amount);     // handles connect + chain switch + tx
+      const r = await window.RipWallet.burn(window.WagerPayout ? WagerPayout.rake(amount) : amount);   // burn only the small rake; the wager rides the pot
       if (r.ok) return { mode: 'onchain', tx: r.tx };
       if (r.reason === 'no-wallet') { setTokens(Math.max(0, tokens() - amount)); return { mode: 'practice' }; }
       return { mode: 'cancelled', reason: r.reason, why: window.RipWallet.explain(r.reason) };
@@ -1059,10 +1060,11 @@
       $('pvpChips').innerHTML = TCHIPS.map(v => `<button type="button" class="tchip ${v === burn ? 'on' : ''}" data-v="${v}" ${v > bal ? 'disabled' : ''}>${v === 0 ? 'no ante' : '<span class="ic" data-ic="flame"></span>' + v}</button>`).join('');
       window.RipIcons && RipIcons.hydrate(modal);
       $('pvpChips').querySelectorAll('.tchip').forEach(b => b.onclick = () => { burn = +b.dataset.v; render(); });
+      const rake = window.WagerPayout ? WagerPayout.rake(burn) : burn;
       $('pvpNote').innerHTML = burn > 0
-        ? (live ? `You'll sign a real on-chain <b>burn of ${burn} $UR3030</b> — gone forever, feeding the deflation. The winner still takes the cards.`
-                : `$UR3030 isn't live yet, so this burns <b>${burn} practice chips</b> (this device only). On mainnet it becomes a real signed burn.`)
-        : `No token burn — cards only.`;
+        ? (live ? `You wager <b>${burn} $UR3030</b> — a small <b>🔥${rake}</b> rake burns on-chain (deflationary), the rest rides the pot. Winner takes the pot + the loser's cards.`
+                : `$UR3030 isn't live yet — this wagers <b>${burn} practice chips</b> (this device only; <b>🔥${rake}</b> of it is the rake). On mainnet the rake is a real signed burn.`)
+        : `No ante — cards only.`;
       $('pvpGo').disabled = pvpSel.length !== n;
       $('pvpGo').onclick = () => { hidePvpPreview(); modal.classList.remove('show'); runPvp(opponent, pvpSel.map(i => hand[i]), pvpSel.slice(), oppCards, burn); };
       $('pvpNo').onclick = () => { hidePvpPreview(); modal.classList.remove('show'); if (net) net.setStatus('idle'); seeking = false; syncSeek(); pushProfile(); toastMini('backed down'); };

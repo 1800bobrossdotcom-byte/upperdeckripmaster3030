@@ -32,8 +32,11 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   **holder-bound lens** (one per wallet, non-transferable, non-burnable). The 33 are a
   **Season-1 genesis set** that persists all seasons.
 - **Packs:** ~$7 escalating buy-and-burn, ~3,560 over 4 seasons (S1 1,600 → S4 260).
-- **Games:** net-zero **wagers** (1v1 winner-takes-pot; multiplayer podium 50/30/20); cards
-  transfer, never burned. Card→power is live (`js/card-powers.js`).
+- **Games:** wager **$UR3030 + cards** into a pot; a **small ~10% rake burns** (deflationary,
+  real on-chain via `js/wager-payout.js`), the rest + cards pay the **podium 1st/2nd/3rd
+  (50/30/20), 1st the most** (1v1 = winner-take-pot). Cards transfer, never burned in-game.
+  Real token-pot escrow/payout = **Phase-2 721-lens contract**; today the rake burn + card
+  moves are the real part. Card→power is live (`js/card-powers.js`).
 - **Cards never retire/ash.** Scarcity = dwindling packs + community rarity vote + compression.
 
 ## Render contract (see `docs/RENDER-CONTRACT.md`)

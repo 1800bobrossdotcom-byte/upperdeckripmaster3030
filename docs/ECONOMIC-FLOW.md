@@ -94,13 +94,18 @@ A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**. It i
 
 ## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 
-Playing costs `$UR3030`, but **antes are wagers, not burns** — the pot **transfers**, so
-play is **net-zero to supply**. Payout by match size: **1v1** — the winner takes the whole
-pot **and** the loser's staked cards. **Multiplayer (3+)** — the pot pays the **podium:
-1st 50% · 2nd 30% · 3rd 20%** (4th+ forfeit their ante into the pot), and the **staked
-cards go to 1st**. Either way it's net-zero, so the burn-down stays driven only by packs.
-**Staked cards/lenses transfer** (you arm with them and can lose them — never burned). Card
-→ in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPING.md`).
+Playing **wagers `$UR3030` + cards** into one pot. A **small ~10% rake burns** — permanent,
+deflationary ("the token burns so the art lives") — and the rest of the pot **plus the staked
+cards** pay out to the **podium**: **1v1** — winner takes the pot + the loser's cards;
+**multiplayer** — **1st 50% · 2nd 30% · 3rd 20%** of both the (post-rake) token pot **and**
+the staked cards, **1st taking the most** (4th+ take nothing). So games add a *small* steady
+burn on top of the pack-driven deflation. The rake burn (`js/wager-payout.js`, 10%/50-30-20)
+is the shared math for every cabinet. **Staked cards/lenses transfer** (never burned in-game).
+Card → in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPING.md`).
+
+> **On-chain scope:** today the **rake burn is real** (`RipWallet.burn`) and card moves are
+> local-vault; the **trustless token-pot escrow + real podium payout** ships with the
+> **Phase-2 721-lens contract**. Until then the pot split is shown but settles off-chain.
 
 The **22 earned hero lenses** are the prestige track — all **Season-1 titles** (the 33 are a
 genesis set; §3): each maps to a single, unrepeatable **title** across the three cabinets —
