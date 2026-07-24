@@ -18,6 +18,7 @@
 <script src="js/wager-payout.js"></script>
 <script src="js/card-powers.js"></script>
 <script src="js/game-help.js"></script>
+<script src="js/ronin-fighters.js"></script>
 <script src="cards/arena-net.js"></script>
 <style>
   :root{ --lime:#2bff80; --cyan:#3df0ff; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57; --violet:#b47bff;
@@ -29,7 +30,9 @@
   /* HUD */
   #hud{ position:fixed; inset:0; pointer-events:none; z-index:5; }
   .h-tl{ position:absolute; top:40px; left:14px; width:min(42vw,300px); }
-  .h-tr{ position:absolute; top:12px; right:14px; text-align:right; }
+  .h-tr{ position:absolute; top:40px; right:14px; width:min(42vw,300px); text-align:right; }
+  .hpbar.foe i{ background:linear-gradient(180deg,#ff9a6b,#ff5a3c 55%,#c0281a); float:right; }
+  .clockwrap{ position:absolute; top:12px; left:50%; transform:translateX(-50%); text-align:center; }
   .nm{ font-family:var(--fat); font-size:13px; letter-spacing:.04em; color:#fff; text-shadow:0 2px 4px #000; white-space:nowrap; }
   .nm .kos{ color:var(--amber); font-size:11px; margin-left:8px; }
   .hpbar{ height:14px; border-radius:8px; border:1.5px solid rgba(255,255,255,.45); background:rgba(0,0,0,.5); overflow:hidden; margin-top:3px; box-shadow:0 2px 8px #000; }
@@ -142,7 +145,11 @@
     <div class="hpbar"><i id="hpFill"></i></div>
     <div class="meter" id="meterWrap"><i id="meterFill"></i></div>
   </div>
-  <div class="h-tr"><div class="alive"><span id="aliveN">6</span><small> LEFT</small></div><div class="clock" id="clock">2:00</div></div>
+  <div class="h-tr">
+    <div class="nm" style="text-align:right"><span class="kos" id="foeKos" style="margin:0 8px 0 0"></span><span id="foeName">RIVAL</span></div>
+    <div class="hpbar foe"><i id="foeHp"></i></div>
+  </div>
+  <div class="clockwrap"><div class="clock" id="clock">1:45</div></div>
   <div class="combo" id="combo"><div class="n" id="comboN">0</div><div class="l">hit combo</div></div>
   <div class="pick" id="pickHint"></div>
 </div>
@@ -162,23 +169,22 @@
 <div class="ov show" id="ovLobby">
   <div class="panel">
     <h1>NEON RONIN</h1>
-    <div class="tag">side-scroll ninja brawl · take the podium</div>
-    <div class="sub">A neon rooftop <b>free-for-all</b> — punch, kick and <b>katana combos</b>, block the counter, grab power-ups. Meme ninjas throw down; the <b>last blade standing</b> ranks the podium. Everyone antes <b>$UR3030</b> and stakes cards into one pot; a small rake burns and the <b>podium (1st/2nd/3rd)</b> splits the rest. <b>Certain cards unlock certain fighters.</b></div>
+    <div class="tag">1v1 ninja duel · winner takes the pot</div>
+    <div class="sub">A neon rooftop <b>one-on-one duel</b> — punch, kick and <b>katana combos</b>, block the counter, grab power-ups. Two meme ninjas throw down; the <b>last blade standing</b> takes it. Both antes <b>$UR3030</b> and stake cards into one pot; a small rake burns and the <b>winner takes the rest</b>. <b>Certain cards unlock certain fighters.</b></div>
     <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:4px 0 2px">▤ Pick your fighter — <span id="unlockN">1</span> unlocked:</div>
     <div class="rost" id="roster"></div>
     <div class="wrow"><span class="wlbl">◆ Ante · $UR3030 each</span>
       <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
     <div class="wrow"><span class="wlbl">◆ Cards staked each</span>
       <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
-    <div class="wrow"><span class="wlbl">▤ Ninjas in the ring</span><span id="pChips"></span></div>
     <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:6px 0 2px">Pick your <b id="pickN">2</b> cards for the pot — they arm your ninja:</div>
     <div id="cardGrid"></div>
     <div class="cardsInfo" id="cardsInfo">0 owned</div>
     <div class="pot" id="potLine"></div>
     <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
     <div class="roster" id="rosterNote"></div>
-    <div><button class="go" id="btnAnte">🔥 Ante up &amp; brawl</button></div>
-    <div><button class="go alt" id="btnPractice">▶ Practice brawl (no stakes)</button></div>
+    <div><button class="go" id="btnAnte">🔥 Ante up &amp; duel</button></div>
+    <div><button class="go alt" id="btnPractice">▶ Practice duel (no stakes)</button></div>
     <div class="mininote" id="lobNote"></div>
   </div>
 </div>

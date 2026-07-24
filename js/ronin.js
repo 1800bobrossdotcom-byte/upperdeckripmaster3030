@@ -33,12 +33,12 @@
 
   // ── roster: archetypes + card unlock rules ──
   const ARCH = {
-    ronin:    { name: 'GREY RONIN', face: 'ronin', col: '#c9d2e6', tint: '#9fb0d0', hp: 100, spd: 1.00, pow: 1.00, reach: 1.00, weapon: 'katana',  meter: 1.00, shuri: 0, blurb: 'balanced blade',      unlock: () => ({ ok: true }) },
-    kappa:    { name: 'KAPPA',      face: 'pepe',  col: '#3fae4a', tint: '#2bff80', hp: 88,  spd: 1.30, pow: 0.82, reach: 0.90, weapon: 'tanto',   meter: 1.16, shuri: 0, blurb: 'fast twin tanto',     unlock: o => ({ ok: o.count >= 1, need: 'own any card' }) },
-    doomer:   { name: 'DOOMER',     face: 'wojak', col: '#c7b6a4', tint: '#8fa0b8', hp: 128, spd: 0.82, pow: 1.34, reach: 1.14, weapon: 'nodachi', meter: 0.86, shuri: 0, blurb: 'heavy nodachi · iron guard', unlock: o => ({ ok: o.has('BLOCK OMEN'), need: 'a BLOCK OMEN card' }) },
-    oni:      { name: 'ONI',        face: 'oni',   col: '#df463b', tint: '#ff6b57', hp: 120, spd: 0.92, pow: 1.40, reach: 1.22, weapon: 'nodachi', meter: 0.96, shuri: 0, blurb: 'brutal reach',        unlock: o => ({ ok: o.rank >= 3, need: 'a MYTHIC+ card' }) },
-    kunoichi: { name: 'KUNOICHI',   face: 'kuno',  col: '#ff4fa3', tint: '#ff2ad9', hp: 92,  spd: 1.16, pow: 0.96, reach: 1.00, weapon: 'tanto',   meter: 1.12, shuri: 3, blurb: 'shuriken specialist',  unlock: o => ({ ok: o.has('WHALE SONG'), need: 'a WHALE SONG card' }) },
-    prizm:    { name: 'PRIZMANCER', face: 'prizm', col: '#b47bff', tint: '#e6c8ff', hp: 110, spd: 1.12, pow: 1.15, reach: 1.06, weapon: 'katana',  meter: 1.42, shuri: 1, blurb: 'all-round · fast meter', unlock: o => ({ ok: o.rank >= 4, need: 'a PRIZM card' }) },
+    ronin:    { name: 'GREY RONIN', face: 'ronin', col: '#c9d2e6', tint: '#9fb0d0', hp: 100, spd: 1.00, pow: 1.00, reach: 1.00, weapon: 'katana',  weaponArt: 'katana', build: {},                    meter: 1.00, shuri: 0, blurb: 'straw-hat swordsman', unlock: () => ({ ok: true }) },
+    kappa:    { name: 'KAPPA',      face: 'pepe',  col: '#3fae4a', tint: '#2bff80', hp: 88,  spd: 1.30, pow: 0.82, reach: 0.90, weapon: 'tanto',   weaponArt: 'tanto',  build: { legLen: 0.78 },        meter: 1.16, shuri: 0, blurb: 'shelled frog · dual tanto', unlock: o => ({ ok: o.count >= 1, need: 'own any card' }) },
+    doomer:   { name: 'DOOMER',     face: 'wojak', col: '#7f95ad', tint: '#8fa0b8', hp: 128, spd: 0.82, pow: 1.34, reach: 1.14, weapon: 'nodachi', weaponArt: 'nodachi', build: { hunch: 0.5 },          meter: 0.86, shuri: 0, blurb: 'hooded · heavy cleaver', unlock: o => ({ ok: o.has('BLOCK OMEN'), need: 'a BLOCK OMEN card' }) },
+    oni:      { name: 'ONI',        face: 'oni',   col: '#df463b', tint: '#ff6b57', hp: 120, spd: 0.92, pow: 1.40, reach: 1.22, weapon: 'nodachi', weaponArt: 'club',   build: { legLen: 1.04 },        meter: 0.96, shuri: 0, blurb: 'horned demon · spiked club', unlock: o => ({ ok: o.rank >= 3, need: 'a MYTHIC+ card' }) },
+    kunoichi: { name: 'KUNOICHI',   face: 'kuno',  col: '#ff4fa3', tint: '#ff2ad9', hp: 92,  spd: 1.16, pow: 0.96, reach: 1.04, weapon: 'tanto',   weaponArt: 'sickle', build: { legLen: 1.08 },        meter: 1.12, shuri: 3, blurb: 'scarfed · chain-sickle', unlock: o => ({ ok: o.has('WHALE SONG'), need: 'a WHALE SONG card' }) },
+    prizm:    { name: 'PRIZMANCER', face: 'prizm', col: '#b47bff', tint: '#e6c8ff', hp: 110, spd: 1.12, pow: 1.15, reach: 1.06, weapon: 'katana',  weaponArt: 'light',  build: {},                    meter: 1.42, shuri: 1, blurb: 'crystalline · light blade', unlock: o => ({ ok: o.rank >= 4, need: 'a PRIZM card' }) },
   };
   const ARCH_KEYS = Object.keys(ARCH);
   function ownSummary() { const cards = ownedSlugs().map(s => bySlug.get(s)).filter(Boolean); let rank = 0; const tr = new Set();
@@ -54,7 +54,7 @@
   };
 
   // ── game state ──
-  const wager = { ante: 50, cards: 2, players: 6, arch: 'ronin', picked: [] };
+  const wager = { ante: 50, cards: 2, players: 2, arch: 'ronin', picked: [] };   // NEON RONIN is a 1v1 duel
   let G = null, keys = {}, touch = { mx: 0, jump: false, block: false }, running = false, last = 0, glowT = 0;
   let cardPow = 1, cardHpMul = 1, cardSpd = 1;
   const idc = () => Math.random().toString(36).slice(2, 8);
@@ -78,25 +78,24 @@
     cardPow = cardHpMul = cardSpd = 1;
     try { if (window.RipPowers && wager.picked.length) { const L = RipPowers.loadout(wager.picked.map(sl => bySlug.get(sl)).filter(Boolean), RipPowers.getMarket());
       cardPow = 1 + Math.min(0.35, (L.dmg - 1)); cardHpMul = 1 + Math.min(0.4, (L.shield || 0) / 30); cardSpd = 1 + Math.min(0.12, (L.speed - 1)); } } catch {}
-    worldW = Math.max(1700, W * 2.0);
-    const N = wager.players;
+    worldW = Math.max(1200, W * 1.5);
+    const N = 2;
     const fighters = [];
-    // me
-    const me = mkFighter(wager.arch, worldW * 0.5, true, myHandle().slice(0, 10));
-    fighters.push(me);
-    // rivals: pick from a plausible unlocked-ish pool (fun mix)
-    const pool = ['ronin', 'kappa', 'doomer', 'oni', 'kunoichi', 'prizm'];
-    const names = ['Frogmind', 'Doomburd', 'Ashi', 'Kagememe', 'Wojaksan', 'Nightpepe', 'Rugcutter', 'Basedblade', 'Copejin', 'Bagbearer'];
-    for (let i = 1; i < N; i++) { const ak = pool[Math.floor(Math.random() * pool.length)];
-      const f = mkFighter(ak, worldW * (0.15 + Math.random() * 0.7), false, names[(i - 1) % names.length]);
-      f.face = f.x < me.x ? 1 : -1; fighters.push(f); }
-    G = { mode: 'play', t: 0, fighters, me, pickups: [], fx: [], cam: { x: clamp(me.x - W / 2, 0, worldW - W) },
-      timeLeft: 105, hitstop: 0, shake: 0, order: [], real: !!real, started: false, myStake: wager.picked.slice(), oppStakes: [], koFeed: 0 };
-    for (let i = 1; i < N; i++) { const st = []; for (let k = 0; k < wager.cards; k++) { const all = [...bySlug.keys()]; if (all.length) st.push(all[Math.floor(Math.random() * all.length)]); } G.oppStakes.push(st); }
-    // crates
-    for (let i = 0; i < 3; i++) dropPickup(rnd(worldW * 0.2, worldW * 0.8), null);
+    // me — centred-left
+    const me = mkFighter(wager.arch, worldW * 0.42, true, myHandle().slice(0, 10));
+    me.face = 1; fighters.push(me);
+    // the rival — a DIFFERENT archetype so the duel reads as two distinct fighters
+    const others = ARCH_KEYS.filter(k => k !== wager.arch);
+    const rivalArch = others[Math.floor(Math.random() * others.length)] || 'oni';
+    const names = { ronin: 'RONIN', kappa: 'KAPPA', doomer: 'DOOMER', oni: 'ONI', kunoichi: 'KUNOICHI', prizm: 'PRIZMANCER' };
+    const rival = mkFighter(rivalArch, worldW * 0.58, false, names[rivalArch] || 'RIVAL'); rival.face = -1; fighters.push(rival);
+    G = { mode: 'play', t: 0, fighters, me, foe: rival, pickups: [], fx: [], cam: { x: clamp((me.x + rival.x) / 2 - W / 2, 0, Math.max(0, worldW - W)) },
+      timeLeft: 90, hitstop: 0, shake: 0, order: [], real: !!real, started: false, myStake: wager.picked.slice(), oppStakes: [], koFeed: 0 };
+    { const st = []; for (let k = 0; k < wager.cards; k++) { const all = [...bySlug.keys()]; if (all.length) st.push(all[Math.floor(Math.random() * all.length)]); } G.oppStakes.push(st); }
+    // a couple of power-up crates around the ring
+    for (let i = 0; i < 2; i++) dropPickup(rnd(worldW * 0.3, worldW * 0.7), null);
     $('hud').classList.remove('hidden'); $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show');
-    $('myName').textContent = me.name.toUpperCase();
+    $('myName').textContent = me.name.toUpperCase(); $('foeName').textContent = rival.name.toUpperCase(); $('foeKos').textContent = '';
     if (window.RipNet) { try { RipNet.setStatus('battling'); } catch {} }
     // 3-2-1
     let n = 3; $('cd').classList.remove('hidden'); $('cdB').textContent = n; sfxGong();
@@ -128,7 +127,7 @@
   function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7;
     G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); sfxSpecial();
     // spin-blade nova: hits everything nearby
-    G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 110) {
+    G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 150) {
       const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
       impulse(t, dir, 1.4, true); for (let i = 0; i < 8; i++) spark(t.x, groundY - 40, f.tint); if (t.hp <= 0) ko(t, f); } });
     if (f.isMe) updMeter();
@@ -137,8 +136,8 @@
   function activeHit(f) {
     const sw = f.swing; if (!sw) return; const atk = sw.atk;
     if (f.stT < atk.st || f.stT > atk.st + atk.ac) return;    // outside active window
-    const reach = atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1) + (f.glow > 0 && atk.kind === 'slash' ? 22 : 0);
-    const hx = f.x + f.face * (16 + reach * 0.5), hy = groundY - 40 - f.yLift;
+    const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 + (f.glow > 0 && atk.kind === 'slash' ? 30 : 0);   // ×1.5 for the bigger bodies
+    const hx = f.x + f.face * (22 + reach * 0.5), hy = groundY - 90 - f.yLift;
     G.fighters.forEach(t => {
       if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0) return;
       const onSide = Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;
@@ -183,8 +182,8 @@
     const lowHp = f.hp < f.maxHp * 0.3;
     if (f.aiT <= 0) {
       f.aiT = rnd(0.25, 0.7);
-      if (f.meter >= 1 && best < 120 && Math.random() < 0.6) { trySpecial(f); return; }
-      if (best < 78) {                                        // in range → strike / block
+      if (f.meter >= 1 && best < 160 && Math.random() < 0.6) { trySpecial(f); return; }
+      if (best < 112) {                                       // in range → strike / block
         const r = Math.random();
         if (tgt.state && /punch|kick|slash/.test(tgt.state) && Math.sign(f.x - tgt.x) === tgt.face && r < 0.34) { f.state = 'block'; f.aiT = rnd(0.2, 0.4); }
         else { tryAttack(f, r < 0.4 ? 'punch' : r < 0.72 ? 'slash' : 'kick'); f.aiMove = 0; }
@@ -308,19 +307,23 @@
   function flash(col, a) { G.fx.push({ kind: 'flash', col, a, t: 0, life: 0.35 }); }
 
   function update(dt) {
-    G.t += dt;
+    G.t += dt; window.__rnT = G.t;
     if (G.hitstop > 0) { G.hitstop -= dt; dt = Math.min(dt, 0.006); }
     if (G.started && G.mode === 'play') { G.timeLeft -= dt; if (G.timeLeft <= 0) { G.timeLeft = 0; endBrawl(); } }
     if (G.started) G.fighters.forEach(f => { if (!f.isMe) stepAI(f, dt); });
     G.fighters.forEach(f => stepFighter(f, dt));
+    // soft body separation — keep the two big duellists from fully overlapping at melee range
+    { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30) {
+      const dx = b.x - a.x, d = Math.abs(dx), minD = 48; if (d < minD) { const s = (dx < 0 ? -1 : 1), push = (minD - d) / 2 * s;
+        a.x = clamp(a.x - push, 30, worldW - 30); b.x = clamp(b.x + push, 30, worldW - 30); } } }
     stepPickups(dt); stepShuriken(dt);
     // fx
     for (let i = G.fx.length - 1; i >= 0; i--) { const e = G.fx[i]; if (e.kind === 'shuri') continue; e.t += dt;
       if (e.kind === 'spark') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 500 * dt; }
       if (e.t >= e.life) G.fx.splice(i, 1); }
-    // camera + shake decay
-    const focus = G.me.dead ? (G.fighters.find(f => !f.dead) || G.me) : G.me;
-    G.cam.x = lerp(G.cam.x, clamp(focus.x - W / 2, 0, Math.max(0, worldW - W)), Math.min(1, dt * 6));
+    // camera: frame BOTH duellists (centre on their midpoint), clamped to the stage
+    const midX = (G.me.x + G.foe.x) / 2;
+    G.cam.x = lerp(G.cam.x, clamp(midX - W / 2, 0, Math.max(0, worldW - W)), Math.min(1, dt * 6));
     if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 40);
     updateHUD();
   }
@@ -374,38 +377,22 @@
     ctx.shadowBlur = 0; ctx.fillStyle = t.c; ctx.font = '14px "Arial Black",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t.g, x, y + 1); ctx.restore();
   }
 
-  // procedural articulated ninja — every limb is driven by the spring rig (f.rig),
-  // the whole body rotates by rig.bodyRot (stagger / ragdoll), and the blade leaves a trail.
+  // big detailed fighter — the spring rig drives the skeleton (RoninArt.skel), each
+  // archetype draws its own body/gear/weapon (RoninArt.draw), body rotates by bodyRot.
   function drawFighter(f) {
     const x = f.x - G.cam.x, gy = groundY - f.yLift, fc = f.face, r = f.rig, rot = r.bodyRot;
     drawTrail(f);
+    const K = RoninArt.skel(f);
     ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc, 1);
-    let alpha = f.dead ? Math.max(0.22, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
-    const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.4 : 1;
+    const alpha = f.dead ? Math.max(0.2, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
+    const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.45 : 1;
     ctx.globalAlpha = alpha * flick;
-
-    if (!f.dead && (f.rage > 0 || f.glow > 0 || f.meter >= 1)) { ctx.save(); ctx.shadowColor = f.rage > 0 ? '#ff6b57' : (f.glow > 0 ? '#ffd23b' : f.tint); ctx.shadowBlur = 22;
-      ctx.fillStyle = 'rgba(0,0,0,0.001)'; ctx.beginPath(); ctx.arc(0, -46, 40, 0, 6.28); ctx.fill(); ctx.restore(); }
-
-    const bob = r.bob, hipY = -40 - bob, shY = -70 - bob, headY = -84 - bob, tx = r.lean * 26;
-    const lw = f.weapon === 'nodachi' ? 8 : 7;
-    // legs
-    limb(0, hipY, footPt(r.hF, r.kF, hipY), lw, f.col);
-    limb(0, hipY, footPt(r.hB, r.kB, hipY), lw, shade(f.col, -20));
-    // torso
-    ctx.strokeStyle = f.col; ctx.lineWidth = lw + 4; ctx.lineCap = 'round'; ctx.shadowColor = f.tint; ctx.shadowBlur = 8;
-    ctx.beginPath(); ctx.moveTo(r.lean * 20, hipY); ctx.lineTo(tx, shY); ctx.stroke(); ctx.shadowBlur = 0;
-    // back arm
-    drawArm(tx, shY, r.aB, r.eB, lw, shade(f.col, -25), null);
-    // head (tilts with rig.head)
-    drawHead(tx + r.head * 5, headY, f, r.head);
-    // front arm + weapon → returns the local blade tip
-    const wpn = { katana: 46, tanto: 30, nodachi: 62 }[f.weapon] || 44;
-    const tip = drawArm(tx, shY, r.aF, r.eF, lw, f.col, { len: wpn * (f.glow > 0 ? 1.2 : 1), ang: r.sw, glow: f.glow > 0, tint: f.tint, spin: f.state === 'special' });
+    if (!f.dead && (f.rage > 0 || f.glow > 0 || f.meter >= 1)) { ctx.save(); ctx.shadowColor = f.rage > 0 ? '#ff6b57' : (f.glow > 0 ? '#ffd23b' : f.tint); ctx.shadowBlur = 26;
+      ctx.fillStyle = 'rgba(0,0,0,0.001)'; ctx.beginPath(); ctx.arc(0, -86, 54, 0, 6.28); ctx.fill(); ctx.restore(); }
+    try { RoninArt.draw(ctx, f, K); } catch (e) {}
     ctx.restore();
-
-    // record the blade tip in WORLD space (x is world, y is screen — no vertical scroll) for the streak
-    if (tip && !f.dead) { const c = Math.cos(rot), s = Math.sin(rot), px = tip.bx * fc, py = tip.by;
+    // record the blade tip in WORLD space for the streak (x world, y screen)
+    if (!f.dead) { const tip = K.sword.tip, c = Math.cos(rot), s = Math.sin(rot), px = tip.x * fc, py = tip.y;
       f.trail.unshift({ x: f.x + (px * c - py * s), y: gy + (px * s + py * c) }); if (f.trail.length > 9) f.trail.pop(); }
     else if (f.trail.length) f.trail.pop();
   }
@@ -475,9 +462,9 @@
   function updMeter() { const m = G.me.meter; $('meterFill').style.width = (m * 100) + '%'; $('meterWrap').classList.toggle('rdy', m >= 1); $('padX').classList.toggle('rdy', m >= 1 && window.GameHelp && GameHelp.isTouch); }
   function updShuri() { const s = G.me.shuri; const p = $('padShuri'); if (window.GameHelp && GameHelp.isTouch) p.style.display = s > 0 ? 'grid' : 'none'; }
   function updateHUD() {
-    const me = G.me; $('hpFill').style.width = clamp(me.hp / me.maxHp * 100, 0, 100) + '%';
+    const me = G.me, foe = G.foe; $('hpFill').style.width = clamp(me.hp / me.maxHp * 100, 0, 100) + '%';
     updMeter();
-    const alive = G.fighters.filter(f => !f.dead).length; $('aliveN').textContent = alive;
+    if (foe) { $('foeHp').style.width = clamp(foe.hp / foe.maxHp * 100, 0, 100) + '%'; if (foe.kos) $('foeKos').textContent = foe.kos + ' KO'; }
     const s = Math.max(0, G.timeLeft | 0); $('clock').textContent = (s / 60 | 0) + ':' + String(s % 60).padStart(2, '0');
     if (comboTimer > 0) { comboTimer -= 1 / 60; if (comboTimer <= 0) $('combo').classList.remove('show'); }
     let hint = []; if (me.shuri > 0) hint.push('SHURI ×' + me.shuri); if (me.glow > 0) hint.push('KATANA GLOW'); if (me.rage > 0) hint.push('RAGE');
@@ -500,31 +487,30 @@
     // ensure all fighters present
     G.fighters.forEach(f => { if (!finalOrder.includes(f)) finalOrder.push(f); });
     const myRank = Math.max(1, finalOrder.indexOf(G.me) + 1);
+    const won = myRank === 1;                                  // heads-up: last blade standing takes the pot
     const P = WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);
-    const onPodium = P.myPlace > 0 && P.myPlace <= 3; const first = P.myPlace === 1;
     let wonSlugs = [];
-    if (G.real && onPodium && P.myCards > 0) { const v = vault();
+    if (G.real && won && P.myCards > 0) { const v = vault();
       const pool = G.myStake.concat([].concat(...G.oppStakes)).filter(sl => bySlug.has(sl));
       for (let i = 0; i < P.myCards && pool.length; i++) wonSlugs.push(pool[Math.floor(Math.random() * pool.length)]);
       while (wonSlugs.length < P.myCards) { const all = [...bySlug.keys()]; if (!all.length) break; wonSlugs.push(all[Math.floor(Math.random() * all.length)]); }
       wonSlugs.forEach(sl => { if (bySlug.has(sl)) v.push({ slug: sl }); }); saveVault(v); }
-    setTimeout(() => showResult(P, myRank, onPodium, first, wonSlugs, finalOrder), 900);
+    setTimeout(() => showResult(P, won, myRank, wonSlugs, finalOrder), 900);
   }
-  function showResult(P, myRank, onPodium, first, wonSlugs, order) {
+  function showResult(P, won, myRank, wonSlugs, order) {
     $('hud').classList.add('hidden'); $('ovResult').classList.add('show');
-    const meWon = G.me.kos, survived = !G.me.dead;
-    $('resTitle').textContent = first ? 'WINNER' : (onPodium ? 'PODIUM' : 'DOWN');
-    $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace) + ' of ' + wager.players + ' ninja') : ('off the podium · ' + WagerPayout.ordinal(myRank) + ' of ' + wager.players);
-    if (!G.real) $('prizeBig').textContent = onPodium ? ('★ ' + WagerPayout.ordinal(P.myPlace) + (first ? ' — LAST BLADE STANDING' : ' — ON THE PODIUM')) : 'CUT DOWN';
-    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace) + ' · +' + P.myTok.toLocaleString('en-US') + ' $UR3030 · +' + wonSlugs.length + ' cards') : ('off the podium · 🔥' + P.anteBurn + ' rake burned');
-    $('prizeSub').textContent = meWon + ' KO' + (meWon !== 1 ? 's' : '') + (survived ? ' · still standing' : ' · cut down');
-    $('board').innerHTML = order.map((f, i) => `<div class="r${f.isMe ? ' me' : ''}"><span>${i + 1}. ${esc(f.name)}</span><span class="k">${f.kos} KO${f.dead ? '' : ' ✦'}</span></div>`).join('');
+    $('resTitle').textContent = won ? 'WIN' : 'K.O.';
+    $('resTag').textContent = won ? 'you won the duel' : 'cut down';
+    if (!G.real) $('prizeBig').textContent = won ? '★ LAST BLADE STANDING' : 'DEFEATED';
+    else $('prizeBig').textContent = won ? ('winner takes the pot · +' + P.myTok.toLocaleString('en-US') + ' $UR3030 · +' + wonSlugs.length + ' cards') : ('🔥' + P.anteBurn + ' rake burned · the pot went to the winner');
+    $('prizeSub').textContent = won ? 'flawless intent — the ring is yours' : 'ante up and run it back';
+    $('board').innerHTML = order.map((f, i) => `<div class="r${f.isMe ? ' me' : ''}"><span>${i + 1}. ${esc(f.name)}</span><span class="k">${f.dead ? 'K.O.' : 'WINNER ✦'}</span></div>`).join('');
     const wc = $('wonCards');
-    wc.innerHTML = (onPodium && G.real && wonSlugs.length) ? wonSlugs.slice(0, 12).map(sl => { const c = bySlug.get(sl); if (!c) return '';
+    wc.innerHTML = (won && G.real && wonSlugs.length) ? wonSlugs.slice(0, 12).map(sl => { const c = bySlug.get(sl); if (!c) return '';
       return `<div class="tile" style="--rc:var(${RC[c.rarity] || '--common'})"><img src="cards/${esc(c.art)}" alt="" loading="lazy"></div>`; }).join('') : '';
     $('scaNote').innerHTML = G.real
-      ? 'Your <b>🔥' + P.anteBurn + ' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your vault. Real on-chain token-pot escrow ships with the <b>721 lens</b> — Phase-2.'
-      : 'Practice brawl — no tokens burned, no cards moved. Ante up with a signed wallet to brawl the podium for keeps.';
+      ? 'Your <b>🔥' + P.anteBurn + ' $UR3030</b> rake burned on-chain — permanent, deflationary. The winner takes the rest of the pot + both staked hands; card winnings move for keeps in your vault. Real on-chain token-pot escrow ships with the <b>721 lens</b> — Phase-2.'
+      : 'Practice duel — no tokens burned, no cards moved. Ante up with a signed wallet to duel for keeps.';
   }
 
   // ═════════ LOBBY ═════════
@@ -547,7 +533,7 @@
     if (!unl[wager.arch] || !unl[wager.arch].ok) wager.arch = firstUnlocked || 'ronin';
     $('unlockN').textContent = count;
   }
-  function portrait(archKey, canvas) { drawMini(canvas.getContext('2d'), archKey); }
+  function portrait(archKey, canvas) { try { RoninArt.portrait(canvas.getContext('2d'), archKey, ARCH[archKey]); } catch (e) { drawMini(canvas.getContext('2d'), archKey); } }
   function drawMini(c, archKey) {
     const a = ARCH[archKey]; c.clearRect(0, 0, 120, 128); c.save(); c.translate(60, 118);
     // legs
@@ -587,18 +573,16 @@
   function refreshPot() {
     $('anteVal').textContent = wager.ante; $('cardsVal').textContent = wager.cards; $('pickN').textContent = wager.cards;
     const tokPot = wager.ante * wager.players, potBurn = Math.round(tokPot * WagerPayout.BURN_PCT), potNet = tokPot - potBurn, cardPot = wager.cards * wager.players;
-    $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+    $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · winner takes it</span>`;
     const Wt = window.RipWallet, canReal = liveToken() && Wt && Wt.hasWallet(), enough = wager.picked.length === wager.cards;
     $('btnAnte').disabled = !(canReal && enough);
     const note = $('lobNote');
     if (!canReal) note.innerHTML = 'Connect a signed wallet to ante real $UR3030. <b>Practice</b> is open to all.';
     else if (!enough) note.innerHTML = `Pick <b>${wager.cards}</b> card${wager.cards > 1 ? 's' : ''} for the pot to ante for keeps.`;
-    else note.innerHTML = 'Ante <b>' + wager.ante + ' $UR3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · <b>podium 1st/2nd/3rd</b> splits it.';
+    else note.innerHTML = 'Ante <b>' + wager.ante + ' $UR3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · <b>winner takes it</b>.';
   }
-  $('pChips').innerHTML = [4, 6, 8].map(n => `<span class="pchip${n === wager.players ? ' on' : ''}" data-p="${n}">${n}</span>`).join('');
   document.querySelectorAll('[data-ante]').forEach(b => b.onclick = () => { wager.ante = clamp(wager.ante + (+b.dataset.ante) * 25, 0, 500); refreshPot(); });
   document.querySelectorAll('[data-cards]').forEach(b => b.onclick = () => { wager.cards = clamp(wager.cards + (+b.dataset.cards), 1, 5); wager.picked = wager.picked.slice(0, wager.cards); buildGrid(); });
-  $('pChips').querySelectorAll('.pchip').forEach(c => c.onclick = () => { wager.players = +c.dataset.p; $('pChips').querySelectorAll('.pchip').forEach(x => x.classList.toggle('on', x === c)); refreshPot(); });
 
   async function ante(rematch) { const Wt = window.RipWallet;
     if (!(liveToken() && Wt && Wt.hasWallet())) { startBrawl(false); return; }
@@ -614,7 +598,7 @@
     { type: 'tap', act: 'Punch · Kick · Slash', touch: 'P / K / S buttons · tap to combo', key: 'J · K · L' },
     { type: 'dtap', act: 'Special (meter)', touch: 'SP button when it glows', key: 'Space' },
   ];
-  function practice() { if (window.GameHelp) GameHelp.show({ title: 'NEON RONIN', kicker: 'ninja brawl', controls: RN_CONTROLS, startLabel: '▶ Start practice', onStart: () => startBrawl(false) }); else startBrawl(false); }
+  function practice() { if (window.GameHelp) GameHelp.show({ title: 'NEON RONIN', kicker: '1v1 ninja duel', controls: RN_CONTROLS, startLabel: '▶ Start practice', onStart: () => startBrawl(false) }); else startBrawl(false); }
   $('btnPractice').onclick = practice;
   $('btnAnte').onclick = () => ante(false);
   $('btnRematch').onclick = () => { $('ovResult').classList.remove('show'); ante(true); };
