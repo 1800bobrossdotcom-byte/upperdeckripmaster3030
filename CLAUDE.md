@@ -80,6 +80,19 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`).
 - **NFA always** — experimental art token, can go to zero; keep the disclaimers loud.
 
+## Dress rehearsal (2026-07-24) — buy + burn PROVEN live
+- Artist wallet `0x5C3b…d89F` bought **367.17 UR3030 for 6,000 test RARE** (tx
+  `0xee5424…807b85`) and site-ripped a pack, burning **350** (tx `0xba1716…1a78ff`).
+  `totalSupply` = **999,650** — the first permanent burn; SuperRare's page shows it live.
+- **Testnet collect UI = `dev.superrare.co`** (prod superrare.com 404s testnet tokens);
+  `buyUrl()` is chain-aware. Test curve is UNCALIBRATED: 1 UR3030 ≈ 16 RARE (word order
+  of `getMarketState` verified on-chain — word0 = rarePerToken; see ILiquid.sol notes).
+- **Port-into-SuperRare plan:** renderer emits `animation_url` (owner-settable via
+  `setAnimationUrl`) → full site in the token page's media slot; `/cabinet.html` is the
+  sandbox-safe embed fallback (no gate, opt-in WC burns, null-origin tolerant;
+  vercel.json serves CORS-open). Updated renderer compiled + simulated, NOT yet
+  redeployed — artist deploys + clicks "Update Render Contract" on dev.superrare.co.
+
 ## Pending
 - Clean-slate the placeholder deck (plan in the launch dossier / `docs`); Aug-6 launch PDF
   for the artist + SuperRare; build the render-by-id lens + voucher mint; get SuperRare's

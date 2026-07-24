@@ -52,18 +52,31 @@ contract UR3030RenderPrototype {
     string public lensName;
     string public lensDescription;
     string public externalUrl;
+    // When set, emitted as ERC-721-metadata "animation_url" — marketplaces
+    // (SuperRare included) render it as a live iframe in the token page's media
+    // slot, so the SITE ITSELF becomes the edition's display: the full arcade at
+    // upperdeckripmaster3030.com. If the marketplace sandbox fights the full site
+    // (opaque origin: no injected wallet, no storage), setAnimationUrl() flips to
+    // the sandbox-safe /cabinet.html — owner-settable, no redeploy.
+    string public animationUrl;
 
     constructor(
         address liquid,
         string memory name_,
         string memory description_,
-        string memory externalUrl_
+        string memory externalUrl_,
+        string memory animationUrl_
     ) {
         LIQUID = liquid;
         owner = msg.sender;
         lensName = name_;
         lensDescription = description_;
         externalUrl = externalUrl_;
+        animationUrl = animationUrl_;
+    }
+
+    function setAnimationUrl(string calldata animationUrl_) external onlyOwner {
+        animationUrl = animationUrl_;
     }
 
     modifier onlyOwner() {
@@ -159,12 +172,16 @@ contract UR3030RenderPrototype {
     }
 
     function _json(Snap memory s, string memory image) internal view returns (string memory) {
+        string memory anim = bytes(animationUrl).length == 0
+            ? ""
+            : string(abi.encodePacked('"animation_url":"', _escJson(animationUrl), '",'));
         string memory head = string(
             abi.encodePacked(
                 '{"name":"', _escJson(lensName),
                 '","description":"', _escJson(lensDescription),
                 '","external_url":"', _escJson(externalUrl),
-                '","image":"', image,
+                '",', anim,
+                '"image":"', image,
                 '","attributes":['
             )
         );
