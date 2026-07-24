@@ -126,7 +126,7 @@
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
   function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7;
-    G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); sfxSpecial();
+    G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); triggerShock(f.x, groundY - 116, 1.6); sfxSpecial();
     // spin-blade nova: hits everything nearby
     G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 200) {
       const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
@@ -160,6 +160,7 @@
     impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.7), knockdown);
     for (let i = 0; i < (knockdown ? 8 : 4); i++) spark(hx + rnd(-8, 8), hy + rnd(-10, 10), att.tint);
     G.hitstop = Math.max(G.hitstop, knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, knockdown ? 9 : 5);
+    if (knockdown) triggerShock(hx, hy, 1);
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
   }
@@ -168,7 +169,7 @@
     G.order.unshift(tgt);                                     // earlier deaths end up lower on the board
     if (killer && killer !== tgt) { killer.kos++; if (killer.isMe) { $('myKos').textContent = killer.kos + ' KO'; toast('K.O. ×' + killer.kos); } }
     if (Math.random() < 0.7) dropPickup(tgt.x, tgt);
-    flash('#ff2ad9', 0.35); G.shake = Math.max(G.shake, 9); sfxKo();
+    flash('#ff2ad9', 0.35); G.shake = Math.max(G.shake, 9); triggerShock(tgt.x, groundY - 116, 1.5); spawnDust(tgt.x, 8); sfxKo();
     const aliveN = G.fighters.filter(f => !f.dead).length;
     if (tgt.isMe) endBrawl();
     else if (aliveN <= 1) endBrawl();
@@ -209,14 +210,18 @@
       if (f.isMe) { mv = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0) + touch.mx; mv = clamp(mv, -1, 1); }
       else mv = f.aiMove || 0;
     }
+    if (f.wallT > 0) f.wallT -= dt;
     const canMove = !f.dead && f.stun <= 0 && f.state !== 'block' && !f.swing && f.state !== 'special';
-    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 3300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk'; f.walkPh += Math.abs(mv) * dt * 15; }
+    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 3300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk';
+      f.walkPh += Math.abs(mv) * dt * 15; f.stepT = (f.stepT || 0) - dt; if (!f.air && f.stepT <= 0) { spawnDust(f.x - f.face * 6, 2); f.stepT = 0.26; } }
     else if (!f.air && f.state === 'walk') f.state = 'idle';
-    // friction + integrate
-    f.vx *= f.air ? 0.99 : 0.76; f.x += f.vx * dt; f.x = clamp(f.x, 30, worldW - 30);
+    // friction + integrate + wall bounce (a hard knock into the stage edge rebounds)
+    f.vx *= f.air ? 0.99 : 0.76; f.x += f.vx * dt;
+    if ((f.x <= 30 || f.x >= worldW - 30) && Math.abs(f.vx) > 240 && (f.wallT || 0) <= 0) { f.vx *= -0.45; f.wallT = 0.25; G.shake = Math.max(G.shake, 6); spawnDust(f.x, 6); triggerShock(f.x, groundY - 70, 0.8); sfxHit(false); }
+    f.x = clamp(f.x, 30, worldW - 30);
     const maxRun = 390 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 450, maxRun + 450);
-    // vertical (jump)
-    if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
+    // vertical (jump) — dust + a thud on landing
+    if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); } if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
     if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.atk.st) { sw.arced = true; spawnArc(f, sw.atk); }
       activeHit(f); if (f.stT > sw.atk.st + sw.atk.ac + sw.atk.rc) { f.swing = null; if (f.state !== 'hurt' && f.state !== 'ko') f.state = 'idle'; } }
@@ -315,6 +320,10 @@
 
   function spark(x, y, col) { G.fx.push({ kind: 'spark', x, y, vx: rnd(-140, 140), vy: rnd(-200, 40), col, t: 0, life: rnd(0.25, 0.5), r: rnd(1.5, 3.5) }); }
   function flash(col, a) { G.fx.push({ kind: 'flash', col, a, t: 0, life: 0.35 }); }
+  // dust puffs kicked up at the feet — landings, footsteps, wall bounces
+  function spawnDust(x, n) { for (let i = 0; i < n; i++) G.fx.push({ kind: 'dust', x: x + rnd(-8, 8), y: groundY - rnd(0, 6), vx: rnd(-70, 70), vy: rnd(-70, -10), t: 0, life: rnd(0.35, 0.65), r: rnd(3, 7) }); }
+  // a screen-space shockwave ripple through the GL compositor at a world impact point
+  function triggerShock(worldX, screenY, str) { if (!G) return; G.shock = { ux: clamp((worldX - G.cam.x) / Math.max(1, W), 0, 1), uy: 1 - clamp(screenY / Math.max(1, H), 0, 1), t: 0, spd: 2.4, str: str || 1 }; }
   // anime slash-arc: a bright crescent swept in front of the fighter the moment the strike goes active
   function spawnArc(f, atk) {
     const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY;
@@ -339,11 +348,13 @@
     // fx
     for (let i = G.fx.length - 1; i >= 0; i--) { const e = G.fx[i]; if (e.kind === 'shuri') continue; e.t += dt;
       if (e.kind === 'spark') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 500 * dt; }
+      else if (e.kind === 'dust') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 120 * dt; e.vx *= 0.94; }
       if (e.t >= e.life) G.fx.splice(i, 1); }
     // camera: frame BOTH duellists (centre on their midpoint), clamped to the stage
     const midX = (G.me.x + G.foe.x) / 2;
     G.cam.x = lerp(G.cam.x, clamp(midX - W / 2, 0, Math.max(0, worldW - W)), Math.min(1, dt * 6));
     if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 40);
+    if (G.shock) { G.shock.t += dt; if (G.shock.t > 0.5) G.shock = null; }
     updateHUD();
   }
 
@@ -468,6 +479,8 @@
   function drawFx(e) {
     if (e.kind === 'spark') { const x = e.x - G.cam.x, y = e.y; ctx.save(); ctx.globalAlpha = 1 - e.t / e.life; ctx.fillStyle = e.col; ctx.shadowColor = e.col; ctx.shadowBlur = 8;
       ctx.beginPath(); ctx.arc(x, y, e.r * (1 - e.t / e.life * 0.5), 0, 6.28); ctx.fill(); ctx.restore(); }
+    else if (e.kind === 'dust') { const p = e.t / e.life; ctx.save(); ctx.globalAlpha = (1 - p) * 0.5; ctx.fillStyle = '#b9a6d8';
+      ctx.beginPath(); ctx.arc(e.x - G.cam.x, e.y, e.r * (1 + p * 1.6), 0, 6.28); ctx.fill(); ctx.restore(); }
     else if (e.kind === 'shuri') { const x = e.x - G.cam.x, y = groundY - 116 + e.y; ctx.save(); ctx.translate(x, y); ctx.rotate(e.spin); ctx.strokeStyle = '#d8fff0'; ctx.fillStyle = '#8ffff0'; ctx.shadowColor = '#2bffb0'; ctx.shadowBlur = 10;
       for (let i = 0; i < 4; i++) { ctx.rotate(1.57); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(3, -3); ctx.lineTo(0, -11); ctx.lineTo(-3, -3); ctx.closePath(); ctx.fill(); } ctx.restore(); }
     else if (e.kind === 'arc') { const p = clamp(e.t / e.life, 0, 1); ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -498,13 +511,29 @@
     if (comboTimer > 0) { comboTimer -= 1 / 60; if (comboTimer <= 0) $('combo').classList.remove('show'); }
     let hint = []; if (me.shuri > 0) hint.push('SHURI ×' + me.shuri); if (me.glow > 0) hint.push('KATANA GLOW'); if (me.rage > 0) hint.push('RAGE');
     $('pickHint').innerHTML = hint.map(h => '<b>' + h + '</b>').join(' · ');
+    drawMinimap();
+  }
+  const miniCv = () => $('mini');
+  function drawMinimap() {
+    const mc = miniCv(); if (!mc) return; const g = mc.getContext('2d'); const mw = mc.width, mh = mc.height; g.clearRect(0, 0, mw, mh);
+    const sx = x => (x / worldW) * (mw - 8) + 4;
+    // stage floor line + camera viewport window
+    g.strokeStyle = 'rgba(180,123,255,.3)'; g.beginPath(); g.moveTo(4, mh - 7); g.lineTo(mw - 4, mh - 7); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.07)'; g.fillRect(sx(G.cam.x), 2, (W / worldW) * (mw - 8), mh - 4);
+    // pickups
+    G.pickups.forEach(p => { const t = PTYPES[p.type]; g.fillStyle = t.c; g.beginPath(); g.arc(sx(p.x), mh - 12, 1.8, 0, 6.28); g.fill(); });
+    // fighters (you = lime, rival = coral), dead = hollow
+    G.fighters.forEach(f => { const x = sx(f.x); g.fillStyle = f.isMe ? '#2bff80' : '#ff5a3c';
+      g.globalAlpha = f.dead ? 0.35 : 1; g.beginPath(); g.arc(x, mh - 12, f.isMe ? 4 : 3.4, 0, 6.28); g.fill();
+      g.globalAlpha = 1; g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x - 0.5, mh - 18, 1, 4); });
   }
 
   // ── loop ──
   let glOk = false;
   function loop(now) { let dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (G && G.mode !== 'lobby') { update(dt); draw();
-      if (glOk) { if (!RoninGL.present(cv)) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; } } }
+      if (glOk) { const shk = G.shock ? { x: G.shock.ux, y: G.shock.uy, z: G.shock.t * G.shock.spd } : null;
+        if (!RoninGL.present(cv, shk)) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; } } }
     if (running) requestAnimationFrame(loop); }
 
   // ── end / podium ──

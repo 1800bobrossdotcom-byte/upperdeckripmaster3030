@@ -28,13 +28,16 @@ window.RoninGL = (function () {
     's+=texture2D(t,uv+dir*1.0).rgb*0.15; s+=texture2D(t,uv+dir*2.0).rgb*0.12; s+=texture2D(t,uv+dir*3.0).rgb*0.09; s+=texture2D(t,uv+dir*4.0).rgb*0.05;' +
     'gl_FragColor=vec4(s,1.0); }';
   const F_COMP =
-    'precision mediump float; varying vec2 uv; uniform sampler2D base; uniform sampler2D bloom; uniform float intensity; uniform float ca; uniform float grain;' +
+    'precision mediump float; varying vec2 uv; uniform sampler2D base; uniform sampler2D bloom; uniform float intensity; uniform float ca; uniform float grain; uniform vec2 aspect; uniform vec3 shock;' +
     'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
-    'void main(){ vec2 d=uv-0.5;' +
-    'vec3 col; col.r=texture2D(base,uv+d*ca).r; col.g=texture2D(base,uv).g; col.b=texture2D(base,uv-d*ca).b;' +   // chromatic aberration
-    'col += texture2D(bloom,uv).rgb*intensity;' +                                                                 // additive bloom
-    'float v=smoothstep(1.05,0.35,length(d)); col*=mix(0.62,1.0,v);' +                                            // vignette
-    'col += (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.028;' +                                                        // film grain
+    'void main(){ vec2 uvd=uv;' +
+    // shockwave: a decaying ring of UV distortion radiating from the impact (shock.xy = centre, shock.z = radius, higher intensity encoded in aspect fallback)
+    'if(shock.z>0.0){ vec2 dv=(uv-shock.xy)*aspect; float d=length(dv); float ring=exp(-abs(d-shock.z)*16.0); float w=ring*0.03*sin((d-shock.z)*55.0); uvd=uv+normalize(dv+0.0001)/aspect*w; }' +
+    'vec2 dd=uvd-0.5;' +
+    'vec3 col; col.r=texture2D(base,uvd+dd*ca).r; col.g=texture2D(base,uvd).g; col.b=texture2D(base,uvd-dd*ca).b;' +   // chromatic aberration
+    'col += texture2D(bloom,uvd).rgb*intensity;' +                                                                     // additive bloom
+    'float v=smoothstep(1.05,0.35,length(dd)); col*=mix(0.62,1.0,v);' +                                               // vignette
+    'col += (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.028;' +                                                            // film grain
     'gl_FragColor=vec4(col,1.0); }';
 
   function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -78,7 +81,7 @@ window.RoninGL = (function () {
   const u = (p, n) => gl.getUniformLocation(p, n);
 
   let grainT = 0;
-  function present(src) {
+  function present(src, shock) {
     if (!ok) return false;
     try {
       if (src.width !== W || src.height !== H) sizeTo(src.width, src.height);
@@ -101,6 +104,8 @@ window.RoninGL = (function () {
       bind(null, W, H); gl.useProgram(progComp);
       gl.uniform1i(u(progComp, 'base'), 0); gl.uniform1i(u(progComp, 'bloom'), 1);
       gl.uniform1f(u(progComp, 'intensity'), 1.15); gl.uniform1f(u(progComp, 'ca'), 0.0022); gl.uniform1f(u(progComp, 'grain'), grainT);
+      const ar = W / Math.max(1, H); gl.uniform2f(u(progComp, 'aspect'), ar, 1.0);
+      if (shock && shock.z > 0) gl.uniform3f(u(progComp, 'shock'), shock.x, shock.y, shock.z); else gl.uniform3f(u(progComp, 'shock'), 0, 0, 0);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texSrc);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texB);
       drawQuad();
