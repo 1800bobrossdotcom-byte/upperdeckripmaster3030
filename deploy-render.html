@@ -59,8 +59,27 @@
       if (!w || !w.hasWallet()) { log('no wallet found — open this page in a browser with MetaMask.', 'bad'); btn.disabled = false; return; }
       if (!w.isConnected()) { log('connecting wallet…'); const c = await w.connect('injected'); if (!c.ok) { log(w.explain(c.reason), 'bad'); btn.disabled = false; return; } }
       const g = await w.ensureChain(); if (!g.ok) { log(w.explain(g.reason), 'bad'); btn.disabled = false; return; }
-      log('deploying from ' + w.account() + ' — confirm in your wallet…');
-      const tx = await w.request('eth_sendTransaction', [{ from: w.account(), data: BLOB }]);
+      // Suggest tight EIP-1559 fee caps: MetaMask's default max-fee reserve
+      // (gasLimit × maxFeePerGas) can overshoot a thin testnet balance and get
+      // rejected upstream even though the ACTUAL cost is a third of that.
+      const acct = w.account();
+      const gasEst = BigInt(await w.request('eth_estimateGas', [{ from: acct, data: BLOB }]).catch(() => '0x3d0900'));
+      const gasLim = gasEst * 112n / 100n;
+      const gp = BigInt(await w.request('eth_gasPrice', []).catch(() => '0x59682f00'));
+      let maxFee = gp * 2n; if (maxFee < 1500000000n) maxFee = 1500000000n;   // ≥1.5 gwei
+      const prio = 100000000n;                                               // 0.1 gwei tip
+      const bal = BigInt(await w.request('eth_getBalance', [acct, 'latest']).catch(() => '0x0'));
+      const maxCost = gasLim * maxFee;
+      log('gas ' + gasLim + ' × max ' + (Number(maxFee) / 1e9).toFixed(2) + ' gwei → max reserve ' +
+          (Number(maxCost / 10n ** 12n) / 1e6).toFixed(5) + ' ETH (balance ' + (Number(bal / 10n ** 12n) / 1e6).toFixed(5) + ')');
+      if (bal && maxCost > bal) {
+        log('balance too thin for the fee reserve — in MetaMask hit "Edit gas" and drop max base fee to ~1.5 gwei, or top up at a Sepolia faucet.', 'bad');
+      }
+      log('deploying from ' + acct + ' — confirm in your wallet…');
+      const tx = await w.request('eth_sendTransaction', [{ from: acct, data: BLOB,
+        gas: '0x' + gasLim.toString(16),
+        maxFeePerGas: '0x' + maxFee.toString(16),
+        maxPriorityFeePerGas: '0x' + prio.toString(16) }]);
       log('tx sent: ' + tx + '\nwaiting for the receipt…');
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 4000));
