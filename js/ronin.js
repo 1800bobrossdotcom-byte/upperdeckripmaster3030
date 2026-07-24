@@ -49,9 +49,9 @@
 
   const WEAP_REACH = { katana: 1.0, tanto: 0.82, nodachi: 1.32 };
   const ATK = {
-    punch: { st: .05, ac: .09, rc: .13, reach: 42, dmg: 6,  knock: 70,  kind: 'punch' },
-    kick:  { st: .10, ac: .10, rc: .22, reach: 54, dmg: 11, knock: 220, kind: 'kick' },
-    slash: { st: .09, ac: .13, rc: .20, reach: 62, dmg: 15, knock: 150, kind: 'slash' },
+    punch: { st: .03, ac: .05, rc: .10, reach: 42, dmg: 6,  knock: 90,  kind: 'punch' },   // snappy jab
+    kick:  { st: .07, ac: .07, rc: .18, reach: 56, dmg: 12, knock: 250, kind: 'kick' },     // weighty but quicker
+    slash: { st: .05, ac: .06, rc: .13, reach: 64, dmg: 15, knock: 160, kind: 'slash' },    // fast blade whip
   };
 
   // ── game state ──
@@ -159,7 +159,7 @@
     tgt.vx += att.face * knock * (knockdown ? 1.4 : 1); if (knockdown) { tgt.vy = -300; tgt.air = true; tgt.stun = 0.55; }
     impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.7), knockdown);
     for (let i = 0; i < (knockdown ? 8 : 4); i++) spark(hx + rnd(-8, 8), hy + rnd(-10, 10), att.tint);
-    G.hitstop = Math.max(G.hitstop, knockdown ? 0.08 : 0.04); G.shake = Math.max(G.shake, knockdown ? 8 : 4);
+    G.hitstop = Math.max(G.hitstop, knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, knockdown ? 9 : 5);
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
   }
@@ -210,15 +210,16 @@
       else mv = f.aiMove || 0;
     }
     const canMove = !f.dead && f.stun <= 0 && f.state !== 'block' && !f.swing && f.state !== 'special';
-    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 2400 * f.spd * (f.rage > 0 ? 1.25 : 1) * dt; if (!f.air) f.state = 'walk'; f.walkPh += Math.abs(mv) * dt * 12; }
+    if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 3300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk'; f.walkPh += Math.abs(mv) * dt * 15; }
     else if (!f.air && f.state === 'walk') f.state = 'idle';
     // friction + integrate
-    f.vx *= f.air ? 0.99 : 0.80; f.x += f.vx * dt; f.x = clamp(f.x, 30, worldW - 30);
-    const maxRun = 300 * f.spd * (f.rage > 0 ? 1.3 : 1); f.vx = clamp(f.vx, -maxRun - 400, maxRun + 400);
+    f.vx *= f.air ? 0.99 : 0.76; f.x += f.vx * dt; f.x = clamp(f.x, 30, worldW - 30);
+    const maxRun = 390 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 450, maxRun + 450);
     // vertical (jump)
     if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
-    // swing lifecycle
-    if (f.swing) { activeHit(f); if (f.stT > f.swing.atk.st + f.swing.atk.ac + f.swing.atk.rc) { f.swing = null; if (f.state !== 'hurt' && f.state !== 'ko') f.state = 'idle'; } }
+    // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
+    if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.atk.st) { sw.arced = true; spawnArc(f, sw.atk); }
+      activeHit(f); if (f.stT > sw.atk.st + sw.atk.ac + sw.atk.rc) { f.swing = null; if (f.state !== 'hurt' && f.state !== 'ko') f.state = 'idle'; } }
     // hurt recovery
     if (f.state === 'hurt' && f.stun <= 0 && !f.air) f.state = 'idle';
     // special recovery
@@ -243,10 +244,17 @@
     if (st === 'idle') { T.bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; T.aF = -0.5 + Math.sin(G.t * 2.2) * 0.08; T.aB = 0.5 - Math.sin(G.t * 2.2) * 0.06; T.sw = -0.4; T.lean = 0.03; }
     else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.75; T.hB = -s * 0.75; T.kF = Math.max(0, -s) * 0.8; T.kB = Math.max(0, s) * 0.8; T.aF = -0.35 - s * 0.55; T.aB = 0.35 - s * 0.55; T.lean = 0.16 * spd; T.bob = Math.abs(Math.cos(f.walkPh)) * 2; }
     else if (st === 'block') { T.lean = -0.14; T.aF = -1.5; T.eF = 1.5; T.aB = -1.1; T.eB = 1.2; T.sw = -2.0; T.hF = 0.35; T.hB = -0.35; }
-    else if (st === 'punch') { const ex = Math.sin(clamp(t / (ATK.punch.st + ATK.punch.ac), 0, 1) * Math.PI); T.aF = -1.7 * ex - 0.35; T.eF = 0.9 - 0.85 * ex; T.lean = 0.1 * ex; T.aB = 0.7; }
-    else if (st === 'kick') { const ex = Math.sin(clamp(t / (ATK.kick.st + ATK.kick.ac), 0, 1) * Math.PI); T.hF = 1.5 * ex; T.kF = -0.25 * ex; T.lean = -0.18 * ex; T.aB = 0.95; T.aF = 0.2; }
-    else if (st === 'slash') { const ph = clamp((t - ATK.slash.st) / ATK.slash.ac, 0, 1); const a = lerp(-2.0, 1.0, ph); T.sw = a; T.aF = a - 0.25; T.eF = 0.15; T.lean = 0.12 * ph - 0.04; }
-    else if (st === 'special') { T.sw = t * 26; T.aF = -1.2; T.eF = 0.1; T.lean = 0; }
+    else if (st === 'punch') { const P = ATK.punch;
+      if (t < P.st) { const w = t / P.st; T.aF = -0.35 + 0.5 * w; T.eF = 1.5; T.lean = -0.06 * w; }   // cock the fist back
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aF = -1.75 * ex - 0.3; T.eF = 1.2 - 1.1 * ex; T.lean = 0.14 * ex; T.aB = 0.7 + 0.3 * ex; } }
+    else if (st === 'kick') { const P = ATK.kick;
+      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; }        // chamber the knee
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.6 * ex; T.kF = -0.35 * ex; T.lean = -0.22 * ex; T.aB = 1.0; T.aF = 0.25; } }
+    else if (st === 'slash') { const P = ATK.slash;
+      if (t < P.st) { const w = t / P.st; T.sw = lerp(-1.4, -2.8, w); T.aF = T.sw - 0.15; T.eF = 0.7; T.lean = -0.16 * w; T.head = 0.14 * w; }   // wind-up: blade cocks back over the shoulder
+      else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the arc
+        T.sw = lerp(-2.8, 1.8, e); T.aF = T.sw - 0.1; T.eF = lerp(0.7, 0.05, e); T.lean = lerp(-0.16, 0.28, e); T.head = lerp(0.14, -0.12, e); } }
+    else if (st === 'special') { T.sw = t * 30; T.aF = -1.2; T.eF = 0.1; T.lean = 0; }
     else if (st === 'hurt') { T.lean = -0.34; T.aF = 0.5; T.aB = 0.9; T.eF = 0.2; T.sw = 0.5; T.head = -0.3; T.hF = -0.2; }
     return T;
   }
@@ -262,13 +270,14 @@
       return;
     }
     const T = poseTargets(f);
-    const K = 210, D = 24;                                    // underdamped a touch → follow-through overshoot
-    springTo(r, 'lean', T.lean, 120, 15, dt); springTo(r, 'head', T.head, 90, 13, dt);
+    const atk = f.state === 'punch' || f.state === 'kick' || f.state === 'slash' || f.state === 'special';
+    const K = atk ? 340 : 210, D = 24;                        // stiffer mid-attack so limbs whip; underdamped → follow-through
+    springTo(r, 'lean', T.lean, atk ? 220 : 120, 15, dt); springTo(r, 'head', T.head, 110, 13, dt);
     springTo(r, 'aF', T.aF, K, D, dt); springTo(r, 'eF', T.eF, K, D, dt);
     springTo(r, 'aB', T.aB, K * 0.8, D, dt); springTo(r, 'eB', T.eB, K * 0.8, D, dt);
     springTo(r, 'hF', T.hF, K, D, dt); springTo(r, 'kF', T.kF, K, D, dt);
     springTo(r, 'hB', T.hB, K, D, dt); springTo(r, 'kB', T.kB, K, D, dt);
-    springTo(r, 'sw', T.sw, (f.state === 'slash' || f.state === 'special') ? 320 : 150, 22, dt);   // stiffer mid-swing so the edge tracks
+    springTo(r, 'sw', T.sw, (f.state === 'slash' || f.state === 'special') ? 560 : 170, 26, dt);   // the blade cracks through the arc
     springTo(r, 'bob', T.bob, 150, 16, dt);
     r.bodyRotV += (0 - r.bodyRot) * 150 * dt - r.bodyRotV * 15 * dt; r.bodyRot += r.bodyRotV * dt;  // torso rights itself; impacts rock it
   }
@@ -306,6 +315,15 @@
 
   function spark(x, y, col) { G.fx.push({ kind: 'spark', x, y, vx: rnd(-140, 140), vy: rnd(-200, 40), col, t: 0, life: rnd(0.25, 0.5), r: rnd(1.5, 3.5) }); }
   function flash(col, a) { G.fx.push({ kind: 'flash', col, a, t: 0, life: 0.35 }); }
+  // anime slash-arc: a bright crescent swept in front of the fighter the moment the strike goes active
+  function spawnArc(f, atk) {
+    const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY;
+    let a0, a1, rr, big = atk.kind === 'slash';
+    if (atk.kind === 'slash') { a0 = -2.35; a1 = 0.9; rr = reach * 1.1; }
+    else if (atk.kind === 'kick') { a0 = 0.15; a1 = 1.55; rr = reach * 0.98; }
+    else { a0 = -0.6; a1 = 0.6; rr = reach * 0.72; }
+    G.fx.push({ kind: 'arc', x: f.x + f.face * 18, y: groundY - 116 - f.yLift, face: f.face, r: rr, a0, a1, col: f.glow > 0 ? '#ffe6a0' : (f.tint || '#eaf6ff'), t: 0, life: big ? 0.24 : 0.16 });
+  }
 
   function update(dt) {
     G.t += dt; window.__rnT = G.t;
@@ -402,7 +420,7 @@
     const tr = f.trail; if (tr.length < 2) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
     for (let i = 0; i < tr.length - 1; i++) { const a = tr[i], b = tr[i + 1]; const spd = Math.hypot(a.x - b.x, a.y - b.y);
-      const al = (1 - i / tr.length) * clamp(spd / 30, 0, 1); if (al < 0.03) continue;
+      const al = (1 - i / tr.length) * clamp(spd / 22, 0, 1); if (al < 0.03) continue;
       ctx.strokeStyle = (f.glow > 0 ? 'rgba(255,240,180,' : 'rgba(206,240,255,') + al.toFixed(3) + ')';
       ctx.lineWidth = (1 - i / tr.length) * 9 + 1; ctx.shadowColor = f.glow > 0 ? '#ffd23b' : f.tint; ctx.shadowBlur = 12;
       ctx.beginPath(); ctx.moveTo(a.x - G.cam.x, a.y); ctx.lineTo(b.x - G.cam.x, b.y); ctx.stroke(); }
@@ -452,6 +470,16 @@
       ctx.beginPath(); ctx.arc(x, y, e.r * (1 - e.t / e.life * 0.5), 0, 6.28); ctx.fill(); ctx.restore(); }
     else if (e.kind === 'shuri') { const x = e.x - G.cam.x, y = groundY - 116 + e.y; ctx.save(); ctx.translate(x, y); ctx.rotate(e.spin); ctx.strokeStyle = '#d8fff0'; ctx.fillStyle = '#8ffff0'; ctx.shadowColor = '#2bffb0'; ctx.shadowBlur = 10;
       for (let i = 0; i < 4; i++) { ctx.rotate(1.57); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(3, -3); ctx.lineTo(0, -11); ctx.lineTo(-3, -3); ctx.closePath(); ctx.fill(); } ctx.restore(); }
+    else if (e.kind === 'arc') { const p = clamp(e.t / e.life, 0, 1); ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(e.x - G.cam.x, e.y); ctx.scale(e.face, 1);
+      const rO = e.r * (0.86 + p * 0.3), rI = e.r * 0.40;
+      const g = ctx.createRadialGradient(0, 0, rI, 0, 0, rO); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.6, 'rgba(232,246,255,' + ((1 - p) * 0.85).toFixed(3) + ')'); g.addColorStop(0.92, 'rgba(255,255,255,' + ((1 - p) * 0.55).toFixed(3) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, rO, e.a0, e.a1, false); ctx.arc(0, 0, rI, e.a1, e.a0, true); ctx.closePath(); ctx.fill();
+      // bright leading edge that fades along the sweep + a coloured glow
+      ctx.globalAlpha = (1 - p); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6 * (1 - p) + 1; ctx.shadowColor = e.col; ctx.shadowBlur = 26; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, 0, rO * 0.9, e.a0, e.a1, false); ctx.stroke();
+      ctx.globalAlpha = (1 - p) * 0.7; ctx.strokeStyle = e.col; ctx.lineWidth = 12 * (1 - p) + 1;
+      ctx.beginPath(); ctx.arc(0, 0, rO * 0.9, e.a0, e.a1, false); ctx.stroke(); ctx.restore(); }
   }
   function drawFlash() { const f = G.fx.find(e => e.kind === 'flash'); if (!f) return; ctx.save(); ctx.globalAlpha = f.a * (1 - f.t / f.life); ctx.fillStyle = f.col; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   function shade(hex, d) { const n = parseInt(hex.slice(1), 16); let r = (n >> 16) + d, g = ((n >> 8) & 255) + d, b = (n & 255) + d;

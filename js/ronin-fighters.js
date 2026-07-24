@@ -39,9 +39,14 @@ window.RoninArt = (function () {
   // ── primitives (ctx already translated/rotated/scaled into the fighter's local space) ──
   function cap(ctx, a, b, w, col) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
   function taper(ctx, a, b, w0, w1, col) { const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-    ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(a.x + nx * w0, a.y + ny * w0); ctx.lineTo(b.x + nx * w1, b.y + ny * w1);
-    ctx.lineTo(b.x - nx * w1, b.y - ny * w1); ctx.lineTo(a.x - nx * w0, a.y - ny * w0); ctx.closePath(); ctx.fill();
-    dot(ctx, a.x, a.y, w0, col); dot(ctx, b.x, b.y, w1, col); }
+    const path = () => { ctx.beginPath(); ctx.moveTo(a.x + nx * w0, a.y + ny * w0); ctx.lineTo(b.x + nx * w1, b.y + ny * w1);
+      ctx.lineTo(b.x - nx * w1, b.y - ny * w1); ctx.lineTo(a.x - nx * w0, a.y - ny * w0); ctx.closePath(); };
+    ctx.fillStyle = col; path(); ctx.fill();
+    dot(ctx, a.x, a.y, w0, col); dot(ctx, b.x, b.y, w1, col);
+    // dark contour + a soft rim light on the lit edge — gives the limbs form against the neon
+    ctx.save(); ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,.24)'; ctx.lineWidth = 1.8; path(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(a.x + nx * w0 * 0.72, a.y + ny * w0 * 0.72); ctx.lineTo(b.x + nx * w1 * 0.72, b.y + ny * w1 * 0.72); ctx.stroke(); ctx.restore(); }
   function limb(ctx, p, w0, w1, w2, col) { taper(ctx, p[0], p[1], w0, w1, col); taper(ctx, p[1], p[2], w1, w2, col); }
   function dot(ctx, x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill(); }
   function poly(ctx, pts, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); ctx.fill(); }
