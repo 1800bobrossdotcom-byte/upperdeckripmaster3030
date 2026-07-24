@@ -252,7 +252,7 @@
     <span class="key desk"><kbd>WASD</kbd> move</span>
     <span class="key desk"><kbd>MOUSE</kbd> look</span>
     <span class="key desk"><kbd>LMB</kbd> fire</span>
-    <span class="key desk"><kbd>RMB</kbd> aim</span>
+    <span class="key desk"><kbd>RMB</kbd> reload · aim (rifle)</span>
     <span class="key desk"><kbd>⇧</kbd> sprint</span>
     <span class="key desk"><kbd>SPC</kbd> jump</span>
     <span class="key desk"><kbd>R</kbd> reload</span>
@@ -340,7 +340,8 @@
   const NEAR=0.06, FAR=52;
   // ── WebGL renderer (opt-in via #gl while it reaches parity; then it becomes default) ──
   const glcv=document.getElementById('glcv');
-  const GLWANT=(location.hash.indexOf('gl')>=0)||/[?&]gl(\b|=1)/.test(location.search);
+  // WebGL renderer is the DEFAULT (auto-fallback to canvas if init fails). ?nogl / #nogl opts out.
+  const GLWANT=!/[?&#]nogl(\b|=1)?/.test(location.search+location.hash);
   let glReady=false;
   const ENV={ skyTop:[0.13,0.07,0.11], skyMid:[0.62,0.29,0.15], skyHorizon:[0.86,0.57,0.33],
     lightDir:(()=>{ const v=[-0.5,0.66,-0.34], l=Math.hypot(v[0],v[1],v[2]); return [v[0]/l,v[1]/l,v[2]/l]; })(),
@@ -1472,9 +1473,17 @@
     else if(wasLocked && G.mode==='play'){ wasLocked=false; togglePause(true); } });
   cv.addEventListener('mousedown',e=>{ if(G.mode==='pause'){ resume(); return; }
     if(G.mode!=='play') return; if(!locked){ tryLock(); return; }
-    if(e.button===0) mouse.left=true; if(e.button===2) mouse.right=true; });
+    if(e.button===0) mouse.left=true;
+    if(e.button===2){ mouse.right=true;
+      // RMB = reload on everything that doesn't scope; the LONG RIFLE keeps RMB for its glass
+      const me=G.me; if(me&&me.alive&&WEAPONS[me.weapon].zoom<=1) startReload(me);
+    } });
   addEventListener('mouseup',e=>{ if(e.button===0)mouse.left=false; if(e.button===2)mouse.right=false; });
   cv.addEventListener('contextmenu',e=>e.preventDefault());
+  // headless-test/debug peephole (read-only snapshot + a drain helper so reload can be
+  // tested without relying on flaky headless pointer-lock to fire live rounds)
+  window.__s9={ get s(){ return { mode:G.mode, gl:glReady, me:G.me?{ mag:G.me.mag, reloading:!!G.me.reloading, weapon:G.me.weapon, alive:G.me.alive }:null }; },
+    __drain(){ if(G.me) G.me.mag=1; } };
   const SENS=0.0022;
   addEventListener('mousemove',e=>{ if(!locked||!G.me||G.mode!=='play')return; const s=SENS/(G.scopeZoom||1);
     G.me.yaw+=e.movementX*s; G.me.pitch=clamp(G.me.pitch - e.movementY*s, -1.45,1.45); });
@@ -1554,6 +1563,8 @@
   // GL path: GPU renders the 3D world; the 2D canvas becomes a transparent overlay for viewmodel/crosshair/HUD
   function drawGL(){ if(!G.me) return; camTrig();
     G.__weapKey=(WEAPONS[G.me.weapon]||{}).key||'smg';                     // tell the GL viewmodel which gun
+    const _rw=WEAPONS[G.me.weapon];                                        // 0..1 reload progress → GL reload animation
+    G.__reloadP=(G.me.reloading&&_rw&&_rw.reload)?1-G.me.reloadT/_rw.reload:-1;
     try{ GLR.frame(cam, G, ENV); }catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; return; }
     ctx.clearRect(0,0,W,H);
     // world-space effects on the transparent overlay — sync the 2D projection to the GL camera so they land correctly

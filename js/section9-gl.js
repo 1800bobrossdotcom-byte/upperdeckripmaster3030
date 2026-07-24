@@ -47,19 +47,39 @@ window.GLR = (function () {
   // ── shaders ──
   const VS = `attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec3 aColor;
     uniform mat4 uMVP; uniform vec3 uCam;
-    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist;
-    void main(){ gl_Position=uMVP*vec4(aPos,1.0); vN=aNormal; vUV=aUV; vC=aColor; vDist=distance(aPos,uCam); }`;
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP;
+    void main(){ gl_Position=uMVP*vec4(aPos,1.0); vN=aNormal; vUV=aUV; vC=aColor; vP=aPos; vDist=distance(aPos,uCam); }`;
+  // Blinn-Phong spec (uGloss per material) + a warm muzzle-flash point light (uFlash xyz=pos w=power)
   const FS = `precision mediump float;
-    uniform sampler2D uTex; uniform vec3 uLightDir,uLightCol,uAmbient,uFog; uniform float uFogNear,uFogFar;
-    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist;
-    void main(){ vec4 t=texture2D(uTex,vUV); vec3 base=t.rgb*vC;
-      float d=max(dot(normalize(vN),uLightDir),0.0);
-      vec3 lit=base*(uAmbient + d*uLightCol);
+    uniform sampler2D uTex; uniform vec3 uLightDir,uLightCol,uAmbient,uFog; uniform highp vec3 uCam; uniform float uFogNear,uFogFar,uGloss; uniform highp vec4 uFlash;
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying highp vec3 vP;
+    void main(){ vec4 t=texture2D(uTex,vUV); vec3 base=t.rgb*vC; vec3 N=normalize(vN);
+      float d=max(dot(N,uLightDir),0.0);
+      vec3 V=normalize(uCam-vP); vec3 H=normalize(uLightDir+V);
+      float sp=pow(max(dot(N,H),0.0),26.0)*uGloss;
+      vec3 lit=base*(uAmbient + d*uLightCol) + uLightCol*sp*d;
+      if(uFlash.w>0.001){ vec3 fd=uFlash.xyz-vP; float fl=max(length(fd),0.001);
+        float att=uFlash.w/(1.0+fl*fl*0.30); float fn=max(dot(N,fd/fl),0.0);
+        lit += vec3(1.0,0.72,0.40)*att*(0.30+0.70*fn); }
       float fog=clamp((vDist-uFogNear)/(uFogFar-uFogNear),0.0,1.0);
       gl_FragColor=vec4(mix(lit,uFog,fog), t.a); }`;   // t.a=1 for opaque world; <1 for blended decals
-  const SKY_VS = `attribute vec2 aP; varying vec2 vUv; void main(){ vUv=aP*0.5+0.5; gl_Position=vec4(aP,1.0,1.0); }`;
-  const SKY_FS = `precision mediump float; varying vec2 vUv; uniform vec3 uTop,uMid,uHorizon;
-    void main(){ float y=vUv.y; vec3 c = y>0.5 ? mix(uMid,uTop,(y-0.5)*2.0) : mix(uHorizon,uMid,y*2.0); gl_FragColor=vec4(c,1.0); }`;
+  // per-pixel ray sky: dusk gradient + warm sun halo/disc + drifting cloud banding
+  const SKY_VS = `attribute vec2 aP; varying vec2 vNDC; void main(){ vNDC=aP; gl_Position=vec4(aP,1.0,1.0); }`;
+  const SKY_FS = `precision mediump float; varying vec2 vNDC;
+    uniform vec3 uTop,uMid,uHorizon,uSunDir; uniform float uYaw,uPitch,uAspect,uFov,uT;
+    void main(){
+      float py = uPitch + vNDC.y*uFov*0.5;
+      float yw = uYaw   + vNDC.x*uFov*0.5*uAspect;
+      vec3 ray = vec3(sin(yw)*cos(py), sin(py), cos(yw)*cos(py));
+      float h = clamp(ray.y*1.55+0.32, 0.0, 1.0);
+      vec3 c = h>0.5 ? mix(uMid,uTop,(h-0.5)*2.0) : mix(uHorizon,uMid,h*2.0);
+      float sd = max(dot(ray,uSunDir),0.0);
+      c += vec3(1.0,0.60,0.30)*pow(sd,9.0)*0.55;              /* warm halo   */
+      c += vec3(1.0,0.92,0.74)*smoothstep(0.99930,0.99985,sd);/* sun disc    */
+      float band = sin(ray.y*20.0 + uT*0.06 + sin(yw*2.0)*0.8);
+      c += vec3(0.055,0.022,0.030)*band*smoothstep(0.02,0.40,ray.y)*(1.0-smoothstep(0.40,0.85,ray.y));
+      c -= vec3(0.035)*smoothstep(0.72,1.0,h);                /* deepen zenith */
+      gl_FragColor=vec4(c,1.0); }`;
 
   function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('GLR shader', gl.getShaderInfoLog(s)); return null; } return s; }
@@ -108,6 +128,17 @@ window.GLR = (function () {
     x.strokeStyle = 'rgba(205,185,150,0.28)'; x.lineWidth = 2; x.beginPath(); x.arc(c, c, c * 0.3, 0, 7); x.stroke(); }
   function drawScorch(x, S) { x.clearRect(0, 0, S, S); const c = S / 2; const g = x.createRadialGradient(c, c, 0, c, c, c);
     g.addColorStop(0, 'rgba(255,205,95,0.95)'); g.addColorStop(0.5, 'rgba(255,95,40,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(c, c, c, 0, 7); x.fill(); }
+  function drawShadow(x, S) { x.clearRect(0, 0, S, S); const c = S / 2; const g = x.createRadialGradient(c, c, 0, c, c, c);
+    g.addColorStop(0, 'rgba(0,0,0,0.52)'); g.addColorStop(0.6, 'rgba(0,0,0,0.30)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.beginPath(); x.arc(c, c, c, 0, 7); x.fill(); }
+  // soft blob shadows under the operatives — grounds them in the scene for almost nothing
+  function buildShadows(G) {
+    const a = [];
+    for (const e of G.ents) { if (!e.alive || e.isMe) continue;
+      const lift = Math.max(0, e.y), r = 0.62 * Math.max(0.45, 1 - lift * 0.35), f = Math.max(0.25, 1 - lift * 0.4);
+      decalQuad(a, { x: e.x, y: 0.015, z: e.z, n: [0, 1, 0], r, life: f, max: 1 });
+    }
+    return a;
+  }
   // a decal quad on a surface → pushed into arr (STRIDE format), UV 0..1, fade dimmed via vertex color
   function decalQuad(arr, dc) {
     const n = dc.n || [0, 1, 0]; const t1 = (Math.abs(n[1]) > 0.9) ? [1, 0, 0] : [0, 1, 0];
@@ -129,14 +160,23 @@ window.GLR = (function () {
     const v = (p, u, w) => { a.push(p[0], p[1], p[2], n[0], n[1], n[2], u, w, col[0], col[1], col[2]); };
     v(p0, 0, 0); v(p1, su, 0); v(p2, su, sv); v(p0, 0, 0); v(p2, su, sv); v(p3, 0, sv);
   }
-  // a box → 5 faces (skip bottom), UVs scaled by world size / tile so textures tile at real scale
+  // side quad with baked AO: corners 0,1 are the BOTTOM edge (darkened), 2,3 the top
+  function quadAO(a, p0, p1, p2, p3, n, su, sv, colB, colT) {
+    const v = (p, u, w, c) => { a.push(p[0], p[1], p[2], n[0], n[1], n[2], u, w, c[0], c[1], c[2]); };
+    v(p0, 0, 0, colB); v(p1, su, 0, colB); v(p2, su, sv, colT); v(p0, 0, 0, colB); v(p2, su, sv, colT); v(p3, 0, sv, colT);
+  }
+  // a box → 5 faces (skip bottom), UVs scaled by world size / tile so textures tile at real
+  // scale. Grounded boxes get a baked contact-AO gradient up their sides — the cheap depth
+  // cue that makes crates sit ON the floor instead of floating over it.
   function box(a, x0, y0, z0, x1, y1, z1, tile, col) {
     const wx = (x1 - x0) / tile, wy = (y1 - y0) / tile, wz = (z1 - z0) / tile;
-    quad(a, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], [0, 1, 0], wx, wz, col);            // top
-    quad(a, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], wx, wy, col);            // +z
-    quad(a, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], wx, wy, col);           // -z
-    quad(a, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], wz, wy, col);            // +x
-    quad(a, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], wz, wy, col);           // -x
+    const ao = y0 < 0.06 ? 0.60 : 0.82;
+    const colB = [col[0] * ao, col[1] * ao, col[2] * ao];
+    quad(a, [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], [0, 1, 0], wx, wz, col);                 // top
+    quadAO(a, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], wx, wy, colB, col);         // +z
+    quadAO(a, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], wx, wy, colB, col);        // -z
+    quadAO(a, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], wz, wy, colB, col);         // +x
+    quadAO(a, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], wz, wy, colB, col);        // -x
   }
   function matForKind(k) { if (k === 'ammo') return 'ammo'; if (k === 'crate' || k === 'shelf' || k === 'cover') return 'crate'; return 'wall'; }
 
@@ -218,7 +258,11 @@ window.GLR = (function () {
     const key = G.__weapKey || 'smg';
     const bx = Math.sin(e.bob || 0) * 0.007 * (e.moving ? 1 : 0.25), by = Math.abs(Math.cos(e.bob || 0)) * 0.006 * (e.moving ? 1 : 0.25);
     const kick = e.recoil || 0, sway = Math.sin((e.bob || 0) * 0.5) * 0.01;
-    const ox = 0.17 + bx + sway, oy = -0.23 + by - kick * 0.015, oz = -0.44 + kick * 0.05;   // gun anchor (lower-right, close) in view space
+    // reload animation: whole gun dips + rolls out of the eyeline while the mag drops free
+    const rp = (typeof G.__reloadP === 'number' && G.__reloadP >= 0) ? Math.min(1, G.__reloadP) : -1;
+    const bell = rp >= 0 ? Math.sin(rp * Math.PI) : 0;
+    const magDrop = rp >= 0 ? -0.24 * Math.sin(Math.min(1, rp * 1.45) * Math.PI) : 0;
+    const ox = 0.17 + bx + sway + bell * 0.05, oy = -0.23 + by - kick * 0.015 - bell * 0.11, oz = -0.44 + kick * 0.05 + bell * 0.06;   // gun anchor (lower-right, close) in view space
     const metal = [0.14, 0.15, 0.17], wood = [0.5, 0.34, 0.18], rail = [0.09, 0.09, 0.11], glove = [0.22, 0.21, 0.19], skin = [0.72, 0.55, 0.42], ir = [0.6, 0.3, 0.28];
     const long = key === 'sniper', pistol = key === 'pistol', shotgun = key === 'shotgun';
     const bl = pistol ? 0.16 : (long ? 0.34 : 0.24);     // barrel length forward from receiver front
@@ -232,9 +276,9 @@ window.GLR = (function () {
     // optic / rear sight
     if (long) { cbox(a, ox, oy + 0.085, oz - 0.16, 0.02, 0.022, 0.11, metal); cbox(a, ox, oy + 0.107, oz - 0.05, 0.026, 0.026, 0.028, rail); cbox(a, ox, oy + 0.107, oz - 0.27, 0.026, 0.026, 0.028, ir); }
     else { cbox(a, ox, oy + 0.06, oz - 0.02, 0.02, 0.02, 0.05, metal); cbox(a, ox, oy + 0.086, oz - 0.06, 0.018, 0.018, 0.075, metal); cbox(a, ox, oy + 0.086, oz - 0.135, 0.02, 0.02, 0.006, ir); }
-    // magazine (curved-ish: two stacked slanted boxes)
-    if (!pistol) { cbox(a, ox + 0.005, oy - 0.1, oz - 0.06, 0.02, 0.07, 0.028, metal); cbox(a, ox + 0.012, oy - 0.19, oz - 0.02, 0.018, 0.05, 0.024, metal); }
-    else cbox(a, ox, oy - 0.09, oz - 0.02, 0.018, 0.06, 0.02, metal);
+    // magazine (curved-ish: two stacked slanted boxes) — rides magDrop during a reload
+    if (!pistol) { cbox(a, ox + 0.005, oy - 0.1 + magDrop, oz - 0.06, 0.02, 0.07, 0.028, metal); cbox(a, ox + 0.012, oy - 0.19 + magDrop, oz - 0.02, 0.018, 0.05, 0.024, metal); }
+    else cbox(a, ox, oy - 0.09 + magDrop, oz - 0.02, 0.018, 0.06, 0.02, metal);
     // pistol grip
     cbox(a, ox + 0.004, oy - 0.06, oz - 0.02, 0.02, 0.05, 0.022, metal);
     // stock (behind receiver)
@@ -261,10 +305,10 @@ window.GLR = (function () {
     if (!gl) return false; cv = canvas;
     prog = link(VS, FS); sky = link(SKY_VS, SKY_FS); if (!prog || !sky) return false;
     loc = {}; ['aPos', 'aNormal', 'aUV', 'aColor'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
-    ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
-    skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
+    ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+    skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon', 'uSunDir', 'uYaw', 'uPitch', 'uAspect', 'uFov', 'uT'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
     tex.wall = makeTex(256, drawWall); tex.floor = makeTex(256, drawFloor); tex.crate = makeTex(256, drawCrate); tex.ammo = makeTex(256, drawAmmo); tex.white = whiteTex();
-    tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch);
+    tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch); tex.shadow = makeTex(64, drawShadow);
     dynBuf = gl.createBuffer();
     skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
@@ -278,26 +322,39 @@ window.GLR = (function () {
     // sky (fills the screen behind the world)
     gl.useProgram(sky); gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
     gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.enableVertexAttribArray(skyLoc.aP); gl.vertexAttribPointer(skyLoc.aP, 2, gl.FLOAT, false, 0, 0);
+    const fovy = 0.97 / (G.scopeZoom || 1), asp = cv.width / cv.height;   // match the canvas FOV so aim/look feel is identical
     gl.uniform3fv(skyLoc.uTop, ENV.skyTop); gl.uniform3fv(skyLoc.uMid, ENV.skyMid); gl.uniform3fv(skyLoc.uHorizon, ENV.skyHorizon);
+    gl.uniform3fv(skyLoc.uSunDir, ENV.lightDir);
+    gl.uniform1f(skyLoc.uYaw, cam.yaw); gl.uniform1f(skyLoc.uPitch, cam.pitch);
+    gl.uniform1f(skyLoc.uAspect, asp); gl.uniform1f(skyLoc.uFov, fovy); gl.uniform1f(skyLoc.uT, G.t || 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.depthMask(true); gl.enable(gl.DEPTH_TEST);
     // world
     gl.useProgram(prog);
-    const fovy = 0.97 / (G.scopeZoom || 1), asp = cv.width / cv.height;   // match the canvas FOV so aim/look feel is identical
     const eye = [cam.x, cam.y, cam.z];
     const mvp = mul(persp(fovy, asp, 0.06, 60), viewMat(eye, cam.yaw, cam.pitch));
     gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(mvp));
     gl.uniform3fv(loc.uCam, eye);
     gl.uniform3fv(loc.uLightDir, ENV.lightDir); gl.uniform3fv(loc.uLightCol, ENV.lightCol); gl.uniform3fv(loc.uAmbient, ENV.ambient);
     gl.uniform3fv(loc.uFog, ENV.fog); gl.uniform1f(loc.uFogNear, 16); gl.uniform1f(loc.uFogFar, 54);
+    // the strongest live muzzle flash becomes a warm point light on the world
+    let fx = 0, fy = 0, fz = 0, fw = 0;
+    for (const e of G.ents) { if (!e.alive || !(e.muzzle > 0)) continue;
+      const p = Math.min(1, e.muzzle / 0.05);
+      if (p > fw) { fw = p; fx = e.isMe ? cam.x : e.x; fy = e.isMe ? cam.y - 0.1 : e.y + 1.28; fz = e.isMe ? cam.z : e.z; } }
+    gl.uniform4f(loc.uFlash, fx, fy, fz, fw * 1.5);
+    const GLOSS = { floor: 0.30, wall: 0.10, crate: 0.16, ammo: 0.34 };
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(loc.uTex, 0);
-    for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
+    for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.uniform1f(loc.uGloss, GLOSS[k]); gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
     const ea = buildEntities(G);
-    if (ea.length) { gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
-    // ── decals: depth-tested against the world (so they STICK to surfaces + occlude correctly), blended, no depth write ──
-    const D = buildDecals(G);
-    if (D.hole.length || D.scorch.length) {
-      gl.enable(gl.BLEND); gl.depthMask(false);
+    if (ea.length) { gl.uniform1f(loc.uGloss, 0.28); gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
+    // ── blended ground work: blob shadows under operatives, then bullet/laser decals.
+    //    Depth-tested against the world (stick + occlude), no depth write. ──
+    const D = buildDecals(G); const SH = buildShadows(G);
+    if (D.hole.length || D.scorch.length || SH.length) {
+      gl.enable(gl.BLEND); gl.depthMask(false); gl.uniform1f(loc.uGloss, 0);
+      if (SH.length) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.bindTexture(gl.TEXTURE_2D, tex.shadow);
+        gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(SH), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, SH.length / STRIDE); }
       if (D.hole.length) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.bindTexture(gl.TEXTURE_2D, tex.hole);
         gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(D.hole), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, D.hole.length / STRIDE); }
       if (D.scorch.length) { gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.bindTexture(gl.TEXTURE_2D, tex.scorch);
@@ -312,6 +369,8 @@ window.GLR = (function () {
         gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(persp(1.02, asp, 0.01, 6)));
         gl.uniform3fv(loc.uCam, [0, 0, 3]);
         gl.uniform1f(loc.uFogNear, 900); gl.uniform1f(loc.uFogFar, 1000);
+        gl.uniform1f(loc.uGloss, 0.55);
+        gl.uniform4f(loc.uFlash, 0.17, -0.15, -0.85, (G.me.muzzle > 0) ? 0.9 : 0);   // view-space: light the gun from its own muzzle
         gl.uniform3fv(loc.uLightDir, VMLIGHT); gl.uniform3fv(loc.uLightCol, [0.85, 0.8, 0.72]); gl.uniform3fv(loc.uAmbient, [0.5, 0.49, 0.47]);
         gl.bindTexture(gl.TEXTURE_2D, tex.white);
         gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(va), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, va.length / STRIDE);
