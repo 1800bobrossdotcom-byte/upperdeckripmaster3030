@@ -78,8 +78,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   trailers: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` +
   `Claude-Session:`. Never put the model id in committed artifacts.
 - **Games** are self-contained HTML canvas/WebGL (dogfight, section9 + `js/section9-gl.js`,
-  riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 2D ninja brawler in
-  `js/ronin.js`, cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
+  riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
+  `js/ronin.js` + `js/ronin-fighters.js` (IK-legged, volume-shaded procedural fighters) +
+  `js/ronin-gl.js` (WebGL bloom/vignette/grain compositor over the 2D scene, graceful 2D
+  fallback), cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).

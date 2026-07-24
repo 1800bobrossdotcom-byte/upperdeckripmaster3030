@@ -501,8 +501,10 @@
   }
 
   // ── loop ──
+  let glOk = false;
   function loop(now) { let dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (G && G.mode !== 'lobby') { update(dt); draw(); }
+    if (G && G.mode !== 'lobby') { update(dt); draw();
+      if (glOk) { if (!RoninGL.present(cv)) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; } } }
     if (running) requestAnimationFrame(loop); }
 
   // ── end / podium ──
@@ -683,6 +685,7 @@
     _brawl() { startBrawl(false); }, _start() { if (G) { G.started = true; const cd = $('cd'); if (cd) cd.classList.add('hidden'); } },
     _step(n) { if (!G) return; for (let i = 0; i < (n || 1); i++) update(0.016); },
     _rosterUnlocked() { const u = unlocked(); return Object.keys(u).filter(k => u[k].ok); } };
+  try { if (window.RoninGL && RoninGL.init($('glcv'))) { glOk = true; $('glcv').style.display = 'block'; } } catch (e) { glOk = false; }
   loadDeck().then(() => { buildRoster(); buildGrid(); initNet(); });
   if (window.RipWallet) { try { RipWallet.on(() => refreshPot()); } catch {} }
 })();

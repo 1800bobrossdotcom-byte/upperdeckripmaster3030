@@ -19,6 +19,7 @@
 <script src="js/card-powers.js"></script>
 <script src="js/game-help.js"></script>
 <script src="js/ronin-fighters.js"></script>
+<script src="js/ronin-gl.js"></script>
 <script src="cards/arena-net.js"></script>
 <style>
   :root{ --lime:#2bff80; --cyan:#3df0ff; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57; --violet:#b47bff;
@@ -26,6 +27,7 @@
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; overflow:hidden; background:#0a0618; color:var(--ink); font-family:var(--mono); }
   #cv{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; image-rendering:auto; }
+  #glcv{ position:fixed; inset:0; width:100%; height:100%; display:none; z-index:1; pointer-events:none; }
   .hidden{ display:none!important; }
   /* HUD */
   #hud{ position:fixed; inset:0; pointer-events:none; z-index:5; }
@@ -137,6 +139,7 @@
 </head>
 <body>
 <canvas id="cv"></canvas>
+<canvas id="glcv"></canvas>
 <a class="back" href="index.html">◀ back to the pack</a>
 
 <div id="hud" class="hidden">
