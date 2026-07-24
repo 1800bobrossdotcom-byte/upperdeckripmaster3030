@@ -556,6 +556,7 @@
 <script src="../js/chain-config.js"></script>
 <script src="../js/wallet.js"></script>
 <script src="../js/card-hover.js"></script>
+<script src="../js/arena-lobby.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
 <script>
@@ -914,7 +915,7 @@
   //   PvP stake = the same cards as house-play + a $UR3030 BURN ante both sides pay
   //   to enter (a real on-chain burn once the token is live; practice chips until then).
   const net = window.RipNet || null;
-  let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {};
+  let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {}, lobby = null;
   let walletState = { connected: false, address: null, balance: 0 };
 
   function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
@@ -944,29 +945,7 @@
     const others = lobbyPlayers.filter(p => !p.me);
     $('lobCount').textContent = lobbyPlayers.length;
     $('lobSeekers').textContent = others.filter(p => p.status === 'seeking').length;
-    const list = $('lobList'); if (!list) return;
-    if (!lobbyPlayers.length){ list.innerHTML = '<div class="lob-empty">nobody here yet — open a second tab, or seek a fight and wait for a challenger</div>'; return; }
-    list.innerHTML = lobbyPlayers.map(p => {
-      const st = p.status || 'idle';
-      const btn = p.me
-        ? '<span class="lob-meta" style="color:#ffd23b;font-family:var(--fat)">◈ you</span>'
-        : `<button class="lob-chal${st === 'seeking' ? ' seek' : ''}" data-id="${escFO(p.id)}" ${st === 'battling' ? 'disabled' : ''}>${st === 'seeking' ? '<span class="ic" data-ic="swords"></span> answer' : '<span class="ic" data-ic="swords"></span> challenge'}</button>`;
-      const seal = p.verified ? ' <span class="lob-seal" title="signed the ledger — stakes real $UR3030">⚜</span>' : '';
-      const addr = (p.verified && p.address) ? ' · <span class="lob-addr">' + escFO(p.address.slice(0, 6) + '…' + p.address.slice(-4)) + '</span>' : '';
-      const liveTag = p.bot ? '' : (p.verified ? '' : ' · <span style="color:#27f7e4">live</span>');
-      return `<div class="lob-row${p.me ? ' me' : ''}${p.verified ? ' signed' : ''}">` +
-        `<span class="lob-st ${st}" title="${statusWord(st)}"></span>` +
-        `<div style="min-width:0"><div class="lob-nm">${escFO(p.handle)}${seal}</div>` +
-        `<div class="lob-meta"><b>${(p.balance || 0).toLocaleString('en-US')}</b> $UR · ${p.cards || 0} cards${p.wl ? ' · ' + escFO(p.wl) : ''}${addr}${liveTag}</div></div>` +
-        btn + `</div>`;
-    }).join('');
-    window.RipIcons && RipIcons.hydrate(list);
-    list.querySelectorAll('.lob-chal').forEach(b => b.onclick = () => {
-      if (busy){ toastMini('finish this fight first'); return; }
-      const p = lobbyPlayers.find(x => x.id === b.dataset.id);
-      net.challenge(b.dataset.id);
-      toastMini('calling out ' + (p ? p.handle : 'a ripper') + '…');
-    });
+    if (lobby) lobby.update(lobbyPlayers);            // the shared Arena Lobby renders the rich roster + challenge buttons
   }
 
   function onIncoming(ch){
@@ -1140,6 +1119,12 @@
     if (hIn){ hIn.value = netHandle();
       hIn.onchange = () => { const val = (hIn.value || '').trim().slice(0, 24) || 'you'; net.setHandle(val); hIn.value = net.me().handle; toastMini('handle set — ' + net.me().handle); };
     }
+    lobby = window.ArenaLobby ? ArenaLobby.mount('#lobList', { mode: 'challenge', header: false, onChallenge: id => {
+      if (busy){ toastMini('finish this fight first'); return; }
+      const p = lobbyPlayers.find(x => x.id === id);
+      net.challenge(id);
+      toastMini('calling out ' + (p ? p.handle : 'a ripper') + '…');
+    } }) : null;
     $('lobSeek').onclick = () => { if (busy){ toastMini('finish this fight first'); return; } seeking = !seeking; syncSeek(); net.setStatus(seeking ? 'seeking' : 'idle'); };
     $('ltYes').onclick = () => { if (!curChallenge) return; const ch = curChallenge; hideToast(); net.accept(ch); toastMini('accepted — stack up'); };
     $('ltNo').onclick = () => { if (!curChallenge) return; net.decline(curChallenge); hideToast(); };

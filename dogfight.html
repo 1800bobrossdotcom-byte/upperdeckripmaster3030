@@ -266,6 +266,7 @@
       </div>
 
       <div class="pot" id="potLine"></div>
+      <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
       <div class="roster" id="roster"></div>
 
       <div><button class="go" id="btnAnte"><span class="ic" data-ic="flame"></span> Ante up &amp; fly</button></div>
@@ -305,6 +306,7 @@
 <script src="cards/arena-net.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/card-hover.js"></script>
+<script src="js/arena-lobby.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
@@ -375,7 +377,8 @@
   let roster=[];
   if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
       address:(window.RipWallet&&RipWallet.account())||undefined });
-    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); refreshPot(); });
+    const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
+    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); });
     // wallet linked/unlinked → carry the address into the live roster
     if(window.RipWallet) RipWallet.on(st=>{ try{ RipNet.join({ address:(st&&st.account)||undefined }); }catch{} });
   }catch{} }

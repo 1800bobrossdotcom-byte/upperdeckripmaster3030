@@ -283,6 +283,7 @@
       </div>
 
       <div class="pot" id="potLine"></div>
+      <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
       <div class="roster" id="roster"></div>
 
       <div><button class="go" id="btnAnte">🔥 Ante up &amp; deploy</button></div>
@@ -329,6 +330,7 @@
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
 <script src="js/card-hover.js"></script>
+<script src="js/arena-lobby.js"></script>
 <script src="js/card-powers.js"></script>
 <script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
@@ -417,7 +419,8 @@
     'Duck Loathing','Reservoir Frog','Deltoid Zeus','Bail Denied','Technicolor Yawn','Kitchen Bandido','Rug-Pull Rick','Too Weird To Live','Public Domain','The Consigliere'];
   let roster=[];
   if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0 });
-    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); refreshPot(); }); }catch{} }
+    const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
+    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); }); }catch{} }
   function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
 
   // ── wager state ──
