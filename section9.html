@@ -332,6 +332,7 @@
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
 <script src="js/wager-payout.js"></script>
+<script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
 <script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
@@ -1449,7 +1450,12 @@
   }
 
   // ── buttons / ante ──
-  $('btnPractice').onclick=()=>startMatch(false);
+  $('btnPractice').onclick=()=>{ if(window.GameHelp) GameHelp.show({ title:'SECTION 9', kicker:'tactical deathmatch', onStart:()=>startMatch(false), controls:[
+    { type:'stick', act:'Move', touch:'Left stick · full tilt = run', key:'W A S D · ⇧ run' },
+    { type:'aim',   act:'Look / Aim', touch:'Right drag · ADS pad', key:'Mouse · RMB aim' },
+    { type:'hold',  act:'Fire', touch:'Hold FIRE', key:'LMB' },
+    { type:'dtap',  act:'Reload', touch:'RL button', key:'MMB · R' },
+    { type:'tap',   act:'Jump', touch:'JUMP button', key:'ALT' } ] }); else startMatch(false); };
   $('btnAnte').onclick=()=>ante(false);
   $('btnRematch').onclick=()=>ante(true);
   $('btnLobby').onclick=()=>{ $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); G.mode='lobby'; if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };

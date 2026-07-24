@@ -153,6 +153,7 @@
     // arm opponent stakes (from the pot) for the podium card payout
     for (let i = 1; i < wager.players; i++) { const st = []; for (let k = 0; k < wager.cards; k++) { const all = [...bySlug.keys()]; if (all.length) st.push(all[Math.floor(Math.random()*all.length)]); } G.oppStakes.push(st); }
     if (window.RipNet) { try { RipNet.setStatus('battling'); } catch {} }
+    if (window.GameHelp && GameHelp.isTouch) setTimeout(() => toast('◀ drag to steer · hold right to boost ▶'), 600);
     last = performance.now(); requestAnimationFrame(loop);
   }
 
@@ -353,7 +354,16 @@
     if (!r.ok) { toast(Wt.explain ? Wt.explain(r.reason) : 'Burn failed'); return; }
     startRace(true);
   }
-  $('btnPractice').onclick = () => startRace(false);
+  const CR_CONTROLS = [
+    { type: 'drag', act: 'Steer', touch: 'Drag left / right', key: 'A D · ◀ ▶' },
+    { type: 'hold', act: 'Boost', touch: 'Hold (right side)', key: 'W · ⇧' },
+    { type: 'dtap', act: 'Airbrake', touch: 'Double-tap (right)', key: 'Space' },
+  ];
+  function practice() {
+    if (window.GameHelp) GameHelp.show({ title: 'CLOUD RACER', kicker: 'anti-grav pod racing', controls: CR_CONTROLS, startLabel: '▶ Start practice', onStart: () => startRace(false) });
+    else startRace(false);
+  }
+  $('btnPractice').onclick = practice;
   $('btnAnte').onclick = () => ante(false);
   $('btnRematch').onclick = () => { $('ovResult').classList.remove('show'); ante(true); };
   $('btnLobby').onclick = () => { $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch {} } };
@@ -361,12 +371,29 @@
   // ═════════ INPUT ═════════
   addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase())) e.preventDefault(); });
   addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-  function padBind(el, on, off) { if (!el) return; const d = e => { e.preventDefault(); on(); }, u = e => { e.preventDefault(); off(); };
-    el.addEventListener('touchstart', d, { passive: false }); el.addEventListener('touchend', u); el.addEventListener('mousedown', d); el.addEventListener('mouseup', u); el.addEventListener('mouseleave', u); }
-  padBind($('padL'), () => touch.steer = -1, () => touch.steer = 0);
-  padBind($('padR'), () => touch.steer = 1, () => touch.steer = 0);
-  padBind($('padBoost'), () => touch.boost = true, () => touch.boost = false);
-  padBind($('padBrake'), () => touch.brake = true, () => touch.brake = false);
+  // ── MINIMAL GESTURE TOUCH — no buttons. Left thumb drags to steer; right thumb
+  //    holds to boost; double-tap the right to airbrake. Taught by the help card. ──
+  const isTouch = (window.GameHelp && GameHelp.isTouch);
+  if (isTouch) {
+    ['padL','padR','padBoost','padBrake'].forEach(id => { const el = $(id); if (el) el.style.display = 'none'; });
+    let steerId = null, steerX0 = 0, lastRightTap = 0, brakeAt = 0;
+    cv.addEventListener('touchstart', e => {
+      for (const t of e.changedTouches) {
+        if (t.clientX < innerWidth * 0.5) { if (steerId == null) { steerId = t.identifier; steerX0 = t.clientX; } }
+        else { const now = performance.now();
+          if (now - lastRightTap < 300) { touch.brake = true; brakeAt = now; } else { touch.boost = true; }
+          lastRightTap = now; }
+      }
+    }, { passive: true });
+    cv.addEventListener('touchmove', e => {
+      for (const t of e.changedTouches) if (t.identifier === steerId) touch.steer = clamp((t.clientX - steerX0) / 70, -1, 1);
+    }, { passive: true });
+    const end = e => { for (const t of e.changedTouches) {
+      if (t.identifier === steerId) { steerId = null; touch.steer = 0; }
+      else if (t.clientX >= innerWidth * 0.5) touch.boost = false; } };
+    cv.addEventListener('touchend', end); cv.addEventListener('touchcancel', end);
+    setInterval(() => { if (touch.brake && performance.now() - brakeAt > 420) touch.brake = false; }, 90);
+  }
 
   // ═════════ BOOT ═════════
   try { glOk = window.CRGL && CRGL.init(cv); } catch (e) { glOk = false; }

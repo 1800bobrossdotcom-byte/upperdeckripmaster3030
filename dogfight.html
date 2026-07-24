@@ -308,6 +308,7 @@
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
 <script src="js/wager-payout.js"></script>
+<script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
@@ -833,7 +834,10 @@
 
   $('btnAnte').onclick=()=>ante(false);
   $('btnRematch').onclick=()=>ante(true);
-  $('btnPractice').onclick=()=>startMatch(false);
+  $('btnPractice').onclick=()=>{ if(window.GameHelp) GameHelp.show({ title:'DOGFIGHT', kicker:'all-range deathmatch', onStart:()=>startMatch(false), controls:[
+    { type:'stick', act:'Fly / Bank', touch:'Drag (thumb stick)', key:'W A S D · arrows' },
+    { type:'hold',  act:'Fire', touch:'Hold FIRE', key:'LMB · Space' },
+    { type:'hold',  act:'Boost', touch:'Hold BOOST', key:'⇧' } ] }); else startMatch(false); };
   $('btnLobby').onclick=()=>{ $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
   async function ante(rematch){ const Wt=window.RipWallet, E=window.RipEth;
     if(E&&E.plays()>0){                                    // ⟠ ETH lane: a banked flight IS the entry fee
