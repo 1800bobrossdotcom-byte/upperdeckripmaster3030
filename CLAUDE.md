@@ -79,9 +79,11 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `Claude-Session:`. Never put the model id in committed artifacts.
 - **Games** are self-contained HTML canvas/WebGL (dogfight, section9 + `js/section9-gl.js`,
   riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
-  `js/ronin.js` + `js/ronin-fighters.js` (IK-legged, volume-shaded procedural fighters) +
-  `js/ronin-gl.js` (WebGL bloom/vignette/grain compositor over the 2D scene, graceful 2D
-  fallback), cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
+  `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
+  2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
+  lit depth-tested 3D fighters extruded from the same IK skeleton, neon-grid arena, fog;
+  Milestone 1, preferred when WebGL is up) + `js/ronin-gl.js` (2D bloom compositor, the
+  fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).

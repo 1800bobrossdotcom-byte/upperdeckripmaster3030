@@ -529,11 +529,13 @@
   }
 
   // ── loop ──
-  let glOk = false;
+  let glOk = false, r3dOk = false;
   function loop(now) { let dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (G && G.mode !== 'lobby') { update(dt); draw();
-      if (glOk) { const shk = G.shock ? { x: G.shock.ux, y: G.shock.uy, z: G.shock.t * G.shock.spd } : null;
-        if (!RoninGL.present(cv, shk)) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; } } }
+    if (G && G.mode !== 'lobby') { update(dt);
+      if (r3dOk) { if (!Ronin3D.render(G)) { r3dOk = false; $('cv3d').style.display = 'none'; $('cv').style.display = 'block'; } }
+      else { draw();
+        if (glOk) { const shk = G.shock ? { x: G.shock.ux, y: G.shock.uy, z: G.shock.t * G.shock.spd } : null;
+          if (!RoninGL.present(cv, shk)) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; } } } }
     if (running) requestAnimationFrame(loop); }
 
   // ── end / podium ──
@@ -715,6 +717,9 @@
     _step(n) { if (!G) return; for (let i = 0; i < (n || 1); i++) update(0.016); },
     _rosterUnlocked() { const u = unlocked(); return Object.keys(u).filter(k => u[k].ok); } };
   try { if (window.RoninGL && RoninGL.init($('glcv'))) { glOk = true; $('glcv').style.display = 'block'; } } catch (e) { glOk = false; }
+  // prefer the true-3D renderer when WebGL is available; the 2D + bloom path is the fallback
+  try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }
+  if (r3dOk) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; $('cv3d').style.display = 'block'; $('cv').style.display = 'none'; }
   loadDeck().then(() => { buildRoster(); buildGrid(); initNet(); });
   if (window.RipWallet) { try { RipWallet.on(() => refreshPot()); } catch {} }
 })();
