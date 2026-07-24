@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NEON RONIN · upperdeckripmaster3030</title>
+<meta name="description" content="A side-scrolling neon ninja brawler — punch, kick, katana combos, blocks and power-ups. Meme ninjas throw down in a free-for-all; certain cards unlock certain fighters. Ante $UR3030, take the podium.">
+<meta name="theme-color" content="#0a0618">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script src="/gate.js"></script>
+<script src="/banner.js" defer></script>
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/wallet-ui.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/card-hover.js"></script>
+<script src="js/arena-lobby.js"></script>
+<script src="js/wager-payout.js"></script>
+<script src="js/card-powers.js"></script>
+<script src="js/game-help.js"></script>
+<script src="cards/arena-net.js"></script>
+<style>
+  :root{ --lime:#2bff80; --cyan:#3df0ff; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57; --violet:#b47bff;
+    --ink:#f0e9ff; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; background:#0a0618; color:var(--ink); font-family:var(--mono); }
+  #cv{ position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; image-rendering:auto; }
+  .hidden{ display:none!important; }
+  /* HUD */
+  #hud{ position:fixed; inset:0; pointer-events:none; z-index:5; }
+  .h-tl{ position:absolute; top:40px; left:14px; width:min(42vw,300px); }
+  .h-tr{ position:absolute; top:12px; right:14px; text-align:right; }
+  .nm{ font-family:var(--fat); font-size:13px; letter-spacing:.04em; color:#fff; text-shadow:0 2px 4px #000; white-space:nowrap; }
+  .nm .kos{ color:var(--amber); font-size:11px; margin-left:8px; }
+  .hpbar{ height:14px; border-radius:8px; border:1.5px solid rgba(255,255,255,.45); background:rgba(0,0,0,.5); overflow:hidden; margin-top:3px; box-shadow:0 2px 8px #000; }
+  .hpbar i{ display:block; height:100%; width:100%; background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); transition:width .12s; }
+  .meter{ height:8px; border-radius:6px; border:1px solid rgba(180,123,255,.5); background:rgba(0,0,0,.5); overflow:hidden; margin-top:4px; width:70%; }
+  .meter i{ display:block; height:100%; width:0; background:linear-gradient(90deg,#6a2ea0,#b47bff,#e6c8ff); transition:width .12s; }
+  .meter.rdy{ box-shadow:0 0 12px var(--violet); animation:mpul .8s ease-in-out infinite; }
+  @keyframes mpul{ 50%{ filter:brightness(1.5); } }
+  .alive{ font-family:var(--fat); font-size:30px; color:#fff; text-shadow:0 0 12px rgba(255,42,217,.5); }
+  .alive small{ font-size:12px; color:var(--cyan); letter-spacing:.12em; }
+  .clock{ font-family:var(--fat); font-size:16px; color:var(--amber); }
+  .combo{ position:absolute; left:50%; top:20%; transform:translateX(-50%); text-align:center; opacity:0; }
+  .combo.show{ opacity:1; animation:cbp .18s ease; }
+  @keyframes cbp{ from{ transform:translateX(-50%) scale(1.5); } }
+  .combo .n{ font-family:var(--fat); font-size:44px; color:var(--amber); text-shadow:0 0 16px rgba(255,210,59,.7),0 3px 0 #7a4a00; }
+  .combo .l{ font-size:12px; letter-spacing:.2em; color:#fff; text-transform:uppercase; }
+  .pick{ position:absolute; bottom:76px; left:14px; font-size:11px; color:#cbb6ff; }
+  .pick b{ color:var(--violet); }
+  .cd{ position:fixed; inset:0; display:grid; place-items:center; z-index:8; pointer-events:none; }
+  .cd b{ font-family:var(--fat); font-size:18vw; color:#fff; text-shadow:0 0 40px rgba(255,42,217,.8),0 0 8px rgba(61,240,255,.6); animation:cdPop .9s ease both; }
+  @keyframes cdPop{ from{ transform:scale(2.4); opacity:0; } 60%{ opacity:1; } to{ transform:scale(1); opacity:0; } }
+  .toast{ position:fixed; left:50%; top:15%; transform:translateX(-50%); z-index:9; font-family:var(--fat); font-size:24px; color:#fff;
+    text-shadow:0 0 22px rgba(255,42,217,.8); opacity:0; transition:opacity .2s; pointer-events:none; text-align:center; }
+  .toast.show{ opacity:1; }
+  /* overlays */
+  .ov{ position:fixed; inset:0; z-index:20; display:none; place-items:center; padding:16px; overflow-y:auto;
+    background:radial-gradient(120% 100% at 50% -10%,#2a0d4a 0%,#0a0618 55%,#05030f 100%); }
+  .ov.show{ display:grid; }
+  .panel{ width:min(580px,96vw); border:1px solid rgba(180,123,255,.4); border-radius:16px; padding:20px 20px 16px;
+    background:rgba(10,6,24,.9); box-shadow:0 30px 90px -20px #000, inset 0 0 40px rgba(180,123,255,.06); text-align:center; }
+  h1{ font-family:var(--fat); font-size:40px; letter-spacing:.02em; line-height:.95;
+    background:linear-gradient(180deg,#fff,#e6c8ff 42%,#b47bff 66%,#ff2ad9); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 4px 14px rgba(180,123,255,.4)); }
+  .tag{ font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:6px 0 4px; }
+  .sub{ font-size:12px; line-height:1.6; color:#c3b3e0; margin:8px auto 12px; max-width:460px; }
+  .sub b{ color:#fff; }
+  /* roster */
+  .rost{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; margin:8px 0; }
+  .fighter{ position:relative; border:2px solid rgba(180,123,255,.3); border-radius:11px; padding:6px 4px 5px; cursor:pointer; background:rgba(6,3,16,.6);
+    transition:transform .12s, box-shadow .12s, border-color .12s; }
+  @media(hover:hover){ .fighter:hover{ transform:translateY(-3px); box-shadow:0 10px 22px rgba(0,0,0,.5); } }
+  .fighter.on{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime),0 0 20px rgba(43,255,128,.4); }
+  .fighter.lock{ opacity:.55; cursor:not-allowed; filter:grayscale(.4); }
+  .fighter canvas{ width:100%; height:64px; display:block; }
+  .fighter .fn{ font-family:var(--fat); font-size:10px; color:#fff; margin-top:2px; letter-spacing:.02em; }
+  .fighter .fs{ font-size:8.5px; color:#9c8fc0; line-height:1.3; }
+  .fighter .lk{ position:absolute; inset:0; display:grid; place-items:center; padding:4px; background:rgba(4,2,12,.66); border-radius:9px;
+    font-size:8.5px; color:var(--amber); text-align:center; font-family:var(--mono); }
+  .wrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 2px; }
+  .wlbl{ font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#c9b6ff; }
+  .step{ display:inline-flex; align-items:center; gap:8px; }
+  .step button{ width:34px; height:34px; border-radius:9px; cursor:pointer; border:1px solid rgba(180,123,255,.4); background:rgba(180,123,255,.12); color:#fff; font-family:var(--fat); font-size:16px; }
+  .step .val{ min-width:56px; font-family:var(--fat); font-size:17px; color:var(--amber); }
+  .pchip{ display:inline-grid; place-items:center; min-width:30px; height:30px; padding:0 8px; border-radius:8px; cursor:pointer; margin:0 2px;
+    border:1px solid rgba(180,123,255,.35); background:rgba(6,3,16,.6); color:#dcd; font-size:13px; }
+  .pchip.on{ background:var(--lime); color:#04140b; border-color:var(--lime); }
+  #cardGrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:8px; max-height:180px; overflow-y:auto; padding:6px 2px; margin:6px 0; }
+  .tile{ position:relative; border:2px solid var(--rc,#345); border-radius:9px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; background:#0a0618; transition:transform .13s, box-shadow .13s; }
+  @media(hover:hover){ .tile:hover{ transform:translateY(-4px) scale(1.12); z-index:6; box-shadow:0 12px 26px rgba(0,0,0,.6),0 0 20px rgba(180,123,255,.4); } }
+  .tile.sel{ transform:translateY(-3px) scale(1.05); box-shadow:0 0 0 2px var(--lime),0 0 20px rgba(43,255,128,.6); }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .rr{ position:absolute; top:3px; right:3px; font-size:7px; font-family:var(--fat); text-transform:uppercase; background:rgba(0,0,0,.6); color:#fff; padding:1px 4px; border-radius:4px; }
+  .tile .stk{ position:absolute; bottom:2px; right:3px; font-size:9px; font-family:var(--fat); color:var(--lime); }
+  .cardsInfo{ font-size:11px; color:#c9b6ff; margin:2px 0 6px; }
+  .pot{ font-family:var(--fat); font-size:16px; color:#fff; margin:6px 0; }
+  .pot .c{ color:var(--magenta); }
+  .roster{ font-size:11px; color:#c8b6ea; margin:4px auto 2px; }
+  .go{ display:block; width:100%; margin:8px 0 0; cursor:pointer; font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em;
+    padding:14px; border-radius:11px; border:2px solid #061; color:#04140b; background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); box-shadow:0 4px 0 #061; }
+  .go.alt{ background:linear-gradient(180deg,#e6c8ff,#b47bff 55%,#7a3ec8); border-color:#402066; box-shadow:0 4px 0 #402066; color:#180a2a; }
+  .go:active{ transform:translateY(2px); box-shadow:none; }
+  .go:disabled{ opacity:.5; cursor:not-allowed; }
+  .mininote{ font-size:10.5px; color:#a99; line-height:1.5; margin-top:8px; }
+  .back{ position:fixed; top:12px; left:14px; z-index:22; font-size:12px; color:#c8b6ea; text-decoration:none; }
+  .back:hover{ color:var(--lime); }
+  /* result */
+  .prize{ font-family:var(--fat); font-size:28px; margin:6px 0; }
+  .prizeSub{ font-size:12px; color:#c3b3e0; }
+  .board{ margin:12px 0; font-size:12px; }
+  .board .r{ display:flex; justify-content:space-between; padding:4px 8px; border-radius:6px; }
+  .board .r.me{ background:rgba(255,210,59,.14); color:var(--amber); font-family:var(--fat); }
+  .board .r .k{ color:var(--cyan); }
+  .wonCards{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; margin:8px 0; }
+  .wonCards .tile{ width:44px; height:58px; aspect-ratio:auto; }
+  .ctrls{ position:fixed; bottom:6px; left:50%; transform:translateX(-50%); z-index:5; font-size:10px; letter-spacing:.04em; color:#b9a; opacity:.85; pointer-events:none; text-align:center; }
+  /* touch pads */
+  .pad{ position:fixed; z-index:7; border-radius:50%; display:none; place-items:center; user-select:none; -webkit-user-select:none; touch-action:none;
+    font-family:var(--fat); color:#fff; }
+  @media (hover:none){ .pad{ display:grid; } .ctrls{ display:none; } }
+  body.touch .pad{ display:grid; } body.touch .ctrls{ display:none; }
+  .pP{ right:150px; bottom:26px; width:66px; height:66px; font-size:12px; background:radial-gradient(circle at 40% 34%,#bfe6ff,#3df0ff 62%,#0c86b0); border:2px solid #063f5c; color:#042; }
+  .pK{ right:86px; bottom:78px; width:60px; height:60px; font-size:12px; background:radial-gradient(circle at 40% 34%,#ffd6a8,#ff9a3c 62%,#c05e00); border:2px solid #5c3600; }
+  .pS{ right:22px; bottom:26px; width:78px; height:78px; font-size:12px; background:radial-gradient(circle at 40% 34%,#ffd0f4,#ff2ad9 60%,#8a0f76); border:2px solid #5c0850; }
+  .pX{ right:96px; bottom:150px; width:54px; height:54px; font-size:10px; background:radial-gradient(circle at 40% 34%,#e6c8ff,#b47bff 60%,#5a2e9a); border:2px solid #33146a; opacity:.5; }
+  .pX.rdy{ opacity:1; box-shadow:0 0 16px var(--violet); animation:mpul .8s ease-in-out infinite; }
+  .pShuri{ right:158px; bottom:96px; width:48px; height:48px; font-size:14px; background:radial-gradient(circle at 40% 34%,#d8fff0,#2bffb0 60%,#0a8a66); border:2px solid #064; display:none; }
+  .pad.dn{ filter:brightness(1.35); transform:scale(.92); }
+  .stikBase,.stikNub{ position:fixed; z-index:7; display:none; pointer-events:none; border-radius:50%; }
+  .stikBase{ width:118px; height:118px; margin:-59px 0 0 -59px; border:2px solid rgba(180,123,255,.5); background:radial-gradient(circle,rgba(180,123,255,.1),transparent 70%); }
+  .stikNub{ width:50px; height:50px; margin:-25px 0 0 -25px; border:2px solid #33146a; background:radial-gradient(circle at 42% 36%,#e6c8ff,#b47bff 60%,#5a2e9a); box-shadow:0 0 16px rgba(180,123,255,.6); }
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<a class="back" href="index.html">◀ back to the pack</a>
+
+<div id="hud" class="hidden">
+  <div class="h-tl">
+    <div class="nm"><span id="myName">RONIN</span><span class="kos" id="myKos">0 KO</span></div>
+    <div class="hpbar"><i id="hpFill"></i></div>
+    <div class="meter" id="meterWrap"><i id="meterFill"></i></div>
+  </div>
+  <div class="h-tr"><div class="alive"><span id="aliveN">6</span><small> LEFT</small></div><div class="clock" id="clock">2:00</div></div>
+  <div class="combo" id="combo"><div class="n" id="comboN">0</div><div class="l">hit combo</div></div>
+  <div class="pick" id="pickHint"></div>
+</div>
+<div class="cd hidden" id="cd"><b id="cdB">3</b></div>
+<div class="toast" id="toast"></div>
+<div class="ctrls">◀ ▶ move · <b>W</b> jump · <b>S</b> block · <b>J</b> punch · <b>K</b> kick · <b>L</b> slash · <b>SPACE</b> special · <b>U</b> shuriken</div>
+
+<!-- touch controls -->
+<div class="stikBase" id="stikBase"></div><div class="stikNub" id="stikNub"></div>
+<div class="pad pP" id="padP">PUNCH</div>
+<div class="pad pK" id="padK">KICK</div>
+<div class="pad pS" id="padS">SLASH</div>
+<div class="pad pX" id="padX">SP</div>
+<div class="pad pShuri" id="padShuri">✷</div>
+
+<!-- LOBBY -->
+<div class="ov show" id="ovLobby">
+  <div class="panel">
+    <h1>NEON RONIN</h1>
+    <div class="tag">side-scroll ninja brawl · take the podium</div>
+    <div class="sub">A neon rooftop <b>free-for-all</b> — punch, kick and <b>katana combos</b>, block the counter, grab power-ups. Meme ninjas throw down; the <b>last blade standing</b> ranks the podium. Everyone antes <b>$UR3030</b> and stakes cards into one pot; a small rake burns and the <b>podium (1st/2nd/3rd)</b> splits the rest. <b>Certain cards unlock certain fighters.</b></div>
+    <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:4px 0 2px">▤ Pick your fighter — <span id="unlockN">1</span> unlocked:</div>
+    <div class="rost" id="roster"></div>
+    <div class="wrow"><span class="wlbl">◆ Ante · $UR3030 each</span>
+      <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
+    <div class="wrow"><span class="wlbl">◆ Cards staked each</span>
+      <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
+    <div class="wrow"><span class="wlbl">▤ Ninjas in the ring</span><span id="pChips"></span></div>
+    <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:6px 0 2px">Pick your <b id="pickN">2</b> cards for the pot — they arm your ninja:</div>
+    <div id="cardGrid"></div>
+    <div class="cardsInfo" id="cardsInfo">0 owned</div>
+    <div class="pot" id="potLine"></div>
+    <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
+    <div class="roster" id="rosterNote"></div>
+    <div><button class="go" id="btnAnte">🔥 Ante up &amp; brawl</button></div>
+    <div><button class="go alt" id="btnPractice">▶ Practice brawl (no stakes)</button></div>
+    <div class="mininote" id="lobNote"></div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="ov" id="ovResult">
+  <div class="panel">
+    <h1 id="resTitle">K.O.</h1>
+    <div class="tag" id="resTag"></div>
+    <div class="prize" id="prizeBig"></div>
+    <div class="prizeSub" id="prizeSub"></div>
+    <div class="wonCards" id="wonCards"></div>
+    <div class="board" id="board"></div>
+    <div class="mininote" id="scaNote"></div>
+    <div><button class="go" id="btnRematch">🔥 Ante up &amp; rematch</button></div>
+    <div><button class="go alt" id="btnLobby">▶ Back to the ring</button></div>
+  </div>
+</div>
+
+<script src="js/ronin.js"></script>
+</body>
+</html>
