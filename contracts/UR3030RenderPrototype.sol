@@ -180,8 +180,11 @@ contract UR3030RenderPrototype {
     function _animHtml(string memory url) internal pure returns (string memory) {
         bytes memory html = abi.encodePacked(
             "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\">",
-            "<style>html,body{margin:0;height:100%;background:#02120a;font:12px monospace;color:#2bff80}",
-            ".b{padding:6px;text-align:center}.b a{color:#ffd23b}iframe{border:0;width:100%;height:calc(100% - 26px);display:block}</style>",
+            // flex column so the iframe fills EXACTLY the space under the link bar — no magic
+            // pixel math, no overflow, so there's a single scrollbar (the site's), not two.
+            "<style>html,body{margin:0;height:100%;overflow:hidden;background:#02120a;font:12px monospace;color:#2bff80}",
+            "body{display:flex;flex-direction:column}.b{flex:none;padding:6px;text-align:center}.b a{color:#ffd23b}",
+            "iframe{flex:1 1 auto;border:0;width:100%;display:block}</style>",
             "<div class=b>upperdeckripmaster3030 &#183; <a href=\"", url, "\" target=_blank rel=noopener>open the full arcade &#8599;</a></div>",
             "<iframe src=\"", url, "\" allow=\"accelerometer;gyroscope;autoplay\"></iframe>"
         );
