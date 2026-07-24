@@ -15,8 +15,8 @@ interface ILiquid {
         external
         view
         returns (
-            uint256 rarePerToken,
-            uint256 tokenPerRare,
+            uint256 tokenPerRare,   // $UR3030 per 1 RARE, 18-dec (word0 — verified on-chain
+            uint256 rarePerToken,   //  against quoteBuy() on the live Sepolia deploy)
             uint160 sqrtPriceX96,
             int24 currentTick,
             uint128 liquidity,
@@ -97,7 +97,7 @@ contract UR3030RenderPrototype {
 
     function _snap() internal view returns (Snap memory s) {
         ILiquid liq = ILiquid(LIQUID);
-        (, uint256 tokenPerRare, , int24 tick, , uint256 currentSupply) = liq.getMarketState();
+        (uint256 tokenPerRare, , , int24 tick, , uint256 currentSupply) = liq.getMarketState();
         uint256 maxSupply = liq.maxTotalSupply();                 // wei, 18-dec
         s.sym = liq.symbol();
         s.tick = tick;
@@ -113,9 +113,10 @@ contract UR3030RenderPrototype {
         s.burnedWhole = burnedWei / 1e18;
         s.pctBps = maxSupply == 0 ? 0 : (burnedWei * 10_000) / maxSupply;   // 0..10000
 
-        // tokenPerRare is 18-dec fixed point and O(1) by design (P0 band 0.5–2.5
-        // RARE/token ⇒ ~0.4e18..2e18). `/1e18` truncates every price ≥1 to 0, so
-        // render two decimals: scale ×100 BEFORE dividing (never div-before-mul).
+        // tokenPerRare ($UR3030 per RARE) is word0 of getMarketState — proven on the
+        // live Sepolia deploy by cross-checking quoteBuy(1e18) ≈ 0.061 RARE (⇒ ~16.3
+        // UR per RARE = word0). Word1 is rarePerToken; reading it here truncated the
+        // display to 0. 18-dec fixed point: scale ×100 BEFORE dividing for 2 decimals.
         uint256 perRareCenti = (tokenPerRare * 100) / 1e18;
         s.perRareInt = perRareCenti / 100;
         s.perRareFrac = perRareCenti % 100;

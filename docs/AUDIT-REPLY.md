@@ -62,9 +62,11 @@ Diagnosed and patched in `contracts/UR3030RenderPrototype.sol`:
   "circulating." Since burns are the real signal, the meter now reads **BURNED %**,
   derived as `maxTotalSupply − totalSupply` (per your own interface note that there's
   no burn getter). It correctly reads **0% at launch** and climbs as the field retires.
-- **"0 UR3030 per RARE"** — `tokenPerRare / 1e18` was truncating an ~O(1) fixed-point
-  value to zero. Now scaled ×100 before the divide and rendered to two decimals
-  (e.g. `1 RARE → 1.29 $UR`).
+- **"0 UR3030 per RARE"** — two stacked causes, both fixed: we were reading **word1** of
+  `getMarketState` as tokenPerRare, but the live deploy shows word0 is $UR-per-RARE
+  (≈16.08, cross-checked against `quoteBuy(1e18)` ≈ 0.061 RARE) — word1 is RARE-per-token;
+  and `/1e18` then truncated the small wrong value to zero. Now reading word0, scaled ×100
+  before the divide, rendered to two decimals (e.g. `1 RARE → 16.08 $UR`).
 - Also hardened while we were in there: JSON/SVG escaping on owner-set strings and the
   symbol, and an `int24` min-tick edge that could revert `tokenURI()`.
 

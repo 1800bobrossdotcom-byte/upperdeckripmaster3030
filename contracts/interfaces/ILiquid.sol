@@ -15,7 +15,9 @@ interface ILiquid is IERC20 {
     /// @notice The cap. Burn progress is derived as maxTotalSupply - totalSupply().
     function maxTotalSupply() external view returns (uint256);
 
-    /// @notice (rarePerToken, tokenPerRare, sqrtPriceX96, currentTick, liquidity, currentSupply)
+    /// @notice (tokenPerRare, rarePerToken, sqrtPriceX96, currentTick, liquidity, currentSupply)
+    /// Word order verified against the LIVE Sepolia deploy (2026-07-24): word0 ≈ 16.08
+    /// = $UR3030 per RARE, cross-checked with quoteBuy(1e18) ≈ 0.061 RARE per $UR3030.
     function getMarketState()
         external
         view

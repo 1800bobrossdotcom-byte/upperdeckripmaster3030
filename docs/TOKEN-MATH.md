@@ -77,8 +77,8 @@ P    = P0 + a · R,   a = ln(M) / cap        (price is a straight line in RARE r
 so a buy of ΔR RARE raises price by exactly `a·ΔR` — which makes the slippage in
 §5 exact, not approximate.
 
-**Reads we use** (`ILiquid`): `getCurrentPrice() → (rarePerToken, tokenPerRare)`,
-`getMarketState() → (rarePerToken, tokenPerRare, sqrtPriceX96, currentTick,
+**Reads we use** (`ILiquid`): `getCurrentPrice() → (tokenPerRare, rarePerToken)`,
+`getMarketState() → (tokenPerRare, rarePerToken, sqrtPriceX96, currentTick,
 liquidity, currentSupply)`, `quoteBuy/quoteSell` (use these for real execution
 slippage — don't reinvent it), `maxTotalSupply()`, `poolLaunchSupply()`, `burn()`.
 

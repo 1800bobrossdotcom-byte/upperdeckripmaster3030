@@ -46,8 +46,9 @@ ERC-1155.
 ## Market-state reads available to the renderer (`ILiquid`)
 
 `balanceOf(address)`, `totalSupply()`, `maxTotalSupply()`, `getCurrentPrice()`,
-`getMarketState()` → `(rarePerToken, tokenPerRare, sqrtPriceX96, currentTick, liquidity,
-currentSupply)`, `quoteBuy()`, `quoteSell()`, `lpLiquidity()`, `totalLiquidity()`, plus
+`getMarketState()` → `(tokenPerRare, rarePerToken, sqrtPriceX96, currentTick, liquidity,
+currentSupply)` *(word order verified against the live Sepolia deploy 2026-07-24 — word0 ≈
+16.08 $UR-per-RARE, cross-checked with `quoteBuy`)*, `quoteBuy()`, `quoteSell()`, `lpLiquidity()`, `totalLiquidity()`, plus
 `name()`, `symbol()`, `tokenCreator()`. Burn progress = `maxTotalSupply − totalSupply`
 (there is no burn getter). We currently read `getMarketState` + `maxTotalSupply` + `symbol`;
 `getCurrentPrice`/`quoteBuy`/`quoteSell` are available if we want richer overlays.
