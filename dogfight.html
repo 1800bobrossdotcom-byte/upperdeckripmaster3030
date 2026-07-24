@@ -220,9 +220,6 @@
   <div class="comms" id="comms"><div class="comms-por" id="commsPor">W</div><div class="comms-txt"><b id="commsNm">WINGMATE</b><span id="commsLn"></span></div></div>
 
   <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
-  <div class="pad boost" id="padBoost">BOOST</div>
-  <div class="pad zoom" id="padZoom">ZOOM</div>
-  <div class="pad fire" id="padFire">FIRE</div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="controls" id="controls">
     <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
@@ -230,7 +227,7 @@
     <span class="key desk"><kbd>⇧</kbd> boost</span>
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>V</kbd> view</span>
-    <span class="key touch">left thumb: flight stick · FIRE / BOOST / ZOOM · double-tap stick: roll</span>
+    <span class="key touch">left ½: fly stick (double-tap = roll · slam forward = boost) · right ½: hold = fire, 2 fingers = zoom</span>
   </div>
 
   <!-- LOBBY / WAGER -->
@@ -568,7 +565,7 @@
     for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
       try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
     G.mode='play';
-    if(location.hash==='#debug') window.__DF={G,cam};   // headless-test hook (inert in normal play)
+    if(location.hash==='#debug') window.__DF={G,cam,get stick(){return stick;},get flags(){return {touchFire,touchZoom};},get me(){return G.ships&&G.ships.find(s=>s.isMe);}};   // headless-test hook (inert in normal play)
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show');
     $('hudL').style.display='block'; $('hudR').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
     $('hMe').textContent=(G.me.verified?'⚜ ':'')+'you';
@@ -578,7 +575,10 @@
   }
 
   // ── input (all-range flight: yaw + climb + boost + fire) ──
-  const keys={}; let aim={x:0,y:0}, ptrAim=false, ptrFire=false, fireHeld=false, padBoost=false, padFire=false, padZoom=false, rmZoom=false;
+  const keys={}; let aim={x:0,y:0}, ptrAim=false, ptrFire=false, fireHeld=false, rmZoom=false;
+  // touch combat lives on the right half of the tube (the left half owns the fly stick):
+  //   hold anywhere right = fire · a second finger on the right = zoom (precision)
+  const rightPtrs=new Set(); let touchFire=false, touchZoom=false;
   // floating touch flight stick — relative control: it spawns under your thumb, drag = yaw/climb
   const stick={ id:null, cx:0, cy:0, x:0, y:0, lastX:1 };
   const sB=$('stickBase'), sN=$('stickNub');
@@ -594,25 +594,25 @@
   cv.addEventListener('pointerdown',e=>{
     if(e.pointerType==='mouse'){ if(e.button===2){ rmZoom=true; e.preventDefault(); return; }
       ptrAim=true; ptrFire=true; setAim(e); const n=performance.now(); if(n-_tapC<300)doRoll(aim.x>=0?1:-1); _tapC=n; return; }
-    // touch: the canvas is the stick zone (the DOM pads sit on top and swallow their own touches)
+    // ── TOUCH — no buttons. Left ½ = floating fly stick; right ½ = fire (hold), 2 fingers = zoom ──
     e.preventDefault();
-    if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY);
-      const n=performance.now(); if(n-_tapC<300)doRoll(stick.lastX>=0?1:-1); _tapC=n; } });
+    const r=cv.getBoundingClientRect();
+    if(e.clientX < r.left + r.width/2){                                  // LEFT ½ → fly stick under the thumb
+      if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY);
+        const n=performance.now(); if(n-_tapC<300)doRoll(stick.lastX>=0?1:-1); _tapC=n; } }
+    else { rightPtrs.add(e.pointerId); touchFire=true; touchZoom=rightPtrs.size>=2;   // RIGHT ½ → fire; 2nd finger = zoom
+      try{ cv.setPointerCapture(e.pointerId); }catch{} } });
   addEventListener('pointermove',e=>{
     if(e.pointerType==='mouse'){ if(ptrAim)setAim(e); return; }
     if(e.pointerId===stick.id){ const R=56, dz=10; let dx=e.clientX-stick.cx, dy=e.clientY-stick.cy; const m=Math.hypot(dx,dy);
       if(m>R){ const k=R/m; dx*=k; dy*=k; }
       stick.x=(m<dz)?0:clamp(dx/R,-1,1); stick.y=(m<dz)?0:clamp(dy/R,-1,1); if(stick.x)stick.lastX=stick.x;
       sN.style.left=(stick.cx+dx)+'px'; sN.style.top=(stick.cy+dy)+'px'; } });
-  function ptrEnd(e){ if(e.pointerType==='mouse'){ ptrAim=false; ptrFire=false; rmZoom=false; return; } if(e.pointerId===stick.id) stickHide(); }
+  function ptrEnd(e){ if(e.pointerType==='mouse'){ ptrAim=false; ptrFire=false; rmZoom=false; return; }
+    if(e.pointerId===stick.id) stickHide();
+    if(rightPtrs.delete(e.pointerId)){ touchFire=rightPtrs.size>0; touchZoom=rightPtrs.size>=2; } }
   addEventListener('pointerup',ptrEnd); addEventListener('pointercancel',ptrEnd);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
-  // hold-pads (multi-touch safe: each pad owns its pointer, cancel-proof)
-  function bindPad(el,dn,up){ if(!el)return; el.addEventListener('pointerdown',e=>{ e.preventDefault(); el.classList.add('on'); dn(); });
-    ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,()=>{ el.classList.remove('on'); up(); })); }
-  bindPad($('padBoost'),()=>padBoost=true,()=>padBoost=false);
-  bindPad($('padFire'),()=>padFire=true,()=>padFire=false);
-  bindPad($('padZoom'),()=>padZoom=true,()=>padZoom=false);
 
   function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
   function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
@@ -759,12 +759,14 @@
     s.turnRamp=clamp((s.turnRamp||0)+(Math.abs(yaw)>0.55?dt*2.4:-dt*3.2),0,1);
     const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1));
     s.h+=yaw*turnRate*dt; s.alt-=pitch*2.4*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6.5); s.pitchIn=pitch;
-    // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up)
-    const wantB=!!(keys.Shift||keys.shift||padBoost);
+    // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up).
+    // touch has no button — SLAM the fly stick hard-forward (nose up past the rim) to throttle up.
+    const stickBoost = stick.id!==null && stick.y<-0.55 && Math.hypot(stick.x,stick.y)>0.88;
+    const wantB=!!(keys.Shift||keys.shift||stickBoost);
     if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
     s.thrust=true;
-    s.zoom=!!(keys.Control||keys.control||rmZoom||padZoom);  // hold Ctrl / right-click / ZOOM pad (precision fire)
-    s.wantFire=!!(fireHeld||ptrFire||padFire);
+    s.zoom=!!(keys.Control||keys.control||rmZoom||touchZoom);  // hold Ctrl / right-click / 2-finger right = precision zoom
+    s.wantFire=!!(fireHeld||ptrFire||touchFire);
   }
   // a net peer's craft: chase their broadcast state (wrap-aware lerp), stats come from the owner
   function stepNet(s,dt){ const t=s._tgt; if(!t) return; const k=Math.min(1,dt*8);
@@ -835,9 +837,11 @@
   $('btnAnte').onclick=()=>ante(false);
   $('btnRematch').onclick=()=>ante(true);
   $('btnPractice').onclick=()=>{ if(window.GameHelp) GameHelp.show({ title:'DOGFIGHT', kicker:'all-range deathmatch', onStart:()=>startMatch(false), controls:[
-    { type:'stick', act:'Fly / Bank', touch:'Drag (thumb stick)', key:'W A S D · arrows' },
-    { type:'hold',  act:'Fire', touch:'Hold FIRE', key:'LMB · Space' },
-    { type:'hold',  act:'Boost', touch:'Hold BOOST', key:'⇧' } ] }); else startMatch(false); };
+    { type:'stick', act:'Fly / Bank', touch:'Left ½ · drag to fly', key:'W A S D · arrows' },
+    { type:'hold',  act:'Fire', touch:'Right ½ · hold', key:'LMB · Space' },
+    { type:'hold',  act:'Boost', touch:'Slam stick forward', key:'⇧' },
+    { type:'dtap',  act:'Roll', touch:'Double-tap stick', key:'◀◀ / ▶▶' },
+    { type:'aim',   act:'Zoom', touch:'2 fingers · right', key:'Ctrl · RMB' } ] }); else startMatch(false); };
   $('btnLobby').onclick=()=>{ $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
   async function ante(rematch){ const Wt=window.RipWallet, E=window.RipEth;
     if(E&&E.plays()>0){                                    // ⟠ ETH lane: a banked flight IS the entry fee

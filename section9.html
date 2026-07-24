@@ -117,12 +117,8 @@
   .pad.dn{ transform:scale(.92); filter:brightness(1.3); }
   .btn-fire{ right:calc(var(--bez) + 18px); bottom:calc(var(--bez) + 74px); width:92px; height:92px; font-size:15px; color:#fff;
     background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 62%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); }
-  .btn-ads{ right:calc(var(--bez) + 122px); bottom:calc(var(--bez) + 46px); width:64px; height:64px; font-size:10px; color:#04252c;
-    background:radial-gradient(circle at 40% 34%,#c8fffa,#27f7e4 62%,#0c9d94); border:2px solid #06413f; box-shadow:0 0 14px rgba(39,247,228,.45); }
-  .btn-jump{ right:calc(var(--bez) + 134px); bottom:calc(var(--bez) + 124px); width:64px; height:64px; font-size:10px; color:#04121f;
+  .btn-jump{ right:calc(var(--bez) + 128px); bottom:calc(var(--bez) + 92px); width:64px; height:64px; font-size:10px; color:#04121f;
     background:radial-gradient(circle at 40% 34%,#d8ffbe,#2bff80 62%,#0fae56); border:2px solid #063; box-shadow:0 0 14px rgba(43,255,128,.4); }
-  .btn-rl{ right:calc(var(--bez) + 30px); bottom:calc(var(--bez) + 180px); width:56px; height:56px; font-size:9px; color:#3a2b00;
-    background:radial-gradient(circle at 40% 34%,#ffe9a8,#ffd23b 62%,#c89400); border:2px solid #5c4400; box-shadow:0 0 12px rgba(255,210,59,.4); }
   /* floating move stick: base ring + nub spawned under the finger on the left half of the tube */
   .tstick,.tstick-nub{ position:fixed; left:0; top:0; z-index:7; display:none; pointer-events:none; border-radius:50%; }
   .tstick{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
@@ -244,9 +240,7 @@
   <div class="tstick" id="tsBase" aria-hidden="true"></div>
   <div class="tstick-nub" id="tsNub" aria-hidden="true"></div>
   <div class="pad btn-fire" id="padFire">FIRE</div>
-  <div class="pad btn-ads" id="padADS">ADS</div>
   <div class="pad btn-jump" id="padJump">JUMP</div>
-  <div class="pad btn-rl" id="padRL">RL</div>
 
   <div class="controls" id="controls">
     <span class="key desk"><kbd>WASD</kbd> move</span>
@@ -257,7 +251,7 @@
     <span class="key desk"><kbd>ALT</kbd> jump</span>
     <span class="key desk"><kbd>MMB</kbd> · <kbd>R</kbd> reload</span>
     <span class="key desk"><kbd>1-4</kbd> weapon</span>
-    <span class="key touch">left: move stick (full tilt = run) · right: drag to look · hold FIRE / ADS · tap weapon chips</span>
+    <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP · dbl-tap FIRE = reload</span>
     <span class="key" style="opacity:.72">arena wall art: <a href="https://darkfarms.wtf" target="_blank" rel="noopener noreferrer" style="color:#2bff80;text-decoration:underline">DarkFarms</a> · CC0</span>
   </div>
 
@@ -1452,9 +1446,10 @@
   // ── buttons / ante ──
   $('btnPractice').onclick=()=>{ if(window.GameHelp) GameHelp.show({ title:'SECTION 9', kicker:'tactical deathmatch', onStart:()=>startMatch(false), controls:[
     { type:'stick', act:'Move', touch:'Left stick · full tilt = run', key:'W A S D · ⇧ run' },
-    { type:'aim',   act:'Look / Aim', touch:'Right drag · ADS pad', key:'Mouse · RMB aim' },
+    { type:'aim',   act:'Look', touch:'Right ½ · drag', key:'Mouse' },
     { type:'hold',  act:'Fire', touch:'Hold FIRE', key:'LMB' },
-    { type:'dtap',  act:'Reload', touch:'RL button', key:'MMB · R' },
+    { type:'aim',   act:'Aim (ADS)', touch:'2 fingers · right', key:'RMB' },
+    { type:'dtap',  act:'Reload', touch:'Auto · or dbl-tap FIRE', key:'MMB · R' },
     { type:'tap',   act:'Jump', touch:'JUMP button', key:'ALT' } ] }); else startMatch(false); };
   $('btnAnte').onclick=()=>ante(false);
   $('btnRematch').onclick=()=>ante(true);
@@ -1527,6 +1522,7 @@
   if(isTouch){ try{ document.body.classList.add('touchmode'); }catch{} }
   function touchUpgrade(){ if(!isTouch){ isTouch=true; document.body.classList.add('touchmode'); } }   // hybrid: first real touch flips us
   const touch={ move:{active:false,x:0,y:0,id:-1,cx:0,cy:0}, look:{active:false,id:-1,lx:0,ly:0}, fire:false, jump:false, sprint:false, scope:false };
+  const rightTouch=new Set();   // right-half finger ids — a SECOND finger over there = ADS (aim in), no button needed
   const tsBase=$('tsBase'), tsNub=$('tsNub');
   const T_RAD=56, T_DEAD=10, LOOK_X=0.0065, LOOK_Y=0.0055;             // shared Ripmaster touch language
   function stickShow(x,y){ tsBase.style.display='block'; tsNub.style.display='block';
@@ -1548,8 +1544,9 @@
     if(e.clientX < r.left + r.width/2){                                // LEFT half → spawn the move stick under the finger
       if(!touch.move.active){ touch.move.active=true; touch.move.id=e.pointerId; touch.move.cx=e.clientX; touch.move.cy=e.clientY;
         touch.move.x=0; touch.move.y=0; stickShow(e.clientX,e.clientY); try{ cv.setPointerCapture(e.pointerId); }catch{} } }
-    else if(!touch.look.active){                                       // RIGHT half → camera look-drag
-      touch.look.active=true; touch.look.id=e.pointerId; touch.look.lx=e.clientX; touch.look.ly=e.clientY;
+    else {                                                             // RIGHT half → camera look-drag; a 2nd finger here = ADS
+      rightTouch.add(e.pointerId); if(rightTouch.size>=2) touch.scope=true;
+      if(!touch.look.active){ touch.look.active=true; touch.look.id=e.pointerId; touch.look.lx=e.clientX; touch.look.ly=e.clientY; }
       try{ cv.setPointerCapture(e.pointerId); }catch{} }
   });
   cv.addEventListener('pointermove',e=>{ if(e.pointerType!=='touch') return;
@@ -1561,6 +1558,7 @@
   });
   function touchEnd(e){ if(e.pointerType!=='touch') return;
     if(e.pointerId===touch.move.id) stickHide();
+    if(rightTouch.delete(e.pointerId) && rightTouch.size<2) touch.scope=false;
     if(e.pointerId===touch.look.id){ touch.look.active=false; touch.look.id=-1; } }
   cv.addEventListener('pointerup',touchEnd); cv.addEventListener('pointercancel',touchEnd);
   // action cluster: FIRE hold · ADS hold · JUMP tap · RL tap (pressed state via .dn; buttons only render under hover:none)
@@ -1570,10 +1568,10 @@
     const up=()=>{ el.classList.remove('dn'); if(off)off(); };
     el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up); el.addEventListener('pointerleave',up);
   }
-  bindPad($('padFire'),()=>{ touch.fire=true; },()=>{ touch.fire=false; });
-  bindPad($('padADS'), ()=>{ touch.scope=true; },()=>{ touch.scope=false; });
+  let _fireTapT=0;                                                     // FIRE also serves reload: double-tap it to swap mags
+  bindPad($('padFire'),()=>{ touch.fire=true; const n=now(); if(n-_fireTapT<300 && G.me && G.mode==='play') startReload(G.me); _fireTapT=n; },()=>{ touch.fire=false; });
   bindPad($('padJump'),()=>{ touch.jump=true; },null);                 // consumed on next grounded step (mini jump-buffer)
-  bindPad($('padRL'),  ()=>{ if(G.me&&G.mode==='play')startReload(G.me); },null);
+  // ADS is now the 2-finger-right gesture; reload is auto-on-empty + double-tap FIRE — both pads retired
 
   // tavern widget + gate refresh on connect
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
