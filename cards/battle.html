@@ -555,6 +555,7 @@
 <script src="../js/icons.js"></script>
 <script src="../js/chain-config.js"></script>
 <script src="../js/wallet.js"></script>
+<script src="../js/card-hover.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
 <script>
@@ -627,6 +628,8 @@
       else { if (selected.length >= mode) selected.shift(); const nx = g.idxs.find(i => !selected.includes(i)); if (nx != null) selected.push(nx); }
       renderHand(); updateSlam();
     });
+    if (window.CardHover) CardHover.bind($('handRow'), el => { const c = DECK.find(x => x.slug === el.dataset.slug); if (!c) return null;
+      const surge = c.trigger === gas; return { art: c.art, title: c.title, rarity: c.rarity, atk: c.atk, def: c.def, trigger: c.trigger + (surge ? ' ⚡' : ''), color: `var(${RC[c.rarity] || '--common'})` }; });
     $('handInfo').textContent = `${hand.length} owned · ${gArr.length} kinds · ${selected.length}/${mode} staked`;
   }
 

@@ -304,6 +304,7 @@
 <script src="js/df-net.js"></script>
 <script src="cards/arena-net.js"></script>
 <script src="js/icons.js"></script>
+<script src="js/card-hover.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
@@ -403,6 +404,8 @@
       // never keep more than `cards` total
       while(wager.picked.length>wager.cards) wager.picked.shift();
       buildGrid(); refreshPot(); });
+    if(window.CardHover) CardHover.bind(g, el=>{ const c=bySlug.get(el.dataset.slug); if(!c)return null;
+      return { art:'cards/'+c.art, title:c.title, rarity:c.rarity, atk:c.atk, def:c.def, trigger:c.trigger, color:`var(${RC[c.rarity]||'--common'})` }; });
     const kinds=groups.size, total=own.length;
     $('cardsInfo').textContent=`${total} owned · ${kinds} kinds · ${wager.picked.length}/${wager.cards} in the pot`;
     refreshLoadoutPreview(); refreshPot();
