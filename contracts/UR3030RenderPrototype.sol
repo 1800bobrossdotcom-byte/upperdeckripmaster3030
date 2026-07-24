@@ -214,8 +214,9 @@ contract UR3030RenderPrototype {
             abi.encodePacked(
                 '<rect width="600" height="840" fill="#04120a"/>',
                 '<rect x="18" y="18" width="564" height="804" rx="22" fill="none" stroke="url(#g)" stroke-width="6"/>',
-                '<text x="300" y="118" text-anchor="middle" font-family="Arial Black,Arial" font-size="44" fill="url(#g)">UPPERDECK</text>',
-                '<text x="300" y="172" text-anchor="middle" font-family="Arial Black,Arial" font-size="44" fill="url(#g)">RIPMASTER 3030</text>',
+                // ONE WORD, lowercase, always — artist's law. textLength force-fits
+                // the full word to the card face so no renderer ever wraps it.
+                '<text x="300" y="150" text-anchor="middle" font-family="Arial Black,Arial" font-size="38" textLength="540" lengthAdjust="spacingAndGlyphs" fill="url(#g)">upperdeckripmaster3030</text>',
                 '<text x="300" y="224" text-anchor="middle" font-family="monospace" font-size="21" fill="#8fffc4">$', _escXml(s.sym), " &#183; LIQUID EDITION</text>"
             )
         );

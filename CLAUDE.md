@@ -5,7 +5,10 @@ lives in `docs/ECONOMIC-FLOW.md`; this file is the map.*
 
 ## What it is
 A **liquid trading-card game** — one word, on purpose (amplifies the meme + the clearance
-joke; keep the name). Artist: **Gianni Arone (lovebeing / @_lovebeing_)**, SuperRare
+joke; keep the name). ⚑ **NAME LAW (artist directive 2026-07-24): "upperdeckripmaster3030"
+— ONE word, lowercase, EVERYWHERE.** Never "Upperdeck Ripmaster 3030". The Sepolia test
+ERC-20 has the title-case name() baked in (unfixable post-deploy) — the **launch token
+MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (lovebeing / @_lovebeing_)**, SuperRare
 **Liquid Editions — Cohort 01**. Site: **upperdeckripmaster3030.com** (Vercel, deploys from
 `main`).
 
