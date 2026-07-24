@@ -171,10 +171,27 @@ contract UR3030RenderPrototype {
         return string(o);
     }
 
+    // SuperRare's Liquid Editions media slot renders the render contract's on-chain
+    // metadata, and (per their LiquidLensHTMLExample) animation_url as a *data:text/html*
+    // document — NOT an external https URL. So we wrap the owner-set URL in a tiny
+    // on-chain HTML page that frames the live arcade full-bleed, with an always-visible
+    // "open the full arcade ↗" link bar as the fallback if the marketplace sandbox
+    // blocks the external frame.
+    function _animHtml(string memory url) internal pure returns (string memory) {
+        bytes memory html = abi.encodePacked(
+            "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\">",
+            "<style>html,body{margin:0;height:100%;background:#02120a;font:12px monospace;color:#2bff80}",
+            ".b{padding:6px;text-align:center}.b a{color:#ffd23b}iframe{border:0;width:100%;height:calc(100% - 26px);display:block}</style>",
+            "<div class=b>upperdeckripmaster3030 &#183; <a href=\"", url, "\" target=_blank rel=noopener>open the full arcade &#8599;</a></div>",
+            "<iframe src=\"", url, "\" allow=\"accelerometer;gyroscope;autoplay\"></iframe>"
+        );
+        return string(abi.encodePacked("data:text/html;base64,", Base64.encode(html)));
+    }
+
     function _json(Snap memory s, string memory image) internal view returns (string memory) {
         string memory anim = bytes(animationUrl).length == 0
             ? ""
-            : string(abi.encodePacked('"animation_url":"', _escJson(animationUrl), '",'));
+            : string(abi.encodePacked('"animation_url":"', _animHtml(animationUrl), '",'));
         string memory head = string(
             abi.encodePacked(
                 '{"name":"', _escJson(lensName),
