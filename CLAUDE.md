@@ -81,8 +81,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
   2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
-  lit depth-tested 3D fighters extruded from the same IK skeleton, neon-grid arena, fog;
-  Milestone 1, preferred when WebGL is up) + `js/ronin-gl.js` (2D bloom compositor, the
+  lit depth-tested 3D fighters built from the same IK skeleton with cylinder limbs + sphere
+  joints/heads and per-arch touches (ronin hat, oni horns, kappa shell), neon-grid arena with
+  wet-floor reflections + soft contact shadows, moon/skyline, fog; Milestone 2, preferred when
+  WebGL is up) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
