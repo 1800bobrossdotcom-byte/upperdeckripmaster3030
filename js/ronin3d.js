@@ -326,6 +326,11 @@ window.Ronin3D = (function () {
     [/sword|blade|katana|weapon|gun|rifle/, 'sword'],
   ];
   function jointFor(name) { for (const [re, j] of JOINTMAP) if (re.test(name)) return j; return 'body'; }
+  // the bone a part rides = joint → its child joint. Rotating by this bone's change from bind
+  // is what makes a loaded model actually take the skeleton's pose instead of holding T-pose.
+  const CHILD = { chest: 'head', pelvis: 'chest', head: null,
+    armF0: 'armF1', armF1: 'armF2', armF2: 'sword', armB0: 'armB1', armB1: 'armB2', armB2: null,
+    legF0: 'legF1', legF1: 'legF2', legF2: null, legB0: 'legB1', legB1: 'legB2', legB2: null, sword: null };
   function jointPt(K, j) {
     switch (j) {
       case 'head': return K.head; case 'chest': return K.chest; case 'pelvis': return K.pelvis;
@@ -384,16 +389,29 @@ window.Ronin3D = (function () {
   function drawModelFighter(f, mirror, K, fm) {
     const md = models[f.arch]; const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const g = garbOf(f), col = sc(hex(g.top), dk), S = md.scale;
-    // Bind pose: the parts already sit in their correct places in model space, so a part must be
-    // displaced by how far its joint has moved from rest — NOT translated onto the joint (that
-    // double-offsets and explodes the model apart). Capture rest on the first drawn frame.
-    if (!md.bind) { md.bind = {}; for (const p of md.parts) { const jp = jointPt(K, p.joint); if (jp) md.bind[p.joint] = { x: jp.x, y: jp.y }; } }
+    // render-space angle of the bone at joint j (y is flipped vs the skeleton)
+    const boneAng = (j) => { const c = CHILD[j]; if (!c) return null;
+      const p = jointPt(K, j), q = jointPt(K, c); if (!p || !q) return null;
+      return Math.atan2(-(q.y - p.y), q.x - p.x); };
+    // Bind pose: captured on the first drawn frame. Parts sit where the model has them; each
+    // frame we move them by how far their joint travelled AND rotate them by how far their
+    // bone turned — that rotation is what makes the model move like a body.
+    if (!md.bind) { md.bind = {};
+      for (const p of md.parts) { const jp = jointPt(K, p.joint);
+        if (jp) md.bind[p.joint] = { x: jp.x, y: jp.y, ang: boneAng(p.joint) }; } }
     _mat = bodyMat(f);
     for (const p of md.parts) {
       const jp = jointPt(K, p.joint), b = md.bind[p.joint];
-      const dx = (jp && b) ? jp.x - b.x : 0, dy = (jp && b) ? jp.y - b.y : 0;
-      // model space is Y-up and foot-anchored; the skeleton is Y-DOWN px, so flip Y and scale in
-      const local = M.mul(M.T(dx, -dy, 0), M.mul(M.S(S, S, S), M.T(0, -md.footY, 0)));
+      const base = M.mul(M.S(S, S, S), M.T(0, -md.footY, 0));
+      let local;
+      if (jp && b) {
+        const dx = jp.x - b.x, dy = -(jp.y - b.y);
+        const now = boneAng(p.joint);
+        let d = (now != null && b.ang != null) ? now - b.ang : 0;
+        while (d > PI) d -= TAU; while (d < -PI) d += TAU;                 // shortest way round
+        // rotate the part about its joint (in model-local space), then follow the joint
+        local = M.mul(M.mul(M.T(b.x + dx, -b.y + dy, 0), M.Rz(d)), M.mul(M.T(-b.x, b.y, 0), base));
+      } else local = base;
       draw(p.key, M.mul(fm, local), col, 0, a);
     }
     _mat = 0;
