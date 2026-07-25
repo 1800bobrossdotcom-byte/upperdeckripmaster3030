@@ -29,7 +29,7 @@ window.Ronin3D = (function () {
   const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
   let gl = null, cv = null, ok = false;
-  let litProg, groundProg;
+  let litProg, groundProg, trailProg, trailBuf;
   const geo = {};                                            // {buf,count} per mesh
   const SC = 0.019;
 
@@ -86,6 +86,10 @@ window.Ronin3D = (function () {
     'col += (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.02;' +                                                           // film grain
     'gl_FragColor=vec4(col,1.0); }';
 
+  // flat additive shader for smooth FX ribbons (blade trails + slash-arc crescents) — per-vertex alpha
+  const TR_VS = 'attribute vec3 aPos; attribute float aA; uniform mat4 uVP; varying float vA; void main(){ vA=aA; gl_Position=uVP*vec4(aPos,1.0); }';
+  const TR_FS = 'precision mediump float; varying float vA; uniform vec3 uCol; void main(){ gl_FragColor=vec4(uCol,vA); }';
+
   function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(o); return o; }
   function prog(v, f) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, v)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, f)); gl.bindAttribLocation(p, 0, 'aPos'); gl.bindAttribLocation(p, 1, 'aNorm'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p); return p; }
   function mesh(name, verts) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW); geo[name] = { buf: b, count: verts.length / 6 }; }
@@ -95,6 +99,16 @@ window.Ronin3D = (function () {
   function cylV(seg) { const v = [], r = .5; for (let i = 0; i < seg; i++) { const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU, x0 = Math.cos(a0) * r, z0 = Math.sin(a0) * r, x1 = Math.cos(a1) * r, z1 = Math.sin(a1) * r, n0 = [Math.cos(a0), 0, Math.sin(a0)], n1 = [Math.cos(a1), 0, Math.sin(a1)];
     v.push(x0, -.5, z0, n0[0], 0, n0[2], x1, -.5, z1, n1[0], 0, n1[2], x1, .5, z1, n1[0], 0, n1[2], x0, -.5, z0, n0[0], 0, n0[2], x1, .5, z1, n1[0], 0, n1[2], x0, .5, z0, n0[0], 0, n0[2]);
     v.push(0, .5, 0, 0, 1, 0, x0, .5, z0, 0, 1, 0, x1, .5, z1, 0, 1, 0, 0, -.5, 0, 0, -1, 0, x1, -.5, z1, 0, -1, 0, x0, -.5, z0, 0, -1, 0); } return v; }
+  // tapered cylinder (frustum): bottom radius rb, top radius rt — muscled limbs read as human, not tubes
+  function taperV(seg, rb, rt) { const v = []; for (let i = 0; i < seg; i++) { const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU, c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+    const nb = Math.hypot(1, rb - rt) || 1, nn0 = [c0 / nb, (rb - rt) / nb, s0 / nb], nn1 = [c1 / nb, (rb - rt) / nb, s1 / nb];
+    const b0 = [c0 * rb, -.5, s0 * rb], b1 = [c1 * rb, -.5, s1 * rb], t0 = [c0 * rt, .5, s0 * rt], t1 = [c1 * rt, .5, s1 * rt];
+    v.push(b0[0], b0[1], b0[2], nn0[0], nn0[1], nn0[2], b1[0], b1[1], b1[2], nn1[0], nn1[1], nn1[2], t1[0], t1[1], t1[2], nn1[0], nn1[1], nn1[2],
+      b0[0], b0[1], b0[2], nn0[0], nn0[1], nn0[2], t1[0], t1[1], t1[2], nn1[0], nn1[1], nn1[2], t0[0], t0[1], t0[2], nn0[0], nn0[1], nn0[2]);
+    v.push(0, .5, 0, 0, 1, 0, t0[0], .5, t0[2], 0, 1, 0, t1[0], .5, t1[2], 0, 1, 0, 0, -.5, 0, 0, -1, 0, b1[0], -.5, b1[2], 0, -1, 0, b0[0], -.5, b0[2], 0, -1, 0); } return v; }
+  // flat ground ring (annulus in x-z) for the shock wave — a clean expanding band, not a ring of orbs
+  function ringV() { const v = [], N = 48, ri = 0.82, ro = 1.0; for (let i = 0; i < N; i++) { const a0 = i / N * TAU, a1 = (i + 1) / N * TAU, c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+    v.push(c0 * ri, 0, s0 * ri, 0, 1, 0, c0 * ro, 0, s0 * ro, 0, 1, 0, c1 * ro, 0, s1 * ro, 0, 1, 0, c0 * ri, 0, s0 * ri, 0, 1, 0, c1 * ro, 0, s1 * ro, 0, 1, 0, c1 * ri, 0, s1 * ri, 0, 1, 0); } return v; }
   function sphV(la, lo) { const v = [], r = .5, P = (t, p) => [Math.sin(t) * Math.cos(p) * r, Math.cos(t) * r, Math.sin(t) * Math.sin(p) * r], N = q => { const l = Math.hypot(q[0], q[1], q[2]) || 1; return [q[0] / l, q[1] / l, q[2] / l]; };
     for (let i = 0; i < la; i++) for (let j = 0; j < lo; j++) { const t0 = i / la * PI, t1 = (i + 1) / la * PI, p0 = j / lo * TAU, p1 = (j + 1) / lo * TAU, a = P(t0, p0), b = P(t1, p0), c = P(t1, p1), d = P(t0, p1), na = N(a), nb = N(b), nc = N(c), nd = N(d);
       v.push(a[0], a[1], a[2], na[0], na[1], na[2], b[0], b[1], b[2], nb[0], nb[1], nb[2], c[0], c[1], c[2], nc[0], nc[1], nc[2], a[0], a[1], a[2], na[0], na[1], na[2], c[0], c[1], c[2], nc[0], nc[1], nc[2], d[0], d[1], d[2], nd[0], nd[1], nd[2]); } return v; }
@@ -145,7 +159,9 @@ window.Ronin3D = (function () {
   function init(canvas) {
     try { cv = canvas; gl = cv.getContext('webgl', { antialias: true, alpha: false }) || cv.getContext('experimental-webgl'); if (!gl) return false;
       litProg = prog(LIT_VS, LIT_FS); groundProg = prog(GND_VS, GND_FS);
-      mesh('cube', cubeV()); mesh('cyl', cylV(10)); mesh('sph', sphV(8, 12));
+      trailProg = gl.createProgram(); gl.attachShader(trailProg, sh(gl.VERTEX_SHADER, TR_VS)); gl.attachShader(trailProg, sh(gl.FRAGMENT_SHADER, TR_FS)); gl.bindAttribLocation(trailProg, 0, 'aPos'); gl.bindAttribLocation(trailProg, 1, 'aA'); gl.linkProgram(trailProg); trailBuf = gl.createBuffer();
+      mesh('cube', cubeV()); mesh('cyl', cylV(12)); mesh('sph', sphV(10, 14));
+      mesh('limb', taperV(12, 0.6, 0.4)); mesh('ring', ringV());   // tapered limb + flat shock ring
       mesh('quad', [-.5, 0, -.5, 0, 1, 0, .5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, .5, 0, 1, 0]);
       initPost();                                             // bloom chain (falls back to direct draw if it fails)
       gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); ok = true; return true;
@@ -168,9 +184,9 @@ window.Ronin3D = (function () {
     gl.drawArrays(gl.TRIANGLES, 0, geo[name].count); }
   function setLit() { gl.useProgram(litProg); curMesh = ''; gl.uniform3fv(u(litProg, 'uLight'), [0.35, 0.9, 0.5]); gl.uniform3fv(u(litProg, 'uCam'), camPos); gl.uniform3fv(u(litProg, 'uFog'), FOG); gl.uniform2fv(u(litProg, 'uFogND'), [17, 58]); }
 
-  // cylinder beam between two LOCAL 2D skeleton points (px, y-down) inside a fighter matrix
+  // tapered limb between two LOCAL 2D skeleton points (px, y-down) — thicker at joint a, thinner at b
   function beam(fm, a, b, r, color, emis, alpha) { const ax = a.x, ay = -a.y, bx = b.x, by = -b.y, L = Math.hypot(bx - ax, by - ay) || .001, th = Math.atan2(by - ay, bx - ax);
-    draw('cyl', M.mul(fm, M.mul(M.mul(M.T((ax + bx) / 2, (ay + by) / 2, 0), M.Rz(th - PI / 2)), M.S(r * 2, L, r * 2))), color, emis, alpha); }
+    draw('limb', M.mul(fm, M.mul(M.mul(M.T((ax + bx) / 2, (ay + by) / 2, 0), M.Rz(th - PI / 2)), M.S(r * 2, L, r * 2))), color, emis, alpha); }
   function ball(fm, p, r, color, emis, alpha) { draw('sph', M.mul(fm, M.mul(M.T(p.x, -p.y, 0), M.S(r * 2, r * 2, r * 2))), color, emis, alpha); }
   function bit(fm, x, y, sx, sy, sz, color, emis, alpha) { draw('cube', M.mul(fm, M.mul(M.T(x, -y, 0), M.S(sx, sy, sz))), color, emis, alpha); }
   function orb(fm, x, y, z, sx, sy, sz, color, emis, alpha) { draw('sph', M.mul(fm, M.mul(M.T(x, -y, z), M.S(sx, sy, sz))), color, emis, alpha); }
@@ -195,7 +211,7 @@ window.Ronin3D = (function () {
   function drawFighter(f, mirror) {
     const K = RoninArt.skel(f); const fm = fighterMatrix(f, mirror);
     if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
-      (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 11) f.trail3.pop(); }
+      (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const col = sc(hex(f.col), dk), colB = sc(col, 0.82), tint = sc(hex(f.tint), dk);
     const bm = bodyMat(f), lm = limbMat(f);
@@ -207,21 +223,24 @@ window.Ronin3D = (function () {
     bit(fm, K.legF[2].x, K.legF[2].y, 22, 8, 15, sc([0.06, 0.06, 0.09], dk), 0.3, a); bit(fm, K.legB[2].x, K.legB[2].y, 20, 8, 14, sc([0.05, 0.05, 0.07], dk), 0.3, a);
     // cloak / scarf draped behind the torso
     archBack(fm, f, K, col, tint, a, dk);
-    // torso + hips/chest + a wrapped obi belt
+    // torso: broad chest tapering to the waist, hips, obi belt, deltoid caps + a neck
     _mat = bm;
-    ball(fm, K.pelvis, 13, col, 0, a); beam(fm, K.pelvis, K.chest, 14, col, 0, a); ball(fm, K.chest, 15, col, 0, a);
+    ball(fm, K.pelvis, 12, col, 0, a); beam(fm, K.pelvis, K.chest, 16, col, 0, a); ball(fm, K.chest, 15, col, 0, a);
+    const nk = { x: K.chest.x + (K.head.x - K.chest.x) * 0.5, y: K.chest.y + (K.head.y - K.chest.y) * 0.42 };
+    beam(fm, K.chest, nk, 6.5, sc(col, 0.94), 0, a);                                       // neck
+    orb(fm, K.armF[0].x, K.armF[0].y, 8, 20, 18, 18, col, 0, a); orb(fm, K.armB[0].x, K.armB[0].y, -8, 18, 16, 16, colB, 0, a);   // deltoid shoulders
     _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, sc(hex(f.tint), dk * 0.9), 0.12, a);
     // back arm
     _mat = lm;
-    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 6, colB, 0, a); ball(fm, K.armB[1], 6.5, colB, 0, a);
-    // head + band + per-arch flourish
+    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.5, colB, 0, a); ball(fm, K.armB[1], 6, colB, 0, a); ball(fm, K.armB[2], 4.5, colB, 0, a);
+    // head + band + per-arch flourish (smaller, more human head)
     _mat = f.arch === 'prizm' ? 4 : 5;
-    ball(fm, K.head, 15, col, 0.12, a);
-    _mat = 1; bit(fm, K.head.x, K.head.y + 5, 30, 6, 30, tint, 0.5, a);
+    ball(fm, K.head, 13, col, 0.12, a);
+    _mat = 1; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, tint, 0.5, a);
     archHead(fm, f, K, tint, a, dk);
     // front arm + weapon
     _mat = lm;
-    beam(fm, K.armF[0], K.armF[1], 7, col, 0, a); beam(fm, K.armF[1], K.armF[2], 6, col, 0, a); ball(fm, K.armF[1], 6.5, col, 0, a);
+    beam(fm, K.armF[0], K.armF[1], 7, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.5, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a); ball(fm, K.armF[2], 4.5, col, 0, a);
     const wm = bladeMat(f); _mat = wm;
     const blade = f.glow > 0 ? [1, 0.9, 0.5] : f.arch === 'prizm' ? [0.82, 0.6, 1] : [0.92, 0.97, 1];
     beam(fm, K.sword.hand, K.sword.tip, (f.glow > 0 || wm === 6) ? 5 : 3.5, wm === 6 ? blade : sc(blade, dk), wm === 6 ? 0.55 : 0.4, a);
@@ -267,34 +286,57 @@ window.Ronin3D = (function () {
       slab(fm, c.x + rx, c.y + ry, Math.sin(ang) * 9, 6, 22, 6, ang * 1.4, base, 0.55, a); }
     _mat = 0;
   }
-  // ── 3D combat FX (additive): blade streak, slash arcs, sparks, dust, ground shock ring ──
+  // ── 3D combat FX ──
+  // smooth blade-streak ribbon (a real katana trail — a tapered, fading strip, not chunky tubes).
+  // Uses trailProg (per-vertex alpha); caller binds trailProg + uVP.
+  const ribBuf = [];
+  function ribbon(pts, wHead, wTail, aHead, col) {
+    const n = pts.length; if (n < 2) return; ribBuf.length = 0;
+    for (let i = 0; i < n; i++) { const p = pts[i], q = i < n - 1 ? pts[i + 1] : pts[i - 1];
+      let dx = (i < n - 1 ? q[0] - p[0] : p[0] - q[0]), dy = (i < n - 1 ? q[1] - p[1] : p[1] - q[1]);
+      const L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;             // perpendicular in the x-y plane
+      const t = i / (n - 1), w = wHead + (wTail - wHead) * t, al = aHead * (1 - t) * (1 - t);
+      ribBuf.push(p[0] + px * w, p[1] + py * w, p[2], al, p[0] - px * w, p[1] - py * w, p[2], al); }
+    gl.uniform3fv(u(trailProg, 'uCol'), col);
+    gl.bindBuffer(gl.ARRAY_BUFFER, trailBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ribBuf), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 16, 12);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, ribBuf.length / 4); curMesh = '';
+  }
   function drawTrail3(f) {
-    const tr = f.trail3; if (!tr || tr.length < 2) return;
-    const col = f.glow > 0 ? [1, 0.92, 0.55] : hex(f.tint || '#cfe0ff');
-    for (let i = 0; i < tr.length - 1; i++) { const a = tr[i], b = tr[i + 1];
-      const spd = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-      const al = (1 - i / tr.length) * clampf(spd / 0.16, 0, 1); if (al < 0.05) continue;
-      beam3(a, b, (1 - i / tr.length) * 0.085 + 0.02, col, 1, al * 0.9); }
+    const tr = f.trail3; if (!tr || tr.length < 3) return;
+    let spread = 0; for (let i = 0; i < tr.length - 1; i++) spread += Math.hypot(tr[i][0] - tr[i + 1][0], tr[i][1] - tr[i + 1][1]);
+    if (spread < 0.45) return;                                      // only fast swings smear
+    ribbon(tr, 0.16, 0.006, 0.85, f.glow > 0 ? [1, 0.95, 0.62] : hex(f.tint || '#dfeeff'));
   }
+  // slash-arc crescent as a filled ribbon band (inner→outer radius), bright at the leading edge
   function drawArc3(e, gY) {
-    const cx = e.x * SC, cy = (gY - e.y) * SC, rO = e.r * SC * 0.66, col = hex(e.col || '#eaf6ff'), fade = 1 - clampf(e.t / e.life, 0, 1);
-    const pt = th => { const px = e.face * Math.cos(th) * rO, py = Math.sin(th) * rO; return [cx + px, cy - py, 0]; };
-    const N = 9; let prev = pt(e.a0);
-    for (let i = 1; i <= N; i++) { const p = pt(e.a0 + (e.a1 - e.a0) * (i / N)), k = 1 - (i - 1) / N;
-      beam3(prev, p, 0.14 * k + 0.03, col, 1, 0.5 * fade);          // coloured glow
-      beam3(prev, p, 0.055 * k + 0.012, [1, 1, 1], 1, 0.9 * fade);  // bright white leading core
-      prev = p; }
+    const cx = e.x * SC, cy = (gY - e.y) * SC, rO = e.r * SC * 0.6, rI = rO * 0.5, fade = 1 - clampf(e.t / e.life, 0, 1);
+    const c = hex(e.col || '#eaf6ff'), col = [Math.min(1, c[0] * 0.5 + 0.6), Math.min(1, c[1] * 0.5 + 0.6), Math.min(1, c[2] * 0.5 + 0.6)];
+    const N = 14; ribBuf.length = 0;
+    for (let i = 0; i <= N; i++) { const th = e.a0 + (e.a1 - e.a0) * (i / N), cs = e.face * Math.cos(th), sn = Math.sin(th);
+      const edge = fade * 0.9 * (1 - Math.abs(i / N - 0.5) * 0.7);              // brighter through the middle of the sweep
+      ribBuf.push(cx + cs * rI, cy - sn * rI, 0, edge * 0.15, cx + cs * rO, cy - sn * rO, 0, edge); }
+    gl.uniform3fv(u(trailProg, 'uCol'), col);
+    gl.bindBuffer(gl.ARRAY_BUFFER, trailBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ribBuf), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 16, 12);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, ribBuf.length / 4); curMesh = '';
   }
-  function drawFx(G) {
+  // sparks (velocity-aligned streaks), dust (flat ground puffs), shock (one clean expanding ring) — lit shader, additive
+  function drawFxLit(G) {
     const gY = G.groundY || 500, fx = G.fx || [];
     for (const e of fx) {
-      if (e.kind === 'spark') { const k = 1 - e.t / e.life; orb3([e.x * SC, (gY - e.y) * SC, 0], e.r * SC * 2.4 * (0.55 + k * 0.6), hex(e.col), 1, k); }
-      else if (e.kind === 'dust') { const pr = e.t / e.life; orb3([e.x * SC, (gY - e.y) * SC, 0], e.r * SC * 1.5 * (1 + pr * 1.5), [0.52, 0.44, 0.62], 0.4, (1 - pr) * 0.26); }
-      else if (e.kind === 'arc') drawArc3(e, gY);
+      if (e.kind === 'spark') { const k = 1 - e.t / e.life; const hx = e.x * SC, hy = (gY - e.y) * SC;
+        const tx = hx - (e.vx || 0) * SC * 0.018, ty = hy + (e.vy || 0) * SC * 0.018;   // tail trails the velocity
+        beam3([tx, ty, 0], [hx, hy, 0], (e.r * SC * 0.5) * (0.4 + k), hex(e.col), 1, k); }
+      else if (e.kind === 'dust') { const pr = e.t / e.life, r = e.r * SC * 1.6 * (1 + pr * 1.7);   // flat disc on the floor
+        draw('quad', M.mul(M.T(e.x * SC, 0.03 + pr * 0.1, (e.z || 0) * SC), M.S(r, 1, r)), [0.5, 0.44, 0.6], 0.4, (1 - pr) * 0.22); }
+      else if (e.kind === 'arc') { /* drawn in the ribbon pass */ }
     }
-    const s = G.shock;                                              // expanding ground shock ring at the impact
-    if (s) { const R = s.t * 10 + 0.3, al = Math.max(0, 1 - s.t / 0.5) * 0.8 * (s.str || 1), cx = (s.wx || 0) * SC, N = 26;
-      for (let i = 0; i < N; i++) { const a = i / N * TAU; orb3([cx + Math.cos(a) * R, 0.09, Math.sin(a) * R], 0.085 + s.t * 0.05, [1, 0.45, 0.9], 1, al); } }
+    const s = G.shock;                                              // ONE clean expanding ground ring (annulus mesh)
+    if (s) { const R = s.t * 9 + 0.25, al = Math.max(0, 1 - s.t / 0.5) * 0.75 * (s.str || 1);
+      draw('ring', M.mul(M.T((s.wx || 0) * SC, 0.05, 0), M.S(R, 1, R)), [1, 0.5, 0.92], 1, al); }
   }
   function drawShadow(f) { const x = f.x * SC, r = 0.55; const m = M.mul(M.mul(M.T(x, 0.02, (f.z || 0) * SC), M.S(r * 2.2, 1, r * 1.3)), M.ident());
     if (curMesh !== 'quad') { bind('quad'); curMesh = 'quad'; }
@@ -340,10 +382,14 @@ window.Ronin3D = (function () {
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
       // 5. fighters
       for (const f of G.fighters) if (f) drawFighter(f, false);
-      // 6. combat FX — additive glow (blade streaks, slash arcs, sparks, dust, shock ring)
+      // 6. combat FX — additive glow. Ribbons (blade streaks + slash arcs) use their own flat shader;
+      //    sparks/dust/shock use the lit shader.
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false); _mat = 0;
+      gl.useProgram(trailProg); gl.uniformMatrix4fv(u(trailProg, 'uVP'), false, VP);
       for (const f of G.fighters) if (f && !f.dead) drawTrail3(f);
-      drawFx(G);
+      for (const e of (G.fx || [])) if (e.kind === 'arc') drawArc3(e, G.groundY || 500);
+      gl.useProgram(litProg); curMesh = '';
+      drawFxLit(G);
       gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       if (post.on) bloom();                                   // bright-pass + gaussian bloom + composite to screen
       gl.flush(); return true;

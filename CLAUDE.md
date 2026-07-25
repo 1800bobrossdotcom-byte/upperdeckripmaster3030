@@ -81,16 +81,18 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
   2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
-  lit depth-tested 3D fighters built from the same IK skeleton with cylinder limbs + sphere
-  joints/heads, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
+  lit depth-tested 3D fighters built from the same IK skeleton with **tapered (muscled) limbs**
+  (frustum mesh, thick at the proximal joint), sphere joints, a neck + deltoid shoulders and
+  human-ish proportions, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
   2 brushed-metal / 3 reptile-scale / 4 iridescent-crystal / 5 skin / 6 energy-pulse / 7 wrap
   bands, textured stably in object space via `vL`), and a distinct silhouette per archetype
   (ronin straw-hat+haori cloak, kappa scaled shell+bulbous eyes, doomer cowl hood+coat, oni
   upswept horns+spiked club, kunoichi wrapped limbs+trailing scarf+face-mask, prizm crystal
   body+orbiting shards+light blade), neon-grid arena with wet-floor reflections + soft contact
-  shadows, moon/skyline, fog, plus native additive **3D combat FX** (blade streaks, overhead
-  slash-arc crescents, sparks, dust, an expanding ground shock-ring — mapped from `G.fx`/
-  `G.shock` via `G.groundY`), a full-scene **bloom post-pass** (scene→FBO→bright→separable
+  shadows, moon/skyline, fog, plus native additive **3D combat FX** — smooth **ribbon** blade-
+  streaks + crescent slash-arcs (own flat per-vertex-alpha shader `trailProg`), velocity-aligned
+  **streak** sparks, flat ground-puff dust, and ONE clean expanding **ring**-mesh shock (all
+  deliberately NOT spheres/orbs; mapped from `G.fx`/`G.shock` via `G.groundY`), a full-scene **bloom post-pass** (scene→FBO→bright→separable
   gaussian→composite w/ vignette+grain+chromatic-aberration, falls back to direct draw if the
   FBO chain fails), and a **dynamic fight-camera** that orbits gently and pulls-in+swings on
   hero moments (`G.camZoom`/`G.camDir`, fired from ko/finishers/special); Milestone 5, preferred

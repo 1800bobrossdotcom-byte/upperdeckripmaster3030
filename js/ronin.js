@@ -49,9 +49,9 @@
 
   const WEAP_REACH = { katana: 1.0, tanto: 0.82, nodachi: 1.32 };
   const ATK = {
-    punch: { st: .03, ac: .05, rc: .10, reach: 42, dmg: 6,  knock: 90,  kind: 'punch' },   // snappy jab
-    kick:  { st: .07, ac: .07, rc: .18, reach: 56, dmg: 12, knock: 250, kind: 'kick' },     // weighty but quicker
-    slash: { st: .05, ac: .06, rc: .13, reach: 64, dmg: 15, knock: 160, kind: 'slash' },    // fast blade whip
+    punch: { st: .02, ac: .035, rc: .07, reach: 44, dmg: 6,  knock: 90,  kind: 'punch' },   // fast jab
+    kick:  { st: .05, ac: .06,  rc: .14, reach: 58, dmg: 12, knock: 250, kind: 'kick' },     // weighty, snappier
+    slash: { st: .035, ac: .05, rc: .09, reach: 66, dmg: 15, knock: 160, kind: 'slash' },    // sharp blade whip
   };
 
   // ── game state ──
@@ -284,25 +284,25 @@
     const t = f.stT, st = f.state;
     // sword angle sw: 0 = blade straight down · π/2 = forward · π = straight up. Ready = jodan-no-kamae:
     // both hands raised, blade held UPRIGHT above the head, ready to cut down.
-    const T = { lean: 0, head: 0, aF: 2.35, eF: 0.35, aB: 2.1, eB: 0.45, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: 2.7, bob: 0 };
+    const T = { lean: 0, head: 0, aF: 2.35, eF: 0.35, aB: 2.1, eB: 0.45, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: 2.7, bob: 0, rot: 0 };
     const spd = Math.min(1, Math.abs(f.vx) / 260);
-    if (st === 'idle') { const b = Math.sin(G.t * 2.2); T.bob = Math.sin(G.t * 2.4 + f.walkPh) * 2; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05; }   // sword up, subtle breathing
-    else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.75; T.hB = -s * 0.75; T.kF = Math.max(0, -s) * 0.8; T.kB = Math.max(0, s) * 0.8; T.aF = 2.3 - s * 0.12; T.aB = 2.05; T.sw = 2.62; T.lean = 0.16 * spd; T.bob = Math.abs(Math.cos(f.walkPh)) * 2; }   // blade stays overhead on the advance
-    else if (st === 'block') { T.lean = -0.14; T.aF = -1.35; T.eF = 1.35; T.aB = -1.0; T.eB = 1.1; T.sw = 1.85; T.hF = 0.35; T.hB = -0.35; }   // drop to a cross guard, blade forward-high
-    else if (st === 'punch') { const P = ATK.punch;                                                   // off-hand jab; the sword hand stays up on guard
+    if (st === 'idle') { const b = Math.sin(G.t * 2.2), sway = Math.sin(G.t * 1.25); T.bob = -1.5 + b * 2; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05 + sway * 0.035; T.rot = sway * 0.03; }   // grounded stance, breathing + weight-shift
+    else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.8; T.hB = -s * 0.8; T.kF = Math.max(0, -s) * 0.85; T.kB = Math.max(0, s) * 0.85; T.aF = 2.3 - s * 0.14; T.aB = 2.05; T.sw = 2.62; T.lean = 0.18 * spd; T.rot = s * 0.05; T.bob = Math.abs(Math.cos(f.walkPh)) * 2.4; }   // hips roll with the stride
+    else if (st === 'block') { T.lean = -0.14; T.aF = -1.35; T.eF = 1.35; T.aB = -1.0; T.eB = 1.1; T.sw = 1.85; T.hF = 0.35; T.hB = -0.35; T.rot = -0.05; }   // cross guard
+    else if (st === 'punch') { const P = ATK.punch;                                                   // off-hand jab; sword hand stays up on guard, hips snap through
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.st) { const w = t / P.st; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; }
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.14 * ex; } }
-    else if (st === 'kick') { const P = ATK.kick;                                                     // spinning kick; sword held clear overhead
+      if (t < P.st) { const w = t / P.st; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; T.rot = -0.05 * w; }
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.16 * ex; T.rot = 0.12 * ex; } }
+    else if (st === 'kick') { const P = ATK.kick;                                                     // roundhouse; sword held clear overhead
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; }
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.6 * ex; T.kF = -0.35 * ex; T.lean = -0.22 * ex; T.aB = 1.0; } }
+      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; T.rot = -0.08 * w; }
+      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.7 * ex; T.kF = -0.35 * ex; T.lean = -0.24 * ex; T.aB = 1.0; T.rot = 0.14 * ex; } }
     else if (st === 'slash') { const P = ATK.slash;
-      if (t < P.st) { const w = t / P.st; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.18 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.14 * w; }   // wind-up: cock the raised blade back over the shoulder
+      if (t < P.st) { const w = t / P.st; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
       else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the cut
-        T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.18, 0.32, e); T.head = lerp(0.14, -0.12, e); T.hF = 0.26; } }   // committed two-handed overhead cut, down through the front
-    else if (st === 'special') { T.sw = 2.5 + t * 30; T.aF = 2.4; T.eF = 0.1; T.lean = 0; }           // whirling nova
-    else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; }
+        T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.2, 0.36, e); T.head = lerp(0.14, -0.14, e); T.hF = 0.3; T.rot = lerp(-0.1, 0.22, e); } }   // committed two-handed overhead cut, torso pitches through
+    else if (st === 'special') { T.sw = 2.5 + t * 30; T.aF = 2.4; T.eF = 0.1; T.lean = 0; T.rot = Math.sin(t * 30) * 0.1; }   // whirling nova
+    else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; T.rot = -0.12; }
     return T;
   }
   function stepRig(f, dt) {
@@ -318,15 +318,16 @@
     }
     const T = poseTargets(f);
     const atk = f.state === 'punch' || f.state === 'kick' || f.state === 'slash' || f.state === 'special';
-    const K = atk ? 340 : 210, D = 24;                        // stiffer mid-attack so limbs whip; underdamped → follow-through
-    springTo(r, 'lean', T.lean, atk ? 220 : 120, 15, dt); springTo(r, 'head', T.head, 110, 13, dt);
+    const K = atk ? 460 : 300, D = atk ? 34 : 32;             // crisper: limbs snap to pose then settle (less robotic lag/wobble)
+    springTo(r, 'lean', T.lean, atk ? 300 : 150, 20, dt); springTo(r, 'head', T.head, 150, 17, dt);
     springTo(r, 'aF', T.aF, K, D, dt); springTo(r, 'eF', T.eF, K, D, dt);
-    springTo(r, 'aB', T.aB, K * 0.8, D, dt); springTo(r, 'eB', T.eB, K * 0.8, D, dt);
+    springTo(r, 'aB', T.aB, K * 0.82, D, dt); springTo(r, 'eB', T.eB, K * 0.82, D, dt);
     springTo(r, 'hF', T.hF, K, D, dt); springTo(r, 'kF', T.kF, K, D, dt);
     springTo(r, 'hB', T.hB, K, D, dt); springTo(r, 'kB', T.kB, K, D, dt);
-    springTo(r, 'sw', T.sw, (f.state === 'slash' || f.state === 'special') ? 560 : 170, 26, dt);   // the blade cracks through the arc
-    springTo(r, 'bob', T.bob, 150, 16, dt);
-    r.bodyRotV += (0 - r.bodyRot) * 150 * dt - r.bodyRotV * 15 * dt; r.bodyRot += r.bodyRotV * dt;  // torso rights itself; impacts rock it
+    springTo(r, 'sw', T.sw, (f.state === 'slash' || f.state === 'special') ? 720 : 220, 32, dt);   // the blade cracks through the arc
+    springTo(r, 'bob', T.bob, 190, 20, dt);
+    // torso rotates INTO the strike (hip/shoulder drive) then rights itself; impacts still rock it
+    r.bodyRotV += (T.rot - r.bodyRot) * (atk ? 240 : 150) * dt - r.bodyRotV * 18 * dt; r.bodyRot += r.bodyRotV * dt;
   }
   function impulse(f, worldDir, mag, knockdown) {             // inject momentum on a hit
     const r = f.rig; if (!r) return;

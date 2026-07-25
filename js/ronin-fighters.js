@@ -33,7 +33,7 @@ window.RoninArt = (function () {
   function legFeet(f) {
     const r = f.rig, st = f.state;
     if (f.air || f.ragdoll || st === 'ko') return null;       // airborne / limp → angle-driven legs
-    let fx = 16, fy = 0, bx = -18, by = 0;
+    let fx = 19, fy = 0, bx = -23, by = 0;   // grounded, weight-back fighting stance
     if (st === 'walk') { const ph = f.walkPh, stride = 18, lift = 14;
       fx = 8 + Math.cos(ph) * stride; fy = -Math.max(0, Math.sin(ph)) * lift;
       bx = -8 + Math.cos(ph + Math.PI) * stride; by = -Math.max(0, Math.sin(ph + Math.PI)) * lift; }
