@@ -69,7 +69,7 @@ window.Ronin3D = (function () {
   const GND_VS = 'attribute vec3 aPos; uniform mat4 uMVP; uniform mat4 uModel; varying vec3 vW;' +
     'void main(){ vW=(uModel*vec4(aPos,1.0)).xyz; gl_Position=uMVP*vec4(aPos,1.0); }';
   // WATER floor — layered travelling wave normals, fresnel sheen, caustic glimmer, psychedelic tint
-  const GND_FS = 'precision mediump float; varying vec3 vW; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha; uniform float uTime;' +
+  const GND_FS = 'precision mediump float; varying vec3 vW; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha; uniform float uTime; uniform float uWater;' +
     'void main(){ vec2 p=vW.xz;' +
     ' float w1=sin(p.x*0.42+uTime*1.15)+sin(p.y*0.37-uTime*0.9);' +
     ' float w2=sin((p.x+p.y)*0.24-uTime*0.62)+sin((p.x-p.y)*0.31+uTime*0.78);' +
@@ -84,6 +84,10 @@ window.Ronin3D = (function () {
     ' float caust=pow(max(0.0,sin(p.x*0.9+uTime*1.3)*sin(p.y*0.8-uTime*1.1)),6.0);' +
     ' col+=vec3(0.5,0.9,1.0)*caust*0.5;' +
     ' float spec=pow(max(0.0,dot(reflect(-normalize(vec3(0.35,0.9,0.5)),N),V)),48.0); col+=vec3(1.0)*spec*0.6;' +
+    ' if(uWater<0.5){' +                                                        // DUEL ARENA: the original neon grid
+    '   vec2 g=abs(fract(vW.xz*0.5)-0.5); float line=1.0-smoothstep(0.0,0.06,min(g.x,g.y));' +
+    '   col=mix(vec3(0.04,0.02,0.08), vec3(0.7,0.16,0.85), line*0.8);' +
+    '   float glow=1.0-smoothstep(0.0,2.4,abs(vW.z)); col+=vec3(1.0,0.16,0.85)*glow*0.5; }' +
     ' float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     ' gl_FragColor=vec4(mix(col,uFog,fg),uAlpha); }';
   // ── bloom post-process (render the 3D scene to a texture → bright-pass → separable blur → composite) ──
@@ -729,7 +733,7 @@ window.Ronin3D = (function () {
       // 1. ground (opaque)
       gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, worldMesh ? -0.35 : 0, 0), M.S(worldMesh ? 200 : 90, 1, worldMesh ? 200 : 90));
       gl.uniformMatrix4fv(u(groundProg, 'uMVP'), false, M.mul(VP, gm)); gl.uniformMatrix4fv(u(groundProg, 'uModel'), false, gm);
-      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1); gl.uniform1f(u(groundProg, 'uTime'), t3);
+      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1); gl.uniform1f(u(groundProg, 'uTime'), t3); gl.uniform1f(u(groundProg, 'uWater'), worldMesh ? 1 : 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1); gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       setLit(); _mat = 0;
