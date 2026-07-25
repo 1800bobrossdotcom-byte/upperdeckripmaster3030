@@ -55,7 +55,13 @@ window.Ronin3D = (function () {
     ' else if(uMat<4.5){ float fac=floor(vnoise(vL.xy*7.0+vL.z*5.0)*6.0)/6.0; vec3 ir=0.5+0.5*cos(6.2831*(fac+uTime*0.25)+vec3(0.0,2.1,4.2)); lit=mix(lit,ir,0.5)+pow(rim,2.0)*0.6; }' +   // crystal
     ' else if(uMat<5.5){ lit*=0.9+0.16*vnoise(vL.xy*9.0+vL.z*4.0); }' +                                                                                                     // skin
     ' else if(uMat<6.5){ float pu=0.75+0.35*sin(uTime*9.0+vL.y*12.0); lit=uColor*pu+vec3(0.2)*pu; }' +                                                                      // energy
-    ' else { float b=step(0.5,fract(vL.y*10.0)); lit*=mix(0.68,1.06,b); } }' +                                                                                              // wraps
+    ' else if(uMat<7.5){ float b=step(0.5,fract(vL.y*10.0)); lit*=mix(0.68,1.06,b); }' +
+    ' else { float band=vW.y*0.16 + vW.x*0.055 + vW.z*0.055 + uTime*0.22;' +          // 8 = PSYCHEDELIC city
+    '   vec3 ac=0.5+0.5*cos(6.2831*(band+vec3(0.0,0.33,0.67)));' +
+    '   float rings=0.5+0.5*sin(length(vW.xz)*0.55 - uTime*1.1);' +
+    '   vec3 ac2=0.5+0.5*cos(6.2831*(rings*0.6+uTime*0.09+vec3(0.2,0.5,0.85)));' +
+    '   lit=mix(ac,ac2,0.42)*(0.5+0.85*d) + pow(rim,1.6)*vec3(1.0,0.35,0.9)*0.7;' +
+    '   lit*=0.82+0.32*sin(vW.y*2.6+uTime*1.7); } }' +                                                                                              // wraps
     'lit=mix(lit,uColor*1.2,uEmis);' +
     'float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     'gl_FragColor=vec4(mix(lit,uFog,fg),uAlpha); }';
@@ -593,17 +599,19 @@ window.Ronin3D = (function () {
 
       gl.enable(gl.BLEND);
       // 1. ground (opaque)
-      gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, 0, 0), M.S(90, 1, 90));
+      gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, worldMesh ? -0.35 : 0, 0), M.S(worldMesh ? 200 : 90, 1, worldMesh ? 200 : 90));
       gl.uniformMatrix4fv(u(groundProg, 'uMVP'), false, M.mul(VP, gm)); gl.uniformMatrix4fv(u(groundProg, 'uModel'), false, gm);
       gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1);
       gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1); gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       setLit(); _mat = 0;
       // 1b. the baked city, if a world is loaded — one opaque batch, lit like everything else
-      if (worldMesh) { _mat = 1; draw('world', M.ident(), [0.62, 0.58, 0.66], 0.06, 1); _mat = 0; }
-      // 2. skyline (kept below the moon's centre so no narrow tower can bisect the disc) then moon
-      for (let i = -6; i <= 6; i++) { const bx = midX + i * 4.4, bh = 3 + ((i * 7 % 5 + 5) % 5) * 1.4; bit3(bx, bh / 2, -17 - ((i * 3 % 4 + 4) % 4), 2.4, bh, 1.2, [0.12, 0.06, 0.2], 0.5); }
-      draw('sph', M.mul(M.T(midX + 13, 10.5, -30), M.S(6, 6, 6)), [1, 0.96, 0.85], 1, 1);
+      if (worldMesh) { _mat = 8; draw('world', M.ident(), [0.7, 0.6, 0.9], 0, 1); _mat = 0; }   // PSYCHEDELIC city
+      // 2. the placeholder skyline + moon only exist when there's no real world loaded
+      if (!worldMesh) {
+        for (let i = -6; i <= 6; i++) { const bx = midX + i * 4.4, bh = 3 + ((i * 7 % 5 + 5) % 5) * 1.4; bit3(bx, bh / 2, -17 - ((i * 3 % 4 + 4) % 4), 2.4, bh, 1.2, [0.12, 0.06, 0.2], 0.5); }
+        draw('sph', M.mul(M.T(midX + 13, 10.5, -30), M.S(6, 6, 6)), [1, 0.96, 0.85], 1, 1);
+      }
       // 3. reflections (drawn over the floor, depth-test off, faded) — wet-floor look
       gl.depthMask(false); gl.disable(gl.DEPTH_TEST);
       for (const f of G.fighters) if (f) drawFighter(f, true);
