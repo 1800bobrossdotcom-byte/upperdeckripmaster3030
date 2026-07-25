@@ -66,6 +66,21 @@ Ronin3D.registerModel('ronin', parsed, { morph: { seed: 7, ops: [{op:'twist',amt
 Note this does **not** change the licensing position below: a distorted copyrighted character is
 a derivative work and is still that character's. Run it on geometry you own.
 
+### Baking iterations offline
+
+`scripts/morph-mesh.mjs` runs the same morph over an OBJ and writes new OBJs, so you can sweep
+seeds, keep the ones you like, and drop the keepers in here as fighters. Part structure is
+preserved, so a morphed file still attaches by part name. Stage props (floor/plane/…) are
+dropped unless you pass `--keep-props`.
+
+```bash
+node scripts/morph-mesh.mjs TROOPER.obj out --seeds ripmaster,cosmic-yawn,blue-boar
+node scripts/morph-mesh.mjs Mom.obj out --ops sag,bulge,static --amt 0.85
+```
+
+Same seed always regenerates the same creature, so a kept iteration is reproducible from its
+name alone — no need to archive the output if you keep the source + seed.
+
 ## Requirements & limits
 
 - glTF 2.0 binary (`.glb`) with the geometry in the embedded `BIN` chunk. External `.bin`
