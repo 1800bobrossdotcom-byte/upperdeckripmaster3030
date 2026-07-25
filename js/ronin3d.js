@@ -253,7 +253,13 @@ window.Ronin3D = (function () {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy, b[2] - a[2]) || 0.001, th = Math.atan2(dy, dx);
     draw('cyl', M.mul(M.mul(M.T((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), M.Rz(th - PI / 2)), M.S(r * 2, L, r * 2)), color, emis, alpha); }
 
-  function fighterMatrix(f, mirror) { let fm = M.mul(M.mul(M.mul(M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC), M.Ry((f.face < 0 ? PI : 0) + (f.spin || 0))), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
+  function fighterMatrix(f, mirror) {
+    let pos, yaw;
+    if (f.w) { pos = M.T(f.w.x, f.w.y, f.w.z);                       // WORLD MODE: real 3D position
+      yaw = (f.faceYaw != null ? f.faceYaw : 0) + (f.spin || 0); }
+    else { pos = M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC);
+      yaw = (f.face < 0 ? PI : 0) + (f.spin || 0); }
+    let fm = M.mul(M.mul(M.mul(pos, M.Ry(yaw)), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
     return mirror ? M.mul(M.S(1, -1, 1), fm) : fm; }
 
   // a hand: palm + four fingers + a thumb. `along` = unit dir the fingers point (the hilt / punch line).
@@ -689,6 +695,18 @@ window.Ronin3D = (function () {
       const a = G.fighters[0], b = G.fighters[1];
       const midX = ((a ? a.x : 0) + (b ? b.x : 0)) / 2 * SC, sep = Math.abs(((a ? a.x : 0) - (b ? b.x : 0)) * SC);
       // ── dynamic fight-camera: gentle idle orbit, pulls in + swings on hero moments (G.camZoom / G.camDir) ──
+      if (G.worldMode && G.me && G.me.w) {                             // third-person chase cam
+        const p = G.me.w, yaw = G.camYaw || 0, dist = 7.5, hgt = 3.4;
+        const tx = p.x - Math.sin(yaw) * dist, tz = p.z - Math.cos(yaw) * dist;
+        cam.wx = cam.wx == null ? tx : cam.wx + (tx - cam.wx) * 0.14;
+        cam.wz = cam.wz == null ? tz : cam.wz + (tz - cam.wz) * 0.14;
+        cam.wy = cam.wy == null ? p.y + hgt : cam.wy + ((p.y + hgt) - cam.wy) * 0.16;
+        const shkW = (G.shake || 0) * 0.02;
+        camPos = [cam.wx + (Math.random()*2-1)*shkW, cam.wy, cam.wz];
+        VP = M.mul(M.persp(0.86, cv.width / cv.height, 0.1, 400), M.look(camPos, [p.x, p.y + 1.5, p.z], [0, 1, 0]));
+        { const fwd = norm(sub([p.x, p.y + 1.5, p.z], camPos)); camRight = norm(cross(fwd, [0,1,0])); camUp = cross(camRight, fwd); }
+        drawScene(G); if (post.on) bloom(); gl.flush(); return true;
+      }
       const zoom = clampf(G.camZoom || 0, 0, 1), cdir = (G.camDir || 1) < 0 ? -1 : 1;
       const tDist = clampf(6.8 + sep * 0.5, 6.2, 12) - zoom * 3.2, tH = 2.62 - zoom * 0.5, tAz = Math.sin(t3 * 0.22) * 0.10 + cdir * zoom * 0.36;
       cam.dist += (tDist - cam.dist) * 0.14; cam.h += (tH - cam.h) * 0.14; cam.az += (tAz - cam.az) * 0.16;
@@ -697,6 +715,16 @@ window.Ronin3D = (function () {
       VP = M.mul(M.persp(0.72, cv.width / cv.height, 0.1, 70), M.look(camPos, [midX, 2.0, 0], [0, 1, 0]));
       { const fwd = norm(sub([midX, 2.0, 0], camPos)); camRight = norm(cross(fwd, [0, 1, 0])); camUp = cross(camRight, fwd); }   // billboard basis for sprite pops
 
+      gl.enable(gl.BLEND);
+      drawScene(G);
+      if (post.on) bloom();
+      gl.flush(); return true;
+    } catch (e) { ok = false; return false; }
+  }
+  function drawScene(G) {
+    const a = G.fighters[0], b = G.fighters[1];
+    const midX = G.worldMode ? (G.me && G.me.w ? G.me.w.x : 0) : ((a ? a.x : 0) + (b ? b.x : 0)) / 2 * SC;
+    {
       gl.enable(gl.BLEND);
       // 1. ground (opaque)
       gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, worldMesh ? -0.35 : 0, 0), M.S(worldMesh ? 200 : 90, 1, worldMesh ? 200 : 90));
@@ -730,9 +758,7 @@ window.Ronin3D = (function () {
       drawFxLit(G);
       drawPops(G);                                            // 7. anime sprite pops (billboarded glyphs)
       gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      if (post.on) bloom();                                   // bright-pass + gaussian bloom + composite to screen
-      gl.flush(); return true;
-    } catch (e) { ok = false; return false; }
+    }
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 

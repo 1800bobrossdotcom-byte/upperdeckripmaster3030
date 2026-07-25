@@ -72,7 +72,8 @@
       // overshoot their target pose, and flail on impact (the Soul-Calibur weight). trail = blade tip streak.
       rig: { lean: 0, leanV: 0, head: 0, headV: 0, aF: -0.6, aFV: 0, eF: 0.5, eFV: 0, aB: 0.6, aBV: 0, eB: 0.5, eBV: 0,
         hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: 2.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
-      z: 0, zv: 0, spin: 0, spinT: 0, trail: [] };
+      z: 0, zv: 0, spin: 0, spinT: 0, trail: [],
+      w: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 } };
   }
 
   function startBrawl(real, forceMe, forceFoe) {
@@ -110,6 +111,12 @@
     const iv = setInterval(() => { n--; if (n > 0) { $('cdB').textContent = n; sfxGong(); }
       else if (n === 0) { $('cdB').textContent = 'FIGHT'; sfxGong(); }
       else { clearInterval(iv); $('cd').classList.add('hidden'); G.started = true; } }, 700);
+    // drop both fighters into the city if a world is loaded
+    if (window.RoninWorld && RoninWorld.world) { G.worldMode = true; G.camYaw = 0;
+      const sA = RoninWorld.findSpawn(0, -4), sB = RoninWorld.findSpawn(8, -10);
+      me.w = { x: sA.x, y: sA.y + 0.2, z: sA.z, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 };
+      rival.w = { x: sB.x, y: sB.y + 0.2, z: sB.z, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 };
+      toast('EXPLORE · WASD run · SHIFT sprint · SPACE jump/boost · Q/E turn'); }
     last = performance.now(); if (!running) { running = true; requestAnimationFrame(loop); }
   }
 
@@ -408,6 +415,32 @@
     G.t += dt; window.__rnT = G.t; G.groundY = groundY; G.BODY = BODY;
     if (G.hitstop > 0) { G.hitstop -= dt; dt = Math.min(dt, 0.006); }
     if (G.started && G.mode === 'play') { G.timeLeft -= dt; if (G.timeLeft <= 0) { G.timeLeft = 0; endBrawl(); } }
+    // ── WORLD MODE: free-roam the city. Run / sprint / leap / boost-fly, camera-relative. ──
+    if (G.worldMode && window.RoninWorld && RoninWorld.world) {
+      const yaw = G.camYaw || 0, cs = Math.cos(yaw), sn = Math.sin(yaw);
+      for (const f of G.fighters) { if (!f.w) continue;
+        let ix = 0, iz = 0, sprint = false, jump = false;
+        if (f.isMe && !f.dead) {
+          const kx = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
+          const kz = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
+          ix = kx * cs - kz * sn; iz = kx * sn + kz * cs;        // camera-relative
+          ix += touch.mx || 0; iz += touch.mz || 0;
+          sprint = !!keys['shift']; jump = !!keys[' '];
+        } else if (!f.dead) {                                     // rivals chase the player through the city
+          const me = G.me; if (me && me.w) { const dx = me.w.x - f.w.x, dz = me.w.z - f.w.z, d = Math.hypot(dx, dz);
+            if (d > 3) { ix = dx / d; iz = dz / d; sprint = d > 18; } jump = d > 26 && f.w.onGround; }
+        }
+        RoninWorld.step(f.w, dt, { mx: ix, mz: iz, sprint, jump });
+        if (ix || iz) f.faceYaw = Math.atan2(ix, iz);             // turn to face travel
+        f.x = f.w.x * 52; f.z = f.w.z * 52; f.yLift = f.w.y * 52;  // feed the existing render/combat space
+      }
+      const me = G.me;
+      if (me && me.w) { const tgt = (me.faceYaw != null ? me.faceYaw : 0);
+        G.camYaw = (G.camYaw || 0) + (0) * dt;                    // yaw is player-driven (Q/E) not auto
+        if (keys['q']) G.camYaw = (G.camYaw || 0) - 1.8 * dt;
+        if (keys['e']) G.camYaw = (G.camYaw || 0) + 1.8 * dt; }
+      updateHUD(); return;                                        // world mode skips the duel sim
+    }
     if (G.started) G.fighters.forEach(f => { if (!f.isMe) stepAI(f, dt); });
     G.fighters.forEach(f => stepFighter(f, dt));
     // soft body separation — keep the two big duellists from fully overlapping at melee range

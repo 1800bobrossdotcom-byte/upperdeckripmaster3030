@@ -111,6 +111,19 @@ window.RoninWorld = (function () {
     return a;
   }
 
+  /* Nearest clear standing spot to (x,z) — spiral out until we find ground with headroom.
+   * Without this a spawn can land inside a building and the actor is simply stuck. */
+  function findSpawn(x, z) {
+    for (let r = 0; r <= 60; r += 2) {
+      for (let a = 0; a < 16; a++) {
+        const th = a / 16 * Math.PI * 2, px = x + Math.cos(th) * r, pz = z + Math.sin(th) * r;
+        const g = groundAt(px, pz, 0.5);
+        if (!hits(px, g + 0.1, pz) && !hits(px, g + MOVE.height * 0.9, pz)) return { x: px, y: g, z: pz };
+      }
+      if (r === 0) r = 0;                                   // first ring is the point itself
+    }
+    return { x, y: 0, z };
+  }
   const bounds = () => world ? world.scale : 120;
-  return { load, step, hits, groundAt, MOVE, get world() { return world; }, bounds };
+  return { load, step, hits, groundAt, findSpawn, MOVE, get world() { return world; }, bounds };
 })();
