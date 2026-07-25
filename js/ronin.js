@@ -72,8 +72,9 @@
       // overshoot their target pose, and flail on impact (the Soul-Calibur weight). trail = blade tip streak.
       rig: { lean: 0, leanV: 0, head: 0, headV: 0, aF: -0.6, aFV: 0, eF: 0.5, eFV: 0, aB: 0.6, aBV: 0, eB: 0.5, eBV: 0,
         hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: 2.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
-      z: 0, zv: 0, spin: 0, spinT: 0, trail: [],
-      w: { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 } };
+      z: 0, zv: 0, spin: 0, spinT: 0, trail: [] };   // NOTE: f.w (world position) is added ONLY in
+                                                     // world mode — its presence is what switches
+                                                     // the renderer to world placement.
   }
 
   function startBrawl(real, forceMe, forceFoe) {
