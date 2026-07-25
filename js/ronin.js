@@ -302,13 +302,28 @@
   // ── spring-driven skeleton: each joint chases its pose target with inertia + damping,
   //    so limbs lag, overshoot and settle (weight). Hits inject velocity; KO goes limp. ──
   function springTo(r, key, target, k, d, dt) { const vk = key + 'V'; const a = (target - r[key]) * k - r[vk] * d; r[vk] += a * dt; r[key] += r[vk] * dt; }
+  /* Per-archetype STANCE. All six shared one ready pose, so they read as reskins of the same
+   * fighter. Each now stands its own way — offsets layered onto the idle/walk pose only, so
+   * attacks and reactions stay identical and nothing about combat timing changes.
+   *   crouch  hip/knee bend + how low the body rides   ·  hunch  forward pitch of the torso
+   *   guard   how high and how far back the blade sits ·  wide   stance width (via bob/lean)
+   *   bounce  idle liveliness                                                                */
+  const STANCE = {
+    ronin:    { crouch: 0,    hunch: 0,    sw: 0,     aF: 0,     lean: 0,     bounce: 1,   headT: 0 },
+    kappa:    { crouch: 0.34, hunch: 0.16, sw: -0.30, aF: -0.22, lean: 0.05,  bounce: 1.5, headT: 0.06 },  // squat frog
+    doomer:   { crouch: 0.16, hunch: 0.34, sw: -0.42, aF: -0.30, lean: -0.06, bounce: 0.55, headT: 0.14 }, // heavy, hunched
+    oni:      { crouch: 0.22, hunch: -0.12, sw: 0.18, aF: 0.16,  lean: 0.10,  bounce: 0.75, headT: -0.08 },// wide power stance
+    kunoichi: { crouch: 0.30, hunch: 0.10, sw: -0.16, aF: -0.10, lean: 0.14,  bounce: 1.35, headT: 0.04 }, // coiled, side-on
+    prizm:    { crouch: -0.10, hunch: -0.08, sw: 0.26, aF: 0.20, lean: -0.04, bounce: 1.15, headT: -0.05 },// upright, floating
+  };
   function poseTargets(f) {
     const t = f.stT, st = f.state;
     // sword angle sw: 0 = blade straight down · π/2 = forward · π = straight up. Ready = jodan-no-kamae:
     // both hands raised, blade held UPRIGHT above the head, ready to cut down.
     const T = { lean: 0, head: 0, aF: 2.35, eF: 0.35, aB: 2.1, eB: 0.45, hF: 0.18, kF: 0, hB: -0.18, kB: 0, sw: 2.7, bob: 0, rot: 0 };
     const spd = Math.min(1, Math.abs(f.vx) / 260);
-    if (st === 'idle') { const b = Math.sin(G.t * 2.2), sway = Math.sin(G.t * 1.25); T.bob = -1.5 + b * 2; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05 + sway * 0.035; T.rot = sway * 0.03; }   // grounded stance, breathing + weight-shift
+    const SS = STANCE[f.arch] || STANCE.ronin;
+    if (st === 'idle') { const b = Math.sin(G.t * 2.2 * SS.bounce), sway = Math.sin(G.t * 1.25); T.bob = -1.5 + b * 2 * SS.bounce; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05 + sway * 0.035; T.rot = sway * 0.03; }   // grounded stance, breathing + weight-shift
     else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.8; T.hB = -s * 0.8; T.kF = Math.max(0, -s) * 0.85; T.kB = Math.max(0, s) * 0.85; T.aF = 2.3 - s * 0.14; T.aB = 2.05; T.sw = 2.62; T.lean = 0.18 * spd; T.rot = s * 0.05; T.bob = Math.abs(Math.cos(f.walkPh)) * 2.4; }   // hips roll with the stride
     else if (st === 'block') { T.lean = -0.14; T.aF = -1.35; T.eF = 1.35; T.aB = -1.0; T.eB = 1.1; T.sw = 1.85; T.hF = 0.35; T.hB = -0.35; T.rot = -0.05; }   // cross guard
     else if (st === 'punch') { const P = ATK.punch;                                                   // off-hand jab; sword hand stays up on guard, hips snap through
@@ -328,6 +343,13 @@
       const rise = f.w && f.w.vy > 0; T.sw = 2.6; T.aF = rise ? 2.9 : 2.2; T.aB = rise ? 2.7 : 1.6; T.eF = 0.3; T.eB = 0.4;
       T.hF = rise ? -0.45 : 0.5; T.kF = rise ? 1.15 : 0.35; T.hB = rise ? 0.3 : -0.35; T.kB = rise ? 0.5 : 0.15;
       T.lean = rise ? -0.16 : 0.2; T.bob = 0; }
+    if (st === 'idle' || st === 'walk' || st === 'block') {                 // layer the archetype's stance
+      T.hF += SS.crouch * 0.55; T.hB -= SS.crouch * 0.35; T.kF += SS.crouch * 0.7; T.kB += SS.crouch * 0.55;
+      T.bob -= SS.crouch * 5;                                              // ride lower on a deeper crouch
+      T.lean += SS.hunch * 0.5 + SS.lean; T.head += SS.headT;
+      T.sw += SS.sw; T.aF += SS.aF; T.aB += SS.aF * 0.6;
+    }
+    if (false) {}
     else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; T.rot = -0.12; }
     return T;
   }
