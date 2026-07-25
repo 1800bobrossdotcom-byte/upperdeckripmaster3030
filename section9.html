@@ -931,7 +931,15 @@
 
   function startMatch(real){
     // choose map
-    G.mapIdx=rint(MAPS.length); MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(glReady){ try{ GLR.buildMap(MAP); }catch(e){} }
+    // Map choice: ?map=N (or localStorage s9_map) pins one for testing; otherwise ROTATE rather
+    // than roll — random selection meant a new map could go unseen for many matches.
+    { let pick=null;
+      try{ const q=new URLSearchParams(location.search).get('map'); if(q!=null&&MAPS[+q]) pick=+q;
+        if(pick==null){ const ls=localStorage.getItem('s9_map'); if(ls!=null&&MAPS[+ls]) pick=+ls; } }catch(e){}
+      if(pick==null){ let last=-1; try{ last=+(localStorage.getItem('s9_last')||-1); }catch(e){}
+        pick=(last+1)%MAPS.length; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
+      G.mapIdx=pick; }
+    MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(glReady){ try{ GLR.buildMap(MAP); }catch(e){} }
     // roster fill
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
