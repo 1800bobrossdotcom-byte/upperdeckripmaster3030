@@ -29,7 +29,7 @@ window.Ronin3D = (function () {
   const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
   let gl = null, cv = null, ok = false;
-  let litProg, groundProg, trailProg, trailBuf;
+  let litProg, groundProg, trailProg, trailBuf, spriteProg, spriteBuf;
   const geo = {};                                            // {buf,count} per mesh
   const SC = 0.019;
 
@@ -89,6 +89,21 @@ window.Ronin3D = (function () {
   // flat additive shader for smooth FX ribbons (blade trails + slash-arc crescents) — per-vertex alpha
   const TR_VS = 'attribute vec3 aPos; attribute float aA; uniform mat4 uVP; varying float vA; void main(){ vA=aA; gl_Position=uVP*vec4(aPos,1.0); }';
   const TR_FS = 'precision mediump float; varying float vA; uniform vec3 uCol; void main(){ gl_FragColor=vec4(uCol,vA); }';
+  // billboarded anime sprite pops (impact stars, speed lines, "!" marks, sweat drops, action kanji-ish glyphs).
+  // aPos = unit quad offset; the vertex shader faces it at the camera and scales in world units.
+  const SP_VS = 'attribute vec2 aQ; uniform mat4 uVP; uniform vec3 uPos; uniform vec2 uSize; uniform vec3 uRight; uniform vec3 uUp; uniform float uRot;' +
+    'varying vec2 vUV; void main(){ vUV=aQ; float c=cos(uRot), s=sin(uRot); vec2 q=vec2(aQ.x*c-aQ.y*s, aQ.x*s+aQ.y*c);' +
+    ' vec3 w=uPos+uRight*(q.x*uSize.x)+uUp*(q.y*uSize.y); gl_Position=uVP*vec4(w,1.0); }';
+  const SP_FS = 'precision mediump float; varying vec2 vUV; uniform vec3 uCol; uniform float uAlpha; uniform float uKind;' +
+    'void main(){ vec2 p=vUV; float r=length(p), ang=atan(p.y,p.x); float m=0.0;' +
+    ' if(uKind<0.5){ float star=0.30+0.30*cos(ang*8.0); m=smoothstep(star,star*0.45,r); }' +          // 0 impact star-burst
+    ' else if(uKind<1.5){ float b=abs(p.x)*3.2; m=smoothstep(0.5,0.0,b)*smoothstep(1.0,0.2,abs(p.y)); }' +   // 1 speed line
+    ' else if(uKind<2.5){ float bar=smoothstep(0.16,0.10,abs(p.x))*smoothstep(0.75,0.6,abs(p.y+0.18));' +    // 2 "!" mark
+    '   float dot0=smoothstep(0.15,0.09,length(p-vec2(0.0,-0.72))); m=max(bar,dot0); }' +
+    ' else if(uKind<3.5){ vec2 d=vec2(p.x*1.5,(p.y-0.15)*1.0); float body=smoothstep(0.42,0.3,length(d));' +  // 3 sweat drop
+    '   float tail=smoothstep(0.2,0.0,abs(p.x)*4.0)*smoothstep(1.0,0.35,p.y); m=max(body,tail); }' +
+    ' else { float ring=smoothstep(0.06,0.0,abs(r-0.62)); float sp=step(0.0,cos(ang*6.0)-0.35); m=ring*(0.45+0.55*sp); }' +   // 4 burst ring
+    ' if(m<=0.01) discard; gl_FragColor=vec4(uCol, m*uAlpha); }';
 
   function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(o); return o; }
   function prog(v, f) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, v)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, f)); gl.bindAttribLocation(p, 0, 'aPos'); gl.bindAttribLocation(p, 1, 'aNorm'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p); return p; }
@@ -160,8 +175,10 @@ window.Ronin3D = (function () {
     try { cv = canvas; gl = cv.getContext('webgl', { antialias: true, alpha: false }) || cv.getContext('experimental-webgl'); if (!gl) return false;
       litProg = prog(LIT_VS, LIT_FS); groundProg = prog(GND_VS, GND_FS);
       trailProg = gl.createProgram(); gl.attachShader(trailProg, sh(gl.VERTEX_SHADER, TR_VS)); gl.attachShader(trailProg, sh(gl.FRAGMENT_SHADER, TR_FS)); gl.bindAttribLocation(trailProg, 0, 'aPos'); gl.bindAttribLocation(trailProg, 1, 'aA'); gl.linkProgram(trailProg); trailBuf = gl.createBuffer();
-      mesh('cube', cubeV()); mesh('cyl', cylV(12)); mesh('sph', sphV(10, 14));
-      mesh('limb', taperV(12, 0.6, 0.4)); mesh('ring', ringV());   // tapered limb + flat shock ring
+      spriteProg = gl.createProgram(); gl.attachShader(spriteProg, sh(gl.VERTEX_SHADER, SP_VS)); gl.attachShader(spriteProg, sh(gl.FRAGMENT_SHADER, SP_FS)); gl.bindAttribLocation(spriteProg, 0, 'aQ'); gl.linkProgram(spriteProg);
+      spriteBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, spriteBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1]), gl.STATIC_DRAW);
+      mesh('cube', cubeV()); mesh('cyl', cylV(22)); mesh('sph', sphV(18, 26));   // higher-poly = smoother rounded forms
+      mesh('limb', taperV(22, 0.62, 0.42)); mesh('ring', ringV());               // smooth tapered limb + flat shock ring
       mesh('quad', [-.5, 0, -.5, 0, 1, 0, .5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, .5, 0, 1, 0]);
       initPost();                                             // bloom chain (falls back to direct draw if it fails)
       gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); ok = true; return true;
@@ -248,10 +265,14 @@ window.Ronin3D = (function () {
     const bm = bodyMat(f), lm = limbMat(f);
     // legs
     _mat = lm;
-    beam(fm, K.legB[0], K.legB[1], 8.5, colB, 0, a); beam(fm, K.legB[1], K.legB[2], 7.5, colB, 0, a); ball(fm, K.legB[1], 8, colB, 0, a);
-    beam(fm, K.legF[0], K.legF[1], 9, col, 0, a); beam(fm, K.legF[1], K.legF[2], 8, col, 0, a); ball(fm, K.legF[1], 8.5, col, 0, a);
+    // legs as capsules: thigh (thick) → knee ball → calf → ankle ball, so joints are rounded, not cut tubes
+    beam(fm, K.legB[0], K.legB[1], 8.5, colB, 0, a); ball(fm, K.legB[1], 7.6, colB, 0, a); beam(fm, K.legB[1], K.legB[2], 7, colB, 0, a); ball(fm, K.legB[2], 5, colB, 0, a);
+    beam(fm, K.legF[0], K.legF[1], 9.2, col, 0, a); ball(fm, K.legF[1], 8.2, col, 0, a); beam(fm, K.legF[1], K.legF[2], 7.6, col, 0, a); ball(fm, K.legF[2], 5.4, col, 0, a);
+    ball(fm, K.legF[0], 9, col, 0, a); ball(fm, K.legB[0], 8.4, colB, 0, a);            // hip balls
     _mat = 0;
-    bit(fm, K.legF[2].x, K.legF[2].y, 22, 8, 15, sc([0.06, 0.06, 0.09], dk), 0.3, a); bit(fm, K.legB[2].x, K.legB[2].y, 20, 8, 14, sc([0.05, 0.05, 0.07], dk), 0.3, a);
+    // feet: sole + a rounded toe so they read as boots, not slabs
+    bit(fm, K.legF[2].x + 3, K.legF[2].y + 2, 24, 7, 14, sc([0.06, 0.06, 0.09], dk), 0.3, a); orb(fm, K.legF[2].x + 12, K.legF[2].y + 1, 0, 8, 7, 12, sc([0.07, 0.07, 0.1], dk), 0.3, a);
+    bit(fm, K.legB[2].x + 2, K.legB[2].y + 2, 22, 7, 13, sc([0.05, 0.05, 0.07], dk), 0.3, a); orb(fm, K.legB[2].x + 10, K.legB[2].y + 1, 0, 7, 6, 11, sc([0.06, 0.06, 0.08], dk), 0.3, a);
     // cloak / scarf draped behind the torso
     archBack(fm, f, K, col, tint, a, dk);
     // torso: broad chest tapering to the waist, hips, obi belt, deltoid caps + a neck
@@ -263,7 +284,7 @@ window.Ronin3D = (function () {
     _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, sc(hex(f.tint), dk * 0.9), 0.12, a);
     // back arm + hand (fist on a punch, otherwise an open grip)
     _mat = lm;
-    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.5, colB, 0, a); ball(fm, K.armB[1], 6, colB, 0, a);
+    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); ball(fm, K.armB[1], 5.8, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.2, colB, 0, a);
     drawHand(fm, K.armB[2], { x: K.armB[2].x - K.armB[1].x, y: K.armB[2].y - K.armB[1].y }, colB, dk, a, f.state === 'punch');
     // head + band + face + per-arch flourish (smaller, more human head)
     _mat = f.arch === 'prizm' ? 4 : 5;
@@ -273,16 +294,22 @@ window.Ronin3D = (function () {
     archHead(fm, f, K, tint, a, dk);
     // front arm + hand gripping the hilt
     _mat = lm;
-    beam(fm, K.armF[0], K.armF[1], 7, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.5, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a);
+    beam(fm, K.armF[0], K.armF[1], 7.2, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.4, col, 0, a);
     drawHand(fm, K.sword.hand, { x: K.sword.tip.x - K.sword.hand.x, y: K.sword.tip.y - K.sword.hand.y }, col, dk, a, false);
-    const wm = bladeMat(f); _mat = wm;
-    const blade = f.glow > 0 ? [1, 0.9, 0.5] : f.arch === 'prizm' ? [0.82, 0.6, 1] : [0.92, 0.97, 1];
-    beam(fm, K.sword.hand, K.sword.tip, (f.glow > 0 || wm === 6) ? 5 : 3.5, wm === 6 ? blade : sc(blade, dk), wm === 6 ? 0.55 : 0.4, a);
-    // katana furniture — tsuba guard at the grip + a pommel (skip the light blade / club)
-    if (wm !== 6 && f.arch !== 'oni') { const sh = K.sword.hand, st = K.sword.tip, bl = Math.hypot(st.x - sh.x, st.y - sh.y) || 1, bx = (st.x - sh.x) / bl, by = (st.y - sh.y) / bl; _mat = 2;
-      orb(fm, sh.x + bx * 4, sh.y + by * 4, 0, 15, 4, 15, sc([0.74, 0.56, 0.22], dk), 0.15, a);   // tsuba disc
-      orb(fm, sh.x - bx * 7, sh.y - by * 7, 0, 6, 6, 6, sc([0.32, 0.24, 0.12], dk), 0.1, a); }     // pommel
-    if (f.arch === 'oni') { const t = K.sword.tip; _mat = 2; for (const s of [-1, 1]) orb(fm, t.x, t.y, s * 4, 7, 7, 7, sc([0.3, 0.3, 0.34], dk), 0.2, a); }   // spiked club head
+    // ── weapon: a HELD hilt (pommel + wrapped grip through the fist + tsuba) with the blade emerging above the guard ──
+    const wm = bladeMat(f); const sh = K.sword.hand, tp = K.sword.tip, bl = Math.hypot(tp.x - sh.x, tp.y - sh.y) || 1, dx = (tp.x - sh.x) / bl, dy = (tp.y - sh.y) / bl;
+    if (f.arch === 'oni') {                                                                          // spiked club: shaft gripped, head at the top
+      _mat = 2; const pom = { x: sh.x - dx * 8, y: sh.y - dy * 8 };
+      beam(fm, pom, tp, 5, sc([0.34, 0.24, 0.14], dk), 0.05, a); orb(fm, pom.x, pom.y, 0, 7, 7, 7, sc([0.3, 0.22, 0.12], dk), 0.1, a);
+      orb(fm, tp.x, tp.y, 0, 12, 12, 12, sc([0.34, 0.3, 0.24], dk), 0.1, a); for (const s of [-1, 1]) orb(fm, tp.x, tp.y, s * 6, 6, 6, 6, sc([0.28, 0.28, 0.32], dk), 0.2, a);
+    } else {
+      const pom = { x: sh.x - dx * 9, y: sh.y - dy * 9 }, guard = { x: sh.x + dx * 9, y: sh.y + dy * 9 }, bstart = { x: sh.x + dx * 11, y: sh.y + dy * 11 };
+      _mat = 2; beam(fm, pom, guard, 2.7, sc([0.22, 0.17, 0.1], dk), 0.03, a);                       // wrapped grip through the hand
+      orb(fm, pom.x, pom.y, 0, 6.5, 6.5, 6.5, sc([0.4, 0.32, 0.16], dk), 0.1, a);                    // pommel knob
+      orb(fm, guard.x, guard.y, 0, 15, 4.5, 15, sc([0.74, 0.56, 0.22], dk), 0.15, a);                // tsuba guard
+      const blCol = f.glow > 0 ? [1, 0.9, 0.5] : wm === 6 ? [0.82, 0.6, 1] : [0.92, 0.97, 1];
+      _mat = wm; beam(fm, bstart, tp, (f.glow > 0 || wm === 6) ? 4.5 : 3.2, wm === 6 ? blCol : sc(blCol, dk), wm === 6 ? 0.55 : 0.4, a);   // blade above the fist
+    }
     _mat = 0;
     if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
   }
@@ -372,6 +399,26 @@ window.Ronin3D = (function () {
     if (s) { const R = s.t * 9 + 0.25, al = Math.max(0, 1 - s.t / 0.5) * 0.75 * (s.str || 1);
       draw('ring', M.mul(M.T((s.wx || 0) * SC, 0.05, 0), M.S(R, 1, R)), [1, 0.5, 0.92], 1, al); }
   }
+  // ── anime sprite pops: camera-facing glyphs (impact stars, speed lines, "!", sweat, burst rings) ──
+  const SPK = { star: 0, line: 1, bang: 2, sweat: 3, burst: 4 };
+  let camRight = [1, 0, 0], camUp = [0, 1, 0];
+  function drawPops(G) {
+    const pops = G.pops || []; if (!pops.length) return;
+    const gY = G.groundY || 500;
+    gl.useProgram(spriteProg); curMesh = '';
+    gl.uniformMatrix4fv(u(spriteProg, 'uVP'), false, VP);
+    gl.uniform3fv(u(spriteProg, 'uRight'), camRight); gl.uniform3fv(u(spriteProg, 'uUp'), camUp);
+    gl.bindBuffer(gl.ARRAY_BUFFER, spriteBuf); gl.enableVertexAttribArray(0); gl.disableVertexAttribArray(1); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    for (const p of pops) {
+      const k = clampf(p.t / p.life, 0, 1), pop = k < 0.22 ? k / 0.22 : 1;                 // quick scale-in, then hold + fade
+      const s = (p.size || 0.5) * SC * 100 * (0.55 + pop * 0.65) * (1 + k * (p.grow || 0.35));
+      gl.uniform3fv(u(spriteProg, 'uPos'), [p.x * SC, (gY - p.y) * SC, (p.z || 0) * SC]);
+      gl.uniform2f(u(spriteProg, 'uSize'), s, s);
+      gl.uniform1f(u(spriteProg, 'uRot'), p.rot || 0); gl.uniform1f(u(spriteProg, 'uKind'), p.kind || 0);
+      gl.uniform3fv(u(spriteProg, 'uCol'), hex(p.col || '#ffffff')); gl.uniform1f(u(spriteProg, 'uAlpha'), (1 - k * k) * (p.a == null ? 1 : p.a));
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+  }
   function drawShadow(f) { const x = f.x * SC, r = 0.55; const m = M.mul(M.mul(M.T(x, 0.02, (f.z || 0) * SC), M.S(r * 2.2, 1, r * 1.3)), M.ident());
     if (curMesh !== 'quad') { bind('quad'); curMesh = 'quad'; }
     gl.uniformMatrix4fv(u(litProg, 'uMVP'), false, M.mul(VP, m)); gl.uniformMatrix4fv(u(litProg, 'uModel'), false, m);
@@ -396,6 +443,7 @@ window.Ronin3D = (function () {
       const shk = (G.shake || 0) * 0.02;
       camPos = [midX + Math.sin(cam.az) * cam.dist + (Math.random() * 2 - 1) * shk, cam.h + (Math.random() * 2 - 1) * shk, Math.cos(cam.az) * cam.dist];
       VP = M.mul(M.persp(0.72, cv.width / cv.height, 0.1, 70), M.look(camPos, [midX, 2.0, 0], [0, 1, 0]));
+      { const fwd = norm(sub([midX, 2.0, 0], camPos)); camRight = norm(cross(fwd, [0, 1, 0])); camUp = cross(camRight, fwd); }   // billboard basis for sprite pops
 
       gl.enable(gl.BLEND);
       // 1. ground (opaque)
@@ -424,6 +472,7 @@ window.Ronin3D = (function () {
       for (const e of (G.fx || [])) if (e.kind === 'arc') drawArc3(e, G.groundY || 500);
       gl.useProgram(litProg); curMesh = '';
       drawFxLit(G);
+      drawPops(G);                                            // 7. anime sprite pops (billboarded glyphs)
       gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       if (post.on) bloom();                                   // bright-pass + gaussian bloom + composite to screen
       gl.flush(); return true;

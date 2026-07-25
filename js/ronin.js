@@ -91,7 +91,7 @@
     const rivalArch = (forceFoe && ARCH[forceFoe]) ? forceFoe : (others[Math.floor(Math.random() * others.length)] || 'oni');
     const names = { ronin: 'RONIN', kappa: 'KAPPA', doomer: 'DOOMER', oni: 'ONI', kunoichi: 'KUNOICHI', prizm: 'PRIZMANCER' };
     const rival = mkFighter(rivalArch, worldW * 0.58, false, names[rivalArch] || 'RIVAL'); rival.face = -1; fighters.push(rival);
-    G = { mode: 'play', t: 0, fighters, me, foe: rival, pickups: [], fx: [], cam: { x: clamp((me.x + rival.x) / 2 - W / 2, 0, Math.max(0, worldW - W)) },
+    G = { mode: 'play', t: 0, fighters, me, foe: rival, pickups: [], fx: [], pops: [], cam: { x: clamp((me.x + rival.x) / 2 - W / 2, 0, Math.max(0, worldW - W)) },
       timeLeft: 90, hitstop: 0, shake: 0, order: [], real: !!real, started: false, myStake: wager.picked.slice(), oppStakes: [], koFeed: 0 };
     { const st = []; for (let k = 0; k < wager.cards; k++) { const all = [...bySlug.keys()]; if (all.length) st.push(all[Math.floor(Math.random() * all.length)]); } G.oppStakes.push(st); }
     // a couple of power-up crates around the ring
@@ -127,6 +127,8 @@
   };
   function comboAtk(move) { const d = COMBO[move], a = Object.assign({}, ATK[d.base]); a.dmg = d.dmg; a.knock = d.knock; a.reach = d.reach; a.combo = move; if (d.launch) a.launch = true; if (d.big) a.big = true; return a; }
   function comboFx(f, move) { if (f.isMe) toast(move); flash(f.tint || '#e6c8ff', 0.3); G.shake = Math.max(G.shake, 8);
+    { const cy = groundY - 150; pop(4, f.x, cy, { col: f.tint || '#ffe14d', size: 1.1, grow: 1.6, life: 0.42 });   // combo-name burst + radiating lines
+      for (let i = 0; i < 6; i++) { const an = i / 6 * 6.28 + 0.3; pop(1, f.x + Math.cos(an) * 54, cy + Math.sin(an) * 34, { col: '#ffffff', size: 0.55, rot: an + 1.57, grow: 0.9, life: 0.28, a: 0.85 }); } }
     triggerShock(f.x + f.face * 24, groundY - 116, 1.2);
     G.fx.push({ kind: 'arc', x: f.x + f.face * 20, y: groundY - 116, face: f.face, r: 158, a0: -2.7, a1: 1.05, col: f.tint || '#eaf6ff', t: 0, life: 0.32 });   // oversized signature crescent
     sfxSpecial(); }
@@ -148,7 +150,8 @@
   // quick ground dash (double-tap a direction) — a burst of speed + brief i-frames for agility
   function tryDash(f, dir) { if (f.dead || f.stun > 0 || f.air || f.state === 'special' || (f.dashCd || 0) > 0) return;
     f.vx = dir * 760 * f.spd; f.face = dir; f.invuln = Math.max(f.invuln, 0.16); f.dashCd = 0.42; if (!f.swing) f.state = 'walk';
-    f.rig.lean += dir * f.face * 0.12; spawnDust(f.x - dir * 12, 4); sfxWhiff(); }
+    f.rig.lean += dir * f.face * 0.12; spawnDust(f.x - dir * 12, 4); sfxWhiff();
+    for (let i = 0; i < 4; i++) pop(1, f.x - dir * (26 + i * 16), groundY - 70 - rnd(0, 60), { col: '#cfe6ff', size: 0.5, rot: 1.57, grow: 0.5, life: 0.2, a: 0.8 }); }   // dash speed-lines
   function checkDash(f, dir) { const now = G ? G.t : 0; if (f._tapDir === dir && now - (f._tapT || -9) < 0.24) { tryDash(f, dir); f._tapT = -9; } else { f._tapDir = dir; f._tapT = now; } }
   function tryShuri(f) { if (f.dead || f.shuri <= 0 || f.stun > 0 || f.air) return; f.shuri--;
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
@@ -181,6 +184,7 @@
     const mul = att.pow * (att.rage > 0 ? 1.3 : 1) * (att.glow > 0 && atk.kind === 'slash' ? 1.6 : 1);
     if (blocking) { const chip = atk.dmg * 0.16 * mul; tgt.hp -= chip; tgt.vx += att.face * atk.knock * 0.3;
       att.meter = Math.min(1, att.meter + 0.03); tgt.meter = Math.min(1, tgt.meter + 0.05); spark(hx, hy, '#8ffff0'); sfxBlock(); G.shake = Math.max(G.shake, 2);
+      pop(0, hx, hy, { col: '#8ffff0', size: 0.42, rot: rnd(0, 6.28), life: 0.22 }); pop(3, tgt.x + tgt.face * -14, hy - 56, { col: '#bfefff', size: 0.34, life: 0.4 });   // guard clink + sweat
       if (att.isMe) updMeter(); return; }
     tgt.hp -= atk.dmg * mul; tgt.stun = 0.26; tgt.state = 'hurt'; tgt.stT = 0; tgt.swing = null;
     att.combo++; att.comboT = 1.3; att.meter = Math.min(1, att.meter + 0.06 * att.a.meter); tgt.meter = Math.min(1, tgt.meter + 0.03);
@@ -193,6 +197,8 @@
     impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.8), knockdown);
     for (let i = 0; i < (finisher ? 12 : knockdown ? 8 : 4); i++) spark(hx + rnd(-10, 10), hy + rnd(-12, 12), finisher ? (att.tint || '#fff') : att.tint);
     G.hitstop = Math.max(G.hitstop, finisher ? 0.13 : knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, finisher ? 12 : knockdown ? 9 : 5);
+    popImpact(hx, hy, finisher ? '#fff0b0' : (att.tint || '#fff2a8'), !!finisher || knockdown);      // manga impact star + speed lines
+    if (knockdown) pop(2, tgt.x, hy - 66, { col: '#ff4fa3', size: 0.6, life: 0.42 });                 // "!" over a knockdown
     if (knockdown || finisher) { triggerShock(hx, hy, finisher ? 1.5 : 1); cineKick(finisher ? 0.72 : 0.36, att.face); }
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
     if (tgt.hp <= 0) ko(tgt, att);
@@ -203,6 +209,7 @@
     if (killer && killer !== tgt) { killer.kos++; if (killer.isMe) { $('myKos').textContent = killer.kos + ' KO'; toast('K.O. ×' + killer.kos); } }
     if (Math.random() < 0.7) dropPickup(tgt.x, tgt);
     flash('#ff2ad9', 0.35); G.shake = Math.max(G.shake, 9); triggerShock(tgt.x, groundY - 116, 1.5); cineKick(1.0, killer ? killer.face : 1); spawnDust(tgt.x, 8); sfxKo();
+    popImpact(tgt.x, groundY - 116, '#ff8ad8', true); pop(4, tgt.x, groundY - 116, { col: '#ffe14d', size: 1.35, grow: 1.8, life: 0.5 });   // KO burst
     const aliveN = G.fighters.filter(f => !f.dead).length;
     if (tgt.isMe) endBrawl();
     else if (aliveN <= 1) endBrawl();
@@ -363,6 +370,16 @@
     }
   }
 
+  // ── anime sprite pops: billboarded manga glyphs (impact star, speed lines, "!", sweat, burst ring) ──
+  // kinds: 0 star · 1 speed-line · 2 bang · 3 sweat · 4 burst-ring
+  function pop(kind, x, y, o) { if (!G) return; o = o || {};
+    G.pops.push({ kind, x, y, z: o.z || 0, col: o.col || '#ffffff', size: o.size || 0.5, rot: o.rot || 0, grow: o.grow == null ? 0.35 : o.grow, a: o.a == null ? 1 : o.a, t: 0, life: o.life || 0.34 }); }
+  function popImpact(x, y, col, big) {                        // star-burst + radiating speed lines on a hit
+    pop(0, x, y, { col: col || '#fff2a8', size: big ? 0.95 : 0.6, rot: rnd(0, 6.28), life: big ? 0.4 : 0.28 });
+    const n = big ? 5 : 3; for (let i = 0; i < n; i++) { const a = rnd(0, 6.28), d = rnd(20, 46);
+      pop(1, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.6, { col: col || '#ffffff', size: big ? 0.5 : 0.34, rot: a + 1.57, grow: 0.7, life: 0.22, a: 0.9 }); }
+    if (big) pop(4, x, y, { col: col || '#ff8ad8', size: 1.0, grow: 1.5, life: 0.36, a: 0.85 });
+  }
   function spark(x, y, col) { G.fx.push({ kind: 'spark', x, y, vx: rnd(-140, 140), vy: rnd(-200, 40), col, t: 0, life: rnd(0.25, 0.5), r: rnd(1.5, 3.5) }); }
   function flash(col, a) { G.fx.push({ kind: 'flash', col, a, t: 0, life: 0.35 }); }
   // dust puffs kicked up at the feet — landings, footsteps, wall bounces
@@ -397,6 +414,8 @@
       if (e.kind === 'spark') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 500 * dt; }
       else if (e.kind === 'dust') { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 120 * dt; e.vx *= 0.94; }
       if (e.t >= e.life) G.fx.splice(i, 1); }
+    // sprite pops (drift up slightly as they fade)
+    for (let i = G.pops.length - 1; i >= 0; i--) { const p = G.pops[i]; p.t += dt; p.y -= 26 * dt; if (p.t >= p.life) G.pops.splice(i, 1); }
     // camera: frame BOTH duellists (centre on their midpoint), clamped to the stage
     const midX = (G.me.x + G.foe.x) / 2;
     G.cam.x = lerp(G.cam.x, clamp(midX - W / 2, 0, Math.max(0, worldW - W)), Math.min(1, dt * 6));

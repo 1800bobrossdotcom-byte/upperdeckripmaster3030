@@ -82,8 +82,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
   2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
   lit depth-tested 3D fighters built from the same IK skeleton with **tapered (muscled) limbs**
-  (frustum mesh, thick at the proximal joint), sphere joints, a neck + deltoid shoulders,
-  **hands** (palm + fingers + thumb) that grip the hilt / clench to fists, **expressive faces**
+  (frustum mesh, thick at the proximal joint), **rounded capsule joints** (higher-poly cyl/sph:
+  22-seg / 18×26), a neck + deltoid shoulders, booted feet with toes, a **held hilt**
+  (pommel + wrapped grip through the fist + tsuba, blade emerging ABOVE the guard — not jutting
+  from the arm), **hands** (palm + fingers + thumb) that grip it / clench to fists, **expressive faces**
   (eyes+pupils, brows, nose, mouth — expression driven by state; oni fangs, kappa big eyes,
   kunoichi masked) and human-ish proportions, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
   2 brushed-metal / 3 reptile-scale / 4 iridescent-crystal / 5 skin / 6 energy-pulse / 7 wrap
@@ -94,7 +96,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   shadows, moon/skyline, fog, plus native additive **3D combat FX** — smooth **ribbon** blade-
   streaks + crescent slash-arcs (own flat per-vertex-alpha shader `trailProg`), velocity-aligned
   **streak** sparks, flat ground-puff dust, and ONE clean expanding **ring**-mesh shock (all
-  deliberately NOT spheres/orbs; mapped from `G.fx`/`G.shock` via `G.groundY`), a full-scene **bloom post-pass** (scene→FBO→bright→separable
+  deliberately NOT spheres/orbs; mapped from `G.fx`/`G.shock` via `G.groundY`), **anime sprite
+  pops** — billboarded manga glyphs drawn by `spriteProg` from `G.pops` (kind 0 impact star ·
+  1 speed line · 2 "!" · 3 sweat drop · 4 burst ring), fired game-wide from hits/blocks/
+  knockdowns/KOs/combos/dashes via `pop()`/`popImpact()` — a full-scene **bloom post-pass** (scene→FBO→bright→separable
   gaussian→composite w/ vignette+grain+chromatic-aberration, falls back to direct draw if the
   FBO chain fails), and a **dynamic fight-camera** that orbits gently and pulls-in+swings on
   hero moments (`G.camZoom`/`G.camDir`, fired from ko/finishers/special); Milestone 5, preferred
