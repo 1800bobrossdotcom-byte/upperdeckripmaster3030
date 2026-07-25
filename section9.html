@@ -273,6 +273,7 @@
           <span class="pchips" id="lChips"></span></div>
         <div class="wrow"><span class="wlbl">▦ arena</span>
           <span class="pchips" id="mChips"></span></div>
+        <div class="mininote" id="buildNote" style="text-align:right;opacity:.55"></div>
         <div class="cardsHd">pick your <span id="pickN">2</span> cards for the pot</div>
         <div class="grid" id="cardGrid"></div>
         <div class="cardsInfo" id="cardsInfo">0 owned</div>
@@ -815,6 +816,10 @@
       paintArenaChips(); });
   }
   paintArenaChips();
+  /* Build stamp. Several rounds of "I'm not seeing the update" were impossible to tell apart from
+   * a stale cached page, so the lobby now states which build it is and how many arenas it knows. */
+  const S9_BUILD='2026-07-25b';
+  { const el=$('buildNote'); if(el) el.textContent=`build ${S9_BUILD} · ${MAPS.length} arenas · renderer ${window.GfxPost?'gfx+':'base'}`; }
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
   const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
@@ -991,7 +996,12 @@
       if(pick==null){ let last=MAPS.length-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
         pick=(last+1)%MAPS.length; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
       G.mapIdx=pick; }
-    MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(glReady){ try{ GLR.buildMap(MAP); }catch(e){} }
+    MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP);
+    // A GL map-build failure used to be swallowed whole: the WebGL canvas stayed up with no map
+    // geometry in it, which looks exactly like "the map didn't load". Say so, and fall back to the
+    // 2D renderer, which bakes from the same MAP and is always ready.
+    if(glReady){ try{ GLR.buildMap(MAP); }catch(e){ console.error('[section9] GL map build failed — falling back to 2D:', e);
+      glReady=false; glcv.style.display='none'; cv.style.background=''; cv.style.zIndex=''; } }
     powMsg('▣ '+MAP.name, '#59e0ff');            // name the arena you dropped into
     // roster fill
     const others=[]; const seen=new Set([myHandle()]);
