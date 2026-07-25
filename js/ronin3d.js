@@ -107,7 +107,8 @@ window.Ronin3D = (function () {
 
   function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(o); return o; }
   function prog(v, f) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, v)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, f)); gl.bindAttribLocation(p, 0, 'aPos'); gl.bindAttribLocation(p, 1, 'aNorm'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p); return p; }
-  function mesh(name, verts) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW); geo[name] = { buf: b, count: verts.length / 6 }; }
+  const geoSrc = {};                                          // raw verts, kept so morph variants can be derived
+  function mesh(name, verts) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW); geo[name] = { buf: b, count: verts.length / 6 }; geoSrc[name] = verts; }
 
   function cubeV() { const f = [[[0, 0, 1], [[-.5, -.5, .5], [.5, -.5, .5], [.5, .5, .5], [-.5, .5, .5]]], [[0, 0, -1], [[.5, -.5, -.5], [-.5, -.5, -.5], [-.5, .5, -.5], [.5, .5, -.5]]], [[1, 0, 0], [[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5]]], [[-1, 0, 0], [[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5]]], [[0, 1, 0], [[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]]], [[0, -1, 0], [[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]]]];
     const v = []; for (const [n, q] of f) for (const i of [0, 1, 2, 0, 2, 3]) v.push(q[i][0], q[i][1], q[i][2], n[0], n[1], n[2]); return v; }
@@ -194,7 +195,10 @@ window.Ronin3D = (function () {
 
   function bind(name) { const g = geo[name]; gl.bindBuffer(gl.ARRAY_BUFFER, g.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12); return g.count; }
   let curMesh = '', _mat = 0;                                // active procedural material (see LIT_FS)
-  function draw(name, model, color, emis, alpha) { if (curMesh !== name) { bind(name); curMesh = name; }
+  let meshVar = '';                                           // active per-fighter mesh-variant prefix
+  function draw(rawName, model, color, emis, alpha) {
+    const name = (meshVar && geo[meshVar + rawName]) ? meshVar + rawName : rawName;
+    if (curMesh !== name) { bind(name); curMesh = name; }
     gl.uniformMatrix4fv(u(litProg, 'uMVP'), false, M.mul(VP, model)); gl.uniformMatrix4fv(u(litProg, 'uModel'), false, model);
     gl.uniform3fv(u(litProg, 'uColor'), color); gl.uniform1f(u(litProg, 'uEmis'), emis || 0); gl.uniform1f(u(litProg, 'uAlpha'), alpha == null ? 1 : alpha);
     gl.uniform1f(u(litProg, 'uMat'), _mat); gl.uniform1f(u(litProg, 'uTime'), t3);
@@ -337,6 +341,22 @@ window.Ronin3D = (function () {
     } catch (e) { return false; }
   }
   function hasModel(arch) { return !!models[arch]; }
+  /* Build a morphed set of the body primitives for one fighter, so an owned card visibly
+   * reshapes that fighter's body. Cheap + cached: built once per variant id. */
+  const variants = {};
+  function setMorphVariant(id, morph) {
+    if (!ok || !id || !window.RoninMorph) return false;
+    const pre = 'mv:' + id + ':';
+    if (variants[id]) return true;
+    try {
+      const m = (typeof morph === 'string') ? RoninMorph.fromSlug(morph, 0.55) : morph;
+      for (const base of ['limb', 'sph', 'cyl', 'cube']) {
+        const srcV = geoSrc[base]; if (!srcV) continue;
+        mesh(pre + base, RoninMorph.apply(Float32Array.from(srcV), m));
+      }
+      variants[id] = pre; return true;
+    } catch (e) { return false; }
+  }
   // draw a model-backed fighter: parts ride the joints, everything else (FX, trail) is unchanged
   function drawModelFighter(f, mirror, K, fm) {
     const md = models[f.arch]; const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
@@ -361,6 +381,7 @@ window.Ronin3D = (function () {
     if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
       (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
     if (models[f.arch]) { drawModelFighter(f, mirror, K, fm); return; }      // real modelled geometry when loaded
+    meshVar = (f.morphId && variants[f.morphId]) ? variants[f.morphId] : '';  // card-keyed body variant
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const g = garbOf(f);
     const SKIN = sc(hex(g.skin), dk), TOP = sc(hex(g.top), dk), TOPB = sc(TOP, 0.84), PANT = sc(hex(g.pants), dk), PANTB = sc(PANT, 0.85),
@@ -431,6 +452,7 @@ window.Ronin3D = (function () {
     }
     _mat = 0;
     if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
+    meshVar = '';
   }
   function archHead(fm, f, K, tint, a, dk) {
     const art = (f.a && f.a.face) || '', h = K.head;
@@ -599,5 +621,5 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
-  return { init, render, registerModel, hasModel, get ok() { return ok; } };
+  return { init, render, registerModel, hasModel, setMorphVariant, get ok() { return ok; } };
 })();

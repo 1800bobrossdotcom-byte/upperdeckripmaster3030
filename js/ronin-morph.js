@@ -98,6 +98,43 @@ window.RoninMorph = (function () {
     spike(v, amt, rnd, B) { const k = B.size[1] * 0.30 * amt;
       for (let i = 0; i < v.length; i += 18) { if (rnd() > 0.14) continue; const d = k * (0.5 + rnd());
         const j = (Math.floor(rnd()*3)) * 6; v[i+j] += v[i+3]*d; v[i+j+1] += v[i+4]*d; v[i+j+2] += v[i+5]*d; } },
+    // ── wilder ─────────────────────────────────────────────────────────────────
+    // swirl: a vortex that falls off with distance from the axis — smeared, whipped
+    swirl(v, amt, rnd, B) { const k = amt * 5 * (rnd() < 0.5 ? -1 : 1), R = Math.max(1e-6, Math.max(B.size[0], B.size[2]) * 0.5);
+      for (let i = 0; i < v.length; i += 6) { const x = v[i]-B.mid[0], z = v[i+2]-B.mid[2], d = Math.hypot(x, z);
+        const a = k * Math.exp(-(d/R)*(d/R)); const c = Math.cos(a), s = Math.sin(a);
+        v[i] = B.mid[0] + x*c - z*s; v[i+2] = B.mid[2] + x*s + z*c; } },
+    // fracture: rotate every triangle about its own centroid — a shattered, cubist read
+    fracture(v, amt, rnd, B) {
+      for (let i = 0; i < v.length; i += 18) {
+        const cx = (v[i]+v[i+6]+v[i+12])/3, cy = (v[i+1]+v[i+7]+v[i+13])/3, cz = (v[i+2]+v[i+8]+v[i+14])/3;
+        const a = (rnd()*2-1)*amt*1.6, c = Math.cos(a), s = Math.sin(a);
+        const b = (rnd()*2-1)*amt*1.6, cb = Math.cos(b), sb = Math.sin(b);
+        for (let k = 0; k < 3; k++) { const o = i + k*6;
+          let x = v[o]-cx, y = v[o+1]-cy, z = v[o+2]-cz;
+          let x1 = x*c - y*s, y1 = x*s + y*c;                      // roll
+          let z1 = z*cb - x1*sb, x2 = z*sb + x1*cb;                // yaw
+          v[o] = cx + x2; v[o+1] = cy + y1; v[o+2] = cz + z1; } } },
+    // bulge: a spherical blow-out from a random interior point — a growth / tumour
+    bulge(v, amt, rnd, B) { const px = B.mid[0]+(rnd()*2-1)*B.size[0]*0.3, py = B.lo[1]+rnd()*B.size[1], pz = B.mid[2]+(rnd()*2-1)*B.size[2]*0.3;
+      const R = B.size[1]*(0.18+rnd()*0.22), k = B.size[1]*0.22*amt;
+      for (let i = 0; i < v.length; i += 6) { const dx = v[i]-px, dy = v[i+1]-py, dz = v[i+2]-pz, d = Math.hypot(dx,dy,dz)||1e-6;
+        const w = Math.exp(-(d/R)*(d/R)) * k; v[i] += dx/d*w; v[i+1] += dy/d*w; v[i+2] += dz/d*w; } },
+    // static: raw per-vertex noise — torn, corrupted, deliberately ugly
+    static(v, amt, rnd, B) { const k = B.size[1] * 0.035 * amt;
+      for (let i = 0; i < v.length; i += 6) { v[i] += (rnd()*2-1)*k; v[i+1] += (rnd()*2-1)*k; v[i+2] += (rnd()*2-1)*k; } },
+    // kaleido: fold the form through mirrored angular wedges — symmetric and alien
+    kaleido(v, amt, rnd, B) { const seg = 3 + Math.floor(rnd()*5), w = Math.PI*2/seg, blend = amt;
+      for (let i = 0; i < v.length; i += 6) { const x = v[i]-B.mid[0], z = v[i+2]-B.mid[2];
+        const r = Math.hypot(x, z); let a = Math.atan2(z, x);
+        let fa = ((a % w) + w) % w; if (fa > w/2) fa = w - fa;      // mirror inside the wedge
+        const na = a + (fa - (((a % w) + w) % w)) * blend;
+        v[i] = B.mid[0] + Math.cos(na)*r; v[i+2] = B.mid[2] + Math.sin(na)*r; } },
+    // sag: gravity droop that increases with height — a body losing its structure
+    sag(v, amt, rnd, B) { const k = B.size[1]*0.28*amt;
+      for (let i = 0; i < v.length; i += 6) { const t = (v[i+1]-B.lo[1])/(B.size[1]||1);
+        const rad = Math.hypot(v[i]-B.mid[0], v[i+2]-B.mid[2]) / (Math.max(B.size[0],B.size[2])*0.5 || 1);
+        v[i+1] -= t*t*rad*k; } },
   };
   const OP_NAMES = Object.keys(OPS);
 

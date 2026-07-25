@@ -77,6 +77,16 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `main` (`git fetch . claude/superrare-trading-cards-71ajcx:main` → push main). Commit
   trailers: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` +
   `Claude-Session:`. Never put the model id in committed artifacts.
+- **Card LENS (live in NEON RONIN):** `js/ronin-morph.js` (**RoninMorph**) is a seeded generative
+  mesh-distortion system — 16 composable operators (melt/twist/shatter/voxel/glitch/inflate/
+  ripple/taper/stretch/spike/swirl/fracture/bulge/static/kaleido/sag) over the engine's
+  interleaved pos3+norm3 format. Deterministic: same seed → byte-identical mesh, so
+  `RoninMorph.fromSlug(cardSlug)` gives each card a permanent body variant. Wired in:
+  `Ronin3D.setMorphVariant(id, slug)` bakes morphed copies of the body primitives and
+  `f.morphId` swaps a fighter onto them (via a `meshVar` redirect in `draw()`), so **the card you
+  bring visibly warps your fighter**. Also accepted by `registerModel(arch, parsed, {morph})`.
+  ⚠ Morphing does NOT launder copyright — a distorted recognisable character is still a
+  derivative work. Use on our procedural bodies / the artist's own models.
 - **Games** are self-contained HTML canvas/WebGL (dogfight, section9 + `js/section9-gl.js`,
   riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +

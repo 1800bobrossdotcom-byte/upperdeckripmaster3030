@@ -86,6 +86,12 @@
     const meArch = forceMe && ARCH[forceMe] ? forceMe : wager.arch;
     const me = mkFighter(meArch, worldW * 0.42, true, myHandle().slice(0, 10));
     me.face = 1; fighters.push(me);
+    // LENS: the card you bring warps your fighter's body — a seeded, permanent iteration per slug
+    try { const lensSlug = wager.picked[0] || ownedSlugs()[0];
+      if (lensSlug && r3dOk && window.Ronin3D && Ronin3D.setMorphVariant) {
+        const id = meArch + ':' + lensSlug;
+        if (Ronin3D.setMorphVariant(id, lensSlug)) { me.morphId = id; me.lens = lensSlug; }
+      } } catch (e) {}
     // the rival — a DIFFERENT archetype so the duel reads as two distinct fighters
     const others = ARCH_KEYS.filter(k => k !== meArch);
     const rivalArch = (forceFoe && ARCH[forceFoe]) ? forceFoe : (others[Math.floor(Math.random() * others.length)] || 'oni');
