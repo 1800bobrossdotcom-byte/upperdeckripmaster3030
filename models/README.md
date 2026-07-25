@@ -103,8 +103,8 @@ licence here. When you add a model, note it below.
 | File | Source | Licence |
 | --- | --- | --- |
 | `world/street.wld` (+ `.cols.json`) | "street" / `chinese build` scene OBJ, supplied by the artist | Cleared for use by the artist, 2026-07-25 |
-| _TOON TROOPER_ (fighter, pending bake) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
-| _Mom_ (fighter, pending bake) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
+| `ronin.obj` (TOON TROOPER) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
+| `oni.obj` (Mom) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
 
 Baked scenes live in `world/`. Source art is not committed — only the baked
 `.wld` (binary pos3+norm3) and its `.cols.json` AABB set. Re-bake with

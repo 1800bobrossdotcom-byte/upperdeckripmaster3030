@@ -67,12 +67,24 @@ window.Ronin3D = (function () {
     'gl_FragColor=vec4(mix(lit,uFog,fg),uAlpha); }';
   const GND_VS = 'attribute vec3 aPos; uniform mat4 uMVP; uniform mat4 uModel; varying vec3 vW;' +
     'void main(){ vW=(uModel*vec4(aPos,1.0)).xyz; gl_Position=uMVP*vec4(aPos,1.0); }';
-  const GND_FS = 'precision mediump float; varying vec3 vW; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha;' +
-    'void main(){ vec2 g=abs(fract(vW.xz*0.5)-0.5); float line=1.0-smoothstep(0.0,0.06,min(g.x,g.y));' +
-    'vec3 col=mix(vec3(0.04,0.02,0.08), vec3(0.7,0.16,0.85), line*0.8);' +
-    'float glow=1.0-smoothstep(0.0,2.4,abs(vW.z)); col+=vec3(1.0,0.16,0.85)*glow*0.5;' +
-    'float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
-    'gl_FragColor=vec4(mix(col,uFog,fg),uAlpha); }';
+  // WATER floor — layered travelling wave normals, fresnel sheen, caustic glimmer, psychedelic tint
+  const GND_FS = 'precision mediump float; varying vec3 vW; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha; uniform float uTime;' +
+    'void main(){ vec2 p=vW.xz;' +
+    ' float w1=sin(p.x*0.42+uTime*1.15)+sin(p.y*0.37-uTime*0.9);' +
+    ' float w2=sin((p.x+p.y)*0.24-uTime*0.62)+sin((p.x-p.y)*0.31+uTime*0.78);' +
+    ' float h=(w1+w2)*0.25;' +
+    ' vec3 N=normalize(vec3(-(cos(p.x*0.42+uTime*1.15)*0.42+cos((p.x+p.y)*0.24-uTime*0.62)*0.24)*0.6, 1.0,' +
+    '                      -(cos(p.y*0.37-uTime*0.9)*0.37+cos((p.x-p.y)*0.31+uTime*0.78)*0.31)*0.6));' +
+    ' vec3 V=normalize(uCam-vW); float fres=pow(1.0-max(0.0,dot(N,V)),3.0);' +
+    ' vec3 deep=vec3(0.02,0.05,0.14), shallow=vec3(0.10,0.42,0.62);' +
+    ' vec3 col=mix(deep,shallow,0.45+0.35*h);' +
+    ' vec3 sky=0.5+0.5*cos(6.2831*(h*0.4+uTime*0.05+vec3(0.0,0.33,0.67)));' +   // psychedelic reflection
+    ' col=mix(col,sky,fres*0.75);' +
+    ' float caust=pow(max(0.0,sin(p.x*0.9+uTime*1.3)*sin(p.y*0.8-uTime*1.1)),6.0);' +
+    ' col+=vec3(0.5,0.9,1.0)*caust*0.5;' +
+    ' float spec=pow(max(0.0,dot(reflect(-normalize(vec3(0.35,0.9,0.5)),N),V)),48.0); col+=vec3(1.0)*spec*0.6;' +
+    ' float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
+    ' gl_FragColor=vec4(mix(col,uFog,fg),uAlpha); }';
   // ── bloom post-process (render the 3D scene to a texture → bright-pass → separable blur → composite) ──
   const PVS = 'attribute vec2 p; varying vec2 uv; void main(){ uv=p*0.5+0.5; gl_Position=vec4(p,0.0,1.0); }';
   const P_BRIGHT = 'precision mediump float; varying vec2 uv; uniform sampler2D t; uniform float thr;' +
@@ -601,7 +613,7 @@ window.Ronin3D = (function () {
       // 1. ground (opaque)
       gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, worldMesh ? -0.35 : 0, 0), M.S(worldMesh ? 200 : 90, 1, worldMesh ? 200 : 90));
       gl.uniformMatrix4fv(u(groundProg, 'uMVP'), false, M.mul(VP, gm)); gl.uniformMatrix4fv(u(groundProg, 'uModel'), false, gm);
-      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1);
+      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1); gl.uniform1f(u(groundProg, 'uTime'), t3);
       gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1); gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       setLit(); _mat = 0;
