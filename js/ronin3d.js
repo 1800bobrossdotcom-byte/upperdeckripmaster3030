@@ -29,7 +29,8 @@ window.Ronin3D = (function () {
   const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 
   let gl = null, cv = null, ok = false;
-  let litProg, groundProg, trailProg, trailBuf, spriteProg, spriteBuf;
+  let litProg, groundProg, trailProg, trailBuf, spriteProg, spriteBuf, skinProg;
+  const skins = {};                                          // arch → {buf, count}
   const geo = {};                                            // {buf,count} per mesh
   const SC = 0.019;
 
@@ -123,6 +124,16 @@ window.Ronin3D = (function () {
     ' else { float ring=smoothstep(0.06,0.0,abs(r-0.62)); float sp=step(0.0,cos(ang*6.0)-0.35); m=ring*(0.45+0.55*sp); }' +   // 4 burst ring
     ' if(m<=0.01) discard; gl_FragColor=vec4(uCol, m*uAlpha); }';
 
+  // ── SKINNED mesh: real vertex deformation. Each vertex blends up to 4 bone matrices, so an
+  //    elbow BENDS instead of a rigid part hinging open at the joint. uBones = joint palette.
+  const SK_VS = 'attribute vec3 aPos; attribute vec3 aNorm; attribute vec4 aIdx; attribute vec4 aWgt;' +
+    'uniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uBones[11];' +
+    'varying vec3 vN; varying vec3 vW; varying vec3 vL;' +
+    'void main(){ mat4 sk = uBones[int(aIdx.x)]*aWgt.x + uBones[int(aIdx.y)]*aWgt.y' +
+    '                    + uBones[int(aIdx.z)]*aWgt.z + uBones[int(aIdx.w)]*aWgt.w;' +
+    ' vec4 p = sk*vec4(aPos,1.0); vec3 n = mat3(sk)*aNorm;' +
+    ' vN = mat3(uModel)*n; vW = (uModel*p).xyz; vL = aPos; gl_Position = uMVP*p; }';
+
   function sh(t, s) { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(o); return o; }
   function prog(v, f) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, v)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, f)); gl.bindAttribLocation(p, 0, 'aPos'); gl.bindAttribLocation(p, 1, 'aNorm'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p); return p; }
   const geoSrc = {};                                          // raw verts, kept so morph variants can be derived
@@ -199,6 +210,9 @@ window.Ronin3D = (function () {
       mesh('cube', cubeV()); mesh('cyl', cylV(22)); mesh('sph', sphV(18, 26));   // higher-poly = smoother rounded forms
       mesh('limb', taperV(22, 0.62, 0.42)); mesh('ring', ringV());               // smooth tapered limb + flat shock ring
       mesh('quad', [-.5, 0, -.5, 0, 1, 0, .5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, -.5, 0, 1, 0, .5, 0, .5, 0, 1, 0, -.5, 0, .5, 0, 1, 0]);
+      skinProg = gl.createProgram(); gl.attachShader(skinProg, sh(gl.VERTEX_SHADER, SK_VS)); gl.attachShader(skinProg, sh(gl.FRAGMENT_SHADER, LIT_FS));
+      gl.bindAttribLocation(skinProg,0,'aPos'); gl.bindAttribLocation(skinProg,1,'aNorm'); gl.bindAttribLocation(skinProg,2,'aIdx'); gl.bindAttribLocation(skinProg,3,'aWgt');
+      gl.linkProgram(skinProg);
       initPost();                                             // bloom chain (falls back to direct draw if it fails)
       gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); ok = true; return true;
     } catch (e) { ok = false; gl = null; return false; }
@@ -364,6 +378,61 @@ window.Ronin3D = (function () {
     } catch (e) { return false; }
   }
   function hasModel(arch) { return !!models[arch]; }
+  const BONE_ORDER = ['pelvis','chest','head','armF0','armF1','armB0','armB1','legF0','legF1','legB0','legB1'];
+  const BONE_CHILD = { pelvis:'chest', chest:'head', head:null, armF0:'armF1', armF1:'armF2', armB0:'armB1', armB1:'armB2', legF0:'legF1', legF1:'legF2', legB0:'legB1', legB1:'legB2' };
+  function registerSkin(arch, verts, count) {
+    if (!ok) return false;
+    try { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+      // bind-space bounds so the mesh can be fitted to the skeleton
+      let lo=1e9, hi=-1e9; for (let i=1;i<verts.length;i+=14){ const y=verts[i]; if(y<lo)lo=y; if(y>hi)hi=y; }
+      skins[arch] = { buf:b, count, lo, hi, h:(hi-lo)||1 }; return true; } catch(e){ return false; }
+  }
+  function hasSkin(arch) { return !!skins[arch]; }
+  // Build the joint palette: for each bone, the transform taking its BIND segment onto the
+  // skeleton's current segment (rotate about the joint by the bone's turn, then translate).
+  function skinPalette(f, K, sk) {
+    const S = 150 / sk.h, out = new Float32Array(11*16);
+    const bindPt = (nx, ny) => [nx*150, ny*150];             // normalised bind space → skeleton px
+    const BIND = { pelvis:[0,0.50], chest:[0,0.62], head:[0,0.84], armF0:[0.10,0.80], armF1:[0.26,0.79],
+      armB0:[-0.10,0.80], armB1:[-0.26,0.79], legF0:[0.07,0.48], legF1:[0.07,0.26], legB0:[-0.07,0.48], legB1:[-0.07,0.26] };
+    const BINDC = { pelvis:[0,0.62], chest:[0,0.84], head:[0,0.97], armF0:[0.26,0.79], armF1:[0.40,0.78],
+      armB0:[-0.26,0.79], armB1:[-0.40,0.78], legF0:[0.07,0.26], legF1:[0.07,0.04], legB0:[-0.07,0.26], legB1:[-0.07,0.04] };
+    for (let i=0;i<11;i++) {
+      const name = BONE_ORDER[i], child = BONE_CHILD[name];
+      const jp = jointPt(K, name), cp = child ? jointPt(K, child) : null;
+      const b0 = bindPt(BIND[name][0], BIND[name][1]), b1 = bindPt(BINDC[name][0], BINDC[name][1]);
+      let m;
+      if (jp) {
+        const bAng = Math.atan2(b1[1]-b0[1], b1[0]-b0[0]);
+        const nAng = cp ? Math.atan2(-(cp.y-jp.y), cp.x-jp.x) : bAng;
+        let d = nAng - bAng; while (d>PI) d-=TAU; while (d<-PI) d+=TAU;
+        // model-space: scale to skeleton px, rotate about the bind joint, move to the live joint
+        m = M.mul(M.mul(M.T(jp.x, -jp.y, 0), M.Rz(d)),
+              M.mul(M.T(-b0[0], -b0[1], 0), M.mul(M.S(S,S,S), M.T(0, -sk.lo, 0))));
+      } else m = M.mul(M.S(S,S,S), M.T(0, -sk.lo, 0));
+      out.set(m, i*16);
+    }
+    return out;
+  }
+  function drawSkinned(f, mirror, K, fm) {
+    const sk = skins[f.arch]; const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
+    const g = garbOf(f), col = sc(hex(g.top), dk);
+    gl.useProgram(skinProg); curMesh='';
+    gl.bindBuffer(gl.ARRAY_BUFFER, sk.buf);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0,3,gl.FLOAT,false,56,0);
+    gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1,3,gl.FLOAT,false,56,12);
+    gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2,4,gl.FLOAT,false,56,24);
+    gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,4,gl.FLOAT,false,56,40);
+    gl.uniformMatrix4fv(u(skinProg,'uBones'), false, skinPalette(f, K, sk));
+    gl.uniformMatrix4fv(u(skinProg,'uMVP'), false, M.mul(VP, fm)); gl.uniformMatrix4fv(u(skinProg,'uModel'), false, fm);
+    gl.uniform3fv(u(skinProg,'uColor'), col); gl.uniform1f(u(skinProg,'uEmis'),0); gl.uniform1f(u(skinProg,'uAlpha'),a);
+    gl.uniform1f(u(skinProg,'uMat'), bodyMat(f)); gl.uniform1f(u(skinProg,'uTime'), t3);
+    gl.uniform3fv(u(skinProg,'uLight'),[0.35,0.9,0.5]); gl.uniform3fv(u(skinProg,'uCam'),camPos);
+    gl.uniform3fv(u(skinProg,'uFog'),FOG); gl.uniform2fv(u(skinProg,'uFogND'),[17,58]);
+    gl.drawArrays(gl.TRIANGLES, 0, sk.count);
+    gl.disableVertexAttribArray(2); gl.disableVertexAttribArray(3);
+    gl.useProgram(litProg); curMesh='';
+  }
   /* Baked city world (see scripts/bake-world.mjs). Uploaded once, drawn as one opaque batch. */
   let worldMesh = null;
   function setWorld(verts) { if (!ok || !verts || !verts.length) return false;
@@ -421,6 +490,7 @@ window.Ronin3D = (function () {
     const K = RoninArt.skel(f); const fm = fighterMatrix(f, mirror);
     if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
       (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
+    if (skins[f.arch]) { drawSkinned(f, mirror, K, fm); return; }              // real skinned deformation
     if (models[f.arch]) { drawModelFighter(f, mirror, K, fm); return; }      // real modelled geometry when loaded
     meshVar = (f.morphId && variants[f.morphId]) ? variants[f.morphId] : '';  // card-keyed body variant
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
@@ -666,5 +736,5 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
-  return { init, render, registerModel, hasModel, setMorphVariant, setWorld, hasWorld, get ok() { return ok; } };
+  return { init, render, registerModel, hasModel, registerSkin, hasSkin, setMorphVariant, setWorld, hasWorld, get ok() { return ok; } };
 })();

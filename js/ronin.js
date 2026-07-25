@@ -809,6 +809,15 @@
   // WORLD: load the baked city if present — the duel gets a real place to happen in
   if (r3dOk && window.RoninWorld) RoninWorld.load('models/world/street.wld')
     .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {});
+  // SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts
+  if (r3dOk) ARCH_KEYS.forEach(k => {
+    fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
+      const dv = new DataView(buf);
+      if (new TextDecoder().decode(new Uint8Array(buf, 0, 8)) !== 'UR3SKIN0') throw 0;
+      const n = dv.getUint32(12, true);
+      Ronin3D.registerSkin(k, new Float32Array(buf, 32, n * 14), n);
+    }).catch(() => {});
+  });
   if (r3dOk) ARCH_KEYS.forEach(k => {
     const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
     tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
