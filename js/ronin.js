@@ -806,6 +806,9 @@
   try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }
   // optional modelled fighters: drop <arch>.glb into models/ and it replaces the procedural body.
   // Missing files are expected and silent — the procedural fighters stay the default.
+  // WORLD: load the baked city if present — the duel gets a real place to happen in
+  if (r3dOk && window.RoninWorld) RoninWorld.load('models/world/street.wld')
+    .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {});
   if (r3dOk) ARCH_KEYS.forEach(k => {
     const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
     tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())

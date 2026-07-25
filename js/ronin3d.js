@@ -341,6 +341,11 @@ window.Ronin3D = (function () {
     } catch (e) { return false; }
   }
   function hasModel(arch) { return !!models[arch]; }
+  /* Baked city world (see scripts/bake-world.mjs). Uploaded once, drawn as one opaque batch. */
+  let worldMesh = null;
+  function setWorld(verts) { if (!ok || !verts || !verts.length) return false;
+    try { mesh('world', verts); worldMesh = true; return true; } catch (e) { return false; } }
+  function hasWorld() { return !!worldMesh; }
   /* Build a morphed set of the body primitives for one fighter, so an owned card visibly
    * reshapes that fighter's body. Cheap + cached: built once per variant id. */
   const variants = {};
@@ -594,6 +599,8 @@ window.Ronin3D = (function () {
       gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1); gl.drawArrays(gl.TRIANGLES, 0, 6);
 
       setLit(); _mat = 0;
+      // 1b. the baked city, if a world is loaded — one opaque batch, lit like everything else
+      if (worldMesh) { _mat = 1; draw('world', M.ident(), [0.62, 0.58, 0.66], 0.06, 1); _mat = 0; }
       // 2. skyline (kept below the moon's centre so no narrow tower can bisect the disc) then moon
       for (let i = -6; i <= 6; i++) { const bx = midX + i * 4.4, bh = 3 + ((i * 7 % 5 + 5) % 5) * 1.4; bit3(bx, bh / 2, -17 - ((i * 3 % 4 + 4) % 4), 2.4, bh, 1.2, [0.12, 0.06, 0.2], 0.5); }
       draw('sph', M.mul(M.T(midX + 13, 10.5, -30), M.S(6, 6, 6)), [1, 0.96, 0.85], 1, 1);
@@ -621,5 +628,5 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
-  return { init, render, registerModel, hasModel, setMorphVariant, get ok() { return ok; } };
+  return { init, render, registerModel, hasModel, setMorphVariant, setWorld, hasWorld, get ok() { return ok; } };
 })();
