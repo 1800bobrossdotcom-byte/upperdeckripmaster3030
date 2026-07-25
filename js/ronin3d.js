@@ -231,6 +231,20 @@ window.Ronin3D = (function () {
       beam(fm, { x: bx, y: by }, { x: tx, y: ty }, fr, col, 0, a); orb(fm, tx, ty, 0, fr * 1.6, fr * 1.6, fr * 1.6, sc(col, 0.92), 0, a); }
     beam(fm, { x: wrist.x - px * 5 + ax * 1, y: wrist.y - py * 5 + ay * 1 }, { x: wrist.x - px * 3 + ax * 6, y: wrist.y - py * 3 + ay * 6 }, fr * 1.05, col, 0, a);   // thumb
   }
+  // hair: a skull cap plus swept spikes (Tekken-style silhouette). Skipped for the shelled/crystal heads.
+  function drawHair(fm, f, K, hair, a, dk) {
+    if (f.arch === 'kappa' || f.arch === 'prizm' || f.arch === 'ronin') return;    // shelled / crystal / hatted heads
+    const h = K.head; _mat = 0;
+    orb(fm, h.x - 2, h.y - 5, 0, 27, 20, 26, hair, 0.02, a);                       // cap over the crown
+    if (f.arch === 'doomer') return;                                                // hooded — no spikes
+    const spikes = f.arch === 'kunoichi'
+      ? [[-6, -14, -22, 2.0], [-10, -8, -26, 2.4], [-12, 0, -24, 2.7]]              // long tail sweeping back
+      : [[2, -16, -16, 1.1], [-4, -18, -12, 1.5], [-10, -15, -10, 1.9], [8, -13, -12, 0.7], [-14, -9, -8, 2.3]];
+    for (const [ox, oy, len, ang] of spikes) {
+      const bx = h.x + ox, by = h.y + oy, tx = bx + Math.cos(ang) * -len, ty = by + Math.sin(ang) * -Math.abs(len) * 0.5;
+      beam(fm, { x: bx, y: by }, { x: tx, y: ty }, 4.6, hair, 0.02, a);
+    }
+  }
   // expressive face on the head front (+x local): eyes+pupils, brows, nose, mouth — expression by state
   function drawFace(fm, f, K, col, dk, a) {
     if (f.arch === 'prizm') return;                                                              // crystal head, no face
@@ -251,6 +265,19 @@ window.Ronin3D = (function () {
     if (f.arch === 'oni') for (const s of [-1, 1]) orb(fm, fx + 1, h.y + 7, s * 3.4, 2, 3, 2, [0.98, 0.97, 0.9], 0.1, a);   // fangs
   }
 
+  // ── costumes: Tekken-style colour-blocking. Each fighter is skin + a top + pants + boots +
+  //    gloves + trim + hair, instead of one flat body colour. That separation is what makes a
+  //    fighter read as a dressed character rather than a monochrome mannequin.
+  const GARB = {
+    ronin:    { skin: '#e8c9a8', top: '#dfe6f2', pants: '#3b4258', boot: '#241a12', glove: '#8a2f2f', trim: '#9fb0d0', hair: '#20232e', bare: 'arms' },
+    kappa:    { skin: '#4fc25a', top: '#2f7d3a', pants: '#1f5e2c', boot: '#123a1c', glove: '#2bff80', trim: '#2bff80', hair: '#1a4d24', bare: 'arms' },
+    doomer:   { skin: '#c9b7a6', top: '#2a3040', pants: '#171b26', boot: '#0e1118', glove: '#3d4658', trim: '#8fa0b8', hair: '#141821', bare: 'none' },
+    oni:      { skin: '#df463b', top: '#7a1a14', pants: '#2a1410', boot: '#160a08', glove: '#f0a03c', trim: '#ff6b57', hair: '#2b0f0c', bare: 'torso' },
+    kunoichi: { skin: '#e8bfa4', top: '#c31f6d', pants: '#2b1030', boot: '#1a0a20', glove: '#ff2ad9', trim: '#ff2ad9', hair: '#1b0f1e', bare: 'none' },
+    prizm:    { skin: '#c9a6ff', top: '#7b4bd0', pants: '#3a2470', boot: '#241246', glove: '#e6c8ff', trim: '#e6c8ff', hair: '#8f5cff', bare: 'none' },
+  };
+  function garbOf(f) { return GARB[f.arch] || GARB.ronin; }
+
   // material picks per archetype: 1 cloth · 3 scale · 4 crystal · 5 skin · 7 wraps
   function bodyMat(f) { return f.arch === 'prizm' ? 4 : (f.arch === 'kappa' || f.arch === 'oni') ? 5 : 1; }
   function limbMat(f) { return f.arch === 'kunoichi' ? 7 : bodyMat(f); }        // kunoichi = wrapped limbs
@@ -261,41 +288,59 @@ window.Ronin3D = (function () {
     if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
       (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
-    const col = sc(hex(f.col), dk), colB = sc(col, 0.82), tint = sc(hex(f.tint), dk);
+    const g = garbOf(f);
+    const SKIN = sc(hex(g.skin), dk), TOP = sc(hex(g.top), dk), TOPB = sc(TOP, 0.84), PANT = sc(hex(g.pants), dk), PANTB = sc(PANT, 0.85),
+      BOOT = sc(hex(g.boot), dk), GLOVE = sc(hex(g.glove), dk), TRIM = sc(hex(g.trim), dk), HAIR = sc(hex(g.hair), dk);
+    const col = sc(hex(f.col), dk), tint = sc(hex(f.tint), dk);
     const bm = bodyMat(f), lm = limbMat(f);
-    // legs
+    const bareArms = g.bare === 'arms' || g.bare === 'torso', bareTorso = g.bare === 'torso';
+    // ── legs: pant-coloured capsules (thigh → knee → calf) ending in boots ──
     _mat = lm;
-    // legs as capsules: thigh (thick) → knee ball → calf → ankle ball, so joints are rounded, not cut tubes
-    beam(fm, K.legB[0], K.legB[1], 8.5, colB, 0, a); ball(fm, K.legB[1], 7.6, colB, 0, a); beam(fm, K.legB[1], K.legB[2], 7, colB, 0, a); ball(fm, K.legB[2], 5, colB, 0, a);
-    beam(fm, K.legF[0], K.legF[1], 9.2, col, 0, a); ball(fm, K.legF[1], 8.2, col, 0, a); beam(fm, K.legF[1], K.legF[2], 7.6, col, 0, a); ball(fm, K.legF[2], 5.4, col, 0, a);
-    ball(fm, K.legF[0], 9, col, 0, a); ball(fm, K.legB[0], 8.4, colB, 0, a);            // hip balls
+    beam(fm, K.legB[0], K.legB[1], 8.5, PANTB, 0, a); ball(fm, K.legB[1], 7.6, PANTB, 0, a); beam(fm, K.legB[1], K.legB[2], 7, PANTB, 0, a);
+    beam(fm, K.legF[0], K.legF[1], 9.2, PANT, 0, a); ball(fm, K.legF[1], 8.2, PANT, 0, a); beam(fm, K.legF[1], K.legF[2], 7.6, PANT, 0, a);
+    ball(fm, K.legF[0], 9, PANT, 0, a); ball(fm, K.legB[0], 8.4, PANTB, 0, a);           // hips
     _mat = 0;
-    // feet: sole + a rounded toe so they read as boots, not slabs
-    bit(fm, K.legF[2].x + 3, K.legF[2].y + 2, 24, 7, 14, sc([0.06, 0.06, 0.09], dk), 0.3, a); orb(fm, K.legF[2].x + 12, K.legF[2].y + 1, 0, 8, 7, 12, sc([0.07, 0.07, 0.1], dk), 0.3, a);
-    bit(fm, K.legB[2].x + 2, K.legB[2].y + 2, 22, 7, 13, sc([0.05, 0.05, 0.07], dk), 0.3, a); orb(fm, K.legB[2].x + 10, K.legB[2].y + 1, 0, 7, 6, 11, sc([0.06, 0.06, 0.08], dk), 0.3, a);
+    // boots: shaft cuff + sole + rounded toe
+    ball(fm, K.legB[2], 6, BOOT, 0.05, a); ball(fm, K.legF[2], 6.4, BOOT, 0.05, a);
+    bit(fm, K.legF[2].x + 3, K.legF[2].y + 2, 24, 7, 14, BOOT, 0.1, a); orb(fm, K.legF[2].x + 12, K.legF[2].y + 1, 0, 8, 7, 12, sc(BOOT, 1.15), 0.1, a);
+    bit(fm, K.legB[2].x + 2, K.legB[2].y + 2, 22, 7, 13, sc(BOOT, 0.9), 0.1, a); orb(fm, K.legB[2].x + 10, K.legB[2].y + 1, 0, 7, 6, 11, sc(BOOT, 1.05), 0.1, a);
     // cloak / scarf draped behind the torso
     archBack(fm, f, K, col, tint, a, dk);
-    // torso: broad chest tapering to the waist, hips, obi belt, deltoid caps + a neck
-    _mat = bm;
-    ball(fm, K.pelvis, 12, col, 0, a); beam(fm, K.pelvis, K.chest, 16, col, 0, a); ball(fm, K.chest, 15, col, 0, a);
+    // ── torso: anatomical — lats taper to a narrow waist, pecs, abs; jacket or bare skin ──
+    const TCOL = bareTorso ? SKIN : TOP;
+    _mat = bareTorso ? 5 : bm;
+    const waist = { x: K.pelvis.x + (K.chest.x - K.pelvis.x) * 0.28, y: K.pelvis.y + (K.chest.y - K.pelvis.y) * 0.28 };
+    ball(fm, K.pelvis, 11.5, TCOL, 0, a);
+    beam(fm, waist, K.chest, 17, TCOL, 0, a);                                             // chest block, wide at the shoulders
+    beam(fm, K.pelvis, waist, 12.5, TCOL, 0, a);                                          // narrow waist
+    ball(fm, K.chest, 15.5, TCOL, 0, a);
+    { const px = K.chest.x + 6, py = K.chest.y + 5;                                       // pecs
+      for (const s of [-1, 1]) orb(fm, px, py, s * 7, 13, 10, 12, sc(TCOL, 1.06), 0, a);
+      if (bareTorso) for (let i = 0; i < 2; i++) for (const s of [-1, 1])                 // abs (bare torsos only)
+        orb(fm, waist.x + 4, waist.y - 4 + i * 9, s * 4.5, 7, 6.5, 8, sc(SKIN, 1.05), 0, a); }
     const nk = { x: K.chest.x + (K.head.x - K.chest.x) * 0.5, y: K.chest.y + (K.head.y - K.chest.y) * 0.42 };
-    beam(fm, K.chest, nk, 6.5, sc(col, 0.94), 0, a);                                       // neck
-    orb(fm, K.armF[0].x, K.armF[0].y, 8, 20, 18, 18, col, 0, a); orb(fm, K.armB[0].x, K.armB[0].y, -8, 18, 16, 16, colB, 0, a);   // deltoid shoulders
-    _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, sc(hex(f.tint), dk * 0.9), 0.12, a);
-    // back arm + hand (fist on a punch, otherwise an open grip)
-    _mat = lm;
-    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); ball(fm, K.armB[1], 5.8, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.2, colB, 0, a);
-    drawHand(fm, K.armB[2], { x: K.armB[2].x - K.armB[1].x, y: K.armB[2].y - K.armB[1].y }, colB, dk, a, f.state === 'punch');
-    // head + band + face + per-arch flourish (smaller, more human head)
+    _mat = 5; beam(fm, K.chest, nk, 6.5, SKIN, 0, a);                                      // neck (always skin)
+    _mat = bareTorso ? 5 : bm;
+    orb(fm, K.armF[0].x, K.armF[0].y, 8, 20, 18, 18, TCOL, 0, a); orb(fm, K.armB[0].x, K.armB[0].y, -8, 18, 16, 16, sc(TCOL, 0.86), 0, a);   // deltoids
+    _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a);               // belt / obi
+    // ── back arm: bare skin or sleeve, glove at the hand ──
+    const ARM = bareArms ? SKIN : TOP, ARMB = bareArms ? sc(SKIN, 0.88) : TOPB;
+    _mat = bareArms ? 5 : lm;
+    beam(fm, K.armB[0], K.armB[1], 7, ARMB, 0, a); ball(fm, K.armB[1], 5.8, ARMB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.2, ARMB, 0, a);
+    _mat = 0; orb(fm, K.armB[2].x - 3, K.armB[2].y - 3, 0, 9, 9, 9, sc(GLOVE, 0.9), 0.08, a);   // wrist wrap
+    drawHand(fm, K.armB[2], { x: K.armB[2].x - K.armB[1].x, y: K.armB[2].y - K.armB[1].y }, GLOVE, dk, a, f.state === 'punch');
+    // ── head: skin + hair + headband + face ──
     _mat = f.arch === 'prizm' ? 4 : 5;
-    ball(fm, K.head, 13, col, 0.12, a);
-    _mat = 1; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, tint, 0.5, a);
-    if (!mirror) drawFace(fm, f, K, col, dk, a);
+    ball(fm, K.head, 13, SKIN, 0.06, a);
+    drawHair(fm, f, K, HAIR, a, dk);
+    _mat = 1; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, TRIM, 0.45, a);
+    if (!mirror) drawFace(fm, f, K, SKIN, dk, a);
     archHead(fm, f, K, tint, a, dk);
-    // front arm + hand gripping the hilt
-    _mat = lm;
-    beam(fm, K.armF[0], K.armF[1], 7.2, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.4, col, 0, a);
-    drawHand(fm, K.sword.hand, { x: K.sword.tip.x - K.sword.hand.x, y: K.sword.tip.y - K.sword.hand.y }, col, dk, a, false);
+    // ── front arm + gloved hand gripping the hilt ──
+    _mat = bareArms ? 5 : lm;
+    beam(fm, K.armF[0], K.armF[1], 7.2, ARM, 0, a); ball(fm, K.armF[1], 6, ARM, 0, a); beam(fm, K.armF[1], K.armF[2], 5.4, ARM, 0, a);
+    _mat = 0; orb(fm, K.sword.hand.x - 4, K.sword.hand.y - 4, 0, 10, 10, 10, GLOVE, 0.08, a);   // bracer
+    drawHand(fm, K.sword.hand, { x: K.sword.tip.x - K.sword.hand.x, y: K.sword.tip.y - K.sword.hand.y }, GLOVE, dk, a, false);
     // ── weapon: a HELD hilt (pommel + wrapped grip through the fist + tsuba) with the blade emerging above the guard ──
     const wm = bladeMat(f); const sh = K.sword.hand, tp = K.sword.tip, bl = Math.hypot(tp.x - sh.x, tp.y - sh.y) || 1, dx = (tp.x - sh.x) / bl, dy = (tp.y - sh.y) / bl;
     if (f.arch === 'oni') {                                                                          // spiked club: shaft gripped, head at the top
