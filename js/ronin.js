@@ -798,6 +798,11 @@
   try { if (window.RoninGL && RoninGL.init($('glcv'))) { glOk = true; $('glcv').style.display = 'block'; } } catch (e) { glOk = false; }
   // prefer the true-3D renderer when WebGL is available; the 2D + bloom path is the fallback
   try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }
+  // optional modelled fighters: drop <arch>.glb into models/ and it replaces the procedural body.
+  // Missing files are expected and silent — the procedural fighters stay the default.
+  if (r3dOk && window.RoninGLB) ARCH_KEYS.forEach(k => {
+    RoninGLB.load('models/' + k + '.glb').then(m => { Ronin3D.registerModel(k, m); }).catch(() => {});
+  });
   if (r3dOk) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; $('cv3d').style.display = 'block'; $('cv').style.display = 'none'; }
   loadDeck().then(() => { buildRoster(); buildGrid(); initNet(); });
   if (window.RipWallet) { try { RipWallet.on(() => refreshPot()); } catch {} }

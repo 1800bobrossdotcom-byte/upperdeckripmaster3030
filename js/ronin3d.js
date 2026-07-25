@@ -283,10 +283,66 @@ window.Ronin3D = (function () {
   function limbMat(f) { return f.arch === 'kunoichi' ? 7 : bodyMat(f); }        // kunoichi = wrapped limbs
   function bladeMat(f) { return (f.arch === 'prizm' || f.glow > 0) ? 6 : 2; }   // light/charged = energy, else steel
 
+  // ── loaded model parts (rigid-part rig): each part mesh rides one skeleton joint ──
+  // Part names are matched by convention so an artist can author objects called "head",
+  // "torso", "arm_f_upper" … and have them attach without any code change. A model with a
+  // single unnamed mesh is treated as a whole body anchored at the pelvis.
+  const models = {};                                            // arch → { parts:[{key,joint,off}], scale }
+  const JOINTMAP = [
+    [/head|skull|face/, 'head'], [/chest|torso|upper.?body|jacket/, 'chest'], [/pelvis|hip|waist/, 'pelvis'],
+    [/(arm|shoulder).*(f|front|r|right).*(up|upper)/, 'armF0'], [/(arm|fore).*(f|front|r|right).*(low|fore)/, 'armF1'], [/hand.*(f|front|r|right)/, 'armF2'],
+    [/(arm|shoulder).*(b|back|l|left).*(up|upper)/, 'armB0'], [/(arm|fore).*(b|back|l|left).*(low|fore)/, 'armB1'], [/hand.*(b|back|l|left)/, 'armB2'],
+    [/(leg|thigh).*(f|front|r|right)/, 'legF0'], [/(shin|calf).*(f|front|r|right)/, 'legF1'], [/foot|boot.*(f|front|r|right)/, 'legF2'],
+    [/(leg|thigh).*(b|back|l|left)/, 'legB0'], [/(shin|calf).*(b|back|l|left)/, 'legB1'], [/foot|boot.*(b|back|l|left)/, 'legB2'],
+    [/sword|blade|katana|weapon/, 'sword'],
+  ];
+  function jointFor(name) { for (const [re, j] of JOINTMAP) if (re.test(name)) return j; return 'body'; }
+  function jointPt(K, j) {
+    switch (j) {
+      case 'head': return K.head; case 'chest': return K.chest; case 'pelvis': return K.pelvis;
+      case 'armF0': return K.armF[0]; case 'armF1': return K.armF[1]; case 'armF2': return K.armF[2];
+      case 'armB0': return K.armB[0]; case 'armB1': return K.armB[1]; case 'armB2': return K.armB[2];
+      case 'legF0': return K.legF[0]; case 'legF1': return K.legF[1]; case 'legF2': return K.legF[2];
+      case 'legB0': return K.legB[0]; case 'legB1': return K.legB[1]; case 'legB2': return K.legB[2];
+      case 'sword': return K.sword.hand; default: return null;    // 'body' → anchored at the feet
+    }
+  }
+  /* Register a parsed GLB (from RoninGLB.parse) as the model for an archetype.
+   * The model is auto-scaled so its total height matches the fighter's ~150px skeleton. */
+  function registerModel(arch, parsed) {
+    if (!ok || !parsed || !parsed.meshes || !parsed.meshes.length) return false;
+    try {
+      let lo = 1e9, hi = -1e9;
+      for (const m of parsed.meshes) { lo = Math.min(lo, m.bounds.lo[1]); hi = Math.max(hi, m.bounds.hi[1]); }
+      const h = Math.max(0.001, hi - lo), scale = 150 / h;         // model units → skeleton px
+      const parts = [];
+      for (let i = 0; i < parsed.meshes.length; i++) { const m = parsed.meshes[i], key = 'mdl:' + arch + ':' + i;
+        mesh(key, m.verts); parts.push({ key, joint: parsed.meshes.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
+      models[arch] = { parts, scale, footY: lo };
+      return true;
+    } catch (e) { return false; }
+  }
+  function hasModel(arch) { return !!models[arch]; }
+  // draw a model-backed fighter: parts ride the joints, everything else (FX, trail) is unchanged
+  function drawModelFighter(f, mirror, K, fm) {
+    const md = models[f.arch]; const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
+    const g = garbOf(f), col = sc(hex(g.top), dk), S = md.scale;
+    _mat = bodyMat(f);
+    for (const p of md.parts) {
+      const jp = jointPt(K, p.joint);
+      // model space is Y-up/metres; the skeleton is Y-DOWN pixels, so flip Y and scale in
+      const anchor = jp ? M.T(jp.x, -jp.y, 0) : M.T(0, 0, 0);
+      const local = M.mul(anchor, M.mul(M.S(S, S, S), M.T(0, -md.footY, 0)));
+      draw(p.key, M.mul(fm, local), col, 0, a);
+    }
+    _mat = 0;
+  }
+
   function drawFighter(f, mirror) {
     const K = RoninArt.skel(f); const fm = fighterMatrix(f, mirror);
     if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
       (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
+    if (models[f.arch]) { drawModelFighter(f, mirror, K, fm); return; }      // real modelled geometry when loaded
     const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const g = garbOf(f);
     const SKIN = sc(hex(g.skin), dk), TOP = sc(hex(g.top), dk), TOPB = sc(TOP, 0.84), PANT = sc(hex(g.pants), dk), PANTB = sc(PANT, 0.85),
@@ -525,5 +581,5 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
-  return { init, render, get ok() { return ok; } };
+  return { init, render, registerModel, hasModel, get ok() { return ok; } };
 })();

@@ -104,7 +104,14 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   FBO chain fails), and a **dynamic fight-camera** that orbits gently and pulls-in+swings on
   hero moments (`G.camZoom`/`G.camDir`, fired from ko/finishers/special); Milestone 5, preferred
   when WebGL is up. Dev hook
-  `__rn._brawl(meArch, foeArch)` forces a matchup for headless capture.) + `js/ronin-gl.js` (2D bloom compositor, the
+  `__rn._brawl(meArch, foeArch)` forces a matchup for headless capture.) + **`js/ronin-glb.js`**
+  (glTF-2.0 **GLB part loader** — parses the container itself, no library; emits interleaved
+  pos3+norm3 triangle soup straight into the renderer's mesh format. **Rigid-part rig**: drop
+  `models/<arch>.glb` in and its objects attach to skeleton joints by NAME (head/chest/pelvis/
+  arm_f_upper/…; see `models/README.md`) — no skinning/animation needed, the existing IK drives
+  everything. Missing files fall back silently to the procedural fighters. Static-mesh DCC output
+  converts via dave3d/meshconvert. **Only commit geometry the artist owns or that is clearly
+  licensed for commercial/NFT use.**) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
   **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
   overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
