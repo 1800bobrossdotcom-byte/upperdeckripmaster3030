@@ -200,8 +200,39 @@ window.Ronin3D = (function () {
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy, b[2] - a[2]) || 0.001, th = Math.atan2(dy, dx);
     draw('cyl', M.mul(M.mul(M.T((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), M.Rz(th - PI / 2)), M.S(r * 2, L, r * 2)), color, emis, alpha); }
 
-  function fighterMatrix(f, mirror) { let fm = M.mul(M.mul(M.mul(M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC), M.Ry(f.face < 0 ? PI : 0)), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
+  function fighterMatrix(f, mirror) { let fm = M.mul(M.mul(M.mul(M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC), M.Ry((f.face < 0 ? PI : 0) + (f.spin || 0))), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
     return mirror ? M.mul(M.S(1, -1, 1), fm) : fm; }
+
+  // a hand: palm + four fingers + a thumb. `along` = unit dir the fingers point (the hilt / punch line).
+  function drawHand(fm, wrist, along, col, dk, a, fist) {
+    const L = Math.hypot(along.x, along.y) || 1, ax = along.x / L, ay = along.y / L, px = -ay, py = ax;   // perpendicular in x-y
+    _mat = 5;
+    orb(fm, wrist.x + ax * 2, wrist.y + ay * 2, 0, 11, 10, 12, col, 0, a);                       // palm
+    const flen = fist ? 3.5 : 7.5, fr = 2.1;
+    for (let i = 0; i < 4; i++) { const o = (i - 1.5) * 3.4, bx = wrist.x + px * o + ax * 5, by = wrist.y + py * o + ay * 5;
+      const tx = bx + ax * flen - (fist ? ax * flen * 1.2 : 0), ty = by + ay * flen - (fist ? ay * flen * 1.2 : 0);
+      beam(fm, { x: bx, y: by }, { x: tx, y: ty }, fr, col, 0, a); orb(fm, tx, ty, 0, fr * 1.6, fr * 1.6, fr * 1.6, sc(col, 0.92), 0, a); }
+    beam(fm, { x: wrist.x - px * 5 + ax * 1, y: wrist.y - py * 5 + ay * 1 }, { x: wrist.x - px * 3 + ax * 6, y: wrist.y - py * 3 + ay * 6 }, fr * 1.05, col, 0, a);   // thumb
+  }
+  // expressive face on the head front (+x local): eyes+pupils, brows, nose, mouth — expression by state
+  function drawFace(fm, f, K, col, dk, a) {
+    if (f.arch === 'prizm') return;                                                              // crystal head, no face
+    const h = K.head, st = f.state, masked = f.arch === 'kunoichi';
+    let brow = 0, mouth = 1.6, eye = f.arch === 'kappa' ? 1.35 : 1;                              // brow: + angry(down) · mouth height
+    if (st === 'punch' || st === 'kick' || st === 'slash' || st === 'special') { brow = 1; mouth = 5.5; }
+    else if (st === 'hurt') { brow = -0.7; mouth = 6.5; eye = 1.25; }
+    else if (st === 'block') { brow = 0.5; mouth = 1.3; }
+    const fx = h.x + 10;
+    for (const s of [-1, 1]) {
+      orb(fm, fx, h.y - 3, s * 6, 4.4 * eye, 5 * eye, 3, [0.95, 0.96, 0.98], 0.08, a);           // eye white
+      orb(fm, fx + 2, h.y - 3, s * 6.3, 2.3 * eye, 2.6 * eye, 2.2, [0.05, 0.03, 0.08], 0, a);     // pupil
+      draw('cube', M.mul(fm, M.mul(M.mul(M.T(fx - 1, -(h.y - 8.5), s * 6), M.Rz(s * brow * 0.45)), M.S(8, 2.2, 3.4))), sc([0.09, 0.07, 0.12], dk), 0, a);   // brow
+    }
+    if (masked) return;                                                                          // scarf-masked → no nose/mouth
+    orb(fm, fx + 4, h.y + 2, 0, 4, 4.6, 5.4, col, 0, a);                                          // nose
+    draw('cube', M.mul(fm, M.mul(M.T(fx, -(h.y + 9), 0), M.S(9, mouth, 4))), [0.09, 0.03, 0.06], 0, a);   // mouth
+    if (f.arch === 'oni') for (const s of [-1, 1]) orb(fm, fx + 1, h.y + 7, s * 3.4, 2, 3, 2, [0.98, 0.97, 0.9], 0.1, a);   // fangs
+  }
 
   // material picks per archetype: 1 cloth · 3 scale · 4 crystal · 5 skin · 7 wraps
   function bodyMat(f) { return f.arch === 'prizm' ? 4 : (f.arch === 'kappa' || f.arch === 'oni') ? 5 : 1; }
@@ -230,17 +261,20 @@ window.Ronin3D = (function () {
     beam(fm, K.chest, nk, 6.5, sc(col, 0.94), 0, a);                                       // neck
     orb(fm, K.armF[0].x, K.armF[0].y, 8, 20, 18, 18, col, 0, a); orb(fm, K.armB[0].x, K.armB[0].y, -8, 18, 16, 16, colB, 0, a);   // deltoid shoulders
     _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, sc(hex(f.tint), dk * 0.9), 0.12, a);
-    // back arm
+    // back arm + hand (fist on a punch, otherwise an open grip)
     _mat = lm;
-    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.5, colB, 0, a); ball(fm, K.armB[1], 6, colB, 0, a); ball(fm, K.armB[2], 4.5, colB, 0, a);
-    // head + band + per-arch flourish (smaller, more human head)
+    beam(fm, K.armB[0], K.armB[1], 7, colB, 0, a); beam(fm, K.armB[1], K.armB[2], 5.5, colB, 0, a); ball(fm, K.armB[1], 6, colB, 0, a);
+    drawHand(fm, K.armB[2], { x: K.armB[2].x - K.armB[1].x, y: K.armB[2].y - K.armB[1].y }, colB, dk, a, f.state === 'punch');
+    // head + band + face + per-arch flourish (smaller, more human head)
     _mat = f.arch === 'prizm' ? 4 : 5;
     ball(fm, K.head, 13, col, 0.12, a);
     _mat = 1; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, tint, 0.5, a);
+    if (!mirror) drawFace(fm, f, K, col, dk, a);
     archHead(fm, f, K, tint, a, dk);
-    // front arm + weapon
+    // front arm + hand gripping the hilt
     _mat = lm;
-    beam(fm, K.armF[0], K.armF[1], 7, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.5, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a); ball(fm, K.armF[2], 4.5, col, 0, a);
+    beam(fm, K.armF[0], K.armF[1], 7, col, 0, a); beam(fm, K.armF[1], K.armF[2], 5.5, col, 0, a); ball(fm, K.armF[1], 6, col, 0, a);
+    drawHand(fm, K.sword.hand, { x: K.sword.tip.x - K.sword.hand.x, y: K.sword.tip.y - K.sword.hand.y }, col, dk, a, false);
     const wm = bladeMat(f); _mat = wm;
     const blade = f.glow > 0 ? [1, 0.9, 0.5] : f.arch === 'prizm' ? [0.82, 0.6, 1] : [0.92, 0.97, 1];
     beam(fm, K.sword.hand, K.sword.tip, (f.glow > 0 || wm === 6) ? 5 : 3.5, wm === 6 ? blade : sc(blade, dk), wm === 6 ? 0.55 : 0.4, a);

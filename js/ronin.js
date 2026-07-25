@@ -72,7 +72,7 @@
       // overshoot their target pose, and flail on impact (the Soul-Calibur weight). trail = blade tip streak.
       rig: { lean: 0, leanV: 0, head: 0, headV: 0, aF: -0.6, aFV: 0, eF: 0.5, eFV: 0, aB: 0.6, aBV: 0, eB: 0.5, eBV: 0,
         hF: 0.15, hFV: 0, kF: 0, kFV: 0, hB: -0.15, hBV: 0, kB: 0, kBV: 0, sw: 2.5, swV: 0, bob: 0, bobV: 0, bodyRot: 0, bodyRotV: 0 },
-      z: 0, zv: 0, trail: [] };
+      z: 0, zv: 0, spin: 0, spinT: 0, trail: [] };
   }
 
   function startBrawl(real, forceMe, forceFoe) {
@@ -137,7 +137,7 @@
     const base = ATK[kind]; if (!base) return;
     pushSeq(f, kind);
     const move = detectCombo(f); let atk = base, special = null;
-    if (move) { special = move; f.seq = []; atk = comboAtk(move); comboFx(f, move); f.state = COMBO[move].base; }
+    if (move) { special = move; f.seq = []; atk = comboAtk(move); comboFx(f, move); f.state = COMBO[move].base; if (move === 'TEMPEST') f.spinT = 0.4; }   // TEMPEST whirls the body
     else f.state = kind;
     f.stT = 0; f.swing = { atk, hits: new Set(), fired: false, special };
     if (f.state === 'slash' || special) sfxSlash(); else sfxWhiff();
@@ -153,7 +153,7 @@
   function tryShuri(f) { if (f.dead || f.shuri <= 0 || f.stun > 0 || f.air) return; f.shuri--;
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
-  function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7;
+  function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7; f.spinT = 0.55;
     G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); triggerShock(f.x, groundY - 116, 1.6); cineKick(0.85, f.face); sfxSpecial();
     // spin-blade nova: hits everything nearby
     G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 200) {
@@ -169,7 +169,7 @@
     const hx = f.x + f.face * (26 + reach * 0.5), hy = groundY - 116 - f.yLift;
     G.fighters.forEach(t => {
       if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0) return;
-      const onSide = Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;
+      const onSide = f.spinT > 0 || Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;   // a spin hits both sides
       const near = Math.abs(t.x - hx) < reach * 0.6 + 20;
       const vClose = Math.abs((t.yLift) - (f.yLift)) < 60;
       const zClose = Math.abs((t.z || 0) - (f.z || 0)) < 58;      // strafed off the line → the cut whiffs
@@ -258,6 +258,8 @@
     // depth strafe (z) — sidestep into fore/background; recentres on the fight line, strong when not actively strafing
     let zin = 0; if (canMove) { zin = f.isMe ? ((keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0) + (touch.mz || 0)) : (f.aiStrafe || 0); }
     f.zv += zin * 3000 * f.spd * dt; f.zv += (0 - f.z) * (Math.abs(zin) > 0.05 ? 1.4 : 7.5) * dt; f.zv *= 0.82; f.z += f.zv * dt; f.z = clamp(f.z, -120, 120);
+    // spin attacks — the whole body whirls (Ry in 3D, a flip-squash in 2D); the blade sweeps a full circle
+    if (f.spinT > 0) { f.spinT -= dt; f.spin += 26 * dt; } else if (f.spin) { f.spin = 0; }
     // vertical (jump) — dust + a thud on landing
     if (f.air || f.yLift > 0) { f.vy += 1750 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); } if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
@@ -301,7 +303,7 @@
       if (t < P.st) { const w = t / P.st; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
       else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the cut
         T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.2, 0.36, e); T.head = lerp(0.14, -0.14, e); T.hF = 0.3; T.rot = lerp(-0.1, 0.22, e); } }   // committed two-handed overhead cut, torso pitches through
-    else if (st === 'special') { T.sw = 2.5 + t * 30; T.aF = 2.4; T.eF = 0.1; T.lean = 0; T.rot = Math.sin(t * 30) * 0.1; }   // whirling nova
+    else if (st === 'special') { T.sw = 1.5; T.aF = 1.45; T.eF = 0.12; T.aB = 1.4; T.lean = 0.1; T.rot = 0; T.hF = 0.2; T.hB = -0.2; }   // blade extended level — the BODY whirls (f.spin) so the edge sweeps a full circle
     else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; T.rot = -0.12; }
     return T;
   }
@@ -459,7 +461,7 @@
     const zo = f.z || 0, x = f.x - G.cam.x, gy = groundY - f.yLift - zo * 0.34, fc = f.face, r = f.rig, rot = r.bodyRot, zs = 1 - zo * 0.0009;   // fake depth for the 2D fallback
     drawTrail(f);
     const K = RoninArt.skel(f);
-    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc * BODY * zs, BODY * zs);
+    ctx.save(); ctx.translate(x, gy); ctx.rotate(rot); ctx.scale(fc * BODY * zs * (f.spin ? Math.cos(f.spin) : 1), BODY * zs);
     const alpha = f.dead ? Math.max(0.2, 1 - Math.max(0, f.deadT - 1.4) * 0.5) : 1;
     const flick = f.invuln > 0 && !f.dead && Math.floor(G.t * 20) % 2 ? 0.45 : 1;
     ctx.globalAlpha = alpha * flick;

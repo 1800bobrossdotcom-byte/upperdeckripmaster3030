@@ -82,8 +82,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +
   2D procedural fighters) + `js/ronin3d.js` (TRUE-3D WebGL renderer — perspective camera,
   lit depth-tested 3D fighters built from the same IK skeleton with **tapered (muscled) limbs**
-  (frustum mesh, thick at the proximal joint), sphere joints, a neck + deltoid shoulders and
-  human-ish proportions, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
+  (frustum mesh, thick at the proximal joint), sphere joints, a neck + deltoid shoulders,
+  **hands** (palm + fingers + thumb) that grip the hilt / clench to fists, **expressive faces**
+  (eyes+pupils, brows, nose, mouth — expression driven by state; oni fangs, kappa big eyes,
+  kunoichi masked) and human-ish proportions, a **procedural material system** in the lit shader (`uMat`: 1 cloth-weave /
   2 brushed-metal / 3 reptile-scale / 4 iridescent-crystal / 5 skin / 6 energy-pulse / 7 wrap
   bands, textured stably in object space via `vL`), and a distinct silhouette per archetype
   (ronin straw-hat+haori cloak, kappa scaled shell+bulbous eyes, doomer cowl hood+coat, oni
@@ -103,7 +105,9 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
   **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target
   whiff melee; **special combos** via recent-attack strings (`detectCombo`): slash·slash·slash
-  = TEMPEST, punch·kick·slash = CREST WAVE, punch·kick = DRAGON KICK launcher.
+  = TEMPEST, punch·kick·slash = CREST WAVE, punch·kick = DRAGON KICK launcher. **Spin attacks**:
+  the meter special + TEMPEST whirl the whole body (`f.spin` → Ry in 3D / cos-squash in 2D),
+  blade extended level so the edge sweeps a full circle and hits both sides (`f.spinT`).
   **Controls:** desktop **mouse** — L=slash, R=kick, middle=punch (chain for combos); keyboard
   L/K/J attacks, A/D move, W jump, S block, Q/E strafe, Shift or dbl-tap A/D dash, Space special.
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
