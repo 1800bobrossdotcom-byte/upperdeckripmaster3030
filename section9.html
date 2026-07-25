@@ -271,6 +271,8 @@
           <span class="pchips" id="pChips"></span></div>
         <div class="wrow"><span class="wlbl">▣ spawn loadout</span>
           <span class="pchips" id="lChips"></span></div>
+        <div class="wrow"><span class="wlbl">▦ arena</span>
+          <span class="pchips" id="mChips"></span></div>
         <div class="cardsHd">pick your <span id="pickN">2</span> cards for the pot</div>
         <div class="grid" id="cardGrid"></div>
         <div class="cardsInfo" id="cardsInfo">0 owned</div>
@@ -427,6 +429,7 @@
   // player-count chips 2..8
   $('pChips').innerHTML=[2,3,4,5,6,7,8].map(n=>`<span class="pchip${n===wager.players?' on':''}" data-p="${n}">${n}</span>`).join('');
   $('lChips').innerHTML=LOADOUTS.map((w,i)=>`<span class="lchip${i===wager.loadout?' on':''}" data-l="${i}">${w}</span>`).join('');
+  let arenaPick=-1;                          // -1 = rotate; set by the arena picker (built once MAPS exists)
 
   function buildGrid(){
     const own=ownedSlugs(); const groups=new Map();
@@ -797,6 +800,21 @@
     return best;
   }
   const MAPS=buildMaps().map(fixSpawns);
+  /* Arena picker. The map used to be chosen for you — silently rotated between matches, with a
+   * ?map=N URL param as the only override — so there was no way to go play a specific arena.
+   * Lives here rather than with the other lobby chips because it needs MAPS to already exist. */
+  try{ const s=localStorage.getItem('s9_map'); if(s!=null&&MAPS[+s]) arenaPick=+s; }catch(e){}
+  try{ const q=new URLSearchParams(location.search).get('map'); if(q!=null&&MAPS[+q]) arenaPick=+q; }catch(e){}
+  function paintArenaChips(){
+    const el=$('mChips'); if(!el) return;
+    el.innerHTML=[{i:-1,n:'rotate'}].concat(MAPS.map((m,i)=>({i,n:m.name})))
+      .map(o=>`<span class="lchip${o.i===arenaPick?' on':''}" data-m="${o.i}">${o.n}</span>`).join('');
+    el.querySelectorAll('.lchip').forEach(c=>c.onclick=()=>{
+      arenaPick=+c.dataset.m;
+      try{ if(arenaPick<0) localStorage.removeItem('s9_map'); else localStorage.setItem('s9_map',arenaPick); }catch(e){}
+      paintArenaChips(); });
+  }
+  paintArenaChips();
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
   const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
@@ -967,11 +985,9 @@
     // choose map
     // Map choice: ?map=N (or localStorage s9_map) pins one for testing; otherwise ROTATE rather
     // than roll — random selection meant a new map could go unseen for many matches.
-    { let pick=null;
-      try{ const q=new URLSearchParams(location.search).get('map'); if(q!=null&&MAPS[+q]) pick=+q;
-        if(pick==null){ const ls=localStorage.getItem('s9_map'); if(ls!=null&&MAPS[+ls]) pick=+ls; } }catch(e){}
-      // No stored position? Start on the NEWEST map. Rotating up from 0 meant a freshly-shipped
-      // map took three matches to appear, which reads as "nothing changed".
+    { let pick=(arenaPick>=0 && MAPS[arenaPick]) ? arenaPick : null;   // lobby picker wins
+      // "rotate" advances one arena per match. A player with no stored position starts on the
+      // NEWEST map — climbing from index 0 buried a just-shipped arena three matches deep.
       if(pick==null){ let last=MAPS.length-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
         pick=(last+1)%MAPS.length; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
       G.mapIdx=pick; }
