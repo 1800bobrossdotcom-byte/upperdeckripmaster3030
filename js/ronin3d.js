@@ -288,13 +288,20 @@ window.Ronin3D = (function () {
   // "torso", "arm_f_upper" … and have them attach without any code change. A model with a
   // single unnamed mesh is treated as a whole body anchored at the pelvis.
   const models = {};                                            // arch → { parts:[{key,joint,off}], scale }
+  // scene props that are not part of the fighter — a stage floor would wreck the auto-scale
+  const PROP_RE = /floor|ground|plane|backdrop|stage|base_|pedestal|light|camera|helper/;
   const JOINTMAP = [
-    [/head|skull|face/, 'head'], [/chest|torso|upper.?body|jacket/, 'chest'], [/pelvis|hip|waist/, 'pelvis'],
-    [/(arm|shoulder).*(f|front|r|right).*(up|upper)/, 'armF0'], [/(arm|fore).*(f|front|r|right).*(low|fore)/, 'armF1'], [/hand.*(f|front|r|right)/, 'armF2'],
-    [/(arm|shoulder).*(b|back|l|left).*(up|upper)/, 'armB0'], [/(arm|fore).*(b|back|l|left).*(low|fore)/, 'armB1'], [/hand.*(b|back|l|left)/, 'armB2'],
-    [/(leg|thigh).*(f|front|r|right)/, 'legF0'], [/(shin|calf).*(f|front|r|right)/, 'legF1'], [/foot|boot.*(f|front|r|right)/, 'legF2'],
-    [/(leg|thigh).*(b|back|l|left)/, 'legB0'], [/(shin|calf).*(b|back|l|left)/, 'legB1'], [/foot|boot.*(b|back|l|left)/, 'legB2'],
-    [/sword|blade|katana|weapon/, 'sword'],
+    [/head|skull|face|helmet|mask/, 'head'],
+    [/chest|torso|upper.?body|jacket|uniform|body|spine|armor/, 'chest'],
+    [/pelvis|hip|waist|belt/, 'pelvis'],
+    [/(arm|shoulder|bicep).*(f|front|r|right).*(up|upper)?/, 'armF0'], [/(forearm|elbow).*(f|front|r|right)/, 'armF1'], [/(hand|glove|fist).*(f|front|r|right)/, 'armF2'],
+    [/(arm|shoulder|bicep).*(b|back|l|left)/, 'armB0'], [/(forearm|elbow).*(b|back|l|left)/, 'armB1'], [/(hand|glove|fist).*(b|back|l|left)/, 'armB2'],
+    [/(leg|thigh|quad).*(f|front|r|right)/, 'legF0'], [/(shin|calf|knee).*(f|front|r|right)/, 'legF1'], [/(foot|boot).*(f|front|r|right)/, 'legF2'],
+    [/(leg|thigh|quad).*(b|back|l|left)/, 'legB0'], [/(shin|calf|knee).*(b|back|l|left)/, 'legB1'], [/(foot|boot).*(b|back|l|left)/, 'legB2'],
+    // side-agnostic fallbacks — an un-sided "arm"/"boot" still lands on a sensible joint
+    [/forearm/, 'armF1'], [/hand|glove|fist/, 'armF2'], [/arm|shoulder|bicep/, 'armF0'],
+    [/knee|shin|calf/, 'legF1'], [/foot|boot/, 'legF2'], [/leg|thigh|quad/, 'legF0'],
+    [/sword|blade|katana|weapon|gun|rifle/, 'sword'],
   ];
   function jointFor(name) { for (const [re, j] of JOINTMAP) if (re.test(name)) return j; return 'body'; }
   function jointPt(K, j) {
@@ -312,12 +319,14 @@ window.Ronin3D = (function () {
   function registerModel(arch, parsed) {
     if (!ok || !parsed || !parsed.meshes || !parsed.meshes.length) return false;
     try {
+      const src = parsed.meshes.filter(m => !PROP_RE.test(m.name));   // drop stage floors / helpers
+      if (!src.length) return false;
       let lo = 1e9, hi = -1e9;
-      for (const m of parsed.meshes) { lo = Math.min(lo, m.bounds.lo[1]); hi = Math.max(hi, m.bounds.hi[1]); }
+      for (const m of src) { lo = Math.min(lo, m.bounds.lo[1]); hi = Math.max(hi, m.bounds.hi[1]); }
       const h = Math.max(0.001, hi - lo), scale = 150 / h;         // model units → skeleton px
       const parts = [];
-      for (let i = 0; i < parsed.meshes.length; i++) { const m = parsed.meshes[i], key = 'mdl:' + arch + ':' + i;
-        mesh(key, m.verts); parts.push({ key, joint: parsed.meshes.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
+      for (let i = 0; i < src.length; i++) { const m = src[i], key = 'mdl:' + arch + ':' + i;
+        mesh(key, m.verts); parts.push({ key, joint: src.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
       models[arch] = { parts, scale, footY: lo };
       return true;
     } catch (e) { return false; }
@@ -327,12 +336,16 @@ window.Ronin3D = (function () {
   function drawModelFighter(f, mirror, K, fm) {
     const md = models[f.arch]; const a = mirror ? 0.30 : 1, dk = mirror ? 0.45 : 1;
     const g = garbOf(f), col = sc(hex(g.top), dk), S = md.scale;
+    // Bind pose: the parts already sit in their correct places in model space, so a part must be
+    // displaced by how far its joint has moved from rest — NOT translated onto the joint (that
+    // double-offsets and explodes the model apart). Capture rest on the first drawn frame.
+    if (!md.bind) { md.bind = {}; for (const p of md.parts) { const jp = jointPt(K, p.joint); if (jp) md.bind[p.joint] = { x: jp.x, y: jp.y }; } }
     _mat = bodyMat(f);
     for (const p of md.parts) {
-      const jp = jointPt(K, p.joint);
-      // model space is Y-up/metres; the skeleton is Y-DOWN pixels, so flip Y and scale in
-      const anchor = jp ? M.T(jp.x, -jp.y, 0) : M.T(0, 0, 0);
-      const local = M.mul(anchor, M.mul(M.S(S, S, S), M.T(0, -md.footY, 0)));
+      const jp = jointPt(K, p.joint), b = md.bind[p.joint];
+      const dx = (jp && b) ? jp.x - b.x : 0, dy = (jp && b) ? jp.y - b.y : 0;
+      // model space is Y-up and foot-anchored; the skeleton is Y-DOWN px, so flip Y and scale in
+      const local = M.mul(M.T(dx, -dy, 0), M.mul(M.S(S, S, S), M.T(0, -md.footY, 0)));
       draw(p.key, M.mul(fm, local), col, 0, a);
     }
     _mat = 0;

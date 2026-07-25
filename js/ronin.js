@@ -800,8 +800,10 @@
   try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }
   // optional modelled fighters: drop <arch>.glb into models/ and it replaces the procedural body.
   // Missing files are expected and silent — the procedural fighters stay the default.
-  if (r3dOk && window.RoninGLB) ARCH_KEYS.forEach(k => {
-    RoninGLB.load('models/' + k + '.glb').then(m => { Ronin3D.registerModel(k, m); }).catch(() => {});
+  if (r3dOk) ARCH_KEYS.forEach(k => {
+    const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
+    tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
+      .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});
   });
   if (r3dOk) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; $('cv3d').style.display = 'block'; $('cv').style.display = 'none'; }
   loadDeck().then(() => { buildRoster(); buildGrid(); initNet(); });
