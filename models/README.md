@@ -51,6 +51,21 @@ Note that converter **drops scene hierarchy and animation** — which is fine he
 rig only needs static geometry, but it means you should export one file *per fighter* with the
 part objects intact, and check the part names survived the round-trip.
 
+## Generative iterations (RoninMorph)
+
+`js/ronin-morph.js` can distort any loaded part into a **new seeded iteration** — melt, twist,
+shatter, voxel, glitch, inflate, ripple, taper, stretch, spike. Same seed always gives the same
+result, so a seed is a stable identity and **a card slug can key its own permanent variant** of a
+shared body. Pass it at registration:
+
+```js
+Ronin3D.registerModel('ronin', parsed, { morph: 'cosmic-yawn' });   // slug → deterministic stack
+Ronin3D.registerModel('ronin', parsed, { morph: { seed: 7, ops: [{op:'twist',amt:.6},{op:'melt',amt:.4}] } });
+```
+
+Note this does **not** change the licensing position below: a distorted copyrighted character is
+a derivative work and is still that character's. Run it on geometry you own.
+
 ## Requirements & limits
 
 - glTF 2.0 binary (`.glb`) with the geometry in the embedded `BIN` chunk. External `.bin`

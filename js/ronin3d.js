@@ -316,7 +316,7 @@ window.Ronin3D = (function () {
   }
   /* Register a parsed GLB (from RoninGLB.parse) as the model for an archetype.
    * The model is auto-scaled so its total height matches the fighter's ~150px skeleton. */
-  function registerModel(arch, parsed) {
+  function registerModel(arch, parsed, opt) {
     if (!ok || !parsed || !parsed.meshes || !parsed.meshes.length) return false;
     try {
       const src = parsed.meshes.filter(m => !PROP_RE.test(m.name));   // drop stage floors / helpers
@@ -324,9 +324,14 @@ window.Ronin3D = (function () {
       let lo = 1e9, hi = -1e9;
       for (const m of src) { lo = Math.min(lo, m.bounds.lo[1]); hi = Math.max(hi, m.bounds.hi[1]); }
       const h = Math.max(0.001, hi - lo), scale = 150 / h;         // model units → skeleton px
+      // optional generative morph — `opt.morph` is a RoninMorph op-stack (or a card slug string),
+      // so one geometry source can render as an unlimited number of distinct, seeded iterations.
+      let morph = opt && opt.morph;
+      if (typeof morph === 'string' && window.RoninMorph) morph = RoninMorph.fromSlug(morph);
       const parts = [];
       for (let i = 0; i < src.length; i++) { const m = src[i], key = 'mdl:' + arch + ':' + i;
-        mesh(key, m.verts); parts.push({ key, joint: src.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
+        const verts = (morph && window.RoninMorph) ? RoninMorph.apply(m.verts, morph) : m.verts;
+        mesh(key, verts); parts.push({ key, joint: src.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
       models[arch] = { parts, scale, footY: lo };
       return true;
     } catch (e) { return false; }
