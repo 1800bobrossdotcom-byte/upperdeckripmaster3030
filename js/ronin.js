@@ -324,6 +324,10 @@
       else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the cut
         T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.2, 0.36, e); T.head = lerp(0.14, -0.14, e); T.hF = 0.3; T.rot = lerp(-0.1, 0.22, e); } }   // committed two-handed overhead cut, torso pitches through
     else if (st === 'special') { T.sw = 1.5; T.aF = 1.45; T.eF = 0.12; T.aB = 1.4; T.lean = 0.1; T.rot = 0; T.hF = 0.2; T.hB = -0.2; }   // blade extended level — the BODY whirls (f.spin) so the edge sweeps a full circle
+    else if (st === 'air') {                                                            // leaping / boosting
+      const rise = f.w && f.w.vy > 0; T.sw = 2.6; T.aF = rise ? 2.9 : 2.2; T.aB = rise ? 2.7 : 1.6; T.eF = 0.3; T.eB = 0.4;
+      T.hF = rise ? -0.45 : 0.5; T.kF = rise ? 1.15 : 0.35; T.hB = rise ? 0.3 : -0.35; T.kB = rise ? 0.5 : 0.15;
+      T.lean = rise ? -0.16 : 0.2; T.bob = 0; }
     else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; T.rot = -0.12; }
     return T;
   }
@@ -433,6 +437,16 @@
         RoninWorld.step(f.w, dt, { mx: ix, mz: iz, sprint, jump });
         if (ix || iz) f.faceYaw = Math.atan2(ix, iz);             // turn to face travel
         f.x = f.w.x * 52; f.z = f.w.z * 52; f.yLift = f.w.y * 52;  // feed the existing render/combat space
+        // ── drive the SKELETON, or they just slide around frozen ──
+        const spd = f.w.speed || 0;
+        f.stT += dt;
+        if (!f.w.onGround) { f.state = 'air'; f.air = true; }
+        else { f.air = false; f.state = spd > 0.6 ? 'walk' : 'idle'; }
+        f.walkPh += spd * dt * 0.85;                              // stride cadence tracks real speed
+        if (!f.w.onGround && f.w.flying) f.boostFx = (f.boostFx || 0) - dt;
+        if (f.w.onGround && spd > 6) { f.stepT = (f.stepT || 0) - dt;
+          if (f.stepT <= 0) { spawnDust(f.x - Math.sin(f.faceYaw || 0) * 8, 2); f.stepT = spd > 18 ? 0.16 : 0.26; } }
+        stepRig(f, dt);
       }
       const me = G.me;
       if (me && me.w) { const tgt = (me.faceYaw != null ? me.faceYaw : 0);
@@ -802,9 +816,10 @@
       sB.style.display = sN.style.display = 'block'; sB.style.left = sN.style.left = cx0 + 'px'; sB.style.top = sN.style.top = cy0 + 'px'; } } }, { passive: true });
     cv.addEventListener('touchmove', e => { for (const t of e.changedTouches) if (t.identifier === sid) { const dx = t.clientX - cx0, dy = t.clientY - cy0;
       touch.mx = clamp(dx / 52, -1, 1); touch.block = dy > 34 && Math.abs(dx) < 40;
+      if (G && G.worldMode) { touch.mz = clamp(dy / 52, -1, 1); touch.block = false; }   // world mode: full 2-axis stick
       if (dy < -40 && G && G.started && !G.me.dead) { tryJump(G.me); cy0 = t.clientY; }
       const R = 52, m = Math.hypot(dx, dy), k = m > R ? R / m : 1; sN.style.left = (cx0 + dx * k) + 'px'; sN.style.top = (cy0 + dy * k) + 'px'; } }, { passive: true });
-    const endT = e => { for (const t of e.changedTouches) if (t.identifier === sid) { sid = null; touch.mx = 0; touch.block = false; sB.style.display = sN.style.display = 'none'; } };
+    const endT = e => { for (const t of e.changedTouches) if (t.identifier === sid) { sid = null; touch.mx = 0; touch.mz = 0; touch.block = false; sB.style.display = sN.style.display = 'none'; } };
     cv.addEventListener('touchend', endT); cv.addEventListener('touchcancel', endT);
     const pad = (id, fn) => { const el = $(id); if (!el) return; el.addEventListener('touchstart', e => { e.preventDefault(); el.classList.add('dn'); if (G && G.started && !G.me.dead) fn(); }, { passive: false }); const up = () => el.classList.remove('dn'); el.addEventListener('touchend', up); el.addEventListener('touchcancel', up); };
     pad('padP', () => tryAttack(G.me, 'punch')); pad('padK', () => tryAttack(G.me, 'kick')); pad('padS', () => tryAttack(G.me, 'slash'));
@@ -839,11 +854,27 @@
   try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }
   // optional modelled fighters: drop <arch>.glb into models/ and it replaces the procedural body.
   // Missing files are expected and silent — the procedural fighters stay the default.
+  // ── device budget: the baked city (6 MB) + skinned fighters (5 MB) are far too heavy for a
+  //    phone, and were breaking mobile outright. Small screens / low-core / low-memory devices
+  //    keep the lightweight procedural arena, which has always worked there. ──
+  // ⚑ SHELVED: free-roam city mode is parked for a future game. The code stays (movement,
+  //   collision, chase cam all work) but NEON RONIN ships as the duel. Opt in with
+  //   localStorage urm_world='1' to keep developing it.
+  let WORLD_ON = false; try { WORLD_ON = localStorage.getItem('urm_world') === '1'; } catch (e) {}
+  const HEAVY_OK = WORLD_ON && (() => { try {
+    if (window.GameHelp && GameHelp.isTouch) return false;
+    if (Math.min(innerWidth, innerHeight) < 700) return false;
+    if ((navigator.hardwareConcurrency || 4) < 4) return false;
+    if ((navigator.deviceMemory || 4) < 4) return false;
+    if (navigator.connection && navigator.connection.saveData) return false;
+    return true; } catch (e) { return false; } })();
+  window.__rnHeavy = HEAVY_OK;
+
   // WORLD: load the baked city if present — the duel gets a real place to happen in
-  if (r3dOk && window.RoninWorld) RoninWorld.load('models/world/street.wld')
+  if (HEAVY_OK && r3dOk && window.RoninWorld) RoninWorld.load('models/world/street.wld')
     .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {});
   // SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts
-  if (r3dOk) ARCH_KEYS.forEach(k => {
+  if (HEAVY_OK && r3dOk) ARCH_KEYS.forEach(k => {
     fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
       const dv = new DataView(buf);
       if (new TextDecoder().decode(new Uint8Array(buf, 0, 8)) !== 'UR3SKIN0') throw 0;
@@ -851,7 +882,7 @@
       Ronin3D.registerSkin(k, new Float32Array(buf, 32, n * 14), n);
     }).catch(() => {});
   });
-  if (r3dOk) ARCH_KEYS.forEach(k => {
+  if (HEAVY_OK && r3dOk) ARCH_KEYS.forEach(k => {
     const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
     tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
       .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});

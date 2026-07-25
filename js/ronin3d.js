@@ -126,7 +126,7 @@ window.Ronin3D = (function () {
 
   // ── SKINNED mesh: real vertex deformation. Each vertex blends up to 4 bone matrices, so an
   //    elbow BENDS instead of a rigid part hinging open at the joint. uBones = joint palette.
-  const SK_VS = 'attribute vec3 aPos; attribute vec3 aNorm; attribute vec4 aIdx; attribute vec4 aWgt;' +
+  const SK_VS = 'precision highp float;\n attribute vec3 aPos; attribute vec3 aNorm; attribute vec4 aIdx; attribute vec4 aWgt;' +
     'uniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uBones[11];' +
     'varying vec3 vN; varying vec3 vW; varying vec3 vL;' +
     'void main(){ mat4 sk = uBones[int(aIdx.x)]*aWgt.x + uBones[int(aIdx.y)]*aWgt.y' +
