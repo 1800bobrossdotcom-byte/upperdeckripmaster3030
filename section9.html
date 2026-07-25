@@ -328,6 +328,7 @@
 <script src="js/wager-payout.js"></script>
 <script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
+<script src="js/gfx-post.js"></script>
 <script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
 <script>
@@ -761,7 +762,41 @@
     }
     return maps;
   }
-  const MAPS=buildMaps();
+  /* Spawn sanity. A spawn point is just an (x,z) pair written by hand, and supportY() only treats a
+   * box as a floor once you're already near its top — so a spawn that lands on a 3.4-high roof deck
+   * places you at y=0, sealed inside the geometry, staring at the inside of a wall. Nudge any such
+   * spawn out to the nearest clear ground instead of shipping a map you can't play. */
+  function fixSpawns(M){
+    const HEAD=1.72, CLEAR=1.5;      // a spawn needs elbow room, not merely a non-overlapping point:
+                                     // landing flush against a staircase is technically "not inside
+                                     // geometry" and still puts a solid where your whole screen is.
+    const blocks=(x,z,pad)=>M.solids.some(b=> x+pad>b.x0 && x-pad<b.x1 && z+pad>b.z0 && z-pad<b.z1 && b.y1>0.62 && b.y0<HEAD);
+    const inBounds=(x,z)=>x>M.x0+1.2 && x<M.x1-1.2 && z>M.z0+1.2 && z<M.z1-1.2;
+    M.spawns=M.spawns.map(([sx,sz])=>{
+      if(inBounds(sx,sz) && !blocks(sx,sz,CLEAR)) return [sx,sz];
+      for(let rad=1; rad<=20; rad+=0.5)                        // spiral out toward genuinely open floor
+        for(let a=0; a<24; a++){ const th=a/24*Math.PI*2, px=sx+Math.cos(th)*rad, pz=sz+Math.sin(th)*rad;
+          if(inBounds(px,pz) && !blocks(px,pz,CLEAR)) return [+px.toFixed(2),+pz.toFixed(2)]; }
+      return [0,0];
+    });
+    return M;
+  }
+  /* Which way should you be looking when you drop in? "Face the arena centre" puts your nose in a
+   * wall whenever the centre is behind one. Sweep the compass and take the longest clear sightline —
+   * you always open on the most of the map you could possibly see from where you stand. */
+  function spawnYaw(M,x,z){
+    const EYE=1.52, MAXD=26; let best=0, bestD=-1;
+    for(let a=0;a<24;a++){ const yaw=a/24*Math.PI*2, dx=Math.sin(yaw), dz=Math.cos(yaw);
+      let d=0.6;
+      for(; d<MAXD; d+=0.6){ const px=x+dx*d, pz=z+dz*d;
+        if(px<M.x0||px>M.x1||pz<M.z0||pz>M.z1) break;
+        if(M.solids.some(b=> px>b.x0 && px<b.x1 && pz>b.z0 && pz<b.z1 && b.y1>EYE && b.y0<EYE)) break; }
+      // ties broken toward the middle, so open maps still orient you inward rather than at a corner
+      const score=d - 0.05*Math.hypot(x+dx*d, z+dz*d);
+      if(score>bestD){ bestD=score; best=yaw; } }
+    return best;
+  }
+  const MAPS=buildMaps().map(fixSpawns);
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
   const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
@@ -925,8 +960,7 @@
     const s=farSpawn(others,12); e.x=s[0]; e.z=s[1]; e.y=supportY(e); e.vy=0; e.alive=true;
     e.hp=e.maxHp; e.armor=e.isMe?50:40; e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
     e.weapon=firstWeapon!=null?firstWeapon:e.weapon; e.mag=WEAPONS[e.weapon].mag; e.state='patrol'; e.tgt=null; e.wp=null; e.boost=1;
-    // face arena center
-    e.yaw=Math.atan2(-e.x, -e.z); e.pitch=0;
+    e.yaw=spawnYaw(MAP, e.x, e.z); e.pitch=0;      // open on the longest clear sightline, not a wall
   }
 
   function startMatch(real){
@@ -936,10 +970,13 @@
     { let pick=null;
       try{ const q=new URLSearchParams(location.search).get('map'); if(q!=null&&MAPS[+q]) pick=+q;
         if(pick==null){ const ls=localStorage.getItem('s9_map'); if(ls!=null&&MAPS[+ls]) pick=+ls; } }catch(e){}
-      if(pick==null){ let last=-1; try{ last=+(localStorage.getItem('s9_last')||-1); }catch(e){}
+      // No stored position? Start on the NEWEST map. Rotating up from 0 meant a freshly-shipped
+      // map took three matches to appear, which reads as "nothing changed".
+      if(pick==null){ let last=MAPS.length-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
         pick=(last+1)%MAPS.length; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
       G.mapIdx=pick; }
     MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(glReady){ try{ GLR.buildMap(MAP); }catch(e){} }
+    powMsg('▣ '+MAP.name, '#59e0ff');            // name the arena you dropped into
     // roster fill
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
@@ -950,7 +987,7 @@
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
     others.forEach((o,i)=>{ const e=makeEnt({ name:o.h, tint:CTINTS[i%CTINTS.length], verified:o.v, weapon:rint(WEAPONS.length) }); G.ents.push(e); });
     // initial spawns spread across points
-    G.ents.forEach((e,i)=>{ const s=MAP.spawns[i%MAP.spawns.length]; e.x=s[0]; e.z=s[1]; e.y=supportY(e); e.mag=WEAPONS[e.weapon].mag; e.iframe=1.4; e.yaw=Math.atan2(-e.x,-e.z); });
+    G.ents.forEach((e,i)=>{ const s=MAP.spawns[i%MAP.spawns.length]; e.x=s[0]; e.z=s[1]; e.y=supportY(e); e.mag=WEAPONS[e.weapon].mag; e.iframe=1.4; e.yaw=spawnYaw(MAP,e.x,e.z); });
     // stakes (mirror dogfight): pull your picked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
@@ -1546,8 +1583,17 @@
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   // headless-test/debug peephole (read-only snapshot + a drain helper so reload can be
   // tested without relying on flaky headless pointer-lock to fire live rounds)
-  window.__s9={ get s(){ return { mode:G.mode, gl:glReady, me:G.me?{ mag:G.me.mag, reloading:!!G.me.reloading, weapon:G.me.weapon, alive:G.me.alive }:null }; },
-    __drain(){ if(G.me) G.me.mag=1; } };
+  window.__s9={ get s(){ return { mode:G.mode, gl:glReady, map:MAP&&MAP.name, mapIdx:G.mapIdx,
+      me:G.me?{ mag:G.me.mag, reloading:!!G.me.reloading, weapon:G.me.weapon, alive:G.me.alive,
+                x:+G.me.x.toFixed(2), y:+G.me.y.toFixed(2), z:+G.me.z.toFixed(2),
+                yaw:+G.me.yaw.toFixed(3), pitch:+G.me.pitch.toFixed(3) }:null }; },
+    __drain(){ if(G.me) G.me.mag=1; },
+    get spawns(){ return MAP?MAP.spawns.slice():[]; },
+    _god(){ if(G.me){ G.me.iframe=1e9; G.me.hp=G.me.maxHp; } },
+    // headless camera control: verifying a map's readability needs to look around it
+    _look(yaw,pitch){ if(G.me){ G.me.yaw=yaw; if(pitch!=null) G.me.pitch=pitch; } },
+    _place(x,z,y){ if(G.me){ G.me.x=x; G.me.z=z; G.me.y=(y!=null?y:supportY(G.me)); G.me.vy=0; } },
+    _map(i){ try{ localStorage.setItem('s9_map',i); }catch(e){} } };
   const SENS=0.0022;
   addEventListener('mousemove',e=>{ if(!locked||!G.me||G.mode!=='play')return; const s=SENS/(G.scopeZoom||1);
     G.me.yaw+=e.movementX*s; G.me.pitch=clamp(G.me.pitch - e.movementY*s, -1.45,1.45); });

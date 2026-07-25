@@ -12,7 +12,7 @@
  *   CRGL.supported()                    → bool
  */
 window.CRGL = (function () {
-  let gl = null, cv = null, ok = false;
+  let gl = null, cv = null, ok = false, post = null;
   let W = null, SKY = null, BB = null, STK = null;   // programs
   let loc = {}, skl = {}, bbl = {}, stl = {}, tex = {};
   let trackBuf = null, padBuf = null, dyn = null, quad = null, streakBuf = null;
@@ -209,6 +209,7 @@ window.CRGL = (function () {
     dyn = gl.createBuffer(); streakBuf = gl.createBuffer();
     quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.sky) : null; } catch (e) { post = null; }
     ok = true; return true;
   }
 
@@ -228,7 +229,8 @@ window.CRGL = (function () {
   function frame(st) {
     if (!ok) return;
     const w = cv.width, h = cv.height, asp = w/h;
-    gl.viewport(0, 0, w, h);
+    const composited = post && post.begin();          // scene → offscreen when the bloom chain is up
+    if (!composited) gl.viewport(0, 0, w, h);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const cam = st.cam, E = st.env, fovy = cam.fov;
     const view = lookAt(cam.pos, cam.tgt, cam.up);
@@ -311,6 +313,7 @@ window.CRGL = (function () {
 
     // ── speed streaks (screen-space additive) ──
     if (st.streak > 0.02) drawStreaks(st.streak, st.t || 0);
+    if (composited) post.end();                       // bright → blur → composite to the screen
   }
 
   function drawBillboards(list) {
@@ -344,5 +347,5 @@ window.CRGL = (function () {
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
   }
 
-  return { init, buildTrack, pilotTex, liveryTex, frame, supported: () => ok };
+  return { init, buildTrack, pilotTex, liveryTex, frame, supported: () => ok, post: () => post };
 })();

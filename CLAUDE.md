@@ -135,6 +135,19 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).
+- **Shared GFX pass — `js/gfx-post.js` (`GfxPost`):** the bloom compositor lifted out of ronin3d so
+  every WebGL game gets it. `GfxPost.create(gl, canvas, GfxPost.PRESET.x)` → wrap the existing draw
+  in `post.begin()` / `post.end()`; chain is scene→bright→half-res separable gaussian→composite with
+  additive bloom + chromatic aberration + vignette + grain. **Fails open** — any shader/FBO failure
+  sets `on=false` and both calls no-op, so the game draws exactly as before. Presets: `neon`
+  (ronin), `tactical` (Section 9 — restrained, it's a gritty FPS), `sky` (Cloudracer — high
+  threshold, or the already-white cloudscape blooms into a flat wash). Wired into
+  `section9-gl.js` + `cloudracer-gl.js`; ronin3d still runs its own inline copy.
+- **Section 9 spawns are validated, not trusted.** `fixSpawns()` rejects any hand-written spawn
+  without 1.5u of clearance and spirals out to open floor; `spawnYaw()` picks the longest clear
+  sightline instead of "face arena centre". Before this, 4 of NEON STREET's 10 spawns sat *inside*
+  the roof-deck boxes (and KOWLOON/COLD STORAGE each had buried ones too) — you spawned sealed in
+  geometry staring at a wall, which reads as "the update didn't ship".
 - **Headless verify:** node http server + playwright-core at
   `/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js`, chromium
   `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, `--no-sandbox` (WebGL adds

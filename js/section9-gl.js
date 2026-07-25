@@ -14,7 +14,7 @@
  *   GLR.supported()       → bool
  */
 window.GLR = (function () {
-  let gl = null, cv = null, prog = null, sky = null, ok = false;
+  let gl = null, cv = null, prog = null, sky = null, ok = false, post = null;
   let loc = {}, skyLoc = {}, tex = {}, buffers = {}, dynBuf = null, skyBuf = null;
   const STRIDE = 11;                        // pos3 + nrm3 + uv2 + col3
   const MATS = ['floor', 'wall', 'crate', 'ammo'];
@@ -379,12 +379,15 @@ window.GLR = (function () {
     dynBuf = gl.createBuffer();
     skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    // shared bloom/vignette/grain compositor — no-ops itself if the FBO chain can't be built
+    try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.tactical) : null; } catch (e) { post = null; }
     ok = true; return true;
   }
 
   function frame(cam, G, ENV) {
     if (!ok) return;
-    gl.viewport(0, 0, cv.width, cv.height);
+    const composited = post && post.begin();          // scene → offscreen target when the chain is up
+    if (!composited) gl.viewport(0, 0, cv.width, cv.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     // sky (fills the screen behind the world)
     gl.useProgram(sky); gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
@@ -450,7 +453,8 @@ window.GLR = (function () {
         gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(va), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, va.length / STRIDE);
       }
     }
+    if (composited) post.end();                       // bright → blur → composite to the screen
   }
 
-  return { init, buildMap, frame, supported: () => ok };
+  return { init, buildMap, frame, supported: () => ok, post: () => post };
 })();
