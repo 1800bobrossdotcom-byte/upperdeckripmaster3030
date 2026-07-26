@@ -27,7 +27,21 @@ window.RIPMASTER_CHAIN = {
   contracts: {
     liquidEdition: "0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C", // Sepolia deploy 2026-07-19 (rare liquid-edition deploy multicurve)
     renderContract:"0xEB5Dc23130A7E422239a99493A12dB586feFDFF7", // Sepolia render prototype (set-render-contract 2026-07-19)
+    // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
+    // collector seat door (js/session.js) falls back to the local vault and marks itself
+    // unverified rather than pretending a localStorage array is proof of ownership.
+    lens721:       "",
   },
+  // ── SEATS (js/session.js) ──────────────────────────────────────────────────────────
+  // $UR3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or
+  // burned, it is just read. Set > 0 so seats can't be farmed by splitting dust across
+  // wallets; the holder-bound Lovebeing lens is the stronger fix once it exists.
+  holderMin: 1,
+  // Base L2 public RPC, read-only. The VISITOR door verifies arcade-fee receipts here,
+  // independently of whatever chain the player's wallet is currently pointed at.
+  baseRpcs: [
+    "https://mainnet.base.org",
+  ],
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
   protocol: {
     liquidFactory: "0xb1777091C953fa2aC1fD67f2b3e2f61343F5Ce5e",

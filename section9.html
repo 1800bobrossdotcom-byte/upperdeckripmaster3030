@@ -280,6 +280,7 @@
       </div>
 
       <div class="pot" id="potLine"></div>
+      <div id="seatBox" style="max-width:440px;margin:10px auto 4px;width:100%"></div>
       <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
       <div class="roster" id="roster"></div>
 
@@ -328,6 +329,8 @@
 <script src="js/wallet-ui.js"></script>
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
+<script src="js/eth-play.js"></script>
+<script src="js/session.js"></script>
 <script src="js/wager-payout.js"></script>
 <script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
@@ -420,6 +423,9 @@
   let roster=[];
   if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0 });
     const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
+    // Seats: holder / collector / visitor all land in this one lobby (js/session.js).
+    // Practice stays open to everyone — a seat is what lets you be matched against people.
+    if(window.RipSession) RipSession.mountBadge('seatBox');
     RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); }); }catch{} }
   function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
 

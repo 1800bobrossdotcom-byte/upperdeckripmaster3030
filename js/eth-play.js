@@ -97,9 +97,14 @@
     } catch (e) { return { ok: false, reason: (e && e.code === 4001) ? 'user-rejected' : 'tx-failed', error: e && (e.message || '') }; }
   }
 
+  // the tx hashes that bought the current credits. The credit COUNT lives in localStorage
+  // and is trivially forgeable; these hashes are not, so the seat layer (js/session.js)
+  // re-reads them on Base to tell a real payment from an edited ledger.
+  function receipts() { const a = acct(); if (!a) return []; const l = ledger()[a.toLowerCase()]; return (l && l.txs) ? l.txs.slice() : []; }
+
   window.RipEth = {
     price, usd: () => usd, eth, fmtEth,
-    plays, insertCoin, spendPlay, ensureBase,
+    plays, insertCoin, spendPlay, ensureBase, receipts, payTo: () => HANGAR,
     PLAY_USD, PLAYS_PER, WAGER_MAX_USD, WAGER_STEP_USD, HANGAR, BASE,
     txUrl: h => BASE.explorer + '/tx/' + h,
     on: cb => { listeners.push(cb); return () => { const i = listeners.indexOf(cb); if (i >= 0) listeners.splice(i, 1); }; },

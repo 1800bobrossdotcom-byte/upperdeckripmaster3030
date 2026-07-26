@@ -135,6 +135,18 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   Shared `fuse3D` 3D interceptor renderer; card powers in `js/card-powers.js`; shared game
   modules `js/{wager-payout,arena-lobby,card-hover,game-help}.js`. **NEON RONIN gates
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).
+- **SEATS — `js/session.js` (`RipSession`), doc `docs/SEATS.md`:** three doors into one
+  lobby so holders, collectors and paying visitors play *each other*. **A** holder
+  (`UR3030.balanceOf ≥ holderMin`), **B** collector (`lens721.balanceOf ≥ 1`), **C** visitor
+  (Base arcade-fee receipt, via `RipEth`). Built on the split that makes this tractable:
+  **entry is read-only, stakes are custody** — each door reads its OWN chain over a public
+  RPC (a wallet on Base can prove a mainnet balance without switching), so entry needs no
+  contract and ships now; pots stay Phase-2. Visitor door verifies the **Base tx receipt**,
+  not `RipEth`'s forgeable localStorage credit count. ⚠ **A seat is advisory** — SIWE is
+  signed and stored but nothing verifies it server-side, so **no real value may depend on
+  `seat.ok`** until a backend does. `lens721:""` ⇒ collector door falls back to the local
+  vault with `verified:false`. Reference integration: Section 9 `#seatBox`; practice stays
+  open to all.
 - **Shared GFX pass — `js/gfx-post.js` (`GfxPost`):** the bloom compositor lifted out of ronin3d so
   every WebGL game gets it. `GfxPost.create(gl, canvas, GfxPost.PRESET.x)` → wrap the existing draw
   in `post.begin()` / `post.end()`; chain is scene→bright→half-res separable gaussian→composite with
