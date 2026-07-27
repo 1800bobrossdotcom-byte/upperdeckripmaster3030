@@ -60,18 +60,30 @@ currentSupply)`, `quoteBuy()`, `quoteSell()`, `lpLiquidity()`, `totalLiquidity()
   JSON. Owner-set meta without redeploy; JSON/XML escaping; int24-min-tick safe; compiles
   clean (viaIR). This is correct for the **edition's own** display.
 
-- **⬜ To build — the combined lens contract** (port `LiquidLensMintable721SVGExample`):
-  1. `tokenURI(uint256 id)` for **ids 1…100** — base card art (the handmade lens for card N)
-     **+** the same live market/burn overlay, keyed by id. Renders for an id **whether or
-     not it's minted** (so the **67 field cards are render-only / readable now**; minting
-     later just attaches ownership — the B→C path).
-  2. **ERC-721 mint** — the **33 hero 1/1s** at launch: **11 via a pack-burn claim**, **22
-     via a signed game-title voucher**. `supportsInterface` for ERC-721.
-  3. **Lovebeing** — a **holder-bound** lens: gate its render/claim on `balanceOf(holder) >
-     0`, one per wallet, non-transferable, non-burnable (soulbound), no mint flood.
-  4. Keep `tokenURI()` (passthrough) so the same contract can also be the edition renderer,
-     or keep the prototype as the edition renderer and this as the lens collection —
-     decide with SuperRare during assisted setup.
+- **✅ Built — `contracts/UR3030Lens721.sol`**, the combined lens contract. WE build it;
+  SuperRare provides connectivity, deployment and platform (artist directive 2026-07-27).
+  1. `tokenURI(uint256 id)` for **ids 1…100**, and it deliberately does **not** require the
+     token to exist — OpenZeppelin's default reverts on a nonexistent id, which is exactly
+     wrong for the 67 render-only field cards. Minting later only attaches ownership.
+  2. `image` = `ipfs://CID` (the pinned base art, the permanent record); heroes also carry
+     `animation_url` = the live HTML lens, wrapped on-chain in `data:text/html` because
+     SuperRare renders animation_url as a document rather than fetching a URL.
+  3. **ERC-721 mint of the 33 heroes** via a single EIP-712 voucher path, `kind` 1 = gacha
+     pack-claim, 2 = earned game title. One trust path rather than two, because the
+     qualifying event is observed off-chain either way. Cards 34…100 cannot be minted.
+  4. **Lovebeing** — soulbound, one per wallet, enforced in `_update` (mint allowed;
+     transfer and burn revert).
+  5. `tokenURI()` (no args) delegates to the passthrough renderer, so the edition keeps its
+     existing display and this contract can serve both roles.
+
+  Compiles clean under solc 0.8.24 viaIR, **0 warnings, 18,349 bytes** (EIP-170 limit
+  24,576). **21/21 behavioural tests pass on a real EVM** — `npm run test:lens`
+  (`scripts/test-lens721.mjs`) deploys the bytecode and exercises unminted rendering,
+  the ipfs/animation_url split, voucher replay, `kind` swapping, field-card mint refusal,
+  deadline expiry, and soulbound transfer refusal.
+
+  ⚠ Untested against the real Liquid Edition: `tokenURI()` delegation is only exercised
+  with the renderer unset. Wire the real address on Sepolia and re-check before mainnet.
 
 ## Open ⏳ (confirm with SuperRare / the starter kit at deploy)
 - Pull the **exact `ILiquid` + render interface** from the pinned starter-kit commit before

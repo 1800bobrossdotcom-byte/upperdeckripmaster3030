@@ -3,13 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A liquid trading card game on SuperRare — psychedelic hyperfoil cartoon spirits.",
+  "description": "A liquid trading card game on SuperRare \u2014 psychedelic hyperfoil cartoon spirits.",
   "scripts": {
     "ingest": "node scripts/ingest-batch.mjs --dir art/inbox --full-art",
     "gallery": "node scripts/ingest-batch.mjs --gallery-only",
-    "lore": "node scripts/generate-lore.mjs"
+    "lore": "node scripts/generate-lore.mjs",
+    "test:lens": "node scripts/test-lens721.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.0"
+  },
+  "devDependencies": {
+    "solc": "0.8.24",
+    "@openzeppelin/contracts": "5.0.2",
+    "@ethereumjs/evm": "^3.1.1",
+    "@ethereumjs/common": "^4",
+    "@ethereumjs/util": "^9",
+    "ethereum-cryptography": "^2"
   }
 }
