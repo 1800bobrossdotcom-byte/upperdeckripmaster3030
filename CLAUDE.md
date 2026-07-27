@@ -53,6 +53,19 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
+## Hero lenses (cards 1–33) — see `docs/HERO-LENS.md`
+- **Heroes are live HTML, not flat art.** `scripts/build-hero-lens.mjs` wraps an authored
+  `NN - TITLE.html` (or `.gif`) into a standalone `cards/hero/<n>.html` — the page the
+  token's `animation_url` frames. Numbering: **1–33 heroes** (html/gif), **34–100 field**
+  (png, via `scripts/ingest-deck.mjs`) = model v2.2's 33+67.
+- ⚠ The lens loads in a **sandboxed iframe at an opaque origin**: `localStorage` THROWS, no
+  injected wallet, no `window.parent`, no external requests, unknown size. Author against
+  `cards/hero/_template.html`, which encodes all of it.
+- ⚠ **Aspect trap:** `height:100%` + `max-width:100%` makes `aspect-ratio` silently yield —
+  measured 0.571 instead of 2:3 in a 320×560 phone slot. Fixed with paired
+  `min/max-aspect-ratio` media queries. Always test a hero at 320px wide in a real
+  sandboxed frame.
+
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
   `build-pages.mjs` shell). Fail-closed. **Admin creds are in `gate.js`** (email +

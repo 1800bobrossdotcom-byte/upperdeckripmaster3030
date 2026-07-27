@@ -19,7 +19,7 @@
  * and those fields left empty for a deliberate second pass.
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, statSync } from 'node:fs';
-import { join, dirname, extname } from 'node:path';
+import { join, dirname, extname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,7 +29,8 @@ const argv = process.argv.slice(2);
 const has = f => argv.includes('--' + f);
 const val = f => { const i = argv.indexOf('--' + f); return i >= 0 ? argv[i + 1] : null; };
 const APPLY = has('apply');
-const dir = join(rootDir, val('dir') || '.');
+const dirArg = val('dir') || '.';
+const dir = isAbsolute(dirArg) ? dirArg : resolve(rootDir, dirArg);
 
 // "34 - NO TEST NOTICE.png", "39  - NELSON LOVE YOU.png", en/em dashes, any spacing
 const FILE_RE = /^\s*(\d{1,3})\s*[-–—]\s*(.+?)\s*\.(png|jpe?g|webp|gif)$/i;
