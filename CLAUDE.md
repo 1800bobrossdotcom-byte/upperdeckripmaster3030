@@ -54,6 +54,12 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   render 0→350), so the passthrough is proven, not assumed. Sepolia rehearsal tooling +
   runbook: `scripts/lens-cli.mjs` (`npm run lens`) + `docs/LENS-REHEARSAL.md`. ⚠ Still
   unproven on the REAL edition: `getMarketState()` word order can drift.
+- **Sepolia addresses (verified on-chain 2026-07-27, not from memory):** edition
+  `0xdc47e98b…d89F`-owned `0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C`; **LIVE renderer
+  `0x948E633054c516253D21d313aC789B37935de903`** (lowercase `name()`, emits `animation_url`
+  framing the site, per-RARE 0.06). ⚠ `chain-config` had carried the superseded
+  `0xEB5Dc231…FDFF7` (title-case name, no animation_url, per-RARE truncated to 0) — **always
+  read `edition.renderContract()`, never trust a recorded address.** `lens721` still unset.
 - Deploy from the **artist's SuperRare-linked wallet** or it won't surface on superrare.com.
 - ✅ **RESOLVED 2026-07-27 — both former blockers are closed:**
   **(a) Deploy path = ASSISTED, via SuperRare.** We do not self-deploy. ⚑ Consequence: the

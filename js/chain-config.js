@@ -26,7 +26,11 @@ window.RIPMASTER_CHAIN = {
   // (docs/TESTNET.md) and commit — the site starts reading real testnet state.
   contracts: {
     liquidEdition: "0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C", // Sepolia deploy 2026-07-19 (rare liquid-edition deploy multicurve)
-    renderContract:"0xEB5Dc23130A7E422239a99493A12dB586feFDFF7", // Sepolia render prototype (set-render-contract 2026-07-19)
+    // LIVE renderer — read off the edition itself (edition.renderContract()) on 2026-07-27,
+    // not from memory. This is the artist's updated deploy: name() is lowercase, it emits
+    // animation_url framing the site, and UR3030-per-RARE reads 0.06 rather than the 0 the
+    // previous build truncated to. Superseded 0xEB5Dc231…FDFF7, which is an older prototype.
+    renderContract:"0x948E633054c516253D21d313aC789B37935de903", // Sepolia, artist deploy (verified on-chain 2026-07-27)
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.

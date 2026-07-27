@@ -48,7 +48,7 @@ npm run test:lens
 
 # 1. deploy, wired to the existing Sepolia render prototype
 node scripts/lens-cli.mjs deploy \
-  --renderer 0xEB5Dc23130A7E422239a99493A12dB586feFDFF7 \
+  --renderer 0x948E633054c516253D21d313aC789B37935de903 \
   --signer   0x<the voucher-signing address>
 
 # 2. read it back — no key needed
@@ -87,9 +87,21 @@ node scripts/lens-cli.mjs verify --at 0x<lens>
 
 ```
 sepolia edition   0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C
-name()            "Upperdeck Ripmaster 3030"     ← TITLE CASE, permanent
-totalSupply       999,050 UR3030   (950 burned)
+  name()          "Upperdeck Ripmaster 3030"   ← TITLE CASE, permanent
+  totalSupply     999,050 UR3030   (950 burned)
+  renderContract  0x948E633054c516253D21d313aC789B37935de903   ← the LIVE renderer
+
+live renderer     0x948E633054c516253D21d313aC789B37935de903
+  name()          "upperdeckripmaster3030"     ← lowercase, correct
+  animation_url   frames https://upperdeckripmaster3030.com/
+  attributes      Burned=950 · Live Supply=999050 · UR3030 per RARE=0.06
+  owner()         0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F
 ```
+
+⚑ **Always read the renderer off the edition, never off a doc.** `js/chain-config.js` carried
+`0xEB5Dc231…FDFF7` — an older prototype with no `animation_url` and per-RARE truncating to 0
+— long after the edition had been repointed. `edition.renderContract()` is the only source of
+truth; this file records what it returned on 2026-07-27.
 
 That `name()` is the NAME LAW failure mode, already live and unfixable on the test token.
 It is the single best argument for reading `name()` back off the mainnet contract **before**
