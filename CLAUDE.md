@@ -14,9 +14,9 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
 
 ## Launch
 - **Target: August 6, 2026 · 11:11 PM ET** (= `2026-08-07T03:11:00Z`, EDT/UTC-4). Full real
-  launch (token + lenses + site). ⚠ **Date needs confirming** — the artist said "Thursday
-  Oct 6," then moved it to "August 6"; Oct 6 2026 is a Tuesday, Aug 6 is a Thursday. The
-  countdown on the landing targets **Aug 6**.
+  launch (token + lenses + site). ✅ **CONFIRMED by the artist 2026-07-27.** (August in New
+  York is EDT, so "11:11 PM EST" = 11:11 PM EDT = `03:11Z`; the landing countdown already
+  targets exactly this — verified, no change needed.)
 - **No external security audit** (artist's call). Substitute: a **Sepolia dress rehearsal +
   internal review** are the non-negotiable safety net.
 - **100 handmade cards are being made by the artist.** The cards on the site today are
@@ -45,8 +45,13 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   renderer+721. `contracts/UR3030RenderPrototype.sol` IS the passthrough renderer (done).
   **To build:** the render-by-id lens contract + an EIP-712 voucher mint for the 33 heroes.
 - Deploy from the **artist's SuperRare-linked wallet** or it won't surface on superrare.com.
-- **Open ⏳ / gating:** SuperRare's answer on **assisted-vs-self 721 deploy path** (in their
-  inbox) + curve calibration. Questions drafted in `docs/AUDIT-REPLY.md`.
+- ✅ **RESOLVED 2026-07-27 — both former blockers are closed:**
+  **(a) Deploy path = ASSISTED, via SuperRare.** We do not self-deploy. ⚑ Consequence: the
+  launch token's `name()` is set by whatever WE HAND SUPERRARE, so the string
+  **`upperdeckripmaster3030`** (one word, lowercase) must be given to them in writing and
+  re-checked before they broadcast — it is unfixable post-deploy.
+  **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
+  Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
@@ -176,8 +181,10 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
 - **Port-into-SuperRare plan:** renderer emits `animation_url` (owner-settable via
   `setAnimationUrl`) → full site in the token page's media slot; `/cabinet.html` is the
   sandbox-safe embed fallback (no gate, opt-in WC burns, null-origin tolerant;
-  vercel.json serves CORS-open). Updated renderer compiled + simulated, NOT yet
-  redeployed — artist deploys + clicks "Update Render Contract" on dev.superrare.co.
+  vercel.json serves CORS-open). ✅ **PROVEN 2026-07-27 — the artist deployed the updated
+  renderer on the dev environment and the SuperRare token page renders the live site in its
+  media slot.** The port-into-SuperRare plan is no longer theoretical; repeat on mainnet at
+  launch.
 
 ## Pending
 - Clean-slate the placeholder deck (plan in the launch dossier / `docs`); Aug-6 launch PDF
