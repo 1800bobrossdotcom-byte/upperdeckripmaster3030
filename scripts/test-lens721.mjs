@@ -10,8 +10,11 @@ import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 const ROOT='/home/user/upperdeckripmaster3030';
 const findImport = p => { for (const c of [join(ROOT,'node_modules',p), join(ROOT,p)]) if (existsSync(c)) return {contents:readFileSync(c,'utf8')}; return {error:'nf '+p}; };
 const SRC='contracts/UR3030Lens721.sol';   // run from repo root: npm run test:lens
+const SRC_R='contracts/UR3030RenderPrototype.sol', SRC_M='contracts/test/MockLiquid.sol';
 const out = JSON.parse(solc.compile(JSON.stringify({language:'Solidity',
-  sources:{[SRC]:{content:readFileSync(join(ROOT,SRC),'utf8')}},
+  sources:{ [SRC]:{content:readFileSync(join(ROOT,SRC),'utf8')},
+            [SRC_R]:{content:readFileSync(join(ROOT,SRC_R),'utf8')},
+            [SRC_M]:{content:readFileSync(join(ROOT,SRC_M),'utf8')} },
   settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}}),{import:findImport}));
 const C = out.contracts[SRC].UR3030Lens721;
 
@@ -148,6 +151,53 @@ console.log('\n── lovebeing (soulbound) ──');
   t('  transfer of Lovebeing REJECTED (soulbound)', !ok(tr), revertOf(tr));
   const hero = await call(sel('transferFrom(address,address,uint256)')+encAddr(ALICE)+encAddr('0x3333333333333333333333333333333333333333')+encUint(7), new Address(hexToBytes(ALICE)));
   t('  hero 7 IS transferable', ok(hero), revertOf(hero));
+}
+
+
+console.log('\n── edition passthrough: mock edition -> render prototype -> lens ──');
+{
+  // MockLiquid
+  const mock = await evm.runCall({ caller:DEPLOYER, to:undefined,
+    data:hexToBytes('0x'+out.contracts[SRC_M].MockLiquid.evm.bytecode.object), gasLimit:30000000n });
+  t('mock edition deploys', !mock.execResult.exceptionError, String(mock.execResult.exceptionError||''));
+  const MOCK = mock.createdAddress;
+
+  // UR3030RenderPrototype(liquid,name,description,externalUrl,animationUrl)
+  const rs=['upperdeckripmaster3030','a liquid trading-card game','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cabinet.html'];
+  const H=5*32; let tl='', o=H;
+  const q=[]; for(const x of rs){ q.push(o); const e=encStr(x); tl+=e; o+=e.length/2; }
+  const rargs = encAddr(MOCK.toString())+q.map(encUint).join('')+tl;
+  const rd = await evm.runCall({ caller:DEPLOYER, to:undefined,
+    data:hexToBytes('0x'+out.contracts[SRC_R].UR3030RenderPrototype.evm.bytecode.object+rargs), gasLimit:30000000n });
+  t('render prototype deploys against the mock', !rd.execResult.exceptionError, String(rd.execResult.exceptionError||''));
+  const RENDERER = rd.createdAddress;
+
+  // renderer alone must answer
+  const direct = await evm.runCall({ caller:DEPLOYER, to:RENDERER, data:hexToBytes(sel('tokenURI()')), gasLimit:30000000n, block:BLOCK });
+  t('renderer.tokenURI() reads live market state', !direct.execResult.exceptionError, String(direct.execResult.exceptionError||''));
+
+  // before wiring, the lens must refuse rather than return junk
+  const before = await call(sel('tokenURI()'));
+  t('lens tokenURI() reverts while renderer unset', !ok(before));
+
+  const w = await call(sel('setEditionRenderer(address)')+encAddr(RENDERER.toString()));
+  t('owner wires the renderer', ok(w), revertOf(w));
+
+  const after = await call(sel('tokenURI()'));
+  t('lens tokenURI() DELEGATES to the renderer', ok(after), revertOf(after));
+  const uri = ok(after) ? decStr(bytesToHex(after.execResult.returnValue)) : '';
+  const json = uri.startsWith('data:application/json;base64,') ? Buffer.from(uri.split(',')[1],'base64').toString() : '';
+  t('  delegated payload is the EDITION json', json.includes('upperdeckripmaster3030'));
+  t('  carries live burn attributes', json.includes('"trait_type":"Burned"') && json.includes('Live Supply'));
+  const burned0 = (json.match(/"trait_type":"Burned","value":(\d+)/)||[])[1];
+  t('  burned reads 0 before any burn', burned0==='0', 'burned='+burned0);
+
+  // burn 350 (one pack rip) and confirm the lens's delegated view moves
+  await evm.runCall({ caller:DEPLOYER, to:MOCK, data:hexToBytes(sel('burnFromSupply(uint256)')+encUint(350n*10n**18n)), gasLimit:30000000n });
+  const after2 = await call(sel('tokenURI()'));
+  const json2 = Buffer.from(decStr(bytesToHex(after2.execResult.returnValue)).split(',')[1],'base64').toString();
+  const burned1 = (json2.match(/"trait_type":"Burned","value":(\d+)/)||[])[1];
+  t('  a real pack burn moves the delegated render', burned1==='350', 'burned='+burned1);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

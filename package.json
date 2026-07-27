@@ -8,7 +8,8 @@
     "ingest": "node scripts/ingest-batch.mjs --dir art/inbox --full-art",
     "gallery": "node scripts/ingest-batch.mjs --gallery-only",
     "lore": "node scripts/generate-lore.mjs",
-    "test:lens": "node scripts/test-lens721.mjs"
+    "test:lens": "node scripts/test-lens721.mjs",
+    "lens": "node scripts/lens-cli.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.0"
@@ -19,6 +20,7 @@
     "@ethereumjs/evm": "^3.1.1",
     "@ethereumjs/common": "^4",
     "@ethereumjs/util": "^9",
-    "ethereum-cryptography": "^2"
+    "ethereum-cryptography": "^2",
+    "viem": "^2.55.10"
   }
 }

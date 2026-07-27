@@ -49,7 +49,11 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   mint** (the 67 field cards are render-only — OZ's default revert-on-nonexistent is wrong
   here). `image`=ipfs://CID, heroes add `animation_url`. Heroes mint by voucher (kind 1
   gacha / 2 game title); 34–100 can't mint. Lovebeing soulbound via `_update`. solc 0.8.24
-  viaIR, 0 warnings, 18,349 B. **21/21 EVM tests: `npm run test:lens`.**
+  viaIR, 0 warnings, 18,349 B. **31/31 EVM tests: `npm run test:lens`** — including the full
+  chain `MockLiquid → RenderPrototype → Lens.tokenURI()` (a 350 pack-burn moves the delegated
+  render 0→350), so the passthrough is proven, not assumed. Sepolia rehearsal tooling +
+  runbook: `scripts/lens-cli.mjs` (`npm run lens`) + `docs/LENS-REHEARSAL.md`. ⚠ Still
+  unproven on the REAL edition: `getMarketState()` word order can drift.
 - Deploy from the **artist's SuperRare-linked wallet** or it won't surface on superrare.com.
 - ✅ **RESOLVED 2026-07-27 — both former blockers are closed:**
   **(a) Deploy path = ASSISTED, via SuperRare.** We do not self-deploy. ⚑ Consequence: the
