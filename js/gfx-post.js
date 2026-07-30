@@ -33,26 +33,75 @@ window.GfxPost = (function () {
     's+=texture2D(t,uv+dir*3.0).rgb*0.09; s+=texture2D(t,uv+dir*4.0).rgb*0.05;' +
     'gl_FragColor=vec4(s,1.0); }';
 
+  /* The composite. Everything after the blur happens here, in one pass, in this order —
+   * the order matters more than any single effect:
+   *
+   *   1 chromatic aberration   sampled, so it displaces the SOURCE not the result
+   *   2 additive bloom
+   *   3 HIGHLIGHT ROLLOFF      the important one. These games are LDR, so adding bloom
+   *                            pushes bright pixels past 1.0 and the GPU clips them to flat
+   *                            white — which is exactly how Cloudracer's cloudscape turned
+   *                            into a wash. Scaling by luminance above a knee rolls those
+   *                            off smoothly instead, preserving hue, and is identity below
+   *                            the knee so the rest of the frame is untouched.
+   *   4 saturation / vignette
+   *   5 ORDERED DITHER         8x8 Bayer, ±1/255. Kills the banding that shows up in dark
+   *                            gradients (Section 9's corridors, the ronin night sky) where
+   *                            8-bit output quantises a smooth ramp into visible steps.
+   *   6 SHARPEN                a small unsharp against the 4-neighbour average. Low-poly art
+   *                            reads crisper, and it wins back the softness the blur added.
+   *   7 grain
+   */
   const P_COMP = 'precision mediump float; varying vec2 uv;' +
-    'uniform sampler2D base; uniform sampler2D bloom;' +
-    'uniform float intensity; uniform float ca; uniform float grain; uniform float vig; uniform float sat;' +
+    'uniform sampler2D base; uniform sampler2D bloom; uniform vec2 texel;' +
+    'uniform float intensity; uniform float ca; uniform float grain; uniform float vig;' +
+    'uniform float sat; uniform float knee; uniform float dither; uniform float sharpen;' +
     'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
+    // 8x8 Bayer without a lookup texture: the classic bit-interleave, unrolled cheaply.
+    'float bayer(vec2 p){ vec2 t=floor(mod(p,8.0));' +
+    ' float b=0.0, s=1.0;' +
+    ' for(int i=0;i<3;i++){ vec2 f=floor(mod(t,2.0)); b+=s*(f.x+2.0*mod(f.x+f.y,2.0)); s*=4.0; t=floor(t*0.5); }' +
+    ' return b/64.0; }' +
+    'vec3 grab(vec2 c){ vec2 dd=c-0.5; vec3 o;' +
+    ' o.r=texture2D(base,c+dd*ca).r; o.g=texture2D(base,c).g; o.b=texture2D(base,c-dd*ca).b;' +
+    ' return o+texture2D(bloom,c).rgb*intensity; }' +
     'void main(){ vec2 dd=uv-0.5;' +
-    'vec3 col; col.r=texture2D(base,uv+dd*ca).r; col.g=texture2D(base,uv).g; col.b=texture2D(base,uv-dd*ca).b;' +
-    'col += texture2D(bloom,uv).rgb*intensity;' +
-    'float lum=dot(col,vec3(0.299,0.587,0.114)); col=mix(vec3(lum),col,sat);' +
-    'float v=smoothstep(1.12,0.34,length(dd)); col*=mix(1.0-vig,1.0,v);' +
-    'col += (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.02;' +
-    'gl_FragColor=vec4(col,1.0); }';
+    ' vec3 col=grab(uv);' +
+    // 3 — highlight rolloff, luminance-keyed so colour does not shift
+    ' float l=dot(col,vec3(0.299,0.587,0.114));' +
+    ' col*= 1.0/(1.0+max(0.0,l-knee));' +
+    // 6 — unsharp against the neighbourhood (skipped when sharpen==0)
+    ' if(sharpen>0.001){' +
+    '   vec3 n=grab(uv+vec2(texel.x,0.0))+grab(uv-vec2(texel.x,0.0))' +
+    '         +grab(uv+vec2(0.0,texel.y))+grab(uv-vec2(0.0,texel.y));' +
+    '   col+= (col-n*0.25)*sharpen; }' +
+    // 4 — saturation, then vignette
+    ' float lum=dot(col,vec3(0.299,0.587,0.114)); col=mix(vec3(lum),col,sat);' +
+    ' float v=smoothstep(1.12,0.34,length(dd)); col*=mix(1.0-vig,1.0,v);' +
+    // 5 — ordered dither before the 8-bit write
+    ' col+= (bayer(gl_FragCoord.xy)-0.5)*dither;' +
+    // 7 — grain last, so it is not sharpened into crawling speckle
+    ' col+= (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.02;' +
+    ' gl_FragColor=vec4(col,1.0); }';
 
   /* Per-game looks. `tactical` is deliberately restrained — Section 9 is a gritty FPS, not a
    * neon duel, so the bloom reads as bounced light rather than a glow filter. */
   const PRESET = {
-    neon:     { intensity: 1.15, threshold: 0.62, ca: 0.0022, vignette: 0.36, sat: 1.00, passes: 2 },
-    tactical: { intensity: 0.62, threshold: 0.70, ca: 0.0012, vignette: 0.42, sat: 1.06, passes: 2 },
+    // knee    : luminance above which highlights roll off instead of clipping. MEASURED, not
+    //           guessed — swept against Cloudracer's clipped-pixel count. 0.94 removes 100%
+    //           of clipping at no cost (mean 129.5 vs 128.8 unrolled, contrast 73.2 vs 73.3);
+    //           0.62 also removed it but cost 14 luma and 14 contrast, dimming the whole sky
+    //           rather than just the highlights. Lower is NOT safer here, it is just darker.
+    // dither  : ordered-dither amplitude, in 1/255 units (banding killer, keep it small)
+    // sharpen : unsharp strength. Low-poly wants some; photographic sources do not.
+    neon:     { intensity: 1.15, threshold: 0.62, ca: 0.0022, vignette: 0.36, sat: 1.00,
+                knee: 0.92, dither: 0.0045, sharpen: 0.18, passes: 2 },
+    tactical: { intensity: 0.62, threshold: 0.70, ca: 0.0012, vignette: 0.42, sat: 1.06,
+                knee: 0.94, dither: 0.0045, sharpen: 0.26, passes: 2 },
     // Cloudracer flies through an already near-white sky: a low threshold blooms the whole
     // cloudscape into a flat wash, so only genuine highlights (engines, neon trim) get to glow.
-    sky:      { intensity: 0.34, threshold: 0.90, ca: 0.0010, vignette: 0.22, sat: 1.05, passes: 2 },
+    sky:      { intensity: 0.34, threshold: 0.90, ca: 0.0010, vignette: 0.22, sat: 1.05,
+                knee: 0.94, dither: 0.0060, sharpen: 0.14, passes: 2 },
   };
 
   function create(gl, cv, opts) {
@@ -159,6 +208,10 @@ window.GfxPost = (function () {
       gl.uniform1f(u(S.comp, 'intensity'), O.intensity); gl.uniform1f(u(S.comp, 'ca'), O.ca);
       gl.uniform1f(u(S.comp, 'grain'), grainT); gl.uniform1f(u(S.comp, 'vig'), O.vignette);
       gl.uniform1f(u(S.comp, 'sat'), O.sat);
+      gl.uniform1f(u(S.comp, 'knee'), O.knee == null ? 0.94 : O.knee);
+      gl.uniform1f(u(S.comp, 'dither'), O.dither == null ? 0.0045 : O.dither);
+      gl.uniform1f(u(S.comp, 'sharpen'), O.sharpen == null ? 0.2 : O.sharpen);
+      gl.uniform2f(u(S.comp, 'texel'), 1 / w, 1 / h);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.sceneTex);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.bB);
       drawTri();

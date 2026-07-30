@@ -90,25 +90,6 @@ window.Ronin3D = (function () {
     '   float glow=1.0-smoothstep(0.0,2.4,abs(vW.z)); col+=vec3(1.0,0.16,0.85)*glow*0.5; }' +
     ' float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     ' gl_FragColor=vec4(mix(col,uFog,fg),uAlpha); }';
-  // ── bloom post-process (render the 3D scene to a texture → bright-pass → separable blur → composite) ──
-  const PVS = 'attribute vec2 p; varying vec2 uv; void main(){ uv=p*0.5+0.5; gl_Position=vec4(p,0.0,1.0); }';
-  const P_BRIGHT = 'precision mediump float; varying vec2 uv; uniform sampler2D t; uniform float thr;' +
-    'void main(){ vec3 c=texture2D(t,uv).rgb; float l=dot(c,vec3(0.299,0.587,0.114)); float k=max(0.0,l-thr)/max(l,0.001); gl_FragColor=vec4(c*k*c*1.25,1.0); }';
-  const P_BLUR = 'precision mediump float; varying vec2 uv; uniform sampler2D t; uniform vec2 dir;' +
-    'void main(){ vec3 s=vec3(0.0);' +
-    's+=texture2D(t,uv+dir*-4.0).rgb*0.05; s+=texture2D(t,uv+dir*-3.0).rgb*0.09; s+=texture2D(t,uv+dir*-2.0).rgb*0.12; s+=texture2D(t,uv+dir*-1.0).rgb*0.15;' +
-    's+=texture2D(t,uv).rgb*0.18;' +
-    's+=texture2D(t,uv+dir*1.0).rgb*0.15; s+=texture2D(t,uv+dir*2.0).rgb*0.12; s+=texture2D(t,uv+dir*3.0).rgb*0.09; s+=texture2D(t,uv+dir*4.0).rgb*0.05;' +
-    'gl_FragColor=vec4(s,1.0); }';
-  const P_COMP = 'precision mediump float; varying vec2 uv; uniform sampler2D base; uniform sampler2D bloom; uniform float intensity; uniform float ca; uniform float grain;' +
-    'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
-    'void main(){ vec2 dd=uv-0.5;' +
-    'vec3 col; col.r=texture2D(base,uv+dd*ca).r; col.g=texture2D(base,uv).g; col.b=texture2D(base,uv-dd*ca).b;' +   // chromatic aberration
-    'col += texture2D(bloom,uv).rgb*intensity;' +                                                                   // additive bloom
-    'float v=smoothstep(1.12,0.34,length(dd)); col*=mix(0.64,1.0,v);' +                                             // vignette
-    'col += (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.02;' +                                                           // film grain
-    'gl_FragColor=vec4(col,1.0); }';
-
   // flat additive shader for smooth FX ribbons (blade trails + slash-arc crescents) — per-vertex alpha
   const TR_VS = 'attribute vec3 aPos; attribute float aA; uniform mat4 uVP; varying float vA; void main(){ vA=aA; gl_Position=uVP*vec4(aPos,1.0); }';
   const TR_FS = 'precision mediump float; varying float vA; uniform vec3 uCol; void main(){ gl_FragColor=vec4(uCol,vA); }';
@@ -163,48 +144,11 @@ window.Ronin3D = (function () {
       v.push(a[0], a[1], a[2], na[0], na[1], na[2], b[0], b[1], b[2], nb[0], nb[1], nb[2], c[0], c[1], c[2], nc[0], nc[1], nc[2], a[0], a[1], a[2], na[0], na[1], na[2], c[0], c[1], c[2], nc[0], nc[1], nc[2], d[0], d[1], d[2], nd[0], nd[1], nd[2]); } return v; }
 
   // bloom post state
-  const post = { on: false, sw: 0, sh: 0, sceneTex: null, depth: null, sceneFbo: null, bA: null, bB: null, fA: null, fB: null, bright: null, blur: null, comp: null, tri: null };
-  function progPost(fs) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, PVS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs)); gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p); return p; }
-  function tex2d(w, h) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return t; }
-  function fboFor(tex) { const f = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, f); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); return f; }
-  function sizePost(w, h) {
-    if (post.sw === w && post.sh === h) return; post.sw = w; post.sh = h;
-    const bw = Math.max(1, w >> 1), bh = Math.max(1, h >> 1);
-    post.sceneTex = tex2d(w, h); post.sceneFbo = fboFor(post.sceneTex);
-    post.depth = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, post.depth); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, post.depth);
-    post.bA = tex2d(bw, bh); post.fA = fboFor(post.bA); post.bB = tex2d(bw, bh); post.fB = fboFor(post.bB);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  }
-  function initPost() {
-    try { post.bright = progPost(P_BRIGHT); post.blur = progPost(P_BLUR); post.comp = progPost(P_COMP);
-      post.tri = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, post.tri); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-      sizePost(Math.max(2, cv.width), Math.max(2, cv.height)); post.on = true;
-    } catch (e) { post.on = false; }
-  }
-  function drawTri() { gl.bindBuffer(gl.ARRAY_BUFFER, post.tri); gl.enableVertexAttribArray(0); gl.disableVertexAttribArray(1); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-  let grainT = 0;
-  function bloom() {                                          // sceneTex → bright → blur ×2 → composite to screen
-    const w = post.sw, h = post.sh, bw = w >> 1, bh = h >> 1;
-    gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, post.fB); gl.viewport(0, 0, bw, bh); gl.useProgram(post.bright);
-    gl.uniform1i(u(post.bright, 't'), 0); gl.uniform1f(u(post.bright, 'thr'), 0.62); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, post.sceneTex); drawTri();
-    gl.useProgram(post.blur); gl.uniform1i(u(post.blur, 't'), 0);
-    for (let i = 0; i < 2; i++) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, post.fA); gl.viewport(0, 0, bw, bh); gl.uniform2f(u(post.blur, 'dir'), 1.4 / bw, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, post.bB); drawTri();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, post.fB); gl.viewport(0, 0, bw, bh); gl.uniform2f(u(post.blur, 'dir'), 0, 1.4 / bh); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, post.bA); drawTri();
-    }
-    grainT = (grainT + 0.017) % 1000;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, w, h); gl.useProgram(post.comp);
-    gl.uniform1i(u(post.comp, 'base'), 0); gl.uniform1i(u(post.comp, 'bloom'), 1); gl.uniform1f(u(post.comp, 'intensity'), 1.15); gl.uniform1f(u(post.comp, 'ca'), 0.0022); gl.uniform1f(u(post.comp, 'grain'), grainT);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, post.sceneTex);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, post.bB); drawTri();
-    gl.enable(gl.DEPTH_TEST); gl.enable(gl.BLEND);
-  }
-
+  /* The bloom compositor used to live inline here. It is now js/gfx-post.js, shared with
+   * Section 9 and Cloudracer, so a tuning fix lands in all three at once instead of drifting.
+   * `post` is a GfxPost handle: {begin, end, on, set}. Null when the module isn't loaded,
+   * which is handled everywhere `post &&` appears — ronin still draws, just uncomposited. */
+  let post = null;
   function init(canvas) {
     try { cv = canvas; gl = cv.getContext('webgl', { antialias: true, alpha: false }) || cv.getContext('experimental-webgl'); if (!gl) return false;
       litProg = prog(LIT_VS, LIT_FS); groundProg = prog(GND_VS, GND_FS);
@@ -217,7 +161,8 @@ window.Ronin3D = (function () {
       skinProg = gl.createProgram(); gl.attachShader(skinProg, sh(gl.VERTEX_SHADER, SK_VS)); gl.attachShader(skinProg, sh(gl.FRAGMENT_SHADER, LIT_FS));
       gl.bindAttribLocation(skinProg,0,'aPos'); gl.bindAttribLocation(skinProg,1,'aNorm'); gl.bindAttribLocation(skinProg,2,'aIdx'); gl.bindAttribLocation(skinProg,3,'aWgt');
       gl.linkProgram(skinProg);
-      initPost();                                             // bloom chain (falls back to direct draw if it fails)
+      // shared bloom/rolloff/dither/sharpen chain; fails open to a direct draw
+      try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.neon) : null; } catch (e) { post = null; }
       gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); ok = true; return true;
     } catch (e) { ok = false; gl = null; return false; }
   }
@@ -691,9 +636,8 @@ window.Ronin3D = (function () {
     try {
       const dpr = Math.min(2, window.devicePixelRatio || 1), Wp = innerWidth * dpr, Hp = innerHeight * dpr;
       if (cv.width !== Wp || cv.height !== Hp) { cv.width = Wp; cv.height = Hp; }
-      if (post.on) sizePost(cv.width, cv.height);
-      gl.bindFramebuffer(gl.FRAMEBUFFER, post.on ? post.sceneFbo : null);   // render the scene into the bloom buffer
-      gl.viewport(0, 0, cv.width, cv.height);
+      const composited = post && post.begin();     // scene -> offscreen when the chain is up
+      if (!composited) gl.viewport(0, 0, cv.width, cv.height);
       gl.clearColor(FOG[0], FOG[1], FOG[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       t3 += 0.016;
       const a = G.fighters[0], b = G.fighters[1];
@@ -709,7 +653,7 @@ window.Ronin3D = (function () {
         camPos = [cam.wx + (Math.random()*2-1)*shkW, cam.wy, cam.wz];
         VP = M.mul(M.persp(0.86, cv.width / cv.height, 0.1, 400), M.look(camPos, [p.x, p.y + 1.5, p.z], [0, 1, 0]));
         { const fwd = norm(sub([p.x, p.y + 1.5, p.z], camPos)); camRight = norm(cross(fwd, [0,1,0])); camUp = cross(camRight, fwd); }
-        drawScene(G); if (post.on) bloom(); gl.flush(); return true;
+        drawScene(G); if (composited) post.end(); gl.flush(); return true;
       }
       const zoom = clampf(G.camZoom || 0, 0, 1), cdir = (G.camDir || 1) < 0 ? -1 : 1;
       const tDist = clampf(6.8 + sep * 0.5, 6.2, 12) - zoom * 3.2, tH = 2.62 - zoom * 0.5, tAz = Math.sin(t3 * 0.22) * 0.10 + cdir * zoom * 0.36;
@@ -721,7 +665,7 @@ window.Ronin3D = (function () {
 
       gl.enable(gl.BLEND);
       drawScene(G);
-      if (post.on) bloom();
+      if (composited) post.end();
       gl.flush(); return true;
     } catch (e) { ok = false; return false; }
   }
@@ -766,5 +710,6 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
-  return { init, render, registerModel, hasModel, registerSkin, hasSkin, setMorphVariant, setWorld, hasWorld, get ok() { return ok; } };
+  return { init, render, registerModel, hasModel, registerSkin, hasSkin, setMorphVariant, setWorld, hasWorld,
+           post: () => post, get ok() { return ok; } };
 })();

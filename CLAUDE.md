@@ -69,6 +69,22 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
+## Deploying the lens — see `docs/DEPLOY-LENS.md`
+- **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/UR3030Lens721.flat.sol`
+  (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected
+  Provider. The key never leaves MetaMask. `scripts/flatten.mjs` recompiles its own output and
+  **refuses to write unless the executable bytecode is byte-identical** to the normal build;
+  it strips the trailing CBOR metadata first, since that hashes source paths and must differ.
+  ⚠ The entry file's pragma wins on purpose — taking the first pragma seen inherited OZ's
+  looser `^0.8.20` and invited Remix to compile a `^0.8.24` contract on 0.8.20.
+- **Route B:** `npm run test:lens` then `node scripts/lens-cli.mjs deploy --renderer … --signer …`.
+- ⚑ **Constructor: renderer 3rd, signer 4th.** Use the LIVE renderer
+  `0x948E633054c516253D21d313aC789B37935de903`, and **use a different wallet for the claim
+  signer than the owner** — the signer is a hot key used all season, the owner can repoint
+  every card. `verify` warns when they match; `setClaimSigner` can fix it later.
+- After deploy: `lens-cli verify --at 0x…` (no key), then `cards`, then record the address in
+  `chain-config.contracts.lens721` — that flips the collector seat door to real ownership.
+
 ## Hero lenses (cards 1–33) — see `docs/HERO-LENS.md`
 - **Heroes are live HTML, not flat art.** `scripts/build-hero-lens.mjs` wraps an authored
   `NN - TITLE.html` (or `.gif`) into a standalone `cards/hero/<n>.html` — the page the
@@ -187,8 +203,20 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   additive bloom + chromatic aberration + vignette + grain. **Fails open** — any shader/FBO failure
   sets `on=false` and both calls no-op, so the game draws exactly as before. Presets: `neon`
   (ronin), `tactical` (Section 9 — restrained, it's a gritty FPS), `sky` (Cloudracer — high
-  threshold, or the already-white cloudscape blooms into a flat wash). Wired into
-  `section9-gl.js` + `cloudracer-gl.js`; ronin3d still runs its own inline copy.
+  threshold, or the already-white cloudscape blooms into a flat wash). **All three WebGL games
+  now share it** — ronin3d's inline copy was deleted (−60 lines), so a tuning fix lands
+  everywhere at once. Each renderer exposes `post()` for headless checks.
+- **GfxPost composite order matters:** CA (sampled) → bloom → **highlight rolloff** → sat/vignette
+  → **8×8 Bayer dither** → **unsharp** → grain. The rolloff is the load-bearing one: these games
+  are LDR, so additive bloom pushes pixels past 1.0 and the GPU clips them to flat white.
+  ⚑ **`knee` was MEASURED, not guessed** — swept against Cloudracer's clipped-pixel count.
+  **0.94 removes 100% of clipping for free** (mean 129.5 vs 128.8 unrolled, contrast 73.2 vs
+  73.3); my first guess of 0.62 also removed it but cost **14 luma and 14 contrast**, dimming
+  the whole sky instead of the highlights. Lower is not safer, just darker.
+- ⚠ **Don't trust `drawImage(glCanvas)` for pixel stats.** A WebGL canvas without
+  `preserveDrawingBuffer` reads back BLACK outside its own frame — it reported `meanLuma:0` for
+  a NEON RONIN frame that was rendering perfectly. Screenshot to judge, `post()` to confirm the
+  chain is on.
 - **Section 9 spawns are validated, not trusted.** `fixSpawns()` rejects any hand-written spawn
   without 1.5u of clearance and spirals out to open floor; `spawnYaw()` picks the longest clear
   sightline instead of "face arena centre". Before this, 4 of NEON STREET's 10 spawns sat *inside*
