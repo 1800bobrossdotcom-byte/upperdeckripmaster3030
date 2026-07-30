@@ -200,10 +200,16 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   dressed it); override with `{dress:…}`. The weapon is separate and near-always drawn — NEON
   RONIN is a sword duel, an unarmed fighter reads as a bug. `drawWeapon` was lifted out of
   `drawFighter` so both paths share one definition (procedural path verified unchanged).
-  ⚠ **This whole path is gated OFF today**: `js/ronin.js` loads `.skn`/`.glb` only when
-  `HEAVY_OK`, which requires the **shelved** world flag `localStorage urm_world='1'` AND a
-  non-mobile device budget. Models in `models/` therefore don't appear in the shipping duel.
-  ⚑ `.skn` files are heavy (`ronin.skn` is 5.7 MB) — that gate is also the mobile protection.
+  ✅ **Reachable from the lobby now** (was gated off). NEON RONIN's lobby has two chip rows:
+  **▦ Arena** (Neon grid · Rooftop · Arcade · Vault) and **▤ Bodies** (Procedural · Modelled).
+  Both write localStorage and reload — the world mesh and skins upload once at init, so a live
+  swap would mean rebuilding the renderer's buffers for nothing. ⚑ **The fighter gate was
+  decoupled from the world gate**: loading a `.skn` used to require `urm_world='1'`, i.e. opting
+  into the *shelved free-roam city*, so the rigged characters never appeared in the duel they
+  were built for. Now `FIGHTERS_OK = DEVICE_OK && urm_bodies==='model'` and `HEAVY_OK =
+  WORLD_ON && DEVICE_OK` — two unrelated things, two switches. **Defaults are unchanged**
+  (procedural bodies, neon grid), so the shipping duel looks exactly as it did.
+  ⚑ `.skn` files are heavy (`ronin.skn` is 5.7 MB) — `DEVICE_OK` is still the mobile protection.
   **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
   overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
   **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target

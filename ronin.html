@@ -111,6 +111,11 @@
   .pot{ font-family:var(--fat); font-size:16px; color:#fff; margin:6px 0; }
   .pot .c{ color:var(--magenta); }
   .roster{ font-size:11px; color:#c8b6ea; margin:4px auto 2px; }
+  .achips{ display:flex; gap:6px; flex-wrap:wrap; margin:2px 0 4px; }
+  .achip{ cursor:pointer; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:#c8b6ea;
+          border:1px solid rgba(160,120,220,.35); border-radius:8px; padding:6px 10px; background:rgba(30,16,50,.5); }
+  .achip.on{ color:#12061f; background:linear-gradient(180deg,#e6c8ff,#b477ff 60%,#7a2fd0); border-color:#3a1060; }
+  .achip.off{ opacity:.4; cursor:not-allowed; }
   .go{ display:block; width:100%; margin:8px 0 0; cursor:pointer; font-family:var(--fat); font-size:15px; text-transform:uppercase; letter-spacing:.06em;
     padding:14px; border-radius:11px; border:2px solid #061; color:#04140b; background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); box-shadow:0 4px 0 #061; }
   .go.alt{ background:linear-gradient(180deg,#e6c8ff,#b47bff 55%,#7a3ec8); border-color:#402066; box-shadow:0 4px 0 #402066; color:#180a2a; }
@@ -195,6 +200,12 @@
     <div id="cardGrid"></div>
     <div class="cardsInfo" id="cardsInfo">0 owned</div>
     <div class="pot" id="potLine"></div>
+    <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:8px 0 2px">▦ Arena:</div>
+    <div class="achips" id="levelChips"></div>
+    <div class="roster" id="levelNote" style="text-align:left;margin:0 0 4px"></div>
+    <div style="font-size:11px;color:#c9b6ff;text-align:left;margin:8px 0 2px">▤ Bodies:</div>
+    <div class="achips" id="bodyChips"></div>
+    <div class="roster" id="bodyNote" style="text-align:left;margin:0 0 4px"></div>
     <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
     <div class="roster" id="rosterNote"></div>
     <div><button class="go" id="btnAnte">🔥 Ante up &amp; duel</button></div>

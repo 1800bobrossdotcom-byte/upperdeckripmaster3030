@@ -890,14 +890,71 @@
   //   collision, chase cam all work) but NEON RONIN ships as the duel. Opt in with
   //   localStorage urm_world='1' to keep developing it.
   let WORLD_ON = false; try { WORLD_ON = localStorage.getItem('urm_world') === '1'; } catch (e) {}
-  const HEAVY_OK = WORLD_ON && (() => { try {
+  // The device budget is asked separately from the world flag: the lobby's arena picker needs
+  // to know "could this machine run a 3D level?" even while the flag is off, or every chip
+  // would read as unavailable on a perfectly capable desktop.
+  const DEVICE_OK = (() => { try {
     if (window.GameHelp && GameHelp.isTouch) return false;
     if (Math.min(innerWidth, innerHeight) < 700) return false;
     if ((navigator.hardwareConcurrency || 4) < 4) return false;
     if ((navigator.deviceMemory || 4) < 4) return false;
     if (navigator.connection && navigator.connection.saveData) return false;
     return true; } catch (e) { return false; } })();
-  window.__rnHeavy = HEAVY_OK;
+  const HEAVY_OK = WORLD_ON && DEVICE_OK;
+  /* Modelled fighters used to ride HEAVY_OK too, which meant a .skn only loaded if you had
+   * also opted into the shelved free-roam city — two unrelated things behind one switch, so
+   * the rigged characters never appeared in the duel they were made for. They now have their
+   * own opt-in and only share the device budget, which is what they actually need (ronin.skn
+   * is 5.7 MB). Default stays procedural: the shipping duel keeps the look it has today, and
+   * modelled bodies are one click away in the lobby. */
+  let BODIES = 'proc'; try { BODIES = localStorage.getItem('urm_bodies') || 'proc'; } catch (e) {}
+  const FIGHTERS_OK = DEVICE_OK && BODIES === 'model';
+  window.__rnHeavy = HEAVY_OK; window.__rnDeviceOk = DEVICE_OK; window.__rnBodies = BODIES;
+
+  /* ── ARENA picker ────────────────────────────────────────────────────────────────────────
+   * The built levels sat behind two localStorage flags, which is the same as not shipping
+   * them — nobody opens a console to find content. This puts them in the lobby next to the
+   * fighter roster. Changing arena reloads: the world mesh is uploaded once at init, so
+   * swapping it live would mean tearing down and rebuilding the renderer's world buffer for
+   * no gain over a page load. */
+  (function arenaPicker() {
+    const box = $('levelChips'); if (!box) return;
+    const LEVELS = [{ k: '', n: 'Neon grid' }, { k: 'rooftop', n: 'Rooftop' },
+                    { k: 'arcade', n: 'Arcade' }, { k: 'vault', n: 'Vault' }];
+    let cur = '';
+    try { cur = WORLD_ON ? (localStorage.getItem('urm_level') || 'street') : ''; } catch (e) {}
+    box.innerHTML = LEVELS.map(l => '<span class="achip' + (l.k === cur ? ' on' : '') +
+      (!DEVICE_OK && l.k ? ' off' : '') + '" data-k="' + l.k + '">' + l.n + '</span>').join('');
+    const note = $('levelNote');
+    if (note) note.textContent = DEVICE_OK
+      ? 'Neon grid is the classic flat duel. The others are full 3D levels you move through — WASD, Shift to sprint, Space to jump/boost.'
+      : 'Full 3D levels need a desktop-class device, so this stays on the neon grid.';
+    box.querySelectorAll('.achip').forEach(el => el.onclick = () => {
+      const k = el.dataset.k;
+      if (k && !DEVICE_OK) return;
+      try {
+        if (k) { localStorage.setItem('urm_world', '1'); localStorage.setItem('urm_level', k); }
+        else localStorage.removeItem('urm_world');
+      } catch (e) {}
+      location.reload();
+    });
+
+    // bodies: the procedural fighters, or the modelled/skinned ones in models/
+    const bbox = $('bodyChips'); if (!bbox) return;
+    const BODY = [{ k: 'proc', n: 'Procedural' }, { k: 'model', n: 'Modelled' }];
+    bbox.innerHTML = BODY.map(b => '<span class="achip' + (b.k === BODIES ? ' on' : '') +
+      (!DEVICE_OK && b.k === 'model' ? ' off' : '') + '" data-b="' + b.k + '">' + b.n + '</span>').join('');
+    const bnote = $('bodyNote');
+    if (bnote) bnote.textContent = DEVICE_OK
+      ? 'Modelled loads the rigged characters in models/ (auto-skinned to the same 11-bone rig, then dressed). Heavier — desktop only.'
+      : 'Modelled bodies are several MB each, so this stays procedural on a small device.';
+    bbox.querySelectorAll('.achip').forEach(el => el.onclick = () => {
+      const b = el.dataset.b;
+      if (b === 'model' && !DEVICE_OK) return;
+      try { localStorage.setItem('urm_bodies', b); } catch (e) {}
+      location.reload();
+    });
+  })();
 
   // WORLD: load the baked level if present — the duel gets a real place to happen in.
   // Levels are built by `npm run level -- <name>` (scripts/blender/build-level.py → .wld);
@@ -909,7 +966,7 @@
     .catch(() => RoninWorld.load('models/world/street.wld')
       .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {}));
   // SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts
-  if (HEAVY_OK && r3dOk) ARCH_KEYS.forEach(k => {
+  if (FIGHTERS_OK && r3dOk) ARCH_KEYS.forEach(k => {
     fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
       const dv = new DataView(buf);
       if (new TextDecoder().decode(new Uint8Array(buf, 0, 8)) !== 'UR3SKIN0') throw 0;
@@ -917,7 +974,7 @@
       Ronin3D.registerSkin(k, new Float32Array(buf, 32, n * 14), n);
     }).catch(() => {});
   });
-  if (HEAVY_OK && r3dOk) ARCH_KEYS.forEach(k => {
+  if (FIGHTERS_OK && r3dOk) ARCH_KEYS.forEach(k => {
     const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
     tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
       .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});
