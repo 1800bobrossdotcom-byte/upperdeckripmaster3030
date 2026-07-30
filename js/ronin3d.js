@@ -634,7 +634,11 @@ window.Ronin3D = (function () {
   function render(G) {
     if (!ok || !G) return false;
     try {
-      const dpr = Math.min(2, window.devicePixelRatio || 1), Wp = innerWidth * dpr, Hp = innerHeight * dpr;
+      // see GfxPost.deviceScale — one shared policy for what counts as a weak device
+      // see GfxPost.dprCap — one shared policy for what counts as a weak device
+      const dpr = Math.min(window.devicePixelRatio || 1,
+        (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2),
+        Wp = innerWidth * dpr, Hp = innerHeight * dpr;
       if (cv.width !== Wp || cv.height !== Hp) { cv.width = Wp; cv.height = Hp; }
       const composited = post && post.begin();     // scene -> offscreen when the chain is up
       if (!composited) gl.viewport(0, 0, cv.width, cv.height);

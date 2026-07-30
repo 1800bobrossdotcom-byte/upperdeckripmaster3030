@@ -212,7 +212,11 @@
   const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
   const $ = id => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const DPR = Math.min(devicePixelRatio || 1, 2);
+  /* Backing-store resolution is the dominant cost on a phone: everything the game
+   * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
+   * the one shared policy (touch + small screen + low cores/memory + save-data), so the
+   * games can't drift apart on what counts as a weak device. Desktop is unaffected. */
+  const DPR = Math.min(devicePixelRatio || 1, ((window.GfxPost&&GfxPost.dprCap)?GfxPost.dprCap():2));
   let W=0, H=0, cx=0, cy=0;
   function resize(){ W=innerWidth; H=innerHeight; cx=W/2; cy=H*0.46; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
   resize(); addEventListener('resize', resize);

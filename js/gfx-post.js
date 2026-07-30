@@ -104,6 +104,37 @@ window.GfxPost = (function () {
                 knee: 0.94, dither: 0.0060, sharpen: 0.14, passes: 2 },
   };
 
+  /* One resolution policy, shared by every caller.
+   *
+   * A phone at devicePixelRatio 3 asks for a ~1.2M-pixel backing store, and this chain then
+   * runs several FULLSCREEN passes over it (bright, two blur pairs, composite) plus, for the
+   * 2D games, a whole-canvas texture upload every frame. Pixels are the cost, so the lever is
+   * to use fewer: cap the ratio and let the browser scale the result up.
+   *
+   * ⚑ Returns an ABSOLUTE cap, not a multiplier. A multiplier was the first design and it is
+   *   wrong: callers already clamp with Math.min(dpr, 2), and multiplying that by (cap/dpr)
+   *   pushed the effective ratio BELOW 1.0 on a dpr-3 phone — rendering under one CSS pixel
+   *   per pixel, which is visibly soft. The floor here is 1: never blurrier than CSS.
+   *
+   *   const DPR = Math.min(devicePixelRatio || 1, GfxPost.dprCap());
+   */
+  function dprCap() {
+    const dpr = self.devicePixelRatio || 1;
+    let cap = 2;                                   // desktop default, unchanged from before
+    try {
+      const touch = matchMedia('(hover:none)').matches || navigator.maxTouchPoints > 0;
+      const small = Math.min(screen.width, screen.height) <= 900;
+      const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+      const save = navigator.connection && navigator.connection.saveData;
+      if (save) cap = 1;
+      else if (touch && small) cap = weak ? 1 : 1.5;
+      else if (weak) cap = 1.5;
+    } catch (e) {}
+    return Math.max(1, Math.min(dpr, cap));        // never below 1 CSS pixel
+  }
+  /** Multiplier form, for callers that scale an existing size (Gfx2D's presentation layer). */
+  function deviceScale() { const dpr = self.devicePixelRatio || 1; return dprCap() / Math.max(1, dpr); }
+
   function create(gl, cv, opts) {
     const O = Object.assign({}, PRESET.neon, opts || {});
     const S = { on: false, w: 0, h: 0, sceneTex: null, depth: null, sceneFbo: null,
@@ -229,5 +260,5 @@ window.GfxPost = (function () {
              get opts() { return O; } };
   }
 
-  return { create, PRESET };
+  return { create, PRESET, deviceScale, dprCap };
 })();

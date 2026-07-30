@@ -52,6 +52,8 @@ window.Gfx2D = (function () {
 
     let gl = null, prog = null, quad = null, tex = null, post = null, on = false;
     let W = 0, H = 0;
+    const SCALE = opts.scale != null ? opts.scale
+      : (window.GfxPost && GfxPost.deviceScale ? GfxPost.deviceScale() : 1);
 
     function fail() {
       on = false;
@@ -98,8 +100,13 @@ window.Gfx2D = (function () {
 
     function present() {
       if (!on) return false;
-      const w = src.width | 0, h = src.height | 0;
-      if (!w || !h) return false;
+      const sw = src.width | 0, sh = src.height | 0;
+      if (!sw || !sh) return false;
+      /* Render the GPU layer at the device-appropriate resolution rather than the source's.
+       * CSS stretches it back to full size, so a phone pays for a fraction of the pixels
+       * through every fullscreen pass. The source canvas is untouched — the game keeps
+       * drawing at its own resolution and only the presentation is scaled. */
+      const w = Math.max(2, Math.round(sw * SCALE)), h = Math.max(2, Math.round(sh * SCALE));
       if (w !== W || h !== H) { W = w; H = h; glcv.width = w; glcv.height = h; }
       try {
         gl.bindTexture(gl.TEXTURE_2D, tex);

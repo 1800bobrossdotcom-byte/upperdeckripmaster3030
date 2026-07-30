@@ -332,7 +332,11 @@
   const GPU = (!glReady && window.Gfx2D) ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
   if (glReady) { glcv.style.display='block'; cv.style.background='transparent'; }
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const DPR=Math.min(devicePixelRatio||1,2);
+  /* Backing-store resolution is the dominant cost on a phone: everything the game
+   * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
+   * the one shared policy (touch + small screen + low cores/memory + save-data), so the
+   * games can't drift apart on what counts as a weak device. Desktop is unaffected. */
+  const DPR=Math.min(devicePixelRatio||1,((window.GfxPost&&GfxPost.dprCap)?GfxPost.dprCap():2));
   let W=0,H=0,cx=0,cy=0,SCALE=1;
   const SQUASH=0.72;                                  // top-down table gets a gentle tilt
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));

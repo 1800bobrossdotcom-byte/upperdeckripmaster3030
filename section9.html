@@ -341,7 +341,11 @@
 (() => {
   'use strict';
   const cv=document.getElementById('cv'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
-  const DPR=Math.min(devicePixelRatio||1,1.5);
+  /* Backing-store resolution is the dominant cost on a phone: everything the game
+   * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
+   * the one shared policy (touch + small screen + low cores/memory + save-data), so the
+   * games can't drift apart on what counts as a weak device. Desktop is unaffected. */
+  const DPR=Math.min(devicePixelRatio||1,Math.min(1.5,((window.GfxPost&&GfxPost.dprCap)?GfxPost.dprCap():2)));
   const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;   // respect motion sensitivity (shake/drift)
   let W=0,H=0,HW=0,HH=0,FOCAL=600;
   const NEAR=0.06, FAR=52;

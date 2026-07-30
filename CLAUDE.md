@@ -227,6 +227,17 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   shows), props, ships, bolts, bursts, GfxPost. **M1 OUT / known:** bolt ribbons are
   axis-aligned rather than camera-facing; own-craft placement in chase view needs work; gates
   and rings not drawn yet; no shadows or reflections.
+- **Mobile resolution policy — `GfxPost.dprCap()`:** ONE definition of "weak device" (touch +
+  screen ≤900 + low cores/memory + save-data), used by dogfight, section9, riprocketer and
+  ronin3d as `Math.min(devicePixelRatio, GfxPost.dprCap())`, and by `Gfx2D` via `deviceScale()`.
+  Backing-store resolution is the dominant mobile cost — the game's own rasterisation AND every
+  fullscreen post pass scale with it. Measured under iPhone emulation (390×844 @3):
+  dogfight 4.3→10.9 fps, section9 6.9→11.4, riprocketer 3.1→11.5, ronin 3.4→8.1; worst frame
+  1048ms→368ms. ⚑ **`dprCap` returns an ABSOLUTE cap with a floor of 1, not a multiplier** —
+  the multiplier version multiplied against callers' existing `min(dpr,2)` and pushed the
+  effective ratio to 0.63, i.e. *below one CSS pixel*, which is visibly soft. Never go under 1.
+  ⚠ Those numbers are SwiftShader (software GL in a container), so they are RELATIVE ONLY —
+  a real phone has hardware GL. **Task #73 still needs a real device.**
 - **2D games on the GPU — `js/gfx-2d.js` (`Gfx2D`):** `Gfx2D.attach(canvas,{preset})` +
   `present()` at the end of the draw. The game keeps its 2D draw calls; the canvas is uploaded
   as a texture each frame and presented through `GfxPost`, so it gets bloom/rolloff/dither/
