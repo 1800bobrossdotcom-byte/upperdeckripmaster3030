@@ -4,13 +4,30 @@
 lives in `docs/ECONOMIC-FLOW.md`; this file is the map.*
 
 ## What it is
-A **liquid trading-card game** — one word, on purpose (amplifies the meme + the clearance
-joke; keep the name). ⚑ **NAME LAW (artist directive 2026-07-24): "upperdeckripmaster3030"
-— ONE word, lowercase, EVERYWHERE.** Never "Upperdeck Ripmaster 3030". The Sepolia test
-ERC-20 has the title-case name() baked in (unfixable post-deploy) — the **launch token
-MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (lovebeing / @_lovebeing_)**, SuperRare
-**Liquid Editions — Cohort 01**. Site: **upperdeckripmaster3030.com** (Vercel, deploys from
-`main`).
+A **card and game studio** whose token has staking functionality. Artist: **Gianni Arone
+(lovebeing / @_lovebeing_)**, SuperRare **Liquid Editions — Cohort 01**.
+
+## ⛔ RENAME IN PROGRESS — read before touching the token, the domain, or any copy
+**Artist directive (this session), for LEGAL PROTECTION against Upper Deck (the trading-card
+company). This SUPERSEDES the old "NAME LAW".**
+
+- **Ticker: `$RMS3030`.**
+- **Name: ripmaster studios 3030 — ⚠ EXACT STRING NOT YET CONFIRMED.** The artist wrote
+  `ripmasterstudios3030`; the domain bought is `ripmaster3030studios.com`. Those place "3030"
+  differently. `name()` is **baked in at deploy and unfixable** — this project already owns one
+  token permanently stuck with the wrong name for exactly this reason (Sepolia's edition reads
+  `"Upperdeck Ripmaster 3030"`, title case). **Do not guess, do not infer from the domain.** Get
+  the exact string in writing, hand THAT to SuperRare in writing, re-read `name()` before they
+  broadcast. See task #70.
+- **Host: `ripmaster3030studios.com`**; `upperdeckripmaster3030.com` gets ported or redirected.
+- **SuperRare has confirmed** that `upperdeckripmaster3030` references may REMAIN on the new
+  site. The name change is about the TOKEN and the studio identity, not a scrub of the joke —
+  the artist is designing ripmaster3030studios assets to sit alongside it.
+- ⚠ The old rule ("upperdeckripmaster3030 — one word, lowercase, EVERYWHERE, and the launch
+  token MUST carry it") is **DEAD**. Anything still asserting it is stale; treat it as a bug.
+
+*Historical note, still true and still the reason the joke works:* **upperdeckripmaster3030** is
+one word on purpose — it amplifies the meme and the clearance joke. It stays as flavour.
 
 ## Launch
 - **Target: August 6, 2026 · 11:11 PM ET** (= `2026-08-07T03:11:00Z`, EDT/UTC-4). Full real
@@ -63,9 +80,11 @@ MUST be deployed with name "upperdeckripmaster3030"**. Artist: **Gianni Arone (l
 - Deploy from the **artist's SuperRare-linked wallet** or it won't surface on superrare.com.
 - ✅ **RESOLVED 2026-07-27 — both former blockers are closed:**
   **(a) Deploy path = ASSISTED, via SuperRare.** We do not self-deploy. ⚑ Consequence: the
-  launch token's `name()` is set by whatever WE HAND SUPERRARE, so the string
-  **`upperdeckripmaster3030`** (one word, lowercase) must be given to them in writing and
-  re-checked before they broadcast — it is unfixable post-deploy.
+  launch token's `name()` is set by whatever WE HAND SUPERRARE, and it is unfixable
+  post-deploy. ⛔ **The string is NOT `upperdeckripmaster3030` any more** — see the RENAME
+  section at the top of this file. Ticker `$RMS3030`; the exact `name()` string is still
+  unconfirmed and must come from the artist in writing. Do not hand SuperRare anything until
+  it does.
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
