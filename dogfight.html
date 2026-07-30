@@ -306,10 +306,16 @@
 <script src="js/arena-lobby.js"></script>
 <script src="js/wager-payout.js"></script>
 <script src="js/game-help.js"></script>
+<script src="js/gfx-post.js"></script>
+<script src="js/gfx-2d.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
   const cv=document.getElementById('df'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
+  // GPU presentation: the game still draws in 2D, WebGL grades and blooms the result.
+  // Null if WebGL or GfxPost is unavailable — every call site guards, so the 2D canvas
+  // simply stays visible and dogfight looks exactly as it did.
+  const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const DPR=Math.min(devicePixelRatio||1,2);
   let W=0,H=0,cx=0,cy=0,SCALE=1;
@@ -1149,7 +1155,8 @@
   }
 
   let last=performance.now();
-  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt); if(G.mode!=='lobby')draw(); requestAnimationFrame(frame); }
+  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
+    if(G.mode!=='lobby'){ draw(); if(GPU) GPU.present(); } requestAnimationFrame(frame); }
   loadDeck().then(()=>{ refreshPot(); refreshEth(); });
   if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
     setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }

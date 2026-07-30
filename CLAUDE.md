@@ -213,6 +213,19 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   **0.94 removes 100% of clipping for free** (mean 129.5 vs 128.8 unrolled, contrast 73.2 vs
   73.3); my first guess of 0.62 also removed it but cost **14 luma and 14 contrast**, dimming
   the whole sky instead of the highlights. Lower is not safer, just darker.
+- **2D games on the GPU — `js/gfx-2d.js` (`Gfx2D`):** `Gfx2D.attach(canvas,{preset})` +
+  `present()` at the end of the draw. The game keeps its 2D draw calls; the canvas is uploaded
+  as a texture each frame and presented through `GfxPost`, so it gets bloom/rolloff/dither/
+  unsharp/CA/vignette. Wired into **dogfight, riprocketer and the card-fight** (`js/card-fight.js`).
+  Non-invasive by design: the source canvas keeps its layout and listeners and is only made
+  `opacity:0`; the GL layer sits over it with `pointer-events:none`, so no input code changes.
+  Fails open — no WebGL / no GfxPost / lost context ⇒ source canvas becomes visible again.
+  ⚑ This is GPU **presentation, not geometry** — the CPU still rasterises, so there's no depth,
+  lighting or 3D. True geometry is a renderer rewrite (the ronin3d path), a separate job.
+- ⚑ **`cards/battle.html`'s card UI is DOM/CSS, not canvas** — its only canvas is the decorative
+  `#arenaParticles` sparkle layer. Do NOT "convert the cards to WebGL": the holographic tilt,
+  the vintage torn-paper back and the crisp text are CSS, and WebGL would render them *worse*.
+  The legitimate GPU target in battle is the animated fight canvas in `js/card-fight.js`.
 - ⚠ **Don't trust `drawImage(glCanvas)` for pixel stats.** A WebGL canvas without
   `preserveDrawingBuffer` reads back BLACK outside its own frame — it reported `meanLuma:0` for
   a NEON RONIN frame that was rendering perfectly. Screenshot to judge, `post()` to confirm the

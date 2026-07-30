@@ -199,12 +199,17 @@
   <!-- soundtrack: drop your song in as riprocketer-theme.mp3 at the site root -->
   <audio id="rrMusic" loop preload="none" src="riprocketer-theme.mp3"></audio>
 
+<script src="js/gfx-post.js"></script>
+<script src="js/gfx-2d.js"></script>
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/icons.js"></script>
 <script>
 (() => {
   const cv = document.getElementById('rr'), ctx = cv.getContext('2d');
+  // GPU presentation via the shared post chain; null-guarded, so a WebGL-less browser
+  // just keeps the plain 2D canvas.
+  const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
   const $ = id => document.getElementById(id);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const DPR = Math.min(devicePixelRatio || 1, 2);
@@ -790,7 +795,8 @@
   }
 
   let last=performance.now();
-  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; update(dt); draw(dt); requestAnimationFrame(frame); }
+  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; update(dt); draw(dt);
+    if(GPU) GPU.present(); requestAnimationFrame(frame); }
   requestAnimationFrame(frame);
 })();
 </script>

@@ -116,6 +116,10 @@ window.CardFight = (function () {
     function resize() { const r = arena.getBoundingClientRect(); W = Math.max(240, r.width); H = Math.max(160, r.height);
       cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
     resize(); const onR = () => resize(); window.addEventListener('resize', onR);
+    /* Promote the fight to the GPU: same 2D draw calls, presented through the shared post
+     * chain so the blades/hits/flashes bloom like the 3D games. Null when WebGL or GfxPost
+     * is missing, and every call site guards — the fight then plays exactly as before. */
+    const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon', zIndex: 2 }) : null;
 
     // fighters — one per staked card, alternating fire on a rarity-driven cadence
     const anchor = side => ({ x: side === 'you' ? W * 0.20 : W * 0.80, y: H * 0.52 });
@@ -232,7 +236,8 @@ window.CardFight = (function () {
         if (flash > 0) { ctx.save(); ctx.fillStyle = 'rgba(' + flashCol + ',' + (flash * 0.5).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); ctx.restore(); flash = Math.max(0, flash - dt * 3); }
         if (shake > 0) { const s = shake; arena.style.transform = 'translate(' + ((Math.random() * 2 - 1) * s).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * s * 0.5).toFixed(1) + 'px)'; shake = Math.max(0, shake - dt * 40); if (shake <= 0) arena.style.transform = ''; }
 
-        if (t >= TOTAL) { arena.style.transform = ''; finish(); return; }
+        if (GPU) GPU.present();
+        if (t >= TOTAL) { arena.style.transform = ''; if (GPU) GPU.dispose(); finish(); return; }
         raf = requestAnimationFrame(frame);
       }
       let startT = performance.now();
