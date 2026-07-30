@@ -55,6 +55,14 @@
     <div class="sub">upperdeckripmaster3030 · your deck is the machine</div>
 
     <div class="grid">
+      <a class="cab" href="section9.html">
+        <span class="rr">tactical fps</span>
+        <div class="ic" data-ic="target" data-ic-size="40"></div>
+        <div class="nm">SECTION 9 TASK FORCE</div>
+        <div class="tag">deathmatch · six maps</div>
+        <div class="dsc">The flagship. A <b>tactical shooter</b> across six maps — alleys, cold storage, a night market, an open dust bowl, a subway trench. Rooms, stairs and sightlines; peek the corner, hold the angle. Ante $UR3030 + cards, <b>most frags takes the pot</b>.</div>
+        <span class="play">▶ Play</span>
+      </a>
       <a class="cab" href="riprocketer.html">
         <span class="rr">on-rails</span>
         <div class="ic" data-ic="rocket" data-ic-size="40"></div>
@@ -82,14 +90,6 @@
         <span class="play">▶ Race</span>
       </a>
 
-      <a class="cab" href="ronin.html">
-        <span class="rr">brawler</span>
-        <div class="ic" data-ic="swords" data-ic-size="40"></div>
-        <div class="nm">NEON RONIN</div>
-        <div class="tag">1v1 ninja duel</div>
-        <div class="dsc">A neon rooftop <b>one-on-one duel</b> — <b>punch, kick &amp; katana combos</b>, block the counter, grab power-ups. Big, detailed meme ninjas throw down; <b>certain cards unlock certain fighters</b>. Ante $UR3030 + cards, last blade standing <b>takes the pot</b>.</div>
-        <span class="play">▶ Duel</span>
-      </a>
 
       <a class="cab" href="cards/battle.html">
         <span class="rr">1v1</span>
@@ -100,14 +100,15 @@
         <span class="play">▶ Enter</span>
       </a>
 
-      <span class="cab soon" id="section9">
-        <span class="rr">tactical fps</span>
-        <div class="ic" data-ic="target" data-ic-size="40"></div>
-        <div class="nm">SECTION 9 TASK FORCE</div>
-        <div class="tag">deathmatch · coming soon</div>
-        <div class="dsc">A low-poly tactical shooter — rooms, stairs, snipers, and the same winner-takes-all wagering. Booting up.</div>
-        <span class="play">◷ Soon</span>
-      </span>
+      <a class="cab" href="ronin.html">
+        <span class="rr">workshop</span>
+        <div class="ic" data-ic="swords" data-ic-size="40"></div>
+        <div class="nm">NEON RONIN</div>
+        <div class="tag">1v1 duel · in the workshop</div>
+        <div class="dsc">The katana duel, parked mid-rebuild while its 3D levels and rigged fighters get folded into Section 9. Still playable, still rough. <b>Not the main event any more</b> — come and poke at it.</div>
+        <span class="play">▶ Poke at it</span>
+      </a>
+
     </div>
 
     <div class="foot">Every cabinet runs on your $UR3030 deck · <a href="index.html">rip a pack</a> to load up · <a href="cards/">the deck</a></div>
@@ -118,11 +119,6 @@
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
 <script>
-  // if Section 9 has been deployed, light it up as playable
-  fetch('section9.html', { method:'HEAD' }).then(r=>{ if(r.ok){ const el=document.getElementById('section9');
-    el.className='cab'; el.setAttribute('role','link'); el.style.cursor='pointer';
-    el.querySelector('.tag').textContent='deathmatch · tactical fps';
-    el.querySelector('.play').textContent='▶ Play'; el.onclick=()=>location.href='section9.html'; } }).catch(()=>{});
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
 </script>
 </body>
