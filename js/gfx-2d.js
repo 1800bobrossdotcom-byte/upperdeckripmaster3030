@@ -42,7 +42,9 @@ window.Gfx2D = (function () {
     const glcv = document.createElement('canvas');
     glcv.className = 'gfx2d-layer';
     glcv.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;' +
-      'pointer-events:none;display:block;z-index:' + (opts.zIndex || 3);
+      // `|| 3` would swallow a deliberate zIndex:0 — and 0 is exactly what a background
+      // layer needs, or it stacks over the content it is supposed to sit behind.
+      'pointer-events:none;display:block;z-index:' + (opts.zIndex == null ? 3 : opts.zIndex);
     const host = src.parentElement || document.body;
     // the source must be a positioning context's child for left/top:0 to line up
     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';

@@ -804,6 +804,8 @@
       ownership is a later phase. Only the <b>$UR3030</b> buy &amp; burn are on-chain right now.</div>
   </div>
 </div>
+<script src="js/gfx-post.js"></script>
+<script src="js/gfx-2d.js"></script>
 <script>
 /* pack-modal starfield — the familiar "flying through space" loop, running only while the modal is open */
 (() => {
@@ -811,6 +813,10 @@
   const cv = document.getElementById('packStars');
   if (!modal || !cv) return;
   const ctx = cv.getContext('2d');
+  /* The rip and the reveal are the one place on the site that is pure motion and light, so
+   * they get the GPU pass. zIndex 0 is load-bearing: .pack-stars sits at 0 and .pack-inner at
+   * 1, so the default layer index would bury the revealed cards behind the starfield. */
+  const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon', zIndex: 0 }) : null;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dpr = Math.min(devicePixelRatio || 1, 2), N = 340;
   let stars = [], raf = 0, w = 0, h = 0, cx = 0, cy = 0;
@@ -833,6 +839,7 @@
       ctx.lineWidth = Math.max(0.4, (1 - s.z / w) * 2.6);
       ctx.beginPath(); ctx.moveTo(cx + s.x * pk, cy + s.y * pk); ctx.lineTo(cx + s.x * k, cy + s.y * k); ctx.stroke();
     }
+    if (GPU) GPU.present();
     raf = requestAnimationFrame(frame);
   }
   function start(){ size(); seed(); cancelAnimationFrame(raf); frame(); }
