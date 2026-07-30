@@ -184,3 +184,33 @@ licence here. When you add a model, note it below.
 Baked scenes live in `world/`. Source art is not committed — only the baked
 `.wld` (binary pos3+norm3) and its `.cols.json` AABB set. Re-bake with
 `scripts/bake-world.mjs`.
+
+## Levels — authored in Blender, in code
+
+`npm run level -- arcade|vault|rooftop|all` builds a level and bakes it into `models/world/`.
+Two stages, both pre-existing: `scripts/blender/build-level.py` authors the geometry and writes
+OBJ; `scripts/bake-world.mjs` decimates it, rescales to world units and emits the binary `.wld`
+plus the `.cols.json` AABB set the collider uses.
+
+| level | what it is | objects · tris · size |
+| --- | --- | --- |
+| `arcade` | sunken duel pit ringed by cabinet banks, two mezzanines, a bridge across | 351 · 10.7k · 751 KB |
+| `vault` | auction hall — plinths under glass, balcony ring, oversized vault door | 326 · 6.6k · 466 KB |
+| `rooftop` | water tower, billboard, catwalk to an annex, a skyline you can land on | 145 · 2.9k · 204 KB |
+
+Levels are built **in code, not sculpted**, and that is deliberate: every triangle is generated
+by a script in this repo, so it cannot become a rights problem inside a minted token; a level is
+its script plus a seed, so a variant costs a number rather than a re-export; and we choose the
+tri budget instead of discovering it.
+
+Select one at runtime with `localStorage urm_level` (an unknown name falls back to `street`).
+
+⚑ **Bake authored levels with `--minTris 0`** — bake-world's default drops objects under 40
+triangles as clutter, which is right for a scanned city and catastrophic here: a crate is 12
+triangles and a railing post is 8.
+
+⚠ **Spawn placement is not done.** Loading a `.wld` flips the duel into free-roam world mode,
+and the spawn points are not yet authored per level, so the camera can start inside geometry.
+The levels themselves bake and render correctly; placing spawns on open floor (the way
+`fixSpawns()` does for Section 9, and per that map's lesson — author them, don't rescue them)
+is the next step before these are playable.

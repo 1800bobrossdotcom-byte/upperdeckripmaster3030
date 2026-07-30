@@ -893,9 +893,15 @@
     return true; } catch (e) { return false; } })();
   window.__rnHeavy = HEAVY_OK;
 
-  // WORLD: load the baked city if present — the duel gets a real place to happen in
-  if (HEAVY_OK && r3dOk && window.RoninWorld) RoninWorld.load('models/world/street.wld')
-    .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {});
+  // WORLD: load the baked level if present — the duel gets a real place to happen in.
+  // Levels are built by `npm run level -- <name>` (scripts/blender/build-level.py → .wld);
+  // pick one with localStorage urm_level, and an unknown name just falls back to the street.
+  let LEVEL = 'street';
+  try { LEVEL = (localStorage.getItem('urm_level') || 'street').replace(/[^a-z0-9_-]/gi, ''); } catch (e) {}
+  if (HEAVY_OK && r3dOk && window.RoninWorld) RoninWorld.load('models/world/' + LEVEL + '.wld')
+    .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); })
+    .catch(() => RoninWorld.load('models/world/street.wld')
+      .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {}));
   // SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts
   if (HEAVY_OK && r3dOk) ARCH_KEYS.forEach(k => {
     fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
