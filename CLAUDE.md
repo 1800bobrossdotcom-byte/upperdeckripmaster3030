@@ -11,7 +11,8 @@ A **card and game studio** whose token has staking functionality. Artist: **Gian
 **Artist directive (this session), for LEGAL PROTECTION against Upper Deck (the trading-card
 company). This SUPERSEDES the old "NAME LAW".**
 
-- **Ticker: `$RMS3030`.**
+- **Ticker / `symbol()`: `3030`** (written `$3030`). Confirmed by the artist. Like `name()`,
+  `symbol()` is baked in at deploy — hand SuperRare `3030`, not `RMS3030`, not `$3030`.
 - ✅ **Name: `ripmaster3030studios`** — ONE word, lowercase, 3030 in the MIDDLE. Confirmed by
   the artist after being asked to disambiguate: it matches the domain `ripmaster3030studios.com`.
   ⚠ It is NOT `ripmasterstudios3030` (3030 on the end) — that ordering was written once in
@@ -28,6 +29,30 @@ company). This SUPERSEDES the old "NAME LAW".**
 
 *Historical note, still true and still the reason the joke works:* **upperdeckripmaster3030** is
 one word on purpose — it amplifies the meme and the clearance joke. It stays as flavour.
+
+## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
+**Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**
+Model v2.2 below is stale wherever it says 3,030,000.
+
+⛔ **The deflation story does NOT survive the supply change on its own.** Reran
+`scripts/token-model.mjs` at CAP 33,000,000 with the pack schedule untouched:
+
+| | old (3.03M cap) | new (33M cap), same packs |
+| --- | --- | --- |
+| four-season sellout burn | 2,028,750 | 2,028,750 (unchanged — packs burn tokens, not %) |
+| as % of mint | 67% | **6.1%** |
+| settled float | ~1.01M | **~30.97M** |
+| permanent contraction | **3.0×** | **1.07× — i.e. essentially none** |
+
+The burn is denominated in TOKENS per pack (350 → 1,200 across seasons), so multiplying the cap
+by 10.89 does not multiply the burn. To keep a 3× contraction you must burn ~22M over ~3,560
+packs ≈ **6,180 tokens/pack average, ~11× today's**. At a ~$7 pack that means the token has to
+OPEN about 11× cheaper (P0 ≈ 0.09 RARE rather than 1 RARE), or packs cost far more, or deflation
+stops being the headline. **This is an unmade decision — do not present 3× deflation as fact.**
+
+⚠ `token-model.mjs` currently prints "a 3.0× permanent contraction" at 33M, which is WRONG: it
+derives the float from `LIFETIME_BURN_BUDGET` (an assumption) rather than from what the pack
+schedule actually burns. Fix the script's summary when the new numbers are chosen.
 
 ## Launch
 - **Target: August 6, 2026 · 11:11 PM ET** (= `2026-08-07T03:11:00Z`, EDT/UTC-4). Full real

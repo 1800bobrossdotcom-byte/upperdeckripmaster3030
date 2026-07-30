@@ -28,13 +28,13 @@
 // with SuperRare (see the audit reply + docs/ECONOMIC-FLOW.md).
 
 // ── token assumptions (swap in live values before locking) ──
-const CAP        = 3_030_000;   // maxTotalSupply ($UR3030), minted once, burns permanent
+const CAP        = 33_000_000;   // maxTotalSupply ($UR3030), minted once, burns permanent
 const P0         = 1;           // opening price, RARE per token
 const M          = 10;          // demand multiple = end/start price ("medium-demand", verify via --preview)
 const RARE_USD   = 0.02;        // rough current-era RARE/USD — the whole $ column rides on this
 const SELL_FRAC  = 1.0;         // fraction of cap actually sold on the curve (poolLaunchSupply/cap); verify via --preview
 // ── mint-once burn ceiling (matches scripts/burn-milestones.mjs) ──
-const LIFETIME_BURN_BUDGET = 2_020_000;   // ≈ ⅔ of cap — total permanent burn to retire the whole field
+const LIFETIME_BURN_BUDGET = 22_000_000;   // ≈ ⅔ of cap — total permanent burn to retire the whole field
 const FLOOR_SUPPLY         = CAP - LIFETIME_BURN_BUDGET;   // ≈ 1,010,000 live tokens survive the retirement
 
 // ── pack assumptions (the $7 premium ritual — site-guided buy + burn IN FULL) ──
