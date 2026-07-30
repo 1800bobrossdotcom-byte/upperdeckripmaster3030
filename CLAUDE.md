@@ -173,6 +173,37 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   converts via dave3d/meshconvert. **Only commit geometry the artist owns or that is clearly
   licensed for commercial/NFT use.**) + `js/ronin-gl.js` (2D bloom compositor, the
   fallback path). cards/battle + animated fight `js/card-fight.js`). Reached via `arcade.html`.
+- **FBX in — `scripts/fbx2glb.mjs` (`npm run fbx`), 43 tests `npm run test:fbx`.** Dependency-free
+  FBX reader → GLB/OBJ, so Mixamo drops straight into `models/`. Handles **binary 6.x and 7.x +
+  ASCII**, geometry + per-object names + the full transform chain (pivots, pre/post-rotation,
+  geometric offsets) + Z-up→Y-up. ⚑ **It reads what Blender refuses**: Blender errors
+  *"Version 6100 unsupported, must be 7100 or later"*, and **4 of the artist's 5 Mixamo exports
+  are 6100** — so a rejected FBX is not a broken FBX. Verified two ways: on the one file both
+  tools read, Blender and this agree exactly (1.17×0.63×1.33 m vs 116.78×133.52×62.97, i.e.
+  Blender's cm→m + Y/Z swap); and all five convert → GLB → render correctly in Blender
+  (knight, paladin-in-plate, theBoss all reconstruct cleanly). ⚠ **6.x is a different format,
+  not a version bump**: arrays are thousands of scalar properties (not one typed array), the
+  mesh lives *inside* the `Model` (there is no `Geometry` object), connections link by **name
+  string** not numeric id, and `Properties60` has no flags column so values start one column
+  earlier. ⚠ Skin weights/bones/animation are dropped **on purpose** — `bake-fighter --skin`
+  builds our own 11-bone rig and ronin.js's IK drives every pose; a Mixamo rig would fight it.
+  Download **T-pose, no animation**. ⚠ Mixamo object names often don't describe their contents
+  (one file has the whole armoured body inside an object called `…_Sword`) → `--segment`, don't
+  trust names. `bake-fighter.mjs` now also accepts `.glb` input. **Mixamo licence must be checked
+  before committing** any Adobe stock character; your own uploaded mesh is clean.
+- **Dressing loaded bodies — `Ronin3D.dressLoaded()`.** Loaded/skinned fighters used to draw the
+  bare mesh and nothing else (`drawFighter` returned early, skipping the whole wardrobe), so an
+  imported base being fought naked and unarmed. Now they get boots, belt, bracers, the archetype
+  silhouette (hat/cowl/horns/shell/mask), cloak/scarf and the held weapon — all placed from the
+  **skeleton, not the mesh**, so one implementation fits any body. Default: dress a `.skn` or a
+  single-part model (a bare mannequin), leave a multi-part model alone (the artist already
+  dressed it); override with `{dress:…}`. The weapon is separate and near-always drawn — NEON
+  RONIN is a sword duel, an unarmed fighter reads as a bug. `drawWeapon` was lifted out of
+  `drawFighter` so both paths share one definition (procedural path verified unchanged).
+  ⚠ **This whole path is gated OFF today**: `js/ronin.js` loads `.skn`/`.glb` only when
+  `HEAVY_OK`, which requires the **shelved** world flag `localStorage urm_world='1'` AND a
+  non-mobile device budget. Models in `models/` therefore don't appear in the shipping duel.
+  ⚑ `.skn` files are heavy (`ronin.skn` is 5.7 MB) — that gate is also the mobile protection.
   **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
   overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
   **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target

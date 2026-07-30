@@ -328,19 +328,26 @@ window.Ronin3D = (function () {
       for (let i = 0; i < src.length; i++) { const m = src[i], key = 'mdl:' + arch + ':' + i;
         const verts = (morph && window.RoninMorph) ? RoninMorph.apply(m.verts, morph) : m.verts;
         mesh(key, verts); parts.push({ key, joint: src.length === 1 ? 'body' : jointFor(m.name), name: m.name }); }
-      models[arch] = { parts, scale, footY: lo };
+      /* Dress a single-part model by default and leave a multi-part one alone: one unnamed mesh
+       * is a bare body that needs a costume, whereas an artist who split and named their parts
+       * has already dressed it, and stacking a straw hat on a helmet reads as a bug. Override
+       * either way with opt.dress. Likewise, only hand it a sword if it didn't bring one. */
+      const dress = (opt && typeof opt.dress === 'boolean') ? opt.dress : (src.length === 1);
+      models[arch] = { parts, scale, footY: lo, dress, armed: parts.some(p => p.joint === 'sword') };
       return true;
     } catch (e) { return false; }
   }
   function hasModel(arch) { return !!models[arch]; }
   const BONE_ORDER = ['pelvis','chest','head','armF0','armF1','armB0','armB1','legF0','legF1','legB0','legB1'];
   const BONE_CHILD = { pelvis:'chest', chest:'head', head:null, armF0:'armF1', armF1:'armF2', armB0:'armB1', armB1:'armB2', legF0:'legF1', legF1:'legF2', legB0:'legB1', legB1:'legB2' };
-  function registerSkin(arch, verts, count) {
+  function registerSkin(arch, verts, count, opt) {
     if (!ok) return false;
     try { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
       // bind-space bounds so the mesh can be fitted to the skeleton
       let lo=1e9, hi=-1e9; for (let i=1;i<verts.length;i+=14){ const y=verts[i]; if(y<lo)lo=y; if(y>hi)hi=y; }
-      skins[arch] = { buf:b, count, lo, hi, h:(hi-lo)||1 }; return true; } catch(e){ return false; }
+      // a .skn is one auto-skinned body by construction, so it wants the costume unless told otherwise
+      const dress = (opt && typeof opt.dress === 'boolean') ? opt.dress : true;
+      skins[arch] = { buf:b, count, lo, hi, h:(hi-lo)||1, dress }; return true; } catch(e){ return false; }
   }
   function hasSkin(arch) { return !!skins[arch]; }
   // Build the joint palette: for each bone, the transform taking its BIND segment onto the
@@ -387,6 +394,7 @@ window.Ronin3D = (function () {
     gl.drawArrays(gl.TRIANGLES, 0, sk.count);
     gl.disableVertexAttribArray(2); gl.disableVertexAttribArray(3);
     gl.useProgram(litProg); curMesh='';
+    dressLoaded(fm, f, K, a, dk, sk.dress);          // costume + weapon ride the skeleton, not the mesh
   }
   /* Baked city world (see scripts/bake-world.mjs). Uploaded once, drawn as one opaque batch. */
   let worldMesh = null;
@@ -439,6 +447,7 @@ window.Ronin3D = (function () {
       draw(p.key, M.mul(fm, local), col, 0, a);
     }
     _mat = 0;
+    if (md.dress || !md.armed) dressLoaded(fm, f, K, a, dk, md.dress);
   }
 
   function drawFighter(f, mirror) {
@@ -502,7 +511,14 @@ window.Ronin3D = (function () {
     beam(fm, K.armF[0], K.armF[1], 7.2, ARM, 0, a); ball(fm, K.armF[1], 6, ARM, 0, a); beam(fm, K.armF[1], K.armF[2], 5.4, ARM, 0, a);
     _mat = 0; orb(fm, K.sword.hand.x - 4, K.sword.hand.y - 4, 0, 10, 10, 10, GLOVE, 0.08, a);   // bracer
     drawHand(fm, K.sword.hand, { x: K.sword.tip.x - K.sword.hand.x, y: K.sword.tip.y - K.sword.hand.y }, GLOVE, dk, a, false);
-    // ── weapon: a HELD hilt (pommel + wrapped grip through the fist + tsuba) with the blade emerging above the guard ──
+    drawWeapon(fm, f, K, a, dk);
+    if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
+    meshVar = '';
+  }
+  // ── weapon: a HELD hilt (pommel + wrapped grip through the fist + tsuba) with the blade emerging above the guard ──
+  // Lifted out of drawFighter so the loaded-model and skinned paths can arm their fighters too;
+  // an imported character otherwise duels bare-handed in a game that is entirely about the sword.
+  function drawWeapon(fm, f, K, a, dk) {
     const wm = bladeMat(f); const sh = K.sword.hand, tp = K.sword.tip, bl = Math.hypot(tp.x - sh.x, tp.y - sh.y) || 1, dx = (tp.x - sh.x) / bl, dy = (tp.y - sh.y) / bl;
     if (f.arch === 'oni') {                                                                          // spiked club: shaft gripped, head at the top
       _mat = 2; const pom = { x: sh.x - dx * 8, y: sh.y - dy * 8 };
@@ -517,8 +533,40 @@ window.Ronin3D = (function () {
       _mat = wm; beam(fm, bstart, tp, (f.glow > 0 || wm === 6) ? 4.5 : 3.2, wm === 6 ? blCol : sc(blCol, dk), wm === 6 ? 0.55 : 0.4, a);   // blade above the fist
     }
     _mat = 0;
+  }
+
+  /* ── dress a loaded body ──────────────────────────────────────────────────────────────────
+   * The rigid-part and skinned paths draw the imported mesh and nothing else, so a character
+   * brought in from Mixamo or a sculpted base mesh fought naked and unarmed while the
+   * procedural fighters beside it wore a full costume. This puts the same wardrobe on it.
+   *
+   * Every piece here is placed from the SKELETON, never from the mesh, which is what lets one
+   * implementation fit any body — a 2k-tri base being, a 13k-tri suit of plate, or the
+   * procedural fighter. Boots ride the foot joints, the belt the pelvis, bracers the wrists,
+   * and the archetype's own silhouette (straw hat, cowl, horns, shell, mask, cloak, scarf)
+   * comes from the same archHead/archBack the procedural path uses.
+   *
+   * `garments` is opt-out because dressing is not always wanted: a model the artist authored
+   * as separate named parts is already costumed, and stacking a haori on a suit of armour
+   * looks like a bug. See the default chosen in registerModel/registerSkin. */
+  function dressLoaded(fm, f, K, a, dk, garments) {
+    const g = garbOf(f), tint = sc(hex(f.tint), dk);
+    if (garments) {
+      const BOOT = sc(hex(g.boot), dk), GLOVE = sc(hex(g.glove), dk), TRIM = sc(hex(g.trim), dk);
+      archBack(fm, f, K, sc(hex(f.col), dk), tint, a, dk);                                   // cloak / scarf, behind the torso
+      _mat = 1;
+      bit(fm, K.legF[2].x + 3, K.legF[2].y + 2, 24, 7, 14, BOOT, 0.1, a);                    // boots over the feet
+      bit(fm, K.legB[2].x + 2, K.legB[2].y + 2, 22, 7, 13, sc(BOOT, 0.9), 0.1, a);
+      ball(fm, K.legF[2], 6.4, BOOT, 0.05, a); ball(fm, K.legB[2], 6, sc(BOOT, 0.9), 0.05, a);
+      bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a);                         // belt / obi
+      _mat = 0;
+      orb(fm, K.armB[2].x - 3, K.armB[2].y - 3, 0, 9, 9, 9, sc(GLOVE, 0.9), 0.08, a);        // bracers
+      orb(fm, K.sword.hand.x - 4, K.sword.hand.y - 4, 0, 10, 10, 10, GLOVE, 0.08, a);
+      archHead(fm, f, K, tint, a, dk);                                                        // hat / hood / horns / shell / mask
+    }
+    drawWeapon(fm, f, K, a, dk);
     if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
-    meshVar = '';
+    _mat = 0;
   }
   function archHead(fm, f, K, tint, a, dk) {
     const art = (f.a && f.a.face) || '', h = K.head;

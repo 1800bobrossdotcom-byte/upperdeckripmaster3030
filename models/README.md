@@ -32,8 +32,83 @@ A `.glb` containing a **single unnamed mesh** is treated as one whole-body part 
 feet. It will render, but it will stand rigid — it can't articulate, because there's nothing to
 attach to separate joints. Split the model into the parts above to get it moving.
 
+## Dressing a loaded body
+
+A loaded model draws only the mesh you gave it, so a bare base being would otherwise fight naked
+and unarmed next to fully-costumed procedural fighters. `Ronin3D` now puts the archetype's
+wardrobe on it: boots, belt, bracers, the silhouette piece (ronin straw hat, doomer cowl, oni
+horns, kappa shell, kunoichi mask), the cloak/scarf, and the held weapon. Every piece is placed
+from the **skeleton**, not the mesh, so one implementation fits any body.
+
+The default is chosen from the model itself, and is overridable:
+
+| model | dressed by default | why |
+| --- | --- | --- |
+| `.skn` (auto-skinned) | **yes** | a baked skin is one unified body — a bare mannequin |
+| `.glb`/`.obj`, one part | **yes** | same: an undivided body with no costume of its own |
+| `.glb`/`.obj`, many named parts | **no** | you split and named it, so you already dressed it |
+
+```js
+Ronin3D.registerModel('ronin', parsed, { dress: false });   // it came with its own armour
+Ronin3D.registerSkin('ronin', verts, count, { dress: false });
+```
+
+The weapon is separate from `dress`: a fighter always gets one unless the model supplies a part
+that attaches to the `sword` joint. NEON RONIN is a sword duel — an unarmed fighter reads as a
+bug, not as a style.
+
+⚠ **This path is currently gated off.** `js/ronin.js` loads `.skn`/`.glb` fighters only when
+`HEAVY_OK` is true, and `HEAVY_OK` requires the **shelved** free-roam world flag
+(`localStorage urm_world='1'`) *and* a non-mobile device budget. So models in this folder do not
+appear in the shipping duel today. Opt in with that flag to develop against them.
+
 The model is **auto-scaled** so its total height matches the fighter (~150 skeleton units), so
 you can author at any scale. Y-up, facing +X.
+
+## FBX and Mixamo
+
+FBX is not read by the game at runtime, but `scripts/fbx2glb.mjs` converts it here, with no
+dependency and no Blender round-trip:
+
+```bash
+npm run fbx -- character.fbx --list              # what's inside: parts, tri counts, sizes
+npm run fbx -- character.fbx models/ronin.glb    # → GLB for the renderer
+npm run fbx -- character.fbx build/ronin.obj     # → OBJ, if you want to edit it first
+```
+
+It reads binary FBX (6.x and 7.x) and ASCII FBX, and brings across geometry, per-object names,
+the full transform chain (pivots, pre/post-rotation, geometric offsets) and a Z-up → Y-up
+correction. Verified against the artist's five Mixamo exports plus 43 tests (`npm run test:fbx`).
+
+⚑ **It reads files Blender cannot.** Blender refuses FBX 6100 outright — *"Version 6100
+unsupported, must be 7100 or later"* — and four of those five Mixamo characters are 6100. If
+Blender rejects an FBX, try this first rather than assuming the file is broken.
+
+**Download from Mixamo in T-pose with no animation.** Skin weights, bones and animation clips
+are deliberately dropped: the game builds its own 11-bone rig (`bake-fighter.mjs --skin`) and
+every pose comes from ronin.js's IK, so an imported rig would fight it rather than help. The
+mesh is the part worth having.
+
+A Mixamo character usually arrives as one mesh (or as material-grouped objects whose names do
+*not* describe what they contain — one of the five has the whole armoured body inside an object
+called `…_Sword`). Names like that will attach to the wrong joint, so segment instead:
+
+```bash
+npm run bake:fighter -- models/ronin.glb models/ronin.obj --segment --skin models/ronin.skn
+```
+
+`bake-fighter` takes `.glb` as well as `.obj`, decimates, splits a unified body into
+joint-named anatomy, and writes the skinned `.skn`.
+
+### Licensing Mixamo assets — check before committing
+
+Adobe's Mixamo terms permit use in projects but restrict redistributing the assets themselves,
+and these models ship inside a publicly-minted art token. Two very different cases:
+
+- **You uploaded your own character to Mixamo for auto-rigging** — clean. The mesh is yours;
+  Mixamo only rigged it. Record it in the table below and go.
+- **You downloaded one of Adobe's stock characters** — verify Adobe's current terms first. Do
+  not commit it on the assumption that it's fine.
 
 ## Authoring → GLB
 

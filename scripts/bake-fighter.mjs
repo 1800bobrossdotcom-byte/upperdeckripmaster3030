@@ -26,8 +26,8 @@ import { fileURLToPath } from 'url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shim = { window: {} };
 const load = f => new Function('window', readFileSync(join(ROOT, 'js', f), 'utf8'))(shim.window);
-load('ronin-obj.js');
-const { RoninOBJ } = shim.window;
+load('ronin-obj.js'); load('ronin-glb.js');
+const { RoninOBJ, RoninGLB } = shim.window;
 
 const argv = process.argv.slice(2);
 if (argv.length < 2) { console.error('usage: bake-fighter.mjs <in.obj> <out.obj> [--grid 0.01] [--segment] [--scale 1]'); process.exit(1); }
@@ -39,7 +39,13 @@ const PROP_RE = /floor|ground|plane|backdrop|stage|pedestal|light|camera|helper/
 const JOINT_RE = /head|chest|torso|pelvis|hip|arm|forearm|hand|glove|leg|thigh|shin|calf|knee|foot|boot|uniform|jacket|body|helmet|sword|blade/;
 
 console.log('reading', basename(inPath));
-const parsed = RoninOBJ.parse(readFileSync(inPath, 'utf8'));
+/* Accept .glb as well as .obj so the whole chain speaks one format: an FBX from Mixamo or a
+ * .blend export becomes a GLB (scripts/fbx2glb.mjs, or Blender), and that GLB feeds straight
+ * in here without a detour through OBJ. Both are read by the game's own loaders, so whatever
+ * bakes correctly here is by construction what the renderer will see. */
+const parsed = /\.glb$/i.test(inPath)
+  ? RoninGLB.parse((b => b.buffer.slice(b.byteOffset, b.byteOffset + b.length))(readFileSync(inPath)))
+  : RoninOBJ.parse(readFileSync(inPath, 'utf8'));
 let meshes = parsed.meshes.filter(m => !PROP_RE.test(m.name));
 console.log(`parsed: ${meshes.length} parts · ${meshes.reduce((s,m)=>s+m.count/3,0)|0} tris`);
 
@@ -128,8 +134,8 @@ console.log(`wrote ${outPath} — ${meshes.length} parts · ${keptTris} tris · 
  * Blender's automatic weights). Vertices near a joint get blended influence from both bones,
  * which is exactly what makes an elbow bend smoothly instead of hinging open.
  *
- * Emits a .skn binary: [pos3, norm3, idx4, wgt4] per vertex, stride 48 bytes.
- * Run with --skin <out.skn>.
+ * Emits a .skn binary: [pos3, norm3, idx4, wgt4] per vertex — 14 floats, stride 56 bytes, which
+ * is exactly the stride js/ronin3d.js drawSkinned() binds. Run with --skin <out.skn>.
  */
 export function bakeSkin(meshes, outFile) {
   // bones in NORMALISED body space (x lateral -0.5..0.5, y 0 feet → 1 crown, z depth)
