@@ -235,6 +235,18 @@ tri budget instead of discovering it.
 
 Select one at runtime with `localStorage urm_level` (an unknown name falls back to `street`).
 
+**Section 9 loads all three as arenas**, appended to its ARENA chip row after the six hand-built
+maps (`js/section9-world.js`). The adapter maps `.cols.json` boxes onto `MAP.solids` — so the
+collision the game runs is the same AABB set `npm run level` validated — and hands the `.wld`
+triangles to the GL renderer to draw. `street.wld` is deliberately NOT offered: it carries no
+authored spawns and its vertex buffer contains NaNs, so it is a scene, not an arena.
+
+⚑ **A baked object's NAME is all the material information there is.** A `.wld` has no UVs, no
+materials and no vertex colour, so both renderers guess: GL splits triangles by face normal
+(up-facing → floor texture, else wall) and Section 9's 2D fallback colours each box by a kind
+inferred from its name (`*_step` → stair, `para|rail|sill` → cover, and so on). Name level
+objects for what they ARE and they will look right for free.
+
 ⚑ **Bake authored levels with `--minTris 0`** — bake-world's default drops objects under 40
 triangles as clutter, which is right for a scanned city and catastrophic here: a crate is 12
 triangles and a railing post is 8.

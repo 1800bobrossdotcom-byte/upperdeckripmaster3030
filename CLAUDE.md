@@ -342,6 +342,29 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   mezzanine; pillar runs to peek between) · **NIGHT MARKET** (shelf aisles make a grid of
   corridors, so every fight is a corner fight; checkouts are the one open room). Picked in the
   lobby's ARENA chip row, or ROTATE.
+- **Section 9 also loads BAKED levels — `js/section9-world.js` (`S9World`), phase 1 of the port.**
+  ARCADE PIT · THE VAULT · ROOFTOP are `models/world/*.wld` + `.cols.json` (`npm run level`),
+  appended to the arena chips after the six built-ins. ⚑ **This is an adapter, not a renderer
+  rewrite, and the bet held**: a Section 9 map already IS boxes-with-AABBs, so `.cols.json` boxes
+  become `MAP.solids` (collision, raycast, AI line-of-sight, 2D fallback all untouched) and the
+  `.wld` triangle soup becomes `MAP.mesh`, which is the only thing that changed — what GL draws.
+  A `.wld` has no UVs/materials/vertex colour, so `GLR` derives all three per triangle from the
+  face normal (up-facing → floor texture, else wall; planar UV on the dominant axis). The
+  `.wld` parser is **`RoninWorld.load()` reused** — one format, one parser; Section 9 uses none
+  of RoninWorld's movement model and copes with the file being absent.
+  **Fails open at every step**: no RoninWorld, no fetch, no boxes, no spawns ⇒ that level is one
+  chip that never appears and the six built-ins ship exactly as before (verified by aborting all
+  `models/world/*` requests). ROTATE deliberately still cycles the six only — `MAPS` grows
+  asynchronously, so anything modulo `MAPS.length` would depend on network timing.
+- ⚑ **A baked level's floor is not y=0.** The arcade pit floor tops out at 1.05, the vault at
+  1.19, the rooftop deck at **11.79** — so `MAP.spawns` is now `[x, z, y]` (`y` optional; the six
+  built-ins stay `[x, z]` and behave identically). `supportY()` only sees a surface you could step
+  onto from where you already are, so a spawn's y must be seeded BEFORE asking it (`dropAt()`) or
+  you drop in underneath the level; `spawnYaw()` likewise sweeps at `y + 1.52`, not 1.52.
+  `fixSpawns()` is skipped for baked levels — they are validated against this same box set at
+  bake time, and its rescue spiral searches x/z only, which on a level with floors at three
+  different heights lands you in mid-air. Re-checked all 21 baked spawns against Section 9's own
+  (tighter) collider — r 0.42 / h 1.72 / step 0.62 vs the bake's 0.55 / 2.1 / 0.9 — 21/21 clear.
 - ⚑ **Authored spawns, not rescued ones.** `fixSpawns()` relocating a spawn is a safety net,
   not a design: DUST BOWL first shipped with 7 of 10 relocated because the stands step inward
   to |x|≈16.2 and the spawns sat at ±19. Re-authored to 1. If a new map relocates more than a
