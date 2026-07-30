@@ -26,14 +26,21 @@ import { fileURLToPath } from 'url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shim = { window: {} };
 const load = f => new Function('window', readFileSync(join(ROOT, 'js', f), 'utf8'))(shim.window);
-load('ronin-obj.js'); load('ronin-glb.js');
-const { RoninOBJ, RoninGLB } = shim.window;
+load('ronin-obj.js'); load('ronin-glb.js'); load('ronin-morph.js');
+const { RoninOBJ, RoninGLB, RoninMorph } = shim.window;
 
 const argv = process.argv.slice(2);
-if (argv.length < 2) { console.error('usage: bake-fighter.mjs <in.obj> <out.obj> [--grid 0.01] [--segment] [--scale 1]'); process.exit(1); }
+if (argv.length < 2) { console.error('usage: bake-fighter.mjs <in.obj> <out.obj> [--grid 0.01|--detail 3] [--segment] [--scale 1] [--ops a,b] [--morph slug] [--amt 0.55]'); process.exit(1); }
 const inPath = argv[0], outPath = argv[1];
 const flag = (n, d) => { const i = argv.indexOf('--' + n); return i > 0 ? parseFloat(argv[i + 1]) : d; };
-const GRID = flag('grid', 0.01), SCALE = flag('scale', 1);
+let GRID = flag('grid', 0.01); const SCALE = flag('scale', 1);
+/* `--detail <pct>` sets the decimation cell as a percentage of the model's own height, which
+ * is what you actually mean: the same number then gives the same visual fidelity on any source.
+ * An absolute --grid cannot — models/ronin.obj stands 9.83 units tall and models/oni.obj 2.24,
+ * so a single grid of 0.3 is a reasonable 3% on one and a silhouette-destroying 13% on the
+ * other (it collapsed a 13k-tri body to 1,065 vertices). Resolved after the parse, once the
+ * height is known. */
+const DETAIL = flag('detail', 0);
 const forceSeg = argv.includes('--segment');
 const PROP_RE = /floor|ground|plane|backdrop|stage|pedestal|light|camera|helper/;
 const JOINT_RE = /head|chest|torso|pelvis|hip|arm|forearm|hand|glove|leg|thigh|shin|calf|knee|foot|boot|uniform|jacket|body|helmet|sword|blade/;
@@ -48,6 +55,42 @@ const parsed = /\.glb$/i.test(inPath)
   : RoninOBJ.parse(readFileSync(inPath, 'utf8'));
 let meshes = parsed.meshes.filter(m => !PROP_RE.test(m.name));
 console.log(`parsed: ${meshes.length} parts · ${meshes.reduce((s,m)=>s+m.count/3,0)|0} tris`);
+
+/* ── optional seeded remodel ──────────────────────────────────────────────────────────────
+ * Distort the body BEFORE segmenting and skinning, so the anatomy split and the bone weights
+ * both describe the shape that actually ships. Morphing afterwards would weight a body that no
+ * longer exists, and the elbows would bend around the wrong places.
+ *
+ * The seed IS the identity: `--morph kappa-drift` always yields the same creature, so one
+ * source body can fill several archetype slots as distinct fighters, reproducibly, and a kept
+ * variant needs no archiving beyond its name.
+ *
+ * ⚠ Distortion changes the shape, not the ownership. A morphed copyrighted model is still a
+ * derivative work — run this on geometry you own or that is clearly licensed. */
+const sflag = (n) => { const i = argv.indexOf('--' + n); return i > 0 ? argv[i + 1] : null; };
+const morphSlug = sflag('morph');
+const opList = sflag('ops');
+if (morphSlug || opList) {
+  const amt = flag('amt', 0.55);
+  // `--ops` states the character outright; `--morph <slug>` draws it from the slug's hash.
+  // The archetypes have defined identities (kappa is squat and shelled, doomer lanky and
+  // hooded, prizm crystalline), so those are authored with --ops rather than hunted for by
+  // trying slugs until one happens to land.
+  const m = opList
+    ? { seed: RoninMorph.hashStr(morphSlug || opList), ops: opList.split(',').map(o => ({ op: o.trim(), amt })) }
+    : RoninMorph.fromSlug(morphSlug, amt);
+  const unknown = m.ops.filter(o => !RoninMorph.OP_NAMES.includes(o.op)).map(o => o.op);
+  if (unknown.length) { console.error(`unknown morph op(s): ${unknown.join(', ')}\nhave: ${RoninMorph.OP_NAMES.join(', ')}`); process.exit(1); }
+  meshes = meshes.map(x => ({ ...x, verts: RoninMorph.apply(x.verts, m) }));
+  console.log(`morphed ${morphSlug ? '"' + morphSlug + '" ' : ''}→ seed ${m.seed} · ${m.ops.map(o => o.op + '@' + o.amt.toFixed(2)).join(' + ')}`);
+}
+
+if (DETAIL > 0) {
+  let lo = 1e9, hi = -1e9;
+  for (const m of meshes) for (let i = 1; i < m.verts.length; i += 6) { if (m.verts[i] < lo) lo = m.verts[i]; if (m.verts[i] > hi) hi = m.verts[i]; }
+  GRID = Math.max(1e-6, (hi - lo) * DETAIL / 100);
+  console.log(`detail ${DETAIL}% of ${(hi - lo).toFixed(2)} height → grid ${GRID.toFixed(4)}`);
+}
 
 // ── decimate: cluster vertices onto a grid, drop triangles that collapse ──
 function decimate(verts, cell) {

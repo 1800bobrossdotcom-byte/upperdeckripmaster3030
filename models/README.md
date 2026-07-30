@@ -180,6 +180,36 @@ licence here. When you add a model, note it below.
 | `world/street.wld` (+ `.cols.json`) | "street" / `chinese build` scene OBJ, supplied by the artist | Cleared for use by the artist, 2026-07-25 |
 | `ronin.obj` (TOON TROOPER) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
 | `oni.obj` (Mom) | supplied by the artist | Cleared for use by the artist, 2026-07-25 |
+| `ronin.skn`, `doomer.skn`, `kunoichi.skn` | derived from `ronin.obj` (see below) | inherits that clearance |
+| `oni.skn`, `kappa.skn`, `prizm.skn` | derived from `oni.obj` (see below) | inherits that clearance |
+
+## Remodelling — one body, several fighters
+
+`bake-fighter --ops <a,b,c> --amt <n>` distorts the mesh **before** segmenting and skinning, so
+the anatomy split and the bone weights both describe the shape that ships. (Morphing afterwards
+would weight a body that no longer exists and the elbows would bend around the wrong places.)
+The seed is the identity, so a variant is reproducible from its command alone.
+
+All six archetypes are currently derived from the two cleared sources:
+
+| archetype | source | ops | size |
+| --- | --- | --- | --- |
+| `ronin` | `ronin.obj` | — (the original) | 2.5 MB |
+| `doomer` | `ronin.obj` | `taper,stretch,sag` @0.55 | 1.1 MB |
+| `kunoichi` | `ronin.obj` | `taper,twist` @0.45 | 1.4 MB |
+| `oni` | `oni.obj` | — (the original) | 0.9 MB |
+| `kappa` | `oni.obj` | `inflate,bulge,sag` @0.60 | 0.7 MB |
+| `prizm` | `oni.obj` | `shatter,spike,kaleido` @0.50 | 0.7 MB |
+
+⚑ **Use `--detail <pct>`, not `--grid`.** Detail sets the decimation cell as a percentage of the
+model's own height, so one number means the same fidelity on any source. An absolute grid cannot:
+`ronin.obj` stands 9.83 units tall and `oni.obj` 2.24, so a single `--grid 0.3` is a sane 3% on
+one and a silhouette-destroying 13% on the other — it collapsed a 13k-triangle body to 1,065
+vertices before this was fixed.
+
+⚠ **Distortion changes the shape, not the ownership.** A morphed copyrighted model is still a
+derivative work — remodelling is an art tool here, not a rights tool. Every entry above inherits
+a clearance that already existed; anything new needs its own row before it is committed.
 
 Baked scenes live in `world/`. Source art is not committed — only the baked
 `.wld` (binary pos3+norm3) and its `.cols.json` AABB set. Re-bake with
