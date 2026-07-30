@@ -183,18 +183,27 @@ console.log(`wrote ${outPath} — ${meshes.length} parts · ${keptTris} tris · 
 export function bakeSkin(meshes, outFile) {
   // bones in NORMALISED body space (x lateral -0.5..0.5, y 0 feet → 1 crown, z depth)
   // index order must match JOINT_ORDER consumed by the renderer.
+  /* [name, segment start, segment end, influence radius, side]
+   * The radius gives each bone COMPACT SUPPORT — weight falls to exactly zero at the edge
+   * instead of merely getting small. The first version used 1/d^4 over the four nearest bones
+   * with no cutoff, so every vertex was partly owned by four bones no matter how far away they
+   * were; a shoulder took chest + both arms at once and the mesh smeared into a soft mass the
+   * moment anything moved. Thin limbs get a tight radius, the torso a wide one.
+   * `side` is +1 for the front-side limbs and -1 for the back-side ones (the rig calls the two
+   * sides front/back); 0 is central. It exists to stop one arm's bone reaching across the body
+   * and dragging the other arm's vertices with it. */
   const B = [
-    ['pelvis',  [0, 0.50, 0], [0, 0.62, 0]],
-    ['chest',   [0, 0.62, 0], [0, 0.84, 0]],
-    ['head',    [0, 0.84, 0], [0, 0.97, 0]],
-    ['armF0',   [ 0.10, 0.80, 0], [ 0.26, 0.79, 0]],
-    ['armF1',   [ 0.26, 0.79, 0], [ 0.40, 0.78, 0]],
-    ['armB0',   [-0.10, 0.80, 0], [-0.26, 0.79, 0]],
-    ['armB1',   [-0.26, 0.79, 0], [-0.40, 0.78, 0]],
-    ['legF0',   [ 0.07, 0.48, 0], [ 0.07, 0.26, 0]],
-    ['legF1',   [ 0.07, 0.26, 0], [ 0.07, 0.04, 0]],
-    ['legB0',   [-0.07, 0.48, 0], [-0.07, 0.26, 0]],
-    ['legB1',   [-0.07, 0.26, 0], [-0.07, 0.04, 0]],
+    ['pelvis',  [0, 0.50, 0], [0, 0.62, 0],       0.13,  0],
+    ['chest',   [0, 0.62, 0], [0, 0.84, 0],       0.15,  0],
+    ['head',    [0, 0.84, 0], [0, 0.97, 0],       0.11,  0],
+    ['armF0',   [ 0.10, 0.80, 0], [ 0.26, 0.79, 0], 0.075,  1],
+    ['armF1',   [ 0.26, 0.79, 0], [ 0.40, 0.78, 0], 0.065,  1],
+    ['armB0',   [-0.10, 0.80, 0], [-0.26, 0.79, 0], 0.075, -1],
+    ['armB1',   [-0.26, 0.79, 0], [-0.40, 0.78, 0], 0.065, -1],
+    ['legF0',   [ 0.07, 0.48, 0], [ 0.07, 0.26, 0], 0.090,  1],
+    ['legF1',   [ 0.07, 0.26, 0], [ 0.07, 0.04, 0], 0.080,  1],
+    ['legB0',   [-0.07, 0.48, 0], [-0.07, 0.26, 0], 0.090, -1],
+    ['legB1',   [-0.07, 0.26, 0], [-0.07, 0.04, 0], 0.080, -1],
   ];
   let total = 0; for (const m of meshes) total += m.verts.length;
   const all = new Float32Array(total); { let o = 0; for (const m of meshes) { all.set(m.verts, o); o += m.verts.length; } }
@@ -202,24 +211,62 @@ export function bakeSkin(meshes, outFile) {
   for (let i=0;i<all.length;i+=6) for(let c=0;c<3;c++){ const v=all[i+c]; if(v<lo[c])lo[c]=v; if(v>hi[c])hi[c]=v; }
   const sx=(hi[0]-lo[0])||1, sy=(hi[1]-lo[1])||1, cxm=(lo[0]+hi[0])/2;
   // squared distance from a normalised point to a bone segment
+  /* Distance to a bone segment, in fractions of BODY HEIGHT.
+   * The normalised space is anisotropic on purpose — x and z are divided by the body's width so
+   * the bone table lines up with a T-pose, y by its height — so raw distances in it are not
+   * comparable between axes (ronin.obj is 13.64 wide and 9.83 tall, a 1.39 aspect). Scaling each
+   * axis back to world units and then dividing by height makes one radius mean one thing. */
+  const AX = sx / sy;                                       // x,z were divided by width, y by height
   const segD = (p, a, b) => { const ux=b[0]-a[0], uy=b[1]-a[1], uz=b[2]-a[2];
     const wx=p[0]-a[0], wy=p[1]-a[1], wz=p[2]-a[2];
     const uu=ux*ux+uy*uy+uz*uz || 1e-9; let t=(wx*ux+wy*uy+wz*uz)/uu; t=t<0?0:t>1?1:t;
-    const dx=wx-ux*t, dy=wy-uy*t, dz=wz-uz*t; return dx*dx+dy*dy+dz*dz; };
+    const dx=(wx-ux*t)*AX, dy=wy-uy*t, dz=(wz-uz*t)*AX; return dx*dx+dy*dy+dz*dz; };
   const n = all.length/6;
   const out = new Float32Array(n*14);
+  /* AUTO-FIT the influence radius.
+   * The right radius depends on the mesh's proportions, and a hand-picked constant that suits
+   * one body starves another: the first fixed table left 32.6% of ronin's vertices outside every
+   * bone, snapped rigidly to their nearest one, which is what produced the stretched spikes —
+   * a triangle with two corners welded to bones that then move apart. Rather than guess per
+   * model, widen the radii until nearly every vertex is properly blended. */
+  let K = 1, fallback = 0, infl = 0;
+  for (let attempt = 0; attempt < 9; attempt++) {
+    fallback = 0; infl = 0;
+    weigh(K);
+    if (fallback / n <= 0.02) break;
+    K *= 1.3;
+  }
+  console.log(`  weights: radius x${K.toFixed(2)} · ${(100*fallback/n).toFixed(1)}% rigid-snapped · ${(infl/n).toFixed(2)} influences/vertex`);
+
+  function weigh(K) {
   for (let v=0; v<n; v++) {
     const i=v*6;
     const P=[ (all[i]-cxm)/sx, (all[i+1]-lo[1])/sy, (all[i+2]-(lo[2]+hi[2])/2)/sx ];
     const sc=[];
-    for (let b=0;b<B.length;b++){ const d=Math.sqrt(segD(P,B[b][1],B[b][2]))+1e-4; sc.push([b, 1/Math.pow(d,4)]); }
+    let near=-1, nearD=1e9;
+    for (let b=0;b<B.length;b++){
+      const d=Math.sqrt(segD(P,B[b][1],B[b][2]));
+      if (d < nearD) { nearD = d; near = b; }                       // remembered for the fallback
+      const side=B[b][4];
+      // a vertex clearly on one side of the body is not this limb's business
+      if (side && P[0]*side < -0.035) continue;
+      const r=B[b][3]*K; if (d >= r) continue;                       // outside this bone's support
+      const t = 1 - d/r;
+      sc.push([b, t*t*t]);                                          // smooth to zero at the rim
+    }
     sc.sort((a,b)=>b[1]-a[1]);
-    const top=sc.slice(0,4); let sum=0; for(const t of top) sum+=t[1];
+    let top=sc.slice(0,4); let sum=0; for(const t of top) sum+=t[1];
+    /* Compact support means a vertex can fall outside every bone — a fingertip, a hat brim, a
+     * cape. Those must ride their single nearest bone RIGIDLY rather than end up unweighted,
+     * which would collapse them to the origin the first time the palette was applied. */
+    if (!sum) { top=[[near,1]]; sum=1; fallback++; }
+    infl += top.length;
     const o=v*14;
     out[o]=all[i]; out[o+1]=all[i+1]; out[o+2]=all[i+2];
     out[o+3]=all[i+3]; out[o+4]=all[i+4]; out[o+5]=all[i+5];
     for(let k=0;k<4;k++) out[o+6+k]  = top[k] ? top[k][0] : 0;          // bone indices
     for(let k=0;k<4;k++) out[o+10+k] = top[k] ? top[k][1]/sum : 0;      // normalised weights
+  }
   }
   const head=Buffer.alloc(32);
   head.write('UR3SKIN0',0,'ascii'); head.writeUInt32LE(1,8); head.writeUInt32LE(n,12); head.writeUInt32LE(B.length,16);
