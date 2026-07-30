@@ -213,6 +213,20 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   **0.94 removes 100% of clipping for free** (mean 129.5 vs 128.8 unrolled, contrast 73.2 vs
   73.3); my first guess of 0.62 also removed it but cost **14 luma and 14 contrast**, dimming
   the whole sky instead of the highlights. Lower is not safer, just darker.
+- **DOGFIGHT true-3D — `js/dogfight-gl.js` (`DFGL`), Milestone 1.** Real perspective camera +
+  z-buffer, replacing the fake-3D FOCAL/HORIZON projection. Same conventions as
+  `section9-gl.js` / `ronin3d.js`. Game state was already 3D — world `(x, alt, y)`, `cam{x,y,
+  alt,h,ph,roll}` — so gameplay was untouched. `DFGL.frame(G, cam, world(), {WS,CAM_BACK,
+  CAM_H,VIEW_FAR})`; the game's constants are PASSED IN, never duplicated, so tuning them in
+  `dogfight.html` can't desync the renderer. GL owns the world; the 2D canvas above stays for
+  HUD/radar/reticle (text is sharper there — same split Section 9 uses). Fails open to the 2D
+  renderer + `Gfx2D`, which are mutually exclusive with it (Gfx2D *hides* the 2D canvas).
+  ⚠ **View-matrix trap:** the chase pull-back must be applied in CAMERA space (after the
+  inverse rotation). `R * T` looks correct dead-ahead and drifts wrong the moment you turn.
+  **M1 IN:** sky+sun shader, GPU ground grid (camera-relative, so the toroidal seam never
+  shows), props, ships, bolts, bursts, GfxPost. **M1 OUT / known:** bolt ribbons are
+  axis-aligned rather than camera-facing; own-craft placement in chase view needs work; gates
+  and rings not drawn yet; no shadows or reflections.
 - **2D games on the GPU — `js/gfx-2d.js` (`Gfx2D`):** `Gfx2D.attach(canvas,{preset})` +
   `present()` at the end of the draw. The game keeps its 2D draw calls; the canvas is uploaded
   as a texture each frame and presented through `GfxPost`, so it gets bloom/rolloff/dither/

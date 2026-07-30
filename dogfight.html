@@ -37,7 +37,12 @@
     font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.32em; text-transform:uppercase;
     color:#8ffdf0; text-shadow:0 0 10px rgba(39,247,228,.7),0 0 2px #000; }
   .marquee .dot{ color:var(--magenta); text-shadow:0 0 10px rgba(255,42,217,.85); }
-  #df{ position:fixed; top:var(--bezTop); left:var(--bez); display:block;
+  /* the true-3D world canvas shares #df's exact box and sits UNDER it; the 2D canvas above
+     keeps the HUD/radar/reticle and is transparent when GL owns the world. */
+  #dfgl{ position:fixed; top:var(--bezTop); left:var(--bez); display:none;
+    width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
+    border-radius:var(--rad); background:#01040a; z-index:1; }
+  #df{ z-index:2; position:fixed; top:var(--bezTop); left:var(--bez); display:block;
     width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
     border-radius:var(--rad); background:#01040a; box-shadow:inset 0 0 90px rgba(0,0,0,.9), inset 0 0 30px rgba(39,247,228,.05);
     animation:dfPsy 34s linear infinite; }                 /* psychedelic Ripmaster spectrum drift */
@@ -196,6 +201,7 @@
   <script src="/banner.js" defer></script>
 </head>
 <body>
+  <canvas id="dfgl"></canvas>
   <canvas id="df"></canvas>
   <div class="crt" aria-hidden="true"><div class="crt-glare"></div><div class="crt-flick"></div><div class="crt-curve"></div><div class="crt-scan"></div></div>
   <div class="bezel" aria-hidden="true"></div>
@@ -307,21 +313,31 @@
 <script src="js/wager-payout.js"></script>
 <script src="js/game-help.js"></script>
 <script src="js/gfx-post.js"></script>
+<script src="js/dogfight-gl.js"></script>
 <script src="js/gfx-2d.js"></script>
 <script src="js/card-powers.js"></script>
 <script>
 (() => {
   const cv=document.getElementById('df'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
-  // GPU presentation: the game still draws in 2D, WebGL grades and blooms the result.
-  // Null if WebGL or GfxPost is unavailable — every call site guards, so the 2D canvas
-  // simply stays visible and dogfight looks exactly as it did.
-  const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
+  /* Two renderers, one game state.
+   *   glReady  true-3D: js/dogfight-gl.js draws the WORLD with a real perspective camera and
+   *            a z-buffer; the 2D canvas above it keeps only the HUD/radar/reticle.
+   *   GPU      the fallback: the original fake-3D 2D renderer, presented through GfxPost so
+   *            it still gets the bloom. Used whenever true-3D can't init.
+   * They are mutually exclusive — Gfx2D hides the 2D canvas, which is exactly what the
+   * true-3D path needs it NOT to do. */
+  const glcv = document.getElementById('dfgl');
+  let glReady = false;
+  try { glReady = !!(window.DFGL && DFGL.init(glcv)); } catch(e){ glReady = false; }
+  const GPU = (!glReady && window.Gfx2D) ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
+  if (glReady) { glcv.style.display='block'; cv.style.background='transparent'; }
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const DPR=Math.min(devicePixelRatio||1,2);
   let W=0,H=0,cx=0,cy=0,SCALE=1;
   const SQUASH=0.72;                                  // top-down table gets a gentle tilt
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
     cx=W/2; cy=H*0.5; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+    { const g=document.getElementById('dfgl'); if(g){ g.width=W*DPR; g.height=H*DPR; } }
     SCALE=Math.min(W,H*1/SQUASH)*0.44; }
   resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
   const rnd=(a=1,b=0)=>b+Math.random()*(a-b), clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
@@ -1135,13 +1151,16 @@
     FOCAL=Math.max(360,H*0.95); if(G.me&&G.me.zoom) FOCAL*=2.9; HORIZON=H*0.46 - cam.ph*H*0.10;
     const doShake=G.shake>0.3, shx=doShake?Math.sin(G.t*80)*G.shake*0.5:0, shy=doShake?Math.cos(G.t*66)*G.shake*0.5:0;
     ctx.save(); if(doShake)ctx.translate(shx,shy);
-    ctx.fillStyle='#01030a'; ctx.fillRect(-W*0.3,-H*0.3,W*1.6,H*1.6);
-    // the world, rolled around the horizon so turns bank
-    ctx.save(); ctx.translate(cx,HORIZON); ctx.rotate(cam.roll); ctx.translate(-cx,-HORIZON);
-    drawSky(w); drawGround(w); drawProps(w); drawGates(); drawEntities(w);
-    ctx.restore();
-    // foreground: your craft / cockpit + centre reticle (screen space)
-    if(G.view==='cockpit') drawCockpit(); else if(G.me&&G.me.alive) drawCraft();
+    if(glReady){ ctx.clearRect(-W*0.3,-H*0.3,W*1.6,H*1.6); }   // GL owns the world behind us
+    else {
+      ctx.fillStyle='#01030a'; ctx.fillRect(-W*0.3,-H*0.3,W*1.6,H*1.6);
+      // the world, rolled around the horizon so turns bank
+      ctx.save(); ctx.translate(cx,HORIZON); ctx.rotate(cam.roll); ctx.translate(-cx,-HORIZON);
+      drawSky(w); drawGround(w); drawProps(w); drawGates(); drawEntities(w);
+      ctx.restore();
+    }
+    // foreground: cockpit framing stays 2D either way; the hull is GL's job in true-3D
+    if(G.view==='cockpit') drawCockpit(); else if(!glReady && G.me&&G.me.alive) drawCraft();
     drawReticle(); drawSpeedFx();
     ctx.restore();     // end shake
     drawRadar();       // the reused Tron disk, stable in the corner
@@ -1156,7 +1175,11 @@
 
   let last=performance.now();
   function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
-    if(G.mode!=='lobby'){ draw(); if(GPU) GPU.present(); } requestAnimationFrame(frame); }
+    if(G.mode!=='lobby'){
+      if(glReady){ try{ DFGL.frame(G, cam, world(), { WS, CAM_BACK, CAM_H, VIEW_FAR }); }
+                   catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; } }
+      draw(); if(GPU) GPU.present();
+    } requestAnimationFrame(frame); }
   loadDeck().then(()=>{ refreshPot(); refreshEth(); });
   if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
     setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }
