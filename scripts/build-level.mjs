@@ -29,7 +29,7 @@ const OUT = join(ROOT, 'models', 'world');
 const TMP = join(ROOT, 'build', 'levels');
 
 // must match FOOTPRINT in scripts/blender/build-level.py
-const FOOTPRINT = { arcade: 60, vault: 52, rooftop: 78 };
+const FOOTPRINT = { arcade: 120, vault: 105, rooftop: 165 };
 const GRID = { arcade: 0.05, vault: 0.05, rooftop: 0.05 };
 
 const argv = process.argv.slice(2);

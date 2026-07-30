@@ -32,7 +32,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kit import (reset, Part, solid, post, stairs, railing, arcade_cabinet, claw_machine,
                  plinth, crate, rng, spawn, export_obj)                             # noqa: E402
 
-FOOTPRINT = {'arcade': 60.0, 'vault': 52.0, 'rooftop': 78.0}
+# Footprints are the baked world size in metres. Deliberately large: these are traversal
+# levels for an FPS now, not a duel stage, and the first pass read as cramped once you could
+# actually run through them.
+FOOTPRINT = {'arcade': 120.0, 'vault': 105.0, 'rooftop': 165.0}
 
 
 # ══ ARCADE ══════════════════════════════════════════════════════════════════════════════════

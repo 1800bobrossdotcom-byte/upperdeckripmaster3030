@@ -549,6 +549,7 @@ window.Ronin3D = (function () {
    * `garments` is opt-out because dressing is not always wanted: a model the artist authored
    * as separate named parts is already costumed, and stacking a haori on a suit of armour
    * looks like a bug. See the default chosen in registerModel/registerSkin. */
+  const HEAD_LIFT = 17;                    // skeleton units from the head joint up into the skull
   function dressLoaded(fm, f, K, a, dk, garments) {
     const g = garbOf(f), tint = sc(hex(f.tint), dk);
     if (garments) {
@@ -562,7 +563,12 @@ window.Ronin3D = (function () {
       _mat = 0;
       orb(fm, K.armB[2].x - 3, K.armB[2].y - 3, 0, 9, 9, 9, sc(GLOVE, 0.9), 0.08, a);        // bracers
       orb(fm, K.sword.hand.x - 4, K.sword.hand.y - 4, 0, 10, 10, 10, GLOVE, 0.08, a);
-      archHead(fm, f, K, tint, a, dk);                                                        // hat / hood / horns / shell / mask
+      /* Headgear rides the CROWN, not the head joint. The bind skeleton puts its head joint at
+       * 0.84 of body height and the crown at ~0.97, so a real mesh's skull sits well above the
+       * joint — placing the straw hat straight on K.head drew it across the fighter's chest.
+       * The procedural body never showed this because its head ball is drawn at the joint too. */
+      const Kh = Object.assign({}, K, { head: { x: K.head.x, y: K.head.y - HEAD_LIFT } });
+      archHead(fm, f, Kh, tint, a, dk);                                                       // hat / hood / horns / shell / mask
     }
     drawWeapon(fm, f, K, a, dk);
     if (f.arch === 'prizm') archShards(fm, f, K, a, dk);
