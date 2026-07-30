@@ -12,13 +12,13 @@ A **card and game studio** whose token has staking functionality. Artist: **Gian
 company). This SUPERSEDES the old "NAME LAW".**
 
 - **Ticker: `$RMS3030`.**
-- **Name: ripmaster studios 3030 — ⚠ EXACT STRING NOT YET CONFIRMED.** The artist wrote
-  `ripmasterstudios3030`; the domain bought is `ripmaster3030studios.com`. Those place "3030"
-  differently. `name()` is **baked in at deploy and unfixable** — this project already owns one
-  token permanently stuck with the wrong name for exactly this reason (Sepolia's edition reads
-  `"Upperdeck Ripmaster 3030"`, title case). **Do not guess, do not infer from the domain.** Get
-  the exact string in writing, hand THAT to SuperRare in writing, re-read `name()` before they
-  broadcast. See task #70.
+- ✅ **Name: `ripmaster3030studios`** — ONE word, lowercase, 3030 in the MIDDLE. Confirmed by
+  the artist after being asked to disambiguate: it matches the domain `ripmaster3030studios.com`.
+  ⚠ It is NOT `ripmasterstudios3030` (3030 on the end) — that ordering was written once in
+  passing and explicitly rejected. `name()` is **baked in at deploy and unfixable**; this project
+  already owns a token permanently stuck with a wrong name for exactly this class of slip
+  (Sepolia's edition reads `"Upperdeck Ripmaster 3030"`, title case). Hand this exact string to
+  SuperRare in writing and re-read `name()` before they broadcast. See task #70.
 - **Host: `ripmaster3030studios.com`**; `upperdeckripmaster3030.com` gets ported or redirected.
 - **SuperRare has confirmed** that `upperdeckripmaster3030` references may REMAIN on the new
   site. The name change is about the TOKEN and the studio identity, not a scrub of the joke —
@@ -82,9 +82,9 @@ one word on purpose — it amplifies the meme and the clearance joke. It stays a
   **(a) Deploy path = ASSISTED, via SuperRare.** We do not self-deploy. ⚑ Consequence: the
   launch token's `name()` is set by whatever WE HAND SUPERRARE, and it is unfixable
   post-deploy. ⛔ **The string is NOT `upperdeckripmaster3030` any more** — see the RENAME
-  section at the top of this file. Ticker `$RMS3030`; the exact `name()` string is still
-  unconfirmed and must come from the artist in writing. Do not hand SuperRare anything until
-  it does.
+  section at the top of this file. Ticker `$RMS3030`, name
+  **`ripmaster3030studios`** (one word, lowercase, 3030 in the middle — confirmed by the artist,
+  matches the domain). Hand exactly that, in writing, and re-read `name()` before broadcast.
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
