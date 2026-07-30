@@ -1,5 +1,11 @@
 # upperdeckripmaster3030 — project memory
 
+> ⚠ **THIS FILE IS IN A PUBLICLY DEPLOYED REPO.** It was served at `/CLAUDE.md` (HTTP 200)
+> until `.vercelignore` was added. Write it as if a stranger will read it, because one could:
+> **no legal reasoning, no named third parties, no credentials or pointers to where credentials
+> live, no unannounced commercial decisions.** Operational facts only. Anything sensitive goes
+> to the artist directly, not into the repo.
+
 *Read this first. It's the durable context for the $UR3030 launch. Canonical detail
 lives in `docs/ECONOMIC-FLOW.md`; this file is the map.*
 
@@ -8,8 +14,8 @@ A **card and game studio** whose token has staking functionality. Artist: **Gian
 (lovebeing / @_lovebeing_)**, SuperRare **Liquid Editions — Cohort 01**.
 
 ## ⛔ RENAME IN PROGRESS — read before touching the token, the domain, or any copy
-**Artist directive (this session), for LEGAL PROTECTION against Upper Deck (the trading-card
-company). This SUPERSEDES the old "NAME LAW".**
+**Artist directive. Rationale is deliberately not recorded in this file — ask the artist.
+This SUPERSEDES the old "NAME LAW".**
 
 - **Ticker / `symbol()`: `3030`** (written `$3030`). Confirmed by the artist. Like `name()`,
   `symbol()` is baked in at deploy — hand SuperRare `3030`, not `RMS3030`, not `$3030`.
@@ -22,8 +28,8 @@ company). This SUPERSEDES the old "NAME LAW".**
   SuperRare in writing and re-read `name()` before they broadcast. See task #70.
 - **Host: `ripmaster3030studios.com`**; `upperdeckripmaster3030.com` gets ported or redirected.
 - **SuperRare has confirmed** that `upperdeckripmaster3030` references may REMAIN on the new
-  site. The name change is about the TOKEN and the studio identity, not a scrub of the joke —
-  the artist is designing ripmaster3030studios assets to sit alongside it.
+  site. The change is about the TOKEN and the studio identity, not a scrub of the joke — the
+  artist is designing ripmaster3030studios assets to sit alongside it.
 - ⚠ The old rule ("upperdeckripmaster3030 — one word, lowercase, EVERYWHERE, and the launch
   token MUST carry it") is **DEAD**. Anything still asserting it is stale; treat it as a bug.
 
@@ -144,8 +150,9 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
 
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
-  `build-pages.mjs` shell). Fail-closed. **Admin creds are in `gate.js`** (email +
-  password). Soft veil — recommend Vercel Deployment Protection for a hard lock.
+  `build-pages.mjs` shell). Fail-closed. It is a **soft veil only** — the check runs client
+  side, so treat it as a curtain, not a lock. Use Vercel Deployment Protection for anything
+  that actually must not be reached.
 - Landing has: marquee + torches, countdown to Aug 6, and a **"What is this?" facts panel**
   (informative, not corporate).
 - Public pages `whitepaper/tokenomics/audit/artist` are **generated** by
