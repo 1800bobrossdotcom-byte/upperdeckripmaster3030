@@ -34,7 +34,7 @@ window.RoninWorld = (function () {
       const count = dv.getUint32(12, true), scale = dv.getFloat32(16, true);
       const verts = new Float32Array(buf, 32, count * 6);
       return fetch(url.replace(/\.wld$/, '') + '.cols.json').then(r => r.ok ? r.json() : { boxes: [] })
-        .then(c => (world = { verts, boxes: c.boxes || [], scale: scale || 120 }));
+        .then(c => (world = { verts, boxes: c.boxes || [], spawns: c.spawns || [], scale: scale || 120 }));
     });
   }
 
@@ -111,6 +111,23 @@ window.RoninWorld = (function () {
     return a;
   }
 
+  /* Authored spawn points baked into the level (kit.spawn → bake-world), farthest-first from
+   * an optional avoid-point so two fighters don't start on top of each other.
+   * Returns null when a level carries none, which is the signal to fall back to findSpawn's
+   * search. Authored beats searched: a spiral lands you *somewhere legal*, which is not the
+   * same as somewhere the level was designed to be entered from. */
+  function pickSpawn(avoid) {
+    const sp = world && world.spawns;
+    if (!sp || !sp.length) return null;
+    if (!avoid) return sp[0];
+    let best = sp[0], bd = -1;
+    for (const s of sp) {
+      const d = Math.hypot(s.x - avoid.x, s.z - avoid.z);
+      if (d > bd) { bd = d; best = s; }
+    }
+    return best;
+  }
+
   /* Nearest clear standing spot to (x,z) — spiral out until we find ground with headroom.
    * Without this a spawn can land inside a building and the actor is simply stuck. */
   function findSpawn(x, z) {
@@ -125,5 +142,5 @@ window.RoninWorld = (function () {
     return { x, y: 0, z };
   }
   const bounds = () => world ? world.scale : 120;
-  return { load, step, hits, groundAt, findSpawn, MOVE, get world() { return world; }, bounds };
+  return { load, step, hits, groundAt, findSpawn, pickSpawn, MOVE, get world() { return world; }, bounds };
 })();

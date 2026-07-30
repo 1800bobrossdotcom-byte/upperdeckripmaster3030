@@ -114,7 +114,13 @@
       else { clearInterval(iv); $('cd').classList.add('hidden'); G.started = true; } }, 700);
     // drop both fighters into the city if a world is loaded
     if (window.RoninWorld && RoninWorld.world) { G.worldMode = true; G.camYaw = 0;
-      const sA = RoninWorld.findSpawn(0, -4), sB = RoninWorld.findSpawn(8, -10);
+      // Authored spawns first (kit.spawn → bake-world → cols.json); the search is the fallback
+      // for levels that carry none. The old hard-coded hints (0,-4)/(8,-10) were tuned for the
+      // street scene and mean nothing in a level built to a different plan.
+      const aA = RoninWorld.pickSpawn && RoninWorld.pickSpawn(null);
+      const aB = aA && RoninWorld.pickSpawn(aA);
+      const sA = aA || RoninWorld.findSpawn(0, -4);
+      const sB = (aB && aB !== aA) ? aB : RoninWorld.findSpawn(sA.x + 8, sA.z - 6);
       me.w = { x: sA.x, y: sA.y + 0.2, z: sA.z, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 };
       rival.w = { x: sB.x, y: sB.y + 0.2, z: sB.z, vx: 0, vy: 0, vz: 0, onGround: true, boost: 1 };
       toast('EXPLORE · WASD run · SHIFT sprint · SPACE jump/boost · Q/E turn'); }

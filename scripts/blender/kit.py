@@ -199,6 +199,21 @@ def crate(name, c, s=0.9, rz=0.0):
     return p.emit()
 
 
+def spawn(name, c):
+    """An authored spawn point, emitted as a tiny marker object named `spawn_*`.
+
+    scripts/bake-world.mjs lifts these out of the geometry — they never become triangles or a
+    collision box — and records the transformed position. Going through the OBJ rather than a
+    sidecar means the marker rides the exact same recentre/rescale the level does, so a spawn
+    cannot drift away from the floor it was authored on.
+
+    Author these on open floor deliberately. RoninWorld.findSpawn() will spiral out to rescue a
+    buried one, but that is a safety net, not a design — Section 9 shipped DUST BOWL with 7 of
+    10 spawns relocated and it read as a broken map.
+    """
+    return Part('spawn_' + name).box((c[0], c[1], c[2] + 0.1), (0.2, 0.2, 0.2)).emit()
+
+
 def rng(seed):
     """Seeded, so a level is reproducible from its script and a number alone."""
     return random.Random(seed)

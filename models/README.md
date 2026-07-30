@@ -209,8 +209,21 @@ Select one at runtime with `localStorage urm_level` (an unknown name falls back 
 triangles as clutter, which is right for a scanned city and catastrophic here: a crate is 12
 triangles and a railing post is 8.
 
-⚠ **Spawn placement is not done.** Loading a `.wld` flips the duel into free-roam world mode,
-and the spawn points are not yet authored per level, so the camera can start inside geometry.
-The levels themselves bake and render correctly; placing spawns on open floor (the way
-`fixSpawns()` does for Section 9, and per that map's lesson — author them, don't rescue them)
-is the next step before these are playable.
+### Spawns are authored and validated, not rescued
+
+`kit.spawn()` drops a marker named `spawn_*`; `bake-world` lifts those out of the geometry (they
+never become triangles or collision) and records the transformed point, so a spawn rides the
+same recentre/rescale as the level and cannot drift off its floor. `RoninWorld.pickSpawn()`
+prefers them, farthest-first so two fighters don't start on top of each other, and falls back to
+the old spiral search for levels that carry none.
+
+`npm run level` then **validates every spawn against the baked collision set** and reports
+`INSIDE` (embedded in geometry) or `FLOATING` (nothing to stand on). It caught 7 bad spawns on
+the first run; all three levels are clean now — arcade 6/6, vault 8/8, rooftop 7/7.
+
+⚠ **Collision boxes are AXIS-ALIGNED, so rotated geometry gets a fat AABB.** A 9 m wall segment
+turned 45° swells about 3.5 m inward, which is why the vault's clear standing band is far
+tighter than its walls suggest, and why the balcony had to be widened from 4.6 m to 7 m to hold
+a player at all. Reason about clearance from the **baked** `.cols.json`, not from the Blender
+coordinates — the bake also recentres on the geometry's bounds, so an asymmetric feature like
+the vault's door bay shifts everything.

@@ -30,7 +30,7 @@ import math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kit import (reset, Part, solid, post, stairs, railing, arcade_cabinet, claw_machine,
-                 plinth, crate, rng, export_obj)                                    # noqa: E402
+                 plinth, crate, rng, spawn, export_obj)                             # noqa: E402
 
 FOOTPRINT = {'arcade': 60.0, 'vault': 52.0, 'rooftop': 78.0}
 
@@ -121,6 +121,13 @@ def build_arcade(seed=3030):
     # roof trusses + hanging signs — depth overhead, and landmarks that read through fog
     for j in range(7):
         solid('truss%02d' % j, (-24.0 + j * 8.0, 0, H - 0.5), (0.7, D - 2.0, 0.6))
+    # spawns: the pit floor is the duel, the mezzanine decks are the high entries
+    # Mezzanine spawns sit at x=±24.5 and y=±16: the crates scatter at x≈±21 and y=-12+8j, and
+    # the deck's usable strip is what is left outboard of them.
+    for j, (sx, sy, sz) in enumerate(((-6.0, -4.0, PZ), (6.0, 4.0, PZ), (0.0, -5.5, PZ),
+                                      (0.0, 5.5, PZ), (-24.5, -16.5, 6.35), (24.5, 16.5, 6.35))):
+        spawn('a%d' % j, (sx, sy, sz))
+
     for j in range(5):
         solid('sign%02d' % j, (-16.0 + j * 8.0, 9.6, 7.8), (3.6, 0.35, 1.4))
         post('sign%02d_rodA' % j, (-17.2 + j * 8.0, 9.6, 8.9), 0.06, 1.8, 6)
@@ -199,15 +206,28 @@ def build_vault(seed=3030):
     for i in range(SEG):
         a = math.tau * i / SEG
         seg_w = 2.0 * (R - 3.0) * math.tan(math.pi / SEG) + 0.3
-        solid('balc%02d' % i, ((R - 3.0) * math.cos(a), (R - 3.0) * math.sin(a), 6.8),
-              (4.6, seg_w, 0.5), a)
-        post('col%02d' % i, ((R - 3.0) * math.cos(a), (R - 3.0) * math.sin(a), 3.3), 0.42, 6.6, 10)
+        solid('balc%02d' % i, ((R - 3.4) * math.cos(a), (R - 3.4) * math.sin(a), 6.8),
+              (7.0, seg_w, 0.5), a)
+        post('col%02d' % i, ((R - 3.4) * math.cos(a), (R - 3.4) * math.sin(a), 3.3), 0.42, 6.6, 10)
     for i in range(SEG):
         a0, a1 = math.tau * i / SEG, math.tau * (i + 1) / SEG
-        r_in = R - 5.1
+        r_in = R - 6.6
         railing('balc_rail%02d' % i, (r_in * math.cos(a0), r_in * math.sin(a0), 7.05),
                 (r_in * math.cos(a1), r_in * math.sin(a1), 7.05), height=1.0, post_every=3.0)
     stairs('balc_stair', (16.5, 8.0, 0), rise=0.44, run=0.52, width=3.4, steps=16, axis='y', sign=1)
+
+    # spawns: the clear annulus between the plinth field and the wall, plus two on the balcony
+    # ⚠ bake-world emits AXIS-ALIGNED collision boxes, so each rotated wall segment's AABB
+    # reaches well inside the wall it represents (a 9 m segment at 45 deg swells ~3.5 m inward).
+    # The clear standing band is therefore much tighter than the geometry suggests: outside the
+    # plinth field (~16.1 m) but inside the wall AABBs (~20 m). 17.6 threads it.
+    # Angles skip the door bay (+90 deg) and the dais (-90 deg), which project into the room.
+    for j, a in enumerate((0.30, 0.95, 2.50, 3.05, 3.75, 5.95)):
+        spawn('v%d' % j, (17.6 * math.cos(a), 17.6 * math.sin(a), 0.0))
+    # The balcony's standing band is narrower than its 4.6 m deck: the railing's rotated AABBs
+    # swell inward to ~18.9 and the wall's swell inward to ~20. 19.4 is the middle of what's left.
+    for j, a in enumerate((1.20, 4.34)):
+        spawn('vb%d' % j, (19.4 * math.cos(a), 19.4 * math.sin(a), 7.05))
 
     # velvet-rope stanchions around the plinth field
     for i in range(14):
@@ -278,8 +298,10 @@ def build_rooftop(seed=3030):
     for sx in (-1, 1):
         post('bill_post%d' % (sx > 0), (sx * 4.6, 14.0, 3.4), 0.28, 6.8, 8)
     solid('bill_panel', (0, 14.2, 8.4), (12.0, 0.4, 4.4))
-    solid('bill_walk', (0, 13.2, 6.0), (12.0, 1.4, 0.25))
-    railing('bill_rail', (-5.8, 12.6, 6.15), (5.8, 12.6, 6.15), height=0.95)
+    # Widened to 2.6 m with the rail pushed out to y=12.0: at 1.4 m between a railing and the
+    # sign panel there was no gap a 1.1 m-wide player could stand in, so the perch was fiction.
+    solid('bill_walk', (0, 12.9, 6.0), (12.0, 2.6, 0.25))
+    railing('bill_rail', (-5.8, 11.8, 6.15), (5.8, 11.8, 6.15), height=0.95)
 
     # CATWALK to a lower neighbouring roof — the drop that makes the leap worth taking
     solid('annex', (26.0, 6.0, -2.0), (14.0, 16.0, 4.0))
@@ -296,6 +318,15 @@ def build_rooftop(seed=3030):
         solid('sky%02d' % i, (tx, ty, th / 2 - 6.0), (tw, td, th))
         solid('sky%02d_cap' % i, (tx, ty, th - 6.0), (tw * 0.55, td * 0.55, 1.6))
         post('sky%02d_mast' % i, (tx, ty, th - 4.4), 0.14, 3.0, 6)
+    # spawns: the deliberately-clear centre, plus every high perch worth opening from
+    # The billboard walkway spawn clears its own railing (y=12.6), and there is deliberately no
+    # spawn on the water-tower deck: the tank is r=2.6 on a 6.4 deck, leaving a 0.6 m ring that
+    # is narrower than the player. A perch you cannot stand on is not a perch.
+    for j, (sx, sy, sz) in enumerate(((-4.0, -3.0, 0.0), (4.0, 3.0, 0.0), (0.0, -4.5, 0.0),
+                                      (26.0, 6.0, 0.0), (-11.0, 9.0, 4.1), (0.0, 12.9, 6.15),
+                                      (-15.8, 12.8, 0.0))):
+        spawn('r%d' % j, (sx, sy, sz))
+
     for i in range(3):                                                    # antennae on our own roof
         post('mast%d' % i, (-15.0 + i * 1.6, -13.0, 3.0), 0.1, 6.0, 6)
 

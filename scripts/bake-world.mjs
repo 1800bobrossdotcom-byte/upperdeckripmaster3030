@@ -52,8 +52,17 @@ for (const line of text.split('\n')) {
 const srcTris = objs.reduce((s, o) => s + o.tris.length / 3, 0);
 console.log(`parsed: ${(V.length/3)|0} verts · ${srcTris} tris · ${objs.length} objects`);
 
+/* ── 0. lift out authored spawn markers ──
+ * Objects named `spawn*` are placement data, not scenery: they are excluded from the vertex
+ * buffer and from collision, and re-emitted as points. Carrying them through the OBJ means they
+ * get the same recentre/rescale as everything else, so an authored spawn cannot drift off the
+ * floor it was placed on. They are also excluded from the bounds below — a marker outside the
+ * building would otherwise stretch the whole world's scale to reach it. */
+const SPAWN_RE = /^spawn/i;
+const spawnObjs = objs.filter(o => SPAWN_RE.test(o.name) && o.tris.length);
+
 // ── 1. drop micro-objects ──
-const kept = objs.filter(o => o.tris.length / 3 >= MINTRIS);
+const kept = objs.filter(o => !SPAWN_RE.test(o.name) && o.tris.length / 3 >= MINTRIS);
 console.log(`dropped ${objs.length - kept.length} micro-objects (<${MINTRIS} tris)`);
 
 // ── source bounds → transform to world units, Y up, ground at 0, centred ──
@@ -101,7 +110,19 @@ const head = Buffer.alloc(32);
 head.write('UR3WORLD', 0, 'ascii'); head.writeUInt32LE(1, 8); head.writeUInt32LE(tris * 3, 12);
 head.writeFloatLE(SCALE, 16);
 writeFileSync(outPath, Buffer.concat([head, Buffer.from(f32.buffer, f32.byteOffset, f32.byteLength)]));
-writeFileSync(outPath.replace(/\.wld$/, '') + '.cols.json', JSON.stringify({ scale: SCALE, boxes }));
+// spawn markers → world-space points, standing on the marker's base
+const spawns = spawnObjs.map(o => {
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const vi of o.tris) {
+    const p = [wx(vi), wy(vi), wz(vi)];
+    for (let c = 0; c < 3; c++) { if (p[c] < lo[c]) lo[c] = p[c]; if (p[c] > hi[c]) hi[c] = p[c]; }
+  }
+  return { name: o.name.replace(/^spawn_?/i, '') || 'sp',
+           x: +((lo[0] + hi[0]) / 2).toFixed(3), y: +lo[1].toFixed(3), z: +((lo[2] + hi[2]) / 2).toFixed(3) };
+});
+if (spawns.length) console.log(`spawns: ${spawns.length} authored`);
+writeFileSync(outPath.replace(/\.wld$/, '') + '.cols.json',
+  JSON.stringify({ scale: SCALE, boxes, spawns }));
 const mb = n => (n/1048576).toFixed(1) + ' MB';
 console.log(`wrote ${outPath} — ${mb(32 + f32.byteLength)} (source ${mb(Buffer.byteLength(text))})`);
 console.log(`wrote ${outPath.replace(/\.wld$/,'')}.cols.json — ${boxes.length} AABBs`);
