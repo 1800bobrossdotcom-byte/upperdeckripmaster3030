@@ -335,6 +335,8 @@
 <script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
 <script src="js/gfx-post.js"></script>
+<script src="js/ronin-world.js"></script>
+<script src="js/section9-world.js"></script>
 <script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
 <script>
@@ -854,6 +856,11 @@
    * places you at y=0, sealed inside the geometry, staring at the inside of a wall. Nudge any such
    * spawn out to the nearest clear ground instead of shipping a map you can't play. */
   function fixSpawns(M){
+    // A baked level's spawns were authored in Blender and already validated against this exact box
+    // set by `npm run level` (INSIDE / FLOATING), so there is nothing to rescue. Worse, a rescue
+    // here would be actively wrong: the spiral below searches x/z only, and on a level whose floors
+    // sit at 1.05, 11.79 and 19.84 the "nearest clear point" is very often thin air.
+    if(M.wld) return M;
     const HEAD=1.72, CLEAR=1.5;      // a spawn needs elbow room, not merely a non-overlapping point:
                                      // landing flush against a staircase is technically "not inside
                                      // geometry" and still puts a solid where your whole screen is.
@@ -871,8 +878,10 @@
   /* Which way should you be looking when you drop in? "Face the arena centre" puts your nose in a
    * wall whenever the centre is behind one. Sweep the compass and take the longest clear sightline —
    * you always open on the most of the map you could possibly see from where you stand. */
-  function spawnYaw(M,x,z){
-    const EYE=1.52, MAXD=26; let best=0, bestD=-1;
+  function spawnYaw(M,x,z,y){
+    // eye height is measured from the floor you are standing ON, not from y=0 — a baked level's
+    // deck can be 11.8 up, and sweeping at 1.52 there just probes the inside of the building.
+    const EYE=(y||0)+1.52, MAXD=26; let best=0, bestD=-1;
     for(let a=0;a<24;a++){ const yaw=a/24*Math.PI*2, dx=Math.sin(yaw), dz=Math.cos(yaw);
       let d=0.6;
       for(; d<MAXD; d+=0.6){ const px=x+dx*d, pz=z+dz*d;
@@ -884,6 +893,11 @@
     return best;
   }
   const MAPS=buildMaps().map(fixSpawns);
+  /* The hand-built arenas, and only they, are what ROTATE cycles through. Baked .wld levels are
+   * appended after them by an async fetch, so MAPS.length is not a fixed number any more and
+   * rotation must not race it; they are also new, big and opt-in, which is not something to drop
+   * on a player who just pressed DEPLOY. Pick one from the arena chips to play it. */
+  const BUILTIN=MAPS.length;
   /* Arena picker. The map used to be chosen for you — silently rotated between matches, with a
    * ?map=N URL param as the only override — so there was no way to go play a specific arena.
    * Lives here rather than with the other lobby chips because it needs MAPS to already exist. */
@@ -901,8 +915,23 @@
   paintArenaChips();
   /* Build stamp. Several rounds of "I'm not seeing the update" were impossible to tell apart from
    * a stale cached page, so the lobby now states which build it is and how many arenas it knows. */
-  const S9_BUILD='2026-07-25b';
-  { const el=$('buildNote'); if(el) el.textContent=`build ${S9_BUILD} · ${MAPS.length} arenas · renderer ${window.GfxPost?'gfx+':'base'}`; }
+  const S9_BUILD='2026-07-30a';
+  function paintBuildNote(){ const el=$('buildNote'); if(el)
+    el.textContent=`build ${S9_BUILD} · ${MAPS.length} arenas · renderer ${window.GfxPost?'gfx+':'base'}`; }
+  paintBuildNote();
+  /* Baked Blender levels (models/world/*.wld + .cols.json) join the arena list once they arrive.
+   * Deliberately additive and deliberately async: nothing below waits on it, so a slow or failed
+   * fetch costs one chip that never appears rather than a lobby that will not open. */
+  let LEVELS_READY=null;
+  if(window.S9World){ LEVELS_READY=S9World.load(PAL).then(list=>{
+    if(!list.length) return list;
+    for(const m of list) MAPS.push(m);
+    // a pinned arena may only now have become resolvable (the pick is stored as an index)
+    if(arenaPick<0){ try{ const s=localStorage.getItem('s9_map'); if(s!=null&&MAPS[+s]) arenaPick=+s; }catch(e){}
+      try{ const q=new URLSearchParams(location.search).get('map'); if(q!=null&&MAPS[+q]) arenaPick=+q; }catch(e){} }
+    paintArenaChips(); paintBuildNote();
+    return list;
+  }).catch(e=>{ console.warn('[section9] baked levels unavailable:',e); return []; }); }
   let MAP=MAPS[0];
   // bake static faces for a map (floor tiles, ceiling tiles, solids)
   const BANDED={ crate:1, ammo:1, shelf:1, cover:1 };   // kinds that get a hazard/utility band decal
@@ -917,8 +946,10 @@
   }
   function bakeFaces(M){ if(M.faces) return; const F=[]; M.faces=F;
     const TILE=6;
-    // sand floor (cobbled flagstones) — no ceiling: the courtyard is open to the red sky
-    for(let x=M.x0;x<M.x1-0.01;x+=TILE){ for(let z=M.z0;z<M.z1-0.01;z+=TILE){
+    // sand floor (cobbled flagstones) — no ceiling: the courtyard is open to the red sky.
+    // A baked level brings its own floors (as collision boxes, at whatever height they were
+    // authored), so tiling a y=0 plane under it would just paint a lid over the arcade pit.
+    if(!M.wld) for(let x=M.x0;x<M.x1-0.01;x+=TILE){ for(let z=M.z0;z<M.z1-0.01;z+=TILE){
       const x1=Math.min(x+TILE,M.x1), z1=Math.min(z+TILE,M.z1);
       const chk=(((x/TILE)|0)+((z/TILE)|0))&1; const base=chk?PAL.floorA:PAL.floorB;
       F.push({ v:[[x,0,z],[x1,0,z],[x1,0,z1],[x,0,z1]], n:[0,1,0], col:shade(base,[0,1,0]), bias:0.35, det:{k:'cobble',cols:4,rows:4} });
@@ -937,8 +968,10 @@
         F.push({ v:[[x0,yb0,z1+e],[x1,yb0,z1+e],[x1,yb1,z1+e],[x0,yb1,z1+e]], n:[0,0,1], col:shade(bandCol,[0,0,1]), bias:-0.06 });
         F.push({ v:[[x1,yb0,z0-e],[x0,yb0,z0-e],[x0,yb1,z0-e],[x1,yb1,z0-e]], n:[0,0,-1], col:shade(bandCol,[0,0,-1]), bias:-0.06 }); }
     }
-    // arched blind niches recessed into the perimeter walls — the de_dust2 sandstone signature
-    bakeNiches(F, M);
+    // arched blind niches recessed into the perimeter walls — the de_dust2 sandstone signature.
+    // They are placed along a hand-built arena's four bounding walls; a baked level's bounds are
+    // just the extent of its geometry, so these would hang in mid-air.
+    if(!M.wld) bakeNiches(F, M);
   }
   // evenly-spaced arched recesses along all four inner perimeter faces
   function bakeNiches(F, M){ const dark=PAL.sand.map(v=>v*0.44), key=PAL.sandstoneDk, y0=0.8, yTop=3.1, yArch=3.7, w=0.95, GAP=7;
@@ -1044,7 +1077,7 @@
     const pool=[[POWS[0],3],[POWS[1],2],[POWS[2],3]]; const ampW=Math.max(0,(a-0.95))*6; if(ampW>0.15) pool.push([AMPPOW,ampW]);
     let tot=0; for(const q of pool)tot+=q[1]; let r=Math.random()*tot, pick=pool[0][0];
     for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
-    const s=MAP.spawns[rint(MAP.spawns.length)]; G.pows.push({ x:s[0]+rnd(2,-2), z:s[1]+rnd(2,-2), y:0.5, type:pick.t, ch:pick.ch, col:pick.col, t:0 }); }
+    const s=MAP.spawns[rint(MAP.spawns.length)]; G.pows.push({ x:s[0]+rnd(2,-2), z:s[1]+rnd(2,-2), y:(s[2]||0)+0.5, type:pick.t, ch:pick.ch, col:pick.col, t:0 }); }
   function applyPow(e,t){ const a=e.cardAmp||1;
     if(t==='med') e.hp=Math.min(e.maxHp,e.hp+Math.round(34*a));
     else if(t==='armor') e.armor=Math.min(e.maxArmor,e.armor+Math.round(30*a));
@@ -1062,11 +1095,17 @@
       let d=1e9; for(const e of avoidList){ if(e&&e.alive){ const dd=Math.hypot(e.x-s[0],e.z-s[1]); if(dd<d)d=dd; } }
       if(d>bestScore){ bestScore=d; best=s; if(d>minD) break; } }
     return best||MAP.spawns[0]; }
+  /* Drop an entity on a spawn point. A spawn is [x, z] on the six hand-built arenas (their floor
+   * IS the y=0 plane) and [x, z, y] on a baked level, whose floors are slabs metres up. Seed y
+   * from the point before asking supportY, because supportY only counts a surface you could step
+   * onto from where you already are — from y=0 it cannot see a deck at 11.79 and would leave you
+   * standing under the level. */
+  function dropAt(e,s){ e.x=s[0]; e.z=s[1]; e.y=(s[2]||0); e.y=supportY(e); }
   function spawnEnt(e,firstWeapon){ const others=G.ents.filter(o=>o!==e);
-    const s=farSpawn(others,12); e.x=s[0]; e.z=s[1]; e.y=supportY(e); e.vy=0; e.alive=true;
+    const s=farSpawn(others,12); dropAt(e,s); e.vy=0; e.alive=true;
     e.hp=e.maxHp; e.armor=e.isMe?50:40; e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
     e.weapon=firstWeapon!=null?firstWeapon:e.weapon; e.mag=WEAPONS[e.weapon].mag; e.state='patrol'; e.tgt=null; e.wp=null; e.boost=1;
-    e.yaw=spawnYaw(MAP, e.x, e.z); e.pitch=0;      // open on the longest clear sightline, not a wall
+    e.yaw=spawnYaw(MAP, e.x, e.z, e.y); e.pitch=0;      // open on the longest clear sightline, not a wall
   }
 
   function startMatch(real){
@@ -1076,8 +1115,10 @@
     { let pick=(arenaPick>=0 && MAPS[arenaPick]) ? arenaPick : null;   // lobby picker wins
       // "rotate" advances one arena per match. A player with no stored position starts on the
       // NEWEST map — climbing from index 0 buried a just-shipped arena three matches deep.
-      if(pick==null){ let last=MAPS.length-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
-        pick=(last+1)%MAPS.length; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
+      // ROTATE stays over the hand-built arenas: MAPS grows asynchronously as baked levels load,
+      // so anything modulo MAPS.length would give a different answer depending on network timing.
+      if(pick==null){ let last=BUILTIN-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
+        pick=(last+1)%BUILTIN; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
       G.mapIdx=pick; }
     MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP);
     // A GL map-build failure used to be swallowed whole: the WebGL canvas stayed up with no map
@@ -1096,7 +1137,7 @@
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
     others.forEach((o,i)=>{ const e=makeEnt({ name:o.h, tint:CTINTS[i%CTINTS.length], verified:o.v, weapon:rint(WEAPONS.length) }); G.ents.push(e); });
     // initial spawns spread across points
-    G.ents.forEach((e,i)=>{ const s=MAP.spawns[i%MAP.spawns.length]; e.x=s[0]; e.z=s[1]; e.y=supportY(e); e.mag=WEAPONS[e.weapon].mag; e.iframe=1.4; e.yaw=spawnYaw(MAP,e.x,e.z); });
+    G.ents.forEach((e,i)=>{ const s=MAP.spawns[i%MAP.spawns.length]; dropAt(e,s); e.mag=WEAPONS[e.weapon].mag; e.iframe=1.4; e.yaw=spawnYaw(MAP,e.x,e.z,e.y); });
     // stakes (mirror dogfight): pull your picked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
@@ -1702,7 +1743,11 @@
     // headless camera control: verifying a map's readability needs to look around it
     _look(yaw,pitch){ if(G.me){ G.me.yaw=yaw; if(pitch!=null) G.me.pitch=pitch; } },
     _place(x,z,y){ if(G.me){ G.me.x=x; G.me.z=z; G.me.y=(y!=null?y:supportY(G.me)); G.me.vy=0; } },
-    _map(i){ try{ localStorage.setItem('s9_map',i); }catch(e){} } };
+    _map(i){ try{ localStorage.setItem('s9_map',i); }catch(e){} },
+    // baked levels arrive async — a headless run has to be able to wait for them and to pick one
+    get maps(){ return MAPS.map((m,i)=>({ i, name:m.name, wld:m.wld||null, solids:m.solids.length, spawns:m.spawns.length })); },
+    _levels(){ return LEVELS_READY||Promise.resolve([]); },
+    _pick(i){ if(MAPS[i]){ arenaPick=i; paintArenaChips(); return true; } return false; } };
   const SENS=0.0022;
   addEventListener('mousemove',e=>{ if(!locked||!G.me||G.mode!=='play')return; const s=SENS/(G.scopeZoom||1);
     G.me.yaw+=e.movementX*s; G.me.pitch=clamp(G.me.pitch - e.movementY*s, -1.45,1.45); });

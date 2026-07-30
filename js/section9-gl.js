@@ -191,8 +191,14 @@ window.GLR = (function () {
     push(bl, 0, 0); push(br, 1, 0); push(tr, 1, 1); push(bl, 0, 0); push(tr, 1, 1); push(tl, 0, 1);
   }
   let posters = null;
+  function clearPosters() {
+    if (!posters) return;
+    if (posters.frameVBO) gl.deleteBuffer(posters.frameVBO);
+    for (const c of posters.cards) gl.deleteBuffer(c.vbo);
+    posters = null;
+  }
   function buildPosters(MAP) {
-    if (posters) { if (posters.frameVBO) gl.deleteBuffer(posters.frameVBO); for (const c of posters.cards) gl.deleteBuffer(c.vbo); }
+    clearPosters();
     const hw = 0.72, hh = 1.0, off = 0.07;   // ~5:7 card, off the wall face
     const walls = [
       { ax: 'x', fixed: MAP.z0, n: [0, 0, 1],  R: [1, 0, 0] },
@@ -244,16 +250,57 @@ window.GLR = (function () {
   function matForKind(k) { if (k === 'ammo') return 'ammo'; if (k === 'crate' || k === 'shelf' || k === 'cover') return 'crate'; return 'wall'; }
 
   function makeVBO(arr) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW); return { vbo: b, count: arr.length / STRIDE }; }
+
+  /* Draw distance. The six hand-built arenas are ~50 units across and were tuned at 16/54/60; a
+   * baked level runs to 165, and those same numbers wall it off in fog two thirds of the way
+   * across. Only a baked level widens them — the built-ins render exactly as they always did. */
+  let fogNear = 16, fogFar = 54, viewFar = 60;
+
+  /* A baked .wld is an interleaved pos3+norm3 triangle soup and nothing else — no UVs, no
+   * materials, no vertex colour. All three are derived per triangle from the face normal: up-
+   * facing goes to the floor texture, everything else to the wall texture, and the UV is a planar
+   * projection along the dominant axis. That is only correct for flat-ish faces, which is exactly
+   * what these levels are made of (they are authored from boxes in Blender). */
+  function meshArrays(mesh) {
+    const v = mesh.verts, A = { floor: [], wall: [] };
+    for (let i = 0; i + 17 < v.length; i += 18) {          // 3 verts × 6 floats = one triangle
+      let nx = 0, ny = 0, nz = 0;
+      for (let k = 0; k < 3; k++) { nx += v[i + k * 6 + 3]; ny += v[i + k * 6 + 4]; nz += v[i + k * 6 + 5]; }
+      const L = Math.hypot(nx, ny, nz) || 1; ny /= L; nx /= L; nz /= L;
+      const up = Math.abs(ny) > 0.6, a = up ? A.floor : A.wall, t = up ? TILE.floor : TILE.wall;
+      const side = !up && Math.abs(nx) > Math.abs(nz);     // face looks along ±x → span z, else span x
+      for (let k = 0; k < 3; k++) {
+        const o = i + k * 6, x = v[o], y = v[o + 1], z = v[o + 2];
+        a.push(x, y, z, v[o + 3], v[o + 4], v[o + 5],
+          (up ? x : (side ? z : x)) / t, (up ? z : y) / t, 1, 1, 1);
+      }
+    }
+    return A;
+  }
+
   function buildMap(MAP) {
     if (!ok) return;
     for (const k in buffers) { if (buffers[k]) gl.deleteBuffer(buffers[k].vbo); }
     buffers = {};
+    // ── baked level: draw the authored triangles. The .cols.json boxes are still the collision
+    //    truth in the game, they are just not what you look at. No floor plane (the mesh has
+    //    floors of its own, at whatever height they were authored) and no wall posters (they hang
+    //    on a hand-built arena's four perimeter walls, which a baked level does not have). ──
+    if (MAP.mesh && MAP.mesh.verts && MAP.mesh.verts.length) {
+      const M = meshArrays(MAP.mesh);
+      for (const k of MATS) if (M[k] && M[k].length) buffers[k] = makeVBO(M[k]);
+      clearPosters();
+      const span = Math.max(MAP.x1 - MAP.x0, MAP.z1 - MAP.z0);
+      fogFar = Math.max(54, Math.min(190, span * 0.95)); fogNear = fogFar * 0.34; viewFar = fogFar * 1.15;
+      return;
+    }
     const A = { floor: [], wall: [], crate: [], ammo: [] };
     const WHITE = [1, 1, 1];
     // floor plane (one big textured quad)
     quad(A.floor, [MAP.x0, 0, MAP.z0], [MAP.x1, 0, MAP.z0], [MAP.x1, 0, MAP.z1], [MAP.x0, 0, MAP.z1], [0, 1, 0], (MAP.x1 - MAP.x0) / TILE.floor, (MAP.z1 - MAP.z0) / TILE.floor, WHITE);
     for (const b of MAP.solids) { const m = matForKind(b.kind); box(A[m], b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, TILE[m], WHITE); }
     for (const k of MATS) if (A[k].length) buffers[k] = makeVBO(A[k]);
+    fogNear = 16; fogFar = 54; viewFar = 60;
     buildPosters(MAP);
   }
 
@@ -402,11 +449,11 @@ window.GLR = (function () {
     // world
     gl.useProgram(prog);
     const eye = [cam.x, cam.y, cam.z];
-    const mvp = mul(persp(fovy, asp, 0.06, 60), viewMat(eye, cam.yaw, cam.pitch));
+    const mvp = mul(persp(fovy, asp, 0.06, viewFar), viewMat(eye, cam.yaw, cam.pitch));
     gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(mvp));
     gl.uniform3fv(loc.uCam, eye);
     gl.uniform3fv(loc.uLightDir, ENV.lightDir); gl.uniform3fv(loc.uLightCol, ENV.lightCol); gl.uniform3fv(loc.uAmbient, ENV.ambient);
-    gl.uniform3fv(loc.uFog, ENV.fog); gl.uniform1f(loc.uFogNear, 16); gl.uniform1f(loc.uFogFar, 54);
+    gl.uniform3fv(loc.uFog, ENV.fog); gl.uniform1f(loc.uFogNear, fogNear); gl.uniform1f(loc.uFogFar, fogFar);
     // the strongest live muzzle flash becomes a warm point light on the world
     let fx = 0, fy = 0, fz = 0, fw = 0;
     for (const e of G.ents) { if (!e.alive || !(e.muzzle > 0)) continue;
