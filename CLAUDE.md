@@ -255,6 +255,16 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `preserveDrawingBuffer` reads back BLACK outside its own frame — it reported `meanLuma:0` for
   a NEON RONIN frame that was rendering perfectly. Screenshot to judge, `post()` to confirm the
   chain is on.
+- **Section 9 has SIX maps** (`buildMaps()`): KOWLOON BLOCK · COLD STORAGE · NEON STREET ·
+  **DUST BOWL** (open sand arena, tiered stands, long sightlines — the counterpoint to the
+  alleys) · **SUBWAY** (two platforms either side of an exposed track trench, joined by a
+  mezzanine; pillar runs to peek between) · **NIGHT MARKET** (shelf aisles make a grid of
+  corridors, so every fight is a corner fight; checkouts are the one open room). Picked in the
+  lobby's ARENA chip row, or ROTATE.
+- ⚑ **Authored spawns, not rescued ones.** `fixSpawns()` relocating a spawn is a safety net,
+  not a design: DUST BOWL first shipped with 7 of 10 relocated because the stands step inward
+  to |x|≈16.2 and the spawns sat at ±19. Re-authored to 1. If a new map relocates more than a
+  couple, the map is wrong, not the validator.
 - **Section 9 spawns are validated, not trusted.** `fixSpawns()` rejects any hand-written spawn
   without 1.5u of clearance and spirals out to open floor; `spawnYaw()` picks the longest clear
   sightline instead of "face arena centre". Before this, 4 of NEON STREET's 10 spawns sat *inside*

@@ -774,6 +774,79 @@
       M.city=true;                                   // flags the backdrop mesh for this map
       maps.push(M);
     }
+    // ── Map D: DUST BOWL — an open sand arena ringed by tiered stands. Long sightlines
+    //    across the middle, cover only where you commit to it. The counterpoint to NEON
+    //    STREET's alleys: this one punishes wandering into the open without a plan.
+    { const M=newMap('DUST BOWL',-25,25,-21,21,8); perimeter(M);
+      // stepped stands on the long sides — three tiers, walkable, the sniper layer
+      for(let t=0;t<3;t++){ const y=1.1*(t+1), inset=t*2.4;
+        addBox(M,-25+inset,-21,-21+inset,21, 0,y, PAL.plat,'plat');
+        addBox(M, 21-inset,-21, 25-inset,21, 0,y, PAL.plat,'plat'); }
+      addStairs(M,-16,-19,'-x',5,4,0.62,0.8,PAL.stair);
+      addStairs(M, 16,-19,'+x',5,4,0.62,0.8,PAL.stair);
+      addStairs(M,-16, 15,'-x',5,4,0.62,0.8,PAL.stair);
+      addStairs(M, 16, 15,'+x',5,4,0.62,0.8,PAL.stair);
+      // the centre: a low sand berm you fight over, with a shade pillar on top
+      addBox(M,-6,-4,6,4, 0,1.5, PAL.sand,'plat');
+      addBox(M,-1.1,-1.1,1.1,1.1, 0,4.6, PAL.pillar,'pillar');
+      // scattered crate clusters — the only cover between the berm and the stands
+      const clusters=[[-13,-11],[13,-11],[-13,11],[13,11],[0,-15],[0,15]];
+      for(const [cx,cz] of clusters){
+        addBox(M,cx-1.5,cz-1.5,cx+1.5,cz+1.5, 0,1.5, PAL.crate,'crate');
+        addBox(M,cx-0.9,cz+1.5,cx+0.9,cz+2.9, 0,1.0, PAL.crate,'crate'); }
+      addBox(M,-19.6,-1.0,-17.8,1.0, 0,1.5, PAL.ammo,'ammo');
+      addBox(M, 17.8,-1.0, 19.6,1.0, 0,1.5, PAL.ammo,'ammo');
+      // the stands step inward to |x|~16.2, so arena-floor spawns must stay inside that.
+      // Authored to sit on open sand, not to be rescued by fixSpawns().
+      M.spawns=[[-13,-17],[13,-17],[-13,17],[13,17],[0,-18],[0,18],[-13,0],[13,0],[-7,-9],[7,9]];
+      maps.push(M);
+    }
+    // ── Map E: SUBWAY — two platforms either side of a track trench, joined by a mezzanine.
+    //    The trench is the risk: fast, direct, and utterly exposed to both platforms.
+    { const M=newMap('SUBWAY',-26,26,-16,16,6.5); perimeter(M);
+      // platforms flank a sunken track down the middle (the trench is the gap between them)
+      addBox(M,-26,-16,26,-4.5, 0,1.25, PAL.plat,'plat');
+      addBox(M,-26, 4.5,26, 16, 0,1.25, PAL.plat,'plat');
+      // platform-edge pillars — the classic column run you peek between
+      for(let x=-21;x<=21;x+=6){
+        addBox(M,x-0.55,-5.6,x+0.55,-4.5, 0,6.5, PAL.pillar,'pillar');
+        addBox(M,x-0.55, 4.5,x+0.55, 5.6, 0,6.5, PAL.pillar,'pillar'); }
+      // mezzanine bridging the trench, reached by stairs from each platform
+      addBox(M,-4,-5,4,5, 3.3,3.85, PAL.plat,'plat');
+      addStairs(M,-8,-4.4,'+x',5,3,0.66,0.8,PAL.stair);
+      addStairs(M, 8, 1.4,'-x',5,3,0.66,0.8,PAL.stair);
+      // benches + vending as platform cover
+      for(const [bx,bz] of [[-15,-9],[15,-9],[-15,9],[15,9],[-8,-12],[8,12]])
+        addBox(M,bx-1.6,bz-0.7,bx+1.6,bz+0.7, 1.25,2.15, PAL.cover,'cover');
+      addBox(M,-24.2,-8.9,-22.6,-7.1, 1.25,2.75, PAL.ammo,'ammo');
+      addBox(M, 22.6, 7.1, 24.2, 8.9, 1.25,2.75, PAL.ammo,'ammo');
+      M.spawns=[[-22,-12],[22,-12],[-22,12],[22,12],[-12,-13],[12,13],[0,-13],[0,13],[-18,0],[18,0]];
+      maps.push(M);
+    }
+    // ── Map F: NIGHT MARKET — a grocery floor. Long shelf aisles make a grid of corridors,
+    //    so every fight is a corner fight and the checkouts are the one open room.
+    { const M=newMap('NIGHT MARKET',-24,24,-19,19,5.5); perimeter(M);
+      // aisles: parallel shelf runs with gaps at both ends to circle through
+      for(let i=0;i<5;i++){ const x=-16+i*7;
+        addBox(M,x-1.1,-13,x+1.1,-2.5, 0,2.35, PAL.shelf,'cover');
+        addBox(M,x-1.1, 2.5,x+1.1, 13, 0,2.35, PAL.shelf,'cover'); }
+      // checkout run along the south wall — low counters, the open room
+      for(let i=0;i<4;i++){ const x=-13+i*8;
+        addBox(M,x-2.6,15.4,x+2.6,16.6, 0,1.15, PAL.cover,'cover'); }
+      // cold store: a walled room in the north-east with two ways in
+      addBox(M, 12,-19, 24,-14.6, 0,5.5, PAL.wall);
+      addBox(M, 12,-14.6, 15.4,-13.4, 0,5.5, PAL.wall);
+      addBox(M, 19,-14.6, 24,-13.4, 0,5.5, PAL.wall);
+      // stock pallets + a climbable stack giving one high angle over the aisles
+      addBox(M,-21.5,-17,-17.5,-13, 0,1.5, PAL.crate,'crate');
+      addBox(M,-20.8,-16.3,-18.2,-13.7, 1.5,2.9, PAL.crate,'crate');
+      addStairs(M,-17.4,-16.5,'+x',4,3.4,0.62,0.8,PAL.stair);
+      addBox(M,-2.2,-1.0,2.2,1.0, 0,1.35, PAL.cover,'cover');     // island display, dead centre
+      addBox(M, 16.4,-16.4, 18.0,-14.8, 0,1.6, PAL.ammo,'ammo');  // inside the cold store
+      addBox(M,-22.4, 13.4,-20.8, 15.0, 0,1.6, PAL.ammo,'ammo');
+      M.spawns=[[-20,-9],[20,-9],[-20,9],[20,9],[0,-16],[0,16],[-9,0],[9,0],[18,16],[-18,16]];
+      maps.push(M);
+    }
     return maps;
   }
   /* Spawn sanity. A spawn point is just an (x,z) pair written by hand, and supportY() only treats a
