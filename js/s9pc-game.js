@@ -308,7 +308,7 @@ window.S9Game = (function () {
     const wager = env.wager || { ante: 50, cards: 2, players: 4, picked: [], loadout: 1 };
     const keys = {};
     const mouse = { left: false, right: false };
-    const touch = { move: { active: false, x: 0, y: 0 }, fire: false, jump: false, sprint: false, scope: false };
+    const touch = { move: { active: false, x: 0, y: 0 }, fire: false, jump: false, sprint: false, scope: false, crouch: false };
 
     const mktAmp = () => { try { return (window.RipPowers ? RipPowers.getMarket().amp : 1) || 1; } catch (e) { return 1; } };
 
@@ -371,7 +371,7 @@ window.S9Game = (function () {
     // ── entities ────────────────────────────────────────────────────────────────────────────
     function makeEnt(opt) {
       return { name: opt.name, x: 0, y: 0, z: 0, vy: 0, r: 0.42, h: 1.72, eye: 1.52,
-        yaw: 0, pitch: 0, hp: 150, maxHp: 150, armor: opt.me ? 60 : 55, maxArmor: 80, alive: true, isMe: !!opt.me, bot: !opt.me,
+        yaw: 0, pitch: 0, crouch: 0, hp: 150, maxHp: 150, armor: opt.me ? 60 : 55, maxArmor: 80, alive: true, isMe: !!opt.me, bot: !opt.me,
         regenT: 0, tint: opt.tint || [120, 200, 220], team: opt.team, verified: !!opt.verified, kills: 0, deaths: 0,
         weapon: opt.weapon || 0, mag: 0, fireT: 0, reloadT: 0, reloading: false, triggerConsumed: false, spawnT: 0, iframe: 0, respawnT: 0,
         onGround: true, boost: 1, state: 'patrol', aiT: 0, tgt: null, wp: null, strafe: 1, strafeT: 0, reactT: 0, seenT: 0, wantFire: false, bob: 0, moving: false,
@@ -418,6 +418,7 @@ window.S9Game = (function () {
       e.spawnT = 0; e.iframe = 1.4; e.respawnT = 0; e.reloading = false; e.reloadT = 0; e.fireT = 0;
       e.weapon = firstWeapon != null ? firstWeapon : e.weapon; e.mag = WEAPONS[e.weapon].mag;
       e.state = 'patrol'; e.tgt = null; e.wp = null; e.boost = 1; e.cover = null; e.inCover = false;
+      e.crouch = 0; e.eye = 1.52;
       e.yaw = spawnYaw(MAP, e.x, e.z, e.y); e.pitch = 0;
     }
 
@@ -457,7 +458,7 @@ window.S9Game = (function () {
         G.shake = Math.max(G.shake, w.kick * 1.3);
         G.fireFlash = 1; G.fireHeavy = heavy; G.fireCol = w.key === 'sniper' ? [210, 235, 255] : [255, 224, 150]; }
       else if (Math.hypot(e.x - cam.x, e.z - cam.z) < 26) sfx(w.sfx);
-      const scopeAcc = (e.isMe && e.scoped) ? 0.35 : ((e.isMe && e.ads) ? 0.55 : 1);
+      const scopeAcc = ((e.isMe && e.scoped) ? 0.35 : ((e.isMe && e.ads) ? 0.55 : 1)) * (1 - 0.35 * (e.crouch || 0));   // braced stance is steadier
       for (let p = 0; p < w.pellets; p++) {
         const sp = w.spread * scopeAcc;
         const ay = e.yaw + rnd(sp, -sp) + (e.isMe ? 0 : rnd(0.03, -0.03));
@@ -633,10 +634,28 @@ window.S9Game = (function () {
       if (keys.w || keys.arrowup) fwd += 1; if (keys.s || keys.arrowdown) fwd -= 1;
       if (keys.a || keys.arrowleft) strafe -= 1; if (keys.d || keys.arrowright) strafe += 1;
       if (touch.move.active) { fwd += -touch.move.y; strafe += touch.move.x; }
-      const wantSprint = (keys.shift || touch.sprint) && fwd > 0.1;
+      /* CROUCH — Ctrl or C, the standard binding. Ctrl used to FIRE, which is the one genuinely
+       * confusing key in the old scheme: every FPS a player has touched puts crouch there, so the
+       * reflex to duck behind a crate made you shoot it instead. Fire is LMB (and touch), which is
+       * where it belongs.
+       *
+       * Crouching is a real TRADE, not a pose: the eye drops 0.52 so a chest-high crate actually
+       * hides you, movement halves, and spread tightens 35% because a braced stance is steadier.
+       * It matters in this game specifically — the bots take cover and peek, and without it the
+       * player has no answer to that but strafing. Eased in and out rather than snapped, and
+       * sprint is locked out while crouched.
+       *
+       * ⚑ This lives in the CORE, not in a front-end. `e.eye` is read by the camera, by
+       *   `muzzleOrigin`, and by every bot's line-of-sight test through `eyePos` — so crouching
+       *   changes what can see you, not just what you see, and there is exactly one place where
+       *   that is true. */
+      const wantCrouch = !!(keys.control || keys.c || touch.crouch);
+      e.crouch = Math.max(0, Math.min(1, (e.crouch || 0) + (wantCrouch ? dt * 7 : -dt * 8)));
+      e.eye = 1.52 - 0.52 * e.crouch;
+      const wantSprint = (keys.shift || touch.sprint) && fwd > 0.1 && e.crouch < 0.5;
       if (wantSprint && e.boost > 0.02) { e.sprinting = true; e.boost = Math.max(0, e.boost - dt * 0.42); }
       else { e.sprinting = false; e.boost = Math.min(1, e.boost + dt * 0.3); }
-      const spd = (e.sprinting ? 7.0 : 4.3) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
+      const spd = (e.sprinting ? 7.0 : 4.3) * (1 - 0.5 * e.crouch) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
       const s = Math.sin(e.yaw), c = Math.cos(e.yaw);
       let mx = (s * fwd + c * strafe), mz = (c * fwd - s * strafe); const ml = Math.hypot(mx, mz);
       const mag = Math.min(1, ml);
@@ -645,7 +664,7 @@ window.S9Game = (function () {
       else e.moving = false;
       if ((keys[' '] || keys.alt || touch.jump) && e.onGround) { e.vy = JUMP; e.onGround = false; touch.jump = false; sfx('jump'); }
       const w = WEAPONS[e.weapon];
-      const wantFire = (mouse.left || keys.control || touch.fire);
+      const wantFire = (mouse.left || touch.fire);       // Ctrl is crouch now, as every FPS expects
       if (wantFire) { if (w.auto) { if (e.fireT <= 0) fireWeapon(e); } else { if (!e.triggerConsumed) { fireWeapon(e); e.triggerConsumed = true; } } }
       else e.triggerConsumed = false;
       e.ads = (mouse.right || touch.scope) && e.alive; e.scoped = e.ads && w.zoom > 1;

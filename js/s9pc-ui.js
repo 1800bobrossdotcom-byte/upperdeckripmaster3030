@@ -273,8 +273,9 @@ window.S9PCUI = (function () {
         { type: 'aim', act: 'Look', touch: 'Right ½ · drag', key: 'Mouse' },
         { type: 'hold', act: 'Fire', touch: 'Hold FIRE', key: 'LMB' },
         { type: 'aim', act: 'Aim (ADS)', touch: '2 fingers · right', key: 'RMB' },
-        { type: 'dtap', act: 'Reload', touch: 'Auto · or dbl-tap FIRE', key: 'MMB · R' },
-        { type: 'tap', act: 'Jump', touch: 'JUMP button', key: 'ALT' }] });
+        { type: 'dtap', act: 'Reload', touch: 'Auto · or dbl-tap FIRE', key: 'R' },
+        { type: 'tap', act: 'Jump', touch: 'JUMP button', key: 'SPACE' },
+        { type: 'hold', act: 'Crouch', touch: 'CROUCH button', key: 'CTRL · C' }] });
       else begin(false);
     };
     $('btnAnte').onclick = async () => {

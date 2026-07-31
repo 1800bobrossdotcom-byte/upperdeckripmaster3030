@@ -126,6 +126,11 @@
     background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 62%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); }
   .btn-jump{ right:calc(var(--bez) + 128px); bottom:calc(var(--bez) + 92px); width:64px; height:64px; font-size:10px; color:#04121f;
     background:radial-gradient(circle at 40% 34%,#d8ffbe,#2bff80 62%,#0fae56); border:2px solid #063; box-shadow:0 0 14px rgba(43,255,128,.4); }
+  /* section9.html reads touch.crouch but ships no button for it, so a phone player there cannot
+     crouch at all. A game whose bots take cover and peek needs the answer on every input. */
+  .btn-crouch{ right:calc(var(--bez) + 128px); bottom:calc(var(--bez) + 20px); width:60px; height:60px; font-size:9px; color:#04121f;
+    background:radial-gradient(circle at 40% 34%,#bfe8ff,#59baff 62%,#1f6fc0); border:2px solid #0a2b52; box-shadow:0 0 14px rgba(90,180,255,.4); }
+  .btn-crouch.dn{ filter:brightness(1.45); }
   .tstick,.tstick-nub{ position:fixed; left:0; top:0; z-index:7; display:none; pointer-events:none; border-radius:50%; }
   .tstick{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
     background:radial-gradient(circle,rgba(39,247,228,.10),rgba(39,247,228,.03) 62%,transparent 72%);
@@ -257,17 +262,19 @@
   <div class="tstick-nub" id="tsNub" aria-hidden="true"></div>
   <div class="pad btn-fire" id="padFire">FIRE</div>
   <div class="pad btn-jump" id="padJump">JUMP</div>
+  <div class="pad btn-crouch" id="padCrouch">CROUCH</div>
 
   <div class="controls" id="controls">
     <span class="key desk"><kbd>WASD</kbd> move</span>
     <span class="key desk"><kbd>MOUSE</kbd> look</span>
     <span class="key desk"><kbd>LMB</kbd> fire</span>
     <span class="key desk"><kbd>RMB</kbd> aim / zoom</span>
-    <span class="key desk"><kbd>⇧</kbd> run</span>
-    <span class="key desk"><kbd>ALT</kbd> jump</span>
-    <span class="key desk"><kbd>MMB</kbd> · <kbd>R</kbd> reload</span>
+    <span class="key desk"><kbd>SPACE</kbd> jump</span>
+    <span class="key desk"><kbd>R</kbd> reload</span>
+    <span class="key desk"><kbd>SHIFT</kbd> sprint</span>
+    <span class="key desk"><kbd>CTRL</kbd> crouch</span>
     <span class="key desk"><kbd>1-4</kbd> weapon</span>
-    <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP · dbl-tap FIRE = reload</span>
+    <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP · CROUCH · dbl-tap FIRE = reload</span>
   </div>
 
   <!-- LOBBY / WAGER -->

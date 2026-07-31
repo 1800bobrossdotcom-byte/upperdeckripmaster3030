@@ -92,6 +92,12 @@ window.S9PCFx = (function () {
     //   error. Setting both costs nothing — the diffuse term is zero anyway.
     addMat.emissiveVertexColor = true;
     addMat.diffuseVertexColor = true;
+    /* ⚑ HDR ON PURPOSE. A vertex colour is 8-bit, so the brightest additive contribution it can
+     * make is 1.0 — and 1.0 is exactly the value the tonemapper is about to compress. A tracer
+     * that tops out at "as bright as a lit wall" reads as a grey scratch. Pushing emissive past
+     * 1.0 puts gunfire above the bloom threshold, which is the whole reason these effects are
+     * geometry in the scene rather than stickers on the overlay: they get to be LIGHT. */
+    addMat.emissiveIntensity = 3.2;
     addMat.blendType = pc.BLEND_ADDITIVE;
     addMat.depthWrite = false;
     addMat.cull = pc.CULLFACE_NONE;
@@ -175,6 +181,12 @@ window.S9PCFx = (function () {
       return push(buf, n, max, _a, _b, _c, _d, r, g, b, a);
     }
 
+    /* The FIRST-PERSON muzzle flash. The simulation's flash sits at `muzzleOrigin`, 0.4 m in
+     * front of the eye — correct in the world, and completely hidden inside the viewmodel when
+     * it is your own gun. So the viewmodel gets its own, placed off the rendered barrel. */
+    let vmFlash = null;
+    function setViewFlash(x, y, z, k, big) { vmFlash = k > 0 ? { x, y, z, k, big } : null; }
+
     function update(G, camEnt, t) {
       const wt = camEnt.getWorldTransform();
       R.set(wt.data[0], wt.data[1], wt.data[2]);
@@ -192,11 +204,11 @@ window.S9PCFx = (function () {
         const k = fade * (tr.me ? 1 : 0.82);
         // ⚑ Yours are cool-white, theirs warm-orange. That is not decoration: the only way to read
         //   a firefight is to know at a glance which rounds are yours.
-        if (tr.me) nA = ribbon(A, nA, MAXA, tx, ty, tz, hx, hy, hz, 0.030, 210 * k, 200 * k, 140 * k, 255);
-        else nA = ribbon(A, nA, MAXA, tx, ty, tz, hx, hy, hz, 0.034, 235 * k, 110 * k, 45 * k, 255);
+        if (tr.me) nA = ribbon(A, nA, MAXA, tx, ty, tz, hx, hy, hz, 0.042, 220 * k, 208 * k, 150 * k, 255);
+        else nA = ribbon(A, nA, MAXA, tx, ty, tz, hx, hy, hz, 0.046, 240 * k, 118 * k, 48 * k, 255);
         // the round itself, a bright short core so a near miss reads as an OBJECT going past
         const cx = tr.x0 + tr.dx * Math.max(0, head - 0.5), cy = tr.y0 + tr.dy * Math.max(0, head - 0.5), cz = tr.z0 + tr.dz * Math.max(0, head - 0.5);
-        nA = ribbon(A, nA, MAXA, cx, cy, cz, hx, hy, hz, 0.055, 255 * k, 245 * k, 215 * k, 255);
+        nA = ribbon(A, nA, MAXA, cx, cy, cz, hx, hy, hz, 0.072, 255 * k, 248 * k, 225 * k, 255);
       }
       // ── muzzle flashes + impact pops ──
       for (const f of G.flashes) {
@@ -205,6 +217,15 @@ window.S9PCFx = (function () {
         const c = f.col || [255, 236, 176];
         nA = billboard(A, nA, MAXA, f.x, f.y, f.z, rad, c[0] * k, c[1] * k, c[2] * k, 255);
         nA = billboard(A, nA, MAXA, f.x, f.y, f.z, rad * 2.4, c[0] * k * 0.22, c[1] * k * 0.18, c[2] * k * 0.12, 255);
+      }
+      if (vmFlash) {
+        const k = vmFlash.k, c = [255, 236, 176];
+        /* ⚠ SIZE IS IN METRES AT ~1.1 m FROM THE EYE. At fov 0.97 the half-height of the frame at
+         * that distance is 0.61 m, so a "0.6 m" halo is a full-screen white disc — which is
+         * exactly what the first attempt drew. Kept deliberately small: the LIGHT does the work,
+         * the billboard is only the hot core at the barrel. */
+        nA = billboard(A, nA, MAXA, vmFlash.x, vmFlash.y, vmFlash.z, (vmFlash.big ? 0.058 : 0.034) * (0.6 + 0.4 * k), c[0] * k, c[1] * k, c[2] * k, 255);
+        nA = billboard(A, nA, MAXA, vmFlash.x, vmFlash.y, vmFlash.z, (vmFlash.big ? 0.15 : 0.098) * (0.6 + 0.4 * k), c[0] * k * 0.22, c[1] * k * 0.18, c[2] * k * 0.12, 255);
       }
       // ── sparks ──
       for (const s of G.sparks) {
@@ -242,7 +263,7 @@ window.S9PCFx = (function () {
       return { add: nA, alpha: nB };
     }
 
-    return { update, root, addMat, alphaMat, get counts() { return { add: nA, alpha: nB, maxAdd: MAXA, maxAlpha: MAXB }; },
+    return { update, setViewFlash, root, addMat, alphaMat, get counts() { return { add: nA, alpha: nB, maxAdd: MAXA, maxAlpha: MAXB }; },
       dispose() { try { root.destroy(); } catch (e) {} } };
   }
 

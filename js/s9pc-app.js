@@ -535,6 +535,18 @@
   }
   loadWeapon();
 
+  /* ⚑ THE MUZZLE FLASH IS A LIGHT. Our own renderer paints a bright blob on the 2D overlay and
+   * adds a centre-weighted tint on heavy shots — a picture of a flash. Here it is an omni light
+   * on the camera, so firing in a dark corridor actually throws the wall, the crate and the
+   * operative you are shooting at into a frame of hard light. Clustered lighting is what makes
+   * that affordable, and it is the single most legible thing the engine buys in combat. */
+  const muzzleLight = new pc.Entity('muzzle');
+  muzzleLight.addComponent('light', { type: 'omni', color: new pc.Color(1.0, 0.86, 0.62), intensity: 0,
+    range: 12, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
+  muzzleLight.setLocalPosition(0.21, -0.17, -1.06);   // measured off the rendered barrel, not guessed
+  cam.addChild(muzzleLight);
+  muzzleLight.enabled = false;
+
   // ── input ───────────────────────────────────────────────────────────────────────────────────
   const K = game.keys, M = game.mouse, T = game.touch;
   let locked = false, wasLocked = false;
@@ -625,6 +637,7 @@
   bindPad($('padFire'), () => { T.fire = true; const n = performance.now();
     if (n - _fireTapT < 300 && game.G.mode === 'play') game.startReload(game.G.me); _fireTapT = n; }, () => { T.fire = false; });
   bindPad($('padJump'), () => { T.jump = true; }, null);
+  bindPad($('padCrouch'), () => { T.crouch = true; }, () => { T.crouch = false; });
 
   function togglePause(force) {
     if (game.G.mode === 'play') { game.G.mode = 'pause'; ui.music.pause();
@@ -673,6 +686,14 @@
       // hide the model behind a true optical scope, and pull it toward the sightline when aiming
       const scoped = me && me.scoped && S9Game.WEAPONS[me.weapon].zoom > 1;
       viewmodel.enabled = !!(me && me.alive && !scoped);
+      const mk = me ? Math.max(0, Math.min(1, me.muzzle / 0.05)) : 0;
+      muzzleLight.enabled = mk > 0.02;
+      if (muzzleLight.enabled) {
+        const w = S9Game.WEAPONS[me.weapon], heavy = (w.key === 'shotgun' || w.key === 'sniper');
+        muzzleLight.light.intensity = mk * (heavy ? 11 : 5.5);
+        muzzleLight.light.color = w.key === 'sniper' ? new pc.Color(0.84, 0.92, 1.0) : new pc.Color(1.0, 0.86, 0.62);
+        if (fx) { const wp = muzzleLight.getPosition(); fx.setViewFlash(wp.x, wp.y, wp.z, mk, heavy); }
+      } else if (fx) fx.setViewFlash(0, 0, 0, 0, false);
       if (me && viewmodel.enabled) {
         const bob = me.moving && me.onGround ? Math.sin(me.bob) : 0;
         const ads = me.ads ? 1 : 0;
@@ -780,6 +801,41 @@
   say('');
   app.start();
 
+  /* Stage one representative frame of combat FX and hold it. A tracer crosses a 40 m arena in
+   * ~120 ms; under software GL a headless run renders about one frame in that time, so photo-
+   * graphing live gunfire is a coin flip. This stuffs the same state the simulation would have
+   * produced, mid-flight, and nothing else about the render path changes. Re-stuffed every frame
+   * while `fxDemo` is set, so a slow frame cannot decay the capture out from under itself. */
+  function stuffFx() {
+    const G = game.G, me = G.me; if (!me) return false;
+    const d = game.lookDir(me.yaw, me.pitch);
+    const ox = me.x + d.x * 0.4, oy = me.y + me.eye - 0.08 + d.y * 0.4, oz = me.z + d.z * 0.4;
+    G.tracers.length = 0; G.flashes.length = 0; G.sparks.length = 0; G.decals.length = 0;
+    for (let i = 0; i < 6; i++) {
+      const a = me.yaw + (i - 2.5) * 0.055, p = me.pitch + (i % 2 ? 0.02 : -0.015);
+      const dd = game.lookDir(a, p);
+      const hit = game.raycast(ox, oy, oz, dd.x, dd.y, dd.z, 56, me);
+      const len = Math.max(2, Math.hypot(hit.x - ox, hit.y - oy, hit.z - oz));
+      G.tracers.push({ x0: ox, y0: oy, z0: oz, dx: dd.x, dy: dd.y, dz: dd.z, len,
+        p: len * (0.25 + 0.12 * i), sp: 340, tail: 3.4, me: i < 3, t: 0.1 });
+      G.sparks.push({ x: hit.x, y: hit.y, z: hit.z, vx: 0, vy: 0, vz: 0, t: 0.3, col: [230, 210, 160] });
+      G.decals.push({ x: hit.x, y: hit.y, z: hit.z, n: [0, 1, 0], type: 'bullet', r: 0.1, life: 8, max: 10 });
+    }
+    // INCOMING. Your own rounds run down the view axis and project to a dot — correct, and
+    // useless as evidence. Rounds coming the other way are what a tracer is for.
+    G.ents.forEach((e, i) => { if (e.isMe || !e.alive) return;
+      const sx = e.x, sy = e.y + e.eye, sz = e.z;
+      const tx = me.x + (i % 2 ? 1.4 : -1.1), ty = me.y + me.eye + 0.3, tz = me.z + (i % 3 ? 0.9 : -1.3);
+      let dx = tx - sx, dy = ty - sy, dz = tz - sz; const L = Math.hypot(dx, dy, dz) || 1;
+      dx /= L; dy /= L; dz /= L;
+      G.tracers.push({ x0: sx, y0: sy, z0: sz, dx, dy, dz, len: L + 12, p: L * (0.55 + 0.12 * i), sp: 340, tail: 3.4, me: false, t: 0.1 });
+      G.flashes.push({ x: sx + dx * 0.4, y: sy + dy * 0.4, z: sz + dz * 0.4, t: 0.06, max: 0.06, big: false });
+    });
+    G.flashes.push({ x: ox, y: oy, z: oz, t: 0.06, max: 0.06, big: false });
+    me.muzzle = 1e6; me.recoil = 0.5;
+    return true;
+  }
+
   // ── dev / headless peephole ─────────────────────────────────────────────────────────────────
   window.__s9pc = {
     app, game, ui, cam,
@@ -809,29 +865,12 @@
      * ~120 ms; under software GL a headless run renders about one frame in that time, so photo-
      * graphing live gunfire is a coin flip. This stuffs the same state the simulation would have
      * produced, mid-flight, and nothing else about the render path changes. */
-    _fxdemo() {
-      const G = game.G, me = G.me; if (!me) return false;
-      const d = game.lookDir(me.yaw, me.pitch);
-      const ox = me.x + d.x * 0.4, oy = me.y + me.eye - 0.08 + d.y * 0.4, oz = me.z + d.z * 0.4;
-      G.tracers.length = 0; G.flashes.length = 0; G.sparks.length = 0; G.decals.length = 0;
-      for (let i = 0; i < 6; i++) {
-        const a = me.yaw + (i - 2.5) * 0.055, p = me.pitch + (i % 2 ? 0.02 : -0.015);
-        const dd = game.lookDir(a, p);
-        const hit = game.raycast(ox, oy, oz, dd.x, dd.y, dd.z, 56, me);
-        const len = Math.max(2, Math.hypot(hit.x - ox, hit.y - oy, hit.z - oz));
-        G.tracers.push({ x0: ox, y0: oy, z0: oz, dx: dd.x, dy: dd.y, dz: dd.z, len,
-          p: len * (0.25 + 0.12 * i), sp: 340, tail: 3.4, me: i < 3, t: 0.1 });
-        G.sparks.push({ x: hit.x, y: hit.y, z: hit.z, vx: 0, vy: 0, vz: 0, t: 0.3, col: [230, 210, 160] });
-        G.decals.push({ x: hit.x, y: hit.y, z: hit.z, n: [0, 1, 0], type: 'bullet', r: 0.1, life: 8, max: 10 });
-      }
-      G.flashes.push({ x: ox, y: oy, z: oz, t: 0.06, max: 0.06, big: false });
-      me.muzzle = 0.05; me.recoil = 0.5;
-      return true;
-    },
+    _fxdemo(stick) { fxDemo = stick !== false; return stuffFx(); },
     _post(o) { if (!frame) return null; Object.assign(POST, o || {});
       frame.bloom.intensity = POST.bloom; frame.rendering.sharpness = POST.sharpness;
       frame.fringing.intensity = POST.fringing; frame.grading.saturation = POST.saturation;
       frame.vignette.intensity = POST.vignette.intensity; frame.rendering.toneMapping = POST.tone;
+      frame.grading.contrast = POST.contrast;
       frame.update(); return POST; },
     /* CLIPPED-PIXEL COUNT — the measurement the 0.94 knee was derived from, in the engine's terms.
      * Reads the real backing store (needs ?grab=1) and reports the fraction of pixels where a
