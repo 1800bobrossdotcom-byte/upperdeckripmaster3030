@@ -289,8 +289,16 @@ window.S9PCWorld = (function () {
   function boxSoup(MAP) {
     const V = [];                                   // pos3 + norm3 interleaved, 3 verts per tri
     const kinds = [];                               // one kind per triangle, parallel to V
+    /* ⚠ WINDING. `a,b,c,d` are listed anticlockwise as seen from OUTSIDE the surface, and
+     * PlayCanvas's front face is CCW — but the triangles have to be emitted `a,c,b` / `a,d,c` for
+     * that to hold. Emitting them in the obvious `a,b,c` order produces the mirror winding and
+     * every box in the arena renders inside-out: the near faces are culled and you look straight
+     * through a crate at the inside of its far wall, which reads as "the geometry didn't load".
+     * Checked, not guessed — for the top face, (P5−P4)×(P6−P5) = (0, −(x1−x0)(z1−z0), 0), i.e.
+     * −Y, while the declared normal is +Y. Lighting uses the declared normal, so this is a
+     * CULLING bug only, which is exactly why it looks like missing geometry rather than bad shading. */
     function quad(a, b, c, d, n, kind) {
-      const t = [[a, b, c], [a, c, d]];
+      const t = [[a, c, b], [a, d, c]];
       for (const tri of t) {
         for (const p of tri) { V.push(p[0], p[1], p[2], n[0], n[1], n[2]); }
         kinds.push(kind);

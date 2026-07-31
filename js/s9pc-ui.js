@@ -312,7 +312,7 @@ window.S9PCUI = (function () {
     Object.assign(API, {
       sfx: SFX, powMsg, sfxOn: () => sfxOn, music, playMusic, toggleSfx, toggleMusic,
       myHandle, vault, saveVault, ownedSlugs, toast,
-      attach, setMaps, paintArenaChips, paintBuildNote, paintQualityChips, hud, result, showMatchChrome, buildGrid, refreshPot,
+      begin, attach, setMaps, paintArenaChips, paintBuildNote, paintQualityChips, hud, result, showMatchChrome, buildGrid, refreshPot,
       get deck() { return { list: DECK, bySlug }; },
       get arenaPick() { return arenaPick; },
       get roster() { return roster; },

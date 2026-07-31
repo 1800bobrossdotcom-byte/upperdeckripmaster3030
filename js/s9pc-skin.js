@@ -1,6 +1,5 @@
 /* upperdeckripmaster3030 — Section 9 / PlayCanvas EVALUATION build: skinned bodies (S9PCSkin).
  *
- * ⚠ PROTOTYPE, for comparison against `section9.html`. Nothing here ships.
  *
  * Takes the SAME auto-skinned bodies our renderer draws — `models/<arch>.skn`, 32-byte header
  * then 14 floats per vertex (pos3 + norm3 + boneIdx4 + boneWgt4, stride 56) over the 11-bone
@@ -27,6 +26,7 @@
 window.S9PCSkin = (function () {
   const BASE = 'models/';
   const cache = {};
+  const BUILT = {};                                  // arch → { mesh, ibp, SC } — built once, shared
 
   /* Fetch + parse one .skn. Reuses S9Skin's cross-limb stitch repair by going through nothing —
    * the parse is 12 lines and duplicating it here keeps the prototype from reaching into
@@ -89,7 +89,7 @@ window.S9PCSkin = (function () {
     return out;
   }
 
-  function material(app, arch) {
+  function material(app, arch, tint) {
     const m = new pc.StandardMaterial();
     m.name = 's9pc-body-' + arch;
     // one look per archetype, echoing S9Skin's kit assignment (cloth / webbing / hardsuit)
@@ -98,7 +98,13 @@ window.S9PCSkin = (function () {
       kappa: { d: [0.22, 0.26, 0.24], metal: 0.18, gloss: 0.42 },   // strapped webbing
       prizm: { d: [0.46, 0.49, 0.55], metal: 0.85, gloss: 0.62 },   // brushed hardsuit
     }[arch] || { d: [0.4, 0.4, 0.4], metal: 0.1, gloss: 0.4 };
-    m.diffuse = new pc.Color(K.d[0], K.d[1], K.d[2]);
+    /* One look per archetype, then nudged toward the operative's HUD tint. The tint is how you
+     * tell two bodies of the same archetype apart at range, and it is the same colour the
+     * nameplate, the death pop and the debris use — so the read is consistent everywhere. */
+    let d = K.d.slice();
+    if (tint) { const t = [tint[0] / 255, tint[1] / 255, tint[2] / 255];
+      d = d.map((v, i) => v * 0.62 + t[i] * 0.38); }
+    m.diffuse = new pc.Color(d[0], d[1], d[2]);
     m.useMetalness = true; m.metalness = K.metal; m.gloss = K.gloss;
     m.update();
     return m;
@@ -113,18 +119,20 @@ window.S9PCSkin = (function () {
     if (allowed.indexOf(arch) < 0) return Promise.reject(new Error('archetype "' + arch + '" is not in S9Skin.CAST (task #77)'));
 
     return fetchSkn(arch).then(({ verts, count }) => {
-      const { mesh, lo, h } = meshOf(app, verts, count);
-      const SC = S9Skin.H / (h || 1), yo = SC * lo;
-
-      // inverse bind pose: mesh space → bind-local. Constant; built once.
-      const ibp = S9Skin.BIND.map(b => {
-        const m = new pc.Mat4();
-        m.setTRS(new pc.Vec3(-b[0][0] * 1, -(b[0][1] + yo), -b[0][2]), pc.Quat.IDENTITY, new pc.Vec3(SC, SC, SC));
-        // setTRS gives T·R·S ⇒ p ↦ SC·p + t, and t must be −b0′, which is what we passed.
-        return m;
-      });
-      // ⚠ setTRS applies translation AFTER scale, which is exactly SC·p − b0′. Verified against
-      //   S9Skin.palette numerically in the headless check (see docs in the report).
+      /* ⚑ The MESH and the inverse bind pose are per-ARCHETYPE, not per-operative: every body
+       * wearing `oni` is the same 4,600 triangles at the same bind scale, and only the bone graph
+       * differs. Building them once means a seven-bot match uploads three meshes, not seven. */
+      const built = BUILT[arch] || (BUILT[arch] = (() => {
+        const b = meshOf(app, verts, count);
+        const SC = S9Skin.H / (b.h || 1), yo = SC * b.lo;
+        // inverse bind pose: mesh space → bind-local. Constant.
+        // setTRS gives T·R·S ⇒ p ↦ SC·p + t, and t must be −b0′, which is what is passed.
+        const ibp = S9Skin.BIND.map(bb => { const m = new pc.Mat4();
+          m.setTRS(new pc.Vec3(-bb[0][0], -(bb[0][1] + yo), -bb[0][2]), pc.Quat.IDENTITY, new pc.Vec3(SC, SC, SC));
+          return m; });
+        return { mesh: b.mesh, lo: b.lo, h: b.h, SC, ibp };
+      })());
+      const mesh = built.mesh, lo = built.lo, h = built.h, SC = built.SC, ibp = built.ibp;
 
       const root = new pc.Entity('op-' + arch);
       const bones = S9Skin.BONES.map(n => { const b = new pc.Entity('bone-' + n); root.addChild(b); return b; });
@@ -134,7 +142,7 @@ window.S9PCSkin = (function () {
       const si = new pc.SkinInstance(skin);
       si.bones = bones;
 
-      const mi = new pc.MeshInstance(mesh, opts.material || material(app, arch), root);
+      const mi = new pc.MeshInstance(mesh, opts.material || material(app, arch, opts.tint), root);
       mi.skinInstance = si;
       mi.castShadow = true;
       // skinned aabbs are derived from bones; a generous custom box in node (px) space is
@@ -150,10 +158,11 @@ window.S9PCSkin = (function () {
         return [d[0] / l, d[1] / l, d[2] / l];
       });
 
-      let lastPose = null;
+      let lastPose = null, state = null;
       /* Drive the rig. `e` is a Section-9-shaped entity; height/yaw/position ride the root so
        * the px skeleton lands in metres exactly as section9-gl.js's entModel() does. */
       function setPose(e) {
+        state = e;
         const P = S9Skin.pose(e); lastPose = P;
         for (let i = 0; i < 11; i++) {
           const seg = P.B[i], j = seg[0], c = seg[1];
@@ -198,9 +207,72 @@ window.S9PCSkin = (function () {
       }
 
       return { entity: root, bones, mesh, setPose, verify, arch, count, scale: SC,
-        meshLo: lo, meshH: h, get pose() { return lastPose; } };
+        meshLo: lo, meshH: h, get pose() { return lastPose; }, get state() { return state; } };
     });
   }
 
-  return { spawn, CAST: () => (window.S9Skin ? S9Skin.CAST.map(c => c.arch) : []) };
+  /* ── the fallback body ────────────────────────────────────────────────────────────────────
+   * Fails open, the way the shipping game does: no .skn, a 404, a weak device ⇒ the operative is
+   * still there and still articulated, just built from boxes. Same 11 bones, same `S9Skin.pose`,
+   * same weapon mount — the ONLY thing that changes is the geometry hanging off the skeleton, so
+   * a bot in the fallback stands, runs and aims identically to one in a skinned mesh.
+   *
+   * ⚑ Deliberately not "hide the operative". A missing body in a firefight is not a downgrade,
+   *   it is an invisible enemy, which is worse than any amount of ugly. */
+  const BOXSEG = [
+    // [radius, kit] per bone, matching BONES order: pelvis chest head armF0 armF1 armB0 armB1 legs…
+    [10, 'vest'], [11, 'vest'], [8.5, 'skin'], [5.5, 'vest'], [4.5, 'skin'],
+    [5.5, 'vest'], [4.5, 'skin'], [6.5, 'kit'], [5.5, 'kit'], [6.5, 'kit'], [5.5, 'kit'],
+  ];
+  let BOXGEO = null;
+  function spawnBox(app, tint) {
+    if (!window.S9Skin) throw new Error('S9Skin missing');
+    const t = tint || [140, 190, 210];
+    const root = new pc.Entity('op-box');
+    const mats = {};
+    const mk = (r, g, b, gloss, metal) => { const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(r, g, b); m.useMetalness = true; m.metalness = metal; m.gloss = gloss; m.update(); return m; };
+    mats.vest = mk(t[0] / 255 * 0.55, t[1] / 255 * 0.55, t[2] / 255 * 0.55, 0.30, 0.10);
+    mats.kit = mk(0.30, 0.28, 0.21, 0.24, 0.05);
+    mats.skin = mk(0.52, 0.40, 0.31, 0.22, 0.02);
+    if (!BOXGEO) BOXGEO = pc.Mesh.fromGeometry(app.graphicsDevice, new pc.BoxGeometry());
+    const bones = [], limbs = [];
+    S9Skin.BONES.forEach((n, i) => {
+      const b = new pc.Entity('bone-' + n); root.addChild(b);
+      const seg = new pc.Entity('seg-' + n);
+      const mi = new pc.MeshInstance(BOXGEO, mats[BOXSEG[i][1]], seg);
+      mi.castShadow = true;
+      seg.addComponent('render', { meshInstances: [mi], castShadows: true, receiveShadows: true });
+      b.addChild(seg); bones.push(b); limbs.push(seg);
+    });
+    // a head block, so the silhouette has a skull rather than a stick
+    app.root.addChild(root);
+    let lastPose = null, state = null;
+    const _q = new pc.Quat(), _up = new pc.Vec3(0, 1, 0), _d = new pc.Vec3();
+    function setPose(e) {
+      state = e;
+      const P = S9Skin.pose(e); lastPose = P;
+      for (let i = 0; i < 11; i++) {
+        const seg = P.B[i], j = seg[0], c = seg[1];
+        const dx = c[0] - j[0], dy = c[1] - j[1], dz = c[2] - j[2];
+        const L = Math.hypot(dx, dy, dz) || 1;
+        bones[i].setLocalPosition(j[0], j[1], j[2]);
+        _d.set(dx / L, dy / L, dz / L);
+        _q.setFromDirections ? _q.setFromDirections(_up, _d) : _q.set(0, 0, 0, 1);
+        bones[i].setLocalRotation(_q);
+        const r = BOXSEG[i][0];
+        limbs[i].setLocalPosition(0, L / 2, 0);
+        limbs[i].setLocalScale(r * 2, L, r * 2);
+      }
+      const k = (e.h || 1.72) / S9Skin.H;
+      root.setLocalScale(k, k, k);
+      root.setLocalPosition(e.x || 0, e.y || 0, e.z || 0);
+      root.setLocalEulerAngles(0, (e.yaw || 0) * 180 / Math.PI, 0);
+      return P;
+    }
+    return { entity: root, bones, mesh: null, setPose, arch: 'box', count: 0,
+      get pose() { return lastPose; }, get state() { return state; } };
+  }
+
+  return { spawn, spawnBox, CAST: () => (window.S9Skin ? S9Skin.CAST.map(c => c.arch) : []) };
 })();
