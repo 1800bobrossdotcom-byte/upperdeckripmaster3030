@@ -36,6 +36,7 @@ window.DFGL = (function () {
   let prog = null, sky = null, loc = {}, skyLoc = {};
   let dyn = null, skyBuf = null, geo = {};
   let cloud = null, cloudLoc = {}, cloudBuf = null;
+  let surfTex = null;
 
   // ── mat4, column-major, same kit as the other two renderers ──
   const M = {
@@ -78,25 +79,43 @@ window.DFGL = (function () {
   const VS = 'attribute vec3 aPos; attribute vec3 aNorm; attribute vec3 aCol;' +
     'uniform mat4 uMVP; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying float vD;' +
     'varying vec3 vW;' +
-    'void main(){ vN=(uM*vec4(aNorm,0.0)).xyz; vC=aCol; vW=(uM*vec4(aPos,1.0)).xyz;' +
+    'varying vec3 vL;' +
+    'void main(){ vN=(uM*vec4(aNorm,0.0)).xyz; vC=aCol; vW=(uM*vec4(aPos,1.0)).xyz; vL=aPos;' +
     ' vec4 p=uMVP*vec4(aPos,1.0); vD=p.w; gl_Position=p; }';
   const FS = 'precision mediump float;' +
     'varying vec3 vN; varying vec3 vC; varying float vD; varying vec3 vW;' +
     'uniform vec3 uLight; uniform vec3 uFog; uniform vec2 uFogND; uniform float uEmit;' +
     'uniform vec3 uEye; uniform vec3 uSunCol; uniform vec3 uSky; uniform vec3 uGnd;' +
     'uniform float uSpec; uniform float uAlpha;' +
+    'uniform sampler2D uTex; uniform float uTexAmt; uniform float uTexScale;' +
+    'varying vec3 vL;' +
     'void main(){' +
     ' vec3 c;' +
     ' if(uEmit>0.5){ c=vC; }' +                                  // grid, bolts, anything glowing
     ' else {' +
     '   vec3 N=normalize(vN), L=normalize(uLight), V=normalize(uEye-vW);' +
     '   if(dot(N,V)<0.0) N=-N;' +                                // two-sided: CULL_FACE is off
+    '   vec3 base=vC;' +
+    /* TRIPLANAR surface detail. Every mesh in this game is procedural or code-authored, so
+     * none of it has a UV unwrap — and unwrapping generated geometry is work that has to be
+     * redone every time the generator changes. Projecting the map down the three world axes
+     * and blending by the normal needs no UVs at all, never stretches, and has no seams. It
+     * costs three samples on surfaces that face a corner and one on surfaces that don't.
+     * Sampled in OBJECT space (vL) so the detail is welded to the hull and doesn't swim as
+     * the craft flies — the mistake that makes triplanar look like projected film. */
+    '   if(uTexAmt>0.001){' +
+    '     vec3 bw=abs(normalize(vN)); bw=bw/(bw.x+bw.y+bw.z);' +
+    '     vec3 p=vL*uTexScale;' +
+    '     vec3 t=texture2D(uTex,p.yz).rgb*bw.x' +
+    '           +texture2D(uTex,p.zx).rgb*bw.y' +
+    '           +texture2D(uTex,p.xy).rgb*bw.z;' +
+    '     base=mix(base, base*(0.55+t*1.15), uTexAmt); }' +
     '   vec3 amb=mix(uGnd,uSky,N.y*0.5+0.5);' +
     '   float wrap=max(0.0,(dot(N,L)+0.35)/1.35);' +
     '   vec3 Hv=normalize(L+V);' +
     '   float spec=pow(max(0.0,dot(N,Hv)),40.0)*uSpec*max(0.0,dot(N,L));' +
     '   float fres=pow(1.0-max(0.0,dot(N,V)),3.0);' +
-    '   c=vC*(amb+uSunCol*wrap) + uSunCol*spec + uSky*fres*0.35; }' +
+    '   c=base*(amb+uSunCol*wrap) + uSunCol*spec + uSky*fres*0.35; }' +
     ' float fg=clamp((vD-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     ' gl_FragColor=vec4(mix(c,uFog,fg*0.92),uAlpha); }';
 
@@ -246,6 +265,61 @@ window.DFGL = (function () {
     return a;
   }
 
+  /* ── the surface map ───────────────────────────────────────────────────────────────────
+   * DRAWN, not downloaded. A 256² canvas of panel seams, rivets, streaked grime and fine
+   * noise, uploaded once. Three reasons it is generated rather than shipped as a file:
+   * it costs zero bytes on a mobile connection we have never measured (task #73), it can
+   * never become a licence question inside a minted token, and it is seamless by
+   * construction — every mark that crosses an edge is drawn again on the opposite one.
+   *
+   * The point of it is the mid-frequency detail a flat colour cannot have: it gives the eye
+   * something to hold at close range and something for the specular to break up on.
+   */
+  function makeSurfaceTex() {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d');
+    let seed = 3030;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    x.fillStyle = '#8c8c8c'; x.fillRect(0, 0, S, S);
+    // fine grain
+    const img = x.getImageData(0, 0, S, S), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * 34;
+      d[i] += n; d[i+1] += n; d[i+2] += n; }
+    x.putImageData(img, 0, 0);
+    // wrap-safe stroke: draw it, then draw it again shifted by ±S on each axis it crosses
+    const wrapLine = (x0, y0, x1, y1, w, style) => {
+      x.strokeStyle = style; x.lineWidth = w;
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+        x.beginPath(); x.moveTo(x0 + ox, y0 + oy); x.lineTo(x1 + ox, y1 + oy); x.stroke(); }
+    };
+    for (let i = 0; i < 5; i++) {                       // panel seams, dark groove + lit lip
+      const v = Math.floor(rnd() * S);
+      if (rnd() < 0.5) { wrapLine(v, -S, v, S * 2, 2, 'rgba(40,44,50,.55)');
+                         wrapLine(v + 2, -S, v + 2, S * 2, 1, 'rgba(210,215,225,.28)'); }
+      else { wrapLine(-S, v, S * 2, v, 2, 'rgba(40,44,50,.55)');
+             wrapLine(-S, v + 2, S * 2, v + 2, 1, 'rgba(210,215,225,.28)'); }
+    }
+    for (let i = 0; i < 26; i++) {                      // rivets
+      const rx = rnd() * S, ry = rnd() * S;
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) {
+        x.fillStyle = 'rgba(60,64,70,.5)'; x.beginPath(); x.arc(rx + ox, ry + oy, 1.9, 0, TAU); x.fill();
+        x.fillStyle = 'rgba(225,230,240,.35)'; x.beginPath(); x.arc(rx + ox - 0.5, ry + oy - 0.5, 0.9, 0, TAU); x.fill(); }
+    }
+    for (let i = 0; i < 16; i++) {                      // weathering streaks
+      const sx = rnd() * S, sy = rnd() * S, len = 12 + rnd() * 40;
+      wrapLine(sx, sy, sx + (rnd() - 0.5) * 8, sy + len, 1 + rnd() * 3, 'rgba(52,50,46,.16)');
+    }
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.generateMipmap(gl.TEXTURE_2D);                   // 256 is a power of two, so this is legal
+    return t;
+  }
+
   function mkvbo(arr) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
     return { vbo: b, count: arr.length / STRIDE }; }
@@ -347,8 +421,8 @@ window.DFGL = (function () {
       if (!gl) return false;
       prog = link(VS, FS); sky = link(SKY_VS, SKY_FS);
       ['aPos','aNorm','aCol'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
-      ['uMVP','uM','uLight','uFog','uFogND','uEmit','uEye','uSunCol','uSky','uGnd','uSpec','uAlpha']
-        .forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+      ['uMVP','uM','uLight','uFog','uFogND','uEmit','uEye','uSunCol','uSky','uGnd','uSpec',
+       'uAlpha','uTex','uTexAmt','uTexScale'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
       skyLoc.aP = gl.getAttribLocation(sky, 'aP');
       ['uTop','uBot','uSun','uSunPos','uAsp','uRoll','uWhite','uWhiteCol'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
       // clouds fail open on their own: a compile failure costs the deck, not the game
@@ -361,6 +435,9 @@ window.DFGL = (function () {
         const R = 60;
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-R,-R, R,-R, -R,R, R,-R, R,R, -R,R]), gl.STATIC_DRAW);
       } catch (e) { cloud = null; }
+      // the surface map fails open on its own: no texture ⇒ uTexAmt stays 0 and shading is
+      // exactly the untextured path, rather than sampling an unbound unit
+      try { surfTex = makeSurfaceTex(); } catch (e) { surfTex = null; }
       dyn = gl.createBuffer();
       skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
@@ -463,6 +540,10 @@ window.DFGL = (function () {
     gl.uniform3fv(loc.uGnd, gndC.map(v => 0.06 + v * 0.30));
     gl.uniform1f(loc.uSpec, 0.65);
     gl.uniform1f(loc.uAlpha, 1);
+    if (surfTex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, surfTex);
+                   gl.uniform1i(loc.uTex, 0); }
+    const TEX = surfTex ? 1 : 0;
+    gl.uniform1f(loc.uTexAmt, 0); gl.uniform1f(loc.uTexScale, 1);
     gl.uniform3fv(loc.uFog, fogC);
     gl.uniform2f(loc.uFogND, fogFar * 0.30, fogFar);
 
@@ -484,8 +565,10 @@ window.DFGL = (function () {
       const g = hex(world.grid), gnd = hex(world.gnd), a = [], STEP = 2, R = Math.ceil(FAR / STEP) * STEP;
       const ox = Math.round(cam.x / STEP) * STEP, oz = Math.round(cam.y / STEP) * STEP;
       // a dark floor quad under everything so the horizon reads
+      gl.uniform1f(loc.uTexAmt, TEX * 0.35); gl.uniform1f(loc.uTexScale, 0.09);
       quad(a, [-R*2,-0.02,-R*2], [R*2,-0.02,-R*2], [R*2,-0.02,R*2], [-R*2,-0.02,R*2], gnd);
       drawArr(a); a.length = 0;
+      gl.uniform1f(loc.uTexAmt, 0);
       gl.uniform1f(loc.uEmit, 1);
       for (let i = -R; i <= R; i += STEP) {
         const gx = ox + i - cam.x, gz = oz + i - cam.y;
@@ -506,6 +589,7 @@ window.DFGL = (function () {
       const part = art(kind) || art('prop_pylon');
       if (part) {
         const g = artGeo(art(kind) ? kind : 'prop_pylon', part, pc);
+        gl.uniform1f(loc.uTexAmt, TEX * 0.60); gl.uniform1f(loc.uTexScale, 2.2);
         gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); bindAttribs();
         for (const p of G.props) {
           const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
@@ -619,6 +703,7 @@ window.DFGL = (function () {
                                 : (geo[key] || (geo[key] = mkvbo(craftVerts(col, [1, 1, 1]))));
         const g2 = art('pod') ? artGeo('pod', ART.pod, col)
                               : (geo['pod|' + s.tint] || (geo['pod|' + s.tint] = mkvbo(podVerts(col))));
+        gl.uniform1f(loc.uTexAmt, TEX * 0.72); gl.uniform1f(loc.uTexScale, 26);
         const mdl = M.mul(M.mul(M.mul(
           M.T(dx, s.alt, dz), M.Ry(-(s.h || 0) + Math.PI / 2)),
           M.Rz(-(s.bank || 0))), M.S(1, 1, 1));

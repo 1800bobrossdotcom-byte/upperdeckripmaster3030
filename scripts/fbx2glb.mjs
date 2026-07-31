@@ -443,6 +443,20 @@ export function extract(parsed, opts = {}) {
       if (N && !N.length) N = null;
     }
 
+    /* UV layer (optional) — same shape as the normals layer, so layerPick handles it with a
+     * stride of 2. Without this the whole chain is untextured: a DCC export carries the map
+     * coordinates, we dropped them here, and every downstream stage inherited a model that
+     * cannot be textured no matter what the artist authored. */
+    let uMap = '', uRef = '', UV = null, UVI = null;
+    const ul = kid(g, 'LayerElementUV');
+    if (ul) {
+      uMap = (kid(ul, 'MappingInformationType') || {}).props?.[0] || '';
+      uRef = (kid(ul, 'ReferenceInformationType') || {}).props?.[0] || '';
+      UV = arrayOf(kid(ul, 'UV'));
+      UVI = asInt(arrayOf(kid(ul, 'UVIndex')));
+      if (UV && !UV.length) UV = null;
+    }
+
     // the Model this geometry hangs off supplies the name and the world transform
     const md = src.ownerKey != null ? models.get(src.ownerKey) : null;
     let W = md ? world(md.key) : M.I();
@@ -453,7 +467,7 @@ export function extract(parsed, opts = {}) {
     const det = W[0]*(W[5]*W[10] - W[6]*W[9]) - W[4]*(W[1]*W[10] - W[2]*W[9]) + W[8]*(W[1]*W[6] - W[2]*W[5]);
     const flip = det < 0;
 
-    const pos = [], nrm = [], idx = [];
+    const pos = [], nrm = [], uvs = [], idx = [];
     const dedupe = new Map();
     const push = (vi, pv, poly) => {
       const p = xfP(W, V[vi*3], V[vi*3+1], V[vi*3+2]);
@@ -461,10 +475,19 @@ export function extract(parsed, opts = {}) {
       if (N) { const s = layerPick(nMap, nRef, N, NI, pv, vi, poly, 3);
                if (s) nz = xfN(NM, s[0], s[1], s[2]); }
       if (!nz) nz = [0, 0, 0];                            // filled in per-face below
-      const key = `${p[0]},${p[1]},${p[2]},${nz[0]},${nz[1]},${nz[2]}`;
+      let uv = null;
+      if (UV) { const s = layerPick(uMap, uRef, UV, UVI, pv, vi, poly, 2);
+                // ⚑ FBX puts the UV origin bottom-left, glTF top-left. Without the V flip the
+                //   texture arrives mirrored vertically — which reads as "the map is wrong"
+                //   rather than "the loader is wrong", so it is easy to chase for a long time.
+                if (s) uv = [s[0], 1 - s[1]]; }
+      if (!uv) uv = [0, 0];
+      // UV joins the dedupe key: two corners at the same point with different map coordinates
+      // are DIFFERENT vertices. Merging them collapses every texture seam.
+      const key = `${p[0]},${p[1]},${p[2]},${nz[0]},${nz[1]},${nz[2]},${uv[0]},${uv[1]}`;
       let k = dedupe.get(key);
       if (k === undefined) { k = pos.length / 3; dedupe.set(key, k);
-        pos.push(p[0], p[1], p[2]); nrm.push(nz[0], nz[1], nz[2]); }
+        pos.push(p[0], p[1], p[2]); nrm.push(nz[0], nz[1], nz[2]); uvs.push(uv[0], uv[1]); }
       return k;
     };
 
@@ -496,6 +519,7 @@ export function extract(parsed, opts = {}) {
     meshes.push({
       name: (md && md.name) || src.info.name || `part${meshes.length}`,
       pos: P, nrm: NRM, idx: Uint32Array.from(idx),
+      ...(UV ? { uv: Float32Array.from(uvs) } : {}),      // absent, not zeroed, when unmapped
     });
   }
   if (!meshes.length) throw new Error('no mesh geometry found in FBX');
@@ -543,7 +567,13 @@ export function toGLB(meshes) {
     const pa = json.accessors.push({ bufferView: pv, componentType: 5126, count: m.pos.length / 3, type: 'VEC3', min: lo, max: hi }) - 1;
     const na = json.accessors.push({ bufferView: nv, componentType: 5126, count: m.nrm.length / 3, type: 'VEC3' }) - 1;
     const ia = json.accessors.push({ bufferView: iv, componentType: 5125, count: m.idx.length, type: 'SCALAR' }) - 1;
-    json.meshes.push({ name: m.name, primitives: [{ attributes: { POSITION: pa, NORMAL: na }, indices: ia, mode: 4 }] });
+    const attributes = { POSITION: pa, NORMAL: na };
+    if (m.uv && m.uv.length) {                            // TEXCOORD_0 only when the source had one
+      const tv = addView(Buffer.from(m.uv.buffer, m.uv.byteOffset, m.uv.byteLength), 34962);
+      attributes.TEXCOORD_0 = json.accessors.push(
+        { bufferView: tv, componentType: 5126, count: m.uv.length / 2, type: 'VEC2' }) - 1;
+    }
+    json.meshes.push({ name: m.name, primitives: [{ attributes, indices: ia, mode: 4 }] });
     // world transforms are already baked into the positions, so nodes stay at identity
     json.nodes.push({ name: m.name, mesh: i });
     json.scenes[0].nodes.push(i);
@@ -564,18 +594,25 @@ export function toGLB(meshes) {
 
 export function toOBJ(meshes) {
   const out = ['# upperdeckripmaster3030 — converted from FBX by scripts/fbx2glb.mjs'];
-  let vBase = 1, nBase = 1;
+  let vBase = 1, nBase = 1, tBase = 1;
   const f = x => (Math.round(x * 1e6) / 1e6).toString();
   for (const m of meshes) {
     out.push(`o ${m.name}`);
     for (let i = 0; i < m.pos.length; i += 3) out.push(`v ${f(m.pos[i])} ${f(m.pos[i+1])} ${f(m.pos[i+2])}`);
     for (let i = 0; i < m.nrm.length; i += 3) out.push(`vn ${f(m.nrm[i])} ${f(m.nrm[i+1])} ${f(m.nrm[i+2])}`);
+    // OBJ keeps the FBX/OBJ bottom-left origin, so undo the glTF V flip applied on read
+    const hasUV = !!(m.uv && m.uv.length);
+    if (hasUV) for (let i = 0; i < m.uv.length; i += 2) out.push(`vt ${f(m.uv[i])} ${f(1 - m.uv[i+1])}`);
     for (let i = 0; i + 2 < m.idx.length; i += 3) {
       const a = m.idx[i] + vBase, b = m.idx[i+1] + vBase, c = m.idx[i+2] + vBase;
       const an = m.idx[i] + nBase, bn = m.idx[i+1] + nBase, cn = m.idx[i+2] + nBase;
-      out.push(`f ${a}//${an} ${b}//${bn} ${c}//${cn}`);
+      if (hasUV) {
+        const at = m.idx[i] + tBase, bt = m.idx[i+1] + tBase, ct = m.idx[i+2] + tBase;
+        out.push(`f ${a}/${at}/${an} ${b}/${bt}/${bn} ${c}/${ct}/${cn}`);
+      } else out.push(`f ${a}//${an} ${b}//${bn} ${c}//${cn}`);
     }
     vBase += m.pos.length / 3; nBase += m.nrm.length / 3;
+    if (hasUV) tBase += m.uv.length / 2;
   }
   return out.join('\n') + '\n';
 }

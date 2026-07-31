@@ -87,8 +87,15 @@ window.RoninGLB = (function () {
     const P = readAccessor(json, bin, prim.attributes.POSITION); if (!P) return null;
     const N = prim.attributes.NORMAL != null ? readAccessor(json, bin, prim.attributes.NORMAL) : null;
     const I = prim.indices != null ? readIndices(json, bin, prim.indices) : null;
+    /* TEXCOORD_0 rides in a PARALLEL array, deliberately not interleaved into `verts`.
+     * Ronin3D.mesh(), Section 9's skinning program and DFGL all upload `verts` as a stride-24
+     * pos3+norm3 buffer; widening it would break every one of them at once for the sake of the
+     * few models that carry a map. So a textured part gains `.uv` and everything else is
+     * byte-for-byte what it was. */
+    const T = prim.attributes.TEXCOORD_0 != null ? readAccessor(json, bin, prim.attributes.TEXCOORD_0) : null;
     const triN = I ? I.length : (P.length / 3);
     const out = new Float32Array(triN * 6);
+    const uvOut = T ? new Float32Array(triN * 2) : null;
     for (let i = 0; i < triN; i += 3) {
       const i0 = I ? I[i] : i, i1 = I ? I[i + 1] : i + 1, i2 = I ? I[i + 2] : i + 2;
       const p = [xfP(world, P[i0 * 3], P[i0 * 3 + 1], P[i0 * 3 + 2]), xfP(world, P[i1 * 3], P[i1 * 3 + 1], P[i1 * 3 + 2]), xfP(world, P[i2 * 3], P[i2 * 3 + 1], P[i2 * 3 + 2])];
@@ -99,11 +106,13 @@ window.RoninGLB = (function () {
         let cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
         const l = Math.hypot(cx, cy, cz) || 1; nn = [[cx / l, cy / l, cz / l], [cx / l, cy / l, cz / l], [cx / l, cy / l, cz / l]];
       } else nn = [xfN(world, N[i0 * 3], N[i0 * 3 + 1], N[i0 * 3 + 2]), xfN(world, N[i1 * 3], N[i1 * 3 + 1], N[i1 * 3 + 2]), xfN(world, N[i2 * 3], N[i2 * 3 + 1], N[i2 * 3 + 2])];
+      const src = [i0, i1, i2];
       for (let k = 0; k < 3; k++) { const b = (i + k) * 6;
         out[b] = p[k][0]; out[b + 1] = p[k][1]; out[b + 2] = p[k][2];
-        out[b + 3] = nn[k][0]; out[b + 4] = nn[k][1]; out[b + 5] = nn[k][2]; }
+        out[b + 3] = nn[k][0]; out[b + 4] = nn[k][1]; out[b + 5] = nn[k][2];
+        if (uvOut) { const u = (i + k) * 2, j = src[k] * 2; uvOut[u] = T[j]; uvOut[u + 1] = T[j + 1]; } }
     }
-    return out;
+    return uvOut ? { verts: out, uv: uvOut } : out;
   }
 
   function bounds(v) { const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
@@ -124,11 +133,26 @@ window.RoninGLB = (function () {
       const world = parent ? mul(parent, nodeMatrix(nd)) : nodeMatrix(nd);
       if (nd.mesh != null) {
         const m = json.meshes[nd.mesh], chunks = [];
-        for (const prim of (m.primitives || [])) { const v = primVerts(json, bin, prim, world); if (v && v.length) chunks.push(v); }
+        const uvChunks = [];
+        for (const prim of (m.primitives || [])) {
+          const r = primVerts(json, bin, prim, world);
+          if (!r) continue;
+          const v = r.verts || r;                                     // plain array when unmapped
+          if (!v.length) continue;
+          chunks.push(v); uvChunks.push(r.uv || null);
+        }
         if (chunks.length) {
           let total = 0; for (const c of chunks) total += c.length;
           const verts = new Float32Array(total); let o = 0; for (const c of chunks) { verts.set(c, o); o += c.length; }
-          meshes.push({ name: (nd.name || m.name || ('part' + meshes.length)).toLowerCase(), verts, count: verts.length / 6, bounds: bounds(verts) });
+          /* A part is only treated as textured when EVERY primitive in it carries a map. A
+           * partly-mapped part would otherwise sample garbage over the unmapped primitives,
+           * which looks like a corrupt texture rather than a missing one. */
+          let uv = null;
+          if (uvChunks.length && uvChunks.every(u => u)) {
+            uv = new Float32Array(total / 3); let uo = 0;
+            for (const u of uvChunks) { uv.set(u, uo); uo += u.length; }
+          }
+          meshes.push({ name: (nd.name || m.name || ('part' + meshes.length)).toLowerCase(), verts, count: verts.length / 6, bounds: bounds(verts), ...(uv ? { uv } : {}) });
         }
       }
       for (const c of (nd.children || [])) walk(c, world);
