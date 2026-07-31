@@ -16,9 +16,14 @@
 # point of png23d is that the art travels with the mesh; substituting a flat colour would render a
 # grey slab and tell us nothing about whether the albedo lines up with the geometry.
 #
-# THREE COPIES PER RENDER, ONE RENDER PER TECHNIQUE. Flat-on, 32° and 62° of yaw, lit once. A card
+# THREE COPIES PER RENDER, ONE RENDER PER TECHNIQUE. Flat-on, 38° and 68° of yaw, lit once. A card
 # seen dead-on is the one view where every technique here looks identical — the whole question is
 # what happens when it moves, so the sheet is mostly the moved views.
+#
+# Sheets written into <card>/preview/:
+#   <mode>.png    one per .glb — the three-yaw strip
+#   _exploded.png layers.glb with its planes pulled apart. THE sheet for judging an extraction.
+#   _thumbs.png   every mode side by side at roughly the size a card is seen in a media slot.
 
 import sys
 import os
@@ -241,7 +246,7 @@ def sheet(glb, out, title):
     # 3 x 0.92 of pitch = 2.76 units to cover on a 36 mm sensor: lens = 36*D/W. At D = 3.3 that is
     # ~43 mm. Sat back a touch further and slightly above so the bevel on the top edge catches.
     camera((0.0, -3.35, 0.30), (0.0, 0.0, -0.02), lens=42.0)
-    return render(out, 1560, 620, samples=52)
+    return render(out, 1120, 445, samples=52)
 
 
 def thumbsheet(card_dir, out, names):
@@ -254,21 +259,20 @@ def thumbsheet(card_dir, out, names):
     reset()
     stage()
     PITCH = 0.80
-    got = []
-    for i, nm in enumerate(names):
-        p = os.path.join(card_dir, nm + '.glb')
-        if not os.path.isfile(p):
-            continue
-        objs = import_glb(p)
-        x = (len(got) - (len(names) - 1) / 2.0) * PITCH
-        place(objs, x, math.radians(36), math.radians(-8))
-        label(nm, (x, 0.0, -0.62), 0.052)
-        got.append(nm)
+    # ⚠ Two passes: find what EXISTS, then lay it out. Centring on len(names) while placing only
+    # the files that happen to be present pushes every tile left of frame — a card built with three
+    # of the six modes rendered with one tile cropped off the edge and two floating in the corner.
+    got = [nm for nm in names if os.path.isfile(os.path.join(card_dir, nm + '.glb'))]
     if not got:
         return False
+    for i, nm in enumerate(got):
+        objs = import_glb(os.path.join(card_dir, nm + '.glb'))
+        x = (i - (len(got) - 1) / 2.0) * PITCH
+        place(objs, x, math.radians(36), math.radians(-8))
+        label(nm, (x, 0.0, -0.62), 0.052)
     span = len(got) * PITCH
     camera((0.0, -(span * 1.16 + 0.9), 0.24), (0.0, 0.0, -0.03), lens=44.0)
-    return render(out, int(min(1800, 300 * len(got) + 120)), 380, samples=56)
+    return render(out, int(min(1400, 230 * len(got) + 100)), 300, samples=56)
 
 
 def explode(objs, factor):
@@ -326,7 +330,7 @@ def sheet_stack(card_dir, out, factor):
     d = 2.5 + span * 1.5
     camera((d * 0.72, midy - d * 0.80, d * 0.26), (0.0, midy, -0.02), lens=44.0)
     label('layers x%g' % factor, (0.0, lo - 0.05, -0.70), 0.070)
-    return render(out, 1400, 760, samples=56)
+    return render(out, 1060, 575, samples=56)
 
 
 def main():

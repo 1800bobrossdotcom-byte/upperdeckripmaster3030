@@ -44,7 +44,11 @@
  *   pop         the KEYED SUBJECT as the same kind of solid — a cut-out that stands off the card.
  *   silhouette  contour-traced, simplified, ear-clipped, ring-inset bevelled extrusion. Low poly.
  *   relief      a plain displaced plane. The height-field technique on its own, for comparison.
- *   layers      background/subject split into separate quads at separate depths, for parallax.
+ *   layers      THE EXTRACTED DIORAMA — a peeling background key, k-means palette matting,
+ *               OCR-lite text-region detection and push-pull inpainting, emitted as
+ *               layers/NN-*.png + layers.json + layers.glb.
+ *   channels    the R/G/B records as three ADDITIVE plates at three depths, for the cards whose
+ *               chromatic fringing is already a displacement.
  *   voxel       column-height voxelisation with hidden-face culling. For pixel-art cards.
  *
  * ── CONVENTIONS ─────────────────────────────────────────────────────────────────────────────
@@ -1684,7 +1688,25 @@ function buildStack(img, { w, h, luma, subject, bands, o, log }) {
   } else {
     layers.push({ name: 'subject', kind: 'subject', mask: subject, z: gap * 0.8, why: 'what the peel could not key' });
   }
-  if (peelUseful && bands.length) layers.push({ name: 'frame', kind: 'frame', mask: bands[0], z: gap * 1.05, why: 'peel band 0 — the printed border, in front of the art it surrounds' });
+  if (peelUseful && bands.length) {
+    // ⚠ BAND 0 IS NOT ALWAYS A BORDER, and putting it in front unconditionally is visibly wrong.
+    // On card 47 band 0 is a thin printed rule and belongs in FRONT — a frame is a thing the art
+    // sits inside. On card 44 the same pass keys the entire white ground of a full-bleed
+    // illustration, 48% of the frame, and hanging that in front draws a white sheet with a
+    // figure-shaped hole over the top of the figure. Told apart by how much of its own bounding
+    // box the band fills: a ring fills a fraction of it, a ground fills nearly all of it.
+    // Told apart by THICKNESS, using the same stroke-width measure the text detector uses: four
+    // times the mean distance-to-boundary inside the band, which for a bar of width t returns t.
+    // A printed rule is a handful of pixels thick whatever else it does; a ground is not. (Bbox
+    // fill was tried first and is too close to call — card 44's ground fills 48% of its box and
+    // any threshold that catches it also catches a wide ornamental border.)
+    let n = 0, ds = 0;
+    const dd = edt(bands[0], w, h);
+    for (let i = 0; i < bands[0].length; i++) if (bands[0][i]) { n++; ds += Math.sqrt(dd[i]); }
+    const thick = n ? 4 * ds / n : 0;
+    if (thick < 0.06 * Math.min(w, h)) layers.push({ name: 'frame', kind: 'frame', mask: bands[0], z: gap * 1.05, why: `peel band 0 — a printed rule ${thick.toFixed(0)}px thick, in front of the art it surrounds` });
+    else layers.splice(1, 0, { name: 'ground', kind: 'midground', mask: bands[0], z: gap * 0.1, why: `peel band 0 — ${thick.toFixed(0)}px thick, so a ground rather than a border; stays at the back` });
+  }
 
   if (text && text.lines) {
     // Text always goes FRONT-most, ahead of everything the matte found. That is not a measurement,
@@ -1726,7 +1748,15 @@ function emitStack(layers, img, w, h, f, { o, dir, put, emit, log, name, source 
     let n = 0; for (let i = 0; i < L.mask.length; i++) n += L.mask[i];
     if (n > w * h * o.inpaintMax) continue;
     painted++;
-    for (let i = 0; i < L.mask.length; i++) if (L.mask[i]) fg[i] = 1;
+    // ⚠ ERODED BY 1.6 px, and it is not cosmetic. layerTexture feathers the cut-out's alpha and
+    // then re-steepens it, which parks the visible edge about a pixel INSIDE the mask — so
+    // inpainting the mask exactly leaves a one-pixel ring of invented pixels that the cut-out does
+    // not cover. Card 47 has dozens of small clusters over one face and that ring rendered as a
+    // mottled smear across it IN THE FACE-ON VIEW, i.e. the one view that must be pixel-perfect.
+    // Eroding first means the base plate keeps real pixels right up under every cut-out; the cost
+    // is a 1.6 px collar of the old object visible at extreme parallax, which is the cheaper bug.
+    const shrunk = erode(L.mask, w, h, 1.6);
+    for (let i = 0; i < shrunk.length; i++) if (shrunk[i]) fg[i] = 1;
   }
   const basePlate = (o.inpaint && painted) ? inpaint(img.data, fg, w, h) : img.data;
 
@@ -1770,7 +1800,7 @@ function emitStack(layers, img, w, h, f, { o, dir, put, emit, log, name, source 
     size: { w, h, aspect: +(w / h).toFixed(5) },
     units: 'rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.',
     method: o.extract + (o.text ? '+text' : '') + (o.strata > 1 ? '+strata' : '') + (o.inpaint ? '+inpaint' : ''),
-    note: 'layer 0 is a full-frame opaque plate with every foreground layer inpainted out of it; the rest are trimmed RGBA cut-outs. z ordering is a stated heuristic, not a depth measurement — edit it.',
+    note: 'layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.',
     layers: entries,
   };
   writeFileSync(join(dir, 'layers.json'), JSON.stringify(manifest, null, 2) + '\n');
@@ -1992,16 +2022,19 @@ function run(file, o) {
 
   /* — channels: the artist's own chromatic fringing, pulled apart onto three additive plates — */
   if (o.modes.includes('channels')) {
-    mkdirSync(join(dir, 'layers'), { recursive: true });
+    // Its OWN directory, not layers/. Sharing one meant re-running --mode layers wiped the channel
+    // plates and left channels.json pointing at files that no longer existed — a manifest that
+    // lies is worse than one that is missing, because nothing errors until a renderer 404s.
+    mkdirSync(join(dir, 'channels'), { recursive: true });
     const plates = channelPlates(img, w, h);
     const mats = [], entries = [];
     const meshes = plates.map((P, i) => {
       const small = resizeRGBA(P.rgba, w, h, o.layerMax);
       const png = encodePNG(small.w, small.h, small.data);
-      writeFileSync(join(dir, 'layers', `ch${i}-${P.name}.png`), png);
+      writeFileSync(join(dir, 'channels', `${i}-${P.name}.png`), png);
       mats.push({ name: P.name, baseColor: png, roughness: 0.9, alphaMode: 'OPAQUE', doubleSided: true });
       const z = (i - 1) * o.layerGap * 0.5 * o.size;
-      entries.push({ file: `layers/ch${i}-${P.name}.png`, name: P.name, kind: 'channel', z: +((i - 1) * o.layerGap * 0.5).toFixed(4), rect: [0, 0, 1, 1], blend: 'add', opaque: false, why: `${P.name} record only — recombines to the original at zero parallax` });
+      entries.push({ file: `channels/${i}-${P.name}.png`, name: P.name, kind: 'channel', z: +((i - 1) * o.layerGap * 0.5).toFixed(4), rect: [0, 0, 1, 1], blend: 'add', opaque: false, why: `${P.name} record only — recombines to the original at zero parallax` });
       const m = new Mesh(`ch${i}_${P.name}`);
       const V = (px, py) => { m.pos.push((px - w / 2) * f.s, (h / 2 - py) * f.s, z); m.uv.push(px / w, py / h); return m.pos.length / 3 - 1; };
       m.quad(V(0, h), V(w, h), V(w, 0), V(0, 0));
@@ -2084,10 +2117,11 @@ function main(argv) {
   --no-text           skip text-region detection (it is on by default)
   --text-contrast .055 / --text-grow 2.4 / --text-ground 0.26 (max ground variance under type)
   --cluster-above .55 peel first; k-means the remainder when the peel leaves more than this
-  --strata 0          also cut N horizontal glitch strata at the card's own tear rows
+  --strata 0          INSTEAD of matting, cut N horizontal glitch strata at the card's tear rows
   --no-inpaint        do not fill the holes left behind in the back plate
   --feather 1.1       cut-out edge softness, px
-  --layer-gap 0.09    plane separation, fraction of card height
+  --layer-gap 0.09    plane separation, fraction of card height. 0.09 is a demo value —
+                      0.04–0.06 is what keeps type in register at a 30° tilt.
   --layer-max 512     max side of an emitted layer PNG
 
   voxel / channels
