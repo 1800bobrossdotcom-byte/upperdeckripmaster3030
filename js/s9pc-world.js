@@ -55,10 +55,15 @@ window.S9PCWorld = (function () {
   const CABINET = /^(cab|skee|claw|prize|booth|rostrum|plinth)/i;
 
   /* Kind (from the authored box NAME) + face normal → material class. Same two inputs our GL
-   * renderer uses; the difference is only what they select. */
+   * renderer uses; the difference is only what they select.
+   *
+   * ⚑ `ammo`, `shelf`, `stair`, `plat`, `perim` are the HAND-BUILT arenas' kinds — S9World.kindOf
+   *   never emits them, so the baked-level path is unchanged by their presence here. An ammo crate
+   *   is a crate and a shelving run is metal; a stair tread and a platform top are deck, because a
+   *   surface you stand on should look like one from above and like the thing it is from the side. */
   function classOf(kind, ny, name) {
-    if (kind === 'pillar' || kind === 'cover') return 'metal';
-    if (kind === 'crate') return CABINET.test(String(name || '')) ? 'cab' : 'crate';
+    if (kind === 'pillar' || kind === 'cover' || kind === 'shelf') return 'metal';
+    if (kind === 'crate' || kind === 'ammo') return CABINET.test(String(name || '')) ? 'cab' : 'crate';
     if (ny > 0.5) return 'deck';
     return 'wall';
   }
@@ -208,32 +213,19 @@ window.S9PCWorld = (function () {
     return (TEXCACHE = out);
   }
 
-  /* ── .wld triangle soup → one PlayCanvas mesh per material class ───────────────────────── */
-  function buildMeshes(app, w, boxes) {
-    const V = w.verts, tris = (V.length / 18) | 0;                 // 3 verts × 6 floats
+  /* ── triangle soup → one PlayCanvas mesh per material class ───────────────────────────────
+   * `kindOf` is a per-triangle kind array (from the owning collision box for a baked level, or
+   * straight off the solid for a hand-built one) and `nameOf` an optional per-triangle name.
+   * Everything below is shared by both arena kinds. */
+  function meshParts(app, V, kindOf, nameOf) {
+    const tris = (V.length / 18) | 0;                              // 3 verts × 6 floats
     const mats = materials(app);
-
-    // triangle → owning box, by the collision box its centroid sits in. Same rule section9-gl.js
-    // uses to pick a surface material — those boxes ARE the authored objects, so they name it.
-    const owner = new Array(tris);
-    const eps = 0.06;
-    for (let t = 0; t < tris; t++) {
-      const o = t * 18;
-      const cx = (V[o] + V[o + 6] + V[o + 12]) / 3, cy = (V[o + 1] + V[o + 7] + V[o + 13]) / 3, cz = (V[o + 2] + V[o + 8] + V[o + 14]) / 3;
-      let k = null;
-      for (let i = 0; i < boxes.length; i++) {
-        const b = boxes[i];
-        if (cx >= b.lo[0] - eps && cx <= b.hi[0] + eps && cy >= b.lo[1] - eps && cy <= b.hi[1] + eps &&
-            cz >= b.lo[2] - eps && cz <= b.hi[2] + eps) { k = b; break; }
-      }
-      owner[t] = k;
-    }
 
     // bucket by class
     const buckets = {}; for (const k of ORDER) buckets[k] = [];
     for (let t = 0; t < tris; t++) {
-      const o = t * 18, ny = (V[o + 3] + V[o + 9] + V[o + 15]) / 3, b = owner[t];
-      buckets[classOf(b ? b.__kind : 'wall', ny, b ? b.name : '')].push(t);
+      const o = t * 18, ny = (V[o + 3] + V[o + 9] + V[o + 15]) / 3;
+      buckets[classOf(kindOf ? kindOf[t] : 'wall', ny, nameOf ? nameOf[t] : '')].push(t);
     }
 
     const out = [], stats = {};
@@ -280,64 +272,94 @@ window.S9PCWorld = (function () {
     return { parts: out, stats };
   }
 
-  /* ── Section 9's own collider, ported verbatim in spirit ─────────────────────────────────
-   * r 0.42 / h 1.72 / step 0.62 are the shipping game's numbers (see section9.html), so the
-   * two builds stand in the same places and the comparison shots line up. */
-  function collider(boxes) {
-    const R = 0.42, H = 1.72, STEP = 0.62;
-    function hits(x, y, z) {
-      for (let i = 0; i < boxes.length; i++) { const b = boxes[i];
-        if (x + R > b.lo[0] && x - R < b.hi[0] && z + R > b.lo[2] && z - R < b.hi[2] && y + H > b.lo[1] && y < b.hi[1]) return b; }
-      return null;
-    }
-    function groundAt(x, z, y) {
-      let best = -1e9;
-      for (let i = 0; i < boxes.length; i++) { const b = boxes[i];
-        if (x + R > b.lo[0] && x - R < b.hi[0] && z + R > b.lo[2] && z - R < b.hi[2] && b.hi[1] <= y + STEP && b.hi[1] > best) best = b.hi[1]; }
-      return best > -1e8 ? best : 0;
-    }
-    return { hits, groundAt, R, H, STEP };
-  }
-
-  /* Load one baked level and put it in the scene. Rejects if the payload is not an arena — the
-   * prototype has no fallback path on purpose, because a prototype that silently degrades is a
-   * prototype that lies to the person evaluating it. */
-  function build(app, file) {
-    if (!window.RoninWorld) return Promise.reject(new Error('RoninWorld missing'));
-    const def = levelFor(file);
-    const t0 = performance.now();
-    return RoninWorld.load(BASE + def.file + '.wld').then(w => {
-      const boxes = (w.boxes || []).filter(b => b && b.lo && b.hi);
-      if (!boxes.length) throw new Error('no collision boxes');
-      if (!w.verts || !w.verts.length) throw new Error('no geometry');
-      for (const b of boxes) b.__kind = (window.S9World && S9World.kindOf) ? S9World.kindOf(b.name) : 'wall';
-
-      const tLoad = performance.now() - t0;
-      const { parts, stats } = buildMeshes(app, w, boxes);
-
-      const root = new pc.Entity('level');
-      const instances = parts.map(p => {
-        const mi = new pc.MeshInstance(p.mesh, p.material, root);
-        mi.castShadow = true;
-        return mi;
-      });
-      root.addComponent('render', { meshInstances: instances, castShadows: true, receiveShadows: true });
-      app.root.addChild(root);
-
-      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, y1 = -1e9, y0 = 1e9;
-      for (const b of boxes) {
-        x0 = Math.min(x0, b.lo[0]); x1 = Math.max(x1, b.hi[0]);
-        z0 = Math.min(z0, b.lo[2]); z1 = Math.max(z1, b.hi[2]);
-        y0 = Math.min(y0, b.lo[1]); y1 = Math.max(y1, b.hi[1]);
+  /* ── the SIX hand-built arenas → the same PBR mesh set ────────────────────────────────────
+   * A baked level arrives as triangle soup; a hand-built one arrives as `MAP.solids`, a list of
+   * AABBs. The renderer wants one thing, so this turns the boxes into triangles and then walks
+   * exactly the same bucket/UV/tangent path a `.wld` walks. Nothing downstream knows which kind
+   * of arena it is looking at, which is the whole point — the six built-ins get real materials,
+   * shadows and IBL without a second renderer.
+   *
+   * ⚑ Every box gets all six faces. A perimeter wall is a solid whose INWARD face is one of its
+   *   own outward faces, so back-face culling shows exactly the right side from inside the arena
+   *   and nothing at all from outside it. The two exceptions worth spending triangles on are the
+   *   arena floor (there is no solid for it — the hand-built maps treat y=0 as the ground plane)
+   *   and, indoors, a ceiling: without one an interior has a hole where the sky is, and the sky
+   *   at floor level inside a concrete room is the exact artefact CLAUDE.md records as reading
+   *   like a rendering fault. */
+  function boxSoup(MAP) {
+    const V = [];                                   // pos3 + norm3 interleaved, 3 verts per tri
+    const kinds = [];                               // one kind per triangle, parallel to V
+    function quad(a, b, c, d, n, kind) {
+      const t = [[a, b, c], [a, c, d]];
+      for (const tri of t) {
+        for (const p of tri) { V.push(p[0], p[1], p[2], n[0], n[1], n[2]); }
+        kinds.push(kind);
       }
-      const spawns = (w.spawns || []).filter(s => s && isFinite(s.x)).map(s => [+s.x, +s.z, +(s.y || 0)]);
-      return {
-        root, boxes, spawns, def, verts: w.verts,
-        bounds: { x0, x1, z0, z1, y0, y1, span: Math.max(x1 - x0, z1 - z0) },
-        stats: Object.assign({ tris: (w.verts.length / 18) | 0, boxes: boxes.length, parts: parts.length, loadMs: tLoad }, stats),
-      };
-    });
+    }
+    function box(x0, y0, z0, x1, y1, z1, kind) {
+      const P = [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1],
+                 [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]];
+      quad(P[4], P[5], P[6], P[7], [0, 1, 0], kind);          // top
+      quad(P[3], P[2], P[1], P[0], [0, -1, 0], kind);         // bottom
+      quad(P[0], P[1], P[5], P[4], [0, 0, -1], kind);         // −z
+      quad(P[2], P[3], P[7], P[6], [0, 0, 1], kind);          // +z
+      quad(P[1], P[2], P[6], P[5], [1, 0, 0], kind);          // +x
+      quad(P[3], P[0], P[4], P[7], [-1, 0, 0], kind);         // −x
+    }
+    const pad = 1.2;
+    // ground plane — the hand-built arenas have no floor solid; y=0 IS the ground
+    quad([MAP.x0 - pad, 0, MAP.z0 - pad], [MAP.x1 + pad, 0, MAP.z0 - pad],
+         [MAP.x1 + pad, 0, MAP.z1 + pad], [MAP.x0 - pad, 0, MAP.z1 + pad], [0, 1, 0], 'plat');
+    for (const b of MAP.solids) box(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.kind || 'wall');
+    if (!MAP.open) {                                 // a lid, so an interior is an interior
+      const cy = MAP.ceilY || 6;
+      quad([MAP.x0 - pad, cy, MAP.z1 + pad], [MAP.x1 + pad, cy, MAP.z1 + pad],
+           [MAP.x1 + pad, cy, MAP.z0 - pad], [MAP.x0 - pad, cy, MAP.z0 - pad], [0, -1, 0], 'wall');
+    }
+    return { verts: new Float32Array(V), kinds };
   }
 
-  return { LEVELS, build, collider, materials, MATS, classOf };
+  /* Build the render meshes for ANY Section 9 map — baked (`MAP.mesh.verts`) or hand-built
+   * (`MAP.solids`). One entry point, so the app never branches on arena kind. */
+  function buildFor(app, MAP) {
+    const t0 = performance.now();
+    const baked = !!(MAP.mesh && MAP.mesh.verts && MAP.mesh.verts.length);
+    let verts, ownerKind, ownerName;
+    if (baked) {
+      verts = MAP.mesh.verts;
+      const boxes = MAP.solids || [];
+      const tris = (verts.length / 18) | 0, eps = 0.06;
+      const kk = new Array(tris), nn = new Array(tris);
+      for (let t = 0; t < tris; t++) {
+        const o = t * 18;
+        const cx = (verts[o] + verts[o + 6] + verts[o + 12]) / 3;
+        const cy = (verts[o + 1] + verts[o + 7] + verts[o + 13]) / 3;
+        const cz = (verts[o + 2] + verts[o + 8] + verts[o + 14]) / 3;
+        let k = null;
+        for (let i = 0; i < boxes.length; i++) { const b = boxes[i];
+          if (cx >= b.x0 - eps && cx <= b.x1 + eps && cy >= b.y0 - eps && cy <= b.y1 + eps &&
+              cz >= b.z0 - eps && cz <= b.z1 + eps) { k = b; break; } }
+        kk[t] = k ? k.kind : 'wall'; nn[t] = k ? k.name : '';
+      }
+      ownerKind = kk; ownerName = nn;
+    } else {
+      const s = boxSoup(MAP); verts = s.verts; ownerKind = s.kinds; ownerName = null;
+    }
+    const { parts, stats } = meshParts(app, verts, ownerKind, ownerName);
+    const root = new pc.Entity('level');
+    const instances = parts.map(p => { const mi = new pc.MeshInstance(p.mesh, p.material, root); mi.castShadow = true; return mi; });
+    root.addComponent('render', { meshInstances: instances, castShadows: true, receiveShadows: true });
+    app.root.addChild(root);
+    return { root, parts,
+      stats: Object.assign({ tris: (verts.length / 18) | 0, boxes: (MAP.solids || []).length, parts: parts.length,
+        buildMs: +(performance.now() - t0).toFixed(1), baked }, stats) };
+  }
+
+  /* ⚑ `build(app, file)` and `collider(boxes)` used to live here. Both are gone on purpose:
+   * the level catalogue, the AABB set and the capsule numbers now come from `S9Game`, which owns
+   * collision for BOTH arena kinds and is the same code the shipping game runs. Two colliders is
+   * how a build ends up standing in a different place than the one it is being compared against.
+   */
+
+  return { LEVELS, buildFor, materials, MATS, classOf, boxSoup };
 })();
