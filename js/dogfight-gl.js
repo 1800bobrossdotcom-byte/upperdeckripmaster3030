@@ -37,6 +37,26 @@ window.DFGL = (function () {
   let dyn = null, skyBuf = null, geo = {};
   let cloud = null, cloudLoc = {}, cloudBuf = null;
   let surfTex = null;
+  /* ── image-based lighting ───────────────────────────────────────────────────────────────
+   * A CC0 Poly Haven environment, baked to 9 SH coefficients by `npm run ibl` (~13 KB rather
+   * than the 1.7 MB source HDR). NORMALISED before use: the capture supplies the SHAPE of the
+   * light — which directions are bright, how the sky falls off toward the ground — while the
+   * theme keeps supplying the colour. A photograph's own colour would fight five neon themes
+   * and win, and the point here is directional ambient, not photographic mood.
+   * Fails open: nothing loaded ⇒ uIBL stays 0 and shading is the hemisphere path exactly. */
+  let SH = null;
+  function loadIBL(url) {
+    try {
+      fetch(url || '/models/ibl/kloofendal_43d_clear_puresky.json')
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (!j || !Array.isArray(j.sh) || j.sh.length !== 9) return;
+          const m = (j.sh[0][0] + j.sh[0][1] + j.sh[0][2]) / 3;
+          if (!(m > 1e-6)) return;                       // a black bake would blank the scene
+          SH = j.sh.map(c => c.map(v => v / m));         // unit mean, so themes stay in charge
+        }).catch(() => {});
+    } catch (e) { /* fail open */ }
+  }
 
   // ── mat4, column-major, same kit as the other two renderers ──
   const M = {
@@ -88,7 +108,18 @@ window.DFGL = (function () {
     'uniform vec3 uEye; uniform vec3 uSunCol; uniform vec3 uSky; uniform vec3 uGnd;' +
     'uniform float uSpec; uniform float uAlpha;' +
     'uniform sampler2D uTex; uniform float uTexAmt; uniform float uTexScale;' +
+    'uniform vec3 uSH[9]; uniform float uIBL;' +
     'varying vec3 vL;' +
+    /* Irradiance reconstructed from 9 spherical-harmonic bands — the SAME basis functions the
+     * baker projected with (scripts/build-ibl.mjs), or the two disagree and the environment
+     * comes back subtly rotated. Nine multiply-adds, no texture fetch, and it replaces a flat
+     * ambient constant with light that actually knows which way a surface is facing. */
+    'vec3 shIrr(vec3 n){' +
+    ' return uSH[0]*0.282095' +
+    ' + uSH[1]*(0.488603*n.y) + uSH[2]*(0.488603*n.z) + uSH[3]*(0.488603*n.x)' +
+    ' + uSH[4]*(1.092548*n.x*n.y) + uSH[5]*(1.092548*n.y*n.z)' +
+    ' + uSH[6]*(0.315392*(3.0*n.z*n.z-1.0))' +
+    ' + uSH[7]*(1.092548*n.x*n.z) + uSH[8]*(0.546274*(n.x*n.x-n.y*n.y)); }' +
     'void main(){' +
     ' vec3 c;' +
     ' if(uEmit>0.5){ c=vC; }' +                                  // grid, bolts, anything glowing
@@ -111,6 +142,8 @@ window.DFGL = (function () {
     '           +texture2D(uTex,p.xy).rgb*bw.z;' +
     '     base=mix(base, base*(0.55+t*1.15), uTexAmt); }' +
     '   vec3 amb=mix(uGnd,uSky,N.y*0.5+0.5);' +
+    // the captured environment carries the DIRECTION; the theme keeps the colour
+    '   if(uIBL>0.5){ amb=mix(amb, amb*2.0*max(vec3(0.0),shIrr(N)), 0.85); }' +
     '   float wrap=max(0.0,(dot(N,L)+0.35)/1.35);' +
     '   vec3 Hv=normalize(L+V);' +
     '   float spec=pow(max(0.0,dot(N,Hv)),40.0)*uSpec*max(0.0,dot(N,L));' +
@@ -422,7 +455,8 @@ window.DFGL = (function () {
       prog = link(VS, FS); sky = link(SKY_VS, SKY_FS);
       ['aPos','aNorm','aCol'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
       ['uMVP','uM','uLight','uFog','uFogND','uEmit','uEye','uSunCol','uSky','uGnd','uSpec',
-       'uAlpha','uTex','uTexAmt','uTexScale'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+       'uAlpha','uTex','uTexAmt','uTexScale','uIBL'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+      loc.uSH = []; for (let i = 0; i < 9; i++) loc.uSH.push(gl.getUniformLocation(prog, 'uSH[' + i + ']'));
       skyLoc.aP = gl.getAttribLocation(sky, 'aP');
       ['uTop','uBot','uSun','uSunPos','uAsp','uRoll','uWhite','uWhiteCol'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
       // clouds fail open on their own: a compile failure costs the deck, not the game
@@ -438,6 +472,7 @@ window.DFGL = (function () {
       // the surface map fails open on its own: no texture ⇒ uTexAmt stays 0 and shading is
       // exactly the untextured path, rather than sampling an unbound unit
       try { surfTex = makeSurfaceTex(); } catch (e) { surfTex = null; }
+      loadIBL(opt && opt.ibl);
       dyn = gl.createBuffer();
       skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
@@ -542,6 +577,8 @@ window.DFGL = (function () {
     gl.uniform1f(loc.uAlpha, 1);
     if (surfTex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, surfTex);
                    gl.uniform1i(loc.uTex, 0); }
+    if (SH && loc.uSH) { for (let i = 0; i < 9; i++) gl.uniform3fv(loc.uSH[i], SH[i]); }
+    gl.uniform1f(loc.uIBL, SH ? 1 : 0);
     const TEX = surfTex ? 1 : 0;
     gl.uniform1f(loc.uTexAmt, 0); gl.uniform1f(loc.uTexScale, 1);
     gl.uniform3fv(loc.uFog, fogC);
@@ -835,5 +872,5 @@ window.DFGL = (function () {
 
   // `arts` is for headless checks: which authored parts actually landed (null = procedural)
   return { init, frame, supported: () => ok, post: () => post,
-           arts: () => ART && Object.keys(ART) };
+           arts: () => ART && Object.keys(ART), ibl: () => !!SH };
 })();

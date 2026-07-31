@@ -294,7 +294,40 @@ window.Ronin3D = (function () {
     [/knee|shin|calf/, 'legF1'], [/foot|boot/, 'legF2'], [/leg|thigh|quad/, 'legF0'],
     [/sword|blade|katana|weapon|gun|rifle/, 'sword'],
   ];
-  function jointFor(name) { for (const [re, j] of JOINTMAP) if (re.test(name)) return j; return 'body'; }
+  /* ⚑ Side and segment are decided from DELIMITED TOKENS, not substrings, and that is a bug
+   * fix rather than a style preference. JOINTMAP's `(f|front|r|right)` is unanchored, so the
+   * "r" at the end of "uppe*r*" and "lowe*r*" satisfies it — which meant every back-limb name
+   * in models/README.md matched the FRONT rule. Running the documented names through the old
+   * matcher, SIX of the eight limbs collapsed onto two joints: arm_b_upper, arm_b_lower and
+   * arm_f_lower all landed on armF0, and the legs did the same. An artist authoring exactly
+   * to our own documented convention got a model with limbs welded together, silently and
+   * with no error anywhere.
+   *
+   * Splitting on non-alphanumerics makes "arm_b_upper" → [arm, b, upper], where "b" is a whole
+   * token and the "r" inside "upper" cannot be mistaken for "right". Names that do not carry
+   * recognisable tokens fall through to JOINTMAP unchanged, so anything that worked before
+   * still works. */
+  function jointFor(name) {
+    const tok = String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const has = (...w) => w.some(x => tok.includes(x));
+    if (has('head', 'skull', 'face', 'helmet', 'mask')) return 'head';
+    if (has('pelvis', 'hip', 'waist', 'belt')) return 'pelvis';
+    const isArm = has('arm', 'forearm', 'shoulder', 'bicep', 'hand', 'glove', 'fist', 'elbow');
+    const isLeg = has('leg', 'thigh', 'quad', 'shin', 'calf', 'knee', 'foot', 'boot');
+    if (isArm || isLeg) {
+      const s = has('b', 'back', 'l', 'left') ? 'B' : 'F';       // front is the default side
+      let seg;                                                   // 0 proximal · 1 mid · 2 distal
+      if (isArm) seg = has('hand', 'glove', 'fist') ? 2
+                     : has('forearm', 'elbow', 'lower', 'low') ? 1 : 0;
+      else       seg = has('foot', 'boot') ? 2
+                     : has('shin', 'calf', 'knee', 'lower', 'low') ? 1 : 0;
+      return (isArm ? 'arm' : 'leg') + s + seg;
+    }
+    if (has('sword', 'blade', 'katana', 'weapon', 'gun', 'rifle')) return 'sword';
+    if (has('chest', 'torso', 'jacket', 'uniform', 'body', 'spine', 'armor', 'armour')) return 'chest';
+    for (const [re, j] of JOINTMAP) if (re.test(name)) return j;  // unrecognised → old behaviour
+    return 'body';
+  }
   // the bone a part rides = joint → its child joint. Rotating by this bone's change from bind
   // is what makes a loaded model actually take the skeleton's pose instead of holding T-pose.
   const CHILD = { chest: 'head', pelvis: 'chest', head: null,
