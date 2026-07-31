@@ -337,6 +337,7 @@
 <script src="js/gfx-post.js"></script>
 <script src="js/ronin-world.js"></script>
 <script src="js/section9-world.js"></script>
+<script src="js/section9-skin.js"></script>
 <script src="js/section9-gl.js"></script>
 <script src="cards/arena-net.js"></script>
 <script>
@@ -365,6 +366,29 @@
   resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
   if(GLWANT && window.GLR){ try{ glReady=GLR.init(glcv); }catch(e){ glReady=false; }
     if(glReady){ glcv.style.display='block'; cv.style.background='transparent'; cv.style.zIndex='2'; } }
+  /* ── modelled operative bodies (js/section9-skin.js) ─────────────────────────────────────
+   * Bots are drawn as real skinned meshes instead of oriented boxes. The meshes are heavy
+   * (0.68–0.93 MB each), so this is gated on the device AND on how many bots are actually in
+   * the match: a 2-player game fetches one body, a full 8-player game fetches three and cycles
+   * them. Nothing is requested until a match starts, so a visitor who only reads the lobby pays
+   * nothing. Every failure path — no module, no WebGL, no skin program, a fetch that 404s —
+   * just leaves that bot with the articulated box rig it has always had.
+   * ?noskin opts out entirely. */
+  const SKINWANT=!/[?&#]noskin(\b|=1)?/.test(location.search+location.hash);
+  const SKIN_DEVICE_OK=(()=>{ try{
+    if(!SKINWANT) return false;
+    if(window.GameHelp && GameHelp.isTouch) return false;
+    if(Math.min(innerWidth,innerHeight)<700) return false;
+    if((navigator.hardwareConcurrency||4)<4) return false;
+    if((navigator.deviceMemory||4)<4) return false;
+    if(navigator.connection && navigator.connection.saveData) return false;
+    return true; }catch(e){ return false; } })();
+  let SKINS_READY=null;
+  function loadSkins(bots){
+    if(!SKIN_DEVICE_OK || !glReady || !window.S9Skin || !window.GLR || !GLR.skinSupported()) return null;
+    const want=S9Skin.need(bots); if(!want.length) return null;
+    return (SKINS_READY=S9Skin.load(want,(n,v,c)=>{ try{ GLR.registerSkin(n,v,c); }catch(e){} }));
+  }
   const rnd=(a=1,b=0)=>b+Math.random()*(a-b), rint=n=>Math.floor(Math.random()*n),
         clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
   const TAU=Math.PI*2;
@@ -1135,7 +1159,10 @@
     G.t=0; G.timeLeft=G.dur; G.real=!!real; G.over=false;
     G.me=makeEnt({ name:myHandle(), me:true, tint:[64,220,200], verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
-    others.forEach((o,i)=>{ const e=makeEnt({ name:o.h, tint:CTINTS[i%CTINTS.length], verified:o.v, weapon:rint(WEAPONS.length) }); G.ents.push(e); });
+    others.forEach((o,i)=>{ const e=makeEnt({ name:o.h, tint:CTINTS[i%CTINTS.length], verified:o.v, weapon:rint(WEAPONS.length) });
+      if(window.S9Skin) e.skin=S9Skin.archFor(i);      // which modelled body — the mesh may arrive later, or never
+      G.ents.push(e); });
+    loadSkins(others.length);                          // fetch only the bodies this match will use
     // initial spawns spread across points
     G.ents.forEach((e,i)=>{ const s=MAP.spawns[i%MAP.spawns.length]; dropAt(e,s); e.mag=WEAPONS[e.weapon].mag; e.iframe=1.4; e.yaw=spawnYaw(MAP,e.x,e.z,e.y); });
     // stakes (mirror dogfight): pull your picked cards into the pot on a real wager
@@ -1747,6 +1774,11 @@
     // baked levels arrive async — a headless run has to be able to wait for them and to pick one
     get maps(){ return MAPS.map((m,i)=>({ i, name:m.name, wld:m.wld||null, solids:m.solids.length, spawns:m.spawns.length })); },
     _levels(){ return LEVELS_READY||Promise.resolve([]); },
+    // skinned bodies: what was asked for, what arrived, and who is wearing one right now
+    get skin(){ return { deviceOk:SKIN_DEVICE_OK, progOk:!!(window.GLR&&GLR.skinSupported&&GLR.skinSupported()),
+      loaded:(window.GLR&&GLR.hasSkin)?(window.S9Skin?S9Skin.CAST.map(c=>c.arch).filter(a=>GLR.hasSkin(a)):[]):[],
+      ents:G.ents.filter(e=>!e.isMe).map(e=>({ skin:e.skin||null, posed:!!e.__K })) }; },
+    _skins(){ return SKINS_READY||Promise.resolve([]); },
     _pick(i){ if(MAPS[i]){ arenaPick=i; paintArenaChips(); return true; } return false; } };
   const SENS=0.0022;
   addEventListener('mousemove',e=>{ if(!locked||!G.me||G.mode!=='play')return; const s=SENS/(G.scopeZoom||1);

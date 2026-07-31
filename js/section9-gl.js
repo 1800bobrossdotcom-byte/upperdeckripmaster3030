@@ -15,6 +15,8 @@
  */
 window.GLR = (function () {
   let gl = null, cv = null, prog = null, sky = null, ok = false, post = null;
+  let skinProg = null, skinLoc = {}, skinOk = false;
+  const skins = {};                         // arch → { buf, count, lo, hi, h }
   let loc = {}, skyLoc = {}, tex = {}, buffers = {}, dynBuf = null, skyBuf = null;
   const STRIDE = 11;                        // pos3 + nrm3 + uv2 + col3
   const MATS = ['floor', 'wall', 'crate', 'ammo'];
@@ -63,6 +65,20 @@ window.GLR = (function () {
         lit += vec3(1.0,0.72,0.40)*att*(0.30+0.70*fn); }
       float fog=clamp((vDist-uFogNear)/(uFogFar-uFogNear),0.0,1.0);
       gl_FragColor=vec4(mix(lit,uFog,fog), t.a); }`;   // t.a=1 for opaque world; <1 for blended decals
+  /* SKINNED operative. Same fragment shader as the world — the bodies must be lit, fogged and
+   * muzzle-flashed by exactly the same rules as the walls they stand against, or they read as
+   * pasted on. Only the vertex stage differs: each vertex blends up to four of the eleven bone
+   * matrices S9Skin builds from the FPS pose, so an elbow BENDS instead of a box hinging open.
+   * uModel then places that body in the world (position, facing, and px → metres). */
+  const SKIN_VS = `attribute vec3 aPos; attribute vec3 aNormal; attribute vec4 aIdx; attribute vec4 aWgt;
+    uniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uBones[11]; uniform vec3 uTint; uniform vec3 uCam;
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP;
+    void main(){
+      mat4 sk = uBones[int(aIdx.x)]*aWgt.x + uBones[int(aIdx.y)]*aWgt.y
+              + uBones[int(aIdx.z)]*aWgt.z + uBones[int(aIdx.w)]*aWgt.w;
+      vec4 sp = sk*vec4(aPos,1.0); vec4 wp = uModel*sp;
+      vN = mat3(uModel)*(mat3(sk)*aNormal); vP = wp.xyz; vUV = vec2(0.5); vC = uTint;
+      vDist = distance(wp.xyz, uCam); gl_Position = uMVP*wp; }`;
   // per-pixel ray sky: dusk gradient + warm sun halo/disc + drifting cloud banding
   const SKY_VS = `attribute vec2 aP; varying vec2 vNDC; void main(){ vNDC=aP; gl_Position=vec4(aP,1.0,1.0); }`;
   const SKY_FS = `precision mediump float; varying vec2 vNDC;
@@ -83,7 +99,13 @@ window.GLR = (function () {
 
   function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.warn('GLR shader', gl.getShaderInfoLog(s)); return null; } return s; }
-  function link(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  /* `attrs` pins attribute locations. Three programs now share one attribute set-up path, and a
+   * driver is free to hand each of them different slots; pinning every program to 0..3 means a
+   * pass can never leave an array enabled at a slot the next pass does not re-point, which some
+   * drivers answer with INVALID_OPERATION and a dropped draw. */
+  function link(vs, fs, attrs) { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    if (attrs) attrs.forEach((n, i) => gl.bindAttribLocation(p, i, n));
+    gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { console.warn('GLR link', gl.getProgramInfoLog(p)); return null; } return p; }
 
   // ── procedural bitmap textures (drawn on a 2D canvas, uploaded mipmapped/repeat) ──
@@ -325,11 +347,96 @@ window.GLR = (function () {
   // axis-aligned box from center + half extents (order-safe), flat color
   function cbox(a, cx, cy, cz, hx, hy, hz, col) { box(a, cx - hx, cy - hy, cz - hz, cx + hx, cy + hy, cz + hz, 1, col); }
 
+  /* ── skinned operatives ──────────────────────────────────────────────────────────────────
+   * Register a parsed .skn (see js/section9-skin.js). The bind-space y bounds are kept because
+   * the joint palette has to scale an arbitrary mesh onto the 150-unit bind skeleton. */
+  function registerSkin(arch, verts, count) {
+    if (!ok || !skinOk || !arch || !verts || !count) return false;
+    try {
+      let lo = 1e9, hi = -1e9;
+      for (let i = 1; i < verts.length; i += 14) { const y = verts[i]; if (y < lo) lo = y; if (y > hi) hi = y; }
+      if (!isFinite(lo) || !isFinite(hi) || hi <= lo) return false;
+      const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+      if (skins[arch] && skins[arch].buf) gl.deleteBuffer(skins[arch].buf);
+      skins[arch] = { buf: b, count, lo, hi, h: hi - lo };
+      return true;
+    } catch (e) { return false; }
+  }
+  function hasSkin(a) { return !!skins[a]; }
+  /* Does this entity get a mesh this frame? Needs the module, a linked program, a loaded body
+   * for its archetype — and a pose. Any one missing and it falls back to the box rig, which is
+   * the whole fail-open story: an operative is always drawn, the only question is how well. */
+  function skinOf(e) {
+    if (!skinOk || !window.S9Skin || !e || !e.skin) return null;
+    return skins[e.skin] || null;
+  }
+  function poseAll(G) {
+    for (const e of G.ents) {
+      if (!e.alive || e.isMe || !skinOf(e)) { e.__K = null; continue; }
+      try { e.__K = S9Skin.pose(e); } catch (err) { e.__K = null; }
+    }
+  }
+  // entity placement: local (+x right, +y up, +z facing, px) → world, scaled px → metres
+  function entModel(e) {
+    const k = (e.h || 1.72) / 150, c = Math.cos(e.yaw), s = Math.sin(e.yaw);
+    return new Float32Array([c * k, 0, -s * k, 0, 0, k, 0, 0, s * k, 0, c * k, 0, e.x, e.y, e.z, 1]);
+  }
+  const palBuf = new Float32Array(11 * 16);
+  function drawSkinned(G, mvp, eye, ENV, flash) {
+    let drew = 0;
+    for (const e of G.ents) {
+      const sk = e.__K && skinOf(e); if (!sk) continue;
+      if (!drew) {
+        gl.useProgram(skinProg);
+        gl.uniformMatrix4fv(skinLoc.uMVP, false, new Float32Array(mvp));
+        gl.uniform3fv(skinLoc.uCam, eye);
+        gl.uniform1i(skinLoc.uTex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex.white);
+        gl.uniform3fv(skinLoc.uLightDir, ENV.lightDir); gl.uniform3fv(skinLoc.uLightCol, ENV.lightCol);
+        gl.uniform3fv(skinLoc.uAmbient, ENV.ambient); gl.uniform3fv(skinLoc.uFog, ENV.fog);
+        gl.uniform1f(skinLoc.uFogNear, fogNear); gl.uniform1f(skinLoc.uFogFar, fogFar);
+        gl.uniform1f(skinLoc.uGloss, 0.22);
+        gl.uniform4f(skinLoc.uFlash, flash[0], flash[1], flash[2], flash[3]);
+      }
+      drew++;
+      const flick = (e.spawnT > 0 || e.iframe > 0) ? (Math.sin((G.t || 0) * 30) > 0 ? 0.45 : 1) : 1;
+      gl.uniform3f(skinLoc.uTint, e.tint[0] / 255 * flick, e.tint[1] / 255 * flick, e.tint[2] / 255 * flick);
+      gl.uniformMatrix4fv(skinLoc.uModel, false, entModel(e));
+      gl.uniformMatrix4fv(skinLoc.uBones, false, S9Skin.palette(e.__K, sk, palBuf));
+      gl.bindBuffer(gl.ARRAY_BUFFER, sk.buf);
+      const st = 56;
+      gl.enableVertexAttribArray(skinLoc.aPos); gl.vertexAttribPointer(skinLoc.aPos, 3, gl.FLOAT, false, st, 0);
+      gl.enableVertexAttribArray(skinLoc.aNormal); gl.vertexAttribPointer(skinLoc.aNormal, 3, gl.FLOAT, false, st, 12);
+      gl.enableVertexAttribArray(skinLoc.aIdx); gl.vertexAttribPointer(skinLoc.aIdx, 4, gl.FLOAT, false, st, 24);
+      gl.enableVertexAttribArray(skinLoc.aWgt); gl.vertexAttribPointer(skinLoc.aWgt, 4, gl.FLOAT, false, st, 40);
+      gl.drawArrays(gl.TRIANGLES, 0, sk.count);
+    }
+    return drew;
+  }
+  /* The rifle a skinned operative carries, in world space, built from the SAME pose that drove
+   * the mesh — so the weapon tracks the hands instead of floating near them. It goes into the
+   * ordinary entity batch, because it is ordinary box geometry. ronin3d's dressLoaded() would
+   * have hung a katana, a straw hat and a turtle shell off these joints; that wardrobe belongs
+   * to the duel, and none of it belongs in a gunfight. The gun does: an unarmed operative in a
+   * firefight reads as a bug, which is exactly why NEON RONIN always draws the sword. */
+  function skinnedGear(a, e, m) {
+    const P = e.__K, k = (e.h || 1.72) / 150;
+    const yaw = e.yaw, fwd = [Math.sin(yaw), 0, Math.cos(yaw)], rgt = [Math.cos(yaw), 0, -Math.sin(yaw)];
+    const W = p => [e.x + rgt[0] * p[0] * k + fwd[0] * p[2] * k, e.y + p[1] * k, e.z + rgt[2] * p[0] * k + fwd[2] * p[2] * k];
+    const gun = m([0.13, 0.14, 0.16]), wood = m([0.30, 0.21, 0.13]);
+    const grip = W(P.grip), muz = W(P.muzzle), hand = W(P.hdR);
+    const back = [hand[0] - fwd[0] * 0.30, hand[1] - 0.02, hand[2] - fwd[2] * 0.30];
+    limbBox(a, grip, muz, 0.030, 0.034, gun);                                  // receiver + barrel
+    limbBox(a, back, grip, 0.045, 0.052, wood);                                // stock into the shoulder
+    limbBox(a, [grip[0], grip[1] - 0.13, grip[2]], grip, 0.030, 0.026, gun);   // magazine
+    if (e.muzzle > 0) limbBox(a, muz, [muz[0] + fwd[0] * 0.22, muz[1], muz[2] + fwd[2] * 0.22], 0.09, 0.09, [1, 0.9, 0.47]);
+  }
+
   // ── operatives: the full articulated rig ported to GL (walk/run/jump), lit by the scene ──
   function buildEntities(G) {
     const a = [], T = G.t || 0;
     for (const e of G.ents) { if (!e.alive || e.isMe) continue;
       const flick = (e.spawnT > 0 || e.iframe > 0) ? (Math.sin(T * 30) > 0 ? 0.45 : 1) : 1, m = c => [c[0] * flick, c[1] * flick, c[2] * flick];
+      if (e.__K) { skinnedGear(a, e, m); continue; }   // mesh body drawn in its own pass; only the gear is boxes
       const khaki = m([0.59, 0.52, 0.36]), boot = m([0.18, 0.16, 0.13]), vest = m([e.tint[0] / 255, e.tint[1] / 255, e.tint[2] / 255]),
         pack = m([0.47, 0.41, 0.28]), skin = m([0.77, 0.59, 0.45]), cap = m([0.25, 0.27, 0.19]), gunC = m([0.17, 0.18, 0.2]), hands = m([0.69, 0.52, 0.41]);
       const yaw = e.yaw, fwd = [Math.sin(yaw), 0, Math.cos(yaw)], rgt = [Math.cos(yaw), 0, -Math.sin(yaw)];
@@ -416,10 +523,23 @@ window.GLR = (function () {
   function init(canvas) {
     try { gl = canvas.getContext('webgl', { antialias: true, alpha: false, depth: true }) || canvas.getContext('experimental-webgl'); } catch (e) { gl = null; }
     if (!gl) return false; cv = canvas;
-    prog = link(VS, FS); sky = link(SKY_VS, SKY_FS); if (!prog || !sky) return false;
+    prog = link(VS, FS, ['aPos', 'aNormal', 'aUV', 'aColor']); sky = link(SKY_VS, SKY_FS, ['aP']); if (!prog || !sky) return false;
     loc = {}; ['aPos', 'aNormal', 'aUV', 'aColor'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
     ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
     skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon', 'uSunDir', 'uYaw', 'uPitch', 'uAspect', 'uFov', 'uT'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
+    /* The skinned-operative program is OPTIONAL. If it will not build — old driver, no room for
+     * eleven mat4 uniforms, anything — skinOk stays false, no .skn is ever registered, and every
+     * bot keeps the articulated box rig. The deathmatch does not care either way. */
+    try {
+      skinProg = link(SKIN_VS, FS, ['aPos', 'aNormal', 'aIdx', 'aWgt']);
+      if (skinProg) {
+        skinLoc = {};
+        ['aPos', 'aNormal', 'aIdx', 'aWgt'].forEach(n => skinLoc[n] = gl.getAttribLocation(skinProg, n));
+        ['uMVP', 'uModel', 'uBones', 'uTint', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient',
+         'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash'].forEach(n => skinLoc[n] = gl.getUniformLocation(skinProg, n));
+        skinOk = !!skinLoc.uBones && skinLoc.aPos >= 0 && skinLoc.aIdx >= 0;
+      }
+    } catch (e) { skinOk = false; }
     tex.wall = makeTex(256, drawWall); tex.floor = makeTex(256, drawFloor); tex.crate = makeTex(256, drawCrate); tex.ammo = makeTex(256, drawAmmo); tex.white = whiteTex();
     tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch); tex.shadow = makeTex(64, drawShadow);
     tex.posters = DARKFARMS.map(t => makeImgTex('https://arweave.net/' + t));   // CC0 wall-art, darkfarms.wtf
@@ -460,11 +580,15 @@ window.GLR = (function () {
       const p = Math.min(1, e.muzzle / 0.05);
       if (p > fw) { fw = p; fx = e.isMe ? cam.x : e.x; fy = e.isMe ? cam.y - 0.1 : e.y + 1.28; fz = e.isMe ? cam.z : e.z; } }
     gl.uniform4f(loc.uFlash, fx, fy, fz, fw * 1.5);
+    const flash = [fx, fy, fz, fw * 1.5];
+    poseAll(G);                                       // one FPS pose per skinned bot, reused by mesh + gun
     const GLOSS = { floor: 0.30, wall: 0.10, crate: 0.16, ammo: 0.34 };
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(loc.uTex, 0);
     for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.uniform1f(loc.uGloss, GLOSS[k]); gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
     const ea = buildEntities(G);
     if (ea.length) { gl.uniform1f(loc.uGloss, 0.28); gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
+    // skinned bodies: their own program, then hand the world program back its state
+    if (drawSkinned(G, mvp, eye, ENV, flash)) { gl.useProgram(prog); gl.activeTexture(gl.TEXTURE0); }
     // ── DarkFarms wall-art posters (CC0 · darkfarms.wtf): dark frame, then each card ──
     if (posters) {
       gl.uniform1f(loc.uGloss, 0.04); gl.bindTexture(gl.TEXTURE_2D, tex.white);
@@ -503,5 +627,6 @@ window.GLR = (function () {
     if (composited) post.end();                       // bright → blur → composite to the screen
   }
 
-  return { init, buildMap, frame, supported: () => ok, post: () => post };
+  return { init, buildMap, frame, registerSkin, hasSkin, supported: () => ok,
+           skinSupported: () => skinOk, post: () => post };
 })();

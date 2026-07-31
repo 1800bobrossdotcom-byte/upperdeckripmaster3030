@@ -6,130 +6,230 @@
 <title>ripmaster3030studios · $3030</title>
 <meta name="robots" content="index,follow">
 <meta name="description" content="ripmaster3030studios — an indie card and game studio. $3030 is a SuperRare Liquid Edition; every card is a lens over its live market state.">
+<link rel="preload" as="image" href="Laughing_man.svg">
 
 <!--
   ══ THE SUPERRARE EMBED — DELIBERATELY WALLET-FREE ═══════════════════════════════════════
 
-  This page is what a SuperRare Liquid Edition's `animation_url` points at. It is a SHOWCASE
-  and a how-to. It sends people to the studio site to actually do anything.
+  What a Liquid Edition's `animation_url` points at: the studio's front door, as a SHOWCASE.
+  It sends people to the site to actually do anything.
 
-  ⛔ IT MUST NEVER CONTAIN WALLET CODE. No injected-provider access, no WalletConnect, no
-     eth_requestAccounts, no signing, no `js/wallet.js`, no connect button — not even behind a
+  ⛔ IT MUST NEVER CONTAIN WALLET CODE. No injected provider, no WalletConnect, no
+     eth_requestAccounts, no signing, no `js/wallet.js`, no connect button — not behind a
      click, a flag, or a "user opted in".
 
-  WHY, precisely: this document is framed inside a marketplace. A frame that asks for a wallet
-  connection is indistinguishable, to the person looking at it, from a frame that has been
-  swapped for a malicious one. Teaching collectors that it is normal for embedded art to
-  request their wallet is the exact habit phishing depends on. SuperRare's security team
-  flagged it on `/cabinet.html`, which loads js/wallet.js and performs WalletConnect burns;
-  they were right, and this page is the answer. `cabinet.html` is NOT for embedding.
+  WHY: this document is framed inside a marketplace. A frame that asks for a wallet is
+  indistinguishable, to the person looking at it, from a frame that has been swapped for a
+  malicious one. Teaching collectors that embedded art asking for a wallet is normal is the
+  exact habit phishing depends on. SuperRare's security team flagged `/cabinet.html`, which
+  loads js/wallet.js and performs WalletConnect burns. They were right. cabinet.html is NOT
+  for embedding; this is.
 
-  Read-only RPC is permitted and is the only network access here: it can display state, it
-  cannot move anything, and it degrades to static copy when blocked. The sandbox is assumed
-  hostile — `localStorage` THROWS at an opaque origin, `window.parent` is unreachable, and
-  requests may simply fail. Everything below works with all of that turned off.
+  Read-only `eth_call` over fetch is the only network access: it can show state, it cannot
+  move anything, and the page degrades to static copy when blocked — which it will be, in a
+  sandboxed frame where `localStorage` throws and `window.parent` is unreachable.
 
-  Guarded by `npm run test:embed` (scripts/test-embed.mjs), which fails the build if a wallet
-  identifier reappears in this file.
+  ── built from the site's own furniture, not a lookalike ────────────────────────────────
+  Same tokens and the same assets as index.html so it reads as one studio: the tiled
+  Laughing_man.svg watermark, the live torch.gif pair, the flowing lovebeing-mask.png credit,
+  CRT scanlines, and the real `.btn`. The masthead is the new RM3030STUDIOS logo intro, with
+  the old marquee wordmark kept beneath it — SuperRare confirmed upperdeckripmaster3030
+  references may remain, and the joke is the lineage.
+
+  ⚑ The video is `muted playsinline autoplay loop` and MUST stay muted: a marketplace tile
+  that starts making noise is the other way to lose a collector's trust. `poster` carries the
+  marquee art, so a blocked or slow video still shows brand rather than a black hole.
+  ⚑ The digital-rain canvas from index.html is deliberately NOT carried over — it is a
+  requestAnimationFrame loop and this page may sit in a background tab for hours.
+
+  Guarded by `npm run test:embed`, which fails if a wallet identifier or an external
+  <script src> reappears.
 -->
 
 <style>
-  :root{ --bg:#07070c; --ink:#d8e8ff; --dim:#8ea3c4; --acid:#2bff80; --hot:#ff2ad9; --amber:#ffd166; }
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; height:100%; }
-  body{
-    background:
-      radial-gradient(120% 90% at 50% -20%, #1a1030 0%, transparent 60%),
-      radial-gradient(100% 80% at 50% 120%, #06202a 0%, transparent 60%),
-      var(--bg);
-    color:var(--ink);
-    font:15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    display:flex; align-items:center; justify-content:center; padding:clamp(12px,3vw,28px);
+  /* tokens: verbatim from index.html */
+  :root{
+    --void:#020804; --panel:#04140b; --ink:#01130a;
+    --phos:#2bff80; --phosdim:#0f5c33; --phosdeep:#0a3d22;
+    --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b; --red:#ff4b3a;
+    --text:#b8ffd6;
+    --mono:'Courier New',ui-monospace,monospace;
+    --fat:'Arial Black','Arial Bold',Arial,sans-serif;
   }
-  .wrap{ width:min(760px,100%); }
-  .rule{ height:1px; background:linear-gradient(90deg,transparent,#2bff8055,transparent); margin:14px 0; }
-  h1{ font-size:clamp(20px,4.6vw,34px); margin:0; letter-spacing:.02em; }
-  h1 b{ color:var(--acid); }
-  .tag{ color:var(--dim); font-size:clamp(11px,2.4vw,13px); letter-spacing:.14em; text-transform:uppercase; margin-top:6px; }
-  .lede{ margin:14px 0 0; font-size:clamp(13px,2.7vw,15px); }
-  .lede em{ color:var(--amber); font-style:normal; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ background:var(--void); }
+  body{ background:transparent; font-family:var(--mono); color:var(--text);
+    min-height:100vh; overflow-x:hidden; padding:clamp(14px,3vw,30px) 14px clamp(20px,4vw,34px);
+    -webkit-tap-highlight-color:transparent; }
 
-  .state{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin:16px 0 0; }
-  .cell{ border:1px solid #1e2c44; border-radius:10px; padding:9px 11px; background:#0b1120aa; }
-  .cell b{ display:block; font-size:clamp(15px,3.4vw,20px); color:var(--acid); letter-spacing:.01em; }
-  .cell span{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+  /* laughing-man watermark, phosphor print — the repeating background */
+  .lm{ position:fixed; inset:0; z-index:-2; pointer-events:none;
+    background:url("Laughing_man.svg") repeat; background-size:min(46vw,340px);
+    filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6);
+    opacity:.13; }
+  .crt{ position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
 
-  ol{ margin:12px 0 0; padding-left:20px; } li{ margin:6px 0; }
-  li b{ color:var(--ink); }
-  .go{ display:inline-block; margin-top:18px; padding:12px 20px; border-radius:11px; text-decoration:none;
-       font-weight:700; letter-spacing:.05em; text-transform:uppercase; font-size:13px;
-       color:#04120a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:1px solid #063; }
-  .note{ margin-top:16px; color:var(--dim); font-size:11px; line-height:1.6; }
-  .note b{ color:var(--amber); }
-  .safe{ margin-top:10px; padding:9px 11px; border:1px dashed #2b4a6e; border-radius:10px;
-         color:var(--dim); font-size:11px; }
-  .safe b{ color:var(--acid); }
+  .wrap{ position:relative; z-index:1; max-width:860px; margin:0 auto; }
+
+  /* ── LOVEBEING presents ── */
+  .presents{ display:flex; flex-direction:column; align-items:center; gap:clamp(5px,1.4vh,12px); }
+  .lovebeing-logo{ width:min(52vw,300px); aspect-ratio:1762/250; display:block;
+    background:linear-gradient(100deg,#ff2ad9,#b070ff 22%,#27f7e4 46%,#2bff80 68%,#ffd23b 88%,#ff2ad9);
+    background-size:280% 100%;
+    -webkit-mask:url(lovebeing-mask.png) center/contain no-repeat; mask:url(lovebeing-mask.png) center/contain no-repeat;
+    filter:drop-shadow(0 0 16px rgba(255,42,217,.4)) drop-shadow(0 2px 6px rgba(0,0,0,.6));
+    animation:lbFlow 7s linear infinite; }
+  @keyframes lbFlow{ to{ background-position:280% 0; } }
+  .presents-lbl{ font-family:var(--fat); font-size:clamp(9px,2.2vw,12px); letter-spacing:.66em;
+    text-indent:.66em; text-transform:uppercase; color:#8fe0b6; opacity:.9; }
+
+  /* ── marquee: torches flanking the studio logo intro ── */
+  .marquee-sign{ display:flex; align-items:center; justify-content:center; gap:clamp(4px,2vw,26px);
+    margin-top:clamp(2px,1vh,10px); }
+  .torch{ flex:none; width:auto; height:clamp(62px,13vw,132px);
+    filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
+  @media (max-width:600px){ .torch{ height:clamp(48px,12vw,84px); } }
+  .studio-intro{ width:min(66vw,520px); height:auto; display:block; border-radius:8px;
+    filter:drop-shadow(0 0 26px rgba(43,255,128,.35)) drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  .lineage{ width:min(58vw,360px); height:auto; display:block; margin:clamp(6px,1.4vh,12px) auto 0;
+    opacity:.5; filter:drop-shadow(0 0 14px rgba(43,255,128,.25)); }
+
+  .dataplate{ width:max-content; max-width:94%; margin:clamp(8px,2vh,14px) auto 0;
+    border:1px solid var(--phosdim); border-radius:999px; background:rgba(1,10,5,.72); color:#5fcf8f;
+    font-size:9px; letter-spacing:.22em; text-indent:.22em; text-transform:uppercase;
+    padding:6px 16px; box-shadow:0 0 12px rgba(43,255,128,.12); }
+
+  .panel{ margin-top:clamp(16px,3.4vh,26px);
+    border:1px solid var(--phosdim); border-radius:10px; background:rgba(2,16,9,.82);
+    box-shadow: inset 0 0 26px rgba(43,255,128,.05), 0 0 18px rgba(43,255,128,.12);
+    padding:clamp(14px,3vw,22px); }
+  .lede{ font-size:clamp(12px,2.6vw,14px); line-height:1.7; }
+  .lede b{ color:var(--phos); } .lede i{ font-style:normal; color:var(--amber); }
+
+  .state{ display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:8px; margin-top:14px; }
+  .cell{ border:1px solid var(--phosdeep); border-radius:8px; padding:8px 10px; background:rgba(1,19,10,.7); }
+  .cell b{ display:block; font-family:var(--fat); font-size:clamp(14px,3.2vw,19px); color:var(--phos); }
+  .cell span{ display:block; margin-top:2px; font-size:9px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--phosdim); }
+
+  .steps{ list-style:none; counter-reset:s; margin-top:14px; }
+  .steps li{ counter-increment:s; position:relative; padding-left:30px; margin:9px 0;
+    font-size:clamp(12px,2.5vw,13.5px); line-height:1.6; }
+  .steps li::before{ content:counter(s,decimal-leading-zero); position:absolute; left:0; top:1px;
+    font-family:var(--fat); font-size:11px; color:var(--acid); }
+  .steps b{ color:var(--phos); }
+
+  /* ── the site's button, verbatim ── */
+  .btns{ display:flex; flex-wrap:wrap; gap:12px 14px; justify-content:center; margin-top:clamp(16px,3.4vh,26px); }
+  .btn{
+    --bc:43,255,128;
+    position:relative; display:inline-flex; align-items:center; gap:8px; overflow:hidden;
+    text-decoration:none; font-family:var(--fat); cursor:pointer;
+    font-size:11.5px; letter-spacing:.13em; text-indent:.13em; text-transform:uppercase;
+    padding:13px 22px; border-radius:12px; color:#eafff2;
+    border:1px solid rgba(var(--bc),.5);
+    background:linear-gradient(180deg, rgba(var(--bc),.16), rgba(2,14,8,.72) 60%, rgba(1,8,5,.85));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 0 0 1px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.45),
+      0 0 18px rgba(var(--bc),.22);
+    text-shadow:0 0 10px rgba(var(--bc),.55);
+    transition:transform .12s cubic-bezier(.3,1.4,.5,1), box-shadow .2s, border-color .2s; }
+  .btn::before{ content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.18) 48%, transparent 62%);
+    transform:translateX(-120%); transition:transform .55s ease; }
+  .btn:hover{ transform:translateY(-2px); border-color:rgba(var(--bc),.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px rgba(0,0,0,.3), 0 10px 24px rgba(0,0,0,.5),
+      0 0 30px rgba(var(--bc),.5); }
+  .btn:hover::before{ transform:translateX(120%); }
+  .btn:active{ transform:translateY(0); }
+  .btn:focus-visible{ outline:2px solid rgba(var(--bc),.9); outline-offset:3px; }
+  .btn.alt{ --bc:39,247,228; }
+
+  .safe{ margin-top:14px; padding:10px 12px; border:1px dashed var(--phosdeep); border-radius:8px;
+    font-size:10.5px; line-height:1.65; background:rgba(1,19,10,.5); }
+  .safe b{ color:var(--phos); }
+  .nfa{ margin-top:12px; text-align:center; font-size:10px; letter-spacing:.06em; color:var(--phosdim); }
+  .nfa b{ color:var(--amber); }
+
+  @media (prefers-reduced-motion:reduce){
+    .lovebeing-logo{ animation:none; } .btn{ transition:none; }
+  }
 </style>
 </head>
 <body>
+<div class="lm"></div>
+<div class="crt"></div>
+
 <div class="wrap">
+  <header class="presents">
+    <div class="lovebeing-logo" role="img" aria-label="Lovebeing"></div>
+    <div class="presents-lbl">presents</div>
 
-  <h1>ripmaster<b>3030</b>studios</h1>
-  <div class="tag">indie card &amp; game studio · $3030 liquid edition</div>
+    <div class="marquee-sign">
+      <img class="torch" src="torch.gif" alt="" aria-hidden="true">
+      <video class="studio-intro" src="RM3030STUDIOS_logo_intro_blackbg.mp4"
+             poster="upperdeckripmaster3030_01_marquee.png"
+             autoplay muted loop playsinline disablepictureinpicture
+             aria-label="ripmaster3030studios"></video>
+      <img class="torch" src="torch.gif" alt="" aria-hidden="true">
+    </div>
 
-  <p class="lede">
-    A card studio that builds <em>playable</em> things. <b>$3030</b> is the edition; every card is a
-    <em>lens</em> over it — artwork that reads the token's live market state and redraws itself.
-    Hold more, and some lenses show you more.
-  </p>
+    <img class="lineage" src="upperdeckripmaster3030_01_marquee.png"
+         alt="upperdeckripmaster3030" width="696" height="202" loading="lazy" decoding="async">
 
-  <div class="rule"></div>
+    <div class="dataplate">Liquid Editions · Cohort 01 · $3030</div>
+  </header>
 
-  <div class="state" id="state">
-    <div class="cell"><b id="sSupply">—</b><span>live supply</span></div>
-    <div class="cell"><b id="sBurned">—</b><span>burned forever</span></div>
-    <div class="cell"><b id="sCards">100</b><span>cards in the deck</span></div>
-    <div class="cell"><b id="sHeroes">33</b><span>hero 1/1 lenses</span></div>
+  <div class="panel">
+    <p class="lede">
+      An indie <b>card &amp; game studio</b>. <b>$3030</b> is the edition; every card is a
+      <i>lens</i> over it — artwork that reads the token's live market state and redraws itself.
+      Hold more, and some lenses show you more.
+    </p>
+
+    <div class="state">
+      <div class="cell"><b id="sSupply">—</b><span>live supply</span></div>
+      <div class="cell"><b id="sBurned">—</b><span>burned forever</span></div>
+      <div class="cell"><b>100</b><span>cards in the deck</span></div>
+      <div class="cell"><b>33</b><span>hero 1/1 lenses</span></div>
+    </div>
+
+    <ol class="steps">
+      <li><b>Collect the edition.</b> $3030 trades on its curve, right here on SuperRare.</li>
+      <li><b>Rip a pack.</b> Packs are bought and burned — tokens retired permanently, while the
+          reserve behind every surviving token stays put. Ripping pays the holders.</li>
+      <li><b>Play the cabinets.</b> Five games. Your cards carry powers into them.</li>
+      <li><b>Earn a hero.</b> 33 of the 100 mint as 1/1 lenses — some pulled, some won.</li>
+    </ol>
+
+    <div class="btns">
+      <a class="btn" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">Enter the studio ↗</a>
+      <a class="btn alt" href="https://ripmaster3030studios.com/arcade.html" target="_blank" rel="noopener noreferrer">The arcade ↗</a>
+    </div>
+
+    <div class="safe">
+      <b>This page will never ask for your wallet.</b> It is a showcase — no connect button, no
+      signing, nothing to approve. Anything needing a wallet happens on the studio site, which you
+      reach by choosing to go there. If a framed artwork ever asks you to connect, treat that as a
+      warning sign.
+    </div>
+
+    <p class="nfa">
+      <b>NFA.</b> Experimental art token — it can go to zero. Burns are permanent, and modest at
+      this supply; we don't sell it as a scarcity engine.
+    </p>
   </div>
-
-  <div class="rule"></div>
-
-  <ol>
-    <li><b>Collect the edition.</b> $3030 trades on its curve, right here on SuperRare.</li>
-    <li><b>Rip a pack.</b> Packs are bought and burned — the tokens are retired permanently, and
-        the reserve behind every surviving token stays put.</li>
-    <li><b>Play the cabinets.</b> Your cards carry powers into the studio's games.</li>
-    <li><b>Earn a hero.</b> 33 of the 100 cards mint as 1/1 lenses — some pulled, some won.</li>
-  </ol>
-
-  <a class="go" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">
-    Enter the studio ↗
-  </a>
-
-  <div class="safe">
-    <b>This page will never ask for your wallet.</b> It is a showcase only — no connect button, no
-    signing, nothing to approve. Anything that needs a wallet happens on the studio site, which you
-    reach by choosing to go there. If a framed artwork ever asks you to connect, treat that as a
-    warning sign.
-  </div>
-
-  <p class="note">
-    <b>NFA.</b> Experimental art token — it can go to zero. Burns are permanent. The burn is real
-    but modest at this supply; we do not present it as a scarcity engine.
-  </p>
 </div>
 
 <script>
-/* Read-only, best-effort, and entirely optional. There is no wallet here and there is no code
- * path that could create one — this only formats numbers. If the fetch is blocked (very likely
- * inside a sandboxed frame) the page keeps its static copy and nobody notices.
- *
- * eth_call over plain fetch, no library, no provider, no injected object touched. */
+/* Read-only, best-effort, optional. No wallet, no provider, no library — this formats two
+ * numbers. Blocked inside a sandboxed frame? The static copy stands. */
 (function () {
   var RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
   var EDITION = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C';
-  var SEL = { total: '0x18160ddd', max: '0x2ab4d052' };   // totalSupply() · maxTotalSupply()
-  // 0xd5abeb01 is maxSupply(), a DIFFERENT function that reverts on this edition — checked, not guessed
+  // 0x2ab4d052 = maxTotalSupply(). 0xd5abeb01 is maxSupply(), a DIFFERENT function that
+  // REVERTS on this edition — checked against the chain, not guessed.
+  var SEL = { total: '0x18160ddd', max: '0x2ab4d052' };
 
   function fmt(n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.round(n).toLocaleString(); }
   function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
@@ -146,10 +246,10 @@
 
   try {
     /* Read the cap from the CONTRACT rather than hardcoding it. A constant here was wrong the
-     * moment it met a chain: the figure was set to the planned 33,000,000 while the edition it
-     * was querying caps at 1,000,000, so "burned" would have rendered as ~32M — a false claim,
-     * displayed confidently, on the one page collectors see first. Burned is only shown when
-     * both numbers came from the same contract and the subtraction actually makes sense. */
+     * moment it met a chain: it was set to the planned 33,000,000 while the edition queried
+     * caps at 1,000,000, so "burned" would have rendered ~32M — a false claim, shown
+     * confidently, on the first page a collector sees. Burned appears only when both numbers
+     * came from the same contract and the subtraction means something. */
     Promise.all([call(SEL.total), call(SEL.max)]).then(function (r) {
       var live = r[0], max = r[1];
       if (live > 0) set('sSupply', fmt(live));
