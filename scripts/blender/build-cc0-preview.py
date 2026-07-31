@@ -151,6 +151,10 @@ def render(path, w, h, samples=64):
     sc.render.resolution_y = h
     sc.render.resolution_percentage = 45 if DRAFT else 100
     sc.render.image_settings.file_format = 'PNG'
+    # ⚠ Blender's PNG compression defaults to 15%, which on a Cycles render with no denoiser
+    # available (see below) is a lot of bytes for nothing — these sheets came out at 4.6 MB
+    # between them. 100 is LOSSLESS, just slower to write, and takes about 27% off.
+    sc.render.image_settings.compression = 100
     sc.render.film_transparent = False
     # ⚠ 'Standard', NOT Filmic or AgX. Both of those are highlight-rolloff transforms that
     # desaturate as they compress, which is precisely wrong for a palette whose entire finding is
