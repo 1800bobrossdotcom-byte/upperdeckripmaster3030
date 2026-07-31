@@ -520,6 +520,18 @@ window.DFGL = (function () {
         gl.uniform1f(cloudLoc.uShade, eyeAlt > y ? 1 : 0);   // sunlit top vs moody underside
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
+      /* One more pass of the same shader, grounded: terrain mottling just over the floor, in
+       * the theme's grid hue at low coverage. The floor was flat black under the lattice —
+       * from altitude it now reads as landmass and basin instead of void. uT pinned to 0:
+       * clouds drift, continents don't. */
+      const gcol = hex(world.grid), gnd2 = hex(world.gnd);
+      gl.uniform1f(cloudLoc.uY, 0.02);
+      gl.uniform1f(cloudLoc.uRep0, 10);
+      gl.uniform1f(cloudLoc.uThr, 0.42);
+      gl.uniform1f(cloudLoc.uShade, 1);
+      gl.uniform1f(cloudLoc.uT, 0);
+      gl.uniform3fv(cloudLoc.uCol, [gnd2[0] + gcol[0]*0.16, gnd2[1] + gcol[1]*0.16, gnd2[2] + gcol[2]*0.16]);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
       gl.depthMask(true); gl.disable(gl.BLEND);
       gl.useProgram(prog);
       // re-arm the main program's attribute state after the cloud pass borrowed the slot
