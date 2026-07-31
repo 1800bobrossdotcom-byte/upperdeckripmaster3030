@@ -35,7 +35,7 @@
   const $ = id => document.getElementById(id);
   const canvas = $('pcv');
   const T0 = performance.now();
-  const marks = { boot: 0, level: 0, firstFrame: 0, bodies: 0, weapon: 0 };
+  const marks = { boot: 0, level: 0, firstFrame: 0, firstLevelFrame: 0, bodies: 0, weapon: 0 };
   const log = [];
   const say = m => { log.push(m); const el = $('boot'); if (el) el.textContent = m; };
 
@@ -43,7 +43,10 @@
   const app = new pc.Application(canvas, {
     mouse: new pc.Mouse(canvas),
     keyboard: new pc.Keyboard(window),
-    graphicsDeviceOptions: { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance' },
+    // ?grab=1 keeps the drawing buffer so a headless run can getImageData the real pixels.
+    // CLAUDE.md: this container's screenshot path rotates hue on canvas content, so colour has
+    // to be judged from a readback, and a WebGL canvas without this reads back black.
+    graphicsDeviceOptions: { antialias: false, alpha: false, depth: true, powerPreference: 'high-performance', preserveDrawingBuffer: on('grab', false) },
   });
   window.__pcapp = app;
   app.setCanvasFillMode(pc.FILLMODE_NONE);
@@ -87,8 +90,9 @@
     }
     return c;
   }
-  function skyCubemap(N) {
+  function skyCubemap(N, boost) {
     const faces = [];
+    boost = boost || 1;
     const dirs = [
       (s, t) => [1, -t, -s], (s, t) => [-1, -t, s],
       (s, t) => [s, 1, t],   (s, t) => [s, -1, -t],
@@ -102,7 +106,7 @@
         const v = dirs[f](s, t), col = skyColour(v[0], v[1], v[2]);
         const o = (y * N + x) * 4;
         // sRGB encode — the atlas generator expects display-referred pixels
-        for (let k = 0; k < 3; k++) d[o + k] = Math.min(255, Math.pow(Math.max(0, col[k]), 1 / 2.2) * 255);
+        for (let k = 0; k < 3; k++) d[o + k] = Math.min(255, Math.pow(Math.max(0, col[k] * boost), 1 / 2.2) * 255);
         d[o + 3] = 255;
       }
       ctx.putImageData(img, 0, 0); faces.push(c);
@@ -117,33 +121,48 @@
     return tex;
   }
 
+  /* ⚑ Two cubemaps, not one, and this is the load-bearing bit of the interior look.
+   * The visible sky must stay dark — CLAUDE.md records that a wedge of bright sky at floor
+   * level inside a concrete pit reads as a rendering fault. But the IBL probe IS the ambient
+   * fill, and our own renderer raises ambient INDOORS (0.33 → 0.45) precisely because inside a
+   * box the fill is bounce off six close surfaces. Deriving the fill from the visible sky would
+   * therefore give an interior no fill at all. So: one cubemap you look at, one (brighter) you
+   * are lit by. Same trick, one level up, as the `ambOv` override in section9-gl.js. */
   let envOk = false;
+  const IBL = num('ibl', OPEN ? 1.3 : 5.2);
   try {
-    const cube = skyCubemap(128);
-    const src = pc.EnvLighting.generateLightingSource(cube, { size: 128 });
+    const cube = skyCubemap(128, 1);
+    const iblCube = IBL === 1 ? cube : skyCubemap(64, IBL);
+    const src = pc.EnvLighting.generateLightingSource(iblCube, { size: 128 });
     app.scene.envAtlas = pc.EnvLighting.generateAtlas(src, { size: 256 });
     app.scene.skybox = cube;
     app.scene.skyboxMip = 0;
-    app.scene.skyboxIntensity = OPEN ? 1.0 : 0.9;
+    app.scene.skyboxIntensity = num('skyi', OPEN ? 1.0 : 0.85);
     envOk = true;
   } catch (e) { say('env probe failed: ' + e.message); }
   app.scene.ambientLight = new pc.Color(0.05, 0.05, 0.06);       // envAtlas supplies the real fill
+  app.scene.exposure = num('exp', 1.0);
 
   // ── key light + shadows ───────────────────────────────────────────────────────────────────
   const sun = new pc.Entity('sun');
   sun.addComponent('light', {
     type: 'directional',
     color: OPEN ? new pc.Color(1.00, 0.86, 0.60) : new pc.Color(0.84, 0.90, 1.00),
-    intensity: OPEN ? 2.6 : 1.9,
-    castShadows: true,
+    intensity: num('sun', OPEN ? 2.6 : 2.4),
+    castShadows: on('shadows', true),
     shadowType: pc.SHADOW_PCF3,
-    numCascades: 3,
-    cascadeDistribution: 0.45,
+    numCascades: num('cascades', 3),
+    cascadeDistribution: 0.4,
     shadowDistance: 90,
     shadowResolution: SHADOW_RES,
-    shadowBias: 0.05,
-    normalOffsetBias: 0.05,
-    shadowIntensity: 0.88,
+    /* ⚑ Bias was MEASURED, not guessed. At the defaults a 90 m cascade over a 1024 map gives
+     * ~0.09 m texels, and with a low sun that self-shadows the floor in long lines radiating
+     * from the vanishing point — which looks exactly like a mipmap/anisotropy failure and sent
+     * me hunting the wrong bug twice. Normal-offset is what actually fixes it; raising the
+     * depth bias alone just peels the contact shadows off their objects. */
+    shadowBias: num('sbias', 0.012),
+    normalOffsetBias: num('nbias', 0.28),
+    shadowIntensity: num('sint', 0.82),
   });
   sun.setPosition(SUN[0] * 100, SUN[1] * 100, SUN[2] * 100);
   sun.lookAt(0, 0, 0);
@@ -217,6 +236,29 @@
     app.scene.fog.start = far * 0.30; app.scene.fog.end = far * 0.86;
     sun.light.shadowDistance = Math.min(120, far * 0.8);
 
+    /* Ceiling fixtures — SHADOW-CASTING spot lights on a grid under the roof. Indoors the sun
+     * barely reaches the floor (correctly: there is a roof), so without practical lights the
+     * interior is one flat ambient wash. These are the thing our renderer cannot do at all: it
+     * has exactly one directional key and no local shadows, which is why section9-gl.js has to
+     * raise ambient indoors instead. Skipped outdoors — ROOFTOP is standing in the sun. */
+    if (!OPEN) {
+      const gx = 3, gz = 2, y = W.bounds.y1 - 4.5;
+      for (let i = 0; i < gx; i++) for (let j = 0; j < gz; j++) {
+        const x = W.bounds.x0 + (W.bounds.x1 - W.bounds.x0) * (i + 0.5) / gx;
+        const z = W.bounds.z0 + (W.bounds.z1 - W.bounds.z0) * (j + 0.5) / gz;
+        const e = new pc.Entity('fixture' + i + j);
+        e.addComponent('light', {
+          type: 'spot', color: new pc.Color(1.0, 0.95, 0.86), intensity: num('spot', 14),
+          range: 42, innerConeAngle: 22, outerConeAngle: 56,
+          castShadows: on('spotshadow', true), shadowResolution: 1024, shadowBias: 0.02,
+          normalOffsetBias: 0.06, shadowIntensity: 0.9, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED,
+        });
+        e.setPosition(x, y, z); e.setEulerAngles(-90, 0, 0);
+        app.root.addChild(e);
+      }
+      W.stats.spot = gx * gz;
+    }
+
     // omni lights: every arcade cabinet / rack / prize booth becomes a coloured source. This is
     // the "many small lights" case a forward renderer cannot afford and a clustered one can.
     const HUES = [[1.0, 0.35, 0.72], [0.30, 0.95, 1.0], [0.45, 1.0, 0.55], [1.0, 0.82, 0.28], [0.72, 0.45, 1.0]];
@@ -229,9 +271,9 @@
       const e = new pc.Entity('glow' + lit);
       e.addComponent('light', {
         type: 'omni', color: new pc.Color(c[0], c[1], c[2]),
-        intensity: 1.5, range: 7.5, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED,
+        intensity: num('omni', 4.2), range: 9.5, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED,
       });
-      e.setPosition((b.lo[0] + b.hi[0]) / 2, b.hi[1] + 0.35, (b.lo[2] + b.hi[2]) / 2);
+      e.setPosition((b.lo[0] + b.hi[0]) / 2, b.hi[1] + 0.5, (b.lo[2] + b.hi[2]) / 2);
       app.root.addChild(e); lit++;
     }
     W.stats.omni = lit;
@@ -252,11 +294,24 @@
   function addBodies(W) {
     const archs = (window.S9Skin ? S9Skin.CAST.map(c => c.arch) : []).slice(0, 3);
     const t0 = performance.now();
+    /* Stand them in front of the FIRST spawn, along the line from it to the arena centre.
+     * ⚠ The obvious "one per authored spawn" put an operative exactly where the camera starts —
+     * a body straddling the near plane is a screenful of enormous translucent wedges, and it
+     * looks like the skinning has blown up rather than like someone standing on your face. */
+    const sp0 = W.spawns[0] || [0, 0, 0];
+    const cx = (W.bounds.x0 + W.bounds.x1) / 2, cz = (W.bounds.z0 + W.bounds.z1) / 2;
+    let dx = cx - sp0[0], dz = cz - sp0[1];
+    const dl = Math.hypot(dx, dz) || 1; dx /= dl; dz /= dl;
+    const rx = dz, rz = -dx;                                      // right of that line
+    const SPOTS = [[7.5, -2.2], [11.0, 2.6], [14.5, -0.4]];       // [forward, lateral] metres
     archs.forEach((arch, i) => {
       S9PCSkin.spawn(app, arch).then(h => {
-        const sp = W.spawns[(i + 1) % W.spawns.length] || [0, 0, 0];
+        const f = SPOTS[i % SPOTS.length];
+        const px = sp0[0] + dx * f[0] + rx * f[1], pz = sp0[1] + dz * f[0] + rz * f[1];
         h.state = {
-          x: sp[0], y: sp[2], z: sp[1], yaw: (i * 2.1) % 6.283, h: 1.72,
+          x: px, y: COL ? COL.groundAt(px, pz, sp0[2] + 2) : sp0[2], z: pz,
+          yaw: Math.atan2(sp0[0] - px, sp0[1] - pz),              // face the spawn / the camera
+          h: 1.72,
           onGround: true, moving: true, sprinting: i === 1, gait: i * 1.7, pitch: -0.05, recoil: 0,
         };
         h.setPose(h.state);
@@ -374,10 +429,14 @@
       g.setLocalPosition(gp[0], gp[1], gp[2]);
       const d = [mz[0] - gp[0], mz[1] - gp[1], mz[2] - gp[2]];
       const l = Math.hypot(d[0], d[1], d[2]) || 1;
-      g.setLocalScale(S9Skin.H * 0.62, S9Skin.H * 0.62, S9Skin.H * 0.62);   // px → the fit's metres
-      g.lookAt(gp[0] + d[0] / l * 10, gp[1] + d[1] / l * 10, gp[2] + d[2] / l * 10);
-      // lookAt aims −z at the target; the fit put the barrel on +z, so spin 180°
-      g.rotateLocal(0, 180, 0);
+      /* The body's root is scaled px→metres (h/150); the weapon fit already normalises the GLB
+       * to 0.86 m at scale 1, so undo the root scale here and the rifle is 0.86 m in the world
+       * no matter how tall the operative is. */
+      const s = S9Skin.H / (h.state && h.state.h || 1.72);
+      g.setLocalScale(s, s, s);
+      // lookAt works in WORLD space; convert the local aim point through the root's transform
+      const wp = h.entity.getWorldTransform().transformPoint(new pc.Vec3(gp[0] + d[0] / l * 40, gp[1] + d[1] / l * 40, gp[2] + d[2] / l * 40));
+      g.lookAt(wp);                 // aims −z at the target, and −z is the muzzle. No flip.
     };
     h.__placeGun();
   }
@@ -386,8 +445,14 @@
   function makeViewmodel() {
     viewmodel = weaponEntity();
     cam.addChild(viewmodel);
-    viewmodel.setLocalPosition(0.17, -0.15, 0.34);
-    viewmodel.setLocalEulerAngles(0, 182, 0);
+    /* ⚠ PlayCanvas cameras look down their own −z, so a viewmodel at +z is BEHIND you — and a
+     * 0.86 m rifle parked behind the near plane fills two thirds of the frame with one grey
+     * polygon. Same family of mistake as the dogfight camera's missing +π/2. */
+    viewmodel.setLocalPosition(num('vmx', 0.20), num('vmy', -0.19), num('vmz', -0.62));
+    /* ⚑ The MUZZLE is the model's −z end (the OBJ's thin barrel cylinder sits at z −3.6…−4.1),
+     * and a PlayCanvas camera also looks down −z, so the viewmodel needs NO yaw at all. The
+     * obvious 180° "because the camera looks backwards" points the rifle at the player. */
+    viewmodel.setLocalEulerAngles(0, num('vmyaw', 0), 0);
     viewmodel.findComponents('render').forEach(r => r.meshInstances.forEach(mi => { mi.castShadow = false; }));
   }
 
@@ -455,6 +520,7 @@
   let frames = 0, tPrev = 0;
   app.on('update', dt => {
     if (frames === 0) { marks.firstFrame = performance.now() - T0; }
+    if (!marks.firstLevelFrame && WORLD) marks.firstLevelFrame = performance.now() - T0;
     frames++;
     const nowT = performance.now();
     if (tPrev) { times.push(nowT - tPrev); if (times.length > 240) times.shift(); }
@@ -483,6 +549,7 @@
       '<b>' + (W ? W.def.name : '…') + '</b> · PlayCanvas ' + pc.version + ' <span class="dim">(prototype)</span><br>' +
       (W ? W.stats.tris.toLocaleString() + ' tris · ' + W.stats.parts + ' PBR materials · ' + (W.stats.omni || 0) + ' omni lights<br>' : '') +
       ops.length + ' skinned bodies · ' + (weaponAsset ? 'textured M4A1' : 'no weapon') + ' · ' +
+      (W && W.stats.spot ? W.stats.spot + ' shadow-casting spots · ' : '') +
       (frame ? 'SSAO+bloom+ACES' : 'no post') + (envOk ? ' · IBL probe' : '') + '<br>' +
       '<span class="dim">first frame ' + marks.firstFrame.toFixed(0) + ' ms · median ' + median(times).toFixed(1) + ' ms/f</span>';
   }
@@ -504,6 +571,24 @@
     _fwd() { const v = cam.forward; return [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]; },
     _hidehud(v) { const h = $('hud'); if (h) h.style.display = v ? 'none' : ''; },
     _resetTimes() { times.length = 0; },
+    // prove the scene-graph skinning reproduces S9Skin.palette() exactly, per body
+    _verify() { return ops.map(h => Object.assign({ arch: h.arch, count: h.count }, h.verify(h.state))); },
+    _weights() {
+      // zero-weight vertices skin to the origin and connect the body to it with huge triangles
+      return ops.map(h => {
+        let zero = 0, lo = 2, hi = 0, badIdx = 0;
+        // the raw .skn is not retained on the handle, so re-read from the mesh's streams
+        const bw = h.mesh.getVertexStream(pc.SEMANTIC_BLENDWEIGHT, []) || [];
+        const bi = h.mesh.getVertexStream(pc.SEMANTIC_BLENDINDICES, []) || [];
+        for (let i = 0; i * 4 < bw.length; i++) {
+          const s = bw[i * 4] + bw[i * 4 + 1] + bw[i * 4 + 2] + bw[i * 4 + 3];
+          if (!(s > 1e-4)) zero++;
+          if (s < lo) lo = s; if (s > hi) hi = s;
+          for (let k = 0; k < 4; k++) if (bi[i * 4 + k] > 10 || bi[i * 4 + k] < 0) badIdx++;
+        }
+        return { arch: h.arch, verts: h.count, zeroWeight: zero, sumMin: +lo.toFixed(4), sumMax: +hi.toFixed(4), badIndex: badIdx };
+      });
+    },
     app,
   };
 

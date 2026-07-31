@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "generated_by": "scripts/build-cc0.mjs",
+  "read_first": "docs/CC0-SOURCES.md for licence evidence, models/cc0/README.md for per-asset lineage",
+  "note": "A skin is what one draw call can express in this engine: a tint, a uMat id from js/ronin3d.js, an emissive amount, and optionally one tiling map for the triplanar sampler in js/dogfight-gl.js. Nothing here requires a renderer change.",
+  "materials": {
+    "flat": 0,
+    "cloth": 1,
+    "metal": 2,
+    "scale": 3,
+    "crystal": 4,
+    "skin": 5,
+    "energy": 6,
+    "bands": 7
+  },
+  "palettes": {
+    "nouns": {
+      "ink": "#1f1d29",
+      "slate": "#343235",
+      "ash": "#4b4949",
+      "stone": "#807f7e",
+      "bone": "#c5b9a1",
+      "paper": "#fffdf2",
+      "sky": "#63a0f9",
+      "indigo": "#5648ed",
+      "ice": "#caeff9",
+      "moss": "#068940",
+      "lime": "#4bea69",
+      "olive": "#80a72d",
+      "gold": "#eed811",
+      "amber": "#ffc110",
+      "ochre": "#ffae1a",
+      "tangerine": "#f98f30",
+      "flame": "#fe500c",
+      "rust": "#d22209",
+      "vermilion": "#f3322c",
+      "cerise": "#e9265c",
+      "plum": "#b9185c",
+      "blush": "#ff638d",
+      "violet": "#9f21a0",
+      "seafoam": "#8bc0c5",
+      "umber": "#5a423f",
+      "burnt": "#ae3208",
+      "bg_cold": "#d5d7e1",
+      "bg_warm": "#e1d7d5"
+    },
+    "xcopy": {
+      "void": "#000000",
+      "pitch": "#080810",
+      "tar": "#101018",
+      "gunmetal": "#182030",
+      "steel": "#485870",
+      "haze": "#88a0c8",
+      "hot": "#f80070",
+      "flare": "#f84088",
+      "bruise": "#a04060",
+      "cold": "#007080",
+      "ice": "#78f8f8",
+      "teal": "#48b0b0",
+      "blood": "#c83030"
+    },
+    "smowl": {
+      "key": "#000000",
+      "lilac": "#aca3fe",
+      "butter": "#f4cd70",
+      "magenta": "#9500a3",
+      "paper": "#cfd4da",
+      "moss": "#5d8f36",
+      "maroon": "#6d000f",
+      "shade": "#492e4c"
+    }
+  },
+  "palette_provenance": {
+    "nouns": "exact, from packages/nouns-assets/src/image-data.json in nounsDAO/nouns-monorepo — the same table the on-chain descriptor renders from",
+    "xcopy": "MEASURED from five works fetched from the artist's own CDN; method and per-work numbers in docs/CC0-SOURCES.md",
+    "smowl": "MEASURED from seven SMOWLz tokens fetched over IPFS from the contract's own tokenURI"
+  },
+  "textures": [
+    "fx_scanline",
+    "fx_glitch",
+    "fx_dither",
+    "fx_halftone",
+    "fx_keyline",
+    "fx_grid",
+    "fx_rule"
+  ],
+  "skins": {
+    "burn": {
+      "color": "#f80070",
+      "mat": 6,
+      "emis": 0.55,
+      "tex": "fx_scanline",
+      "lineage": "XCOPY",
+      "note": "the hot pole. Emissive because at H≈335/S100 it reads as light, not paint."
+    },
+    "cathode": {
+      "color": "#007080",
+      "mat": 6,
+      "emis": 0.45,
+      "tex": "fx_scanline",
+      "lineage": "XCOPY",
+      "note": "the cold pole. Pairs with burn; the two together are most of a frame."
+    },
+    "mosh": {
+      "color": "#182030",
+      "mat": 7,
+      "emis": 0,
+      "tex": "fx_glitch",
+      "lineage": "XCOPY",
+      "note": "the desaturated mid that carries the middle of the value range."
+    },
+    "void": {
+      "color": "#000000",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_scanline",
+      "lineage": "XCOPY",
+      "note": "the substrate. Not a shadow colour — geometry that is meant to read as a hole."
+    },
+    "bruise": {
+      "color": "#a04060",
+      "mat": 1,
+      "emis": 0,
+      "tex": null,
+      "lineage": "XCOPY",
+      "note": "the low-chroma pink of \"last selfie\" — the palette when it is tired."
+    },
+    "flat_ink": {
+      "color": "#1f1d29",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_grid",
+      "lineage": "Nouns"
+    },
+    "flat_bone": {
+      "color": "#c5b9a1",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_grid",
+      "lineage": "Nouns"
+    },
+    "flat_sky": {
+      "color": "#63a0f9",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_grid",
+      "lineage": "Nouns"
+    },
+    "flat_flame": {
+      "color": "#fe500c",
+      "mat": 0,
+      "emis": 0.15,
+      "tex": "fx_grid",
+      "lineage": "Nouns"
+    },
+    "flat_moss": {
+      "color": "#068940",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_grid",
+      "lineage": "Nouns"
+    },
+    "cel_lilac": {
+      "color": "#aca3fe",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_keyline",
+      "lineage": "Darkfarms (SMOWLz)"
+    },
+    "cel_butter": {
+      "color": "#f4cd70",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_keyline",
+      "lineage": "Darkfarms (SMOWLz)"
+    },
+    "cel_magenta": {
+      "color": "#9500a3",
+      "mat": 0,
+      "emis": 0.2,
+      "tex": "fx_keyline",
+      "lineage": "Darkfarms (SMOWLz)",
+      "note": "the one saturated accent per piece. Without it the cel palette goes soft."
+    },
+    "bit_on": {
+      "color": "#fffdf2",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_dither",
+      "lineage": "Anonymice"
+    },
+    "bit_off": {
+      "color": "#000000",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_dither",
+      "lineage": "Anonymice"
+    },
+    "halftone": {
+      "color": "#807f7e",
+      "mat": 2,
+      "emis": 0,
+      "tex": "fx_halftone",
+      "lineage": "Blitmap"
+    },
+    "slate": {
+      "color": "#080810",
+      "mat": 0,
+      "emis": 0,
+      "tex": "fx_rule",
+      "lineage": "Loot",
+      "note": "white-on-black list surface. The rules are ours; no Loot item names are used."
+    }
+  }
+}

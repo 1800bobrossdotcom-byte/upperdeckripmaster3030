@@ -171,7 +171,34 @@ window.S9PCSkin = (function () {
         return P;
       }
 
-      return { entity: root, bones, mesh, setPose, arch, count, scale: SC, get pose() { return lastPose; } };
+      /* Numeric self-check against the shipping poser. `S9Skin.palette()` is the definition of
+       * "correctly posed" in this codebase; this proves the scene-graph factoring above
+       * reproduces it rather than merely looking plausible. Called from the headless run. */
+      function verify(e) {
+        const P = S9Skin.pose(e || { onGround: true, moving: true, gait: 1.1, pitch: -0.2, recoil: 0.3 });
+        const ref = S9Skin.palette(P, { h, lo });
+        // drive the graph to the same pose, then read back bone.local · ibp
+        for (let i = 0; i < 11; i++) {
+          const seg = P.B[i], j = seg[0], c = seg[1];
+          let dx = c[0] - j[0], dy = c[1] - j[1], dz = c[2] - j[2];
+          const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
+          arcQuat(bd[i], [dx, dy, dz], _q);
+          bones[i].setLocalPosition(j[0], j[1], j[2]); bones[i].setLocalRotation(_q);
+        }
+        let worst = 0, at = -1;
+        const m = new pc.Mat4();
+        for (let i = 0; i < 11; i++) {
+          m.mul2(bones[i].getLocalTransform(), ibp[i]);
+          for (let k = 0; k < 16; k++) {
+            const d = Math.abs(m.data[k] - ref[i * 16 + k]);
+            if (d > worst) { worst = d; at = i; }
+          }
+        }
+        return { worstAbsDiff: worst, bone: at, boneName: S9Skin.BONES[at] };
+      }
+
+      return { entity: root, bones, mesh, setPose, verify, arch, count, scale: SC,
+        meshLo: lo, meshH: h, get pose() { return lastPose; } };
     });
   }
 

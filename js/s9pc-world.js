@@ -24,6 +24,10 @@
  */
 window.S9PCWorld = (function () {
   const BASE = 'models/world/';
+  // one tuning knob left on the URL, because every look call in this prototype was settled by
+  // A/B screenshots rather than by taste: ?nrm=0 turns the normal maps off entirely
+  const _q = new URLSearchParams(location.search);
+  const NRM = _q.has('nrm') && isFinite(+_q.get('nrm')) ? +_q.get('nrm') : 1;
 
   // Same three levels S9World lists, same `open` flag (outdoors keeps the sun).
   const LEVELS = [
@@ -38,18 +42,23 @@ window.S9PCWorld = (function () {
    * world-units per texture repeat; `metal`/`gloss` are the two numbers a metalness workflow
    * actually runs on, and they are the thing our forward shader has no way to express. */
   const MATS = {
-    deck:  { name: 'deck',  tex: 'concrete', tint: [0.33, 0.34, 0.37], metal: 0.04, gloss: 0.34, tile: 0.42, bump: 1.10 },
-    wall:  { name: 'wall',  tex: 'concrete', tint: [0.44, 0.43, 0.47], metal: 0.03, gloss: 0.22, tile: 0.34, bump: 1.35 },
+    deck:  { name: 'deck',  tex: 'slab',     tint: [0.36, 0.37, 0.40], metal: 0.04, gloss: 0.34, tile: 0.19, bump: 0.85 },
+    wall:  { name: 'wall',  tex: 'course',   tint: [0.44, 0.43, 0.47], metal: 0.03, gloss: 0.22, tile: 0.22, bump: 1.00 },
     metal: { name: 'metal', tex: 'brushed',  tint: [0.62, 0.64, 0.69], metal: 0.94, gloss: 0.70, tile: 0.85, bump: 0.55 },
     crate: { name: 'crate', tex: 'paint',    tint: [0.52, 0.26, 0.20], metal: 0.30, gloss: 0.52, tile: 0.75, bump: 0.70 },
+    // a cabinet is a lacquered plastic-and-vinyl box, not a shipping crate — and in ARCADE PIT
+    // it is two thirds of the geometry, so it is worth its own material rather than tinting the
+    // whole arena the colour of a packing case
+    cab:   { name: 'cab',   tex: 'paint',    tint: [0.27, 0.28, 0.34], metal: 0.14, gloss: 0.78, tile: 1.10, bump: 0.35 },
   };
-  const ORDER = ['deck', 'wall', 'metal', 'crate'];
+  const ORDER = ['deck', 'wall', 'metal', 'crate', 'cab'];
+  const CABINET = /^(cab|skee|claw|prize|booth|rostrum|plinth)/i;
 
   /* Kind (from the authored box NAME) + face normal → material class. Same two inputs our GL
    * renderer uses; the difference is only what they select. */
-  function classOf(kind, ny) {
+  function classOf(kind, ny, name) {
     if (kind === 'pillar' || kind === 'cover') return 'metal';
-    if (kind === 'crate') return 'crate';
+    if (kind === 'crate') return CABINET.test(String(name || '')) ? 'cab' : 'crate';
     if (ny > 0.5) return 'deck';
     return 'wall';
   }
@@ -111,14 +120,29 @@ window.S9PCWorld = (function () {
    * generated — nothing sampled, which is the only kind of texture this repo can ship. */
   function makeTexSet(kind, N) {
     const px = N * N, alb = new Float32Array(px * 3), h = new Float32Array(px), gl = new Float32Array(px);
-    if (kind === 'concrete') {
-      const a = fbm(N, 11, 5, 4), b = fbm(N, 977, 4, 32), c = fbm(N, 4241, 2, 96);
-      for (let i = 0; i < px; i++) {
-        const agg = c[i] > 0.72 ? (c[i] - 0.72) * 2.6 : 0;                    // aggregate speckle
-        const v = 0.68 + a[i] * 0.30 + (b[i] - 0.5) * 0.16 + agg * 0.45;
+    if (kind === 'slab' || kind === 'course') {
+      /* ⚑ A pure-noise floor is a bad floor, and not for taste reasons. At a 2.4 m repeat seen
+       * from standing height every repeat is a long thin pixel footprint, and the blobs smear
+       * into streaks that radiate from the vanishing point — which reads exactly like broken
+       * anisotropic filtering. What our own arena textures get right is STRUCTURE: grid joints
+       * the eye can lock onto. So the deck gets slab joints (2×2 per repeat) and the wall gets
+       * horizontal courses, on a much larger world repeat. */
+      const a = fbm(N, 11, 5, 4), b = fbm(N, 977, 4, 24), c = fbm(N, 4241, 2, 80);
+      const nx = kind === 'slab' ? 2 : 1, ny = kind === 'slab' ? 2 : 4;
+      const jw = 0.012;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const i = y * N + x;
+        const fx = (x / N * nx) % 1, fy = (y / N * ny) % 1;
+        const dj = Math.min(Math.min(fx, 1 - fx) / (nx * jw), Math.min(fy, 1 - fy) / (ny * jw));
+        const joint = dj < 1 ? (1 - dj) : 0;                                  // 1 inside a seam
+        const agg = c[i] > 0.74 ? (c[i] - 0.74) * 2.4 : 0;                    // aggregate speckle
+        // per-slab tone variation, so no two panels read identical
+        const cell = ((Math.floor(y / N * ny) * 7 + Math.floor(x / N * nx) * 13) % 5) / 5;
+        let v = 0.70 + a[i] * 0.20 + (b[i] - 0.5) * 0.10 + agg * 0.35 + (cell - 0.5) * 0.10;
+        v *= (1 - joint * 0.42);
         alb[i * 3] = v; alb[i * 3 + 1] = v * 0.995; alb[i * 3 + 2] = v * 1.02;
-        h[i] = a[i] * 0.55 + b[i] * 0.30 + agg * 0.9;
-        gl[i] = 0.30 + (1 - b[i]) * 0.22 - agg * 0.12;                        // pitted = duller
+        h[i] = a[i] * 0.35 + agg * 0.7 - joint * 1.6;                          // seams sink
+        gl[i] = 0.34 + (1 - b[i]) * 0.16 - agg * 0.10 - joint * 0.12;
       }
     } else if (kind === 'brushed') {
       const streak = fbm(N, 313, 4, 6), fine = fbm(N, 8081, 3, 64);
@@ -143,7 +167,8 @@ window.S9PCWorld = (function () {
         gl[i] = 0.55 - worn * 0.28 + (grain[i] - 0.5) * 0.12;
       }
     }
-    return { albedo: rgbCanvas(alb, N), normal: normalCanvas(h, N, 3.2 * (kind === 'concrete' ? 1 : 0.6)), gloss: greyCanvas(gl, N) };
+    const strength = (kind === 'slab' || kind === 'course') ? 1.6 : 1.0;
+    return { albedo: rgbCanvas(alb, N), normal: normalCanvas(h, N, strength), gloss: greyCanvas(gl, N) };
   }
 
   function texFrom(app, canvas, srgb) {
@@ -151,7 +176,8 @@ window.S9PCWorld = (function () {
       name: 'proc', width: canvas.width, height: canvas.height,
       format: srgb ? pc.PIXELFORMAT_SRGBA8 : pc.PIXELFORMAT_RGBA8,
       mipmaps: true, addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT,
-      minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR, anisotropy: 8,
+      minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR,
+      anisotropy: (app.graphicsDevice.maxAnisotropy || 1),
     });
     t.setSource(canvas);
     return t;
@@ -161,7 +187,7 @@ window.S9PCWorld = (function () {
   function materials(app) {
     if (TEXCACHE) return TEXCACHE;
     const N = 512, sets = {};
-    for (const k of ['concrete', 'brushed', 'paint']) sets[k] = makeTexSet(k, N);
+    for (const k of ['slab', 'course', 'brushed', 'paint']) sets[k] = makeTexSet(k, N);
     const out = {};
     for (const key of ORDER) {
       const M = MATS[key], s = sets[M.tex], m = new pc.StandardMaterial();
@@ -169,7 +195,7 @@ window.S9PCWorld = (function () {
       m.diffuse = new pc.Color(M.tint[0], M.tint[1], M.tint[2]);
       m.diffuseMap = texFrom(app, s.albedo, true);
       m.normalMap = texFrom(app, s.normal, false);
-      m.bumpiness = M.bump;
+      m.bumpiness = M.bump * NRM;
       m.glossMap = texFrom(app, s.gloss, false);
       m.glossMapChannel = 'r';
       m.gloss = M.gloss;
@@ -187,8 +213,9 @@ window.S9PCWorld = (function () {
     const V = w.verts, tris = (V.length / 18) | 0;                 // 3 verts × 6 floats
     const mats = materials(app);
 
-    // triangle → kind, by the collision box its centroid sits in. Same rule as section9-gl.js.
-    const kinds = new Array(tris);
+    // triangle → owning box, by the collision box its centroid sits in. Same rule section9-gl.js
+    // uses to pick a surface material — those boxes ARE the authored objects, so they name it.
+    const owner = new Array(tris);
     const eps = 0.06;
     for (let t = 0; t < tris; t++) {
       const o = t * 18;
@@ -197,16 +224,16 @@ window.S9PCWorld = (function () {
       for (let i = 0; i < boxes.length; i++) {
         const b = boxes[i];
         if (cx >= b.lo[0] - eps && cx <= b.hi[0] + eps && cy >= b.lo[1] - eps && cy <= b.hi[1] + eps &&
-            cz >= b.lo[2] - eps && cz <= b.hi[2] + eps) { k = b.__kind; break; }
+            cz >= b.lo[2] - eps && cz <= b.hi[2] + eps) { k = b; break; }
       }
-      kinds[t] = k || 'wall';
+      owner[t] = k;
     }
 
     // bucket by class
     const buckets = {}; for (const k of ORDER) buckets[k] = [];
     for (let t = 0; t < tris; t++) {
-      const o = t * 18, ny = (V[o + 3] + V[o + 9] + V[o + 15]) / 3;
-      buckets[classOf(kinds[t], ny)].push(t);
+      const o = t * 18, ny = (V[o + 3] + V[o + 9] + V[o + 15]) / 3, b = owner[t];
+      buckets[classOf(b ? b.__kind : 'wall', ny, b ? b.name : '')].push(t);
     }
 
     const out = [], stats = {};
@@ -238,8 +265,16 @@ window.S9PCWorld = (function () {
       }
       const mesh = new pc.Mesh(app.graphicsDevice);
       mesh.setPositions(pos); mesh.setNormals(nor); mesh.setUvs(0, uv); mesh.setIndices(idx);
+      /* ⚠ Tangents are NOT optional and `mesh.calculateTangents()` DOES NOT EXIST — that method
+       * is on pc.Geometry, so a `mesh.calculateTangents && …` guard silently does nothing and
+       * the normal maps then light off a derivative-guessed basis. On a big floor plane that
+       * reads as long streaks radiating from the vanishing point, which looks exactly like a
+       * mipmap/anisotropy fault and is not one. `pc.calculateTangents` is the free function. */
+      try {
+        const tan = pc.calculateTangents(pos, nor, uv, idx);
+        if (tan && tan.length) mesh.setVertexStream(pc.SEMANTIC_TANGENT, tan, 4);
+      } catch (e) { console.warn('[s9pc] tangents failed for ' + key + ':', e && e.message); }
       mesh.update(pc.PRIMITIVE_TRIANGLES);
-      try { mesh.calculateTangents && mesh.calculateTangents(); } catch (e) { /* normal maps degrade, geometry does not */ }
       out.push({ mesh, material: mats[key].mat, key });
     }
     return { parts: out, stats };
