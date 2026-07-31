@@ -286,6 +286,7 @@
     hud();
     if (WANT_BODIES) addBodies(W);
     if (WANT_WEAPON) loadWeapon();
+    if (Q.get('splat')) loadSplat(Q.get('splat'), sp);
   }).catch(e => { say('LEVEL FAILED: ' + (e && e.message || e)); console.error(e); });
 
   /* Three operatives — one of each of the three sound archetypes — stood near the first spawns
@@ -456,6 +457,30 @@
     viewmodel.findComponents('render').forEach(r => r.meshInstances.forEach(mi => { mi.castShadow = false; }));
   }
 
+  /* ── 3D Gaussian splats — capability probe, off unless ?splat=<url> ────────────────────────
+   * Not part of the Section 9 comparison. It is here because the same 580 KB bundle that buys
+   * PBR and shadows ALSO carries a full gaussian-splat renderer (PLY + SOG), and a claim that
+   * big should be tested rather than read off a feature list. Drops the splat into the live
+   * level so it is lit/occluded by the same camera as everything else. */
+  let splatState = null;
+  function loadSplat(url, sp) {
+    const t0 = performance.now();
+    splatState = { url, ok: false };
+    const h = app.loader.getHandler('gsplat');
+    if (!h) { splatState.err = 'no gsplat handler in this build'; return; }
+    app.assets.loadFromUrl(url, 'gsplat', (err, asset) => {
+      if (err) { splatState.err = String(err); say('splat: ' + err); return; }
+      const e = new pc.Entity('splat');
+      e.addComponent('gsplat', { asset });
+      e.setLocalScale(1.6, 1.6, 1.6);
+      e.setPosition(num('splatx', sp[0] + 4), num('splaty', sp[2] + 2.4), num('splatz', sp[1] - 4));
+      app.root.addChild(e);
+      splatState = { url, ok: true, ms: +(performance.now() - t0).toFixed(0),
+        splats: (asset.resource && asset.resource.splatData && asset.resource.splatData.numSplats) || null };
+      hud();
+    });
+  }
+
   // ── controller ────────────────────────────────────────────────────────────────────────────
   const MOVE = { accel: 62, walk: 4.6, sprint: 6.9, air: 18, friction: 11, gravity: 26, jump: 7.2 };
   let locked = false;
@@ -551,6 +576,7 @@
       ops.length + ' skinned bodies · ' + (weaponAsset ? 'textured M4A1' : 'no weapon') + ' · ' +
       (W && W.stats.spot ? W.stats.spot + ' shadow-casting spots · ' : '') +
       (frame ? 'SSAO+bloom+ACES' : 'no post') + (envOk ? ' · IBL probe' : '') + '<br>' +
+      (splatState && splatState.ok ? '<span style="color:#2bff80">3D gaussian splat: ' + (splatState.splats || '?') + ' splats</span><br>' : '') +
       '<span class="dim">first frame ' + marks.firstFrame.toFixed(0) + ' ms · median ' + median(times).toFixed(1) + ' ms/f</span>';
   }
 
@@ -560,7 +586,7 @@
       return {
         level: LEVEL, engine: pc.version, frames,
         pos: [+P.x.toFixed(2), +P.y.toFixed(2), +P.z.toFixed(2)], yaw: +P.yaw.toFixed(3), pitch: +P.pitch.toFixed(3),
-        stats: WORLD ? WORLD.stats : null, ops: ops.length, weapon: !!weaponAsset, post: !!frame, env: envOk,
+        stats: WORLD ? WORLD.stats : null, ops: ops.length, weapon: !!weaponAsset, post: !!frame, env: envOk, splat: splatState,
         marks, medianMs: +median(times).toFixed(2), p95Ms: +(times.slice().sort((a, b) => a - b)[Math.floor(times.length * 0.95)] || 0).toFixed(2),
         gunfit: GUNFIT, log,
       };

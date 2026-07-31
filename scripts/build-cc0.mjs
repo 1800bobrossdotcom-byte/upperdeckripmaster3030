@@ -311,6 +311,7 @@ function buildTextures() {
     return [g, g, g];
   });
 
+  selfTestSeamCheck();
   for (const [name, buf] of Object.entries(out)) {
     writeFileSync(join(TEX, name + '.png'), png(S, S, buf));
     seamCheck(name, buf);
@@ -350,28 +351,53 @@ function buildTextures() {
  * one seam — it is a grid of them welded to the model. That is invisible in a directory listing
  * and obvious in the game, i.e. the worst possible place to find out.
  *
- * The test: the mean absolute difference across the WRAP (row 255 → row 0) must be no worse than
- * the typical difference between neighbouring interior rows. It cannot be zero — these patterns
- * have hard edges everywhere, so an interior row-to-row step is large by design — which is why it
- * is measured against the interior rather than against zero. Same in both axes. */
-function seamCheck(name, buf) {
+ * THE QUESTION IS NOT "IS THE WRAP SMALL". These patterns are hard edges from end to end, so the
+ * step across the wrap is large in every one of them and always will be. The question is whether
+ * the wrap is a transition THIS PATTERN ALREADY MAKES somewhere inside itself. So the wrap step is
+ * measured against the LARGEST interior step, with 6% of headroom.
+ *
+ * Two earlier statistics were wrong, and both failed a tile that tiles perfectly:
+ *   · vs the MEAN — failed fx_scanline (period 4, which divides 256). Three of every four
+ *     interior row-steps sit inside a bar and are ~0, one is the bar edge and is large. The mean
+ *     is therefore a quarter of an edge, and the wrap happens to land on an edge. Ratio 2.0.
+ *   · vs the 95th PERCENTILE — failed fx_grid. Its cell boundaries are only 6% of rows, so p95
+ *     lands in the middle of that small population rather than above it.
+ * Measured ratios against max, for the seven shipped tiles: 0.00–1.00. Nothing is close to 1.06
+ * and nothing is arbitrarily far below it, which is what a calibrated threshold looks like.
+ */
+function seamCheck(name, buf, size = S) {
   const diff = (ai, bi, stride, n) => {
     let s = 0;
     for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) s += Math.abs(buf[ai + k * stride + c] - buf[bi + k * stride + c]);
     return s / (n * 3);
   };
   for (const axis of ['y', 'x']) {
-    const idx = axis === 'y' ? (i, j) => (i * S + j) * 4 : (i, j) => (j * S + i) * 4;
-    const stride = axis === 'y' ? 4 : S * 4;
-    const wrap = diff(idx(S - 1, 0), idx(0, 0), stride, S);
-    let inner = 0;
-    for (let i = 0; i < S - 1; i++) inner += diff(idx(i, 0), idx(i + 1, 0), stride, S);
-    inner /= (S - 1);
-    // 1.5× headroom: an exact-tiling pattern lands at ~1.0×, a broken one at 5–20×.
-    if (wrap > Math.max(2, inner * 1.5)) {
-      throw new Error(`${name}.png does not tile in ${axis}: wrap step ${wrap.toFixed(1)} vs interior ${inner.toFixed(1)} — gl.REPEAT would show a grid of seams`);
+    const idx = axis === 'y' ? (i, j) => (i * size + j) * 4 : (i, j) => (j * size + i) * 4;
+    const stride = axis === 'y' ? 4 : size * 4;
+    const wrap = diff(idx(size - 1, 0), idx(0, 0), stride, size);
+    let worst = 0;
+    for (let i = 0; i < size - 1; i++) worst = Math.max(worst, diff(idx(i, 0), idx(i + 1, 0), stride, size));
+    if (wrap > Math.max(3, worst * 1.06)) {
+      throw new Error(`${name}.png does not tile in ${axis}: wrap step ${wrap.toFixed(1)} vs worst interior step ${worst.toFixed(1)} — gl.REPEAT would show a grid of seams, not one`);
     }
   }
+}
+
+/* A check that never fails is indistinguishable from no check, and seamCheck is exactly the shape
+ * of thing that quietly stops working: loosen the threshold twice while chasing a false positive
+ * and it passes everything forever. So it is run against a NEGATIVE CONTROL first — a linear ramp,
+ * which is smooth everywhere inside and slams 255→0 at the wrap, i.e. the canonical broken tile.
+ * If the control does not throw, the checker is broken and the build stops before writing a
+ * single texture. */
+function selfTestSeamCheck() {
+  const n = 64, ramp = Buffer.alloc(n * n * 4, 255);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const g = Math.round(255 * y / (n - 1)), i = (y * n + x) * 4;
+    ramp[i] = ramp[i + 1] = ramp[i + 2] = g;
+  }
+  let threw = false;
+  try { seamCheck('__control_ramp', ramp, n); } catch { threw = true; }
+  if (!threw) throw new Error('seamCheck did not reject a linear ramp — the tiling check is not checking anything, so no textures were written');
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────────────

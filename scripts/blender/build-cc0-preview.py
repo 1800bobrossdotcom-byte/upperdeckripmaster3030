@@ -273,8 +273,11 @@ def sheet_bodies(src, out):
     # 3 × 1.42 + one arm span ≈ 4.9 units to cover. sensor 36 mm ⇒ lens ≈ 36·D/W; at D = 4.3 that
     # is ~32 mm. Framed slightly wide so the feet and the deck contact are both visible — a
     # fighter cropped at the ankles tells you nothing about whether it stands.
-    camera((0.0, -3.65, 0.94), (0.0, 0.0, 0.50), lens=31.0)
-    return render(os.path.join(out, 'bodies.png'), 1500, 780, samples=88)
+    camera((0.0, -3.55, 0.86), (0.0, 0.0, 0.50), lens=31.0)
+    # 1500×620, not ×780: at 780 the subjects sat in a band through the middle with a quarter of
+    # the frame empty sky above and empty deck below. Cropping to the subject is not vanity —
+    # a silhouette sheet is judged by how much of the image is silhouette.
+    return render(os.path.join(out, 'bodies.png'), 1500, 620, samples=88)
 
 
 # ── sheet 3: one prop, close, to judge surface rather than silhouette ────────────────────────
