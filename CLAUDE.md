@@ -460,6 +460,40 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   mezzanine; pillar runs to peek between) · **NIGHT MARKET** (shelf aisles make a grid of
   corridors, so every fight is a corner fight; checkouts are the one open room). Picked in the
   lobby's ARENA chip row, or ROTATE.
+- **Section 9's bots are the NEON RONIN bodies — `js/section9-skin.js` (`S9Skin`), phase 2 of
+  the port.** The same `models/*.skn` auto-skinned meshes, drawn by a skinning program in
+  `section9-gl.js` that shares the world's fragment shader (so a body is lit, fogged and
+  muzzle-flashed by the same rules as the wall behind it). Two deliberate differences from
+  ronin3d: (a) `S9Skin.palette` uses a **full shortest-arc rotation**, not `Rz` — an operative's
+  legs swing along the VIEW axis, which a planar palette cannot express at all; (b) **no
+  `dressLoaded`** — the straw hat / horns / katana are the duel's, so Section 9 hangs a **rifle**
+  off the same pose instead (an unarmed operative in a firefight reads as a bug, the same
+  argument that makes NEON RONIN always draw the sword). Fails open at every step: no module, no
+  skin program, a 404, a bad magic number ⇒ that bot keeps the articulated box rig. `?noskin`
+  opts out; verified against `?nogl` too.
+- ⚑ **Only THREE of the six .skn ship in Section 9 — and it is a QUALITY call, not just a byte
+  budget.** oni + kappa + prizm = **2.35 MB**, fetched at match start and only as many as the
+  match has bots (a 2-player game pays 0.93 MB). The other three are 5.04 MB *and* broken.
+  **Task #77's arm shard is diagnosed: it is a PROPORTION mismatch, and it is pose-time only.**
+  In bind pose every bone matrix is identical so the mesh must reproduce exactly — measured
+  worst edge-stretch **1.000× for all six**, which rules out the weights being malformed in
+  themselves. Posed: `oni`/`kappa`/`prizm` (from `oni.obj`) worst 2.1–2.9× and ZERO triangles
+  over 3×; `ronin`/`doomer`/`kunoichi` (from `ronin.obj`) worst 8.9–19.6× and 114–194 over 3×.
+  Cause: `bake-fighter.mjs`'s bind table assumes human proportions and puts the arm bones at
+  0.80 of body height. `oni.obj` is a true T-pose with shoulders at 0.79–0.83 ✅.
+  `ronin.obj` (TOON TROOPER) is a big-headed toon — head 38% of height, **shoulders at 0.62** —
+  so its bind arm bones land inside its skull and 17% of its verts end up ~88% weighted to
+  `chest` with a few percent on `armF1`; swing the arms and the two claims tear the mesh.
+  ⛔ Neither published hypothesis was right (not flat sheet geometry, not the palette fanning a
+  shoulder). **Fix, if the ronin family is wanted back: fit the bind skeleton to the mesh's own
+  shoulder line instead of to its bounding box.** Details + numbers in `models/README.md`.
+- ⚑ **Cross-limb stitch (`S9Skin`, at load).** Separate, smaller defect that survives on the good
+  family: `bake-fighter`'s side test has a tolerance band at the centreline, so near the floor a
+  few triangles get corners bound **rigidly to opposite shins** — a spike between the ankles under
+  a stride. Repaired PER TRIANGLE (each corner is individually fine; the combination is not): the
+  minority corner adopts the majority corner's bones. 113/4604 tris on kappa, 85/4217 on prizm →
+  worst stretch 21.2×→6.0× and 9.0×→6.7×. Stride amplitude is also a quality knob, not just a
+  look one — run swing 0.95→0.72 rad roughly halves the stretched-triangle count.
 - **Section 9 also loads BAKED levels — `js/section9-world.js` (`S9World`), phase 1 of the port.**
   ARCADE PIT · THE VAULT · ROOFTOP are `models/world/*.wld` + `.cols.json` (`npm run level`),
   appended to the arena chips after the six built-ins. ⚑ **This is an adapter, not a renderer

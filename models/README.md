@@ -57,10 +57,69 @@ The weapon is separate from `dress`: a fighter always gets one unless the model 
 that attaches to the `sword` joint. NEON RONIN is a sword duel — an unarmed fighter reads as a
 bug, not as a style.
 
-⚠ **This path is currently gated off.** `js/ronin.js` loads `.skn`/`.glb` fighters only when
-`HEAVY_OK` is true, and `HEAVY_OK` requires the **shelved** free-roam world flag
-(`localStorage urm_world='1'`) *and* a non-mobile device budget. So models in this folder do not
-appear in the shipping duel today. Opt in with that flag to develop against them.
+## The .skn bodies are in Section 9 too
+
+`js/section9-skin.js` loads the same `.skn` meshes for the deathmatch's bots, with its own FPS
+poser (`S9Skin.pose`) and its own joint palette. Two things differ from NEON RONIN's path and
+both are deliberate:
+
+- **The palette is a full 3D rotation, not a planar one.** `Ronin3D.skinPalette` rotates each
+  bone by `Rz` of its turn from bind, which is everything a side-on duel needs. An operative's
+  legs swing along the *view* axis, which `Rz` cannot express at all, so `S9Skin.palette` uses
+  the shortest-arc (Rodrigues) rotation from the bind direction to the live one. It reduces to
+  the same matrix whenever the motion happens to be planar.
+- **No `dressLoaded`.** The duel's wardrobe — straw hat, horns, turtle shell, katana — is the
+  duel's. Section 9 hangs one thing off the skeleton instead: a rifle, for the same reason
+  NEON RONIN always draws the sword.
+
+Section 9 ships **three** of the six bodies (`oni`, `kappa`, `prizm` — 2.35 MB of the 7.39 MB
+set), fetched only when a match starts and only as many as the match has bots. Why those three
+is the next section.
+
+## ⚑ The arm shard (task #77) is a PROPORTION mismatch — measured, not guessed
+
+The auto-skinned bodies show a stretched shard around the arms. Two hypotheses were on the
+table: flat sheet geometry far from any bone axis, or the palette fanning geometry at a
+shoulder with no intermediate bone. **Neither is right.**
+
+The decisive test is bind pose versus motion. In bind pose every bone matrix is identical, so
+weights that sum to 1 must reproduce the mesh exactly — and they do, for all six, to the last
+digit (worst per-triangle edge stretch **1.000×**). The shard is therefore *pose-time*, which
+rules out the weights being malformed in themselves. Posed, the six split cleanly in two:
+
+| | worst edge stretch | triangles > 3× |
+| --- | --- | --- |
+| `oni`, `kappa`, `prizm` (from `oni.obj`) | 2.1 – 2.9× | **0** |
+| `ronin`, `doomer`, `kunoichi` (from `ronin.obj`) | 8.9 – 19.6× | 114 – 194 |
+
+The cause is the bind skeleton in `bake-fighter.mjs` assuming realistic human proportions.
+`oni.obj` ("Mom") is a true T-pose whose shoulder line sits at **0.79–0.83** of body height —
+exactly where the bind table puts `armF0`/`armB0` (0.80). `ronin.obj` (TOON TROOPER) is a
+big-headed toon: its head is 38% of its height and its shoulders are at **0.62**, so the bind
+arm bones land *inside its skull*, its real arms sit down at the pelvis/chest boundary, and
+17% of its vertices end up **~88% weighted to `chest`** with a few percent left on `armF1`.
+Swing the arms and those two claims tear the geometry between them. Posed through Section 9's
+rig the `ronin` family's bounding box runs x[−57, 116] for a 150-tall body; the `oni` family
+stays inside x[−27, 29].
+
+**The fix, if someone wants the ronin family back, is to fit the bind skeleton to the mesh
+rather than to its bounding box** — find the shoulder line from the geometry instead of
+assuming 0.80. Until then, do not ship `ronin.skn`, `doomer.skn` or `kunoichi.skn` in a game
+that poses them.
+
+### Cross-limb stitch
+
+A smaller, separate defect survives even on the good family. `bake-fighter` keeps one limb's
+bone from claiming the other limb's vertices with a side test, but the test has a tolerance
+band around the centreline, and near the floor — where the feet almost touch — a handful of
+triangles end up with corners bound **rigidly to opposite shins**. Under a running stride that
+is a spike shooting between the ankles. `S9Skin` repairs it at load, per triangle (each corner
+is individually fine; the combination is not): a minority corner adopts the majority corner's
+bones and weights. It touches 113 of kappa's 4,604 triangles and 85 of prizm's 4,217, and takes
+kappa's worst stretch from 21.2× to 6.0× and prizm's from 9.0× to 6.7×.
+
+⚠ **This path is gated off in NEON RONIN's own lobby only by the device budget.** `js/ronin.js`
+loads `.skn`/`.glb` fighters when `FIGHTERS_OK` (`DEVICE_OK`) is true.
 
 The model is **auto-scaled** so its total height matches the fighter (~150 skeleton units), so
 you can author at any scale. Y-up, facing +X.
