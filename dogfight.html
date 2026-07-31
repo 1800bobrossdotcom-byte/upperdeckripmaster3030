@@ -381,7 +381,9 @@
         sfxPow=()=>{blip(520,900,0.08,'square',0.13);setTimeout(()=>blip(900,1500,0.1,'square',0.13),70);},
         sfxRoll=()=>blip(300,1000,0.16,'sine',0.12), sfxRing=()=>{blip(700,1300,0.1,'sine',0.14);setTimeout(()=>blip(1000,1650,0.12,'sine',0.12),80);},
         sfxRecoil=()=>{blip(150,44,0.15,'sawtooth',0.18); noise(0.06,0.12);},
-        sfxWarp=()=>blip(280,1100,0.32,'sine',0.1), sfxWin=()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f,0.16,'triangle',0.14),i*130));};
+        sfxWarp=()=>blip(280,1100,0.32,'sine',0.1), sfxWin=()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f,0.16,'triangle',0.14),i*130));},
+        // a bolt CROSSING you, not hitting you — doppler-ish falling whine + air crack
+        sfxZip=()=>{blip(1500,240,0.11,'sawtooth',0.07); noise(0.05,0.05);};
   const music=$('dfMusic');
   function playMusic(){ if(!musicOn)return; try{ music.volume=0.5; const p=music.play(); if(p&&p.catch)p.catch(()=>{});}catch{} }
   function powMsg(t){ const el=$('powMsg'); el.textContent=t; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
@@ -526,7 +528,11 @@
   const G={ mode:'lobby', t:0, dur:120, timeLeft:120, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], gates:[], powT:6, shake:0,
     real:false, myStake:[], oppStakes:[], me:null, over:false, view:'chase', theme:0, lock:null, gscroll:0, sunAz:0, wing:[] };
   // ── toroidal world: an "infinite self-contained map" whose edges portal over ──
-  const WS=150, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=3.4, VIEW_FAR=34, BOLTSPD=34, TANK_ALT=0.16;
+  // ALT_MAX 3.4 → 9: the sky is a real vertical arena now. A cloud deck sits across the middle
+  // of the band (CLOUD_ALT ± CLOUD_THICK, drawn by DFGL, white-out inside), so climbing means
+  // something: dive out of cover, fight under it, or take the fight above the weather.
+  const WS=150, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=9.0, VIEW_FAR=34, BOLTSPD=34, TANK_ALT=0.16;
+  const CLOUD_ALT=5.4, CLOUD_THICK=0.9;
   const cam={ x:0, y:0, h:0, alt:1.2, roll:0, ph:0, camH:1.2, camBack:2.4 };
   const wdel=v=>{ v-=Math.round(v/WS)*WS; return v; };          // nearest wrapped delta (−WS/2..WS/2)
   const wpos=v=>{ v%=WS; return v<0?v+WS:v; };                   // canonical 0..WS
@@ -549,7 +555,9 @@
     return { x:cx+rgt*scale, y:HORIZON+(CAM_H+cam.alt-1.2-(alt||0))*scale, scale, fwd }; }
 
   function makeShip(opt){ const a=rnd(TAU), r=rnd(WS*0.34,WS*0.14);
-    const hp=opt.me?150:100;
+    // TTK deliberately long — a kill is a sustained burst you have to HOLD on target through a
+    // turn, not a tap. (Raised from 150/100: fights ended before they read as fights.)
+    const hp=opt.me?220:170;
     return { name:opt.name, x:wpos(cam.x+Math.cos(a)*r), y:wpos(cam.y+Math.sin(a)*r), alt:rnd(1.9,0.7), h:rnd(TAU),
       spd:6, hp, maxHp:hp, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
       verified:!!opt.verified, weapon:1, fireT:0, thrust:true, boost:false, bank:0, pitchIn:0, rapid:0, sh:0,
@@ -569,7 +577,7 @@
     G.timeLeft=G.dur; G.real=real; G.theme=Math.random()*WORLDS.length|0; G.sunAz=rnd(TAU);
     cam.x=0; cam.y=0; cam.h=0; cam.alt=1.2; cam.roll=0; cam.ph=0;
     for(let i=0;i<260;i++){ G.props.push({ x:rnd(WS,0), y:rnd(WS,0), alt:(Math.random()<0.82?0:rnd(1.4,0.3)), s:rnd(1.7,0.6), rot:rnd(TAU) }); }
-    for(let i=0;i<7;i++){ const a=rnd(TAU),r=rnd(38,8); G.gates.push({ x:wpos(Math.cos(a)*r), y:wpos(Math.sin(a)*r), alt:rnd(1.9,0.8), cool:0 }); }
+    for(let i=0;i<7;i++){ const a=rnd(TAU),r=rnd(38,8); G.gates.push({ x:wpos(Math.cos(a)*r), y:wpos(Math.sin(a)*r), alt:(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)), cool:0 }); }
     G.wing=[HANDLES[(Math.random()*HANDLES.length)|0]];
     const myImg=craftImgs.length?craftImgs[0]:null;
     G.me=makeShip({ name:myHandle(), me:true, tint:'#27f7e4', img:myImg, verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
@@ -689,7 +697,7 @@
     let tot=0; for(const e of pool)tot+=e[1]; let r=Math.random()*tot, pick=pool[0][0];
     for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
     const ang=rnd(TAU), rr2=rnd(26,4);
-    G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(1.8,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
+    G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(4.4,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
   // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
   function applyLoadout(s,L){ if(!s||!L)return;
     s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.cardAmp=L.amp||1; s.overdrive=false;
@@ -741,6 +749,10 @@
         b.h+=clamp(angd(bear-b.h),-rate*dt,rate*dt);                                  // hard horizontal seek
         b.alt+=clamp(t.alt-b.alt,-5*dt,5*dt); }                                       // vertical seek — the axis that was missing
       b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
+      // near-miss: enemy fire zipping PAST you is audible — once per bolt, and only a genuine
+      // pass (close in 3D but not a hit), which is most of what a longer TTK produces
+      if(!b.me&&!b.zip&&G.me&&G.me.alive&&b.own!==G.me){
+        if(Math.hypot(wdel(b.x-G.me.x),wdel(b.y-G.me.y))<2.2&&Math.abs(b.alt-G.me.alt)<1.3){ b.zip=true; sfxZip(); } }
       const hr=b.me?2.4:1.0, av=b.me?2.0:0.85;                        // forgiving hitbox on YOUR shots
       if(b.noHit) continue;                                          // a net peer's bolt: visual here; its damage arrives as a hit msg
       for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
@@ -768,12 +780,12 @@
     if(G.me&&G.me.alive) for(const gt of G.gates){ if(gt.cool>0){ gt.cool-=dt; continue; }
       if(Math.hypot(wdel(gt.x-G.me.x),wdel(gt.y-G.me.y))<1.4&&Math.abs(gt.alt-G.me.alt)<0.9){ gt.cool=1.2;
         G.me.boostGauge=Math.min(1,G.me.boostGauge+0.55); G.me.hp=Math.min(G.me.maxHp,G.me.hp+8); powMsg('◈ BOOST RING'); sfxRing(); commsRnd('ring','#0e5a68');
-        const a=rnd(TAU),r=rnd(38,10); gt.x=wpos(cam.x+Math.cos(a)*r); gt.y=wpos(cam.y+Math.sin(a)*r); gt.alt=rnd(1.9,0.8); } }
+        const a=rnd(TAU),r=rnd(38,10); gt.x=wpos(cam.x+Math.cos(a)*r); gt.y=wpos(cam.y+Math.sin(a)*r); gt.alt=(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)); } }
     G.timeLeft-=dt;
     if(!G.over && G.timeLeft<=0) endMatch();      // deathmatch: full clock, winner = most kills
   }
   function reviveShip(s){ const a=rnd(TAU), r=rnd(30,16);
-    s.x=wpos(cam.x+Math.cos(a)*r); s.y=wpos(cam.y+Math.sin(a)*r); s.alive=true; s.hp=s.maxHp; s.spd=6; s.alt=rnd(1.8,0.8); s.h=rnd(TAU);
+    s.x=wpos(cam.x+Math.cos(a)*r); s.y=wpos(cam.y+Math.sin(a)*r); s.alive=true; s.hp=s.maxHp; s.spd=6; s.alt=rnd(4.6,0.8); s.h=rnd(TAU);
     s.sh=0; s.rapid=0; s.weapon=Math.max(1,s.weapon-1); s.spawnT=1.4; s.iframe=1.2; s.trail=[]; s.boostGauge=1; s.burstQ=0;
     if(s.isMe){ powMsg('◈ RESPAWN'); commsRnd('respawn','#0e5a68'); } }
   function stepMe(s,dt){ let yaw=0,pitch=0;
@@ -804,7 +816,7 @@
   function stepBot(s,dt){ s.aiT-=dt; s.wantFire=false;
     if(!s.tgt||!s.tgt.alive||s.aiT<=0){ s.aiT=rnd(1.6,0.7); const foes=G.ships.filter(o=>o!==s&&o.alive);
       if(foes.length){ foes.sort((a,b)=>Math.hypot(wdel(a.x-s.x),wdel(a.y-s.y))-Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))); s.tgt=foes[Math.random()<0.75?0:(Math.random()*foes.length|0)]; } else s.tgt=null; }
-    if(s.hp<32 && Math.random()<0.4) s.evade=rnd(1.4,0.6);
+    if(s.hp<s.maxHp*0.3 && Math.random()<0.4) s.evade=rnd(1.4,0.6);   // relative — HP was retuned
     const t=s.tgt; let desiredH=s.h, climb=0;
     if(s.evade>0){ s.evade-=dt; if(t) desiredH=Math.atan2(wdel(s.y-t.y),wdel(s.x-t.x)); s.boost=true; }
     else if(t){ const dx=wdel(t.x-s.x), dy=wdel(t.y-s.y), dist=Math.hypot(dx,dy), lead=dist/BOLTSPD;
@@ -1181,7 +1193,7 @@
   let last=performance.now();
   function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
     if(G.mode!=='lobby'){
-      if(glReady){ try{ DFGL.frame(G, cam, world(), { WS, CAM_BACK, CAM_H, VIEW_FAR }); }
+      if(glReady){ try{ DFGL.frame(G, cam, world(), { WS, CAM_BACK, CAM_H, VIEW_FAR, CLOUD_ALT, CLOUD_THICK }); }
                    catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; } }
       draw(); if(GPU) GPU.present();
     } requestAnimationFrame(frame); }

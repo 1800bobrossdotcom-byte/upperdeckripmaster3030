@@ -35,6 +35,7 @@ window.DFGL = (function () {
   let gl = null, cv = null, ok = false, post = null;
   let prog = null, sky = null, loc = {}, skyLoc = {};
   let dyn = null, skyBuf = null, geo = {};
+  let cloud = null, cloudLoc = {}, cloudBuf = null;
 
   // ── mat4, column-major, same kit as the other two renderers ──
   const M = {
@@ -71,7 +72,7 @@ window.DFGL = (function () {
   const SKY_VS = 'attribute vec2 aP; varying vec2 uv; void main(){ uv=aP; gl_Position=vec4(aP,0.999,1.0); }';
   const SKY_FS = 'precision mediump float; varying vec2 uv;' +
     'uniform vec3 uTop; uniform vec3 uBot; uniform vec3 uSun; uniform vec2 uSunPos;' +
-    'uniform float uAsp; uniform float uRoll;' +
+    'uniform float uAsp; uniform float uRoll; uniform float uWhite; uniform vec3 uWhiteCol;' +
     'void main(){' +
     ' float c=cos(uRoll), s=sin(uRoll);' +
     ' vec2 p=vec2(uv.x*c-uv.y*s, uv.x*s+uv.y*c);' +             // sky banks with the craft
@@ -81,7 +82,37 @@ window.DFGL = (function () {
     ' float r=length(d);' +
     ' col+=uSun*smoothstep(0.30,0.0,r)*0.9;' +                   // disc
     ' col+=uSun*smoothstep(0.95,0.0,r)*0.16;' +                  // haze
+    ' col=mix(col,uWhiteCol,uWhite);' +                          // inside the deck: white-out
     ' gl_FragColor=vec4(col,1.0); }';
+
+  /* ── clouds ────────────────────────────────────────────────────────────────────────────
+   * A deck of FBM value-noise layers at altitude, drawn as three camera-relative quads with
+   * per-fragment coverage. The noise lattice is WRAP-AWARE: the world is toroidal (WS units),
+   * so every octave's lattice repeat divides WS exactly — mod'd cell hashing — or the deck
+   * would show a hard seam along the wrap line the way a naive FBM would. Drift (uT) is a
+   * translation, which periodicity survives, so the clouds can move forever.
+   */
+  const CLOUD_VS = 'attribute vec2 aP; uniform mat4 uMVP; uniform float uY; uniform vec2 uCam;' +
+    'varying vec2 vW; varying float vD;' +
+    'void main(){ vW=aP+uCam; vec4 p=uMVP*vec4(aP.x,uY,aP.y,1.0); vD=p.w; gl_Position=p; }';
+  const CLOUD_FS = 'precision mediump float; varying vec2 vW; varying float vD;' +
+    'uniform vec3 uCol; uniform vec3 uFog; uniform float uT; uniform float uThr;' +
+    'uniform float uFar; uniform float uRep0; uniform float uShade; uniform float uWS;' +
+    'float h(vec2 c){ return fract(sin(dot(c,vec2(127.1,311.7)))*43758.5453); }' +
+    'float vn(vec2 p, float rep){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);' +
+    ' float a=h(mod(i,rep)), b=h(mod(i+vec2(1.,0.),rep)), c=h(mod(i+vec2(0.,1.),rep)), d=h(mod(i+vec2(1.,1.),rep));' +
+    ' return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }' +
+    'void main(){' +
+    ' float rep=uRep0; vec2 p=vW/uWS*rep + vec2(uT*0.11,uT*0.045);' +
+    ' float s=0.0, amp=0.5;' +
+    ' for(int i=0;i<4;i++){ s+=amp*vn(p,rep); p=p*2.0+vec2(17.13,9.77); amp*=0.5; rep*=2.0; }' +
+    ' float cov=smoothstep(uThr,uThr+0.30,s);' +
+    ' if(cov<0.01) discard;' +
+    // underside reads darker and moodier than the sunlit top — uShade flips with the eye
+    ' vec3 c=mix(uCol*0.52+uFog*0.22, uCol, uShade);' +
+    ' c+=vec3(0.10)*smoothstep(uThr+0.34,uThr+0.62,s);' +                    // bright cores
+    ' float fg=clamp(vD/uFar,0.0,1.0);' +
+    ' gl_FragColor=vec4(mix(c,uFog,fg*0.85), cov*0.88*(1.0-fg*fg)); }';
 
   function sh(t, src) { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o);
     if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -259,7 +290,17 @@ window.DFGL = (function () {
       ['aPos','aNorm','aCol'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
       ['uMVP','uLight','uFog','uFogND','uEmit'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
       skyLoc.aP = gl.getAttribLocation(sky, 'aP');
-      ['uTop','uBot','uSun','uSunPos','uAsp','uRoll'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
+      ['uTop','uBot','uSun','uSunPos','uAsp','uRoll','uWhite','uWhiteCol'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
+      // clouds fail open on their own: a compile failure costs the deck, not the game
+      try {
+        cloud = link(CLOUD_VS, CLOUD_FS);
+        cloudLoc.aP = gl.getAttribLocation(cloud, 'aP');
+        ['uMVP','uY','uCam','uCol','uFog','uT','uThr','uFar','uRep0','uShade','uWS']
+          .forEach(n => cloudLoc[n] = gl.getUniformLocation(cloud, n));
+        cloudBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cloudBuf);
+        const R = 60;
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-R,-R, R,-R, -R,R, R,-R, R,R, -R,R]), gl.STATIC_DRAW);
+      } catch (e) { cloud = null; }
       dyn = gl.createBuffer();
       skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
@@ -280,8 +321,20 @@ window.DFGL = (function () {
     if (!composited) gl.viewport(0, 0, w, h);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    /* ── the cloud deck's hold on the frame ──────────────────────────────────────────────
+     * `inCloud` rises to 1 as the eye enters the deck band. It white-outs the sky, drags the
+     * fog toward the cloud colour and pulls the fog wall in close — flying INTO the weather
+     * blinds you, which is what makes owning the airspace above or below it worth anything. */
+    const CLOUD_Y = o.CLOUD_ALT || 5.4, CLOUD_TH = o.CLOUD_THICK || 0.9;
+    const eyeAlt = (o.CAM_H || 1.2) + (cam.alt || 0);
+    const inCloud = cloud ? Math.max(0, 1 - Math.abs(eyeAlt - CLOUD_Y) / CLOUD_TH) : 0;
+    const skyBot = hex(world.sky[1]);
+    const cloudCol = [0.86 + skyBot[0]*0.14, 0.86 + skyBot[1]*0.14, 0.86 + skyBot[2]*0.14];
+    const fogC = hex(world.fog).map((v, i) => v + (cloudCol[i] - v) * inCloud * 0.9);
+    const fogFar = FAR - (FAR - 7) * inCloud;
+
     // ── sky ──
-    const top = hex(world.sky[0]), bot = hex(world.sky[1]), sunC = hex(world.sun);
+    const top = hex(world.sky[0]), bot = skyBot, sunC = hex(world.sun);
     gl.useProgram(sky); gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
     gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf);
     gl.enableVertexAttribArray(skyLoc.aP); gl.vertexAttribPointer(skyLoc.aP, 2, gl.FLOAT, false, 0, 0);
@@ -290,6 +343,7 @@ window.DFGL = (function () {
     const sunRel = Math.sin((G.sunAz || 0) - cam.h);
     gl.uniform2f(skyLoc.uSunPos, Math.max(-1.4, Math.min(1.4, sunRel * 1.3)), 0.12 - cam.ph * 0.8);
     gl.uniform1f(skyLoc.uAsp, asp); gl.uniform1f(skyLoc.uRoll, cam.roll || 0);
+    if (skyLoc.uWhite) { gl.uniform1f(skyLoc.uWhite, inCloud * 0.92); gl.uniform3fv(skyLoc.uWhiteCol, cloudCol); }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
 
@@ -307,8 +361,8 @@ window.DFGL = (function () {
 
     gl.useProgram(prog);
     gl.uniform3fv(loc.uLight, [0.4, 0.85, 0.3]);
-    gl.uniform3fv(loc.uFog, hex(world.fog));
-    gl.uniform2f(loc.uFogND, FAR * 0.30, FAR);
+    gl.uniform3fv(loc.uFog, fogC);
+    gl.uniform2f(loc.uFogND, fogFar * 0.30, fogFar);
     gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
 
     const wdel = v => { v -= Math.round(v / WS) * WS; return v; };
@@ -421,27 +475,89 @@ window.DFGL = (function () {
       gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
     }
 
+    /* ── the cloud deck: three parallax layers of the FBM shader ─────────────────────────
+     * Different lattice repeats (must divide into integer cells — the wrap), thresholds and
+     * heights make the stack read volumetric from below, inside and above. Drawn after the
+     * opaque world (depth-tested, so a prop pokes through the deck honestly) and BEFORE the
+     * additive FX, so tracers and bursts glow through the cloud like lightning in it. */
+    if (cloud) {
+      gl.useProgram(cloud);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.bindBuffer(gl.ARRAY_BUFFER, cloudBuf);
+      gl.enableVertexAttribArray(cloudLoc.aP); gl.vertexAttribPointer(cloudLoc.aP, 2, gl.FLOAT, false, 0, 0);
+      gl.uniformMatrix4fv(cloudLoc.uMVP, false, new Float32Array(VP));
+      gl.uniform2f(cloudLoc.uCam, cam.x, cam.y);
+      gl.uniform3fv(cloudLoc.uCol, cloudCol); gl.uniform3fv(cloudLoc.uFog, fogC);
+      gl.uniform1f(cloudLoc.uT, G.t || 0); gl.uniform1f(cloudLoc.uFar, fogFar * 1.35);
+      gl.uniform1f(cloudLoc.uWS, WS);
+      const layers = [   // dy, lattice repeat, coverage threshold
+        [-CLOUD_TH * 0.62, 20, 0.46],
+        [0,                28, 0.36],
+        [ CLOUD_TH * 0.58, 36, 0.50],
+      ];
+      for (const [dy, rep, thr] of layers) {
+        const y = CLOUD_Y + dy;
+        gl.uniform1f(cloudLoc.uY, y);
+        gl.uniform1f(cloudLoc.uRep0, rep);
+        gl.uniform1f(cloudLoc.uThr, thr);
+        gl.uniform1f(cloudLoc.uShade, eyeAlt > y ? 1 : 0);   // sunlit top vs moody underside
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+      gl.depthMask(true); gl.disable(gl.BLEND);
+      gl.useProgram(prog);
+      // re-arm the main program's attribute state after the cloud pass borrowed the slot
+      gl.bindBuffer(gl.ARRAY_BUFFER, dyn); bindAttribs();
+    }
+
     // ── bolts + bursts: additive, emissive ──
     gl.uniform1f(loc.uEmit, 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false);
+    // camera basis in world space, for billboards — rows of the view rotation
+    const camR = [rot[0], rot[4], rot[8]], camU = [rot[1], rot[5], rot[9]];
+    /* Tracers, not blips. A real tracer reads as a STREAK because your eye integrates its
+     * motion: a hot near-white core at the head and a longer tail in the weapon's colour,
+     * fading (additively — colour × factor IS the fade here) toward where the bolt was.
+     * Tail length rides bolt speed, so zoomed precision shots draw longer lines. */
     if (G.bolts && G.bolts.length) {
       const a = [];
       for (const b of G.bolts) {
         const dx = wdel(b.x - cam.x), dz = wdel(b.y - cam.y);
-        if (Math.hypot(dx, dz) > FAR) continue;
-        const ch = Math.cos(b.h || 0), sh2 = Math.sin(b.h || 0), L = 0.9;
-        beam(a, [dx, b.alt, dz], [dx + ch*L, b.alt, dz + sh2*L], 0.045, hex(b.col || '#ffd23b'));
+        const d = Math.hypot(dx, dz);
+        if (d > FAR) continue;
+        const ch = Math.cos(b.h || 0), sh2 = Math.sin(b.h || 0);
+        const col = hex(b.col || (b.laser ? '#ff2ad9' : '#ffd23b'));
+        const bsp = b.sp || 34, Lt = Math.min(3.4, bsp * 0.085), Lc = 0.6;
+        const head = [dx, b.alt, dz];
+        const dim = f => [col[0]*f, col[1]*f, col[2]*f];
+        // tail, two nested widths so it tapers; then the core, pushed toward white
+        beam(a, head, [dx - ch*Lt,      b.alt, dz - sh2*Lt],      0.026, dim(0.30));
+        beam(a, head, [dx - ch*Lt*0.45, b.alt, dz - sh2*Lt*0.45], 0.045, dim(0.55));
+        beam(a, head, [dx - ch*Lc, b.alt, dz - sh2*Lc], 0.06,
+             [col[0]*0.4+0.6, col[1]*0.4+0.6, col[2]*0.4+0.6]);
       }
       drawArr(a);
     }
+    /* Bursts are camera-facing spark diamonds that DIM as they die. The M1 version was an
+     * axis-aligned quad at constant full brightness — a burst that drifted near the camera
+     * (their velocities run to ±6/s) filled a third of the screen as a flat lit slab. Facing
+     * the camera, fading with life, and capping the subtended size fixes all three. */
     if (G.bursts && G.bursts.length) {
       const a = [];
       for (const b of G.bursts) {
         const dx = wdel(b.x - cam.x), dz = wdel(b.y - cam.y);
-        if (Math.hypot(dx, dz) > FAR) continue;
-        // bursts carry `life` (1 -> 0), no radius: bloom outward as they fade
-        const r = 0.10 + (1 - Math.max(0, Math.min(1, b.life))) * 0.26, c = hex(b.col || '#ff2a6d');
-        quad(a, [dx-r,b.alt-r,dz],[dx+r,b.alt-r,dz],[dx+r,b.alt+r,dz],[dx-r,b.alt+r,dz], c);
+        const d = Math.hypot(dx, dz);
+        if (d > FAR || d < 0.6) continue;                    // on-camera sparks are just flash
+        const life = Math.max(0, Math.min(1, b.life));
+        let r = 0.09 + (1 - life) * 0.20;
+        r *= Math.min(1, d / 3.5);                           // cap what a near spark subtends
+        const c = hex(b.col || '#ff2a6d'), f = life * life;  // ease-out — sparks die fast
+        const col = [c[0]*f, c[1]*f, c[2]*f];
+        const cx = [dx, b.alt, dz];
+        const px = [cx[0]+camR[0]*r, cx[1]+camR[1]*r, cx[2]+camR[2]*r];
+        const mx = [cx[0]-camR[0]*r, cx[1]-camR[1]*r, cx[2]-camR[2]*r];
+        const py = [cx[0]+camU[0]*r*1.4, cx[1]+camU[1]*r*1.4, cx[2]+camU[2]*r*1.4];
+        const my = [cx[0]-camU[0]*r*1.4, cx[1]-camU[1]*r*1.4, cx[2]-camU[2]*r*1.4];
+        quad(a, mx, my, px, py, col);                        // diamond, tall — an ember, not a tile
       }
       drawArr(a);
     }
