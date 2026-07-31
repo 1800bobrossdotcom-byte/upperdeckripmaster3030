@@ -177,6 +177,59 @@ who receives it, the curve mechanism or any DEX graduation, or how the opening p
 - ⛔ **Still NOT stated anywhere SuperRare has published:** the creator revenue model, the
   buy/sell fee split and who receives it, and how the opening price is set. Ask them directly.
 
+## Curve: the REAL multicurve shape (from SuperRare's create-flow, 7 steps)
+Artist directive: **we take the Custom path** ("start from your last selected preset and edit
+every segment manually"). Presets are low / medium / high / custom.
+
+- **medium** — "middle-ground starting price with supply concentrated through the middle of the
+  curve, which is where real price discovery usually happens."
+- **high** — back-loaded on purpose; "withholds about half the visible supply for the highest
+  band… only right if you expect a genuinely hot launch."
+- **low** — "lower starting price with more supply available earlier… easy entry and softer
+  price discovery."
+
+**Medium's actual shape** — three stacked curves, each split into overlapping *positions*:
+
+| curve | price range | share of supply | positions | start points |
+| --- | --- | --- | --- | --- |
+| 1 | 2.0× | 10% | 3 | P1 0%, P2 33%, P3 67% up the range |
+| 2 | 5.0× | 65% | 2 | P1 0%, P2 50% |
+| 3 | 10.0× | 25% | 2 | P1 0%, P2 50% |
+
+⚑ **"Positions are overlapping liquidity bands, not extra supply slices.** Within one curve the
+first position opens earliest and spans the widest range; later positions activate only after
+price has already moved higher." Every position ends at the same upper cap.
+
+**Tick conversion uses live prices** — the flow showed ETH/USD **$2,043**, RARE/ETH **0.000008**,
+RARE/USD **$0.0159**. ⚠ `token-model.mjs` assumes `RARE_USD = 0.02`. Use their number.
+
+**Buy simulation** (their tool, on a 1,000,000-token example): a **$2,000** budget consumed
+**9,211 tokens** (0.92% of curve supply) at an average of **$0.22**, ending at **$0.24** with a
+**$236K** end market cap and only **1 curve touched**. ⚠ Our model's `P0 ≈ 1 RARE ≈ $0.02` is an
+order of magnitude below what their own example opens at — **re-derive P0 against 33M supply
+from the flow's preview, do not carry the old assumption forward.**
+
+**Step 6 — fallback artwork:** PNG/JPEG/GIF/MP4/MOV/**HTML**/GLB/WebM, **250 MB** limit, MP4
+under 2345×2345. "This artwork will serve as the initial fallback metadata… when you later
+connect a render contract, that will become the default source."
+
+## ⛔ The SuperRare embed must be WALLET-FREE — `superrare.html`
+**SuperRare's security team flagged this; they were right.** `cabinet.html` loads `js/wallet.js`
+and performs WalletConnect burns — it is **NOT** for embedding.
+
+- `superrare.html` is what `animation_url` points at: a showcase + how-to that sends people to
+  the studio site. **No injected provider, no WalletConnect, no signing, no connect button** —
+  not behind a click, a flag, or an opt-in.
+- Why: a frame that asks for a wallet is indistinguishable from one that has been swapped for a
+  malicious frame. Teaching collectors that embedded art asking for a wallet is normal is the
+  exact reflex phishing needs.
+- **Read-only `eth_call` over `fetch` is allowed** — it can show state, it cannot move anything,
+  and the page degrades to static copy when blocked (which it will be in a sandboxed frame).
+- Guarded by **`npm run test:embed`** — 17 assertions; fails if any wallet identifier or any
+  `<script src>` reappears. A comment does not survive a hurried edit; a failing test does.
+- ⚑ Selector trap: `maxTotalSupply()` is **`0x2ab4d052`**. `0xd5abeb01` is `maxSupply()`, a
+  different function that **reverts** on this edition. Verified against the chain, not guessed.
+
 ## Deploying the lens — see `docs/DEPLOY-LENS.md`
 - **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/UR3030Lens721.flat.sol`
   (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected

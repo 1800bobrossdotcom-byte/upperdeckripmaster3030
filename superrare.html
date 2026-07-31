@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ripmaster3030studios · $3030</title>
+<meta name="robots" content="index,follow">
+<meta name="description" content="ripmaster3030studios — an indie card and game studio. $3030 is a SuperRare Liquid Edition; every card is a lens over its live market state.">
+
+<!--
+  ══ THE SUPERRARE EMBED — DELIBERATELY WALLET-FREE ═══════════════════════════════════════
+
+  This page is what a SuperRare Liquid Edition's `animation_url` points at. It is a SHOWCASE
+  and a how-to. It sends people to the studio site to actually do anything.
+
+  ⛔ IT MUST NEVER CONTAIN WALLET CODE. No injected-provider access, no WalletConnect, no
+     eth_requestAccounts, no signing, no `js/wallet.js`, no connect button — not even behind a
+     click, a flag, or a "user opted in".
+
+  WHY, precisely: this document is framed inside a marketplace. A frame that asks for a wallet
+  connection is indistinguishable, to the person looking at it, from a frame that has been
+  swapped for a malicious one. Teaching collectors that it is normal for embedded art to
+  request their wallet is the exact habit phishing depends on. SuperRare's security team
+  flagged it on `/cabinet.html`, which loads js/wallet.js and performs WalletConnect burns;
+  they were right, and this page is the answer. `cabinet.html` is NOT for embedding.
+
+  Read-only RPC is permitted and is the only network access here: it can display state, it
+  cannot move anything, and it degrades to static copy when blocked. The sandbox is assumed
+  hostile — `localStorage` THROWS at an opaque origin, `window.parent` is unreachable, and
+  requests may simply fail. Everything below works with all of that turned off.
+
+  Guarded by `npm run test:embed` (scripts/test-embed.mjs), which fails the build if a wallet
+  identifier reappears in this file.
+-->
+
+<style>
+  :root{ --bg:#07070c; --ink:#d8e8ff; --dim:#8ea3c4; --acid:#2bff80; --hot:#ff2ad9; --amber:#ffd166; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:
+      radial-gradient(120% 90% at 50% -20%, #1a1030 0%, transparent 60%),
+      radial-gradient(100% 80% at 50% 120%, #06202a 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font:15px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    display:flex; align-items:center; justify-content:center; padding:clamp(12px,3vw,28px);
+  }
+  .wrap{ width:min(760px,100%); }
+  .rule{ height:1px; background:linear-gradient(90deg,transparent,#2bff8055,transparent); margin:14px 0; }
+  h1{ font-size:clamp(20px,4.6vw,34px); margin:0; letter-spacing:.02em; }
+  h1 b{ color:var(--acid); }
+  .tag{ color:var(--dim); font-size:clamp(11px,2.4vw,13px); letter-spacing:.14em; text-transform:uppercase; margin-top:6px; }
+  .lede{ margin:14px 0 0; font-size:clamp(13px,2.7vw,15px); }
+  .lede em{ color:var(--amber); font-style:normal; }
+
+  .state{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin:16px 0 0; }
+  .cell{ border:1px solid #1e2c44; border-radius:10px; padding:9px 11px; background:#0b1120aa; }
+  .cell b{ display:block; font-size:clamp(15px,3.4vw,20px); color:var(--acid); letter-spacing:.01em; }
+  .cell span{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
+
+  ol{ margin:12px 0 0; padding-left:20px; } li{ margin:6px 0; }
+  li b{ color:var(--ink); }
+  .go{ display:inline-block; margin-top:18px; padding:12px 20px; border-radius:11px; text-decoration:none;
+       font-weight:700; letter-spacing:.05em; text-transform:uppercase; font-size:13px;
+       color:#04120a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:1px solid #063; }
+  .note{ margin-top:16px; color:var(--dim); font-size:11px; line-height:1.6; }
+  .note b{ color:var(--amber); }
+  .safe{ margin-top:10px; padding:9px 11px; border:1px dashed #2b4a6e; border-radius:10px;
+         color:var(--dim); font-size:11px; }
+  .safe b{ color:var(--acid); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>ripmaster<b>3030</b>studios</h1>
+  <div class="tag">indie card &amp; game studio · $3030 liquid edition</div>
+
+  <p class="lede">
+    A card studio that builds <em>playable</em> things. <b>$3030</b> is the edition; every card is a
+    <em>lens</em> over it — artwork that reads the token's live market state and redraws itself.
+    Hold more, and some lenses show you more.
+  </p>
+
+  <div class="rule"></div>
+
+  <div class="state" id="state">
+    <div class="cell"><b id="sSupply">—</b><span>live supply</span></div>
+    <div class="cell"><b id="sBurned">—</b><span>burned forever</span></div>
+    <div class="cell"><b id="sCards">100</b><span>cards in the deck</span></div>
+    <div class="cell"><b id="sHeroes">33</b><span>hero 1/1 lenses</span></div>
+  </div>
+
+  <div class="rule"></div>
+
+  <ol>
+    <li><b>Collect the edition.</b> $3030 trades on its curve, right here on SuperRare.</li>
+    <li><b>Rip a pack.</b> Packs are bought and burned — the tokens are retired permanently, and
+        the reserve behind every surviving token stays put.</li>
+    <li><b>Play the cabinets.</b> Your cards carry powers into the studio's games.</li>
+    <li><b>Earn a hero.</b> 33 of the 100 cards mint as 1/1 lenses — some pulled, some won.</li>
+  </ol>
+
+  <a class="go" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">
+    Enter the studio ↗
+  </a>
+
+  <div class="safe">
+    <b>This page will never ask for your wallet.</b> It is a showcase only — no connect button, no
+    signing, nothing to approve. Anything that needs a wallet happens on the studio site, which you
+    reach by choosing to go there. If a framed artwork ever asks you to connect, treat that as a
+    warning sign.
+  </div>
+
+  <p class="note">
+    <b>NFA.</b> Experimental art token — it can go to zero. Burns are permanent. The burn is real
+    but modest at this supply; we do not present it as a scarcity engine.
+  </p>
+</div>
+
+<script>
+/* Read-only, best-effort, and entirely optional. There is no wallet here and there is no code
+ * path that could create one — this only formats numbers. If the fetch is blocked (very likely
+ * inside a sandboxed frame) the page keeps its static copy and nobody notices.
+ *
+ * eth_call over plain fetch, no library, no provider, no injected object touched. */
+(function () {
+  var RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
+  var EDITION = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C';
+  var SEL = { total: '0x18160ddd', max: '0x2ab4d052' };   // totalSupply() · maxTotalSupply()
+  // 0xd5abeb01 is maxSupply(), a DIFFERENT function that reverts on this edition — checked, not guessed
+
+  function fmt(n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.round(n).toLocaleString(); }
+  function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
+  function call(data) {
+    return fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: EDITION, data: data }, 'latest'] }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.result || j.result === '0x') return null;
+        return Number(BigInt(j.result) / 1000000000000000000n);
+      });
+  }
+
+  try {
+    /* Read the cap from the CONTRACT rather than hardcoding it. A constant here was wrong the
+     * moment it met a chain: the figure was set to the planned 33,000,000 while the edition it
+     * was querying caps at 1,000,000, so "burned" would have rendered as ~32M — a false claim,
+     * displayed confidently, on the one page collectors see first. Burned is only shown when
+     * both numbers came from the same contract and the subtraction actually makes sense. */
+    Promise.all([call(SEL.total), call(SEL.max)]).then(function (r) {
+      var live = r[0], max = r[1];
+      if (live > 0) set('sSupply', fmt(live));
+      if (live > 0 && max > 0 && max >= live) set('sBurned', fmt(max - live));
+    }).catch(function () { /* static copy stands */ });
+  } catch (e) { /* static copy stands */ }
+})();
+</script>
+</body>
+</html>
