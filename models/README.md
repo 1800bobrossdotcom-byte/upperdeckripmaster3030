@@ -328,3 +328,57 @@ tighter than its walls suggest, and why the balcony had to be widened from 4.6 m
 a player at all. Reason about clearance from the **baked** `.cols.json`, not from the Blender
 coordinates — the bake also recentres on the geometry's bounds, so an asymmetric feature like
 the vault's door bay shifts everything.
+
+---
+
+## `.skn` v2 — the paired fix for task #77, ready to execute
+
+Everything below was established by reading the code, not by guessing, so the next pass is
+execution rather than rediscovery.
+
+**Why v1 cannot be fixed from the baker alone.** `js/section9-skin.js` hard-codes the bind
+skeleton (`const BIND`, px space, `H = 150`, arm bones at y 120 = the canonical 0.80 of height).
+Fitting the baker's skeleton to a mesh's real shoulder line therefore produces weights measured
+against one skeleton and posed by another — a worse mismatch than the one it cures. **The
+skeleton has to travel with the mesh.**
+
+### Format
+Header is 32 bytes and only 20 are used: magic `UR3SKIN0` (0), version (8), vertex count (12),
+bone count (16). Bump version to **2** and insert a bone block between header and vertex data:
+
+```
+0   ..31    header (version = 2)
+32  ..295   11 bones x 6 float32 = [startXYZ, endXYZ], 264 bytes, in the RENDERER's px space
+296 ..      vertex data, unchanged: 14 floats/vertex, stride 56
+```
+
+⚑ **Conversion is exactly ×150.** The baker's table is normalised body space (y 0 feet → 1
+crown); the renderer's is px at `H = 150`. Canonical `armF0` start `[0.10, 0.80, 0]` is the
+renderer's `[15, 120, 0]`. So write `norm * 150` and no other transform is needed.
+
+### Reader — `js/section9-skin.js`
+- Parse at line ~120: `getUint32(8)` is the version. v2 ⇒ read 66 floats at offset 32, vertex
+  data starts at **296** not 32 (`new Float32Array(buf, 296, n * 14)`); v1 ⇒ unchanged.
+- Attach `sk.bind` (11 × [start, end]) and `sk.bdir` (unit directions, same derivation as the
+  existing `BDIR`) to the loaded skin object.
+- `palette(P, sk, out)` **already takes `sk`** — change its two reads to `const BINDT = sk.bind
+  || BIND, BDIRT = sk.bdir || BDIR;` and index those. That is the whole renderer change.
+
+### Baker — `scripts/bake-fighter.mjs`
+- Re-apply the anatomy fit (measured and verified 2026-07-31, reverted only because the reader
+  was not ready): 48 y-bands; **shoulder = the widest band above mid-body** (in a T-pose the body
+  is widest where the arms are); **crotch = the lowest band whose centre line is occupied**;
+  everything else proportional between floor, crotch, shoulder and crown; radii scale with the
+  limbs they serve. Falls back to canonical when there is no lateral peak (not a T-pose).
+  Keep `--bind canonical` as the A/B escape hatch.
+- Measured on `ronin.obj`: shoulder **y = 0.531** vs the canonical 0.80, rigid-snapped vertices
+  **0.0%**.
+- Write version 2 + the bone block.
+
+### Then
+Re-bake all six, widen `S9Skin.CAST` from three to six, and re-measure posed edge-stretch — the
+number to beat is the good family's **2.1–2.9× worst, zero triangles over 3×**. `js/s9pc-skin.js`
+consumes `S9Skin.pose`/`palette` and needs no change if `palette` keeps its signature.
+
+⚠ There is no stretch-measuring tool in the repo — the historical numbers were ad-hoc. Write one
+alongside this, or the result cannot be checked.
