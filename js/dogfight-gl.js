@@ -18,6 +18,12 @@
  *   DFGL.post()                   the GfxPost handle, for headless checks
  *
  * ── Division of labour ───────────────────────────────────────────────────────────────────
+ * The craft, the boost gates and the scenery are AUTHORED — models/dogfight.glb, built by
+ * `npm run craft` from scripts/blender/build-craft.py, loaded through js/ronin-glb.js. Every
+ * one of them still has a procedural version below, and that is not redundancy for its own
+ * sake: the fetch is async and can fail, so the procedural mesh is what flies until the file
+ * lands and what flies forever if it doesn't.
+ *
  * This draws the WORLD: sky, ground grid, props, gates, ships, bolts, bursts. The HUD, the
  * radar and the reticle stay in 2D/DOM on the overlay canvas, deliberately — text and UI are
  * sharper and cheaper there, and that is exactly how Section 9 splits it too.
@@ -133,9 +139,103 @@ window.DFGL = (function () {
     for (let i = 0; i < a.length; i += STRIDE) { a[i]*=CRAFT; a[i+1]*=CRAFT; a[i+2]*=CRAFT; }
     return a;
   }
+  /* The boost gate. GATE_R is not a look — it is the pass-through test in dogfight.html
+   * (`hypot(...) < 1.4`), so the ring you see is exactly the ring you can collect. The 2D
+   * renderer sizes its ellipse in PIXELS, so the two have never agreed there. */
+  const GATE_R = 1.40;
+  function gateVerts(col) {
+    const a = [], SEG = 26, w = 0.09, r0 = GATE_R - 0.08, r1 = GATE_R + 0.08;
+    for (let i = 0; i < SEG; i++) {
+      const a0 = TAU*i/SEG, a1 = TAU*(i+1)/SEG;
+      const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
+      for (const z of [-w, w])
+        quad(a, [c0*r0,s0*r0,z], [c1*r0,s1*r0,z], [c1*r1,s1*r1,z], [c0*r1,s0*r1,z], col);
+      quad(a, [c0*r1,s0*r1,-w], [c1*r1,s1*r1,-w], [c1*r1,s1*r1,w], [c0*r1,s0*r1,w], col);
+      quad(a, [c0*r0,s0*r0,-w], [c1*r0,s1*r0,-w], [c1*r0,s1*r0,w], [c0*r0,s0*r0,w], col);
+    }
+    return a;
+  }
+
   function mkvbo(arr) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
     return { vbo: b, count: arr.length / STRIDE }; }
+
+  /* ── authored geometry: models/dogfight.glb ─────────────────────────────────────────────
+   * Built by `npm run craft` from scripts/blender/build-craft.py. Parts are looked up BY NAME
+   * (craft · pod · gate · prop_<kind>), which is why that build script asserts the names exist
+   * instead of trusting the modeller — a missing part here is silent, not loud.
+   *
+   * RoninGLB returns interleaved pos3+norm3; this renderer wants pos3+norm3+col3, and colour
+   * is per-draw (a ship's tint, a world's grid hue). So a part is kept once as its raw floats
+   * plus a `fit`, and artGeo() expands it into a VBO the first time a colour asks for one.
+   *
+   * `fit` normalises the model instead of the code trusting the modeller's units: whatever
+   * size a craft is authored at, it arrives on screen at CRAFT. A replacement model therefore
+   * drops in without anyone retuning a constant — which is the whole reason the geometry moved
+   * out of this file.
+   *
+   * Fails open at every step: no RoninGLB, no fetch, or a file with no `craft` part ⇒ ART
+   * stays null and every path below draws the procedural verts that shipped in M1.
+   */
+  let ART = null, artVbo = {};
+  const art = n => (ART && ART[n]) || null;
+
+  /** out = (in - c) * s. lo/hi are the part's own bounds, so this is measured, not assumed. */
+  const fitLongest = (b, target) => {
+    const e = [b.hi[0]-b.lo[0], b.hi[1]-b.lo[1], b.hi[2]-b.lo[2]];
+    return { s: target / (Math.max(e[0], e[1], e[2]) || 1),
+             c: [(b.lo[0]+b.hi[0])/2, (b.lo[1]+b.hi[1])/2, (b.lo[2]+b.hi[2])/2] };
+  };
+  /** a ring: scale by its HORIZONTAL half-extent, since that is the radius the hitbox uses */
+  const fitRadius = (b, target) => {
+    const r = Math.max(b.hi[0]-b.lo[0], b.hi[1]-b.lo[1]) / 2;
+    return { s: target / (r || 1),
+             c: [(b.lo[0]+b.hi[0])/2, (b.lo[1]+b.hi[1])/2, (b.lo[2]+b.hi[2])/2] };
+  };
+  /** scenery: height becomes `target`, and the origin lands on the BASE so `alt` lifts it off
+   *  the ground by the amount the game means rather than by half a prop */
+  const fitStanding = (b, target) => ({ s: target / ((b.hi[1]-b.lo[1]) || 1),
+    c: [(b.lo[0]+b.hi[0])/2, b.lo[1], (b.lo[2]+b.hi[2])/2] });
+
+  function loadArt(url) {
+    if (!window.RoninGLB) return;
+    try {
+      RoninGLB.load(url || '/models/dogfight.glb').then(r => {
+        const p = {};
+        for (const m of r.meshes) if (m.verts && m.count) p[m.name] = m;
+        if (!p.craft) return;                      // a GLB with no craft is not this GLB
+        // craft and pod share ONE fit, taken from the craft. The exhausts are authored bolted
+        // to the tail; fitting the pod to its own bounds would centre it on the origin and hang
+        // the engine glow off the nose.
+        const cf = fitLongest(p.craft.bounds, CRAFT);
+        const out = { craft: { v: p.craft.verts, fit: cf } };
+        if (p.pod)  out.pod  = { v: p.pod.verts,  fit: cf };
+        if (p.gate) out.gate = { v: p.gate.verts, fit: fitRadius(p.gate.bounds, GATE_R) };
+        for (const k of ['pylon','ring','spire','tower','crystal']) {
+          const m = p['prop_' + k];
+          if (m) out['prop_' + k] = { v: m.verts, fit: fitStanding(m.bounds, 1) };
+        }
+        ART = out; artVbo = {};
+      }).catch(() => {});
+    } catch (e) { /* fail open — the procedural craft is always there */ }
+  }
+
+  function artGeo(key, part, col) {
+    const ck = key + '|' + col[0].toFixed(3) + col[1].toFixed(3) + col[2].toFixed(3);
+    if (artVbo[ck]) return artVbo[ck];
+    const src = part.v, f = part.fit, n = src.length / 6, out = new Float32Array(n * STRIDE);
+    for (let i = 0, o = 0; i < n; i++) {
+      const j = i * 6;
+      out[o++] = (src[j]   - f.c[0]) * f.s;
+      out[o++] = (src[j+1] - f.c[1]) * f.s;
+      out[o++] = (src[j+2] - f.c[2]) * f.s;
+      out[o++] = src[j+3]; out[o++] = src[j+4]; out[o++] = src[j+5];
+      out[o++] = col[0];   out[o++] = col[1];   out[o++] = col[2];
+    }
+    const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, out, gl.STATIC_DRAW);
+    return (artVbo[ck] = { vbo: b, count: n });
+  }
 
   function bindAttribs() { const s = STRIDE * 4;
     gl.enableVertexAttribArray(loc.aPos);  gl.vertexAttribPointer(loc.aPos, 3, gl.FLOAT, false, s, 0);
@@ -149,7 +249,7 @@ window.DFGL = (function () {
     bindAttribs(); gl.drawArrays(gl.TRIANGLES, 0, arr.length / STRIDE);
   }
 
-  function init(canvas) {
+  function init(canvas, opt) {
     try {
       cv = canvas;
       gl = cv.getContext('webgl', { antialias: true, alpha: false, depth: true })
@@ -165,6 +265,7 @@ window.DFGL = (function () {
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
       gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
       try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.neon) : null; } catch (e) { post = null; }
+      loadArt(opt && opt.art);          // async; the procedural craft flies until it lands
       ok = true; return true;
     } catch (e) { ok = false; return false; }
   }
@@ -229,19 +330,65 @@ window.DFGL = (function () {
       gl.uniform1f(loc.uEmit, 0);
     }
 
-    // ── props (pylons / rings / spires / towers) ──
+    /* ── props ──────────────────────────────────────────────────────────────────────────
+     * Each world theme names a silhouette (WORLDS[].prop), and the game gives every prop its
+     * own size, spin and altitude. M1 read none of that: it looked for `p.h`/`p.r`, which the
+     * game has never written, so all 260 fell back to identical 2.2 × 0.36 open boxes planted
+     * on the deck — one shape for five themes, and the 18% that are meant to float didn't. */
     if (G.props && G.props.length) {
-      const a = [], pc = hex(world.grid);
-      for (const p of G.props) {
-        const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
-        if (Math.hypot(dx, dz) > FAR) continue;
-        const hgt = p.h || 2.2, r = p.r || 0.18;
-        quad(a, [dx-r,0,dz-r],[dx+r,0,dz-r],[dx+r,hgt,dz-r],[dx-r,hgt,dz-r], pc);
-        quad(a, [dx-r,0,dz+r],[dx+r,0,dz+r],[dx+r,hgt,dz+r],[dx-r,hgt,dz+r], pc);
-        quad(a, [dx-r,0,dz-r],[dx-r,0,dz+r],[dx-r,hgt,dz+r],[dx-r,hgt,dz-r], pc);
-        quad(a, [dx+r,0,dz-r],[dx+r,0,dz+r],[dx+r,hgt,dz+r],[dx+r,hgt,dz-r], pc);
+      const pc = hex(world.grid), kind = 'prop_' + (world.prop || 'pylon');
+      const part = art(kind) || art('prop_pylon');
+      if (part) {
+        const g = artGeo(art(kind) ? kind : 'prop_pylon', part, pc);
+        gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); bindAttribs();
+        for (const p of G.props) {
+          const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
+          if (Math.hypot(dx, dz) > FAR) continue;
+          const sc = p.s || 1;
+          gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, M.mul(M.mul(
+            M.T(dx, p.alt || 0, dz), M.Ry(p.rot || 0)), M.S(sc, sc, sc)))));
+          gl.drawArrays(gl.TRIANGLES, 0, g.count);
+        }
+        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
+      } else {
+        const a = [];                                   // no GLB: boxes, but the game's boxes
+        for (const p of G.props) {
+          const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
+          if (Math.hypot(dx, dz) > FAR) continue;
+          const sc = p.s || 1, hgt = sc * 1.9, r = sc * 0.17, y0 = p.alt || 0;
+          const ca = Math.cos(p.rot || 0), sa = Math.sin(p.rot || 0);
+          const P = (ox, oz, y) => [dx + ox*ca - oz*sa, y0 + y, dz + ox*sa + oz*ca];
+          quad(a, P(-r,-r,0), P(r,-r,0), P(r,-r,hgt), P(-r,-r,hgt), pc);
+          quad(a, P(-r, r,0), P(r, r,0), P(r, r,hgt), P(-r, r,hgt), pc);
+          quad(a, P(-r,-r,0), P(-r,r,0), P(-r,r,hgt), P(-r,-r,hgt), pc);
+          quad(a, P( r,-r,0), P( r,r,0), P( r,r,hgt), P( r,-r,hgt), pc);
+        }
+        drawArr(a);
       }
-      drawArr(a);
+    }
+
+    /* ── boost gates ────────────────────────────────────────────────────────────────────
+     * G.gates has existed since the mode shipped and this renderer never drew it: on the GL
+     * path the boost rings were invisible, so the only way to find one was to fly into it.
+     *
+     * The hitbox is a vertical cylinder — radius 1.4, ±0.9 in altitude — which has no facing,
+     * so the ring turns to meet you. A fixed yaw would show an edge-on line from the side
+     * while the game still let you fly through it, which is the worse lie. */
+    if (G.gates && G.gates.length) {
+      const gc = hex('#ffd23b');
+      const g = art('gate') ? artGeo('gate', ART.gate, gc)
+                            : (geo.gate || (geo.gate = mkvbo(gateVerts(gc))));
+      gl.bindBuffer(gl.ARRAY_BUFFER, g.vbo); bindAttribs();
+      gl.uniform1f(loc.uEmit, 1);
+      for (const gt of G.gates) {
+        const dx = wdel(gt.x - cam.x), dz = wdel(gt.y - cam.y);
+        if (Math.hypot(dx, dz) > FAR) continue;
+        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, M.mul(
+          M.T(dx, gt.alt || 0, dz), M.Ry(Math.atan2(-dx, -dz))))));
+        gl.drawArrays(gl.TRIANGLES, 0, g.count);
+      }
+      gl.uniform1f(loc.uEmit, 0);
+      gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
     }
 
     // ── ships ──
@@ -252,19 +399,20 @@ window.DFGL = (function () {
         const d = Math.hypot(dx, dz);
         if (d > FAR) continue;
         if (s.isMe && (G.view === 'cockpit')) continue;         // you don't see your own hull
-        const key = s.tint + '|' + (s.isMe ? 'me' : 'bot');
-        if (!geo[key]) geo[key] = mkvbo(craftVerts(hex(s.tint), [1, 1, 1]));
-        if (!geo['pod|' + s.tint]) geo['pod|' + s.tint] = mkvbo(podVerts(hex(s.tint)));
+        const key = s.tint + '|' + (s.isMe ? 'me' : 'bot'), col = hex(s.tint);
+        // authored hull when models/dogfight.glb has landed, the M1 delta wing until then
+        const g1 = art('craft') ? artGeo('craft', ART.craft, col)
+                                : (geo[key] || (geo[key] = mkvbo(craftVerts(col, [1, 1, 1]))));
+        const g2 = art('pod') ? artGeo('pod', ART.pod, col)
+                              : (geo['pod|' + s.tint] || (geo['pod|' + s.tint] = mkvbo(podVerts(col))));
         const mdl = M.mul(M.mul(M.mul(
           M.T(dx, s.alt, dz), M.Ry(-(s.h || 0) + Math.PI / 2)),
           M.Rz(-(s.bank || 0))), M.S(1, 1, 1));
         gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, mdl)));
-        const g1 = geo[key];
         gl.bindBuffer(gl.ARRAY_BUFFER, g1.vbo); bindAttribs();
         gl.drawArrays(gl.TRIANGLES, 0, g1.count);
         if (s.thrust || s.boost) {                              // engines glow
           gl.uniform1f(loc.uEmit, 1);
-          const g2 = geo['pod|' + s.tint];
           gl.bindBuffer(gl.ARRAY_BUFFER, g2.vbo); bindAttribs();
           gl.drawArrays(gl.TRIANGLES, 0, g2.count);
           gl.uniform1f(loc.uEmit, 0);
@@ -304,5 +452,7 @@ window.DFGL = (function () {
     return true;
   }
 
-  return { init, frame, supported: () => ok, post: () => post };
+  // `arts` is for headless checks: which authored parts actually landed (null = procedural)
+  return { init, frame, supported: () => ok, post: () => post,
+           arts: () => ART && Object.keys(ART) };
 })();

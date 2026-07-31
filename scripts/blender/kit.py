@@ -199,6 +199,111 @@ def crate(name, c, s=0.9, rz=0.0):
     return p.emit()
 
 
+def ring(name, c, r_major, r_minor, seg=24, ring_seg=8, rx=0.0):
+    """A torus — the race gate you fly through.
+
+    Built by hand rather than with bpy.ops.mesh.primitive_torus_add because the operator drops a
+    mesh at the 3D cursor with its own transform and rotation mode, and this kit's whole contract
+    is that a Part's vertices are already where they belong. `rx` tips it upright so the hole
+    faces down the flight path instead of at the sky.
+    """
+    p = Part(name)
+    ca, sa = math.cos(rx), math.sin(rx)
+    base = len(p.v)
+    for i in range(seg):
+        a = TAU * i / seg
+        cx, cy = math.cos(a) * r_major, math.sin(a) * r_major
+        for j in range(ring_seg):
+            b = TAU * j / ring_seg
+            rr, zz = math.cos(b) * r_minor, math.sin(b) * r_minor
+            x = cx + math.cos(a) * rr
+            y = cy + math.sin(a) * rr
+            z = zz
+            # tip about X so the gate stands upright
+            p.v.append((c[0] + x, c[1] + y * ca - z * sa, c[2] + y * sa + z * ca))
+    for i in range(seg):
+        i2 = (i + 1) % seg
+        for j in range(ring_seg):
+            j2 = (j + 1) % ring_seg
+            p.f.append((base + i * ring_seg + j,  base + i2 * ring_seg + j,
+                        base + i2 * ring_seg + j2, base + i * ring_seg + j2))
+    return p
+
+
+# ── aircraft frame ──────────────────────────────────────────────────────────────────────────
+# foil() and hull() share one convention, and it is NOT the level convention above:
+#
+#     +x = nose (chord runs fore/aft) · ±y = span · +z = up
+#
+# Levels are built around a floor and a player, so up is the axis that matters; an aircraft is
+# built around a centreline, so the long axis is. Author a craft nose-along-+x and rotate the
+# finished object at export time to whatever the renderer wants — see scripts/blender/
+# build-craft.py, which turns it -90° about z so glTF's +z comes out the nose.
+
+
+def foil(part, root, tip, chord_r, chord_t, thick_r, thick_t, sweep=0.0, axis='y'):
+    """A tapered lifting surface — wing, tailplane, fin.
+
+    Lofts a 4-sided section from root to tip, narrowing in both chord (front-to-back) and
+    thickness. `sweep` slides the tip aft (negative = swept back, the usual case). Crude next
+    to a real aerofoil, and exactly right at the size a fighter reads on screen: what carries
+    is the PLANFORM, and a swept taper reads as a wing from any angle a dogfight puts you at.
+
+    `axis='y'` is a horizontal surface (wing, tailplane) — span runs across, thickness up.
+    `axis='z'` is a vertical one (fin, rudder) — span runs up, thickness across. Without the
+    second case a fin has to be faked with a squashed wing, which shades wrong because the
+    thin dimension ends up on the wrong axis and the whole surface lights like a floor.
+
+    Appends into an existing Part so a whole aircraft stays ONE object — dogfight draws a ship
+    as a single VBO, so splitting it into parts would only cost draw calls.
+    """
+    def sect(centre, chord, thick):
+        cx, cy, cz = centre
+        h, t = chord / 2.0, thick / 2.0
+        if axis == 'z':
+            return [(cx - h, cy - t, cz), (cx + h, cy - t, cz), (cx + h, cy + t, cz), (cx - h, cy + t, cz)]
+        return [(cx - h, cy, cz - t), (cx + h, cy, cz - t), (cx + h, cy, cz + t), (cx - h, cy, cz + t)]
+    a = sect(root, chord_r, thick_r)
+    b = sect((tip[0] + sweep, tip[1], tip[2]), chord_t, thick_t)
+    base = len(part.v)
+    part.v.extend(a); part.v.extend(b)
+    for k in range(4):
+        k2 = (k + 1) % 4
+        part.f.append((base + k, base + k2, base + 4 + k2, base + 4 + k))
+    part.f.append((base + 3, base + 2, base + 1, base + 0))       # root cap
+    part.f.append((base + 4, base + 5, base + 6, base + 7))       # tip cap
+    return part
+
+
+def hull(part, sections):
+    """Loft a CHAIN of rectangular stations into a fuselage, nose-last along +x.
+
+    `sections` = [(x, width, height, dz), ...] ordered tail→nose. `width` runs across the span,
+    `height` up, and `dz` lifts that station so a spine can rise and a chin can drop.
+
+    This is the one shape foil() cannot make: foil lofts a single segment, and a fuselage built
+    as a run of separate foils meets at duplicated vertices, so every station shades as a hard
+    crease ring. Chaining through shared vertices is the whole point.
+
+    Four-sided on purpose. The procedural craft this replaces is flat-panelled, and dogfight's
+    look is neon low-poly — a smooth 16-sided body would read as a different game.
+    """
+    idx = []
+    for (x, w, h, dz) in sections:
+        hw, hh = w / 2.0, h / 2.0
+        base = len(part.v)
+        part.v.extend([(x, -hw, dz - hh), (x, hw, dz - hh), (x, hw, dz + hh), (x, -hw, dz + hh)])
+        idx.append(base)
+    for i in range(len(idx) - 1):
+        a, b = idx[i], idx[i + 1]
+        for k in range(4):
+            k2 = (k + 1) % 4
+            part.f.append((a + k, a + k2, b + k2, b + k))
+    part.f.append((idx[0] + 3, idx[0] + 2, idx[0] + 1, idx[0] + 0))            # tail cap
+    part.f.append((idx[-1] + 0, idx[-1] + 1, idx[-1] + 2, idx[-1] + 3))        # nose cap
+    return part
+
+
 def spawn(name, c):
     """An authored spawn point, emitted as a tiny marker object named `spawn_*`.
 
@@ -246,3 +351,47 @@ def export_obj(path, triangulate=True):
     print('EXPORTED %s — %d objects, ~%d faces, %d KB'
           % (path, len([o for o in bpy.data.objects if o.type == 'MESH']), n,
              os.path.getsize(path) // 1024))
+
+
+def export_glb(path):
+    """Write the scene as one GLB — for MODELS, where export_obj() is for levels.
+
+    A level goes out as OBJ because bake-world.mjs re-reads it, decimates it and emits .wld.
+    A model is loaded as-is by js/ronin-glb.js, so it may as well be shipped in the format that
+    loader already speaks: one binary file, every object a named part, no sidecars.
+
+    glTF's Y-up conversion is the exporter's default and is exactly what RoninGLB expects — the
+    loader does no axis fixing of its own, it just walks the node transforms. Materials, UVs,
+    skins and animation are all dropped: the renderer colours geometry per draw call, so a
+    baked material would be dead weight that also has to be licence-cleared.
+    """
+    import os
+    d = os.path.dirname(os.path.abspath(path))
+    if not os.path.isdir(d):
+        raise SystemExit('EXPORT_FAIL output directory is not a directory: %s' % d)
+    if not path.endswith('.glb'):
+        raise SystemExit('EXPORT_FAIL GLB path must end in .glb: %s' % path)
+    kw = dict(filepath=path, export_format='GLB', export_yup=True, export_apply=True,
+              export_materials='NONE', export_normals=True, export_texcoords=False,
+              export_animations=False, export_skins=False,
+              export_draco_mesh_compression_enable=False)
+    try:
+        bpy.ops.export_scene.gltf(**kw)
+    except TypeError:                                                       # older arg spelling
+        bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_yup=True,
+                                  export_apply=True, export_materials='NONE')
+    # Same reason as export_obj: the operator is silent on a bad path, and an "EXPORTED" line
+    # over a file that was never written means the game quietly ships yesterday's geometry.
+    if not os.path.isfile(path) or os.path.getsize(path) < 64:
+        raise SystemExit('EXPORT_FAIL nothing written to %s' % path)
+    meshes = [o for o in bpy.data.objects if o.type == 'MESH']
+    print('EXPORTED %s — %d parts, ~%d faces, %d KB'
+          % (path, len(meshes), sum(len(o.data.polygons) for o in meshes),
+             os.path.getsize(path) // 1024))
+    for o in sorted(meshes, key=lambda m: m.name):
+        b = [o.matrix_world @ v.co for v in o.data.vertices]
+        lo = [min(p[i] for p in b) for i in range(3)]
+        hi = [max(p[i] for p in b) for i in range(3)]
+        print('  PART %-14s %5d tris  extent %.2f × %.2f × %.2f'
+              % (o.name, len(o.data.loop_triangles) or len(o.data.polygons) * 2,
+                 hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]))
