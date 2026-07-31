@@ -287,14 +287,16 @@ function buildTextures() {
     return (h > 0.5 && inner) ? [0, 0, 0] : c;
   });
 
-  /* fx_grid — Nouns. The 32-lattice as a surface: flat fills, hard edges, nothing between cells,
-   * two-value checker so the grid is legible without being a chessboard. 8px cells over 256. */
+  /* fx_grid — Nouns. The 32-lattice as a surface: flat fills, hard edges, nothing between cells.
+   * ⚠ 16 px cells, not 8. At 8 the contact sheet showed static rather than a lattice — a 1 px
+   * grout line inside an 8 px cell is 12% of the cell, so the grout dominates and the fills never
+   * get to be fills. Nouns legibility comes from the FILL being the event and the edge merely
+   * bounding it; that only holds when the cell is comfortably bigger than its border. */
   out.fx_grid = tile((x, y) => {
-    const p = 8, gx = Math.floor(x / p), gy = Math.floor(y / p);
+    const p = 16, gx = Math.floor(x / p), gy = Math.floor(y / p);
     const h = Math.abs((Math.sin(gx * 45.3 + gy * 91.7) * 24634.6345) % 1);
-    const edge = (x % p === 0) || (y % p === 0);
-    if (edge) return hex(NOUNS.ink);
-    return hex(h > 0.90 ? NOUNS.stone : h > 0.60 ? NOUNS.slate : NOUNS.ink);
+    if (x % p < 2 || y % p < 2) return hex(NOUNS.ink);            // 2 px grout in a 16 px cell
+    return hex(h > 0.82 ? NOUNS.bone : h > 0.58 ? NOUNS.stone : h > 0.26 ? NOUNS.ash : NOUNS.slate);
   });
 
   /* fx_rule — Loot. The list surface: a black field with white rules and a left margin, and NO
@@ -311,23 +313,65 @@ function buildTextures() {
 
   for (const [name, buf] of Object.entries(out)) {
     writeFileSync(join(TEX, name + '.png'), png(S, S, buf));
+    seamCheck(name, buf);
   }
 
-  /* Contact sheet — 4×2 of the seven tiles. Looking at a directory listing tells you nothing
-   * about whether a pattern works; looking at them side by side at the size they will be seen
-   * tells you immediately which one is too busy. */
+  /* Contact sheet — 4×2 of the seven tiles, each shown as 2×2 of itself so the REPEAT is what you
+   * judge. A single tile in a box tells you nothing about the only property that matters here.
+   *
+   * ⚠ Downsampled by BOX AVERAGE, not by point sampling. The first version took every second
+   * pixel, which is catastrophic for fx_dither and fx_halftone: point-sampling a 1-bit ordered
+   * dither at 2× lands on the same phase of the Bayer cell every time and returns a near-solid
+   * field, so the sheet showed a white square where the actual tile is a full black-to-white
+   * ramp. Averaging is what an eye (or a mipmap) does, and it is the only honest preview of a
+   * pattern whose whole trick is that tone lives in the pattern.
+   */
   const cols = 4, rows = 2, cell = 128, W = cols * cell, H = rows * cell;
-  const sheet = Buffer.alloc(W * H * 4, 0);
+  const sheet = Buffer.alloc(W * H * 4, 255);
   const names = Object.keys(out);
   names.forEach((n, k) => {
     const cx = (k % cols) * cell, cy = Math.floor(k / cols) * cell;
     for (let y = 0; y < cell; y++) for (let x = 0; x < cell; x++) {
-      const si = ((y * 2) * S + (x * 2)) * 4, di = ((cy + y) * W + cx + x) * 4;
-      out[n].copy(sheet, di, si, si + 4);
+      const sx = (x * 4) % S, sy = (y * 4) % S;            // 4× shrink ⇒ 2×2 repeats per cell
+      const acc = [0, 0, 0];
+      for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) {
+        const si = (((sy + dy) % S) * S + ((sx + dx) % S)) * 4;
+        acc[0] += out[n][si]; acc[1] += out[n][si + 1]; acc[2] += out[n][si + 2];
+      }
+      const di = ((cy + y) * W + cx + x) * 4;
+      sheet[di] = acc[0] / 16; sheet[di + 1] = acc[1] / 16; sheet[di + 2] = acc[2] / 16; sheet[di + 3] = 255;
     }
   });
   writeFileSync(join(TEX, '_contact.png'), png(W, H, sheet));
   return names;
+}
+
+/* Every tile is bound with gl.REPEAT and sampled triplanar, so a discontinuity at the wrap is not
+ * one seam — it is a grid of them welded to the model. That is invisible in a directory listing
+ * and obvious in the game, i.e. the worst possible place to find out.
+ *
+ * The test: the mean absolute difference across the WRAP (row 255 → row 0) must be no worse than
+ * the typical difference between neighbouring interior rows. It cannot be zero — these patterns
+ * have hard edges everywhere, so an interior row-to-row step is large by design — which is why it
+ * is measured against the interior rather than against zero. Same in both axes. */
+function seamCheck(name, buf) {
+  const diff = (ai, bi, stride, n) => {
+    let s = 0;
+    for (let k = 0; k < n; k++) for (let c = 0; c < 3; c++) s += Math.abs(buf[ai + k * stride + c] - buf[bi + k * stride + c]);
+    return s / (n * 3);
+  };
+  for (const axis of ['y', 'x']) {
+    const idx = axis === 'y' ? (i, j) => (i * S + j) * 4 : (i, j) => (j * S + i) * 4;
+    const stride = axis === 'y' ? 4 : S * 4;
+    const wrap = diff(idx(S - 1, 0), idx(0, 0), stride, S);
+    let inner = 0;
+    for (let i = 0; i < S - 1; i++) inner += diff(idx(i, 0), idx(i + 1, 0), stride, S);
+    inner /= (S - 1);
+    // 1.5× headroom: an exact-tiling pattern lands at ~1.0×, a broken one at 5–20×.
+    if (wrap > Math.max(2, inner * 1.5)) {
+      throw new Error(`${name}.png does not tile in ${axis}: wrap step ${wrap.toFixed(1)} vs interior ${inner.toFixed(1)} — gl.REPEAT would show a grid of seams`);
+    }
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────────────────────
