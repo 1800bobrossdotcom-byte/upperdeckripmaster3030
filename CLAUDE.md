@@ -119,6 +119,27 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
+## Staking = the lens reads your balance (SuperRare's own documented input)
+SuperRare's *Introduction to Liquid Editions* says Liquid Lenses "can use that state as creative
+input" and names the inputs: **token price, trading activity, and HOLDER BALANCES**. That last one
+is the staking mechanism — no staking contract, no emissions, nothing to drain.
+
+- `UR3030RenderPrototype.sol` already reads `getMarketState()` and derives burn from
+  `maxTotalSupply − totalSupply`. It does **not** read `balanceOf`. **That is the missing input.**
+- Design: `tokenURI(id)` knows the lens's owner → read that owner's `$3030` balance → drive the
+  render from it, in **tiers**. The art acknowledges you; it does not pay you. That is the
+  anti-casino ethos ("the tangible prize is the having-done-it") expressed as a mechanic.
+- Composes with what exists: `claimHero()` already mints only against an EIP-712 voucher, so the
+  signer can gate hero eligibility on held balance with **no contract change**.
+- ⚠ Owner-dependent metadata is **not cacheable** and marketplaces cache `tokenURI` hard — check
+  how SuperRare's frontend refreshes lens media before committing.
+- ⚠ Balance is instantaneous, so it is borrowable for a snapshot. Fine when the prize is purely
+  aesthetic; **not** fine if it ever gates real value — use held-over-time, off-chain, for that.
+
+⛔ **SuperRare's public docs do NOT state** the creator revenue model, the buy/sell fee split and
+who receives it, the curve mechanism or any DEX graduation, or how the opening price is set.
+**Ask them. Do not model revenue until they answer.**
+
 ## Deploying the lens — see `docs/DEPLOY-LENS.md`
 - **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/UR3030Lens721.flat.sol`
   (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected
