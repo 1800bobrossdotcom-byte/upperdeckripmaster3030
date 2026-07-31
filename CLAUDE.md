@@ -494,6 +494,65 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   minority corner adopts the majority corner's bones. 113/4604 tris on kappa, 85/4217 on prizm →
   worst stretch 21.2×→6.0× and 9.0×→6.7×. Stride amplitude is also a quality knob, not just a
   look one — run swing 0.95→0.72 rad roughly halves the stretched-triangle count.
+- **Section 9 phase 3 — baked levels stop being sandstone.** ronin3d's `uMat` material system is
+  in `section9-gl.js`'s shared FS, but with ONE change that makes it portable: ronin3d keys its
+  patterns on `vL.y` and `atan(vL.z,vL.x)` — a cylinder wrapped round a fighter — which
+  degenerates on a room (a band keyed on y is a constant across a floor). The coordinate is now
+  picked **per fragment from the face normal**: drop the axis the surface points along, pattern
+  the other two. One material id then means the same thing on a floor, a wall and a shoulder,
+  which is what lets bodies and world share a shader. Per-surface assignment comes from the
+  **collision box a triangle's centroid sits inside** — those boxes ARE the authored objects, so
+  `S9World.kindOf` already names them; pillars/rails → brushed metal, crates → warm, up-facing →
+  mottled deck, else banded wall, plus contact-AO up each object's sides and per-triangle jitter.
+  ⚑ Three things only screenshots taught: (a) **mat 7 is right for a wall and wrong for a floor**
+  and it's the same material — `mp.y` is world y on a wall (horizontal courses) but world z on a
+  floor (a moiréing zebra); (b) **tints must neutralise hue without dropping luminance** — the
+  warm textures need blue lifted past 1.0, but scaling the whole thing down turned THE VAULT into
+  unreadable near-black, because a wall facing away from the key is lit by ambient alone so its
+  albedo IS its brightness; (c) **ambient goes UP indoors, not down** (0.33 → 0.45): outdoors the
+  sky is the fill, inside a concrete box the fill is bounce off six close surfaces. Interiors
+  also get a cool key + cool haze + **dark neutral sky** (a baked level has no infinite floor
+  plane, so you see past its edge; dusk orange at floor level reads as a bug). `S9World.LEVELS`
+  gained `open:true` for ROOFTOP — it is outdoors and keeps ENV. The six built-ins build with
+  `uMat 0`, no overrides, white vertex colours → byte-identical, verified by screenshot.
+- **Section 9 combat feel (Battlefield-ish round).** ⚑ **TTK is the load-bearing number.** At the
+  old 100 HP / 26 dmg an AK duel was ~0.63 s, and at that speed cover, suppression and visible
+  bullets cannot exist — nobody lives long enough to use them. Now **150 HP / 60 armour**, AK 17,
+  pistol 22, buckshot 9, rifle 88 ⇒ ~1.3 s. Two carve-outs keep aim worth having: headshot ×2.1
+  AND **armour soaks only 15% of a headshot vs 45% of a body hit** (without that, a long TTK
+  quietly deletes the sniper). **Out-of-combat regen** to 62% of max after 4.5 s clean — a
+  survivable fight is only interesting if disengaging is a real option.
+- **Tracers TRAVEL** (`G.tracers` carry dir + `p` + 340 m/s, not a pre-drawn full path). Damage is
+  still hitscan at the trigger pull — presentation only. Not every round traces (yours ~55%,
+  theirs ~42%): a round you see every time stops meaning anything. **Near-miss crack** when a shot
+  passes <2.2 m of the camera; the test clamps to the segment so a round that stops in a wall
+  behind you doesn't crack after it landed.
+- **Bots take cover — `bakeCover(MAP)` + a 5-state `stepBot`.** Cover points are the perimeter of
+  every solid tall enough to hide behind, baked once per map from **MAP.solids, which both map
+  kinds already have**. `pickCover` SCORES rather than filters (near · far side of the block ·
+  and above all **LOS from there to the target's eye is blocked**) so a bot in the open still
+  moves somewhere sane. States in priority order: cover · flank · suppress · push · patrol — the
+  point is that two of them make a bot deliberately NOT shoot at what it's looking at. **Being
+  shot sets `supT` + a last-known position** — that single line is what turns the longer TTK into
+  a firefight instead of a longer damage race. Flanking is a *committed* bearing held for seconds
+  (the old coin-flip every ~1 s read as vibrating). Barks → a quiet `#comms` feed under the
+  killfeed; generic archetype chatter, nothing lifted.
+- **Motion smear lives in `js/gfx-post.js`** (composite → accumulation target that samples the
+  previous one → blit; one extra pass, only on that path). ⚑ `blur` is read off the object handed
+  to `create()`, so `{...PRESET.neon, blur:0.3}` gives dogfight a smear without ronin inheriting
+  it. Every named preset is **0 except `tactical` (0.55)**. It is a CEILING: the game calls
+  `post.motion(0..1)` and the mix is motion × blur, so a still camera is pin sharp. Capped at
+  0.85 (feedback loop) and there is a **warm-up guard** — the first frame after allocation or a
+  resize has an uninitialised "previous" target and mixing it in is a frame of garbage.
+- **Arena texturing:** grime is **directional** (walls weep down, floors wear in patches) and it's
+  the direction that stops the eye reading a repeat — all inside the existing 256px tile, so no
+  memory/draw-call change. **Graffiti is wholly generated** (seeded stroke path → overspray,
+  outline, fill, highlight, drips): nothing traced or sampled, which is the only kind this repo
+  can ship. Placed from MAP.solids, seeded off the map NAME so an arena wears the same tags every
+  load. ⚠ Still reads as colour bands at range rather than legible marks — needs a closer pass.
+- Reload / weapon swap / respawn use the artist's recorded foley via `RipSfx` (`js/sfx-lib.js`),
+  not the oscillator kit; bots within 20 m are audible, because hearing someone reload is
+  tactical information.
 - **Section 9 also loads BAKED levels — `js/section9-world.js` (`S9World`), phase 1 of the port.**
   ARCADE PIT · THE VAULT · ROOFTOP are `models/world/*.wld` + `.cols.json` (`npm run level`),
   appended to the arena chips after the six built-ins. ⚑ **This is an adapter, not a renderer
