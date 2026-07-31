@@ -125,14 +125,15 @@ This is deliberately the same physics as the season ballot: conviction is
 combustion. A community that loves a common enough literally burns it into a
 prizm; a card the deck turns on burns out of the game.
 
-## 2.6 The Binder & market — collect, list, settle
+## 2.6 The Folder & market — collect, list, settle
 
-`cards/binder.html` is the collector's folder: nine-pocket pages you turn like a
-book, showing your owned cards (**My cards**) or the whole deck as a checklist
-with unowned pockets ghosted **FIND IT** (**Full set**). Opening a pocket gives
-the card's stats and its market actions.
+`cards/binder.html` is **the Folder**: nine-pocket pages you turn like a book,
+holding the deck itself. Pulling a card out of its sleeve flies it into the
+starfield viewer, where it becomes the live 3D lens (`js/card3d.js`, the same
+renderer a token's `animation_url` frames).
 
-The same page is the **market bench**. It is an order book, not a treasury:
+`cards/market.html` is the **market bench** — the vault of what you own, and
+where you deal it. It is an order book, not a treasury:
 
 - **Sell / trade** — list a card from your binder for an ask in $UR3030 or an
   open want. Listings persist on-device (`urm_market`) as a signed intent; a

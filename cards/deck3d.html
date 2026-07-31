@@ -1,78 +1,19 @@
 <!doctype html>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>RIPMASTER3030STUDIOS — 3D DECK</title>
+<title>The Folder · ripmaster3030studios</title>
 <!--
-  upperdeckripmaster3030 — the artist's own cards (34–49) as dynamic 3D cards.
-
-  Every card here is REAL ARTWORK by the artist, not placeholder deck filler. The web copies
-  are downscaled to 1024px tall webp: 31.6 MB of source PNG becomes 3.08 MB, which is the
-  difference between a gallery that loads on a phone and one that does not.
-
-  Click any card to open it full-size in cards/lens3d.html, which is the same renderer the
-  token's animation_url would frame.
+  The 3D deck gallery became THE FOLDER and now lives at cards/binder.html — the same cards, in
+  nine-pocket pages, with the starfield pop-out. This path is kept because it was already shared
+  as a live link, and a shared link that 404s is worse than a redirect.
+  Hashes carry over: deck3d.html#34 lands on binder.html#hero-34.
 -->
-<style>
-  :root{--ink:#07070a;--line:rgba(255,255,255,.12);--dim:#7f8b97}
-  *{box-sizing:border-box}
-  html,body{margin:0;background:var(--ink);color:#e8eef5;
-            font:400 14px/1.5 Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%}
-  header{padding:26px 5vw 8px;border-bottom:1px solid var(--line)}
-  h1{margin:0;font-size:clamp(18px,3.2vw,30px);font-weight:700;letter-spacing:.12em;
-     text-transform:uppercase}
-  .sub{color:var(--dim);font-size:12px;letter-spacing:.09em;text-transform:uppercase;margin-top:6px}
-  .note{color:var(--dim);font-size:12px;max-width:64ch;margin:12px 0 0;line-height:1.65}
-  .grid{display:grid;gap:clamp(14px,2.4vw,26px);padding:26px 5vw 60px;
-        grid-template-columns:repeat(auto-fill,minmax(min(230px,46vw),1fr))}
-  a.card{display:block;text-decoration:none;color:inherit;position:relative;
-         aspect-ratio:2/3;border-radius:3.4%;overflow:hidden;background:#0c0c12;
-         box-shadow:0 10px 26px rgba(0,0,0,.6),0 0 0 1px var(--line) inset;
-         transform-style:preserve-3d;transition:transform .16s ease-out,box-shadow .16s}
-  a.card:hover{box-shadow:0 18px 44px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.3) inset}
-  a.card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  a.card .sheen{position:absolute;inset:0;mix-blend-mode:screen;opacity:0;transition:opacity .16s;
-        background:linear-gradient(115deg,transparent 36%,rgba(255,255,255,.42) 50%,transparent 64%)}
-  a.card:hover .sheen{opacity:1}
-  a.card .n{position:absolute;left:0;right:0;bottom:0;padding:26px 8% 7%;
-     font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
-     background:linear-gradient(transparent,rgba(0,0,0,.88) 55%);text-shadow:0 2px 6px #000}
-  a.card .num{position:absolute;top:5%;left:7%;font-weight:700;font-size:11px;
-     letter-spacing:.1em;color:#0a0a0c;background:#ffd23b;padding:3px 7px;border-radius:4px}
-  footer{padding:0 5vw 50px;color:var(--dim);font-size:11px;letter-spacing:.06em}
-</style>
-
-<header>
-  <h1>Ripmaster3030studios — 3D deck</h1>
-  <div class="sub">15 cards · live 3D lens · click any card</div>
-  <p class="note">
-    Each card opens as a real 3D object: the artwork carries its own relief from a normal map
-    derived out of the image, the border is raised geometry rather than a drawn line, and the
-    layers parallax as it tilts. Move your pointer over an open card — or tilt the phone.
-    It runs inside a sandboxed frame at 320px, which is what a marketplace media slot is.
-  </p>
-</header>
-
-<div class="grid" id="g"></div>
-<footer>Artwork © the artist. Web copies downscaled from source PNG. NFA — experimental art project.</footer>
-
+<link rel="canonical" href="binder.html">
+<meta name="robots" content="noindex">
 <script>
-const g = document.getElementById('g');
-fetch('hero-manifest.json').then(r => r.json()).then(list => {
-  g.innerHTML = list.map(c => `
-    <a class="card" href="lens3d.html?hero=${c.number}" title="${c.title.replace(/"/g,'&quot;')}">
-      <img loading="lazy" src="${c.art}" alt="${c.title.replace(/"/g,'&quot;')}">
-      <div class="sheen"></div>
-      <div class="num">${String(c.number).padStart(2,'0')}</div>
-      <div class="n">${c.title}</div>
-    </a>`).join('');
-  // a little tilt on hover so the grid itself hints at what a card does when you open it
-  g.querySelectorAll('a.card').forEach(el => {
-    el.addEventListener('pointermove', e => {
-      const r = el.getBoundingClientRect();
-      const x = ((e.clientX - r.left) / r.width - .5) * 2, y = ((e.clientY - r.top) / r.height - .5) * 2;
-      el.style.transform = `perspective(800px) rotateX(${-y*7}deg) rotateY(${x*8}deg) translateZ(6px)`;
-    }, { passive:true });
-    el.addEventListener('pointerleave', () => { el.style.transform = ''; });
-  });
-}).catch(e => { g.innerHTML = '<p style="color:#7f8b97">deck manifest unavailable</p>'; });
+  var n = parseInt(location.hash.slice(1), 10);
+  location.replace('binder.html' + (n ? '#hero-' + n : ''));
 </script>
+<style>body{margin:0;background:#020804;color:#2bff80;font:12px/1.6 'Courier New',monospace;
+  display:grid;place-items:center;height:100vh;letter-spacing:.2em;text-transform:uppercase}
+  a{color:#ffd23b}</style>
+<p>the folder moved → <a href="binder.html">cards/binder.html</a></p>

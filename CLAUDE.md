@@ -269,6 +269,39 @@ and performs WalletConnect burns — it is **NOT** for embedding.
 - Public pages `whitepaper/tokenomics/audit/artist` are **generated** by
   `scripts/build-pages.mjs` — edit the source + regenerate, don't edit the HTML directly.
   PDF deck via `scripts/build-whitepaper.mjs`.
+- **THE FOLDER — `cards/binder.html`.** Nine-pocket binder pages you turn; pulling a card out of
+  its sleeve flies it (FLIP: measure pocket → measure destination → move a plain `<img>` between
+  them) into the **starfield viewer**, where it becomes the live 3D card. The warp is lifted from
+  the landing page's pack-rip modal **unchanged on purpose** — opening a card from the folder and
+  pulling one from a pack should be the same event. Two decks behind chips, labelled: the
+  artist's cards (`hero-manifest.json`) and the placeholder set (`manifest.json`); they are never
+  merged, because merging them would invent canon. Deep links: `#hero-34`.
+  ⚑ The old binder was **the folder AND the market bench**; the market/vault half moved to
+  `cards/market.html` rather than being deleted. `cards/deck3d.html` is a redirect (that URL had
+  already been shared). Fails open at every step — no engine ⇒ flat card in a starfield.
+- **`js/card3d.js` (`Card3D`) is the ONE dynamic 3D card**, used by the folder's viewer and by
+  `cards/lens3d.html` (which is what a token's `animation_url` frames). It lived inline in
+  lens3d first; the moment a second page wanted the same card there were two copies of the
+  colour-management fix, i.e. two chances to lose it. `Card3D.engine(base)` loads the engine
+  once; `Card3D.build({canvas, box, tilt, env})` returns `{setArt, setRarity, resize, destroy}`
+  or **null** (never throws).
+- ⚑ **THE WASH, SECOND EDITION — `useSkybox:false` on the artwork.** Giving the card an
+  environment map (`models/env/*.png`, RGBM8 equirect) was right: a raised metal bevel with
+  nothing to reflect is just a grey edge. But a StandardMaterial samples that environment for
+  **ambient specular too**, and on the art plate that lands as a broad milky sheen — measured
+  against the flat artwork as lifted blacks and lost saturation. Identical symptom to the CSS
+  `.glare` bug, completely different cause. **The environment is scoped: metal reflects it, the
+  ARTWORK never does.** The travelling highlight that sells the relief comes from the KEY light,
+  which is directional and moves as the card turns; a flat ambient sheen never did that job.
+- ⚑ **Judge card colour by A/B, not by absolute numbers.** SwiftShader screenshots in this
+  container are not colour-faithful, so a number off one screenshot means nothing. Shoot the 3D
+  card AND the same artwork flat at the same pixel size through the SAME path, then decode both
+  PNGs in the browser (`getImageData` is exact) and compare. `readPixels` on the live canvas
+  returns zeros — no `preserveDrawingBuffer`, so the buffer is already cleared.
+- ⚠ `display:inline-block` **beats the user agent's `[hidden]{display:none}`**. Any rule that
+  sets `display` has to also say what hidden means, or hidden stops meaning anything.
+- ⚠ `pkill -f <pattern>` matches **the bash command line running it**, so a script that pkills
+  its own name kills its own shell. Cost two silent test runs that looked like hangs.
 
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:

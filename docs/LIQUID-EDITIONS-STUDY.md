@@ -131,10 +131,11 @@ fresh $UR3030 sink, i.e. more §1 pressure):
 - **Consensus retire** (LIVE) — a card only falls off the island once a *quorum*
   of distinct wallets has downvoted it, not when one whale out-burns everyone;
   the lens can show a card's downvoter count filling toward the quorum.
-- **Binder + market** (LIVE at `cards/binder.html`): a nine-pocket collector
-  folder with turning pages (owned cards, or the full-set checklist with unowned
-  pockets ghosted) that doubles as the **marketplace** — list cards for sale or
-  trade, or buy/trade the house shelf. Listings are a local order book that
+- **The Folder** (LIVE at `cards/binder.html`): a nine-pocket collector folder
+  with turning pages; pulling a card out of its sleeve flies it into the
+  starfield viewer as the live 3D lens. The **market bench** (`cards/market.html`)
+  is the vault of what you own — list cards for sale or trade, or buy/trade the
+  house shelf. Listings are a local order book that
   settles on-chain through the existing `trade`/`sendCard` burns (no treasury);
   every settle shrinks supply. See CARD-ECONOMY-SPEC §2.6.
 - **Evolve / level a card** — `feed(id, amount)` burns tokens into a card to

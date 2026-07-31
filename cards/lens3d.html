@@ -164,255 +164,37 @@ let usingGL = false;
  * The whole experiment. A <script src> to our own host, loaded from inside whatever frame
  * this ends up in. If it lands we build a real lit 3D card; if it does not, nothing happens
  * and the CSS card above keeps running. `?nogl` forces the fallback so the degraded path can
- * be checked deliberately rather than only by accident. */
+ * be checked deliberately rather than only by accident.
+ *
+ * The card itself is js/card3d.js — the SAME module the folder's starfield viewer uses. It
+ * lived inline here first, and the moment a second page wanted the same card there were two
+ * copies of the colour-management fix, which is two chances to lose it. */
 if (!qs.has('nogl')) {
   const s = document.createElement('script');
-  s.src = new URL('../vendor/playcanvas/playcanvas.min.js', location.href).href;
-  s.onload = () => { try { build3D(); } catch (e) { $('mode').textContent = 'css fallback (engine error)'; } };
-  s.onerror = () => { $('mode').textContent = 'css fallback (engine blocked)'; };
+  s.src = new URL('../js/card3d.js', location.href).href;
+  s.onload = () => Card3D.engine('../')
+    .then(() => { try { build3D(); } catch (e) { $('mode').textContent = 'css fallback (engine error)'; } })
+    .catch(() => { $('mode').textContent = 'css fallback (engine blocked)'; });
+  s.onerror = () => { $('mode').textContent = 'css fallback (module blocked)'; };
   document.head.appendChild(s);
 }
 
 function build3D() {
-  if (!window.pc) return;
+  if (!window.pc || !window.Card3D) return;
   const cv = document.createElement('canvas');
   $('card').insertBefore(cv, $('fb'));
-  const app = new pc.Application(cv, { graphicsDeviceOptions: { alpha:true, antialias:true } });
-  if (!app.graphicsDevice) return;
-  /* ⚑ COLOUR MANAGEMENT — this was the bug behind "diminished in colour with flatness".
-   * Card art is sRGB data. Uploaded without saying so, the engine treats the bytes as LINEAR,
-   * which lifts the mid-tones, crushes contrast and desaturates everything — precisely the
-   * washed-grey look. Card 45 has crushed blacks and hot whites in the source and came back as
-   * flat blue-grey. Declaring the swap chain sRGB and tagging the textures fixes it at source;
-   * no amount of saturation-pushing afterwards would have, because the transfer function was
-   * wrong rather than the values.
-   * Tonemapping stays NONE on purpose: these are finished artworks, not HDR renders. ACES
-   * would re-grade the artist's own colour. */
-  if ('gammaCorrection' in app.scene) app.scene.gammaCorrection = pc.GAMMA_SRGB;
-  if ('toneMapping' in app.scene) app.scene.toneMapping = pc.TONEMAP_NONE;
-  app.setCanvasFillMode(pc.FILLMODE_NONE);
-  app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  const fit = () => { const r = $('card').getBoundingClientRect();
-    // dpr capped: a card is small and every post pass scales with backing store
-    app.graphicsDevice.maxPixelRatio = Math.min(devicePixelRatio || 1, 2);
-    app.resizeCanvas(r.width, r.height); };
-  fit(); addEventListener('resize', fit);
-
-  const cam = new pc.Entity('cam');
-  cam.addComponent('camera', { clearColor: new pc.Color(0.02,0.02,0.04,0), fov: 28 });
-  cam.setPosition(0, 0, 3.4); app.root.addChild(cam);
-
-  const key = new pc.Entity('key');
-  key.addComponent('light', { type:'directional', color:new pc.Color(1,.96,.9), intensity:1.5,
-                              castShadows:true, shadowBias:0.2, shadowResolution:1024 });
-  key.setEulerAngles(52, 158, 0); app.root.addChild(key);   // raking, so the normal map has something to catch
-  const rim = new pc.Entity('rim');
-  rim.addComponent('light', { type:'omni', color:new pc.Color(.25,.9,1), intensity:2.4, range:9 });
-  rim.setPosition(-1.8, 1.2, 1.6); app.root.addChild(rim);
-
-  /* Depth is the entire point. A flat PNG on a tilting plane is still flat; SEPARATED layers
-   * parallax against each other and that is what reads as three-dimensional. Three slabs at
-   * different z, plus a thick card body with real edges catching the key light. */
-  const root = new pc.Entity('card'); app.root.addChild(root);
-  const W = 1.0, H = 1.5;
-
-  const mkMat = (o) => { const m = new pc.StandardMaterial(); Object.assign(m, o); m.update(); return m; };
-  const body = new pc.Entity('body');
-  body.addComponent('render', { type:'box', castShadows:true, receiveShadows:true });
-  body.setLocalScale(W*1.02, H*1.02, 0.035);
-  body.render.material = mkMat({ diffuse:new pc.Color(.06,.06,.08), metalness:.35, gloss:.34, useMetalness:true });
-  root.addChild(body);
-
-  const plate = (z, sx, sy) => { const e = new pc.Entity();
-    e.addComponent('render', { type:'plane', castShadows:false, receiveShadows:true });
-    e.setLocalEulerAngles(90, 0, 0); e.setLocalScale(sx, 1, sy); e.setLocalPosition(0, 0, z);
-    root.addChild(e); return e; };
-  /* raised bevel — four thin boxes standing proud of the face. A drawn border is a picture of
-   * an edge; this one occludes, shadows and catches the key light as the card turns. */
-  const bev = (x0, y0, sx, sy) => { const e = new pc.Entity();
-    e.addComponent('render', { type:'box', castShadows:true, receiveShadows:true });
-    e.setLocalScale(sx, sy, 0.030); e.setLocalPosition(x0, y0, 0.038);
-    e.render.material = mkMat({ diffuse:new pc.Color(.14,.14,.17), metalness:.85, gloss:.55,
-                                useMetalness:true });
-    root.addChild(e); return e; };
-  const bw = 0.035, iw = W*0.955, ih = H*0.955;
-  bev(0,  ih/2, iw + bw, bw); bev(0, -ih/2, iw + bw, bw);
-  bev(-iw/2, 0, bw, ih + bw); bev( iw/2, 0, bw, ih + bw);
-
-  const back = plate(0.019, W*0.99, H*0.99);
-  const art  = plate(0.030, W*0.90, H*0.90);
-  const fx   = plate(0.045, W*0.99, H*0.99);
-
-  /* ── making it not flat ────────────────────────────────────────────────────────────────
-   * First pass was a lit plane with the art painted on it, and it read exactly like that: a
-   * picture, not an object. Three things fix it, and none needs authored input:
-   *
-   *   1. A NORMAL MAP DERIVED FROM THE ART ITSELF. Sobel the luminance and pack the gradient
-   *      into a tangent-space normal. The artwork then has relief — ink sits proud, edges
-   *      catch the key light, and the highlight travels across the drawing as the card turns.
-   *      This is the single biggest change, and it costs one canvas pass at load.
-   *   2. CARD STOCK. Real cards are not glass. A fine procedural grain in the normal, plus a
-   *      gloss map that varies, so the surface has tooth instead of a uniform sheen.
-   *   3. A RAISED BEVEL, as geometry rather than a drawn line — a border you can see the
-   *      thickness of from an angle is what tells the eye this is a physical object.
-   *
-   * ⚑ Sobel strength is a real trade: too little and it stays flat, too much and the art turns
-   *   into hammered metal and the drawing stops reading. 2.2 keeps the ink legible. */
-  function normalFromImage(img, strength) {
-    const W = 512, H = Math.round(W * img.height / img.width) || 512;
-    const c = document.createElement('canvas'); c.width = W; c.height = H;
-    const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
-    const src = x.getImageData(0, 0, W, H), d = src.data;
-    let lum = new Float32Array(W * H);
-    for (let i = 0, p = 0; i < d.length; i += 4, p++)
-      lum[p] = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) / 255;
-    /* ⚑ LOW-PASS BEFORE THE GRADIENT, and this is the whole lesson from card 35.
-     * A normal map built off raw luminance embosses every INK STROKE, so on already-detailed
-     * line art the relief competes with the drawing and wins — the card turned into hammered
-     * pewter and the artwork stopped reading. Auto-calibrating the gain did not fix it,
-     * because the problem was never the amount; it was the FREQUENCY.
-     * Blurring first keeps only the big forms — a face, a hat, a torso — so the card gains the
-     * gentle relief of thick ink on stock while the drawing itself stays flat and legible.
-     * Separable box blur, two passes, which is close enough to a gaussian at this size. */
-    const blur = (src, radius) => {
-      const tmp = new Float32Array(W * H), out2 = new Float32Array(W * H);
-      const run = (from, to, horiz) => {
-        for (let y = 0; y < H; y++) for (let x2 = 0; x2 < W; x2++) {
-          let a = 0, c = 0;
-          for (let k = -radius; k <= radius; k++) {
-            const xx = horiz ? Math.min(W-1, Math.max(0, x2 + k)) : x2;
-            const yy = horiz ? y : Math.min(H-1, Math.max(0, y + k));
-            a += from[yy * W + xx]; c++;
-          }
-          to[y * W + x2] = a / c;
-        }
-      };
-      run(src, tmp, true); run(tmp, out2, false);
-      return out2;
-    };
-    lum = blur(blur(lum, 4), 4);
-    const out = x.createImageData(W, H), o = out.data;
-    const at = (px, py) => lum[Math.min(H-1,Math.max(0,py)) * W + Math.min(W-1,Math.max(0,px))];
-    const sob = (px, y) => [
-      (at(px+1,y-1) + 2*at(px+1,y) + at(px+1,y+1)) - (at(px-1,y-1) + 2*at(px-1,y) + at(px-1,y+1)),
-      (at(px-1,y+1) + 2*at(px,y+1) + at(px+1,y+1)) - (at(px-1,y-1) + 2*at(px,y-1) + at(px+1,y-1))];
-    /* ⚑ SELF-CALIBRATE, because a fixed strength cannot work across different artwork. A soft
-     * painterly card needs a lot of gain to show any relief; a card full of fine line work has
-     * enormous gradient energy already and the SAME gain turns it into embossed metal with the
-     * drawing destroyed — which is exactly what happened on card 35. So: measure the image's
-     * own mean gradient on a sample, then set the gain so every card lands at the same relief
-     * regardless of how busy it is. `strength` becomes a target, not a multiplier. */
-    let acc = 0, n = 0;
-    for (let y = 1; y < H - 1; y += 3) for (let px = 1; px < W - 1; px += 3) {
-      const [a, b] = sob(px, y); acc += Math.hypot(a, b); n++;
-    }
-    const mean = (acc / Math.max(1, n)) || 0.001;
-    const gain = Math.min(9, strength * 0.10 / mean);   // blurred input needs more gain, safely
-    for (let y = 0; y < H; y++) for (let px = 0; px < W; px++) {
-      const [gx, gy] = sob(px, y);
-      // fine paper tooth, deterministic so the card is identical every load
-      const grain = (Math.sin(px * 12.9898 + y * 78.233) * 43758.5453 % 1) * 0.035;
-      let nx = -gx * gain + grain, ny = -gy * gain + grain, nz = 1;
-      const L = Math.hypot(nx, ny, nz) || 1;
-      const i = (y * W + px) * 4;
-      o[i]   = (nx/L * 0.5 + 0.5) * 255;
-      o[i+1] = (ny/L * 0.5 + 0.5) * 255;
-      o[i+2] = (nz/L * 0.5 + 0.5) * 255;
-      o[i+3] = 255;
-    }
-    x.putImageData(out, 0, 0);
-    const t = new pc.Texture(app.graphicsDevice, { mipmaps:true });
-    t.setSource(c); return t;
-  }
-
-  const texFor = (url, cb) => {
-    // srgb where the runtime supports the flag; harmless where it does not
-    const opts = { mipmaps:true, addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE };
-    if (pc.PIXELFORMAT_SRGBA8 !== undefined) opts.format = pc.PIXELFORMAT_SRGBA8;
-    let t; try { t = new pc.Texture(app.graphicsDevice, opts); }
-    catch (e) { t = new pc.Texture(app.graphicsDevice, { mipmaps:true }); }
-    if ('srgb' in t) t.srgb = true;
-    const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => { t.setSource(img); cb(t, img); }; img.onerror = () => {}; img.src = url; };
-
-  function retex() {
-    if (!ART) return;
-    texFor(ART, (t, img) => {
-      let nrm = null;
-      try { nrm = normalFromImage(img, 1.0); } catch (e) { nrm = null; }   // fail open: just flatter
-      /* The art is lit by an emissive map at FULL strength rather than a diffuse map under
-       * lights. That sounds odd for a 3D object and it is the right call here: a finished
-       * artwork should arrive at the viewer's eye the way the artist left it, not re-graded by
-       * whatever key light happens to be in the scene. The relief and the foil come from the
-       * normal map and the sweep on the plates above; the COLOUR is untouched.
-       * metalness 0 too — a metalness workflow tints diffuse toward the base colour and was
-       * quietly desaturating the art. */
-      art.render.material = mkMat({ emissiveMap:t, emissive:new pc.Color(1,1,1),
-        diffuse:new pc.Color(0,0,0), normalMap:nrm, bumpiness:.42,
-        gloss:.5, metalness:0, useMetalness:false });
-      back.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.5,
-        diffuse:new pc.Color(.16,.16,.2), gloss:.25 });
-    });
-  }
-  retex(); window.__pcCard = { retex };
-
-  /* ── holographic sweep ─────────────────────────────────────────────────────────────────
-   * ⚑ Two bugs found by LOOKING at the first render, which came out uniformly magenta with
-   *   the artwork barely readable underneath:
-   *
-   *   1. With BLEND_ADDITIVE, `opacity` does NOT attenuate the contribution — additive adds
-   *      src to dst regardless, so an emissive colour set to (0.9, 0.5, 1.0) was being added
-   *      at FULL strength across the whole card no matter how low opacity went. The amount
-   *      has to be baked into the emissive colour itself.
-   *   2. It was a flat plate, so the "sweep" tinted the entire face at once. Real foil is a
-   *      narrow BAND that travels; a uniform wash just looks like the card is the wrong colour.
-   *
-   * So the band is a texture now — a diagonal gradient stripe, scrolled — and its strength
-   * lives in the emissive colour. The art stays the subject; the foil is an event that
-   * crosses it. */
-  const bandTex = (() => {
-    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
-    const x = c.getContext('2d');
-    x.fillStyle = '#000'; x.fillRect(0, 0, S, S);
-    const g = x.createLinearGradient(0, 0, S, S);
-    g.addColorStop(0.00, 'rgba(0,0,0,0)');   g.addColorStop(0.40, 'rgba(0,0,0,0)');
-    g.addColorStop(0.47, 'rgba(120,190,255,1)');
-    g.addColorStop(0.50, 'rgba(255,255,255,1)');
-    g.addColorStop(0.53, 'rgba(255,140,230,1)');
-    g.addColorStop(0.60, 'rgba(0,0,0,0)');   g.addColorStop(1.00, 'rgba(0,0,0,0)');
-    x.fillStyle = g; x.fillRect(0, 0, S, S);
-    const t = new pc.Texture(app.graphicsDevice, { mipmaps:true,
-      addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT });
-    t.setSource(c); return t;
-  })();
-  const holo = mkMat({ diffuse:new pc.Color(0,0,0), emissiveMap:bandTex,
-                       emissive:new pc.Color(.10,.10,.10),
-                       blendType:pc.BLEND_ADDITIVE, depthWrite:false });
-  fx.render.material = holo;
-
-  const rar = RARITY[CARD.rarity] || RARITY.common;
-  const rc = new pc.Color().fromString(rar);
-  rim.light.color = new pc.Color(rc.r, rc.g, rc.b);
-
-  let t = 0;
-  app.on('update', dt => {
-    t += dt;
-    root.setLocalEulerAngles(-tilt.y * 13, tilt.x * 16, tilt.x * -2);
-    // layers slide against each other by depth — the parallax that sells it
-    art.setLocalPosition(tilt.x * -0.022, tilt.y * 0.022, 0.030);
-    back.setLocalPosition(tilt.x * 0.016, tilt.y * -0.016, 0.019);
-    /* Scroll the band across the face, and let TILT drive how hot it gets — foil catches
-     * light when you move the card, which is the whole gesture we are imitating. Strength
-     * goes in the emissive colour, never in opacity: additive ignores opacity. */
-    holo.emissiveMapOffset = new pc.Vec2(-((t * 0.16) % 1), 0);
-    // additive lifts blacks, and this art has real blacks — so idle is nearly nothing
-    const heat = 0.012 + 0.115 * Math.min(1, Math.hypot(tilt.x, tilt.y));
-    holo.emissive = new pc.Color(heat, heat, heat);
-    holo.update();
+  const ctrl = Card3D.build({
+    canvas: cv, box: $('card'), tilt: () => tilt,
+    /* An environment for the raised metal bevel to reflect. A metal edge with nothing to
+     * reflect is just a grey edge, which is how the first pass read. Optional and quiet:
+     * blocked or missing, the card is still lit by its own key and rim. */
+    env: new URL('../models/env/satara_night.png', location.href).href,
   });
-
-  app.start();
+  if (!ctrl) { $('mode').textContent = 'css fallback (no webgl)'; return; }
+  ctrl.setArt(ART); ctrl.setRarity(CARD.rarity);
+  window.__pcCard = { retex: () => { ctrl.setArt(ART); ctrl.setRarity(CARD.rarity); } };
   usingGL = true;
+
   /* ⚑ THE WASH. This is what made the cards read "diminished in colour with flatness".
    * The CSS fallback is kept in the DOM because its TEXT is crisper than anything GL can draw
    * at this size — but the fallback also carries a .glare (white diagonal, opacity .5,
@@ -429,6 +211,6 @@ function build3D() {
   $('fb').style.background = 'transparent';
   $('fb').style.boxShadow = 'none';
   $('fb').style.transform = 'none';                    // GL owns the tilt now; do not double it
-  $('mode').textContent = 'playcanvas 3d · engine loaded';
+  $('mode').textContent = 'playcanvas 3d \u00b7 engine loaded';
 }
 </script>
