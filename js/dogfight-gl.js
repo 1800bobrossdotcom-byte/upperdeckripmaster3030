@@ -55,18 +55,50 @@ window.DFGL = (function () {
 
   const STRIDE = 9;   // pos3 + norm3 + col3
 
+  /* ── surface shading ───────────────────────────────────────────────────────────────────
+   * M1 lit everything with `0.34 + 0.78·max(0,N·L)` — one lambert term over flat ambient. On
+   * faceted low-poly that reads as coloured cardboard: every face is a single flat value, the
+   * terminator bands hard, and nothing anywhere is shiny, so a metal hull and a painted wall
+   * shade identically. Four cheap additions do most of the work of a real material:
+   *
+   *   HEMISPHERE AMBIENT  sky colour from above, ground bounce from below, instead of a flat
+   *                       constant. Undersides go cool and dark, tops pick up the sky — the
+   *                       single biggest cue that an object is sitting in an environment.
+   *   WRAPPED DIFFUSE     the terminator is pushed around the form rather than clipped at
+   *                       N·L=0, which stops faceted geometry banding into hard wedges.
+   *   BLINN-PHONG SPEC    a hull now has a highlight that slides as you turn. Without it,
+   *                       nothing reads as a surface with a finish.
+   *   FRESNEL RIM         grazing angles pick up sky colour. This is what separates a
+   *                       silhouette from the fog behind it at distance.
+   *
+   * ⚠ Two-sided on purpose: this renderer disables CULL_FACE, so a back-facing triangle would
+   *   otherwise shade black. Flipping N toward the viewer keeps thin geometry (wings, the
+   *   gate ring, prop shells) lit from both sides.
+   */
   const VS = 'attribute vec3 aPos; attribute vec3 aNorm; attribute vec3 aCol;' +
-    'uniform mat4 uMVP; varying vec3 vN; varying vec3 vC; varying float vD;' +
-    'void main(){ vN=aNorm; vC=aCol; vec4 p=uMVP*vec4(aPos,1.0); vD=p.w; gl_Position=p; }';
-  const FS = 'precision mediump float; varying vec3 vN; varying vec3 vC; varying float vD;' +
+    'uniform mat4 uMVP; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying float vD;' +
+    'varying vec3 vW;' +
+    'void main(){ vN=(uM*vec4(aNorm,0.0)).xyz; vC=aCol; vW=(uM*vec4(aPos,1.0)).xyz;' +
+    ' vec4 p=uMVP*vec4(aPos,1.0); vD=p.w; gl_Position=p; }';
+  const FS = 'precision mediump float;' +
+    'varying vec3 vN; varying vec3 vC; varying float vD; varying vec3 vW;' +
     'uniform vec3 uLight; uniform vec3 uFog; uniform vec2 uFogND; uniform float uEmit;' +
+    'uniform vec3 uEye; uniform vec3 uSunCol; uniform vec3 uSky; uniform vec3 uGnd;' +
+    'uniform float uSpec; uniform float uAlpha;' +
     'void main(){' +
     ' vec3 c;' +
     ' if(uEmit>0.5){ c=vC; }' +                                  // grid, bolts, anything glowing
-    ' else { float d=max(0.0,dot(normalize(vN),normalize(uLight)));' +
-    '        c=vC*(0.34+0.78*d); }' +
+    ' else {' +
+    '   vec3 N=normalize(vN), L=normalize(uLight), V=normalize(uEye-vW);' +
+    '   if(dot(N,V)<0.0) N=-N;' +                                // two-sided: CULL_FACE is off
+    '   vec3 amb=mix(uGnd,uSky,N.y*0.5+0.5);' +
+    '   float wrap=max(0.0,(dot(N,L)+0.35)/1.35);' +
+    '   vec3 Hv=normalize(L+V);' +
+    '   float spec=pow(max(0.0,dot(N,Hv)),40.0)*uSpec*max(0.0,dot(N,L));' +
+    '   float fres=pow(1.0-max(0.0,dot(N,V)),3.0);' +
+    '   c=vC*(amb+uSunCol*wrap) + uSunCol*spec + uSky*fres*0.35; }' +
     ' float fg=clamp((vD-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
-    ' gl_FragColor=vec4(mix(c,uFog,fg*0.92),1.0); }';
+    ' gl_FragColor=vec4(mix(c,uFog,fg*0.92),uAlpha); }';
 
   // sky: the theme's two-stop gradient plus a sun disc, in one fullscreen pass
   const SKY_VS = 'attribute vec2 aP; varying vec2 uv; void main(){ uv=aP; gl_Position=vec4(aP,0.999,1.0); }';
@@ -315,7 +347,8 @@ window.DFGL = (function () {
       if (!gl) return false;
       prog = link(VS, FS); sky = link(SKY_VS, SKY_FS);
       ['aPos','aNorm','aCol'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
-      ['uMVP','uLight','uFog','uFogND','uEmit'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+      ['uMVP','uM','uLight','uFog','uFogND','uEmit','uEye','uSunCol','uSky','uGnd','uSpec','uAlpha']
+        .forEach(n => loc[n] = gl.getUniformLocation(prog, n));
       skyLoc.aP = gl.getAttribLocation(sky, 'aP');
       ['uTop','uBot','uSun','uSunPos','uAsp','uRoll','uWhite','uWhiteCol'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
       // clouds fail open on their own: a compile failure costs the deck, not the game
@@ -417,10 +450,32 @@ window.DFGL = (function () {
     const VP = M.mul(P, view);
 
     gl.useProgram(prog);
-    gl.uniform3fv(loc.uLight, [0.4, 0.85, 0.3]);
+    /* Sun direction shared with the cloud pass, so a hull's highlight and a cloud's lit crown
+     * agree about where the light is. Themes put the sun on their own azimuth. */
+    const sunAz = G.sunAz || 0;
+    const sunDir = [Math.cos(sunAz) * 0.55, 0.83, Math.sin(sunAz) * 0.55];
+    const skyTop = hex(world.sky[0]), gndC = hex(world.gnd), sunC2 = hex(world.sun);
+    gl.uniform3fv(loc.uLight, sunDir);
+    gl.uniform3fv(loc.uEye, [0, eyeY, 0]);                 // camera-relative space
+    gl.uniform3fv(loc.uSunCol, sunC2.map(v => 0.30 + v * 0.72));
+    // hemisphere ambient, lifted off the raw theme colours so nothing bottoms out to black
+    gl.uniform3fv(loc.uSky, skyTop.map((v, i) => 0.10 + v * 0.42 + bot[i] * 0.16));
+    gl.uniform3fv(loc.uGnd, gndC.map(v => 0.06 + v * 0.30));
+    gl.uniform1f(loc.uSpec, 0.65);
+    gl.uniform1f(loc.uAlpha, 1);
     gl.uniform3fv(loc.uFog, fogC);
     gl.uniform2f(loc.uFogND, fogFar * 0.30, fogFar);
-    gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
+
+    /* One place that sets BOTH matrices. The lit shader needs the model matrix on its own now
+     * (world-space normals and position for specular/fresnel), so setting uMVP alone silently
+     * leaves normals from the previous draw — which shows up as a ship lit as though it were
+     * still pointing where the last one pointed. */
+    const IDENT = M.I();
+    const xform = mdl => {
+      gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(mdl ? M.mul(VP, mdl) : VP));
+      gl.uniformMatrix4fv(loc.uM, false, new Float32Array(mdl || IDENT));
+    };
+    xform(null);
 
     const wdel = v => { v -= Math.round(v / WS) * WS; return v; };
 
@@ -456,11 +511,10 @@ window.DFGL = (function () {
           const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
           if (Math.hypot(dx, dz) > FAR) continue;
           const sc = p.s || 1;
-          gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, M.mul(M.mul(
-            M.T(dx, p.alt || 0, dz), M.Ry(p.rot || 0)), M.S(sc, sc, sc)))));
+          xform(M.mul(M.mul(M.T(dx, p.alt || 0, dz), M.Ry(p.rot || 0)), M.S(sc, sc, sc)));
           gl.drawArrays(gl.TRIANGLES, 0, g.count);
         }
-        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
+        xform(null);
       } else {
         const a = [];                                   // no GLB: boxes, but the game's boxes
         for (const p of G.props) {
@@ -475,6 +529,56 @@ window.DFGL = (function () {
           quad(a, P( r,-r,0), P( r,r,0), P( r,r,hgt), P( r,-r,hgt), pc);
         }
         drawArr(a);
+      }
+    }
+
+    /* ── ground shadows ─────────────────────────────────────────────────────────────────
+     * Cast down the sun vector onto y≈0, as flat ellipses that widen and fade with height.
+     * Two reasons, and the second is the better one:
+     *   1. Nothing was grounded. Objects floated over the lattice with no contact cue, which
+     *      is most of why the world read as a diagram rather than a place.
+     *   2. It is genuine gameplay information. Altitude is otherwise readable only off the
+     *      HUD tape, and a chasing craft's shadow tells you how far it has to dive.
+     * Alpha-blended, depth-write off so a shadow never occludes the ship that threw it. */
+    {
+      const a = [], sc = hex(world.gnd);
+      const drop = (x, y0, z, r) => {
+        const t = Math.max(0, Math.min(1, y0 / 6));
+        const rr2 = r * (1 + t * 1.7);                       // higher up ⇒ larger, softer
+        const sx = x + sunDir[0] / sunDir[1] * y0, sz = z + sunDir[2] / sunDir[1] * y0;
+        for (let i = 0; i < 10; i++) {                       // decagon reads round enough
+          const a0 = TAU * i / 10, a1 = TAU * (i + 1) / 10;
+          tri(a, [sx, 0.012, sz],
+                 [sx + Math.cos(a0) * rr2, 0.012, sz + Math.sin(a0) * rr2],
+                 [sx + Math.cos(a1) * rr2, 0.012, sz + Math.sin(a1) * rr2], sc);
+        }
+        return 1 - t;
+      };
+      // one pass per opacity band, so a single uAlpha can serve a whole batch
+      const bands = [[], [], []];
+      const push = (x, y0, z, r) => {
+        const before = a.length, f = drop(x, y0, z, r);
+        bands[f > 0.66 ? 0 : f > 0.33 ? 1 : 2].push([before, a.length]);
+      };
+      if (G.ships) for (const s of G.ships) { if (!s.alive) continue;
+        const dx = wdel(s.x - cam.x), dz = wdel(s.y - cam.y);
+        if (Math.hypot(dx, dz) < FAR) push(dx, s.alt || 0, dz, CRAFT * 0.62); }
+      if (G.props) for (const p of G.props) { if (!(p.alt > 0.05)) continue;
+        const dx = wdel(p.x - cam.x), dz = wdel(p.y - cam.y);
+        if (Math.hypot(dx, dz) < FAR) push(dx, p.alt, dz, (p.s || 1) * 0.22); }
+      if (a.length) {
+        gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+        gl.uniform1f(loc.uEmit, 1);
+        const ALPHA = [0.42, 0.26, 0.13];
+        bands.forEach((spans, bi) => {
+          if (!spans.length) return;
+          const buf = [];
+          for (const [s0, s1] of spans) for (let i = s0; i < s1; i++) buf.push(a[i]);
+          gl.uniform1f(loc.uAlpha, ALPHA[bi]);
+          drawArr(buf);
+        });
+        gl.uniform1f(loc.uAlpha, 1); gl.uniform1f(loc.uEmit, 0);
+        gl.depthMask(true); gl.disable(gl.BLEND);
       }
     }
 
@@ -494,12 +598,11 @@ window.DFGL = (function () {
       for (const gt of G.gates) {
         const dx = wdel(gt.x - cam.x), dz = wdel(gt.y - cam.y);
         if (Math.hypot(dx, dz) > FAR) continue;
-        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, M.mul(
-          M.T(dx, gt.alt || 0, dz), M.Ry(Math.atan2(-dx, -dz))))));
+        xform(M.mul(M.T(dx, gt.alt || 0, dz), M.Ry(Math.atan2(-dx, -dz))));
         gl.drawArrays(gl.TRIANGLES, 0, g.count);
       }
       gl.uniform1f(loc.uEmit, 0);
-      gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
+      xform(null);
     }
 
     // ── ships ──
@@ -519,7 +622,7 @@ window.DFGL = (function () {
         const mdl = M.mul(M.mul(M.mul(
           M.T(dx, s.alt, dz), M.Ry(-(s.h || 0) + Math.PI / 2)),
           M.Rz(-(s.bank || 0))), M.S(1, 1, 1));
-        gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(M.mul(VP, mdl)));
+        xform(mdl);
         gl.bindBuffer(gl.ARRAY_BUFFER, g1.vbo); bindAttribs();
         gl.drawArrays(gl.TRIANGLES, 0, g1.count);
         if (s.thrust || s.boost) {                              // engines glow
@@ -529,7 +632,7 @@ window.DFGL = (function () {
           gl.uniform1f(loc.uEmit, 0);
         }
       }
-      gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(VP));
+      xform(null);
     }
 
     /* ── the cloud deck: three parallax layers of the FBM shader ─────────────────────────
