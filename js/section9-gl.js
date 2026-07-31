@@ -17,10 +17,44 @@ window.GLR = (function () {
   let gl = null, cv = null, prog = null, sky = null, ok = false, post = null;
   let skinProg = null, skinLoc = {}, skinOk = false;
   const skins = {};                         // arch → { buf, count, lo, hi, h }
-  let loc = {}, skyLoc = {}, tex = {}, buffers = {}, dynBuf = null, skyBuf = null;
+  let loc = {}, skyLoc = {}, tex = {}, dynBuf = null, skyBuf = null;
   const STRIDE = 11;                        // pos3 + nrm3 + uv2 + col3
   const MATS = ['floor', 'wall', 'crate', 'ammo'];
   const TILE = { floor: 2.2, wall: 2.4, crate: 1.05, ammo: 1.05 };
+  /* Hand-built arenas keep uMat 0 — they were tuned against the flat-textured look and are the
+   * six maps that ship, so nothing about them changes here. */
+  const PLAIN = { floor: { tex: 'floor', gloss: 0.30 }, wall: { tex: 'wall', gloss: 0.10 },
+                  crate: { tex: 'crate', gloss: 0.16 }, ammo: { tex: 'ammo', gloss: 0.34 } };
+  /* Baked levels get the material system. A .wld is one untextured triangle soup, so every cue
+   * that makes it read as a place has to be derived; the derivation used here is the collision
+   * box a triangle sits inside, because those boxes ARE the authored objects (S9World.kindOf
+   * already names them stair/cover/plat/pillar/crate/wall). Kind + face normal then pick the
+   * batch, and the batch carries texture, procedural material, gloss, rim and base tint.
+   *
+   * ⚑ Which material suits which surface depends on where mp.y points, and that is not the same
+   * axis everywhere: on a wall mp.y is world y, so mat 7's bands are horizontal courses; on a
+   * FLOOR mp.y is world z, so the same material lays a zebra of 30 cm stripes across the whole
+   * pit and moirés into the distance. Floors get the noise mottle instead.
+   *
+   * ⚑ The tints go ABOVE 1 on blue, and they must not go far below 1 overall. Both world
+   * textures are strongly warm (#c2b078, #c8b48a), so a multiplier that only scales down makes
+   * a darker yellow rather than a grey — blue has to be lifted past unity to land near concrete.
+   * But dropping luminance while doing it is what turned THE VAULT black: a wall facing away
+   * from the key light is lit by ambient alone, so its albedo IS its brightness. Neutralise the
+   * hue, hold the luminance. Props stay warm and are the only warm thing left, which is what
+   * makes a cabinet read as a cabinet across a grey room. */
+  const BAKED = {
+    deck:  { tex: 'floor', mat: 5, matS: 0.25, gloss: 0.20, rim: 0.10, tint: [0.82, 0.93, 1.42] },
+    wall:  { tex: 'wall',  mat: 7, matS: 0.42, gloss: 0.07, rim: 0.13, tint: [0.77, 0.88, 1.21] },
+    metal: { tex: 'wall',  mat: 2, matS: 0.35, gloss: 0.55, rim: 0.26, tint: [0.61, 0.74, 1.11] },
+    prop:  { tex: 'crate', mat: 0, matS: 1.00, gloss: 0.26, rim: 0.10, tint: [1.06, 1.05, 1.11] },
+  };
+  const BAKED_KEYS = ['deck', 'wall', 'metal', 'prop'];
+  function batchFor(kind, up) {
+    if (kind === 'pillar' || kind === 'cover') return 'metal';
+    if (kind === 'crate') return 'prop';
+    return up ? 'deck' : 'wall';
+  }
   const VMLIGHT = (() => { const v = [-0.3, 0.5, 0.7], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
 
   // ── matrices (column-major) ──
@@ -49,17 +83,53 @@ window.GLR = (function () {
   // ── shaders ──
   const VS = `attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec3 aColor;
     uniform mat4 uMVP; uniform vec3 uCam;
-    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP;
-    void main(){ gl_Position=uMVP*vec4(aPos,1.0); vN=aNormal; vUV=aUV; vC=aColor; vP=aPos; vDist=distance(aPos,uCam); }`;
-  // Blinn-Phong spec (uGloss per material) + a warm muzzle-flash point light (uFlash xyz=pos w=power)
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP; varying vec3 vL;
+    void main(){ gl_Position=uMVP*vec4(aPos,1.0); vN=aNormal; vUV=aUV; vC=aColor; vP=aPos; vL=aPos; vDist=distance(aPos,uCam); }`;
+  /* Blinn-Phong spec (uGloss per batch) + a warm muzzle-flash point light (uFlash xyz=pos w=power)
+   * + NEON RONIN's procedural material system, keyed by uMat:
+   *   1 cloth weave · 2 brushed metal · 3 reptile scale · 4 iridescent crystal · 5 skin
+   *   6 energy pulse · 7 wrap bands
+   *
+   * ronin3d textures those in object space via vL, which works because everything it shades is a
+   * standing body: its patterns are keyed on vL.y and on atan(vL.z, vL.x), a cylinder wrapped
+   * around a fighter. Point the same code at a level and it degenerates — a band keyed on y is a
+   * constant across a floor, and a cylindrical wrap around a room is meaningless. So the
+   * coordinate here is chosen per fragment from the FACE NORMAL: drop the axis the surface points
+   * along and pattern the other two. One material id then means the same thing on a floor, a wall
+   * and a shoulder, which is what lets the bodies and the world share a shader at all.
+   *
+   * uMatS is cycles-per-unit; ~1 puts features at roughly 25 cm. vL is highp on purpose — these
+   * levels run to 160 units across and a mediump sin() of a coordinate that large is noise. */
   const FS = `precision mediump float;
-    uniform sampler2D uTex; uniform vec3 uLightDir,uLightCol,uAmbient,uFog; uniform highp vec3 uCam; uniform float uFogNear,uFogFar,uGloss; uniform highp vec4 uFlash;
-    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying highp vec3 vP;
+    uniform sampler2D uTex; uniform vec3 uLightDir,uLightCol,uAmbient,uFog; uniform highp vec3 uCam;
+    uniform float uFogNear,uFogFar,uGloss,uMat,uMatS,uRim,uTime; uniform highp vec4 uFlash;
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying highp vec3 vP; varying highp vec3 vL;
+    float h21(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+    float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+      float a=h21(i),b=h21(i+vec2(1.0,0.0)),c=h21(i+vec2(0.0,1.0)),d=h21(i+vec2(1.0,1.0));
+      return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }
     void main(){ vec4 t=texture2D(uTex,vUV); vec3 base=t.rgb*vC; vec3 N=normalize(vN);
+      vec3 V=normalize(uCam-vP); float spBoost=0.0;
+      if(uMat>0.5){
+        vec3 an=abs(N); highp vec3 q=vL*uMatS;
+        highp vec2 mp=(an.y>=an.x&&an.y>=an.z)?q.xz:((an.x>=an.z)?q.zy:q.xy);
+        vec2 m=vec2(mp);
+        if(uMat<1.5){ float w=0.5+0.5*sin(m.x*22.0)*sin(m.y*22.0);
+          base*=(0.87+0.17*w)*(0.88+0.16*vnoise(m*3.0)); }
+        else if(uMat<2.5){ base*=0.90+0.12*sin(m.y*90.0); spBoost=0.7; }
+        else if(uMat<3.5){ vec2 s=m*5.0; s.x+=step(1.0,mod(floor(s.y),2.0))*0.5;
+          vec2 g=fract(s)-0.5; base=mix(base*1.16,base*0.58,smoothstep(0.30,0.5,length(g))); }
+        else if(uMat<4.5){ float fac=floor(vnoise(m*6.0)*6.0)/6.0;
+          base=mix(base,0.5+0.5*cos(6.2831*(fac+uTime*0.25)+vec3(0.0,2.1,4.2)),0.45); }
+        else if(uMat<5.5){ base*=0.90+0.18*vnoise(m*7.0); }
+        else if(uMat<6.5){ base*=0.75+0.35*sin(uTime*6.0+m.y*9.0); }
+        else { base*=mix(0.85,1.05,step(0.5,fract(m.y*4.0)))*(0.94+0.10*vnoise(m*2.0)); } }
       float d=max(dot(N,uLightDir),0.0);
-      vec3 V=normalize(uCam-vP); vec3 H=normalize(uLightDir+V);
+      vec3 H=normalize(uLightDir+V);
       float sp=pow(max(dot(N,H),0.0),26.0)*uGloss;
       vec3 lit=base*(uAmbient + d*uLightCol) + uLightCol*sp*d;
+      if(spBoost>0.001){ lit += uLightCol*pow(max(dot(N,H),0.0),96.0)*spBoost*uGloss*d; }
+      if(uRim>0.001){ lit += base*pow(1.0-max(0.0,dot(N,V)),3.0)*uRim; }
       if(uFlash.w>0.001){ vec3 fd=uFlash.xyz-vP; float fl=max(length(fd),0.001);
         float att=uFlash.w/(1.0+fl*fl*0.30); float fn=max(dot(N,fd/fl),0.0);
         lit += vec3(1.0,0.72,0.40)*att*(0.30+0.70*fn); }
@@ -72,12 +142,13 @@ window.GLR = (function () {
    * uModel then places that body in the world (position, facing, and px → metres). */
   const SKIN_VS = `attribute vec3 aPos; attribute vec3 aNormal; attribute vec4 aIdx; attribute vec4 aWgt;
     uniform mat4 uMVP; uniform mat4 uModel; uniform mat4 uBones[11]; uniform vec3 uTint; uniform vec3 uCam;
-    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP;
+    varying vec3 vN; varying vec2 vUV; varying vec3 vC; varying float vDist; varying vec3 vP; varying vec3 vL;
     void main(){
       mat4 sk = uBones[int(aIdx.x)]*aWgt.x + uBones[int(aIdx.y)]*aWgt.y
               + uBones[int(aIdx.z)]*aWgt.z + uBones[int(aIdx.w)]*aWgt.w;
       vec4 sp = sk*vec4(aPos,1.0); vec4 wp = uModel*sp;
       vN = mat3(uModel)*(mat3(sk)*aNormal); vP = wp.xyz; vUV = vec2(0.5); vC = uTint;
+      vL = aPos;                                  // BIND space: the pattern rides the body, not the room
       vDist = distance(wp.xyz, uCam); gl_Position = uMVP*wp; }`;
   // per-pixel ray sky: dusk gradient + warm sun halo/disc + drifting cloud banding
   const SKY_VS = `attribute vec2 aP; varying vec2 vNDC; void main(){ vNDC=aP; gl_Position=vec4(aP,1.0,1.0); }`;
@@ -276,25 +347,46 @@ window.GLR = (function () {
   /* Draw distance. The six hand-built arenas are ~50 units across and were tuned at 16/54/60; a
    * baked level runs to 165, and those same numbers wall it off in fog two thirds of the way
    * across. Only a baked level widens them — the built-ins render exactly as they always did. */
-  let fogNear = 16, fogFar = 54, viewFar = 60;
+  let fogNear = 16, fogFar = 54, viewFar = 60, fogCol = null, lightOv = null, ambOv = null, skyOv = null;
+  let batches = [];                         // per-map draw list: {vbo,count,tex,mat,matS,gloss,rim}
 
   /* A baked .wld is an interleaved pos3+norm3 triangle soup and nothing else — no UVs, no
-   * materials, no vertex colour. All three are derived per triangle from the face normal: up-
-   * facing goes to the floor texture, everything else to the wall texture, and the UV is a planar
-   * projection along the dominant axis. That is only correct for flat-ish faces, which is exactly
-   * what these levels are made of (they are authored from boxes in Blender). */
-  function meshArrays(mesh) {
-    const v = mesh.verts, A = { floor: [], wall: [] };
+   * materials, no vertex colour. All three are derived: the UV is a planar projection along the
+   * dominant axis (only correct for flat-ish faces, which is exactly what these levels are made
+   * of), and the material and tint come from the collision box the triangle sits inside. */
+  function meshArrays(mesh, solids) {
+    const v = mesh.verts, A = { deck: [], wall: [], metal: [], prop: [] };
+    const boxes = solids || [];
     for (let i = 0; i + 17 < v.length; i += 18) {          // 3 verts × 6 floats = one triangle
-      let nx = 0, ny = 0, nz = 0;
-      for (let k = 0; k < 3; k++) { nx += v[i + k * 6 + 3]; ny += v[i + k * 6 + 4]; nz += v[i + k * 6 + 5]; }
+      let nx = 0, ny = 0, nz = 0, cx = 0, cy = 0, cz = 0;
+      for (let k = 0; k < 3; k++) { const o = i + k * 6;
+        nx += v[o + 3]; ny += v[o + 4]; nz += v[o + 5]; cx += v[o]; cy += v[o + 1]; cz += v[o + 2]; }
       const L = Math.hypot(nx, ny, nz) || 1; ny /= L; nx /= L; nz /= L;
-      const up = Math.abs(ny) > 0.6, a = up ? A.floor : A.wall, t = up ? TILE.floor : TILE.wall;
+      cx /= 3; cy /= 3; cz /= 3;
+      const up = ny > 0.6, down = ny < -0.55;
+      /* Which authored object is this triangle part of? The centroid lands inside its own
+       * collision box; the epsilon covers the box being the mesh's own bounds rather than a
+       * loose hull. A triangle in no box (decorative geometry with no collider) falls back to
+       * the normal, which is what the whole level did before. */
+      let box = null;
+      for (let b = 0; b < boxes.length; b++) { const s = boxes[b];
+        if (cx >= s.x0 - 0.06 && cx <= s.x1 + 0.06 && cy >= s.y0 - 0.06 && cy <= s.y1 + 0.06 &&
+            cz >= s.z0 - 0.06 && cz <= s.z1 + 0.06) { box = s; break; } }
+      const key = batchFor(box ? box.kind : '', up);
+      const B = BAKED[key], a = A[key], t = TILE[B.tex];
       const side = !up && Math.abs(nx) > Math.abs(nz);     // face looks along ±x → span z, else span x
+      // per-triangle jitter so a 30-unit wall is not one flat sheet of colour
+      const jit = 0.93 + 0.14 * (Math.abs(Math.sin(cx * 12.9898 + cy * 78.233 + cz * 37.719) * 43758.5453) % 1);
+      const shade = jit * (down ? 0.62 : up ? 1.05 : 1);
+      const bh = box ? Math.max(0.5, box.y1 - box.y0) : 0;
       for (let k = 0; k < 3; k++) {
         const o = i + k * 6, x = v[o], y = v[o + 1], z = v[o + 2];
+        // baked contact AO up the side of the object it belongs to — the cheap depth cue that
+        // stops every box in the level looking like it is floating a centimetre off the floor
+        const ao = (up || down || !box) ? 1 : 0.60 + 0.40 * Math.min(1, Math.max(0, (y - box.y0) / bh));
+        const c0 = B.tint[0] * shade * ao, c1 = B.tint[1] * shade * ao, c2 = B.tint[2] * shade * ao;
         a.push(x, y, z, v[o + 3], v[o + 4], v[o + 5],
-          (up ? x : (side ? z : x)) / t, (up ? z : y) / t, 1, 1, 1);
+          (up || down ? x : (side ? z : x)) / t, (up || down ? z : y) / t, c0, c1, c2);
       }
     }
     return A;
@@ -302,18 +394,36 @@ window.GLR = (function () {
 
   function buildMap(MAP) {
     if (!ok) return;
-    for (const k in buffers) { if (buffers[k]) gl.deleteBuffer(buffers[k].vbo); }
-    buffers = {};
+    for (const b of batches) gl.deleteBuffer(b.vbo);
+    batches = [];
     // ── baked level: draw the authored triangles. The .cols.json boxes are still the collision
     //    truth in the game, they are just not what you look at. No floor plane (the mesh has
     //    floors of its own, at whatever height they were authored) and no wall posters (they hang
     //    on a hand-built arena's four perimeter walls, which a baked level does not have). ──
     if (MAP.mesh && MAP.mesh.verts && MAP.mesh.verts.length) {
-      const M = meshArrays(MAP.mesh);
-      for (const k of MATS) if (M[k] && M[k].length) buffers[k] = makeVBO(M[k]);
+      const M = meshArrays(MAP.mesh, MAP.solids);
+      for (const k of BAKED_KEYS) if (M[k] && M[k].length)
+        batches.push(Object.assign({}, BAKED[k], makeVBO(M[k])));
       clearPosters();
       const span = Math.max(MAP.x1 - MAP.x0, MAP.z1 - MAP.z0);
       fogFar = Math.max(54, Math.min(190, span * 0.95)); fogNear = fogFar * 0.34; viewFar = fogFar * 1.15;
+      /* Cool the distance haze. ENV.fog is a warm dusk chosen for the six open arenas; these
+       * levels are interiors lit from a skylight, and warm fog inside a concrete pit reads as
+       * dust rather than depth. Only baked levels get this — the built-ins keep ENV.fog. */
+      /* And the key light with it — for INTERIORS only. ENV's key is a warm dusk sun
+       * (1.15, 0.98, 0.68), which is why even a neutral-tinted floor came back tan: the tint
+       * sets the albedo, the light sets the cast. An arcade pit lit through a skylight is cool.
+       * The sky goes with it, because a baked level has no infinite floor plane and you can see
+       * past its edge — against cool concrete a wedge of dusk orange down at floor level reads
+       * as a rendering fault rather than as a window. ROOFTOP is outdoors and keeps ENV. */
+      /* ⚑ Ambient has to go UP indoors, not down. ENV's 0.33 suits an open arena where the sky
+       * is the fill; inside a concrete box the fill is bounce off six close surfaces, and every
+       * wall facing away from the key (d = 0) is lit by ambient alone. Cooling the key without
+       * raising the bounce turned THE VAULT's walls into unreadable near-black slate — moody,
+       * and useless for a shooter where you have to see the cover. */
+      if (!MAP.open) { fogCol = [0.40, 0.39, 0.45]; lightOv = [0.90, 0.95, 1.06];
+        ambOv = [0.44, 0.46, 0.54];
+        skyOv = { top: [0.05, 0.05, 0.08], mid: [0.10, 0.10, 0.14], hor: [0.17, 0.17, 0.21] }; }
       return;
     }
     const A = { floor: [], wall: [], crate: [], ammo: [] };
@@ -321,8 +431,8 @@ window.GLR = (function () {
     // floor plane (one big textured quad)
     quad(A.floor, [MAP.x0, 0, MAP.z0], [MAP.x1, 0, MAP.z0], [MAP.x1, 0, MAP.z1], [MAP.x0, 0, MAP.z1], [0, 1, 0], (MAP.x1 - MAP.x0) / TILE.floor, (MAP.z1 - MAP.z0) / TILE.floor, WHITE);
     for (const b of MAP.solids) { const m = matForKind(b.kind); box(A[m], b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, TILE[m], WHITE); }
-    for (const k of MATS) if (A[k].length) buffers[k] = makeVBO(A[k]);
-    fogNear = 16; fogFar = 54; viewFar = 60;
+    for (const k of MATS) if (A[k].length) batches.push(Object.assign({ mat: 0, matS: 1, rim: 0 }, PLAIN[k], makeVBO(A[k])));
+    fogNear = 16; fogFar = 54; viewFar = 60; fogCol = null; lightOv = null; ambOv = null; skyOv = null;
     buildPosters(MAP);
   }
 
@@ -391,12 +501,16 @@ window.GLR = (function () {
         gl.uniformMatrix4fv(skinLoc.uMVP, false, new Float32Array(mvp));
         gl.uniform3fv(skinLoc.uCam, eye);
         gl.uniform1i(skinLoc.uTex, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex.white);
-        gl.uniform3fv(skinLoc.uLightDir, ENV.lightDir); gl.uniform3fv(skinLoc.uLightCol, ENV.lightCol);
-        gl.uniform3fv(skinLoc.uAmbient, ENV.ambient); gl.uniform3fv(skinLoc.uFog, ENV.fog);
+        gl.uniform3fv(skinLoc.uLightDir, ENV.lightDir); gl.uniform3fv(skinLoc.uLightCol, lightOv || ENV.lightCol);
+        gl.uniform3fv(skinLoc.uAmbient, ambOv || ENV.ambient); gl.uniform3fv(skinLoc.uFog, fogCol || ENV.fog);
         gl.uniform1f(skinLoc.uFogNear, fogNear); gl.uniform1f(skinLoc.uFogFar, fogFar);
-        gl.uniform1f(skinLoc.uGloss, 0.22);
+        gl.uniform1f(skinLoc.uGloss, 0.22); gl.uniform1f(skinLoc.uMatS, 1.6);
+        gl.uniform1f(skinLoc.uRim, 0.30); gl.uniform1f(skinLoc.uTime, G.t || 0);
         gl.uniform4f(skinLoc.uFlash, flash[0], flash[1], flash[2], flash[3]);
       }
+      // one kit per archetype (cloth fatigues / strapped webbing / brushed hardsuit) — the tint
+      // still says who they are, the material says what they are wearing
+      gl.uniform1f(skinLoc.uMat, S9Skin.matFor(e.skin));
       drew++;
       const flick = (e.spawnT > 0 || e.iframe > 0) ? (Math.sin((G.t || 0) * 30) > 0 ? 0.45 : 1) : 1;
       gl.uniform3f(skinLoc.uTint, e.tint[0] / 255 * flick, e.tint[1] / 255 * flick, e.tint[2] / 255 * flick);
@@ -525,7 +639,8 @@ window.GLR = (function () {
     if (!gl) return false; cv = canvas;
     prog = link(VS, FS, ['aPos', 'aNormal', 'aUV', 'aColor']); sky = link(SKY_VS, SKY_FS, ['aP']); if (!prog || !sky) return false;
     loc = {}; ['aPos', 'aNormal', 'aUV', 'aColor'].forEach(n => loc[n] = gl.getAttribLocation(prog, n));
-    ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
+    ['uMVP', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient', 'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash',
+     'uMat', 'uMatS', 'uRim', 'uTime'].forEach(n => loc[n] = gl.getUniformLocation(prog, n));
     skyLoc.aP = gl.getAttribLocation(sky, 'aP'); ['uTop', 'uMid', 'uHorizon', 'uSunDir', 'uYaw', 'uPitch', 'uAspect', 'uFov', 'uT'].forEach(n => skyLoc[n] = gl.getUniformLocation(sky, n));
     /* The skinned-operative program is OPTIONAL. If it will not build — old driver, no room for
      * eleven mat4 uniforms, anything — skinOk stays false, no .skn is ever registered, and every
@@ -536,7 +651,8 @@ window.GLR = (function () {
         skinLoc = {};
         ['aPos', 'aNormal', 'aIdx', 'aWgt'].forEach(n => skinLoc[n] = gl.getAttribLocation(skinProg, n));
         ['uMVP', 'uModel', 'uBones', 'uTint', 'uCam', 'uTex', 'uLightDir', 'uLightCol', 'uAmbient',
-         'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash'].forEach(n => skinLoc[n] = gl.getUniformLocation(skinProg, n));
+         'uFog', 'uFogNear', 'uFogFar', 'uGloss', 'uFlash', 'uMat', 'uMatS', 'uRim', 'uTime']
+          .forEach(n => skinLoc[n] = gl.getUniformLocation(skinProg, n));
         skinOk = !!skinLoc.uBones && skinLoc.aPos >= 0 && skinLoc.aIdx >= 0;
       }
     } catch (e) { skinOk = false; }
@@ -560,7 +676,8 @@ window.GLR = (function () {
     gl.useProgram(sky); gl.disable(gl.DEPTH_TEST); gl.depthMask(false);
     gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.enableVertexAttribArray(skyLoc.aP); gl.vertexAttribPointer(skyLoc.aP, 2, gl.FLOAT, false, 0, 0);
     const fovy = 0.97 / (G.scopeZoom || 1), asp = cv.width / cv.height;   // match the canvas FOV so aim/look feel is identical
-    gl.uniform3fv(skyLoc.uTop, ENV.skyTop); gl.uniform3fv(skyLoc.uMid, ENV.skyMid); gl.uniform3fv(skyLoc.uHorizon, ENV.skyHorizon);
+    gl.uniform3fv(skyLoc.uTop, skyOv ? skyOv.top : ENV.skyTop); gl.uniform3fv(skyLoc.uMid, skyOv ? skyOv.mid : ENV.skyMid);
+    gl.uniform3fv(skyLoc.uHorizon, skyOv ? skyOv.hor : ENV.skyHorizon);
     gl.uniform3fv(skyLoc.uSunDir, ENV.lightDir);
     gl.uniform1f(skyLoc.uYaw, cam.yaw); gl.uniform1f(skyLoc.uPitch, cam.pitch);
     gl.uniform1f(skyLoc.uAspect, asp); gl.uniform1f(skyLoc.uFov, fovy); gl.uniform1f(skyLoc.uT, G.t || 0);
@@ -572,8 +689,9 @@ window.GLR = (function () {
     const mvp = mul(persp(fovy, asp, 0.06, viewFar), viewMat(eye, cam.yaw, cam.pitch));
     gl.uniformMatrix4fv(loc.uMVP, false, new Float32Array(mvp));
     gl.uniform3fv(loc.uCam, eye);
-    gl.uniform3fv(loc.uLightDir, ENV.lightDir); gl.uniform3fv(loc.uLightCol, ENV.lightCol); gl.uniform3fv(loc.uAmbient, ENV.ambient);
-    gl.uniform3fv(loc.uFog, ENV.fog); gl.uniform1f(loc.uFogNear, fogNear); gl.uniform1f(loc.uFogFar, fogFar);
+    gl.uniform3fv(loc.uLightDir, ENV.lightDir); gl.uniform3fv(loc.uLightCol, lightOv || ENV.lightCol); gl.uniform3fv(loc.uAmbient, ambOv || ENV.ambient);
+    gl.uniform3fv(loc.uFog, fogCol || ENV.fog); gl.uniform1f(loc.uFogNear, fogNear); gl.uniform1f(loc.uFogFar, fogFar);
+    gl.uniform1f(loc.uTime, G.t || 0);
     // the strongest live muzzle flash becomes a warm point light on the world
     let fx = 0, fy = 0, fz = 0, fw = 0;
     for (const e of G.ents) { if (!e.alive || !(e.muzzle > 0)) continue;
@@ -582,9 +700,15 @@ window.GLR = (function () {
     gl.uniform4f(loc.uFlash, fx, fy, fz, fw * 1.5);
     const flash = [fx, fy, fz, fw * 1.5];
     poseAll(G);                                       // one FPS pose per skinned bot, reused by mesh + gun
-    const GLOSS = { floor: 0.30, wall: 0.10, crate: 0.16, ammo: 0.34 };
     gl.activeTexture(gl.TEXTURE0); gl.uniform1i(loc.uTex, 0);
-    for (const k of MATS) { const b = buffers[k]; if (!b) continue; gl.uniform1f(loc.uGloss, GLOSS[k]); gl.bindTexture(gl.TEXTURE_2D, tex[k]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count); }
+    for (const b of batches) {
+      gl.uniform1f(loc.uGloss, b.gloss); gl.uniform1f(loc.uMat, b.mat || 0);
+      gl.uniform1f(loc.uMatS, b.matS || 1); gl.uniform1f(loc.uRim, b.rim || 0);
+      gl.bindTexture(gl.TEXTURE_2D, tex[b.tex]); gl.bindBuffer(gl.ARRAY_BUFFER, b.vbo);
+      bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, b.count);
+    }
+    // everything after the world is plain-shaded: leaving uMat/uRim set would band the operatives
+    gl.uniform1f(loc.uMat, 0); gl.uniform1f(loc.uRim, 0);
     const ea = buildEntities(G);
     if (ea.length) { gl.uniform1f(loc.uGloss, 0.28); gl.bindTexture(gl.TEXTURE_2D, tex.white); gl.bindBuffer(gl.ARRAY_BUFFER, dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ea), gl.DYNAMIC_DRAW); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, ea.length / STRIDE); }
     // skinned bodies: their own program, then hand the world program back its state

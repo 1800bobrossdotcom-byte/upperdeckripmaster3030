@@ -24,10 +24,14 @@
 window.S9World = (function () {
   // Only levels authored by scripts/blender/build-level.py are listed. models/world/street.wld is
   // an imported scene: it carries no spawns and its vertex buffer has NaNs, so it is not an arena.
+  // `open` says the level is outdoors. It is the only art-direction fact the adapter carries,
+  // and it earns its place: the renderer cools the key light, the fog and the sky for a baked
+  // INTERIOR (a concrete pit lit by a warm dusk sun reads as a sandstone quarry), and a rooftop
+  // at dusk must not get that treatment — it is standing in the sun.
   const LEVELS = [
     { file: 'arcade',  name: 'ARCADE PIT' },
     { file: 'vault',   name: 'THE VAULT' },
-    { file: 'rooftop', name: 'ROOFTOP' },
+    { file: 'rooftop', name: 'ROOFTOP', open: true },
   ];
   const BASE = 'models/world/';
 
@@ -82,6 +86,7 @@ window.S9World = (function () {
       name: def.name, x0, x1, z0, z1, ceilY: yTop,
       solids, spawns: sp, faces: null,
       wld: def.file,                       // marks a baked level: skip niches / posters / floor plane
+      open: !!def.open,                    // outdoors → keep the dusk sun; indoors → cool it
       mesh: { verts: w.verts, scale: w.scale || 0 },
     };
   }
