@@ -377,65 +377,136 @@ function greyToBytes(f) {
 
 /* ══ masks ═══════════════════════════════════════════════════════════════════════════════════ */
 
-/** Background key. Returns a Uint8Array mask, 1 = SUBJECT.
+/** ONE flood pass, confined to `live`, seeded from `live`'s outer frontier.
  *
- *  `auto` order of preference, and each fallback is a real answer rather than a failure:
- *    1. a meaningful alpha channel                → threshold it
- *    2. a uniform border colour                   → flood-fill inward from the frame
- *    3. neither                                   → the whole rectangle is the subject
- *  (3) is not a cop-out on this deck: a card with a printed border IS a rectangle, and slab mode
- *  wants exactly that. The warning is printed so nobody reads a rectangular pop-out as a bug. */
-function keyMask(img, spec = 'auto', tol = 0.11) {
+ *  Two tolerances, and the pair is the whole trick. The GLOBAL test (against the frontier's median
+ *  colour) stops the fill escaping into the art; the LOCAL test (against the neighbour it spread
+ *  from) is what lets it cross a gradient at all. Global alone cannot key the pink→yellow ramp
+ *  half this deck uses as a backdrop; local alone walks straight through a soft airbrushed edge
+ *  and eats the subject. Requiring both is what a hand-tuned magic wand does.                    */
+function floodPass(img, live, tol, grad = false) {
   const { w, h, data } = img;
-  const mask = new Uint8Array(w * h);
-  const note = m => ({ mask, how: m });
+  // The seed ring sits 2–6 px INSIDE the live region, not on its boundary.
+  // ⚠ This is the fix for the peel stalling after one band, and it took a debug dump to find.
+  // Sampling the boundary itself samples the ragged, half-keyed, anti-aliased edge the previous
+  // pass just cut — on `ink-sketch` that made the frontier a smear of mid-greens whose mode was
+  // nowhere near the pure white backdrop two pixels further in, so pass 2 keyed 0.3% and gave up
+  // with the entire art panel still labelled "subject". Standing off the cut edge samples the
+  // backdrop instead. Distance comes from the same EDT the geometry uses, over a padded grid so
+  // that "outside the image" counts as dead and pass 0 needs no special case.
+  const pw = w + 2, ph = h + 2;
+  const pad = new Uint8Array(pw * ph);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) pad[(y + 1) * pw + (x + 1)] = live[y * w + x];
+  const d2 = edt(pad, pw, ph);
+  const frontier = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (live[i]) { const d = d2[(y + 1) * pw + (x + 1)]; if (d >= 4 && d <= 40) frontier.push(i); }
+  }
+  if (frontier.length < 32) {                                       // thin sliver: fall back to the edge itself
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (live[i] && d2[(y + 1) * pw + (x + 1)] >= 1 && d2[(y + 1) * pw + (x + 1)] < 4) frontier.push(i);
+    }
+  }
+  if (!frontier.length) return null;
+  // Seed = the MODAL colour of the frontier, found in a 16³ histogram and then refined to the mean
+  // of everything near that mode.
+  // ⚠ The median was the first attempt and it is wrong for the second peel onwards. After the
+  // printed frame comes off, the frontier of a framed card is typically ~45% backdrop, ~30% the
+  // keyline the previous pass just cut through, and ~25% subject — three modes. A per-channel
+  // median of that is a colour that appears nowhere on the card, so nothing floods and the peel
+  // stops one band too early with the whole art panel called "subject". The mode is the backdrop.
+  const bin = i => ((data[i * 4] >> 4) << 8) | ((data[i * 4 + 1] >> 4) << 4) | (data[i * 4 + 2] >> 4);
+  const hist = new Map();
+  for (const i of frontier) { const b = bin(i); hist.set(b, (hist.get(b) || 0) + 1); }
+  let modeBin = -1, modeN = -1;
+  for (const [b, n] of hist) if (n > modeN) { modeN = n; modeBin = b; }
+  let sr = 0, sg = 0, sb = 0, mn = 0;
+  for (const i of frontier) if (bin(i) === modeBin) { sr += data[i * 4]; sg += data[i * 4 + 1]; sb += data[i * 4 + 2]; mn++; }
+  sr = Math.round(sr / mn); sg = Math.round(sg / mn); sb = Math.round(sb / mn);
 
-  if (spec === 'none' || spec === 'rect') { mask.fill(1); return note('rect (whole image)'); }
+  const gTol = tol * 255 * Math.sqrt(3), lTol = gTol * 0.42;
+  // "Is there a background here at all?" — the fraction of the frontier that agrees with the mode.
+  // 0.3, not 0.5: three-mode frontiers are the normal case and a backdrop rarely owns half a
+  // frontier ring. The flood's own local+global tolerances and the band-size guards below are what
+  // actually stop a bad key, not this number; this only rejects a frontier with no mode at all.
+  let inTol = 0;
+  for (const i of frontier) if (Math.hypot(data[i * 4] - sr, data[i * 4 + 1] - sg, data[i * 4 + 2] - sb) <= gTol) inTol++;
+  const cover = inTol / frontier.length;
+  if (!grad && cover < 0.30) return { seed: [sr, sg, sb], cover, bg: null };
+
+  const bg = new Uint8Array(w * h), stack = [];
+  // `grad` widens the global leash so a printed gradient backdrop — half this deck uses one — can
+  // be walked end to end. It is opt-in because the global bound is the only thing stopping the
+  // fill from strolling through a soft airbrushed edge into the subject; with it wide open the
+  // local step is the sole gate, which is right for a smooth ramp and wrong for photographic art.
+  const globalOK = i => Math.hypot(data[i * 4] - sr, data[i * 4 + 1] - sg, data[i * 4 + 2] - sb) <= gTol * (grad ? 8.0 : 2.0);
+  const localOK = (i, from) => Math.hypot(data[i * 4] - data[from * 4], data[i * 4 + 1] - data[from * 4 + 1], data[i * 4 + 2] - data[from * 4 + 2]) <= lTol;
+  for (const i of frontier) if (Math.hypot(data[i * 4] - sr, data[i * 4 + 1] - sg, data[i * 4 + 2] - sb) <= gTol) { bg[i] = 1; stack.push(i); }
+  while (stack.length) {
+    const i = stack.pop(), x = i % w, y = (i / w) | 0;
+    const step = j => { if (live[j] && !bg[j] && globalOK(j) && localOK(j, i)) { bg[j] = 1; stack.push(j); } };
+    if (x > 0) step(i - 1);
+    if (x < w - 1) step(i + 1);
+    if (y > 0) step(i - w);
+    if (y < h - 1) step(i + w);
+  }
+  return { seed: [sr, sg, sb], cover, bg };
+}
+
+/** Peeling background key. Returns the SUBJECT mask plus the bands that were peeled off it.
+ *
+ *  ⚑ ONE PASS IS NOT ENOUGH ON A TRADING CARD, and that is the single most useful thing measured
+ *  here. Every card in this deck has a printed border, so a flood from the image edge keys the
+ *  BORDER and stops — the "subject" it returns is the whole inner rectangle, which is not wrong
+ *  but is not the cut-out anyone wanted either. Peeling again from the frontier the first pass
+ *  left behind keys the mat/backdrop, and what remains is the actual figure. A card is
+ *  frame → backdrop → subject, and those are also exactly the three planes technique 4 wants,
+ *  so one peel feeds both.
+ *
+ *  Each pass stops on its own evidence: too small a band, too greedy a band, a frontier that is
+ *  not one colour, or too little subject left. Fail-open — a card that keys nothing comes back as
+ *  the whole rectangle with a printed note, because a card with a printed border IS a rectangle
+ *  and slab mode wants precisely that.                                                           */
+function keyPeel(img, spec = 'auto', tol = 0.11, maxPasses = 3, minSubject = 0.12) {
+  const { w, h, data } = img;
+  const live = new Uint8Array(w * h).fill(1);
+  const bands = [];
+  const hex = c => '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+  const grad = spec === 'grad';
+
+  if (spec === 'none' || spec === 'rect') return { subject: live, bands, how: 'rect (whole image)' };
 
   if (spec === 'alpha' || spec === 'auto') {
     let clear = 0;
     for (let i = 3; i < data.length; i += 4) if (data[i] < 128) clear++;
     if (clear > w * h * 0.01) {
-      for (let i = 0, p = 3; i < mask.length; i++, p += 4) mask[i] = data[p] >= 128 ? 1 : 0;
-      return note(`alpha (${(clear / (w * h) * 100).toFixed(1)}% transparent)`);
+      const band = new Uint8Array(w * h);
+      for (let i = 0, p = 3; i < live.length; i++, p += 4) if (data[p] < 128) { live[i] = 0; band[i] = 1; }
+      return { subject: live, bands: [band], how: `alpha (${(clear / (w * h) * 100).toFixed(1)}% transparent)` };
     }
-    if (spec === 'alpha') { mask.fill(1); return note('alpha absent — fell back to rect'); }
+    if (spec === 'alpha') return { subject: live, bands, how: 'alpha absent — fell back to rect' };
   }
 
-  let seedR, seedG, seedB;
-  if (spec.startsWith('#')) {
-    const v = parseInt(spec.slice(1), 16);
-    seedR = (v >> 16) & 255; seedG = (v >> 8) & 255; seedB = v & 255;
-  } else {
-    // Median of the border ring, not the mean: one bright corner sticker drags a mean off the
-    // actual background and the flood then keys nothing.
-    const rs = [], gs = [], bs = [];
-    const push = (x, y) => { const p = (y * w + x) * 4; rs.push(data[p]); gs.push(data[p + 1]); bs.push(data[p + 2]); };
-    for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
-    for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
-    const med = a => a.sort((p, q) => p - q)[a.length >> 1];
-    seedR = med(rs); seedG = med(gs); seedB = med(bs);
+  const notes = [];
+  for (let pass = 0; pass < Math.max(1, maxPasses); pass++) {
+    const r = floodPass(img, live, tol, grad);
+    if (!r) break;
+    if (!r.bg) { notes.push(`pass${pass} stopped: frontier is not one colour (${(r.cover * 100).toFixed(0)}% agree)`); break; }
+    let n = 0; for (let i = 0; i < r.bg.length; i++) n += r.bg[i];
+    let liveN = 0; for (let i = 0; i < live.length; i++) liveN += live[i];
+    const fOfFrame = n / (w * h), fOfLive = n / liveN;
+    if (fOfFrame < 0.012) { notes.push(`pass${pass} stopped: band only ${(fOfFrame * 100).toFixed(1)}% of frame`); break; }
+    if (fOfLive > 0.93) { notes.push(`pass${pass} stopped: band would take ${(fOfLive * 100).toFixed(0)}% of what is left`); break; }
+    for (let i = 0; i < live.length; i++) if (r.bg[i]) live[i] = 0;
+    bands.push(r.bg);
+    notes.push(`pass${pass} ${hex(r.seed)} −${(fOfFrame * 100).toFixed(1)}%`);
+    let rem = 0; for (let i = 0; i < live.length; i++) rem += live[i];
+    if (rem < w * h * 0.06) { notes.push('stopped: little subject left'); break; }
   }
-
-  // Flood-fill the background inward from every border pixel that matches the key.
-  const t = tol * 255 * Math.sqrt(3);
-  const bg = new Uint8Array(w * h);
-  const stack = [];
-  const near = i => { const p = i * 4; return Math.hypot(data[p] - seedR, data[p + 1] - seedG, data[p + 2] - seedB) <= t; };
-  for (let x = 0; x < w; x++) { for (const y of [0, h - 1]) { const i = y * w + x; if (!bg[i] && near(i)) { bg[i] = 1; stack.push(i); } } }
-  for (let y = 0; y < h; y++) { for (const x of [0, w - 1]) { const i = y * w + x; if (!bg[i] && near(i)) { bg[i] = 1; stack.push(i); } } }
-  while (stack.length) {
-    const i = stack.pop(), x = i % w, y = (i / w) | 0;
-    if (x > 0 && !bg[i - 1] && near(i - 1)) { bg[i - 1] = 1; stack.push(i - 1); }
-    if (x < w - 1 && !bg[i + 1] && near(i + 1)) { bg[i + 1] = 1; stack.push(i + 1); }
-    if (y > 0 && !bg[i - w] && near(i - w)) { bg[i - w] = 1; stack.push(i - w); }
-    if (y < h - 1 && !bg[i + w] && near(i + w)) { bg[i + w] = 1; stack.push(i + w); }
-  }
-  let n = 0; for (let i = 0; i < bg.length; i++) if (bg[i]) n++;
-  const frac = n / (w * h);
-  if (frac < 0.015 || frac > 0.97) { mask.fill(1); return note(`key found ${(frac * 100).toFixed(1)}% background — kept the whole rectangle`); }
-  for (let i = 0; i < mask.length; i++) mask[i] = bg[i] ? 0 : 1;
-  return note(`flood key from #${[seedR, seedG, seedB].map(v => v.toString(16).padStart(2, '0')).join('')} (${(frac * 100).toFixed(1)}% background)`);
+  if (!bands.length) return { subject: live, bands, how: `no key (${notes.join('; ') || 'nothing matched'}) — kept the whole rectangle` };
+  return { subject: live, bands, how: notes.join(' · ') };
 }
 
 /** A rounded-rectangle mask — the actual shape of a trading card. */
@@ -1183,12 +1254,12 @@ const MODES = ['maps', 'slab', 'pop', 'silhouette', 'relief', 'layers', 'voxel']
 
 function parseArgs(argv) {
   const o = {
-    out: 'models/cards', modes: ['maps', 'slab', 'pop', 'layers'], key: 'auto', tol: 0.11,
+    out: 'models/cards', modes: ['maps', 'slab', 'pop', 'layers'], key: 'auto', tol: 0.11, peel: 3,
     size: 1.0, depth: 0.075, bevel: 0.035, round: 0.85, bevelRings: 4, res: 120,
     relief: 0.22, reliefBlur: 2.2, reliefDetail: 0.55, reliefRange: 0.14, invert: false,
     normalStrength: 2.4, normalBlur: 0.7, flipY: false, corner: 0.045,
     simplify: 1.4, minArea: 0.004, keepLargest: false, layerCount: 2, layerGap: 0.09,
-    voxelRes: 44, voxelSteps: 6, embed: 512, obj: false, preview: false, quiet: false, name: null,
+    voxelRes: 44, voxelSteps: 6, embed: 512, obj: false, preview: false, quiet: false, debug: false, name: null,
   };
   const files = [];
   for (let i = 0; i < argv.length; i++) {
@@ -1202,6 +1273,7 @@ function parseArgs(argv) {
       case '--all': o.modes = MODES.slice(); break;
       case '--key': o.key = next(); break;
       case '--tol': o.tol = +next(); break;
+      case '--peel': o.peel = +next(); break;
       case '--size': o.size = +next(); break;
       case '--depth': o.depth = +next(); break;
       case '--bevel': o.bevel = +next(); break;
@@ -1227,6 +1299,7 @@ function parseArgs(argv) {
       case '--obj': o.obj = true; break;
       case '--preview': o.preview = true; break;
       case '--quiet': o.quiet = true; break;
+      case '--debug': o.debug = true; break;
       default: throw new Error(`unknown option ${a}`);
     }
   }
@@ -1263,14 +1336,31 @@ function run(file, o) {
   }
 
   /* — the key, shared by pop / silhouette / layers / voxel — */
-  let subject = null, keyHow = '';
+  let subject = null, bands = [];
   if (o.modes.some(m => ['pop', 'silhouette', 'layers', 'voxel'].includes(m))) {
-    const k = keyMask(img, o.key, o.tol);
-    keyHow = k.how;
-    subject = cleanMask(morph(k.mask, w, h, 1.5, 2.5), w, h, { minArea: o.minArea, keepLargest: o.keepLargest });
+    const k = keyPeel(img, o.key, o.tol, o.peel);
+    bands = k.bands;
+    subject = cleanMask(morph(k.subject, w, h, 1.5, 2.5), w, h, { minArea: o.minArea, keepLargest: o.keepLargest });
     let n = 0; for (let i = 0; i < subject.length; i++) n += subject[i];
-    log(`  key: ${keyHow} → subject ${(n / (w * h) * 100).toFixed(1)}% of frame`);
-    if (n < w * h * 0.005) { log('  ⚠ key left almost nothing — falling back to the whole rectangle'); subject.fill(1); }
+    log(`  key: ${k.how}`);
+    log(`       → ${bands.length} peeled band(s), subject ${(n / (w * h) * 100).toFixed(1)}% of frame`);
+    if (n < w * h * 0.005) { log('  ⚠ key left almost nothing — falling back to the whole rectangle'); subject.fill(1); bands = []; }
+    // The subject must not touch the frame, or it has no boundary and every downstream stage
+    // (contour, bevel, side wall) silently produces nothing — `gold-kid` keys nothing at all and
+    // came out as zero loops rather than as a card-shaped slab. One cleared pixel of margin costs
+    // nothing visible and makes "no key" degrade to "the card itself", which is a usable answer.
+    for (let x = 0; x < w; x++) { subject[x] = 0; subject[(h - 1) * w + x] = 0; }
+    for (let y = 0; y < h; y++) { subject[y * w] = 0; subject[y * w + w - 1] = 0; }
+    if (o.debug) {
+      const dbg = new Uint8ClampedArray(w * h * 4);
+      const PAL = [[255, 64, 96], [64, 190, 255], [255, 208, 64], [140, 255, 120]];
+      for (let i = 0, p = 0; i < w * h; i++, p += 4) {
+        let c = subject[i] ? [245, 245, 250] : [26, 26, 32];
+        for (let b = 0; b < bands.length; b++) if (bands[b][i]) c = PAL[b % PAL.length];
+        dbg[p] = c[0]; dbg[p + 1] = c[1]; dbg[p + 2] = c[2]; dbg[p + 3] = 255;
+      }
+      put('key.png', encodePNG(w, h, dbg));
+    }
   }
 
   const embedded = o.embed > 0;
@@ -1334,20 +1424,17 @@ function run(file, o) {
 
   /* — layers: parallax planes — */
   if (o.modes.includes('layers') && subject) {
-    const bg = invertMask(subject);
-    const defs = [{ name: 'back', mask: bg, z: -o.layerGap * o.size / 2 }];
-    if (o.layerCount > 2) {
-      // Extra layers split the SUBJECT by connected component, biggest first — the honest
-      // automatic answer. Anything finer (a near/far guess inside one blob) is a depth
-      // hallucination with no evidence behind it, which is the thing this tool refuses to do.
-      const { lab, sizes } = components(subject, w, h);
-      const order = sizes.map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]).slice(0, o.layerCount - 1);
-      order.forEach(([, id], k) => {
-        const m2 = new Uint8Array(w * h);
-        for (let i = 0; i < m2.length; i++) m2[i] = lab[i] === id ? 1 : 0;
-        defs.push({ name: `sub${k}`, mask: m2, z: (o.layerGap * o.size / 2) * (0.5 + 0.5 * (k + 1) / (o.layerCount - 1)) });
-      });
-    } else defs.push({ name: 'subject', mask: subject, z: o.layerGap * o.size / 2 });
+    // The peel already produced the ordering: band 0 is whatever was keyed from the image edge
+    // (the printed frame — which belongs in FRONT, it is the thing the art sits inside), band 1+
+    // are backdrops going back, and the subject is nearest the viewer. That is the layer stack a
+    // card actually has, and it comes out of the key for free rather than being guessed.
+    const back = bands.slice(1);
+    const defs = [];
+    back.forEach((m2, k) => defs.push({ name: `back${k}`, mask: m2, z: -o.layerGap * o.size * (1 - k / (back.length + 1)) }));
+    if (!back.length) defs.push({ name: 'back', mask: invertMask(subject), z: -o.layerGap * o.size / 2 });
+    defs.push({ name: 'subject', mask: subject, z: o.layerGap * o.size / 2 });
+    if (bands.length) defs.push({ name: 'frame', mask: bands[0], z: o.layerGap * o.size * 0.75 });
+    while (defs.length > Math.max(2, o.layerCount)) defs.splice(1, 1);        // keep the outermost pair
 
     const mats = [], metas = [];
     defs.forEach((L, i) => {
@@ -1418,8 +1505,9 @@ function main(argv) {
   --name NAME         override the output folder name
 
   key / silhouette
-  --key auto|alpha|rect|#rrggbb    background key    (default auto)
+  --key auto|alpha|rect|grad       background key    (default auto; grad = printed gradient backdrop)
   --tol 0.11          key colour tolerance
+  --peel 3            max flood passes: frame → backdrop → subject (1 = old single pass)
   --keep-largest      one island only
   --min-area 0.004    drop islands under this fraction of the frame
   --simplify 1.4      Douglas-Peucker tolerance, px
@@ -1447,6 +1535,7 @@ function main(argv) {
   --embed 512         embed textures in the GLB at this max side (--no-embed for sidecars only)
   --obj               also write OBJ
   --preview           render Blender preview sheets (Cycles CPU — slow)
+  --debug             also write key.png — the peeled bands, colour-coded
 `);
     return;
   }
