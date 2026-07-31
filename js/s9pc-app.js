@@ -788,15 +788,71 @@
   })();
 
   // ── match start ─────────────────────────────────────────────────────────────────────────────
+  /* ── PREWARM: THIS IS THE STUTTER ─────────────────────────────────────────────────────────
+   * `ensureBody` was reached from `syncBodies`, which runs EVERY FRAME, and the first time each
+   * bot came into view it fetched a ~0.8 MB `.skn`, parsed it, built vertex buffers, uploaded
+   * them and compiled a skinned shader variant — all inside one frame, mid-fight. Four bots is
+   * four stalls, arriving exactly when the game starts getting interesting, and it reads as
+   * stuttering rather than as loading because nothing on screen says anything is loading.
+   *
+   * The work has to happen; it just must not happen DURING PLAY. So every body is built while
+   * the briefing is still up, and one frame of representative combat FX is pushed through the
+   * renderer at the same time — a tracer, a flash, a spark and a decal — because those materials
+   * compile their own variants on first draw and would otherwise hitch on the first shot fired.
+   *
+   * ⚠ Bounded, and it fails open. A missing `.skn`, a 404 or a slow disk must never hold the
+   *   match hostage: after PREWARM_MS the game starts regardless and anything still in flight
+   *   lands late, exactly as it did before. A prewarm that can hang is worse than the stutter. */
+  const PREWARM_MS = 4000;
+  function prewarm(G) {
+    G.ents.forEach(e => { if (!e.isMe) ensureBody(e); });
+    const started = performance.now();
+    return new Promise(res => {
+      (function wait() {
+        const done = bodyPending.size === 0;
+        if (done || performance.now() - started > PREWARM_MS) return res(done);
+        setTimeout(wait, 60);
+      })();
+    });
+  }
+  /* One frame of FX, drawn and immediately cleared. The point is the SHADER COMPILE, not the
+   * picture — the additive and alpha FX materials build their variants the first time they are
+   * actually drawn, and that first draw should be here rather than on your first trigger pull. */
+  function prewarmFx(G) {
+    const me = G.me; if (!me || !fx) return;
+    const d = game.lookDir(me.yaw, me.pitch);
+    const ox = me.x + d.x * 0.5, oy = me.y + me.eye, oz = me.z + d.z * 0.5;
+    G.tracers.push({ x0: ox, y0: oy, z0: oz, dx: d.x, dy: d.y, dz: d.z, len: 8, p: 4, sp: 340, tail: 3.4, me: true, t: 0.1 });
+    G.flashes.push({ x: ox, y: oy, z: oz, t: 0.05, max: 0.06, big: false });
+    G.sparks.push({ x: ox + d.x * 6, y: oy, z: oz + d.z * 6, vx: 0, vy: 0, vz: 0, t: 0.2, col: [230, 210, 160] });
+    G.decals.push({ x: ox + d.x * 6, y: oy, z: oz + d.z * 6, n: [0, 1, 0], type: 'bullet', r: 0.1, life: 0.2, max: 10 });
+    try { fx.update(G, cam, performance.now()); app.render(); } catch (e) {}
+    G.tracers.length = 0; G.flashes.length = 0; G.sparks.length = 0; G.decals.length = 0;
+  }
+
   ui.onStart = (real, arenaPick, roster, deck) => {
     const MAP = game.startMatch(real, arenaPick, roster, deck);
     bodies.forEach(h => { try { h.entity.destroy(); } catch (e) {} }); bodies.clear(); bodyPending = new Set();
     buildLevel(MAP);
     ui.powMsg('◈ ' + MAP.name, '#59e0ff');
-    syncBodies(game.G);
+    /* Hold the sim on the start line while the bodies build. Without this the clock is already
+     * running and bots are already shooting while the frame budget is being spent on uploads —
+     * which is the worst of both: you lose time AND it stutters. */
+    /* ⚠ tryLock() STAYS IN THE CLICK'S OWN TASK. Pointer lock is gesture-gated: request it after
+     * an await and the browser has already forgotten the click that justified it, and you get a
+     * match you cannot aim in. Ask for the lock now; do the loading behind it. */
     applyCamera();
     tryLock();
-    say('');
+    const wasMode = game.G.mode; game.G.mode = 'lobby';
+    say('deploying…');
+    prewarm(game.G).then(ok => {
+      game.G.mode = wasMode;
+      syncBodies(game.G);
+      applyCamera();
+      prewarmFx(game.G);
+      say('');
+      try { marks.prewarm = { complete: ok, bodies: bodies.size }; } catch (e) {}
+    });
   };
   ui.onAbort = () => { clearLevel(); bodies.forEach(h => { try { h.entity.destroy(); } catch (e) {} }); bodies.clear(); };
 
