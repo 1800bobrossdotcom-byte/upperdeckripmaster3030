@@ -160,16 +160,28 @@
     app.setCanvasFillMode(pc.FILLMODE_NONE);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
 
+    /* ⚑ SIZE IT WHEN IT HAS A SIZE, not once and hope. If the card is built while its box is
+     * still laying out — mid-animation, or a frame before the viewer finishes opening — the box
+     * measures 0×0, the old code returned early and nothing ever asked again except a window
+     * resize. The card then renders into a zero canvas and reads as "not showing correctly".
+     * So: retry on animation frames until it measures, and watch the box afterwards. */
+    var sized = false;
     function fit() {
       var r = box.getBoundingClientRect();
-      if (!r.width || !r.height) return;
+      if (!r.width || !r.height) return false;
       app.graphicsDevice.maxPixelRatio = Math.min(global.devicePixelRatio || 1,
         (global.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2);
       app.resizeCanvas(r.width, r.height);
+      sized = true; return true;
     }
-    fit();
+    if (!fit()) {
+      var tries = 0;
+      (function retry() { if (sized || tries++ > 120) return; if (!fit()) requestAnimationFrame(retry); })();
+    }
     var onResize = function () { fit(); };
     addEventListener('resize', onResize);
+    var ro = null;
+    if (global.ResizeObserver) { try { ro = new ResizeObserver(function () { fit(); }); ro.observe(box); } catch (e) { ro = null; } }
 
     var cam = new pc.Entity('cam');
     cam.addComponent('camera', { clearColor: new pc.Color(0, 0, 0, 0), fov: 28 });
@@ -302,7 +314,13 @@
     }).catch(function () {});
 
     var getTilt = o.tilt || function () { return { x: 0, y: 0 }; };
-    var t = 0;
+    var t = 0, lastHeat = -1;
+    /* ⚑ DO NOT CALL material.update() EVERY FRAME. It rebuilds the material's shader parameters,
+     * and doing it 60 times a second for a value that barely moved is most of what made the card
+     * viewer feel choppy. The offset and the heat are mutated IN PLACE on the existing objects —
+     * allocating a fresh Vec2 and Color per frame also handed the GC 120 objects a second for
+     * nothing — and `update()` only fires when the heat has actually changed enough to see. */
+    var _off = new pc.Vec2(0, 0);
     app.on('update', function (dt) {
       t += dt;
       var q = getTilt() || { x: 0, y: 0 };
@@ -310,11 +328,14 @@
       // the layers slide against each other by depth — the parallax that sells it
       art.setLocalPosition(q.x * -0.022, q.y * 0.022, 0.030);
       back.setLocalPosition(q.x * 0.016, q.y * -0.016, 0.019);
-      holo.emissiveMapOffset = new pc.Vec2(-((t * 0.16) % 1), 0);
+      _off.x = -((t * 0.16) % 1); holo.emissiveMapOffset = _off;
       // additive lifts blacks and this art has real blacks, so idle is nearly nothing
       var heat = 0.012 + 0.115 * Math.min(1, Math.hypot(q.x, q.y));
-      holo.emissive = new pc.Color(heat, heat, heat);
-      holo.update();
+      if (Math.abs(heat - lastHeat) > 0.004) {
+        lastHeat = heat;
+        holo.emissive.set(heat, heat, heat);
+        holo.update();
+      }
     });
     app.start();
 
@@ -329,7 +350,11 @@
         rim.light.color = new pc.Color(c.r, c.g, c.b);
       },
       resize: fit,
-      destroy: function () { removeEventListener('resize', onResize); try { app.destroy(); } catch (e) {} }
+      destroy: function () {
+        removeEventListener('resize', onResize);
+        if (ro) { try { ro.disconnect(); } catch (e) {} }
+        try { app.destroy(); } catch (e) {}
+      }
     };
     global.__card3d = ctrl;
     return ctrl;

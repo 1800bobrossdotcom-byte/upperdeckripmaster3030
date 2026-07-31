@@ -199,7 +199,6 @@
 </div>
 
 <script src="../js/gfx-post.js"></script>
-<script src="../js/gfx-2d.js"></script>
 <script src="../js/card3d.js"></script>
 <script>
 (() => {
@@ -361,15 +360,24 @@
   /* ── the warp ──────────────────────────────────────────────────────────────────────────
    * Lifted from the pack-rip modal on the landing page, deliberately unchanged: opening a card
    * from the folder and pulling one from a pack should be the same event. It runs only while
-   * the viewer is open, and gets the shared GPU pass (Gfx2D → GfxPost) so the streaks bloom.
+   * the viewer is open, and it is drawn in plain 2D — see the note on the GPU pass below.
    * ⚑ zIndex 0 is load-bearing — .warp sits at 0 and .vstage at 1, so the default layer index
    *   would bury the card behind the starfield. */
   (() => {
     const modal = $('viewer'), cv = $('warp');
     const ctx = cv && cv.getContext('2d'); if (!ctx) return;
-    const GPU = window.Gfx2D ? Gfx2D.attach(cv, { preset: 'neon', zIndex: 0 }) : null;
-    const dpr = Math.min(devicePixelRatio || 1, (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2);
-    const N = 340, SPEED = reduce ? 3.1 : 6.2;   // the warp keeps flying under reduce-motion, just calmer
+    /* ⚑ NO GPU PASS ON THE WARP, and that is a deliberate downgrade from the landing page.
+     * There it is the only thing on screen. Here it shares the page with the card's own WebGL
+     * context, and putting a FULL-SCREEN canvas through a second context's bloom chain every
+     * frame — upload, bright pass, two blur passes, composite — is the most expensive thing in
+     * the viewer by a wide margin, spent on decoration behind the subject. The streaks already
+     * carry their own trail; they do not need bloom to read.
+     * Backing store is capped at 1.25 for the same reason: this is motion-blurred line work, and
+     * fill rate on a full-screen surface is the cost that scales with every pixel. */
+    const dpr = Math.min(devicePixelRatio || 1, 1.25,
+      (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2);
+    const N = matchMedia('(max-width:760px)').matches ? 170 : 300;
+    const SPEED = reduce ? 3.1 : 6.2;            // the warp keeps flying under reduce-motion, just calmer
     let stars = [], raf = 0, w = 0, h = 0, cx = 0, cy = 0;
     const size = () => {
       w = innerWidth; h = innerHeight; cx = w / 2; cy = h / 2;
@@ -386,13 +394,15 @@
         ctx.lineWidth = Math.max(0.4, (1 - s.z / w) * 2.6);
         ctx.beginPath(); ctx.moveTo(cx + s.x * pk, cy + s.y * pk); ctx.lineTo(cx + s.x * k, cy + s.y * k); ctx.stroke();
       }
-      if (GPU) GPU.present();
       raf = requestAnimationFrame(frame);
     }
     const start = () => { size(); stars = Array.from({ length: N }, spawn); cancelAnimationFrame(raf); frame(); };
     const stop = () => { cancelAnimationFrame(raf); raf = 0; };
-    new MutationObserver(() => modal.classList.contains('show') ? start() : stop())
+    const live = () => modal.classList.contains('show') && !document.hidden;
+    new MutationObserver(() => live() ? start() : stop())
       .observe(modal, { attributes: true, attributeFilter: ['class'] });
+    // a hidden tab should not be running a starfield, or a card
+    document.addEventListener('visibilitychange', () => live() ? start() : stop());
     addEventListener('resize', () => { if (modal.classList.contains('show')) { size(); if (ctrl) ctrl.resize(); } });
   })();
 

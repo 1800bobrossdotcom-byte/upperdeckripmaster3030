@@ -607,7 +607,34 @@
   let isTouch = matchMedia('(hover:none)').matches || ('ontouchstart' in window);
   if (isTouch) { try { document.body.classList.add('touchmode'); } catch (e) {} }
   const touchUpgrade = () => { if (!isTouch) { isTouch = true; document.body.classList.add('touchmode'); } };
+  /* ── LOOK SETTINGS ────────────────────────────────────────────────────────────────────────
+   * Invert is a per-hand preference, not a bug with a correct answer. Both this build and the
+   * classic one compute the identical forward vector — derived both ways, they agree exactly:
+   * (cos p · sin yaw, sin p, cos p · cos yaw) — so neither is "the inverted one". Some people
+   * fly, some people aim, and a shooter without the toggle is just picking a side.
+   * Persisted, so you set it once. `?invy=1` / `?invx=1` / `?sens=140` override for testing. */
+  const LOOK = {
+    invY: pref('s9_invy', Q.get('invy')), invX: pref('s9_invx', Q.get('invx')),
+    sens: (() => { const q = parseFloat(Q.get('sens'));
+      if (isFinite(q) && q > 0) return q / 100;
+      try { const v = parseFloat(localStorage.getItem('s9_sens')); if (isFinite(v) && v > 0) return v / 100; } catch (e) {}
+      return 1; })(),
+  };
+  function pref(key, q) {
+    if (q != null) return q === '1' || q === 'true';
+    try { return localStorage.getItem(key) === '1'; } catch (e) { return false; }
+  }
+  function saveLook() {
+    try {
+      localStorage.setItem('s9_invy', LOOK.invY ? '1' : '0');
+      localStorage.setItem('s9_invx', LOOK.invX ? '1' : '0');
+      localStorage.setItem('s9_sens', String(Math.round(LOOK.sens * 100)));
+    } catch (e) {}
+  }
   const SENS = 0.0022;
+  // signed multipliers, so every look path (mouse AND touch) reads one definition
+  const sx = () => SENS * LOOK.sens * (LOOK.invX ? -1 : 1);
+  const sy = () => SENS * LOOK.sens * (LOOK.invY ? -1 : 1);
   function tryLock() { if (game.G.mode === 'play' && !isTouch) { try { canvas.requestPointerLock && canvas.requestPointerLock(); } catch (e) {} } }
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); K[k] = true;
     if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].indexOf(k) >= 0) e.preventDefault();
@@ -632,9 +659,9 @@
   addEventListener('mouseup', e => { if (e.button === 0) M.left = false; if (e.button === 2) M.right = false; });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   addEventListener('mousemove', e => { if (!locked || !game.G.me || game.G.mode !== 'play') return;
-    const s = SENS / (game.G.scopeZoom || 1);
-    game.G.me.yaw += e.movementX * s;
-    game.G.me.pitch = clamp(game.G.me.pitch - e.movementY * s, -1.45, 1.45); });
+    const z = game.G.scopeZoom || 1;
+    game.G.me.yaw += e.movementX * (sx() / z);
+    game.G.me.pitch = clamp(game.G.me.pitch - e.movementY * (sy() / z), -1.45, 1.45); });
   canvas.addEventListener('wheel', e => { if (game.G.mode !== 'play') return; e.preventDefault();
     const dir = e.deltaY > 0 ? 1 : -1;
     game.switchWeapon((game.G.me.weapon + dir + S9Game.WEAPONS.length) % S9Game.WEAPONS.length); }, { passive: false });
@@ -674,7 +701,9 @@
     else if (touchLook.active && e.pointerId === touchLook.id && game.G.mode === 'play' && game.G.me) { e.preventDefault();
       const dx = e.clientX - touchLook.lx, dy = e.clientY - touchLook.ly; touchLook.lx = e.clientX; touchLook.ly = e.clientY;
       const z = game.G.scopeZoom || 1;
-      game.G.me.yaw += dx * LOOK_X / z; game.G.me.pitch = clamp(game.G.me.pitch - dy * LOOK_Y / z, -1.45, 1.45); }
+      const ix = LOOK.invX ? -1 : 1, iy = LOOK.invY ? -1 : 1;
+      game.G.me.yaw += dx * LOOK_X * LOOK.sens * ix / z;
+      game.G.me.pitch = clamp(game.G.me.pitch - dy * LOOK_Y * LOOK.sens * iy / z, -1.45, 1.45); }
   });
   function touchEnd(e) { if (e.pointerType !== 'touch') return;
     if (e.pointerId === touchMove.id) stickHide();
@@ -703,6 +732,20 @@
     $('ovPause').classList.remove('show'); $('tgPause').textContent = '⏸ pause'; ui.playMusic(); tryLock(); }
   $('tgPause').onclick = () => togglePause();
   $('btnResume').onclick = resume;
+
+  /* Bind the look settings. They live on the pause panel because "the mouse is inverted" is
+   * something you find out mid-fight, not in the briefing — so the fix has to be reachable from
+   * where you noticed it, without abandoning the match. */
+  (function bindLook() {
+    const iy = $('optInvY'), ix = $('optInvX'), sn = $('optSens'), sv = $('optSensV');
+    if (!iy || !ix || !sn) return;
+    iy.checked = LOOK.invY; ix.checked = LOOK.invX;
+    sn.value = Math.round(LOOK.sens * 100); if (sv) sv.textContent = sn.value;
+    iy.onchange = () => { LOOK.invY = iy.checked; saveLook(); };
+    ix.onchange = () => { LOOK.invX = ix.checked; saveLook(); };
+    sn.oninput = () => { LOOK.sens = Math.max(0.05, (+sn.value || 100) / 100);
+      if (sv) sv.textContent = sn.value; saveLook(); };
+  })();
 
   // ── match start ─────────────────────────────────────────────────────────────────────────────
   ui.onStart = (real, arenaPick, roster, deck) => {
