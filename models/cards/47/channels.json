@@ -1,0 +1,55 @@
+{
+  "generator": "png23d",
+  "card": "47",
+  "source": "cards/art/hero/47.webp",
+  "kind": "channel-split",
+  "units": "z is a fraction of card HEIGHT, +z toward the viewer",
+  "note": "three ADDITIVE plates. They sum to the original image exactly at zero parallax, so the effect appears as the card turns and vanishes as it returns to face-on. Draw with additive blending, not alpha.",
+  "layers": [
+    {
+      "file": "channels/0-red.png",
+      "name": "red",
+      "kind": "channel",
+      "z": -0.08,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blend": "add",
+      "opaque": false,
+      "why": "red record only — recombines to the original at zero parallax"
+    },
+    {
+      "file": "channels/1-green.png",
+      "name": "green",
+      "kind": "channel",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blend": "add",
+      "opaque": false,
+      "why": "green record only — recombines to the original at zero parallax"
+    },
+    {
+      "file": "channels/2-blue.png",
+      "name": "blue",
+      "kind": "channel",
+      "z": 0.08,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blend": "add",
+      "opaque": false,
+      "why": "blue record only — recombines to the original at zero parallax"
+    }
+  ]
+}

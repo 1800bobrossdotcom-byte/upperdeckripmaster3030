@@ -1,0 +1,177 @@
+{
+  "generator": "png23d",
+  "card": "44",
+  "source": "cards/art/hero/44.webp",
+  "size": {
+    "w": 683,
+    "h": 1024,
+    "aspect": 0.66699
+  },
+  "units": "rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.",
+  "method": "auto+text+inpaint",
+  "note": "layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.",
+  "layers": [
+    {
+      "file": "layers/00-bg.png",
+      "name": "bg",
+      "kind": "background",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": true,
+      "blend": "normal",
+      "coverage": 1,
+      "why": "the card itself, with every liftable layer inpainted out of it"
+    },
+    {
+      "file": "layers/01-ground.png",
+      "name": "ground",
+      "kind": "midground",
+      "z": 0.0405,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.4811,
+      "why": "peel band 0 — 114px thick, so a ground rather than a border; stays at the back"
+    },
+    {
+      "file": "layers/02-subject.png",
+      "name": "subject",
+      "kind": "subject",
+      "z": 0.081,
+      "rect": [
+        0.08053,
+        0.00391,
+        0.85359,
+        0.9834
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.4126,
+      "why": "what the peel could not key"
+    },
+    {
+      "file": "layers/03-text.png",
+      "name": "text",
+      "kind": "text",
+      "z": 0.1215,
+      "rect": [
+        0.07906,
+        0.00195,
+        0.86823,
+        0.99707
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0988,
+      "boxes": [
+        [
+          0.2387,
+          0.0068,
+          0.4963,
+          0.0518
+        ],
+        [
+          0.0864,
+          0.0635,
+          0.0893,
+          0.0137
+        ],
+        [
+          0.2152,
+          0.0635,
+          0.0952,
+          0.0127
+        ],
+        [
+          0.7204,
+          0.0635,
+          0.1801,
+          0.0127
+        ],
+        [
+          0.5886,
+          0.4941,
+          0.3075,
+          0.0459
+        ],
+        [
+          0.0893,
+          0.5576,
+          0.2958,
+          0.0264
+        ],
+        [
+          0.5944,
+          0.5674,
+          0.3148,
+          0.0166
+        ],
+        [
+          0.0908,
+          0.5859,
+          0.287,
+          0.0176
+        ],
+        [
+          0.6061,
+          0.5859,
+          0.3031,
+          0.0176
+        ],
+        [
+          0.0878,
+          0.6055,
+          0.2826,
+          0.0225
+        ],
+        [
+          0.612,
+          0.6064,
+          0.2972,
+          0.0215
+        ],
+        [
+          0.6223,
+          0.6309,
+          0.287,
+          0.0264
+        ],
+        [
+          0.3353,
+          0.9473,
+          0.325,
+          0.0459
+        ],
+        [
+          0.7687,
+          0.0596,
+          0.1698,
+          0.0684
+        ],
+        [
+          0.7452,
+          0.7559,
+          0.1406,
+          0.0205
+        ],
+        [
+          0.6823,
+          0.8096,
+          0.2152,
+          0.0342
+        ]
+      ],
+      "why": "16 detected text line(s)"
+    }
+  ]
+}

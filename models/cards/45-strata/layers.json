@@ -1,0 +1,183 @@
+{
+  "generator": "png23d",
+  "card": "45-strata",
+  "source": "cards/art/hero/45.webp",
+  "size": {
+    "w": 683,
+    "h": 1024,
+    "aspect": 0.66699
+  },
+  "units": "rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.",
+  "method": "auto+text+strata+inpaint",
+  "note": "layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.",
+  "layers": [
+    {
+      "file": "layers/00-bg.png",
+      "name": "bg",
+      "kind": "background",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": true,
+      "blend": "normal",
+      "coverage": 1,
+      "why": "the card itself, with every liftable layer inpainted out of it"
+    },
+    {
+      "file": "layers/01-stratum0.png",
+      "name": "stratum0",
+      "kind": "stratum",
+      "z": 0.108,
+      "rect": [
+        0,
+        0,
+        1,
+        0.12305
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1201,
+      "why": "glitch tear, rows 0–123"
+    },
+    {
+      "file": "layers/02-stratum1.png",
+      "name": "stratum1",
+      "kind": "stratum",
+      "z": 0.0405,
+      "rect": [
+        0,
+        0.11719,
+        1,
+        0.16797
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1621,
+      "why": "glitch tear, rows 123–289"
+    },
+    {
+      "file": "layers/03-stratum2.png",
+      "name": "stratum2",
+      "kind": "stratum",
+      "z": 0.108,
+      "rect": [
+        0,
+        0.2793,
+        1,
+        0.41797
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.4121,
+      "why": "glitch tear, rows 289–711"
+    },
+    {
+      "file": "layers/04-stratum3.png",
+      "name": "stratum3",
+      "kind": "stratum",
+      "z": 0.0405,
+      "rect": [
+        0,
+        0.69141,
+        1,
+        0.20313
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1973,
+      "why": "glitch tear, rows 711–913"
+    },
+    {
+      "file": "layers/05-stratum4.png",
+      "name": "stratum4",
+      "kind": "stratum",
+      "z": 0.108,
+      "rect": [
+        0,
+        0.88867,
+        1,
+        0.11133
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1084,
+      "why": "glitch tear, rows 913–1024"
+    },
+    {
+      "file": "layers/06-text.png",
+      "name": "text",
+      "kind": "text",
+      "z": 0.144,
+      "rect": [
+        0,
+        0,
+        1,
+        0.77441
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0534,
+      "boxes": [
+        [
+          0.1874,
+          0.1514,
+          0.1288,
+          0.0439
+        ],
+        [
+          0,
+          0.1865,
+          0.1757,
+          0.041
+        ],
+        [
+          0.8858,
+          0.2725,
+          0.1127,
+          0.0264
+        ],
+        [
+          0.0659,
+          0.4082,
+          0.5476,
+          0.1035
+        ],
+        [
+          0.2108,
+          0.6787,
+          0.0776,
+          0.0254
+        ],
+        [
+          0.593,
+          0,
+          0.4056,
+          0.0547
+        ],
+        [
+          0.7716,
+          0.0791,
+          0.2138,
+          0.0508
+        ],
+        [
+          0.8097,
+          0.1826,
+          0.1406,
+          0.042
+        ],
+        [
+          0.7101,
+          0.7217,
+          0.2196,
+          0.0469
+        ]
+      ],
+      "why": "9 detected text line(s)"
+    }
+  ]
+}
