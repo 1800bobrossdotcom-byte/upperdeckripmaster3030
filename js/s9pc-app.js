@@ -280,7 +280,12 @@
 
     const sp = W.spawns[0] || [0, 0, 0];
     place(num('x', sp[0]), num('z', sp[1]), Q.has('y') ? num('y', 0) : sp[2]);
-    P.yaw = num('yaw', 0); P.pitch = num('pitch', 0);
+    /* Face the arena, not whatever +z happens to be. An authored spawn is often against a wall
+     * (that is what makes it cover), and a prototype that opens looking at 4 m² of concrete
+     * gets read as broken before anyone presses a key. */
+    const c0x = (W.bounds.x0 + W.bounds.x1) / 2, c0z = (W.bounds.z0 + W.bounds.z1) / 2;
+    P.yaw = num('yaw', Math.atan2(c0x - sp[0], c0z - sp[1]));
+    P.pitch = num('pitch', -0.05);
 
     say('');
     hud();
@@ -597,6 +602,7 @@
     _fwd() { const v = cam.forward; return [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]; },
     _hidehud(v) { const h = $('hud'); if (h) h.style.display = v ? 'none' : ''; },
     _resetTimes() { times.length = 0; },
+    get __times() { return times.slice(); },
     // prove the scene-graph skinning reproduces S9Skin.palette() exactly, per body
     _verify() { return ops.map(h => Object.assign({ arch: h.arch, count: h.count }, h.verify(h.state))); },
     _weights() {
