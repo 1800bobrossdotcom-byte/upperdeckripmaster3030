@@ -382,3 +382,31 @@ consumes `S9Skin.pose`/`palette` and needs no change if `palette` keeps its sign
 
 ⚠ There is no stretch-measuring tool in the repo — the historical numbers were ad-hoc. Write one
 alongside this, or the result cannot be checked.
+
+
+### Update — v2 plumbing landed, the bake did NOT
+
+`scripts/skin-stretch.mjs` (`npm run stretch`) now exists, and the first thing it did was
+disagree with this file.
+
+**What it confirmed.** The anatomy fit measures correctly: `oni.obj` reads shoulder **y = 0.802**,
+which is the canonical 0.80 to two decimals and exactly matches the "true T-pose, 0.79–0.83"
+description above. `ronin.obj` reads **0.531** — clearly non-human, same direction as the 0.62
+recorded here. The measurement is sound.
+
+**What it did not confirm.** Re-baking oni and ronin changed their triangle counts (5,804 →
+12,966 and 15,705 → 34,250), so the shipped `.skn` files were baked with decimation settings
+that are **not recorded anywhere and were not reproduced**. Every before/after comparison across
+that boundary is meaningless, and the re-bakes were reverted rather than kept. ⚑ **Find and write
+down the exact bake command before touching the assets again** — that is now the first blocker,
+ahead of the skeleton work.
+
+⚠ **And the harness is not yet the game's poser.** It hinges each bone independently about its own
+bind start; `S9Skin.palette` uses a hierarchy and a shortest-arc rotation. On the shipped v1 files
+it ranks oni 3.8× · prizm 6.1× · kunoichi 14.6× · kappa 23.7× · doomer 52.2× · ronin 56.6× — which
+puts **kappa with the bad family**, against everything else recorded here. So it is a usable
+STRESS test and a usable A/B on one file, and it is **not** a source of truth about which bodies
+ship. Point it at `S9Skin.pose`/`palette` directly before trusting the ranking.
+
+Bind pose reads exactly 1.000× on all six, so the harness's own arithmetic is sound — that check
+runs on every invocation and fails loudly.

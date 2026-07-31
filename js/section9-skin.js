@@ -118,12 +118,33 @@ window.S9Skin = (function () {
         const u8 = new Uint8Array(buf, 0, 8); let magic = '';
         for (let i = 0; i < 8; i++) magic += String.fromCharCode(u8[i]);
         if (magic !== 'UR3SKIN0') throw new Error('bad magic ' + JSON.stringify(magic));
-        const n = new DataView(buf).getUint32(12, true);
-        if (!n || 32 + n * 56 > buf.byteLength) throw new Error('vertex count ' + n + ' does not fit');
-        const verts = new Float32Array(buf, 32, n * 14);
+        const dv = new DataView(buf);
+        const ver = dv.getUint32(8, true);
+        const n = dv.getUint32(12, true);
+        /* ⚑ v2 CARRIES ITS OWN BIND SKELETON, and that is the fix for the torn arms (task #77).
+         * v1 files left the skeleton to the hard-coded BIND below, which is a human proportion —
+         * shoulders at 0.80 of height. `ronin.obj` is a big-headed toon whose shoulders sit far
+         * lower, so its arm bones landed inside its skull and the mesh tore between `chest` and
+         * an arm the moment anything swung. The skeleton belongs to the body, so v2 ships it:
+         * 11 bones x [startXYZ, endXYZ] at offset 32, vertex data pushed to 296.
+         * v1 still loads, still uses the canonical table, still behaves exactly as it did. */
+        const BONE_BYTES = 11 * 6 * 4, vOff = ver >= 2 ? 32 + BONE_BYTES : 32;
+        if (!n || vOff + n * 56 > buf.byteLength) throw new Error('vertex count ' + n + ' does not fit');
+        let bind = null, bdir = null;
+        if (ver >= 2) {
+          bind = [];
+          for (let i = 0; i < 11; i++) {
+            const o = 32 + i * 24;
+            bind.push([[dv.getFloat32(o, true), dv.getFloat32(o + 4, true), dv.getFloat32(o + 8, true)],
+                       [dv.getFloat32(o + 12, true), dv.getFloat32(o + 16, true), dv.getFloat32(o + 20, true)]]);
+          }
+          bdir = bind.map(([a2, b2]) => { const d = [b2[0] - a2[0], b2[1] - a2[1], b2[2] - a2[2]];
+            const l = Math.hypot(d[0], d[1], d[2]) || 1; return [d[0] / l, d[1] / l, d[2] / l]; });
+        }
+        const verts = new Float32Array(buf, vOff, n * 14);
         const st = stitch(verts, n);
         if (onSkin) onSkin(name, verts, n);
-        return { name, verts, count: n, stitched: st };
+        return { name, verts, count: n, stitched: st, ver, bind, bdir };
       })
       .catch(e => { console.warn('[section9] skin "' + name + '" not loaded:', e && e.message || e); return null; }));
   }
@@ -215,8 +236,10 @@ window.S9Skin = (function () {
   const tmp = new Float32Array(11 * 16);
   function palette(P, sk, out) {
     const o = out || tmp, SC = H / (sk.h || 1), yo = SC * sk.lo;
+    // a v2 skin poses against ITS OWN bind; v1 falls back to the canonical table
+    const BT = sk.bind || BIND, DT = sk.bdir || BDIR;
     for (let i = 0; i < 11; i++) {
-      const b = BIND[i], bd = BDIR[i], seg = P.B[i];
+      const b = BT[i], bd = DT[i], seg = P.B[i];
       const j = seg[0], c = seg[1];
       let dx = c[0] - j[0], dy = c[1] - j[1], dz = c[2] - j[2];
       const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;

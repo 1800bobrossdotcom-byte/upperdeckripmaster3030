@@ -192,7 +192,7 @@ export function bakeSkin(meshes, outFile) {
    * `side` is +1 for the front-side limbs and -1 for the back-side ones (the rig calls the two
    * sides front/back); 0 is central. It exists to stop one arm's bone reaching across the body
    * and dragging the other arm's vertices with it. */
-  const B = [
+  const CANON = [
     ['pelvis',  [0, 0.50, 0], [0, 0.62, 0],       0.13,  0],
     ['chest',   [0, 0.62, 0], [0, 0.84, 0],       0.15,  0],
     ['head',    [0, 0.84, 0], [0, 0.97, 0],       0.11,  0],
@@ -210,6 +210,80 @@ export function bakeSkin(meshes, outFile) {
   const lo=[1e9,1e9,1e9], hi=[-1e9,-1e9,-1e9];
   for (let i=0;i<all.length;i+=6) for(let c=0;c<3;c++){ const v=all[i+c]; if(v<lo[c])lo[c]=v; if(v>hi[c])hi[c]=v; }
   const sx=(hi[0]-lo[0])||1, sy=(hi[1]-lo[1])||1, cxm=(lo[0]+hi[0])/2;
+
+  /* ── FIT THE SKELETON TO THE MESH'S OWN ANATOMY ────────────────────────────────────────────
+   * ⚑ THIS IS THE FIX FOR THE TORN ARMS, and the diagnosis is the useful part.
+   *
+   * CANON above puts the shoulders at y 0.80 of the BOUNDING BOX, which is a human proportion.
+   * `oni.obj` is a true T-pose with shoulders at 0.79–0.83, so it skins cleanly: worst posed
+   * edge-stretch 2.1–2.9x, not one triangle over 3x. `ronin.obj` is a big-headed toon — head 38%
+   * of its height, shoulders at 0.62 — so the canonical arm bones landed INSIDE ITS SKULL. 17%
+   * of its vertices ended up ~88% weighted to `chest` with a few percent on an arm, and swinging
+   * the arms tore the mesh between the two claims: worst stretch 8.9–19.6x, 114–194 triangles
+   * over 3x. In BIND pose every bone matrix is identity so the mesh reproduced exactly (1.000x
+   * for all six) and nothing looked wrong until it moved — which is why this read as a weighting
+   * bug for so long when it was a PROPORTION mismatch.
+   *
+   * So measure instead of assuming. In a T-pose the body is WIDEST WHERE THE ARMS ARE, so the
+   * shoulder line is the y-slice with the greatest lateral extent in the upper body; the crotch
+   * is the lowest slice whose centre line is occupied (below it there are two legs and a gap,
+   * above it there is a pelvis). Everything else is placed proportionally between the measured
+   * floor, crotch, shoulder and crown, and the influence radii scale with the limbs they serve.
+   *
+   * Falls back to CANON whenever the measurement is not convincing — an A-pose or a seated mesh
+   * has no lateral peak to find, and a confidently wrong fit is worse than a known approximation.
+   * `--bind canonical` forces the old table for comparison. */
+  function fitBind() {
+    const BANDS = 48, ext = new Float32Array(BANDS), centre = new Uint32Array(BANDS), pop = new Uint32Array(BANDS);
+    for (let i = 0; i < all.length; i += 6) {
+      const px = (all[i] - cxm) / sx, py = (all[i + 1] - lo[1]) / sy;
+      let bi = Math.floor(py * BANDS); if (bi < 0) bi = 0; if (bi >= BANDS) bi = BANDS - 1;
+      const ax = Math.abs(px);
+      if (ax > ext[bi]) ext[bi] = ax;
+      if (ax < 0.06) centre[bi]++;
+      pop[bi]++;
+    }
+    let sB = -1, sMax = 0;
+    for (let bi = Math.floor(BANDS * 0.5); bi < BANDS; bi++) if (ext[bi] > sMax) { sMax = ext[bi]; sB = bi; }
+    const torso = [];
+    for (let bi = Math.floor(BANDS * 0.45); bi < BANDS * 0.78; bi++) if (bi !== sB && pop[bi]) torso.push(ext[bi]);
+    torso.sort((x, y) => x - y);
+    const torsoW = torso.length ? torso[torso.length >> 1] : sMax;
+    const armsOut = sB >= 0 && sMax > torsoW * 1.25;          // is there really a T-pose peak?
+    if (!armsOut) { console.log('  bind: no lateral peak (not a T-pose?) — canonical proportions'); return CANON; }
+
+    let cB = -1;
+    for (let bi = Math.floor(BANDS * 0.12); bi < BANDS * 0.72; bi++)
+      if (pop[bi] && centre[bi] / pop[bi] > 0.12) { cB = bi; break; }
+    const shoulderY = (sB + 0.5) / BANDS;
+    const crotchY = Math.max(0.28, Math.min(shoulderY - 0.14, cB >= 0 ? (cB + 0.5) / BANDS : 0.48));
+    const reach = sMax * 0.98, crown = 1.0, ankle = 0.04;
+    const halfT = Math.max(0.06, Math.min(reach * 0.45, torsoW));
+    const legX = Math.max(0.045, halfT * 0.45);
+    const neckY = shoulderY + (crown - shoulderY) * 0.12;
+    const pelvisTop = crotchY + (shoulderY - crotchY) * 0.30;
+    const knee = (crotchY + ankle) / 2, elbow = halfT + (reach - halfT) * 0.5;
+    const armR = Math.max(0.045, (reach - halfT) * 0.26);
+    const legR = Math.max(0.055, (crotchY - ankle) * 0.24);
+    console.log(`  bind: shoulder y=${shoulderY.toFixed(3)} · crotch y=${crotchY.toFixed(3)} · reach ${reach.toFixed(3)} · torso half ${halfT.toFixed(3)}`);
+    if (Math.abs(shoulderY - 0.80) > 0.08)
+      console.log('  ⛑ non-human proportions — this is the mesh the fixed table used to tear');
+    return [
+      ['pelvis',  [0, crotchY, 0],   [0, pelvisTop, 0],    Math.max(0.10, (shoulderY - crotchY) * 0.42), 0],
+      ['chest',   [0, pelvisTop, 0], [0, shoulderY, 0],    Math.max(0.11, (shoulderY - crotchY) * 0.50), 0],
+      ['head',    [0, neckY, 0],     [0, crown - 0.03, 0], Math.max(0.09, (crown - neckY) * 0.62),       0],
+      ['armF0',   [ halfT, shoulderY, 0], [ elbow, shoulderY, 0], armR,        1],
+      ['armF1',   [ elbow, shoulderY, 0], [ reach, shoulderY, 0], armR * 0.87, 1],
+      ['armB0',   [-halfT, shoulderY, 0], [-elbow, shoulderY, 0], armR,       -1],
+      ['armB1',   [-elbow, shoulderY, 0], [-reach, shoulderY, 0], armR * 0.87,-1],
+      ['legF0',   [ legX, crotchY, 0], [ legX, knee, 0],  legR,         1],
+      ['legF1',   [ legX, knee, 0],    [ legX, ankle, 0], legR * 0.89,  1],
+      ['legB0',   [-legX, crotchY, 0], [-legX, knee, 0],  legR,        -1],
+      ['legB1',   [-legX, knee, 0],    [-legX, ankle, 0], legR * 0.89, -1],
+    ];
+  }
+  const B = (() => { const i = argv.indexOf('--bind'); return i > 0 && argv[i + 1] === 'canonical'; })()
+    ? CANON : fitBind();
   // squared distance from a normalised point to a bone segment
   /* Distance to a bone segment, in fractions of BODY HEIGHT.
    * The normalised space is anisotropic on purpose — x and z are divided by the body's width so
@@ -269,9 +343,29 @@ export function bakeSkin(meshes, outFile) {
   }
   }
   const head=Buffer.alloc(32);
-  head.write('UR3SKIN0',0,'ascii'); head.writeUInt32LE(1,8); head.writeUInt32LE(n,12); head.writeUInt32LE(B.length,16);
-  writeFileSync(outFile, Buffer.concat([head, Buffer.from(out.buffer, out.byteOffset, out.byteLength)]));
-  console.log(`wrote ${outFile} — ${n} skinned verts · ${B.length} bones · ${(32+out.byteLength)/1048576|0}.${String(Math.round((32+out.byteLength)%1048576/104858)).padStart(1,'0')} MB`);
+  /* ⚑ VERSION 2 — THE BIND SKELETON SHIPS WITH THE MESH.
+   * v1 wrote weights only and left the renderer to supply the skeleton from a hard-coded table,
+   * which is fine exactly as long as every mesh has the same proportions. It does not: fitting
+   * the bake to a toon's real shoulder line while `js/section9-skin.js` still posed it from the
+   * canonical 0.80 would weight against one skeleton and pose with another. The skeleton belongs
+   * to the body, so it goes in the file.
+   *
+   *   0..31    header (version 2)
+   *   32..295  11 bones x 6 float32 = [startXYZ, endXYZ] — 264 bytes
+   *   296..    vertex data, unchanged: 14 floats/vertex, stride 56
+   *
+   * The bones are written in the RENDERER's frame, which is this table x150: the bake works in
+   * normalised body space (y 0 feet → 1 crown) and section9-skin.js works in px at H=150, so
+   * canonical armF0 `[0.10, 0.80, 0]` is its `[15, 120, 0]`. No other transform. */
+  const H_PX = 150;
+  const bones = Buffer.alloc(B.length * 6 * 4);
+  B.forEach((bn, i) => {
+    for (let k = 0; k < 3; k++) bones.writeFloatLE(bn[1][k] * H_PX, (i * 6 + k) * 4);
+    for (let k = 0; k < 3; k++) bones.writeFloatLE(bn[2][k] * H_PX, (i * 6 + 3 + k) * 4);
+  });
+  head.write('UR3SKIN0',0,'ascii'); head.writeUInt32LE(2,8); head.writeUInt32LE(n,12); head.writeUInt32LE(B.length,16);
+  writeFileSync(outFile, Buffer.concat([head, bones, Buffer.from(out.buffer, out.byteOffset, out.byteLength)]));
+  console.log(`wrote ${outFile} — ${n} skinned verts · ${B.length} bones · ${(32+bones.length+out.byteLength)/1048576|0}.${String(Math.round((32+bones.length+out.byteLength)%1048576/104858)).padStart(1,'0')} MB`);
   return B.map(b=>b[0]);
 }
 const skinOut = (()=>{ const i=argv.indexOf('--skin'); return i>0?argv[i+1]:null; })();
