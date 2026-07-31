@@ -356,10 +356,25 @@ window.GLR = (function () {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; }
 
-  // ── DarkFarms cards as arena wall-art. CC0 — credit: darkfarms.wtf. The images
-  //    are DISPLAYED live from DarkFarms' own permanent Arweave storage (not copied
-  //    into this repo); a themed card-back is drawn as the fallback so a wall is
-  //    never blank if a fetch/CORS load fails. Attribution shown in-game + CREDITS.md. ──
+  /* ── DarkFarms cards as arena wall-art ──────────────────────────────────────────────────
+   * Displayed live from DarkFarms' own permanent Arweave storage, NOT copied into this repo.
+   * A themed card-back is drawn first as the fallback, so a wall is never blank if the fetch
+   * or the CORS load fails. Credit is shown in-game and in CREDITS.md.
+   *
+   * ⚑ LICENCE BASIS — corrected. This originally cited darkfarms.wtf as the source of the CC0
+   *   status. That citation was wrong: the site was later fetched in full and publishes NO
+   *   licence statement of any kind, and the SMOWL contract exposes no licence field on-chain
+   *   either. The real basis is the ARTIST'S OWN ATTESTATION — our artist knows DarkFarms
+   *   personally and confirmed the CC0 status directly. That is good enough to ship on, but it
+   *   is a private basis, not a published one, so it is written down here rather than left
+   *   looking like a public fact anyone can go and verify. See docs/CC0-SOURCES.md.
+   *
+   * ⚠ WEIGHT: these are full-size card PNGs — 3.8 MB across the eight, fetched at every match
+   *   start, and the single largest component of this page's ~9.7 MB. They are drawn as wall
+   *   posters, so they are far larger than the job needs. Downscaling or self-hosting is an
+   *   open decision (self-hosting would mean copying his work into the repo, which changes the
+   *   licence posture from "displayed from source" to "redistributed"). Mobile is unverified
+   *   — task #73. ── */
   const DARKFARMS = [
     '-lIrnWW_8qHmHPuxtjB1K10OKJSo2OsmZApluUAy6HI', '1rAArvT-RVdUYm0tm3nPpSRjGBCBnu1WL3RPb3cHJFk',
     '70lM_ct0FJx7EoZjFfF49E0hpl_AXf939vrGTuDv3As', '7p1zzHKsmZbLuM8tzlC3GDOe-L543rsDkJcBfNDdjyA',

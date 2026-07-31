@@ -44,10 +44,19 @@ otherwise.
 | grade | means |
 | --- | --- |
 | **VERIFIED** | a primary source was fetched and read — the rights-holder's own site, repo, on-chain contract, or a collection description on a channel they control |
+| **ATTESTED** | our artist vouches for it first-hand, from a personal relationship with the rights-holder. Not a published source; a *better* one in some ways and a worse one in others — see below |
 | **CLAIMED** | only secondary reporting, aggregators, or third parties assert it; the primary source could not be reached or does not say it |
 | **UNVERIFIED** | no usable evidence either way, or positive evidence that it is *not* blanket CC0 |
 
-Because "primary" covers a range, every VERIFIED row also carries an **evidence class**:
+**On ATTESTED.** This grade exists because of a real case: the artist knows Darkfarms personally
+and said plainly *"darkfarms is cc0 is my friend."* That is first-hand knowledge from inside the
+scene and it outranks a lot of desk research — but it is deliberately kept as its own grade rather
+than folded into VERIFIED, because the two fail differently. A published statement can be re-read
+by a stranger in five years; a conversation cannot. **A repo outlives a conversation.** So ATTESTED
+material is usable, and each ATTESTED row also records what the *public* record does and does not
+say, so nobody later mistakes the attestation for a citation.
+
+Because VERIFIED covers a range, every VERIFIED row also carries an **evidence class**.
 
 - **A — dedicated licence instrument or on-chain constant.** The strongest. A page whose only job
   is the licence, or the licence baked into the contract.
@@ -71,12 +80,65 @@ Because "primary" covers a range, every VERIFIED row also carries an **evidence 
 | **Anonymice** | The fully on-chain collection | The creator's own OpenSea collection description: *"CC0. No IPFS. No APIs. Just code. Fully on-chain, generative NFT."* Contract is renounced and the art is generated in Solidity. | **VERIFIED** | C | ⚠ **anonymice.xyz is gone — the domain is parked and for sale.** There is no project site left to check, and no team to ask. The on-chain art survives the site; the licence page did not. A good argument for reading the contract, not the website. |
 | **Loot (for Adventurers)** | The Loot bags | <https://www.lootproject.com> — the creator's own site: *"Stats, images, and other functionality are intentionally omitted for others to interpret. **Feel free to use Loot in any way you want.**"* | **VERIFIED** | B | ⚠ **This is a permission sentence, not a CC0 instrument.** Loot is universally *called* CC0; its own site never uses the term. That is a meaningful difference — a named licence has defined scope and irrevocability, an invitation does not. Also: Loot's "art" is a plain text list, and short factual item names are thin copyright material to begin with. Use the **format**, which is the interesting part anyway. |
 | **Moonbirds** | The 10,000-piece collection, art by Justin Mezzell | moonbirds.xyz (archived 2023), the project's own site: *"They are distributed under a creative commons (CC0) licence, meaning that any and every creative can use the artwork to build their own collections and products."* | **VERIFIED** | B | ⚠ **Verified but deliberately unused — see the "not used" list.** The dedication was a unilateral retroactive switch by PROOF in Aug 2022, after holders had been told they held IP rights; the legitimacy of that switch was publicly contested at the time. The project has since changed corporate hands. The statement is clear; the chain of authority behind it is the messy part, and this is the one category of mess a minted token cannot absorb. |
-| **Darkfarms1 — SMOWLz** | The 4,201-piece collection | The creator's own OpenSea collection description: *"4201 SMOWLz by Darkfarms1, CC0 smol project, just a Smol wanna be Birb-Birb and Hoot-Hoot with frens."* | **VERIFIED** | C | ⚠ **Weakest VERIFIED row here, and the artist should confirm it in person.** `darkfarms.wtf` was fetched in full and contains **no licence statement of any kind** — grepped for cc0 / creative commons / public domain / licence, zero hits. The SMOWL contract has no `contractURI` and exposes no licence field (checked on-chain). So the entire evidence is three letters in a marketplace description. Given that this artist is in the artist's own scene, **a direct message is worth more than any amount of further desk research.** |
-| **Darkfarms1 — "Decal by Darkfarms"** | claimed: the whole Decal series | None found. The OpenSea collection description is only *"An interpretation of the Decal by Darkfarms. A symbol of permissionless creativity. Series Sixteen."* — "permissionless creativity" is a vibe, not a licence. The CC0 claim traces to Deca (the **platform**), not to Darkfarms. | **CLAIMED** | — | Deca asserting that "CC0 is the perfect cryptoart license model" is Deca's editorial position about its own product, not the artist's dedication of these works. **Not used.** |
-| **Darkfarms1 — Book of Meme / BOME** | claimed: CC0-associated | None found. | **UNVERIFIED** | — | **Not used.** |
+| **Darkfarms1 — SMOWLz** | The 4,201-piece collection | Two independent strands. **(1)** The creator's own OpenSea collection description: *"4201 SMOWLz by Darkfarms1, CC0 smol project, just a Smol wanna be Birb-Birb and Hoot-Hoot with frens."* **(2)** Our artist, first-hand: *"darkfarms is cc0 is my friend."* | **VERIFIED** + **ATTESTED** | C | ✅ The doubt originally flagged here is resolved by the attestation. The *public* record is still thin and that is worth remembering: `darkfarms.wtf` was fetched in full and contains **no licence statement of any kind** (grepped for cc0 / creative commons / public domain / licence — zero hits), and the SMOWL contract has no `contractURI` and exposes no licence field (checked on-chain). ⚑ **Worth asking him for one line in writing at some point** — not because anyone doubts it, but so the basis is legible to someone reading this repo in five years. **Used** (measured palette only). |
+| **Darkfarms1 — "Decal by Darkfarms"** | the Decal series | No published statement. The OpenSea collection description is only *"An interpretation of the Decal by Darkfarms. A symbol of permissionless creativity. Series Sixteen."* — "permissionless creativity" is a vibe, not a licence; the published CC0 claim traces to Deca (the **platform**), not to Darkfarms. What has changed is that the artist's attestation is about **Darkfarms**, not about one collection. | **ATTESTED** | — | Usable on the artist's word, and recorded honestly: the attestation is general ("darkfarms is cc0"), so applying it to Decal is an inference from a general statement rather than a specific one. **Not used in this first set** — nothing needed it, and an unused inference is a free one to leave unmade. If a later asset wants it, get the specific confirmation first. |
+| **Darkfarms1 — Book of Meme / BOME** | claimed: CC0-associated | No published statement found. Covered by the general attestation only, and BOME is the row where that matters most: it is a **Solana** token project with a much larger surface than a PFP set, and "the art is CC0" and "the project is CC0" are not the same claim. | **ATTESTED** (general only) | — | **Not used.** If it is ever wanted, ask specifically — this is the one Darkfarms row where a general "he's cc0" should not be stretched. |
 | **Chain Runners** | claimed: the on-chain collection | None reachable. chainrunners.xyz and its `/xr` terms page are a JS app that serves no text to a fetcher, live or archived. The OpenSea description carries no licence line (*"Chain Runners are Mega City renegades 100% stored and generated on chain."*). Etherscan blocks unauthenticated fetches and Sourcify's v1 API is in a scheduled brownout, so the verified contract source could not be read either. | **CLAIMED** | — | Very widely reported as CC0, including in a16z's own cc0 explainer, and other projects' contracts credit it as CC0 inspiration. Probably true. **Probably is not a licence.** Not used — the only thing missing is a readable primary source, so this is the most likely row to be promoted later. |
 | **Rare Pepe (Counterparty, 2016–18)** | **nothing blanket** | Positive evidence *against*: the Rare Pepe Directory's submission rules required work to be **original** and prohibited copying — i.e. artists retained their own positions, per card, per artist. There is no project-wide dedication, and there are hundreds of individual submitting artists. | **UNVERIFIED** | — | ⚠ **And a second, larger problem: Pepe the Frog is Matt Furie's copyright and he has actively enforced it**, including against crypto projects. A Rare Pepe card is at minimum two rights stacked — the submitting artist's, and Furie's underlying character. **Not used, and should not be used**, notwithstanding that this is the artist's home scene. Card *format* and card *culture* are not copyrightable and are ours to work in freely; specific Pepe imagery is not. |
 | **Fake Rares / Dank Rares** | **nothing blanket** | Same structure as Rare Pepe — a per-submission directory of independent artists, no project-wide dedication found. | **UNVERIFIED** | — | **Not used.** Same two-layer problem. The artist's own Fake Rares work is of course the artist's own and is unaffected by any of this. |
+
+---
+
+## ⚑ CC0 ASSET LIBRARIES — the highest-value rows in this file
+
+These are not crypto-art and they are not the artistic spine of the project. They are something
+more useful in the short term: **large, unambiguously CC0, immediately usable, and licensed by
+organisations whose entire public identity is that licence.** Each one below states CC0 on a page
+whose only job is to state it — evidence class A across the board, which is better than anything
+in the NFT table above except Nouns.
+
+| source | what exactly is CC0 | primary evidence | conf. | class | caveats |
+| --- | --- | --- | --- | --- | --- |
+| **Poly Haven** — HDRIs, textures, models | **Everything on the site.** *"All assets (HDRIs, textures and 3D models) on this site are the original work of Poly Haven staff, or artists who willingly and directly donate/sell their work to Poly Haven. Our assets are all licensed as CC0…"* | <https://polyhaven.com/license> | **VERIFIED** | A | They state the usage grant explicitly: *"You can use our assets for any purpose, including commercial work. You do not need to give credit… You can redistribute them."* Note the provenance sentence is doing real work — they assert the chain of title, which is exactly what the "a re-upload is not a dedication" rule asks for. ⚑ **The HDRIs are the prize.** Image-based lighting is the one thing our renderers do not have, and it is the single largest contributor to "why does theirs look real". Feeds the PlayCanvas environment-probe evaluation directly. |
+| **ambientCG** — PBR material sets | **All assets, plus the preview renders.** *"All ambientCG assets are provided under the Creative Commons CC0 1.0 Universal License. This applies to the downloadable asset files and the material preview renders shown for each asset on the site."* | <https://ambientcg.com/license> | **VERIFIED** | A | Full albedo/normal/roughness/AO sets. Now that the UV path exists through our pipeline these are usable for real rather than aspirationally. Attribution explicitly not required. ⚠ The old `/help/licensing` URL 404s — the live page is `/license`. |
+| **Kenney.nl** — game assets | **All assets on the asset pages.** *"Yes, all game assets on the asset pages are public domain licensed (CC0). You're free to use them, even in commercial projects."* | <https://kenney.nl/support> | **VERIFIED** | A/B | ⚑ **Kenney states the trademark carve-out himself, unprompted:** *"Attribution is not required… **Do not use our logo, as it is reserved for official projects by our studio.**"* That is the general rule at the top of this file, in the source's own words. Note the scope is "assets on the asset pages" — his games and tools are not covered by that sentence. |
+| **OpenGameArt** | **nothing, in general** | The site hosts CC0, CC-BY, CC-BY-SA, GPL and OGA-BY side by side. | **MIXED — per-asset only** | — | ⛔ **A licence must be read per submission, and per file within a submission.** Treat the site as a search engine, never as a source. Also apply the re-upload rule hard here: user-submitted galleries are exactly where third-party work gets relabelled. Nothing from here is used. |
+
+### Institutional public domain / CC0
+
+Unimpeachable licence-wise and superb for **surface, pattern and material reference** — which is
+the only thing we would want from them anyway.
+
+| source | what exactly is CC0 | primary evidence | conf. | class | caveats |
+| --- | --- | --- | --- | --- | --- |
+| **The Met — Open Access** | Images of works **the Met believes to be in the public domain** (~492,000), plus **basic catalogue data for the entire collection**, both under CC0 | The Met's own Open Access hub and its 2017 press release announcing the policy | **VERIFIED** | B | ⚠ **The split is the whole point and it is easy to get wrong.** CC0 covers images of *public-domain* works and metadata for *everything*. Images of works still in copyright are **excluded** — the collection contains both, and the API returns both. Check the per-object public-domain flag; do not assume from the fact that it is in the Open Access API. |
+| **Rijksmuseum** | Public-domain works, via Rijksstudio | Their own copyright/conditions page — **could not be fetched**; the URL used 404s and the live path was not located in the time available | **CLAIMED** | — | Widely and correctly understood to be open, but this row has not been verified to this file's standard. Not used. |
+| **Smithsonian Open Access** | ~3M+ assets under CC0 | Their own `si.edu/openaccess` page — **blocked by a bot check**, could not be read | **CLAIMED** | — | Very likely VERIFIED-able with a browser; the fetcher could not get past the interstitial. Not used. |
+| **NASA imagery** | ⛔ **not CC0** | NASA's own media guidelines page | **UNVERIFIED as CC0** | — | ⚠ **Do not file this under CC0.** NASA content is generally *not copyrighted* because it is US-Government work — a different mechanism with different edges. NASA's own guidelines carry explicit restrictions on the **NASA insignia/logotype** and on any use implying **endorsement**, and third-party and contractor-supplied material inside NASA galleries can carry its own rights. Usable, usually, and **not by this file's CC0 rule**. |
+
+---
+
+## The wider crypto-art net — round two
+
+Same discipline, and it caught exactly what it was meant to: **two of the most confidently
+"CC0" names in the brief turn out not to be, and a third turns out not to inherit.**
+
+| project | finding | conf. | evidence |
+| --- | --- | --- | --- |
+| **Gnars** | ✅ Their own site's FAQ, in as many words: *"Are Gnars artwork free to use?" — "Yes. CC0—use, remix, commercialize, no permission needed."* | **VERIFIED** | B — gnars.wtf |
+| **tiny dinos** | ✅ Their own site describes the collection as *"one of 10k **cc0** tiny dinos minted out across 7 different chains"* | **VERIFIED** | B — tinydinos.org |
+| **Lil Nouns** | ⚠ **A Nouns fork does NOT inherit the Nouns dedication, and Lil Nouns does not repeat it.** Nouns' own webapp carries an explicit *"All traits are CC0…"* page; the Lil Nouns monorepo does **not**. The only `cc0` string in it is an aside — *"For being selfless stewards of cc0, Lil Nounders have chosen to compensate the Nouns DAO…"* — which describes a courtesy, not a grant. Traits *inherited* from Nouns trace back to Nouns' CC0; Lil-Nouns-specific traits have no statement I could find. | **CLAIMED** | — |
+| **DeGods / y00ts** | ⛔ **Evidence against.** Reporting from the launch period describes DeLabs spending months with counsel drafting **`de[license]`** — a bespoke NFT IP framework for derivative brands — and separately going to 0% royalties. A custom licence is the *opposite* of CC0, and "0% royalties" is a fee decision that gets misread as a rights decision. This is precisely the trap the Decal row caught, at a much larger scale. | **UNVERIFIED / likely not CC0** | — |
+| **Terraforms (Mathcastles)** | No licence statement in the creator-controlled collection description (*"Onchain land art from a dynamically generated onchain 3D world."*). Nothing found. | **UNVERIFIED** | — |
+| **CryptoDickbutts** | Widely described as CC0; the creator-controlled collection description says nothing about licensing, and cryptodickbutts.com serves no licence text. | **CLAIMED** | — |
+| **OKPC · Sappy Seals · Based Ghouls · Shields · Corruption(s\*) · Okay Bears · Bitcoin Frogs** | Not confirmed. All either serve a JS-only shell with no licence text or carry no licence line in the creator-controlled description. | **CLAIMED / UNVERIFIED** | — |
+| **Counterparty / Rare Pepe / Fake Rare CC0 material** | Nothing new. Re-checked; the structure has not changed since the row above — a per-submission directory of independent artists with no project-wide dedication, over a character whose author enforces his copyright. | **UNVERIFIED** | — |
+
+⚑ **The pattern worth keeping.** Of the collections in the brief, the ones that turned out to be
+verifiable said so on **their own site** (Gnars, tiny dinos, Blitmap, goblintown, Loot) or in
+**their own repo/contract** (Nouns). The ones that could not be verified were, almost without
+exception, projects whose site is a JavaScript app that serves nothing to a fetcher. **A project
+that means it tends to put it where it can be read.**
 
 ---
 
@@ -97,6 +159,12 @@ character does not.
 
 Everything else in the table was left alone.
 
+**Not yet drawn on, but cleared and waiting:** Poly Haven, ambientCG and Kenney are VERIFIED class
+A and nothing in this first set uses them, because this set is *generated geometry* and they are
+*supplied files*. That is the right order — the licence dossier had to come first and the
+generated set proves the pipeline. They are the obvious next step, and the highest-value one:
+a Poly Haven HDRI does more for how these assets look than another prop would.
+
 ---
 
 ## Deliberately NOT used, and why
@@ -109,8 +177,22 @@ This list matters as much as the assets.
 - **Chain Runners** — CLAIMED only. Primary source unreachable, not for lack of trying (site,
   archived site, `/xr` terms page, OpenSea description, Etherscan, Sourcify). Promote it if
   someone can produce a readable statement.
-- **"Decal by Darkfarms"** — CLAIMED via the platform, not the artist.
-- **Book of Meme / BOME** — UNVERIFIED.
+- **DeGods / y00ts** — named in the brief as "reportedly went CC0"; the evidence points the other
+  way, at a bespoke `de[license]` framework. Left out deliberately, and flagged loudly, because
+  this is the highest-profile misconception in the whole list.
+- **Lil Nouns** — the fork does not carry the parent's dedication. Nouns itself is used; Lil Nouns
+  is not.
+- **Terraforms · CryptoDickbutts · OKPC · Sappy Seals · Based Ghouls · Shields · Corruption(s\*) ·
+  Okay Bears · Bitcoin Frogs** — could not be confirmed to this file's standard in the time
+  available. Leads, not licences.
+- **"Decal by Darkfarms"** — now ATTESTED via the artist's general statement, but nothing in this
+  set needed it, so the inference from "darkfarms is cc0" to "this collection is cc0" is left
+  unmade rather than made silently.
+- **Book of Meme / BOME** — ATTESTED only in general, and the row where a general attestation is
+  least safe to stretch. Not used.
+- **NASA imagery** — usable in its own right, but not under this file's CC0 rule, and its logo and
+  endorsement restrictions are real. Filed correctly rather than conveniently.
+- **OpenGameArt** — mixed-licence by design. Nothing taken.
 - **Rare Pepe / Fake Rares** — UNVERIFIED *and* encumbered by Matt Furie's underlying copyright
   in Pepe. This is the artist's own scene and the temptation is real; it is still a no. The
   lineage lives in the repo as *form* — the card, the rip, the directory culture — not as pixels.
@@ -207,11 +289,18 @@ which is precisely why it survives being turned into low-poly geometry.
 
 ## Open questions for the artist
 
-1. **Darkfarms** — you are in this scene. A direct confirmation from Darkfarms that SMOWLz is CC0
-   (and where he'd say the line is on *Decal*) would upgrade the weakest row here in one message.
-2. **Chain Runners** — if anyone has a screenshot or a saved copy of the `/xr` terms text, that
-   promotes CLAIMED → VERIFIED.
-3. **XCOPY scope** — the licence page names no works and carries no date. If you want to use a
-   *specific* piece rather than the general vocabulary, that specific piece needs its own check.
-4. **Moonbirds** — do you want it in at all? It is verified, it is contested, and nothing
+1. ✅ **Darkfarms — answered.** *"darkfarms is cc0 is my friend."* Recorded as ATTESTED and used.
+   One follow-up, low priority and not urgent: **ask him for a line in writing** — a tweet, a line
+   on darkfarms.wtf, anything durable. The repo will outlive the conversation, and right now the
+   only public trace is three letters in a marketplace description.
+2. **Darkfarms scope** — the attestation is general. If a later asset wants to lean on **Decal**
+   or **BOME** specifically, ask him about that collection specifically. BOME especially: it is a
+   token project, and "the art is CC0" and "the project is CC0" are different sentences.
+3. **Chain Runners** — if anyone has a screenshot or saved copy of the `/xr` terms text, that
+   promotes CLAIMED → VERIFIED in one paste.
+4. **XCOPY scope** — the licence page names no works and carries no date. If you want to use a
+   *specific* piece rather than the general vocabulary, that piece needs its own check.
+5. **Moonbirds** — do you want it in at all? It is verified, it is contested, and nothing
    currently depends on the answer.
+6. **DeGods / y00ts** — you may have heard these called CC0; the evidence says `de[license]`
+   instead. If you know otherwise first-hand, that is another ATTESTED row waiting.
