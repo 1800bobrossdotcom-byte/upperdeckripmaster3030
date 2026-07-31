@@ -1,12 +1,13 @@
 <!doctype html>
 <!--
-  SECTION 9 · CLASSIC BUILD — the hand-rolled WebGL renderer (js/section9-gl.js), kept and still
-  playable after the PlayCanvas build took over section9.html.
+  SECTION 9 — the shipping game, on the hand-rolled WebGL renderer (js/section9-gl.js).
 
-  It is not a museum piece. It is the rollback, it is the free A/B for any renderer question, and
-  it is where a browser without WebGL 2 gets sent — PlayCanvas has no software path, and this one
-  fails open all the way down to a canvas rasteriser. Nothing here should be deleted on the
-  grounds that the engine build exists.
+  ⚑ ROLLED BACK 2026-07-31. The PlayCanvas build briefly held this URL and has been moved to
+  section9-engine.html until a real bug is fixed: its camera renders the scene MIRRORED
+  left-to-right, so turning right moves the view left, strafe reads backwards and the centre
+  reticle does not point where the raycast goes. That is one cause behind three symptoms, the
+  diagnosis and the derived fix are written out in js/s9pc-app.js applyCamera(), and the engine
+  build stays reachable and worked on. This file was never touched by any of it.
 -->
 <html lang="en">
 <head>
@@ -309,7 +310,7 @@
       <div style="margin-top:10px"><button class="go eth" id="btnEth" disabled>Ξ Play for ETH (Base) — escrow deploying</button></div>
       <div class="ethnote" id="ethNote"><b>Phase-2.</b> Winner-takes-all ETH ($3-cap pot, Base L2) needs a trustless escrow contract before real ETH can move — the button is a preview and <b>moves no ETH yet</b>.</div>
       <div class="tavern-slot"><div id="tavern"></div></div>
-      <div class="mininote"><a href="section9.html">▶ the engine build (PlayCanvas)</a> · <a href="cards/battle.html">◄ back to the arena</a> · <a href="dogfight.html">✈ dogfight</a> · <a href="index.html">the pack</a></div>
+      <div class="mininote"><a href="section9.html">▶ the engine build</a> · <a href="cards/battle.html">◄ back to the arena</a> · <a href="dogfight.html">✈ dogfight</a> · <a href="index.html">the pack</a></div>
     </div>
   </div>
 

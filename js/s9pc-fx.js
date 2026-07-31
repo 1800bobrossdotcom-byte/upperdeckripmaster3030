@@ -128,7 +128,7 @@ window.S9PCFx = (function () {
     miA.setCustomAabb(huge); miB.setCustomAabb(huge);
     miA.castShadow = false; miB.castShadow = false;
     root.addComponent('render', { meshInstances: [miB, miA], castShadows: false, receiveShadows: false });
-    app.root.addChild(root);
+    (app.__worldMirror || app.root).addChild(root);   // under the world mirror — see s9pc-app.js
 
     const R = new pc.Vec3(), U = new pc.Vec3(), F = new pc.Vec3(), tmp = new pc.Vec3();
     let nA = 0, nB = 0;

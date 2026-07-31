@@ -151,7 +151,7 @@ window.S9PCSkin = (function () {
 
       root.addComponent('render', { meshInstances: [mi], castShadows: true, receiveShadows: true });
       mi.node = root; mi.skinInstance = si;          // the component setter may re-point these
-      app.root.addChild(root);
+      (app.__worldMirror || app.root).addChild(root);   // under the world mirror — see s9pc-app.js
 
       const bd = S9Skin.BIND.map(([a, b]) => {
         const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], l = Math.hypot(d[0], d[1], d[2]) || 1;
@@ -246,7 +246,7 @@ window.S9PCSkin = (function () {
       b.addChild(seg); bones.push(b); limbs.push(seg);
     });
     // a head block, so the silhouette has a skull rather than a stick
-    app.root.addChild(root);
+    (app.__worldMirror || app.root).addChild(root);   // under the world mirror — see s9pc-app.js
     let lastPose = null, state = null;
     const _q = new pc.Quat(), _up = new pc.Vec3(0, 1, 0), _d = new pc.Vec3();
     function setPose(e) {

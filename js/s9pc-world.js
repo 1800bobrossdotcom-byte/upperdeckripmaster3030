@@ -1,7 +1,7 @@
 /* upperdeckripmaster3030 — Section 9 / PlayCanvas EVALUATION build: the world (S9PCWorld).
  *
  * ⚠ THIS IS A PROTOTYPE FOR COMPARISON, NOT A MIGRATION. It exists so the artist can look at
- *   `section9.html` (our hand-rolled WebGL) and `section9-pc.html` (this) side by side and
+ *   `section9.html` (our hand-rolled WebGL) and `section9-engine.html` (this) side by side and
  *   decide. Nothing here is loaded by the shipping game; `section9.html` is untouched.
  *
  * What this module does: takes the SAME baked level our renderer eats — `models/world/*.wld`
@@ -376,7 +376,7 @@ window.S9PCWorld = (function () {
     const root = new pc.Entity('level');
     const instances = parts.map(p => { const mi = new pc.MeshInstance(p.mesh, p.material, root); mi.castShadow = true; return mi; });
     root.addComponent('render', { meshInstances: instances, castShadows: true, receiveShadows: true });
-    app.root.addChild(root);
+    (app.__worldMirror || app.root).addChild(root);   // under the world mirror — see s9pc-app.js
     return { root, parts,
       stats: Object.assign({ tris: (verts.length / 18) | 0, boxes: (MAP.solids || []).length, parts: parts.length,
         buildMs: +(performance.now() - t0).toFixed(1), baked }, stats) };

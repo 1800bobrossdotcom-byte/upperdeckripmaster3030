@@ -331,7 +331,31 @@
     shadowBias: num('sbias', 0.012), normalOffsetBias: num('nbias', 0.28), shadowIntensity: num('sint', 0.82),
   });
   sun.setPosition(SUN[0] * 100, SUN[1] * 100, SUN[2] * 100); sun.lookAt(0, 0, 0);
-  app.root.addChild(sun);
+  /* ── THE MIRROR ROOT — this is the fix for "mouse inverted / strafe backwards / aim off" ──
+   * Section 9's world is (x right, y up, z FORWARD), which is a LEFT-handed basis. A PlayCanvas
+   * camera's is (x right, y up, −z forward), which is RIGHT-handed. The old code reconciled them
+   * with a +180° yaw offset: that makes FORWARD agree and cannot make RIGHT agree, because a
+   * rotation preserves handedness. Measured at two headings, forward matched exactly and right
+   * came out negated both times — so the entire scene was drawn as its own mirror image. Turning
+   * right swung the view left, strafe read backwards, and the reticle (drawn dead-centre on the
+   * 2D overlay, which does not mirror) stopped pointing where the raycast went. One cause, three
+   * bug reports.
+   *
+   * A handedness flip is not a rotation, so it has to be a SCALE. Everything that lives in game
+   * coordinates — level, bodies, FX, level lights — hangs under this one node at scale
+   * (−1, 1, 1), and the camera stays OUTSIDE it with the matching conversion in applyCamera().
+   * One node instead of negating x at forty call sites, which is what makes it verifiable: the
+   * scene is either mirrored or it is not, and nothing can be half-converted.
+   *
+   * ⚠ Negative scale reverses triangle winding. PlayCanvas derives face flipping from the world
+   *   transform's determinant, so this is handled by the engine rather than by us — but it is
+   *   the first thing to check if the arena ever renders inside-out. */
+  const world = new pc.Entity('worldMirror');
+  world.setLocalScale(-1, 1, 1);
+  app.root.addChild(world);
+  /* the other modules parent into this instead of app.root; one lookup, no import cycle */
+  app.__worldMirror = world;
+  world.addChild(sun);
 
   // ── camera ──────────────────────────────────────────────────────────────────────────────────
   /* fov 0.97 rad vertical and near 0.06 are section9-gl.js's own numbers, so the two builds frame
@@ -482,7 +506,7 @@
           castShadows: QCFG.spotShadow && on('spotshadow', true), shadowResolution: 1024, shadowBias: 0.02,
           normalOffsetBias: 0.06, shadowIntensity: 0.9, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
         e.setPosition(x, y, z); e.setEulerAngles(-90, 0, 0);
-        app.root.addChild(e); levelLights.push(e);
+        world.addChild(e); levelLights.push(e);
       }
     }
     /* Coloured practicals: every arcade cabinet, shelf run, crate stack or prize booth becomes a
@@ -499,7 +523,7 @@
       e.addComponent('light', { type: 'omni', color: new pc.Color(c[0], c[1], c[2]), intensity: num('omni', 4.2),
         range: 9.5, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
       e.setPosition((b.x0 + b.x1) / 2, b.y1 + 0.5, (b.z0 + b.z1) / 2);
-      app.root.addChild(e); levelLights.push(e); lit++;
+      world.addChild(e); levelLights.push(e); lit++;
     }
     levelStats.omni = lit; levelStats.spot = (!OPEN && QCFG.spot > 0) ? QCFG.spot * Math.max(1, QCFG.spot - 1) : 0;
     if (!fx) fx = S9PCFx.create(app);
@@ -653,8 +677,13 @@
    * (cos p · sin yaw, sin p, cos p · cos yaw) — so neither is "the inverted one". Some people
    * fly, some people aim, and a shooter without the toggle is just picking a side.
    * Persisted, so you set it once. `?invy=1` / `?invx=1` / `?sens=140` override for testing. */
+  /* ⚑ BOTH DEFAULT OFF, now that the mirror is actually fixed. invX was briefly defaulted ON as
+   * a mitigation while the scene was still rendering mirrored — leaving it on after fixing the
+   * cause would invert the mouse in the other direction, which is the classic way a workaround
+   * outlives its bug and becomes one. */
   const LOOK = {
-    invY: pref('s9_invy', Q.get('invy')), invX: pref('s9_invx', Q.get('invx')),
+    invY: pref('s9_invy', Q.get('invy')),
+    invX: pref('s9_invx', Q.get('invx')),
     sens: (() => { const q = parseFloat(Q.get('sens'));
       if (isFinite(q) && q > 0) return q / 100;
       try { const v = parseFloat(localStorage.getItem('s9_sens')); if (isFinite(v) && v > 0) return v / 100; } catch (e) {}
@@ -862,8 +891,32 @@
     const G = game.G, c = game.cam;
     /* Section 9's yaw convention is forward = (sin yaw, 0, cos yaw); a PlayCanvas camera looks
      * down its own −z. Hence the +180°: without it the whole world sits behind you, which is
-     * exactly the class of bug the dogfight renderer shipped once (see CLAUDE.md). */
-    _qy.setFromAxisAngle(pc.Vec3.UP, c.yaw * 180 / Math.PI + 180);
+     * exactly the class of bug the dogfight renderer shipped once (see CLAUDE.md).
+     *
+     * ⛔ KNOWN BUG — THE SCENE IS MIRRORED, AND THIS IS WHY THE MOUSE FEELS INVERTED.
+     * The +180° makes FORWARD correct and cannot make RIGHT correct, because it is a rotation
+     * and a rotation preserves handedness. Checked numerically at two headings:
+     *     yaw 0°  : forward game (0,0,1)  camera (0,0,1)   MATCH
+     *               right   game (1,0,0)  camera (-1,0,0)  MIRRORED
+     *     yaw 90° : forward game (1,0,0)  camera (1,0,0)   MATCH
+     *               right   game (0,0,-1) camera (0,0,1)   MIRRORED
+     * The game's basis (x right, y up, z forward) is LEFT-handed; a PlayCanvas camera's
+     * (x right, y up, −z forward) is RIGHT-handed. The classic renderer gets away with it
+     * because `viewMat` in js/section9-gl.js is hand-written and is not a pure rotation, so it
+     * encodes the flip. A quaternion cannot.
+     *
+     * THE REAL FIX, derived and verified on paper, is to mirror on x at the conversion boundary:
+     *     every position handed to the engine:  pcX = −gameX   (and reverse triangle winding,
+     *                                            or set cull to FRONT, or the world renders
+     *                                            inside out)
+     *     camera yaw:                           θ = π − gameYaw
+     * With those two together both vectors match: forward → (−sin y, sin p, cos y) and
+     * right → (−cos y, 0, −sin y), which is exactly the mirror of the game's own pair.
+     * That touches world mesh vertices, body placement and the FX buffers, so it is a real
+     * refactor and it is NOT done here — `LOOK.invX` defaults on to make the game aimable in
+     * the meantime. ⚠ Strafe still reads mirrored until this lands: A/D move you correctly in
+     * the simulation and the mirrored view shows it going the other way. */
+    _qy.setFromAxisAngle(pc.Vec3.UP, 180 - c.yaw * 180 / Math.PI);
     _qx.setFromAxisAngle(pc.Vec3.RIGHT, c.pitch * 180 / Math.PI);
     _qr.copy(_qy).mul(_qx);
     cam.setRotation(_qr);
@@ -872,7 +925,7 @@
     let jx = 0, jy = 0, jz = 0;
     const sh = Math.min(G.shake, 14) * 0.008;
     if (sh > 0.0001) { jx = (Math.random() * 2 - 1) * sh; jy = (Math.random() * 2 - 1) * sh * 0.8; jz = (Math.random() * 2 - 1) * sh * 0.4; }
-    cam.setPosition(c.x + jx, c.y + jy, c.z + jz);
+    cam.setPosition(-(c.x + jx), c.y + jy, c.z + jz);      // the camera lives outside the mirror
     cam.camera.fov = (FOV / (G.scopeZoom || 1)) * 180 / Math.PI;
     if (viewmodel) {
       const me = G.me;

@@ -464,7 +464,7 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   73.3); my first guess of 0.62 also removed it but cost **14 luma and 14 contrast**, dimming
   the whole sky instead of the highlights. Lower is not safer, just darker.
 - ## ⛔ ENGINE DECISION — **PlayCanvas is being adopted. Artist's call, 2026-07-31.**
-  The hand-rolled renderers were evaluated against PlayCanvas side by side (`section9-pc.html`
+  The hand-rolled renderers were evaluated against PlayCanvas side by side (`section9-engine.html`
   vs `section9.html`) and the artist's verdict is that **incremental upgrades to our own
   renderers do not reach the quality bar this studio is aiming at.** We take the engine.
   - ⚠ **The evaluation's own "don't migrate" recommendation rested largely on launch being six
@@ -489,12 +489,29 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
     re-derived in the engine's terms, not left at defaults. Also `Gfx2D` and the **2D fallback**
     (PlayCanvas has no software path, so WebGL2 becomes a hard requirement) — fail-open at every
     step is a standing principle here, so dropping it is a DESIGN decision to be made openly.
-  - ✅ **SHIPPED 2026-07-31 — the PlayCanvas build IS `section9.html`.** The hand-rolled
-    renderer moved to **`section9-classic.html`**, unchanged and still playable; `section9-pc.html`
-    redirects (query strings survive). It is the rollback, the free A/B, and where a browser with
-    **no WebGL 2** is sent — PlayCanvas has no software path, so the engine build shows an honest
-    page naming the requirement and linking to the build that runs anywhere. Fail-open is
-    preserved as a ROUTE rather than a renderer.
+  - ✅ **SHIPPED — the PlayCanvas build IS `section9.html`.** The hand-rolled renderer is kept
+    at `section9-classic.html`, unchanged and still playable: the rollback, the free A/B, and
+    where a browser with **no WebGL 2** is sent (PlayCanvas has no software path, so fail-open is
+    preserved as a ROUTE rather than a renderer).
+  - ⚑ **THE SCENE WAS RENDERING MIRRORED — one cause, three bug reports.** "Mouse inverted",
+    "strafe backwards" and "aim off" were all the same defect. Verified numerically: at yaw 0 the
+    camera's forward matched the game's (0,0,1) but its RIGHT was (−1,0,0) against the game's
+    (1,0,0); same at 90°. Section 9's basis (x right, y up, z **forward**) is **LEFT-handed**; a
+    PlayCanvas camera's (x right, y up, −z forward) is **right-handed**. The old `+180°` yaw
+    offset makes FORWARD agree and **cannot** make RIGHT agree, because a rotation preserves
+    handedness. `section9-gl.js` gets away with it only because its `viewMat` is hand-written and
+    is not a pure rotation. ⚑ The reticle is drawn dead-centre on the 2D overlay, which does not
+    mirror — which is exactly why "aim off" and "mouse inverted" were the same report.
+    **Fix: a handedness flip is not a rotation, so it has to be a SCALE.** Everything in game
+    coordinates (level, bodies, FX, level lights) hangs under one `worldMirror` node at
+    `(−1, 1, 1)`; the camera stays OUTSIDE it at `(−x, y, z)` with yaw `π − gameYaw`. One node
+    instead of negating x at forty call sites — which is what makes it verifiable, since the
+    scene is either mirrored or it is not and nothing can be half-converted. Modules reach it via
+    `app.__worldMirror`. ⚠ Negative scale reverses winding; PlayCanvas derives face flipping from
+    the transform determinant and handled it (verified by screenshot — walls solid, not
+    inside-out). That is the first thing to check if an arena ever renders inside-out.
+  - ⚠ **A workaround must die with its bug.** `invX` was defaulted ON while the mirror was still
+    live; leaving it on afterwards would have inverted the mouse the other way.
   - ⚑ **The washed-out interiors were a MISSING `open` FLAG, not a lighting-taste question.** The
     six hand-built arenas are walled yards under the dusk sky — "tight interior" in their comments
     describes the LAYOUT, and `ceilY` is a jump ceiling, not geometry. With the flag unset the

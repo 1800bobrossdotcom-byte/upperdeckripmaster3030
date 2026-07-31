@@ -8,9 +8,16 @@
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!--
-  SECTION 9. This is the shipping game, on the PlayCanvas engine.
+  SECTION 9 · ENGINE BUILD — PlayCanvas. WORK IN PROGRESS, not the shipping game.
 
-  The hand-rolled renderer it replaced is still here, at `section9-classic.html`, and it is still
+  ⛔ KNOWN BUG, and it is why this is not at section9.html: the camera renders the scene MIRRORED
+  left-to-right against the game's own convention. Forward is right and RIGHT is not — verified
+  numerically, see applyCamera() in js/s9pc-app.js for the numbers and the derived fix. Three
+  symptoms, one cause: the mouse feels inverted, strafe reads backwards, and the centre reticle
+  does not point where the raycast actually goes ("aim off"). Fix it before this takes the URL
+  back.
+
+  The hand-rolled renderer is kept at `section9-classic.html`, and it is still
   reachable and still works. It is the rollback and the A/B, and it is what a browser without
   WebGL 2 is sent to — PlayCanvas has no software path, so this page genuinely cannot degrade,
   and the honest answer to that is a page that names the requirement and hands you a build that
@@ -338,7 +345,7 @@
       <div><button class="go" id="btnAnte">🔥 Ante up &amp; deploy</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice deathmatch (no stakes)</button></div>
       <div class="mininote" id="lobNote"></div>
-      <div class="mininote"><a href="section9-classic.html">◄ the classic build (hand-rolled renderer)</a> · <a href="arcade.html">the arcade</a> · <a href="index.html">the pack</a></div>
+      <div class="mininote"><a href="section9-classic.html">◄ the classic build</a> · <a href="arcade.html">the arcade</a> · <a href="index.html">the pack</a></div>
     </div>
   </div>
 
