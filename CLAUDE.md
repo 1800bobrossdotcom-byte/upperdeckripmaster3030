@@ -140,6 +140,43 @@ is the staking mechanism — no staking contract, no emissions, nothing to drain
 who receives it, the curve mechanism or any DEX graduation, or how the opening price is set.
 **Ask them. Do not model revenue until they answer.**
 
+## ⚑ Liquid Editions CLI — corrections from SuperRare's own Technical CLI Guide
+*Source: SuperRare "Liquid Editions: Technical CLI Guide (Cohort 01)" + the public
+"Introduction to Liquid Editions" help article. Read them, don't reason from memory.*
+
+- ⛔ **"Deploy path = ASSISTED, we do not self-deploy" was WRONG.** Whitelisted artists may use
+  **either** the guided SuperRare create flow **or** the Rare Protocol CLI. Via the CLI the
+  artist deploys it themselves:
+  ```
+  npm install -g @rareprotocol/rare-cli          # Node 22+
+  rare configure --chain sepolia --private-key-ref op://…   # 1Password ref; key NOT stored plaintext
+  rare liquid-edition deploy multicurve "ripmaster3030studios" "3030" \
+    --curve-preset medium-demand --description "…" --image ./art.png --preview
+  ```
+  ⚑ **`name` and `symbol` are POSITIONAL ARGS the artist types** — they are not handed to
+  SuperRare and hoped for. `--preview` first, `--yes` to submit. This de-risks the naming
+  problem enormously: preview, read it back, then commit.
+- ⚑ **The curve is a PRESET, not a hand-calibration.** `--curve-preset medium-demand` is what
+  `token-model.mjs`'s `M = 10` was already modelling. **`--preview` prints the generated curve
+  without submitting — that is how to get real numbers instead of assumed ones.** Run it on
+  Sepolia before modelling anything further.
+- ⚑ **THE GOLDEN RULE:** a whitelisted artist MUST deploy from **the exact wallet connected to
+  their verified SuperRare account**, or the indexer will not associate the drop with the artist
+  profile. A burner/dev wallet forfeits SuperRare.com surfacing.
+- ✅ **Render contracts may read `balances`** — stated outright: they "can read price, supply,
+  liquidity, burn progress, balances, and related on-chain state at fetch time." This is the
+  second independent confirmation of the staking design above.
+- ⚑ **Updates are PULL-BASED**: "a render contract is not a background process… the market
+  changes on-chain, metadata gets refetched, and the artwork changes." So owner-dependent
+  metadata works, but only as fast as clients refetch — the caching caveat is real.
+- ⚠ **"SuperRare does not provide custom development support or QA for custom renderers"**, and
+  "you are fully responsible for ensuring your custom renderer correctly outputs the dynamic
+  states." With no external audit, the Sepolia rehearsal + internal review are genuinely the
+  only safety net. Nobody else is checking this.
+- Example render contracts: <https://github.com/superrare/liquid-editions-starter-kit/tree/main/src/examples>
+- ⛔ **Still NOT stated anywhere SuperRare has published:** the creator revenue model, the
+  buy/sell fee split and who receives it, and how the opening price is set. Ask them directly.
+
 ## Deploying the lens — see `docs/DEPLOY-LENS.md`
 - **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/UR3030Lens721.flat.sol`
   (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected
