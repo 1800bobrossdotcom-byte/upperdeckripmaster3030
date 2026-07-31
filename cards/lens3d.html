@@ -175,7 +175,7 @@ function build3D() {
   const key = new pc.Entity('key');
   key.addComponent('light', { type:'directional', color:new pc.Color(1,.96,.9), intensity:1.5,
                               castShadows:true, shadowBias:0.2, shadowResolution:1024 });
-  key.setEulerAngles(38, 152, 0); app.root.addChild(key);
+  key.setEulerAngles(52, 158, 0); app.root.addChild(key);   // raking, so the normal map has something to catch
   const rim = new pc.Entity('rim');
   rim.addComponent('light', { type:'omni', color:new pc.Color(.25,.9,1), intensity:2.4, range:9 });
   rim.setPosition(-1.8, 1.2, 1.6); app.root.addChild(rim);
@@ -190,34 +190,125 @@ function build3D() {
   const body = new pc.Entity('body');
   body.addComponent('render', { type:'box', castShadows:true, receiveShadows:true });
   body.setLocalScale(W*1.02, H*1.02, 0.035);
-  body.render.material = mkMat({ diffuse:new pc.Color(.05,.05,.07), metalness:.75, gloss:.62, useMetalness:true });
+  body.render.material = mkMat({ diffuse:new pc.Color(.06,.06,.08), metalness:.35, gloss:.34, useMetalness:true });
   root.addChild(body);
 
   const plate = (z, sx, sy) => { const e = new pc.Entity();
     e.addComponent('render', { type:'plane', castShadows:false, receiveShadows:true });
     e.setLocalEulerAngles(90, 0, 0); e.setLocalScale(sx, 1, sy); e.setLocalPosition(0, 0, z);
     root.addChild(e); return e; };
+  /* raised bevel — four thin boxes standing proud of the face. A drawn border is a picture of
+   * an edge; this one occludes, shadows and catches the key light as the card turns. */
+  const bev = (x0, y0, sx, sy) => { const e = new pc.Entity();
+    e.addComponent('render', { type:'box', castShadows:true, receiveShadows:true });
+    e.setLocalScale(sx, sy, 0.030); e.setLocalPosition(x0, y0, 0.038);
+    e.render.material = mkMat({ diffuse:new pc.Color(.14,.14,.17), metalness:.85, gloss:.55,
+                                useMetalness:true });
+    root.addChild(e); return e; };
+  const bw = 0.035, iw = W*0.955, ih = H*0.955;
+  bev(0,  ih/2, iw + bw, bw); bev(0, -ih/2, iw + bw, bw);
+  bev(-iw/2, 0, bw, ih + bw); bev( iw/2, 0, bw, ih + bw);
+
   const back = plate(0.019, W*0.99, H*0.99);
   const art  = plate(0.030, W*0.90, H*0.90);
   const fx   = plate(0.045, W*0.99, H*0.99);
 
+  /* ── making it not flat ────────────────────────────────────────────────────────────────
+   * First pass was a lit plane with the art painted on it, and it read exactly like that: a
+   * picture, not an object. Three things fix it, and none needs authored input:
+   *
+   *   1. A NORMAL MAP DERIVED FROM THE ART ITSELF. Sobel the luminance and pack the gradient
+   *      into a tangent-space normal. The artwork then has relief — ink sits proud, edges
+   *      catch the key light, and the highlight travels across the drawing as the card turns.
+   *      This is the single biggest change, and it costs one canvas pass at load.
+   *   2. CARD STOCK. Real cards are not glass. A fine procedural grain in the normal, plus a
+   *      gloss map that varies, so the surface has tooth instead of a uniform sheen.
+   *   3. A RAISED BEVEL, as geometry rather than a drawn line — a border you can see the
+   *      thickness of from an angle is what tells the eye this is a physical object.
+   *
+   * ⚑ Sobel strength is a real trade: too little and it stays flat, too much and the art turns
+   *   into hammered metal and the drawing stops reading. 2.2 keeps the ink legible. */
+  function normalFromImage(img, strength) {
+    const W = 512, H = Math.round(W * img.height / img.width) || 512;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
+    const src = x.getImageData(0, 0, W, H), d = src.data;
+    const lum = new Float32Array(W * H);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++)
+      lum[p] = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) / 255;
+    const out = x.createImageData(W, H), o = out.data;
+    const at = (px, py) => lum[Math.min(H-1,Math.max(0,py)) * W + Math.min(W-1,Math.max(0,px))];
+    for (let y = 0; y < H; y++) for (let px = 0; px < W; px++) {
+      // Sobel: horizontal and vertical luminance gradient
+      const gx = (at(px+1,y-1) + 2*at(px+1,y) + at(px+1,y+1))
+               - (at(px-1,y-1) + 2*at(px-1,y) + at(px-1,y+1));
+      const gy = (at(px-1,y+1) + 2*at(px,y+1) + at(px+1,y+1))
+               - (at(px-1,y-1) + 2*at(px,y-1) + at(px+1,y-1));
+      // fine paper tooth, deterministic so the card is identical every load
+      const grain = (Math.sin(px * 12.9898 + y * 78.233) * 43758.5453 % 1) * 0.06;
+      let nx = -gx * strength + grain, ny = -gy * strength + grain, nz = 1;
+      const L = Math.hypot(nx, ny, nz) || 1;
+      const i = (y * W + px) * 4;
+      o[i]   = (nx/L * 0.5 + 0.5) * 255;
+      o[i+1] = (ny/L * 0.5 + 0.5) * 255;
+      o[i+2] = (nz/L * 0.5 + 0.5) * 255;
+      o[i+3] = 255;
+    }
+    x.putImageData(out, 0, 0);
+    const t = new pc.Texture(app.graphicsDevice, { mipmaps:true });
+    t.setSource(c); return t;
+  }
+
   const texFor = (url, cb) => { const t = new pc.Texture(app.graphicsDevice, { mipmaps:true });
     const img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = () => { t.setSource(img); cb(t); }; img.onerror = () => {}; img.src = url; };
+    img.onload = () => { t.setSource(img); cb(t, img); }; img.onerror = () => {}; img.src = url; };
 
   function retex() {
     if (!ART) return;
-    texFor(ART, t => {
-      art.render.material = mkMat({ diffuseMap:t, emissiveMap:t,
-        emissive:new pc.Color(.34,.34,.34), gloss:.55, metalness:.15, useMetalness:true });
-      back.render.material = mkMat({ diffuseMap:t, diffuse:new pc.Color(.18,.18,.22), gloss:.2 });
+    texFor(ART, (t, img) => {
+      let nrm = null;
+      try { nrm = normalFromImage(img, 2.2); } catch (e) { nrm = null; }   // fail open: just flatter
+      art.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:1.15,
+        emissiveMap:t, emissive:new pc.Color(.13,.13,.13),
+        gloss:.62, metalness:.10, useMetalness:true });
+      back.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.5,
+        diffuse:new pc.Color(.16,.16,.2), gloss:.25 });
     });
   }
   retex(); window.__pcCard = { retex };
 
-  // holographic sweep: a moving band, additive, angled across the face — the foil tell
-  const holo = mkMat({ diffuse:new pc.Color(0,0,0), emissive:new pc.Color(.9,.5,1),
-                       opacity:.0, blendType:pc.BLEND_ADDITIVE, depthWrite:false });
+  /* ── holographic sweep ─────────────────────────────────────────────────────────────────
+   * ⚑ Two bugs found by LOOKING at the first render, which came out uniformly magenta with
+   *   the artwork barely readable underneath:
+   *
+   *   1. With BLEND_ADDITIVE, `opacity` does NOT attenuate the contribution — additive adds
+   *      src to dst regardless, so an emissive colour set to (0.9, 0.5, 1.0) was being added
+   *      at FULL strength across the whole card no matter how low opacity went. The amount
+   *      has to be baked into the emissive colour itself.
+   *   2. It was a flat plate, so the "sweep" tinted the entire face at once. Real foil is a
+   *      narrow BAND that travels; a uniform wash just looks like the card is the wrong colour.
+   *
+   * So the band is a texture now — a diagonal gradient stripe, scrolled — and its strength
+   * lives in the emissive colour. The art stays the subject; the foil is an event that
+   * crosses it. */
+  const bandTex = (() => {
+    const S = 256, c = document.createElement('canvas'); c.width = c.height = S;
+    const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, S, S);
+    const g = x.createLinearGradient(0, 0, S, S);
+    g.addColorStop(0.00, 'rgba(0,0,0,0)');   g.addColorStop(0.40, 'rgba(0,0,0,0)');
+    g.addColorStop(0.47, 'rgba(120,190,255,1)');
+    g.addColorStop(0.50, 'rgba(255,255,255,1)');
+    g.addColorStop(0.53, 'rgba(255,140,230,1)');
+    g.addColorStop(0.60, 'rgba(0,0,0,0)');   g.addColorStop(1.00, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, S, S);
+    const t = new pc.Texture(app.graphicsDevice, { mipmaps:true,
+      addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT });
+    t.setSource(c); return t;
+  })();
+  const holo = mkMat({ diffuse:new pc.Color(0,0,0), emissiveMap:bandTex,
+                       emissive:new pc.Color(.10,.10,.10),
+                       blendType:pc.BLEND_ADDITIVE, depthWrite:false });
   fx.render.material = holo;
 
   const rar = RARITY[CARD.rarity] || RARITY.common;
@@ -231,10 +322,12 @@ function build3D() {
     // layers slide against each other by depth — the parallax that sells it
     art.setLocalPosition(tilt.x * -0.022, tilt.y * 0.022, 0.030);
     back.setLocalPosition(tilt.x * 0.016, tilt.y * -0.016, 0.019);
-    // the sweep passes when the card is tilted, like light catching real foil
-    const sweep = Math.abs(Math.sin(t * 0.6));
-    holo.opacity = 0.06 + sweep * 0.10 * (0.4 + Math.abs(tilt.x));
-    holo.emissive = new pc.Color(0.55 + 0.45*Math.sin(t*1.1), 0.35, 0.9 - 0.3*Math.sin(t*0.8));
+    /* Scroll the band across the face, and let TILT drive how hot it gets — foil catches
+     * light when you move the card, which is the whole gesture we are imitating. Strength
+     * goes in the emissive colour, never in opacity: additive ignores opacity. */
+    holo.emissiveMapOffset = new pc.Vec2(-((t * 0.16) % 1), 0);
+    const heat = 0.09 + 0.13 * Math.min(1, Math.hypot(tilt.x, tilt.y));
+    holo.emissive = new pc.Color(heat, heat, heat);
     holo.update();
   });
 
