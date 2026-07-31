@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SECTION 9 · PLAYCANVAS PROTOTYPE · upperdeckripmaster3030</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="Engine evaluation build — the same Section 9 baked level, bodies and weapon rendered by the PlayCanvas engine, for side-by-side comparison against our hand-rolled WebGL renderer.">
+<meta name="theme-color" content="#02040a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  ⚠ EVALUATION BUILD. This page is NOT the game. section9.html is, and it is untouched.
+    This exists so the artist can look at both and decide whether an off-the-shelf engine is
+    worth its costs. Throwing it away = delete this file, js/s9pc-*.js and vendor/playcanvas/.
+
+    Query params:
+      ?level=arcade|vault|rooftop   which baked level (default arcade)
+      ?x= &z= &y= &yaw= &pitch=     park the camera (matches section9.html's __s9._place/_look)
+      ?hold=1                       freeze the sim, for capture
+      ?post=0 ?bodies=0 ?weapon=0   turn off a piece to isolate its cost
+      ?crt=1                        add section9.html's CRT overlay so the frames match exactly
+      ?shadow=1024                  shadow map resolution
+-->
+<style>
+  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b;
+    --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
+    --bez:clamp(10px,2.2vw,26px); --bezTop:clamp(30px,5.4vh,62px); --rad:clamp(12px,2vw,24px); }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; }
+  body{ font-family:var(--mono); color:var(--ink); -webkit-tap-highlight-color:transparent; touch-action:none;
+    background:radial-gradient(140% 120% at 50% -10%, #0c1016 0%, #06080c 46%, #020304 100%); }
+  /* the same cabinet frame section9.html uses, so the two captures crop identically */
+  .bezel{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); z-index:12; pointer-events:none;
+    border-radius:calc(var(--rad) + 7px);
+    box-shadow:
+      0 0 0 clamp(7px,1.5vw,15px) #0b0d13,
+      0 0 0 calc(clamp(7px,1.5vw,15px) + 1px) #23262f,
+      0 0 0 calc(clamp(7px,1.5vw,15px) + 2px) #0a0c11,
+      inset 0 0 0 2px rgba(255,42,217,.22),
+      inset 0 0 26px rgba(255,42,217,.10),
+      0 0 42px rgba(255,42,217,.12),
+      0 22px 70px rgba(0,0,0,.85); }
+  .marquee{ position:fixed; top:0; left:0; right:0; height:var(--bezTop); z-index:13; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; gap:11px;
+    font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.30em; text-transform:uppercase;
+    color:#ffb0ef; text-shadow:0 0 10px rgba(255,42,217,.7),0 0 2px #000; }
+  .marquee .dot{ color:var(--cyan); text-shadow:0 0 10px rgba(39,247,228,.85); }
+  #pcv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
+    width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
+    border-radius:var(--rad); background:#05070b; cursor:crosshair; z-index:1; }
+  /* opt-in CRT, copied from section9.html so ?crt=1 gives a pixel-comparable frame */
+  .crt{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad);
+    z-index:11; pointer-events:none; overflow:hidden; display:none; }
+  body.crt-on .crt{ display:block; }
+  .crt-scan{ position:absolute; inset:0; mix-blend-mode:multiply;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 1.5px, rgba(0,0,0,0) 1.5px 3.2px); }
+  .crt-curve{ position:absolute; inset:0;
+    background:radial-gradient(132% 120% at 50% 48%, transparent 45%, rgba(0,0,0,.5) 78%, rgba(0,0,0,.93) 100%);
+    box-shadow:inset 0 0 60px rgba(0,0,0,.7); }
+  /* readout */
+  #hud{ position:fixed; left:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 12px); z-index:14; pointer-events:none;
+    font-size:11px; line-height:1.55; letter-spacing:.04em; color:#bff6ff;
+    text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000; }
+  #hud b{ color:var(--magenta); font-family:var(--fat); letter-spacing:.12em; font-size:11px; }
+  #hud .dim{ color:#6f8a95; }
+  #boot{ position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--magenta);
+    text-shadow:0 0 14px rgba(255,42,217,.5); }
+  #boot:empty{ display:none; }
+  #keys{ position:fixed; right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 12px); z-index:14; pointer-events:none;
+    font-size:10px; line-height:1.6; text-align:right; color:#6f8a95; text-shadow:0 1px 2px #000; }
+  #cross{ position:fixed; left:50%; top:calc(var(--bezTop) + (100vh - var(--bezTop) - var(--bez))/2); z-index:14;
+    width:3px; height:3px; margin:-1.5px 0 0 -1.5px; border-radius:50%; background:rgba(255,255,255,.75);
+    box-shadow:0 0 6px rgba(0,0,0,.9); pointer-events:none; }
+  #warn{ position:fixed; left:0; right:0; bottom:0; z-index:16; padding:5px 10px; text-align:center;
+    font-family:var(--fat); font-size:9px; letter-spacing:.24em; text-transform:uppercase;
+    color:#08121a; background:linear-gradient(90deg,#ff2ad9,#27f7e4); }
+</style>
+<script src="gate.js"></script>
+</head>
+<body>
+  <canvas id="pcv"></canvas>
+  <div class="bezel"></div>
+  <div class="marquee"><span>Section 9</span><span class="dot">◆</span><span>PlayCanvas prototype</span><span class="dot">◆</span><span>not the game</span></div>
+  <div class="crt"><div class="crt-scan"></div><div class="crt-curve"></div></div>
+  <div id="cross"></div>
+  <div id="hud"></div>
+  <div id="keys">click to lock · WASD move<br>shift sprint · space jump<br>mouse look</div>
+  <div id="boot">booting engine…</div>
+  <div id="warn">Engine evaluation build — section9.html is the real game and is unchanged</div>
+
+  <script>if (new URLSearchParams(location.search).get('crt') === '1') document.body.classList.add('crt-on');</script>
+  <!-- third-party engine, MIT, vendored verbatim: vendor/playcanvas/LICENSE -->
+  <script src="vendor/playcanvas/playcanvas.min.js"></script>
+  <!-- OUR code, reused unmodified: the .wld parser, the level catalogue, the FPS poser,
+       and the one definition of "weak device" the shipping games share -->
+  <script src="js/gfx-post.js"></script>
+  <script src="js/ronin-world.js"></script>
+  <script src="js/section9-world.js"></script>
+  <script src="js/section9-skin.js"></script>
+  <!-- the prototype -->
+  <script src="js/s9pc-world.js"></script>
+  <script src="js/s9pc-skin.js"></script>
+  <script src="js/s9pc-app.js"></script>
+</body>
+</html>
