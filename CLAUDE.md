@@ -615,8 +615,19 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   so its bind arm bones land inside its skull and 17% of its verts end up ~88% weighted to
   `chest` with a few percent on `armF1`; swing the arms and the two claims tear the mesh.
   ⛔ Neither published hypothesis was right (not flat sheet geometry, not the palette fanning a
-  shoulder). **Fix, if the ronin family is wanted back: fit the bind skeleton to the mesh's own
-  shoulder line instead of to its bounding box.** Details + numbers in `models/README.md`.
+  shoulder). ⚑ **AND "fit the bind skeleton to the mesh's own shoulder line" is only HALF the
+  fix — attempted 2026-07-31 and reverted before it shipped, because on its own it makes things
+  WORSE.** The measurement works: slicing the mesh into 48 bands and taking the widest slice in
+  the upper body finds `ronin.obj`'s real shoulder line, and re-weighting against it drops
+  rigid-snapped vertices to 0.0%. But **`js/section9-skin.js` hard-codes the bind skeleton**
+  (`BIND`, in px at H=150 — the arm sits at y 120, i.e. exactly the canonical 0.80). So a fitted
+  bake produces weights measured against one skeleton and posed by a different one, which is a
+  worse mismatch than the one it set out to cure.
+  **The real fix is paired: the bind skeleton has to ship WITH THE MESH.** Bump the `.skn` to v2,
+  append the 11 bones (start+end = 66 floats = 264 bytes) after the header, have `S9Skin` read
+  them and fall back to the canonical table for v1 files, then re-bake all six. The skeleton
+  belongs to the body, not to the renderer — which is the actual design error underneath task
+  #77. Details + numbers in `models/README.md`.
 - ⚑ **Cross-limb stitch (`S9Skin`, at load).** Separate, smaller defect that survives on the good
   family: `bake-fighter`'s side test has a tolerance band at the centreline, so near the floor a
   few triangles get corners bound **rigidly to opposite shins** — a spike between the ankles under
