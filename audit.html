@@ -161,11 +161,11 @@
   <h2><span class="n">02</span>Things we found and fixed (in the open)</h2>
   <ul>
     <li><b>The burn schedule overflowed the cap.</b> An early card-retirement schedule totalled 4.36M burn
-      against a 3.03M mint-once cap — impossible. <b>Fixed by removing the mechanic:</b> v2.2 cut forced card
+      against a mint-once cap — impossible. <b>Fixed by removing the mechanic:</b> v2.2 cut forced card
       retirement / ash entirely. The burn is now pure <b>token deflation</b> (⅔ of the cap, ~2.02M), and the
       deck <b>survives</b>. The only rule left is the trivial Σ burns ≤ cap.</li>
     <li><b>Mint/burn assumption, corrected.</b> We'd assumed burns re-mint on the next buy. SuperRare confirmed
-      the opposite — <b>minted once, burns permanent</b>. The whole model was rebuilt on that (3× contraction).</li>
+      the opposite — <b>minted once, burns permanent</b>. The whole model was rebuilt on that.</li>
     <li><b>The lens standard.</b> We'd sketched a custom ERC-1155. The cohort docs are clear: lenses are
       <b>ERC-721</b>. <b>Fixed:</b> every card is a render-by-id lens on one renderer+721 contract — 33 minted,
       67 render-only, Lovebeing a holder lens — a tiny mint footprint, no 1155.</li>
@@ -192,7 +192,7 @@
   <ul>
     <li><b>Independent third-party security audit</b> of the renderer+721 lens contract — not yet performed.
       (The ERC-20 + curve come from SuperRare's protocol; the render/lens is ours.)</li>
-    <li><b>Curve calibration</b> — open at ~1 RARE/token on the 3.03M supply (with SuperRare).</li>
+    <li><b>Curve calibration</b> — set the opening price against the 33M supply (with SuperRare).</li>
     <li><b>Lens setup with SuperRare</b> — does the assisted 721 setup support render-by-id across 100 card-lenses
       (33 minted, 67 render-only), or do we deploy our own combined renderer+721 lens contract via the CLI?</li>
     <li><b>Mint mechanism</b> — a claim/voucher redeemer for the 11 gacha lenses (pack burn) and the 22 earned

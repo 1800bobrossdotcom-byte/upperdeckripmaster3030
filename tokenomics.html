@@ -135,7 +135,7 @@
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>33M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -205,15 +205,18 @@
     <tr><td><b>compression</b> (own every copy of a field card → 1/1)</td><td>compression cost</td><td class="fire">🔥</td></tr>
     <tr><td>rarity votes · wagers · trades · binder · field-card pulls</td><td>site-side signal</td><td>no burn</td></tr></table>
 
-  <h2><span class="n">08</span>Lifetime burn &amp; the 3× contraction</h2>
+  <h2><span class="n">08</span>Lifetime burn — what it does and does not do</h2>
   <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
   cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-season sellout 🔥</td><td><b>2,028,750</b></td><td>≈ ⅔ of the 3,030,000 cap</td></tr>
-    <tr><td>Settled live float</td><td><b>~1,010,000</b></td><td>survives as the permanent float</td></tr>
-    <tr><td>Permanent contraction</td><td><b>≈ 3×</b></td><td>3.03M → ~1.01M</td></tr>
-    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>2.03M &lt; 3.03M</td></tr></table>
+    <tr><td>Full four-season sellout 🔥</td><td><b>2,028,750</b></td><td>6.1% of the 33,000,000 cap</td></tr>
+    <tr><td>Settled live float</td><td><b>~30,971,250</b></td><td>survives as the permanent float</td></tr>
+    <tr><td>Permanent contraction</td><td><b>≈ 1.07×</b></td><td>33M → ~30.97M. We do <b>not</b> claim deflation as the thesis</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>2.03M &lt; 33M</td></tr></table>
+  <p>Pack burns are denominated in <b>tokens</b>, not in a share of supply, so a larger mint does not
+  scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
+  but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
   <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
   fully-deflated float only if the community truly burns across the seasons. No burn ever re-mints.</p>
   <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
@@ -226,7 +229,7 @@
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve to open at ~1 RARE/token on the 3.03M supply (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 33M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>

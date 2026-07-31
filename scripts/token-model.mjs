@@ -155,8 +155,21 @@ for (const S of SEASONS) {
 }
 console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — the full token-contraction arc (model v2.2).`);
 console.log(`It lands at ${fmt(selloutTotal/CAP*100,1)}% of the ${fmt(CAP,0)} mint (budget ${fmt(LIFETIME_BURN_BUDGET,0)}, target ⅔).`);
-console.log(`Burns are PERMANENT: supply only falls. After the field's four-season life sells through, ~${fmt(FLOOR_SUPPLY,0)} $UR3030`);
-console.log(`survive as the settled live float — a ${fmt(CAP/FLOOR_SUPPLY,1)}× permanent contraction from the mint.`);
+/* Report the float the PACK SCHEDULE actually produces, not the one the budget assumes.
+ * These were the same number by construction at the old 3.03M cap, so the distinction never
+ * showed. At 33M they diverge hard — LIFETIME_BURN_BUDGET is an aspiration (22M) while the
+ * schedule burns 2.03M — and the old line went on confidently printing a 3.0× contraction that
+ * nothing in the model supports. A tool that flatters the story is worse than no tool. */
+const packsAll = SEASONS.reduce((n, S) => n + Math.floor(S.budget / CARDS_PER_PACK), 0);
+const realFloat = CAP - selloutTotal;
+console.log(`Burns are PERMANENT: supply only falls. After the field's four-season life sells through, ~${fmt(realFloat,0)} $3030`);
+console.log(`survive as the settled live float — a ${fmt(CAP/realFloat,2)}× contraction from the mint.`);
+if (CAP / realFloat < 1.5) {
+  console.log(`⚠ That is NOT a scarcity engine. Pack burns are denominated in TOKENS (${fmt(SEASONS[0].base,0)}→${fmt(SEASONS[SEASONS.length-1].ceil,0)}),`);
+  console.log(`  so raising the cap does not scale them. To reach 3× you would need ~${fmt((CAP-CAP/3)/packsAll,0)} tokens/pack`);
+  console.log(`  against today's ~${fmt(selloutTotal/packsAll,0)} — about ${fmt(((CAP-CAP/3)/packsAll)/(selloutTotal/packsAll),1)}× more, which forces P0 down by the same factor.`);
+  console.log(`  Current direction: DEMOTE deflation. The burn still raises reserve-backing per surviving token.`);
+}
 console.log(`INVARIANT (mint-once): cumulative lifetime burn ≤ cap. Sellout ${selloutTotal < CAP ? '< cap ✓' : '> CAP ✗'}`);
 console.log('CARDS DO NOT RETIRE OR ASH — this is token deflation only. A partial life (fewer rips) simply');
 console.log('settles the token at a higher float. Scarcity is dwindling allotments + rarity votes, not card death.');
