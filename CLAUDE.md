@@ -412,6 +412,34 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   **0.94 removes 100% of clipping for free** (mean 129.5 vs 128.8 unrolled, contrast 73.2 vs
   73.3); my first guess of 0.62 also removed it but cost **14 luma and 14 contrast**, dimming
   the whole sky instead of the highlights. Lower is not safer, just darker.
+- ## ⛔ ENGINE DECISION — **PlayCanvas is being adopted. Artist's call, 2026-07-31.**
+  The hand-rolled renderers were evaluated against PlayCanvas side by side (`section9-pc.html`
+  vs `section9.html`) and the artist's verdict is that **incremental upgrades to our own
+  renderers do not reach the quality bar this studio is aiming at.** We take the engine.
+  - ⚠ **The evaluation's own "don't migrate" recommendation rested largely on launch being six
+    days out. That was a bad argument and is explicitly overruled**: the standing directive is
+    *work like we don't have a deadline — the ONLY things that must ship finished are the
+    contract, the lenses and the token functionality. Everything creative is **open studio,
+    work in progress**, agreed with SuperRare.* A renderer touches none of the three. Do not
+    re-raise the launch date against creative work; it has been answered.
+  - **What made it defensible:** the engine is NOT the cost — stripped to what our renderer
+    does, PlayCanvas measured ~20% FASTER than us while running a full scene graph. The cost is
+    features, and each is switchable. It is MIT, UMD, **~598 KB gzipped, no build step**, and
+    already carries gaussian splatting (+SOG, PLY), Draco, Basis, WebGPU, shadow maps,
+    clustered lighting and the Ammo hook.
+  - **What ports for free** (measured, not assumed): `RoninWorld.load`, `S9World.kindOf`,
+    `S9Skin.pose`, `S9Skin.BIND` all went in UNMODIFIED, and skinning reproduced our own
+    palette to 7.6 × 10⁻⁶. The IK-driving-rigid-parts pattern gets EASIER under a scene graph —
+    attaching a part to a joint becomes `bone.addChild(part)`. **The formats and the rigging
+    are not at risk; only the rendering is.**
+  - ⚠ **What we must not lose by accident:** `GfxPost`'s MEASURED calibration — the 0.94
+    highlight knee swept against clipped-pixel counts, the composite ordering, the tactical
+    motion smear. An engine replaces the FUNCTION, not the TUNING; those numbers must be
+    re-derived in the engine's terms, not left at defaults. Also `Gfx2D` and the **2D fallback**
+    (PlayCanvas has no software path, so WebGL2 becomes a hard requirement) — fail-open at every
+    step is a standing principle here, so dropping it is a DESIGN decision to be made openly.
+  - **Keep `section9.html` working until the PlayCanvas build genuinely surpasses it.** That is
+    not deadline caution — it is a free A/B and a free rollback.
 - **DOGFIGHT true-3D — `js/dogfight-gl.js` (`DFGL`), Milestone 1.** Real perspective camera +
   z-buffer, replacing the fake-3D FOCAL/HORIZON projection. Same conventions as
   `section9-gl.js` / `ronin3d.js`. Game state was already 3D — world `(x, alt, y)`, `cam{x,y,
