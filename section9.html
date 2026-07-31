@@ -1339,10 +1339,12 @@
       if(e.fireT>0)e.fireT-=dt*1000; if(e.iframe>0)e.iframe-=dt; if(e.recoil>0)e.recoil=Math.max(0,e.recoil-dt*4.5); if(e.muzzle>0)e.muzzle-=dt;
       if(e.surgeT>0){ e.surgeT-=dt; if(e.alive)e.hp=Math.min(e.maxHp,e.hp+dt*6*(e.cardAmp||1)); }   // OVERCHARGE: timed surge + light regen
       if(!e.alive){ e.respawnT-=dt; if(e.respawnT<=0){ spawnEnt(e, e.isMe?(wager.loadout|0):e.weapon); if(e.isMe){ powMsg('◈ RESPAWN','#59e0ff'); SFX.spawn(); } } continue; }
-      if(e.isMe) stepMe(e,dt); else stepBot(e,dt);
+      // __hold is a debug freeze (see __s9._hold): bots stop thinking, so a headless run can
+      // pose one and photograph it without the AI turning it between the two calls.
+      if(e.isMe) stepMe(e,dt); else if(!G.__hold) stepBot(e,dt);
       if(e.bot && e.wantFire && e.fireT<=0 && !e.reloading) fireWeapon(e);
       gravity(e,dt);
-      e.gait=(e.gait||0)+(e.moving?(e.sprinting?11:7):0)*dt;   // walk/run cycle phase (drives the limb rig)
+      if(!(G.__hold && !e.isMe)) e.gait=(e.gait||0)+(e.moving?(e.sprinting?11:7):0)*dt;   // walk/run cycle phase (drives the limb rig)
     }
     // ── supply drops: card/market power-ups (hot chain drops them faster + unlocks OVERCHARGE) ──
     G.powT-=dt; if(G.powT<=0 && G.pows.length<4){ G.powT=rnd(11,7)/(0.85+(mktAmp()-0.75)*0.5); spawnPow(); }
@@ -1779,6 +1781,12 @@
       loaded:(window.GLR&&GLR.hasSkin)?(window.S9Skin?S9Skin.CAST.map(c=>c.arch).filter(a=>GLR.hasSkin(a)):[]):[],
       ents:G.ents.filter(e=>!e.isMe).map(e=>({ skin:e.skin||null, posed:!!e.__K })) }; },
     _skins(){ return SKINS_READY||Promise.resolve([]); },
+    // where everyone is — enough to park a headless camera behind a bot and photograph it
+    get ents(){ return G.ents.map(e=>({ me:!!e.isMe, alive:e.alive, skin:e.skin||null,
+      x:+e.x.toFixed(2), y:+e.y.toFixed(2), z:+e.z.toFixed(2), yaw:+e.yaw.toFixed(3),
+      moving:!!e.moving, sprinting:!!e.sprinting, gait:+(e.gait||0).toFixed(2) })); },
+    _bot(i,props){ const e=G.ents[i]; if(!e) return false; Object.assign(e,props||{}); return true; },
+    _hold(v){ G.__hold=!!v; return !!G.__hold; },
     _pick(i){ if(MAPS[i]){ arenaPick=i; paintArenaChips(); return true; } return false; } };
   const SENS=0.0022;
   addEventListener('mousemove',e=>{ if(!locked||!G.me||G.mode!=='play')return; const s=SENS/(G.scopeZoom||1);
