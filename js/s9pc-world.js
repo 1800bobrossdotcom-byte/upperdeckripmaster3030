@@ -221,11 +221,29 @@ window.S9PCWorld = (function () {
     const tris = (V.length / 18) | 0;                              // 3 verts × 6 floats
     const mats = materials(app);
 
+    /* ⚠ THE INTERLEAVE IS pos3 + norm3, SO THE NORMAL STARTS AT +3, NOT AT +0 — and getting that
+     * wrong reads the X component where Y was meant. Per triangle the three vertices sit at
+     * o, o+6, o+12, and their normals at (o+3,o+4,o+5), (o+9,o+10,o+11), (o+15,o+16,o+17). The
+     * prototype averaged o+3 / o+9 / o+15 and called it `ny`; that is `nx`.
+     *
+     * It is worth spelling out what that cost, because it was invisible as a bug and obvious as a
+     * "look": every FLOOR in the game (n = +Y, so nx = 0) failed the `ny > 0.5` up-facing test and
+     * went into the WALL bucket, and then took the ±x wall's uv projection — (z, y) — where y is
+     * constant across a floor. A constant v samples ONE ROW of the wall texture and stretches it
+     * over the whole arena, so the ground came out flat, streaked along z, and whatever colour
+     * that row happened to be. On ARCADE PIT it made the floor read 4× darker than the walls it
+     * is lit better than. The prototype blamed the streaks on missing tangents; tangents were a
+     * real second bug, but this is the one that was drawing the floor. */
+    const nrm = (o) => [
+      (V[o + 3] + V[o + 9] + V[o + 15]) / 3,
+      (V[o + 4] + V[o + 10] + V[o + 16]) / 3,
+      (V[o + 5] + V[o + 11] + V[o + 17]) / 3,
+    ];
     // bucket by class
     const buckets = {}; for (const k of ORDER) buckets[k] = [];
     for (let t = 0; t < tris; t++) {
-      const o = t * 18, ny = (V[o + 3] + V[o + 9] + V[o + 15]) / 3;
-      buckets[classOf(kindOf ? kindOf[t] : 'wall', ny, nameOf ? nameOf[t] : '')].push(t);
+      const o = t * 18, n = nrm(o);
+      buckets[classOf(kindOf ? kindOf[t] : 'wall', n[1], nameOf ? nameOf[t] : '')].push(t);
     }
 
     const out = [], stats = {};
@@ -238,14 +256,15 @@ window.S9PCWorld = (function () {
       const tile = mats[key].tile;
       for (let i = 0; i < list.length; i++) {
         const o = list[i] * 18;
-        // planar uv on the axis the face points along least — the same projection our GL
-        // renderer derives, only here it feeds a normal map as well as an albedo
-        const ax = Math.abs(V[o + 3] + V[o + 9] + V[o + 15]) / 3;
-        const az = Math.abs(V[o + 5] + V[o + 11] + V[o + 17]) / 3;
-        const axx = Math.abs(V[o + 4] + V[o + 10] + V[o + 16]) / 3;
+        /* Planar uv on the two axes the face does NOT point along — the same projection our GL
+         * renderer derives, only here it also has to feed a normal map. Drop the dominant axis of
+         * the face normal and keep the other two; the surface then never degenerates to a
+         * constant coordinate, which is the failure that flattened every floor. */
+        const n = nrm(o);
+        const ax = Math.abs(n[0]), ay = Math.abs(n[1]), az = Math.abs(n[2]);
         let uAxis, vAxis;
-        if (ax >= axx && ax >= az) { uAxis = 0; vAxis = 2; }        // up-facing → xz
-        else if (axx >= az) { uAxis = 2; vAxis = 1; }               // faces ±x → zy
+        if (ay >= ax && ay >= az) { uAxis = 0; vAxis = 2; }         // up/down-facing → xz
+        else if (ax >= az) { uAxis = 2; vAxis = 1; }                // faces ±x → zy
         else { uAxis = 0; vAxis = 1; }                              // faces ±z → xy
         for (let v = 0; v < 3; v++) {
           const s = o + v * 6, d3 = (i * 3 + v) * 3, d2 = (i * 3 + v) * 2;

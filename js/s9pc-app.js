@@ -49,9 +49,9 @@
   const TIERS = {
     // shadowRes/cascades — the sun's cascaded shadow map. spot: shadow-casting ceiling fixtures.
     // omni: unshadowed coloured practicals (clustered). skin: real .skn bodies vs the box rig.
-    high: { shadowRes: 2048, cascades: 3, shadows: true, spot: 3, spotShadow: true, omni: 46, ssao: true, ssaoSamples: 10, bloom: true, dither: true, fringing: true, skin: true, envSize: 256, atlas: 512, aniso: 8 },
-    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: false, omni: 24, ssao: true, ssaoSamples: 6, bloom: true, dither: true, fringing: true, skin: true, envSize: 128, atlas: 256, aniso: 4 },
-    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: false, omni: 8, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, skin: false, envSize: 64, atlas: 128, aniso: 1 },
+    high: { shadowRes: 2048, cascades: 3, shadows: true, spot: 3, spotShadow: true, omni: 46, ssao: true, ssaoSamples: 10, bloom: true, dither: true, fringing: true, skin: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
+    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: false, omni: 24, ssao: true, ssaoSamples: 6, bloom: true, dither: true, fringing: true, skin: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
+    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: false, omni: 8, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, skin: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
   };
   let QCFG = TIERS[TIER];
   const WANT_POST = on('post', true);
@@ -244,9 +244,11 @@
      * only light is six ceiling practicals and bounce, and a camera in that room opens up. It is
      * the same correction CLAUDE.md records for our own renderer ("ambient goes UP indoors, not
      * down, 0.33 → 0.45"), expressed where it belongs. Measured on ARCADE PIT: exposure 1.0 gives
-     * mean luma 73.3 / RMS 25.5, 1.45 gives ~91 / ~28.6, and clipping stays at exactly 0 either
-     * way — the tonemapper absorbs it, which is the whole point of having one. */
-    app.scene.exposure = num('exp', open ? 1.0 : 1.45);
+     * mean luma 73.3 / RMS 25.5, 1.3 gives 86.8 / 28.1, 1.6 gives 98.6 / 29.9, and clipping stays at exactly 0
+     * throughout — the tonemapper absorbs it, which is the whole point of having one. 1.25 is
+     * where an interior lands beside the shipping build's arcade frame (mean luma ~112) without
+     * spending the headroom that keeps clipping near zero. */
+    app.scene.exposure = num('exp', open ? 1.0 : 1.25);
   }
 
   /* Vendored HDRI. `models/env/<name>.png` is an equirectangular RGBM encoding of a CC0 Poly Haven
@@ -307,6 +309,12 @@
     try {
       frame = new pc.CameraFrame(app, cam.camera);
       frame.rendering.samples = 1;                    // TAA/MSAA off; both cost more than they buy here
+      /* ⚑ The biggest single mobile lever, and it is one number. `GfxPost.dprCap()` already caps
+       * the BACKING STORE; this scales the SCENE target inside it, so the 3D render and every
+       * fullscreen post pass get cheaper while the HUD, the reticle and the nameplates stay at
+       * full resolution on the 2D overlay above. That split is the point — text going soft is
+       * what makes a resolution drop feel like a broken build rather than a quality setting. */
+      frame.rendering.renderTargetScale = QCFG.rtScale;
       frame.rendering.toneMapping = POST.tone;        // ← the highlight rolloff. See the note above.
       frame.rendering.sharpness = POST.sharpness;
       frame.bloom.intensity = QCFG.bloom ? POST.bloom : 0;

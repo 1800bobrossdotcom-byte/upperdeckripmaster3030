@@ -198,6 +198,20 @@
   .scoreboard .r{ display:flex; justify-content:space-between; padding:3px 8px; border-bottom:1px dotted rgba(120,180,200,.25); }
   .scoreboard .r.me{ color:var(--lime); } .scoreboard .r .k{ color:var(--amber); font-family:var(--fat); }
   .scanote{ font-size:10.5px; color:#7fd8a8; margin-top:8px; line-height:1.5; }
+  /* Narrow screens: the desktop key legend is two thirds of a phone's lower third and the dev
+     readout collides with the toggles. Both are desktop furniture; a phone gets the tube back. */
+  @media (max-width:700px){
+    .controls{ padding:5px 9px; max-width:92vw; gap:4px 8px; }
+    .key{ font-size:8px; } .key kbd{ font-size:8px; padding:2px 4px; }
+    #eng{ display:none !important; }
+    .killfeed{ top:calc(var(--bezTop) + 44px); width:min(190px,54vw); }
+    .kf{ font-size:9px; padding:1px 6px; }
+    .comms{ top:calc(var(--bezTop) + 132px); width:min(190px,54vw); }
+    .cm{ font-size:8.5px; }
+    .h-frag{ font-size:clamp(16px,6vw,24px); }
+    .stat-wrap{ width:min(150px,40vw); }
+  }
+  @media (max-height:520px){ .controls{ display:none !important; } }
   /* engine readout — always on, because "is the update live" was the question every single time */
   #eng{ position:fixed; left:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 12px); z-index:14; pointer-events:none;
     font-size:10px; line-height:1.5; letter-spacing:.03em; color:#7fb6c6; text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000; display:none; }
