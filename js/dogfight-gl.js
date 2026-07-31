@@ -305,17 +305,34 @@ window.DFGL = (function () {
       skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
       gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-      try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.neon) : null; } catch (e) { post = null; }
+      // blur is the per-caller motion-smear CEILING (see gfx-post.js) — ronin shares the neon
+      // preset and must not inherit it, hence the spread rather than editing the preset
+      try { post = window.GfxPost ? GfxPost.create(gl, cv, Object.assign({}, GfxPost.PRESET.neon, { blur: 0.5 })) : null; } catch (e) { post = null; }
       loadArt(opt && opt.art);          // async; the procedural craft flies until it lands
       ok = true; return true;
     } catch (e) { ok = false; return false; }
   }
 
-  /** o = { WS, CAM_BACK, CAM_H, VIEW_FAR } — the game's own constants, passed in rather than
-   *  duplicated here, so tuning them in dogfight.html cannot desync the renderer. */
+  /** o = { WS, CAM_BACK, CAM_H, VIEW_FAR, CLOUD_ALT, CLOUD_THICK } — the game's own constants,
+   *  passed in rather than duplicated here, so tuning them in dogfight.html cannot desync the
+   *  renderer. */
+  let pvH = null, pvRoll = 0, pvPh = 0;
   function frame(G, cam, world, o) {
     if (!ok) return false;
     const WS = o.WS, FAR = o.VIEW_FAR || 34;
+
+    /* Motion smear is driven by how hard the CAMERA is actually working — yaw/roll/pitch rate
+     * plus a floor while boosting — so straight-and-level stays pin sharp and a whip-turn or a
+     * boost run streaks. post.motion is the gfx-post feedback hook; guarded, since an older
+     * gfx-post fails open to no smear. */
+    if (post && post.motion) {
+      const dh = pvH == null ? 0 : Math.abs((((cam.h - pvH) + Math.PI * 3) % TAU) - Math.PI);
+      const m = Math.min(1, dh * 7 + Math.abs((cam.roll || 0) - pvRoll) * 4 +
+                            Math.abs((cam.ph || 0) - pvPh) * 5 +
+                            (G.me && G.me.boost ? 0.42 : 0));
+      post.motion(m);
+      pvH = cam.h || 0; pvRoll = cam.roll || 0; pvPh = cam.ph || 0;
+    }
     const w = cv.width, h = cv.height, asp = w / h;
     const composited = post && post.begin();
     if (!composited) gl.viewport(0, 0, w, h);
