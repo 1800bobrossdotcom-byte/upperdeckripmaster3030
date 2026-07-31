@@ -162,7 +162,47 @@
   window.__pcapp = app;
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.graphicsDevice.maxPixelRatio = Math.min(window.devicePixelRatio || 1, DPRCAP);
+  const DPR_BASE = Math.min(window.devicePixelRatio || 1, DPRCAP);
+  app.graphicsDevice.maxPixelRatio = DPR_BASE;
+
+  /* ── ADAPTIVE RESOLUTION ───────────────────────────────────────────────────────────────────
+   * Stutter on a machine I cannot measure from here is not something to guess a constant for.
+   * Backing-store resolution is the dominant cost in this build — the scene rasterises at it AND
+   * every fullscreen post pass runs over it — so it is also the one knob that buys frame time
+   * back in proportion, on any GPU, without changing what the game looks like structurally.
+   *
+   * So the game measures ITSELF and adjusts. A rolling median (median, not mean: one 300 ms hitch
+   * from a texture upload must not drag the estimate for the next four seconds) is compared to a
+   * target of 16.7 ms. Sustained above it, resolution steps down; sustained comfortably below,
+   * it steps back up.
+   *
+   * ⚑ The hysteresis is load-bearing. Scale on a single slow frame and you get a renderer that
+   *   visibly breathes — resolution pumping in and out reads far worse than a steady lower one.
+   *   Hence: a 90-frame window, a 1.5 s cooldown between changes, and a raise threshold well
+   *   below the lower threshold so the two can never chase each other.
+   * ⚑ FLOOR OF 0.7, never below. `GfxPost.dprCap()` already refuses to go under 1 CSS pixel for
+   *   the same reason recorded in CLAUDE.md — below that it is not "lower resolution", it is
+   *   visibly soft, and a soft game reads as a broken one. */
+  const ADAPT = {
+    on: Q.get('adapt') !== '0',
+    target: 16.7, hi: 21, lo: 13,          // ms/frame: step down above `hi`, back up below `lo`
+    scale: 1, min: 0.7 / Math.max(0.7, DPR_BASE), max: 1,
+    win: [], cool: 0, changes: 0,
+  };
+  function adapt(ms, nowT) {
+    if (!ADAPT.on) return;
+    ADAPT.win.push(ms); if (ADAPT.win.length > 90) ADAPT.win.shift();
+    if (ADAPT.win.length < 60 || nowT < ADAPT.cool) return;
+    const s = ADAPT.win.slice().sort((a, b) => a - b), med = s[s.length >> 1];
+    let next = ADAPT.scale;
+    if (med > ADAPT.hi) next = Math.max(ADAPT.min, ADAPT.scale - 0.12);
+    else if (med < ADAPT.lo) next = Math.min(ADAPT.max, ADAPT.scale + 0.08);
+    if (Math.abs(next - ADAPT.scale) < 0.01) return;
+    ADAPT.scale = next; ADAPT.changes++;
+    app.graphicsDevice.maxPixelRatio = Math.max(0.7, DPR_BASE * ADAPT.scale);
+    ADAPT.cool = nowT + 1500;              // let it settle before judging again
+    ADAPT.win.length = 0;
+  }
   const ovCtx = ov.getContext('2d');
   let OW = 0, OH = 0, ODPR = 1;
   function fit() {
@@ -867,7 +907,8 @@
     if (!frames) marks.firstFrame = +(performance.now() - T0).toFixed(1);
     frames++;
     const nowT = performance.now();
-    if (tPrev) { times.push(nowT - tPrev); if (times.length > 240) times.shift(); }
+    if (tPrev) { const ms = nowT - tPrev; times.push(ms); if (times.length > 240) times.shift();
+      if (game.G.mode === 'play') adapt(ms, nowT); }
     tPrev = nowT;
     if (ditherOn) { grainT = (grainT + 0.017) % 1000; app.graphicsDevice.scope.resolve('s9GrainT').setValue(grainT); }
     const G = game.G;
@@ -888,12 +929,26 @@
   function engReadout() {
     const el = $('eng'); if (!el || !document.body.classList.contains('showeng')) return;
     const s = levelStats;
-    el.innerHTML = 'PlayCanvas ' + pc.version + ' · tier ' + TIER + ' · dpr ' + app.graphicsDevice.maxPixelRatio.toFixed(2) + '<br>' +
+    /* ⚑ p95 AND WORST, not just the median. Stutter is the TAIL — a game can hold a 12 ms median
+     * and still feel broken if one frame in twenty takes 90 ms, and a median-only readout says
+     * everything is fine while you are watching it hitch. This is the number to report. */
+    const sorted = times.slice().sort((a, b) => a - b);
+    const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0;
+    const worst = sorted.length ? sorted[sorted.length - 1] : 0;
+    const med = median(times);
+    const fps = med > 0 ? (1000 / med) : 0;
+    el.innerHTML = 'PlayCanvas ' + pc.version + ' · tier ' + TIER + ' · dpr ' + app.graphicsDevice.maxPixelRatio.toFixed(2) +
+      (ADAPT.on ? ' · adapt ×' + ADAPT.scale.toFixed(2) + (ADAPT.changes ? ' (' + ADAPT.changes + ')' : '') : ' · adapt off') + '<br>' +
       (s ? (s.tris.toLocaleString() + ' tris · ' + s.parts + ' PBR mats · ' + (s.omni || 0) + ' omni · ' + (s.spot || 0) + ' spot<br>') : '') +
       bodies.size + ' bodies · ' + (weaponAsset ? 'GLB weapon' : 'no weapon') + ' · ' + (frame ? 'post' : 'no post') + (ditherOn ? '+dither' : '') + (envOk ? ' · IBL' : '') + '<br>' +
-      'median ' + median(times).toFixed(1) + ' ms/f';
+      '<b>' + med.toFixed(1) + ' ms</b> median (' + fps.toFixed(0) + ' fps) · p95 ' + p95.toFixed(1) + ' · worst ' + worst.toFixed(1) + ' ms';
   }
   if (Q.has('eng')) document.body.classList.add('showeng');
+  /* F8 toggles it live. `?eng` means deciding to look BEFORE the match; stutter is something you
+   * notice mid-fight, and having to reload to see the numbers loses the moment you wanted. */
+  addEventListener('keydown', e => {
+    if (e.key === 'F8') { e.preventDefault(); document.body.classList.toggle('showeng'); }
+  });
 
   say('');
   app.start();
