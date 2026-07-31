@@ -1152,7 +1152,14 @@
   function spawnEnt(e,firstWeapon){ const others=G.ents.filter(o=>o!==e);
     const s=farSpawn(others,12); dropAt(e,s); e.vy=0; e.alive=true;
     e.hp=e.maxHp; e.armor=e.isMe?60:55; e.regenT=0;
-    if(e.isMe && sfxOn && window.RipSfx) RipSfx.play('gearup', 0.5);   // 23 shuffled takes: kit being handled e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
+    /* ⚑ The line below was SWALLOWED INTO A COMMENT — a `//` note about the gear-up sample ran
+     * on past its own sentence and ate the whole spawn reset. The result was silent and nasty:
+     * a respawning operative got NO spawn protection (iframe stayed 0) and kept whatever
+     * half-finished reload it died in, so you could be shot the instant you appeared while
+     * holding an empty magazine. Nothing threw; it just felt unfair.
+     * The state reset is on its own line now, and the note is above where it cannot reach it. */
+    if(e.isMe && sfxOn && window.RipSfx) RipSfx.play('gearup', 0.5);   // 23 shuffled takes: kit being handled
+    e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
     e.weapon=firstWeapon!=null?firstWeapon:e.weapon; e.mag=WEAPONS[e.weapon].mag; e.state='patrol'; e.tgt=null; e.wp=null; e.boost=1;
     e.yaw=spawnYaw(MAP, e.x, e.z, e.y); e.pitch=0;      // open on the longest clear sightline, not a wall
   }
