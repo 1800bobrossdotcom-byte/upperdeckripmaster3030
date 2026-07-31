@@ -1109,26 +1109,169 @@
       ctx.strokeStyle='rgba(150,255,244,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=16;
       ctx.beginPath(); for(let i=0;i<6;i++){ const a=G.t*1.5+i*TAU/6; const px=cx+Math.cos(a)*R, py=cyb+Math.sin(a)*R*0.94; i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.stroke();
       ctx.restore(); } }
-  function drawCockpit(){ const k=G.me||{spd:0,alt:0,bank:0}; ctx.save();
-    ctx.translate(cx, H); ctx.rotate(-(k.bank||0)*0.14); ctx.translate(-cx,-H);   // canopy rolls a touch into turns → you feel the craft move
-    // canopy glass tint + top bar
-    ctx.strokeStyle='rgba(39,247,228,.42)'; ctx.lineWidth=Math.max(6,W*0.013); ctx.shadowColor='#27f7e4'; ctx.shadowBlur=10; ctx.lineJoin='round';
-    ctx.beginPath(); ctx.moveTo(cx,H*1.04); ctx.lineTo(W*0.15,H*0.14); ctx.quadraticCurveTo(cx,H*0.015,W*0.85,H*0.14); ctx.lineTo(cx,H*1.04); ctx.stroke();
-    ctx.shadowBlur=0;
-    // your craft's nose + wingtips (you're sitting in a ship)
-    ctx.fillStyle='rgba(18,44,56,.9)'; ctx.strokeStyle='#5ffdec'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(cx-W*0.055,H); ctx.lineTo(cx,H*0.8); ctx.lineTo(cx+W*0.055,H); ctx.closePath(); ctx.fill(); ctx.stroke();
-    [-1,1].forEach(sg=>{ ctx.fillStyle='rgba(16,40,52,.85)'; ctx.beginPath(); ctx.moveTo(cx+sg*W*0.5,H); ctx.lineTo(cx+sg*W*0.3,H*0.88); ctx.lineTo(cx+sg*W*0.5,H*0.93); ctx.closePath(); ctx.fill();
-      ctx.fillStyle='#27f7e4'; ctx.beginPath(); ctx.arc(cx+sg*W*0.36,H*0.9,3,0,TAU); ctx.fill(); });
-    // dashboard + instruments
-    const dh=H*0.15; const g=ctx.createLinearGradient(0,H-dh,0,H); g.addColorStop(0,'rgba(6,12,18,.12)'); g.addColorStop(1,'rgba(4,8,12,.97)'); ctx.fillStyle=g; ctx.fillRect(-W*0.1,H-dh,W*1.2,dh+H*0.1);
-    ctx.strokeStyle='rgba(39,247,228,.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,H-dh); ctx.lineTo(W,H-dh); ctx.stroke();
-    ctx.fillStyle='#27f7e4'; ctx.font='700 11px Courier New'; ctx.shadowBlur=0;
-    ctx.textAlign='left'; ctx.fillText('SPD '+Math.round((k.spd||0)*10), W*0.09, H-dh*0.42);
-    ctx.textAlign='right'; ctx.fillText('ALT '+Math.round((k.alt||0)*100), W*0.91, H-dh*0.42);
-    ctx.fillStyle='rgba(39,247,228,.16)'; for(let i=0;i<3;i++) ctx.fillRect(W*0.4+i*W*0.07, H-dh*0.62, W*0.045, 4);
-    ctx.fillStyle='rgba(6,12,18,.5)'; ctx.fillRect(-W*0.02,0,W*0.06,H); ctx.fillRect(W*0.96,0,W*0.06,H);
-    ctx.restore(); }
+  /* ── the cockpit ─────────────────────────────────────────────────────────────────────────
+   * Three layers, drawn back to front the way you'd actually see them: HUD symbology floating
+   * on the combiner glass, then the canopy structure that occludes it, then the panel.
+   *
+   * ⚑ The HUD is driven from cam.roll / cam.ph, NOT from the ship's bank/pitch inputs. The
+   *   camera lags the craft, so keying off the inputs puts the horizon line somewhere the
+   *   rendered horizon isn't — and a pitch ladder that disagrees with the view out of the
+   *   window is worse than no pitch ladder. RAD2PX comes from the GL camera's own 1.05 rad
+   *   vertical FOV, so a 10° rung really is 10°.
+   */
+  function drawCockpit(){
+    const k=G.me||{spd:0,alt:0,bank:0,hp:1,maxHp:1,boostGauge:0};
+    const roll=cam.roll||0, ph=cam.ph||0, RAD2PX=H/1.05;
+    const hz=cy+ph*RAD2PX;                                  // where the true horizon sits on screen
+    const GRN='rgba(120,255,180,', dim=a=>GRN+a+')';
+
+    // ── 1. HUD on the glass ────────────────────────────────────────────────────────────────
+    ctx.save();
+    ctx.beginPath(); ctx.rect(W*0.13,0,W*0.74,H*0.80); ctx.clip();   // symbology stops at the coaming
+    ctx.save(); ctx.translate(cx,hz); ctx.rotate(roll); ctx.translate(-cx,-hz);
+    ctx.lineWidth=1.6; ctx.font='700 10px Courier New'; ctx.textAlign='center';
+    // horizon bar, split so the flight-path marker is never buried
+    ctx.strokeStyle=dim(.85); ctx.beginPath();
+    ctx.moveTo(cx-W*0.34,hz); ctx.lineTo(cx-W*0.05,hz); ctx.moveTo(cx+W*0.05,hz); ctx.lineTo(cx+W*0.34,hz); ctx.stroke();
+    // pitch ladder — solid above the horizon, dashed below, the standard read
+    for(let d=-60; d<=60; d+=10){ if(!d)continue;
+      const y=hz-(d*Math.PI/180)*RAD2PX; if(y<-H*0.3||y>H*1.3)continue;
+      const hw=W*(Math.abs(d)>=30?0.075:0.10);
+      ctx.strokeStyle=dim(.62); ctx.setLineDash(d<0?[6,5]:[]);
+      ctx.beginPath();
+      ctx.moveTo(cx-hw,y); ctx.lineTo(cx-hw*0.42,y);                  // rung, with the centre open
+      ctx.moveTo(cx+hw*0.42,y); ctx.lineTo(cx+hw,y);
+      ctx.moveTo(cx-hw,y); ctx.lineTo(cx-hw,y+(d<0?-7:7));            // tick turns toward the horizon
+      ctx.moveTo(cx+hw,y); ctx.lineTo(cx+hw,y+(d<0?-7:7));
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=dim(.7); ctx.textAlign='right'; ctx.fillText(String(Math.abs(d)),cx-hw-5,y+3);
+      ctx.textAlign='left'; ctx.fillText(String(Math.abs(d)),cx+hw+5,y+3); }
+    ctx.restore();
+    // bank pointer: fixed scale, moving caret — reads instantly at a glance
+    ctx.strokeStyle=dim(.5); ctx.lineWidth=1.4;
+    for(const a of [-60,-45,-30,-15,0,15,30,45,60]){ const r=Math.min(W,H)*0.30, t=-Math.PI/2+a*Math.PI/180;
+      const x0=cx+Math.cos(t)*r, y0=cy+Math.sin(t)*r, L=(a%30===0)?9:5;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(cx+Math.cos(t)*(r+L),cy+Math.sin(t)*(r+L)); ctx.stroke(); }
+    { const r=Math.min(W,H)*0.30, t=-Math.PI/2+roll;
+      ctx.fillStyle=dim(.95); ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(t)*(r-3),cy+Math.sin(t)*(r-3));
+      ctx.lineTo(cx+Math.cos(t+0.035)*(r-11),cy+Math.sin(t+0.035)*(r-11));
+      ctx.lineTo(cx+Math.cos(t-0.035)*(r-11),cy+Math.sin(t-0.035)*(r-11));
+      ctx.closePath(); ctx.fill(); }
+    // flight-path marker: the winged circle you actually fly with
+    ctx.strokeStyle=dim(.9); ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.arc(cx,cy,7,0,TAU);
+    ctx.moveTo(cx-7,cy); ctx.lineTo(cx-19,cy); ctx.moveTo(cx+7,cy); ctx.lineTo(cx+19,cy);
+    ctx.moveTo(cx,cy-7); ctx.lineTo(cx,cy-14); ctx.stroke();
+    // heading strip along the top of the glass
+    ctx.strokeStyle=dim(.45); ctx.lineWidth=1.2; ctx.font='700 9px Courier New';
+    const hdg=((((k.h||0)*180/Math.PI)%360)+360)%360;
+    for(let o=-50;o<=50;o+=10){ const t=Math.round((hdg+o)/10)*10, dx=(t-hdg)*(W*0.0058);
+      if(Math.abs(dx)>W*0.19)continue; const x=cx+dx;
+      ctx.beginPath(); ctx.moveTo(x,H*0.115); ctx.lineTo(x,H*0.115+(t%30===0?7:4)); ctx.stroke();
+      if(t%30===0){ ctx.fillStyle=dim(.62); ctx.textAlign='center';
+        ctx.fillText(String(((t%360)+360)%360/10|0).padStart(2,'0'),x,H*0.112); } }
+    ctx.fillStyle=dim(.95); ctx.beginPath();
+    ctx.moveTo(cx,H*0.132); ctx.lineTo(cx-4,H*0.122); ctx.lineTo(cx+4,H*0.122); ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // ── 2. canopy structure ────────────────────────────────────────────────────────────────
+    ctx.save();
+    ctx.translate(cx,H); ctx.rotate(-(k.bank||0)*0.10); ctx.translate(-cx,-H);   // the airframe leans, gently
+    // glass: a cool tint that deepens toward the frame, plus two raking specular streaks
+    const gl2=ctx.createLinearGradient(0,0,0,H*0.8);
+    gl2.addColorStop(0,'rgba(90,190,220,.13)'); gl2.addColorStop(0.45,'rgba(90,190,220,.03)');
+    gl2.addColorStop(1,'rgba(90,190,220,.10)');
+    ctx.fillStyle=gl2; ctx.fillRect(0,0,W,H*0.82);
+    ctx.globalAlpha=0.10; ctx.strokeStyle='#dff6ff'; ctx.lineWidth=W*0.03; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(W*0.20,H*0.05); ctx.lineTo(W*0.44,H*0.62); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.30,H*0.03); ctx.lineTo(W*0.50,H*0.55); ctx.stroke();
+    ctx.globalAlpha=1; ctx.lineCap='butt';
+    // frame members, drawn as filled bars so they have real width and a lit edge
+    const bar=(pts,w,fill,edge)=>{ ctx.strokeStyle=fill; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.beginPath();
+      ctx.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]); ctx.stroke();
+      ctx.strokeStyle=edge; ctx.lineWidth=1.4; ctx.stroke(); };
+    const FR='rgba(11,20,26,.97)', FE='rgba(120,220,235,.55)';
+    bar([[W*0.12,H*1.02],[W*0.155,H*0.30],[W*0.30,H*0.085]], W*0.032, FR, FE);   // left rail
+    bar([[W*0.88,H*1.02],[W*0.845,H*0.30],[W*0.70,H*0.085]], W*0.032, FR, FE);   // right rail
+    bar([[W*0.30,H*0.085],[cx,H*0.045],[W*0.70,H*0.085]],    W*0.030, FR, FE);   // forward arch
+    bar([[cx,H*0.048],[cx,H*0.80]], W*0.013, FR, 'rgba(120,220,235,.38)');       // centre bow
+    // HUD combiner: the angled glass plate the symbology is projected onto
+    ctx.strokeStyle='rgba(150,255,205,.30)'; ctx.lineWidth=2;
+    ctx.strokeRect(W*0.325,H*0.135,W*0.35,H*0.47);
+    ctx.fillStyle='rgba(120,255,180,.03)'; ctx.fillRect(W*0.325,H*0.135,W*0.35,H*0.47);
+    ctx.restore();
+
+    /* ── 3. glareshield + instrument panel ─────────────────────────────────────────────────
+     * ⚑ The bottom ~9% of the tube belongs to DOM furniture that has always been there — the
+     *   control-chip row centre-bottom and the comms toast bottom-left. Instruments live in
+     *   the band ABOVE that, and the side tapes start inboard of the toast. Drawing full-width
+     *   to the floor put the airspeed tape underneath a callout and the bars under the chips. */
+    const RES=H*0.095, dh=H*0.20, top=H-dh;
+    ctx.save();
+    const pg=ctx.createLinearGradient(0,top-H*0.03,0,H);
+    pg.addColorStop(0,'rgba(3,7,11,.55)'); pg.addColorStop(0.18,'rgba(7,14,20,.99)'); pg.addColorStop(1,'rgba(2,5,8,1)');
+    ctx.fillStyle=pg;
+    ctx.beginPath(); ctx.moveTo(-W*0.05,H+2); ctx.lineTo(-W*0.05,top+H*0.03);
+    ctx.quadraticCurveTo(cx,top-H*0.045,W*1.05,top+H*0.03); ctx.lineTo(W*1.05,H+2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(120,220,235,.34)'; ctx.lineWidth=2;      // lit coaming lip
+    ctx.beginPath(); ctx.moveTo(-W*0.05,top+H*0.03); ctx.quadraticCurveTo(cx,top-H*0.045,W*1.05,top+H*0.03); ctx.stroke();
+
+    const mfd=(x,y,w,h2,label,draw)=>{
+      ctx.fillStyle='rgba(4,14,16,.95)'; ctx.strokeStyle='rgba(120,220,235,.3)'; ctx.lineWidth=1.4;
+      ctx.beginPath(); rr(x,y,w,h2,5); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.beginPath(); rr(x+2,y+2,w-4,h2-4,4); ctx.clip(); draw(x,y,w,h2); ctx.restore();
+      ctx.fillStyle='rgba(120,220,235,.5)'; ctx.font='700 8px Courier New'; ctx.textAlign='left';
+      ctx.fillText(label,x+4,y+h2-4); };
+    const PW=W*0.125, PH=dh-RES*0.55, PY=top+dh*0.10;
+
+    /* A rolling tape, generalised: the airspeed and altitude gauges differ only in units,
+     * step and which side the scale sits on, so they share one implementation. `step` is
+     * chosen so ~5 rungs span the window — more than that and the labels collide at this
+     * height, which is exactly how the first pass turned the airspeed gauge into a smear. */
+    const tape=(x,y,w,h2,val,step,span,side)=>{
+      const per=h2/span;
+      ctx.strokeStyle='rgba(120,255,180,.35)'; ctx.font='700 9px Courier New'; ctx.lineWidth=1;
+      for(let s=Math.ceil((val-span/2)/step)*step; s<=val+span/2; s+=step){ if(s<0)continue;
+        const yy=y+h2/2+(val-s)*per; if(yy<y+9||yy>y+h2-9)continue;
+        ctx.fillStyle='rgba(120,255,180,.6)';
+        if(side<0){ ctx.beginPath(); ctx.moveTo(x+w-13,yy); ctx.lineTo(x+w-7,yy); ctx.stroke();
+                    ctx.textAlign='right'; ctx.fillText(String(s),x+w-17,yy+3); }
+        else      { ctx.beginPath(); ctx.moveTo(x+7,yy); ctx.lineTo(x+13,yy); ctx.stroke();
+                    ctx.textAlign='left'; ctx.fillText(String(s),x+17,yy+3); } }
+      // the read-out box straddling the centre line: the number you actually fly on
+      const bw=w*0.62, bx=side<0?x+3:x+w-bw-3, by=y+h2/2-9;
+      ctx.fillStyle='rgba(6,20,22,.95)'; ctx.strokeStyle='rgba(150,255,205,.85)'; ctx.lineWidth=1.4;
+      ctx.beginPath(); rr(bx,by,bw,18,3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(170,255,215,.98)'; ctx.font='900 13px Courier New'; ctx.textAlign='center';
+      ctx.fillText(String(Math.round(val)),bx+bw/2,by+13);
+      ctx.strokeStyle='rgba(150,255,205,.55)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x+2,y+h2/2); ctx.lineTo(x+w-2,y+h2/2); ctx.stroke(); };
+
+    // airspeed, inboard of the comms toast; altitude mirrored on the right
+    mfd(W*0.185,PY,PW,PH,'SPD',(x,y,w,h2)=>tape(x,y,w,h2,(k.spd||0)*10,50,320,-1));
+    mfd(W*0.69, PY,PW,PH,'ALT',(x,y,w,h2)=>tape(x,y,w,h2,(k.alt||0)*100,200,1300,1));
+
+    // centre stack: throttle / boost / hull, sized to sit clear of the control chips
+    { const x=W*0.335, w=W*0.33, y=PY+2, bh=(PH-8)/3-4;
+      const bars=[['THR',Math.min(1,(k.spd||0)/22),'rgba(120,255,180,'],
+                  ['BST',k.boostGauge||0,'rgba(255,210,59,'],
+                  ['HUL',(k.hp||0)/(k.maxHp||1),'rgba(255,90,60,']];
+      bars.forEach((b,i)=>{ const yy=y+i*(bh+4);
+        ctx.fillStyle='rgba(120,220,235,.5)'; ctx.font='700 8px Courier New'; ctx.textAlign='left';
+        ctx.fillText(b[0],x,yy+bh*0.78);
+        ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(x+26,yy,w-26,bh);
+        ctx.fillStyle=b[2]+'.8)'; ctx.fillRect(x+26,yy,(w-26)*clamp(b[1],0,1),bh);
+        ctx.strokeStyle='rgba(120,220,235,.25)'; ctx.lineWidth=1; ctx.strokeRect(x+26.5,yy+0.5,w-27,bh-1); }); }
+
+    // master caution — parked on the coaming where nothing else sits
+    { const low=(k.hp||0)/(k.maxHp||1)<0.34, blink=low&&(G.t*3%1)<0.55;
+      ctx.fillStyle=blink?'rgba(255,80,60,.95)':'rgba(46,16,13,.8)';
+      ctx.beginPath(); rr(W*0.335,top-H*0.028,52,13,3); ctx.fill();
+      ctx.fillStyle=blink?'#1a0402':'rgba(255,120,100,.3)'; ctx.font='900 8px Courier New'; ctx.textAlign='center';
+      ctx.fillText('MASTER',W*0.335+26,top-H*0.028+10); }
+    ctx.restore();
+  }
   function drawReticle(){ if(!G.me||!G.me.alive)return; const r=Math.min(W,H)*0.03;
     if(G.me.zoom){ ctx.save(); const rad=Math.min(W,H)*0.42; const g=ctx.createRadialGradient(cx,cy,rad*0.62,cx,cy,rad*1.15);
       g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(0.7,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.93)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);

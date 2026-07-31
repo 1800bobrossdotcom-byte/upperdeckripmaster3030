@@ -93,26 +93,53 @@ window.DFGL = (function () {
    * translation, which periodicity survives, so the clouds can move forever.
    */
   const CLOUD_VS = 'attribute vec2 aP; uniform mat4 uMVP; uniform float uY; uniform vec2 uCam;' +
-    'varying vec2 vW; varying float vD;' +
-    'void main(){ vW=aP+uCam; vec4 p=uMVP*vec4(aP.x,uY,aP.y,1.0); vD=p.w; gl_Position=p; }';
-  const CLOUD_FS = 'precision mediump float; varying vec2 vW; varying float vD;' +
-    'uniform vec3 uCol; uniform vec3 uFog; uniform float uT; uniform float uThr;' +
-    'uniform float uFar; uniform float uRep0; uniform float uShade; uniform float uWS;' +
+    'uniform vec3 uEye; varying vec3 vP; varying vec3 vRay; varying float vD;' +
+    'void main(){ vec3 w=vec3(aP.x,uY,aP.y); vP=w+vec3(uCam.x,0.0,uCam.y);' +
+    ' vRay=w-uEye; vec4 p=uMVP*vec4(w,1.0); vD=p.w; gl_Position=p; }';
+  /* Raymarched through the slab's THICKNESS, not painted on a plane. Three flat sheets read
+   * exactly as three flat sheets from any angle that isn't edge-on — which is most of a
+   * dogfight. Stepping the ray through a 3D noise field costs a loop and buys the thing that
+   * makes clouds read as weather: density that accumulates with how much cloud the ray
+   * actually crossed, so a shallow glance is thin haze and a dive through is opaque.
+   *
+   * Self-shadowing is the other half. A second short march toward the sun per sample gives
+   * lit tops and dark bases — the cue the eye reads as volume — for a handful of extra taps. */
+  const CLOUD_FS = 'precision mediump float;' +
+    'varying vec3 vP; varying vec3 vRay; varying float vD;' +
+    'uniform vec3 uCol; uniform vec3 uFog; uniform vec3 uSunDir; uniform float uT;' +
+    'uniform float uThr; uniform float uFar; uniform float uRep0; uniform float uWS;' +
+    'uniform float uSlabY; uniform float uSlabH; uniform float uDens;' +
     'float h(vec2 c){ return fract(sin(dot(c,vec2(127.1,311.7)))*43758.5453); }' +
     'float vn(vec2 p, float rep){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);' +
     ' float a=h(mod(i,rep)), b=h(mod(i+vec2(1.,0.),rep)), c=h(mod(i+vec2(0.,1.),rep)), d=h(mod(i+vec2(1.,1.),rep));' +
     ' return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }' +
-    'void main(){' +
-    ' float rep=uRep0; vec2 p=vW/uWS*rep + vec2(uT*0.11,uT*0.045);' +
+    // density at a world point: wrap-safe FBM in xz, shaped vertically so the slab has edges
+    'float dens(vec3 w){' +
+    ' float rep=uRep0; vec2 p=w.xz/uWS*rep + vec2(uT*0.11,uT*0.045);' +
     ' float s=0.0, amp=0.5;' +
     ' for(int i=0;i<4;i++){ s+=amp*vn(p,rep); p=p*2.0+vec2(17.13,9.77); amp*=0.5; rep*=2.0; }' +
-    ' float cov=smoothstep(uThr,uThr+0.30,s);' +
-    ' if(cov<0.01) discard;' +
-    // underside reads darker and moodier than the sunlit top — uShade flips with the eye
-    ' vec3 c=mix(uCol*0.52+uFog*0.22, uCol, uShade);' +
-    ' c+=vec3(0.10)*smoothstep(uThr+0.34,uThr+0.62,s);' +                    // bright cores
+    ' float v=(w.y-uSlabY)/uSlabH;' +                                  // -1 base .. +1 top
+    ' float shape=1.0-v*v;' +                                          // fat middle, feathered edges
+    ' return max(0.0, (s-uThr)*shape); }' +
+    'void main(){' +
+    ' vec3 dir=normalize(vRay);' +
+    ' float step=uSlabH*0.42;' +
+    ' vec3 pos=vP - dir*uSlabH*0.9;' +                                 // enter a little before the plane
+    ' float acc=0.0, lit=0.0;' +
+    ' for(int i=0;i<6;i++){' +
+    '   float d=dens(pos);' +
+    '   if(d>0.0){' +
+    // one short march toward the sun: how much cloud is above/behind this sample
+    '     float sh=dens(pos+uSunDir*uSlabH*0.7)+dens(pos+uSunDir*uSlabH*1.4)*0.6;' +
+    '     lit+=d*exp(-sh*2.6); acc+=d; }' +
+    '   pos+=dir*step; }' +
+    ' acc*=uDens; if(acc<0.012) discard;' +
+    ' float a=clamp(acc,0.0,1.0);' +
+    ' float L=clamp(lit/max(acc/uDens,0.001),0.0,1.0);' +               // 0 deep shadow .. 1 sunlit
+    ' vec3 c=mix(uCol*0.42+uFog*0.30, uCol, L);' +
+    ' c+=vec3(0.09)*L*L;' +                                            // silver rim on the lit crowns
     ' float fg=clamp(vD/uFar,0.0,1.0);' +
-    ' gl_FragColor=vec4(mix(c,uFog,fg*0.85), cov*0.88*(1.0-fg*fg)); }';
+    ' gl_FragColor=vec4(mix(c,uFog,fg*0.85), a*0.92*(1.0-fg*fg)); }';
 
   function sh(t, src) { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o);
     if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -295,8 +322,8 @@ window.DFGL = (function () {
       try {
         cloud = link(CLOUD_VS, CLOUD_FS);
         cloudLoc.aP = gl.getAttribLocation(cloud, 'aP');
-        ['uMVP','uY','uCam','uCol','uFog','uT','uThr','uFar','uRep0','uShade','uWS']
-          .forEach(n => cloudLoc[n] = gl.getUniformLocation(cloud, n));
+        ['uMVP','uY','uCam','uEye','uCol','uFog','uSunDir','uT','uThr','uFar','uRep0','uWS',
+         'uSlabY','uSlabH','uDens'].forEach(n => cloudLoc[n] = gl.getUniformLocation(cloud, n));
         cloudBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, cloudBuf);
         const R = 60;
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-R,-R, R,-R, -R,R, R,-R, R,R, -R,R]), gl.STATIC_DRAW);
@@ -307,7 +334,7 @@ window.DFGL = (function () {
       gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
       // blur is the per-caller motion-smear CEILING (see gfx-post.js) — ronin shares the neon
       // preset and must not inherit it, hence the spread rather than editing the preset
-      try { post = window.GfxPost ? GfxPost.create(gl, cv, Object.assign({}, GfxPost.PRESET.neon, { blur: 0.5 })) : null; } catch (e) { post = null; }
+      try { post = window.GfxPost ? GfxPost.create(gl, cv, Object.assign({}, GfxPost.PRESET.neon, { blur: 0.45 })) : null; } catch (e) { post = null; }
       loadArt(opt && opt.art);          // async; the procedural craft flies until it lands
       ok = true; return true;
     } catch (e) { ok = false; return false; }
@@ -364,13 +391,26 @@ window.DFGL = (function () {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
 
-    // ── camera: behind and above the craft, banking with roll ──
-    const eyeY = (o.CAM_H || 1.2) + (cam.alt || 0);
-    /* View = pullback ∘ inverseOrientation ∘ translateWorld. The pull-back has to be applied
+    /* ── camera: behind and above the craft, banking with roll ───────────────────────────
+     * ⚠ The +π/2 on the yaw is load-bearing, not a fudge. The game's heading convention is
+     * `fwd = dx·cos h + dy·sin h`, so h = 0 means flying along world +x — which lands on GL
+     * +x. A bare Ry(cam.h) leaves the camera looking down -Z while the craft flies +X, i.e.
+     * the whole world 90° off: you watch the scenery slide sideways past a hull that points
+     * out of the right of frame, and the plane reads as "stuck flying in one direction"
+     * because nothing ever comes toward you. Verified numerically at five headings — dead
+     * ahead now lands at camera -Z, world-right at +X, and the craft's nose at (0,0,-1).
+     *
+     * The ship transform's own +π/2 stays: it maps model +Z (the authored nose) onto the same
+     * axis. The two offsets are independent — one orients the eye, one orients the hull.
+     *
+     * View = pullback ∘ inverseOrientation ∘ translateWorld. The pull-back has to be applied
      * in CAMERA space (after the rotation), or the chase offset points along world Z instead
      * of along the craft's own backward axis — which looks fine dead ahead and drifts wrong
      * the moment you turn. */
-    const rot = M.mul(M.mul(M.Rz(-(cam.roll || 0)), M.Rx(-(cam.ph || 0))), M.Ry(cam.h || 0));
+    const CAM_LIFT = 0.42;                 // how far the eye floats ABOVE the craft
+    const eyeY = (cam.alt || 0) + CAM_LIFT;
+    const rot = M.mul(M.mul(M.Rz(-(cam.roll || 0)), M.Rx(-(cam.ph || 0))),
+                      M.Ry((cam.h || 0) + Math.PI / 2));
     const view = M.mul(M.T(0, 0, -(o.CAM_BACK || 2.4)), M.mul(rot, M.T(0, -eyeY, 0)));
     // world is placed camera-relative, which also hides the toroidal seam for free
     const P = M.persp(1.05, asp, 0.1, FAR * 1.6);
@@ -504,31 +544,39 @@ window.DFGL = (function () {
       gl.enableVertexAttribArray(cloudLoc.aP); gl.vertexAttribPointer(cloudLoc.aP, 2, gl.FLOAT, false, 0, 0);
       gl.uniformMatrix4fv(cloudLoc.uMVP, false, new Float32Array(VP));
       gl.uniform2f(cloudLoc.uCam, cam.x, cam.y);
+      gl.uniform3f(cloudLoc.uEye, 0, eyeAlt, 0);         // camera-relative space: eye is at x/z 0
       gl.uniform3fv(cloudLoc.uCol, cloudCol); gl.uniform3fv(cloudLoc.uFog, fogC);
+      // sun direction from the theme's azimuth, well above the horizon so tops catch it
+      const sa = G.sunAz || 0;
+      gl.uniform3f(cloudLoc.uSunDir, Math.cos(sa) * 0.55, 0.83, Math.sin(sa) * 0.55);
       gl.uniform1f(cloudLoc.uT, G.t || 0); gl.uniform1f(cloudLoc.uFar, fogFar * 1.35);
       gl.uniform1f(cloudLoc.uWS, WS);
-      const layers = [   // dy, lattice repeat, coverage threshold
-        [-CLOUD_TH * 0.62, 20, 0.46],
-        [0,                28, 0.36],
-        [ CLOUD_TH * 0.58, 36, 0.50],
+      /* Two slabs, each raymarched through its own thickness. Stacking a thin high sheet over
+       * a deep main deck gives parallax between them — the cue that says these are bodies at
+       * different distances rather than one painted layer. */
+      const slabs = [   // planeY, slabCentre, slabHalfHeight, lattice repeat, threshold, density
+        [CLOUD_Y,             CLOUD_Y,             CLOUD_TH,       24, 0.40, 1.35],
+        [CLOUD_Y + CLOUD_TH * 1.9, CLOUD_Y + CLOUD_TH * 1.9, CLOUD_TH * 0.5, 40, 0.50, 0.95],
       ];
-      for (const [dy, rep, thr] of layers) {
-        const y = CLOUD_Y + dy;
-        gl.uniform1f(cloudLoc.uY, y);
+      for (const [py, sy, sh2, rep, thr, dn] of slabs) {
+        gl.uniform1f(cloudLoc.uY, py);
+        gl.uniform1f(cloudLoc.uSlabY, sy);
+        gl.uniform1f(cloudLoc.uSlabH, sh2);
         gl.uniform1f(cloudLoc.uRep0, rep);
         gl.uniform1f(cloudLoc.uThr, thr);
-        gl.uniform1f(cloudLoc.uShade, eyeAlt > y ? 1 : 0);   // sunlit top vs moody underside
+        gl.uniform1f(cloudLoc.uDens, dn);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
       /* One more pass of the same shader, grounded: terrain mottling just over the floor, in
-       * the theme's grid hue at low coverage. The floor was flat black under the lattice —
-       * from altitude it now reads as landmass and basin instead of void. uT pinned to 0:
+       * the theme's grid hue. The floor was flat black under the lattice — from altitude it
+       * now reads as landmass and basin instead of void. A thin slab and uT pinned to 0:
        * clouds drift, continents don't. */
       const gcol = hex(world.grid), gnd2 = hex(world.gnd);
       gl.uniform1f(cloudLoc.uY, 0.02);
+      gl.uniform1f(cloudLoc.uSlabY, 0.02); gl.uniform1f(cloudLoc.uSlabH, 0.16);
       gl.uniform1f(cloudLoc.uRep0, 10);
       gl.uniform1f(cloudLoc.uThr, 0.42);
-      gl.uniform1f(cloudLoc.uShade, 1);
+      gl.uniform1f(cloudLoc.uDens, 1.6);
       gl.uniform1f(cloudLoc.uT, 0);
       gl.uniform3fv(cloudLoc.uCol, [gnd2[0] + gcol[0]*0.16, gnd2[1] + gcol[1]*0.16, gnd2[2] + gcol[2]*0.16]);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
