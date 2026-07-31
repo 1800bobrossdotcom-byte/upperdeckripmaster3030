@@ -179,6 +179,17 @@ function build3D() {
   $('card').insertBefore(cv, $('fb'));
   const app = new pc.Application(cv, { graphicsDeviceOptions: { alpha:true, antialias:true } });
   if (!app.graphicsDevice) return;
+  /* ⚑ COLOUR MANAGEMENT — this was the bug behind "diminished in colour with flatness".
+   * Card art is sRGB data. Uploaded without saying so, the engine treats the bytes as LINEAR,
+   * which lifts the mid-tones, crushes contrast and desaturates everything — precisely the
+   * washed-grey look. Card 45 has crushed blacks and hot whites in the source and came back as
+   * flat blue-grey. Declaring the swap chain sRGB and tagging the textures fixes it at source;
+   * no amount of saturation-pushing afterwards would have, because the transfer function was
+   * wrong rather than the values.
+   * Tonemapping stays NONE on purpose: these are finished artworks, not HDR renders. ACES
+   * would re-grade the artist's own colour. */
+  if ('gammaCorrection' in app.scene) app.scene.gammaCorrection = pc.GAMMA_SRGB;
+  if ('toneMapping' in app.scene) app.scene.toneMapping = pc.TONEMAP_NONE;
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
   const fit = () => { const r = $('card').getBoundingClientRect();
@@ -314,7 +325,13 @@ function build3D() {
     t.setSource(c); return t;
   }
 
-  const texFor = (url, cb) => { const t = new pc.Texture(app.graphicsDevice, { mipmaps:true });
+  const texFor = (url, cb) => {
+    // srgb where the runtime supports the flag; harmless where it does not
+    const opts = { mipmaps:true, addressU:pc.ADDRESS_CLAMP_TO_EDGE, addressV:pc.ADDRESS_CLAMP_TO_EDGE };
+    if (pc.PIXELFORMAT_SRGBA8 !== undefined) opts.format = pc.PIXELFORMAT_SRGBA8;
+    let t; try { t = new pc.Texture(app.graphicsDevice, opts); }
+    catch (e) { t = new pc.Texture(app.graphicsDevice, { mipmaps:true }); }
+    if ('srgb' in t) t.srgb = true;
     const img = new Image(); img.crossOrigin = 'anonymous';
     img.onload = () => { t.setSource(img); cb(t, img); }; img.onerror = () => {}; img.src = url; };
 
@@ -323,9 +340,16 @@ function build3D() {
     texFor(ART, (t, img) => {
       let nrm = null;
       try { nrm = normalFromImage(img, 1.0); } catch (e) { nrm = null; }   // fail open: just flatter
-      art.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.42,
-        emissiveMap:t, emissive:new pc.Color(.13,.13,.13),
-        gloss:.62, metalness:.10, useMetalness:true });
+      /* The art is lit by an emissive map at FULL strength rather than a diffuse map under
+       * lights. That sounds odd for a 3D object and it is the right call here: a finished
+       * artwork should arrive at the viewer's eye the way the artist left it, not re-graded by
+       * whatever key light happens to be in the scene. The relief and the foil come from the
+       * normal map and the sweep on the plates above; the COLOUR is untouched.
+       * metalness 0 too — a metalness workflow tints diffuse toward the base colour and was
+       * quietly desaturating the art. */
+      art.render.material = mkMat({ emissiveMap:t, emissive:new pc.Color(1,1,1),
+        diffuse:new pc.Color(0,0,0), normalMap:nrm, bumpiness:.42,
+        gloss:.5, metalness:0, useMetalness:false });
       back.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.5,
         diffuse:new pc.Color(.16,.16,.2), gloss:.25 });
     });
@@ -381,18 +405,30 @@ function build3D() {
      * light when you move the card, which is the whole gesture we are imitating. Strength
      * goes in the emissive colour, never in opacity: additive ignores opacity. */
     holo.emissiveMapOffset = new pc.Vec2(-((t * 0.16) % 1), 0);
-    const heat = 0.09 + 0.13 * Math.min(1, Math.hypot(tilt.x, tilt.y));
+    // additive lifts blacks, and this art has real blacks — so idle is nearly nothing
+    const heat = 0.012 + 0.115 * Math.min(1, Math.hypot(tilt.x, tilt.y));
     holo.emissive = new pc.Color(heat, heat, heat);
     holo.update();
   });
 
   app.start();
   usingGL = true;
-  $('fb').style.opacity = '0';                        // keep the DOM text: it is crisper than GL type
-  $('fb').style.opacity = '';                          // ...so instead hide only the art layers
+  /* ⚑ THE WASH. This is what made the cards read "diminished in colour with flatness".
+   * The CSS fallback is kept in the DOM because its TEXT is crisper than anything GL can draw
+   * at this size — but the fallback also carries a .glare (white diagonal, opacity .5,
+   * mix-blend-mode: screen) and a .scan (white lines, opacity .16), and those were still sitting
+   * ON TOP of the canvas. Screen-blending white over the render lifts every black and drags
+   * saturation out of everything — measured on card 45 as saturation 19.9% -> 12.7%, contrast
+   * 71.5 -> 59.3, blacks 6.7% -> 0.9% of the frame.
+   * The sRGB texture format was a real fix too and it stays. But this was the bigger half, and
+   * it was hiding in the FALLBACK rather than in the renderer, which is why looking at the
+   * shader kept coming up empty. Only the type survives; every decorative CSS layer goes. */
   $('lbg').style.display = $('lart').style.display = 'none';
+  ['.scan', '.glare', '.frame'].forEach(sel => {
+    const el = document.querySelector('#fb ' + sel); if (el) el.style.display = 'none'; });
   $('fb').style.background = 'transparent';
   $('fb').style.boxShadow = 'none';
+  $('fb').style.transform = 'none';                    // GL owns the tilt now; do not double it
   $('mode').textContent = 'playcanvas 3d · engine loaded';
 }
 </script>
