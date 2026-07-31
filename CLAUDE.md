@@ -422,10 +422,30 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   renderer + `Gfx2D`, which are mutually exclusive with it (Gfx2D *hides* the 2D canvas).
   ⚠ **View-matrix trap:** the chase pull-back must be applied in CAMERA space (after the
   inverse rotation). `R * T` looks correct dead-ahead and drifts wrong the moment you turn.
-  **M1 IN:** sky+sun shader, GPU ground grid (camera-relative, so the toroidal seam never
-  shows), props, ships, bolts, bursts, GfxPost. **M1 OUT / known:** bolt ribbons are
-  axis-aligned rather than camera-facing; own-craft placement in chase view needs work; gates
-  and rings not drawn yet; no shadows or reflections.
+  ⚑ **CAMERA YAW NEEDS `+π/2`, and it is load-bearing.** The game's heading convention is
+  `fwd = dx·cos h + dy·sin h`, so `h = 0` means flying along world **+x**, which lands on GL
+  +x — while a bare `Ry(cam.h)` keeps the camera looking down −Z. M1 shipped that way and the
+  whole world sat 90° off its own flight axis: scenery slid sideways, the hull pointed out of
+  the right of frame, and nothing ever came toward you. It reads to a player as *"the plane is
+  stuck flying in one direction."* The ship transform's own `+π/2` is a SEPARATE offset (model
+  +Z → the same axis) and was never the bug. Verified numerically at five headings: dead ahead
+  → camera −Z, world-right → +X, nose → (0,0,−1).
+  **Geometry is AUTHORED** — `models/dogfight.glb` from `scripts/blender/build-craft.py`
+  (`npm run craft`), loaded by name through `ronin-glb.js`: `craft` · `pod` · `gate` ·
+  `prop_{pylon,ring,spire,tower,crystal}`. Fits are computed from MEASURED bounds (craft →
+  `CRAFT`, gate → the 1.4 pass-through radius `dogfight.html` actually tests, props → base at
+  origin so `alt` means altitude), so a replacement model drops in without retuning anything.
+  Every piece keeps its procedural fallback — the fetch is async and can fail.
+  **Lighting (post-M1):** hemisphere ambient + wrapped diffuse + Blinn-Phong + fresnel rim,
+  two-sided (CULL_FACE is off, so thin geometry would otherwise go black from behind), plus
+  sun-vector ground shadows that widen and fade with height. ⚑ The lit shader needs the model
+  matrix in its own right, so **every draw must go through `xform()`** which sets `uMVP` and
+  `uM` together — setting `uMVP` alone silently reuses the previous draw's normals.
+  **Clouds** are two slabs RAYMARCHED through their own thickness with a short second march
+  toward the sun for self-shadowing. Three flat sheets read as three flat sheets from every
+  angle that isn't edge-on; thickness is what makes them weather. Wrap-safe lattice, so no seam.
+  **M1 OUT / still known:** bolt ribbons are axis-aligned rather than camera-facing; no
+  reflections; cloud shadows don't fall on the ground.
 - **Mobile resolution policy — `GfxPost.dprCap()`:** ONE definition of "weak device" (touch +
   screen ≤900 + low cores/memory + save-data), used by dogfight, section9, riprocketer and
   ronin3d as `Math.min(devicePixelRatio, GfxPost.dprCap())`, and by `Gfx2D` via `deviceScale()`.
@@ -585,6 +605,25 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   sightline instead of "face arena centre". Before this, 4 of NEON STREET's 10 spawns sat *inside*
   the roof-deck boxes (and KOWLOON/COLD STORAGE each had buried ones too) — you spawned sealed in
   geometry staring at a wall, which reads as "the update didn't ship".
+- ⚠ **This container's screenshot path rotates hue on CANVAS content.** DOM text and CSS come
+  out correct in the same shot, so a screenshot that looks colour-shifted is not evidence of a
+  shader bug — `getImageData` on the source canvas proved the pixels were right while the PNG
+  showed green as magenta. **Judge colour from `getImageData`, never from a SwiftShader
+  screenshot.** Judge LAYOUT from screenshots freely; that part is trustworthy.
+- ⚠ **Headless rAF stalls between input events.** A quiet 600 ms window can advance `G.t` by
+  exactly 0, then a keypress unblocks a burst of frames. So "I held the key and nothing moved"
+  is an artifact, not a stuck control — probe by pumping input and reading state, and never
+  conclude a game loop is broken from one sample. Also: waking rAF with **Shift** presses the
+  BOOST key in dogfight, which quietly changes what you are measuring.
+- **DOGFIGHT flight physics — height and speed are ONE currency.** Climbing spends speed,
+  diving buys it back (`spd -= dAlt·3.4`, measured against the CLAMPED altitude so grinding the
+  ceiling doesn't keep charging for a climb that isn't happening). Control authority rides
+  airspeed (`0.5 + spd/16`, floored at 0.5 — unresponsive is a feeling, uncontrollable is a bug
+  report), and a sustained hard turn scrubs speed, so rate-fighting costs energy. Equilibria,
+  derived not guessed: sustained full climb settles at **5.6** vs 9 cruise, full dive at
+  **12.4**, and boost overpowers the trade entirely (19.9 of 22) — so boost still means escape.
+  Bots climb to bank height when far and dive to convert it when closing, and unload below
+  speed 5.5; without that the energy model would tax only the player and read as a handicap.
 - **Headless verify:** node http server + playwright-core at
   `/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js`, chromium
   `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`, `--no-sandbox` (WebGL adds

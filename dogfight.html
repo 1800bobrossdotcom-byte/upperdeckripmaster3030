@@ -731,6 +731,16 @@
       tryFire(s, s.wantFire);
       const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
       s.x=wpos(s.x+Math.cos(s.h)*s.spd*dt); s.y=wpos(s.y+Math.sin(s.h)*s.spd*dt); s.alt=clamp(s.alt,ALT_MIN,ALT_MAX);
+      /* ENERGY: height and speed are ONE currency, not two.
+       * Climbing spends speed, diving buys it back — the oldest real thing about flying, and
+       * the reason the 9-unit ceiling is worth having. Without it, altitude was free and the
+       * vertical arena was just a taller box. With it, you can zoom-climb above the weather,
+       * lose energy doing it, and cash the height back in as overtake speed on the way down.
+       * Measured against the CLAMPED altitude, so grinding along the ceiling or the deck does
+       * not keep charging you for a climb that isn't happening. Floored well above stall so a
+       * bot that noses up at a high target sags rather than falling out of the sky. */
+      const dAlt=s.alt-(s._pAlt!=null?s._pAlt:s.alt); s._pAlt=s.alt;
+      s.spd=Math.max(2.6,s.spd-dAlt*3.4);
       if(s.spd>2){ s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>16)s.trail.shift(); } else if(s.trail.length) s.trail.shift(); }
     // chase camera trails the player (smooth heading/altitude, banks into turns)
     if(G.me&&G.me.alive){ cam.x=G.me.x; cam.y=G.me.y; cam.h+=angd(G.me.h-cam.h)*Math.min(1,dt*7); cam.alt+=(G.me.alt-cam.alt)*Math.min(1,dt*6);
@@ -801,8 +811,17 @@
     yaw=clamp(yaw,-1,1); pitch=clamp(pitch,-1,1);
     // rate-building turn: a sustained hard bank tightens your turn over ~0.4s (dogfight feel); armed craft handle sharper
     s.turnRamp=clamp((s.turnRamp||0)+(Math.abs(yaw)>0.55?dt*2.4:-dt*3.2),0,1);
-    const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1));
+    /* Control authority rides airspeed. A wing that isn't moving isn't flying, so a craft that
+     * has bled its energy away turns like a barge until it builds speed back — which is what
+     * stops the energy trade above from being free, and what makes a slow, cornered opponent
+     * genuinely in trouble rather than merely slower. Never below 0.5: unresponsive is a
+     * feeling, uncontrollable is a bug report. */
+    const auth=clamp(0.5+s.spd/16,0.5,1);
+    const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1))*auth;
     s.h+=yaw*turnRate*dt; s.alt-=pitch*2.4*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6.5); s.pitchIn=pitch;
+    // G-bleed: holding a hard turn scrubs speed, so rate-fighting costs energy and the fight
+    // has a floor you can be pushed through instead of an infinite merry-go-round
+    s.spd=Math.max(2.6,s.spd-Math.abs(yaw)*s.turnRamp*2.1*dt);
     // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up).
     // touch has no button — SLAM the fly stick hard-forward (nose up past the rim) to throttle up.
     const stickBoost = stick.id!==null && stick.y<-0.55 && Math.hypot(stick.x,stick.y)>0.88;
@@ -826,6 +845,13 @@
     if(s.evade>0){ s.evade-=dt; if(t) desiredH=Math.atan2(wdel(s.y-t.y),wdel(s.x-t.x)); s.boost=true; }
     else if(t){ const dx=wdel(t.x-s.x), dy=wdel(t.y-s.y), dist=Math.hypot(dx,dy), lead=dist/BOLTSPD;
       desiredH=Math.atan2(dy+Math.sin(t.h)*t.spd*lead, dx+Math.cos(t.h)*t.spd*lead); climb=clamp((t.alt-s.alt)*1.2,-1,1); s.boost=dist>16;
+      /* Energy tactics, now that height costs speed. Far out, a bot climbs above its target to
+       * bank height; closing, it converts that back by diving on them. Without this the energy
+       * model would tax only the player — bots would sit at their target's altitude, pay
+       * nothing, and the whole trade would read as a handicap rather than a mechanic. */
+      const hi=clamp(t.alt+(dist>19?2.6:dist<9?-1.1:0),ALT_MIN,ALT_MAX);
+      climb=clamp((hi-s.alt)*1.1,-1,1);
+      if(s.spd<5.5) climb=Math.min(climb,-0.35);   // low on energy: unload and rebuild speed
       s.wantFire=(dist<18 && Math.abs(angd(desiredH-s.h))<0.12);
     } else { desiredH=s.h+Math.sin(G.t*0.5+s.aiT)*0.4; s.boost=false; }
     const dh=angd(desiredH-s.h); s.h+=clamp(dh,-2.0*dt,2.0*dt); s.alt+=climb*1.6*dt; s.bank+=(clamp(dh*3,-1,1)-s.bank)*Math.min(1,dt*5); s.thrust=true;
