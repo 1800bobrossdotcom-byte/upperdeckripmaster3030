@@ -1,0 +1,250 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3D CARD LENS — test</title>
+<!--
+  upperdeckripmaster3030 — DYNAMIC 3D CARD, proof of concept.
+  cards/lens3d.html?card=<slug>          (defaults to a test card)
+
+  WHAT THIS IS TESTING, and why it had to be a real page rather than an argument:
+
+  The hero lens is framed by a marketplace in a SANDBOXED IFRAME AT AN OPAQUE ORIGIN. Our own
+  authoring template (cards/hero/_template.html) says: no external requests, no localStorage
+  (it THROWS), no window.parent, no injected wallet, and it must survive at ~300px wide.
+
+  A PlayCanvas card cannot obey "inline everything" — the engine is 2.26 MB raw, and inlining
+  it into 33 standalone cards would be ~74 MB. So the whole idea rests on ONE question: can a
+  lens page load a SHARED engine over <script src> from our own host inside that frame?
+
+  There is a proven precedent — on 2026-07-27 the renderer's animation_url made SuperRare's
+  token page render the live SITE in its media slot, and the site loads external scripts. So
+  the "inline everything" rule is us being conservative, not a measured limit. This page is
+  how we find out for certain, cheaply, before anyone builds 33 of anything.
+
+  ⚑ FAILS OPEN, and that is the actual product decision here: if the engine does not load —
+  blocked, offline, no WebGL2 — the card falls back to a CSS 3D card that still tilts, still
+  parallaxes its layers and still reads correctly. A collector never sees a broken frame, and
+  a lens that degrades to something handsome is worth more than one that degrades to nothing.
+
+  ⚠ Aspect trap, already paid for once: `height:100%` + `max-width:100%` makes `aspect-ratio`
+    silently yield — measured 0.571 instead of 2:3 in a 320x560 phone slot. Paired
+    min/max-aspect-ratio queries below, and it must be re-checked at 320px in a REAL frame.
+
+  Type is Arial bold, all caps — the artist's meme font. It is also a system font, so it needs
+  no external request and survives the sandbox where a webfont would not.
+-->
+<style>
+  :root { --ink:#07070a; --hot:#ff2a6d; --cool:#27f7e4; --gold:#ffd23b; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--ink);overflow:hidden;
+            font-family:Arial,Helvetica,sans-serif;font-weight:700;
+            -webkit-text-size-adjust:100%}
+  /* the card box: 2:3, centred, and sized off whichever axis is actually the constraint */
+  #stage{position:absolute;inset:0;display:grid;place-items:center}
+  #card{position:relative;aspect-ratio:2/3;height:96%;width:auto;max-width:96%}
+  @media (max-aspect-ratio:2/3){ #card{width:96%;height:auto;max-height:96%} }
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:3.4%}
+  /* ── CSS fallback card — what a collector sees if the engine never arrives ── */
+  #fb{position:absolute;inset:0;border-radius:3.4%;overflow:hidden;transform-style:preserve-3d;
+      transition:transform .18s ease-out;background:#0b0b12;
+      box-shadow:0 6% 12% rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.09) inset}
+  #fb .lay{position:absolute;inset:-4%;background-size:cover;background-position:center;
+           will-change:transform}
+  #fb .glare{position:absolute;inset:0;mix-blend-mode:screen;opacity:.5;
+             background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.5) 48%,transparent 62%)}
+  #fb .scan{position:absolute;inset:0;opacity:.16;pointer-events:none;
+            background:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px)}
+  #fb .frame{position:absolute;inset:2.6%;border:1px solid rgba(255,255,255,.22);border-radius:2.4%}
+  #meta{position:absolute;left:6%;right:6%;bottom:5%;color:#fff;text-transform:uppercase;
+        letter-spacing:.04em;text-shadow:0 .2em .4em rgba(0,0,0,.9);pointer-events:none}
+  #ttl{font-size:7cqw;line-height:1.05}
+  #sub{font-size:3.2cqw;opacity:.8;margin-top:.35em;font-weight:400}
+  #card{container-type:size}
+  @supports not (width:1cqw){ #ttl{font-size:7vw} #sub{font-size:3.2vw} }
+  #stats{position:absolute;left:6%;top:5%;color:#fff;font-size:3.4cqw;text-transform:uppercase;
+         letter-spacing:.06em;text-shadow:0 .2em .4em #000;pointer-events:none}
+  #badge{position:absolute;right:5%;top:5%;font-size:2.8cqw;padding:.35em .6em;border-radius:.4em;
+         text-transform:uppercase;letter-spacing:.08em;color:#07070a;background:var(--gold)}
+  #mode{position:absolute;left:0;right:0;bottom:.6%;text-align:center;font-size:9px;
+        font-weight:400;letter-spacing:.12em;color:#5a6570;text-transform:uppercase}
+</style>
+
+<div id="stage"><div id="card">
+  <div id="fb">
+    <div class="lay" id="lbg"></div><div class="lay" id="lart"></div>
+    <div class="scan"></div><div class="glare"></div><div class="frame"></div>
+    <div id="badge">—</div>
+    <div id="stats">—</div>
+    <div id="meta"><div id="ttl">—</div><div id="sub">—</div></div>
+  </div>
+  <div id="mode">css fallback</div>
+</div></div>
+
+<script>
+/* Card data. Fetched when we can reach it, but the page must still be a CARD if we cannot —
+ * an opaque-origin frame with a hostile CSP is a real possibility, so the default is baked in
+ * rather than left as an empty state. */
+const DEFAULT = { slug:'bat-country', title:'Riviera Retiree', rarity:'common', atk:8, def:5,
+                  trigger:'GAS STORM', omen:"We can't stop here. This is bat country.",
+                  art:'art/bat-country.webp' };
+const RARITY = { common:'#9fb2c4', uncommon:'#2bff80', rare:'#27f7e4', epic:'#b070ff', legendary:'#ffd23b' };
+const qs = new URLSearchParams(location.search);
+const $ = i => document.getElementById(i);
+let CARD = DEFAULT, ART = null, tilt = { x:0, y:0 };
+
+function paint(c) {
+  $('ttl').textContent = (c.title||'').toUpperCase();
+  $('sub').textContent = (c.omen||'').toUpperCase();
+  $('stats').textContent = `ATK ${c.atk ?? '—'}   DEF ${c.def ?? '—'}` + (c.trigger?`   ◈ ${c.trigger}`:'');
+  $('badge').textContent = (c.rarity||'').toUpperCase();
+  $('badge').style.background = RARITY[c.rarity] || RARITY.common;
+  const url = c.art ? new URL(c.art, location.href).href : null;
+  if (url) { $('lart').style.backgroundImage = `url("${url}")`;
+             $('lbg').style.backgroundImage = `url("${url}")`;
+             $('lbg').style.filter = 'blur(2.2%) saturate(1.5) brightness(.5)'; ART = url; }
+}
+paint(CARD);
+
+// same-origin-ish fetch; if the frame forbids it we simply keep the baked default
+fetch(new URL('manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(m => {
+  if (!m) return;
+  const arr = Array.isArray(m) ? m : (m.cards || Object.values(m)[0]);
+  if (!Array.isArray(arr)) return;
+  const want = qs.get('card');
+  const c = (want && arr.find(x => x.slug === want)) || arr.find(x => x.slug === DEFAULT.slug) || arr[0];
+  if (c) { CARD = c; paint(c); if (window.__pcCard) window.__pcCard.retex(); }
+}).catch(() => {});
+
+/* ── tilt input ───────────────────────────────────────────────────────────────────────────
+ * Pointer where there is one, device orientation on a phone. Both clamped, because the media
+ * slot is small and a card that swings hard reads as broken rather than alive. */
+addEventListener('pointermove', e => {
+  const r = $('card').getBoundingClientRect();
+  tilt.x = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width  - .5) * 2));
+  tilt.y = Math.max(-1, Math.min(1, ((e.clientY - r.top ) / r.height - .5) * 2));
+}, { passive:true });
+addEventListener('deviceorientation', e => {
+  if (e.gamma == null) return;
+  tilt.x = Math.max(-1, Math.min(1, e.gamma / 35));
+  tilt.y = Math.max(-1, Math.min(1, ((e.beta || 0) - 45) / 35));
+}, { passive:true });
+
+// CSS fallback animation — runs until (unless) the engine takes over
+let usingGL = false;
+(function loop(){
+  if (!usingGL) {
+    const rx = -tilt.y * 11, ry = tilt.x * 13;
+    $('fb').style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    $('lart').style.transform = `translate(${tilt.x*-2.2}%, ${tilt.y*-2.2}%) scale(1.04)`;
+    $('lbg').style.transform  = `translate(${tilt.x*1.6}%, ${tilt.y*1.6}%) scale(1.08)`;
+  }
+  requestAnimationFrame(loop);
+})();
+
+/* ── the engine, if the sandbox allows it ────────────────────────────────────────────────
+ * The whole experiment. A <script src> to our own host, loaded from inside whatever frame
+ * this ends up in. If it lands we build a real lit 3D card; if it does not, nothing happens
+ * and the CSS card above keeps running. `?nogl` forces the fallback so the degraded path can
+ * be checked deliberately rather than only by accident. */
+if (!qs.has('nogl')) {
+  const s = document.createElement('script');
+  s.src = new URL('../vendor/playcanvas/playcanvas.min.js', location.href).href;
+  s.onload = () => { try { build3D(); } catch (e) { $('mode').textContent = 'css fallback (engine error)'; } };
+  s.onerror = () => { $('mode').textContent = 'css fallback (engine blocked)'; };
+  document.head.appendChild(s);
+}
+
+function build3D() {
+  if (!window.pc) return;
+  const cv = document.createElement('canvas');
+  $('card').insertBefore(cv, $('fb'));
+  const app = new pc.Application(cv, { graphicsDeviceOptions: { alpha:true, antialias:true } });
+  if (!app.graphicsDevice) return;
+  app.setCanvasFillMode(pc.FILLMODE_NONE);
+  app.setCanvasResolution(pc.RESOLUTION_AUTO);
+  const fit = () => { const r = $('card').getBoundingClientRect();
+    // dpr capped: a card is small and every post pass scales with backing store
+    app.graphicsDevice.maxPixelRatio = Math.min(devicePixelRatio || 1, 2);
+    app.resizeCanvas(r.width, r.height); };
+  fit(); addEventListener('resize', fit);
+
+  const cam = new pc.Entity('cam');
+  cam.addComponent('camera', { clearColor: new pc.Color(0.02,0.02,0.04,0), fov: 28 });
+  cam.setPosition(0, 0, 3.4); app.root.addChild(cam);
+
+  const key = new pc.Entity('key');
+  key.addComponent('light', { type:'directional', color:new pc.Color(1,.96,.9), intensity:1.5,
+                              castShadows:true, shadowBias:0.2, shadowResolution:1024 });
+  key.setEulerAngles(38, 152, 0); app.root.addChild(key);
+  const rim = new pc.Entity('rim');
+  rim.addComponent('light', { type:'omni', color:new pc.Color(.25,.9,1), intensity:2.4, range:9 });
+  rim.setPosition(-1.8, 1.2, 1.6); app.root.addChild(rim);
+
+  /* Depth is the entire point. A flat PNG on a tilting plane is still flat; SEPARATED layers
+   * parallax against each other and that is what reads as three-dimensional. Three slabs at
+   * different z, plus a thick card body with real edges catching the key light. */
+  const root = new pc.Entity('card'); app.root.addChild(root);
+  const W = 1.0, H = 1.5;
+
+  const mkMat = (o) => { const m = new pc.StandardMaterial(); Object.assign(m, o); m.update(); return m; };
+  const body = new pc.Entity('body');
+  body.addComponent('render', { type:'box', castShadows:true, receiveShadows:true });
+  body.setLocalScale(W*1.02, H*1.02, 0.035);
+  body.render.material = mkMat({ diffuse:new pc.Color(.05,.05,.07), metalness:.75, gloss:.62, useMetalness:true });
+  root.addChild(body);
+
+  const plate = (z, sx, sy) => { const e = new pc.Entity();
+    e.addComponent('render', { type:'plane', castShadows:false, receiveShadows:true });
+    e.setLocalEulerAngles(90, 0, 0); e.setLocalScale(sx, 1, sy); e.setLocalPosition(0, 0, z);
+    root.addChild(e); return e; };
+  const back = plate(0.019, W*0.99, H*0.99);
+  const art  = plate(0.030, W*0.90, H*0.90);
+  const fx   = plate(0.045, W*0.99, H*0.99);
+
+  const texFor = (url, cb) => { const t = new pc.Texture(app.graphicsDevice, { mipmaps:true });
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => { t.setSource(img); cb(t); }; img.onerror = () => {}; img.src = url; };
+
+  function retex() {
+    if (!ART) return;
+    texFor(ART, t => {
+      art.render.material = mkMat({ diffuseMap:t, emissiveMap:t,
+        emissive:new pc.Color(.34,.34,.34), gloss:.55, metalness:.15, useMetalness:true });
+      back.render.material = mkMat({ diffuseMap:t, diffuse:new pc.Color(.18,.18,.22), gloss:.2 });
+    });
+  }
+  retex(); window.__pcCard = { retex };
+
+  // holographic sweep: a moving band, additive, angled across the face — the foil tell
+  const holo = mkMat({ diffuse:new pc.Color(0,0,0), emissive:new pc.Color(.9,.5,1),
+                       opacity:.0, blendType:pc.BLEND_ADDITIVE, depthWrite:false });
+  fx.render.material = holo;
+
+  const rar = RARITY[CARD.rarity] || RARITY.common;
+  const rc = new pc.Color().fromString(rar);
+  rim.light.color = new pc.Color(rc.r, rc.g, rc.b);
+
+  let t = 0;
+  app.on('update', dt => {
+    t += dt;
+    root.setLocalEulerAngles(-tilt.y * 13, tilt.x * 16, tilt.x * -2);
+    // layers slide against each other by depth — the parallax that sells it
+    art.setLocalPosition(tilt.x * -0.022, tilt.y * 0.022, 0.030);
+    back.setLocalPosition(tilt.x * 0.016, tilt.y * -0.016, 0.019);
+    // the sweep passes when the card is tilted, like light catching real foil
+    const sweep = Math.abs(Math.sin(t * 0.6));
+    holo.opacity = 0.06 + sweep * 0.10 * (0.4 + Math.abs(tilt.x));
+    holo.emissive = new pc.Color(0.55 + 0.45*Math.sin(t*1.1), 0.35, 0.9 - 0.3*Math.sin(t*0.8));
+    holo.update();
+  });
+
+  app.start();
+  usingGL = true;
+  $('fb').style.opacity = '0';                        // keep the DOM text: it is crisper than GL type
+  $('fb').style.opacity = '';                          // ...so instead hide only the art layers
+  $('lbg').style.display = $('lart').style.display = 'none';
+  $('fb').style.background = 'transparent';
+  $('fb').style.boxShadow = 'none';
+  $('mode').textContent = 'playcanvas 3d · engine loaded';
+}
+</script>
