@@ -95,9 +95,14 @@ let CARD = DEFAULT, ART = null, tilt = { x:0, y:0 };
 function paint(c) {
   $('ttl').textContent = (c.title||'').toUpperCase();
   $('sub').textContent = (c.omen||'').toUpperCase();
-  $('stats').textContent = `ATK ${c.atk ?? '—'}   DEF ${c.def ?? '—'}` + (c.trigger?`   ◈ ${c.trigger}`:'');
-  $('badge').textContent = (c.rarity||'').toUpperCase();
-  $('badge').style.background = RARITY[c.rarity] || RARITY.common;
+  const hasStats = c.atk != null || c.def != null;
+  $('stats').textContent = hasStats
+    ? `ATK ${c.atk ?? '—'}   DEF ${c.def ?? '—'}` + (c.trigger ? `   ◈ ${c.trigger}` : '')
+    : 'RIPMASTER3030STUDIOS';
+  $('badge').textContent = c.rarity ? c.rarity.toUpperCase()
+                                    : (c.number != null ? '#' + String(c.number).padStart(2,'0') : '');
+  $('badge').style.background = RARITY[c.rarity] || '#ffd23b';
+  $('badge').style.display = $('badge').textContent ? '' : 'none';
   const url = c.art ? new URL(c.art, location.href).href : null;
   if (url) { $('lart').style.backgroundImage = `url("${url}")`;
              $('lbg').style.backgroundImage = `url("${url}")`;
@@ -105,8 +110,22 @@ function paint(c) {
 }
 paint(CARD);
 
+/* ?hero=NN — the artist's OWN cards (34-49), which have a number and a title but none of the
+ * placeholder deck's invented stats. Rarity is left off rather than fabricated: showing a made-up
+ * ATK on real artwork would be inventing canon, and these cards' stats are the artist's to set. */
+fetch(new URL('hero-manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(list => {
+  const n = parseInt(qs.get('hero'), 10);
+  if (!list || !n) return;
+  const h = list.find(c => c.number === n);
+  if (!h) return;
+  CARD = { slug:'hero-' + n, title:h.title, rarity:null, atk:null, def:null,
+           trigger:null, omen:'', art:h.art, number:h.number };
+  paint(CARD);
+  if (window.__pcCard) window.__pcCard.retex();
+}).catch(() => {});
+
 // same-origin-ish fetch; if the frame forbids it we simply keep the baked default
-fetch(new URL('manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(m => {
+if (!qs.has('hero')) fetch(new URL('manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   const arr = Array.isArray(m) ? m : (m.cards || Object.values(m)[0]);
   if (!Array.isArray(arr)) return;
@@ -233,20 +252,56 @@ function build3D() {
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
     const src = x.getImageData(0, 0, W, H), d = src.data;
-    const lum = new Float32Array(W * H);
+    let lum = new Float32Array(W * H);
     for (let i = 0, p = 0; i < d.length; i += 4, p++)
       lum[p] = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) / 255;
+    /* ⚑ LOW-PASS BEFORE THE GRADIENT, and this is the whole lesson from card 35.
+     * A normal map built off raw luminance embosses every INK STROKE, so on already-detailed
+     * line art the relief competes with the drawing and wins — the card turned into hammered
+     * pewter and the artwork stopped reading. Auto-calibrating the gain did not fix it,
+     * because the problem was never the amount; it was the FREQUENCY.
+     * Blurring first keeps only the big forms — a face, a hat, a torso — so the card gains the
+     * gentle relief of thick ink on stock while the drawing itself stays flat and legible.
+     * Separable box blur, two passes, which is close enough to a gaussian at this size. */
+    const blur = (src, radius) => {
+      const tmp = new Float32Array(W * H), out2 = new Float32Array(W * H);
+      const run = (from, to, horiz) => {
+        for (let y = 0; y < H; y++) for (let x2 = 0; x2 < W; x2++) {
+          let a = 0, c = 0;
+          for (let k = -radius; k <= radius; k++) {
+            const xx = horiz ? Math.min(W-1, Math.max(0, x2 + k)) : x2;
+            const yy = horiz ? y : Math.min(H-1, Math.max(0, y + k));
+            a += from[yy * W + xx]; c++;
+          }
+          to[y * W + x2] = a / c;
+        }
+      };
+      run(src, tmp, true); run(tmp, out2, false);
+      return out2;
+    };
+    lum = blur(blur(lum, 4), 4);
     const out = x.createImageData(W, H), o = out.data;
     const at = (px, py) => lum[Math.min(H-1,Math.max(0,py)) * W + Math.min(W-1,Math.max(0,px))];
+    const sob = (px, y) => [
+      (at(px+1,y-1) + 2*at(px+1,y) + at(px+1,y+1)) - (at(px-1,y-1) + 2*at(px-1,y) + at(px-1,y+1)),
+      (at(px-1,y+1) + 2*at(px,y+1) + at(px+1,y+1)) - (at(px-1,y-1) + 2*at(px,y-1) + at(px+1,y-1))];
+    /* ⚑ SELF-CALIBRATE, because a fixed strength cannot work across different artwork. A soft
+     * painterly card needs a lot of gain to show any relief; a card full of fine line work has
+     * enormous gradient energy already and the SAME gain turns it into embossed metal with the
+     * drawing destroyed — which is exactly what happened on card 35. So: measure the image's
+     * own mean gradient on a sample, then set the gain so every card lands at the same relief
+     * regardless of how busy it is. `strength` becomes a target, not a multiplier. */
+    let acc = 0, n = 0;
+    for (let y = 1; y < H - 1; y += 3) for (let px = 1; px < W - 1; px += 3) {
+      const [a, b] = sob(px, y); acc += Math.hypot(a, b); n++;
+    }
+    const mean = (acc / Math.max(1, n)) || 0.001;
+    const gain = Math.min(9, strength * 0.10 / mean);   // blurred input needs more gain, safely
     for (let y = 0; y < H; y++) for (let px = 0; px < W; px++) {
-      // Sobel: horizontal and vertical luminance gradient
-      const gx = (at(px+1,y-1) + 2*at(px+1,y) + at(px+1,y+1))
-               - (at(px-1,y-1) + 2*at(px-1,y) + at(px-1,y+1));
-      const gy = (at(px-1,y+1) + 2*at(px,y+1) + at(px+1,y+1))
-               - (at(px-1,y-1) + 2*at(px,y-1) + at(px+1,y-1));
+      const [gx, gy] = sob(px, y);
       // fine paper tooth, deterministic so the card is identical every load
-      const grain = (Math.sin(px * 12.9898 + y * 78.233) * 43758.5453 % 1) * 0.06;
-      let nx = -gx * strength + grain, ny = -gy * strength + grain, nz = 1;
+      const grain = (Math.sin(px * 12.9898 + y * 78.233) * 43758.5453 % 1) * 0.035;
+      let nx = -gx * gain + grain, ny = -gy * gain + grain, nz = 1;
       const L = Math.hypot(nx, ny, nz) || 1;
       const i = (y * W + px) * 4;
       o[i]   = (nx/L * 0.5 + 0.5) * 255;
@@ -267,8 +322,8 @@ function build3D() {
     if (!ART) return;
     texFor(ART, (t, img) => {
       let nrm = null;
-      try { nrm = normalFromImage(img, 2.2); } catch (e) { nrm = null; }   // fail open: just flatter
-      art.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:1.15,
+      try { nrm = normalFromImage(img, 1.0); } catch (e) { nrm = null; }   // fail open: just flatter
+      art.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.42,
         emissiveMap:t, emissive:new pc.Color(.13,.13,.13),
         gloss:.62, metalness:.10, useMetalness:true });
       back.render.material = mkMat({ diffuseMap:t, normalMap:nrm, bumpiness:.5,
