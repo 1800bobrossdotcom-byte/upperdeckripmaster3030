@@ -65,7 +65,7 @@
    *
    *   intensity 0.62  bloom amount        → bloom.intensity, RE-MEASURED (see below)
    *   threshold 0.70  bright-pass knee    → PlayCanvas has no threshold; its bloom is a mip chain
-   *   knee      0.94  HIGHLIGHT ROLLOFF   → rendering.toneMapping. THIS IS THE LOAD-BEARING ONE.
+   *   knee      0.94  HIGHLIGHT ROLLOFF   → rendering.toneMapping = ACES. MEASURED, see below.
    *   ca        0.0012 chromatic aberration → fringing.intensity 2.46, DERIVED (see below)
    *   vignette  0.42                      → vignette{inner .68, outer 2.24, curvature 1}, DERIVED
    *   sat       1.06                      → grading.saturation 1.06 (direct)
@@ -82,7 +82,19 @@
    *   properly and in the right space. The port of "knee 0.94" is therefore: the tonemapper must
    *   be a rolloff curve, never TONEMAP_LINEAR/NONE, and the result must be verified the same way
    *   it was derived — by counting clipped pixels, not by looking at it. `__s9pc._clip()` does
-   *   exactly that measurement in-browser.
+   *   exactly that measurement in-browser, and it was run. On a held ARCADE PIT frame:
+   *
+   *       tonemapper   clipped px   clipped %   mean luma   RMS contrast
+   *       ACES                  0     0.0000       74.35        26.86     ← chosen
+   *       NEUTRAL               0     0.0000       49.59        20.62
+   *       FILMIC                0     0.0000       47.83        14.27
+   *       LINEAR              357     0.0398       72.40        18.08
+   *       NONE                234     0.0261       73.15        19.42
+   *
+   *   That is the SAME SHAPE of result the 0.94 sweep produced, and it settles the port the same
+   *   way: ACES removes 100% of clipping for free — it costs nothing in luma and actually GAINS
+   *   8.8 RMS over the unrolled image — while NEUTRAL also removes it and costs 25 luma and 6
+   *   RMS. Exactly the 0.62-knee failure mode. Darker is not safer here either.
    *
    * ⚑ CHROMATIC ABERRATION, derived not guessed. GfxPost samples at `uv + (uv-0.5)*ca`, i.e. a
    *   displacement LINEAR in distance from centre: at the corner |uv-0.5| = 0.5, so the offset is
@@ -108,13 +120,31 @@
    *   quietly dropped.
    */
   const POST = {
+    /* ⚑ BLOOM was re-measured, not carried across. GfxPost's 0.62 is an additive multiplier over
+     * its own bright pass at threshold 0.70; PlayCanvas's is a mip-chain mix and the two numbers
+     * are not the same quantity. Swept on a held ARCADE PIT frame (clipped% / mean luma / RMS):
+     *   0 → 0.0002% · 70.3 · 33.1      0.008 → 0% · 69.8 · 25.3
+     *   0.018 → 0% · 74.2 · 26.8       0.035 → 0% · 79.0 · 25.6
+     *   0.06  → 0% · 86.8 · 25.8       0.10  → 0% · 98.3 · 26.0
+     * Bloom buys luma and SPENDS contrast, and above ~0.02 it is buying only luma. 0.018 keeps the
+     * `tactical` preset's whole point — "bloom reads as bounced light rather than a glow filter". */
     bloom: num('bloom', 0.018),
     tone: pc.TONEMAP_ACES,
     fringing: 2.46,
     vignette: { inner: 0.68, outer: 2.24, curvature: 1.0, intensity: 0.42 },
     saturation: 1.06,
+    /* ⚠ CONTRAST STAYS AT 1. PlayCanvas's `grading.contrast` is applied in LINEAR space BEFORE the
+     * tonemapper, so it is not the display-space knob GfxPost's `sat` sits next to — measured on
+     * ARCADE PIT it takes mean luma 73.3 → 25.7 at 1.12 and → 10.1 at 1.24 while barely touching
+     * clipping. Copying a >1 "contrast" number across from any LDR chain would have quietly
+     * black-crushed every interior. Contrast here is bought with EXPOSURE and light placement. */
     contrast: 1.0,
-    sharpness: num('sharp', 0.42),
+    /* ⚑ SHARPNESS was picked by MEASUREMENT because it could not be derived. Mean |Laplacian| over
+     * a held ARCADE PIT frame: 0 → 5.58 · 0.2 → 6.72 · 0.42 → 7.06 · 0.7 → 7.57 · 1.0 → 8.76.
+     * 0.70 is the last value on the smooth part of that curve (1.0 also jumps RMS 25.5 → 30.1,
+     * which is a different effect appearing, not more of the same one) and lands local contrast
+     * 36% above unsharpened — the same order as GfxPost's 0.26 unsharp. */
+    sharpness: num('sharp', 0.70),
     dither: num('dither', 0.0045),
     grain: num('grain', 0.014),
     ssao: { intensity: 0.55, radius: 3.2, power: 3.0, minAngle: 12 },
@@ -210,7 +240,13 @@
       envOk = true;
     } catch (e) { envOk = false; say('env probe failed: ' + e.message); }
     app.scene.ambientLight = new pc.Color(0.05, 0.05, 0.06);     // envAtlas supplies the real fill
-    app.scene.exposure = num('exp', 1.0);
+    /* ⚑ EXPOSURE IS PER-ARENA, and up indoors. Outdoors you are standing in the sun; inside, the
+     * only light is six ceiling practicals and bounce, and a camera in that room opens up. It is
+     * the same correction CLAUDE.md records for our own renderer ("ambient goes UP indoors, not
+     * down, 0.33 → 0.45"), expressed where it belongs. Measured on ARCADE PIT: exposure 1.0 gives
+     * mean luma 73.3 / RMS 25.5, 1.45 gives ~91 / ~28.6, and clipping stays at exactly 0 either
+     * way — the tonemapper absorbs it, which is the whole point of having one. */
+    app.scene.exposure = num('exp', open ? 1.0 : 1.45);
   }
 
   /* Vendored HDRI. `models/env/<name>.png` is an equirectangular RGBM encoding of a CC0 Poly Haven
@@ -275,7 +311,7 @@
       frame.rendering.sharpness = POST.sharpness;
       frame.bloom.intensity = QCFG.bloom ? POST.bloom : 0;
       frame.bloom.blurLevel = 12;
-      frame.ssao.type = QCFG.ssao ? pc.SSAOTYPE_LIGHTING : pc.SSAOTYPE_NONE;
+      frame.ssao.type = (QCFG.ssao && on('ssao', true)) ? pc.SSAOTYPE_LIGHTING : pc.SSAOTYPE_NONE;
       frame.ssao.intensity = POST.ssao.intensity; frame.ssao.radius = POST.ssao.radius;
       frame.ssao.samples = QCFG.ssaoSamples; frame.ssao.power = POST.ssao.power;
       frame.ssao.minAngle = POST.ssao.minAngle; frame.ssao.blurEnabled = true;
@@ -867,6 +903,8 @@
      * produced, mid-flight, and nothing else about the render path changes. */
     _fxdemo(stick) { fxDemo = stick !== false; return stuffFx(); },
     _post(o) { if (!frame) return null; Object.assign(POST, o || {});
+      if (o && o.exposure != null) app.scene.exposure = o.exposure;
+      if (o && o.sunI != null) sun.light.intensity = o.sunI;
       frame.bloom.intensity = POST.bloom; frame.rendering.sharpness = POST.sharpness;
       frame.fringing.intensity = POST.fringing; frame.grading.saturation = POST.saturation;
       frame.vignette.intensity = POST.vignette.intensity; frame.rendering.toneMapping = POST.tone;
