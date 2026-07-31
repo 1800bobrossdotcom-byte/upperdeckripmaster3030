@@ -33,6 +33,13 @@
  *
  * ── THE TECHNIQUES ──────────────────────────────────────────────────────────────────────────
  *   maps        luma → height, Scharr gradient → tangent-space normal, cavity → AO. No geometry.
+ *               ⚑ MEASURED: this is the one that matters. Rendering card 44 four ways at 38°/68°
+ *               of tilt — flat / normal map only / relief displacement only / both — the normal
+ *               map moves the image by RMS 26.9 grey levels against the flat slab, and the relief
+ *               DISPLACEMENT moves it by 0.55, i.e. nothing. Adding relief on top of the normal
+ *               map is another 0.72. At the size a card is seen, geometric relief is a 1.5 MB
+ *               way to reproduce what a 200 KB texture already did. Keep --res low and spend the
+ *               budget on the map.
  *   slab        the whole card as a rounded-corner bevelled solid, front face displaced by relief.
  *   pop         the KEYED SUBJECT as the same kind of solid — a cut-out that stands off the card.
  *   silhouette  contour-traced, simplified, ear-clipped, ring-inset bevelled extrusion. Low poly.
@@ -499,11 +506,16 @@ function keyPeel(img, spec = 'auto', tol = 0.11, maxPasses = 3, minSubject = 0.1
     const fOfFrame = n / (w * h), fOfLive = n / liveN;
     if (fOfFrame < 0.012) { notes.push(`pass${pass} stopped: band only ${(fOfFrame * 100).toFixed(1)}% of frame`); break; }
     if (fOfLive > 0.93) { notes.push(`pass${pass} stopped: band would take ${(fOfLive * 100).toFixed(0)}% of what is left`); break; }
+    // ⚠ CHECKED BEFORE THE BAND IS ACCEPTED, and that ordering is the whole point. Peeling is
+    // greedy and the pass AFTER the one that finally strips the backdrop is the pass that starts
+    // eating the figure — on `alley-trio` at --peel 6 the run went frame → holo rule → keyline →
+    // gradient → and then took the dogs' own bodies, leaving 5% of "subject" that was just the
+    // white catchlights inside them. Accepting a band and noticing afterwards is one band too
+    // late; there is nothing to undo it with.
+    if ((liveN - n) < w * h * minSubject) { notes.push(`pass${pass} stopped: would leave only ${(((liveN - n) / (w * h)) * 100).toFixed(1)}% subject`); break; }
     for (let i = 0; i < live.length; i++) if (r.bg[i]) live[i] = 0;
     bands.push(r.bg);
     notes.push(`pass${pass} ${hex(r.seed)} −${(fOfFrame * 100).toFixed(1)}%`);
-    let rem = 0; for (let i = 0; i < live.length; i++) rem += live[i];
-    if (rem < w * h * 0.06) { notes.push('stopped: little subject left'); break; }
   }
   if (!bands.length) return { subject: live, bands, how: `no key (${notes.join('; ') || 'nothing matched'}) — kept the whole rectangle` };
   return { subject: live, bands, how: notes.join(' · ') };
@@ -1095,20 +1107,10 @@ function buildRelief(height, w, h, f, opt) {
 
 /* ── technique 4: depth layers ──────────────────────────────────────────────────────────────── */
 
-/** One quad per layer, trimmed to that layer's bounding box, each with its own RGBA cut-out.
- *  Trimming matters more than it looks: an untrimmed layer is a full-card quad that is 90%
- *  transparent, and transparent fragments still cost sorting, overdraw and — on the layer that
- *  sits nearest the camera — a hard-to-debug depth-fighting halo across the whole card. */
-function buildLayers(layers, w, h, f, opt) {
-  return layers.map((L, i) => {
-    const m = new Mesh(`layer${i}_${L.name}`);
-    const z = L.z;
-    const a = m.v(L.x0, L.y1, z, f), b = m.v(L.x1, L.y1, z, f), c = m.v(L.x1, L.y0, z, f), d = m.v(L.x0, L.y0, z, f);
-    m.quad(a, b, c, d);
-    return m;
-  });
-}
-
+/** Alpha for one layer: the mask, feathered, then re-steepened.
+ *  A raw binary mask cuts a hard jagged edge that reads as a sticker; a plain blurred mask leaves
+ *  a wide translucent halo that reads as a ghost. Blur then push the ramp back toward binary keeps
+ *  the edge anti-aliased and one pixel wide, which is what a cut-out needs. */
 function layerTexture(img, mask, w, h, feather) {
   const soft = feather > 0 ? blur(Float32Array.from(mask), w, h, feather) : Float32Array.from(mask);
   const out = new Uint8ClampedArray(w * h * 4);
@@ -1126,6 +1128,356 @@ function bboxOf(mask, w, h, padPx) {
   }
   if (x0 > x1) return { x0: 0, y0: 0, x1: w - 1, y1: h - 1 };
   return { x0: Math.max(0, x0 - padPx), y0: Math.max(0, y0 - padPx), x1: Math.min(w - 1, x1 + padPx), y1: Math.min(h - 1, y1 + padPx) };
+}
+
+/* ══ EXTRACTION — turning one flat card into a stack of real layers ══════════════════════════
+ *
+ * Everything below exists to answer one question: what, in this PNG, is a separate PLANE?
+ * The peel key above answers it for framed compositions. These answer it for the artist's own
+ * cards, which are collage — and collage is genuinely easier to separate than photography,
+ * because the artist has already done the separating. Distinct palettes, hard-edged pasted
+ * elements, printed typography, deliberate channel fringing: every one of those is a seam that a
+ * classical method can find without guessing at depth.
+ *
+ * NOTHING HERE INVENTS DEPTH. Each technique finds a region that is genuinely distinct in the
+ * image, and the z it gets is a stated heuristic (border contact, text-ness, cluster order), not
+ * a prediction. Where the ordering is a guess, the manifest says so and the number is one the
+ * artist can edit.                                                                              */
+
+/* ── OCR-lite: find the TEXT, not the characters ────────────────────────────────────────────── */
+
+/** Text-region detection by connected components + stroke-width consistency + line grouping.
+ *
+ *  ⚑ WE NEED THE REGION, NOT THE STRING. A real OCR engine (Tesseract and friends) is a large
+ *  binary with language data, is not fetchable here, and would give us glyph identities we have
+ *  no use for — the layer only needs to know WHERE the type is. So this is the front half of an
+ *  OCR pipeline and none of the back half.
+ *
+ *  Three filters do the work, in increasing order of how much they matter:
+ *    1. SIZE  — a glyph is between ~0.8% and ~13% of the card height. Cheap, kills most of it.
+ *    2. STROKE WIDTH — measured as 4 × the mean distance-to-boundary inside the component, which
+ *       for a bar of width t averages t/4 and so returns t. Type has a stroke much thinner than
+ *       its height; a pasted collage blob does not. This is the single best discriminator, and it
+ *       is free because the EDT is already written for the geometry side.
+ *    3. LINE GROUPING — a glyph never travels alone. Components only survive if they belong to a
+ *       run of ≥3 similarly-sized neighbours sitting on a shared baseline. On art this glitchy,
+ *       nothing else keeps the detector off the artwork; single-blob "text" is always a false
+ *       positive here.
+ *
+ *  Run at both polarities because these cards carry white-on-dark and dark-on-light type, often
+ *  on the same card (37 has a black-on-white panel AND white knockout type).                     */
+function textRegions(img, luma, w, h, o = {}) {
+  const S = Math.max(w, h);
+  const k = o.contrast ?? 0.055;
+  const local = blur(luma, w, h, Math.max(5, S * 0.018));
+  const minH = Math.max(6, S * 0.008), maxH = S * 0.13;
+  const cands = [];
+
+  for (const pol of [-1, 1]) {
+    const bin = new Uint8Array(w * h);
+    for (let i = 0; i < bin.length; i++) bin[i] = (pol * (luma[i] - local[i]) > k) ? 1 : 0;
+    const { lab, sizes } = components(bin, w, h);
+    if (!sizes.length) continue;
+    const d2 = edt(bin, w, h);
+    const n = sizes.length;
+    const x0 = new Int32Array(n).fill(w), y0 = new Int32Array(n).fill(h), x1 = new Int32Array(n).fill(-1), y1 = new Int32Array(n).fill(-1);
+    const dsum = new Float64Array(n);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x, c = lab[i];
+      if (c < 0) continue;
+      if (x < x0[c]) x0[c] = x; if (x > x1[c]) x1[c] = x;
+      if (y < y0[c]) y0[c] = y; if (y > y1[c]) y1[c] = y;
+      dsum[c] += Math.sqrt(d2[i]);
+    }
+    for (let c = 0; c < n; c++) {
+      const bw = x1[c] - x0[c] + 1, bh = y1[c] - y0[c] + 1, area = sizes[c];
+      if (bh < minH || bh > maxH) continue;
+      if (bw < 2 || bw > w * 0.9) continue;
+      const ar = bw / bh;
+      if (ar > 8 || ar < 0.05) continue;
+      const fill = area / (bw * bh);
+      if (fill < 0.06 || fill > 0.97) continue;
+      const sw = 4 * (dsum[c] / area);
+      if (sw < 0.7 || sw > bh * 0.40) continue;
+      if (area < 14) continue;
+      cands.push({ c, pol, x0: x0[c], y0: y0[c], x1: x1[c], y1: y1[c], bw, bh, sw, lab, area });
+    }
+  }
+  if (!cands.length) return { mask: new Uint8Array(w * h), boxes: [], lines: 0, glyphs: 0 };
+
+  // Line grouping — union-find over "same baseline, same size, side by side".
+  const par = cands.map((_, i) => i);
+  const find = a => { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+  const uni = (a, b) => { a = find(a); b = find(b); if (a !== b) par[b] = a; };
+  for (let i = 0; i < cands.length; i++) for (let j = i + 1; j < cands.length; j++) {
+    const a = cands[i], b = cands[j];
+    if (a.pol !== b.pol) continue;
+    const hm = Math.max(a.bh, b.bh);
+    if (Math.abs(a.bh - b.bh) > hm * 0.75) continue;
+    const acy = (a.y0 + a.y1) / 2, bcy = (b.y0 + b.y1) / 2;
+    if (Math.abs(acy - bcy) > hm * 0.45) continue;
+    const gap = Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1);
+    if (gap > hm * 1.5) continue;
+    uni(i, j);
+  }
+  const groups = new Map();
+  cands.forEach((cd, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(cd); });
+
+  const mask = new Uint8Array(w * h);
+  const boxes = [];
+  let glyphs = 0, rejected = 0;
+  const sd = a => { const m = a.reduce((s, v) => s + v, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length) / (m || 1); };
+  // ⚠ MEASURED ON RAW LUMA, and a blurred version was TRIED AND REJECTED. The theory was sound —
+  // "is the ground flat at the scale of the type" should beat "is the ground free of noise", and
+  // card 42 sets SCRAM! on a speckle field that is flat at any scale a letter cares about. In
+  // practice pre-blurring at sigma 1.6 did not recover 42 at all (0.6% either way) and it let a
+  // pile of glitch through on 43/44/45/46 (44 went 9.9% → 13.8% of the frame, all of it fur and
+  // scanlines). The noise IS the signal on this deck: a ground that is noisy is a ground the
+  // artist has treated, and type is rarely set on one.
+  for (const g of groups.values()) {
+    const gx0 = Math.min(...g.map(c => c.x0)), gx1 = Math.max(...g.map(c => c.x1));
+    const gy0 = Math.min(...g.map(c => c.y0)), gy1 = Math.max(...g.map(c => c.y1));
+    if (g.length < 3) { rejected++; continue; }
+    // ⚑ GROUP STATISTICS ARE WHERE THE FALSE POSITIVES DIE, not the per-glyph filters.
+    // First attempt used per-component size + stroke width only, and on card 37 it returned 31
+    // "lines" covering 36% of the frame — it had found the man's glitched hair and the cat's fur,
+    // both of which are full of small high-contrast strokes of consistent width. Every test below
+    // is about the group as a WHOLE, because that is what type actually is: a row of similar
+    // shapes, evenly sized, on a quiet ground.
+    if (sd(g.map(c => c.bh)) > 0.45) { rejected++; continue; }        // a line of type is one size
+    if (sd(g.map(c => c.sw)) > 0.60) { rejected++; continue; }        // …drawn with one pen
+    const glyphArea = g.reduce((s, c) => s + c.area, 0);
+    const boxArea = (gx1 - gx0 + 1) * (gy1 - gy0 + 1);
+    if (glyphArea / boxArea > 0.70 || glyphArea / boxArea < 0.05) { rejected++; continue; }   // type is mostly gaps
+    const run = (gx1 - gx0 + 1) / (gy1 - gy0 + 1);
+    if (run < 1.15 && (gy1 - gy0 + 1) / (gx1 - gx0 + 1) < 2.0) { rejected++; continue; }      // a line, or a vertical line
+    // The decisive one: TYPE SITS ON A QUIET GROUND. Sample the group's box excluding the glyph
+    // pixels and measure how varied it is. A printed caption panel is near-constant; hair, fur,
+    // foil and scanline glitch are not, and nothing else separates them this cleanly.
+    const want0 = new Set(g.map(c => c.c));
+    const lab1 = g[0].lab;
+    let n0 = 0, s1 = 0, s2 = 0;
+    for (let y = gy0; y <= gy1; y++) for (let x = gx0; x <= gx1; x++) {
+      const i = y * w + x;
+      if (want0.has(lab1[i])) continue;
+      const v = luma[i]; s1 += v; s2 += v * v; n0++;
+    }
+    const bgStd = n0 > 8 ? Math.sqrt(Math.max(0, s2 / n0 - (s1 / n0) ** 2)) : 1;
+    if (bgStd > (o.ground ?? 0.19)) { rejected++; continue; }
+    boxes.push([gx0, gy0, gx1, gy1]);
+    glyphs += g.length;
+    for (let i = 0; i < mask.length; i++) if (want0.has(lab1[i])) mask[i] = 1;
+  }
+  // Dilate a little: printed type on this deck is nearly always outlined, drop-shadowed or
+  // chromatically fringed, and a mask cut exactly at the glyph leaves that halo behind on the
+  // plate underneath — which then reads as a ghost of the text sitting at the wrong depth.
+  const grown = dilate(mask, w, h, o.grow ?? 2.4);
+  return { mask: grown, boxes, lines: boxes.length, glyphs, rejected };
+}
+
+/* ── k-means palette matting ────────────────────────────────────────────────────────────────── */
+
+const mulberry32 = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+
+/** k-means over colour, seeded k-means++ with a fixed PRNG so a card always clusters the same way.
+ *
+ *  ⚑ THIS IS THE ONE THAT SUITS THE ARTIST'S WORK. Photographic depth estimation is hard because a
+ *  photo's palette is continuous; a collage's is not. When someone pastes a red robe onto a gold
+ *  frame onto a black ground, those three things occupy three separate lumps of RGB space, and a
+ *  cluster boundary IS the collage seam. On card 47 five clusters recover red robe / green hair /
+ *  white ground / blue type / black gun almost exactly, and no edge detector or flood fill gets
+ *  near that.
+ *
+ *  Fitted on a strided sample (colour space does not need every pixel) and then applied to all.   */
+function kmeansColour(img, w, h, k, seed = 3030, iters = 14, within = null) {
+  const { data } = img;
+  const N = w * h;
+  const stride = Math.max(1, Math.floor(N / 40000));
+  const sample = [];
+  for (let i = 0; i < N; i += stride) if (!within || within[i]) sample.push(i);
+  if (sample.length < k * 4) return { labels: new Uint8Array(N).fill(255), centres: [], order: [] };
+  const rnd = mulberry32(seed);
+  const C = [];
+  C.push([data[sample[0] * 4], data[sample[0] * 4 + 1], data[sample[0] * 4 + 2]]);
+  const d2 = new Float64Array(sample.length).fill(Infinity);
+  while (C.length < k) {                                              // k-means++ seeding
+    let tot = 0;
+    const last = C[C.length - 1];
+    for (let s = 0; s < sample.length; s++) {
+      const p = sample[s] * 4;
+      const d = (data[p] - last[0]) ** 2 + (data[p + 1] - last[1]) ** 2 + (data[p + 2] - last[2]) ** 2;
+      if (d < d2[s]) d2[s] = d;
+      tot += d2[s];
+    }
+    let r = rnd() * tot, pick = sample.length - 1;
+    for (let s = 0; s < sample.length; s++) { r -= d2[s]; if (r <= 0) { pick = s; break; } }
+    const p = sample[pick] * 4;
+    C.push([data[p], data[p + 1], data[p + 2]]);
+  }
+  for (let it = 0; it < iters; it++) {
+    const acc = C.map(() => [0, 0, 0, 0]);
+    for (const i of sample) {
+      const p = i * 4;
+      let best = 0, bd = Infinity;
+      for (let c = 0; c < C.length; c++) {
+        const d = (data[p] - C[c][0]) ** 2 + (data[p + 1] - C[c][1]) ** 2 + (data[p + 2] - C[c][2]) ** 2;
+        if (d < bd) { bd = d; best = c; }
+      }
+      acc[best][0] += data[p]; acc[best][1] += data[p + 1]; acc[best][2] += data[p + 2]; acc[best][3]++;
+    }
+    for (let c = 0; c < C.length; c++) if (acc[c][3]) C[c] = [acc[c][0] / acc[c][3], acc[c][1] / acc[c][3], acc[c][2] / acc[c][3]];
+  }
+  const labels = new Uint8Array(N).fill(255);
+  const count = new Int32Array(C.length), border = new Int32Array(C.length);
+  const bx = Math.round(w * 0.08), by = Math.round(h * 0.08);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, p = i * 4;
+    if (within && !within[i]) continue;
+    let best = 0, bd = Infinity;
+    for (let c = 0; c < C.length; c++) {
+      const d = (data[p] - C[c][0]) ** 2 + (data[p + 1] - C[c][1]) ** 2 + (data[p + 2] - C[c][2]) ** 2;
+      if (d < bd) { bd = d; best = c; }
+    }
+    labels[i] = best; count[best]++;
+    if (x < bx || y < by || x >= w - bx || y >= h - by) border[best]++;
+  }
+  // Depth heuristic, stated rather than learned: a cluster that owns a lot of the outer 8% of the
+  // frame is behind. That is true of a printed ground and a printed frame and false of a subject,
+  // which is exactly the call being made. Reported in the manifest so it can be overruled.
+  const order = C.map((c, i) => ({ i, colour: c.map(Math.round), n: count[i], borderShare: count[i] ? border[i] / count[i] : 1 }))
+                 .sort((a, b) => b.borderShare - a.borderShare);
+  return { labels, centres: C, order };
+}
+
+/* ── push-pull inpainting ───────────────────────────────────────────────────────────────────── */
+
+/** Fill `hole` in an RGBA buffer by pyramid push-pull.
+ *
+ *  Needed because lifting a layer OFF leaves a hole in the plate behind it, and the whole point of
+ *  parallax is that you get to see behind things. Without this, tilting card 37 slides the text
+ *  plate aside to reveal a text-shaped void — which reads as a rendering bug, not as depth.
+ *  Push-pull rather than a diffusion solve: it is O(n), it is 40 lines, and at the size a card is
+ *  seen it is indistinguishable. It does NOT reconstruct occluded detail and is not trying to —
+ *  it produces plausible low-frequency continuation, which is all that a few degrees of tilt
+ *  ever exposes.                                                                                 */
+function inpaint(rgba, hole, w, h) {
+  const levels = [];
+  let cw = w, ch = h;
+  let col = new Float32Array(w * h * 3), wgt = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const keep = hole[i] ? 0 : 1;
+    wgt[i] = keep;
+    col[i * 3] = rgba[i * 4] * keep; col[i * 3 + 1] = rgba[i * 4 + 1] * keep; col[i * 3 + 2] = rgba[i * 4 + 2] * keep;
+  }
+  levels.push({ col, wgt, w: cw, h: ch });
+  while (cw > 2 && ch > 2) {                                          // pull: shrink, summing weight
+    const nw = Math.max(1, cw >> 1), nh = Math.max(1, ch >> 1);
+    const nc = new Float32Array(nw * nh * 3), nwg = new Float32Array(nw * nh);
+    for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) {
+        const sy = Math.min(ch - 1, y * 2 + j), sx = Math.min(cw - 1, x * 2 + i), s = sy * cw + sx;
+        r += col[s * 3]; g += col[s * 3 + 1]; b += col[s * 3 + 2]; a += wgt[s];
+      }
+      const d = y * nw + x;
+      nc[d * 3] = r; nc[d * 3 + 1] = g; nc[d * 3 + 2] = b; nwg[d] = a;
+    }
+    col = nc; wgt = nwg; cw = nw; ch = nh;
+    levels.push({ col, wgt, w: cw, h: ch });
+  }
+  for (let L = levels.length - 2; L >= 0; L--) {                      // push: fill from the coarser level
+    const fine = levels[L], coarse = levels[L + 1];
+    for (let y = 0; y < fine.h; y++) for (let x = 0; x < fine.w; x++) {
+      const i = y * fine.w + x;
+      if (fine.wgt[i] > 0.001) continue;
+      const cx = Math.min(coarse.w - 1, x >> 1), cy = Math.min(coarse.h - 1, y >> 1), c = cy * coarse.w + cx;
+      if (coarse.wgt[c] <= 0.001) continue;
+      fine.col[i * 3] = coarse.col[c * 3] / coarse.wgt[c];
+      fine.col[i * 3 + 1] = coarse.col[c * 3 + 1] / coarse.wgt[c];
+      fine.col[i * 3 + 2] = coarse.col[c * 3 + 2] / coarse.wgt[c];
+      fine.wgt[i] = 1;
+    }
+  }
+  const out = new Uint8ClampedArray(w * h * 4);
+  const top = levels[0];
+  for (let i = 0; i < w * h; i++) {
+    const a = top.wgt[i] || 1;
+    out[i * 4] = hole[i] ? top.col[i * 3] / a : rgba[i * 4];
+    out[i * 4 + 1] = hole[i] ? top.col[i * 3 + 1] / a : rgba[i * 4 + 1];
+    out[i * 4 + 2] = hole[i] ? top.col[i * 3 + 2] / a : rgba[i * 4 + 2];
+    out[i * 4 + 3] = 255;
+  }
+  // One light blur restricted to the filled area — push-pull leaves visible 2×2 blockiness at the
+  // level where the hole was finally covered, and a hole is by definition somewhere nobody has
+  // detail for, so smoothing it costs nothing real.
+  const soft = Float32Array.from(hole);
+  const m = blur(soft, w, h, 1.5);
+  const ch3 = [0, 1, 2].map(c => { const f = new Float32Array(w * h); for (let i = 0; i < w * h; i++) f[i] = out[i * 4 + c]; return blur(f, w, h, 2.2); });
+  for (let i = 0; i < w * h; i++) if (m[i] > 0.02) for (let c = 0; c < 3; c++)
+    out[i * 4 + c] = out[i * 4 + c] * (1 - m[i]) + ch3[c][i] * m[i];
+  return out;
+}
+
+/* ── the creative pass: glitch strata and channel separation ────────────────────────────────── */
+
+/** Split the card into horizontal strata at rows where the image tears.
+ *
+ *  Scanline glitch is a HORIZONTAL discontinuity: a row that barely resembles the row above it.
+ *  On card 45 (MENTAL WELLNESS) and card 34 those tears are the composition, so cutting the card
+ *  into strata at its own tear rows and floating them at different depths does not fight the art,
+ *  it exaggerates something already there. Rows are scored by mean absolute difference against
+ *  their predecessor, then peaks are picked greedily with a minimum spacing so the strata stay
+ *  band-shaped rather than collapsing into a stack of scanlines.                                 */
+function scanStrata(img, w, h, n) {
+  const { data } = img;
+  const e = new Float32Array(h);
+  for (let y = 1; y < h; y++) {
+    let s = 0;
+    for (let x = 0; x < w; x += 2) {
+      const a = (y * w + x) * 4, b = ((y - 1) * w + x) * 4;
+      s += Math.abs(data[a] - data[b]) + Math.abs(data[a + 1] - data[b + 1]) + Math.abs(data[a + 2] - data[b + 2]);
+    }
+    e[y] = s / (w / 2);
+  }
+  const sm = blur(e, 1, h, 1.2);
+  const minGap = Math.max(8, Math.floor(h / (n * 2.4)));
+  const cuts = [];
+  const taken = new Uint8Array(h);
+  const idx = [...Array(h).keys()].sort((a, b) => sm[b] - sm[a]);
+  for (const y of idx) {
+    if (cuts.length >= n - 1) break;
+    if (y < minGap || y > h - minGap || taken[y]) continue;
+    cuts.push(y);
+    for (let k = Math.max(0, y - minGap); k < Math.min(h, y + minGap); k++) taken[k] = 1;
+  }
+  cuts.sort((a, b) => a - b);
+  const bounds = [0, ...cuts, h];
+  return bounds.slice(0, -1).map((y0, i) => ({ y0, y1: bounds[i + 1] }));
+}
+
+/** Per-channel plates — free stereo from the artist's own chromatic aberration.
+ *
+ *  On the fringed cards the red, green and blue records are ALREADY displaced from one another;
+ *  that displacement is what makes them look wrong-and-deliberate. Split them onto three planes at
+ *  three depths and the displacement stops being a 2-D artefact and becomes what it always looked
+ *  like: three sheets of colour at three distances. Emitted as additive plates — the manifest says
+ *  `blend:"add"` and the renderer honours it — because R+G+B recombine to the original image
+ *  exactly when the parallax is zero, so the effect vanishes gracefully as the card returns to
+ *  face-on. That property is the whole reason to do it this way rather than as three alpha cuts.  */
+function channelPlates(img, w, h) {
+  const out = [];
+  const TINT = [[255, 40, 40], [40, 255, 60], [60, 90, 255]];
+  for (let c = 0; c < 3; c++) {
+    const rgba = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      rgba[i * 4] = c === 0 ? img.data[i * 4] : 0;
+      rgba[i * 4 + 1] = c === 1 ? img.data[i * 4 + 1] : 0;
+      rgba[i * 4 + 2] = c === 2 ? img.data[i * 4 + 2] : 0;
+      rgba[i * 4 + 3] = 255;
+    }
+    out.push({ rgba, tint: TINT[c], name: ['red', 'green', 'blue'][c] });
+  }
+  return out;
 }
 
 /* ── technique 5: voxels ────────────────────────────────────────────────────────────────────── */
@@ -1248,18 +1600,213 @@ function resizeRGBA(data, w, h, maxSide) {
   return { w: dw, h: dh, data: out };
 }
 
+/* ══ the layer stack ═════════════════════════════════════════════════════════════════════════
+ *
+ * SHAPE OF THE OUTPUT, and the reason for it:
+ *
+ *   layer 0    a FULL-FRAME OPAQUE PLATE. Every foreground layer's pixels have been inpainted
+ *              out of it, so it is a complete backdrop with no holes.
+ *   layer 1..n TRIMMED RGBA CUT-OUTS, each with its own rect in card space.
+ *
+ * The renderer therefore never has to think about what is behind anything: the back plate always
+ * covers the frame, and every other plane is a sprite with a position. Tilt as far as you like and
+ * you cannot see through the card. `cards/lens3d.html` already draws three fixed plates — this is
+ * the same contract with the plates earned from the image instead of assumed.                    */
+
+const cover = (m, n) => { if (!m) return 1; let c = 0; for (let i = 0; i < m.length; i++) c += m[i]; return c / n; };
+
+/** Decide what the layers ARE. Ordered back → front; z is a fraction of card height, +z = viewer. */
+function buildStack(img, { w, h, luma, subject, bands, o, log }) {
+  const layers = [];
+  const gap = o.layerGap;
+  let text = null;
+
+  if (o.text) {
+    text = textRegions(img, luma, w, h, { contrast: o.textContrast, grow: o.textGrow, ground: o.textGround });
+    log(`  text: ${text.lines} line(s), ${text.glyphs} glyph component(s), ${text.rejected} group(s) rejected`);
+  }
+
+  layers.push({ name: 'bg', kind: 'background', mask: null, z: 0, base: true, why: 'the card itself, with every liftable layer inpainted out of it' });
+
+  // Strata REPLACE the matte rather than joining it. A card cut into horizontal tears and the same
+  // card cut into colour regions are two different readings of the image, and stacking both gives
+  // every pixel two homes and two depths — which renders as a doubled, mushy card. Pick one.
+  if (o.strata > 1) {
+    const st = scanStrata(img, w, h, o.strata);
+    log(`  strata: ${st.length} band(s), tears at rows ${st.slice(1).map(s => s.y0).join(', ')}`);
+    st.forEach((s, i) => {
+      const m = new Uint8Array(w * h);
+      for (let y = s.y0; y < s.y1; y++) for (let x = 0; x < w; x++) m[y * w + x] = 1;
+      layers.push({ name: `stratum${i}`, kind: 'stratum', mask: m, z: 0, why: `glitch tear, rows ${s.y0}–${s.y1}` });
+    });
+    // Alternate near/far so consecutive tears separate visibly instead of forming one ramp.
+    layers.forEach((L, i) => { if (i) L.z = +(gap * (i % 2 ? 1.2 : 0.45)).toFixed(4); });
+    if (text && text.lines) layers.push({ name: 'text', kind: 'text', mask: text.mask, z: +(gap * 1.6).toFixed(4), boxes: text.boxes, why: `${text.lines} detected text line(s)` });
+    return layers;
+  }
+
+  let subjectN = 0; for (let i = 0; i < subject.length; i++) subjectN += subject[i];
+  const subjectShare = subjectN / (w * h);
+  // ⚑ COMBINE, DON'T CHOOSE — the two matting methods answer different questions and both cards
+  // and collages have both. The PEEL is unbeatable on printed structure: on card 47 it lifts the
+  // red rule, the white mat and the green rule as three separate rings, which no colour clusterer
+  // will ever produce because they are the same three colours as things elsewhere in the art.
+  // K-MEANS is unbeatable inside the picture: on card 42 it separates the blue face, the white
+  // suit and the speckled ground, which the peel cannot reach because none of them touch an edge.
+  // So: peel from the outside in, and when what survives is still most of the card — i.e. the peel
+  // has found the frame and stopped — cluster THAT and use the clusters as the front planes.
+  const peelUseful = bands.length >= 1 && o.extract !== 'kmeans';
+  if (peelUseful) {
+    bands.slice(1).forEach((m, k) => layers.push({ name: `mid${k + 1}`, kind: 'midground', mask: m, z: gap * (0.25 + 0.18 * k), why: `peel band ${k + 1} — printed structure` }));
+  }
+  const needCluster = o.extract === 'kmeans' || !peelUseful || subjectShare > o.clusterAbove;
+  if (needCluster) {
+    const within = (peelUseful && subjectShare < 0.985) ? subject : null;
+    const k = kmeansColour(img, w, h, o.clusters, o.seed, 14, within);
+    if (k.order.length) {
+      log(`  kmeans: k=${o.clusters}${within ? ' inside the peel subject' : ''}, border share ${k.order.map(c => c.borderShare.toFixed(2)).join(' ')}`);
+      // Clusters ordered by how much of the frame's outer 8% they own — most = furthest back. The
+      // rearmost stays in the base plate; the rest come forward in that order.
+      const use = k.order.slice(1);
+      use.forEach((c, i) => {
+        const m = new Uint8Array(w * h);
+        for (let p = 0; p < m.length; p++) m[p] = k.labels[p] === c.i ? 1 : 0;
+        const cleaned = cleanMask(morph(m, w, h, 1.2, 2.0), w, h, { minArea: o.minArea, fillHoles: 0.002 });
+        let n = 0; for (let p = 0; p < cleaned.length; p++) n += cleaned[p];
+        if (n < w * h * 0.008) return;
+        layers.push({
+          name: `band${i}`, kind: i === use.length - 1 ? 'subject' : 'midground', mask: cleaned,
+          z: gap * (0.45 + 0.45 * (i + 1) / use.length),
+          why: `colour cluster rgb(${c.colour.join(',')}), border share ${c.borderShare.toFixed(2)}`,
+        });
+      });
+    }
+  } else {
+    layers.push({ name: 'subject', kind: 'subject', mask: subject, z: gap * 0.8, why: 'what the peel could not key' });
+  }
+  if (peelUseful && bands.length) layers.push({ name: 'frame', kind: 'frame', mask: bands[0], z: gap * 1.05, why: 'peel band 0 — the printed border, in front of the art it surrounds' });
+
+  if (text && text.lines) {
+    // Text always goes FRONT-most, ahead of everything the matte found. That is not a measurement,
+    // it is a decision, and it is the one the artist asked for: type lifting off the card is the
+    // strongest parallax available and it is what this deck's lettering is for.
+    layers.push({ name: 'text', kind: 'text', mask: text.mask, z: gap * 1.35, boxes: text.boxes, why: `${text.lines} detected text line(s)` });
+    for (const L of layers) if (L.mask && L !== layers[layers.length - 1])
+      for (let i = 0; i < L.mask.length; i++) if (text.mask[i]) L.mask[i] = 0;   // type belongs to one plane only
+  }
+
+  // Trim to a budget, then RE-SPACE. Two reasons the z values above are provisional: the peel and
+  // the k-means pass number their bands independently and can collide, and a viewer only has so
+  // much parallax to spend — eleven planes inside 0.12 of a card height are eleven planes nobody
+  // can tell apart. The array order already IS the depth order (bg → printed structure → colour
+  // bands → subject → frame → type), so spacing is just an even walk down it.
+  if (layers.length - 1 > o.layerCount) {
+    const drop = layers.map((L, i) => ({ i, L })).filter(x => x.L.kind === 'midground')
+      .sort((a, b) => cover(a.L.mask, w * h) - cover(b.L.mask, w * h))
+      .slice(0, layers.length - 1 - o.layerCount).map(x => x.i);
+    for (const i of drop.sort((a, b) => b - a)) layers.splice(i, 1);
+  }
+  layers.forEach((L, i) => { L.z = i === 0 ? 0 : +(gap * 1.35 * (i / (layers.length - 1))).toFixed(4); });
+  return layers;
+}
+
+/** Write the stack: layers/NN-name.png, layers.json, and layers.glb (the same planes, in one file). */
+function emitStack(layers, img, w, h, f, { o, dir, put, emit, log, name, source }) {
+  mkdirSync(join(dir, 'layers'), { recursive: true });
+  // ⚠ YOU CAN ONLY PAINT OUT WHAT YOU CAN PAINT AROUND. The first version inpainted the union of
+  // EVERY foreground layer; on card 37 that is 85% of the frame and push-pull, given 15% of real
+  // pixels to work from, returned four flat rectangles — a back plate worse than no back plate.
+  // Only layers small enough to have surrounding context are removed. Anything bigger simply stays
+  // in the base plate: at rest it is hidden behind its own cut-out, and under parallax it shows as
+  // a faint double of itself rather than as a hole, which is by far the better failure.
+  const fg = new Uint8Array(w * h);
+  let painted = 0;
+  for (const L of layers) {
+    if (!L.mask) continue;
+    let n = 0; for (let i = 0; i < L.mask.length; i++) n += L.mask[i];
+    if (n > w * h * o.inpaintMax) continue;
+    painted++;
+    for (let i = 0; i < L.mask.length; i++) if (L.mask[i]) fg[i] = 1;
+  }
+  const basePlate = (o.inpaint && painted) ? inpaint(img.data, fg, w, h) : img.data;
+
+  const entries = [], mats = [], metas = [];
+  layers.forEach((L, i) => {
+    const file = `${String(i).padStart(2, '0')}-${L.name}.png`;
+    let rect, png, cw, chh;
+    if (L.base) {
+      const small = resizeRGBA(basePlate, w, h, o.layerMax);
+      png = encodePNG(small.w, small.h, small.data);
+      rect = [0, 0, 1, 1]; cw = w; chh = h;
+    } else {
+      const bb = bboxOf(L.mask, w, h, 3);
+      cw = bb.x1 - bb.x0 + 1; chh = bb.y1 - bb.y0 + 1;
+      const tex = layerTexture(img, L.mask, w, h, o.feather);
+      const crop = new Uint8ClampedArray(cw * chh * 4);
+      for (let y = bb.y0; y <= bb.y1; y++) for (let x = bb.x0; x <= bb.x1; x++) {
+        const s = (y * w + x) * 4, d = ((y - bb.y0) * cw + (x - bb.x0)) * 4;
+        crop[d] = tex[s]; crop[d + 1] = tex[s + 1]; crop[d + 2] = tex[s + 2]; crop[d + 3] = tex[s + 3];
+      }
+      const small = resizeRGBA(crop, cw, chh, o.layerMax);
+      png = encodePNG(small.w, small.h, small.data);
+      rect = [bb.x0 / w, bb.y0 / h, cw / w, chh / h];
+      metas[i] = bb;
+    }
+    writeFileSync(join(dir, 'layers', file), png);
+    let cover = 0;
+    if (L.mask) { for (let p = 0; p < L.mask.length; p++) cover += L.mask[p]; cover /= w * h; } else cover = 1;
+    entries.push({
+      file: `layers/${file}`, name: L.name, kind: L.kind, z: +L.z.toFixed(4), rect: rect.map(v => +v.toFixed(5)),
+      opaque: !!L.base, blend: L.blend || 'normal', coverage: +cover.toFixed(4),
+      ...(L.boxes ? { boxes: L.boxes.map(b => [+(b[0] / w).toFixed(4), +(b[1] / h).toFixed(4), +((b[2] - b[0]) / w).toFixed(4), +((b[3] - b[1]) / h).toFixed(4)]) } : {}),
+      why: L.why,
+    });
+    mats.push({ name: L.name, baseColor: png, roughness: 0.62, alphaMode: L.base ? 'OPAQUE' : 'BLEND', doubleSided: true });
+    log(`    layer ${String(i).padStart(2, '0')} ${L.name.padEnd(10)} ${L.kind.padEnd(11)} z ${L.z.toFixed(3)}  ${(cover * 100).toFixed(1).padStart(5)}% cover  ${(png.length / 1024).toFixed(0)} KB`);
+  });
+
+  const manifest = {
+    generator: 'png23d', card: name, source,
+    size: { w, h, aspect: +(w / h).toFixed(5) },
+    units: 'rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.',
+    method: o.extract + (o.text ? '+text' : '') + (o.strata > 1 ? '+strata' : '') + (o.inpaint ? '+inpaint' : ''),
+    note: 'layer 0 is a full-frame opaque plate with every foreground layer inpainted out of it; the rest are trimmed RGBA cut-outs. z ordering is a stated heuristic, not a depth measurement — edit it.',
+    layers: entries,
+  };
+  writeFileSync(join(dir, 'layers.json'), JSON.stringify(manifest, null, 2) + '\n');
+  log(`  layers.json         ${entries.length} layer(s) · ${o.extract}${o.text ? '+text' : ''}`);
+
+  const meshes = layers.map((L, i) => {
+    const m = new Mesh(`${String(i).padStart(2, '0')}_${L.name}`);
+    const bb = L.base ? { x0: 0, y0: 0, x1: w - 1, y1: h - 1 } : metas[i];
+    const lw = bb.x1 - bb.x0 + 1, lh = bb.y1 - bb.y0 + 1;
+    const z = L.z * o.size;
+    const V = (px, py) => {
+      m.pos.push((px - w / 2) * f.s, (h / 2 - py) * f.s, z);
+      m.uv.push((px - bb.x0) / lw, (py - bb.y0) / lh);
+      return m.pos.length / 3 - 1;
+    };
+    m.quad(V(bb.x0, bb.y1 + 1), V(bb.x1 + 1, bb.y1 + 1), V(bb.x1 + 1, bb.y0), V(bb.x0, bb.y0));
+    return m;
+  });
+  emit('layers.glb', meshes, mats, (nm, i) => i);
+  return manifest;
+}
+
 /* ══ driver ══════════════════════════════════════════════════════════════════════════════════ */
 
-const MODES = ['maps', 'slab', 'pop', 'silhouette', 'relief', 'layers', 'voxel'];
+const MODES = ['maps', 'slab', 'pop', 'silhouette', 'relief', 'layers', 'voxel', 'channels'];
 
 function parseArgs(argv) {
   const o = {
-    out: 'models/cards', modes: ['maps', 'slab', 'pop', 'layers'], key: 'auto', tol: 0.11, peel: 3,
-    size: 1.0, depth: 0.075, bevel: 0.035, round: 0.85, bevelRings: 4, res: 120,
+    out: 'models/cards', modes: ['maps', 'slab', 'pop', 'layers'], key: 'auto', tol: 0.11, peel: 5, minSubject: 0.12,
+    size: 1.0, depth: 0.075, bevel: 0.035, round: 0.85, bevelRings: 4, res: 48,
     relief: 0.22, reliefBlur: 2.2, reliefDetail: 0.55, reliefRange: 0.14, invert: false,
     normalStrength: 2.4, normalBlur: 0.7, flipY: false, corner: 0.045,
-    simplify: 1.4, minArea: 0.004, keepLargest: false, layerCount: 2, layerGap: 0.09,
+    simplify: 1.4, minArea: 0.004, keepLargest: false, layerCount: 6, layerGap: 0.09,
     voxelRes: 44, voxelSteps: 6, embed: 512, obj: false, preview: false, quiet: false, debug: false, name: null,
+    extract: 'auto', clusters: 5, seed: 3030, text: true, textContrast: 0.055, textGrow: 2.4,
+    strata: 0, inpaint: true, inpaintMax: 0.12, textGround: 0.26, clusterAbove: 0.55, feather: 1.1, layerMax: 512, explode: 6,
   };
   const files = [];
   for (let i = 0; i < argv.length; i++) {
@@ -1274,6 +1821,7 @@ function parseArgs(argv) {
       case '--key': o.key = next(); break;
       case '--tol': o.tol = +next(); break;
       case '--peel': o.peel = +next(); break;
+      case '--min-subject': o.minSubject = +next(); break;
       case '--size': o.size = +next(); break;
       case '--depth': o.depth = +next(); break;
       case '--bevel': o.bevel = +next(); break;
@@ -1292,6 +1840,20 @@ function parseArgs(argv) {
       case '--keep-largest': o.keepLargest = true; break;
       case '--layers': o.layerCount = +next(); break;
       case '--layer-gap': o.layerGap = +next(); break;
+      case '--extract': o.extract = next(); break;
+      case '--clusters': o.clusters = +next(); break;
+      case '--cluster-above': o.clusterAbove = +next(); break;
+      case '--seed': o.seed = +next(); break;
+      case '--no-text': o.text = false; break;
+      case '--text-contrast': o.textContrast = +next(); break;
+      case '--text-grow': o.textGrow = +next(); break;
+      case '--strata': o.strata = +next(); break;
+      case '--no-inpaint': o.inpaint = false; break;
+      case '--inpaint-max': o.inpaintMax = +next(); break;
+      case '--text-ground': o.textGround = +next(); break;
+      case '--feather': o.feather = +next(); break;
+      case '--layer-max': o.layerMax = +next(); break;
+      case '--explode': o.explode = +next(); break;
       case '--voxel-res': o.voxelRes = +next(); break;
       case '--voxel-steps': o.voxelSteps = +next(); break;
       case '--embed': o.embed = +next(); break;
@@ -1338,7 +1900,7 @@ function run(file, o) {
   /* — the key, shared by pop / silhouette / layers / voxel — */
   let subject = null, bands = [];
   if (o.modes.some(m => ['pop', 'silhouette', 'layers', 'voxel'].includes(m))) {
-    const k = keyPeel(img, o.key, o.tol, o.peel);
+    const k = keyPeel(img, o.key, o.tol, o.peel, o.minSubject);
     bands = k.bands;
     subject = cleanMask(morph(k.subject, w, h, 1.5, 2.5), w, h, { minArea: o.minArea, keepLargest: o.keepLargest });
     let n = 0; for (let i = 0; i < subject.length; i++) n += subject[i];
@@ -1422,51 +1984,37 @@ function run(file, o) {
     emit('relief.glb', [mesh], embedded ? cardMat() : null);
   }
 
-  /* — layers: parallax planes — */
+  /* — layers: the extracted diorama (PNG stack + layers.json + layers.glb) — */
   if (o.modes.includes('layers') && subject) {
-    // The peel already produced the ordering: band 0 is whatever was keyed from the image edge
-    // (the printed frame — which belongs in FRONT, it is the thing the art sits inside), band 1+
-    // are backdrops going back, and the subject is nearest the viewer. That is the layer stack a
-    // card actually has, and it comes out of the key for free rather than being guessed.
-    const back = bands.slice(1);
-    const defs = [];
-    back.forEach((m2, k) => defs.push({ name: `back${k}`, mask: m2, z: -o.layerGap * o.size * (1 - k / (back.length + 1)) }));
-    if (!back.length) defs.push({ name: 'back', mask: invertMask(subject), z: -o.layerGap * o.size / 2 });
-    defs.push({ name: 'subject', mask: subject, z: o.layerGap * o.size / 2 });
-    if (bands.length) defs.push({ name: 'frame', mask: bands[0], z: o.layerGap * o.size * 0.75 });
-    while (defs.length > Math.max(2, o.layerCount)) defs.splice(1, 1);        // keep the outermost pair
+    const stack = buildStack(img, { w, h, luma, subject, bands, o, log });
+    emitStack(stack, img, w, h, f, { o, dir, put, emit, log, name, source: file });
+  }
 
-    const mats = [], metas = [];
-    defs.forEach((L, i) => {
-      const bb = bboxOf(L.mask, w, h, 4);
-      const tex = layerTexture(img, L.mask, w, h, 1.2);
-      const crop = new Uint8ClampedArray((bb.x1 - bb.x0 + 1) * (bb.y1 - bb.y0 + 1) * 4);
-      const cw = bb.x1 - bb.x0 + 1;
-      for (let y = bb.y0; y <= bb.y1; y++) for (let x = bb.x0; x <= bb.x1; x++) {
-        const s = (y * w + x) * 4, d = ((y - bb.y0) * cw + (x - bb.x0)) * 4;
-        crop[d] = tex[s]; crop[d + 1] = tex[s + 1]; crop[d + 2] = tex[s + 2]; crop[d + 3] = tex[s + 3];
-      }
-      const small = resizeRGBA(crop, cw, bb.y1 - bb.y0 + 1, o.embed || 512);
+  /* — channels: the artist's own chromatic fringing, pulled apart onto three additive plates — */
+  if (o.modes.includes('channels')) {
+    mkdirSync(join(dir, 'layers'), { recursive: true });
+    const plates = channelPlates(img, w, h);
+    const mats = [], entries = [];
+    const meshes = plates.map((P, i) => {
+      const small = resizeRGBA(P.rgba, w, h, o.layerMax);
       const png = encodePNG(small.w, small.h, small.data);
-      put(`layer${i}_${L.name}.png`, png);
-      mats.push({ name: `layer${i}`, baseColor: png, roughness: 0.6, alphaMode: 'BLEND', doubleSided: true });
-      metas.push({ ...L, ...bb });
-    });
-    // the quad's UVs must address the CROP, so each layer gets its own frame
-    const meshes = metas.map((L, i) => {
-      const m = new Mesh(`layer${i}_${L.name}`);
-      const lf = { w: L.x1 - L.x0 + 1, h: L.y1 - L.y0 + 1, s: f.s };
-      const shift = (px, py) => [px - L.x0, py - L.y0];
-      const V = (px, py) => {
-        const [ux, uy] = shift(px, py);
-        m.pos.push((px - w / 2) * f.s, (h / 2 - py) * f.s, L.z);
-        m.uv.push(ux / lf.w, uy / lf.h);
-        return m.pos.length / 3 - 1;
-      };
-      m.quad(V(L.x0, L.y1), V(L.x1 + 1, L.y1), V(L.x1 + 1, L.y0), V(L.x0, L.y0));
+      writeFileSync(join(dir, 'layers', `ch${i}-${P.name}.png`), png);
+      mats.push({ name: P.name, baseColor: png, roughness: 0.9, alphaMode: 'OPAQUE', doubleSided: true });
+      const z = (i - 1) * o.layerGap * 0.5 * o.size;
+      entries.push({ file: `layers/ch${i}-${P.name}.png`, name: P.name, kind: 'channel', z: +((i - 1) * o.layerGap * 0.5).toFixed(4), rect: [0, 0, 1, 1], blend: 'add', opaque: false, why: `${P.name} record only — recombines to the original at zero parallax` });
+      const m = new Mesh(`ch${i}_${P.name}`);
+      const V = (px, py) => { m.pos.push((px - w / 2) * f.s, (h / 2 - py) * f.s, z); m.uv.push(px / w, py / h); return m.pos.length / 3 - 1; };
+      m.quad(V(0, h), V(w, h), V(w, 0), V(0, 0));
       return m;
     });
-    emit('layers.glb', meshes, mats, (nm, i) => i);
+    emit('channels.glb', meshes, mats, (nm, i) => i);
+    writeFileSync(join(dir, 'channels.json'), JSON.stringify({
+      generator: 'png23d', card: name, source: file, kind: 'channel-split',
+      units: 'z is a fraction of card HEIGHT, +z toward the viewer',
+      note: 'three ADDITIVE plates. They sum to the original image exactly at zero parallax, so the effect appears as the card turns and vanishes as it returns to face-on. Draw with additive blending, not alpha.',
+      layers: entries,
+    }, null, 2) + '\n');
+    log(`  channels.json       3 additive plates`);
   }
 
   /* — voxel — */
@@ -1507,7 +2055,8 @@ function main(argv) {
   key / silhouette
   --key auto|alpha|rect|grad       background key    (default auto; grad = printed gradient backdrop)
   --tol 0.11          key colour tolerance
-  --peel 3            max flood passes: frame → backdrop → subject (1 = old single pass)
+  --peel 5            max flood passes: frame → backdrop → subject (1 = a single pass)
+  --min-subject 0.12  refuse a peel that would leave less subject than this
   --keep-largest      one island only
   --min-area 0.004    drop islands under this fraction of the frame
   --simplify 1.4      Douglas-Peucker tolerance, px
@@ -1517,7 +2066,7 @@ function main(argv) {
   --depth 0.075       slab thickness
   --bevel 0.035       bevel inset, as a fraction of card WIDTH
   --round 0.85        0 = hard slab edge, 1 = full pillow
-  --res 120           grid vertices along the short side
+  --res 48            grid vertices along the short side
   --relief 0.22       relief amplitude (× depth × 4)
   --relief-detail .55 0 = smooth base, 1 = engraved keylines
   --invert            dark is high instead of bright is high
@@ -1526,10 +2075,24 @@ function main(argv) {
   --normal-strength 2.4 / --normal-blur 0.7 / --normal-flip-y
   --corner 0.045      card corner radius, fraction of width
 
-  layers / voxel
-  --layers 2          number of depth planes
+  layers — the extracted diorama (layers/NN-*.png + layers.json + layers.glb)
+  --extract auto|peel|kmeans   how to matte      (default auto: peel, then k-means the remainder)
+  --layers 6          budget of planes above the base plate; smallest midgrounds dropped first
+  --inpaint-max .12   only layers smaller than this are painted out of the base plate
+  --clusters 5        k for the k-means palette matte
+  --seed 3030         k-means++ seed — same seed, same clusters, every time
+  --no-text           skip text-region detection (it is on by default)
+  --text-contrast .055 / --text-grow 2.4 / --text-ground 0.26 (max ground variance under type)
+  --cluster-above .55 peel first; k-means the remainder when the peel leaves more than this
+  --strata 0          also cut N horizontal glitch strata at the card's own tear rows
+  --no-inpaint        do not fill the holes left behind in the back plate
+  --feather 1.1       cut-out edge softness, px
   --layer-gap 0.09    plane separation, fraction of card height
+  --layer-max 512     max side of an emitted layer PNG
+
+  voxel / channels
   --voxel-res 44 / --voxel-steps 6
+  --explode 6         preview only: multiply layer z so the stack reads as a diorama
 
   output
   --embed 512         embed textures in the GLB at this max side (--no-embed for sidecars only)

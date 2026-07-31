@@ -90,6 +90,17 @@ def camera(loc, look, lens=58.0):
 
 
 def import_glb(path):
+    """Import and return the mesh objects, in EULER rotation mode.
+
+    ⚠ THE IMPORTER LEAVES OBJECTS IN QUATERNION MODE, and this cost a whole round of renders.
+    `bpy.ops.import_scene.gltf` sets rotation_mode='QUATERNION' on everything it creates, and
+    Blender then IGNORES rotation_euler entirely — assigning it raises nothing, changes nothing and
+    logs nothing. Every tilted sheet came back with three identical face-on cards, which reads as
+    "png23d emitted a flat quad" rather than as "the preview forgot to turn it". Forcing XYZ here
+    is the fix, and it belongs here rather than in place() so that anything else that ever poses an
+    imported object inherits it. (build-cc0-preview.py never hit this: it positions imported
+    objects but never rotates them.)
+    """
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
@@ -97,11 +108,45 @@ def import_glb(path):
     for o in meshes:
         mw = o.matrix_world.copy()
         o.parent = None
+        o.rotation_mode = 'XYZ'
         o.matrix_world = mw
     for o in new:
         if o.type != 'MESH':
             bpy.data.objects.remove(o, do_unlink=True)
     return meshes
+
+
+def make_additive(objs):
+    """Rebuild each material as Emission + Transparent, i.e. ADDITIVE.
+
+    ⚠ glTF HAS NO ADDITIVE BLEND MODE — only OPAQUE / MASK / BLEND — so `channels.glb` cannot
+    carry its own intent and a straight import renders three opaque plates with the last one
+    hiding the other two. The manifest is the authority here (`blend:"add"`), and this is the
+    preview implementing it: Add Shader(Emission, Transparent) is exactly additive compositing in
+    a path tracer. The point of the split is that R+G+B sum back to the original at zero parallax,
+    and only an additive preview can show that.
+    """
+    for o in objs:
+        for m in o.data.materials:
+            if not m or not m.use_nodes:
+                continue
+            nt = m.node_tree
+            tex = next((n for n in nt.nodes if n.type == 'TEX_IMAGE'), None)
+            out = next((n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL'), None)
+            if not tex or not out:
+                continue
+            for n in list(nt.nodes):
+                if n not in (tex, out):
+                    nt.nodes.remove(n)
+            em = nt.nodes.new('ShaderNodeEmission')
+            em.inputs['Strength'].default_value = 1.0
+            tr = nt.nodes.new('ShaderNodeBsdfTransparent')
+            add = nt.nodes.new('ShaderNodeAddShader')
+            nt.links.new(tex.outputs['Color'], em.inputs['Color'])
+            nt.links.new(em.outputs['Emission'], add.inputs[0])
+            nt.links.new(tr.outputs['BSDF'], add.inputs[1])
+            nt.links.new(add.outputs['Shader'], out.inputs['Surface'])
+            m.blend_method = 'BLEND'
 
 
 def label(text, loc, size=0.075):
@@ -186,8 +231,11 @@ def sheet(glb, out, title):
     stage()
     PITCH = 0.92
     poses = [(-PITCH, 0.0), (0.0, math.radians(38)), (PITCH, math.radians(68))]
+    additive = os.path.basename(glb) == 'channels.glb'
     for i, (x, yaw) in enumerate(poses):
         objs = import_glb(glb)
+        if additive:
+            make_additive(objs)
         place(objs, x, yaw, math.radians(-9) if i else 0.0)
     label(title, (0.0, 0.0, -0.66), 0.072)
     # 3 x 0.92 of pitch = 2.76 units to cover on a 36 mm sensor: lens = 36*D/W. At D = 3.3 that is
@@ -223,14 +271,76 @@ def thumbsheet(card_dir, out, names):
     return render(out, int(min(1800, 300 * len(got) + 120)), 380, samples=56)
 
 
+def explode(objs, factor):
+    """Pull a layer stack apart along the view axis so the separation is visible.
+
+    ⚠ The layer z lives in the VERTEX DATA (png23d bakes each plane's depth into its quad), and the
+    glTF importer bakes glTF's Y-up→Z-up conversion in with it — so glTF +Z, "toward the viewer",
+    arrives as Blender −Y. Exploding is therefore: measure each object's mean y, then translate it
+    along y by (factor − 1) × that. Scaling the objects, or scaling the whole collection, would
+    also scale the plates themselves and the sheet would show a set of nested cards instead of a
+    set of separated ones.
+    """
+    for o in objs:
+        ys = [(o.matrix_world @ v.co)[1] for v in o.data.vertices]
+        if not ys:
+            continue
+        mid = sum(ys) / len(ys)
+        o.location = (o.location[0], o.location[1] + mid * (factor - 1.0), o.location[2])
+
+
+def sheet_stack(card_dir, out, factor):
+    """The diorama sheet: layers.glb with its planes pulled apart, seen from the side.
+
+    This is the sheet that decides whether an extraction is any good, and it has to be the
+    EXPLODED view. At rest a correct stack and a broken stack render the identical picture — that
+    is the point of a stack — so a face-on render of layers.glb proves only that the layers add up.
+    Separated and seen at an angle, a matte that cut a face in half is instantly obvious.
+    """
+    p = os.path.join(card_dir, 'layers.glb')
+    if not os.path.isfile(p):
+        return True
+    reset()
+    stage()
+    objs = import_glb(p)
+    if not objs:
+        return True
+    explode(objs, factor)
+    for o in objs:
+        o.rotation_euler = (0.0, 0.0, 0.0)
+    # Rotating the STACK is wrong here — it would foreshorten every plate equally and the gaps
+    # would close. The camera moves instead, so the plates stay square to their own normal and the
+    # separation stays the only thing the angle reveals.
+    # ⚠ Aim at the STACK's centre, not at the world origin. Exploding moves every plane in one
+    # direction only (all z are ≥ 0, so all the plates march toward the viewer), which slides the
+    # subject a long way off the origin — framed on the origin, the front plates walk out of shot
+    # and the sheet crops the type, which is the layer it exists to show.
+    lo, hi = 1e9, -1e9
+    for o in objs:
+        for v in o.data.vertices:
+            y = (o.matrix_world @ v.co)[1]
+            lo = min(lo, y)
+            hi = max(hi, y)
+    midy = (lo + hi) / 2.0
+    span = max(0.25, hi - lo)
+    d = 2.5 + span * 1.5
+    camera((d * 0.72, midy - d * 0.80, d * 0.26), (0.0, midy, -0.02), lens=44.0)
+    label('layers x%g' % factor, (0.0, lo - 0.05, -0.70), 0.070)
+    return render(out, 1400, 760, samples=56)
+
+
 def main():
     global DRAFT
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
     if not argv:
         raise SystemExit('ERR usage: -- <models/cards/NAME> [outdir] [draft]')
     card_dir = argv[0]
-    out = argv[1] if len(argv) > 1 and argv[1] != 'draft' else os.path.join(card_dir, 'preview')
+    out = argv[1] if len(argv) > 1 and not argv[1].startswith(('draft', 'explode')) else os.path.join(card_dir, 'preview')
     DRAFT = 'draft' in argv
+    factor = 6.0
+    for a in argv:
+        if a.startswith('explode='):
+            factor = float(a.split('=', 1)[1])
     os.makedirs(out, exist_ok=True)
     glbs = sorted(glob.glob(os.path.join(card_dir, '*.glb')))
     if not glbs:
@@ -239,6 +349,7 @@ def main():
     for g in glbs:
         nm = os.path.splitext(os.path.basename(g))[0]
         ok &= sheet(g, os.path.join(out, nm + '.png'), nm)
+    ok &= sheet_stack(card_dir, os.path.join(out, '_exploded.png'), factor)
     ok &= thumbsheet(card_dir, os.path.join(out, '_thumbs.png'),
                      ['relief', 'slab', 'pop', 'silhouette', 'layers', 'voxel'])
     print('SHEET %s %s' % ('OK' if ok else 'PARTIAL', out))
