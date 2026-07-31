@@ -3,52 +3,57 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>SECTION 9 · PLAYCANVAS PROTOTYPE · upperdeckripmaster3030</title>
+<title>SECTION 9 TASKFORCE: SUPERGAME · PC BUILD · upperdeckripmaster3030</title>
 <meta name="robots" content="noindex,nofollow">
-<meta name="description" content="Engine evaluation build — the same Section 9 baked level, bodies and weapon rendered by the PlayCanvas engine, for side-by-side comparison against our hand-rolled WebGL renderer.">
+<meta name="description" content="Section 9 on the PlayCanvas engine — the same arenas, bodies, weapons and rules, with PBR materials, real shadow maps, image-based lighting and the engine's post stack.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!--
-  ⚠ EVALUATION BUILD. This page is NOT the game. section9.html is, and it is untouched.
-    This exists so the artist can look at both and decide whether an off-the-shelf engine is
-    worth its costs. Throwing it away = delete this file, js/s9pc-*.js and vendor/playcanvas/.
+  SECTION 9 · ENGINE BUILD. `section9.html` is the shipping game and is UNTOUCHED — it stays as a
+  free A/B and a free rollback until this build genuinely surpasses it on every axis.
 
-    Query params:
-      ?level=arcade|vault|rooftop   which baked level (default arcade)
-      ?x= &z= &y= &yaw= &pitch=     park the camera (matches section9.html's __s9._place/_look)
-      ?hold=1                       freeze the sim, for capture
-      ?post=0 ?bodies=0 ?weapon=0   turn off a piece to isolate its cost
-      ?crt=1                        add section9.html's CRT overlay so the frames match exactly
-      ?shadow=1024                  shadow map resolution
+  Query params
+    ?map=N            pin an arena (0-5 hand-built, 6+ baked)   ?crt=1  add the CRT overlay
+    ?q=low|mid|high   force a quality tier (default: measured from GfxPost.dprCap())
+    ?post=0           engine post stack off      ?shadows=0  no shadow maps
+    ?bodies=0         box rig instead of .skn    ?weapon=0   no GLB weapon
+    ?hdri=<name>      vendored environment (models/env/*.png), or `proc` for the generated sky
+    ?grab=1           preserveDrawingBuffer, so a headless run can getImageData real pixels
+    ?hold=1           freeze the bots (headless capture)
 -->
 <style>
-  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b;
+  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
     --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
+    --common:#7ea892; --uncommon:#2bff80; --rare:#ffd23b; --mythic:#ff2ad9; --prizm:#27f7e4;
     --bez:clamp(10px,2.2vw,26px); --bezTop:clamp(30px,5.4vh,62px); --rad:clamp(12px,2vw,24px); }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ height:100%; overflow:hidden; }
   body{ font-family:var(--mono); color:var(--ink); -webkit-tap-highlight-color:transparent; touch-action:none;
     background:radial-gradient(140% 120% at 50% -10%, #0c1016 0%, #06080c 46%, #020304 100%); }
-  /* the same cabinet frame section9.html uses, so the two captures crop identically */
   .bezel{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); z-index:12; pointer-events:none;
     border-radius:calc(var(--rad) + 7px);
     box-shadow:
       0 0 0 clamp(7px,1.5vw,15px) #0b0d13,
       0 0 0 calc(clamp(7px,1.5vw,15px) + 1px) #23262f,
       0 0 0 calc(clamp(7px,1.5vw,15px) + 2px) #0a0c11,
-      inset 0 0 0 2px rgba(255,42,217,.22),
-      inset 0 0 26px rgba(255,42,217,.10),
-      0 0 42px rgba(255,42,217,.12),
+      inset 0 0 0 2px rgba(39,247,228,.22),
+      inset 0 0 26px rgba(39,247,228,.10),
+      0 0 42px rgba(39,247,228,.12),
       0 22px 70px rgba(0,0,0,.85); }
+  .screw{ position:fixed; z-index:13; pointer-events:none; width:11px; height:11px; border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #565a66, #14151b 70%); box-shadow:0 1px 2px #000, inset 0 0 2px #000; }
+  .screw::after{ content:''; position:absolute; inset:3px; border-top:1.5px solid #0a0b0f; transform:rotate(35deg); }
+  .screw.tl{ top:calc(var(--bezTop) - 3px); left:calc(var(--bez) - 3px); } .screw.tr{ top:calc(var(--bezTop) - 3px); right:calc(var(--bez) - 3px); }
+  .screw.bl{ bottom:calc(var(--bez) - 3px); left:calc(var(--bez) - 3px); } .screw.br{ bottom:calc(var(--bez) - 3px); right:calc(var(--bez) - 3px); }
   .marquee{ position:fixed; top:0; left:0; right:0; height:var(--bezTop); z-index:13; pointer-events:none;
-    display:flex; align-items:center; justify-content:center; gap:11px;
-    font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.30em; text-transform:uppercase;
-    color:#ffb0ef; text-shadow:0 0 10px rgba(255,42,217,.7),0 0 2px #000; }
-  .marquee .dot{ color:var(--cyan); text-shadow:0 0 10px rgba(39,247,228,.85); }
-  #pcv{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
+    display:flex; align-items:center; justify-content:center; gap:11px; }
+  #pcv,#ov2d{ position:fixed; top:var(--bezTop); left:var(--bez); display:block; touch-action:none;
     width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
-    border-radius:var(--rad); background:#05070b; cursor:crosshair; z-index:1; }
-  /* opt-in CRT, copied from section9.html so ?crt=1 gives a pixel-comparable frame */
+    border-radius:var(--rad); background:#05070b; cursor:crosshair; }
+  #pcv{ z-index:1; }
+  #ov2d{ z-index:2; background:transparent; pointer-events:none; }
+  /* opt-in CRT — the engine's own vignette/grain does most of this job now, so it is off by
+     default; ?crt=1 puts it back for a pixel-comparable A/B against section9.html */
   .crt{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad);
     z-index:11; pointer-events:none; overflow:hidden; display:none; }
   body.crt-on .crt{ display:block; }
@@ -57,50 +62,316 @@
   .crt-curve{ position:absolute; inset:0;
     background:radial-gradient(132% 120% at 50% 48%, transparent 45%, rgba(0,0,0,.5) 78%, rgba(0,0,0,.93) 100%);
     box-shadow:inset 0 0 60px rgba(0,0,0,.7); }
-  /* readout */
-  #hud{ position:fixed; left:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 12px); z-index:14; pointer-events:none;
-    font-size:11px; line-height:1.55; letter-spacing:.04em; color:#bff6ff;
-    text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000; }
-  #hud b{ color:var(--magenta); font-family:var(--fat); letter-spacing:.12em; font-size:11px; }
-  #hud .dim{ color:#6f8a95; }
+  /* ── HUD ── */
+  .hud{ position:fixed; z-index:5; pointer-events:none; text-shadow:0 0 8px #000,0 1px 2px #000; }
+  .hud-bl{ left:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 14px); }
+  .hud-br{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 14px); text-align:right; }
+  .hud-tl{ top:calc(var(--bezTop) + 10px); left:calc(var(--bez) + 14px); }
+  .hud-tr{ top:calc(var(--bezTop) + 10px); right:calc(var(--bez) + 14px); text-align:right; }
+  .h-lbl{ font-size:9px; letter-spacing:.24em; text-transform:uppercase; color:#7fb0c8; }
+  .stat-wrap{ width:min(230px,44vw); margin-top:3px; }
+  .stat-bar{ height:10px; border-radius:5px; overflow:hidden; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.25); margin-top:2px; }
+  .stat-fill{ height:100%; width:100%; transition:width .12s linear; }
+  .hp-fill{ background:linear-gradient(90deg,#ff5a3c,#ffd23b 46%,#2bff80 78%); }
+  .ar-fill{ background:linear-gradient(90deg,#2a7cff,#59e0ff); }
+  .bo-fill{ background:linear-gradient(90deg,#0f7a4a,#2bff80); }
+  .h-vitals b{ font-family:var(--fat); font-size:16px; }
+  .h-hp b{ color:#8effc0; } .h-ar b{ color:#8fdcff; }
+  .ammo{ font-family:var(--fat); }
+  .ammo .mag{ font-size:clamp(20px,5vw,30px); color:#fff; }
+  .ammo .res{ font-size:14px; color:#9fbecb; }
+  .weap-name{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); margin-top:1px; }
+  .weap-slots{ display:flex; gap:5px; justify-content:flex-end; margin-top:5px; }
+  .wslot{ font-size:9px; letter-spacing:.02em; text-transform:uppercase; padding:3px 6px; border-radius:5px; color:#7fb0c8;
+    background:rgba(2,10,14,.6); border:1px solid rgba(120,180,200,.25); }
+  .wslot.on{ color:#05121a; background:linear-gradient(180deg,#bfffe0,#2bff80 60%,#0fae56); border-color:#063; }
+  .wslot.rl{ color:var(--coral); }
+  .h-timer{ font-family:var(--fat); font-size:clamp(18px,4.6vw,26px); color:var(--cyan); text-shadow:0 0 12px rgba(39,247,228,.5),0 1px 2px #000; }
+  .h-lead{ font-size:11px; letter-spacing:.04em; color:#bfe9d3; margin-top:2px; } .h-lead b{ color:var(--amber); font-family:var(--fat); }
+  .h-frag{ font-family:var(--fat); font-size:clamp(20px,5.4vw,34px); color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.5),0 1px 2px #000; }
+  .h-frag small{ display:block; font-family:var(--mono); font-size:9px; letter-spacing:.24em; color:#7fb0c8; }
+  .killfeed{ position:fixed; z-index:5; top:calc(var(--bezTop) + 56px); right:calc(var(--bez) + 14px); width:min(260px,52vw);
+    display:flex; flex-direction:column; align-items:flex-end; gap:3px; pointer-events:none; }
+  .kf{ font-size:10.5px; letter-spacing:.02em; color:#dfeef6; background:rgba(3,10,14,.62); border:1px solid rgba(120,180,200,.2);
+    border-radius:5px; padding:2px 8px; text-shadow:0 1px 2px #000; opacity:.96; }
+  .kf b{ color:var(--cyan); } .kf .v{ color:var(--coral); } .kf.me b{ color:var(--lime); }
+  .kf .hs{ color:var(--amber); }
+  .comms{ position:fixed; z-index:5; right:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 178px);
+    width:min(260px,52vw); pointer-events:none; display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+  .cm{ font-size:10px; letter-spacing:.04em; color:#b9d4dd; opacity:.78; text-shadow:0 1px 2px #000;
+    font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .cm b{ font-weight:700; }
+  .powmsg{ position:fixed; z-index:5; top:34%; left:50%; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
+    font-family:var(--fat); font-size:clamp(13px,3.2vw,22px); letter-spacing:.03em; text-transform:uppercase; text-align:center;
+    color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.85),0 2px 4px #000; }
+  .powmsg.go{ animation:powFl 1.3s ease-out; }
+  @keyframes powFl{ 0%{opacity:0;transform:translate(-50%,-40%) scale(.6)} 15%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-66%)} }
+  .dmg-vig{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad);
+    z-index:6; pointer-events:none; opacity:0; box-shadow:inset 0 0 120px 20px rgba(255,40,40,.7); transition:opacity .1s; }
+  .toggles{ position:fixed; z-index:6; top:calc(var(--bezTop) + 8px); left:50%; transform:translateX(-50%); display:none; gap:8px; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink); background:rgba(2,10,14,.7); border:1px solid rgba(120,180,200,.3); border-radius:999px; padding:7px 11px; }
+  .tg.off{ opacity:.5; }
+  .controls{ position:fixed; z-index:5; left:50%; bottom:calc(var(--bez) + 10px); transform:translateX(-50%); display:none; gap:6px 11px; flex-wrap:wrap;
+    justify-content:center; align-items:center; pointer-events:none; padding:7px 13px; border-radius:999px; max-width:70vw;
+    background:rgba(2,10,14,.42); border:1px solid rgba(120,180,200,.18); backdrop-filter:blur(2px); }
+  .key{ display:inline-flex; align-items:center; gap:5px; font-size:9px; letter-spacing:.04em; text-transform:uppercase; color:#bfe9d3; }
+  .key kbd{ font-family:var(--fat); font-size:9px; min-width:16px; text-align:center; padding:3px 5px; border-radius:5px;
+    color:#05121a; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
+  @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
+  .pad{ position:fixed; z-index:7; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none;
+    touch-action:none; align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; color:#05121a; opacity:.92; }
+  .pad.dn{ transform:scale(.92); filter:brightness(1.3); }
+  .btn-fire{ right:calc(var(--bez) + 18px); bottom:calc(var(--bez) + 74px); width:92px; height:92px; font-size:15px; color:#fff;
+    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 62%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 18px rgba(255,90,60,.5); }
+  .btn-jump{ right:calc(var(--bez) + 128px); bottom:calc(var(--bez) + 92px); width:64px; height:64px; font-size:10px; color:#04121f;
+    background:radial-gradient(circle at 40% 34%,#d8ffbe,#2bff80 62%,#0fae56); border:2px solid #063; box-shadow:0 0 14px rgba(43,255,128,.4); }
+  .tstick,.tstick-nub{ position:fixed; left:0; top:0; z-index:7; display:none; pointer-events:none; border-radius:50%; }
+  .tstick{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
+    background:radial-gradient(circle,rgba(39,247,228,.10),rgba(39,247,228,.03) 62%,transparent 72%);
+    box-shadow:0 0 18px rgba(39,247,228,.28), inset 0 0 14px rgba(39,247,228,.15); }
+  .tstick-nub{ width:52px; height:52px; margin:-26px 0 0 -26px; border:2px solid #06413f;
+    background:radial-gradient(circle at 42% 36%,#bffef5,#27f7e4 60%,#0c9d94); box-shadow:0 0 16px rgba(39,247,228,.6); }
+  @media (hover:none){ .pad{ display:flex; } .hud-br{ bottom:calc(var(--bez) + 252px); }
+    .weap-slots{ pointer-events:auto; } .wslot{ font-size:11px; padding:10px 12px; } }
+  body.touchmode .pad{ display:flex; } body.touchmode .hud-br{ bottom:calc(var(--bez) + 252px); }
+  body.touchmode .weap-slots{ pointer-events:auto; } body.touchmode .wslot{ font-size:11px; padding:10px 12px; }
+  /* overlays */
+  .ov{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad); z-index:10; display:none; place-items:center; padding:18px 14px; overflow:auto;
+    background:radial-gradient(120% 100% at 50% 26%, rgba(10,22,32,.74), rgba(1,3,6,.96)); backdrop-filter:blur(3px); }
+  .ov.show{ display:grid; }
+  .panel{ width:min(560px,96vw); text-align:center; }
+  .ov h1{ font-family:var(--fat); font-size:clamp(28px,9vw,66px); letter-spacing:.01em; line-height:.95;
+    background:linear-gradient(180deg,#fff,var(--cyan) 40%,var(--magenta) 74%,var(--amber));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 #0a2233) drop-shadow(0 0 26px rgba(39,247,228,.45)); }
+  .tag{ font-size:11.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:8px 0 2px; }
+  .sub{ font-size:12.5px; color:#bfe9d3; max-width:490px; margin:6px auto 14px; line-height:1.55; }
+  .sub b{ color:var(--amber); }
+  .wbox{ background:rgba(4,12,16,.66); border:1px solid rgba(120,180,200,.22); border-radius:14px; padding:14px; margin:10px auto; text-align:left; }
+  .wrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:9px 0; flex-wrap:wrap; }
+  .wlbl{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8fcfe0; }
+  .step{ display:inline-flex; align-items:center; gap:9px; }
+  .step button{ width:30px; height:30px; border-radius:8px; cursor:pointer; font-family:var(--fat); font-size:16px; color:#05121a; border:1px solid #063;
+    background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); }
+  .step .val{ font-family:var(--fat); font-size:16px; color:var(--amber); min-width:74px; text-align:center; }
+  .pchips{ display:flex; gap:6px; flex-wrap:wrap; }
+  .pchip{ cursor:pointer; font-family:var(--fat); font-size:13px; color:var(--ink); border:1px solid rgba(120,180,200,.3); border-radius:9px; padding:7px 11px;
+    background:rgba(2,10,14,.6); }
+  .pchip.on{ color:#05121a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border-color:#063; }
+  .lchip{ cursor:pointer; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--ink); border:1px solid rgba(120,180,200,.3); border-radius:8px; padding:6px 9px;
+    background:rgba(2,10,14,.6); }
+  .lchip.on{ color:#05121a; background:linear-gradient(180deg,#bfe8ff,#59baff 60%,#1f6fc0); border-color:#0a2b52; }
+  .cardsHd{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8fcfe0; margin:12px 0 6px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:7px; max-height:198px; overflow:auto; padding:3px; }
+  .tile{ position:relative; border-radius:9px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; border:1.5px solid rgba(120,180,200,.28);
+    background:#0a1018; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .rr{ position:absolute; top:3px; left:3px; z-index:2; font-size:7px; letter-spacing:.08em; text-transform:uppercase; padding:1px 4px; border-radius:4px;
+    background:rgba(2,6,8,.78); color:var(--rc); border:1px solid var(--rc); }
+  .tile .mult{ position:absolute; bottom:3px; right:3px; z-index:2; font-family:var(--fat); font-size:9px; color:#05121a; background:var(--amber); border-radius:4px; padding:1px 4px; }
+  .tile .stk{ position:absolute; inset:0; z-index:3; display:none; align-items:center; justify-content:center; font-family:var(--fat); font-size:16px;
+    color:#05121a; background:linear-gradient(180deg,rgba(43,255,128,.82),rgba(15,174,86,.82)); }
+  .tile.sel{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime),0 0 16px rgba(43,255,128,.5); } .tile.sel .stk{ display:flex; }
+  .cardsInfo{ font-size:11px; color:#7fd8a8; margin-top:6px; text-align:center; }
+  .pot{ font-family:var(--fat); font-size:clamp(15px,4vw,22px); text-align:center; margin:12px 0 2px;
+    color:var(--amber); text-shadow:0 0 14px rgba(255,210,59,.5); }
+  .pot b{ color:var(--cyan); } .pot .c{ color:var(--magenta); }
+  .roster{ font-size:11px; color:#9fe6c8; margin:4px auto 2px; text-align:center; line-height:1.6; }
+  .roster .v{ color:var(--amber); }
+  .go{ font-family:var(--fat); font-size:15px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+    padding:15px 22px; border-radius:12px; border:2px solid #5c0a2c; margin:5px; color:#fff; width:min(460px,92vw);
+    background:linear-gradient(180deg,#ff9a6b,#ff5a3c 55%,#c22); box-shadow:0 6px 0 #5c0a2c,0 0 22px rgba(255,90,60,.5); }
+  .go.alt{ background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); color:#05121a; border-color:#063; box-shadow:0 6px 0 #063,0 0 20px rgba(43,255,128,.4); }
+  .go:active{ transform:translateY(4px); box-shadow:0 2px 0 #5c0a2c; } .go.alt:active{ box-shadow:0 2px 0 #063; }
+  .go[disabled]{ filter:grayscale(.7) brightness(.68); cursor:not-allowed; }
+  .mininote{ font-size:11px; color:#7fd8a8; margin-top:8px; } .mininote a{ color:var(--lime); }
+  .prize{ background:rgba(4,12,16,.6); border:1px solid rgba(255,210,59,.3); border-radius:12px; padding:12px; margin:10px auto; max-width:440px; }
+  .prize .big{ font-family:var(--fat); font-size:clamp(20px,6.4vw,36px); color:var(--lime); text-shadow:0 0 18px rgba(43,255,128,.55); }
+  .prize.lose .big{ color:var(--coral); text-shadow:0 0 18px rgba(255,90,60,.5); }
+  .scoreboard{ font-size:11px; color:#bfe9d3; margin:8px auto; max-width:360px; text-align:left; }
+  .scoreboard .r{ display:flex; justify-content:space-between; padding:3px 8px; border-bottom:1px dotted rgba(120,180,200,.25); }
+  .scoreboard .r.me{ color:var(--lime); } .scoreboard .r .k{ color:var(--amber); font-family:var(--fat); }
+  .scanote{ font-size:10.5px; color:#7fd8a8; margin-top:8px; line-height:1.5; }
+  /* engine readout — always on, because "is the update live" was the question every single time */
+  #eng{ position:fixed; left:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 12px); z-index:14; pointer-events:none;
+    font-size:10px; line-height:1.5; letter-spacing:.03em; color:#7fb6c6; text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000; display:none; }
+  body.showeng #eng{ display:block; }
   #boot{ position:fixed; inset:0; z-index:15; display:flex; align-items:center; justify-content:center;
     pointer-events:none; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--magenta);
-    text-shadow:0 0 14px rgba(255,42,217,.5); }
+    text-shadow:0 0 14px rgba(255,42,217,.5); text-align:center; padding:0 18px; }
   #boot:empty{ display:none; }
-  #keys{ position:fixed; right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 12px); z-index:14; pointer-events:none;
-    font-size:10px; line-height:1.6; text-align:right; color:#6f8a95; text-shadow:0 1px 2px #000; }
-  #cross{ position:fixed; left:50%; top:calc(var(--bezTop) + (100vh - var(--bezTop) - var(--bez))/2); z-index:14;
-    width:3px; height:3px; margin:-1.5px 0 0 -1.5px; border-radius:50%; background:rgba(255,255,255,.75);
-    box-shadow:0 0 6px rgba(0,0,0,.9); pointer-events:none; }
-  #warn{ position:fixed; left:0; right:0; bottom:0; z-index:16; padding:5px 10px; text-align:center;
-    font-family:var(--fat); font-size:9px; letter-spacing:.24em; text-transform:uppercase;
-    color:#08121a; background:linear-gradient(90deg,#ff2ad9,#27f7e4); }
+  /* ── the no-WebGL2 state. PlayCanvas has NO software path, so this build cannot fall back to a
+       2D renderer the way section9.html does. That is a real cost of taking the engine, and the
+       honest answer is to SAY SO and point at the build that still runs. ── */
+  #nogl{ position:fixed; inset:0; z-index:40; display:none; place-items:center; padding:24px; text-align:center;
+    background:radial-gradient(120% 100% at 50% 20%, rgba(10,22,32,.92), rgba(1,3,6,.99)); }
+  #nogl.show{ display:grid; }
+  #nogl .panel{ max-width:480px; }
+  #nogl h2{ font-family:var(--fat); font-size:clamp(18px,5vw,28px); color:var(--coral); letter-spacing:.04em; }
+  #nogl p{ font-size:12.5px; color:#bfe9d3; line-height:1.6; margin:12px 0; }
+  #nogl a{ color:var(--lime); }
 </style>
 <script src="gate.js"></script>
 </head>
 <body>
   <canvas id="pcv"></canvas>
-  <div class="bezel"></div>
-  <div class="marquee"><span>Section 9</span><span class="dot">◆</span><span>PlayCanvas prototype</span><span class="dot">◆</span><span>not the game</span></div>
-  <div class="crt"><div class="crt-scan"></div><div class="crt-curve"></div></div>
-  <div id="cross"></div>
-  <div id="hud"></div>
-  <div id="keys">click to lock · WASD move<br>shift sprint · space jump<br>mouse look</div>
+  <canvas id="ov2d"></canvas>
+  <div class="crt" aria-hidden="true"><div class="crt-curve"></div><div class="crt-scan"></div></div>
+  <div class="dmg-vig" id="dmgVig" aria-hidden="true"></div>
+  <div class="bezel" aria-hidden="true"></div>
+  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+  <div class="marquee" aria-hidden="true"><img src="SECTION_9_TASKFORCE_SUPERGAME_LOGO.png" alt="Section 9 Taskforce Supergame" style="height:clamp(20px,4.6vh,48px);width:auto;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8))"></div>
+
+  <div class="hud hud-tl" id="hudTL" style="display:none">
+    <div class="h-frag"><span id="fMe">0</span><small>your frags</small></div>
+  </div>
+  <div class="hud hud-tr" id="hudTR" style="display:none">
+    <div class="h-timer" id="hTimer">2:30</div>
+    <div class="h-lead">leader · <b id="leadName">—</b> <span id="leadNum">0</span></div>
+    <div class="h-lead"><b id="aliveN">0</b> operatives live</div>
+  </div>
+  <div class="killfeed" id="killfeed" style="display:none"></div>
+  <div class="comms" id="comms" style="display:none"></div>
+  <div class="hud hud-bl" id="hudBL" style="display:none">
+    <div class="h-vitals h-hp"><span class="h-lbl">health</span> <b id="hpNum">150</b></div>
+    <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill hp-fill" id="hpFill"></div></div></div>
+    <div class="h-vitals h-ar" style="margin-top:5px"><span class="h-lbl">armor</span> <b id="arNum">60</b></div>
+    <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill ar-fill" id="arFill"></div></div></div>
+    <div class="h-lbl" style="margin-top:6px">sprint</div>
+    <div class="stat-wrap"><div class="stat-bar" style="height:6px"><div class="stat-fill bo-fill" id="boFill"></div></div></div>
+    <div class="h-lbl" id="hMkt" style="margin-top:6px;color:#59e0ff;letter-spacing:.04em"></div>
+  </div>
+  <div class="hud hud-br" id="hudBR" style="display:none">
+    <div class="ammo"><span class="mag" id="magNum">12</span> <span class="res" id="resNum">/ ∞</span></div>
+    <div class="weap-name" id="weapName">RIP-9 PISTOL</div>
+    <div class="weap-slots" id="weapSlots"></div>
+  </div>
+  <div class="powmsg" id="powMsg"></div>
+  <div id="eng"></div>
   <div id="boot">booting engine…</div>
-  <div id="warn">Engine evaluation build — section9.html is the real game and is unchanged</div>
+
+  <div class="toggles" id="toggles"><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx">🔊 sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
+
+  <div class="tstick" id="tsBase" aria-hidden="true"></div>
+  <div class="tstick-nub" id="tsNub" aria-hidden="true"></div>
+  <div class="pad btn-fire" id="padFire">FIRE</div>
+  <div class="pad btn-jump" id="padJump">JUMP</div>
+
+  <div class="controls" id="controls">
+    <span class="key desk"><kbd>WASD</kbd> move</span>
+    <span class="key desk"><kbd>MOUSE</kbd> look</span>
+    <span class="key desk"><kbd>LMB</kbd> fire</span>
+    <span class="key desk"><kbd>RMB</kbd> aim / zoom</span>
+    <span class="key desk"><kbd>⇧</kbd> run</span>
+    <span class="key desk"><kbd>ALT</kbd> jump</span>
+    <span class="key desk"><kbd>MMB</kbd> · <kbd>R</kbd> reload</span>
+    <span class="key desk"><kbd>1-4</kbd> weapon</span>
+    <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP · dbl-tap FIRE = reload</span>
+  </div>
+
+  <!-- LOBBY / WAGER -->
+  <div class="ov show" id="ovLobby">
+    <div class="panel">
+      <h1 aria-label="Section 9 Taskforce Supergame" style="filter:none;background:none;-webkit-text-fill-color:initial"><img src="SECTION_9_TASKFORCE_SUPERGAME_LOGO.png" alt="Section 9 Taskforce Supergame" style="width:min(92%,540px);height:auto;display:block;margin:0 auto;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))"></h1>
+      <div class="tag">engine build · most frags takes the pot</div>
+      <div class="sub">Drop into a <b>walled arena</b> and rack up frags. Everyone antes <b>$UR3030</b> and stakes cards into one pot — <b>most frags when the clock runs out</b> takes everything. Infinite respawns; a death is a setback, not the end.</div>
+
+      <div class="wbox">
+        <div class="wrow"><span class="wlbl">◈ ante · $UR3030 each</span>
+          <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
+        <div class="wrow"><span class="wlbl">◆ cards staked each</span>
+          <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
+        <div class="wrow"><span class="wlbl">⚔ operatives in the match</span>
+          <span class="pchips" id="pChips"></span></div>
+        <div class="wrow"><span class="wlbl">▣ spawn loadout</span>
+          <span class="pchips" id="lChips"></span></div>
+        <div class="wrow"><span class="wlbl">▦ arena</span>
+          <span class="pchips" id="mChips"></span></div>
+        <div class="wrow"><span class="wlbl">✦ quality</span>
+          <span class="pchips" id="qChips"></span></div>
+        <div class="mininote" id="buildNote" style="text-align:right;opacity:.55"></div>
+        <div class="cardsHd">pick your <span id="pickN">2</span> cards for the pot</div>
+        <div class="grid" id="cardGrid"></div>
+        <div class="cardsInfo" id="cardsInfo">0 owned</div>
+      </div>
+
+      <div class="pot" id="potLine"></div>
+      <div id="seatBox" style="max-width:440px;margin:10px auto 4px;width:100%"></div>
+      <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
+      <div class="roster" id="roster"></div>
+
+      <div><button class="go" id="btnAnte">🔥 Ante up &amp; deploy</button></div>
+      <div><button class="go alt" id="btnPractice">▶ Practice deathmatch (no stakes)</button></div>
+      <div class="mininote" id="lobNote"></div>
+      <div class="mininote"><a href="section9.html">◄ the shipping build (hand-rolled renderer)</a> · <a href="arcade.html">the arcade</a> · <a href="index.html">the pack</a></div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="ov" id="ovResult">
+    <div class="panel">
+      <h1 id="resTitle" style="font-size:clamp(28px,9vw,60px)">VICTORY</h1>
+      <div class="tag" id="resTag">most frags when the clock ran out</div>
+      <div class="prize" id="prizeBox">
+        <div class="big" id="prizeBig"></div>
+        <div class="h-lbl" style="letter-spacing:.2em; margin-top:6px" id="prizeSub"></div>
+        <div class="scoreboard" id="scoreboard"></div>
+      </div>
+      <div class="scanote" id="scaNote"></div>
+      <div style="margin-top:12px"><button class="go alt" id="btnLobby">▶ Back to the briefing</button></div>
+    </div>
+  </div>
+
+  <!-- PAUSE -->
+  <div class="ov" id="ovPause">
+    <div class="panel">
+      <h1 style="font-size:clamp(26px,8vw,54px)">PAUSED</h1>
+      <div class="sub" id="pauseSub">Pointer released. Click to lock the mouse and drop back in.</div>
+      <div><button class="go alt" id="btnResume">▶ Resume</button></div>
+      <div><button class="go" id="btnAbort">✕ Abort to briefing</button></div>
+    </div>
+  </div>
+
+  <div id="nogl">
+    <div class="panel">
+      <h2>This build needs WebGL 2</h2>
+      <p>Section 9's engine build renders through PlayCanvas, which has no software fallback — there
+      is no 2D path to drop back to, so rather than show you a black rectangle it says so.</p>
+      <p><b><a href="section9.html">Play the original build instead →</a></b><br>
+      Same arenas, same rules, same weapons. Its renderer is hand-rolled and degrades all the way
+      down to a canvas rasteriser, so it runs essentially anywhere.</p>
+      <p style="opacity:.6" id="noglWhy"></p>
+    </div>
+  </div>
+
+  <audio id="s9Music" loop preload="none" src="section9-theme.mp3"></audio>
 
   <script>if (new URLSearchParams(location.search).get('crt') === '1') document.body.classList.add('crt-on');</script>
-  <!-- third-party engine, MIT, vendored verbatim: vendor/playcanvas/LICENSE -->
-  <script src="vendor/playcanvas/playcanvas.min.js"></script>
-  <!-- OUR code, reused unmodified: the .wld parser, the level catalogue, the FPS poser,
-       and the one definition of "weak device" the shipping games share -->
+  <!-- shared site modules, unmodified -->
+  <script src="js/chain-config.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/wallet-ui.js"></script>
+  <script src="js/card-hover.js"></script>
+  <script src="js/arena-lobby.js"></script>
+  <script src="js/session.js"></script>
+  <script src="js/wager-payout.js"></script>
+  <script src="js/game-help.js"></script>
+  <script src="js/card-powers.js"></script>
   <script src="js/gfx-post.js"></script>
+  <script src="js/sfx-lib.js"></script>
   <script src="js/ronin-world.js"></script>
   <script src="js/section9-world.js"></script>
   <script src="js/section9-skin.js"></script>
-  <!-- the prototype -->
+  <script src="cards/arena-net.js"></script>
+  <!-- third-party engine, MIT, vendored verbatim: vendor/playcanvas/LICENSE -->
+  <script src="vendor/playcanvas/playcanvas.min.js"></script>
+  <!-- this build -->
+  <script src="js/s9pc-game.js"></script>
+  <script src="js/s9pc-ui.js"></script>
   <script src="js/s9pc-world.js"></script>
   <script src="js/s9pc-skin.js"></script>
+  <script src="js/s9pc-fx.js"></script>
   <script src="js/s9pc-app.js"></script>
 </body>
 </html>
