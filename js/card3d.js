@@ -318,8 +318,11 @@
     });
     app.start();
 
-    return {
-      app: app, root: root,
+    /* The parts are handed back by name so a headless check can switch ONE of them off and
+     * re-measure. Every tonal question on this card ("is the foil lifting the blacks or is it
+     * the specular?") is otherwise a guess, and guessing is how the wash survived two passes. */
+    var ctrl = {
+      app: app, root: root, art: art, back: back, fx: fx, holo: holo, key: key, rim: rim, body: body,
       setArt: setArt,
       setRarity: function (r) {
         var hex = RARITY[r] || RARITY.common, c = new pc.Color().fromString(hex);
@@ -328,6 +331,8 @@
       resize: fit,
       destroy: function () { removeEventListener('resize', onResize); try { app.destroy(); } catch (e) {} }
     };
+    global.__card3d = ctrl;
+    return ctrl;
   }
 
   global.Card3D = { engine: engine, build: build, RARITY: RARITY };

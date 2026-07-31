@@ -296,8 +296,26 @@ and performs WalletConnect burns — it is **NOT** for embedding.
 - ⚑ **Judge card colour by A/B, not by absolute numbers.** SwiftShader screenshots in this
   container are not colour-faithful, so a number off one screenshot means nothing. Shoot the 3D
   card AND the same artwork flat at the same pixel size through the SAME path, then decode both
-  PNGs in the browser (`getImageData` is exact) and compare. `readPixels` on the live canvas
-  returns zeros — no `preserveDrawingBuffer`, so the buffer is already cleared.
+  PNGs and compare. `readPixels` on the live canvas returns zeros — no `preserveDrawingBuffer`,
+  so the buffer is already cleared. ⚠ **Crop the same fraction OF THE ARTWORK, not of the frame**:
+  the art plate spans ~0.796 of the 3D frame (0.90×1.35 plate on a 1.0×1.5 card, 28° fov at
+  z 3.4) and 1.0 of the flat one, so a fixed crop compares different regions and invents a gap.
+- ⚑ **The card's colour pipeline is FAITHFUL — measured, and the residual is fully explained.**
+  Pushing known swatches through the emissive path: `0→0, 51→54, 128→127, 204→203, 255→255`,
+  and saturated colours survive (`204,0,102 → 203,0,102`). It is identity above ~50. Below that
+  it lifts, by up to +7 levels, and the curve matches to the integer: **the texture is decoded
+  with the true piecewise sRGB curve (hardware `PIXELFORMAT_SRGBA8`) and the frame is encoded
+  with a pure 2.2 power law.** `sRGB_decode(16)^(1/2.2) = 23`, `(32)→37`, `(8)→17`, `(64)→66` —
+  every measured value. It is confined to the toe and is the engine's own pipeline, shared with
+  every other object in every game here. **Do not "fix" it**; a saturation/contrast metric on a
+  card that is ~29% near-black swings hard on a +7 toe lift and will keep inviting a fix that
+  makes the artwork worse. (This is the card-35 lesson again: measure before believing the eye,
+  then stop.)
+- ⚑ **Isolate before tuning.** Switching the foil, the specular, the rim and the key light off
+  ONE AT A TIME moved the numbers by ≤0.3 — which is what proved the wash was not lighting and
+  sent the search to the colour path. `Card3D.build` returns the parts by name (`art`, `fx`,
+  `holo`, `key`, `rim`, `body`) and stashes the controller on `window.__card3d` precisely so a
+  headless check can do this instead of guessing.
 - ⚠ `display:inline-block` **beats the user agent's `[hidden]{display:none}`**. Any rule that
   sets `display` has to also say what hidden means, or hidden stops meaning anything.
 - ⚠ `pkill -f <pattern>` matches **the bash command line running it**, so a script that pkills
