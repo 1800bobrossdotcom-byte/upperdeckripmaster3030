@@ -410,3 +410,39 @@ ship. Point it at `S9Skin.pose`/`palette` directly before trusting the ranking.
 
 Bind pose reads exactly 1.000× on all six, so the harness's own arithmetic is sound — that check
 runs on every invocation and fails loudly.
+
+
+### The bake commands, finally recorded
+
+Reconstructed by sweeping until the triangle count matched the shipped file EXACTLY. This was the
+blocker: without it no asset change can be verified, because a re-bake at a different density is
+not comparable to what shipped.
+
+```
+node scripts/bake-fighter.mjs models/oni.obj   --detail 2.5 --skin models/oni.skn    # 5,804 tris
+node scripts/bake-fighter.mjs models/ronin.obj --detail 2.0 --skin models/ronin.skn  # 15,705 tris
+```
+
+⚠ Still unknown: how `kappa`/`prizm` (from oni.obj) and `doomer`/`kunoichi` (from ronin.obj) were
+produced — their triangle counts match neither source at these settings, so they are morph
+variants (`--ops`/`--amt`) whose parameters are not recorded. **They remain v1** and load through
+the canonical path unchanged.
+
+### v2 result — measured, like for like
+
+`npm run stretch`, same pose, same triangle counts:
+
+| | canonical skeleton (v1) | fitted skeleton (v2) | tris >10× |
+| --- | --- | --- | --- |
+| `oni` | 3.8× | **3.6×** | 0 → 0 |
+| `ronin` | 56.6× | **8.1×** | **79 → 0** |
+
+`ronin` is the mesh this was all about — a 7× reduction in worst-case tearing and every
+above-10× triangle gone. `oni` was already fine and stays fine, which is the other half of the
+result: the fit does not damage a mesh that already matched the canonical proportions. It
+measures `oni`'s shoulder at 0.802 and crotch at 0.480 against the canonical 0.80 / 0.50 — the
+measurement agreeing with the hand-authored table on the mesh that fits it.
+
+⚠ Absolute numbers here are HARSHER than the game's — the harness hinges bones independently
+where `S9Skin.palette` uses a hierarchy and shortest-arc. Read the columns against each other,
+not against a 3× bar.

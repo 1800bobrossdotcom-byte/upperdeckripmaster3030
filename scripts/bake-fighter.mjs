@@ -252,11 +252,25 @@ export function bakeSkin(meshes, outFile) {
     const armsOut = sB >= 0 && sMax > torsoW * 1.25;          // is there really a T-pose peak?
     if (!armsOut) { console.log('  bind: no lateral peak (not a T-pose?) — canonical proportions'); return CANON; }
 
-    let cB = -1;
-    for (let bi = Math.floor(BANDS * 0.12); bi < BANDS * 0.72; bi++)
-      if (pop[bi] && centre[bi] / pop[bi] > 0.12) { cB = bi; break; }
+    /* ⚑ FIND THE CROTCH BY SCANNING DOWN, NOT UP. The first version looked for the lowest band
+     * whose centre line is occupied and walked upward — which finds the ANKLES on any mesh whose
+     * feet sit near the centre line, so both meshes bottomed out on the clamp at 0.28 and the
+     * whole lower body was mis-rigged. Measured: it made the already-good `oni` worse (3.8x →
+     * 9.6x) while helping the toon, which is the signature of a fit that is right about the
+     * shoulders and wrong about the hips.
+     * The crotch is where the legs MERGE: coming down from the chest the centre line is solid,
+     * and below the crotch it opens into a gap between two legs. So walk down from just under
+     * the shoulder and stop at the first band where centre occupancy collapses. */
     const shoulderY = (sB + 0.5) / BANDS;
-    const crotchY = Math.max(0.28, Math.min(shoulderY - 0.14, cB >= 0 ? (cB + 0.5) / BANDS : 0.48));
+    let cB = -1;
+    const solid = bi => pop[bi] ? centre[bi] / pop[bi] : 0;
+    let ref = 0, nref = 0;
+    for (let bi = Math.floor(BANDS * 0.45); bi < sB; bi++) { ref += solid(bi); nref++; }
+    ref = nref ? ref / nref : 0.3;                       // how solid the torso's centre line is
+    for (let bi = Math.min(sB - 1, Math.floor(BANDS * 0.62)); bi > BANDS * 0.10; bi--) {
+      if (solid(bi) < ref * 0.45) { cB = bi + 1; break; }   // the band above the gap
+    }
+    const crotchY = Math.max(0.22, Math.min(shoulderY - 0.14, cB >= 0 ? (cB + 0.5) / BANDS : 0.48));
     const reach = sMax * 0.98, crown = 1.0, ankle = 0.04;
     const halfT = Math.max(0.06, Math.min(reach * 0.45, torsoW));
     const legX = Math.max(0.045, halfT * 0.45);
