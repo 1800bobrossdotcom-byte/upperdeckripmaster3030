@@ -678,7 +678,8 @@
     if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(rap?46:82)/rt; if(s.burstQ<=0)s.burstCool=now+(rap?240:480)/rt; } return; }
     if(want && now>=(s.burstCool||0)){ s.burstQ=((s.weapon>=3||rap)?4:3); s.burstNext=0; } }
   function boom(x,y,alt,tint,big){ const n=big?26:12; for(let i=0;i<n;i++) G.bursts.push({x,y,alt:(alt||0)+rnd(0.4,-0.2),vx:rnd(6,-6),vy:rnd(6,-6),va:rnd(4,-1),life:1,col:tint});
-    G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)(); }
+    G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)();
+    if(big&&sfxOn&&window.RipSfx) RipSfx.play('bass',0.5); }   // a kill DROPS — recorded low end under the synth boom
 
   // live $UR3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
   function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }

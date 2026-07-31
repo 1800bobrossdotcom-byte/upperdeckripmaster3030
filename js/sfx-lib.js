@@ -21,6 +21,7 @@ window.RipSfx = (function () {
     attachMachine: { base: 'sfx/attach/Attachments_Machine_', n: 8,  vol: 0.50 },
     attachSmall:   { base: 'sfx/attach/Attachments_Small_',   n: 10, vol: 0.45 },
     nvg:           { base: 'sfx/nvg/Night_Vision_',           n: 4,  vol: 0.60 },
+    bass:          { base: 'sfx/bass/Bass_Drop_Clean_',       n: 11, vol: 0.65 },
   };
   const cache = {};
   let on = true;
