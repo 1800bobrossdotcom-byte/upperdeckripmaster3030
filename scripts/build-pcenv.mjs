@@ -19,8 +19,13 @@
  * carries a shared multiplier, and `decodeRGBM` recovers `rgb * a * 8`. That keeps a sun
  * thousands of times brighter than the sky — which an LDR JPEG of the same view would clip to
  * white, silently destroying the lighting we came for — inside a file the browser already knows
- * how to decode. 1024×512 is the resolution that survives being prefiltered into a 512 atlas;
- * anything larger is thrown away by the first mip.
+ * how to decode.
+ *
+ * ⚠ RGBM8's ceiling is 8.0 and PlayCanvas's decode multiplier is fixed, so the sun DISC clips:
+ *   preller_drive peaks at 10,992 and 33 of 131,072 pixels land over range. That is acceptable
+ *   here and only here — the scene has a real directional sun doing the key and the specular
+ *   highlight, and the map is used for FILL. It would not be acceptable if the map were the only
+ *   light. The count is recorded in every sidecar .json so the trade is visible, not assumed.
  *
  * LICENCE. Poly Haven is CC0 and verified as such in docs/CC0-SOURCES.md (evidence class A).
  * The authors are recorded in the sidecar .json anyway, because CC0 requires no attribution and

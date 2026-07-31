@@ -399,8 +399,18 @@
     clearLevel();
     const OPEN = !!MAP.open;
     setEnvironment(OPEN);
-    if (Q.get('hdri') && Q.get('hdri') !== 'proc') {
-      loadHdri(Q.get('hdri')).then(E => { app.scene.envAtlas = E.atlas; app.scene.skybox = E.sky; envName = Q.get('hdri'); })
+    /* ⚑ OUTDOORS GETS THE REAL CAPTURE. `models/env/preller_drive.png` is 350 KB of CC0 Poly Haven
+     * sky (provenance in the sidecar .json), and against a procedural gradient it is not a subtle
+     * difference: a captured sky has direction and colour VARIATION in it, so a wall facing one
+     * way picks up warm haze and a wall facing the other picks up cool zenith, which is most of
+     * why a reference render reads as real. Interiors keep the generated probe — inside a concrete
+     * box the fill is bounce off six close surfaces, not sky, and the tuned two-cubemap trick is a
+     * better model of that than any capture of an outdoor scene. Low tier skips it for the bytes.
+     * `?hdri=proc` opts out; `?hdri=<slug>` picks another. Every failure falls back silently. */
+    const wantHdri = Q.has('hdri') ? (Q.get('hdri') === 'proc' ? null : Q.get('hdri'))
+                                   : ((OPEN && TIER !== 'low') ? 'preller_drive' : null);
+    if (wantHdri) {
+      loadHdri(wantHdri).then(E => { app.scene.envAtlas = E.atlas; app.scene.skybox = E.sky; envName = wantHdri; })
         .catch(e => console.warn('[s9pc] hdri:', e && e.message));
     }
     sun.light.color = OPEN ? new pc.Color(1.00, 0.86, 0.60) : new pc.Color(0.84, 0.90, 1.00);
