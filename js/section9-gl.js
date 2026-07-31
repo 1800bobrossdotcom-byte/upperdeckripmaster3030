@@ -197,12 +197,56 @@ window.GLR = (function () {
     for (let r = 0; r < rows; r++) { const off = (r % 2) ? cw / 2 : 0;
       for (let c = 0; c <= cols; c++) { let cx = ((c * cw + off) % S + S) % S; x.beginPath(); x.moveTo(cx, r * rh); x.lineTo(cx, (r + 1) * rh); x.stroke(); }
       for (let c = 0; c < cols; c++) { const bx = c * cw + off; x.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '0,0,0' : '255,240,210') + ',' + (0.03 + Math.random() * 0.05).toFixed(2) + ')'; x.fillRect(bx + 2, r * rh + 2, cw - 4, rh - 4); } }
-    x.strokeStyle = 'rgba(255,240,205,0.32)'; x.lineWidth = 1; for (let r = 1; r < rows; r++) { x.beginPath(); x.moveTo(0, r * rh + 2); x.lineTo(S, r * rh + 2); x.stroke(); } }
+    x.strokeStyle = 'rgba(255,240,205,0.32)'; x.lineWidth = 1; for (let r = 1; r < rows; r++) { x.beginPath(); x.moveTo(0, r * rh + 2); x.lineTo(S, r * rh + 2); x.stroke(); }
+    grimeWall(x, S); }
+  /* ── GRIME ────────────────────────────────────────────────────────────────────────────────
+   * The tile was clean masonry: a perfect brick grid with even speckle, which at any distance
+   * reads as wallpaper. Real surfaces are dirty in a DIRECTIONAL way — walls streak downward
+   * from wherever water ran, floors wear in patches where people walk — and it is that direction
+   * that stops the eye reading a repeat. Kept inside the existing 256px tile so nothing about
+   * memory, mip chains or draw calls changes. */
+  function grimeWall(x, S) {
+    x.save();
+    for (let i = 0; i < 26; i++) {                                  // weep streaks running down
+      const sx = Math.random() * S, w = 2 + Math.random() * 9, top = Math.random() * S * 0.5, len = S * (0.25 + Math.random() * 0.7);
+      const g = x.createLinearGradient(0, top, 0, top + len);
+      g.addColorStop(0, 'rgba(48,38,26,0.24)'); g.addColorStop(0.35, 'rgba(48,38,26,0.13)'); g.addColorStop(1, 'rgba(48,38,26,0)');
+      x.fillStyle = g; x.fillRect(sx, top, w, len);
+    }
+    for (let i = 0; i < 9; i++) {                                   // damp blotches
+      const cx = Math.random() * S, cy = Math.random() * S, r = 12 + Math.random() * 46;
+      const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, 'rgba(36,30,22,0.16)'); g.addColorStop(1, 'rgba(36,30,22,0)');
+      x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+    }
+    for (let i = 0; i < 5; i++) {                                   // chips: exposed pale aggregate
+      const cx = Math.random() * S, cy = Math.random() * S, r = 2 + Math.random() * 5;
+      x.fillStyle = 'rgba(236,226,198,0.30)'; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+      x.fillStyle = 'rgba(30,24,16,0.28)'; x.beginPath(); x.arc(cx + r * 0.4, cy + r * 0.5, r * 0.8, 0, 7); x.fill();
+    }
+    x.restore();
+  }
+  function grimeFloor(x, S) {
+    x.save();
+    for (let i = 0; i < 7; i++) {                                   // worn / wet patches
+      const cx = Math.random() * S, cy = Math.random() * S, r = 20 + Math.random() * 60;
+      const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, 'rgba(30,26,20,0.20)'); g.addColorStop(0.7, 'rgba(30,26,20,0.07)'); g.addColorStop(1, 'rgba(30,26,20,0)');
+      x.fillStyle = g; x.beginPath(); x.arc(cx, cy, r, 0, 7); x.fill();
+    }
+    x.strokeStyle = 'rgba(28,22,16,0.16)'; x.lineWidth = 1.6;       // drag marks / scuffs
+    for (let i = 0; i < 16; i++) { const sx = Math.random() * S, sy = Math.random() * S, a = Math.random() * 7, l = 12 + Math.random() * 60;
+      x.beginPath(); x.moveTo(sx, sy); x.lineTo(sx + Math.cos(a) * l, sy + Math.sin(a) * l); x.stroke(); }
+    for (let i = 0; i < 400; i++) { x.fillStyle = 'rgba(20,16,12,' + (0.04 + Math.random() * 0.07).toFixed(2) + ')';
+      x.fillRect(Math.random() * S, Math.random() * S, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+    x.restore();
+  }
   function drawFloor(x, S) { x.fillStyle = '#c2b078'; x.fillRect(0, 0, S, S);
     for (let i = 0; i < 3200; i++) { const v = Math.random(); x.fillStyle = 'rgba(' + (v < 0.5 ? '92,78,52' : '212,198,152') + ',' + (0.05 + Math.random() * 0.06).toFixed(2) + ')'; x.fillRect(Math.random() * S, Math.random() * S, 1.6, 1.6); }
     const n = 4, cs = S / n; x.strokeStyle = 'rgba(68,56,38,0.8)'; x.lineWidth = 2.6;
     for (let i = 0; i <= n; i++) { x.beginPath(); x.moveTo(i * cs, 0); x.lineTo(i * cs, S); x.moveTo(0, i * cs); x.lineTo(S, i * cs); x.stroke(); }
-    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { x.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '0,0,0' : '255,245,215') + ',' + (0.03 + Math.random() * 0.05).toFixed(2) + ')'; x.fillRect(a * cs + 3, b * cs + 3, cs - 6, cs - 6); } }
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) { x.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '0,0,0' : '255,245,215') + ',' + (0.03 + Math.random() * 0.05).toFixed(2) + ')'; x.fillRect(a * cs + 3, b * cs + 3, cs - 6, cs - 6); }
+    grimeFloor(x, S); }
   function drawCrate(x, S) { x.fillStyle = '#966d3c'; x.fillRect(0, 0, S, S);
     const p = 6, pw = S / p; for (let i = 0; i < p; i++) { x.fillStyle = 'rgba(' + (i % 2 ? '120,86,48' : '150,109,60') + ',0.5)'; x.fillRect(i * pw, 0, pw, S);
       x.strokeStyle = 'rgba(50,34,18,0.7)'; x.lineWidth = 2; x.beginPath(); x.moveTo(i * pw, 0); x.lineTo(i * pw, S); x.stroke(); }
@@ -214,6 +258,70 @@ window.GLR = (function () {
     x.fillStyle = 'rgba(30,26,16,0.85)'; for (let i = -S; i < S * 2; i += 28) { x.beginPath(); x.moveTo(i, by); x.lineTo(i + bh, by + bh); x.lineTo(i + bh + 14, by + bh); x.lineTo(i + 14, by); x.closePath(); x.fill(); }
     x.fillStyle = 'rgba(30,36,20,0.9)'; for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) { if (Math.random() < 0.5) continue; x.beginPath(); x.arc((a + 0.5) * S / 4, (b + 0.5) * S / 4, 3, 0, 7); x.fill(); }
     x.strokeStyle = 'rgba(30,36,20,0.9)'; x.lineWidth = 6; x.strokeRect(3, 3, S - 6, S - 6); }
+  /* ── GRAFFITI ─────────────────────────────────────────────────────────────────────────────
+   * Wholly generated marks: a seeded stroke path built from a chain of random control points,
+   * laid down as a fat outline, a colour fill and a highlight, then dripped and oversprayed —
+   * the mechanics of a spray tag rather than a copy of one. Nothing here is traced, sampled or
+   * derived from anyone's work, which is the only kind of graffiti this repo can ship.
+   *
+   * `seed` picks both the path and the palette, so the same wall carries the same tag on every
+   * load instead of re-rolling each time the map builds. */
+  const TAGPAL = [
+    ['#ff2ad9', '#2bff80', '#0a0510'], ['#59e0ff', '#ffd23b', '#06101a'],
+    ['#ff6b57', '#ffe6a8', '#180806'], ['#b47bff', '#8ffff0', '#0d0618'],
+    ['#2bff80', '#ffffff', '#04120a'], ['#ffd23b', '#ff2ad9', '#160c02'],
+  ];
+  function tagRand(seed) { let s = (seed | 0) * 1103515245 + 12345;
+    return () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; }; }
+  function drawTag(x, S, seed) {
+    const R = tagRand(seed + 7), P = TAGPAL[Math.floor(R() * TAGPAL.length) % TAGPAL.length];
+    x.clearRect(0, 0, S, S);
+    // one continuous whip of a path across the middle of the panel
+    const segs = 5 + Math.floor(R() * 4), pts = [];
+    for (let i = 0; i <= segs; i++) {
+      pts.push([S * (0.10 + 0.80 * (i / segs)) + (R() - 0.5) * S * 0.05,
+                S * (0.30 + 0.40 * R())]);
+    }
+    const path = () => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+        x.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      x.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); };
+    x.lineJoin = x.lineCap = 'round';
+    // overspray halo first — the soft mist a can leaves around the stroke
+    x.save(); x.globalAlpha = 0.22; x.shadowColor = P[0]; x.shadowBlur = S * 0.10;
+    x.strokeStyle = P[0]; x.lineWidth = S * 0.20; path(); x.stroke(); x.restore();
+    x.strokeStyle = P[2]; x.lineWidth = S * 0.185; path(); x.stroke();          // outline
+    x.strokeStyle = P[0]; x.lineWidth = S * 0.125; path(); x.stroke();          // fill
+    x.strokeStyle = P[1]; x.lineWidth = S * 0.034;                              // highlight, offset up-left
+    x.save(); x.translate(-S * 0.012, -S * 0.016); x.globalAlpha = 0.85; path(); x.stroke(); x.restore();
+    // drips
+    x.strokeStyle = P[0]; x.globalAlpha = 0.75;
+    for (let i = 0; i < 4 + Math.floor(R() * 4); i++) {
+      const p = pts[1 + Math.floor(R() * (pts.length - 2))], len = S * (0.05 + R() * 0.18);
+      x.lineWidth = S * (0.008 + R() * 0.012);
+      x.beginPath(); x.moveTo(p[0], p[1] + S * 0.04); x.lineTo(p[0], p[1] + S * 0.04 + len); x.stroke();
+      x.beginPath(); x.arc(p[0], p[1] + S * 0.04 + len, x.lineWidth * 0.9, 0, 7); x.fillStyle = P[0]; x.fill();
+    }
+    // a couple of hard slashes / stars for punctuation
+    x.globalAlpha = 0.9; x.strokeStyle = P[1]; x.lineWidth = S * 0.02;
+    for (let i = 0; i < 2 + Math.floor(R() * 3); i++) {
+      const cx = S * (0.1 + 0.8 * R()), cy = S * (0.2 + 0.6 * R()), r = S * (0.03 + R() * 0.05), a = R() * 7;
+      x.beginPath(); x.moveTo(cx - Math.cos(a) * r, cy - Math.sin(a) * r); x.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); x.stroke();
+    }
+    x.globalAlpha = 1;
+  }
+  // alpha texture, clamped (a tag is one decal, not a repeat)
+  function makeTexA(size, draw) {
+    const c = document.createElement('canvas'); c.width = c.height = size; draw(c.getContext('2d'), size);
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    return t;
+  }
   function drawHole(x, S) { x.clearRect(0, 0, S, S); const c = S / 2;
     const g = x.createRadialGradient(c, c, 0, c, c, c); g.addColorStop(0, 'rgba(10,8,6,0.96)'); g.addColorStop(0.4, 'rgba(22,18,13,0.82)'); g.addColorStop(0.7, 'rgba(44,37,28,0.4)'); g.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = g; x.beginPath(); x.arc(c, c, c, 0, 7); x.fill();
@@ -283,6 +391,49 @@ window.GLR = (function () {
     const push = (p, u, v) => a.push(p[0], p[1], p[2], N[0], N[1], N[2], u, v, col[0], col[1], col[2]);
     push(bl, 0, 0); push(br, 1, 0); push(tr, 1, 1); push(bl, 0, 0); push(tr, 1, 1); push(tl, 0, 1);
   }
+  /* ── tag placement ────────────────────────────────────────────────────────────────────────
+   * Both map kinds carry the same thing — MAP.solids, a list of axis-aligned boxes — so one
+   * implementation tags a hand-built arena and a baked level alike. Candidates are box faces
+   * tall enough and wide enough to hold a tag; the pick is seeded from the map NAME, so a given
+   * arena wears the same tags in the same places every load rather than reshuffling on rebuild. */
+  let tags = null;
+  function clearTags() { if (!tags) return; for (const t of tags.q) gl.deleteBuffer(t.vbo); tags = null; }
+  function buildTags(MAP) {
+    clearTags();
+    if (!tex.tags || !tex.tags.length || !MAP.solids || !MAP.solids.length) return;
+    let seed = 0; for (const ch of String(MAP.name || '')) seed = (seed * 31 + ch.charCodeAt(0)) & 0xffff;
+    const R = tagRand(seed + 3);
+    const faces = [];
+    for (const b of MAP.solids) {
+      const hgt = b.y1 - b.y0; if (hgt < 2.2) continue;             // needs a wall, not a crate
+      const wx = b.x1 - b.x0, wz = b.z1 - b.z0;
+      const cy = b.y0 + Math.min(1.85, hgt * 0.42);
+      if (wx >= 2.6) { faces.push({ c: [(b.x0 + b.x1) / 2, cy, b.z0], n: [0, 0, -1], r: [1, 0, 0], w: wx });
+                       faces.push({ c: [(b.x0 + b.x1) / 2, cy, b.z1], n: [0, 0, 1], r: [1, 0, 0], w: wx }); }
+      if (wz >= 2.6) { faces.push({ c: [b.x0, cy, (b.z0 + b.z1) / 2], n: [-1, 0, 0], r: [0, 0, 1], w: wz });
+                       faces.push({ c: [b.x1, cy, (b.z0 + b.z1) / 2], n: [1, 0, 0], r: [0, 0, 1], w: wz }); }
+    }
+    if (!faces.length) return;
+    const want = Math.max(4, Math.min(16, Math.round(faces.length * 0.10)));
+    const q = [], used = {};
+    for (let i = 0; i < want * 4 && q.length < want; i++) {
+      const k = Math.floor(R() * faces.length); if (used[k]) continue; used[k] = 1;
+      /* Size matters more than count. The first pass drew 1 m tags and at any playable distance
+       * they were coloured flecks; a real tag is a couple of metres of wall and reads across a
+       * room, which is the entire point of putting them there. */
+      const f = faces[k], hw = Math.min(2.6, Math.max(1.1, f.w * 0.42)), hh = hw * 0.52;
+      const off = 0.045, C = [f.c[0] + f.n[0] * off, f.c[1], f.c[2] + f.n[2] * off];
+      // slide the tag along the face so they are not all dead-centre
+      const slide = (R() - 0.5) * Math.max(0, f.w - hw * 2.4);
+      C[0] += f.r[0] * slide; C[2] += f.r[2] * slide;
+      const a = []; posterQuad(a, C, f.r, f.n, hw, hh, [1, 1, 1]);
+      const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(a), gl.STATIC_DRAW);
+      q.push({ vbo, count: a.length / STRIDE, tex: tex.tags[Math.floor(R() * tex.tags.length) % tex.tags.length] });
+    }
+    if (q.length) tags = { q };
+  }
+
   let posters = null;
   function clearPosters() {
     if (!posters) return;
@@ -395,7 +546,7 @@ window.GLR = (function () {
   function buildMap(MAP) {
     if (!ok) return;
     for (const b of batches) gl.deleteBuffer(b.vbo);
-    batches = [];
+    batches = []; clearTags();
     // ── baked level: draw the authored triangles. The .cols.json boxes are still the collision
     //    truth in the game, they are just not what you look at. No floor plane (the mesh has
     //    floors of its own, at whatever height they were authored) and no wall posters (they hang
@@ -407,6 +558,7 @@ window.GLR = (function () {
       clearPosters();
       const span = Math.max(MAP.x1 - MAP.x0, MAP.z1 - MAP.z0);
       fogFar = Math.max(54, Math.min(190, span * 0.95)); fogNear = fogFar * 0.34; viewFar = fogFar * 1.15;
+      buildTags(MAP);
       /* Cool the distance haze. ENV.fog is a warm dusk chosen for the six open arenas; these
        * levels are interiors lit from a skylight, and warm fog inside a concrete pit reads as
        * dust rather than depth. Only baked levels get this — the built-ins keep ENV.fog. */
@@ -433,7 +585,7 @@ window.GLR = (function () {
     for (const b of MAP.solids) { const m = matForKind(b.kind); box(A[m], b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, TILE[m], WHITE); }
     for (const k of MATS) if (A[k].length) batches.push(Object.assign({ mat: 0, matS: 1, rim: 0 }, PLAIN[k], makeVBO(A[k])));
     fogNear = 16; fogFar = 54; viewFar = 60; fogCol = null; lightOv = null; ambOv = null; skyOv = null;
-    buildPosters(MAP);
+    buildPosters(MAP); buildTags(MAP);
   }
 
   // ── oriented geometry for rigs (limb boxes + axis boxes) ──
@@ -659,6 +811,7 @@ window.GLR = (function () {
     tex.wall = makeTex(256, drawWall); tex.floor = makeTex(256, drawFloor); tex.crate = makeTex(256, drawCrate); tex.ammo = makeTex(256, drawAmmo); tex.white = whiteTex();
     tex.hole = makeTex(64, drawHole); tex.scorch = makeTex(64, drawScorch); tex.shadow = makeTex(64, drawShadow);
     tex.posters = DARKFARMS.map(t => makeImgTex('https://arweave.net/' + t));   // CC0 wall-art, darkfarms.wtf
+    tex.tags = [0, 1, 2, 3, 4, 5].map(i => makeTexA(256, (x, S) => drawTag(x, S, i * 977 + 13)));   // our own marks
     dynBuf = gl.createBuffer();
     skyBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, skyBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
@@ -667,8 +820,23 @@ window.GLR = (function () {
     ok = true; return true;
   }
 
+  /* Camera motion, 0..1, for GfxPost's smear. Turning is what sells it — a whip-pan to check a
+   * flank should streak, walking forward should not — so yaw/pitch rate dominates and running
+   * speed only tops it up. Normalised against ~4 rad/s, about as fast as a mouse flick. */
+  let pYaw = null, pPitch = null, pX = 0, pZ = 0, pT = 0;
+  function camMotion(cam, G) {
+    const t = G.t || 0, dt = Math.max(1 / 240, Math.min(0.25, t - pT)); pT = t;
+    if (pYaw == null) { pYaw = cam.yaw; pPitch = cam.pitch; pX = cam.x; pZ = cam.z; return 0; }
+    let dy = cam.yaw - pYaw; while (dy > Math.PI) dy -= Math.PI * 2; while (dy < -Math.PI) dy += Math.PI * 2;
+    const dp = cam.pitch - pPitch, dl = Math.hypot(cam.x - pX, cam.z - pZ);
+    pYaw = cam.yaw; pPitch = cam.pitch; pX = cam.x; pZ = cam.z;
+    const ang = Math.hypot(dy, dp) / dt, lin = dl / dt;
+    return Math.max(0, Math.min(1, ang / 4.0 + lin / 26));
+  }
+
   function frame(cam, G, ENV) {
     if (!ok) return;
+    if (post && post.motion) post.motion(camMotion(cam, G));
     const composited = post && post.begin();          // scene → offscreen target when the chain is up
     if (!composited) gl.viewport(0, 0, cv.width, cv.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -722,6 +890,14 @@ window.GLR = (function () {
     }
     // ── blended ground work: blob shadows under operatives, then bullet/laser decals.
     //    Depth-tested against the world (stick + occlude), no depth write. ──
+    /* Tags are alpha decals on the world: depth-TESTED so a wall in front hides them, depth
+     * write off so they never occlude anything themselves. */
+    if (tags) {
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.uniform1f(loc.uGloss, 0.05);
+      for (const t of tags.q) { gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.bindBuffer(gl.ARRAY_BUFFER, t.vbo); bindAttribs(loc); gl.drawArrays(gl.TRIANGLES, 0, t.count); }
+      gl.depthMask(true); gl.disable(gl.BLEND);
+    }
     const D = buildDecals(G); const SH = buildShadows(G);
     if (D.hole.length || D.scorch.length || SH.length) {
       gl.enable(gl.BLEND); gl.depthMask(false); gl.uniform1f(loc.uGloss, 0);
@@ -752,5 +928,7 @@ window.GLR = (function () {
   }
 
   return { init, buildMap, frame, registerSkin, hasSkin, supported: () => ok,
-           skinSupported: () => skinOk, post: () => post };
+           skinSupported: () => skinOk, post: () => post,
+           stats: () => ({ batches: batches.length, tris: batches.reduce((n, b) => n + b.count / 3, 0),
+                           tags: tags ? tags.q.length : 0, skins: Object.keys(skins).length }) };
 })();

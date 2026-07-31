@@ -53,9 +53,9 @@ window.GfxPost = (function () {
    *   7 grain
    */
   const P_COMP = 'precision mediump float; varying vec2 uv;' +
-    'uniform sampler2D base; uniform sampler2D bloom; uniform vec2 texel;' +
+    'uniform sampler2D base; uniform sampler2D bloom; uniform sampler2D prev; uniform vec2 texel;' +
     'uniform float intensity; uniform float ca; uniform float grain; uniform float vig;' +
-    'uniform float sat; uniform float knee; uniform float dither; uniform float sharpen;' +
+    'uniform float sat; uniform float knee; uniform float dither; uniform float sharpen; uniform float smear;' +
     'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
     // 8x8 Bayer without a lookup texture: the classic bit-interleave, unrolled cheaply.
     'float bayer(vec2 p){ vec2 t=floor(mod(p,8.0));' +
@@ -82,10 +82,28 @@ window.GfxPost = (function () {
     ' col+= (bayer(gl_FragCoord.xy)-0.5)*dither;' +
     // 7 — grain last, so it is not sharpened into crawling speckle
     ' col+= (h(uv*vec2(1023.0,791.0)+grain)-0.5)*0.02;' +
+    // 8 — MOTION SMEAR: feedback against the previously presented frame. Identity at smear==0,
+    //     and the branch keeps the extra fetch off the wire entirely for presets that never
+    //     enable it, so nothing that does not opt in pays for this.
+    ' if(smear>0.001){ col=mix(col, texture2D(prev,uv).rgb, smear); }' +
     ' gl_FragColor=vec4(col,1.0); }';
+
+  // trivial blit, used only on the smear path to put the accumulated frame on the screen
+  const P_BLIT = 'precision mediump float; varying vec2 uv; uniform sampler2D t;' +
+    'void main(){ gl_FragColor=vec4(texture2D(t,uv).rgb,1.0); }';
 
   /* Per-game looks. `tactical` is deliberately restrained — Section 9 is a gritty FPS, not a
    * neon duel, so the bloom reads as bounced light rather than a glow filter. */
+  /* MOTION SMEAR (`blur`) is per-CALLER, not per-preset-name: create() merges whatever object it
+   * is handed over PRESET.neon, so `{...GfxPost.PRESET.neon, blur: 0.3}` gives one game a smear
+   * without the other game that also uses `neon` inheriting it. Every named preset below is 0
+   * except `tactical`; anything that does not set it keeps today's chain exactly, down to the
+   * shader branch never being taken.
+   *
+   * The value is a CEILING, not an amount. The game calls post.motion(0..1) each frame from how
+   * fast the camera is actually turning, and the feedback mix is motion × blur — so a still
+   * camera is pin sharp and only a whip-pan smears. Held below ~0.85 on purpose: this is a
+   * feedback loop, and at higher mixes the frame never lets go of what it saw. */
   const PRESET = {
     // knee    : luminance above which highlights roll off instead of clipping. MEASURED, not
     //           guessed — swept against Cloudracer's clipped-pixel count. 0.94 removes 100%
@@ -94,14 +112,15 @@ window.GfxPost = (function () {
     //           rather than just the highlights. Lower is NOT safer here, it is just darker.
     // dither  : ordered-dither amplitude, in 1/255 units (banding killer, keep it small)
     // sharpen : unsharp strength. Low-poly wants some; photographic sources do not.
+    // blur    : motion-smear CEILING, scaled every frame by post.motion(). 0 = off (default).
     neon:     { intensity: 1.15, threshold: 0.62, ca: 0.0022, vignette: 0.36, sat: 1.00,
-                knee: 0.92, dither: 0.0045, sharpen: 0.18, passes: 2 },
+                knee: 0.92, dither: 0.0045, sharpen: 0.18, passes: 2, blur: 0 },
     tactical: { intensity: 0.62, threshold: 0.70, ca: 0.0012, vignette: 0.42, sat: 1.06,
-                knee: 0.94, dither: 0.0045, sharpen: 0.26, passes: 2 },
+                knee: 0.94, dither: 0.0045, sharpen: 0.26, passes: 2, blur: 0.55 },
     // Cloudracer flies through an already near-white sky: a low threshold blooms the whole
     // cloudscape into a flat wash, so only genuine highlights (engines, neon trim) get to glow.
     sky:      { intensity: 0.34, threshold: 0.90, ca: 0.0010, vignette: 0.22, sat: 1.05,
-                knee: 0.94, dither: 0.0060, sharpen: 0.14, passes: 2 },
+                knee: 0.94, dither: 0.0060, sharpen: 0.14, passes: 2, blur: 0 },
   };
 
   /* One resolution policy, shared by every caller.
@@ -138,8 +157,10 @@ window.GfxPost = (function () {
   function create(gl, cv, opts) {
     const O = Object.assign({}, PRESET.neon, opts || {});
     const S = { on: false, w: 0, h: 0, sceneTex: null, depth: null, sceneFbo: null,
-                bA: null, bB: null, fA: null, fB: null, bright: null, blur: null, comp: null, tri: null };
-    let grainT = 0, maxAttr = 4, bound = false;
+                bA: null, bB: null, fA: null, fB: null, bright: null, blur: null, comp: null, tri: null,
+                // motion-smear accumulation: full-res ping-pong, allocated only when blur > 0
+                aT: null, aU: null, aF: null, aG: null, blit: null };
+    let grainT = 0, maxAttr = 4, bound = false, motionAmt = 0, accWarm = false;
 
     function sh(t, src) { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o);
       if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -161,10 +182,28 @@ window.GfxPost = (function () {
     // Re-allocating on resize without freeing leaks a full-screen RGBA target per resize event —
     // a maximise/restore loop would climb into hundreds of MB. Drop the old set first.
     function freeTargets() {
-      [S.sceneTex, S.bA, S.bB].forEach(t => t && gl.deleteTexture(t));
-      [S.sceneFbo, S.fA, S.fB].forEach(f => f && gl.deleteFramebuffer(f));
+      [S.sceneTex, S.bA, S.bB, S.aT, S.aU].forEach(t => t && gl.deleteTexture(t));
+      [S.sceneFbo, S.fA, S.fB, S.aF, S.aG].forEach(f => f && gl.deleteFramebuffer(f));
       if (S.depth) gl.deleteRenderbuffer(S.depth);
       S.sceneTex = S.bA = S.bB = S.sceneFbo = S.fA = S.fB = S.depth = null;
+      S.aT = S.aU = S.aF = S.aG = null; accWarm = false;
+    }
+    /* Allocate the accumulation pair lazily — a caller that never sets blur never pays two
+     * full-screen RGBA targets for it, and set({blur}) can turn it on later. Failure here is
+     * not fatal: the pair stays null and end() takes the ordinary direct-to-screen path. */
+    function ensureAcc() {
+      if (S.aT || !(O.blur > 0) || !S.w) return !!S.aT;
+      try {
+        S.aT = tex2d(S.w, S.h); S.aF = fboFor(S.aT);
+        S.aU = tex2d(S.w, S.h); S.aG = fboFor(S.aU);
+        const okFbo = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (!okFbo || !S.blit) { [S.aT, S.aU].forEach(t => t && gl.deleteTexture(t));
+          [S.aF, S.aG].forEach(f => f && gl.deleteFramebuffer(f));
+          S.aT = S.aU = S.aF = S.aG = null; }
+        accWarm = false;
+      } catch (e) { S.aT = S.aU = S.aF = S.aG = null; }
+      return !!S.aT;
     }
 
     function size(w, h) {
@@ -185,6 +224,7 @@ window.GfxPost = (function () {
 
     try {
       S.bright = progFor(P_BRIGHT); S.blur = progFor(P_BLUR); S.comp = progFor(P_COMP);
+      try { S.blit = progFor(P_BLIT); } catch (e) { S.blit = null; }   // smear-only; optional
       S.tri = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, S.tri);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
       maxAttr = Math.min(8, gl.getParameter(gl.MAX_VERTEX_ATTRIBS) || 4);
@@ -233,7 +273,15 @@ window.GfxPost = (function () {
       }
 
       grainT = (grainT + 0.017) % 1000;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, w, h);
+      /* Motion smear. The composite normally goes straight to the screen; when it is on, the
+       * composite instead lands in an accumulation target that also SAMPLES the previous one, and
+       * a blit puts that on the screen. One extra full-screen pass, and only on this path.
+       * accWarm guards the first frame after allocation or a resize, where the "previous" target
+       * is uninitialised memory — mixing that in is a one-frame flash of garbage. */
+      const smear = (O.blur > 0 && ensureAcc() && accWarm)
+        ? Math.max(0, Math.min(0.85, motionAmt * O.blur)) : 0;
+      const acc = O.blur > 0 && S.aT;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, acc ? S.aF : null); gl.viewport(0, 0, w, h);
       gl.useProgram(S.comp);
       gl.uniform1i(u(S.comp, 'base'), 0); gl.uniform1i(u(S.comp, 'bloom'), 1);
       gl.uniform1f(u(S.comp, 'intensity'), O.intensity); gl.uniform1f(u(S.comp, 'ca'), O.ca);
@@ -243,9 +291,19 @@ window.GfxPost = (function () {
       gl.uniform1f(u(S.comp, 'dither'), O.dither == null ? 0.0045 : O.dither);
       gl.uniform1f(u(S.comp, 'sharpen'), O.sharpen == null ? 0.2 : O.sharpen);
       gl.uniform2f(u(S.comp, 'texel'), 1 / w, 1 / h);
+      gl.uniform1f(u(S.comp, 'smear'), smear); gl.uniform1i(u(S.comp, 'prev'), 2);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.sceneTex);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.bB);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, acc ? S.aU : S.bB);
       drawTri();
+      if (acc) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, w, h);
+        gl.useProgram(S.blit); gl.uniform1i(u(S.blit, 't'), 0);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.aT); drawTri();
+        const t = S.aT, f = S.aF; S.aT = S.aU; S.aF = S.aG; S.aU = t; S.aG = f;   // ping-pong
+        accWarm = true;
+      }
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, null);
       gl.activeTexture(gl.TEXTURE0);
 
       if (hadDepth) gl.enable(gl.DEPTH_TEST);
@@ -254,9 +312,14 @@ window.GfxPost = (function () {
     }
 
     function set(o) { Object.assign(O, o || {}); }
+    /* How hard the camera is moving, 0..1, for THIS frame. The game owns this because only the
+     * game knows what "fast" means for its camera; the chain just scales `blur` by it. Reset is
+     * deliberate: a game that stops calling motion() stops smearing rather than freezing at
+     * whatever it last said. */
+    function motion(v) { motionAmt = Math.max(0, Math.min(1, +v || 0)); }
     function dispose() { freeTargets(); S.on = false; }
 
-    return { begin, end, set, dispose, get on() { return S.on; }, set on(v) { S.on = !!v && !!S.comp; },
+    return { begin, end, set, motion, dispose, get on() { return S.on; }, set on(v) { S.on = !!v && !!S.comp; },
              get opts() { return O; } };
   }
 

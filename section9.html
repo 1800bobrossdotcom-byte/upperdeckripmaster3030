@@ -93,6 +93,14 @@
     border-radius:5px; padding:2px 8px; text-shadow:0 1px 2px #000; opacity:.96; }
   .kf b{ color:var(--cyan); } .kf .v{ color:var(--coral); } .kf.me b{ color:var(--lime); }
   .kf .hs{ color:var(--amber); }
+  /* squad comms — deliberately quieter than the killfeed: it is flavour, not information you
+     have to read, so it must never compete with a frag notification for attention */
+  .comms{ position:fixed; z-index:5; right:calc(var(--bez) + 14px); top:calc(var(--bezTop) + 178px);
+    width:min(260px,52vw); pointer-events:none;
+    display:flex; flex-direction:column; align-items:flex-end; gap:2px; }
+  .cm{ font-size:10px; letter-spacing:.04em; color:#b9d4dd; opacity:.78; text-shadow:0 1px 2px #000;
+    font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .cm b{ font-weight:700; }
   .powmsg{ position:fixed; z-index:5; top:34%; left:50%; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
     font-family:var(--fat); font-size:clamp(13px,3.2vw,22px); letter-spacing:.03em; text-transform:uppercase; text-align:center;
     color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.85),0 2px 4px #000; }
@@ -218,6 +226,7 @@
     <div class="h-lead"><b id="aliveN">0</b> operatives live</div>
   </div>
   <div class="killfeed" id="killfeed" style="display:none"></div>
+  <div class="comms" id="comms" style="display:none"></div>
   <div class="hud hud-bl" id="hudBL" style="display:none">
     <div class="h-vitals h-hp"><span class="h-lbl">health</span> <b id="hpNum">100</b></div>
     <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill hp-fill" id="hpFill"></div></div></div>
@@ -335,6 +344,7 @@
 <script src="js/game-help.js"></script>
 <script src="js/card-powers.js"></script>
 <script src="js/gfx-post.js"></script>
+<script src="js/sfx-lib.js"></script>
 <script src="js/ronin-world.js"></script>
 <script src="js/section9-world.js"></script>
 <script src="js/section9-skin.js"></script>
@@ -431,6 +441,12 @@
     hit(){ tone(1500,900,0.05,'square',0.12); },
     headshot(){ tone(2000,1200,0.06,'square',0.14); setTimeout(()=>tone(1200,700,0.05,'square',0.1),40); },
     hurt(){ noise(0.12,0.18,900); tone(200,80,0.14,'sawtooth',0.1); },
+    /* Supersonic crack — the sound a round makes going past you, not the sound of the gun.
+     * A very short bright noise burst plus a downward whip; closer misses are louder and
+     * sharper, which is the only cue that says "that one nearly had you". */
+    crack(d){ const n=clamp(1-(d||0)/2.2,0.1,1);
+      noise(0.02+0.02*n, 0.10*n+0.04, 5200-1400*(1-n));
+      tone(1900+900*n, 300, 0.05, 'square', 0.05*n); },
     frag(){ [660,880,1180].forEach((f,i)=>setTimeout(()=>tone(f,f,0.11,'triangle',0.12),i*70)); },
     down(){ noise(0.4,0.34,700); tone(160,40,0.5,'sawtooth',0.16); },
     spawn(){ tone(300,900,0.16,'sine',0.1); },
@@ -1070,8 +1086,15 @@
 
   // ══════════════════ ENTITIES ══════════════════
   const CTINTS=[[80,120,220],[220,90,90],[210,200,80],[190,110,220],[90,200,140],[230,150,70],[120,210,220],[200,120,170]];
+  /* TIME TO KILL. A duel used to be over in six rounds of AK — about 0.6 s — which makes every
+   * fight a coin flip on who saw who first and makes cover, flanking and suppression pointless
+   * because nobody lives long enough to use them. HP and armour are up, per-hit damage is down
+   * (see WEAPONS), and the result is roughly a 1.3 s sustained burst to down someone: long
+   * enough to break contact, take cover and answer. Headshots stayed fast on purpose — they get
+   * a bigger multiplier AND they largely bypass armour, so aim is still the shortest route. */
   function makeEnt(opt){ return { name:opt.name, x:0,y:0,z:0, vy:0, r:0.42, h:1.72, eye:1.52,
-    yaw:0, pitch:0, hp:100, maxHp:100, armor:opt.me?50:40, maxArmor:60, alive:true, isMe:!!opt.me, bot:!opt.me,
+    yaw:0, pitch:0, hp:150, maxHp:150, armor:opt.me?60:55, maxArmor:80, alive:true, isMe:!!opt.me, bot:!opt.me,
+    regenT:0,
     tint:opt.tint||[120,200,220], team:opt.team, verified:!!opt.verified, kills:0, deaths:0,
     weapon:opt.weapon||0, mag:0, fireT:0, reloadT:0, reloading:false, triggerConsumed:false, spawnT:0, iframe:0, respawnT:0,
     onGround:true, boost:1, state:'patrol', aiT:0, tgt:null, wp:null, strafe:1, strafeT:0, reactT:0, seenT:0, wantFire:false, bob:0, moving:false,
@@ -1080,10 +1103,10 @@
 
   // weapon definitions
   const WEAPONS=[
-    { name:'RIP-9 PISTOL',  key:'pistol',  dmg:30, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
-    { name:'AK RIPMASTER',  key:'smg',     dmg:26, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
-    { name:'STREET SWEEPER',key:'shotgun', dmg:12, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
-    { name:'LONG RIFLE',    key:'sniper',  dmg:96, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
+    { name:'RIP-9 PISTOL',  key:'pistol',  dmg:22, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
+    { name:'AK RIPMASTER',  key:'smg',     dmg:17, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
+    { name:'STREET SWEEPER',key:'shotgun', dmg:9, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
+    { name:'LONG RIFLE',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
   ];
 
   // ══════════════════ CARD POWERS + LIVE $UR3030 MARKET ══════════════════
@@ -1127,7 +1150,8 @@
   function dropAt(e,s){ e.x=s[0]; e.z=s[1]; e.y=(s[2]||0); e.y=supportY(e); }
   function spawnEnt(e,firstWeapon){ const others=G.ents.filter(o=>o!==e);
     const s=farSpawn(others,12); dropAt(e,s); e.vy=0; e.alive=true;
-    e.hp=e.maxHp; e.armor=e.isMe?50:40; e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
+    e.hp=e.maxHp; e.armor=e.isMe?60:55; e.regenT=0;
+    if(e.isMe && sfxOn && window.RipSfx) RipSfx.play('gearup', 0.5);   // 23 shuffled takes: kit being handled e.spawnT=0; e.iframe=1.4; e.respawnT=0; e.reloading=false; e.reloadT=0; e.fireT=0;
     e.weapon=firstWeapon!=null?firstWeapon:e.weapon; e.mag=WEAPONS[e.weapon].mag; e.state='patrol'; e.tgt=null; e.wp=null; e.boost=1;
     e.yaw=spawnYaw(MAP, e.x, e.z, e.y); e.pitch=0;      // open on the longest clear sightline, not a wall
   }
@@ -1144,7 +1168,7 @@
       if(pick==null){ let last=BUILTIN-2; try{ const s=localStorage.getItem('s9_last'); if(s!=null) last=+s; }catch(e){}
         pick=(last+1)%BUILTIN; try{ localStorage.setItem('s9_last',pick); }catch(e){} }
       G.mapIdx=pick; }
-    MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP);
+    MAP=MAPS[G.mapIdx]; bakeFaces(MAP); bakeNeon(MAP); if(!MAP.cover) bakeCover(MAP);
     // A GL map-build failure used to be swallowed whole: the WebGL canvas stayed up with no map
     // geometry in it, which looks exactly like "the map didn't load". Say so, and fall back to the
     // 2D renderer, which bakes from the same MAP and is always ready.
@@ -1155,7 +1179,7 @@
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
-    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0; G.pows=[]; G.powT=6; G.decals=[];
+    G.ents=[]; G.tracers=[]; G.sparks=[]; G.chunks=[]; G.flashes=[]; G.kills=[]; G.comms=[]; G.nearMiss=0; G.hitmark=0; G.dmgFlash=0; G.shake=0; G.fireFlash=0; G.pows=[]; G.powT=6; G.decals=[];
     G.t=0; G.timeLeft=G.dur; G.real=!!real; G.over=false;
     G.me=makeEnt({ name:myHandle(), me:true, tint:[64,220,200], verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
     G.me.weapon=wager.loadout|0; G.ents.push(G.me);
@@ -1177,7 +1201,7 @@
     // UI
     G.mode='play';
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show'); $('ovPause').classList.remove('show');
-    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='block'); $('killfeed').style.display='flex';
+    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='block'); $('killfeed').style.display='flex'; $('comms').style.display='flex';
     $('toggles').style.display='flex'; $('controls').style.display='flex';
     buildWeapSlots();
     if(window.RipNet){ try{ RipNet.setStatus('battling'); }catch{} }
@@ -1208,10 +1232,30 @@
     for(let p=0;p<w.pellets;p++){
       const sp=w.spread*scopeAcc; const ay=e.yaw+rnd(sp,-sp)+(e.isMe?0:rnd(0.03,-0.03)); const ap=e.pitch+rnd(sp,-sp)+(e.isMe?0:rnd(0.022,-0.022));
       const d=lookDir(ay,ap); const hit=raycast(mo.x,mo.y,mo.z, d.x,d.y,d.z, w.range, e);
-      // tracer
-      G.tracers.push({ x0:mo.x,y0:mo.y,z0:mo.z, x1:hit.x,y1:hit.y,z1:hit.z, me:e.isMe, t:0.06 });
+      /* Tracer, and only sometimes — a belt is not all tracer, and a round you can see every
+       * time stops meaning anything. Yours are shown more often than theirs so your own fire
+       * still reads; incoming is deliberately sparser, which is what makes a visible round
+       * feel like it was aimed at you. */
+      const trace = e.isMe ? (p===0 || Math.random()<0.55) : Math.random()<0.42;
+      if(trace){
+        const len=Math.hypot(hit.x-mo.x,hit.y-mo.y,hit.z-mo.z)||0.001;
+        G.tracers.push({ x0:mo.x,y0:mo.y,z0:mo.z, dx:(hit.x-mo.x)/len, dy:(hit.y-mo.y)/len, dz:(hit.z-mo.z)/len,
+          len, p:0, sp:340, tail:w.key==='shotgun'?1.6:3.4, me:e.isMe, t:0.10 });
+      }
+      // NEAR MISS: a round that passes close to your head cracks past. Distance from the camera
+      // to the shot ray, clamped to the segment, so a round that stops in a wall behind you does
+      // not crack after it has already hit.
+      if(!e.isMe && G.me && G.me.alive){
+        const rx=cam.x-mo.x, ry=cam.y-mo.y, rz=cam.z-mo.z;
+        const along=clamp(rx*d.x+ry*d.y+rz*d.z, 0, Math.hypot(hit.x-mo.x,hit.y-mo.y,hit.z-mo.z));
+        const px=mo.x+d.x*along-cam.x, py=mo.y+d.y*along-cam.y, pz=mo.z+d.z*along-cam.z;
+        const miss=Math.hypot(px,py,pz);
+        if(miss<2.2 && along>1.5){ const n=1-miss/2.2; G.nearMiss=Math.max(G.nearMiss||0, n);
+          G.shake=Math.max(G.shake, n*1.6);            // a round past your ear moves your head
+          if(Math.random()<0.7) SFX.crack(miss); }
+      }
       if(hit.ent){ const head = hit.y > hit.ent.y + hit.ent.h*0.78;
-        let dmg=w.dmg*(head?1.85:1)*(e.cardDmg||1)*(e.surgeT>0?1.6:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);   // staked-card + surge damage
+        let dmg=w.dmg*(head?2.1:1)*(e.cardDmg||1)*(e.surgeT>0?1.6:1); applyDamage(hit.ent, dmg, e, head, hit.x,hit.y,hit.z);   // staked-card + surge damage
         if(e.isMe){ G.hitmark=0.14; head?SFX.headshot():SFX.hit(); }
       } else if(hit.wall){ const nrm=hitNormal(hit); spark(hit.x,hit.y,hit.z, [210,205,180], 8);
         G.flashes.push({ x:hit.x,y:hit.y,z:hit.z, t:0.05, big:false, col:[255,220,150] });   // brief additive impact spark
@@ -1219,10 +1263,21 @@
         const dcam=Math.hypot(hit.x-cam.x,hit.z-cam.z); if(dcam<24){ SFX.impact(); if(Math.random()<0.22)SFX.ricochet(); } }
     }
   }
-  function startReload(e){ if(e.reloading) return; const w=WEAPONS[e.weapon]; if(e.mag>=w.mag) return; e.reloading=true; e.reloadT=w.reload; if(e.isMe)SFX.reload(); }
+  /* Reload and weapon-swap use the artist's recorded racking takes (js/sfx-lib.js) rather than
+   * the oscillator kit — a magazine going in is a mechanical event with a dozen little noises in
+   * it, and a synthesised two-tone beep is the one thing that most says "this is a toy". Bots
+   * within earshot get it too, because hearing someone else reload is tactical information.
+   * RipSfx swallows every failure, so a missing file is silence, never a broken match. */
+  function startReload(e){ if(e.reloading) return; const w=WEAPONS[e.weapon]; if(e.mag>=w.mag) return;
+    e.reloading=true; e.reloadT=w.reload;
+    if(!sfxOn) return;
+    const d=e.isMe?0:Math.hypot(e.x-cam.x,e.z-cam.z);
+    if(e.isMe){ if(window.RipSfx) RipSfx.play(w.key==='shotgun'?'attachMachine':'attach',0.5); else SFX.reload(); }
+    else if(d<20 && window.RipSfx) RipSfx.play('attachSmall', 0.34*(1-d/20)); }
   function finishReload(e){ e.reloading=false; e.mag=WEAPONS[e.weapon].mag; }
   function switchWeapon(i){ const e=G.me; if(!e||!e.alive) return; i=clamp(i,0,WEAPONS.length-1); if(i===e.weapon) return;
-    e.weapon=i; e.reloading=false; e.reloadT=0; e.fireT=Math.max(e.fireT,180); e.mag=Math.min(e.mag,WEAPONS[i].mag); if(e.mag<=0)e.mag=WEAPONS[i].mag; e.scoped=false; }
+    e.weapon=i; e.reloading=false; e.reloadT=0; e.fireT=Math.max(e.fireT,180); e.mag=Math.min(e.mag,WEAPONS[i].mag); if(e.mag<=0)e.mag=WEAPONS[i].mag; e.scoped=false;
+    if(sfxOn && window.RipSfx) RipSfx.play('attachSmall', 0.45); }
 
   function spark(x,y,z,col,n){ for(let i=0;i<n;i++) G.sparks.push({ x,y,z, vx:rnd(3,-3),vy:rnd(4,-1),vz:rnd(3,-3), t:rnd(0.4,0.2), col }); }
   function chunkBurst(x,y,z,col,n){ for(let i=0;i<n;i++) G.chunks.push({ x,y,z, vx:rnd(4,-4),vy:rnd(6,1),vz:rnd(4,-4), t:rnd(0.9,0.5), s:rnd(0.22,0.08), col }); }
@@ -1230,9 +1285,17 @@
   function applyDamage(e, dmg, src, head, hx,hy,hz){
     if(!e.alive||e.iframe>0||e.spawnT>0) return;
     if(src&&src.bot&&e.isMe) dmg*=0.62;   // bots hit the human a little softer (arcade fairness)
-    // armor soaks 45% until gone
-    if(e.armor>0){ const soak=Math.min(e.armor, dmg*0.45); e.armor-=soak; dmg-=soak; }
-    e.hp-=dmg;
+    /* Armour soaks 45% of a body hit until it is gone — but only 15% of a headshot. Plates do
+     * not cover a skull, and without that carve-out a longer TTK quietly kills the sniper: a
+     * full-power head hit would be soaked into a survivable body shot and precision would stop
+     * being worth anything. */
+    if(e.armor>0){ const soak=Math.min(e.armor, dmg*(head?0.15:0.45)); e.armor-=soak; dmg-=soak; }
+    e.hp-=dmg; e.regenT=0;
+    /* Being shot is information. Without it a bot has no way to know it is losing an exchange it
+     * cannot see the other half of, and "take cover when hit" is the single behaviour that makes
+     * the longer TTK read as a firefight rather than as a longer damage race. */
+    if(e.bot){ e.supT=Math.max(e.supT||0, 2.6); if(src && !e.tgt) e.tgt=src;
+      if(src){ e.lastSeen={x:src.x,z:src.z}; e.seenT=Math.max(e.seenT||0,1.8); } }
     spark(hx,hy,hz, head?[255,220,80]:e.tint, head?11:7);
     if(e.isMe){ G.dmgFlash=Math.min(1,G.dmgFlash+clamp(dmg*0.02,0.3,0.7)); G.shake=Math.max(G.shake, 3+Math.min(dmg,40)*0.12); SFX.hurt(); }
     if(e.hp<=0){ downEnt(e, src, head, hx,hy,hz); }
@@ -1255,38 +1318,159 @@
   const shortName=n=>{ n=String(n||''); return n.length>13?n.slice(0,12)+'…':n; };
 
   // ══════════════════ AI ══════════════════
+  /* ── COVER ────────────────────────────────────────────────────────────────────────────────
+   * The old bots ran straight at whoever they could see and strafed randomly, which is why every
+   * fight was a face-to-face damage race that the longer TTK would only have made longer. What
+   * they were missing is not smarter aim, it is somewhere to BE: a list of positions that break
+   * line of sight to a given point.
+   *
+   * Both map kinds already carry that information in MAP.solids — a box you cannot see through
+   * is a box you can hide behind — so the cover list is just the perimeter of every solid tall
+   * enough to matter, sampled at standing distance and filtered to points a body actually fits.
+   * Baked once per map, because MAP.solids does not change during a match.
+   *
+   * ⚑ y is stored per point. On a baked level the floors sit at three different heights, so a
+   *   cover point without its own y is a cover point somebody walks to and falls through. */
+  function bakeCover(M){
+    const CH=0.95, PAD=0.85, pts=[];
+    const blocked=(x,z)=>M.solids.some(b=> x+0.5>b.x0 && x-0.5<b.x1 && z+0.5>b.z0 && z-0.5<b.z1 && b.y1>0.7 && b.y0<1.7);
+    for(const b of M.solids){
+      const hgt=b.y1-b.y0; if(hgt<CH) continue;                       // too low to hide behind
+      if(b.y0>12) continue;                                            // a roof edge is not cover
+      const wx=b.x1-b.x0, wz=b.z1-b.z0; if(wx<0.6&&wz<0.6) continue;   // a pole is not cover
+      const nx=Math.min(3,Math.max(1,Math.round(wx/2.6))), nz=Math.min(3,Math.max(1,Math.round(wz/2.6)));
+      const cand=[];
+      for(let i=0;i<nx;i++){ const t=(i+0.5)/nx, px=b.x0+wx*t;
+        cand.push([px, b.z0-PAD], [px, b.z1+PAD]); }
+      for(let i=0;i<nz;i++){ const t=(i+0.5)/nz, pz=b.z0+wz*t;
+        cand.push([b.x0-PAD, pz], [b.x1+PAD, pz]); }
+      for(const [x,z] of cand){
+        if(x<M.x0+0.6||x>M.x1-0.6||z<M.z0+0.6||z>M.z1-0.6) continue;
+        if(blocked(x,z)) continue;
+        // the standing surface here, using the same rule the mover uses
+        let y=0; for(const s of M.solids){ if(s.x1<=x-0.42||s.x0>=x+0.42||s.z1<=z-0.42||s.z0>=z+0.42) continue;
+          if(s.y1<=b.y0+0.9 && s.y1>y) y=s.y1; }
+        pts.push({ x, z, y, bx:(b.x0+b.x1)/2, bz:(b.z0+b.z1)/2, hard:hgt>1.8 });
+      }
+    }
+    // thin an overpopulated level so the per-bot search stays cheap (arcade has 351 solids)
+    if(pts.length>260){ const keep=[]; const step=pts.length/260; for(let i=0;i<260;i++) keep.push(pts[Math.floor(i*step)]); M.cover=keep; }
+    else M.cover=pts;
+    return M;
+  }
+  /* Best cover for `e` against `tgt`: near, roughly away from the threat, and — the only test
+   * that actually matters — line of sight from that point to the target's eye must be BLOCKED.
+   * Scored rather than filtered, so a bot under fire in the open still moves somewhere sane
+   * instead of standing still because nothing was perfect. */
+  function pickCover(e,tgt){
+    const C=MAP.cover; if(!C||!C.length||!tgt) return null;
+    let best=null,bs=-1e9;
+    const tx=tgt.x, tz=tgt.z, ty=tgt.y+tgt.eye;
+    for(let i=0;i<C.length;i++){
+      const c=C[i]; const d=Math.hypot(c.x-e.x,c.z-e.z);
+      if(d>26) continue;
+      if(Math.hypot(c.x-tx,c.z-tz)<3.5) continue;                     // not cover if it is in their lap
+      const safe=!losClear(c.x,c.y+e.eye,c.z, tx,ty,tz);
+      // prefer the side of the block facing away from the threat
+      const away=((c.x-c.bx)*(c.x-tx)+(c.z-c.bz)*(c.z-tz))>0;
+      const s=(safe?60:0)+(away?14:0)+(c.hard?8:0)-d*1.7+(e.cover&&e.cover===c?9:0);
+      if(s>bs){ bs=s; best=c; }
+    }
+    return bs>18?best:null;
+  }
+  /* Radio barks. Deliberately generic archetype chatter, no callsigns or lines lifted from any
+   * game — the point is that a firefight sounds like more than one person is in it. */
+  const BARKS={ contact:['contact front','tango spotted','eyes on','got one'],
+                reload:['reloading!','swapping mag','cover me, dry'],
+                cover:['taking fire!','pinned, moving','falling back'],
+                flank:['going around','flanking left','wide right'],
+                suppress:['suppressing','keep his head down','laying it on'],
+                push:['pushing up','on the move','last known, moving'] };
+  function bark(e,kind){
+    if(!G.comms) G.comms=[];
+    if((e.barkT||0)>G.t) return;
+    e.barkT=G.t+rnd(7,3.5);
+    const L=BARKS[kind]; if(!L) return;
+    G.comms.unshift({ n:shortName(e.name), s:L[rint(L.length)], t:3.4, tint:e.tint });
+    if(G.comms.length>4) G.comms.pop();
+  }
   function eyePos(e){ return { x:e.x, y:e.y+e.eye, z:e.z }; }
   function nearestFoe(e){ let best=null,bd=1e9; for(const o of G.ents){ if(o===e||!o.alive||o.spawnT>0)continue; const d=Math.hypot(o.x-e.x,o.z-e.z); if(d<bd){bd=d;best=o;} } return best; }
+  /* ── the operative loop ───────────────────────────────────────────────────────────────────
+   * Five behaviours, picked in priority order every think: COVER (I am being shot and I am not
+   * behind anything), FLANK (I can see them, and running down their barrel is how you lose a
+   * long-TTK fight), SUPPRESS (I cannot see them but I know where they were, so keep rounds on
+   * it), PUSH (go find out), PATROL. The important change is not the number of states, it is
+   * that two of them make a bot deliberately NOT shoot at the thing it is looking at.
+   *
+   * Nothing here is copied from any commercial shooter — it is the obvious set of things a
+   * person does when someone is shooting at them, which is why every game arrives at it. */
   function stepBot(e,dt){
     e.aiT-=dt; e.strafeT-=dt; e.wantFire=false; const me=eyePos(e);
+    if(e.supT>0) e.supT-=dt; if(e.flankT>0) e.flankT-=dt; if(e.holdT>0) e.holdT-=dt;
     let tgt=e.tgt; if(!tgt||!tgt.alive||e.aiT<=0){ tgt=nearestFoe(e); e.tgt=tgt; e.aiT=rnd(0.7,0.3); }
     let mvx=0,mvz=0, sprint=false;
     if(tgt){ const teye=eyePos(tgt); const dx=tgt.x-e.x, dz=tgt.z-e.z; const dist=Math.hypot(dx,dz);
       const canSee=losClear(me.x,me.y,me.z, teye.x,teye.y,teye.z);
-      if(canSee){ e.lastSeen={x:tgt.x,z:tgt.z}; e.seenT=1.2; if(e.reactT>0)e.reactT-=dt;
-        // aim at target (with slight lead lag)
+      const w=WEAPONS[e.weapon];
+      const hurt=e.hp<e.maxHp*0.42;
+      // reloading in the open is how you die; so is standing in it while taking fire
+      const wantCover=(e.supT>0 || hurt || e.reloading) && !e.inCover;
+      if(canSee){ e.lastSeen={x:tgt.x,z:tgt.z}; e.seenT=2.2; if(e.reactT>0)e.reactT-=dt; }
+      else e.reactT=rnd(0.32,0.12);
+
+      if(wantCover){
+        // ── COVER: break line of sight, then hold and re-engage from the edge of it ──
+        e.state='cover'; bark(e,'cover');
+        if(!e.cover || e.coverT<=0 || Math.random()<dt*0.35){ e.cover=pickCover(e,tgt); e.coverT=rnd(6,3); }
+        e.coverT-=dt;
+        if(e.cover){ const cx=e.cover.x-e.x, cz=e.cover.z-e.z, cd=Math.hypot(cx,cz)||1;
+          if(cd>1.0){ mvx=cx/cd; mvz=cz/cd; sprint=true; e.inCover=false; }
+          else { e.inCover=true; mvx=mvz=0;
+            // peek: lean out on a timer, and only shoot on the peek
+            if(e.holdT<=0){ e.holdT=rnd(1.5,0.7); e.peek=!e.peek; }
+            if(e.peek && canSee) { const s=e.strafe||1; mvx=-dz/(dist||1)*s*0.5; mvz=dx/(dist||1)*s*0.5; }
+          }
+        } else { mvx=-dx/(dist||1); mvz=-dz/(dist||1); sprint=true; }   // nowhere to go: back off
+        if(e.mag<=0||e.reloading) startReload(e);
+        if(canSee) e.yaw+=angDiff(Math.atan2(dx,dz)-e.yaw)*Math.min(1,dt*6);
+        if(canSee && e.peek && !e.reloading && e.reactT<=0 && e.fireT<=0 && dist<w.range*0.85) e.wantFire=true;
+      }
+      else if(canSee){
+        // ── FLANK: engage, but move laterally on a committed bearing rather than head-on ──
+        e.state='fight'; e.inCover=false;
+        if(e.mag<=0) startReload(e);
         const wantYaw=Math.atan2(dx,dz); const wantPitch=Math.atan2((teye.y-me.y),dist);
         e.yaw+=angDiff(wantYaw-e.yaw)*Math.min(1,dt*7); e.pitch+=(clamp(wantPitch,-0.7,0.7)-e.pitch)*Math.min(1,dt*6);
-        // engage
-        if(e.hp<32 && Math.random()<0.5) e.state='retreat'; else e.state='attack';
-        const aimed=Math.abs(angDiff(Math.atan2(dx,dz)-e.yaw))<0.20;
-        const w=WEAPONS[e.weapon];
-        if(e.state!=='retreat' && dist<w.range*0.8 && aimed && e.reactT<=0 && e.fireT<=0 && !e.reloading){ e.wantFire=true; }
-        if(e.mag<=0) startReload(e);
-        // movement: keep a preferred range, strafe
+        const aimed=Math.abs(angDiff(wantYaw-e.yaw))<0.20;
+        if(dist<w.range*0.8 && aimed && e.reactT<=0 && e.fireT<=0 && !e.reloading){ e.wantFire=true; bark(e,'contact'); }
+        /* A committed lateral bearing, held for seconds, is what reads as flanking; the old
+         * coin-flip every 0.7-1.6 s read as a bot vibrating on the spot. */
+        if(e.flankT<=0){ e.strafe=Math.random()<0.5?1:-1; e.flankT=rnd(4.5,2.2); if(Math.random()<0.4) bark(e,'flank'); }
         const pref = w.key==='shotgun'?5: w.key==='sniper'?18:11;
         const nx=dx/(dist||1), nz=dz/(dist||1);
-        if(e.state==='retreat'){ mvx=-nx; mvz=-nz; sprint=true; }
-        else { const toward=(dist>pref+2)?1:(dist<pref-2?-1:0);
-          if(e.strafeT<=0){ e.strafe=Math.random()<0.5?1:-1; e.strafeT=rnd(1.6,0.7); }
-          mvx=nx*toward + (-nz)*e.strafe*0.7; mvz=nz*toward + (nx)*e.strafe*0.7;
-          sprint=dist>16; }
-      } else { // lost sight → move to last-known / patrol
-        e.reactT=rnd(0.32,0.12);
-        if(e.seenT>0){ e.seenT-=dt; const lx=(e.lastSeen&&e.lastSeen.x)||0, lz=(e.lastSeen&&e.lastSeen.z)||0; const dx2=lx-e.x,dz2=lz-e.z,dd=Math.hypot(dx2,dz2)||1; mvx=dx2/dd; mvz=dz2/dd; e.yaw+=angDiff(Math.atan2(dx2,dz2)-e.yaw)*Math.min(1,dt*5); sprint=true; }
-        else e.state='patrol';
+        const toward=(dist>pref+2)?1:(dist<pref-2?-1:0);
+        mvx=nx*toward*0.75 + (-nz)*e.strafe; mvz=nz*toward*0.75 + (nx)*e.strafe;
+        sprint=dist>16;
       }
+      else if(e.seenT>0){
+        e.seenT-=dt; e.inCover=false;
+        const lx=(e.lastSeen&&e.lastSeen.x)||0, lz=(e.lastSeen&&e.lastSeen.z)||0;
+        const dx2=lx-e.x, dz2=lz-e.z, dd=Math.hypot(dx2,dz2)||1;
+        e.yaw+=angDiff(Math.atan2(dx2,dz2)-e.yaw)*Math.min(1,dt*5);
+        /* ── SUPPRESS: put rounds on the last known position. It is deliberately wasteful —
+         * that is the point of suppressing fire, and it is what makes a firefight sound like
+         * one instead of like two people taking turns. Never with the sniper (five rounds), and
+         * never below a third of the magazine, so a bot cannot suppress itself dry. */
+        if(w.key!=='sniper' && e.mag>WEAPONS[e.weapon].mag*0.34 && dd<w.range*0.8
+           && e.seenT>0.9 && !e.reloading && e.fireT<=0 && Math.random()<dt*3.2){
+          e.wantFire=true; e.pitch+=( (0.02) - e.pitch)*Math.min(1,dt*4); bark(e,'suppress');
+        } else { mvx=dx2/dd; mvz=dz2/dd; sprint=true; bark(e,'push'); }
+        if(e.mag<=0) startReload(e);
+      }
+      else { e.state='patrol'; e.inCover=false; }
     }
+    if(e.reloading && Math.random()<dt*1.2) bark(e,'reload');
     if(e.state==='patrol' || (!tgt)){
       if(!e.wp || Math.hypot(e.wp[0]-e.x,e.wp[1]-e.z)<1.5 || Math.random()<dt*0.2){ const s=MAP.spawns[rint(MAP.spawns.length)]; e.wp=[s[0]+rnd(3,-3),s[1]+rnd(3,-3)]; }
       const dx2=e.wp[0]-e.x, dz2=e.wp[1]-e.z, dd=Math.hypot(dx2,dz2)||1; mvx=dx2/dd; mvz=dz2/dd;
@@ -1338,6 +1522,12 @@
     for(const e of G.ents){ if(e.reloadT>0){ e.reloadT-=dt*1000; if(e.reloadT<=0) finishReload(e); }
       if(e.fireT>0)e.fireT-=dt*1000; if(e.iframe>0)e.iframe-=dt; if(e.recoil>0)e.recoil=Math.max(0,e.recoil-dt*4.5); if(e.muzzle>0)e.muzzle-=dt;
       if(e.surgeT>0){ e.surgeT-=dt; if(e.alive)e.hp=Math.min(e.maxHp,e.hp+dt*6*(e.cardAmp||1)); }   // OVERCHARGE: timed surge + light regen
+      /* Out-of-combat regen, up to 62% of max. This is the other half of the longer TTK: a fight
+       * you can survive is only interesting if disengaging is a real option, and it only becomes
+       * one if breaking contact actually buys something back. It stops well short of full, so
+       * running away is a reset, not a heal — medkits still matter. */
+      if(e.alive && e.hp>0){ e.regenT=(e.regenT||0)+dt;
+        if(e.regenT>4.5 && e.hp<e.maxHp*0.62) e.hp=Math.min(e.maxHp*0.62, e.hp+dt*7); }
       if(!e.alive){ e.respawnT-=dt; if(e.respawnT<=0){ spawnEnt(e, e.isMe?(wager.loadout|0):e.weapon); if(e.isMe){ powMsg('◈ RESPAWN','#59e0ff'); SFX.spawn(); } } continue; }
       // __hold is a debug freeze (see __s9._hold): bots stop thinking, so a headless run can
       // pose one and photograph it without the AI turning it between the two calls.
@@ -1356,11 +1546,15 @@
     if(G.me){ cam.x=G.me.x; cam.z=G.me.z; cam.y=G.me.y+G.me.eye + (G.me.moving&&G.me.onGround?Math.sin(G.me.bob)*0.045:0);
       cam.yaw=G.me.yaw; cam.pitch=clamp(G.me.pitch - G.me.recoil*0.05, -1.45,1.45); }
     // particles
-    for(const t of G.tracers) t.t-=dt; G.tracers=G.tracers.filter(t=>t.t>0);
+    // rounds fly, then their streak fades where they landed
+    for(const t of G.tracers){ if(t.p<t.len) t.p+=t.sp*dt; else t.t-=dt; }
+    G.tracers=G.tracers.filter(t=>t.t>0);
+    if(G.nearMiss>0) G.nearMiss=Math.max(0,G.nearMiss-dt*5);
     for(const f of G.flashes) f.t-=dt; G.flashes=G.flashes.filter(f=>f.t>0);
     for(const s of G.sparks){ s.t-=dt; s.vy-=GRAV*0.5*dt; s.x+=s.vx*dt; s.y+=s.vy*dt; s.z+=s.vz*dt; } G.sparks=G.sparks.filter(s=>s.t>0);
     for(const c of G.chunks){ c.t-=dt; c.vy-=GRAV*dt; c.x+=c.vx*dt; c.y+=c.vy*dt; c.z+=c.vz*dt; if(c.y<0){c.y=0;c.vy*=-0.35;c.vx*=0.6;c.vz*=0.6;} } G.chunks=G.chunks.filter(c=>c.t>0);
     for(const k of G.kills) k.t-=dt; G.kills=G.kills.filter(k=>k.t>0);
+    if(G.comms){ for(const c of G.comms) c.t-=dt; G.comms=G.comms.filter(c=>c.t>0); }
     for(const dc of G.decals) dc.life-=dt; G.decals=G.decals.filter(dc=>dc.life>0);
     if(G.hitmark>0)G.hitmark-=dt; if(G.dmgFlash>0)G.dmgFlash=Math.max(0,G.dmgFlash-dt*1.6);
     // scope fov animate
@@ -1477,10 +1671,29 @@
     ctx.restore(); }
   function drawChunks(){ for(const c of G.chunks){ const p=projectPoint(c.x,c.y,c.z); if(!p)continue; const s=Math.max(1.5,c.s*p.s);
       ctx.fillStyle=rgb(lerpCol(c.col,FOG,fogT(p.z))); ctx.globalAlpha=clamp(c.t*1.4,0,1); ctx.fillRect(p.x-s/2,p.y-s/2,s,s); } ctx.globalAlpha=1; }
+  /* Tracers TRAVEL. The old ones were the whole flight path drawn at once for 60 ms, which reads
+   * as a laser beam rather than as a bullet; a round that crosses your view has to actually cross
+   * it. Damage is still hitscan and resolved at the trigger pull — this is presentation only, so
+   * nothing about hit registration changed. Each round carries its own head position along the
+   * ray at ~340 m/s (a hair under supersonic, so a shot across a 40 m arena takes ~120 ms and is
+   * genuinely visible) and draws as a short streak from a fading tail to the head. */
   function drawTracers(){ ctx.save(); ctx.lineCap='round';
-    for(const t of G.tracers){ const a=projectPoint(t.x0,t.y0,t.z0), b=projectPoint(t.x1,t.y1,t.z1); if(!a||!b)continue;
-      ctx.globalAlpha=clamp(t.t*14,0,1)*0.9; ctx.strokeStyle=t.me?'rgba(255,236,150,0.95)':'rgba(255,150,90,0.9)'; ctx.lineWidth=t.me?2:1.6;
-      ctx.shadowColor=t.me?'#ffd23b':'#ff6b57'; ctx.shadowBlur=6; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+    for(const t of G.tracers){
+      const head=Math.min(t.len, t.p), tail=Math.max(0, head - t.tail);
+      if(head<=0.02) continue;
+      const a=projectPoint(t.x0+t.dx*tail, t.y0+t.dy*tail, t.z0+t.dz*tail);
+      const b=projectPoint(t.x0+t.dx*head, t.y0+t.dy*head, t.z0+t.dz*head);
+      if(!a||!b)continue;
+      const fade=t.p>=t.len ? clamp(t.t*10,0,1) : 1;
+      ctx.globalAlpha=fade*(t.me?0.95:0.85); ctx.strokeStyle=t.me?'rgba(255,240,170,0.98)':'rgba(255,146,84,0.95)';
+      ctx.lineWidth=Math.max(1.2,(t.me?2.4:2.0)*clamp(b.s*0.02,0.5,2.4));
+      ctx.shadowColor=t.me?'#ffd23b':'#ff6b57'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      // the bright core of the round itself, so a near-miss reads as an object going past
+      ctx.globalAlpha=fade; ctx.shadowBlur=12; ctx.strokeStyle='rgba(255,255,235,0.95)';
+      ctx.lineWidth=Math.max(0.8,ctx.lineWidth*0.45);
+      ctx.beginPath(); ctx.moveTo((a.x+b.x*3)/4,(a.y+b.y*3)/4); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
     ctx.restore(); ctx.globalAlpha=1; }
   function drawFlashes(){ ctx.save(); ctx.globalCompositeOperation='lighter';
     for(const f of G.flashes){ const p=projectPoint(f.x,f.y,f.z); if(!p)continue; const r=(f.big?26:16)*clamp(p.s*0.02,0.5,3)*clamp(f.t*18,0.2,1);
@@ -1667,6 +1880,9 @@
     $('hTimer').style.color = tl<20 ? '#ff6b57' : '';
     // killfeed
     $('killfeed').innerHTML=G.kills.map(k=>`<div class="kf${k.me?' me':''}">${k.k?('<b>'+esc(shortName(k.k))+'</b>'):'<span style="color:#8fa">☠</span>'} ${k.head?'<span class="hs">◎</span>':'▸'} <span class="v">${esc(shortName(k.v))}</span></div>`).join('');
+    // squad comms
+    const cm=$('comms');
+    if(cm) cm.innerHTML=(G.comms||[]).map(c=>`<div class="cm" style="opacity:${(0.3+0.5*clamp(c.t/3.4,0,1)).toFixed(2)}"><b style="color:${rgb(c.tint)}">${esc(c.n)}</b> · ${esc(c.s)}</div>`).join('');
   }
 
   // ══════════════════ RESULT / PAYOUT ══════════════════
@@ -1683,7 +1899,7 @@
       wonSlugs=pool.slice(0,P.myCards);
       while(wonSlugs.length<P.myCards){ const all=[...bySlug.keys()]; wonSlugs.push(all[Math.floor(Math.random()*all.length)]); }   // top up thin pools from the deck so the podium share is honored
       wonSlugs.forEach(sl=>{ if(bySlug.has(sl)) v.push({slug:sl}); }); saveVault(v); }
-    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='none'); $('killfeed').style.display='none';
+    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='none'); $('killfeed').style.display='none'; $('comms').style.display='none';
     $('toggles').style.display='none'; $('controls').style.display='none'; $('dmgVig').style.opacity=0;
     const box=$('prizeBox'); box.classList.toggle('lose',!onPodium);
     $('resTitle').textContent = iWon ? 'VICTORY' : (onPodium ? 'PODIUM' : 'DOWNED');
@@ -1804,7 +2020,7 @@
   function resume(){ if(G.mode!=='pause')return; G.mode='play'; $('ovPause').classList.remove('show'); $('tgPause').textContent='⏸ pause'; playMusic(); tryLock(); }
   $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic; $('tgPause').onclick=()=>togglePause();
   $('btnResume').onclick=resume; $('btnAbort').onclick=()=>{ G.mode='lobby'; G.over=true; $('ovPause').classList.remove('show');
-    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='none'); $('killfeed').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
+    ['hudTL','hudTR','hudBL','hudBR'].forEach(id=>$(id).style.display='none'); $('killfeed').style.display='none'; $('comms').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
     $('ovLobby').classList.add('show'); music.pause(); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
 
   // ══════════════════ TOUCH (pointer events: floating stick · look-drag · action cluster) ══════════════════
