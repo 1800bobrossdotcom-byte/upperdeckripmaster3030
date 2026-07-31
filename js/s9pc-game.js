@@ -43,7 +43,20 @@ window.S9Game = (function () {
   };
 
   // ── map authoring (the six hand-built arenas) ───────────────────────────────────────────────
-  function newMap(name, x0, x1, z0, z1, ceilY) { return { name, x0, x1, z0, z1, ceilY, solids: [], spawns: [] }; }
+  /* ⚑ `open: true` — THE SIX HAND-BUILT ARENAS ARE WALLED YARDS UNDER A DUSK SKY, not rooms.
+   * "tight interior" in the comments below describes the LAYOUT (rooms joined by corridors),
+   * not a roof, and `ceilY` is a jump/spawn ceiling rather than geometry. The shipping renderer
+   * has one global dusk ENV and draws all six that way — orange sky above the walls, hard low
+   * sun, deep shadow — and that is the game's look.
+   * Leaving this flag unset made the engine build treat every one of them as an INTERIOR: it hung
+   * ceiling practicals, swapped in the indoor sky, pushed the IBL fill to 5.2x and opened the
+   * exposure to 1.25. Measured against the shipping build on the SAME arena that cost the frame
+   * its black point entirely — blacks 7.3% of frame -> 0.4%, saturation 52.5% -> 27.4% — which
+   * reads as "the engine washed the game out". It was not a lighting-taste question; it was a
+   * roof that is not there.
+   * Baked levels keep their own per-level flag (S9PCWorld.LEVELS: ROOFTOP open, the others not),
+   * because those genuinely are interiors and have real ceilings in the mesh. */
+  function newMap(name, x0, x1, z0, z1, ceilY) { return { name, x0, x1, z0, z1, ceilY, open: true, solids: [], spawns: [] }; }
   function addBox(M, x0, z0, x1, z1, y0, y1, base, kind) {
     M.solids.push({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1), y0, y1, base, kind: kind || 'wall' });
   }

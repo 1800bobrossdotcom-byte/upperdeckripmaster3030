@@ -3,7 +3,11 @@
 ## Art
 
 - **DarkFarms** — trading-card art displayed as arena wall-art ("posters") in the
-  Section 9 Taskforce Supergame cabinet (`section9.html` / `js/section9-gl.js`).
+  Section 9 Taskforce Supergame cabinet.
+  ⚠ **Currently only in the CLASSIC build** (`section9-classic.html` / `js/section9-gl.js`).
+  The PlayCanvas build took over `section9.html` and does **not** yet hang the posters, so the
+  wall art is not visible in the game the arcade links to. That is a gap to close, not a
+  removal — nothing was deleted and the licence position is unchanged.
   Released **CC0** (public-domain dedication) — basis: **the artist's own attestation.**
   Our artist knows DarkFarms personally and confirmed the CC0 status directly.
   ⚑ This is a *private* basis, not a published one, and the correction matters: this entry

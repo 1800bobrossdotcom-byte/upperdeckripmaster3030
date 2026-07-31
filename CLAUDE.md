@@ -489,8 +489,22 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
     re-derived in the engine's terms, not left at defaults. Also `Gfx2D` and the **2D fallback**
     (PlayCanvas has no software path, so WebGL2 becomes a hard requirement) — fail-open at every
     step is a standing principle here, so dropping it is a DESIGN decision to be made openly.
-  - **Keep `section9.html` working until the PlayCanvas build genuinely surpasses it.** That is
-    not deadline caution — it is a free A/B and a free rollback.
+  - ✅ **SHIPPED 2026-07-31 — the PlayCanvas build IS `section9.html`.** The hand-rolled
+    renderer moved to **`section9-classic.html`**, unchanged and still playable; `section9-pc.html`
+    redirects (query strings survive). It is the rollback, the free A/B, and where a browser with
+    **no WebGL 2** is sent — PlayCanvas has no software path, so the engine build shows an honest
+    page naming the requirement and linking to the build that runs anywhere. Fail-open is
+    preserved as a ROUTE rather than a renderer.
+  - ⚑ **The washed-out interiors were a MISSING `open` FLAG, not a lighting-taste question.** The
+    six hand-built arenas are walled yards under the dusk sky — "tight interior" in their comments
+    describes the LAYOUT, and `ceilY` is a jump ceiling, not geometry. With the flag unset the
+    engine build classified all six as rooms: ceiling practicals, indoor sky, IBL fill ×5.2,
+    exposure 1.25. Measured against the classic build on the SAME arena that cost the frame its
+    black point — blacks 7.3% of frame → **0.4%**, saturation 52.5% → **27.4%**. Setting
+    `open:true` in `newMap()` took it to **42.5% saturation, 2.7% blacks, contrast 53.9 (above the
+    classic build's 42.1)**. Baked levels keep their own per-level flag; they have real ceilings.
+  - ⚠ **Known gap: the DarkFarms CC0 wall art is classic-only.** The posters are not hung in the
+    engine build yet, so they are absent from the game the arcade links to. See CREDITS.md.
 - **DOGFIGHT true-3D — `js/dogfight-gl.js` (`DFGL`), Milestone 1.** Real perspective camera +
   z-buffer, replacing the fake-3D FOCAL/HORIZON projection. Same conventions as
   `section9-gl.js` / `ronin3d.js`. Game state was already 3D — world `(x, alt, y)`, `cam{x,y,
