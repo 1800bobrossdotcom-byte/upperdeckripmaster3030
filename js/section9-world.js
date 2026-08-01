@@ -32,6 +32,10 @@ window.S9World = (function () {
     { file: 'arcade',  name: 'ARCADE PIT' },
     { file: 'vault',   name: 'THE VAULT' },
     { file: 'rooftop', name: 'ROOFTOP', open: true },
+    /* Blender-authored, 1:1 metres — the box-built LIDO DECK rebuilt as real geometry: round
+     * columns with bases and capitals, semicircular arches, individual balusters, nosed treads,
+     * lathed parasols. `open` because it is a sunlit lido, not a room. */
+    { file: 'lido',    name: 'LIDO DECK', open: true },
   ];
   const BASE = 'models/world/';
 
@@ -39,6 +43,18 @@ window.S9World = (function () {
    * grain only (the GL path draws the mesh), so "close enough" really is enough — but a stair
    * that reads as a wall looks wrong even blocked out, so the ordering below matters. */
   const KINDS = [
+    /* ⚑ THE OUTDOOR PREFIXES GO FIRST, AND THE ORDER IS LOAD-BEARING. First match wins, and the
+     * generic rows below are hungry — `/pil/` alone was routing LIDO's masonry pilasters to the
+     * cool-steel `metal` class and putting five blue panels down its sunniest wall. Explicit
+     * `water_ / plnt_ / awn_ / trm_` prefixes claim their surfaces before anything can guess.
+     * Verified non-colliding: zero objects in arcade / vault / rooftop / street begin with any of
+     * these, so the four existing levels classify exactly as before.
+     * ⚠ An object NAME is a material assignment in this pipeline. That is easy to forget and it
+     * fails silently — the level still loads, it just comes out the wrong colour. */
+    [/^water_/i, 'water'],
+    [/^plnt_/i,  'plant'],
+    [/^awn_/i,   'awning'],
+    [/^trm_/i,   'trim'],
     [/_step|stair/i, 'stair'],
     [/rail|para|sill|counter|shelf|rope|hood|cap\b/i, 'cover'],
     [/floor|roof|deck|mezz|bridge|catwalk|balc\d|dais|walk|inlay|annex$/i, 'plat'],

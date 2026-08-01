@@ -209,104 +209,19 @@ window.S9Game = (function () {
       M.spawns = [[-20, -9], [20, -9], [-20, 9], [20, 9], [0, -16], [0, 16], [-9, 0], [9, 0], [18, 16], [-18, 16]];
       maps.push(M); }
 
-    /* ── LIDO DECK — authored FOR daylight, not retinted into it ─────────────────────────────
-     * ⚑ WHY A NEW ARENA RATHER THAN A NEW PALETTE. The six above are concrete yards: every solid
-     * is `wall`, `cover`, `plat` or `crate`, which is four shades of the same grey box. Switching
-     * the sun to daylight measured brighter and sharper but took saturation 50.8% → 20.9%, and
-     * repainting those tints could not fix it — the frame had no colour IN it, only coloured
-     * light on it. You cannot retint your way to a place. The reference frames read the way they
-     * do because the LEVEL is a location with water and planting and canvas in it, at different
-     * glosses, so the eye gets material variety and large flat colour fields at the same time.
-     *
-     * So this one is built out of the outdoor material classes (S9PCWorld: water · plant ·
-     * awning · trim) and laid out to the same rules the other six obey:
-     *   · the pool is a big EXPOSED crossing — 0.2 m of water is walkable, so it reads as open
-     *     ground that happens to be the most saturated thing in frame. Risk you can see.
-     *   · cover is COLOURED and low (planters, cabanas), so "where can I hide" is answerable at
-     *     a glance from across the arena — which is the actual clarity win, not the sharpening.
-     *   · the colonnade gives peek-and-shoot down the long axis; the terraces give height without
-     *     giving a perch that sees everything.
-     *   · white trim goes on EDGES only. It is the brightest value here, and a bright edge is
-     *     what makes a silhouette in front of it legible. */
-    { const M = newMap('LIDO DECK', -26, 26, -22, 22, 12); perimeter(M);
-      // the pool — one flat teal field, wadeable (0.2 < the 0.62 step height), dead centre
-      addBox(M, -9.5, -7.5, 9.5, 7.5, 0, 0.2, PAL.sand, 'water');
-      // kerb: a low lip you vault, and the bright line that draws the pool's shape
-      for (const [a, b, c, d] of [[-10.2, -8.2, 10.2, -7.5], [-10.2, 7.5, 10.2, 8.2],
-                                  [-10.2, -8.2, -9.5, 8.2], [9.5, -8.2, 10.2, 8.2]])
-        addBox(M, a, b, c, d, 0, 0.55, PAL.plat, 'trim');
-      // sun terraces, +x and −x, two heights so neither owns the other
-      addBox(M, -25, -13, -17, 13, 0, 2.4, PAL.plat, 'plat');
-      addBox(M, 17, -13, 25, 13, 0, 3.4, PAL.plat, 'plat');
-      addStairs(M, -17, -6, '+x', 4, 5.5, 0.62, 0.85, PAL.stair);
-      addStairs(M, 17, 0.5, '-x', 5, 5.5, 0.7, 0.85, PAL.stair);
-      // balustrades — cover ON the terraces, and the bright edge that separates them from the sky
-      addBox(M, -17.6, -13, -17, 13, 2.4, 3.5, PAL.plat, 'trim');
-      addBox(M, 17, -13, 17.6, 13, 3.4, 4.5, PAL.plat, 'trim');
-      // colonnade down the −z side: peek-and-shoot, and the reference's portico
-      for (let i = 0; i < 7; i++) { const x = -18 + i * 6;
-        addBox(M, x - 0.75, -19.5, x + 0.75, -18, 0, 6.2, PAL.pillar, 'trim'); }
-      addBox(M, -21, -20.4, 21, -19.5, 5.6, 6.6, PAL.plat, 'trim');   // the lintel they carry
-      // cabanas — coral canvas, mid-field cover you can find at any range
-      for (const [cx, cz] of [[-11.5, 13.5], [0, 15.5], [11.5, 13.5], [-6, -12.5], [6, -12.5]]) {
-        addBox(M, cx - 2.1, cz - 1.6, cx + 2.1, cz + 1.6, 0, 2.5, PAL.crate, 'awning');
-        addBox(M, cx - 2.6, cz - 2.0, cx + 2.6, cz + 2.0, 2.5, 2.85, PAL.crate, 'awning'); }
-      // planters: low green cover, scattered so the open floor is never a single empty run
-      for (const [px, pz] of [[-13.5, 4.5], [13.5, -4.5], [-13.5, -4.5], [13.5, 4.5],
-                              [0, 11], [0, -10], [-4.5, 18], [4.5, 18]]) {
-        addBox(M, px - 1.5, pz - 1.5, px + 1.5, pz + 1.5, 0, 0.75, PAL.plat, 'trim');
-        addBox(M, px - 1.2, pz - 1.2, px + 1.2, pz + 1.2, 0.75, 1.65, PAL.cover, 'plant'); }
-      /* ⚑ THE DIVING TOWER, AND WHY THE POOL NEEDED SOMETHING IN IT. "One big flat teal field in
-       * the middle" was a nice idea about colour and a bad piece of level design: it made every
-       * sightline flat deck below and flat sky above, with nothing in between. Measured from a
-       * spawn — rms 11.7, edge 0.50, against 39–49 from a spot in the same arena with structure
-       * in front of the camera. Haze was not the cause and neither was exposure; both were
-       * chased first and neither moved it. A frame needs an OCCUPANT.
-       * So the pool gets a tower at its centre: it is the landmark every spawn looks at, it
-       * breaks the one sightline that crossed the whole arena unobstructed, and it turns the
-       * exposed wade into a crossing with something to break to. */
-      addBox(M, -1.6, -1.6, 1.6, 1.6, 0, 7.6, PAL.pillar, 'trim');
-      addBox(M, -3.4, -3.4, 3.4, 3.4, 7.6, 8.2, PAL.plat, 'trim');       // the board
-      addBox(M, -3.4, -3.4, 3.4, -2.6, 8.2, 9.0, PAL.plat, 'trim');      // its rail, so the top reads as a place
-      addBox(M, -3.4, 2.6, 3.4, 3.4, 8.2, 9.0, PAL.plat, 'trim');
-      // parasols — thin posts with wide canopies at head height, mid-field frame-breakers
-      for (const [ux, uz] of [[-13, 0], [13, 0], [0, -11], [0, 11]]) {
-        addBox(M, ux - 0.3, uz - 0.3, ux + 0.3, uz + 0.3, 0, 3.1, PAL.pillar, 'trim');
-        addBox(M, ux - 2.4, uz - 2.4, ux + 2.4, uz + 2.4, 3.1, 3.5, PAL.crate, 'awning'); }
-      // lifeguard stand — the one high perch, deliberately small and exposed on three sides
-      addBox(M, -1.4, 19, 1.4, 21.4, 0, 4.2, PAL.plat, 'plat');
-      addBox(M, -1.6, 18.8, 1.6, 19.2, 4.2, 5.1, PAL.plat, 'trim');
-      addStairs(M, -1.4, 18.9, '-z', 5, 2.8, 0.84, 0.8, PAL.stair);
-      /* ⚑ VERTICAL MASS — the fix for a frame that was half empty sky. The first draft topped out
-       * at the 6.6 m lintel in a 52×44 yard, so from a spawn you looked across 40 m at a 9 m
-       * perimeter that subtends ~10° and the rest of the frame was gradient: measured rms 11,
-       * edge 0.47, against 39–49 rms from the same arena at a spot with something in front of it.
-       * That is not a lighting bug and no exposure value fixes it — an arena needs things ABOVE
-       * eyeline or the sky is the picture. The reference frames are full of building: a pavilion
-       * behind the pool, a tower, a roofed colonnade. Same here, and every mass is also cover. */
-      addBox(M, -22, 16.5, -10, 21.5, 0, 9.5, PAL.wall);        // north pavilion
-      addBox(M, 10, 16.5, 22, 21.5, 0, 8.0, PAL.wall);          // its shorter twin, so neither owns the skyline
-      addBox(M, -22.4, 16.1, -9.6, 16.9, 9.5, 10.2, PAL.plat, 'trim');   // cornice: the bright top edge
-      addBox(M, 9.6, 16.1, 22.4, 16.9, 8.0, 8.7, PAL.plat, 'trim');
-      addBox(M, -24.5, -20.5, -19, -15, 0, 12.5, PAL.wall);     // corner towers — the tall silhouette
-      addBox(M, 19, -20.5, 24.5, -15, 0, 10.5, PAL.wall);
-      addBox(M, -24.9, -20.9, -18.6, -14.6, 12.5, 13.2, PAL.plat, 'trim');
-      addBox(M, 18.6, -20.9, 24.9, -14.6, 10.5, 11.2, PAL.plat, 'trim');
-      addBox(M, -21, -21, 21, -19.5, 6.2, 7.0, PAL.plat, 'trim');        // roof over the colonnade
-      // clutter, because a lido has clutter and clutter breaks a sightline
-      addBox(M, -8.5, 15.5, -6.5, 17.5, 0, 1.5, PAL.crate, 'crate');
-      addBox(M, 6.5, 15.5, 8.5, 17.5, 0, 1.5, PAL.crate, 'crate');
-      /* ⚑ SPAWNS AUTHORED, THEN VERIFIED — 12/12 clear, fixSpawns relocates none. CLAUDE.md's
-       * rule is that a map needing rescue is a wrong map, and the first draft of this one broke
-       * it three times: [0,19] sat inside the lifeguard stand, and [±14,0] sat inside the two
-       * stair runs — none of which is visible in the source, because a staircase is authored as
-       * a loop and reads as one line. The rescue spiral then dropped the player 4 m from a 2.4 m
-       * terrace wall FACING it, which is what a blank first frame actually was. Checked against
-       * the game's own blocks()/inBounds over MAP.solids, plus a 32-ray sweep for the longest
-       * clear line: every spawn below has 19 m or more of open sightline. */
-      M.spawns = [[-13, 10], [13, 10], [-13, -10], [13, -10], [-6, 12], [6, 12],
-                  [-21, 14.5], [21, 14.5], [-15, -9], [15, -9], [-15, -17], [15, -17]];
-      maps.push(M); }
+    /* ⚑ THE BOX-BUILT "LIDO DECK" LIVED HERE AND IS GONE — REPLACED, NOT DELETED.
+     * It was a blockout: ~75 axis-aligned solids standing in for a lido, written to prove the
+     * daylight palette had something to sit on. `models/world/lido.wld` is now the same arena
+     * authored in Blender at 1:1 metres — round columns with bases and capitals, semicircular
+     * arches, individual balusters, nosed treads, lathed parasols; 16,108 triangles against the
+     * blockout's ~1,000, and FEWER collision boxes (170 vs the hand-built set) because a
+     * balustrade run is one object rather than twenty-six.
+     * It is removed rather than kept because both carried the same name, and two arenas called
+     * LIDO DECK in the picker is a bug the player experiences as "which one is the real one".
+     * ⚠ Consequence: LIDO is now a BAKED level, so it depends on the .wld fetch. That fails open
+     * (S9World simply omits a level it cannot load), so the failure mode is a missing chip rather
+     * than a broken arena — but it does mean there is no longer a no-network fallback for it.
+     * The blockout is recoverable from git history if that trade ever needs reversing. */
     return maps;
   }
 
