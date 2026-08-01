@@ -262,8 +262,13 @@
      * recede in x AND z, which is the only reason a seven-card rank reads as a gang rather than a
      * row. The scale taper does the same job the DOM stack's negative margin does — see
      * `.fo-cw:not(:first-child)` in cards/battle.html. */
+    /* ⚑ TIGHT is aspect-driven, and it is the other half of the portrait fix. Solving the fov alone
+     * gets both ranks on screen on a phone but only by going so wide the cards are thumbnails. So on
+     * a narrow viewport the ranks close on the centre line as well — which is what a fighting game
+     * does when it cannot afford the width anyway. 1.0 at 1.1 aspect and above, 0.55 at 0.5. */
+    var TIGHT = 1;
     function slotOf(sign, i) {
-      return { x: sign * (2.05 + i * 0.80), y: 1.42 + (i & 1 ? 0.10 : 0), z: 0.95 - i * 0.72,
+      return { x: sign * (2.05 + i * 0.80) * TIGHT, y: 1.42 + (i & 1 ? 0.10 : 0), z: 0.95 - i * 0.72,
         sc: Math.max(0.72, 1.22 - i * 0.055), ry: sign * -17 };
     }
 
@@ -363,8 +368,25 @@
       });
       sides[key] = out;
     }
+    (function () {
+      var r0 = canvas.getBoundingClientRect();
+      var asp = Math.max(0.3, (r0.width || 1) / (r0.height || 1));
+      TIGHT = clamp((asp - 0.5) / (1.1 - 0.5) * (1 - 0.55) + 0.55, 0.55, 1);
+    })();
     buildSide((o.you || []).slice(), 'you');
     buildSide((o.house || []).slice(), 'house');
+    /* Hand the arena the REAL bounding box of the slots that were built, so a single-card wager and
+     * a seven-card full slam each get their own framing instead of sharing a constant. */
+    (function () {
+      var hw = 0, hy = 2.4;
+      ['you', 'house'].forEach(function (k) { sides[k].forEach(function (f2) {
+        hw = Math.max(hw, Math.abs(f2.slot.x) + CW * 0.62 * f2.slot.sc);
+        hy = Math.max(hy, f2.slot.y + CH * 0.62 * f2.slot.sc);
+      }); });
+      A.setExtents(hw + 0.35, hy - 0.4);
+      A.refit();
+      fit();
+    })();
 
     /* ── THE HANDOFF: the staked DOM cards become the fighters ─────────────────────────────────
      * The binder's folder does this in 2D — "measure pocket → measure destination → move a plain

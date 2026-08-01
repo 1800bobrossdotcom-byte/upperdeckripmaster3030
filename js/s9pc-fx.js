@@ -98,6 +98,17 @@ window.S9PCFx = (function () {
      * 1.0 puts gunfire above the bloom threshold, which is the whole reason these effects are
      * geometry in the scene rather than stickers on the overlay: they get to be LIGHT. */
     addMat.emissiveIntensity = 3.2;
+    /* ⚑ ON THIS MATERIAL, VERTEX ALPHA DOES NOTHING — AND EVERY CALLER ALREADY KNOWS THAT.
+     * BLEND_ADDITIVE is ONE/ONE, so the fragment's alpha is never a blend factor: a quad pushed
+     * at a=128 draws exactly as bright as one at a=255. Fading an additive effect therefore has
+     * to be done by scaling RGB, and it is — all 11 pushes into the additive buffer pass alpha
+     * 255 and premultiply their fade into the colour (`255 * fade * 0.7, …`).
+     * Recorded because this is a trap that has already cost time elsewhere in the repo: the Rip
+     * Rocketer port hit exactly this and spent two tuning rounds moving numbers that could not
+     * move anything, then flagged this file as having "the same construction". It does — but not
+     * the same defect, checked caller by caller before changing anything.
+     * ⚠ So: if you add an additive effect here, fade it in RGB. Passing a fade in the alpha slot
+     * will silently draw at full brightness, and you will tune the wrong knob looking for it. */
     addMat.blendType = pc.BLEND_ADDITIVE;
     addMat.depthWrite = false;
     addMat.cull = pc.CULLFACE_NONE;

@@ -244,20 +244,32 @@
     var LOOK = new pc.Vec3(0, 1.55, 0);
     var camState = { dist: 11.4, yaw: 0, pitch: 0, shake: 0, punch: 0, bias: 0, t: 0, zoom: 0 };
 
-    /* ⚑ FRAME THE RANK, DO NOT ASSUME A DESKTOP ASPECT. The fight canvas covers the whole face-off
-     * overlay, which on a phone is a tall portrait box: at fov 32 and a fixed distance the two
-     * ranks would simply be off the sides of the frame. So the distance is SOLVED for from the
-     * aspect every resize — the classic fit-both-axes solve — with a floor so it never gets so
-     * close that the front card clips the near plane. This is the same class of trap as the hero
-     * lens aspect bug in CLAUDE.md: a layout that is correct at one aspect and silently wrong at
-     * another. */
-    var FIT_W = 7.0, FIT_H = 3.1;             // half-extents of everything that must stay on screen
+    /* ⚑ FRAME THE RANK, DO NOT ASSUME A DESKTOP ASPECT — and SOLVE THE FOV, NOT THE DISTANCE.
+     * The fight canvas covers the whole face-off overlay, which on a phone is a tall portrait box.
+     * The first version held the fov at 32° and solved for distance; measured at 390×844 (aspect
+     * 0.462) that asks for a camera 53 units back, the clamp cut it at 30, and the YOU champion
+     * projected to screen x = −18.8 — off the left edge of its own arena. Receding is also the wrong
+     * cure: at 53 units the cards are specks and the backdrop no longer covers the frame.
+     * So the distance is held near 13.5 and the VERTICAL FOV is solved instead, from whichever
+     * half-extent is binding, with the fov capped and the distance only pushed out if the cap binds.
+     * Same family as the hero-lens `aspect-ratio` trap in CLAUDE.md: correct at one aspect, silently
+     * wrong at another, and only a measurement at the second aspect finds it.
+     * ⚠ The half-extents are NOT constants — `setExtents` is called with the real bounding box of
+     *   the slots that were actually built, so a 1-card stake and a 7-card full slam frame
+     *   themselves rather than sharing a guess. */
+    var FIT_W = 7.0, FIT_H = 3.1;
+    var D0 = 13.5, FOV_MAX = 60, FOV_MIN = 26;
+    function setExtents(halfW, halfH) { FIT_W = Math.max(2.4, halfW); FIT_H = Math.max(2.0, halfH); }
     function refit(w, h) {
       var r = (w && h) ? { width: w, height: h } : (dev.clientRect || { width: dev.width, height: dev.height });
       var aspect = Math.max(0.3, (r.width || 1) / (r.height || 1));
-      var tanV = Math.tan(cam.camera.fov * Math.PI / 360);
-      var dV = FIT_H / tanV, dH = FIT_W / (tanV * aspect);
-      camState.dist = Math.max(8.5, Math.min(30, Math.max(dV, dH) + 1.2));
+      var need = Math.max(FIT_H, FIT_W / aspect);          // half-height that has to fit vertically
+      var dist = D0;
+      var fov = 2 * Math.atan(need / dist) * 180 / Math.PI;
+      if (fov > FOV_MAX) { fov = FOV_MAX; dist = need / Math.tan(FOV_MAX * Math.PI / 360); }
+      else if (fov < FOV_MIN) { fov = FOV_MIN; dist = need / Math.tan(FOV_MIN * Math.PI / 360); }
+      cam.camera.fov = fov;
+      camState.dist = dist + 1.2;
       camState.aspect = aspect;
     }
 
@@ -329,7 +341,7 @@
       root: root, cam: cam, camRig: camRig, mats: mats,
       lights: { key: key, rimYou: rimYou, rimHouse: rimHouse, centre: centre },
       PAL: PAL, camState: camState,
-      refit: refit, update: updateCamera, buildPost: buildPost,
+      refit: refit, setExtents: setExtents, update: updateCamera, buildPost: buildPost,
       get frame() { return frame; },
       /* hero-moment controls, all additive so two of them can land on the same frame */
       punch: function (n) { camState.punch = Math.min(2.4, camState.punch + n); },
