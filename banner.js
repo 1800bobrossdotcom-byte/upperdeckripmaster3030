@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — the freshness ticker (persistent, site-wide).
+/* ripmaster3030studios — the freshness ticker (persistent, site-wide).
  *
  * We ship paint daily in the run-up to launch, and browsers love to serve a
  * stale cache. This slim strip tells visitors how to hard-refresh — with the

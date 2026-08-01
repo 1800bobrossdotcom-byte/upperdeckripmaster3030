@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Market Bench · ripmaster3030studios</title>
-<meta name="description" content="The market bench — your vault of owned cards, and where you list them for sale, trade, or send. A testnet prototype today: cards save in your browser; only the $UR3030 buy & burn are on-chain.">
+<meta name="description" content="The market bench — your vault of owned cards, and where you list them for sale, trade, or send. A testnet prototype today: cards save in your browser; only the $3030 buy & burn are on-chain.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <style>
   :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
@@ -185,7 +185,7 @@
     <div class="burned" id="burned"></div>
     <div class="honesty-note">Your binder is a <b>testnet prototype</b> — cards, listings &amp; the burn
       tally save in your browser today, and real on-chain card ownership is a later phase. Only the
-      <b>$UR3030</b> buy &amp; burn are on-chain right now.</div>
+      <b>$3030</b> buy &amp; burn are on-chain right now.</div>
 
     <div class="tabs">
       <button class="tab on" data-view="mine">◈ My cards</button>
@@ -214,7 +214,7 @@
       <p class="mkt-note">List cards from your binder for <span class="b">sale</span> or <span class="b">trade</span>, or
       pick up <b>house cards</b> the bench re-issues. This bench is a <b>local prototype</b> — listings, trades and the
       tally all save on <b>this device</b> (the <b>721 lens</b> contract / SuperRare marketplace is the <b>Phase-2</b> settlement layer).
-      Real, on-chain card trading is a later phase; today the <span class="b">$UR3030</span> buy &amp; burn and the 33 hero-lens mints are on-chain.</p>
+      Real, on-chain card trading is a later phase; today the <span class="b">$3030</span> buy &amp; burn and the 33 hero-lens mints are on-chain.</p>
 
       <div class="mkt-h"><span class="n">House market — burn to acquire</span><span class="n" style="color:#5fcf8f" id="houseN"></span></div>
       <div class="board" id="houseBoard"></div>
@@ -245,8 +245,8 @@
   const bySlug = () => new Map(DECK.map(c=>[c.slug,c]));
   const burnedTotal = () => { try { return +(localStorage.getItem('urm_burned')||0); } catch { return 0; } };
   const burn = (n, why) => { try { localStorage.setItem('urm_burned', String(burnedTotal()+n)); } catch {}
-    renderBurned(); say('🔥 '+n+' $UR3030 burned — '+why); };
-  function renderBurned(){ const el = $('burned'); el.innerHTML = '<span class="ic" data-ic="flame"></span> '+burnedTotal()+' $UR3030 burned on this device'; window.RipIcons && RipIcons.hydrate(el); }
+    renderBurned(); say('🔥 '+n+' $3030 burned — '+why); };
+  function renderBurned(){ const el = $('burned'); el.innerHTML = '<span class="ic" data-ic="flame"></span> '+burnedTotal()+' $3030 burned on this device'; window.RipIcons && RipIcons.hydrate(el); }
 
   // resolve a vault entry {slug}|{forged} → card object
   function resolve(e, bs, fb){ if(!e) return null; return e.forged ? fb.get(e.forged) : bs.get(e.slug); }
@@ -393,17 +393,17 @@
     const c=cell.card;
     if(kind==='sell'){
       const def=ASK[cell.ref&&cell.ref.forged?'forged':(c.rarity||'rare')]||10;
-      const ask=await urmDialog({ title:'List for sale', sub:`Set an asking price for “${c.title}”, in $UR3030.`, input:true, def, okText:'List it' });
+      const ask=await urmDialog({ title:'List for sale', sub:`Set an asking price for “${c.title}”, in $3030.`, input:true, def, okText:'List it' });
       if(ask===null) return; const n=Math.max(1, Math.round(+ask)||def);
       pushListing({ kind:'sell', by:'you', ask:n, key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
-      say('listed '+c.title+' for '+n+' $UR3030'); closeSheet(); go();
+      say('listed '+c.title+' for '+n+' $3030'); closeSheet(); go();
     } else if(kind==='trade'){
       const want=await urmDialog({ title:'List for trade', sub:`What do you want in exchange for “${c.title}”?`, input:true, def:'any prizm', okText:'Post it' });
       if(want===null) return;
       pushListing({ kind:'trade', by:'you', want:(want||'open to offers').slice(0,40), key:cell.key, ref:cell.ref, title:c.title, art:c.art, rar:c.rarity });
       say('put '+c.title+' up for trade'); closeSheet(); go();
     } else if(kind==='send'){
-      const to=await urmDialog({ title:'Send / gift', sub:`Send “${c.title}” to another collector — wallet or handle. The ${TOLL.send} $UR3030 send toll burns.`, input:true, def:'', okText:'Send it' });
+      const to=await urmDialog({ title:'Send / gift', sub:`Send “${c.title}” to another collector — wallet or handle. The ${TOLL.send} $3030 send toll burns.`, input:true, def:'', okText:'Send it' });
       if(!to) return;
       // a gift still feeds the fire — one copy leaves your vault, sendToll burns
       removeOneFromVault(cell.ref);
@@ -443,7 +443,7 @@
   }
   function listingHTML(l){
     const kc = l.kind==='sell'?'sell':(l.kind==='trade'?'trade':'want');
-    const line = l.kind==='sell' ? `${l.ask} <small>$UR3030</small>` : (l.kind==='trade'? `wants: ${l.want}` : `${l.ask} <small>$UR3030</small>`);
+    const line = l.kind==='sell' ? `${l.ask} <small>$3030</small>` : (l.kind==='trade'? `wants: ${l.want}` : `${l.ask} <small>$3030</small>`);
     const acts = l.by==='house'
       ? `<button class="buy" data-buy="${l.id}">Buy · burn ${l.ask}</button><button data-offer="${l.id}">Trade for it</button>`
       : `<button class="cancel" data-cancel="${l.id}">Cancel listing</button>`;
@@ -460,7 +460,7 @@
   async function offerTrade(id){ const m=load('urm_market'); const l=m.find(x=>x.id===id); if(!l) return;
     const owned=ownedCards(); if(!owned.length){ say('you have no cards to trade'); return; }
     const idx=await urmDialog({ title:'Trade for it',
-      sub:`Pick one of your cards to swap for “${l.title}” (house). Burns ${TOLL.trade} $UR3030 each side.`,
+      sub:`Pick one of your cards to swap for “${l.title}” (house). Burns ${TOLL.trade} $3030 each side.`,
       options: owned.map(o=>({ label:o.card.title, img:o.card.art })) });
     if(idx===null) return; const give=owned[idx];
     if(!give){ say('no card at that slot'); return; }

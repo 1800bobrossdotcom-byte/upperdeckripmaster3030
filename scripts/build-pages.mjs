@@ -28,16 +28,16 @@ const NAV = [
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} · upperdeckripmaster3030</title>
+<title>${title} · ripmaster3030studios</title>
 <meta name="description" content="${subtitle}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="canonical" href="https://upperdeckripmaster3030.com/${slug}">
+<link rel="canonical" href="https://ripmaster3030studios.com/${slug}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="upperdeckripmaster3030">
-<meta property="og:title" content="${title} · upperdeckripmaster3030">
+<meta property="og:site_name" content="ripmaster3030studios">
+<meta property="og:title" content="${title} · ripmaster3030studios">
 <meta property="og:description" content="${subtitle}">
-<meta property="og:url" content="https://upperdeckripmaster3030.com/${slug}">
-<meta property="og:image" content="https://upperdeckripmaster3030.com/marquee-header.webp">
+<meta property="og:url" content="https://ripmaster3030studios.com/${slug}">
+<meta property="og:image" content="https://ripmaster3030studios.com/marquee-header.webp">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root{
@@ -144,7 +144,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
     <nav class="topnav">
       ${NAV.map(n => `<a href="${n.slug}"${n.slug === slug ? ' class="on"' : ''}>${n.label}</a>`).join('\n      ')}
     </nav>
-    <span class="nfa-badge">$UR3030 · NFA</span>
+    <span class="nfa-badge">$3030 · NFA</span>
   </div>
   <div class="wrap">
     <header class="hero">
@@ -153,14 +153,14 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       <p class="sub">${subtitle}</p>
     </header>
     ${body}
-    <div class="ribbon"><b>NFA · all memes are memes.</b> $UR3030 is an experimental, volatile
+    <div class="ribbon"><b>NFA · all memes are memes.</b> $3030 is an experimental, volatile
       collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
       to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.
       Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
     <footer class="foot">
-      <span>$UR3030 · a game token, not an investment</span>
+      <span>$3030 · a game token, not an investment</span>
       <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
-      <span>upperdeckripmaster3030.com</span>
+      <span>ripmaster3030studios.com</span>
     </footer>
   </div>
   <script src="sfx.js"></script>
@@ -173,8 +173,8 @@ const whitepaper = `
     <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
 
   <h2><span class="n">01</span>TL;DR</h2>
-  <p>upperdeckripmaster3030 is a <b>liquid trading-card game</b> that is, on-chain, one primitive:
-  a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token (<b>$UR3030</b>) priced by a bonding
+  <p>ripmaster3030studios is a <b>liquid trading-card game</b> that is, on-chain, one primitive:
+  a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token (<b>$3030</b>) priced by a bonding
   curve in <b>RARE</b> on Uniswap-v4. The <b>100-card deck</b> is the <b>artwork</b>, and <b>every card is a
   LENS</b> — a render that reads the live market + burn. <b>33 hero cards</b> mint as <b>1/1 lenses</b>
   (11 pulled from packs, 22 earned in the games); the other <b>67 field cards</b> are <b>render-only lenses</b>
@@ -185,7 +185,7 @@ const whitepaper = `
 
   <h3>The stack — one edition, one lens contract</h3>
   <div class="cols3">
-    <div class="card house"><div class="co-h">$UR3030 · ERC-20</div>
+    <div class="card house"><div class="co-h">$3030 · ERC-20</div>
       <p style="font-size:13px;margin:0">The <b>edition</b>. One token on a Uniswap-v4 + Doppler
       multicurve, reserve in RARE — chartable like any ERC-20. Buy it, sell it, <b>burn</b> it.
       <b>Minted once</b>; burns are <b>permanent</b>. In SuperRare's words: <i>"the token is not separate
@@ -196,7 +196,7 @@ const whitepaper = `
       any token exists for it — so field cards are lenses today, unminted.</p></div>
     <div class="card burn"><div class="co-h">Lenses · ERC-721</div>
       <p style="font-size:13px;margin:0">The <b>owned</b> layer. <b>33 hero 1/1s</b> minted now, plus
-      <b>Lovebeing</b>, the holder lens every $UR3030 wallet carries. The 67 field cards mint <b>later</b>,
+      <b>Lovebeing</b>, the holder lens every $3030 wallet carries. The 67 field cards mint <b>later</b>,
       against the same render — so they stay lenses, never turning to static art.</p></div>
   </div>
   <p class="fine"><b>No ERC-1155, no per-copy editions, no flood of mints.</b> The on-chain footprint is
@@ -204,25 +204,25 @@ const whitepaper = `
   a site-layer collectible (chain-readable) until you choose to mint it.</p>
 
   <div class="callout cy"><div class="co-h">This is transparency, not a pitch.</div>
-    <p>$UR3030 is a collectible game token, not an investment. It can go to zero. The cards are art,
+    <p>$3030 is a collectible game token, not an investment. It can go to zero. The cards are art,
     parody, and memes. Play for the fun of it — see <a href="#legal">Legal &amp; NFA</a>.</p></div>
 
   <h2><span class="n">02</span>The game</h2>
   <ul>
     <li><b>The field</b> — 100 cards, all live lenses, five tiers (Common → Prizm). <b>Rarity is set by
       community vote</b> (the Rarity Court), not decreed.</li>
-    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $UR3030, burned in full</b>; you pull
+    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030, burned in full</b>; you pull
       <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
     <li><b>The 33 hero lenses</b> — a <b>Season-1 genesis set</b> that persists all four seasons — <b>11 gacha</b>
       (pull the claim from a pack → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>
-    <li><b>Play &amp; wager</b> — the games ante $UR3030 (<b>wagers</b> that transfer to the winner, net-zero to
+    <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
     <li><b>The burn</b> — packs retire token supply permanently without touching the reserve, so backing
       per surviving token rises. <b>Nothing retires</b>. Scarcity comes from
       dwindling pack allotments, rarity votes, and <b>compression</b> (corner a field card's copies → 1/1).</li>
   </ul>
 
-  <h2><span class="n">03</span>The token · $UR3030</h2>
+  <h2><span class="n">03</span>The token · $3030</h2>
   <div class="statgrid">
     <div class="stat"><b>33M</b><span>hard cap (mint-once)</span></div>
     <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
@@ -251,7 +251,7 @@ const whitepaper = `
 
   <h2><span class="n">05</span>Packs · a $7 premium, escalating</h2>
   <p>A pack is the one <b>premium</b> action, and it uses only native curve operations: the site walks
-  you through <b>buying ~350 $UR3030 ≈ $7</b> and <b>burning it in full</b>. It is <b>not</b> a token reprice —
+  you through <b>buying ~350 $3030 ≈ $7</b> and <b>burning it in full</b>. It is <b>not</b> a token reprice —
   FDV is unchanged — and every rip is a real buy-and-burn, the engine of steady pressure, not a pump. The
   schedule (site-enforced, auditable from the burn txs) escalates <b>within</b> a season (base→ceil as
   the allotment sells) and <b>across</b> seasons (the allotment dwindles and the floor rises). The pack count
@@ -275,7 +275,7 @@ const whitepaper = `
       copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>,
       against the same render — they stay lenses, never static art.</p></div>
     <div class="card burn"><div class="co-h">Lovebeing · the holder lens</div>
-      <p style="font-size:13px;margin:0">The 1/1 marquee, <b>distributed to every $UR3030 holder</b> — one per
+      <p style="font-size:13px;margin:0">The 1/1 marquee, <b>distributed to every $3030 holder</b> — one per
       wallet regardless of balance, <b>non-transferable</b>, <b>non-burnable</b>. Hold the token, you carry it.
       Never minted per-person.</p></div>
   </div>
@@ -318,8 +318,8 @@ const whitepaper = `
   </ul>
 
   <h2 id="legal"><span class="n">10</span>Legal &amp; NFA</h2>
-  <p><b>Not financial advice.</b> Nothing here or on upperdeckripmaster3030.com is financial, investment, legal,
-  or tax advice, nor an offer or solicitation to buy or sell any asset. <b>$UR3030</b> is an experimental,
+  <p><b>Not financial advice.</b> Nothing here or on ripmaster3030studios.com is financial, investment, legal,
+  or tax advice, nor an offer or solicitation to buy or sell any asset. <b>$3030</b> is an experimental,
   volatile utility/collectible <b>game token</b> intended for play and collecting — <b>not an investment
   contract</b> and <b>not a security</b>. There is <b>no promise, guarantee, or expectation of profit, value,
   liquidity, or future development</b>. You may lose everything you put in.</p>
@@ -329,9 +329,9 @@ const whitepaper = `
   appropriate, retire content in response to good-faith legal requests.</p>
   <p><b>Do your own research.</b> Crypto assets and smart contracts carry risk, including total loss and bugs.
   Interact at your own risk, comply with the laws of your jurisdiction, and consult your own qualified
-  professionals. By acquiring or using $UR3030 you accept these risks and that the artist, contributors, and
+  professionals. By acquiring or using $3030 you accept these risks and that the artist, contributors, and
   SuperRare make <b>no warranties</b> of any kind.</p>
-  <p class="fine">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · $UR3030</p>`;
+  <p class="fine">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · $3030</p>`;
 
 // ─────────────────────────── TOKENOMICS ───────────────────────────
 const tokenomics = `
@@ -522,7 +522,7 @@ const audit = `
   </ul>
   <div class="callout amber"><div class="co-h">The honest bottom line.</div>
     <p>We've been transparent about what we checked and what we didn't. Self-review and a clean compile are
-    <b>not</b> a substitute for a professional audit. Treat $UR3030 as experimental software that can lose your
+    <b>not</b> a substitute for a professional audit. Treat $3030 as experimental software that can lose your
     money. NFA — see the <a href="whitepaper.html#legal">whitepaper</a>.</p></div>`;
 
 // ─────────────────────────── ARTIST ───────────────────────────
@@ -533,7 +533,7 @@ const artist = `
   <h2><span class="n">01</span>Who</h2>
   <p><b>Gianni Arone</b> works as <b>lovebeing</b> — a multidisciplinary artist out of <b>New York</b>
   whose catalog runs from 1982 to now, moving between <b>painting, silkscreen, zines, digital work,
-  motion, sound, and code</b>. upperdeckripmaster3030 is what happens when all of that gets pointed
+  motion, sound, and code</b>. ripmaster3030studios is what happens when all of that gets pointed
   at a single lifelong obsession: <b>the trading card</b>.</p>
 
   <h2><span class="n">02</span>Why liquid — in his words</h2>
@@ -557,7 +557,7 @@ const artist = `
 
   <h2><span class="n">04</span>The namesake lens</h2>
   <p>The <b>1/1 marquee</b> at the top of the deck is <b>Lovebeing</b> — the artist's own name. It is a
-  <b>holder-bound lens</b>: every $UR3030 holder carries one, one per wallet, and it <b>can't be burned</b> or
+  <b>holder-bound lens</b>: every $3030 holder carries one, one per wallet, and it <b>can't be burned</b> or
   duplicated. It never appears in a pack — hold the token and it's yours.</p>
   <p><a class="btn" href="cards/lovebeing.html">✦ View the 1/1 marquee →</a></p>
 
@@ -575,12 +575,12 @@ const artist = `
 // ─────────────────────────── write ───────────────────────────
 const pages = [
   { slug: 'artist.html', title: 'The Artist', kicker: 'Gianni Arone · lovebeing · @_lovebeing_',
-    subtitle: 'The multidisciplinary artist behind upperdeckripmaster3030 — and the 1/1 at the top of the deck.',
+    subtitle: 'The multidisciplinary artist behind ripmaster3030studios — and the 1/1 at the top of the deck.',
     accent: 'var(--acid)', body: artist },
-  { slug: 'whitepaper.html', title: 'Transparent Whitepaper', kicker: 'upperdeckripmaster3030 · $UR3030 · NFA',
-    subtitle: 'What the game is, how the token works, where every $UR3030 goes, and the risks — in the open, for frens.',
+  { slug: 'whitepaper.html', title: 'Transparent Whitepaper', kicker: 'ripmaster3030studios · $3030 · NFA',
+    subtitle: 'What the game is, how the token works, where every $3030 goes, and the risks — in the open, for frens.',
     accent: 'var(--phos)', body: whitepaper },
-  { slug: 'tokenomics.html', title: 'Tokenomics', kicker: '$UR3030 · supply · burns · pricing · liquidity',
+  { slug: 'tokenomics.html', title: 'Tokenomics', kicker: '$3030 · supply · burns · pricing · liquidity',
     subtitle: 'Supply, the bonding curve, pack allotments, the burn schedule, and pre-mainnet verification — every number reproducible.',
     accent: 'var(--amber)', body: tokenomics },
   { slug: 'audit.html', title: 'Our Own Audit Notes', kicker: 'Self-review · what we checked · what is pending',

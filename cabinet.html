@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>upperdeckripmaster3030 · cabinet</title>
+<title>ripmaster3030studios · cabinet</title>
 <meta name="robots" content="noindex">
 <!-- The EMBED CABINET: this page is the token's animation_url — it renders inside
      the SuperRare token page's media slot (a sandboxed iframe, opaque origin).
@@ -70,7 +70,7 @@
 <div class="scan"></div><div class="fire"></div>
 <div class="sign">
   <img class="torch" src="torch.gif" alt="">
-  <img class="logo" src="upperdeckripmaster3030_01_marquee.png" alt="upperdeckripmaster3030">
+  <img class="logo" src="upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios">
   <img class="torch" src="torch.gif" alt="">
 </div>
 <div class="kick">◈ A LIQUID TRADING-CARD GAME · LIVE FROM THE CHAIN ◈</div>
@@ -85,16 +85,16 @@
 
 <div class="pack" id="pack">✦</div>
 <div class="fan" id="fan"></div>
-<div class="note" id="note">Every rip burns $UR3030 for good. The token burns so the art can live.</div>
+<div class="note" id="note">Every rip burns $3030 for good. The token burns so the art can live.</div>
 
 <div class="btns">
   <button class="btn" id="rip">✦ Rip a pack ✦</button>
-  <a class="btn gold" id="buy" href="https://superrare.com" target="_blank" rel="noopener noreferrer">$ Buy $UR3030 ↗</a>
-  <a class="btn ghost" href="https://upperdeckripmaster3030.com" target="_blank" rel="noopener noreferrer">Enter the full arcade ↗</a>
+  <a class="btn gold" id="buy" href="https://superrare.com" target="_blank" rel="noopener noreferrer">$ Buy $3030 ↗</a>
+  <a class="btn ghost" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">Enter the full arcade ↗</a>
 </div>
 <label class="note" id="realRow" style="cursor:pointer;user-select:none">
   <input type="checkbox" id="realBurn" style="accent-color:#2bff80;vertical-align:middle"> burn for real
-  · <span id="realCost">350</span> $UR3030 · WalletConnect
+  · <span id="realCost">350</span> $3030 · WalletConnect
 </label>
 
 <div class="fine">NFA · experimental art token · it can go to zero · cards save in the full arcade, not in this cabinet</div>
@@ -126,16 +126,16 @@
     const [sup, max, mkt] = await Promise.all([call('0x18160ddd'), call('0x2ab4d052'), call('0xd8165743')]);
     if (!sup || !max) { $('sBarTxt').textContent = 'chain unreachable — enter the full arcade'; return; }
     const s = toWhole(sup), m = toWhole(max), burned = Math.max(0, m - s);
-    $('sBurn').textContent = burned.toLocaleString('en-US') + ' $UR3030';
+    $('sBurn').textContent = burned.toLocaleString('en-US') + ' $3030';
     $('sSup').textContent = s.toLocaleString('en-US') + ' / ' + m.toLocaleString('en-US');
     const pct = m ? (burned / m) * 100 : 0;
     $('sBar').style.width = Math.max(pct, burned > 0 ? 1.5 : 0) + '%';
     $('sBarTxt').textContent = pct.toFixed(2) + '% BURNED';
     if (mkt && mkt.length >= 2 + 64 * 4) {
-      // word1 = tokenPerRare ($UR3030 per RARE) — order verified on-chain, see contracts/interfaces/ILiquid.sol
+      // word1 = tokenPerRare ($3030 per RARE) — order verified on-chain, see contracts/interfaces/ILiquid.sol
       const perRare = Number(BigInt('0x' + mkt.slice(2 + 64, 2 + 128)) / (10n ** 14n)) / 10000;
       let tick = parseInt(mkt.slice(2 + 64 * 3, 2 + 64 * 4), 16); if (tick > 0x7fffff) tick -= 0x1000000;
-      $('sPx').textContent = perRare.toFixed(2) + ' $UR3030';
+      $('sPx').textContent = perRare.toFixed(2) + ' $3030';
       $('sTick').textContent = tick;
     }
   }
@@ -162,7 +162,7 @@
     if (busy) return; busy = true;
     $('fan').innerHTML = ''; const w = W();
     if ($('realBurn').checked && w && w.isLive() && w.hasWallet()) {
-      $('note').textContent = 'a real rip burns ' + (CFG.packBurn || 350) + ' $UR3030 — confirm in your wallet…';
+      $('note').textContent = 'a real rip burns ' + (CFG.packBurn || 350) + ' $3030 — confirm in your wallet…';
       const r = await withTimeout(w.burn(CFG.packBurn || 350), 90000);
       if (r.ok) { $('note').textContent = '🔥 burned on-chain for good · tx ' + r.tx.slice(0, 14) + '… · pull revealed below'; stats(); }
       else { $('realBurn').checked = false; $('note').textContent = w.explain(r.reason) + ' — practice pull instead.'; }

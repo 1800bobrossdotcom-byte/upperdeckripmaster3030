@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — pre-launch ADMIN GATE (client-side veil).
+/* ripmaster3030studios — pre-launch ADMIN GATE (client-side veil).
  *
  * Hides the whole site behind an admin login until launch. Fail-closed: with JS
  * off, or before you log in, nothing is visible. Access is remembered per-device
@@ -62,7 +62,7 @@
       '<div class="u-scan"></div><div class="u-fire"></div>' +
       '<div class="u-sign">' +
         '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
-        '<img class="u-logo" src="/upperdeckripmaster3030_01_marquee.png" alt="upperdeckripmaster3030">' +
+        '<img class="u-logo" src="/upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios">' +
         '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
       '</div>' +
       '<div class="u-kick">◈ PRIVATE · PRE-LAUNCH ◈</div>' +
