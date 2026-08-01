@@ -38,7 +38,7 @@
 #   ny = h[row+1] − h[row−1] with row running DOWN the PNG and emits the same sign. The two paths
 #   are interchangeable, which is what makes the fallback a fallback rather than a different look.
 #
-# ⚑ TILING IS BY CONSTRUCTION, and then verified numerically anyway (see SEAM lines).
+# ⚑ TILING IS BY CONSTRUCTION, and then verified numerically anyway (see the WRAP lines).
 #   Blender's noise/voronoi nodes do not tile. The fix is to sample them on a TORUS: map u,v onto
 #   two circles in 4D — (cos 2πu, sin 2πu, cos 2πv, sin 2πv) — using the 4D Vector+W inputs. A
 #   circle of radius 1/2π has circumference exactly 1, so a "scale" of S along that circle is S
@@ -207,17 +207,27 @@ def joints(nt, T, nx, ny, w, stagger=0.0):
     ⚑ nx/ny MUST be integers and, when staggered, ny must be EVEN — that is what makes the joint
     at u=0 the same joint as the one at u=1 and keeps the running bond consistent across the tile
     boundary. A non-integer count puts a half-brick at the seam, which is the classic way a
-    "tileable" masonry texture turns out not to be."""
+    "tileable" masonry texture turns out not to be.
+
+    ⚠ AND THE CELL INDICES ARE WRAPPED, WHICH IS NOT COSMETIC. `col`/`row` feed a per-cell random
+    (white()), so they must take the SAME value in the overscan as they do one period away. Raw
+    FLOOR does not: at pattern coordinate −0.01 it returns −1 where the next tile along returns
+    nx−1, so every slab against the tile edge came out a different tone from the slab it abuts.
+    Measured as a 2.7-level mean / 7-level worst wrap error on `deck`'s albedo while `metal` — the
+    one class with no per-cell term — wrapped exactly. Blender's Math 'WRAP' is a FLOORED wrap;
+    'MODULO' is fmod and keeps the sign, so it would not have fixed this."""
     ux = M(nt, 'MULTIPLY', T['u'], float(nx))
     vy = M(nt, 'MULTIPLY', T['v'], float(ny))
-    row = M(nt, 'FLOOR', vy)
+    row = M(nt, 'WRAP', M(nt, 'FLOOR', vy), float(ny), 0.0)
+    # stagger × ny is an integer whenever ny is even and stagger is 0 or 0.5, so wrapping `row`
+    # cannot move the bond — FRACT sees the same fractional part either way
     uu = M(nt, 'FRACT', M(nt, 'MULTIPLY_ADD', row, stagger, ux))
     vv = M(nt, 'FRACT', vy)
     du = M(nt, 'MINIMUM', uu, M(nt, 'SUBTRACT', 1.0, uu))
     dv = M(nt, 'MINIMUM', vv, M(nt, 'SUBTRACT', 1.0, vv))
     d = M(nt, 'MINIMUM', M(nt, 'DIVIDE', du, w), M(nt, 'DIVIDE', dv, w))
-    return {'j': M(nt, 'SUBTRACT', 1.0, M(nt, 'MINIMUM', d, 1.0)),
-            'col': M(nt, 'FLOOR', M(nt, 'MULTIPLY_ADD', row, stagger, ux)), 'row': row}
+    col = M(nt, 'WRAP', M(nt, 'FLOOR', M(nt, 'MULTIPLY_ADD', row, stagger, ux)), float(nx), 0.0)
+    return {'j': M(nt, 'SUBTRACT', 1.0, M(nt, 'MINIMUM', d, 1.0)), 'col': col, 'row': row}
 
 
 def bands(nt, x, n, w):
@@ -469,37 +479,38 @@ def img_array(img):
     return a.reshape(img.size[1], img.size[0], 4)
 
 
-def crop(img, name, N, pad, colorspace):
-    """Take the interior N×N out of a padded bake. See PAD in main()."""
-    a = img_array(img)[pad:pad + N, pad:pad + N, :]
-    o = bpy.data.images.new(name, N, N, alpha=False)
+def make(name, a, colorspace):
+    """An N×N image from an (N, N, 4) array."""
+    o = bpy.data.images.new(name, a.shape[1], a.shape[0], alpha=False)
     o.colorspace_settings.name = colorspace
-    o.pixels.foreach_set(np.ascontiguousarray(a).reshape(-1))
+    o.pixels.foreach_set(np.ascontiguousarray(a, dtype=np.float32).reshape(-1))
     o.update()
     return o
 
 
-def seam_ratio(a):
-    """How much bigger is the step ACROSS the wrap than the steps immediately either side of it?
+def wrap_error(p, N, pad):
+    """EXACT periodicity test, using the overscan the padded bake already produced.
 
-    1.0 means the wrap is indistinguishable from its own neighbours — i.e. it tiles.
+    Padded column i carries pattern coordinate (i − pad + 0.5)/N. So if — and only if — the
+    pattern has period 1, the `pad` columns of left overscan must reproduce the `pad` columns that
+    sit one period to their right, texel for texel:  P[:, 0:pad] ≡ P[:, N:N+pad].  Same in v.
+    Returns (mean, max) disagreement in 8-BIT LEVELS, so 0 means it tiles and 3 means a visible
+    seam. Nothing is inferred from statistics; the two regions are either the same bytes or not.
 
-    ⚠ The obvious test — "is the wrap step bigger than the AVERAGE step in the tile" — is not a
-    fair one and it sent me chasing a bug that was not there. `deck`'s tile boundary is a slab
-    JOINT by construction, the steepest gradient in the whole map, while the average step is
-    dominated by flat slab interior; that alone scored 1.31 on a texture that tiles perfectly.
-    Comparing the wrap against the two steps ADJACENT to it compares like with like.
-
-    ⚠ And "are opposite edges equal" is not the test either — in a real texture they SHOULD
-    differ, being one pixel apart rather than the same pixel. Testing for equality is how a
-    texture ends up mirrored and called seamless."""
-    g = a[:, :, :3].mean(axis=2)
-    seam_u = np.abs(g[:, 0] - g[:, -1]).mean()
-    seam_v = np.abs(g[0, :] - g[-1, :]).mean()
-    near_u = (np.abs(g[:, 1] - g[:, 0]).mean() + np.abs(g[:, -1] - g[:, -2]).mean()) * 0.5
-    near_v = (np.abs(g[1, :] - g[0, :]).mean() + np.abs(g[-1, :] - g[-2, :]).mean()) * 0.5
-    return (seam_u / near_u if near_u > 1e-9 else 0.0,
-            seam_v / near_v if near_v > 1e-9 else 0.0)
+    ⚠ TWO EARLIER METRICS WERE BOTH WRONG, and each invented a bug that did not exist.
+      (a) "wrap step vs the AVERAGE step in the tile" scored a perfect `deck` at 1.31, because
+          deck's tile boundary IS a slab joint — the steepest gradient in the map — while the
+          average is dominated by flat slab interior.
+      (b) "wrap step vs the two steps either side of it" scored the same map at 28.6, and that one
+          is worse than useless: inside the flat bottom of a joint the adjacent steps are ~0, so
+          it divides by nothing. The normal map genuinely FLIPS SIGN at a joint centre, which is
+          correct and which the next tile reproduces — a ratio cannot tell that apart from a seam.
+    Neither is a periodicity test. This is."""
+    g = p[:, :, :3].astype(np.float64)
+    du = np.abs(g[:, 0:pad] - g[:, N:N + pad])
+    dv = np.abs(g[0:pad, :] - g[N:N + pad, :])
+    both = np.concatenate((du.reshape(-1), dv.reshape(-1)))
+    return both.mean() * 255.0, both.max() * 255.0
 
 
 def save(img, path):
@@ -536,10 +547,10 @@ def main():
     sc.world = bpy.data.worlds.new('w')
 
     # ⚑ PAD, AND WHY IT IS NOT OPTIONAL — the shading-only maps are baked at N+2·PAD with the
-    #   plane's UVs scaled by the same ratio about the centre, then the interior N×N is cropped
-    #   out. Measured before/after on `deck`, seam ratio (step across the wrap ÷ a typical step
-    #   inside the tile, so 1.0 = indistinguishable):
-    #       albedo 1.31 → ~1.0     normal 13.21 → ~1.0     orm 1.69 → ~1.0
+    #   pattern coordinate scaled by the same ratio about the centre, then the interior N×N is cropped
+    #   out — so every kept texel has real, evaluated neighbours on all sides.
+    
+    
     #   The albedo/ORM seam was the bake MARGIN: a UV island that fills the image edge-to-edge has
     #   nowhere to grow into, so Blender fills the outermost texels by extension instead of by
     #   evaluating the shader. The 13× on the NORMAL map is worse and has a different cause — the
@@ -606,28 +617,28 @@ def main():
         nt.nodes.active = tex
 
         S = build(nt, torus(nt, OVER))
+        wrap = {}
+
+        def shade(name, socket, colorspace, kind='EMIT'):
+            """Bake one shading map at N2, record its wrap error, hand back the cropped N×N array."""
+            im = bpy.data.images.new(key + '_' + name + '_pad', N2, N2, alpha=False)
+            im.colorspace_settings.name = colorspace
+            tex.image = im
+            if socket is not None:
+                nt.links.new(socket, em.inputs['Color'])
+            ms = bake_into(flat, im, kind)
+            p = img_array(im)
+            wrap[name] = wrap_error(p, N, PAD)
+            bpy.data.images.remove(im)
+            return p[PAD:PAD + N, PAD:PAD + N, :].copy(), ms
 
         # 1. albedo — sRGB image, so image.save() applies the sRGB encode (verified: 0.5 → 188)
-        albp = bpy.data.images.new(key + '_ap', N2, N2, alpha=False)
-        tex.image = albp
-        nt.links.new(S['col'], em.inputs['Color'])
-        ms_a = bake_into(flat, albp, 'EMIT')
-        alb = crop(albp, key + '_a', N, PAD, 'sRGB')
+        A_alb, ms_a = shade('albedo', S['col'], 'sRGB')
 
         # 2. roughness and 3. height — Non-Color, raw values straight through
-        rghp = bpy.data.images.new(key + '_rp', N2, N2, alpha=False)
-        rghp.colorspace_settings.name = 'Non-Color'
-        tex.image = rghp
-        nt.links.new(S['rough'], em.inputs['Color'])
-        ms_r = bake_into(flat, rghp, 'EMIT')
-        rgh = crop(rghp, key + '_r', N, PAD, 'Non-Color')
-
-        hgtp = bpy.data.images.new(key + '_hp', N2, N2, alpha=False)
-        hgtp.colorspace_settings.name = 'Non-Color'
-        tex.image = hgtp
-        nt.links.new(S['height'], em.inputs['Color'])
-        ms_h = bake_into(flat, hgtp, 'EMIT')
-        hgt = crop(hgtp, key + '_h', N, PAD, 'Non-Color')
+        A_rgh, ms_r = shade('rough', S['rough'], 'Non-Color')
+        A_hgt, ms_h = shade('height', S['height'], 'Non-Color')
+        hgt = make(key + '_h', A_hgt, 'Non-Color')
 
         # 4. normal — a Principled with nothing but a Bump on it, so the NORMAL bake records
         # exactly the relief and nothing else. `Distance` is the metres of relief over one tile;
@@ -640,14 +651,19 @@ def main():
         nt.links.new(S['height'], bump.inputs['Height'])
         nt.links.new(bump.outputs['Normal'], bsdf.inputs['Normal'])
         nt.links.new(bsdf.outputs[0], outn.inputs['Surface'])
-        nrmp = bpy.data.images.new(key + '_np', N2, N2, alpha=False)
-        nrmp.colorspace_settings.name = 'Non-Color'
-        tex.image = nrmp
-        ms_n = bake_into(flat, nrmp, 'NORMAL')
-        nrm = crop(nrmp, key + '_n', N, PAD, 'Non-Color')
+        A_nrm, ms_n = shade('normal', None, 'Non-Color', kind='NORMAL')
 
         # 5. ambient occlusion — a REAL trace against displaced geometry, not a re-tinted mask.
-        ao = None
+        #
+        # ⚠ THIS ONE PASS GETS NO OVERSCAN, and that is a limit rather than an oversight. Overscan
+        #   works for the shading maps because the pattern is a periodic FUNCTION and evaluating it
+        #   outside [0,1] is exactly the wrap. AO is not a function of uv, it is a trace against
+        #   GEOMETRY, and the geometry's period is fixed by where the ring copies sit. Every way of
+        #   buying margin here either overlaps the ring with the centre tile (coincident displaced
+        #   surfaces → rays hit instantly → a black band) or misaligns it (a cliff at the join,
+        #   whose occlusion reaches inward by the whole AO distance, i.e. tens of texels). So the
+        #   ring is kept exact and the edge is MEASURED instead — see the AOEDGE line.
+        A_ao = None
         ms_o = 0.0
         if ao_on and do_ao:
             btex = bpy.data.textures.get('ht_' + key) or bpy.data.textures.new('ht_' + key, type='IMAGE')
@@ -671,28 +687,43 @@ def main():
             ao.colorspace_settings.name = 'Non-Color'
             rtex.image = ao
             sc.world.light_settings.distance = ao_dist
-            sc.cycles.samples = 24
+            # ⚑ 192, and the number was swept rather than picked. AO is the only stochastic pass
+            #   here, and its noise shows up as speckle in the ambient term — exactly the
+            #   high-frequency-over-a-large-flat-field problem the "studio look" note in
+            #   js/s9pc-world.js is about, and the post stack's unsharp would sharpen it.
+            #   Adjacent-texel step on `deck`, which at these counts is mostly noise:
+            #     24 spp → 8.65 levels · 96 → 4.57 · 256 → 3.08
+            #   The same sweep is what proved the tile edge is NOT a geometric seam: the wrap step
+            #   fell WITH the noise (15.68 → 6.81 → 4.02) and converged to ~1 level above typical.
+            sc.cycles.samples = 192
             ms_o = bake_into(relief, ao, 'AO')
             sc.cycles.samples = 1
+            A_ao = img_array(ao)
+            bpy.data.images.remove(ao)
+            g = A_ao[:, :, 0]
+            edge = (np.abs(g[:, 0] - g[:, -1]).mean() + np.abs(g[0, :] - g[-1, :]).mean()) * 0.5
+            typ = (np.abs(np.diff(g, axis=1)).mean() + np.abs(np.diff(g, axis=0)).mean()) * 0.5
+            print('AOEDGE %s wrap=%.3f typical=%.3f levels' % (key, edge * 255.0, typ * 255.0))
 
         # 6. pack O/R/M into one RGB image. Two greyscale PNGs would be two fetches and two
         # texture units for three numbers; PlayCanvas can address them by channel.
-        A = img_array(rgh)
-        orm = np.empty_like(A)
-        orm[:, :, 0] = img_array(ao)[:, :, 0] if ao is not None else 1.0
-        orm[:, :, 1] = A[:, :, 0]
+        orm = np.empty_like(A_rgh)
+        orm[:, :, 0] = A_ao[:, :, 0] if A_ao is not None else 1.0
+        orm[:, :, 1] = A_rgh[:, :, 0]
         orm[:, :, 2] = metalness
         orm[:, :, 3] = 1.0
-        oi = bpy.data.images.new(key + '_orm', N, N, alpha=False)
-        oi.colorspace_settings.name = 'Non-Color'
-        oi.pixels.foreach_set(orm.reshape(-1))
-        oi.update()
+        # the ORM's exact wrap number is the ROUGHNESS channel's — R comes from the un-overscanned
+        # AO pass and is reported on its own AOEDGE line rather than folded in and blurred
+        wrap['orm'] = wrap['rough']
 
-        for suffix, img in (('albedo', alb), ('normal', nrm), ('orm', oi)):
+        for suffix, arr, cs in (('albedo', A_alb, 'sRGB'), ('normal', A_nrm, 'Non-Color'),
+                                ('orm', orm, 'Non-Color')):
+            img = make(key + '_out_' + suffix, arr, cs)
             p = os.path.join(out, '%s_%s.png' % (key, suffix))
             save(img, p)
-            su, sv = seam_ratio(img_array(img))
-            print('SEAM %s %s u=%.3f v=%.3f' % (key, suffix, su, sv))
+            bpy.data.images.remove(img)
+            wm, wx = wrap[suffix]
+            print('WRAP %s %s mean=%.3f max=%.3f levels' % (key, suffix, wm, wx))
             print('BAKED %s %s %s %d' % (key, suffix, p, os.path.getsize(p)))
 
         print('CLASS %s %.0fms (albedo %.0f rough %.0f height %.0f normal %.0f ao %.0f)'

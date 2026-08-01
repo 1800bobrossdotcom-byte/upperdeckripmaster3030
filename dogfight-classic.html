@@ -1,0 +1,1405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DOGFIGHT · classic build · ripmaster3030studios</title>
+<meta name="description" content="The hand-rolled-renderer build of DOGFIGHT. Same arena, same flight model, same rules; its renderer degrades all the way down to a canvas rasteriser, so it runs essentially anywhere.">
+<meta name="theme-color" content="#02040a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  DOGFIGHT · CLASSIC BUILD — the hand-rolled renderer (js/dogfight-gl.js + the 2D fallback).
+  `dogfight.html` is the PlayCanvas build; this file is kept for three jobs, the same three
+  `section9-classic.html` does:
+    1. the ROLLBACK — if the engine build regresses, this one still flies, unchanged;
+    2. the free A/B — two renderers over one game, so a look claim can be measured, not argued;
+    3. the no-WebGL-2 ROUTE — PlayCanvas has no software path, so a browser that cannot run it
+       is sent here rather than shown a black rectangle. This build fails open all the way down
+       to a 2D canvas rasteriser (Gfx2D), which is why it can be the floor.
+  Deliberately NOT kept in sync feature-for-feature: it is a frozen fallback, not a second
+  product. Gameplay lives in the inline script and is identical in both.
+-->
+<style>
+  :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
+    --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
+    --common:#7ea892; --uncommon:#2bff80; --rare:#ffd23b; --mythic:#ff2ad9; --prizm:#27f7e4;
+    --bez:clamp(10px,2.2vw,26px); --bezTop:clamp(30px,5.4vh,62px); --rad:clamp(12px,2vw,24px); }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ height:100%; overflow:hidden; }
+  body{ font-family:var(--mono); color:var(--ink); -webkit-tap-highlight-color:transparent; touch-action:none;
+    background:radial-gradient(140% 120% at 50% -10%, #0c1016 0%, #06080c 46%, #020304 100%); }
+  /* ── arcade cabinet frame around the CRT tube ── */
+  .bezel{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); z-index:12; pointer-events:none;
+    border-radius:calc(var(--rad) + 7px);
+    box-shadow:
+      0 0 0 clamp(7px,1.5vw,15px) #0b0d13,
+      0 0 0 calc(clamp(7px,1.5vw,15px) + 1px) #23262f,
+      0 0 0 calc(clamp(7px,1.5vw,15px) + 2px) #0a0c11,
+      inset 0 0 0 2px rgba(39,247,228,.22),
+      inset 0 0 26px rgba(39,247,228,.10),
+      0 0 42px rgba(39,247,228,.12),
+      0 22px 70px rgba(0,0,0,.85); }
+  .screw{ position:fixed; z-index:13; pointer-events:none; width:11px; height:11px; border-radius:50%;
+    background:radial-gradient(circle at 34% 30%, #565a66, #14151b 70%); box-shadow:0 1px 2px #000, inset 0 0 2px #000; }
+  .screw::after{ content:''; position:absolute; inset:3px; border-top:1.5px solid #0a0b0f; transform:rotate(35deg); }
+  .screw.tl{ top:calc(var(--bezTop) - 3px); left:calc(var(--bez) - 3px); } .screw.tr{ top:calc(var(--bezTop) - 3px); right:calc(var(--bez) - 3px); }
+  .screw.bl{ bottom:calc(var(--bez) - 3px); left:calc(var(--bez) - 3px); } .screw.br{ bottom:calc(var(--bez) - 3px); right:calc(var(--bez) - 3px); }
+  .marquee{ position:fixed; top:0; left:0; right:0; height:var(--bezTop); z-index:13; pointer-events:none;
+    display:flex; align-items:center; justify-content:center; gap:11px;
+    font-family:var(--fat); font-size:clamp(9px,1.5vw,13px); letter-spacing:.32em; text-transform:uppercase;
+    color:#8ffdf0; text-shadow:0 0 10px rgba(39,247,228,.7),0 0 2px #000; }
+  .marquee .dot{ color:var(--magenta); text-shadow:0 0 10px rgba(255,42,217,.85); }
+  /* the true-3D world canvas shares #df's exact box and sits UNDER it; the 2D canvas above
+     keeps the HUD/radar/reticle and is transparent when GL owns the world. */
+  #dfgl{ position:fixed; top:var(--bezTop); left:var(--bez); display:none;
+    width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
+    border-radius:var(--rad); background:#01040a; z-index:1; }
+  #df{ z-index:2; position:fixed; top:var(--bezTop); left:var(--bez); display:block;
+    width:calc(100vw - 2*var(--bez)); height:calc(100vh - var(--bezTop) - var(--bez));
+    border-radius:var(--rad); background:#01040a; box-shadow:inset 0 0 90px rgba(0,0,0,.9), inset 0 0 30px rgba(39,247,228,.05);
+    animation:dfPsy 34s linear infinite; }                 /* psychedelic Ripmaster spectrum drift */
+  @keyframes dfPsy{ 0%{ filter:saturate(1.25) hue-rotate(0deg); } 100%{ filter:saturate(1.25) hue-rotate(360deg); } }
+  @media (prefers-reduced-motion:reduce){ #df{ animation:none; filter:saturate(1.1); } }
+  /* ── heavy CRT: scanlines + phosphor flicker + curvature + glare, clipped to the tube ── */
+  .crt{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad);
+    z-index:11; pointer-events:none; overflow:hidden; }
+  .crt-scan{ position:absolute; inset:0; mix-blend-mode:multiply;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 1.5px, rgba(0,0,0,0) 1.5px 3.2px); }
+  .crt-scan::after{ content:''; position:absolute; left:0; right:0; height:42%; top:-42%;
+    background:linear-gradient(180deg, transparent, rgba(120,255,240,.06) 60%, transparent); animation:crtSweep 7s linear infinite; }
+  @keyframes crtSweep{ 0%{ transform:translateY(0) } 100%{ transform:translateY(360%) } }
+  .crt-curve{ position:absolute; inset:0;
+    background:radial-gradient(132% 120% at 50% 48%, transparent 45%, rgba(0,0,0,.5) 78%, rgba(0,0,0,.93) 100%);
+    box-shadow:inset 0 0 60px rgba(0,0,0,.7); }
+  .crt-curve::before{ content:''; position:absolute; inset:0; mix-blend-mode:screen; opacity:.55;
+    background:linear-gradient(90deg, rgba(255,0,90,.06), transparent 6%, transparent 94%, rgba(0,200,255,.06)); }
+  .crt-glare{ position:absolute; inset:0; mix-blend-mode:screen; opacity:.55;
+    background:radial-gradient(60% 42% at 32% 18%, rgba(160,240,255,.10), transparent 60%); }
+  .crt-flick{ position:absolute; inset:0; background:rgba(120,255,240,.02); animation:crtFlick .12s steps(2) infinite; }
+  @keyframes crtFlick{ 0%{opacity:.5} 50%{opacity:.14} 100%{opacity:.56} }
+  @media (prefers-reduced-motion:reduce){ .crt-scan::after,.crt-flick{ animation:none; } }
+  /* HUD */
+  .hud{ position:fixed; z-index:5; pointer-events:none; text-shadow:0 0 8px #000,0 1px 2px #000; }
+  .hud-tl{ top:calc(var(--bezTop) + 10px); left:calc(var(--bez) + 12px); } .hud-tr{ top:calc(var(--bezTop) + 10px); right:calc(var(--bez) + 12px); text-align:right; }
+  .h-lbl{ font-size:9px; letter-spacing:.24em; text-transform:uppercase; color:#6fdca0; }
+  .hp-wrap{ width:min(240px,46vw); margin-top:3px; }
+  .hp-bar{ height:11px; border-radius:6px; overflow:hidden; background:rgba(43,255,128,.14); border:1px solid rgba(43,255,128,.4); }
+  .hp-fill{ height:100%; width:100%; background:linear-gradient(90deg,#ff5a3c,#ffd23b 45%,#2bff80 75%); transition:width .12s linear; }
+  .bg-wrap{ width:min(200px,40vw); margin-top:2px; } .bg-bar{ height:6px; border-radius:4px; overflow:hidden; background:rgba(39,247,228,.14); border:1px solid rgba(39,247,228,.4); }
+  .bg-fill{ height:100%; width:100%; background:linear-gradient(90deg,#0e5a68,#27f7e4 70%,#8ffff0); transition:width .1s linear; }
+  .h-pot{ font-family:var(--fat); font-size:clamp(14px,3.6vw,20px); color:var(--amber); text-shadow:0 0 12px rgba(255,210,59,.55); }
+  .h-sub{ font-size:10px; letter-spacing:.06em; color:#9fe6c8; margin-top:2px; }
+  .h-sub b{ color:var(--magenta); font-family:var(--fat); }
+  .h-timer{ font-family:var(--fat); font-size:clamp(16px,4.4vw,24px); color:var(--cyan); }
+  .h-alive{ font-size:11px; letter-spacing:.06em; color:#bfe9d3; margin-top:2px; } .h-alive b{ color:var(--lime); }
+  /* wingmate radio comms */
+  .comms{ position:fixed; z-index:6; left:calc(var(--bez) + 12px); bottom:calc(var(--bez) + 64px); display:flex; gap:9px; align-items:center; pointer-events:none;
+    max-width:min(320px,72vw); padding:8px 12px 8px 8px; border-radius:10px; background:rgba(2,12,10,.82); border:1px solid rgba(39,247,228,.4);
+    box-shadow:0 0 18px rgba(39,247,228,.2); opacity:0; transform:translateX(-16px); }
+  .comms.on{ animation:commsIn 3.4s ease both; }
+  @keyframes commsIn{ 0%{opacity:0;transform:translateX(-16px)} 8%{opacity:1;transform:translateX(0)} 82%{opacity:1;transform:translateX(0)} 100%{opacity:0;transform:translateX(-10px)} }
+  .comms-por{ flex:0 0 auto; width:34px; height:34px; border-radius:7px; display:grid; place-items:center; font-family:var(--fat); font-size:16px; color:#eafff6;
+    border:1px solid rgba(255,255,255,.25); text-shadow:0 1px 2px #000; }
+  .comms-txt{ text-align:left; line-height:1.25; } .comms-txt b{ display:block; font-family:var(--fat); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--cyan); }
+  .comms-txt span{ font-size:12px; color:#e6fff4; }
+  .powmsg{ position:fixed; z-index:5; top:56%; left:50%; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
+    font-family:var(--fat); font-size:clamp(13px,3.4vw,24px); letter-spacing:.04em; text-transform:uppercase; text-align:center;
+    color:var(--lime); text-shadow:0 0 14px rgba(43,255,128,.85),0 2px 4px #000; }
+  .powmsg.go{ animation:powFl 1.3s ease-out; }
+  @keyframes powFl{ 0%{opacity:0;transform:translate(-50%,-40%) scale(.6)} 15%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-72%)} }
+  /* toggles + touch */
+  .toggles{ position:fixed; z-index:6; top:calc(var(--bezTop) + 8px); left:50%; transform:translateX(-50%); display:none; gap:8px; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink); background:rgba(2,10,6,.7); border:1px solid rgba(43,255,128,.3); border-radius:999px; padding:7px 11px; }
+  .tg.off{ opacity:.5; }
+  .controls{ position:fixed; z-index:5; left:50%; bottom:calc(var(--bez) + 10px); transform:translateX(-50%); display:none; gap:7px 12px; flex-wrap:wrap; pointer-events:none;
+    justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px; max-width:96vw;
+    background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); backdrop-filter:blur(2px); }
+  .key{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:#bfe9d3; }
+  .key kbd{ font-family:var(--fat); font-size:9.5px; min-width:18px; text-align:center; padding:3px 5px; border-radius:5px;
+    color:#031; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
+  @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
+  .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none; touch-action:none;
+    align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; letter-spacing:.05em; color:#031; }
+  .pad.on{ filter:brightness(1.35); transform:scale(.94); }
+  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px); width:92px; height:92px;
+    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
+  .pad.boost{ right:calc(var(--bez) + 118px); bottom:calc(var(--bez) + 30px); width:66px; height:66px;
+    background:radial-gradient(circle at 40% 34%,#bfffd8,#2bff80 60%,#0fae56); border:2px solid #063; box-shadow:0 0 18px rgba(43,255,128,.5); }
+  .pad.zoom{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px); width:58px; height:58px; font-size:10px;
+    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0e5a68); border:2px solid #064; box-shadow:0 0 18px rgba(39,247,228,.5); }
+  /* floating left-thumb flight stick (touch) */
+  .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
+  #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
+    background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
+    box-shadow:0 0 24px rgba(39,247,228,.25), inset 0 0 18px rgba(39,247,228,.18); }
+  #stickNub{ width:52px; height:52px; margin:-26px 0 0 -26px; background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 62%,#0e5a68);
+    border:1px solid #0a4a44; box-shadow:0 0 16px rgba(39,247,228,.6); }
+  @media (hover:none){ .pad{ display:flex; } .tg{ padding:9px 12px; font-size:11px; }
+    /* phone layout: drop the toggles below the HUD readouts, lift the hint + comms clear of the pads */
+    .toggles{ top:calc(var(--bezTop) + 96px); }
+    .controls{ left:calc(var(--bez) + 12px); right:auto; transform:none; bottom:calc(var(--bez) + 168px); max-width:44vw; justify-content:flex-start; text-align:left; }
+    .comms{ bottom:calc(var(--bez) + 230px); max-width:60vw; } }
+  /* overlays */
+  .ov{ position:fixed; top:var(--bezTop); left:var(--bez); right:var(--bez); bottom:var(--bez); border-radius:var(--rad); z-index:10; display:none; place-items:center; padding:18px 14px; overflow:auto;
+    background:radial-gradient(120% 100% at 50% 26%, rgba(12,26,40,.72), rgba(1,3,7,.96)); backdrop-filter:blur(3px); }
+  .ov.show{ display:grid; }
+  .panel{ width:min(560px,96vw); text-align:center; }
+  .ov h1{ font-family:var(--fat); font-size:clamp(30px,10vw,72px); letter-spacing:.02em; line-height:.95;
+    background:linear-gradient(180deg,#fff,var(--cyan) 40%,var(--magenta) 72%,var(--amber));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.5)); }
+  .dflogo{ display:block; width:min(440px,82%); max-width:100%; height:auto; margin:2px auto 6px;
+    filter: drop-shadow(0 3px 0 #240a3a) drop-shadow(0 0 26px rgba(255,42,217,.55)); }
+  .tag{ font-size:11.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--cyan); margin:8px 0 2px; }
+  .sub{ font-size:12.5px; color:#bfe9d3; max-width:480px; margin:6px auto 14px; line-height:1.55; }
+  .sub b{ color:var(--amber); }
+  /* wager controls */
+  .wbox{ background:rgba(3,14,9,.66); border:1px solid rgba(43,255,128,.24); border-radius:14px; padding:14px; margin:10px auto; text-align:left; }
+  .wrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin:9px 0; flex-wrap:wrap; }
+  .wlbl{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8fe0b6; }
+  .step{ display:inline-flex; align-items:center; gap:9px; }
+  .step button{ width:30px; height:30px; border-radius:8px; cursor:pointer; font-family:var(--fat); font-size:16px; color:#031; border:1px solid #063;
+    background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); }
+  .step .val{ font-family:var(--fat); font-size:16px; color:var(--amber); min-width:74px; text-align:center; }
+  .pchips{ display:flex; gap:7px; }
+  .pchip{ cursor:pointer; font-family:var(--fat); font-size:13px; color:var(--ink); border:1px solid rgba(43,255,128,.3); border-radius:9px; padding:7px 12px;
+    background:rgba(2,10,6,.6); }
+  .pchip.on{ color:#031; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border-color:#063; }
+  .cardsHd{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#8fe0b6; margin:12px 0 6px; }
+  /* ETH coin slot */
+  .ethbox{ border-color:rgba(255,210,59,.34); background:rgba(16,11,2,.62); }
+  .ethbox .cardsHd{ margin-top:0; }
+  .ethbox .wlbl{ color:#e8cf8f; }
+  .ethbox .step button{ background:linear-gradient(180deg,#ffe089,#ffd23b 60%,#c79a12); border-color:#5c4406; }
+  .wbtn{ cursor:pointer; font-family:var(--fat); font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:#dff5ff;
+    padding:9px 13px; border-radius:9px; border:1px solid rgba(120,220,255,.4); background:rgba(10,30,44,.72); }
+  .wbtn.gold{ color:#031; border-color:#5c4406; background:linear-gradient(180deg,#ffe089,#ffd23b 60%,#c79a12); }
+  .wbtn:active{ transform:translateY(1px); }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:7px; max-height:198px; overflow:auto; padding:3px; }
+  .tile{ position:relative; border-radius:9px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; border:1.5px solid rgba(120,200,160,.28);
+    background:#0a0414; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .tile img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .tile .rr{ position:absolute; top:3px; left:3px; z-index:2; font-size:7px; letter-spacing:.08em; text-transform:uppercase; padding:1px 4px; border-radius:4px;
+    background:rgba(2,6,4,.78); color:var(--rc); border:1px solid var(--rc); }
+  .tile .mult{ position:absolute; bottom:3px; right:3px; z-index:2; font-family:var(--fat); font-size:9px; color:#031; background:var(--amber); border-radius:4px; padding:1px 4px; }
+  .tile .stk{ position:absolute; inset:0; z-index:3; display:none; align-items:center; justify-content:center; font-family:var(--fat); font-size:16px;
+    color:#031; background:linear-gradient(180deg,rgba(43,255,128,.82),rgba(15,174,86,.82)); }
+  .tile.sel{ border-color:var(--lime); box-shadow:0 0 0 2px var(--lime),0 0 16px rgba(43,255,128,.5); } .tile.sel .stk{ display:flex; }
+  .tile .rc{ display:none; }
+  .cardsInfo{ font-size:11px; color:#7fd8a8; margin-top:6px; text-align:center; }
+  .pot{ font-family:var(--fat); font-size:clamp(15px,4vw,22px); text-align:center; margin:12px 0 2px;
+    color:var(--amber); text-shadow:0 0 14px rgba(255,210,59,.5); }
+  .pot b{ color:var(--cyan); } .pot .c{ color:var(--magenta); }
+  .roster{ font-size:11px; color:#9fe6c8; margin:4px auto 2px; text-align:center; line-height:1.6; }
+  .roster .v{ color:var(--amber); }
+  .go{ font-family:var(--fat); font-size:15px; letter-spacing:.05em; text-transform:uppercase; cursor:pointer;
+    padding:15px 24px; border-radius:12px; border:2px solid #5c0a2c; margin:5px; color:#fff; width:min(460px,92vw);
+    background:linear-gradient(180deg,#ff9a6b,#ff5a3c 55%,#c22); box-shadow:0 6px 0 #5c0a2c,0 0 22px rgba(255,90,60,.5); }
+  .go.alt{ background:linear-gradient(180deg,#8bffbb,#2bff80 55%,#0fae56); color:#031; border-color:#063; box-shadow:0 6px 0 #063,0 0 20px rgba(43,255,128,.4); }
+  .go:active{ transform:translateY(4px); box-shadow:0 2px 0 #5c0a2c; } .go.alt:active{ box-shadow:0 2px 0 #063; }
+  .go[disabled]{ filter:grayscale(.7) brightness(.7); cursor:not-allowed; }
+  .mininote{ font-size:11px; color:#7fd8a8; margin-top:8px; } .mininote a{ color:var(--lime); }
+  .tavern-slot{ margin:8px auto 4px; display:flex; justify-content:center; }
+  /* result */
+  .prize{ background:rgba(3,14,9,.6); border:1px solid rgba(255,210,59,.3); border-radius:12px; padding:12px; margin:10px auto; max-width:440px; }
+  .prize .big{ font-family:var(--fat); font-size:clamp(22px,7vw,40px); color:var(--lime); text-shadow:0 0 18px rgba(43,255,128,.55); }
+  .prize.lose .big{ color:var(--coral); text-shadow:0 0 18px rgba(255,90,60,.5); }
+  .won-cards{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:10px 0 2px; }
+  .won-cards .tile{ width:52px; cursor:default; }
+  .scanote{ font-size:10.5px; color:#7fd8a8; margin-top:8px; line-height:1.5; }
+</style>
+  <script src="/gate.js"></script>
+  <script src="/banner.js" defer></script>
+</head>
+<body>
+  <canvas id="dfgl"></canvas>
+  <canvas id="df"></canvas>
+  <div class="crt" aria-hidden="true"><div class="crt-glare"></div><div class="crt-flick"></div><div class="crt-curve"></div><div class="crt-scan"></div></div>
+  <div class="bezel" aria-hidden="true"></div>
+  <i class="screw tl"></i><i class="screw tr"></i><i class="screw bl"></i><i class="screw br"></i>
+  <div class="marquee" aria-hidden="true"><span class="dot">◈</span> <img src="dogfight.png" alt="DOGFIGHT" style="height:clamp(20px,4.6vh,46px);width:auto;filter:drop-shadow(0 0 10px rgba(255,42,217,.5))"> <span class="dot">◈</span></div>
+
+  <div class="hud hud-tl" id="hudL" style="display:none">
+    <div class="h-lbl">hull · <span id="hMe">you</span></div>
+    <div class="hp-wrap"><div class="hp-bar"><div class="hp-fill" id="hpFill"></div></div></div>
+    <div class="h-lbl" style="margin-top:5px">boost</div>
+    <div class="bg-wrap"><div class="bg-bar"><div class="bg-fill" id="bgFill"></div></div></div>
+    <div class="h-sub">frags <b id="hKills">0</b> · gun Lv.<span id="hGun">1</span></div>
+    <div class="h-sub" id="hLoad" style="color:#ffd23b"></div>
+    <div class="h-sub" id="hMkt" style="color:#27f7e4"></div>
+  </div>
+  <div class="hud hud-tr" id="hudR" style="display:none">
+    <div class="h-timer" id="hTimer">1:40</div>
+    <div class="h-pot" id="hPot"></div>
+    <div class="h-alive"><b id="hAlive">0</b> craft flying</div>
+  </div>
+  <div class="powmsg" id="powMsg"></div>
+  <div class="comms" id="comms"><div class="comms-por" id="commsPor">W</div><div class="comms-txt"><b id="commsNm">WINGMATE</b><span id="commsLn"></span></div></div>
+
+  <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
+  <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
+  <div class="controls" id="controls">
+    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
+    <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
+    <span class="key desk"><kbd>⇧</kbd> boost</span>
+    <span class="key desk"><kbd>SPC</kbd> fire</span>
+    <span class="key desk"><kbd>V</kbd> view</span>
+    <span class="key touch">left ½: fly stick (double-tap = roll · slam forward = boost) · right ½: hold = fire, 2 fingers = zoom</span>
+  </div>
+
+  <!-- LOBBY / WAGER -->
+  <div class="ov show" id="ovLobby">
+    <div class="panel">
+      <img class="dflogo" src="dogfight.png" alt="DOGFIGHT">
+      <div class="tag">winner takes all</div>
+      <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$UR3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
+
+      <div class="wbox">
+        <div class="wrow"><span class="wlbl">◈ ante · $UR3030 each</span>
+          <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
+        <div class="wrow"><span class="wlbl">◆ cards staked each</span>
+          <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
+        <div class="wrow"><span class="wlbl"><span class="ic" data-ic="swords"></span> players at the table</span>
+          <span class="pchips" id="pChips"><span class="pchip" data-p="2">2</span><span class="pchip on" data-p="3">3</span><span class="pchip" data-p="4">4</span><span class="pchip" data-p="6">6</span></span></div>
+        <div class="cardsHd">pick your <span id="pickN">2</span> cards for the pot</div>
+        <div class="grid" id="cardGrid"></div>
+        <div class="cardsInfo" id="cardsInfo">0 owned</div>
+        <div class="cardsInfo" id="loadoutInfo" style="color:#ffd23b"></div>
+      </div>
+
+      <!-- ETH coin slot · Base L2 -->
+      <div class="wbox ethbox">
+        <div class="cardsHd" style="color:#ffd23b">⟠ play for ETH · base L2 · 25¢ a flight</div>
+        <div class="wrow"><span class="wlbl" id="ethWho">no wallet linked</span>
+          <button class="wbtn" id="btnEthConnect" type="button">⟠ link wallet</button></div>
+        <div class="wrow"><span class="wlbl">flights banked · <b id="ethPlays">0</b></span>
+          <button class="wbtn gold" id="btnEthBuy" type="button">insert $1.00 ≈ <span id="ethBuyEth">—</span> ETH → 4 flights</button></div>
+        <div class="wrow"><span class="wlbl">ETH side-pot each · ≤ $3</span>
+          <span class="step"><button data-ethw="-1" type="button">−</button><span class="val" id="ethWagerVal">$0.00</span><button data-ethw="1" type="button">+</button></span></div>
+        <div class="mininote" id="ethNote">the coin drops to the hangar wallet on Base — plain transfer, nothing custodied. side-pots are pledges between the pilots at the table until the Phase-2 escrow contract lands.</div>
+      </div>
+
+      <div class="pot" id="potLine"></div>
+      <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
+      <div class="roster" id="roster"></div>
+
+      <div><button class="go" id="btnAnte"><span class="ic" data-ic="flame"></span> Ante up &amp; fly</button></div>
+      <div><button class="go alt" id="btnPractice">▶ Practice dogfight (no stakes)</button></div>
+      <div><button class="go alt" id="btnSeek"><span class="ic" data-ic="swords"></span> Seek human dogfight</button></div>
+      <div class="mininote" id="lobNote"></div>
+      <div class="tavern-slot"><div id="tavern"></div></div>
+      <div class="mininote"><a href="dogfight.html">► the engine build</a> · <a href="cards/battle.html">◄ back to the arena</a> · <a href="riprocketer.html"><span class="ic" data-ic="rocket"></span> riprocketer</a></div>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="ov" id="ovResult">
+    <div class="panel">
+      <h1 id="resTitle" style="font-size:clamp(28px,9vw,60px)">VICTORY</h1>
+      <div class="tag" id="resTag">last craft flying</div>
+      <div class="prize" id="prizeBox">
+        <div class="big" id="prizeBig"></div>
+        <div class="h-lbl" style="letter-spacing:.2em; margin-top:6px" id="prizeSub"></div>
+        <div class="won-cards" id="wonCards"></div>
+      </div>
+      <div class="scanote" id="scaNote"></div>
+      <div style="margin-top:12px"><button class="go" id="btnRematch"><span class="ic" data-ic="flame"></span> Ante up &amp; rematch</button></div>
+      <div><button class="go alt" id="btnLobby">▶ Back to the table</button></div>
+      <div class="mininote"><a href="cards/battle.html">◄ arena</a> · <a href="index.html">the pack</a></div>
+    </div>
+  </div>
+
+  <!-- dogfight soundtrack: drop TWSI.mp3 at the site root -->
+  <audio id="dfMusic" loop preload="none" src="TWSI.mp3"></audio>
+
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<script src="js/wallet-ui.js"></script>
+<script src="js/eth-play.js"></script>
+<script src="js/df-net.js"></script>
+<script src="cards/arena-net.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/card-hover.js"></script>
+<script src="js/arena-lobby.js"></script>
+<script src="js/wager-payout.js"></script>
+<script src="js/game-help.js"></script>
+<script src="js/gfx-post.js"></script>
+<script src="js/sfx-lib.js"></script>
+<script src="js/ronin-glb.js"></script>
+<script src="js/dogfight-gl.js"></script>
+<script src="js/gfx-2d.js"></script>
+<script src="js/card-powers.js"></script>
+<script>
+(() => {
+  const cv=document.getElementById('df'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
+  /* Two renderers, one game state.
+   *   glReady  true-3D: js/dogfight-gl.js draws the WORLD with a real perspective camera and
+   *            a z-buffer; the 2D canvas above it keeps only the HUD/radar/reticle.
+   *   GPU      the fallback: the original fake-3D 2D renderer, presented through GfxPost so
+   *            it still gets the bloom. Used whenever true-3D can't init.
+   * They are mutually exclusive — Gfx2D hides the 2D canvas, which is exactly what the
+   * true-3D path needs it NOT to do. */
+  const glcv = document.getElementById('dfgl');
+  let glReady = false;
+  try { glReady = !!(window.DFGL && DFGL.init(glcv)); } catch(e){ glReady = false; }
+  const GPU = (!glReady && window.Gfx2D) ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
+  if (glReady) { glcv.style.display='block'; cv.style.background='transparent'; }
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* Backing-store resolution is the dominant cost on a phone: everything the game
+   * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
+   * the one shared policy (touch + small screen + low cores/memory + save-data), so the
+   * games can't drift apart on what counts as a weak device. Desktop is unaffected. */
+  const DPR=Math.min(devicePixelRatio||1,((window.GfxPost&&GfxPost.dprCap)?GfxPost.dprCap():2));
+  let W=0,H=0,cx=0,cy=0,SCALE=1;
+  const SQUASH=0.72;                                  // top-down table gets a gentle tilt
+  function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
+    cx=W/2; cy=H*0.5; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+    { const g=document.getElementById('dfgl'); if(g){ g.width=W*DPR; g.height=H*DPR; } }
+    SCALE=Math.min(W,H*1/SQUASH)*0.44; }
+  resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
+  const rnd=(a=1,b=0)=>b+Math.random()*(a-b), clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
+  const TAU=Math.PI*2;
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const proj=(x,y)=>[cx+x*SCALE, cy+y*SCALE*SQUASH];  // arena units (disk r≤1) → screen
+
+  // ── config / wallet ──
+  const CFG=window.RIPMASTER_CHAIN||{};
+  function liveToken(){ try{ const a=((CFG.contracts||{}).liquidEdition)||''; return /^0x[0-9a-fA-F]{40}$/.test(a)&&!/^0x0+$/.test(a);}catch{return false;} }
+
+  // ── deck + vault ──
+  const RC={ common:'--common', uncommon:'--uncommon', rare:'--rare', mythic:'--mythic', prizm:'--prizm' };
+  const TINT={ common:'#7ea892', uncommon:'#2bff80', rare:'#ffd23b', mythic:'#ff2ad9', prizm:'#27f7e4' };
+  let DECK=[], bySlug=new Map(), craftImgs=[];
+  function vault(){ try{ return JSON.parse(localStorage.getItem('urm_vault')||'[]'); }catch{ return []; } }
+  function saveVault(v){ try{ localStorage.setItem('urm_vault', JSON.stringify(v.slice(-400))); }catch{} }
+  function ownedSlugs(){ return vault().map(e=>e&&e.slug).filter(s=>s&&bySlug.has(s)); }
+  function loadDeck(){ return fetch('cards/manifest.json').then(r=>r.json()).then(m=>{ DECK=(m.cards||[]);
+    bySlug=new Map(DECK.map(c=>[c.slug,c]));
+    // craft images: your owned, else the front of the deck
+    const own=ownedSlugs(); const pool=(own.length?own:DECK.slice(0,16).map(c=>c.slug));
+    pool.slice(0,16).forEach(sl=>{ const c=bySlug.get(sl); if(!c)return; const im=new Image(); im.src='cards/'+c.art; craftImgs.push({im,rar:c.rarity}); });
+    buildGrid(); }).catch(()=>{ $('cardsInfo').textContent='deck manifest missing — rip a pack first'; }); }
+
+  // ── SFX / music ──
+  let AC=null, sfxOn=true, musicOn=true; const ac=()=>AC||(AC=new(window.AudioContext||window.webkitAudioContext)());
+  function blip(f0,f1,dur,type='square',vol=0.14){ if(!sfxOn)return; try{ const a=ac(),o=a.createOscillator(),g=a.createGain();
+    o.type=type; o.frequency.setValueAtTime(f0,a.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+dur);
+    g.gain.setValueAtTime(vol,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
+    o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+dur);}catch{} }
+  function noise(dur,vol=0.3){ if(!sfxOn)return; try{ const a=ac(),n=a.createBufferSource(),b=a.createBuffer(1,a.sampleRate*dur,a.sampleRate),d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length); const g=a.createGain(); g.gain.value=vol; n.buffer=b; n.connect(g).connect(a.destination); n.start(); }catch{} }
+  const sfxFire=()=>{blip(900,170,0.07,'square',0.1); noise(0.03,0.06);}, sfxEfire=()=>{blip(320,110,0.08,'sawtooth',0.05);},
+        sfxHit=()=>{noise(0.12,0.18);blip(200,70,0.14,'sawtooth',0.11);}, sfxBoom=()=>{noise(0.45,0.4);blip(120,40,0.42,'sawtooth',0.2);},
+        sfxPow=()=>{blip(520,900,0.08,'square',0.13);setTimeout(()=>blip(900,1500,0.1,'square',0.13),70);},
+        sfxRoll=()=>blip(300,1000,0.16,'sine',0.12), sfxRing=()=>{blip(700,1300,0.1,'sine',0.14);setTimeout(()=>blip(1000,1650,0.12,'sine',0.12),80);},
+        sfxRecoil=()=>{blip(150,44,0.15,'sawtooth',0.18); noise(0.06,0.12);},
+        sfxWarp=()=>blip(280,1100,0.32,'sine',0.1), sfxWin=()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f,0.16,'triangle',0.14),i*130));},
+        // a bolt CROSSING you, not hitting you — doppler-ish falling whine + air crack
+        sfxZip=()=>{blip(1500,240,0.11,'sawtooth',0.07); noise(0.05,0.05);};
+  const music=$('dfMusic');
+  function playMusic(){ if(!musicOn)return; try{ music.volume=0.5; const p=music.play(); if(p&&p.catch)p.catch(()=>{});}catch{} }
+  function powMsg(t){ const el=$('powMsg'); el.textContent=t; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
+  // ── wingmate radio comms ──
+  const WINGLINES={ start:['Break and attack!','All craft, engage!','Let’s tear it up!'], kill:['Enemy down!','Nice shot!','Scratch one!','Boom — got ’em!'],
+    hit:['You’re hit! Roll!','Pull up!','Shake ’em off!'], ring:['Nice flying!','Right through it!','Keep it up!'],
+    respawn:['Back in the fight!','Rejoin the fray!'], win:['Mission complete!','We did it!'], lose:['We’ll get ’em next time.','Regroup!'] };
+  function wingName(){ return (G.wing&&G.wing[0])||'WINGMATE'; }
+  function comms(line,col){ const box=$('comms'); if(!box)return; $('commsNm').textContent=wingName(); $('commsLn').textContent=line;
+    const por=$('commsPor'); por.textContent=(wingName()[0]||'W').toUpperCase(); por.style.background=col||'#0e5a68';
+    box.classList.remove('on'); void box.offsetWidth; box.classList.add('on'); }
+  function commsRnd(kind,col){ const a=WINGLINES[kind]; if(a) comms(a[(Math.random()*a.length)|0],col); }
+  let _tapL=0,_tapR=0,_tapC=0;
+  function doRoll(d){ const s=G.me; if(!s||!s.alive||s.rollT>0||s.respawnT>0)return; s.rollT=0.55; s.iframe=0.62; s.rollDir=d; sfxRoll(); powMsg('◈ DEFLECTOR SHIELD'); }
+
+  // ── net roster (RipNet): who's at the table ──
+  const HANDLES=['Raoul Duke','Chuck Meltdown','Baron Von Blazed','Denim Reaper','Cogito Ribbit','Slim Bridger',
+    'Duck Loathing','Reservoir Frog','Deltoid Zeus','Bail Denied','Technicolor Yawn','Kitchen Bandido','Rug-Pull Rick','Too Weird To Live'];
+  let roster=[];
+  if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
+      address:(window.RipWallet&&RipWallet.account())||undefined });
+    const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
+    RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); });
+    // wallet linked/unlinked → carry the address into the live roster
+    if(window.RipWallet) RipWallet.on(st=>{ try{ RipNet.join({ address:(st&&st.account)||undefined }); }catch{} });
+  }catch{} }
+
+  // ── wager state ──
+  const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
+  const wager={ ante:50, cards:2, players:3, picked:[] };   // picked = slugs
+  const ethW={ usdEach:0 };                                  // ETH side-pot pledge per pilot (≤ $3)
+  function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
+
+  function buildGrid(){
+    const own=ownedSlugs(); const groups=new Map();
+    own.forEach(sl=>{ groups.set(sl,(groups.get(sl)||0)+1); });
+    const g=$('cardGrid');
+    if(!groups.size){ g.innerHTML=''; $('cardsInfo').innerHTML='<a href="index.html" style="color:var(--lime)">no cards yet — rip a pack</a>'; refreshPot(); return; }
+    g.innerHTML=[...groups.entries()].map(([sl,n])=>{ const c=bySlug.get(sl); if(!c)return'';
+      const on=wager.picked.filter(s=>s===sl).length;
+      return `<div class="tile${on?' sel':''}" data-slug="${sl}" style="--rc:var(${RC[c.rarity]||'--common'})">
+        <span class="rr">${c.rarity}</span>${n>1?`<span class="mult">×${n}</span>`:''}
+        <img src="cards/${c.art}" alt="${esc(c.title)}" loading="lazy" onerror="this.style.opacity=.15">
+        <div class="stk">✓${on>1?on:''}</div></div>`; }).join('');
+    g.querySelectorAll('.tile').forEach(el=>el.onclick=()=>{ const sl=el.dataset.slug;
+      const have=own.filter(s=>s===sl).length, on=wager.picked.filter(s=>s===sl).length;
+      if(on>=have || wager.picked.length>=wager.cards){ wager.picked=wager.picked.filter(s=>s!==sl); }  // toggle this card off
+      else wager.picked.push(sl);
+      // never keep more than `cards` total
+      while(wager.picked.length>wager.cards) wager.picked.shift();
+      buildGrid(); refreshPot(); });
+    if(window.CardHover) CardHover.bind(g, el=>{ const c=bySlug.get(el.dataset.slug); if(!c)return null;
+      return { art:'cards/'+c.art, title:c.title, rarity:c.rarity, atk:c.atk, def:c.def, trigger:c.trigger, color:`var(${RC[c.rarity]||'--common'})` }; });
+    const kinds=groups.size, total=own.length;
+    $('cardsInfo').textContent=`${total} owned · ${kinds} kinds · ${wager.picked.length}/${wager.cards} in the pot`;
+    refreshLoadoutPreview(); refreshPot();
+  }
+  function refreshPot(){
+    $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
+    const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
+    const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
+    const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
+    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+    // seat preview from live roster + filler
+    const others=[]; const seen=new Set([myHandle()]);
+    (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
+    let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+    const meA=(window.RipWallet&&RipWallet.account())||null;
+    const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
+    $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
+    // gate the table button — TWO lanes in: the $UR3030 burn + full card stake, OR a banked ETH flight
+    const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
+    const canToken=liveToken()&&Wt&&Wt.hasWallet();
+    const enoughCards=wager.picked.length===wager.cards;
+    $('btnAnte').disabled=!((canToken&&enoughCards)||hasFlights);
+    // note
+    const note=$('lobNote');
+    if(hasFlights) note.innerHTML='⟠ <b>flight credit armed</b> — Ante up &amp; fly uses 1 of your <b>'+RipEth.plays()+'</b> banked flights.'
+      +(enoughCards?' Your '+wager.cards+' picked cards ride the pot for keeps.':' Pick '+wager.cards+' cards to also stake them (optional).');
+    else if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
+    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
+    else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
+    else note.innerHTML='Real ante: <b>'+wager.ante+' $UR3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
+  }
+  // wager control wiring
+  $('pChips').querySelectorAll('.pchip').forEach(el=>el.onclick=()=>{ wager.players=+el.dataset.p;
+    $('pChips').querySelectorAll('.pchip').forEach(c=>c.classList.toggle('on',c===el)); refreshPot(); });
+  document.querySelectorAll('[data-ante]').forEach(b=>b.onclick=()=>{ wager.ante=clamp(wager.ante+(+b.dataset.ante)*W_ANTE.step,W_ANTE.min,W_ANTE.max); refreshPot(); });
+  document.querySelectorAll('[data-cards]').forEach(b=>b.onclick=()=>{ wager.cards=clamp(wager.cards+(+b.dataset.cards),W_CARDS.min,W_CARDS.max);
+    while(wager.picked.length>wager.cards) wager.picked.pop(); buildGrid(); });
+
+  // ── ETH coin slot wiring (Base L2 · js/eth-play.js) ──
+  async function refreshEth(){ const E=window.RipEth, Wt=window.RipWallet; if(!E||!Wt||!$('ethWho')) return;
+    const a=Wt.account();
+    $('ethWho').innerHTML=a ? '⟠ '+a.slice(0,6)+'…'+a.slice(-4)+' · <span style="color:#ffd23b">base</span>' : 'no wallet linked';
+    $('btnEthConnect').textContent=a?'unlink':'⟠ link wallet';
+    $('ethPlays').textContent=E.plays();
+    await E.price();
+    $('ethBuyEth').textContent=E.fmtEth(E.eth(E.PLAY_USD));
+    $('btnEthBuy').disabled=!(E.usd()>0);
+    $('ethWagerVal').textContent='$'+ethW.usdEach.toFixed(2)+(ethW.usdEach>0&&E.usd()>0?' ≈ '+E.fmtEth(E.eth(ethW.usdEach)):'');
+    refreshPot(); }
+  $('btnEthConnect').onclick=async()=>{ const Wt=window.RipWallet; if(!Wt) return;
+    if(Wt.isConnected()) await Wt.disconnect(); else await Wt.connect(); refreshEth(); };
+  $('btnEthBuy').onclick=async()=>{ const E=window.RipEth, Wt=window.RipWallet; if(!E) return; const n=$('ethNote');
+    n.textContent='dropping the coin…';
+    const r=await E.insertCoin();
+    if(r.ok) n.innerHTML='coin dropped — <b>+'+E.PLAYS_PER+' flights</b> banked · <a target="_blank" rel="noopener" href="'+E.txUrl(r.tx)+'">'+r.tx.slice(0,10)+'…</a> confirming on Base';
+    else if(r.reason==='no-price') n.textContent='can’t read the ETH price right now — try again in a minute.';
+    else if(r.reason!=='cancelled'&&r.reason!=='user-rejected') n.textContent=(Wt?Wt.explain(r.reason):r.reason);
+    else n.textContent='no coin dropped.';
+    refreshEth(); };
+  document.querySelectorAll('[data-ethw]').forEach(b=>b.onclick=()=>{ const E=window.RipEth;
+    const max=E?E.WAGER_MAX_USD:3, step=E?E.WAGER_STEP_USD:0.25;
+    ethW.usdEach=clamp(Math.round((ethW.usdEach+(+b.dataset.ethw)*step)*100)/100,0,max); refreshEth(); });
+  // ── human dogfights (RipFight): seek → WebRTC mesh → the same arena, real pilots ──
+  if(window.RipFight&&$('btnSeek')){ const bs=$('btnSeek');
+    bs.onclick=()=>{ if(RipFight.seeking()){ RipFight.cancel(); bs.textContent='⚔ Seek human dogfight'; return; }
+      bs.textContent='⚔ seeking pilots…';
+      RipFight.seek(n=>{ if(RipFight.seeking()) bs.textContent='⚔ seeking pilots… ('+n+' in range)'; }); };
+    RipFight.onMatch(list=>{ const E=window.RipEth, hasF=!!(E&&E.plays()>0);
+      if(hasF){ E.spendPlay(); toast('⟠ 1 flight used · '+E.plays()+' left in the bank'); }
+      bs.textContent='⚔ Seek human dogfight';
+      G.netPeers=list; startMatch(false,hasF); });   // cards never move in human matches (v1) — ETH side-pot pledges ride
+    RipFight.onMsg((pid,m)=>{ if(!G.netMatch)return; const s=G.ships&&G.ships.find(sh=>sh.netId===pid);
+      if(m.k==='s'&&s){ s._tgt=m; if(m.n)s.name=m.n; if(!s._init){ s.x=m.x; s.y=m.y; s.alt=m.alt; s.h=m.h; s._init=1; } }
+      else if(m.k==='f'&&s){ G.bolts.push({x:m.x,y:m.y,alt:m.alt,h:m.h,life:1.4,dmg:0,me:false,own:s,noHit:true,sp:m.sp||BOLTSPD}); }
+      else if(m.k==='hit'&&G.me&&G.me.alive&&G.mode==='play'){ if(G.me.iframe>0)return;   // barrel roll still deflects
+        let d=(+m.dmg||0)*0.55; if(G.me.sh>0)d*=0.4; G.me.hp-=d; G.shake=Math.max(G.shake,8); sfxHit(); G._lastBy=pid;
+        if(G.me.hp<=0){ G.me.alive=false; G.me.respawnT=2.6; G.me.deaths++; boom(G.me.x,G.me.y,G.me.alt,G.me.tint,true);
+          powMsg('✖ YOU WERE DOWNED'); RipFight.send({k:'down',by:G._lastBy}); } }
+      else if(m.k==='down'){ if(s){ s.alive=false; s.respawnT=2.2; boom(s.x,s.y,s.alt,s.tint,true); }
+        if(m.by===RipFight.id()&&G.me){ G.me.kills++; powMsg('✖ '+shortName(s?s.name:'PILOT')+' DOWN'); commsRnd('kill','#0e5a68'); } } });
+  }
+  if(window.RipWallet) RipWallet.on(()=>refreshEth());
+  if(window.RipEth) RipEth.on(ev=>{ const n=$('ethNote');
+    if(n&&ev&&ev.type==='confirmed') n.innerHTML='⟠ coin <b>confirmed</b> on Base — flights banked for keeps.';
+    else if(n&&ev&&ev.type==='reverted') n.innerHTML='coin drop <b>reverted</b> on Base — flights clawed back.';
+    refreshEth(); });
+
+  // ── the match ──
+  const G={ mode:'lobby', t:0, dur:120, timeLeft:120, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], gates:[], powT:6, shake:0,
+    real:false, myStake:[], oppStakes:[], me:null, over:false, view:'chase', theme:0, lock:null, gscroll:0, sunAz:0, wing:[] };
+  // ── toroidal world: an "infinite self-contained map" whose edges portal over ──
+  // ALT_MAX 3.4 → 9: the sky is a real vertical arena now. A cloud deck sits across the middle
+  // of the band (CLOUD_ALT ± CLOUD_THICK, drawn by DFGL, white-out inside), so climbing means
+  // something: dive out of cover, fight under it, or take the fight above the weather.
+  const WS=150, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=9.0, VIEW_FAR=34, BOLTSPD=34, TANK_ALT=0.16;
+  const CLOUD_ALT=5.4, CLOUD_THICK=0.9;
+  const cam={ x:0, y:0, h:0, alt:1.2, roll:0, ph:0, camH:1.2, camBack:2.4 };
+  const wdel=v=>{ v-=Math.round(v/WS)*WS; return v; };          // nearest wrapped delta (−WS/2..WS/2)
+  const wpos=v=>{ v%=WS; return v<0?v+WS:v; };                   // canonical 0..WS
+  const angd=a=>{ a%=TAU; if(a>Math.PI)a-=TAU; if(a<-Math.PI)a+=TAU; return a; };
+  const WORLDS=[
+    {name:'neon grid',    sky:['#12043a','#5a0a6e'], grid:'#27f7e4', gnd:'#060018', fog:'#3a0a5e', sun:'#ff2a6d', prop:'pylon'},
+    {name:'moon ocean',   sky:['#041e2a','#0a4a5e'], grid:'#4fe0ff', gnd:'#021018', fog:'#0a3648', sun:'#eafcff', prop:'ring'},
+    {name:'ember canyon', sky:['#2a0a06','#7a260a'], grid:'#ffae4a', gnd:'#160702', fog:'#4a1606', sun:'#ffd23b', prop:'spire'},
+    {name:'chrome city',  sky:['#04010f','#160a34'], grid:'#2bff80', gnd:'#04010c', fog:'#0e0826', sun:'#9affd0', prop:'tower'},
+    {name:'ghost nebula', sky:['#06030f','#1a0a34'], grid:'#c060ff', gnd:'#05030f', fog:'#1a0a34', sun:'#ff9cf0', prop:'crystal'},
+  ];
+  const world=()=>WORLDS[G.theme%WORLDS.length];
+  let FOCAL=800, HORIZON=300;
+  // camera-relative perspective projection of a world point at altitude `alt` → screen {x,y,scale,fwd}
+  function project(wx,wy,alt){ const dx=wdel(wx-cam.x), dy=wdel(wy-cam.y);
+    const ch=Math.cos(cam.h), sh=Math.sin(cam.h);
+    let fwd=dx*ch+dy*sh; const rgt=-dx*sh+dy*ch; fwd+=CAM_BACK;
+    if(fwd<NEAR) return null; const scale=FOCAL/fwd;
+    // camera height reacts to altitude-above-cruise, so climbing/diving actually lifts you over the terrain
+    return { x:cx+rgt*scale, y:HORIZON+(CAM_H+cam.alt-1.2-(alt||0))*scale, scale, fwd }; }
+
+  function makeShip(opt){ const a=rnd(TAU), r=rnd(WS*0.34,WS*0.14);
+    // TTK deliberately long — a kill is a sustained burst you have to HOLD on target through a
+    // turn, not a tap. (Raised from 150/100: fights ended before they read as fights.)
+    const hp=opt.me?220:170;
+    return { name:opt.name, x:wpos(cam.x+Math.cos(a)*r), y:wpos(cam.y+Math.sin(a)*r), alt:rnd(1.9,0.7), h:rnd(TAU),
+      spd:6, hp, maxHp:hp, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
+      verified:!!opt.verified, weapon:1, fireT:0, thrust:true, boost:false, bank:0, pitchIn:0, rapid:0, sh:0,
+      rollT:0, iframe:0, rollDir:0, boostGauge:1, respawnT:0, deaths:0, lives:3, burstQ:0, burstNext:0, burstCool:0, wantFire:false,
+      cardAmp:1, surgeT:0, turnRamp:0, muzzle:-9, sigGun:'',
+      aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
+
+  function startMatch(real,ethFlight){
+    const netP=G.netPeers||null; G.netPeers=null; G.netMatch=!!(netP&&netP.length);
+    const others=[]; const seen=new Set([myHandle()]);
+    if(G.netMatch){ netP.forEach(p=>others.push({ h:p.handle||('pilot '+String(p.id).slice(2,6)), v:false, net:true, nid:p.id })); }
+    else{
+      (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
+      let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+    }
+    G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
+    G.timeLeft=G.dur; G.real=real; G.theme=Math.random()*WORLDS.length|0; G.sunAz=rnd(TAU);
+    cam.x=0; cam.y=0; cam.h=0; cam.alt=1.2; cam.roll=0; cam.ph=0;
+    for(let i=0;i<260;i++){ G.props.push({ x:rnd(WS,0), y:rnd(WS,0), alt:(Math.random()<0.82?0:rnd(1.4,0.3)), s:rnd(1.7,0.6), rot:rnd(TAU) }); }
+    for(let i=0;i<7;i++){ const a=rnd(TAU),r=rnd(38,8); G.gates.push({ x:wpos(Math.cos(a)*r), y:wpos(Math.sin(a)*r), alt:(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)), cool:0 }); }
+    G.wing=[HANDLES[(Math.random()*HANDLES.length)|0]];
+    const myImg=craftImgs.length?craftImgs[0]:null;
+    G.me=makeShip({ name:myHandle(), me:true, tint:'#27f7e4', img:myImg, verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
+    G.me.x=0; G.me.y=0; G.me.alt=1.2; G.me.h=0; G.me.spd=7; G.ships.push(G.me);
+    // arm YOUR craft from the cards you staked (or your top owned cards in practice), scaled by the live market
+    G.loadout=null; try{ if(window.RipPowers){ const src=wager.picked.length?wager.picked:ownedSlugs().slice(0,wager.cards);
+      const picks=src.map(sl=>bySlug.get(sl)).filter(Boolean);
+      if(picks.length){ G.loadout=RipPowers.loadout(picks,RipPowers.getMarket()); applyLoadout(G.me,G.loadout); } } }catch(e){}
+    others.forEach((o,i)=>{ const im=craftImgs.length?craftImgs[(i+1)%craftImgs.length]:null;
+      const s=makeShip({ name:o.h, tint:['#ff2ad9','#ffd23b','#ff6b57','#2bff80','#b070ff'][i%5], img:im, verified:o.v });
+      const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI;
+      if(o.net){ s.net=true; s.netId=o.nid; s._tgt=null; s._init=0; }   // a REAL pilot: driven by their broadcasts, not the bot AI
+      G.ships.push(s); });
+    // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
+    G.myStake=[]; G.oppStakes=[];
+    if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
+    // ETH coin-op: the flight credit was consumed in ante() (the ETH entry lane); the side-pot pledge rides
+    G.ethFlight=!!ethFlight;
+    G.ethEachUsd=ethW.usdEach; G.ethPotUsd=ethW.usdEach>0 ? Math.round(ethW.usdEach*wager.players*100)/100 : 0;
+    for(let s=1;s<G.ships.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ arr.push(DECK[(Math.random()*DECK.length)|0].slug); } G.oppStakes.push(arr);
+      try{ if(window.RipPowers){ const bl=RipPowers.loadout(arr.map(sl=>bySlug.get(sl)).filter(Boolean),RipPowers.getMarket()); applyLoadout(G.ships[s],bl); } }catch(e){} }
+    G.mode='play';
+    if(location.hash==='#debug') window.__DF={G,cam,get stick(){return stick;},get flags(){return {touchFire,touchZoom};},get me(){return G.ships&&G.ships.find(s=>s.isMe);}};   // headless-test hook (inert in normal play)
+    $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show');
+    $('hudL').style.display='block'; $('hudR').style.display='block'; $('toggles').style.display='flex'; $('controls').style.display='flex';
+    $('hMe').textContent=(G.me.verified?'⚜ ':'')+'you';
+    $('hLoad').textContent=G.loadout?G.loadout.summary:'';
+    if(window.RipNet){ try{ RipNet.setStatus('battling'); }catch{} }
+    playMusic(); sfxWarp(); if(sfxOn&&window.RipSfx) RipSfx.play('gearup',0.5);   // strap in — recorded, not synthesized
+    powMsg('◈ '+world().name.toUpperCase()); setTimeout(()=>commsRnd('start','#0e5a68'),700);
+  }
+
+  // ── input (all-range flight: yaw + climb + boost + fire) ──
+  const keys={}; let aim={x:0,y:0}, ptrAim=false, ptrFire=false, fireHeld=false, rmZoom=false;
+  // touch combat lives on the right half of the tube (the left half owns the fly stick):
+  //   hold anywhere right = fire · a second finger on the right = zoom (precision)
+  const rightPtrs=new Set(); let touchFire=false, touchZoom=false;
+  // floating touch flight stick — relative control: it spawns under your thumb, drag = yaw/climb
+  const stick={ id:null, cx:0, cy:0, x:0, y:0, lastX:1 };
+  const sB=$('stickBase'), sN=$('stickNub');
+  function stickShow(x,y){ sB.style.display='block'; sN.style.display='block'; sB.style.left=x+'px'; sB.style.top=y+'px'; sN.style.left=x+'px'; sN.style.top=y+'px'; }
+  function stickHide(){ sB.style.display='none'; sN.style.display='none'; stick.id=null; stick.x=0; stick.y=0; }
+  addEventListener('keydown',e=>{ const fresh=!keys[e.key]; if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
+    keys[e.key]=true; if(e.key===' ')fireHeld=true;
+    if(fresh&&(e.key==='ArrowLeft'||e.key==='a')){ const n=performance.now(); if(n-_tapL<330)doRoll(-1); _tapL=n; }
+    if(fresh&&(e.key==='ArrowRight'||e.key==='d')){ const n=performance.now(); if(n-_tapR<330)doRoll(1); _tapR=n; }
+    if(e.key==='p'||e.key==='P')togglePause(); if(e.key==='m'||e.key==='M')toggleSfx(); if(e.key==='v'||e.key==='V')toggleView(); });
+  addEventListener('keyup',e=>{ keys[e.key]=false; if(e.key===' ')fireHeld=false; });
+  function setAim(e){ const r=cv.getBoundingClientRect(); aim.x=clamp(((e.clientX-r.left)-W/2)/(W*0.5),-1,1); aim.y=clamp(((e.clientY-r.top)-H/2)/(H*0.5),-1,1); }
+  cv.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='mouse'){ if(e.button===2){ rmZoom=true; e.preventDefault(); return; }
+      ptrAim=true; ptrFire=true; setAim(e); const n=performance.now(); if(n-_tapC<300)doRoll(aim.x>=0?1:-1); _tapC=n; return; }
+    // ── TOUCH — no buttons. Left ½ = floating fly stick; right ½ = fire (hold), 2 fingers = zoom ──
+    e.preventDefault();
+    const r=cv.getBoundingClientRect();
+    if(e.clientX < r.left + r.width/2){                                  // LEFT ½ → fly stick under the thumb
+      if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY);
+        const n=performance.now(); if(n-_tapC<300)doRoll(stick.lastX>=0?1:-1); _tapC=n; } }
+    else { rightPtrs.add(e.pointerId); touchFire=true; touchZoom=rightPtrs.size>=2;   // RIGHT ½ → fire; 2nd finger = zoom
+      try{ cv.setPointerCapture(e.pointerId); }catch{} } });
+  addEventListener('pointermove',e=>{
+    if(e.pointerType==='mouse'){ if(ptrAim)setAim(e); return; }
+    if(e.pointerId===stick.id){ const R=56, dz=10; let dx=e.clientX-stick.cx, dy=e.clientY-stick.cy; const m=Math.hypot(dx,dy);
+      if(m>R){ const k=R/m; dx*=k; dy*=k; }
+      stick.x=(m<dz)?0:clamp(dx/R,-1,1); stick.y=(m<dz)?0:clamp(dy/R,-1,1); if(stick.x)stick.lastX=stick.x;
+      sN.style.left=(stick.cx+dx)+'px'; sN.style.top=(stick.cy+dy)+'px'; } });
+  function ptrEnd(e){ if(e.pointerType==='mouse'){ ptrAim=false; ptrFire=false; rmZoom=false; return; }
+    if(e.pointerId===stick.id) stickHide();
+    if(rightPtrs.delete(e.pointerId)){ touchFire=rightPtrs.size>0; touchZoom=rightPtrs.size>=2; } }
+  addEventListener('pointerup',ptrEnd); addEventListener('pointercancel',ptrEnd);
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+  function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
+  function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
+  function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
+  function toggleView(){ G.view=G.view==='chase'?'cockpit':'chase'; const b=$('tgView'); if(b)b.textContent=G.view==='cockpit'?'◉ cockpit':'◉ chase'; }
+  $('tgPause').onclick=togglePause; $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic; { const b=$('tgView'); if(b)b.onclick=toggleView; }
+
+  // ── weapons / combat (world-space bolts) ──
+  const WEAP=[ {bolts:[0],rate:220,dmg:12,name:'cannon'}, {bolts:[-0.05,0.05],rate:200,dmg:11,name:'twin'},
+    {bolts:[-0.08,0,0.08],rate:180,dmg:11,name:'tri'}, {bolts:[-0.1,-0.033,0.033,0.1],rate:140,dmg:12,name:'quad',laser:true} ];
+  // when you have a lock, your bolts fly straight at the lead point (strong aim-assist, so the gun connects)
+  function meAimHeading(){ if(G.lock&&G.lock.alive){ const t=G.lock, dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
+    return Math.atan2(wdel(t.y+Math.sin(t.h)*t.spd*lead-G.me.y), wdel(t.x+Math.cos(t.h)*t.spd*lead-G.me.x)); } return G.me.h; }
+  function nearestFoe(s){ let best=1e9,f=null; for(const o of G.ships){ if(o===s||!o.alive||o.spawnT>0)continue;
+    const d=Math.hypot(wdel(o.x-s.x),wdel(o.y-s.y)); if(d<best){best=d;f=o;} } return f; }
+  function emitBolt(s){ const surge=(s.surgeT>0);                                        // OVERCHARGE: card+market power-up
+    const wp=surge?WEAP[WEAP.length-1]:WEAP[Math.min(WEAP.length,s.weapon)-1];           // surge fires the top gun regardless of tier
+    const base=s.isMe?meAimHeading():s.h; const home=s.isMe?(G.lock||(surge?nearestFoe(s):null)):null;
+    const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1)*(surge?1.6:1);        // zoomed precision + staked-card damage + surge
+    for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
+      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser||surge, me:s.isMe, home, surge }); }
+    if(s.isMe){ s.muzzle=G.t; (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
+      if(G.netMatch&&window.RipFight) RipFight.send({k:'f',x:s.x,y:s.y,alt:s.alt,h:base,sp}); } else sfxEfire(); }
+  // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
+  function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive||s.surgeT>0), rt=s.cardRate||1;   // cards lift rate of fire
+    if((s.burstQ|0)>0){ if(now>=(s.burstNext||0)){ emitBolt(s); s.burstQ--; s.burstNext=now+(rap?46:82)/rt; if(s.burstQ<=0)s.burstCool=now+(rap?240:480)/rt; } return; }
+    if(want && now>=(s.burstCool||0)){ s.burstQ=((s.weapon>=3||rap)?4:3); s.burstNext=0; } }
+  function boom(x,y,alt,tint,big){ const n=big?26:12; for(let i=0;i<n;i++) G.bursts.push({x,y,alt:(alt||0)+rnd(0.4,-0.2),vx:rnd(6,-6),vy:rnd(6,-6),va:rnd(4,-1),life:1,col:tint});
+    G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)();
+    if(big&&sfxOn&&window.RipSfx) RipSfx.play('bass',0.5); }   // a kill DROPS — recorded low end under the synth boom
+
+  // live $UR3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
+  function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
+  const POWS=[ {t:'repair',ch:'✚',col:'#2bff80'}, {t:'rapid',ch:'»',col:'#27f7e4'}, {t:'gun',ch:'G',col:'#ffd23b'}, {t:'shield',ch:'◆',col:'#b070ff'} ];
+  const AMPPOW={ t:'amp', ch:'★', col:'#ffd76a' };               // market-heat OVERCHARGE cell — spawns hotter the hotter the chain
+  // pickup potency scales with the grabber's card amp (your staked cards × the live market)
+  function applyPow(s,t){ const a=s.cardAmp||1;
+    if(t==='repair') s.hp=Math.min(s.maxHp,s.hp+Math.round(38*a));
+    else if(t==='rapid') s.rapid=Math.max(s.rapid,4+Math.round(3*a));
+    else if(t==='gun') s.weapon=Math.min(WEAP.length,s.weapon+1);
+    else if(t==='shield'){ s.sh=Math.max(s.sh,4+2*a); s.hp=Math.min(s.maxHp,s.hp+Math.round(14*a)); }
+    else if(t==='amp'){ s.surgeT=Math.max(s.surgeT||0,5.5+2.5*a); s.rapid=Math.max(s.rapid,s.surgeT); s.hp=Math.min(s.maxHp,s.hp+Math.round(10*a)); }
+    if(s.isMe){ sfxPow(); powMsg(t==='repair'?'✚ HULL PATCH':t==='rapid'?'» RAPID FIRE':t==='gun'?'GUN ▲ Lv.'+s.weapon:t==='shield'?'◆ SHIELD UP':'★ OVERCHARGE'+(s.sigGun?' · '+s.sigGun.toUpperCase():''));
+      // the recorded libraries: a gun upgrade racks real hardware onto the craft
+      if(t==='gun'&&sfxOn&&window.RipSfx) RipSfx.play('attachMachine',0.4); } }
+  function spawnPow(){ const a=mktAmp();
+    // weighted pool; a hot chain skews toward the strong pickups and unlocks the golden OVERCHARGE cell
+    const pool=[ [POWS[0],3],[POWS[1],3],[POWS[2],2],[POWS[3],2] ];
+    const ampW=Math.max(0,(a-0.95))*6; if(ampW>0.15) pool.push([AMPPOW,ampW]);
+    let tot=0; for(const e of pool)tot+=e[1]; let r=Math.random()*tot, pick=pool[0][0];
+    for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
+    const ang=rnd(TAU), rr2=rnd(26,4);
+    G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(4.4,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
+  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
+  function applyLoadout(s,L){ if(!s||!L)return;
+    s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.cardAmp=L.amp||1; s.overdrive=false;
+    s.sigGun=(L.guns&&L.guns.length)?L.guns[L.guns.length-1]:'';   // signature gun the OVERCHARGE flavors
+    if(L.shield>0){ const bonus=Math.round(L.shield*8); s.maxHp+=bonus; s.hp+=bonus; }
+    let wl=1;                                                    // guns/triggers unlock a starting weapon tier
+    if(L.guns.includes('twin'))wl=Math.max(wl,2);
+    if(L.guns.includes('tri')||L.guns.includes('rapid')||L.guns.includes('homing'))wl=Math.max(wl,3);
+    if(L.guns.includes('spread'))wl=Math.max(wl,3);
+    if(L.guns.includes('laser')||L.guns.includes('pierce'))wl=Math.max(wl,WEAP.length);
+    s.weapon=clamp(wl,1,WEAP.length);
+    if(L.powerups.includes('overdrive'))s.overdrive=true;        // prizm → permanent rapid fire
+    if(L.powerups.includes('shield')||L.guns.includes('shield'))s.sh=Math.max(s.sh,5); }
+  function refreshLoadoutPreview(){ const el=$('loadoutInfo'); if(!el)return;
+    if(!window.RipPowers||!wager.picked.length){ el.textContent=''; return; }
+    const picks=wager.picked.map(sl=>bySlug.get(sl)).filter(Boolean);
+    el.textContent='▣ armory · '+RipPowers.loadout(picks,RipPowers.getMarket()).summary; }
+  const shortName=n=>{ n=String(n||''); return n.length>12?n.slice(0,11)+'…':n; };
+  function step(dt){ G.t+=dt;
+    // power-up spawns near the action
+    G.powT-=dt; if(G.powT<=0 && G.pows.length<5){ G.powT=rnd(9,5)/(0.85+(mktAmp()-0.75)*0.55); spawnPow(); }   // hotter chain → pickups drop faster
+    for(const pw of G.pows){ pw.t+=dt; pw.spin+=dt*2; }
+    // fly the ships (yaw + climb + thrust, positions wrap over the toroidal map)
+    for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.surgeT>0)s.surgeT-=dt; if(s.spawnT>0)s.spawnT-=dt;
+      if(s.isMe) stepMe(s,dt); else if(s.net) stepNet(s,dt); else stepBot(s,dt);
+      tryFire(s, s.wantFire);
+      const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
+      s.x=wpos(s.x+Math.cos(s.h)*s.spd*dt); s.y=wpos(s.y+Math.sin(s.h)*s.spd*dt); s.alt=clamp(s.alt,ALT_MIN,ALT_MAX);
+      /* ENERGY: height and speed are ONE currency, not two.
+       * Climbing spends speed, diving buys it back — the oldest real thing about flying, and
+       * the reason the 9-unit ceiling is worth having. Without it, altitude was free and the
+       * vertical arena was just a taller box. With it, you can zoom-climb above the weather,
+       * lose energy doing it, and cash the height back in as overtake speed on the way down.
+       * Measured against the CLAMPED altitude, so grinding along the ceiling or the deck does
+       * not keep charging you for a climb that isn't happening. Floored well above stall so a
+       * bot that noses up at a high target sags rather than falling out of the sky. */
+      const dAlt=s.alt-(s._pAlt!=null?s._pAlt:s.alt); s._pAlt=s.alt;
+      s.spd=Math.max(2.6,s.spd-dAlt*3.4);
+      if(s.spd>2){ s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>16)s.trail.shift(); } else if(s.trail.length) s.trail.shift(); }
+    // chase camera trails the player (smooth heading/altitude, banks into turns)
+    if(G.me&&G.me.alive){ cam.x=G.me.x; cam.y=G.me.y; cam.h+=angd(G.me.h-cam.h)*Math.min(1,dt*7); cam.alt+=(G.me.alt-cam.alt)*Math.min(1,dt*6);
+      cam.roll+=(clamp(-G.me.bank*1.1,-0.42,0.42)-cam.roll)*Math.min(1,dt*6); cam.ph+=((G.me.pitchIn||0)-cam.ph)*Math.min(1,dt*5); }
+    // target lock: nearest enemy inside the forward cone
+    G.lock=null; if(G.me&&G.me.alive){ let best=1e9; for(const s of G.ships){ if(s===G.me||!s.alive)continue;
+      const b=Math.atan2(wdel(s.y-G.me.y),wdel(s.x-G.me.x)), off=Math.abs(angd(b-G.me.h)), d=Math.hypot(wdel(s.x-G.me.x),wdel(s.y-G.me.y));
+      if(off<0.92&&d<VIEW_FAR){ const sc=off*4+d*0.05; if(sc<best){best=sc; G.lock=s;} } } }   // wide ~53° acquire cone → you almost always lock what's ahead
+    for(const s of G.ships){ if(!s.alive)continue; for(const pw of G.pows){ if(pw.got)continue; if(Math.hypot(wdel(pw.x-s.x),wdel(pw.y-s.y))<0.9&&Math.abs(pw.alt-s.alt)<0.7){ pw.got=1; applyPow(s,pw.type); } } }
+    G.pows=G.pows.filter(pw=>!pw.got && pw.t<20);
+    // net: broadcast my craft state at ~11Hz (combat itself is peer-to-peer)
+    if(G.netMatch&&window.RipFight&&G.me){ G._ns=(G._ns||0)-dt; if(G._ns<=0){ G._ns=0.09;
+      RipFight.send({k:'s',n:G.me.name,x:G.me.x,y:G.me.y,alt:G.me.alt,h:G.me.h,spd:G.me.spd,bank:G.me.bank||0,
+        hp:G.me.hp,maxHp:G.me.maxHp,kills:G.me.kills,boost:G.me.boost?1:0}); } }
+    // bolts
+    for(const b of G.bolts){ const bsp=b.sp||BOLTSPD;
+      if(b.home&&b.home.alive){ const t=b.home;                                       // full-3D homing onto the lead point
+        const d=Math.hypot(wdel(t.x-b.x),wdel(t.y-b.y)), lead=Math.min(0.6,d/bsp);
+        const tx=wpos(t.x+Math.cos(t.h)*t.spd*lead), ty=wpos(t.y+Math.sin(t.h)*t.spd*lead);
+        const bear=Math.atan2(wdel(ty-b.y),wdel(tx-b.x)), rate=(b.surge?17:12);
+        b.h+=clamp(angd(bear-b.h),-rate*dt,rate*dt);                                  // hard horizontal seek
+        b.alt+=clamp(t.alt-b.alt,-5*dt,5*dt); }                                       // vertical seek — the axis that was missing
+      b.x=wpos(b.x+Math.cos(b.h)*bsp*dt); b.y=wpos(b.y+Math.sin(b.h)*bsp*dt); b.life-=dt;
+      // near-miss: enemy fire zipping PAST you is audible — once per bolt, and only a genuine
+      // pass (close in 3D but not a hit), which is most of what a longer TTK produces
+      if(!b.me&&!b.zip&&G.me&&G.me.alive&&b.own!==G.me){
+        if(Math.hypot(wdel(b.x-G.me.x),wdel(b.y-G.me.y))<2.2&&Math.abs(b.alt-G.me.alt)<1.3){ b.zip=true; sfxZip(); } }
+      const hr=b.me?2.4:1.0, av=b.me?2.0:0.85;                        // forgiving hitbox on YOUR shots
+      if(b.noHit) continue;                                          // a net peer's bolt: visual here; its damage arrives as a hit msg
+      for(const s of G.ships){ if(!s.alive||s===b.own||s.spawnT>0)continue;
+        if(Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))<hr&&Math.abs(b.alt-s.alt)<av){
+          if(s.net){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:'#ffd23b'});
+            if(b.me){ G.hitT=G.t; if(window.RipFight) RipFight.sendTo(s.netId,{k:'hit',dmg:b.dmg}); }   // shooter-authoritative: owner applies it
+            break; }
+          if(s.iframe>0){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(4,-4),vy:rnd(4,-4),va:0,life:.4,col:'#8ffff0'}); break; }   // barrel-roll deflects
+          b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg; if(b.me)G.hitT=G.t;   // hit-marker feedback
+          G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:b.me?'#ffd23b':'#ff5a3c'});
+          if(s.isMe){ G.shake=Math.max(G.shake,8); sfxHit(); if(s.hp>0&&s.hp<55&&Math.random()<0.05)commsRnd('hit','#7a1e2a'); }
+          if(s.hp<=0){ s.alive=false; s.respawnT=s.isMe?2.6:2.2; s.deaths++; boom(s.x,s.y,s.alt,s.tint,true);
+            if(b.own){ b.own.kills++; if(b.own.isMe){ powMsg('✖ '+shortName(s.name)+' DOWN'); commsRnd('kill','#0e5a68'); } }
+            if(s.isMe&&(!b.own||!b.own.isMe)) powMsg('✖ YOU WERE DOWNED'); }
+          break; } } }
+    G.bolts=G.bolts.filter(b=>b.life>0);
+    for(const bu of G.bursts){ bu.life-=dt*1.7; bu.x=wpos(bu.x+bu.vx*dt); bu.y=wpos(bu.y+bu.vy*dt); bu.alt=(bu.alt||0)+bu.va*dt*0.1; } G.bursts=G.bursts.filter(b=>b.life>0);
+    for(const rg of G.rings){ rg.r+=dt*(rg.big?8:5); rg.life-=dt*(rg.big?0.8:1.2); } G.rings=G.rings.filter(r=>r.life>0);
+    if(G.shake>0)G.shake=Math.max(0,G.shake-dt*40); G.gscroll+=(G.me?G.me.spd:0)*dt;
+    // barrel-roll + i-frame decay (player)
+    if(G.me){ if(G.me.rollT>0)G.me.rollT-=dt; if(G.me.iframe>0)G.me.iframe-=dt; }
+    // respawns — a death is a setback, not elimination (kills-based deathmatch)
+    for(const s of G.ships){ if(!s.alive){ s.respawnT-=dt; if(s.respawnT<=0) reviveShip(s); } }
+    // boost rings — fly through for a boost-gauge top-up + a little repair
+    if(G.me&&G.me.alive) for(const gt of G.gates){ if(gt.cool>0){ gt.cool-=dt; continue; }
+      if(Math.hypot(wdel(gt.x-G.me.x),wdel(gt.y-G.me.y))<1.4&&Math.abs(gt.alt-G.me.alt)<0.9){ gt.cool=1.2;
+        G.me.boostGauge=Math.min(1,G.me.boostGauge+0.55); G.me.hp=Math.min(G.me.maxHp,G.me.hp+8); powMsg('◈ BOOST RING'); sfxRing(); commsRnd('ring','#0e5a68');
+        const a=rnd(TAU),r=rnd(38,10); gt.x=wpos(cam.x+Math.cos(a)*r); gt.y=wpos(cam.y+Math.sin(a)*r); gt.alt=(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)); } }
+    G.timeLeft-=dt;
+    if(!G.over && G.timeLeft<=0) endMatch();      // deathmatch: full clock, winner = most kills
+  }
+  function reviveShip(s){ const a=rnd(TAU), r=rnd(30,16);
+    s.x=wpos(cam.x+Math.cos(a)*r); s.y=wpos(cam.y+Math.sin(a)*r); s.alive=true; s.hp=s.maxHp; s.spd=6; s.alt=rnd(4.6,0.8); s.h=rnd(TAU);
+    s.sh=0; s.rapid=0; s.weapon=Math.max(1,s.weapon-1); s.spawnT=1.4; s.iframe=1.2; s.trail=[]; s.boostGauge=1; s.burstQ=0;
+    if(s.isMe){ powMsg('◈ RESPAWN'); commsRnd('respawn','#0e5a68'); } }
+  function stepMe(s,dt){ let yaw=0,pitch=0;
+    if(keys.ArrowLeft||keys.a)yaw-=1; if(keys.ArrowRight||keys.d)yaw+=1;
+    if(keys.ArrowUp||keys.w)pitch-=1; if(keys.ArrowDown||keys.s)pitch+=1;
+    if(ptrAim){ yaw+=clamp(aim.x*1.5,-1,1); pitch+=clamp(aim.y*1.5,-1,1); }
+    yaw+=stick.x; pitch+=stick.y;                    // touch flight stick (relative)
+    yaw=clamp(yaw,-1,1); pitch=clamp(pitch,-1,1);
+    // rate-building turn: a sustained hard bank tightens your turn over ~0.4s (dogfight feel); armed craft handle sharper
+    s.turnRamp=clamp((s.turnRamp||0)+(Math.abs(yaw)>0.55?dt*2.4:-dt*3.2),0,1);
+    /* Control authority rides airspeed. A wing that isn't moving isn't flying, so a craft that
+     * has bled its energy away turns like a barge until it builds speed back — which is what
+     * stops the energy trade above from being free, and what makes a slow, cornered opponent
+     * genuinely in trouble rather than merely slower. Never below 0.5: unresponsive is a
+     * feeling, uncontrollable is a bug report. */
+    const auth=clamp(0.5+s.spd/16,0.5,1);
+    const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1))*auth;
+    s.h+=yaw*turnRate*dt; s.alt-=pitch*2.4*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6.5); s.pitchIn=pitch;
+    // G-bleed: holding a hard turn scrubs speed, so rate-fighting costs energy and the fight
+    // has a floor you can be pushed through instead of an infinite merry-go-round
+    s.spd=Math.max(2.6,s.spd-Math.abs(yaw)*s.turnRamp*2.1*dt);
+    // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up).
+    // touch has no button — SLAM the fly stick hard-forward (nose up past the rim) to throttle up.
+    const stickBoost = stick.id!==null && stick.y<-0.55 && Math.hypot(stick.x,stick.y)>0.88;
+    const wantB=!!(keys.Shift||keys.shift||stickBoost);
+    if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
+    s.thrust=true;
+    s.zoom=!!(keys.Control||keys.control||rmZoom||touchZoom);  // hold Ctrl / right-click / 2-finger right = precision zoom
+    s.wantFire=!!(fireHeld||ptrFire||touchFire);
+  }
+  // a net peer's craft: chase their broadcast state (wrap-aware lerp), stats come from the owner
+  function stepNet(s,dt){ const t=s._tgt; if(!t) return; const k=Math.min(1,dt*8);
+    s.x=wpos(s.x+wdel(t.x-s.x)*k); s.y=wpos(s.y+wdel(t.y-s.y)*k);
+    s.alt+=(t.alt-s.alt)*k; s.h+=angd(t.h-s.h)*Math.min(1,dt*10); s.spd=t.spd||6; s.bank=t.bank||0;
+    s.maxHp=t.maxHp||s.maxHp; if(t.hp!=null)s.hp=t.hp; s.kills=t.kills|0; s.boost=!!t.boost; s.thrust=true;
+    s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>30)s.trail.shift(); }
+  function stepBot(s,dt){ s.aiT-=dt; s.wantFire=false;
+    if(!s.tgt||!s.tgt.alive||s.aiT<=0){ s.aiT=rnd(1.6,0.7); const foes=G.ships.filter(o=>o!==s&&o.alive);
+      if(foes.length){ foes.sort((a,b)=>Math.hypot(wdel(a.x-s.x),wdel(a.y-s.y))-Math.hypot(wdel(b.x-s.x),wdel(b.y-s.y))); s.tgt=foes[Math.random()<0.75?0:(Math.random()*foes.length|0)]; } else s.tgt=null; }
+    if(s.hp<s.maxHp*0.3 && Math.random()<0.4) s.evade=rnd(1.4,0.6);   // relative — HP was retuned
+    const t=s.tgt; let desiredH=s.h, climb=0;
+    if(s.evade>0){ s.evade-=dt; if(t) desiredH=Math.atan2(wdel(s.y-t.y),wdel(s.x-t.x)); s.boost=true; }
+    else if(t){ const dx=wdel(t.x-s.x), dy=wdel(t.y-s.y), dist=Math.hypot(dx,dy), lead=dist/BOLTSPD;
+      desiredH=Math.atan2(dy+Math.sin(t.h)*t.spd*lead, dx+Math.cos(t.h)*t.spd*lead); climb=clamp((t.alt-s.alt)*1.2,-1,1); s.boost=dist>16;
+      /* Energy tactics, now that height costs speed. Far out, a bot climbs above its target to
+       * bank height; closing, it converts that back by diving on them. Without this the energy
+       * model would tax only the player — bots would sit at their target's altitude, pay
+       * nothing, and the whole trade would read as a handicap rather than a mechanic. */
+      const hi=clamp(t.alt+(dist>19?2.6:dist<9?-1.1:0),ALT_MIN,ALT_MAX);
+      climb=clamp((hi-s.alt)*1.1,-1,1);
+      if(s.spd<5.5) climb=Math.min(climb,-0.35);   // low on energy: unload and rebuild speed
+      s.wantFire=(dist<18 && Math.abs(angd(desiredH-s.h))<0.12);
+    } else { desiredH=s.h+Math.sin(G.t*0.5+s.aiT)*0.4; s.boost=false; }
+    const dh=angd(desiredH-s.h); s.h+=clamp(dh,-2.0*dt,2.0*dt); s.alt+=climb*1.6*dt; s.bank+=(clamp(dh*3,-1,1)-s.bank)*Math.min(1,dt*5); s.thrust=true;
+  }
+
+  // ── result / payout ──
+  function endMatch(){ G.over=true; G.mode='result'; music.pause();
+    if(window.RipNet){ try{ RipNet.setStatus('idle'); }catch{} }
+    // deathmatch: winner is whoever racked up the most kills over the clock
+    const ranked = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp));
+    let winner = ranked[0];
+    const iWon = winner && winner.isMe; commsRnd(iWon?'win':'lose', iWon?'#0e5a68':'#7a1e2a');
+    const myRank=ranked.findIndex(s=>s.isMe);
+    const P=WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);   // podium split: 1st/2nd/3rd take pot + cards
+    const onPodium=P.myPlace>=0;
+    // card payout — only for REAL wagers (practice moves nothing). Podium share, top-down.
+    let wonSlugs=[];
+    if(G.real && onPodium && P.myCards>0){ let v=vault();
+      const pool=G.myStake.concat([].concat(...G.oppStakes)).filter(sl=>bySlug.has(sl));
+      wonSlugs=pool.slice(0,P.myCards);
+      while(wonSlugs.length<P.myCards){ const all=[...bySlug.keys()]; wonSlugs.push(all[Math.floor(Math.random()*all.length)]); }
+      wonSlugs.forEach(sl=>{ if(bySlug.has(sl)) v.push({slug:sl}); }); saveVault(v);
+    }
+    // UI
+    $('hudL').style.display='none'; $('hudR').style.display='none'; $('toggles').style.display='none'; $('controls').style.display='none';
+    const box=$('prizeBox'); box.classList.toggle('lose',!onPodium);
+    $('resTitle').textContent = iWon ? 'VICTORY' : (onPodium ? 'PODIUM' : 'DOWNED');
+    $('resTitle').style.background = onPodium ? '' : 'linear-gradient(180deg,#fff,#ff6b57 55%,#c22)';
+    $('resTitle').style.webkitBackgroundClip='text'; $('resTitle').style.backgroundClip='text';
+    $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' place · '+(G.me?G.me.kills:0)+' downed') : ('off the podium · out-flown by '+shortName((winner&&winner.name)||'the field'));
+    if(!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ '+WagerPayout.ordinal(P.myPlace)+' — ON THE PODIUM') : 'BETTER LUCK NEXT RUN');
+    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards')
+                                              : ('off the podium · 🔥'+P.anteBurn+' rake burned');
+    $('prizeSub').textContent = onPodium ? ('you placed '+WagerPayout.ordinal(P.myPlace)+' of '+wager.players+' · '+(G.me?G.me.kills:0)+' kills') : ('winner: '+shortName((winner&&winner.name)||'—')+' · '+(G.me?G.me.kills:0)+' kills');
+    // show won cards
+    const wc=$('wonCards');
+    if(onPodium && G.real && wonSlugs.length){ wc.innerHTML=wonSlugs.slice(0,12).map(sl=>{ const c=bySlug.get(sl); if(!c)return'';
+      return `<div class="tile" style="--rc:var(${RC[c.rarity]||'--common'})"><span class="rr">${c.rarity}</span><img src="cards/${c.art}" onerror="this.style.opacity=.15"></div>`; }).join(''); }
+    else wc.innerHTML='';
+    // scarcity / escrow honesty
+    $('scaNote').innerHTML = G.real
+      ? 'Your <b>🔥'+P.anteBurn+' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+      : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
+    if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
+      ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'
+      : '<br>⟠ ETH side-pot: your <b>$'+G.ethEachUsd.toFixed(2)+'</b> pledge rides to the winner — settle on Base; Phase-2 escrow will hold pots on-chain.';
+    if(G.ethFlight) $('scaNote').innerHTML += '<br>⟠ 1 ETH flight credit used · <b>'+(window.RipEth?RipEth.plays():0)+'</b> left in the bank.';
+    if(iWon)sfxWin(); else sfxBoom();
+    $('ovResult').classList.add('show');
+    buildGrid();   // vault changed — refresh the picker
+  }
+
+  $('btnAnte').onclick=()=>ante(false);
+  $('btnRematch').onclick=()=>ante(true);
+  $('btnPractice').onclick=()=>{ if(window.GameHelp) GameHelp.show({ title:'DOGFIGHT', kicker:'all-range deathmatch', onStart:()=>startMatch(false), controls:[
+    { type:'stick', act:'Fly / Bank', touch:'Left ½ · drag to fly', key:'W A S D · arrows' },
+    { type:'hold',  act:'Fire', touch:'Right ½ · hold', key:'LMB · Space' },
+    { type:'hold',  act:'Boost', touch:'Slam stick forward', key:'⇧' },
+    { type:'dtap',  act:'Roll', touch:'Double-tap stick', key:'◀◀ / ▶▶' },
+    { type:'aim',   act:'Zoom', touch:'2 fingers · right', key:'Ctrl · RMB' } ] }); else startMatch(false); };
+  $('btnLobby').onclick=()=>{ $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if(window.RipNet){try{RipNet.setStatus('seeking');}catch{}} };
+  async function ante(rematch){ const Wt=window.RipWallet, E=window.RipEth;
+    if(E&&E.plays()>0){                                    // ⟠ ETH lane: a banked flight IS the entry fee
+      const stake=wager.picked.length===wager.cards;       // cards ride the pot only with a full pick
+      E.spendPlay(); toast('⟠ 1 flight used · '+E.plays()+' left in the bank');
+      startMatch(stake,true); return;
+    }
+    if(!(liveToken()&&Wt&&Wt.hasWallet())){ startMatch(false); return; }
+    if(wager.picked.length!==wager.cards){ toast('Pick '+wager.cards+' cards for the pot first.'); return; }
+    const btn=rematch?$('btnRematch'):$('btnAnte'); const label=btn.innerHTML; btn.innerHTML='confirm burn…'; btn.disabled=true;
+    const r=await Wt.burn(WagerPayout.rake(wager.ante)); btn.innerHTML=label; btn.disabled=false;   // burn only the small rake; the rest is the pot stake
+    if(!r.ok){ toast(Wt.explain?Wt.explain(r.reason):'Burn failed.'); return; }
+    startMatch(true);
+  }
+  function toast(msg){ let t=$('dfToast'); if(!t){ t=document.createElement('div'); t.id='dfToast';
+    t.style.cssText='position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:30;background:rgba(2,10,6,.95);border:1px solid #0f5c33;border-radius:10px;padding:10px 16px;font-size:12px;color:#d9ffe9'; document.body.appendChild(t);}
+    t.textContent=msg; t.style.opacity='1'; clearTimeout(toast._t); toast._t=setTimeout(()=>t.style.opacity='0',3000); }
+
+  // tavern wallet widget + gate refresh on connect
+  if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
+  if(window.RipWallet){ window.RipWallet.on(()=>{ refreshPot(); }); }
+
+  // ── draw: environments (sky, skyline, Tron ground, scenery) ──
+  function drawSky(w){ const g=ctx.createLinearGradient(0,-H*0.5,0,HORIZON); g.addColorStop(0,w.sky[0]); g.addColorStop(1,w.sky[1]);
+    ctx.fillStyle=g; ctx.fillRect(-W*0.4,-H*0.5,W*1.8,HORIZON+H*0.5);
+    // psychedelic aurora curtains drifting across the sky (Ripmaster vibe)
+    if(!reduce){ ctx.save(); ctx.globalCompositeOperation='lighter';
+      for(let i=0;i<4;i++){ const hue=(G.t*26+i*70)%360; ctx.strokeStyle='hsla('+hue+',92%,62%,0.13)'; ctx.lineWidth=H*0.05;
+        ctx.beginPath(); for(let x=-W*0.3;x<=W*1.3;x+=22){ const y=HORIZON*0.42 + Math.sin(x*0.0055+G.t*0.5+i*1.7)*H*0.07 + i*H*0.035; x<=-W*0.3?ctx.moveTo(x,y):ctx.lineTo(x,y); } ctx.stroke(); }
+      ctx.restore(); }
+    // sun/moon at a fixed world bearing (turns + wraps with heading)
+    const sp=project(cam.x+Math.cos(G.sunAz)*80, cam.y+Math.sin(G.sunAz)*80, 24);
+    if(sp){ const sy=Math.min(sp.y,HORIZON-6), r=Math.max(22,H*0.06); ctx.save(); const sg=ctx.createRadialGradient(sp.x,sy,0,sp.x,sy,r*2.4);
+      sg.addColorStop(0,w.sun); sg.addColorStop(0.3,w.sun+'aa'); sg.addColorStop(1,'transparent'); ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sp.x,sy,r*2.4,0,TAU); ctx.fill();
+      ctx.fillStyle=w.sun; ctx.beginPath(); ctx.arc(sp.x,sy,r,0,TAU); ctx.fill(); ctx.restore(); }
+    // ground fill (fog at horizon → deep tint)
+    const gg=ctx.createLinearGradient(0,HORIZON,0,H); gg.addColorStop(0,w.fog); gg.addColorStop(0.22,w.gnd); gg.addColorStop(1,'#01030a');
+    ctx.fillStyle=gg; ctx.fillRect(-W*0.4,HORIZON,W*1.8,H*1.4);
+    drawSkyline(w);
+    // fog band across the horizon
+    const fb=ctx.createLinearGradient(0,HORIZON-H*0.1,0,HORIZON+H*0.05); fb.addColorStop(0,'transparent'); fb.addColorStop(0.5,w.fog); fb.addColorStop(1,'transparent');
+    ctx.save(); ctx.globalAlpha=0.55; ctx.fillStyle=fb; ctx.fillRect(-W*0.4,HORIZON-H*0.1,W*1.8,H*0.16); ctx.restore();
+  }
+  function drawSkyline(w){ ctx.save(); ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.moveTo(-W*0.4,HORIZON);
+    for(let x=-W*0.4;x<=W*1.4;x+=8){ const u=x/W; const n=Math.sin(u*13+cam.h*3)+Math.sin(u*29+cam.h*3+1.7)*0.5+Math.sin(u*57+cam.h*3)*0.25;
+      ctx.lineTo(x, HORIZON-(5+(n+1.75)*H*0.018)); }
+    ctx.lineTo(W*1.4,HORIZON+H); ctx.lineTo(-W*0.4,HORIZON+H); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  function drawGround(w){ const R=8, ST=3.4; const gx0=Math.round(cam.x/ST), gy0=Math.round(cam.y/ST), N=2*R+1; const pts=[];
+    for(let i=0;i<N;i++){ pts[i]=[]; const X=(gx0-R+i)*ST; for(let j=0;j<N;j++){ pts[i][j]=project(X,(gy0-R+j)*ST,0); } }
+    ctx.save(); ctx.shadowColor=w.grid; ctx.shadowBlur=5; ctx.strokeStyle=w.grid; ctx.lineWidth=1;
+    const seg=(p,q)=>{ if(!p||!q)return; if(p.fwd>VIEW_FAR&&q.fwd>VIEW_FAR)return; if(Math.abs(p.x-q.x)>W*0.9||Math.abs(p.y-q.y)>H*0.9)return;
+      ctx.globalAlpha=clamp(1-Math.min(p.fwd,q.fwd)/VIEW_FAR,0.04,0.5); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); };
+    for(let i=0;i<N;i++)for(let j=0;j<N;j++){ if(i+1<N)seg(pts[i][j],pts[i+1][j]); if(j+1<N)seg(pts[i][j],pts[i][j+1]); }
+    ctx.globalAlpha=1; ctx.restore(); }
+  function drawProps(w){ const vis=[]; for(const pr of G.props){ const p=project(pr.x,pr.y,pr.alt); if(p&&p.fwd<VIEW_FAR&&p.x>-80&&p.x<W+80) vis.push([p,pr]); }
+    vis.sort((a,b)=>b[0].fwd-a[0].fwd);
+    for(const [p,pr] of vis){ const sz=clamp(pr.s*p.scale*0.5,2,90);
+      ctx.save(); ctx.globalAlpha=clamp(1-p.fwd/VIEW_FAR,0.1,1); ctx.translate(p.x,p.y); ctx.strokeStyle=w.grid; ctx.fillStyle=w.gnd; ctx.lineWidth=Math.max(1,sz*0.06); ctx.shadowColor=w.grid; ctx.shadowBlur=7;
+      drawProp(w.prop,sz); ctx.restore(); } }
+  function drawProp(kind,sz){
+    if(kind==='ring'){ ctx.beginPath(); ctx.ellipse(0,-sz*0.9,sz*0.8,sz*0.5,0,0,TAU); ctx.stroke(); }
+    else if(kind==='pylon'){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.4,-sz*1.8); ctx.lineTo(sz*0.4,-sz*1.8); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    else if(kind==='spire'){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.16,-sz*2.4); ctx.lineTo(sz*0.16,-sz*2.4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    else if(kind==='tower'){ ctx.beginPath(); ctx.rect(-sz*0.34,-sz*2.2,sz*0.68,sz*2.2); ctx.fill(); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.5,-sz*0.9); ctx.lineTo(0,-sz*1.9); ctx.lineTo(sz*0.5,-sz*0.9); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
+  // boost rings — fly through to refill boost
+  function drawGates(){ for(const gt of G.gates){ const p=project(gt.x,gt.y,gt.alt); if(!p||p.fwd>VIEW_FAR)continue; const R=clamp(p.scale*0.9,8,130), a=clamp(1-p.fwd/VIEW_FAR,0.15,1);
+    ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=a; ctx.strokeStyle='#ffd23b'; ctx.shadowColor='#ffd23b'; ctx.shadowBlur=16; ctx.lineWidth=Math.max(2,R*0.16);
+    ctx.beginPath(); ctx.ellipse(0,0,R,R*0.8,0,0,TAU); ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,190,.7)'; ctx.lineWidth=Math.max(1,R*0.06); ctx.beginPath(); ctx.ellipse(0,0,R*0.82,R*0.64,0,0,TAU); ctx.stroke(); ctx.restore(); } }
+  function drawEntities(w){
+    // ground shockwave rings
+    for(const rg of G.rings){ const p=project(rg.x,rg.y,rg.alt); if(!p)continue; const rr2=rg.r*p.scale;
+      ctx.save(); ctx.globalAlpha=clamp(rg.life,0,1)*0.7; ctx.strokeStyle=rg.col; ctx.lineWidth=rg.big?3:1.6; ctx.beginPath(); ctx.ellipse(p.x,p.y,rr2,rr2*0.4,0,0,TAU); ctx.stroke(); ctx.restore(); }
+    // light-cycle trails
+    for(const s of G.ships){ if(!s.alive||s.trail.length<2)continue; ctx.save(); ctx.strokeStyle=s.tint; ctx.shadowColor=s.tint; ctx.shadowBlur=6; ctx.lineCap='round';
+      for(let i=1;i<s.trail.length;i++){ const p=project(s.trail[i-1][0],s.trail[i-1][1],s.trail[i-1][2]), q=project(s.trail[i][0],s.trail[i][1],s.trail[i][2]); if(!p||!q)continue;
+        const a=i/s.trail.length; ctx.globalAlpha=a*0.4; ctx.lineWidth=a*3*Math.min(2,q.scale*0.01)+0.3; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); } ctx.restore(); ctx.globalAlpha=1; }
+    // power-ups
+    for(const pw of G.pows){ const p=project(pw.x,pw.y,pw.alt); if(!p||p.fwd>VIEW_FAR)continue; const r=clamp(p.scale*0.5,6,26); const amp=(pw.type==='amp');
+      ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=pw.t>17?(0.4+0.6*Math.sin(pw.t*12)):clamp(1-p.fwd/VIEW_FAR,0.2,1);
+      const halo=r*(amp?2.1:1.5)*(1+0.08*Math.sin(pw.t*4));
+      const g=ctx.createRadialGradient(0,0,0,0,0,halo); g.addColorStop(0,pw.col); g.addColorStop(.55,pw.col+'55'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,halo,0,TAU); ctx.fill();
+      // orbiting ticks (spin) — the golden OVERCHARGE cell spins faster and gets an extra ring
+      ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.shadowColor=pw.col; ctx.shadowBlur=amp?12:6;
+      const ticks=amp?6:4; ctx.beginPath(); for(let i=0;i<ticks;i++){ const a=pw.spin*(amp?1.4:1)+i*TAU/ticks; ctx.moveTo(Math.cos(a)*r*1.15,Math.sin(a)*r*1.15); ctx.lineTo(Math.cos(a)*r*1.42,Math.sin(a)*r*1.42); } ctx.stroke();
+      if(amp){ ctx.beginPath(); ctx.arc(0,0,r*1.3,0,TAU); ctx.stroke(); }
+      ctx.shadowBlur=0; ctx.fillStyle='#02040a'; ctx.beginPath(); ctx.arc(0,0,r*0.7,0,TAU); ctx.fill(); ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle=pw.col; ctx.font='900 '+(r*0.9)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pw.ch,0,0); ctx.restore(); }
+    // bolts
+    for(const b of G.bolts){ const p=project(b.x,b.y,b.alt); if(!p)continue; const p2=project(wpos(b.x-Math.cos(b.h)*0.6),wpos(b.y-Math.sin(b.h)*0.6),b.alt);
+      const r=Math.max(1.5,(b.laser?3:2)*Math.min(3,p.scale*0.02)); ctx.save(); ctx.strokeStyle=b.me?'rgba(255,210,59,.95)':'rgba(255,90,60,.95)'; ctx.fillStyle=ctx.strokeStyle; ctx.shadowColor=b.me?'#ffae2b':'#ff2a4d'; ctx.shadowBlur=8; ctx.lineWidth=r; ctx.lineCap='round';
+      if(p2){ ctx.beginPath(); ctx.moveTo(p2.x,p2.y); ctx.lineTo(p.x,p.y); ctx.stroke(); } ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); ctx.restore(); }
+    // enemy craft (far → near)
+    const vis=[]; for(const s of G.ships){ if(!s.alive||s.isMe)continue; const p=project(s.x,s.y,s.alt); if(p&&p.fwd<VIEW_FAR+4) vis.push([p,s]); }
+    vis.sort((a,b)=>b[0].fwd-a[0].fwd); for(const [p,s] of vis) drawEnemy(p,s,w);
+    // lead pip on the lock (aligned with the rolled world)
+    drawLead();
+    // explosion sparks
+    for(const bu of G.bursts){ const p=project(bu.x,bu.y,bu.alt); if(!p)continue; ctx.globalAlpha=clamp(bu.life,0,1); ctx.fillStyle=bu.col; const r=Math.max(1,2.4*Math.min(3,p.scale*0.02)); ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); ctx.globalAlpha=1; }
+  }
+  function drawEnemy(p,s,w){ const sz=clamp(p.scale*0.9,10,150), rel=angd(s.h-cam.h);
+    const gp=project(s.x,s.y,0);
+    if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x,gp.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
+    if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,sz*0.95,0,TAU); ctx.stroke(); }
+    if(s.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,215,106,'+(0.4+0.4*Math.sin(G.t*16))+')'; ctx.lineWidth=2.5; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(p.x,p.y,sz*1.05,0,TAU); ctx.stroke(); ctx.restore(); }
+    if(!s._pal){ const hx=String(s.tint).replace('#',''); const t=[parseInt(hx.slice(0,2),16)||0,parseInt(hx.slice(2,4),16)||0,parseInt(hx.slice(4,6),16)||0];
+      s._pal={h:t.map(v=>v*0.52),hd:t.map(v=>v*0.34),w:t.map(v=>v*0.24),b:t.map(v=>v*0.1),f:t.map(v=>v*0.2)};
+      s._eRGB=t.map(v=>Math.round(v+(255-v)*0.45)); }
+    // the SAME 3D fuselage as your craft — oriented by its true flight heading, banking into turns
+    fuse3D(p.x,p.y,sz*0.72,{ yaw:rel,
+      roll:(s.bank||0)*1.05 + (s.rollT>0 ? (1-s.rollT/0.55)*TAU*(s.rollDir||1) : 0),
+      pal:s._pal, edge:s.tint, eRGB:s._eRGB, glow:s.tint, navL:s.tint, navR:s.tint,
+      img:s.img, boost:s.boost, thrust:s.thrust!==false,
+      alpha:(s.spawnT>0 ? (Math.sin(G.t*26)>0?0.45:1) : 1) });
+    // nameplate + hp + lock bracket (unrotated)
+    ctx.save(); ctx.textAlign='center'; ctx.font='900 '+clamp(sz*0.34,9,15)+'px Arial'; ctx.fillStyle='#d9ffe9'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
+    ctx.fillText((s.verified?'⚜ ':'')+shortName(s.name), p.x, p.y-sz*1.5); ctx.shadowBlur=0;
+    const bw=sz*1.6, hpf=clamp(s.hp/s.maxHp,0,1); ctx.fillStyle='rgba(0,0,0,.5)'; rr(p.x-bw/2,p.y-sz*1.35,bw,4,2); ctx.fill();
+    ctx.fillStyle=hpf>0.5?'#2bff80':hpf>0.25?'#ffd23b':'#ff5a3c'; rr(p.x-bw/2,p.y-sz*1.35,bw*hpf,4,2); ctx.fill();
+    if(G.lock===s){ const br=sz*1.15, L=br*0.5; ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8;
+      [[-br,-br],[br,-br],[br,br],[-br,br]].forEach(([bx,by])=>{ const sgx=Math.sign(bx),sgy=Math.sign(by); ctx.beginPath(); ctx.moveTo(p.x+bx-sgx*L,p.y+by); ctx.lineTo(p.x+bx,p.y+by); ctx.lineTo(p.x+bx,p.y+by-sgy*L); ctx.stroke(); }); ctx.shadowBlur=0; }
+    ctx.restore(); }
+  function drawLead(){ if(!G.me||!G.me.alive||!G.lock||!G.lock.alive)return; const t=G.lock; const dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
+    const p=project(wpos(t.x+Math.cos(t.h)*t.spd*lead),wpos(t.y+Math.sin(t.h)*t.spd*lead),t.alt); if(!p)return; const r=Math.min(W,H)*0.016;
+    ctx.save(); ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU);
+    ctx.moveTo(p.x-r*1.6,p.y); ctx.lineTo(p.x-r*0.6,p.y); ctx.moveTo(p.x+r*0.6,p.y); ctx.lineTo(p.x+r*1.6,p.y); ctx.stroke(); ctx.restore(); }
+  // ── shared 3D fuselage renderer — YOUR chase craft and EVERY enemy use this same model ──
+  // A model-space interceptor spun by bank-roll + pitch + heading-yaw, viewed down a chase-cam
+  // look-down angle, painter-sorted + top-light shaded, with a card plated onto the dorsal deck.
+  // o: { yaw, roll, pitch, look, pal:{h,hd,w,b,f}, edge, eRGB, glow, navL, navR, img, boost, thrust, alpha }
+  function fuse3D(bx,by,S,o){
+    const roll=o.roll||0, pc=o.pitch||0, yw=o.yaw||0, V=(o.look!=null?o.look:-0.52);
+    const cr=Math.cos(roll),sr=Math.sin(roll),cpc=Math.cos(pc),spc=Math.sin(pc),cyw=Math.cos(yw),syw=Math.sin(yw),cv=Math.cos(V),sv=Math.sin(V);
+    const rot=(x,y,z)=>{ const x1=x*cr-y*sr, y1=x*sr+y*cr;             // bank-roll about the forward axis
+      const y2=y1*cpc-z*spc, z2=y1*spc+z*cpc;                          // pitch about the right axis
+      const x3=x1*cyw+z2*syw, z3=-x1*syw+z2*cyw;                       // heading yaw about the up axis
+      return [x3, y2*cv-z3*sv, y2*sv+z3*cv]; };                        // camera look-down
+    const pj=p=>{ const r=rot(p[0],p[1],p[2]), sc=1/(1+r[2]*0.11); return [bx+r[0]*S*sc, by-r[1]*S*sc, r[2]]; };
+    const L=[-0.297,0.812,-0.505];                                     // key light (normalized)
+    const fn=(a,b,c)=>{ const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+      const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx, m=Math.hypot(nx,ny,nz)||1, r=rot(nx/m,ny/m,nz/m);
+      return r[0]*L[0]+r[1]*L[1]+r[2]*L[2]; };                         // lambert term in view space
+    const RGB=(c,kk)=>'rgb('+(clamp(c[0]*kk,0,255)|0)+','+(clamp(c[1]*kk,0,255)|0)+','+(clamp(c[2]*kk,0,255)|0)+')';
+    // model verts — x=right, y=up, z=forward(nose)
+    const N=[0,0.03,1.36],SF=[0,0.27,0.52],SM=[0,0.31,-0.16],TT=[0,0.19,-0.96],
+      HFL=[-0.31,0.03,0.42],HFR=[0.31,0.03,0.42],HML=[-0.36,0,-0.2],HMR=[0.36,0,-0.2],HRL=[-0.28,-0.02,-0.9],HRR=[0.28,-0.02,-0.9],
+      BF=[0,-0.17,0.34],BM=[0,-0.2,-0.2],BR=[0,-0.13,-0.86],
+      WL1=[-1.55,-0.06,0.48],WL2=[-1.72,-0.04,-0.06],WR1=[1.55,-0.06,0.48],WR2=[1.72,-0.04,-0.06];
+    const P=o.pal;
+    const F=[
+      {v:[SM,SF,HFL,HML],c:P.h},{v:[SM,SF,HFR,HMR],c:P.h},             // upper hull, front L/R
+      {v:[TT,SM,HML,HRL],c:P.hd},{v:[TT,SM,HMR,HRR],c:P.hd},           // upper hull, rear L/R
+      {v:[SF,N,HFL],c:P.h},{v:[SF,N,HFR],c:P.h},                       // nose deck L/R
+      {v:[N,HFL,BF],c:P.hd},{v:[N,HFR,BF],c:P.hd},                     // nose cheeks
+      {v:[HML,WL1,WL2,HRL],c:P.w},{v:[HMR,WR1,WR2,HRR],c:P.w},         // swept wings
+      {v:[HFL,HML,WL1],c:P.w},{v:[HFR,HMR,WR1],c:P.w},                 // wing leading fillets
+      {v:[HFL,BF,BM,HML],c:P.b},{v:[HFR,BF,BM,HMR],c:P.b},             // belly front
+      {v:[HML,BM,BR,HRL],c:P.b},{v:[HMR,BM,BR,HRR],c:P.b},             // belly rear
+      {v:[TT,[0,0.56,-1.06],[0,0.5,-0.72],[0,0.12,-0.62]],c:P.f},      // tail fin
+    ];
+    const cardQ=[[-0.28,0.32,-0.62],[0.28,0.32,-0.62],[0.2,0.32,0.56],[-0.2,0.32,0.56]];  // dorsal deck plate (the card)
+    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round'; if(o.alpha!=null)ctx.globalAlpha=o.alpha;
+    // engine bloom (additive) behind the tail
+    if(o.thrust!==false){ ctx.save(); ctx.globalCompositeOperation='lighter'; const thr=o.boost?2.2:1;
+      [[-1.02,0,-0.62],[1.02,0,-0.62]].forEach(t=>{ const e=pj(t), fl=S*(0.42+0.34*Math.random())*thr;
+        const g=ctx.createRadialGradient(e[0],e[1],0,e[0],e[1],fl); g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.4,'rgba(120,240,255,.6)'); g.addColorStop(1,'transparent');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e[0],e[1],fl,0,TAU); ctx.fill(); }); ctx.restore(); }
+    // renderables (hull faces + card deck), painter-sorted far→near
+    const R=F.map(f=>{ const pv=f.v.map(pj); return {pv, az:pv.reduce((s,q)=>s+q[2],0)/pv.length, d:fn(f.v[0],f.v[1],f.v[2]), c:f.c}; });
+    const cpv=cardQ.map(pj); R.push({pv:cpv, az:cpv.reduce((s,q)=>s+q[2],0)/cpv.length, card:true});
+    R.sort((a,b)=>b.az-a.az);
+    ctx.shadowColor=o.glow;
+    for(const r of R){ const p=r.pv;
+      ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]); ctx.closePath();
+      if(r.card){ ctx.shadowBlur=Math.min(18,S*0.28); ctx.fillStyle='#0a3038'; ctx.fill(); ctx.shadowBlur=0;
+        const card=o.img;
+        if(card&&card.im&&card.im.complete&&card.im.naturalWidth){ const iw=card.im.naturalWidth, ih=card.im.naturalHeight, O=p[3];
+          const ux=(p[2][0]-O[0])/iw, uy=(p[2][1]-O[1])/iw, vx=(p[0][0]-O[0])/ih, vy=(p[0][1]-O[1])/ih;
+          ctx.save(); ctx.clip(); ctx.transform(ux,uy,vx,vy,O[0],O[1]); ctx.globalAlpha=.96; ctx.drawImage(card.im,0,0,iw,ih); ctx.restore();
+          ctx.save(); ctx.clip(); const gg=ctx.createLinearGradient(p[3][0],p[3][1],p[1][0],p[1][1]);
+          gg.addColorStop(0,'rgba(190,255,245,.22)'); gg.addColorStop(.5,'rgba(120,240,255,.04)'); gg.addColorStop(1,'rgba(4,30,38,.24)');
+          ctx.fillStyle=gg; ctx.fill(); ctx.restore();
+        } else { ctx.fillStyle=RGB(P.h,1.15); ctx.fill(); }
+        ctx.strokeStyle=o.edge; ctx.lineWidth=Math.max(1.2,S*0.04); ctx.stroke();
+      } else { const kk=0.4+0.72*Math.max(0,r.d);
+        ctx.shadowBlur=r.d>0.25?Math.min(10,S*0.16):0; ctx.fillStyle=RGB(r.c,kk); ctx.fill(); ctx.shadowBlur=0;
+        ctx.strokeStyle='rgba('+o.eRGB[0]+','+o.eRGB[1]+','+o.eRGB[2]+','+(0.22+0.5*Math.max(0,r.d)).toFixed(2)+')'; ctx.lineWidth=Math.max(1,S*0.028); ctx.stroke(); }
+    }
+    // canopy bubble + glint, wingtip nav lights, nose beacon
+    const cp=pj([0,0.35,0.74]); ctx.save(); ctx.shadowColor='#dffffa'; ctx.shadowBlur=Math.min(10,S*0.16);
+    ctx.fillStyle='rgba(8,30,40,.92)'; ctx.strokeStyle='#dffffa'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.ellipse(cp[0],cp[1],S*0.12,S*0.16,roll,0,TAU); ctx.fill(); ctx.stroke();
+    const gl=pj([-0.04,0.41,0.82]); ctx.fillStyle='rgba(210,255,250,.9)'; ctx.beginPath(); ctx.ellipse(gl[0],gl[1],S*0.045,S*0.07,roll,0,TAU); ctx.fill(); ctx.restore();
+    [[WL2,o.navL],[WR2,o.navR]].forEach(([wv,col])=>{ const q=pj(wv); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=9; ctx.beginPath(); ctx.arc(q[0],q[1],Math.max(1.6,S*0.055),0,TAU); ctx.fill(); ctx.shadowBlur=0; });
+    const nz=pj(N); ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=Math.min(10,S*0.16); ctx.beginPath(); ctx.arc(nz[0],nz[1],Math.max(1.4,S*0.05),0,TAU); ctx.fill(); ctx.shadowBlur=0;
+    ctx.restore();
+  }
+  // your own craft in third-person chase — the shared fuselage, teal, seen from dead astern
+  function drawCraft(){ const base=clamp(W*0.062,38,88), k=G.me;
+    fuse3D(cx, H-base*1.5, base, {
+      roll:(k.bank||0)*1.05 + (k.rollT>0 ? (1-k.rollT/0.55)*TAU*(k.rollDir||1) : 0),   // bank + barrel-roll spin
+      pitch:clamp((k.pitchIn||0)*0.32,-0.5,0.5),                                        // nose tips with climb/dive
+      pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
+      edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
+      img:(craftImgs.length?craftImgs[0]:null), boost:k.boost });
+    // OVERCHARGE aura — golden bloom + orbiting sparks while the market-heat surge is live
+    if(k.surgeT>0){ const cyg=H-base*1.7, R=base*1.7, pul=0.5+0.5*Math.sin(G.t*18); ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(cx,cyg,R*0.4,cx,cyg,R); g.addColorStop(0,'rgba(255,215,106,0)'); g.addColorStop(.7,'rgba(255,200,80,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(255,230,150,'+(0.16+0.12*pul)+')');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyg,R,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(255,225,140,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=14;
+      for(let i=0;i<5;i++){ const a=G.t*3+i*TAU/5; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*R*0.9,cyg+Math.sin(a)*R*0.72,base*0.05,0,TAU); ctx.stroke(); } ctx.restore(); }
+    // muzzle flash — a quick additive bloom off the nose the instant you fire
+    if(G.t-(k.muzzle||-9)<0.07){ const my=H-base*1.5-base*1.15, fr=base*(0.5+Math.random()*0.35); ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(cx,my,0,cx,my,fr); g.addColorStop(0,'rgba(255,244,200,.95)'); g.addColorStop(.45,'rgba(255,180,60,.5)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,my,fr,0,TAU); ctx.fill(); ctx.restore(); }
+    if(k.iframe>0){ const cyb=H-base*1.7, R=base*1.85, pul=0.5+0.5*Math.sin(G.t*22); ctx.save();
+      // deflector shield bubble — glowing hex dome that flares while it blocks
+      const g=ctx.createRadialGradient(cx,cyb,R*0.35,cx,cyb,R); g.addColorStop(0,'rgba(40,247,228,0)'); g.addColorStop(.72,'rgba(40,247,228,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(120,255,240,'+(0.18+0.14*pul)+')');
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyb,R,0,TAU); ctx.fill();
+      ctx.strokeStyle='rgba(150,255,244,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=16;
+      ctx.beginPath(); for(let i=0;i<6;i++){ const a=G.t*1.5+i*TAU/6; const px=cx+Math.cos(a)*R, py=cyb+Math.sin(a)*R*0.94; i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.stroke();
+      ctx.restore(); } }
+  /* ── the cockpit ─────────────────────────────────────────────────────────────────────────
+   * Three layers, drawn back to front the way you'd actually see them: HUD symbology floating
+   * on the combiner glass, then the canopy structure that occludes it, then the panel.
+   *
+   * ⚑ The HUD is driven from cam.roll / cam.ph, NOT from the ship's bank/pitch inputs. The
+   *   camera lags the craft, so keying off the inputs puts the horizon line somewhere the
+   *   rendered horizon isn't — and a pitch ladder that disagrees with the view out of the
+   *   window is worse than no pitch ladder. RAD2PX comes from the GL camera's own 1.05 rad
+   *   vertical FOV, so a 10° rung really is 10°.
+   */
+  function drawCockpit(){
+    const k=G.me||{spd:0,alt:0,bank:0,hp:1,maxHp:1,boostGauge:0};
+    const roll=cam.roll||0, ph=cam.ph||0, RAD2PX=H/1.05;
+    const hz=cy+ph*RAD2PX;                                  // where the true horizon sits on screen
+    const GRN='rgba(120,255,180,', dim=a=>GRN+a+')';
+
+    // ── 1. HUD on the glass ────────────────────────────────────────────────────────────────
+    ctx.save();
+    ctx.beginPath(); ctx.rect(W*0.13,0,W*0.74,H*0.80); ctx.clip();   // symbology stops at the coaming
+    ctx.save(); ctx.translate(cx,hz); ctx.rotate(roll); ctx.translate(-cx,-hz);
+    ctx.lineWidth=1.6; ctx.font='700 10px Courier New'; ctx.textAlign='center';
+    // horizon bar, split so the flight-path marker is never buried
+    ctx.strokeStyle=dim(.85); ctx.beginPath();
+    ctx.moveTo(cx-W*0.34,hz); ctx.lineTo(cx-W*0.05,hz); ctx.moveTo(cx+W*0.05,hz); ctx.lineTo(cx+W*0.34,hz); ctx.stroke();
+    // pitch ladder — solid above the horizon, dashed below, the standard read
+    for(let d=-60; d<=60; d+=10){ if(!d)continue;
+      const y=hz-(d*Math.PI/180)*RAD2PX; if(y<-H*0.3||y>H*1.3)continue;
+      const hw=W*(Math.abs(d)>=30?0.075:0.10);
+      ctx.strokeStyle=dim(.62); ctx.setLineDash(d<0?[6,5]:[]);
+      ctx.beginPath();
+      ctx.moveTo(cx-hw,y); ctx.lineTo(cx-hw*0.42,y);                  // rung, with the centre open
+      ctx.moveTo(cx+hw*0.42,y); ctx.lineTo(cx+hw,y);
+      ctx.moveTo(cx-hw,y); ctx.lineTo(cx-hw,y+(d<0?-7:7));            // tick turns toward the horizon
+      ctx.moveTo(cx+hw,y); ctx.lineTo(cx+hw,y+(d<0?-7:7));
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=dim(.7); ctx.textAlign='right'; ctx.fillText(String(Math.abs(d)),cx-hw-5,y+3);
+      ctx.textAlign='left'; ctx.fillText(String(Math.abs(d)),cx+hw+5,y+3); }
+    ctx.restore();
+    // bank pointer: fixed scale, moving caret — reads instantly at a glance
+    ctx.strokeStyle=dim(.5); ctx.lineWidth=1.4;
+    for(const a of [-60,-45,-30,-15,0,15,30,45,60]){ const r=Math.min(W,H)*0.30, t=-Math.PI/2+a*Math.PI/180;
+      const x0=cx+Math.cos(t)*r, y0=cy+Math.sin(t)*r, L=(a%30===0)?9:5;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(cx+Math.cos(t)*(r+L),cy+Math.sin(t)*(r+L)); ctx.stroke(); }
+    { const r=Math.min(W,H)*0.30, t=-Math.PI/2+roll;
+      ctx.fillStyle=dim(.95); ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(t)*(r-3),cy+Math.sin(t)*(r-3));
+      ctx.lineTo(cx+Math.cos(t+0.035)*(r-11),cy+Math.sin(t+0.035)*(r-11));
+      ctx.lineTo(cx+Math.cos(t-0.035)*(r-11),cy+Math.sin(t-0.035)*(r-11));
+      ctx.closePath(); ctx.fill(); }
+    // flight-path marker: the winged circle you actually fly with
+    ctx.strokeStyle=dim(.9); ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.arc(cx,cy,7,0,TAU);
+    ctx.moveTo(cx-7,cy); ctx.lineTo(cx-19,cy); ctx.moveTo(cx+7,cy); ctx.lineTo(cx+19,cy);
+    ctx.moveTo(cx,cy-7); ctx.lineTo(cx,cy-14); ctx.stroke();
+    // heading strip along the top of the glass
+    ctx.strokeStyle=dim(.45); ctx.lineWidth=1.2; ctx.font='700 9px Courier New';
+    const hdg=((((k.h||0)*180/Math.PI)%360)+360)%360;
+    for(let o=-50;o<=50;o+=10){ const t=Math.round((hdg+o)/10)*10, dx=(t-hdg)*(W*0.0058);
+      if(Math.abs(dx)>W*0.19)continue; const x=cx+dx;
+      ctx.beginPath(); ctx.moveTo(x,H*0.115); ctx.lineTo(x,H*0.115+(t%30===0?7:4)); ctx.stroke();
+      if(t%30===0){ ctx.fillStyle=dim(.62); ctx.textAlign='center';
+        ctx.fillText(String(((t%360)+360)%360/10|0).padStart(2,'0'),x,H*0.112); } }
+    ctx.fillStyle=dim(.95); ctx.beginPath();
+    ctx.moveTo(cx,H*0.132); ctx.lineTo(cx-4,H*0.122); ctx.lineTo(cx+4,H*0.122); ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // ── 2. canopy structure ────────────────────────────────────────────────────────────────
+    ctx.save();
+    ctx.translate(cx,H); ctx.rotate(-(k.bank||0)*0.10); ctx.translate(-cx,-H);   // the airframe leans, gently
+    // glass: a cool tint that deepens toward the frame, plus two raking specular streaks
+    const gl2=ctx.createLinearGradient(0,0,0,H*0.8);
+    gl2.addColorStop(0,'rgba(90,190,220,.13)'); gl2.addColorStop(0.45,'rgba(90,190,220,.03)');
+    gl2.addColorStop(1,'rgba(90,190,220,.10)');
+    ctx.fillStyle=gl2; ctx.fillRect(0,0,W,H*0.82);
+    ctx.globalAlpha=0.10; ctx.strokeStyle='#dff6ff'; ctx.lineWidth=W*0.03; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(W*0.20,H*0.05); ctx.lineTo(W*0.44,H*0.62); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W*0.30,H*0.03); ctx.lineTo(W*0.50,H*0.55); ctx.stroke();
+    ctx.globalAlpha=1; ctx.lineCap='butt';
+    // frame members, drawn as filled bars so they have real width and a lit edge
+    const bar=(pts,w,fill,edge)=>{ ctx.strokeStyle=fill; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.beginPath();
+      ctx.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]); ctx.stroke();
+      ctx.strokeStyle=edge; ctx.lineWidth=1.4; ctx.stroke(); };
+    const FR='rgba(11,20,26,.97)', FE='rgba(120,220,235,.55)';
+    bar([[W*0.12,H*1.02],[W*0.155,H*0.30],[W*0.30,H*0.085]], W*0.032, FR, FE);   // left rail
+    bar([[W*0.88,H*1.02],[W*0.845,H*0.30],[W*0.70,H*0.085]], W*0.032, FR, FE);   // right rail
+    bar([[W*0.30,H*0.085],[cx,H*0.045],[W*0.70,H*0.085]],    W*0.030, FR, FE);   // forward arch
+    bar([[cx,H*0.048],[cx,H*0.80]], W*0.013, FR, 'rgba(120,220,235,.38)');       // centre bow
+    // HUD combiner: the angled glass plate the symbology is projected onto
+    ctx.strokeStyle='rgba(150,255,205,.30)'; ctx.lineWidth=2;
+    ctx.strokeRect(W*0.325,H*0.135,W*0.35,H*0.47);
+    ctx.fillStyle='rgba(120,255,180,.03)'; ctx.fillRect(W*0.325,H*0.135,W*0.35,H*0.47);
+    ctx.restore();
+
+    /* ── 3. glareshield + instrument panel ─────────────────────────────────────────────────
+     * ⚑ The bottom ~9% of the tube belongs to DOM furniture that has always been there — the
+     *   control-chip row centre-bottom and the comms toast bottom-left. Instruments live in
+     *   the band ABOVE that, and the side tapes start inboard of the toast. Drawing full-width
+     *   to the floor put the airspeed tape underneath a callout and the bars under the chips. */
+    const RES=H*0.095, dh=H*0.20, top=H-dh;
+    ctx.save();
+    const pg=ctx.createLinearGradient(0,top-H*0.03,0,H);
+    pg.addColorStop(0,'rgba(3,7,11,.55)'); pg.addColorStop(0.18,'rgba(7,14,20,.99)'); pg.addColorStop(1,'rgba(2,5,8,1)');
+    ctx.fillStyle=pg;
+    ctx.beginPath(); ctx.moveTo(-W*0.05,H+2); ctx.lineTo(-W*0.05,top+H*0.03);
+    ctx.quadraticCurveTo(cx,top-H*0.045,W*1.05,top+H*0.03); ctx.lineTo(W*1.05,H+2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(120,220,235,.34)'; ctx.lineWidth=2;      // lit coaming lip
+    ctx.beginPath(); ctx.moveTo(-W*0.05,top+H*0.03); ctx.quadraticCurveTo(cx,top-H*0.045,W*1.05,top+H*0.03); ctx.stroke();
+
+    const mfd=(x,y,w,h2,label,draw)=>{
+      ctx.fillStyle='rgba(4,14,16,.95)'; ctx.strokeStyle='rgba(120,220,235,.3)'; ctx.lineWidth=1.4;
+      ctx.beginPath(); rr(x,y,w,h2,5); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.beginPath(); rr(x+2,y+2,w-4,h2-4,4); ctx.clip(); draw(x,y,w,h2); ctx.restore();
+      ctx.fillStyle='rgba(120,220,235,.5)'; ctx.font='700 8px Courier New'; ctx.textAlign='left';
+      ctx.fillText(label,x+4,y+h2-4); };
+    const PW=W*0.125, PH=dh-RES*0.55, PY=top+dh*0.10;
+
+    /* A rolling tape, generalised: the airspeed and altitude gauges differ only in units,
+     * step and which side the scale sits on, so they share one implementation. `step` is
+     * chosen so ~5 rungs span the window — more than that and the labels collide at this
+     * height, which is exactly how the first pass turned the airspeed gauge into a smear. */
+    const tape=(x,y,w,h2,val,step,span,side)=>{
+      const per=h2/span;
+      ctx.strokeStyle='rgba(120,255,180,.35)'; ctx.font='700 9px Courier New'; ctx.lineWidth=1;
+      for(let s=Math.ceil((val-span/2)/step)*step; s<=val+span/2; s+=step){ if(s<0)continue;
+        const yy=y+h2/2+(val-s)*per; if(yy<y+9||yy>y+h2-9)continue;
+        ctx.fillStyle='rgba(120,255,180,.6)';
+        if(side<0){ ctx.beginPath(); ctx.moveTo(x+w-13,yy); ctx.lineTo(x+w-7,yy); ctx.stroke();
+                    ctx.textAlign='right'; ctx.fillText(String(s),x+w-17,yy+3); }
+        else      { ctx.beginPath(); ctx.moveTo(x+7,yy); ctx.lineTo(x+13,yy); ctx.stroke();
+                    ctx.textAlign='left'; ctx.fillText(String(s),x+17,yy+3); } }
+      // the read-out box straddling the centre line: the number you actually fly on
+      const bw=w*0.62, bx=side<0?x+3:x+w-bw-3, by=y+h2/2-9;
+      ctx.fillStyle='rgba(6,20,22,.95)'; ctx.strokeStyle='rgba(150,255,205,.85)'; ctx.lineWidth=1.4;
+      ctx.beginPath(); rr(bx,by,bw,18,3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='rgba(170,255,215,.98)'; ctx.font='900 13px Courier New'; ctx.textAlign='center';
+      ctx.fillText(String(Math.round(val)),bx+bw/2,by+13);
+      ctx.strokeStyle='rgba(150,255,205,.55)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x+2,y+h2/2); ctx.lineTo(x+w-2,y+h2/2); ctx.stroke(); };
+
+    // airspeed, inboard of the comms toast; altitude mirrored on the right
+    mfd(W*0.185,PY,PW,PH,'SPD',(x,y,w,h2)=>tape(x,y,w,h2,(k.spd||0)*10,50,320,-1));
+    mfd(W*0.69, PY,PW,PH,'ALT',(x,y,w,h2)=>tape(x,y,w,h2,(k.alt||0)*100,200,1300,1));
+
+    // centre stack: throttle / boost / hull, sized to sit clear of the control chips
+    { const x=W*0.335, w=W*0.33, y=PY+2, bh=(PH-8)/3-4;
+      const bars=[['THR',Math.min(1,(k.spd||0)/22),'rgba(120,255,180,'],
+                  ['BST',k.boostGauge||0,'rgba(255,210,59,'],
+                  ['HUL',(k.hp||0)/(k.maxHp||1),'rgba(255,90,60,']];
+      bars.forEach((b,i)=>{ const yy=y+i*(bh+4);
+        ctx.fillStyle='rgba(120,220,235,.5)'; ctx.font='700 8px Courier New'; ctx.textAlign='left';
+        ctx.fillText(b[0],x,yy+bh*0.78);
+        ctx.fillStyle='rgba(255,255,255,.06)'; ctx.fillRect(x+26,yy,w-26,bh);
+        ctx.fillStyle=b[2]+'.8)'; ctx.fillRect(x+26,yy,(w-26)*clamp(b[1],0,1),bh);
+        ctx.strokeStyle='rgba(120,220,235,.25)'; ctx.lineWidth=1; ctx.strokeRect(x+26.5,yy+0.5,w-27,bh-1); }); }
+
+    // master caution — parked on the coaming where nothing else sits
+    { const low=(k.hp||0)/(k.maxHp||1)<0.34, blink=low&&(G.t*3%1)<0.55;
+      ctx.fillStyle=blink?'rgba(255,80,60,.95)':'rgba(46,16,13,.8)';
+      ctx.beginPath(); rr(W*0.335,top-H*0.028,52,13,3); ctx.fill();
+      ctx.fillStyle=blink?'#1a0402':'rgba(255,120,100,.3)'; ctx.font='900 8px Courier New'; ctx.textAlign='center';
+      ctx.fillText('MASTER',W*0.335+26,top-H*0.028+10); }
+    ctx.restore();
+  }
+  function drawReticle(){ if(!G.me||!G.me.alive)return; const r=Math.min(W,H)*0.03;
+    if(G.me.zoom){ ctx.save(); const rad=Math.min(W,H)*0.42; const g=ctx.createRadialGradient(cx,cy,rad*0.62,cx,cy,rad*1.15);
+      g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(0.7,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.93)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      ctx.strokeStyle='rgba(43,255,128,.5)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,rad,0,TAU); ctx.stroke();
+      ctx.strokeStyle='rgba(43,255,128,.28)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx-rad,cy); ctx.lineTo(cx+rad,cy); ctx.moveTo(cx,cy-rad); ctx.lineTo(cx,cy+rad); ctx.stroke();
+      ctx.fillStyle='rgba(43,255,128,.9)'; ctx.font='900 9px Arial'; ctx.textAlign='center'; ctx.fillText('◎ ZOOM',cx,cy+rad*0.55); ctx.restore(); }
+    ctx.save(); ctx.strokeStyle='rgba(43,255,128,.8)'; ctx.lineWidth=2; ctx.shadowColor='#2bff80'; ctx.shadowBlur=6;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,TAU); ctx.moveTo(cx-r*1.7,cy); ctx.lineTo(cx-r*0.6,cy); ctx.moveTo(cx+r*0.6,cy); ctx.lineTo(cx+r*1.7,cy); ctx.moveTo(cx,cy-r*1.7); ctx.lineTo(cx,cy-r*0.6); ctx.stroke();
+    if(G.lock){ ctx.fillStyle='rgba(255,42,217,.92)'; ctx.font='900 10px Arial'; ctx.textAlign='center'; ctx.shadowColor='#ff2ad9'; ctx.fillText('◈ LOCK',cx,cy-r*1.9); } ctx.restore();
+    // hit-marker: a quick expanding cyan cross the instant one of YOUR bolts connects
+    const ht=G.t-(G.hitT!=null?G.hitT:-9); if(ht<0.2){ const k=ht/0.2, d=r*(0.8+k*1.4); ctx.save(); ctx.globalAlpha=1-k;
+      ctx.strokeStyle='#8ffff0'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=8; ctx.lineCap='round';
+      [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx,sy])=>{ ctx.beginPath(); ctx.moveTo(cx+sx*d,cy+sy*d); ctx.lineTo(cx+sx*d*0.6,cy+sy*d*0.6); ctx.stroke(); }); ctx.restore(); } }
+  // motion-blur speed streaks: radial warp lines that intensify with throttle / boost
+  function drawSpeedFx(){ if(!G.me||!G.me.alive)return; const sp=G.me.spd, boost=G.me.boost; if(sp<8.5&&!boost)return;
+    const amt=clamp((sp-7)/8,0,1)*(boost?1:0.7); if(amt<=0.02)return; const R=Math.min(W,H);
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.lineCap='round';
+    for(let i=0;i<28;i++){ const a=(i/28)*TAU+(i%2?0.11:0), r0=R*(0.14+(i%3)*0.03), r1=r0+R*(0.18+amt*0.55);
+      const g=ctx.createLinearGradient(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0,cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+      g.addColorStop(0,'rgba(190,245,255,0)'); g.addColorStop(1,'rgba(190,245,255,'+(0.1+amt*0.22)+')');
+      ctx.strokeStyle=g; ctx.lineWidth=1+amt*2.2; ctx.beginPath(); ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0); ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1); ctx.stroke(); }
+    ctx.restore(); }
+  // the reused Tron disk, now a corner radar: blips are wrap-aware, rotated so your nose points up
+  function drawRadar(){ if(!G.me)return; const RR=clamp(H*0.09,44,66), rx=cx, ry=RR+14;
+    ctx.save(); ctx.translate(rx,ry);
+    ctx.fillStyle='rgba(2,10,16,.72)'; ctx.strokeStyle='rgba(39,247,228,.6)'; ctx.lineWidth=1.6; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=10; ctx.beginPath(); ctx.arc(0,0,RR,0,TAU); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(39,247,228,.18)'; ctx.beginPath(); ctx.arc(0,0,RR*0.66,0,TAU); ctx.moveTo(RR*0.33,0); ctx.arc(0,0,RR*0.33,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-RR,0); ctx.lineTo(RR,0); ctx.moveTo(0,-RR); ctx.lineTo(0,RR); ctx.stroke();
+    const sa=-G.t*1.3, g=ctx.createLinearGradient(0,0,Math.cos(sa)*RR,Math.sin(sa)*RR); g.addColorStop(0,'rgba(39,247,228,.5)'); g.addColorStop(1,'transparent'); ctx.strokeStyle=g; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(sa)*RR,Math.sin(sa)*RR); ctx.stroke();
+    const RSC=RR/VIEW_FAR;
+    for(const s of G.ships){ if(!s.alive||s.isMe)continue; const dx=wdel(s.x-G.me.x), dy=wdel(s.y-G.me.y);
+      const fwd=dx*Math.cos(cam.h)+dy*Math.sin(cam.h), rgt=-dx*Math.sin(cam.h)+dy*Math.cos(cam.h);
+      let bx=rgt*RSC, by=-fwd*RSC; const m=Math.hypot(bx,by); if(m>RR-3){ bx*=(RR-3)/m; by*=(RR-3)/m; }
+      ctx.fillStyle=s.tint; ctx.shadowColor=s.tint; ctx.shadowBlur=6; ctx.beginPath(); ctx.arc(bx,by,G.lock===s?4:3,0,TAU); ctx.fill();
+      if(G.lock===s){ ctx.strokeStyle='#ff2ad9'; ctx.shadowColor='#ff2ad9'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(bx,by,6,0,TAU); ctx.stroke(); } }
+    ctx.shadowBlur=0; ctx.fillStyle='#27f7e4'; ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(4,5); ctx.lineTo(-4,5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(159,230,200,.85)'; ctx.font='700 8px Courier New'; ctx.textAlign='center'; ctx.fillText('RADAR',0,RR+10);
+    ctx.restore(); }
+  function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function draw(){
+    const w=world();
+    FOCAL=Math.max(360,H*0.95); if(G.me&&G.me.zoom) FOCAL*=2.9; HORIZON=H*0.46 - cam.ph*H*0.10;
+    const doShake=G.shake>0.3, shx=doShake?Math.sin(G.t*80)*G.shake*0.5:0, shy=doShake?Math.cos(G.t*66)*G.shake*0.5:0;
+    ctx.save(); if(doShake)ctx.translate(shx,shy);
+    if(glReady){ ctx.clearRect(-W*0.3,-H*0.3,W*1.6,H*1.6); }   // GL owns the world behind us
+    else {
+      ctx.fillStyle='#01030a'; ctx.fillRect(-W*0.3,-H*0.3,W*1.6,H*1.6);
+      // the world, rolled around the horizon so turns bank
+      ctx.save(); ctx.translate(cx,HORIZON); ctx.rotate(cam.roll); ctx.translate(-cx,-HORIZON);
+      drawSky(w); drawGround(w); drawProps(w); drawGates(); drawEntities(w);
+      ctx.restore();
+    }
+    // foreground: cockpit framing stays 2D either way; the hull is GL's job in true-3D
+    if(G.view==='cockpit') drawCockpit(); else if(!glReady && G.me&&G.me.alive) drawCraft();
+    drawReticle(); drawSpeedFx();
+    ctx.restore();     // end shake
+    drawRadar();       // the reused Tron disk, stable in the corner
+    // HUD
+    if(G.me){ $('hpFill').style.width=clamp(G.me.hp/G.me.maxHp*100,0,100)+'%'; $('bgFill').style.width=clamp(G.me.boostGauge*100,0,100)+'%'; $('hKills').textContent=G.me.kills; $('hGun').textContent=G.me.weapon;
+      const a=mktAmp(), mk=$('hMkt'); if(mk){ mk.textContent=(G.me.surgeT>0?'★ OVERCHARGE '+G.me.surgeT.toFixed(1)+'s':'◈ market ×'+a.toFixed(2)+(a>1.25?' · HOT — cells drop faster':a<0.95?' · cold':''));
+        mk.style.color=G.me.surgeT>0?'#ffd76a':(a>1.25?'#ff2ad9':'#27f7e4'); } }
+    const alive=G.ships.filter(s=>s.alive).length; $('hAlive').textContent=alive;
+    const tl=Math.max(0,G.timeLeft); $('hTimer').textContent=Math.floor(tl/60)+':'+String(Math.floor(tl%60)).padStart(2,'0');
+    $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $UR3030 + '+(wager.cards*wager.players)+' cards';
+  }
+
+  /* ── dev / headless peephole ───────────────────────────────────────────────────────────────
+   * The whole game is one IIFE, so from the outside there was NO way to read a single number
+   * out of it — every check had to be made from a screenshot, which CLAUDE.md already records
+   * as untrustworthy for colour in this container. That is why "buggy" stayed unspecific for so
+   * long: nobody could measure it. `step(dt)` is exposed too, because headless rAF stalls between
+   * input events (CLAUDE.md) — driving the simulation directly is the only way to derive a flight
+   * equilibrium without a keypress accidentally waking a burst of real frames.
+   * Read-only in spirit: nothing in the game reads __df. */
+  window.__df = { G, cam, world, keys, step, frame:()=>frame(performance.now()),
+    K:{ WS, CAM_BACK, CAM_H, NEAR, ALT_MIN, ALT_MAX, VIEW_FAR, BOLTSPD, CLOUD_ALT, CLOUD_THICK },
+    gl:()=>glReady, renderer:()=>(glReady?'dfgl':(GPU?'gfx2d':'canvas2d')) };
+
+  let last=performance.now();
+  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
+    if(G.mode!=='lobby'){
+      if(glReady){ try{ DFGL.frame(G, cam, world(), { WS, CAM_BACK, CAM_H, VIEW_FAR, CLOUD_ALT, CLOUD_THICK }); }
+                   catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; } }
+      draw(); if(GPU) GPU.present();
+    } requestAnimationFrame(frame); }
+  loadDeck().then(()=>{ refreshPot(); refreshEth(); });
+  if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
+    setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

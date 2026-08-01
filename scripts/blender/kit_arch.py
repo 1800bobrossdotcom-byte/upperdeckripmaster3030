@@ -236,12 +236,18 @@ def _ext(dst, section, a0, a1, axis, label):
         for (u, y) in section:
             p.gv(a, u, y) if axis == 'x' else p.gv(u, a, y)
         idx.append(b)
+    # ⚠ The face order is the MIRROR of prism()'s, and it has to be. prism() stacks horizontal
+    # plans and sweeps upward; this drags a vertical section sideways, which reverses the sense
+    # of "outside". Built the other way round it emitted 90 inside-out parts on the first run of
+    # LIDO — invisible in Blender (two-sided) and invisible in the .wld (normals come from the
+    # winding, so they were consistently wrong), and it would have shown up in game as coping,
+    # treads and wall copings that simply were not there.
     lo, hi = idx
     for i in range(n):
         j = (i + 1) % n
-        p.f.append((lo + i, hi + i, hi + j, lo + j))
-    p.f.append(tuple(lo + i for i in range(n)))
-    p.f.append(tuple(hi + i for i in range(n - 1, -1, -1)))
+        p.f.append((lo + i, lo + j, hi + j, hi + i))
+    p.f.append(tuple(lo + i for i in range(n - 1, -1, -1)))
+    p.f.append(tuple(hi + i for i in range(n)))
     return _merge(dst, p, label)
 
 
@@ -269,6 +275,48 @@ def sweep(dst, path, profile, label='sweep'):
             j = (i + 1) % n
             p.f.append((a + i, b + i, b + j, a + j))
     return _merge(dst, p, label)
+
+
+def sweep_run(dst, path, profile, label='sweep'):
+    """Sweep along an OPEN path and cap both ends — one segment of a longer moulding."""
+    p = GPart('_t')
+    n = len(profile)
+    idx = []
+    for (x, z, nx, nz) in path:
+        b = len(p.v)
+        for (out, up) in profile:
+            p.gv(x + nx * out, z + nz * out, up)
+        idx.append(b)
+    for k in range(len(idx) - 1):
+        a, b = idx[k], idx[k + 1]
+        for i in range(n):
+            j = (i + 1) % n
+            p.f.append((a + i, b + i, b + j, a + j))
+    p.f.append(tuple(idx[0] + i for i in range(n)))
+    p.f.append(tuple(idx[-1] + i for i in range(n - 1, -1, -1)))
+    return _merge(dst, p, label)
+
+
+def sweep_chunks(name_fmt, path, profile, chunks):
+    """Emit a CLOSED sweep as `chunks` separate objects, each capped and overlapping by one
+    station so there is no seam.
+
+    ⚑ This is a collision decision, not a modelling one. One Part is one AABB (see kit.py), so
+      sweeping a pool coping as a single ring would hand the collider a box spanning the whole
+      pool — the player would walk across the water on an invisible lid at coping height.
+      Chunking keeps each AABB on its own arc, which is why the count is a parameter.
+    """
+    m = len(path)
+    per = max(2, int(math.ceil(m / float(chunks))))
+    out, k, i = [], 0, 0
+    while i < m:
+        seg = [path[(i + j) % m] for j in range(min(per, m - i) + 1)]
+        p = GPart(name_fmt % k)
+        sweep_run(p, seg, profile, 'coping')
+        out.append(p.emit())
+        k += 1
+        i += per
+    return out
 
 
 def path_from_plan(plan):
@@ -326,11 +374,14 @@ def arch(dst, x0, x1, zc, dz, y_spring, band, seg=9, label='arch'):
     return _merge(dst, p, label)
 
 
-def blob(dst, cx, cz, y0, r, h, seg=6, phase=0.0, label='blob'):
+def blob(dst, cx, cz, y0, r, h, seg=5, phase=0.0, label='blob'):
     """A squat low-poly dome — one clipped-shrub clump. Four of these in a tub read as planting;
-    a green box does not, and planting is half of what makes a lido a place rather than a yard."""
-    return lathe(dst, cx, cz,
-                 [(y0, r * 0.55), (y0 + h * 0.45, r), (y0 + h * 0.82, r * 0.66), (y0 + h, r * 0.12)],
+    a green box does not, and planting is half of what makes a lido a place rather than a yard.
+
+    Three stations at five segments = 26 triangles. The phase offset is what does the work: four
+    identical domes read as four identical domes, four rotated ones read as a shrub.
+    """
+    return lathe(dst, cx, cz, [(y0, r * 0.58), (y0 + h * 0.52, r), (y0 + h, r * 0.16)],
                  seg=seg, phase=phase, label=label)
 
 
@@ -358,13 +409,19 @@ def column(name, x, z, y0, height, r=0.42, seg=14, plinth=True):
     return p.emit()
 
 
-def baluster(dst, x, z, y0, height, r=0.055, seg=6, label='balus'):
-    """One turned baluster — vase profile, so the run has a rhythm instead of a picket fence."""
+def baluster(dst, x, z, y0, height, r=0.058, seg=5, label='balus'):
+    """One turned baluster — vase profile, so the run has a rhythm instead of a picket fence.
+
+    ⚑ FIVE stations and FIVE radial segments, measured against the budget rather than chosen.
+      The first pass used nine and six (104 tris each): four balustrade runs then cost 4,976
+      triangles, a fifth of the whole level, to draw something 11 cm across. At 46 tris the vase
+      silhouette survives — it is the WAIST that reads at play distance, not the facet count —
+      and the four runs cost 2,424.
+    """
     h = height
     return lathe(dst, x, z, [
-        (y0, r * 1.5), (y0 + h * 0.06, r * 1.5), (y0 + h * 0.10, r * 1.0),
-        (y0 + h * 0.22, r * 1.55), (y0 + h * 0.40, r * 1.35), (y0 + h * 0.58, r * 0.78),
-        (y0 + h * 0.76, r * 0.95), (y0 + h * 0.90, r * 0.72), (y0 + h, r * 1.35),
+        (y0, r * 1.50), (y0 + h * 0.14, r * 1.00), (y0 + h * 0.34, r * 1.55),
+        (y0 + h * 0.70, r * 0.72), (y0 + h, r * 1.30),
     ], seg=seg, label=label)
 
 
@@ -404,6 +461,8 @@ def nosed_tread(name, x0, z0, x1, z1, y_top, rise, front, nose=0.05):
     stack of grey slabs.
     """
     p = GPart(name)
+    x0, x1 = min(x0, x1), max(x0, x1)
+    z0, z1 = min(z0, z1), max(z0, z1)
     y0 = y_top - rise
     r = 0.055
     cy = y_top - r
@@ -463,16 +522,18 @@ def parasol(name, x, z, y0, pole_h=3.05, canopy_r=2.35, gores=8):
     pole.emit()
     cap = GPart(name + '_top')
     top = y0 + pole_h
-    # a segmented canopy: each gore dips at its centre and the hem scallops between the ribs
-    rings = [(top + 0.30, 0.10), (top + 0.16, canopy_r * 0.55), (top - 0.02, canopy_r * 0.92),
-             (top - 0.14, canopy_r)]
-    lathe(cap, x, z, rings, seg=gores, label='umb_canopy')
-    for k in range(gores):                                         # ribs, so the gores read
-        a = TAU * (k + 0.5) / gores
+    # A segmented canopy, stations ordered BOTTOM → TOP. ⚠ prism() lofts upward, so a ring list
+    # written crown-first comes out with negative volume and every face pointing inward; the
+    # winding check caught exactly this on the first LIDO build, along with the hut valances.
+    lathe(cap, x, z, [(top - 0.14, canopy_r), (top - 0.02, canopy_r * 0.92),
+                      (top + 0.16, canopy_r * 0.55), (top + 0.30, 0.10)],
+          seg=gores, label='umb_canopy')
+    for k in range(6):                                             # ribs, so the gores read
+        a = TAU * (k + 0.5) / 6
         gbox(cap, (x + math.cos(a) * canopy_r * 0.55, z + math.sin(a) * canopy_r * 0.55,
                    top - 0.02), (canopy_r * 0.9, 0.05, 0.05), ry=a)
     lathe(cap, x, z, [(top + 0.30, 0.045), (top + 0.44, 0.055), (top + 0.52, 0.02)],
-          seg=6, label='finial')
+          seg=5, label='finial')
     cap.emit()
     return pole, cap
 
@@ -489,23 +550,22 @@ def lounger(name, x, z, y0, ry=0.0):
             lx, lz = sx * (L / 2 - 0.16), sz * (W / 2 - 0.10)
             cxx = x + lx * math.cos(ry) - lz * math.sin(ry)
             czz = z + lx * math.sin(ry) + lz * math.cos(ry)
-            lathe(p, cxx, czz, [(y0, 0.035), (y0 + 0.26, 0.030)], seg=5, label='lng_leg')
+            lathe(p, cxx, czz, [(y0, 0.035), (y0 + 0.26, 0.030)], seg=4, label='lng_leg')
     gbox(p, (x, z, y0 + 0.30), (L, W, 0.10), ry=ry, ch=0.04, top_ch=0.02)
-    # the reclined back — a wedge of three thinning slats, so the silhouette is not a slab
-    for k in range(3):
-        off = 0.52 + k * 0.20
+    # the reclined back — two thinning slats, so the silhouette is a recline and not a slab
+    for k in range(2):
+        off = 0.56 + k * 0.24
         cxx = x + off * math.cos(ry)
         czz = z + off * math.sin(ry)
-        gbox(p, (cxx, czz, y0 + 0.36 + k * 0.07), (0.20, W * 0.94, 0.07), ry=ry, ch=0.025)
+        gbox(p, (cxx, czz, y0 + 0.37 + k * 0.09), (0.22, W * 0.94, 0.08), ry=ry)
     return p.emit()
 
 
 def planter(name, x, z, y0, r=1.35, seg=8, h=0.78):
     """A moulded tub — the pot, as one object."""
     p = GPart(name)
-    lathe(p, x, z, [(y0, r * 0.74), (y0 + 0.08, r * 0.80), (y0 + h * 0.55, r * 0.96),
-                    (y0 + h - 0.14, r), (y0 + h - 0.10, r * 1.08), (y0 + h, r * 1.06)],
-          seg=seg, label='tub')
+    lathe(p, x, z, [(y0, r * 0.74), (y0 + h * 0.55, r * 0.96), (y0 + h - 0.12, r),
+                    (y0 + h - 0.08, r * 1.09), (y0 + h, r * 1.06)], seg=seg, label='tub')
     return p.emit()
 
 
@@ -547,14 +607,15 @@ def cabana(name, top_name, x, z, y0, w=4.2, d=3.2, h=2.42, ry=0.0):
     top = GPart(top_name)
     ridge = y0 + h + 0.18
     gbox(top, (x, z, ridge + 0.12), (w + 1.0, d + 0.9, 0.24), ry=ry, ch=0.12, top_ch=0.10)
-    for k in range(7):                                                            # scalloped valance
-        t = (k + 0.5) / 7 - 0.5
+    # scalloped valance along the two long eaves — bottom-to-top ring order, see parasol()
+    for k in range(4):
+        t = (k + 0.5) / 4 - 0.5
         for sz in (-1, 1):
             lx, lz = t * (w + 1.0), sz * (d + 0.9) / 2
             cxx = x + lx * math.cos(ry) - lz * math.sin(ry)
             czz = z + lx * math.sin(ry) + lz * math.cos(ry)
-            lathe(top, cxx, czz, [(ridge + 0.02, 0.115), (ridge - 0.10, 0.115),
-                                  (ridge - 0.17, 0.05)], seg=6, label='valance')
+            lathe(top, cxx, czz, [(ridge - 0.17, 0.05), (ridge + 0.02, 0.135)],
+                  seg=5, label='valance')
     top.emit()
     return body, top
 

@@ -346,7 +346,321 @@ def build_rooftop(seed=3030):
         post('mast%d' % i, (-15.0 + i * 1.6, -13.0, 3.0), 0.1, 6.0, 6)
 
 
-LEVELS = {'arcade': build_arcade, 'vault': build_vault, 'rooftop': build_rooftop}
+# ══ LIDO ════════════════════════════════════════════════════════════════════════════════════
+def build_lido(seed=3030):
+    """LIDO DECK, MODELLED — the same arena as `js/s9pc-game.js`'s LIDO DECK, in real geometry.
+
+    ⚑ WHY THIS LEVEL EXISTS. The artist's note was exact: "this doesn't look like the other game,
+    still looks the same… in terms of arena / level design, character design, we have blender,
+    shader tools, so much to create with." Every solid in every arena we ship — the six
+    hand-built ones AND the three baked ones — is an axis-aligned box. `addBox` is literally the
+    only shape `buildMaps()` can make, and `kit.py` is a box kit with a cylinder in it. Materials
+    were already re-derived twice (the daylight albedo pass, the PBR pass) and neither could fix
+    it, because the problem is not what the surfaces are made of, it is that there are only six
+    of them per object and they all meet at 90°. Light needs a facet to sit on.
+
+    So this is the SAME arena — same 52 x 44 m footprint, same pool, same colonnade, terraces,
+    cabanas, planters, diving tower, corner towers, pavilions, same spawn coordinates — rebuilt
+    out of `kit_arch.py`: radiused coping swept from a bullnose profile, round columns with
+    entasis carrying real semicircular arches, balustrades with individual turned balusters,
+    nosed treads, tapered parasol poles under segmented canopies, planting with a silhouette, and
+    a chamfer on every large mass.
+
+    ⚑ IT IS A REBUILD, NOT A REDESIGN. Cover placement, sightline breaks and the exposed pool
+    crossing are the tuned part of the hand-built arena and they are preserved deliberately:
+      · the pool is still WADEABLE — its surface sits 0.42 m below the deck, under Section 9's
+        0.62 m step height, so it is still the exposed crossing the original comment argues for
+        rather than a pit. It now has a basin, a lip and entry steps, which is what makes it
+        read as a pool instead of a teal rectangle.
+      · the arcade is still WALKABLE: every arch springs at 3.9 m, well above the ~2.7 m at
+        which `blocksE` would turn one Part's AABB into a wall across the bay.
+      · loungers are 0.58 m tall in one piece, i.e. under the step height, so the new clutter
+        breaks sightlines without stopping anybody.
+
+    Authored in GAME coordinates via kit_arch — (x, z, y) with y up, the order `MAP.spawns` uses
+    — with the deck top as y = 0. `bake-world.mjs` drops the floor of the level to y = 0, so
+    everything lands 1.0 m higher in game than it is written here (BASE is -1.0). Heights below
+    are therefore DECK-RELATIVE and directly comparable with the hand-built map's numbers.
+    """
+    r = rng(seed)
+    HX, HZ = 26.0, 22.0                  # play half-extents — the hand-built arena's, unchanged
+    WT = 1.0                             # perimeter thickness → outer envelope 54 x 46 m
+    BASE = -1.0                          # underside of every mass; sets where game y = 0 lands
+    PX, PZ, PR = 9.5, 7.5, 2.2           # pool half-extents + corner radius
+    WATER = -0.42                        # water surface, deck-relative (< the 0.62 step height)
+    COPE = 0.95                          # coping width, outboard of the pool edge
+
+    # ── deck: four slabs around the pool hole, so the basin is real geometry ────────────────
+    # (the same move build_arcade() makes for its pit — a hole you can see into needs to BE a
+    #  hole, not a darker rectangle painted on a floor)
+    CX0, CZ0 = PX + COPE, PZ + COPE
+    for nm, x0, z0, x1, z1 in (('deck_n', -HX, CZ0, HX, HZ), ('deck_s', -HX, -HZ, HX, -CZ0),
+                               ('deck_e', CX0, -CZ0, HX, CZ0), ('deck_w', -HX, -CZ0, -CX0, CZ0)):
+        p = ka.GPart(nm)
+        ka.gbox(p, ((x0 + x1) / 2, (z0 + z1) / 2, BASE / 2), (x1 - x0, z1 - z0, -BASE))
+        p.emit()
+
+    # paving bands — a 6 cm inlay, so the deck has a grid the eye can lock onto at range. Too
+    # low to read as an obstacle to the collider (`checkSpawns` only counts boxes above step
+    # height) and cheap: eight strips, twelve triangles each.
+    for i, (x0, z0, x1, z1) in enumerate(((-HX + 1.4, -HZ + 1.4, HX - 1.4, -HZ + 2.2),
+                                          (-HX + 1.4, HZ - 2.2, HX - 1.4, HZ - 1.4),
+                                          (-HX + 1.4, -HZ + 2.2, -HX + 2.2, HZ - 2.2),
+                                          (HX - 2.2, -HZ + 2.2, HX - 1.4, HZ - 2.2),
+                                          (-16.4, -CZ0 - 1.0, -CX0 - 1.0, -CZ0 - 0.3),
+                                          (CX0 + 1.0, CZ0 + 0.3, 16.4, CZ0 + 1.0),
+                                          (-16.4, CZ0 + 0.3, -CX0 - 1.0, CZ0 + 1.0),
+                                          (CX0 + 1.0, -CZ0 - 1.0, 16.4, -CZ0 - 0.3))):
+        p = ka.GPart('trm_inlay%02d' % i)
+        ka.gbox(p, ((x0 + x1) / 2, (z0 + z1) / 2, 0.03), (x1 - x0, z1 - z0, 0.06), ch=0.02)
+        p.emit()
+
+    # ── the pool ────────────────────────────────────────────────────────────────────────────
+    pool_plan = ka.round_rect_plan(-PX, -PZ, PX, PZ, PR, corner_seg=5)
+    p = ka.GPart('water_pool')
+    ka.prism(p, [(pool_plan, BASE), (pool_plan, WATER)], label='water')
+    p.emit()
+
+    # coping: a bullnose section swept round the pool edge.
+    # ⚠ EMITTED IN EIGHT CHUNKS, and that is a collision decision. One Part is one AABB, so a
+    #   single swept ring would put a solid box with its top at +0.28 over the ENTIRE pool —
+    #   the player would walk across the water on an invisible lid. Chunks keep each AABB on
+    #   its own arc.
+    prof = [(0.00, BASE), (0.00, 0.06), (0.05, 0.17), (0.17, 0.25), (0.34, 0.28),
+            (COPE, 0.28), (COPE, 0.13), (COPE + 0.10, 0.09), (COPE + 0.10, -0.03),
+            (COPE, -0.09), (COPE, BASE)]
+    ka.sweep_chunks('trm_coping%02d', ka.path_from_plan(pool_plan), prof, 8)
+
+    # entry steps, two flights, into the shallow end of each long side
+    for k, (sx, sz) in enumerate(((-5.4, -1), (5.4, 1))):
+        z_edge = sz * PZ
+        for i in range(3):
+            top = WATER + (0.30 - i * 0.15)
+            zi0 = z_edge - sz * (0.55 * (i + 1))
+            zi1 = z_edge - sz * (0.55 * i)
+            ka.nosed_tread('pool%d_step%02d' % (k, i), sx - 2.1, min(zi0, zi1), sx + 2.1,
+                           max(zi0, zi1), top, top - BASE, '+z' if sz < 0 else '-z')
+
+    # ── DIVING TOWER — the landmark that keeps the pool from being a flat teal field ─────────
+    # (the hand-built arena's comment measured what a frame with nothing in it costs: rms 11.7
+    #  from a spawn, against 39-49 from a spot with structure in front of the camera. Same job
+    #  here, now with a ladder, a nosed platform edge and a real handrail rather than a stack.)
+    p = ka.GPart('dive_base')
+    ka.prism(p, [(ka.octa_plan(-1.95, -1.95, 1.95, 1.95, 0.5), BASE),
+                 (ka.octa_plan(-1.9, -1.9, 1.9, 1.9, 0.5), 0.12),
+                 (ka.octa_plan(-1.62, -1.62, 1.62, 1.62, 0.45), 0.22),
+                 (ka.octa_plan(-1.2, -1.2, 1.2, 1.2, 0.34), 6.4)], label='dive_shaft')
+    p.emit()
+    p = ka.GPart('trm_dive_deck')
+    ka.gbox(p, (0, 0, 6.62), (6.6, 6.6, 0.44), ch=0.22, top_ch=0.07)
+    ka.extrude_x(p, [(-3.4, 6.62), (3.4, 6.62), (3.4, 6.78), (-3.4, 6.78)], -3.5, 3.5, label='nosing')
+    p.emit()
+    for sz in (-1, 1):
+        ka.balustrade('trm_dive_rail%d' % (sz > 0), -3.0, sz * 3.1, 3.0, sz * 3.1, 6.84,
+                      height=1.02, spacing=0.78, thick=0.22)
+    p = ka.GPart('dive_ladder')                                          # rungs, not a grey slab
+    for sx in (-1, 1):
+        ka.gbox(p, (sx * 0.32, -2.05, 3.3), (0.10, 0.10, 6.3), ch=0.02)
+    for i in range(14):
+        y = 0.45 + i * 0.42
+        ka.extrude_x(p, [(-2.09, y), (-2.01, y), (-2.01, y + 0.07), (-2.09, y + 0.07)],
+                     -0.33, 0.33, label='rung')
+    p.emit()
+    p = ka.GPart('trm_dive_board')                                        # springboard, over the water
+    ka.prism(p, [(ka.rect_plan(3.2, -0.55, 3.4, 0.55), 6.84),
+                 (ka.rect_plan(3.2, -0.55, 3.4, 0.55), 6.92)], label='fulcrum')
+    ka.prism(p, [(ka.rect_plan(2.6, -0.42, 6.4, 0.42), 6.9),
+                 (ka.rect_plan(2.6, -0.40, 6.5, 0.40), 6.98)], label='board')
+    p.emit()
+
+    # ── SUN TERRACES (+x / -x), stepped, with nosed treads and a real balustrade ─────────────
+    for side, sx, ttop, steps in (('w', -1, 2.40, 4), ('e', 1, 3.40, 5)):
+        x_in, x_out = sx * 17.6, sx * 25.6
+        p = ka.GPart('terr_%s_deck' % side)
+        ka.gbox(p, ((x_in + x_out) / 2, 0, (BASE + ttop) / 2), (abs(x_out - x_in), 26.0, ttop - BASE),
+                ch=0.16, top_ch=0.05)
+        p.emit()
+        # the flight: projects into the deck, so its head is flush with the terrace it serves
+        run = 0.86 * steps
+        ka.flight('terr_%s_stair' % side, x_in - sx * run, -3.0, x_in, 3.0, 0.0, ttop, steps,
+                  '-x' if sx > 0 else '+x', run_axis='x', y_base=BASE)
+        # balustrade in two runs, leaving the stair head open
+        for k, (z0, z1) in enumerate(((-13.0, -3.4), (3.4, 13.0))):
+            ka.balustrade('trm_terr_%s_rail%d' % (side, k), x_in - sx * 0.16, z0,
+                          x_in - sx * 0.16, z1, ttop, height=1.10, spacing=0.86, thick=0.30)
+
+    # ── COLONNADE (-z) — round columns carrying semicircular arches ──────────────────────────
+    COL_Z, COL_Y = -19.2, 3.90
+    for i in range(7):
+        ka.column('trm_col%02d' % i, -18.0 + i * 6.0, COL_Z, 0.0, COL_Y, r=0.42, seg=10)
+    for i in range(6):
+        a0, a1 = -18.0 + i * 6.0, -12.0 + i * 6.0
+        p = ka.GPart('trm_arch%02d' % i)
+        ka.arch(p, a0 + 0.5, a1 - 0.5, COL_Z, 0.86, COL_Y, 0.44, seg=9)
+        p.emit()
+    p = ka.GPart('trm_entab')                       # entablature: architrave, frieze, cornice
+    ka.extrude_x(p, [(-19.85, 6.42), (-18.55, 6.42), (-18.55, 6.72), (-18.45, 6.78),
+                     (-18.45, 7.02), (-18.30, 7.10), (-18.30, 7.30), (-19.95, 7.30),
+                     (-19.95, 7.10), (-19.85, 7.02)], -19.0, 19.0, label='entab')
+    p.emit()
+    p = ka.GPart('col_roof')                        # lean-to over the arcade, back to the wall
+    ka.extrude_x(p, [(-22.0, 7.62), (-18.2, 7.16), (-18.2, 7.40), (-22.0, 7.86)],
+                 -19.0, 19.0, label='pent')
+    p.emit()
+
+    # ── PERIMETER: chamfered walls, a moulded coping course, pilasters on the open runs ──────
+    for nm, x0, z0, x1, z1, h in (('wall_n', -HX - WT, HZ, HX + WT, HZ + WT, 5.4),
+                                  ('wall_s', -HX - WT, -HZ - WT, HX + WT, -HZ, 7.9),
+                                  ('wall_w', -HX - WT, -HZ, -HX, HZ, 6.0),
+                                  ('wall_e', HX, -HZ, HX + WT, HZ, 6.0)):
+        p = ka.GPart(nm)
+        ka.gbox(p, ((x0 + x1) / 2, (z0 + z1) / 2, (BASE + h) / 2), (x1 - x0, z1 - z0, h - BASE),
+                ch=0.12, top_ch=0.05)
+        p.emit()
+        q = ka.GPart('trm_' + nm + '_cope')
+        if x1 - x0 > z1 - z0:
+            ka.extrude_x(q, [(z0 - 0.14, h), (z1 + 0.14, h), (z1 + 0.14, h + 0.16),
+                             (z1 + 0.05, h + 0.28), (z0 - 0.05, h + 0.28), (z0 - 0.14, h + 0.16)],
+                         x0 - 0.1, x1 + 0.1, label='cope')
+        else:
+            ka.extrude_z(q, [(x0 - 0.14, h), (x1 + 0.14, h), (x1 + 0.14, h + 0.16),
+                             (x1 + 0.05, h + 0.28), (x0 - 0.05, h + 0.28), (x0 - 0.14, h + 0.16)],
+                         z0 - 0.1, z1 + 0.1, label='cope')
+        q.emit()
+    for i in range(5):                                          # +z wall, the run you can see
+        p = ka.GPart('pilaster_n%02d' % i)
+        ka.gbox(p, (-8.0 + i * 4.0, HZ - 0.2, (BASE + 5.4) / 2), (0.95, 0.55, 5.4 - BASE), ch=0.06)
+        p.emit()
+
+    # ── PAVILIONS (+z) — a solid block behind an arcaded loggia ──────────────────────────────
+    for side, x0, x1, hgt in (('w', -22.0, -10.0, 9.0), ('e', 10.0, 22.0, 7.5)):
+        p = ka.GPart('pav_%s_body' % side)
+        ka.gbox(p, ((x0 + x1) / 2, 19.9, (BASE + hgt) / 2), (x1 - x0, 3.4, hgt - BASE),
+                ch=0.20, top_ch=0.06)
+        p.emit()
+        q = ka.GPart('trm_pav_%s_cornice' % side)
+        ka.extrude_x(q, [(18.1, hgt), (21.8, hgt), (21.8, hgt + 0.26), (21.6, hgt + 0.40),
+                         (18.3, hgt + 0.40), (18.1, hgt + 0.26)], x0 - 0.4, x1 + 0.4, label='cornice')
+        q.emit()
+        p = ka.GPart('pav_%s_roof' % side)                       # hipped, with eaves overhanging
+        ka.prism(p, [(ka.rect_plan(x0 - 0.5, 17.9, x1 + 0.5, 22.0), hgt + 0.40),
+                     (ka.rect_plan(x0 + 2.4, 19.2, x1 - 2.4, 20.7), hgt + 1.55)],
+                 label='hip')
+        p.emit()
+        piers = [x0 + 0.7 + k * ((x1 - x0 - 1.4) / 3.0) for k in range(4)]
+        for k, px in enumerate(piers):
+            q = ka.GPart('trm_pav_%s_pier%d' % (side, k))
+            ka.gbox(q, (px, 17.2, (BASE + 3.6) / 2), (0.86, 1.0, 3.6 - BASE), ch=0.08)
+            ka.gbox(q, (px, 17.2, 3.72), (1.10, 1.24, 0.24), ch=0.05)
+            q.emit()
+        for k in range(3):
+            q = ka.GPart('trm_pav_%s_arch%d' % (side, k))
+            ka.arch(q, piers[k] + 0.43, piers[k + 1] - 0.43, 17.2, 0.9, 3.86, 0.36, seg=8)
+            q.emit()
+        q = ka.GPart('trm_pav_%s_lintel' % side)
+        ka.extrude_x(q, [(16.55, 6.05), (17.85, 6.05), (17.85, 6.42), (16.70, 6.42),
+                         (16.55, 6.30)], x0 + 0.1, x1 - 0.1, label='lintel')
+        q.emit()
+
+    # ── CORNER TOWERS (-z corners) — the tall silhouette, with a belvedere on top ────────────
+    for side, x0, x1, hgt in (('w', -24.8, -19.2, 11.5), ('e', 19.2, 24.8, 9.5)):
+        z0, z1 = -20.6, -15.0
+        p = ka.GPart('twr_%s' % side)
+        ka.prism(p, [(ka.octa_plan(x0, z0, x1, z1, 0.55), BASE),
+                     (ka.octa_plan(x0, z0, x1, z1, 0.55), hgt * 0.45),
+                     (ka.octa_plan(x0 + 0.22, z0 + 0.22, x1 - 0.22, z1 - 0.22, 0.55), hgt)],
+                 label='tower')
+        p.emit()
+        for k, band in enumerate((hgt * 0.45, hgt)):             # string course / cap moulding
+            q = ka.GPart('trm_twr_%s_band%d' % (side, k))
+            ka.prism(q, [(ka.octa_plan(x0 - 0.18, z0 - 0.18, x1 + 0.18, z1 + 0.18, 0.6), band - 0.10),
+                         (ka.octa_plan(x0 - 0.24, z0 - 0.24, x1 + 0.24, z1 + 0.24, 0.6), band + 0.06),
+                         (ka.octa_plan(x0 - 0.05, z0 - 0.05, x1 + 0.05, z1 + 0.05, 0.6), band + 0.26)],
+                     label='band')
+            q.emit()
+        for k, (sx, sz) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
+            q = ka.GPart('trm_twr_%s_pier%d' % (side, k))
+            ka.lathe(q, (x0 + x1) / 2 + sx * 1.95, (z0 + z1) / 2 + sz * 1.95,
+                     [(hgt + 0.26, 0.30), (hgt + 0.40, 0.24), (hgt + 2.10, 0.22),
+                      (hgt + 2.30, 0.28)], seg=8, label='belv_pier')
+            q.emit()
+        q = ka.GPart('twr_%s_cap' % side)                        # pyramid + finial
+        ka.prism(q, [(ka.octa_plan(x0 - 0.3, z0 - 0.3, x1 + 0.3, z1 + 0.3, 0.7), hgt + 2.30),
+                     (ka.octa_plan(x0 + 0.1, z0 + 0.1, x1 - 0.1, z1 - 0.1, 0.7), hgt + 2.62),
+                     (ka.circle_plan((x0 + x1) / 2, (z0 + z1) / 2, 0.30, 8), hgt + 4.30)],
+                 label='cap')
+        ka.lathe(q, (x0 + x1) / 2, (z0 + z1) / 2,
+                 [(hgt + 4.30, 0.16), (hgt + 4.55, 0.24), (hgt + 5.00, 0.06)], seg=6, label='finial')
+        q.emit()
+
+    # ── CABANAS — mid-field cover you can find at any range ──────────────────────────────────
+    for i, (cx, cz) in enumerate(((-11.5, 13.5), (0.0, 15.5), (11.5, 13.5),
+                                  (-6.0, -12.5), (6.0, -12.5))):
+        ka.cabana('hut%02d' % i, 'awn_hut%02d_top' % i, cx, cz, 0.0,
+                  ry=r.uniform(-0.05, 0.05))
+
+    # ── PLANTERS — low green cover with an actual silhouette ─────────────────────────────────
+    for i, (px, pz, py) in enumerate(((-13.5, 4.5, 0.0), (13.5, -4.5, 0.0), (-13.5, -4.5, 0.0),
+                                      (13.5, 4.5, 0.0), (0.0, 11.0, 0.0), (0.0, -10.5, 0.0),
+                                      (-21.5, -11.0, 2.40), (21.5, 11.0, 3.40))):
+        ka.planter('trm_plntr%02d' % i, px, pz, py, r=1.35, seg=8, h=0.78)
+        ka.foliage('plnt_folig%02d' % i, px, pz, py + 0.72, r=1.20, rnd=r, clumps=4)
+
+    # ── PARASOLS — tapered poles, segmented canopies, frame-breakers at head height ──────────
+    for i, (ux, uz, uy) in enumerate(((-14.6, 0.0, 0.0), (14.6, 0.0, 0.0), (0.0, -13.5, 0.0),
+                                      (-21.5, -7.5, 2.40), (-21.5, 7.5, 2.40), (21.5, 0.0, 3.40))):
+        ka.parasol('trm_umb%02d' % i, ux, uz, uy)
+
+    # ── LOUNGERS — deck clutter that is under the step height, so it never stops anybody ─────
+    lng = []
+    for z in (-8.4, -3.0, 3.0, 8.4):
+        lng.append((-22.6, z, 2.40, 0.0))
+        lng.append((22.6, z, 3.40, math.pi))
+    for (lx, lz) in ((-13.4, -9.6), (13.4, 9.6), (-13.4, 9.6), (13.4, -9.6)):
+        lng.append((lx, lz, 0.0, math.atan2(-lz, -lx)))
+    for i, (lx, lz, ly, lr) in enumerate(lng):
+        ka.lounger('trm_lng%02d' % i, lx, lz, ly, ry=lr)
+
+    # ── LIFEGUARD STAND — the one high perch, small and exposed on three sides ───────────────
+    p = ka.GPart('guard_stand')
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            ka.lathe(p, sx * 1.15, 20.2 + sz * 1.0, [(0.0, 0.13), (3.3, 0.09)], seg=6, label='leg')
+    for sz in (-1, 1):
+        ka.gbox(p, (0, 20.2 + sz * 1.0, 1.5), (2.5, 0.12, 0.14))
+    ka.gbox(p, (0, 20.2, 3.42), (2.9, 2.5, 0.24), ch=0.10, top_ch=0.05)
+    ka.gbox(p, (0, 21.4, 3.98), (2.9, 0.16, 0.90), ch=0.05)
+    for i in range(6):
+        ka.gbox(p, (0, 19.0 - 0.0, 0.45 + i * 0.52), (1.5, 0.09, 0.09))
+    p.emit()
+    p = ka.GPart('awn_guard_top')
+    ka.prism(p, [(ka.rect_plan(-1.9, 18.9, 1.9, 21.5), 4.62),
+                 (ka.rect_plan(-0.5, 19.8, 0.5, 20.6), 5.15)], label='guard_canopy')
+    p.emit()
+
+    # clutter: towel bins and stacked crates — a lido has clutter, and clutter breaks a sightline
+    for i, (bx, bz) in enumerate(((-8.6, 16.4), (8.6, 16.4), (-16.6, -17.4), (16.6, -17.4))):
+        p = ka.GPart('bin%02d' % i)
+        ka.lathe(p, bx, bz, [(0.0, 0.52), (0.86, 0.60), (0.96, 0.64), (1.02, 0.60)],
+                 seg=6, label='bin')
+        p.emit()
+
+    # ── SPAWNS — the hand-built arena's twelve, unchanged, re-validated against this geometry ─
+    # `js/s9pc-game.js` records that all twelve were authored and then verified against
+    # blocks()/inBounds with a 32-ray sweep. Reusing the exact coordinates is what makes the two
+    # arenas comparable: if the modelled one plays differently, it is the geometry that did it.
+    for i, (sx, sz, sy) in enumerate(((-13.0, 10.0, 0.0), (13.0, 10.0, 0.0),
+                                      (-13.0, -10.0, 0.0), (13.0, -10.0, 0.0),
+                                      (-6.0, 12.0, 0.0), (6.0, 12.0, 0.0),
+                                      (-21.0, 14.5, 0.0), (21.0, 14.5, 0.0),
+                                      (-15.0, -9.0, 0.0), (15.0, -9.0, 0.0),
+                                      (-15.0, -17.0, 0.0), (15.0, -17.0, 0.0))):
+        ka.gspawn('l%d' % i, sx, sz, sy)
+    ka.report()
+
+
+LEVELS = {'arcade': build_arcade, 'vault': build_vault, 'rooftop': build_rooftop,
+          'lido': build_lido}
 
 if __name__ == '__main__':
     argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []

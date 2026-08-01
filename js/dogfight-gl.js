@@ -449,7 +449,13 @@ window.DFGL = (function () {
   function init(canvas, opt) {
     try {
       cv = canvas;
-      gl = cv.getContext('webgl', { antialias: true, alpha: false, depth: true })
+      /* ⚠ `preserveDrawingBuffer` is opt-in and OFF by default because it costs a copy every
+       * frame. It exists at all because CLAUDE.md records the trap: readPixels on a WebGL canvas
+       * without it returns ZEROS, and this renderer's own before/after metrics were reported as
+       * "luma 0, blacks 100%" — a perfectly-rendering frame measured as pure black. `?grab=1`
+       * is the same switch section9.html uses for exactly the same reason. */
+      const grab = (() => { try { return new URLSearchParams(location.search).get('grab') === '1'; } catch (e) { return false; } })();
+      gl = cv.getContext('webgl', { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: grab })
         || cv.getContext('experimental-webgl');
       if (!gl) return false;
       prog = link(VS, FS); sky = link(SKY_VS, SKY_FS);

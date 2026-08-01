@@ -28,9 +28,23 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'models', 'world');
 const TMP = join(ROOT, 'build', 'levels');
 
-// must match FOOTPRINT in scripts/blender/build-level.py
-const FOOTPRINT = { arcade: 120, vault: 105, rooftop: 165 };
-const GRID = { arcade: 0.05, vault: 0.05, rooftop: 0.05 };
+/* must match FOOTPRINT in scripts/blender/build-level.py
+ *
+ * ⚑ `lido` is 1:1 and the other three are NOT. bake-world scales the geometry so its longest
+ *   horizontal axis lands on FOOTPRINT, and arcade is authored 56.7 m wide against a 120 m
+ *   footprint — ×2.12, which is why an arcade cabinet's baked AABB is 4.6 m tall and its stair
+ *   risers are 0.93 m, above Section 9's 0.62 m step. Measured off arcade.cols.json, not assumed.
+ *   lido's 54 is its REAL x-extent (a 52×44 m arena inside a 1 m perimeter), so one world unit
+ *   is one metre and the deck-relative heights in build-level.py mean what they say.
+ *
+ * ⚑ GRID is the decimation cell in SOURCE units, and the cell in world units is GRID × scale.
+ *   lido gets 0.01 because it is the first MODELLED level: at the shared 0.05 the cell would be
+ *   5 cm, and a turned baluster is 11 cm across — its six radial vertices would land in one or
+ *   two cells, collapse, and the balustrade would bake out as a smear. Decimation is for scanned
+ *   geometry; authored geometry already chose its budget.
+ */
+const FOOTPRINT = { arcade: 120, vault: 105, rooftop: 165, lido: 54 };
+const GRID = { arcade: 0.05, vault: 0.05, rooftop: 0.05, lido: 0.01 };
 
 const argv = process.argv.slice(2);
 const flag = (n, d) => { const i = argv.indexOf('--' + n); return i >= 0 ? argv[i + 1] : d; };
