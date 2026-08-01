@@ -76,8 +76,8 @@ window.S9Skin = (function () {
      * bodies in the repo, ahead of oni's 3.6x. 157–207 KB each against oni's 952 KB. */
     { arch: 'rip-mascot', name: 'PRIZE MASCOT', bytes: 207272, mat: 5 },  // 5 skin          — rubber-hose mascot
     { arch: 'cc0-mosh',   name: 'BAD SIGNAL',   bytes: 160568, mat: 6 },  // 6 energy pulse  — mis-registered
-    { arch: 'cc0-cel',    name: 'HEAVY LINE',   bytes: 186440, mat: 3 },  // 3 reptile scale — hard cel facets
-    { arch: 'cc0-grid',   name: 'GRIDLOCK',     bytes: 163088, mat: 2 },  // 2 brushed metal — lattice-snapped
+    { arch: 'cc0-cel',    name: 'HEAVY LINE',   bytes: 175016, mat: 3 },  // 3 reptile scale — hard cel facets
+    { arch: 'cc0-grid',   name: 'GRIDLOCK',     bytes: 164264, mat: 2 },  // 2 brushed metal — lattice-snapped
     { arch: 'oni',        name: 'FATIGUES',     bytes: 975368, mat: 1 },  // 1 cloth weave   — fatigues
     { arch: 'kappa',      name: 'WEBBING',      bytes: 773504, mat: 7 },  // 7 wrap bands    — strapped webbing
     { arch: 'prizm',      name: 'HARDSUIT',     bytes: 708488, mat: 2 },  // 2 brushed metal — hardsuit

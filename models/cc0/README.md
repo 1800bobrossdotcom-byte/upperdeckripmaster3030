@@ -177,7 +177,7 @@ Measured with `npm run stretch` — arms swung 55°, legs 35°, the same pose fo
 | file | character | tris | `.skn` | worst stretch | >3× | >10× |
 | --- | --- | --- | --- | --- | --- | --- |
 | `cc0-mosh` | BAD SIGNAL | 954 | 160,568 B | **1.8×** | 0 | **0** |
-| `cc0-cel` | HEAVY LINE | 1,120 | 188,456 B | **2.9×** | 0 | **0** |
+| `cc0-cel` | HEAVY LINE | 1,040 | 175,016 B | **2.9×** | 0 | **0** |
 | `rip-mascot` | PRIZE MASCOT | 1,232 | 207,272 B | **3.1×** | 2 | **0** |
 | `cc0-lank` | LONG ODDS | 994 | 167,288 B | 3.3× | 6 | **0** |
 | `cc0-grid` | GRIDLOCK | 976 | 164,264 B | 3.6× | 8 | **0** |
@@ -314,8 +314,9 @@ preview script from `skins.json`.
 ## Rebuilding
 
 ```
-npm run cc0                 # geometry + textures + skins.json
+npm run cc0                 # geometry + the seven .skn v2 bodies + textures + skins.json
 npm run cc0 -- --tex        # textures + skins.json only — no Blender needed
+npm run cc0 -- --no-skin    # geometry + textures, leaving models/*.skn alone
 npm run cc0 -- --preview    # …and the Cycles sheets (~4 min on CPU)
 ```
 
@@ -331,6 +332,10 @@ The build asserts, rather than hopes:
   on the `lump` head put the crown at 1.001325.
 - **every texture tiles**, with the checker self-tested against a control it must reject
 - **every skin's `tex` reference resolves** to a map that was actually written
+- **every baked `.skn` is the right LENGTH** — 296 bytes of header + bone table, then exactly 56
+  per vertex. A `.skn` that is off by one bone table does not throw anywhere in this repo; it
+  silently reads bones as vertices, which is precisely the bug `js/ronin.js` had. Cross-checking
+  the byte count against the vertex count costs one line and catches the whole class.
 
 ### ⚠ Part names: do not "tidy" these to match `models/README.md`
 

@@ -445,6 +445,35 @@ and performs WalletConnect burns — it is **NOT** for embedding.
 - ⚠ `pkill -f <pattern>` matches **the bash command line running it**, so a script that pkills
   its own name kills its own shell. Cost two silent test runs that looked like hangs.
 
+## ⛔ ART DIRECTION MUST BE DESIGNED, NOT MOOD-BOARDED — `docs/DESIGN-SYSTEM.md`
+**Artist, 2026-08-01: "everything needs actual art direction that is designed."** Said right after
+rejecting the 3D hero wordmark — *"this sucks, we can do so much better, this is like basic bitch
+geometry and fx"* — and he was right.
+- ⚑ **THE DIAGNOSIS IS A PROCESS FAILURE, NOT A TASTE FAILURE.** `docs/ART-DIRECTION.md` is a
+  596-line **RUBRIC** — value bands, saturation floors, a rejection list. It says how to MEASURE
+  that something came out wrong. It never says what the thing should BE. So briefs went out
+  carrying a palette and a vibe, and **an agent handed a mood reaches for the default**: the hero
+  came back as a default extrude with the CSS gradient painted on the face. Technically correct,
+  fail-open, measured, tested, dead.
+- ⚑ **FOIL IS DEFINED BY MOVEMENT, NOT BY COLOUR.** A rainbow gradient painted on a surface is a
+  *sticker of* foil. Real foil's hue walks with the half-angle, its highlight smears
+  anisotropically, its die edge breaks into prism. **Acceptance test: render at several view
+  angles and MEASURE the hue shift. No shift, no foil.** This is the single most-broken thing in
+  the studio's own material language — the page background is literally baked foil card stock and
+  nothing else in the project behaves like foil.
+- ⚠ **Every visual brief must state, before any code: what it is MADE OF, how it is LIT, what
+  MOVES and why it physically moved, what it SITS ON, and the acceptance measurement.** A brief
+  missing any of those produces the default. That is now a recorded failure, not a hypothetical.
+- ⚑ **When unsure what something should look like, the answer is "look at the artist's own cards",
+  not "make it look premium".** `docs/CC0-SOURCES.md` already records that his own Fake Rares work
+  is the natural first source for in-game art. Hand-drawn, high-contrast, flat saturated ink,
+  deliberately crude registration — the opposite of smooth bevelled corporate CG, which is exactly
+  what a default pipeline emits.
+- ⚠ `DESIGN-SYSTEM.md` is a **DRAFT FOR THE ARTIST** — proposals, not decisions. It carries the
+  open typeface question (`--fat` is `'Arial Black'`, which does not exist on Linux/Android, so the
+  wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
+  the accident). Do not treat any of it as settled until he has struck what is wrong.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

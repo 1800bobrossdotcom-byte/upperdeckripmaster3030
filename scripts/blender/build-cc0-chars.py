@@ -13,7 +13,8 @@
 # change where its elbow is. What it can change is the VOLUME hung on each joint — and that turns
 # out to be enough, because at play distance a fighter is a silhouette and nothing else.
 #
-# Three bodies, one skeleton, one builder, three parameter sets. If you want a fourth, add a dict.
+# SEVEN bodies, one skeleton, one builder, seven parameter sets. If you want an eighth, add a dict
+# to SPECS — nothing else in this file, in scripts/build-cc0.mjs or in the games needs to know.
 #
 # ── WHAT WAS AND WAS NOT TAKEN ────────────────────────────────────────────────────────────────
 # These are PROPORTION STUDIES against VERIFIED CC0 sources (see docs/CC0-SOURCES.md), not
