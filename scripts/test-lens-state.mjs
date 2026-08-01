@@ -138,6 +138,9 @@ ok(spec.layers[0].src === 'https://x/a/bg.webp', 'src resolved against the sidec
 ok(spec.layers[2].normal === null && spec.layers[1].normal === 'https://x/a/s.n.webp', 'authored normals resolved');
 ok(spec.layers[0].par === -1 && spec.layers[2].par === 0.8, 'par defaults to 2z-1');
 ok(spec.layers[2].blend === 'add' && spec.layers[2].drive.gain === 'burn', 'blend + drive kept');
+ok(spec.layers[2].drive.rest === 1, 'drive.rest defaults to max — a failed fetch cannot delete a drawn layer');
+const rested = CardLayers.normalize({ layers: [{ src: 'a.png', drive: { gain: 'burn', min: 0, max: 1, rest: 0.25 } }] }, 'https://x/');
+ok(rested.layers[0].drive.rest === 0.25, 'an authored drive.rest is kept');
 ok(spec.layers[1].relief === 1 && spec.layers[0].relief === 0,
    'declared relief is honoured and NOT also applied to every other plate');
 const noRelief = CardLayers.normalize({ layers: [{ src: 'a.png', z: 0 }, { src: 'b.png', z: 1 }] }, 'https://x/');
