@@ -9,8 +9,8 @@ import { secp256k1 } from 'ethereum-cryptography/secp256k1.js';
 
 const ROOT='/home/user/upperdeckripmaster3030';
 const findImport = p => { for (const c of [join(ROOT,'node_modules',p), join(ROOT,p)]) if (existsSync(c)) return {contents:readFileSync(c,'utf8')}; return {error:'nf '+p}; };
-const SRC='contracts/UR3030Lens721.sol';   // run from repo root: npm run test:lens
-const SRC_R='contracts/UR3030RenderPrototype.sol', SRC_M='contracts/test/MockLiquid.sol';
+const SRC='contracts/Ripmaster3030Lens721.sol';   // run from repo root: npm run test:lens
+const SRC_R='contracts/Ripmaster3030Renderer.sol', SRC_M='contracts/test/MockLiquid.sol';
 const SRC_T='contracts/test/MockBurnToken.sol', SRC_H='contracts/test/HostileToken.sol';
 const out = JSON.parse(solc.compile(JSON.stringify({language:'Solidity',
   sources:{ [SRC]:{content:readFileSync(join(ROOT,SRC),'utf8')},
@@ -19,7 +19,7 @@ const out = JSON.parse(solc.compile(JSON.stringify({language:'Solidity',
             [SRC_T]:{content:readFileSync(join(ROOT,SRC_T),'utf8')},
             [SRC_H]:{content:readFileSync(join(ROOT,SRC_H),'utf8')} },
   settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}}),{import:findImport}));
-const C = out.contracts[SRC].UR3030Lens721;
+const C = out.contracts[SRC].Ripmaster3030Lens721;
 
 // ---- tiny ABI coder (only what these tests need) ----
 const sel = sig => bytesToHex(keccak256(new TextEncoder().encode(sig))).slice(0,10);
@@ -41,7 +41,7 @@ for (const a of [DEPLOYER, SIGNER]) await evm.stateManager.putAccount(a, new Acc
 // constructor(name,symbol,editionRenderer,claimSigner,externalUrl,lensBaseUrl)
 const HEAD=6*32;
 let tail='', offs=[];
-const strs=['upperdeckripmaster3030 lens','UR3030L','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cards/hero/'];
+const strs=['ripmaster3030studios lens','3030L','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cards/hero/'];
 // layout: str,str,addr,addr,str,str
 let dyn = HEAD;
 const p0=dyn; tail+=encStr(strs[0]); dyn=HEAD+tail.length/2;
@@ -105,7 +105,13 @@ console.log('\n── rendering ──');
 console.log('\n── voucher mint ──');
 const DOMAIN = (() => {
   const th = keccak256(new TextEncoder().encode('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)'));
-  const nh = keccak256(new TextEncoder().encode('upperdeckripmaster3030'));
+  /* ⚠ MUST MATCH THE CONTRACT'S EIP712(...) NAME EXACTLY. The domain separator is part of every
+   *   voucher digest, so a mismatch here does not warn — every claimHero signature simply fails
+   *   `BadSignature`. Renaming the contract's domain to ripmaster3030studios broke 6 tests
+   *   instantly, which is the good outcome: it proves the domain is load-bearing and that the
+   *   signer (scripts/lens-cli.mjs) has to be changed in lockstep. ⛔ Once ANY real voucher is
+   *   signed against a deployed contract this string is frozen forever. */
+  const nh = keccak256(new TextEncoder().encode('ripmaster3030studios'));
   const vh = keccak256(new TextEncoder().encode('1'));
   return keccak256(hexToBytes('0x'+bytesToHex(th).slice(2)+bytesToHex(nh).slice(2)+bytesToHex(vh).slice(2)+encUint(1)+encAddr(ADDR.toString())));
 })();
@@ -165,13 +171,13 @@ console.log('\n── edition passthrough: mock edition -> render prototype -> l
   t('mock edition deploys', !mock.execResult.exceptionError, String(mock.execResult.exceptionError||''));
   const MOCK = mock.createdAddress;
 
-  // UR3030RenderPrototype(liquid,name,description,externalUrl,animationUrl)
+  // Ripmaster3030Renderer(liquid,name,description,externalUrl,animationUrl)
   const rs=['upperdeckripmaster3030','a liquid trading-card game','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cabinet.html'];
   const H=5*32; let tl='', o=H;
   const q=[]; for(const x of rs){ q.push(o); const e=encStr(x); tl+=e; o+=e.length/2; }
   const rargs = encAddr(MOCK.toString())+q.map(encUint).join('')+tl;
   const rd = await evm.runCall({ caller:DEPLOYER, to:undefined,
-    data:hexToBytes('0x'+out.contracts[SRC_R].UR3030RenderPrototype.evm.bytecode.object+rargs), gasLimit:30000000n });
+    data:hexToBytes('0x'+out.contracts[SRC_R].Ripmaster3030Renderer.evm.bytecode.object+rargs), gasLimit:30000000n });
   t('render prototype deploys against the mock', !rd.execResult.exceptionError, String(rd.execResult.exceptionError||''));
   const RENDERER = rd.createdAddress;
 

@@ -129,7 +129,7 @@
         '<div class="tav-row copy" data-copy="' + esc(acct) + '"><span class="k">Your mark</span><span class="v">' + esc(short(acct)) + '</span></div>' +
         '<div class="tav-row"><span class="k">The house</span><span class="v">' + esc(w.chainName()) + (w.kind() === 'walletconnect' ? ' · WC' : '') + '</span></div>' +
         '<div class="tav-row tav-purse"><span class="k">Coin purse</span><span class="v" data-purse>' + (live ? 'counting…' : 'practice chips') + '</span></div>' +
-        '<a class="tav-buy" href="' + w.buyUrl() + '" target="_blank" rel="noopener noreferrer">⚜ Buy more $UR3030 ↗</a>' +
+        '<a class="tav-buy" href="' + w.buyUrl() + '" target="_blank" rel="noopener noreferrer">⚜ Buy more $3030 ↗</a>' +
         '<button type="button" class="tav-leave">✕ Leave the tavern (disconnect)</button>' +
       '</div>';
     document.body.appendChild(ov);
@@ -141,7 +141,7 @@
       try { navigator.clipboard.writeText(a); toast('mark copied'); } catch {}
     };
     ov.querySelector('.tav-leave').onclick = async () => { close(); await w.disconnect(); toast('you left the tavern'); };
-    if (live) { try { const b = await w.balance(); const p = ov.querySelector('[data-purse]'); if (p) p.textContent = b.tokens.toLocaleString('en-US') + ' $UR3030'; } catch {} }
+    if (live) { try { const b = await w.balance(); const p = ov.querySelector('[data-purse]'); if (p) p.textContent = b.tokens.toLocaleString('en-US') + ' $3030'; } catch {} }
   }
 
   const refreshAll = () => mounts.forEach(el => { if (document.body.contains(el)) render(el); else mounts.delete(el); });

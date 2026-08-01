@@ -9,7 +9,7 @@
  *     (wallet_switchEthereumChain → Sepolia) before it may burn
  *   - eth_sendTransaction is CAPTURED (never signed) and the exact payload is
  *     re-verified against live Sepolia via eth_call + eth_estimateGas
- * Run 2 uses an empty wallet → the "need more $UR3030" refusal path must show.
+ * Run 2 uses an empty wallet → the "need more $3030" refusal path must show.
  */
 import http from 'http';
 import fs from 'fs';
@@ -122,9 +122,9 @@ async function runFlow({ account, label, shot }) {
 }
 
 // ── RUN 1: funded holder — full burn flow must complete ──
-const r1 = await runFlow({ account: POOL_MANAGER, label: 'funded holder (PoolManager, ~1M UR3030)', shot: 'transact-run1-funded.png' });
-// ── RUN 2: empty wallet — must be REFUSED with "need more $UR3030" ──
-const r2 = await runFlow({ account: EMPTY_ADDR, label: 'empty wallet (0 UR3030)', shot: 'transact-run2-empty.png' });
+const r1 = await runFlow({ account: POOL_MANAGER, label: 'funded holder (PoolManager, ~1M $3030)', shot: 'transact-run1-funded.png' });
+// ── RUN 2: empty wallet — must be REFUSED with "need more $3030" ──
+const r2 = await runFlow({ account: EMPTY_ADDR, label: 'empty wallet (0 $3030)', shot: 'transact-run2-empty.png' });
 
 await browser.close();
 server.close();
@@ -147,7 +147,7 @@ const t = r1.txs[0] || {};
 const expectData = '0x42966c68' + (350n * 10n ** 18n).toString(16).padStart(64, '0');
 const checks = [
   ['run1: exactly one tx sent', r1.txs.length === 1],
-  ['run1: tx.to = $UR3030 token', (t.to || '').toLowerCase() === TOKEN],
+  ['run1: tx.to = $3030 token', (t.to || '').toLowerCase() === TOKEN],
   ['run1: tx.from = connected account', (t.from || '').toLowerCase() === POOL_MANAGER],
   ['run1: calldata = burn(350e18)', t.data === expectData],
   ['run1: network guard switched to Sepolia', r1.events.some(e => e[0] === 'CHAIN-SWITCH' && e[1] === '0xaa36a7')],
@@ -155,7 +155,7 @@ const checks = [
   ['run1: tx banner with explorer link', !!r1.banner && /sepolia\.etherscan\.io\/tx\//.test(r1.bannerLink || '')],
   ['run1: 7 cards revealed', r1.fanCards === 7],
   ['run2: NO tx sent from empty wallet', r2.txs.length === 0],
-  ['run2: refusal shows "need more"', /need more \$UR3030/i.test(r2.finalTitle || '') || /burns .*350/i.test(r2.note || '')],
+  ['run2: refusal shows "need more"', /need more \$3030/i.test(r2.finalTitle || '') || /burns .*350/i.test(r2.note || '')],
 ];
 let live = null;
 if (t.data === expectData) {

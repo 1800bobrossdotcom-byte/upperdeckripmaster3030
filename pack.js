@@ -16,7 +16,7 @@
   const PACK = 7;
   let DECK = [], busy = false;
 
-  // ── on-chain rip: a rip BURNS $UR3030 (buy the ticket, take the ride). Buying the
+  // ── on-chain rip: a rip BURNS $3030 (buy the ticket, take the ride). Buying the
   //    token happens on SuperRare / DEXes; this site owns the burn. Falls back to a
   //    practice pull when the token isn't live or there's no wallet. ──
   const W = () => window.RipWallet || null;
@@ -57,7 +57,7 @@
 
   function open() { modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); startRip(); }
 
-  // decide: real on-chain rip (burn $UR3030) or a practice pull
+  // decide: real on-chain rip (burn $3030) or a practice pull
   async function startRip() {
     lastTx = null; practice = true;
     if (onchainRip()) return onchainStart();
@@ -66,7 +66,7 @@
   async function onchainStart() {
     if (busy) return;
     const w = W();
-    showBusy('checking your $UR3030…');
+    showBusy('checking your $3030…');
     if (!w.isConnected()) { const c = await w.connect(); if (!c.ok) return ripBlocked(w.explain(c.reason)); }
     const g = await w.ensureChain(); if (!g.ok) return ripBlocked(w.explain(g.reason));
     const need = packBurn(), bal = await w.balance();
@@ -76,7 +76,7 @@
      * which one you are looking at, because an unexplained second prompt reads as a scam. */
     const split = w.hasSink && w.hasSink();
     showBusy(split ? 'approve ' + need + ' $3030 for the pack…'
-                   : 'confirm the burn of ' + need + ' $UR3030 in your wallet…');
+                   : 'confirm the burn of ' + need + ' $3030 in your wallet…');
     const r = await w.payPack(need, step => showBusy(step === 'approve'
       ? 'approve ' + need + ' $3030 for the pack…'
       : 'confirm the pack — ' + Math.floor(need / 2) + ' burns, ' + (need - Math.floor(need / 2)) + ' funds the studio…'));
@@ -90,7 +90,7 @@
   function ctaRow() {
     const buy = W() ? W().buyUrl() : 'https://superrare.com';
     return '<div class="pack-cta">' +
-      '<a class="btn gold" href="' + buy + '" target="_blank" rel="noopener noreferrer">$ Buy $UR3030 ↗</a>' +
+      '<a class="btn gold" href="' + buy + '" target="_blank" rel="noopener noreferrer">$ Buy $3030 ↗</a>' +
       '<button type="button" class="btn" id="ripRetry">↻ Try again</button>' +
       '<button type="button" class="btn alt" id="ripPractice">Practice pull</button></div>';
   }
@@ -100,10 +100,10 @@
   }
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
-  function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $UR3030';
+  function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $3030';
     const costs = (W() && W().hasSink && W().hasSink())
       ? 'costs <b>' + need + ' $3030</b> — half burned, half to the studio'
-      : 'burns <b>' + need + ' $UR3030</b>';
+      : 'burns <b>' + need + ' $3030</b>';
     reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
       have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
   function close() {
@@ -140,7 +140,7 @@
       cards.forEach(c => v.push({ slug: c.slug }));
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
-    if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $UR3030 burned on-chain · cards saved in-browser';
+    if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $3030 burned on-chain · cards saved in-browser';
     const n = cards.length, mid = (n - 1) / 2;
     const fan = cards.map((c, i) => {
       const rot = ((i - mid) * 9).toFixed(1);
@@ -169,7 +169,7 @@
       const half = Math.floor(packBurn() / 2);
       banner.innerHTML = '<span class="ic" data-ic="flame"></span> ' + (lastSplit
         ? 'burned ' + half + ' $3030 · ' + (packBurn() - half) + ' to the studio'
-        : 'burned ' + packBurn() + ' $UR3030') +
+        : 'burned ' + packBurn() + ' $3030') +
         ' · <a href="' + W().explorerTx(lastTx) + '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
       reveal.prepend(banner);
       window.RipIcons && RipIcons.hydrate(banner);

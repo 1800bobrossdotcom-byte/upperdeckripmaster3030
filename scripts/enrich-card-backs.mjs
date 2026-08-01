@@ -26,20 +26,20 @@ const COURT = `
     <button id="v-hodl" type="button" aria-label="burn to HODL" style="width:36px;height:36px;border-radius:9px;border:2px solid #06131f;background:#63b3ff;color:#04121f;font-size:14px;cursor:pointer">⛨</button>
     <button id="v-dn" type="button" aria-label="burn to demote" style="width:36px;height:36px;border-radius:9px;border:2px solid #2a0a0a;background:#ff6b57;color:#2a0a0a;font-size:15px;cursor:pointer">▼</button>
   </div>
-  <div id="v-toast" style="text-align:center;font:11px 'Courier New',monospace;letter-spacing:.06em;color:#b8ffd6;opacity:.7;transition:opacity .25s;margin-top:5px;min-height:14px">the rarity court · burn $UR3030 to vote</div>`;
+  <div id="v-toast" style="text-align:center;font:11px 'Courier New',monospace;letter-spacing:.06em;color:#b8ffd6;opacity:.7;transition:opacity .25s;margin-top:5px;min-height:14px">the rarity court · burn $3030 to vote</div>`;
 const WHY_FACT_JS = `\n    const _tags = (d.traits && d.traits.tags) || []; if (_tags.length) $('b-why').textContent = _tags.join(' · ');\n    if (d.factoid) $('b-fact').innerHTML = '<b style="letter-spacing:.08em">◉ DID YOU KNOW</b><br>' + d.factoid;`;
-const voteJS = slug => `\n\n  // ─── the rarity court: burn $UR3030 to vote on THIS card (urm_court, same as the gallery) ───
+const voteJS = slug => `\n\n  // ─── the rarity court: burn $3030 to vote on THIS card (urm_court, same as the gallery) ───
   const SLUG = ${JSON.stringify(slug)};
   const V = () => { let r; try { r = JSON.parse(localStorage.getItem('urm_court')||'{}'); } catch { r = {}; }
     Object.keys(r).forEach(k => { if (typeof r[k] === 'number') r[k] = { net:r[k], hodl:0 }; }); return r; };
   const N = () => { const e = V()[SLUG] || { net:0, hodl:0 }; const el = $('v-net');
     if (el){ el.textContent = (e.net>0?'+':'')+e.net + (e.hodl>0?' ⛨'+e.hodl:''); el.style.color = e.net>0?'#9be34f':e.net<0?'#ff6b57':'#eafff2'; } };
   let vtm; const vsay = m => { const t = $('v-toast'); if(!t) return; t.textContent = m; t.style.opacity = 1;
-    clearTimeout(vtm); vtm = setTimeout(() => { t.style.opacity = .6; t.textContent = 'the rarity court · burn $UR3030 to vote'; }, 2300); };
+    clearTimeout(vtm); vtm = setTimeout(() => { t.style.opacity = .6; t.textContent = 'the rarity court · burn $3030 to vote'; }, 2300); };
   const vote = k => { const v = V(), e = v[SLUG] || { net:0, hodl:0 };
-    if (k==='up'){ e.net += 1; vsay('▲ 1 $UR3030 burned to promote'); }
-    else if (k==='hodl'){ e.hodl += 1; vsay('⛨ 1 $UR3030 to HODL — buffers downvotes'); }
-    else { if (e.hodl>0){ e.hodl -= 1; vsay('▼ absorbed by the HODL buffer — burn still counts'); } else { e.net -= 1; vsay('▼ 1 $UR3030 burned to demote'); } }
+    if (k==='up'){ e.net += 1; vsay('▲ 1 $3030 burned to promote'); }
+    else if (k==='hodl'){ e.hodl += 1; vsay('⛨ 1 $3030 to HODL — buffers downvotes'); }
+    else { if (e.hodl>0){ e.hodl -= 1; vsay('▼ absorbed by the HODL buffer — burn still counts'); } else { e.net -= 1; vsay('▼ 1 $3030 burned to demote'); } }
     v[SLUG] = e; try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {} N(); };
   $('v-up') && ($('v-up').onclick = () => vote('up'));
   $('v-hodl') && ($('v-hodl').onclick = () => vote('hodl'));

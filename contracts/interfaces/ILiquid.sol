@@ -18,7 +18,7 @@ interface ILiquid is IERC20 {
     /// @notice (rarePerToken, tokenPerRare, sqrtPriceX96, currentTick, liquidity, currentSupply)
     /// Order VERIFIED against the live Sepolia deploy (2026-07-24) three ways: the
     /// starter kit's quoteBuy(rareIn)→liquidOut semantics, and raw tick math
-    /// (1.0001^-27780 ≈ 0.0622 UR3030-per-RARE with RARE as token0) both agree
+    /// (1.0001^-27780 ≈ 0.0622 3030-per-RARE with RARE as token0) both agree
     /// word0 = rarePerToken (≈16.08 on the test market). Do not swap these.
     function getMarketState()
         external

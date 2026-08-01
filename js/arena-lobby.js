@@ -2,7 +2,7 @@
  *
  * One compelling presence roster shared by every battle game (battle, dogfight,
  * section 9). Renders the live RipNet roster as animated ripper cards — avatar
- * orb, pulsing status light, handle + verified seal, $UR3030 purse, card count,
+ * orb, pulsing status light, handle + verified seal, $3030 purse, card count,
  * win/loss — with a live header (online / seeking) and per-row actions.
  *
  *   const lobby = ArenaLobby.mount(container, {
@@ -71,7 +71,7 @@ window.ArenaLobby = (function () {
 
   function rowHtml(p, mode) {
     const st = p.status || 'idle';
-    const seal = p.verified ? '<span class="al-seal" title="signed the ledger — stakes real $UR3030">⚜</span>' : '';
+    const seal = p.verified ? '<span class="al-seal" title="signed the ledger — stakes real $3030">⚜</span>' : '';
     const wl = p.wl ? ' · <span class="al-wl">' + esc(p.wl) + '</span>' : '';
     const live = p.bot ? '' : (p.verified ? '' : ' · <span class="al-live">live</span>');
     const av = '<span class="al-av" style="--h:' + hueOf(p.id || p.handle) + '">' + esc(initials(p.handle)) + '</span>';

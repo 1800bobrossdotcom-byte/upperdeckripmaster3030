@@ -1,6 +1,6 @@
 # LENS DRESS REHEARSAL — Sepolia
 
-*Prove `contracts/UR3030Lens721.sol` on testnet before it holds 33 1/1s on mainnet.
+*Prove `contracts/Ripmaster3030Lens721.sol` on testnet before it holds 33 1/1s on mainnet.
 Tooling: `scripts/lens-cli.mjs`. Local tests: `npm run test:lens`.*
 
 There is **no external audit** (artist's call). This rehearsal and the internal review are
@@ -19,7 +19,7 @@ the whole safety net, so it is not optional and it is not a formality.
 - voucher replay rejected · `kind` swap rejected · expired voucher rejected
 - field cards refuse to mint as heroes
 - Lovebeing: one per wallet, transfer reverts, heroes still transferable
-- **the full chain** `MockLiquid → UR3030RenderPrototype → Lens.tokenURI()`, and a 350-token
+- **the full chain** `MockLiquid → Ripmaster3030Renderer → Lens.tokenURI()`, and a 350-token
   pack burn moves the delegated render from `Burned: 0` to `Burned: 350`
 
 What a local EVM cannot prove: real gas, real block times, the **real** Liquid Edition's
@@ -73,7 +73,7 @@ node scripts/lens-cli.mjs verify --at 0x<lens>
 - [ ] `tokenURI()` returns the **edition** JSON through the real Liquid Edition — not the
       mock. This is the one path local tests could only exercise against a stand-in.
 - [ ] `getMarketState()` word order still matches. Word 0 vs word 1 was verified once on
-      Sepolia; signatures drift. Confirm `$UR3030 per RARE` reads sanely, not 1000×off.
+      Sepolia; signatures drift. Confirm `$3030 per RARE` reads sanely, not 1000×off.
 - [ ] `tokenURI(id)` resolves for an **unminted** field card in a real marketplace UI, not
       just via `eth_call`. Some indexers assume a mint.
 - [ ] A hero's `animation_url` renders the live lens in SuperRare's media slot — the same

@@ -25,7 +25,7 @@ interface IERC20Balance {
  *
  *  ── The two tokenURIs, and why there are two ──────────────────────────────────────────
  *      tokenURI()          the EDITION's own display. Delegated to the passthrough renderer
- *                          (contracts/UR3030RenderPrototype.sol), which already draws the
+ *                          (contracts/Ripmaster3030Renderer.sol), which already draws the
  *                          live market/burn card. SuperRare calls this one.
  *      tokenURI(uint256)   PER-CARD metadata for ids 1…100.
  *
@@ -52,7 +52,7 @@ interface IERC20Balance {
  *
  *  NFA. Experimental art token — it can go to zero.
  */
-contract UR3030Lens721 is ERC721, EIP712 {
+contract Ripmaster3030Lens721 is ERC721, EIP712 {
     using Strings for uint256;
 
     // ── deck geometry (model v2.2: 33 heroes + 67 field = 100) ──
@@ -137,7 +137,7 @@ contract UR3030Lens721 is ERC721, EIP712 {
         address claimSigner_,
         string memory externalUrl_,
         string memory lensBaseUrl_
-    ) ERC721(name_, symbol_) EIP712("upperdeckripmaster3030", "1") {
+    ) ERC721(name_, symbol_) EIP712("ripmaster3030studios", "1") {
         owner = msg.sender;
         editionRenderer = editionRenderer_;
         claimSigner = claimSigner_;

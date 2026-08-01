@@ -1,4 +1,4 @@
-# CARD → POWER MAPPING · $UR3030 in-game armory
+# CARD → POWER MAPPING · $3030 in-game armory
 
 **Status: working spec.** The mapping below is LIVE in the games today via
 `js/card-powers.js` (`window.RipPowers`), computed client-side from the local
@@ -86,7 +86,7 @@ wager — you can arm yourself with them AND lose them.
 Today the vault is a local-browser prototype (localStorage). The Phase-2 goal
 is that the SAME mapping above becomes verifiable against the chain:
 
-1. **Ownership**: a wallet's $UR3030 balance (ERC-20 `balanceOf`) gates how
+1. **Ownership**: a wallet's $3030 balance (ERC-20 `balanceOf`) gates how
    many cards it may field; per-card identity comes from the card registry
    manifest hash committed alongside the render contract.
 2. **Attributes onchain**: `atk / def / rarity / trigger` published as a

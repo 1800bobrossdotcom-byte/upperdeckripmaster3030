@@ -2,6 +2,9 @@
  *
  *   Card3D.engine(base)            -> Promise<pc>      load the shared engine once
  *   Card3D.build({canvas, box, …}) -> ctrl | null      build a lit 3D card into that canvas
+ *   ctrl.setArt(url)                                   the flat card — one plate, unchanged
+ *   ctrl.setLayers(spec | null)                        a LAYERED card (js/card-layers.js)
+ *   ctrl.setState(drivers | null)                      drive the look from the live market
  *
  * WHY A MODULE. This started life inside cards/lens3d.html. The moment the binder folder wanted
  * the same card in its pop-out viewer there were two copies, and the copy that mattered was the
@@ -11,6 +14,22 @@
  * FAILS OPEN, everywhere. No WebGL2, no engine, a blocked request, a texture that never
  * decodes — `build` returns null or the card simply renders flatter, and the calling page keeps
  * whatever CSS card it was already showing. A collector never sees a broken frame.
+ *
+ * ── LAYERS AND LIVE STATE, added together on purpose ────────────────────────────────────────
+ * `setLayers` stacks authored plates through the card's thickness; `setState` lets the $3030
+ * market move the card. They arrived in the same pass because they are the two halves of the
+ * same sentence — a lens has depth, and a lens is over something.
+ *
+ * ⚑ THE FLAT PATH IS UNTOUCHED, AND THAT IS LOAD-BEARING. Every card in the repo today is flat
+ *   (196 placeholders + the hero scans), so `setLayers(null)` / never calling it must render the
+ *   card that shipped, and `setState` at rest must too: its neutral dial values were CHOSEN so
+ *   the arithmetic lands back on exactly today's constants — key 1.5, rim 2.4, parallax ×1.0,
+ *   one foil band. A "live" card that looks different when the network is blocked is a card
+ *   whose baseline nobody can trust.
+ * ⚑ AND THE COLOUR PATH IS UNTOUCHED. Layers are lit the same way the single plate is: emissive
+ *   at full strength, `useSkybox:false`, metalness 0. The market drives LIGHT and MOTION — the
+ *   key, the rim, the parallax gain, the foil — and never the artwork's own values, because the
+ *   colour pipeline here is measured, explained, and not to be re-graded by a price.
  */
 (function (global) {
   'use strict';
@@ -233,16 +252,22 @@
     var art  = plate(0.030, W * 0.90, H * 0.90);
     var fx   = plate(0.045, W * 0.99, H * 0.99);
 
-    function texFor(url, cb) {
-      var opts = { mipmaps: true, addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE };
-      if (pc.PIXELFORMAT_SRGBA8 !== undefined) opts.format = pc.PIXELFORMAT_SRGBA8;
+    /* @param o.linear  do NOT tag as sRGB. Colour art is sRGB data; a NORMAL MAP is not — its
+     *                  bytes are a vector, and pushing them through a transfer function bends
+     *                  the surface. Same function, two jobs, one flag.
+     * @param o.repeat  wrap instead of clamp (the travelling foil band needs it). */
+    function texFor(url, cb, o) {
+      o = o || {};
+      var wrap = o.repeat ? pc.ADDRESS_REPEAT : pc.ADDRESS_CLAMP_TO_EDGE;
+      var opts = { mipmaps: true, addressU: wrap, addressV: wrap };
+      if (!o.linear && pc.PIXELFORMAT_SRGBA8 !== undefined) opts.format = pc.PIXELFORMAT_SRGBA8;
       var t;
       try { t = new pc.Texture(app.graphicsDevice, opts); }
       catch (e) { t = new pc.Texture(app.graphicsDevice, { mipmaps: true }); }
-      if ('srgb' in t) t.srgb = true;
+      if (!o.linear && 'srgb' in t) t.srgb = true;
       var img = new Image(); img.crossOrigin = 'anonymous';
       img.onload = function () { t.setSource(img); cb(t, img); };
-      img.onerror = function () {};
+      img.onerror = function () { if (o.onerror) o.onerror(); };
       img.src = url;
     }
 
@@ -308,12 +333,169 @@
     });
     fx.render.material = holo;
 
+    /* ── LAYERED CARDS ────────────────────────────────────────────────────────────────────────
+     * A stack of authored plates through the card's thickness, described by js/card-layers.js.
+     * The flat plates (`art`, `back`) are switched OFF while a stack is mounted and switched
+     * back on when it is cleared, so a page can move between the two without rebuilding.
+     *
+     * ⚑ Z_MAX STOPS SHORT OF THE BEVEL'S FRONT FACE (0.053). A plate at 0.048 sits INSIDE the
+     *   bevel bars' volume but behind their front face, so the depth test hides its border under
+     *   the frame — which is what you want, a layer sliding under the rim rather than through
+     *   it. Push it past 0.053 and the artwork pokes out over the metal.
+     * ⚑ Every plate is transparent with depthWrite OFF and sorted back-to-front by the engine.
+     *   Writing depth from a stack of alpha plates is how you get a subject that punches a black
+     *   hole in the background behind its own soft edges. */
+    var Z_MIN = 0.020, Z_MAX = 0.046;
+    var layerList = [], layerSpec = null;
+
+    function clearLayers() {
+      for (var i = 0; i < layerList.length; i++) {
+        var L = layerList[i];
+        try { L.ent.destroy(); } catch (e) {}
+        try { if (L.tex) L.tex.destroy(); } catch (e) {}
+        try { if (L.nrm) L.nrm.destroy(); } catch (e) {}
+      }
+      layerList = [];
+    }
+
+    function buildLayer(spec) {
+      var sz = (spec.fit === 'full' ? 0.99 : 0.90) * spec.scale;
+      var z = Z_MIN + spec.z * (Z_MAX - Z_MIN);
+      var e = plate(z, W * sz, H * sz);
+      e.enabled = false;                      // nothing is shown until its image actually decodes
+      var rec = { spec: spec, ent: e, z: z, mat: null, tex: null, nrm: null, gain: 1, off: null };
+      layerList.push(rec);
+
+      function finish() {
+        var add = spec.blend === 'add';
+        rec.mat = mkMat({
+          /* Same recipe as the single plate, decision for decision — see setArt's note. The one
+           * thing that MUST NOT drift is `useSkybox:false`: a StandardMaterial samples the
+           * environment for ambient specular, and on artwork that is the milky wash that lifts
+           * blacks and eats saturation. Metal reflects the env; artwork never does. */
+          emissiveMap: rec.tex, emissive: new pc.Color(1, 1, 1), diffuse: new pc.Color(0, 0, 0),
+          normalMap: rec.nrm, bumpiness: rec.nrm ? 0.42 : 0,
+          gloss: 0.62, metalness: 0, useMetalness: false,
+          specular: new pc.Color(0.05, 0.05, 0.05), useSkybox: false,
+          blendType: add ? pc.BLEND_ADDITIVE : pc.BLEND_NORMAL,
+          /* ⚑ ADDITIVE IGNORES `opacity` — it adds src to dst whatever you set. The same trap the
+           * holo band fell into: on an additive layer the strength has to live in the emissive
+           * COLOUR, which is exactly what `drive` writes to. */
+          opacityMap: add ? null : rec.tex, opacityMapChannel: 'a',
+          opacity: add ? 1 : spec.opacity,
+          depthWrite: false
+        });
+        e.render.material = rec.mat;
+        e.enabled = true;
+        applyGain(rec);
+      }
+
+      texFor(spec.src, function (t, img) {
+        rec.tex = t;
+        if (spec.normal) {
+          /* An AUTHORED normal beats a derived one every time — deriving it is a guess about
+           * which parts of a drawing are raised. Linear, never sRGB. */
+          texFor(spec.normal, function (nt) { rec.nrm = nt; finish(); },
+                 { linear: true, onerror: finish });
+        } else if (spec.relief > 0) {
+          try { rec.nrm = normalFromImage(pc, app.graphicsDevice, img, spec.relief); }
+          catch (e2) { rec.nrm = null; }
+          finish();
+        } else finish();
+      }, { repeat: !!spec.foil });
+    }
+
+    /** @param spec a normalised CardLayers spec, or null to go back to the flat card. */
+    function setLayers(spec) {
+      clearLayers();
+      layerSpec = (spec && spec.layers && spec.layers.length) ? spec : null;
+      var flat = !layerSpec;
+      art.enabled = flat; back.enabled = flat;
+      if (flat) { fx.enabled = true; return true; }
+      var hasFoil = false;
+      for (var i = 0; i < layerSpec.layers.length; i++) {
+        if (layerSpec.layers[i].foil) hasFoil = true;
+        buildLayer(layerSpec.layers[i]);
+      }
+      /* An authored foil layer REPLACES the generated sweep rather than stacking with it — two
+       * travelling bands on one card reads as a rendering bug, not as more foil. */
+      fx.enabled = !hasFoil;
+      return true;
+    }
+
+    /* ── live market state ────────────────────────────────────────────────────────────────────
+     * `drivers` are the 0..1 dials from js/lens-state.js: { live, burn, price, depth }.
+     *
+     * ⚑ THE RESTING VALUES ARE THE POINT. price 0.5 / depth 0.5 / burn 0 put the key back at
+     *   1.5, the rim at 2.4, the parallax gain at 1.0 and the foil at one band — i.e. exactly
+     *   the card that shipped. A blocked frame, a dead RPC, `?nostate` and a card nobody has
+     *   wired up all render the same thing, and that thing is the one we already tuned.
+     * ⚑ WHAT THE MARKET IS ALLOWED TO TOUCH: light and motion. Not the artwork's colour. The
+     *   art plate is emissive with a black diffuse, so lights cannot re-grade it by
+     *   construction — which is why raising the key on a hot market is safe here and would not
+     *   be on a diffuse-lit card. */
+    var drivers = { live: false, burn: 0, price: 0.5, depth: 0.5 };
+    var parGain = 1, bands = 1;
+    var _tile = new pc.Vec2(1, 1);
+
+    function driveValue(name) {
+      var v = name === 'burn' ? drivers.burn : name === 'price' ? drivers.price
+            : name === 'depth' ? drivers.depth : null;
+      return (v === null || !drivers.live) ? null : v;
+    }
+    function applyGain(rec) {
+      var d = rec.spec.drive; if (!d || !rec.mat) return;
+      var v = driveValue(d.gain);
+      /* No live read ⇒ sit at the TOP of the authored range, not the bottom. A layer the artist
+       * drew is part of the card; the market may push it further, it may not delete it because
+       * a fetch failed. */
+      var g = (v === null) ? d.max : d.min + (d.max - d.min) * v;
+      if (Math.abs(g - rec.gain) < 0.004) return;
+      rec.gain = g; rec.mat.emissive.set(g, g, g); rec.mat.update();
+    }
+
+    function setState(d) {
+      drivers = d && typeof d === 'object'
+        ? { live: !!d.live, burn: +d.burn || 0, price: isFinite(d.price) ? d.price : 0.5,
+            depth: isFinite(d.depth) ? d.depth : 0.5 }
+        : { live: false, burn: 0, price: 0.5, depth: 0.5 };
+      var price = drivers.live ? drivers.price : 0.5;
+      var depth = drivers.live ? drivers.depth : 0.5;
+      var burn  = drivers.live ? drivers.burn  : 0;
+
+      key.light.intensity = 1.5 * (0.88 + 0.24 * price);     // 1.5 at rest
+      rim.light.intensity = 2.4 * (0.85 + 0.30 * price);     // 2.4 at rest
+      /* MARKET DEPTH BECOMES VISUAL DEPTH — the layers separate as the book does, and a market
+       * with zero liquidity flattens the card onto its own plate. Not a metaphor we invented to
+       * be clever: it is the one mapping where the failure mode states something true. */
+      parGain = 0.70 + 0.60 * depth;                          // 1.0 at rest
+      /* The burn adds BANDS to the foil. A number nobody can read becomes a thing you can count,
+       * and it only ever goes one way, because burns are permanent. */
+      var b = 1 + Math.round(3 * burn);
+      if (b !== bands) { bands = b; _tile.set(b, b); holo.emissiveMapTiling = _tile; holo.update(); }
+      for (var i = 0; i < layerList.length; i++) applyGain(layerList[i]);
+      return drivers;
+    }
+
     if (o.env) loadEnv(pc, app, o.env).then(function (atlas) {
       app.scene.envAtlas = atlas;
       app.scene.skyboxIntensity = 0.55;   // fill and reflection only — the key light still keys
     }).catch(function () {});
 
     var getTilt = o.tilt || function () { return { x: 0, y: 0 }; };
+    /* ⚠ prefers-reduced-motion is a request about AUTONOMOUS motion. The tilt is direct
+     * manipulation — the collector's own pointer — so it stays; the foil's travelling band and
+     * the idle shimmer are the card moving on its own, so they stop. Live, because a viewer can
+     * change the setting while the card is on screen and the whole point is that it is respected
+     * when they do. */
+    var reduce = false;
+    try {
+      var mq = matchMedia('(prefers-reduced-motion: reduce)');
+      reduce = !!mq.matches;
+      var onMQ = function (e) { reduce = !!e.matches; };
+      if (mq.addEventListener) mq.addEventListener('change', onMQ); else if (mq.addListener) mq.addListener(onMQ);
+    } catch (e) { reduce = false; }
+
     var t = 0, lastHeat = -1;
     /* ⚑ DO NOT CALL material.update() EVERY FRAME. It rebuilds the material's shader parameters,
      * and doing it 60 times a second for a value that barely moved is most of what made the card
@@ -322,15 +504,29 @@
      * nothing — and `update()` only fires when the heat has actually changed enough to see. */
     var _off = new pc.Vec2(0, 0);
     app.on('update', function (dt) {
-      t += dt;
+      if (!reduce) t += dt;
       var q = getTilt() || { x: 0, y: 0 };
       root.setLocalEulerAngles(-q.y * 13, q.x * 16, q.x * -2);
       // the layers slide against each other by depth — the parallax that sells it
-      art.setLocalPosition(q.x * -0.022, q.y * 0.022, 0.030);
-      back.setLocalPosition(q.x * 0.016, q.y * -0.016, 0.019);
+      if (layerList.length) {
+        for (var i = 0; i < layerList.length; i++) {
+          var L = layerList[i], p = L.spec.par * parGain;
+          L.ent.setLocalPosition(q.x * -0.022 * p, q.y * 0.022 * p, L.z);
+          if (L.spec.foil && L.mat) {
+            if (!L.off) L.off = new pc.Vec2(0, 0);
+            L.off.x = -((t * 0.16) % 1); L.mat.emissiveMapOffset = L.off;
+          }
+        }
+      } else {
+        art.setLocalPosition(q.x * -0.022 * parGain, q.y * 0.022 * parGain, 0.030);
+        back.setLocalPosition(q.x * 0.016 * parGain, q.y * -0.016 * parGain, 0.019);
+      }
       _off.x = -((t * 0.16) % 1); holo.emissiveMapOffset = _off;
       // additive lifts blacks and this art has real blacks, so idle is nearly nothing
-      var heat = 0.012 + 0.115 * Math.min(1, Math.hypot(q.x, q.y));
+      /* Tilt still brightens the foil under reduced-motion — that is the collector's own hand,
+       * not the card animating at them. Only the BAND'S TRAVEL is frozen (t stops advancing). */
+      var heat = 0.012 + 0.115 * Math.min(1, Math.hypot(q.x, q.y))
+               + 0.05 * (drivers.live ? drivers.burn : 0);
       if (Math.abs(heat - lastHeat) > 0.004) {
         lastHeat = heat;
         holo.emissive.set(heat, heat, heat);
@@ -345,6 +541,16 @@
     var ctrl = {
       app: app, root: root, art: art, back: back, fx: fx, holo: holo, key: key, rim: rim, body: body,
       setArt: setArt,
+      setLayers: setLayers,
+      setState: setState,
+      /* Read-only views for a headless check — "is the stack actually mounted, and what is the
+       * market doing to it right now" has to be answerable without screenshotting a guess. */
+      layers: function () { return layerList; },
+      layerSpec: function () { return layerSpec; },
+      state: function () {
+        return { drivers: drivers, parGain: parGain, bands: bands, reduced: reduce,
+                 key: key.light.intensity, rim: rim.light.intensity, layers: layerList.length };
+      },
       setRarity: function (r) {
         var hex = RARITY[r] || RARITY.common, c = new pc.Color().fromString(hex);
         rim.light.color = new pc.Color(c.r, c.g, c.b);
@@ -353,6 +559,7 @@
       destroy: function () {
         removeEventListener('resize', onResize);
         if (ro) { try { ro.disconnect(); } catch (e) {} }
+        clearLayers();
         try { app.destroy(); } catch (e) {}
       }
     };

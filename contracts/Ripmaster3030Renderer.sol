@@ -25,7 +25,7 @@ interface ILiquid {
 }
 
 /// @title upperdeckripmaster3030 — render prototype
-/// @notice PROTOTYPE renderer for the $UR3030 Liquid Edition. Proves the
+/// @notice PROTOTYPE renderer for the $3030 Liquid Edition. Proves the
 ///         mechanism: the token's tokenURI() delegates here, and this reads
 ///         LIVE market state (supply, price, tick) off the token to draw a
 ///         dynamic "market card" on-chain. The visual is a deliberate
@@ -33,7 +33,7 @@ interface ILiquid {
 ///         token at a fresh render contract (setRenderContract is re-callable).
 /// @dev    Owner can retarget name/description/external_url without a redeploy,
 ///         so copy can iterate freely on testnet.
-contract UR3030RenderPrototype {
+contract Ripmaster3030Renderer {
     using Strings for uint256;
 
     struct Snap {
@@ -41,8 +41,8 @@ contract UR3030RenderPrototype {
         uint256 maxWhole;      // maxTotalSupply, whole tokens
         uint256 burnedWhole;   // permanently burned = max − live (mint-once, burns never re-mint)
         uint256 pctBps;        // burned fraction of the mint, in basis points (0..10000)
-        uint256 perRareInt;    // integer part of $UR3030 per RARE
-        uint256 perRareFrac;   // two-decimal fraction of $UR3030 per RARE
+        uint256 perRareInt;    // integer part of $3030 per RARE
+        uint256 perRareFrac;   // two-decimal fraction of $3030 per RARE
         int24 tick;
         string sym;
     }
@@ -126,7 +126,7 @@ contract UR3030RenderPrototype {
         s.burnedWhole = burnedWei / 1e18;
         s.pctBps = maxSupply == 0 ? 0 : (burnedWei * 10_000) / maxSupply;   // 0..10000
 
-        // tokenPerRare ($UR3030 per RARE) is word1 — order verified on the live
+        // tokenPerRare ($3030 per RARE) is word1 — order verified on the live
         // Sepolia deploy via quoteBuy(rareIn)→liquidOut + tick math (see
         // interfaces/ILiquid.sol). 18-dec fixed point, often <1 (0.062 on the
         // uncalibrated test market), so `/1e18` truncates to 0: scale ×100
@@ -210,7 +210,7 @@ contract UR3030RenderPrototype {
                 '{"trait_type":"Burned","value":', s.burnedWhole.toString(), "},",
                 '{"trait_type":"Live Supply","value":', s.supplyWhole.toString(), "},",
                 '{"trait_type":"Max Supply","value":', s.maxWhole.toString(), "},",
-                '{"trait_type":"UR3030 per RARE","value":"', _dec2(s.perRareInt, s.perRareFrac), '"},',
+                '{"trait_type":"3030 per RARE","value":"', _dec2(s.perRareInt, s.perRareFrac), '"},',
                 '{"trait_type":"Burned %","value":', (s.pctBps / 100).toString(), "},",
                 '{"trait_type":"Market Tick","value":"', _tickStr(s.tick), '"}]}'
             )

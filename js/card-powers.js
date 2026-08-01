@@ -3,8 +3,8 @@
  * Your cards are an ARMORY. Stake them into a game and they arm you: each card
  * amplifies your craft/operative (damage, fire-rate, shields, speed, score) and
  * can ACTIVATE specific guns and power-ups — and the whole thing flexes with LIVE
- * $UR3030 market activity read straight off the chain. Hotter chain = hotter cards.
- * The $UR3030 ante is the WAGER (net-zero — winner takes the pot); your staked cards
+ * $3030 market activity read straight off the chain. Hotter chain = hotter cards.
+ * The $3030 ante is the WAGER (net-zero — winner takes the pot); your staked cards
  * ride along and transfer to the winner. You can lose them, but they're never burned. ikyk.
  *
  * Shared by every cabinet (dogfight, riprocketer, section 9):

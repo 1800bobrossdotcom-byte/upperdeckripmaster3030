@@ -92,8 +92,22 @@
    * the repo untouched; it is simply no longer what greets people.
    * ⚑ This is a STAND-IN for a piece of authored art, and it should be replaced by a proper
    * re-cut wordmark when the artist makes one. It is not trying to be that artwork — it is
-   * trying to stop the site introducing itself by the wrong name. */
-  .wordmark{ display:block; margin:0 auto; font-family:var(--fat);
+   * trying to stop the site introducing itself by the wrong name.
+   *
+   * ⚑ THE FACE IS PINNED TO THE VENDORED ANTON, and that is a correctness fix as much as a
+   * design one. `var(--fat)` is `'Arial Black','Arial Bold',Arial` — a font that does not exist
+   * on Linux or Android, where fontconfig quietly substitutes something else entirely. So the
+   * wordmark was ALREADY a different typeface, at a different width, per platform: measured here
+   * at 671px wide where a Mac would have rendered it narrower. `fonts/anton.woff2` is in the
+   * repo (OFL, self-hosted — see fonts/README.md), so pinning it makes the wordmark the same
+   * object everywhere. It also has to be pinned before js/hero3d.js can work at all: the 3D type
+   * is cut from THESE outlines, and it lands on the box the CSS lays out, so the two have to be
+   * the same face or the overlay is a size guess.
+   * ⚠ Anton is condensed, so the font-size clamps below are ~1.43x the old ones — chosen to
+   * reproduce the widths the old face rendered at (671px at 1280, 243px at 390), not by eye. */
+  @font-face{ font-family:'Anton'; src:url(fonts/anton.woff2) format('woff2');
+    font-weight:400; font-style:normal; font-display:swap; }
+  .wordmark{ display:block; margin:0 auto; font-family:'Anton',var(--fat);
     font-weight:900; letter-spacing:-.012em; line-height:.92; text-align:center;
     text-transform:uppercase; white-space:nowrap; -webkit-user-select:none; user-select:none;
     background:linear-gradient(178deg,#eafff2 4%,#2bff80 24%,#27f7e4 46%,#7aa8ff 60%,#ff2ad9 80%,#ffd23b 96%);
@@ -106,9 +120,15 @@
    * fixed width (min(80vw,760px)); inherited by a text node with white-space:nowrap that clips
    * the last word — the first render read "RIPMASTER3030STUDIO" with the S cut off by a torch.
    * Type sizes from its own content; it must never be given the bitmap's box. */
-  .marquee-art.wordmark{ width:auto; max-width:min(92vw,900px); font-size:clamp(19px,5.4vw,58px); }
-  .intro-wordmark.wordmark{ width:auto; max-width:92vw; font-size:clamp(17px,4.8vw,46px); }
+  .marquee-art.wordmark{ width:auto; max-width:min(92vw,900px); font-size:clamp(27px,7.7vw,84px); }
+  .intro-wordmark.wordmark{ width:auto; max-width:92vw; font-size:clamp(24px,6.9vw,66px); }
   @media (max-width:560px){ .wordmark{ white-space:normal; line-height:1.02; } }
+  /* ── the 3D layer (js/hero3d.js) ──────────────────────────────────────────────────────────
+   * The canvas is created, sized and positioned entirely by that file, from the wordmark's own
+   * measured box — deliberately, so the module works unchanged on any page that has a `.wordmark`
+   * and so a stylesheet edit can never leave a canvas floating somewhere the type is not.
+   * Nothing here is required for the type to render: with the script absent, blocked, or failing
+   * at any of its steps, everything above is exactly what ships. */
   .torch{ flex:none; width:auto; height:clamp(70px,15vw,150px); image-rendering:auto;
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(52px,13vw,90px); } }
@@ -518,6 +538,12 @@
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
 <script src="js/bg-foil.js" defer></script>
+<!-- The hero wordmark as real 3D type. gfx-post.js first, for the ONE shared definition of
+     "weak device" (GfxPost.dprCap) — bg-foil.js reads it too and has always fallen back to a
+     hard-coded 2 on this page for want of it. Both are `defer`, so neither delays first paint,
+     and hero3d waits for an idle callback after that before it fetches the engine at all. -->
+<script src="js/gfx-post.js" defer></script>
+<script src="js/hero3d.js" defer></script>
 </head>
 <body>
   <div id="introSplash" role="dialog" aria-label="Intro — transmission from the founder">
@@ -600,7 +626,7 @@
           b.classList.remove('slammed'); void b.offsetWidth; b.classList.add('slammed');
         });
       })();</script>
-      <div class="dataplate">Type UR-3030 · Liquid trading-card system · token $3030 · spec rev. 03</div>
+      <div class="dataplate">Type 3030 · Liquid trading-card system · token $3030 · spec rev. 03</div>
       <div class="stars" title="four pack tiers"><b>I</b><b>II</b><b>III</b><b>IV</b></div>
     </header>
 

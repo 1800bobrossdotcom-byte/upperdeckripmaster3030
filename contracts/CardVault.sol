@@ -46,7 +46,7 @@ import {ILiquid} from "./interfaces/ILiquid.sol";
 /// for the path to trustless resolution). Deploy per docs/TESTNET.md §5.
 contract CardVault is ERC1155 {
     // ─── the cast ───
-    ILiquid public immutable token;          // the liquid edition ($UR3030) — the thing that burns
+    ILiquid public immutable token;          // the liquid edition ($3030) — the thing that burns
     address public curator;                  // opens seasons, registers cards, sets tolls
     address public resolver;                 // reports arena results (testnet: the site's engine)
     address public creator;                  // receives the constructive cut (forge / upvote / hodl)
@@ -61,7 +61,7 @@ contract CardVault is ERC1155 {
     mapping(uint256 => CardInfo) public cardInfo;          // id => info (id = deck number)
     mapping(uint32 => mapping(uint8 => uint256[])) private _pool; // season => tier => ids (pack pulls)
 
-    // ─── the burn schedule (all 18-decimals $UR3030, all destroyed on use) ───
+    // ─── the burn schedule (all 18-decimals $3030, all destroyed on use) ───
     uint256 public sendToll    = 1e18;       // gift a card
     uint256 public tradeToll   = 1e18;       // per side of a swap
     uint256 public wagerToll   = 2e18;       // per side of an arena match
@@ -79,7 +79,7 @@ contract CardVault is ERC1155 {
     // budget has been ripped. And because the field is burned DOWN toward the
     // 77-survivor deck, every season opens with a SMALLER card budget and a HIGHER
     // floor than the last — packs get scarcer and dearer the deeper the game runs.
-    // packBase/packCeil are $UR3030 amounts, recalibrated by the curator at each
+    // packBase/packCeil are $3030 amounts, recalibrated by the curator at each
     // openSeason to track the USD target ($7 opening, rising) against live price.
     uint256 public constant CARDS_PER_PACK = 7;
     uint256 public seasonCardBudget;         // card copies mintable via packs this season (0 = uncapped)
@@ -93,7 +93,7 @@ contract CardVault is ERC1155 {
     // destroying editions — until a **standard deck of 77 survivors** remains.
     // The highest-ranked non-survivors seed the next season. When an edition is
     // burned down and its last copy destroyed, the keeper of that final card is
-    // rewarded: a payout of $UR3030 FROM THE HOUSE reward pool, plus a minted
+    // rewarded: a payout of $3030 FROM THE HOUSE reward pool, plus a minted
     // ASH TROPHY card — a "last of its kind" collectible commemorating the edition.
     uint256 public constant STANDARD_DECK = 77;
     uint256 public nextTrophy = 9000;
@@ -102,11 +102,11 @@ contract CardVault is ERC1155 {
     mapping(uint256 => bool) public isAshTrophy;          // trophy ids (not deck cards)
     event AshTrophy(uint256 indexed editionId, address indexed keeper, uint256 trophyId, uint256 reward);
 
-    // ─── the house reward pool ($UR3030 the vault holds to pay last-standers) ───
+    // ─── the house reward pool ($3030 the vault holds to pay last-standers) ───
     // Not a treasury for an operator: it is a player bounty. A slice of every pack
     // rip seeds it, anyone can top it up (fundReward), and it pays out to whoever
     // ends an edition. Packs (adding cards) fund the bounty for culling cards.
-    uint256 public rewardPool;                    // $UR3030 held for last-stander payouts
+    uint256 public rewardPool;                    // $3030 held for last-stander payouts
     uint256 public lastStandingReward = 50e18;    // paid to the keeper who ends an edition
     uint256 public rewardCut = 1e18;              // of each pack price, this seeds the pool
 
@@ -453,7 +453,7 @@ contract CardVault is ERC1155 {
         _burn(msg.sender, id, sup);          // every copy to ash (supplyOf → 0 via _update)
         cardInfo[id].exists = false;
         retired[id] = true;
-        // reward the last keeper: an Ash Trophy card + a $UR3030 payout from the house
+        // reward the last keeper: an Ash Trophy card + a $3030 payout from the house
         trophyId = ++nextTrophy;
         trophyForEdition[id] = trophyId;
         trophyEdition[trophyId] = id;

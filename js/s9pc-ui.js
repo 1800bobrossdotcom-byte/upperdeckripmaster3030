@@ -128,17 +128,17 @@ window.S9PCUI = (function () {
       $('anteVal').textContent = wager.ante; $('cardsVal').textContent = wager.cards; $('pickN').textContent = wager.cards;
       const tokPot = wager.ante * wager.players, cardPot = wager.cards * wager.players;
       const potBurn = Math.round(tokPot * WagerPayout.BURN_PCT), potNet = tokPot - potBurn;
-      $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+      $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
       const others = othersFor(wager.players);
       $('roster').innerHTML = 'in the match: <span class="v">◈ ' + esc(myHandle()) + '</span> · ' + others.map(o => (o.v ? '⚜ ' : '') + esc(o.h)).join(' · ');
       const Wt = window.RipWallet, canReal = liveToken() && Wt && Wt.hasWallet();
       const enough = wager.picked.length === wager.cards;
       $('btnAnte').disabled = !(canReal && enough);
       const note = $('lobNote');
-      if (!liveToken()) note.innerHTML = '$UR3030 isn’t live on this network yet — the wager runs as a <b>practice</b> deployment.';
-      else if (!(Wt && Wt.hasWallet())) note.innerHTML = 'Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
+      if (!liveToken()) note.innerHTML = '$3030 isn’t live on this network yet — the wager runs as a <b>practice</b> deployment.';
+      else if (!(Wt && Wt.hasWallet())) note.innerHTML = 'Connect a wallet (sign the ledger) to ante real $3030 and stake cards for keeps.';
       else if (!enough) note.innerHTML = `Pick <b>${wager.cards}</b> card${wager.cards > 1 ? 's' : ''} for the pot to ante for keeps.`;
-      else note.innerHTML = 'Ante <b>' + wager.ante + ' $UR3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · your <b>' + wager.cards + '</b> cards stake in · <b>podium 1st/2nd/3rd</b> splits it.';
+      else note.innerHTML = 'Ante <b>' + wager.ante + ' $3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · your <b>' + wager.cards + '</b> cards stake in · <b>podium 1st/2nd/3rd</b> splits it.';
     }
     function othersFor(n) {
       const others = [], seen = new Set([myHandle()]);
@@ -275,13 +275,13 @@ window.S9PCUI = (function () {
       $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace) + ' place · ' + (G.me ? G.me.kills : 0) + ' frags')
         : ('off the podium · out-fragged by ' + shortName((winner && winner.name) || 'the field'));
       if (!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ ' + WagerPayout.ordinal(P.myPlace) + ' — ON THE PODIUM') : 'BETTER LUCK NEXT DROP');
-      else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace) + ' · +' + P.myTok.toLocaleString('en-US') + ' $UR3030 · +' + wonSlugs.length + ' cards')
+      else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace) + ' · +' + P.myTok.toLocaleString('en-US') + ' $3030 · +' + wonSlugs.length + ' cards')
         : ('off the podium · 🔥' + P.anteBurn + ' rake burned');
       $('prizeSub').textContent = onPodium ? ('you placed ' + WagerPayout.ordinal(P.myPlace) + ' of ' + wager.players + ' · ' + (G.me ? G.me.kills : 0) + ' frags / ' + (G.me ? G.me.deaths : 0) + ' downs')
         : ('winner: ' + shortName((winner && winner.name) || '—') + ' · you: ' + (G.me ? G.me.kills : 0) + ' frags');
       $('scoreboard').innerHTML = ranked.slice(0, 8).map((e, i) => `<div class="r${e.isMe ? ' me' : ''}"><span>${i + 1}. ${(e.verified ? '⚜ ' : '')}${esc(e.isMe ? 'YOU' : shortName(e.name))}</span><span><span class="k">${e.kills}</span> frags · ${e.deaths} downs</span></div>`).join('');
       $('scaNote').innerHTML = G.real
-        ? 'Your <b>🔥' + P.anteBurn + ' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+        ? 'Your <b>🔥' + P.anteBurn + ' $3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
         : 'Practice deployment — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
       if (iWon) SFX.win(); else SFX.down();
       $('ovResult').classList.add('show'); buildGrid();

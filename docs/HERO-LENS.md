@@ -19,7 +19,7 @@ tokenURI(id)  →  on-chain JSON
                                      └─ <iframe src="https://upperdeckripmaster3030.com/cards/hero/<id>.html">
 ```
 
-The wrapper is on-chain and tiny (see `_animHtml` in `contracts/UR3030RenderPrototype.sol`).
+The wrapper is on-chain and tiny (see `_animHtml` in `contracts/Ripmaster3030Renderer.sol`).
 SuperRare's media slot renders `animation_url` as a **`data:text/html` document, not an
 external URL** — which is the whole reason the indirection exists.
 

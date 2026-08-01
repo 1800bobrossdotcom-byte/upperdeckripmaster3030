@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Flatten a contract and its imports into ONE file that can be pasted into Remix.
  *
- *   node scripts/flatten.mjs contracts/UR3030Lens721.sol
+ *   node scripts/flatten.mjs contracts/Ripmaster3030Lens721.sol
  *
  * Why this exists: deploying from Remix means the private key never leaves MetaMask —
  * no key in a shell, no key in an env var, no key in a script's memory. For a contract
@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import solc from 'solc';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const entry = process.argv[2] || 'contracts/UR3030Lens721.sol';
+const entry = process.argv[2] || 'contracts/Ripmaster3030Lens721.sol';
 const outDir = join(ROOT, 'contracts', 'build');
 
 function resolvePath(spec, fromDir) {

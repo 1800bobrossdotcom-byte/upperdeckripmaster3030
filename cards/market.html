@@ -40,6 +40,33 @@
     font-size:13px; padding:8px 10px; cursor:pointer; width:100%; }
   .urm-list button:hover{ border-color:var(--phos); }
   .urm-list img{ width:30px; height:42px; object-fit:cover; border-radius:4px; flex:none; }
+  /* ── the header prop ─────────────────────────────────────────────────────────────────────
+     A real 3D bench (js/site3d-prop.js, PlayCanvas) built from the same Blender-baked steel and
+     vinyl this page is tiled with. ⛔ FAILS OPEN: `.flat` is the page's own markup and is faded
+     only once `is3d` says a canvas exists. No WebGL2 / Save-Data ⇒ textured plate + glyph. */
+  .hd{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:clamp(10px,2.5vw,26px);
+    align-items:center; margin-top:8px; }
+  .hd .mid{ min-width:0; }
+  .hd h1{ margin-top:0; }
+  .prop3d{ position:relative; width:min(26vw,190px); aspect-ratio:1/1; border-radius:14px; overflow:hidden;
+    border:1px solid rgba(43,255,128,.16);
+    background:linear-gradient(rgba(2,10,5,.44),rgba(2,10,5,.64)),
+               url("../media/site/vinyl-albedo.webp") repeat, #020a05;
+    background-size:auto,170px,auto;
+    box-shadow:0 20px 44px -20px #000, 0 0 22px rgba(43,255,128,.05) inset; }
+  .prop3d .flat{ position:absolute; inset:0; display:grid; place-items:center; font-size:44px;
+    color:rgba(43,255,128,.30); text-shadow:0 0 22px rgba(43,255,128,.22);
+    transition:opacity .5s ease; pointer-events:none; }
+  .prop3d.is3d .flat{ opacity:0; }
+  /* the left slot is a spacer that keeps the title optically centred; it goes first on a phone */
+  .hd .spacer{ width:min(26vw,190px); }
+  @media (max-width:760px){
+    .hd{ grid-template-columns:minmax(0,1fr); }
+    .hd .spacer{ display:none; }
+    .prop3d{ width:min(54vw,180px); margin:12px auto 0; }
+  }
+  @media (prefers-reduced-motion:reduce){ .prop3d .flat{ transition:none; } }
+
   h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
   .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
@@ -59,15 +86,27 @@
   .binder{ display:grid; grid-template-columns:1fr 1fr; gap:0; border-radius:14px; overflow:hidden;
     border:1px solid var(--phosdim); box-shadow:0 24px 60px -18px #000, inset 0 0 40px rgba(0,0,0,.6); background:#010a06; }
   @media (max-width:640px){ .binder{ grid-template-columns:1fr; } .book .page.right{ display:none; } }
+  /* ⚑ The leaves are the BAKED VINYL under the existing ledger grid, not instead of it — the
+     grid is what says "ledger" and the vinyl is what says "binder". The scrim above it is the
+     strength knob; what has to stay legible is the composite, and scripts/build-site-check.mjs
+     measures it in the boxes the leaf numbers actually sit in. */
   .page{ position:relative; padding:20px 16px; min-height:420px; background:
       linear-gradient(180deg, rgba(43,255,128,.05), rgba(0,0,0,0)),
       repeating-linear-gradient(90deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(0deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px), var(--leaf); }
+      repeating-linear-gradient(0deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px),
+      linear-gradient(rgba(1,9,5,.58), rgba(1,9,5,.72)),
+      url("../media/site/vinyl-albedo.webp") repeat, var(--leaf);
+    background-size:auto,auto,auto,auto,210px,auto; }
   .page.left{ border-right:1px solid #000; box-shadow:inset -22px 0 40px -22px #000; }
   .page.right{ box-shadow:inset 22px 0 40px -22px #000; }
   .rings{ position:absolute; top:0; bottom:0; width:22px; display:flex; flex-direction:column; justify-content:space-around; padding:26px 0; }
   .left .rings{ right:-11px; } .right .rings{ left:-11px; }
-  .ring{ width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #0a2a19, #000);
+  /* real brushed nickel, same tile the 3D bench's hardware uses — the highlight on top is what
+     makes it read as round, the grain underneath is what makes it read as metal */
+  .ring{ width:14px; height:14px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(255,255,255,.5), rgba(255,255,255,0) 56%),
+               url("../media/site/steel-albedo.webp") repeat, #223;
+    background-size:auto,24px,auto;
     border:1px solid #123; box-shadow:0 0 6px rgba(0,0,0,.8), inset 0 0 3px rgba(43,255,128,.25); }
   .page-no{ position:absolute; bottom:8px; font-size:9px; letter-spacing:.2em; color:#3f8f63; text-transform:uppercase; }
   .left .page-no{ left:18px; } .right .page-no{ right:18px; }
@@ -119,7 +158,11 @@
   .market{ display:none; margin-top:18px; }
   .market.show{ display:block; }
   .board{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:14px; }
-  .listing{ border:1px solid var(--phosdim); border-radius:10px; background:rgba(2,16,9,.7); overflow:hidden; display:flex; flex-direction:column; }
+  .listing{ border:1px solid var(--phosdim); border-radius:10px;
+    background:linear-gradient(rgba(2,16,9,.80),rgba(2,16,9,.86)),
+               url("../media/site/vinyl-albedo.webp") repeat, #020a05;
+    background-size:auto,190px,auto;
+    overflow:hidden; display:flex; flex-direction:column; }
   .listing .top{ display:flex; gap:8px; padding:8px; }
   .listing img{ width:52px; height:70px; object-fit:cover; border-radius:5px; border:1px solid var(--phosdim); flex:none; }
   .listing .meta{ flex:1; min-width:0; }
@@ -174,6 +217,9 @@
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
 <script src="../js/bg-foil.js" defer></script>
+<!-- the header prop. Site3D defers its own engine fetch behind IntersectionObserver +
+     requestIdleCallback, so `defer` here only orders the parse, not the 2.26 MB. -->
+<script src="../js/site3d-prop.js" defer></script>
 </head>
 <body>
   <div class="lm" aria-hidden="true"></div>
@@ -181,8 +227,14 @@
     <a class="back" href="../index.html">◄ back to the pack</a>
     <a class="back" href="binder.html" style="margin-left:14px">▤ the folder</a>
     <a class="back" href="battle.html" style="margin-left:14px"><span class="ic" data-ic="swords"></span> the arena</a>
-    <h1>The Market Bench</h1>
-    <div class="sub">your vault · deal the market</div>
+    <div class="hd">
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="mid">
+        <h1>The Market Bench</h1>
+        <div class="sub">your vault · deal the market</div>
+      </div>
+      <div class="prop3d" data-site3d="bench" aria-hidden="true"><span class="flat">⇄</span></div>
+    </div>
     <div class="burned" id="burned"></div>
     <div class="honesty-note">Your binder is a <b>testnet prototype</b> — cards, listings &amp; the burn
       tally save in your browser today, and real on-chain card ownership is a later phase. Only the

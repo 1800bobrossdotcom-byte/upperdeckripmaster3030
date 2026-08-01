@@ -3,8 +3,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>3D CARD LENS — test</title>
 <!--
-  upperdeckripmaster3030 — DYNAMIC 3D CARD, proof of concept.
+  ripmaster3030studios — DYNAMIC 3D CARD, proof of concept.
   cards/lens3d.html?card=<slug>          (defaults to a test card)
+  cards/lens3d.html?hero=NN              one of the artist's own cards
+  cards/lens3d.html?demo                 the authored LAYERED demo (media/lens/demo)
+  switches: ?nogl (force CSS)  ?nostate (no chain reads)  ?nolayers (force one flat plate)
+
+  ── WHAT A LENS IS, in two halves ─────────────────────────────────────────────────────────
+  DEPTH: a card is built from separated plates — backing, mid, subject, FX, foil — that slide
+  against each other as it turns. Described by a sidecar next to the art (js/card-layers.js).
+  ⛔ We do NOT segment flat art to fake this. Every card in the repo today is a single flat
+     plate and renders as one; layers arrive when the artist authors them.
+  LIVE: the card is a lens OVER SOMETHING — the $3030 edition's own market. Burn progress,
+  price and liquidity are read over a public RPC (js/lens-state.js) and drive the light, the
+  parallax and the foil. Read-only. No wallet, ever, for the reason below.
 
   WHAT THIS IS TESTING, and why it had to be a real page rather than an argument:
 
@@ -50,6 +62,15 @@
       box-shadow:0 6% 12% rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.09) inset}
   #fb .lay{position:absolute;inset:-4%;background-size:cover;background-position:center;
            will-change:transform}
+  /* ⚑ THE FALLBACK IS LAYERED TOO. If the engine never arrives, an authored layered card should
+     still be a layered card — the same plates, parallaxed with transforms instead of geometry.
+     A lens that degrades to something handsome is worth more than one that degrades to nothing,
+     and degrading a five-plate card to one flat plate would throw away the artist's work. */
+  #flay{position:absolute;inset:0;transform-style:preserve-3d}
+  #flay .fl{position:absolute;inset:-5%;background-size:contain;background-repeat:no-repeat;
+            background-position:center;will-change:transform}
+  #flay .fl.full{background-size:cover}
+  #flay .fl.add{mix-blend-mode:screen}
   #fb .glare{position:absolute;inset:0;mix-blend-mode:screen;opacity:.5;
              background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.5) 48%,transparent 62%)}
   #fb .scan{position:absolute;inset:0;opacity:.16;pointer-events:none;
@@ -63,6 +84,12 @@
   @supports not (width:1cqw){ #ttl{font-size:4.4vw} #sub{font-size:2.3vw} }
   #stats{position:absolute;left:9%;top:4.2%;color:#fff;font-size:2.4cqw;text-transform:uppercase;
          letter-spacing:.06em;text-shadow:0 .2em .4em #000;pointer-events:none}
+  /* the live market readout. Hidden until a read actually succeeds — a dash where a number
+     should be is honest; a zero is a claim. */
+  #live{position:absolute;left:9%;top:9.4%;color:#27f7e4;font-size:1.9cqw;font-weight:400;
+        letter-spacing:.08em;text-transform:uppercase;text-shadow:0 .2em .4em #000;
+        pointer-events:none;display:none;line-height:1.5}
+  #live b{color:#ffd23b;font-weight:700}
   #badge{position:absolute;right:8%;top:4.2%;font-size:2.0cqw;padding:.35em .6em;border-radius:.4em;
          text-transform:uppercase;letter-spacing:.08em;color:#07070a;background:var(--gold)}
   #mode{position:absolute;left:0;right:0;bottom:.6%;text-align:center;font-size:9px;
@@ -72,9 +99,12 @@
 <div id="stage"><div id="card">
   <div id="fb">
     <div class="lay" id="lbg"></div><div class="lay" id="lart"></div>
+    <!-- authored layers land here when a card has them; empty for every card today -->
+    <div id="flay"></div>
     <div class="scan"></div><div class="glare"></div><div class="frame"></div>
     <div id="badge">—</div>
     <div id="stats">—</div>
+    <div id="live"></div>
     <div id="meta"><div id="ttl">—</div><div id="sub">—</div></div>
   </div>
   <div id="mode">css fallback</div>
@@ -88,9 +118,23 @@ const DEFAULT = { slug:'bat-country', title:'Riviera Retiree', rarity:'common', 
                   trigger:'GAS STORM', omen:"We can't stop here. This is bat country.",
                   art:'art/bat-country.webp' };
 const RARITY = { common:'#9fb2c4', uncommon:'#2bff80', rare:'#27f7e4', epic:'#b070ff', legendary:'#ffd23b' };
+/* The authored LAYERED demo. Not a card in either deck — it is the reference implementation of
+ * the layer schema, baked by scripts/build-lens-demo.mjs, and it exists so the renderer can be
+ * proven against real separated plates instead of against segmented flat art. */
+const DEMO = { slug:'lens-demo', title:'Depth Test', rarity:'prizm', atk:null, def:null,
+               trigger:null, omen:'a card with a inside', art:'../media/lens/demo/flat.webp',
+               layers:'../media/lens/demo/demo.layers.json' };
 const qs = new URLSearchParams(location.search);
 const $ = i => document.getElementById(i);
 let CARD = DEFAULT, ART = null, tilt = { x:0, y:0 };
+let SPEC = null;            // the normalised layer spec, or null — null is the normal case
+let DRIVERS = null;         // the live market dials, or null until a read lands
+/* ⚠ DECLARED UP HERE ON PURPOSE. `?demo` adopts its card on the very first statement of this
+ * script, which reaches pushLayers(), which asks whether GL has taken over — and a `let` further
+ * down the file is in its temporal dead zone at that moment. It threw, which killed the whole
+ * script and left the page as a bare CSS card with no layers and no state: a total failure that
+ * looked exactly like a successful fallback. Order matters more than tidiness here. */
+let usingGL = false;
 
 function paint(c) {
   $('ttl').textContent = (c.title||'').toUpperCase();
@@ -110,6 +154,17 @@ function paint(c) {
 }
 paint(CARD);
 
+/* ── which card ──────────────────────────────────────────────────────────────────────────────
+ * Each of these is best-effort. Whatever resolves last wins, and if none of them resolve the
+ * baked DEFAULT is still a complete card. `use()` is the single place a new card is adopted, so
+ * the layer sidecar and the renderer can never disagree about which card is on screen. */
+function use(c) {
+  CARD = c; paint(c);
+  loadLayers().then(() => { if (window.__pcCard) window.__pcCard.retex(); });
+}
+
+if (qs.has('demo')) use(DEMO);
+
 /* ?hero=NN — the artist's OWN cards (34-49), which have a number and a title but none of the
  * placeholder deck's invented stats. Rarity is left off rather than fabricated: showing a made-up
  * ATK on real artwork would be inventing canon, and these cards' stats are the artist's to set. */
@@ -118,21 +173,82 @@ fetch(new URL('hero-manifest.json', location.href).href).then(r => r.ok ? r.json
   if (!list || !n) return;
   const h = list.find(c => c.number === n);
   if (!h) return;
-  CARD = { slug:'hero-' + n, title:h.title, rarity:null, atk:null, def:null,
-           trigger:null, omen:'', art:h.art, number:h.number };
-  paint(CARD);
-  if (window.__pcCard) window.__pcCard.retex();
+  use({ slug:'hero-' + n, title:h.title, rarity:null, atk:null, def:null,
+        trigger:null, omen:'', art:h.art, number:h.number, layers:h.layers || null });
 }).catch(() => {});
 
 // same-origin-ish fetch; if the frame forbids it we simply keep the baked default
-if (!qs.has('hero')) fetch(new URL('manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(m => {
+if (!qs.has('hero') && !qs.has('demo')) fetch(new URL('manifest.json', location.href).href).then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   const arr = Array.isArray(m) ? m : (m.cards || Object.values(m)[0]);
   if (!Array.isArray(arr)) return;
   const want = qs.get('card');
   const c = (want && arr.find(x => x.slug === want)) || arr.find(x => x.slug === DEFAULT.slug) || arr[0];
-  if (c) { CARD = c; paint(c); if (window.__pcCard) window.__pcCard.retex(); }
+  if (c) use(c);
 }).catch(() => {});
+
+/* ── the layer sidecar ───────────────────────────────────────────────────────────────────────
+ * ⚑ RESOLVING TO null IS THE NORMAL ANSWER, not a failure — 196 placeholder cards and every
+ *   hero scan are single flat plates, and they must render exactly as they render today. The
+ *   layered path only ever switches on for a card whose artist authored one. */
+function loadLayers() {
+  SPEC = null;
+  if (qs.has('nolayers') || !window.CardLayers || !ART) { pushLayers(); return Promise.resolve(null); }
+  const url = CARD.layers ? new URL(CARD.layers, location.href).href : null;
+  return CardLayers.load(ART, url ? { url } : undefined)
+    .then(spec => { SPEC = spec; pushLayers(); return spec; })
+    .catch(() => { pushLayers(); return null; });
+}
+
+/* Mirror the stack into the CSS card as well, so the fallback is layered too. Cheap: five divs
+ * with background-images that the tilt loop translates. */
+function pushLayers() {
+  const host = $('flay'); if (!host) return;
+  host.textContent = '';
+  /* ⚠ ONCE GL IS UP THE CSS PLATES STAY HIDDEN. This function can run again later — a manifest
+   *   resolving after the engine did — and re-showing #lbg/#lart would put the fallback's
+   *   painted layers back on top of the render. That is a cousin of THE WASH: decorative CSS
+   *   sitting over the canvas, measured once as saturation 19.9% -> 12.7%. */
+  if (usingGL) { host.style.display = 'none'; if (window.__pcCard) window.__pcCard.relayer(); return; }
+  if (!SPEC) { $('lbg').style.display = $('lart').style.display = ''; return; }
+  $('lbg').style.display = $('lart').style.display = 'none';
+  SPEC.layers.forEach(L => {
+    const d = document.createElement('div');
+    d.className = 'fl' + (L.fit === 'full' ? ' full' : '') + (L.blend === 'add' ? ' add' : '');
+    d.style.backgroundImage = `url("${L.src}")`;
+    d.dataset.par = L.par;
+    host.appendChild(d);
+  });
+  if (window.__pcCard) window.__pcCard.relayer();
+}
+
+/* ── live market state ───────────────────────────────────────────────────────────────────────
+ * ⛔ READ-ONLY, AND THAT IS NOT NEGOTIABLE. This page is what a token's animation_url frames.
+ *    SuperRare's security team flagged an embed that touches a wallet and they were right: a
+ *    frame that asks for a wallet is indistinguishable from one that has been swapped for a
+ *    malicious frame. `eth_call` over `fetch` can show state and cannot move anything.
+ * ⚠ And it may simply be blocked. Every failure path lands on the same neutral dials, which are
+ *   the values the card was tuned at — so "no network" looks like the card, not like a bug. */
+function startState() {
+  if (qs.has('nostate') || !window.LensState) return;
+  LensState.watch((st, dr) => {
+    DRIVERS = dr;
+    paintState(st, dr);
+    if (window.__pcCard) window.__pcCard.state(dr);
+  }, { every: 60000 });
+}
+
+function paintState(st, dr) {
+  const el = $('live'); if (!el) return;
+  if (!st || !st.live) { el.style.display = 'none'; return; }
+  const rows = [`burned <b>${Math.round(st.burned).toLocaleString()}</b> / ${Math.round(st.maxSupply).toLocaleString()}`];
+  /* ⚑ Price only appears when the read PROVED its own word order (1.0001^tick == tokenPerRare).
+   *   getMarketState()'s layout is unverified on the real mainnet edition and CLAUDE.md says it
+   *   can drift; a silently transposed word would put a 280x-wrong price on a collector's card. */
+  if (st.orderOk && st.rarePerToken) rows.push(`<b>${st.rarePerToken.toFixed(3)}</b> rare / 3030`);
+  el.innerHTML = rows.join('<br>');
+  el.style.display = '';
+}
 
 /* ── tilt input ───────────────────────────────────────────────────────────────────────────
  * Pointer where there is one, device orientation on a phone. Both clamped, because the media
@@ -148,14 +264,21 @@ addEventListener('deviceorientation', e => {
   tilt.y = Math.max(-1, Math.min(1, ((e.beta || 0) - 45) / 35));
 }, { passive:true });
 
-// CSS fallback animation — runs until (unless) the engine takes over
-let usingGL = false;
+// CSS fallback animation — runs until (unless) the engine takes over (`usingGL` is declared above)
 (function loop(){
   if (!usingGL) {
     const rx = -tilt.y * 11, ry = tilt.x * 13;
+    /* market depth becomes visual depth here too, so the fallback tells the same story as the
+       renderer — 1.0 exactly when there is no live read, which is the tuned baseline */
+    const g = DRIVERS && DRIVERS.live ? 0.70 + 0.60 * DRIVERS.depth : 1;
     $('fb').style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`;
-    $('lart').style.transform = `translate(${tilt.x*-2.2}%, ${tilt.y*-2.2}%) scale(1.04)`;
-    $('lbg').style.transform  = `translate(${tilt.x*1.6}%, ${tilt.y*1.6}%) scale(1.08)`;
+    $('lart').style.transform = `translate(${tilt.x*-2.2*g}%, ${tilt.y*-2.2*g}%) scale(1.04)`;
+    $('lbg').style.transform  = `translate(${tilt.x*1.6*g}%, ${tilt.y*1.6*g}%) scale(1.08)`;
+    const fl = $('flay').children;
+    for (let i = 0; i < fl.length; i++) {
+      const p = parseFloat(fl[i].dataset.par) * g;
+      fl[i].style.transform = `translate(${tilt.x*-2.4*p}%, ${tilt.y*-2.4*p}%) translateZ(${p*14}px)`;
+    }
   }
   requestAnimationFrame(loop);
 })();
@@ -169,6 +292,26 @@ let usingGL = false;
  * The card itself is js/card3d.js — the SAME module the folder's starfield viewer uses. It
  * lived inline here first, and the moment a second page wanted the same card there were two
  * copies of the colour-management fix, which is two chances to lose it. */
+function loadScript(rel) {
+  return new Promise(res => {
+    const s = document.createElement('script');
+    s.src = new URL(rel, location.href).href;
+    s.onload = () => res(true); s.onerror = () => res(false);   // resolve either way; never reject
+    document.head.appendChild(s);
+  });
+}
+
+/* The helpers are INDEPENDENTLY optional. chain-config supplies the edition address and the RPC
+ * list (never duplicated here — a second copy of an address is a second thing to drift);
+ * lens-state does the reads; card-layers parses the sidecar; gfx-post is loaded only for
+ * `dprCap()`, because "what counts as a weak device" must have exactly one definition and this
+ * page is the one most likely to open in a phone's media slot. Any of them missing just removes
+ * that capability. */
+Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.js', '../js/gfx-post.js']
+              .map(loadScript))
+  .then(() => { startState(); return loadLayers(); })
+  .catch(() => {});
+
 if (!qs.has('nogl')) {
   const s = document.createElement('script');
   s.src = new URL('../js/card3d.js', location.href).href;
@@ -192,7 +335,17 @@ function build3D() {
   });
   if (!ctrl) { $('mode').textContent = 'css fallback (no webgl)'; return; }
   ctrl.setArt(ART); ctrl.setRarity(CARD.rarity);
-  window.__pcCard = { retex: () => { ctrl.setArt(ART); ctrl.setRarity(CARD.rarity); } };
+  ctrl.setLayers(SPEC);                       // null for every card today — the flat plate
+  if (DRIVERS) ctrl.setState(DRIVERS);        // else the tuned resting values stand
+  const mode = () => { $('mode').textContent =
+    'playcanvas 3d · ' + (SPEC ? SPEC.layers.length + ' layers' : 'flat plate')
+    + (DRIVERS && DRIVERS.live ? ' · live' : ''); };
+  window.__pcCard = {
+    retex:   () => { ctrl.setArt(ART); ctrl.setRarity(CARD.rarity); ctrl.setLayers(SPEC); mode(); },
+    relayer: () => { ctrl.setLayers(SPEC); mode(); },
+    state:   d  => { ctrl.setState(d); mode(); },
+    ctrl
+  };
   usingGL = true;
 
   /* ⚑ THE WASH. This is what made the cards read "diminished in colour with flatness".
@@ -206,11 +359,12 @@ function build3D() {
    * it was hiding in the FALLBACK rather than in the renderer, which is why looking at the
    * shader kept coming up empty. Only the type survives; every decorative CSS layer goes. */
   $('lbg').style.display = $('lart').style.display = 'none';
+  $('flay').style.display = 'none';                    // GL draws the stack; the CSS copy stands down
   ['.scan', '.glare', '.frame'].forEach(sel => {
     const el = document.querySelector('#fb ' + sel); if (el) el.style.display = 'none'; });
   $('fb').style.background = 'transparent';
   $('fb').style.boxShadow = 'none';
   $('fb').style.transform = 'none';                    // GL owns the tilt now; do not double it
-  $('mode').textContent = 'playcanvas 3d \u00b7 engine loaded';
+  $('mode').textContent = 'playcanvas 3d \u00b7 ' + (SPEC ? SPEC.layers.length + ' layers' : 'flat plate');
 }
 </script>

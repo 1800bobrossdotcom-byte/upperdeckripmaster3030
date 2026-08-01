@@ -2,7 +2,7 @@
  *
  * One question, three ways to answer it: "may this wallet play other people?"
  *
- *   DOOR A · HOLDER     holds >= holderMin $UR3030            (mainnet read)
+ *   DOOR A · HOLDER     holds >= holderMin $3030            (mainnet read)
  *   DOOR B · COLLECTOR  holds >= 1 card/lens                  (mainnet 721 read)
  *   DOOR C · VISITOR    paid the Base arcade fee              (Base receipt read)
  *
@@ -54,7 +54,7 @@ window.RipSession = (function () {
   let seat = EMPTY();
 
   // ── raw JSON-RPC. Each door reads its own chain directly, so a wallet sitting on Base
-  //    can still prove a mainnet $UR3030 balance without being asked to switch networks.
+  //    can still prove a mainnet $3030 balance without being asked to switch networks.
   async function rpc(urls, method, params) {
     for (const url of (urls || [])) {
       try {
@@ -214,7 +214,7 @@ window.RipSession = (function () {
 
   // ── lobby badge ──────────────────────────────────────────────────────────────────
   const DOORS = {
-    holder:    { icon: '◈', label: 'holder',    blurb: 'holds $UR3030' },
+    holder:    { icon: '◈', label: 'holder',    blurb: 'holds $3030' },
     collector: { icon: '◆', label: 'collector', blurb: 'holds a card' },
     visitor:   { icon: '▣', label: 'visitor',   blurb: 'paid on Base' },
   };
@@ -260,7 +260,7 @@ window.RipSession = (function () {
             (unproven ? ' Card count is local only until the lens contract is live.' : '') +
             '</div><div style="margin-top:8px"><button class="ghost" data-a="out">sign out</button></div>'
           : (s.address
-            ? '<div class="rs-note">No open door yet. Hold $UR3030, hold a card, or drop a coin on Base — any one of them seats you.</div>'
+            ? '<div class="rs-note">No open door yet. Hold $3030, hold a card, or drop a coin on Base — any one of them seats you.</div>'
             : '<div class="rs-note">Sign in with your wallet to take a seat. It’s a signature, not a transaction — no gas, no funds moved.</div>' +
               '<div style="margin-top:8px"><button data-a="in">◈ take a seat</button></div>'));
       const b = el.querySelector('[data-a]');

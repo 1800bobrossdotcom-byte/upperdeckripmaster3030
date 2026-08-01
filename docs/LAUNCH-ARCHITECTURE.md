@@ -1,4 +1,4 @@
-# Launch Architecture — $UR3030 (model v2.2)
+# Launch Architecture — $3030 (model v2.2)
 
 *The on-chain shape of the launch. Companion to **`docs/ECONOMIC-FLOW.md`** (the
 canonical economics) — this doc covers the contracts and what is / isn't on-chain.*
@@ -7,7 +7,7 @@ canonical economics) — this doc covers the contracts and what is / isn't on-ch
 
 ## The whole stack — two contract surfaces
 
-1. **`$UR3030` — one ERC-20 SuperRare Liquid Edition.** Minted once into a Uniswap-v4 +
+1. **`$3030` — one ERC-20 SuperRare Liquid Edition.** Minted once into a Uniswap-v4 +
    Doppler multicurve pool (reserve in RARE). Cap **3,030,000**, opens **~1 RARE/token**.
    Burns are **permanent** (never re-mint). It is the currency *and* the burn meter
    (`burnProgress = maxTotalSupply − totalSupply`). Deployed by SuperRare's audited
@@ -16,7 +16,7 @@ canonical economics) — this doc covers the contracts and what is / isn't on-ch
 2. **One combined renderer + ERC-721 lens contract.** Every card is a **lens** — a render
    **keyed by card id** that reads the live market + burn. A card is a live lens *before*
    any token is minted for it, so the deck exists as art from day one. **No ERC-1155
-   anywhere.** (`contracts/UR3030RenderPrototype.sol` is the token's own market renderer;
+   anywhere.** (`contracts/Ripmaster3030Renderer.sol` is the token's own market renderer;
    the card-lens contract is the Phase-2 build, assisted-setup or self-deployed via CLI —
    see the open question below.)
 
@@ -30,7 +30,7 @@ history. `contracts/SeasonBallot.sol` — a clean burn-to-vote 721 seeder — is
 |---|---|---|
 | **Hero lenses** | **33** | **minted 1/1 ERC-721** now — 11 gacha (pull a pack claim → mint) + 22 earned (win a game title → signed voucher → mint) |
 | **Field cards** | **67** | **render-only lens** (chain-readable via CLI, **0 mints**); mintable **later** on the *same* lens contract, so they stay lenses |
-| **Lovebeing** | +1 | **holder-bound lens** — every `$UR3030` holder resolves it, one per wallet, non-transferable, non-burnable. Zero per-person mints |
+| **Lovebeing** | +1 | **holder-bound lens** — every `$3030` holder resolves it, one per wallet, non-transferable, non-burnable. Zero per-person mints |
 
 **Minting = render-only → +ownership.** A lens is the render; minting only *attaches a
 token*. That is why field cards can be render-only today (**B**) and minted later (**C**)
@@ -38,14 +38,14 @@ without their art logic ever changing.
 
 ## What is on-chain vs. site-layer
 
-- **On-chain (real):** the `$UR3030` buy + **burn** (packs, conviction), and the **33
+- **On-chain (real):** the `$3030` buy + **burn** (packs, conviction), and the **33
   hero-lens mints** (wallet-signed 721). This is the audited-real surface.
 - **Site-layer (labeled prototype):** field-card pulls (render-only lenses), the binder,
   rarity-court votes, wagers, and card-powers. Field cards mint for real in a later phase.
 
 ## The burn — token deflation, not card death
 
-Packs are the **only** burn: a site-guided buy of `$UR3030` off the curve, burned in full.
+Packs are the **only** burn: a site-guided buy of `$3030` off the curve, burned in full.
 Over the deck's four-season life, ~**3,560 packs** (S1 1,600 → S4 260) burn **≈2,020,000
 (⅔ of the cap)**, settling supply at a **~1,010,000 floor** — a **≈3× permanent
 contraction**. **Cards never retire or ash.** Scarcity is dwindling pack allotments +

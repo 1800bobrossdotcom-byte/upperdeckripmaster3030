@@ -1,9 +1,9 @@
 /* upperdeckripmaster3030 — the wallet layer (window.RipWallet).
  *
- * The site does NOT rebuild the exchange: buying/selling $UR3030 happens on
+ * The site does NOT rebuild the exchange: buying/selling $3030 happens on
  * SuperRare's Collect page and on DEXes. What the site owns is BURNING — the
  * "rip" and the arena battle ante — so this layer only needs: connect, make sure
- * you're on the right chain, read your $UR3030 balance, and send a burn().
+ * you're on the right chain, read your $3030 balance, and send a burn().
  *
  * Provider-agnostic: works with an injected browser wallet (MetaMask) OR with
  * WalletConnect (mobile wallets via QR). Both expose the same EIP-1193 request()
@@ -217,7 +217,7 @@
     } catch { return { wei: 0n, tokens: 0 }; }
   }
 
-  // the site's one real transaction: burn $UR3030 (a rip, or an arena ante)
+  // the site's one real transaction: burn $3030 (a rip, or an arena ante)
   async function burn(tokens) {
     const amt = Math.max(0, Math.floor(Number(tokens) || 0));
     if (amt <= 0) return { ok: false, reason: 'zero' };
@@ -413,7 +413,7 @@
       'switch-declined': 'Switch to the right network to continue.',
       'add-chain-declined': 'The network wasn’t added, so it can’t go through.',
       'switch-failed': 'Could not switch networks.',
-      'not-live': 'The $UR3030 token isn’t deployed on this network yet.',
+      'not-live': 'The $3030 token isn’t deployed on this network yet.',
       'tx-failed': 'The transaction failed or was dropped.',
       'approve-failed': 'The spending approval didn’t go through, so nothing was charged.',
       'no-treasury': 'The studio wallet isn’t configured on this network, so the fee can’t be paid.',

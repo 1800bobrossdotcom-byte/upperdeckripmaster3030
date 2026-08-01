@@ -2,11 +2,11 @@
 
 > **↻ Superseded in detail by model v2.2 (2026-07).** Burn milestones are **token
 > deflation** (they evolve the render + shrink the pack allotment), **not** card
-> retirement — cards never retire or ash. The arena ante is a **net-zero `$UR3030` wager**,
+> retirement — cards never retire or ash. The arena ante is a **net-zero `$3030` wager**,
 > not a burn. The card layer is one combined renderer + ERC-721 **lens** contract (33 hero
 > 1/1s + 67 render-only field cards), no ERC-1155. Canonical: **`docs/ECONOMIC-FLOW.md`**.
 
-**Goal:** deploy the `$UR3030` Liquid Edition to **Sepolia** (Ethereum's free practice
+**Goal:** deploy the `$3030` Liquid Edition to **Sepolia** (Ethereum's free practice
 network) and do a full mock run — buy some tokens, burn them (a "rip"), watch the
 render change — *before* we ever touch real money on mainnet.
 
@@ -103,7 +103,7 @@ op://…`), but plaintext is fine for a throwaway testnet wallet.*
 ### Step 2 — preview the token, then deploy it
 **Always `--preview` first** — it shows the bonding curve without spending anything.
 ```bash
-rare liquid-edition deploy multicurve "upperdeckripmaster3030" "UR3030" \
+rare liquid-edition deploy multicurve "ripmaster3030studios" "3030" \
   --curve-preset medium-demand \
   --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
   --image ./marquee-header.webp \
@@ -123,7 +123,7 @@ With the address I will:
    [starter-kit examples](https://github.com/superrare/liquid-editions-starter-kit/tree/main/src/examples) —
    and wire it with `rare liquid-edition set-render-contract`;
 3. wire the site's **"rip a pack"** button to the real thing — connect wallet on
-   Sepolia → **buy ~350 `$UR3030` on the curve → `burn()` it** — so a rip becomes a
+   Sepolia → **buy ~350 `$3030` on the curve → `burn()` it** — so a rip becomes a
    real on-chain buy+burn instead of the current local demo;
 4. we then run the full mock season together: rips, watch the burn-progress
    milestones retire cards, check the holding-threshold states.
@@ -148,16 +148,16 @@ With the address I will:
 ---
 
 ## Status
-- ✅ **Deployed to Sepolia 2026-07-19.** `$UR3030` Liquid Edition (fair-launch,
+- ✅ **Deployed to Sepolia 2026-07-19.** `$3030` Liquid Edition (fair-launch,
   1,000,000 supply, medium-demand curve):
   - **token / `liquidEdition`:** `0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C`
   - deploy tx: `0x2e4f4d9ede1039c806a5ca9b45f4a573a5ff9674fcab14926e957b712acabe29`
   - SuperRare: https://superrare.com/liquid-editions/11155111/0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C
   - metadata: https://upperdeckripmaster3030.com/token-metadata.json
   - `js/chain-config.js` → `contracts.liquidEdition` is wired to this address, so the
-    site now reads real Sepolia state and the arena's `$UR3030` burn ante is live.
-- ✅ **Render contract wired 2026-07-19.** `UR3030RenderPrototype`
-  (`contracts/UR3030RenderPrototype.sol`) deployed to Sepolia and set on the token:
+    site now reads real Sepolia state and the arena's `$3030` burn ante is live.
+- ✅ **Render contract wired 2026-07-19.** `Ripmaster3030Renderer`
+  (`contracts/Ripmaster3030Renderer.sol`) deployed to Sepolia and set on the token:
   - **`renderContract`:** `0xEB5Dc23130A7E422239a99493A12dB586feFDFF7`
   - `token.tokenURI()` now returns a **live on-chain SVG** "market card" that reads
     supply / tokens-per-RARE / market tick straight off the token — verified on-chain.

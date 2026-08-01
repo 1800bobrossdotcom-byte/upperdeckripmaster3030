@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Build the UR3030 "Transparent Whitepaper" — a branded, 16:9 PDF deck for the site.
+// Build the $3030 "Transparent Whitepaper" — a branded, 16:9 PDF deck for the site.
 // Self-contained (marquee art embedded as a data URI), acid-terminal styling matched
 // to index.html, strong NFA / "all memes are memes" legal cover. Reproducible:
 //

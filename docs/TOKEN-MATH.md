@@ -1,4 +1,4 @@
-# $UR3030 — token math (finalized)
+# $3030 — token math (finalized)
 
 > # ⛔ STALE ON TWO AXES — DO NOT QUOTE A NUMBER OUT OF THIS FILE (2026-08-01)
 >
@@ -37,7 +37,7 @@ adversarial modeling pass (5 independent models, each verified by a skeptic).
 Every number here is reproduced by `scripts/token-model.mjs` — run it to re-derive.
 Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 
-> **Not financial advice.** `$UR3030` is an experimental, volatile crypto token.
+> **Not financial advice.** `$3030` is an experimental, volatile crypto token.
 > Two numbers must be confirmed on-chain with `--preview` before mainnet (§8): the
 > effective demand multiple **M**, and the **sell-fraction** (how much of the cap
 > the curve actually sells). The burn model is now **settled — MINT-ONCE (per SuperRare
@@ -58,9 +58,9 @@ Pairs with `docs/ARTIST-INTAKE.md` Part 3.
 
 | Knob | **Final** | Why |
 |---|---|---|
-| **Supply cap** | **3,030,000 `$UR3030` — KEEP** (provisional, co-designed with SuperRare — §8) | 3M is **not** too low; see §2. **Mint-once:** the whole supply mints once at launch; burns are permanent, so **lifetime burn ≤ cap**. The full field-retirement burns ⅔ (**2,020,025**) and settles at a **~1,009,975** floor. |
+| **Supply cap** | **3,030,000 `$3030` — KEEP** (provisional, co-designed with SuperRare — §8) | 3M is **not** too low; see §2. **Mint-once:** the whole supply mints once at launch; burns are permanent, so **lifetime burn ≤ cap**. The full field-retirement burns ⅔ (**2,020,025**) and settles at a **~1,009,975** floor. |
 | Opening price **P₀** | **≈ 1 RARE / token** → **~$0.02/token** (band 0.5–2.5 RARE) | set by price, not cap; keeps every toll + vote a micro-move |
-| **Pack price** | **~350 `$UR3030` ≈ $7 at launch**, escalating within + across seasons | the ONE premium action; each rip is a real buy-and-burn of hundreds of tokens (§4a) |
+| **Pack price** | **~350 `$3030` ≈ $7 at launch**, escalating within + across seasons | the ONE premium action; each rip is a real buy-and-burn of hundreds of tokens (§4a) |
 | Demand multiple **M** | `medium-demand` preset, assume **M ≈ 10**, **verify via `--preview`** | pick the *steadiest* slope even if that's low-demand |
 | Reserve currency | **RARE** | `baseToken()` = RARE |
 | Reserve seed | **~10,000 RARE** (`max(2×minRareLiquidityWei, 10k)`) | bootstrap floor; confirm with cohort |
@@ -120,7 +120,7 @@ The tempting answer was "raise it 10× to 30.3M." It's wrong. Under mint-once th
 sized by **one** requirement: it must hold the entire designed **burn-down** and still
 leave a healthy live float — and 3.03M does, with room to spare. The whole-field
 retirement (119 cards culled to the 77-survivor deck) permanently burns **2,020,025**
-`$UR3030` (**66.7%**, ⅔ of the mint; `scripts/burn-milestones.mjs`), settling supply at a
+`$3030` (**66.7%**, ⅔ of the mint; `scripts/burn-milestones.mjs`), settling supply at a
 **~1,009,975** floor — a **3× permanent contraction**. Every reason to *raise* the cap
 then collapses, and a reason *not to lower* it appears:
 
@@ -224,7 +224,7 @@ preset — §8 verify):
 Packs are **$7.00 at launch, not $0.20** — and they *go up*. This is deliberate, and
 it is done **without repricing the token**:
 
-- A pack is a **bundle of ~350 `$UR3030`** (≈ $7 at the $0.02 launch spot), not 10.
+- A pack is a **bundle of ~350 `$3030`** (≈ $7 at the $0.02 launch spot), not 10.
   The token stays cheap (so every toll/vote stays a micro-move); only the *pack* is
   premium. Repricing the token to make 10 tokens = $7 would have blown FDV to ~$21M —
   pump territory, and it would reopen the "is 3M too low" verdict (§2). Rejected.
@@ -290,7 +290,7 @@ liquidity **once at deploy**; there is **no native "top-up the curve later"** fl
 Add depth by (a) seeding real RARE at deploy (~10k), (b) letting buys deepen the
 reserve organically, and (c) **recycling 25–50% of the creator cut / house pool back
 into RARE reserve** on a schedule — the game's own income funding standing liquidity.
-A later Uniswap-v3 `$UR3030`/RARE side-pool is optional, never the primary market.
+A later Uniswap-v3 `$3030`/RARE side-pool is optional, never the primary market.
 *(If continuous curve top-ups are a hard requirement, flag it to SuperRare — it needs
 raw v4 position management, not a first-class multicurve feature.)*
 
@@ -310,7 +310,7 @@ Transparent inputs, **not a forecast** (a rip destroys ~438 tokens at the S1 bas
 | III · Winter | 600 | 750 | 450,000 | 1,768,750 | 58.4% |
 | IV · Spring | 260 | 1,000 | 260,000 | **2,028,750** | **67.0%** |
 
-**Read this correctly:** a full four-season **sellout burns ~2,028,750 `$UR3030`
+**Read this correctly:** a full four-season **sellout burns ~2,028,750 `$3030`
 lifetime** (≈ the **2,020,025** milestone budget that retires the field to 77 — §2,
 `burn-milestones.mjs`), which is **67% (⅔) of the mint** and lands **under the cap**.
 Because burns never re-mint, supply settles at a **~1,009,975 floor** — a **3× permanent
@@ -346,7 +346,7 @@ dumped) and recycle a share into liquidity (§5).
 
 **Deploy / wire (Rare CLI):**
 ```
-rare liquid-edition deploy multicurve "upperdeckripmaster3030" "UR3030" \
+rare liquid-edition deploy multicurve "ripmaster3030studios" "3030" \
   --curve-preset medium-demand --description "…" --image ./cards/art/<hero>.png --preview
 rare liquid-edition status            --contract 0x…
 rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
@@ -384,7 +384,7 @@ rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
 
 ## 9. Doc corrections applied
 
-- Removed the erroneous "0.5–1 RARE per **100** `$UR3030`" peg (implied a ~$0.001
+- Removed the erroneous "0.5–1 RARE per **100** `$3030`" peg (implied a ~$0.001
   pack). The peg is **~1 RARE per token**; the pack is a **~350-token bundle ≈ $7**
   (§4a), escalating within and across seasons.
 - **Pack repriced $0.20 → $7** as a *bundle size*, not a token reprice — the token

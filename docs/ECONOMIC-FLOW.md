@@ -1,4 +1,4 @@
-# $UR3030 — the economic flow (canonical)
+# $3030 — the economic flow (canonical)
 
 *How the token, the packs, the lenses, the games, and the burn fit together.
 **Model v2.2 — the handmade 100-card deck.** Decisions locked with the artist are
@@ -6,11 +6,11 @@ marked ✅; items still needing SuperRare are marked ⏳.*
 
 ---
 
-## 1 · The one primitive — `$UR3030` (ERC-20, mint-once)
+## 1 · The one primitive — `$3030` (ERC-20, mint-once)
 
 A single SuperRare Liquid Edition. **Minted once** into the AMM pool (Uniswap v4 +
 Doppler, reserve in RARE) at launch. **Burns are permanent — nothing re-mints.** No
-treasury, no team unlock, no fee wallet. `$UR3030` is the only fungible token; it is
+treasury, no team unlock, no fee wallet. `$3030` is the only fungible token; it is
 both the **currency** and the **burn meter** (`burnProgress = maxTotalSupply −
 totalSupply`).
 
@@ -18,7 +18,7 @@ totalSupply`).
 
 ## 2 · Every card is a LENS — the render, not the token ✅
 
-A **lens** is a *render*: art whose `tokenURI` reads `$UR3030`'s live market + burn,
+A **lens** is a *render*: art whose `tokenURI` reads `$3030`'s live market + burn,
 so the card evolves with price and with the fire. **Lenses are ERC-721** (per the
 Cohort-01 docs: *"Companion 721 Lens Collections… supported through an assisted
 setup"*; CLI: *"a combined renderer plus **ERC721** contract where each NFT is a
@@ -46,7 +46,7 @@ their art logic changing** (see §3).
 |---|---|---|---|
 | **Hero lenses** | **33** | **minted 1/1 ERC-721** (live lens) | 11 pulled from packs · 22 earned as game titles |
 | **Field cards** | **67** | **render-only lens** (chain-readable, unminted) | pulled from packs · site-layer collectible |
-| **Lovebeing** | +1 | **holder-bound lens** | every `$UR3030` holder carries one |
+| **Lovebeing** | +1 | **holder-bound lens** | every `$3030` holder carries one |
 
 ### The 33 hero lenses — the **genesis set** (11 gacha + 22 earned) ✅
 **The 33 are established in Tier I only, and persist through all four tiers** — no new
@@ -72,7 +72,7 @@ is locked at launch.
   it is static art, not a lens.)*
 
 ### Lovebeing — the holder lens ✅
-The 1/1 marquee, **distributed to every `$UR3030` holder**: **one per wallet regardless
+The 1/1 marquee, **distributed to every `$3030` holder**: **one per wallet regardless
 of balance**, **non-transferable**, **non-burnable**, with special CLI properties. It is
 a **holder-bound lens** — every holding wallet resolves its render — so it is **never
 minted per-person** (no flood). Hold the token, you carry Lovebeing.
@@ -87,7 +87,7 @@ a visible failure at something nobody had to promise. A tier is a promise about 
 is equally honest whether it takes three weeks or three years. The four allotments and prices are
 unchanged, so every burn, float and treasury number is identical.
 
-A pack is a **site-guided buy of `$UR3030` off the curve**, then **split 50/50: half burns
+A pack is a **site-guided buy of `$3030` off the curve**, then **split 50/50: half burns
 permanently, half funds the studio** (artist directive — `docs/TREASURY.md`). Together with the
 game rake it is the only thing that burns supply.
 
@@ -111,7 +111,7 @@ transactions can half-execute; see `docs/TREASURY.md` for why that is not negoti
 
 ## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 
-Playing **wagers `$UR3030` + cards** into one pot. A **small ~10% rake burns** — permanent,
+Playing **wagers `$3030` + cards** into one pot. A **small ~10% rake burns** — permanent,
 deflationary ("the token burns so the art lives") — and the rest of the pot **plus the staked
 cards** pay out to the **podium**: **1v1** — winner takes the pot + the loser's cards;
 **multiplayer** — **1st 50% · 2nd 30% · 3rd 20%** of both the (post-rake) token pot **and**
@@ -131,7 +131,7 @@ genesis set; §3): each maps to a single, unrepeatable **title** across the thre
 
 ## 6 · The burn-down — token deflation, **not** card death ✅
 
-Packs burn `$UR3030` permanently, so supply only falls: from the **3,030,000** mint
+Packs burn `$3030` permanently, so supply only falls: from the **3,030,000** mint
 toward a **~1,010,000 floor** once the field's four-tier life sells through — a **≈3×
 permanent contraction** (`token-model.mjs`). **Lifetime burn ≈ 2,020,000 (⅔ of the
 cap)**; the invariant **Σ lifetime burn ≤ cap** holds trivially.
@@ -147,7 +147,7 @@ never from destroying cards. *The token burns so the art can live.*
 
 | Action | Wallet? | Why |
 |---|---|---|
-| Buy pack / burn `$UR3030` | **required** | a real buy + burn tx — this is the audited-real part |
+| Buy pack / burn `$3030` | **required** | a real buy + burn tx — this is the audited-real part |
 | Mint a hero lens (1 of 33) | **required** | a token can't be minted without the owner's signature |
 | Field-card pulls / game practice | not required | site-layer prototype, honestly labeled |
 | Lovebeing (holder lens) | **connected to read** | the render reads that your address holds — no mint |
@@ -158,7 +158,7 @@ connected, signing wallet are **buying/burning a pack** and **minting a hero len
 
 ## 8 · The loop, in one line
 
-**buy `$UR3030` → burn it as a pack → get field cards + a rare gacha lens → play for the
+**buy `$3030` → burn it as a pack → get field cards + a rare gacha lens → play for the
 22 title lenses → the token deflates 3× while the deck survives.**
 
 ---
@@ -172,4 +172,4 @@ connected, signing wallet are **buying/burning a pack** and **minting a hero len
 3. The **mint mechanism** — a claim/voucher redeemer that takes the pack burn (for the 11
    gacha lenses) and the signed game vouchers (for the 22 earned lenses), vs. assisted setup.
 
-*Not financial advice. `$UR3030` is an experimental, volatile testnet token.*
+*Not financial advice. `$3030` is an experimental, volatile testnet token.*

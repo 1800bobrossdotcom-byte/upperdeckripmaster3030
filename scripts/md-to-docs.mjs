@@ -4,7 +4,7 @@
 // math to humans as real documents.
 //
 //   node scripts/md-to-docs.mjs --in docs/TOKEN-MATH.md --out /abs/out/token-math \
-//        --title "UR3030 — Token Math" [--subtitle "…"]
+//        --title "$3030 — Token Math" [--subtitle "…"]
 //
 // Produces <out>.html, <out>.pdf, <out>.docx. Deps (dev-only, install with
 // `npm i marked html-to-docx`): marked (md->html), html-to-docx (pure-JS docx),
@@ -51,7 +51,7 @@ const CSS = `
   h1, h2 { page-break-after: avoid; } table, pre, blockquote { page-break-inside: avoid; }
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${CSS}</style></head>
-<body><div class="head"><div class="kicker">upperdeckripmaster3030 · $UR3030</div><h1>${title}</h1>${subtitle ? `<div class="sub">${subtitle}</div>` : ''}</div>
+<body><div class="head"><div class="kicker">upperdeckripmaster3030 · $3030</div><h1>${title}</h1>${subtitle ? `<div class="sub">${subtitle}</div>` : ''}</div>
 ${body}</body></html>`;
 
 const htmlPath = outBase + '.html';

@@ -25,7 +25,7 @@ Three contracts, two already written:
 
 | Contract | Role | Status |
 |---|---|---|
-| Liquid Edition ($UR3030) | the ERC-20 + bonding curve (SuperRare protocol) | deploy via Rare CLI (TESTNET.md §2) |
+| Liquid Edition ($3030) | the ERC-20 + bonding curve (SuperRare protocol) | deploy via Rare CLI (TESTNET.md §2) |
 | `SeasonBallot.sol` | burn-to-vote: which cards make each season | written (TESTNET.md §3) |
 | `CardVault.sol` | **this spec** — cards as ERC-1155, send/trade/wager/rip, marquee rules | written |
 
@@ -54,18 +54,18 @@ Defaults (curator-tunable via `setTolls` / `setDestroyToll` / `setReward`).
 
 | Action | What happens | Toll |
 |---|---|---|
-| `sendCard(to, id)` | gift a card | 1 $UR3030 → 🔥 |
-| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $UR3030 **per side** → 🔥 |
-| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $UR3030 per side → 🔥 |
+| `sendCard(to, id)` | gift a card | 1 $3030 → 🔥 |
+| `trade(b, idA, idB)` | atomic card-for-card swap | 1 $3030 **per side** → 🔥 |
+| `openMatch(stack)` / `joinMatch(id, stack)` | pog-stack escrow — 1/2/3/4/7 cards a side, like-for-like | 2 $3030 per side → 🔥 |
 | `resolveMatch(id, winner)` | winner collects both stacks from escrow | — (already paid) |
 | `cancelMatch(id)` | un-joined match refunds the stack; toll stays burned | — |
-| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js); gated by the season's pack allotment (§2.8) | `packPrice()` — ~350 $UR3030 ≈ **$7** at launch, rising → 🔥 (1 → 🏦) |
+| `ripPack()` | mint 7 cards weighted 48/30/15/6/1 by tier (same odds as pack.js); gated by the season's pack allotment (§2.8) | `packPrice()` — ~350 $3030 ≈ **$7** at launch, rising → 🔥 (1 → 🏦) |
 | `voteRarity(id, true, amt)` | **up**vote / promote a card (at prizm → HODL) | `amt` → 🎨 |
 | `voteRarity(id, false, amt)` | **down**vote / demote (clears HODL buffer first) | `amt` → 🔥 |
 | `voteHodl(id, amt)` | ⛨ anchor a card in place | `amt` → 🎨 |
-| `destroyEdition(id)` | on a **court-retired** card, own every copy + burn them all forever; mints the keeper an Ash Trophy + pays them from 🏦 | cards + 50 $UR3030 → 🔥 |
+| `destroyEdition(id)` | on a **court-retired** card, own every copy + burn them all forever; mints the keeper an Ash Trophy + pays them from 🏦 | cards + 50 $3030 → 🔥 |
 | `fundReward(amt)` | top up the house bounty | `amt` → 🏦 |
-| marquee transfer | see §3 | 25 $UR3030 → 🔥 |
+| marquee transfer | see §3 | 25 $3030 → 🔥 |
 
 The **creator** wallet (set in the constructor, retargetable via `setCreator`)
 is the artist. Constructive volume — people minting new cards and burning
@@ -76,7 +76,7 @@ direct transfer, both fully on-chain and legible in `CreatorPaid` / burn events.
 
 ## 2.5 The Rarity Court — cards voted up, down, and off
 
-Rarity is not fixed at print. Any token holder can spend $UR3030 at any time to
+Rarity is not fixed at print. Any token holder can spend $3030 at any time to
 vote any card **up** (promote) or **down** (demote); the ballot never closes.
 **Up pays the creator, down burns** — championing art is constructive, scorn
 feeds the fire.
@@ -89,10 +89,10 @@ feeds the fire.
 
   | Step | Cost |
   |---|---|
-  | Common ↔ Uncommon | 50 $UR3030 |
-  | Uncommon ↔ Rare | 150 $UR3030 |
-  | Rare ↔ Mythic | 500 $UR3030 |
-  | Mythic ↔ Prizm | 2,000 $UR3030 (both directions — griefing the top costs what earning it did) |
+  | Common ↔ Uncommon | 50 $3030 |
+  | Uncommon ↔ Rare | 150 $3030 |
+  | Rare ↔ Mythic | 500 $3030 |
+  | Mythic ↔ Prizm | 2,000 $3030 (both directions — griefing the top costs what earning it did) |
 
 - Demoted past Common a card is **retired — voted off the island**: it stops
   appearing in packs and can't enter the arena, but holders keep it and can still
@@ -135,7 +135,7 @@ renderer a token's `animation_url` frames).
 `cards/market.html` is the **market bench** — the vault of what you own, and
 where you deal it. It is an order book, not a treasury:
 
-- **Sell / trade** — list a card from your binder for an ask in $UR3030 or an
+- **Sell / trade** — list a card from your binder for an ask in $3030 or an
   open want. Listings persist on-device (`urm_market`) as a signed intent; a
   real fill **settles on-chain** through the primitives that already exist —
   `trade(b, idA, idB)` for a swap, `sendCard(to, id)` for a paid hand-off —
@@ -162,7 +162,7 @@ the community **burns it down**. Two forces do the culling:
    the island.
 2. **Cornering + destruction** takes editions all the way to ash.
 
-The season resolves toward a **standard UR3030 deck of 77 survivors**
+The season resolves toward a **standard $3030 deck of 77 survivors**
 (`STANDARD_DECK = 77`). The highest-ranked non-survivors seed the *next* season's
 opening field, so nothing is wasted — the cull is a rolling tournament, not a
 delete.
@@ -181,7 +181,7 @@ when it burns) gets two things:
 - an **Ash Trophy card** — a minted, soulbound "last of its kind" collectible
   (`isAshTrophy`, id space 9000+) that commemorates the retired edition
   (`trophyEdition[trophyId]`); and
-- a **$UR3030 payout from the house** — `min(rewardPool, lastStandingReward)`,
+- a **$3030 payout from the house** — `min(rewardPool, lastStandingReward)`,
   transferred out of the vault's **house reward pool**.
 
 The reward pool is a **player bounty, not an operator treasury**: a slice of
@@ -196,7 +196,7 @@ indestructible**.
 
 The pack is the one **premium** action; every other move stays a micro-toll. It is
 priced in dollars, not pegged to the token's spot, so it holds ≈ **$7 at launch**
-(a bundle of ~350 `$UR3030`) while the token itself stays cheap. Two things make it
+(a bundle of ~350 `$3030`) while the token itself stays cheap. Two things make it
 **escalate**, by design (full math in `docs/TOKEN-MATH.md` §4a):
 
 - **`packPrice()`** is not a constant. It rises on a straight line from `packBase`
@@ -208,7 +208,7 @@ priced in dollars, not pegged to the token's spot, so it holds ≈ **$7 at launc
   season issues fewer cards, so its allotment shrinks and its floor rises —
   **across-season** escalation. Reference (provisional — co-designed with SuperRare):
   S1 11,200 cards / **1,600 packs** → S2 7,700 / 1,100 → S3 4,200 / 600 → S4 1,820 /
-  260 packs; base 350 → 800 tokens. A full four-season sellout burns **~2.03M `$UR3030`
+  260 packs; base 350 → 800 tokens. A full four-season sellout burns **~2.03M `$3030`
   lifetime** (≈ the 2,020,025 milestone budget that retires the field to 77) — **not**
   per-season: under **mint-once (SuperRare audit 2026-07)** those burns are permanent and
   bounded by the cap, settling supply at a ~1,009,975 floor.
@@ -232,7 +232,7 @@ code, not convention:
 - **Sealed** — every marquee move reverts until `currentSeason ≥ marqueeUnlockSeason`
   (constructor default: season 3). `releaseMarquee(to)` is the curator's one-time
   hand-off to the first keeper once unlocked.
-- **Moves cost conviction** — `sendCard` on id 1000 burns the 25 $UR3030 marquee toll.
+- **Moves cost conviction** — `sendCard` on id 1000 burns the 25 $3030 marquee toll.
 
 ## 4. Arena resolution — testnet shape, mainnet path
 
@@ -308,6 +308,6 @@ cast send <VAULT> "setSeason(uint32)" 2
 - [ ] `cancelMatch` refunds the stack, not the toll
 - [ ] marquee: every move reverts while `currentSeason < 3`; wager/trade of id
       1000 always reverts; after `setSeason(3)` + `releaseMarquee`, `sendCard`
-      burns 25 $UR3030
+      burns 25 $3030
 - [ ] site: pack rip animates from the chain event; arena vault = `balanceOf`
 - [ ] `SeasonBallot.burnProgress()` visibly climbs from game activity alone

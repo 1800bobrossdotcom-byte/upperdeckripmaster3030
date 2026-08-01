@@ -1,4 +1,4 @@
-// print-runs.mjs — SITE-LAYER copy supply for the 67 FIELD CARDS ($UR3030 model v2.2).
+// print-runs.mjs — SITE-LAYER copy supply for the 67 FIELD CARDS ($3030 model v2.2).
 //
 // Model v2.2: every card is a LENS (a render keyed by id in one renderer+721 contract).
 //   · 33 HERO lenses are 1/1 — minted now (11 gacha + 22 earned). No print run.
@@ -35,7 +35,7 @@ const FIELD_TIERS = [
 const fmt = n => n.toLocaleString('en-US');
 const fieldCardCount = FIELD_TIERS.reduce((a, t) => a + t.cards, 0);
 
-console.log('FIELD-CARD COPY SUPPLY · $UR3030 model v2.2 (site-layer, NOT on-chain mints)\n');
+console.log('FIELD-CARD COPY SUPPLY · $3030 model v2.2 (site-layer, NOT on-chain mints)\n');
 console.log(`deck ${DECK} = ${HERO_LENSES} hero lenses (${HERO_GACHA} gacha + ${HERO_EARNED} earned, each 1/1) + ${FIELD} field cards + Lovebeing (holder lens)`);
 console.log(`packs ${fmt(totalPacks)} × ${CARDS_PER_PACK} − ${HERO_GACHA} gacha claims = ${fmt(pullBudget)} field-card copies pulled over the field's life\n`);
 

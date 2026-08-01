@@ -1,6 +1,6 @@
 # The lens contract — every function
 
-`contracts/UR3030Lens721.sol` · `UR3030Lens721 is ERC721, EIP712` · solc 0.8.24 viaIR · 18,349 B ·
+`contracts/Ripmaster3030Lens721.sol` · `Ripmaster3030Lens721 is ERC721, EIP712` · solc 0.8.24 viaIR · 18,349 B ·
 31/31 tests (`npm run test:lens`).
 
 One contract is both the **renderer** and the **ERC-721**. That is SuperRare's own

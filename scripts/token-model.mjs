@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// $UR3030 economic model — reproducible. Prints the price schedule, sensitivity to
+// $3030 economic model — reproducible. Prints the price schedule, sensitivity to
 // the demand multiple, buy slippage, the TIERED pack allotment + escalating pack
 // price, per-tier burn pressure, and reward-pool funding. All numbers in
 // docs/TOKEN-MATH.md come from here; re-run to re-derive.
@@ -15,7 +15,7 @@
 //
 // THE TOKEN stays a cheap micro-token (cap 3.03M, P0≈1 RARE, FDV≈$606k — unchanged;
 // see "is 3M too low? no" in TOKEN-MATH §3). THE PACK is the one premium action: a
-// bundle of ~350 $UR3030 ≈ $7 at launch, so every rip is a real buy-and-burn of
+// bundle of ~350 $3030 ≈ $7 at launch, so every rip is a real buy-and-burn of
 // hundreds of tokens (steady upward pressure), NOT a token reprice. Pack price
 // escalates within a tier (allotment dwindles) and across tiers (field shrinks).
 //
@@ -28,7 +28,7 @@
 // with SuperRare (see the audit reply + docs/ECONOMIC-FLOW.md).
 
 // ── token assumptions (swap in live values before locking) ──
-const CAP        = 33_000_000;   // maxTotalSupply ($UR3030), minted once, burns permanent
+const CAP        = 33_000_000;   // maxTotalSupply ($3030), minted once, burns permanent
 const P0         = 1;           // opening price, RARE per token
 const M          = 10;          // demand multiple = end/start price ("medium-demand", verify via --preview)
 const RARE_USD   = 0.02;        // rough current-era RARE/USD — the whole $ column rides on this
@@ -82,12 +82,12 @@ const packUsd = tok => tok * P0 * RARE_USD;            // a `tok`-token pack in 
 const fmt = (n, d = 2) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 const line = () => console.log('─'.repeat(80));
 
-console.log('\n$UR3030 TOKEN MODEL');
+console.log('\n$3030 TOKEN MODEL');
 console.log(`cap ${CAP.toLocaleString()} · P0 ${P0} RARE · M ${M} · RARE≈$${RARE_USD} · sell-fraction ${SELL_FRAC}`);
-console.log(`pack ≈ ${TIERS[0].base} $UR3030 = $${fmt(packUsd(TIERS[0].base),2)} at launch (the token stays cheap; the PACK is the premium)`);
+console.log(`pack ≈ ${TIERS[0].base} $3030 = $${fmt(packUsd(TIERS[0].base),2)} at launch (the token stays cheap; the PACK is the premium)`);
 
 // 1. price schedule — the SAME launch-size pack (350 tok) costs more $ as the token appreciates
-line(); console.log('1. PRICE SCHEDULE  (P = P0·M^f) — pack column = 350 $UR3030 priced at that spot');
+line(); console.log('1. PRICE SCHEDULE  (P = P0·M^f) — pack column = 350 $3030 priced at that spot');
 console.log(['f', 'spot(RARE)', 'spot($)', 'pack350($)', 'FDV($)', 'reserve(RARE)'].map((s,i)=>s.padStart(i?13:5)).join(''));
 for (const f of [0, 0.10, 0.25, 0.50, 0.75, 1.0]) {
   console.log([

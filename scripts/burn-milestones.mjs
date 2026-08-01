@@ -113,7 +113,7 @@ const fmt = n => n.toLocaleString('en-US');
 console.log(`burn-milestone schedule · mint-once (burns permanent)`);
 console.log(`field ${cards.length - 1} (+1 indestructible marquee) → retire ${nRetire} → survive ${survivors.length}`);
 console.log(`escalator: increment k = ${fmt(BASE)} + ${STEP}·k  ·  full clear burns ${fmt(cum)} (${(cum/CAP*100).toFixed(1)}% of the ${fmt(CAP)} mint)`);
-console.log(`floor: ${fmt(FLOOR)} $UR3030 survive the full retirement as permanent live float  ·  fits under cap ✓ (${cum < CAP ? 'OK' : 'OVER CAP!'})`);
+console.log(`floor: ${fmt(FLOOR)} $3030 survive the full retirement as permanent live float  ·  fits under cap ✓ (${cum < CAP ? 'OK' : 'OVER CAP!'})`);
 console.log(`(the field retires over its LIFE, across seasons — not one season; the deck only reaches ${SURVIVORS} if the community truly burns)`);
 console.log(`\nfirst 5 to fall:`);
 for (const m of milestones.slice(0, 5))

@@ -509,7 +509,7 @@
 
   const ANTE=25;
   function refreshGate(){ const note=$('startNote'),Wt=window.RipWallet;
-    if(!(Wt&&Wt.isLive())){ note.innerHTML='$UR3030 isn’t live here yet — launches run in <b>practice</b>.'; $('btnBurn').style.display='none'; }
+    if(!(Wt&&Wt.isLive())){ note.innerHTML='$3030 isn’t live here yet — launches run in <b>practice</b>.'; $('btnBurn').style.display='none'; }
     else if(Wt&&!Wt.hasWallet()){ note.innerHTML='No wallet found — <b>practice</b> only. Install MetaMask to pay the fee.'; }
     // ⚠ NOT a burn — the launch fee funds the studio in full (artist directive).
     else note.innerHTML='Launch fee: <b>25 $3030</b> to the studio — this one funds the shop, it doesn’t burn.'; }

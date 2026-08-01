@@ -1,7 +1,7 @@
 /* upperdeckripmaster3030 — shared wager payout math (window.WagerPayout).
  *
  * The game economy for every battle game:
- *   • each player WAGERS $UR3030 (the ante) and stakes cards into one pot
+ *   • each player WAGERS $3030 (the ante) and stakes cards into one pot
  *   • a small RAKE burns from the pot — permanent, deflationary ("the token burns
  *     so the art lives"); the site burns each player's own rake on-chain at ante
  *   • the rest of the pot + the staked cards go into ESCROW and pay out to the
@@ -11,7 +11,7 @@
  * is shown but settles for real only via the Phase-2 on-chain escrow contract.
  * Card payouts move in the local vault.
  *
- *   WagerPayout.rake(ante)                     -> whole $UR3030 each player burns
+ *   WagerPayout.rake(ante)                     -> whole $3030 each player burns
  *   WagerPayout.compute(ante, players, cards, myRank) -> full breakdown (below)
  */
 window.WagerPayout = (function () {

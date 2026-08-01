@@ -1,6 +1,6 @@
 # How to deploy the lens contract
 
-*`contracts/UR3030Lens721.sol` — the ERC-721 that holds the 33 hero 1/1s and renders all 100
+*`contracts/Ripmaster3030Lens721.sol` — the ERC-721 that holds the 33 hero 1/1s and renders all 100
 cards. Deploy to **Sepolia first**. Full rehearsal: `docs/LENS-REHEARSAL.md`.*
 
 ---
@@ -34,10 +34,10 @@ Your private key never leaves MetaMask. Nothing gets typed into a terminal.
 **1. Get the flattened contract**
 
 ```bash
-node scripts/flatten.mjs contracts/UR3030Lens721.sol
+node scripts/flatten.mjs contracts/Ripmaster3030Lens721.sol
 ```
 
-Writes `contracts/build/UR3030Lens721.flat.sol` — one file, 19 sources inlined. The script
+Writes `contracts/build/Ripmaster3030Lens721.flat.sol` — one file, 19 sources inlined. The script
 recompiles it and refuses to write unless the **executable bytecode is byte-identical** to
 the normal build, so the flat file can't silently be a different contract. (The trailing
 metadata hash does differ — it hashes source paths, so flattening necessarily changes it.
@@ -57,13 +57,13 @@ That's expected and reported separately.)
 
 - **Deploy & Run** tab → Environment: **Injected Provider – MetaMask**
 - Check MetaMask is on **Sepolia**
-- Contract: `UR3030Lens721`
+- Contract: `Ripmaster3030Lens721`
 - Expand the constructor and fill six fields **in this order**:
 
 | # | field | value |
 |---|---|---|
 | 1 | `name_` | `upperdeckripmaster3030 lens` |
-| 2 | `symbol_` | `UR3030L` |
+| 2 | `symbol_` | `3030L` |
 | 3 | `editionRenderer_` | `0x948E633054c516253D21d313aC789B37935de903` |
 | 4 | `claimSigner_` | *your signer address — not the deployer* |
 | 5 | `externalUrl_` | `https://upperdeckripmaster3030.com` |

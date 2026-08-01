@@ -713,14 +713,14 @@
     $('resTitle').textContent = won ? 'WIN' : 'K.O.';
     $('resTag').textContent = won ? 'you won the duel' : 'cut down';
     if (!G.real) $('prizeBig').textContent = won ? '★ LAST BLADE STANDING' : 'DEFEATED';
-    else $('prizeBig').textContent = won ? ('winner takes the pot · +' + P.myTok.toLocaleString('en-US') + ' $UR3030 · +' + wonSlugs.length + ' cards') : ('🔥' + P.anteBurn + ' rake burned · the pot went to the winner');
+    else $('prizeBig').textContent = won ? ('winner takes the pot · +' + P.myTok.toLocaleString('en-US') + ' $3030 · +' + wonSlugs.length + ' cards') : ('🔥' + P.anteBurn + ' rake burned · the pot went to the winner');
     $('prizeSub').textContent = won ? 'flawless intent — the ring is yours' : 'ante up and run it back';
     $('board').innerHTML = order.map((f, i) => `<div class="r${f.isMe ? ' me' : ''}"><span>${i + 1}. ${esc(f.name)}</span><span class="k">${f.dead ? 'K.O.' : 'WINNER ✦'}</span></div>`).join('');
     const wc = $('wonCards');
     wc.innerHTML = (won && G.real && wonSlugs.length) ? wonSlugs.slice(0, 12).map(sl => { const c = bySlug.get(sl); if (!c) return '';
       return `<div class="tile" style="--rc:var(${RC[c.rarity] || '--common'})"><img src="cards/${esc(c.art)}" alt="" loading="lazy"></div>`; }).join('') : '';
     $('scaNote').innerHTML = G.real
-      ? 'Your <b>🔥' + P.anteBurn + ' $UR3030</b> rake burned on-chain — permanent, deflationary. The winner takes the rest of the pot + both staked hands; card winnings move for keeps in your vault. Real on-chain token-pot escrow ships with the <b>721 lens</b> — Phase-2.'
+      ? 'Your <b>🔥' + P.anteBurn + ' $3030</b> rake burned on-chain — permanent, deflationary. The winner takes the rest of the pot + both staked hands; card winnings move for keeps in your vault. Real on-chain token-pot escrow ships with the <b>721 lens</b> — Phase-2.'
       : 'Practice duel — no tokens burned, no cards moved. Ante up with a signed wallet to duel for keeps.';
   }
 
@@ -784,13 +784,13 @@
   function refreshPot() {
     $('anteVal').textContent = wager.ante; $('cardsVal').textContent = wager.cards; $('pickN').textContent = wager.cards;
     const tokPot = wager.ante * wager.players, potBurn = Math.round(tokPot * WagerPayout.BURN_PCT), potNet = tokPot - potBurn, cardPot = wager.cards * wager.players;
-    $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · winner takes it</span>`;
+    $('potLine').innerHTML = `POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · winner takes it</span>`;
     const Wt = window.RipWallet, canReal = liveToken() && Wt && Wt.hasWallet(), enough = wager.picked.length === wager.cards;
     $('btnAnte').disabled = !(canReal && enough);
     const note = $('lobNote');
-    if (!canReal) note.innerHTML = 'Connect a signed wallet to ante real $UR3030. <b>Practice</b> is open to all.';
+    if (!canReal) note.innerHTML = 'Connect a signed wallet to ante real $3030. <b>Practice</b> is open to all.';
     else if (!enough) note.innerHTML = `Pick <b>${wager.cards}</b> card${wager.cards > 1 ? 's' : ''} for the pot to ante for keeps.`;
-    else note.innerHTML = 'Ante <b>' + wager.ante + ' $UR3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · <b>winner takes it</b>.';
+    else note.innerHTML = 'Ante <b>' + wager.ante + ' $3030</b> — <b>🔥' + WagerPayout.rake(wager.ante) + '</b> burns now, the rest joins the pot · <b>winner takes it</b>.';
   }
   document.querySelectorAll('[data-ante]').forEach(b => b.onclick = () => { wager.ante = clamp(wager.ante + (+b.dataset.ante) * 25, 0, 500); refreshPot(); });
   document.querySelectorAll('[data-cards]').forEach(b => b.onclick = () => { wager.cards = clamp(wager.cards + (+b.dataset.cards), 1, 5); wager.picked = wager.picked.slice(0, wager.cards); buildGrid(); });

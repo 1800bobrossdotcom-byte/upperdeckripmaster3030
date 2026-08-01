@@ -220,7 +220,7 @@ function buildGallery() {
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
-      <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $UR3030 to vote any card up or
+      <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $3030 to vote any card up or
       down the ladder. Enough conviction moves its rarity; enough scorn votes it off the
       island. <b>⛨ HODL votes</b> anchor a card where it is — downvotes must burn through
       the HODL buffer first. At prizm there's nowhere left to climb, so ▲ becomes ⛨.
@@ -243,7 +243,7 @@ function buildGallery() {
       if (ev.key === 'Enter' && !ev.target.closest('.vote')) location.href = t.dataset.href;
     });
   });
-  // the rarity court (preview): each ▲/▼ simulates a 1 $UR3030 burn, kept on this
+  // the rarity court (preview): each ▲/▼ simulates a 1 $3030 burn, kept on this
   // device until the vault contract goes live and votes become real burns.
   var toast = document.createElement('div'); toast.className = 'toast'; document.body.appendChild(toast);
   var toastTimer;
@@ -267,12 +267,12 @@ function buildGallery() {
       var slug = b.dataset.slug;
       var v = votes(); var e = v[slug] || { net:0, hodl:0 };
       if (b.classList.contains('vup')) {
-        e.net += 1; say('▲ 1 $UR3030 burned to promote — on-chain at vault launch');
+        e.net += 1; say('▲ 1 $3030 burned to promote — on-chain at vault launch');
       } else if (b.classList.contains('vhodl')) {
-        e.hodl += 1; say('⛨ 1 $UR3030 burned to HODL — buffers downvotes');
+        e.hodl += 1; say('⛨ 1 $3030 burned to HODL — buffers downvotes');
       } else {
         if (e.hodl > 0) { e.hodl -= 1; say('▼ demote absorbed by the HODL buffer — burn still counts'); }
-        else { e.net -= 1; say('▼ 1 $UR3030 burned to demote — on-chain at vault launch'); }
+        else { e.net -= 1; say('▼ 1 $3030 burned to demote — on-chain at vault launch'); }
       }
       v[slug] = e;
       try { localStorage.setItem('urm_court', JSON.stringify(v)); } catch {}

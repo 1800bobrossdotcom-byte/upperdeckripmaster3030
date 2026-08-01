@@ -6,7 +6,7 @@ pragma solidity ^0.8.24;
  *
  * Exists so the render path can be proven end-to-end without a live edition:
  *
- *     MockLiquid  →  UR3030RenderPrototype  →  UR3030Lens721.tokenURI()
+ *     MockLiquid  →  Ripmaster3030Renderer  →  Ripmaster3030Lens721.tokenURI()
  *
  * The lens delegates its no-arg tokenURI() to the passthrough renderer, and the renderer
  * reads live market state off the edition. Until all three are wired together that
@@ -19,7 +19,7 @@ pragma solidity ^0.8.24;
  * NOT FOR DEPLOYMENT.
  */
 contract MockLiquid {
-    string public symbol = "UR3030";
+    string public symbol = "3030";
     uint256 public maxTotalSupply = 3_030_000 ether;
 
     uint256 private _rarePerToken = 1 ether;

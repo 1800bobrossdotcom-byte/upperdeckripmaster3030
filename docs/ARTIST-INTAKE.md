@@ -8,7 +8,7 @@ packs that burn the token, no card retirement). Tokenomics in Part 3 are reprodu
 artist can supply are flagged **[ARTIST TO SUPPLY]**.
 
 - **Artist / Project:** Gianni Arone (**lovebeing**) — *upperdeckripmaster3030*
-- **Token:** `$UR3030` · **Site:** https://upperdeckripmaster3030.com
+- **Token:** `$3030` · **Site:** https://upperdeckripmaster3030.com
 - **X / handle:** **@_lovebeing_** · **Launch date:** **[ARTIST TO SUPPLY]**
 - **Cohort:** SuperRare **Liquid Editions — Cohort 1** (with @CreamyDreamy, @takenstheorem, @tyaagnliu)
 
@@ -19,7 +19,7 @@ artist can supply are flagged **[ARTIST TO SUPPLY]**.
 **Core Concept**
 
 > upperdeckripmaster3030 is a liquid trading-card game built on **one** SuperRare Liquid
-> Edition — the ERC-20 `$UR3030`, priced by a bonding curve in RARE. A **100-card deck**
+> Edition — the ERC-20 `$3030`, priced by a bonding curve in RARE. A **100-card deck**
 > is the artwork, and **every card is a lens**: a render that reads the live market and
 > the fire, so the art moves with price and with the burn. You rip packs, play the games,
 > vote in the rarity court, and wager — and the token itself **burns down ≈3×** over the
@@ -35,9 +35,9 @@ artist can supply are flagged **[ARTIST TO SUPPLY]**.
 > (gacha)** and **22 earned in the games** (each a one-of-a-kind title); the other **67 field cards** are
 > **render-only lenses** (live and readable on-chain, unminted) that mint for real later on
 > the *same* render; and **Lovebeing** — the artist's namesake — is a **holder-bound lens**
-> every `$UR3030` holder carries (one per wallet, non-transferable, non-burnable).
+> every `$3030` holder carries (one per wallet, non-transferable, non-burnable).
 >
-> You **rip a pack** — ~350 `$UR3030` ≈ **$7**, **burned in full** — and pull field cards
+> You **rip a pack** — ~350 `$3030` ≈ **$7**, **burned in full** — and pull field cards
 > plus, rarely, a gacha lens claim. Packs are the only burn: over four seasons ~**3,560
 > packs** retire **≈2,020,000 (⅔ of the mint)**, contracting supply from 3,030,000 to a
 > **~1,010,000 floor** — a **3× permanent contraction**. **Cards never retire or ash** —
@@ -79,7 +79,7 @@ custom renderer + front end are ours.
 *(reasoning + reproducible model in `scripts/token-model.mjs`; canonical `docs/ECONOMIC-FLOW.md`)*
 
 - **Target Launch Date:** **[ARTIST TO SUPPLY]** — after a full Sepolia dress rehearsal.
-- **Total Token Supply / Cap:** **Capped — 3,030,000 `$UR3030`, minted once.** Burns are
+- **Total Token Supply / Cap:** **Capped — 3,030,000 `$3030`, minted once.** Burns are
   **permanent** (never re-mint). `burnProgress = maxTotalSupply − totalSupply()` is the
   render's burn meter. Full-curve FDV ≈ $606k — an artist-scale niche edition, by choice.
 - **Curve / Price:** multicurve **`--curve-preset medium-demand`** (Uniswap-v4 + Doppler,
@@ -87,7 +87,7 @@ custom renderer + front end are ours.
   **Opening price ≈ 1 RARE/token (~$0.02)** — the token stays a cheap micro-token.
   **Reserve seed ≈ 10,000 RARE** at deploy (to confirm with the cohort).
 - **Packs — the premium ritual (~$7, escalating).** A pack is a **site-guided buy of ~350
-  `$UR3030` on the curve, burned in full** — native ILiquid operations, no side contract.
+  `$3030` on the curve, burned in full** — native ILiquid operations, no side contract.
   ≈ **$7 at launch** (seven cards), **not** a token reprice (FDV stays ~$606k). The schedule
   escalates **within** a season (base→ceil as the allotment sells) and **across** seasons:
   **S1 1,600 → S2 1,100 → S3 600 → S4 260 packs** (~3,560 total; floor 350 → ~1,200 tokens).
@@ -149,10 +149,10 @@ that started it), or a nod to your cohort peers. The upbringing above is drawn f
 1. **THE FIELD IS ALIVE.** A season banner drops (SUMMER); ~100 hyperfoil cards fan out,
    shimmering, RARE prices flickering. → *"100 living cards — each a lens over one liquid
    edition, art moving with the market."*
-2. **YOU RIP.** A hand tears a pack; a fat stack of `$UR3030` flies in (~$7 worth) and
+2. **YOU RIP.** A hand tears a pack; a fat stack of `$3030` flies in (~$7 worth) and
    **all of it dissolves to smoke**; field cards spill out, and once in a while a golden
    hero-lens claim. → *"Rip a pack — seven cards, about seven bucks. It all burns."*
-3. **YOU PLAY.** Montage — the three games; staked cards arming your craft; a `$UR3030`
+3. **YOU PLAY.** Montage — the three games; staked cards arming your craft; a `$3030`
    wager pot. → *"Play the cabinets. Your cards arm you; the ante is a wager, winner takes
    the pot."*
 4. **THE COURT.** A card climbs Common → Prizm and slides back down; the crowd votes with
@@ -169,7 +169,7 @@ that started it), or a nod to your cohort peers. The upbringing above is drawn f
 
 > **1 — hook.** A full field of psychedelic hyperfoil cards just went liquid. Upperdeck
 > Ripmaster 3030 by Gianni Arone (@_lovebeing_): 100 living lenses on one SuperRare Liquid
-> Edition, and the token burns down 3× while you play. `$UR3030` → **[link]**
+> Edition, and the token burns down 3× while you play. `$3030` → **[link]**
 
 > **2 — mechanic.** Rip a pack — seven cards, ~$7, it all burns. Play the cabinets to earn
 > hero lenses; pull the rest from packs. Vote cards up and down the rarity court. 33 real
@@ -190,5 +190,5 @@ Artist Signature / Typed Name: **Gianni Arone** ___________________________  Dat
 
 ---
 
-*Not financial advice. `$UR3030` is an experimental, volatile crypto token with no promise
+*Not financial advice. `$3030` is an experimental, volatile crypto token with no promise
 of value.*

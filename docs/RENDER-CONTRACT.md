@@ -1,4 +1,4 @@
-# Render Contract — functionality & the lens build ($UR3030)
+# Render Contract — functionality & the lens build ($3030)
 
 *Authoritative render-contract interface for SuperRare Liquid Editions (pulled from the
 `liquid-editions-starter-kit`, July 2026), how our prototype maps to it, and exactly what
@@ -54,13 +54,13 @@ currentSupply)`, `quoteBuy()`, `quoteSell()`, `lpLiquidity()`, `totalLiquidity()
 
 ## Where we are vs. what to build
 
-- **✅ Done — `contracts/UR3030RenderPrototype.sol`** *is* the passthrough renderer:
+- **✅ Done — `contracts/Ripmaster3030Renderer.sol`** *is* the passthrough renderer:
   `tokenURI()` reads live `getMarketState`/`maxTotalSupply`, computes the burn snapshot
   (BURNED = max − live, burned %, $UR/RARE, tick), draws an on-chain SVG "market card" +
   JSON. Owner-set meta without redeploy; JSON/XML escaping; int24-min-tick safe; compiles
   clean (viaIR). This is correct for the **edition's own** display.
 
-- **✅ Built — `contracts/UR3030Lens721.sol`**, the combined lens contract. WE build it;
+- **✅ Built — `contracts/Ripmaster3030Lens721.sol`**, the combined lens contract. WE build it;
   SuperRare provides connectivity, deployment and platform (artist directive 2026-07-27).
   1. `tokenURI(uint256 id)` for **ids 1…100**, and it deliberately does **not** require the
      token to exist — OpenZeppelin's default reverts on a nonexistent id, which is exactly

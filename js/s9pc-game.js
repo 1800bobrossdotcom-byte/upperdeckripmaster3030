@@ -730,7 +730,7 @@ window.S9Game = (function () {
       if (real && env.vault) { const v = env.vault(); G.myStake = wager.picked.slice();
         G.myStake.forEach(sl => { const i = v.findIndex(x => x && x.slug === sl); if (i >= 0) v.splice(i, 1); }); env.saveVault && env.saveVault(v); }
       for (let s = 1; s < G.ents.length; s++) { const arr = []; for (let k = 0; k < wager.cards; k++) { if (DECK.length) arr.push(DECK[rint(DECK.length)].slug); } G.oppStakes.push(arr); }
-      // arm operatives from their staked cards, scaled by the live $UR3030 market
+      // arm operatives from their staked cards, scaled by the live $3030 market
       G.loadout = null; G.myCards = [];
       try { if (window.RipPowers) { const src = wager.picked.length ? wager.picked : (env.ownedSlugs ? env.ownedSlugs().slice(0, wager.cards) : []);
         const picks = src.map(sl => bySlug.get(sl)).filter(Boolean);

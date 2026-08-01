@@ -37,7 +37,7 @@ trigger. Porting that engine into a Liquid Lens render contract is the whole
 
 ---
 
-## 1. How does $UR3030 gain value?
+## 1. How does $3030 gain value?
 
 Three honest, separable forces — no promises, this is a volatile crypto asset:
 
@@ -48,7 +48,7 @@ Three honest, separable forces — no promises, this is a volatile crypto asset:
 2. **Deflation + a creator royalty — split by intent.** Actions split two ways
    (CardVault enforces it, no treasury either way): **destructive/circulatory**
    moves — pack rips, wagers, sends, trades, **down**votes, and cornering-then-
-   destroying an edition — *burn* $UR3030, permanently shrinking supply.
+   destroying an edition — *burn* $3030, permanently shrinking supply.
    **Constructive** moves — **up**voting and HODL — pay the **creator** wallet as
    a transparent royalty. Against a curve, the burns mean a
    shrinking float clears the same demand at a higher price; the creator stream
@@ -57,7 +57,7 @@ Three honest, separable forces — no promises, this is a volatile crypto asset:
 
 3. **Utility demand.** You cannot do *anything* without holding and spending the
    token — no free plays. Wanting to rip, battle, or curate packs is a
-   standing reason to acquire $UR3030. On top of that sits collectible pull: the
+   standing reason to acquire $3030. On top of that sits collectible pull: the
    1/1 marquee, the prizm chase, and the ability to *curate the deck itself* by
    voting (a reason to hold conviction, not just flip).
 
@@ -67,7 +67,7 @@ sinks help the floor, they don't guarantee it.
 
 ## 2. Does this token go to traditional (TradFi) markets?
 
-**No.** $UR3030 is a crypto-native **ERC-20** living on SuperRare's protocol
+**No.** $3030 is a crypto-native **ERC-20** living on SuperRare's protocol
 (Ethereum / Base), traded through the **liquidity pool / bonding curve** and
 DEX-style swaps (the CLI shows RARE/ETH/USDC pairings). It is **not** a stock,
 not a registered security, and it does **not** list on the NYSE, Nasdaq, or any
@@ -113,7 +113,7 @@ Concrete "art evolves" hooks we can ship into the lens:
 
 Already in `CardVault.sol`: send, trade, pog-wager escrow, rip, the rarity court
 (promote/demote/HODL), the sealed 1/1 marquee. New utility to add (each one a
-fresh $UR3030 sink, i.e. more §1 pressure):
+fresh $3030 sink, i.e. more §1 pressure):
 
 - **The burn-down season** (LIVE in `CardVault`) — the headline loop. A season
   opens with the whole field and the community burns it **down** to a standard
@@ -122,7 +122,7 @@ fresh $UR3030 sink, i.e. more §1 pressure):
   down). Runner-ups seed the next season.
 - **Last-of-its-kind reward** (LIVE in `CardVault.destroyEdition`) — whoever
   holds an edition's final card when it burns is minted an **Ash Trophy** card
-  (soulbound, id 9000+) *and* paid **$UR3030 from the house reward pool** (seeded
+  (soulbound, id 9000+) *and* paid **$3030 from the house reward pool** (seeded
   by a slice of every pack rip + `fundReward`). The lens renders the trophy as a
   charred "last of [name]" collectible. A player bounty, not a treasury.
 - **Corner-and-destroy** (LIVE in `CardVault.destroyEdition`) — own every
@@ -151,5 +151,5 @@ None of these need a treasury — they're all burns, which is the point.
 
 ---
 
-*Not financial advice. $UR3030 is an experimental, volatile crypto token with no
+*Not financial advice. $3030 is an experimental, volatile crypto token with no
 promise of value. Play with what you can afford to burn.*

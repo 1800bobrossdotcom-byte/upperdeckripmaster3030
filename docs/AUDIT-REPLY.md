@@ -21,7 +21,7 @@ we **removed forced card retirement entirely.** There is no longer a card-death
 schedule that could overflow the cap. What remains is only **token deflation**:
 
 - **3,030,000 minted once, every burn permanent.**
-- Packs burn `$UR3030` down toward a **~1,010,000 floor** over the field's four-season
+- Packs burn `$3030` down toward a **~1,010,000 floor** over the field's four-season
   life — **lifetime burn ≈ 2,020,000 (⅔ of the mint)**, a **3× permanent contraction**.
 - The only burn rule is the trivial **Σ pack burns ≤ ⅔ cap**, enforced in
   `scripts/token-model.mjs`. Pack allotments (S1 1,600 → S4 260) are sized so a full
@@ -43,7 +43,7 @@ removed), and the 1,000,000 supply came from the launcher defaults, not a knob w
 Here's the target we'd bring to a joint sizing pass, and we'd love your guidance on the
 curve params + supply that actually deliver it:
 
-- **Pack:** ~350 $UR3030 ≈ **$7** at launch, escalating to ~$24 by S4 (within-season
+- **Pack:** ~350 $3030 ≈ **$7** at launch, escalating to ~$24 by S4 (within-season
   base→ceil plus token appreciation).
 - **Max supply:** we'd like to keep **3,030,000** (it's the brand — "3030"), but we're
   open to whatever supply makes the $7 pack and the burn schedule coherent together.
@@ -55,7 +55,7 @@ rather than the other way round.
 
 ## 3 · The renderer display bugs — both fixed (no token redeploy)
 
-Diagnosed and patched in `contracts/UR3030RenderPrototype.sol`:
+Diagnosed and patched in `contracts/Ripmaster3030Renderer.sol`:
 
 - **"100% circulating"** — we were reading `currentSupply` (the pool's total supply,
   which sits at ~max because the whole curve is minted into the pool) and labelling it
@@ -74,7 +74,7 @@ Compiles clean on 0.8.24 with viaIR.
 ## 4 · Honesty about what's on-chain vs. prototype — doing it now
 
 Fair and important — and the v2.2 card design draws the line cleanly. **Two things are
-real on-chain:** the **`$UR3030` buy + burn** (irreversible), and the **33 hero-lens
+real on-chain:** the **`$3030` buy + burn** (irreversible), and the **33 hero-lens
 mints** (11 gacha + 22 earned — real 1/1 ERC-721 tokens, wallet-signed). Everything else
 — the **67 render-only field cards** (chain-readable but unminted), the binder,
 battles/wagers, and card-powers — is labelled **testnet prototype / later phase**. Field
@@ -105,7 +105,7 @@ lens."* We took the render-by-id idea and built the whole card layer on it:
   from packs, 22 earned as game titles). The **other 67 are render-only lenses** —
   readable on-chain via the CLI, **zero mints, zero marketplace clutter** — and can be
   minted later against the *same* render without becoming static art.
-- Plus **Lovebeing**, a **holder-bound lens**: every `$UR3030` holder resolves its
+- Plus **Lovebeing**, a **holder-bound lens**: every `$3030` holder resolves its
   render, one per wallet, non-transferable, non-burnable. No per-person mints.
 
 So we're firmly on **721**, with a deliberately tiny mint footprint (33 + optional

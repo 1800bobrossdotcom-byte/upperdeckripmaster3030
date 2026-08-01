@@ -8,13 +8,13 @@
 
 ## The idea
 
-Anyone arriving at $UR3030 — from the SuperRare token page, from the site, from a link —
+Anyone arriving at $3030 — from the SuperRare token page, from the site, from a link —
 should be able to sit down and play, whether they hold the token, hold a card, or hold
 neither and just want to drop a coin in. All three produce the same thing:
 
 | Door | Proof | Chain read | Cost |
 |---|---|---|---|
-| **A · holder** | `UR3030.balanceOf ≥ holderMin` | token chain | free |
+| **A · holder** | `$3030.balanceOf ≥ holderMin` | token chain | free |
 | **B · collector** | `lens721.balanceOf ≥ 1` | token chain | free |
 | **C · visitor** | an arcade-fee receipt paid to the coin box | Base | the fee |
 
@@ -29,7 +29,7 @@ other.
 Proving you hold something is a handful of `eth_call`s: no contract, no escrow, no audit,
 and it works across chains because **each door reads its own chain over a public RPC**
 rather than whatever chain the wallet happens to be pointed at. A wallet sitting on Base
-can prove a mainnet $UR3030 balance without being asked to switch networks.
+can prove a mainnet $3030 balance without being asked to switch networks.
 
 Holding a pot is a different job entirely, and it lives in the Phase-2 escrow contract.
 `session.js` deliberately only does entry — that is why it ships now and the pot does not.
@@ -98,7 +98,7 @@ seating collapses to a single check. Not decided — see `CLAUDE.md`.
 - **No server verification of SIWE** — the next slice, and the gate on anything with money in it.
 - **No stake escrow.** Pots remain Phase-2. Per the design: cards are the universal
   cross-door stake (single-chain 721 moves); money stakes stay same-chain side-pots, since
-  mainnet $UR3030, mainnet cards and Base ETH cannot share one pot without a bridge or
+  mainnet $3030, mainnet cards and Base ETH cannot share one pot without a bridge or
   someone taking custody.
 - **No anti-cheat.** Results are still client-computed. Wagering real value on a
   client-reported score is exploitable; that needs server-authoritative simulation or

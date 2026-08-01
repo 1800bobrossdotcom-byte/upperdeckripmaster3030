@@ -34,5 +34,5 @@ including which of it can and cannot be used here.
 
 ## Everything else
 
-- Original art, card designs, code, contracts, and the $UR3030 experience by
+- Original art, card designs, code, contracts, and the $3030 experience by
   **Gianni Arone — lovebeing** (@_lovebeing_), SuperRare Liquid Editions, Cohort 01.

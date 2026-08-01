@@ -1,7 +1,7 @@
 # The Arena Lobby — multiplayer presence & PvP
 
 > **↻ Superseded in detail by model v2.2 (2026-07).** Antes are **net-zero WAGERS** (both
-> wager `$UR3030`) — **not burns**; the winner **takes** the loser's staked cards, which
+> wager `$3030`) — **not burns**; the winner **takes** the loser's staked cards, which
 > **transfer** (cards are never burned/destroyed). **Payout by match size:** **1v1** — the
 > winner takes the whole pot + the loser's cards; **multiplayer (3+)** — the pot pays the
 > **podium (1st 50% · 2nd 30% · 3rd 20%**; 4th+ forfeit their ante), staked cards to 1st.
@@ -14,7 +14,7 @@ theirs. Cross-tab presence is **real** (open two tabs and they see each other); 
 rest of the room is bots keeping it warm. Flip one adapter and the exact same UI
 goes internet-wide with no other changes.
 
-The stake is the thing the artist asked for: **cards + a real `$UR3030` burn**. You
+The stake is the thing the artist asked for: **cards + a real `$3030` burn**. You
 each burn a token ante to enter (a real, signed, on-chain burn once the token is
 live — practice chips until then), and the winner keeps or burns the loser's staked
 cards. That's honest to the pure-Liquid-Edition architecture: there is no escrow
@@ -134,7 +134,7 @@ stake modal, the face-off — is untouched.
 
 ---
 
-## The stake: cards + a real `$UR3030` burn
+## The stake: cards + a real `$3030` burn
 
 `anteBurn(amount)` in `battle.html` is the money hook:
 

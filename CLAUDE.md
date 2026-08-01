@@ -6,7 +6,7 @@
 > live, no unannounced commercial decisions.** Operational facts only. Anything sensitive goes
 > to the artist directly, not into the repo.
 
-*Read this first. It's the durable context for the $UR3030 launch. Canonical detail
+*Read this first. It's the durable context for the $3030 launch. Canonical detail
 lives in `docs/ECONOMIC-FLOW.md`; this file is the map.*
 
 ## What it is
@@ -26,6 +26,23 @@ This SUPERSEDES the old "NAME LAW".**
   already owns a token permanently stuck with a wrong name for exactly this class of slip
   (Sepolia's edition reads `"Upperdeck Ripmaster 3030"`, title case). Hand this exact string to
   SuperRare in writing and re-read `name()` before they broadcast. See task #70.
+- ⛔ **`UR3030` IS GONE FROM EVERY LIVE SURFACE (2026-08-01).** Contracts renamed:
+  `UR3030Lens721` → **`Ripmaster3030Lens721`**, `UR3030RenderPrototype` → **`Ripmaster3030Renderer`**
+  (the contract name is public on Etherscan once verified). `$UR3030` → `$3030` across 258 files.
+  ⚑ **THREE DEPLOY-TIME PERMANENTS were carried with it, and each is frozen at deploy:**
+  the lens **EIP-712 domain** (`upperdeckripmaster3030` → `ripmaster3030studios`), the lens
+  **symbol** (`UR3030L` → `3030L`), and the `"3030 per RARE"` trait the renderer emits on-chain.
+  ⚠ **The EIP-712 domain is part of every voucher digest** — the contract and
+  `scripts/lens-cli.mjs` must always agree, and changing it broke 6 tests instantly, which is the
+  good outcome: it proved the coupling. **Once one real voucher is signed against a deployed
+  contract, that string is frozen forever.**
+  ⚠ Also corrected: the `rare liquid-edition deploy multicurve "…" "…"` command in `TESTNET.md`
+  and `TOKEN-MATH.md` still carried the OLD name and symbol — a copy-paste trap of exactly the
+  kind task #70 exists to prevent.
+  ✅ **Left alone on purpose:** the Sepolia rehearsal records (`LENS-REHEARSAL.md`,
+  `AUDIT-REPLY.md`, `LAUNCH-CHECKLIST.md`, the rehearsal log below). That edition's symbol really
+  IS `UR3030`; rewriting history to match the new name would make the record false. Also untouched:
+  `urm_*` localStorage keys — renaming them would wipe every collector's local vault.
 - **Host: `ripmaster3030studios.com`**; `upperdeckripmaster3030.com` gets ported or redirected.
 - ⛔ **THE OLD NAME IS DROPPED ENTIRELY — artist's call, 2026-08-01.** SuperRare had confirmed
   `upperdeckripmaster3030` references *could* remain as flavour; the artist has since decided
@@ -156,7 +173,7 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   **PLACEHOLDER** (a 196-card set) — a **clean-slate to an empty deck is pending**.
 
 ## Model v2.2 (canonical: `docs/ECONOMIC-FLOW.md`)
-- **$UR3030** — one ERC-20 SuperRare Liquid Edition, **mint-once**, cap **3,030,000**, opens
+- **$3030** — one ERC-20 SuperRare Liquid Edition, **mint-once**, cap **3,030,000**, opens
   ~1 RARE/token; **burns permanent**; deflates **~3× → ~1.01M floor**, driven only by packs.
 - **Every card is a LENS** = a render keyed by card id on **one combined renderer + ERC-721
   lens contract**. **ERC-721 only — ERC-1155 is nixed.**
@@ -165,7 +182,7 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   **holder-bound lens** (one per wallet, non-transferable, non-burnable). The 33 are a
   **Season-1 genesis set** that persists all seasons.
 - **Packs:** ~$7 escalating buy-and-burn, ~3,560 over 4 seasons (S1 1,600 → S4 260).
-- **Games:** wager **$UR3030 + cards** into a pot; a **small ~10% rake burns** (deflationary,
+- **Games:** wager **$3030 + cards** into a pot; a **small ~10% rake burns** (deflationary,
   real on-chain via `js/wager-payout.js`), the rest + cards pay the **podium 1st/2nd/3rd
   (50/30/20), 1st the most** (1v1 = winner-take-pot). Cards transfer, never burned in-game.
   Real token-pot escrow/payout = **Phase-2 721-lens contract**; today the rake burn + card
@@ -175,8 +192,8 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
 ## Render contract (see `docs/RENDER-CONTRACT.md`)
 - SuperRare pattern: `tokenURI()` = edition passthrough; `tokenURI(uint256 id)` = per-lens.
   First-party template **`LiquidLensMintable721SVGExample.sol`** = exactly our combined
-  renderer+721. `contracts/UR3030RenderPrototype.sol` IS the passthrough renderer (done).
-  ✅ **BUILT: `contracts/UR3030Lens721.sol`** — render-by-id + ERC-721 + EIP-712 voucher
+  renderer+721. `contracts/Ripmaster3030Renderer.sol` IS the passthrough renderer (done).
+  ✅ **BUILT: `contracts/Ripmaster3030Lens721.sol`** — render-by-id + ERC-721 + EIP-712 voucher
   mint. **WE build the contracts; SuperRare provides connectivity/deployment/platform**
   (artist directive 2026-07-27). `tokenURI(id)` renders ids 1–100 **without requiring a
   mint** (the 67 field cards are render-only — OZ's default revert-on-nonexistent is wrong
@@ -205,7 +222,7 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
 ## ✅ Staking = the lens reads your balance — BUILT (task #78)
-`UR3030Lens721.tierOfHolder(addr)` / `tierOf(id)` / `tierName(t)`, wired into `tokenURI(id)` as
+`Ripmaster3030Lens721.tierOfHolder(addr)` / `tierOf(id)` / `tierName(t)`, wired into `tokenURI(id)` as
 `Holding` + `Tier` attributes. `setEdition` points it at the $3030 ERC-20; `address(0)` = off.
 **55/55 `npm run test:lens`** (was 31), 16,155 B, 0 warnings.
 - **The ladder is anchored on the PACK, not round numbers** — 350 / 3,500 / 35,000 / 350,000 =
@@ -231,7 +248,7 @@ SuperRare's *Introduction to Liquid Editions* says Liquid Lenses "can use that s
 input" and names the inputs: **token price, trading activity, and HOLDER BALANCES**. That last one
 is the staking mechanism — no staking contract, no emissions, nothing to drain.
 
-- `UR3030RenderPrototype.sol` already reads `getMarketState()` and derives burn from
+- `Ripmaster3030Renderer.sol` already reads `getMarketState()` and derives burn from
   `maxTotalSupply − totalSupply`. It does **not** read `balanceOf`. **That is the missing input.**
 - Design: `tokenURI(id)` knows the lens's owner → read that owner's `$3030` balance → drive the
   render from it, in **tiers**. The art acknowledges you; it does not pay you. That is the
@@ -338,7 +355,7 @@ and performs WalletConnect burns — it is **NOT** for embedding.
   different function that **reverts** on this edition. Verified against the chain, not guessed.
 
 ## Deploying the lens — see `docs/DEPLOY-LENS.md`
-- **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/UR3030Lens721.flat.sol`
+- **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/Ripmaster3030Lens721.flat.sol`
   (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected
   Provider. The key never leaves MetaMask. `scripts/flatten.mjs` recompiles its own output and
   **refuses to write unless the executable bytecode is byte-identical** to the normal build;
@@ -544,7 +561,7 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   playable fighters behind card ownership** (rarity/trigger unlock rules in `ARCH`).
 - **SEATS — `js/session.js` (`RipSession`), doc `docs/SEATS.md`:** three doors into one
   lobby so holders, collectors and paying visitors play *each other*. **A** holder
-  (`UR3030.balanceOf ≥ holderMin`), **B** collector (`lens721.balanceOf ≥ 1`), **C** visitor
+  (`$3030.balanceOf ≥ holderMin`), **B** collector (`lens721.balanceOf ≥ 1`), **C** visitor
   (Base arcade-fee receipt, via `RipEth`). Built on the split that makes this tractable:
   **entry is read-only, stakes are custody** — each door reads its OWN chain over a public
   RPC (a wallet on Base can prove a mainnet balance without switching), so entry needs no

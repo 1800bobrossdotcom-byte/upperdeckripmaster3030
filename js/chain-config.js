@@ -12,8 +12,8 @@ window.RIPMASTER_CHAIN = {
   // paste it here and mobile users can connect + burn. Empty = WC option hidden,
   // injected/MetaMask still works. (js/wallet.js)
   walletConnectProjectId: "8b9d15349eb2a2cd42434a8c3de9c579",   // Reown (WalletConnect) — publishable id; domain-allowlisted to upperdeckripmaster3030.com
-  // $UR3030 burned per pack rip (the "buy the ticket" — deflationary). Real price;
-  // note the uncalibrated Sepolia test curve prices 1 UR3030 at ~16 RARE, so a
+  // $3030 burned per pack rip (the "buy the ticket" — deflationary). Real price;
+  // note the uncalibrated Sepolia test curve prices 1 $3030 at ~16 RARE, so a
   // pack ≈ 5,700 test RARE (the rehearsal wallet was funded accordingly).
   packBurn: 350,
   /* ── TREASURY (artist directive) ────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ window.RIPMASTER_CHAIN = {
     liquidEdition: "0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C", // Sepolia deploy 2026-07-19 (rare liquid-edition deploy multicurve)
     // LIVE renderer — read off the edition itself (edition.renderContract()) on 2026-07-27,
     // not from memory. This is the artist's updated deploy: name() is lowercase, it emits
-    // animation_url framing the site, and UR3030-per-RARE reads 0.06 rather than the 0 the
+    // animation_url framing the site, and $3030-per-RARE reads 0.06 rather than the 0 the
     // previous build truncated to. Superseded 0xEB5Dc231…FDFF7, which is an older prototype.
     renderContract:"0x948E633054c516253D21d313aC789B37935de903", // Sepolia, artist deploy (verified on-chain 2026-07-27)
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
@@ -60,7 +60,7 @@ window.RIPMASTER_CHAIN = {
     packSink:      "",
   },
   // ── SEATS (js/session.js) ──────────────────────────────────────────────────────────
-  // $UR3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or
+  // $3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or
   // burned, it is just read. Set > 0 so seats can't be farmed by splitting dust across
   // wallets; the holder-bound Lovebeing lens is the stronger fix once it exists.
   holderMin: 1,

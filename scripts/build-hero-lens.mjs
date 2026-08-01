@@ -165,7 +165,7 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
         </div>
         <div class="brule"></div>
         <div class="lore">${esc(m.lore || '')}</div>
-        <div class="foot"><span>$UR3030 &#183; SuperRare Liquid Edition</span><span>NFA</span></div>
+        <div class="foot"><span>$3030 &#183; SuperRare Liquid Edition</span><span>NFA</span></div>
       </div>
     </div>
   </div>

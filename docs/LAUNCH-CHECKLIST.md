@@ -1,4 +1,4 @@
-# LAUNCH CHECKLIST — $UR3030 · Season I
+# LAUNCH CHECKLIST — $3030 · Season I
 
 **T-0: August 6, 2026 · 11:11 PM ET** (`2026-08-07T03:11:00Z`).
 Confirmed by the artist 2026-07-27. The landing countdown already targets exactly this.

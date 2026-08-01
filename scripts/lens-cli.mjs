@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* upperdeckripmaster3030 — lens contract CLI. The Sepolia dress rehearsal, and later the
- * mainnet run, drive UR3030Lens721 from here.
+ * mainnet run, drive Ripmaster3030Lens721 from here.
  *
  *   node scripts/lens-cli.mjs verify  --at 0x…                 (read-only, NO KEY)
  *   node scripts/lens-cli.mjs deploy  --renderer 0x… --signer 0x…
@@ -72,7 +72,7 @@ const ABI = parseAbi([
 ]);
 
 function compile() {
-  const SRC = 'contracts/UR3030Lens721.sol';
+  const SRC = 'contracts/Ripmaster3030Lens721.sol';
   const findImport = p => {
     for (const c of [join(ROOT, 'node_modules', p), join(ROOT, p)]) if (existsSync(c)) return { contents: readFileSync(c, 'utf8') };
     return { error: 'not found: ' + p };
@@ -84,7 +84,7 @@ function compile() {
   }), { import: findImport }));
   const errs = (out.errors || []).filter(e => e.severity === 'error');
   if (errs.length) { errs.forEach(e => console.error(e.formattedMessage)); die('compile failed'); }
-  return out.contracts[SRC].UR3030Lens721;
+  return out.contracts[SRC].Ripmaster3030Lens721;
 }
 
 const decodeDataUri = uri => {
@@ -133,7 +133,7 @@ async function deploy() {
   const C = compile();
   const args = encodeAbiParameters(
     [{ type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'address' }, { type: 'string' }, { type: 'string' }],
-    ['upperdeckripmaster3030 lens', 'UR3030L', renderer, signer,
+    ['ripmaster3030studios lens', '3030L', renderer, signer,
      'https://upperdeckripmaster3030.com', 'https://upperdeckripmaster3030.com/cards/hero/']
   );
   // constructor args appended to the creation bytecode — one explicit path, no guessing
@@ -191,7 +191,7 @@ async function voucher() {
   const { account, client } = wallet();
   const sig = await client.signTypedData({
     account,
-    domain: { name: 'upperdeckripmaster3030', version: '1', chainId: CHAIN.id, verifyingContract: at },
+    domain: { name: 'ripmaster3030studios', version: '1', chainId: CHAIN.id, verifyingContract: at },
     types: { Claim: [{ name: 'to', type: 'address' }, { name: 'id', type: 'uint256' },
                      { name: 'kind', type: 'uint8' }, { name: 'deadline', type: 'uint256' }] },
     primaryType: 'Claim',

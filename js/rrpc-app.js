@@ -914,7 +914,7 @@
   function refreshGate() {
     const note = $('startNote'), Wt = window.RipWallet;
     if (!note) return;
-    if (!(Wt && Wt.isLive())) { note.innerHTML = '$UR3030 isn’t live here yet — launches run in <b>practice</b>.'; const b = $('btnBurn'); if (b) b.style.display = 'none'; }
+    if (!(Wt && Wt.isLive())) { note.innerHTML = '$3030 isn’t live here yet — launches run in <b>practice</b>.'; const b = $('btnBurn'); if (b) b.style.display = 'none'; }
     else if (Wt && !Wt.hasWallet()) note.innerHTML = 'No wallet found — <b>practice</b> only. Install MetaMask to pay the fee.';
     // ⚠ NOT a burn — the launch fee funds the studio in full (artist directive). Saying "burn"
     //   here would be the one thing the whole treasury change exists to avoid: a claim about

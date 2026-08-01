@@ -14,7 +14,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SECTION 9 · CLASSIC BUILD · upperdeckripmaster3030</title>
-<meta name="description" content="A low-poly tactical FPS deathmatch. Ante $UR3030, stake your cards, drop into a walled arena and rack up the most frags before the clock runs out.">
+<meta name="description" content="A low-poly tactical FPS deathmatch. Ante $3030, stake your cards, drop into a walled arena and rack up the most frags before the clock runs out.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
@@ -281,10 +281,10 @@
     <div class="panel">
       <h1 aria-label="Section 9 Taskforce Supergame" style="filter:none;background:none;-webkit-text-fill-color:initial"><img src="SECTION_9_TASKFORCE_SUPERGAME_LOGO.png" alt="Section 9 Taskforce Supergame" style="width:min(92%,540px);height:auto;display:block;margin:0 auto;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))"></h1>
       <div class="tag">low-poly tactical deathmatch · most frags takes the pot</div>
-      <div class="sub">Drop into a <b>walled arena</b> and rack up frags. Everyone antes <b>$UR3030</b> and stakes cards into one pot — <b>most frags when the clock runs out</b> takes everything. Infinite respawns; a death is a setback, not the end.</div>
+      <div class="sub">Drop into a <b>walled arena</b> and rack up frags. Everyone antes <b>$3030</b> and stakes cards into one pot — <b>most frags when the clock runs out</b> takes everything. Infinite respawns; a death is a setback, not the end.</div>
 
       <div class="wbox">
-        <div class="wrow"><span class="wlbl">◈ ante · $UR3030 each</span>
+        <div class="wrow"><span class="wlbl">◈ ante · $3030 each</span>
           <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
         <div class="wrow"><span class="wlbl">◆ cards staked each</span>
           <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
@@ -525,7 +525,7 @@
     $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
     const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
     const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
-    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
     let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
@@ -535,10 +535,10 @@
     const btn=$('btnAnte');
     btn.disabled = !(canReal && enoughCards);
     const note=$('lobNote');
-    if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — the wager runs as a <b>practice</b> deployment.';
-    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
+    if(!liveToken()) note.innerHTML='$3030 isn’t live on this network yet — the wager runs as a <b>practice</b> deployment.';
+    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $3030 and stake cards for keeps.';
     else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
-    else note.innerHTML='Ante <b>'+wager.ante+' $UR3030</b> — <b>🔥'+WagerPayout.rake(wager.ante)+'</b> burns now, the rest joins the pot · your <b>'+wager.cards+'</b> cards stake in · <b>podium 1st/2nd/3rd</b> splits it.';
+    else note.innerHTML='Ante <b>'+wager.ante+' $3030</b> — <b>🔥'+WagerPayout.rake(wager.ante)+'</b> burns now, the rest joins the pot · your <b>'+wager.cards+'</b> cards stake in · <b>podium 1st/2nd/3rd</b> splits it.';
   }
   // wager control wiring
   $('pChips').querySelectorAll('.pchip').forEach(el=>el.onclick=()=>{ wager.players=+el.dataset.p;
@@ -1121,7 +1121,7 @@
     { name:'LONG RIFLE',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
   ];
 
-  // ══════════════════ CARD POWERS + LIVE $UR3030 MARKET ══════════════════
+  // ══════════════════ CARD POWERS + LIVE $3030 MARKET ══════════════════
   // your staked cards arm the operative (dmg / fire-rate / armor / speed), all flexing with the live chain.
   function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
   function applyLoadout(e,L){ if(!e||!L)return;
@@ -1212,7 +1212,7 @@
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
     for(let s=1;s<G.ents.length;s++){ const arr=[]; for(let k=0;k<wager.cards;k++){ if(DECK.length) arr.push(DECK[rint(DECK.length)].slug); } G.oppStakes.push(arr); }
-    // arm operatives from their staked cards, scaled by the live $UR3030 market (yours = picked, or top-owned in practice)
+    // arm operatives from their staked cards, scaled by the live $3030 market (yours = picked, or top-owned in practice)
     G.loadout=null; try{ if(window.RipPowers){ const src=wager.picked.length?wager.picked:ownedSlugs().slice(0,wager.cards);
       const picks=src.map(sl=>bySlug.get(sl)).filter(Boolean);
       if(picks.length){ G.loadout=RipPowers.loadout(picks,RipPowers.getMarket()); applyLoadout(G.me,G.loadout); }
@@ -1939,7 +1939,7 @@
     $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' place · '+(G.me?G.me.kills:0)+' frags')
       : ('off the podium · out-fragged by '+shortName((winner&&winner.name)||'the field'));
     if(!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ '+WagerPayout.ordinal(P.myPlace)+' — ON THE PODIUM') : 'BETTER LUCK NEXT DROP');
-    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards')
+    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $3030 · +'+wonSlugs.length+' cards')
                                               : ('off the podium · 🔥'+P.anteBurn+' rake burned');
     $('prizeSub').textContent = onPodium ? ('you placed '+WagerPayout.ordinal(P.myPlace)+' of '+wager.players+' · '+(G.me?G.me.kills:0)+' frags / '+(G.me?G.me.deaths:0)+' downs')
                                          : ('winner: '+shortName((winner&&winner.name)||'—')+' · you: '+(G.me?G.me.kills:0)+' frags');
@@ -1950,7 +1950,7 @@
       return `<div class="tile" style="--rc:var(${RC[c.rarity]||'--common'})"><span class="rr">${c.rarity}</span><img src="cards/${c.art}" onerror="this.style.opacity=.15"></div>`; }).join(''); }
     else wc.innerHTML='';
     $('scaNote').innerHTML = G.real
-      ? 'Your <b>🔥'+P.anteBurn+' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+      ? 'Your <b>🔥'+P.anteBurn+' $3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
       : 'Practice deployment — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
     if(iWon)SFX.win(); else SFX.down();
     $('ovResult').classList.add('show'); buildGrid();

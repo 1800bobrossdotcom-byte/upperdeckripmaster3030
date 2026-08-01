@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Build the on-site transparency pages — whitepaper.html, tokenomics.html, audit.html,
-// artist.html — in the UR3030 acid-terminal style, from one shared shell. Reproducible:
+// artist.html — in the ripmaster3030studios acid-terminal style, from one shared shell. Reproducible:
 //
 //   node scripts/build-pages.mjs
 //
@@ -499,7 +499,7 @@ const audit = `
       <b>ERC-721</b>. <b>Fixed:</b> every card is a render-by-id lens on one renderer+721 contract — 33 minted,
       67 render-only, Lovebeing a holder lens — a tiny mint footprint, no 1155.</li>
     <li><b>Renderer display bugs.</b> The render read 100% "circulating" and 0 per-RARE; <b>fixed</b> to read
-      BURNED % (<code>max − total</code>) and a 2-dp per-RARE value in <code>contracts/UR3030RenderPrototype.sol</code>
+      BURNED % (<code>max − total</code>) and a 2-dp per-RARE value in <code>contracts/Ripmaster3030Renderer.sol</code>
       (re-callable <code>setRenderContract</code>, no token redeploy).</li>
     <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
       ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
@@ -535,7 +535,7 @@ const audit = `
     <li><b>Run the model</b> — <code>node scripts/token-model.mjs</code> reproduces every number on the <a href="tokenomics.html">Tokenomics</a> page.</li>
     <li><b>Watch the chain</b> — packs and conviction are burn txs on the one token; hero-lens mints are wallet-signed; <code>getMarketState()</code> is live.</li>
     <li><b>Read the design</b> — <code>docs/ECONOMIC-FLOW.md</code> (canonical) + <code>docs/AUDIT-REPLY.md</code> (the SuperRare reply).</li>
-    <li><b>Read the render fix</b> — <code>contracts/UR3030RenderPrototype.sol</code> (BURNED %, per-RARE).</li>
+    <li><b>Read the render fix</b> — <code>contracts/Ripmaster3030Renderer.sol</code> (BURNED %, per-RARE).</li>
   </ul>
   <div class="callout amber"><div class="co-h">The honest bottom line.</div>
     <p>We've been transparent about what we checked and what we didn't. Self-review and a clean compile are
