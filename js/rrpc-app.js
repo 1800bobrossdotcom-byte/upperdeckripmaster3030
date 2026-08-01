@@ -614,10 +614,30 @@
   /* The hue field, sampled at a grid VERTEX rather than at a cell centre — that is what lets the
    * quads share corner colours and interpolate into a continuous field instead of a tiled wall. */
   const _bgc = [0, 0, 0, 255];
+  /* ⛔ THE BACKDROP WAS A WASH ACROSS THE WHOLE FRAME, AND IT ATE THE PLAYFIELD.
+   *
+   * It is a screen-filling colour field, which is what the brief asked for — but it was applied
+   * FLAT, so the middle of the screen, where the ship and the divers and every bullet live, sat on
+   * mid-tone saturated colour with nothing dark to read against. Measured at wave 7: blacks were
+   * 21.4% of frame. Sprites in this game are thin bright streaks; they need a black field or they
+   * read as confetti on a soup, which is exactly what the artist's screenshot shows.
+   *
+   * ⚑ The fix is a SURROUND, not a lower number. Colour belongs at the rim and the play column
+   *   belongs dark — `DESIGN-SYSTEM.md` §5, "dark field, lit object" and "vignette inward". The
+   *   field keeps its full chroma and its travelling lobes at the edges, where they are still the
+   *   whole peripheral read, and falls to CFLOOR of that toward the centre.
+   * ⚠ The ellipse is WIDER VERTICALLY (the 0.62 on v) because this is a vertical shooter: the
+   *   action is a tall column, not a circle. A round falloff dimmed the top and bottom of the
+   *   screen — where the formation enters and where the ship sits — while leaving the sides lit. */
+  const CFLOOR = 0.20;
   function bgColour(u, v, t, hue0, boost, out) {
     const w = Math.sin(u * 5.1 + t * 0.7) * Math.cos(v * 4.3 - t * 0.53) * 0.5 + 0.5;
     const w2 = Math.sin((u + v) * 7.7 - t * 1.1) * 0.5 + 0.5;
-    const c = fx.hsl((hue0 + w * 150 + w2 * 60) % 360, 0.95, (0.045 + w * 0.075 + w2 * 0.035) * boost);
+    const ru = u * 2, rv = v * 2 * 0.62;
+    const r2 = Math.min(1, ru * ru + rv * rv);
+    const keep = CFLOOR + (1 - CFLOOR) * r2 * r2;      // r^4: holds the centre dark, lifts late
+    const c = fx.hsl((hue0 + w * 150 + w2 * 60) % 360, 0.95,
+      (0.045 + w * 0.075 + w2 * 0.035) * boost * keep);
     out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; out[3] = 255;
     return out;
   }
