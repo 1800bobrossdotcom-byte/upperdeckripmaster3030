@@ -181,7 +181,7 @@ const whitepaper = `
   (live on-chain, <b>unminted</b>) that you collect and can mint later. Packs <b>burn</b> the token — supply
   <b>only falls</b> — every rip retires supply for good while the RARE reserve stays put, so
   <b>each surviving token is backed by more</b>. Ripping pays the holders. <i>The token burns
-  so the art can live.</i> No treasury, no team pre-mint, no fee wallet.</p>
+  so the art can live.</i> The studio takes a <b>stated</b> cut — half of every pack and half of the 10% game rake fund the studio; the rest burns. No team pre-mint, no hidden fees.</p>
 
   <h3>The stack — one edition, one lens contract</h3>
   <div class="cols3">
@@ -211,7 +211,7 @@ const whitepaper = `
   <ul>
     <li><b>The field</b> — 100 cards, all live lenses, five tiers (Common → Prizm). <b>Rarity is set by
       community vote</b> (the Rarity Court), not decreed.</li>
-    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030, burned in full</b>; you pull
+    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull
       <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
     <li><b>The 33 hero lenses</b> — a <b>Season-1 genesis set</b> that persists all four seasons — <b>11 gacha</b>
       (pull the claim from a pack → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>

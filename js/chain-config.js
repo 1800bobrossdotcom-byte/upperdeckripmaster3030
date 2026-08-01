@@ -16,6 +16,19 @@ window.RIPMASTER_CHAIN = {
   // note the uncalibrated Sepolia test curve prices 1 UR3030 at ~16 RARE, so a
   // pack ≈ 5,700 test RARE (the rehearsal wallet was funded accordingly).
   packBurn: 350,
+  /* ── TREASURY (artist directive) ────────────────────────────────────────────────────────
+   * The studio wallet. A PUBLIC ADDRESS is not a credential — this is the same wallet that
+   * already appears in docs/TESTNET.md and docs/LENS-REHEARSAL.md as owner()/deployer, so it
+   * is recorded here rather than hidden.
+   * ⚠ IT IS ALSO THE DEPLOYER AND CONTRACT OWNER, and those are different risk profiles: a
+   * treasury accumulates a balance worth stealing, while an owner key can repoint every card.
+   * CLAUDE.md already makes this argument for keeping the claim signer separate from the owner;
+   * the same reasoning says a treasury should be its own address. Worth changing before real
+   * money flows through it — it is one config line now and a migration later. */
+  treasury: '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F',
+  /* Pack purchase split — half burns, half funds the studio. See docs/TREASURY.md for why this
+   * CANNOT be done as two client-side transactions. */
+  packSplit: { burn: 0.50, treasury: 0.50 },
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
   rpcs: [
     "https://ethereum-sepolia-rpc.publicnode.com",

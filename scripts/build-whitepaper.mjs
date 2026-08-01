@@ -42,9 +42,9 @@ const slide = (kicker, inner, accent = C.phos) => {
     </header>
     <div class="body">${inner}</div>
     <footer class="sfoot">
-      <span>$UR3030 · a game token, not an investment</span>
+      <span>$3030 · a game token, not an investment</span>
       <span class="nfa">NOT FINANCIAL ADVICE · ALL MEMES ARE MEMES · DYOR</span>
-      <span>upperdeckripmaster3030.com</span>
+      <span>ripmaster3030studios.com</span>
     </footer>
   </section>`;
 };
@@ -56,11 +56,11 @@ const S = [];
 S.push(`<section class="slide cover">
   <div class="scan"></div><div class="grid"></div>
   <div class="cover-glow"></div>
-  <img class="hero" src="${HERO}" alt="upperdeckripmaster3030">
+  <img class="hero" src="${HERO}" alt="ripmaster3030studios">
   <div class="cover-mid">
     <div class="eyebrow">TRANSPARENT WHITEPAPER · v1 · <span style="color:${C.amber}">NFA</span></div>
     <h1 class="big">UPPERDECK<br>RIPMASTER 3030</h1>
-    <div class="tokline">$UR3030 · a liquid trading-card game on <b>SuperRare Liquid Editions</b></div>
+    <div class="tokline">$3030 · a liquid trading-card game on <b>SuperRare Liquid Editions</b></div>
     <div class="byline">by <b>Gianni Arone</b> (lovebeing · @_lovebeing_) &nbsp;·&nbsp; SuperRare Liquid Editions — Cohort 1</div>
   </div>
   <footer class="sfoot cover-foot">
@@ -75,15 +75,15 @@ S.push(slide('TL;DR — read this first', `
   <h2>One token. One fire. 100 living lenses.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$UR3030</b> on a bonding curve in <b>RARE</b>, <b>minted once</b>, burns permanent.</li>
+      <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$3030</b> on a bonding curve in <b>RARE</b>, <b>minted once</b>, burns permanent.</li>
       <li>The <b>100-card deck is the artwork</b> — <b>every card is a lens</b> (a render that reads the live market + burn). No ERC-1155, no per-copy editions.</li>
       <li><b>33 hero cards mint as 1/1s</b> (11 pulled from packs, 22 earned in the games); the other <b>67 are render-only lenses</b>, mintable later.</li>
       <li>Packs <b>burn</b> the token — supply contracts <b>≈3×</b> (3.03M → ~1.01M) — but <b>the cards survive</b>. The token burns so the art can live.</li>
-      <li><b>No treasury. No team pre-mint. No fee wallet.</b> Plus <b>Lovebeing</b>, the holder lens every wallet carries.</li>
+      <li><b>No team pre-mint. No hidden fees.</b> The studio takes a stated cut — half of every pack and half of the 10% game rake; the rest burns. Plus <b>Lovebeing</b>, the holder lens every wallet carries.</li>
     </ul>
     <div class="callout">
       <div class="co-h">This document is transparency, not a pitch.</div>
-      <p>$UR3030 is a <b>collectible game token</b>, not an investment. It can go to zero.
+      <p>$3030 is a <b>collectible game token</b>, not an investment. It can go to zero.
       The cards are <b>art, parody, and memes</b>. Play for the fun of it. Nothing here is
       financial, legal, or tax advice — see the last page.</p>
     </div>
@@ -95,9 +95,9 @@ S.push(slide('The game', `
   <div class="cols">
     <ul class="bullets">
       <li><b>The field</b> — all 100 cards are live lenses, five tiers (Common → Prizm). <b>Rarity is set by community vote</b> (the Rarity Court), not decreed.</li>
-      <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $UR3030, burned in full</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
+      <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
       <li><b>The 33 hero lenses</b> — <b>11 gacha</b> (pull the claim → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>
-      <li><b>Play &amp; wager</b> — the games ante $UR3030 (<b>net-zero wagers</b> — winner takes the pot) and let you stake your cards, which transfer (never burned).</li>
+      <li><b>Play &amp; wager</b> — the games ante $3030 (<b>net-zero wagers</b> — winner takes the pot) and let you stake your cards, which transfer (never burned).</li>
       <li><b>The burn-down</b> — packs deflate the token ≈3×; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
     </ul>
     <div class="statwrap">
@@ -109,11 +109,11 @@ S.push(slide('The game', `
   </div>`, C.phos));
 
 // 4 — the token
-S.push(slide('The token · $UR3030', `
+S.push(slide('The token · $3030', `
   <h2>A cheap micro-token on a Uniswap-v4 + Doppler curve.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li><b>Supply cap: 3,030,000 $UR3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
+      <li><b>Supply cap: 3,030,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
       <li><b>Opening price ≈ 1 RARE / token (~$0.02)</b> — kept cheap so every toll and vote is a micro-move.</li>
       <li>Liquidity is a <b>Doppler multicurve</b> (log-normal) inside a <b>Uniswap-v4 pool</b>; reserve/quote is <b>RARE</b>.</li>
       <li><b>FDV at a full curve ≈ $606k</b> — an artist-scale niche edition, by choice. Verified with <code>--preview</code> pre-mainnet.</li>
@@ -165,7 +165,7 @@ S.push(slide('Packs · a $7 premium, escalating', `
   <h2>The one premium ritual — a real buy-and-burn.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li>A pack is a site-guided <b>buy of ~350 $UR3030 ≈ $7</b> (seven cards, ~$1 a card), <b>burned in full</b> — native curve operations, no pack contract.</li>
+      <li>A pack is a site-guided <b>buy of ~350 $3030 ≈ $7</b> (seven cards, ~$1 a card), <b>split half-burn / half-studio</b> — see docs/TREASURY.md for why that split has to be one atomic call.</li>
       <li>Your 7 pulls derive from your burn tx; your collection is your rip history + holdings — <b>not</b> a token reprice, FDV unchanged.</li>
       <li><b>Within a season:</b> price walks a line from base → ceil as the allotment sells (S1 350 → 525 tokens).</li>
       <li><b>Across seasons:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>burn budget (~2.02M, ⅔ cap)</b>, not card supply.</li>
@@ -193,7 +193,7 @@ S.push(slide('Lenses · minting &amp; compression', `
   <ul class="bullets wide">
     <li><b>33 hero lenses — a Season-1 genesis set (persists all four seasons):</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
     <li><b>67 field lenses — render-only now:</b> live on-chain, unminted (readable via the CLI). Collect their copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>, on the same render — so they stay lenses, never static art.</li>
-    <li><b>Lovebeing — the holder lens:</b> distributed to <b>every $UR3030 holder</b>, one per wallet, <b>non-transferable</b> and <b>non-burnable</b>. Nothing turns to ash — the deck survives; the token deflates.</li>
+    <li><b>Lovebeing — the holder lens:</b> distributed to <b>every $3030 holder</b>, one per wallet, <b>non-transferable</b> and <b>non-burnable</b>. Nothing turns to ash — the deck survives; the token deflates.</li>
   </ul>`, C.cyan));
 
 // 8 — steady not a pump
@@ -257,9 +257,9 @@ S.push(slide('Risks · read honestly', `
 S.push(slide('Legal &amp; NFA · the fine print', `
   <h2>All memes are memes. Not financial advice.</h2>
   <div class="legal">
-    <p><b>Not financial advice.</b> Nothing in this document or on upperdeckripmaster3030.com is
+    <p><b>Not financial advice.</b> Nothing in this document or on ripmaster3030studios.com is
     financial, investment, legal, or tax advice, nor an offer or solicitation to buy or sell any
-    asset. <b>$UR3030</b> is an experimental, volatile utility/collectible <b>game token</b> intended
+    asset. <b>$3030</b> is an experimental, volatile utility/collectible <b>game token</b> intended
     for play and collecting — <b>not an investment contract</b> and <b>not a security</b>. There is
     <b>no promise, guarantee, or expectation of profit, value, liquidity, or future development</b>.
     You may lose everything you put in.</p>
@@ -270,14 +270,14 @@ S.push(slide('Legal &amp; NFA · the fine print', `
     good-faith legal requests.</p>
     <p><b>Do your own research.</b> Crypto assets and smart contracts carry risk, including total
     loss and bugs. Interact at your own risk, comply with the laws of your jurisdiction, and consult
-    your own qualified professionals. By acquiring or using $UR3030 you accept these risks and that
+    your own qualified professionals. By acquiring or using $3030 you accept these risks and that
     the artist, contributors, and SuperRare make <b>no warranties</b> of any kind.</p>
-    <p class="sig">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · <span style="color:${C.phos}">$UR3030</span></p>
+    <p class="sig">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · <span style="color:${C.phos}">$3030</span></p>
   </div>`, C.amber));
 
 // ── document ──
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<title>upperdeckripmaster3030 — Transparent Whitepaper</title>
+<title>ripmaster3030studios — Transparent Whitepaper</title>
 <style>
   @page { size: 13.333in 7.5in; margin: 0; }
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

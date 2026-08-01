@@ -15,10 +15,38 @@
  *   WagerPayout.compute(ante, players, cards, myRank) -> full breakdown (below)
  */
 window.WagerPayout = (function () {
-  const BURN_PCT = 0.10;            // small deflationary rake on the pot
+  /* ── THE RAKE IS NOW SPLIT: HALF BURNS, HALF GOES TO THE TREASURY ──────────────────────────
+   * Artist directive. The rake stays 10% of the pot; what changes is where it goes — 5% burns
+   * permanently and 5% is paid to the studio treasury wallet.
+   *
+   * ⚑ WHY THIS EXISTS AT ALL. docs/ARTIST-REVENUE.md records that SuperRare has published
+   * NOTHING about the creator revenue model on a Liquid Edition, so the artist currently has no
+   * confirmed way to be paid by the edition itself. A treasury share of the game rake is income
+   * this project controls outright and does not have to wait on an answer for.
+   *
+   * ⚠ AND IT CHANGES A PUBLIC PROMISE. Four surfaces said "no treasury, no fee wallet" and
+   * "burned in full". That copy is now false and has been rewritten — a mechanic that quietly
+   * contradicts the site is worse than one that is simply announced. See docs/TREASURY.md.
+   *
+   * ⚠ RAKE_PCT is kept as the single source of the 10% figure so BURN_PCT + TREASURY_PCT can
+   * never silently drift apart from it; the assertion below is cheap and catches an edit that
+   * changes one and forgets the other. */
+  const RAKE_PCT = 0.10;            // total rake on the pot — unchanged
+  const BURN_PCT = 0.05;            // ...of which this burns, permanently
+  const TREASURY_PCT = 0.05;        // ...and this goes to the studio treasury
   const SPLIT = [0.50, 0.30, 0.20]; // 1st / 2nd / 3rd share of pot + cards
+  if (Math.abs((BURN_PCT + TREASURY_PCT) - RAKE_PCT) > 1e-9)
+    console.warn('[wager] rake split does not sum to RAKE_PCT — the pot maths is now wrong');
 
-  const rake = ante => Math.max(1, Math.round((+ante || 0) * BURN_PCT));
+  /* What each player parts with at ante. `rake` stays the TOTAL (callers show it as one number
+   * and it is what leaves the wallet); `rakeBurn`/`rakeTreasury` are its two halves.
+   * ⚠ Split with floor+remainder, never two independent rounds: at ante 50 a naive
+   * round(50*0.05) twice gives 3+3=6 against a rake of 5, i.e. the pot pays out more than it
+   * took in. The remainder goes to the BURN, so rounding can only ever burn more, never pay the
+   * treasury more than its share. */
+  const rake = ante => Math.max(1, Math.round((+ante || 0) * RAKE_PCT));
+  const rakeTreasury = ante => Math.floor(rake(ante) * (TREASURY_PCT / RAKE_PCT));
+  const rakeBurn = ante => rake(ante) - rakeTreasury(ante);
 
   // podium weights: 3+ players → 1st/2nd/3rd (50/30/20); heads-up (≤2) → winner takes all
   function podium(players) {
@@ -36,25 +64,30 @@ window.WagerPayout = (function () {
   function compute(ante, players, cardsEach, myRank) {
     ante = +ante || 0; players = Math.max(1, players | 0); cardsEach = Math.max(0, cardsEach | 0);
     const grossPot = ante * players;
-    const burn = Math.round(grossPot * BURN_PCT);
-    const netPot = grossPot - burn;
+    const rakeTotal = Math.round(grossPot * RAKE_PCT);
+    const treasury = Math.floor(rakeTotal * (TREASURY_PCT / RAKE_PCT));
+    const burn = rakeTotal - treasury;         // remainder burns — see the note on rake()
+    const netPot = grossPot - rakeTotal;
     const cardPot = players * cardsEach;
     const w = podium(players);
     const tokByPlace = distribute(netPot, w);
     const cardByPlace = distribute(cardPot, w);
     const place = (myRank != null && myRank >= 0 && myRank < w.length) ? myRank : -1;   // -1 = off the podium
     return {
-      grossPot, burn, netPot, cardPot,
+      grossPot, rakeTotal, burn, treasury, netPot, cardPot,
       places: w.length, split: w,
       tokByPlace, cardByPlace,
       myPlace: place,                       // 0=1st, 1=2nd, 2=3rd, -1=none
       myTok: place >= 0 ? tokByPlace[place] : 0,
       myCards: place >= 0 ? cardByPlace[place] : 0,
-      anteBurn: rake(ante),                 // what each player burns on-chain at ante
+      anteBurn: rakeBurn(ante),             // what each player BURNS on-chain at ante
+      anteTreasury: rakeTreasury(ante),     // ...and what goes to the studio treasury
+      anteRake: rake(ante),                 // the total that leaves the player's wallet
     };
   }
 
   const ordinal = i => ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'][i] || (i + 1) + 'th';
 
-  return { compute, rake, ordinal, BURN_PCT, SPLIT };
+  return { compute, rake, rakeBurn, rakeTreasury, ordinal,
+           RAKE_PCT, BURN_PCT, TREASURY_PCT, SPLIT };
 })();
