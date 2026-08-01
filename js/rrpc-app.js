@@ -915,14 +915,17 @@
     const note = $('startNote'), Wt = window.RipWallet;
     if (!note) return;
     if (!(Wt && Wt.isLive())) { note.innerHTML = '$UR3030 isn’t live here yet — launches run in <b>practice</b>.'; const b = $('btnBurn'); if (b) b.style.display = 'none'; }
-    else if (Wt && !Wt.hasWallet()) note.innerHTML = 'No wallet found — <b>practice</b> only. Install MetaMask to burn.';
-    else note.innerHTML = 'Real burn: <b>25 $UR3030</b> gone to launch, feeding the deflation.';
+    else if (Wt && !Wt.hasWallet()) note.innerHTML = 'No wallet found — <b>practice</b> only. Install MetaMask to pay the fee.';
+    // ⚠ NOT a burn — the launch fee funds the studio in full (artist directive). Saying "burn"
+    //   here would be the one thing the whole treasury change exists to avoid: a claim about
+    //   where a collector's tokens went that isn't true.
+    else note.innerHTML = 'Launch fee: <b>25 $3030</b> to the studio — this one funds the shop, it doesn’t burn.';
   }
-  async function launch(burn) {
-    if (!burn) { startGame(false); return; }
+  async function launch(paid) {
+    if (!paid) { startGame(false); return; }
     const Wt = window.RipWallet;
     if (!(Wt && Wt.isLive() && Wt.hasWallet())) { startGame(false); return; }
-    const r = await Wt.burn(ANTE);
+    const r = await Wt.payTreasury(ANTE);          // 100% to the studio — a fee, not a burn
     if (!r.ok) { toast(Wt.explain(r.reason)); return; }
     startGame(true);
   }

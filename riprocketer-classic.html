@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RIP ROCKETER (classic build) · ripmaster3030studios</title>
-<meta name="description" content="Fly your deck as a starfighter. Burn 25 $UR3030, throttle through living worlds, and blast targets generated live from the chain.">
+<meta name="description" content="Fly your deck as a starfighter. Pay a 25 $3030 launch fee, throttle through living worlds, and blast targets generated live from the chain.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!--
@@ -182,14 +182,14 @@
     <div>
       <div class="rr-logo"><img src="riprocketer.png" alt="RIP ROCKETER" fetchpriority="high"></div>
       <div class="tag">upperdeckripmaster3030</div>
-      <div class="sub">Your deck builds a starfighter. <b>Burn 25 $UR3030</b> to launch, throttle through shifting worlds, and blast <b>targets generated live from the chain</b> — every block spawns a new formation.</div>
+      <div class="sub">Your deck builds a starfighter. <b>Pay 25 $3030</b> to launch, throttle through shifting worlds, and blast <b>targets generated live from the chain</b> — every block spawns a new formation.</div>
       <div class="keys-preview">
         <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span><span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
         <span class="key desk"><kbd>⇧</kbd> boost</span><span class="key desk"><kbd>Z</kbd> brake</span><span class="key desk"><kbd>SPC</kbd> fire</span>
         <span class="key touch">left thumb: flight stick · hold FIRE / BOOST</span>
       </div>
-      <div><button class="go" id="btnBurn"><span class="ic" data-ic="flame"></span> Burn 25 &amp; launch</button></div>
-      <div><button class="go alt" id="btnPractice">▶ Practice launch (no burn)</button></div>
+      <div><button class="go" id="btnBurn"><span class="ic" data-ic="bolt"></span> Pay 25 &amp; launch</button></div>
+      <div><button class="go alt" id="btnPractice">▶ Practice launch (free)</button></div>
       <div class="mininote" id="startNote"></div>
       <div class="lb" id="lbGate"></div>
       <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="dogfight.html"><span class="ic" data-ic="swords"></span> dogfight</a></div>
@@ -204,7 +204,7 @@
       <div class="h-lbl" style="letter-spacing:.24em">score · best <b id="overBest">0</b></div>
       <div class="lb" id="lbOver"></div>
       <div class="lb-name-in">sign the board as <input id="lbName" maxlength="14" spellcheck="false" autocomplete="off"></div>
-      <div style="margin-top:14px"><button class="go" id="btnAgain"><span class="ic" data-ic="flame"></span> Burn 25 &amp; fly again</button></div>
+      <div style="margin-top:14px"><button class="go" id="btnAgain"><span class="ic" data-ic="bolt"></span> Pay 25 &amp; fly again</button></div>
       <div><button class="go alt" id="btnAgainP">▶ Practice again</button></div>
       <div class="mininote"><a href="cards/battle.html">◄ arena</a> · <a href="index.html">the pack</a></div>
     </div>
@@ -510,11 +510,12 @@
   const ANTE=25;
   function refreshGate(){ const note=$('startNote'),Wt=window.RipWallet;
     if(!(Wt&&Wt.isLive())){ note.innerHTML='$UR3030 isn’t live here yet — launches run in <b>practice</b>.'; $('btnBurn').style.display='none'; }
-    else if(Wt&&!Wt.hasWallet()){ note.innerHTML='No wallet found — <b>practice</b> only. Install MetaMask to burn.'; }
-    else note.innerHTML='Real burn: <b>25 $UR3030</b> gone to launch, feeding the deflation.'; }
-  async function launch(burn,again){ if(burn){ const Wt=window.RipWallet; if(!(Wt&&Wt.isLive()&&Wt.hasWallet())){ start(false); return; }
-      const btn=again?$('btnAgain'):$('btnBurn'); btn.textContent='confirm burn…'; sfxBurn(); const r=await Wt.burn(ANTE);
-      btn.innerHTML='<span class="ic" data-ic="flame"></span> Burn 25 &amp; '+(again?'fly again':'launch'); if(window.RipIcons)RipIcons.hydrate(btn); if(!r.ok){ toast(Wt.explain(r.reason)); return; } start(true);
+    else if(Wt&&!Wt.hasWallet()){ note.innerHTML='No wallet found — <b>practice</b> only. Install MetaMask to pay the fee.'; }
+    // ⚠ NOT a burn — the launch fee funds the studio in full (artist directive).
+    else note.innerHTML='Launch fee: <b>25 $3030</b> to the studio — this one funds the shop, it doesn’t burn.'; }
+  async function launch(paid,again){ if(paid){ const Wt=window.RipWallet; if(!(Wt&&Wt.isLive()&&Wt.hasWallet())){ start(false); return; }
+      const btn=again?$('btnAgain'):$('btnBurn'); btn.textContent='confirm fee…'; sfxBurn(); const r=await Wt.payTreasury(ANTE);
+      btn.innerHTML='<span class="ic" data-ic="bolt"></span> Pay 25 &amp; '+(again?'fly again':'launch'); if(window.RipIcons)RipIcons.hydrate(btn); if(!r.ok){ toast(Wt.explain(r.reason)); return; } start(true);
     } else start(false); }
   $('btnBurn').onclick=()=>launch(true,false); $('btnPractice').onclick=()=>launch(false,false);
   $('btnAgain').onclick=()=>launch(true,true); $('btnAgainP').onclick=()=>launch(false,true);

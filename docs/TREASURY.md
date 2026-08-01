@@ -64,9 +64,27 @@ unconditionally while the eight games still called `burn(wholeRake)` — so a pl
 `RipWallet.hasSink()`, so the figures follow the deployed reality from one place and start
 reporting the split the moment the address is pasted in, with no edit to any game.
 
-⚠ **Rip Rocketer's flat 25-token launch fee is still a 100% burn.** It is a solo entry fee, not a
-pot rake, so the 10%-of-pot rule does not obviously apply to it. Left alone **by omission, not by
-decision** — the artist should say whether it splits too.
+## 1b. Rip Rocketer's launch fee — ✅ 100% TO THE TREASURY
+
+**Artist directive, 2026-08-01.** The flat **25 $3030** to launch is not a pot rake and does not
+split: **all of it funds the studio, none of it burns.**
+
+⚑ **This needs no contract, and that is the point.** `PackSink` exists because a *split* is two
+operations that must not half-execute. Paying one address is **one** operation — a plain ERC-20
+`transfer`, atomic by definition. Routing it through the sink would have added a contract call, an
+approval and a second wallet prompt to buy exactly nothing. `RipWallet.payTreasury()` is the whole
+implementation. *Reach for the contract when there is something to make atomic, not by habit.*
+
+⚠ **It fails closed with no treasury configured** (`reason: 'no-treasury'`). There is no sensible
+fallback: burning instead would perform a different economic action than the one asked for, and
+the zero address is how tokens get destroyed by accident. A player getting a practice run beats a
+silent substitution.
+
+⚠ **The word "burn" is gone from that game's copy**, in both the PlayCanvas and classic builds —
+buttons, the gate note, the meta description, the wallet-missing message. It now reads *"Launch
+fee: 25 $3030 to the studio — this one funds the shop, it doesn't burn."* Leaving the old wording
+would have been exactly the failure this whole treasury change exists to avoid: a claim about
+where a collector's tokens went that is not true.
 
 ```
 ante  25 → rake  3 → burn  2 + treasury  1

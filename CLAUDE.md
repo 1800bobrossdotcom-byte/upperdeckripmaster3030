@@ -67,8 +67,15 @@ the clearance joke. ⛔ It no longer appears on new surfaces; see the directive 
   hits the fallback, wrong offset approves the wrong spender, a missing `10^18` approves 350 wei.
   **Writing the two selectors from memory got BOTH wrong**; they are now recomputed from the ABI
   and asserted against the file. `npm test` = 31 + 17 + 51 + 38.
-- ⚠ Rip Rocketer's flat 25-token launch fee is **still a 100% burn** — a solo entry fee, not a pot
-  rake. Left by omission, not decision; ask the artist.
+- ✅ **Rip Rocketer's flat 25-token launch fee goes 100% TO THE TREASURY** (artist's call,
+  2026-08-01) — it does not split and it does not burn. ⚑ **No contract needed, and that is the
+  lesson**: PackSink exists because a *split* is two operations that must not half-execute; paying
+  one address is ONE operation, i.e. a plain ERC-20 `transfer`, atomic by definition. Routing it
+  through the sink would have added an approval and a second wallet prompt to buy nothing.
+  `RipWallet.payTreasury()` is the whole implementation. **Reach for the contract when there is
+  something to make atomic, not by habit.** Fails closed (`no-treasury`) rather than falling back
+  to a burn — a fallback that performs a *different economic action* is worse than a refusal. The
+  word "burn" is gone from that game's copy in both builds.
 
 ## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
 **Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**

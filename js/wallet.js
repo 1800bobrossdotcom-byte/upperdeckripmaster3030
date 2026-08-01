@@ -21,6 +21,8 @@
  *   RipWallet.payRake(tokens, onStep)  -> game rake, same 50/50 split
  *      Both go through contracts/PackSink.sol in ONE atomic call, and both FALL BACK to a plain
  *      100% burn while `contracts.packSink` is empty. `result.split` says which path ran.
+ *   RipWallet.payTreasury(tokens)  -> 100% to the studio wallet. A plain ERC-20 transfer: one
+ *      destination is one operation, so unlike the split it needs no contract at all.
  *   RipWallet.on('change', cb)     account/chain changes
  *   RipWallet.buyUrl()             SuperRare Collect deep-link
  */
@@ -325,6 +327,35 @@
   const payPack = (tokens, onStep) => splitPay(tokens, '0xdc45bfb3', onStep);   // buyPack(uint256)
   const payRake = (tokens, onStep) => splitPay(tokens, '0x85cf61ef', onStep);   // payRake(uint256)
 
+  /* 100% to the studio — Rip Rocketer's flat launch fee (artist directive, 2026-08-01).
+   *
+   * ⚑ THIS NEEDS NO CONTRACT, AND THAT IS THE WHOLE POINT. PackSink exists because a SPLIT is
+   *   two operations that must not half-execute. Paying one address is ONE operation: a plain
+   *   ERC-20 `transfer`, atomic by definition. Routing it through the sink would have added a
+   *   contract call, an approval and a second wallet prompt to buy exactly nothing. Reach for
+   *   the contract when there is something to make atomic, not by habit.
+   *
+   * ⚠ FAILS CLOSED with no treasury configured. There is no sensible fallback: burning instead
+   *   would perform a DIFFERENT economic action than the one asked for, and the zero address is
+   *   how you destroy tokens by accident. Better a player gets a practice run than a silent
+   *   substitution.
+   */
+  async function payTreasury(tokens) {
+    const amt = Math.max(0, Math.floor(Number(tokens) || 0));
+    if (amt <= 0) return { ok: false, reason: 'zero' };
+    if (!isLive()) return { ok: false, reason: 'not-live' };
+    const to = String(CFG().treasury || '').trim();
+    if (!isAddr(to)) return { ok: false, reason: 'no-treasury' };
+    if (!account) { const c = await connect(); if (!c.ok) return c; }
+    const g = await ensureChain(); if (!g.ok) return g;
+    try {
+      const tx = await send(token(), '0xa9059cbb' + argAddr(to) + u256(wei(amt)));   // transfer(address,uint256)
+      return { ok: true, tx, treasury: amt, burned: 0 };
+    } catch (e) {
+      return { ok: false, reason: (e && e.code === 4001) ? 'user-rejected' : 'tx-failed', error: e && (e.message || '') };
+    }
+  }
+
   async function disconnect() {
     try {
       if (kind === 'walletconnect' && provider && provider.disconnect) { await provider.disconnect(); }
@@ -356,7 +387,8 @@
 
   window.RipWallet = {
     connect, disconnect, ensureChain, balance, burn,
-    payPack, payRake, allowance, waitTx,
+    payPack, payRake, payTreasury, allowance, waitTx,
+    treasury: () => String(CFG().treasury || '').trim(),
     hasSink,                    // false ⇒ payPack/payRake fall back to a 100% burn
     sink: () => sink(),
     splitPct: () => (CFG().packSplit || { burn: 0.5, treasury: 0.5 }),
@@ -384,6 +416,7 @@
       'not-live': 'The $UR3030 token isn’t deployed on this network yet.',
       'tx-failed': 'The transaction failed or was dropped.',
       'approve-failed': 'The spending approval didn’t go through, so nothing was charged.',
+      'no-treasury': 'The studio wallet isn’t configured on this network, so the fee can’t be paid.',
       'tx-timeout': 'The network didn’t confirm in time. Check your wallet before trying again.',
       'zero': 'Nothing to burn.',
     }[reason] || ('Something went wrong (' + reason + ').')),

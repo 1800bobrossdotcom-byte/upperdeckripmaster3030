@@ -29,7 +29,7 @@ const t = (name, cond, extra = '') => { if (cond) { pass++; console.log('  ok   
 /* A fake wallet that records everything and answers plausibly. `allowanceWei` lets a test say
  * "this account has already approved enough", which is the branch that decides whether a player
  * signs one prompt or two. */
-function makeEnv({ packSink, allowanceWei = 0n, receiptStatus = '0x1' }) {
+function makeEnv({ packSink, allowanceWei = 0n, receiptStatus = '0x1', treasury = TREAS }) {
   const sent = [], calls = [];
   const provider = {
     on() {},
@@ -51,7 +51,7 @@ function makeEnv({ packSink, allowanceWei = 0n, receiptStatus = '0x1' }) {
   const win = {
     ethereum: provider,
     RIPMASTER_CHAIN: {
-      chainId: 11155111, packBurn: 350, approveBatch: 12, treasury: TREAS,
+      chainId: 11155111, packBurn: 350, approveBatch: 12, treasury,
       contracts: { liquidEdition: TOKEN, packSink },
     },
     matchMedia: () => ({ matches: false }),
@@ -138,6 +138,40 @@ console.log('\n── with packSink UNSET it is the plain burn, unchanged ──
     (sent[0].to || '').toLowerCase() === TOKEN.toLowerCase(), sent[0].data.slice(0, 10));
   t('for the WHOLE 350 × 10^18 — identical to the rehearsed burn', uintArg(sent[0].data, 0) === 350n * E18);
   t('no approval is requested', !sent.some(s => (s.data || '').startsWith('0x095ea7b3')));
+}
+
+console.log('\n── payTreasury: 100% to the studio, and it is NOT a burn ──');
+{
+  /* Rip Rocketer's launch fee. ⚑ No contract and no approval: paying ONE address is one
+   * operation, so a plain ERC-20 transfer is already atomic. The risk here is the opposite of
+   * the split's — that it quietly burns, or quietly sends somewhere else. */
+  const { W, sent } = makeEnv({ packSink: SINK });     // sink present: must be ignored entirely
+  const r = await W.payTreasury(25);
+  t('payTreasury succeeds', r.ok, JSON.stringify(r));
+  t('it reports the whole amount to treasury, zero burned', r.treasury === 25 && r.burned === 0);
+  t('ONE transaction — no approval, no contract call', sent.length === 1, 'sent ' + sent.length);
+  t('it is transfer(address,uint256) on the TOKEN', sent[0].data.startsWith('0xa9059cbb') &&
+    (sent[0].to || '').toLowerCase() === TOKEN.toLowerCase(), sent[0].data.slice(0, 10));
+  t('the destination is the TREASURY wallet', addrArg(sent[0].data, 0) === TREAS.toLowerCase(), addrArg(sent[0].data, 0));
+  t('for 25 × 10^18', uintArg(sent[0].data, 1) === 25n * E18, uintArg(sent[0].data, 1).toString());
+  t('NOTHING is burned', !sent.some(s => (s.data || '').startsWith('0x42966c68')));
+  t('it does NOT touch the sink even though one is deployed',
+    !sent.some(s => (s.to || '').toLowerCase() === SINK.toLowerCase()));
+}
+for (const [treasury, label] of [['', 'unset'], ['0x0000000000000000000000000000000000000000', 'the zero address']]) {
+  /* ⚠ IT MUST FAIL RATHER THAN SUBSTITUTE A DIFFERENT ECONOMIC ACTION. Falling back to a burn
+   * would destroy tokens the artist asked to be PAID, and the zero address is how that happens
+   * by accident — so it is rejected explicitly, not merely left to the token to revert on. */
+  const { W, sent } = makeEnv({ packSink: SINK, treasury });
+  const r = await W.payTreasury(25);
+  t(`treasury ${label}: payTreasury fails`, !r.ok && r.reason === 'no-treasury', JSON.stringify(r));
+  t(`treasury ${label}: NOTHING is sent`, sent.length === 0, 'sent ' + sent.length);
+  t(`treasury ${label}: it does not fall back to a burn`, !sent.some(s => (s.data || '').startsWith('0x42966c68')));
+  t(`treasury ${label}: the reason is explainable`, !/^Something went wrong/.test(W.explain(r.reason)), W.explain(r.reason));
+}
+{
+  const src = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  t('payTreasury uses 0xa9059cbb = transfer(address,uint256)', src.includes('0xa9059cbb'));
 }
 
 console.log('\n── the on-screen rake numbers follow the sink, not the doc ──');
