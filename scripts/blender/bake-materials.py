@@ -56,6 +56,23 @@
 #                                 B = metalness. One fetch and one texture unit instead of two;
 #                                 PlayCanvas reads them by channel (aoMapChannel/glossMapChannel).
 #
+# ── what the maps are actually worth, measured in the game ────────────────────────────────────
+# ⚑ THE NORMAL MAPS ARE DOING ESSENTIALLY ALL OF IT. Same planted camera on KOWLOON BLOCK, killing
+#   one map at a time on the live materials (mean |Laplacian| = local detail):
+#       all three      luma 173.2  rms 41.1  edge 24.56
+#       aoMap = null   luma 174.2  rms 40.6  edge 24.50     ← AO is worth ~1 luma here
+#       normalMap = null   luma 149.0  rms 34.7  edge  3.32 ← without it we are back to flat boxes
+#   AO also costs the most: about two thirds of the bake wall clock, and it roughly triples the
+#   ORM PNGs (deck 56 KB → 213 KB, wall 61 KB → 154 KB) because a stochastic map does not
+#   compress. It is kept because it is the physically right thing and because these arenas are
+#   ambient-heavy indoors, where it will matter more than it does under a sun — but if the byte
+#   budget ever has to give, `--no-ao` is the first thing to spend, not resolution.
+#
+# ⚠ AND A NORMAL MAP IS A GRADIENT, NOT A DEPTH. Every artefact in this file's history came from
+#   forgetting that: a hairline crack made the wall a field of lit specks, and dropping its depth
+#   0.45 → 0.20 → 0.07 changed nothing, because the mask was still going 0→1 inside one texel.
+#   Detail finer than a texel belongs in the ALBEDO. See m_wall.
+#
 # ⚑ THE ALBEDO MAPS ARE DELIBERATELY NEAR-NEUTRAL. js/s9pc-world.js multiplies them by a per-class
 #   tint, and MATS_DAY — the daylight palette — was arrived at by measurement (CLAUDE.md records
 #   the whole argument: near-white tints took DUST BOWL's saturation DOWN because ACES desaturates
