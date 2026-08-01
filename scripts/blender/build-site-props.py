@@ -102,14 +102,6 @@ def torus_coords(nt, x=-1700):
     return comb.outputs['Vector'], sv
 
 
-def scaled(nt, vec, k, loc):
-    """Uniform scale of the torus vector — 'texture scale' once the coordinate is fixed."""
-    m = node(nt, 'ShaderNodeVectorMath', loc, operation='SCALE')
-    m.inputs['Scale'].default_value = k
-    nt.links.new(vec, m.inputs[0])
-    return m.outputs['Vector']
-
-
 def stretched(nt, vec, w, ku, kv, loc):
     """Anisotropic scale — different rates along u and v, WITHOUT breaking the tiling.
 

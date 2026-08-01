@@ -377,7 +377,7 @@ SPECS = {
         foot=(0.092, 0.140, 0.052), foot_fwd=0.030,     # ← SMALL feet: the opposite of the mascot
         limb_squash=1.0, asym=0.0,
         seg=8, rings=5,
-        key=0.17,
+        key=0.075,
     ),
 
     # ── grid ← Nouns ─────────────────────────────────────────────────────────────────────────
@@ -483,9 +483,6 @@ def build(name, s):
         blob(p, pt('shoulder_' + side, dy),
              (s['arm_r'][0] * 1.25 * sc,) * 2 + (s['arm_r'][0] * 1.25 * sc,),
              seg=sg(8), rings=rg(5), jitter=jit)
-        if KEY:
-            belt(p, pt('shoulder_' + side, dy), (s['arm_r'][0] * 1.25 * sc,) * 2,
-                 1.0 + KEY, t=0.016, seg=sg(8))
 
         p = P('elbow_' + side)
         limb(p, pt('elbow_' + side, dy), pt('hand_' + side, dy),
@@ -508,9 +505,6 @@ def build(name, s):
              s['thigh_r'][0] * sc, s['thigh_r'][1] * sc, seg=sg(8), squash=s['limb_squash'])
         blob(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 3, seg=sg(8), rings=rg(5),
              jitter=jit)
-        if KEY:
-            belt(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 2,
-                 1.0 + KEY, t=0.016, seg=sg(8))
 
         p = P('shin_' + side)
         limb(p, pt('shin_' + side, dy), pt('foot_' + side, dy),

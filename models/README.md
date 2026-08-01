@@ -428,6 +428,44 @@ produced — their triangle counts match neither source at these settings, so th
 variants (`--ops`/`--amt`) whose parameters are not recorded. **They remain v1** and load through
 the canonical path unchanged.
 
+### ✅ The generated bodies' bake command is recorded IN THE BUILD, not here (task #85)
+
+The seven `models/cc0/*.glb` bodies bake at **`--detail 2.5`**, and the number was **reproduced,
+not remembered**: re-baking the three already-shipped `.skn` files at that setting came out
+**byte-identical** to what was on disk, which is what turns a plausible setting into a known one.
+
+⚑ **It is not written down here as a command to be re-typed — `npm run cc0` runs it.** A command
+in a markdown file drifts from the asset the moment somebody bakes by hand "just this once", which
+is exactly how the oni/ronin settings were lost in the first place. `scripts/build-cc0.mjs` now
+does geometry → `.skn` in one pass and asserts the file length against the vertex count (296-byte
+header + bone table, then 56 per vertex), so a bake that half-worked cannot be mistaken for one
+that did. `npm run cc0 -- --no-skin` opts out.
+
+```
+npm run cc0            # 7 GLBs + 7 .skn v2 + the FX tiles + skins.json
+npm run stretch        # measure them
+```
+
+| file | tris | `.skn` bytes | worst stretch | >3× | >10× |
+| --- | --- | --- | --- | --- | --- |
+| `cc0-mosh` | 954 | 160,568 | **1.8×** | 0 | **0** |
+| `cc0-cel` | 1,120 | 188,456 | **2.9×** | 0 | **0** |
+| `rip-mascot` | 1,232 | 207,272 | **3.1×** | 2 | **0** |
+| `cc0-lank` | 994 | 167,288 | 3.3× | 6 | **0** |
+| `cc0-grid` | 976 | 164,264 | 3.6× | 8 | **0** |
+| `cc0-lump` | 1,330 | 223,736 | 3.9× | 9 | **0** |
+| `cc0-squat` | 1,232 | 207,272 | 4.0× | 10 | **0** |
+
+All seven together are **1.25 MB** — less than two imported bodies — and not one of them has a
+triangle over 10×. Provenance for every one: `models/cc0/README.md`.
+
+⚠ **`js/ronin.js` was reading v2 files at the v1 offset**, found while wiring these up. Vertex data
+starts at **296** in a v2 `.skn` (32-byte header + 11 bones × 6 floats), and that loader used 32
+unconditionally. 264 is not a multiple of the 56-byte stride, so it did not fail loudly — it slid
+every vertex 4.71 vertices along, shuffling position into normal into bone index. `oni.skn` and
+`ronin.skn` became v2 with task #77, so two of NEON RONIN's six fighters had been loading as noise
+since. Fixed, with a length assertion, because an offset bug in a binary format never throws.
+
 ### v2 result — measured, like for like
 
 `npm run stretch`, same pose, same triangle counts:

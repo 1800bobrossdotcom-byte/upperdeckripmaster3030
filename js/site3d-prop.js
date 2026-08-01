@@ -258,7 +258,7 @@
      *   edge with cover and read as a black rectangle rather than as a binder. The distance is
      *   derived from the size now: ~2.7x the tallest dimension leaves the silhouette room to be
      *   a silhouette, which is the entire job of a prop this small. */
-    return { camera: [2.35, 1.95, 5.60], look: [0, -0.05, 0], spin: 7, tiltGain: 13 };
+    return { camera: [2.05, 1.70, 4.90], look: [0, -0.05, 0], spin: 7, tiltGain: 13 };
   };
 
   /* THE MARKET BENCH — a brushed steel top with a card standing in a holder, a short stack, and
@@ -311,10 +311,9 @@
                [1, .60, .23], [1, .29, .29], [.61, .36, 1]];
     for (var i = 0; i < COL.length; i++) {
       var a = (i - (COL.length - 1) / 2);
-      var e = part(pc, root, 'box', [0.90, 0.030, 1.30],
+      part(pc, root, 'box', [0.90, 0.030, 1.30],
         [a * 0.30, -0.48 + i * 0.034, -a * 0.055], [0, a * 9, 0],
         material(pc, app, 'pulp', COL[i], 1.6));
-      void e;
     }
     // one card standing proud of the fan — the pull
     part(pc, root, 'box', [0.92, 1.34, 0.032], [0.05, 0.36, -0.62], [-16, -9, 4],

@@ -174,6 +174,15 @@
      * function was wrong rather than the values.
      * Tonemapping stays NONE on purpose: these are finished artworks, not HDR renders — ACES
      * would re-grade the artist's own colour. */
+    /* ⚠ THESE MOVED TO THE CAMERA COMPONENT IN PLAYCANVAS 2.x, AND THE SCENE GUARD BELOW IS A
+     *   SILENT NO-OP. Measured on the live app in 2.21.3: `'gammaCorrection' in app.scene` is
+     *   FALSE, so the two lines that used to be here set nothing at all — the code documented an
+     *   intent it was not applying. It went unnoticed because the camera's DEFAULTS happen to be
+     *   exactly what was wanted (gammaCorrection 1 = GAMMA_SRGB, toneMapping 0 = NONE), so the
+     *   measured colour identity in CLAUDE.md still held. Latent, not active — which is the kind
+     *   that bites later, when a version bumps a default or another module touches the camera.
+     *   Set it where it actually lives, keep the scene path for older builds, and note that this
+     *   is a no-change-by-design edit: it pins the values the renderer was already getting. */
     if ('gammaCorrection' in app.scene) app.scene.gammaCorrection = pc.GAMMA_SRGB;
     if ('toneMapping' in app.scene) app.scene.toneMapping = pc.TONEMAP_NONE;
     app.setCanvasFillMode(pc.FILLMODE_NONE);
@@ -204,6 +213,16 @@
 
     var cam = new pc.Entity('cam');
     cam.addComponent('camera', { clearColor: new pc.Color(0, 0, 0, 0), fov: 28 });
+    /* ⚠ AND HERE IS WHERE THEY ACTUALLY LIVE. The scene-level guards above are a SILENT NO-OP in
+     *   PlayCanvas 2.x — measured on the live app in 2.21.3, `'gammaCorrection' in app.scene` is
+     *   FALSE, so those two lines set nothing and the file documented an intent it never applied.
+     *   It went unnoticed because the camera's DEFAULTS are exactly what was wanted (1 =
+     *   GAMMA_SRGB, 0 = TONEMAP_NONE), which is why CLAUDE.md's measured colour identity still
+     *   held. Latent, not active — the kind that bites when a version bumps a default or another
+     *   module touches the camera. Setting them explicitly is a NO-CHANGE-BY-DESIGN edit: it
+     *   pins the values the renderer was already getting, verified byte-identical after. */
+    if ('gammaCorrection' in cam.camera) cam.camera.gammaCorrection = pc.GAMMA_SRGB;
+    if ('toneMapping' in cam.camera) cam.camera.toneMapping = pc.TONEMAP_NONE;
     cam.setPosition(0, 0, 3.4); app.root.addChild(cam);
 
     var key = new pc.Entity('key');

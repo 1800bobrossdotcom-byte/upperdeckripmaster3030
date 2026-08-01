@@ -48,6 +48,15 @@
    * as their resolution cap. Everything expensive here is switchable off the SAME signal, because
    * a second opinion about what a weak device is is how two games drift apart. */
   const DPRCAP = (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2;
+  /* ⚠ THIS PICKS A TIER FROM THE DISPLAY, NOT FROM THE GPU, and it is worth being honest about.
+   * `dprCap()` returns `min(devicePixelRatio, cap)`, so a plain 1× monitor lands on `low` however
+   * fast the machine behind it is, and ANY HiDPI laptop lands on `high` — the same machine that is
+   * then also asked for 2× the linear backing store, i.e. FOUR times the pixels. So the default
+   * hands the most expensive tier to the display most likely to make it hurt, and it never
+   * measures whether the machine can hold it. The right answer is not a cleverer guess from
+   * navigator fields (that is how the guess got here); it is to guess once and then MEASURE — see
+   * the adaptive ladder below, which now demotes the expensive features, not just the resolution.
+   * Left as the starting guess deliberately, with the ladder as the correction. */
   const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
   let TIER = Q.get('q') || (() => { try { return localStorage.getItem('s9pc_q'); } catch (e) { return null; } })() || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
@@ -610,30 +619,22 @@
   }
   buildPost();
 
-  /* ── CLUSTERED LIGHTING, TUNED FOR AN ARENA ───────────────────────────────────────────────
-   * PlayCanvas's defaults are `cells 10 × 3 × 10` and `maxLightsPerCell 255`, and both are wrong
-   * for this shape of level in the same direction.
-   *   · The grid is stretched over the bounds of every enabled light, so in a 48 × 38 m arena a
-   *     cell is roughly 4.8 × 2.7 × 3.8 m. A practical with a 9.5 m range therefore lands in a
-   *     large share of the 300 cells, which means nearly every FRAGMENT iterates nearly every
-   *     light — the per-pixel loop stops being local, which is the entire point of clustering.
-   *     A finer grid is what makes "12 lights in the arena" cost like "2 lights near this pixel".
-   *   · `maxLightsPerCell` sizes the cluster texture (cells × slots) that is rebuilt and uploaded
-   *     every frame. 255 slots per cell reserves 76 KB for a scene that never has more than 46
-   *     lights in total, and it is paid whether or not the slots are used.
-   * ⚠ Not free in the other direction: more cells is more CPU per light insert (a light writes to
-   *   every cell it touches). 16 × 4 × 16 = 1024 cells is ~3.4× the grid but each light covers a
-   *   far smaller FRACTION of it, so the insert work per light barely moves.
-   * ⚠ `maxLightsPerCell` is a HARD CLIP, not a hint: a cell holding more lights than this drops
-   *   the overflow and that IS visible as a light popping out near a crowded shelf run. 24 is
-   *   above anything `omniLive` can produce (12) plus the fixtures (6) plus the muzzle flash.
-   * `?clusters=0` restores the engine defaults for an A/B. */
-  if (on('clusters', true)) {
-    try {
-      app.scene.lighting.cells = new pc.Vec3(num('cellx', 16), num('celly', 4), num('cellz', 16));
-      app.scene.lighting.maxLightsPerCell = num('cellmax', 24);
-    } catch (e) { console.warn('[s9pc] cluster params:', e && e.message); }
-  }
+  /* ── CLUSTER GRID: TRIED, MEASURED, NOT TAKEN ─────────────────────────────────────────────
+   * ⛔ A finer clustered-lighting grid looked like the obvious companion to the light budget and
+   *   it MEASURED NEGATIVE, so it is recorded here rather than shipped. The reasoning that made
+   *   it look right: PlayCanvas defaults to `cells 10 × 3 × 10` stretched over the bounds of every
+   *   enabled light, which in a 48 × 38 m arena is a cell of about 4.8 × 2.7 × 3.8 m, so a 9.5 m
+   *   practical lands in a large share of the 300 cells and nearly every fragment iterates nearly
+   *   every light.
+   * ⚑ The flaw in that reasoning is that clustering only tightens the loop when a light is SMALL
+   *   relative to a cell. Halving the cell size does not halve the light's VOLUME, so the same
+   *   fraction of the arena still has that light in its cell — the per-fragment loop barely moves
+   *   — while the CPU cost of inserting each light rises with the number of cells it touches.
+   *   Measured on ARCADE PIT at high, planted camera: 16 × 4 × 16 / maxLightsPerCell 24 came out
+   *   6% SLOWER than the engine defaults (1902 ms vs 1782 ms), against a noise floor of ±8% from
+   *   two no-op control samples in the same round. Not a win, and possibly a loss.
+   * So the defaults stand. The lever that DID work on the same frame is the light budget itself
+   * (`omniLive`, see cullPracticals) and the shadow-map size — both above. */
 
   app.scene.fog.type = pc.FOG_LINEAR;
 
@@ -785,9 +786,21 @@
    * ⚠ Re-evaluated on a TIMER, not per frame: a 20-light sort is nothing, but flipping
    *   `light.enabled` marks the clustered light set dirty, and doing that every frame would hand
    *   back what the cull just bought. 0.2 s is far quicker than a player can cross a 9.5 m pool.
-   * ⚠ HYSTERESIS at the boundary, or a light exactly on the cut flickers as you strafe: a lit
-   *   light has to fall 15% further away than the cut before it is dropped. */
+   * ⚑ THE FADE IS WHAT MAKES THE BUDGET EXACT. The first version guarded the boundary with
+   *   distance hysteresis (a lit light had to fall 15% past the cut before being dropped) and that
+   *   quietly broke the budget: in three dimensions a 15% radius slack is 1.15³ ≈ 1.5× the COUNT,
+   *   and it measured 16 lights against a budget of 12. With the fade below there is nothing left
+   *   to flicker — a light at the cut is already at zero intensity — so the rank test is hard and
+   *   `omniLive` means exactly what it says.
+   * ⚑ IT FADES OUT BEFORE IT SWITCHES OFF, which is what makes the budget invisible rather
+   *   than merely cheap. A hard cut on RANK pops: walk backwards through an arcade and the
+   *   twelfth-nearest cabinet's glow vanishes in one frame, which reads as the level failing to
+   *   load rather than as a quality setting. So a light's intensity is windowed on its own
+   *   distance against the cut — full inside 78% of it, easing to zero AT it — and by the time
+   *   the rank test drops the light it is already contributing nothing. Costs one multiply per
+   *   light per 0.2 s; intensity does not dirty the clustered light SET the way `enabled` does. */
   let cullT = 0, cullN = 0;
+  const OMNI_I = num('omni', 4.2);                   // the authored intensity the fade scales
   function cullPracticals(force) {
     const live = Math.max(0, QCFG.omniLive | 0);
     if (!levelGlows.length && !levelFixtures.length) return;
@@ -799,13 +812,30 @@
     if (levelGlows.length > live) {
       const rank = levelGlows.map(e => ({ e, d: d2(e) })).sort((a, b) => a.d - b.d);
       const cut = rank[Math.max(0, live - 1)].d;
+      const cutD = Math.sqrt(cut) || 1;
       for (let i = 0; i < rank.length; i++) {
         const o = rank[i];
-        const want = i < live ? true : (o.e.enabled && o.d < cut * 1.32);   // 1.15² ≈ 1.32: 15% of hysteresis
+        const want = i < live;
         if (o.e.enabled !== want) o.e.enabled = want;
+        if (want) {
+          const k = Math.max(0, Math.min(1, (cutD - Math.sqrt(o.d)) / (cutD * 0.22)));
+          const I = OMNI_I * k;
+          if (Math.abs(o.e.light.intensity - I) > 0.01) o.e.light.intensity = I;
+        }
       }
       cullN = Math.min(live, rank.length);
-    } else { cullN = levelGlows.length; }
+    } else {
+      /* Every practical fits in the budget: no cut, no fade, exactly what the arena authored.
+       * ⚠ This branch MUST re-enable, not just leave things alone. The budget can grow again —
+       *   the adaptive ladder halves `omniLive` under load and restores it when the frame recovers
+       *   — and a branch that only skipped the cull would leave those lights dark forever, so the
+       *   arena would quietly lose half its colour after one slow patch and never get it back. */
+      for (const e of levelGlows) {
+        if (!e.enabled) e.enabled = true;
+        if (e.light.intensity !== OMNI_I) e.light.intensity = OMNI_I;
+      }
+      cullN = levelGlows.length;
+    }
     // the nearest `spotShadow` ceiling fixtures cast; the rest are fill
     const casters = Math.max(0, QCFG.spotShadow | 0);
     if (levelFixtures.length) {

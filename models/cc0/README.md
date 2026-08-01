@@ -66,20 +66,162 @@ object per prop, because the renderers draw a prop as a single VBO with a single
 | `env_bars` | 180 | **Nouns** | A wall of vertical bars at quantised depths. Bars rather than a flat wall because Section 9's cover model wants silhouettes you can peek between. |
 | `env_gate` | 156 | **Nouns / Blitmap** | An octagonal threshold ring. Octagonal on purpose: a 24-sided torus next to a 32-grid totem looks like it came from a different game. |
 
-### `cc0-lank.glb` · `cc0-squat.glb` · `cc0-lump.glb` — 15 parts each
+### The fighter bodies — SEVEN of them, 15 parts each
 
-Drop-in fighter bodies for NEON RONIN's rigid-part rig. Part names are matched by `js/ronin3d.js`'s
-`JOINTMAP`; the IK skeleton drives them, so no rigging, weighting or animation is needed.
+Drop-in bodies for NEON RONIN's rigid-part rig (the `.glb`) and for Section 9's skinned operatives
+(the `.skn` baked from it). Part names are matched by `js/ronin3d.js`'s `JOINTMAP`; the IK skeleton
+drives them, so no rigging, weighting or animation is needed.
 
-| body | lineage | the proportion that was studied |
-| --- | --- | --- |
-| `lank` | **mfers** (sartoshi) | Hand-drawn slouch: small head, limbs far too long and thin for it, oversized feet. Not anatomy — the wobble of a line drawn fast, and the ratios survive translation into geometry even though the line does not. |
-| `squat` | **CrypToadz** (GREMPLIN) | Low centre of mass, wide flat head sitting straight on the body with no neck, heavy splayed feet. Reads as heavy before it has thrown a punch. |
-| `lump` | **goblintown** | Committed asymmetry: one shoulder carries the body, the other hangs. A body that is merely ugly still reads as a mannequin; a lopsided one reads as alive. |
+**Every one of them is one line in `SPECS` in `scripts/blender/build-cc0-chars.py`.** That is the
+whole design: one builder, one skeleton, one set of numbers per body — read a column top to bottom
+and you can predict the fighter before you render it.
+
+#### First set
+
+| body | file | lineage · dossier row | the proportion that was studied |
+| --- | --- | --- | --- |
+| `lank` | `cc0-lank` | **mfers** (sartoshi) — VERIFIED, class C | Hand-drawn slouch: small head, limbs far too long and thin for it, oversized feet. Not anatomy — the wobble of a line drawn fast, and the ratios survive translation into geometry even though the line does not. |
+| `squat` | `cc0-squat` | **CrypToadz** (GREMPLIN) — VERIFIED, class C | Low centre of mass, wide flat head sitting straight on the body with no neck, heavy splayed feet. Reads as heavy before it has thrown a punch. |
+| `lump` | `cc0-lump` | **goblintown** — VERIFIED, class B | Committed asymmetry: one shoulder carries the body, the other hangs. A body that is merely ugly still reads as a mannequin; a lopsided one reads as alive. |
+
+#### Second set — task #85
+
+| body | file | lineage · dossier row | what was actually taken |
+| --- | --- | --- | --- |
+| `mascot` | **`rip-mascot`** | ⚑ **THE ARTIST'S OWN** Fake Rares / Rare Pepe card practice — **ATTESTED, in scope** ("the artist's own submissions outright"; "the natural first source for in-game art") | The artist's own stated lineage — MAD magazine and cereal boxes, then the arcade — as a **mascot proportion**: a head a quarter of the body, **rubber-hose limbs of constant radius** (a mascot's arm is a drawn line of even weight; it does not taper like a limb), mitts and shoes far too big for it. ⛔ **No Pepe. Nothing amphibian is modelled** — see below. |
+| `mosh` | `cc0-mosh` | **XCOPY** — VERIFIED, **class A** (xcopy.art/creative-commons), **solo work only** | The `tear` operator: quantised horizontal slice-offset. Plus a body authored FLAT across the fight line — an XCOPY figure is an image, not a sculpture. Reads as a person who did not finish decoding. **No figure, no skull, no composition, no title, no typeface**, and nothing from a collaboration (the licence page excludes those itself). |
+| `cel` | `cc0-cel` | **Darkfarms1 — SMOWLz** — VERIFIED (class C) **+ ATTESTED** | The two measured facts: "smol" mass ratio (huge round head, small round body, short stubby limbs, small feet) and the **21.4% pure-black keyline** — every mass carries a raised belt at its equator, and the facet count drops to 8×5 because a cel fill is flat by definition. **SMOWLz only** — no owl, no bird, no beak, no wing, no ear, no trait. **Not Decal, not BOME**: the dossier says in as many words not to stretch the general attestation to those, and nothing here does. |
+| `grid` | `cc0-grid` | **Nouns** — VERIFIED, **class A** (the CC0 legalcode hash is a `bytes32` in the art contract) | The construction logic — strict grid, flat fill, hard edge, no gradient — pushed into a third axis by `quant`: every vertex on a 1/32 lattice. The broadest, blockiest body in the set, and deliberately **the only symmetrical one** (lean 0, tilt 0, asym 0): the others earn character from wobble, this one earns it from refusing to. ⛔ **No noggles, zero Noun-shaped geometry.** |
 
 **No faces.** Not stylised ones, not abstracted ones — none. ronin3d draws its own expressive face
 over a body anyway, and a face is precisely where a character would start to belong to someone
 else.
+
+#### ⚑ `rip-mascot` is not a CC0 body, and its filename says so
+
+Every other body here is a study against somebody else's licence. This one is the **artist's own
+lineage**, so it is the only body in the directory that asks nobody's permission — which is
+exactly why it leads the roster in `S9Skin.CAST`. It does not carry a `cc0-` prefix, because a
+filename is a provenance claim that nobody ever re-reads and it had better be true.
+
+⛔ **And there is no Pepe in it.** The dossier's carve-out is explicit — Rare Pepe / Fake Rares are
+UNVERIFIED as a directory *and* the underlying character is Matt Furie's and is actively enforced
+— so it is respected literally rather than approximately: **nothing amphibian is modelled**, no
+frog, no snout, no lidded eyes, and no face at all. What crossed over is a *proportion*, from the
+artist's own account of their own influences. That is the same standard every other row here meets.
+
+#### The house names
+
+The bodies are **ripmaster3030studios characters**, and they are named as such in
+`js/section9-skin.js`'s `CAST` (`S9Skin.nameFor(arch)`):
+
+| file | character | file | character |
+| --- | --- | --- | --- |
+| `cc0-lank` | **LONG ODDS** | `cc0-mosh` | **BAD SIGNAL** |
+| `cc0-squat` | **HOUSE EDGE** | `cc0-cel` | **HEAVY LINE** |
+| `cc0-lump` | **BAD BEAT** | `cc0-grid` | **GRIDLOCK** |
+| `rip-mascot` | **PRIZE MASCOT** | | |
+
+⚠ **This is a rule, not a flourish.** CC0 waives copyright and never trademark. A body may be
+*informed by* a studied source; it may never be *named after* one, carry its wordmark, or imply it
+endorsed anything. The `arch` key is a filename, the `name` is what a person is allowed to call the
+character, and neither is anybody else's mark. (The names are the studio's own vocabulary anyway —
+the casino/arcade register the whole project runs on.)
+
+### The three construction operators
+
+The first set differs only in the numbers, which is honest but limited: a proportion study can say
+"the head is bigger", it cannot say "the artist's move is that the image is mis-registered". So the
+builder gained three optional operators, applied to a part's finished vertices before export. Each
+one **is** a construction rule taken from a source — and a construction rule is not copyrightable,
+which is precisely why it transfers and a traced character does not.
+
+| operator | source | what it does |
+| --- | --- | --- |
+| `tear=` | **XCOPY** | Cuts the part into horizontal bands and shifts a **minority** of them sideways by a **quantised** amount. Same rule as `prop_slice`. The intermittence is the signature: a uniform shear is a skew, and a skew reads as a mistake rather than as corruption. ⚑ Hashed on the **band index alone**, with no per-part salt, so one tear cuts across the whole figure at one height — per-part noise would just look broken. |
+| `key=` | **Darkfarms** | A raised belt at every mass's equator. 21.4% of every SMOWLz token is pure-black keyline around a flat fill, and a flat fill needs an **edge** to read at all. In 2-D that edge is a stroke; the 3-D equivalent of a stroke is a ridge that catches the key light. |
+| `quant=` | **Nouns** | Snaps every vertex to a lattice. The 2-D rule is that a pixel is on or off; in three axes that is a vertex on a lattice point or not at all. |
+
+Two implementation notes that are load-bearing rather than incidental:
+
+- ⚠ **`quant` must use a step that divides 1.0 exactly** — 1/32 here. The sole sits at z=0 and the
+  crown at z=1.0, both of which are lattice points under 1/32, so the height contract survives the
+  snap untouched. At 1/30 it would not, and the build would fail rather than ship a body whose
+  joints had all quietly shifted.
+- ⚠ **`tear` runs before `quant`, and only that order works.** `tear` shifts in x, so quantising
+  afterwards keeps a torn body on the lattice; tearing a quantised body by an offset that is not a
+  lattice multiple would take it straight back off again.
+
+`seg`/`rings` in a spec are **caps, not replacements** — every authored density stays what it was
+unless a body asks for something coarser. That is what makes the first three bodies come out
+byte-identical to what already shipped, which matters: `models/cc0-*.skn` are baked from these
+GLBs, and a silent geometry change would invalidate every measured number below at once.
+
+### The skinned bodies — `models/*.skn`, and the bake command
+
+⚑ **The bake is part of `npm run cc0` now.** This is a direct response to the most expensive lesson
+in `models/README.md`: nobody wrote down how `oni.skn` and `ronin.skn` were decimated, so for
+months no asset change could be compared to anything and task #77's fix could not be verified. A
+command recorded in a markdown file is a command that drifts; a command in the build cannot.
+
+```
+node scripts/bake-fighter.mjs models/cc0/<file>.glb <tmp>.obj --detail 2.5 --skin models/<file>.skn
+```
+
+**`--detail 2.5` is reproduced, not assumed.** The three already-shipped `.skn` files were re-baked
+at this setting and came out **byte-identical**, which is how we know 2.5 is *the* number rather
+than a number that looks close. `npm run cc0 -- --no-skin` skips the step.
+
+Measured with `npm run stretch` — arms swung 55°, legs 35°, the same pose for every row:
+
+| file | character | tris | `.skn` | worst stretch | >3× | >10× |
+| --- | --- | --- | --- | --- | --- | --- |
+| `cc0-mosh` | BAD SIGNAL | 954 | 160,568 B | **1.8×** | 0 | **0** |
+| `cc0-cel` | HEAVY LINE | 1,120 | 188,456 B | **2.9×** | 0 | **0** |
+| `rip-mascot` | PRIZE MASCOT | 1,232 | 207,272 B | **3.1×** | 2 | **0** |
+| `cc0-lank` | LONG ODDS | 994 | 167,288 B | 3.3× | 6 | **0** |
+| `cc0-grid` | GRIDLOCK | 976 | 164,264 B | 3.6× | 8 | **0** |
+| `cc0-lump` | BAD BEAT | 1,330 | 223,736 B | 3.9× | 9 | **0** |
+| `cc0-squat` | HOUSE EDGE | 1,232 | 207,272 B | 4.0× | 10 | **0** |
+| *(for scale)* `oni` | FATIGUES | 5,804 | 975,368 B | 3.6× | 26 | 0 |
+| *(for scale)* `prizm` | HARDSUIT | 4,217 | 708,488 B | 6.1× | 52 | 0 |
+| *(for scale)* `kappa` | WEBBING | 4,604 | 773,504 B | 23.7× | 76 | **15** |
+
+**BAD SIGNAL and HEAVY LINE are the two best-behaved bodies in the repo** — better than `oni`, the
+best of the imported family — and the seven generated bodies together are **1.25 MB**, less than
+two imported ones. The roster is no longer trading size against quality.
+
+⚠ **Read the columns against each other, never against a fixed bar.** `skin-stretch.mjs` hinges
+each bone independently about its own bind start, while `S9Skin.palette` uses a hierarchy and a
+shortest-arc rotation, so its absolute numbers run **harsher** than the game's. Its ⛔ TEARS flag
+fires above 3× and is calibrated for the imported family; every row above is fine.
+
+⚑ **They bake correctly only BECAUSE of `.skn` v2**, which ships the bind skeleton inside the file.
+Their measured shoulder lines are 0.76–0.78 of body height, not the canonical 0.80, so a v1 bake
+against the hard-coded table would have torn them exactly like `ronin` did (56.6× → 8.1× once v2
+landed). Every one of the seven is v2 and carries its own 11-bone bind.
+
+### Verified on screen, not just in a bake
+
+Headless: node http server → playwright-core → chromium with
+`--use-gl=angle --use-angle=swiftshader`, driving `section9-classic.html`'s **real lobby** (8
+players, so a match assigns all seven), then `__s9._bot`/`_place`/`_look` to park the camera in
+front of each body in turn.
+
+- all seven parse as `.skn` **v2** with their own bind, and `S9Skin.palette` poses every vertex
+  **finite** — no NaN anywhere;
+- posed height comes out **145–154 px** against a 150 px skeleton, i.e. the mesh lands on the
+  skeleton rather than near it;
+- `GLR.hasSkin()` reports all seven **uploaded to WebGL**, and seven bots are wearing them;
+- each body renders a frame with no console errors.
+
+⚑ One thing that only a headless run finds: `S9Skin.load()` **memoises per name and only fires
+`onSkin` on the first call**, so a harness that parses a body before the match starts silently
+stops the game ever registering it with GL. The check reads as "the mesh did not load"; the mesh
+loaded fine. Parse checks and game checks now run on separate pages.
+
+⚠ Judge **layout** from these screenshots and never colour: this container's screenshot path
+rotates hue on canvas content (CLAUDE.md).
 
 ---
 
