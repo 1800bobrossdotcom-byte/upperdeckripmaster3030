@@ -244,7 +244,12 @@ window.DFPCWorld = (function () {
     gateMat.emissive = new pc.Color(1, 0.82, 0.23); gateMat.emissiveIntensity = 2.4;
     gateMat.update();
 
-    let propProto = null, propEnts = [], gateEnts = [];
+    /* ⚠ ONE SILHOUETTE PER THEME, and the first version got this wrong in a way only a screenshot
+     * showed: it took whichever prop part the GLB happened to yield first and planted 260 of it in
+     * every world, so all five themes were pylons. `WORLDS[].prop` names the shape the theme is
+     * supposed to have (pylon · ring · spire · tower · crystal) and it is the cheapest identity
+     * any of them has. PROPSET holds them all; apply() picks. */
+    let propProto = null, PROPSET = null, propEnts = [], gateEnts = [];
     /* The fallback shape, so scenery exists from the first frame and forever if the GLB 404s.
      * ⚠ IT IS NORMALISED TO HEIGHT 1 WITH ITS BASE ON THE ORIGIN, exactly like the authored mesh's
      * `fitStanding`. Getting that wrong is invisible while the GLB loads and then makes every prop
@@ -390,6 +395,7 @@ window.DFPCWorld = (function () {
       const pc0 = hex(S.prop);
       propMat.diffuse = new pc.Color(pc0[0], pc0[1], pc0[2]);
       propMat.update();
+      pickProp(world && world.prop);                 // the theme's own silhouette, not the first one
       PUFFS = null;                                  // rebuilt on the next update with live consts
     }
 
@@ -503,9 +509,18 @@ window.DFPCWorld = (function () {
       return k;
     }
 
-    /** the authored GLB has landed: swap the procedural prop for the real one and rebuild */
-    function setPropMesh(mesh, off, scale) {
-      propProto = { mesh, off: off || new pc.Vec3(0, 0, 0), scale: scale == null ? 1 : scale };
+    /** the authored GLB has landed: {pylon,ring,spire,tower,crystal} → fitted protos */
+    function setPropSet(set) {
+      PROPSET = set || null;
+      pickProp(currentPropKind);
+    }
+    let currentPropKind = 'pylon';
+    function pickProp(kind) {
+      currentPropKind = kind || 'pylon';
+      if (!PROPSET) return;
+      const p = PROPSET[currentPropKind] || PROPSET.pylon || PROPSET[Object.keys(PROPSET)[0]];
+      if (!p || p === propProto) return;
+      propProto = p;
       for (const e of propEnts) rebuildProp(e);
     }
     function setGateMesh(mesh, off, scale) {
@@ -513,7 +528,7 @@ window.DFPCWorld = (function () {
       for (const e of gateEnts) rebuildGate(e);
     }
 
-    return { root, apply, update, weather, setPropMesh, setGateMesh,
+    return { root, apply, update, weather, setPropSet, setGateMesh,
              skin: () => S, sunColour, sunDir: () => sunDir,
              setSun: d => { sunDir = d; },
              stats: () => ({ props: nProps, gates: nGates, puffs: nPuffs, theme: themeKey, night: !!S.night }) };

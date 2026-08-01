@@ -388,9 +388,9 @@
      * bright picture is not a colourless one. So: a pale CYAN deck, alternating panel tones for
      * value rhythm, wide saturated rails, and a deep-navy kerb — the kerb is the only dark thing
      * out here, and it is what gives the ribbon a hard edge against the sky. */
-    x.fillStyle = '#bfe4f0'; x.fillRect(0, 0, S, S);
-    x.fillStyle = '#a8d8ea'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, S / 16);   // panel rhythm
-    x.fillStyle = 'rgba(30,110,150,0.16)'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, 3);
+    x.fillStyle = '#3f96b4'; x.fillRect(0, 0, S, S);
+    x.fillStyle = '#59aec9'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, S / 16);   // panel rhythm
+    x.fillStyle = 'rgba(10,50,72,0.30)'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, 4);
     // rails: navy kerb, then magenta, then cyan. Wide enough to hold their colour at 200 units out.
     x.fillStyle = '#12284a'; x.fillRect(0, 0, S * 0.030, S); x.fillRect(S * 0.970, 0, S * 0.030, S);
     x.fillStyle = '#ff2ad9'; x.fillRect(S * 0.030, 0, S * 0.062, S); x.fillRect(S * 0.908, 0, S * 0.062, S);
@@ -398,7 +398,7 @@
     x.fillStyle = 'rgba(255,255,255,0.92)';
     for (let i = 0; i < 8; i++) { x.fillRect(S * 0.034, i * S / 8, S * 0.054, S / 18); x.fillRect(S * 0.912, i * S / 8, S * 0.054, S / 18); }
     // forward chevrons — direction of travel, and the strongest flow cue in the frame
-    x.strokeStyle = '#1163b5'; x.lineWidth = 13; x.lineCap = 'butt';
+    x.strokeStyle = '#f2fbff'; x.lineWidth = 14; x.lineCap = 'butt';
     for (let i = 0; i < 4; i++) { const y = i * S / 4 + S * 0.10;
       x.beginPath(); x.moveTo(S * 0.31, y + S * 0.078); x.lineTo(S * 0.5, y); x.lineTo(S * 0.69, y + S * 0.078); x.stroke(); }
     x.strokeStyle = '#ffd23b'; x.lineWidth = 4;

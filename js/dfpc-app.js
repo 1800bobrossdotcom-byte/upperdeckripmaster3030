@@ -345,14 +345,20 @@ window.DFPC = (function () {
             world.setGateMesh(parts.gate, new pc.Vec3(
               -((gb.lo[0] + gb.hi[0]) / 2) * gs, -((gb.lo[1] + gb.hi[1]) / 2) * gs, -((gb.lo[2] + gb.hi[2]) / 2) * gs), gs);
           }
-          // props: one silhouette per theme in the old renderer; the pylon is the shared default
-          const pk = ['prop_pylon', 'prop_ring', 'prop_spire', 'prop_tower', 'prop_crystal'].find(k => parts[k]);
-          if (pk) {
-            const b = meshBounds(parts[pk]);
+          /* ⚠ ALL FIVE PROP SHAPES, not the first one found. `WORLDS[].prop` names a silhouette
+           * per theme — pylon · ring · spire · tower · crystal — and taking whichever part the GLB
+           * yielded first planted the same pylon in all five worlds, which a screenshot caught and
+           * the code did not. Each is fitted with `fitStanding`: height → 1, origin on the BASE,
+           * so `alt` lifts a prop off the deck by the amount the game means. */
+          const set = {};
+          for (const k of ['pylon', 'ring', 'spire', 'tower', 'crystal']) {
+            const m = parts['prop_' + k]; if (!m) continue;
+            const b = meshBounds(m);
             const s = 1 / ((b.hi[1] - b.lo[1]) || 1);
-            world.setPropMesh(parts[pk],
-              new pc.Vec3(-((b.lo[0] + b.hi[0]) / 2) * s, -b.lo[1] * s, -((b.lo[2] + b.hi[2]) / 2) * s), s);
+            set[k] = { mesh: m, scale: s,
+              off: new pc.Vec3(-((b.lo[0] + b.hi[0]) / 2) * s, -b.lo[1] * s, -((b.lo[2] + b.hi[2]) / 2) * s) };
           }
+          if (Object.keys(set).length) world.setPropSet(set);
           artState = 'authored (' + Object.keys(parts).length + ' parts)';
           inst.destroy();
         } catch (e) { artState = 'procedural (' + (e && e.message) + ')'; }

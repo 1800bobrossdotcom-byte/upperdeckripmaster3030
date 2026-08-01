@@ -262,6 +262,7 @@
    * backdrop has eaten the blacks entirely, which is exactly the failure mode above: a screen
    * full of colour that the enemies then have to compete with instead of sit on. */
   let BG_K = num('bg', 0.20);
+  const M = { bg: 1, stars: 1, enemies: 1, aura: 1, card: 1, pops: 1, beams: 1, bullets: 1, pows: 1, ship: 1, flash: 1 };
   const fx = RRFx.create(app);
   const G = RRGame.create();
   const F = RRGame.F;
@@ -623,7 +624,7 @@
       const hurt = e.hurt > 0 ? 1 : 0;
       const bright = e.state === 'dive' || e.state === 'beam' ? 255 : 205;
       const r = hurt ? 255 : bright, g = hurt ? 255 : bright, b = hurt ? 255 : bright;
-      fx.oriented(fx.C, cell, e.x, e.y, e.z, _cb[0], _cb[1], _cb[2], _cb[3], _cb[4], _cb[5], r, g, b, 255);
+      if (M.card) fx.oriented(fx.C, cell, e.x, e.y, e.z, _cb[0], _cb[1], _cb[2], _cb[3], _cb[4], _cb[5], r, g, b, 255);
       // aura — a diver's is much hotter, because the diver is what you are supposed to look at
       const diving = e.state === 'dive' || e.state === 'beam';
       /* ⚠ THE AURAS WERE EATING THE ARTWORK. At radius 1.5-2.4× the card and alpha 46/118 they
@@ -633,7 +634,7 @@
        * "which of these is about to kill me" readable at a glance. */
       const c = fx.hsl(e.hue + (diving ? 0 : 40), 0.95, diving ? 0.62 : 0.42);
       const ar = sz * (diving ? 1.5 : 0.92) * (1 + 0.10 * Math.sin(t * 7 + e.id));
-      fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 80 : 18);
+      if (M.aura) fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 80 : 18);
       if (e.kind === 2) {
         const rc = fx.hsl(310, 1, 0.6);
         fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * (2.2 + 0.3 * Math.sin(t * 5)), rc[0], rc[1], rc[2], 150);
@@ -783,18 +784,22 @@
 
     fx.begin();
     fx.setCamBasis(cam);
-    drawBackdrop(t);
-    drawStars(dt, t);
-    drawEnemies(t);
-    drawPops(t);
-    drawBeams(t);
-    drawBullets(t);
-    drawPows(t);
-    drawShip(t);
+    /* ⚑ LAYER MASKS. CLAUDE.md's standing rule is ISOLATE BEFORE TUNING — switching one thing off
+     * at a time is what proved the 3D card's wash was not the lighting. `__rrpc._mask('aura',0)`
+     * and friends exist so a headless check can answer "which of these is the bright blob" in one
+     * step instead of by argument. Everything defaults on; this costs one boolean per layer. */
+    if (M.bg) drawBackdrop(t);
+    if (M.stars) drawStars(dt, t);
+    if (M.enemies) drawEnemies(t);
+    if (M.pops) drawPops(t);
+    if (M.beams) drawBeams(t);
+    if (M.bullets) drawBullets(t);
+    if (M.pows) drawPows(t);
+    if (M.ship) drawShip(t);
     /* the hit/burn flash. A quad just in front of the camera in the ADDITIVE layer, so it lifts the
      * frame rather than veiling it — a dark alpha overlay would hide the thing that just hit you,
      * which is the one moment you need to see. */
-    if (G.flash > 0.01) {
+    if (M.flash && G.flash > 0.01) {
       const k = G.flash, c = fx.hsl(G.market.hue + 300, 1, 0.5);
       const cz = CAM.z - 0.6, hh = Math.tan(CAM.fov * Math.PI / 360) * 0.6, hw = hh * (OW / Math.max(1, OH));
       fx.oriented(fx.A, fx.C_FLAT, 0, CAM.y, cz, hw * 1.3, 0, 0, 0, hh * 1.3, 0,
@@ -962,6 +967,7 @@
     _bloom(v) { if (!frame) return null; frame.bloom.intensity = v; frame.update(); return v; },
     _sharp(v) { if (!frame) return null; frame.rendering.sharpness = v; frame.update(); return v; },
     _bg(v) { BG_K = v; return v; },
+    _mask(k, v) { if (k in M) M[k] = v ? 1 : 0; return Object.assign({}, M); },
     _addi(v) { fx.addMat.emissiveIntensity = v; fx.addMat.update(); return v; },
     _cardi(v) { fx.cardMat.emissiveIntensity = v; fx.cardMat.update(); return v; },
     _blur(v) { if (!frame) return null; frame.bloom.blurLevel = v; frame.update(); return v; },
