@@ -73,25 +73,54 @@
    * The baked pair straight off media/site/. Textures are shared across every prop on a page —
    * three props asking for `steel` upload one texture, not three.
    *
-   * ⚑ THE ALBEDO IS TAGGED sRGB AND THE NORMAL IS NOT, and getting that backwards is the exact
-   *   bug card3d.js documents: bytes uploaded as linear when they are sRGB lift the mid-tones and
-   *   desaturate everything. A tangent normal is DATA — tagging it sRGB would bend the vectors. */
+   * ⛔ DO NOT PUT `PIXELFORMAT_SRGBA8` ON A `diffuseMap` HERE — IT DECODES THE COLOUR TWICE.
+   *   A PlayCanvas 2.x camera with `gammaCorrection = GAMMA_SRGB` (which is what this module
+   *   sets, see build()) already decodes colour inputs in the shader, so an sRGB-FORMATTED
+   *   texture takes the hardware decode on top and lands roughly 15x too dark. Measured on the
+   *   same frame with nothing else changed: the binder's object-only mean went 5.2 → 61.8 and its
+   *   non-black coverage 18% → 47%, purely from rebuilding the albedo as plain RGBA8.
+   *   ⚠ It is near-invisible as a bug, for three reasons worth writing down: it looks exactly
+   *     like "this material is dark", and the material genuinely IS dark; the console reads back
+   *     a perfectly sensible `diffuse` and format; and the SAME declaration is CORRECT on an
+   *     emissive map, where no shader decode happens (card3d.js measured its emissive path as
+   *     identity and it is). Colour in, ONE decode — that is the whole rule.
+   * ⚠ The tangent normal is DATA and must never be decoded at all, so `srgb` here now means only
+   *   "this is colour data", and colour is precisely what must NOT carry the format flag. The
+   *   argument stays because it still separates the two cache entries. */
   var _tex = {};
-  function texture(pc, device, path, srgb) {
+  function texture(pc, device, path, srgb, onReady) {
     var key = path + (srgb ? '|s' : '');
-    if (_tex[key]) return _tex[key];
+    var e0 = _tex[key];
+    if (e0) {
+      if (onReady) { e0.ready ? onReady() : e0.waiting.push(onReady); }
+      return e0.tex;
+    }
     var opts = { mipmaps: true, addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT,
                  anisotropy: 4 };
-    if (srgb && pc.PIXELFORMAT_SRGBA8 !== undefined) opts.format = pc.PIXELFORMAT_SRGBA8;
     var t;
     try { t = new pc.Texture(device, opts); }
     catch (e) { t = new pc.Texture(device, { mipmaps: true }); }
-    if (srgb && 'srgb' in t) t.srgb = true;
+    var rec = { tex: t, ready: false, waiting: onReady ? [onReady] : [] };
     var img = new Image();
-    img.onload = function () { try { t.setSource(img); } catch (e) {} };
+    img.onload = function () {
+      try { t.setSource(img); } catch (e) {}
+      rec.ready = true;
+      /* ⛔ THE MATERIAL MUST BE REBUILT ONCE THE TEXTURE HAS PIXELS. A StandardMaterial reads
+       * the texture's own metadata when it compiles its shader, and a Texture that has not been
+       * given a source yet does not have that metadata — so a material built while the fetch is
+       * still in flight compiles against a placeholder and never recovers on its own. The
+       * symptom is silent and brutal: every mapped surface renders essentially black, `diffuse`
+       * stops having ANY effect (setting it to 1, to 6.2 and to 60 produced byte-identical
+       * frames), and every property you can read back from the console — format, filters,
+       * tiling, levels, diffuseTint — looks exactly right. The tell was that a texture rebuilt
+       * from the SAME URL after load, with identical options, rendered the object at mean 61
+       * where the original rendered it at 5. So: load first, then update the material. */
+      for (var i = 0; i < rec.waiting.length; i++) { try { rec.waiting[i](); } catch (e) {} }
+      rec.waiting.length = 0;
+    };
     img.onerror = function () {};          // no map ⇒ a plain lit solid, which is still an object
     img.src = url(path);
-    _tex[key] = t;
+    _tex[key] = rec;
     return t;
   }
 
@@ -135,8 +164,9 @@
     m.gloss = s.gloss;
     if (s.map) {
       var k = s.tile * (tileMul || 1);
-      m.diffuseMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-albedo.webp', true);
-      m.normalMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-normal.webp', false);
+      var refresh = function () { try { m.update(); } catch (e) {} };
+      m.diffuseMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-albedo.webp', true, refresh);
+      m.normalMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-normal.webp', false, refresh);
       /* ⛔ WITHOUT `diffuseTint` THE COLOUR ABOVE IS SILENTLY DISCARDED. A PlayCanvas
        * StandardMaterial only multiplies `diffuse` into `diffuseMap` when this flag is set; with
        * it off — the default — the map REPLACES the colour and every tint on this page does

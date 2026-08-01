@@ -3,7 +3,9 @@
 #   blender --background --factory-startup -P scripts/blender/build-cc0-chars.py -- models/cc0
 #   (or just: npm run cc0)
 #
-# Writes one GLB per body: cc0-lank.glb · cc0-squat.glb · cc0-lump.glb
+# Writes one GLB per body:
+#   cc0-lank.glb · cc0-squat.glb · cc0-lump.glb          (the first set)
+#   rip-mascot.glb · cc0-mosh.glb · cc0-cel.glb · cc0-grid.glb   (task #85)
 #
 # SILHOUETTE-FIRST, AND THAT IS NOT A SLOGAN — IT IS THE ONLY DEGREE OF FREEDOM THERE IS.
 # NEON RONIN's fighters are driven by an IK skeleton whose joint positions are fixed, and
@@ -24,6 +26,44 @@
 #   lank   ← mfers (sartoshi) ...... hand-drawn slouch: small head, thin limbs, oversized feet
 #   squat  ← CrypToadz (GREMPLIN) .. low centre of mass, wide flat head, heavy splayed feet
 #   lump   ← goblintown ............ committed asymmetry: one shoulder carries, the other doesn't
+#   mascot ← THE ARTIST'S OWN ...... cereal-box / arcade mascot: big head, hose limbs, big shoes
+#   mosh   ← XCOPY ................. quantised slice-offset: the figure as a badly-decoded frame
+#   cel    ← Darkfarms (SMOWLz) .... flat facets held by a heavy keyline, "smol" mass ratio
+#   grid   ← Nouns ................. every vertex on a 1/32 lattice, strictly symmetrical
+#
+# ── SECOND SET (task #85): THE SILHOUETTE RULE IS NOW A GEOMETRY OPERATOR ─────────────────────
+# The first three bodies differ only in the NUMBERS below, which is honest but limited: a
+# proportion study can say "the head is bigger", it cannot say "the artist's move is that the
+# image is mis-registered". So this file gained three optional operators, each of which IS a
+# construction rule taken from a source, applied to the finished vertices of a part:
+#
+#   tear=  quantised horizontal slice-offset .. XCOPY. Cf. prop_slice in build-cc0-props.py:
+#          bands, a MINORITY of them shifted sideways by a quantised amount. The intermittence
+#          is the signature — a uniform shear is a skew, and a skew reads as a mistake.
+#          Hashed on the BAND INDEX ALONE, with no per-part salt, so one tear cuts across the
+#          whole figure at one height. A per-part salt would make each limb wrong on its own,
+#          which is noise; a slice through everything at once is datamosh.
+#   key=   a raised belt at every mass's equator .. Darkfarms. 21.4% of every SMOWLz token is
+#          pure-black keyline around a flat fill. Flat fills need an EDGE to read; in 2-D that is
+#          a stroke, and the 3-D equivalent of a stroke is a ridge that catches the key light.
+#   quant= snap every vertex to a lattice .... Nouns. The 2-D rule is that a pixel is on or off;
+#          in three axes that is a vertex on a lattice point or not at all. 1/32 exactly, so the
+#          sole (0) and the crown (1.0) are both ON the lattice and the height contract survives.
+#
+# ⛔ WHAT IS STILL NOT TAKEN, and it has not moved: no figure, no character, no face, no trait,
+# no mark, no wordmark, no name. `tear` is a construction rule, not an XCOPY composition; `key`
+# is a stroke, not an owl; `quant` is a lattice, and there are NO NOGGLES anywhere in this file.
+# CC0 waives copyright and never trademark — see docs/CC0-SOURCES.md, "Two things CC0 does not do".
+#
+# ⚑ `rip-mascot` IS NOT A CC0 BODY AT ALL, and its name says so. Its lineage is the artist's own
+# Fake Rares / Rare Pepe card practice — graded **ATTESTED, in scope** in docs/CC0-SOURCES.md
+# ("the artist's own submissions outright", "the natural first source for in-game art"). It is the
+# one body in this directory that needs nobody's permission, which is why it leads the set.
+# ⛔ AND THERE IS NO PEPE IN IT. Nothing amphibian is modelled — no frog, no snout, no lids. The
+# dossier's carve-out is explicit (the underlying character is Matt Furie's and is enforced) and
+# it is respected literally rather than approximately. What crosses over is the artist's own
+# stated lineage — MAD magazine and cereal boxes, then the arcade — as a MASCOT PROPORTION:
+# an enormous head, rubber-hose limbs of constant radius, mitts and shoes far too big for it.
 #
 # ── THE PART-NAME TRAP, MEASURED NOT ASSUMED ─────────────────────────────────────────────────
 # js/ronin3d.js's JOINTMAP is an ORDERED regex list, and the front-arm rule is
@@ -152,6 +192,72 @@ def blob(part, c, r, seg=10, rings=6, jitter=None, inward=False):
     return part
 
 
+def belt(part, c, r, k=1.12, t=0.018, seg=10):
+    """A raised elliptical belt at a mass's equator — the Darkfarms KEYLINE, in relief.
+
+    Closed on purpose (side quads plus two caps). The caps sit inside the blob it rings, so they
+    are never seen, and being watertight means it cannot flip inside-out under a renderer that
+    culls back faces. An open band would have been three fewer triangles and one more thing that
+    only breaks in one of the two games.
+    """
+    rx, ry = r[0] * k, r[1] * k
+    base = len(part.v)
+    for dz in (-t / 2.0, t / 2.0):
+        for i in range(seg):
+            a = TAU * i / seg
+            part.v.append((c[0] + math.cos(a) * rx, c[1] + math.sin(a) * ry, c[2] + dz))
+    for i in range(seg):
+        j = (i + 1) % seg
+        part.f.append((base + i, base + j, base + seg + j, base + seg + i))
+    part.f.append(tuple(base + i for i in range(seg - 1, -1, -1)))
+    part.f.append(tuple(base + seg + i for i in range(seg)))
+    return part
+
+
+def _bandhash(b):
+    """Deterministic 0..1 from a band index. Python's own hash() is salted per process, so a
+    body built today and rebuilt tomorrow would tear in different places — which would make the
+    asset unreproducible for exactly the reason models/README.md now has a section about."""
+    x = (b * 374761393 + 668265263) & 0xFFFFFFFF
+    x ^= x >> 13
+    x = (x * 1274126177) & 0xFFFFFFFF
+    x ^= x >> 16
+    return x / 4294967296.0
+
+
+def tear(part, band=0.044, amt=0.034, prob=0.40, step=0.0085):
+    """XCOPY's slice-offset, as geometry: cut the part into horizontal bands and shift a MINORITY
+    of them sideways by a QUANTISED amount.
+
+    x only — z is untouched, which is what keeps the sole-at-0 / crown-at-1 contract intact no
+    matter how hard this is pushed. Quantised because a datamosh is a block copied from the wrong
+    ADDRESS: the offset is a whole number of somethings, never a smooth slide.
+    """
+    out = []
+    for (x, y, z) in part.v:
+        h = _bandhash(int(math.floor(z / band)))
+        if h < prob:
+            n = int(round((h / prob * 2.0 - 1.0) * amt / step))
+            x += n * step
+        out.append((x, y, z))
+    part.v = out
+    return part
+
+
+def quantise(part, g):
+    """Nouns' strict grid pushed into a third axis: every vertex lands on a lattice point.
+
+    ⚠ `g` MUST divide 1.0 exactly (1/32 here). The sole is at z=0 and the crown at z=1.0, and
+    both are lattice points under 1/32, so the height contract survives the snap untouched — at
+    1/30 it would not, and build-cc0.mjs would fail the build rather than ship a body whose
+    joints have all quietly shifted. Rounded with floor(v/g + 0.5) rather than round(), which in
+    Python rounds halves to even and would bias one side of the body against the other.
+    """
+    part.v = [(math.floor(x / g + 0.5) * g, math.floor(y / g + 0.5) * g,
+               math.floor(z / g + 0.5) * g) for (x, y, z) in part.v]
+    return part
+
+
 def pt(name, dy=0.0):
     """A joint as a 3-D point. Joints are authored on the centre plane; `dy` pushes one into
     depth so front and back limbs are not co-planar and can be told apart from the side."""
@@ -210,6 +316,90 @@ SPECS = {
         foot=(0.120, 0.205, 0.066), foot_fwd=0.046,
         limb_squash=0.94, asym=0.34,
     ),
+
+    # ══ SECOND SET — task #85 ═════════════════════════════════════════════════════════════════
+
+    # ── mascot ← THE ARTIST'S OWN Fake Rares / Rare Pepe practice ────────────────────────────
+    # ATTESTED and in scope: the artist's own submissions are the artist's own work, so this is
+    # the one body here that asks nobody. What is taken is the artist's own stated lineage —
+    # MAD magazine and cereal boxes, then the arcade — expressed as the MASCOT PROPORTION: a head
+    # that is a quarter of the whole body, arms of CONSTANT radius (rubber hose: a mascot's arm is
+    # a drawn line of even weight, it does not taper like a limb), mitts and shoes far too big.
+    # ⛔ No Pepe and nothing amphibian. See the header.
+    'mascot': dict(
+        file='rip-mascot', seed=7101,
+        head=(0.310, 0.280, 0.240), head_dy=0.008, head_tilt=0.20,
+        chest=(0.225, 0.195), chest_top=0.240, chest_lean=0.020,
+        pelvis=(0.210, 0.185),
+        arm_r=(0.038, 0.038), fore_r=(0.036, 0.036),      # ← no taper: that IS the rubber hose
+        hand=(0.112, 0.098, 0.106),
+        thigh_r=(0.054, 0.052), shin_r=(0.050, 0.048),
+        foot=(0.150, 0.285, 0.082), foot_fwd=0.074,
+        limb_squash=1.0, asym=0.0,
+        seg=12, rings=7,
+    ),
+
+    # ── mosh ← XCOPY ─────────────────────────────────────────────────────────────────────────
+    # VERIFIED, evidence class A (xcopy.art/creative-commons), SOLO WORK ONLY — the licence page
+    # excludes collaborations itself. Nothing from a specific piece is used, because that page
+    # names no works; what is used is the general vocabulary the dossier already measured.
+    # The body is authored FLAT across the fight line (limb_squash 0.72) — an XCOPY figure is an
+    # image, not a sculpture — and then `tear` mis-registers it. It reads as a person who did not
+    # finish decoding, which is the whole idea and is not anybody's character.
+    'mosh': dict(
+        seed=7102,
+        head=(0.148, 0.112, 0.182), head_dy=0.0, head_tilt=0.06,
+        chest=(0.178, 0.118), chest_top=0.214, chest_lean=0.014,
+        pelvis=(0.150, 0.114),
+        arm_r=(0.028, 0.020), fore_r=(0.022, 0.017), hand=(0.058, 0.040, 0.056),
+        thigh_r=(0.044, 0.032), shin_r=(0.034, 0.026),
+        foot=(0.090, 0.192, 0.058), foot_fwd=0.048,
+        limb_squash=0.72, asym=0.0,
+        seg=10, rings=6,
+        tear=dict(band=0.040, amt=0.046, prob=0.38, step=0.0115),
+    ),
+
+    # ── cel ← Darkfarms1 (SMOWLz) ────────────────────────────────────────────────────────────
+    # VERIFIED (class C) + ATTESTED — "darkfarms is cc0 is my friend". SMOWLz ONLY: the dossier
+    # says in as many words not to stretch the general attestation to Decal or BOME, and nothing
+    # here does. No owl, no bird, no beak, no wing, no ear, no trait, no name.
+    # Two measured facts drive the shape. (1) "smol": the mass sits high and round, the limbs are
+    # short and stubby. (2) 21.4% of every token is pure-black KEYLINE — so every mass carries a
+    # raised belt at its equator, and the facet count drops to 8×5 because a cel fill is flat by
+    # definition and a smooth 12×7 blob is a gradient with extra steps.
+    'cel': dict(
+        seed=7103,
+        head=(0.268, 0.242, 0.212), head_dy=0.0, head_tilt=0.09,
+        chest=(0.212, 0.182), chest_top=0.228, chest_lean=0.008,
+        pelvis=(0.204, 0.178),
+        arm_r=(0.042, 0.036), fore_r=(0.036, 0.031), hand=(0.080, 0.068, 0.074),
+        thigh_r=(0.058, 0.048), shin_r=(0.048, 0.040),
+        foot=(0.112, 0.182, 0.062), foot_fwd=0.040,
+        limb_squash=1.0, asym=0.0,
+        seg=8, rings=5,
+        key=0.13,
+    ),
+
+    # ── grid ← Nouns ─────────────────────────────────────────────────────────────────────────
+    # VERIFIED, evidence class A, and the strongest artefact in the dossier: the CC0 1.0 legalcode
+    # hash is a bytes32 constant IN THE ART CONTRACT. What is taken is the construction logic —
+    # strict grid, flat fill, hard edge, no gradient, no anti-alias — pushed into a third axis by
+    # `quant`. Deliberately the only symmetrical body in the set (lean 0, tilt 0, asym 0): the
+    # others earn character from wobble, this one earns it from refusing to.
+    # ⛔ ZERO Noun-shaped geometry and NO NOGGLES. The eyewear is the mark; the palette is the
+    # dedication. No face is modelled here at all, which settles it.
+    'grid': dict(
+        seed=7104,
+        head=(0.220, 0.200, 0.190), head_dy=0.0, head_tilt=0.0,
+        chest=(0.278, 0.220), chest_top=0.282, chest_lean=0.0,
+        pelvis=(0.252, 0.210),
+        arm_r=(0.072, 0.062), fore_r=(0.062, 0.056), hand=(0.104, 0.092, 0.098),
+        thigh_r=(0.076, 0.064), shin_r=(0.066, 0.056),
+        foot=(0.132, 0.204, 0.094), foot_fwd=0.042,
+        limb_squash=1.0, asym=0.0,
+        seg=8, rings=5,
+        quant=1.0 / 32.0,
+    ),
 }
 
 
@@ -226,6 +416,16 @@ def build(name, s):
         parts.append(p)
         return p
 
+    # ── facet density ────────────────────────────────────────────────────────────────────────
+    # `seg`/`rings` are CAPS, not replacements, and that is deliberate: every density below stays
+    # the number it was authored as unless a body asks for something coarser. The first three
+    # bodies name neither key, so they come out byte-identical to what already ships — which
+    # matters, because models/cc0-*.skn are baked from these GLBs and a silent geometry change
+    # would invalidate every stretch number in models/README.md at once.
+    sg = (lambda n, c=s.get('seg', 99): min(n, c))
+    rg = (lambda n, c=s.get('rings', 99): min(n, c))
+    KEY = s.get('key', 0.0)          # Darkfarms keyline, as a fraction of each mass's radius
+
     # ── head ─────────────────────────────────────────────────────────────────────────────────
     # Spans from the head joint (0.84) to exactly 1.0. NOTHING may be taller: registerModel()
     # normalises on total height, so an extra 0.02 of crown silently rescales the whole skeleton
@@ -233,13 +433,15 @@ def build(name, s):
     hx, hy, hz = s['head']
     p = P('head')
     hc = (0.0, s['head_dy'], 1.0 - hz / 2.0)
-    blob(p, hc, (hx / 2, hy / 2, hz / 2), seg=12, rings=7, jitter=jit, inward=True)
+    blob(p, hc, (hx / 2, hy / 2, hz / 2), seg=sg(12), rings=rg(7), jitter=jit, inward=True)
     # jaw/brow mass, offset by head_tilt so the head has a front and is never a perfect ovoid
     blob(p, (s['head_tilt'] * 0.10, s['head_dy'] - hy * 0.20, hc[2] - hz * 0.18),
-         (hx * 0.40, hy * 0.32, hz * 0.24), seg=10, rings=5, jitter=jit)
+         (hx * 0.40, hy * 0.32, hz * 0.24), seg=sg(10), rings=rg(5), jitter=jit)
     # neck — short, and short on purpose: it is the thing that makes squat read as squat
     limb(p, pt('head'), (0.0, s['head_dy'] * 0.5, J['head'][1] + hz * 0.22),
-         hx * 0.26, hx * 0.30, seg=8)
+         hx * 0.26, hx * 0.30, seg=sg(8))
+    if KEY:
+        belt(p, hc, (hx / 2, hy / 2), 1.0 + KEY, seg=sg(10))
 
     # ── chest ────────────────────────────────────────────────────────────────────────────────
     # From the chest joint (0.62) up to the shoulder line (0.80). Widening toward the top
@@ -249,9 +451,12 @@ def build(name, s):
     p = P('chest')
     z0, z1 = J['chest'][1], J['shoulder_f'][1]
     blob(p, (0.0, s['chest_lean'] * 0.5, (z0 + z1) / 2 + 0.005),
-         (s['chest_top'] / 2, cd / 2, (z1 - z0) / 2 + 0.045), seg=12, rings=7, jitter=jit)
+         (s['chest_top'] / 2, cd / 2, (z1 - z0) / 2 + 0.045), seg=sg(12), rings=rg(7), jitter=jit)
     blob(p, (0.0, s['chest_lean'], z0 + 0.010), (cw / 2, cd / 2 * 0.94, 0.055),
-         seg=10, rings=5, jitter=jit)
+         seg=sg(10), rings=rg(5), jitter=jit)
+    if KEY:
+        belt(p, (0.0, s['chest_lean'] * 0.5, (z0 + z1) / 2 + 0.005),
+             (s['chest_top'] / 2, cd / 2), 1.0 + KEY, seg=sg(10))
     if lumpy:                                          # one shoulder carries the body, one hangs
         blob(p, (0.09, -0.02, z1 - 0.010), (0.105, 0.085, 0.075), seg=10, rings=5, jitter=jit)
         blob(p, (-0.075, 0.015, z1 - 0.045), (0.055, 0.050, 0.045), seg=8, rings=4, jitter=jit)
@@ -263,7 +468,9 @@ def build(name, s):
     # run time, so a butt joint that is flush at rest opens the moment the fighter bends.
     pw, pd = s['pelvis']
     p = P('pelvis')
-    blob(p, (0.0, 0.0, J['pelvis'][1]), (pw / 2, pd / 2, 0.088), seg=10, rings=6, jitter=jit)
+    blob(p, (0.0, 0.0, J['pelvis'][1]), (pw / 2, pd / 2, 0.088), seg=sg(10), rings=rg(6), jitter=jit)
+    if KEY:
+        belt(p, (0.0, 0.0, J['pelvis'][1]), (pw / 2, pd / 2), 1.0 + KEY, seg=sg(10))
 
     # ── arms ─────────────────────────────────────────────────────────────────────────────────
     # Authored along the joint chain, so the part's own axis IS the bone. Depth (`dy`) separates
@@ -272,33 +479,42 @@ def build(name, s):
     for side, dy, sc in (('f', -0.028, 1.0 + s['asym']), ('b', 0.030, 1.0 - s['asym'] * 0.55)):
         p = P('shoulder_' + side)
         limb(p, pt('shoulder_' + side, dy), pt('elbow_' + side, dy),
-             s['arm_r'][0] * sc, s['arm_r'][1] * sc, squash=s['limb_squash'])
+             s['arm_r'][0] * sc, s['arm_r'][1] * sc, seg=sg(8), squash=s['limb_squash'])
         blob(p, pt('shoulder_' + side, dy),
              (s['arm_r'][0] * 1.25 * sc,) * 2 + (s['arm_r'][0] * 1.25 * sc,),
-             seg=8, rings=5, jitter=jit)
+             seg=sg(8), rings=rg(5), jitter=jit)
+        if KEY:
+            belt(p, pt('shoulder_' + side, dy), (s['arm_r'][0] * 1.25 * sc,) * 2,
+                 1.0 + KEY, t=0.012, seg=sg(8))
 
         p = P('elbow_' + side)
         limb(p, pt('elbow_' + side, dy), pt('hand_' + side, dy),
-             s['fore_r'][0] * sc, s['fore_r'][1] * sc, squash=s['limb_squash'])
+             s['fore_r'][0] * sc, s['fore_r'][1] * sc, seg=sg(8), squash=s['limb_squash'])
 
         p = P('hand_' + side)
         hwx, hwy, hwz = s['hand']
         # the fist reaches slightly past the hand joint — a hand that stops AT the joint reads as
         # an amputation, because the joint is the wrist
         blob(p, (J['hand_' + side][0] + (0.026 if side == 'f' else -0.026), dy, J['hand_' + side][1]),
-             (hwx / 2 * sc, hwy / 2 * sc, hwz / 2 * sc), seg=9, rings=5, jitter=jit)
+             (hwx / 2 * sc, hwy / 2 * sc, hwz / 2 * sc), seg=sg(9), rings=rg(5), jitter=jit)
+        if KEY:
+            belt(p, (J['hand_' + side][0] + (0.026 if side == 'f' else -0.026), dy, J['hand_' + side][1]),
+                 (hwx / 2 * sc, hwy / 2 * sc), 1.0 + KEY, t=0.012, seg=sg(9))
 
     # ── legs ─────────────────────────────────────────────────────────────────────────────────
     for side, dy, sc in (('f', -0.030, 1.0 + s['asym'] * 0.5), ('b', 0.032, 1.0 - s['asym'] * 0.3)):
         p = P('thigh_' + side)
         limb(p, pt('thigh_' + side, dy), pt('shin_' + side, dy),
-             s['thigh_r'][0] * sc, s['thigh_r'][1] * sc, squash=s['limb_squash'])
-        blob(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 3, seg=8, rings=5,
+             s['thigh_r'][0] * sc, s['thigh_r'][1] * sc, seg=sg(8), squash=s['limb_squash'])
+        blob(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 3, seg=sg(8), rings=rg(5),
              jitter=jit)
+        if KEY:
+            belt(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 2,
+                 1.0 + KEY, t=0.012, seg=sg(8))
 
         p = P('shin_' + side)
         limb(p, pt('shin_' + side, dy), pt('foot_' + side, dy),
-             s['shin_r'][0] * sc, s['shin_r'][1] * sc, squash=s['limb_squash'])
+             s['shin_r'][0] * sc, s['shin_r'][1] * sc, seg=sg(8), squash=s['limb_squash'])
 
         # ── foot ─────────────────────────────────────────────────────────────────────────────
         # The sole sits at EXACTLY z=0 — it is the model's floor and half of the normalisation
@@ -310,7 +526,19 @@ def build(name, s):
         p.box((fx, dy - s['foot_fwd'] * 0.35, fh / 2.0), (fw * sc, fl, fh))
         p.box((fx, dy - s['foot_fwd'] - fl * 0.42, fh * 0.36), (fw * 0.82 * sc, fl * 0.34, fh * 0.72))
 
+    # ── the construction-rule operators ──────────────────────────────────────────────────────
+    # Applied to the FINISHED vertices, after every primitive is in, and before emit() realises
+    # the Blender mesh. Order matters and only one way round works: `tear` shifts in x, so
+    # quantising afterwards keeps a torn body on the lattice, whereas tearing a quantised body by
+    # an offset that is not a lattice multiple would take it straight back off again.
+    # Neither operator touches z, or `quant` snaps to a lattice that contains 0 and 1.0 exactly,
+    # so the sole/crown contract asserted below survives both untouched.
+    T, Q = s.get('tear'), s.get('quant')
     for p in parts:
+        if T:
+            tear(p, **T)
+        if Q:
+            quantise(p, Q)
         p.emit()
 
     # The normalisation contract, asserted at the source rather than hoped for downstream.
@@ -332,7 +560,10 @@ def main():
             continue
         kit.reset()
         n = build(name, spec)
-        path = os.path.join(outdir, 'cc0-%s.glb' % name)
+        # ⚑ The FILE name is not always `cc0-<key>`. `rip-mascot` is the artist's own lineage and
+        # is not third-party CC0 at all, so calling it cc0-anything would be a provenance claim
+        # made by a filename — the one place nobody re-reads. See models/cc0/README.md.
+        path = os.path.join(outdir, spec.get('file', 'cc0-%s' % name) + '.glb')
         print('BODY %s — %d parts' % (name, n))
         kit.export_glb(path)
 

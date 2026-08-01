@@ -382,22 +382,26 @@
       }, { passive: true });
     }
 
+    /* ⚠ `autoRender = false` and ask for frames by hand: at 30 fps this is half the GPU cost of
+     *   a decorative layer, and it lets the layer go completely quiet when it is off screen,
+     *   backgrounded, or under prefers-reduced-motion. */
     app.autoRender = false;
-    let held = null;
+    let held = null, pending = false;
+    const draw = () => { app.renderNextFrame = true; pending = true; };
     poseFn = (px, py) => {
       held = (px === null) ? null : { x: px, y: py };
-      if (held) { root.setLocalEulerAngles(held.x, held.y, 0); app.renderNextFrame = true; }
+      if (held) { root.setLocalEulerAngles(held.x, held.y, 0); draw(); }
       return true;
     };
     app.on('update', () => {
       if (ready !== 3) return;
-      if (held) { app.renderNextFrame = true; return; }
+      if (held) { draw(); return; }
       const now = performance.now();
       if (!t0) t0 = now;
       if (still) {
         if (S.frames) return;                       // reduced motion: lit and 3D, simply not moving
         root.setLocalEulerAngles(REST.x, REST.y, 0);
-        app.renderNextFrame = true;
+        draw();
         return;
       }
       if (!live || document.hidden) return;
@@ -410,12 +414,27 @@
       cy += (sy - cy) * 0.06;
       cx += (sx - cx) * 0.06;
       root.setLocalEulerAngles(cx, cy, Math.sin(s * 0.17) * 0.7);
-      app.renderNextFrame = true;
+      draw();
     });
 
-    /* Reveal only once a frame has really been drawn — this is the moment the CSS wordmark may
-     * safely be faded out, and not one moment earlier. */
+    /* Reveal only once a frame has really been DRAWN — this is the moment the CSS wordmark may
+     * safely be faded out, and not one moment earlier.
+     * ⚑ `frameend` IS NOT "a frame was rendered". The engine fires it on every tick, render or
+     *   no render: `update() -> fire('framerender') -> (autoRender||renderNextFrame) && render()
+     *   -> fire('frameend')`. Counting frameends therefore reveals an EMPTY canvas and hides the
+     *   real wordmark during the whole window between app.start() and the GLB arriving — the
+     *   precise failure this file exists to avoid, and invisible on a fast connection because the
+     *   window is a few frames wide. So the request is tracked instead: `pending` is set where we
+     *   ask for the render and can only be observed here AFTER that render has actually run.
+     * ⚑ AND `ready === 3` is part of the same condition, because "a frame was rendered" is still
+     *   not the claim being made — "a frame WITH THE TYPE IN IT was rendered" is. `onResize`
+     *   draws too, and the ResizeObserver fires once the moment it starts observing, which is
+     *   before either texture or the mesh has arrived. That one empty frame was enough to fade
+     *   the real wordmark out, and it is what the slow-mesh check in build-hero-type.mjs pins. */
     app.on('frameend', () => {
+      if (!pending) return;
+      pending = false;
+      if (ready !== 3) return;
       S.frames++;
       if (S.frames !== 1) return;
       S.phase = 'live';
@@ -430,7 +449,7 @@
 
     // resize / reflow
     // ⚠ guarded: a lost context tears the app down, and a window resize afterwards must not throw
-    const onResize = () => { if (!app) return; fit(); if (!still) last = -1e9; app.renderNextFrame = true; };
+    const onResize = () => { if (!app) return; fit(); if (!still) last = -1e9; draw(); };
     addEventListener('resize', onResize, { passive: true });
     try { ro = new ResizeObserver(onResize); ro.observe(el); } catch { ro = null; }
     // a webfont landing after mount changes the box under us

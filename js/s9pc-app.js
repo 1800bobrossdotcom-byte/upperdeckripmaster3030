@@ -1410,7 +1410,13 @@
 
   // ── dev / headless peephole ─────────────────────────────────────────────────────────────────
   window.__s9pc = {
-    app, game, ui, cam,
+    app, game, ui, cam, sun,
+    /* ⚑ ISOLATE BEFORE TUNING. The post stack, the key light and the level's own lights are
+     * exposed by NAME so a headless run can switch ONE of them off at a time on a single loaded
+     * scene, instead of reloading with a different tier and comparing two different frames.
+     * Same reason `Card3D.build` returns its parts and stashes the controller on `window`. */
+    get frame() { return frame; },
+    get lights() { return levelLights; },
     get s() { const G = game.G; return {
       engine: pc.version, tier: TIER, autoTier: AUTO_TIER, dpr: app.graphicsDevice.maxPixelRatio,
       mode: G.mode, map: game.MAP && game.MAP.name, mapIdx: G.mapIdx, frames,

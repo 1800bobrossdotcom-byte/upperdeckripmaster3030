@@ -122,8 +122,12 @@ const RARITY = { common:'#9fb2c4', uncommon:'#2bff80', rare:'#27f7e4', epic:'#b0
  * the layer schema, baked by scripts/build-lens-demo.mjs, and it exists so the renderer can be
  * proven against real separated plates instead of against segmented flat art. */
 const DEMO = { slug:'lens-demo', title:'Depth Test', rarity:'prizm', atk:null, def:null,
-               trigger:null, omen:'a card with a inside', art:'../media/lens/demo/flat.webp',
-               layers:'../media/lens/demo/demo.layers.json' };
+               trigger:null, omen:'five plates, one card', art:'../media/lens/demo/flat.webp',
+               layers:'../media/lens/demo/demo.layers.json',
+               /* ⛔ The badge says DEMO, not a rarity. `rarity` here only picks the rim colour;
+                * printing "PRIZM" on it would dress a test plate as a collectible, and the
+                * artist's 100 cards are the artist's to name and to rank. */
+               badge:'DEMO' };
 const qs = new URLSearchParams(location.search);
 const $ = i => document.getElementById(i);
 let CARD = DEFAULT, ART = null, tilt = { x:0, y:0 };
@@ -143,8 +147,9 @@ function paint(c) {
   $('stats').textContent = hasStats
     ? `ATK ${c.atk ?? '—'}   DEF ${c.def ?? '—'}` + (c.trigger ? `   ◈ ${c.trigger}` : '')
     : 'RIPMASTER3030STUDIOS';
-  $('badge').textContent = c.rarity ? c.rarity.toUpperCase()
-                                    : (c.number != null ? '#' + String(c.number).padStart(2,'0') : '');
+  $('badge').textContent = c.badge ? c.badge
+                                   : c.rarity ? c.rarity.toUpperCase()
+                                   : (c.number != null ? '#' + String(c.number).padStart(2,'0') : '');
   $('badge').style.background = RARITY[c.rarity] || '#ffd23b';
   $('badge').style.display = $('badge').textContent ? '' : 'none';
   const url = c.art ? new URL(c.art, location.href).href : null;

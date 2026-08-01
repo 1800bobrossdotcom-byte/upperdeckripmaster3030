@@ -4,6 +4,7 @@
  *   npm run cc0                 # geometry + textures + skins.json
  *   npm run cc0 -- --preview    # …and render the Blender preview sheets (slow: Cycles on CPU)
  *   npm run cc0 -- --tex        # textures + skins.json only, no Blender
+ *   npm run cc0 -- --no-skin    # geometry + textures, but leave models/*.skn alone
  *
  * WHAT THIS BUILDS, AND WHY IT IS SAFE TO MINT AGAINST
  * Every triangle and every pixel below is generated here or by scripts/blender/build-cc0-*.py.
@@ -25,9 +26,10 @@
  * alone cannot express — see assertBody().
  */
 import { execFileSync } from 'child_process';
-import { existsSync, mkdirSync, statSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, statSync, writeFileSync, readFileSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { tmpdir } from 'os';
 import { deflateSync } from 'zlib';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,11 +47,44 @@ const PROPS = ['prop_totem', 'prop_slice', 'prop_scanbar', 'prop_lump', 'prop_sl
 const BODY_PARTS = ['head', 'chest', 'pelvis',
   'shoulder_f', 'elbow_f', 'hand_f', 'shoulder_b', 'elbow_b', 'hand_b',
   'thigh_f', 'shin_f', 'foot_f', 'thigh_b', 'shin_b', 'foot_b'];
-const BODIES = ['lank', 'squat', 'lump'];
+
+/* `key` is the SPECS key in build-cc0-chars.py; `file` is what lands on disk. They differ for
+ * exactly one body and the difference is the point: `rip-mascot` is the artist's own lineage,
+ * not third-party CC0, so it does not get a cc0- prefix. A filename is a provenance claim that
+ * nobody ever re-reads, so it had better be true. */
+const BODIES = [
+  { key: 'lank', file: 'cc0-lank' },
+  { key: 'squat', file: 'cc0-squat' },
+  { key: 'lump', file: 'cc0-lump' },
+  { key: 'mascot', file: 'rip-mascot' },
+  { key: 'mosh', file: 'cc0-mosh' },
+  { key: 'cel', file: 'cc0-cel' },
+  { key: 'grid', file: 'cc0-grid' },
+];
+
+/* ⚑ THE BAKE IS PART OF THE BUILD NOW, and that is a direct response to the most expensive
+ * lesson in models/README.md: nobody wrote down how oni.skn and ronin.skn were decimated, so for
+ * months no asset change could be compared to anything and task #77's fix could not be verified.
+ * A command recorded in a markdown file is a command that drifts. A command in the build cannot.
+ *
+ *   --detail 2.5   the density every body in this set is baked at. Reproduced, not assumed: the
+ *                  three shipped .skn files were re-baked at this setting and came out
+ *                  BYTE-IDENTICAL, which is how we know 2.5 is the number and not merely a
+ *                  number that looks close.
+ *
+ * The .skn lands in models/, not models/cc0/, because both loaders fetch `models/<arch>.skn`
+ * by name (js/section9-skin.js's BASE, and js/ronin.js's fighter loader). */
+const SKIN_DETAIL = 2.5;
 
 const argv = process.argv.slice(2);
 const wantPreview = argv.includes('--preview');
 const texOnly = argv.includes('--tex');
+const skipSkin = argv.includes('--no-skin');
+
+/* bake-fighter writes a decimated .obj beside every .skn. It is an intermediate, nothing loads
+ * it, and it must not land in the tree — a repo full of files nothing reads is how a stale one
+ * gets shipped by accident. Out of the working directory entirely. */
+const TMP = mkdtempSync(join(tmpdir(), 'cc0-bake-'));
 
 mkdirSync(OUT, { recursive: true });
 mkdirSync(TEX, { recursive: true });
@@ -502,12 +537,36 @@ console.log(`✓ all ${PROPS.length} named props present`);
 
 console.log('\n── bodies ──');
 for (const b of BODIES) {
-  const log = blender('build-cc0-chars.py', [OUT, b]);
-  requireExport(log, `cc0-${b}`);
-  const p = assertBody(b, log);
+  const log = blender('build-cc0-chars.py', [OUT, b.key]);
+  requireExport(log, b.file);
+  const p = assertBody(b.file, log);
   const tris = [...p.values()].reduce((a, v) => a + v.tris, 0);
-  const kb = (statSync(join(OUT, `cc0-${b}.glb`)).size / 1024).toFixed(0);
-  console.log(`  ✓ cc0-${b}.glb — ${p.size}/15 parts, ${tris} tris, ${kb} KB, soles at 0 / crown at 1`);
+  const kb = (statSync(join(OUT, `${b.file}.glb`)).size / 1024).toFixed(0);
+  console.log(`  ✓ ${b.file}.glb — ${p.size}/15 parts, ${tris} tris, ${kb} KB, soles at 0 / crown at 1`);
+}
+
+if (skipSkin) {
+  console.log('\n--no-skin: models/*.skn left alone.');
+} else {
+  console.log(`\n── skinned bodies (bake-fighter --detail ${SKIN_DETAIL}) ──`);
+  for (const b of BODIES) {
+    const skn = join(ROOT, 'models', `${b.file}.skn`);
+    const log = execFileSync(process.execPath, [join(ROOT, 'scripts', 'bake-fighter.mjs'),
+      join(OUT, `${b.file}.glb`), join(TMP, `${b.file}.obj`),
+      '--detail', String(SKIN_DETAIL), '--skin', skn], { encoding: 'utf8' });
+    const bind = (log.match(/^ {2}bind: .*$/m) || [''])[0].trim();
+    const verts = +((log.match(/— (\d+) skinned verts/) || [])[1] || 0);
+    const bytes = statSync(skn).size;
+    /* The header + bone table is 296 bytes and a vertex is 56, so the byte count and the vertex
+     * count check each other. A .skn that is the wrong length by one bone table is exactly the
+     * bug js/ronin.js had, and it does not throw — it silently reads bones as vertices. */
+    if (bytes !== 296 + verts * 56) {
+      throw new Error(`${b.file}.skn is ${bytes} B, expected ${296 + verts * 56} for ${verts} v2 vertices`);
+    }
+    console.log(`  ✓ models/${b.file}.skn — ${verts / 3 | 0} tris, ${verts} verts, ${(bytes / 1024).toFixed(0)} KB`);
+    if (bind) console.log(`      ${bind}`);
+  }
+  console.log('  → measure with: npm run stretch');
 }
 
 if (wantPreview) {

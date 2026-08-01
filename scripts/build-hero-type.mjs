@@ -416,6 +416,34 @@ async function browserPass() {
     await ctx.close();
   }
 
+  /* ── the reveal must not run ahead of the render ──────────────────────────────────────────────
+   * Regression test for a bug this build shipped once: PlayCanvas fires `frameend` on every TICK,
+   * not on every rendered frame, so counting frameends faded the real wordmark out during the
+   * whole window between app.start() and the mesh arriving — leaving a blank masthead. On a fast
+   * connection that window is a few frames and invisible, which is exactly why it needs a test
+   * that makes the window wide on purpose. */
+  {
+    const ctx = await br.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+    await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+    const pg = await ctx.newPage();
+    await pg.route('**/type.glb', async r => { await new Promise(res => setTimeout(res, 4000)); await r.continue(); });
+    await pg.goto('http://127.0.0.1:8213/index.html?grab=1', { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
+    for (let i = 0; i < 40; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
+    const mid = await pg.evaluate(() => ({
+      phase: RipHeroType.state().phase, frames: RipHeroType.state().frames,
+      opacity: getComputedStyle(document.querySelector('.marquee-art.wordmark')).opacity }));
+    t('slow mesh: the wordmark stays visible until a frame really drew',
+      mid.phase !== 'live' && +mid.opacity === 1, `${mid.phase} frames ${mid.frames} opacity ${mid.opacity}`);
+    for (let i = 0; i < 120; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
+    const end = await pg.evaluate(() => ({
+      phase: RipHeroType.state().phase,
+      inline: document.querySelector('.marquee-art.wordmark').style.opacity }));
+    t('slow mesh: it does take over once the mesh lands', end.phase === 'live' && end.inline === '0',
+      `${end.phase} inline ${JSON.stringify(end.inline)}`);
+    await ctx.close();
+  }
+
   await br.close();
   srv.close();
 }
