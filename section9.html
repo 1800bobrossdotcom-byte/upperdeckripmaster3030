@@ -26,6 +26,18 @@
     ?hdri=<name>      vendored environment (models/env/*.png), or `proc` for the generated sky
     ?grab=1           preserveDrawingBuffer, so a headless run can getImageData real pixels
     ?hold=1           freeze the bots (headless capture)
+
+  Frame-rate knobs — every one of these is a cost/look trade that was MEASURED, and every one is
+  reachable from the URL so it can be re-measured (and so an A/B against the old behaviour needs
+  no checkout). See the tier table in js/s9pc-app.js for what each cost.
+    ?omnilive=N       how many coloured practicals may be lit at once (nearest to the camera).
+                      99 restores the old "every practical, always on" behaviour.
+    ?ssao=0           no ambient occlusion — and no depth prepass, which is most of its cost
+    ?sres=N ?casc=N   sun shadow-map resolution / cascade count
+    ?spotshadow=N     how many ceiling fixtures cast shadows indoors (was: all of them)
+    ?clusters=0       engine-default clustered-light grid instead of the tuned one
+    ?adapt=0          freeze the adaptive quality ladder where the tier put it
+    ?eng / F8         live readout: tier, ladder step, lights lit/built, shadow map, ms/p95/worst
 -->
 <style>
   /* ── TYPE ─────────────────────────────────────────────────────────────────────────────────

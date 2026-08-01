@@ -192,7 +192,7 @@ def blob(part, c, r, seg=10, rings=6, jitter=None, inward=False):
     return part
 
 
-def belt(part, c, r, k=1.12, t=0.018, seg=10):
+def belt(part, c, r, k=1.12, t=0.024, seg=10):
     """A raised elliptical belt at a mass's equator — the Darkfarms KEYLINE, in relief.
 
     Closed on purpose (side quads plus two caps). The caps sit inside the blob it rings, so they
@@ -369,15 +369,15 @@ SPECS = {
     # definition and a smooth 12×7 blob is a gradient with extra steps.
     'cel': dict(
         seed=7103,
-        head=(0.268, 0.242, 0.212), head_dy=0.0, head_tilt=0.09,
-        chest=(0.212, 0.182), chest_top=0.228, chest_lean=0.008,
-        pelvis=(0.204, 0.178),
-        arm_r=(0.042, 0.036), fore_r=(0.036, 0.031), hand=(0.080, 0.068, 0.074),
-        thigh_r=(0.058, 0.048), shin_r=(0.048, 0.040),
-        foot=(0.112, 0.182, 0.062), foot_fwd=0.040,
+        head=(0.322, 0.292, 0.252), head_dy=0.0, head_tilt=0.09,
+        chest=(0.186, 0.162), chest_top=0.204, chest_lean=0.008,
+        pelvis=(0.182, 0.160),
+        arm_r=(0.036, 0.031), fore_r=(0.031, 0.027), hand=(0.070, 0.060, 0.066),
+        thigh_r=(0.050, 0.042), shin_r=(0.042, 0.035),
+        foot=(0.092, 0.140, 0.052), foot_fwd=0.030,     # ← SMALL feet: the opposite of the mascot
         limb_squash=1.0, asym=0.0,
         seg=8, rings=5,
-        key=0.13,
+        key=0.17,
     ),
 
     # ── grid ← Nouns ─────────────────────────────────────────────────────────────────────────
@@ -390,12 +390,12 @@ SPECS = {
     # dedication. No face is modelled here at all, which settles it.
     'grid': dict(
         seed=7104,
-        head=(0.220, 0.200, 0.190), head_dy=0.0, head_tilt=0.0,
-        chest=(0.278, 0.220), chest_top=0.282, chest_lean=0.0,
-        pelvis=(0.252, 0.210),
-        arm_r=(0.072, 0.062), fore_r=(0.062, 0.056), hand=(0.104, 0.092, 0.098),
-        thigh_r=(0.076, 0.064), shin_r=(0.066, 0.056),
-        foot=(0.132, 0.204, 0.094), foot_fwd=0.042,
+        head=(0.192, 0.182, 0.172), head_dy=0.0, head_tilt=0.0,
+        chest=(0.300, 0.232), chest_top=0.312, chest_lean=0.0,
+        pelvis=(0.272, 0.222),
+        arm_r=(0.078, 0.068), fore_r=(0.068, 0.060), hand=(0.108, 0.096, 0.100),
+        thigh_r=(0.080, 0.068), shin_r=(0.070, 0.060),
+        foot=(0.142, 0.212, 0.100), foot_fwd=0.040,
         limb_squash=1.0, asym=0.0,
         seg=8, rings=5,
         quant=1.0 / 32.0,
@@ -485,7 +485,7 @@ def build(name, s):
              seg=sg(8), rings=rg(5), jitter=jit)
         if KEY:
             belt(p, pt('shoulder_' + side, dy), (s['arm_r'][0] * 1.25 * sc,) * 2,
-                 1.0 + KEY, t=0.012, seg=sg(8))
+                 1.0 + KEY, t=0.016, seg=sg(8))
 
         p = P('elbow_' + side)
         limb(p, pt('elbow_' + side, dy), pt('hand_' + side, dy),
@@ -499,7 +499,7 @@ def build(name, s):
              (hwx / 2 * sc, hwy / 2 * sc, hwz / 2 * sc), seg=sg(9), rings=rg(5), jitter=jit)
         if KEY:
             belt(p, (J['hand_' + side][0] + (0.026 if side == 'f' else -0.026), dy, J['hand_' + side][1]),
-                 (hwx / 2 * sc, hwy / 2 * sc), 1.0 + KEY, t=0.012, seg=sg(9))
+                 (hwx / 2 * sc, hwy / 2 * sc), 1.0 + KEY, t=0.016, seg=sg(9))
 
     # ── legs ─────────────────────────────────────────────────────────────────────────────────
     for side, dy, sc in (('f', -0.030, 1.0 + s['asym'] * 0.5), ('b', 0.032, 1.0 - s['asym'] * 0.3)):
@@ -510,7 +510,7 @@ def build(name, s):
              jitter=jit)
         if KEY:
             belt(p, pt('thigh_' + side, dy), (s['thigh_r'][0] * 1.2 * sc,) * 2,
-                 1.0 + KEY, t=0.012, seg=sg(8))
+                 1.0 + KEY, t=0.016, seg=sg(8))
 
         p = P('shin_' + side)
         limb(p, pt('shin_' + side, dy), pt('foot_' + side, dy),

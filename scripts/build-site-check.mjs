@@ -246,6 +246,24 @@ for (const P of PAGES) {
         JSON.stringify(mounted));
       t(`1280: the static fallback got hidden (is3d set)`,
         await page.evaluate(() => !!document.querySelector('.prop3d.is3d')));
+
+      /* A decorative object must not spend a phone's battery while the tab is in the background.
+       * `autoRender = false` stops the whole frame, not just the spin — so assert the frame, not
+       * the intention. */
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await page.waitForTimeout(120);
+      t(`1280: rendering stops when the tab is hidden`,
+        await page.evaluate(() => (window.__site3d || []).every(c => c.app.autoRender === false)));
+      await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await page.waitForTimeout(120);
+      t(`1280: and starts again when it comes back`,
+        await page.evaluate(() => (window.__site3d || []).every(c => c.app.autoRender === true)));
     }
 
     // glyphs off, plate only
@@ -283,6 +301,38 @@ for (const P of PAGES) {
     await ctx.close();
   }
 
+  /* ── reduced motion: the object STAYS, the idle turn goes ─────────────────────────────────
+   * ⚑ Not "no 3D". Someone who asks for less motion is asking for less MOTION, and a lit object
+   *   that holds still is not motion — it is a picture with depth. Dropping the prop entirely
+   *   would be reading the preference as "no graphics", which it has never meant. The pointer
+   *   response stays too, because that is a direct answer to something the user just did. */
+  if (!BASE_REV) {
+    const ctx = await br.newContext({ viewport: { width: 1280, height: 900 },
+      deviceScaleFactor: 1, reducedMotion: 'reduce' });
+    await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+    const page = await ctx.newPage();
+    const errs = [];
+    page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+    page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+    await page.goto('http://127.0.0.1:8211' + P.url, { waitUntil: 'load', timeout: 45000 });
+    await page.waitForTimeout(4200);
+    const a = await page.evaluate(() => {
+      const c = (window.__site3d || [])[0];
+      return c ? [c.root.getLocalEulerAngles().x, c.root.getLocalEulerAngles().y] : null;
+    });
+    await page.waitForTimeout(1400);
+    const b = await page.evaluate(() => {
+      const c = (window.__site3d || [])[0];
+      return c ? [c.root.getLocalEulerAngles().x, c.root.getLocalEulerAngles().y] : null;
+    });
+    t(`reduced-motion: zero console errors`, errs.length === 0, errs.slice(0, 3).join(' | '));
+    t(`reduced-motion: the prop is still there`, !!a, JSON.stringify(a));
+    t(`reduced-motion: but it has stopped turning`,
+      !!a && !!b && Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01,
+      JSON.stringify([a, b]));
+    await ctx.close();
+  }
+
   // ── WebGL blocked: still a whole page ──
   {
     const { ctx, page, errs } = await run(P.url, 1280, { noWebGL: true });
@@ -307,6 +357,31 @@ for (const P of PAGES) {
     t(`no-webgl: the page still has its copy`, state.bodyText > 300, state.bodyText + ' chars');
     await ctx.close();
   }
+}
+
+/* ── the folder's card viewer still works ────────────────────────────────────────────────────
+ * ⚑ cards/binder.html is the one page that loads BOTH renderers, and Site3D deliberately hands
+ *   its engine load to `Card3D.engine` there so the 2.26 MB vendor script is fetched once rather
+ *   than raced twice. That handoff is the kind of thing that works until it doesn't, silently, in
+ *   whichever of the two got there second — so pull a card out of a pocket and check that the
+ *   REAL card renderer came up, not just the header prop. */
+if (!BASE_REV) {
+  console.log(`\n── cards/binder.html · the shared engine ────────────────────`);
+  const { ctx, page, errs } = await run('/cards/binder.html', 1280);
+  await page.click('.pk button');
+  await page.waitForTimeout(3000);
+  const s = await page.evaluate(() => ({
+    props: (window.__site3d || []).length,
+    card: !!window.__card3d,
+    mode: (document.getElementById('vmode') || {}).textContent,
+    engines: document.querySelectorAll('script[src*="playcanvas"]').length
+  }));
+  t('both renderers are up at once', s.props === 1 && s.card === true, JSON.stringify(s));
+  t('the vendor engine was fetched exactly once', s.engines === 1, String(s.engines));
+  t('the viewer reports the live renderer, not the flat fallback',
+    /playcanvas/i.test(s.mode || ''), s.mode);
+  t('and nothing threw', errs.length === 0, errs.slice(0, 3).join(' | '));
+  await ctx.close();
 }
 
 await br.close();

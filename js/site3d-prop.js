@@ -108,17 +108,25 @@
     return 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
   }
 
-  /* Redraw the loaded map with `lift` and `tint` applied in linear light. Returns a canvas, or
-   * the image itself when there is nothing to do (the normal maps, and any 1x untinted albedo). */
+  /* Redraw the loaded map at TEX_PX, with `lift` and `tint` applied in linear light.
+   *
+   * ⛔ EVERY map goes through this canvas — the normals and the untinted albedos included, even
+   *   though they need no pixel work at all. The point is not the pixels, it is the SIZE. The
+   *   pc.Texture is constructed with explicit `width`/`height` (see texture(), and it has to be),
+   *   so handing it a source of a different size gives a texture that samples BLACK. This
+   *   function used to short-circuit and return the raw 512² image whenever there was nothing to
+   *   compute, which is exactly the surfaces that came out black — the deck's mat and the market
+   *   bench's top — while the tinted cards sitting ON them rendered perfectly, because those took
+   *   the canvas path. A fast path that returns a DIFFERENT SHAPE is not a fast path. */
   function shade(img, lift, tint) {
-    if (lift === 1 && !tint) return img;
     var c = document.createElement('canvas');
     c.width = c.height = TEX_PX;
     var x = c.getContext('2d', { willReadFrequently: true });
     if (!x) return img;
     x.drawImage(img, 0, 0, TEX_PX, TEX_PX);
+    if (lift === 1 && !tint) return c;
     var d;
-    try { d = x.getImageData(0, 0, TEX_PX, TEX_PX); } catch (e) { return img; }
+    try { d = x.getImageData(0, 0, TEX_PX, TEX_PX); } catch (e) { return c; }
     var p = d.data, k = tint || [1, 1, 1];
     for (var i = 0; i < p.length; i += 4) {
       p[i]     = l2s(s2l(p[i])     * lift * k[0]);
@@ -134,9 +142,12 @@
     if (_tex[key]) return _tex[key];
     var t;
     try {
-      t = new pc.Texture(device, { mipmaps: true, addressU: pc.ADDRESS_REPEAT,
-                                   addressV: pc.ADDRESS_REPEAT, anisotropy: 4 });
-    } catch (e) { t = new pc.Texture(device, { mipmaps: true }); }
+      t = new pc.Texture(device, {
+        width: TEX_PX, height: TEX_PX, format: pc.PIXELFORMAT_RGBA8, mipmaps: false,
+        minFilter: pc.FILTER_LINEAR, magFilter: pc.FILTER_LINEAR,
+        addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT
+      });
+    } catch (e) { return null; }
     var img = new Image();
     img.onload = function () { try { t.setSource(shade(img, lift, tint)); } catch (e) {} };
     img.onerror = function () {};   // no map ⇒ a plain lit solid, which is still an object
@@ -148,12 +159,18 @@
   /* One definition of what each of the studio's surfaces is. `tile` is how many times the map
    * repeats across one world unit; `lift` is described above. */
   var STOCK = {
-    vinyl: { map: 'vinyl', tile: 1.4, lift: 7.5,  gloss: 0.34, metal: 0.05, bump: 1.0 },
-    steel: { map: 'steel', tile: 2.0, lift: 2.2,  gloss: 0.74, metal: 0.85, bump: 0.7 },
-    pulp:  { map: 'pulp',  tile: 1.6, lift: 1.0,  gloss: 0.16, metal: 0.00, bump: 0.9 },
+    vinyl: { map: 'vinyl', tile: 0.9, lift: 7.5,  gloss: 0.34, metal: 0.05, bump: 1.0 },
+    /* ⚠ steel is deliberately NOT a mirror. There is no environment map in these scenes, and a
+     *   high-metalness surface with nothing to reflect renders as black plus specular sparkle —
+     *   at metal 0.85 / gloss 0.74 / bump 0.7 the bench top came out as glitter, 0.6% of the
+     *   frame clipped to pure white. Brushed metal that only has to READ as metal at 190px wants
+     *   a low metalness and a soft highlight. (Same lesson card3d.js records from the other end:
+     *   a metal bevel with no environment is just a grey edge.) */
+    steel: { map: 'steel', tile: 1.2, lift: 1.35, gloss: 0.42, metal: 0.25, bump: 0.22 },
+    pulp:  { map: 'pulp',  tile: 1.0, lift: 1.0,  gloss: 0.16, metal: 0.00, bump: 0.9 },
     // untextured accent — colour comes from the call, and with no map `diffuse` works normally
     paint: { map: null,    tile: 1,   lift: 1.0,  gloss: 0.42, metal: 0.10, bump: 0 },
-    chip:  { map: 'steel', tile: 3.0, lift: 2.4,  gloss: 0.86, metal: 0.95, bump: 0.5,
+    chip:  { map: 'steel', tile: 1.8, lift: 1.8,  gloss: 0.62, metal: 0.55, bump: 0.3,
              base: [1, .78, .20] }
   };
 
@@ -269,7 +286,7 @@
     // a short stack lying flat — what you brought to trade
     for (var i = 0; i < 4; i++) {
       part(pc, root, 'box', [0.86, 0.026, 1.24], [0.92, -0.52 + i * 0.030, 0.16],
-        [0, 6 - i * 4, 0], material(pc, app, 'pulp', [0.60, 0.55, 0.95], 1.6));
+        [0, 6 - i * 4, 0], material(pc, app, 'pulp', [0.46, 0.42, 0.78], 1.4));
     }
     // chips. Gold, and deliberately only three: this is the anti-casino, not a pile of winnings.
     for (var c = 0; c < 3; c++) {
@@ -277,7 +294,11 @@
         [0, c * 22, 0], material(pc, app, 'chip'));
     }
 
-    return { camera: [0.55, 1.75, 6.20], look: [0, -0.34, 0], spin: 5, tiltGain: 10 };
+    /* ⚠ a lower key than the default rig. This prop's subject is PAPER — a bright stock — where the
+     *   binder's is near-black vinyl, and the same 2.6 that makes vinyl readable clipped the card
+     *   stack here to flat white across 0.6% of the frame. Exposure follows the subject. */
+    return { camera: [0.55, 1.75, 6.20], look: [0, -0.34, 0], spin: 5, tiltGain: 10,
+             lights: { keyIntensity: 1.6 } };
   };
 
   /* THE DECK — a fan of cards on a pulp mat. The deck page is the loud one, so this prop is the
@@ -304,8 +325,8 @@
      *   studio's neon on a MAD-magazine spread. Warm, high ambient, gentle rim: printed card
      *   stock under a room light, which is what the page is pretending to be. */
     return { camera: [0.15, 1.85, 4.60], look: [0, -0.18, 0], spin: 6, tiltGain: 11,
-             ambient: [0.42, 0.40, 0.35],
-             lights: { rim: [1, .86, .55], fill: [.95, .70, .40], keyIntensity: 1.9 } };
+             ambient: [0.30, 0.29, 0.25],
+             lights: { rim: [1, .86, .55], fill: [.95, .70, .40], keyIntensity: 1.15 } };
   };
 
   /* ── the rig ──────────────────────────────────────────────────────────────────────────────

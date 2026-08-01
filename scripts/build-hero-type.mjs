@@ -426,8 +426,15 @@ async function browserPass() {
     const ctx = await br.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
     await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
     const pg = await ctx.newPage();
-    // ⚠ a RegExp, not a glob: the engine may append a cache-buster and `**/type.glb` then misses
-    await pg.route(/type\.glb/, async r => { await new Promise(res => setTimeout(res, 4000)); await r.continue(); });
+    /* Hold the mesh on a latch rather than a timer. A sleep would be racing this container's own
+     * pace — the first attempt used 4 s and the pump took longer than that, so the check passed
+     * the wrong assertion for the right reason. A latch cannot be out-run.
+     * ⚠ A RegExp, not a glob. The engine may append a cache-buster, which a glob ending in the
+     *   bare filename would then miss. (And a glob is awkward to even write here: a star-star
+     *   slash inside a block comment closes the comment.) */
+    let release = null, hits = 0;
+    const latch = new Promise(res => { release = res; });
+    await pg.route(/type\.glb/, async r => { hits++; await latch; await r.continue(); });
     await pg.goto('http://127.0.0.1:8213/index.html?grab=1', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
     for (let i = 0; i < 40; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
@@ -435,8 +442,10 @@ async function browserPass() {
       phase: RipHeroType.state().phase, frames: RipHeroType.state().frames,
       opacity: getComputedStyle(document.querySelector('.marquee-art.wordmark')).opacity }));
     t('slow mesh: the wordmark stays visible until a frame really drew',
-      mid.phase !== 'live' && +mid.opacity === 1, `${mid.phase} frames ${mid.frames} opacity ${mid.opacity}`);
-    for (let i = 0; i < 120; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
+      hits === 1 && mid.phase !== 'live' && +mid.opacity === 1,
+      `${hits} request(s), ${mid.phase}, frames ${mid.frames}, opacity ${mid.opacity}`);
+    release();
+    for (let i = 0; i < 90; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
     const end = await pg.evaluate(() => ({
       phase: RipHeroType.state().phase,
       inline: document.querySelector('.marquee-art.wordmark').style.opacity }));

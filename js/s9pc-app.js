@@ -51,14 +51,69 @@
   const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
   let TIER = Q.get('q') || (() => { try { return localStorage.getItem('s9pc_q'); } catch (e) { return null; } })() || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
+  /* ⛔ THE TIER LADDER WAS NOT A LADDER — this is the frame-rate bug the artist reported.
+   *
+   * Measured in-arena (SwiftShader, so RELATIVE only): low 317 ms · mid 597 ms · high 693 ms on
+   * NIGHT MARKET. The whole cliff is between LOW and MID; high only adds 16% on top of mid. That
+   * is exactly the shape of the report — "bad at medium AND high" — and three separate causes
+   * stack up at that one step:
+   *
+   * ⚑ (a) `omni` NEVER TIERED. The practicals are picked by striding the candidate list:
+   *       `stride = max(1, floor(cands / omni))`, so the cap only bites when it is SMALLER than
+   *       the candidate count. Counted from the arena definitions, the six hand-built arenas
+   *       carry 8 / 16 / 12 / 14 / 8 / 19 candidates — every one below 24 — so **mid and high
+   *       built byte-identically the same light set on every shipping arena** and only `low`
+   *       thinned anything. The "46 / 24 / 8" ladder read as three rungs and behaved as two.
+   *       On the baked interiors it goes the other way: ARCADE PIT has 178 candidates and THE
+   *       VAULT 74, so high really does build 46 clustered lights there. Same tier, 46 lights in
+   *       one arena and 8 in another — the cost tracked the ARENA, not the setting.
+   *       Switching the practicals off at high on NIGHT MARKET took the frame 1085 → 529 ms and
+   *       1456 → 726 ms on two separate runs: **half the frame, both times.**
+   * ⚑ (b) SSAO COSTS A WHOLE EXTRA GEOMETRY PASS, not just its own blur. PlayCanvas's
+   *       `CameraFrame.sanitizeOptions` reads `(taa || ssaoType !== NONE || dof || volFog) ⇒
+   *       prepassEnabled = true` — turning SSAO on renders the entire scene a second time into a
+   *       depth prepass. `ssao: true` at mid AND high, false at low, is the single cleanest match
+   *       to "the two tiers the artist named", and it is a structural fact of the engine, not a
+   *       measurement. **Mid gives it up**: a tier for a machine that cannot afford high must not
+   *       carry high's most expensive structural feature. High keeps it.
+   * ⚑ (c) 3 CASCADES × 2048² = 12.6 M SHADOW TEXELS EVERY FRAME, for an arena at most 52 m
+   *       across with a shadow distance of ~40 m. That is ~0.007 m per texel — finer than any
+   *       screen pixel at any range in this game, i.e. resolution bought and thrown away.
+   *       1024 keeps 3 cascades and quarters the rasterisation.
+   * ⚑ (d) `spotShadow: true` made ALL SIX ceiling fixtures shadow casters on an interior — six
+   *       more full-scene shadow renders per frame, on top of the sun's three. It is now a COUNT:
+   *       the nearest `spotShadow` fixtures cast and the rest are fill. One caster is what reads
+   *       as "the room has a light in it"; the other five were paying for shadows you cannot
+   *       separate from each other anyway.
+   *
+   * `omniLive` is the new number and it is the one that actually bounds cost: how many practicals
+   * may be ENABLED at once (the nearest to the camera — see `cullPracticals`). `omni` now only
+   * decides how many get BUILT, i.e. how the coloured pools are DISTRIBUTED round the arena, so
+   * the look of a room is unchanged while its per-frame cost stops depending on how many crates
+   * the level designer put in it. */
   const TIERS = {
-    // shadowRes/cascades — the sun's cascaded shadow map. spot: shadow-casting ceiling fixtures.
-    // omni: unshadowed coloured practicals (clustered). skin: real .skn bodies vs the box rig.
-    high: { shadowRes: 2048, cascades: 3, shadows: true, spot: 3, spotShadow: true, omni: 46, ssao: true, ssaoSamples: 10, bloom: true, dither: true, fringing: true, skin: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
-    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: false, omni: 24, ssao: true, ssaoSamples: 6, bloom: true, dither: true, fringing: true, skin: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
-    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: false, omni: 8, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, skin: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
+    // shadowRes/cascades — the sun's cascaded shadow map. spot: ceiling fixtures, spotShadow: how
+    // many of them cast. omni: practicals BUILT; omniLive: how many may be lit at once (clustered).
+    // skin: real .skn bodies vs the box rig.
+    high: { shadowRes: 1024, cascades: 3, shadows: true, spot: 3, spotShadow: 1, omni: 46, omniLive: 12, ssao: true, ssaoSamples: 8, bloom: true, dither: true, fringing: true, skin: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
+    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: 0, omni: 24, omniLive: 8, ssao: false, ssaoSamples: 6, bloom: true, dither: true, fringing: true, skin: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
+    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: 0, omni: 8, omniLive: 5, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, skin: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
   };
   let QCFG = TIERS[TIER];
+  /* Every one of the four is reachable from the URL, because each is a look/cost trade someone
+   * may want to re-measure, and because an A/B against the old behaviour has to be possible
+   * without checking out the old file. `?omnilive=99` restores "every practical is always on". */
+  QCFG = Object.assign({}, QCFG, {
+    omniLive: num('omnilive', QCFG.omniLive),
+    shadowRes: num('sres', QCFG.shadowRes),
+    cascades: num('casc', QCFG.cascades),
+    spotShadow: num('spotshadow', QCFG.spotShadow),
+    /* ⚠ The `?ssao=0` / `?shadows=0` flags are folded in HERE rather than at the point of use.
+     * The adaptive ladder below recomputes both from QCFG, so a flag applied only where the light
+     * is built would be silently undone the first time the controller stepped back up. */
+    ssao: QCFG.ssao && on('ssao', true),
+    shadows: QCFG.shadows && on('shadows', true),
+  });
   const WANT_POST = on('post', true);
   const WANT_BODIES = on('bodies', true);
   const WANT_WEAPON = on('weapon', true);
@@ -196,43 +251,96 @@
   const DPR_BASE = Math.min(window.devicePixelRatio || 1, DPRCAP);
   app.graphicsDevice.maxPixelRatio = DPR_BASE;
 
-  /* ── ADAPTIVE RESOLUTION ───────────────────────────────────────────────────────────────────
-   * Stutter on a machine I cannot measure from here is not something to guess a constant for.
-   * Backing-store resolution is the dominant cost in this build — the scene rasterises at it AND
-   * every fullscreen post pass runs over it — so it is also the one knob that buys frame time
-   * back in proportion, on any GPU, without changing what the game looks like structurally.
+  /* ── THE ADAPTIVE CONTROLLER ───────────────────────────────────────────────────────────────
+   * Stutter on a machine I cannot measure from here is not something to guess a constant for, so
+   * the game measures ITSELF and adjusts: a rolling median (median, not mean — one 300 ms hitch
+   * from a texture upload must not drag the estimate for the next four seconds) against a target
+   * of 16.7 ms.
    *
-   * So the game measures ITSELF and adjusts. A rolling median (median, not mean: one 300 ms hitch
-   * from a texture upload must not drag the estimate for the next four seconds) is compared to a
-   * target of 16.7 ms. Sustained above it, resolution steps down; sustained comfortably below,
-   * it steps back up.
+   * ⛔ IT USED TO SCALE ONLY THE BACKING STORE, AND THAT IS WHY IT COULD NOT SAVE MID OR HIGH.
+   *   Resolution buys back FILL. At mid and high this build is not fill-bound: it is bound by a
+   *   depth prepass (SSAO forces one — see the tier table), by cascaded shadow maps whose cost is
+   *   a fixed 3 × 1024² of rasterisation that does not shrink by one texel when the window does,
+   *   and by a per-fragment clustered-light loop. So the old controller would grind the picture
+   *   soft, frame after frame, and STILL not reach the thing that was actually costing the time —
+   *   the worst possible outcome, because it pays the whole price of a quality drop and collects
+   *   none of it. Hence a LADDER: give up the structurally expensive features first, and only
+   *   spend image sharpness once they are gone.
    *
-   * ⚑ The hysteresis is load-bearing. Scale on a single slow frame and you get a renderer that
-   *   visibly breathes — resolution pumping in and out reads far worse than a steady lower one.
-   *   Hence: a 90-frame window, a 1.5 s cooldown between changes, and a raise threshold well
-   *   below the lower threshold so the two can never chase each other.
-   * ⚑ FLOOR OF 0.7, never below. `GfxPost.dprCap()` already refuses to go under 1 CSS pixel for
-   *   the same reason recorded in CLAUDE.md — below that it is not "lower resolution", it is
-   *   visibly soft, and a soft game reads as a broken one. */
+   *     step 0   as the tier asks
+   *     step 1   SSAO off            ← kills the whole depth prepass, not just the AO
+   *     step 2   shadow map halved   ← 4× less shadow rasterisation
+   *     step 3   live practicals halved
+   *     step 4   one cascade dropped
+   *     step 5+  resolution, 8% at a time, down to `min`
+   *
+   * ⚑ THE WINDOW IS IN SECONDS, NOT FRAMES. It was 60 frames, which is self-defeating: the worse
+   *   the frame rate, the LONGER the controller waits before doing anything about it. At 5 fps
+   *   that is a twelve-second window per step and over a minute to walk the ladder, i.e. the whole
+   *   match. It is now "at least 20 frames AND at least 1.2 s", so a bad machine reacts sooner
+   *   than a good one rather than later.
+   * ⚑ The hysteresis is still load-bearing. Act on a single slow frame and the renderer visibly
+   *   breathes, which reads far worse than a steady lower setting. Hence the cooldown, and a raise
+   *   threshold well below the lower one so the two can never chase each other.
+   * ⚠ NEVER BELOW ONE CSS PIXEL for the backing store — CLAUDE.md records why (`dprCap` refuses
+   *   for the same reason), and the old floor of 0.7 broke exactly that rule while the comment
+   *   above it claimed to be keeping it. Below 1 the backing store is resampled UP to the canvas
+   *   and it is not "lower resolution", it is visibly soft. Once `maxPixelRatio` is down to 1 the
+   *   remaining resolution comes out of `renderTargetScale`, which shrinks the SCENE target and
+   *   every fullscreen post pass while the HUD, the nameplates and the reticle stay sharp on the
+   *   2D overlay above — that split is the whole reason a resolution drop here does not read as a
+   *   broken build. */
   const ADAPT = {
     on: Q.get('adapt') !== '0',
     target: 16.7, hi: 21, lo: 13,          // ms/frame: step down above `hi`, back up below `lo`
-    scale: 1, min: 0.7 / Math.max(0.7, DPR_BASE), max: 1,
-    win: [], cool: 0, changes: 0,
+    step: 0, maxStep: 9,                   // ladder position; 0 = exactly what the tier asked for
+    scale: 1, min: 0.62, max: 1,           // scale multiplies rtScale once dpr has hit its floor
+    win: [], t0: 0, cool: 0, changes: 0,
   };
+  const QBASE = { ssao: QCFG.ssao, shadowRes: QCFG.shadowRes, cascades: QCFG.cascades, omniLive: QCFG.omniLive };
+  /* Apply ladder position `n`. Idempotent and total — it recomputes every knob from QBASE rather
+   * than nudging the live value, so stepping down and back up cannot drift. Fails open: any knob
+   * that throws leaves the others applied. */
+  function applyStep(n) {
+    const wantSsao = QBASE.ssao && n < 1;
+    const wantRes = n >= 2 ? Math.max(512, QBASE.shadowRes >> 1) : QBASE.shadowRes;
+    const wantLive = n >= 3 ? Math.max(2, QBASE.omniLive >> 1) : QBASE.omniLive;
+    const wantCasc = n >= 4 ? Math.max(1, QBASE.cascades - 1) : QBASE.cascades;
+    try {
+      if (frame && (frame.ssao.type !== pc.SSAOTYPE_NONE) !== wantSsao) {
+        frame.ssao.type = wantSsao ? pc.SSAOTYPE_LIGHTING : pc.SSAOTYPE_NONE;
+        frame.update();
+      }
+    } catch (e) {}
+    try { if (sun.light.shadowResolution !== wantRes) sun.light.shadowResolution = wantRes; } catch (e) {}
+    try { if (sun.light.numCascades !== wantCasc) sun.light.numCascades = wantCasc; } catch (e) {}
+    if (QCFG.omniLive !== wantLive) { QCFG.omniLive = wantLive; cullPracticals(true); }
+    // resolution is the LAST thing spent, 8% per step past 4
+    const res = n <= 4 ? 1 : Math.max(ADAPT.min, 1 - (n - 4) * 0.08);
+    if (Math.abs(res - ADAPT.scale) > 0.001) {
+      ADAPT.scale = res;
+      const dpr = Math.max(1, Math.min(DPR_BASE, DPR_BASE * res));
+      app.graphicsDevice.maxPixelRatio = dpr;
+      // whatever the dpr floor could not absorb comes out of the scene target, not the HUD
+      const rest = Math.min(1, res * DPR_BASE / Math.max(0.001, dpr));
+      try { if (frame) { frame.rendering.renderTargetScale = Math.max(0.5, QCFG.rtScale * rest); frame.update(); } } catch (e) {}
+    }
+  }
   function adapt(ms, nowT) {
     if (!ADAPT.on) return;
-    ADAPT.win.push(ms); if (ADAPT.win.length > 90) ADAPT.win.shift();
-    if (ADAPT.win.length < 60 || nowT < ADAPT.cool) return;
+    if (!ADAPT.win.length) ADAPT.t0 = nowT;
+    ADAPT.win.push(ms); if (ADAPT.win.length > 180) ADAPT.win.shift();
+    // at least 20 frames AND at least 1.2 s — so a slow machine reacts sooner, not later
+    if (ADAPT.win.length < 20 || nowT - ADAPT.t0 < 1200 || nowT < ADAPT.cool) return;
     const s = ADAPT.win.slice().sort((a, b) => a - b), med = s[s.length >> 1];
-    let next = ADAPT.scale;
-    if (med > ADAPT.hi) next = Math.max(ADAPT.min, ADAPT.scale - 0.12);
-    else if (med < ADAPT.lo) next = Math.min(ADAPT.max, ADAPT.scale + 0.08);
-    if (Math.abs(next - ADAPT.scale) < 0.01) return;
-    ADAPT.scale = next; ADAPT.changes++;
-    app.graphicsDevice.maxPixelRatio = Math.max(0.7, DPR_BASE * ADAPT.scale);
-    ADAPT.cool = nowT + 1500;              // let it settle before judging again
+    let next = ADAPT.step;
+    if (med > ADAPT.hi) next = Math.min(ADAPT.maxStep, ADAPT.step + 1);
+    else if (med < ADAPT.lo) next = Math.max(0, ADAPT.step - 1);
     ADAPT.win.length = 0;
+    if (next === ADAPT.step) return;
+    ADAPT.step = next; ADAPT.changes++;
+    applyStep(next);
+    ADAPT.cool = nowT + 1500;              // let it settle before judging again
   }
   const ovCtx = ov.getContext('2d');
   let OW = 0, OH = 0, ODPR = 1;
@@ -392,7 +500,7 @@
   const sun = new pc.Entity('sun');
   sun.addComponent('light', {
     type: 'directional', color: new pc.Color(1, 1, 1), intensity: 2.4,
-    castShadows: QCFG.shadows && on('shadows', true), shadowType: pc.SHADOW_PCF3,
+    castShadows: QCFG.shadows, shadowType: pc.SHADOW_PCF3,
     numCascades: QCFG.cascades, cascadeDistribution: 0.4, shadowDistance: 90, shadowResolution: QCFG.shadowRes,
     /* ⚑ Bias was MEASURED, not guessed. At the defaults a 90 m cascade over a 1024 map gives
      * ~0.09 m texels, and with a low sun that self-shadows the floor in long lines radiating from
@@ -454,7 +562,7 @@
       frame.rendering.sharpness = POST.sharpness;
       frame.bloom.intensity = QCFG.bloom ? POST.bloom : 0;
       frame.bloom.blurLevel = 12;
-      frame.ssao.type = (QCFG.ssao && on('ssao', true)) ? pc.SSAOTYPE_LIGHTING : pc.SSAOTYPE_NONE;
+      frame.ssao.type = QCFG.ssao ? pc.SSAOTYPE_LIGHTING : pc.SSAOTYPE_NONE;
       frame.ssao.intensity = POST.ssao.intensity; frame.ssao.radius = POST.ssao.radius;
       frame.ssao.samples = QCFG.ssaoSamples; frame.ssao.power = POST.ssao.power;
       frame.ssao.minAngle = POST.ssao.minAngle; frame.ssao.blurEnabled = true;
@@ -502,6 +610,31 @@
   }
   buildPost();
 
+  /* ── CLUSTERED LIGHTING, TUNED FOR AN ARENA ───────────────────────────────────────────────
+   * PlayCanvas's defaults are `cells 10 × 3 × 10` and `maxLightsPerCell 255`, and both are wrong
+   * for this shape of level in the same direction.
+   *   · The grid is stretched over the bounds of every enabled light, so in a 48 × 38 m arena a
+   *     cell is roughly 4.8 × 2.7 × 3.8 m. A practical with a 9.5 m range therefore lands in a
+   *     large share of the 300 cells, which means nearly every FRAGMENT iterates nearly every
+   *     light — the per-pixel loop stops being local, which is the entire point of clustering.
+   *     A finer grid is what makes "12 lights in the arena" cost like "2 lights near this pixel".
+   *   · `maxLightsPerCell` sizes the cluster texture (cells × slots) that is rebuilt and uploaded
+   *     every frame. 255 slots per cell reserves 76 KB for a scene that never has more than 46
+   *     lights in total, and it is paid whether or not the slots are used.
+   * ⚠ Not free in the other direction: more cells is more CPU per light insert (a light writes to
+   *   every cell it touches). 16 × 4 × 16 = 1024 cells is ~3.4× the grid but each light covers a
+   *   far smaller FRACTION of it, so the insert work per light barely moves.
+   * ⚠ `maxLightsPerCell` is a HARD CLIP, not a hint: a cell holding more lights than this drops
+   *   the overflow and that IS visible as a light popping out near a crowded shelf run. 24 is
+   *   above anything `omniLive` can produce (12) plus the fixtures (6) plus the muzzle flash.
+   * `?clusters=0` restores the engine defaults for an A/B. */
+  if (on('clusters', true)) {
+    try {
+      app.scene.lighting.cells = new pc.Vec3(num('cellx', 16), num('celly', 4), num('cellz', 16));
+      app.scene.lighting.maxLightsPerCell = num('cellmax', 24);
+    } catch (e) { console.warn('[s9pc] cluster params:', e && e.message); }
+  }
+
   app.scene.fog.type = pc.FOG_LINEAR;
 
   // ── the game core ───────────────────────────────────────────────────────────────────────────
@@ -526,9 +659,11 @@
 
   // ── scene per match ─────────────────────────────────────────────────────────────────────────
   let levelRoot = null, levelLights = [], levelStats = null, fx = null;
+  let levelGlows = [], levelFixtures = [];           // the two culled sets — see cullPracticals()
   function clearLevel() {
     if (levelRoot) { try { levelRoot.destroy(); } catch (e) {} levelRoot = null; }
     levelLights.forEach(l => { try { l.destroy(); } catch (e) {} }); levelLights = [];
+    levelGlows = []; levelFixtures = [];
   }
   function buildLevel(MAP) {
     clearLevel();
@@ -586,6 +721,13 @@
      * flat ambient wash. This is the thing our own renderer cannot do at all: it has exactly one
      * directional key and no local shadows, which is why section9-gl.js has to raise ambient
      * indoors instead of lighting the room. Skipped outdoors — you are standing in the sun. */
+    /* ⚑ `spotShadow` IS A COUNT NOW, NOT A BOOLEAN — see the tier table. As a boolean it made all
+     * six fixtures shadow casters, i.e. six more full-scene shadow renders per frame on top of the
+     * sun's three, every frame, on both baked interiors. A shadow map is a whole extra rasterisa-
+     * tion of the level; six of them from six ceiling lights 8 m apart produce overlapping soft
+     * shadows nobody can attribute to a particular fixture anyway. `fixtures` is kept so the cull
+     * can pick which ones cast by distance rather than by grid order. */
+    const fixtures = [];
     if (!OPEN && QCFG.spot > 0) {
       const gx = QCFG.spot, gz = Math.max(1, QCFG.spot - 1), y = (MAP.ceilY || 6) - 1.2;
       for (let i = 0; i < gx; i++) for (let j = 0; j < gz; j++) {
@@ -594,12 +736,13 @@
         const e = new pc.Entity('fixture' + i + j);
         e.addComponent('light', { type: 'spot', color: new pc.Color(1.0, 0.95, 0.86), intensity: num('spot', 14),
           range: Math.max(24, span * 0.9), innerConeAngle: 22, outerConeAngle: 56,
-          castShadows: QCFG.spotShadow && on('spotshadow', true), shadowResolution: 1024, shadowBias: 0.02,
+          castShadows: false, shadowResolution: 1024, shadowBias: 0.02,
           normalOffsetBias: 0.06, shadowIntensity: 0.9, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
         e.setPosition(x, y, z); e.setEulerAngles(-90, 0, 0);
-        world.addChild(e); levelLights.push(e);
+        world.addChild(e); levelLights.push(e); fixtures.push(e);
       }
     }
+    levelFixtures = fixtures;
     /* Coloured practicals: every arcade cabinet, shelf run, crate stack or prize booth becomes a
      * small source. This is the "many small lights" case a forward renderer cannot afford and a
      * clustered one can — and it is what makes a corridor read as a place rather than a corridor. */
@@ -608,17 +751,68 @@
     let lit = 0;
     const cands = MAP.solids.filter(b => (b.name ? LIT.test(String(b.name)) : (b.kind === 'ammo' || b.kind === 'crate' || b.kind === 'cover' || b.kind === 'shelf')));
     const stride = Math.max(1, Math.floor(cands.length / Math.max(1, QCFG.omni)));
+    const glows = [];
     for (let i = 0; i < cands.length && lit < QCFG.omni; i += stride) {
       const b = cands[i], c = HUES[lit % HUES.length];
       const e = new pc.Entity('glow' + lit);
       e.addComponent('light', { type: 'omni', color: new pc.Color(c[0], c[1], c[2]), intensity: num('omni', 4.2),
         range: 9.5, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
       e.setPosition((b.x0 + b.x1) / 2, b.y1 + 0.5, (b.z0 + b.z1) / 2);
-      world.addChild(e); levelLights.push(e); lit++;
+      world.addChild(e); levelLights.push(e); glows.push(e); lit++;
     }
+    levelGlows = glows;
     levelStats.omni = lit; levelStats.spot = (!OPEN && QCFG.spot > 0) ? QCFG.spot * Math.max(1, QCFG.spot - 1) : 0;
     if (!fx) fx = S9PCFx.create(app);
+    cullPracticals(true);
     return built;
+  }
+
+  /* ── THE PRACTICALS ARE CULLED BY DISTANCE ────────────────────────────────────────────────
+   * The engine already frustum-culls clustered lights (`cullLights` tests each light's bounding
+   * sphere against the camera frustum), so what is left after that is lights that genuinely CAN
+   * touch a visible pixel — and in a 48 × 38 m arena at a 55° vertical FOV that is most of them.
+   * The cost is per fragment: a fragment iterates every light in its cluster cell, and PlayCanvas's
+   * default grid is 10 × 3 × 10 cells stretched over the bounds of ALL lights, so a 9.5 m light in
+   * an arena that size lands in a large share of the grid and nearly every pixel pays for nearly
+   * every light.
+   *
+   * ⚑ So the budget is enforced where the eye cannot see it being enforced: keep the `omniLive`
+   *   NEAREST practicals lit and switch off the rest. A practical is a 9.5 m inverse-squared pool
+   *   round a crate; at 25 m it contributes a value the tonemapper cannot express. This is what
+   *   makes the cost of an arena independent of how many crates are in it — ARCADE PIT's 46 built
+   *   lights and KOWLOON BLOCK's 8 now cost the same to draw.
+   *
+   * ⚠ Re-evaluated on a TIMER, not per frame: a 20-light sort is nothing, but flipping
+   *   `light.enabled` marks the clustered light set dirty, and doing that every frame would hand
+   *   back what the cull just bought. 0.2 s is far quicker than a player can cross a 9.5 m pool.
+   * ⚠ HYSTERESIS at the boundary, or a light exactly on the cut flickers as you strafe: a lit
+   *   light has to fall 15% further away than the cut before it is dropped. */
+  let cullT = 0, cullN = 0;
+  function cullPracticals(force) {
+    const live = Math.max(0, QCFG.omniLive | 0);
+    if (!levelGlows.length && !levelFixtures.length) return;
+    const p = cam.getPosition();
+    /* the camera lives OUTSIDE the world mirror, so compare in the mirror's own space — see
+     * applyCamera(). Getting this wrong reflects the arena and lights the wrong half of it. */
+    const cx = -p.x, cy = p.y, cz = p.z;
+    const d2 = e => { const q = e.getLocalPosition(); const dx = q.x - cx, dy = q.y - cy, dz = q.z - cz; return dx * dx + dy * dy + dz * dz; };
+    if (levelGlows.length > live) {
+      const rank = levelGlows.map(e => ({ e, d: d2(e) })).sort((a, b) => a.d - b.d);
+      const cut = rank[Math.max(0, live - 1)].d;
+      for (let i = 0; i < rank.length; i++) {
+        const o = rank[i];
+        const want = i < live ? true : (o.e.enabled && o.d < cut * 1.32);   // 1.15² ≈ 1.32: 15% of hysteresis
+        if (o.e.enabled !== want) o.e.enabled = want;
+      }
+      cullN = Math.min(live, rank.length);
+    } else { cullN = levelGlows.length; }
+    // the nearest `spotShadow` ceiling fixtures cast; the rest are fill
+    const casters = Math.max(0, QCFG.spotShadow | 0);
+    if (levelFixtures.length) {
+      const rank = levelFixtures.map(e => ({ e, d: d2(e) })).sort((a, b) => a.d - b.d);
+      rank.forEach((o, i) => { const want = i < casters; if (o.e.light.castShadows !== want) o.e.light.castShadows = want; });
+    }
+    if (force) cullT = 0;
   }
 
   // ── bodies ──────────────────────────────────────────────────────────────────────────────────
@@ -1337,6 +1531,8 @@
       if (G.me) {
         syncBodies(G);
         applyCamera();
+        // on a timer, not per frame — flipping light.enabled dirties the clustered light set
+        if (nowT >= cullT) { cullT = nowT + 200; cullPracticals(false); }
         if (fx) fx.update(G, cam, nowT);
         drawOverlay();
         if (frames % 4 === 0) ui.hud();
@@ -1358,8 +1554,12 @@
     const med = median(times);
     const fps = med > 0 ? (1000 / med) : 0;
     el.innerHTML = 'PlayCanvas ' + pc.version + ' · tier ' + TIER + ' · dpr ' + app.graphicsDevice.maxPixelRatio.toFixed(2) +
-      (ADAPT.on ? ' · adapt ×' + ADAPT.scale.toFixed(2) + (ADAPT.changes ? ' (' + ADAPT.changes + ')' : '') : ' · adapt off') + '<br>' +
-      (s ? (s.tris.toLocaleString() + ' tris · ' + s.parts + ' PBR mats · ' + (s.omni || 0) + ' omni · ' + (s.spot || 0) + ' spot<br>') : '') +
+      (ADAPT.on ? ' · adapt step ' + ADAPT.step + ' ×' + ADAPT.scale.toFixed(2) + (ADAPT.changes ? ' (' + ADAPT.changes + ')' : '') : ' · adapt off') + '<br>' +
+      /* ⚑ "omni" is now BUILT vs LIT. The whole frame-rate fix is that those two numbers differ,
+       * so a readout that showed only one of them would hide the thing worth watching. */
+      (s ? (s.tris.toLocaleString() + ' tris · ' + s.parts + ' PBR mats · ' + cullN + '/' + (s.omni || 0) + ' omni lit · ' +
+        (s.spot || 0) + ' spot (' + Math.min(levelFixtures.length, QCFG.spotShadow | 0) + ' cast) · ' +
+        (QCFG.ssao ? 'ssao' : 'no ssao') + ' · sm ' + sun.light.shadowResolution + '×' + sun.light.numCascades + '<br>') : '') +
       bodies.size + ' bodies · ' + (weaponAsset ? 'GLB weapon' : 'no weapon') + ' · ' + (frame ? 'post' : 'no post') + (ditherOn ? '+dither' : '') + (envOk ? ' · IBL' : '') + '<br>' +
       '<b>' + med.toFixed(1) + ' ms</b> median (' + fps.toFixed(0) + ' fps) · p95 ' + p95.toFixed(1) + ' · worst ' + worst.toFixed(1) + ' ms';
   }
@@ -1417,8 +1617,16 @@
      * Same reason `Card3D.build` returns its parts and stashes the controller on `window`. */
     get frame() { return frame; },
     get lights() { return levelLights; },
+    get glows() { return levelGlows; },
+    get fixtures() { return levelFixtures; },
+    get q() { return QCFG; },
+    adapt: ADAPT,
+    _step(n) { ADAPT.step = Math.max(0, Math.min(ADAPT.maxStep, n | 0)); applyStep(ADAPT.step); return ADAPT.step; },
+    _cull(live) { if (live != null) QCFG.omniLive = live | 0; cullPracticals(true); return cullN; },
     get s() { const G = game.G; return {
       engine: pc.version, tier: TIER, autoTier: AUTO_TIER, dpr: app.graphicsDevice.maxPixelRatio,
+      omniLive: QCFG.omniLive, omniLit: cullN, ssao: QCFG.ssao, sm: sun.light.shadowResolution + 'x' + sun.light.numCascades,
+      rtScale: frame ? frame.rendering.renderTargetScale : null, adaptStep: ADAPT.step,
       mode: G.mode, map: game.MAP && game.MAP.name, mapIdx: G.mapIdx, frames,
       me: G.me ? { hp: +G.me.hp.toFixed(1), armor: +G.me.armor.toFixed(1), mag: G.me.mag, weapon: G.me.weapon, kills: G.me.kills,
         alive: G.me.alive, x: +G.me.x.toFixed(2), y: +G.me.y.toFixed(2), z: +G.me.z.toFixed(2),
