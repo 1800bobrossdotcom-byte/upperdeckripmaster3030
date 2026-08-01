@@ -620,16 +620,43 @@ export function toOBJ(meshes) {
 /* ══ CLI ═════════════════════════════════════════════════════════════════════════════════ */
 
 function main(argv) {
-  const args = argv.filter(a => a !== '--list');
+  /* ⚑ `--drop` / `--only` — filter parts BY NAME, comma-separated substrings, case-insensitive.
+   * Needed because DCC exports routinely carry parts that are not the model: a backdrop plane, a
+   * light gizmo, a reference image quad. They are cheap in triangles and expensive in every other
+   * way, because anything downstream that MEASURES the model measures them too. Concretely:
+   * s9pc-app.js's fitWeapon() scales a weapon by `0.86 / longest axis` of its bounding box, so one
+   * 3721-unit backdrop plane in a 60-unit revolver shrinks the gun to a speck — the asset looks
+   * broken and the bug is in a file nobody would think to open.
+   *   node scripts/fbx2glb.mjs in.fbx out.glb --drop Plane
+   *   node scripts/fbx2glb.mjs in.fbx out.glb --only Cube,Cylinder
+   * ⚠ Matching is on the FBX object name, and CLAUDE.md already records that those names lie
+   * (one Mixamo file keeps a whole armoured body inside an object called `…_Sword`). So run
+   * `--list` first and read the bounds; do not filter on a name you have not checked. */
+  const flagVal = (name) => { const i = argv.indexOf(name);
+    return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null; };
+  const dropList = (flagVal('--drop') || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const onlyList = (flagVal('--only') || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const consumed = new Set(['--list', '--drop', '--only', flagVal('--drop'), flagVal('--only')].filter(Boolean));
+  const args = argv.filter(a => !consumed.has(a));
   const listOnly = argv.includes('--list');
   if (!args.length) {
-    console.error('usage: fbx2glb.mjs <in.fbx> [out.glb|out.obj] [--list]');
+    console.error('usage: fbx2glb.mjs <in.fbx> [out.glb|out.obj] [--list] [--drop a,b] [--only a,b]');
     process.exit(1);
   }
   const inPath = args[0];
   const buf = readFileSync(inPath);
   const parsed = parseFBX(buf);
   const r = extract(parsed);
+  if (dropList.length || onlyList.length) {
+    const before = r.meshes.length;
+    const keep = m => { const n = String(m.name || '').toLowerCase();
+      if (onlyList.length && !onlyList.some(s => n.includes(s))) return false;
+      return !dropList.some(s => n.includes(s)); };
+    const cut = r.meshes.filter(m => !keep(m)).map(m => m.name);
+    r.meshes = r.meshes.filter(keep);
+    if (cut.length) console.log(`filtered ${before} → ${r.meshes.length} parts (dropped: ${cut.join(', ')})`);
+    if (!r.meshes.length) { console.error('  ⛔ every part was filtered out — check the names with --list'); process.exit(1); }
+  }
   const tris = r.meshes.reduce((s, m) => s + m.idx.length / 3, 0);
   const verts = r.meshes.reduce((s, m) => s + m.pos.length / 3, 0);
   console.log(`${basename(inPath)} — FBX ${r.version}${r.ascii ? ' (ASCII)' : ''} · up-axis ${'XYZ'[r.upAxis] || '?'} · unit ${r.unitScale}`);

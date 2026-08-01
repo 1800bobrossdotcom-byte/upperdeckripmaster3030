@@ -19,6 +19,19 @@
   arena's control bar. Attribution is a courtesy (CC0 requires none); we credit
   anyway, and only credit DarkFarms for their genuine work.
 
+## 3D assets
+
+- **Magnum 460** — `models/weapons/magnum460.glb`, a revolver model.
+  Released **CC0 1.0** by **TheGoodFella**, stated in the repository's own `LICENSE.txt`
+  (fetched and read, not inferred from the repo page):
+  <https://github.com/TheGoodFella/magnum460Blend>. CC0 waives copyright worldwide and
+  permits commercial use with no attribution required — we credit anyway.
+  Converted from the source `.fbx` by our own `scripts/fbx2glb.mjs`, dropping the
+  scene's backdrop `Plane` (`--drop Plane`). 2,120 triangles, 66 KB.
+
+See `docs/BLENDER-PIPELINE.md` for the wider survey of Blender and texturing tooling,
+including which of it can and cannot be used here.
+
 ## Everything else
 
 - Original art, card designs, code, contracts, and the $UR3030 experience by
