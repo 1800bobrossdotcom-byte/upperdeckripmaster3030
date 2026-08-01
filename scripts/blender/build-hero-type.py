@@ -509,11 +509,15 @@ def foil_material(aspect):
     # ── the relief modulates the ink: brush tops take the light, recesses go a little darker.
     #    ⚠ Kept well clear of black. This is the brightest thing above the fold; crushing the
     #    recesses puts holes in the letterforms at small sizes. ──
+    # ⚠ A GENTLE RAMP, because the live shader lights this relief PROPERLY. v1 baked a strong
+    #   0.74..1.22 shading into the ink to fake the relief it could not light; v2 has the same
+    #   height field in the normal map and a real anisotropic lobe over it, so baking the shading
+    #   in as well counts the grain twice and the letters come back looking like sandpaper.
     shade = node(nt, 'ShaderNodeValToRGB', (-120, 120))
     shade.color_ramp.elements[0].position = 0.12
-    shade.color_ramp.elements[0].color = (0.74, 0.74, 0.74, 1)
+    shade.color_ramp.elements[0].color = (0.88, 0.88, 0.88, 1)
     shade.color_ramp.elements[1].position = 0.86
-    shade.color_ramp.elements[1].color = (1.22, 1.22, 1.22, 1)
+    shade.color_ramp.elements[1].color = (1.10, 1.10, 1.10, 1)
     nt.links.new(relief.outputs['Color'], shade.inputs['Fac'])
 
     paint = node(nt, 'ShaderNodeMixRGB', (200, 40), blend_type='MULTIPLY')

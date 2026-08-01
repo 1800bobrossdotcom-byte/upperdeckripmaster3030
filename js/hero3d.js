@@ -309,7 +309,7 @@ const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
  *   z  the LIGHT's half of the grating path difference (the view half is in the base phase)
  * ⚑ uSurf.y (the spread ALONG the grain) is the LARGE one. That is what turns the highlight
  *   from a blob into a line, and it is the single cheapest thing that reads as "brushed". */
-vec3 lightTerm(vec3 N, vec3 T, vec3 Bt, vec3 V, vec3 L) {
+vec3 lightTerm(vec3 N, vec3 T, vec3 Bt, vec3 T0, vec3 B0, vec3 V, vec3 L) {
   float ndl = dot(N, L);
   float diff = clamp((ndl + 0.14) / 1.14, 0.0, 1.0);
   vec3 H = L + V;
@@ -323,8 +323,9 @@ vec3 lightTerm(vec3 N, vec3 T, vec3 Bt, vec3 V, vec3 L) {
   /* The grating's path difference is (L + V) projected onto the surface axes, so it splits
    * cleanly into a light half and a view half. Only the light half is here; the view half is
    * computed once in main() because the BROAD tint needs it on its own. Weighted toward the
-   * word's long axis, because a YAW is the motion this wordmark actually makes. */
-  return vec3(diff, an, dot(T, L) + 0.62 * dot(Bt, L));
+   * word's long axis, because a YAW is the motion this wordmark actually makes.
+   * ⚠ On T0/B0 — the MACRO frame — never the perturbed one. See the note in main(). */
+  return vec3(diff, an, dot(T0, L) + 0.62 * dot(B0, L));
 }
 
 void main(void) {
@@ -385,11 +386,20 @@ void main(void) {
   vec3 Bt = cross(N, T);
 
   float ndv = clamp(dot(N, V), 0.0, 1.0);
-  /* Thin film: the optical path through a coating goes as 1/cos(theta), so the hue cycles with
-   * view angle alone, with no light moving. Small compared with the grating, but it is the term
-   * that keeps the colour alive where the geometry is flat-on and the grating term is stationary. */
-  float film = uFoilP.y / max(ndv, 0.22);
-  float axV = dot(T, V) + 0.62 * dot(Bt, V);
+  /* ⚑ THE GRATING PHASE IS MEASURED ON THE MACRO SURFACE, NOT THE MICRO ONE — Ng and T0/B0, not
+   *   N and T/Bt. This is a physical claim, and it is also the difference between a foil and a
+   *   bowl of confetti. The interference order of a grating is set by the sheet's own geometry;
+   *   the micro-relief scatters WITHIN that order, it does not renumber it. Driving the phase off
+   *   the perturbed normal instead put a full palette step between neighbouring 4-px flakes and
+   *   the wordmark came back as coloured static — a real render, of the wrong physics.
+   *   The micro-relief keeps its job: it shapes the specular LOBE (which is where it belongs) and
+   *   it modulates brightness through the flake mask.
+   * Thin film: the optical path through a coating goes as 1/cos(theta), so the hue cycles with
+   * view angle alone, with no light moving. Small next to the grating, but it is what keeps the
+   * colour alive where the geometry is flat-on and the grating term is nearly stationary. */
+  float ndvG = clamp(dot(Ng, V), 0.0, 1.0);
+  float film = uFoilP.y / max(ndvG, 0.22);
+  float axV = dot(T0, V) + 0.62 * dot(B0, V);
   float base = uRamp.x * vpos + uFoilP.w * gphase + film + uRamp.y + uFoilP.x * axV;
   // flake: specular breakup, so the foil glints in grains instead of as one mirror sheet
   float bite = mix(1.0 - uSurf.w, 1.0 + uSurf.w, flake);
@@ -414,13 +424,13 @@ void main(void) {
   vec3 col = shade * (uAmbient + uMix.z);
 
   vec3 t;
-  t = lightTerm(N, T, Bt, V, uKeyDir);
+  t = lightTerm(N, T, Bt, T0, B0, V, uKeyDir);
   col += shade * uKeyCol * t.x;
   col += pal(base + uFoilP.x * t.z) * uKeyCol * (t.y * bite * uMix.y);
-  t = lightTerm(N, T, Bt, V, uFillDir);
+  t = lightTerm(N, T, Bt, T0, B0, V, uFillDir);
   col += shade * uFillCol * t.x;
   col += pal(base + uFoilP.x * t.z) * uFillCol * (t.y * bite * uMix.y);
-  t = lightTerm(N, T, Bt, V, uRimDir);
+  t = lightTerm(N, T, Bt, T0, B0, V, uRimDir);
   col += shade * uRimCol * t.x;
   col += pal(base + uFoilP.x * t.z) * uRimCol * (t.y * bite * uMix.y);
 
@@ -437,14 +447,14 @@ void main(void) {
    *   the middle — which is the entire point of lighting the type with the page's own props. */
   vec3 dA = uTorchA - vWorld;
   float rA = length(dA);
-  t = lightTerm(N, T, Bt, V, normalize(dA * matrix_normal));
+  t = lightTerm(N, T, Bt, T0, B0, V, normalize(dA * matrix_normal));
   float aA = uTorchAmp.x / (1.0 + 14.0 * rA * rA);
   col += shade * uTorchCol * (t.x * aA);
   col += pal(base + uFoilP.x * t.z) * uTorchCol * (t.y * bite * aA * uMix.y * 1.6);
 
   vec3 dB = uTorchB - vWorld;
   float rB = length(dB);
-  t = lightTerm(N, T, Bt, V, normalize(dB * matrix_normal));
+  t = lightTerm(N, T, Bt, T0, B0, V, normalize(dB * matrix_normal));
   float aB = uTorchAmp.y / (1.0 + 14.0 * rB * rB);
   col += shade * uTorchCol * (t.x * aB);
   col += pal(base + uFoilP.x * t.z) * uTorchCol * (t.y * bite * aB * uMix.y * 1.6);
@@ -472,9 +482,17 @@ void main(void) {
   gl_FragColor = vec4(pow(max(col, vec3(0.0)), vec3(uGamma)), 1.0);
 }`;
 
+  /* ⚠ THE DEFINE GOES ON THE MATERIAL, NOT ON THE DESCRIPTOR, and getting that wrong is silent
+   *   and expensive. `vertexDefines`/`fragmentDefines` are honoured by `ShaderUtils.createShader`
+   *   but a `pc.ShaderMaterial` builds its own definition and reads the defines off ITSELF
+   *   (`material.setDefine`) — so a desc-level HAS_UV is accepted, ignored, and never mentioned.
+   *   The face and bevel then compiled the UNTEXTURED branch: no albedo, no normal map, no foil
+   *   data, `ink` falling back to the flat `uInk`. It still rendered, still moved, still walked
+   *   the palette — it just quietly did it with none of the baked material in it, which is the
+   *   worst kind of wrong because it looks like a tuning problem. It was found by sweeping the
+   *   bump strength from 0 to 6 and getting byte-identical frames, then swapping the normal map
+   *   for a completely different texture and getting byte-identical frames again. */
   function makeShader(pc, hasUv) {
-    const defs = new Map();
-    if (hasUv) defs.set('HAS_UV', '');
     return {
       uniqueName: 'heroFoil-' + SHADER_VER + (hasUv ? '-uv' : '-flat'),
       attributes: hasUv
@@ -483,8 +501,6 @@ void main(void) {
         : { vertex_position: pc.SEMANTIC_POSITION, vertex_normal: pc.SEMANTIC_NORMAL },
       vertexGLSL: VS,
       fragmentGLSL: FS,
-      vertexDefines: defs,
-      fragmentDefines: defs,
     };
   }
 
@@ -564,6 +580,11 @@ void main(void) {
         bevel: new pc.ShaderMaterial(uvDesc),
         rim: new pc.ShaderMaterial(flatDesc),
       };
+      if (!mats.face.setDefine) throw new Error('no setDefine');
+      mats.face.setDefine('HAS_UV', true);
+      mats.bevel.setDefine('HAS_UV', true);
+      // ⚠ asserted, not assumed: a missing HAS_UV is invisible at runtime (see makeShader)
+      if (!mats.face.getDefine('HAS_UV') || mats.rim.getDefine('HAS_UV')) throw new Error('HAS_UV not set');
     } catch (e) { return fail('shader: ' + (e && e.message || e)); }
     S.shader = SHADER_VER;
 
@@ -588,8 +609,8 @@ void main(void) {
        *   The bevel runs richer because it is a thin band seen at a steeper angle — the same
        *   frequency there would barely move at all. */
       //          grating   film  sheen  patch |  bump  along across flake | foil  grat  emis  fres
-      face: { foilP: V4(1.15, 0.26, 0.42, 0.55), surf: V4(1.15, 0.46, 0.110, 0.55), mix: V4(0.98, 0.95, 0.030, 3.2) },
-      bevel: { foilP: V4(2.40, 0.44, 1.15, 0.95), surf: V4(0.90, 0.52, 0.135, 0.45), mix: V4(0.96, 1.25, 0.015, 2.0) },
+      face: { foilP: V4(1.15, 0.26, 0.46, 0.22), surf: V4(0.55, 0.46, 0.110, 0.26), mix: V4(0.98, 0.85, 0.055, 3.2) },
+      bevel: { foilP: V4(2.40, 0.44, 1.25, 0.40), surf: V4(0.55, 0.52, 0.135, 0.24), mix: V4(0.96, 1.20, 0.030, 2.0) },
       rim: { foilP: V4(3.00, 0.52, 0.95, 1.00), surf: V4(0.00, 0.58, 0.115, 0.00), mix: V4(0.85, 1.40, 0.004, 2.3) },
     };
     const RAMP = { face: [1.0, 0], bevel: [1.0, 0.06], rim: [0.0, 0.13] };
@@ -599,7 +620,7 @@ void main(void) {
       m.setParameter('uSurf', CFG[k].surf);
       m.setParameter('uMix', CFG[k].mix);
       m.setParameter('uRamp', new Float32Array(RAMP[k]));
-      m.setParameter('uAmbient', new Float32Array([0.030, 0.040, 0.036]));
+      m.setParameter('uAmbient', new Float32Array([0.048, 0.062, 0.056]));
       m.setParameter('uGamma', 1 / 2.2);
       m.cull = pc.CULLFACE_BACK;
       m.update();
@@ -624,9 +645,9 @@ void main(void) {
        *   specular-only difference image showed bright letter edges and a dead interior. Dropping
        *   the elevation to 0.20 puts the mean inside the micro-relief's own swing, so the grain
        *   decides where the band falls — which is exactly what a brushed surface does. */
-      key: { dir: [-0.46, 0.20, 0.86], col: [0.42, 0.40, 0.37] },
-      fill: { dir: [0.66, -0.42, 0.62], col: [0.10, 0.046, 0.090] },
-      rim: { dir: [0.52, 0.60, -0.61], col: [0.055, 0.120, 0.112] },
+      key: { dir: [-0.46, 0.20, 0.86], col: [0.56, 0.535, 0.495] },
+      fill: { dir: [0.66, -0.42, 0.62], col: [0.13, 0.060, 0.117] },
+      rim: { dir: [0.52, 0.60, -0.61], col: [0.070, 0.155, 0.145] },
     };
     const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
     const setAll = (name, val) => { for (const k of Object.keys(mats)) mats[k].setParameter(name, val); };
@@ -640,6 +661,7 @@ void main(void) {
     setAll('uTorchAmp', new Float32Array([1, 1]));
 
     let ready = 0;
+    const TEXOUT = {};
     Promise.all(['albedo', 'normal', 'foil', 'spectrum'].map(k => loadImage(TEX[k]))).then(imgs => {
       if (!app) return;
       const d = app.graphicsDevice;
@@ -657,6 +679,7 @@ void main(void) {
         mats[k].setParameter('uFoil', t.foil);
       }
       for (const k of Object.keys(mats)) mats[k].update();
+      TEXOUT.albedo = t.albedo; TEXOUT.normal = t.normal; TEXOUT.foil = t.foil; TEXOUT.spectrum = t.spectrum;
       ready |= 1;
     }).catch(e => { return fail('tex: ' + (e && e.message || e)); });
 
@@ -911,7 +934,7 @@ void main(void) {
      * check can turn one term off at a time instead of guessing which one it is looking at.
      * CLAUDE.md, "Isolate before tuning": switching the foil, the specular, the rim and the key
      * off ONE AT A TIME is what proved the card wash was not lighting. */
-    window.__heroType = { app, mats, root, cam, CFG, LIGHTS, draw };
+    window.__heroType = { app, mats, root, cam, CFG, LIGHTS, draw, tex: TEXOUT };
 
     app.start();
     fit();

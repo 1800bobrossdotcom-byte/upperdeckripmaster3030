@@ -401,6 +401,7 @@
    *     v (u/s)   16    24    32    40    48    56    64    72    80    88    96   104   112
    *     BEFORE  11.0  14.3  15.1  14.1  12.1  10.0  11.5  14.6  17.8  19.0  17.7  14.9  11.9
    *                                            ↑ null at 56–64 — and cruise was 64
+   *     AFTER    6.2   7.5   9.3  10.8  12.4  13.2  14.7  16.1  17.2  18.5  19.5  18.8  20.2
    *
    * Flow FELL 34% between 32 u/s and 56 u/s. Doubling the speed made the picture move LESS. That
    * is "too slow" as a number, and no amount of extra velocity fixes it — 112 u/s scores the same
@@ -815,7 +816,11 @@
      * the centre, i.e. inside the ribbon, so they genuinely fly THROUGH the camera — which is the
      * single strongest speed cue available and the reason this game is called CLOUD RACER. The
      * other half stay wide, so the track is threaded through weather rather than buried in it. */
-    for (let i = 0; i < QC.wisps; i++) wisps.push(newWisp(R, R() * track.len, i % 2 === 0));
+    /* ⚠ ON THE LOW TIER THEY ARE ALL "NEAR", i.e. all SMALL. Measured under software GL: the cloud
+     * layer costs 23 ms of a 67 ms frame at q=mid, and a billboard's cost is its screen AREA — the
+     * wide ones are r 5–14, the threaded ones r 3.4–8.4. A weak device keeps the wisps that sell
+     * speed and loses the ones that only decorate the middle distance. */
+    for (let i = 0; i < QC.wisps; i++) wisps.push(newWisp(R, R() * track.len, TIER === 'low' || i % 2 === 0));
   }
   const _R = new pc.Vec3(), _U = new pc.Vec3();
   function writeClouds(camPos, meS) {

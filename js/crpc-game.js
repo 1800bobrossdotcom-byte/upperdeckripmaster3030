@@ -122,10 +122,12 @@
      * 11.5 at 64. The texture is fixed in `crpc-app.js` (nothing repeats faster than 3.875 u now)
      * and flow rises monotonically to ~112 u/s, so raising the pace finally buys something:
      *     v      16    32    48    64    80    96   112   128
-     *     before 11.0  15.1  12.1  11.5  17.8  17.7  11.9   —      ← flat, and nulled at cruise
-     *     after   5.5   9.6  12.7  15.3  17.6  18.5  19.6  19.4
-     * 76 base ⇒ flow 16.9, i.e. +47% image motion per frame against the old cruise, before a
-     * single tier of escalation. Tier 4 boost is 156 u/s, still inside the useful band. */
+     *     before 11.0  15.1  12.1  11.5  17.8  17.7  11.9   —      ← flat, and NULLED at cruise
+     *     after   6.2   9.3  12.4  14.7  17.2  19.5  20.2  19.2
+     * Before, 112 u/s scored the same as 16 u/s — flat out looked like crawling. After, the curve
+     * rises all the way through the range the game can reach. At the tier-1 cruise of 76 the frame
+     * changes ~16.6 per frame against the old cruise's 11.5: +45% image motion, before a single
+     * tier of escalation. Tier 4 boost is 156 u/s, past the 112 peak but still at ~18. */
     CRUISE: 76,
     BOOST_MUL: 1.42,     // 108 u/s flat out at tier 1, 156 at tier 4
     DRAFT_MUL: 1.13,     // tucked in someone's wake
