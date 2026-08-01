@@ -190,16 +190,22 @@ def build_trim():
         (3.15, 0.34, 0.05, 0.58),
     ])
 
+    # ⚑ EVERY STRIP IS THICKER THAN THE SURFACE IT DRESSES, by ~0.04, and pushed ~0.09 forward of
+    #   its leading edge. The first pass made them THINNER (0.36 against a 0.44 wing root) and
+    #   flush, which buries a foil strip inside the hull and leaves a hairline — a stamp you
+    #   cannot see is not a stamp. Proud is also what makes the rim light catch it, which is the
+    #   whole job §2 gives a rim. Wing root 0.44→0.48, kink 0.26→0.30, tip 0.11→0.14, and the
+    #   same +0.04 on every control surface.
     for sy in (-1, 1):
         # wing leading edge, both panels, following the crank
-        kit.foil(p, (1.62, sy * 0.63, -0.02), (0.13, sy * 2.30, 0.20), 0.18, 0.15, 0.36, 0.22)
-        kit.foil(p, (0.13, sy * 2.30, 0.20), (-2.49, sy * 4.09, 0.46), 0.15, 0.11, 0.22, 0.10)
+        kit.foil(p, (1.66, sy * 0.63, -0.02), (0.17, sy * 2.30, 0.20), 0.26, 0.20, 0.48, 0.30)
+        kit.foil(p, (0.17, sy * 2.30, 0.20), (-2.45, sy * 4.09, 0.46), 0.20, 0.14, 0.30, 0.14)
         # canard and tailplane leading edges
-        kit.foil(p, (3.16, sy * 0.46, 0.14), (2.03, sy * 1.74, 0.30), 0.14, 0.09, 0.16, 0.07)
-        kit.foil(p, (-2.42, sy * 0.44, 0.16), (-3.74, sy * 1.99, 0.34), 0.14, 0.09, 0.20, 0.08)
+        kit.foil(p, (3.20, sy * 0.46, 0.14), (2.07, sy * 1.74, 0.30), 0.18, 0.11, 0.26, 0.10)
+        kit.foil(p, (-2.38, sy * 0.44, 0.16), (-3.70, sy * 1.99, 0.34), 0.18, 0.11, 0.30, 0.11)
         # fin leading edge — vertical, so axis='z': thickness runs across, span runs up
-        kit.foil(p, (-1.75, sy * 0.80, 0.45), (-3.44, sy * 1.30, 2.32),
-                 0.22, 0.12, 0.24, 0.10, axis='z')
+        kit.foil(p, (-1.71, sy * 0.80, 0.45), (-3.40, sy * 1.30, 2.32),
+                 0.26, 0.14, 0.32, 0.12, axis='z')
         # wingtip rail cap
         p.box((-2.62, sy * 4.05, 1.24), (0.62, 0.10, 0.07))
         # intake lips — top and outboard, framing the mouth
