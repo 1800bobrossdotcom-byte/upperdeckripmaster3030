@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — DOGFIGHT true-3D renderer (window.DFGL). Milestone 1.
+/* ripmaster3030studios — DOGFIGHT true-3D renderer (window.DFGL). Milestone 1.
  *
  * Dogfight has always been FAKE 3D: a hand-rolled projection (FOCAL/HORIZON) that maps world
  * (x, y, alt) to screen and rolls the whole scene around the horizon to bank. It reads well,

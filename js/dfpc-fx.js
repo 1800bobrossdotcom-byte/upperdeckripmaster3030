@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — DOGFIGHT / PlayCanvas: world-space FX and the shared quad layer
+/* ripmaster3030studios — DOGFIGHT / PlayCanvas: world-space FX and the shared quad layer
  * (window.DFPCFx).
  *
  * ⚑ THIS MODULE EXISTS BECAUSE OF THE DIAGNOSIS, NOT BECAUSE OF THE ENGINE. Measured against the

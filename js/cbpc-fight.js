@@ -51,61 +51,69 @@
    * ⚠ EVERY NUMBER BELOW WAS SWEPT ON A **FROZEN** FRAME (`_hold(true)`), and that matters. The
    *   first pass swept a live fight and the readings bounced 15 levels of luma between settings for
    *   no reason but a different population of projectiles being in the air. A sweep that is really
-   *   comparing two different exchanges is not a sweep. Frozen, all four curves came out clean.
+   *   comparing two different exchanges is not a sweep. Frozen, every curve came out clean.
+   * ⚠ AND THEY WERE RE-SWEPT AFTER THE STAGE'S LAST BRIGHTNESS CHANGE. The first set was taken on a
+   *   darker room, and two of the four answers MOVED when the room got brighter (bloom 0.030 →
+   *   0.012, saturation 1.00 → 1.12). A post number is a property of the picture, not of the
+   *   engine; a table that no longer describes the shipped scene is worse than no table.
    *
    * ⚑ THE TONEMAPPER IS **NEUTRAL**, NOT ACES, AND IT WAS MEASURED. Section 9 chose ACES by
    *   counting clipped pixels; the same measurement on this stage says something different, because
    *   the stage is different — flat saturated fields instead of concrete:
    *
    *       tonemapper   clipped %   mean luma   RMS contrast   mean |Lap|   saturation
-   *       NEUTRAL       0.0164       77.0         54.94         12.78        58.3   ← chosen
-   *       ACES          0.0034       87.8         54.75         11.95        53.4
-   *       FILMIC        0.8323       61.9         35.74          7.13        40.8
-   *       LINEAR        2.9874      100.4         51.15         10.40        39.7
-   *       NONE          2.9748      100.8         51.29         10.49        39.6
+   *       NEUTRAL       0.0171       94.9         50.58         11.49        41.0   ← chosen
+   *       ACES          0.8849      120.9         49.77         10.95        32.8
+   *       FILMIC        0.9021       73.2         34.95          7.11        28.6
+   *       LINEAR        3.4558      114.3         49.81         10.95        28.7
+   *       NONE          3.4745      114.6         49.75         10.84        28.9
    *
-   *   Unrolled (NONE) the additive FX blow 2.97% of the frame to flat white — the exact failure
-   *   GfxPost's measured `knee 0.94` exists to prevent, so a rolloff is non-negotiable. ACES and
-   *   NEUTRAL both remove ~99.5% of it. ACES then costs 4.9 points of SATURATION and 0.8 of local
-   *   detail against NEUTRAL, because ACES desaturates highlights by design — a virtue in a
-   *   photographic look and a defect when the whole subject IS flat saturated colour. NEUTRAL costs
-   *   11 luma and returns saturation well ABOVE the unrolled image (39.6 → 58.3). It is also the
-   *   closest thing in the engine to `js/card3d.js`'s reason for TONEMAP_NONE: do not re-grade the
-   *   artist's colour. Same method as Section 9, opposite answer, because it is not the same picture. */
+   *   Unrolled (NONE) the additive FX blow 3.47% of the frame to flat white — the exact failure
+   *   GfxPost's measured `knee 0.94` exists to prevent, so a rolloff is non-negotiable. NEUTRAL
+   *   removes 99.5% of it; ACES leaves 0.88%, i.e. fifty times more, AND costs 8.2 points of
+   *   SATURATION, because ACES desaturates highlights by design — a virtue in a photographic look
+   *   and a defect when the whole subject IS flat saturated colour. NEUTRAL is also the closest
+   *   thing in the engine to `js/card3d.js`'s reason for TONEMAP_NONE: do not re-grade the artist's
+   *   colour. Same method as Section 9, opposite answer, because it is not the same picture. */
   var POST = {
     /* the NAME, not the constant — `pc` does not exist yet when this file parses, and resolving it
      * into POST at boot would mean a second fight re-resolving an already-resolved number */
     toneName: Q.get('tone') || 'neutral',
-    /* ⚑ BLOOM, swept on the frozen frame at tone NEUTRAL. Perfectly monotone:
-     *     0      luma  63.4 · rms 62.61 · |Lap| 15.45 · sat 75.5 · blacks 6.38%
-     *     0.012  luma  72.8 · rms 61.34 · |Lap| 13.96 · sat 62.1
-     *     0.030  luma  86.5 · rms 58.07 · |Lap| 12.00 · sat 54.8   ← chosen
-     *     0.055  luma 104.2 · rms 54.52 · |Lap|  9.91 · sat 46.7
-     *     0.090  luma 132.4 · rms 48.17 · |Lap|  7.28 · sat 40.3 · clipped 0.87%
-     *     0.160  luma 161.5 · rms 39.03 · |Lap|  4.87 · sat 35.7
+    /* ⚑ BLOOM, swept on the frozen frame at tone NEUTRAL. Two independent runs, same shape:
+     *     0      luma  75.3 · rms 53.41 · |Lap| 13.98 · sat 66.3 · blacks 1.85%
+     *     0.012  luma  84.1 · rms 52.48 · |Lap| 13.10 · sat 51.5   ← chosen
+     *     0.030  luma  97.3 · rms 49.77 · |Lap| 11.16 · sat 42.4
+     *     0.055  luma 117.8 · rms 45.47 · |Lap|  9.18 · sat 35.4
+     *     0.090  luma 141.4 · rms 40.07 · |Lap|  6.99 · sat 31.8
+     *     0.160  luma 169.7 · rms 31.94 · |Lap|  4.62 · sat 28.6 · clipped 0.91%
      *   Bloom BUYS LUMA AND SPENDS EVERYTHING ELSE — contrast, local detail and saturation all fall
      *   monotonically, which is the same shape s9pc-app.js measured on a completely different scene.
-     *   Not zero (this is neon; s9pc's own CLEAN note is that neon has to actually glow, and at 0 the
-     *   frame keeps 6.4% dead black) and not past 0.03, where it starts buying luma alone — and luma
-     *   is the one thing a bright stage already has. */
-    bloom: num('bloom', 0.030),
-    /* ⚑ SHARPNESS HAS A KNEE AT 0.2, and this contradicts the value first guessed (0.30) as well as
-     * Section 9's 0.70. Mean |Laplacian|: 0 → 10.61 · 0.2 → 11.97 · 0.3 → 11.99 · 0.5 → 12.02 ·
-     * 0.8 → 12.35. Nearly all of the local contrast arrives by 0.2 and everything past it costs
-     * saturation (54.2 → 52.1) and re-introduces clipping (0 → 0.059%) for +3% detail.
-     * The reason it saturates so early is the look itself: Section 9's CAS has grime, tiling and
-     * grain to bite on, and this stage has flat colour fields and one hard ink keyline per card.
-     * There is very little high frequency here to sharpen, which is the whole point of the style. */
-    sharpness: num('sharp', 0.20),
-    /* ⚑ SATURATION STAYS AT 1.0 — measured, and the opposite of what the CLEAN preset in
-     * s9pc-app.js does (1.26). Swept: 1.00 → sat 63.7, clipped 0 · 1.12 → 54.7 · 1.22 → 58.1 ·
-     * 1.35 → 58.2 · 1.50 → 62.8, clipped 0.333%. Pushing it does not measure as more saturation and
-     * does measure as more clipping, and the reason is where the knob sits: `grading.saturation` is
-     * applied in LINEAR space BEFORE the tonemapper, so it drives bright channels further up the
-     * rolloff, where they compress back together. The NEUTRAL tonemapper has already done the job a
-     * saturation push was there to do (39.6 → 58.3 on its own). Adding more is paying twice and
-     * getting less. Kept as a live knob via `?sat=` rather than removed. */
-    saturation: num('sat', 1.0),
+     *   Not zero: this is neon, s9pc's own CLEAN note is that neon has to actually glow, and at 0 the
+     *   frame keeps 1.85% dead black. 0.012 is the last step that costs under 1 point of RMS; 0.030
+     *   costs 3.6 RMS and 24 points of saturation for luma the stage does not need. */
+    bloom: num('bloom', 0.012),
+    /* ⚑ SHARPNESS IS **0**, which is the opposite of Section 9's 0.70 and of the 0.20 an earlier
+     * sweep on the darker stage suggested. Mean |Laplacian| across two runs:
+     *     0 → 12.18 / 12.38   0.2 → 11.47 / 11.65   0.3 → 11.32 / 11.70   0.5 → 11.70 / 11.69
+     *     0.8 → 11.86 / 11.98
+     * Sharpening this scene MEASURES AS LESS local contrast, not more, and costs 8–10 points of
+     * saturation and all of the clipping headroom (0 → 0.10%).
+     * ⚑ The mechanism is the compose ORDER, and it is worth writing down: PlayCanvas runs
+     *   CAS → SSAO → fringing → BLOOM → grading → tonemap. So sharpening happens BEFORE bloom — it
+     *   pumps energy into the bright pass (mean luma climbs 85 → 107 across the sweep) and the bloom
+     *   then spreads it back out. In Section 9 CAS has grime, tiling and grain to bite on and the
+     *   trade is worth it; here there is a flat colour field and one hard ink keyline per card, so
+     *   there is nothing to recover and the only measurable effect is feeding the glow. */
+    sharpness: num('sharp', 0),
+    /* ⚑ SATURATION 1.12, and this REVERSES what the same sweep said on the darker stage (1.00).
+     * On the shipped stage: 1.00 → sat 39.3, clipped 0.049 · 1.12 → 44.0, clipped 0.022 ·
+     * 1.22 → 44.0, 0.038 · 1.35 → 47.0, clipped 0.87 · 1.50 → 49.2, clipped 1.07.
+     * 1.12 buys 4.7 points of saturation for half a point of RMS and LESS clipping than 1.0; past
+     * 1.22 it starts driving bright channels up the rolloff, where they clip instead of separating —
+     * `grading.saturation` is applied in LINEAR space BEFORE the tonemapper, which is why the curve
+     * turns rather than continuing. Well short of s9pc's CLEAN 1.26, because NEUTRAL has already
+     * done most of that job (28.9 unrolled → 41.0 on its own). */
+    saturation: num('sat', 1.12),
     fringing: num('ca', 0),
     vignette: { inner: 0.95, outer: 3.4, curvature: 1.0, intensity: num('vig', 0.14) },
     rtScale: num('rt', 1),

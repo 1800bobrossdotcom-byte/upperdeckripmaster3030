@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>DOGFIGHT · ripmaster3030studios</title>
-<meta name="description" content="A contained-arena card dogfight on the PlayCanvas engine. Ante $UR3030, stake your cards, and fly your deck into a winner-takes-all melee — most frags when the clock runs out takes the pot.">
+<meta name="description" content="A contained-arena card dogfight on the PlayCanvas engine. Ante $3030, stake your cards, and fly your deck into a winner-takes-all melee — most frags when the clock runs out takes the pot.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!--
@@ -275,12 +275,13 @@
   <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="controls" id="controls">
-    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> bank</span>
-    <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> climb</span>
+    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> roll</span>
+    <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> pitch</span>
     <span class="key desk"><kbd>⇧</kbd> boost</span>
+    <span class="key desk"><kbd>Q</kbd> brake</span>
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>V</kbd> view</span>
-    <span class="key touch">left ½: fly stick (double-tap = roll · slam forward = boost) · right ½: hold = fire, 2 fingers = zoom</span>
+    <span class="key touch">left ½: fly stick (double-tap = snap roll · slam fwd = boost · slam back = brake) · right ½: hold = fire, 2 fingers = zoom</span>
   </div>
 
   <!-- LOBBY / WAGER -->
@@ -288,10 +289,10 @@
     <div class="panel">
       <img class="dflogo" src="dogfight.png" alt="DOGFIGHT">
       <div class="tag">winner takes all</div>
-      <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$UR3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
+      <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
 
       <div class="wbox">
-        <div class="wrow"><span class="wlbl">◈ ante · $UR3030 each</span>
+        <div class="wrow"><span class="wlbl">◈ ante · $3030 each</span>
           <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
         <div class="wrow"><span class="wlbl">◆ cards staked each</span>
           <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
@@ -474,7 +475,16 @@
     box.classList.remove('on'); void box.offsetWidth; box.classList.add('on'); }
   function commsRnd(kind,col){ const a=WINGLINES[kind]; if(a) comms(a[(Math.random()*a.length)|0],col); }
   let _tapL=0,_tapR=0,_tapC=0;
-  function doRoll(d){ const s=G.me; if(!s||!s.alive||s.rollT>0||s.respawnT>0)return; s.rollT=0.55; s.iframe=0.62; s.rollDir=d; sfxRoll(); powMsg('◈ DEFLECTOR SHIELD'); }
+  /* ⚑ THE BARREL ROLL IS A MANOEUVRE NOW, NOT A BUTTON THAT GRANTS I-FRAMES. It used to set
+   *   `rollT` (a 360° spin the renderer drew) plus `iframe` and change NOTHING about where the
+   *   craft went — so the tell and the effect were unrelated and the only reason to press it was
+   *   the invulnerability. It now SLIDES you: a hard heading kick against the roll direction plus
+   *   a lateral shove, which is what a defensive roll is for — break the tracking solution. The
+   *   i-frames stay, but they are now the manoeuvre's reward rather than its whole content. */
+  function doRoll(d){ const s=G.me; if(!s||!s.alive||s.rollT>0||s.respawnT>0)return;
+    s.rollT=0.55; s.iframe=0.62; s.rollDir=d; s.rollKick=d*3.4; s.roll=clamp((s.roll||0)+d*0.5,-1.4,1.4);
+    s.spd=Math.max(2.6,s.spd-1.1);                   // it costs energy, like everything else here
+    sfxRoll(); powMsg('◈ SNAP ROLL'); }
 
   // ── net roster (RipNet): who's at the table ──
   const HANDLES=['Raoul Duke','Chuck Meltdown','Baron Von Blazed','Denim Reaper','Cogito Ribbit','Slim Bridger',
@@ -523,7 +533,7 @@
     const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
     const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
     const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
-    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
     // seat preview from live roster + filler
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
@@ -531,7 +541,7 @@
     const meA=(window.RipWallet&&RipWallet.account())||null;
     const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
     $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
-    // gate the table button — TWO lanes in: the $UR3030 burn + full card stake, OR a banked ETH flight
+    // gate the table button — TWO lanes in: the $3030 burn + full card stake, OR a banked ETH flight
     const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
     const canToken=liveToken()&&Wt&&Wt.hasWallet();
     const enoughCards=wager.picked.length===wager.cards;
@@ -540,10 +550,10 @@
     const note=$('lobNote');
     if(hasFlights) note.innerHTML='⟠ <b>flight credit armed</b> — Ante up &amp; fly uses 1 of your <b>'+RipEth.plays()+'</b> banked flights.'
       +(enoughCards?' Your '+wager.cards+' picked cards ride the pot for keeps.':' Pick '+wager.cards+' cards to also stake them (optional).');
-    else if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
-    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
+    else if(!liveToken()) note.innerHTML='$3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
+    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $3030 and stake cards for keeps.';
     else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
-    else note.innerHTML='Real ante: <b>'+wager.ante+' $UR3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
+    else note.innerHTML='Real ante: <b>'+wager.ante+' $3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
   }
   // wager control wiring
   $('pChips').querySelectorAll('.pchip').forEach(el=>el.onclick=()=>{ wager.players=+el.dataset.p;
@@ -643,6 +653,8 @@
     return { name:opt.name, x:wpos(cam.x+Math.cos(a)*r), y:wpos(cam.y+Math.sin(a)*r), alt:rnd(1.9,0.7), h:rnd(TAU),
       spd:6, hp, maxHp:hp, kills:0, alive:true, isMe:!!opt.me, bot:!opt.me, tint:opt.tint||'#2bff80', img:opt.img,
       verified:!!opt.verified, weapon:1, fireT:0, thrust:true, boost:false, bank:0, pitchIn:0, rapid:0, sh:0,
+      // flight state (see flyShip): roll and pitch are ANGLES the airframe holds, not stick copies
+      roll:0, rollV:0, pitch:0, brake:false, gLoad:1, ctl:{roll:0,pitch:0,boost:false,brake:false},
       rollT:0, iframe:0, rollDir:0, boostGauge:1, respawnT:0, deaths:0, lives:3, burstQ:0, burstNext:0, burstCool:0, wantFire:false,
       cardAmp:1, surgeT:0, turnRamp:0, muzzle:-9, sigGun:'',
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
@@ -678,7 +690,7 @@
       const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI;
       if(o.net){ s.net=true; s.netId=o.nid; s._tgt=null; s._init=0; }   // a REAL pilot: driven by their broadcasts, not the bot AI
       G.ships.push(s); });
-    // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
+    // stakes (unchanged $3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
     // ETH coin-op: the flight credit was consumed in ante() (the ETH entry lane); the side-pot pledge rides
@@ -767,7 +779,7 @@
     G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)();
     if(big&&sfxOn&&window.RipSfx) RipSfx.play('bass',0.5); }   // a kill DROPS — recorded low end under the synth boom
 
-  // live $UR3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
+  // live $3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
   function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
   const POWS=[ {t:'repair',ch:'✚',col:'#2bff80'}, {t:'rapid',ch:'»',col:'#27f7e4'}, {t:'gun',ch:'G',col:'#ffd23b'}, {t:'shield',ch:'◆',col:'#b070ff'} ];
   const AMPPOW={ t:'amp', ch:'★', col:'#ffd76a' };               // market-heat OVERCHARGE cell — spawns hotter the hotter the chain
@@ -789,7 +801,7 @@
     for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
     const ang=rnd(TAU), rr2=rnd(26,4);
     G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(4.4,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
-  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
+  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $3030 market ──
   function applyLoadout(s,L){ if(!s||!L)return;
     s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.cardAmp=L.amp||1; s.overdrive=false;
     s.sigGun=(L.guns&&L.guns.length)?L.guns[L.guns.length-1]:'';   // signature gun the OVERCHARGE flavors
@@ -811,26 +823,21 @@
     // power-up spawns near the action
     G.powT-=dt; if(G.powT<=0 && G.pows.length<5){ G.powT=rnd(9,5)/(0.85+(mktAmp()-0.75)*0.55); spawnPow(); }   // hotter chain → pickups drop faster
     for(const pw of G.pows){ pw.t+=dt; pw.spin+=dt*2; }
-    // fly the ships (yaw + climb + thrust, positions wrap over the toroidal map)
+    // fly the ships — ONE integrator for everybody (see flyShip), positions wrap over the torus
     for(const s of G.ships){ if(!s.alive)continue; if(s.rapid>0)s.rapid-=dt; if(s.sh>0)s.sh-=dt; if(s.surgeT>0)s.surgeT-=dt; if(s.spawnT>0)s.spawnT-=dt;
       if(s.isMe) stepMe(s,dt); else if(s.net) stepNet(s,dt); else stepBot(s,dt);
       tryFire(s, s.wantFire);
-      const mx=(s.boost?22:9)*(s.cardSpeed||1); s.spd += ((s.thrust?mx:5)-s.spd)*Math.min(1,dt*(s.boost?4:2.4));   // boost genuinely covers ground; cards lift top speed
+      if(!s.net) flyShip(s,dt);
       s.x=wpos(s.x+Math.cos(s.h)*s.spd*dt); s.y=wpos(s.y+Math.sin(s.h)*s.spd*dt); s.alt=clamp(s.alt,ALT_MIN,ALT_MAX);
-      /* ENERGY: height and speed are ONE currency, not two.
-       * Climbing spends speed, diving buys it back — the oldest real thing about flying, and
-       * the reason the 9-unit ceiling is worth having. Without it, altitude was free and the
-       * vertical arena was just a taller box. With it, you can zoom-climb above the weather,
-       * lose energy doing it, and cash the height back in as overtake speed on the way down.
-       * Measured against the CLAMPED altitude, so grinding along the ceiling or the deck does
-       * not keep charging you for a climb that isn't happening. Floored well above stall so a
-       * bot that noses up at a high target sags rather than falling out of the sky. */
-      const dAlt=s.alt-(s._pAlt!=null?s._pAlt:s.alt); s._pAlt=s.alt;
-      s.spd=Math.max(2.6,s.spd-dAlt*3.4);
       if(s.spd>2){ s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>16)s.trail.shift(); } else if(s.trail.length) s.trail.shift(); }
-    // chase camera trails the player (smooth heading/altitude, banks into turns)
+    /* Chase camera. ⚑ THE HORIZON NOW BANKS WITH THE REAL ROLL ANGLE, not with the yaw input.
+     * The old camera lerped toward `clamp(-bank*1.1, ±0.42)` where `bank` was a smoothed copy of
+     * the stick — so the horizon tilted by at most 24° and it tilted because you were PRESSING,
+     * not because the aircraft was banked. Roll is a state now, so the camera reads the state.
+     * ×0.62 rather than ×1: a chase camera rigidly welded to a 77° bank puts the horizon nearly
+     * vertical and reads as nausea, not as flying. The CRAFT rolls fully; the eye leans. */
     if(G.me&&G.me.alive){ cam.x=G.me.x; cam.y=G.me.y; cam.h+=angd(G.me.h-cam.h)*Math.min(1,dt*7); cam.alt+=(G.me.alt-cam.alt)*Math.min(1,dt*6);
-      cam.roll+=(clamp(-G.me.bank*1.1,-0.42,0.42)-cam.roll)*Math.min(1,dt*6); cam.ph+=((G.me.pitchIn||0)-cam.ph)*Math.min(1,dt*5); }
+      cam.roll+=(clamp(-(G.me.roll||0)*0.62,-0.86,0.86)-cam.roll)*Math.min(1,dt*7); cam.ph+=((G.me.pitch||0)-cam.ph)*Math.min(1,dt*5); }
     // target lock: nearest enemy inside the forward cone
     G.lock=null; if(G.me&&G.me.alive){ let best=1e9; for(const s of G.ships){ if(s===G.me||!s.alive)continue;
       const b=Math.atan2(wdel(s.y-G.me.y),wdel(s.x-G.me.x)), off=Math.abs(angd(b-G.me.h)), d=Math.hypot(wdel(s.x-G.me.x),wdel(s.y-G.me.y));
@@ -840,6 +847,7 @@
     // net: broadcast my craft state at ~11Hz (combat itself is peer-to-peer)
     if(G.netMatch&&window.RipFight&&G.me){ G._ns=(G._ns||0)-dt; if(G._ns<=0){ G._ns=0.09;
       RipFight.send({k:'s',n:G.me.name,x:G.me.x,y:G.me.y,alt:G.me.alt,h:G.me.h,spd:G.me.spd,bank:G.me.bank||0,
+        roll:G.me.roll||0,pitch:G.me.pitch||0,
         hp:G.me.hp,maxHp:G.me.maxHp,kills:G.me.kills,boost:G.me.boost?1:0}); } }
     // bolts
     for(const b of G.bolts){ const bsp=b.sp||BOLTSPD;
@@ -888,39 +896,139 @@
   function reviveShip(s){ const a=rnd(TAU), r=rnd(30,16);
     s.x=wpos(cam.x+Math.cos(a)*r); s.y=wpos(cam.y+Math.sin(a)*r); s.alive=true; s.hp=s.maxHp; s.spd=6; s.alt=rnd(4.6,0.8); s.h=rnd(TAU);
     s.sh=0; s.rapid=0; s.weapon=Math.max(1,s.weapon-1); s.spawnT=1.4; s.iframe=1.2; s.trail=[]; s.boostGauge=1; s.burstQ=0;
+    // wings level, nose level, brake off — respawning inside somebody else's manoeuvre is a bug
+    s.roll=0; s.rollV=0; s.pitch=0; s.brake=false; s.gLoad=1; s.ctl={roll:0,pitch:0,boost:false,brake:false};
     if(s.isMe){ powMsg('◈ RESPAWN'); commsRnd('respawn','#0e5a68'); } }
+  /* ══ THE FLIGHT MODEL ═════════════════════════════════════════════════════════════════════
+   * ⛔ THE OLD ONE WAS REPLACED BECAUSE THE ARTIST SAID IT SUCKED, AND MEASUREMENT AGREED. What
+   *   the probe (scratchpad dfp-phys.mjs, driving __df.step directly) found on the shipping build:
+   *
+   *     cruise 9.00 · climb 9.00 · dive 9.00      the three "equilibria" CLAUDE.md records as
+   *                                               5.6 / 9 / 12.4 are only TRANSIENTS: the whole
+   *                                               8.65-unit altitude band is crossed in 3.55 s and
+   *                                               then alt CLAMPS, dAlt goes to 0, and the energy
+   *                                               trade stops charging. Hold a climb for 20 s and
+   *                                               you are back at 9. There was no energy state.
+   *     t180 0.92 s at cruise AND 0.92 s at boost, rate 3.604 rad/s at BOTH — because
+   *                                               auth = clamp(0.5 + spd/16, 0.5, 1) saturates at
+   *                                               spd ≥ 8 and thrust pins spd at 9 forever. So
+   *                                               "control authority rides airspeed" never fired.
+   *     G-bleed over a full 180°: 9.00 → 8.30.    0.7 of a unit. Noise.
+   *     throttle: NONE. `s.thrust = true` unconditionally, every frame, for every craft.
+   *     roll:     NONE. `s.bank` was a smoothed copy of the stick that drove the camera tilt.
+   *
+   *   So: one turn rate, one speed, no roll, no throttle, no energy. The craft pirouetted on the
+   *   spot at 2.26 units of radius in a world you can see 34 units across. That is not flying.
+   *
+   * ⚑ WHAT IT IS NOW. A BANKED WING TURNS — that one sentence is the whole model. Yaw input
+   *   commands a ROLL ANGLE (second-order, so the airframe has weight going in and coming out);
+   *   heading follows from the bank; pitch is a real angle and climb rate is `speed × sin(pitch)`,
+   *   which is what welds height to speed without needing a separate bookkeeping term. Pulling
+   *   (nose-up) while banked is the HARD TURN: much faster, and it bleeds energy hard enough that
+   *   you cannot live in it. An AIRBRAKE (Q) is the other half of the throttle. Numbers below are
+   *   derived, and every one of them is re-measured by the probe.
+   *
+   * ⚠ ONE INTEGRATOR FOR EVERYBODY. stepMe and stepBot now only produce CONTROL INPUTS; flyShip
+   *   is the physics. A bot that wrote s.h directly (which is what stepBot used to do) would fly a
+   *   different aeroplane from the player's, and the brief is explicit that they must not. */
+  const FLY = {
+    STALL: 2.9,          // below this the wing quits: authority collapses and the nose drops
+    VREF: 7.2,           // the speed at which authority reaches 1
+    AUTH_MIN: 0.34,      // never zero — uncontrollable is a bug report, unresponsive is a feeling
+    ROLL_MAX: 1.16,      // 66° commanded bank
+    ROLL_LIM: 1.40,      // 80° — the overshoot a snap roll is allowed to reach
+    ROLL_K: 46,          // spring toward the commanded bank
+    ROLL_D: 10.4,        // damping. K/D chosen for a ~0.22 s roll-in with a touch of overshoot
+    TURN_G: 10.4,        // heading rate = TURN_G·sin(roll)·pull·auth / spd^0.6  (see below)
+    PULL: 0.62,          // nose-up while banked buys this much extra turn — the hard turn
+    PITCH_MAX: 0.58,     // 33° of pitch attitude
+    PITCH_K: 6.2,
+    CLIMB_EFF: 0.62,     // climb rate = spd·sin(pitch)·CLIMB_EFF — a slow craft cannot climb
+    TRADE: 3.0,          // speed paid per unit of height gained (and refunded on the way down)
+    BLEED: 2.2,          // energy scrubbed by pulling G
+    DRAG: 0.0925,        // terminal speed = sqrt(THRUST/DRAG): 9.0 dry, 22.0 wet
+    THRUST: 7.49,
+    BOOST: 44.8,
+    BRAKE_DRAG: 3.2,     // airbrake multiplies drag and cuts the throttle
+  };
+  /* Wing authority. Everything scales by it, which is what makes "slow" a state you can be pushed
+   * into rather than a number on a gauge. */
+  function wingAuth(s){ return clamp((s.spd-FLY.STALL)/(FLY.VREF-FLY.STALL),FLY.AUTH_MIN,1); }
+  function flyShip(s,dt){
+    const c=s.ctl||(s.ctl={roll:0,pitch:0,boost:false,brake:false});
+    const auth=wingAuth(s);
+    // ── roll: a spring-damper toward the commanded bank. Second order ON PURPOSE — a first-order
+    //    lerp (what `bank` used to be) arrives asymptotically and can never overshoot, so a snap
+    //    input and a slow input feel identical. The overshoot is the snap.
+    const want=clamp(c.roll,-1,1)*FLY.ROLL_MAX;
+    s.rollV=(s.rollV||0)+((want-(s.roll||0))*FLY.ROLL_K*auth-(s.rollV||0)*FLY.ROLL_D)*dt;
+    s.roll=clamp((s.roll||0)+s.rollV*dt,-FLY.ROLL_LIM,FLY.ROLL_LIM);
+    // ── pitch attitude
+    const wp=clamp(c.pitch,-1,1)*FLY.PITCH_MAX;
+    s.pitch=(s.pitch||0)+(wp-(s.pitch||0))*Math.min(1,dt*FLY.PITCH_K*(0.45+0.55*auth));
+    s.pitchIn=clamp(c.pitch,-1,1);
+    /* ── heading FROM the bank. ω ∝ sin(roll)/spd^0.6 rather than /spd: a true coordinated turn is
+     *    ω = g·tanφ/V, which at boost speed would make the craft nearly unable to steer. The 0.6
+     *    exponent keeps the shape of the trade — fast is wide — without making the afterburner a
+     *    punishment. `pull` is the nose-up input: bank alone is the sustainable turn, bank + pull
+     *    is the hard turn, and the difference between them is the whole fight. */
+    const pull=1+FLY.PULL*Math.max(0,-clamp(c.pitch,-1,1));
+    const card=0.94+0.10*(s.cardSpeed||1);           // staked cards buy a little handling
+    const omega=FLY.TURN_G*Math.sin(s.roll)*pull*auth*card/Math.pow(Math.max(3,s.spd),0.6);
+    s.h+=omega*dt;
+    // the snap roll's heading kick, decaying — see doRoll
+    if(s.rollKick){ s.h+=s.rollKick*dt; s.rollKick*=Math.max(0,1-dt*4.5); if(Math.abs(s.rollKick)<0.05)s.rollKick=0; }
+    s.bank=s.roll;                                   // legacy alias: HUD lean + the net broadcast
+    // ── thrust vs drag. Terminal speed emerges from the balance instead of being lerped to, which
+    //    is where the coasting comes from: let off at 22 and you sail, you do not snap back.
+    const brake=!!c.brake, boosting=!!s.boost;
+    const cs=(s.cardSpeed||1);
+    const T=(boosting?FLY.BOOST:(brake?FLY.THRUST*0.12:FLY.THRUST*(s.thr==null?1:s.thr)))*cs*cs;
+    const D=FLY.DRAG*(brake?FLY.BRAKE_DRAG:1);
+    s.spd+=(T-D*s.spd*s.spd)*dt;
+    // ── vertical. Climb rate is SPEED × attitude, so height is bought with energy by construction
+    //    and a craft that has spent its energy simply cannot go up. cos(roll) because a banked wing
+    //    points its lift sideways — which is also why a hard turn sinks.
+    const lift=0.36+0.64*Math.cos(clamp(s.roll,-1.4,1.4));
+    let vs=-Math.sin(s.pitch)*s.spd*FLY.CLIMB_EFF*lift*auth;
+    if(s.spd<FLY.STALL) vs-=(FLY.STALL-s.spd)*1.35;  // STALL: the nose drops whether you like it or not
+    const a0=s.alt; s.alt=clamp(s.alt+vs*dt,ALT_MIN,ALT_MAX);
+    // energy exchange, measured against the CLAMPED altitude so grinding the ceiling is not billed
+    s.spd-=(s.alt-a0)*FLY.TRADE;
+    // ── G-bleed. Squared in `pull` so the hard turn costs disproportionately more than the flat one
+    s.spd-=FLY.BLEED*Math.abs(Math.sin(s.roll))*pull*pull*auth*dt;
+    s.spd=Math.max(1.6,s.spd);
+    s.gLoad=1/Math.max(0.15,Math.cos(clamp(s.roll,-1.4,1.4)))*pull;   // HUD + camera shove
+    s.thrust=!brake;                                 // the renderer lights the exhaust off this
+  }
   function stepMe(s,dt){ let yaw=0,pitch=0;
     if(keys.ArrowLeft||keys.a)yaw-=1; if(keys.ArrowRight||keys.d)yaw+=1;
     if(keys.ArrowUp||keys.w)pitch-=1; if(keys.ArrowDown||keys.s)pitch+=1;
     if(ptrAim){ yaw+=clamp(aim.x*1.5,-1,1); pitch+=clamp(aim.y*1.5,-1,1); }
     yaw+=stick.x; pitch+=stick.y;                    // touch flight stick (relative)
     yaw=clamp(yaw,-1,1); pitch=clamp(pitch,-1,1);
-    // rate-building turn: a sustained hard bank tightens your turn over ~0.4s (dogfight feel); armed craft handle sharper
-    s.turnRamp=clamp((s.turnRamp||0)+(Math.abs(yaw)>0.55?dt*2.4:-dt*3.2),0,1);
-    /* Control authority rides airspeed. A wing that isn't moving isn't flying, so a craft that
-     * has bled its energy away turns like a barge until it builds speed back — which is what
-     * stops the energy trade above from being free, and what makes a slow, cornered opponent
-     * genuinely in trouble rather than merely slower. Never below 0.5: unresponsive is a
-     * feeling, uncontrollable is a bug report. */
-    const auth=clamp(0.5+s.spd/16,0.5,1);
-    const turnRate=(2.55+0.85*s.turnRamp)*(0.92+0.14*(s.cardSpeed||1))*auth;
-    s.h+=yaw*turnRate*dt; s.alt-=pitch*2.4*dt; s.bank+=(yaw-s.bank)*Math.min(1,dt*6.5); s.pitchIn=pitch;
-    // G-bleed: holding a hard turn scrubs speed, so rate-fighting costs energy and the fight
-    // has a floor you can be pushed through instead of an infinite merry-go-round
-    s.spd=Math.max(2.6,s.spd-Math.abs(yaw)*s.turnRamp*2.1*dt);
-    // boost gauge: holding boost drains it, it refills when you let off (fly through rings to top up).
-    // touch has no button — SLAM the fly stick hard-forward (nose up past the rim) to throttle up.
-    const stickBoost = stick.id!==null && stick.y<-0.55 && Math.hypot(stick.x,stick.y)>0.88;
-    const wantB=!!(keys.Shift||keys.shift||stickBoost);
+    /* Boost gauge: holding boost drains it, it refills when you let off (fly rings to top up).
+     * Touch has no buttons — SLAM the fly stick hard-forward for boost, hard-BACK for the airbrake.
+     * The two ends of one throttle on one control is the only version of this that survives a
+     * thumb in a dogfight. */
+    const mag=Math.hypot(stick.x,stick.y), slam=stick.id!==null&&mag>0.88;
+    const wantB=!!(keys.Shift||keys.shift||(slam&&stick.y<-0.55));
     if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
-    s.thrust=true;
+    /* ⚑ AIRBRAKE — the missing half of the throttle, and the reason this is a dogfight rather than
+     *   a race. It is what lets a defender make an attacker overshoot, and it TIGHTENS your turn
+     *   (radius = spd/ω) while it lasts. One momentary key, no state to forget it is in. */
+    s.brake=!!(keys.q||keys.Q||(slam&&stick.y>0.55));
+    s.ctl={ roll:yaw, pitch, boost:s.boost, brake:s.brake };
     s.zoom=!!(keys.Control||keys.control||rmZoom||touchZoom);  // hold Ctrl / right-click / 2-finger right = precision zoom
     s.wantFire=!!(fireHeld||ptrFire||touchFire);
   }
   // a net peer's craft: chase their broadcast state (wrap-aware lerp), stats come from the owner
   function stepNet(s,dt){ const t=s._tgt; if(!t) return; const k=Math.min(1,dt*8);
     s.x=wpos(s.x+wdel(t.x-s.x)*k); s.y=wpos(s.y+wdel(t.y-s.y)*k);
-    s.alt+=(t.alt-s.alt)*k; s.h+=angd(t.h-s.h)*Math.min(1,dt*10); s.spd=t.spd||6; s.bank=t.bank||0;
+    s.alt+=(t.alt-s.alt)*k; s.h+=angd(t.h-s.h)*Math.min(1,dt*10); s.spd=t.spd||6;
+    // roll rides across the wire (`bank` is its legacy name); pitch is inferred from their climb
+    s.roll=(s.roll||0)+angd((t.roll!=null?t.roll:(t.bank||0))-(s.roll||0))*Math.min(1,dt*9); s.bank=s.roll;
+    s.pitch=(s.pitch||0)+((t.pitch||0)-(s.pitch||0))*Math.min(1,dt*7);
     s.maxHp=t.maxHp||s.maxHp; if(t.hp!=null)s.hp=t.hp; s.kills=t.kills|0; s.boost=!!t.boost; s.thrust=true;
     s.trail.push([s.x,s.y,s.alt]); if(s.trail.length>30)s.trail.shift(); }
   function stepBot(s,dt){ s.aiT-=dt; s.wantFire=false;
@@ -939,8 +1047,25 @@
       climb=clamp((hi-s.alt)*1.1,-1,1);
       if(s.spd<5.5) climb=Math.min(climb,-0.35);   // low on energy: unload and rebuild speed
       s.wantFire=(dist<18 && Math.abs(angd(desiredH-s.h))<0.12);
-    } else { desiredH=s.h+Math.sin(G.t*0.5+s.aiT)*0.4; s.boost=false; }
-    const dh=angd(desiredH-s.h); s.h+=clamp(dh,-2.0*dt,2.0*dt); s.alt+=climb*1.6*dt; s.bank+=(clamp(dh*3,-1,1)-s.bank)*Math.min(1,dt*5); s.thrust=true;
+      s.tDist=dist;
+    } else { desiredH=s.h+Math.sin(G.t*0.5+s.aiT)*0.4; s.boost=false; s.tDist=99; }
+    /* ⚑ A BOT FLIES THE SAME AEROPLANE — it only steers it. The old stepBot wrote `s.h` and
+     *   `s.alt` straight, at its own fixed 2.0 rad/s and 1.6 u/s, which meant the bots were
+     *   immune to every trade the player pays: no bank, no stall, no G-bleed, no energy. Now it
+     *   emits the same four control inputs a thumb does and flyShip integrates all of them.
+     * ⚠ The consequence is real and was measured, not assumed: a bot must now ROLL before it can
+     *   turn, so its heading lags ~0.2 s behind its intent. It compensates the way a pilot does —
+     *   by leading the roll (×2.2 on the heading error) and by PULLING when the error is large,
+     *   which is the same hard-turn/energy-bleed bargain the player makes. */
+    const dh=angd(desiredH-s.h);
+    const roll=clamp(dh*2.2,-1,1);
+    const hard=Math.min(1,Math.abs(dh)/0.55);                       // large error ⇒ pull for rate
+    let pitch=clamp(-climb,-1,1);
+    if(hard>0.2) pitch=Math.min(pitch,-0.35*hard);                  // (negative pitch = nose up)
+    // brake out of an overshoot: closing fast on someone nearly dead ahead
+    const brake=!s.boost && s.tDist<7 && Math.abs(dh)<0.5 && s.spd>11;
+    s.boost=s.boost&&!brake;
+    s.ctl={ roll, pitch, boost:s.boost, brake };
   }
 
   // ── result / payout ──
@@ -969,7 +1094,7 @@
     $('resTitle').style.webkitBackgroundClip='text'; $('resTitle').style.backgroundClip='text';
     $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' place · '+(G.me?G.me.kills:0)+' downed') : ('off the podium · out-flown by '+shortName((winner&&winner.name)||'the field'));
     if(!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ '+WagerPayout.ordinal(P.myPlace)+' — ON THE PODIUM') : 'BETTER LUCK NEXT RUN');
-    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards')
+    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $3030 · +'+wonSlugs.length+' cards')
                                               : ('off the podium · 🔥'+P.anteBurn+' rake burned');
     $('prizeSub').textContent = onPodium ? ('you placed '+WagerPayout.ordinal(P.myPlace)+' of '+wager.players+' · '+(G.me?G.me.kills:0)+' kills') : ('winner: '+shortName((winner&&winner.name)||'—')+' · '+(G.me?G.me.kills:0)+' kills');
     // show won cards
@@ -979,7 +1104,7 @@
     else wc.innerHTML='';
     // scarcity / escrow honesty
     $('scaNote').innerHTML = G.real
-      ? 'Your <b>🔥'+P.anteBurn+' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+      ? 'Your <b>🔥'+P.anteBurn+' $3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
       : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
     if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
       ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'
@@ -1097,7 +1222,7 @@
    *   the opposite way to the world behind it whenever anyone A/B'd the two renderers.
    */
   function drawCockpit(){
-    const k=G.me||{spd:0,alt:0,bank:0,hp:1,maxHp:1,boostGauge:0};
+    const k=G.me||{spd:0,alt:0,bank:0,hp:1,maxHp:1,boostGauge:0,brake:false,boost:false};
     const roll=cam.roll||0, ph=cam.ph||0, RAD2PX=H/1.05;
     const hz=cy-ph*RAD2PX;                                  // where the true horizon sits on screen
     const GRN='rgba(120,255,180,', dim=a=>GRN+a+')';
@@ -1231,7 +1356,10 @@
 
     // centre stack: throttle / boost / hull, sized to sit clear of the control chips
     { const x=W*0.335, w=W*0.33, y=PY+2, bh=(PH-8)/3-4;
-      const bars=[['THR',Math.min(1,(k.spd||0)/22),'rgba(120,255,180,'],
+      /* ⚠ "THR" USED TO BE AIRSPEED WEARING A THROTTLE'S LABEL — there was no throttle to show.
+       * There is one now (airbrake / dry / wet), so the bar shows the COMMAND and the tape beside
+       * it shows the result. A gauge that repeats another gauge is a gauge you stop reading. */
+      const bars=[['THR',k.brake?0.12:(k.boost?1:0.62),k.brake?'rgba(255,140,60,':'rgba(120,255,180,'],
                   ['BST',k.boostGauge||0,'rgba(255,210,59,'],
                   ['HUL',(k.hp||0)/(k.maxHp||1),'rgba(255,90,60,']];
       bars.forEach((b,i)=>{ const yy=y+i*(bh+4);
@@ -1308,7 +1436,7 @@
         mk.style.color=G.me.surgeT>0?'#ffd76a':(a>1.25?'#ff2ad9':'#27f7e4'); } }
     const alive=G.ships.filter(s=>s.alive).length; $('hAlive').textContent=alive;
     const tl=Math.max(0,G.timeLeft); $('hTimer').textContent=Math.floor(tl/60)+':'+String(Math.floor(tl%60)).padStart(2,'0');
-    $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $UR3030 + '+(wager.cards*wager.players)+' cards';
+    $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $3030 + '+(wager.cards*wager.players)+' cards';
   }
 
   /* ── dev / headless peephole ───────────────────────────────────────────────────────────────
@@ -1335,6 +1463,7 @@
     const d=Math.min(0.05,dt);
     if(G.mode==='play') step(d);
     if(G.mode!=='lobby'){
+      OPT.dt=d;                                     // the renderer smooths its own camera response
       try{ DFPC.sync(G, cam, world(), OPT); }
       catch(e){ if(!tick._warned){ tick._warned=1; console.warn('[dogfight] sync threw:', e && e.message); } }
       draw();

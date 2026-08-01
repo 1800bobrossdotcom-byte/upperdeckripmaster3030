@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — DOGFIGHT / PlayCanvas: the world (window.DFPCWorld).
+/* ripmaster3030studios — DOGFIGHT / PlayCanvas: the world (window.DFPCWorld).
  *
  * Sky, image-based lighting, the ground and its lattice, the scenery props, the boost gates and
  * the cloud deck. Everything here is drawn CAMERA-RELATIVE — the eye sits at the origin and the

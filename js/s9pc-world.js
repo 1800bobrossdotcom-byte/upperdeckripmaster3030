@@ -327,6 +327,11 @@ window.S9PCWorld = (function () {
     if (!B || !rec.app) return false;
     try {
       const m = rec.mat, orm = texFrom(rec.app, B.orm, false);
+      /* Hand back the generated textures this material was wearing. texFrom() builds a NEW
+       * pc.Texture per material even though the source canvas is shared, so these are this
+       * material's own and nothing else is pointing at them — but they are GPU memory, and a
+       * swap that only reassigns the slot keeps every one of them uploaded for the session. */
+      for (const t of [m.diffuseMap, m.normalMap, m.glossMap]) { if (t && t.destroy) t.destroy(); }
       m.diffuseMap = texFrom(rec.app, B.albedo, true);
       m.normalMap = texFrom(rec.app, B.normal, false);
       m.bumpiness = NRM;                            // relief is authored in the map — see above

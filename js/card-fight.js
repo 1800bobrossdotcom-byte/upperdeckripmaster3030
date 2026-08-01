@@ -165,6 +165,10 @@ window.CardFight = (function () {
 
     return make3D().then(R3 => run(R3));
 
+    /* ⚠ `run`'s body is deliberately left at the OUTER indentation. Everything in it apart from the
+     * `if (R3)` branches is the fight exactly as it shipped, and re-indenting 150 lines would turn a
+     * reviewable diff into a rewrite — which is precisely the situation where a working renderer
+     * quietly acquires a bug nobody can see in the patch. */
     function run(R3) {
     const cv = R3 ? null : document.createElement('canvas');
     if (cv) { cv.className = 'cf-cv'; arena.appendChild(cv); }

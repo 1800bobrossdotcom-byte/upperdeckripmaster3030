@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>The Arena · upperdeckripmaster3030</title>
+<title>The Arena · ripmaster3030studios</title>
 <meta name="description" content="Slam the deck. Triggers fire on the gas weather, pog-wagers stack in pairs and combos, and the winner collects. Buy the ticket, take the ride.">
 <meta name="theme-color" content="#0a0118">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -489,7 +489,7 @@
     </div>
     <div class="sub">slam · wager · collect</div>
     <div class="honesty-note">The arena is a <b>testnet prototype</b> — cards, wagers &amp; the vault
-      save in your browser today, and on-chain card ownership is a later phase. Only the <b>$UR3030</b>
+      save in your browser today, and on-chain card ownership is a later phase. Only the <b>$3030</b>
       buy &amp; burn are on-chain right now.</div>
 
     <div class="wbar" id="wbar">
@@ -508,7 +508,7 @@
         <span class="lob-meta">others can call you out by it</span>
       </div>
       <div class="lob-list" id="lobList"><div class="lob-empty">warming up the room…</div></div>
-      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$UR3030</b> ante — a small rake burns, the winner takes the pot. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
+      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$3030</b> ante — a small rake burns, the winner takes the pot. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
     </div>
 
     <div class="panel">
@@ -537,7 +537,7 @@
       <h2>Your wager</h2>
       <div class="modes" id="modes"></div>
       <div class="tstake">
-        <span class="tstake-lbl">＋ ante $UR3030 (practice chips)</span>
+        <span class="tstake-lbl">＋ ante $3030 (practice chips)</span>
         <div class="tchips" id="tchips"></div>
         <span class="tstake-bal">chips <b id="tokBal">0</b></span>
       </div>
@@ -742,7 +742,7 @@
     renderHand(); if(houseStack.length) renderHouse(false);
   }
 
-  // ── practice $UR3030 chips: a demo token ante that rides alongside the card stake.
+  // ── practice $3030 chips: a demo token ante that rides alongside the card stake.
   //    Local, off-chain, no wallet — exactly like the practice vault. ──
   const escFO = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let tokenWager = 0;
@@ -863,11 +863,11 @@
       v.className = 'verdict win'; v.textContent = 'YOU COLLECT';
       collect(res.kept);                                 // only KEPT cards enter the vault
       if (ante > 0) setTokens(tokens() + ante);
-      log += `Won <b class="b">${res.kept.length}</b> card${res.kept.length !== 1 ? 's' : ''} — they're yours${ante ? `, +${ante} $UR3030` : ''}.`;
+      log += `Won <b class="b">${res.kept.length}</b> card${res.kept.length !== 1 ? 's' : ''} — they're yours${ante ? `, +${ante} $3030` : ''}.`;
     } else if (outcome === 'lose'){
       v.className = 'verdict lose'; v.textContent = 'THE HOUSE EATS';
       removeOwned(selected); if (ante > 0) setTokens(tokens() - ante);
-      log += `The house took your ${mode} staked card${mode > 1 ? 's' : ''}${ante ? ` and ${ante} $UR3030` : ''}. Rip another pack.`;
+      log += `The house took your ${mode} staked card${mode > 1 ? 's' : ''}${ante ? ` and ${ante} $3030` : ''}. Rip another pack.`;
     } else {
       v.className = 'verdict tie'; v.textContent = 'PUSH · HOUSE KEEPS';
       removeOwned(selected); if (ante > 0) setTokens(tokens() - ante);
@@ -959,7 +959,7 @@
   //   Presence + matchmaking come from window.RipNet (arena-net.js). LocalNet gives
   //   REAL cross-tab presence plus a bot population today; a KVNet adapter swaps in
   //   for an internet-wide room with zero changes here (docs/MULTIPLAYER.md). The
-  //   PvP stake = the same cards as house-play + a $UR3030 BURN ante both sides pay
+  //   PvP stake = the same cards as house-play + a $3030 BURN ante both sides pay
   //   to enter (a real on-chain burn once the token is live; practice chips until then).
   const net = window.RipNet || null;
   let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {}, lobby = null;
@@ -967,7 +967,7 @@
 
   function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
   // your lobby identity. Signing the tavern ledger (connecting a wallet) upgrades it:
-  // your presence shows your REAL $UR3030 purse + a verified seal, and your stakes
+  // your presence shows your REAL $3030 purse + a verified seal, and your stakes
   // become real on-chain burns. Unsigned = practice chips.
   function myProfile(){
     const w = walletState;
@@ -1018,7 +1018,7 @@
     return out;
   }
 
-  // a real (or practice) $UR3030 burn — the ante to enter a PvP fight, gone either way.
+  // a real (or practice) $3030 burn — the ante to enter a PvP fight, gone either way.
   // routes through RipWallet (js/wallet.js): connect → network guard → burn(). When the
   // token is live and a wallet is present, this is a REAL signed burn on the right chain.
   async function anteBurn(amount){
@@ -1074,7 +1074,7 @@
         `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner takes the loser's stack, ties stand. <span class="pvp-count" id="pvpCount"></span></div>` +
         `<div class="pvp-tray" id="pvpTray"></div>` +
         `<div class="pvp-hand" id="pvpHand"></div>` +
-        `<div class="pvp-burn"><span class="tstake-lbl"><span class="ic" data-ic="flame"></span> wager ante · $UR3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
+        `<div class="pvp-burn"><span class="tstake-lbl"><span class="ic" data-ic="flame"></span> wager ante · $3030</span><div class="tchips" id="pvpChips"></div><span class="tstake-bal">chips <b>${bal.toLocaleString('en-US')}</b></span></div>` +
         `<div class="pvp-note" id="pvpNote"></div>` +
         `<div class="pvp-btns"><button class="mode" id="pvpNo">back down</button><button class="btn go" id="pvpGo" disabled><span class="ic" data-ic="flame"></span> FIGHT</button></div>` +
         `</div>`;
@@ -1108,8 +1108,8 @@
       $('pvpChips').querySelectorAll('.tchip').forEach(b => b.onclick = () => { burn = +b.dataset.v; render(); });
       const rake = window.WagerPayout ? WagerPayout.rake(burn) : burn;
       $('pvpNote').innerHTML = burn > 0
-        ? (live ? `You wager <b>${burn} $UR3030</b> — a small <b>🔥${rake}</b> rake burns on-chain (deflationary), the rest rides the pot. Winner takes the pot + the loser's cards.`
-                : `$UR3030 isn't live yet — this wagers <b>${burn} practice chips</b> (this device only; <b>🔥${rake}</b> of it is the rake). On mainnet the rake is a real signed burn.`)
+        ? (live ? `You wager <b>${burn} $3030</b> — a small <b>🔥${rake}</b> rake burns on-chain (deflationary), the rest rides the pot. Winner takes the pot + the loser's cards.`
+                : `$3030 isn't live yet — this wagers <b>${burn} practice chips</b> (this device only; <b>🔥${rake}</b> of it is the rake). On mainnet the rake is a real signed burn.`)
         : `No ante — cards only.`;
       $('pvpGo').disabled = pvpSel.length !== n;
       $('pvpGo').onclick = () => { hidePvpPreview(); modal.classList.remove('show'); runPvp(opponent, pvpSel.map(i => hand[i]), pvpSel.slice(), oppCards, burn); };
@@ -1192,13 +1192,13 @@
         walletState.connected = true; walletState.address = W.account();
         walletState.balance = W.isLive() ? (await W.balance()).tokens : 0;
         if (stat) stat.innerHTML = W.isLive()
-          ? 'ledger signed · <b>' + walletState.balance.toLocaleString('en-US') + '</b> $UR3030 on the line'
-          : 'signed · wager ante is <b>practice</b> until $UR3030 is live here';
+          ? 'ledger signed · <b>' + walletState.balance.toLocaleString('en-US') + '</b> $3030 on the line'
+          : 'signed · wager ante is <b>practice</b> until $3030 is live here';
       } else {
         walletState = { connected: false, address: null, balance: 0 };
         if (stat) stat.innerHTML = (W && W.isLive())
-          ? '<b>Sign the ledger</b> to stake real $UR3030 in the arena'
-          : 'wager ante runs in <b>practice</b> until $UR3030 is live';
+          ? '<b>Sign the ledger</b> to stake real $3030 in the arena'
+          : 'wager ante runs in <b>practice</b> until $3030 is live';
       }
       if (window.RipTavern) RipTavern.refresh();
       pushProfile();                                            // lobby sees the real purse + seal

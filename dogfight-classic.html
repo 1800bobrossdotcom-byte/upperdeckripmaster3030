@@ -253,10 +253,10 @@
     <div class="panel">
       <img class="dflogo" src="dogfight.png" alt="DOGFIGHT">
       <div class="tag">winner takes all</div>
-      <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$UR3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
+      <div class="sub">Fly your deck into a <b>contained arena</b> and shoot it out. Everyone antes <b>$3030</b> — or <b>ETH on Base</b> — and stakes cards into one pot; the <b>last craft flying takes everything</b>.</div>
 
       <div class="wbox">
-        <div class="wrow"><span class="wlbl">◈ ante · $UR3030 each</span>
+        <div class="wrow"><span class="wlbl">◈ ante · $3030 each</span>
           <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
         <div class="wrow"><span class="wlbl">◆ cards staked each</span>
           <span class="step"><button data-cards="-1">−</button><span class="val" id="cardsVal">2</span><button data-cards="1">+</button></span></div>
@@ -459,7 +459,7 @@
     const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
     const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
     const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
-    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $UR3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
     // seat preview from live roster + filler
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
@@ -467,7 +467,7 @@
     const meA=(window.RipWallet&&RipWallet.account())||null;
     const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
     $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
-    // gate the table button — TWO lanes in: the $UR3030 burn + full card stake, OR a banked ETH flight
+    // gate the table button — TWO lanes in: the $3030 burn + full card stake, OR a banked ETH flight
     const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
     const canToken=liveToken()&&Wt&&Wt.hasWallet();
     const enoughCards=wager.picked.length===wager.cards;
@@ -476,10 +476,10 @@
     const note=$('lobNote');
     if(hasFlights) note.innerHTML='⟠ <b>flight credit armed</b> — Ante up &amp; fly uses 1 of your <b>'+RipEth.plays()+'</b> banked flights.'
       +(enoughCards?' Your '+wager.cards+' picked cards ride the pot for keeps.':' Pick '+wager.cards+' cards to also stake them (optional).');
-    else if(!liveToken()) note.innerHTML='$UR3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
-    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $UR3030 and stake cards for keeps.';
+    else if(!liveToken()) note.innerHTML='$3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
+    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $3030 and stake cards for keeps.';
     else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
-    else note.innerHTML='Real ante: <b>'+wager.ante+' $UR3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
+    else note.innerHTML='Real ante: <b>'+wager.ante+' $3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
   }
   // wager control wiring
   $('pChips').querySelectorAll('.pchip').forEach(el=>el.onclick=()=>{ wager.players=+el.dataset.p;
@@ -608,7 +608,7 @@
       const a=(i/Math.max(1,others.length))*TAU, er=rnd(26,16); s.x=wpos(Math.cos(a)*er); s.y=wpos(Math.sin(a)*er); s.h=a+Math.PI;
       if(o.net){ s.net=true; s.netId=o.nid; s._tgt=null; s._init=0; }   // a REAL pilot: driven by their broadcasts, not the bot AI
       G.ships.push(s); });
-    // stakes (unchanged $UR3030 card model): pull YOUR staked cards into the pot on a real wager
+    // stakes (unchanged $3030 card model): pull YOUR staked cards into the pot on a real wager
     G.myStake=[]; G.oppStakes=[];
     if(real){ let v=vault(); G.myStake=wager.picked.slice(); G.myStake.forEach(sl=>{ const i=v.findIndex(e=>e&&e.slug===sl); if(i>=0) v.splice(i,1); }); saveVault(v); }
     // ETH coin-op: the flight credit was consumed in ante() (the ETH entry lane); the side-pot pledge rides
@@ -697,7 +697,7 @@
     G.rings.push({x,y,alt:alt||0,r:0,life:1,big:!!big,col:tint}); G.shake=Math.max(G.shake,big?16:6); (big?sfxBoom:sfxHit)();
     if(big&&sfxOn&&window.RipSfx) RipSfx.play('bass',0.5); }   // a kill DROPS — recorded low end under the synth boom
 
-  // live $UR3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
+  // live $3030 market → an amplifier (0.75 cold .. 1.7 hot). Powers everything card-driven.
   function mktAmp(){ try{ return (window.RipPowers?RipPowers.getMarket().amp:1)||1; }catch{ return 1; } }
   const POWS=[ {t:'repair',ch:'✚',col:'#2bff80'}, {t:'rapid',ch:'»',col:'#27f7e4'}, {t:'gun',ch:'G',col:'#ffd23b'}, {t:'shield',ch:'◆',col:'#b070ff'} ];
   const AMPPOW={ t:'amp', ch:'★', col:'#ffd76a' };               // market-heat OVERCHARGE cell — spawns hotter the hotter the chain
@@ -719,7 +719,7 @@
     for(const [p,wt] of pool){ if((r-=wt)<=0){ pick=p; break; } }
     const ang=rnd(TAU), rr2=rnd(26,4);
     G.pows.push({ x:wpos(cam.x+Math.cos(ang)*rr2), y:wpos(cam.y+Math.sin(ang)*rr2), alt:rnd(4.4,0.6), type:pick.t, ch:pick.ch, col:pick.col, spin:0, t:0 }); }
-  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $UR3030 market ──
+  // ── CARD POWERS: your staked cards arm the craft, amplified by the live $3030 market ──
   function applyLoadout(s,L){ if(!s||!L)return;
     s.cardDmg=L.dmg||1; s.cardRate=L.rate||1; s.cardSpeed=L.speed||1; s.cardAmp=L.amp||1; s.overdrive=false;
     s.sigGun=(L.guns&&L.guns.length)?L.guns[L.guns.length-1]:'';   // signature gun the OVERCHARGE flavors
@@ -899,7 +899,7 @@
     $('resTitle').style.webkitBackgroundClip='text'; $('resTitle').style.backgroundClip='text';
     $('resTag').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' place · '+(G.me?G.me.kills:0)+' downed') : ('off the podium · out-flown by '+shortName((winner&&winner.name)||'the field'));
     if(!G.real) $('prizeBig').textContent = iWon ? '★ TOP OF THE PODIUM' : (onPodium ? ('★ '+WagerPayout.ordinal(P.myPlace)+' — ON THE PODIUM') : 'BETTER LUCK NEXT RUN');
-    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $UR3030 · +'+wonSlugs.length+' cards')
+    else $('prizeBig').textContent = onPodium ? (WagerPayout.ordinal(P.myPlace)+' · +'+P.myTok.toLocaleString('en-US')+' $3030 · +'+wonSlugs.length+' cards')
                                               : ('off the podium · 🔥'+P.anteBurn+' rake burned');
     $('prizeSub').textContent = onPodium ? ('you placed '+WagerPayout.ordinal(P.myPlace)+' of '+wager.players+' · '+(G.me?G.me.kills:0)+' kills') : ('winner: '+shortName((winner&&winner.name)||'—')+' · '+(G.me?G.me.kills:0)+' kills');
     // show won cards
@@ -909,7 +909,7 @@
     else wc.innerHTML='';
     // scarcity / escrow honesty
     $('scaNote').innerHTML = G.real
-      ? 'Your <b>🔥'+P.anteBurn+' $UR3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
+      ? 'Your <b>🔥'+P.anteBurn+' $3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your local vault. Trustless on-chain token-pot escrow (real podium payout) ships with the <b>721 lens</b> — Phase-2.'
       : 'Practice scrimmage — no tokens burned, no cards moved. Ante up with a signed wallet to play the podium for keeps.';
     if(G.ethPotUsd>0) $('scaNote').innerHTML += iWon
       ? '<br>⟠ ETH side-pot: <b>$'+G.ethPotUsd.toFixed(2)+'</b> pledged to you by the table ($'+G.ethEachUsd.toFixed(2)+' each) — pledges settle wallet-to-wallet on Base until the Phase-2 escrow holds pots on-chain.'
@@ -1377,7 +1377,7 @@
         mk.style.color=G.me.surgeT>0?'#ffd76a':(a>1.25?'#ff2ad9':'#27f7e4'); } }
     const alive=G.ships.filter(s=>s.alive).length; $('hAlive').textContent=alive;
     const tl=Math.max(0,G.timeLeft); $('hTimer').textContent=Math.floor(tl/60)+':'+String(Math.floor(tl%60)).padStart(2,'0');
-    $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $UR3030 + '+(wager.cards*wager.players)+' cards';
+    $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $3030 + '+(wager.cards*wager.players)+' cards';
   }
 
   /* ── dev / headless peephole ───────────────────────────────────────────────────────────────

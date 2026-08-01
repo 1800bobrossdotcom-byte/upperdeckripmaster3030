@@ -10,14 +10,18 @@
  * aberration, grain, a heavy vignette, a restrained bloom. Every one of those works BACKWARDS here.
  * The arena is MAD magazine and a cereal box and a casino floor — bright, high-key, saturated, flat
  * colour fields with hard silhouettes on top of them. Noise is the enemy of a flat colour field.
- * So this stack SUBTRACTS (fringing 0, grain 0, a whisper of vignette) and pushes saturation and
- * bloom instead, which is `s9pc-app.js`'s own `CLEAN` argument taken all the way.
+ * So this stack SUBTRACTS: chromatic aberration 0, grain 0, sharpening 0, a whisper of vignette,
+ * and a bloom a third of Section 9's — which is `s9pc-app.js`'s own `CLEAN` argument taken all the
+ * way. ⚠ It does NOT push saturation hard, and that was the surprise: the NEUTRAL tonemapper turns
+ * out to do most of that job on its own, so the grading knob only needs 1.12. Every one of those
+ * numbers is a measured sweep — the tables live next to them in `js/cbpc-fight.js`.
  *
  * ⚑ NO `worldMirror` NODE HERE, AND THAT IS DELIBERATE — see the note on the camera below. Section
  *   9 needed one because it has a pre-existing LEFT-handed game basis to reconcile. This scene is
  *   authored directly in engine coordinates, so there is nothing to reconcile; the only external
  *   convention is "you on the left, the house on the right", which comes from the DOM grid. That
- *   is verified numerically rather than assumed (`probe().sides`).
+ *   is verified numerically rather than assumed — `probe()` reports `youX`, `houseX` and a
+ *   `mirrored` flag, and the behaviour suite asserts on them at desktop AND portrait aspect.
  */
 (function (global) {
   'use strict';
@@ -228,9 +232,11 @@
      * What DOES have to hold is the one external convention: `.fo-side.you` is grid column 1 and
      * therefore on the LEFT of the screen, `.fo-side.house` is on the right. So YOU is −x and the
      * house is +x, and with the camera at +z looking toward the origin that must land YOU on the
-     * left of the frame. That is not assumed either — `probe().sides` projects both anchors through
-     * `worldToScreen` and reports their screen x, which is the same measurement that would have
-     * caught the Section 9 bug, expressed in this scene's terms. */
+     * left of the frame. That is not assumed either — `probe()` projects both anchors through
+     * `worldToScreen`, reports their screen x and a `mirrored` flag (which also checks that world
+     * +x lands right of world −x), which is the same measurement that would have caught the Section
+     * 9 bug, expressed in this scene's terms. Measured: youX 242.9 < houseX 757.1 on desktop and
+     * 113.9 < 256.2 in portrait, mirrored false in both. */
     var camRig = new pc.Entity('camRig');   // orbit/shake live on the rig so the camera keeps a clean local transform
     app.root.addChild(camRig);
     var cam = new pc.Entity('cam');

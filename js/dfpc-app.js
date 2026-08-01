@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — DOGFIGHT on the PlayCanvas engine: the driver (window.DFPC).
+/* ripmaster3030studios — DOGFIGHT on the PlayCanvas engine: the driver (window.DFPC).
  *
  * `dogfight.html` owns the rules, the flight model, the wager and the HUD, and knows no engine.
  * This file owns the engine and knows no rules: it builds the scene, points the camera, hangs the
@@ -481,6 +481,7 @@ window.DFPC = (function () {
   }
 
   const _qy = new pc.Quat(), _qx = new pc.Quat(), _qz = new pc.Quat(), _qr = new pc.Quat();
+  let shove = 0;                                    // smoothed boost/brake camera response
   /** the ONE conversion: game heading → entity yaw. Used by the camera and by every craft. */
   const yawDeg = h => -(h * DEG + 90);
 
@@ -519,10 +520,22 @@ window.DFPC = (function () {
     if (sh > 0.0001) { jx = (Math.random() * 2 - 1) * sh; jy = (Math.random() * 2 - 1) * sh * 0.8; jz = (Math.random() * 2 - 1) * sh * 0.4; }
     // the whole world is drawn camera-relative, so the eye is at x/z 0 by construction
     rig.setPosition(jx, (camS.alt || 0) + CAM_LIFT + jy, jz);
-    cam.setLocalPosition(0, 0, o.CAM_BACK || 2.4);   // +Z is BEHIND a camera: the chase pull-back
+    /* ⚑ THRUST HAS TO BE VISIBLE OR IT IS NOT FELT. Speed on a gauge is a number; speed in the
+     * FRAME is the camera falling back and the lens widening, which is the oldest arcade trick
+     * there is and the only one that works when the world is an open sky with nothing close to
+     * parallax against. `shove` is smoothed here rather than in the simulation on purpose — it is
+     * presentation, and a camera lag baked into the flight model would be a physics change nobody
+     * asked for. Braking does the opposite: the eye crowds the tail, which is what makes an
+     * airbrake read as "stopping" rather than as "the number went down".
+     * ⚠ FOV is multiplied AFTER the zoom divide, so precision zoom still wins — a 12% widening
+     * inside a 2.4× narrowing is a wobble on the sight picture, and the sight picture is aim. */
+    const me = G.me;
+    const want = me ? ((me.boost ? 1 : 0) - (me.brake ? 0.85 : 0)) : 0;
+    shove += (want - shove) * Math.min(1, (o.dt || 0.016) * 4.5);
+    cam.setLocalPosition(0, 0, (o.CAM_BACK || 2.4) * (1 + 0.22 * shove));   // +Z is BEHIND a camera
     /* Precision zoom is a real optical change, so it is a real FOV change — the old renderer did
      * it by multiplying a fake focal length, which the engine has no equivalent of. */
-    cam.camera.fov = ((o.fov || 1.05) / (G.me && G.me.zoom ? 2.4 : 1)) * DEG;
+    cam.camera.fov = ((o.fov || 1.05) / (me && me.zoom ? 2.4 : 1)) * (1 + 0.13 * shove) * DEG;
 
     // aerial haze + the white-out when the eye is inside the cloud deck (a gameplay mechanic)
     world.weather((o.CAM_H || 1.2) + (camS.alt || 0), o);
@@ -541,10 +554,20 @@ window.DFPC = (function () {
       live.add(rec);
       rec.root.enabled = true;
       rec.root.setPosition(dx, s.alt || 0, dz);
+      /* ⚑ ROLL AND PITCH ARE THE AIRFRAME'S OWN ANGLES NOW. Before the flight-model rewrite the
+       * only attitude a craft had was `bank`, a smoothed copy of the stick, and PITCH WAS NEVER
+       * APPLIED AT ALL — a ship diving at 5 units a second flew perfectly nose-level through the
+       * whole descent, which reads as a hovering cut-out rather than an aircraft. `s.roll` /
+       * `s.pitch` are real state (see flyShip in dogfight.html); `bank` remains as the fallback so
+       * a net peer on an older build still banks. Order is yaw → pitch → roll: roll is innermost
+       * because a rolled aircraft's pitch axis rolls WITH it, which is the whole reason banking
+       * turns you. */
+      const rollA = (s.roll != null ? s.roll : (s.bank || 0));
       _qy.setFromAxisAngle(pc.Vec3.UP, yawDeg(s.h || 0));
-      _qz.setFromAxisAngle(pc.Vec3.BACK, -(s.bank || 0) * 1.05 * DEG
+      _qx.setFromAxisAngle(pc.Vec3.RIGHT, -(s.pitch || 0) * DEG);
+      _qz.setFromAxisAngle(pc.Vec3.BACK, -rollA * DEG
         + (s.rollT > 0 ? (1 - s.rollT / 0.55) * 360 * (s.rollDir || 1) : 0));
-      _qr.copy(_qy).mul(_qz);
+      _qr.copy(_qy).mul(_qx).mul(_qz);
       rec.root.setRotation(_qr);
       if (rec.pod.render) rec.pod.enabled = !!(s.thrust || s.boost);
       // the spawn blink is the game's own "I am not shootable yet" tell; keep it
