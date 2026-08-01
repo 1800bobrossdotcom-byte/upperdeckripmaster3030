@@ -50,8 +50,58 @@ window.S9PCWorld = (function () {
     // it is two thirds of the geometry, so it is worth its own material rather than tinting the
     // whole arena the colour of a packing case
     cab:   { name: 'cab',   tex: 'paint',    tint: [0.27, 0.28, 0.34], metal: 0.14, gloss: 0.78, tile: 1.10, bump: 0.35 },
+    /* ── outdoor classes, for arenas authored as places rather than as concrete yards ────────
+     * These exist because retinting `wall` and `deck` can only ever produce a differently
+     * coloured box. A lido has WATER in it, and planting, and canvas — surfaces whose gloss and
+     * bump differ as much as their colour does, which is what stops a bright frame reading as a
+     * flat poster. Each still carries a dusk tint, so an arena using them plays under `?tod=dusk`
+     * without a hole in it. */
+    water:  { name: 'water',  tex: 'paint',  tint: [0.09, 0.20, 0.26], metal: 0.02, gloss: 0.94, tile: 0.55, bump: 0.14 },
+    plant:  { name: 'plant',  tex: 'course', tint: [0.14, 0.20, 0.12], metal: 0.00, gloss: 0.26, tile: 0.34, bump: 1.00 },
+    awning: { name: 'awning', tex: 'paint',  tint: [0.34, 0.18, 0.16], metal: 0.02, gloss: 0.44, tile: 0.60, bump: 0.40 },
+    trim:   { name: 'trim',   tex: 'slab',   tint: [0.50, 0.49, 0.51], metal: 0.02, gloss: 0.32, tile: 0.28, bump: 0.60 },
   };
-  const ORDER = ['deck', 'wall', 'metal', 'crate', 'cab'];
+
+  /* ── DAYLIGHT PALETTE — open arenas only ───────────────────────────────────────────────────
+   * ⚑ MEASURED, and it is the correction to a real mistake. Switching the outdoor arenas to a
+   * daylight sun and a pale haze (see s9pc-app.js TOD) bought brightness and local detail but
+   * took mean saturation from 50.8% to 20.9% on DUST BOWL. The cause is above: every tint in
+   * MATS is a NEUTRAL GREY. Under a dusk-orange sun and an orange haze, neutral grey comes back
+   * orange, and the frame measured "saturated" because the LIGHT was coloured — the arena itself
+   * had no colour in it at all. Light a grey box with white light and you get a grey box.
+   *
+   * The reference frames are bright AND saturated because their surfaces are PAINTED: cream
+   * plaster, terracotta, teal trim, sand. That is albedo, not grading. So the honest fix is to
+   * paint the arena rather than to prop the number back up with a coloured haze or a global
+   * saturation crank — both of which would tint the sky and the operatives too.
+   *
+   * The values also do the legibility job the brief actually asked for: walls and ground go
+   * BRIGHT (0.72–0.82) so a dark operative silhouette reads against them at any range, and the
+   * saturated colour is spent on the small stuff — crates, cabinets — which is where it marks
+   * cover without competing with a player. Interiors keep the concrete set: THE VAULT is a
+   * concrete box, and it should look like one.
+   *
+   * ⚠ AND BRIGHTER IS NOT THE SAME AS MORE COLOURFUL — the first attempt at this table proved it
+   * the expensive way. Near-white tints (wall 0.82/0.80/0.74) took DUST BOWL to mean luma 200 and
+   * saturation DOWN again, 20.9% → 17.6%, because ACES desaturates as it compresses toward white:
+   * pushing albedo up walks the whole frame into the part of the curve that removes chroma. So
+   * these values carry real chroma at a MODERATE value — sand is genuinely orange (max−min over
+   * max ≈ 42%), not a warm-tinted grey — and sit well below white so the tonemapper never has to
+   * squeeze them. Value separation against a dark operative is already won at 0.60 vs the old
+   * 0.36; it did not need 0.82. */
+  const MATS_DAY = {
+    deck:  [0.60, 0.50, 0.35],   // sand — the ground everything else is read against
+    wall:  [0.70, 0.64, 0.52],   // warm cream plaster; bright enough to silhouette a body at range
+    metal: [0.50, 0.57, 0.64],   // cool steel, so rails and pillars separate from the warm masonry
+    crate: [0.68, 0.26, 0.18],   // terracotta — cover should be findable at a glance
+    cab:   [0.10, 0.42, 0.46],   // teal lacquer, the complement that stops the frame going one-note
+    water:  [0.10, 0.54, 0.60],  // the biggest saturated field in a lido, and it is FLAT — so it
+                                 // reads as colour rather than as detail, exactly what is needed
+    plant:  [0.24, 0.50, 0.21],
+    awning: [0.82, 0.33, 0.30],
+    trim:   [0.86, 0.84, 0.77],  // white stone: the brightest thing in frame, and only on edges
+  };
+  const ORDER = ['deck', 'wall', 'metal', 'crate', 'cab', 'water', 'plant', 'awning', 'trim'];
   const CABINET = /^(cab|skee|claw|prize|booth|rostrum|plinth)/i;
 
   /* Kind (from the authored box NAME) + face normal → material class. Same two inputs our GL
@@ -62,6 +112,9 @@ window.S9PCWorld = (function () {
    *   is a crate and a shelving run is metal; a stair tread and a platform top are deck, because a
    *   surface you stand on should look like one from above and like the thing it is from the side. */
   function classOf(kind, ny, name) {
+    /* Authored outdoor kinds win outright — a pool is a pool from every angle, so unlike `deck`
+     * these must be decided BEFORE the up-facing test or the sides of a water box become wall. */
+    if (kind === 'water' || kind === 'plant' || kind === 'awning' || kind === 'trim') return kind;
     if (kind === 'pillar' || kind === 'cover' || kind === 'shelf') return 'metal';
     if (kind === 'crate' || kind === 'ammo') return CABINET.test(String(name || '')) ? 'cab' : 'crate';
     if (ny > 0.5) return 'deck';
@@ -202,16 +255,24 @@ window.S9PCWorld = (function () {
     return t;
   }
 
-  let TEXCACHE = null;
-  function materials(app) {
-    if (TEXCACHE) return TEXCACHE;
-    const N = 512, sets = {};
-    for (const k of ['slab', 'course', 'brushed', 'paint']) sets[k] = makeTexSet(k, N);
+  /* Two material sets, cached separately — the textures are shared (the tint is a multiplier on
+   * the same albedo map), so the second set costs five materials, not a second texture bake. */
+  const TEXSETS = {};
+  let TEXCACHE = {};
+  const DAY = (() => { try { return new URLSearchParams(location.search).get('tod') !== 'dusk'; }
+    catch (e) { return true; } })();
+  function materials(app, open) {
+    const day = !!open && DAY, key0 = day ? 'day' : 'base';
+    if (TEXCACHE[key0]) return TEXCACHE[key0];
+    const N = 512;
+    for (const k of ['slab', 'course', 'brushed', 'paint']) if (!TEXSETS[k]) TEXSETS[k] = makeTexSet(k, N);
+    const sets = TEXSETS;
     const out = {};
     for (const key of ORDER) {
       const M = MATS[key], s = sets[M.tex], m = new pc.StandardMaterial();
-      m.name = 's9pc-' + key;
-      m.diffuse = new pc.Color(M.tint[0], M.tint[1], M.tint[2]);
+      const tint = day ? MATS_DAY[key] : M.tint;
+      m.name = 's9pc-' + key + (day ? '-day' : '');
+      m.diffuse = new pc.Color(tint[0], tint[1], tint[2]);
       m.diffuseMap = texFrom(app, s.albedo, true);
       m.normalMap = texFrom(app, s.normal, false);
       m.bumpiness = M.bump * NRM;
@@ -224,16 +285,16 @@ window.S9PCWorld = (function () {
       m.update();
       out[key] = { mat: m, tile: M.tile };
     }
-    return (TEXCACHE = out);
+    return (TEXCACHE[key0] = out);
   }
 
   /* ── triangle soup → one PlayCanvas mesh per material class ───────────────────────────────
    * `kindOf` is a per-triangle kind array (from the owning collision box for a baked level, or
    * straight off the solid for a hand-built one) and `nameOf` an optional per-triangle name.
    * Everything below is shared by both arena kinds. */
-  function meshParts(app, V, kindOf, nameOf) {
+  function meshParts(app, V, kindOf, nameOf, open) {
     const tris = (V.length / 18) | 0;                              // 3 verts × 6 floats
-    const mats = materials(app);
+    const mats = materials(app, open);
 
     /* ⚠ THE INTERLEAVE IS pos3 + norm3, SO THE NORMAL STARTS AT +3, NOT AT +0 — and getting that
      * wrong reads the X component where Y was meant. Per triangle the three vertices sit at
@@ -386,7 +447,7 @@ window.S9PCWorld = (function () {
     } else {
       const s = boxSoup(MAP); verts = s.verts; ownerKind = s.kinds; ownerName = null;
     }
-    const { parts, stats } = meshParts(app, verts, ownerKind, ownerName);
+    const { parts, stats } = meshParts(app, verts, ownerKind, ownerName, !!MAP.open);
     const root = new pc.Entity('level');
     const instances = parts.map(p => { const mi = new pc.MeshInstance(p.mesh, p.material, root); mi.castShadow = true; return mi; });
     root.addComponent('render', { meshInstances: instances, castShadows: true, receiveShadows: true });

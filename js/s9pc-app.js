@@ -20,7 +20,12 @@
   const $ = id => document.getElementById(id);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const canvas = $('pcv'), ov = $('ov2d');
-  const say = m => { const el = $('boot'); if (el) el.textContent = m || ''; };
+  /* ⚑ Writes to #bootMsg, NOT to #boot — the loading screen now also holds the control legend,
+   * and setting textContent on the parent would delete it. Visibility moves to a class, since
+   * the old `#boot:empty` selector can never match an element that has children. */
+  const say = m => { const el = $('bootMsg'), b = $('boot');
+    if (el) el.textContent = m || '';
+    if (b) b.classList.toggle('off', !m); };
 
   /* ── the no-fallback decision, made in the open ────────────────────────────────────────────
    * `section9.html` fails open all the way down: no WebGL ⇒ a canvas rasteriser still draws the
@@ -248,9 +253,34 @@
    * raises ambient INDOORS (0.33 → 0.45) precisely because inside a box the fill is bounce off six
    * close surfaces. Deriving the fill from the visible sky would give an interior no fill at all.
    * So: one cubemap you look at, one (brighter) you are lit by. */
-  const SKY_OUT = { top: [0.13, 0.07, 0.11], mid: [0.62, 0.29, 0.15], hor: [0.86, 0.57, 0.33], grd: [0.16, 0.12, 0.10] };
+  /* ── TIME OF DAY — outdoor arenas are DAYLIGHT by default ──────────────────────────────────
+   * ⚑ THIS REVERSES A CALL MADE ABOVE IN `CLEAN`. That comment argued we take the reference's
+   * clarity but keep our own palette ("neon on near-black"), and for an INTERIOR that is still
+   * right — a neon sign only reads against dark, so SKY_IN is untouched. Outdoors it was wrong
+   * twice over:
+   *   (a) the direction kept being asked for, in bright daylight, repeatedly. Palette was not
+   *       incidental to the reference; it is most of why those frames read clearly. High-key
+   *       daylight puts every silhouette DARK against a bright field, which is the single
+   *       biggest legibility win available and costs nothing to render.
+   *   (b) it was internally inconsistent. `preller_drive` — the CC0 capture that has been doing
+   *       the actual outdoor lighting since the HDRI landed — is a SUNNY street, peak luminance
+   *       ~11,000. So the IBL was lighting the scene like noon while the directional sun was
+   *       tinted dusk-orange (1.00, 0.86, 0.60) and the fog was an orange haze. The two were
+   *       modelling different times of day in the same frame.
+   * So: one `TOD` switch, daylight sun/sky/haze that agree with the capture, and `?tod=dusk`
+   * keeps the old set intact for comparison rather than deleting it. */
+  const TOD = Q.get('tod') === 'dusk' ? 'dusk' : 'day';
+  const DAY = TOD === 'day';
+  const SKY_DUSK = { top: [0.13, 0.07, 0.11], mid: [0.62, 0.29, 0.15], hor: [0.86, 0.57, 0.33], grd: [0.16, 0.12, 0.10] };
+  /* Horizon nearly white, zenith a saturated blue, ground a light neutral bounce. The big flat
+   * value gradient top-to-bottom is what a distant roofline gets read against. */
+  const SKY_DAY = { top: [0.17, 0.36, 0.82], mid: [0.40, 0.62, 0.94], hor: [0.80, 0.89, 0.98], grd: [0.44, 0.45, 0.44] };
+  const SKY_OUT = DAY ? SKY_DAY : SKY_DUSK;
   const SKY_IN = { top: [0.05, 0.05, 0.08], mid: [0.10, 0.10, 0.14], hor: [0.17, 0.17, 0.21], grd: [0.09, 0.09, 0.11] };
-  const SUN = (() => { const v = [-0.5, 0.66, -0.34], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
+  /* A high sun (57° vs dusk's 41°) — long raking shadows are lovely and they also lie across the
+   * floor in bands that a player has to read past. Near the top, shadows sit UNDER things. */
+  const SUN = (() => { const v = DAY ? [-0.40, 0.84, -0.28] : [-0.5, 0.66, -0.34], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
+  const SUN_TINT = DAY ? [1.0, 0.97, 0.90] : [1.0, 0.86, 0.62];
 
   function skyColour(S, OPEN, dx, dy, dz) {
     const l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;
@@ -261,7 +291,7 @@
     else { const t = Math.min(1, -dy * 2.2); c = S.hor.map((h, i) => h + (S.grd[i] - h) * t); }
     const d = dx * SUN[0] + dy * SUN[1] + dz * SUN[2];
     if (d > 0) { const glow = Math.pow(d, 24) * (OPEN ? 3.4 : 1.1) + Math.pow(d, 3) * (OPEN ? 0.22 : 0.10);
-      c = c.map((v, i) => v + glow * [1.0, 0.86, 0.62][i]); }
+      c = c.map((v, i) => v + glow * SUN_TINT[i]); }
     return c;
   }
   const CUBE_DIRS = [(s, t) => [1, -t, -s], (s, t) => [-1, -t, s], (s, t) => [s, 1, t], (s, t) => [s, -1, -t], (s, t) => [s, -t, 1], (s, t) => [-s, -t, -1]];
@@ -308,8 +338,9 @@
     /* clean: sky-coloured ambient and a lifted floor. The reference has almost no black in it —
      * shadows are soft, coloured and light, and the depth cue is aerial perspective (distance
      * going lighter and cooler) rather than anything getting darker. */
-    app.scene.ambientLight = CLEAN ? new pc.Color(0.26, 0.31, 0.40)
-                                   : new pc.Color(0.05, 0.05, 0.06);   // envAtlas supplies the real fill
+    app.scene.ambientLight = !CLEAN ? new pc.Color(0.05, 0.05, 0.06)     // envAtlas supplies the real fill
+      : (open && DAY) ? new pc.Color(0.30, 0.37, 0.48)                   // open sky IS the fill, and it is blue
+                      : new pc.Color(0.26, 0.31, 0.40);
     /* ⚑ EXPOSURE IS PER-ARENA, and up indoors. Outdoors you are standing in the sun; inside, the
      * only light is six ceiling practicals and bounce, and a camera in that room opens up. It is
      * the same correction CLAUDE.md records for our own renderer ("ambient goes UP indoors, not
@@ -318,7 +349,17 @@
      * throughout — the tonemapper absorbs it, which is the whole point of having one. 1.25 is
      * where an interior lands beside the shipping build's arcade frame (mean luma ~112) without
      * spending the headroom that keeps clipping near zero. */
-    app.scene.exposure = num('exp', open ? 1.0 : 1.25);
+    /* ⚑ DAYLIGHT EXPOSURE IS 0.55, AND IT GOES DOWN, NOT UP — swept on DUST BOWL at the daylight
+     * sun + painted albedo (luma / rms / sat / clipped%):
+     *   0.55 → 156.2 · 45.9 · 33.0 · 0        0.65 → 165.6 · 47.5 · 30.6 · 0.004
+     *   0.75 → 172.4 · 46.9 · 29.0 · 0.004    0.85 → 178.8 · 46.7 · 27.3 · 0.004
+     *   1.00 → 186.6 · 46.0 · 25.1 · 0.005
+     * Saturation falls monotonically as exposure rises, for the reason the palette note records:
+     * ACES desaturates on the way to white, so every stop of extra exposure is paid for in colour.
+     * Contrast is flat across the whole range, so there is nothing to buy with the brightness
+     * either. The dusk arenas kept 1.0 because their sun is four times dimmer — this is not a
+     * global "darker looks better", it is the same scene lit properly and metered once. */
+    app.scene.exposure = num('exp', open ? (DAY ? 0.55 : 1.0) : 1.25);
   }
 
   /* Vendored HDRI. `models/env/<name>.png` is an equirectangular RGBM encoding of a CC0 Poly Haven
@@ -507,9 +548,18 @@
       loadHdri(wantHdri).then(E => { app.scene.envAtlas = E.atlas; app.scene.skybox = E.sky; envName = wantHdri; })
         .catch(e => console.warn('[s9pc] hdri:', e && e.message));
     }
-    sun.light.color = OPEN ? new pc.Color(1.00, 0.86, 0.60) : new pc.Color(0.84, 0.90, 1.00);
-    sun.light.intensity = OPEN ? 2.6 : 2.4;
-    app.scene.fog.color = OPEN ? new pc.Color(0.77, 0.59, 0.41) : new pc.Color(0.40, 0.39, 0.45);
+    /* ⚑ THE HAZE IS THE DEPTH CUE, and in daylight it goes LIGHTER with distance, not darker.
+     * Dusk fogged toward orange (0.77, 0.59, 0.41), which is darker than the pale surfaces in
+     * front of it — so distance CLOSED DOWN and far geometry lost its silhouette into a muddy
+     * band. A near-white sky-coloured haze does the opposite: everything far is washed toward
+     * the sky, everything near keeps its contrast, and the eye reads the difference as range.
+     * That is aerial perspective, and it is the whole reason the reference stays legible at
+     * the far end of a long sightline. */
+    sun.light.color = OPEN ? (DAY ? new pc.Color(1.00, 0.97, 0.91) : new pc.Color(1.00, 0.86, 0.60))
+                           : new pc.Color(0.84, 0.90, 1.00);
+    sun.light.intensity = OPEN ? (DAY ? 3.1 : 2.6) : 2.4;
+    app.scene.fog.color = OPEN ? (DAY ? new pc.Color(0.76, 0.85, 0.93) : new pc.Color(0.77, 0.59, 0.41))
+                               : new pc.Color(0.40, 0.39, 0.45);
 
     const built = S9PCWorld.buildFor(app, MAP);
     levelRoot = built.root; levelStats = built.stats;
@@ -517,7 +567,18 @@
     const span = Math.max(MAP.x1 - MAP.x0, MAP.z1 - MAP.z0);
     const far = Math.max(60, Math.min(190, span * 0.95)) * 1.15;
     cam.camera.farClip = far;
-    app.scene.fog.start = far * 0.30; app.scene.fog.end = far * 0.86;
+    /* ⚠ DAYLIGHT HAZE IS ALMOST NOTHING, AND THE FIRST VERSION OF THIS WAS THE WORST BUG IN THE
+     * WHOLE DAYLIGHT PASS. I set start 0.40·far with a near-white fog colour on the theory that
+     * "aerial perspective is the depth cue" — which is true outdoors at KILOMETRE scale and
+     * nonsense in a 52 m yard. At 0.40 the far wall of the arena sat at ~90% fog, so it and the
+     * floor in front of it both resolved to sky colour and the frame became a white void with a
+     * gun in it: measured rms 11 where the same arena reads 39–49 from a spot with something
+     * unfogged in front of the camera. The reference frames have CRISP distant buildings with a
+     * touch of tint — the depth cue there is value and overlap, not haze.
+     * So daylight haze is a whisper on the last quarter, and it only exists to stop the arena
+     * edge cutting hard against the sky. Dusk keeps its heavy band; at dusk it is real. */
+    app.scene.fog.start = far * (OPEN && DAY ? 0.78 : 0.30);
+    app.scene.fog.end = far * (OPEN && DAY ? 1.00 : 0.86);
     sun.light.shadowDistance = Math.min(120, far * 0.8);
 
     /* Ceiling fixtures — SHADOW-CASTING spots on a grid under the roof. Indoors the sun barely

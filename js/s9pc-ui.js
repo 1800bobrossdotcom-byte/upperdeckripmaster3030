@@ -189,8 +189,37 @@ window.S9PCUI = (function () {
       $('weapSlots').querySelectorAll('.wslot').forEach(el => { el.onclick = () => game && game.switchWeapon(+el.dataset.w);
         el.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { e.preventDefault(); game && game.switchWeapon(+el.dataset.w); } }); });
     }
+    /* ── the staked card, pinned to the frame ────────────────────────────────────────────────
+     * `G.myCards` are the card objects that armed this operative. The image and title are
+     * written ONCE per match (tracked by slug, because an <img src> reassigned every frame
+     * re-decodes and flickers); the power line is rewritten only when its text actually
+     * changes, which it does whenever the market moves under RipPowers.pollMarket.
+     * Fails quiet: no cards, no manifest, a missing element ⇒ the stamp simply stays hidden. */
+    let hcSlug = null, hcPw = '', hcHot = false;
+    function paintHudCard() {
+      const box = $('hudCard'); if (!box) return;
+      const G = game && game.G, cards = (G && G.myCards) || [];
+      const c = cards[0];
+      if (!c) { box.hidden = true; hcSlug = null; return; }
+      box.hidden = false;
+      if (c.slug !== hcSlug) {
+        hcSlug = c.slug;
+        box.style.setProperty('--rc', `var(${RC[c.rarity] || '--common'})`);
+        $('hudCardArt').src = 'cards/' + c.art;
+        $('hudCardTitle').textContent = c.title || c.slug;
+        const n = $('hudCardN'); n.textContent = cards.length > 1 ? '×' + cards.length : '';
+        n.style.display = cards.length > 1 ? '' : 'none';
+      }
+      const L = G.loadout;
+      const txt = L ? '<b>' + esc(L.summary.replace(/^◈\s*/, '')) + '</b>' : 'unarmed';
+      if (txt !== hcPw) { hcPw = txt; $('hudCardPw').innerHTML = txt; }
+      const hot = !!(G.me && G.me.surgeT > 0);
+      if (hot !== hcHot) { hcHot = hot; box.classList.toggle('hot', hot); }
+    }
+
     function hud() {
       if (!game) return; const G = game.G, e = G.me; if (!e) return;
+      paintHudCard();
       const W = S9Game.WEAPONS;
       $('hpNum').textContent = Math.max(0, Math.ceil(e.hp)); $('hpFill').style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%';
       $('arNum').textContent = Math.max(0, Math.ceil(e.armor)); $('arFill').style.width = clamp(e.armor / e.maxArmor * 100, 0, 100) + '%';
@@ -214,8 +243,11 @@ window.S9PCUI = (function () {
     function showMatchChrome(on) {
       ['hudTL', 'hudTR', 'hudBL', 'hudBR'].forEach(id => $(id).style.display = on ? 'block' : 'none');
       $('killfeed').style.display = on ? 'flex' : 'none'; $('comms').style.display = on ? 'flex' : 'none';
-      $('toggles').style.display = on ? 'flex' : 'none'; $('controls').style.display = on ? 'flex' : 'none';
-      if (!on) $('dmgVig').style.opacity = 0;
+      /* #controls is NOT touched here any more — the legend lives inside the loading screen and
+       * appears and disappears with it. A permanent key legend across the bottom of a shooter is
+       * an obstruction, not a help. */
+      $('toggles').style.display = on ? 'flex' : 'none';
+      if (!on) { $('dmgVig').style.opacity = 0; const hc = $('hudCard'); if (hc) hc.hidden = true; hcSlug = null; }
     }
 
     // ── result / payout ─────────────────────────────────────────────────────────────────────
