@@ -709,6 +709,13 @@ window.S9Game = (function () {
     }
     function startMatch(real, arenaPick, roster, deck) {
       G.mapIdx = pickMap(arenaPick == null ? -1 : arenaPick);
+      /* ⚑ ROTATE THE CAST, ONCE, HERE. Without this the roster is whatever `archFor(0..n-1)`
+       * returns from a standing start, which is the head of the list every single match — and at
+       * the default `players: 4` that is three bots drawing indices 0/1/2 forever. Four bodies,
+       * including both of the studies added in task #85, were unreachable in a shipped game.
+       * ⚠ Seeded once per MATCH, not per spawn: a body must not change identity at a respawn.
+       * The map index is in the seed so back-to-back matches on different arenas differ too. */
+      try { if (window.S9Skin && S9Skin.setRoster) S9Skin.setRoster((G.mapIdx | 0) + Math.floor(Date.now() / 1000)); } catch (e) {}
       MAP = MAPS[G.mapIdx]; if (!MAP.cover) bakeCover(MAP);
       const bySlug = (deck && deck.bySlug) || new Map();
       const DECK = (deck && deck.list) || [];

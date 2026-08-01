@@ -154,6 +154,35 @@ window.GfxPost = (function () {
   /** Multiplier form, for callers that scale an existing size (Gfx2D's presentation layer). */
   function deviceScale() { const dpr = self.devicePixelRatio || 1; return dprCap() / Math.max(1, dpr); }
 
+  /* ⛔ HOW POWERFUL THE MACHINE IS, WHICH IS NOT HOW DENSE ITS SCREEN IS.
+   *
+   * Section 9 derived its quality tier from `dprCap()`:
+   *     AUTO_TIER = DPRCAP >= 2 ? 'high' : DPRCAP >= 1.5 ? 'mid' : 'low'
+   * and `dprCap()` ends in `Math.min(dpr, cap)`. So a desktop with a strong GPU and an ordinary
+   * 1x 1080p monitor scores 1 — the LOWEST tier — while a phone at dpr 3 scores 1.5 and a laptop
+   * at dpr 2 scores 'high'. The two quantities are unrelated: pixel density says how many pixels
+   * must be filled, not how fast they can be filled.
+   *
+   * ⚑ It mattered far past frame rate, because `low` carried `skin: false` — so an ordinary
+   *   desktop monitor silently switched the game's CHARACTERS off and every operative fell back
+   *   to the 11-box rig. That is the "robots with no personality, just stacks of basic geometry"
+   *   report, and no amount of art would have fixed it.
+   *
+   * Same four signals as dprCap, WITHOUT the dpr term. Kept here rather than in the game so
+   * "weak device" still has ONE definition in this repo. */
+  function deviceTier() {
+    try {
+      const touch = matchMedia('(hover:none)').matches || navigator.maxTouchPoints > 0;
+      const small = Math.min(screen.width, screen.height) <= 900;
+      const weak = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+      if (navigator.connection && navigator.connection.saveData) return 'low';
+      if (touch && small) return weak ? 'low' : 'mid';
+      if (weak) return 'mid';
+      const cores = navigator.hardwareConcurrency || 8;
+      return cores >= 8 ? 'high' : 'mid';
+    } catch (e) { return 'mid'; }
+  }
+
   function create(gl, cv, opts) {
     const O = Object.assign({}, PRESET.neon, opts || {});
     const S = { on: false, w: 0, h: 0, sceneTex: null, depth: null, sceneFbo: null,
@@ -323,5 +352,5 @@ window.GfxPost = (function () {
              get opts() { return O; } };
   }
 
-  return { create, PRESET, deviceScale, dprCap };
+  return { create, PRESET, deviceScale, dprCap, deviceTier };
 })();

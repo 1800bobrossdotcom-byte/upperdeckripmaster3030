@@ -84,9 +84,43 @@ window.S9Skin = (function () {
   ];
   function nameFor(arch) { const c = CAST.find(x => x.arch === arch); return (c && c.name) || arch; }
   const MAT = {}; CAST.forEach(c => MAT[c.arch] = c.mat);
-  function archFor(i) { return CAST[((i | 0) % CAST.length + CAST.length) % CAST.length].arch; }
-  function need(n) { return CAST.slice(0, Math.max(0, Math.min(CAST.length, n | 0))).map(c => c.arch); }
-  function bytesFor(n) { return CAST.slice(0, Math.max(0, Math.min(CAST.length, n | 0))).reduce((s, c) => s + c.bytes, 0); }
+
+  /* ⛔ THE ROSTER ROTATES. IT USED TO TAKE THE FIRST n OF `CAST`, AND THAT MADE FOUR BODIES
+   *    UNREACHABLE — including both of the studies the artist asked after by name.
+   *
+   * A Section 9 match defaults to `players: 4`, i.e. THREE bots, and the old `archFor(i)` was
+   * `CAST[i % CAST.length]`. Three bots therefore always drew indices 0, 1, 2 — cc0-lank,
+   * cc0-squat, cc0-lump — every match, on every map, forever. PRIZE MASCOT sat at index 3,
+   * BAD SIGNAL (the XCOPY study) at 4, HEAVY LINE (the Darkfarms study) at 5 and GRIDLOCK at 6.
+   * Built, baked, measured, named, materialed, shipped in the repo — and mathematically
+   * impossible to see in the game the arcade links to. Appending to a list that only its head is
+   * ever read from is a silent no-op, and it is why the game "looks like nothing was updated".
+   *
+   * ⚑ `PLAY` is the LIVE ROSTER and it is the seven generated bodies only. oni/kappa/prizm stay
+   *   in CAST — they still have names, materials and a working `.skn`, and `s9pc-skin.js`
+   *   validates against CAST so they can still be asked for by name — but they are 0.71–0.98 MB
+   *   each against ~0.16–0.22 MB for the generated set. A four-body match now costs ~0.75 MB
+   *   instead of up to 2.35, which is the same argument that made the CC0 bodies worth baking.
+   *
+   * ⚠ `setRoster(seed)` is what makes a match pick a DIFFERENT lineup than the last one, and it
+   *   deliberately changes nothing about the call sites: `archFor(i)` and `need(n)` keep their
+   *   signatures, so both the classic and the PlayCanvas build are fixed by this one edit. A seed
+   *   is stable for a whole match — bodies must not swap identity at a respawn. */
+  const PLAY = CAST.filter(c => c.arch.indexOf('cc0-') === 0 || c.arch === 'rip-mascot');
+  let rosterSeed = 0;
+  function setRoster(seed) { rosterSeed = ((seed | 0) % PLAY.length + PLAY.length) % PLAY.length; }
+  function playFor(i) { return PLAY[(rosterSeed + (((i | 0) % PLAY.length) + PLAY.length)) % PLAY.length]; }
+  function archFor(i) { return playFor(i).arch; }
+  function need(n) {
+    const k = Math.max(0, Math.min(PLAY.length, n | 0));
+    const out = []; for (let i = 0; i < k; i++) out.push(archFor(i));
+    return out;
+  }
+  function bytesFor(n) {
+    const k = Math.max(0, Math.min(PLAY.length, n | 0));
+    let s = 0; for (let i = 0; i < k; i++) s += playFor(i).bytes;
+    return s;
+  }
   function matFor(arch) { return MAT[arch] || 0; }
 
   /* bake-fighter.mjs's bind skeleton, ×150 and in this module's frame: +x right, +y up, +z fwd.
@@ -318,5 +352,9 @@ window.S9Skin = (function () {
     return o;
   }
 
-  return { CAST, BONES, BIND, H, archFor, need, bytesFor, matFor, nameFor, load, pose, palette };
+  /* ⚠ `setRoster` and `PLAY` must be exported or the rotation is a silent no-op: `startMatch`
+   *   guards with `S9Skin.setRoster &&`, so an unexported function does not throw — it just never
+   *   rotates, and the roster quietly stays frozen on the head of the list exactly as before. */
+  return { CAST, PLAY, BONES, BIND, H, archFor, need, bytesFor, matFor, nameFor, setRoster,
+           load, pose, palette };
 })();

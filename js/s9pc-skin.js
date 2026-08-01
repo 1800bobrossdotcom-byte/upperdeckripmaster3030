@@ -139,6 +139,18 @@ window.S9PCSkin = (function () {
       'cc0-lank':  { d: [0.19, 0.21, 0.24], metal: 0.06, gloss: 0.30 },  // dark cloth, tall and wiry
       'cc0-squat': { d: [0.17, 0.16, 0.18], metal: 0.14, gloss: 0.38 },  // heavy webbing, near-black
       'cc0-lump':  { d: [0.24, 0.22, 0.20], metal: 0.04, gloss: 0.22 },  // soft matte mass, warm-dark
+      /* ⚠ THE TABLE WENT STALE A SECOND TIME. Task #85 added four more generated bodies and only
+       * `S9Skin.CAST` learned about them, so PRIZE MASCOT, BAD SIGNAL, HEAVY LINE and GRIDLOCK
+       * all fell through to the generic fallback below — four distinct characters rendering as
+       * one anonymous dark shape. Exactly the failure the comment above describes, repeated,
+       * which is why `npm run test:s9cast` now asserts this table covers every playable arch
+       * rather than trusting anyone to remember.
+       * ⚑ Still DARK, all of them: the arena sits at 0.60–0.70 albedo and the silhouette read
+       * depends on that gap. These differ by HUE, METAL and GLOSS, never by getting brighter. */
+      'rip-mascot': { d: [0.26, 0.23, 0.17], metal: 0.03, gloss: 0.46 },  // rubber-hose, warm ink, waxy
+      'cc0-mosh':   { d: [0.22, 0.17, 0.24], metal: 0.10, gloss: 0.52 },  // sliced/mis-registered, wet
+      'cc0-cel':    { d: [0.16, 0.22, 0.19], metal: 0.05, gloss: 0.18 },  // hard cel facets, flat ink
+      'cc0-grid':   { d: [0.18, 0.21, 0.23], metal: 0.62, gloss: 0.55 },  // lattice, brushed and cold
       oni:   { d: [0.22, 0.24, 0.21], metal: 0.05, gloss: 0.28 },   // cloth fatigues
       kappa: { d: [0.18, 0.21, 0.20], metal: 0.18, gloss: 0.42 },   // strapped webbing
       prizm: { d: [0.26, 0.28, 0.32], metal: 0.85, gloss: 0.62 },   // brushed hardsuit

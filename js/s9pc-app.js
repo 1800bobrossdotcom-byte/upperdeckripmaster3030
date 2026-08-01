@@ -57,7 +57,14 @@
    * navigator fields (that is how the guess got here); it is to guess once and then MEASURE — see
    * the adaptive ladder below, which now demotes the expensive features, not just the resolution.
    * Left as the starting guess deliberately, with the ladder as the correction. */
-  const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+  /* ⛔ WAS `DPRCAP >= 2 ? 'high' : DPRCAP >= 1.5 ? 'mid' : 'low'` — a QUALITY tier derived from
+   *    PIXEL DENSITY. `dprCap()` ends in `min(dpr, cap)`, so a desktop with a strong GPU and an
+   *    ordinary 1x monitor scored 1 and landed on `low`. And `low` carries `skin: false`, so an
+   *    ordinary monitor silently switched the game's CHARACTERS off: every operative fell back to
+   *    the 11-box rig, no .skn was ever even requested, and the game read as "robots with no
+   *    personality, just stacks of basic geometry shapes". Density is not capability.
+   *    `GfxPost.deviceTier()` reads the same device signals WITHOUT the dpr term. */
+  const AUTO_TIER = (window.GfxPost && GfxPost.deviceTier) ? GfxPost.deviceTier() : 'mid';
   let TIER = Q.get('q') || (() => { try { return localStorage.getItem('s9pc_q'); } catch (e) { return null; } })() || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
   /* ⛔ THE TIER LADDER WAS NOT A LADDER — this is the frame-rate bug the artist reported.
@@ -103,10 +110,18 @@
   const TIERS = {
     // shadowRes/cascades — the sun's cascaded shadow map. spot: ceiling fixtures, spotShadow: how
     // many of them cast. omni: practicals BUILT; omniLive: how many may be lit at once (clustered).
-    // skin: real .skn bodies vs the box rig.
-    high: { shadowRes: 1024, cascades: 3, shadows: true, spot: 3, spotShadow: 1, omni: 46, omniLive: 12, ssao: true, ssaoSamples: 8, bloom: true, dither: true, fringing: true, skin: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
-    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: 0, omni: 24, omniLive: 8, ssao: false, ssaoSamples: 6, bloom: true, dither: true, fringing: true, skin: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
-    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: 0, omni: 8, omniLive: 5, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, skin: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
+    // ⛔ `skin` USED TO LIVE HERE, false at low, and switching it off replaced every operative
+    //    with the 11-box fallback rig. That is not a quality setting, it is deleting the cast:
+    //    four bodies at ~4–6k tris is ~20k triangles, against a measured frame whose cost was
+    //    shown (a)–(d) below to be the depth prepass, the shadow rasterisation and the per-
+    //    fragment light loop — none of which scale with body geometry. The generated bodies are
+    //    also 0.16–0.22 MB each, so the download argument that justified it is gone too.
+    //    THE CHARACTERS ARE NOT AN EFFECT. If a machine cannot afford this game, it gives up
+    //    SSAO, then shadow resolution, then live lights, then cascades, then resolution — the
+    //    ladder below — and it still has people in it. `?bodies=0` remains for A/B.
+    high: { shadowRes: 1024, cascades: 3, shadows: true, spot: 3, spotShadow: 1, omni: 46, omniLive: 12, ssao: true, ssaoSamples: 8, bloom: true, dither: true, fringing: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
+    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: 0, omni: 24, omniLive: 8, ssao: false, ssaoSamples: 6, bloom: true, dither: true, fringing: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
+    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: 0, omni: 8, omniLive: 5, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
   };
   let QCFG = TIERS[TIER];
   /* Every one of the four is reachable from the URL, because each is a look/cost trade someone
@@ -853,7 +868,7 @@
     const arch = e.skin || (window.S9Skin ? S9Skin.archFor(0) : null);
     if (!arch || !window.S9PCSkin) return;
     bodyPending.add(e);
-    const p = QCFG.skin ? S9PCSkin.spawn(app, arch, { tint: e.tint }) : Promise.reject(new Error('tier'));
+    const p = S9PCSkin.spawn(app, arch, { tint: e.tint });
     p.then(h => { bodies.set(e, h); bodyPending.delete(e); if (weaponAsset) giveWeapon(h); })
       .catch(() => { bodyPending.delete(e);
         /* Fails open, the way the shipping game does: no .skn, a 404, a weak device ⇒ the operative

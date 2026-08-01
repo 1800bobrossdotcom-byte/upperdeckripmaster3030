@@ -1176,6 +1176,10 @@
   }
 
   function startMatch(real){
+    // ⚑ Rotate the cast once per match — same fix, same reason as the engine build. Taking
+    //    archFor(0..n-1) from a standing start drew the head of the list every match, which made
+    //    four of the seven generated bodies unreachable. See js/section9-skin.js's ROSTER note.
+    try{ if(window.S9Skin&&S9Skin.setRoster) S9Skin.setRoster(Math.floor(Date.now()/1000)); }catch(e){}
     // choose map
     // Map choice: ?map=N (or localStorage s9_map) pins one for testing; otherwise ROTATE rather
     // than roll — random selection meant a new map could go unseen for many matches.
