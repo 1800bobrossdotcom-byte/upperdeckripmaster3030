@@ -334,6 +334,19 @@ window.S9PCWorld = (function () {
       for (const t of [m.diffuseMap, m.normalMap, m.glossMap]) { if (t && t.destroy) t.destroy(); }
       m.diffuseMap = texFrom(rec.app, B.albedo, true);
       m.normalMap = texFrom(rec.app, B.normal, false);
+      /* ⚠ THE GRAIN IS NOT THE NORMAL MAP — SWEPT, AND THE EXPECTED ANSWER DID NOT REPRODUCE.
+       * The baked arenas measure mean |Laplacian| 13–15 against docs/ART-DIRECTION.md's 6.0–9.5
+       * band; on screen that is salt-and-pepper speckle on every stone surface. The obvious
+       * suspect was this map, and the bake's own report claimed removing it took edge 24.56 → 3.32.
+       * Swept `?nrm=` on a PLANTED camera (same pose every sample, so the numbers are comparable):
+       *     LIDO      1 → 13.02   0.6 → 12.14   0.35 → 11.56   0.2 → 11.24   0.1 → 13.02→11.13
+       *     KOWLOON   1 → 15.40   0.6 → 14.09   0.35 → 13.40   0.2 → 13.14   0.1 → 12.92
+       * A 10× reduction in normal strength buys ~2 points of edge and none of the band. So the
+       * residual lives in the ALBEDO's own high-frequency content and/or the post chain's
+       * sharpness (0.70, carried from a sweep on the pre-bake frames and never re-derived against
+       * textured ones — CAS amplifies exactly this kind of speckle).
+       * ⚑ Left at NRM: turning it down is paying real relief for ~2 points of a 6-point problem.
+       * The next pass belongs in the bake's albedo and in POST.sharpness, not here. */
       m.bumpiness = NRM;                            // relief is authored in the map — see above
       m.glossMap = orm;
       m.glossMapChannel = 'g';
