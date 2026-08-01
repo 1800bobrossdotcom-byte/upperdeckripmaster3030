@@ -730,8 +730,134 @@
     };
     h.placeGun();
   }
+  /* ── VIEWMODEL ARMS ────────────────────────────────────────────────────────────────────────
+   * ⚑ THE GUN WAS FLOATING WITH NO HANDS. There was never a viewmodel rig — `makeViewmodel()`
+   * parented the bare weapon GLB to the camera and stopped, so the first-person view was a rifle
+   * hovering unsupported in the lower right. The third-person bodies never had this problem
+   * because `giveWeapon()` hangs their gun off a posed skeleton that already has hands.
+   *
+   * These are built from primitives rather than modelled, on purpose: a viewmodel is on screen
+   * every frame of the game, it is never seen from any angle but this one, and it must never cost
+   * a texture fetch that could fail. Ten boxes is the right amount of geometry for something the
+   * player reads as "my hands" and never inspects.
+   *
+   * ⚑ PLACEMENT IS DERIVED, NOT MAGIC. `fitWeapon()` normalises any weapon GLB to L = 0.86 m along
+   * its long axis with the muzzle at −z, so the grip and the handguard sit at fixed FRACTIONS of
+   * that length whatever model is loaded. Hard-coding metres here would put the hands through the
+   * cylinder of the next weapon that gets wired up (the CC0 magnum is already in the repo).
+   *
+   * ⚠ The arms run BACKWARD toward the camera (+z in holder space). The holder sits at camera-z
+   * −0.62 and the elbows end ~0.42 ahead of it, i.e. camera-z −0.20 — clear of the 0.06 near clip.
+   * Push them further back and they will be sliced open by the near plane, which reads as a hole
+   * in the screen rather than as a clipping bug.
+   *
+   * ⚑ THE ELBOWS EXIT THE BOTTOM OF THE FRAME, they do not reach toward the lens. First draft
+   * angled the forearms back at the camera: measured, the arms spanned 0.313 × 0.269 × 0.68 next
+   * to a rifle only 0.074 wide, and the near end sat at camera-z −0.17, where perspective makes a
+   * 0.08 m cuff enormous. Two boxes the size of the gun, floating beside it. Real first-person
+   * arms are mostly OFF SCREEN — the forearm leaves through the bottom edge and only the glove and
+   * a little sleeve are ever in frame. So the elbow rotation is steeply downward (−58°/−46° about
+   * x) and the check is geometric: the far end must fall below the visible half-height at its own
+   * depth, or it is on screen and it will read as a slab.
+   * ⚠ And the cuff was a saturated green, which put the brightest, most saturated object in the
+   * game in the corner of every single frame. Viewmodel colour is nearly all of a shooter's
+   * screen-time; it belongs at the dark end so the ARENA is what the eye goes to. */
+  const HAND = { glove: [0.10, 0.11, 0.13], cuff: [0.13, 0.28, 0.23], sleeve: [0.17, 0.19, 0.22] };
+  function makeHands(holder) {
+    const L = 0.86;                                   // fitWeapon's normalised weapon length
+    const mat = (rgb, gloss) => { const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(rgb[0], rgb[1], rgb[2]);
+      m.useMetalness = true; m.metalness = 0.05; m.gloss = gloss == null ? 0.34 : gloss;
+      m.update(); return m; };
+    const gloveMat = mat(HAND.glove), cuffMat = mat(HAND.cuff, 0.5), sleeveMat = mat(HAND.sleeve);
+    const part = (parent, m, pos, rot, scale) => {
+      const e = new pc.Entity();
+      e.addComponent('render', { type: 'box', material: m, castShadows: false, receiveShadows: false });
+      e.setLocalPosition(pos[0], pos[1], pos[2]);
+      if (rot) e.setLocalEulerAngles(rot[0], rot[1], rot[2]);
+      e.setLocalScale(scale[0], scale[1], scale[2]);
+      parent.addChild(e); return e;
+    };
+    /* One arm, mirrored by `side`. `grip` is where the hand sits along the weapon as a fraction of
+     * L: the trigger hand is behind centre, the support hand well forward on the handguard. */
+    /* ⚑ THE FOREARM IS BUILT FROM THE WRIST OUTWARD, not placed by hand. First version set each
+     * box's CENTRE and its ROTATION as two independent guesses, so the cuff and the forearm did
+     * not meet the hand or each other — projected to screen they were three separate chunks with
+     * gaps, which reads as debris floating near the gun rather than as an arm. Deriving the
+     * position from the direction makes the joint exact by construction: the near end of the
+     * forearm IS the wrist, whatever angle it is swung to, and the assertion below checks it. */
+    const dirOf = (pitchDeg, yawDeg, side) => {
+      const p = pitchDeg * Math.PI / 180, y = yawDeg * Math.PI / 180;
+      return new pc.Vec3(side * Math.sin(y) * Math.cos(p), -Math.sin(p), Math.cos(p) * Math.cos(y)).normalize();
+    };
+    /* Point a box's local +z (its length axis, since only z is scaled long) along `dir`. */
+    const _m = new pc.Mat4();
+    const orient = (e, dir) => {
+      const up = Math.abs(dir.y) > 0.95 ? new pc.Vec3(0, 0, 1) : new pc.Vec3(0, 1, 0);
+      const xa = new pc.Vec3().cross(up, dir).normalize();
+      const ya = new pc.Vec3().cross(dir, xa).normalize();
+      _m.data.set([xa.x, xa.y, xa.z, 0, ya.x, ya.y, ya.z, 0, dir.x, dir.y, dir.z, 0, 0, 0, 0, 1]);
+      e.setLocalRotation(new pc.Quat().setFromMat4(_m));
+    };
+    const arm = (side, grip, pitch, yaw) => {
+      const root = new pc.Entity('arm' + (side > 0 ? 'R' : 'L'));
+      const z = grip * L, x = side * 0.010;
+      part(root, gloveMat, [x, -0.058, z], null, [0.070, 0.052, 0.092]);             // palm, under the receiver
+      part(root, gloveMat, [x, -0.024, z - 0.030], [8, 0, 0], [0.064, 0.042, 0.048]); // fingers curling over
+      part(root, gloveMat, [x - side * 0.032, -0.038, z + 0.012], [0, 0, side * 12], [0.024, 0.028, 0.052]); // thumb
+      // wrist = back edge of the palm; everything below hangs off it along one direction
+      const w = [x, -0.062, z + 0.046], d = dirOf(pitch, yaw, side), FL = 0.34;
+      /* Two segments, not one — a forearm TAPERS, and a single untapered box reads as a slab of
+       * cardboard however well it is jointed. Thin at the wrist, thicker toward the elbow; it is
+       * one extra draw and it is the difference between "an arm" and "a rectangle". */
+      const seg = (from, len, w0) => {
+        const e = part(root, sleeveMat, [w[0] + d.x * (from + len / 2), w[1] + d.y * (from + len / 2),
+                                         w[2] + d.z * (from + len / 2)], null, [w0, w0, len]);
+        orient(e, d); return e;
+      };
+      const cuff = part(root, cuffMat, [w[0] + d.x * 0.024, w[1] + d.y * 0.024, w[2] + d.z * 0.024],
+                        null, [0.074, 0.074, 0.048]);
+      orient(cuff, d);
+      const WRIST_IN = 0.046;                       // the first segment starts inside the palm
+      const near = seg(WRIST_IN, FL * 0.42, 0.062); // wrist end, narrow
+      seg(WRIST_IN + FL * 0.42, FL * 0.58, 0.082);  // toward the elbow, thicker
+      root.__near = { ent: near, from: WRIST_IN, len: FL * 0.42 };   // for the headless joint check
+      root.__wrist = w; root.__dir = [d.x, d.y, d.z]; root.__fl = FL;   // for the headless joint check
+      holder.addChild(root); return root;
+    };
+    arm(+1, 0.10, 58, 9);       // trigger hand, behind centre, forearm steeply down and out right
+    arm(-1, -0.20, 47, 20);     // support hand, forward on the handguard, forearm down and out left
+  }
+
+  /* ── VIEWMODEL FRAMING ─────────────────────────────────────────────────────────────────────
+   * ⚑ THE GUN WAS EATING THE SCREEN AND AIMING WAS BAD BECAUSE OF IT. `fitWeapon()` normalises
+   * every weapon to a TRUE 0.86 m, and 0.86 m of rifle held 0.62 m from the eye at a 0.97 rad
+   * vertical FOV is, correctly, most of the lower half of the frame. That is what a real rifle
+   * looks like from behind and it is not what a playable first-person game does — shooters cheat
+   * the viewmodel smaller, because the weapon is scenery and the ARENA is the thing you have to
+   * read. `scale` is that cheat, applied to the holder so the hands scale with it.
+   *
+   * ⚑ ADS NOW MOVES THE WEAPON ONTO THE SIGHTLINE AND ZOOMS. The old code snapped between two
+   * positions with a hard 0/1 and pulled the gun CLOSER on aim (z −0.62 → −0.52), i.e. it made
+   * the obstruction bigger at the exact moment the player needs to see. Now: eased, moved to
+   * x = 0 so the sights sit on the reticle's vertical, held at distance rather than pulled in,
+   * and given a modest FOV zoom. Iron sights that do not magnify at all read as broken to anyone
+   * who has played a shooter.
+   * ⚠ The ADS zoom is skipped for a weapon with a real optic — `G.scopeZoom` already handles
+   * those and the viewmodel is hidden behind the scope, so stacking the two would double-zoom. */
+  const VM = {
+    hip:    [0.225, -0.200, -0.62],
+    ads:    [0.000, -0.078, -0.62],   // x=0 puts the sights on the reticle; z unchanged, never nearer
+    scale:  0.76,
+    fovMul: 1.22,                     // gentle iron-sight magnification
+    ease:   16,                       // per second, so ADS is a movement rather than a snap
+  };
+  let adsT = 0, vmLast = 0;
+
   function makeViewmodel() {
     viewmodel = weaponEntity();
+    makeHands(viewmodel);
+    viewmodel.setLocalScale(VM.scale, VM.scale, VM.scale);
     cam.addChild(viewmodel);
     /* ⚠ PlayCanvas cameras look down their own −z, so a viewmodel at +z is BEHIND you — and a
      * 0.86 m rifle parked behind the near plane fills two thirds of the frame with one grey
@@ -984,9 +1110,10 @@
      * down its own −z. Hence the +180°: without it the whole world sits behind you, which is
      * exactly the class of bug the dogfight renderer shipped once (see CLAUDE.md).
      *
-     * ⛔ KNOWN BUG — THE SCENE IS MIRRORED, AND THIS IS WHY THE MOUSE FEELS INVERTED.
-     * The +180° makes FORWARD correct and cannot make RIGHT correct, because it is a rotation
-     * and a rotation preserves handedness. Checked numerically at two headings:
+     * ✅ FIXED — THE SCENE WAS MIRRORED, AND IT WAS ONE CAUSE BEHIND THREE BUG REPORTS
+     * ("mouse inverted", "strafe backwards", "aim off"). The +180° makes FORWARD correct and
+     * cannot make RIGHT correct, because it is a rotation and a rotation preserves handedness.
+     * Checked numerically at two headings:
      *     yaw 0°  : forward game (0,0,1)  camera (0,0,1)   MATCH
      *               right   game (1,0,0)  camera (-1,0,0)  MIRRORED
      *     yaw 90° : forward game (1,0,0)  camera (1,0,0)   MATCH
@@ -1003,10 +1130,13 @@
      *     camera yaw:                           θ = π − gameYaw
      * With those two together both vectors match: forward → (−sin y, sin p, cos y) and
      * right → (−cos y, 0, −sin y), which is exactly the mirror of the game's own pair.
-     * That touches world mesh vertices, body placement and the FX buffers, so it is a real
-     * refactor and it is NOT done here — `LOOK.invX` defaults on to make the game aimable in
-     * the meantime. ⚠ Strafe still reads mirrored until this lands: A/D move you correctly in
-     * the simulation and the mirrored view shows it going the other way. */
+     * ⚑ AND THAT IS WHAT SHIPPED. Everything in game coordinates hangs under ONE `worldMirror`
+     * node at scale (−1, 1, 1) (see its construction above); the camera stays OUTSIDE it at
+     * (−x, y, z) with yaw π − gameYaw, which is the `-(c.x + jx)` below. One node instead of
+     * negating x at forty call sites — which is what makes it verifiable, because the scene is
+     * either mirrored or it is not and nothing can be half-converted.
+     * ⚠ A workaround must die with its bug: `LOOK.invX` was defaulted ON while the mirror was
+     * live, and leaving it on afterwards would have inverted the mouse the other way. */
     _qy.setFromAxisAngle(pc.Vec3.UP, 180 - c.yaw * 180 / Math.PI);
     _qx.setFromAxisAngle(pc.Vec3.RIGHT, c.pitch * 180 / Math.PI);
     _qr.copy(_qy).mul(_qx);
@@ -1017,7 +1147,16 @@
     const sh = Math.min(G.shake, 14) * 0.008;
     if (sh > 0.0001) { jx = (Math.random() * 2 - 1) * sh; jy = (Math.random() * 2 - 1) * sh * 0.8; jz = (Math.random() * 2 - 1) * sh * 0.4; }
     cam.setPosition(-(c.x + jx), c.y + jy, c.z + jz);      // the camera lives outside the mirror
-    cam.camera.fov = (FOV / (G.scopeZoom || 1)) * 180 / Math.PI;
+    {
+      const me0 = G.me;
+      const now = performance.now();
+      const dt = vmLast ? Math.min(0.1, (now - vmLast) / 1000) : 0.016; vmLast = now;
+      const want = me0 && me0.ads && me0.alive ? 1 : 0;
+      adsT += (want - adsT) * Math.min(1, dt * VM.ease);
+      const optic = me0 && me0.scoped && S9Game.WEAPONS[me0.weapon].zoom > 1;
+      const iron = optic ? 1 : 1 + (VM.fovMul - 1) * adsT;
+      cam.camera.fov = (FOV / ((G.scopeZoom || 1) * iron)) * 180 / Math.PI;
+    }
     if (viewmodel) {
       const me = G.me;
       // hide the model behind a true optical scope, and pull it toward the sightline when aiming
@@ -1033,9 +1172,13 @@
       } else if (fx) fx.setViewFlash(0, 0, 0, 0, false);
       if (me && viewmodel.enabled) {
         const bob = me.moving && me.onGround ? Math.sin(me.bob) : 0;
-        const ads = me.ads ? 1 : 0;
+        const t = adsT, s = 1 - t;                    // bob and sway fade out as the sights come up
         const kick = me.recoil * 0.06;
-        viewmodel.setLocalPosition(0.20 - ads * 0.20 + bob * 0.006, -0.19 + ads * 0.10 + Math.abs(bob) * 0.004 - kick * 0.35, -0.62 + ads * 0.10 + kick);
+        const P = VM.hip, A = VM.ads;
+        viewmodel.setLocalPosition(
+          P[0] + (A[0] - P[0]) * t + bob * 0.006 * s,
+          P[1] + (A[1] - P[1]) * t + Math.abs(bob) * 0.004 * s - kick * 0.35,
+          P[2] + (A[2] - P[2]) * t + kick);
         viewmodel.setLocalEulerAngles(-me.recoil * 5.0, 0, 0);
       }
     }
