@@ -173,3 +173,60 @@ Every 3D/visual brief must state, explicitly, before any code:
 
 ⚠ A brief missing any of 1–4 will produce the default, and the default has now been rejected once
 in this project. That is the whole reason this file exists.
+
+---
+
+## 9 · Worked example — the hero wordmark, and the half of the brief that got skipped
+
+⛔ **v2 was rejected too, and the reason is recorded here because it is a process failure with a
+signature.** v2 answered §1 (material: hot-stamped foil) and §2 (light: the two page torches, placed
+from the DOM) *well* — the hue-shift acceptance test passes at 261° median travel. It answered §4
+(**what moves, and why it physically moved**) with *"the viewer's pointer swings the key light."*
+
+**That is not the object moving. That is a lit rock.** The artist's words were "can't even interact
+with it · not rigged · not reactive", and all three were literally true in the code:
+
+| the note | the fact |
+| --- | --- |
+| can't interact | the canvas was `pointer-events:none` — the pointer passed through it |
+| not rigged | the GLB was **3 meshes split by face normal**; every letter merged into each |
+| not reactive | one window `pointermove` → a light angle; the geometry never moved |
+
+⚑ **The lesson generalises: §1 and §2 are the easy half.** Material and light are what a renderer
+*has features for*, so an agent handed the brief will answer them and feel finished. §4 has no
+feature to reach for — it has to be designed. **A brief that names the material and the light and
+waves at motion will produce a beautiful object that is dead to the touch, every time.**
+
+### The wordmark's actual brief
+
+1. **Made of** — twenty separate pieces of foil, hot-stamped into card stock. Not a word: *letters*,
+   each its own stamping, each with its own die impression and its own slightly different depth.
+2. **Lit by** — unchanged from v2. The two torches are the keys, from the DOM, with flicker.
+3. **What moves, and why** — ⚑ **it is a card, and a card FLEXES.**
+   - **The stock bows under a press.** The pointer is a finger on the card: a smooth falloff bow
+     around the contact point. This is what makes the foil sweep, because the surface normals
+     genuinely change rather than the light merely moving.
+   - **Each letter rocks on its own.** Foil is stiffer than the stock it sits in, so a stamped
+     letter tips in its impression rather than bending. Per-letter pivot at its base, spring return,
+     damping, **overshoot**.
+   - **Neighbours are coupled through the stock.** Shove one letter and the disturbance runs down
+     the row and dies out. That is the difference between a rig and twenty independent toys.
+   - **Grab and throw.** Press-drag is pulling on the card; release rings it out. ⚑ This is the
+     studio's whole subject — the pull and the snap-back *is* anticipation.
+   - ⛔ **Nothing moves on its own.** §4 still holds: no idle loop, no breathing, no drift. At rest
+     it is a still object. All motion is the visitor's.
+4. **Sits on** — the foil card-stock plate (`js/bg-foil.js`), which is the same material one layer
+   back. The letters are stamped into *that*.
+5. **Acceptance measurement** — v2's hue-shift test stays, and **three new numbers that must FAIL on
+   v2**: (a) a synthetic drag displaces letters, and displaces *different letters by different
+   amounts* — a global transform would pass a naive "did it move" check, so the per-letter spread is
+   the real assertion; (b) release settles within a named window **with overshoot**, proving a spring
+   rather than a lerp; (c) shoving letter *n* moves letter *n+2* **later** than *n+1*, proving
+   coupling rather than twenty independent springs.
+
+### And the balance
+
+⚠ `RUNS = [('RIPMASTER', 1.00), ('3030', 0.62), ('STUDIOS', 1.00)]` set the digits as a subscript.
+The name is **RIPMASTER 3030 STUDIOS — three parts of equal standing**, so all three runs are 1.00.
+⛔ Equal *size*, still **one word, no spaces**: `ripmaster3030studios` is the name law, and the DOM
+string stays exactly that. The balance is typographic, not a rename.

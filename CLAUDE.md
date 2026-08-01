@@ -469,6 +469,53 @@ geometry and fx"* — and he was right.
   is the natural first source for in-game art. Hand-drawn, high-contrast, flat saturated ink,
   deliberately crude registration — the opposite of smooth bevelled corporate CG, which is exactly
   what a default pipeline emits.
+- ⛔ **v2 WAS REJECTED TOO, AND THE FAILURE HAS A SIGNATURE — `docs/DESIGN-SYSTEM.md` §9.** The foil
+  rebuild answered §1 (material) and §2 (light) *well* — 261° median hue travel, the acceptance test
+  passes — and answered §4 (**what moves, and why it physically moved**) with *"the pointer swings
+  the key light."* Artist: *"can't even interact with it · not rigged · not reactive."* All three
+  were **literally true in the code**: the canvas was `pointer-events:none`, the GLB was 3 meshes
+  split by face NORMAL with every letter welded into each, and the only input drove a light vector.
+  ⚑ **§1 and §2 are the easy half, because a renderer HAS FEATURES for material and light — so an
+  agent answers them and feels finished. §4 has no feature to reach for; it has to be designed.**
+  A brief that names the material and the light and waves at motion produces a beautiful object
+  that is dead to the touch, every time. That is now twice.
+- ✅ **v3: THE WORDMARK IS RIGGED — 20 letters, `npm run test:rig` (15 assertions).** It is a card,
+  and a card FLEXES: press dishes the stock, each letter rocks on its own spring in its own die
+  impression, neighbours are coupled so a shove runs down the row and dies out, release rings.
+  ⛔ **Nothing moves on its own** — at rest every letter is exactly 0, asserted.
+  - ⚑ **The rig rides in the vertex stream** — `TEXCOORD_1 = (letter index, u across the word)`,
+    baked by `build-hero-type.py` from the glyphs it already builds separately. Not a side-car
+    JSON: geometry cannot then arrive without its rig. **Pivots are DERIVED in JS from the vertex
+    data**, not shipped — 8 bytes × 8,558 vertices to repeat twenty numbers, and a baked pivot can
+    drift from its geometry while a derived one cannot.
+  - ⚠ **TEXCOORD slots are numbered PER MESH by UV-layer order.** `wm_rim` had no UV0, so shipping
+    it only the rig layer would have put it in TEXCOORD_0 while face/bevel used TEXCOORD_1 — the
+    shader reads the planar UV as a letter index and rigs the whole silhouette to letter 0. No
+    error. The rim now carries an unused UV0 purely for slot alignment, and a test asserts it.
+  - ⚠ **`vObjP` must stay at the REST position.** It drives the grating phase and the vertical
+    ramp — properties of the FOIL, embossed in it. Feed it the moved position and the diffraction
+    pattern slides across the letter as it rocks. `vObjN` is the opposite: it MUST take the
+    rotation, or a letter can turn without its hue walking, which is the v1 sticker bug in a rig.
+  - ⚠ **Step the springs ABOVE the render throttle.** `stepRig` below the `1000/FPS` early-return
+    advanced one tick's `dt` on every other tick — a rig running at half speed, which reads as
+    "mushy" and invites tuning instead of fixing.
+  - ⚑ **"Did it move" is the weak question** — a global transform passes it. The assertions that
+    bite: letters move by DIFFERENT amounts and the sign flips either side of the contact (kills
+    one transform); release OVERSHOOTS (kills a lerp); a shove reaches n+2 later than n+1, measured
+    at 100 → 313 → 749 ms (kills 20 independent springs).
+  - ⚠ **Pump rAF from inside the page to measure a ring.** `waitForTimeout` measures this
+    container's rAF stalls, not the springs — it produced one FAIL that looked exactly like a rig
+    that would not settle. Same trap as the "headless rAF stalls between input events" note below.
+  - ⚠ `touch-action:pan-y`, not `none`: the wordmark is a 9.7:1 band across the top of the landing
+    page, and a canvas that swallows vertical drags is one a phone cannot scroll past.
+  - ⚠ **The throw was set by eye at DRAGV 5.0 and measured out at 1.5 px.** A drag impulse fights a
+    stiff spring (peak ≈ v/ω), so the number that "feels like a lot" is an order low. 16.0 now.
+- ✅ **THE BALANCE: `3030` IS NOT A SUBSCRIPT.** Artist: *"I do not like the text imbalance it is
+  RIPMASTER 3030 STUDIOS."* `RUNS` carried `('3030', 0.62)` mirroring `.wordmark .sm`; both are
+  1.00/`1em` now, three parts of equal standing. ⛔ Equal **size**, still **one word, no spaces** —
+  the DOM string stays `ripmaster3030studios` (name law), so it is typographic, not a rename.
+  ⚠ The `.py` RUNS and the CSS `.sm` describe the same type and the mesh is cut to land on the box
+  the CSS lays out; `build-hero-type.mjs` asserts they moved together.
 - ⚠ `DESIGN-SYSTEM.md` is a **DRAFT FOR THE ARTIST** — proposals, not decisions. It carries the
   open typeface question (`--fat` is `'Arial Black'`, which does not exist on Linux/Android, so the
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep

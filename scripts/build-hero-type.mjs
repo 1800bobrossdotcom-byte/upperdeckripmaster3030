@@ -131,17 +131,83 @@ t('glb carries wm_face, wm_bevel and wm_rim',
 
 const prim = m => m && m.primitives && m.primitives[0];
 const attrs = m => Object.keys((prim(m) || {}).attributes || {});
-for (const nm of ['wm_face', 'wm_bevel']) {
+
+/* Read a float accessor out of the BIN chunk. Only what these assertions need: F32, non-sparse,
+ * which is everything Blender writes for POSITION/NORMAL/TEXCOORD. */
+function readF32(ai) {
+  const acc = gltf.accessors[ai];
+  const comps = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[acc.type];
+  if (acc.componentType !== 5126) throw new Error('accessor ' + ai + ' is not F32');
+  const bv = gltf.bufferViews[acc.bufferView];
+  const stride = bv.byteStride || comps * 4;
+  const base = (bv.byteOffset || 0) + (acc.byteOffset || 0);
+  const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+  const out = new Float32Array(acc.count * comps);
+  for (let i = 0; i < acc.count; i++)
+    for (let c = 0; c < comps; c++) out[i * comps + c] = dv.getFloat32(base + i * stride + c * 4, true);
+  return out;
+}
+
+/* ⚑ ALL THREE MESHES CARRY THE SAME FOUR ATTRIBUTES IN THE SAME SLOTS, and the uniformity is the
+ * assertion — not a tidiness preference. The exporter numbers TEXCOORD_n by UV-layer order PER
+ * MESH, so a rim carrying only the rig layer would ship it as TEXCOORD_0 while face and bevel ship
+ * it as TEXCOORD_1. The vertex shader would then read the planar UV as a letter index and rig the
+ * whole silhouette to letter 0 — no error, no warning, just a wall that does not move with its
+ * letter. wm_rim's TEXCOORD_0 is genuinely unused by the shader; it is 8 bytes a vertex spent on
+ * making that mistake impossible. (This assertion replaces one that required the opposite.) */
+for (const nm of ['wm_face', 'wm_bevel', 'wm_rim']) {
   if (!nodes[nm]) continue;
   const a = attrs(nodes[nm]);
-  t(`${nm} has POSITION + NORMAL + TEXCOORD_0`,
-    a.includes('POSITION') && a.includes('NORMAL') && a.includes('TEXCOORD_0'), a.join(','));
+  t(`${nm} carries POSITION + NORMAL + TEXCOORD_0 + TEXCOORD_1 (slots aligned across all parts)`,
+    ['POSITION', 'NORMAL', 'TEXCOORD_0', 'TEXCOORD_1'].every(k => a.includes(k)), a.join(','));
+  t(`${nm} carries NO TEXCOORD_2 (the pivot is derived, not shipped)`,
+    !a.includes('TEXCOORD_2'), a.join(','));
 }
-if (nodes.wm_rim) {
-  const a = attrs(nodes.wm_rim);
-  t('wm_rim has NO TEXCOORD_0 (its planar UV would be degenerate — see the .py header)',
-    a.includes('POSITION') && a.includes('NORMAL') && !a.includes('TEXCOORD_0'), a.join(','));
+
+/* ── THE RIG ─────────────────────────────────────────────────────────────────────────────────
+ * v2 had none of this: three meshes split by face normal, every letter welded into each, nothing
+ * that could move independently. The artist's word was "not rigged" and it was literal. These
+ * assertions are what make that state unshippable. */
+const RUN_LETTERS = 'RIPMASTER'.length + '3030'.length + 'STUDIOS'.length;   // 20
+let rigLo = Infinity, rigHi = -Infinity, rigFrac = 0, rigN = 0, uLo = Infinity, uHi = -Infinity;
+const seenLetter = new Set();
+for (const nm of ['wm_face', 'wm_bevel', 'wm_rim']) {
+  const p = prim(nodes[nm]); if (!p || p.attributes.TEXCOORD_1 === undefined) continue;
+  const uv = readF32(p.attributes.TEXCOORD_1);
+  for (let i = 0; i < uv.length; i += 2) {
+    const k = uv[i];
+    rigN++;
+    if (Math.abs(k - Math.round(k)) > 1e-3) rigFrac++;
+    rigLo = Math.min(rigLo, k); rigHi = Math.max(rigHi, k);
+    seenLetter.add(Math.round(k));
+    uLo = Math.min(uLo, uv[i + 1]); uHi = Math.max(uHi, uv[i + 1]);
+  }
 }
+t('the rig reaches every vertex of every part', rigN > 0, rigN + ' vertices tagged');
+t(`all ${RUN_LETTERS} letters are present as separate rig members`,
+  seenLetter.size === RUN_LETTERS, seenLetter.size + ' distinct letter indices');
+t('letter indices are whole numbers (no vertex welded across two glyphs)',
+  rigFrac === 0, rigFrac + ' fractional of ' + rigN);
+t('letter indices span the whole word', rigLo === 0 && rigHi === RUN_LETTERS - 1,
+  rigLo + '..' + rigHi);
+/* u is the wave coordinate — a letter's position across the word, 0 at the left edge, 1 at the
+ * right. Propagation reads it straight off the vertex, so a squashed range would silently make
+ * the whole row respond as one letter. */
+t('the wave coordinate spans the word', uLo < 0.1 && uHi > 0.9,
+  `u ${uLo.toFixed(3)}..${uHi.toFixed(3)}`);
+
+/* ⚠ The balance. RUNS in the .py and `.wordmark .sm` in index.html describe the SAME type, and the
+ * mesh is cut to land on the box the CSS lays out. They were 1.00/0.62/1.00 and 0.62em; the artist
+ * called the imbalance and both moved to equal. This asserts they moved together. */
+const pySrc = readFileSync(join(ROOT, 'scripts/blender/build-hero-type.py'), 'utf8');
+const runSizes = [...(/RUNS = \[(.*?)\]/s.exec(pySrc)?.[1] || '').matchAll(/,\s*([\d.]+)\)/g)]
+  .map(m => parseFloat(m[1]));
+t('all three runs are set at the same size (RIPMASTER 3030 STUDIOS, equal standing)',
+  runSizes.length === 3 && runSizes.every(s => s === runSizes[0]), runSizes.join(' / '));
+const smSize = /\.wordmark \.sm\{[^}]*font-size:\s*([\d.]+)em/.exec(
+  readFileSync(join(ROOT, 'index.html'), 'utf8'))?.[1];
+t('index.html `.sm` matches — the CSS box the mesh is cut for',
+  parseFloat(smSize) === runSizes[1] / runSizes[0], smSize + 'em vs run ' + runSizes[1]);
 
 let tris = 0;
 for (const m of Object.values(nodes)) {

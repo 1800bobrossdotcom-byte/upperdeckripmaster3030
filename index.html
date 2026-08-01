@@ -115,7 +115,14 @@
     -webkit-text-stroke:1.5px rgba(2,10,6,.55);
     filter:drop-shadow(0 2px 0 rgba(2,10,6,.9)) drop-shadow(0 0 22px rgba(43,255,128,.42))
            drop-shadow(0 0 44px rgba(255,42,217,.30)); }
-  .wordmark .sm{ font-size:.62em; letter-spacing:.02em; }
+  /* ⚠ `3030` IS NOT A SUBSCRIPT. It was `font-size:.62em` and read as an imbalance in the middle
+   * of the word, because it was one — the name is RIPMASTER 3030 STUDIOS, three parts of equal
+   * standing. ⛔ Equal SIZE, still ONE WORD: the DOM string below stays `ripmaster3030studios`
+   * with no spaces, which is the name law. The digits keep a hair of positive tracking only
+   * because Anton's numerals are narrower than its caps and set tight without it.
+   * ⚑ scripts/blender/build-hero-type.py's RUNS must carry the same three sizes — the 3D mesh is
+   * cut to land on the box this rule lays out. build-hero-type.mjs asserts they agree. */
+  .wordmark .sm{ font-size:1em; letter-spacing:.012em; }
   /* ⚠ `width:auto` is not optional here. Both of these classes previously styled an <img> with a
    * fixed width (min(80vw,760px)); inherited by a text node with white-space:nowrap that clips
    * the last word — the first render read "RIPMASTER3030STUDIO" with the S cut off by a torch.

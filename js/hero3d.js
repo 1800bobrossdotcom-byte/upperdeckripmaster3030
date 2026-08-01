@@ -243,24 +243,63 @@
    * ⚠ NO BACKTICKS ANYWHERE IN THE GLSL BELOW, not even inside a comment — the shader lives in a
    *   JS template literal, so one backtick in prose ends the string and the file stops parsing.
    *   Cost a run: the error surfaces as a bare `Unexpected identifier` on the comment line. */
-  const SHADER_VER = 'v2.1';
+  const SHADER_VER = 'v3.0';
+
+  /* ── THE RIG, in the vertex shader ────────────────────────────────────────────────────────────
+   * Twenty letters, each a separate stamping that tips in its own die impression. TEXCOORD_1.x is
+   * the letter index (baked by build-hero-type.py); uLetter[i] is that letter's live spring state
+   * and uPivot[i] is where it meets the stock.
+   *
+   *   uLetter[i] = (tip, roll, lift, sway)
+   *     tip  — radians about X at the pivot. The top leans toward or away from the viewer.
+   *     roll — radians about Z at the pivot. The letter tilts like a loose key.
+   *     lift — object units along Z. Pressed into the stock, or lifted proud of it.
+   *     sway — object units along X. Shoved sideways.
+   *
+   * ⚑ vObjP STAYS AT THE REST POSITION, and that is not an oversight. It drives the grating phase
+   *   and the vertical ramp in the FS — both are properties of the FOIL, embossed in it. Feeding
+   *   the moved position would slide the diffraction pattern across the letter as it rocks, which
+   *   is a pattern painted on space rather than stamped into a material.
+   * ⚑ vObjN, by contrast, MUST take the rotation: the surface genuinely turned, and a foil whose
+   *   hue does not walk when the letter rocks is the v1 sticker bug wearing a rig.
+   * ⚠ Dynamic indexing into a uniform array is legal in a VERTEX shader (the constant-index rule
+   *   binds samplers, and fragment stages on ES 1.00). This page already hard-requires WebGL2. */
+  const MAXL = 20;                                    // RIPMASTER(9) + 3030(4) + STUDIOS(7)
 
   const VS = `
 attribute vec3 vertex_position;
 attribute vec3 vertex_normal;
+attribute vec2 vertex_texCoord1;
 #ifdef HAS_UV
 attribute vec2 vertex_texCoord0;
 varying vec2 vUv;
 #endif
 uniform mat4 matrix_model;
 uniform mat4 matrix_viewProjection;
+uniform vec4 uLetter[${MAXL}];
+uniform vec2 uPivot[${MAXL}];
 varying vec3 vWorld;
 varying vec3 vObjN;
 varying vec3 vObjP;
 void main(void) {
-  vec4 wp = matrix_model * vec4(vertex_position, 1.0);
+  int li = int(vertex_texCoord1.x + 0.5);
+  vec4 L = uLetter[li];
+  vec2 P = uPivot[li];
+  vec3 p = vertex_position;
+  vec3 n = vertex_normal;
+  p.xy -= P;
+  float ct = cos(L.x), st = sin(L.x);
+  p.yz = vec2(p.y * ct - p.z * st, p.y * st + p.z * ct);
+  n.yz = vec2(n.y * ct - n.z * st, n.y * st + n.z * ct);
+  float cr = cos(L.y), sr = sin(L.y);
+  p.xy = vec2(p.x * cr - p.y * sr, p.x * sr + p.y * cr);
+  n.xy = vec2(n.x * cr - n.y * sr, n.x * sr + n.y * cr);
+  p.xy += P;
+  p.z += L.z;
+  p.x += L.w;
+  vec4 wp = matrix_model * vec4(p, 1.0);
   vWorld = wp.xyz;
-  vObjN = vertex_normal;
+  vObjN = n;
   vObjP = vertex_position;
 #ifdef HAS_UV
   vUv = vertex_texCoord0;
@@ -495,10 +534,15 @@ void main(void) {
   function makeShader(pc, hasUv) {
     return {
       uniqueName: 'heroFoil-' + SHADER_VER + (hasUv ? '-uv' : '-flat'),
+      /* ⚠ TEXCOORD1 is bound on BOTH variants, textured or not. It is the rig, and the rim — the
+       *   flat variant — is the letters' silhouette: leave it unbound and every wall stays put
+       *   while its face rocks away from it. build-hero-type.py ships TEXCOORD_1 on all three
+       *   meshes in the same slot for exactly this reason. */
       attributes: hasUv
         ? { vertex_position: pc.SEMANTIC_POSITION, vertex_normal: pc.SEMANTIC_NORMAL,
-          vertex_texCoord0: pc.SEMANTIC_TEXCOORD0 }
-        : { vertex_position: pc.SEMANTIC_POSITION, vertex_normal: pc.SEMANTIC_NORMAL },
+          vertex_texCoord0: pc.SEMANTIC_TEXCOORD0, vertex_texCoord1: pc.SEMANTIC_TEXCOORD1 }
+        : { vertex_position: pc.SEMANTIC_POSITION, vertex_normal: pc.SEMANTIC_NORMAL,
+          vertex_texCoord1: pc.SEMANTIC_TEXCOORD1 },
       vertexGLSL: VS,
       fragmentGLSL: FS,
     };
@@ -717,6 +761,11 @@ void main(void) {
       S.aspect = w / h;
       inst.setLocalPosition(-(lo[0] + hi[0]) / 2 / w, -(lo[1] + hi[1]) / 2 / w, -(lo[2] + hi[2]) / 2 / w);
       inst.setLocalScale(1 / w, 1 / w, 1 / w);         // uniform: the type is now exactly 1 wide
+      /* ⚠ Deliberately NOT guarded by a `return fail(...)`. A rig that cannot be derived is a
+       *   wordmark that does not respond — a real loss, but the type is still there, still foil,
+       *   still lit. Failing the whole layer over it would replace a beautiful static wordmark
+       *   with a flat CSS one, which is strictly worse. S.rig records what happened. */
+      deriveRig(inst);
       ready |= 2;
       fit();
     }).catch(e => fail(String(e && e.message || e)));
@@ -778,10 +827,203 @@ void main(void) {
       setAll('uTorchB', new Float32Array([B[0], B[1], 0.30]));
     }
 
-    // ── motion ────────────────────────────────────────────────────────────────────────────────
+    /* ── THE RIG ──────────────────────────────────────────────────────────────────────────────
+     * v2 had a beautiful material and nothing you could touch. This is the other half of the
+     * brief (docs/DESIGN-SYSTEM.md §9): the wordmark is TWENTY STAMPINGS IN CARD STOCK, and a
+     * card flexes. Press it and the stock dishes; the letters around the dent tip into it, the
+     * one under your finger sinks, and because they are all set in the same sheet the disturbance
+     * runs down the row and dies out. Let go and it rings.
+     *
+     * Four degrees of freedom per letter, each an independent damped spring driven toward a
+     * target the pointer sets, plus a spring to each NEIGHBOUR — which is the whole difference
+     * between a rig and twenty separate toys. The neighbour term is a discrete Laplacian, i.e.
+     * this is a wave equation on a line of masses, so propagation and its decay are emergent
+     * rather than animated. There is no timeline anywhere in here.
+     *
+     * ⛔ Nothing moves on its own. §4 of the design system stands: no idle loop, no breathing.
+     *   At rest every letter is exactly where the mesh put it. All motion is the visitor's. */
     const still = reduced();
-    let tx = 0, ty = 0, cx = BASE_X, cy = BASE_Y, t0 = 0, last = -1e9, live = true;
+    const K = [210, 210, 340, 340];      // tip, roll, lift, sway — rotations floppier than shifts
+    const C = [8.7, 8.7, 11.1, 11.1];    // zeta 0.30: ~37% overshoot, ~0.9 s ring. Springs, not lerps.
+    /* ⚑ prefers-reduced-motion does not switch the rig OFF, it switches the RINGING off. The
+     * setting is about motion the page starts by itself; a letter moving under the visitor's own
+     * finger is the opposite of that, and freezing it would make the object feel broken rather
+     * than calm. So a press still answers — critically damped (zeta 1, no overshoot) and with the
+     * neighbour coupling at zero, so nothing oscillates and nothing propagates after release. */
+    const CRIT = [29.0, 29.0, 36.9, 36.9];
+    const NEIGH = 74;                    // coupling through the stock
+    const REACH = 0.10;                  // contact falloff, mesh units (the word is 1.0 wide)
+    /* ⚠ DRAGV/DRAGR are the THROW, and they were first set by eye at 5.0/9.0 — which measured out
+     *   at a peak sway of 0.0017 on a word 1.0 wide, i.e. about 1.5 px at desktop size. Invisible.
+     *   A drag impulse is fighting a stiff spring (K 340, so peak displacement is roughly v/omega
+     *   = v/18.4), so the velocity has to be an order up from what "feels like a lot" in a number.
+     *   Set against measured displacement, not taste. */
+    const PRESS = 0.020, TIP = 0.30, ROLL = 0.55, DRAGV = 16.0, DRAGR = 11.0;
+    const HOVER = 0.30;                  // a hover is a light touch; a held pointer is a press
+
+    const RIG = {
+      n: 0, ok: false,
+      cx: new Float32Array(MAXL), y0: new Float32Array(MAXL), hgt: new Float32Array(MAXL),
+      pivot: new Float32Array(MAXL * 2),
+      state: new Float32Array(MAXL * 4), vel: new Float32Array(MAXL * 4),
+      drive: new Float32Array(MAXL * 4), acc: new Float32Array(MAXL * 4),
+    };
+    S.rig = 'none';
+
+    /* Pivots are DERIVED from the vertex data rather than shipped beside it. The .py could have
+     * baked them into a third UV, and did until it cost 8 bytes on every one of 8,558 vertices to
+     * repeat twenty numbers. More than the size: a derived pivot cannot drift from the geometry
+     * it belongs to, and a baked one can.
+     * ⚠ Fails to REST, never to a guess. If the vertex data cannot be read, the rig stays at zero
+     *   and the wordmark is exactly the v2 object — lit, foil, still. Estimated pivots would tear
+     *   the word apart, which is far worse than not moving. */
+    function deriveRig(entities) {
+      const lo = new Float32Array(MAXL).fill(Infinity), hi = new Float32Array(MAXL).fill(-Infinity);
+      const yl = new Float32Array(MAXL).fill(Infinity), yh = new Float32Array(MAXL).fill(-Infinity);
+      let seen = 0, any = false;
+      try {
+        entities.forEach(e => {
+          if (!e.render) return;
+          e.render.meshInstances.forEach(mi => {
+            const mesh = mi.mesh, pos = [], uv = [];
+            if (!mesh || !mesh.getPositions(pos) || !mesh.getUvs(1, uv)) return;
+            if (!uv.length || uv.length / 2 !== pos.length / 3) return;
+            any = true;
+            for (let v = 0; v < uv.length / 2; v++) {
+              const k = Math.round(uv[v * 2]);
+              if (!(k >= 0 && k < MAXL)) continue;
+              const x = pos[v * 3], y = pos[v * 3 + 1];
+              if (lo[k] === Infinity) seen++;
+              if (x < lo[k]) lo[k] = x; if (x > hi[k]) hi[k] = x;
+              if (y < yl[k]) yl[k] = y; if (y > yh[k]) yh[k] = y;
+            }
+          });
+        });
+      } catch { return false; }
+      if (!any || seen < 2) return false;
+      RIG.n = seen;
+      for (let k = 0; k < seen; k++) {
+        if (lo[k] === Infinity) { RIG.n = k; break; }     // a gap means the tag is not what we think
+        RIG.cx[k] = (lo[k] + hi[k]) / 2;
+        RIG.y0[k] = yl[k];
+        RIG.hgt[k] = Math.max(1e-4, yh[k] - yl[k]);
+        RIG.pivot[k * 2] = RIG.cx[k];
+        RIG.pivot[k * 2 + 1] = yl[k];
+      }
+      if (RIG.n < 2) return false;
+      RIG.ok = true;
+      S.rig = RIG.n + ' letters';
+      setAll('uPivot', RIG.pivot.subarray(0, MAXL * 2));
+      return true;
+    }
+
+    /* What the pointer is doing to the stock right now. Targets, not impulses — a held pointer
+     * holds a shape, and releasing it is simply this going back to zero. */
+    function driveRig(mx, my, grip) {
+      const d = RIG.drive;
+      for (let i = 0; i < RIG.n; i++) {
+        const off = (RIG.cx[i] - mx) / REACH;
+        const w = Math.exp(-off * off) * grip;
+        // where on the letter's height the contact lands: press the top and the top goes back
+        const lever = Math.max(-1, Math.min(1, (my - RIG.y0[i]) / RIG.hgt[i] - 0.5)) * 2;
+        d[i * 4] = TIP * w * lever;
+        // roll follows the SLOPE of the dent, so letters either side of it lean opposite ways
+        d[i * 4 + 1] = ROLL * w * Math.max(-1, Math.min(1, off));
+        d[i * 4 + 2] = -PRESS * w;
+        d[i * 4 + 3] = 0;                                 // sway is only ever a drag, never a hold
+      }
+    }
+    const clearDrive = () => RIG.drive.fill(0);
+
+    /* A drag is a real shove, so it enters as VELOCITY and the springs deal with the consequence.
+     * That is also what makes a flick work for free: let go mid-swipe and the energy is already
+     * in the system. */
+    function shoveRig(mx, dxMesh) {
+      for (let i = 0; i < RIG.n; i++) {
+        const off = (RIG.cx[i] - mx) / REACH;
+        const w = Math.exp(-off * off);
+        RIG.vel[i * 4 + 3] += DRAGV * w * dxMesh;         // the letter is dragged
+        RIG.vel[i * 4 + 1] -= DRAGR * w * dxMesh;         // ... and its top trails behind its foot
+      }
+    }
+
+    function stepRig(dt) {
+      if (!RIG.ok) return false;
+      const n = RIG.n, st = RIG.state, ve = RIG.vel, dr = RIG.drive, ac = RIG.acc;
+      const CC = still ? CRIT : C, NB = still ? 0 : NEIGH;
+      // Substep so a long frame cannot blow up a stiff spring: h stays under ~12 ms regardless.
+      const sub = Math.max(1, Math.min(6, Math.ceil(dt / 0.012))), h = dt / sub;
+      for (let s = 0; s < sub; s++) {
+        /* ⚠ Accelerations are gathered BEFORE any state is written. Updating in place would let
+         *   letter i+1 see letter i's new position within the same substep, and the wave would
+         *   then travel measurably faster left-to-right than right-to-left. */
+        for (let i = 0; i < n; i++) {
+          for (let k = 0; k < 4; k++) {
+            const j = i * 4 + k;
+            const a = i > 0 ? st[j - 4] : st[j], b = i < n - 1 ? st[j + 4] : st[j];
+            ac[j] = -K[k] * (st[j] - dr[j]) - CC[k] * ve[j] + NB * (a + b - 2 * st[j]);
+          }
+        }
+        for (let j = 0; j < n * 4; j++) { ve[j] += ac[j] * h; st[j] += ve[j] * h; }
+      }
+      let moving = false;
+      for (let j = 0; j < n * 4; j++) {
+        if (Math.abs(ve[j]) > 2e-4 || Math.abs(st[j] - dr[j]) > 2e-5) { moving = true; break; }
+      }
+      if (!moving) { ve.fill(0); if (!gripping) st.fill(0); }   // park it exactly, not nearly
+      setAll('uLetter', st.subarray(0, MAXL * 4));
+      return moving;
+    }
+
+    // ── motion ────────────────────────────────────────────────────────────────────────────────
+    let tx = 0, ty = 0, cx = BASE_X, cy = BASE_Y, t0 = 0, last = -1e9, live = true, lastRig = 0;
     let px = 0, py = 0;                                   // pointer, normalised -1..1
+    let gripping = false, mx = 0, my = 0, lastMx = 0, hovering = false;
+
+    /* ⚑ THE CANVAS TAKES THE POINTER NOW. It was `pointer-events:none`, which is why the artist's
+     *   note was "can't even interact with it" — the pointer passed through the 3D layer entirely
+     *   and the only input was a window-level mousemove driving a light angle.
+     * ⚠ `touch-action:pan-y` and not `none`: the wordmark is a 9.7:1 band across the top of the
+     *   landing page, and a canvas that swallows vertical drags is a canvas you cannot scroll
+     *   past on a phone. Horizontal drags are the rig; vertical ones stay the page's. */
+    canvas.style.pointerEvents = 'auto';
+    canvas.style.touchAction = 'pan-y';
+
+    /* Canvas pixels -> the mesh's own units. The type is exactly 1.0 wide by construction and
+     * spans the canvas bar the yaw clearance, so this is a linear map with one fudge factor.
+     * ⚠ Approximate ON PURPOSE — it feeds a Gaussian 0.10 wide, not a hit test. An exact
+     *   ray-mesh intersection would be more code, more failure modes, and indistinguishable. */
+    const FIT = 1.06;
+    function toMesh(e) {
+      const r = canvas.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      mx = ((e.clientX - r.left) / r.width - 0.5) * FIT;
+      my = -((e.clientY - r.top) / r.height - 0.5) * FIT * (r.height / r.width);
+      return true;
+    }
+
+    canvas.addEventListener('pointerdown', e => {
+      if (!RIG.ok || !toMesh(e)) return;
+      gripping = true; hovering = true; lastMx = mx;
+      try { canvas.setPointerCapture(e.pointerId); } catch {}
+      driveRig(mx, my, 1);
+      draw();
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!RIG.ok || !toMesh(e)) return;
+      hovering = true;
+      if (gripping) { shoveRig(mx, mx - lastMx); lastMx = mx; }
+      driveRig(mx, my, gripping ? 1 : HOVER);
+      draw();
+    }, { passive: true });
+    const release = () => {
+      if (!gripping && !hovering) return;
+      gripping = false; hovering = false; clearDrive(); draw();
+    };
+    canvas.addEventListener('pointerup', release);
+    canvas.addEventListener('pointercancel', release);
+    canvas.addEventListener('pointerleave', release);
+
     if (!still) {
       addEventListener('pointermove', e => {
         const r = canvas && canvas.getBoundingClientRect();
@@ -833,8 +1075,23 @@ void main(void) {
       if (held) { draw(); return; }
       const now = performance.now();
       if (!t0) t0 = now;
+      /* One clock for the springs, independent of the render throttle below. Clamped because a
+       * backgrounded tab hands back a dt of seconds, and a stiff spring integrated over a second
+       * does not settle — it explodes. */
+      const dt = Math.min(0.05, Math.max(0.001, (now - (lastRig || now)) / 1000));
+      lastRig = now;
+      /* ⚠ The rig steps on EVERY update tick, above the render throttle. Stepping it below would
+       *   have advanced the springs by one tick's dt on only every other tick — a rig running at
+       *   half speed, which reads as "mushy" and would have been tuned for instead of fixed.
+       *   The render stays throttled; only the integration is not. */
+      const ringing = stepRig(dt);
       if (still) {
-        if (S.frames) return;                       // reduced motion: lit and 3D, simply not moving
+        /* Reduced motion: lit and 3D and NOT drifting — but still answering the pointer. The
+         * setting is about motion the page starts by itself, and a letter moving under someone's
+         * own finger is the opposite of that. Keep asking for frames while it is being touched or
+         * still coming to rest; otherwise fall silent exactly as before. */
+        const busy = ringing || gripping || hovering;
+        if (S.frames && !busy) return;
         root.setLocalEulerAngles(REST.x, REST.y, 0);
         light(0);
         draw();
@@ -934,7 +1191,12 @@ void main(void) {
      * check can turn one term off at a time instead of guessing which one it is looking at.
      * CLAUDE.md, "Isolate before tuning": switching the foil, the specular, the rim and the key
      * off ONE AT A TIME is what proved the card wash was not lighting. */
-    window.__heroType = { app, mats, root, cam, CFG, LIGHTS, draw, tex: TEXOUT };
+    /* ⚑ `rig` is exposed so the acceptance checks can read PER-LETTER state rather than judge
+     *   motion from a screenshot. "Did it move" is the weak question — a global transform passes
+     *   it. The real assertions are that different letters move by DIFFERENT amounts, that a
+     *   release overshoots, and that a shove reaches letter n+2 later than n+1, and none of those
+     *   can be read off a picture. */
+    window.__heroType = { app, mats, root, cam, CFG, LIGHTS, draw, tex: TEXOUT, rig: RIG };
 
     app.start();
     fit();

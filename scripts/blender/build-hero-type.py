@@ -96,10 +96,16 @@ FOIL_QUALITY = int(os.environ.get('HERO_FOIL_QUALITY', '92'))
 TEX_W = int(os.environ.get('HERO_TEX_W', '1024'))
 LUT_W = 256
 
-# ⚑ The word is set in three runs because the CSS is: `.sm` puts `3030` at 0.62em on the same
-#   baseline. The runs survive only as a SIZE and a kerning-context boundary now; the glyphs
-#   themselves are placed one at a time (see build_type).
-RUNS = [('RIPMASTER', 1.00), ('3030', 0.62), ('STUDIOS', 1.00)]
+# ⚑ The word is set in three runs because the CSS is. The runs survive only as a SIZE and a
+#   kerning-context boundary now; the glyphs themselves are placed one at a time (see build_type).
+# ⚠ ALL THREE RUNS ARE 1.00, and that is the artist's call: the name is RIPMASTER 3030 STUDIOS,
+#   three parts of EQUAL STANDING. v2 carried ('3030', 0.62) — mirroring `.sm` in the CSS — which
+#   set the digits as a subscript in the middle of the word and read as an imbalance, because it
+#   was one. ⛔ Equal SIZE, still ONE WORD: the DOM string stays `ripmaster3030studios` with no
+#   spaces (the name law), so this is a typographic fix and not a rename. Change this and you must
+#   change `.wordmark .sm` in index.html in the same commit — the mesh is cut to land on the box
+#   that CSS lays out, and build-hero-type.mjs asserts the two agree.
+RUNS = [('RIPMASTER', 1.00), ('3030', 1.00), ('STUDIOS', 1.00)]
 
 EXTRUDE = 0.055          # half-depth, in units where the cap height is ~0.516
 EXTRUDE_JITTER = 0.22    # per-character, deterministic — the ragged back of a hand-set stamp
@@ -270,14 +276,21 @@ def build_type(font_path):
         p['dome'] = dome
     bpy.context.view_layer.update()
 
+    # ⚑ vert_letter is THE RIG. Twenty letters are twenty separate stampings, and a stamping tips
+    #   in its own die impression rather than bending, so the rig is rigid-per-letter — not bones,
+    #   not skin weights. Recording which glyph each vertex came from is the entire cost of it,
+    #   and it is free here because the glyphs are built as separate objects anyway. v2 threw this
+    #   away at exactly this loop and shipped three merged meshes, which is why nothing could move.
     verts, face_polys, bevel_polys, rim_polys = [], [], [], []
+    vert_letter = []
     nz_hist, dropped = {}, 0
-    for ob in objs:
+    for li, ob in enumerate(objs):
         obe, me = _eval_mesh(ob)
         base = len(verts)
         dx, dz = ob.location.x, ob.location.z
         for v in me.vertices:
             verts.append((v.co.x + dx, v.co.y, v.co.z + dz))
+            vert_letter.append(li)
         for poly in me.polygons:
             idx = [base + k for k in poly.vertices]
             nz = poly.normal.z                              # SIGNED — the back half is dropped
@@ -307,18 +320,43 @@ def build_type(font_path):
     s = 1.0 / W
     verts = [((x - cx) * s, (y - cy) * s, (z - cz) * s) for (x, y, z) in verts]
     bounds = {'w': 1.0, 'h': (hi[1] - lo[1]) * s, 'd': (hi[2] - lo[2]) * s}
+
+    # ⚑ Each letter's PIVOT is the centre of its BASE, not its centroid — a stamped letter tips
+    #   about where it meets the stock, which is what makes the top swing further than the foot.
+    #   Measured from the letters' own vertices AFTER normalisation, so the numbers are in the
+    #   same space the shader works in and no scale factor has to be remembered anywhere else.
+    #   ⚠ y0 is per-letter, not the word's baseline: the digits and the caps do not share a foot
+    #   once each glyph carries its own dome and extrude jitter.
+    nL = len(place)
+    lx = [[] for _ in range(nL)]
+    ly = [[] for _ in range(nL)]
+    for i, (x, y, _z) in enumerate(verts):
+        lx[vert_letter[i]].append(x)
+        ly[vert_letter[i]].append(y)
+    letters = []
+    for k in range(nL):
+        c = (min(lx[k]) + max(lx[k])) / 2 if lx[k] else 0.0
+        letters.append({
+            'ch': place[k]['ch'],
+            'cx': c,                       # pivot x — letter centre, mesh units (word width = 1)
+            'y0': min(ly[k]) if ly[k] else 0.0,   # pivot y — the foot
+            'u': c + 0.5,                  # 0..1 across the word; the wave coordinate
+            'hw': (max(lx[k]) - min(lx[k])) / 2 if lx[k] else 0.0,
+        })
+
     stats = {
         'chars': len(place),
+        'letters': nL,
         'nz': sorted((k, v) for k, v in nz_hist.items() if k > -BEVEL_NZ),
         'dropped': dropped,
         'ext_lo': min(p['ext'] for p in place) * s,
         'ext_hi': max(p['ext'] for p in place) * s,
         'dome': max(p['dome'] for p in place) * s,
     }
-    return verts, face_polys, bevel_polys, rim_polys, bounds, stats
+    return verts, face_polys, bevel_polys, rim_polys, bounds, stats, vert_letter, letters
 
 
-def make_object(name, verts, polys, uv_from=None):
+def make_object(name, verts, polys, uv_from=None, rig=None):
     """Build a mesh in EXPORT coordinates from authored ones.
 
     ⚠ The swap is not cosmetic. glTF is Y-up and Blender is Z-up, and the exporter maps Blender
@@ -350,6 +388,28 @@ def make_object(name, verts, polys, uv_from=None):
             for li in poly.loop_indices:
                 vi = used[me.loops[li].vertex_index]
                 uvl.data[li].uv = ((verts[vi][0] - lo[0]) / uw, (verts[vi][1] - lo[1]) / uh)
+
+    # ⚑ THE RIG RIDES IN THE VERTEX STREAM, as TEXCOORD_1 and TEXCOORD_2. It could have been a
+    #   side-car JSON of pivots, and that would have been a second thing to fetch and a second
+    #   thing to fail — on a hero whose whole guard story is fail-open. Here the geometry cannot
+    #   arrive without its rig, because they are the same buffer.
+    #     TEXCOORD_1 = (letter index, u across the word) — the index looks up this letter's spring
+    #                  state; u is the wave coordinate, so propagation costs no lookup at all.
+    #   ⚑ THE PIVOT IS NOT SHIPPED. It was, as a third UV, and it cost 8 bytes on every vertex to
+    #     carry twenty numbers — 52 KB to say the same thing 6,502 times. js/hero3d.js derives each
+    #     letter's foot from the vertex data it has already loaded, which is both smaller and
+    #     strictly safer: a baked pivot can drift from the geometry it belongs to, a derived one
+    #     cannot. Ship what cannot be computed; compute the rest.
+    #   ⚠ UV layers are per-LOOP in Blender, and that is fine here only because every corner of a
+    #     face belongs to one glyph: the glyphs were built as separate objects and are never
+    #     welded across. A weld would silently average two letters' indices into a fractional one.
+    if rig is not None:
+        vert_letter, letters = rig
+        ridx = me.uv_layers.new(name='RigIndex')
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                k = vert_letter[used[me.loops[li].vertex_index]]
+                ridx.data[li].uv = (float(k), letters[k]['u'])
 
     for p in me.polygons:
         p.use_smooth = True
@@ -772,16 +832,22 @@ def main():
     font = argv[1] if len(argv) > 1 else 'build/hero-type/anton.ttf'
     os.makedirs(outdir, exist_ok=True)
 
-    verts, face_polys, bevel_polys, rim_polys, b, st = build_type(font)
+    verts, face_polys, bevel_polys, rim_polys, b, st, vert_letter, letters = build_type(font)
     lo = (min(v[0] for v in verts), min(v[1] for v in verts))
     hi = (max(v[0] for v in verts), max(v[1] for v in verts))
+    rig = (vert_letter, letters)
 
     # a fresh scene for the export, so nothing from the text build rides along
     for ob in list(bpy.data.objects):
         bpy.data.objects.remove(ob)
-    face = make_object('wm_face', verts, face_polys, uv_from=(lo, hi))
-    bevel = make_object('wm_bevel', verts, bevel_polys, uv_from=(lo, hi))
-    rim = make_object('wm_rim', verts, rim_polys)          # no UVs: see the header
+    face = make_object('wm_face', verts, face_polys, uv_from=(lo, hi), rig=rig)
+    bevel = make_object('wm_bevel', verts, bevel_polys, uv_from=(lo, hi), rig=rig)
+    # ⚠ The rim GETS UV0 NOW, even though the shader still samples no texture on the wall. The
+    #   exporter numbers TEXCOORD slots by layer order per mesh, so a rim carrying only the two
+    #   rig layers would ship them as TEXCOORD_0/_1 while face and bevel ship them as _1/_2 — the
+    #   vertex shader would then read the planar UV as a letter index and silently rig the entire
+    #   silhouette to letter 0. An unused 8 bytes a vertex buys slot alignment across all three.
+    rim = make_object('wm_rim', verts, rim_polys, uv_from=(lo, hi), rig=rig)
 
     glb = os.path.join(outdir, 'type.glb')
     bpy.ops.export_scene.gltf(
@@ -806,6 +872,10 @@ def main():
           + '  (dropped %d rear polys)' % st['dropped'])
     print('  DEPTH chars=%d extrude %.5f..%.5f dome %.5f'
           % (st['chars'], st['ext_lo'], st['ext_hi'], st['dome']))
+    print('  RIG letters=%d runs=%s' % (st['letters'], ','.join(str(sz) for _b, sz in RUNS)))
+    for k, L in enumerate(letters):
+        print('  LETTER %02d %s cx=%+.5f y0=%+.5f u=%.5f hw=%.5f'
+              % (k, L['ch'], L['cx'], L['y0'], L['u'], L['hw']))
     print('HERO_OK glb=%s aspect=%.4f h=%.5f d=%.5f tex=%dx%d lut=%d %s'
           % (glb, aspect, b['h'], b['d'], tw, th, LUT_W,
              ' '.join('%s=%s' % kv for kv in outs.items())))
