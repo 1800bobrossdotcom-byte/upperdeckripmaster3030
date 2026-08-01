@@ -87,12 +87,45 @@ Copy these verbatim. Each one changes a number the artist would otherwise be pla
 3. **Is any creator allocation vested or locked?** If so, on what schedule?
 4. **How is the opening price set?** Is it purely a function of the chosen curve preset and the
    supply cap, or is there a separate parameter?
-5. **Does the edition graduate to a DEX** at some threshold? If so — at what point, who owns the
-   resulting LP, and what happens to the curve contract afterwards?
+5. **Graduation to a DEX — ✅ CONFIRMED IT HAPPENS (artist, 2026-08-01), timing unknown.**
+   So the open parts are: **at what threshold or on what trigger?** **Who owns the resulting LP
+   position?** **What happens to the curve contract and any unsold curve inventory afterwards?**
+   And **can anyone add liquidity to that pool once it exists, or is it locked?**
+   ⚑ This one governs more than it looks: **before graduation there is nothing to provide
+   liquidity to** — the curve's depth is placed once at deploy and there is no documented top-up
+   path — so every "contribute to the pool" feature on the site is gated on this answer.
 6. **Do secondary sales of the 721 lens NFTs pay a creator royalty** through SuperRare, and is
    that separate from the ERC-20 side?
 7. **At a 33,000,000 supply cap, is there a minimum raise or float requirement** we should know
    about before choosing the curve?
+
+### Market structure — added 2026-08-01
+
+These are separate from the revenue questions above: they decide what the *site* can offer
+collectors (depth, liquidity provision, a "your position" surface), and none can be answered from
+anything SuperRare has published.
+
+8. ⛔ **What is the buy fee and the sell fee, numerically, and does the pool pay LP fees to
+   anyone?** This is question 2 restated because it is **blocking, not merely open**: no slippage,
+   liquidity, or market-making figure can be computed until it is answered. Everything we have
+   modelled treats fees as zero, which we know is wrong.
+9. **Can liquidity be added to a live multicurve after deploy?** We have inferred **no** — a static
+   multicurve places all liquidity once, and topping up would need raw v4 position management
+   rather than a first-class feature. Confirm or refute; we have not verified it.
+10. **Is `poolLaunchSupply` less than `maxTotalSupply`?** If so, where does the remainder go, and
+    is that the creator allocation? Every slippage number and the FDV scale with this.
+11. **Is there a RARE reserve seed at deploy, and what is `minRareLiquidityWei()`?**
+    ⚠ Our own notes contradict each other — `docs/CURVE-TARGET.md` and `docs/TOKEN-MATH.md` both
+    record a ~10,000 RARE seed (`max(2×minRareLiquidityWei, 10k)`), while `scripts/token-model.mjs`
+    prints reserve = 0 at launch. **This decides whether there is any bid below spot on day one**,
+    i.e. whether the first seller walks the curve down alone.
+12. **Is the ERC-20 freely transferable — no transfer hooks, no fee on transfer, no allowlist?**
+    ⚠ We have proven **buy and burn** on Sepolia and nothing else. `approve` / `transferFrom` have
+    never been executed against a real edition, and `contracts/PackSink.sol` (the 50/50 pack and
+    rake split) depends entirely on both working normally.
+13. **What is SuperRare's position on the artist's own wallet trading its own edition**, and does
+    any volume or ranking surface distinguish creator-wallet flow? Asking before, not after.
+14. **At graduation (see 5): who owns the LP, can third parties add to it, and is it locked?**
 
 ### Until they answer
 

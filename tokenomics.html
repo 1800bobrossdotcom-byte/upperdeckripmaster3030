@@ -194,18 +194,20 @@
   itself is the standing liquidity.</p>
 
   <h2 id="packs"><span class="n">06</span>The pack allotment (dwindling + escalating)</h2>
-  <p>Each season opens a fixed <b>allotment</b> of packs; within a season the price walks a line from base → ceil
-  as it sells, then <b>packs close</b> for the season (secondary market only). The allotment shrinks and the floor
-  rises each season. Allotments are sized so a full four-season sellout burns the whole ⅔-cap budget (§7) and no
+  <p>⛔ <b>There are no seasons.</b> ripmaster3030studios is a game studio, not a drop calendar — the schedule is
+  <b>tiered</b>. Each tier opens a fixed <b>allotment</b> of packs; within a tier the price walks a line from base → ceil
+  as it sells, then that tier <b>closes</b> and the next opens (secondary market in between). A tier opens when the one
+  before it <b>sells out</b>, not on a date. The allotment shrinks and the floor
+  rises each tier. Allotments are sized so a full four-tier sellout burns the whole budget (§7) and no
   more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
   contract) and fully auditable from the burn txs.</p>
-  <table><tr><th>Season</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>season 🔥 (tok)</th></tr>
-    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
-    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
-    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
-    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
+  <table><tr><th>Tier</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>tier 🔥 (tok)</th></tr>
+    <tr><td>Tier I</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
+    <tr><td>Tier II</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
+    <tr><td>Tier III</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
+    <tr><td>Tier IV</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
   <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
-  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
+  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at each tier open, recalibrated to the live token price.</p>
 
   <h2><span class="n">07</span>The burn schedule</h2>
   <p>The only on-chain spend is the one token. A pack and a game rake <b>split 50/50</b> — half
@@ -221,10 +223,10 @@
 
   <h2><span class="n">08</span>Lifetime burn — what it does and does not do</h2>
   <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
-  cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
+  cap</b>. Packs burn the token down over the deck's four-tier life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-season sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
+    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
     <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed</td></tr>
     <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
     <tr><td>Permanent contraction</td><td><b>≈ 1.03×</b></td><td>33M → ~31.99M. We do <b>not</b> claim deflation as the thesis</td></tr>
@@ -233,7 +235,7 @@
   scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
   but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
   <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
-  fully-deflated float only if the community truly burns across the seasons. No burn ever re-mints.</p>
+  fully-deflated float only if the community truly burns across the tiers. No burn ever re-mints.</p>
   <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
     run). Over the deck's life the <b>burns dominate</b>: ⅔ of the mint is retired permanently. Read the real
     trajectory from <code>totalSupply()</code> — burn progress is <code>maxTotalSupply − totalSupply</code>.</p></div>

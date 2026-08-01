@@ -67,6 +67,22 @@ the clearance joke. ⛔ It no longer appears on new surfaces; see the directive 
   hits the fallback, wrong offset approves the wrong spender, a missing `10^18` approves 350 wei.
   **Writing the two selectors from memory got BOTH wrong**; they are now recomputed from the ABI
   and asserted against the file. `npm test` = 31 + 17 + 51 + 38.
+- ⚠ **"Treasury is ~3.2% of the float" IS THE WRONG DENOMINATOR** — corrected in `TREASURY.md`.
+  The arithmetic is right, the measurement isn't: under mint-once most of `totalSupply` is unsold
+  inventory still inside the AMM. Against tokens that actually LEFT the curve the studio holds
+  **50%**, and **100%** of everything not burned, because it takes half of every pack by
+  construction. Whether that is 3% or 80% of real circulating supply is a demand assumption, not a
+  fact. ⚑ Price risk is genuinely small at 33M (dumping the slug moves spot ~−6.8%, vs −53.7% at
+  the old cap — the supply change defused that); **concentration risk is the opposite of small.**
+  Do not quote 3.2% as reassurance.
+- ✅ **THE EDITION GRADUATES TO A DEX** (artist, 2026-08-01) — timing unknown. ⚑ Load-bearing for
+  liquidity: **before graduation there is nothing to provide liquidity TO** (curve depth is placed
+  once at deploy, no documented top-up path), so every "contribute to the pool" feature is gated on
+  it. Threshold, LP ownership, and whether third parties can add are questions 5/14 to SuperRare.
+- ⚠ **RESERVE-SEED CONTRADICTION, unresolved.** `docs/CURVE-TARGET.md` and `docs/TOKEN-MATH.md`
+  both record a ~10,000 RARE seed at deploy (`max(2×minRareLiquidityWei, 10k)`); `token-model.mjs`
+  prints reserve = **0** at launch. One is wrong, and it decides **whether there is any bid below
+  spot on day one** — i.e. whether the first seller walks the curve down alone. Question 11.
 - ✅ **Rip Rocketer's flat 25-token launch fee goes 100% TO THE TREASURY** (artist's call,
   2026-08-01) — it does not split and it does not burn. ⚑ **No contract needed, and that is the
   lesson**: PackSink exists because a *split* is two operations that must not half-execute; paying
@@ -76,6 +92,25 @@ the clearance joke. ⛔ It no longer appears on new surfaces; see the directive 
   something to make atomic, not by habit.** Fails closed (`no-treasury`) rather than falling back
   to a burn — a fallback that performs a *different economic action* is worse than a refusal. The
   word "burn" is gone from that game's copy in both builds.
+
+## ⛔ NO SEASONS — the pack schedule is TIERED (artist directive, 2026-08-01)
+**"We are a game studio now."** Four **TIERS** of dwindling allotment and rising floor —
+1,600 → 1,100 → 600 → 260 packs — and **a tier opens when the one before it SELLS OUT, not on a
+date.**
+- ⚑ **A real change, not a rename.** A season is a promise about TIME: call it "Summer" and you
+  owe the public a drop every summer forever, and missing one is a visible failure at something
+  nobody had to promise. A tier is a promise about SUPPLY, equally honest whether it takes three
+  weeks or three years. It also matches the standing "work like we don't have a deadline" rule.
+- ⚠ **The NUMBERS ARE UNCHANGED** — same allotments, same base/ceil, so every burn/float/treasury
+  figure is identical. `token-model.mjs`'s `SEASONS` is now `TIERS`; §4 prints "PACK ALLOTMENT BY
+  TIER". Regenerated: `index.html` (countdown, marquee, tier strip, rite §2/§3), `tokenomics.html`,
+  `whitepaper.html/pdf`, `audit.html`, `ECONOMIC-FLOW.md`, `TREASURY.md`.
+- ⚠ **The 33 heroes are now "the genesis set", not "Season-1"** — same thing, no calendar.
+- ⚠ **Still seasoned, deliberately left alone:** ~200 placeholder card pages carry a
+  `season: II · card 31` print-run line on the back. That is card-back METADATA, a different
+  concept, and the whole deck is being clean-slated anyway (task #71). Decide it there.
+- ⚠ `index.html`'s CSS class names are still `.season`/`.seasons` — cosmetic only, left to avoid
+  churn; the markup and copy say Tier.
 
 ## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
 **Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**

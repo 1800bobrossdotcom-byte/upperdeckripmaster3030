@@ -136,7 +136,7 @@ S.push(slide('The economy · where every token goes', `
       <ul>
         <li>every pack — <b>in full</b> (~350/rip)</li>
         <li>voluntary conviction burns</li>
-        <li>season-end <b>compression</b> costs</li>
+        <li>tier-end <b>compression</b> costs</li>
         <li>irreversible, public, final</li>
       </ul>
     </div>
@@ -167,31 +167,32 @@ S.push(slide('Packs · a $7 premium, escalating', `
     <ul class="bullets">
       <li>A pack is a site-guided <b>buy of ~350 $3030 ≈ $7</b> (seven cards, ~$1 a card), <b>split half-burn / half-studio</b> — see docs/TREASURY.md for why that split has to be one atomic call.</li>
       <li>Your 7 pulls derive from your burn tx; your collection is your rip history + holdings — <b>not</b> a token reprice, FDV unchanged.</li>
-      <li><b>Within a season:</b> price walks a line from base → ceil as the allotment sells (S1 350 → 525 tokens).</li>
-      <li><b>Across seasons:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>seasonal allotment</b>, not card supply.</li>
-      <li>Sell out the allotment and packs <b>close for the season</b> — the schedule is site-enforced and auditable from the burn txs.</li>
+      <li><b>Within a tier:</b> price walks a line from base → ceil as the allotment sells (Tier I 350 → 525 tokens).</li>
+      <li><b>Across tiers:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>tier allotment</b>, not card supply.</li>
+      <li>Sell out the allotment and that tier <b>closes</b>; the next opens. A tier opens on <b>sell-out, not on a date</b> — site-enforced and auditable from the burn txs.</li>
     </ul>
     <table class="tbl">
-      <tr><th>Season</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
-      <tr><td>I · Summer</td><td>1,600 packs</td><td>$7.00</td></tr>
-      <tr><td>II · Fall</td><td>1,100 packs</td><td>$9.00</td></tr>
-      <tr><td>III · Winter</td><td>600 packs</td><td>$12.00</td></tr>
-      <tr><td>IV · Spring</td><td>260 packs</td><td>$16.00</td></tr>
+      <tr><th>Tier</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
+      <tr><td>Tier I</td><td>1,600 packs</td><td>$7.00</td></tr>
+      <tr><td>Tier II</td><td>1,100 packs</td><td>$9.00</td></tr>
+      <tr><td>Tier III</td><td>600 packs</td><td>$12.00</td></tr>
+      <tr><td>Tier IV</td><td>260 packs</td><td>$16.00</td></tr>
     </table>
   </div>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total; full sellout ≈ 1,014,375 🔥 burned + 1,014,375 to the studio. Recalibrated to the live token price at each season open.</p>`, C.acid));
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total; full sellout ≈ 1,014,375 🔥 burned + 1,014,375 to the studio. Recalibrated to the live token price at each tier open.</p>`, C.acid));
 
-// 7 — seasons + compression
+// 7 — tiers + compression
 S.push(slide('Lenses · minting &amp; compression', `
-  <h2>Four seasons a year — every card a living lens.</h2>
+  <h2>Four tiers, no calendar — every card a living lens.</h2>
   <div class="seasonrow">
-    <div class="sea live"><em>Season I</em><b>SUMMER</b><span>live at launch</span></div>
-    <div class="sea"><em>Season II</em><b>FALL</b><span>soon</span></div>
-    <div class="sea"><em>Season III</em><b>WINTER</b><span>soon</span></div>
-    <div class="sea"><em>Season IV</em><b>SPRING</b><span>soon</span></div>
+    <div class="sea live"><em>Tier I</em><b>1,600</b><span>live at launch</span></div>
+    <div class="sea"><em>Tier II</em><b>1,100</b><span>on sell-out</span></div>
+    <div class="sea"><em>Tier III</em><b>600</b><span>on sell-out</span></div>
+    <div class="sea"><em>Tier IV</em><b>260</b><span>on sell-out</span></div>
   </div>
+  <p class="fine">A tier opens when the one before it sells out — not on a date. We are a game studio, not a drop calendar.</p>
   <ul class="bullets wide">
-    <li><b>33 hero lenses — a Season-1 genesis set (persists all four seasons):</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
+    <li><b>33 hero lenses — the genesis set (persists across all four tiers):</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
     <li><b>67 field lenses — render-only now:</b> live on-chain, unminted (readable via the CLI). Collect their copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>, on the same render — so they stay lenses, never static art.</li>
     <li><b>Lovebeing — the holder lens:</b> distributed to <b>every $3030 holder</b>, one per wallet, <b>non-transferable</b> and <b>non-burnable</b>. Nothing turns to ash — the deck survives; the token deflates.</li>
   </ul>`, C.cyan));

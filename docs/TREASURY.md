@@ -31,17 +31,49 @@ out of it. At `BURN_SHARE = 0.50`:
 
 | | modelled before | actual at the 50% split |
 | --- | --- | --- |
-| four-season sellout burn | 2,028,750 | **1,014,375** |
-| to the studio, same period | — | **1,014,375** (≈ $20.3K at the *opening* price) |
+| four-tier sellout burn | 2,028,750 | **1,014,375** |
+| to the studio, same period | — | **1,014,375** (≈ $16.1K at the opening price, RARE $0.0159) |
 | settled float | ~30,971,250 | **~31,985,625** |
 | permanent contraction | 1.07× | **1.03× — essentially none** |
 
 Regenerated with it: `tokenomics.html`, `audit.html`, `whitepaper.html`, `whitepaper.pdf`,
 `index.html`, `docs/ECONOMIC-FLOW.md`, `docs/CURVE-TARGET.md`.
 
-⚠ The studio's cut is **tokens, not dollars**, and 1.01M is ~3.2% of the surviving float — selling
-it is itself sell pressure on the curve it is priced against. The model reports it and does not
-price it.
+⚠ The studio's cut is **tokens, not dollars** — selling it is itself sell pressure on the curve it
+is priced against. The model reports it and does not price it.
+
+### ⚠ "~3.2% of the float" was the WRONG DENOMINATOR — corrected 2026-08-01
+
+An earlier version of this file reassured with "1.01M is ~3.2% of the surviving float." The
+arithmetic is right (1,014,375 / 31,985,625 = 3.17%) and **the measurement is wrong**, because
+under mint-once **most of `totalSupply` is unsold inventory still sitting inside the AMM's own
+positions.** It is not float in any economic sense. Against tokens that have actually *left* the
+curve:
+
+| denominator | treasury share |
+| --- | --- |
+| `totalSupply` after burns (what this file used to say) | 3.17% |
+| supply cap | 3.07% |
+| **tokens ever removed from the curve** | **50.0%** |
+| **off-curve and not burned, pack demand only** | **100%** |
+
+**By construction the studio ends up holding exactly half of every token the pack economy ever
+pulls out of the pool** — and every one that isn't burned. Whether that is 3% or 80% of genuinely
+circulating supply depends entirely on outside speculative demand this project does not model and
+cannot control:
+
+| outside holders accumulate | treasury share of circulating |
+| --- | --- |
+| 0 | 100% |
+| 250,000 | 80% |
+| 1,000,000 | 50% |
+| 5,000,000 | 17% |
+
+⚑ **Do not quote 3.2% as reassurance.** The number that matters is the second table, and it is a
+demand assumption, not a fact. The *price* risk is genuinely small at 33M — dumping the whole slug
+moves spot about −6.8% on the smooth model, against −53.7% at the old 3.03M cap, so the supply
+change defused that — but **ownership concentration is the opposite of reassuring** and the two
+should not be confused.
 
 ⚠ `docs/TOKEN-MATH.md` is **not** rewritten: it is still written against the old 3,030,000 cap, so
 it is stale on two axes at once and a correct rewrite needs the artist's unmade 33M decision
@@ -223,6 +255,6 @@ auction is a **third route to the same mint** rather than a new asset. Cleanest 
 Auction proceeds are the same treasury question as everything else here, and the same caveat
 applies: it is a revenue line, so state it publicly rather than let it be discovered.
 
-Recommendation: **option 1 for Season 1.** It ships without adding an unaudited contract holding
+Recommendation: **option 1 for the genesis set.** It ships without adding an unaudited contract holding
 other people's money five days before launch, and it can be upgraded to option 2 later without
 changing the lens contract at all.

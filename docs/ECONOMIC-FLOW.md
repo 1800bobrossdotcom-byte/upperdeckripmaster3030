@@ -48,14 +48,14 @@ their art logic changing** (see §3).
 | **Field cards** | **67** | **render-only lens** (chain-readable, unminted) | pulled from packs · site-layer collectible |
 | **Lovebeing** | +1 | **holder-bound lens** | every `$UR3030` holder carries one |
 
-### The 33 hero lenses — a **Season-1 genesis set** (11 gacha + 22 earned) ✅
-**The 33 are established in Season 1 only, and persist through all four seasons** — no new
+### The 33 hero lenses — the **genesis set** (11 gacha + 22 earned) ✅
+**The 33 are established in Tier I only, and persist through all four tiers** — no new
 hero/special cards are ever minted after S1. They are the permanent elite of the deck; later
-seasons (S2–S4) continue the field-card packs and the token burn-down, but the special tier
+tiers (II–IV) continue the field-card packs and the token burn-down, but the special tier
 is locked at launch.
-- **11 GACHA** — a lens claim is seeded **rarely** across the (Season-1) pack stream; pull it →
+- **11 GACHA** — a lens claim is seeded **rarely** across the Tier-I pack stream; pull it →
   **mint** (wallet signs). 11 exist, ever.
-- **22 EARNED** — each a one-of-a-kind **Season-1 game title** (**12 cabinet titles** — 4 per
+- **22 EARNED** — each a one-of-a-kind **genesis game title** (**12 cabinet titles** — 4 per
   game across the three cabinets — **+ 6 first-blood feats + 4 grand titles**); win it → a
   signed claim **voucher** → **mint**. One winner per title.
 
@@ -79,25 +79,33 @@ minted per-person** (no flood). Hold the token, you carry Lovebeing.
 
 ## 4 · Packs — the BURN engine ✅
 
+⛔ **THERE ARE NO SEASONS. The schedule is TIERED.** (Artist directive, 2026-08-01 —
+ripmaster3030studios is a game studio, not a drop calendar.) **A tier opens when the one before
+it SELLS OUT, not on a date.** ⚑ This is a real change, not a rename: a season is a promise about
+*time* — call it "Summer" and you owe the public a drop every summer, forever, and missing one is
+a visible failure at something nobody had to promise. A tier is a promise about *supply*, and it
+is equally honest whether it takes three weeks or three years. The four allotments and prices are
+unchanged, so every burn, float and treasury number is identical.
+
 A pack is a **site-guided buy of `$UR3030` off the curve**, then **split 50/50: half burns
 permanently, half funds the studio** (artist directive — `docs/TREASURY.md`). Together with the
 game rake it is the only thing that burns supply.
 
 ⚠ **This halved every burn figure that predates it.** The model burned 100% of every pack until
 2026-08-01, so any burn number quoted from an older run of `token-model.mjs` — or from a document
-that copied one — is **double the truth**. The four-season sellout burn is **≈1.01M, not ≈2.03M**.
+that copied one — is **double the truth**. The four-tier sellout burn is **≈1.01M, not ≈2.03M**.
 The split is atomic (`contracts/PackSink.sol`), because burn-then-transfer as two signed
 transactions can half-execute; see `docs/TREASURY.md` for why that is not negotiable.
 
-- **Allotment (site-enforced, dwindling):** S1 **1,600** → S2 **1,100** → S3 **600**
-  → S4 **260** = **≈3,560 packs**. The pack count is bounded by the **burn budget, not
-  card supply** — allotment gone ⇒ packs close for the season (secondary market only).
-- **Price escalates** within a season (base→ceil as the allotment sells) and across
-  seasons: **~350 tok (~$7)** in S1 → **~1,200 tok (~$24)** by S4, on top of token
+- **Allotment (site-enforced, dwindling):** Tier I **1,600** → II **1,100** → III **600**
+  → IV **260** = **≈3,560 packs**. The pack count is bounded by the **burn budget, not
+  card supply** — allotment gone ⇒ that tier closes and the next opens (secondary market in between).
+- **Price escalates** within a tier (base→ceil as the allotment sells) and across
+  tiers: **~350 tok (~$7)** in Tier I → **~1,200 tok (~$24)** by Tier IV, on top of token
   appreciation.
 - A pack reveals **field cards** (site-layer). **Rarely** it carries one of the **11
   gacha lens-claims** — mint it and you have a hero lens. **Lovebeing is not in packs.**
-- **Full four-season sellout burns ≈ 1.01M** and pays the studio ≈ **1.01M** (`token-model.mjs`)
+- **Full four-tier sellout burns ≈ 1.01M** and pays the studio ≈ **1.01M** (`token-model.mjs`)
   — see §6. ⚠ Against a 33M cap that is a **1.03× contraction, i.e. essentially none**; the
   deflation thesis does not survive the supply change and is an open decision (see `CLAUDE.md`).
 
@@ -116,7 +124,7 @@ Card → in-game power is live today (`js/card-powers.js`, see `CARD-POWER-MAPPI
 > local-vault; the **trustless token-pot escrow + real podium payout** ships with the
 > **Phase-2 721-lens contract**. Until then the pot split is shown but settles off-chain.
 
-The **22 earned hero lenses** are the prestige track — all **Season-1 titles** (the 33 are a
+The **22 earned hero lenses** are the prestige track — all **genesis titles** (the 33 are a
 genesis set; §3): each maps to a single, unrepeatable **title** across the three cabinets —
 **12 cabinet titles** (4 per game), **6 first-blood feats**, **4 grand titles**. Win a title
 → signed voucher → mint the 1/1.
@@ -124,7 +132,7 @@ genesis set; §3): each maps to a single, unrepeatable **title** across the thre
 ## 6 · The burn-down — token deflation, **not** card death ✅
 
 Packs burn `$UR3030` permanently, so supply only falls: from the **3,030,000** mint
-toward a **~1,010,000 floor** once the field's four-season life sells through — a **≈3×
+toward a **~1,010,000 floor** once the field's four-tier life sells through — a **≈3×
 permanent contraction** (`token-model.mjs`). **Lifetime burn ≈ 2,020,000 (⅔ of the
 cap)**; the invariant **Σ lifetime burn ≤ cap** holds trivially.
 

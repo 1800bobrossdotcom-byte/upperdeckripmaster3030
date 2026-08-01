@@ -225,7 +225,7 @@ const whitepaper = `
       community vote</b> (the Rarity Court), not decreed.</li>
     <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull
       <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
-    <li><b>The 33 hero lenses</b> — a <b>Season-1 genesis set</b> that persists all four seasons — <b>11 gacha</b>
+    <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers — <b>11 gacha</b>
       (pull the claim from a pack → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>
     <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
@@ -265,14 +265,14 @@ const whitepaper = `
   <p>A pack is the one <b>premium</b> action, and it uses only native curve operations: the site walks
   you through <b>buying ~350 $3030 ≈ $7</b> and <b>burning it in full</b>. It is <b>not</b> a token reprice —
   FDV is unchanged — and every rip is a real buy-and-burn, the engine of steady pressure, not a pump. The
-  schedule (site-enforced, auditable from the burn txs) escalates <b>within</b> a season (base→ceil as
-  the allotment sells) and <b>across</b> seasons (the allotment dwindles and the floor rises). The pack count
+  schedule (site-enforced, auditable from the burn txs) escalates <b>within</b> a tier (base→ceil as
+  the allotment sells) and <b>across</b> tiers (the allotment dwindles and the floor rises). The pack count
   is bounded by the <b>burn budget, not card supply</b>.</p>
-  <table><tr><th>Season</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
-    <tr><td>I · Summer</td><td>1,600 packs</td><td>$7.00</td></tr>
-    <tr><td>II · Fall</td><td>1,100 packs</td><td>$9.00</td></tr>
-    <tr><td>III · Winter</td><td>600 packs</td><td>$12.00</td></tr>
-    <tr><td>IV · Spring</td><td>260 packs</td><td>$16.00</td></tr></table>
+  <table><tr><th>Tier</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
+    <tr><td>Tier I</td><td>1,600 packs</td><td>$7.00</td></tr>
+    <tr><td>Tier II</td><td>1,100 packs</td><td>$9.00</td></tr>
+    <tr><td>Tier III</td><td>600 packs</td><td>$12.00</td></tr>
+    <tr><td>Tier IV</td><td>260 packs</td><td>$16.00</td></tr></table>
   <p class="fine">*Floor at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total. See <a href="tokenomics.html">Tokenomics</a>.</p>
 
   <h2><span class="n">06</span>Lenses, minting &amp; the Compression rite</h2>
@@ -399,18 +399,20 @@ const tokenomics = `
   itself is the standing liquidity.</p>
 
   <h2 id="packs"><span class="n">06</span>The pack allotment (dwindling + escalating)</h2>
-  <p>Each season opens a fixed <b>allotment</b> of packs; within a season the price walks a line from base → ceil
-  as it sells, then <b>packs close</b> for the season (secondary market only). The allotment shrinks and the floor
-  rises each season. Allotments are sized so a full four-season sellout burns the whole ⅔-cap budget (§7) and no
+  <p>⛔ <b>There are no seasons.</b> ripmaster3030studios is a game studio, not a drop calendar — the schedule is
+  <b>tiered</b>. Each tier opens a fixed <b>allotment</b> of packs; within a tier the price walks a line from base → ceil
+  as it sells, then that tier <b>closes</b> and the next opens (secondary market in between). A tier opens when the one
+  before it <b>sells out</b>, not on a date. The allotment shrinks and the floor
+  rises each tier. Allotments are sized so a full four-tier sellout burns the whole budget (§7) and no
   more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
   contract) and fully auditable from the burn txs.</p>
-  <table><tr><th>Season</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>season 🔥 (tok)</th></tr>
-    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
-    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
-    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
-    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
+  <table><tr><th>Tier</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>tier 🔥 (tok)</th></tr>
+    <tr><td>Tier I</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
+    <tr><td>Tier II</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
+    <tr><td>Tier III</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
+    <tr><td>Tier IV</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
   <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
-  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
+  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at each tier open, recalibrated to the live token price.</p>
 
   <h2><span class="n">07</span>The burn schedule</h2>
   <p>The only on-chain spend is the one token. A pack and a game rake <b>split 50/50</b> — half
@@ -426,10 +428,10 @@ const tokenomics = `
 
   <h2><span class="n">08</span>Lifetime burn — what it does and does not do</h2>
   <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
-  cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
+  cap</b>. Packs burn the token down over the deck's four-tier life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-season sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
+    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
     <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed</td></tr>
     <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
     <tr><td>Permanent contraction</td><td><b>≈ 1.03×</b></td><td>33M → ~31.99M. We do <b>not</b> claim deflation as the thesis</td></tr>
@@ -438,7 +440,7 @@ const tokenomics = `
   scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
   but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
   <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
-  fully-deflated float only if the community truly burns across the seasons. No burn ever re-mints.</p>
+  fully-deflated float only if the community truly burns across the tiers. No burn ever re-mints.</p>
   <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
     run). Over the deck's life the <b>burns dominate</b>: ⅔ of the mint is retired permanently. Read the real
     trajectory from <code>totalSupply()</code> — burn progress is <code>maxTotalSupply − totalSupply</code>.</p></div>
@@ -524,7 +526,7 @@ const audit = `
       (33 minted, 67 render-only), or do we deploy our own combined renderer+721 lens contract via the CLI?</li>
     <li><b>Mint mechanism</b> — a claim/voucher redeemer for the 11 gacha lenses (pack burn) and the 22 earned
       lenses (signed game vouchers).</li>
-    <li><b>Full Sepolia dress rehearsal</b> — deploy, wire the render, run a mock season: rips (buy+burn), a
+    <li><b>Full Sepolia dress rehearsal</b> — deploy, wire the render, run a mock tier: rips (buy+burn), a
       hero-lens mint, and watch the burn meter climb in the render.</li>
   </ul>
 

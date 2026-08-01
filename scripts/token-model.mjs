@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // $UR3030 economic model — reproducible. Prints the price schedule, sensitivity to
-// the demand multiple, buy slippage, the seasonal pack allotment + escalating pack
-// price, per-season burn pressure, and reward-pool funding. All numbers in
+// the demand multiple, buy slippage, the TIERED pack allotment + escalating pack
+// price, per-tier burn pressure, and reward-pool funding. All numbers in
 // docs/TOKEN-MATH.md come from here; re-run to re-derive.
 //
 //   node scripts/token-model.mjs
@@ -17,11 +17,11 @@
 // see "is 3M too low? no" in TOKEN-MATH §3). THE PACK is the one premium action: a
 // bundle of ~350 $UR3030 ≈ $7 at launch, so every rip is a real buy-and-burn of
 // hundreds of tokens (steady upward pressure), NOT a token reprice. Pack price
-// escalates within a season (allotment dwindles) and across seasons (field shrinks).
+// escalates within a tier (allotment dwindles) and across tiers (field shrinks).
 //
 // MINT-ONCE (per SuperRare audit 2026-07): the edition mints its whole supply into
 // the pool ONCE and burned tokens DO NOT re-mint — every burn is PERMANENT. So the
-// LIFETIME burn is bounded by the cap. We size the whole four-season pack arc to a
+// LIFETIME burn is bounded by the cap. We size the whole four-tier pack arc to a
 // fixed budget below the cap, leaving a deliberate live float. This is TOKEN DEFLATION,
 // not card death (model v2.2): packs burn the token; the 100-card deck SURVIVES. Numbers
 // below are our provisional target; the exact curve/supply/pack sizing is co-designed
@@ -49,18 +49,27 @@ const BURN_SHARE     = 0.50;    // of each pack; the remainder is studio revenue
 const CARDS_PER_PACK = 7;
 const REWARD_CUT     = 0;       // LAUNCH: no house bounty pool (Phase-2 vault: 1)
 const LAST_STAND     = 50;      // Phase-2 reference only (no on-chain bounty at launch)
-// Reference seasonal schedule. Card budget dwindles, price floor rises, each season.
-// base/ceil are $UR3030; ceil = 1.5*base (within-season line). The curator recalibrates
-// base at each openSeason to hold the USD target against the then-live token price.
-// Allotments are sized so a full four-season SELLOUT burns ≈ the lifetime budget
-// (the full ⅔-cap token contraction) and no more — permanent burns, so the arc fits
-// under the cap by construction. Card budget (pack pulls) dwindles and the price floor
-// rises each season. base/ceil are $UR3030; ceil = 1.5·base (within-season line).
-const SEASONS = [
-  { s: 'I · Summer',  budget: 11_200, base: 350, ceil: 525  },   // 1,600 packs
-  { s: 'II · Fall',   budget:  7_700, base: 450, ceil: 675  },   // 1,100 packs
-  { s: 'III · Winter', budget:  4_200, base: 600, ceil: 900  },   //   600 packs
-  { s: 'IV · Spring', budget:  1_820, base: 800, ceil: 1200 },   //   260 packs
+/* ── PACK TIERS (⛔ SEASONS ARE GONE — artist directive 2026-08-01) ────────────────────────────
+ * ripmaster3030studios is a game studio, not a seasonal drop calendar. The pack schedule is now
+ * TIERED: four tiers of dwindling allotment and rising floor, each opening when the one before
+ * it SELLS OUT — not on a date.
+ *
+ * ⚑ THIS IS A REAL CHANGE, NOT A RENAME. A season is a promise about TIME: name it "Summer" and
+ *   you owe the public a drop in summer, every year, forever, and a studio that misses one has
+ *   visibly failed at something it never needed to promise. A tier is a promise about SUPPLY:
+ *   tier II opens when tier I is gone, and if that takes three weeks or three years the
+ *   mechanism is equally honest. It also matches the standing directive to work like there is no
+ *   deadline — nothing creative should be pinned to a calendar the studio didn't have to publish.
+ *
+ * ⚠ The NUMBERS ARE DEEPLY UNCHANGED — same four allotments, same base/ceil, so every burn,
+ *   float and treasury figure below is identical. Only the framing and the trigger changed.
+ *   base/ceil are $3030; ceil = 1.5·base (the within-tier line). The floor is recalibrated at
+ *   each tier open to hold the USD target against the then-live token price. */
+const TIERS = [
+  { s: 'TIER I',   budget: 11_200, base: 350, ceil: 525  },   // 1,600 packs
+  { s: 'TIER II',  budget:  7_700, base: 450, ceil: 675  },   // 1,100 packs
+  { s: 'TIER III', budget:  4_200, base: 600, ceil: 900  },   //   600 packs
+  { s: 'TIER IV',  budget:  1_820, base: 800, ceil: 1200 },   //   260 packs
 ];
 
 const usd = r => r * RARE_USD;
@@ -75,7 +84,7 @@ const line = () => console.log('─'.repeat(80));
 
 console.log('\n$UR3030 TOKEN MODEL');
 console.log(`cap ${CAP.toLocaleString()} · P0 ${P0} RARE · M ${M} · RARE≈$${RARE_USD} · sell-fraction ${SELL_FRAC}`);
-console.log(`pack ≈ ${SEASONS[0].base} $UR3030 = $${fmt(packUsd(SEASONS[0].base),2)} at launch (the token stays cheap; the PACK is the premium)`);
+console.log(`pack ≈ ${TIERS[0].base} $UR3030 = $${fmt(packUsd(TIERS[0].base),2)} at launch (the token stays cheap; the PACK is the premium)`);
 
 // 1. price schedule — the SAME launch-size pack (350 tok) costs more $ as the token appreciates
 line(); console.log('1. PRICE SCHEDULE  (P = P0·M^f) — pack column = 350 $UR3030 priced at that spot');
@@ -120,13 +129,13 @@ for (const d of [20, 200, 2000, 20000]) {
 const capFor2pct = Math.log(M) / (0.02 * P0 / (2000 / RARE_USD));   // cap s.t. $2000 buy < 2% at launch
 console.log(`cap needed to hold a $2,000 launch buy under 2% impact: ~${fmt(capFor2pct/1e6,1)}M tokens (at M=${M})`);
 
-// 4. SEASONAL PACK ALLOTMENT — dwindling supply, escalating price
-line(); console.log('4. SEASONAL PACK ALLOTMENT  (packs = cardBudget / 7; price rises base→ceil as it is spent)');
-console.log(['season','cardBudget','packs','base(tok)','ceil(tok)','base≈$*','ceil≈$*','season$ (tok·spot)*'].map((s,i)=>s.padStart(i?11:11)).join(''));
-for (const S of SEASONS) {
+// 4. PACK ALLOTMENT BY TIER — dwindling supply, escalating price
+line(); console.log('4. PACK ALLOTMENT BY TIER  (packs = cardBudget / 7; price rises base→ceil as it is spent)');
+console.log(['tier','cardBudget','packs','base(tok)','ceil(tok)','base≈$*','ceil≈$*','tier$ (tok·spot)*'].map((s,i)=>s.padStart(i?11:11)).join(''));
+for (const S of TIERS) {
   const packs = Math.floor(S.budget / CARDS_PER_PACK);
   const avg = (S.base + S.ceil) / 2;                 // linear line → mean price = midpoint
-  const seasonTok = packs * avg;                     // tokens of buy-and-burn demand this season
+  const tierTok = packs * avg;                       // tokens of buy-and-burn demand this tier
   console.log([
     S.s.padStart(11),
     S.budget.toLocaleString().padStart(11),
@@ -135,21 +144,21 @@ for (const S of SEASONS) {
     String(S.ceil).padStart(11),
     ('$'+fmt(packUsd(S.base),2)).padStart(11),
     ('$'+fmt(packUsd(S.ceil),2)).padStart(11),
-    (fmt(seasonTok/1e6,2)+'M tok').padStart(13),
+    (fmt(tierTok/1e6,2)+'M tok').padStart(13),
   ].join(''));
 }
 console.log('* $ columns price tokens at the LAUNCH spot ($0.02) — a conservative floor. As the curve');
 console.log('  fills, the token appreciates, so real USD pack prices ride ABOVE these on top of the base');
-console.log('  rise. Two escalators stack: the within-season base→ceil line AND token appreciation, and');
-console.log('  each season opens with a smaller allotment + higher floor. Allotment gone => packs close');
-console.log('  for the season (secondary market only). Numbers are curator-set defaults, tune at openSeason.');
+console.log('  rise. Two escalators stack: the within-tier base→ceil line AND token appreciation, and');
+console.log('  each tier opens with a smaller allotment + higher floor. Allotment gone => that tier closes');
+console.log('  and the next opens (secondary in between). Curator-set defaults; tune at each tier open.');
 
 // 5. LIFETIME BURN — PERMANENT, bounded by the cap (mint-once)
-line(); console.log(`5. LIFETIME BURN  (4 seasons; burns PERMANENT; ${fmt(BURN_SHARE*100,0)}% of each pack burns, the rest funds the studio)`);
-const seasonBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2) * BURN_SHARE;
+line(); console.log(`5. LIFETIME BURN  (4 tiers; burns PERMANENT; ${fmt(BURN_SHARE*100,0)}% of each pack burns, the rest funds the studio)`);
+const tierBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2) * BURN_SHARE;
 let selloutTotal = 0, treasuryTotal = 0;
-console.log(['season','packs','avg pack','season 🔥','cum 🔥','% of mint','→ studio'].map((s,i)=>s.padStart(i?12:11)).join(''));
-for (const S of SEASONS) {
+console.log(['tier','packs','avg pack','tier 🔥','cum 🔥','% of mint','→ studio'].map((s,i)=>s.padStart(i?12:11)).join(''));
+for (const S of TIERS) {
   const packs = Math.floor(S.budget / CARDS_PER_PACK), avg = (S.base + S.ceil) / 2;
   const gross = packs * avg, burn = gross * BURN_SHARE, treas = gross - burn;   // remainder, so it is exhaustive
   selloutTotal += burn; treasuryTotal += treas;
@@ -159,11 +168,11 @@ for (const S of SEASONS) {
     fmt(treas,0).padStart(12),
   ].join(''));
 }
-console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — the full token-contraction arc (model v2.2).`);
+console.log(`\nFull four-tier SELLOUT burns ${fmt(selloutTotal,0)} — the full token-contraction arc (model v2.2).`);
 console.log(`It lands at ${fmt(selloutTotal/CAP*100,1)}% of the ${fmt(CAP,0)} mint (budget ${fmt(LIFETIME_BURN_BUDGET,0)}, target ⅔).`);
 /* ⚠ The studio's share is TOKENS, not dollars, and it is a large slug against a thin float —
  * selling it all is itself sell pressure on the curve. Report it, do not price it. */
-console.log(`Studio treasury over the same four seasons: ${fmt(treasuryTotal,0)} $3030 (${fmt(treasuryTotal/CAP*100,1)}% of the mint),`);
+console.log(`Studio treasury over the same four tiers: ${fmt(treasuryTotal,0)} $3030 (${fmt(treasuryTotal/CAP*100,1)}% of the mint),`);
 console.log(`  ≈ $${fmt(usd(treasuryTotal*P0),0)} at the OPENING price — a ceiling, not a forecast: it is not sold at P0,`);
 console.log(`  and it is ${fmt(treasuryTotal/realFloatPreview()*100,1)}% of the surviving float, so selling it moves the curve it is priced on.`);
 function realFloatPreview() { return CAP - selloutTotal; }
@@ -172,12 +181,12 @@ function realFloatPreview() { return CAP - selloutTotal; }
  * showed. At 33M they diverge hard — LIFETIME_BURN_BUDGET is an aspiration (22M) while the
  * schedule burns 2.03M — and the old line went on confidently printing a 3.0× contraction that
  * nothing in the model supports. A tool that flatters the story is worse than no tool. */
-const packsAll = SEASONS.reduce((n, S) => n + Math.floor(S.budget / CARDS_PER_PACK), 0);
+const packsAll = TIERS.reduce((n, S) => n + Math.floor(S.budget / CARDS_PER_PACK), 0);
 const realFloat = CAP - selloutTotal;
-console.log(`Burns are PERMANENT: supply only falls. After the field's four-season life sells through, ~${fmt(realFloat,0)} $3030`);
+console.log(`Burns are PERMANENT: supply only falls. After the field's four-tier life sells through, ~${fmt(realFloat,0)} $3030`);
 console.log(`survive as the settled live float — a ${fmt(CAP/realFloat,2)}× contraction from the mint.`);
 if (CAP / realFloat < 1.5) {
-  console.log(`⚠ That is NOT a scarcity engine. Pack burns are denominated in TOKENS (${fmt(SEASONS[0].base,0)}→${fmt(SEASONS[SEASONS.length-1].ceil,0)}),`);
+  console.log(`⚠ That is NOT a scarcity engine. Pack burns are denominated in TOKENS (${fmt(TIERS[0].base,0)}→${fmt(TIERS[TIERS.length-1].ceil,0)}),`);
   console.log(`  so raising the cap does not scale them. To reach 3× you would need ~${fmt((CAP-CAP/3)/packsAll,0)} tokens/pack`);
   console.log(`  against today's ~${fmt(selloutTotal/packsAll,0)} — about ${fmt(((CAP-CAP/3)/packsAll)/(selloutTotal/packsAll),1)}× more, which forces P0 down by the same factor.`);
   console.log(`  Current direction: DEMOTE deflation. The burn still raises reserve-backing per surviving token.`);
@@ -196,4 +205,4 @@ console.log('INSTEAD of burning it — which would REDUCE lifetime burn below th
 console.log('it. Any such pool is seeded only from real rips, so it is solvent by construction (no pre-mint).');
 line();
 console.log('Verify before mainnet: mint/burn semantics, effective M, sell-fraction (--preview/getMarketState),');
-console.log('and recalibrate packBase to the $7-and-up USD target against the live token price at each openSeason.\n');
+console.log('and recalibrate packBase to the $7-and-up USD target against the live token price at each tier open.\n');
