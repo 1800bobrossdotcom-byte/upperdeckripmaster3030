@@ -54,7 +54,7 @@ Two things the implementation is careful about:
 
 ---
 
-## 2. Pack purchase — ⛔ SPEC'D, NOT SAFE TO SHIP CLIENT-SIDE
+## 2. Pack purchase — ✅ CONTRACT BUILT AND TESTED (`contracts/PackSink.sol`, 28/28)
 
 Currently a pack is one call: `RipWallet.burn(350)` → `burn(uint256)` on the token.
 
@@ -100,17 +100,33 @@ contract PackSink {
   does the job. **With no external audit (artist's call), "small enough to read in one sitting" is
   the whole safety argument.**
 
-### To do
+### Built — `npm run test:pack`, 28/28
 
-1. Write `contracts/PackSink.sol` + tests alongside `npm run test:lens`.
-2. Add `approve` + `buyPack` to `js/wallet.js` (it currently has `burn` and `balanceOf` only).
-3. Point `pack.js` and `cabinet.html` at it; keep the single-burn path as the fallback while the
-   sink is unset, exactly as `lens721:""` degrades today.
-4. Rehearse on Sepolia before mainnet — same drill as the buy/burn rehearsal.
+The contract is written and tested against a real EVM. What the tests actually prove, chosen for
+the properties that make the split trustworthy rather than for coverage:
 
-⚠ **Until PackSink exists, packs still burn 100%.** The site copy now says half-and-half, so this
-is the one place where the words are currently ahead of the code. Either ship the sink before
-launch or soften that copy to "will split" — do not leave it stating a split that is not running.
+- **`burned + toTreasury == amount` exactly**, at 350, **351**, **1**, 999,999 and 1e21. The odd
+  amounts are the point: an even one cannot reveal a dust bug, and at `amount = 1` the burn floors
+  to 0 and the treasury must still receive the whole thing. It does.
+- **The sink holds nothing afterwards** — checked after every case.
+- **`totalSupply` actually falls.** The burn is a burn, not a transfer to a dead address.
+- **A transfer that returns `false` reverts the whole call** — nothing burns, the buyer keeps
+  their tokens, no pack is owed. This is the one that matters: plenty of ERC-20s return false
+  rather than reverting, and an unchecked transfer would burn the collector's tokens and leave
+  the studio unpaid. The mock can be told to fail on purpose precisely so this is provable.
+- **No admin surface.** The ABI is asserted to contain no owner / admin / pause / upgrade /
+  withdraw / setToken / setTreasury function. There is nothing to trust the deployer about later.
+
+### Still to do before it is live
+
+1. Add `approve` + `buyPack` to `js/wallet.js` (it has `burn` and `balanceOf` only).
+2. Point `pack.js` and `cabinet.html` at it; keep the single-burn path as the fallback while
+   `chain-config.packSink` is unset, exactly as `lens721:""` degrades today.
+3. Deploy and rehearse on Sepolia — same drill as the buy/burn rehearsal.
+
+⚠ **Until it is deployed and wired, packs still burn 100%**, so the site copy is ahead of the
+code. That is now a wiring job rather than a design question, but it is still a real gap: ship it
+before launch or soften the copy to "will split".
 
 ---
 
