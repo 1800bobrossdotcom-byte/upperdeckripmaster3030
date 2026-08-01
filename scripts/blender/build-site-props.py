@@ -197,7 +197,7 @@ def vinyl_material():
     e.elements[0].position = 0.34
     e.elements[0].color = (0.0018, 0.0055, 0.0036, 1)      # recess: the leather's own dark
     e.elements[1].position = 0.95
-    e.elements[1].color = (0.0115, 0.0250, 0.0172, 1)      # pebble top, faintly green
+    e.elements[1].color = (0.0080, 0.0150, 0.0105, 1)      # pebble top, faintly green
     nt.links.new(relief.outputs['Color'], ramp.inputs['Fac'])
 
     finish(nt, bsdf, relief.outputs['Color'], ramp.outputs['Color'], 0.09)
@@ -251,8 +251,13 @@ def steel_material():
 
     # a faint cyan bloom in the polish, so the hardware belongs to this palette rather than to
     # a stock-photo toolbox
+    # ⚠ 0.025, not the 0.10 this started at. SCREEN against a near-saturated cyan adds ~0.093
+    #   LINEAR to green at Fac 0.10 — which is nothing on a bright surface and a doubling on a
+    #   dark one, so it swamped the ramp entirely: the plate measured mean 112.7 when its own top
+    #   colour is only luma 110, and the brush contrast it was supposed to carry collapsed to
+    #   sd 3.3. A tint has to be smaller than the thing it is tinting.
     tint = node(nt, 'ShaderNodeMixRGB', (380, 200), blend_type='SCREEN')
-    tint.inputs['Fac'].default_value = 0.10
+    tint.inputs['Fac'].default_value = 0.025
     tint.inputs['Color2'].default_value = (*srgb_to_linear(CYAN), 1)
     nt.links.new(ramp.outputs['Color'], tint.inputs['Color1'])
 
