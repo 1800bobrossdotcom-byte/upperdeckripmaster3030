@@ -150,6 +150,32 @@
     ssao: { intensity: 0.55, radius: 3.2, power: 3.0, minAngle: 12 },
   };
 
+  /* ⚑ CLEAN POST — `?clean=1`. Every value below was tuned honestly for a gritty tactical look,
+   * and against a bright stylised direction every one of them works backwards: chromatic
+   * aberration and grain ADD the high-frequency noise the style needs removed, unsharp then
+   * sharpens that noise, and a heavy vignette darkens exactly the screen edges where a shooter
+   * needs to see. So clean mode subtracts rather than retunes.
+   * The tonemapper stays — it is the highlight rolloff, and without it additive bloom clips to
+   * flat white, which is the one thing that would actually break this look. Saturation goes UP,
+   * because a flat-albedo world has no texture detail to carry interest and colour has to. */
+  const CLEAN = Q.get('grit') !== '1';
+  if (CLEAN) {
+    POST.fringing = 0;                    // no chromatic aberration
+    POST.grain = 0;                       // no film grain
+    POST.dither = 0.002;                  // just enough to stop banding on the big flat skies
+    POST.vignette = { inner: 0.92, outer: 3.2, curvature: 1.0, intensity: 0.10 };
+    POST.sharpness = num('sharp', 0.35);  // half — there is no noise left to fight
+    /* ⚑ WHERE WE PART COMPANY WITH THE REFERENCE. Those games are bright Mediterranean daylight;
+     * this studio is neon on near-black — acid green, cyan, magenta, amber. Taking their CLARITY
+     * without taking their PALETTE is the whole brief: flat saturated fields and hard silhouettes,
+     * lit like a sign rather than like a beach.
+     * So bloom stays meaningful rather than being cut to nothing (neon has to actually glow) and
+     * saturation goes up hard, because a flat-albedo world has no texture detail to carry
+     * interest — colour is doing all of it. */
+    POST.bloom = num('bloom', 0.024);
+    POST.saturation = 1.26;
+  }
+
   // ── application ─────────────────────────────────────────────────────────────────────────────
   const T0 = performance.now();
   const app = new pc.Application(canvas, {
@@ -279,7 +305,11 @@
       app.scene.skyboxIntensity = open ? 1.0 : 0.85;
       envOk = true;
     } catch (e) { envOk = false; say('env probe failed: ' + e.message); }
-    app.scene.ambientLight = new pc.Color(0.05, 0.05, 0.06);     // envAtlas supplies the real fill
+    /* clean: sky-coloured ambient and a lifted floor. The reference has almost no black in it —
+     * shadows are soft, coloured and light, and the depth cue is aerial perspective (distance
+     * going lighter and cooler) rather than anything getting darker. */
+    app.scene.ambientLight = CLEAN ? new pc.Color(0.26, 0.31, 0.40)
+                                   : new pc.Color(0.05, 0.05, 0.06);   // envAtlas supplies the real fill
     /* ⚑ EXPOSURE IS PER-ARENA, and up indoors. Outdoors you are standing in the sun; inside, the
      * only light is six ceiling practicals and bounce, and a camera in that room opens up. It is
      * the same correction CLAUDE.md records for our own renderer ("ambient goes UP indoors, not

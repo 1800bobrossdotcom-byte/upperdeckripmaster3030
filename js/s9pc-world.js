@@ -123,6 +123,17 @@ window.S9PCWorld = (function () {
 
   /* One texture set per class: albedo (rgb), height→normal, gloss (r). All tileable, all
    * generated — nothing sampled, which is the only kind of texture this repo can ship. */
+  /* ⚑ THE STUDIO LOOK — DEFAULT ON. Flat albedo, structure kept, noise removed.
+   * `?grit=1` returns the old gritty surfaces for comparison.
+   * The reference art direction (bright stylised shooters) is not doing anything our renderer
+   * cannot: it is DELETING. Every surface is a large flat field of one colour and the whole
+   * detail budget goes into silhouette. What kills clarity here is the fbm + aggregate speckle
+   * sprayed across exactly those large fields — high-frequency noise over the areas that need to
+   * stay quiet, which the unsharp pass in the post stack then sharpens.
+   * So clean mode keeps the JOINTS — slab seams and wall courses are structure the eye locks
+   * onto, and the reference has them too in its cobbles and roof tiles — and drops the noise. */
+  const CLEAN = (() => { try { return new URLSearchParams(location.search).get('grit') !== '1'; }
+                         catch (e) { return true; } })();
   function makeTexSet(kind, N) {
     const px = N * N, alb = new Float32Array(px * 3), h = new Float32Array(px), gl = new Float32Array(px);
     if (kind === 'slab' || kind === 'course') {
@@ -140,14 +151,17 @@ window.S9PCWorld = (function () {
         const fx = (x / N * nx) % 1, fy = (y / N * ny) % 1;
         const dj = Math.min(Math.min(fx, 1 - fx) / (nx * jw), Math.min(fy, 1 - fy) / (ny * jw));
         const joint = dj < 1 ? (1 - dj) : 0;                                  // 1 inside a seam
-        const agg = c[i] > 0.74 ? (c[i] - 0.74) * 2.4 : 0;                    // aggregate speckle
+        const agg = CLEAN ? 0 : (c[i] > 0.74 ? (c[i] - 0.74) * 2.4 : 0);       // aggregate speckle
         // per-slab tone variation, so no two panels read identical
         const cell = ((Math.floor(y / N * ny) * 7 + Math.floor(x / N * nx) * 13) % 5) / 5;
-        let v = 0.70 + a[i] * 0.20 + (b[i] - 0.5) * 0.10 + agg * 0.35 + (cell - 0.5) * 0.10;
+        /* clean: the panel-to-panel step survives (it is large-scale, and it is what stops a flat
+         * field reading as a bug) but the per-texel noise does not */
+        let v = CLEAN ? 0.82 + (cell - 0.5) * 0.07
+                      : 0.70 + a[i] * 0.20 + (b[i] - 0.5) * 0.10 + agg * 0.35 + (cell - 0.5) * 0.10;
         v *= (1 - joint * 0.42);
         alb[i * 3] = v; alb[i * 3 + 1] = v * 0.995; alb[i * 3 + 2] = v * 1.02;
-        h[i] = a[i] * 0.35 + agg * 0.7 - joint * 1.6;                          // seams sink
-        gl[i] = 0.34 + (1 - b[i]) * 0.16 - agg * 0.10 - joint * 0.12;
+        h[i] = (CLEAN ? 0 : a[i] * 0.35 + agg * 0.7) - joint * 1.6;            // seams sink
+        gl[i] = CLEAN ? 0.30 - joint * 0.10 : 0.34 + (1 - b[i]) * 0.16 - agg * 0.10 - joint * 0.12;
       }
     } else if (kind === 'brushed') {
       const streak = fbm(N, 313, 4, 6), fine = fbm(N, 8081, 3, 64);
@@ -155,7 +169,7 @@ window.S9PCWorld = (function () {
         const i = y * N + x;
         // stretched along x → a brushed grain, which is what makes metal read as metal
         const s = streak[y * N + ((x * 8) % N)], f = fine[y * N + ((x * 24) % N)];
-        const v = 0.80 + (s - 0.5) * 0.22 + (f - 0.5) * 0.10;
+        const v = CLEAN ? 0.84 : 0.80 + (s - 0.5) * 0.22 + (f - 0.5) * 0.10;
         alb[i * 3] = v * 0.99; alb[i * 3 + 1] = v; alb[i * 3 + 2] = v * 1.04;
         h[i] = s * 0.35 + f * 0.25;
         gl[i] = 0.62 + (s - 0.5) * 0.30 + (f - 0.5) * 0.12;
