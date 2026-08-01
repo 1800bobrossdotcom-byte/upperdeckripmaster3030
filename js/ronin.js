@@ -799,7 +799,7 @@
     if (!(liveToken() && Wt && Wt.hasWallet())) { startBrawl(false); return; }
     if (wager.picked.length !== wager.cards) { toast('Pick ' + wager.cards + ' cards first'); return; }
     const btn = rematch ? $('btnRematch') : $('btnAnte'); const label = btn.innerHTML; btn.innerHTML = 'confirm burn…'; btn.disabled = true;
-    const r = await Wt.burn(WagerPayout.rake(wager.ante)); btn.innerHTML = label; btn.disabled = false;
+    const r = await Wt.payRake(WagerPayout.rake(wager.ante)); btn.innerHTML = label; btn.disabled = false;
     if (!r.ok) { toast(Wt.explain ? Wt.explain(r.reason) : 'Burn failed'); return; }
     startBrawl(true);
   }

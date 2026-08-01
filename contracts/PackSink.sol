@@ -43,6 +43,7 @@ contract PackSink {
     uint16 public constant BURN_BPS = 5000;
 
     event PackPaid(address indexed buyer, uint256 amount, uint256 burned, uint256 toTreasury);
+    event RakePaid(address indexed player, uint256 amount, uint256 burned, uint256 toTreasury);
     event Flushed(uint256 amount);
 
     error ZeroAmount();
@@ -55,7 +56,30 @@ contract PackSink {
         treasury = treasury_;
     }
 
-    /* Pay for a pack. Caller must `approve` this contract for `amount` first.
+    /* Pay for a pack. Caller must `approve` this contract for `amount` first. */
+    function buyPack(uint256 amount) external {
+        (uint256 burned, uint256 toTreasury) = _split(amount);
+        emit PackPaid(msg.sender, amount, burned, toTreasury);
+    }
+
+    /* Pay a game rake. Same split, different event.
+     *
+     * ⚑ ONE CONTRACT SERVES BOTH BECAUSE THE RATIO IS THE SAME. The game rake is 10% of the pot,
+     *   of which 5% burns and 5% funds the studio — i.e. exactly half of the rake, which is what
+     *   this contract does. `js/wager-payout.js` computes those halves; before this existed the
+     *   browser burned the WHOLE rake, so the treasury half was arithmetic that never happened.
+     *
+     * ⚑ SEPARATE EVENT, NOT A SEPARATE CONTRACT. Pack revenue and game revenue are different
+     *   lines in the same ledger, and an indexer summing `PackPaid` must not silently count
+     *   rakes. Deploying a second sink to get a second event would double the surface to review
+     *   for no gain — the split logic is identical and is written once, below.
+     */
+    function payRake(uint256 amount) external {
+        (uint256 burned, uint256 toTreasury) = _split(amount);
+        emit RakePaid(msg.sender, amount, burned, toTreasury);
+    }
+
+    /* The split itself — pull in, burn half, pay the remainder out, hold nothing.
      *
      * ⚑ THE TREASURY SHARE IS `amount - burned`, NOT a second percentage. Two independent
      *   percentages leave rounding dust behind on odd amounts — one wei at a time, permanently
@@ -64,20 +88,18 @@ contract PackSink {
      *   possibility of paying out more than came in.
      *
      * ⚠ Return values ARE checked. Plenty of ERC-20s return `false` instead of reverting, and an
-     *   unchecked transfer here would mean a pack marked paid that never moved anything.
+     *   unchecked transfer here would mean a payment marked settled that never moved anything.
      */
-    function buyPack(uint256 amount) external {
+    function _split(uint256 amount) internal returns (uint256 burned, uint256 toTreasury) {
         if (amount == 0) revert ZeroAmount();
 
         if (!token.transferFrom(msg.sender, address(this), amount)) revert TransferFailed();
 
-        uint256 burned = (amount * BURN_BPS) / 10_000;
-        uint256 toTreasury = amount - burned;
+        burned = (amount * BURN_BPS) / 10_000;
+        toTreasury = amount - burned;
 
         if (burned != 0) token.burn(burned);
         if (toTreasury != 0 && !token.transfer(treasury, toTreasury)) revert TransferFailed();
-
-        emit PackPaid(msg.sender, amount, burned, toTreasury);
     }
 
     /* Anyone may sweep a stray balance to the treasury.

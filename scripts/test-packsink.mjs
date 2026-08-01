@@ -63,22 +63,39 @@ const t = (name, cond, extra = '') => { if (cond) { pass++; console.log('  ok   
 
 console.log('PackSink at', SINKA.toString(), '·', SINK.evm.bytecode.object.length / 2, 'bytes\n');
 
-console.log('── the split is exhaustive ──');
-/* ⚑ 351 and 1 are the interesting inputs, not 350. An even amount cannot reveal a dust bug; an
- * ODD one is exactly where two independent percentages would leave a wei behind, and amount=1 is
- * where the burn floors to 0 and the treasury must still receive the whole thing. */
-for (const amount of [350n, 351n, 1n, 999_999n, 10n ** 21n]) {
-  await call(TOKA, sel('mint(address,uint256)') + addr(BUYER.toString()) + uint(amount));
-  await call(TOKA, sel('approve(address,uint256)') + addr(SINKA.toString()) + uint(amount), BUYER);
-  const s0 = await supply(), tr0 = await bal(TREAS);
-  const r = await call(SINKA, sel('buyPack(uint256)') + uint(amount), BUYER);
-  const burned = s0 - (await supply());
-  const paid = (await bal(TREAS)) - tr0;
-  const held = await bal(SINKA.toString());
-  t(`amount ${amount}: burned ${burned} + treasury ${paid} == ${amount}`, ok(r) && burned + paid === amount,
-    `got ${burned}+${paid}`);
-  t(`amount ${amount}: sink holds nothing`, held === 0n, `held ${held}`);
-  t(`amount ${amount}: burn is ~50%`, burned === amount / 2n, `burned ${burned}`);
+/* ⚑ BOTH ENTRY POINTS GET THE FULL TREATMENT. `payRake` is not a thin alias to be trusted on
+ * inspection — it is a second live money path, and the two differ in exactly one place (which
+ * event fires), which is precisely the kind of difference a copy-paste gets wrong. */
+const topic = sig => bytesToHex(keccak256(new TextEncoder().encode(sig)));
+const PAID = { buyPack: topic('PackPaid(address,uint256,uint256,uint256)'),
+               payRake: topic('RakePaid(address,uint256,uint256,uint256)') };
+const topics0 = r => (r.execResult.logs || []).map(l => bytesToHex(l[1][0]));
+
+for (const fn of ['buyPack', 'payRake']) {
+  console.log(`── ${fn}: the split is exhaustive ──`);
+  /* ⚑ 351 and 1 are the interesting inputs, not 350. An even amount cannot reveal a dust bug; an
+   * ODD one is exactly where two independent percentages would leave a wei behind, and amount=1
+   * is where the burn floors to 0 and the treasury must still receive the whole thing. */
+  for (const amount of [350n, 351n, 1n, 999_999n, 10n ** 21n]) {
+    await call(TOKA, sel('mint(address,uint256)') + addr(BUYER.toString()) + uint(amount));
+    await call(TOKA, sel('approve(address,uint256)') + addr(SINKA.toString()) + uint(amount), BUYER);
+    const s0 = await supply(), tr0 = await bal(TREAS);
+    const r = await call(SINKA, sel(fn + '(uint256)') + uint(amount), BUYER);
+    const burned = s0 - (await supply());
+    const paid = (await bal(TREAS)) - tr0;
+    const held = await bal(SINKA.toString());
+    t(`${fn} ${amount}: burned ${burned} + treasury ${paid} == ${amount}`, ok(r) && burned + paid === amount,
+      `got ${burned}+${paid}`);
+    t(`${fn} ${amount}: sink holds nothing`, held === 0n, `held ${held}`);
+    t(`${fn} ${amount}: burn is ~50%`, burned === amount / 2n, `burned ${burned}`);
+  }
+  /* ⚠ The events must not be interchangeable: an indexer summing pack revenue would otherwise
+   * silently count game rakes as pack sales. */
+  await call(TOKA, sel('mint(address,uint256)') + addr(BUYER.toString()) + uint(100n));
+  await call(TOKA, sel('approve(address,uint256)') + addr(SINKA.toString()) + uint(100n), BUYER);
+  const ev = topics0(await call(SINKA, sel(fn + '(uint256)') + uint(100n), BUYER));
+  t(`${fn} emits its OWN event, not the other one`,
+    ev.includes(PAID[fn]) && !ev.includes(PAID[fn === 'buyPack' ? 'payRake' : 'buyPack']), ev.join(','));
 }
 
 console.log('\n── it is a real burn, not a shuffle ──');
@@ -92,15 +109,11 @@ console.log('\n── it is a real burn, not a shuffle ──');
 }
 
 console.log('\n── it reverts rather than half-executing ──');
-{
-  const r = await call(SINKA, sel('buyPack(uint256)') + uint(0), BUYER);
-  t('zero amount reverts', !ok(r));
-}
-{
+for (const fn of ['buyPack', 'payRake']) {
+  t(`${fn}: zero amount reverts`, !ok(await call(SINKA, sel(fn + '(uint256)') + uint(0), BUYER)));
   // no approval granted
   await call(TOKA, sel('mint(address,uint256)') + addr(BUYER.toString()) + uint(500n));
-  const r = await call(SINKA, sel('buyPack(uint256)') + uint(500n), BUYER);
-  t('missing allowance reverts', !ok(r));
+  t(`${fn}: missing allowance reverts`, !ok(await call(SINKA, sel(fn + '(uint256)') + uint(500n), BUYER)));
 }
 {
   /* ⚑ THE ONE THAT MATTERS. A token whose transfer returns FALSE instead of reverting must still
@@ -134,12 +147,26 @@ console.log('\n── no admin surface ──');
   const abi = SINK.abi.map(f => f.name).filter(Boolean);
   const danger = abi.filter(n => /owner|admin|pause|upgrade|setToken|setTreasury|withdraw|rescue/i.test(n));
   t('no owner/admin/upgrade/withdraw functions', danger.length === 0, danger.join(','));
-  t('exactly the intended externals', abi.sort().join(',') === 'BURN_BPS,PackPaid,buyPack,flush,token,treasury' ||
-    abi.filter(n => !['PackPaid', 'Flushed', 'ZeroAmount', 'ZeroAddress', 'TransferFailed'].includes(n)).sort().join(',') === 'BURN_BPS,buyPack,flush,token,treasury',
-    abi.sort().join(','));
+  const externals = abi.filter(n => !['PackPaid', 'RakePaid', 'Flushed', 'ZeroAmount', 'ZeroAddress', 'TransferFailed'].includes(n)).sort().join(',');
+  t('exactly the intended externals', externals === 'BURN_BPS,buyPack,flush,payRake,token,treasury', externals);
   const tr = ret(await call(SINKA, sel('treasury()')));
   t('treasury is the studio wallet', tr.toLowerCase().endsWith(TREAS.slice(2).toLowerCase()));
   t('BURN_BPS is 5000', decU(ret(await call(SINKA, sel('BURN_BPS()')))) === 5000n);
+}
+
+/* ⚑ THE BROWSER HAS TO CALL THE RIGHT FUNCTION. js/wallet.js sends raw calldata, so it carries
+ * hard-coded 4-byte selectors — and a wrong one does not throw, it hits the fallback and reverts
+ * (or, on another contract, calls something entirely different). Writing them from memory got
+ * BOTH wrong on the first pass. So they are recomputed here from the signatures and asserted
+ * against the file itself, which is the only version of this check that stays true. */
+console.log('\n── js/wallet.js calls the right selectors ──');
+{
+  const src = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  for (const [sig, fn] of [['buyPack(uint256)', 'payPack'], ['payRake(uint256)', 'payRake'],
+                           ['approve(address,uint256)', 'ensureAllowance'], ['allowance(address,address)', 'allowance']]) {
+    const want = sel(sig);
+    t(`${fn} uses ${want} = ${sig}`, src.includes(want), 'not found in js/wallet.js');
+  }
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);

@@ -23,7 +23,9 @@
     "flatten": "node scripts/flatten.mjs contracts/UR3030Lens721.sol",
     "test:embed": "node scripts/test-embed.mjs",
     "png23d": "node scripts/png23d.mjs",
-    "test:pack": "node scripts/test-packsink.mjs"
+    "test:pack": "node scripts/test-packsink.mjs",
+    "test:split": "node scripts/test-wallet-split.mjs",
+    "test": "npm run test:lens && npm run test:embed && npm run test:pack && npm run test:split"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.0"

@@ -17,6 +17,10 @@
  *   RipWallet.ensureChain()        switches the wallet to the token's chain
  *   RipWallet.balance(account?)    -> { wei, tokens }
  *   RipWallet.burn(tokens)         -> { ok, tx } | { ok:false, reason }  (connect+guard+send)
+ *   RipWallet.payPack(tokens, onStep)  -> pack payment: half burns, half to the studio treasury
+ *   RipWallet.payRake(tokens, onStep)  -> game rake, same 50/50 split
+ *      Both go through contracts/PackSink.sol in ONE atomic call, and both FALL BACK to a plain
+ *      100% burn while `contracts.packSink` is empty. `result.split` says which path ran.
  *   RipWallet.on('change', cb)     account/chain changes
  *   RipWallet.buyUrl()             SuperRare Collect deep-link
  */
@@ -33,9 +37,14 @@
     84532:    { name: 'Base Sepolia', explorer: 'https://sepolia.basescan.org', symbol: 'ETH' },
   };
   const toHexChain = id => '0x' + Number(id).toString(16);
+  const isAddr = a => /^0x[0-9a-fA-F]{40}$/.test(a || '') && !/^0x0+$/.test(a);
   const token = () => (CFG().contracts || {}).liquidEdition || ZERO;
-  const isLive = () => /^0x[0-9a-fA-F]{40}$/.test(token()) && !/^0x0+$/.test(token());
+  const isLive = () => isAddr(token());
   const wantChainId = () => Number(CFG().chainId || 1);
+  // PackSink — the atomic 50/50 splitter (contracts/PackSink.sol). Empty until deployed, which
+  // is what makes every split path below degrade to the plain burn instead of breaking.
+  const sink = () => ((CFG().contracts || {}).packSink || '').trim();
+  const hasSink = () => isAddr(sink());
 
   let provider = null;   // active EIP-1193 provider (injected or WalletConnect)
   let kind = null;       // 'injected' | 'walletconnect'
@@ -223,6 +232,99 @@
     }
   }
 
+  /* ── THE 50/50 SPLIT: half burns, half funds the studio ────────────────────────────────────
+   * docs/TREASURY.md. This CANNOT be two client-side transactions — a wallet can sign the burn
+   * and reject the transfer, which destroys a collector's tokens and pays the studio nothing.
+   * The split therefore happens inside contracts/PackSink.sol, in ONE call that either wholly
+   * succeeds or wholly reverts, and the browser's job is just: approve, then call it.
+   *
+   * ⚑ FALLS BACK TO THE PLAIN BURN when `contracts.packSink` is unset — same degradation as
+   *   `lens721:""`. So this ships dark: behaviour is byte-for-byte what it is today until the
+   *   sink is deployed and its address pasted in. The `split` flag in the result says which
+   *   path ran, so callers can tell the truth in their copy rather than assuming.
+   */
+  const MAXU = (2n ** 256n) - 1n;
+  const wei = n => BigInt(Math.max(0, Math.floor(Number(n) || 0))) * (10n ** 18n);
+  const u256 = v => v.toString(16).padStart(64, '0');
+  const argAddr = a => '000000000000000000000000' + a.slice(2);
+
+  async function allowance(owner, spender) {
+    try {
+      const data = '0xdd62ed3e' + argAddr(owner) + argAddr(spender);       // allowance(address,address)
+      return BigInt((await req('eth_call', [{ to: token(), data }, 'latest'])) || '0x0');
+    } catch { return 0n; }
+  }
+
+  /* Poll for a receipt. Needed because `approve` and the split call are two transactions and the
+   * second one's gas estimate fails while the allowance is still pending — the wallet shows a
+   * "this will probably fail" warning even though nonce ordering would have made it fine. */
+  async function waitTx(hash, ms = 180000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      try {
+        const r = await req('eth_getTransactionReceipt', [hash]);
+        if (r && r.blockNumber) return { ok: BigInt(r.status || '0x1') === 1n, receipt: r };
+      } catch {}
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    return { ok: false, reason: 'tx-timeout' };
+  }
+
+  async function send(to, data) { return req('eth_sendTransaction', [{ from: account, to, data }]); }
+
+  /* Approve the sink for `need`, topping up in batches so a player isn't signing an approval
+   * before every single rip.
+   *
+   * ⚠ DELIBERATELY NOT AN UNLIMITED APPROVAL. It would in fact be safe here — PackSink's only
+   *   `transferFrom` takes from `msg.sender`, so an allowance you grant it can only ever be
+   *   spent by a transaction you sent yourself; nobody else can touch it. But "approve
+   *   unlimited, it's fine" is the exact reflex that gets drained elsewhere, and a bounded
+   *   number is legible in the wallet prompt. The habit is worth more than the gas.
+   */
+  async function ensureAllowance(need) {
+    const have = await allowance(account, sink());
+    if (have >= need) return { ok: true, approved: false };
+    const batch = Math.max(1, Number(CFG().approveBatch) || 12);
+    const want = need * BigInt(batch) > MAXU ? need : need * BigInt(batch);
+    try {
+      const tx = await send(token(), '0x095ea7b3' + argAddr(sink()) + u256(want));  // approve(address,uint256)
+      const r = await waitTx(tx);
+      if (!r.ok) return { ok: false, reason: r.reason || 'approve-failed' };
+      return { ok: true, approved: true, tx };
+    } catch (e) {
+      return { ok: false, reason: (e && e.code === 4001) ? 'user-rejected' : 'approve-failed' };
+    }
+  }
+
+  // shared by payPack/payRake — `selector` is buyPack(uint256) or payRake(uint256)
+  async function splitPay(tokens, selector, onStep) {
+    const amt = Math.max(0, Math.floor(Number(tokens) || 0));
+    if (amt <= 0) return { ok: false, reason: 'zero' };
+    if (!isLive()) return { ok: false, reason: 'not-live' };
+    if (!hasSink()) return Object.assign(await burn(amt), { split: false });   // ← ships dark until deployed
+    if (!account) { const c = await connect(); if (!c.ok) return c; }
+    const g = await ensureChain(); if (!g.ok) return g;
+
+    const need = wei(amt);
+    if (onStep) onStep('approve');
+    const a = await ensureAllowance(need); if (!a.ok) return a;
+    if (onStep) onStep('pay');
+    try {
+      const tx = await send(sink(), selector + u256(need));
+      return { ok: true, tx, split: true, burned: Math.floor(amt / 2), treasury: amt - Math.floor(amt / 2) };
+    } catch (e) {
+      return { ok: false, reason: (e && e.code === 4001) ? 'user-rejected' : 'tx-failed', error: e && (e.message || '') };
+    }
+  }
+
+  /* ⚠ SELECTORS ARE PINNED BY `npm run test:pack`, which recomputes them from the compiled ABI
+   *   and reads this file back. They are not guessable — my first pass at writing these from
+   *   memory got BOTH wrong, and a wrong selector does not throw: it hits the fallback and
+   *   reverts, or worse, calls something else. There is no plausible reason to edit them by
+   *   hand, and if the contract's signatures ever change the test fails here. */
+  const payPack = (tokens, onStep) => splitPay(tokens, '0xdc45bfb3', onStep);   // buyPack(uint256)
+  const payRake = (tokens, onStep) => splitPay(tokens, '0x85cf61ef', onStep);   // payRake(uint256)
+
   async function disconnect() {
     try {
       if (kind === 'walletconnect' && provider && provider.disconnect) { await provider.disconnect(); }
@@ -254,6 +356,10 @@
 
   window.RipWallet = {
     connect, disconnect, ensureChain, balance, burn,
+    payPack, payRake, allowance, waitTx,
+    hasSink,                    // false ⇒ payPack/payRake fall back to a 100% burn
+    sink: () => sink(),
+    splitPct: () => (CFG().packSplit || { burn: 0.5, treasury: 0.5 }),
     request: req,               // raw EIP-1193 passthrough on the ACTIVE provider (js/eth-play.js pays on Base with it)
     account: () => account,
     kind: () => kind,
@@ -277,6 +383,8 @@
       'switch-failed': 'Could not switch networks.',
       'not-live': 'The $UR3030 token isn’t deployed on this network yet.',
       'tx-failed': 'The transaction failed or was dropped.',
+      'approve-failed': 'The spending approval didn’t go through, so nothing was charged.',
+      'tx-timeout': 'The network didn’t confirm in time. Check your wallet before trying again.',
       'zero': 'Nothing to burn.',
     }[reason] || ('Something went wrong (' + reason + ').')),
   };

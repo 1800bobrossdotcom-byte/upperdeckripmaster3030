@@ -45,7 +45,16 @@ window.WagerPayout = (function () {
    * took in. The remainder goes to the BURN, so rounding can only ever burn more, never pay the
    * treasury more than its share. */
   const rake = ante => Math.max(1, Math.round((+ante || 0) * RAKE_PCT));
-  const rakeTreasury = ante => Math.floor(rake(ante) * (TREASURY_PCT / RAKE_PCT));
+
+  /* ⚑ THE SPLIT ONLY EXISTS IF THE SINK IS DEPLOYED, AND THE NUMBERS ON SCREEN MUST SAY SO.
+   * `js/wallet.js` falls back to a plain 100% burn while `contracts.packSink` is empty, so with
+   * it unset the chain burns the WHOLE rake while these figures would have claimed half of it
+   * went to the studio. Asking the wallet here means all eight result screens tell the truth in
+   * both states from ONE place, and they start reporting the split the moment the address is
+   * pasted in — with no edit to any game. Defaults to "no split" when the wallet layer is absent
+   * (practice mode, an embed, a page that doesn't load it), which is the honest assumption. */
+  const splitLive = () => { try { return !!(window.RipWallet && window.RipWallet.hasSink && window.RipWallet.hasSink()); } catch { return false; } };
+  const rakeTreasury = ante => splitLive() ? Math.floor(rake(ante) * (TREASURY_PCT / RAKE_PCT)) : 0;
   const rakeBurn = ante => rake(ante) - rakeTreasury(ante);
 
   // podium weights: 3+ players → 1st/2nd/3rd (50/30/20); heads-up (≤2) → winner takes all
@@ -65,7 +74,7 @@ window.WagerPayout = (function () {
     ante = +ante || 0; players = Math.max(1, players | 0); cardsEach = Math.max(0, cardsEach | 0);
     const grossPot = ante * players;
     const rakeTotal = Math.round(grossPot * RAKE_PCT);
-    const treasury = Math.floor(rakeTotal * (TREASURY_PCT / RAKE_PCT));
+    const treasury = splitLive() ? Math.floor(rakeTotal * (TREASURY_PCT / RAKE_PCT)) : 0;
     const burn = rakeTotal - treasury;         // remainder burns — see the note on rake()
     const netPot = grossPot - rakeTotal;
     const cardPot = players * cardsEach;
@@ -88,6 +97,6 @@ window.WagerPayout = (function () {
 
   const ordinal = i => ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'][i] || (i + 1) + 'th';
 
-  return { compute, rake, rakeBurn, rakeTreasury, ordinal,
+  return { compute, rake, rakeBurn, rakeTreasury, splitLive, ordinal,
            RAKE_PCT, BURN_PCT, TREASURY_PCT, SPLIT };
 })();

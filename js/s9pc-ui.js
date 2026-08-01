@@ -315,7 +315,7 @@ window.S9PCUI = (function () {
       if (!(liveToken() && Wt && Wt.hasWallet())) { begin(false); return; }
       if (wager.picked.length !== wager.cards) { toast('Pick ' + wager.cards + ' cards for the pot first.'); return; }
       const btn = $('btnAnte'), label = btn.innerHTML; btn.innerHTML = 'confirm burn…'; btn.disabled = true;
-      const r = await Wt.burn(WagerPayout.rake(wager.ante));   // only the rake burns; the rest is the pot stake
+      const r = await Wt.payRake(WagerPayout.rake(wager.ante));   // the rake leaves the pot in one atomic call: half burns, half funds the studio (PackSink)
       btn.innerHTML = label; btn.disabled = false;
       if (!r.ok) { toast(Wt.explain ? Wt.explain(r.reason) : 'Burn failed.'); return; }
       begin(true);

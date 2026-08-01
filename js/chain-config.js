@@ -29,6 +29,9 @@ window.RIPMASTER_CHAIN = {
   /* Pack purchase split — half burns, half funds the studio. See docs/TREASURY.md for why this
    * CANNOT be done as two client-side transactions. */
   packSplit: { burn: 0.50, treasury: 0.50 },
+  /* How many packs/antes one `approve` should cover, so a player isn't signing an approval before
+   * every rip. NOT unlimited on purpose — see the note in js/wallet.js. */
+  approveBatch: 12,
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
   rpcs: [
     "https://ethereum-sepolia-rpc.publicnode.com",
@@ -48,6 +51,13 @@ window.RIPMASTER_CHAIN = {
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
     lens721:       "",
+    /* contracts/PackSink.sol — the atomic 50/50 splitter for pack payments and game rakes.
+     * ⚠ EMPTY = every split path in js/wallet.js falls back to a plain 100% burn, exactly as
+     * lens721:"" degrades the collector seat. That is deliberate (nothing half-executes), but it
+     * also means THE SITE COPY IS AHEAD OF THE CODE until this is filled in: the pages say half
+     * funds the studio and, with this empty, all of it burns. Deploy, paste, rehearse on Sepolia.
+     * The UI reads RipWallet.hasSink() and says which is actually happening. */
+    packSink:      "",
   },
   // ── SEATS (js/session.js) ──────────────────────────────────────────────────────────
   // $UR3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or

@@ -22,7 +22,7 @@
   const W = () => window.RipWallet || null;
   const onchainRip = () => !!(W() && W().isLive() && W().hasWallet());
   const packBurn = () => Math.max(1, ((window.RIPMASTER_CHAIN || {}).packBurn) || 350);
-  let lastTx = null, practice = false;
+  let lastTx = null, practice = false, lastSplit = false;   // lastSplit: went through PackSink
 
   const pstyle = document.createElement('style');
   pstyle.textContent =
@@ -71,10 +71,17 @@
     const g = await w.ensureChain(); if (!g.ok) return ripBlocked(w.explain(g.reason));
     const need = packBurn(), bal = await w.balance();
     if (bal.tokens < need) return ripNeedTokens(bal.tokens, need);
-    showBusy('confirm the burn of ' + need + ' $UR3030 in your wallet…');
-    const r = await w.burn(need);
+    /* Half burns, half funds the studio — ONE atomic call (contracts/PackSink.sol). The split
+     * needs an `approve` first, so this is two wallet prompts rather than one; `onStep` says
+     * which one you are looking at, because an unexplained second prompt reads as a scam. */
+    const split = w.hasSink && w.hasSink();
+    showBusy(split ? 'approve ' + need + ' $3030 for the pack…'
+                   : 'confirm the burn of ' + need + ' $UR3030 in your wallet…');
+    const r = await w.payPack(need, step => showBusy(step === 'approve'
+      ? 'approve ' + need + ' $3030 for the pack…'
+      : 'confirm the pack — ' + Math.floor(need / 2) + ' burns, ' + (need - Math.floor(need / 2)) + ' funds the studio…'));
     if (!r.ok) return ripBlocked(w.explain(r.reason));
-    lastTx = r.tx; practice = false;
+    lastTx = r.tx; practice = false; lastSplit = !!r.split;
     busy = false;                           // release the status latch so rip() can run
     rip();                                  // burned for real → play the tear + reveal
   }
@@ -94,7 +101,10 @@
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
   function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $UR3030';
-    reveal.innerHTML = '<div class="pack-note">A rip burns <b>' + need + ' $UR3030</b>. You hold <b>' +
+    const costs = (W() && W().hasSink && W().hasSink())
+      ? 'costs <b>' + need + ' $3030</b> — half burned, half to the studio'
+      : 'burns <b>' + need + ' $UR3030</b>';
+    reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
       have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
   function close() {
     if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
@@ -154,8 +164,13 @@
       '<div class="fan" id="fan">' + fan + '</div>';
     if (!practice && lastTx && W()) {
       const banner = document.createElement('div'); banner.className = 'pack-tx';
-      banner.innerHTML = '<span class="ic" data-ic="flame"></span> burned ' + packBurn() + ' $UR3030 · <a href="' + W().explorerTx(lastTx) +
-        '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
+      // ⚠ Say what actually happened, not what the economics doc says: with PackSink unwired the
+      //   whole pack still burns, and claiming a studio split that didn't occur is a false receipt.
+      const half = Math.floor(packBurn() / 2);
+      banner.innerHTML = '<span class="ic" data-ic="flame"></span> ' + (lastSplit
+        ? 'burned ' + half + ' $3030 · ' + (packBurn() - half) + ' to the studio'
+        : 'burned ' + packBurn() + ' $UR3030') +
+        ' · <a href="' + W().explorerTx(lastTx) + '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
       reveal.prepend(banner);
       window.RipIcons && RipIcons.hydrate(banner);
     }

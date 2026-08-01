@@ -31,9 +31,24 @@ before any burn figure is quoted again.
 
 ---
 
-## 1. Game rake — ✅ IMPLEMENTED (`js/wager-payout.js`)
+## 1. Game rake — ✅ WIRED (`js/wager-payout.js` + `RipWallet.payRake`)
 
 The rake stays **10% of the pot**. What changed is where it goes: **5% burns, 5% to treasury.**
+
+⚑ **The rake and the pack use the SAME contract, because the ratio is the same.** 5% burn / 5%
+treasury *is* half the rake, so `PackSink` splits both. `payRake()` exists alongside `buyPack()`
+purely so the two emit **different events** — pack revenue and game revenue are separate lines in
+the same ledger, and an indexer summing `PackPaid` must not silently count rakes.
+
+⚠ **The eight result screens used to overstate this.** `wager-payout.js` computed a treasury half
+unconditionally while the eight games still called `burn(wholeRake)` — so a player was shown
+"🔥5 rake burned · 5 to the studio" when in fact all 10 had burned. `splitLive()` now asks
+`RipWallet.hasSink()`, so the figures follow the deployed reality from one place and start
+reporting the split the moment the address is pasted in, with no edit to any game.
+
+⚠ **Rip Rocketer's flat 25-token launch fee is still a 100% burn.** It is a solo entry fee, not a
+pot rake, so the 10%-of-pot rule does not obviously apply to it. Left alone **by omission, not by
+decision** — the artist should say whether it splits too.
 
 ```
 ante  25 → rake  3 → burn  2 + treasury  1
@@ -117,16 +132,40 @@ the properties that make the split trustworthy rather than for coverage:
 - **No admin surface.** The ABI is asserted to contain no owner / admin / pause / upgrade /
   withdraw / setToken / setTreasury function. There is nothing to trust the deployer about later.
 
+### ✅ Wired — `npm run test:split`, 38/38
+
+`RipWallet.payPack(tokens, onStep)` and `payRake(tokens, onStep)` do approve-then-call and are
+used by `pack.js`, `cabinet.html` and all eight pot-rake call sites.
+
+- **It ships dark.** With `contracts.packSink` empty, both fall back to the plain 100% burn —
+  byte-identical to the call already rehearsed on-chain. `result.split` says which path ran, and
+  every surface reports what *actually* happened rather than what this document says should.
+- **Two prompts, explained.** The split needs an `approve` first. `onStep` fires `'approve'` then
+  `'pay'` so the UI can name each one — an unexplained second wallet prompt reads as a scam.
+- **One approval covers 12 packs** (`chain-config.approveBatch`), so a player is not signing an
+  approval before every rip. **Deliberately not unlimited.** It would in fact be safe here —
+  PackSink's only `transferFrom` takes from `msg.sender`, so an allowance granted to it can only
+  ever be spent by a transaction you sent yourself — but "approve unlimited, it's fine" is the
+  exact reflex that gets people drained elsewhere.
+- **A rejected approval charges nothing** — the pack call is never sent. Tested.
+
+⚑ **Why `test:split` exists separately from `test:pack`.** The contract suite proves the split is
+correct; it cannot prove the browser ever reaches it. `js/wallet.js` hand-assembles calldata as
+hex, and every failure there is silent — a wrong selector hits the fallback, a wrong offset
+approves the wrong spender, a missing `10^18` approves 350 *wei*. None of them throw; they just
+produce a wallet prompt that looks fine. **Writing the two selectors from memory got both wrong**,
+which is why they are now recomputed from the ABI and asserted against the file.
+
 ### Still to do before it is live
 
-1. Add `approve` + `buyPack` to `js/wallet.js` (it has `burn` and `balanceOf` only).
-2. Point `pack.js` and `cabinet.html` at it; keep the single-burn path as the fallback while
-   `chain-config.packSink` is unset, exactly as `lens721:""` degrades today.
-3. Deploy and rehearse on Sepolia — same drill as the buy/burn rehearsal.
+1. Deploy `PackSink(token, treasury)` and paste the address into `chain-config.contracts.packSink`.
+2. Rehearse on Sepolia — same drill as the buy/burn rehearsal: one approve, one `buyPack`, then
+   read `totalSupply` and the treasury balance and check they moved by the same amount.
 
-⚠ **Until it is deployed and wired, packs still burn 100%**, so the site copy is ahead of the
-code. That is now a wiring job rather than a design question, but it is still a real gap: ship it
-before launch or soften the copy to "will split".
+⚠ **Until that address is filled in, packs and rakes still burn 100%.** The code no longer claims
+otherwise — the receipts and result screens say "burned N" rather than crediting a studio cut that
+did not happen — but `index.html` and the whitepaper still describe the split in the present
+tense. Ship the deploy before launch, or soften that copy to "will split".
 
 ---
 

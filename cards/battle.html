@@ -1025,7 +1025,7 @@
   async function anteBurn(amount){
     if (!amount || amount <= 0) return { mode: 'none' };
     if (liveToken() && window.RipWallet && window.RipWallet.hasWallet()){
-      const r = await window.RipWallet.burn(window.WagerPayout ? WagerPayout.rake(amount) : amount);   // burn only the small rake; the wager rides the pot
+      const r = await window.RipWallet.payRake(window.WagerPayout ? WagerPayout.rake(amount) : amount);   // the rake leaves the pot in one atomic call: half burns, half funds the studio (PackSink)
       if (r.ok) return { mode: 'onchain', tx: r.tx };
       if (r.reason === 'no-wallet') { setTokens(Math.max(0, tokens() - amount)); return { mode: 'practice' }; }
       return { mode: 'cancelled', reason: r.reason, why: window.RipWallet.explain(r.reason) };

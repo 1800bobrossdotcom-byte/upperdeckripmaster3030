@@ -162,9 +162,17 @@
     if (busy) return; busy = true;
     $('fan').innerHTML = ''; const w = W();
     if ($('realBurn').checked && w && w.isLive() && w.hasWallet()) {
-      $('note').textContent = 'a real rip burns ' + (CFG.packBurn || 350) + ' $3030 — confirm in your wallet…';
-      const r = await withTimeout(w.burn(CFG.packBurn || 350), 90000);
-      if (r.ok) { $('note').textContent = '🔥 burned on-chain for good · tx ' + r.tx.slice(0, 14) + '… · pull revealed below'; stats(); }
+      const cost = CFG.packBurn || 350, half = Math.floor(cost / 2);
+      const split = w.hasSink && w.hasSink();
+      $('note').textContent = split
+        ? 'a real rip costs ' + cost + ' $3030 — ' + half + ' burns, ' + (cost - half) + ' funds the studio. Approve, then confirm…'
+        : 'a real rip burns ' + cost + ' $3030 — confirm in your wallet…';
+      // ⚠ 90s was fine for one prompt; the split is approve-then-pay, so it is two.
+      const r = await withTimeout(w.payPack(cost, step => {
+        $('note').textContent = step === 'approve' ? 'approve ' + cost + ' $3030…' : 'confirm the pack…';
+      }), 200000);
+      if (r.ok) { $('note').textContent = (r.split ? '🔥 ' + half + ' burned for good · ' + (cost - half) + ' to the studio' : '🔥 burned on-chain for good')
+        + ' · tx ' + r.tx.slice(0, 14) + '… · pull revealed below'; stats(); }
       else { $('realBurn').checked = false; $('note').textContent = w.explain(r.reason) + ' — practice pull instead.'; }
     } else {
       $('note').textContent = 'practice pull — cards & real burns live in the full arcade ↗';
