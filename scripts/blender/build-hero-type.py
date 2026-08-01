@@ -443,7 +443,7 @@ def foil_material(aspect):
 
     # pressed cells — the stamp's own dimpling, under the brush
     cells = node(nt, 'ShaderNodeTexVoronoi', (-760, 0), feature='F1')
-    cells.inputs['Scale'].default_value = 27.0
+    cells.inputs['Scale'].default_value = 19.0
     cells.inputs['Randomness'].default_value = 0.85
     nt.links.new(iso.outputs['Vector'], cells.inputs['Vector'])
 
@@ -452,19 +452,27 @@ def foil_material(aspect):
     #   biggest thing on the page at up to 2x device pixels, where a high-detail fine noise stops
     #   reading as fibre and starts reading as compression speckle.
     fibre = node(nt, 'ShaderNodeTexNoise', (-760, -260))
-    fibre.inputs['Scale'].default_value = 105.0
-    fibre.inputs['Detail'].default_value = 4.0
+    fibre.inputs['Scale'].default_value = 33.0
+    fibre.inputs['Detail'].default_value = 3.0
     fibre.inputs['Roughness'].default_value = 0.50
     nt.links.new(iso.outputs['Vector'], fibre.inputs['Vector'])
 
-    # relief = mostly brush, with the cells and the fibre under it
+    # ⚑ THE BRUSH HAS TO WIN, AND THE FIRST MIX LOST IT TO NOISE. Measured on the baked map, the
+    #   normal came back ISOTROPIC (|d/dy| : |d/dx| = 1.13, i.e. no grain at all) even though the
+    #   brush was nominally 62% of the height field. Mean gradient is dominated by the HIGHEST
+    #   frequency present, and the stock fibre at Scale 105 was ~1.1 px — below Nyquist, so it
+    #   contributed nothing but dither and buried a brush whose cross-grain period is 4.8 px.
+    #   The live anisotropic highlight reads its streak direction out of this map; with the map
+    #   isotropic there was no streak to read, and the wordmark's specular came back elongated the
+    #   WRONG WAY. Weights and scales both moved: the brush is now 0.74 of the mix and everything
+    #   under it sits at 3-6 px where it can still be seen.
     mix1 = node(nt, 'ShaderNodeMixRGB', (-520, 120), blend_type='MIX')
-    mix1.inputs['Fac'].default_value = 0.30
+    mix1.inputs['Fac'].default_value = 0.25
     nt.links.new(cells.outputs['Distance'], mix1.inputs['Color1'])
     nt.links.new(fibre.outputs['Fac'], mix1.inputs['Color2'])
 
     relief = node(nt, 'ShaderNodeMixRGB', (-340, 120), blend_type='MIX')
-    relief.inputs['Fac'].default_value = 0.62                # the BRUSH dominates — it is metal
+    relief.inputs['Fac'].default_value = 0.74                # the BRUSH dominates — it is metal
     nt.links.new(mix1.outputs['Color'], relief.inputs['Color1'])
     nt.links.new(brush.outputs['Fac'], relief.inputs['Color2'])
 
@@ -506,6 +514,22 @@ def foil_material(aspect):
     nt.links.new(grad.outputs['Color'], paint.inputs['Color1'])
     nt.links.new(shade.outputs['Color'], paint.inputs['Color2'])
     nt.links.new(paint.outputs['Color'], bsdf.inputs['Base Color'])
+
+    # ⚑ HERO_PROBE=<field> BAKES ONE HEIGHT FIELD STRAIGHT INTO THE ALBEDO SLOT, the same trick
+    #   build-site-props.py's SITE_PROBE exists for, and for the same reason: these fields are
+    #   combined and then differentiated before anything visible comes out, so a mistake three
+    #   nodes upstream shows up as a texture that merely looks a bit different. It is how the
+    #   missing brush was found — `HERO_PROBE=brush` renders the streak field on its own, where
+    #   "there are no streaks in it" is a one-line measurement instead of a guess.
+    #     HERO_PROBE=brush blender --background --factory-startup -P scripts/blender/build-hero-type.py
+    probe = os.environ.get('HERO_PROBE', '')
+    if probe:
+        src = {'brush': brush.outputs['Fac'], 'cells': cells.outputs['Distance'],
+               'fibre': fibre.outputs['Fac'], 'relief': relief.outputs['Color'],
+               'squash': squash.outputs['Vector'], 'rot': rot.outputs['Vector'],
+               'iso': iso.outputs['Vector'], 'angle': ang.outputs['Result']}.get(probe)
+        if src is not None:
+            nt.links.new(src, bsdf.inputs['Base Color'])
 
     # ── the DATA plate: brush angle · grating phase · flake ───────────────────────────────────
     # r: angle/pi + 0.5, so 0.5 is horizontal and 8-bit steps are 0.7 degrees
@@ -634,6 +658,30 @@ def bake_plate(aspect, outdir, w, h):
     return outs
 
 
+def rgb_to_hsv(c):
+    r, g, b = c
+    mx, mn = max(r, g, b), min(r, g, b)
+    d = mx - mn
+    if d < 1e-9:
+        h = 0.0
+    elif mx == r:
+        h = ((g - b) / d) % 6
+    elif mx == g:
+        h = (b - r) / d + 2
+    else:
+        h = (r - g) / d + 4
+    return (h * 60.0, 0.0 if mx <= 0 else d / mx, mx)
+
+
+def hsv_to_rgb(hsv):
+    h, s, v = hsv
+    h = (h % 360.0) / 60.0
+    i = int(math.floor(h))
+    f = h - i
+    p, q, t = v * (1 - s), v * (1 - s * f), v * (1 - s * (1 - f))
+    return [(v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q)][i % 6]
+
+
 def write_spectrum(outdir):
     """The diffraction LUT: the site's six CSS stops, made into a LOOP.
 
@@ -641,34 +689,60 @@ def write_spectrum(outdir):
       colour". The shader's grating phase is fract()'d into this strip, so however far the hue
       walks it walks around the wordmark's own palette. A generic rainbow was never an option —
       it would stop being this studio's wordmark the moment somebody moved their head.
+
+    ⚑ INTERPOLATED BY HUE, NOT BY RGB, and that is worth a paragraph because it is the difference
+      between a spectrum and a gradient. Mixing #7aa8ff to #ff2ad9 componentwise passes through a
+      washed lilac; mixing #ff2ad9 to #ffd23b passes through a dirty peach. Measured on the live
+      render, a componentwise LUT capped the wordmark's per-pixel saturation at a median of 0.53
+      no matter what the lighting did — the pale, pastel look of the first cut was baked into the
+      palette itself, three layers below where it was visible. Interpolating H (shortest arc), S
+      and V separately keeps every intermediate as saturated as the stops it sits between, which
+      is what a diffraction grating actually produces: a HUE SWEEP. The six stops themselves are
+      untouched and still land exactly where the CSS says, so the identity is unchanged; only the
+      colours BETWEEN them differ, and those never existed as a design decision anyway.
+      ⚠ Done in sRGB HSV, not linear: hue is a perceptual construct and the stops were chosen by
+        eye in sRGB. The bytes written are therefore already the encoded values.
+
     ⚠ PNG, not WebP, and no mipmaps in the browser. Lossy compression on a 256-entry palette
       shifts colours that are then multiplied over the whole word, and a mipmapped LUT averages
       the entire palette to grey at the first level down.
-    ⚠ Written as DATA (is_data=True) with the sRGB transfer curve applied BY HAND. Blender's
-      colour management on a saved byte image is one more thing that can quietly differ between
-      versions; here the bytes in the file are exactly the bytes computed on the line above, and
-      build-hero-type.mjs re-derives them independently and compares.
+    ⚠ Written as DATA (is_data=True) so Blender applies NO transform of its own — the bytes in
+      the file are exactly the bytes computed here, and build-hero-type.mjs re-derives them
+      independently and compares.
     """
     h = 8
     img = bpy.data.images.new('hero_spectrum', LUT_W, h, alpha=False,
                               float_buffer=False, is_data=True)
-    stops = [(p, srgb_to_linear(hexrgb(c))) for p, c in RAMP]
-    # close the loop: the last stop wraps back to the first one position-shifted by 1.0
-    loop = stops + [(stops[0][0] + 1.0, stops[0][1])]
+    stops = [(p, rgb_to_hsv(hexrgb(c))) for p, c in RAMP]
+    # close the loop: the last stop wraps back to the first, one turn on in position AND in hue,
+    # so the sweep goes the long way round the colour wheel instead of doubling back through it
+    turns = 0.0
+    unwrapped = []
+    prev = None
+    for p, (hh, ss, vv) in stops:
+        if prev is not None:
+            while hh + turns < prev - 180.0:
+                turns += 360.0
+        unwrapped.append((p, (hh + turns, ss, vv)))
+        prev = hh + turns
+    first = unwrapped[0]
+    endh = first[1][0] + turns
+    while endh < prev - 180.0:
+        endh += 360.0
+    loop = unwrapped + [(first[0] + 1.0, (endh, first[1][1], first[1][2]))]
+
     row = []
     for i in range(LUT_W):
         t = i / LUT_W
-        # find the pair of stops around t, wrapping
         tt = t if t >= stops[0][0] else t + 1.0
+        col = loop[-1][1]
         for k in range(len(loop) - 1):
             a, b = loop[k], loop[k + 1]
             if a[0] <= tt <= b[0]:
                 f = (tt - a[0]) / (b[0] - a[0]) if b[0] > a[0] else 0.0
-                lin = tuple(a[1][j] + (b[1][j] - a[1][j]) * f for j in range(3))
+                col = tuple(a[1][j] + (b[1][j] - a[1][j]) * f for j in range(3))
                 break
-        else:
-            lin = stops[-1][1]
-        row.append(linear_to_srgb(lin))
+        row.append(hsv_to_rgb(col))
     px = []
     for _ in range(h):
         for c in row:

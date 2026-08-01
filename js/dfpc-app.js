@@ -11,8 +11,10 @@
  *     DFPC.project(x, alt, y)             world → overlay pixels, for nameplates and the lead pip
  *     DFPC.basis(h)                       headless handedness check (see below)
  *
- * — so the flight model in dogfight.html is untouched. Measured before and after: cruise 9.00,
- * climb 5.60, dive 12.40, boost 22.00, which is CLAUDE.md's recorded set.
+ * — the flight model stays in dogfight.html and this file only reads it. ⚠ Its numbers have MOVED
+ * since the port: altitude now lapses thrust and a banked wing sinks, so cruise is 8.99 on the
+ * deck and 6.71 at the ceiling rather than a single 9.00, and boost peaks at 21.6 for the ~2.5 s
+ * the gauge lasts. See the FLY block in dogfight.html; do not re-quote the old set.
  *
  * ⚑ HANDEDNESS — AND THE ANSWER IS NOT SECTION 9'S ANSWER. Section 9's PlayCanvas port shipped a
  *   mirrored scene that produced three separate bug reports ("mouse inverted", "strafe backwards",
@@ -69,7 +71,7 @@ window.DFPC = (function () {
 
   let app = null, cam = null, rig = null, sun = null, world = null, fx = null;
   let ok = false, frame = null, ditherOn = false;
-  let ships = new Map(), craftProto = null, podProto = null;
+  let ships = new Map(), craftProto = null, podProto = null, trimProto = null;
   let TIER = 'high', QCFG = null, why = '';
   const marks = { boot: 0, first: 0 };
   const times = [];
@@ -330,19 +332,60 @@ window.DFPC = (function () {
    * procedural shapes fly. */
   const CRAFT = 0.9, GATE_R = 1.4;
   let artState = 'pending';
-  function meshBounds(mesh) {
-    const it = new pc.VertexIterator(mesh.vertexBuffer);
-    const n = mesh.vertexBuffer.getNumVertices();
-    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
-    for (let i = 0; i < n; i++) {
-      const p = it.element[pc.SEMANTIC_POSITION];
-      const x = p.array[p.index], y = p.array[p.index + 1], z = p.array[p.index + 2];
-      if (x < lo[0]) lo[0] = x; if (y < lo[1]) lo[1] = y; if (z < lo[2]) lo[2] = z;
-      if (x > hi[0]) hi[0] = x; if (y > hi[1]) hi[1] = y; if (z > hi[2]) hi[2] = z;
-      it.next();
-    }
-    it.end();
-    return { lo, hi };
+  /* ⛔ THE CRAFT FLEW 90° ACROSS ITS OWN FLIGHT PATH, AND THIS IS WHY. A glTF node carries a
+   * transform, and Blender's exporter writes the craft's nose alignment as exactly that — a −90°
+   * node rotation about Y (verified on the shipping file: `craft` and `pod` both read
+   * lrEuler [0,−90,0], while their VERTEX data still has the nose on +X where build-craft.py
+   * authored it). The old code did
+   *
+   *     inst.forEach(e => { … parts[e.name] = e.render.meshInstances[0].mesh; })
+   *
+   * which takes the MESH and throws the NODE away, so the nose stayed on the mesh's +X, the 180°
+   * `flip` turned that into −X, and yaw −(h+90°) put it on world −Z: the aircraft rendered
+   * broadside, tail to the right of frame, exactly the "stuck flying in one direction" signature
+   * CLAUDE.md records against the classic renderer's camera yaw. Same family of defect, different
+   * transform. `js/ronin-glb.js` — the CLASSIC build's loader — walks the scene graph and applies
+   * `nodeMatrix`, which is why `dogfight-classic.html` was right the whole time and this was not.
+   * A port regression, not a modelling error.
+   *
+   * ⚑ THE FIX MEASURES AND PLACES IN THE SAME FRAME. `meshInstance.aabb` is already the
+   * NODE-TRANSFORMED bound (checked: craft centre [0,0.86,0.94] half [4.13,1.48,5.26] — that is
+   * the tail at −4.32 and the nose at +6.20 on Z, i.e. post-rotation), so the fit is computed
+   * where the part actually is, and the same node rotation is then put back on the entity that
+   * draws it. Fits stay MEASURED, so a replacement model still drops in without retuning — and
+   * now it drops in whether its authoring tool bakes the orientation into vertices or leaves it
+   * on the node, which is the property that was silently missing.
+   *
+   * One placement formula for every part, derived once:
+   *     worldOf(part) = T(off) · R(A·q) · S(s·sc) · mesh
+   *   with q,t,sc the part's own node transform, `s` the fit scale, `A` an extra canonical
+   *   rotation (identity except for the gate) and `anchor` the point of the measured bound that
+   *   must land on the origin. Working through it (uniform scale commutes past rotation):
+   *     off = s · A · (t − anchor),  rotation = A·q,  scale = s·sc
+   */
+  const _q0 = new pc.Quat(), _v0 = new pc.Vec3(), _v1 = new pc.Vec3();
+  const _mA = new pc.Mat4(), _mB = new pc.Mat4();
+  /** snapshot a part: mesh + its node transform + its node-space bound, all relative to `inst` */
+  function readPart(e, inst) {
+    const mi = e.render.meshInstances[0];
+    _mA.copy(inst.getWorldTransform()).invert();
+    const m = _mB.mul2(_mA, e.getWorldTransform());
+    const q = new pc.Quat().setFromMat4(m);
+    const t = m.getTranslation(new pc.Vec3());
+    const sc = m.getScale(new pc.Vec3());
+    const ab = mi.aabb;                                               // ALREADY node-transformed
+    const c = ab.center, h = ab.halfExtents;
+    return { mesh: mi.mesh, q, t, sc,
+      lo: [c.x - h.x, c.y - h.y, c.z - h.z], hi: [c.x + h.x, c.y + h.y, c.z + h.z],
+      ext: [h.x * 2, h.y * 2, h.z * 2] };
+  }
+  /** place: entity ← the one formula above. `A` may be null (identity). */
+  function fitPart(ent, part, s, anchor, A) {
+    _v0.set(part.t.x - anchor[0], part.t.y - anchor[1], part.t.z - anchor[2]);
+    if (A) A.transformVector(_v0, _v0);
+    ent.setLocalPosition(_v0.x * s, _v0.y * s, _v0.z * s);
+    if (A) { _q0.mul2(A, part.q); ent.setLocalRotation(_q0); } else ent.setLocalRotation(part.q);
+    ent.setLocalScale(part.sc.x * s, part.sc.y * s, part.sc.z * s);
   }
   function loadArt(url) {
     try {
@@ -351,35 +394,52 @@ window.DFPC = (function () {
         try {
           const inst = asset.resource.instantiateRenderEntity();
           const parts = {};
-          inst.forEach(e => { if (e.render && e.render.meshInstances.length) parts[e.name] = e.render.meshInstances[0].mesh; });
+          inst.forEach(e => { if (e.render && e.render.meshInstances.length) parts[e.name] = readPart(e, inst); });
           if (!parts.craft) { artState = 'procedural (no craft part)'; inst.destroy(); return; }
-          const cb = meshBounds(parts.craft);
-          const ce = [cb.hi[0] - cb.lo[0], cb.hi[1] - cb.lo[1], cb.hi[2] - cb.lo[2]];
-          const cs = CRAFT / (Math.max(ce[0], ce[1], ce[2]) || 1);
-          const cc = [(cb.lo[0] + cb.hi[0]) / 2, (cb.lo[1] + cb.hi[1]) / 2, (cb.lo[2] + cb.hi[2]) / 2];
-          craftProto = { mesh: parts.craft, s: cs, c: cc };
-          if (parts.pod) podProto = { mesh: parts.pod, s: cs, c: cc };
+          const C = parts.craft;
+          const cs = CRAFT / (Math.max(C.ext[0], C.ext[1], C.ext[2]) || 1);
+          const cc = [(C.lo[0] + C.hi[0]) / 2, (C.lo[1] + C.hi[1]) / 2, (C.lo[2] + C.hi[2]) / 2];
+          craftProto = { part: C, s: cs, c: cc };
+          // the pod shares the CRAFT's fit — the exhausts are authored bolted to the tail, and
+          // fitting the pod to its own bound would centre it and hang the glow off the nose
+          if (parts.pod) podProto = { part: parts.pod, s: cs, c: cc };
+          if (parts.trim) trimProto = { part: parts.trim, s: cs, c: cc };
           for (const s of ships.values()) rebuildShip(s);
           if (parts.gate) {
-            const gb = meshBounds(parts.gate);
-            // scaled by its HORIZONTAL half-extent, because that is the radius the hitbox uses
-            const gr = Math.max(gb.hi[0] - gb.lo[0], gb.hi[1] - gb.lo[1]) / 2 || 1;
-            const gs = GATE_R / gr;
-            world.setGateMesh(parts.gate, new pc.Vec3(
-              -((gb.lo[0] + gb.hi[0]) / 2) * gs, -((gb.lo[1] + gb.hi[1]) / 2) * gs, -((gb.lo[2] + gb.hi[2]) / 2) * gs), gs);
+            /* ⚠ A RING HAS AN AXIS AND THE TWO PATHS DISAGREED ABOUT IT. The procedural fallback is
+             * a pc.TorusGeometry, which lies in XZ with its axis on +Y, and dfpc-world stands it up
+             * with a fixed 90° X rotation before facing it at the eye. The AUTHORED ring is already
+             * upright (built with rx=π/2, so its axis is +Z) — so that same 90° laid it FLAT and a
+             * boost gate you fly through became a horizontal hoop seen edge-on as a line. Normalise
+             * at load instead of at draw: whichever axis is THINNEST is the ring's axis, and it is
+             * turned onto +Y so both paths hand dfpc-world the same object. Measured, so a
+             * replacement ring authored either way still lands right. */
+            const G0 = parts.gate;
+            const thin = G0.ext.indexOf(Math.min(G0.ext[0], G0.ext[1], G0.ext[2]));
+            const A = new pc.Quat();
+            if (thin === 0) A.setFromEulerAngles(0, 0, 90);            // +X → +Y
+            else if (thin === 2) A.setFromEulerAngles(-90, 0, 0);      // +Z → +Y
+            // the two REMAINING extents are the ring's diameter, and 1.4 is the radius the game tests
+            const big = G0.ext.filter((_, i) => i !== thin);
+            const gs = GATE_R / ((Math.max(big[0], big[1]) / 2) || 1);
+            const gc = [(G0.lo[0] + G0.hi[0]) / 2, (G0.lo[1] + G0.hi[1]) / 2, (G0.lo[2] + G0.hi[2]) / 2];
+            _v1.set(G0.t.x - gc[0], G0.t.y - gc[1], G0.t.z - gc[2]);
+            A.transformVector(_v1, _v1);
+            world.setGateMesh(G0.mesh, new pc.Vec3(_v1.x * gs, _v1.y * gs, _v1.z * gs), gs,
+              new pc.Quat().mul2(A, G0.q), G0.sc);
           }
           /* ⚠ ALL FIVE PROP SHAPES, not the first one found. `WORLDS[].prop` names a silhouette
            * per theme — pylon · ring · spire · tower · crystal — and taking whichever part the GLB
            * yielded first planted the same pylon in all five worlds, which a screenshot caught and
-           * the code did not. Each is fitted with `fitStanding`: height → 1, origin on the BASE,
-           * so `alt` lifts a prop off the deck by the amount the game means. */
+           * the code did not. Each is fitted STANDING: height → 1, origin on the BASE, so `alt`
+           * lifts a prop off the deck by the amount the game means. */
           const set = {};
           for (const k of ['pylon', 'ring', 'spire', 'tower', 'crystal']) {
-            const m = parts['prop_' + k]; if (!m) continue;
-            const b = meshBounds(m);
-            const s = 1 / ((b.hi[1] - b.lo[1]) || 1);
-            set[k] = { mesh: m, scale: s,
-              off: new pc.Vec3(-((b.lo[0] + b.hi[0]) / 2) * s, -b.lo[1] * s, -((b.lo[2] + b.hi[2]) / 2) * s) };
+            const P0 = parts['prop_' + k]; if (!P0) continue;
+            const s = 1 / (P0.ext[1] || 1);
+            const anchor = [(P0.lo[0] + P0.hi[0]) / 2, P0.lo[1], (P0.lo[2] + P0.hi[2]) / 2];
+            set[k] = { mesh: P0.mesh, scale: s, rot: P0.q, nscale: P0.sc,
+              off: new pc.Vec3((P0.t.x - anchor[0]) * s, (P0.t.y - anchor[1]) * s, (P0.t.z - anchor[2]) * s) };
           }
           if (Object.keys(set).length) world.setPropSet(set);
           artState = 'authored (' + Object.keys(parts).length + ' parts)';
@@ -396,18 +456,64 @@ window.DFPC = (function () {
   /* ⚑ HULLS ARE DARK BODIES WITH BRIGHT TRIM, not tinted lights. Against the old near-black sky a
    * saturated hull was the only bright thing in frame and read fine; against a high-key sky a
    * saturated hull is the SAME VALUE as its background and dissolves. So the albedo is the team
-   * tint at ×0.22 — a dark, coloured body that silhouettes hard — and the tint is spent at full
+   * tint at ×0.24 — a dark, coloured body that silhouettes hard — and the tint is spent at full
    * strength on the engine pod, which is emissive and therefore reads at any range and any
    * exposure. Value carries the shape, chroma carries the identity. This is also what the game's
-   * own 2D renderer already does (`s._pal` darkens the tint to 0.52/0.34/0.24). */
+   * own 2D renderer already does (`s._pal` darkens the tint to 0.52/0.34/0.24).
+   *
+   * ⚑ AND THE "BRIGHT TRIM" HALF OF THAT SENTENCE WAS NEVER BUILT — see trimMat below. The hull
+   *   was the whole aircraft, which is why it read as one dark smear.
+   *
+   * ⚠ THE FACE IS PRINTED INK, SO IT DOES NOT REFLECT THE SKY. docs/DESIGN-SYSTEM.md §1: "Metal
+   *   may reflect the environment. A flat face must not" — and CLAUDE.md's THE WASH records what
+   *   happens when it does, because a StandardMaterial samples the environment for AMBIENT
+   *   SPECULAR too and that lands as a milky sheen which lifts blacks and eats saturation. It was
+   *   metalness 0.42 / gloss 0.66 here, i.e. half a mirror pointed at a bright sky.
+   *   ⛔ The fix is NOT `useSkybox = false`: that would also cut the IBL's ambient DIFFUSE, which
+   *   is this scene's fill light, and drop the shadow side of every hull to black. Killing the
+   *   dielectric specular specifically (`useSpecularityFactor`) removes the sheen and keeps the
+   *   fill — the sky may LIGHT the card, it may not be MIRRORED in it. */
   function hullMat(tint) {
     let m = hullMats.get(tint);
     if (m) return m;
     const c = hex(tint);
     m = new pc.StandardMaterial(); m.name = 'hull' + tint;
-    m.useMetalness = true; m.metalness = 0.42; m.gloss = 0.66;
-    m.diffuse = new pc.Color(c[0] * 0.22, c[1] * 0.22, c[2] * 0.22);
+    m.useMetalness = true; m.metalness = 0.0; m.gloss = 0.34;
+    m.useSpecularityFactor = true; m.specularityFactor = 0.10;
+    m.diffuse = new pc.Color(c[0] * 0.24, c[1] * 0.24, c[2] * 0.24);
     m.update(); hullMats.set(tint, m); return m;
+  }
+  /* ── FOIL, and it is the studio's material rather than the team's ───────────────────────
+   * docs/DESIGN-SYSTEM.md §1 names foil as the one layer that exists NOWHERE in this project yet,
+   * and states the rule that decides whether a thing is foil at all: **it is defined by movement,
+   * not by colour** — the hue must walk as the viewer moves, and the acceptance test is to
+   * measure the hue shift across view angles. A gradient, a hue-rotate or a tinted metal all fail
+   * that test by construction.
+   *
+   * So this is genuine thin-film interference (`useIridescence`), which is the physical effect a
+   * hot stamp actually has: the shift comes out of the half-angle, so it walks because the craft
+   * ROLLED, not because a timer advanced. That also satisfies §4 — motion is a physical property
+   * or it does not exist.
+   *
+   * ⚑ ONE MATERIAL FOR EVERY TEAM, not one per tint. The pod already carries the team colour at
+   *   full emissive strength; if the foil were tinted too, the tint would swamp the interference
+   *   and the acceptance measurement would be measuring the tint. Silver-warm base, team identity
+   *   left to the light that is actually doing that job. Metal is also the ONE surface §1 permits
+   *   to reflect the environment, which is why the skybox is left on here and cut on the hull. */
+  let trimM = null;
+  function trimMat() {
+    if (trimM) return trimM;
+    const m = new pc.StandardMaterial(); m.name = 'foil';
+    m.useMetalness = true; m.metalness = 1.0; m.gloss = num('foilgloss', 0.88);
+    m.diffuse = new pc.Color(0.86, 0.84, 0.78);          // F0 for a metal: warm silver stamp
+    m.useIridescence = true;
+    m.iridescence = num('irid', 1.0);
+    m.iridescenceRefractionIndex = num('iridior', 1.9);
+    // the film's thickness range IS the width of the hue sweep — too narrow and it reads as one
+    // tinted metal, too wide and the bands alias into noise on a 250-triangle part
+    m.iridescenceThicknessMin = num('iridmin', 210);
+    m.iridescenceThicknessMax = num('iridmax', 760);
+    m.update(); trimM = m; return m;
   }
   function glowMat(tint) {
     let m = glowMats.get(tint);
@@ -419,20 +525,27 @@ window.DFPC = (function () {
     m.update(); glowMats.set(tint, m); return m;
   }
   function rebuildShip(rec) {
-    const body = rec.body, pod = rec.pod;
+    const body = rec.body, pod = rec.pod, trim = rec.trim;
     if (body.render) body.removeComponent('render');
     if (pod.render) pod.removeComponent('render');
+    if (trim.render) trim.removeComponent('render');
     const P = craftProto;
     if (P) {
-      const mi = new pc.MeshInstance(P.mesh, hullMat(rec.tint), body); mi.castShadow = true;
+      const mi = new pc.MeshInstance(P.part.mesh, hullMat(rec.tint), body); mi.castShadow = true;
       body.addComponent('render', { meshInstances: [mi], castShadows: true, receiveShadows: true });
-      body.setLocalPosition(-P.c[0] * P.s, -P.c[1] * P.s, -P.c[2] * P.s);
-      body.setLocalScale(P.s, P.s, P.s);
+      fitPart(body, P.part, P.s, P.c, null);
+      /* the trim shares the CRAFT's fit for the same reason the pod does: it is authored in the
+       * craft's own frame and bolted to its edges, so fitting it to its own (slightly smaller)
+       * bound would shrink it a few percent and float every strip off the edge it dresses */
+      if (trimProto) {
+        const mt = new pc.MeshInstance(trimProto.part.mesh, trimMat(), trim); mt.castShadow = true;
+        trim.addComponent('render', { meshInstances: [mt], castShadows: true, receiveShadows: true });
+        fitPart(trim, trimProto.part, trimProto.s, trimProto.c, null);
+      }
       if (podProto) {
-        const mp = new pc.MeshInstance(podProto.mesh, glowMat(rec.tint), pod); mp.castShadow = false;
+        const mp = new pc.MeshInstance(podProto.part.mesh, glowMat(rec.tint), pod); mp.castShadow = false;
         pod.addComponent('render', { meshInstances: [mp], castShadows: false, receiveShadows: false });
-        pod.setLocalPosition(-podProto.c[0] * podProto.s, -podProto.c[1] * podProto.s, -podProto.c[2] * podProto.s);
-        pod.setLocalScale(podProto.s, podProto.s, podProto.s);
+        fitPart(pod, podProto.part, podProto.s, podProto.c, null);
       }
     } else {
       // procedural delta wing: a flattened box is a poor plane, but it is a plane, and it flies
@@ -450,16 +563,20 @@ window.DFPC = (function () {
     if (rec && rec.tint === s.tint) return rec;
     if (rec) { try { rec.root.destroy(); } catch (e) {} ships.delete(s); }
     const root = new pc.Entity('ship');
-    /* ⚑ THE MODEL'S NOSE IS +Z AND AN ENTITY'S FORWARD IS −Z. One 180° pivot resolves that ONCE,
-     * here, so every other place in this file can use the single yaw formula θ = −(h + π/2) and
-     * nothing has to remember a per-object offset. The old renderer carried two independent +π/2
-     * offsets (one for the eye, one for the hull) and CLAUDE.md records the cost of confusing
-     * them. */
+    /* ⚑ THE MODEL'S NOSE IS +Z AND AN ENTITY'S FORWARD IS −Z. glTF's own convention is +Z-forward
+     * and a camera's is −Z-forward, so the two disagree by 180° for everyone, always; one pivot
+     * resolves it ONCE, here, and every other place in this file uses the single yaw formula
+     * θ = −(h + π/2) with no per-object offset to remember. The old renderer carried two
+     * independent +π/2 offsets (one for the eye, one for the hull) and CLAUDE.md records the cost
+     * of confusing them.
+     * ⚠ This only holds once the part's own NODE rotation is applied — see loadArt. With the node
+     * dropped the nose sat on the mesh's +X and this pivot dutifully turned it to −X, which is how
+     * a 180° correction produced a 90° error. */
     const flip = new pc.Entity('nose'); flip.setLocalEulerAngles(0, 180, 0);
-    const body = new pc.Entity('body'), pod = new pc.Entity('pod');
-    flip.addChild(body); flip.addChild(pod); root.addChild(flip);
+    const body = new pc.Entity('body'), pod = new pc.Entity('pod'), trim = new pc.Entity('trim');
+    flip.addChild(body); flip.addChild(trim); flip.addChild(pod); root.addChild(flip);
     app.root.addChild(root);
-    rec = { root, flip, body, pod, tint: s.tint };
+    rec = { root, flip, body, pod, trim, tint: s.tint };
     ships.set(s, rec);
     rebuildShip(rec);
     return rec;
@@ -481,7 +598,7 @@ window.DFPC = (function () {
   }
 
   const _qy = new pc.Quat(), _qx = new pc.Quat(), _qz = new pc.Quat(), _qr = new pc.Quat();
-  let shove = 0;                                    // smoothed boost/brake camera response
+  let shove = 0, gK = 0;                            // smoothed boost/brake + G camera response
   /** the ONE conversion: game heading → entity yaw. Used by the camera and by every craft. */
   const yawDeg = h => -(h * DEG + 90);
 
@@ -514,10 +631,33 @@ window.DFPC = (function () {
     _qz.setFromAxisAngle(pc.Vec3.BACK, (camS.roll || 0) * DEG);
     _qr.copy(_qy).mul(_qx).mul(_qz);
     rig.setRotation(_qr);
-    const CAM_LIFT = 0.42;
+    const me = G.me;
+    /* ── G ──────────────────────────────────────────────────────────────────────────────
+     * ⛔ `s.gLoad` WAS COMPUTED EVERY FRAME AND READ BY NOTHING. Its own comment in
+     * dogfight.html says "HUD + camera shove"; grep says otherwise. It reaches 4.14 in a hard
+     * banked pull and 2.50 in a flat one (measured), and none of it reached the eye — so the
+     * difference between the sustainable turn and the one that is costing you everything was
+     * invisible from the seat. That is the whole fight, unreadable.
+     *
+     * Three cues, all of them things a body or an airframe physically does, per the house rule
+     * that motion is a physical property or it does not exist:
+     *   sink   the eye drops in the seat under load — the single most legible G cue there is
+     *   widen  the lens opens, so the world rushes past faster at the edges. Applied INSIDE the
+     *          zoom divide with the boost widening, so precision zoom still wins the sight picture
+     *   buffet a fast, small airframe judder — distinct in FREQUENCY from the impact shake below,
+     *          which is a big slow thump. Two different events must not read as one effect
+     * `gK` has its own lag (≈0.28 s): a body loads up and unloads over time, and a step change
+     * would read as a glitch rather than as strain. */
+    const gRaw = me ? Math.min(1, Math.max(0, ((me.gLoad || 1) - 1) / 3.2)) : 0;
+    gK += (gRaw - gK) * Math.min(1, (o.dt || 0.016) * 3.6);
+    const CAM_LIFT = 0.42 - 0.13 * gK;
     let jx = 0, jy = 0, jz = 0;
     const sh = Math.min(G.shake || 0, 14) * 0.006;
     if (sh > 0.0001) { jx = (Math.random() * 2 - 1) * sh; jy = (Math.random() * 2 - 1) * sh * 0.8; jz = (Math.random() * 2 - 1) * sh * 0.4; }
+    if (gK > 0.02 && !o.reduce) {
+      const t = G.t || 0, a = gK * gK * 0.019;         // squared: nothing at 1.5 g, real at 4
+      jx += Math.sin(t * 47.3) * a; jy += Math.sin(t * 61.7) * a * 0.8;
+    }
     // the whole world is drawn camera-relative, so the eye is at x/z 0 by construction
     rig.setPosition(jx, (camS.alt || 0) + CAM_LIFT + jy, jz);
     /* ⚑ THRUST HAS TO BE VISIBLE OR IT IS NOT FELT. Speed on a gauge is a number; speed in the
@@ -529,13 +669,12 @@ window.DFPC = (function () {
      * airbrake read as "stopping" rather than as "the number went down".
      * ⚠ FOV is multiplied AFTER the zoom divide, so precision zoom still wins — a 12% widening
      * inside a 2.4× narrowing is a wobble on the sight picture, and the sight picture is aim. */
-    const me = G.me;
     const want = me ? ((me.boost ? 1 : 0) - (me.brake ? 0.85 : 0)) : 0;
     shove += (want - shove) * Math.min(1, (o.dt || 0.016) * 4.5);
-    cam.setLocalPosition(0, 0, (o.CAM_BACK || 2.4) * (1 + 0.22 * shove));   // +Z is BEHIND a camera
+    cam.setLocalPosition(0, 0, (o.CAM_BACK || 2.4) * (1 + 0.22 * shove + 0.09 * gK));   // +Z is BEHIND a camera
     /* Precision zoom is a real optical change, so it is a real FOV change — the old renderer did
      * it by multiplying a fake focal length, which the engine has no equivalent of. */
-    cam.camera.fov = ((o.fov || 1.05) / (me && me.zoom ? 2.4 : 1)) * (1 + 0.13 * shove) * DEG;
+    cam.camera.fov = ((o.fov || 1.05) / (me && me.zoom ? 2.4 : 1)) * (1 + 0.13 * shove + 0.10 * gK) * DEG;
 
     // aerial haze + the white-out when the eye is inside the cloud deck (a gameplay mechanic)
     world.weather((o.CAM_H || 1.2) + (camS.alt || 0), o);

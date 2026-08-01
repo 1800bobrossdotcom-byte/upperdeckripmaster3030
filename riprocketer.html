@@ -20,6 +20,16 @@
   It was not slow. It was EMPTY. The rebuild is about density, aggression and consequence, and
   every pacing number lives in js/rrpc-game.js next to the thing it controls.
 
+  ⛔ THAT FIXED THE DENSITY AND LEFT THE SHIP BROKEN. Second verdict: "so slow … dies every 1/2
+  seconds … impossible to fly", plus "what happened to the metal slug integration". Measured: top
+  speed 2.08 u/s against 8.6 u/s enemy fire, 0.72 vulnerable seconds per life, a whole three-life
+  run over in eleven. One exponent (a per-tick drag written as if it were per-second) caused both
+  halves. The full before/after and the movement system it made room for — DASH, defence ROLL with
+  i-frames, FLOW → OVERDRIVE, shields, pierce — are documented in js/rrpc-game.js's SHIP block.
+
+  CONTROLS  ◀ ▶ ▲ ▼ fly · SPC fire (autofire is on) · SHIFT/K/Z defence roll · Q/E or a genuine
+            double-tap of ◀ / ▶ dash · B burn · P pause. Touch: floating stick, FIRE, ROLL, BURN.
+
   Query params
     ?q=low|mid|high  force a quality tier      ?post=0     engine post stack off
     ?bloom=N ?sat=N ?sharp=N ?dither=N          post overrides, for sweeping
@@ -54,6 +64,11 @@
   .h-wx{ font-size:10px; letter-spacing:.06em; color:#9fe6c8; margin-top:3px; text-transform:uppercase; }
   .h-wx b{ color:var(--magenta); } .h-wx .blk{ color:var(--amber); }
   .h-gun{ font-size:11px; letter-spacing:.06em; color:var(--amber); font-family:var(--fat); margin-top:4px; text-transform:uppercase; }
+  /* SHIELDS sit directly under the rigs, because they are the thing that is actually spent when
+     you get hit — the rig count only moves when the shield is already gone. */
+  .h-shield{ font-size:clamp(13px,3.2vw,18px); letter-spacing:2px; color:var(--cyan); margin-top:2px; }
+  .h-flow{ font-size:11px; letter-spacing:.06em; color:var(--lime); font-family:var(--fat); margin-top:4px; text-transform:uppercase; }
+  .h-flow small{ font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; opacity:.8; }
   .lb{ margin:14px auto 4px; max-width:340px; text-align:left; }
   .lb-hd{ text-align:center; font-family:var(--fat); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--amber); margin-bottom:6px; }
   .lb-row{ display:grid; grid-template-columns:22px 1fr auto; gap:8px; padding:4px 8px; border-radius:6px; align-items:baseline; font-size:12.5px; }
@@ -72,7 +87,10 @@
     color:var(--amber); text-shadow:0 0 22px rgba(255,210,59,.85),0 2px 4px #000; }
   .flashblk.go{ animation:blkFlash 1.9s ease-out; }
   @keyframes blkFlash{ 0%{opacity:0;transform:translate(-50%,-50%) scale(1.6)} 10%{opacity:1;transform:translate(-50%,-50%) scale(1)} 78%{opacity:1} 100%{opacity:0} }
-  .controls{ position:fixed; z-index:5; left:50%; bottom:12px; transform:translateX(-50%); display:flex; gap:7px 12px; flex-wrap:wrap;
+  /* ⚠ ONE ROW. Adding the roll and the dash pushed this to two rows, and the second row went
+     behind the site-wide banner at the foot of the page — i.e. the two NEW controls were the
+     ones you could not read. Labels are short and it is lifted clear of the banner. */
+  .controls{ position:fixed; z-index:5; left:50%; bottom:40px; transform:translateX(-50%); display:flex; gap:6px 10px; flex-wrap:wrap;
     justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px; max-width:96vw;
     background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); }
   .key{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:#bfe9d3; }
@@ -86,6 +104,10 @@
     background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
   .pad.bomb{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px); width:66px; height:66px;
     background:radial-gradient(circle at 40% 34%,#ffc7f4,#ff2ad9 60%,#7a0a5c); border:2px solid #4a0636; box-shadow:0 0 18px rgba(255,42,217,.5); color:#fff; }
+  /* ROLL gets its own pad rather than a gesture: a defensive move you have to discover is a
+     defensive move nobody uses. Left of FIRE so it falls under the same thumb. */
+  .pad.roll{ right:calc(var(--bez) + 112px); bottom:calc(var(--bez) + 22px); width:72px; height:72px;
+    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0b5a66); border:2px solid #063f47; box-shadow:0 0 20px rgba(39,247,228,.5); color:#022; }
   .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
   #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
     background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
@@ -171,9 +193,11 @@
     <div class="h-lbl">score</div>
     <div class="h-chain" id="hChain">×1 <small>chain 0</small></div>
     <div class="h-gun" id="hGun"></div>
+    <div class="h-flow" id="hFlow"></div>
   </div>
   <div class="hud hud-tr" id="hudTR" style="display:none">
     <div class="h-lives" id="hLives">◆◆◆</div>
+    <div class="h-shield" id="hShield">◈◈◈</div>
     <div class="h-wave" id="hWave">wave <b>1</b></div>
     <div class="h-wx" id="hWx">◉ market · —</div>
   </div>
@@ -183,14 +207,17 @@
     <button class="tg" id="tgAuto">⌁ auto</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx">◉ sfx</button><button class="tg" id="tgPause">⏸ pause</button>
   </div>
   <div class="pad bomb" id="tBomb">BURN</div>
+  <div class="pad roll" id="tRoll">ROLL</div>
   <div class="pad fire" id="tFire">FIRE</div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="controls" id="controls" style="display:none">
-    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> move</span>
-    <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> rise</span>
-    <span class="key desk"><kbd>SPC</kbd> fire (auto is on)</span>
+    <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd><kbd>▲</kbd><kbd>▼</kbd> fly</span>
+    <span class="key desk"><kbd>SHIFT</kbd> roll</span>
+    <span class="key desk"><kbd>Q</kbd><kbd>E</kbd> dash</span>
+    <span class="key desk"><kbd>SPC</kbd> fire</span>
+    <span class="key desk"><kbd>B</kbd> burn</span>
     <span class="key desk"><kbd>P</kbd> pause</span>
-    <span class="key touch">left thumb: stick · hold FIRE · BURN clears divers</span>
+    <span class="key touch">stick · ROLL · hold FIRE · BURN</span>
   </div>
 
   <div class="ov show" id="ovStart">
@@ -199,14 +226,19 @@
       <div class="tag">ripmaster3030studios</div>
       <div class="sub">A formation of <b>trading cards</b> flies in, locks up, and starts breaking off to dive at you. It never stops. Shoot the ones coming for you — they're worth <b>three times</b> the ones sitting still.</div>
       <div class="rules">
+        <div><b>THE ROLL.</b> <i>SHIFT</i> barrel-rolls. You are <i>invulnerable</i> through it and the shock deletes every bullet near you. It is the answer to everything — learn it first.</div>
+        <div><b>THE DASH.</b> Double-tap <i>◀ ◀</i> / <i>▶ ▶</i> (or <i>Q</i> / <i>E</i>). Chain a dash into a roll into a dash and you build <i>FLOW</i> — three links lights <i>OVERDRIVE</i>: faster guns, harder hits, more speed. Moving well <i>is</i> shooting well.</div>
+        <div><b>SHIELDS.</b> <i>◈◈◈</i>. A hit costs a pip, not a rig, and pips come back if you stay clean. Only a hit with no pips left takes a life.</div>
         <div><b>THE CHAIN.</b> Every hit raises it, every missed shot halves it. Up to <i>×6</i>. Hosing the screen is the losing strategy.</div>
         <div><b>THE RIP.</b> The magenta one opens a beam and steals your ship. Kill it <i>while it's diving</i> and you get the ship back alongside you — <i>DOUBLE RIG</i>, twice the guns. Kill it parked and your ship dies with it.</div>
         <div><b>CHALLENGE WAVE</b> every fourth. Nothing shoots. Nothing can hurt you. Clear all sixteen for <i>PERFECT</i> — the only prize is having done it.</div>
       </div>
       <div class="keys-preview">
         <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> move</span><span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> rise</span>
+        <span class="key desk"><kbd>SHIFT</kbd> defence roll</span>
+        <span class="key desk"><kbd>◀◀</kbd><kbd>▶▶</kbd> / <kbd>Q</kbd><kbd>E</kbd> dash</span>
         <span class="key desk"><kbd>SPC</kbd> fire</span>
-        <span class="key touch">left thumb: stick · hold FIRE</span>
+        <span class="key touch">left thumb: stick · ROLL · hold FIRE</span>
       </div>
       <div><button class="go" id="btnBurn">⚡ Pay 25 &amp; launch</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice launch (free)</button></div>

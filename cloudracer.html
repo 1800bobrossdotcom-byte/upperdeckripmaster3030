@@ -87,7 +87,16 @@
   .tell[hidden]{ display:none; }
   .tell.on{ background:#27f7e4; color:#04303a; border-color:#0f9c92; }
   .tell.sl.on{ background:#ffd23b; color:#3d2d00; border-color:#c39a00; }
-  .lamp{ position:absolute; left:50%; transform:translateX(-50%); bottom:36%; font-family:var(--fat);
+  .tell.gz.on{ background:#ff2ad9; color:#fff; border-color:#b8007e; }
+  .tier .tl{ font-size:10px; letter-spacing:.16em; color:#2b7fa8; }
+  .tier .tl b{ font-family:var(--fat); font-size:17px; color:#b8007e; letter-spacing:0; }
+  .tier .pips{ display:flex; gap:3px; margin-top:4px; }
+  .tier .pips i{ display:block; width:13px; height:6px; border-radius:3px; background:rgba(13,34,51,.16); }
+  .tier .pips i.on{ background:linear-gradient(90deg,#ff8a1a,#ff2ad9); }
+  /* ⚠ WAS bottom:36%, WHICH IS EXACTLY WHERE THE POD IS. An in-race capture had the LIFT lamp
+   * painted across the craft it was warning about. The chase camera keeps the pod low in frame;
+   * the lamp belongs above it, in the empty sky band. */
+  .lamp{ position:absolute; left:50%; transform:translateX(-50%); top:20%; font-family:var(--fat);
     font-size:26px; letter-spacing:.14em; padding:5px 18px; border-radius:10px; opacity:0; transition:opacity .1s; }
   .lamp.amb{ opacity:1; background:rgba(255,210,59,.92); color:#3d2d00; box-shadow:0 6px 22px rgba(180,130,0,.4); }
   .lamp.red{ opacity:1; background:rgba(255,58,58,.94); color:#fff; box-shadow:0 6px 22px rgba(180,0,0,.45); }
@@ -173,6 +182,8 @@
   <div class="h-tl">
     <div class="cap"><div class="lap"><span id="lapN">1</span><small>/<span id="lapT">3</span> LAP</small></div>
       <div class="place"><span id="placeN">1</span><small id="placeOf">/ 6</small></div></div>
+    <!-- TIER: the race is 13% faster every lap and the player has to be able to see that. -->
+    <div class="cap tier"><div class="tl">TIER <b id="tierN">1</b></div><div class="pips" id="tierPips"></div></div>
     <div class="cap" style="font-size:11px;line-height:1.5"><div style="color:#2b7fa8;letter-spacing:.14em">BEST LAP</div>
       <div style="font-family:var(--fat);font-size:17px"><span id="bestT">—</span><small style="font-size:10px">s</small></div></div>
   </div>
@@ -183,6 +194,7 @@
       <div class="bar"><i id="boostBar"></i></div>
       <div class="tells">
         <span class="tell" id="tellDraft">SLIPSTREAM</span>
+        <span class="tell gz" id="tellGraze">GRAZE</span>
         <span class="tell sl" id="tellSlide">SLIDING</span>
       </div>
     </div>
@@ -198,18 +210,20 @@
 </div>
 <div class="cd hidden" id="cd"><b id="cdB">3</b></div>
 <div class="toast" id="toast"></div>
-<div class="ctrls"><b>A D</b> steer · <b>W</b> boost · <b>S</b> airbrake</div>
+<div class="ctrls"><b>A D</b> steer · <b>W</b> boost · <b>S</b> airbrake · every lap opens a faster tier</div>
 
 <!-- LOBBY -->
 <div class="ov show" id="ovLobby">
   <div class="panel">
     <h1>CLOUD <em>RACER</em></h1>
     <div class="tag">anti-grav pod racing · take the inside line</div>
-    <div class="sub">A white sky-circuit strung through the weather. <b>The inside of a corner is
-      genuinely shorter</b> — and genuinely tighter, so it runs out of grip first. Boost is not a
-      key you hold: you <b>earn</b> it off the light-strips, out of a rival's slipstream and by
-      carrying a corner right on the limit. Everyone antes <b>$3030</b> and stakes cards into one
-      pot; a small rake burns and the <b>podium (1st/2nd/3rd)</b> splits the rest.</div>
+    <div class="sub">A sky-circuit strung through the weather. <b>Every lap you finish opens the
+      next TIER</b> — the whole field gets 13% faster and the grip does not keep up, so corners
+      that were flat on lap one need the airbrake by lap three. Boost is not a key you hold: you
+      <b>earn</b> it off the light-strips, out of a rival's slipstream, by carrying a corner on the
+      limit and by <b>grazing</b> the barrier without touching it. Everyone antes <b>$3030</b> and
+      stakes cards into one pot; a small rake burns and the <b>podium (1st/2nd/3rd)</b> splits the
+      rest.</div>
     <div class="wrow"><span class="wlbl">◆ Ante · $3030 each</span>
       <span class="step"><button data-ante="-1">−</button><span class="val" id="anteVal">50</span><button data-ante="1">+</button></span></div>
     <div class="wrow"><span class="wlbl">◆ Cards staked each</span>

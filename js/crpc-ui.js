@@ -128,7 +128,7 @@
   }
 
   // ══ HUD ═════════════════════════════════════════════════════════════════════════════════════
-  let lastLap = -1;
+  let lastLap = -1, lastTier = -1;
   function toast(msg, ms) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show');
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms || 1300); }
 
@@ -157,27 +157,42 @@
     $('placeN').textContent = me.place || 1;
     $('placeOf').textContent = '/ ' + G.racers.length;
     $('bestT').textContent = me.best ? me.best.toFixed(2) : '—';
-    /* ── THE CORNER LAMP. Look ahead by the distance it takes to shed speed at the airbrake rate
-     * and compare what is carried against the apex the racing line can hold. Amber = lift, red =
-     * brake. This is exactly the calculation the bots run, shown to the player — which is the only
-     * fair way to ship an AI that brakes on lookahead. */
-    const look = 12 + (me.v * me.v) / (2 * CR.PACE.BRAKE);
-    let limit = 999;
-    for (let d = 4; d < look; d += 6) limit = Math.min(limit, CR.vmaxAt(T, me.s + d));
+    /* ── THE TIER. The race gets 13% faster every lap and that has to be VISIBLE, or a player whose
+     * pod suddenly needs braking where it did not last lap concludes the controls got worse. Four
+     * pips, lit up to the current tier, next to the lap counter — the number the escalation is
+     * actually indexed on. */
+    const tier = me.tier || 1;
+    if (tier !== lastTier) {
+      lastTier = tier;
+      $('tierPips').innerHTML = [1, 2, 3, 4].map(i => `<i class="${i <= tier ? 'on' : ''}"></i>`).join('');
+      $('tierN').textContent = tier;
+    }
+    /* ── THE CORNER LAMP, off ONE definition shared with the bots (`CRGame.brakePoint`).
+     * ⛔ It used to run its own copy of a lookahead that was simply the wrong formula — scan
+     * `v²/(2·BRAKE)` units ahead (the distance to stop DEAD, 94 u at boost) and warn if anything in
+     * there is slower. That lights the lamp almost permanently, which trains the player to ignore
+     * it, and it disagreed with what the bots did. The real question is whether you can still shed
+     * to the apex in the distance left: max speed at distance d from an apex of `lim` is
+     * √(lim² + 2·BRAKE·d). Amber = you are at the brake point, red = you are past it. */
+    const P = CR.paceFor(me), bp = CR.brakePoint(T, me.s, P, 1);
     const lamp = $('lamp');
-    if (me.v > limit * 1.10) { lamp.className = 'lamp red'; lamp.textContent = 'BRAKE'; }
-    else if (me.v > limit * 0.98) { lamp.className = 'lamp amb'; lamp.textContent = 'LIFT'; }
+    if (me.v > bp.need * 1.06) { lamp.className = 'lamp red'; lamp.textContent = 'BRAKE'; }
+    else if (me.v > bp.need * 0.97) { lamp.className = 'lamp amb'; lamp.textContent = 'LIFT'; }
     else { lamp.className = 'lamp'; lamp.textContent = ''; }
-    // slipstream + slide tells
+    // slipstream + slide + graze tells — the boost bar is a budget now, so what is FILLING it has
+    // to be on screen or the economy is invisible and the player just watches a bar move.
     $('tellDraft').classList.toggle('on', me.draft > 0.15);
     $('tellSlide').classList.toggle('on', (me.slip || 0) > 0.08);
+    $('tellGraze').classList.toggle('on', !!me.graze);
     if (G.order) $('posList').innerHTML = G.order.slice(0, 8).map((r, i) =>
       `<div class="r${r.isMe ? ' me' : ''}">${i + 1}. ${esc((pilots[r.i] || {}).name || ('P' + (r.i + 1)))}${r.done ? ' ✓' : ''}</div>`).join('');
     // events → toasts
     while (G.events.length) {
       const e = G.events.shift();
-      if (e.kind === 'lap' && e.lap < G.laps) toast('LAP ' + (e.lap + 1) + ' · ' + e.time.toFixed(2) + 's', 1100);
-      else if (e.kind === 'pad') toast('⚡ BOOST', 500);
+      if (e.kind === 'tier') toast('TIER ' + e.tier + ' — FASTER', 1300);
+      else if (e.kind === 'lap' && e.lap < G.laps) toast('LAP ' + (e.lap + 1) + ' · ' + e.time.toFixed(2) + 's', 1000);
+      else if (e.kind === 'pad') toast('⚡ BOOST', 460);
+      else if (e.kind === 'graze') toast('◤ GRAZE', 420);
       else if (e.kind === 'finish') toast('FINISH!', 1600);
     }
   }
@@ -224,7 +239,7 @@
   }
 
   function raceStarted(G, cfg) {
-    done = false; lastLap = -1;
+    done = false; lastLap = -1; lastTier = -1;
     makePilots(cfg.players);
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show'); $('hud').classList.remove('hidden');
     const img = $('pilotImg'); if (img) img.src = pilots[0].url;
@@ -260,7 +275,7 @@
     { type: 'hold', act: 'Airbrake', touch: 'Hold (left of boost)', key: 'S · SPACE' },
   ];
   function practice() {
-    if (window.GameHelp) GameHelp.show({ title: 'CLOUD RACER', kicker: 'take the inside line · earn your boost',
+    if (window.GameHelp) GameHelp.show({ title: 'CLOUD RACER', kicker: 'earn your boost · every lap is faster',
       controls: CONTROLS, startLabel: '▶ Start practice', onStart: () => go(false) });
     else go(false);
   }

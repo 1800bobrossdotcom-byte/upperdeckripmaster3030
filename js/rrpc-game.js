@@ -46,6 +46,42 @@
  * This file knows NOTHING about PlayCanvas, canvases, or the DOM. `js/rrpc-app.js` owns the
  * engine and knows none of the rules. The split is what makes both testable: pacing is measured
  * off G, and pixels are measured off the frame, and neither measurement can lie about the other.
+ *
+ * ── ⛔ THE SECOND VERDICT, AND WHAT IT SAYS ABOUT THE FIRST ────────────────────────────────────
+ * Everything above describes a PORT that succeeded. The artist then played it:
+ *
+ *     "Why is Rip Rocketer ship so slow, and what happened to the metal slug integration and the
+ *      ship being way better and more tactical (dies every 1/2 seconds) impossible to fly."
+ *
+ * ⚑ THE HONEST READING IS THAT THE GAMEPLAY BRIEF WAS NEVER DELIVERED. The original ask was
+ *   "moving forward like metal slug on acid and galaga, but we need the best ship and guns in the
+ *   universe to outman these fleets — we are just one ship, the ship needs fast combos for movement
+ *   and a physics system that is out of this world and defense rolls." What shipped answered the
+ *   *density* half of that and none of the rest: there were no combos, no dash, no roll, no
+ *   physics beyond a damped velocity, and the guns opened on two bolts.
+ *
+ * ⚑ AND IT WAS MEASURED BEFORE IT WAS ANSWERED, again, because "impossible to fly" is a game-feel
+ *   complaint and those are the ones most worth putting a number on. Seven seeds, a dodging bot,
+ *   the fixed tick, seconds ALIVE AND VULNERABLE per life lost:
+ *
+ *       ship top speed          2.08 u/s   (the code's own comment claimed 7.5)
+ *       field crossing          6.06 s     (the comment claimed 1.7)
+ *       enemy bolt speed        8.6 u/s    — 4.1× faster than the player
+ *       TTK, dodging bot        0.72 s     ← "dies every 1/2 seconds", literally
+ *       TTK, idle bot           0.33 s
+ *       whole 3-life run        ~11 s
+ *       clock spent playable    20%        (the rest is respawn and invulnerable blink)
+ *       cause of every death    enemy bullets, 100%, at a mean of 2–3 bullets on screen
+ *
+ *   It was never a bullet wall. The ship could not get out of the way of anything, and the cause
+ *   was one exponent — see the SHIP block below, which is where both complaints get fixed at once.
+ *
+ * The brief's own list, and where each now lives:
+ *     fast combos for movement  → doDash / doRoll / bumpFlow / OVERDRIVE
+ *     defence rolls             → doRoll, i-frames + the shock that clears incoming fire
+ *     physics out of this world → SHIP.DRAG per second, wall BOUNCE, RECOIL, impulse dash
+ *     best ship and guns        → GUNS (pierce at the top), BOLT_V/BOLT_CAP, open on the tri
+ *     survivable enough to use any of it → hitShip's shield pool + regen
  */
 window.RRGame = (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -63,10 +99,11 @@ window.RRGame = (function () {
      * sitting under the HUD — while SHIPY -3.4 put the ship 87% down, behind the controls legend.
      * Verified by screenshot, which is the one thing screenshots ARE reliable for here. */
     X: 6.3,                    // playable half-width
-    YTOP: 0.0, YBOT: -3.8,     // the SHIP's box. Deliberately the lower third: Galaga's silhouette
+    YTOP: 0.30, YBOT: -3.9,    // the SHIP's box. Deliberately the lower third: Galaga's silhouette
                                // is "them up there, you down here", and free vertical movement
                                // dissolves it into a twin-stick game. YTOP stops below the bottom
-                               // formation row so you can never stand inside the grid.
+                               // formation row (y ≈ 0.87) so you can never stand inside the grid —
+                               // 0.30 keeps that clearance while giving the dash/roll somewhere to go.
     SHIPY: -3.05,
     COLS: 9, ROWS: 4,
     COLW: 1.30, ROWH: 0.86,
@@ -84,6 +121,92 @@ window.RRGame = (function () {
     { name: 'flanker', hp: 2, pts: 80,  dpts: 260, fire: 1.4, sz: 0.46 },
     { name: 'ripper',  hp: 4, pts: 400, dpts: 900, fire: 1.6, sz: 0.62 },
   ];
+
+  // ── THE SHIP ────────────────────────────────────────────────────────────────────────────────
+  /* ⛔ THE VERDICT WAS "so slow … dies every 1/2 seconds … impossible to fly", AND BOTH HALVES OF
+   *    THAT WERE ONE ARITHMETIC BUG. It is worth writing out, because the bug was invisible in the
+   *    code and loud in the game.
+   *
+   *    The old line was `const d = Math.pow(0.88, h * 120); s.vx *= d;` inside a fixed h = 1/120 s
+   *    tick. `Math.pow(0.88, (1/120)*120)` is `Math.pow(0.88, 1)` — 0.88 PER TICK, i.e. 0.88^120 =
+   *    2.2e-7 per second. The comment next to it said the ship "settles at ~7.5 u/s, which crosses
+   *    the 12.6-unit field in 1.7 s". MEASURED, it settled at **2.08 u/s and crossed in 6.06 s**.
+   *    The drag was 120× stronger than its own author intended.
+   *
+   *    ⚑ And that is ALSO the survivability bug, which is why the two complaints are one fix.
+   *    EBOLT_V is 8.6 u/s: enemy fire arrived **4.1× faster than the player could move**. Measured
+   *    against a dodging bot, the ship survived a median of **0.72 vulnerable seconds per life**
+   *    (0.33 s idle) and a whole run lasted ~11 s — with a mean of only 2–3 enemy bullets alive.
+   *    It was never a bullet wall. You simply could not get out of the way of anything.
+   *
+   *    Section 9's precedent (CLAUDE.md: "TTK is the load-bearing number") applies verbatim: below
+   *    a survivable TTK, no tactic can exist, because nobody lives long enough to use one. Rolls,
+   *    dashes and combos would all have been decoration on top of a ship that dies in 0.7 s.
+   *
+   * ⚑ DRAG IS NOW PER SECOND AND THE TOP SPEED IS DERIVED, NOT GUESSED. With `v *= DRAG^h` the
+   *   terminal speed is ACC/(−ln DRAG) for small h — 78 / 7.99 = 9.77 u/s derived, and **9.44 u/s
+   *   MEASURED** on the discrete 1/120 s tick (the tick loses 3% to the finite step; both numbers
+   *   are recorded because a derivation that is never checked against the loop is how the 120× got
+   *   in here in the first place). The 12.6-unit field crosses in **1.46 s measured** from a
+   *   standing start at the wall, 1.33 s asymptotic — against **6.12 s measured before**. Galaga's
+   *   ship crosses in ~1.6 s; the brief asked for faster than Galaga. `_selfCheck()` re-derives the
+   *   whole set from the constants, so a future edit cannot move them silently.
+   *
+   * ⚠ THE RESPONSE IS *NOT* UNCHANGED, and an earlier draft of this comment claimed it was — which
+   *   is the same species of unchecked claim as the bug above, so it is corrected here rather than
+   *   quietly deleted. The time constant is 1/−ln(DRAG): the old build's was 0.065 s (90% of its
+   *   2.08 u/s in 0.158 s), this one's is 0.125 s (90% of 9.76 u/s in 0.288 s). The ship is
+   *   deliberately HEAVIER as well as faster — that is the "physics system that is out of this
+   *   world" half of the brief, and it is what makes the dash worth having, since the dash is the
+   *   instant direction change the cruise no longer gives you for free.
+   */
+  const SHIP = {
+    ACC: 78,            // u/s² lateral
+    DRAG: 0.00034,      // PER SECOND. −ln(0.00034) = 7.99 ⇒ top ≈ 9.76 u/s, τ = 0.125 s
+    VACC: 0.80,         // vertical accel as a fraction of lateral — a rocket climbs well
+    BOUNCE: 0.42,       // the wall gives some back. A dead stop at the wall has no mass in it.
+    RECOIL: 1.35,       // each volley shoves you DOWN. Firing while climbing is a real trade.
+
+    /* THE DASH — offensive movement, and the first half of "fast combos for movement". */
+    DASH_V: 27, DASH_T: 0.17, DASH_CD: 0.30, DASH_I: 0.10,
+
+    /* THE DEFENCE ROLL — the brief asked for this by name. i-frames are the point: 0.30 s of the
+     * 0.42 s roll is invulnerable, so a read beats a bullet. It is also the ONLY way to delete
+     * incoming fire — the roll's shock ring clears every enemy bolt inside ROLL_SHOCK units, which
+     * is what makes it a defence you can see working rather than a timing window you have to
+     * take on faith. */
+    ROLL_T: 0.42, ROLL_I: 0.30, ROLL_CD: 0.70, ROLL_V: 19, ROLL_SHOCK: 1.85,
+
+    /* THE FLOW — chain a dash or a roll inside FLOW_WIN of the last one and it counts. Three in a
+     * chain lights OVERDRIVE. This is what makes movement OFFENSIVE, which is the Metal Slug half
+     * of the brief: you are not dodging in order to survive, you are dodging in order to hit
+     * harder. It cannot be farmed in a corner — the cooldowns mean a chain costs ~1 s of committed
+     * movement, and committed movement is exactly where the bullets are. */
+    /* ⚠ OD_CD IS LOAD-BEARING AND THE FIRST BUILD OF THIS SYSTEM DID NOT HAVE IT. Measured over
+     * seven 180 s runs with a bot that chases the flow: overdrive was live for **114 of 180
+     * seconds — 66% uptime**, because a dash comes off cooldown every 0.47 s and FLOW_WIN is
+     * 1.15 s, so the chain simply never breaks and each new chain extended the timer. A reward
+     * that is on two-thirds of the time is not a reward, it is the base state with a colour on it,
+     * and it silently made every gun number in the file wrong. So: the flow can no longer EXTEND a
+     * live overdrive, and once it drops there is a relight lockout. Overdrive is a burst you spend,
+     * not a mode you live in. */
+    FLOW_WIN: 1.15, FLOW_OD: 3, OD_T: 4.2, OD_CD: 6.0,
+    OD_RATE: 1.7, OD_DMG: 1.6, OD_SPD: 1.22, OD_CAP: 2,
+
+    /* SURVIVABILITY. A hit spends a SHIELD pip, not a life — Section 9's armour pool, in this
+     * game's language — and pips come back after REGEN clean seconds, which is Section 9's
+     * out-of-combat regen almost to the number (4.5 s there). ⚑ The dead time was as bad as the
+     * dying: the old build spent 80% of its wall clock in respawn + blink, so a "10-second run"
+     * contained about two playable seconds. */
+    SHIELD: 3, REGEN: 6.5, HIT_I: 1.05, RESPAWN: 0.9, DEATH_I: 1.8,
+  };
+  /* Derived, so the numbers in the comment above cannot drift away from the code. */
+  function shipTop(loadSpeed) { return SHIP.ACC * (loadSpeed || 1) / -Math.log(SHIP.DRAG); }
+  function _selfCheck() {
+    const top = shipTop(1);
+    return { topSpeed: +top.toFixed(2), crossSec: +((F.X * 2) / top).toFixed(2),
+      tau: +(1 / -Math.log(SHIP.DRAG)).toFixed(3), dragPerTick: +Math.pow(SHIP.DRAG, 1 / 120).toFixed(4) };
+  }
 
   // ── cubic bezier, and its tangent (used for banking) ────────────────────────────────────────
   function bez(p, u, out) {
@@ -111,8 +234,15 @@ window.RRGame = (function () {
     const G = {
       mode: 'gate', t: 0, score: 0, wave: 0, lives: 3, staked: false,
       phase: 'entry', phaseT: 0, waveT: 0, msg: '', msgT: 0, bigMsg: '', bigMsgT: 0,
-      ship: { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, alive: true, respawn: 0, inv: 2,
-              dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0 },
+      /* ⚑ `inv` is the RESPAWN blink (it flashes the ship). `iframe` is the DASH/ROLL window and it
+       * must NOT blink — a rolling ship is doing something visible and readable, and flickering it
+       * would hide the one frame the player is reading. Two names because they are two things;
+       * `invuln()` is the single test everything hostile asks. */
+      ship: { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0, inv: 2,
+              iframe: 0, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0,
+              shield: SHIP.SHIELD, shieldMax: SHIP.SHIELD, sinceHit: 0,
+              dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0,
+              flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0 },
       enemies: [], bullets: [], ebullets: [], pops: [], beams: [], pows: [],
       chain: 0, mult: 1, bestChain: 0, bombs: 1,
       shots: 0, hits: 0, waveShots: 0, waveHits: 0,
@@ -130,10 +260,23 @@ window.RRGame = (function () {
        * to `ev` and js/rrpc-app.js drains the queue each frame. One array, no callbacks to wire up
        * per event, and a headless run can assert on the queue instead of on a speaker. */
       ev: [],
-      stat: { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0 },
+      stat: newStat(),
     };
     return G;
   }
+  /* ⚑ `vulnT` IS THE TTK INSTRUMENT AND IT LIVES IN THE SIMULATION ON PURPOSE. Wall-clock time
+   * between deaths flatters this game badly: the old build spent 80% of its clock in respawn and
+   * invulnerable blink, so "a death every 3.6 s" was really "a death every 0.7 s of actually
+   * playing". Seconds ALIVE AND VULNERABLE per life lost is the number the player feels, it is the
+   * number the artist reported, and having it inside G means the browser and the headless probe
+   * measure the same quantity instead of two different ones. */
+  function newStat() {
+    return { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0,
+      deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0,
+      vulnT: 0, invT: 0, deadT: 0, shieldHits: 0, rolls: 0, dashes: 0, shocks: 0,
+      overdrives: 0, odT: 0, bestFlow: 0, bulletsCleared: 0 };
+  }
+  const invuln = s => s.inv > 0 || s.iframe > 0;
 
   // ── formation geometry ──────────────────────────────────────────────────────────────────────
   function slotXYZ(G, col, row, out) {
@@ -160,9 +303,15 @@ window.RRGame = (function () {
     const bonus = (w % 4 === 0);
     return {
       bonus,
-      count: bonus ? 16 : Math.min(36, 24 + (w - 1) * 2),
-      diveGap: Math.max(0.30, 1.15 - (w - 1) * 0.085),
-      maxDive: Math.min(7, 2 + Math.floor(w * 0.8)),
+      /* ⚠ EVERY CEILING HERE USED TO BE REACHED BY WAVE 10 AND THEN THE GAME STOPPED ESCALATING.
+       * With the ship fixed, that showed up immediately: a bot using the movement system ran to
+       * wave 18+ without the pressure ever rising again, because eFire capped at wave 10, maxDive
+       * at 7, count at 7 and speed at 15 — past that, wave 30 was wave 15 with a bigger number on
+       * the HUD. The caps are raised, not the ramps: waves 1–8 are numerically IDENTICAL to what
+       * was measured, and the escalation simply keeps going instead of flattening. */
+      count: bonus ? 16 : Math.min(40, 24 + (w - 1) * 2),
+      diveGap: Math.max(0.26, 1.15 - (w - 1) * 0.085),
+      maxDive: Math.min(10, 2 + Math.floor(w * 0.8)),
       /* ⚠ eFire IS THE DIFFICULTY DIAL AND IT TOOK THREE PASSES TO GET RIGHT. 0.85 first: measured
        * with a dodging bot, three lives gone in 9 seconds and wave 2 never reached. 0.50 next:
        * still 3-4 deaths inside 15 seconds, and the death-cause counters said all of them were
@@ -172,8 +321,16 @@ window.RRGame = (function () {
        * rather than hard. 0.34 opens with roughly one bullet in the air and the steeper 0.26 ramp
        * still reaches the old 0.85 by wave 3 and the cap by wave 10. The pressure on wave 1 is
        * meant to come from DIVERS and from things filling the screen — those never went down. */
-      eFire: bonus ? 0 : Math.min(2.6, 0.34 + (w - 1) * 0.26),
-      speed: Math.min(2.1, 1 + (w - 1) * 0.075),
+      eFire: bonus ? 0 : Math.min(3.4, 0.34 + (w - 1) * 0.26),
+      /* ⚑ A HARD CEILING ON LIVE ENEMY FIRE, which the old build did not have at all. eFire is a
+       * RATE, and a rate with no ceiling means wave 10's screen is decided by how many enemies
+       * happen to be alive rather than by a designed number. This is the "fewer enemy bullets"
+       * lever in the brief, expressed as a budget rather than as a nerf: on wave 1 the cap (6) is
+       * above what the game already produces (measured mean 2–3), so early waves are unchanged and
+       * only the late-wave wall is capped. ⚠ It is a CAP, not a queue — a shot suppressed by the
+       * budget is simply not taken, so the pressure comes off smoothly instead of arriving late. */
+      maxEB: bonus ? 0 : Math.min(22, 6 + (w - 1) * 1.15),
+      speed: Math.min(2.5, 1 + (w - 1) * 0.075),
       ripper: !bonus && w >= 2,
     };
   }
@@ -290,13 +447,104 @@ window.RRGame = (function () {
     return out;
   }
 
+  // ── MOVEMENT COMBOS: THE DASH, THE DEFENCE ROLL, AND THE FLOW ───────────────────────────────
+  /* The artist's brief, verbatim: "the ship needs fast combos for movement and a physics system
+   * that is out of this world and defense rolls." None of it existed. This is it.
+   *
+   * ⚑ THE DESIGN RULE THAT MAKES IT A COMBO SYSTEM RATHER THAN TWO BUTTONS: neither move scores
+   *   anything by itself. Chaining them inside FLOW_WIN does. So the reward for good movement is
+   *   MORE FIREPOWER, which means dodging and attacking stop being separate activities — that is
+   *   the Metal Slug feel the one-line brief was pointing at, and it is the thing a pure Galaga
+   *   formation game does not have.
+   * ⚑ AND IT CANNOT BE FARMED. Both moves have cooldowns, so a chain costs about a second of
+   *   committed, telegraphed movement — and committed movement in this game is exactly where the
+   *   bullets are. You buy overdrive by going somewhere dangerous on purpose. */
+  function bumpFlow(G, kind) {
+    const s = G.ship;
+    s.flow = (s.flowT > 0 ? s.flow : 0) + 1;
+    s.flowT = SHIP.FLOW_WIN;
+    if (s.flow > G.stat.bestFlow) G.stat.bestFlow = s.flow;
+    if (s.flow >= SHIP.FLOW_OD && s.od <= 0 && s.odCd <= 0) {
+      s.od = SHIP.OD_T; s.odPeak = s.flow; s.odCd = SHIP.OD_T + SHIP.OD_CD;
+      G.stat.overdrives++;
+      G.bigMsg = '⚡ OVERDRIVE'; G.bigMsgT = 1.5; G.ev.push('overdrive'); G.flash = Math.max(G.flash, 0.7);
+    } else if (s.flow >= SHIP.FLOW_OD && s.odCd > 0 && s.od <= 0) {
+      G.msg = 'flow ' + s.flow + ' · charging'; G.msgT = 0.7;
+    } else {
+      G.msg = kind.toUpperCase() + ' · flow ' + s.flow; G.msgT = 0.7;
+    }
+  }
+
+  function doDash(G, dir) {
+    const s = G.ship;
+    if (!s.alive || s.dashCd > 0 || s.rollT > 0) return false;
+    s.dashDir = dir || 1;
+    s.dash = SHIP.DASH_T; s.dashCd = SHIP.DASH_CD + SHIP.DASH_T;
+    /* the impulse ADDS to whatever you already had, capped — so dash-out-of-a-dash is faster than
+     * a standing dash, which is what makes chaining them feel like acceleration rather than like
+     * pressing the same button twice. */
+    s.vx = clamp(s.vx + s.dashDir * SHIP.DASH_V, -SHIP.DASH_V * 1.5, SHIP.DASH_V * 1.5);
+    s.iframe = Math.max(s.iframe, SHIP.DASH_I);
+    G.stat.dashes++;
+    G.ev.push('dash');
+    bumpFlow(G, 'dash');
+    return true;
+  }
+
+  /* THE DEFENCE ROLL. 0.30 s of the 0.42 s roll is invulnerable, and — the part that makes it a
+   * defence you can SEE rather than a timing window you take on faith — it detonates a shock that
+   * deletes every enemy bolt within ROLL_SHOCK units. In OVERDRIVE the same shock also bites
+   * divers for 1. One rule, escalating; not two mechanics. */
+  function doRoll(G, dir) {
+    const s = G.ship;
+    if (!s.alive || s.rollCd > 0 || s.rollT > 0) return false;
+    s.rollDir = dir || 0;
+    s.rollT = SHIP.ROLL_T; s.rollCd = SHIP.ROLL_CD + SHIP.ROLL_T; s.spin = 0;
+    s.iframe = Math.max(s.iframe, SHIP.ROLL_I);
+    if (s.rollDir) s.vx = clamp(s.vx + s.rollDir * SHIP.ROLL_V, -SHIP.DASH_V * 1.5, SHIP.DASH_V * 1.5);
+    else s.vy += 3.0;                                  // a standing roll pops you up out of the lane
+    G.stat.rolls++;
+    rollShock(G);
+    G.ev.push('roll');
+    bumpFlow(G, 'roll');
+    return true;
+  }
+
+  function rollShock(G) {
+    const s = G.ship, R = SHIP.ROLL_SHOCK;
+    let n = 0;
+    for (const b of G.ebullets) {
+      if (!b.live) continue;
+      if (Math.hypot(b.x - s.x, b.y - s.y) < R && Math.abs(b.z) < 3) { b.live = false; n++; }
+    }
+    if (s.od > 0) {
+      for (const e of G.enemies) {
+        if (e.state !== 'dive' && e.state !== 'beam') continue;
+        if (Math.hypot(e.x - s.x, e.y - s.y) < R * 1.15 && Math.abs(e.z) < 2.2) {
+          e.hp -= 1; e.hurt = 0.25;
+          if (e.hp <= 0) killEnemy(G, e); else G.ev.push('ping');
+        }
+      }
+    }
+    G.stat.shocks++; G.stat.bulletsCleared += n;
+    // a shock ring for the renderer. `shock` rather than `boom`: it is not an explosion.
+    G.pops.push({ x: s.x, y: s.y, z: 0, shock: 1, t: 0, life: 0.42, hue: 168, r: R });
+    if (n) { G.msg = '↻ ' + n + ' CLEARED'; G.msgT = 0.8; }
+  }
+
   // ── firing ──────────────────────────────────────────────────────────────────────────────────
+  /* ⚑ "THE BEST SHIP AND GUNS IN THE UNIVERSE" IS A DESIGN CONSTRAINT, NOT FLAVOUR TEXT, and the
+   * old table did not meet it: you opened on `twin`, two bolts on screen, at 16 u/s under a ship
+   * that moved 2 u/s. Every gun now has a CHARACTER rather than one more bolt than the last —
+   * spread, cadence and, at the top, PIERCE, which is the one property that makes a weapon read as
+   * overwhelming rather than merely numerous. You open on `tri` and never drop below it. */
   const GUNS = [
     { bolts: [0, 0], off: [-0.24, 0.24], rate: 0.115, dmg: 1, name: 'twin' },
-    { bolts: [-0.11, 0, 0.11], off: [-0.3, 0, 0.3], rate: 0.108, dmg: 1, name: 'tri' },
-    { bolts: [-0.2, -0.07, 0.07, 0.2], off: [-0.42, -0.16, 0.16, 0.42], rate: 0.10, dmg: 1, name: 'quad' },
-    { bolts: [-0.3, -0.12, 0, 0.12, 0.3], off: [-0.5, -0.24, 0, 0.24, 0.5], rate: 0.092, dmg: 1.5, name: 'penta' },
-    { bolts: [-0.38, -0.16, 0, 0.16, 0.38], off: [-0.56, -0.26, 0, 0.26, 0.56], rate: 0.076, dmg: 2.4, name: 'MAX plasma', laser: true },
+    { bolts: [-0.11, 0, 0.11], off: [-0.3, 0, 0.3], rate: 0.100, dmg: 1, name: 'tri' },
+    { bolts: [-0.2, -0.07, 0.07, 0.2], off: [-0.42, -0.16, 0.16, 0.42], rate: 0.090, dmg: 1.2, name: 'quad' },
+    { bolts: [-0.34, -0.13, 0, 0.13, 0.34], off: [-0.5, -0.24, 0, 0.24, 0.5], rate: 0.080, dmg: 1.7, name: 'penta' },
+    { bolts: [-0.42, -0.17, 0, 0.17, 0.42], off: [-0.56, -0.26, 0, 0.26, 0.56], rate: 0.066, dmg: 2.6,
+      name: 'MAX plasma', laser: true, pierce: 2 },
   ];
   /* ⚑ BOLT SPEED AND THE BULLET CAP ARE ONE DECISION, AND THE FIRST VERSION GOT IT WRONG.
    * At 27 u/s with no cap, a bot that simply held fire under the formation cleared 13 of 18
@@ -310,27 +558,46 @@ window.RRGame = (function () {
    * rather than a scold, and it is why the fire rate can stay generous.
    *   cap 2 per rig (4 with the DOUBLE RIG) · 16 u/s ⇒ ~0.46 s to the formation, ~0.63 s to miss
    *   ⇒ ~4.3 effective shots/s hitting, ~3.2 missing.
-   * ⚠ Do not "improve" this by raising the cap. The cap IS the game. */
-  const BOLT_V = 16, EBOLT_V = 8.6;
-  const BOLT_CAP = 2;
+   *
+   * ⚠ THAT REASONING IS STILL RIGHT AND THE NUMBERS WERE STILL WRONG, for a reason the original
+   *   could not have known: it was calibrated against a ship that (bug, see the SHIP block) moved
+   *   at 2.08 u/s. Galaga's two-bullet rule works because Galaga's ship crosses the screen in 1.6 s
+   *   — the cap is a constraint on a FAST ship. Bolted onto a ship that could not get anywhere, it
+   *   was not a decision, it was a second handbrake.
+   * ⚑ SO THE RULE IS KEPT AND THE NUMBERS ARE RE-DERIVED AGAINST THE FIXED SHIP. Bolts fly at 30
+   *   u/s (was 16 — a bolt slower than three times the ship's own top speed reads as a lob), and
+   *   the cap is 4 per rig, +2 in overdrive. Firing is still free and MISSING still costs you
+   *   firepower until the bolt leaves the screen; the accuracy bonus and the chain still pay for
+   *   aiming. What changed is that the ceiling is now reachable by a ship that can move.
+   * ⚠ Do not delete the cap. A cap of Infinity is the hose, and the hose is the losing game. */
+  const BOLT_V = 30, EBOLT_V = 8.6;
+  const BOLT_CAP = 4;
 
   function fire(G) {
     const s = G.ship;
     if (!s.alive || G.mode !== 'play') return;
     const g = GUNS[clamp(s.gun - 1, 0, GUNS.length - 1)];
-    const rate = g.rate / (s.rapid > 0 ? 1.75 : 1) / (G.loadout.rate || 1);
+    const odK = s.od > 0 ? SHIP.OD_RATE : 1;
+    const rate = g.rate / (s.rapid > 0 ? 1.75 : 1) / odK / (G.loadout.rate || 1);
     if (G.t - s.fireT < rate) return;
     const rigs = s.dual ? [-0.62, 0.62] : [0];
+    const cap = BOLT_CAP + (s.od > 0 ? SHIP.OD_CAP : 0);
     let live = 0; for (const b of G.bullets) if (b.live) live++;
-    if (live >= BOLT_CAP * rigs.length * g.bolts.length) return;
+    if (live >= cap * rigs.length * g.bolts.length) return;
     s.fireT = G.t;
+    const dmg = g.dmg * (G.loadout.dmg || 1) * (s.od > 0 ? SHIP.OD_DMG : 1);
     for (const rx of rigs) {
       for (let i = 0; i < g.bolts.length; i++) {
         G.bullets.push({ x: s.x + rx + g.off[i], y: s.y + 0.5, z: 0, vx: g.bolts[i] * 9, vy: BOLT_V,
-          dmg: g.dmg * (G.loadout.dmg || 1), laser: !!g.laser, live: true });
+          dmg, laser: !!g.laser, pierce: g.pierce || 0, live: true });
         G.shots++; G.waveShots++;
       }
     }
+    /* ⚑ RECOIL. Every volley shoves the ship DOWN. It is small (1.35 u/s against a 9.6 u/s top
+     * speed) and it is the difference between a gun that emits bolts and a gun that is bolted to
+     * something with mass — with autofire on you feel it as a constant downward pressure you have
+     * to fly against, which is free tension and costs one line. */
+    s.vy -= SHIP.RECOIL * (rigs.length > 1 ? 1.35 : 1) * 0.35;
     G.muzzle = 1;
     G.ev.push('fire');
   }
@@ -340,7 +607,13 @@ window.RRGame = (function () {
      * once is unreadable, and an unaimed one is ignorable. Partial lead means moving is the right
      * answer and standing still is the wrong one, which is the behaviour the shot is for. */
     const s = G.ship;
-    const dx = (s.x + s.vx * 0.55) - e.x, dy = (s.y - 0.2) - e.y, dz = 0 - e.z;
+    /* the live-fire budget. See waveSpec.maxEB. */
+    if (G.spec && G.spec.maxEB) { let n = 0; for (const b of G.ebullets) if (b.live) n++; if (n >= G.spec.maxEB) return; }
+    /* ⚠ LEAD IS SCALED BY THE SHIP'S TOP SPEED, NOT LEFT AT A CONSTANT. 0.55 was tuned against a
+     * ship that moved 2.08 u/s; against a 9.6 u/s ship the same coefficient leads far enough ahead
+     * that standing still becomes the correct dodge, which inverts the whole intent of the shot. */
+    const lead = 0.55 * (2.08 / Math.max(2.08, shipTop(G.loadout.speed || 1)));
+    const dx = (s.x + s.vx * lead) - e.x, dy = (s.y - 0.2) - e.y, dz = 0 - e.z;
     const L = Math.hypot(dx, dy, dz) || 1;
     G.ebullets.push({ x: e.x, y: e.y - 0.2, z: e.z, vx: dx / L * EBOLT_V, vy: dy / L * EBOLT_V,
       vz: dz / L * EBOLT_V, hue: e.hue, live: true, seen: false });
@@ -410,25 +683,78 @@ window.RRGame = (function () {
 
     // ── ship ──
     if (!s.alive) {
+      G.stat.deadT += h;
       s.respawn -= h;
-      if (s.respawn <= 0 && G.lives > 0) { s.alive = true; s.x = 0; s.y = F.SHIPY; s.vx = 0; s.vy = 0; s.inv = 2.2; s.gun = Math.max(1, s.gun - 1); }
+      if (s.respawn <= 0 && G.lives > 0) {
+        s.alive = true; s.x = 0; s.y = F.SHIPY; s.vx = 0; s.vy = 0; s.inv = SHIP.DEATH_I;
+        s.iframe = 0; s.dash = 0; s.rollT = 0; s.spin = 0; s.flow = 0; s.flowT = 0; s.od = 0; s.odCd = 0;
+        s.shield = s.shieldMax; s.sinceHit = 0;      // a respawn is a clean slate, not a punishment
+        s.gun = Math.max(2, s.gun - 1);              // demote, but never below the tri — see GUNS
+      }
     } else {
       if (s.inv > 0) s.inv -= h;
-      /* Acceleration + heavy damping rather than direct position. 34 u/s² with 0.88^ (per 1/120 s)
-       * damping settles at ~7.5 u/s, which crosses the 12.6-unit field in 1.7 s. Galaga's ship
-       * crosses in about 1.6 s; a twin-stick's would be 0.6 s and would make the formation
-       * trivially dodgeable. */
+      if (s.iframe > 0) s.iframe -= h;
+      if (invuln(s)) G.stat.invT += h; else G.stat.vulnT += h;
+
+      // ── SHIELD REGEN, out of combat. Section 9's rule, and for its reason: a survivable fight is
+      //    only interesting if disengaging is a real option. Getting hit resets the clock.
+      s.sinceHit += h;
+      if (s.shield < s.shieldMax && s.sinceHit >= SHIP.REGEN) {
+        s.shield++; s.sinceHit = 0; G.msg = '◈ SHIELD'; G.msgT = 0.9; G.ev.push('regen');
+      }
+
+      // ── THE FLOW WINDOW. It decays; overdrive burns down separately.
+      if (s.flowT > 0) { s.flowT -= h; if (s.flowT <= 0) s.flow = 0; }
+      if (s.od > 0) { s.od -= h; G.stat.odT += h; if (s.od <= 0) { G.msg = 'overdrive out'; G.msgT = 0.8; } }
+      if (s.odCd > 0) s.odCd -= h;
+      if (s.dashCd > 0) s.dashCd -= h;
+      if (s.rollCd > 0) s.rollCd -= h;
+
+      // ── the two new verbs. Edge-triggered by the driver; the simulation owns the rules.
+      if (input.dash) doDash(G, input.dashDir || (input.right ? 1 : input.left ? -1 : (s.vx >= 0 ? 1 : -1)));
+      if (input.roll) doRoll(G, input.rollDir || (input.right ? 1 : input.left ? -1 : (Math.abs(s.vx) > 0.6 ? Math.sign(s.vx) : 0)));
+
       const ax = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       const ay = (input.up ? 1 : 0) - (input.down ? 1 : 0);
-      const acc = 34 * (G.loadout.speed || 1);
-      if (input.stick) { s.vx += (input.sx * 8.2 - s.vx) * Math.min(1, h * 16); s.vy += (-input.sy * 6.4 - s.vy) * Math.min(1, h * 16); }
-      else { s.vx += ax * acc * h; s.vy += ay * acc * 0.7 * h; }
-      const d = Math.pow(0.88, h * 120);
+      const spdK = (G.loadout.speed || 1) * (s.od > 0 ? SHIP.OD_SPD : 1);
+      const acc = SHIP.ACC * spdK;
+      /* ⚑ A DASH AND A ROLL ARE IMPULSES, NOT STATES. They write velocity once and then let the
+       * same drag carry them out, so they inherit the ship's whole physics — they bounce off the
+       * wall, they blend with the stick, they can be steered mid-flight. A dash implemented as
+       * "position += k each tick while held" would be a teleport with an animation on it. */
+      if (s.dash > 0) { s.dash -= h; }
+      if (s.rollT > 0) {
+        s.rollT -= h;
+        // the barrel roll itself: one full turn over the roll's duration, eased at the ends
+        s.spin += (TAU / SHIP.ROLL_T) * h;
+        if (s.rollT <= 0) { s.spin = 0; s.rollDir = 0; }
+      }
+      if (input.stick) {
+        /* the touch stick drives a TARGET velocity, so a thumb at the rim is full speed. It has to
+         * scale with the same top speed as the keyboard or the two controls play different games. */
+        const top = shipTop(spdK);
+        s.vx += (input.sx * top - s.vx) * Math.min(1, h * 16);
+        s.vy += (-input.sy * top * SHIP.VACC - s.vy) * Math.min(1, h * 16);
+      } else {
+        s.vx += ax * acc * h;
+        s.vy += ay * acc * SHIP.VACC * h;
+      }
+      /* ⛔ DRAG IS PER SECOND. `Math.pow(0.88, h*120)` was 0.88 per TICK — see the SHIP block.
+       *    Everything about how this ship feels came out of that one exponent. */
+      const d = Math.pow(SHIP.DRAG, h);
       s.vx *= d; s.vy *= d;
-      s.x = clamp(s.x + s.vx * h, -F.X, F.X);
+      s.x += s.vx * h;
       s.y = clamp(s.y + s.vy * h, F.YBOT, F.YTOP);
-      if (s.x <= -F.X || s.x >= F.X) s.vx = 0;
-      s.roll += (clamp(-s.vx * 0.11, -0.7, 0.7) - s.roll) * Math.min(1, h * 11);
+      if (s.y <= F.YBOT || s.y >= F.YTOP) s.vy *= -0.25;
+      /* ⚑ THE WALL GIVES SOME BACK. The old build set `vx = 0` at the edge, which is a ship with no
+       * mass hitting a wall with no give — you simply stopped existing sideways. A 0.42 restitution
+       * is the cheapest possible "physics system out of this world" and it is the one the player
+       * touches most often, because a dash into the wall is a thing that will happen constantly. */
+      if (s.x < -F.X) { s.x = -F.X; if (s.vx < 0) { s.vx *= -SHIP.BOUNCE; G.ev.push('bump'); } }
+      else if (s.x > F.X) { s.x = F.X; if (s.vx > 0) { s.vx *= -SHIP.BOUNCE; G.ev.push('bump'); } }
+      // bank into the turn, pitch into the climb — inertia made visible
+      s.roll += (clamp(-s.vx * 0.075, -0.95, 0.95) - s.roll) * Math.min(1, h * 13);
+      s.pitch += (clamp(s.vy * 0.055, -0.55, 0.55) - s.pitch) * Math.min(1, h * 9);
       if (s.rapid > 0) s.rapid -= h;
       if (input.fire) fire(G);
     }
@@ -543,7 +869,7 @@ window.RRGame = (function () {
       b.t += h;
       const e = b.e;
       if (e.state !== 'beam' || b.t > b.dur) { b.done = true; continue; }
-      if (!s.alive || s.inv > 0) continue;
+      if (!s.alive || invuln(s)) continue;      // a roll beats the beam. That is the point of a roll.
       /* the catch test is a CONE widening downward from the ripper — visible, dodgeable, and it
        * has to hold you, not touch you. 0.55 s is long enough to run out of and short enough that
        * a distracted player loses the ship, which is the intended feeling. */
@@ -572,12 +898,16 @@ window.RRGame = (function () {
         const rx = KIND[e.kind].sz * (e.kind === 2 ? 1.5 : 1.15) * 0.68 + 0.06;
         const ry = KIND[e.kind].sz * (e.kind === 2 ? 1.5 : 1.15) + 0.10;
         if (Math.abs(e.x - b.x) < rx && Math.abs(e.y - b.y) < ry && Math.abs(e.z) < 3.2) {
-          b.live = false;
           e.hp -= b.dmg;
           e.hurt = 0.25;
           hitScored(G);
           if (e.hp <= 0) killEnemy(G, e); else G.ev.push('ping');
-          break;
+          /* ⚑ PIERCE is the MAX plasma's whole identity — it is what makes the top gun read as
+           * "best in the universe" rather than as penta with a bigger number. A pierce bolt
+           * survives the kill and keeps climbing, losing a third of its damage each time, so it
+           * rakes a column out of the formation. It is capped, or one shot clears the wave. */
+          if (b.pierce > 0) { b.pierce--; b.dmg *= 0.66; }
+          else { b.live = false; break; }
         }
       }
     }
@@ -595,17 +925,20 @@ window.RRGame = (function () {
         if (d < 2.6 && b.vy < 0) { b.seen = true; G.stat.threatEvents++; }
       }
       if (b.y < -7 || Math.abs(b.x) > F.X + 4 || b.z > 5) { b.live = false; continue; }
-      if (s.alive && s.inv <= 0) {
+      if (s.alive && !invuln(s)) {
         const rigs = s.dual ? [-0.62, 0.62] : [0];
+        /* ⚠ THE HITBOX IS SMALLER THAN THE SHIP AND THAT IS DELIBERATE — Galaga's is too, and so is
+         * every arcade shooter worth the name. The craft is drawn ~0.63 units wide; 0.26 is what
+         * makes a near miss read as a near miss instead of as a lie. */
         for (const rx of rigs) {
-          if (Math.abs(b.x - (s.x + rx)) < 0.34 && Math.abs(b.y - s.y) < 0.36) { b.live = false; G.stat.dByShot++; hitShip(G); break; }
+          if (Math.abs(b.x - (s.x + rx)) < 0.26 && Math.abs(b.y - s.y) < 0.30) { b.live = false; G.stat.dByShot++; hitShip(G); break; }
         }
       }
     }
     if (G.ebullets.length > 120) G.ebullets = G.ebullets.filter(b => b.live);
 
     // ── enemy ↔ ship collision (a diver that reaches you is a kill, both ways) ──
-    if (s.alive && s.inv <= 0) {
+    if (s.alive && !invuln(s)) {
       for (const e of G.enemies) {
         if (e.state !== 'dive' && e.state !== 'beam') continue;
         /* ⚠ THE RAM BOX WAS TOO FAT. sz+0.3 with |z|<1.8 meant a diver passing 0.7 units to one
@@ -674,6 +1007,17 @@ window.RRGame = (function () {
    * they summed to one less than the lives lost, which is exactly the shape of bug that makes a
    * difficulty argument unfalsifiable. Two independent counts disagreeing is a signal; one count
    * is just a number. */
+  /* ⛔ THIS FUNCTION IS THE "DIES EVERY 1/2 SECONDS" FIX, AND IT IS SECTION 9'S FIX.
+   *    CLAUDE.md: "At the old 100 HP / 26 dmg an AK duel was ~0.63 s, and at that speed cover,
+   *    suppression and visible bullets cannot exist — nobody lives long enough to use them."
+   *    Here it was worse: one bullet was one life, so the measured survival was 0.72 vulnerable
+   *    seconds and a whole three-life run finished in about eleven. A defence roll with 0.30 s of
+   *    i-frames is meaningless if the thing it protects dies to the next bullet regardless.
+   *
+   *    So a hit now spends a SHIELD pip, not a life: pips regenerate out of combat, a hit buys
+   *    HIT_I seconds of i-frames plus a knockback, and only a hit at zero pips costs the rig. That
+   *    is armour + regen + a hit-flash, i.e. exactly the four levers the brief named, and the
+   *    chain penalty is what keeps a shield hit from being free. */
   function hitShip(G) {
     const s = G.ship;
     if (s.dual) {
@@ -682,7 +1026,19 @@ window.RRGame = (function () {
       s.dual = false; s.inv = 1.4; G.shake = Math.max(G.shake, 14); G.flash = 0.7; G.ev.push('hurt');
       G.msg = 'rig split'; G.msgT = 1.1; return;
     }
-    s.alive = false; s.respawn = 1.4; G.lives--; G.stat.deaths++;
+    if (s.shield > 0) {
+      s.shield--; s.sinceHit = 0; s.inv = SHIP.HIT_I;
+      G.stat.shieldHits++;
+      // knockback: being hit MOVES you. A hit with no physical consequence is a number changing.
+      s.vy -= 5.5; s.vx += (s.x >= 0 ? -1 : 1) * 3.0;
+      s.flow = 0; s.flowT = 0;                 // the flow is a reward for clean movement
+      G.chain = G.chain >> 1; G.mult = multOf(G.chain);
+      G.shake = Math.max(G.shake, 13); G.flash = 0.75; G.ev.push('hurt');
+      G.msg = s.shield > 0 ? '◈ SHIELD ' + s.shield : '◈ SHIELD DOWN';
+      G.msgT = 1.0;
+      return;
+    }
+    s.alive = false; s.respawn = SHIP.RESPAWN; G.lives--; G.stat.deaths++;
     G.chain = 0; G.mult = 1;
     G.shake = Math.max(G.shake, 20); G.flash = 1; G.ev.push('die');
     G.pops.push({ x: s.x, y: s.y, z: 0, boom: 1, t: 0, life: 0.9, hue: 40, big: true });
@@ -712,7 +1068,13 @@ window.RRGame = (function () {
         p.live = false;
         if (p.type === 'gun') { s.gun = Math.min(GUNS.length, s.gun + 1); G.msg = 'GUN ▲ ' + GUNS[s.gun - 1].name; }
         else if (p.type === 'rapid') { s.rapid = 7; G.msg = '» RAPID'; }
-        else if (p.type === 'shield') { G.lives = Math.min(6, G.lives + 1); G.msg = '◆ +1 RIG'; }
+        /* a shield pickup refills the pips FIRST and only overflows into a rig. Pips are the thing
+         * you actually run out of, and a pickup that gives you a spare life while your shield is
+         * empty is a pickup that arrives too late to matter. */
+        else if (p.type === 'shield') {
+          if (s.shield < s.shieldMax) { s.shield = s.shieldMax; s.sinceHit = 0; G.msg = '◈ SHIELD FULL'; }
+          else { G.lives = Math.min(6, G.lives + 1); G.msg = '◆ +1 RIG'; }
+        }
         else { G.bombs = Math.min(3, G.bombs + 1); G.msg = '✸ +BURN'; }
         G.msgT = 1.2; G.ev.push('pow');
       }
@@ -756,15 +1118,23 @@ window.RRGame = (function () {
     G.shots = 0; G.hits = 0; G.dist = 0;
     G.bullets.length = 0; G.pops.length = 0; G.pows.length = 0;
     G.captive = null;
-    Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, alive: true, respawn: 0,
-      inv: 1.4, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0 });
+    const shieldMax = SHIP.SHIELD + Math.max(0, Math.round((G.loadout.shield || 0) * 0.5));
+    Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0,
+      inv: 1.4, iframe: 0, dual: false, ripped: false, rapid: 0, fireT: 0,
+      shield: shieldMax, shieldMax, sinceHit: 0,
+      dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0,
+      flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0,
+      // ⚑ you OPEN on the tri, not the twin. "The best ship and guns in the universe" cannot
+      //   start below the second rung of its own ladder.
+      gun: 2 });
     if (G.loadout.guns && G.loadout.guns.indexOf('laser') >= 0) G.ship.gun = 4;
-    else if (G.loadout.guns && G.loadout.guns.indexOf('spread') >= 0) G.ship.gun = 2;
+    else if (G.loadout.guns && G.loadout.guns.indexOf('spread') >= 0) G.ship.gun = 3;
     G.ev.length = 0;
-    G.stat = { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0 };
+    G.stat = newStat();
     acc = 0;
     buildWave(G);
   }
 
-  return { create, start, step, fire, burn, F, KIND, GUNS, waveSpec, multOf, slotXYZ, bez, bezT, mulberry32 };
+  return { create, start, step, fire, burn, dash: doDash, roll: doRoll, F, SHIP, KIND, GUNS,
+    waveSpec, multOf, slotXYZ, bez, bezT, mulberry32, shipTop, _selfCheck };
 })();

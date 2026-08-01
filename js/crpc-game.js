@@ -73,8 +73,19 @@
    * number on screen was decoration. A pod is 3.2 units nose to tail, so these are readable as
    * pod-lengths per second — the thing the eye actually integrates. */
   const PACE = {
-    CRUISE: 64,          // 20 pod-lengths/s. The shipping build ran 40.3 u/s = 13.4 — "too slow".
-    BOOST_MUL: 1.42,     // 91 u/s flat out
+    /* ⚑ 76, NOT 64 — AND THE REASON IS A RENDER MEASUREMENT, NOT A FEELING. 64 was chosen as
+     * "20 pod-lengths/s" and then the deck texture was drawn with an 0.969 u panel period, which
+     * at 60 fps stops reading as motion at 58.1 u/s. Cruise sat inside its own strobe: measured
+     * optical flow (mean |ΔLuma| between two frames 1/60 s apart) FELL from 15.1 at 32 u/s to
+     * 11.5 at 64. The texture is fixed in `crpc-app.js` (nothing repeats faster than 3.875 u now)
+     * and flow rises monotonically to ~112 u/s, so raising the pace finally buys something:
+     *     v      16    32    48    64    80    96   112   128
+     *     before 11.0  15.1  12.1  11.5  17.8  17.7  11.9   —      ← flat, and nulled at cruise
+     *     after   5.5   9.6  12.7  15.3  17.6  18.5  19.6  19.4
+     * 76 base ⇒ flow 16.9, i.e. +47% image motion per frame against the old cruise, before a
+     * single tier of escalation. Tier 4 boost is 156 u/s, still inside the useful band. */
+    CRUISE: 76,
+    BOOST_MUL: 1.42,     // 108 u/s flat out at tier 1, 156 at tier 4
     DRAFT_MUL: 1.13,     // tucked in someone's wake
     BANK_MUL: 0.80,      // inside a storm cell
     ACCEL: 30,           // u/s² onto the target speed
@@ -96,7 +107,7 @@
      * 68 gives the lap a RHYTHM: three real braking zones, a set of medium corners that are flat
      * at cruise but not under boost, and straights. Full boost (91 u/s) is only holdable where
      * κ < 0.0078, which is 31% of the lap — so "when do I spend it" has a geography. */
-    GRIP: 68,
+    GRIP: 78,
     /* ⚑ OVER-GRIP IS A SLIP ANGLE, NOT A NUDGE — and this replaces a version that MEASURED WRONG.
      * The first model just added outward lateral velocity and scrubbed a little speed, and the
      * battery caught it immediately: "hold boost, never steer, never brake" beat a driven lap by
@@ -109,7 +120,13 @@
     SLIP_MAX: 0.60,      // rad (34°) at full over-grip ⇒ 17.5% of speed stops being progress
     SLIP_REF: 90,        // u/s² of excess that reaches SLIP_MAX
     SLIDE: 3.0,          // how hard the sideways component throws you at the barrier
-    SCRUB: 0.32,         // and how much speed sliding costs
+    SCRUB: 0.90,         // and how much speed sliding costs
+    /* how fast traction is lost while over the limit and recovered afterwards. Recovery at 2.4/s
+     * ⇒ a full slide leaves you with no drive for ~0.42 s, which is the first third of the
+     * straight you were trying to get to sooner by not braking. */
+    LOST_UP: 3.2,
+    LOST_DOWN: 2.4,
+    LOST_TOP: 0.45,      // and how much of your TOP SPEED a fully-slid pod cannot hold
     STEER_ACC: 40,       // lateral u/s²
     STEER_MAX: 17,       /* lateral u/s cap. Half-width is 9.5, so crossing the full track takes
                           * 1.1 s. The old build crossed it in 0.5 s, which makes lateral position
@@ -130,18 +147,82 @@
      * resource is not a resource. At these values the sustainable duty cycle is
      *   (9 strips × 0.28 / 17 s lap  +  ~0.08 corner-carry  +  0.022) / 0.45  ≈  55%
      * so roughly half the lap can be boosted and WHICH half is the whole decision. */
-    BOOST_SPEND: 0.45,   // /s  ⇒ a full bar is 2.2 s of boost
+    BOOST_SPEND: 0.62,   // /s  ⇒ a full bar is 1.6 s of boost
     BOOST_PAD: 0.28,     // per strip, granted ONCE ON ENTRY — see below
     BOOST_DRAFT: 0.17,   // /s while tucked in
     BOOST_EDGE: 0.16,    // /s while carrying ≥70% of the grip limit — the corner IS the refuel
-    BOOST_TRICKLE: 0.022,
+    BOOST_TRICKLE: 0.010,
     PAD_KICK: 20,        // instant u/s from a strip
     DRAFT_S: 24,         // arc-length reach of a slipstream
     DRAFT_L: 4.6,
     CONTACT_S: 3.4,      // pods are solid: this is where they touch
     CONTACT_L: 2.3,
     LAP_KICK: 0.2,       // a little boost across the line, so a new lap starts with a decision
+    /* ⚑ THE GRAZE — a reason to be somewhere dangerous on a straight. Everything else on this list
+     * pays you for being on the racing line or behind somebody; on a long straight with no strip
+     * the correct input was "nothing", and a racer with a do-nothing stretch in it is the
+     * definition of mundane. Running the barrier without touching it, or threading a rival close
+     * enough to trade paint without trading it, earns boost — and both are exactly the places
+     * where being wrong costs you (WALL_LOSS, contact). Gated above 0.8 × cruise so it cannot be
+     * farmed by crawling along the wall, and off while braking for the same reason. */
+    BOOST_GRAZE: 0.34,   // /s while on the edge or threading
+    /* ⚠ 0.90, NOT 1.15, AND THE MEASUREMENT IS WHY. The scrape band starts at halfW − 0.35, so
+     * GRAZE_W sets how wide the "close but not touching" gap is. At 1.15 it was 0.8 u wide and a
+     * policy that simply held boost and NEVER STEERED grazed for 13.2 s of a 38 s race — the slip
+     * from every corner drifted it out to the wall and it just sat there collecting. A reward for
+     * not steering is the exact bug this whole rebuild exists to remove. At 0.90 the band is
+     * 0.55 u — about a sixth of a pod width — so it has to be held, and holding it while the
+     * corner is trying to push you out is the thing being paid for. */
+    GRAZE_W: 0.90,       // how close to the barrier counts, in units of lateral clearance
+    GRAZE_L: 3.6,        // lateral gap to a rival that counts as threading (contact is at 2.3)
   };
+
+  /* ══ TIERS — THE RACE GETS FASTER AND HARDER AS IT RUNS ══════════════════════════════════════
+   * ⛔ THIS DID NOT EXIST. Lap 3 was byte-identical to lap 1: nothing in the old rules read
+   * `r.lap` for anything except standings and the finish test, so a five-lap race was the same
+   * twenty seconds five times. "It should get harder and faster as it runs, so a good run feels
+   * earned" was simply not implemented, and no amount of tuning a constant fixes that.
+   *
+   * A tier opens when you COMPLETE A LAP — the same shape the studio uses everywhere else: a tier
+   * is a promise about what you have done, not about how long you have been here.
+   *
+   * ⚑ GRIP RISES MORE SLOWLY THAN PACE, AND THAT IS THE WHOLE DESIGN. Apex speed is
+   * v = √(GRIP/κ), so holding the corner census constant while pace rises would need GRIP to scale
+   * as pace². It scales as pace^1.40 instead, so every tier hands you speed and takes back a
+   * little of the road. Measured on the circuit this file builds:
+   *
+   *     tier  cruise  boost  lap@cruise  braking zones  % of lap under cruise  slowest corner
+   *       1     76     108      16.3 s         5                15%             69% of cruise
+   *       2     86     122      14.4 s         6                18%             67%
+   *       3     97     138      12.8 s         6                22%             65%
+   *       4    110     156      11.3 s         7                27%             62%
+   *
+   * ⚠ Tier is PER RACER, off that racer's own lap count. A race-wide tier driven by the leader
+   * would push a lapped player to tier-3 pace on their first lap, which is a difficulty spike
+   * arriving for a reason they cannot see. Everyone escalates on their own record. */
+  const TIER = {
+    STEP: 1.13,          // pace × per tier
+    GRIP_EXP: 1.40,      // grip × STEP^(GRIP_EXP·(t−1)); 2.0 would hold difficulty flat
+    MAX: 4,
+    // storm cells bite harder every tier: weather you could power through on lap 1 really hurts later
+    BANK: [0.84, 0.78, 0.72, 0.66],
+  };
+  const tierOf = r => Math.min(TIER.MAX, 1 + (r.lap | 0));
+  /* Effective constants for a tier. Accel/brake/lift and the boost burn scale WITH pace so
+   * time-to-speed and the boost duty cycle stay what they were tuned to be; steering scales as
+   * √pace, so the pod deliberately loses a little agility as it gains speed — that is the part
+   * that makes a tier-4 lap feel like it is on the edge rather than merely faster. */
+  function paceOf(t) {
+    const cm = Math.pow(TIER.STEP, t - 1), gm = Math.pow(cm, TIER.GRIP_EXP), sq = Math.sqrt(cm);
+    return { tier: t, cm, gm, apexMul: Math.sqrt(gm),
+      CRUISE: PACE.CRUISE * cm, ACCEL: PACE.ACCEL * cm, LIFT: PACE.LIFT * cm, BRAKE: PACE.BRAKE * cm,
+      GRIP: PACE.GRIP * gm, SLIP_REF: PACE.SLIP_REF * gm,
+      STEER_ACC: PACE.STEER_ACC * sq, STEER_MAX: PACE.STEER_MAX * sq,
+      BOOST_SPEND: PACE.BOOST_SPEND * cm, PAD_KICK: PACE.PAD_KICK * cm,
+      BANK_MUL: TIER.BANK[Math.min(t, TIER.MAX) - 1], SCRAPE: 15 * cm };
+  }
+  const PACE_TIER = [null, paceOf(1), paceOf(2), paceOf(3), paceOf(4)];
+  const paceFor = r => PACE_TIER[tierOf(r)];
 
   /* ══ TRACK ══════════════════════════════════════════════════════════════════════════════════
    * ⚑ AUTHORED, NOT WOBBLED. The old circuit was `R = 165 + 44sin2θ + 24sin3θ` — a circle with a
@@ -346,6 +427,7 @@
     return { i, isMe, s: -(6 + row * 7), lx: (col - (rowW - 1) / 2) * 5.2, v: 0, vl: 0,
       lap: 0, place: i + 1, boostE: 0.45, boosting: false, lean: 0, bob: Math.random() * 6,
       slide: 0, slip: 0, draft: 0, onPad: 0, padWas: 0, inBank: 0, bump: 0, scrape: 0, rev: 0, launch: 0,
+      tier: 1, graze: 0, grazeWas: 0, thread: 0, lost: 0,
       done: false, finishT: 0, best: 0, lapT: 0, skill: isMe ? 1 : 0, wobble: Math.random() * TAU };
   }
 
@@ -360,12 +442,12 @@
     for (let i = 1; i < players; i++) { racers[i].skill = SK[(i - 1) % SK.length]; racers[i].lineBias = ((i * 2.7) % 3 - 1) * 1.5; }
     return { T, racers, me: racers[0], t: 0, laps: o.laps || 3, countdown: o.countdown == null ? 3.2 : o.countdown,
       started: false, over: false, cardEdge: o.cardEdge || 1, assist: o.assist !== false,
-      order: racers.slice(), events: [], lead: racers[0] };
+      order: racers.slice(), events: [], lead: racers[0], tier: 1, pace: PACE_TIER[1] };
   }
 
   // ── one racer's controls for this tick ──────────────────────────────────────────────────────
   function botInput(G, r) {
-    const T = G.T;
+    const T = G.T, P = paceFor(r);
     const want = lineAt(T, r.s) + (r.lineBias || 0) * (1 - r.skill * 0.6);
     // aim at a strip when it is nearly free — a bot that ignores pickups teaches the player that
     // pickups do not matter
@@ -381,16 +463,36 @@
     r.wobble += 0.9 * (1 - r.skill) * 0.6;
     tgt = clamp(tgt + Math.sin(r.wobble) * (1 - r.skill) * 5, -T.halfW + 1, T.halfW - 1);
     const steer = clamp((tgt - r.lx) * 0.55 - r.vl * 0.05, -1, 1);
-    /* Brake on LOOKAHEAD, not on the corner you are already in. Distance to shed the difference is
-     * v²/(2·BRAKE); scan that far and brake for the slowest thing inside it. This is the same
-     * calculation a human does by eye, which is why bots driving it look like they are racing
-     * rather than following a rail. */
-    const look = 12 + (r.v * r.v) / (2 * PACE.BRAKE);
-    let limit = 999;
-    for (let d = 4; d < look; d += 7) limit = Math.min(limit, vmaxAt(T, r.s + d) * r.skill);
-    const brake = r.v > limit * 1.06;
-    const boost = !brake && r.boostE > 0.12 && limit > r.v + 6;
+    const bp = brakePoint(T, r.s, P, r.skill);
+    const brake = r.v > bp.need * 1.02;
+    const boost = !brake && r.boostE > 0.12 && r.v < bp.need * 0.94;
     return { steer, boost, brake };
+  }
+
+  /* ⛔ THE BRAKE LOOKAHEAD WAS THE WRONG FORMULA, AND IT WAS COPIED INTO THREE PLACES.
+   * The old test was: scan `v²/(2·BRAKE)` units ahead, take the slowest apex in there, brake if
+   * you are above it. `v²/(2·BRAKE)` is the distance to stop DEAD — at 108 u/s that is 94 u, 7.6%
+   * of the lap — and the comparison ignored that you have all of that distance to slow down in.
+   * So every bot lifted for every corner from a tenth of a lap away and the HUD's LIFT/BRAKE lamp
+   * was lit almost permanently, which is precisely how a racing game reads as sluggish.
+   *
+   * The right question is not "is anything ahead slower than me" but "can I still make it".
+   * Shedding v → lim needs (v² − lim²)/(2·BRAKE), so the fastest you may be at distance d from an
+   * apex of lim is √(lim² + 2·BRAKE·d). Take the minimum of that over the scan and you have a
+   * brake POINT: flat out until the last moment, then a real, short, decisive braking zone.
+   * Returns the limiting speed AND the apex it belongs to, because the HUD wants both. */
+  function brakePoint(T, s, P, skill) {
+    const scan = 24 + (P.CRUISE * PACE.BOOST_MUL) * (P.CRUISE * PACE.BOOST_MUL) / (2 * P.BRAKE);
+    let need = 1e9, apex = 1e9;
+    // ⚠ apexMul, not the raw table: `vmax` is GEOMETRY at the base grip, and a driver braking to
+    // tier-1 apex speeds while running tier-3 pace would lift for corners that are no longer there.
+    for (let d = 2; d < scan; d += 6) {
+      const lim = vmaxAt(T, s + d) * P.apexMul * (skill == null ? 1 : skill);
+      if (lim > 900) continue;
+      const can = Math.sqrt(lim * lim + 2 * P.BRAKE * d);
+      if (can < need) { need = can; apex = lim; }
+    }
+    return { need, apex };
   }
 
   function step(G, dt, input) {
@@ -427,7 +529,9 @@
     const go = G.started;
 
     for (const r of G.racers) {
-      if (r.done) { r.v = Math.max(0, r.v - PACE.LIFT * 0.5 * dt); r.s += r.v * dt; r.bob += dt * 4; continue; }
+      const P = paceFor(r);                       // ← every constant below is TIER-SCALED
+      r.tier = P.tier;
+      if (r.done) { r.v = Math.max(0, r.v - P.LIFT * 0.5 * dt); r.s += r.v * dt; r.bob += dt * 4; continue; }
       const ctl = go ? (r.isMe ? (input || { steer: 0, boost: false, brake: false }) : botInput(G, r))
                      : { steer: 0, boost: false, brake: false };
       const fr = frameAt(T, r.s);
@@ -437,48 +541,71 @@
       for (const p of T.pads) if (inZone(p, r.s, r.lx, len)) { r.onPad = 1; break; }
       for (const b of T.banks) if (inZone(b, r.s, r.lx, len)) { r.inBank = 1; break; }
 
-      // ── slipstream: someone ahead, close, and roughly in front of you ──
-      r.draft = 0;
+      // ── slipstream: someone ahead, close, and roughly in front of you.
+      //    Same sweep finds the GRAZE: a rival alongside, closer than a car's width but not
+      //    touching. One loop, two answers — they are the same geometry asked twice. ──
+      r.draft = 0; r.thread = 0;
       if (go) for (const o of G.racers) {
         if (o === r || o.done) continue;
         let d = (o.lap * len + o.s) - (r.lap * len + r.s);
-        if (d > 0.6 && d < PACE.DRAFT_S && Math.abs(o.lx - r.lx) < PACE.DRAFT_L) { r.draft = 1 - d / PACE.DRAFT_S; break; }
+        const dl = Math.abs(o.lx - r.lx);
+        if (Math.abs(d) < PACE.CONTACT_S * 1.5 && dl > PACE.CONTACT_L && dl < PACE.GRAZE_L) r.thread = 1;
+        if (!r.draft && d > 0.6 && d < PACE.DRAFT_S && dl < PACE.DRAFT_L) r.draft = 1 - d / PACE.DRAFT_S;
       }
 
       // ── target speed ──
-      let top = PACE.CRUISE * G.cardEdge * (r.isMe ? 1 : 1);
+      let top = P.CRUISE * G.cardEdge * (r.isMe ? 1 : 1);
       if (r.draft > 0) top *= 1 + (PACE.DRAFT_MUL - 1) * r.draft;
-      if (r.inBank) top *= PACE.BANK_MUL;
+      if (r.inBank) top *= P.BANK_MUL;
       const canBoost = ctl.boost && r.boostE > 0.02 && !ctl.brake;
       if (canBoost) top *= PACE.BOOST_MUL;
       r.boosting = canBoost;
+      /* ⚑ AND LOST TRACTION CAPS THE TOP SPEED, not just the acceleration. Measured why: a policy
+       * that simply held boost and never braked spent 37% of the race past the grip limit and got
+       * away with it, because boost (1.42 × cruise) is above the apex speed almost everywhere on
+       * this circuit — so "spend it everywhere" was nearly free and the whole "WHEN do I spend it"
+       * geography the boost economy was built for did not exist. A pod that is sliding cannot use
+       * its engine; that has to be true of speed, not only of the derivative. */
+      top *= 1 - PACE.LOST_TOP * r.lost;
 
-      if (ctl.brake) r.v = Math.max(top * 0.32, r.v - PACE.BRAKE * dt);
-      else if (r.v < top) r.v = Math.min(top, r.v + PACE.ACCEL * (canBoost ? 1.5 : 1) * dt);
-      else r.v = Math.max(top, r.v - PACE.LIFT * dt);
-      if (r.onPad) { r.v = Math.min(r.v + PACE.PAD_KICK * dt * 6, top + PACE.PAD_KICK); }
+      /* ⚑ TRACTION IS THE THING THE BRAKE BUYS, and without it the airbrake was a control that
+       * could only cost you time. Measured on the SHIPPING build (cruise 64, grip 68, 5 seeds,
+       * 3 laps): "hold boost + racing line, never brake" 45.46 s beat a policy that braked on
+       * lookahead by 1.1–2.7 s. The file's header claimed driving was worth +3.56 s over holding
+       * boost; it is not, once the hold-boost baseline is allowed to steer as well.
+       * The reason is structural: over-grip only cost cos(slip) and a scrub, both INSTANTANEOUS,
+       * so ploughing bought back everything it lost the moment the corner ended. `lost` makes the
+       * cost persist — slide and you have no drive for about half a second afterwards, which is
+       * where the straight is. Slow in, fast out; fast in, slow out. That is the entire reason a
+       * brake exists in a racing game, and it was the missing term. */
+      const drive = P.ACCEL * (canBoost ? 1.5 : 1) * (1 - 0.82 * r.lost);
+      if (ctl.brake) r.v = Math.max(top * 0.32, r.v - P.BRAKE * dt);
+      else if (r.v < top) r.v = Math.min(top, r.v + drive * dt);
+      else r.v = Math.max(top, r.v - P.LIFT * dt);
+      if (r.onPad) { r.v = Math.min(r.v + P.PAD_KICK * dt * 6, top + P.PAD_KICK); }
 
       // ── cornering: offset-path curvature, then the grip test ──
       const denom = Math.max(0.35, 1 - r.lx * fr.k);
       const kPath = fr.k / denom;
       const aLat = r.v * r.v * Math.abs(kPath);
-      const over = aLat - PACE.GRIP;
+      const over = aLat - P.GRIP;
       r.slide = 0; r.slip = 0;
       if (over > 0) {
         // The pod keeps pointing along the track and slides across it: only v·cos(slip) is
         // progress, v·sin(slip) is a trip to the outside barrier, and the tyre scrub is on top.
-        r.slip = Math.min(PACE.SLIP_MAX, over / PACE.SLIP_REF * PACE.SLIP_MAX);
+        r.slip = Math.min(PACE.SLIP_MAX, over / P.SLIP_REF * PACE.SLIP_MAX);
         const dir = -Math.sign(kPath) || 1;
         r.vl += dir * r.v * Math.sin(r.slip) * PACE.SLIDE * dt;
         r.v = Math.max(8, r.v - over * PACE.SCRUB * dt);
         r.slide = Math.min(1, over / 60);
-      }
+        r.lost = Math.min(1, r.lost + dt * PACE.LOST_UP * Math.min(2.5, over / P.GRIP));
+      } else r.lost = Math.max(0, r.lost - dt * PACE.LOST_DOWN);
 
       // ── steering ──
-      const auth = 0.55 + clamp(r.v / PACE.CRUISE, 0, 1.3) * 0.45;   // no airspeed, no authority
-      r.vl += ctl.steer * PACE.STEER_ACC * auth * dt;
+      const auth = 0.55 + clamp(r.v / P.CRUISE, 0, 1.3) * 0.45;   // no airspeed, no authority
+      r.vl += ctl.steer * P.STEER_ACC * auth * dt;
       r.vl -= r.vl * PACE.LAT_DAMP * dt;
-      r.vl = clamp(r.vl, -PACE.STEER_MAX, PACE.STEER_MAX);
+      r.vl = clamp(r.vl, -P.STEER_MAX, P.STEER_MAX);
       r.lx += r.vl * dt;
       r.scrape = 0;
       if (Math.abs(r.lx) > T.halfW) {
@@ -493,20 +620,34 @@
        * one-off bounce was not enough: "hard left the whole race" finished only 1.3 s off centre,
        * i.e. leaning on the wall was a viable line. The old build had the opposite failure —
        * `speed *= 0.86` EVERY FRAME, which is ×1e-4 per second and made one touch fatal. This is
-       * the middle: 15 u/s² while scraping, so the barrier costs about a quarter of your top speed
-       * for as long as you lean on it, and stops costing the instant you come off it. */
-      if (r.scrape) r.v = Math.max(10, r.v - 15 * dt);
+       * the middle: 15 u/s² while scraping (tier-scaled, or it would quietly become a rounding
+       * error at 110 u/s), so the barrier costs about a quarter of your top speed for as long as
+       * you lean on it, and stops costing the instant you come off it. */
+      if (r.scrape) r.v = Math.max(10, r.v - P.SCRAPE * dt);
+
+      /* ── THE GRAZE, resolved AFTER the wall test so "graze" and "scrape" can never both be true.
+       * That ordering is the whole mechanic: the reward is for the lane you did NOT touch. */
+      r.graze = 0;
+      // ⚠ and not while sliding: a pod that has lost traction is not threading a gap, it is a
+      //   passenger, and paying it would pay the plough again through a side door.
+      if (go && !r.scrape && !r.inBank && !ctl.brake && r.lost < 0.25 && r.v > P.CRUISE * 0.9) {
+        if (Math.abs(r.lx) > T.halfW - PACE.GRAZE_W) r.graze = 1;   // running the barrier
+        else if (r.thread) r.graze = 1;                             // threading a rival
+      }
 
       // ── boost economy: nothing here refills on a timer ──
       let earn = PACE.BOOST_TRICKLE;
       if (r.draft > 0) earn += PACE.BOOST_DRAFT * r.draft;
-      if (aLat > PACE.GRIP * 0.70 && over <= 0) earn += PACE.BOOST_EDGE;   // carried, not survived
-      r.boostE = clamp(r.boostE + (earn - (canBoost ? PACE.BOOST_SPEND : 0)) * dt, 0, 1);
+      if (aLat > P.GRIP * 0.70 && over <= 0) earn += PACE.BOOST_EDGE;   // carried, not survived
+      if (r.graze) earn += PACE.BOOST_GRAZE;
+      r.boostE = clamp(r.boostE + (earn - (canBoost ? P.BOOST_SPEND : 0)) * dt, 0, 1);
       /* ⚑ EDGE-TRIGGERED, not per-second. A rate grant pays MORE to whoever crosses the strip
        * SLOWEST, which is exactly backwards, and the first version quietly paid ~0.58 instead of
        * the 0.34 it advertised. A pickup is worth what it is worth. */
       if (r.onPad && !r.padWas) { r.boostE = Math.min(1, r.boostE + PACE.BOOST_PAD); if (r.isMe) G.events.push({ t: G.t, kind: 'pad' }); }
       r.padWas = r.onPad;
+      if (r.isMe && r.graze && !r.grazeWas) G.events.push({ t: G.t, kind: 'graze' });
+      r.grazeWas = r.graze;
 
       // ── progress: THE line. ds/dt = v / (1 − lx·κ) ──
       r.s += (r.v * Math.cos(r.slip) / denom) * dt;
@@ -519,10 +660,18 @@
         const lt = G.t - r.lapT; r.lapT = G.t;
         if (r.lap > 1 && (!r.best || lt < r.best)) r.best = lt;
         r.boostE = Math.min(1, r.boostE + PACE.LAP_KICK);
-        if (r.isMe) G.events.push({ t: G.t, kind: 'lap', lap: r.lap, time: lt });
+        const nt = tierOf(r);
+        if (r.isMe) {
+          G.events.push({ t: G.t, kind: 'lap', lap: r.lap, time: lt });
+          // ⚑ THE TIER-UP IS ITS OWN EVENT. The pace change is worth nothing the player cannot
+          //   see coming — a race that silently got 13% faster reads as "the controls got worse".
+          if (nt > r.tier && r.lap < G.laps) G.events.push({ t: G.t, kind: 'tier', tier: nt });
+        }
+        r.tier = nt;
         if (r.lap >= G.laps && !r.done) { r.done = true; r.finishT = G.t; if (r.isMe) G.events.push({ t: G.t, kind: 'finish' }); }
       }
     }
+    G.tier = G.me.tier || 1; G.pace = PACE_TIER[G.tier];
 
     // ── contact. Pods are solid: this is where a pack becomes a fight instead of a queue. ──
     if (go) for (let a = 0; a < G.racers.length; a++) for (let b = a + 1; b < G.racers.length; b++) {
@@ -550,7 +699,7 @@
       for (const r of G.racers) {
         if (r.isMe || r.done) continue;
         const gap = mean - (r.lap * len + r.s);
-        if (gap > 30) r.v += Math.min(0.05, gap * 0.00035) * PACE.CRUISE * dt;
+        if (gap > 30) r.v += Math.min(0.05, gap * 0.00035) * paceFor(r).CRUISE * dt;
       }
     }
 
@@ -578,7 +727,8 @@
     return { p, fwd: f.fwd, up, right, k: f.k };
   }
 
-  const API = { PACE, buildTrack, frameAt, lineAt, vmaxAt, nodeAt, inZone, create, step, pose, botInput, rng };
+  const API = { PACE, TIER, paceOf, paceFor, tierOf, brakePoint, buildTrack, frameAt, lineAt, vmaxAt,
+    nodeAt, inZone, create, step, pose, botInput, rng };
   root.CRGame = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : globalThis);

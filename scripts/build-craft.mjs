@@ -23,7 +23,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /* Must match the object names in scripts/blender/build-craft.py AND the lookups in
  * js/dogfight-gl.js. The five prop_* names are WORLDS[].prop in dogfight.html. */
-const REQUIRED = ['craft', 'pod', 'gate',
+const REQUIRED = ['craft', 'trim', 'pod', 'gate',
   'prop_pylon', 'prop_ring', 'prop_spire', 'prop_tower', 'prop_crystal'];
 
 const argv = process.argv.slice(2);

@@ -408,6 +408,9 @@
     $('ovLobby').classList.remove('show');
   }
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // the renderer's G-buffet is motion for its own sake to a reader who asked for less of it —
+  // the eye still sinks and the lens still opens, because those are the READ, not the garnish
+  OPT.reduce=reduce;
   /* Backing-store resolution is the dominant cost on a phone: everything the game
    * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
    * the one shared policy (touch + small screen + low cores/memory + save-data), so the
@@ -938,16 +941,25 @@
     AUTH_MIN: 0.34,      // never zero — uncontrollable is a bug report, unresponsive is a feeling
     ROLL_MAX: 1.16,      // 66° commanded bank
     ROLL_LIM: 1.40,      // 80° — the overshoot a snap roll is allowed to reach
-    ROLL_K: 46,          // spring toward the commanded bank
-    ROLL_D: 10.4,        // damping. K/D chosen for a ~0.22 s roll-in with a touch of overshoot
+    /* ⚑ K/D RE-DERIVED, because the shipped pair did not do what its own comment claimed. It said
+     * "a ~0.22 s roll-in with a touch of overshoot"; MEASURED, 46/10.4 is ω=√46=6.78 rad/s at
+     * ζ=D/2√K=0.767, which reaches 95% of the commanded bank at 0.45 s and overshoots by 1.5% —
+     * i.e. twice as slow as advertised and with no snap at all (the whole reason the spring is
+     * second-order). 81/11.6 is ω=9.0, ζ=0.644: 0.25 s and ~7% overshoot. The WEIGHT of this
+     * aircraft is not supposed to live on the roll axis — it lives in the heading, which follows
+     * the bank and therefore always lags it. A sluggish roll on top of that is just latency. */
+    ROLL_K: 81,          // spring toward the commanded bank
+    ROLL_D: 11.6,        // damping
     TURN_G: 10.4,        // heading rate = TURN_G·sin(roll)·pull·auth / spd^0.6  (see below)
     PULL: 0.62,          // nose-up while banked buys this much extra turn — the hard turn
     PITCH_MAX: 0.58,     // 33° of pitch attitude
     PITCH_K: 6.2,
     CLIMB_EFF: 0.62,     // climb rate = spd·sin(pitch)·CLIMB_EFF — a slow craft cannot climb
+    SINK: 1.55,          // a banked wing stops holding you up — see the vertical block
+    LAPSE: 0.45,         // thrust lost at the ceiling: thin air (see below)
     TRADE: 3.0,          // speed paid per unit of height gained (and refunded on the way down)
     BLEED: 2.2,          // energy scrubbed by pulling G
-    DRAG: 0.0925,        // terminal speed = sqrt(THRUST/DRAG): 9.0 dry, 22.0 wet
+    DRAG: 0.0925,        // terminal speed = sqrt(THRUST/DRAG): 9.0 dry, 22.0 wet — AT THE DECK
     THRUST: 7.49,
     BOOST: 44.8,
     BRAKE_DRAG: 3.2,     // airbrake multiplies drag and cuts the throttle
@@ -984,18 +996,52 @@
     //    is where the coasting comes from: let off at 22 and you sail, you do not snap back.
     const brake=!!c.brake, boosting=!!s.boost;
     const cs=(s.cardSpeed||1);
-    const T=(boosting?FLY.BOOST:(brake?FLY.THRUST*0.12:FLY.THRUST*(s.thr==null?1:s.thr)))*cs*cs;
+    /* ⚑ THRUST LAPSES WITH HEIGHT, and this is what stops the ceiling being a free perch. It was
+     *   measured on the shipping build: hold nose-up for twelve seconds and you finish AT alt 9.00,
+     *   pitched 33° up, doing 9.00 — full cruise speed. The energy trade bills against the CLAMPED
+     *   altitude (deliberately: CLAUDE.md, so grinding the ceiling is not charged for a climb that
+     *   is not happening), and the consequence nobody costed is that the top of the band is the
+     *   best place in the game — maximum potential energy at zero price. Thin air is the honest
+     *   answer and it is a DIFFERENT quantity from the trade: TRADE is the reversible cost of
+     *   CHANGING height, LAPSE is the standing cost of BEING high. Together they make altitude a
+     *   bank account you must eventually spend. Terminal speed at the ceiling is
+     *   √(0.55·7.49/0.0925) = 6.67 against 9.00 on the deck. */
+    const rho=1-FLY.LAPSE*clamp((s.alt-ALT_MIN)/(ALT_MAX-ALT_MIN),0,1);
+    const T=(boosting?FLY.BOOST:(brake?FLY.THRUST*0.12:FLY.THRUST*(s.thr==null?1:s.thr)))*cs*cs*rho;
     const D=FLY.DRAG*(brake?FLY.BRAKE_DRAG:1);
     s.spd+=(T-D*s.spd*s.spd)*dt;
-    // ── vertical. Climb rate is SPEED × attitude, so height is bought with energy by construction
-    //    and a craft that has spent its energy simply cannot go up. cos(roll) because a banked wing
-    //    points its lift sideways — which is also why a hard turn sinks.
-    const lift=0.36+0.64*Math.cos(clamp(s.roll,-1.4,1.4));
-    let vs=-Math.sin(s.pitch)*s.spd*FLY.CLIMB_EFF*lift*auth;
+    /* ── vertical. Climb rate is SPEED × attitude, so height is bought with energy by construction
+     *    and a craft that has spent its energy simply cannot go up.
+     * ⛔ AND A HARD TURN WAS A CLIMB, WHICH IS THE OPPOSITE OF WHAT A HARD TURN IS. The old lift
+     *   term was `0.36 + 0.64·cos(roll)`, so at the 66° commanded bank it still passed 62% of the
+     *   nose-up through as ascent: measured, bank+pull from 4.50 finished at 5.60, and bank+pull
+     *   with boost finished PINNED AT THE CEILING at 8.59. Pulling in a bank is supposed to point
+     *   the lift vector sideways — that is the entire mechanism by which banking turns you — so
+     *   the vertical component is cos(roll), full stop, with no floor propping it up. At 66° that
+     *   is 0.41 and at the 80° limit it is 0.17: you cannot climb inside a hard turn, which is
+     *   what makes committing to one cost something.
+     * ⚑ AND IT SINKS. A wing tipped on its side is not holding the aircraft up, so the honest
+     *   result is a DESCENDING turn — the classic trade where rate is bought with height. This is
+     *   the only place in the model where something happens to you that you did not command, and
+     *   that is exactly what "weight" means. Scaled by airspeed so a nearly-stopped craft does not
+     *   drop out of the sky faster than it can fly. */
+    const cr=Math.max(0,Math.cos(clamp(s.roll,-1.5,1.5)));
+    let vs=-Math.sin(s.pitch)*s.spd*FLY.CLIMB_EFF*cr*auth
+           -FLY.SINK*(1-cr)*Math.min(1,s.spd/FLY.VREF);
     if(s.spd<FLY.STALL) vs-=(FLY.STALL-s.spd)*1.35;  // STALL: the nose drops whether you like it or not
-    const a0=s.alt; s.alt=clamp(s.alt+vs*dt,ALT_MIN,ALT_MAX);
+    const a0=s.alt, aWant=s.alt+vs*dt; s.alt=clamp(aWant,ALT_MIN,ALT_MAX);
     // energy exchange, measured against the CLAMPED altitude so grinding the ceiling is not billed
     s.spd-=(s.alt-a0)*FLY.TRADE;
+    /* ⚑ …BUT THE DECK IS NOT A FREE TURN, and the clamp made it one. With the sink above, a hard
+     *   bank at ALT_MIN wants to descend and cannot, dAlt comes out 0, and the turn costs nothing
+     *   but G-bleed — in the thickest air, at maximum thrust. That is the ceiling exploit upside
+     *   down, and it would have made "sit on the floor" the dominant line the moment the sink
+     *   shipped. The asymmetry with the ceiling is PHYSICAL, not a fudge: a blocked CLIMB means
+     *   the nose is up and you are simply flying level — one g, nothing to pay for. A blocked SINK
+     *   means the wing is banked hard and something is still holding the aircraft up, and that
+     *   something is extra lift, which is induced drag. So the floor bills and the ceiling does
+     *   not, and CLAUDE.md's recorded decision about grinding the ceiling stands untouched. */
+    if(aWant<s.alt) s.spd-=(s.alt-aWant)*FLY.TRADE*0.55;
     // ── G-bleed. Squared in `pull` so the hard turn costs disproportionately more than the flat one
     s.spd-=FLY.BLEED*Math.abs(Math.sin(s.roll))*pull*pull*auth*dt;
     s.spd=Math.max(1.6,s.spd);

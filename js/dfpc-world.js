@@ -266,6 +266,17 @@ window.DFPCWorld = (function () {
       const m = pc.Mesh.fromGeometry(app.graphicsDevice, geo);
       return { mesh: m, off: new pc.Vec3(0, 0.5, 0), scale: 1 };
     }
+    /* ⚑ A PROTO MAY CARRY A ROTATION NOW. The authored parts come out of a glTF node that can hold
+     * one (dogfight.glb's craft does, which is what put the aircraft 90° across its flight path
+     * until dfpc-app's loadArt started honouring it), so the fit node applies rot/nscale when the
+     * proto has them and behaves exactly as before when it does not. */
+    const IDQ = new pc.Quat();
+    function applyFit(inner, P) {
+      inner.setLocalPosition(P.off);
+      inner.setLocalRotation(P.rot || IDQ);
+      const n = P.nscale;
+      inner.setLocalScale(P.scale * (n ? n.x : 1), P.scale * (n ? n.y : 1), P.scale * (n ? n.z : 1));
+    }
     const gateGeo = new pc.TorusGeometry({ tubeRadius: 0.16, ringRadius: 1.4, segments: 28, sides: 8 });
     const gateMesh = pc.Mesh.fromGeometry(app.graphicsDevice, gateGeo);
 
@@ -286,7 +297,7 @@ window.DFPCWorld = (function () {
       const mi = new pc.MeshInstance(P.mesh, propMat, inner);
       mi.castShadow = true;
       inner.addComponent('render', { meshInstances: [mi], castShadows: true, receiveShadows: true });
-      inner.setLocalPosition(P.off); inner.setLocalScale(P.scale, P.scale, P.scale);
+      applyFit(inner, P);
     }
     /* The gate lives on an inner `fit` node for the same reason the props do: the authored GLB
      * ring is whatever radius Blender exported, and the game tests a 1.4-unit pass-through. The
@@ -310,8 +321,7 @@ window.DFPCWorld = (function () {
       const mi = new pc.MeshInstance(gateProto.mesh, gateMat, inner);
       mi.castShadow = false;
       inner.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
-      inner.setLocalPosition(gateProto.off);
-      inner.setLocalScale(gateProto.scale, gateProto.scale, gateProto.scale);
+      applyFit(inner, gateProto);
     }
 
     /* ── the cloud deck ─────────────────────────────────────────────────────────────────────
@@ -539,8 +549,11 @@ window.DFPCWorld = (function () {
       propProto = p;
       for (const e of propEnts) rebuildProp(e);
     }
-    function setGateMesh(mesh, off, scale) {
-      gateProto = { mesh, off: off || new pc.Vec3(0, 0, 0), scale: scale == null ? 1 : scale };
+    function setGateMesh(mesh, off, scale, rot, nscale) {
+      /* dfpc-app normalises the authored ring's AXIS onto +Y before it gets here, so this and the
+       * procedural torus are the same object by the time `update` stands them up and faces them at
+       * the eye. Doing it at load rather than at draw is what keeps ONE rotation in `update`. */
+      gateProto = { mesh, off: off || new pc.Vec3(0, 0, 0), scale: scale == null ? 1 : scale, rot, nscale };
       for (const e of gateEnts) rebuildGate(e);
     }
 

@@ -414,15 +414,58 @@
 
   // ── input ───────────────────────────────────────────────────────────────────────────────────
   const keys = Object.create(null);
-  const input = { left: false, right: false, up: false, down: false, fire: false, stick: false, sx: 0, sy: 0 };
+  const input = { left: false, right: false, up: false, down: false, fire: false, stick: false, sx: 0, sy: 0,
+    dash: false, dashDir: 0, roll: false, rollDir: 0 };
+  /* ── THE TWO NEW VERBS, EDGE-TRIGGERED ──────────────────────────────────────────────────────
+   * ⚑ They MUST be edges, not held states, and the reason is the fixed 1/120 s tick: `RRGame.step`
+   *   burns up to 16 sub-ticks against the SAME input object, so a held flag would fire the move
+   *   sixteen times in one frame. The cooldowns in rrpc-game.js would swallow the repeats, but
+   *   relying on that is relying on a rule in another file to cover a bug in this one. A pending
+   *   flag consumed once per frame is the honest version.
+   * ⚑ DOUBLE-TAP ◀/▶ dashes, which is the same idiom NEON RONIN already uses (CLAUDE.md: "Shift or
+   *   dbl-tap A/D dash"), so a player who has been in the arcade already knows it. Q/E are the
+   *   explicit version for anyone who does not want to rely on tap timing — also ronin's keys.
+   * ⚠ Shift is the ROLL here. It is a game key: a headless probe must not use it to wake rAF. */
+  /* ⚠ A DOUBLE-TAP TEST OF "two presses inside 260 ms" IS TOO LOOSE, and it showed up immediately:
+   * a headless probe that merely pumped ◀/▶ to keep rAF alive accumulated three dashes and lit
+   * OVERDRIVE without asking for either. A player nudging the ship with two quick taps would do
+   * the same and read it as the ship running away from them. So the gesture is a real TAP-TAP: the
+   * gap is measured from the RELEASE of the first press, and that first press must itself have
+   * been short. Holding ◀, letting go, and pressing again is now steering, not a dash. */
+  const DTAP = 0.22, TAP_MAX = 0.20;
+  const tapT = { left: -9, right: -9 }, relT = { left: -9, right: -9 };
+  let pend = { dash: 0, dashDir: 0, roll: 0, rollDir: 0 };
+  const heldDir = () => (keys.ArrowRight || keys.d ? 1 : keys.ArrowLeft || keys.a ? -1 : 0);
+  function wantDash(dir) { pend.dash = 1; pend.dashDir = dir || heldDir() || (G.ship.vx >= 0 ? 1 : -1); }
+  function wantRoll() { pend.roll = 1; pend.rollDir = heldDir(); }
   addEventListener('keydown', e => {
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].indexOf(e.key) >= 0) e.preventDefault();
-    keys[e.key] = true; if (e.key.toLowerCase) keys[e.key.toLowerCase()] = true;
-    if (e.key === 'p' || e.key === 'P') togglePause();
-    if (e.key === 'm' || e.key === 'M') toggleSfx();
-    if (e.key === 'b' || e.key === 'B') useBomb();
+    const k = e.key, lk = k.toLowerCase ? k.toLowerCase() : k;
+    if (!e.repeat) {
+      // double-tap detection, before the key is recorded as held
+      const now = performance.now() * 0.001;
+      const tap = (side, dir) => {
+        if (now - relT[side] < DTAP && relT[side] - tapT[side] < TAP_MAX) wantDash(dir);
+        tapT[side] = now;
+      };
+      if (k === 'ArrowLeft' || lk === 'a') tap('left', -1);
+      else if (k === 'ArrowRight' || lk === 'd') tap('right', 1);
+      if (lk === 'q') wantDash(-1);
+      if (lk === 'e') wantDash(1);
+      if (k === 'Shift' || lk === 'k' || lk === 'z') wantRoll();
+    }
+    keys[k] = true; if (k.toLowerCase) keys[lk] = true;
+    if (lk === 'p') togglePause();
+    if (lk === 'm') toggleSfx();
+    if (lk === 'b') useBomb();
   });
-  addEventListener('keyup', e => { keys[e.key] = false; if (e.key.toLowerCase) keys[e.key.toLowerCase()] = false; });
+  addEventListener('keyup', e => {
+    const k = e.key, lk = k.toLowerCase ? k.toLowerCase() : k;
+    const now = performance.now() * 0.001;
+    if (k === 'ArrowLeft' || lk === 'a') relT.left = now;
+    else if (k === 'ArrowRight' || lk === 'd') relT.right = now;
+    keys[k] = false; if (k.toLowerCase) keys[lk] = false;
+  });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
   let touchFire = false, dragging = false;
@@ -459,6 +502,10 @@
   }
   bindPad($('tFire'), () => { touchFire = true; }, () => { touchFire = false; });
   bindPad($('tBomb'), () => { useBomb(); }, () => {});
+  /* ROLL on touch. The stick already owns the left thumb and FIRE the right, so the roll gets its
+   * own pad rather than a gesture — a defensive move you have to discover is a defensive move
+   * nobody uses. Direction comes from wherever the stick is pushed. */
+  bindPad($('tRoll'), () => { pend.roll = 1; pend.rollDir = stick.x > 0.25 ? 1 : stick.x < -0.25 ? -1 : 0; }, () => {});
 
   function readInput() {
     input.left = !!(keys.ArrowLeft || keys.a); input.right = !!(keys.ArrowRight || keys.d);
@@ -470,6 +517,10 @@
     if (stick.id !== null) { input.stick = true; input.sx = stick.x; input.sy = stick.y; }
     else if (mouseX !== null && dragging) { input.stick = true; input.sx = clamp((mouseX - G.ship.x) * 0.5, -1, 1); input.sy = 0; }
     else input.stick = false;
+    // consume the pending edges exactly once per frame — see the note on wantDash/wantRoll
+    input.dash = !!pend.dash; input.dashDir = pend.dashDir;
+    input.roll = !!pend.roll; input.rollDir = pend.rollDir;
+    pend.dash = 0; pend.roll = 0;
   }
   let AUTOFIRE = true;
 
@@ -516,6 +567,13 @@
     else if (seen.kill) { blip(1080, 340, 0.07, 'square', 0.10); noise(0.045, 0.11); }
     if (seen.ping) { blip(320, 120, 0.05, 'square', 0.07); }
     if (seen.pow) { blip(520, 900, 0.08, 'square', 0.14); setTimeout(() => blip(900, 1500, 0.1, 'square', 0.14), 70); }
+    /* the movement kit. The ROLL is the loudest of the three on purpose — it is the defensive
+     * read, and a defence you cannot hear is a defence you cannot time. */
+    if (seen.overdrive) { [0,90,180].forEach((d,i)=>setTimeout(()=>blip(340+i*260, 1500+i*300, 0.18,'sawtooth',0.15), d)); }
+    if (seen.roll) { blip(760, 210, 0.20, 'triangle', 0.15); noise(0.14, 0.16); }
+    else if (seen.dash) { blip(520, 1180, 0.09, 'triangle', 0.10); }
+    if (seen.regen) { blip(600, 1100, 0.12, 'sine', 0.09); }
+    if (seen.bump) { blip(150, 70, 0.07, 'square', 0.07); }
     /* the shot is quieter than everything it might hit, on purpose: with autofire on it is the
      * most frequent sound in the game and it must not become the loudest thing in the mix. */
     if (seen.fire) { blip(940 + (Math.random() * 110 - 55), 190, 0.05, 'square', 0.055); }
@@ -548,7 +606,7 @@
     stars.length = 0;
     for (let i = 0; i < QCFG.stars; i++) {
       stars.push({ x: (Math.random() * 2 - 1) * 17, y: (Math.random() * 2 - 1) * 12,
-        z: -Math.random() * 90 - 2, pz: 0, v: 22 + Math.random() * 46, k: Math.random() });
+        z: -Math.random() * 90 - 2, pz: 0, v: 46 + Math.random() * 74, k: Math.random() });
     }
   }
   seedStars();
@@ -588,19 +646,47 @@
     }
   }
 
+  /* ⚑ THE WORLD HAS TO COME AT YOU. "Metal Slug on acid" is a statement about the SCREEN moving,
+   * not just the ship, and the old scroll ran at 22–68 u/s with a wave multiplier that topped out
+   * at 1.6 — a drift. The base rate is now roughly double, the wave ramp goes further, and — the
+   * part that actually sells it — the rate SURGES with what the ship is doing: climbing, dashing
+   * and overdrive all pull the field past you faster. That is speed you caused, which reads as
+   * speed; a constant scroll is wallpaper however fast it goes.
+   * `SURGE` is smoothed, because a starfield that steps rate discontinuously reads as a stutter. */
+  let surge = 0;
+  function scrollRate(dt) {
+    const s = G.ship;
+    const want = (G.mode === 'play' && s.alive)
+      ? clamp(Math.abs(s.vy) * 0.05 + (s.dash > 0 ? 1.5 : 0) + (s.od > 0 ? 0.85 : 0) + (s.rollT > 0 ? 0.5 : 0), 0, 3.0)
+      : 0;
+    surge += (want - surge) * Math.min(1, dt * 7);
+    return 1 + (G.mode === 'play' ? Math.min(2.4, G.wave * 0.12) : 0) + surge;
+  }
   function drawStars(dt, t) {
     /* Streaks, not dots. The old build did the same thing in 2D and it was the best-looking part
      * of it; here the streak is a real ribbon in world space, so it foreshortens correctly as it
      * passes the camera instead of being stretched by a screen-space hack. */
-    const sp = 1 + (G.mode === 'play' ? Math.min(1.6, G.wave * 0.09) : 0);
+    const sp = scrollRate(dt);
+    /* ⛔ THE STREAK LENGTH MUST NOT BE THE FRAME DELTA, AND IT WAS. Drawing the ribbon from where
+     *    the star was to where it is looks correct at 60 fps and is a bug everywhere else: the
+     *    length is `v · dt · sp`, so at 5 fps (this container, SwiftShader) a 120 u/s star drew a
+     *    **22-unit** white line across the entire frame. It was clearly visible in the first
+     *    screenshot and it is exactly the class of defect CLAUDE.md keeps flagging — a renderer
+     *    quantity that silently depends on frame rate. Doubling the base scroll rate made it worse,
+     *    which is how it got found.
+     *    The streak is now a fixed 0.055 s of travel, clamped, so it is the same length on a phone
+     *    at 20 fps as on a desktop at 144 — and `stretch` is a deliberate multiplier on top of that
+     *    rather than an accident of how long the last frame took. */
+    const stretch = 1 + surge * (REDUCE ? 0.35 : 0.9);
     for (const s of stars) {
-      s.pz = s.z;
       s.z += s.v * dt * sp;
-      if (s.z > CAM.z + 4) { s.z = -95; s.pz = s.z; s.x = (Math.random() * 2 - 1) * 17; s.y = (Math.random() * 2 - 1) * 12; }
+      if (s.z > CAM.z + 4) { s.z = -95; s.x = (Math.random() * 2 - 1) * 17; s.y = (Math.random() * 2 - 1) * 12; }
       const near = clamp((s.z + 95) / 95, 0, 1);
+      const len = Math.min(3.4, s.v * 0.055 * sp * stretch);
       const c = fx.hsl(G.market.hue + s.k * 120, 0.6, 0.55 + near * 0.4);
       const a = (30 + near * 190) | 0;
-      fx.ribbon(fx.A, fx.C_DOT, s.x, s.y, s.pz, s.x, s.y, s.z, 0.028 + near * 0.06, c[0], c[1], c[2], a);
+      fx.ribbon(fx.A, fx.C_DOT, s.x, s.y, s.z - len, s.x, s.y, s.z,
+        0.028 + near * 0.06, c[0], c[1], c[2], a);
     }
   }
 
@@ -667,8 +753,10 @@
     for (const b of G.bullets) {
       if (!b.live) continue;
       const c = b.laser ? [255, 90, 220] : [255, 214, 90];
-      // a bolt is a ribbon along its own velocity: 0.055 s of travel behind it
-      fx.ribbon(fx.A, fx.C_DOT, b.x - b.vx * 0.055, b.y - b.vy * 0.055, b.z, b.x, b.y, b.z, 0.075, c[0], c[1], c[2], 255);
+      /* a bolt is a ribbon along its own velocity. ⚠ 0.055 s was tuned at BOLT_V 16; at 30 u/s the
+       * same coefficient draws a 1.65-unit capsule — three card-widths long — and a screen of them
+       * reads as a solid wall rather than as bolts. 0.032 keeps the same apparent length as before. */
+      fx.ribbon(fx.A, fx.C_DOT, b.x - b.vx * 0.032, b.y - b.vy * 0.032, b.z, b.x, b.y, b.z, 0.075, c[0], c[1], c[2], 255);
       fx.billboard(fx.A, fx.C_DOT, b.x, b.y, b.z, 0.20, c[0], c[1], c[2], 210);
     }
     for (const b of G.ebullets) {
@@ -697,6 +785,16 @@
 
   function drawPops(t) {
     for (const p of G.pops) {
+      /* THE ROLL SHOCK. Drawn as a hard, fast-expanding ring that reaches exactly ROLL_SHOCK units
+       * — the radius it actually clears — because a defensive effect whose drawn size disagrees
+       * with its real size teaches the player the wrong distance and then punishes them for it. */
+      if (p.shock) {
+        const u = clamp(p.t / p.life, 0, 1), r = p.r * (0.25 + u * 0.95);
+        const c = fx.hsl(168 + u * 60, 1, 0.72);
+        fx.billboard(fx.A, fx.C_RING, p.x, p.y, p.z, r, c[0], c[1], c[2], ((1 - u) * 255) | 0);
+        fx.billboard(fx.A, fx.C_RING, p.x, p.y, p.z, r * 0.72, 255, 255, 255, ((1 - u) * 150) | 0);
+        continue;
+      }
       if (!p.boom) continue;
       /* An explosion is a ring plus a scatter of embers. Both are one quad each; the whole point
        * of the batcher is that a 30-kill bomb costs 30× nothing. */
@@ -723,11 +821,39 @@
     }
   }
 
+  /* ── THE AFTERIMAGE ─────────────────────────────────────────────────────────────────────────
+   * A ring buffer of recent ship positions, drawn as a fading additive ribbon whenever the ship is
+   * doing something violent. This is PRESENTATION and it lives here, not in the simulation — the
+   * split this file's header describes. ⚑ It is also the only way a 0.17 s dash is legible at all:
+   * an impulse that moves you 4 units in a sixth of a second is, without a trail, a teleport. */
+  const TRAIL_N = 14;
+  const trail = []; let trailI = 0;
+  for (let i = 0; i < TRAIL_N; i++) trail.push({ x: 0, y: 0, on: 0 });
+  function pushTrail(s) {
+    const hot = (s.dash > 0 ? 1 : 0) + (s.rollT > 0 ? 0.9 : 0) + (s.od > 0 ? 0.55 : 0)
+      + clamp((Math.abs(s.vx) - 6) / 12, 0, 0.7);
+    const p = trail[trailI = (trailI + 1) % TRAIL_N];
+    p.x = s.x; p.y = s.y; p.on = clamp(hot, 0, 1);
+  }
+  function drawTrail(s) {
+    for (let i = 1; i < TRAIL_N; i++) {
+      const a = trail[(trailI + i) % TRAIL_N], b = trail[(trailI + i + 1) % TRAIL_N];
+      const k = i / TRAIL_N;
+      const on = Math.min(a.on, b.on);
+      if (on <= 0.02) continue;
+      if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) < 0.01) continue;
+      const c = s.od > 0 ? fx.hsl(48 + k * 40, 1, 0.62) : fx.hsl(172 + k * 40, 1, 0.6);
+      fx.ribbon(fx.A, fx.C_DOT, a.x, a.y, 0, b.x, b.y, 0, 0.10 + k * 0.16,
+        c[0], c[1], c[2], (on * k * 190) | 0);
+    }
+  }
+
   function drawShip(t) {
     const s = G.ship;
     const rigs = s.dual ? [[craft, -0.62], [craft2, 0.62]] : [[craft, 0]];
     craft2.enabled = !!s.dual && s.alive;
     craft.enabled = s.alive;
+    if (s.alive) { pushTrail(s); drawTrail(s); }
     if (!s.alive) {
       // the captive, parked in the ripper's slot: your ship, held, visibly waiting to be fetched
       if (G.captive && G.ripper) {
@@ -737,17 +863,36 @@
       }
       return;
     }
+    /* ⚠ ONLY THE RESPAWN BLINK BLINKS. `s.iframe` (dash/roll) deliberately does not: the roll is a
+     * 0.42 s read the player has to be able to SEE, and strobing the ship through it would hide
+     * the exact frames it exists for. The two invulnerabilities are two things — see rrpc-game.js. */
     const blink = s.inv > 0 && (((t * 12) | 0) % 2 === 0);
+    const spinDeg = s.spin * 180 / Math.PI;
     for (const [ent, off] of rigs) {
       ent.setPosition(s.x + off, s.y, 0);
-      ent.setEulerAngles(0, 0, s.roll * 40);
+      /* the BARREL ROLL is a rotation about the craft's own nose axis, which is world +z here —
+       * the same axis the bank already uses, so the two simply add and a roll begun mid-turn
+       * carries the turn through it instead of snapping upright first. */
+      ent.setEulerAngles(s.pitch * 26, 0, s.roll * 40 + spinDeg);
       ent.setLocalScale(0.62, 0.62, 0.62);
       ent.enabled = !blink;
-      // thruster
-      const th = 0.34 + 0.16 * Math.random() + (input.fire ? 0.06 : 0);
-      const c = fx.hsl(168 + Math.sin(t * 20) * 30, 1, 0.66);
+      // thruster — it flares with thrust, and goes amber in overdrive
+      const boost = (s.dash > 0 ? 1.7 : 1) * (s.od > 0 ? 1.35 : 1) * (input.up ? 1.2 : 1);
+      const th = (0.34 + 0.16 * Math.random() + (input.fire ? 0.06 : 0)) * boost;
+      const c = s.od > 0 ? fx.hsl(46 + Math.sin(t * 26) * 16, 1, 0.68) : fx.hsl(168 + Math.sin(t * 20) * 30, 1, 0.66);
       fx.billboard(fx.A, fx.C_DOT, s.x + off, s.y - 0.62, 0, th, c[0], c[1], c[2], 235);
       fx.billboard(fx.A, fx.C_DOT, s.x + off, s.y - 1.05, 0, th * 1.5, 90, 250, 255, 96);
+      /* i-frame shell. The one piece of UI that has to be unmistakable: "that would have hit you
+       * and it did not". A ring, not a fill — it must not hide the ship inside it. */
+      if (s.iframe > 0) {
+        const k = clamp(s.iframe / RRGame.SHIP.ROLL_I, 0, 1);
+        const ic = fx.hsl(172, 1, 0.7);
+        fx.billboard(fx.A, fx.C_RING, s.x + off, s.y, 0, 0.72 + (1 - k) * 0.5, ic[0], ic[1], ic[2], (210 * k) | 0);
+      }
+      if (s.od > 0) {
+        const oc = fx.hsl(46, 1, 0.62);
+        fx.billboard(fx.A, fx.C_RING, s.x + off, s.y, 0, 0.95 + 0.09 * Math.sin(t * 13), oc[0], oc[1], oc[2], 130);
+      }
     }
     // the staked card, plated flat on the dorsal deck — the deck you brought, visibly aboard
     const cardCell = 0;
@@ -790,12 +935,30 @@
    * A/B through the same path, and do not believe an absolute number off one frame. `_freezeT`
    * pins the render clock and stops the starfield so a sweep varies ONE thing. */
   let FROZEN = null;
+  let camFov = CAM.fov;
+  /* ⚠ NEITHER OF THESE EXISTED IN THE ENGINE BUILD, and the new movement system is what made the
+   * first one matter: a dash now punches the FOV and a roll spins the ship, which are exactly the
+   * two things a vestibular-sensitive player asked not to be given.
+   * CLAUDE.md's rule is "still lit, not switched off" — the game plays identically, keeps its
+   * colour and keeps its speed lines; what goes is the CAMERA moving (shake and lens punch), which
+   * is decoration the simulation never reads. */
+  const REDUCE = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+  /* pause when the tab goes away: the clamp on dt already stops the world teleporting, but an
+   * arcade cabinet you cannot see should not be taking your lives while you read your email. */
+  addEventListener('visibilitychange', () => {
+    if (document.hidden && G.mode === 'play') togglePause();
+  });
   let fpsWin = [], lastT = performance.now();
   const HOLD = on('hold', false);
   app.on('update', dtRaw => {
     const now = performance.now();
-    const dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
-    fpsWin.push(dt * 1000); if (fpsWin.length > 120) fpsWin.shift();
+    const raw = now - lastT;
+    const dt = Math.min(0.25, raw / 1000); lastT = now;
+    /* ⚠ RECORD THE TRUE FRAME TIME, NOT THE CLAMPED ONE. `dt` is clamped to 0.25 s so a
+     * background tab cannot teleport the simulation; pushing the CLAMPED value into the fps
+     * window meant every frame slower than 250 ms reported as exactly 250.0 ms. A quality-tier
+     * sweep in this container returned 250.0 for six of nine readings and looked like data. */
+    fpsWin.push(raw); if (fpsWin.length > 120) fpsWin.shift();
     const t = FROZEN != null ? FROZEN : now * 0.001;
 
     readInput();
@@ -805,10 +968,18 @@
 
     // camera: a shake and a gentle push toward the action. Never a roll — this is a fixed cabinet
     // and rolling the world in a game where left means left is how you lose the player.
-    const sh = G.shake * 0.006;
+    const sh = G.shake * (REDUCE ? 0 : 0.006);
     const drift = clamp(G.ship.x * 0.055, -0.5, 0.5);
     cam.setPosition(drift + (Math.random() - 0.5) * sh, CAM.y + (Math.random() - 0.5) * sh,
       CAM.z + (G.phase === 'entry' ? 1.4 : 0) * clamp(1 - G.phaseT, 0, 1));
+    /* ⚑ FOV PUNCH. Widening the lens during a dash or overdrive is the oldest speed trick there is
+     * and it costs one lerp: the periphery accelerates outward faster than the centre, so the same
+     * scroll rate reads as more. Kept small (42° → ~46°) and SMOOTHED — an fov that steps is a
+     * visible pop, and a big one is nausea. It is a lens change, never a roll or a shake. */
+    const wantFov = CAM.fov + (!REDUCE && G.mode === 'play' && G.ship.alive
+      ? (G.ship.dash > 0 ? 4.2 : 0) + (G.ship.od > 0 ? 1.8 : 0) + clamp((Math.abs(G.ship.vx) - 7) * 0.22, 0, 1.6) : 0);
+    camFov += (wantFov - camFov) * Math.min(1, dt * 9);
+    cam.camera.fov = camFov;
 
     fx.begin();
     fx.setCamBasis(cam);
@@ -842,10 +1013,29 @@
 
   // ── DOM HUD (text is sharper on the DOM than in a texture, same split section9 uses) ─────────
   const dom = { score: $('hScore'), wave: $('hWave'), chain: $('hChain'), lives: $('hLives'),
-    wx: $('hWx'), msg: $('powMsg'), big: $('flashBlk'), gun: $('hGun') };
+    wx: $('hWx'), msg: $('powMsg'), big: $('flashBlk'), gun: $('hGun'),
+    shield: $('hShield'), flow: $('hFlow') };
   let lastMsg = '', lastBig = '';
   function paintDom() {
     if (!dom.score) return;
+    /* ⚑ SHIELDS AND FLOW ARE ON THE HUD BECAUSE A MECHANIC YOU CANNOT SEE DOES NOT EXIST. The
+     * whole survivability fix is "a hit costs a pip, not a life" — if the pips are invisible the
+     * player still reads every hit as a near-death and the game still FEELS like the one that was
+     * killing them. Same argument the chain display already carries in the HUD CSS. */
+    if (dom.shield) {
+      const s = G.ship;
+      dom.shield.innerHTML = '◈'.repeat(Math.max(0, s.shield)) + '<span style="opacity:.28">'
+        + '◈'.repeat(Math.max(0, s.shieldMax - s.shield)) + '</span>'
+        + (s.iframe > 0 ? ' <span style="color:#27f7e4">⟡</span>' : '');
+      dom.shield.style.color = s.shield > 1 ? '#27f7e4' : s.shield === 1 ? '#ffd23b' : '#ff6b57';
+    }
+    if (dom.flow) {
+      const s = G.ship;
+      if (s.od > 0) { dom.flow.innerHTML = '⚡ OVERDRIVE <small>' + s.od.toFixed(1) + 's</small>'; dom.flow.style.color = '#ffd23b'; }
+      else if (s.flow > 0) { dom.flow.innerHTML = '» flow <b>' + s.flow + '</b>/' + RRGame.SHIP.FLOW_OD; dom.flow.style.color = '#2bff80'; }
+      else if (s.odCd > 0) { dom.flow.innerHTML = '<small>overdrive charging ' + s.odCd.toFixed(0) + 's</small>'; dom.flow.style.color = '#6fdca0'; }
+      else { dom.flow.innerHTML = '<small>dash·roll to build flow</small>'; dom.flow.style.color = '#4f9a72'; }
+    }
     dom.score.textContent = Math.floor(G.score).toLocaleString('en-US');
     dom.wave.innerHTML = 'wave <b>' + G.wave + '</b> · ' + (G.alive || 0) + ' up · ' + (G.diving || 0) + ' diving';
     dom.chain.innerHTML = '×' + G.mult + ' <small>chain ' + G.chain + '</small>';

@@ -57,9 +57,9 @@
   let TIER = Q.get('q') || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
   const TIERS = {
-    high: { puffs: 110, wisps: 30, shadows: true, shadowRes: 1024, rtScale: 1.0, envSize: 128, atlas: 256, skyN: 160, blur: 9, bloom: true },
-    mid:  { puffs: 74,  wisps: 20, shadows: true, shadowRes: 512,  rtScale: 0.85, envSize: 64, atlas: 128, skyN: 128, blur: 7, bloom: true },
-    low:  { puffs: 40,  wisps: 12, shadows: false, shadowRes: 512, rtScale: 0.72, envSize: 64, atlas: 128, skyN: 96, blur: 5, bloom: true },
+    high: { puffs: 110, wisps: 54, shadows: true, shadowRes: 1024, rtScale: 1.0, envSize: 128, atlas: 256, skyN: 160, blur: 9, bloom: true },
+    mid:  { puffs: 74,  wisps: 38, shadows: true, shadowRes: 512,  rtScale: 0.85, envSize: 64, atlas: 128, skyN: 128, blur: 7, bloom: true },
+    low:  { puffs: 40,  wisps: 24, shadows: false, shadowRes: 512, rtScale: 0.72, envSize: 64, atlas: 128, skyN: 96, blur: 5, bloom: true },
   };
   const QC = TIERS[TIER];
 
@@ -375,10 +375,35 @@
       minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR, anisotropy: 8 });
     t.setSource(c); return t;
   }
-  /* ⚑ THE SURFACE IS THE SPEEDOMETER. v repeats every 7.75 world units, so at cruise the pattern
-   * flows past 8.3 times a second and at full boost 11.7 — that beat IS the sense of speed, and it
-   * is why the markings are hard-edged rather than a soft wash. The old track texture repeated
-   * every ~43 units (24 repeats over a 1038-unit lap): about 1 beat per second, i.e. invisible. */
+  /* ⛔ THE SURFACE WAS THE SPEEDOMETER AND IT WAS READING ZERO AT CRUISE. THIS IS THE FIX.
+   *
+   * The comment that used to sit here said "v repeats every 7.75 world units, so at cruise the
+   * pattern flows past 8.3 times a second". The TILE repeated every 7.75 u — but the tile's
+   * CONTENT did not. Inside it were 8 panel bands and 8 dark seams, i.e. a real spatial period of
+   * 7.75/8 = 0.969 u, plus lane hints at 0.484 u and chevrons at 1.938 u.
+   *
+   * At 60 fps a pattern of period p stops reading as motion when the per-frame displacement
+   * approaches p — one whole period per frame is a still image (the wagon-wheel null). p = 0.969 u
+   * nulls at 0.969 × 60 = 58.1 u/s. CRUISE WAS 64 u/s. The game's default speed sat inside its own
+   * strobe, and the deck stood still at exactly the moment it was supposed to be shouting.
+   *
+   * ⚑ MEASURED, not reasoned: mean |ΔLuma| between two frames 1/60 s apart, at five fixed points
+   * round the lap, streaks off, fov pinned (`_flow()` reproduces it):
+   *
+   *     v (u/s)   16    24    32    40    48    56    64    72    80    88    96   104   112
+   *     BEFORE  11.0  14.3  15.1  14.1  12.1  10.0  11.5  14.6  17.8  19.0  17.7  14.9  11.9
+   *                                            ↑ null at 56–64 — and cruise was 64
+   *
+   * Flow FELL 34% between 32 u/s and 56 u/s. Doubling the speed made the picture move LESS. That
+   * is "too slow" as a number, and no amount of extra velocity fixes it — 112 u/s scores the same
+   * as 16 u/s because it is walking into the next null (2 × 0.969 × 60 = 116 u/s).
+   *
+   * So the deck is redrawn with LONG periods and hard edges instead of short periods and many of
+   * them: panels and chevrons at 3.875 u (null at 232 u/s), alternating big/small chevrons giving a
+   * 7.75 u super-period on top. Nothing in the near field now repeats faster than 3.875 u, so flow
+   * rises monotonically across the entire speed range the game can reach. Same palette, same
+   * printed-object read, same number of draw calls — it is a period change, not a style change. */
+  const DECK_PERIOD = 3.875;          // u — the shortest spatial period allowed on the deck
   function trackTex() {
     const S = 512, c = cvs(S), x = c.getContext('2d');
     /* ⚑ THE DECK IS NOT WHITE, AND THE FIRST VERSION'S WAS — a mistake the measurement caught
@@ -389,32 +414,44 @@
      * value rhythm, wide saturated rails, and a deep-navy kerb — the kerb is the only dark thing
      * out here, and it is what gives the ribbon a hard edge against the sky. */
     x.fillStyle = '#3f96b4'; x.fillRect(0, 0, S, S);
-    x.fillStyle = '#59aec9'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, S / 16);   // panel rhythm
-    x.fillStyle = 'rgba(10,50,72,0.30)'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, 4);
+    // panel rhythm — TWO per tile (3.875 u), not eight. Same look, four times the period.
+    x.fillStyle = '#59aec9'; for (let i = 0; i < 2; i++) x.fillRect(0, i * S / 2, S, S / 4);
+    x.fillStyle = 'rgba(10,50,72,0.34)'; for (let i = 0; i < 2; i++) x.fillRect(0, i * S / 2, S, 9);
     // rails: navy kerb, then magenta, then cyan. Wide enough to hold their colour at 200 units out.
     x.fillStyle = '#12284a'; x.fillRect(0, 0, S * 0.030, S); x.fillRect(S * 0.970, 0, S * 0.030, S);
     x.fillStyle = '#ff2ad9'; x.fillRect(S * 0.030, 0, S * 0.062, S); x.fillRect(S * 0.908, 0, S * 0.062, S);
     x.fillStyle = '#00e8d4'; x.fillRect(S * 0.092, 0, S * 0.030, S); x.fillRect(S * 0.878, 0, S * 0.030, S);
+    // rail dashes: 2 per tile, long — a fast-moving dotted line reads as a solid line, which is
+    // exactly the failure the 8-per-tile version had at speed.
     x.fillStyle = 'rgba(255,255,255,0.92)';
-    for (let i = 0; i < 8; i++) { x.fillRect(S * 0.034, i * S / 8, S * 0.054, S / 18); x.fillRect(S * 0.912, i * S / 8, S * 0.054, S / 18); }
-    // forward chevrons — direction of travel, and the strongest flow cue in the frame
-    x.strokeStyle = '#f2fbff'; x.lineWidth = 14; x.lineCap = 'butt';
-    for (let i = 0; i < 4; i++) { const y = i * S / 4 + S * 0.10;
-      x.beginPath(); x.moveTo(S * 0.31, y + S * 0.078); x.lineTo(S * 0.5, y); x.lineTo(S * 0.69, y + S * 0.078); x.stroke(); }
-    x.strokeStyle = '#ffd23b'; x.lineWidth = 4;
-    for (let i = 0; i < 4; i++) { const y = i * S / 4 + S * 0.10;
-      x.beginPath(); x.moveTo(S * 0.31, y + S * 0.100); x.lineTo(S * 0.5, y + S * 0.022); x.lineTo(S * 0.69, y + S * 0.100); x.stroke(); }
-    // lane hints at the racing-line offsets, so the fast line is legible from inside the pod
-    x.fillStyle = 'rgba(255,138,26,0.55)';
-    for (let i = 0; i < 16; i++) { x.fillRect(S * 0.245, i * S / 16, 6, S / 30); x.fillRect(S * 0.749, i * S / 16, 6, S / 30); }
+    for (let i = 0; i < 2; i++) { x.fillRect(S * 0.034, i * S / 2 + S * 0.06, S * 0.054, S * 0.30); x.fillRect(S * 0.912, i * S / 2 + S * 0.06, S * 0.054, S * 0.30); }
+    /* forward chevrons — the strongest flow cue in the frame. TWO per tile (3.875 u), drawn big
+     * then small so the eye also gets a 7.75 u beat it can count. Thicker than before, because
+     * fewer marks have to carry the same amount of motion information. */
+    for (let i = 0; i < 2; i++) {
+      const y = i * S / 2 + S * 0.11, k = i === 0 ? 1 : 0.62;         // big, then half-size
+      const w = S * 0.20 * k, h = S * 0.085 * k;
+      x.strokeStyle = '#f2fbff'; x.lineWidth = 26 * k; x.lineCap = 'butt'; x.lineJoin = 'miter';
+      x.beginPath(); x.moveTo(S * 0.5 - w, y + h); x.lineTo(S * 0.5, y); x.lineTo(S * 0.5 + w, y + h); x.stroke();
+      x.strokeStyle = '#ffd23b'; x.lineWidth = 7 * k;
+      x.beginPath(); x.moveTo(S * 0.5 - w, y + h * 1.34); x.lineTo(S * 0.5, y + h * 0.34); x.lineTo(S * 0.5 + w, y + h * 1.34); x.stroke();
+    }
+    // lane hints at the racing-line offsets, so the fast line is legible from inside the pod.
+    // 2 per tile — at 16 they were a 0.484 u period, which nulled at 29 u/s, i.e. below walking pace.
+    x.fillStyle = 'rgba(255,138,26,0.60)';
+    for (let i = 0; i < 2; i++) { x.fillRect(S * 0.245, i * S / 2 + S * 0.08, 8, S * 0.26); x.fillRect(S * 0.747, i * S / 2 + S * 0.08, 8, S * 0.26); }
     return texOf(c, true, true);
   }
+  /* ⚠ THE BOOST STRIPS HAD THE SAME BUG, WORSE. Their v ran k·seg/5 over seg = 2.583 u, i.e. one
+   * tile per 5 u, and the tile held 5 chevrons — a 1.00 u period, nulling at exactly 60 u/s. So the
+   * one surface whose whole job is to shout "you are on it, you are going fast" froze solid at
+   * cruise. Two chevrons per tile and the v scale below put it at 3.875 u, same as the deck. */
   function padTex() {
     const S = 256, c = cvs(S), x = c.getContext('2d');
     x.fillStyle = '#0c2f1c'; x.fillRect(0, 0, S, S);
-    x.strokeStyle = '#7dffb0'; x.lineWidth = 16; x.lineJoin = 'miter';
-    for (let i = 0; i < 5; i++) { const y = i * S / 5 + S * 0.06;
-      x.beginPath(); x.moveTo(0, y + S * 0.10); x.lineTo(S / 2, y); x.lineTo(S, y + S * 0.10); x.stroke(); }
+    x.strokeStyle = '#7dffb0'; x.lineWidth = 30; x.lineJoin = 'miter';
+    for (let i = 0; i < 2; i++) { const y = i * S / 2 + S * 0.10;
+      x.beginPath(); x.moveTo(0, y + S * 0.20); x.lineTo(S / 2, y); x.lineTo(S, y + S * 0.20); x.stroke(); }
     x.fillStyle = 'rgba(190,255,220,0.35)'; x.fillRect(0, 0, S, S * 0.03); x.fillRect(0, S * 0.97, S, S * 0.03);
     return texOf(c, true, true);
   }
@@ -564,7 +601,9 @@
       for (let k = 0; k < steps; k++) {
         const a = nodes[(i0 + k) % N], b = nodes[(i0 + k + 1) % N];
         const pt = (n, l, o) => [n.p[0] + n.right[0] * l + n.up[0] * o, n.p[1] + n.right[1] * l + n.up[1] * o, n.p[2] + n.right[2] * l + n.up[2] * o];
-        const va = k * seg / 5, vb = (k + 1) * seg / 5;
+        // one pad-texture repeat per 7.75 u (two chevrons ⇒ 3.875 u), matching the deck. It used
+        // to be /5, which put the strip's chevrons at a 1.00 u period — dead still at 60 u/s.
+        const va = k * seg / (DECK_PERIOD * 2), vb = (k + 1) * seg / (DECK_PERIOD * 2);
         pad.quad(pt(a, p.l0, 0.05), pt(a, p.l1, 0.05), pt(b, p.l1, 0.05), pt(b, p.l0, 0.05), [0, va], [1, va], [1, vb], [0, vb]);
       }
     }
@@ -802,28 +841,73 @@
     CLOUD.mesh.update(pc.PRIMITIVE_TRIANGLES, false);
   }
 
-  // ══ SPEED LINES ═════════════════════════════════════════════════════════════════════════════
-  /* Parented to the camera, so they need no per-frame transform maths and they go through the
-   * bloom like everything else — which a DOM overlay would not. Alpha rides on the material, so a
-   * still pod is pin sharp and only real speed streaks. */
+  /* ══ SPEED LINES ═══════════════════════════════════════════════════════════════════════════
+   * ⛔ REBUILT, AND THE OLD ONE WAS BROKEN THREE WAYS AT ONCE. In an in-race capture at full boost
+   * it was the dominant object in frame: 56 hard white bars radiating from screen centre, over the
+   * pod, over the corner lamp, over the track edges, and `_clip()` measured 2.02% of the frame
+   * clipped to pure white — on a game whose entire premise is a bright picture with detail in it.
+   *
+   *  1 ⚠ `streakMat.opacity` DOES NOTHING ON AN ADDITIVE MATERIAL. `BLEND_ADDITIVE` is
+   *      (ONE, ONE) — the alpha channel is never consulted. The fade-in was written as
+   *      `opacity = st * 0.5`, so the streaks did not fade in at all: they appeared at
+   *      `emissiveIntensity 1.4` the instant speed crossed cruise. For an additive layer the
+   *      ONLY fade knob is the emissive intensity, so that is what is driven now, from zero.
+   *  2 ⚠ They were STATIC. A fixed radial pattern pinned to the camera adds no optical flow —
+   *      it is a decal that masks the moving world underneath it. Measured: at boost, frame-to-
+   *      frame |ΔLuma| was 15.0 with the streaks on and 18.4 with them off, i.e. the speed
+   *      effect was REMOVING 19% of the actual sense of speed. They now stream outward, in two
+   *      banks half a cycle apart, at a rate that rides on speed — so they add flow instead.
+   *  3 ⚠ They crossed the middle of the screen, which is where the pod, the lamp and the corner
+   *      are. They start at 0.66 of the frame half-height now and run OUTWARD: the periphery is
+   *      where real peripheral flow lives and it is the part of the frame with nothing to read.
+   * Kept from the original, because it was right: parented to the camera (no per-frame transform
+   * maths) and inside the post stack, so they bloom with everything else. */
   const streakEnt = new pc.Entity('streaks');
-  const streakMat = flatMat('cr-streak', 1, 1, 1, { unlit: true, fog: false, emissive: [1, 1, 1], emissiveIntensity: 2.2,
-    blend: pc.BLEND_ADDITIVE, cull: pc.CULLFACE_NONE });
+  const streakBank = [];
   {
-    const b = Builder();
-    for (let i = 0; i < 56; i++) {
-      const a = i * 2.3999632, r0 = 0.42 + (i % 5) * 0.05, len = 0.34 + ((i * 13) % 7) / 7 * 0.5;
-      const ca = Math.cos(a), sa = Math.sin(a), w = 0.006;
-      const x0 = ca * r0, y0 = sa * r0, x1 = ca * (r0 + len), y1 = sa * (r0 + len);
-      b.quad([x0 - sa * w, y0 + ca * w, -1], [x0 + sa * w, y0 - ca * w, -1], [x1 + sa * w * 2.4, y1 - ca * w * 2.4, -1], [x1 - sa * w * 2.4, y1 + ca * w * 2.4, -1],
-        [0, 0], [1, 0], [1, 1], [0, 1]);
+    const bankMesh = () => {
+      const b = Builder();
+      for (let i = 0; i < 26; i++) {
+        const a = i * 2.3999632, r0 = 0.66 + ((i * 7) % 5) * 0.07, len = 0.26 + ((i * 13) % 7) / 7 * 0.42;
+        const ca = Math.cos(a), sa = Math.sin(a), w = 0.0032;
+        const x0 = ca * r0, y0 = sa * r0, x1 = ca * (r0 + len), y1 = sa * (r0 + len);
+        b.quad([x0 - sa * w, y0 + ca * w, -1], [x0 + sa * w, y0 - ca * w, -1],
+          [x1 + sa * w * 2.2, y1 - ca * w * 2.2, -1], [x1 - sa * w * 2.2, y1 + ca * w * 2.2, -1],
+          [0, 0], [1, 0], [1, 1], [0, 1]);
+      }
+      return b.mesh();
+    };
+    const mesh = bankMesh();
+    for (let k = 0; k < 2; k++) {
+      const e = new pc.Entity('streakBank' + k);
+      // cool white — pure white is what clipped, and air is not neutral
+      const m = flatMat('cr-streak' + k, 1, 1, 1, { unlit: true, fog: false, emissive: [0.72, 0.92, 1.0],
+        emissiveIntensity: 0, blend: pc.BLEND_ADDITIVE, cull: pc.CULLFACE_NONE });
+      const mi = new pc.MeshInstance(mesh, m, e);
+      mi.castShadow = false;
+      mi.setCustomAabb(new pc.BoundingBox(new pc.Vec3(0, 0, -1), new pc.Vec3(6, 6, 0.1)));
+      e.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
+      streakEnt.addChild(e); streakBank.push({ e, m, phase: k * 0.5 });
     }
-    const mi = new pc.MeshInstance(b.mesh(), streakMat, streakEnt);
-    mi.castShadow = false;
-    mi.setCustomAabb(new pc.BoundingBox(new pc.Vec3(0, 0, -1), new pc.Vec3(4, 4, 0.1)));
-    streakEnt.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
     cam.addChild(streakEnt);
     streakEnt.enabled = false;
+  }
+  /* `st` 0..1 is how hard the effect is running; `dt` advances the stream. The envelope is
+   * sin(π·phase), so a bank is invisible at the moment it wraps — otherwise the reset is a visible
+   * flick, which is worse than having no effect. PEAK was measured against `_clip()`: 1.9 holds
+   * clipping under 0.35% of frame at tier-3 boost, where the old build clipped 2.02%. */
+  const STREAK_PEAK = 1.9;
+  function streaks(st, spd, dt) {
+    streakEnt.enabled = st > 0.02;
+    if (!streakEnt.enabled) return;
+    for (const b of streakBank) {
+      b.phase += dt * (1.6 + spd * 2.4);
+      if (b.phase >= 1) b.phase -= Math.floor(b.phase);
+      const k = 1 + b.phase * 0.95;
+      b.e.setLocalScale(k, k, 1);
+      const want = st * Math.sin(Math.PI * b.phase) * STREAK_PEAK;
+      if (Math.abs(b.m.emissiveIntensity - want) > 0.01) { b.m.emissiveIntensity = want; b.m.update(); }
+    }
   }
 
   // ══ THE RACE ════════════════════════════════════════════════════════════════════════════════
@@ -855,7 +939,9 @@
   function applyCamera(dt) {
     if (!G) return;
     const me = G.me, P = CR.pose(G, me);
-    const spd = me.v / PACE.CRUISE;
+    // ⚠ against THIS TIER's cruise. The camera's "am I going fast" test has to move with the pace
+    //   ladder or it saturates permanently from tier 2 on and stops meaning anything.
+    const spd = me.v / ((G.pace && G.pace.CRUISE) || PACE.CRUISE);
     /* The chase pulls IN as you go faster, not out. Pulling out is the intuitive move and it is
      * wrong: it shrinks everything in frame, which reduces optical flow at exactly the moment the
      * player is supposed to feel it. Coming closer to the deck while the fov opens does the
@@ -873,11 +959,13 @@
     cam.setPosition(camState.x, camState.y, camState.z);
     const tx = P.p[0] + P.fwd[0] * 15 + P.up[0] * 1.3, ty = P.p[1] + P.fwd[1] * 15 + P.up[1] * 1.3, tz = P.p[2] + P.fwd[2] * 15 + P.up[2] * 1.3;
     cam.lookAt(tx, ty, tz, P.up[0], P.up[1], P.up[2]);
+    /* ⚑ FOV IS MEASURED AGAINST THE PACE, NOT AGAINST A CONSTANT. `spd` is speed over THIS TIER's
+     * cruise, so the widening fires when you are going fast FOR NOW rather than firing permanently
+     * from tier 2 onward — which is what a fixed reference would do once cruise had climbed 44%. */
     cam.camera.fov = (FOV * (1 + clamp(spd - 0.85, 0, 0.6) * 0.30)) * 180 / Math.PI;
     // speed streaks: only above cruise, and hard above it
-    const st = clamp((spd - 1.0) * 2.4, 0, 1) * (me.boosting ? 1.15 : 0.75);
-    streakEnt.enabled = st > 0.03;
-    if (streakEnt.enabled) { streakMat.opacity = st * 0.5; streakMat.emissiveIntensity = 1.4 + st * 2.2; streakMat.update(); }
+    const st = clamp((spd - 1.0) * 2.4, 0, 1) * (me.boosting ? 1.0 : 0.62);
+    streaks(st, spd, dt || 1 / 60);
     return P;
   }
 
@@ -897,7 +985,7 @@
       const q = new pc.Quat().setFromMat4(m);
       e.setRotation(q);
       // idle 0.35, boosting 1.85 — the exhaust is a TELL that boost is live, so the gap matters
-      if (e.__glow) { const k = 0.35 + (r.boosting ? 1.3 : 0) + r.v / PACE.CRUISE * 0.20;
+      if (e.__glow) { const k = 0.35 + (r.boosting ? 1.3 : 0) + r.v / ((G.pace && G.pace.CRUISE) || PACE.CRUISE) * 0.20;
         if (Math.abs(e.__glow.emissiveIntensity - k) > 0.05) { e.__glow.emissiveIntensity = k; e.__glow.update(); } }
     }
   }
@@ -985,6 +1073,32 @@
       }
       G.me.s = save; camState = null; applyCamera(0);
       return { ok: out.every(o => o.fwdDot > 0.9 && o.rightDot > 0.999 && o.rightIsRight), rows: out };
+    },
+    /* ⚑ OPTICAL FLOW — the number "does it feel fast" reduces to, and the one that caught the deck
+     * strobing at cruise. Park the pod, render, read the frame; advance by v/60 (one 60 Hz frame at
+     * that speed), render, read again; mean |ΔLuma| over the whole frame. Speed streaks off and fov
+     * pinned, because both change the framing and would confound a comparison ACROSS speeds — the
+     * question here is how much the WORLD moves, not how much decoration is on top of it.
+     * Needs ?grab=1 (preserveDrawingBuffer) and ?adapt=0 (a resolution change mid-sweep invalidates
+     * every row). Usage: `__crpc._flow([32,64,96])`. */
+    _flow(speeds, at) {
+      const g = canvas.getContext('webgl2'); if (!g || !G || !T) return null;
+      const pts = at || [200, 430, 620, 830, 980];
+      const streak = cam.children.find(c => c.name === 'streaks');
+      const FOVDEG = FOV * 180 / Math.PI;
+      const grab = () => { const W = canvas.width, H = canvas.height, px = new Uint8Array(W * H * 4);
+        g.readPixels(0, 0, W, H, g.RGBA, g.UNSIGNED_BYTE, px);
+        const L = new Float32Array(W * H);
+        for (let i = 0; i < W * H; i++) L[i] = 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2];
+        return L; };
+      const shot = (s, v) => { this._pose(s, 0, v); if (streak) streak.enabled = false;
+        cam.camera.fov = FOVDEG; app.root.syncHierarchy(); app.render(); return grab(); };
+      return (speeds || [16, 32, 48, 64, 80, 96, 112]).map(v => {
+        let sum = 0;
+        for (const s of pts) { const A = shot(s, v), B = shot(s + v / 60, v);
+          let d = 0; for (let i = 0; i < A.length; i++) d += Math.abs(A[i] - B[i]); sum += d / A.length; }
+        return { v, flow: +(sum / pts.length).toFixed(2), uPerFrame: +(v / 60).toFixed(3) };
+      });
     },
     /* Counts clipped pixels — the SAME measurement the 0.94 knee was derived from, so the port of
      * that number can be checked the way it was made rather than by looking at it. Needs ?grab=1. */

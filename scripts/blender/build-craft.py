@@ -25,8 +25,44 @@
 # ORIENTATION, the one thing that is easy to get silently wrong:
 #   kit.py's aircraft frame is +x nose / ±y span / +z up, which is comfortable to author and
 #   correct in Blender's viewport. glTF export maps Blender (x, y, z) → (x, z, -y), so Blender
-#   -y comes out glTF +z. dogfight-gl's ships have their nose along +z, so the craft and pod are
-#   turned -90° about z before export. Props are upright already: Blender +z → glTF +y.
+#   -y comes out glTF +z. dogfight-gl's ships have their nose along +z, so the craft, pod and
+#   trim are turned -90° about z before export. Props are upright already: Blender +z → glTF +y.
+#
+#   ⚠ THAT ROTATION IS WRITTEN ON THE glTF NODE, NOT BAKED INTO THE VERTICES — it is set on the
+#   object below, deliberately, so the authoring frame above stays readable. A loader that reads
+#   the mesh and ignores the node therefore gets an aircraft 90° across its own flight path, and
+#   that is exactly what js/dfpc-app.js did until it was fixed. js/ronin-glb.js walks node
+#   matrices and was always right. Do not "fix" this by baking the rotation in: the node
+#   transform is part of the file, and any loader that cannot read one will break on the next
+#   model out of any DCC tool anyway.
+#
+# ── THE BRIEF (docs/DESIGN-SYSTEM.md §8: material, light, motion, what it sits on, acceptance) ──
+# The verdict on v1 was "basic bitch geometry and fx", and the reason a rewrite gets that verdict
+# is that a mood is not a design. So, decided before any vertex:
+#
+#   1. MADE OF — die-cut card stock with a hot-foil flash. This studio makes printed objects; the
+#      interceptor is not a machined aluminium jet, it is a CARD of one, punched out and folded.
+#      Three of §1's four layers, as three named parts the renderer can shade differently:
+#         craft  STOCK + INK — the dark printed body. Flat, saturated, no environment on it.
+#         trim   FOIL — hot-stamped only where a real stamp goes: leading edges, canard and fin
+#                tips, the intake lips, the canopy rail, a hairline down the nose spine. Metal,
+#                and the ONLY metal.
+#         pod    the exhaust, emissive.
+#      §1's rule is that foil is defined by MOVEMENT, not colour, so the trim is thin-film
+#      iridescent in the renderer — the hue walks with view angle because that is what a thin film
+#      physically does, not because a gradient was painted on it.
+#   2. LIT BY — the scene's swept sun is the KEY. The house RIM (cyan #27f7e4, near-grazing) is
+#      what makes a die-cut edge read against a bright sky; that is §2's entire job for a rim.
+#   3. WHAT MOVES — the foil's hue, because the craft rolls and the camera swings. The pod,
+#      because the throttle is open. Nothing pulses.
+#   4. SITS ON — the deck: it casts a real shadow onto it.
+#   5. ACCEPTANCE — §1's own test: hue shift measured across several view angles. No shift, no
+#      foil. Plus silhouette separation from the sky.
+#
+#   §7's rejection list, applied: no default extrude with a uniform bevel. The wing is CRANKED
+#   (two lofted panels with a real kink, the outer more swept than the inner), the depth VARIES
+#   along the span instead of tapering uniformly, and the bright rim is geometry — a separate
+#   proud strip — rather than a shader trick on a plate edge.
 #
 # Nothing here is textured or UV'd. The renderer tints every draw call from the ship's own
 # colour, so a baked material would be dead weight — and one more thing to licence-clear.
@@ -73,15 +109,24 @@ def build_craft():
         (3.10, 0.34, 0.16, 0.50),
     ])
 
-    # main wings — cranked delta, swept 2.4 m back over a 4.1 m half-span, with 0.5 m of
-    # dihedral. Sweep is negative because sweep slides the tip along +x and +x is the nose.
+    # main wings — a REAL cranked delta: two lofted panels meeting at a kink, the outer panel
+    # more swept than the inner (42° then 56° on the leading edge). v1 called itself cranked and
+    # was a single loft, i.e. a plain taper — which is §7's "default extrude + uniform bevel" in
+    # planform, and it is why the wing read as a plate. The kink is also what puts VARIED DEPTH
+    # in the section: thick box inboard (0.44), half that at the kink, a blade outboard (0.11).
     for sy in (-1, 1):
-        kit.foil(p, (-0.60, sy * 0.62, -0.02), (-0.60, sy * 4.10, 0.46),
-                 4.60, 1.15, 0.44, 0.11, sweep=-2.40)
+        kit.foil(p, (-0.60, sy * 0.62, -0.02), (-1.35, sy * 2.30, 0.20),
+                 4.60, 3.10, 0.44, 0.26)
+        kit.foil(p, (-1.35, sy * 2.30, 0.20), (-3.00, sy * 4.10, 0.46),
+                 3.10, 1.15, 0.26, 0.11)
         # wingtip rail — a little vertical fence, the thing that reads as "fighter" in
         # silhouette when the wing itself is edge-on and nearly invisible
         kit.foil(p, (-2.35, sy * 4.05, 0.42), (-2.35, sy * 4.05, 1.22),
                  1.05, 0.55, 0.16, 0.08, sweep=-0.30, axis='z')
+        # intake — the long nose tapered to a featureless point because there was nothing under
+        # it. A pair of boxed intakes under the wing roots gives the forward half a shoulder line
+        # and somewhere for the foil lips to sit.
+        p.box((1.35, sy * 0.84, -0.26), (2.60, 0.56, 0.52))
 
     # canards — forward control surfaces. Small, but they break up the long nose so the craft
     # doesn't taper to a featureless point.
@@ -110,6 +155,56 @@ def build_craft():
             x, y, z = p.v[i]
             p.v[i] = (x, y + sy * 0.92, z)
 
+    return p
+
+
+def build_trim():
+    """THE FOIL. A separate object because it is a different MATERIAL, not a different shape —
+    the renderer draws it thin-film iridescent while the body stays flat printed ink.
+
+    Where a hot stamp physically goes on a printed card: the die-cut edge and nothing else. Every
+    strip below sits just PROUD of the edge it dresses, so it catches the rim light and reads as
+    a cut rather than as a painted line — which is §7's "bright rim, varied depth" made of
+    geometry instead of a shader. It is also the answer to the note in dfpc-app that hulls are
+    "dark bodies with BRIGHT TRIM": there was no trim. There is now.
+
+    ⚠ Fails open by name. dfpc-app draws this only if the part exists, so an older GLB — or one
+    from a replacement model that has no trim — still flies, just without the flash.
+    """
+    p = kit.Part('trim')
+
+    # nose spine — a hairline down the top of the long nose, from behind the canopy to the tip.
+    # The single highest-value strip on the aircraft: the nose is the part of the silhouette that
+    # points at whatever you are chasing, and it had no edge at all.
+    kit.hull(p, [
+        (2.90, 0.10, 0.07, 0.39),
+        (4.60, 0.08, 0.06, 0.20),
+        (5.60, 0.05, 0.04, 0.085),
+        (6.18, 0.02, 0.02, 0.010),
+    ])
+    # canopy rail — the arch over the glass. A canopy without a frame reads as a bulge.
+    kit.hull(p, [
+        (0.05, 0.66, 0.06, 0.76),
+        (0.95, 0.78, 0.06, 0.88),
+        (2.15, 0.68, 0.06, 0.78),
+        (3.15, 0.34, 0.05, 0.58),
+    ])
+
+    for sy in (-1, 1):
+        # wing leading edge, both panels, following the crank
+        kit.foil(p, (1.62, sy * 0.63, -0.02), (0.13, sy * 2.30, 0.20), 0.18, 0.15, 0.36, 0.22)
+        kit.foil(p, (0.13, sy * 2.30, 0.20), (-2.49, sy * 4.09, 0.46), 0.15, 0.11, 0.22, 0.10)
+        # canard and tailplane leading edges
+        kit.foil(p, (3.16, sy * 0.46, 0.14), (2.03, sy * 1.74, 0.30), 0.14, 0.09, 0.16, 0.07)
+        kit.foil(p, (-2.42, sy * 0.44, 0.16), (-3.74, sy * 1.99, 0.34), 0.14, 0.09, 0.20, 0.08)
+        # fin leading edge — vertical, so axis='z': thickness runs across, span runs up
+        kit.foil(p, (-1.75, sy * 0.80, 0.45), (-3.44, sy * 1.30, 2.32),
+                 0.22, 0.12, 0.24, 0.10, axis='z')
+        # wingtip rail cap
+        p.box((-2.62, sy * 4.05, 1.24), (0.62, 0.10, 0.07))
+        # intake lips — top and outboard, framing the mouth
+        p.box((2.63, sy * 0.84, 0.00), (0.10, 0.60, 0.07))
+        p.box((2.63, sy * 1.11, -0.26), (0.10, 0.07, 0.54))
     return p
 
 
@@ -205,7 +300,7 @@ def main():
     # as +z — the axis dogfight-gl's ship transform expects the nose to point down. Set on the
     # object rather than baked into the vertices so the authoring frame above stays readable,
     # and so the Blender viewport shows the craft the way it was designed.
-    for part in (build_craft(), build_pod()):
+    for part in (build_craft(), build_trim(), build_pod()):
         ob = part.emit()
         ob.rotation_euler = (0.0, 0.0, -math.pi / 2)
 
