@@ -57,14 +57,22 @@
   const CAM_D = 3.2;            // camera distance, in wordmark widths
   const OVER_X = 1.12;          // canvas overscan, so a turned letter never clips at the ends
   const OVER_Y = 1.85;          // vertical room for the tilt and the specular bloom
-  const SWAY_Y = 5.5;           // idle yaw amplitude, degrees
-  const SWAY_X = 2.4;           // idle pitch amplitude
+  /* ⚑ THE SWAY IS CENTRED OFF-AXIS, and that is the difference between 3D type and a picture of
+   *   type. Dead-on, an extrusion shows NO side wall and no bevel highlight — the first build
+   *   swayed through 0° and for the fraction of a second it passed through square it was
+   *   indistinguishable from the CSS wordmark it had just replaced. Holding a small permanent
+   *   turn means an edge is always lit and the letters always have a thickness. */
+  const BASE_Y = -5.0;          // permanent yaw, degrees
+  const BASE_X = -2.5;          // permanent pitch — top tipped toward the viewer, so the key
+                                //   light lands on the TOP wall of every stroke
+  const SWAY_Y = 4.5;           // idle yaw amplitude, degrees
+  const SWAY_X = 2.0;           // idle pitch amplitude
   const POINT_Y = 6.0;          // extra yaw from the pointer
   const POINT_X = 4.0;
   const FPS = 30;               // a wordmark does not need 60; this halves the cost of the layer
-  const REST = { x: 3.0, y: -7.0 };   // the still pose, used under prefers-reduced-motion
-  const maxYaw = () => SWAY_Y + POINT_Y;
-  const maxPitch = () => SWAY_X + POINT_X;
+  const REST = { x: BASE_X - 1.5, y: BASE_Y - 3.5 };   // still pose, under prefers-reduced-motion
+  const maxYaw = () => Math.abs(BASE_Y) + SWAY_Y + POINT_Y;
+  const maxPitch = () => Math.abs(BASE_X) + SWAY_X + POINT_X;
 
   /* ⚠ Resolve against THIS SCRIPT's URL, not document.baseURI — the same trap bg-foil.js records.
    *   The assets live at the site root; a page in a subdirectory would resolve `media/hero/...`
@@ -258,10 +266,16 @@
 
     // ── materials ─────────────────────────────────────────────────────────────────────────────
     const face = new pc.StandardMaterial();
+    /* The extrusion walls. Dark body, bright specular: a foil stamp's edge is bare metal, and
+     * against the near-black page a dark body with a travelling highlight reads as an edge where
+     * a bright one would just fatten the letters. ⚠ Not FULLY black — the small emissive floor
+     * is what stops an unlit wall from collapsing into the drop-shadow behind it and taking the
+     * thickness with it. */
     const rim = new pc.StandardMaterial();
-    rim.diffuse = new pc.Color(0.045, 0.075, 0.058);
-    rim.specular = new pc.Color(0.72, 0.86, 0.78);
-    rim.gloss = 0.74;
+    rim.diffuse = new pc.Color(0.085, 0.135, 0.105);
+    rim.emissive = new pc.Color(0.016, 0.045, 0.028);
+    rim.specular = new pc.Color(0.80, 0.92, 0.85);
+    rim.gloss = 0.76;
     rim.useMetalness = false;
     rim.update();
 
@@ -356,7 +370,7 @@
 
     // ── motion ────────────────────────────────────────────────────────────────────────────────
     const still = reduced();
-    let tx = still ? REST.x : 0, ty = still ? REST.y : 0, cx = tx, cy = ty, t0 = 0, last = -1e9, live = true;
+    let tx = 0, ty = 0, cx = BASE_X, cy = BASE_Y, t0 = 0, last = -1e9, live = true;
     if (!still) {
       addEventListener('pointermove', e => {
         const r = canvas && canvas.getBoundingClientRect();
@@ -391,8 +405,8 @@
       last = now;
       const s = (now - t0) / 1000;
       // two periods that do not divide into each other, so the sway never returns to a pose
-      const sy = Math.sin(s * 0.37) * SWAY_Y + ty;
-      const sx = Math.sin(s * 0.23 + 1.1) * SWAY_X + tx;
+      const sy = BASE_Y + Math.sin(s * 0.37) * SWAY_Y + ty;
+      const sx = BASE_X + Math.sin(s * 0.23 + 1.1) * SWAY_X + tx;
       cy += (sy - cy) * 0.06;
       cx += (sx - cx) * 0.06;
       root.setLocalEulerAngles(cx, cy, Math.sin(s * 0.17) * 0.7);
