@@ -376,11 +376,20 @@
      * The scale solve: a card is CH world units tall, and at distance d from the camera one world
      * unit covers `(H/2) / (tan(fov/2) · d)` CSS pixels. Invert for the scale that makes CH cover
      * the DOM card's measured height. */
+    var seedErr = { seeded: 0, maxErrPx: -1 };
     function seedFromDom() {
       if (!arena) return;
+      /* ⚑ PUT THE CAMERA WHERE IT WILL BE, FIRST. This was a real bug and the handoff check caught
+       * it: `A.update()` is what positions the camera, and it does not run until the first engine
+       * frame — so seeding before it meant every `screenToWorld` was solved against a camera still
+       * sitting at the origin. Measured 292 px of error, i.e. the cards flew in from the wrong place
+       * entirely. One synthetic zero-dt update fixes it, and the error drops to single pixels. */
+      A.update(0);
       var cr = canvas.getBoundingClientRect();
       var H = Math.max(1, cr.height);
       var tanH = Math.tan(cam.camera.fov * Math.PI / 360);
+      var back = new pc.Vec3();
+      seedErr = { seeded: 0, maxErrPx: 0 };
       ['you', 'house'].forEach(function (key) {
         var sideEl = arena.querySelector('.fo-side.' + key); if (!sideEl) return;
         var els = sideEl.querySelectorAll('.fo-cw');
@@ -390,13 +399,20 @@
           var slot = f.slot;
           var camPos = cam.getPosition();
           var d = Math.hypot(slot.x - camPos.x, slot.y - camPos.y, slot.z - camPos.z);
+          var cx = r.left - cr.left + r.width / 2, cy = r.top - cr.top + r.height / 2;
           var w = new pc.Vec3();
-          cam.camera.screenToWorld(r.left - cr.left + r.width / 2, r.top - cr.top + r.height / 2, d, w);
+          cam.camera.screenToWorld(cx, cy, d, w);
           f.from = { x: w.x, y: w.y, z: w.z, sc: clamp((r.height * tanH * d * 2) / (H * CH), 0.15, 3) };
           f.warp = 0;                                          // 0 = at the DOM card, 1 = in its slot
           el.classList.add('cb-handed');                       // CSS in battle.html fades it to a sleeve
+          // round-trip the seed back to the screen and keep the worst error. Measured AT SEED TIME:
+          // afterwards the camera drifts and punches, so a later projection is not the same question.
+          cam.camera.worldToScreen(w, back);
+          seedErr.seeded++;
+          seedErr.maxErrPx = Math.max(seedErr.maxErrPx, Math.hypot(back.x - cx, back.y - cy));
         });
       });
+      seedErr.maxErrPx = +seedErr.maxErrPx.toFixed(3);
     }
 
     function releaseDom() {
@@ -737,9 +753,13 @@
         var out = { cards: sides.you.length + sides.house.length, shots: shots.length,
           puffs: puffs.length, pops: pops.length, frames: frames, firstFrame: firstFrame,
           msMedian: +median(times).toFixed(2), post: !!A.frame,
-          tone: POST.tone, bloom: POST.bloom, sat: POST.saturation, sharp: POST.sharpness,
-          dpr: app.graphicsDevice.maxPixelRatio,
+          tone: TONE, bloom: POST.bloom, sat: POST.saturation, sharp: POST.sharpness,
+          dpr: app.graphicsDevice.maxPixelRatio, warp: +(sides.you[0] ? sides.you[0].warp : 1).toFixed(3),
           size: [app.graphicsDevice.width, app.graphicsDevice.height] };
+        /* HANDOFF ERROR, in CSS pixels, recorded when the seed was taken — see seedFromDom. If the
+         * seed and the DOM card disagree, the dissolve stops reading as one object moving and starts
+         * reading as a cut. This is the number that caught the uninitialised-camera bug. */
+        out.handoff = seedErr;
         cam.camera.worldToScreen(new pc.Vec3(a.x, a.y, a.z), sc); out.youX = +sc.x.toFixed(1);
         cam.camera.worldToScreen(new pc.Vec3(b.x, b.y, b.z), sc); out.houseX = +sc.x.toFixed(1);
         cam.camera.worldToScreen(new pc.Vec3(1, 0, 0), sc); var rx = sc.x;

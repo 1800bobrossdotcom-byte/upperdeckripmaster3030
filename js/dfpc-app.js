@@ -51,14 +51,24 @@
  *   Here the pitch is NEGATED, and `DFPC.basis` reports it so it cannot silently come back.
  */
 window.DFPC = (function () {
+  /* ⚠ THE STUB COMES FIRST. Several module-scope constants below are `new pc.Quat()`, so if the
+   * engine bundle did not load this whole file throws while parsing and `window.DFPC` never
+   * exists. The no-WebGL-2 route still worked — dogfight.html guards with `window.DFPC ?` — but it
+   * worked while logging "pc is not defined", which is exactly the kind of error that trains you
+   * to ignore the console. Fail open QUIETLY and say why. */
+  if (typeof pc === 'undefined' || !pc) {
+    return { init: () => false, supported: () => false, why: () => 'the engine bundle did not load',
+             start: () => {}, sync: () => false, project: () => null, basis: () => null,
+             pitchProbe: () => null, resize: () => {}, stats: () => ({ ok: false, why: 'no engine' }),
+             app: () => null, camera: () => null, tier: () => 'none', setQuality: () => {} };
+  }
   const DEG = 180 / Math.PI;
-  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const Q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(''); } })();
   const num = (k, d) => (Q.has(k) && isFinite(+Q.get(k)) ? +Q.get(k) : d);
   const flag = (k, d) => (Q.has(k) ? Q.get(k) !== '0' : d);
 
-  let app = null, cam = null, rig = null, sun = null, fill = null, world = null, fx = null;
-  let ok = false, frame = null, ditherOn = false, canvas = null;
+  let app = null, cam = null, rig = null, sun = null, world = null, fx = null;
+  let ok = false, frame = null, ditherOn = false;
   let ships = new Map(), craftProto = null, podProto = null;
   let TIER = 'high', QCFG = null, why = '';
   const marks = { boot: 0, first: 0 };
@@ -70,12 +80,18 @@ window.DFPC = (function () {
    * it as its resolution cap. A second opinion about what a weak device is is how two games drift
    * apart. */
   const TIERS = {
+    /* ⚑ DITHER IS ON AT EVERY TIER, including low, and that is a deliberate exception to "low tier
+     * turns things off". It is ONE add inside a fullscreen pass that is already running, and this
+     * game is mostly sky — a big smooth gradient is exactly where an 8-bit write bands, and a weak
+     * device gets a SMALLER environment cubemap (64 vs 128), so it bands WORSE. Measured by
+     * screenshot: at tier low the sky came out in visible horizontal steps. Turning the cheapest
+     * fix off on the device that needs it most is the wrong saving. */
     high: { shadowRes: 2048, cascades: 3, shadows: true, ssao: true, ssaoSamples: 8, dither: true,
-            envSize: 128, atlas: 256, rtScale: 1.0, clouds: true },
+            envSize: 128, atlas: 256, rtScale: 1.0 },
     mid:  { shadowRes: 1024, cascades: 2, shadows: true, ssao: false, ssaoSamples: 4, dither: true,
-            envSize: 64, atlas: 128, rtScale: 0.85, clouds: true },
-    low:  { shadowRes: 512, cascades: 1, shadows: false, ssao: false, ssaoSamples: 4, dither: false,
-            envSize: 64, atlas: 128, rtScale: 0.7, clouds: false },
+            envSize: 96, atlas: 128, rtScale: 0.85 },
+    low:  { shadowRes: 512, cascades: 1, shadows: false, ssao: false, ssaoSamples: 4, dither: true,
+            envSize: 64, atlas: 128, rtScale: 0.7 },
   };
 
   /* ── POST: GfxPost's calibration, ported rather than defaulted ──────────────────────────
@@ -105,8 +121,16 @@ window.DFPC = (function () {
    *                                         inner = 0.68, outer = 2.24 at the same intensity.
    *   sat       1.00                      → grading.saturation. RAISED here on purpose, see below.
    *   dither    0.0045 8×8 Bayer          → injected as a composeMainEndPS chunk
-   *   sharpen   0.18  unsharp             → rendering.sharpness (CAS — different maths, so this is
-   *                                         MATCHED by measurement rather than copied across)
+   *   sharpen   0.18  unsharp             → rendering.sharpness. ⚠ NOT DERIVED AND NOT MEASURED
+   *                                         HERE: GfxPost does a plain unsharp against four
+   *                                         neighbours, PlayCanvas runs AMD CAS, which is
+   *                                         contrast-adaptive and whose `sharpness` maps to
+   *                                         lerp(−0.125, −0.2, s). Different function, so the
+   *                                         numbers below are carried over from s9pc-app.js, where
+   *                                         they WERE swept against mean |Laplacian| (0 → 5.58 ·
+   *                                         0.42 → 7.06 · 0.70 → 7.57 · 1.0 → 8.76, and 1.0 also
+   *                                         jumps RMS, i.e. a different effect appearing). Sweeping
+   *                                         it again on this game's own frames is outstanding.
    *   blur      0.45  motion smear CEILING→ NOT PORTED. PlayCanvas's CameraFrame has no feedback
    *                                         pass to hang it on. Recorded as a known regression
    *                                         rather than quietly dropped; it is the one thing the
@@ -167,7 +191,6 @@ window.DFPC = (function () {
       if (!window.pc) { why = 'the engine bundle did not load'; return false; }
       const probe = document.createElement('canvas');
       if (!probe.getContext('webgl2')) { why = 'this browser reports no WebGL 2 context'; return false; }
-      canvas = cv;
 
       const DPRCAP = (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2;
       const AUTO = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
@@ -603,11 +626,15 @@ window.DFPC = (function () {
     return { ph: +ph.toFixed(3), fwdY: +f.y.toFixed(4), looking: f.y < -1e-4 ? 'down' : (f.y > 1e-4 ? 'up' : 'level') };
   }
 
-  /* No arguments on purpose. `app.resizeCanvas()` measures the canvas's own CSS box and applies
-   * `maxPixelRatio` itself; passing sizes in would fight the stylesheet, and writing
-   * canvas.width/height behind the engine's back leaves its render targets and projection sized
-   * for the previous frame — which shows up as a stretched view after one window drag. */
-  function resize() { if (ok) app.resizeCanvas(); }
+  /* ⚠ SIZES ARE PASSED IN, and they must come from a box the ENGINE does not own.
+   * `app.resizeCanvas(w, h)` writes `style.width`/`style.height` in px on its canvas — so after
+   * the first call the stylesheet's `calc(100vw - …)` is dead on that element and calling it with
+   * no arguments would then re-measure the inline size it wrote last time and never grow again.
+   * dogfight.html measures the 2D OVERLAY canvas, which is CSS-sized and which the engine never
+   * touches, and hands the numbers over. Writing canvas.width/height directly is the other wrong
+   * answer: it leaves the engine's render targets and projection sized for the previous frame,
+   * which reads as a stretched view after one window drag. */
+  function resize(w, h) { if (ok && w > 0 && h > 0) app.resizeCanvas(w, h); }
   function stats() {
     if (!ok) return { ok: false, why };
     const s = times.slice().sort((a, b) => a - b);
@@ -618,7 +645,7 @@ window.DFPC = (function () {
       median: +med.toFixed(1), p95: s.length ? +s[Math.min(s.length - 1, Math.floor(s.length * 0.95))].toFixed(1) : 0,
       worst: s.length ? +s[s.length - 1].toFixed(1) : 0,
       props: w.props, gates: w.gates, puffs: w.puffs, theme: w.theme, night: w.night,
-      ships: ships.size, fx: fx ? fx.stats() : null, boot: marks.boot };
+      ships: ships.size, fx: fx ? fx.stats() : null, boot: marks.boot, firstFrame: marks.first };
   }
 
   return { init, start, sync, project, basis, pitchProbe, resize, stats,

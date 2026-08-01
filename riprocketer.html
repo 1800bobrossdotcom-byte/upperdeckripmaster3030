@@ -105,8 +105,11 @@
      and both were unconditional. The colour cycling is now the backdrop mesh's own hue drift and
      the post stack's saturation, i.e. it happens inside the frame that was being rendered anyway.
      The CRT and vignette survive as static overlays, which cost nothing. */
+  /* ⚠ The scanline overlay is LIGHTER than the classic build's .16. It multiplies, so its cost is
+     proportional to how bright the picture underneath is — and this build's picture is 3.5× the
+     classic's mean luma. At .16 it read as a dark grid laid over the arena rather than as a tube. */
   .rr-crt{ position:fixed; inset:0; z-index:4; pointer-events:none; mix-blend-mode:multiply;
-    background:repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px); }
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.09) 0 1px, transparent 1px 3px); }
   .rr-vig{ position:fixed; inset:0; z-index:4; pointer-events:none;
     background:radial-gradient(122% 100% at 50% 44%, transparent 58%, rgba(0,0,0,.5)); }
   .ov{ position:fixed; inset:0; z-index:10; display:none; place-items:start center; padding:20px; text-align:center; overflow-y:auto; -webkit-overflow-scrolling:touch;

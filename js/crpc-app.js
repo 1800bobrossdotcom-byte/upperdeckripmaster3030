@@ -282,7 +282,7 @@
   /* ⚑ EXPOSURE GOES DOWN, NOT UP, and this is the recorded reason: ACES desaturates on the way to
    * white, so every stop of extra exposure is paid for in colour. Swept in-browser — see the
    * report; `?exp=` re-runs it. */
-  app.scene.exposure = num('exp', 1.15);
+  app.scene.exposure = num('exp', 1.35);
   app.scene.fog.type = pc.FOG_LINEAR;
   app.scene.fog.color = new pc.Color(0.86, 0.92, 0.99);   // haze is the SKY colour: aerial perspective
   app.scene.fog.start = 190;
@@ -437,8 +437,9 @@
     const S = 256, c = cvs(S), x = c.getContext('2d');
     const col = `rgb(${tint[0] * 255 | 0},${tint[1] * 255 | 0},${tint[2] * 255 | 0})`;
     x.fillStyle = col; x.fillRect(0, 0, S, S);
-    x.fillStyle = 'rgba(255,255,255,0.92)'; x.save(); x.translate(S / 2, S / 2); x.rotate(-0.40);
-    x.fillRect(-S, -S * 0.10, S * 2, S * 0.20); x.restore();
+    x.fillStyle = 'rgba(8,14,26,0.30)'; x.fillRect(0, 0, S, S);          // hold the hue, drop the value
+    x.fillStyle = 'rgba(235,246,255,0.42)'; x.save(); x.translate(S / 2, S / 2); x.rotate(-0.40);
+    x.fillRect(-S, -S * 0.07, S * 2, S * 0.14); x.restore();
     x.fillStyle = 'rgba(12,16,26,0.92)'; x.save(); x.translate(S / 2, S / 2); x.rotate(-0.40);
     x.fillRect(-S, S * 0.12, S * 2, S * 0.07); x.restore();
     x.fillStyle = '#0c1018'; x.font = 'bold ' + (S * 0.52) + 'px "Arial Black",Arial'; x.textAlign = 'center'; x.textBaseline = 'middle';
@@ -589,38 +590,80 @@
    * nose-toward-+z would fly backwards and someone would "fix" it with a 180° yaw that then makes
    * every offset in the file read wrong. Build it the way the engine reads it. */
   function podMesh() {
+    /* ⚑ LOFTED FROM CROSS-SECTIONS, because the first pod was a fan of degenerate quads and read as
+     * a paper dart — flat, no volume, no silhouette. "Crisp silhouettes" is half the look brief and
+     * a triangle does not have one. Six-point rings swept down the body give a low-poly hull that
+     * is still flat-shaded (which is the style) but has an actual outline from every angle. */
     const b = Builder();
-    const P = (x, y, z) => [x, y, z];
-    const nose = P(0, 0.06, -1.85), peak = P(0, 0.56, -0.10), tail = P(0, 0.34, 1.30);
-    const mL = P(-0.66, 0.06, 0.0), mR = P(0.66, 0.06, 0.0), keel = P(0, -0.24, 0.20);
-    const tri = (a, c, d) => b.quad(a, c, d, d, [0.5, 1], [0, 0], [1, 0], [1, 0]);
-    tri(nose, mL, peak); tri(nose, peak, mR);
-    tri(peak, mL, tail); tri(peak, tail, mR);
-    tri(nose, keel, mL); tri(nose, mR, keel);
-    tri(keel, tail, mL); tri(keel, mR, tail);
-    const wL = P(-1.48, 0.10, 1.42), wR = P(1.48, 0.10, 1.42);
-    tri(mL, wL, P(-0.66, 0.06, 1.05)); tri(mR, P(0.66, 0.06, 1.05), wR);
-    tri(wL, P(-1.62, 0.62, 1.66), P(-1.44, 0.10, 1.74));
-    tri(wR, P(1.44, 0.10, 1.74), P(1.62, 0.62, 1.66));
-    tri(P(0, 0.34, 1.10), P(0, 0.92, 1.60), P(0, 0.34, 1.72));
+    const RING = [[0, 0.52], [0.80, 0.30], [0.92, -0.12], [0, -0.50], [-0.92, -0.12], [-0.80, 0.30]];
+    const SEC = [                      // z, half-width, half-height, y offset
+      [-1.90, 0.09, 0.09, 0.10], [-1.40, 0.40, 0.30, 0.10], [-0.60, 0.74, 0.48, 0.15],
+      [ 0.15, 0.82, 0.52, 0.17], [ 0.85, 0.72, 0.44, 0.17], [ 1.40, 0.54, 0.32, 0.15],
+    ];
+    const ring = i => RING.map(([rx, ry]) => [rx * SEC[i][1], SEC[i][3] + ry * SEC[i][2], SEC[i][0]]);
+    const U = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    for (let i = 0; i < SEC.length - 1; i++) {
+      const a = ring(i), c = ring(i + 1);
+      for (let k = 0; k < RING.length; k++) {
+        const k2 = (k + 1) % RING.length;
+        b.quad(a[k], a[k2], c[k2], c[k], U[0], U[1], U[2], U[3]);
+      }
+    }
+    // caps, so the hull is closed and never shows an interior face against the sky
+    const nose = ring(0), tail = ring(SEC.length - 1);
+    for (let k = 1; k < RING.length - 1; k++) {
+      b.quad(nose[0], nose[k + 1], nose[k], nose[k], U[0], U[1], U[2], U[3]);
+      b.quad(tail[0], tail[k], tail[k + 1], tail[k + 1], U[0], U[1], U[2], U[3]);
+    }
+    // swept wings: solid plates with thickness, so they hold an edge against a bright sky
+    for (const sgn of [-1, 1]) {
+      const iy = 0.10, oy = 0.16, t = 0.07;
+      const i0 = [sgn * 0.80, iy, 0.10], i1 = [sgn * 0.74, iy, 1.05];
+      const o0 = [sgn * 1.62, oy, 0.95], o1 = [sgn * 1.48, oy, 1.52];
+      const up = d => [d[0], d[1] + t, d[2]], dn = d => [d[0], d[1] - t, d[2]];
+      b.quad(up(i0), up(o0), up(o1), up(i1), U[0], U[1], U[2], U[3]);
+      b.quad(dn(i1), dn(o1), dn(o0), dn(i0), U[0], U[1], U[2], U[3]);
+      b.quad(up(o0), dn(o0), dn(o1), up(o1), U[0], U[1], U[2], U[3]);
+      b.quad(up(i1), up(o1), dn(o1), dn(i1), U[0], U[1], U[2], U[3]);
+      // winglet
+      b.quad(up(o0), up(o1), [sgn * 1.58, 0.74, 1.44], [sgn * 1.66, 0.74, 1.02], U[0], U[1], U[2], U[3]);
+      // nacelle
+      b.box(sgn * 0.50, 0.20, 1.05, 0.20, 0.20, 0.42, null);
+    }
+    // tail fin — the one vertical the eye can read the pod's roll from
+    b.quad([0, 0.42, 1.05], [0, 0.42, 1.50], [0.03, 1.00, 1.44], [0.03, 1.00, 1.16], U[0], U[1], U[2], U[3]);
+    b.quad([0, 0.42, 1.50], [0, 0.42, 1.05], [-0.03, 1.00, 1.16], [-0.03, 1.00, 1.44], U[0], U[1], U[2], U[3]);
     return b.mesh();
   }
   function canopyMesh() {
     const b = Builder();
     const tri = (a, c, d) => b.quad(a, c, d, d, [0.5, 1], [0, 0], [1, 0], [1, 0]);
-    tri([0, 0.34, -0.80], [-0.27, 0.60, -0.05], [0.27, 0.60, -0.05]);
-    tri([0, 0.34, -0.80], [0.27, 0.60, -0.05], [0, 0.52, 0.40]);
-    tri([0, 0.34, -0.80], [0, 0.52, 0.40], [-0.27, 0.60, -0.05]);
+    tri([0, 0.46, -1.02], [-0.30, 0.70, -0.24], [0.30, 0.70, -0.24]);
+    tri([0, 0.46, -1.02], [0.30, 0.70, -0.24], [0, 0.64, 0.34]);
+    tri([0, 0.46, -1.02], [0, 0.64, 0.34], [-0.30, 0.70, -0.24]);
+    tri([0.30, 0.70, -0.24], [0, 0.64, 0.34], [0, 0.70, -0.24]);
+    tri([-0.30, 0.70, -0.24], [0, 0.70, -0.24], [0, 0.64, 0.34]);
     return b.mesh();
   }
   function deckMesh() {                                       // the livery panel, uv 0..1
     const b = Builder();
-    b.quad([-0.52, 0.50, -0.60], [0.52, 0.50, -0.60], [0.50, 0.42, 0.90], [-0.50, 0.42, 0.90], [0, 1], [1, 1], [1, 0], [0, 0]);
+    /* ⚠ SIT IT ON THE HULL. The first plate was a flat quad at y 0.58–0.66 while the lofted hull's
+     * ridge tops out at 0.44 — so it floated a fifth of a unit above the pod and read as a white
+     * slab pasted over the craft, which is exactly how it looked in the capture. Corner heights
+     * follow the ridge: 0.445 at the cockpit, 0.415 by the tail. */
+    b.quad([-0.36, 0.447, -0.55], [0.36, 0.447, -0.55], [0.34, 0.417, 0.92], [-0.34, 0.417, 0.92], [0, 1], [1, 1], [1, 0], [0, 0]);
     return b.mesh();
   }
-  function glowMesh() {                                       // engine bloom plate at the tail
+  function glowMesh() {
+    /* ⚠ TWO SMALL EXHAUSTS, NOT ONE BIG PLATE. A chase camera looks straight down the back of the
+     * pod for the entire race, so this quad is the single most persistent thing in frame — and at
+     * 1.48 × 0.42 units, additive, it covered the craft it was supposed to be attached to. Sized to
+     * the nacelles it now belongs to, at ±0.50, which is also where an engine would actually be. */
     const b = Builder();
-    b.quad([-0.55, 0.05, 1.34], [0.55, 0.05, 1.34], [0.55, 0.46, 1.34], [-0.55, 0.46, 1.34], [0, 0], [1, 0], [1, 1], [0, 1]);
+    for (const sgn of [-1, 1]) {
+      const x0 = sgn * 0.50 - 0.19, x1 = sgn * 0.50 + 0.19;
+      b.quad([x0, 0.04, 1.47], [x1, 0.04, 1.47], [x1, 0.36, 1.47], [x0, 0.36, 1.47], [0, 0], [1, 0], [1, 1], [0, 1]);
+    }
     return b.mesh();
   }
   const POD = { hull: podMesh(), canopy: canopyMesh(), deck: deckMesh(), glow: glowMesh() };
@@ -638,8 +681,18 @@
       const e = new pc.Entity('pod' + i);
       const mHull = flatMat('pod-h' + i, c[0] * 0.85, c[1] * 0.85, c[2] * 0.85, { gloss: 0.42 });
       const mCan = flatMat('pod-c' + i, 0.05, 0.09, 0.14, { gloss: 0.9, emissive: [0.10, 0.34, 0.45], emissiveIntensity: 0.6 });
-      const mDeck = flatMat('pod-d' + i, 1, 1, 1, { map: liveryTex(i + 1, c), gloss: 0.3 });
-      const mGlow = flatMat('pod-g' + i, 1, 1, 1, { unlit: true, fog: false, emissive: [0.55, 0.95, 1.0], emissiveIntensity: 3.4,
+      /* ⚠ THE WHITE SLAB ON THE POD WAS NOT THIS PANEL, AND I CHASED IT HERE TWICE BEFORE LOOKING
+       * PROPERLY. The capture showed a bright rectangle across the middle of the craft and the
+       * obvious suspect was the livery panel — it is the one surface whose normal points straight
+       * up at the sun, so "it is blowing out" was a plausible story. Dropping its diffuse 1.0 →
+       * 0.74 → 0.42 and darkening its texture by 30% changed the picture by nothing, which is the
+       * tell: if a fix moves the number zero, the object is not the object. It was the ENGINE GLOW
+       * plate at the tail, 1.48 units wide and additive at intensity 3.4 — and a chase camera sits
+       * directly behind the pod, so the one quad the player looks straight into all race is the one
+       * I had sized like a wall. Fixed where the bug is, below. This panel is fine at 0.62.
+       * (CLAUDE.md's card-35 lesson again: measure before believing the eye, then stop.) */
+      const mDeck = flatMat('pod-d' + i, 0.62, 0.62, 0.62, { map: liveryTex(i + 1, c), gloss: 0.10 });
+      const mGlow = flatMat('pod-g' + i, 1, 1, 1, { unlit: true, fog: false, emissive: [0.42, 0.86, 1.0], emissiveIntensity: 1.0,
         blend: pc.BLEND_ADDITIVE, cull: pc.CULLFACE_NONE });
       const mis = [new pc.MeshInstance(POD.hull, mHull, e), new pc.MeshInstance(POD.canopy, mCan, e),
         new pc.MeshInstance(POD.deck, mDeck, e), new pc.MeshInstance(POD.glow, mGlow, e)];
@@ -843,8 +896,8 @@
       m.data[12] = 0; m.data[13] = 0; m.data[14] = 0; m.data[15] = 1;
       const q = new pc.Quat().setFromMat4(m);
       e.setRotation(q);
-      e.enabled = !(r.isMe && false);
-      if (e.__glow) { const k = 0.9 + (r.boosting ? 2.6 : 0) + r.v / PACE.CRUISE * 0.7;
+      // idle 0.35, boosting 1.85 — the exhaust is a TELL that boost is live, so the gap matters
+      if (e.__glow) { const k = 0.35 + (r.boosting ? 1.3 : 0) + r.v / PACE.CRUISE * 0.20;
         if (Math.abs(e.__glow.emissiveIntensity - k) > 0.05) { e.__glow.emissiveIntensity = k; e.__glow.update(); } }
     }
   }

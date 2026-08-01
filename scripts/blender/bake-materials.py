@@ -284,8 +284,14 @@ def m_wall(nt, T):
     plaster = noise(nt, T, 5, 5, seed=11, detail=6, rough=0.6)
     weep = noise(nt, T, 70, 3, seed=12, detail=4, rough=0.7)        # tall thin → runs down the wall
     craze = voro(nt, T, 44, 44, seed=13, feature='DISTANCE_TO_EDGE')
-    crack = smooth(nt, craze, 0.022, 0.003)                         # hairline crazing at cell edges
+    crack = smooth(nt, craze, 0.030, 0.006)                         # hairline crazing at cell edges
     brick = white(nt, J['col'], J['row'])
+    # ⚠ CRAZING IS ALBEDO ONLY, NEVER HEIGHT, and the amplitude was not what was wrong with it.
+    #   A Bump node reads the GRADIENT: a razor-thin mask (smoothstep over ~1 texel) produces a
+    #   near-vertical normal however shallow you make the crack, so dropping the depth from 0.45 to
+    #   0.20 to 0.07 changed the render not at all — the wall stayed a field of lit specks. It is
+    #   sub-texel by construction anyway: a 1 mm crack on a 4.5 m repeat at 512 is a ninth of a
+    #   texel. It belongs in the colour map as a stain, which is what you actually see on plaster.
     v = M(nt, 'ADD', 0.82, M(nt, 'ADD',
                              M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.14),
                              M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.08)))
@@ -297,7 +303,7 @@ def m_wall(nt, T):
                                             M(nt, 'MULTIPLY', J['j'], 0.06)))
     h = M(nt, 'SUBTRACT',
           M(nt, 'ADD', M(nt, 'MULTIPLY', plaster, 0.30), M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.30)),
-          M(nt, 'ADD', M(nt, 'MULTIPLY', J['j'], 1.20), M(nt, 'MULTIPLY', crack, 0.20)))
+          M(nt, 'MULTIPLY', J['j'], 1.20))
     return {'col': col, 'rough': rough, 'height': h}
 
 
@@ -443,7 +449,7 @@ def m_trim(nt, T):
 # key, builder, relief in metres over one tile, metalness (→ ORM blue), AO on?, AO ray distance
 CLASSES = [
     ('deck',   m_deck,   0.014, 0.04, True,  0.055),
-    ('wall',   m_wall,   0.016, 0.03, True,  0.060),
+    ('wall',   m_wall,   0.014, 0.03, True,  0.032),
     ('metal',  m_metal,  0.004, 0.94, False, 0.020),
     ('crate',  m_crate,  0.010, 0.30, True,  0.045),
     ('cab',    m_cab,    0.004, 0.14, False, 0.020),

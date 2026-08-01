@@ -419,7 +419,7 @@
      * back leaves its render targets and its projection matrix sized for the old frame, which
      * shows up as a stretched view after one window drag. Hand it the CSS size and let it apply
      * `maxPixelRatio` itself; that is also how it stays consistent with GfxPost.dprCap(). */
-    if(glReady) DFPC.resize();
+    if(glReady) DFPC.resize(W,H);
     SCALE=Math.min(W,H*1/SQUASH)*0.44; }
   resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
   const rnd=(a=1,b=0)=>b+Math.random()*(a-b), clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;

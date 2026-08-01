@@ -191,6 +191,30 @@ window.S9PCSkin = (function () {
           const seg = P.B[i], j = seg[0], c = seg[1];
           let dx = c[0] - j[0], dy = c[1] - j[1], dz = c[2] - j[2];
           const L = Math.hypot(dx, dy, dz) || 1; dx /= L; dy /= L; dz /= L;
+          /* ⚑ NaN GUARD, AND IT IS ABOUT A FAILURE MODE, NOT A KNOWN BUG. Linear-blend skinning
+           * sends every vertex through these bone matrices, so ONE non-finite component here does
+           * not corrupt one joint — it produces vertices at infinity, and a triangle with a vertex
+           * at infinity rasterises across the entire screen. Frame to frame that reads as static
+           * pouring out of a character, and it only appears when the character is in view, because
+           * off-screen it is culled. That is a reported symptom in this game.
+           * ⚠ The `|| 1` above guards a zero-length bone but NOT an already-NaN input: NaN
+           * comparisons are all false, so a NaN slips past arcQuat's antiparallel branch too and
+           * comes out the far side as a NaN quaternion. Checked explicitly here because it is the
+           * last point where it is cheap, and because the alternative is unreadable.
+           * Falling back to the BIND direction keeps the body standing in a valid pose rather than
+           * exploding — a stiff limb is a bug you can look at; a screen of static is not. */
+          if (!(Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(dz) &&
+                Number.isFinite(j[0]) && Number.isFinite(j[1]) && Number.isFinite(j[2]))) {
+            const b0 = bd[i];
+            dx = b0[0]; dy = b0[1]; dz = b0[2];
+            if (!setPose._warned) { setPose._warned = 1;
+              console.warn('[s9pc-skin] non-finite bone ' + i + ' for "' + arch + '" — held at bind. ' +
+                           'This is the screen-static failure mode; report the pose that caused it.'); }
+            bones[i].setLocalPosition(0, 0, 0);
+            arcQuat(bd[i], [dx, dy, dz], _q);
+            bones[i].setLocalRotation(_q);
+            continue;
+          }
           arcQuat(bd[i], [dx, dy, dz], _q);
           bones[i].setLocalPosition(j[0], j[1], j[2]);
           bones[i].setLocalRotation(_q);

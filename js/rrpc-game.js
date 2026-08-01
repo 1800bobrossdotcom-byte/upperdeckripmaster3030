@@ -57,14 +57,20 @@ window.RRGame = (function () {
    * a sprite grid — a card that comes at you and grows is a different event from one that slides
    * down the screen. */
   const F = {
+    /* ⚠ THESE ARE FRAMING NUMBERS AND THE FIRST SET WAS OFF THE SCREEN AT BOTH ENDS. With the
+     * camera at z 11.4 and a 42° vertical fov the visible band at z=0 is y ∈ [-4.52, +4.22], so
+     * the old FORMY 4.05 put the formation's top row 96% of the way up — clipped by the frame and
+     * sitting under the HUD — while SHIPY -3.4 put the ship 87% down, behind the controls legend.
+     * Verified by screenshot, which is the one thing screenshots ARE reliable for here. */
     X: 6.3,                    // playable half-width
-    YTOP: 0.4, YBOT: -4.3,     // the SHIP's box. Deliberately the lower third: Galaga's silhouette
+    YTOP: 0.0, YBOT: -3.8,     // the SHIP's box. Deliberately the lower third: Galaga's silhouette
                                // is "them up there, you down here", and free vertical movement
-                               // dissolves it into a twin-stick game.
-    SHIPY: -3.4,
+                               // dissolves it into a twin-stick game. YTOP stops below the bottom
+                               // formation row so you can never stand inside the grid.
+    SHIPY: -3.05,
     COLS: 9, ROWS: 4,
     COLW: 1.30, ROWH: 0.86,
-    FORMY: 4.05,               // top row
+    FORMY: 3.45,               // top row — clear of the frame edge and of the HUD
     FORMZ: -1.2, ROWZ: 0.22,   // rows step toward the camera so the grid has depth
     ZNEAR: 2.6,                // a diver may come this far past the formation plane
   };

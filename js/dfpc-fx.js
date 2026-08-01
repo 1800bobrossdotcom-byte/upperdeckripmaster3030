@@ -21,7 +21,6 @@
  * of the billboard maths, i.e. two chances to lose the fix. Load order is fx → world → app.
  */
 window.DFPCFx = (function () {
-  const TAU = Math.PI * 2;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
   /* ── generated sprites ──────────────────────────────────────────────────────────────────
@@ -309,8 +308,11 @@ window.DFPCFx = (function () {
        * only way to collect one was to fly through it by accident. Three quads each: a soft halo
        * that says "something is here" from range, a collar ring that says which kind, and a bright
        * core. The blink in the last 3 s is the game's own expiry warning, kept.
-       * Deliberately NOT camera-facing on the ring — a collar that always faces you reads as a
-       * disc; one lying flat reads as an object with a place in the world. */
+       * ⚠ The collar IS camera-facing, unlike the shockwave rings that share this layer. A ring
+       * lying flat in the world is right for a ground shock and wrong for a pickup: a cell floats
+       * at the altitude you are flying at, so a horizontal disc is seen EDGE-ON — a one-pixel line
+       * from exactly the approach you collect it from. The whole job of this effect is to be
+       * findable. */
       if (G.pows) for (const pw of G.pows) {
         const dx = wdel(pw.x - cam.x), dz = wdel(pw.y - cam.y);
         const d = Math.hypot(dx, dz);
@@ -322,7 +324,7 @@ window.DFPCFx = (function () {
         const y = pw.alt || 0;
         const k = blink * clamp(1 - d / FAR, 0.25, 1);
         add.billboard(dx, y, dz, (amp ? 1.5 : 1.05) * puls, c[0] * 0.30 * k, c[1] * 0.30 * k, c[2] * 0.30 * k, 255);
-        rings.flat(dx, y, dz, (amp ? 0.85 : 0.62) * puls, c[0] * k, c[1] * k, c[2] * k, 255);
+        rings.billboard(dx, y, dz, (amp ? 0.85 : 0.62) * puls, c[0] * k, c[1] * k, c[2] * k, 255);
         add.billboard(dx, y, dz, amp ? 0.30 : 0.22,
           (c[0] * 0.4 + 153) * k, (c[1] * 0.4 + 153) * k, (c[2] * 0.4 + 153) * k, 255);
       }

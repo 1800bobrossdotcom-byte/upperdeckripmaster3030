@@ -70,8 +70,14 @@ window.DFPCWorld = (function () {
     'ghost nebula': { top: '#5228b4', hor: '#c68fd6', gnd: '#7b4fa8', line: '#341757', fog: '#c68fd6',
                       sun: '#ffe6ff', glow: '#ff9cf0', prop: '#472875', grid: '#c060ff' },
   };
-  /* NIGHT is the game's own five themes, unchanged — kept as a comparison build rather than
-   * deleted, because "is the new palette actually better" is a question that needs both frames. */
+  /* NIGHT is the game's own five themes, unchanged — kept as a comparison rather than deleted,
+   * because "is the new palette actually better" is a question that needs both frames.
+   * ⚠ IT IS A PALETTE A/B, NOT A RENDERER A/B, and it flatters neither side. The old renderer drew
+   * its grid as EMISSIVE beams, which is what made neon-on-black read; here the lattice is albedo
+   * on a lit deck, so under the old dark colours it is a dark line on a dark ground and mostly
+   * disappears. Measured on the same arena: `?tod=night` comes back luma 15.1, RMS 8.3, 34% of the
+   * frame under luma 12 — flatter than the classic build's own 53 / 54.6 / 22%. If you want the
+   * renderers compared, compare `dogfight-classic.html`; this switch answers a different question. */
   function skinFor(world) {
     const S = SKINS[world.name];
     if (NIGHT || !S) {
@@ -193,15 +199,16 @@ window.DFPCWorld = (function () {
    * it AT the fog wall is the other half of the same mistake: the deck reaches sky colour well
    * before its own far edge, so there is no horizon LINE at all and the frame is one gradient.
    * Measured on the first attempt (0.42 → 1.05 of a 34-unit view): RMS contrast 11.9, mean
-   * |Laplacian| 0.80 — a flat screen. 0.55 → 1.12 leaves an object at the cull radius ~79% hazed:
-   * far enough that a pop is soft, near enough that the horizon is still an edge.
+   * |Laplacian| 0.80 — a flat screen. 0.55 → 1.12 recovered it to 21.2. 0.68 → 1.25 leaves an
+   * object at the cull radius ~70% hazed: far enough that a pop is soft, near enough that two
+   * thirds of the depth range is still drawn in its own colour rather than in the sky's.
    *
    * ⛔ AND THESE ARE MODULE CONSTANTS BECAUSE THEY WERE DUPLICATED AND IT COST A WHOLE TEST RUN.
    * `apply()` set the fog once per theme and `weather()` reset it EVERY FRAME from its own copy of
    * the numbers, so editing apply() changed nothing at all and the measurement came back identical
    * — which reads exactly like "the fix didn't work" rather than "the fix never ran". Two copies
    * of a constant is one copy too many; weather() now scales these. */
-  const FOG_NEAR = 0.55, FOG_FAR = 1.12;
+  const FOG_NEAR = 0.68, FOG_FAR = 1.25;
 
   function create(app, opt) {
     opt = opt || {};
@@ -325,13 +332,20 @@ window.DFPCWorld = (function () {
     function buildPuffs(WS, CY, CT) {
       const out = []; let seed = 90210;
       const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-      for (let i = 0; i < 210; i++) {
+      /* ⚠ 130, NOT 210, AND SMALLER. The first pass put 210 wide puffs across a 150-unit torus and
+       * a screenshot showed what that actually is: ~40 of them in view at once, each several units
+       * across and squashed flat, overlapping into pale HORIZONTAL BANDS that covered the top
+       * quarter of the frame. A cloud deck you cannot see past is not weather, it is a ceiling —
+       * and it took the sky's whole value gradient with it, which is where the frame's contrast
+       * was supposed to come from. Sparser and rounder reads as scattered cloud; the deck is still
+       * dense enough to white you out when you fly INTO it, which is the part that is a mechanic. */
+      for (let i = 0; i < 130; i++) {
         // two bands: the main deck, and a thinner higher shelf. Parallax between them is the cue
         // that says these are bodies at different distances rather than one painted layer.
-        const hi = i > 150;
+        const hi = i > 96;
         out.push({ x: rnd() * WS, z: rnd() * WS,
           y: (hi ? CY + CT * 1.9 : CY) + (rnd() - 0.5) * CT * (hi ? 1.0 : 1.9),
-          r: (hi ? 2.6 : 4.2) * (0.55 + rnd() * 0.9), k: 0.55 + rnd() * 0.45 });
+          r: (hi ? 1.9 : 2.9) * (0.55 + rnd() * 0.9), k: 0.55 + rnd() * 0.45 });
       }
       return out;
     }
@@ -484,8 +498,10 @@ window.DFPCWorld = (function () {
           const g = Math.round(255 * clamp(c[1] * 0.34 + sun[1] * 0.70 * k, 0, 1));
           const b = Math.round(255 * clamp(c[2] * 0.34 + sun[2] * 0.70 * k, 0, 1));
           // fade in over the last few units of draw distance so a puff never pops into being
-          const a = Math.round(clamp((1 - d / (F2 * 1.15)) * 3.2, 0, 1) * 190);
-          cloudLayer.billboard(dx, q.y, dz, q.r, r, g, b, a, 0.62);
+          const a = Math.round(clamp((1 - d / (F2 * 1.15)) * 3.2, 0, 1) * 122);
+          // 0.78 rather than 0.62: flatter puffs stack into horizontal bars, which is what the
+          // first screenshot showed the sky turning into. A cloud is a lump, not a stratum.
+          cloudLayer.billboard(dx, q.y, dz, q.r, r, g, b, a, 0.78);
           nPuffs++;
         }
         cloudLayer.end();

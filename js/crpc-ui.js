@@ -128,7 +128,7 @@
   }
 
   // ══ HUD ═════════════════════════════════════════════════════════════════════════════════════
-  let lastLap = -1, lastPad = 0, toastT = 0;
+  let lastLap = -1;
   function toast(msg, ms) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show');
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms || 1300); }
 

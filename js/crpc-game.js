@@ -40,8 +40,9 @@
  *      · inside of a corner (sign lx = sign κ) ⇒ denominator < 1 ⇒ you gain centre-line per second
  *      · the offset path's own curvature is κ/(1 − lx·κ), i.e. the inside is TIGHTER
  *    Those two together are the entire sport: the short way round is also the one that runs out of
- *    grip first. Measured on this track, the inside line is worth up to 23% of progress rate
- *    through the tightest corner — and costs 23% more lateral g to hold.
+ *    grip first. Measured on the circuit this file builds: at the tightest corner the inside line
+ *    advances 24.8% faster AND its own curvature is 24.8% higher, which drops the speed it can hold
+ *    by 10.5%. Take it and you must slow for it; refuse it and you drive further.
  *
  * ══ SECOND IDEA: BOOST IS EARNED, NOT REGENERATED. The old bar refilled by itself at 0.22/s and
  *    drained at 0.34/s whatever you did, so the optimal play was "hold the key, always" and there
@@ -76,7 +77,6 @@
     BOOST_MUL: 1.42,     // 91 u/s flat out
     DRAFT_MUL: 1.13,     // tucked in someone's wake
     BANK_MUL: 0.80,      // inside a storm cell
-    BOG_MUL: 0.62,       // jumped the start
     ACCEL: 30,           // u/s² onto the target speed
     LIFT: 26,            // u/s² off it (closed throttle)
     BRAKE: 62,           // u/s² on the airbrake
@@ -345,7 +345,7 @@
     const col = i % rowW, row = (i / rowW) | 0;
     return { i, isMe, s: -(6 + row * 7), lx: (col - (rowW - 1) / 2) * 5.2, v: 0, vl: 0,
       lap: 0, place: i + 1, boostE: 0.45, boosting: false, lean: 0, bob: Math.random() * 6,
-      slide: 0, draft: 0, onPad: 0, inBank: 0, bump: 0, bog: 0, rev: 0, launch: 0,
+      slide: 0, slip: 0, draft: 0, onPad: 0, padWas: 0, inBank: 0, bump: 0, scrape: 0, rev: 0, launch: 0,
       done: false, finishT: 0, best: 0, lapT: 0, skill: isMe ? 1 : 0, wobble: Math.random() * TAU };
   }
 
@@ -449,7 +449,6 @@
       let top = PACE.CRUISE * G.cardEdge * (r.isMe ? 1 : 1);
       if (r.draft > 0) top *= 1 + (PACE.DRAFT_MUL - 1) * r.draft;
       if (r.inBank) top *= PACE.BANK_MUL;
-      if (r.bog > 0) { top *= PACE.BOG_MUL; r.bog -= dt; }
       const canBoost = ctl.boost && r.boostE > 0.02 && !ctl.brake;
       if (canBoost) top *= PACE.BOOST_MUL;
       r.boosting = canBoost;
@@ -561,7 +560,7 @@
       if (a.done && b.done) return a.finishT - b.finishT;
       return (b.lap * len + b.s) - (a.lap * len + a.s);
     });
-    sorted.forEach((r, i) => { if (r.place !== i + 1 && go && !G.over) { r.place = i + 1; } });
+    sorted.forEach((r, i) => { r.place = i + 1; });
     G.order = sorted; G.lead = sorted[0];
     if (G.racers.every(r => r.done)) G.over = true;
     // a fail-safe end: once the player is done, do not make them watch the back marker

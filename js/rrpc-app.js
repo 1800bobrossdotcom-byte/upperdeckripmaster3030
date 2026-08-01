@@ -100,35 +100,56 @@
    * ⚠ MOTION SMEAR: `neon`'s blur is 0, so there is nothing to lose. Noted so nobody adds one.
    */
   const POST = {
-    /* ⚑ BLOOM, SWEPT. Held wave-1 frame, blur 3 (clipped% / luma / RMS / blacks% / sat% / edge):
-     *     0    → 0.023 · 59.0 · 49.9 · 4.85 · 93.1 · 10.11
-     *     0.03 → 0.027 · 61.3 · 52.9 · 4.73 · 89.1 ·  9.97
-     *     0.06 → 0.035 · 68.3 · 53.9 · 0.67 · 85.1 ·  9.29   ← chosen
-     *     0.10 → 0.048 · 67.9 · 52.9 · 2.06 · 85.4 ·  6.72
-     *     0.16 → 0.071 · 73.0 · 53.8 · 0.99 · 82.5 ·  6.79
-     *     0.25 → 0.126 · 79.6 · 54.5 · 0.57 · 81.3 ·  5.78
-     *     0.40 → 0.250 · 89.4 · 59.0 · 0.72 · 78.0 ·  4.09
-     * Bloom buys luma and SPENDS local detail — the same shape s9pc-app.js measured. 0.06 is the
-     * last value on the smooth part of the `edge` curve (9.29, i.e. 92% of the unbloomed frame);
-     * 0.10 drops it to 66% for no extra luma at all. The brief wants this game to GLOW, and the
-     * answer to that is not a bigger global lever — it is brighter FX, which is where the glow is
-     * supposed to come from. A global bloom big enough to make a bolt shine makes the backdrop
-     * shine too, and then nothing shines. */
-    bloom: num('bloom', 0.06),
-    /* ⚑ THE TONEMAPPER IS *NEUTRAL* HERE, AND THAT DISAGREES WITH js/s9pc-app.js ON PURPOSE.
-     * Measured at the shipping settings on a held wave-1 frame:
-     *     tone      clipped%   luma   RMS   blacks%  sat%   edge
-     *     ACES        0.047    61.0   54.3    2.72   85.8   6.75
-     *     NEUTRAL     0.000    59.3   56.0    2.19   83.4   9.69   ← chosen
-     *     FILMIC      0.000    35.3   38.6   15.28   85.6   3.16
-     *     LINEAR      1.532    47.6   56.8    6.68   85.5   4.28
-     *     NONE        1.549    48.1   56.6    3.51   85.3   4.10
-     * NEUTRAL removes 100% of clipping and GAINS 1.7 RMS and 2.9 local detail, for 1.7 luma. That
-     * is the same criterion that picked ACES for Section 9 ("removes clipping for free") reaching
-     * the opposite answer, because the frame is the opposite kind of frame: Section 9 is a dim
-     * tactical interior where ACES's midtone lift is a gift, and this is a bright saturated neon
-     * field where the same lift is what pushes it over. FILMIC crushes — 15.3% blacks, i.e. it
-     * eats the artwork. ⚑ WHAT PORTS IS THE METHOD (count clipped pixels), NOT THE ANSWER. */
+    /* ⚑ BLOOM, SWEPT — and re-swept, because the first sweep ran against the additive-alpha bug in
+     * js/rrpc-fx.js and was therefore measuring a much brighter frame than this code produces.
+     * Held wave-1 frame, blur 3, after the fix (clipped% / luma / RMS / blacks% / sat% / edge):
+     *     0    → 0.006 · 52.4 · 55.6 · 10.92 · 91.9 · 29.43
+     *     0.04 → 0.009 · 58.3 · 55.0 ·  5.10 · 86.0 · 27.75   ← chosen
+     *     0.08 → 0.004 · 56.4 · 48.2 ·  5.58 · 86.6 · 19.14
+     *     0.14 → 0.015 · 60.0 · 48.3 ·  4.17 · 84.2 · 16.41
+     *     0.22 → 0.011 · 71.5 · 53.1 ·  2.05 · 72.6 · 16.82
+     *     0.35 → 0.007 · 71.8 · 53.1 ·  1.53 · 73.5 · 12.67
+     * Bloom buys luma and SPENDS local detail and saturation — the same shape s9pc-app.js
+     * measured. 0.04 is the last value that keeps 94% of the unbloomed frame's detail while still
+     * lifting the picture; 0.08 drops it to 65% for two luma. The brief wants this game to GLOW,
+     * and the answer to that is not a bigger global lever — it is brighter FX (additive intensity
+     * 1.9, above), which is where glow is supposed to come from. A bloom wide and strong enough to
+     * make a bolt shine makes the backdrop shine too, and then nothing shines. */
+    bloom: num('bloom', 0.04),
+    /* ⚑ THE TONEMAPPER IS THE HIGHLIGHT-KNEE PORT, AND WHAT IS MEASURABLE IS *THAT IT MUST BE A
+     * ROLLOFF CURVE* — not which rolloff curve. Measured at the shipping settings, each tonemapper
+     * twice, interleaved, on a frame with both the simulation AND the render clock frozen:
+     *
+     *     tone      clipped% (#1 / #2)   luma (#1/#2)   RMS (#1/#2)
+     *     ACES        0.002 / 0.074      63.3 / 55.4    53.8 / 48.4
+     *     NEUTRAL     0.003 / 0.003      51.2 / 59.4    36.6 / 49.1   ← chosen
+     *     FILMIC      0.000 / 0.000      35.0 / 43.4    26.6 / 38.1
+     *     LINEAR      7.438 / 3.061      75.8 / 63.0    65.3 / 51.5
+     *     NONE        0.790 / 3.407      54.0 / 65.9    39.0 / 53.6
+     *
+     * ⚠ READ THE TWO PASSES, NOT THE FIRST ONE. They disagree by more than the difference between
+     *   ACES and NEUTRAL — RMS moves 12 points for the SAME setting. SwiftShader in this container
+     *   is not a stable readback (CLAUDE.md already records that its screenshots rotate hue and
+     *   that a number off one frame means nothing), and interleaving the passes is what made that
+     *   visible instead of letting the first table look authoritative. An earlier version of this
+     *   comment asserted a clean "NEUTRAL beats ACES by 1.7 RMS" table from a single pass. It was
+     *   noise, and it is exactly the mistake CLAUDE.md warns about for the 3D card.
+     *
+     * WHAT IS REPEATABLE, across every run: LINEAR and NONE clip (0.46-7.4%), ACES / NEUTRAL /
+     * FILMIC do not (≤0.074%), and FILMIC crushes — lowest luma in every pass. That settles the
+     * port: the tonemapper must be a rolloff curve and must not be FILMIC. The independent
+     * confirmation is stronger than any of the above and it IS repeatable — with the stack off
+     * (`?post=0`) the same frame clips 2.19-2.24% of its pixels, and with it on, 0.002-0.003%.
+     * That is the "count the clipped pixels" verification GfxPost's 0.92 knee was derived by.
+     *
+     * BETWEEN ACES AND NEUTRAL the difference is below the noise floor here, so it was decided on
+     * the curves' documented behaviour rather than on a number this container cannot hold still:
+     * ACES carries a contrast S-curve with a DESATURATING shoulder, Khronos PBR Neutral is built
+     * to preserve hue and saturation into the highlights. This game is saturated neon on purpose
+     * and its brightest pixels are its most colourful ones, so a shoulder that drains them is
+     * working against the brief. Section 9 chose ACES for the opposite frame — a dim tactical
+     * interior where the midtone lift is a gift. ⚑ What ports is the METHOD, not the answer.
+     */
     tone: pc.TONEMAP_NEUTRAL,
     fringing: 4.51,
     vignette: { inner: 0.68, outer: 2.24, curvature: 1.0, intensity: 0.36 },
@@ -549,7 +570,7 @@
      * brief and it costs one opaque draw call. Deliberately generated rather than a texture — a
      * generated field can be moved by the game state, and this studio does not ship sampled art it
      * does not own anyway. */
-    const CX = 10, CY = 8, Zb = -46, EX = 66, EY = 48;
+    const CX = 19, CY = 14, Zb = -46, EX = 66, EY = 48;
     const hue0 = (G.market.hue + t * 8 + G.wave * 37) % 360;
     const boost = (G.phase === 'clear' ? 1.5 : 1) * BG_K;
     const du = 1 / (CX - 1), dv = 1 / (CY - 1);
@@ -633,8 +654,8 @@
        * that sits just outside the silhouette, and only a DIVER gets a hot one, which also makes
        * "which of these is about to kill me" readable at a glance. */
       const c = fx.hsl(e.hue + (diving ? 0 : 40), 0.95, diving ? 0.62 : 0.42);
-      const ar = sz * (diving ? 1.5 : 0.92) * (1 + 0.10 * Math.sin(t * 7 + e.id));
-      if (M.aura) fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 80 : 18);
+      const ar = sz * (diving ? 1.3 : 0.92) * (1 + 0.10 * Math.sin(t * 7 + e.id));
+      if (M.aura) fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 58 : 20);
       if (e.kind === 2) {
         const rc = fx.hsl(310, 1, 0.6);
         fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * (2.2 + 0.3 * Math.sin(t * 5)), rc[0], rc[1], rc[2], 150);
@@ -762,16 +783,23 @@
   }
 
   // ── the frame ───────────────────────────────────────────────────────────────────────────────
-  let acc = 0, fpsWin = [], lastT = performance.now();
+  /* ⚠ A "HELD" FRAME WAS NOT HELD. Pausing the simulation freezes the enemies but the RENDER clock
+   * kept running — the starfield still flowed, the backdrop hue still drifted — so two consecutive
+   * measurements of the same settings differed by more than the effect being measured, and a
+   * tonemapper A/B swung by 15 RMS between runs. CLAUDE.md's rule for the 3D card applies exactly:
+   * A/B through the same path, and do not believe an absolute number off one frame. `_freezeT`
+   * pins the render clock and stops the starfield so a sweep varies ONE thing. */
+  let FROZEN = null;
+  let fpsWin = [], lastT = performance.now();
   const HOLD = on('hold', false);
   app.on('update', dtRaw => {
     const now = performance.now();
     const dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
     fpsWin.push(dt * 1000); if (fpsWin.length > 120) fpsWin.shift();
-    const t = now * 0.001;
+    const t = FROZEN != null ? FROZEN : now * 0.001;
 
     readInput();
-    if (!HOLD) RRGame.step(G, dt, input);
+    if (!HOLD) RRGame.step(G, FROZEN != null ? 0 : dt, input);
     playEvents();
     if (G.mode === 'over' && !overShown) showOver();
 
@@ -968,6 +996,9 @@
     _sharp(v) { if (!frame) return null; frame.rendering.sharpness = v; frame.update(); return v; },
     _bg(v) { BG_K = v; return v; },
     _mask(k, v) { if (k in M) M[k] = v ? 1 : 0; return Object.assign({}, M); },
+    /* pin the render clock (and stop the starfield) so a post sweep varies exactly one thing.
+     * `_freezeT(null)` resumes. */
+    _freezeT(v) { FROZEN = (v == null ? null : (v === true ? performance.now() * 0.001 : v)); return FROZEN; },
     _addi(v) { fx.addMat.emissiveIntensity = v; fx.addMat.update(); return v; },
     _cardi(v) { fx.cardMat.emissiveIntensity = v; fx.cardMat.update(); return v; },
     _blur(v) { if (!frame) return null; frame.bloom.blurLevel = v; frame.update(); return v; },
