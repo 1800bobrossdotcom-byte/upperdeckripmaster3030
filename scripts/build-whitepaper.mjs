@@ -168,7 +168,7 @@ S.push(slide('Packs · a $7 premium, escalating', `
       <li>A pack is a site-guided <b>buy of ~350 $3030 ≈ $7</b> (seven cards, ~$1 a card), <b>split half-burn / half-studio</b> — see docs/TREASURY.md for why that split has to be one atomic call.</li>
       <li>Your 7 pulls derive from your burn tx; your collection is your rip history + holdings — <b>not</b> a token reprice, FDV unchanged.</li>
       <li><b>Within a season:</b> price walks a line from base → ceil as the allotment sells (S1 350 → 525 tokens).</li>
-      <li><b>Across seasons:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>burn budget (~2.02M, ⅔ cap)</b>, not card supply.</li>
+      <li><b>Across seasons:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>seasonal allotment</b>, not card supply.</li>
       <li>Sell out the allotment and packs <b>close for the season</b> — the schedule is site-enforced and auditable from the burn txs.</li>
     </ul>
     <table class="tbl">
@@ -179,7 +179,7 @@ S.push(slide('Packs · a $7 premium, escalating', `
       <tr><td>IV · Spring</td><td>260 packs</td><td>$16.00</td></tr>
     </table>
   </div>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total; full sellout ≈ 2,028,750 🔥 (⅔ of cap). Recalibrated to the live token price at each season open.</p>`, C.acid));
+  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total; full sellout ≈ 1,014,375 🔥 burned + 1,014,375 to the studio. Recalibrated to the live token price at each season open.</p>`, C.acid));
 
 // 7 — seasons + compression
 S.push(slide('Lenses · minting &amp; compression', `

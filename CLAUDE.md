@@ -39,6 +39,37 @@ This SUPERSEDES the old "NAME LAW".**
 *Historical note:* **upperdeckripmaster3030** was one word on purpose — it amplified the meme and
 the clearance joke. ⛔ It no longer appears on new surfaces; see the directive above.
 
+## 💰 REVENUE: half of every pack and every game rake funds the studio
+**Artist directive.** Treasury `0x5C3b…d89F`. `docs/TREASURY.md` is canonical.
+- **A pack no longer burns in full**: 50% burns, 50% to the studio. **The game rake's 5%/5% is
+  the same 50/50 ratio**, so ONE contract does both — `contracts/PackSink.sol`, `buyPack()` and
+  `payRake()` over a shared `_split()`, separate events only so pack revenue and game revenue
+  stay distinguishable in the ledger.
+- ⚑ **It CANNOT be two client-side transactions.** A wallet can sign the burn and reject the
+  transfer — collector's tokens destroyed, studio unpaid, no pack owed. There is no ordering that
+  fixes it, because there is no atomicity between two signatures. Hence a contract.
+- No owner, no admin, no upgrade, no pause; both addresses `immutable`; holds nothing between
+  calls. With no external audit, **"small enough to read in one sitting" is the whole safety
+  argument.** `flush()` is permissionless *because* its destination is immutable, so opening it
+  to everyone grants no power — an owner-gated sweep would have added the admin key the contract
+  exists to not have.
+- **`RipWallet.payPack/payRake` are wired everywhere and SHIP DARK**: with
+  `chain-config.contracts.packSink` empty they fall back to the plain 100% burn, byte-identical
+  to the rehearsed call. `result.split` says which ran, and `WagerPayout.splitLive()` asks
+  `hasSink()` so all eight game result screens report reality from one place. **Deploy + paste
+  the address is the only remaining step.**
+- ⚠ **Approve-then-call means TWO wallet prompts.** `onStep` fires `'approve'` then `'pay'` so
+  the UI can name each — an unexplained second prompt reads as a scam. One approval covers 12
+  packs; **not unlimited**, though it would be safe here (PackSink's only `transferFrom` takes
+  from `msg.sender`, so an allowance can only be spent by a transaction you sent yourself).
+- ⚑ **`npm run test:split` exists because `test:pack` cannot prove the browser reaches the
+  contract.** `js/wallet.js` hand-assembles calldata and every failure is silent — wrong selector
+  hits the fallback, wrong offset approves the wrong spender, a missing `10^18` approves 350 wei.
+  **Writing the two selectors from memory got BOTH wrong**; they are now recomputed from the ABI
+  and asserted against the file. `npm test` = 31 + 17 + 51 + 38.
+- ⚠ Rip Rocketer's flat 25-token launch fee is **still a 100% burn** — a solo entry fee, not a pot
+  rake. Left by omission, not decision; ask the artist.
+
 ## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
 **Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**
 Model v2.2 below is stale wherever it says 3,030,000.
@@ -46,12 +77,21 @@ Model v2.2 below is stale wherever it says 3,030,000.
 ⛔ **The deflation story does NOT survive the supply change on its own.** Reran
 `scripts/token-model.mjs` at CAP 33,000,000 with the pack schedule untouched:
 
-| | old (3.03M cap) | new (33M cap), same packs |
-| --- | --- | --- |
-| four-season sellout burn | 2,028,750 | 2,028,750 (unchanged — packs burn tokens, not %) |
-| as % of mint | 67% | **6.1%** |
-| settled float | ~1.01M | **~30.97M** |
-| permanent contraction | **3.0×** | **1.07× — i.e. essentially none** |
+| | old (3.03M cap) | 33M cap, same packs | **+ the 50/50 split (LIVE)** |
+| --- | --- | --- | --- |
+| four-season sellout burn | 2,028,750 | 2,028,750 (packs burn tokens, not %) | **1,014,375** |
+| as % of mint | 67% | 6.1% | **3.1%** |
+| settled float | ~1.01M | ~30.97M | **~31.99M** |
+| permanent contraction | **3.0×** | 1.07× | **1.03× — none** |
+
+⚑ **The 50/50 split halves it again**, and to the studio instead: ~1,014,375 $3030 over four
+seasons. `token-model.mjs` was burning 100% of every pack until 2026-08-01, so **any burn figure
+from an older run — or any doc that copied one — is DOUBLE the truth.** `BURN_SHARE = 0.50` now,
+and the treasury column is printed rather than dropped. Regenerated with it: `tokenomics.html`,
+`audit.html`, `whitepaper.html/pdf`, `index.html`, `ECONOMIC-FLOW.md`, `CURVE-TARGET.md`.
+⛔ **`docs/TOKEN-MATH.md` is stale on BOTH axes and is banner-marked, not patched** — a correct
+rewrite needs the unmade 33M decision, and a doc silently edited to look current is worse than
+one plainly marked dead.
 
 The burn is denominated in TOKENS per pack (350 → 1,200 across seasons), so multiplying the cap
 by 10.89 does not multiply the burn. To keep a 3× contraction you must burn ~22M over ~3,560

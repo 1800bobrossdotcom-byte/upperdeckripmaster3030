@@ -1,6 +1,29 @@
 # $UR3030 — token math (finalized)
 
-> **↻ Model v2.2 update (2026-07):** the token/curve **math and numbers below remain valid**
+> # ⛔ STALE ON TWO AXES — DO NOT QUOTE A NUMBER OUT OF THIS FILE (2026-08-01)
+>
+> Every burn figure below is wrong twice over, and the errors compound:
+>
+> 1. **Cap 3,030,000 → 33,000,000** (artist directive). The pack schedule burns *tokens*, not a
+>    share of supply, so multiplying the cap by 10.89 does **not** multiply the burn — it collapses
+>    the contraction from 3× to ~1.07×. This file's "≈⅔ of cap" framing does not survive that.
+> 2. **A pack no longer burns in full** — it splits **50/50 burn/studio** (`docs/TREASURY.md`),
+>    which halves the burn again.
+>
+> Net: the four-season sellout burn is **1,014,375, not 2,028,750**, and the permanent contraction
+> is **≈1.03×, i.e. essentially none.** The ⅔-of-cap deflation thesis is **dead** and must not be
+> presented as fact.
+>
+> **Live numbers: run `node scripts/token-model.mjs`.** Canonical narrative:
+> `docs/ECONOMIC-FLOW.md`. Revenue split: `docs/TREASURY.md`.
+>
+> This file is **deliberately not patched**. A correct rewrite depends on a decision the artist has
+> not made — whether packs get ~11× more expensive in tokens, whether P0 opens ~11× lower, or
+> whether deflation stops being the headline — and a doc silently edited to look current is more
+> dangerous than one plainly marked stale. The *method* below (curve integration, sensitivity
+> passes, the adversarial modelling) is still worth reading; the *numbers* are history.
+
+> **↻ Model v2.2 update (2026-07) — historical:** the token/curve **math and numbers below remain valid**
 > (cap 3,030,000, ~1 RARE open, lifetime burn ≈2,020,000 ≈ ⅔ cap, ~1,010,000 floor, ≈3×
 > contraction). What changed is **framing**: the burn is **token deflation, not a card
 > cull** — there is **no 196→77 card retirement, no ash, no ERC-1155 CardVault**. Every card

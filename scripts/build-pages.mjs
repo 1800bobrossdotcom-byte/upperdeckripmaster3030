@@ -393,32 +393,35 @@ const tokenomics = `
   more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
   contract) and fully auditable from the burn txs.</p>
   <table><tr><th>Season</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>season 🔥 (tok)</th></tr>
-    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>700,000</td></tr>
-    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>618,750</td></tr>
-    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>450,000</td></tr>
-    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>260,000</td></tr></table>
+    <tr><td>I · Summer</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
+    <tr><td>II · Fall</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
+    <tr><td>III · Winter</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
+    <tr><td>IV · Spring</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
   <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
-  full sellout ≈ 2,028,750 🔥 (⅔ of cap). Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
+  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at <code>openSeason()</code>, recalibrated to the live token price.</p>
 
-  <h2><span class="n">07</span>The burn schedule (everything burns in full)</h2>
-  <p>The only on-chain spend is the <span class="fire">🔥 burn</span> of the one token. There are no tolls, no
-  creator-cut contract, no house pool — nothing to route, nothing to skim. Hero-lens <b>mints</b> are wallet-signed
-  721 mints, not token payouts.</p>
+  <h2><span class="n">07</span>The burn schedule</h2>
+  <p>The only on-chain spend is the one token. A pack and a game rake <b>split 50/50</b> — half
+  <span class="fire">🔥 burns permanently</span>, half funds the studio, in a single atomic call that cannot
+  half-execute. The studio's cut is stated on the tin; there is no hidden fee and no house pool players can
+  win back. Hero-lens <b>mints</b> are wallet-signed 721 mints, not token payouts.</p>
   <table><tr><th>Action</th><th>Cost</th><th>→</th></tr>
-    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>~350 → escalates (§6)</td><td class="fire">🔥 in full</td></tr>
+    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>~350 → escalates (§6)</td><td><span class="fire">🔥 half</span> · half studio</td></tr>
     <tr><td>conviction burn (voluntary)</td><td>any amount</td><td class="fire">🔥</td></tr>
     <tr><td><b>compression</b> (own every copy of a field card → 1/1)</td><td>compression cost</td><td class="fire">🔥</td></tr>
-    <tr><td>rarity votes · wagers · trades · binder · field-card pulls</td><td>site-side signal</td><td>no burn</td></tr></table>
+    <tr><td>game rake (10% of the pot)</td><td>10% of the wagered pot</td><td><span class="fire">🔥 5%</span> · 5% studio</td></tr>
+    <tr><td>rarity votes · trades · binder · field-card pulls</td><td>site-side signal</td><td>no burn</td></tr></table>
 
   <h2><span class="n">08</span>Lifetime burn — what it does and does not do</h2>
   <p>Because the token is <b>minted once</b> and burns are <b>permanent</b>, lifetime burn is <b>bounded by the
   cap</b>. Packs burn the token down over the deck's four-season life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-season sellout 🔥</td><td><b>2,028,750</b></td><td>6.1% of the 33,000,000 cap</td></tr>
-    <tr><td>Settled live float</td><td><b>~30,971,250</b></td><td>survives as the permanent float</td></tr>
-    <tr><td>Permanent contraction</td><td><b>≈ 1.07×</b></td><td>33M → ~30.97M. We do <b>not</b> claim deflation as the thesis</td></tr>
-    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>2.03M &lt; 33M</td></tr></table>
+    <tr><td>Full four-season sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
+    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed</td></tr>
+    <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
+    <tr><td>Permanent contraction</td><td><b>≈ 1.03×</b></td><td>33M → ~31.99M. We do <b>not</b> claim deflation as the thesis</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 33M</td></tr></table>
   <p>Pack burns are denominated in <b>tokens</b>, not in a share of supply, so a larger mint does not
   scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
   but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
@@ -474,7 +477,7 @@ const audit = `
   <ul>
     <li><b>The burn schedule overflowed the cap.</b> An early card-retirement schedule totalled 4.36M burn
       against a mint-once cap — impossible. <b>Fixed by removing the mechanic:</b> v2.2 cut forced card
-      retirement / ash entirely. The burn is now pure <b>token deflation</b> (⅔ of the cap, ~2.02M), and the
+      retirement / ash entirely. The burn is now pure <b>token deflation</b> (~1.01M at the 50% pack split), and the
       deck <b>survives</b>. The only rule left is the trivial Σ burns ≤ cap.</li>
     <li><b>Mint/burn assumption, corrected.</b> We'd assumed burns re-mint on the next buy. SuperRare confirmed
       the opposite — <b>minted once, burns permanent</b>. The whole model was rebuilt on that.</li>

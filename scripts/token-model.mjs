@@ -37,13 +37,17 @@ const SELL_FRAC  = 1.0;         // fraction of cap actually sold on the curve (p
 const LIFETIME_BURN_BUDGET = 22_000_000;   // ≈ ⅔ of cap — total permanent burn to retire the whole field
 const FLOOR_SUPPLY         = CAP - LIFETIME_BURN_BUDGET;   // ≈ 1,010,000 live tokens survive the retirement
 
-// ── pack assumptions (the $7 premium ritual — site-guided buy + burn IN FULL) ──
-// LAUNCH (pure liquid edition, docs/LAUNCH-ARCHITECTURE.md): there is no game
-// contract, so there is no house pool and no reward cut — a rip burns 100%.
+// ── pack assumptions (the $7 premium ritual — site-guided buy, then SPLIT) ──
 // The Phase-2 vault design (docs/CARD-ECONOMY-SPEC.md) would set REWARD_CUT=1
 // and LAST_STAND=50; kept here as constants so §6 can print the reference numbers.
+/* ⚑ A PACK NO LONGER BURNS IN FULL. Artist directive: half of every pack burns and half funds
+ * the studio, atomically, via contracts/PackSink.sol (docs/TREASURY.md). This model predates
+ * that and was still burning 100% of every pack, so every burn figure it printed — and every
+ * figure quoted FROM it — was double the truth. The treasury half is not destroyed, it is
+ * revenue, so it is reported as its own line rather than quietly dropped. */
+const BURN_SHARE     = 0.50;    // of each pack; the remainder is studio revenue
 const CARDS_PER_PACK = 7;
-const REWARD_CUT     = 0;       // LAUNCH: packs burn in full (Phase-2 vault: 1)
+const REWARD_CUT     = 0;       // LAUNCH: no house bounty pool (Phase-2 vault: 1)
 const LAST_STAND     = 50;      // Phase-2 reference only (no on-chain bounty at launch)
 // Reference seasonal schedule. Card budget dwindles, price floor rises, each season.
 // base/ceil are $UR3030; ceil = 1.5*base (within-season line). The curator recalibrates
@@ -141,20 +145,28 @@ console.log('  each season opens with a smaller allotment + higher floor. Allotm
 console.log('  for the season (secondary market only). Numbers are curator-set defaults, tune at openSeason.');
 
 // 5. LIFETIME BURN — PERMANENT, bounded by the cap (mint-once)
-line(); console.log('5. LIFETIME BURN  (token contraction across all 4 seasons; burns are PERMANENT; the deck survives)');
-const seasonBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2);
-let selloutTotal = 0;
-console.log(['season','packs','avg pack','season 🔥','cum 🔥','% of mint'].map((s,i)=>s.padStart(i?12:11)).join(''));
+line(); console.log(`5. LIFETIME BURN  (4 seasons; burns PERMANENT; ${fmt(BURN_SHARE*100,0)}% of each pack burns, the rest funds the studio)`);
+const seasonBurn = S => Math.floor(S.budget / CARDS_PER_PACK) * ((S.base + S.ceil) / 2) * BURN_SHARE;
+let selloutTotal = 0, treasuryTotal = 0;
+console.log(['season','packs','avg pack','season 🔥','cum 🔥','% of mint','→ studio'].map((s,i)=>s.padStart(i?12:11)).join(''));
 for (const S of SEASONS) {
-  const packs = Math.floor(S.budget / CARDS_PER_PACK), avg = (S.base + S.ceil) / 2, burn = packs * avg;
-  selloutTotal += burn;
+  const packs = Math.floor(S.budget / CARDS_PER_PACK), avg = (S.base + S.ceil) / 2;
+  const gross = packs * avg, burn = gross * BURN_SHARE, treas = gross - burn;   // remainder, so it is exhaustive
+  selloutTotal += burn; treasuryTotal += treas;
   console.log([
     S.s.padStart(11), packs.toLocaleString().padStart(12), fmt(avg,0).padStart(12),
     fmt(burn,0).padStart(12), fmt(selloutTotal,0).padStart(12), (fmt(selloutTotal/CAP*100,1)+'%').padStart(12),
+    fmt(treas,0).padStart(12),
   ].join(''));
 }
 console.log(`\nFull four-season SELLOUT burns ${fmt(selloutTotal,0)} — the full token-contraction arc (model v2.2).`);
 console.log(`It lands at ${fmt(selloutTotal/CAP*100,1)}% of the ${fmt(CAP,0)} mint (budget ${fmt(LIFETIME_BURN_BUDGET,0)}, target ⅔).`);
+/* ⚠ The studio's share is TOKENS, not dollars, and it is a large slug against a thin float —
+ * selling it all is itself sell pressure on the curve. Report it, do not price it. */
+console.log(`Studio treasury over the same four seasons: ${fmt(treasuryTotal,0)} $3030 (${fmt(treasuryTotal/CAP*100,1)}% of the mint),`);
+console.log(`  ≈ $${fmt(usd(treasuryTotal*P0),0)} at the OPENING price — a ceiling, not a forecast: it is not sold at P0,`);
+console.log(`  and it is ${fmt(treasuryTotal/realFloatPreview()*100,1)}% of the surviving float, so selling it moves the curve it is priced on.`);
+function realFloatPreview() { return CAP - selloutTotal; }
 /* Report the float the PACK SCHEDULE actually produces, not the one the budget assumes.
  * These were the same number by construction at the old 3.03M cap, so the distinction never
  * showed. At 33M they diverge hard — LIFETIME_BURN_BUDGET is an aspiration (22M) while the
@@ -175,8 +187,9 @@ console.log('CARDS DO NOT RETIRE OR ASH — this is token deflation only. A part
 console.log('settles the token at a higher float. Scarcity is dwindling allotments + rarity votes, not card death.');
 
 // 6. reward pool — LAUNCH: none (pure liquid edition). Phase-2 reference below.
-line(); console.log('6. HOUSE REWARD POOL — LAUNCH: NONE. Packs burn IN FULL (mint-once: those tokens are');
-console.log('gone for good). The hero-lens mints (11 gacha claims + 22 earned game titles) are 721 LENS');
+line(); console.log(`6. HOUSE REWARD POOL — LAUNCH: NONE. A pack splits ${fmt(BURN_SHARE*100,0)}/${fmt((1-BURN_SHARE)*100,0)} burn/studio and`);
+console.log('nothing else (mint-once: the burned half is gone for good; the studio half is revenue, not a');
+console.log('pool players can win back). The hero-lens mints (11 gacha claims + 22 earned game titles) are 721 LENS');
 console.log('MINTS on the renderer+721 lens contract, not token payouts. A Phase-2 vault');
 console.log(`(REWARD_CUT=${REWARD_CUT?REWARD_CUT:1} ref) would divert a per-pack cut to a bounty pool`);
 console.log('INSTEAD of burning it — which would REDUCE lifetime burn below the budget above, never raise');

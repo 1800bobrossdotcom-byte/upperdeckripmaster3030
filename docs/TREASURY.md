@@ -25,9 +25,27 @@ Four surfaces claimed the opposite. They were rewritten in the same commit that 
 "no treasury" line was a selling point; removing it is a change collectors deserve to hear stated,
 not discover. Say it out loud at launch.
 
-⚠ `token-model.mjs` and `docs/ECONOMIC-FLOW.md` model the pack burn as the **whole** pack. At a
-50% split the burn per pack halves — ~1.01M over four seasons, not ~2.03M. Those need rerunning
-before any burn figure is quoted again.
+✅ **The model has been rerun at the split.** `token-model.mjs` burned 100% of every pack until
+2026-08-01, so every burn figure it printed was **double the truth**, as was every figure copied
+out of it. At `BURN_SHARE = 0.50`:
+
+| | modelled before | actual at the 50% split |
+| --- | --- | --- |
+| four-season sellout burn | 2,028,750 | **1,014,375** |
+| to the studio, same period | — | **1,014,375** (≈ $20.3K at the *opening* price) |
+| settled float | ~30,971,250 | **~31,985,625** |
+| permanent contraction | 1.07× | **1.03× — essentially none** |
+
+Regenerated with it: `tokenomics.html`, `audit.html`, `whitepaper.html`, `whitepaper.pdf`,
+`index.html`, `docs/ECONOMIC-FLOW.md`, `docs/CURVE-TARGET.md`.
+
+⚠ The studio's cut is **tokens, not dollars**, and 1.01M is ~3.2% of the surviving float — selling
+it is itself sell pressure on the curve it is priced against. The model reports it and does not
+price it.
+
+⚠ `docs/TOKEN-MATH.md` is **not** rewritten: it is still written against the old 3,030,000 cap, so
+it is stale on two axes at once and a correct rewrite needs the artist's unmade 33M decision
+first. It carries a banner saying so rather than a quietly patched number.
 
 ---
 

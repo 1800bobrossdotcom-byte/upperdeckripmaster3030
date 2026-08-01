@@ -79,8 +79,15 @@ minted per-person** (no flood). Hold the token, you carry Lovebeing.
 
 ## 4 · Packs — the BURN engine ✅
 
-A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**. It is the
-*only* thing that burns supply, so it is the sole driver of the burn-down.
+A pack is a **site-guided buy of `$UR3030` off the curve**, then **split 50/50: half burns
+permanently, half funds the studio** (artist directive — `docs/TREASURY.md`). Together with the
+game rake it is the only thing that burns supply.
+
+⚠ **This halved every burn figure that predates it.** The model burned 100% of every pack until
+2026-08-01, so any burn number quoted from an older run of `token-model.mjs` — or from a document
+that copied one — is **double the truth**. The four-season sellout burn is **≈1.01M, not ≈2.03M**.
+The split is atomic (`contracts/PackSink.sol`), because burn-then-transfer as two signed
+transactions can half-execute; see `docs/TREASURY.md` for why that is not negotiable.
 
 - **Allotment (site-enforced, dwindling):** S1 **1,600** → S2 **1,100** → S3 **600**
   → S4 **260** = **≈3,560 packs**. The pack count is bounded by the **burn budget, not
@@ -90,7 +97,9 @@ A pack is a **site-guided buy of `$UR3030` off the curve, burned in full**. It i
   appreciation.
 - A pack reveals **field cards** (site-layer). **Rarely** it carries one of the **11
   gacha lens-claims** — mint it and you have a hero lens. **Lovebeing is not in packs.**
-- **Full four-season sellout burns ≈ 2.02M** (`token-model.mjs`) — see §6.
+- **Full four-season sellout burns ≈ 1.01M** and pays the studio ≈ **1.01M** (`token-model.mjs`)
+  — see §6. ⚠ Against a 33M cap that is a **1.03× contraction, i.e. essentially none**; the
+  deflation thesis does not survive the supply change and is an open decision (see `CLAUDE.md`).
 
 ## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 
