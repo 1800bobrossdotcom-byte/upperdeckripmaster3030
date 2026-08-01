@@ -96,6 +96,13 @@ window.DFPCFx = (function () {
      * colour through whichever of the two the build wires up, and guessing wrong is a silently
      * black layer rather than an error. The diffuse term is zero anyway, so it costs nothing. */
     mat.emissiveVertexColor = true; mat.diffuseVertexColor = true;
+    /* ⚠ AND THE ALPHA CHANNEL SEPARATELY. Vertex-colour RGB and vertex-colour ALPHA are two
+     * different switches in a StandardMaterial, and only the first is obvious. The additive
+     * layers do not care — additive blending ignores source alpha, which is why every additive
+     * push here already folds its fade into RGB — but the alpha layers (shadows, cloud) encode
+     * their fade in the alpha channel and would otherwise draw at full opacity forever: a
+     * permanent black disc under every craft, and a cloud deck with a hard edge at the fog wall. */
+    mat.opacityVertexColor = true; mat.opacityVertexColorChannel = 'a';
     /* ⚑ HDR ON PURPOSE for the additive layers. A vertex colour is 8-bit, so the brightest
      * contribution it can make is 1.0 — exactly the value the tonemapper is about to compress. A
      * tracer that tops out at "as bright as a lit surface" reads as a grey scratch. Pushing

@@ -159,9 +159,10 @@ window.DFPC = (function () {
   ].join('\n');
 
   // ── init ────────────────────────────────────────────────────────────────────────────────
+  let T_BOOT = 0;
   function init(cv, opt) {
     opt = opt || {};
-    const T0 = performance.now();
+    const T0 = T_BOOT = performance.now();
     try {
       if (!window.pc) { why = 'the engine bundle did not load'; return false; }
       const probe = document.createElement('canvas');
@@ -211,7 +212,19 @@ window.DFPC = (function () {
        * edge IS the silhouette. Shadow bias is normal-offset-led for the same reason s9pc records:
        * raising depth bias alone peels contact shadows off their objects. */
       sun = new pc.Entity('sun');
-      sun.addComponent('light', { type: 'directional', color: new pc.Color(1, 1, 1), intensity: 2.6,
+      /* ⚑ SUN INTENSITY WAS SWEPT, not chosen. The deck albedo is deliberately bright (that is the
+       * whole silhouette mechanism) so the sun does not also have to be — and the SKY does not
+       * scale with the sun at all, so a dimmer sun widens the value gap between an object and the
+       * field it is read against, which IS the silhouette. Measured on a held ghost-nebula frame,
+       * 960×600 (luma / RMS contrast / saturation / mean |Laplacian|):
+       *     1.4  →  115.2 · 36.2 · 59.7% · 5.17     ← chosen
+       *     2.0  →  126.4 · 29.5 · 55.4% · 6.41
+       *     2.6  →  134.0 · 29.3 · 52.0% · 6.97
+       * Brighter buys luma and local detail and SPENDS contrast and chroma, which is the same
+       * shape of trade CLAUDE.md records for the GfxPost highlight knee: the darker option is not
+       * automatically safer, but here it is the one that serves the brief. 1.4 is still 2.25× the
+       * mean luma of the build it replaces, so "bright" is not at risk. */
+      sun.addComponent('light', { type: 'directional', color: new pc.Color(1, 1, 1), intensity: num('sun', 1.4),
         castShadows: QCFG.shadows && flag('shadows', true), shadowType: pc.SHADOW_PCF3,
         numCascades: QCFG.cascades, cascadeDistribution: 0.5, shadowDistance: (opt.VIEW_FAR || 34) * 1.2,
         shadowResolution: QCFG.shadowRes, shadowBias: num('sbias', 0.02), normalOffsetBias: num('nbias', 0.06),
@@ -326,9 +339,11 @@ window.DFPC = (function () {
           for (const s of ships.values()) rebuildShip(s);
           if (parts.gate) {
             const gb = meshBounds(parts.gate);
+            // scaled by its HORIZONTAL half-extent, because that is the radius the hitbox uses
             const gr = Math.max(gb.hi[0] - gb.lo[0], gb.hi[1] - gb.lo[1]) / 2 || 1;
-            world.setGateMesh(parts.gate);            // fit is folded into the entity scale below
-            world.__gateFit = { s: GATE_R / gr, c: [(gb.lo[0] + gb.hi[0]) / 2, (gb.lo[1] + gb.hi[1]) / 2, (gb.lo[2] + gb.hi[2]) / 2] };
+            const gs = GATE_R / gr;
+            world.setGateMesh(parts.gate, new pc.Vec3(
+              -((gb.lo[0] + gb.hi[0]) / 2) * gs, -((gb.lo[1] + gb.hi[1]) / 2) * gs, -((gb.lo[2] + gb.hi[2]) / 2) * gs), gs);
           }
           // props: one silhouette per theme in the old renderer; the pylon is the shared default
           const pk = ['prop_pylon', 'prop_ring', 'prop_spire', 'prop_tower', 'prop_crystal'].find(k => parts[k]);
@@ -427,7 +442,7 @@ window.DFPC = (function () {
     app.on('update', dt => {
       frames++;
       const now = performance.now();
-      if (!marks.first) marks.first = +(now - performance.timeOrigin ? now : now).toFixed(1);
+      if (!marks.first) marks.first = +(now - T_BOOT).toFixed(1);
       if (tPrev) { times.push(now - tPrev); if (times.length > 240) times.shift(); }
       tPrev = now;
       if (ditherOn) { grainT = (grainT + 0.017) % 1000; app.graphicsDevice.scope.resolve('dfGrainT').setValue(grainT); }
@@ -442,15 +457,18 @@ window.DFPC = (function () {
 
   function sync(G, camS, wld, o) {
     if (!ok) return false;
-    world.apply(wld, o);
-    /* The sun rides the theme's own azimuth, so turning sweeps it across the sky and two matches
+    /* The sun rides the match's own azimuth, so turning sweeps it across the sky and two matches
      * on the same map are lit differently. Elevation is high and fixed: a low sun throws long
      * raking shadows across the deck that a player has to read past, and near the top shadows sit
-     * UNDER things, which is where a contact cue belongs. */
+     * UNDER things, which is where a contact cue belongs.
+     * ⚠ setSun BEFORE apply — the sun's glow is BAKED INTO the sky cubemap, so applying the theme
+     * first bakes it around whatever azimuth was left over from the previous match. A glow in the
+     * sky that disagrees with the directional light reads as two suns. */
     const az = G.sunAz || 0;
     const sd = [Math.cos(az) * 0.52, 0.85, Math.sin(az) * 0.52];
     const sl = Math.hypot(sd[0], sd[1], sd[2]); sd[0] /= sl; sd[1] /= sl; sd[2] /= sl;
     world.setSun(sd);
+    world.apply(wld, o);
     sun.setPosition(sd[0] * 60, sd[1] * 60, sd[2] * 60);
     sun.lookAt(0, 0, 0);
     const sc = world.sunColour();
@@ -503,12 +521,30 @@ window.DFPC = (function () {
       // the spawn blink is the game's own "I am not shootable yet" tell; keep it
       rec.root.enabled = !(s.spawnT > 0 && Math.sin((G.t || 0) * 26) <= 0);
     }
-    for (const [s, rec] of ships) { if (!live.has(rec)) rec.root.enabled = false; }
+    /* ⚠ A ship entity is DESTROYED when its ship leaves G.ships, not merely hidden. `startMatch`
+     * builds a fresh array of ship objects every match, so hiding-only would leak a hull, a pod
+     * and two materials per craft per rematch — invisible in one sitting and a real leak in an
+     * arcade cabinet that runs all day. `fleet` is rebuilt each frame from the live set, which is
+     * at most six entries. */
+    fleet.clear();
+    for (const s of (G.ships || [])) fleet.add(s);
+    for (const [s, rec] of ships) {
+      if (!fleet.has(s)) { try { rec.root.destroy(); } catch (e) {} ships.delete(s); continue; }
+      if (!live.has(rec)) rec.root.enabled = false;
+    }
 
     world.update(G, camS, cam, o);
-    if (fx) fx.update(G, camS, cam, o, Object.assign({}, world.skin(), { sunDir: sd, grid: world.skin().grid }));
+    if (fx) {
+      // one object, refreshed in place — this runs every frame and a fresh literal per frame is
+      // garbage the collector has to chase during a fight
+      const sk = world.skin();
+      FXSKIN.sunDir = sd; FXSKIN.grid = sk.grid; FXSKIN.hor = sk.hor; FXSKIN.gnd = sk.gnd;
+      fx.update(G, camS, cam, o, FXSKIN);
+    }
     return true;
   }
+  const fleet = new Set();
+  const FXSKIN = { sunDir: [0, 1, 0], grid: '#2bff80', hor: '#ffffff', gnd: '#888888' };
 
   /* ── world → overlay pixels ─────────────────────────────────────────────────────────────
    * ⛔ THE OLD 3D PATH DREW NO NAMEPLATES, NO ENEMY HEALTH BARS, NO LOCK BRACKET AND NO LEAD PIP.

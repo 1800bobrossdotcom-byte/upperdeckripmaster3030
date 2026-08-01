@@ -233,6 +233,29 @@ window.RRFx = (function () {
         x + rx + ux, y + ry + uy, z + rz + uz,
         x - rx + ux, y - ry + uy, z - rz + uz, r, g, b, a);
     }
+    /* ⚠ FLAT-SHADED QUADS MADE THE BACKDROP A BRICK WALL. `push` writes one colour to all four
+     * vertices, which is right for a bolt and wrong for a colour FIELD: nine by seven flat tiles
+     * read as masonry, not as a gradient, and it was clearly visible in the first screenshot. This
+     * writes a colour PER CORNER so the hardware interpolates across the quad and the seams
+     * disappear. Corner order matches `push`: BL, BR, TR, TL. */
+    function gouraud(buf, cell, x, y, z, rx, ry, rz, ux, uy, uz, c0, c1, c2, c3) {
+      if (buf.n >= buf.max) return;
+      const n = buf.n;
+      push(buf, cell,
+        x - rx - ux, y - ry - uy, z - rz - uz,
+        x + rx - ux, y + ry - uy, z + rz - uz,
+        x + rx + ux, y + ry + uy, z + rz + uz,
+        x - rx + ux, y - ry + uy, z - rz + uz, 255, 255, 255, 255);
+      const k = n * 16, K = buf.col, cs = [c0, c1, c2, c3];
+      for (let i = 0; i < 4; i++) {
+        const c = cs[i];
+        K[k + i * 4] = c[0] < 0 ? 0 : c[0] > 255 ? 255 : c[0] | 0;
+        K[k + i * 4 + 1] = c[1] < 0 ? 0 : c[1] > 255 ? 255 : c[1] | 0;
+        K[k + i * 4 + 2] = c[2] < 0 ? 0 : c[2] > 255 ? 255 : c[2] | 0;
+        K[k + i * 4 + 3] = c[3] == null ? 255 : (c[3] < 0 ? 0 : c[3] > 255 ? 255 : c[3] | 0);
+      }
+    }
+
     /* A streak between two points, widened perpendicular to both the direction and the view. A
      * camera-facing square cannot express a bolt in flight; this can, and it is what the classic
      * build's star-stretch was doing in 2D. */
@@ -264,9 +287,14 @@ window.RRFx = (function () {
       FWD.x = -m[8]; FWD.y = -m[9]; FWD.z = -m[10];
     }
 
-    function commit(buf, mi) {
-      // degenerate the tail so a shrinking frame does not leave last frame's quads behind
-      for (let i = buf.n; i < buf.prev || 0; i++) {
+    function commit(buf) {
+      /* Degenerate the tail so a shrinking frame does not leave last frame's quads behind. Only
+       * back to the previous high-water mark — everything past that is already zeroed.
+       * ⚠ This was written `i < buf.prev || 0`, which parses as `(i < buf.prev) || 0` and happened
+       *   to behave correctly only because `i < undefined` is false on the first frame. Correct by
+       *   accident is a bug waiting for its second reader. */
+      const prev = buf.prev || 0;
+      for (let i = buf.n; i < prev; i++) {
         const o = i * 12; for (let k = 0; k < 12; k++) buf.pos[o + k] = 0;
         const c = i * 16; for (let k = 0; k < 16; k++) buf.col[c + k] = 0;
       }
@@ -278,9 +306,9 @@ window.RRFx = (function () {
     return {
       root, tex, atlasCanvas: canvas, A, C, B, addMat, cardMat, bgMat,
       CELL, GRID, ATLAS, C_BACK, C_DOT, C_RING, C_FLAT,
-      setCamBasis, billboard, oriented, ribbon, hsl, commit,
+      setCamBasis, billboard, oriented, gouraud, ribbon, hsl, commit,
       begin() { A.n = 0; C.n = 0; B.n = 0; },
-      end() { commit(B, miB); commit(C, miC); commit(A, miA); },
+      end() { commit(B); commit(C); commit(A); },
       counts() { return { bg: B.n, add: A.n, card: C.n }; },
       /* Replace a deck cell with real card art once it decodes. Called per image, and each call
        * re-uploads the atlas — 12 uploads over the first second or two, then never again. */

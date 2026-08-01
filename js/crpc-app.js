@@ -90,11 +90,50 @@
    *   sharpen 0.26              rendering.sharpness — different maths (CAS), so MEASURED not copied
    *   blur 0                    sky preset has no motion smear; nothing to lose
    */
+  /* ⚑ THE TONEMAPPER IS **FILMIC**, NOT ACES — AND THAT DIFFERS FROM SECTION 9 ON PURPOSE.
+   * Section 9 picked ACES because on ITS frame ACES removed 100% of clipping for free while every
+   * alternative cost brightness. That is a measurement of a dark interior, and the rule CLAUDE.md
+   * states is that the tuning must be RE-DERIVED in the engine's terms — not that the answer
+   * transfers. Re-derived here, on a deterministic frame (mid-circuit, racing line, cruise —
+   * `__crpc._pose(300,0,64)`, reproducible to ±0.4 luma across runs), at bloom 0.010 / sharp 0.70 /
+   * saturation 1.35:
+   *
+   *     tone      exp    luma    rms   clipped%   sat%   edge
+   *     ACES     0.75   203.5   34.7    0.0005    18.4   5.62
+   *     ACES     1.15   219.6   31.1    0.0151    13.2   4.84
+   *     FILMIC   0.75   159.2   34.9    0.0002    31.4   6.34
+   *     FILMIC   1.15   181.0   36.6    0.0009    27.9   6.56    ← chosen
+   *     FILMIC   1.55   195.0   37.3    0.0266    25.4   6.64
+   *     NEUTRAL  any    222.1   43.0   14.1437    26.3   7.28
+   *     LINEAR   1.15   147.2   31.5    0.0002    30.8   5.84
+   *
+   * Reading it:
+   *   · NEUTRAL is disqualified outright — 14.1% of the frame clipped, and it does not respond to
+   *     exposure at all. That IS the failure GfxPost's `sky` preset existed to prevent, which is
+   *     recorded in CLAUDE.md as "a HIGH threshold, or the already-white cloudscape blooms into a
+   *     flat wash". The same failure, in a different engine, found the same way: by counting.
+   *   · ACES is BRIGHTER and much less colourful, and the gap widens with exposure (18.4% → 10.4%
+   *     saturation from 0.75 to 1.55). That is the recorded ACES behaviour — it desaturates on the
+   *     way to white — and on a scene that is mostly bright sky it dominates everything else.
+   *   · LINEAR is the most saturated and clips least HERE, but only because this exposure is not
+   *     pushing much past 1.0. It has no rolloff at all, so the first bright highlight clips hard;
+   *     it is the option the 0.94 knee existed to replace.
+   *   · FILMIC is the only one that is bright, saturated, high in local contrast AND rolling off.
+   * Exposure 1.15 rather than higher for the reason the sweep shows: past it, saturation falls and
+   * clipping starts climbing, and the picture is already at 181 luma with zero blacks. */
   const POST = {
-    tone: pc.TONEMAP_ACES,
-    bloom: num('bloom', 0.012),
-    sharpness: num('sharp', 0.40),
-    saturation: num('sat', 1.22),
+    tone: pc.TONEMAP_FILMIC,
+    bloom: num('bloom', 0.010),
+    /* Bloom BUYS luma and SPENDS colour and detail — swept on the same frame: 0 → sat 30.3 / edge
+     * 5.77, 0.012 → 28.3 / 5.23, 0.05 → 22.3 / 3.87, 0.10 → 17.8 / 2.64. GfxPost's `sky` preset
+     * expresses "don't let the cloudscape wash out" as a high THRESHOLD; PlayCanvas's bloom is a
+     * mip chain with no threshold, so the only way to say the same thing is a low intensity. */
+    sharpness: num('sharp', 0.70),
+    /* CAS is not GfxPost's unsharp, so this was matched on measured local contrast rather than
+     * copied: mean |Laplacian| 0 → 3.89, 0.2 → 5.43, 0.4 → 5.71, 0.7 → 6.25, 1.0 → 7.01. 0.70 is
+     * +61% over unsharpened — the same order as GfxPost's 0.26 unsharp — and keeps clipping at
+     * 0.005%, where 1.0 takes it to 0.031%. */
+    saturation: num('sat', 1.35),
     contrast: 1.0,
     /* ⚠ CONTRAST STAYS AT 1 for the reason Section 9 recorded: PlayCanvas grades in LINEAR space
      * BEFORE the tonemapper, so it is not the display-space knob an LDR chain's "contrast" is, and
@@ -154,7 +193,7 @@
    * screen; that overdraw was measured at a 333 ms median frame under SwiftShader. Distant clouds
    * do not parallax at 90 u/s in any way the eye can use, so they belong in the sky texture, where
    * they cost one lookup instead of forty overlapping blends. */
-  const SKY = { top: [0.16, 0.42, 0.88], mid: [0.44, 0.70, 0.97], hor: [0.90, 0.95, 1.00], grd: [0.62, 0.74, 0.86] };
+  const SKY = { top: [0.07, 0.33, 0.95], mid: [0.33, 0.63, 0.99], hor: [0.86, 0.94, 1.00], grd: [0.50, 0.68, 0.86] };
   const SUN = (() => { const v = [0.36, 0.80, -0.48], l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; })();
   const SUN_TINT = [1.0, 0.98, 0.93];
   /* ⚑ AN INTEGER HASH, NOT `Math.sin`. MEASURED: the first version generated the sky with a
@@ -224,13 +263,17 @@
       addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
     tex.setSource(faces); return tex;
   }
+  const MARKS = { t0: performance.now() };
   try {
+    const tSky = performance.now();
     const cube = skyCubemap(QC.skyN, 1);
+    MARKS.skyMs = +(performance.now() - tSky).toFixed(0);
     const src = pc.EnvLighting.generateLightingSource(skyCubemap(32, 1.15), { size: QC.envSize });
     app.scene.envAtlas = pc.EnvLighting.generateAtlas(src, { size: QC.atlas });
     app.scene.skybox = cube;
     app.scene.skyboxMip = 0;
     app.scene.skyboxIntensity = 1.0;
+    MARKS.envMs = +(performance.now() - MARKS.t0).toFixed(0);
   } catch (e) { /* fails open: a flat clear colour is ugly but playable */ }
   /* Open sky IS the fill, and it is blue. The reference frame has almost no black in it because
    * shadows are light, soft and coloured, and depth is carried by aerial perspective going lighter
@@ -239,7 +282,7 @@
   /* ⚑ EXPOSURE GOES DOWN, NOT UP, and this is the recorded reason: ACES desaturates on the way to
    * white, so every stop of extra exposure is paid for in colour. Swept in-browser — see the
    * report; `?exp=` re-runs it. */
-  app.scene.exposure = num('exp', 0.62);
+  app.scene.exposure = num('exp', 1.15);
   app.scene.fog.type = pc.FOG_LINEAR;
   app.scene.fog.color = new pc.Color(0.86, 0.92, 0.99);   // haze is the SKY colour: aerial perspective
   app.scene.fog.start = 190;
@@ -338,24 +381,32 @@
    * every ~43 units (24 repeats over a 1038-unit lap): about 1 beat per second, i.e. invisible. */
   function trackTex() {
     const S = 512, c = cvs(S), x = c.getContext('2d');
-    x.fillStyle = '#eef2f7'; x.fillRect(0, 0, S, S);                               // near-white deck
-    x.fillStyle = '#e2e8f1';                                                        // panel joints
-    for (let i = 0; i < 4; i++) x.fillRect(0, i * S / 4, S, 3);
-    x.fillStyle = 'rgba(120,150,190,0.10)';
-    for (let i = 0; i < 900; i++) x.fillRect(Math.random() * S, Math.random() * S, 2, 2);
-    // saturated edge rails: magenta outer, cyan inner. These read at any distance and they are the
-    // thing that tells you where the barrier is without a HUD line.
-    x.fillStyle = '#ff2ad9'; x.fillRect(0, 0, S * 0.052, S); x.fillRect(S * 0.948, 0, S * 0.052, S);
-    x.fillStyle = '#27f7e4'; x.fillRect(S * 0.052, 0, S * 0.022, S); x.fillRect(S * 0.926, 0, S * 0.022, S);
-    x.fillStyle = 'rgba(255,255,255,0.85)';
-    for (let i = 0; i < 8; i++) { x.fillRect(S * 0.056, i * S / 8, S * 0.014, S / 16); x.fillRect(S * 0.930, i * S / 8, S * 0.014, S / 16); }
-    // forward chevrons down the middle — direction of travel, and the strongest flow cue here
-    x.strokeStyle = 'rgba(39,140,220,0.5)'; x.lineWidth = 9; x.lineCap = 'butt';
+    /* ⚑ THE DECK IS NOT WHITE, AND THE FIRST VERSION'S WAS — a mistake the measurement caught
+     * immediately. "High-key, almost no black" got read as "make the track white", and a white
+     * surface filling a third of the frame is by definition a ZERO-saturation surface: blacks hit
+     * the 0.00% target and mean saturation collapsed to 10.4% against the old build's 36.4%. A
+     * bright picture is not a colourless one. So: a pale CYAN deck, alternating panel tones for
+     * value rhythm, wide saturated rails, and a deep-navy kerb — the kerb is the only dark thing
+     * out here, and it is what gives the ribbon a hard edge against the sky. */
+    x.fillStyle = '#bfe4f0'; x.fillRect(0, 0, S, S);
+    x.fillStyle = '#a8d8ea'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, S / 16);   // panel rhythm
+    x.fillStyle = 'rgba(30,110,150,0.16)'; for (let i = 0; i < 8; i++) x.fillRect(0, i * S / 8, S, 3);
+    // rails: navy kerb, then magenta, then cyan. Wide enough to hold their colour at 200 units out.
+    x.fillStyle = '#12284a'; x.fillRect(0, 0, S * 0.030, S); x.fillRect(S * 0.970, 0, S * 0.030, S);
+    x.fillStyle = '#ff2ad9'; x.fillRect(S * 0.030, 0, S * 0.062, S); x.fillRect(S * 0.908, 0, S * 0.062, S);
+    x.fillStyle = '#00e8d4'; x.fillRect(S * 0.092, 0, S * 0.030, S); x.fillRect(S * 0.878, 0, S * 0.030, S);
+    x.fillStyle = 'rgba(255,255,255,0.92)';
+    for (let i = 0; i < 8; i++) { x.fillRect(S * 0.034, i * S / 8, S * 0.054, S / 18); x.fillRect(S * 0.912, i * S / 8, S * 0.054, S / 18); }
+    // forward chevrons — direction of travel, and the strongest flow cue in the frame
+    x.strokeStyle = '#1163b5'; x.lineWidth = 13; x.lineCap = 'butt';
     for (let i = 0; i < 4; i++) { const y = i * S / 4 + S * 0.10;
-      x.beginPath(); x.moveTo(S * 0.30, y + S * 0.075); x.lineTo(S * 0.5, y); x.lineTo(S * 0.70, y + S * 0.075); x.stroke(); }
+      x.beginPath(); x.moveTo(S * 0.31, y + S * 0.078); x.lineTo(S * 0.5, y); x.lineTo(S * 0.69, y + S * 0.078); x.stroke(); }
+    x.strokeStyle = '#ffd23b'; x.lineWidth = 4;
+    for (let i = 0; i < 4; i++) { const y = i * S / 4 + S * 0.10;
+      x.beginPath(); x.moveTo(S * 0.31, y + S * 0.100); x.lineTo(S * 0.5, y + S * 0.022); x.lineTo(S * 0.69, y + S * 0.100); x.stroke(); }
     // lane hints at the racing-line offsets, so the fast line is legible from inside the pod
-    x.fillStyle = 'rgba(255,210,59,0.35)';
-    for (let i = 0; i < 16; i++) { x.fillRect(S * 0.245, i * S / 16, 4, S / 32); x.fillRect(S * 0.751, i * S / 16, 4, S / 32); }
+    x.fillStyle = 'rgba(255,138,26,0.55)';
+    for (let i = 0; i < 16; i++) { x.fillRect(S * 0.245, i * S / 16, 6, S / 30); x.fillRect(S * 0.749, i * S / 16, 6, S / 30); }
     return texOf(c, true, true);
   }
   function padTex() {
@@ -487,7 +538,7 @@
      * gantries every 112 u are the landmark that tells you WHERE on the lap you are, which is what
      * makes a circuit learnable. All of it goes into two meshes, so the whole circuit is 5 draws. */
     const seg = track.len / N;
-    for (let d = 0; d < track.len; d += 21) {
+    if (WANT_FURN) for (let d = 0; d < track.len; d += 21) {
       const i = CR.nodeAt(nodes, track.len, d), n = nodes[i];
       for (const sgn of [-1, 1]) {
         const base = [n.p[0] + n.right[0] * (HW + 1.5) * sgn, n.p[1] + n.right[1] * (HW + 1.5) * sgn, n.p[2] + n.right[2] * (HW + 1.5) * sgn];
@@ -496,7 +547,7 @@
         rail.box(base[0] + n.up[0] * 3.1, base[1] + n.up[1] * 3.1, base[2] + n.up[2] * 3.1, 0.62, 0.30, 0.30, B);
       }
     }
-    for (let d = 0; d < track.len; d += 112) {
+    if (WANT_FURN) for (let d = 0; d < track.len; d += 112) {
       const i = CR.nodeAt(nodes, track.len, d), n = nodes[i], B = [n.right, n.up, n.fwd];
       const top = 7.4;
       for (const sgn of [-1, 1]) {
@@ -518,9 +569,9 @@
     }
 
     const matDeck = flatMat('cr-deck', 1, 1, 1, { map: TEX.track, tiling: [1, 1], gloss: 0.30 });
-    const matUnder = flatMat('cr-under', 0.10, 0.60, 0.78, { gloss: 0.2 });
-    const matRail = flatMat('cr-rail', 1, 1, 1, { emissive: [1.0, 0.16, 0.85], emissiveIntensity: 1.5, gloss: 0.4 });
-    const matPost = flatMat('cr-post', 0.16, 0.20, 0.30, { gloss: 0.35 });
+    const matUnder = flatMat('cr-under', 0.03, 0.42, 0.66, { gloss: 0.2 });
+    const matRail = flatMat('cr-rail', 0.9, 0.05, 0.55, { emissive: [0.95, 0.05, 0.62], emissiveIntensity: 1.1, gloss: 0.4 });
+    const matPost = flatMat('cr-post', 0.09, 0.14, 0.34, { gloss: 0.35 });
     const matPad = flatMat('cr-pad', 1, 1, 1, { map: TEX.pad, emissiveMap: TEX.pad, emissiveIntensity: 1.9, gloss: 0.5 });
     const parts = [[deck, matDeck], [under, matUnder], [rail, matRail], [post, matPost], [pad, matPad]];
     const mis = [];
@@ -630,8 +681,10 @@
     app.root.addChild(cloudRoot);
   }
   let puffs = [], wisps = [];
+  const WANT_CLOUDS = onq('clouds', true), WANT_FURN = onq('furn', true);
   function seedClouds(track) {
     puffs = []; wisps = [];
+    if (!WANT_CLOUDS) return;
     const R = CR.rng(4242);
     // mid-field: hung around the circuit so they parallax against it as you go round
     for (let i = 0; i < QC.puffs; i++) {
@@ -814,8 +867,18 @@
 
   // ══ DEV / VERIFICATION HOOKS ════════════════════════════════════════════════════════════════
   window.__crpc = {
-    app, get G() { return G; }, get T() { return T; },
+    app, get G() { return G; }, get T() { return T; }, marks: MARKS,
     startRace, hold: v => { HOLD = !!v; },
+    /* ⚠ A SWEEP MUST HOLD THE SAME FRAME, AND `hold()` ALONE DOES NOT. Freezing the sim stops it
+     * wherever the pod happened to get to, which depends on how many frames rendered — so two runs
+     * of the same sweep measured two different viewpoints and disagreed by 32 luma and 18 points of
+     * saturation. Rows inside one run were still comparable; rows across runs were not, and that is
+     * exactly the kind of number that gets published by mistake. Park the pod at a fixed place. */
+    _pose(s, lx, v) { if (!G) return null; G.me.s = s == null ? 300 : s; G.me.lx = lx == null ? 0 : lx;
+      G.me.v = v == null ? PACE.CRUISE : v; G.me.lean = 0; G.me.slip = 0; G.started = true; G.countdown = 0;
+      camState = null; syncPods(); applyCamera(0);
+      writeClouds([cam.getPosition().x, cam.getPosition().y, cam.getPosition().z], G.me.s);
+      HOLD = true; return { s: G.me.s, lx: G.me.lx, v: G.me.v }; },
     s() { return G ? { t: +G.t.toFixed(2), lap: G.me.lap, place: G.me.place, v: Math.round(G.me.v),
       boostE: +G.me.boostE.toFixed(2), boosting: G.me.boosting, slip: +(G.me.slip || 0).toFixed(3),
       over: G.over, started: G.started, tier: TIER } : { lobby: true, tier: TIER }; },
@@ -844,7 +907,11 @@
       for (const frac of [0, 0.2, 0.4, 0.6, 0.8]) {
         G.me.s = T.len * frac; G.me.lx = 0; G.me.lean = 0;
         camState = null; const P = applyCamera(0);
-        app.root.syncHierarchy();
+        /* ⚠ `worldToScreen` uses the camera's cached view-projection, which is only refreshed when
+         * the camera actually renders. Moving the camera and projecting in the same tick reads the
+         * PREVIOUS frame's matrices — which is why the first run of this test reported screenDx
+         * −10998 at one heading while the vector test said everything matched. Render, then ask. */
+        app.root.syncHierarchy(); app.render();
         const f = cam.forward, r = cam.right;
         const dotF = f.x * P.fwd[0] + f.y * P.fwd[1] + f.z * P.fwd[2];
         const dotR = r.x * P.right[0] + r.y * P.right[1] + r.z * P.right[2];

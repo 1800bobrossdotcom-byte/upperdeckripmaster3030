@@ -398,6 +398,7 @@
     keys[e.key] = true; if (e.key.toLowerCase) keys[e.key.toLowerCase()] = true;
     if (e.key === 'p' || e.key === 'P') togglePause();
     if (e.key === 'm' || e.key === 'M') toggleSfx();
+    if (e.key === 'b' || e.key === 'B') useBomb();
   });
   addEventListener('keyup', e => { keys[e.key] = false; if (e.key.toLowerCase) keys[e.key.toLowerCase()] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -450,10 +451,7 @@
   }
   let AUTOFIRE = true;
 
-  function useBomb() {
-    if (G.mode !== 'play') return;
-    for (const e of G.enemies) if (e.state === 'dive' || e.state === 'beam') e.hp = 0;
-  }
+  function useBomb() { if (RRGame.burn(G)) blip(180, 1400, 0.35, 'sawtooth', 0.2); }
 
   // ── SFX (the existing oscillator kit, unchanged in character) ───────────────────────────────
   let AC = null, sfxOn = true;
@@ -473,6 +471,35 @@
       for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
       const g = a.createGain(); g.gain.value = vol; n.buffer = b; n.connect(g).connect(a.destination); n.start(); } catch (e) {}
   }
+  /* The old build's oscillator kit, kept in character — this cabinet's voice is the artist's, not
+   * a sample pack. Driven off `G.ev`, which the simulation appends to and this drains once per
+   * frame. ⚠ COALESCED: at 120 Hz the sim can queue a dozen 'fire' events between two frames, and
+   * playing all of them is a buzz rather than a shot. One of each kind per frame, and the loudest
+   * events win the frame. */
+  function playEvents() {
+    if (!G.ev.length) return;
+    const seen = Object.create(null);
+    for (const k of G.ev) seen[k] = (seen[k] || 0) + 1;
+    G.ev.length = 0;
+    if (seen.die) { noise(0.45, 0.4); blip(140, 38, 0.42, 'sawtooth', 0.22); blip(66, 30, 0.5, 'sine', 0.2); }
+    else if (seen.rip) { blip(180, 1500, 0.5, 'sine', 0.16); blip(90, 40, 0.5, 'sawtooth', 0.14); }
+    else if (seen.hurt) { noise(0.15, 0.26); blip(240, 60, 0.2, 'sawtooth', 0.16); }
+    if (seen.dual) { blip(420, 1400, 0.22, 'triangle', 0.16); setTimeout(() => blip(700, 1900, 0.2, 'triangle', 0.14), 110); }
+    if (seen.perfect) { [0, 120, 240, 380].forEach((d, i) => setTimeout(() => blip(600 + i * 220, 1400 + i * 260, 0.16, 'square', 0.13), d)); }
+    else if (seen.clear) { blip(520, 1400, 0.22, 'triangle', 0.12); setTimeout(() => blip(770, 1650, 0.14, 'triangle', 0.1), 90); }
+    if (seen.wave) blip(280, 900, 0.26, 'sine', 0.11);
+    if (seen.burn) { noise(0.4, 0.34); blip(180, 60, 0.35, 'sawtooth', 0.18); }
+    if (seen.bigkill) { noise(0.3, 0.3); blip(300, 70, 0.28, 'sawtooth', 0.18); }
+    else if (seen.divekill) { blip(1320, 380, 0.08, 'square', 0.12); noise(0.05, 0.14); }
+    else if (seen.kill) { blip(1080, 340, 0.07, 'square', 0.10); noise(0.045, 0.11); }
+    if (seen.ping) { blip(320, 120, 0.05, 'square', 0.07); }
+    if (seen.pow) { blip(520, 900, 0.08, 'square', 0.14); setTimeout(() => blip(900, 1500, 0.1, 'square', 0.14), 70); }
+    /* the shot is quieter than everything it might hit, on purpose: with autofire on it is the
+     * most frequent sound in the game and it must not become the loudest thing in the mix. */
+    if (seen.fire) { blip(940 + (Math.random() * 110 - 55), 190, 0.05, 'square', 0.055); }
+    if (seen.efire) { blip(420, 150, 0.06, 'sawtooth', 0.05); }
+  }
+
   const music = $('rrMusic'); let musicOn = true;
   function playMusic() { if (!musicOn) return; try { music.volume = 0.5; const p = music.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 
@@ -504,26 +531,37 @@
   }
   seedStars();
 
+  /* The hue field, sampled at a grid VERTEX rather than at a cell centre — that is what lets the
+   * quads share corner colours and interpolate into a continuous field instead of a tiled wall. */
+  const _bgc = [0, 0, 0, 255];
+  function bgColour(u, v, t, hue0, boost, out) {
+    const w = Math.sin(u * 5.1 + t * 0.7) * Math.cos(v * 4.3 - t * 0.53) * 0.5 + 0.5;
+    const w2 = Math.sin((u + v) * 7.7 - t * 1.1) * 0.5 + 0.5;
+    const c = fx.hsl((hue0 + w * 150 + w2 * 60) % 360, 0.95, (0.045 + w * 0.075 + w2 * 0.035) * boost);
+    out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; out[3] = 255;
+    return out;
+  }
+  const _c0 = [0, 0, 0, 255], _c1 = [0, 0, 0, 255], _c2 = [0, 0, 0, 255], _c3 = [0, 0, 0, 255];
   function drawBackdrop(t) {
-    /* A vertex-coloured field, 8×6 quads, sitting far behind everything. It is the "screen-filling
-     * colour" half of the brief and it costs one opaque draw call: two travelling sine lobes over
-     * a hue that drifts with the chain block and the wave. Deliberately not a texture — a
-     * generated field can be moved by the game state, and this studio does not ship sampled art
-     * it does not own anyway. */
-    const CX = 9, CY = 7, Zb = -46, EX = 62, EY = 44;
+    /* A vertex-coloured field far behind everything: two travelling sine lobes over a hue that
+     * drifts with the chain block and the wave. This is the "screen-filling colour" half of the
+     * brief and it costs one opaque draw call. Deliberately generated rather than a texture — a
+     * generated field can be moved by the game state, and this studio does not ship sampled art it
+     * does not own anyway. */
+    const CX = 10, CY = 8, Zb = -46, EX = 66, EY = 48;
     const hue0 = (G.market.hue + t * 8 + G.wave * 37) % 360;
     const boost = (G.phase === 'clear' ? 1.5 : 1) * BG_K;
-    for (let j = 0; j < CY; j++) {
-      for (let i = 0; i < CX; i++) {
-        const u = i / (CX - 1) - 0.5, v = j / (CY - 1) - 0.5;
-        const w = Math.sin(u * 5.1 + t * 0.7) * Math.cos(v * 4.3 - t * 0.53) * 0.5 + 0.5;
-        const w2 = Math.sin((u + v) * 7.7 - t * 1.1) * 0.5 + 0.5;
-        const h = (hue0 + w * 150 + w2 * 60) % 360;
-        // dim: additive bloom will lift this a long way, and a bright backdrop eats the enemies
-        const l = (0.045 + w * 0.075 + w2 * 0.035) * boost;
-        const c = fx.hsl(h, 0.95, l);
-        const x = u * EX, y = v * EY, sx = EX / (CX - 1) * 0.62, sy = EY / (CY - 1) * 0.62;
-        fx.oriented(fx.B, fx.C_FLAT, x, y, Zb, sx, 0, 0, 0, sy, 0, c[0], c[1], c[2], 255);
+    const du = 1 / (CX - 1), dv = 1 / (CY - 1);
+    const hw = EX / (CX - 1) * 0.5, hh = EY / (CY - 1) * 0.5;
+    for (let j = 0; j < CY - 1; j++) {
+      for (let i = 0; i < CX - 1; i++) {
+        const u0 = i * du - 0.5, v0 = j * dv - 0.5, u1 = u0 + du, v1 = v0 + dv;
+        bgColour(u0, v0, t, hue0, boost, _c0);
+        bgColour(u1, v0, t, hue0, boost, _c1);
+        bgColour(u1, v1, t, hue0, boost, _c2);
+        bgColour(u0, v1, t, hue0, boost, _c3);
+        fx.gouraud(fx.B, fx.C_FLAT, (u0 + u1) * 0.5 * EX, (v0 + v1) * 0.5 * EY, Zb,
+          hw, 0, 0, 0, hh, 0, _c0, _c1, _c2, _c3);
       }
     }
   }
@@ -588,9 +626,14 @@
       fx.oriented(fx.C, cell, e.x, e.y, e.z, _cb[0], _cb[1], _cb[2], _cb[3], _cb[4], _cb[5], r, g, b, 255);
       // aura — a diver's is much hotter, because the diver is what you are supposed to look at
       const diving = e.state === 'dive' || e.state === 'beam';
+      /* ⚠ THE AURAS WERE EATING THE ARTWORK. At radius 1.5-2.4× the card and alpha 46/118 they
+       * rendered as soft blobs with a card somewhere inside — visible immediately in the first
+       * clean screenshot. These are trading cards; the art is the point. The aura is now a HALO
+       * that sits just outside the silhouette, and only a DIVER gets a hot one, which also makes
+       * "which of these is about to kill me" readable at a glance. */
       const c = fx.hsl(e.hue + (diving ? 0 : 40), 0.95, diving ? 0.62 : 0.42);
-      const ar = sz * (diving ? 2.4 : 1.5) * (1 + 0.12 * Math.sin(t * 7 + e.id));
-      fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 118 : 46);
+      const ar = sz * (diving ? 1.5 : 0.92) * (1 + 0.10 * Math.sin(t * 7 + e.id));
+      fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 80 : 18);
       if (e.kind === 2) {
         const rc = fx.hsl(310, 1, 0.6);
         fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * (2.2 + 0.3 * Math.sin(t * 5)), rc[0], rc[1], rc[2], 150);
@@ -635,7 +678,7 @@
       if (!p.boom) continue;
       /* An explosion is a ring plus a scatter of embers. Both are one quad each; the whole point
        * of the batcher is that a 30-kill bomb costs 30× nothing. */
-      const u = p.t / p.life, big = p.big ? 2.2 : 1;
+      const u = p.t / p.life, big = p.big ? 1.5 : 1;
       const c = fx.hsl(p.hue, 1, 0.62);
       fx.billboard(fx.A, fx.C_RING, p.x, p.y, p.z, (0.3 + u * 3.2) * big, c[0], c[1], c[2], ((1 - u) * 255) | 0);
       const n = p.big ? 14 : 7;
@@ -728,6 +771,7 @@
 
     readInput();
     if (!HOLD) RRGame.step(G, dt, input);
+    playEvents();
     if (G.mode === 'over' && !overShown) showOver();
 
     // camera: a shake and a gentle push toward the action. Never a roll — this is a fixed cabinet
@@ -747,6 +791,15 @@
     drawBullets(t);
     drawPows(t);
     drawShip(t);
+    /* the hit/burn flash. A quad just in front of the camera in the ADDITIVE layer, so it lifts the
+     * frame rather than veiling it — a dark alpha overlay would hide the thing that just hit you,
+     * which is the one moment you need to see. */
+    if (G.flash > 0.01) {
+      const k = G.flash, c = fx.hsl(G.market.hue + 300, 1, 0.5);
+      const cz = CAM.z - 0.6, hh = Math.tan(CAM.fov * Math.PI / 360) * 0.6, hw = hh * (OW / Math.max(1, OH));
+      fx.oriented(fx.A, fx.C_FLAT, 0, CAM.y, cz, hw * 1.3, 0, 0, 0, hh * 1.3, 0,
+        c[0], c[1], c[2], (k * 90) | 0);
+    }
     fx.end();
 
     if (ditherOn) { try { app.graphicsDevice.scope.resolve('rrGrainT').setValue(t); } catch (e) {} }
@@ -764,7 +817,8 @@
     dom.wave.innerHTML = 'wave <b>' + G.wave + '</b> · ' + (G.alive || 0) + ' up · ' + (G.diving || 0) + ' diving';
     dom.chain.innerHTML = '×' + G.mult + ' <small>chain ' + G.chain + '</small>';
     dom.chain.style.color = G.mult >= 4 ? '#ff2ad9' : G.mult >= 2 ? '#ffd23b' : '#2bff80';
-    dom.lives.textContent = '◆'.repeat(Math.max(0, Math.min(6, G.lives))) + (G.ship.dual ? ' ⧉⧉' : '');
+    dom.lives.textContent = '◆'.repeat(Math.max(0, Math.min(6, G.lives)))
+      + (G.ship.dual ? ' ⧉⧉' : '') + (G.bombs > 0 ? '  ✸' + G.bombs : '');
     dom.gun.innerHTML = '⚙ ' + RRGame.GUNS[clamp(G.ship.gun - 1, 0, RRGame.GUNS.length - 1)].name
       + (G.ship.rapid > 0 ? ' <span style="color:#27f7e4">»rapid</span>' : '');
     dom.wx.innerHTML = '◉ <span class="blk">block ' + (G.market.block ? G.market.block.toLocaleString('en-US') : '—') + '</span> · <b>' + G.market.weather + '</b>';

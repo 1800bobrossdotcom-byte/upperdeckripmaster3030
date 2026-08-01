@@ -605,6 +605,12 @@ def build_lido(seed=3030):
                      [(hgt + 0.26, 0.30), (hgt + 0.40, 0.24), (hgt + 2.10, 0.22),
                       (hgt + 2.30, 0.28)], seg=8, label='belv_pier')
             q.emit()
+        # ⚑ THE `_cap` SUFFIX IS LOAD-BEARING and it was found by looking, not by design.
+        #   section9-world's kindOf sends /cap\b/ to `cover`, which s9pc-world maps to the
+        #   cool-steel `metal` class — so the belvedere roofs come out lead-blue. In a frame that
+        #   is otherwise cream plaster, sand and terracotta they are the only cool accent and the
+        #   only thing that reads as a roof rather than as more masonry, so the name stays.
+        #   Rename it and you get two more cream boxes on the skyline.
         q = ka.GPart('twr_%s_cap' % side)                        # pyramid + finial
         ka.prism(q, [(ka.octa_plan(x0 - 0.3, z0 - 0.3, x1 + 0.3, z1 + 0.3, 0.7), hgt + 2.30),
                      (ka.octa_plan(x0 + 0.1, z0 + 0.1, x1 - 0.1, z1 - 0.1, 0.7), hgt + 2.62),

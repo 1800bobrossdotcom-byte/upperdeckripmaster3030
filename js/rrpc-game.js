@@ -49,7 +49,6 @@
  */
 window.RRGame = (function () {
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const lerp = (a, b, t) => a + (b - a) * t;
   const TAU = Math.PI * 2;
 
   // ── the field ───────────────────────────────────────────────────────────────────────────────
@@ -68,7 +67,6 @@ window.RRGame = (function () {
     FORMY: 4.05,               // top row
     FORMZ: -1.2, ROWZ: 0.22,   // rows step toward the camera so the grid has depth
     ZNEAR: 2.6,                // a diver may come this far past the formation plane
-    ZFAR: -9,
   };
 
   // ── enemy kinds ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +108,7 @@ window.RRGame = (function () {
       ship: { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, alive: true, respawn: 0, inv: 2,
               dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0 },
       enemies: [], bullets: [], ebullets: [], pops: [], beams: [], pows: [],
-      chain: 0, mult: 1, bestChain: 0,
+      chain: 0, mult: 1, bestChain: 0, bombs: 1,
       shots: 0, hits: 0, waveShots: 0, waveHits: 0,
       shake: 0, flash: 0, dist: 0,
       /* set by the app from RipPowers — the staked deck is allowed to change the numbers, which is
@@ -121,7 +119,12 @@ window.RRGame = (function () {
       market: { hue: 168, heat: 1, block: 0, weather: 'reading chain…' },
       rng: mulberry32(0x1234),
       diveT: 1.1, ripper: null, captive: null,
-      stat: { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, dByShot: 0, dByRam: 0, dByRip: 0 },
+      /* ⚑ SOUND WITHOUT A DEPENDENCY. The simulation must not know that an AudioContext exists —
+       * it is measured headlessly and it has to run with no DOM at all. So it appends event names
+       * to `ev` and js/rrpc-app.js drains the queue each frame. One array, no callbacks to wire up
+       * per event, and a headless run can assert on the queue instead of on a speaker. */
+      ev: [],
+      stat: { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0 },
     };
     return G;
   }
@@ -154,11 +157,16 @@ window.RRGame = (function () {
       count: bonus ? 16 : Math.min(36, 24 + (w - 1) * 2),
       diveGap: Math.max(0.30, 1.15 - (w - 1) * 0.085),
       maxDive: Math.min(7, 2 + Math.floor(w * 0.8)),
-      /* ⚠ eFire STARTED AT 0.85 AND WAVE 1 WAS UNSURVIVABLE. Measured with a dodging bot: three
-       * lives gone in 9 seconds, never reaching wave 2. Density is the brief; a wave-1 wall is
-       * just the opposite failure with better production values. 0.5 with a steeper ramp keeps
-       * the opening readable and gets to the same place by wave 5. */
-      eFire: bonus ? 0 : Math.min(2.6, 0.5 + (w - 1) * 0.18),
+      /* ⚠ eFire IS THE DIFFICULTY DIAL AND IT TOOK THREE PASSES TO GET RIGHT. 0.85 first: measured
+       * with a dodging bot, three lives gone in 9 seconds and wave 2 never reached. 0.50 next:
+       * still 3-4 deaths inside 15 seconds, and the death-cause counters said all of them were
+       * BULLETS (dByShot 3, dByRam 0, dByRip 0) — which is what sent this here rather than to the
+       * collision boxes. Density is the brief; a wall of aimed fire on wave 1 is just the opposite
+       * failure with better production values, and it is the one that makes a game feel unfair
+       * rather than hard. 0.34 opens with roughly one bullet in the air and the steeper 0.26 ramp
+       * still reaches the old 0.85 by wave 3 and the cap by wave 10. The pressure on wave 1 is
+       * meant to come from DIVERS and from things filling the screen — those never went down. */
+      eFire: bonus ? 0 : Math.min(2.6, 0.34 + (w - 1) * 0.26),
       speed: Math.min(2.1, 1 + (w - 1) * 0.075),
       ripper: !bonus && w >= 2,
     };
@@ -206,6 +214,7 @@ window.RRGame = (function () {
       if (mid) { mid.kind = 2; mid.hp = KIND[2].hp; G.ripper = mid; }
     }
     G.stat.waves++;
+    G.ev.push('wave');
     G.bigMsg = spec.bonus ? 'CHALLENGE ·  N O   S H O O T I N G' : 'WAVE ' + w;
     G.bigMsgT = 1.6;
   }
@@ -236,7 +245,10 @@ window.RRGame = (function () {
     e.u = 0;
     e.dur = (1.55 + rng() * 0.5) / G.spec.speed;
     e.state = 'dive';
-    e.fireT = 0.18 + rng() * 0.2;
+    /* the first shot lands 0.4-0.7 s into the dive, not 0.2 — a diver shot down on approach should
+     * not already have fired. It is what makes shooting the divers (the thing worth 3×) also the
+     * thing that reduces incoming fire, instead of two unrelated decisions. */
+    e.fireT = 0.4 + rng() * 0.3;
     e.dived++;
     G.stat.dives++;
   }
@@ -314,6 +326,7 @@ window.RRGame = (function () {
       }
     }
     G.muzzle = 1;
+    G.ev.push('fire');
   }
 
   function eFire(G, e) {
@@ -326,6 +339,7 @@ window.RRGame = (function () {
     G.ebullets.push({ x: e.x, y: e.y - 0.2, z: e.z, vx: dx / L * EBOLT_V, vy: dy / L * EBOLT_V,
       vz: dz / L * EBOLT_V, hue: e.hue, live: true, seen: false });
     G.stat.ebullets++;
+    G.ev.push('efire');
   }
 
   // ── THE RIP ─────────────────────────────────────────────────────────────────────────────────
@@ -343,10 +357,10 @@ window.RRGame = (function () {
   }
   function rip(G) {
     const s = G.ship;
-    s.alive = false; s.respawn = 1.5; G.lives--;
+    s.alive = false; s.respawn = 1.5; G.lives--; G.stat.deaths++;
     G.captive = { hue: G.ripper ? G.ripper.hue : 300, freed: false };
     s.ripped = true; s.dual = false;
-    G.bigMsg = '◈ RIPPED'; G.bigMsgT = 1.8; G.shake = Math.max(G.shake, 22); G.flash = 1;
+    G.bigMsg = '◈ RIPPED'; G.bigMsgT = 1.8; G.ev.push('rip'); G.shake = Math.max(G.shake, 22); G.flash = 1;
     if (G.lives <= 0) { G.mode = 'over'; }
   }
 
@@ -418,7 +432,18 @@ window.RRGame = (function () {
     for (const e of G.enemies) {
       if (e.state === 'dead') continue;
       alive++;
-      e.tumble += e.spin * h;
+      /* ⚑ TUMBLE ONLY WHILE MOVING. Everything spun at up to 0.54 rev/s including the parked
+       * formation, so every enemy was edge-on about half the time and the whole grid read as a
+       * field of glowing blobs with a card flickering inside — clearly visible in the first clean
+       * screenshot. These are TRADING CARDS and the art is the entire point of the game being
+       * this game. So a parked enemy settles face-on with a slow wobble, and only an entry or a
+       * dive tumbles. It is also information: the things spinning are the things attacking. */
+      if (e.state === 'form') {
+        const want = Math.sin(G.waveT * 0.8 + e.id * 0.9) * 0.34;
+        e.tumble += (want - e.tumble) * Math.min(1, h * 3.4);
+      } else {
+        e.tumble += e.spin * h;
+      }
       if (e.hurt > 0) e.hurt -= h;   // decayed HERE, not in the renderer: a draw pass that
                                      // mutates the simulation is frame-rate dependent by construction
 
@@ -468,7 +493,8 @@ window.RRGame = (function () {
         if (e.u >= 1) returnPath(G, e, rng);
       } else if (e.state === 'beam') {
         e.beamT += h;
-        e.y += (0.4 - e.y) * Math.min(1, h * 1.6) * 0;      // the ripper HOLDS — it is a sitting duck
+        // the ripper HOLDS position while the beam is open — it is a sitting duck, and that is
+        // the window the whole gamble is built around
         e.roll = Math.sin(e.beamT * 9) * 0.35;
         if (e.beamT > 1.5) { divePath(G, e, rng); }
       }
@@ -544,7 +570,7 @@ window.RRGame = (function () {
           e.hp -= b.dmg;
           e.hurt = 0.25;
           hitScored(G);
-          if (e.hp <= 0) killEnemy(G, e);
+          if (e.hp <= 0) killEnemy(G, e); else G.ev.push('ping');
           break;
         }
       }
@@ -613,13 +639,14 @@ window.RRGame = (function () {
     e.state = 'dead'; e.deadT = 0;
     G.pops.push({ x: e.x, y: e.y, z: e.z, boom: 1, t: 0, life: 0.6, hue: e.hue, big: e.kind === 2 });
     G.shake = Math.max(G.shake, e.kind === 2 ? 16 : 5);
+    G.ev.push(e.kind === 2 ? 'bigkill' : (diving ? 'divekill' : 'kill'));
     if (G.phase === 'bonus') { award(G, 200, e.x, e.y, e.z); return; }
     if (e === G.ripper) {
       G.ripper = null;
       if (G.captive && diving) {
         /* THE RESCUE. Only from a dive, and this is the branch the whole mechanic exists for. */
         G.captive = null; G.ship.ripped = false; G.ship.dual = true;
-        G.bigMsg = '★ DOUBLE RIG'; G.bigMsgT = 2.0;
+        G.bigMsg = '★ DOUBLE RIG'; G.bigMsgT = 2.0; G.ev.push('dual');
         award(G, 2500, e.x, e.y, e.z, true);
       } else if (G.captive) {
         G.captive = null; G.ship.ripped = false;
@@ -636,17 +663,22 @@ window.RRGame = (function () {
     }
   }
 
+  /* ⚠ `deaths` is counted where the life is actually spent, and the dBy* counters where the CAUSE
+   * is known. They are deliberately separate: an early version had only the cause counters and
+   * they summed to one less than the lives lost, which is exactly the shape of bug that makes a
+   * difficulty argument unfalsifiable. Two independent counts disagreeing is a signal; one count
+   * is just a number. */
   function hitShip(G) {
     const s = G.ship;
     if (s.dual) {
       /* the double rig is spent as ARMOUR, not deleted outright — losing both ships to one bullet
        * after the gamble paid off would make the gamble not worth taking. */
-      s.dual = false; s.inv = 1.4; G.shake = Math.max(G.shake, 14); G.flash = 0.7;
+      s.dual = false; s.inv = 1.4; G.shake = Math.max(G.shake, 14); G.flash = 0.7; G.ev.push('hurt');
       G.msg = 'rig split'; G.msgT = 1.1; return;
     }
-    s.alive = false; s.respawn = 1.4; G.lives--;
+    s.alive = false; s.respawn = 1.4; G.lives--; G.stat.deaths++;
     G.chain = 0; G.mult = 1;
-    G.shake = Math.max(G.shake, 20); G.flash = 1;
+    G.shake = Math.max(G.shake, 20); G.flash = 1; G.ev.push('die');
     G.pops.push({ x: s.x, y: s.y, z: 0, boom: 1, t: 0, life: 0.9, hue: 40, big: true });
     if (G.lives <= 0) G.mode = 'over';
   }
@@ -660,6 +692,7 @@ window.RRGame = (function () {
     if (perfect) { G.bigMsg = 'PERFECT · 10,000'; G.bigMsgT = 2.4; G.score += 10000; }
     else { G.bigMsg = 'WAVE CLEAR · ' + Math.round(acc * 100) + '% · +' + bonus.toLocaleString('en-US'); G.bigMsgT = 2.0; G.score += bonus; }
     G.ebullets.length = 0; G.beams.length = 0;
+    G.ev.push(perfect ? 'perfect' : 'clear');
   }
 
   // ── power-ups ───────────────────────────────────────────────────────────────────────────────
@@ -674,11 +707,27 @@ window.RRGame = (function () {
         if (p.type === 'gun') { s.gun = Math.min(GUNS.length, s.gun + 1); G.msg = 'GUN ▲ ' + GUNS[s.gun - 1].name; }
         else if (p.type === 'rapid') { s.rapid = 7; G.msg = '» RAPID'; }
         else if (p.type === 'shield') { G.lives = Math.min(6, G.lives + 1); G.msg = '◆ +1 RIG'; }
-        else { for (const e of G.enemies) if (e.state !== 'dead' && e.state !== 'entry') killEnemy(G, e); G.msg = '✸ BURN BOMB'; G.flash = 1; }
-        G.msgT = 1.2;
+        else { G.bombs = Math.min(3, G.bombs + 1); G.msg = '✸ +BURN'; }
+        G.msgT = 1.2; G.ev.push('pow');
       }
     }
     if (G.pows.length) G.pows = G.pows.filter(p => p.live);
+  }
+
+  /* THE BURN. Stored, not spent on pickup — a screen-clear that fires itself the moment you touch
+   * it is a pickup, not a decision, and the touch build had it wired to a pad with no cost at all.
+   * It kills DIVERS only: clearing the parked formation would delete the wave, and the wave is the
+   * thing you are supposed to be fighting through. */
+  function burn(G) {
+    if (G.mode !== 'play' || G.bombs <= 0) return false;
+    G.bombs--;
+    let n = 0;
+    for (const e of G.enemies) if (e.state === 'dive' || e.state === 'beam') { killEnemy(G, e); n++; }
+    G.flash = 1; G.shake = Math.max(G.shake, 12);
+    G.ev.push('burn');
+    G.msg = n ? '✸ BURN · ' + n : '✸ BURN';
+    G.msgT = 1.1;
+    return true;
   }
 
   // ── the frame entry point ───────────────────────────────────────────────────────────────────
@@ -691,12 +740,13 @@ window.RRGame = (function () {
     while (acc >= H && n < MAXSUB) { tick(G, H, input); stepPows(G, H); acc -= H; n++; }
     if (n >= MAXSUB) acc = 0;             // give up rather than spiral; the alternative is a freeze
     G.stat.subSteps = n;
+    if (G.ev.length > 200) G.ev.splice(0, G.ev.length - 200);   // never unbounded, even undrained
     return n;
   }
 
   function start(G, staked) {
     G.mode = 'play'; G.t = 0; G.score = 0; G.wave = 1; G.lives = 3 + (G.loadout.shield || 0);
-    G.staked = !!staked; G.chain = 0; G.mult = 1; G.bestChain = 0;
+    G.staked = !!staked; G.chain = 0; G.mult = 1; G.bestChain = 0; G.bombs = 1;
     G.shots = 0; G.hits = 0; G.dist = 0;
     G.bullets.length = 0; G.pops.length = 0; G.pows.length = 0;
     G.captive = null;
@@ -704,10 +754,11 @@ window.RRGame = (function () {
       inv: 1.4, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0 });
     if (G.loadout.guns && G.loadout.guns.indexOf('laser') >= 0) G.ship.gun = 4;
     else if (G.loadout.guns && G.loadout.guns.indexOf('spread') >= 0) G.ship.gun = 2;
-    G.stat = { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, dByShot: 0, dByRam: 0, dByRip: 0 };
+    G.ev.length = 0;
+    G.stat = { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0 };
     acc = 0;
     buildWave(G);
   }
 
-  return { create, start, step, fire, F, KIND, GUNS, waveSpec, multOf, slotXYZ, bez, bezT, mulberry32 };
+  return { create, start, step, fire, burn, F, KIND, GUNS, waveSpec, multOf, slotXYZ, bez, bezT, mulberry32 };
 })();

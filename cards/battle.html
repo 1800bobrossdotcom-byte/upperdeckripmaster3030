@@ -271,7 +271,7 @@
    * children, so this still resolves to the overlay's own box, not the document's.)
    * z-index 9 sits ABOVE the DOM card stacks (which paint inside `.fo-side`'s own stacking context
    * at z-index auto) and BELOW the HP bars, the callout and the skip hint in js/card-fight.js.
-   * ⚑ pointer-events:none is load-bearing — tap-to-skip is a listener on `.faceoff`. */
+   * ⚑ pointer-events:none is load-bearing — tap-to-skip is a listener on `.faceoff`.
    * ⚠ `width/height:100%` IS NOT REDUNDANT NEXT TO `inset:0`. A <canvas> is a REPLACED element, and
    *   for an absolutely/fixed positioned replaced element the used width comes from its INTRINSIC
    *   size (a canvas defaults to 300×150) — `left`/`right` are then solved around it and the

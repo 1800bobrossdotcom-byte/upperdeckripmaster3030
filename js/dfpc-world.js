@@ -43,18 +43,32 @@ window.DFPCWorld = (function () {
    * ⚠ FOG AND HORIZON ARE THE SAME COLOUR ON PURPOSE. The old renderer tinted the haze with
    *   `world.fog` (a dark purple) under a dark sky, which is consistent; do the same thing under
    *   a bright sky and the far field goes MUDDY — a dark haze over a light sky is smoke. Aerial
-   *   perspective is the sky getting in the way, so it is the sky's colour by construction. */
+   *   perspective is the sky getting in the way, so it is the sky's colour by construction.
+   *
+   * ⛔ AND THE FIRST VERSION OF THIS TABLE WAS WRONG, in exactly the way `js/s9pc-world.js`
+   *   already records the expensive way: BRIGHTER IS NOT THE SAME AS MORE COLOURFUL. It used
+   *   near-white horizons (#c6ecff, #e2f6ff, #ffd9f2 — max channel 0.94–1.00) on the theory that
+   *   "high key" means "light". Measured, that frame came back luma 226.4, RMS contrast 11.9,
+   *   saturation 5.1%, mean |Laplacian| 0.80 — a flat white screen with a plane on it, and LESS
+   *   saturated than the near-black build it replaced (54.6%). The cause is the tonemapper: ACES
+   *   desaturates as it compresses toward white, so pushing values up walks the whole frame into
+   *   the part of the curve that removes chroma. High key is about the VALUE RELATIONSHIP — the
+   *   background lighter than the subject — not about the absolute number.
+   *   So every entry below now sits at a MODERATE value with REAL chroma: horizons cap around
+   *   0.84 of full and carry 25–48% saturation, zeniths and decks are properly saturated at
+   *   0.55–0.70. The silhouette job is already won at deck 0.62 against a hull at 0.22; it never
+   *   needed 0.95. */
   const SKINS = {
-    'neon grid':    { top: '#1f4fd0', hor: '#c6ecff', gnd: '#79d6cd', line: '#0a4f5c', fog: '#c6ecff',
-                      sun: '#fff3c8', glow: '#ffe27a', prop: '#123f4c', grid: '#12e0c8' },
-    'moon ocean':   { top: '#1a6fbe', hor: '#e2f6ff', gnd: '#4fb6d8', line: '#0b4d68', fog: '#e2f6ff',
-                      sun: '#ffffff', glow: '#eafcff', prop: '#0d4761', grid: '#4fe0ff' },
-    'ember canyon': { top: '#2d78cc', hor: '#ffe6c2', gnd: '#df8a3e', line: '#6f2f0e', fog: '#ffe2bc',
-                      sun: '#fff0c4', glow: '#ffd23b', prop: '#833c13', grid: '#ffae4a' },
-    'chrome city':  { top: '#1f9f96', hor: '#e6fff2', gnd: '#b3e5c6', line: '#11543c', fog: '#e6fff2',
-                      sun: '#ffffff', glow: '#9affd0', prop: '#1a5946', grid: '#2bff80' },
-    'ghost nebula': { top: '#6d3fd0', hor: '#ffd9f2', gnd: '#c39be6', line: '#43206a', fog: '#f4d8ff',
-                      sun: '#fff2ff', glow: '#ff9cf0', prop: '#472875', grid: '#c060ff' },
+    'neon grid':    { top: '#1436c8', hor: '#7cc4d6', gnd: '#2f9d90', line: '#0a3f45', fog: '#7cc4d6',
+                      sun: '#ffe9b0', glow: '#ffd66a', prop: '#12414d', grid: '#12e0c8' },
+    'moon ocean':   { top: '#0f4f9c', hor: '#82bcd6', gnd: '#2b7fa0', line: '#0a3a4e', fog: '#82bcd6',
+                      sun: '#eaf6ff', glow: '#dff2ff', prop: '#0d4761', grid: '#4fe0ff' },
+    'ember canyon': { top: '#1f66b4', hor: '#d8ab70', gnd: '#b4622a', line: '#5a2408', fog: '#d8ab70',
+                      sun: '#ffe6b4', glow: '#ffc84a', prop: '#8a3f14', grid: '#ffae4a' },
+    'chrome city':  { top: '#0f8a80', hor: '#96d2b6', gnd: '#3f9e77', line: '#0d4a36', fog: '#96d2b6',
+                      sun: '#f2fff8', glow: '#9affd0', prop: '#1a5946', grid: '#2bff80' },
+    'ghost nebula': { top: '#5228b4', hor: '#c68fd6', gnd: '#7b4fa8', line: '#341757', fog: '#c68fd6',
+                      sun: '#ffe6ff', glow: '#ff9cf0', prop: '#472875', grid: '#c060ff' },
   };
   /* NIGHT is the game's own five themes, unchanged — kept as a comparison build rather than
    * deleted, because "is the new palette actually better" is a question that needs both frames. */
@@ -74,6 +88,15 @@ window.DFPCWorld = (function () {
    * Same construction as `js/s9pc-app.js`'s skyCubemap; the gradient shape differs (this one is
    * horizon-bright all the way round, because in a flight game you spend the whole match looking
    * at the horizon and never at a wall). */
+  /* ⛔ NO GAMMA ENCODE HERE, AND THAT WAS A REAL BUG. The first version wrote
+   * `pow(col, 1/2.2) * 255` into a PIXELFORMAT_SRGBA8 texture — but an sRGB texture is DECODED by
+   * the hardware, so the shader then saw `col` as a LINEAR value, tone-mapped it and gamma-encoded
+   * it AGAIN on the way to the screen. Every authored colour came out roughly v^(1/2.2) too
+   * bright: a zenith authored at #5228b4 measured 215/185/230 on screen. Writing the raw sRGB byte
+   * means the texture decodes to the right linear value and the frame encodes back to the colour
+   * that was authored, which is also the space `material.diffuse`, `scene.fog.color` and
+   * `scene.ambientLight` are specified in — so the sky, the haze and the ground now agree by
+   * construction instead of by coincidence. Same fix in deckTexture(). */
   const CUBE_DIRS = [(s, t) => [1, -t, -s], (s, t) => [-1, -t, s], (s, t) => [s, 1, t],
                      (s, t) => [s, -1, -t], (s, t) => [s, -t, 1], (s, t) => [-s, -t, -1]];
   function skyColour(S, sunDir, dx, dy, dz) {
@@ -97,7 +120,7 @@ window.DFPCWorld = (function () {
         const s = 2 * (x + 0.5) / N - 1, t = 2 * (y + 0.5) / N - 1;
         const v = CUBE_DIRS[f](s, t), col = skyColour(S, sunDir, v[0], v[1], v[2]);
         const o = (y * N + x) * 4;
-        for (let k = 0; k < 3; k++) d[o + k] = Math.min(255, Math.pow(Math.max(0, col[k] * boost), 1 / 2.2) * 255);
+        for (let k = 0; k < 3; k++) d[o + k] = Math.min(255, Math.max(0, col[k] * boost) * 255);
         d[o + 3] = 255;
       }
       ctx.putImageData(img, 0, 0); faces.push(cv);
@@ -138,14 +161,20 @@ window.DFPCWorld = (function () {
       const n = noise(u, v) * 0.62 + noise(u * 2, v * 2) * 0.26 + noise(u * 4, v * 4) * 0.12;
       const k = 0.80 + n * 0.42;                   // patches of deck, not detail — flat fields
       const o = (y * N + x) * 4;
-      for (let c = 0; c < 3; c++) px[o + c] = Math.min(255, Math.pow(clamp(g[c] * k, 0, 1), 1 / 2.2) * 255);
+      for (let c = 0; c < 3; c++) px[o + c] = Math.min(255, clamp(g[c] * k, 0, 1) * 255);
       px[o + 3] = 255;
     }
     ctx.putImageData(img, 0, 0);
-    // the lattice, drawn on top so its colour is exact rather than blended out of the noise
-    const perUnit = N / TILE, w = Math.max(1.4, perUnit * 0.055);
-    ctx.strokeStyle = 'rgb(' + ln.map(v => Math.round(Math.pow(v, 1 / 2.2) * 255)).join(',') + ')';
-    ctx.lineWidth = w; ctx.globalAlpha = 0.9;
+    /* The lattice, drawn on top so its colour is exact rather than blended out of the noise.
+     * ⚠ WIDTH AND OPACITY ARE DOING THE JOB THE OLD RENDERER'S EMISSIVE BEAMS DID, and they have
+     * to work harder for it. Neon lines on near-black are maximal local contrast by construction —
+     * it is the same property that put half of that frame under luma 12 — whereas a dark line on
+     * a lit deck is read through a mip chain that deliberately averages it away with distance.
+     * 0.075 of a unit at full opacity is the widest the line can be before it stops reading as a
+     * grid and starts reading as tiling; below ~0.05 it mips out inside the near field. */
+    const perUnit = N / TILE, w = Math.max(2, perUnit * 0.075);
+    ctx.strokeStyle = 'rgb(' + ln.map(v => Math.round(v * 255)).join(',') + ')';
+    ctx.lineWidth = w; ctx.globalAlpha = 1;
     ctx.beginPath();
     for (let i = 0; i * STEP <= TILE + 0.001; i++) {
       const p = i * STEP * perUnit;
@@ -157,6 +186,22 @@ window.DFPCWorld = (function () {
       minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR, anisotropy: 8 });
     tex.setSource(cv); return tex;
   }
+
+  /* ⚠ FOG STARTS LATE AND DOES NOT FULLY CLOSE INSIDE THE DRAW DISTANCE, and both halves matter.
+   * Starting it early is how a bright palette turns into a flat wash — every mid-distance object
+   * gets pulled to one colour and the frame loses its depth AND its contrast in one move. Ending
+   * it AT the fog wall is the other half of the same mistake: the deck reaches sky colour well
+   * before its own far edge, so there is no horizon LINE at all and the frame is one gradient.
+   * Measured on the first attempt (0.42 → 1.05 of a 34-unit view): RMS contrast 11.9, mean
+   * |Laplacian| 0.80 — a flat screen. 0.55 → 1.12 leaves an object at the cull radius ~79% hazed:
+   * far enough that a pop is soft, near enough that the horizon is still an edge.
+   *
+   * ⛔ AND THESE ARE MODULE CONSTANTS BECAUSE THEY WERE DUPLICATED AND IT COST A WHOLE TEST RUN.
+   * `apply()` set the fog once per theme and `weather()` reset it EVERY FRAME from its own copy of
+   * the numbers, so editing apply() changed nothing at all and the measurement came back identical
+   * — which reads exactly like "the fix didn't work" rather than "the fix never ran". Two copies
+   * of a constant is one copy too many; weather() now scales these. */
+  const FOG_NEAR = 0.55, FOG_FAR = 1.12;
 
   function create(app, opt) {
     opt = opt || {};
@@ -200,11 +245,14 @@ window.DFPCWorld = (function () {
     gateMat.update();
 
     let propProto = null, propEnts = [], gateEnts = [];
-    // the fallback shape, so scenery exists from the first frame and forever if the GLB 404s
+    /* The fallback shape, so scenery exists from the first frame and forever if the GLB 404s.
+     * ⚠ IT IS NORMALISED TO HEIGHT 1 WITH ITS BASE ON THE ORIGIN, exactly like the authored mesh's
+     * `fitStanding`. Getting that wrong is invisible while the GLB loads and then makes every prop
+     * change size the moment it lands — the fallback's whole job is to be the same object. */
     function fallbackProp() {
-      const geo = new pc.BoxGeometry({ halfExtents: new pc.Vec3(0.17, 0.95, 0.17) });
+      const geo = new pc.BoxGeometry({ halfExtents: new pc.Vec3(0.09, 0.5, 0.09) });
       const m = pc.Mesh.fromGeometry(app.graphicsDevice, geo);
-      return { mesh: m, off: new pc.Vec3(0, 0.95, 0), scale: 1 };
+      return { mesh: m, off: new pc.Vec3(0, 0.5, 0), scale: 1 };
     }
     const gateGeo = new pc.TorusGeometry({ tubeRadius: 0.16, ringRadius: 1.4, segments: 28, sides: 8 });
     const gateMesh = pc.Mesh.fromGeometry(app.graphicsDevice, gateGeo);
@@ -228,15 +276,30 @@ window.DFPCWorld = (function () {
       inner.addComponent('render', { meshInstances: [mi], castShadows: true, receiveShadows: true });
       inner.setLocalPosition(P.off); inner.setLocalScale(P.scale, P.scale, P.scale);
     }
+    /* The gate lives on an inner `fit` node for the same reason the props do: the authored GLB
+     * ring is whatever radius Blender exported, and the game tests a 1.4-unit pass-through. The
+     * fit is MEASURED from the mesh (see dfpc-app loadArt) and applied here, so a replacement ring
+     * is still the size the collision actually uses. A gate that draws bigger than its hitbox is
+     * the worst possible lie: you aim at the hole and miss. */
+    let gateProto = { mesh: gateMesh, off: new pc.Vec3(0, 0, 0), scale: 1 };
     function makeGates(n) {
       while (gateEnts.length > n) { const e = gateEnts.pop(); try { e.destroy(); } catch (err) {} }
       while (gateEnts.length < n) {
         const e = new pc.Entity('gate' + gateEnts.length);
-        const mi = new pc.MeshInstance(gateMesh, gateMat, e);
-        mi.castShadow = false;
-        e.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
-        root.addChild(e); e.enabled = false; gateEnts.push(e);
+        const inner = new pc.Entity('fit');
+        e.addChild(inner); root.addChild(e); e.enabled = false;
+        e.__inner = inner; gateEnts.push(e);
       }
+      for (const e of gateEnts) rebuildGate(e);
+    }
+    function rebuildGate(e) {
+      const inner = e.__inner;
+      if (inner.render) inner.removeComponent('render');
+      const mi = new pc.MeshInstance(gateProto.mesh, gateMat, inner);
+      mi.castShadow = false;
+      inner.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
+      inner.setLocalPosition(gateProto.off);
+      inner.setLocalScale(gateProto.scale, gateProto.scale, gateProto.scale);
     }
 
     /* ── the cloud deck ─────────────────────────────────────────────────────────────────────
@@ -269,52 +332,61 @@ window.DFPCWorld = (function () {
     }
 
     // ── environment / lighting state ──────────────────────────────────────────────────────
-    const CACHE = {};
+    /* ⚠ TWO CACHES, NOT ONE, AND THE REASON IS THE SUN. The deck texture depends only on the
+     * theme, so it caches per theme and stays. The sky has the sun's GLOW baked into it, and the
+     * sun's azimuth is per MATCH (`G.sunAz = rnd(TAU)`) — cache the sky per theme and the second
+     * match on a repeated theme gets a glow in the sky pointing one way and a directional light
+     * coming from another, which reads as two suns. So the sky keys on theme + azimuth bucket and
+     * keeps ONE slot: a 128³ cubemap is ~400 KB and caching every bucket of every theme would be
+     * tens of megabytes for a texture that changes once a match. Rebuild costs ~100 ms, once, at
+     * a moment the player is already looking at a loading screen. */
+    const DECKS = {};
     let S = skinFor({ name: 'neon grid', sky: ['#12043a', '#5a0a6e'], gnd: '#060018', grid: '#27f7e4', fog: '#3a0a5e', sun: '#ff2a6d' });
     let sunDir = [0.55, 0.83, 0.0];
-    let deckTex = null, themeKey = '';
+    let themeKey = '', skyKey = '', sky = null, atlas = null;
 
-    /** called whenever the match picks a theme; cheap to call every frame, it early-outs */
+    /** called every frame with the match's theme; early-outs unless the theme or the sun moved */
     function apply(world, o) {
-      const key = (world && world.name) || 'neon grid';
-      if (key === themeKey) return;
-      themeKey = key;
+      const name = (world && world.name) || 'neon grid';
+      const bucket = Math.round(Math.atan2(sunDir[2], sunDir[0]) * 8 / Math.PI);
+      const key = name + '|' + bucket;
+      if (key === skyKey) return;
+      const themeChanged = name !== themeKey;
+      skyKey = key; themeKey = name;
       S = skinFor(world);
-      // the sun rides the theme's own azimuth (G.sunAz is per match); elevation is high and fixed
-      const C = CACHE[key] || (CACHE[key] = {});
-      if (!C.deck) C.deck = deckTexture(app, S, TILE, STEP, 512);
-      deckTex = C.deck;
-      deckMat.diffuseMap = deckTex;
-      deckMat.diffuseMapTiling = new pc.Vec2(1, 1);
-      deckMat.update();
-      if (!C.sky) {
-        try {
-          C.sky = skyCubemap(app, ENVSIZE, S, sunDir, 1);
-          /* Boosted copy for the IBL only. Outdoors the sky IS the fill light, and a cubemap
-           * authored for LOOKING at is a stop or two under what it should be for LIGHTING with —
-           * the same correction s9pc makes with its own iblBoost. */
-          const lit = skyCubemap(app, 64, S, sunDir, 1.45);
-          const src = pc.EnvLighting.generateLightingSource(lit, { size: ENVSIZE });
-          C.atlas = pc.EnvLighting.generateAtlas(src, { size: ATLAS });
-        } catch (e) { C.sky = null; C.atlas = null; }
+      if (themeChanged || !deckMat.diffuseMap) {
+        if (!DECKS[name]) DECKS[name] = deckTexture(app, S, TILE, STEP, 512);
+        deckMat.diffuseMap = DECKS[name];
+        // one tile = TILE world units across a plane that is FAR×4.8 wide; set once, never again
+        deckMat.diffuseMapTiling = new pc.Vec2(FAR * 4.8 / TILE, FAR * 4.8 / TILE);
+        deckMat.update();
       }
-      if (C.sky) { app.scene.skybox = C.sky; app.scene.skyboxMip = 0; app.scene.skyboxIntensity = S.night ? 0.7 : 1.0; }
-      if (C.atlas) app.scene.envAtlas = C.atlas;
+      try {
+        const old = sky, oldA = atlas;
+        sky = skyCubemap(app, ENVSIZE, S, sunDir, 1);
+        /* Boosted copy for the IBL only. Outdoors the sky IS the fill light, and a cubemap
+         * authored for LOOKING at is a stop or two under what it should be for LIGHTING with —
+         * the same correction s9pc makes with its own iblBoost. */
+        const lit = skyCubemap(app, 64, S, sunDir, 1.45);
+        const src = pc.EnvLighting.generateLightingSource(lit, { size: ENVSIZE });
+        atlas = pc.EnvLighting.generateAtlas(src, { size: ATLAS });
+        try { lit.destroy(); } catch (e) {}
+        if (old) try { old.destroy(); } catch (e) {}
+        if (oldA) try { oldA.destroy(); } catch (e) {}
+      } catch (e) { sky = null; atlas = null; }
+      if (sky) { app.scene.skybox = sky; app.scene.skyboxMip = 0; app.scene.skyboxIntensity = S.night ? 0.7 : 1.0; }
+      if (atlas) app.scene.envAtlas = atlas;
       /* Ambient: a slice of the sky rather than a constant. Under the high-key palettes this is
        * genuinely bright, which is what stops the underside of a hull going to black — the thing
        * that made the old frames read as cardboard cut-outs over a void. */
       const hr = hex(S.hor);
       app.scene.ambientLight = S.night ? new pc.Color(0.06, 0.06, 0.09)
-        : new pc.Color(hr[0] * 0.42, hr[1] * 0.42, hr[2] * 0.44);
+        : new pc.Color(hr[0] * 0.28, hr[1] * 0.28, hr[2] * 0.30);
       const fg = hex(S.fog);
       app.scene.fog.type = pc.FOG_LINEAR;
       app.scene.fog.color = new pc.Color(fg[0], fg[1], fg[2]);
-      /* ⚠ FOG STARTS LATE AND ENDS AT THE FOG WALL. Starting it early is how a bright palette
-       * turns into a flat wash: everything mid-distance gets pulled to one colour and the frame
-       * loses its depth AND its contrast in one move. 0.42→1.0 of the draw distance keeps the
-       * near field honest and still closes the horizon. */
-      app.scene.fog.start = FAR * 0.42;
-      app.scene.fog.end = FAR * 1.05;
+      app.scene.fog.start = FAR * FOG_NEAR;
+      app.scene.fog.end = FAR * FOG_FAR;
       const pc0 = hex(S.prop);
       propMat.diffuse = new pc.Color(pc0[0], pc0[1], pc0[2]);
       propMat.update();
@@ -325,16 +397,21 @@ window.DFPCWorld = (function () {
 
     // ── per-frame ─────────────────────────────────────────────────────────────────────────
     let nProps = 0, nGates = 0, nPuffs = 0;
-    const _v = new pc.Vec3();
     function update(G, cam, camEnt, o) {
       const WS = o.WS, F2 = o.VIEW_FAR || FAR;
       const wdel = v => { v -= Math.round(v / WS) * WS; return v; };
 
-      // the deck follows the eye and the texture slides the other way, so the lattice stays put
-      deck.setPosition(0, 0, 0);
-      deckMat.diffuseMapOffset = new pc.Vec2(cam.x / TILE, -cam.y / TILE);
-      deckMat.diffuseMapTiling = new pc.Vec2(FAR * 4.8 / TILE, FAR * 4.8 / TILE);
-      deckMat.update();
+      /* ⚑ THE DECK IS SNAPPED TO THE LATTICE, not scrolled by a UV offset. Both make the grid
+       * look world-fixed; only one of them is verifiable without a screenshot. A UV offset needs
+       * the SIGN of v against the plane's own winding to be right, and getting it backwards makes
+       * the ground slide the wrong way under you — visible, and indistinguishable from a physics
+       * bug. Moving the whole plane to the nearest multiple of the texture's own period has no
+       * sign to get wrong: the texture is fixed to the mesh and the mesh is fixed to the world.
+       * The plane is FAR×4.8 across and the offset is at most TILE/2, so coverage never runs out. */
+      const snap = v => -(v - Math.round(v / TILE) * TILE);
+      deck.setPosition(snap(cam.x), 0, snap(cam.y));
+      // ⚠ NO deckMat.update() here. The tiling never changes, and material.update() every frame
+      // re-runs the engine's shader-variant bookkeeping for a value that is already correct.
 
       // props
       const P = G.props || [];
@@ -349,7 +426,12 @@ window.DFPCWorld = (function () {
         nProps++;
         e.setPosition(dx, p.alt || 0, dz);
         e.setLocalEulerAngles(0, -(p.rot || 0) * 180 / Math.PI, 0);
-        const s = (p.s || 1) * 1.9;                  // fitStanding normalises height to 1
+        /* `fitStanding` normalises the authored prop to height 1, so this scale IS its height in
+         * world units. ×1.9 rather than ×1: the old renderer applied the 1.9 only on its
+         * PROCEDURAL path and passed the authored mesh through at ×1, which planted 0.6–1.7-unit
+         * pylons in a world where the craft itself is 0.9 — scenery smaller than the aircraft
+         * reads as litter, not landscape. One multiplier, both paths. */
+        const s = (p.s || 1) * 1.9;
         e.setLocalScale(s, s, s);
       }
 
@@ -415,8 +497,9 @@ window.DFPCWorld = (function () {
       const fg = hex(S.fog), sun = hex(S.sun);
       const wc = [fg[0] * 0.3 + sun[0] * 0.7, fg[1] * 0.3 + sun[1] * 0.7, fg[2] * 0.3 + sun[2] * 0.7];
       app.scene.fog.color = new pc.Color(fg[0] + (wc[0] - fg[0]) * k, fg[1] + (wc[1] - fg[1]) * k, fg[2] + (wc[2] - fg[2]) * k);
-      app.scene.fog.start = FAR * (0.42 - 0.36 * k);
-      app.scene.fog.end = FAR * (1.05 - 0.86 * k);
+      // inside the deck the wall comes right in — that blindness is the mechanic
+      app.scene.fog.start = FAR * (FOG_NEAR - (FOG_NEAR - 0.06) * k);
+      app.scene.fog.end = FAR * (FOG_FAR - (FOG_FAR - 0.19) * k);
       return k;
     }
 
@@ -425,12 +508,9 @@ window.DFPCWorld = (function () {
       propProto = { mesh, off: off || new pc.Vec3(0, 0, 0), scale: scale == null ? 1 : scale };
       for (const e of propEnts) rebuildProp(e);
     }
-    function setGateMesh(mesh) {
-      for (const e of gateEnts) {
-        if (e.render) e.removeComponent('render');
-        const mi = new pc.MeshInstance(mesh, gateMat, e); mi.castShadow = false;
-        e.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: false });
-      }
+    function setGateMesh(mesh, off, scale) {
+      gateProto = { mesh, off: off || new pc.Vec3(0, 0, 0), scale: scale == null ? 1 : scale };
+      for (const e of gateEnts) rebuildGate(e);
     }
 
     return { root, apply, update, weather, setPropMesh, setGateMesh,

@@ -34,6 +34,12 @@
 #   reversed if it came out negative. Auto-fixing is safe here because every primitive is a
 #   CLOSED solid; `report()` prints what needed flipping so a real modelling error still surfaces
 #   instead of being silently laundered.
+#   ⚠ THE SAFETY NET IS NOT THE FIX. On LIDO's first build it reversed 90 parts — every extruded
+#   moulding, every tread, two whole families of lathe — and the level would have shipped looking
+#   right while being modelled backwards. Each cause was then found and corrected at source
+#   (_ext's order depends on the sweep AXIS; a lathe's ring list must run bottom→top; a swept
+#   profile must wind counter-clockwise in its own plane). LIDO now builds with `report()` silent,
+#   which is the state to keep it in — a build that needs the net is a build with a bug in it.
 #
 # ⚑ ONE PART = ONE COLLISION AABB, same as kit.py. A balustrade is authored as one Part on
 #   purpose: 26 balusters as 26 objects would be 26 boxes with walk-through gaps between them,

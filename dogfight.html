@@ -656,7 +656,12 @@
       let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
     }
     G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
-    G.timeLeft=G.dur; G.real=real; G.theme=Math.random()*WORLDS.length|0; G.sunAz=rnd(TAU);
+    /* `?theme=N` pins the world. A random theme per match is right for play and useless for
+     * comparison — an A/B of two renderers, or of the high-key palette against `?tod=night`, is
+     * meaningless if the two frames are different places. */
+    const pinT=(()=>{ try{ const v=new URLSearchParams(location.search).get('theme');
+      return (v!=null&&isFinite(+v))?((+v%WORLDS.length)+WORLDS.length)%WORLDS.length:null; }catch{ return null; } })();
+    G.timeLeft=G.dur; G.real=real; G.theme=pinT!=null?pinT:(Math.random()*WORLDS.length|0); G.sunAz=pinT!=null?1.1:rnd(TAU);
     cam.x=0; cam.y=0; cam.h=0; cam.alt=1.2; cam.roll=0; cam.ph=0;
     for(let i=0;i<260;i++){ G.props.push({ x:rnd(WS,0), y:rnd(WS,0), alt:(Math.random()<0.82?0:rnd(1.4,0.3)), s:rnd(1.7,0.6), rot:rnd(TAU) }); }
     for(let i=0;i<7;i++){ const a=rnd(TAU),r=rnd(38,8); G.gates.push({ x:wpos(Math.cos(a)*r), y:wpos(Math.sin(a)*r), alt:(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)), cool:0 }); }

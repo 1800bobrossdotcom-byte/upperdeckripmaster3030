@@ -130,11 +130,11 @@
 
     // ── backdrop ────────────────────────────────────────────────────────────────────────────
     var burst = quad('backdrop', 84, 50);
-    var burstTex = tex(pc, dev, sunburstCanvas(512, 18, '#2a0640', '#ff2ad9', '#ffd23b'));
+    var burstTex = tex(pc, dev, sunburstCanvas(512, 18, '#46106b', '#ff2ad9', '#ffd23b'));
     /* Emissive at full, diffuse black: the backdrop is a printed field, not a lit surface. If it
      * took the key light it would gain a gradient, the gradient would read as depth, and the
      * silhouettes in front of it would stop being silhouettes. */
-    burst.render.material = mat({ emissiveMap: burstTex, emissive: new pc.Color(0.30, 0.30, 0.30),
+    burst.render.material = mat({ emissiveMap: burstTex, emissive: new pc.Color(0.46, 0.46, 0.46),
       diffuse: new pc.Color(0, 0, 0), useSkybox: false, useLighting: false });
     burst.setLocalPosition(0, 3.2, -19);
     root.addChild(burst);
@@ -150,7 +150,7 @@
     var floor = new pc.Entity('floor');
     floor.addComponent('render', { type: 'plane', castShadows: false, receiveShadows: true });
     floor.setLocalScale(56, 1, 40);
-    var floorTex = tex(pc, dev, floorCanvas(512, '#04140c', '#0f7a42', '#2bff80'), { repeat: true });
+    var floorTex = tex(pc, dev, floorCanvas(512, '#08301e', '#17a85c', '#2bff80'), { repeat: true });
     /* Half lit, half printed. Pure emissive would kill the contact between a card and the ground;
      * pure diffuse would let the floor fall dark at the edges and lose the flat field. */
     floor.render.material = mat({ diffuseMap: floorTex, diffuse: new pc.Color(0.50, 0.56, 0.52),
@@ -194,7 +194,7 @@
      * exactly the muddy-realism look the brief rules out: it produces deep falloff and a lot of
      * near-black. A bright ambient plus a modest key gives flat, evenly lit colour with just
      * enough shaping to keep the card bevels from disappearing. */
-    app.scene.ambientLight = new pc.Color(0.30, 0.31, 0.38);
+    app.scene.ambientLight = new pc.Color(0.36, 0.37, 0.44);
     var key = new pc.Entity('key');
     key.addComponent('light', { type: 'directional', color: new pc.Color(1, 0.99, 0.96), intensity: 1.35,
       castShadows: false });
@@ -251,7 +251,7 @@
      * close that the front card clips the near plane. This is the same class of trap as the hero
      * lens aspect bug in CLAUDE.md: a layout that is correct at one aspect and silently wrong at
      * another. */
-    var FIT_W = 6.6, FIT_H = 3.2;             // half-extents of everything that must stay on screen
+    var FIT_W = 7.0, FIT_H = 3.1;             // half-extents of everything that must stay on screen
     function refit(w, h) {
       var r = (w && h) ? { width: w, height: h } : (dev.clientRect || { width: dev.width, height: dev.height });
       var aspect = Math.max(0.3, (r.width || 1) / (r.height || 1));

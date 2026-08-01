@@ -251,8 +251,8 @@ def m_deck(nt, T):
     J = joints(nt, T, 2, 2, 0.020)
     mott = noise(nt, T, 3, 3, seed=1, detail=6, rough=0.55)
     grit = noise(nt, T, 55, 55, seed=2, detail=2, rough=0.5)
-    agg = voro(nt, T, 40, 40, seed=3, feature='F1')                 # exposed aggregate stones
-    aggm = smooth(nt, agg, 0.30, 0.06)                              # near a cell centre → a stone
+    agg = voro(nt, T, 72, 72, seed=3, feature='F1')                 # exposed aggregate stones
+    aggm = smooth(nt, agg, 0.20, 0.05)                              # near a cell centre → a stone
     cell = white(nt, J['col'], J['row'])                            # per-slab pour tone
     wear = noise(nt, T, 6, 6, seed=4, detail=3, rough=0.6)          # traffic polish, large blotches
     v = M(nt, 'ADD', 0.80, M(nt, 'ADD',
@@ -260,7 +260,7 @@ def m_deck(nt, T):
                              M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grit, 0.5), 0.06),
                                           M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', cell, 0.5), 0.13))))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.36)))
-    v = M(nt, 'ADD', v, M(nt, 'SUBTRACT', M(nt, 'MULTIPLY', aggm, 0.07),
+    v = M(nt, 'ADD', v, M(nt, 'SUBTRACT', M(nt, 'MULTIPLY', aggm, 0.045),
                                           M(nt, 'MULTIPLY', wear, 0.09)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.995), M(nt, 'MULTIPLY', v, 1.015))
     rough = M(nt, 'SUBTRACT',
@@ -269,7 +269,7 @@ def m_deck(nt, T):
               M(nt, 'MULTIPLY', wear, 0.10))
     h = M(nt, 'SUBTRACT',
           M(nt, 'ADD', M(nt, 'MULTIPLY', mott, 0.25),
-                       M(nt, 'ADD', M(nt, 'MULTIPLY', aggm, 0.55), M(nt, 'MULTIPLY', grit, 0.14))),
+                       M(nt, 'ADD', M(nt, 'MULTIPLY', aggm, 0.26), M(nt, 'MULTIPLY', grit, 0.14))),
           M(nt, 'MULTIPLY', J['j'], 1.30))
     return {'col': col, 'rough': rough, 'height': h}
 
@@ -283,21 +283,21 @@ def m_wall(nt, T):
     J = joints(nt, T, 4, 6, 0.030, stagger=0.5)
     plaster = noise(nt, T, 5, 5, seed=11, detail=6, rough=0.6)
     weep = noise(nt, T, 70, 3, seed=12, detail=4, rough=0.7)        # tall thin → runs down the wall
-    craze = voro(nt, T, 14, 14, seed=13, feature='DISTANCE_TO_EDGE')
-    crack = smooth(nt, craze, 0.05, 0.008)                          # hairline crazing at cell edges
+    craze = voro(nt, T, 44, 44, seed=13, feature='DISTANCE_TO_EDGE')
+    crack = smooth(nt, craze, 0.022, 0.003)                         # hairline crazing at cell edges
     brick = white(nt, J['col'], J['row'])
     v = M(nt, 'ADD', 0.82, M(nt, 'ADD',
-                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.18),
-                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.13)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.30)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.19)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', crack, 0.22)))
+                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.14),
+                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.08)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.20)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.16)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', crack, 0.06)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 1.005), v, M(nt, 'MULTIPLY', v, 0.985))
     rough = M(nt, 'ADD', 0.78, M(nt, 'ADD', M(nt, 'MULTIPLY', weep, 0.10),
                                             M(nt, 'MULTIPLY', J['j'], 0.06)))
     h = M(nt, 'SUBTRACT',
           M(nt, 'ADD', M(nt, 'MULTIPLY', plaster, 0.30), M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.30)),
-          M(nt, 'ADD', M(nt, 'MULTIPLY', J['j'], 1.20), M(nt, 'MULTIPLY', crack, 0.45)))
+          M(nt, 'ADD', M(nt, 'MULTIPLY', J['j'], 1.20), M(nt, 'MULTIPLY', crack, 0.20)))
     return {'col': col, 'rough': rough, 'height': h}
 
 
@@ -402,20 +402,20 @@ def m_plant(nt, T):
 
 def m_awning(nt, T):
     """Canvas: warp and weft, then panel seams. A weave is two stripe fields, not a noise."""
-    warp = bands(nt, T['u'], 96, 0.34)
-    weft = bands(nt, T['v'], 96, 0.34)
+    warp = bands(nt, T['u'], 40, 0.34)
+    weft = bands(nt, T['v'], 40, 0.34)
     weave = M(nt, 'SUBTRACT', warp, M(nt, 'MULTIPLY', M(nt, 'MULTIPLY', warp, weft), 0.5))
     fuzz = noise(nt, T, 65, 65, seed=71, detail=2, rough=0.5)
     panel = bands(nt, T['u'], 4, 0.012)                             # stitched panel joins
     sag = noise(nt, T, 3, 6, seed=72, detail=3, rough=0.55)
-    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.14),
-                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fuzz, 0.5), 0.07)))
+    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.10),
+                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fuzz, 0.5), 0.06)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', panel, 0.22)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', sag, 0.14)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.995), M(nt, 'MULTIPLY', v, 0.98))
     rough = M(nt, 'ADD', 0.56, M(nt, 'ADD', M(nt, 'MULTIPLY', fuzz, 0.14),
                                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.08)))
-    h = M(nt, 'SUBTRACT', M(nt, 'ADD', M(nt, 'MULTIPLY', weave, 0.55), M(nt, 'MULTIPLY', sag, 0.35)),
+    h = M(nt, 'SUBTRACT', M(nt, 'ADD', M(nt, 'MULTIPLY', weave, 0.26), M(nt, 'MULTIPLY', sag, 0.30)),
           M(nt, 'MULTIPLY', panel, 0.80))
     return {'col': col, 'rough': rough, 'height': h}
 
@@ -426,17 +426,17 @@ def m_trim(nt, T):
     J = joints(nt, T, 1, 2, 0.028)
     vein = noise(nt, T, 6, 3, seed=81, detail=6, rough=0.7, dist=1.4)
     grain = noise(nt, T, 60, 60, seed=82, detail=2, rough=0.5)
-    pit = voro(nt, T, 26, 26, seed=83, feature='F1')
-    pits = smooth(nt, pit, 0.12, 0.02)
-    v = M(nt, 'ADD', 0.90, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', vein, 0.5), 0.11),
-                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.05)))
+    pit = voro(nt, T, 58, 58, seed=83, feature='F1')
+    pits = smooth(nt, pit, 0.028, 0.006)
+    v = M(nt, 'ADD', 0.90, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', vein, 0.5), 0.07),
+                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.025)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.26)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', pits, 0.10)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', pits, 0.022)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.998), M(nt, 'MULTIPLY', v, 0.99))
     rough = M(nt, 'ADD', 0.68, M(nt, 'ADD', M(nt, 'MULTIPLY', pits, 0.14),
                                             M(nt, 'MULTIPLY', J['j'], 0.06)))
     h = M(nt, 'SUBTRACT', M(nt, 'ADD', M(nt, 'MULTIPLY', vein, 0.16), M(nt, 'MULTIPLY', grain, 0.12)),
-          M(nt, 'ADD', M(nt, 'MULTIPLY', J['j'], 1.25), M(nt, 'MULTIPLY', pits, 0.55)))
+          M(nt, 'ADD', M(nt, 'MULTIPLY', J['j'], 1.25), M(nt, 'MULTIPLY', pits, 0.22)))
     return {'col': col, 'rough': rough, 'height': h}
 
 
@@ -449,7 +449,7 @@ CLASSES = [
     ('cab',    m_cab,    0.004, 0.14, False, 0.020),
     ('water',  m_water,  0.007, 0.02, False, 0.020),
     ('plant',  m_plant,  0.022, 0.00, True,  0.070),
-    ('awning', m_awning, 0.006, 0.02, True,  0.030),
+    ('awning', m_awning, 0.0035, 0.02, True,  0.024),
     ('trim',   m_trim,   0.012, 0.02, True,  0.050),
 ]
 
