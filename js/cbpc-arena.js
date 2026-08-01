@@ -287,9 +287,17 @@
       // a slow figure-of-eight drift: enough that the frame is never dead, small enough that
       // nobody watching notices it happening
       var dr = opt.reduce ? 0 : 1;
-      var yaw = Math.sin(camState.t * 0.36) * 0.055 * dr + camState.bias * 0.18;
+      /* ⚠ THE FOCUS LEAN IS SMALL ON PURPOSE. At the first value (0.18 rad of yaw plus 1.5 units of
+       * look offset) a K.O. swung the frame far enough that the winning rank projected to screen x
+       * 1008 of 1000 — the camera leaned so hard toward the loser that it pushed the winner out of
+       * its own victory shot. Measured, then cut to a third. */
+      var yaw = Math.sin(camState.t * 0.36) * 0.055 * dr + camState.bias * 0.065;
       var pit = 0.115 + Math.sin(camState.t * 0.27 + 1.1) * 0.022 * dr;
-      var d = camState.dist * (1 - camState.zoom * 0.30) - camState.punch * 1.4;
+      /* ⚠ The punch dolly is a KICK, not a zoom: at 1.4 units per unit of punch, a busy exchange kept
+       * the camera permanently 3.4 units closer than the framing solve assumed and pushed the far
+       * rank off the edge (measured: house champion at screen x 960 of 1000). 0.8 with a lower cap
+       * keeps the hit landing without renegotiating the composition. */
+      var d = camState.dist * (1 - camState.zoom * 0.30) - camState.punch * 0.8;
       var sh = camState.shake;
       var jx = sh ? (Math.random() * 2 - 1) * sh * 0.10 : 0;
       var jy = sh ? (Math.random() * 2 - 1) * sh * 0.07 : 0;
@@ -297,7 +305,7 @@
              LOOK.y + Math.sin(pit) * d + 0.55 + jy,
              Math.cos(yaw) * Math.cos(pit) * d);
       cam.setPosition(_p);
-      cam.lookAt(LOOK.x + camState.bias * 1.5, LOOK.y + camState.zoom * 0.25, LOOK.z);
+      cam.lookAt(LOOK.x + camState.bias * 0.65, LOOK.y + camState.zoom * 0.25, LOOK.z);
       // roll the horizon a hair on a big hit — a fighting game tell, and it costs one number
       if (sh > 0.02) cam.rotateLocal(0, 0, (Math.random() * 2 - 1) * sh * 1.6);
       centre.light.intensity = camState.punch * 3.5;
@@ -344,9 +352,9 @@
       refit: refit, setExtents: setExtents, update: updateCamera, buildPost: buildPost,
       get frame() { return frame; },
       /* hero-moment controls, all additive so two of them can land on the same frame */
-      punch: function (n) { camState.punch = Math.min(2.4, camState.punch + n); },
+      punch: function (n) { camState.punch = Math.min(1.5, camState.punch + n); },
       shake: function (n) { camState.shake = Math.min(3.2, camState.shake + n); },
-      focus: function (x) { camState.biasTo = x; },
+      focus: function (x) { camState.biasTo = Math.max(-0.8, Math.min(0.8, x)); },
       zoom: function (z) { camState.zoomTo = z; },
       destroy: function () { try { root.destroy(); } catch (e) {} try { camRig.destroy(); } catch (e) {} },
       _tex: { sunburstCanvas: sunburstCanvas, floorCanvas: floorCanvas, stripeCanvas: stripeCanvas, tex: tex },

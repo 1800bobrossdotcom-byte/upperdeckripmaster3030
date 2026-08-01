@@ -383,7 +383,7 @@
         hw = Math.max(hw, Math.abs(f2.slot.x) + CW * 0.62 * f2.slot.sc);
         hy = Math.max(hy, f2.slot.y + CH * 0.62 * f2.slot.sc);
       }); });
-      A.setExtents(hw + 0.35, hy - 0.4);
+      A.setExtents(hw + 0.8, hy - 0.35);   // headroom, so a camera punch cannot crop the rank
       A.refit();
       fit();
     })();
@@ -513,7 +513,12 @@
         popMats[key] = m;
       }
       var e2 = grab('plane', popMats[key]);
-      pops.push({ e: e2, x: x, y: y, z: z, t: 0, life: big ? 0.75 : 0.5, s0: big ? 1.4 : 0.8, s1: big ? 4.2 : 2.1,
+      /* ⚑ SIZED AGAINST THE COMPOSITION, NOT IN ABSOLUTE WORLD UNITS. A panel that is a nice
+       * accent at desktop aspect covered most of a 390-wide portrait frame — measured, it read as a
+       * full-screen wipe rather than a hit. TIGHT is already the amount the whole composition was
+       * squeezed for this viewport, so the panel squeezes with it. */
+      pops.push({ e: e2, x: x, y: y, z: z, t: 0, life: big ? 0.75 : 0.5,
+        s0: (big ? 1.4 : 0.8) * TIGHT, s1: (big ? 3.2 : 2.1) * TIGHT,
         spin: (Math.random() * 2 - 1) * 16 });
     }
 
@@ -601,7 +606,6 @@
      * for the fight (the camera and every FX stay exactly where they are) while the renderer keeps
      * drawing, so a post sweep changes one thing. Same idea as s9pc-app.js's `stuffFx` + `?hold`. */
     var held = false;
-    var _v = new pc.Vec3();
     app.on('update', function (dtRaw) {
       if (dead) return;
       var wall = performance.now();
@@ -715,8 +719,7 @@
         if (q >= 1) { drop(p2.e); puffs.splice(j, 1); }
       }
 
-      // comic pops — billboarded, because a panel seen edge-on is not a panel
-      var cp = cam.getPosition();
+      // comic pops — stood up facing the camera; see the note below on why not lookAt
       for (var m2 = pops.length - 1; m2 >= 0; m2--) {
         var P = pops[m2]; P.t += dt;
         var qq = Math.min(1, P.t / P.life);

@@ -108,9 +108,13 @@ def mix(nt, a, b, t):
 
 
 def smooth(nt, x, e0, e1):
-    """smoothstep, clamped. Used everywhere a mask needs an edge that is not a staircase."""
-    t = M(nt, 'DIVIDE', M(nt, 'SUBTRACT', x, e0), (e1 - e0) if not _is_sock(e1) else e1, clamp=False)
-    t = M(nt, 'CLAMP' if False else 'MINIMUM', M(nt, 'MAXIMUM', t, 0.0), 1.0)
+    """smoothstep(e0, e1, x), clamped. Used wherever a mask needs an edge that is not a staircase.
+
+    ⚠ Keep the transition WIDE unless the result is albedo-only. A Bump node reads the gradient,
+    so a mask that goes 0→1 inside a texel produces a near-vertical normal at any amplitude — see
+    the crazing note in m_wall for what that cost."""
+    t = M(nt, 'DIVIDE', M(nt, 'SUBTRACT', x, e0), e1 - e0)
+    t = M(nt, 'MINIMUM', M(nt, 'MAXIMUM', t, 0.0), 1.0)
     return M(nt, 'MULTIPLY', M(nt, 'MULTIPLY', t, t), M(nt, 'SUBTRACT', 3.0, M(nt, 'MULTIPLY', 2.0, t)))
 
 
@@ -282,6 +286,10 @@ def m_wall(nt, T):
     amount, that stops the eye reading the repeat."""
     J = joints(nt, T, 4, 6, 0.030, stagger=0.5)
     plaster = noise(nt, T, 5, 5, seed=11, detail=6, rough=0.6)
+    # ⚑ Weathering is kept LIGHT on this class for a reason that is not taste: the MATS_DAY note
+    #   in js/s9pc-world.js says the walls are bright specifically so a dark operative silhouettes
+    #   against them at range. Dark blotches on a wall are dark blotches on the thing you are
+    #   trying to see a player against, so the weeping reads as direction, not as grime.
     weep = noise(nt, T, 70, 3, seed=12, detail=4, rough=0.7)        # tall thin → runs down the wall
     craze = voro(nt, T, 44, 44, seed=13, feature='DISTANCE_TO_EDGE')
     crack = smooth(nt, craze, 0.030, 0.006)                         # hairline crazing at cell edges
@@ -296,7 +304,7 @@ def m_wall(nt, T):
                              M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.14),
                              M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.08)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.20)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.16)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.10)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', crack, 0.06)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 1.005), v, M(nt, 'MULTIPLY', v, 0.985))
     rough = M(nt, 'ADD', 0.78, M(nt, 'ADD', M(nt, 'MULTIPLY', weep, 0.10),
