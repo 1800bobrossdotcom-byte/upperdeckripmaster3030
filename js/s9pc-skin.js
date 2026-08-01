@@ -32,14 +32,40 @@ window.S9PCSkin = (function () {
    * the parse is 12 lines and duplicating it here keeps the prototype from reaching into
    * S9Skin's privates. The stitch itself IS reused: S9Skin exposes no hook, so we accept the
    * un-stitched mesh and note it (the defect is a handful of triangles between the ankles). */
+  /* ⛔ THE STATIC ON OTHER PLAYERS WAS THIS. It read offset 32 UNCONDITIONALLY.
+   *
+   * A `.skn` v2 ships the bind skeleton inside the file — 11 bones × [startXYZ, endXYZ] = 264
+   * bytes at offset 32 — so vertex data starts at 296, not 32. `js/section9-skin.js` (the classic
+   * build) has always branched on the version; this loader never did.
+   *
+   * ⚑ AND IT COULD NOT FAIL LOUDLY, WHICH IS WHY IT SURVIVED. 264 is not a multiple of the
+   *   56-byte stride, so reading a v2 file at 32 does not overrun and does not throw — it slides
+   *   EVERY vertex 4.71 along, shuffling position into normal into bone index. Garbage positions
+   *   with garbage weights is precisely "the character emanates fractal static". The old guard
+   *   `32 + n*56 > byteLength` passed happily too: on a v2 file that sum is 264 bytes SHORT of
+   *   the real length, so the one check that could have caught it was the wrong check.
+   *
+   * ⚠ It got worse over time and nobody connected it: `oni` and `ronin` became v2 with task #77,
+   *   and every one of the seven generated CC0 bodies is v2. So the more bodies this studio
+   *   produced correctly, the more of the shooter rendered as noise.
+   */
+  const BONE_BYTES = 11 * 6 * 4;          // 11 bones × [startXYZ, endXYZ] × 4 = 264
+
   function parse(buf) {
     if (buf.byteLength < 32) throw new Error('truncated');
     const u8 = new Uint8Array(buf, 0, 8); let magic = '';
     for (let i = 0; i < 8; i++) magic += String.fromCharCode(u8[i]);
     if (magic !== 'UR3SKIN0') throw new Error('bad magic ' + JSON.stringify(magic));
-    const n = new DataView(buf).getUint32(12, true);
-    if (!n || 32 + n * 56 > buf.byteLength) throw new Error('vertex count ' + n + ' does not fit');
-    return { verts: new Float32Array(buf, 32, n * 14), count: n };
+    const dv = new DataView(buf);
+    const ver = dv.getUint32(8, true), n = dv.getUint32(12, true);
+    const vOff = ver >= 2 ? 32 + BONE_BYTES : 32;
+    /* Assert the EXACT length, not "it fits". An offset bug in a binary format is invisible to a
+     * >= check — that is the whole reason this shipped — so the only guard worth having is one
+     * that fails when the arithmetic is off by any amount at all. */
+    if (!n || vOff + n * 56 !== buf.byteLength) {
+      throw new Error('v' + ver + ' size mismatch: expected ' + (vOff + n * 56) + ', got ' + buf.byteLength);
+    }
+    return { verts: new Float32Array(buf, vOff, n * 14), count: n, ver: ver };
   }
 
   function fetchSkn(arch) {
