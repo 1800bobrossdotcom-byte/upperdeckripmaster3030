@@ -175,23 +175,30 @@ async function plates(page, regions, shotPrefix) {
   const out = {};
   for (let i = 0; i < regions.length; i++) {
     const sel = regions[i].sel;
+    /* ⚑ THE CONTENT BOX, NOT THE BORDER BOX. A glyph lives inside the padding, so the border and
+     *   the padding must come off before sampling — and it has to come from getComputedStyle
+     *   rather than a fixed inset, because these elements differ wildly (a 3px black rule plus
+     *   10px padding on `.court-note`, nothing at all on `.page-no`). A flat inset left
+     *   `.court-note`'s rounded corners — black border curving inward over a yellow board — in
+     *   the sample, which dragged its p1 to 0.677 against a p50 of 0.845 and reported a 13:1
+     *   contrast for a plate that is genuinely 15:1 under every letter on it. */
     const b = await page.evaluate(s => {
       const el = document.querySelector(s);
       if (!el) return null;
       el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
       const r = el.getBoundingClientRect();
-      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+      const cs = getComputedStyle(el);
+      const px = k => parseFloat(cs[k]) || 0;
+      const l = px('borderLeftWidth') + px('paddingLeft'), rt = px('borderRightWidth') + px('paddingRight');
+      const tp = px('borderTopWidth') + px('paddingTop'), bt = px('borderBottomWidth') + px('paddingBottom');
+      return { x: Math.round(r.left + l), y: Math.round(r.top + tp),
+               w: Math.round(r.width - l - rt), h: Math.round(r.height - tp - bt) };
     }, sel);
-    if (!b || b.w < 8 || b.h < 8) { out[sel] = null; continue; }
+    if (!b || b.w < 8 || b.h < 6) { out[sel] = null; continue; }
     await page.waitForTimeout(120);
     const img = await shoot(page, `${shotPrefix}-${i}.png`);
-    /* Inset past the border. A 3px black rule around a cream plate is not something text sits
-     * on, but it IS inside the element's box, and left in it drags p1 to zero every time.
-     * ⚠ The inset has to SCALE WITH THE BOX. A flat 4px silently dropped every region that
-     * mattered most — `.page-no` and the page counter are 9-10px type, so a 4px inset top and
-     * bottom left 2px and the sampler skipped them. The dim small print is precisely the text a
-     * background can kill, so losing it is losing the test. */
-    const IN = Math.max(0, Math.min(4, Math.floor(Math.min(b.w, b.h) / 4)));
+    /* one more pixel off each edge, for the antialiased seam where the padding meets the border */
+    const IN = 1;
     const x0 = Math.max(0, b.x + IN), y0 = Math.max(0, b.y + IN);
     const x1 = Math.min(img.w, b.x + b.w - IN), y1 = Math.min(img.h, b.y + b.h - IN);
     if (x1 - x0 < 4 || y1 - y0 < 4) { out[sel] = null; continue; }

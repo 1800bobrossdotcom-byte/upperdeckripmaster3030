@@ -275,10 +275,13 @@ def foil_material(aspect):
     nt.links.new(iso.outputs['Vector'], cells.inputs['Vector'])
 
     # stock fibre
+    # ⚠ Weaker and coarser than build-bg's. That plate is seen at arm's length behind text; this
+    #   one is the biggest thing on the page and is sampled at up to 2x device pixels, where a
+    #   high-detail fine noise stops reading as fibre and starts reading as compression speckle.
     fibre = node(nt, 'ShaderNodeTexNoise', (-780, -20))
-    fibre.inputs['Scale'].default_value = 150.0
-    fibre.inputs['Detail'].default_value = 6.0
-    fibre.inputs['Roughness'].default_value = 0.58
+    fibre.inputs['Scale'].default_value = 105.0
+    fibre.inputs['Detail'].default_value = 4.0
+    fibre.inputs['Roughness'].default_value = 0.50
     nt.links.new(iso.outputs['Vector'], fibre.inputs['Vector'])
 
     # brushed streaks — a foil stamp is drawn off a roll, and the roll leaves a direction
@@ -297,7 +300,7 @@ def foil_material(aspect):
     nt.links.new(brush_c.outputs['Vector'], brush.inputs['Vector'])
 
     mix1 = node(nt, 'ShaderNodeMixRGB', (-520, 160), blend_type='MIX')
-    mix1.inputs['Fac'].default_value = 0.24
+    mix1.inputs['Fac'].default_value = 0.15
     nt.links.new(cells.outputs['Distance'], mix1.inputs['Color1'])
     nt.links.new(fibre.outputs['Fac'], mix1.inputs['Color2'])
 
@@ -334,9 +337,9 @@ def foil_material(aspect):
     #    recesses puts holes in the letterforms at small sizes. ──
     shade = node(nt, 'ShaderNodeValToRGB', (-120, 160))
     shade.color_ramp.elements[0].position = 0.10
-    shade.color_ramp.elements[0].color = (0.62, 0.62, 0.62, 1)
+    shade.color_ramp.elements[0].color = (0.76, 0.76, 0.76, 1)
     shade.color_ramp.elements[1].position = 0.85
-    shade.color_ramp.elements[1].color = (1.30, 1.30, 1.30, 1)
+    shade.color_ramp.elements[1].color = (1.20, 1.20, 1.20, 1)
     nt.links.new(relief.outputs['Color'], shade.inputs['Fac'])
 
     paint = node(nt, 'ShaderNodeMixRGB', (200, 40), blend_type='MULTIPLY')
