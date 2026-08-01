@@ -832,6 +832,34 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   them and fall back to the canonical table for v1 files, then re-bake all six. The skeleton
   belongs to the body, not to the renderer — which is the actual design error underneath task
   #77. Details + numbers in `models/README.md`.
+- ⛔ **`js/ronin.js` WAS READING v2 `.skn` AT THE v1 OFFSET (32, not 296) — a shipped bug nobody
+  saw.** v2 puts 11 bones × [start,end] = **264 bytes** at offset 32, and **264 is not a multiple
+  of the 56-byte stride**, so it never threw: it slid every vertex **4.71 along**, shuffling
+  position into normal into bone index. `oni.skn` and `ronin.skn` became v2 with task #77, so
+  **two of NEON RONIN's six fighters have been loading as noise ever since.** ⚑ Verified
+  independently by arithmetic, not taken on report: both files' lengths equal `296 + n·56` exactly
+  while `kappa.skn` (v1) equals `32 + n·56`. **An offset bug in a binary format never throws; it
+  just draws wrong.** `js/section9-skin.js` and `bake-fighter.mjs` always read it correctly — only
+  this one reader did not.
+- ✅ **SEVEN generated bodies now, 1.25 MB total — less than TWO imported ones.** New: `rip-mascot`
+  (PRIZE MASCOT, from the artist's OWN Fake Rares practice — ⛔ no Pepe, nothing amphibian
+  modelled), `cc0-mosh` (BAD SIGNAL ← XCOPY, solo work only), `cc0-cel` (HEAVY LINE ← Darkfarms
+  SMOWLz only, **not** Decal/BOME), `cc0-grid` (GRIDLOCK ← Nouns, ⛔ no noggles).
+  ⚑ **Every body carries a ripmaster3030studios name** (`S9Skin.nameFor`) — CC0 never waives
+  trademark, so a body may be INFORMED by a source and never NAMED after one.
+  Measured (`npm run stretch`, same pose): cc0-cel **1.6×**, cc0-mosh **1.8×** — the two
+  best-behaved bodies in the repo, against oni 3.6× / prizm 6.1× / kappa 23.7×. Zero triangles
+  over 10× on all seven. The existing three re-verified **byte-identical**, so no recorded number
+  was invalidated.
+  ⚑ **The bake command is now ASSERTED, not written down** — `npm run cc0` bakes all seven and
+  checks each file's length against its vertex count. The oni/ronin settings were lost precisely
+  because they lived in prose; `--detail 2.5` was recovered by sweeping until the shipped files
+  reproduced byte-identically.
+- ⚠ `S9Skin.load()` memoises per name and fires `onSkin` only on the FIRST call — a harness that
+  parses a body before the match starts silently stops the game registering it with GL, and it
+  reads as "the mesh didn't load".
+- ⚠ **NEON RONIN loads the new bodies but does not field them**: that needs an `ARCH` entry with
+  stats, weapon and card-unlock rules. Roster design, artist's call.
 - ⚑ **Cross-limb stitch (`S9Skin`, at load).** Separate, smaller defect that survives on the good
   family: `bake-fighter`'s side test has a tolerance band at the centreline, so near the floor a
   few triangles get corners bound **rigidly to opposite shins** — a spike between the ankles under
