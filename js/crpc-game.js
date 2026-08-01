@@ -20,6 +20,19 @@
  *    "hold W for 73 seconds", and one dominant strategy with no cost is not a decision.
  *    Everything below exists to give the player something to be good at.
  *
+ *    Same battery, same 6-pilot 3-lap race, run against THIS file (5 seeds averaged):
+ *
+ *      policy                          finish   place   best lap   boost used   field spread
+ *      do nothing                      56.96 s   6.0     18.18 s      0.0 s        7.1 s
+ *      hold boost, never steer         51.15 s   2.6     15.45 s     16.9 s        5.5 s
+ *      racing line, no boost           54.25 s   5.0     17.36 s      0.0 s        5.0 s
+ *      line + brake + boost on tap     47.59 s   1.0     15.01 s     31.2 s        4.3 s
+ *      hard-left into the barrier      58.75 s   6.0     18.53 s                   9.0 s
+ *
+ *    Driving is now worth 3.56 s (7.0%) over holding the boost key, 9.36 s (16.4%) over doing
+ *    nothing, and it is the difference between finishing 1st and finishing 3rd. Leaning on the
+ *    barrier costs 11.2 s instead of deleting the race. Lap is 19.4 s at cruise, 15.0 s driven.
+ *
  * ══ THE ONE IDEA: LATERAL POSITION IS PROGRESS, AND IT IS REAL GEOMETRY, NOT A FUDGE.
  *    For a centre-line c(s) with unit tangent T and right-vector R, the offset path p = c + lx·R
  *    has dp/ds = T·(1 − lx·κ), where κ is the signed curvature toward R. So a racer holding lx at
@@ -84,8 +97,19 @@
      * at cruise but not under boost, and straights. Full boost (91 u/s) is only holdable where
      * κ < 0.0078, which is 31% of the lap — so "when do I spend it" has a geography. */
     GRIP: 68,
-    SLIDE: 0.42,         // how hard excess lateral g throws you wide
-    SCRUB: 0.26,         // and how much speed that costs — sliding is slow, which is why it teaches
+    /* ⚑ OVER-GRIP IS A SLIP ANGLE, NOT A NUDGE — and this replaces a version that MEASURED WRONG.
+     * The first model just added outward lateral velocity and scrubbed a little speed, and the
+     * battery caught it immediately: "hold boost, never steer, never brake" beat a driven lap by
+     * 0.92 s, because ploughing through every corner at +42% boost cost about 10% of progress and
+     * nothing else. Ploughing has to lose, or there is no reason to drive.
+     * So a sliding pod points where it is going and MOVES where physics says: progress along the
+     * track is v·cos(slip) and the rest of the speed goes sideways, into the barrier. Cheap,
+     * principled, and it self-limits — the harder you over-drive, the less of your speed is
+     * pointing down the road. */
+    SLIP_MAX: 0.60,      // rad (34°) at full over-grip ⇒ 17.5% of speed stops being progress
+    SLIP_REF: 90,        // u/s² of excess that reaches SLIP_MAX
+    SLIDE: 3.0,          // how hard the sideways component throws you at the barrier
+    SCRUB: 0.32,         // and how much speed sliding costs
     STEER_ACC: 40,       // lateral u/s²
     STEER_MAX: 17,       /* lateral u/s cap. Half-width is 9.5, so crossing the full track takes
                           * 1.1 s. The old build crossed it in 0.5 s, which makes lateral position
@@ -100,10 +124,16 @@
     WALL_LOSS: 0.55,     // × the lateral speed you arrived with, as u/s of forward speed
     WALL_BOUNCE: 0.45,
     // boost economy — nothing here refills by itself except a trickle that stops you being stranded
-    BOOST_SPEND: 0.38,   // /s  ⇒ a full bar is 2.6 s of boost
-    BOOST_PAD: 0.34,     // per strip
+    /* ⚑ THE ECONOMY IS A BUDGET, AND THE FIRST ONE WAS NOT. Measured: a policy that simply held
+     * boost spent 51.2 s of boost inside a 48.4 s race — i.e. the bar never emptied, because
+     * strips + corner-carry + trickle refilled it faster than 0.38/s drained it. An unlimited
+     * resource is not a resource. At these values the sustainable duty cycle is
+     *   (9 strips × 0.28 / 17 s lap  +  ~0.08 corner-carry  +  0.022) / 0.45  ≈  55%
+     * so roughly half the lap can be boosted and WHICH half is the whole decision. */
+    BOOST_SPEND: 0.45,   // /s  ⇒ a full bar is 2.2 s of boost
+    BOOST_PAD: 0.28,     // per strip, granted ONCE ON ENTRY — see below
     BOOST_DRAFT: 0.17,   // /s while tucked in
-    BOOST_EDGE: 0.24,    // /s while carrying ≥70% of the grip limit — the corner IS the refuel
+    BOOST_EDGE: 0.16,    // /s while carrying ≥70% of the grip limit — the corner IS the refuel
     BOOST_TRICKLE: 0.022,
     PAD_KICK: 20,        // instant u/s from a strip
     DRAFT_S: 24,         // arc-length reach of a slipstream
@@ -359,7 +389,7 @@
     let limit = 999;
     for (let d = 4; d < look; d += 7) limit = Math.min(limit, vmaxAt(T, r.s + d) * r.skill);
     const brake = r.v > limit * 1.06;
-    const boost = !brake && r.boostE > 0.12 && r.v < limit * 0.92 && (r.draft > 0 || r.boostE > 0.5);
+    const boost = !brake && r.boostE > 0.12 && limit > r.v + 6;
     return { steer, boost, brake };
   }
 
@@ -434,12 +464,13 @@
       const kPath = fr.k / denom;
       const aLat = r.v * r.v * Math.abs(kPath);
       const over = aLat - PACE.GRIP;
-      r.slide = 0;
+      r.slide = 0; r.slip = 0;
       if (over > 0) {
-        // pushed to the OUTSIDE of the bend, and it costs speed. Sliding is slow — that is the
-        // whole feedback loop, and it is why the corner teaches instead of just punishing.
+        // The pod keeps pointing along the track and slides across it: only v·cos(slip) is
+        // progress, v·sin(slip) is a trip to the outside barrier, and the tyre scrub is on top.
+        r.slip = Math.min(PACE.SLIP_MAX, over / PACE.SLIP_REF * PACE.SLIP_MAX);
         const dir = -Math.sign(kPath) || 1;
-        r.vl += dir * over * PACE.SLIDE * dt;
+        r.vl += dir * r.v * Math.sin(r.slip) * PACE.SLIDE * dt;
         r.v = Math.max(8, r.v - over * PACE.SCRUB * dt);
         r.slide = Math.min(1, over / 60);
       }
@@ -471,11 +502,15 @@
       let earn = PACE.BOOST_TRICKLE;
       if (r.draft > 0) earn += PACE.BOOST_DRAFT * r.draft;
       if (aLat > PACE.GRIP * 0.70 && over <= 0) earn += PACE.BOOST_EDGE;   // carried, not survived
-      if (r.onPad) earn += PACE.BOOST_PAD / dt * dt * 6;                    // ~0.34 over the strip
       r.boostE = clamp(r.boostE + (earn - (canBoost ? PACE.BOOST_SPEND : 0)) * dt, 0, 1);
+      /* ⚑ EDGE-TRIGGERED, not per-second. A rate grant pays MORE to whoever crosses the strip
+       * SLOWEST, which is exactly backwards, and the first version quietly paid ~0.58 instead of
+       * the 0.34 it advertised. A pickup is worth what it is worth. */
+      if (r.onPad && !r.padWas) { r.boostE = Math.min(1, r.boostE + PACE.BOOST_PAD); if (r.isMe) G.events.push({ t: G.t, kind: 'pad' }); }
+      r.padWas = r.onPad;
 
       // ── progress: THE line. ds/dt = v / (1 − lx·κ) ──
-      r.s += (r.v / denom) * dt;
+      r.s += (r.v * Math.cos(r.slip) / denom) * dt;
       r.lean = lerp(r.lean, clamp(-ctl.steer * 0.42 - kPath * r.v * 0.055, -0.75, 0.75), dt * 7);
       r.bob += dt * (5 + r.v * 0.05);
       if (r.bump > 0) r.bump = Math.max(0, r.bump - dt * 3);

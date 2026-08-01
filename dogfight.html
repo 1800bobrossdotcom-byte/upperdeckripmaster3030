@@ -3,10 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>DOGFIGHT · upperdeckripmaster3030</title>
-<meta name="description" content="A contained-arena card dogfight. Ante $UR3030, stake your cards, and fly your deck into a winner-takes-all melee — last craft flying takes the pot.">
+<title>DOGFIGHT · ripmaster3030studios</title>
+<meta name="description" content="A contained-arena card dogfight on the PlayCanvas engine. Ante $UR3030, stake your cards, and fly your deck into a winner-takes-all melee — most frags when the clock runs out takes the pot.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  DOGFIGHT · ENGINE BUILD — PlayCanvas. This IS dogfight.html; the hand-rolled renderer is kept
+  at `dogfight-classic.html` as the rollback, the free A/B, and where a browser with no WebGL 2 is
+  sent (PlayCanvas has no software path, so fail-open is preserved as a ROUTE, not a renderer).
+
+  ⚑ WHAT WAS ACTUALLY BROKEN, measured on the old build before any of this was written — the
+  artist said "buggy" without specifics and a diagnosis is worth more than a guess:
+    1. POWER CELLS WERE INVISIBLE. `js/dogfight-gl.js` has zero references to `G.pows`. The
+       simulation spawns them on a timer and collects them on a real proximity test; the shipping
+       renderer never drew one, so the only way to pick one up was by accident.
+    2. SHOCKWAVE RINGS were likewise never drawn (`G.rings`).
+    3. LIGHT-CYCLE TRAILS were likewise never drawn (`s.trail`, 16 points a ship, every frame).
+    4. NO NAMEPLATES, NO ENEMY HEALTH BARS, NO LOCK BRACKET, NO LEAD PIP — all four live in
+       `drawEntities`, which `draw()` called ONLY in the `else` branch of `if (glReady)`. The
+       whole target-information layer existed on the ugly 2D fallback and not on the renderer
+       that actually shipped. `G.lock` was computed every frame and displayed nowhere but the
+       radar.
+    5. THE CAMERA PITCHED THE WRONG WAY. `cam.ph > 0` is DESCENDING; the GL view composed it so
+       the camera's world forward went y = +sin(ph), i.e. looking UP, by as much as 57°. The 2D
+       renderer had it right (`HORIZON = H*0.46 − ph*H*0.10`). Same family as Section 9's mirror.
+    6. 50.4% of a 960×600 frame measured below luma 12/255 — half the screen near-black, on every
+       one of the five themes.
+  All six are fixed here. See js/dfpc-app.js for the handedness and pitch numbers.
+
+  Query params
+    ?tod=night   the game's original dark palette, for an A/B against the high-key one
+    ?grit=1      chromatic aberration + grain + heavy vignette back on
+    ?q=low|mid|high   force a quality tier      ?post=0  engine post stack off
+    ?shadows=0   no shadow maps                 ?ssao=0  no ambient occlusion
+    ?grab=1      preserveDrawingBuffer, so a headless run can readPixels the real pixels
+    ?eng         the engine/frame-time readout (F8 toggles it live)
+-->
 <style>
   :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
     --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
@@ -196,6 +228,21 @@
   .won-cards{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin:10px 0 2px; }
   .won-cards .tile{ width:52px; cursor:default; }
   .scanote{ font-size:10.5px; color:#7fd8a8; margin-top:8px; line-height:1.5; }
+  /* ── the no-WebGL-2 state. PlayCanvas has NO software path, so this build cannot fall back to a
+       2D renderer the way dogfight-classic.html does. That is a real cost of taking the engine,
+       and the honest answer is to SAY SO and point at the build that still runs. ── */
+  #nogl{ position:fixed; inset:0; z-index:40; display:none; place-items:center; padding:24px; text-align:center;
+    background:radial-gradient(120% 100% at 50% 20%, rgba(10,22,32,.92), rgba(1,3,6,.99)); }
+  #nogl.show{ display:grid; }
+  #nogl .panel{ max-width:480px; }
+  #nogl h2{ font-family:var(--fat); font-size:clamp(18px,5vw,28px); color:var(--coral); letter-spacing:.04em; }
+  #nogl p{ font-size:12.5px; color:#bfe9d3; line-height:1.6; margin:12px 0; }
+  #nogl a{ color:var(--lime); }
+  /* engine readout — "is the update live" was the question every single time */
+  #eng{ position:fixed; left:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 12px); z-index:14; pointer-events:none;
+    font-size:10px; line-height:1.5; letter-spacing:.03em; color:#7fb6c6; text-shadow:0 0 8px rgba(0,0,0,.95),0 1px 2px #000; display:none; }
+  body.showeng #eng{ display:block; }
+  @media (max-width:700px){ #eng{ display:none !important; } }
 </style>
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
@@ -277,7 +324,7 @@
       <div><button class="go alt" id="btnSeek"><span class="ic" data-ic="swords"></span> Seek human dogfight</button></div>
       <div class="mininote" id="lobNote"></div>
       <div class="tavern-slot"><div id="tavern"></div></div>
-      <div class="mininote"><a href="cards/battle.html">◄ back to the arena</a> · <a href="riprocketer.html"><span class="ic" data-ic="rocket"></span> riprocketer</a></div>
+      <div class="mininote"><a href="dogfight-classic.html">◄ the classic build</a> · <a href="cards/battle.html">the arena</a> · <a href="riprocketer.html"><span class="ic" data-ic="rocket"></span> riprocketer</a></div>
     </div>
   </div>
 
@@ -298,6 +345,19 @@
     </div>
   </div>
 
+  <div id="nogl">
+    <div class="panel">
+      <h2>This build needs WebGL 2</h2>
+      <p>DOGFIGHT's engine build renders through PlayCanvas, which has no software fallback — there
+      is no 2D path to drop back to, so rather than show you a black rectangle it says so.</p>
+      <p><b><a href="dogfight-classic.html">Fly the classic build instead →</a></b><br>
+      Same arena, same flight model, same rules, same pot. Its renderer is hand-rolled and degrades
+      all the way down to a canvas rasteriser, so it runs essentially anywhere.</p>
+      <p style="opacity:.6" id="noglWhy"></p>
+    </div>
+  </div>
+  <div id="eng"></div>
+
   <!-- dogfight soundtrack: drop TWSI.mp3 at the site root -->
   <audio id="dfMusic" loop preload="none" src="TWSI.mp3"></audio>
 
@@ -314,25 +374,37 @@
 <script src="js/game-help.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/sfx-lib.js"></script>
-<script src="js/ronin-glb.js"></script>
-<script src="js/dogfight-gl.js"></script>
-<script src="js/gfx-2d.js"></script>
 <script src="js/card-powers.js"></script>
+<!-- third-party engine, MIT, vendored verbatim: vendor/playcanvas/LICENSE -->
+<script src="vendor/playcanvas/playcanvas.min.js"></script>
+<!-- this build. fx first: it owns the quad-layer primitive that world reuses for the cloud deck -->
+<script src="js/dfpc-fx.js"></script>
+<script src="js/dfpc-world.js"></script>
+<script src="js/dfpc-app.js"></script>
 <script>
 (() => {
   const cv=document.getElementById('df'), ctx=cv.getContext('2d'), $=id=>document.getElementById(id);
-  /* Two renderers, one game state.
-   *   glReady  true-3D: js/dogfight-gl.js draws the WORLD with a real perspective camera and
-   *            a z-buffer; the 2D canvas above it keeps only the HUD/radar/reticle.
-   *   GPU      the fallback: the original fake-3D 2D renderer, presented through GfxPost so
-   *            it still gets the bloom. Used whenever true-3D can't init.
-   * They are mutually exclusive — Gfx2D hides the 2D canvas, which is exactly what the
-   * true-3D path needs it NOT to do. */
+  /* ── one renderer, and the fallback is a ROUTE ────────────────────────────────────────────
+   * This page renders through PlayCanvas. The engine has NO software path, so unlike every other
+   * game here it cannot degrade to a canvas rasteriser — and fail-open is a standing principle in
+   * this repo, so the honest answer is not a worse renderer but an honest page that names the
+   * requirement and links to the build that runs anywhere. `dogfight-classic.html` is the old
+   * hand-rolled renderer, unchanged, and it degrades all the way down. That is a deliberate
+   * design decision, not an oversight, and it is why the classic build stays shipped.
+   *
+   * The GL canvas owns the WORLD; the 2D canvas above it keeps the HUD, the radar, the reticle,
+   * the cockpit framing and the target tags — text and UI are sharper and cheaper there, and that
+   * is exactly how section9.html splits it too. */
   const glcv = document.getElementById('dfgl');
+  const OPT = { WS:150, CAM_BACK:2.4, CAM_H:1.2, VIEW_FAR:34, CLOUD_ALT:5.4, CLOUD_THICK:0.9, fov:1.05 };
   let glReady = false;
-  try { glReady = !!(window.DFGL && DFGL.init(glcv)); } catch(e){ glReady = false; }
-  const GPU = (!glReady && window.Gfx2D) ? Gfx2D.attach(cv, { preset: 'neon' }) : null;
+  try { glReady = !!(window.DFPC && DFPC.init(glcv, OPT)); } catch(e){ glReady = false; }
   if (glReady) { glcv.style.display='block'; cv.style.background='transparent'; }
+  else {
+    const n=$('nogl'); if(n){ n.classList.add('show');
+      const w=$('noglWhy'); if(w) w.textContent=(window.DFPC?DFPC.why():'the engine bundle did not load'); }
+    $('ovLobby').classList.remove('show');
+  }
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   /* Backing-store resolution is the dominant cost on a phone: everything the game
    * rasterises AND every fullscreen post pass scales with it. GfxPost.deviceScale() is
@@ -343,7 +415,11 @@
   const SQUASH=0.72;                                  // top-down table gets a gentle tilt
   function resize(){ const r=cv.getBoundingClientRect(); W=Math.max(1,Math.round(r.width)); H=Math.max(1,Math.round(r.height));
     cx=W/2; cy=H*0.5; cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
-    { const g=document.getElementById('dfgl'); if(g){ g.width=W*DPR; g.height=H*DPR; } }
+    /* ⚠ The engine owns its own canvas SIZE and pixel ratio — setting `width`/`height` behind its
+     * back leaves its render targets and its projection matrix sized for the old frame, which
+     * shows up as a stretched view after one window drag. Hand it the CSS size and let it apply
+     * `maxPixelRatio` itself; that is also how it stays consistent with GfxPost.dprCap(). */
+    if(glReady) DFPC.resize();
     SCALE=Math.min(W,H*1/SQUASH)*0.44; }
   resize(); addEventListener('resize',resize); requestAnimationFrame(resize);
   const rnd=(a=1,b=0)=>b+Math.random()*(a-b), clamp=(v,a,b)=>v<a?a:v>b?b:v, lerp=(a,b,t)=>a+(b-a)*t;
@@ -530,7 +606,7 @@
     real:false, myStake:[], oppStakes:[], me:null, over:false, view:'chase', theme:0, lock:null, gscroll:0, sunAz:0, wing:[] };
   // ── toroidal world: an "infinite self-contained map" whose edges portal over ──
   // ALT_MAX 3.4 → 9: the sky is a real vertical arena now. A cloud deck sits across the middle
-  // of the band (CLOUD_ALT ± CLOUD_THICK, drawn by DFGL, white-out inside), so climbing means
+  // of the band (CLOUD_ALT ± CLOUD_THICK, drawn by the renderer, white-out inside), so climbing means
   // something: dive out of cover, fight under it, or take the fight above the weather.
   const WS=150, CAM_BACK=2.4, CAM_H=1.2, NEAR=0.4, ALT_MIN=0.35, ALT_MAX=9.0, VIEW_FAR=34, BOLTSPD=34, TANK_ALT=0.16;
   const CLOUD_ALT=5.4, CLOUD_THICK=0.9;
@@ -546,14 +622,19 @@
     {name:'ghost nebula', sky:['#06030f','#1a0a34'], grid:'#c060ff', gnd:'#05030f', fog:'#1a0a34', sun:'#ff9cf0', prop:'crystal'},
   ];
   const world=()=>WORLDS[G.theme%WORLDS.length];
-  let FOCAL=800, HORIZON=300;
-  // camera-relative perspective projection of a world point at altitude `alt` → screen {x,y,scale,fwd}
-  function project(wx,wy,alt){ const dx=wdel(wx-cam.x), dy=wdel(wy-cam.y);
-    const ch=Math.cos(cam.h), sh=Math.sin(cam.h);
-    let fwd=dx*ch+dy*sh; const rgt=-dx*sh+dy*ch; fwd+=CAM_BACK;
-    if(fwd<NEAR) return null; const scale=FOCAL/fwd;
-    // camera height reacts to altitude-above-cruise, so climbing/diving actually lifts you over the terrain
-    return { x:cx+rgt*scale, y:HORIZON+(CAM_H+cam.alt-1.2-(alt||0))*scale, scale, fwd }; }
+  /* ── world → screen, for the 2D overlay ──────────────────────────────────────────────────
+   * This used to be the game's FAKE-3D projection (a hand-rolled FOCAL/HORIZON map) and it was
+   * also what the whole 2D world renderer drew through. Both are gone: the engine owns the world,
+   * so the only thing left that needs a projection is the target-information layer — nameplates,
+   * health bars, the lock bracket, the lead pip — and those have to land where the ENGINE put the
+   * craft, not where a second, differently-derived projection thinks it is. Off by a few pixels
+   * is a nameplate that floats; off by a lot is the "aim is wrong" report Section 9 got.
+   * Returns null behind the eye, which is what the callers already tested for. */
+  function project(wx,wy,alt){
+    const p = DFPC.project(wdel(wx-cam.x), alt||0, wdel(wy-cam.y));
+    if(!p) return null;
+    return { x:p.x, y:p.y, fwd:p.d, scale:(H*0.5)/Math.max(0.35,p.d) };   // `scale` ≈ px per world unit
+  }
 
   function makeShip(opt){ const a=rnd(TAU), r=rnd(WS*0.34,WS*0.14);
     // TTK deliberately long — a kill is a sustained burst you have to HOLD on target through a
@@ -934,207 +1015,63 @@
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
   if(window.RipWallet){ window.RipWallet.on(()=>{ refreshPot(); }); }
 
-  // ── draw: environments (sky, skyline, Tron ground, scenery) ──
-  function drawSky(w){ const g=ctx.createLinearGradient(0,-H*0.5,0,HORIZON); g.addColorStop(0,w.sky[0]); g.addColorStop(1,w.sky[1]);
-    ctx.fillStyle=g; ctx.fillRect(-W*0.4,-H*0.5,W*1.8,HORIZON+H*0.5);
-    // psychedelic aurora curtains drifting across the sky (Ripmaster vibe)
-    if(!reduce){ ctx.save(); ctx.globalCompositeOperation='lighter';
-      for(let i=0;i<4;i++){ const hue=(G.t*26+i*70)%360; ctx.strokeStyle='hsla('+hue+',92%,62%,0.13)'; ctx.lineWidth=H*0.05;
-        ctx.beginPath(); for(let x=-W*0.3;x<=W*1.3;x+=22){ const y=HORIZON*0.42 + Math.sin(x*0.0055+G.t*0.5+i*1.7)*H*0.07 + i*H*0.035; x<=-W*0.3?ctx.moveTo(x,y):ctx.lineTo(x,y); } ctx.stroke(); }
-      ctx.restore(); }
-    // sun/moon at a fixed world bearing (turns + wraps with heading)
-    const sp=project(cam.x+Math.cos(G.sunAz)*80, cam.y+Math.sin(G.sunAz)*80, 24);
-    if(sp){ const sy=Math.min(sp.y,HORIZON-6), r=Math.max(22,H*0.06); ctx.save(); const sg=ctx.createRadialGradient(sp.x,sy,0,sp.x,sy,r*2.4);
-      sg.addColorStop(0,w.sun); sg.addColorStop(0.3,w.sun+'aa'); sg.addColorStop(1,'transparent'); ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sp.x,sy,r*2.4,0,TAU); ctx.fill();
-      ctx.fillStyle=w.sun; ctx.beginPath(); ctx.arc(sp.x,sy,r,0,TAU); ctx.fill(); ctx.restore(); }
-    // ground fill (fog at horizon → deep tint)
-    const gg=ctx.createLinearGradient(0,HORIZON,0,H); gg.addColorStop(0,w.fog); gg.addColorStop(0.22,w.gnd); gg.addColorStop(1,'#01030a');
-    ctx.fillStyle=gg; ctx.fillRect(-W*0.4,HORIZON,W*1.8,H*1.4);
-    drawSkyline(w);
-    // fog band across the horizon
-    const fb=ctx.createLinearGradient(0,HORIZON-H*0.1,0,HORIZON+H*0.05); fb.addColorStop(0,'transparent'); fb.addColorStop(0.5,w.fog); fb.addColorStop(1,'transparent');
-    ctx.save(); ctx.globalAlpha=0.55; ctx.fillStyle=fb; ctx.fillRect(-W*0.4,HORIZON-H*0.1,W*1.8,H*0.16); ctx.restore();
-  }
-  function drawSkyline(w){ ctx.save(); ctx.fillStyle='rgba(0,0,0,.45)'; ctx.beginPath(); ctx.moveTo(-W*0.4,HORIZON);
-    for(let x=-W*0.4;x<=W*1.4;x+=8){ const u=x/W; const n=Math.sin(u*13+cam.h*3)+Math.sin(u*29+cam.h*3+1.7)*0.5+Math.sin(u*57+cam.h*3)*0.25;
-      ctx.lineTo(x, HORIZON-(5+(n+1.75)*H*0.018)); }
-    ctx.lineTo(W*1.4,HORIZON+H); ctx.lineTo(-W*0.4,HORIZON+H); ctx.closePath(); ctx.fill(); ctx.restore(); }
-  function drawGround(w){ const R=8, ST=3.4; const gx0=Math.round(cam.x/ST), gy0=Math.round(cam.y/ST), N=2*R+1; const pts=[];
-    for(let i=0;i<N;i++){ pts[i]=[]; const X=(gx0-R+i)*ST; for(let j=0;j<N;j++){ pts[i][j]=project(X,(gy0-R+j)*ST,0); } }
-    ctx.save(); ctx.shadowColor=w.grid; ctx.shadowBlur=5; ctx.strokeStyle=w.grid; ctx.lineWidth=1;
-    const seg=(p,q)=>{ if(!p||!q)return; if(p.fwd>VIEW_FAR&&q.fwd>VIEW_FAR)return; if(Math.abs(p.x-q.x)>W*0.9||Math.abs(p.y-q.y)>H*0.9)return;
-      ctx.globalAlpha=clamp(1-Math.min(p.fwd,q.fwd)/VIEW_FAR,0.04,0.5); ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); };
-    for(let i=0;i<N;i++)for(let j=0;j<N;j++){ if(i+1<N)seg(pts[i][j],pts[i+1][j]); if(j+1<N)seg(pts[i][j],pts[i][j+1]); }
-    ctx.globalAlpha=1; ctx.restore(); }
-  function drawProps(w){ const vis=[]; for(const pr of G.props){ const p=project(pr.x,pr.y,pr.alt); if(p&&p.fwd<VIEW_FAR&&p.x>-80&&p.x<W+80) vis.push([p,pr]); }
+  /* ── TARGET TAGS — nameplate · health · lock bracket · lead pip ──────────────────────────
+   * ⛔ THIS LAYER WAS MISSING FROM THE SHIPPING 3D BUILD ENTIRELY. It lived inside
+   * `drawEntities`/`drawEnemy`/`drawLead`, which `draw()` invoked only in the `else` branch of
+   * `if (glReady)` — so the moment the true-3D renderer came up, every nameplate, every enemy
+   * health bar, the lock bracket and the lead pip vanished. `G.lock` was still computed every
+   * single frame and the only place it surfaced was a 4-pixel radar blip. You could not tell who
+   * you were shooting, how close they were to dying, or where to aim ahead of them.
+   *
+   * It belongs on the overlay rather than in the scene: text is sharper and cheaper in 2D, and a
+   * nameplate must NOT be occluded by the craft it labels. Everything here projects through the
+   * ENGINE camera (see project() above), so a tag sits exactly on the hull the engine drew.
+   *
+   * Sorted far → near so a near craft's plate covers a distant one rather than interleaving. */
+  function drawTags(){
+    if(!G.me) return;
+    const vis=[];
+    for(const s of G.ships){ if(!s.alive||s.isMe) continue;
+      const p=project(s.x,s.y,s.alt); if(!p||p.fwd>VIEW_FAR+4) continue; vis.push([p,s]); }
     vis.sort((a,b)=>b[0].fwd-a[0].fwd);
-    for(const [p,pr] of vis){ const sz=clamp(pr.s*p.scale*0.5,2,90);
-      ctx.save(); ctx.globalAlpha=clamp(1-p.fwd/VIEW_FAR,0.1,1); ctx.translate(p.x,p.y); ctx.strokeStyle=w.grid; ctx.fillStyle=w.gnd; ctx.lineWidth=Math.max(1,sz*0.06); ctx.shadowColor=w.grid; ctx.shadowBlur=7;
-      drawProp(w.prop,sz); ctx.restore(); } }
-  function drawProp(kind,sz){
-    if(kind==='ring'){ ctx.beginPath(); ctx.ellipse(0,-sz*0.9,sz*0.8,sz*0.5,0,0,TAU); ctx.stroke(); }
-    else if(kind==='pylon'){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.4,-sz*1.8); ctx.lineTo(sz*0.4,-sz*1.8); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-    else if(kind==='spire'){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.16,-sz*2.4); ctx.lineTo(sz*0.16,-sz*2.4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-    else if(kind==='tower'){ ctx.beginPath(); ctx.rect(-sz*0.34,-sz*2.2,sz*0.68,sz*2.2); ctx.fill(); ctx.stroke(); }
-    else { ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-sz*0.5,-sz*0.9); ctx.lineTo(0,-sz*1.9); ctx.lineTo(sz*0.5,-sz*0.9); ctx.closePath(); ctx.fill(); ctx.stroke(); } }
-  // boost rings — fly through to refill boost
-  function drawGates(){ for(const gt of G.gates){ const p=project(gt.x,gt.y,gt.alt); if(!p||p.fwd>VIEW_FAR)continue; const R=clamp(p.scale*0.9,8,130), a=clamp(1-p.fwd/VIEW_FAR,0.15,1);
-    ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=a; ctx.strokeStyle='#ffd23b'; ctx.shadowColor='#ffd23b'; ctx.shadowBlur=16; ctx.lineWidth=Math.max(2,R*0.16);
-    ctx.beginPath(); ctx.ellipse(0,0,R,R*0.8,0,0,TAU); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,190,.7)'; ctx.lineWidth=Math.max(1,R*0.06); ctx.beginPath(); ctx.ellipse(0,0,R*0.82,R*0.64,0,0,TAU); ctx.stroke(); ctx.restore(); } }
-  function drawEntities(w){
-    // ground shockwave rings
-    for(const rg of G.rings){ const p=project(rg.x,rg.y,rg.alt); if(!p)continue; const rr2=rg.r*p.scale;
-      ctx.save(); ctx.globalAlpha=clamp(rg.life,0,1)*0.7; ctx.strokeStyle=rg.col; ctx.lineWidth=rg.big?3:1.6; ctx.beginPath(); ctx.ellipse(p.x,p.y,rr2,rr2*0.4,0,0,TAU); ctx.stroke(); ctx.restore(); }
-    // light-cycle trails
-    for(const s of G.ships){ if(!s.alive||s.trail.length<2)continue; ctx.save(); ctx.strokeStyle=s.tint; ctx.shadowColor=s.tint; ctx.shadowBlur=6; ctx.lineCap='round';
-      for(let i=1;i<s.trail.length;i++){ const p=project(s.trail[i-1][0],s.trail[i-1][1],s.trail[i-1][2]), q=project(s.trail[i][0],s.trail[i][1],s.trail[i][2]); if(!p||!q)continue;
-        const a=i/s.trail.length; ctx.globalAlpha=a*0.4; ctx.lineWidth=a*3*Math.min(2,q.scale*0.01)+0.3; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(q.x,q.y); ctx.stroke(); } ctx.restore(); ctx.globalAlpha=1; }
-    // power-ups
-    for(const pw of G.pows){ const p=project(pw.x,pw.y,pw.alt); if(!p||p.fwd>VIEW_FAR)continue; const r=clamp(p.scale*0.5,6,26); const amp=(pw.type==='amp');
-      ctx.save(); ctx.translate(p.x,p.y); ctx.globalAlpha=pw.t>17?(0.4+0.6*Math.sin(pw.t*12)):clamp(1-p.fwd/VIEW_FAR,0.2,1);
-      const halo=r*(amp?2.1:1.5)*(1+0.08*Math.sin(pw.t*4));
-      const g=ctx.createRadialGradient(0,0,0,0,0,halo); g.addColorStop(0,pw.col); g.addColorStop(.55,pw.col+'55'); g.addColorStop(1,'transparent'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,halo,0,TAU); ctx.fill();
-      // orbiting ticks (spin) — the golden OVERCHARGE cell spins faster and gets an extra ring
-      ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.shadowColor=pw.col; ctx.shadowBlur=amp?12:6;
-      const ticks=amp?6:4; ctx.beginPath(); for(let i=0;i<ticks;i++){ const a=pw.spin*(amp?1.4:1)+i*TAU/ticks; ctx.moveTo(Math.cos(a)*r*1.15,Math.sin(a)*r*1.15); ctx.lineTo(Math.cos(a)*r*1.42,Math.sin(a)*r*1.42); } ctx.stroke();
-      if(amp){ ctx.beginPath(); ctx.arc(0,0,r*1.3,0,TAU); ctx.stroke(); }
-      ctx.shadowBlur=0; ctx.fillStyle='#02040a'; ctx.beginPath(); ctx.arc(0,0,r*0.7,0,TAU); ctx.fill(); ctx.strokeStyle=pw.col; ctx.lineWidth=2; ctx.stroke();
-      ctx.fillStyle=pw.col; ctx.font='900 '+(r*0.9)+'px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(pw.ch,0,0); ctx.restore(); }
-    // bolts
-    for(const b of G.bolts){ const p=project(b.x,b.y,b.alt); if(!p)continue; const p2=project(wpos(b.x-Math.cos(b.h)*0.6),wpos(b.y-Math.sin(b.h)*0.6),b.alt);
-      const r=Math.max(1.5,(b.laser?3:2)*Math.min(3,p.scale*0.02)); ctx.save(); ctx.strokeStyle=b.me?'rgba(255,210,59,.95)':'rgba(255,90,60,.95)'; ctx.fillStyle=ctx.strokeStyle; ctx.shadowColor=b.me?'#ffae2b':'#ff2a4d'; ctx.shadowBlur=8; ctx.lineWidth=r; ctx.lineCap='round';
-      if(p2){ ctx.beginPath(); ctx.moveTo(p2.x,p2.y); ctx.lineTo(p.x,p.y); ctx.stroke(); } ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); ctx.restore(); }
-    // enemy craft (far → near)
-    const vis=[]; for(const s of G.ships){ if(!s.alive||s.isMe)continue; const p=project(s.x,s.y,s.alt); if(p&&p.fwd<VIEW_FAR+4) vis.push([p,s]); }
-    vis.sort((a,b)=>b[0].fwd-a[0].fwd); for(const [p,s] of vis) drawEnemy(p,s,w);
-    // lead pip on the lock (aligned with the rolled world)
-    drawLead();
-    // explosion sparks
-    for(const bu of G.bursts){ const p=project(bu.x,bu.y,bu.alt); if(!p)continue; ctx.globalAlpha=clamp(bu.life,0,1); ctx.fillStyle=bu.col; const r=Math.max(1,2.4*Math.min(3,p.scale*0.02)); ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU); ctx.fill(); ctx.globalAlpha=1; }
-  }
-  function drawEnemy(p,s,w){ const sz=clamp(p.scale*0.9,10,150), rel=angd(s.h-cam.h);
-    const gp=project(s.x,s.y,0);
-    if(gp){ ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000'; ctx.beginPath(); ctx.ellipse(gp.x,gp.y,sz*0.5,sz*0.2,0,0,TAU); ctx.fill(); ctx.restore(); }
-    if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.3+0.3*Math.sin(G.t*10))+')'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(p.x,p.y,sz*0.95,0,TAU); ctx.stroke(); }
-    if(s.surgeT>0){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,215,106,'+(0.4+0.4*Math.sin(G.t*16))+')'; ctx.lineWidth=2.5; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(p.x,p.y,sz*1.05,0,TAU); ctx.stroke(); ctx.restore(); }
-    if(!s._pal){ const hx=String(s.tint).replace('#',''); const t=[parseInt(hx.slice(0,2),16)||0,parseInt(hx.slice(2,4),16)||0,parseInt(hx.slice(4,6),16)||0];
-      s._pal={h:t.map(v=>v*0.52),hd:t.map(v=>v*0.34),w:t.map(v=>v*0.24),b:t.map(v=>v*0.1),f:t.map(v=>v*0.2)};
-      s._eRGB=t.map(v=>Math.round(v+(255-v)*0.45)); }
-    // the SAME 3D fuselage as your craft — oriented by its true flight heading, banking into turns
-    fuse3D(p.x,p.y,sz*0.72,{ yaw:rel,
-      roll:(s.bank||0)*1.05 + (s.rollT>0 ? (1-s.rollT/0.55)*TAU*(s.rollDir||1) : 0),
-      pal:s._pal, edge:s.tint, eRGB:s._eRGB, glow:s.tint, navL:s.tint, navR:s.tint,
-      img:s.img, boost:s.boost, thrust:s.thrust!==false,
-      alpha:(s.spawnT>0 ? (Math.sin(G.t*26)>0?0.45:1) : 1) });
-    // nameplate + hp + lock bracket (unrotated)
-    ctx.save(); ctx.textAlign='center'; ctx.font='900 '+clamp(sz*0.34,9,15)+'px Arial'; ctx.fillStyle='#d9ffe9'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
-    ctx.fillText((s.verified?'⚜ ':'')+shortName(s.name), p.x, p.y-sz*1.5); ctx.shadowBlur=0;
-    const bw=sz*1.6, hpf=clamp(s.hp/s.maxHp,0,1); ctx.fillStyle='rgba(0,0,0,.5)'; rr(p.x-bw/2,p.y-sz*1.35,bw,4,2); ctx.fill();
-    ctx.fillStyle=hpf>0.5?'#2bff80':hpf>0.25?'#ffd23b':'#ff5a3c'; rr(p.x-bw/2,p.y-sz*1.35,bw*hpf,4,2); ctx.fill();
-    if(G.lock===s){ const br=sz*1.15, L=br*0.5; ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8;
-      [[-br,-br],[br,-br],[br,br],[-br,br]].forEach(([bx,by])=>{ const sgx=Math.sign(bx),sgy=Math.sign(by); ctx.beginPath(); ctx.moveTo(p.x+bx-sgx*L,p.y+by); ctx.lineTo(p.x+bx,p.y+by); ctx.lineTo(p.x+bx,p.y+by-sgy*L); ctx.stroke(); }); ctx.shadowBlur=0; }
-    ctx.restore(); }
-  function drawLead(){ if(!G.me||!G.me.alive||!G.lock||!G.lock.alive)return; const t=G.lock; const dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
-    const p=project(wpos(t.x+Math.cos(t.h)*t.spd*lead),wpos(t.y+Math.sin(t.h)*t.spd*lead),t.alt); if(!p)return; const r=Math.min(W,H)*0.016;
-    ctx.save(); ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU);
-    ctx.moveTo(p.x-r*1.6,p.y); ctx.lineTo(p.x-r*0.6,p.y); ctx.moveTo(p.x+r*0.6,p.y); ctx.lineTo(p.x+r*1.6,p.y); ctx.stroke(); ctx.restore(); }
-  // ── shared 3D fuselage renderer — YOUR chase craft and EVERY enemy use this same model ──
-  // A model-space interceptor spun by bank-roll + pitch + heading-yaw, viewed down a chase-cam
-  // look-down angle, painter-sorted + top-light shaded, with a card plated onto the dorsal deck.
-  // o: { yaw, roll, pitch, look, pal:{h,hd,w,b,f}, edge, eRGB, glow, navL, navR, img, boost, thrust, alpha }
-  function fuse3D(bx,by,S,o){
-    const roll=o.roll||0, pc=o.pitch||0, yw=o.yaw||0, V=(o.look!=null?o.look:-0.52);
-    const cr=Math.cos(roll),sr=Math.sin(roll),cpc=Math.cos(pc),spc=Math.sin(pc),cyw=Math.cos(yw),syw=Math.sin(yw),cv=Math.cos(V),sv=Math.sin(V);
-    const rot=(x,y,z)=>{ const x1=x*cr-y*sr, y1=x*sr+y*cr;             // bank-roll about the forward axis
-      const y2=y1*cpc-z*spc, z2=y1*spc+z*cpc;                          // pitch about the right axis
-      const x3=x1*cyw+z2*syw, z3=-x1*syw+z2*cyw;                       // heading yaw about the up axis
-      return [x3, y2*cv-z3*sv, y2*sv+z3*cv]; };                        // camera look-down
-    const pj=p=>{ const r=rot(p[0],p[1],p[2]), sc=1/(1+r[2]*0.11); return [bx+r[0]*S*sc, by-r[1]*S*sc, r[2]]; };
-    const L=[-0.297,0.812,-0.505];                                     // key light (normalized)
-    const fn=(a,b,c)=>{ const ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
-      const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx, m=Math.hypot(nx,ny,nz)||1, r=rot(nx/m,ny/m,nz/m);
-      return r[0]*L[0]+r[1]*L[1]+r[2]*L[2]; };                         // lambert term in view space
-    const RGB=(c,kk)=>'rgb('+(clamp(c[0]*kk,0,255)|0)+','+(clamp(c[1]*kk,0,255)|0)+','+(clamp(c[2]*kk,0,255)|0)+')';
-    // model verts — x=right, y=up, z=forward(nose)
-    const N=[0,0.03,1.36],SF=[0,0.27,0.52],SM=[0,0.31,-0.16],TT=[0,0.19,-0.96],
-      HFL=[-0.31,0.03,0.42],HFR=[0.31,0.03,0.42],HML=[-0.36,0,-0.2],HMR=[0.36,0,-0.2],HRL=[-0.28,-0.02,-0.9],HRR=[0.28,-0.02,-0.9],
-      BF=[0,-0.17,0.34],BM=[0,-0.2,-0.2],BR=[0,-0.13,-0.86],
-      WL1=[-1.55,-0.06,0.48],WL2=[-1.72,-0.04,-0.06],WR1=[1.55,-0.06,0.48],WR2=[1.72,-0.04,-0.06];
-    const P=o.pal;
-    const F=[
-      {v:[SM,SF,HFL,HML],c:P.h},{v:[SM,SF,HFR,HMR],c:P.h},             // upper hull, front L/R
-      {v:[TT,SM,HML,HRL],c:P.hd},{v:[TT,SM,HMR,HRR],c:P.hd},           // upper hull, rear L/R
-      {v:[SF,N,HFL],c:P.h},{v:[SF,N,HFR],c:P.h},                       // nose deck L/R
-      {v:[N,HFL,BF],c:P.hd},{v:[N,HFR,BF],c:P.hd},                     // nose cheeks
-      {v:[HML,WL1,WL2,HRL],c:P.w},{v:[HMR,WR1,WR2,HRR],c:P.w},         // swept wings
-      {v:[HFL,HML,WL1],c:P.w},{v:[HFR,HMR,WR1],c:P.w},                 // wing leading fillets
-      {v:[HFL,BF,BM,HML],c:P.b},{v:[HFR,BF,BM,HMR],c:P.b},             // belly front
-      {v:[HML,BM,BR,HRL],c:P.b},{v:[HMR,BM,BR,HRR],c:P.b},             // belly rear
-      {v:[TT,[0,0.56,-1.06],[0,0.5,-0.72],[0,0.12,-0.62]],c:P.f},      // tail fin
-    ];
-    const cardQ=[[-0.28,0.32,-0.62],[0.28,0.32,-0.62],[0.2,0.32,0.56],[-0.2,0.32,0.56]];  // dorsal deck plate (the card)
-    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round'; if(o.alpha!=null)ctx.globalAlpha=o.alpha;
-    // engine bloom (additive) behind the tail
-    if(o.thrust!==false){ ctx.save(); ctx.globalCompositeOperation='lighter'; const thr=o.boost?2.2:1;
-      [[-1.02,0,-0.62],[1.02,0,-0.62]].forEach(t=>{ const e=pj(t), fl=S*(0.42+0.34*Math.random())*thr;
-        const g=ctx.createRadialGradient(e[0],e[1],0,e[0],e[1],fl); g.addColorStop(0,'rgba(255,255,225,.95)'); g.addColorStop(.4,'rgba(120,240,255,.6)'); g.addColorStop(1,'transparent');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(e[0],e[1],fl,0,TAU); ctx.fill(); }); ctx.restore(); }
-    // renderables (hull faces + card deck), painter-sorted far→near
-    const R=F.map(f=>{ const pv=f.v.map(pj); return {pv, az:pv.reduce((s,q)=>s+q[2],0)/pv.length, d:fn(f.v[0],f.v[1],f.v[2]), c:f.c}; });
-    const cpv=cardQ.map(pj); R.push({pv:cpv, az:cpv.reduce((s,q)=>s+q[2],0)/cpv.length, card:true});
-    R.sort((a,b)=>b.az-a.az);
-    ctx.shadowColor=o.glow;
-    for(const r of R){ const p=r.pv;
-      ctx.beginPath(); ctx.moveTo(p[0][0],p[0][1]); for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]); ctx.closePath();
-      if(r.card){ ctx.shadowBlur=Math.min(18,S*0.28); ctx.fillStyle='#0a3038'; ctx.fill(); ctx.shadowBlur=0;
-        const card=o.img;
-        if(card&&card.im&&card.im.complete&&card.im.naturalWidth){ const iw=card.im.naturalWidth, ih=card.im.naturalHeight, O=p[3];
-          const ux=(p[2][0]-O[0])/iw, uy=(p[2][1]-O[1])/iw, vx=(p[0][0]-O[0])/ih, vy=(p[0][1]-O[1])/ih;
-          ctx.save(); ctx.clip(); ctx.transform(ux,uy,vx,vy,O[0],O[1]); ctx.globalAlpha=.96; ctx.drawImage(card.im,0,0,iw,ih); ctx.restore();
-          ctx.save(); ctx.clip(); const gg=ctx.createLinearGradient(p[3][0],p[3][1],p[1][0],p[1][1]);
-          gg.addColorStop(0,'rgba(190,255,245,.22)'); gg.addColorStop(.5,'rgba(120,240,255,.04)'); gg.addColorStop(1,'rgba(4,30,38,.24)');
-          ctx.fillStyle=gg; ctx.fill(); ctx.restore();
-        } else { ctx.fillStyle=RGB(P.h,1.15); ctx.fill(); }
-        ctx.strokeStyle=o.edge; ctx.lineWidth=Math.max(1.2,S*0.04); ctx.stroke();
-      } else { const kk=0.4+0.72*Math.max(0,r.d);
-        ctx.shadowBlur=r.d>0.25?Math.min(10,S*0.16):0; ctx.fillStyle=RGB(r.c,kk); ctx.fill(); ctx.shadowBlur=0;
-        ctx.strokeStyle='rgba('+o.eRGB[0]+','+o.eRGB[1]+','+o.eRGB[2]+','+(0.22+0.5*Math.max(0,r.d)).toFixed(2)+')'; ctx.lineWidth=Math.max(1,S*0.028); ctx.stroke(); }
+    ctx.save(); ctx.textAlign='center';
+    for(const [p,s] of vis){
+      // the tag scales with distance the way the craft does, but is floored so a far contact
+      // still has a readable plate — an unreadable label is the same as no label
+      const sz=clamp(p.scale*0.9,10,150);
+      const fs=clamp(sz*0.34,9,15);
+      ctx.font='900 '+fs+'px Arial'; ctx.fillStyle='#dffff0'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
+      ctx.fillText((s.verified?'⚜ ':'')+shortName(s.name), p.x, p.y-sz*1.5);
+      ctx.shadowBlur=0;
+      const bw=clamp(sz*1.6,26,140), hpf=clamp(s.hp/s.maxHp,0,1);
+      ctx.fillStyle='rgba(0,0,0,.55)'; rr(p.x-bw/2,p.y-sz*1.35,bw,4,2); ctx.fill();
+      ctx.fillStyle=hpf>0.5?'#2bff80':hpf>0.25?'#ffd23b':'#ff5a3c'; rr(p.x-bw/2,p.y-sz*1.35,bw*hpf,4,2); ctx.fill();
+      // shield / overcharge states were also GL-invisible: both are timed buffs you need to read
+      // off the target to know whether to keep shooting it
+      if(s.sh>0){ ctx.strokeStyle='rgba(176,112,255,'+(0.35+0.35*Math.sin(G.t*10)).toFixed(2)+')'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(p.x,p.y,sz*0.95,0,TAU); ctx.stroke(); }
+      if(s.surgeT>0){ ctx.strokeStyle='rgba(255,215,106,'+(0.4+0.4*Math.sin(G.t*16)).toFixed(2)+')'; ctx.lineWidth=2.4;
+        ctx.shadowColor='#ffd76a'; ctx.shadowBlur=12; ctx.beginPath(); ctx.arc(p.x,p.y,sz*1.05,0,TAU); ctx.stroke(); ctx.shadowBlur=0; }
+      if(G.lock===s){ const br=sz*1.15, L=br*0.5; ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2;
+        ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8;
+        [[-br,-br],[br,-br],[br,br],[-br,br]].forEach(([bx,by])=>{ const gx=Math.sign(bx), gy=Math.sign(by);
+          ctx.beginPath(); ctx.moveTo(p.x+bx-gx*L,p.y+by); ctx.lineTo(p.x+bx,p.y+by); ctx.lineTo(p.x+bx,p.y+by-gy*L); ctx.stroke(); });
+        ctx.shadowBlur=0; }
     }
-    // canopy bubble + glint, wingtip nav lights, nose beacon
-    const cp=pj([0,0.35,0.74]); ctx.save(); ctx.shadowColor='#dffffa'; ctx.shadowBlur=Math.min(10,S*0.16);
-    ctx.fillStyle='rgba(8,30,40,.92)'; ctx.strokeStyle='#dffffa'; ctx.lineWidth=1.4;
-    ctx.beginPath(); ctx.ellipse(cp[0],cp[1],S*0.12,S*0.16,roll,0,TAU); ctx.fill(); ctx.stroke();
-    const gl=pj([-0.04,0.41,0.82]); ctx.fillStyle='rgba(210,255,250,.9)'; ctx.beginPath(); ctx.ellipse(gl[0],gl[1],S*0.045,S*0.07,roll,0,TAU); ctx.fill(); ctx.restore();
-    [[WL2,o.navL],[WR2,o.navR]].forEach(([wv,col])=>{ const q=pj(wv); ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=9; ctx.beginPath(); ctx.arc(q[0],q[1],Math.max(1.6,S*0.055),0,TAU); ctx.fill(); ctx.shadowBlur=0; });
-    const nz=pj(N); ctx.fillStyle='#fff'; ctx.shadowColor='#fff'; ctx.shadowBlur=Math.min(10,S*0.16); ctx.beginPath(); ctx.arc(nz[0],nz[1],Math.max(1.4,S*0.05),0,TAU); ctx.fill(); ctx.shadowBlur=0;
     ctx.restore();
+    drawLead();
   }
-  // your own craft in third-person chase — the shared fuselage, teal, seen from dead astern
-  function drawCraft(){ const base=clamp(W*0.062,38,88), k=G.me;
-    fuse3D(cx, H-base*1.5, base, {
-      roll:(k.bank||0)*1.05 + (k.rollT>0 ? (1-k.rollT/0.55)*TAU*(k.rollDir||1) : 0),   // bank + barrel-roll spin
-      pitch:clamp((k.pitchIn||0)*0.32,-0.5,0.5),                                        // nose tips with climb/dive
-      pal:{h:[16,116,138],hd:[10,74,92],w:[12,48,64],b:[5,22,30],f:[10,46,60]},
-      edge:'#5ffdec', eRGB:[95,253,236], glow:'#27f7e4', navL:'#ff2ad9', navR:'#27f7e4',
-      img:(craftImgs.length?craftImgs[0]:null), boost:k.boost });
-    // OVERCHARGE aura — golden bloom + orbiting sparks while the market-heat surge is live
-    if(k.surgeT>0){ const cyg=H-base*1.7, R=base*1.7, pul=0.5+0.5*Math.sin(G.t*18); ctx.save(); ctx.globalCompositeOperation='lighter';
-      const g=ctx.createRadialGradient(cx,cyg,R*0.4,cx,cyg,R); g.addColorStop(0,'rgba(255,215,106,0)'); g.addColorStop(.7,'rgba(255,200,80,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(255,230,150,'+(0.16+0.12*pul)+')');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyg,R,0,TAU); ctx.fill();
-      ctx.strokeStyle='rgba(255,225,140,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2; ctx.shadowColor='#ffd76a'; ctx.shadowBlur=14;
-      for(let i=0;i<5;i++){ const a=G.t*3+i*TAU/5; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*R*0.9,cyg+Math.sin(a)*R*0.72,base*0.05,0,TAU); ctx.stroke(); } ctx.restore(); }
-    // muzzle flash — a quick additive bloom off the nose the instant you fire
-    if(G.t-(k.muzzle||-9)<0.07){ const my=H-base*1.5-base*1.15, fr=base*(0.5+Math.random()*0.35); ctx.save(); ctx.globalCompositeOperation='lighter';
-      const g=ctx.createRadialGradient(cx,my,0,cx,my,fr); g.addColorStop(0,'rgba(255,244,200,.95)'); g.addColorStop(.45,'rgba(255,180,60,.5)'); g.addColorStop(1,'transparent');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,my,fr,0,TAU); ctx.fill(); ctx.restore(); }
-    if(k.iframe>0){ const cyb=H-base*1.7, R=base*1.85, pul=0.5+0.5*Math.sin(G.t*22); ctx.save();
-      // deflector shield bubble — glowing hex dome that flares while it blocks
-      const g=ctx.createRadialGradient(cx,cyb,R*0.35,cx,cyb,R); g.addColorStop(0,'rgba(40,247,228,0)'); g.addColorStop(.72,'rgba(40,247,228,'+(0.05+0.06*pul)+')'); g.addColorStop(1,'rgba(120,255,240,'+(0.18+0.14*pul)+')');
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cyb,R,0,TAU); ctx.fill();
-      ctx.strokeStyle='rgba(150,255,244,'+(0.5+0.4*pul)+')'; ctx.lineWidth=2.4; ctx.shadowColor='#27f7e4'; ctx.shadowBlur=16;
-      ctx.beginPath(); for(let i=0;i<6;i++){ const a=G.t*1.5+i*TAU/6; const px=cx+Math.cos(a)*R, py=cyb+Math.sin(a)*R*0.94; i?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.stroke();
-      ctx.restore(); } }
+  /* The lead pip: where the target WILL be when a bolt gets there. The gunnery in this game is
+   * pure deflection shooting, so without it a lock tells you what you are aiming at and nothing
+   * about how to hit it. Same maths the bot AI uses to lead its own shots. */
+  function drawLead(){ if(!G.me||!G.me.alive||!G.lock||!G.lock.alive)return; const t=G.lock;
+    const dist=Math.hypot(wdel(t.x-G.me.x),wdel(t.y-G.me.y)), lead=dist/BOLTSPD;
+    const p=project(wpos(t.x+Math.cos(t.h)*t.spd*lead),wpos(t.y+Math.sin(t.h)*t.spd*lead),t.alt); if(!p)return;
+    const r=Math.min(W,H)*0.016;
+    ctx.save(); ctx.strokeStyle='#ff2ad9'; ctx.lineWidth=2; ctx.shadowColor='#ff2ad9'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(p.x,p.y,r,0,TAU);
+    ctx.moveTo(p.x-r*1.6,p.y); ctx.lineTo(p.x-r*0.6,p.y); ctx.moveTo(p.x+r*0.6,p.y); ctx.lineTo(p.x+r*1.6,p.y);
+    ctx.stroke(); ctx.restore(); }
   /* ── the cockpit ─────────────────────────────────────────────────────────────────────────
    * Three layers, drawn back to front the way you'd actually see them: HUD symbology floating
    * on the combiner glass, then the canopy structure that occludes it, then the panel.
@@ -1142,13 +1079,22 @@
    * ⚑ The HUD is driven from cam.roll / cam.ph, NOT from the ship's bank/pitch inputs. The
    *   camera lags the craft, so keying off the inputs puts the horizon line somewhere the
    *   rendered horizon isn't — and a pitch ladder that disagrees with the view out of the
-   *   window is worse than no pitch ladder. RAD2PX comes from the GL camera's own 1.05 rad
+   *   window is worse than no pitch ladder. RAD2PX comes from the camera's own 1.05 rad
    *   vertical FOV, so a 10° rung really is 10°.
+   *
+   * ⛔ AND THE SIGN WAS WRONG, in the same direction and for the same reason the old GL camera's
+   *   pitch was wrong. `cam.ph` tracks `me.pitchIn`, and pitchIn > 0 is ArrowDown — `s.alt -=
+   *   pitch*2.4*dt` — i.e. DESCENDING. Descending means you see more ground, so the horizon
+   *   climbs UP the screen (a SMALLER y). `cy + ph*RAD2PX` moves it DOWN. The old 2D world
+   *   renderer had it right all along (`HORIZON = H*0.46 − ph*H*0.10`); the cockpit was written
+   *   to agree with the GL camera, and the GL camera was inverted, so the two were consistently
+   *   wrong together. Consistently wrong is still wrong — and it is why the horizon bar drifted
+   *   the opposite way to the world behind it whenever anyone A/B'd the two renderers.
    */
   function drawCockpit(){
     const k=G.me||{spd:0,alt:0,bank:0,hp:1,maxHp:1,boostGauge:0};
     const roll=cam.roll||0, ph=cam.ph||0, RAD2PX=H/1.05;
-    const hz=cy+ph*RAD2PX;                                  // where the true horizon sits on screen
+    const hz=cy-ph*RAD2PX;                                  // where the true horizon sits on screen
     const GRN='rgba(120,255,180,', dim=a=>GRN+a+')';
 
     // ── 1. HUD on the glass ────────────────────────────────────────────────────────────────
@@ -1337,21 +1283,17 @@
     ctx.fillStyle='rgba(159,230,200,.85)'; ctx.font='700 8px Courier New'; ctx.textAlign='center'; ctx.fillText('RADAR',0,RR+10);
     ctx.restore(); }
   function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  /* The 2D pass over the engine's frame. It draws ONLY what is genuinely better in 2D: the target
+   * tags (text), the cockpit framing, the reticle, the speed streaks and the radar.
+   * ⚠ The tags are drawn OUTSIDE the shake transform on purpose. Screen shake moves the CAMERA in
+   * the engine, so the hull the tag labels has already moved; shifting the overlay by the same
+   * amount again would double it and the plates would swim off their craft. */
   function draw(){
-    const w=world();
-    FOCAL=Math.max(360,H*0.95); if(G.me&&G.me.zoom) FOCAL*=2.9; HORIZON=H*0.46 - cam.ph*H*0.10;
     const doShake=G.shake>0.3, shx=doShake?Math.sin(G.t*80)*G.shake*0.5:0, shy=doShake?Math.cos(G.t*66)*G.shake*0.5:0;
+    ctx.clearRect(-W*0.3,-H*0.3,W*1.6,H*1.6);        // the engine owns the world behind us
+    drawTags();
     ctx.save(); if(doShake)ctx.translate(shx,shy);
-    if(glReady){ ctx.clearRect(-W*0.3,-H*0.3,W*1.6,H*1.6); }   // GL owns the world behind us
-    else {
-      ctx.fillStyle='#01030a'; ctx.fillRect(-W*0.3,-H*0.3,W*1.6,H*1.6);
-      // the world, rolled around the horizon so turns bank
-      ctx.save(); ctx.translate(cx,HORIZON); ctx.rotate(cam.roll); ctx.translate(-cx,-HORIZON);
-      drawSky(w); drawGround(w); drawProps(w); drawGates(); drawEntities(w);
-      ctx.restore();
-    }
-    // foreground: cockpit framing stays 2D either way; the hull is GL's job in true-3D
-    if(G.view==='cockpit') drawCockpit(); else if(!glReady && G.me&&G.me.alive) drawCraft();
+    if(G.view==='cockpit') drawCockpit();            // cockpit framing stays 2D; the hull is the engine's
     drawReticle(); drawSpeedFx();
     ctx.restore();     // end shake
     drawRadar();       // the reused Tron disk, stable in the corner
@@ -1372,21 +1314,45 @@
    * input events (CLAUDE.md) — driving the simulation directly is the only way to derive a flight
    * equilibrium without a keypress accidentally waking a burst of real frames.
    * Read-only in spirit: nothing in the game reads __df. */
-  window.__df = { G, cam, world, keys, step, frame:()=>frame(performance.now()),
+  window.__df = { G, cam, world, keys, step, draw, project,
     K:{ WS, CAM_BACK, CAM_H, NEAR, ALT_MIN, ALT_MAX, VIEW_FAR, BOLTSPD, CLOUD_ALT, CLOUD_THICK },
-    gl:()=>glReady, renderer:()=>(glReady?'dfgl':(GPU?'gfx2d':'canvas2d')) };
+    gl:()=>glReady, renderer:()=>(glReady?'dfpc':'none'),
+    pc:()=>(glReady?DFPC.stats():null) };
 
-  let last=performance.now();
-  function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
+  /* ── the loop ─────────────────────────────────────────────────────────────────────────────
+   * ⚑ THE ENGINE OWNS THE FRAME, and the game's step() hangs off its update. The alternative —
+   * keeping our own rAF and asking PlayCanvas to render on demand — means two schedulers for one
+   * frame, which is how a step and a render end up on different sides of the same tick. Same
+   * split section9.html uses. When the engine is not available nothing is scheduled at all: the
+   * #nogl route has already taken over the page.
+   * dt is clamped exactly as before (50 ms), so a stalled tab cannot teleport anyone. */
+  function tick(dt){
+    const d=Math.min(0.05,dt);
+    if(G.mode==='play') step(d);
     if(G.mode!=='lobby'){
-      if(glReady){ try{ DFGL.frame(G, cam, world(), { WS, CAM_BACK, CAM_H, VIEW_FAR, CLOUD_ALT, CLOUD_THICK }); }
-                   catch(e){ glReady=false; glcv.style.display='none'; cv.style.background=''; } }
-      draw(); if(GPU) GPU.present();
-    } requestAnimationFrame(frame); }
+      try{ DFPC.sync(G, cam, world(), OPT); }
+      catch(e){ if(!tick._warned){ tick._warned=1; console.warn('[dogfight] sync threw:', e && e.message); } }
+      draw();
+    }
+    if(SHOWENG && (tick._n=(tick._n||0)+1)%20===0) engReadout();
+  }
+  const SHOWENG = (()=>{ try{ return new URLSearchParams(location.search).has('eng'); }catch{ return false; } })();
+  if(SHOWENG) document.body.classList.add('showeng');
+  /* F8 toggles it live: `?eng` means deciding to look BEFORE the match, and stutter is something
+   * you notice mid-fight — having to reload to see the numbers loses the moment you wanted. */
+  addEventListener('keydown',e=>{ if(e.key==='F8'){ e.preventDefault(); document.body.classList.toggle('showeng'); } });
+  function engReadout(){
+    const el=$('eng'); if(!el||!document.body.classList.contains('showeng')) return;
+    const s=DFPC.stats(); if(!s.ok){ el.textContent=s.why||'engine off'; return; }
+    el.innerHTML = s.engine+' · tier '+s.tier+' · '+s.art+(s.post?' · post':' · no post')+(s.dither?'+dither':'')+'<br>'+
+      s.props+' props · '+s.gates+' gates · '+s.puffs+' cloud · '+s.ships+' craft'+
+      (s.fx?(' · fx '+s.fx.add+'/'+s.fx.rings+'/'+s.fx.shadow):'')+' · '+(s.night?'night':'high-key')+' '+s.theme+'<br>'+
+      '<b>'+s.median.toFixed(1)+' ms</b> median ('+(s.median>0?(1000/s.median).toFixed(0):'0')+' fps) · p95 '+s.p95.toFixed(1)+' · worst '+s.worst.toFixed(1)+' ms';
+  }
   loadDeck().then(()=>{ refreshPot(); refreshEth(); });
   if(window.RipPowers){ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); });
     setInterval(()=>{ RipPowers.pollMarket().then(()=>{ if(G.mode==='lobby')refreshLoadoutPreview(); }); }, 45000); }
-  requestAnimationFrame(frame);
+  if(glReady) DFPC.start(tick);
 })();
 </script>
 </body>

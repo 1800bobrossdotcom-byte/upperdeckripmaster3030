@@ -47,11 +47,33 @@
    * high-frequency noise a flat colour field must not have, and unsharp then sharpens that noise.
    * So they are zero. The rolloff stays, because it is the only thing standing between additive
    * bloom and flat white paper. Saturation goes up, because a world with no texture detail has
-   * nothing but colour to carry it. Every number below with a `?` override was swept — see report. */
+   * nothing but colour to carry it. Every number below with a `?` override was swept — see report.
+   *
+   * ⚑ THE TONEMAPPER IS **NEUTRAL**, NOT ACES, AND IT WAS MEASURED. Section 9 chose ACES by
+   *   counting clipped pixels; the same measurement on this stage, on a held frame of six abilities
+   *   in flight, says something different, because the stage is different — flat saturated fields
+   *   instead of concrete:
+   *
+   *       tonemapper   clipped %   mean luma   RMS contrast   mean |Lap|   saturation
+   *       NEUTRAL       0.0011       80.5         52.9          11.89        55.5   ← chosen
+   *       ACES          0.0080       94.3         50.4          10.06        47.9
+   *       FILMIC        0.0011       61.7         31.7           7.01        39.3
+   *       LINEAR        1.9966       92.0         46.8          11.00        39.6
+   *       NONE          2.2809       92.6         47.7          10.63        40.2
+   *
+   *   Unrolled (NONE) the additive FX blow 2.28% of the frame to flat white — the exact failure
+   *   GfxPost's measured `knee 0.94` exists to prevent, so a rolloff is non-negotiable. Both ACES
+   *   and NEUTRAL remove it. ACES then costs 7.6 points of SATURATION and 1.8 of RMS relative to
+   *   NEUTRAL, because ACES desaturates highlights by design — which is a virtue in a photographic
+   *   look and a defect when the whole subject is flat saturated colour. NEUTRAL costs 12 luma and
+   *   buys back saturation ABOVE the unrolled image (40.2 → 55.5) and the most local detail in the
+   *   table. It is also the closest thing in the engine to `js/card3d.js`'s reason for TONEMAP_NONE:
+   *   do not re-grade the artist's colour. Same method as Section 9, opposite answer, because the
+   *   picture is not the same picture. */
   var POST = {
     /* the NAME, not the constant — `pc` does not exist yet when this file parses, and resolving it
      * into POST at boot would mean a second fight re-resolving an already-resolved number */
-    toneName: Q.get('tone') || 'aces',
+    toneName: Q.get('tone') || 'neutral',
     bloom: num('bloom', 0.055),
     sharpness: num('sharp', 0.30),
     saturation: num('sat', 1.22),
@@ -147,11 +169,22 @@
     var cam = A.cam;
     var mkTex = A._tex.tex;
 
+    /* ⚑ MEASURE THE CANVAS, NOT THE HOST. `.faceoff` has padding and a backdrop-filter, so a fixed
+     * child at inset:0 lays out against its PADDING box — the canvas is a few px inside the host on
+     * every edge. Sizing the backing store from the host would stretch the render by that margin
+     * and, worse, would put every screenToWorld handoff coordinate off by the padding, which is the
+     * one number the DOM→3D card handoff cannot be wrong about. */
     function fit() {
-      var r = host.getBoundingClientRect();
+      /* ⚠ CLEAR THE INLINE SIZE BEFORE MEASURING. `app.resizeCanvas()` pins `style.width/height` in
+       * px; measure without clearing and the canvas reads back the size IT set last time, so it can
+       * shrink on a rotate but never grow again. Cleared, the CSS `width/height:100%` re-asserts and
+       * the measurement is the layout's answer rather than an echo of our own. */
+      canvas.style.width = ''; canvas.style.height = '';
+      var r = canvas.getBoundingClientRect();
       if (!r.width || !r.height) return false;
       app.resizeCanvas(r.width, r.height);
-      A.refit();
+      try { app.graphicsDevice.updateClientRect(); } catch (e) {}
+      A.refit(r.width, r.height);
       return true;
     }
     if (!fit()) { var tries = 0; (function retry() { if (tries++ > 90) return; if (!fit()) requestAnimationFrame(retry); })(); }
@@ -251,17 +284,26 @@
        * that is already open. At fight distance a card is ~120 px tall and the relief would not
        * survive the resample anyway. */
       var art = plate(0.032, CW * 0.90, CH * 0.90);
-      var artMat = solid({ emissive: new pc.Color(0.9, 0.9, 0.9), diffuse: new pc.Color(0, 0, 0),
+      var artMat = solid({ emissive: new pc.Color(1, 1, 1), diffuse: new pc.Color(0, 0, 0),
         metalness: 0, useMetalness: false, specular: new pc.Color(0.05, 0.05, 0.05),
         gloss: 0.5, useSkybox: false });
       art.render.material = artMat;
       if (card && card.art) texFor(card.art, function (t) { artMat.emissiveMap = t; artMat.update(); });
 
+      /* ⚑ THE INK KEYLINE. A comic panel outlines its subject in black, and there is a rendering
+       * reason as well as a stylistic one: against a bright saturated backdrop a bright card has no
+       * silhouette at all — the two just meet. An opaque black plate a little larger than the card,
+       * sitting behind it, draws a hard 0.05-unit line all the way round and gives the additive halo
+       * something to glow OUT of rather than through. It is opaque on purpose so it writes depth. */
+      var ink = plate(-0.035, CW * 1.12, CH * 1.08);
+      ink.render.material = solid({ diffuse: new pc.Color(0, 0, 0), emissive: new pc.Color(0.015, 0.005, 0.03),
+        useLighting: false, useSkybox: false });
+
       // the halo: a slightly larger additive plate BEHIND the card. This is what gives every card a
       // hard rarity-coloured silhouette against a bright backdrop instead of dissolving into it.
-      var halo = plate(-0.06, CW * 1.30, CH * 1.26);
+      var halo = plate(-0.065, CW * 1.34, CH * 1.28);
       var haloMat = solid({ diffuse: new pc.Color(0, 0, 0),
-        emissive: new pc.Color(frameCol.r * 0.30, frameCol.g * 0.30, frameCol.b * 0.30),
+        emissive: new pc.Color(frameCol.r * 0.22, frameCol.g * 0.22, frameCol.b * 0.22),
         useLighting: false, useSkybox: false, blendType: pc.BLEND_ADDITIVE, depthWrite: false });
       halo.render.material = haloMat;
 
@@ -307,12 +349,12 @@
      * the DOM card's measured height. */
     function seedFromDom() {
       if (!arena) return;
+      var cr = canvas.getBoundingClientRect();
+      var H = Math.max(1, cr.height);
+      var tanH = Math.tan(cam.camera.fov * Math.PI / 360);
       ['you', 'house'].forEach(function (key) {
         var sideEl = arena.querySelector('.fo-side.' + key); if (!sideEl) return;
         var els = sideEl.querySelectorAll('.fo-cw');
-        var hostR = host.getBoundingClientRect();
-        var H = Math.max(1, hostR.height);
-        var tanH = Math.tan(cam.camera.fov * Math.PI / 360);
         sides[key].forEach(function (f, i) {
           var el = els[i]; if (!el) return;
           var r = el.getBoundingClientRect(); if (!r.height) return;
@@ -320,7 +362,7 @@
           var camPos = cam.getPosition();
           var d = Math.hypot(slot.x - camPos.x, slot.y - camPos.y, slot.z - camPos.z);
           var w = new pc.Vec3();
-          cam.camera.screenToWorld(r.left - hostR.left + r.width / 2, r.top - hostR.top + r.height / 2, d, w);
+          cam.camera.screenToWorld(r.left - cr.left + r.width / 2, r.top - cr.top + r.height / 2, d, w);
           f.from = { x: w.x, y: w.y, z: w.z, sc: clamp((r.height * tanH * d * 2) / (H * CH), 0.15, 3) };
           f.warp = 0;                                          // 0 = at the DOM card, 1 = in its slot
           el.classList.add('cb-handed');                       // CSS in battle.html fades it to a sleeve
@@ -368,7 +410,7 @@
 
     function spawnShot(cfg) {
       var type = cfg.type || 'box';
-      var e = grab(type, glowMat(cfg.col, cfg.gain || 1.6));
+      var e = grab(type, glowMat(cfg.col, cfg.gain || 1.0));
       var s = { e: e, type: type, x: cfg.x, y: cfg.y, z: cfg.z, vx: cfg.vx, vy: cfg.vy || 0, vz: cfg.vz || 0,
         r: cfg.r || 0.14, life: cfg.life || 2.0, col: cfg.col, side: cfg.side, kind: cfg.kind || 'bolt',
         grav: cfg.grav || 0, homing: cfg.homing || 0, power: cfg.power || 1, tgt: cfg.tgt, stretch: cfg.stretch || 1 };
@@ -380,11 +422,11 @@
      * "deliberately NOT spheres/orbs" — an expanding sphere reads as a ball of light sitting in the
      * scene, an expanding ring reads as a shockwave leaving the point it started from. Same call. */
     function ringBurst(x, y, z, col, n, big) {
-      var e = grab('torus', glowMat(col, 2.1));
-      puffs.push({ e: e, kind: 'ring', x: x, y: y, z: z, t: 0, life: big ? 0.5 : 0.34, r0: 0.4, r1: big ? 6.0 : 3.0 });
+      var e = grab('torus', glowMat(col, 1.25));
+      puffs.push({ e: e, kind: 'ring', x: x, y: y, z: z, t: 0, life: big ? 0.5 : 0.34, r0: 0.35, r1: big ? 3.6 : 2.0 });
       for (var i = 0; i < n; i++) {
         var a = Math.random() * 6.283, b = (Math.random() - 0.5) * 1.4, sp = 2.4 + Math.random() * (big ? 9 : 5);
-        var se = grab('box', glowMat(i % 4 === 0 ? '#ffffff' : col, 2.0));
+        var se = grab('box', glowMat(i % 4 === 0 ? '#ffffff' : col, 1.4));
         puffs.push({ e: se, kind: 'spark', x: x, y: y, z: z, t: 0, life: 0.30 + Math.random() * 0.42,
           vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.9 + 1.4, vz: b * sp * 0.5, r: 0.05 + Math.random() * 0.07 });
       }
@@ -435,15 +477,15 @@
       else if (k === 'spread') { for (var j = -2; j <= 2; j++) bolt(j * 0.30, j * 0.22, base, 0.10, 'bolt', { vy: j * 1.1, vz: j * 0.7 }); }
       else if (k === 'laser') {
         var d = Math.abs(tgt.x - from.x);
-        var e = grab('box', glowMat(col, 2.6));
+        var e = grab('box', glowMat(col, 1.35));
         puffs.push({ e: e, kind: 'beam', x: (from.x + tgt.x) / 2, y: from.y, z: from.z * 0.4 + tgt.z * 0.6,
-          t: 0, life: big ? 0.42 : 0.30, len: d, r: 0.20 * sc });
+          t: 0, life: big ? 0.42 : 0.30, len: d, r: 0.10 * sc });
         A.punch(0.75); A.shake(1.0);
         setTimeout(function () { if (!dead) landed(sideKey, tgt, col, 2.2, big); }, 90);
       }
       else if (k === 'bomb') { bolt(0.55, 0, base * 0.58, 0.30, 'bomb', { vy: 6.4, grav: -12, type: 'sphere', stretch: 1 }); }
       else if (k === 'shield') {
-        var se = grab('torus', glowMat(col, 2.2));
+        var se = grab('torus', glowMat(col, 1.2));
         puffs.push({ e: se, kind: 'ring', x: from.x, y: from.y, z: from.z, t: 0, life: 0.7, r0: 0.4, r1: 2.3 });
         if (f) f.hit = -0.6;                                   // a brace, not a flinch
       }
@@ -531,7 +573,7 @@
            * lesson in its own comment: material.update() rebuilds the shader parameters, and doing
            * it 60×/s per card for a value that barely changed is most of what makes a card viewer
            * feel choppy. Fourteen cards makes it fourteen times worse. */
-          var g = 0.30 + Math.max(0, f.hit) * 0.95 + f.rise * 0.55 - f.dead * 0.28;
+          var g = 0.22 + Math.max(0, f.hit) * 0.95 + f.rise * 0.55 - f.dead * 0.20;
           if (Math.abs(g - f.haloG) > 0.006) {
             f.haloG = g;
             f.halo.emissive.set(f.rar.r * g, f.rar.g * g, f.rar.b * g);
@@ -582,7 +624,7 @@
           p2.e.setPosition(p2.x, p2.y, p2.z);
           // a pc torus lies in XZ (ring around +Y), so standing it up on X puts it in the XY plane,
           // i.e. facing the camera. The tube THINS as the ring grows, or it reads as a doughnut.
-          p2.e.setLocalScale(rr, Math.max(0.10, 0.75 * (1 - q)), rr);
+          p2.e.setLocalScale(rr, Math.max(0.06, 0.30 * (1 - q)), rr);
           p2.e.setEulerAngles(90, 0, 0);
         } else if (p2.kind === 'spark') {
           p2.vy -= 16 * dt;
@@ -594,7 +636,7 @@
         } else if (p2.kind === 'beam') {
           var a2 = Math.sin(q * Math.PI);
           p2.e.setPosition(p2.x, p2.y, p2.z);
-          p2.e.setLocalScale(p2.len, p2.r * (0.4 + a2 * 1.6), p2.r * (0.4 + a2 * 1.6));
+          p2.e.setLocalScale(p2.len, p2.r * (0.4 + a2 * 1.1), p2.r * (0.4 + a2 * 1.1));
         }
         if (q >= 1) { drop(p2.e); puffs.splice(j, 1); }
       }
@@ -607,9 +649,15 @@
         var ss = P.s0 + (P.s1 - P.s0) * (1 - Math.pow(1 - qq, 3));
         P.e.setPosition(P.x, P.y + qq * 0.5, P.z);
         P.e.setLocalScale(ss, 1, ss);
-        _v.set(cp.x, cp.y, cp.z);
-        P.e.lookAt(_v, pc.Vec3.UP);
-        P.e.rotateLocal(90, 0, P.spin * qq);
+        /* ⚑ NOT A lookAt BILLBOARD, AND THE REASON IS MEASURED: the first version aimed each panel
+         * at the camera with lookAt, and "KRAK!" came out BACKWARDS. From the +Z side lookAt yaws the
+         * entity 180° off identity, which mirrors its U axis — invisible on a symmetric burst,
+         * fatal on lettering. The camera here only drifts ±3° in yaw, so a plane simply stood up
+         * facing +Z is billboarded to within the width of the panel's own outline, reads the right
+         * way round, and is the same (90,0,0) the card art plates already use.
+         * The Z term is the in-plane spin: PlayCanvas composes euler as Rz·Ry·Rx, so the X rotation
+         * stands the panel up FIRST and the Z rotation then turns it about its own normal. */
+        P.e.setLocalEulerAngles(90, 0, P.spin * qq);
         if (qq >= 1) { drop(P.e); pops.splice(m2, 1); }
       }
 

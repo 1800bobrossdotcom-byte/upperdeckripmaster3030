@@ -63,8 +63,8 @@ window.RRGame = (function () {
                                // is "them up there, you down here", and free vertical movement
                                // dissolves it into a twin-stick game.
     SHIPY: -3.4,
-    COLS: 8, ROWS: 4,
-    COLW: 1.44, ROWH: 0.86,
+    COLS: 9, ROWS: 4,
+    COLW: 1.30, ROWH: 0.86,
     FORMY: 4.05,               // top row
     FORMZ: -1.2, ROWZ: 0.22,   // rows step toward the camera so the grid has depth
     ZNEAR: 2.6,                // a diver may come this far past the formation plane
@@ -121,7 +121,7 @@ window.RRGame = (function () {
       market: { hue: 168, heat: 1, block: 0, weather: 'reading chain…' },
       rng: mulberry32(0x1234),
       diveT: 1.1, ripper: null, captive: null,
-      stat: { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0 },
+      stat: { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, dByShot: 0, dByRam: 0, dByRip: 0 },
     };
     return G;
   }
@@ -151,10 +151,14 @@ window.RRGame = (function () {
     const bonus = (w % 4 === 0);
     return {
       bonus,
-      count: bonus ? 16 : Math.min(32, 18 + (w - 1) * 2),
+      count: bonus ? 16 : Math.min(36, 24 + (w - 1) * 2),
       diveGap: Math.max(0.30, 1.15 - (w - 1) * 0.085),
       maxDive: Math.min(7, 2 + Math.floor(w * 0.8)),
-      eFire: bonus ? 0 : Math.min(2.6, 0.85 + (w - 1) * 0.16),
+      /* ⚠ eFire STARTED AT 0.85 AND WAVE 1 WAS UNSURVIVABLE. Measured with a dodging bot: three
+       * lives gone in 9 seconds, never reaching wave 2. Density is the brief; a wave-1 wall is
+       * just the opposite failure with better production values. 0.5 with a steeper ramp keeps
+       * the opening readable and gets to the same place by wave 5. */
+      eFire: bonus ? 0 : Math.min(2.6, 0.5 + (w - 1) * 0.18),
       speed: Math.min(2.1, 1 + (w - 1) * 0.075),
       ripper: !bonus && w >= 2,
     };
@@ -168,7 +172,7 @@ window.RRGame = (function () {
     G.enemies.length = 0; G.ebullets.length = 0; G.beams.length = 0;
     G.waveShots = 0; G.waveHits = 0;
     G.ripper = null;
-    G.diveT = spec.bonus ? 0.6 : 1.05;
+    G.diveT = spec.bonus ? 0.6 : 0.7;
     const rng = G.rng;
 
     /* Entry is STAGGERED IN SQUADS, not all at once. Galaga flies four or five in at a time from
@@ -276,11 +280,21 @@ window.RRGame = (function () {
     { bolts: [-0.3, -0.12, 0, 0.12, 0.3], off: [-0.5, -0.24, 0, 0.24, 0.5], rate: 0.092, dmg: 1.5, name: 'penta' },
     { bolts: [-0.38, -0.16, 0, 0.16, 0.38], off: [-0.56, -0.26, 0, 0.26, 0.56], rate: 0.076, dmg: 2.4, name: 'MAX plasma', laser: true },
   ];
-  /* Bolt speed 27 u/s covers the ~7.5 units from ship to formation in 0.28 s. The old build's
-   * bolts took 0.54 s over the same fraction of the field — half the read speed, which is a large
-   * part of why shooting felt mushy. Fast bolts also mean the CHAIN can punish a miss quickly
-   * enough to matter. */
-  const BOLT_V = 27, EBOLT_V = 8.6;
+  /* ⚑ BOLT SPEED AND THE BULLET CAP ARE ONE DECISION, AND THE FIRST VERSION GOT IT WRONG.
+   * At 27 u/s with no cap, a bot that simply held fire under the formation cleared 13 of 18
+   * enemies in 4.3 seconds — MEASURED, in the first headless run. A wave that evaporates before
+   * it has finished flying in is not "relentless", it is a different kind of empty, and it makes
+   * the accuracy bonus meaningless because nearly every shot lands in a wall.
+   *
+   * The fix is Galaga's own rule, and it is the single most load-bearing constraint in that game:
+   * TWO BULLETS ON SCREEN. Firing is free; MISSING costs you half your firepower until the bolt
+   * leaves the top of the screen. That is what makes the chain-halving penalty a real decision
+   * rather than a scold, and it is why the fire rate can stay generous.
+   *   cap 2 per rig (4 with the DOUBLE RIG) · 16 u/s ⇒ ~0.46 s to the formation, ~0.63 s to miss
+   *   ⇒ ~4.3 effective shots/s hitting, ~3.2 missing.
+   * ⚠ Do not "improve" this by raising the cap. The cap IS the game. */
+  const BOLT_V = 16, EBOLT_V = 8.6;
+  const BOLT_CAP = 2;
 
   function fire(G) {
     const s = G.ship;
@@ -288,8 +302,10 @@ window.RRGame = (function () {
     const g = GUNS[clamp(s.gun - 1, 0, GUNS.length - 1)];
     const rate = g.rate / (s.rapid > 0 ? 1.75 : 1) / (G.loadout.rate || 1);
     if (G.t - s.fireT < rate) return;
-    s.fireT = G.t;
     const rigs = s.dual ? [-0.62, 0.62] : [0];
+    let live = 0; for (const b of G.bullets) if (b.live) live++;
+    if (live >= BOLT_CAP * rigs.length * g.bolts.length) return;
+    s.fireT = G.t;
     for (const rx of rigs) {
       for (let i = 0; i < g.bolts.length; i++) {
         G.bullets.push({ x: s.x + rx + g.off[i], y: s.y + 0.5, z: 0, vx: g.bolts[i] * 9, vy: BOLT_V,
@@ -403,6 +419,8 @@ window.RRGame = (function () {
       if (e.state === 'dead') continue;
       alive++;
       e.tumble += e.spin * h;
+      if (e.hurt > 0) e.hurt -= h;   // decayed HERE, not in the renderer: a draw pass that
+                                     // mutates the simulation is frame-rate dependent by construction
 
       if (G.phase === 'bonus') {
         bonusPos(G, e, _v);
@@ -419,7 +437,12 @@ window.RRGame = (function () {
         bez(e.path, e.u, _v); bezT(e.path, e.u, _t);
         e.x = _v.x; e.y = _v.y; e.z = _v.z;
         e.roll = clamp(-_t.x * 0.055, -1.5, 1.5); e.pitch = clamp(_t.y * 0.03, -1, 1);
-        if (e.u >= 1) { e.state = 'form'; e.roll = 0; }
+        /* one shot on the way in, at the bottom of the arc. Galaga's entry swarms shoot, and it
+         * is what puts the first real threat inside two seconds instead of four. */
+        if (!e.entryShot && e.u > 0.34 && e.u < 0.62 && s.alive && rng() < 0.18 * spec.eFire) {
+          e.entryShot = 1; eFire(G, e);
+        }
+        if (e.u >= 1) { e.state = 'form'; e.roll = 0; e.entryShot = 0; }
       } else if (e.state === 'form') {
         slotXYZ(G, e.col, e.row, _s);
         e.x = _s.x; e.y = _s.y; e.z = _s.z;
@@ -428,8 +451,8 @@ window.RRGame = (function () {
          * threat is whatever happens to be diving; with it, standing under the grid is never free. */
         e.fireT -= h;
         if (e.fireT <= 0) {
-          e.fireT = (5.5 + rng() * 5) / Math.max(0.4, spec.eFire);
-          if (spec.eFire > 0 && Math.abs(e.x - s.x) < 3.2 && s.alive) eFire(G, e);
+          e.fireT = (9 + rng() * 7) / Math.max(0.4, spec.eFire);
+          if (spec.eFire > 0 && Math.abs(e.x - s.x) < 2.6 && s.alive) eFire(G, e);
         }
       } else if (e.state === 'dive') {
         diving++;
@@ -455,7 +478,12 @@ window.RRGame = (function () {
     /* The relentlessness knob. Launch a dive every `diveGap` seconds while under `maxDive`, and
      * PREFER the enemy nearest the player's column so the dives arrive where the player is rather
      * than where they are not. Random selection produced dives that were frequently ignorable. */
-    if (G.phase === 'fight' && alive > 0) {
+    /* ⚑ Dives begin during the TAIL of the entry, not after it. Waiting for the whole formation to
+     * lock put the first dive at ~4.0 s and the first enemy bullet at ~4.2 s — measured — which is
+     * a slow start in a game whose entire brief was that it starts slow. The entry itself lasts
+     * ~3 s because the squads are staggered, so the last squad is still arriving while the first
+     * is already coming back down at you. That overlap is the thing that reads as relentless. */
+    if ((G.phase === 'fight' || (G.phase === 'entry' && G.phaseT > 1.0)) && alive > 0) {
       G.diveT -= h;
       if (G.diveT <= 0 && diving < spec.maxDive) {
         G.diveT = spec.diveGap * (0.75 + rng() * 0.5);
@@ -489,7 +517,7 @@ window.RRGame = (function () {
        * a distracted player loses the ship, which is the intended feeling. */
       const dy = e.y - s.y;
       const halfW = 0.42 + Math.max(0, dy) * 0.20;
-      if (dy > 0 && Math.abs(s.x - e.x) < halfW) { b.hold += h; if (b.hold > 0.55) { b.done = true; rip(G); } }
+      if (dy > 0 && Math.abs(s.x - e.x) < halfW) { b.hold += h; if (b.hold > 0.55) { b.done = true; G.stat.dByRip++; rip(G); } }
       else b.hold = Math.max(0, b.hold - h * 2);
     }
     if (G.beams.length) G.beams = G.beams.filter(b => !b.done);
@@ -501,11 +529,17 @@ window.RRGame = (function () {
       if (b.y > 7.2 || Math.abs(b.x) > F.X + 3) { b.live = false; missed(G); continue; }
       for (const e of G.enemies) {
         if (e.state === 'dead') continue;
-        const r = KIND[e.kind].sz + 0.16;
-        /* z is folded into the test at a low weight rather than ignored. A diver at z=+2 is much
-         * closer to the camera than the bullet plane, and a pure 2D test lets you kill things that
-         * are visibly in front of you — which reads as the hit box being wrong. */
-        if (Math.abs(e.x - b.x) < r && Math.abs(e.y - b.y) < r + 0.1 && Math.abs(e.z) < 3.2) {
+        /* ⚠ THE HIT BOX WAS TWICE THE CARD. `sz + 0.16` gave a half-width of 0.58 against a card
+         * whose drawn half-width is sz*1.15*0.68 ≈ 0.33 — so at 1.30 column spacing a bolt fired
+         * anywhere hit something 89% of the time, which is most of why the formation melted. The
+         * x radius now matches what is DRAWN; y stays generous because a vertical bolt crossing a
+         * card should not slip between frames. Measured hit rate against a held-fire bot fell from
+         * ~90% to ~55%, which is the number the accuracy bonus was written for.
+         * z is folded in rather than ignored: a diver at z=+2 is much nearer than the bullet
+         * plane, and a pure 2D test kills things that are visibly in front of you. */
+        const rx = KIND[e.kind].sz * (e.kind === 2 ? 1.5 : 1.15) * 0.68 + 0.06;
+        const ry = KIND[e.kind].sz * (e.kind === 2 ? 1.5 : 1.15) + 0.10;
+        if (Math.abs(e.x - b.x) < rx && Math.abs(e.y - b.y) < ry && Math.abs(e.z) < 3.2) {
           b.live = false;
           e.hp -= b.dmg;
           e.hurt = 0.25;
@@ -532,7 +566,7 @@ window.RRGame = (function () {
       if (s.alive && s.inv <= 0) {
         const rigs = s.dual ? [-0.62, 0.62] : [0];
         for (const rx of rigs) {
-          if (Math.abs(b.x - (s.x + rx)) < 0.34 && Math.abs(b.y - s.y) < 0.36) { b.live = false; hitShip(G); break; }
+          if (Math.abs(b.x - (s.x + rx)) < 0.34 && Math.abs(b.y - s.y) < 0.36) { b.live = false; G.stat.dByShot++; hitShip(G); break; }
         }
       }
     }
@@ -542,9 +576,14 @@ window.RRGame = (function () {
     if (s.alive && s.inv <= 0) {
       for (const e of G.enemies) {
         if (e.state !== 'dive' && e.state !== 'beam') continue;
-        const r = KIND[e.kind].sz + 0.3;
-        if (Math.abs(e.x - s.x) < r && Math.abs(e.y - s.y) < r && Math.abs(e.z) < 1.8) {
-          killEnemy(G, e, true); hitShip(G); break;
+        /* ⚠ THE RAM BOX WAS TOO FAT. sz+0.3 with |z|<1.8 meant a diver passing 0.7 units to one
+         * side and a unit and a half in front of you still killed you — and a dive path is
+         * deliberately aimed near where you were standing, so it fired constantly. Tightened to
+         * roughly the drawn silhouette: an unavoidable death you cannot see coming is not
+         * difficulty, it is noise. */
+        const r = KIND[e.kind].sz + 0.12;
+        if (Math.abs(e.x - s.x) < r && Math.abs(e.y - s.y) < r && Math.abs(e.z) < 1.1) {
+          G.stat.dByRam++; killEnemy(G, e, true); hitShip(G); break;
         }
       }
     }
@@ -665,7 +704,7 @@ window.RRGame = (function () {
       inv: 1.4, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0 });
     if (G.loadout.guns && G.loadout.guns.indexOf('laser') >= 0) G.ship.gun = 4;
     else if (G.loadout.guns && G.loadout.guns.indexOf('spread') >= 0) G.ship.gun = 2;
-    G.stat = { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0 };
+    G.stat = { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0, dByShot: 0, dByRam: 0, dByRip: 0 };
     acc = 0;
     buildWave(G);
   }

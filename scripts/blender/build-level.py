@@ -368,10 +368,16 @@ def build_lido(seed=3030):
 
     ⚑ IT IS A REBUILD, NOT A REDESIGN. Cover placement, sightline breaks and the exposed pool
     crossing are the tuned part of the hand-built arena and they are preserved deliberately:
-      · the pool is still WADEABLE — its surface sits 0.42 m below the deck, under Section 9's
+      · the pool is still WADEABLE — its surface sits 0.30 m below the deck, under Section 9's
         0.62 m step height, so it is still the exposed crossing the original comment argues for
-        rather than a pit. It now has a basin, a lip and entry steps, which is what makes it
-        read as a pool instead of a teal rectangle.
+        rather than a pit. It now has a basin, a radiused lip and entry steps, which is what
+        makes it read as a pool instead of a teal rectangle.
+        ⚠ The lip height is a VISIBILITY number, not a modelling one. At the first draft's
+        +0.30 m lip with the water 0.42 m down, a camera 9 m back could not see the near third
+        of the water at all — the lip occludes everything below the sightline that grazes it,
+        and the hand-built arena's whole colour argument rests on the pool being the most
+        saturated field in frame. +0.18 with the water at −0.30 keeps the bright line round the
+        pool and roughly halves what it hides.
       · the arcade is still WALKABLE: every arch springs at 3.9 m, well above the ~2.7 m at
         which `blocksE` would turn one Part's AABB into a wall across the bay.
       · loungers are 0.58 m tall in one piece, i.e. under the step height, so the new clutter
@@ -387,7 +393,7 @@ def build_lido(seed=3030):
     WT = 1.0                             # perimeter thickness → outer envelope 54 x 46 m
     BASE = -1.0                          # underside of every mass; sets where game y = 0 lands
     PX, PZ, PR = 9.5, 7.5, 2.2           # pool half-extents + corner radius
-    WATER = -0.42                        # water surface, deck-relative (< the 0.62 step height)
+    WATER = -0.30                        # water surface, deck-relative (< the 0.62 step height)
     COPE = 0.95                          # coping width, outboard of the pool edge
 
     # ── deck: four slabs around the pool hole, so the basin is real geometry ────────────────
@@ -426,9 +432,13 @@ def build_lido(seed=3030):
     #   single swept ring would put a solid box with its top at +0.28 over the ENTIRE pool —
     #   the player would walk across the water on an invisible lid. Chunks keep each AABB on
     #   its own arc.
-    prof = [(0.00, BASE), (0.00, 0.06), (0.05, 0.17), (0.17, 0.25), (0.34, 0.28),
-            (COPE, 0.28), (COPE, 0.13), (COPE + 0.10, 0.09), (COPE + 0.10, -0.03),
-            (COPE, -0.09), (COPE, BASE)]
+    # ⚠ profile wound COUNTER-CLOCKWISE in its own (out, up) plane — bottom outward, up the outer
+    #   face, back along the top, down the bullnose. Written the other way round (which is how it
+    #   reads more naturally, inner face first) every chunk comes out inside-out; kit_arch's
+    #   volume check caught all eight and this is the fix rather than leaning on the auto-flip.
+    prof = [(0.00, BASE), (COPE, BASE), (COPE, -0.12), (COPE + 0.10, -0.06),
+            (COPE + 0.10, 0.06), (COPE, 0.10), (COPE, 0.18), (0.32, 0.18),
+            (0.16, 0.16), (0.05, 0.11), (0.00, 0.02)]
     ka.sweep_chunks('trm_coping%02d', ka.path_from_plan(pool_plan), prof, 8)
 
     # entry steps, two flights, into the shallow end of each long side
@@ -509,26 +519,37 @@ def build_lido(seed=3030):
     p.emit()
 
     # ── PERIMETER: chamfered walls, a moulded coping course, pilasters on the open runs ──────
-    for nm, x0, z0, x1, z1, h in (('wall_n', -HX - WT, HZ, HX + WT, HZ + WT, 5.4),
-                                  ('wall_s', -HX - WT, -HZ - WT, HX + WT, -HZ, 7.9),
-                                  ('wall_w', -HX - WT, -HZ, -HX, HZ, 6.0),
-                                  ('wall_e', HX, -HZ, HX + WT, HZ, 6.0)):
+    # ⚠ THE COPING OVERSAILS INWARD ONLY, AND THAT IS ABOUT THE BAKE, NOT ABOUT THE MOULDING.
+    #   bake-world scales the level so its LONGEST HORIZONTAL AXIS lands on FOOTPRINT. The first
+    #   version let each coping oversail 0.14 m past the perimeter on both sides, so the true
+    #   x-extent was 54.28 against a declared 54 and the whole arena came out ×0.9948 — a 52 m
+    #   pool deck rebuilt at 51.7 m, spawns at ±12.93 where ±13 was authored. Small, silent, and
+    #   exactly the kind of drift that makes an A/B against the hand-built arena meaningless.
+    #   Keeping the outer face flush with the envelope makes the scale exactly 1.0.
+    for nm, x0, z0, x1, z1, h, inward in (('wall_n', -HX - WT, HZ, HX + WT, HZ + WT, 5.4, '-z'),
+                                          ('wall_s', -HX - WT, -HZ - WT, HX + WT, -HZ, 7.9, '+z'),
+                                          ('wall_w', -HX - WT, -HZ, -HX, HZ, 6.0, '+x'),
+                                          ('wall_e', HX, -HZ, HX + WT, HZ, 6.0, '-x')):
         p = ka.GPart(nm)
         ka.gbox(p, ((x0 + x1) / 2, (z0 + z1) / 2, (BASE + h) / 2), (x1 - x0, z1 - z0, h - BASE),
                 ch=0.12, top_ch=0.05)
         p.emit()
         q = ka.GPart('trm_' + nm + '_cope')
-        if x1 - x0 > z1 - z0:
-            ka.extrude_x(q, [(z0 - 0.14, h), (z1 + 0.14, h), (z1 + 0.14, h + 0.16),
-                             (z1 + 0.05, h + 0.28), (z0 - 0.05, h + 0.28), (z0 - 0.14, h + 0.16)],
-                         x0 - 0.1, x1 + 0.1, label='cope')
+        OS = 0.18
+        if inward in ('-z', '+z'):
+            a, b = (z0 - OS, z1) if inward == '-z' else (z0, z1 + OS)
+            ka.extrude_x(q, [(a, h), (b, h), (b, h + 0.17), (b - 0.06, h + 0.29),
+                             (a + 0.06, h + 0.29), (a, h + 0.17)], x0, x1, label='cope')
         else:
-            ka.extrude_z(q, [(x0 - 0.14, h), (x1 + 0.14, h), (x1 + 0.14, h + 0.16),
-                             (x1 + 0.05, h + 0.28), (x0 - 0.05, h + 0.28), (x0 - 0.14, h + 0.16)],
-                         z0 - 0.1, z1 + 0.1, label='cope')
+            a, b = (x0, x1 + OS) if inward == '+x' else (x0 - OS, x1)
+            ka.extrude_z(q, [(a, h), (b, h), (b, h + 0.17), (b - 0.06, h + 0.29),
+                             (a + 0.06, h + 0.29), (a, h + 0.17)], z0, z1, label='cope')
         q.emit()
+    # ⚠ named `wall_…`, NOT `pilaster…`: section9-world's kindOf sends /pil/ to `pillar`, which
+    #   s9pc-world maps to the cool-steel `metal` class — five blue-grey panels down the sunniest
+    #   wall in the arena. A masonry pilaster is masonry.
     for i in range(5):                                          # +z wall, the run you can see
-        p = ka.GPart('pilaster_n%02d' % i)
+        p = ka.GPart('wall_n_bay%02d' % i)
         ka.gbox(p, (-8.0 + i * 4.0, HZ - 0.2, (BASE + 5.4) / 2), (0.95, 0.55, 5.4 - BASE), ch=0.06)
         p.emit()
 
@@ -603,20 +624,28 @@ def build_lido(seed=3030):
     for i, (px, pz, py) in enumerate(((-13.5, 4.5, 0.0), (13.5, -4.5, 0.0), (-13.5, -4.5, 0.0),
                                       (13.5, 4.5, 0.0), (0.0, 11.0, 0.0), (0.0, -10.5, 0.0),
                                       (-21.5, -11.0, 2.40), (21.5, 11.0, 3.40))):
-        ka.planter('trm_plntr%02d' % i, px, pz, py, r=1.35, seg=8, h=0.78)
+        # terracotta, not white stone: `crate_` lands on section9-world's existing crate rule,
+        # which is the one warm albedo in MATS_DAY and the thing that stops a lido full of white
+        # trim reading as one flat cream field
+        ka.planter('crate_plntr%02d' % i, px, pz, py, r=1.35, seg=8, h=0.78)
         ka.foliage('plnt_folig%02d' % i, px, pz, py + 0.72, r=1.20, rnd=r, clumps=4)
 
     # ── PARASOLS — tapered poles, segmented canopies, frame-breakers at head height ──────────
     for i, (ux, uz, uy) in enumerate(((-14.6, 0.0, 0.0), (14.6, 0.0, 0.0), (0.0, -13.5, 0.0),
                                       (-21.5, -7.5, 2.40), (-21.5, 7.5, 2.40), (21.5, 0.0, 3.40))):
-        ka.parasol('trm_umb%02d' % i, ux, uz, uy)
+        ka.parasol('trm_umb%02d' % i, 'awn_umb%02d_top' % i, ux, uz, uy)
 
     # ── LOUNGERS — deck clutter that is under the step height, so it never stops anybody ─────
     lng = []
     for z in (-8.4, -3.0, 3.0, 8.4):
         lng.append((-22.6, z, 2.40, 0.0))
         lng.append((22.6, z, 3.40, math.pi))
-    for (lx, lz) in ((-13.4, -9.6), (13.4, 9.6), (-13.4, 9.6), (13.4, -9.6)):
+    # ⚠ pool-side pairs sit CLEAR of the four inner spawns. The first placement put them at
+    #   (±13.4, ±9.6), i.e. half a metre from the spawns at (±13, ±10) — `dropAt` seeds y from
+    #   supportY, so every one of those four spawns started the player standing on a sunbed
+    #   (support 1.50 against a 1.00 deck). Legal, since a lounger is under the step height, and
+    #   still wrong.
+    for (lx, lz) in ((-16.6, -6.2), (16.6, 6.2), (-16.6, 6.2), (16.6, -6.2)):
         lng.append((lx, lz, 0.0, math.atan2(-lz, -lx)))
     for i, (lx, lz, ly, lr) in enumerate(lng):
         ka.lounger('trm_lng%02d' % i, lx, lz, ly, ry=lr)

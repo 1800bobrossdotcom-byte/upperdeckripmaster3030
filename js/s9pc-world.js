@@ -28,6 +28,7 @@ window.S9PCWorld = (function () {
   // A/B screenshots rather than by taste: ?nrm=0 turns the normal maps off entirely
   const _q = new URLSearchParams(location.search);
   const NRM = _q.has('nrm') && isFinite(+_q.get('nrm')) ? +_q.get('nrm') : 1;
+  const TEXDIR = 'textures/';
 
   // Same three levels S9World lists, same `open` flag (outdoors keeps the sun).
   const LEVELS = [
@@ -243,6 +244,7 @@ window.S9PCWorld = (function () {
     return { albedo: rgbCanvas(alb, N), normal: normalCanvas(h, N, strength), gloss: greyCanvas(gl, N) };
   }
 
+  /* Accepts a <canvas> (the generator above) or an <img> (a baked PNG) — same two properties. */
   function texFrom(app, canvas, srgb) {
     const t = new pc.Texture(app.graphicsDevice, {
       name: 'proc', width: canvas.width, height: canvas.height,
@@ -255,37 +257,152 @@ window.S9PCWorld = (function () {
     return t;
   }
 
+  /* ── BAKED PBR MAPS — `textures/<class>_{albedo,normal,orm}.png` ─────────────────────────────
+   * Authored as node graphs and baked in Blender by `npm run textures`
+   * (scripts/blender/bake-materials.py). The canvas generator above stays as the FALLBACK, per
+   * class, and this whole block is written so that any failure — no manifest, a 404, a decode
+   * error, no `fetch` at all — lands back on it silently. Fail-open at every step is the standing
+   * principle here, and a missing texture file must never be the reason an arena does not load.
+   *
+   * ⚑ THE SWAP IS LIVE, and that is what makes the fallback honest rather than a race. A material
+   *   is a live object in PlayCanvas: set `diffuseMap` and call `update()` and the next frame uses
+   *   it. So materials() never waits. It builds with whatever is ready — baked if the PNGs have
+   *   landed, canvas if they have not — and a class that arrives late swaps itself in afterwards.
+   *   The alternative (block the arena build on a fetch) turns a slow network into a black screen.
+   *
+   * ⚑ ONE image carries three channels: `_orm` is R = ambient occlusion, G = roughness,
+   *   B = metalness, so it is one fetch and one texture unit rather than two. PlayCanvas addresses
+   *   the channels directly (`aoMapChannel` / `glossMapChannel`), and `glossInvert` is what lets
+   *   a ROUGHNESS map drive a gloss slot — the engine's own glTF loader does exactly this.
+   *
+   * ⚠ On the baked path `bumpiness` is NOT `MATS[key].bump`. The relief is authored in metres in
+   *   the bake (`CLASSES` in bake-materials.py), so scaling it again at runtime would be two
+   *   strengths for one thing. MATS.bump still drives the canvas fallback, where it is the only
+   *   place the strength can live. `?nrm=0` still kills normals on both paths.
+   *
+   * ⚠ The albedo maps are near-neutral BY DESIGN so the MATS/MATS_DAY tints keep doing the
+   *   colouring — see the long note on MATS_DAY above; baking colour in would double-tint. */
+  const TEXQ = (() => { try { return _q.get('tex') || ''; } catch (e) { return ''; } })();
+  const BAKED = { man: null, cls: Object.create(null), started: Object.create(null), demand: [] };
+  const MADE = [];                                  // every material built, for the late swap
+
+  function bakedOn() {
+    // ?tex=canvas forces the generator. ?grit=1 asks for the OLD gritty canvas surfaces by name,
+    // so it selects the generator too — otherwise the flag would silently do nothing.
+    return TEXQ !== 'canvas' && CLEAN && typeof fetch === 'function' && typeof Image === 'function';
+  }
+
+  function loadImg(url) {
+    return new Promise((res) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => res(null);                 // a 404 is a fallback, not an error
+      im.src = url;
+    });
+  }
+
+  /* Pull one class's three maps. Resolves either way; a partial set is treated as no set, because
+   * half-baked (albedo from the PNG, normal from the canvas) is a look nobody chose. */
+  function wantClass(key) {
+    if (!bakedOn() || BAKED.started[key]) return;
+    const man = BAKED.man;
+    /* ⚠ REMEMBER THE ASK. The manifest is a fetch and the arena can be built before it lands — on
+     * a weak device (no prefetch) that is the NORMAL order, so dropping the request here would
+     * mean the baked maps never load at all on exactly the machines that asked for them by name. */
+    if (!man) { if (BAKED.demand.indexOf(key) < 0) BAKED.demand.push(key); return; }
+    if (!man.classes || !man.classes[key]) return;
+    BAKED.started[key] = true;
+    const f = man.classes[key];
+    Promise.all([loadImg(TEXDIR + f.albedo), loadImg(TEXDIR + f.normal), loadImg(TEXDIR + f.orm)])
+      .then(([a, n, o]) => {
+        if (!a || !n || !o) return;
+        BAKED.cls[key] = { albedo: a, normal: n, orm: o };
+        for (const r of MADE) if (r.key === key && !r.baked) dressBaked(r);
+      })
+      .catch(() => {});
+  }
+
+  function dressBaked(rec) {
+    const B = BAKED.cls[rec.key];
+    if (!B || !rec.app) return false;
+    try {
+      const m = rec.mat, orm = texFrom(rec.app, B.orm, false);
+      m.diffuseMap = texFrom(rec.app, B.albedo, true);
+      m.normalMap = texFrom(rec.app, B.normal, false);
+      m.bumpiness = NRM;                            // relief is authored in the map — see above
+      m.glossMap = orm;
+      m.glossMapChannel = 'g';
+      m.glossInvert = true;                         // the G channel is ROUGHNESS, not gloss
+      m.gloss = 1;
+      m.aoMap = orm;
+      m.aoMapChannel = 'r';
+      m.update();
+      rec.baked = true;
+      return true;
+    } catch (e) { console.warn('[s9pc] baked textures failed for ' + rec.key + ':', e && e.message); }
+    return false;
+  }
+
+  /* Manifest first, then the maps. The manifest exists so that a build with no `textures/` yet
+   * costs ONE 404 instead of twenty-seven — and so the console of a normal run is clean, which is
+   * the only state in which a real 404 is visible. */
+  if (bakedOn()) {
+    fetch(TEXDIR + 'manifest.json')
+      .then(r => (r.ok ? r.json() : null))
+      .then(m => {
+        if (!m || !m.classes) return;
+        BAKED.man = m;
+        /* Prefetch, but only on a machine that can afford it. `GfxPost.dprCap()` is this repo's
+         * ONE definition of "weak device" (touch + small screen + low cores/memory + save-data);
+         * reusing it means the texture budget and the resolution budget can never disagree. On a
+         * weak device the maps still load — just on demand, so an arena pays for the classes it
+         * actually contains rather than for all nine. */
+        let weak = false;
+        try { weak = !!(window.GfxPost && GfxPost.dprCap && GfxPost.dprCap() < 2); } catch (e) {}
+        for (const k of (weak ? BAKED.demand.slice() : ORDER)) wantClass(k);
+      })
+      .catch(() => {});
+  }
+
   /* Two material sets, cached separately — the textures are shared (the tint is a multiplier on
    * the same albedo map), so the second set costs five materials, not a second texture bake. */
   const TEXSETS = {};
   let TEXCACHE = {};
   const DAY = (() => { try { return new URLSearchParams(location.search).get('tod') !== 'dusk'; }
     catch (e) { return true; } })();
-  function materials(app, open) {
+  /* `used` is the set of classes this arena actually has triangles in. It is an optimisation with
+   * a correctness edge: the cache is now PER CLASS, not per set, so an arena asking for five
+   * classes cannot poison the cache for a later arena that needs nine. */
+  function materials(app, open, used) {
     const day = !!open && DAY, key0 = day ? 'day' : 'base';
-    if (TEXCACHE[key0]) return TEXCACHE[key0];
+    const out = TEXCACHE[key0] || (TEXCACHE[key0] = {});
     const N = 512;
-    for (const k of ['slab', 'course', 'brushed', 'paint']) if (!TEXSETS[k]) TEXSETS[k] = makeTexSet(k, N);
-    const sets = TEXSETS;
-    const out = {};
     for (const key of ORDER) {
-      const M = MATS[key], s = sets[M.tex], m = new pc.StandardMaterial();
+      if (out[key] || (used && !used.has(key))) continue;
+      const M = MATS[key], m = new pc.StandardMaterial();
       const tint = day ? MATS_DAY[key] : M.tint;
       m.name = 's9pc-' + key + (day ? '-day' : '');
       m.diffuse = new pc.Color(tint[0], tint[1], tint[2]);
-      m.diffuseMap = texFrom(app, s.albedo, true);
-      m.normalMap = texFrom(app, s.normal, false);
-      m.bumpiness = M.bump * NRM;
-      m.glossMap = texFrom(app, s.gloss, false);
-      m.glossMapChannel = 'r';
-      m.gloss = M.gloss;
       m.useMetalness = true;
       m.metalness = M.metal;
       m.diffuseMapTint = true;
-      m.update();
+      const rec = { key, mat: m, app, baked: false };
+      MADE.push(rec);
+      wantClass(key);
+      if (!dressBaked(rec)) {                       // not here yet (or off) → the generator
+        if (!TEXSETS[M.tex]) TEXSETS[M.tex] = makeTexSet(M.tex, N);
+        const s = TEXSETS[M.tex];
+        m.diffuseMap = texFrom(app, s.albedo, true);
+        m.normalMap = texFrom(app, s.normal, false);
+        m.bumpiness = M.bump * NRM;
+        m.glossMap = texFrom(app, s.gloss, false);
+        m.glossMapChannel = 'r';
+        m.gloss = M.gloss;
+        m.update();
+      }
       out[key] = { mat: m, tile: M.tile };
     }
-    return (TEXCACHE[key0] = out);
+    return out;
   }
 
   /* ── triangle soup → one PlayCanvas mesh per material class ───────────────────────────────
@@ -294,7 +411,6 @@ window.S9PCWorld = (function () {
    * Everything below is shared by both arena kinds. */
   function meshParts(app, V, kindOf, nameOf, open) {
     const tris = (V.length / 18) | 0;                              // 3 verts × 6 floats
-    const mats = materials(app, open);
 
     /* ⚠ THE INTERLEAVE IS pos3 + norm3, SO THE NORMAL STARTS AT +3, NOT AT +0 — and getting that
      * wrong reads the X component where Y was meant. Per triangle the three vertices sit at
@@ -320,6 +436,10 @@ window.S9PCWorld = (function () {
       const o = t * 18, n = nrm(o);
       buckets[classOf(kindOf ? kindOf[t] : 'wall', n[1], nameOf ? nameOf[t] : '')].push(t);
     }
+    /* Bucket FIRST, then ask for materials — an arena only pays (in texture fetches and in canvas
+     * generation) for the classes it actually contains. Every built-in arena is five of the nine. */
+    const used = new Set(ORDER.filter(k => buckets[k].length));
+    const mats = materials(app, open, used);
 
     const out = [], stats = {};
     for (const key of ORDER) {

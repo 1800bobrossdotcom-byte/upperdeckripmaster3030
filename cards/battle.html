@@ -263,6 +263,35 @@
   .fo-kb button:active{ transform:translateY(2px); }
 
   .fo-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding-bottom:6px; }
+  /* ── the 3D fight layer (js/cbpc-fight.js) ────────────────────────────────────────────────
+   * Covers the whole face-off, because a fight framed inside the 200px strip between the two card
+   * stacks is a diorama rather than an arena. Fixed, not absolute: `.faceoff` scrolls on a short
+   * viewport, and an absolutely-positioned child scrolls with it — the arena would slide off the
+   * top of its own fight. (`.faceoff`'s backdrop-filter makes it the containing block for fixed
+   * children, so this still resolves to the overlay's own box, not the document's.)
+   * z-index 9 sits ABOVE the DOM card stacks (which paint inside `.fo-side`'s own stacking context
+   * at z-index auto) and BELOW the HP bars, the callout and the skip hint in js/card-fight.js.
+   * ⚑ pointer-events:none is load-bearing — tap-to-skip is a listener on `.faceoff`. */
+   * ⚠ `width/height:100%` IS NOT REDUNDANT NEXT TO `inset:0`. A <canvas> is a REPLACED element, and
+   *   for an absolutely/fixed positioned replaced element the used width comes from its INTRINSIC
+   *   size (a canvas defaults to 300×150) — `left`/`right` are then solved around it and the
+   *   over-constrained one is simply dropped. Measured: with `inset:0` alone the canvas laid out at
+   *   exactly 300×150 in the top-left corner and the whole arena rendered into that stamp. Same
+   *   family as the hero-lens `aspect-ratio` trap in CLAUDE.md — a box that silently ignores the
+   *   rule you thought was sizing it. */
+  .cb3d{ position:fixed; inset:0; width:100%; height:100%; z-index:9; pointer-events:none; display:block;
+    opacity:0; animation:cb3dIn .40s ease-out .06s forwards; }
+  @keyframes cb3dIn{ to{ opacity:1; } }
+  /* ── THE HANDOFF ──────────────────────────────────────────────────────────────────────────
+   * A staked card is handed to the 3D arena and comes back afterwards. While it is out there the
+   * DOM card becomes the EMPTY SLEEVE it left — not hidden, because the sleeve is what makes it
+   * read as the same object having moved rather than as one card vanishing and another appearing.
+   * The 3D twin starts life at exactly this element's projected rectangle (see seedFromDom in
+   * js/cbpc-fight.js), which is the binder folder's "measure pocket → measure destination" move
+   * one dimension up. */
+  .fo-cw.cb-handed{ outline:1.5px dashed rgba(184,255,214,.22); outline-offset:-3px; border-radius:11px; }
+  .fo-cw.cb-handed .fo-bigcard{ transition:opacity .34s ease, filter .34s ease; opacity:.07; filter:saturate(.2); }
+  @media (prefers-reduced-motion:reduce){ .cb3d{ animation:none; opacity:1; } }
   /* ember shower on a burn */
   .ember{ position:fixed; width:5px; height:5px; border-radius:50%; z-index:101; pointer-events:none;
     background:radial-gradient(circle,#ffe27a,#ff5a1c 60%,transparent); }
@@ -560,6 +589,13 @@
 <script src="../js/wager-payout.js"></script>
 <script src="../js/gfx-post.js"></script>
 <script src="../js/gfx-2d.js"></script>
+<!-- the 3D fight. card3d.js is here for its ENGINE LOADER and its rarity palette, not for its card:
+     Card3D.engine() is the one place the vendored PlayCanvas bundle is fetched, so the arena, the
+     binder folder and the lens viewer can never end up loading it twice. The engine itself is NOT
+     pulled in by these tags — it arrives only when a fight actually opens. -->
+<script src="../js/card3d.js"></script>
+<script src="../js/cbpc-arena.js"></script>
+<script src="../js/cbpc-fight.js"></script>
 <script src="../js/card-fight.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
@@ -762,6 +798,10 @@
       document.body.appendChild(fo);
       requestAnimationFrame(() => fo.classList.add('show'));
       fo.focus();
+      /* Start pulling the 3D engine down NOW. The face-off spends ~1.3 s on the VS drama before the
+       * fight begins, and that is free head start; CardFight waits only so long for the bundle
+       * before starting the 2D fight instead, so a slow connection costs the arena, never the game. */
+      if (window.CardFight && CardFight.warm) CardFight.warm('../');
       // subtle parallax drift on the VS/info (mouse or gyro)
       const onMove = e => { const r = fo.getBoundingClientRect();
         fo.style.setProperty('--px', (((e.clientX - r.left) / r.width) * 2 - 1).toFixed(3));
@@ -779,7 +819,7 @@
         await wait(reduce ? 60 : 700);
         // ── the cards actually fight: each staked card throws its signature ability across
         //    the arena and HP drains to the pre-decided result (choreography, never a re-decision) ──
-        if (window.CardFight) { try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce }); } catch (e) {} }
+        if (window.CardFight) { try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce, base: '../' }); } catch (e) {} }
         const b = $('foBanner'), youS = $('foYou'), houseS = $('foHouse');
         // the loser's staked cards fly across to the winner
         const flyAway = (sideEl, dir) => sideEl.querySelectorAll('.fo-cw').forEach((el, i) =>
@@ -1170,6 +1210,9 @@
 
   $('dealBtn').onclick = deal;
   $('slamBtn').onclick = slam;
+  // press = intent. The bundle starts arriving a beat before the face-off even opens; the call is
+  // idempotent (Card3D.engine caches its promise) and does nothing at all without WebGL 2.
+  $('slamBtn').addEventListener('pointerdown', () => { if (window.CardFight && CardFight.warm) CardFight.warm('../'); });
   $('reroll').onclick = () => { if(!busy) rollGas(); };
 
   // boot

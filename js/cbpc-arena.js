@@ -129,14 +129,14 @@
     }
 
     // ── backdrop ────────────────────────────────────────────────────────────────────────────
-    var burst = quad('backdrop', 78, 46);
+    var burst = quad('backdrop', 84, 50);
     var burstTex = tex(pc, dev, sunburstCanvas(512, 18, '#2a0640', '#ff2ad9', '#ffd23b'));
     /* Emissive at full, diffuse black: the backdrop is a printed field, not a lit surface. If it
      * took the key light it would gain a gradient, the gradient would read as depth, and the
      * silhouettes in front of it would stop being silhouettes. */
-    burst.render.material = mat({ emissiveMap: burstTex, emissive: new pc.Color(0.62, 0.62, 0.62),
+    burst.render.material = mat({ emissiveMap: burstTex, emissive: new pc.Color(0.30, 0.30, 0.30),
       diffuse: new pc.Color(0, 0, 0), useSkybox: false, useLighting: false });
-    burst.setLocalPosition(0, 9, -19);
+    burst.setLocalPosition(0, 3.2, -19);
     root.addChild(burst);
 
     // a darker curtain behind everything so the backdrop's edges never show the clear colour
@@ -153,8 +153,8 @@
     var floorTex = tex(pc, dev, floorCanvas(512, '#04140c', '#0f7a42', '#2bff80'), { repeat: true });
     /* Half lit, half printed. Pure emissive would kill the contact between a card and the ground;
      * pure diffuse would let the floor fall dark at the edges and lose the flat field. */
-    floor.render.material = mat({ diffuseMap: floorTex, diffuse: new pc.Color(0.55, 0.62, 0.58),
-      emissiveMap: floorTex, emissive: new pc.Color(0.30, 0.34, 0.32),
+    floor.render.material = mat({ diffuseMap: floorTex, diffuse: new pc.Color(0.50, 0.56, 0.52),
+      emissiveMap: floorTex, emissive: new pc.Color(0.10, 0.115, 0.105),
       diffuseMapTiling: new pc.Vec2(7, 5), emissiveMapTiling: new pc.Vec2(7, 5),
       gloss: 0.42, metalness: 0.12, useMetalness: true, useSkybox: false });
     floor.setLocalPosition(0, 0, -2);
@@ -162,7 +162,7 @@
 
     // ── side pylons: the cabinet marquee, and the only vertical in the frame ─────────────────
     var stripeTex = tex(pc, dev, stripeCanvas(256, '#ffd23b', '#ff2ad9'), { repeat: true });
-    var pylonMat = mat({ emissiveMap: stripeTex, emissive: new pc.Color(0.72, 0.72, 0.72),
+    var pylonMat = mat({ emissiveMap: stripeTex, emissive: new pc.Color(0.42, 0.42, 0.42),
       diffuse: new pc.Color(0.02, 0.02, 0.02), emissiveMapTiling: new pc.Vec2(1, 5), useSkybox: false, useLighting: false });
     [-1, 1].forEach(function (s) {
       [0, 1].forEach(function (k) {
@@ -194,7 +194,7 @@
      * exactly the muddy-realism look the brief rules out: it produces deep falloff and a lot of
      * near-black. A bright ambient plus a modest key gives flat, evenly lit colour with just
      * enough shaping to keep the card bevels from disappearing. */
-    app.scene.ambientLight = new pc.Color(0.40, 0.42, 0.50);
+    app.scene.ambientLight = new pc.Color(0.30, 0.31, 0.38);
     var key = new pc.Entity('key');
     key.addComponent('light', { type: 'directional', color: new pc.Color(1, 0.99, 0.96), intensity: 1.35,
       castShadows: false });
@@ -211,8 +211,8 @@
     rimHouse.setLocalPosition(9, 4.2, 3.2); root.addChild(rimHouse);
     // a warm centre practical over the clash point — the thing the camera pushes into on a K.O.
     var centre = new pc.Entity('centre');
-    centre.addComponent('light', { type: 'omni', color: new pc.Color().fromString(PAL.amber), intensity: 0, range: 16 });
-    centre.setLocalPosition(0, 3.0, 1.0); root.addChild(centre);
+    centre.addComponent('light', { type: 'omni', color: new pc.Color().fromString(PAL.amber), intensity: 0, range: 12 });
+    centre.setLocalPosition(0, 3.8, 1.0); root.addChild(centre);
 
     // ── camera ──────────────────────────────────────────────────────────────────────────────
     /* ⚑ HANDEDNESS, CHECKED RATHER THAN ASSUMED. CLAUDE.md records that Section 9's port rendered
@@ -251,13 +251,14 @@
      * close that the front card clips the near plane. This is the same class of trap as the hero
      * lens aspect bug in CLAUDE.md: a layout that is correct at one aspect and silently wrong at
      * another. */
-    var FIT_W = 7.2, FIT_H = 3.5;             // half-extents of everything that must stay on screen
-    function refit() {
-      var r = dev.clientRect || { width: dev.width, height: dev.height };
+    var FIT_W = 6.6, FIT_H = 3.2;             // half-extents of everything that must stay on screen
+    function refit(w, h) {
+      var r = (w && h) ? { width: w, height: h } : (dev.clientRect || { width: dev.width, height: dev.height });
       var aspect = Math.max(0.3, (r.width || 1) / (r.height || 1));
       var tanV = Math.tan(cam.camera.fov * Math.PI / 360);
       var dV = FIT_H / tanV, dH = FIT_W / (tanV * aspect);
       camState.dist = Math.max(8.5, Math.min(30, Math.max(dV, dH) + 1.2));
+      camState.aspect = aspect;
     }
 
     var _p = new pc.Vec3();
@@ -287,7 +288,7 @@
       cam.lookAt(LOOK.x + camState.bias * 1.5, LOOK.y + camState.zoom * 0.25, LOOK.z);
       // roll the horizon a hair on a big hit — a fighting game tell, and it costs one number
       if (sh > 0.02) cam.rotateLocal(0, 0, (Math.random() * 2 - 1) * sh * 1.6);
-      centre.light.intensity = camState.punch * 9;
+      centre.light.intensity = camState.punch * 3.5;
     }
 
     // ── post ────────────────────────────────────────────────────────────────────────────────

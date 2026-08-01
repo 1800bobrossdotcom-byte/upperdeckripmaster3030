@@ -147,11 +147,27 @@ window.RRFx = (function () {
       m.update();
       return m;
     }
-    /* 3.0 for additive: bolts and explosions have to sit ABOVE the bloom threshold or they are
-     * scratches. 1.35 for cards: enough to make the art glow like a lit sign — this is a neon
-     * game — without washing the artwork out, which is the mistake CLAUDE.md records for the
-     * 3D card's environment map ("THE WASH, SECOND EDITION"). */
-    const addMat = mat('rr-add', pc.BLEND_ADDITIVE, 3.0, false);
+    /* ⚠ 3.0 WAS WRONG, AND IT IS THE SAME NUMBER js/s9pc-fx.js IS RIGHT TO USE. There the additive
+     * layer is occasional muzzle flashes over a lit world, so HDR headroom costs nothing and buys
+     * gunfire that actually glows. Here the additive layer IS most of the picture — 420 star
+     * streaks, every bolt, every aura, every explosion — so the same headroom saturates the frame.
+     * MEASURED on a held wave-1 frame with bloom OFF (clipped% / luma / RMS / blacks% / sat% / edge):
+     *     0.5  → 0.001 · 101.7 · 71.4 · 3.01 · 77.3 · 7.30
+     *     0.8  → 0.000 · 110.1 · 81.0 · 1.82 · 73.7 · 8.87
+     *     1.15 → 0.006 · 113.8 · 88.3 · 3.59 · 70.5 · 9.07   ← chosen
+     *     1.6  → 0.227 · 118.7 · 93.9 · 4.65 · 67.1 · 8.95
+     *     2.2  → 1.493 · 121.5 · 97.2 · 4.06 · 64.9 · 11.25
+     *     3.0  → 6.534 · 125.5 · 98.8 · 4.04 · 63.1 · 9.85
+     * 1.15 is the last value with essentially zero clipping and it also peaks local detail. Above
+     * it, RMS keeps climbing only because more of the frame is pinned at white, which is a
+     * contrast metric being fooled — exactly the trap CLAUDE.md records for the card-35 saturation
+     * check. Same shape of answer as the 0.94 knee sweep: the next step up buys little and starts
+     * costing clipping.
+     *
+     * 1.35 for cards: enough to make the art glow like a lit sign — this is a neon game — without
+     * washing the artwork out, which is the mistake CLAUDE.md records for the 3D card's
+     * environment map ("THE WASH, SECOND EDITION"). */
+    const addMat = mat('rr-add', pc.BLEND_ADDITIVE, 1.15, false);
     const cardMat = mat('rr-card', pc.BLEND_NORMAL, 1.35, true);
     /* ⚑ THE BACKDROP IS OPAQUE, AND THAT IS THE WHOLE REASON IT IS A THIRD MESH. The first version
      * pushed it into the additive buffer to save a draw call — which put it AFTER the alpha-

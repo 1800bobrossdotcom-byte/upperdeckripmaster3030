@@ -250,17 +250,18 @@ def m_deck(nt, T):
     """Cast concrete slabs. Structure first: the eye locks onto joints, not onto noise."""
     J = joints(nt, T, 2, 2, 0.020)
     mott = noise(nt, T, 3, 3, seed=1, detail=6, rough=0.55)
-    grit = noise(nt, T, 110, 110, seed=2, detail=2, rough=0.5)
+    grit = noise(nt, T, 55, 55, seed=2, detail=2, rough=0.5)
     agg = voro(nt, T, 40, 40, seed=3, feature='F1')                 # exposed aggregate stones
     aggm = smooth(nt, agg, 0.30, 0.06)                              # near a cell centre → a stone
     cell = white(nt, J['col'], J['row'])                            # per-slab pour tone
     wear = noise(nt, T, 6, 6, seed=4, detail=3, rough=0.6)          # traffic polish, large blotches
     v = M(nt, 'ADD', 0.80, M(nt, 'ADD',
-                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', mott, 0.5), 0.11),
-                             M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grit, 0.5), 0.05),
-                                          M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', cell, 0.5), 0.07))))
+                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', mott, 0.5), 0.20),
+                             M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grit, 0.5), 0.06),
+                                          M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', cell, 0.5), 0.13))))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.36)))
-    v = M(nt, 'ADD', v, M(nt, 'MULTIPLY', aggm, 0.05))
+    v = M(nt, 'ADD', v, M(nt, 'SUBTRACT', M(nt, 'MULTIPLY', aggm, 0.07),
+                                          M(nt, 'MULTIPLY', wear, 0.09)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.995), M(nt, 'MULTIPLY', v, 1.015))
     rough = M(nt, 'SUBTRACT',
               M(nt, 'ADD', 0.66, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', 1.0, mott), 0.09),
@@ -286,10 +287,10 @@ def m_wall(nt, T):
     crack = smooth(nt, craze, 0.05, 0.008)                          # hairline crazing at cell edges
     brick = white(nt, J['col'], J['row'])
     v = M(nt, 'ADD', 0.82, M(nt, 'ADD',
-                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.09),
-                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.05)))
+                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', plaster, 0.5), 0.18),
+                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brick, 0.5), 0.13)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.30)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.13)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', weep, 0.19)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', crack, 0.22)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 1.005), v, M(nt, 'MULTIPLY', v, 0.985))
     rough = M(nt, 'ADD', 0.78, M(nt, 'ADD', M(nt, 'MULTIPLY', weep, 0.10),
@@ -302,13 +303,13 @@ def m_wall(nt, T):
 
 def m_metal(nt, T):
     """Brushed steel. Anisotropy IS the material — a metal with isotropic noise reads as plastic."""
-    brush = noise(nt, T, 4, 300, seed=21, detail=2, rough=0.5)      # long grain along u
-    fine = noise(nt, T, 8, 900, seed=22, detail=1, rough=0.5)
+    brush = noise(nt, T, 4, 150, seed=21, detail=2, rough=0.5)      # long grain along u
+    fine = noise(nt, T, 6, 240, seed=22, detail=1, rough=0.5)
     scr = voro(nt, T, 6, 90, seed=23, feature='DISTANCE_TO_EDGE')   # stretched scratches
     scratch = smooth(nt, scr, 0.035, 0.004)
     panel = bands(nt, T['v'], 2, 0.010)                             # a seam every half tile
-    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brush, 0.5), 0.10),
-                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fine, 0.5), 0.05)))
+    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', brush, 0.5), 0.15),
+                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fine, 0.5), 0.06)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', panel, 0.28)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 0.99), v, M(nt, 'MULTIPLY', v, 1.03))
     rough = M(nt, 'SUBTRACT',
@@ -325,10 +326,10 @@ def m_crate(nt, T):
     rib = bands(nt, T['u'], 4, 0.055)
     chip = noise(nt, T, 9, 9, seed=31, detail=5, rough=0.65, dist=0.6)
     worn = smooth(nt, chip, 0.60, 0.76)                             # threshold → the paint is gone
-    grain = noise(nt, T, 60, 60, seed=32, detail=2, rough=0.5)
+    grain = noise(nt, T, 40, 40, seed=32, detail=2, rough=0.5)
     scuff = noise(nt, T, 22, 4, seed=33, detail=3, rough=0.7)       # dragged along the floor
-    v = M(nt, 'ADD', 0.86, M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.07))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', scuff, 0.08)))
+    v = M(nt, 'ADD', 0.86, M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.11))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', scuff, 0.13)))
     # bare metal is BRIGHTER and much less coloured than the paint over it; the map stays neutral
     # so the runtime tint keeps its job, so "bare" is expressed as value, not as hue
     v = mix(nt, v, M(nt, 'MULTIPLY', v, 0.72), worn)
@@ -354,7 +355,7 @@ def m_cab(nt, T):
     dust = noise(nt, T, 5, 5, seed=42, detail=4, rough=0.5)
     v = M(nt, 'ADD', 0.90, M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', peel, 0.5), 0.030))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', seam, 0.34)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', dust, 0.045)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', dust, 0.065)))
     col = rgb(nt, v, v, M(nt, 'MULTIPLY', v, 1.02))
     rough = M(nt, 'ADD', 0.22, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', peel, 0.5), 0.09),
                                             M(nt, 'MULTIPLY', M(nt, 'ADD', seam, dust), 0.14)))
@@ -367,13 +368,13 @@ def m_water(nt, T):
 
     Two crossed ripple trains at different scales plus a slow swell, because one noise moving one
     way reads as a texture and two crossing read as a surface."""
-    a = noise(nt, T, 26, 20, seed=51, detail=3, rough=0.45, dist=0.9)
-    b = noise(nt, T, 13, 34, seed=52, detail=3, rough=0.45, dist=0.7)
+    a = noise(nt, T, 22, 17, seed=51, detail=3, rough=0.45, dist=0.55)
+    b = noise(nt, T, 11, 29, seed=52, detail=3, rough=0.45, dist=0.45)
     swell = noise(nt, T, 3, 3, seed=53, detail=2, rough=0.5)
     caus = voro(nt, T, 10, 10, seed=54, feature='DISTANCE_TO_EDGE')
     caustic = smooth(nt, caus, 0.16, 0.02)
     v = M(nt, 'ADD', 0.88, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', swell, 0.5), 0.05),
-                                        M(nt, 'MULTIPLY', caustic, 0.10)))
+                                        M(nt, 'MULTIPLY', caustic, 0.15)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 0.97), v, M(nt, 'MULTIPLY', v, 1.02))
     rough = M(nt, 'ADD', 0.06, M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', M(nt, 'ADD', a, b), 1.0), 0.05))
     h = M(nt, 'ADD', M(nt, 'MULTIPLY', a, 0.5), M(nt, 'ADD', M(nt, 'MULTIPLY', b, 0.4),
@@ -386,10 +387,10 @@ def m_plant(nt, T):
     clump = voro(nt, T, 9, 9, seed=61, feature='SMOOTH_F1', smoothness=0.6)
     leaf = voro(nt, T, 30, 30, seed=62, feature='F1', randomness=1.0)
     shade = noise(nt, T, 4, 4, seed=63, detail=5, rough=0.65)
-    fine = noise(nt, T, 90, 90, seed=64, detail=2, rough=0.5)
+    fine = noise(nt, T, 48, 48, seed=64, detail=2, rough=0.5)
     lm = smooth(nt, leaf, 0.34, 0.05)
-    v = M(nt, 'ADD', 0.78, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', shade, 0.5), 0.20),
-                                        M(nt, 'MULTIPLY', lm, 0.16)))
+    v = M(nt, 'ADD', 0.78, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', shade, 0.5), 0.28),
+                                        M(nt, 'MULTIPLY', lm, 0.18)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', clump, 0.30)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fine, 0.5), 0.14)))
     col = rgb(nt, M(nt, 'MULTIPLY', v, 0.97), v, M(nt, 'MULTIPLY', v, 0.94))
@@ -404,13 +405,13 @@ def m_awning(nt, T):
     warp = bands(nt, T['u'], 96, 0.34)
     weft = bands(nt, T['v'], 96, 0.34)
     weave = M(nt, 'SUBTRACT', warp, M(nt, 'MULTIPLY', M(nt, 'MULTIPLY', warp, weft), 0.5))
-    fuzz = noise(nt, T, 130, 130, seed=71, detail=2, rough=0.5)
+    fuzz = noise(nt, T, 65, 65, seed=71, detail=2, rough=0.5)
     panel = bands(nt, T['u'], 4, 0.012)                             # stitched panel joins
     sag = noise(nt, T, 3, 6, seed=72, detail=3, rough=0.55)
-    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.10),
-                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fuzz, 0.5), 0.05)))
+    v = M(nt, 'ADD', 0.86, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.14),
+                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', fuzz, 0.5), 0.07)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', panel, 0.22)))
-    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', sag, 0.09)))
+    v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', sag, 0.14)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.995), M(nt, 'MULTIPLY', v, 0.98))
     rough = M(nt, 'ADD', 0.56, M(nt, 'ADD', M(nt, 'MULTIPLY', fuzz, 0.14),
                                             M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', weave, 0.5), 0.08)))
@@ -424,11 +425,11 @@ def m_trim(nt, T):
     as CUT — a chamfer line and a little veining, nothing granular."""
     J = joints(nt, T, 1, 2, 0.028)
     vein = noise(nt, T, 6, 3, seed=81, detail=6, rough=0.7, dist=1.4)
-    grain = noise(nt, T, 140, 140, seed=82, detail=2, rough=0.5)
+    grain = noise(nt, T, 60, 60, seed=82, detail=2, rough=0.5)
     pit = voro(nt, T, 26, 26, seed=83, feature='F1')
     pits = smooth(nt, pit, 0.12, 0.02)
-    v = M(nt, 'ADD', 0.90, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', vein, 0.5), 0.06),
-                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.035)))
+    v = M(nt, 'ADD', 0.90, M(nt, 'ADD', M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', vein, 0.5), 0.11),
+                                        M(nt, 'MULTIPLY', M(nt, 'SUBTRACT', grain, 0.5), 0.05)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', J['j'], 0.26)))
     v = M(nt, 'MULTIPLY', v, M(nt, 'SUBTRACT', 1.0, M(nt, 'MULTIPLY', pits, 0.10)))
     col = rgb(nt, v, M(nt, 'MULTIPLY', v, 0.998), M(nt, 'MULTIPLY', v, 0.99))
@@ -566,6 +567,15 @@ def main():
     bpy.ops.mesh.primitive_plane_add(size=1.0)
     flat = bpy.context.object
     flat.name = 'flat'
+    # ⚠ AND IT HAS TO BE PARKED AWAY FROM THE RELIEF GRID. Both primitives spawn at the origin, so
+    #   the flat quad sat exactly coincident with the displaced tile and every ambient-occlusion
+    #   ray hit it within a micron. Measured both ways on the same two classes: coincident gives
+    #   AO mean 0.044 / 0.060 (a fully black occlusion map), parked gives 0.971 / 0.920 with the
+    #   crevices reaching 0.53 / 0.21 — which is what an AO map is supposed to look like. Nothing
+    #   about the black version LOOKS like a bug; it just reads as "the arena is dark in ambient",
+    #   so it was found by measuring the channel rather than by looking at it. Height is irrelevant
+    #   to the EMIT/NORMAL bakes, which are shading-only and never trace anything.
+    flat.location = (0.0, 0.0, 50.0)
 
     # relief: the SAME tile as real geometry, displaced by the baked height, ringed by eight
     # copies of itself so the ambient occlusion at the tile border sees its own neighbours.
@@ -704,6 +714,10 @@ def main():
             edge = (np.abs(g[:, 0] - g[:, -1]).mean() + np.abs(g[0, :] - g[-1, :]).mean()) * 0.5
             typ = (np.abs(np.diff(g, axis=1)).mean() + np.abs(np.diff(g, axis=0)).mean()) * 0.5
             print('AOEDGE %s wrap=%.3f typical=%.3f levels' % (key, edge * 255.0, typ * 255.0))
+            # an AO map is meant to be mostly open with darkening in the crevices — a low mean is
+            # the signature of something occluding the whole tile, which is how the coincident
+            # `flat` plane was found
+            print('AOSTAT %s mean=%.3f min=%.3f p05=%.3f' % (key, g.mean(), g.min(), np.percentile(g, 5)))
 
         # 6. pack O/R/M into one RGB image. Two greyscale PNGs would be two fetches and two
         # texture units for three numbers; PlayCanvas can address them by channel.

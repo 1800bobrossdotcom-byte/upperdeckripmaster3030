@@ -100,14 +100,52 @@
    * ⚠ MOTION SMEAR: `neon`'s blur is 0, so there is nothing to lose. Noted so nobody adds one.
    */
   const POST = {
-    bloom: num('bloom', 0.075),
-    tone: pc.TONEMAP_ACES,
+    /* ⚑ BLOOM, SWEPT. Held wave-1 frame, blur 3 (clipped% / luma / RMS / blacks% / sat% / edge):
+     *     0    → 0.023 · 59.0 · 49.9 · 4.85 · 93.1 · 10.11
+     *     0.03 → 0.027 · 61.3 · 52.9 · 4.73 · 89.1 ·  9.97
+     *     0.06 → 0.035 · 68.3 · 53.9 · 0.67 · 85.1 ·  9.29   ← chosen
+     *     0.10 → 0.048 · 67.9 · 52.9 · 2.06 · 85.4 ·  6.72
+     *     0.16 → 0.071 · 73.0 · 53.8 · 0.99 · 82.5 ·  6.79
+     *     0.25 → 0.126 · 79.6 · 54.5 · 0.57 · 81.3 ·  5.78
+     *     0.40 → 0.250 · 89.4 · 59.0 · 0.72 · 78.0 ·  4.09
+     * Bloom buys luma and SPENDS local detail — the same shape s9pc-app.js measured. 0.06 is the
+     * last value on the smooth part of the `edge` curve (9.29, i.e. 92% of the unbloomed frame);
+     * 0.10 drops it to 66% for no extra luma at all. The brief wants this game to GLOW, and the
+     * answer to that is not a bigger global lever — it is brighter FX, which is where the glow is
+     * supposed to come from. A global bloom big enough to make a bolt shine makes the backdrop
+     * shine too, and then nothing shines. */
+    bloom: num('bloom', 0.06),
+    /* ⚑ THE TONEMAPPER IS *NEUTRAL* HERE, AND THAT DISAGREES WITH js/s9pc-app.js ON PURPOSE.
+     * Measured at the shipping settings on a held wave-1 frame:
+     *     tone      clipped%   luma   RMS   blacks%  sat%   edge
+     *     ACES        0.047    61.0   54.3    2.72   85.8   6.75
+     *     NEUTRAL     0.000    59.3   56.0    2.19   83.4   9.69   ← chosen
+     *     FILMIC      0.000    35.3   38.6   15.28   85.6   3.16
+     *     LINEAR      1.532    47.6   56.8    6.68   85.5   4.28
+     *     NONE        1.549    48.1   56.6    3.51   85.3   4.10
+     * NEUTRAL removes 100% of clipping and GAINS 1.7 RMS and 2.9 local detail, for 1.7 luma. That
+     * is the same criterion that picked ACES for Section 9 ("removes clipping for free") reaching
+     * the opposite answer, because the frame is the opposite kind of frame: Section 9 is a dim
+     * tactical interior where ACES's midtone lift is a gift, and this is a bright saturated neon
+     * field where the same lift is what pushes it over. FILMIC crushes — 15.3% blacks, i.e. it
+     * eats the artwork. ⚑ WHAT PORTS IS THE METHOD (count clipped pixels), NOT THE ANSWER. */
+    tone: pc.TONEMAP_NEUTRAL,
     fringing: 4.51,
     vignette: { inner: 0.68, outer: 2.24, curvature: 1.0, intensity: 0.36 },
-    saturation: num('sat', 1.18),
+    /* ⚑ SATURATION 1.30 against `neon`'s 1.00, for exactly the reason s9pc-app.js gives for its
+     * own 1.26 in clean mode: a flat-albedo world has no texture detail to carry interest, so
+     * colour has to do all of it. Measured 1.0 → 1.45: mean saturation 78.8 → 88.2 while RMS falls
+     * 58.9 → 55.6 and clipping climbs 0.023% → 0.102%. 1.30 takes most of the colour (87.6) before
+     * either cost turns over. */
+    saturation: num('sat', 1.30),
     contrast: 1.0,                 // see s9pc-app.js: PlayCanvas grades in LINEAR, before the
                                    // tonemapper, so >1 here black-crushes rather than adding punch
-    sharpness: num('sharp', 0.30),
+    /* ⚑ SHARPNESS 0.50, agreed two ways. DERIVED: s9pc measured tactical's unsharp 0.26 → CAS 0.70,
+     * and neon's unsharp is 0.18, so 0.18/0.26 × 0.70 = 0.48. MEASURED: mean |Laplacian| runs
+     * 0 → 6.05 · 0.15 → 6.46 · 0.3 → 6.67 · 0.5 → 6.97 · 0.7 → 9.71 · 1.0 → 11.15, and 0.7 is
+     * where a different effect appears rather than more of the same one. The two agree at ~0.5,
+     * which is the only reason to trust either. */
+    sharpness: num('sharp', 0.50),
     dither: num('dither', 0.0045),
     grain: num('grain', 0.006),
   };
@@ -152,7 +190,18 @@
       frame.rendering.toneMapping = POST.tone;
       frame.rendering.sharpness = POST.sharpness;
       frame.bloom.intensity = QCFG.bloom ? POST.bloom : 0;
-      frame.bloom.blurLevel = 14;      // this game wants a WIDE glow, not a tight one
+      /* ⚑ BLUR LEVEL 3, NOT THE DEFAULT. GfxPost's neon preset does `passes: 2` at half res — a
+       * TIGHT halo, which is what "neon glows" actually looks like. PlayCanvas's blurLevel is a
+       * mip-chain depth and the first version used 14, which spread the glow across the whole
+       * frame as a fog. Measured at bloom 0.06 (luma / RMS / sat% / edge):
+       *     3 → 76.8 · 50.2 · 84.2 · 10.84   ← chosen
+       *     5 → 85.7 · 47.5 · 71.5 ·  8.63
+       *     8 → 97.4 · 43.2 · 58.8 ·  7.50
+       *    11 → 100.0 · 44.5 · 55.6 ·  9.32
+       *    14 →  94.5 · 43.6 · 58.4 ·  7.40
+       * Every step wider costs saturation and detail and buys only brightness; past 8 the chain
+       * has nothing left to add. A wide bloom is how a colourful game becomes a grey one. */
+      frame.bloom.blurLevel = num('blur', 3);
       frame.ssao.type = pc.SSAOTYPE_NONE;    // nothing here is lit; SSAO would shade nothing
       frame.vignette.inner = POST.vignette.inner; frame.vignette.outer = POST.vignette.outer;
       frame.vignette.curvature = POST.vignette.curvature; frame.vignette.intensity = POST.vignette.intensity;
@@ -199,6 +248,20 @@
   buildPost();
 
   // ── layers ──────────────────────────────────────────────────────────────────────────────────
+  /* ?bg= scales the backdrop's brightness. It exists because the FIRST version of this field was
+   * measured at mean luma 177.8 with 1.05% of pixels CLIPPED — a bright flat wash that the
+   * enemies had to compete with rather than sit on. CLAUDE.md's standard from the GfxPost sweeps
+   * is that clipping stays at zero, so this became a knob and then got swept. See the report. */
+  /* ⚑ 0.20, SWEPT — and the metric that decided it is `blacks%`, not brightness. CLAUDE.md records
+   * that Section 9's engine build lost its black point (7.3% → 0.4% of frame under 12/255) and
+   * that this, not the lighting taste, was the defect. Measured here (blacks% / RMS / sat%):
+   *     0.12 → 26.03 · 61.7 · 76.6      0.45 →  4.70 · 58.1 · 86.7
+   *     0.20 → 12.55 · 66.3 · 74.5  ←   0.70 →  0.47 · 60.0 · 85.2
+   *     0.30 → 14.47 · 60.3 · 84.9      1.00 →  0.35 · 59.1 · 89.0
+   * 0.20 has the best global contrast in the sweep AND keeps a real black point. Above 0.45 the
+   * backdrop has eaten the blacks entirely, which is exactly the failure mode above: a screen
+   * full of colour that the enemies then have to compete with instead of sit on. */
+  let BG_K = num('bg', 0.20);
   const fx = RRFx.create(app);
   const G = RRGame.create();
   const F = RRGame.F;
@@ -449,7 +512,7 @@
      * it does not own anyway. */
     const CX = 9, CY = 7, Zb = -46, EX = 62, EY = 44;
     const hue0 = (G.market.hue + t * 8 + G.wave * 37) % 360;
-    const boost = G.phase === 'clear' ? 1.5 : 1;
+    const boost = (G.phase === 'clear' ? 1.5 : 1) * BG_K;
     for (let j = 0; j < CY; j++) {
       for (let i = 0; i < CX; i++) {
         const u = i / (CX - 1) - 0.5, v = j / (CY - 1) - 0.5;
@@ -516,8 +579,10 @@
        * wrong rather than as a card turning over — and a turning card is the entire visual idea. */
       const toCam = _cb[6] * (0 - e.x) + _cb[7] * (CAM.y - e.y) + _cb[8] * (CAM.z - e.z);
       const cell = toCam >= 0 ? (e.art % 12) : fx.C_BACK;
+      /* ⚠ `e.hurt` is decayed in rrpc-game.js's tick, NOT here. It was decremented by 1/60 in this
+       * draw loop first, which made the flash length a function of the frame rate and quietly put
+       * a write to simulation state inside the renderer. */
       const hurt = e.hurt > 0 ? 1 : 0;
-      if (e.hurt > 0) e.hurt -= 1 / 60;
       const bright = e.state === 'dive' || e.state === 'beam' ? 255 : 205;
       const r = hurt ? 255 : bright, g = hurt ? 255 : bright, b = hurt ? 255 : bright;
       fx.oriented(fx.C, cell, e.x, e.y, e.z, _cb[0], _cb[1], _cb[2], _cb[3], _cb[4], _cb[5], r, g, b, 255);
@@ -842,5 +907,36 @@
     _tone(v) { if (!frame) return null; frame.rendering.toneMapping = v; frame.update(); return v; },
     _bloom(v) { if (!frame) return null; frame.bloom.intensity = v; frame.update(); return v; },
     _sharp(v) { if (!frame) return null; frame.rendering.sharpness = v; frame.update(); return v; },
+    _bg(v) { BG_K = v; return v; },
+    _addi(v) { fx.addMat.emissiveIntensity = v; fx.addMat.update(); return v; },
+    _cardi(v) { fx.cardMat.emissiveIntensity = v; fx.cardMat.update(); return v; },
+    _blur(v) { if (!frame) return null; frame.bloom.blurLevel = v; frame.update(); return v; },
+    _sat(v) { if (!frame) return null; frame.grading.saturation = v; frame.update(); return v; },
+    /* read the real frame. CLAUDE.md: judge COLOUR from a readback, never from a screenshot in
+     * this container — the screenshot path rotates hue on canvas content. Needs ?grab=1. */
+    _px() {
+      const gl = app.graphicsDevice.gl, W = canvas.width, H = canvas.height;
+      const px = new Uint8Array(W * H * 4);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let n = 0, sum = 0, sq = 0, blk = 0, clip = 0, sat = 0;
+      const lum = new Float64Array(W * H);
+      for (let i = 0; i < W * H; i++) {
+        const r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2];
+        const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        lum[i] = L; sum += L; sq += L * L; n++;
+        if (L < 12) blk++;
+        if (r > 250 && g > 250 && b > 250) clip++;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b); sat += mx > 0 ? (mx - mn) / mx : 0;
+      }
+      const mean = sum / n, rms = Math.sqrt(Math.max(0, sq / n - mean * mean));
+      let edge = 0, en = 0;
+      for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        edge += Math.abs(4 * lum[i] - lum[i - 1] - lum[i + 1] - lum[i - W] - lum[i + W]); en++;
+      }
+      return { luma: +mean.toFixed(1), rms: +rms.toFixed(1), blacks: +(blk / n * 100).toFixed(2),
+        clipped: +(clip / n * 100).toFixed(3), sat: +(sat / n * 100).toFixed(1), edge: +(edge / en).toFixed(2) };
+    },
   };
 })();

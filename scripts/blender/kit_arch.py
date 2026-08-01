@@ -236,18 +236,25 @@ def _ext(dst, section, a0, a1, axis, label):
         for (u, y) in section:
             p.gv(a, u, y) if axis == 'x' else p.gv(u, a, y)
         idx.append(b)
-    # ⚠ The face order is the MIRROR of prism()'s, and it has to be. prism() stacks horizontal
-    # plans and sweeps upward; this drags a vertical section sideways, which reverses the sense
-    # of "outside". Built the other way round it emitted 90 inside-out parts on the first run of
-    # LIDO — invisible in Blender (two-sided) and invisible in the .wld (normals come from the
-    # winding, so they were consistently wrong), and it would have shown up in game as coping,
-    # treads and wall copings that simply were not there.
+    # ⚠ THE FACE ORDER DEPENDS ON WHICH AXIS YOU EXTRUDE ALONG, and it is not a matter of taste.
+    # Measured, not reasoned: with a section wound counter-clockwise in its own plane, sweeping
+    # along +x needs (lo_i, hi_i, hi_j, lo_j) and sweeping along +z needs the mirror of it —
+    # swapping which axis is the sweep and which is in-section reverses the sense of "outside".
+    # A 1×3×2 test block comes out at +6 one way and −6 the other, per axis. Getting it wrong is
+    # invisible in Blender (two-sided shading) and invisible in the .wld (bake-world derives the
+    # normal FROM the winding, so it is merely consistently backwards); in game it shows up as
+    # coping, treads and cornices that are simply not there, i.e. as "the level didn't load".
     lo, hi = idx
+    fwd = (axis == 'x')
     for i in range(n):
         j = (i + 1) % n
-        p.f.append((lo + i, lo + j, hi + j, hi + i))
-    p.f.append(tuple(lo + i for i in range(n - 1, -1, -1)))
-    p.f.append(tuple(hi + i for i in range(n)))
+        p.f.append((lo + i, hi + i, hi + j, lo + j) if fwd else (lo + i, lo + j, hi + j, hi + i))
+    if fwd:
+        p.f.append(tuple(lo + i for i in range(n)))
+        p.f.append(tuple(hi + i for i in range(n - 1, -1, -1)))
+    else:
+        p.f.append(tuple(lo + i for i in range(n - 1, -1, -1)))
+        p.f.append(tuple(hi + i for i in range(n)))
     return _merge(dst, p, label)
 
 
@@ -268,12 +275,13 @@ def sweep(dst, path, profile, label='sweep'):
         for (out, up) in profile:
             p.gv(x + nx * out, z + nz * out, up)
         idx.append(b)
+    # mirror of prism()'s order — a sweep runs sideways round the path, not upward (see _ext)
     m = len(idx)
     for k in range(m):
         a, b = idx[k], idx[(k + 1) % m]
         for i in range(n):
             j = (i + 1) % n
-            p.f.append((a + i, b + i, b + j, a + j))
+            p.f.append((a + i, a + j, b + j, b + i))
     return _merge(dst, p, label)
 
 
@@ -291,9 +299,9 @@ def sweep_run(dst, path, profile, label='sweep'):
         a, b = idx[k], idx[k + 1]
         for i in range(n):
             j = (i + 1) % n
-            p.f.append((a + i, b + i, b + j, a + j))
-    p.f.append(tuple(idx[0] + i for i in range(n)))
-    p.f.append(tuple(idx[-1] + i for i in range(n - 1, -1, -1)))
+            p.f.append((a + i, a + j, b + j, b + i))
+    p.f.append(tuple(idx[0] + i for i in range(n - 1, -1, -1)))
+    p.f.append(tuple(idx[-1] + i for i in range(n)))
     return _merge(dst, p, label)
 
 
@@ -509,18 +517,24 @@ def flight(name, x0, z0, x1, z1, y_bottom, y_top, steps, front, run_axis='x', y_
     return out
 
 
-def parasol(name, x, z, y0, pole_h=3.05, canopy_r=2.35, gores=8):
+def parasol(name, top_name, x, z, y0, pole_h=3.05, canopy_r=2.35, gores=8):
     """Tapered pole + segmented canopy, as TWO objects.
 
     Two because of collision: one Part would put a 4.7 m box round a 0.16 m pole at ankle height,
     and the arena would have four invisible rooms in it. The canopy's own AABB sits at head
     height, where `blocksE` never sees it.
+
+    ⚑ Two NAMES as well, and that turned out to matter more than expected: the object name is
+      what `S9World.kindOf` reads to pick a material, so a canopy sharing the pole's name gets
+      the pole's material. Measured — the first LIDO build named both `trm_umb##` and the canvas
+      came back as white stone, which cost the pool-crossing frame most of its colour (mean
+      saturation 40.3% boxed vs 25.1% modelled). A canopy is canvas; it has to be named like one.
     """
     pole = GPart(name + '_pole')
     lathe(pole, x, z, [(y0, 0.13), (y0 + 0.06, 0.10), (y0 + pole_h * 0.5, 0.075),
                        (y0 + pole_h, 0.058)], seg=8, label='umb_pole')
     pole.emit()
-    cap = GPart(name + '_top')
+    cap = GPart(top_name)
     top = y0 + pole_h
     # A segmented canopy, stations ordered BOTTOM → TOP. ⚠ prism() lofts upward, so a ring list
     # written crown-first comes out with negative volume and every face pointing inward; the
