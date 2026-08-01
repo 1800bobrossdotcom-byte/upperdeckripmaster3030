@@ -225,8 +225,6 @@ if (bin && nodes.wm_bevel && nodes.wm_face) {
   t('the word is DOMED (front face z varies across it)', fsd > dim[2] * 0.04,
     `front z sd ${fsd.toFixed(4)} over depth ${dim[2].toFixed(4)}`);
   // the rear half must be gone — see the .py header
-  const zs = [];
-  for (let i = 0; i < pf.count; i++) zs.push(pf.data[i * 3 + 2]);
   const nb2 = readAccessor(prim(nodes.wm_face).attributes.NORMAL);
   let back = 0;
   for (let i = 0; i < nb2.count; i++) if (nb2.data[i * 3 + 2] < -0.3) back++;

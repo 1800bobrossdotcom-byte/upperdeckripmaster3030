@@ -128,7 +128,20 @@
    * measured box — deliberately, so the module works unchanged on any page that has a `.wordmark`
    * and so a stylesheet edit can never leave a canvas floating somewhere the type is not.
    * Nothing here is required for the type to render: with the script absent, blocked, or failing
-   * at any of its steps, everything above is exactly what ships. */
+   * at any of its steps, everything above is exactly what ships.
+   * ⚑ THE SIX STOPS IN THE `background` ABOVE ARE ALSO THE FOIL'S DIFFRACTION PALETTE. The 3D
+   * layer is hot-stamped holographic foil: its hue moves with the view, and the colours it moves
+   * THROUGH are those same six stops, wrapped into a loop so the sweep never leaves the site's
+   * palette. They are transcribed in scripts/blender/build-hero-type.py (RAMP) and baked into
+   * `media/hero/type-spectrum.png`. ⚠ Edit the gradient here and the two disagree until someone
+   * runs `npm run herotype`; the build asserts all six stops, so it will say so rather than
+   * drift quietly.
+   * ⚠ THE PINNED FACE IS STILL LOAD-BEARING and still unratified by the artist. The mesh is cut
+   * from these exact Anton outlines and lands on the box this CSS lays out, so the two must be
+   * the same face or the overlay is a size guess. `var(--fat)` cannot serve: 'Arial Black' does
+   * not exist on Linux or Android, so the fallback was already a different typeface at a
+   * different width per platform. Nothing in the foil work changes that — if the artist wants
+   * the old face back, the geometry has to be re-cut from whatever font that turns out to be. */
   .torch{ flex:none; width:auto; height:clamp(70px,15vw,150px); image-rendering:auto;
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(52px,13vw,90px); } }
