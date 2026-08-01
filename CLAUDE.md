@@ -204,7 +204,29 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   **(b) Curve calibration = SuperRare's**, they walk the artist through it. The uncalibrated
   Sepolia curve (1 UR3030 ≈ 16 RARE) does not carry over.
 
-## Staking = the lens reads your balance (SuperRare's own documented input)
+## ✅ Staking = the lens reads your balance — BUILT (task #78)
+`UR3030Lens721.tierOfHolder(addr)` / `tierOf(id)` / `tierName(t)`, wired into `tokenURI(id)` as
+`Holding` + `Tier` attributes. `setEdition` points it at the $3030 ERC-20; `address(0)` = off.
+**55/55 `npm run test:lens`** (was 31), 16,155 B, 0 warnings.
+- **The ladder is anchored on the PACK, not round numbers** — 350 / 3,500 / 35,000 / 350,000 =
+  one pack, ten, a hundred, a thousand. Ash · Spark · Ember · Flame · Inferno (fire, because the
+  token burns so the art can live). A holder can say what they hold in the project's own unit.
+- ⚑ **`tierOfHolder` MUST NEVER REVERT** — it is called from `tokenURI`, so a revert takes the
+  metadata of ALL 100 CARDS offline at once, on a marketplace, permanently as far as any cache is
+  concerned. Two guards, and **`try/catch` alone is NOT enough**:
+  ⛔ **Solidity's contract-existence (`extcodesize`) check fires BEFORE the call and is NOT
+  catchable by try/catch.** So `if (edition.code.length == 0) return 0;` is load-bearing — without
+  it, setting `edition` to an address with no code (i.e. **pasting a wallet address instead of the
+  token's**, the likeliest mistake anyone will make here) reverted `tokenURI` for the whole deck.
+  **Found by the test, not by reasoning** — the try/catch looked sufficient and wasn't. Asserted
+  against `contracts/test/HostileToken.sol` and against a bare EOA.
+- ⚠ **`"Deck":"Season I"` was baked into the on-chain metadata** of all 100 cards and was caught
+  before deploy during the seasons→tiers pass. It now reads `Genesis`, and a test asserts no
+  `Season` string survives.
+- ⚠ Owner-dependent metadata is **not cacheable** and updates are pull-based, so the tier is
+  exposed twice: as an attribute (on refetch) and as `tierOf()` for the live page (immediate).
+
+## Staking — the design note (SuperRare's own documented input)
 SuperRare's *Introduction to Liquid Editions* says Liquid Lenses "can use that state as creative
 input" and names the inputs: **token price, trading activity, and HOLDER BALANCES**. That last one
 is the staking mechanism — no staking contract, no emissions, nothing to drain.

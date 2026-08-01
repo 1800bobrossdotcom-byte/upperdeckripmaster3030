@@ -11,10 +11,13 @@ const ROOT='/home/user/upperdeckripmaster3030';
 const findImport = p => { for (const c of [join(ROOT,'node_modules',p), join(ROOT,p)]) if (existsSync(c)) return {contents:readFileSync(c,'utf8')}; return {error:'nf '+p}; };
 const SRC='contracts/UR3030Lens721.sol';   // run from repo root: npm run test:lens
 const SRC_R='contracts/UR3030RenderPrototype.sol', SRC_M='contracts/test/MockLiquid.sol';
+const SRC_T='contracts/test/MockBurnToken.sol', SRC_H='contracts/test/HostileToken.sol';
 const out = JSON.parse(solc.compile(JSON.stringify({language:'Solidity',
   sources:{ [SRC]:{content:readFileSync(join(ROOT,SRC),'utf8')},
             [SRC_R]:{content:readFileSync(join(ROOT,SRC_R),'utf8')},
-            [SRC_M]:{content:readFileSync(join(ROOT,SRC_M),'utf8')} },
+            [SRC_M]:{content:readFileSync(join(ROOT,SRC_M),'utf8')},
+            [SRC_T]:{content:readFileSync(join(ROOT,SRC_T),'utf8')},
+            [SRC_H]:{content:readFileSync(join(ROOT,SRC_H),'utf8')} },
   settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}}),{import:findImport}));
 const C = out.contracts[SRC].UR3030Lens721;
 
@@ -198,6 +201,90 @@ console.log('\n── edition passthrough: mock edition -> render prototype -> l
   const json2 = Buffer.from(decStr(bytesToHex(after2.execResult.returnValue)).split(',')[1],'base64').toString();
   const burned1 = (json2.match(/"trait_type":"Burned","value":(\d+)/)||[])[1];
   t('  a real pack burn moves the delegated render', burned1==='350', 'burned='+burned1);
+}
+
+
+// ══ TIERS — the lens reads the holder's balance (task #78) ═══════════════════════════════════
+/* SuperRare names "holder balances" as a documented render input, and that IS the staking
+ * mechanism here: no staking contract, no lock, no emissions. These tests care about two things
+ * only — that the ladder is exactly right at its boundaries, and that it can NEVER break the
+ * artwork.                                                                                    */
+console.log('\n── tiers: the render reads your balance ──');
+{
+  const TOKC = out.contracts[SRC_T].MockBurnToken, HOSTC = out.contracts[SRC_H].HostileToken;
+  const dep1 = await evm.runCall({ caller:DEPLOYER, to:undefined, data:hexToBytes('0x'+TOKC.evm.bytecode.object), gasLimit:30000000n, block:BLOCK });
+  const TOKEN = dep1.createdAddress;
+  const dep2 = await evm.runCall({ caller:DEPLOYER, to:undefined, data:hexToBytes('0x'+HOSTC.evm.bytecode.object), gasLimit:30000000n, block:BLOCK });
+  const HOSTILE = dep2.createdAddress;
+  const E18 = 10n ** 18n;
+  // ⚠ a reverted call returns empty data; decode defensively or the harness dies before the assert
+  const decU = r => { const h = bytesToHex(r.execResult.returnValue); return (!h || h === '0x') ? -1n : BigInt(h); };
+  const tierOfHolder = async who => Number(decU(await call(sel('tierOfHolder(address)') + encAddr(who))));
+  const tierOfCard  = async id  => Number(decU(await call(sel('tierOf(uint256)') + encUint(id))));
+  const mintTo = async (who, whole) => evm.runCall({ caller:DEPLOYER, to:TOKEN,
+    data:hexToBytes(sel('mint(address,uint256)') + encAddr(who) + encUint(BigInt(whole) * E18)), gasLimit:30000000n, block:BLOCK });
+
+  t('tiers are OFF until an edition is set', (await tierOfHolder(ALICE)) === 0);
+
+  await call(sel('setEdition(address)') + encAddr(TOKEN.toString()));
+  t('setEdition wires the token', ok(await call(sel('setEdition(address)') + encAddr(TOKEN.toString()))));
+  t('a zero balance is tier 0', (await tierOfHolder(ALICE)) === 0);
+
+  /* ⚑ BOUNDARIES ARE THE WHOLE TEST. The ladder is anchored on the pack (~350 $3030), so the
+   *   interesting inputs are one wei under each threshold and exactly on it — an off-by-one in
+   *   `>=` vs `>` is invisible at any other input. */
+  const LADDER = [[350, 1], [3_500, 2], [35_000, 3], [350_000, 4]];
+  let held = 0n;
+  for (const [threshold, want] of LADDER) {
+    const justUnder = BigInt(threshold) * E18 - 1n - held;
+    await evm.runCall({ caller:DEPLOYER, to:TOKEN,
+      data:hexToBytes(sel('mint(address,uint256)') + encAddr(ALICE) + encUint(justUnder)), gasLimit:30000000n, block:BLOCK });
+    held = BigInt(threshold) * E18 - 1n;
+    t(`  ${threshold} - 1 wei is still tier ${want - 1}`, (await tierOfHolder(ALICE)) === want - 1, 'got ' + await tierOfHolder(ALICE));
+    await evm.runCall({ caller:DEPLOYER, to:TOKEN,
+      data:hexToBytes(sel('mint(address,uint256)') + encAddr(ALICE) + encUint(1n)), gasLimit:30000000n, block:BLOCK });
+    held += 1n;
+    t(`  exactly ${threshold} is tier ${want}`, (await tierOfHolder(ALICE)) === want, 'got ' + await tierOfHolder(ALICE));
+  }
+
+  // a card's tier is its OWNER's balance; render-only cards have no owner
+  t('an unminted field card is tier 0', (await tierOfCard(34)) === 0);
+  const own7 = '0x' + bytesToHex((await call(sel('ownerOf(uint256)') + encUint(7))).execResult.returnValue).slice(-40);
+  await mintTo(own7, 4_000);
+  t("a minted hero renders at its OWNER's tier", (await tierOfCard(7)) === 2, 'got ' + await tierOfCard(7));
+
+  // the metadata carries it, and the seasons string is gone
+  const uri = decStr(bytesToHex((await call(sel('tokenURI(uint256)') + encUint(7))).execResult.returnValue));
+  const j = Buffer.from(uri.split(',')[1], 'base64').toString();
+  t('  metadata carries the tier name', j.includes('"trait_type":"Holding","value":"Ember"'), j.slice(0, 0));
+  t('  metadata carries the numeric tier', j.includes('"trait_type":"Tier","value":2'));
+  t('  ⛔ no "Season" string survives on-chain', !/Season/i.test(j));
+  t('  deck reads Genesis', j.includes('"trait_type":"Deck","value":"Genesis"'));
+
+  /* ⚠ THE ONE THAT MATTERS. tierOfHolder is called from tokenURI, so if a misconfigured edition
+   *   could revert, ONE bad owner transaction would take all 100 cards' metadata offline at once
+   *   — on a marketplace, and permanently as far as any cache is concerned. */
+  await call(sel('setEdition(address)') + encAddr(HOSTILE.toString()));
+  t('a REVERTING token does not revert the tier read', (await tierOfHolder(ALICE)) === 0);
+  const hostileUri = await call(sel('tokenURI(uint256)') + encUint(7));
+  t('  ...and tokenURI still renders', ok(hostileUri), revertOf(hostileUri));
+
+  await call(sel('setEdition(address)') + encAddr('0x000000000000000000000000000000000000dEaD'));
+  /* ⚑ THIS IS THE ONE THAT FOUND THE BUG. Solidity's contract-existence check fires BEFORE
+   *   the call and is NOT catchable by try/catch, so an EOA in `setEdition` — pasting a wallet
+   *   address instead of the token's, the likeliest mistake anyone will make here — reverted
+   *   tokenURI for all 100 cards until an explicit `code.length` guard was added. */
+  t('an EOA as the edition does not revert either', (await tierOfHolder(ALICE)) === 0, 'got ' + await tierOfHolder(ALICE));
+  t('  ...and tokenURI still renders', ok(await call(sel('tokenURI(uint256)') + encUint(7))));
+
+  // restore, then the guards
+  await call(sel('setEdition(address)') + encAddr(TOKEN.toString()));
+  const bad = await call(sel('setTiers(uint256[4])') + encUint(100n) + encUint(50n) + encUint(200n) + encUint(300n));
+  t('setTiers REJECTS a non-ascending table', !ok(bad), revertOf(bad));
+  const notOwner = await call(sel('setEdition(address)') + encAddr(TOKEN.toString()), new Address(hexToBytes(ALICE)));
+  t('setEdition is owner-only', !ok(notOwner), revertOf(notOwner));
+  t('setTiers accepts an ascending one',
+    ok(await call(sel('setTiers(uint256[4])') + encUint(1n) + encUint(2n) + encUint(3n) + encUint(4n))));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

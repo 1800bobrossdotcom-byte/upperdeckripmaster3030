@@ -11,6 +11,11 @@ interface IEditionRenderer {
     function tokenURI() external view returns (string memory);
 }
 
+/// Just the one call the tier system needs from the $3030 edition.
+interface IERC20Balance {
+    function balanceOf(address who) external view returns (uint256);
+}
+
 /**
  *  upperdeckripmaster3030 — the LENS collection.
  *
@@ -67,6 +72,28 @@ contract UR3030Lens721 is ERC721, EIP712 {
     /// The edition's passthrough renderer; tokenURI() delegates here.
     address public editionRenderer;
 
+    /* ── STAKING = THE LENS READS YOUR BALANCE ────────────────────────────────────────────────
+     * SuperRare's own docs name the inputs a Liquid Lens may use: "token price, trading activity,
+     * and HOLDER BALANCES", and the Cohort-01 CLI guide repeats it — render contracts "can read
+     * price, supply, liquidity, burn progress, balances". That last input IS the staking
+     * mechanism here: no staking contract, no emissions, no lock, nothing to drain.
+     *
+     * ⚑ THE ART ACKNOWLEDGES YOU; IT DOES NOT PAY YOU. That is the anti-casino ethos expressed
+     *   as a mechanic — the tangible prize is the having-done-it. Tiers are purely aesthetic, so
+     *   the two obvious objections do not apply: a balance is borrowable for a snapshot, which
+     *   would matter if it gated value and does not when it gates a colour; and there is no
+     *   yield, so there is nothing to farm.
+     *
+     * ⚠ OWNER-DEPENDENT METADATA IS NOT CACHEABLE and marketplaces cache tokenURI hard. The tier
+     *   is therefore advertised as an attribute AND exposed as `tierOf()` so the live page can
+     *   read it directly, which is the path that updates immediately. Updates are pull-based —
+     *   SuperRare: "a render contract is not a background process… the market changes on-chain,
+     *   metadata gets refetched, and the artwork changes."
+     */
+    address public edition;                 // the $3030 ERC-20; address(0) = tiers off
+    /// Ascending balance thresholds in the token's own BASE UNITS. tierAt[0] is tier 1's floor.
+    uint256[4] public tierAt;
+
     string public collectionName;
     string public collectionDescription;
     string public externalUrl;      // e.g. https://upperdeckripmaster3030.com
@@ -81,6 +108,8 @@ contract UR3030Lens721 is ERC721, EIP712 {
         keccak256("Claim(address to,uint256 id,uint8 kind,uint256 deadline)");
 
     event CardSet(uint256 indexed id, string cid, string title);
+    event EditionSet(address indexed edition);
+    event TiersSet(uint256[4] thresholds);
     event HeroClaimed(uint256 indexed id, address indexed to, uint8 kind);
     event LovebeingMinted(address indexed to, uint256 indexed id);
 
@@ -94,6 +123,7 @@ contract UR3030Lens721 is ERC721, EIP712 {
     error Soulbound();
     error OnePerWallet();
     error NoRenderer();
+    error TiersNotAscending();
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert NotOwner();
@@ -114,12 +144,30 @@ contract UR3030Lens721 is ERC721, EIP712 {
         externalUrl = externalUrl_;
         lensBaseUrl = lensBaseUrl_;
         collectionName = name_;
+
+        /* Default ladder, anchored on the PACK rather than on round numbers: a launch pack is
+         * ~350 $3030, so the tiers are one pack, ten, a hundred, a thousand. That makes the
+         * answer to "what do I need to hold?" sayable in the project's own unit of account.
+         * ⚠ Assumes the edition's 18 decimals; `setTiers` exists to correct that if it differs.
+         * The constructor signature is deliberately UNCHANGED — scripts/lens-cli.mjs and
+         * docs/DEPLOY-LENS.md both depend on renderer being 3rd and signer 4th. */
+        tierAt = [uint256(350 ether), 3_500 ether, 35_000 ether, 350_000 ether];
     }
 
     // ── admin ────────────────────────────────────────────────────────────────────────────
     function transferOwnership(address to) external onlyOwner { owner = to; }
     function setClaimSigner(address s) external onlyOwner { claimSigner = s; }
     function setEditionRenderer(address r) external onlyOwner { editionRenderer = r; }
+    /// Point the tier system at the $3030 ERC-20. address(0) turns tiers off (everyone is tier 0).
+    function setEdition(address e) external onlyOwner { edition = e; emit EditionSet(e); }
+    /// Ascending thresholds in the token's base units.
+    function setTiers(uint256[4] calldata t) external onlyOwner {
+        // ⚠ ascending is not cosmetic: `tierOfHolder` walks the array and returns the highest
+        //   threshold cleared, so an out-of-order table would silently cap everyone at tier 1.
+        for (uint256 i = 1; i < 4; i++) if (t[i] <= t[i - 1]) revert TiersNotAscending();
+        tierAt = t;
+        emit TiersSet(t);
+    }
     function setUrls(string calldata external_, string calldata lensBase_) external onlyOwner {
         externalUrl = external_;
         lensBaseUrl = lensBase_;
@@ -199,6 +247,53 @@ contract UR3030Lens721 is ERC721, EIP712 {
         return super._update(to, tokenId, auth);
     }
 
+    // ── tiers: the render reads the holder's balance ──────────────────────────────────────
+    /**
+     * Which tier a wallet's `$3030` balance puts it in: 0 (none) … 4.
+     *
+     * ⚠ THIS MUST NEVER REVERT, AND THAT IS THE WHOLE DESIGN OF IT. It is called from
+     *   `tokenURI`, so if a misconfigured `edition` address — a non-token, a self-destructed
+     *   contract, an EOA, a token that reverts on `balanceOf` — could throw, then one bad
+     *   `setEdition` would take the metadata of all 100 cards offline at once, on a marketplace,
+     *   permanently as far as any cache is concerned. The `try` swallows it and the card renders
+     *   at tier 0, which is exactly how it looks before the edition is ever set. A cosmetic
+     *   feature is not allowed to be able to break the artwork.
+     */
+    function tierOfHolder(address who) public view returns (uint8) {
+        if (edition == address(0) || who == address(0)) return 0;
+        /* ⚠ THE `code.length` CHECK IS LOAD-BEARING — `try/catch` DOES NOT COVER IT.
+         *   Solidity emits a contract-existence (extcodesize) check before an external call that
+         *   returns data, and a failure there is NOT catchable by try/catch. So without this
+         *   line, setting `edition` to an address with no code — e.g. pasting a WALLET address
+         *   instead of the token's, which is the single most likely mistake anyone will make
+         *   here — reverts `tokenURI` for all 100 cards. Found by the test below, not by
+         *   reasoning: the try/catch looked sufficient and wasn't. */
+        if (edition.code.length == 0) return 0;
+        try IERC20Balance(edition).balanceOf(who) returns (uint256 bal) {
+            uint8 t = 0;
+            for (uint256 i = 0; i < 4; i++) if (bal >= tierAt[i]) t = uint8(i + 1);
+            return t;
+        } catch {
+            return 0;
+        }
+    }
+
+    /// The tier a CARD currently renders at — i.e. its owner's. Unminted cards are tier 0.
+    function tierOf(uint256 id) public view returns (uint8) {
+        return tierOfHolder(_ownerOf(id));
+    }
+
+    /* The ladder is anchored on the pack (~350 $3030), so a holder can say what they hold in
+     * packs rather than in round numbers. Fire, because the token burns so the art can live —
+     * the torches on the landing page are the same idea. */
+    function tierName(uint8 t) public pure returns (string memory) {
+        if (t == 0) return "Ash";
+        if (t == 1) return "Spark";
+        if (t == 2) return "Ember";
+        if (t == 3) return "Flame";
+        return "Inferno";
+    }
+
     // ── rendering ────────────────────────────────────────────────────────────────────────
     /// The EDITION's display — delegated to the passthrough renderer.
     function tokenURI() external view returns (string memory) {
@@ -242,12 +337,18 @@ contract UR3030Lens721 is ERC721, EIP712 {
             );
         }
 
+        /* ⚠ "Deck: Season I" used to be baked in here. Seasons were removed (artist directive,
+         *   2026-08-01 — the pack schedule is TIERED, not a calendar), and this string would have
+         *   gone on-chain in the metadata of all 100 cards. Caught before deploy. */
+        uint8 tier = tierOf(id);
         string memory attrs = string(
             abi.encodePacked(
                 ',"attributes":[',
-                '{"trait_type":"Deck","value":"Season I"},',
+                '{"trait_type":"Deck","value":"Genesis"},',
                 '{"trait_type":"Class","value":"', hero ? "Hero 1/1" : "Field Lens", '"},',
                 '{"trait_type":"Card","value":', idStr, "},",
+                '{"trait_type":"Holding","value":"', tierName(tier), '"},',
+                '{"trait_type":"Tier","value":', uint256(tier).toString(), "},",
                 '{"trait_type":"Minted","value":"', _ownerOf(id) == address(0) ? "no" : "yes", '"}]}'
             )
         );
