@@ -65,8 +65,16 @@
  *   blend    "normal" (default) or "add".
  *   foil     true marks the layer as the holographic sweep — it travels rather than sitting
  *            still, and it is the layer `prefers-reduced-motion` freezes.
- *   drive    { gain: "burn"|"price"|"depth", min, max } — ties this layer's emissive gain to a
- *            live market dial from `js/lens-state.js`. Absent = constant.
+ *   drive    { gain: "burn"|"price"|"depth", min, max, rest } — ties this layer's emissive gain
+ *            to a live market dial from `js/lens-state.js`. Absent = constant.
+ *            ⚑ `rest` is where the layer sits when there is NO READING — a blocked frame, a
+ *            dead RPC, a card nobody wired up — and it is an authored value rather than an
+ *            end of the range, because BOTH ends make a claim. Parking a burn-driven layer at
+ *            `max` says the whole supply burnt; parking it at `min` says none of it did; and
+ *            the truth in that moment is that the card does not know. So the artist picks what
+ *            the card looks like when it is not reading anything, the same way the flat card's
+ *            constants were tuned. Defaults to `max` only so that a layer someone drew can
+ *            never be deleted by a failed fetch.
  *
  * FAILS OPEN AT EVERY STEP. No fetch, a 404, malformed JSON, a layer with no `src`, a `z`
  * outside 0..1 — the bad layer is dropped, and if nothing survives the whole spec is null and
@@ -102,10 +110,11 @@
         var z = clamp(num(L.z, out.length / Math.max(1, arr.length - 1)), 0, 1);
         var blend = (L.blend === 'add' || L.blend === 'additive') ? 'add' : 'normal';
         var drive = null;
-        if (L.drive && typeof L.drive === 'object' && typeof L.drive.gain === 'string')
-          drive = { gain: L.drive.gain,
-                    min: clamp(num(L.drive.min, 0), 0, 4),
-                    max: clamp(num(L.drive.max, 1), 0, 4) };
+        if (L.drive && typeof L.drive === 'object' && typeof L.drive.gain === 'string') {
+          var dmin = clamp(num(L.drive.min, 0), 0, 4), dmax = clamp(num(L.drive.max, 1), 0, 4);
+          drive = { gain: L.drive.gain, min: dmin, max: dmax,
+                    rest: clamp(num(L.drive.rest, dmax), 0, 4) };
+        }
         out.push({
           id: (typeof L.id === 'string' && L.id) || ('l' + i),
           src: src,

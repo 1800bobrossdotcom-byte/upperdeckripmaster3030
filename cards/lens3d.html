@@ -210,13 +210,25 @@ function pushLayers() {
    *   painted layers back on top of the render. That is a cousin of THE WASH: decorative CSS
    *   sitting over the canvas, measured once as saturation 19.9% -> 12.7%. */
   if (usingGL) { host.style.display = 'none'; if (window.__pcCard) window.__pcCard.relayer(); return; }
-  if (!SPEC) { $('lbg').style.display = $('lart').style.display = ''; return; }
+  const deco = ['.glare', '.scan'].map(s => document.querySelector('#fb ' + s));
+  if (!SPEC) {
+    $('lbg').style.display = $('lart').style.display = '';
+    deco.forEach(e => { if (e) e.style.display = ''; });
+    return;
+  }
   $('lbg').style.display = $('lart').style.display = 'none';
+  /* An authored foil layer replaces the fallback's own .glare and .scan, for the same reason the
+   * GL path switches its generated sweep off: two foils on one card reads as a rendering bug. */
+  deco.forEach(e => { if (e) e.style.display = 'none'; });
   SPEC.layers.forEach(L => {
     const d = document.createElement('div');
     d.className = 'fl' + (L.fit === 'full' ? ' full' : '') + (L.blend === 'add' ? ' add' : '');
     d.style.backgroundImage = `url("${L.src}")`;
     d.dataset.par = L.par;
+    d.dataset.add = L.blend === 'add' ? '1' : '';
+    d.dataset.op = L.opacity;
+    if (L.drive) { d.dataset.gain = L.drive.gain; d.dataset.gmin = L.drive.min;
+                   d.dataset.gmax = L.drive.max; d.dataset.grest = L.drive.rest; }
     host.appendChild(d);
   });
   if (window.__pcCard) window.__pcCard.relayer();
@@ -247,7 +259,12 @@ function paintState(st, dr) {
    *   can drift; a silently transposed word would put a 280x-wrong price on a collector's card. */
   if (st.orderOk && st.rarePerToken) rows.push(`<b>${st.rarePerToken.toFixed(3)}</b> rare / 3030`);
   el.innerHTML = rows.join('<br>');
-  el.style.display = '';
+  /* ⚠ 'block', NOT ''. Clearing an inline style does not mean "visible" — it hands the element
+   *   back to the stylesheet, and the stylesheet says `display:none`. Measured: the readout was
+   *   populated with correct live numbers and never appeared once. Same family as the
+   *   `display:inline-block` vs `[hidden]` trap already in CLAUDE.md — any rule that sets
+   *   `display` has to be undone by naming a value, not by erasing one. */
+  el.style.display = 'block';
 }
 
 /* ── tilt input ───────────────────────────────────────────────────────────────────────────
@@ -276,8 +293,20 @@ addEventListener('deviceorientation', e => {
     $('lbg').style.transform  = `translate(${tilt.x*1.6*g}%, ${tilt.y*1.6*g}%) scale(1.08)`;
     const fl = $('flay').children;
     for (let i = 0; i < fl.length; i++) {
-      const p = parseFloat(fl[i].dataset.par) * g;
+      const ds = fl[i].dataset, p = parseFloat(ds.par) * g;
       fl[i].style.transform = `translate(${tilt.x*-2.4*p}%, ${tilt.y*-2.4*p}%) translateZ(${p*14}px)`;
+      /* The same `drive` the renderer applies, so a card driven by the market still is one when
+       * the engine never arrived. ⚠ ×2.6 because these are not the same operation: GL adds an
+       * emissive colour, CSS screen-blends a whole plate, and an additive layer authored at 0.15
+       * emissive is invisible as a 0.15-opacity screen. Matched by eye against the GL card —
+       * a conversion factor, not a coincidence. */
+      if (ds.add) {
+        const v = (DRIVERS && DRIVERS.live && ds.gain) ? DRIVERS[ds.gain] : null;
+        const gain = ds.gmin === undefined ? 1
+                   : v === null || v === undefined ? +ds.grest
+                   : +ds.gmin + (+ds.gmax - +ds.gmin) * v;
+        fl[i].style.opacity = String(Math.max(0.04, Math.min(1, gain * 2.6)));
+      } else fl[i].style.opacity = ds.op || '1';
     }
   }
   requestAnimationFrame(loop);

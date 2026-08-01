@@ -137,7 +137,7 @@ def plate_bg(nt):
     cells = node(nt, 'ShaderNodeTexVoronoi', (-1200, -200), feature='DISTANCE_TO_EDGE')
     cells.inputs['Scale'].default_value = 13.0
     nt.links.new(m.outputs['Vector'], cells.inputs['Vector'])
-    cramp = ramp(nt, (-1000, -200), [(0.00, (0, 0, 0, 1)), (0.09, (1, 1, 1, 1))])
+    cramp = ramp(nt, (-1000, -200), [(0.00, (0, 0, 0, 1)), (0.17, (1, 1, 1, 1))])
     nt.links.new(cells.outputs['Distance'], cramp.inputs['Fac'])
 
     tooth = node(nt, 'ShaderNodeTexNoise', (-1200, -450))
@@ -147,7 +147,7 @@ def plate_bg(nt):
 
     # the cell walls catch a hair of the studio's green; the field stays near-black on purpose
     lift = node(nt, 'ShaderNodeMix', (-700, 0), data_type='RGBA', blend_type='ADD')
-    lift.inputs['Factor'].default_value = 0.10
+    lift.inputs['Factor'].default_value = 0.055
     lift.inputs[7].default_value = (*s2l(PHOS), 1)
     nt.links.new(glow.outputs['Color'], lift.inputs[6])
 
@@ -176,7 +176,7 @@ def plate_mid(nt):
     wave.inputs['Distortion'].default_value = 1.4
     wave.inputs['Detail'].default_value = 2.0
     nt.links.new(off.outputs['Vector'], wave.inputs['Vector'])
-    thin = ramp(nt, (-930, 0), [(0.52, (0, 0, 0, 1)), (0.62, (1, 1, 1, 1)), (0.74, (0, 0, 0, 1))])
+    thin = ramp(nt, (-930, 0), [(0.50, (0, 0, 0, 1)), (0.66, (1, 1, 1, 1)), (0.82, (0, 0, 0, 1))])
     nt.links.new(wave.outputs['Fac'], thin.inputs['Fac'])
 
     # fade the rings out at the edges, or the layer's own rectangle becomes visible as it slides
@@ -289,7 +289,7 @@ def plate_foil(nt):
     wave.inputs['Distortion'].default_value = 0.0
     wave.inputs['Detail'].default_value = 0.0
     nt.links.new(uv.outputs['UV'], wave.inputs['Vector'])
-    band = ramp(nt, (-980, -200), [(0.42, (0, 0, 0, 1)), (0.50, (1, 1, 1, 1)), (0.58, (0, 0, 0, 1))])
+    band = ramp(nt, (-980, -200), [(0.455, (0, 0, 0, 1)), (0.50, (1, 1, 1, 1)), (0.545, (0, 0, 0, 1))])
     nt.links.new(wave.outputs['Fac'], band.inputs['Fac'])
     spec = ramp(nt, (-980, 160), [(0.40, (*s2l((0.47, 0.75, 1.0)), 1)),
                                   (0.50, (1, 1, 1, 1)),
@@ -307,9 +307,11 @@ PLATES = [
     dict(id='mid',     build=plate_mid,     z=0.34, fit='full', relief=0.0, normal=False),
     dict(id='subject', build=plate_subject, z=0.62, fit='art',  relief=1.0, normal=True),
     dict(id='fx',      build=plate_fx,      z=0.85, fit='full', relief=0.0, normal=False,
-         blend='add', drive=dict(gain='burn', min=0.12, max=1.0)),
+         # `rest` is where the embers sit when the chain is unreadable: a little glow, which
+         # claims neither a full burn nor none. See js/card-layers.js on drive.rest.
+         blend='add', drive=dict(gain='burn', min=0.04, max=0.30, rest=0.10)),
     dict(id='foil',    build=plate_foil,    z=1.00, fit='full', relief=0.0, normal=False,
-         blend='add', foil=True, drive=dict(gain='price', min=0.35, max=1.0)),
+         blend='add', foil=True, drive=dict(gain='price', min=0.05, max=0.15, rest=0.09)),
 ]
 
 
@@ -389,8 +391,14 @@ def build_plate(spec, outdir):
     if spec['normal'] and height is not None:
         for l in list(bsdf.inputs['Emission Color'].links):
             nt.links.remove(l)
-        nimg = bake_to(nt, spec['id'] + '_n', W, H, True, 'NORMAL')
-        out['normal'] = save(nimg, os.path.join(outdir, spec['id'] + '.n.' + EXT), 92)
+        # ⚠ NORMALS BAKE AT HALF RESOLUTION, AND THE SAVING IS NOT SMALL. A normal map is
+        #   high-frequency by nature so WebP cannot compress it: the full-size backing normal came
+        #   out at 833 KB, on a card that has to open inside a phone's media slot next to a 598 KB
+        #   engine. Half-size costs nothing visible — the map only perturbs a light, and it is
+        #   sampled by a bilinear lookup on a plate that is ~400 px on screen — and it is ~4x
+        #   smaller. Same argument that made scripts/blender/build-bg.py choose WebP over PNG.
+        nimg = bake_to(nt, spec['id'] + '_n', W // 2, H // 2, True, 'NORMAL')
+        out['normal'] = save(nimg, os.path.join(outdir, spec['id'] + '.n.' + EXT), 90)
         bpy.data.images.remove(nimg)
 
     rgba = px(cimg)

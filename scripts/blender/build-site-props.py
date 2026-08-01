@@ -1,7 +1,7 @@
 # ripmaster3030studios — the SITE's material set, authored and baked in Blender.
 #
 #   blender --background --factory-startup -P scripts/blender/build-site-props.py -- media/site
-#   (or just: npm run site:tex)
+#   (or, with the measurement gate: node scripts/build-site-props.mjs)
 #
 # WHAT IT IS: three seamlessly tiling albedo + tangent-normal pairs for the surfaces the
 # non-game pages are MADE of, so the site is built from materials rather than from gradients:

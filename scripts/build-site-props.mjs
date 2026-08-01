@@ -1,4 +1,5 @@
-/* ripmaster3030studios — bake the site's material set.   npm run site:tex
+/* ripmaster3030studios — bake the site's material set.   node scripts/build-site-props.mjs
+ * (suggested package.json alias: "site:tex" — not added here, package.json is outside this change)
  *
  * Drives scripts/blender/build-site-props.py, then MEASURES what came back. Same two failure
  * modes scripts/build-bg.mjs guards, and neither is reliably visible in a thumbnail:

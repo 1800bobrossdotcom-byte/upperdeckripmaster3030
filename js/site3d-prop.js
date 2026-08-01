@@ -96,14 +96,29 @@
   }
 
   /* Every surface in every prop comes from here, so "what the studio's metal looks like" has one
-   * definition. `tile` is how many times the 512² map repeats across one world unit. */
+   * definition. `tile` is how many times the 512² map repeats across one world unit.
+   *
+   * ⚑ `lift` IS NOT A FUDGE FACTOR — it is the correction for what the albedo was baked FOR.
+   *   `vinyl` measures mean luma 23.7 and `steel` 97 because those numbers were chosen to sit
+   *   UNDER PARAGRAPHS: an albedo any brighter and the small dim print on these pages stops being
+   *   readable (scripts/build-site-props.mjs bounds exactly that). A lit object has no such
+   *   constraint and the opposite problem — 1% reflectance under a directional light renders as a
+   *   black rectangle, which is precisely what the first build of the binder prop was. Real vinyl
+   *   is not 1% reflectance; the bake is dark because of where the flat page puts it, not because
+   *   of what the material is. One map, two jobs, and the job that involves lights says so.
+   *   ⚠ `diffuse` above 1 is legal here (it is a plain vec3 multiplier on the sampled map, not a
+   *     colour that gets clamped on the way in) and it is the only way to reuse ONE bake for both
+   *     jobs. The alternative — a second, brighter bake of the same material — is two files that
+   *     can disagree about what the studio's vinyl looks like, which is the thing this module
+   *     exists to prevent. */
   var STOCK = {
-    vinyl: { map: 'vinyl', tile: 1.4, diffuse: [1, 1, 1], gloss: 0.30, metal: 0.05, bump: 1.0 },
-    steel: { map: 'steel', tile: 2.0, diffuse: [1, 1, 1], gloss: 0.74, metal: 0.85, bump: 0.7 },
-    pulp:  { map: 'pulp',  tile: 1.6, diffuse: [1, 1, 1], gloss: 0.16, metal: 0.00, bump: 0.9 },
-    // untextured accents: the card faces and the chips. Colour is passed in per call.
-    paint: { map: null,    tile: 1,   diffuse: [1, 1, 1], gloss: 0.42, metal: 0.10, bump: 0 },
-    chip:  { map: 'steel', tile: 3.0, diffuse: [1, .82, .23], gloss: 0.86, metal: 0.95, bump: 0.5 }
+    vinyl: { map: 'vinyl', tile: 1.4, lift: 6.2,  gloss: 0.34, metal: 0.05, bump: 1.0 },
+    steel: { map: 'steel', tile: 2.0, lift: 1.7,  gloss: 0.74, metal: 0.85, bump: 0.7 },
+    pulp:  { map: 'pulp',  tile: 1.6, lift: 1.05, gloss: 0.16, metal: 0.00, bump: 0.9 },
+    // untextured accent. Colour is passed in per call.
+    paint: { map: null,    tile: 1,   lift: 1.0,  gloss: 0.42, metal: 0.10, bump: 0 },
+    chip:  { map: 'steel', tile: 3.0, lift: 1.9,  gloss: 0.86, metal: 0.95, bump: 0.5,
+             base: [1, .82, .23] }
   };
 
   function material(pc, app, kind, tint, tileMul) {
@@ -112,7 +127,8 @@
     /* ⚑ `diffuse` MULTIPLIES `diffuseMap` in a StandardMaterial, so a tint is not a repaint — it
      *   is the card's colour riding on top of the paper's own tooth and halftone. That is why the
      *   deck's seven cards are seven tints of ONE baked map rather than seven flat colours. */
-    var d = tint || s.diffuse;
+    var base = s.base || [1, 1, 1], k = tint || [1, 1, 1];
+    var d = [base[0] * k[0] * s.lift, base[1] * k[1] * s.lift, base[2] * k[2] * s.lift];
     m.diffuse = new pc.Color(d[0], d[1], d[2]);
     m.useMetalness = true;
     m.metalness = s.metal;
@@ -121,6 +137,15 @@
       var k = s.tile * (tileMul || 1);
       m.diffuseMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-albedo.webp', true);
       m.normalMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-normal.webp', false);
+      /* ⛔ WITHOUT `diffuseTint` THE COLOUR ABOVE IS SILENTLY DISCARDED. A PlayCanvas
+       * StandardMaterial only multiplies `diffuse` into `diffuseMap` when this flag is set; with
+       * it off — the default — the map REPLACES the colour and every tint on this page does
+       * nothing at all. It fails without a warning of any kind, which is how it survived a whole
+       * debugging pass: the props rendered black, `diffuse` read back as 6.2 in the console, and
+       * setting it to 1 or to 6.2 produced byte-identical frames while the SAME change with the
+       * map removed moved the object from 101 to 169. That A/B is the only reason this was found.
+       * Both `lift` and the deck's seven card colours depend on it. */
+      if ('diffuseTint' in m) m.diffuseTint = true;
       m.bumpiness = s.bump;
       m.diffuseMapTiling = new pc.Vec2(k, k);
       m.normalMapTiling = new pc.Vec2(k, k);
@@ -178,7 +203,12 @@
         [0, 0, (i - 1) * 6], material(pc, app, 'pulp', CARD[i + 2], 1.6));
     }
 
-    return { camera: [1.5, 1.35, 3.5], look: [0, 0, 0], spin: 7, tiltGain: 13 };
+    /* ⚑ FRAME THE OBJECT, NOT ITS INSIDE. At fov 32 a camera 3.5 away sees 2.0 world units of
+     *   height — and an open binder IS 2.05 tall, so the first version filled the canvas edge to
+     *   edge with cover and read as a black rectangle rather than as a binder. The distance is
+     *   derived from the size now: ~2.7x the tallest dimension leaves the silhouette room to be
+     *   a silhouette, which is the entire job of a prop this small. */
+    return { camera: [2.35, 1.95, 5.60], look: [0, -0.05, 0], spin: 7, tiltGain: 13 };
   };
 
   /* THE MARKET BENCH — a brushed steel top with a card standing in a holder, a short stack, and
@@ -214,7 +244,7 @@
         [0, c * 22, 0], material(pc, app, 'chip'));
     }
 
-    return { camera: [0.35, 1.25, 3.6], look: [0, -0.20, 0], spin: 5, tiltGain: 10 };
+    return { camera: [0.55, 1.75, 6.20], look: [0, -0.34, 0], spin: 5, tiltGain: 10 };
   };
 
   /* THE DECK — a fan of cards on a pulp mat. The deck page is the loud one, so this prop is the
@@ -240,7 +270,7 @@
      *   hole punched in the page, and the phosphor/magenta rim lights would be a different
      *   studio's neon on a MAD-magazine spread. Warm, high ambient, gentle rim: printed card
      *   stock under a room light, which is what the page is pretending to be. */
-    return { camera: [0.1, 1.5, 3.4], look: [0, -0.15, 0], spin: 6, tiltGain: 11,
+    return { camera: [0.15, 1.85, 4.60], look: [0, -0.18, 0], spin: 6, tiltGain: 11,
              ambient: [0.42, 0.40, 0.35],
              lights: { rim: [1, .86, .55], fill: [.95, .70, .40], keyIntensity: 1.9 } };
   };
@@ -262,8 +292,6 @@
     } catch (e) { return null; }
     if (!app.graphicsDevice) return null;
 
-    if ('gammaCorrection' in app.scene) app.scene.gammaCorrection = pc.GAMMA_SRGB;
-    if ('toneMapping' in app.scene) app.scene.toneMapping = pc.TONEMAP_NONE;
     app.setCanvasFillMode(pc.FILLMODE_NONE);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
 
@@ -276,27 +304,48 @@
     var cam = new pc.Entity('cam');
     cam.addComponent('camera', { clearColor: new pc.Color(0, 0, 0, 0), fov: o.fov || 32,
                                  nearClip: 0.1, farClip: 40 });
+    /* ⚑ COLOUR MANAGEMENT LIVES ON THE CAMERA IN PLAYCANVAS 2.x, NOT ON THE SCENE. `scene
+     *   .gammaCorrection` and `scene.toneMapping` were the 1.x home and they are simply GONE in
+     *   2.21 — an `'x' in app.scene` guard around them does not fail, it silently does nothing,
+     *   so the card art and these props would both be rendering with whatever the default is
+     *   rather than with the sRGB decision card3d.js documents. Set it where it exists now and
+     *   keep the scene path for an older engine. Tonemapping stays NONE for the same reason it
+     *   does on the card: these are finished, flat-lit studio colours, not HDR renders. */
+    if ('gammaCorrection' in cam.camera) cam.camera.gammaCorrection = pc.GAMMA_SRGB;
+    else if ('gammaCorrection' in app.scene) app.scene.gammaCorrection = pc.GAMMA_SRGB;
+    if ('toneMapping' in cam.camera) cam.camera.toneMapping = pc.TONEMAP_NONE;
+    else if ('toneMapping' in app.scene) app.scene.toneMapping = pc.TONEMAP_NONE;
     cam.setPosition(spec.camera[0], spec.camera[1], spec.camera[2]);
     cam.lookAt(spec.look[0], spec.look[1], spec.look[2]);
     app.root.addChild(cam);
 
+    /* ⚑ AIM THE LIGHTS WITH lookAt, NOT WITH EULER ANGLES. The first version copied card3d.js's
+     *   `setEulerAngles(52, 158, 0)` — correct there, because that scene is one flat plane at the
+     *   origin facing the camera. Here it produced a key whose forward vector was
+     *   (−0.28, +0.81, +0.52): the light was shining UPWARD, lighting the underside of every prop
+     *   and leaving the camera's side of the object completely black. That is what "the prop is a
+     *   black rectangle" actually was — not the dark albedo, which was the second cause. A light
+     *   placed in the world and told to look at the subject cannot point the wrong way, and its
+     *   direction stays right if a prop's framing ever changes. */
+    function aim(e, x, y, z) { e.setPosition(x, y, z); e.lookAt(spec.look[0], spec.look[1], spec.look[2]); }
+
     var key = new pc.Entity('key');
     key.addComponent('light', { type: 'directional', color: new pc.Color(1, .97, .92),
-      intensity: o.keyIntensity || 1.35, castShadows: true, shadowBias: 0.2,
+      intensity: o.keyIntensity || 2.6, castShadows: true, shadowBias: 0.2,
       shadowDistance: 16, shadowResolution: 1024, normalOffsetBias: 0.05 });
-    key.setEulerAngles(54, 152, 0);
+    aim(key, 3.2, 4.6, 4.0);            // upper front-right: raking across the relief, not head-on
     app.root.addChild(key);
 
     var rim = new pc.Entity('rim');
     rim.addComponent('light', { type: 'omni', color: new pc.Color(.16, .95, .55),
-      intensity: o.rimIntensity || 2.1, range: 12 });
-    rim.setPosition(-2.4, 1.4, -1.8);
+      intensity: o.rimIntensity || 3.0, range: 14 });
+    rim.setPosition(-2.6, 1.6, -2.2);   // phosphor, behind and left: picks the silhouette out
     app.root.addChild(rim);
 
     var fill = new pc.Entity('fill');
     fill.addComponent('light', { type: 'omni', color: new pc.Color(1, .16, .85),
-      intensity: o.fillIntensity || 1.2, range: 11 });
-    fill.setPosition(2.6, -0.6, 2.0);
+      intensity: o.fillIntensity || 1.8, range: 12 });
+    fill.setPosition(2.8, -1.0, 2.4);   // acid, low and right: keeps the recesses off dead black
     app.root.addChild(fill);
 
     /* ⚑ AMBIENT BELONGS TO THE PROP, NOT TO THE MODULE. Two of these props sit on near-black

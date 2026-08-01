@@ -429,7 +429,8 @@
     fit();
 
     // resize / reflow
-    const onResize = () => { fit(); if (!still) last = -1e9; app.renderNextFrame = true; };
+    // ⚠ guarded: a lost context tears the app down, and a window resize afterwards must not throw
+    const onResize = () => { if (!app) return; fit(); if (!still) last = -1e9; app.renderNextFrame = true; };
     addEventListener('resize', onResize, { passive: true });
     try { ro = new ResizeObserver(onResize); ro.observe(el); } catch { ro = null; }
     // a webfont landing after mount changes the box under us

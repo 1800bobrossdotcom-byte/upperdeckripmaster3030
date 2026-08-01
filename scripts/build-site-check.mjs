@@ -1,4 +1,5 @@
-/* ripmaster3030studios — hold the textured / 3D site pages to numbers.   npm run site:check
+/* ripmaster3030studios — hold the textured / 3D site pages to numbers.   node scripts/build-site-check.mjs
+ * (suggested package.json alias: "site:check" — not added here, package.json is outside this change)
  *
  * The three non-game pages (cards/binder.html, cards/market.html, cards/index.html) grew baked
  * Blender surfaces and a PlayCanvas prop. Three things can go wrong with that and exactly one of
@@ -69,8 +70,12 @@ const PAGES = [
  *   7.37 / 7.38 observed). That drift is two orders below the tolerance and is the reason the
  *   tolerance is a fraction rather than an equality. */
 const BASELINE = {
-  '/cards/binder.html': { '.note': 7.37, '.page-no': 5.03, '.flip span': 10.31 },
-  '/cards/market.html': { '.honesty-note': 5.68, '.page-no': 4.77, '.nav .where': 7.45 },
+  '/cards/binder.html': { '.note': 7.35, '.page-no': 5.03, '.flip span': 10.31 },
+  '/cards/market.html': { '.honesty-note': 5.74, '.page-no': 4.77, '.nav .where': 7.75 },
+  /* ⚑ 15.97 three times over is not a copy-paste slip — it is the tell that these three plates
+   *   were FLAT FILLS: p1 = p50 = p99 = 0.838 exactly, the same #f6ecc9 in every pixel. That is
+   *   what "the site pages are flat CSS" looks like as a number, and it is the thing this change
+   *   set out to end. */
   '/cards/index.html':  { '.court-note': 15.97, '.plate': 15.97, '.tile-name': 15.97 },
 };
 /* A texture may cost at most this share of the worst-case contrast ratio. 12% is not a taste
@@ -78,15 +83,23 @@ const BASELINE = {
  * move a passing paragraph to a failing one. */
 const TOLERANCE = 0.12;
 
-/* ⚑ HOW THE BASELINE WAS TAKEN, and why it is not a `git stash`. Three other agents are working
- *   in this tree; stashing would have swept their files up with mine. Instead the server can be
+/* ⚑ HOW THE BASELINE WAS TAKEN, and why it is not a `git stash`. Several agents work in this
+ *   tree at once; stashing would have swept their files up with mine. Instead the server can be
  *   told to serve an EARLIER REVISION of the page HTML at the same URL:
- *       SITE_BASE_REV=HEAD node scripts/build-site-check.mjs --baseline
+ *       SITE_BASE_REV=a10d123 node scripts/build-site-check.mjs --baseline
  *   Only the HTML differs between the two states — every asset this change adds is a new file
  *   the old HTML has no reference to — so the old page renders exactly as it shipped, through
  *   the identical harness, viewport and software GL. That is what makes the two columns
  *   comparable at all; a baseline measured on a different day on a different renderer is a
- *   number, not a control. */
+ *   number, not a control.
+ *
+ * ⛔ PIN THE REVISION. DO NOT PASS `HEAD`. This tree is checkpointed by another agent while work
+ *   is in flight, so HEAD moved from a10d123 to a04b630 mid-session and quietly started serving
+ *   MY OWN pages as the control. The second baseline recording came back byte-identical to the
+ *   run it was supposed to be a control for — 14.97 vs 14.97, 15.22 vs 15.22, to two decimals on
+ *   every region — which is what gave it away. A regression test whose baseline is `HEAD` in a
+ *   shared tree is not a test; it is a tautology that reports success. a10d123 is the last
+ *   commit before any of this landed. */
 const BASE_REV = process.env.SITE_BASE_REV || '';
 const srv = createServer(async (rq, rs) => {
   try {

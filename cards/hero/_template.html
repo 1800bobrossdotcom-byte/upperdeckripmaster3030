@@ -24,7 +24,48 @@
 
      Test it the way SuperRare will:  open cards/hero/NN.html directly, then open it in a
      sandboxed iframe, then at 320px wide. If it survives all three it will survive the
-     media slot. -->
+     media slot.
+
+     ── TWO OPT-IN POWERS, both proven in cards/lens3d.html ────────────────────────────────
+
+     1. DEPTH. A card built from separated plates — backing / mid / subject / FX / foil — that
+        slide against each other as it turns. Describe them in a sidecar next to the art,
+        `<art>.layers.json`, schema in js/card-layers.js:
+
+          { "v":1, "layers":[
+              {"id":"bg",     "src":"34.bg.webp",     "z":0.00, "fit":"full"},
+              {"id":"subject","src":"34.subject.webp","z":0.62, "relief":1.0},
+              {"id":"foil",   "src":"34.foil.webp",   "z":1.00, "blend":"add", "foil":true,
+                              "drive":{"gain":"price","min":0.05,"max":0.15}} ]}
+
+        `z` is 0..1 through the card's thickness; `blend` is "normal" or "add"; `drive` ties a
+        layer's brightness to a live market dial. ⛔ Layers must be AUTHORED as separate images
+        — do not key a background out of a finished piece and call the two halves layers.
+        No sidecar = a single flat plate, which is correct and is what every card does today.
+        Worked reference, five real plates: media/lens/demo/ (npm-less:
+        `node scripts/build-lens-demo.mjs`).
+
+     2. LIVE STATE. The $3030 edition's own market — burn progress, price, liquidity — read
+        over a public RPC and handed to you as three 0..1 dials. js/lens-state.js.
+
+     ⚑ Both need a <script src> to OUR OWN HOST, which the "no external requests" rule above
+       does not forbid and which is measured to work: the engine, the helpers and the RPC all
+       load inside a sandboxed frame at an opaque origin (that is exactly what lens3d.html was
+       built to find out). What the rule forbids is a THIRD-PARTY request — a CDN, a webfont, a
+       remote image — because that is a dependency on somebody else's uptime and privacy policy
+       inside a frame you do not control.
+     ⛔ AND NEVER A WALLET, not behind a click or a flag. `eth_call` over fetch shows state and
+       cannot move anything; a frame that asks for a wallet is indistinguishable from one that
+       has been swapped for a malicious frame. SuperRare's security team flagged this once
+       already and they were right.
+     ⚠ Wire it so the card is finished WITHOUT it. Both scripts can be blocked, and the dials
+       rest at burn 0 / price 0.5 / depth 0.5 when they are — pick your resting look first, then
+       let the market move it. -->
+
+<!-- OPTIONAL — delete these two lines if your card does not read the market.
+     They fail silently: blocked, offline or 404, `window.LensState` is simply never defined. -->
+<script src="../../js/chain-config.js" onerror="void 0"></script>
+<script src="../../js/lens-state.js" onerror="void 0"></script>
 
 <style>
   /* everything scoped inside the card — the wrapper owns html/body */
@@ -65,5 +106,30 @@
       var r = document.body.getBoundingClientRect();
       orb.style.left = (38 + (e.clientX / r.width) * 24) + '%';
     }, { passive: true });
+  } catch (e) {}
+
+  /* ── LIVE MARKET STATE (optional) ───────────────────────────────────────────────────────
+   * Three dials, each 0..1, published as CSS custom properties so the card can be styled
+   * entirely in CSS and still move with the market:
+   *     --burn   permanent supply destroyed, against the whole planned pack programme.
+   *              ABSOLUTE — it needs no reference, so hang your loudest change on it.
+   *     --price  relative to this session's first read (0.5 = unchanged, 1.0 = 2x).
+   *     --depth  market liquidity, same convention. 0 means an empty book.
+   * The `.live` class only ever appears when a read actually succeeded, so `:not(.live)` is
+   * where the resting card lives. Style THAT first — it is what ships in a blocked frame.
+   *
+   * ⚠ Pull-based, and slow on purpose (60 s, paused while the tab is hidden). SuperRare's own
+   *   note: "a render contract is not a background process… the market changes on-chain,
+   *   metadata gets refetched, and the artwork changes." Do not poll a free RPC harder. */
+  try {
+    if (window.LensState) LensState.watch(function (state, d) {
+      var s = document.documentElement.style;
+      s.setProperty('--burn',  d.burn.toFixed(4));
+      s.setProperty('--price', d.price.toFixed(4));
+      s.setProperty('--depth', d.depth.toFixed(4));
+      document.body.classList.toggle('live', !!d.live);
+      // e.g. document.querySelector('.t-orb').style.filter =
+      //        'brightness(' + (0.85 + 0.5 * d.burn) + ')';
+    }, { every: 60000 });
   } catch (e) {}
 </script>

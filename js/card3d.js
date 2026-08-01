@@ -233,6 +233,13 @@
       var e = new pc.Entity();
       e.addComponent('render', { type: 'plane', castShadows: false, receiveShadows: true });
       e.setLocalEulerAngles(90, 0, 0); e.setLocalScale(sx, 1, sy); e.setLocalPosition(0, 0, z);
+      /* ⚑ A PLATE STARTS INVISIBLE, NOT WHITE. A render component with no material draws the
+       * engine's default — an opaque white slab the size of the card. Every texture here is
+       * fetched, so "the image never decoded" is a real state (404, blocked frame, CORS), and
+       * without this the card fails open into a blank white rectangle: worse than the flat art
+       * it replaced, and the one thing a collector must never be shown. */
+      e.render.material = mkMat({ diffuse: new pc.Color(0, 0, 0), emissive: new pc.Color(0, 0, 0),
+                                  blendType: pc.BLEND_NORMAL, opacity: 0, depthWrite: false });
       root.addChild(e); return e;
     }
     /* raised bevel — four thin boxes standing proud of the face. A drawn border is a picture of
@@ -446,10 +453,11 @@
     function applyGain(rec) {
       var d = rec.spec.drive; if (!d || !rec.mat) return;
       var v = driveValue(d.gain);
-      /* No live read ⇒ sit at the TOP of the authored range, not the bottom. A layer the artist
-       * drew is part of the card; the market may push it further, it may not delete it because
-       * a fetch failed. */
-      var g = (v === null) ? d.max : d.min + (d.max - d.min) * v;
+      /* ⚑ No live read ⇒ the AUTHORED resting value, not an end of the range. Parking a
+       * burn-driven layer at `max` would claim the whole supply had burnt; parking it at `min`
+       * would claim none of it had; the truth is that the card does not know. See the note on
+       * `drive.rest` in js/card-layers.js. */
+      var g = (v === null) ? d.rest : d.min + (d.max - d.min) * v;
       if (Math.abs(g - rec.gain) < 0.004) return;
       rec.gain = g; rec.mat.emissive.set(g, g, g); rec.mat.update();
     }
