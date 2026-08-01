@@ -27,14 +27,17 @@ This SUPERSEDES the old "NAME LAW".**
   (Sepolia's edition reads `"Upperdeck Ripmaster 3030"`, title case). Hand this exact string to
   SuperRare in writing and re-read `name()` before they broadcast. See task #70.
 - **Host: `ripmaster3030studios.com`**; `upperdeckripmaster3030.com` gets ported or redirected.
-- **SuperRare has confirmed** that `upperdeckripmaster3030` references may REMAIN on the new
-  site. The change is about the TOKEN and the studio identity, not a scrub of the joke — the
-  artist is designing ripmaster3030studios assets to sit alongside it.
+- ⛔ **THE OLD NAME IS DROPPED ENTIRELY — artist's call, 2026-08-01.** SuperRare had confirmed
+  `upperdeckripmaster3030` references *could* remain as flavour; the artist has since decided
+  they should not. **The studio has one name.** New surfaces carry `ripmaster3030studios` only.
+  Old URLs keep resolving — this is an identity decision, not a link-breaking one — but nothing
+  new should reintroduce the old name.
+  *(Superseded: the earlier "SuperRare confirmed it may remain, it stays as flavour" line.)*
 - ⚠ The old rule ("upperdeckripmaster3030 — one word, lowercase, EVERYWHERE, and the launch
   token MUST carry it") is **DEAD**. Anything still asserting it is stale; treat it as a bug.
 
-*Historical note, still true and still the reason the joke works:* **upperdeckripmaster3030** is
-one word on purpose — it amplifies the meme and the clearance joke. It stays as flavour.
+*Historical note:* **upperdeckripmaster3030** was one word on purpose — it amplified the meme and
+the clearance joke. ⛔ It no longer appears on new surfaces; see the directive above.
 
 ## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
 **Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**

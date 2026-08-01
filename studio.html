@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ripmaster3030studios — a card and game studio</title>
+<meta name="description" content="A card and game studio. One hundred cards, each one a living lens. Play them in the arcade, keep them in the folder, watch them read the chain.">
+<meta name="theme-color" content="#04070c">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  ripmaster3030studios — THE SHELL.
+
+  This is the new home, built under the new identity so the domain move is only DNS. It is one
+  repo and one deployment: upperdeckripmaster3030.com serves it today, ripmaster3030studios.com
+  points at the same build whenever you add the domain. There is no migration step.
+
+  ⚑ WHY A SHELL AND NOT A LANDING PAGE. The site had pages that linked to each other — a deck
+  here, an arcade there, a token somewhere else — and that is the shape of a brochure. What this
+  studio actually has is ONE OBJECT in four places: a card is artwork in the folder, a lit 3D
+  lens in the viewer, a power in the games, and a token on SuperRare. `js/card3d.js` already
+  renders the same card for the folder AND for what a token's animation_url frames. Nobody else
+  can copy that, because their weapon skin is a texture and ours reads the chain. So the home page
+  leads with the object, not with the sections.
+
+  ⚑ THE LOOK is the one just adopted for the games: flat saturated fields, hard silhouettes, no
+  grain or grit, and colour doing the work that texture used to. Clarity from the bright stylised
+  shooters, palette from us — neon on near-black rather than Mediterranean daylight.
+
+  ⚠ THE OLD NAME IS GONE FROM THIS PAGE. SuperRare had confirmed it could remain as flavour, but
+  the artist's call on 2026-08-01 is to drop it entirely — so nothing here carries it, and the
+  studio has one name. Old URLs still resolve; the identity does not.
+-->
+<style>
+  :root{
+    --void:#04070c; --ink:#e9fbff;
+    --phos:#2bff80; --cyan:#27f7e4; --acid:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
+    --panel:#0a1119; --line:rgba(39,247,228,.16);
+    --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{background:var(--void);scroll-behavior:smooth}
+  body{font-family:var(--mono);color:var(--ink);overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+  a{color:inherit}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(14px,3vw,28px)}
+
+  /* ── top bar: the site is one surface, so the nav is a rail not a menu ── */
+  .rail{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+        background:linear-gradient(180deg,rgba(4,7,12,.94),rgba(4,7,12,.72));
+        border-bottom:1px solid var(--line)}
+  .rail .wrap{display:flex;align-items:center;gap:clamp(10px,2.4vw,26px);height:60px}
+  .brand{font-family:var(--fat);font-size:clamp(12px,1.7vw,15px);letter-spacing:.02em;
+         text-transform:lowercase;color:var(--phos);text-decoration:none;white-space:nowrap;
+         text-shadow:0 0 18px rgba(43,255,128,.45)}
+  .brand b{color:var(--amber)}
+  .rail nav{display:flex;gap:clamp(8px,1.8vw,20px);margin-left:auto;overflow:auto}
+  .rail nav a{font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;
+              color:#9fd9c8;white-space:nowrap;padding:6px 2px;border-bottom:2px solid transparent}
+  .rail nav a:hover{color:var(--cyan);border-bottom-color:var(--cyan)}
+
+  /* ── hero: the object first ── */
+  .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(20px,4vw,54px);
+        align-items:center;padding:clamp(34px,6vw,78px) 0 clamp(26px,4vw,50px)}
+  h1{font-family:var(--fat);font-size:clamp(30px,6.4vw,66px);line-height:.98;letter-spacing:-.01em;
+     text-transform:uppercase}
+  h1 .g{color:var(--phos);text-shadow:0 0 30px rgba(43,255,128,.4)}
+  h1 .m{color:var(--acid);text-shadow:0 0 30px rgba(255,42,217,.4)}
+  .kick{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cyan);margin-bottom:14px}
+  .lede{margin-top:18px;font-size:clamp(13px,1.5vw,15px);line-height:1.75;color:#bfe3dd;max-width:52ch}
+  .lede b{color:var(--ink)}
+  .cta{display:flex;flex-wrap:wrap;gap:11px;margin-top:26px}
+  .btn{font-family:var(--fat);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+       text-decoration:none;padding:13px 20px;border-radius:11px;border:1px solid var(--line);
+       background:var(--panel);color:var(--ink);transition:transform .12s,box-shadow .12s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.p{background:linear-gradient(180deg,#8bffbb,var(--phos) 58%,#0fae56);color:#02150a;border-color:#02150a;
+         box-shadow:0 0 26px rgba(43,255,128,.35)}
+  .btn.c{background:linear-gradient(180deg,#8ffff5,var(--cyan) 58%,#0d9c92);color:#02171a;border-color:#02171a;
+         box-shadow:0 0 26px rgba(39,247,228,.3)}
+  /* the live card — Card3D if the engine lands, the flat art if not */
+  .heroCard{position:relative;aspect-ratio:2/3;width:min(100%,340px);margin-left:auto;
+            border-radius:4%;overflow:hidden;background:#080d14;
+            box-shadow:0 30px 80px -20px #000,0 0 0 1px var(--line) inset,0 0 60px rgba(39,247,228,.10)}
+  .heroCard canvas,.heroCard img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
+  .heroTag{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:34px 6% 7%;
+           background:linear-gradient(transparent,rgba(2,6,10,.92) 58%);
+           font-family:var(--fat);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+  .heroTag small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.2em;
+                 color:var(--cyan);margin-top:5px;text-transform:uppercase}
+  @media (max-width:840px){ .hero{grid-template-columns:1fr} .heroCard{margin:0 auto} }
+
+  /* ── the one-object strip: what a card IS, in four places ── */
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:6px 0 clamp(30px,5vw,58px)}
+  .cell{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 15px}
+  .cell b{display:block;font-family:var(--fat);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+          color:var(--amber);margin-bottom:7px}
+  .cell p{font-size:11.5px;line-height:1.65;color:#a9cfc9}
+  @media (max-width:760px){ .strip{grid-template-columns:repeat(2,1fr)} }
+
+  /* ── sections ── */
+  section{padding:clamp(30px,5vw,60px) 0;border-top:1px solid var(--line)}
+  h2{font-family:var(--fat);font-size:clamp(18px,3vw,28px);text-transform:uppercase;letter-spacing:.03em}
+  h2 span{color:var(--cyan)}
+  .sub{margin-top:9px;font-size:12.5px;line-height:1.7;color:#9fd9c8;max-width:62ch}
+
+  /* the card grid — collection design, which is what this studio actually is */
+  .grid{display:grid;gap:clamp(10px,1.7vw,18px);margin-top:26px;
+        grid-template-columns:repeat(auto-fill,minmax(min(180px,44vw),1fr))}
+  .tile{position:relative;display:block;aspect-ratio:2/3;border-radius:11px;overflow:hidden;
+        text-decoration:none;background:#0b1119;border:1px solid var(--line);
+        transition:transform .14s,box-shadow .14s}
+  .tile:hover{transform:translateY(-4px);box-shadow:0 18px 40px -12px #000,0 0 0 1px var(--cyan) inset}
+  .tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .tile .chip{position:absolute;left:7px;top:7px;z-index:3;font-family:var(--fat);font-size:8px;
+              letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:6px;
+              background:rgba(3,8,12,.85);color:var(--amber);border:1px solid var(--line)}
+  .tile .nm{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:22px 8% 8%;
+            font-family:var(--fat);font-size:10px;line-height:1.25;letter-spacing:.03em;
+            text-transform:uppercase;background:linear-gradient(transparent,rgba(2,6,10,.92) 58%)}
+
+  /* the arcade — cabinets as cards, same language */
+  .cabs{display:grid;gap:12px;margin-top:24px;grid-template-columns:repeat(auto-fill,minmax(min(250px,90vw),1fr))}
+  .cab{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);
+       border-radius:14px;padding:18px;transition:transform .14s,box-shadow .14s}
+  .cab:hover{transform:translateY(-3px);box-shadow:0 16px 38px -14px #000,0 0 0 1px var(--phos) inset}
+  .cab .t{font-family:var(--fat);font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--phos)}
+  .cab .k{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin:6px 0 9px}
+  .cab .d{font-size:11.5px;line-height:1.65;color:#a9cfc9}
+
+  footer{border-top:1px solid var(--line);padding:34px 0 60px;font-size:10.5px;line-height:2;
+         letter-spacing:.1em;color:#6fa79c;text-align:center}
+  footer a{color:var(--phos);text-decoration:none}
+  .nfa{margin-top:14px;color:var(--coral);letter-spacing:.16em;text-transform:uppercase;font-size:10px}
+</style>
+<script src="/gate.js"></script>
+</head>
+<body>
+
+<div class="rail"><div class="wrap">
+  <a class="brand" href="#top">ripmaster<b>3030</b>studios</a>
+  <nav>
+    <a href="#deck">The deck</a>
+    <a href="#arcade">Arcade</a>
+    <a href="#lens">The lens</a>
+    <a href="#studio">Studio</a>
+    <a href="cards/binder.html">Folder</a>
+  </nav>
+</div></div>
+
+<div class="wrap" id="top">
+
+  <div class="hero">
+    <div>
+      <div class="kick">A card and game studio</div>
+      <h1>One hundred cards.<br>Every one a <span class="g">living</span> <span class="m">lens</span>.</h1>
+      <p class="lede">
+        The trading card is the form — a <b>size</b> before it's anything else. Palm, phone, two
+        sides: a front that shows and a back that tells. Sometimes it holds data and powers.
+        <br><br>
+        These ones do. A card here is one object in four places: artwork in your folder, a lit 3D
+        lens when you pull it out, a <b>power in the games</b>, and a token that reads the chain and
+        changes what it shows. Not four pictures of a thing — <b>the same thing</b>.
+      </p>
+      <div class="cta">
+        <a class="btn p" href="cards/binder.html">▤ Open the folder</a>
+        <a class="btn c" href="arcade.html">▶ Enter the arcade</a>
+        <a class="btn" href="whitepaper.html">The whitepaper</a>
+      </div>
+    </div>
+    <div class="heroCard" id="heroCard">
+      <img id="heroImg" alt="">
+      <div class="heroTag" id="heroTag">—<small>live lens · move your pointer</small></div>
+    </div>
+  </div>
+
+  <div class="strip">
+    <div class="cell"><b>◆ In the folder</b><p>Nine pockets to a page. Pull one out of its sleeve and it flies into the starfield.</p></div>
+    <div class="cell"><b>◆ As a lens</b><p>Real geometry, real light. The artwork carries its own relief; the border is raised, not drawn.</p></div>
+    <div class="cell"><b>◆ In the fight</b><p>The card you bring changes the game. Powers are live, and the rake burn is real on-chain.</p></div>
+    <div class="cell"><b>◆ On the chain</b><p>The lens reads supply, burn and your balance. The art acknowledges you; it does not pay you.</p></div>
+  </div>
+
+  <section id="deck">
+    <h2>The <span>deck</span></h2>
+    <p class="sub">One hundred cards, handmade by the artist. Thirty-three heroes carry animation and
+      mint as 1/1s; the rest are render-only field lenses, plus <b>Lovebeing</b> — one per wallet,
+      bound to you, non-transferable. Cards never retire and never ash.</p>
+    <div class="grid" id="deckGrid"></div>
+  </section>
+
+  <section id="arcade">
+    <h2>The <span>arcade</span></h2>
+    <p class="sub">Wager tokens and cards into one pot. A small rake burns — that part is real and
+      on-chain — and the rest pays the podium. Cards move between players; they are never burned in
+      a game. The prize is the having-done-it.</p>
+    <div class="cabs">
+      <a class="cab" href="section9.html"><div class="t">Section 9 Taskforce</div><div class="k">tactical fps · six arenas</div>
+        <div class="d">Peek the corner, hold the angle. Longer time-to-kill so cover, suppression and visible rounds all get to matter.</div></a>
+      <a class="cab" href="arcade.html#ronin"><div class="t">Neon Ronin</div><div class="k">1v1 duel</div>
+        <div class="d">A sword fight where the card you bring visibly warps your fighter. Same seed, same body, every time.</div></a>
+      <a class="cab" href="dogfight.html"><div class="t">Dogfight</div><div class="k">air combat</div>
+        <div class="d">Height and speed are one currency. Climbing spends it, diving buys it back, and boost still means escape.</div></a>
+      <a class="cab" href="arcade.html"><div class="t">Everything else</div><div class="k">the cabinet row</div>
+        <div class="d">Riprocketer, Cloudracer, the card battle. Your deck is the machine.</div></a>
+    </div>
+  </section>
+
+  <section id="lens">
+    <h2>What a <span>living lens</span> actually means</h2>
+    <p class="sub">
+      A SuperRare Liquid Edition can hand a render contract on-chain state and let it become part of
+      the picture — price, trading activity, <b>holder balances</b>. So the card is not a JPEG with a
+      pointer at it. It reads what the token is doing and draws that.
+      <br><br>
+      Packs burn tokens permanently, and the lens shows the burn. Hold more and the render
+      acknowledges it, in tiers. <b>The art acknowledges you; it does not pay you.</b> That is the
+      whole anti-casino position stated as a mechanic — same anticipation as the rip, the pull, the
+      reveal, but the tangible prize is the having-done-it.
+    </p>
+    <div class="cta">
+      <a class="btn c" href="cards/lens3d.html?hero=45">◈ See a lens</a>
+      <a class="btn" href="tokenomics.html">The token</a>
+      <a class="btn" href="audit.html">Safety</a>
+    </div>
+  </section>
+
+  <section id="studio">
+    <h2>The <span>studio</span></h2>
+    <p class="sub">
+      Gianni Arone — <b>lovebeing</b>. Rare Pepes on Bitcoin did it first; came up as a Fake Rares
+      artist and found a love and a knack for making digital cards. The throughline is MAD magazine
+      and cereal boxes — a picture that is joke, trophy and currency at once — then the casino and
+      the arcade, the machine that promises you win something tangible, then the auction.
+      <br><br>
+      It is all <b>anticipation</b>. The Dadaist turn is that sometimes the thing you win is the
+      experience itself. So the token burns so the art can live.
+    </p>
+    <div class="cta">
+      <a class="btn" href="artist.html">The artist</a>
+      <a class="btn" href="https://superrare.com">SuperRare</a>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div>ripmaster3030studios · a card and game studio</div>
+  <div><a href="cards/binder.html">the folder</a> · <a href="arcade.html">the arcade</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a></div>
+  <div class="nfa">NFA — experimental art token. It can go to zero.</div>
+</footer>
+
+<script src="js/card3d.js"></script>
+<script>
+/* The hero card is the real renderer — the same js/card3d.js the folder uses and the same code a
+ * token's animation_url frames. It is the argument the page is making, so it should be the actual
+ * object rather than a picture of one. Fails open: no engine, no WebGL2, no manifest ⇒ the flat
+ * artwork stays and the page reads exactly the same. */
+(() => {
+  const $ = i => document.getElementById(i);
+  let tilt = { x: 0, y: 0 }, ctrl = null;
+  addEventListener('pointermove', e => {
+    const r = $('heroCard').getBoundingClientRect(); if (!r.width) return;
+    tilt.x = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - .5) * 2));
+    tilt.y = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - .5) * 2));
+  }, { passive: true });
+
+  fetch('cards/hero-manifest.json').then(r => r.json()).then(list => {
+    if (!list || !list.length) return;
+    const hero = list.find(c => c.number === 45) || list[0];
+    const art = 'cards/' + hero.art;
+    $('heroImg').src = art;
+    $('heroTag').innerHTML = hero.title + '<small>live lens · move your pointer</small>';
+
+    // the deck strip — first eight, straight from the same manifest the folder reads
+    $('deckGrid').innerHTML = list.slice(0, 8).map(c => `
+      <a class="tile" href="cards/binder.html#hero-${c.number}">
+        <img loading="lazy" src="cards/${c.art}" alt="${(c.title||'').replace(/"/g,'&quot;')}">
+        <span class="chip">${String(c.number).padStart(2,'0')}</span>
+        <span class="nm">${c.title || ''}</span></a>`).join('');
+
+    if (!window.Card3D) return;
+    Card3D.engine('').then(() => {
+      const cv = document.createElement('canvas');
+      $('heroCard').insertBefore(cv, $('heroImg'));
+      ctrl = Card3D.build({ canvas: cv, box: $('heroCard'), tilt: () => tilt,
+                            env: new URL('models/env/satara_night.png', location.href).href });
+      if (!ctrl) return;
+      ctrl.setArt(new URL(art, location.href).href);
+      $('heroImg').style.display = 'none';
+    }).catch(() => {});
+  }).catch(() => {});
+})();
+</script>
+</body>
+</html>
