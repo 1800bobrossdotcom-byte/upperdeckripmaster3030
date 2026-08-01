@@ -79,6 +79,36 @@
     margin-top:clamp(2px,1vh,10px); }
   .marquee-art{ width:min(80vw,760px); height:auto; display:block;
     filter:drop-shadow(0 0 26px rgba(43,255,128,.35)) drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  /* ── THE WORDMARK, SET IN TYPE ─────────────────────────────────────────────────────────────
+   * ⛔ THE OLD WORDMARK PNG SAID THE DROPPED NAME, IN LETTERS A FOOT HIGH, ABOVE THE FOLD.
+   * The rebrand shipped and was invisible: every byte of served HTML was correct — title,
+   * og:site_name, ticker, supply — and the first thing anyone saw was still
+   * UPPERDECKRIPMASTER3030, because it was baked into `upperdeckripmaster3030_01_marquee.png`.
+   * I had left that file alone on the grounds that re-cutting the artist's artwork is an art
+   * call. That reasoning was right about the FILE and wrong about the PAGE: keeping the asset
+   * and keeping it ON SCREEN are different decisions, and I conflated them.
+   * So the wordmark is now TYPE, not a bitmap — it says the right name today, it is one string
+   * to change, and it cannot drift out of sync with the rest of the site again. The PNG stays in
+   * the repo untouched; it is simply no longer what greets people.
+   * ⚑ This is a STAND-IN for a piece of authored art, and it should be replaced by a proper
+   * re-cut wordmark when the artist makes one. It is not trying to be that artwork — it is
+   * trying to stop the site introducing itself by the wrong name. */
+  .wordmark{ display:block; margin:0 auto; font-family:var(--fat);
+    font-weight:900; letter-spacing:-.012em; line-height:.92; text-align:center;
+    text-transform:uppercase; white-space:nowrap; -webkit-user-select:none; user-select:none;
+    background:linear-gradient(178deg,#eafff2 4%,#2bff80 24%,#27f7e4 46%,#7aa8ff 60%,#ff2ad9 80%,#ffd23b 96%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    -webkit-text-stroke:1.5px rgba(2,10,6,.55);
+    filter:drop-shadow(0 2px 0 rgba(2,10,6,.9)) drop-shadow(0 0 22px rgba(43,255,128,.42))
+           drop-shadow(0 0 44px rgba(255,42,217,.30)); }
+  .wordmark .sm{ font-size:.62em; letter-spacing:.02em; }
+  /* ⚠ `width:auto` is not optional here. Both of these classes previously styled an <img> with a
+   * fixed width (min(80vw,760px)); inherited by a text node with white-space:nowrap that clips
+   * the last word — the first render read "RIPMASTER3030STUDIO" with the S cut off by a torch.
+   * Type sizes from its own content; it must never be given the bitmap's box. */
+  .marquee-art.wordmark{ width:auto; max-width:min(92vw,900px); font-size:clamp(19px,5.4vw,58px); }
+  .intro-wordmark.wordmark{ width:auto; max-width:92vw; font-size:clamp(17px,4.8vw,46px); }
+  @media (max-width:560px){ .wordmark{ white-space:normal; line-height:1.02; } }
   .torch{ flex:none; width:auto; height:clamp(70px,15vw,150px); image-rendering:auto;
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(52px,13vw,90px); } }
@@ -496,7 +526,7 @@
       <div class="presents intro-presents">
         <div class="lovebeing-logo" role="img" aria-label="Lovebeing"></div>
         <div class="presents-lbl">presents</div>
-        <img class="intro-wordmark" src="upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios">
+        <div class="intro-wordmark wordmark" role="img" aria-label="ripmaster3030studios">ripmaster<span class="sm">3030</span>studios</div>
         <a class="built-line" href="https://superrare.com" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
           built on
           <img class="sr-logo" src="logosuperare.svg" alt="SuperRare" width="127" height="20" decoding="async">
@@ -541,8 +571,7 @@
         <div class="presents-lbl">presents</div>
         <div class="marquee-sign">
           <img class="torch" src="torch.gif" alt="" aria-hidden="true">
-          <img class="marquee-art" src="upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios"
-            width="696" height="202" decoding="async">
+          <div class="marquee-art wordmark" role="img" aria-label="ripmaster3030studios">ripmaster<span class="sm">3030</span>studios</div>
           <img class="torch" src="torch.gif" alt="" aria-hidden="true">
         </div>
         <a class="built-line" href="https://superrare.com" target="_blank" rel="noopener noreferrer">
