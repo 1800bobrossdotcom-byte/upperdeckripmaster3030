@@ -1,28 +1,44 @@
 #!/usr/bin/env node
-/* ripmaster3030studios — build the hero wordmark's 3D type.   npm run herotype
+/* ripmaster3030studios — build the hero wordmark's foil type.   npm run herotype
  *
  * Drives scripts/blender/build-hero-type.py, then MEASURES what came back and what the browser
  * does with it. Following scripts/build-bg.mjs: the point of this file is that it ASSERTS rather
  * than eyeballs, because every one of the things that can be wrong here is invisible in a
  * thumbnail and obvious on the live site.
  *
- *   1. THE GLB LOSES A NAMED PART. js/hero3d.js looks up `wm_face` and `wm_rim` and fails OPEN,
- *      so a rename ships as a wordmark that quietly went back to being CSS. Nothing throws,
- *      nothing logs, and it looks exactly like "the update didn't deploy".
- *   2. THE WALLS PICK UP UVs. The whole two-object design exists because a planar UV is
- *      degenerate on the extrusion walls; if a future export starts writing TEXCOORD_0 on
- *      `wm_rim` the design's premise has silently changed, so it is asserted, not assumed.
- *   3. THE FOIL STOPS BEING THE SITE'S GRADIENT. The bake reproduces the CSS wordmark's own
- *      six-stop ramp; a shader edit that flattens or reorders it still produces a perfectly
- *      plausible-looking strip of colour. So the stops are checked at their own positions.
+ * ⛔ V1 OF THIS WORDMARK SHIPPED AND WAS REJECTED — "basic bitch geometry and fx" — and the tests
+ *   below all passed on it. That is the useful fact about this file: a green run proved the
+ *   pipeline worked and said nothing about whether the thing was any good. So v2 adds the
+ *   assertions that would have FAILED on v1:
+ *     · THE HUE MUST MOVE WITH THE VIEW (stage 6). Foil's whole character is that tilting it
+ *       walks the colour. V1 baked the CSS gradient on as flat paint, so its hue was identical
+ *       at every view angle — and nothing here noticed. The check now drives the type across a
+ *       fan of yaws, reads the LIVE canvas, and measures the accumulated hue travel per patch.
+ *     · THE GRAIN MUST BE IN THE NORMAL MAP (stage 4). The anisotropic highlight reads its
+ *       direction out of that map; a map that bakes isotropic has no grain to read, and the
+ *       highlight comes out running the wrong way. This shipped isotropic twice.
+ *     · THE EDGE MUST BE A DIE, NOT A FILLET (stage 3). A quarter-circle bevel and a hand-authored
+ *       die produce the same triangle count and the same silhouette at a glance.
+ *
+ * The older failures it already guarded, all still live:
+ *   1. THE GLB LOSES A NAMED PART. js/hero3d.js looks up its three parts and fails OPEN, so a
+ *      rename ships as a wordmark that quietly went back to being CSS. Nothing throws, nothing
+ *      logs, and it looks exactly like "the update didn't deploy".
+ *   2. THE WALLS PICK UP UVs. The face/bevel/rim split exists because a planar UV is degenerate
+ *      on the extrusion walls; if a future export starts writing TEXCOORD_0 on `wm_rim` the
+ *      design's premise has silently changed, so it is asserted, not assumed.
+ *   3. THE FOIL STOPS BEING THE SITE'S PALETTE. Both the baked ink and the diffraction LUT
+ *      reproduce the CSS wordmark's own six stops; a shader edit that flattens or reorders them
+ *      still produces a perfectly plausible-looking strip of colour.
  *   4. THE LAST LETTER FALLS OFF THE END. index.html already records this exact failure for the
  *      CSS wordmark ("RIPMASTER3030STUDIO", S clipped). The 3D layer can reproduce it from a
- *      completely different cause — a turned word is wider than a square one — so the browser
- *      pass drives the type to its worst pose in both directions and measures the clearance.
- *   5. THE FALLBACK STOPS WORKING. The CSS wordmark is only hidden once a frame has drawn. That
- *      is one line and it is the whole accessibility and no-WebGL story, so it is tested by
- *      breaking the build on purpose (?no3d, and a run with the assets blocked) and checking
- *      the type is still there and still readable.
+ *      completely different cause — a turned word is wider than a square one, and v2 turns
+ *      further and shortens the camera — so the browser pass drives the type to its worst pose in
+ *      both directions and measures the clearance.
+ *   5. THE FALLBACK STOPS WORKING. The CSS wordmark is only hidden once a frame with ink in it
+ *      has drawn. That is the whole accessibility and no-WebGL story, so it is tested by breaking
+ *      the build on purpose (?no3d, no WebGL2, assets blocked) and checking the type is still
+ *      there and still readable.
  *
  * The browser pass is SKIPPED, not failed, where there is no headless chromium: this is an asset
  * build and it should still work on a machine without playwright. It says so rather than going
@@ -79,7 +95,7 @@ if (!okLine) {
   console.error('blender did not finish the wordmark');
   process.exit(1);
 }
-for (const l of log.split('\n').filter(l => l.startsWith('  PART'))) console.log(l);
+for (const l of log.split('\n').filter(l => /^ {2}(PART|FACETS|DEPTH)/.test(l))) console.log(l);
 console.log(okLine + '\n');
 const blenderAspect = parseFloat(/aspect=([\d.]+)/.exec(okLine)[1]);
 
@@ -87,19 +103,20 @@ const blenderAspect = parseFloat(/aspect=([\d.]+)/.exec(okLine)[1]);
 function parseGlb(buf) {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   if (dv.getUint32(0, true) !== 0x46546c67) throw new Error('not a GLB (bad magic)');
-  let o = 12, json = null;
+  let o = 12, json = null, bin = null;
   while (o + 8 <= buf.byteLength) {
     const len = dv.getUint32(o, true), type = dv.getUint32(o + 4, true);
     if (type === 0x4e4f534a) json = JSON.parse(new TextDecoder().decode(buf.subarray(o + 8, o + 8 + len)));
+    if (type === 0x004e4942) bin = buf.subarray(o + 8, o + 8 + len);
     o += 8 + len;
   }
   if (!json) throw new Error('GLB has no JSON chunk');
-  return json;
+  return { json, bin };
 }
 
 const glbPath = join(OUT, 'type.glb');
 const glbBuf = readFileSync(glbPath);
-const gltf = parseGlb(glbBuf);
+const { json: gltf, bin } = parseGlb(glbBuf);
 const glbKb = glbBuf.length / 1024, glbGz = gzipSync(glbBuf, { level: 9 }).length / 1024;
 
 const nodes = {};
@@ -107,15 +124,17 @@ for (const n of gltf.nodes || []) if (n.mesh !== undefined) nodes[n.name] = gltf
 const names = Object.keys(nodes);
 console.log(`type.glb  ${glbKb.toFixed(0)} KB (${glbGz.toFixed(0)} KB gzipped)  parts: ${names.join(', ')}`);
 
-/* These two names ARE the contract with js/hero3d.js, in the same way dogfight's GLB part names
+/* These three names ARE the contract with js/hero3d.js, in the same way dogfight's GLB part names
  * are the contract with dfpc-app. The renderer fails open, so a rename ships as an absence. */
-t('glb carries wm_face and wm_rim', !!(nodes.wm_face && nodes.wm_rim), names.join(','));
+t('glb carries wm_face, wm_bevel and wm_rim',
+  !!(nodes.wm_face && nodes.wm_bevel && nodes.wm_rim), names.join(','));
 
 const prim = m => m && m.primitives && m.primitives[0];
 const attrs = m => Object.keys((prim(m) || {}).attributes || {});
-if (nodes.wm_face) {
-  const a = attrs(nodes.wm_face);
-  t('wm_face has POSITION + NORMAL + TEXCOORD_0',
+for (const nm of ['wm_face', 'wm_bevel']) {
+  if (!nodes[nm]) continue;
+  const a = attrs(nodes[nm]);
+  t(`${nm} has POSITION + NORMAL + TEXCOORD_0`,
     a.includes('POSITION') && a.includes('NORMAL') && a.includes('TEXCOORD_0'), a.join(','));
 }
 if (nodes.wm_rim) {
@@ -129,8 +148,9 @@ for (const m of Object.values(nodes)) {
   const p = prim(m);
   if (p && p.indices !== undefined) tris += gltf.accessors[p.indices].count / 3;
 }
-/* Budget, not taste: this is above the fold on the landing page. 12k triangles is roughly two of
- * Section 9's bots, for a thing that never animates its vertices. */
+/* Budget, not taste: this is above the fold on the landing page. It is also what the rear-half
+ * cull in the .py is spent on — the die profile costs about 6,500 triangles and dropping the
+ * never-visible back of the extrusion pays for all of it. */
 t('under 12,000 triangles', tris < 12000, tris.toFixed(0));
 t('glb under 400 KB raw', glbKb < 400, glbKb.toFixed(0) + ' KB');
 
@@ -156,20 +176,83 @@ t('the type is actually EXTRUDED (depth > 1% of width)', dim[2] > dim[0] * 0.01,
 t('the type is UPRIGHT (height > depth)', dim[1] > dim[2] * 2,
   `h ${dim[1].toFixed(3)} vs d ${dim[2].toFixed(3)}`);
 
-/* ── stage 4: the baked plate ─────────────────────────────────────────────────────────────────
+/* ── the die, and the depth variation ─────────────────────────────────────────────────────────
+ * Read straight out of the exported normals, because "the bevel has character" is otherwise a
+ * claim nobody can check after the fact — a quarter circle and a hand-authored die produce the
+ * same triangle count, the same silhouette in a thumbnail, and completely different light. */
+function readAccessor(idx) {
+  const acc = gltf.accessors[idx];
+  const bv = gltf.bufferViews[acc.bufferView];
+  const comps = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 }[acc.type];
+  const off = (bv.byteOffset || 0) + (acc.byteOffset || 0);
+  const dv = new DataView(bin.buffer, bin.byteOffset + off, acc.count * comps * 4);
+  const out = new Float32Array(acc.count * comps);
+  for (let i = 0; i < out.length; i++) out[i] = dv.getFloat32(i * 4, true);
+  return { data: out, comps, count: acc.count };
+}
+if (bin && nodes.wm_bevel && nodes.wm_face) {
+  const nb = readAccessor(prim(nodes.wm_bevel).attributes.NORMAL);
+  const hist = new Map();
+  for (let i = 0; i < nb.count; i++) {
+    const k = Math.round(Math.abs(nb.data[i * 3 + 2]) * 40) / 40;      // 0.025 buckets
+    hist.set(k, (hist.get(k) || 0) + 1);
+  }
+  const fams = [...hist.entries()].filter(([, n]) => n > nb.count * 0.02).map(([k]) => k).sort((a, b) => a - b);
+  console.log('  chamfer facet |n.z| families: ' + fams.map(v => v.toFixed(2)).join(' '));
+  /* A quarter circle steps its facet angle monotonically and in near-equal increments. A die does
+   * not: it spends a lot of travel in one straight chamfer, flattens onto a shelf, then rolls. So
+   * the tell is the SPREAD of the gaps between families — even on a circle, wild on a die. */
+  const gaps = fams.slice(1).map((v, i) => v - fams[i]);
+  const gm = gaps.reduce((a, b) => a + b, 0) / (gaps.length || 1);
+  const gsd = Math.sqrt(gaps.reduce((a, b) => a + (b - gm) ** 2, 0) / (gaps.length || 1));
+  t('the chamfer has 4+ distinct facet angles', fams.length >= 4, fams.length + ' families');
+  t('the die is NOT a round bevel (facet steps are uneven)', gsd > gm * 0.35,
+    `gap mean ${gm.toFixed(3)} sd ${gsd.toFixed(3)}`);
+
+  // depth varies across the word: slice the face's z by x and look at the spread
+  const pf = readAccessor(prim(nodes.wm_face).attributes.POSITION);
+  const B = 20, zmin = new Array(B).fill(1e9), zmax = new Array(B).fill(-1e9);
+  for (let i = 0; i < pf.count; i++) {
+    const x = pf.data[i * 3], z = pf.data[i * 3 + 2];
+    const b = Math.max(0, Math.min(B - 1, Math.floor((x - lo[0]) / (dim[0] || 1) * B)));
+    zmin[b] = Math.min(zmin[b], z); zmax[b] = Math.max(zmax[b], z);
+  }
+  const fronts = zmax.filter(v => v > -1e8);
+  const fm = fronts.reduce((a, b) => a + b, 0) / fronts.length;
+  const fsd = Math.sqrt(fronts.reduce((a, b) => a + (b - fm) ** 2, 0) / fronts.length);
+  /* ⚑ The dome. Head on it is invisible; the moment the word turns it is what stops the letters
+   *   being one flat slab, so it is worth an assertion that it survived the export. */
+  t('the word is DOMED (front face z varies across it)', fsd > dim[2] * 0.04,
+    `front z sd ${fsd.toFixed(4)} over depth ${dim[2].toFixed(4)}`);
+  // the rear half must be gone — see the .py header
+  const zs = [];
+  for (let i = 0; i < pf.count; i++) zs.push(pf.data[i * 3 + 2]);
+  const nb2 = readAccessor(prim(nodes.wm_face).attributes.NORMAL);
+  let back = 0;
+  for (let i = 0; i < nb2.count; i++) if (nb2.data[i * 3 + 2] < -0.3) back++;
+  t('the never-visible rear half is not exported', back === 0, back + ' rear-facing face verts');
+}
+
+/* ── stage 4: the baked plates ────────────────────────────────────────────────────────────────
  * Quality on the LOSSLESS png, cost on the SHIPPED webp — the same split build-bg.mjs makes, for
  * the same reason: a failing colour check must not be blameable on WebP ringing. */
 const load = f => { const p = join(OUT, f); const img = decodePNG(readFileSync(p)); img.kb = statSync(p).size / 1024; return img; };
 const alb = load('type-albedo.png');
 const nrm = load('type-normal.png');
+const foil = load('type-foil.png');
+const lut = load('type-spectrum.png');
 const kb = f => statSync(join(OUT, f)).size / 1024;
-const albKb = kb('type-albedo.webp'), nrmKb = kb('type-normal.webp');
-console.log(`\nalbedo ${alb.w}x${alb.h}  webp ${albKb.toFixed(0)} KB (png ${alb.kb.toFixed(0)})`);
-console.log(`normal ${nrm.w}x${nrm.h}  webp ${nrmKb.toFixed(0)} KB (png ${nrm.kb.toFixed(0)})\n`);
+const albKb = kb('type-albedo.webp'), nrmKb = kb('type-normal.webp'),
+  foilKb = kb('type-foil.webp'), lutKb = kb('type-spectrum.png');
+console.log(`\nalbedo   ${alb.w}x${alb.h}  webp ${albKb.toFixed(0)} KB`);
+console.log(`normal   ${nrm.w}x${nrm.h}  webp ${nrmKb.toFixed(0)} KB`);
+console.log(`foil     ${foil.w}x${foil.h}  webp ${foilKb.toFixed(0)} KB`);
+console.log(`spectrum ${lut.w}x${lut.h}  png  ${lutKb.toFixed(1)} KB\n`);
 
-t('albedo and normal are the same size', alb.w === nrm.w && alb.h === nrm.h);
-/* The plate is a planar projection of the type's own bounding box. If its aspect drifts from the
- * mesh's, every cell of the foil is stretched and the gradient stops landing on the right
+t('albedo, normal and foil are the same size',
+  alb.w === nrm.w && alb.h === nrm.h && alb.w === foil.w && alb.h === foil.h);
+/* The plates are a planar projection of the type's own bounding box. If the aspect drifts from the
+ * mesh's, every feature of the foil is stretched and the gradient stops landing on the right
  * letters — and it looks fine in isolation, which is why it needs a number. */
 t('plate aspect matches the mesh', Math.abs(alb.w / alb.h - meshAspect) / meshAspect < 0.03,
   (alb.w / alb.h).toFixed(3) + ' vs ' + meshAspect.toFixed(3));
@@ -190,16 +273,16 @@ function stats(img) {
 }
 
 const A = stats(alb);
-console.log(`  albedo luma: mean ${A.mean.toFixed(1)} · p01 ${A.p01.toFixed(1)} · median ${A.p50.toFixed(1)} · p99 ${A.p99.toFixed(1)} · sd ${A.sd.toFixed(1)}`);
+console.log(`  ink luma: mean ${A.mean.toFixed(1)} · p01 ${A.p01.toFixed(1)} · median ${A.p50.toFixed(1)} · p99 ${A.p99.toFixed(1)} · sd ${A.sd.toFixed(1)}`);
 /* ⚑ The BOUNDS RUN THE OPPOSITE WAY TO build-bg's, and that is the point of having them written
  *   down. That plate fails ABOVE mean 40 because paragraphs sit on it. Nothing sits on the
  *   wordmark: it is the brightest object above the fold, over a near-black page, and a dim foil
  *   does not read as restraint, it reads as a texture that failed to load. */
-t('mean luma above 120 (it is the brightest thing on the page)', A.mean > 120, A.mean.toFixed(1));
-t('p01 above 40 (no holes punched in the letterforms)', A.p01 > 40, A.p01.toFixed(1));
-t('not flat — sd above 3 (there is foil, not a fill)', A.sd > 3, A.sd.toFixed(1));
+t('ink mean luma above 120 (it is the brightest thing on the page)', A.mean > 120, A.mean.toFixed(1));
+t('ink p01 above 40 (no holes punched in the letterforms)', A.p01 > 40, A.p01.toFixed(1));
+t('ink is not flat — sd above 3', A.sd > 3, A.sd.toFixed(1));
 
-/* ── the gradient is the SITE's gradient ───────────────────────────────────────────────────────
+/* ── the ink is the SITE's gradient ───────────────────────────────────────────────────────────
  * Transcribed from index.html's `.wordmark` background. A bake that lost, flattened or reversed
  * the ramp still produces a perfectly attractive strip of colour, so each stop is checked where
  * it is supposed to be. The tolerance is loose on purpose — the relief modulates every pixel and
@@ -221,17 +304,19 @@ for (const [pos, r, g, b] of STOPS) {
   if (d < 78) hit++;
   console.log(`    stop ${(pos * 100).toFixed(0).padStart(3)}%  want ${[r, g, b].join(',')}  got ${m.map(v => Math.round(v)).join(',')}  Δ${d.toFixed(0)}`);
 }
-t('at least 5 of the 6 CSS gradient stops reproduce', hit >= 5, hit + '/6');
+t('at least 5 of the 6 CSS gradient stops reproduce in the ink', hit >= 5, hit + '/6');
 {
   const top = rowMean(alb, Math.round(alb.h * 0.06)), bot = rowMean(alb, Math.round(alb.h * 0.94));
   const d = Math.hypot(top[0] - bot[0], top[1] - bot[1], top[2] - bot[2]);
   // ⚠ proves the ramp runs DOWN the plate. A horizontal (or absent) ramp passes every check above.
-  t('the ramp is vertical (top and bottom differ)', d > 90, 'Δ' + d.toFixed(0));
+  t('the ink ramp is vertical (top and bottom differ)', d > 90, 'Δ' + d.toFixed(0));
 }
 
-/* ── the normal map ──────────────────────────────────────────────────────────────────────────
+/* ── the normal map, and THE GRAIN ────────────────────────────────────────────────────────────
  * A tangent-space normal that came back as flat 128,128,255 is a perfectly valid image and a
- * completely dead surface — the foil would never glint. */
+ * completely dead surface. But v2 needs more than "not flat": the live anisotropic highlight
+ * reads its streak direction out of THIS MAP, so a map that bakes ISOTROPIC has no grain for it
+ * to find and the highlight comes out running the wrong way. That shipped twice. */
 {
   const { w, h, data } = nrm;
   let mr = 0, mg = 0, mb = 0;
@@ -244,15 +329,109 @@ t('at least 5 of the 6 CSS gradient stops reproduce', hit >= 5, hit + '/6');
   t('normal points outward (blue mean above 200)', mb > 200, mb.toFixed(1));
   t('normal is unbiased (x,y means near 128)', Math.abs(mr - 128) < 8 && Math.abs(mg - 128) < 8);
   t('normal carries relief (x and y sd above 2)', sr > 2 && sg > 2, `${sr.toFixed(1)}/${sg.toFixed(1)}`);
+
+  /* ⚑ THE GRAIN METRIC IS ROW-vs-COLUMN MEANS, NOT A GRADIENT, and the difference matters. Mean
+   *   |d/dx| against mean |d/dy| looked like the obvious test and is useless here: an fBm's
+   *   highest octave dominates any per-texel gradient, and at these scales that octave is below
+   *   Nyquist in both directions, so it aliases to isotropic white noise and the metric reads 1.0
+   *   whatever the grain is doing. Averaging a whole row cancels the noise and leaves the
+   *   structure: with a horizontal grain, row means differ (each row crosses a different part of
+   *   the brush) while column means do not (each column averages across every streak). */
+  const sd = a => { const m = a.reduce((s, v) => s + v, 0) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); };
+  const rows = [], cols = new Float64Array(w);
+  for (let y = 0; y < h; y++) {
+    let s = 0;
+    for (let x = 0; x < w; x++) { const v = data[(y * w + x) * 4 + 1]; s += v; cols[x] += v; }
+    rows.push(s / w);
+  }
+  const cm = Array.from(cols, v => v / h);
+  const grain = sd(rows) / sd(cm);
+  console.log(`  grain: sd(row means) ${sd(rows).toFixed(2)} vs sd(col means) ${sd(cm).toFixed(2)}`);
+  t('the BRUSH is in the normal map (grain runs along the word)', grain > 1.5, 'row/col ' + grain.toFixed(2));
+}
+
+/* ── the foil data plate ──────────────────────────────────────────────────────────────────────
+ * r = brush angle / pi + 0.5 · g = grating phase · b = flake. This is DATA — every channel is
+ * read as a number by the shader, and a channel that came back constant is a feature silently
+ * switched off rather than an error. */
+{
+  const { w, h, data } = foil;
+  const ch = c => {
+    let m = 0, mn = 255, mx = 0;
+    for (let i = 0; i < w * h; i++) { const v = data[i * 4 + c]; m += v; if (v < mn) mn = v; if (v > mx) mx = v; }
+    m /= w * h;
+    let v2 = 0;
+    for (let i = 0; i < w * h; i++) v2 += (data[i * 4 + c] - m) ** 2;
+    return { mean: m, sd: Math.sqrt(v2 / (w * h)), min: mn, max: mx };
+  };
+  const R = ch(0), G = ch(1), B = ch(2);
+  console.log(`  foil r(angle) mean ${R.mean.toFixed(1)} sd ${R.sd.toFixed(2)} · g(phase) sd ${G.sd.toFixed(1)} · b(flake) sd ${B.sd.toFixed(1)}`);
+  /* The brush angle must wander, but only a little: a foil roll drifts a few degrees. At +/-17
+   *   degrees the streaks climbed clean across a 9:1 plate and the whole field baked as a marbled
+   *   swirl with no grain in it at all. */
+  const deg = v => (v / 255 - 0.5) * 180;
+  t('brush angle is centred on horizontal', Math.abs(R.mean - 127.5) < 6, R.mean.toFixed(1));
+  t('brush angle wanders, but under 12 degrees',
+    R.sd > 0.3 && deg(R.max) - deg(R.min) < 24,
+    `spread ${(deg(R.max) - deg(R.min)).toFixed(1)}°`);
+  t('grating phase varies (the refractor breaks into patches)', G.sd > 8, G.sd.toFixed(1));
+  t('flake mask varies (specular breaks into grains)', B.sd > 12, B.sd.toFixed(1));
+}
+
+/* ── the diffraction LUT ──────────────────────────────────────────────────────────────────────
+ * The one file that decides what colour the foil can ever be. Re-derived here INDEPENDENTLY from
+ * the same six CSS hex values, so a bug in the .py's hue interpolation cannot agree with itself. */
+{
+  const px = x => { const i = (Math.round(x) % lut.w) * 4; return [lut.data[i], lut.data[i + 1], lut.data[i + 2]]; };
+  const hsv = ([r, g, b]) => {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let h = 0;
+    if (d > 1e-9) { h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return [h, mx ? d / mx : 0, mx];
+  };
+  t('spectrum LUT is 256 wide', lut.w === 256, lut.w + 'x' + lut.h);
+  let sHit = 0;
+  for (const [pos, r, g, b] of STOPS) {
+    const got = px(pos * lut.w);
+    if (Math.hypot(got[0] - r, got[1] - g, got[2] - b) < 12) sHit++;
+  }
+  t('all 6 CSS stops land exactly in the LUT', sHit === 6, sHit + '/6');
+  /* ⚑ The LOOP is the whole design: the shader fract()s into this strip, so a discontinuity at
+   *   the seam would show as a hard colour line that sweeps across the wordmark as it turns. */
+  const seam = Math.hypot(...px(255).map((v, i) => v - px(0)[i]));
+  const typicalStep = Math.hypot(...px(128).map((v, i) => v - px(129)[i]));
+  t('the palette LOOPS (no seam)', seam < 24, 'Δ' + seam.toFixed(0) + ' at the wrap');
+  /* ⚑ HUE-INTERPOLATED, not componentwise. Mixing #7aa8ff to #ff2ad9 in RGB passes through a
+   *   washed lilac; measured on the live render, a componentwise LUT capped the wordmark's
+   *   saturation no matter what the lighting did. */
+  const sats = [];
+  for (let x = 0; x < lut.w; x++) sats.push(hsv(px(x))[1]);
+  sats.sort((a, b) => a - b);
+  const med = sats[128];
+  console.log(`  LUT saturation: p10 ${sats[25].toFixed(2)} median ${med.toFixed(2)} p90 ${sats[230].toFixed(2)}`);
+  t('the LUT stays saturated between stops (median > 0.62)', med > 0.62, med.toFixed(2));
+  // and it must sweep the whole colour wheel, not oscillate in one corner of it
+  let travel = 0;
+  for (let x = 1; x < lut.w; x++) {
+    let d = (hsv(px(x))[0] - hsv(px(x - 1))[0]) % 360;
+    if (d > 180) d -= 360; if (d < -180) d += 360;
+    travel += d;
+  }
+  t('the LUT sweeps a full hue circle', Math.abs(travel) > 300, Math.abs(travel).toFixed(0) + '°');
+  t('the LUT is lossless PNG, not lossy', existsSync(join(OUT, 'type-spectrum.png')) && typicalStep < 12);
 }
 
 /* payload: this loads above the fold on the landing page */
-t('textures under 150 KB total', albKb + nrmKb < 150, (albKb + nrmKb).toFixed(0) + ' KB');
+const totalKb = albKb + nrmKb + foilKb + lutKb;
+t('textures under 150 KB total', totalKb < 150, totalKb.toFixed(0) + ' KB');
 
-for (const f of ['type-albedo.png', 'type-normal.png']) { try { unlinkSync(join(OUT, f)); } catch {} }
+for (const f of ['type-albedo.png', 'type-normal.png', 'type-foil.png']) {
+  try { unlinkSync(join(OUT, f)); } catch {}
+}
 try { rmSync(TMP, { recursive: true, force: true }); } catch {}
 
-/* ── stage 5: what the browser actually does with it ────────────────────────────────────────── */
+/* ── stage 5 + 6: what the browser actually does with it ────────────────────────────────────── */
 if (!process.env.HERO_SKIP_BROWSER) {
   try {
     await browserPass();
@@ -312,7 +491,7 @@ async function browserPass() {
     await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
     /* ⚠ Headless rAF stalls between input events (CLAUDE.md) — a quiet second can advance the
      *   clock by exactly zero and then a keypress unblocks a burst. Pump it, don't wait on it. */
-    for (let i = 0; i < 60; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
+    for (let i = 0; i < 70; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
     return { ctx, pg };
   }
 
@@ -327,10 +506,8 @@ async function browserPass() {
         state: H2 ? H2.state() : null,
         limits: H2 && H2.limits ? H2.limits() : null,
         text: (el.textContent || '').replace(/\s+/g, ''),
-        aria: el.getAttribute('aria-label'),
         inline: el.style.opacity,
         display: cs.display, visibility: cs.visibility,
-        box: (b => ({ w: +b.width.toFixed(1), h: +b.height.toFixed(1) }))(el.getBoundingClientRect()),
         docW: document.documentElement.scrollWidth, vw: innerWidth,
       };
       const c = document.getElementById('heroType');
@@ -352,22 +529,59 @@ async function browserPass() {
       const L = out.limits;
       out.poseA = ink(await shoot(L.pitch, -L.yaw));
       out.poseB = ink(await shoot(-L.pitch, L.yaw));
-      // colour, read off the LIVE canvas — CLAUDE.md: screenshots rotate hue on canvas content
-      const rest = await shoot(0, 0);
-      const ri = ink(rest);
-      out.bands = [];
-      for (let k = 0; k < 6; k++) {
-        const y = Math.round(ri.top + (rest.h - 1 - ri.bottom - ri.top) * (k + 0.5) / 6);
-        let r2 = 0, g2 = 0, b2 = 0, n = 0;
-        for (let x = 0; x < rest.w; x++) { const i = (y * rest.w + x) * 4; if (rest.d[i + 3] > 200) { r2 += rest.d[i]; g2 += rest.d[i + 1]; b2 += rest.d[i + 2]; n++; } }
-        if (n) out.bands.push([Math.round(r2 / n), Math.round(g2 / n), Math.round(b2 / n)]);
-      }
+
+      /* ── THE FOIL TEST ─────────────────────────────────────────────────────────────────────
+       * Read off the LIVE canvas — CLAUDE.md: this container's screenshot path rotates hue on
+       * canvas content, so a screenshot could not be used for this even in principle.
+       * The grid is fixed from the ink box at the neutral pose so the SAME patch of the word is
+       * sampled at every angle; the metric is the accumulated signed hue travel across the fan. */
+      const hueOf = (r2, g2, b2) => {
+        const mx = Math.max(r2, g2, b2), mn = Math.min(r2, g2, b2), d = mx - mn;
+        if (d < 1e-6) return null;
+        let h = mx === r2 ? ((g2 - b2) / d) % 6 : mx === g2 ? (b2 - r2) / d + 2 : (r2 - g2) / d + 4;
+        h *= 60; if (h < 0) h += 360;
+        return { h, s: mx ? d / mx : 0, v: mx / 255 };
+      };
+      const ref = await shoot(-3, -6);
+      const rb = ink(ref);
+      const COLS = 12, ROWS = 6;
+      const cellsAt = f => {
+        const cells = [];
+        for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
+          const ax = rb.left + (f.w - rb.right - rb.left) * cx / COLS;
+          const bx = rb.left + (f.w - rb.right - rb.left) * (cx + 1) / COLS;
+          const ay = rb.top + (f.h - rb.bottom - rb.top) * cy / ROWS;
+          const by = rb.top + (f.h - rb.bottom - rb.top) * (cy + 1) / ROWS;
+          let n = 0, R = 0, G = 0, B = 0;
+          for (let y = Math.round(ay); y < by; y++) for (let x = Math.round(ax); x < bx; x++) {
+            const i = (y * f.w + x) * 4;
+            if (f.d[i + 3] > 200) { n++; R += f.d[i]; G += f.d[i + 1]; B += f.d[i + 2]; }
+          }
+          cells.push(n > 30 ? hueOf(R / n, G / n, B / n) : null);
+        }
+        return cells;
+      };
+      const YAWS = [-19, -12, -6, 0, 6, 12, 19];
+      out.fan = [];
+      for (const y of YAWS) out.fan.push(cellsAt(await shoot(-3, y)));
+      out.yaws = YAWS;
       H2.pose(null, null);
       return out;
     });
     const tag = W + 'px';
     t(`${tag}: 3D layer is live`, r.state && r.state.phase === 'live', r.state ? r.state.phase + ' ' + r.state.why : 'no module');
-    t(`${tag}: both named parts bound`, r.state && r.state.parts === 'wm_face,wm_rim', r.state && r.state.parts);
+    t(`${tag}: all three named parts bound`,
+      r.state && r.state.parts === 'wm_bevel,wm_face,wm_rim', r.state && r.state.parts);
+    /* ⚑ The blank-canvas guard's own number. `ink` is the share of a band across the middle of the
+     *   canvas that actually got painted, measured by hero3d before it dares hide the real
+     *   wordmark. A shader that fails to link renders nothing and every other signal still says
+     *   "live" — this is the one that catches it. */
+    t(`${tag}: the layer put real ink on the canvas`, r.state && r.state.ink > 25,
+      (r.state ? r.state.ink : 0) + '% of the band');
+    /* The torches are found in the DOM and used as light positions; if the markup around the
+     * wordmark changes, they silently fall back to guessed coordinates. */
+    t(`${tag}: both torches were found and are lighting the type`, r.state && r.state.torches === 2,
+      String(r.state && r.state.torches));
     /* The accessibility contract, in one assertion. The wordmark may be faded; it may NEVER be
      * removed from the accessibility tree, and the string must still be the studio's name. */
     t(`${tag}: the real text is still in the DOM and in the a11y tree`,
@@ -378,20 +592,50 @@ async function browserPass() {
       const m = Math.min(r.poseA.left, r.poseA.right, r.poseB.left, r.poseB.right);
       const pct = m / r.poseA.w * 100;
       console.log(`    ${tag} clearance at max yaw ±${r.limits.yaw}°: ${m}px of ${r.poseA.w} (${pct.toFixed(1)}%)`);
-      /* THE "STUDIO" TEST — see the header. A turned wordmark is wider than a square one. */
+      /* THE "STUDIO" TEST — see the header. A turned wordmark is wider than a square one, and v2
+       * both turns further and stands closer, so this got tighter rather than looser. */
       t(`${tag}: no letter clips at the worst pose`, r.poseA.any && r.poseB.any && m >= 4 && pct >= 1.5,
         m + 'px / ' + pct.toFixed(1) + '%');
       t(`${tag}: the type does not spill vertically`, Math.min(r.poseA.top, r.poseA.bottom) >= 2);
     }
-    if (r.bands && r.bands.length === 6) {
-      // the gradient survived all the way to the screen: consecutive bands must actually differ
-      let moves = 0;
-      for (let i = 1; i < r.bands.length; i++) {
-        const a = r.bands[i - 1], b = r.bands[i];
-        if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) > 40) moves++;
+    if (r.fan) {
+      /* ⚑ ACCUMULATED TRAVEL, NOT MAX PAIRWISE DISTANCE. The palette is a LOOP, so once the phase
+       *   walks past half a cycle "furthest apart" saturates at 180° and the metric stops
+       *   discriminating — it read 174° both for a wordmark sliding gracefully through half the
+       *   palette and for one strobing through two full cycles. Summing the SIGNED shortest-arc
+       *   step between consecutive view angles measures what the eye sees: how far the colour
+       *   slid, in one direction. */
+      const step = (a, b) => { let d = (b - a) % 360; if (d > 180) d -= 360; if (d < -180) d += 360; return d; };
+      const travel = [], perStep = [], sat = [], val = [];
+      for (let i = 0; i < r.fan[0].length; i++) {
+        const seq = r.fan.map(f => f[i]);
+        if (seq.some(c => !c || c.s < 0.10)) continue;
+        let acc = 0;
+        for (let k = 1; k < seq.length; k++) { acc += step(seq[k - 1].h, seq[k].h); perStep.push(Math.abs(step(seq[k - 1].h, seq[k].h))); }
+        travel.push(Math.abs(acc));
+        for (const c of seq) { sat.push(c.s); val.push(c.v); }
       }
-      console.log('    bands ' + r.bands.map(b => b.join(',')).join('  |  '));
-      t(`${tag}: the gradient reaches the screen (${moves}/5 band steps)`, moves >= 4, moves + '/5');
+      const q = (a, p) => { const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
+      console.log(`    ${tag} HUE TRAVEL over ±${Math.max(...r.yaws)}° yaw, per patch (n=${travel.length}):` +
+        ` p10 ${q(travel, .1).toFixed(0)}°  median ${q(travel, .5).toFixed(0)}°  p90 ${q(travel, .9).toFixed(0)}°`);
+      console.log(`    ${tag} per 6° step: median ${q(perStep, .5).toFixed(0)}°  ·  saturation median ${q(sat, .5).toFixed(2)}  ·  value median ${q(val, .5).toFixed(2)}`);
+      /* THE ACCEPTANCE TEST FOR "IT IS FOIL". V1 would score ~0 here: its face was flat paint, so
+       * every patch had the same hue at every angle. 60° is a low bar deliberately — it is the
+       * line between "responds to view" and "does not", not a tuning target. */
+      t(`${tag}: THE HUE MOVES WITH THE VIEW (median travel ≥ 60°)`, q(travel, .5) >= 60,
+        q(travel, .5).toFixed(0) + '° median, p10 ' + q(travel, .1).toFixed(0) + '°');
+      t(`${tag}: ... on nearly every patch, not just a lucky few`, q(travel, .1) >= 30,
+        'p10 ' + q(travel, .1).toFixed(0) + '°');
+      /* ⚠ AND IT MUST NOT STROBE. Too much grating frequency is just as wrong as too little: at
+       *   the first cut the phase walked ~2 full palette cycles across the fan, 92° of hue for
+       *   every 6° of turn, and uncorrelated colour reads as static rather than as a material. */
+      t(`${tag}: ... smoothly — under 75° of hue per 6° of turn`, q(perStep, .5) < 75,
+        q(perStep, .5).toFixed(0) + '° median step');
+      t(`${tag}: the foil keeps its colour (saturation median > 0.22)`, q(sat, .5) > 0.22, q(sat, .5).toFixed(2));
+      /* It is the brightest thing above the fold; it is also not allowed to clip to white, which
+       * is what destroyed the hue in the first cut (value 0.87 everywhere = no colour left). */
+      t(`${tag}: bright but not blown out (value median 0.55–0.90)`,
+        q(val, .5) > 0.55 && q(val, .5) < 0.90, q(val, .5).toFixed(2));
     }
     t(`${tag}: the page does not scroll sideways`, r.docW <= r.vw + 1, r.docW + ' vs ' + r.vw);
     await ctx.close();
