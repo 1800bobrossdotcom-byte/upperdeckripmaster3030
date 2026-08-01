@@ -176,8 +176,8 @@ Measured with `npm run stretch` — arms swung 55°, legs 35°, the same pose fo
 
 | file | character | tris | `.skn` | worst stretch | >3× | >10× |
 | --- | --- | --- | --- | --- | --- | --- |
+| `cc0-cel` | HEAVY LINE | 1,088 | 183,080 B | **1.6×** | 0 | **0** |
 | `cc0-mosh` | BAD SIGNAL | 954 | 160,568 B | **1.8×** | 0 | **0** |
-| `cc0-cel` | HEAVY LINE | 1,040 | 175,016 B | **2.9×** | 0 | **0** |
 | `rip-mascot` | PRIZE MASCOT | 1,232 | 207,272 B | **3.1×** | 2 | **0** |
 | `cc0-lank` | LONG ODDS | 994 | 167,288 B | 3.3× | 6 | **0** |
 | `cc0-grid` | GRIDLOCK | 976 | 164,264 B | 3.6× | 8 | **0** |
@@ -187,7 +187,7 @@ Measured with `npm run stretch` — arms swung 55°, legs 35°, the same pose fo
 | *(for scale)* `prizm` | HARDSUIT | 4,217 | 708,488 B | 6.1× | 52 | 0 |
 | *(for scale)* `kappa` | WEBBING | 4,604 | 773,504 B | 23.7× | 76 | **15** |
 
-**BAD SIGNAL and HEAVY LINE are the two best-behaved bodies in the repo** — better than `oni`, the
+**HEAVY LINE and BAD SIGNAL are the two best-behaved bodies in the repo** — better than `oni`, the
 best of the imported family — and the seven generated bodies together are **1.25 MB**, less than
 two imported ones. The roster is no longer trading size against quality.
 

@@ -709,6 +709,36 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   angle that isn't edge-on; thickness is what makes them weather. Wrap-safe lattice, so no seam.
   **M1 OUT / still known:** bolt ribbons are axis-aligned rather than camera-facing; no
   reflections; cloud shadows don't fall on the ground.
+- ⛔ **SECTION 9's TIER TABLE WAS NOT A LADDER — the frame-rate bug the artist reported.**
+  In-arena (SwiftShader, RELATIVE ONLY): low 317 ms · mid 597 · high 693. **The entire cliff is
+  low→mid (+88%)**; mid→high adds 16%. Four things stacked at that one step:
+  ⚑ **(a) `omni` NEVER TIERED on the six hand-built arenas.** `stride = max(1, floor(cands/omni))`
+  only bites when the cap is SMALLER than the candidate count, and those arenas carry 8/16/12/14/
+  8/19 candidates — all under mid's 24 — so **mid and high built byte-identically the same light
+  set**. "46/24/8" read as three rungs and behaved as two. On baked interiors it inverts: ARCADE
+  PIT has 178 candidates, THE VAULT 74, so cost tracked the ARENA, not the setting.
+  ⚑ **(b) SSAO forces a whole extra geometry pass** — `CameraFrame.sanitizeOptions` in the
+  vendored engine: `(taa || ssaoType!==NONE || dof || volFog) ⇒ prepassEnabled = true`. The scene
+  renders TWICE. `ssao:true` at mid AND high, false at low — the cleanest match to the two tiers
+  named, and a structural fact rather than a measurement.
+  (c) 3 cascades × 2048² = 12.6M shadow texels/frame for a ≤52 m arena. (d) `spotShadow:true`
+  made all six ceiling fixtures casters.
+  ⚑ **`ADAPT` could not reach any of it** — it only scaled the backing store, while the frame was
+  bound by a prepass, fixed-size shadow rasterisation and a per-fragment light loop, none of which
+  shrink with the window. It is now a **quality ladder** (ssao → shadow map → live lights →
+  cascade → *then* resolution). ⚠ Its floor was `max(0.7,…)`, i.e. **below one CSS pixel — which
+  the comment directly above it claimed to be honouring.**
+  **Fix:** `omniLive` (12/8/5) bounds how many practicals are LIT, nearest-first, each fading to
+  zero before it switches off; `spotShadow` is a count; high 2048→1024; mid drops SSAO.
+  ARCADE PIT q=high: **median ×1.23, mean ×1.64**, visual cost +0.6% luma / −0.7% RMS / clipping
+  to zero. ⚠ A finer cluster grid was TRIED AND REJECTED — 6% slower than engine defaults, noise
+  floor ±8%; halving a cell doesn't halve a 9.5 m light's volume while CPU insert cost rises.
+- ⚠ **I WAS WRONG THAT THERE ARE "NO JS ERRORS AT ANY TIER".** That was measured in a MENU on the
+  default arena. `mid` + ARCADE PIT throws twice at match start: `TypeError: reading 'x'` at
+  `_initBoneAabbs → get aabb → MeshInstance._isVisible → cullMeshInstances`. **Pre-existing and in
+  the skinned-body path**, not the tier work — it reproduces with the old behaviour restored
+  (`?omnilive=9999&sres=1024&casc=2`) and disappears with `?bodies=0`. Non-fatal, the match runs.
+  Needs a separate look.
 - **Mobile resolution policy — `GfxPost.dprCap()`:** ONE definition of "weak device" (touch +
   screen ≤900 + low cores/memory + save-data), used by dogfight, section9, riprocketer and
   ronin3d as `Math.min(devicePixelRatio, GfxPost.dprCap())`, and by `Gfx2D` via `deviceScale()`.

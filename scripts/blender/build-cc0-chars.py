@@ -377,7 +377,13 @@ SPECS = {
         thigh_r=(0.050, 0.042), shin_r=(0.042, 0.035),
         foot=(0.092, 0.140, 0.052), foot_fwd=0.030,     # ← SMALL feet: the opposite of the mascot
         limb_squash=1.0, asym=0.0,
-        seg=8, rings=5,
+        # ⚑ rings=6, NOT 5, and the reason is the keyline. blob() spaces its rings at
+        # phi = pi*i/rings, so an EVEN count puts a ring exactly on the equator at full radius
+        # while an odd one straddles it at 0.951. With rings=5 the belt stood 13% proud of the
+        # widest ring and the flat-shaded octagon's corners read as small HORNS — i.e. as a
+        # trait, which is the one thing this set does not model. At 6 the belt sits 7.5% above a
+        # full-radius ring and reads as what it is: a rim.
+        seg=8, rings=6,
         key=0.075,
     ),
 
