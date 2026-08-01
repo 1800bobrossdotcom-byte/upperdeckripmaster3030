@@ -70,115 +70,118 @@
   }
 
   /* ── materials ────────────────────────────────────────────────────────────────────────────
-   * The baked pair straight off media/site/. Textures are shared across every prop on a page —
-   * three props asking for `steel` upload one texture, not three.
+   * Every prop surface is the SAME Blender bake the flat DOM is tiled with (media/site/*), so
+   * the object in the header and the panel under the cursor are made of one material. Textures
+   * are cached module-wide, so three props asking for `steel` upload one texture, not three.
    *
-   * ⛔ DO NOT PUT `PIXELFORMAT_SRGBA8` ON A `diffuseMap` HERE — IT DECODES THE COLOUR TWICE.
-   *   A PlayCanvas 2.x camera with `gammaCorrection = GAMMA_SRGB` (which is what this module
-   *   sets, see build()) already decodes colour inputs in the shader, so an sRGB-FORMATTED
-   *   texture takes the hardware decode on top and lands roughly 15x too dark. Measured on the
-   *   same frame with nothing else changed: the binder's object-only mean went 5.2 → 61.8 and its
-   *   non-black coverage 18% → 47%, purely from rebuilding the albedo as plain RGBA8.
-   *   ⚠ It is near-invisible as a bug, for three reasons worth writing down: it looks exactly
-   *     like "this material is dark", and the material genuinely IS dark; the console reads back
-   *     a perfectly sensible `diffuse` and format; and the SAME declaration is CORRECT on an
-   *     emissive map, where no shader decode happens (card3d.js measured its emissive path as
-   *     identity and it is). Colour in, ONE decode — that is the whole rule.
-   * ⚠ The tangent normal is DATA and must never be decoded at all, so `srgb` here now means only
-   *   "this is colour data", and colour is precisely what must NOT carry the format flag. The
-   *   argument stays because it still separates the two cache entries. */
+   * ⛔ THE BRIGHTNESS AND THE TINT ARE BAKED INTO THE PIXELS AT UPLOAD, NOT SET AS `diffuse`.
+   *   That is not the obvious way and it is not a preference — `material.diffuse` provably never
+   *   reaches a MAPPED surface in this engine build. Measured, frozen pose, nothing else changed:
+   *   with the albedo attached, `diffuse` at 1, at 6.2 and at 60 produced byte-identical frames
+   *   (object mean 5.2 every time); with the same map removed, the same three values rendered
+   *   101 / 169 / clipped. `diffuseTint` reads back `true` — in 2.21 its getter is hard-wired to
+   *   return true and its setter does nothing — so there is no flag to fix, and nothing anywhere
+   *   reports a problem. It cost most of a debugging pass, so: if a mapped surface is the wrong
+   *   colour, change the PIXELS.
+   *
+   * ⚑ WHY THERE IS A LIFT AT ALL. `vinyl` bakes to mean luma 23.7 and `steel` to 97 because those
+   *   numbers were chosen to sit UNDER PARAGRAPHS — any brighter and the small dim print on these
+   *   pages stops being readable (scripts/build-site-props.mjs bounds exactly that). A lit object
+   *   has the opposite problem: 1% reflectance under a directional light is a black rectangle,
+   *   which is precisely what the first build of the binder prop was. Real vinyl is not 1%
+   *   reflectance; the bake is dark because of where the FLAT PAGE puts it. One bake, two jobs,
+   *   and the job with lights in it says so out loud.
+   *   ⚠ The lift is applied in LINEAR light, not on the sRGB bytes — decode, multiply, re-encode.
+   *     Multiplying the bytes would flatten the material's own tonal shape, which is the one
+   *     thing the bake exists to carry.
+   *
+   * ⚠ TINTED COPIES ARE REAL MEMORY. The deck's seven card colours are seven textures, so they
+   *   are rasterised at TEX_PX rather than the bake's 512: these props are at most 300 CSS px on
+   *   screen and 256² is already more texels than any of them can show. Seven 512s would be 7 MB
+   *   of GPU memory for a decoration. */
+  var TEX_PX = 256;
   var _tex = {};
-  function texture(pc, device, path, srgb, onReady) {
-    var key = path + (srgb ? '|s' : '');
-    var e0 = _tex[key];
-    if (e0) {
-      if (onReady) { e0.ready ? onReady() : e0.waiting.push(onReady); }
-      return e0.tex;
+
+  function s2l(v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  function l2s(v) {
+    v = v < 0 ? 0 : v > 1 ? 1 : v;
+    return 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+  }
+
+  /* Redraw the loaded map with `lift` and `tint` applied in linear light. Returns a canvas, or
+   * the image itself when there is nothing to do (the normal maps, and any 1x untinted albedo). */
+  function shade(img, lift, tint) {
+    if (lift === 1 && !tint) return img;
+    var c = document.createElement('canvas');
+    c.width = c.height = TEX_PX;
+    var x = c.getContext('2d', { willReadFrequently: true });
+    if (!x) return img;
+    x.drawImage(img, 0, 0, TEX_PX, TEX_PX);
+    var d;
+    try { d = x.getImageData(0, 0, TEX_PX, TEX_PX); } catch (e) { return img; }
+    var p = d.data, k = tint || [1, 1, 1];
+    for (var i = 0; i < p.length; i += 4) {
+      p[i]     = l2s(s2l(p[i])     * lift * k[0]);
+      p[i + 1] = l2s(s2l(p[i + 1]) * lift * k[1]);
+      p[i + 2] = l2s(s2l(p[i + 2]) * lift * k[2]);
     }
-    var opts = { mipmaps: true, addressU: pc.ADDRESS_REPEAT, addressV: pc.ADDRESS_REPEAT,
-                 anisotropy: 4 };
+    x.putImageData(d, 0, 0);
+    return c;
+  }
+
+  function texture(pc, device, path, lift, tint) {
+    var key = path + '|' + lift + '|' + (tint ? tint.join(',') : '');
+    if (_tex[key]) return _tex[key];
     var t;
-    try { t = new pc.Texture(device, opts); }
-    catch (e) { t = new pc.Texture(device, { mipmaps: true }); }
-    var rec = { tex: t, ready: false, waiting: onReady ? [onReady] : [] };
+    try {
+      t = new pc.Texture(device, { mipmaps: true, addressU: pc.ADDRESS_REPEAT,
+                                   addressV: pc.ADDRESS_REPEAT, anisotropy: 4 });
+    } catch (e) { t = new pc.Texture(device, { mipmaps: true }); }
     var img = new Image();
-    img.onload = function () {
-      try { t.setSource(img); } catch (e) {}
-      rec.ready = true;
-      /* ⛔ THE MATERIAL MUST BE REBUILT ONCE THE TEXTURE HAS PIXELS. A StandardMaterial reads
-       * the texture's own metadata when it compiles its shader, and a Texture that has not been
-       * given a source yet does not have that metadata — so a material built while the fetch is
-       * still in flight compiles against a placeholder and never recovers on its own. The
-       * symptom is silent and brutal: every mapped surface renders essentially black, `diffuse`
-       * stops having ANY effect (setting it to 1, to 6.2 and to 60 produced byte-identical
-       * frames), and every property you can read back from the console — format, filters,
-       * tiling, levels, diffuseTint — looks exactly right. The tell was that a texture rebuilt
-       * from the SAME URL after load, with identical options, rendered the object at mean 61
-       * where the original rendered it at 5. So: load first, then update the material. */
-      for (var i = 0; i < rec.waiting.length; i++) { try { rec.waiting[i](); } catch (e) {} }
-      rec.waiting.length = 0;
-    };
-    img.onerror = function () {};          // no map ⇒ a plain lit solid, which is still an object
+    img.onload = function () { try { t.setSource(shade(img, lift, tint)); } catch (e) {} };
+    img.onerror = function () {};   // no map ⇒ a plain lit solid, which is still an object
     img.src = url(path);
-    _tex[key] = rec;
+    _tex[key] = t;
     return t;
   }
 
-  /* Every surface in every prop comes from here, so "what the studio's metal looks like" has one
-   * definition. `tile` is how many times the 512² map repeats across one world unit.
-   *
-   * ⚑ `lift` IS NOT A FUDGE FACTOR — it is the correction for what the albedo was baked FOR.
-   *   `vinyl` measures mean luma 23.7 and `steel` 97 because those numbers were chosen to sit
-   *   UNDER PARAGRAPHS: an albedo any brighter and the small dim print on these pages stops being
-   *   readable (scripts/build-site-props.mjs bounds exactly that). A lit object has no such
-   *   constraint and the opposite problem — 1% reflectance under a directional light renders as a
-   *   black rectangle, which is precisely what the first build of the binder prop was. Real vinyl
-   *   is not 1% reflectance; the bake is dark because of where the flat page puts it, not because
-   *   of what the material is. One map, two jobs, and the job that involves lights says so.
-   *   ⚠ `diffuse` above 1 is legal here (it is a plain vec3 multiplier on the sampled map, not a
-   *     colour that gets clamped on the way in) and it is the only way to reuse ONE bake for both
-   *     jobs. The alternative — a second, brighter bake of the same material — is two files that
-   *     can disagree about what the studio's vinyl looks like, which is the thing this module
-   *     exists to prevent. */
+  /* One definition of what each of the studio's surfaces is. `tile` is how many times the map
+   * repeats across one world unit; `lift` is described above. */
   var STOCK = {
-    vinyl: { map: 'vinyl', tile: 1.4, lift: 6.2,  gloss: 0.34, metal: 0.05, bump: 1.0 },
-    steel: { map: 'steel', tile: 2.0, lift: 1.7,  gloss: 0.74, metal: 0.85, bump: 0.7 },
-    pulp:  { map: 'pulp',  tile: 1.6, lift: 1.05, gloss: 0.16, metal: 0.00, bump: 0.9 },
-    // untextured accent. Colour is passed in per call.
+    vinyl: { map: 'vinyl', tile: 1.4, lift: 7.5,  gloss: 0.34, metal: 0.05, bump: 1.0 },
+    steel: { map: 'steel', tile: 2.0, lift: 2.2,  gloss: 0.74, metal: 0.85, bump: 0.7 },
+    pulp:  { map: 'pulp',  tile: 1.6, lift: 1.0,  gloss: 0.16, metal: 0.00, bump: 0.9 },
+    // untextured accent — colour comes from the call, and with no map `diffuse` works normally
     paint: { map: null,    tile: 1,   lift: 1.0,  gloss: 0.42, metal: 0.10, bump: 0 },
-    chip:  { map: 'steel', tile: 3.0, lift: 1.9,  gloss: 0.86, metal: 0.95, bump: 0.5,
-             base: [1, .82, .23] }
+    chip:  { map: 'steel', tile: 3.0, lift: 2.4,  gloss: 0.86, metal: 0.95, bump: 0.5,
+             base: [1, .78, .20] }
   };
 
   function material(pc, app, kind, tint, tileMul) {
     var s = STOCK[kind] || STOCK.paint;
     var m = new pc.StandardMaterial();
-    /* ⚑ `diffuse` MULTIPLIES `diffuseMap` in a StandardMaterial, so a tint is not a repaint — it
-     *   is the card's colour riding on top of the paper's own tooth and halftone. That is why the
-     *   deck's seven cards are seven tints of ONE baked map rather than seven flat colours. */
-    var base = s.base || [1, 1, 1], k = tint || [1, 1, 1];
-    var d = [base[0] * k[0] * s.lift, base[1] * k[1] * s.lift, base[2] * k[2] * s.lift];
-    m.diffuse = new pc.Color(d[0], d[1], d[2]);
     m.useMetalness = true;
     m.metalness = s.metal;
     m.gloss = s.gloss;
     if (s.map) {
-      var k = s.tile * (tileMul || 1);
-      var refresh = function () { try { m.update(); } catch (e) {} };
-      m.diffuseMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-albedo.webp', true, refresh);
-      m.normalMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-normal.webp', false, refresh);
-      /* ⛔ WITHOUT `diffuseTint` THE COLOUR ABOVE IS SILENTLY DISCARDED. A PlayCanvas
-       * StandardMaterial only multiplies `diffuse` into `diffuseMap` when this flag is set; with
-       * it off — the default — the map REPLACES the colour and every tint on this page does
-       * nothing at all. It fails without a warning of any kind, which is how it survived a whole
-       * debugging pass: the props rendered black, `diffuse` read back as 6.2 in the console, and
-       * setting it to 1 or to 6.2 produced byte-identical frames while the SAME change with the
-       * map removed moved the object from 101 to 169. That A/B is the only reason this was found.
-       * Both `lift` and the deck's seven card colours depend on it. */
-      if ('diffuseTint' in m) m.diffuseTint = true;
+      /* the tint MULTIPLIES the bake rather than replacing it, which is how the deck's seven
+       * cards are seven colours of ONE paper stock instead of seven flat swatches */
+      var k = null, base = s.base || null;
+      if (tint || base) {
+        var a = tint || [1, 1, 1], b = base || [1, 1, 1];
+        k = [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
+      }
+      var rep = s.tile * (tileMul || 1);
+      m.diffuse = new pc.Color(1, 1, 1);
+      m.diffuseMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-albedo.webp', s.lift, k);
+      // ⚠ the normal is DATA: never lifted, never tinted, or the vectors bend
+      m.normalMap = texture(pc, app.graphicsDevice, 'media/site/' + s.map + '-normal.webp', 1, null);
       m.bumpiness = s.bump;
-      m.diffuseMapTiling = new pc.Vec2(k, k);
-      m.normalMapTiling = new pc.Vec2(k, k);
+      m.diffuseMapTiling = new pc.Vec2(rep, rep);
+      m.normalMapTiling = new pc.Vec2(rep, rep);
+    } else {
+      var d = tint || [1, 1, 1];
+      m.diffuse = new pc.Color(d[0], d[1], d[2]);
     }
     m.update();
     return m;

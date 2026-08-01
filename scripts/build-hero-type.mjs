@@ -426,7 +426,8 @@ async function browserPass() {
     const ctx = await br.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
     await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
     const pg = await ctx.newPage();
-    await pg.route('**/type.glb', async r => { await new Promise(res => setTimeout(res, 4000)); await r.continue(); });
+    // ⚠ a RegExp, not a glob: the engine may append a cache-buster and `**/type.glb` then misses
+    await pg.route(/type\.glb/, async r => { await new Promise(res => setTimeout(res, 4000)); await r.continue(); });
     await pg.goto('http://127.0.0.1:8213/index.html?grab=1', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
     for (let i = 0; i < 40; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }

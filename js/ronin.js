@@ -957,8 +957,18 @@
     fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
       const dv = new DataView(buf);
       if (new TextDecoder().decode(new Uint8Array(buf, 0, 8)) !== 'UR3SKIN0') throw 0;
-      const n = dv.getUint32(12, true);
-      Ronin3D.registerSkin(k, new Float32Array(buf, 32, n * 14), n);
+      const ver = dv.getUint32(8, true), n = dv.getUint32(12, true);
+      /* ⚑ VERTEX DATA STARTS AT 296 IN A v2 .skn, NOT 32. v2 ships the bind skeleton inside the
+       * file (11 bones × [startXYZ, endXYZ] = 264 bytes at offset 32) — see bake-fighter.mjs and
+       * js/section9-skin.js, which have always read it correctly. This reader did not, and 264
+       * is not a multiple of the 56-byte stride, so it did not fail loudly: it slid EVERY vertex
+       * 4.71 vertices along, shuffling position into normal into bone index. `oni.skn` and
+       * `ronin.skn` became v2 with task #77, so two of NEON RONIN's six fighters have been
+       * loading as noise since. An offset bug in a binary format never throws; it just draws
+       * something wrong, which is why the length is asserted here rather than assumed. */
+      const off = ver >= 2 ? 32 + 11 * 6 * 4 : 32;
+      if (off + n * 56 > buf.byteLength) throw 0;
+      Ronin3D.registerSkin(k, new Float32Array(buf, off, n * 14), n);
     }).catch(() => {});
   });
   if (FIGHTERS_OK && r3dOk) ARCH_KEYS.forEach(k => {
