@@ -588,8 +588,8 @@ void main(void) {
        *   The bevel runs richer because it is a thin band seen at a steeper angle — the same
        *   frequency there would barely move at all. */
       //          grating   film  sheen  patch |  bump  along across flake | foil  grat  emis  fres
-      face: { foilP: V4(1.15, 0.26, 0.42, 0.55), surf: V4(1.05, 0.44, 0.075, 0.55), mix: V4(0.98, 0.75, 0.030, 3.2) },
-      bevel: { foilP: V4(2.40, 0.44, 1.15, 0.95), surf: V4(0.85, 0.50, 0.100, 0.45), mix: V4(0.96, 1.10, 0.015, 2.0) },
+      face: { foilP: V4(1.15, 0.26, 0.42, 0.55), surf: V4(1.15, 0.46, 0.110, 0.55), mix: V4(0.98, 0.95, 0.030, 3.2) },
+      bevel: { foilP: V4(2.40, 0.44, 1.15, 0.95), surf: V4(0.90, 0.52, 0.135, 0.45), mix: V4(0.96, 1.25, 0.015, 2.0) },
       rim: { foilP: V4(3.00, 0.52, 0.95, 1.00), surf: V4(0.00, 0.58, 0.115, 0.00), mix: V4(0.85, 1.40, 0.004, 2.3) },
     };
     const RAMP = { face: [1.0, 0], bevel: [1.0, 0.06], rim: [0.0, 0.13] };
@@ -616,7 +616,15 @@ void main(void) {
      * ⚑ The ink is multiplied by these, so they stay near-white in LUMINANCE and carry their hue
      *   lightly — a saturated green key over magenta ink is brown, which is card3d.js's lesson. */
     const LIGHTS = {
-      key: { dir: [-0.40, 0.58, 0.71], col: [0.42, 0.40, 0.37] },
+      /* ⚑ THE KEY IS LOW ON PURPOSE, and this is where the anisotropic streak lives or dies. The
+       *   lobe only fires where the half-vector lies near the plane of the grain, i.e. where
+       *   dot(bitangent, H) is small. With the key up at y 0.58 that dot sat at 0.34 across the
+       *   whole face — four band-widths outside the lobe — so the streak never fired ANYWHERE on
+       *   the flat face and only the die edges caught anything. Measured, not reasoned: the
+       *   specular-only difference image showed bright letter edges and a dead interior. Dropping
+       *   the elevation to 0.20 puts the mean inside the micro-relief's own swing, so the grain
+       *   decides where the band falls — which is exactly what a brushed surface does. */
+      key: { dir: [-0.46, 0.20, 0.86], col: [0.42, 0.40, 0.37] },
       fill: { dir: [0.66, -0.42, 0.62], col: [0.10, 0.046, 0.090] },
       rim: { dir: [0.52, 0.60, -0.61], col: [0.055, 0.120, 0.112] },
     };

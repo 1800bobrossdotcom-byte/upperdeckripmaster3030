@@ -164,7 +164,11 @@
     const tier = me.tier || 1;
     if (tier !== lastTier) {
       lastTier = tier;
-      $('tierPips').innerHTML = [1, 2, 3, 4].map(i => `<i class="${i <= tier ? 'on' : ''}"></i>`).join('');
+      // as many pips as THIS race can reach — a 2-lap heat never sees tier 4, so it must not
+      // draw a slot for one.
+      const top = Math.min(CR.TIER.MAX, Math.max(2, G.laps));
+      let h = ''; for (let i = 1; i <= top; i++) h += `<i class="${i <= tier ? 'on' : ''}"></i>`;
+      $('tierPips').innerHTML = h;
       $('tierN').textContent = tier;
     }
     /* ── THE CORNER LAMP, off ONE definition shared with the bots (`CRGame.brakePoint`).

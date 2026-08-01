@@ -934,7 +934,30 @@
    *
    * ⚠ ONE INTEGRATOR FOR EVERYBODY. stepMe and stepBot now only produce CONTROL INPUTS; flyShip
    *   is the physics. A bot that wrote s.h directly (which is what stepBot used to do) would fly a
-   *   different aeroplane from the player's, and the brief is explicit that they must not. */
+   *   different aeroplane from the player's, and the brief is explicit that they must not.
+   *
+   * ══ MEASURED, and these are the numbers to quote — not CLAUDE.md's older 5.6/9/12.4/22 set ══
+   *   Driven through the real input path (keys), never rAF, at 1/60:
+   *
+   *     cruise, hands off      alt 0.4 → 8.99   2.0 → 8.60   4.5 → 7.97   7.0 → 7.28   8.9 → 6.71
+   *     full climb held        settles 4.80 at the ceiling  (was 9.00 — the free perch, now gone)
+   *     full dive held         peaks 15.0, then 9.00 pinned on the deck
+   *     boost, fresh gauge     9.6 → 21.6 in 1.3 s, held ~1 s, then ~15 sustained as the gauge
+   *                            oscillates at its 0.02 floor (drain 0.5/s vs refill 0.28/s ⇒ 36%
+   *                            duty ⇒ effective thrust 20.9 ⇒ √(20.9/0.0925) = 15.0. That is the
+   *                            arithmetic, not a coincidence, and it is why "22" is a BURST figure)
+   *     airbrake               2.08
+   *
+   *     180° turn        time    rate    radius   speed        Δalt
+   *       flat bank      1.283s  2.448   3.53u    8.65→8.65    −1.05     ← sustainable: costs HEIGHT
+   *       bank + pull    0.817s  3.847   1.85u    7.11→6.12    +0.12     ← the hard turn: costs SPEED
+   *       + boost        1.100s  2.856   5.06u   14.44→15.93   +1.23
+   *       + airbrake     1.250s  2.513   1.47u    3.71→2.40    −0.39
+   *       from spd 22    1.500s  2.094   5.85u   12.25→9.35    −1.25     ← fast is wide
+   *       on the DECK    1.217s  2.582   3.08u    7.95→7.11    −0.01     ← cannot sink, so it pays
+   *
+   *   Radius spans 1.47 → 5.85 (4.0×) and that spread IS the dogfight; rate only spans 1.8×.
+   *   Roll: 95% of the commanded bank in ~0.25 s with 5.3% overshoot (was 0.45 s and 1.5%). */
   const FLY = {
     STALL: 2.9,          // below this the wing quits: authority collapses and the nose drops
     VREF: 7.2,           // the speed at which authority reaches 1

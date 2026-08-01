@@ -413,12 +413,16 @@ def foil_material(aspect):
     angle_n.inputs['Detail'].default_value = 2.0
     angle_n.inputs['Roughness'].default_value = 0.45
     nt.links.new(iso.outputs['Vector'], angle_n.inputs['Vector'])
-    # noise 0..1 -> radians, +/- 0.30 rad (~17 degrees) about horizontal
+    # noise 0..1 -> radians, +/- 0.09 rad (~5 degrees) about horizontal
+    # ⚠ NOT WIDER, and the first cut at +/-17 degrees is why the brush had to be found with a
+    #   probe. The plate is 9:1 and only ~116 px tall: a streak tilted 17 degrees climbs 313 px
+    #   across the width, so every "streak" crossed the whole height and the field came out as a
+    #   marbled swirl rather than a grain. A real foil roll wanders a few degrees, not seventeen.
     ang = node(nt, 'ShaderNodeMapRange', (-1320, 420))
     ang.inputs['From Min'].default_value = 0.30
     ang.inputs['From Max'].default_value = 0.70
-    ang.inputs['To Min'].default_value = -0.30
-    ang.inputs['To Max'].default_value = 0.30
+    ang.inputs['To Min'].default_value = -0.09
+    ang.inputs['To Max'].default_value = 0.09
     ang.clamp = True
     nt.links.new(angle_n.outputs['Fac'], ang.inputs['Value'])
 
@@ -427,7 +431,7 @@ def foil_material(aspect):
     nt.links.new(iso.outputs['Vector'], rot.inputs['Vector'])
     nt.links.new(ang.outputs['Result'], rot.inputs['Angle'])
     squash = node(nt, 'ShaderNodeVectorMath', (-940, 260), operation='MULTIPLY')
-    squash.inputs[1].default_value = (0.045, 1.0, 1.0)     # 22x along the brush
+    squash.inputs[1].default_value = (0.038, 1.0, 1.0)     # 26x along the brush
     nt.links.new(rot.outputs['Vector'], squash.inputs[0])
 
     # ⚠ SCALES ARE IN TEXELS, NOT IN TASTE. The plate is 1024 px across `aspect` (~8.93) units,
@@ -437,8 +441,11 @@ def foil_material(aspect):
     #   is kept at 4-5 px.
     brush = node(nt, 'ShaderNodeTexNoise', (-760, 260))
     brush.inputs['Scale'].default_value = 24.0
-    brush.inputs['Detail'].default_value = 6.0
-    brush.inputs['Roughness'].default_value = 0.62
+    # ⚠ Detail 2, not 6. An fBm's octave k has 1/2^k the period, so at Detail 6 the top octaves
+    #   here land at 0.08 px across the grain — far below Nyquist, where they bake as isotropic
+    #   white noise that both hides the grain and dominates any measurement of it.
+    brush.inputs['Detail'].default_value = 2.0
+    brush.inputs['Roughness'].default_value = 0.55
     nt.links.new(squash.outputs['Vector'], brush.inputs['Vector'])
 
     # pressed cells — the stamp's own dimpling, under the brush

@@ -230,11 +230,19 @@
     /* painted cumulus: a banded fBm keyed on the direction, densest a little above the horizon and
      * fading out at the zenith. Lit from the sun side, blue-grey underneath — the same read a
      * billboard puff gives, for none of the fill rate. */
-    if (dy > -0.10 && dy < 0.72) {
+    /* ⚠ THE CLOUDSCAPE WAS BARELY IN THE PICTURE. The chase camera is pitched ~3° DOWN and the
+     * band was cut off at dy 0.72 with a soft ramp, so an in-race capture showed an empty grey-blue
+     * wash above the track — on a game called CLOUD RACER, whose own brief says the sky is the art.
+     * The band now runs to the zenith and starts BELOW the horizon (you are flying, so there is
+     * weather under you as well), and the alpha threshold is lower and harder so a cloud reads as
+     * an edged object rather than as haze. ⚑ Checked against the constraint GfxPost's `sky` preset
+     * exists for — "high threshold, or the already-white cloudscape blooms into a flat wash":
+     * `_clip()` on the same in-race frame stays under 0.05% clipped. More cloud, not more white. */
+    if (dy > -0.30 && dy < 0.95) {
       const sc = 2.7, px = dx / (Math.abs(dy) + 0.30), pz = dz / (Math.abs(dy) + 0.30);
       let n = vnoise(px * sc, dy * 5.2, pz * sc) * 0.68 + vnoise(px * sc * 2.4, dy * 9.4, pz * sc * 2.4) * 0.32;
-      const band = Math.min(1, Math.max(0, (dy + 0.06) / 0.16)) * Math.min(1, Math.max(0, (0.72 - dy) / 0.34));
-      const a = Math.max(0, Math.min(1, (n - 0.50) * 4.2)) * band;
+      const band = Math.min(1, Math.max(0, (dy + 0.28) / 0.20)) * Math.min(1, Math.max(0, (0.95 - dy) / 0.42));
+      const a = Math.max(0, Math.min(1, (n - 0.455) * 5.4)) * band;
       if (a > 0) {
         const lit = 0.5 + 0.5 * Math.max(0, dx * SUN[0] + dz * SUN[2]);
         const cc = [0.99 * lit + 0.72 * (1 - lit), 0.99 * lit + 0.78 * (1 - lit), 1.0 * lit + 0.90 * (1 - lit)];
@@ -773,6 +781,10 @@
     app.root.addChild(cloudRoot);
   }
   let puffs = [], wisps = [];
+  // near = threaded through the ribbon and passes THROUGH the camera; far = frames the circuit
+  const newWisp = (R, s, near) => near
+    ? { s, l: (R() * 2 - 1) * 13, h: (R() * 2 - 1) * 5.5, r: 3.4 + R() * 5.0, a: 0.42 + R() * 0.30, near: 1 }
+    : { s, l: (R() * 2 - 1) * 46, h: (R() * 2 - 1) * 18, r: 5.0 + R() * 9.0, a: 0.52 + R() * 0.34, near: 0 };
   const WANT_CLOUDS = onq('clouds', true), WANT_FURN = onq('furn', true);
   function seedClouds(track) {
     puffs = []; wisps = [];
@@ -798,7 +810,12 @@
           r: 5 + R() * 5.5, tint: 0.36 + R() * 0.14, a: 0.92, storm: 1 });
       }
     }
-    for (let i = 0; i < QC.wisps; i++) wisps.push({ s: R() * track.len, l: (R() * 2 - 1) * 42, h: (R() * 2 - 1) * 16, r: 2.2 + R() * 4.5, a: 0.5 + R() * 0.4 });
+    /* ⚑ THE WISPS ARE THE ONLY CLOUD THE EYE CAN USE, so they are bigger and they are ON the
+     * racing line rather than 42 units off to the side. Half of them are seeded inside ±13 u of
+     * the centre, i.e. inside the ribbon, so they genuinely fly THROUGH the camera — which is the
+     * single strongest speed cue available and the reason this game is called CLOUD RACER. The
+     * other half stay wide, so the track is threaded through weather rather than buried in it. */
+    for (let i = 0; i < QC.wisps; i++) wisps.push(newWisp(R, R() * track.len, i % 2 === 0));
   }
   const _R = new pc.Vec3(), _U = new pc.Vec3();
   function writeClouds(camPos, meS) {
@@ -817,7 +834,8 @@
      * passed you and 40 u/s read as a hover. */
     if (T) for (const w of wisps) {
       let rel = w.s - meS; rel = ((rel % T.len) + T.len) % T.len;
-      if (rel > 190) { w.s = meS + 175 + Math.random() * 30; w.l = (Math.random() * 2 - 1) * 42; w.h = (Math.random() * 2 - 1) * 16; continue; }
+      if (rel > 190) { const R2 = Math.random; const n2 = newWisp(R2, meS + 172 + R2() * 34, w.near);
+        w.s = n2.s; w.l = n2.l; w.h = n2.h; w.r = n2.r; w.a = n2.a; continue; }
       const f = CR.frameAt(T, w.s);
       const x = f.p[0] + f.right[0] * w.l + f.up[0] * w.h, y = f.p[1] + f.right[1] * w.l + f.up[1] * w.h, z = f.p[2] + f.right[2] * w.l + f.up[2] * w.h;
       const dx = x - camPos[0], dy = y - camPos[1], dz = z - camPos[2];
@@ -911,6 +929,18 @@
   }
 
   // ══ THE RACE ════════════════════════════════════════════════════════════════════════════════
+  /* ⚠ REDUCED MOTION, AND IT CANNOT MEAN "TURN THE MOTION OFF" — the game IS the motion. Same
+   * reading CLAUDE.md records for the background plate ("still lit, not switched off"): what goes
+   * is the motion that is not the subject moving — camera shake, the fov pumping, the speed
+   * streaks. What stays is the pod going down the road, because removing that removes the game.
+   * Re-read live, so toggling the OS setting mid-session is honoured. */
+  const RM = (() => { try { return matchMedia('(prefers-reduced-motion: reduce)'); } catch (e) { return null; } })();
+  const calm = () => !!(RM && RM.matches);
+  /* ⚠ And PAUSE ON HIDDEN. rAF usually stops on a hidden tab anyway, but "usually" is not a
+   * guarantee across browsers, and a wagered race that keeps running while the tab is in the
+   * background is a race the player loses without watching it. */
+  let hiddenPause = false;
+  document.addEventListener('visibilitychange', () => { hiddenPause = document.hidden; lastT = 0; });
   let G = null, HOLD = onq('hold', false), realRace = false;
   const keys = {}, touch = { steer: 0, boost: false, brake: false };
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
@@ -947,7 +977,7 @@
      * player is supposed to feel it. Coming closer to the deck while the fov opens does the
      * opposite — the track fills more of the screen and the edges move faster. */
     const back = 6.6 - clamp(spd - 1, 0, 0.5) * 1.6, lift = 2.35;
-    const shake = me.slide * 0.10 + (me.bump > 0 ? me.bump * 0.16 : 0);
+    const shake = calm() ? 0 : me.slide * 0.10 + (me.bump > 0 ? me.bump * 0.16 : 0);
     const jx = shake ? (Math.random() * 2 - 1) * shake : 0, jy = shake ? (Math.random() * 2 - 1) * shake : 0;
     const px = P.p[0] - P.fwd[0] * back + P.up[0] * lift + P.right[0] * jx + P.up[0] * jy;
     const py = P.p[1] - P.fwd[1] * back + P.up[1] * lift + P.right[1] * jx + P.up[1] * jy;
@@ -962,9 +992,9 @@
     /* ⚑ FOV IS MEASURED AGAINST THE PACE, NOT AGAINST A CONSTANT. `spd` is speed over THIS TIER's
      * cruise, so the widening fires when you are going fast FOR NOW rather than firing permanently
      * from tier 2 onward — which is what a fixed reference would do once cruise had climbed 44%. */
-    cam.camera.fov = (FOV * (1 + clamp(spd - 0.85, 0, 0.6) * 0.30)) * 180 / Math.PI;
+    cam.camera.fov = (FOV * (1 + (calm() ? 0 : clamp(spd - 0.85, 0, 0.6) * 0.30))) * 180 / Math.PI;
     // speed streaks: only above cruise, and hard above it
-    const st = clamp((spd - 1.0) * 2.4, 0, 1) * (me.boosting ? 1.0 : 0.62);
+    const st = calm() ? 0 : clamp((spd - 1.0) * 2.4, 0, 1) * (me.boosting ? 1.0 : 0.62);
     streaks(st, spd, dt || 1 / 60);
     return P;
   }
@@ -995,7 +1025,7 @@
     const now = performance.now();
     if (lastT) { const ms = now - lastT; ftWin.push(ms); if (ftWin.length > 240) ftWin.shift(); adapt(ms, now); }
     lastT = now;
-    if (!G || G.over) return;
+    if (!G || G.over || hiddenPause) return;
     const dt = Math.min(0.05, dtRaw);
     if (!HOLD) CR.step(G, dt, readInput());
     syncPods();

@@ -40,6 +40,33 @@
     oni:      { name: 'ONI',        face: 'oni',   col: '#df463b', tint: '#ff6b57', hp: 120, spd: 0.92, pow: 1.40, reach: 1.22, weapon: 'nodachi', weaponArt: 'club',   build: { legLen: 1.04 },        meter: 0.96, shuri: 0, blurb: 'horned demon · spiked club', unlock: o => ({ ok: o.rank >= 3, need: 'a MYTHIC+ card' }) },
     kunoichi: { name: 'KUNOICHI',   face: 'kuno',  col: '#ff4fa3', tint: '#ff2ad9', hp: 92,  spd: 1.16, pow: 0.96, reach: 1.04, weapon: 'tanto',   weaponArt: 'sickle', build: { legLen: 1.08 },        meter: 1.12, shuri: 3, blurb: 'scarfed · chain-sickle', unlock: o => ({ ok: o.has('WHALE SONG'), need: 'a WHALE SONG card' }) },
     prizm:    { name: 'PRIZMANCER', face: 'prizm', col: '#b47bff', tint: '#e6c8ff', hp: 110, spd: 1.12, pow: 1.15, reach: 1.06, weapon: 'katana',  weaponArt: 'light',  build: {},                    meter: 1.42, shuri: 1, blurb: 'crystalline · light blade', unlock: o => ({ ok: o.rank >= 4, need: 'a PRIZM card' }) },
+
+    /* ── THE GENERATED ROSTER (task #85) ────────────────────────────────────────────────────
+     * Seven procedurally-built bodies, 1.25 MB for all of them — less than two imported ones.
+     * ⚑ ADDING A KEY HERE IS WHAT FIELDS A FIGHTER: `ARCH_KEYS.forEach` below loads
+     *   `models/<key>.skn`, so the key MUST equal the filename. They were loading correctly and
+     *   simply had no entry, which is why they were built but never playable.
+     *
+     * ⚑ NAMES ARE THE STUDIO'S, and they are the casino read the whole project runs on —
+     *   LONG ODDS · HOUSE EDGE · BAD BEAT · PRIZE MASCOT. CC0 waives copyright and never
+     *   trademark, so a body may be INFORMED by a source and never NAMED after one. Provenance
+     *   per body is in models/cc0/README.md against its docs/CC0-SOURCES.md row.
+     *
+     * ⚠ BALANCE IS A FIRST PASS AND IS MEANT TO BE TUNED. The six originals span hp 88–128,
+     *   spd 0.82–1.30, pow 0.82–1.40, reach 0.90–1.22, meter 0.86–1.42. These seven are placed
+     *   to FILL GAPS rather than duplicate: each trades one axis hard against another, and none
+     *   is strictly better than an original. Numbers, not vibes, so they can be argued with.
+     *
+     * ⚑ PRIZE MASCOT IS THE HOUSE CHARACTER AND UNLOCKS FREE. It comes from the artist's own
+     *   Fake Rares practice, not from third-party CC0 — so it leads the roster and asks nothing
+     *   of the player, the way a mascot should. Everything else is earned. */
+    'rip-mascot': { name: 'PRIZE MASCOT', face: 'ronin', col: '#ffd23b', tint: '#ffe98a', hp: 104, spd: 1.08, pow: 1.06, reach: 0.96, weapon: 'katana', weaponArt: 'katana', build: { legLen: 0.94 }, meter: 1.30, shuri: 0, blurb: 'rubber-hose · big mitts', unlock: () => ({ ok: true }) },
+    'cc0-mosh':   { name: 'BAD SIGNAL',   face: 'prizm', col: '#ff2ad9', tint: '#ff8ae0', hp: 84,  spd: 1.34, pow: 0.88, reach: 0.94, weapon: 'tanto',  weaponArt: 'light',  build: { legLen: 1.06 }, meter: 1.46, shuri: 2, blurb: 'sliced · fastest, thinnest',  unlock: o => ({ ok: o.rank >= 3, need: 'a MYTHIC+ card' }) },
+    'cc0-cel':    { name: 'HEAVY LINE',   face: 'oni',   col: '#2bff80', tint: '#7fffb8', hp: 132, spd: 0.86, pow: 1.22, reach: 0.88, weapon: 'tanto',  weaponArt: 'club',   build: { legLen: 0.74 }, meter: 0.92, shuri: 0, blurb: 'smol · keylined · immovable', unlock: o => ({ ok: o.count >= 3, need: 'own 3 cards' }) },
+    'cc0-grid':   { name: 'GRIDLOCK',     face: 'wojak', col: '#27f7e4', tint: '#8ff6ee', hp: 118, spd: 0.80, pow: 1.36, reach: 1.26, weapon: 'nodachi', weaponArt: 'nodachi', build: {},              meter: 0.88, shuri: 0, blurb: 'lattice · longest reach',   unlock: o => ({ ok: o.has('GAS STORM'), need: 'a GAS STORM card' }) },
+    'cc0-lank':   { name: 'LONG ODDS',    face: 'ronin', col: '#9fd8b8', tint: '#c8f0dc', hp: 82,  spd: 1.22, pow: 0.90, reach: 1.30, weapon: 'nodachi', weaponArt: 'sickle', build: { legLen: 1.16 }, meter: 1.24, shuri: 1, blurb: 'all limb · glass reach',    unlock: o => ({ ok: o.count >= 1, need: 'own any card' }) },
+    'cc0-squat':  { name: 'HOUSE EDGE',   face: 'oni',   col: '#ff6b57', tint: '#ffa08f', hp: 136, spd: 0.84, pow: 1.30, reach: 0.86, weapon: 'tanto',  weaponArt: 'club',   build: { legLen: 0.76 }, meter: 0.84, shuri: 0, blurb: 'low · heavy · always wins',  unlock: o => ({ ok: o.rank >= 4, need: 'a PRIZM card' }) },
+    'cc0-lump':   { name: 'BAD BEAT',     face: 'wojak', col: '#b47bff', tint: '#d9bcff', hp: 112, spd: 1.00, pow: 1.00, reach: 1.00, weapon: 'katana', weaponArt: 'katana', build: {},               meter: 1.38, shuri: 1, blurb: 'even everywhere · big meter', unlock: o => ({ ok: o.has('RUG WIND'), need: 'a RUG WIND card' }) },
   };
   const ARCH_KEYS = Object.keys(ARCH);
   function ownSummary() { const cards = ownedSlugs().map(s => bySlug.get(s)).filter(Boolean); let rank = 0; const tr = new Set();

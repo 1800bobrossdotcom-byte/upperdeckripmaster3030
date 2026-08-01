@@ -20,18 +20,54 @@
  *    "hold W for 73 seconds", and one dominant strategy with no cost is not a decision.
  *    Everything below exists to give the player something to be good at.
  *
- *    Same battery, same 6-pilot 3-lap race, run against THIS file (5 seeds averaged):
+ * ⛔ THE FIRST REBUILD'S OWN HEADLINE NUMBER DID NOT REPRODUCE, AND THAT MATTERS MORE THAN THE
+ *    NUMBER. It claimed "driving is worth 3.56 s (7.0%) over holding the boost key", measured
+ *    against a baseline called "hold boost, never steer". Re-run on the shipped constants with a
+ *    baseline that holds boost AND steers the racing line — which is what an actual naive player
+ *    does — the sign flips: 45.46 s for hold-boost-and-steer against 46.59 s for a policy that
+ *    also braked on lookahead. **The airbrake was a control that could only cost you time**, which
+ *    is precisely the failure the file's own GRIP sweep says it was avoiding. Two causes, both
+ *    structural, both fixed below:
+ *      1 the brake LOOKAHEAD was the wrong formula — see `brakePoint()`
+ *      2 over-grip cost only cos(slip) and a scrub, both INSTANTANEOUS, so ploughing bought back
+ *        everything it lost the moment the corner ended — see `lost`
  *
- *      policy                          finish   place   best lap   boost used   field spread
- *      do nothing                      56.96 s   6.0     18.18 s      0.0 s        7.1 s
- *      hold boost, never steer         51.15 s   2.6     15.45 s     16.9 s        5.5 s
- *      racing line, no boost           54.25 s   5.0     17.36 s      0.0 s        5.0 s
- *      line + brake + boost on tap     47.59 s   1.0     15.01 s     31.2 s        4.3 s
- *      hard-left into the barrier      58.75 s   6.0     18.53 s                   9.0 s
+ *    Battery re-run on THIS file, 6 pilots, 3 laps, 5 seeds, each row adding ONE control to the
+ *    row above it — so the value of a decision is the gap between two adjacent rows:
  *
- *    Driving is now worth 3.56 s (7.0%) over holding the boost key, 9.36 s (16.4%) over doing
- *    nothing, and it is the difference between finishing 1st and finishing 3rd. Leaning on the
- *    barrier costs 11.2 s instead of deleting the race. Lap is 19.4 s at cruise, 15.0 s driven.
+ *      policy                          finish   place   best lap   boost used   this verb is worth
+ *      A hold boost, no steering       39.86 s   2.8     11.64 s     13.8 s        —
+ *      B  + the racing line            39.15 s   2.6     11.63 s     12.5 s      0.71 s
+ *      C  + take the light-strips      38.19 s   1.2     11.26 s     15.1 s      0.96 s   ← biggest
+ *      D  + dodge the storm cells      38.33 s   1.4     11.36 s     15.2 s     −0.14 s
+ *      E  + brake for the corners      38.04 s   1.0     11.22 s     22.2 s      0.29 s
+ *      ─ do nothing at all             43.06 s   5.8     12.38 s      0.0 s
+ *      ─ hard-left into the barrier    49.15 s   6.0     12.94 s      4.7 s
+ *
+ *    Read it honestly. The dominant decision is the boost ECONOMY — where you refuel and where you
+ *    spend — and the light-strips are the single most valuable thing on the track. Driving properly
+ *    is worth 1.82 s (4.6%) over the naive hold-boost line and, more to the point, it is the
+ *    difference between averaging 2.8th and winning, which is what the wager pays on. Doing
+ *    nothing costs 13.2%; leaning on the barrier costs 29.2%.
+ *    ⚠ TWO THINGS THIS TABLE SAYS THAT ARE NOT FLATTERING, and they should stay written down:
+ *      · each individual verb is worth under a second in a ~38 s race. This game is decided by
+ *        fuel management, not by cornering, and any future tuning should start from that fact.
+ *      · D is NEGATIVE. Steering round a storm cell currently costs about as much line as the
+ *        cell costs speed, so "dodge the weather" is not yet a real decision — it is a wash. It
+ *        is left in because the tier ladder tightens the cells every lap (0.84 → 0.66) and the
+ *        row should be re-measured at tier 3 rather than deleted on a tier-1 number.
+ *
+ * ══ THIRD IDEA, AND IT WAS SIMPLY MISSING: THE RACE ESCALATES. Nothing in the old rules read
+ *    `r.lap` for anything but standings, so lap 3 was byte-identical to lap 1. Every completed lap
+ *    now opens a TIER: the whole field goes 13% faster and grip rises more slowly than pace, so
+ *    the road narrows as the speed climbs. Measured in the browser on a real 3-lap race, from the
+ *    shipping code: **16.27 s → 12.33 s → 11.32 s**, a 30% drop across one race.
+ *
+ *      tier   cruise   boost   lap@cruise   braking zones   % of lap under cruise   storm ×
+ *        1      76      108      16.3 s           5                 12%              0.84
+ *        2      86      122      14.4 s           5                 14%              0.78
+ *        3      97      138      12.8 s           5                 15%              0.72
+ *        4     110      156      11.3 s           6                 19%              0.66
  *
  * ══ THE ONE IDEA: LATERAL POSITION IS PROGRESS, AND IT IS REAL GEOMETRY, NOT A FUDGE.
  *    For a centre-line c(s) with unit tangent T and right-vector R, the offset path p = c + lx·R
@@ -47,8 +83,14 @@
  * ══ SECOND IDEA: BOOST IS EARNED, NOT REGENERATED. The old bar refilled by itself at 0.22/s and
  *    drained at 0.34/s whatever you did, so the optimal play was "hold the key, always" and there
  *    was nothing to think about. Here nothing refills it except things you had to DO: hit a strip,
- *    tuck into someone's wake, or carry a corner near the grip limit. Spending it is then a real
+ *    tuck into someone's wake, carry a corner right on the limit, or GRAZE — hold the barrier or
+ *    thread a rival close enough to trade paint without trading it. Spending it is then a real
  *    choice, because the bar is a record of driving rather than a clock.
+ *    ⚠ AND IT HAD TO BE MADE SCARCE. Measured on the first rebuild: a policy that simply held the
+ *    key boosted for 62% of the race and the bar never emptied, because the earn rate exceeded
+ *    0.45/s of spend. An unlimited resource is not a resource and it cannot carry a decision.
+ *    Spend is 0.62/s now and the trickle is 0.010; measured duty cycle is 35–55%, so roughly half
+ *    the lap can be boosted and WHICH half is the game.
  */
 (function (root) {
   'use strict';
@@ -530,7 +572,10 @@
 
     for (const r of G.racers) {
       const P = paceFor(r);                       // ← every constant below is TIER-SCALED
-      r.tier = P.tier;
+      // ⚠ a finished racer keeps the tier it raced. Assigning before this guard bumped the player
+      //   to tier 4 the frame after they crossed the line, and the HUD then reported a tier that
+      //   never existed in a 3-lap heat.
+      if (!r.done) r.tier = P.tier;
       if (r.done) { r.v = Math.max(0, r.v - P.LIFT * 0.5 * dt); r.s += r.v * dt; r.bob += dt * 4; continue; }
       const ctl = go ? (r.isMe ? (input || { steer: 0, boost: false, brake: false }) : botInput(G, r))
                      : { steer: 0, boost: false, brake: false };
@@ -667,7 +712,9 @@
           //   see coming — a race that silently got 13% faster reads as "the controls got worse".
           if (nt > r.tier && r.lap < G.laps) G.events.push({ t: G.t, kind: 'tier', tier: nt });
         }
-        r.tier = nt;
+        // ⚠ do NOT advance the tier on the lap that finishes the race — the HUD would light a tier
+        //   the player never actually raced, which is a scoreboard telling a small lie.
+        if (r.lap < G.laps) r.tier = nt;
         if (r.lap >= G.laps && !r.done) { r.done = true; r.finishT = G.t; if (r.isMe) G.events.push({ t: G.t, kind: 'finish' }); }
       }
     }
