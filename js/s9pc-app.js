@@ -849,16 +849,85 @@
     hip:    [0.225, -0.200, -0.62],
     ads:    [0.000, -0.078, -0.62],   // x=0 puts the sights on the reticle; z unchanged, never nearer
     scale:  0.76,
-    fovMul: 1.22,                     // gentle iron-sight magnification
+    /* ⚑ 1.22× WAS TOO LITTLE TO READ AS AIMING. Compared side by side against the reference the
+     * complaint was exact — "still not a good zoom into the iron sights". 1.55× takes the vertical
+     * FOV 55.6° → 35.9°, which is the range a real aperture sight subtends and enough that the
+     * target visibly grows rather than the gun merely sliding to the middle. */
+    fovMul: 1.55,
     ease:   16,                       // per second, so ADS is a movement rather than a snap
   };
-  let adsT = 0, vmLast = 0;
+  let adsT = 0, vmLast = 0, SIGHTS = null;
+  const _vmP = new pc.Vec3(), _vmQ = new pc.Quat(), _vmI = new pc.Quat(), _vmID = new pc.Quat();
+
+  /* ── TRUE IRON SIGHTS ──────────────────────────────────────────────────────────────────────
+   * ⚑ THE ADS OFFSET WAS A GUESSED NUMBER AND THAT IS WHY IT NEVER LOOKED RIGHT. Hand-tuning
+   * "move the gun up a bit and left a bit" can put the sight NEAR the reticle, which is what the
+   * old version did — but aiming down irons is not a weapon POSITION, it is a LINE: the rear
+   * notch, the front post and your eye have to be collinear, and the barrel points where that
+   * line points. Get it approximately right and the player sees a rifle slab with a dark blob
+   * roughly near the crosshair, which is exactly the complaint.
+   *
+   * So find the sights in the actual mesh instead of guessing. In holder space the weapon is
+   * normalised to 0.86 m with the muzzle at −z, so the front post is the highest vertex near the
+   * centreline in the front half and the rear notch is the highest near the centreline in the
+   * back half. From those two points the alignment is fully determined:
+   *     rotation  Q : rotates (front − rear) onto the camera's own −z
+   *     position  P : (0, 0, −EYE) − Q·rear      → puts the rear notch dead centre, EYE in front
+   * Both sights then project to screen centre by construction, and `?sights=1` prints their
+   * measured screen positions so that claim is checkable rather than asserted.
+   *
+   * Falls back to the old hand-tuned offset if the mesh cannot be read or the two points come out
+   * degenerate — a weapon with no iron sights modelled (or a future GLB with a scope rail) must
+   * not end up aiming at the floor. */
+  const EYE = 0.185;                                 // rear notch this far in front of the eye
+  function findSights(holder) {
+    try {
+      const inv = holder.getWorldTransform().clone().invert();
+      const v = new pc.Vec3();
+      let R = null, F = null;
+      holder.findComponents('render').forEach(r => r.meshInstances.forEach(mi => {
+        for (let n = mi.node; n; n = n.parent) if (/^arm/.test(n.name || '')) return;  // gun only
+        const pos = [];
+        if (!mi.mesh || !mi.mesh.getPositions(pos) || !pos.length) return;
+        const wt = mi.node.getWorldTransform();
+        for (let i = 0; i < pos.length; i += 3) {
+          v.set(pos[i], pos[i + 1], pos[i + 2]);
+          wt.transformPoint(v, v); inv.transformPoint(v, v);
+          if (Math.abs(v.x) > 0.022) continue;                 // stay on the centreline
+          if (v.z > 0.02 && v.z < 0.32) { if (!R || v.y > R.y) R = v.clone(); }
+          else if (v.z < -0.06 && v.z > -0.40) { if (!F || v.y > F.y) F = v.clone(); }
+        }
+      }));
+      if (!R || !F) return null;
+      const d = new pc.Vec3().sub2(F, R);
+      if (d.length() < 0.05) return null;                      // degenerate: sights on top of each other
+      d.normalize();
+      const target = new pc.Vec3(0, 0, -1);
+      const axis = new pc.Vec3().cross(d, target);
+      const q = new pc.Quat();
+      if (axis.length() < 1e-6) q.set(0, 0, 0, 1);
+      else q.setFromAxisAngle(axis.normalize(), Math.acos(Math.max(-1, Math.min(1, d.dot(target)))) * 180 / Math.PI);
+      /* ⚠ SCALE. R and F are measured in HOLDER-LOCAL space, which is unscaled — but the holder
+       * itself carries VM.scale, and `pos` is expressed in the PARENT's (the camera's) space. So
+       * the rotated rear-sight offset has to be scaled before it is cancelled out. Leaving it out
+       * put both sights below the reticle by exactly the scale shortfall: measured 125 px low at
+       * the rear and 53 px at the front, a 2.4× ratio that matches the two depths (0.185 m vs
+       * 0.50 m) and is therefore a pure TRANSLATION error — a rotation error would not scale with
+       * distance like that. That ratio is what identified it; the horizontal was already correct
+       * to 4 px, which ruled out the rotation entirely. */
+      const rr = R.clone(); q.transformVector(rr, rr); rr.mulScalar(VM.scale);
+      return { pos: new pc.Vec3(-rr.x, -rr.y, -EYE - rr.z), rot: q, rear: R.clone(), front: F.clone() };
+    } catch (e) { console.warn('[s9pc] sights:', e && e.message); return null; }
+  }
 
   function makeViewmodel() {
     viewmodel = weaponEntity();
     makeHands(viewmodel);
     viewmodel.setLocalScale(VM.scale, VM.scale, VM.scale);
     cam.addChild(viewmodel);
+    SIGHTS = findSights(viewmodel);
+    window.__s9sights = SIGHTS;                      // ?sights=1 / headless alignment check
+    if (!SIGHTS) console.warn('[s9pc] no iron sights found — falling back to the hand-tuned ADS offset');
     /* ⚠ PlayCanvas cameras look down their own −z, so a viewmodel at +z is BEHIND you — and a
      * 0.86 m rifle parked behind the near plane fills two thirds of the frame with one grey
      * polygon. Same family of mistake as the dogfight camera's missing +π/2.
@@ -1174,12 +1243,20 @@
         const bob = me.moving && me.onGround ? Math.sin(me.bob) : 0;
         const t = adsT, s = 1 - t;                    // bob and sway fade out as the sights come up
         const kick = me.recoil * 0.06;
-        const P = VM.hip, A = VM.ads;
-        viewmodel.setLocalPosition(
-          P[0] + (A[0] - P[0]) * t + bob * 0.006 * s,
-          P[1] + (A[1] - P[1]) * t + Math.abs(bob) * 0.004 * s - kick * 0.35,
-          P[2] + (A[2] - P[2]) * t + kick);
-        viewmodel.setLocalEulerAngles(-me.recoil * 5.0, 0, 0);
+        const P = VM.hip;
+        /* Interpolate toward the MEASURED sight pose when we have one, so at t = 1 the rear notch
+         * and front post are both on the camera's −z axis and the player is looking THROUGH the
+         * irons rather than past them. Rotation has to come along: the sight line is not parallel
+         * to the model's own axis, so position alone leaves the gun canted. */
+        const A = SIGHTS ? SIGHTS.pos : { x: VM.ads[0], y: VM.ads[1], z: VM.ads[2] };
+        _vmP.set(
+          P[0] + (A.x - P[0]) * t + bob * 0.006 * s,
+          P[1] + (A.y - P[1]) * t + Math.abs(bob) * 0.004 * s - kick * 0.35,
+          P[2] + (A.z - P[2]) * t + kick);
+        viewmodel.setLocalPosition(_vmP);
+        _vmI.setFromEulerAngles(-me.recoil * 5.0, 0, 0);   // recoil, applied on top of either pose
+        if (SIGHTS) { _vmQ.slerp(_vmID, SIGHTS.rot, t).mul(_vmI); viewmodel.setLocalRotation(_vmQ); }
+        else viewmodel.setLocalRotation(_vmI);
       }
     }
   }
