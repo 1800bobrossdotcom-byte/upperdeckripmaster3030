@@ -16,6 +16,7 @@
 #            received, arranged as furniture.
 #   ROOFTOP  where the duel actually happens. Water tower, billboard, catwalk, a skyline you
 #            can land on rather than one painted behind you.
+#   LIDO     the sunny one, and the first level MODELLED rather than blocked out. See below.
 #
 # Every level is built for VERTICALITY, because RoninWorld's leap and boost only read as
 # movement if there is something above you worth reaching. Each has a climb, a high walkway,
@@ -23,6 +24,16 @@
 #
 # Authored in metres (Z-up); the exporter converts to Y-up. Bake with --scale set to the
 # level's footprint so one world unit stays one metre.
+#
+# ⚠ …EXCEPT THAT THE FIRST THREE ARE NOT 1:1, and it is worth knowing before you copy their
+#   numbers. `FOOTPRINT` is the baked world size, and bake-world.mjs scales the geometry so its
+#   longest horizontal axis lands on it. ARCADE is authored 56.7 m wide and baked to 120, i.e.
+#   ×2.12 — so its 1.95 m arcade cabinets come out 4.6 m tall and its 0.44 m stair risers come
+#   out 0.93 m, which is ABOVE Section 9's 0.62 m step height (js/s9pc-game.js `STEP`). Measured
+#   from arcade.cols.json, not inferred. LIDO is authored 1:1 on purpose (FOOTPRINT = its real
+#   54 m x-extent) because it is a rebuild of an arena that already exists at player scale in
+#   js/s9pc-game.js, and because every gameplay number in this repo — step 0.62, jump apex 1.37,
+#   eye 1.52 — is in metres.
 
 import sys
 import os
@@ -31,11 +42,12 @@ import math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kit import (reset, Part, solid, post, stairs, railing, arcade_cabinet, claw_machine,
                  plinth, crate, rng, spawn, export_obj)                             # noqa: E402
+import kit_arch as ka                                                               # noqa: E402
 
-# Footprints are the baked world size in metres. Deliberately large: these are traversal
-# levels for an FPS now, not a duel stage, and the first pass read as cramped once you could
-# actually run through them.
-FOOTPRINT = {'arcade': 120.0, 'vault': 105.0, 'rooftop': 165.0}
+# Footprints are the baked world size in metres. Deliberately large for the first three: these
+# are traversal levels for an FPS now, not a duel stage, and the first pass read as cramped once
+# you could actually run through them. `lido` is the exception — see the note above.
+FOOTPRINT = {'arcade': 120.0, 'vault': 105.0, 'rooftop': 165.0, 'lido': 54.0}
 
 
 # ══ ARCADE ══════════════════════════════════════════════════════════════════════════════════

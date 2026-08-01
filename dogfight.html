@@ -1364,6 +1364,18 @@
     $('hPot').textContent=(wager.ante*wager.players).toLocaleString('en-US')+' $UR3030 + '+(wager.cards*wager.players)+' cards';
   }
 
+  /* ── dev / headless peephole ───────────────────────────────────────────────────────────────
+   * The whole game is one IIFE, so from the outside there was NO way to read a single number
+   * out of it — every check had to be made from a screenshot, which CLAUDE.md already records
+   * as untrustworthy for colour in this container. That is why "buggy" stayed unspecific for so
+   * long: nobody could measure it. `step(dt)` is exposed too, because headless rAF stalls between
+   * input events (CLAUDE.md) — driving the simulation directly is the only way to derive a flight
+   * equilibrium without a keypress accidentally waking a burst of real frames.
+   * Read-only in spirit: nothing in the game reads __df. */
+  window.__df = { G, cam, world, keys, step, frame:()=>frame(performance.now()),
+    K:{ WS, CAM_BACK, CAM_H, NEAR, ALT_MIN, ALT_MAX, VIEW_FAR, BOLTSPD, CLOUD_ALT, CLOUD_THICK },
+    gl:()=>glReady, renderer:()=>(glReady?'dfgl':(GPU?'gfx2d':'canvas2d')) };
+
   let last=performance.now();
   function frame(now){ const dt=Math.min(0.05,(now-last)/1000); last=now; if(G.mode==='play')step(dt);
     if(G.mode!=='lobby'){

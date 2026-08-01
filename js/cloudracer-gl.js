@@ -194,7 +194,13 @@ window.CRGL = (function () {
   }
 
   function init(canvas) {
-    try { gl = canvas.getContext('webgl', { antialias: true, alpha: false }) || canvas.getContext('experimental-webgl'); } catch (e) { gl = null; }
+    /* ?grab=1 keeps the drawing buffer so a headless run can readPixels the REAL pixels.
+     * CLAUDE.md: this container's screenshot path rotates hue on canvas content, so colour has to
+     * be judged from a readback — and a WebGL canvas without preserveDrawingBuffer reads back all
+     * zeros, which is how a perfectly good frame once reported meanLuma 0. Opt-in, because keeping
+     * the buffer costs a copy every frame; same flag section9.html uses, for the same reason. */
+    const grab = /[?&]grab=1/.test(location.search);
+    try { gl = canvas.getContext('webgl', { antialias: true, alpha: false, preserveDrawingBuffer: grab }) || canvas.getContext('experimental-webgl'); } catch (e) { gl = null; }
     if (!gl) return false; cv = canvas;
     W = prog(VS, FS); SKY = prog(SKY_VS, SKY_FS); BB = prog(BB_VS, BB_FS); STK = prog(STK_VS, STK_FS);
     if (!W || !SKY || !BB || !STK) return false;
