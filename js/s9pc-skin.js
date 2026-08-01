@@ -92,18 +92,41 @@ window.S9PCSkin = (function () {
   function material(app, arch, tint) {
     const m = new pc.StandardMaterial();
     m.name = 's9pc-body-' + arch;
-    // one look per archetype, echoing S9Skin's kit assignment (cloth / webbing / hardsuit)
+    /* ⚑ THIS TABLE HAD GONE STALE AGAINST `S9Skin.CAST` AND THAT IS WHY NOBODY SILHOUETTES.
+     * CAST was switched to the three CC0 bodies (cc0-lank / cc0-squat / cc0-lump) and this table
+     * was not, so every operative in the game fell through to the `|| {d:[0.4,0.4,0.4]}` default:
+     * one flat mid-grey, no archetype variation, and — the expensive part — a value almost exactly
+     * matching the daylight arena behind it. Measured separation between a body and its surround
+     * on LIDO DECK was **−4.0 luma at 8 m** and −9.5 at 20 m; on DUST BOWL the sign INVERTED to
+     * +28.5, i.e. bodies read light on one map and dark on another.
+     *
+     * That is not a taste issue, it is the whole legibility mechanism failing. js/s9pc-world.js
+     * says in its own comment that walls were made bright "so a dark operative silhouette reads
+     * against them at any range" — the walls got bright and the operatives never got dark. The
+     * palette work only pays off if there is something dark to put in front of it.
+     *
+     * So: 0.16–0.26 albedo, low metalness, and three genuinely different materials. The arena
+     * sits at 0.60–0.70 albedo, so this is a ~3× value gap by construction rather than by luck.
+     * ⚠ Keep the old three — they are still valid archetypes and a `.skn` for them can be dropped
+     * back in; an entry going missing is exactly what caused this. */
     const K = {
-      oni:   { d: [0.28, 0.30, 0.26], metal: 0.05, gloss: 0.28 },   // cloth fatigues
-      kappa: { d: [0.22, 0.26, 0.24], metal: 0.18, gloss: 0.42 },   // strapped webbing
-      prizm: { d: [0.46, 0.49, 0.55], metal: 0.85, gloss: 0.62 },   // brushed hardsuit
-    }[arch] || { d: [0.4, 0.4, 0.4], metal: 0.1, gloss: 0.4 };
+      'cc0-lank':  { d: [0.19, 0.21, 0.24], metal: 0.06, gloss: 0.30 },  // dark cloth, tall and wiry
+      'cc0-squat': { d: [0.17, 0.16, 0.18], metal: 0.14, gloss: 0.38 },  // heavy webbing, near-black
+      'cc0-lump':  { d: [0.24, 0.22, 0.20], metal: 0.04, gloss: 0.22 },  // soft matte mass, warm-dark
+      oni:   { d: [0.22, 0.24, 0.21], metal: 0.05, gloss: 0.28 },   // cloth fatigues
+      kappa: { d: [0.18, 0.21, 0.20], metal: 0.18, gloss: 0.42 },   // strapped webbing
+      prizm: { d: [0.26, 0.28, 0.32], metal: 0.85, gloss: 0.62 },   // brushed hardsuit
+    }[arch] || { d: [0.20, 0.20, 0.22], metal: 0.10, gloss: 0.35 };   // and a DARK fallback
     /* One look per archetype, then nudged toward the operative's HUD tint. The tint is how you
      * tell two bodies of the same archetype apart at range, and it is the same colour the
-     * nameplate, the death pop and the debris use — so the read is consistent everywhere. */
+     * nameplate, the death pop and the debris use — so the read is consistent everywhere.
+     * ⚠ The tint blend is 0.38 of a FULLY SATURATED HUD colour, which on the old table was enough
+     * to drag a body back up into the arena's value range and undo the darkening. It is now 0.20,
+     * and the tint keeps its job (telling two operatives apart) without costing the silhouette —
+     * hue identifies, value is what makes you findable at all. */
     let d = K.d.slice();
     if (tint) { const t = [tint[0] / 255, tint[1] / 255, tint[2] / 255];
-      d = d.map((v, i) => v * 0.62 + t[i] * 0.38); }
+      d = d.map((v, i) => v * 0.80 + t[i] * 0.20); }
     m.diffuse = new pc.Color(d[0], d[1], d[2]);
     m.useMetalness = true; m.metalness = K.metal; m.gloss = K.gloss;
     m.update();
@@ -232,9 +255,19 @@ window.S9PCSkin = (function () {
     const mats = {};
     const mk = (r, g, b, gloss, metal) => { const m = new pc.StandardMaterial();
       m.diffuse = new pc.Color(r, g, b); m.useMetalness = true; m.metalness = metal; m.gloss = gloss; m.update(); return m; };
-    mats.vest = mk(t[0] / 255 * 0.55, t[1] / 255 * 0.55, t[2] / 255 * 0.55, 0.30, 0.10);
-    mats.kit = mk(0.30, 0.28, 0.21, 0.24, 0.05);
-    mats.skin = mk(0.52, 0.40, 0.31, 0.22, 0.02);
+    /* ⚑ THE BOX RIG IS THE PATH THAT ACTUALLY RENDERS ON A WEAK DEVICE, so its values matter as
+     * much as the skinned one's — and it had the same defect, worse. `skin` was 0.52 albedo: a
+     * bright face against a daylight wall of 0.60–0.70, i.e. the most eye-catching part of the
+     * body was also the part that vanished. Measured separation body-vs-surround was −2.4 luma at
+     * 8 m, which is no silhouette at all.
+     * Darkened across the board, and `skin` hardest — these operatives are masked, and a dark
+     * visor is both the right look for this studio and the thing that makes a head read as a head
+     * at 20 m. The tint keeps its job on the vest (telling operatives apart) at a lower multiplier,
+     * because a fully saturated HUD colour at 0.55 was dragging the body back up into the arena's
+     * own value range. Hue identifies; VALUE is what makes you findable. */
+    mats.vest = mk(t[0] / 255 * 0.20, t[1] / 255 * 0.20, t[2] / 255 * 0.20, 0.26, 0.10);
+    mats.kit = mk(0.10, 0.095, 0.085, 0.20, 0.05);
+    mats.skin = mk(0.13, 0.11, 0.095, 0.18, 0.02);
     if (!BOXGEO) BOXGEO = pc.Mesh.fromGeometry(app.graphicsDevice, new pc.BoxGeometry());
     const bones = [], limbs = [];
     S9Skin.BONES.forEach((n, i) => {
