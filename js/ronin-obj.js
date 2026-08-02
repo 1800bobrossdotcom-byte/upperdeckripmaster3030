@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN Wavefront OBJ part loader (RoninOBJ).
+/* ripmaster3030studios — NEON RONIN Wavefront OBJ part loader (RoninOBJ).
  *
  * The companion to ronin-glb.js for the far more common case: an artist exports OBJ straight out
  * of Blender / ZBrush / Maya. Same contract, same output shape — { meshes:[{name,verts,count,

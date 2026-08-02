@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 / PlayCanvas EVALUATION build: skinned bodies (S9PCSkin).
+/* ripmaster3030studios — Section 9 / PlayCanvas EVALUATION build: skinned bodies (S9PCSkin).
  *
  *
  * Takes the SAME auto-skinned bodies our renderer draws — `models/<arch>.skn`, 32-byte header

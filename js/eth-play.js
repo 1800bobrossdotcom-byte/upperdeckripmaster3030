@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — ETH PLAY (window.RipEth). The arcade coin slot.
+/* ripmaster3030studios — ETH PLAY (window.RipEth). The arcade coin slot.
  *
  *   $1.00 of ETH = 4 flights (25¢ a game), paid on BASE L2 straight to the
  *   hangar wallet — a plain value transfer: no contracts, no custody, no

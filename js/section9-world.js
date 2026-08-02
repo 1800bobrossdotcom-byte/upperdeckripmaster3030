@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 baked-level adapter (S9World).
+/* ripmaster3030studios — Section 9 baked-level adapter (S9World).
  *
  * Section 9's arenas have always been hand-built in buildMaps(): a list of axis-aligned boxes
  * plus hand-written spawn points. `npm run level` bakes Blender-authored levels into exactly

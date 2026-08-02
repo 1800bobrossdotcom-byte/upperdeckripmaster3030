@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN.
+/* ripmaster3030studios — NEON RONIN.
  *
  * A side-scrolling neon ninja brawler. Punch / kick / katana combos, hold to block,
  * grab power-ups, throw shuriken, pop a spin-blade special. A free-for-all of meme

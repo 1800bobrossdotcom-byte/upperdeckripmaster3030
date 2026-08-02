@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 skinned operatives (S9Skin).
+/* ripmaster3030studios — Section 9 skinned operatives (S9Skin).
  *
  * NEON RONIN's fighters are real skinned meshes: `models/<arch>.skn` is an auto-skinned body
  * (32-byte header, then 14 floats per vertex — pos3 + norm3 + boneIdx4 + boneWgt4, stride 56)

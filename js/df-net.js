@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — RipFight (window.RipFight): dogfight PvP netcode.
+/* ripmaster3030studios — RipFight (window.RipFight): dogfight PvP netcode.
  *
  * Real pilots, real craft, one arena. Matchmaking rides the presence roster
  * (/api/presence, seek flag), the WebRTC handshake is carried by the

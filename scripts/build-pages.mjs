@@ -25,20 +25,37 @@ const NAV = [
   { slug: 'audit.html', label: 'Audit' },
 ];
 
+/* ⛔ THE og:image BELOW WAS `marquee-header.webp` UNTIL 2026-08-02, AND THAT BITMAP SPELLS
+ *    "UPPERDECK RIPMASTER 3030" — the retired name, in full, as the share card for all four of
+ *    these pages. Nobody looks at an og:image while working on a site, so it outlived the rename;
+ *    index.html carried the same bug with the other old-name bitmap. It is now cut from the live
+ *    foil wordmark by `npm run mark`, so the share card cannot drift from the masthead again, and
+ *    `npm run test:name` fails if either comes back.
+ * ⚠ THE NOTE LIVES HERE, NOT IN THE TEMPLATE. It was briefly written as an HTML comment inside
+ *   the shell, which (a) shipped a build note about our own naming mistake to four public pages,
+ *   and (b) put BACKTICKS inside a JS template literal — the whole shell is one — so the build
+ *   died on the next word. Same trap CLAUDE.md records for hero3d.js's GLSL. */
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · ripmaster3030studios</title>
 <meta name="description" content="${subtitle}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/media/site/mark-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/media/site/mark-180.png">
 <link rel="canonical" href="https://ripmaster3030studios.com/${slug}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ripmaster3030studios">
 <meta property="og:title" content="${title} · ripmaster3030studios">
 <meta property="og:description" content="${subtitle}">
 <meta property="og:url" content="https://ripmaster3030studios.com/${slug}">
-<meta property="og:image" content="https://ripmaster3030studios.com/marquee-header.webp">
+<meta property="og:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png">
+<meta name="twitter:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <link rel="stylesheet" href="/mobile.css">
 <style>
   :root{

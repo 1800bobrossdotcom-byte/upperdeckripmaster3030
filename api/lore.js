@@ -26,7 +26,11 @@ const SCHEMA = {
   },
 };
 
-const SYSTEM = `You are the lore-keeper for "upperdeckripmaster3030", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name/number/stats appear, then write living lore. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically); keep it short. Return only the structured object.`;
+/* ⛔ THE STUDIO NAME IN A SYSTEM PROMPT IS A LIVE CONTENT SURFACE. This said
+ * "upperdeckripmaster3030", so every piece of lore this endpoint generated could name the retired
+ * studio in text that then gets printed on a card. A rename sweep that greps HTML and CSS does not
+ * find it, which is exactly why it survived. */
+const SYSTEM = `You are the lore-keeper for "ripmaster3030studios", a psychedelic hyperfoil trading-card game of wild old cartoon spirits. You are shown one card's artwork. Read whatever printed name/number/stats appear, then write living lore. Rules: playful, cosmic, blacklight-psychedelic tone; never use a real trademarked character name or brand (describe the figure generically); keep it short. Return only the structured object.`;
 
 export default async function handler(req, res) {
   const slug = String(req.query.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '');

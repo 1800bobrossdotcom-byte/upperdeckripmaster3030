@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN GPU compositor (RoninGL).
+/* ripmaster3030studios — NEON RONIN GPU compositor (RoninGL).
  *
  * Brings the Section-9 "GPU look" to the 2D fighter: the game keeps drawing the scene to
  * a 2D canvas, then this uploads it as a texture and runs a WebGL post-processing chain —

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — the wallet layer (window.RipWallet).
+/* ripmaster3030studios — the wallet layer (window.RipWallet).
  *
  * The site does NOT rebuild the exchange: buying/selling $3030 happens on
  * SuperRare's Collect page and on DEXes. What the site owns is BURNING — the
@@ -101,11 +101,19 @@
           84532: 'https://sepolia.base.org',
           11155111: (CFG().rpcs || [])[0] || 'https://ethereum-sepolia-rpc.publicnode.com',
         },
+        /* ⛔ THIS BLOCK IS RENDERED INSIDE THE USER'S WALLET, not on our page — it is the dApp
+         *   name, URL and icon in the WalletConnect approval sheet. It still said
+         *   `upperdeckripmaster3030` at `upperdeckripmaster3030.com`, so a collector standing on
+         *   ripmaster3030studios.com was asked to approve a connection from a DIFFERENT name at a
+         *   DIFFERENT domain. That is precisely the mismatch people are told to treat as a phish,
+         *   and we were teaching them to click through it.
+         * ⚠ Presentation only — no selector, offset or decimal is touched here. `npm run test:split`
+         *   re-run after this edit. */
         metadata: {
-          name: 'upperdeckripmaster3030',
+          name: 'ripmaster3030studios',
           description: 'A liquid trading-card game on SuperRare Liquid Editions.',
-          url: 'https://upperdeckripmaster3030.com',
-          icons: ['https://upperdeckripmaster3030.com/favicon.svg'],
+          url: 'https://ripmaster3030studios.com',
+          icons: ['https://ripmaster3030studios.com/media/site/mark-512.png'],
         },
       });
       await wc.enable();                       // opens the QR modal

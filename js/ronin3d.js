@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN 3D engine (Ronin3D).  [Milestone 2]
+/* ripmaster3030studios — NEON RONIN 3D engine (Ronin3D).  [Milestone 2]
  *
  * A real WebGL 3D renderer for the duel. Perspective camera tracking the fighters; lit,
  * depth-tested scene with fog; a neon-grid arena floor with WET-FLOOR REFLECTIONS and soft

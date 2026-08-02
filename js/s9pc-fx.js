@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 / PlayCanvas: world-space combat FX (S9PCFx).
+/* ripmaster3030studios — Section 9 / PlayCanvas: world-space combat FX (S9PCFx).
  *
  * `section9.html` draws tracers, muzzle flashes, sparks, debris, supply drops and bullet holes on
  * a transparent 2D canvas ABOVE the GL scene. That is a real limitation and it is visible: a

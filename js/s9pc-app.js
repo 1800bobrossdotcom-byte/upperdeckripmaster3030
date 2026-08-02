@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 on the PlayCanvas engine: the driver (S9PC).
+/* ripmaster3030studios — Section 9 on the PlayCanvas engine: the driver (S9PC).
  *
  * `js/s9pc-game.js` owns the rules and knows no engine. This file owns the engine and knows no
  * rules: it builds the scene for whichever arena the match picked, drives the skinned operatives

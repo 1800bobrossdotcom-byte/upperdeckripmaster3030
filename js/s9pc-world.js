@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 / PlayCanvas EVALUATION build: the world (S9PCWorld).
+/* ripmaster3030studios — Section 9 / PlayCanvas EVALUATION build: the world (S9PCWorld).
  *
  * ⚠ THIS IS A PROTOTYPE FOR COMPARISON, NOT A MIGRATION. It exists so the artist can look at
  *   `section9.html` (our hand-rolled WebGL) and `section9-engine.html` (this) side by side and

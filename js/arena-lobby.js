@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — the Arena Lobby (window.ArenaLobby).
+/* ripmaster3030studios — the Arena Lobby (window.ArenaLobby).
  *
  * One compelling presence roster shared by every battle game (battle, dogfight,
  * section 9). Renders the live RipNet roster as animated ripper cards — avatar

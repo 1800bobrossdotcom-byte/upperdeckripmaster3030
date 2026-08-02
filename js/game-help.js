@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — GameHelp: a visual "how to play" card (window.GameHelp).
+/* ripmaster3030studios — GameHelp: a visual "how to play" card (window.GameHelp).
  *
  * Shown before a PRACTICE run so players learn the controls before they step in.
  * Each control renders an ANIMATED gesture glyph (a finger-dot that drags / holds /

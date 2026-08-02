@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN world (RoninWorld).
+/* ripmaster3030studios — NEON RONIN world (RoninWorld).
  *
  * Turns the duel arena into a city you move through. Loads a baked .wld (see
  * scripts/bake-world.mjs) plus its AABB collision set, and owns the free-roam movement model:

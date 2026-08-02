@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — THE ARENA's card fight in real 3D (CBFight3D).
+/* ripmaster3030studios — THE ARENA's card fight in real 3D (CBFight3D).
  *
  * `js/card-fight.js` still owns the FIGHT: the scripted HP curve, which card fires when, the
  * callouts, the skip. This file owns the picture. It is the same split as `js/s9pc-game.js` vs

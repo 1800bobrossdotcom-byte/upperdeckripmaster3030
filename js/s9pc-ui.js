@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 / PlayCanvas: lobby, HUD, audio, result (S9PCUI).
+/* ripmaster3030studios — Section 9 / PlayCanvas: lobby, HUD, audio, result (S9PCUI).
  *
  * Everything that is DOM or WebAudio rather than geometry. Ported from `section9.html` because
  * that file keeps its rules, its UI and its software renderer in one inline script and only two

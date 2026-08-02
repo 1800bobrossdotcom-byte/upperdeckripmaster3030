@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — shared card hover-zoom preview (window.CardHover).
+/* ripmaster3030studios — shared card hover-zoom preview (window.CardHover).
  *
  * Any grid of `.tile` cards can pop a big floating preview on hover, so players
  * see exactly what they're picking/wagering. Event-delegated, so it survives

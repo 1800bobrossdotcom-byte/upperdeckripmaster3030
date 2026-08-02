@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — shared wager payout math (window.WagerPayout).
+/* ripmaster3030studios — shared wager payout math (window.WagerPayout).
  *
  * The game economy for every battle game:
  *   • each player WAGERS $3030 (the ante) and stakes cards into one pot

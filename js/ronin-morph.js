@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN mesh morphology (RoninMorph).
+/* ripmaster3030studios — NEON RONIN mesh morphology (RoninMorph).
  *
  * A seeded, generative distortion pass over raw geometry. Feed it any mesh in the engine's
  * universal vertex format (interleaved pos3+norm3 triangle soup) plus a seed, and it returns a

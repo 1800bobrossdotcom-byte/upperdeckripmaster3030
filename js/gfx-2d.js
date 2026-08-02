@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Gfx2D: put a canvas-2D game on the GPU.
+/* ripmaster3030studios — Gfx2D: put a canvas-2D game on the GPU.
  *
  * The 2D games (dogfight, the card battle, riprocketer) draw with fillRect/drawImage/arc and
  * therefore missed every upgrade in js/gfx-post.js. This attaches them to it: the game keeps

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN fighter art.
+/* ripmaster3030studios — NEON RONIN fighter art.
  *
  * Six big, detailed, completely-distinct procedural ninjas. They share the spring
  * skeleton computed by the game (feet at local y=0, forward = +x; the game applies the

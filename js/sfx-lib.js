@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — RipSfx: the artist's recorded SFX libraries, one picker for every game.
+/* ripmaster3030studios — RipSfx: the artist's recorded SFX libraries, one picker for every game.
  *
  *   RipSfx.play('gearup')                     random variant, default volume
  *   RipSfx.play('attachSmall', 0.4)           quieter

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — live presence (Vercel serverless + Upstash Redis).
+/* ripmaster3030studios — live presence (Vercel serverless + Upstash Redis).
  *
  * The internet-wide half of cards/arena-net.js: every open lobby heartbeats its
  * player record here (POST) and gets the live roster back; records expire after

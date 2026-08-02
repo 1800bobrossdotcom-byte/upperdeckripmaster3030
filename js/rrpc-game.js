@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — RIP ROCKETER: the simulation (RRGame).
+/* ripmaster3030studios — RIP ROCKETER: the simulation (RRGame).
  *
  * The artist's brief was one line: RIP ROCKETER is "too slow mundane — make it galaga on acid".
  * That is a game-feel complaint, so it was MEASURED before it was answered. What the old build
@@ -1081,8 +1081,23 @@ window.RRGame = (function () {
      * ⚠ Smoothed on the fixed tick, so it cannot stutter with the frame rate, and floored well
      *   above zero: the vehicle is a rocket, and a rocket that can be brought to a stop by holding
      *   ▼ is a lift. */
+    /* ⛔ AND IT CANNOT BE VELOCITY ALONE, WHICH IS WHAT THE FIRST VERSION USED. Measured over six
+     *    seconds of holding ▲: scrollV 4.68 u/s against 4.70 idle — a 0.4% difference, i.e. nothing.
+     *    The cause is structural rather than a tuning miss: the ship's box is only 4.2 units tall
+     *    (F.YBOT −3.9 to F.YTOP 0.30, deliberately the lower third so the Galaga silhouette holds),
+     *    so a climb is a THIRD OF A SECOND of travel and then a ceiling. Keying the world's speed
+     *    to `vy` therefore keys it to a transient, and "pull up and the wall runs" was a claim the
+     *    code could not keep.
+     * ⚑ SO THE SUSTAINED TERM IS HEIGHT IN THE BOX, and it is a better mechanic than the one it
+     *   replaces. Flying high means leaning into the climb: the facility comes at you faster, you
+     *   meet its guns sooner — and you are also nearer the formation, which is where the dives and
+     *   the fire are. It gives the vertical axis a REASON beyond dodging, which it did not have,
+     *   and it costs one read of `s.y`. The velocity term stays for the kick on the way up.
+     * ⚠ Both terms only READ the ship. Nothing here writes a single value the flight model owns. */
+    const perch = (s.y - F.SHIPY) / (F.YTOP - F.YBOT);        // −0.20 on the floor, +0.80 at the top
     const want = (G.mode === 'play' && s.alive)
-      ? clamp(s.vy * 0.052 + (s.dash > 0 ? 1.5 : 0) + (s.od > 0 ? 0.85 : 0) + (s.rollT > 0 ? 0.5 : 0), -0.55, 3.0)
+      ? clamp(s.vy * 0.052 + perch * 0.90
+        + (s.dash > 0 ? 1.5 : 0) + (s.od > 0 ? 0.85 : 0) + (s.rollT > 0 ? 0.5 : 0), -0.55, 3.0)
       : 0;
     G.surge += (want - G.surge) * Math.min(1, h * 7);
     G.scrollK = Math.max(0.35, 1 + Math.min(2.4, G.wave * 0.12) + G.surge);

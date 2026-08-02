@@ -36,7 +36,10 @@
     '@media (prefers-reduced-motion:no-preference){#urm-gate .u-fire{animation:u-flick 3.2s ease-in-out infinite}}',
     '.u-sign{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;gap:clamp(6px,3vw,26px);width:100%;}',
     '.u-torch{flex:none;height:clamp(58px,12vw,124px);width:auto;filter:drop-shadow(0 0 18px rgba(255,150,40,.5));}',
-    '.u-logo{width:min(74vw,500px);height:auto;display:block;filter:drop-shadow(0 0 26px rgba(43,255,128,.28));}',
+    /* ⚠ 74vw/500px WAS SIZED FOR A ~2:1 BANNER. The mark is SQUARE now, and `height:auto` means a
+     *   width cap is also a height cap — 500px tall on a phone pushed the login form off-screen.
+     *   Squares need their own number; a banner's width does not transfer. */
+    '.u-logo{width:min(52vw,300px);height:auto;display:block;filter:drop-shadow(0 0 26px rgba(43,255,128,.28));}',
     '.u-kick{position:relative;z-index:2;font-family:"Arial Black",Arial,sans-serif;letter-spacing:.26em;font-size:12px;color:#ffd23b;text-align:center;text-shadow:0 0 14px rgba(255,210,59,.35);}',
     '.u-card{position:relative;z-index:2;width:min(92vw,380px);text-align:center;border:1px solid #0f5c33;border-radius:16px;padding:22px 24px 18px;',
       'background:rgba(1,10,5,.86);box-shadow:0 0 60px rgba(43,255,128,.14),inset 0 0 30px rgba(1,10,5,.5);backdrop-filter:blur(3px);}',
@@ -62,7 +65,12 @@
       '<div class="u-scan"></div><div class="u-fire"></div>' +
       '<div class="u-sign">' +
         '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
-        '<img class="u-logo" src="/upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios">' +
+        /* ⛔ WAS `/upperdeckripmaster3030_01_marquee.png` — the retired name, baked into a bitmap,
+         *    with an alt attribute already reading `ripmaster3030studios`. That mismatch is the
+         *    whole bug in one line: the text was renamed, the PICTURE was not, and this is the
+         *    veil every visitor hits before anything else, so it was the first thing anyone saw.
+         *    `media/site/mark-1024.png` is cut from the live foil wordmark by `npm run mark`. */
+        '<img class="u-logo" src="/media/site/mark-1024.png" alt="ripmaster3030studios">' +
         '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
       '</div>' +
       '<div class="u-kick">◈ PRIVATE · PRE-LAUNCH ◈</div>' +

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — RIP ROCKETER on PlayCanvas: the driver (RRPC).
+/* ripmaster3030studios — RIP ROCKETER on PlayCanvas: the driver (RRPC).
  *
  * `js/rrpc-game.js` owns the rules and knows no engine. This file owns the engine and knows no
  * rules: it builds the scene, drives the batched quad layers from G, runs the post stack, reads
@@ -868,7 +868,7 @@
   // ── THE FACADE ──────────────────────────────────────────────────────────────────────────────
   /* Plates of dark printed board, stacked, each with a bright DIE EDGE along its top. The edge is
    * the whole read — see the brief: fill costs area and buys a wash, an edge costs a line and buys
-   * a building. `full` marks a plate whose neighbour above is missing: that is a real cut against
+   * a building. `open` marks a plate whose neighbour above is missing: that is a real cut against
    * the sky and it gets the bright edge, while a seam between two stacked plates gets a dim one. */
   const _p0 = [0, 0, 0, 255], _p1 = [0, 0, 0, 255], _p2 = [0, 0, 0, 255], _p3 = [0, 0, 0, 255];
   let facadeQuads = 0;

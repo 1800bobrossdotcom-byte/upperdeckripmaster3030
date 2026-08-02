@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — arena net layer.
+/* ripmaster3030studios — arena net layer.
  *
  * Presence + challenges for the multiplayer lobby, behind a swappable adapter so the
  * exact same UI runs on a local demo today and a real backend tomorrow:

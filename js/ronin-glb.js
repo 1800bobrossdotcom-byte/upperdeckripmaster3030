@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — NEON RONIN glTF/GLB part loader (RoninGLB).
+/* ripmaster3030studios — NEON RONIN glTF/GLB part loader (RoninGLB).
  *
  * Loads real modelled geometry into the 3D fighter renderer. This is the "rigid-part" pipeline
  * — the same approach the PS1-era 3D fighters used: a model is a set of STATIC part meshes that

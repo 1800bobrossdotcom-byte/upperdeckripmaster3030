@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — CARD FIGHT.
+/* ripmaster3030studios — CARD FIGHT.
  *
  * The wager face-off used to snap from VS straight to the verdict. This turns the
  * middle into an actual brawl: each staked card fires its SIGNATURE ability across

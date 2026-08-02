@@ -78,24 +78,60 @@ await page.waitForTimeout(9000);
 
 /* Hide everything that is not the mark. The torches flank the wordmark and would crop into a
  * square capture; the intro splash sits over it. This is a CAPTURE-time change to a throwaway
- * page instance, never written to disk. */
+ * page instance, never written to disk.
+ *
+ * ⚑ THE THREE FIXED BACKDROP LAYERS COME OFF TOO, and that is a decision rather than tidying.
+ *   `#rain`, `.lm` and `.crt` are `position:fixed` full-bleed washes BEHIND the wordmark, and the
+ *   3D canvas is transparent, so all three print straight through the type. On the page that is
+ *   the design — the mark sits in the studio's own weather. On a 32px favicon, an apple-touch
+ *   icon or a share card cropped by someone else's layout it is noise with legible lettering in
+ *   it, which reads as a printing artifact rather than as atmosphere. An icon is the mark alone.
+ */
 const box = await page.evaluate(() => {
-  const kill = ['#introSplash', '.torch', '#banner', '.marquee-sign > img'];
+  /* ⚠ `.presents-lbl` and `.built-line` are the wordmark's SIBLINGS, above and below it, and the
+   *   canvas's vertical bleed reaches into both — measured as 3.8% of the top edge and 18.3% of
+   *   the bottom edge lit. They are the masthead's credit line, not the mark; a favicon with the
+   *   top of a SuperRare lockup in it is a favicon with a crop mark in it. */
+  const kill = ['#introSplash', '.torch', '#banner', '.marquee-sign > img', '#rain', '.lm', '.crt',
+                '.presents-lbl', '.built-line', '.lovebeing-logo', '#bgFoilC'];
   kill.forEach(sel => document.querySelectorAll(sel).forEach(e => { e.style.visibility = 'hidden'; }));
+  /* ⚑ AND THE PAGE ITSELF GOES TRANSPARENT, so the capture is the TYPE and nothing else.
+   *   Leaving the stock in baked a square of page background into every output, and the share
+   *   card composites that square onto a FLAT fill sampled from body — so the plate's edge showed
+   *   as a seam, a lighter rectangle floating on black. Two backgrounds that nearly match is
+   *   worse than one: a real edge reads as deliberate, a near-miss reads as a broken export.
+   *   Transparent icons are also just correct — a favicon owes its host the page's own colour. */
+  document.documentElement.style.background = 'transparent';
+  document.body.style.background = 'transparent';
   const wm = document.querySelector('.marquee-art.wordmark');
   if (!wm) return null;
   wm.scrollIntoView({ block: 'center' });
   const r = wm.getBoundingClientRect();
-  return { x: r.left, y: r.top, w: r.width, h: r.height,
+  /* ⛔ CLIP TO THE CANVAS, NOT TO THE TEXT BOX — this shipped a clipped mark.
+   *    `.marquee-art.wordmark` is the DOM string's box (430x430 measured). `js/hero3d.js` builds
+   *    its own canvas over it with ~8% bleed on every side (499x499) because the foil's specular,
+   *    the bevel and the letters' own overshoot need room outside the type's metrics. Clipping to
+   *    the text box cut 34px off all four edges: RIPMASTER's final R and STUDIOS's final S were
+   *    sliced down their stems on the live og:image.
+   *  ⚑ Both boxes are square, so this never changed the ASPECT — which is exactly why it survived.
+   *    The square came out square, the guard below only checked the capture was not EMPTY, and a
+   *    clipped mark passes both. */
+  const cv = document.getElementById('heroType');
+  const c = cv ? cv.getBoundingClientRect() : null;
+  const use = c && c.width > 1 ? c : r;
+  return { x: use.left, y: use.top, w: use.width, h: use.height,
+    from: c && c.width > 1 ? 'heroType canvas' : '.wordmark text box (3D layer is not up)',
+    bleed: c && c.width > 1 ? Math.round(((c.width / r.width) - 1) * 1000) / 10 : 0,
     ink: !!(window.__heroType && window.__heroType.rig && window.__heroType.rig.ok) };
 });
 if (!box) { console.error('no .wordmark on the page'); process.exit(1); }
 await page.waitForTimeout(600);
 
-const shot = await page.screenshot({ clip: { x: box.x, y: box.y, width: box.w, height: box.h } });
+const shot = await page.screenshot({ omitBackground: true,
+  clip: { x: box.x, y: box.y, width: box.w, height: box.h } });
 const src = decodePNG(shot);
 console.log(`captured ${src.w}x${src.h} from a ${Math.round(box.w)}x${Math.round(box.h)} CSS box` +
-  `  (3D layer live: ${box.ink})`);
+  ` — ${box.from}, +${box.bleed}% over the type  (3D layer live: ${box.ink})`);
 
 /* Box downsample. Averaging every source pixel that lands in a destination cell — not a nearest
  * sample — because a 1290 -> 32 nearest reduction of type is aliased confetti. */
@@ -164,15 +200,36 @@ made.push(write('og-1200x630.png', { w: OGW, h: OGH, data: og }));
 /* A mark that is nearly all background is a failed capture, and it would ship silently — the file
  * would exist, the tags would point at it, and the card would be an empty rectangle. */
 const big = decodePNG(readFileSync(join(OUT, 'mark-1024.png')));
+/* ⚑ INK IS ALPHA, not luminance, now that the capture is transparent. Keying off luma would call
+ *   the dark side of a bevel "background" and the whole test would drift with the lighting. */
+const ink = i => big.data[i * 4 + 3] > 40;
 let lit = 0;
-for (let i = 0; i < big.w * big.h; i++) {
-  const l = 0.299 * big.data[i * 4] + 0.587 * big.data[i * 4 + 1] + 0.114 * big.data[i * 4 + 2];
-  if (l > 60) lit++;
-}
+for (let i = 0; i < big.w * big.h; i++) if (ink(i)) lit++;
 const inkPct = 100 * lit / (big.w * big.h);
 
+/* ⛔ AND A MARK THAT RUNS OFF THE EDGE IS ALSO A FAILED CAPTURE — this is the check that was
+ *    missing, and its absence is why a clipped og:image shipped. "Is there ink" and "is it
+ *    square" both passed on a mark whose R and S had been cut down the stem, because a tight
+ *    square crop of a square mark is still square. The letters have to stop before the edge does.
+ *    Sampled one pixel in from each side: a mark with breathing room reads ~0 there. */
+function edgeInk() {
+  const n = big.w, k = (x, y) => ink(y * n + x) ? 1 : 0;
+  let top = 0, bot = 0, left = 0, right = 0;
+  for (let x = 0; x < n; x++) { top += k(x, 1); bot += k(x, n - 2); }
+  for (let y = 0; y < n; y++) { left += k(1, y); right += k(n - 2, y); }
+  return { top: 100 * top / n, bottom: 100 * bot / n, left: 100 * left / n, right: 100 * right / n };
+}
+const edge = edgeInk();
+const worstEdge = Math.max(edge.top, edge.bottom, edge.left, edge.right);
+
 console.log('\n' + made.map(m => '  ' + m).join('\n'));
-console.log(`\n  ink coverage ${inkPct.toFixed(1)}% of mark-1024`);
+/* ⚠ This counts the HALO as ink — the wordmark wears two drop-shadows and they spread soft alpha
+ *   well past the letters, which is why the number is ~72% and not the ~25% bare type would give.
+ *   That is fine for the question being asked ("did the capture get anything at all"), and saying
+ *   so beats letting the figure be read as coverage. */
+console.log(`\n  ink+halo coverage ${inkPct.toFixed(1)}% of mark-1024`);
+console.log('  ink ON THE EDGE  ' + ['top', 'right', 'bottom', 'left']
+  .map(s => `${s} ${edge[s].toFixed(1)}%`).join(' · ') + `   (clipped if any > 2%)`);
 console.log(errs.length ? `  page errors: ${errs.slice(0, 2).join(' | ')}` : '  no page errors');
 console.log('\n⚠ COLOUR IS NOT VERIFIED — SwiftShader rotates hue on canvas content in this\n' +
   '  container. Layout and value are right; re-run `npm run mark` on a real GPU before launch.');
@@ -180,3 +237,8 @@ console.log('\n⚠ COLOUR IS NOT VERIFIED — SwiftShader rotates hue on canvas 
 await browser.close();
 srv.close();
 if (inkPct < 8) { console.error('\nFAIL mark-1024 is nearly empty — the capture did not get the type'); process.exit(1); }
+if (worstEdge > 2) {
+  console.error(`\nFAIL the mark is CLIPPED — ${worstEdge.toFixed(1)}% of one edge is ink, so the type` +
+    ' runs off the capture.\n     The clip box is too tight: widen it, do not scale the mark down to fit.');
+  process.exit(1);
+}

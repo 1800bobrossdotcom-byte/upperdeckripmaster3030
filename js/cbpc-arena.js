@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — THE ARENA, on the PlayCanvas engine: the STAGE (CBArena).
+/* ripmaster3030studios — THE ARENA, on the PlayCanvas engine: the STAGE (CBArena).
  *
  * `js/cbpc-fight.js` owns the fighters, the projectiles and the public API. This file owns the
  * room they fight in: the sunburst backdrop, the floor, the pylons, the lights, the camera rig and

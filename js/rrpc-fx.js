@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — RIP ROCKETER / PlayCanvas: the batched quad renderer (RRFx).
+/* ripmaster3030studios — RIP ROCKETER / PlayCanvas: the batched quad renderer (RRFx).
  *
  * "Galaga on acid" means a great many bright things on screen at once, and the number of things
  * on screen is exactly what the old build did not have. So the renderer is built around that

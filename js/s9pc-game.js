@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — Section 9 GAME CORE, renderer-agnostic (S9Game).
+/* ripmaster3030studios — Section 9 GAME CORE, renderer-agnostic (S9Game).
  *
  * The shipping game (`section9.html`) carries its rules and its canvas renderer in ONE inline
  * script. The PlayCanvas build needs the rules and not the renderer, so this file is the rules:

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — CARD POWERS.
+/* ripmaster3030studios — CARD POWERS.
  *
  * Your cards are an ARMORY. Stake them into a game and they arm you: each card
  * amplifies your craft/operative (damage, fire-rate, shields, speed, score) and

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — SEATS (window.RipSession).
+/* ripmaster3030studios — SEATS (window.RipSession).
  *
  * One question, three ways to answer it: "may this wallet play other people?"
  *
@@ -134,7 +134,14 @@ window.RipSession = (function () {
     return [
       `${location.host} wants you to sign in with your Ethereum account:`,
       addr, '',
-      'Take a seat in the upperdeckripmaster3030 arena. This is a signature, not a transaction — it moves no funds and costs no gas.',
+      /* ⛔ THE USER READS THIS STRING IN THEIR WALLET before signing, so the studio name in it is
+       *   the name they are asked to trust. It said `upperdeckripmaster3030` while the page said
+       *   `ripmaster3030studios`; the whole point of a SIWE statement is that it matches the site.
+       * ⚠ Changing it changes the signed bytes. Safe today because nothing verifies a seat
+       *   server-side (docs/SEATS.md: "a seat is advisory"); any stored signature simply no longer
+       *   matches a fresh one, which only means re-signing. Do NOT edit this after a backend
+       *   starts checking it without versioning the statement. */
+      'Take a seat in the ripmaster3030studios arena. This is a signature, not a transaction — it moves no funds and costs no gas.',
       '',
       `URI: ${location.origin}`,
       'Version: 1',

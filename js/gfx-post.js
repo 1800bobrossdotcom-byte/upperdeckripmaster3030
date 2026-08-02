@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — GfxPost: one shared post-process chain for every WebGL game.
+/* ripmaster3030studios — GfxPost: one shared post-process chain for every WebGL game.
  *
  * NEON RONIN grew a bloom compositor inline; the other games (Section 9, Cloudracer) render
  * straight to the default framebuffer and look flat next to it. This lifts that chain out into a

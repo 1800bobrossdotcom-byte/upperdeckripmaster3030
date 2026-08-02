@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — ONE dynamic 3D card, shared by every page that shows one.
+/* ripmaster3030studios — ONE dynamic 3D card, shared by every page that shows one.
  *
  *   Card3D.engine(base)            -> Promise<pc>      load the shared engine once
  *   Card3D.build({canvas, box, …}) -> ctrl | null      build a lit 3D card into that canvas

@@ -1,4 +1,4 @@
-/* upperdeckripmaster3030 — WebRTC signaling mailbox (Vercel + Upstash KV).
+/* ripmaster3030studios — WebRTC signaling mailbox (Vercel + Upstash KV).
  *
  * Carries the dogfight PvP handshake (offers/answers/ICE) between pilots.
  * POST {room, from, to, type, payload}  → appended to the recipient's inbox
