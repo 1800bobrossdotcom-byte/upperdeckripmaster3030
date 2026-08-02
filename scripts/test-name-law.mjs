@@ -156,7 +156,7 @@ const pin = (file, want, why) => {
   const src = readFileSync(join(ROOT, file), 'utf8');
   ok(src.includes(want), `${file} — ${why}`);
 };
-pin('gate.js', "src=\"/media/site/mark-1024.png\"", 'the pre-launch veil shows the generated mark');
+pin('gate.js', "src=\"/media/site/mark-512.png\"", 'the pre-launch veil shows the generated mark');
 pin('index.html', 'og:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png',
     'the share card is the generated mark');
 pin('index.html', 'twitter:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png',

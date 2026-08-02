@@ -70,7 +70,13 @@
          *    whole bug in one line: the text was renamed, the PICTURE was not, and this is the
          *    veil every visitor hits before anything else, so it was the first thing anyone saw.
          *    `media/site/mark-1024.png` is cut from the live foil wordmark by `npm run mark`. */
-        '<img class="u-logo" src="/media/site/mark-1024.png" alt="ripmaster3030studios">' +
+        /* ⚠ 512, NOT 1024. The veil is injected into every page's <head> and is fail-closed, so
+         *    this image is on the FIRST-PAINT path of the whole site. mark-1024 is 1.27 MB —
+         *    holographic foil is high-entropy noise and barely deflates — against 446 KB at 512,
+         *    which is still ~1.7x the 300px box it renders in. There is no cwebp/pngquant in this
+         *    container, so picking the right size IS the optimisation. */
+        '<img class="u-logo" src="/media/site/mark-512.png" alt="ripmaster3030studios" ' +
+          'width="512" height="512" decoding="async">' +
         '<img class="u-torch" src="/torch.gif" alt="" aria-hidden="true">' +
       '</div>' +
       '<div class="u-kick">◈ PRIVATE · PRE-LAUNCH ◈</div>' +
