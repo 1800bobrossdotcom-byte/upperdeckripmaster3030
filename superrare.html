@@ -219,9 +219,12 @@
            said the right name and SuperRare showed the wrong one.
            ⚑ A static image and not the live 3D type ON PURPOSE: this page must stay wallet-free
            and script-free (npm run test:embed asserts no <script src> at all), so the mark is
-           baked by `npm run mark` from the live foil rather than rendered here. -->
-      <img class="marquee-art" src="media/site/mark-1024.png"
-           alt="ripmaster3030studios" width="1024" height="1024" decoding="async">
+           baked by `npm run mark` from the live foil rather than rendered here.
+           ⚠ 512, NOT 1024. This renders in a box of at most 300 CSS px, and mark-1024 is 1.27 MB
+           because holographic foil is high-entropy noise and barely deflates. An embed loads
+           inside someone else's page, where weight matters MORE than on our own site, not less. -->
+      <img class="marquee-art" src="media/site/mark-512.png"
+           alt="ripmaster3030studios" width="512" height="512" decoding="async">
       <img class="torch" src="torch.gif" alt="" aria-hidden="true">
     </div>
 

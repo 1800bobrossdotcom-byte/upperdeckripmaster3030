@@ -167,7 +167,10 @@ pin('js/wallet.js', "name: 'ripmaster3030studios'", 'the WalletConnect sheet nam
 pin('js/wallet.js', "url: 'https://ripmaster3030studios.com'", 'and points at the live domain');
 pin('js/session.js', 'Take a seat in the ripmaster3030studios arena', 'the SIWE statement matches the site');
 pin('api/lore.js', `lore-keeper for "${LIVE}"`, 'generated lore names the live studio');
-pin('superrare.html', 'media/site/mark-1024.png', 'the SuperRare embed shows the generated mark');
+/* ⚠ Pinned to the PREFIX, not a filename. The assertion is "it shows the generated mark", and
+ *   right-sizing a raster for its box is a routine call that should not break a name test. */
+pin('superrare.html', 'media/site/mark-', 'the SuperRare embed shows the generated mark');
+pin('cabinet.html', 'media/site/mark-', 'the cabinet embed shows it too');
 
 /* The four generated pages are OUTPUT. If they have drifted from the shell that builds them, the
  * fix above is real in the source and absent from what ships — which is its own version of this

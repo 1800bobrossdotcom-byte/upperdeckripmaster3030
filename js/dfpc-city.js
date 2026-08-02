@@ -443,7 +443,17 @@ window.DFPCCity = (function () {
     }
 
     function buildChunks() {
-      for (const c of chunks) { try { c.ent.destroy(); } catch (e) {} }
+      /* ⚠ DESTROY THE MESHES, NOT JUST THE ENTITIES. A chunk owns a real vertex buffer; dropping
+       * the entity unhooks it from the scene graph and leaves the GPU allocation behind. One
+       * rebuild per theme is invisible, five themes over a session is 375 orphaned buffers — the
+       * same shape of leak dfpc-app records against its per-match ship entities. */
+      for (const c of chunks) {
+        for (const child of [c.hi, c.lo, c.sg]) {
+          if (!child || !child.render) continue;
+          for (const mi of child.render.meshInstances) { try { mi.mesh.destroy(); } catch (e) {} }
+        }
+        try { c.ent.destroy(); } catch (e) {}
+      }
       chunks.length = 0;
       if (!L) return;
       NC = L.NC;
@@ -523,17 +533,17 @@ window.DFPCCity = (function () {
       if (L) buildChunks();
     }
 
-    let S = null;
+    /* ⚠ EARLY-OUT FIRST. `apply` is called every frame from DFPC.sync, and the first version
+     * re-derived the palette and called material.update() on both materials before the "did the
+     * theme change" test — i.e. it re-ran the engine's shader-variant bookkeeping 60 times a
+     * second for two values that change once a match. js/dfpc-world.js records the identical
+     * mistake against its own deck material, one function up the call stack. */
     function apply(world, o) {
       const name = (world && world.name) || 'neon grid';
       const next = layoutFor(name, o.WS || 150);
+      if (L === next && built === next.name + '|' + kitState) return;
       const skin = (window.DFPCWorld && DFPCWorld.skinFor) ? DFPCWorld.skinFor(world) : null;
       if (skin) {
-        /* One notch under the props' own albedo. Under the high-key palette VALUE carries the
-         * shape (dfpc-app: "a dark, coloured body that silhouettes hard"), so a tower being
-         * slightly darker than the pylon in front of it is what separates the two planes.
-         * ⚠ Not much darker. The failure on the other side of this dial is the frame going black,
-         *   which is the exact regression the high-key palette was built to fix. */
         /* ⚑ SWEPT, AND THE SWEEP IS WHAT KILLED THE OBVIOUS ANSWER. "Darker city ⇒ harder
          * silhouette ⇒ more contrast" is the reasoning the high-key palette was built on, so
          * 0.74 went in first. Measured on a held chrome-city frame at 1280×800 (luma / RMS
@@ -566,7 +576,6 @@ window.DFPCCity = (function () {
         signMat.emissive = new pc.Color(g0[0] * (1 - k) + 1.00 * k, g0[1] * (1 - k) + 0.824 * k, g0[2] * (1 - k) + 0.231 * k);
         signMat.update();
       }
-      if (L === next && built === next.name + '|' + kitState) return;
       L = next;
       buildChunks();
     }

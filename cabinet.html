@@ -79,7 +79,10 @@
   <img class="torch" src="torch.gif" alt="">
   <!-- ⛔ WAS the old-name marquee bitmap; see the note in superrare.html. Same fix, same reason:
        this is an embed surface and it was showing a name the studio dropped. -->
-  <img class="logo" src="media/site/mark-1024.png" alt="ripmaster3030studios" width="1024" height="1024">
+  <!-- ⚠ 512, NOT 1024. This renders in a box of at most 300 CSS px; mark-1024 is 1.27 MB because
+       holographic foil is high-entropy noise and barely deflates. This page loads inside a token
+       page's iframe, where weight matters MORE than on our own site, not less. -->
+  <img class="logo" src="media/site/mark-512.png" alt="ripmaster3030studios" width="512" height="512">
   <img class="torch" src="torch.gif" alt="">
 </div>
 <div class="kick">◈ A LIQUID TRADING-CARD GAME · LIVE FROM THE CHAIN ◈</div>
