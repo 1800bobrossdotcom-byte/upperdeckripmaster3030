@@ -130,6 +130,13 @@ movement is the garnish. Already implemented that way in `js/bg-foil.js`.
 
 ## 6 · The lineage, and why it is not just flavour
 
+⚑ **There are TWO lineages and they answer different questions.** This section is the VISUAL one —
+how a thing should look. `docs/DELTRON-3030.md` is the NARRATIVE one — what world it is from, and
+it is where the studio's own `3030` comes from. Reach for that file when the question is "what is
+this a page/screen/card *out of*"; reach for this one when the question is "what is it made of".
+⛔ That file carries a hard rule worth repeating here: **no lyrics, ever, anywhere.** Ideas and
+structure are free; the words are not.
+
 The artist came up in **Rare Pepes on Bitcoin/Counterparty** and **Fake Rares**. `docs/CC0-SOURCES.md`
 records the operative fact: *"the artist's own Fake Rares work is the natural first source for
 in-game art — it is the project's actual lineage and the strongest answer this repo can give to

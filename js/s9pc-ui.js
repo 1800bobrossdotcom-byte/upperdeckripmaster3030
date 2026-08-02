@@ -45,11 +45,17 @@ window.S9PCUI = (function () {
         n.buffer = b; const g = a.createGain(); g.gain.value = vol;
         let node = n; if (lp) { const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = lp; n.connect(f); node = f; }
         node.connect(g).connect(a.destination); n.start(); } catch (e) {} }
+    /* ⚑ THE GUNS ARE SYNTHESISED IN js/gun-sfx.js NOW — four layers (crack / body / tail / mech)
+     * with per-shot jitter, instead of one noise burst plus one falling tone. The old kit is kept
+     * below as the fail-open path: no module, no problem, the game just sounds like it did.
+     * ⚠ The AudioContext is passed as a GETTER, not a value. `ac()` creates it lazily on first
+     *   use, because a context constructed before a user gesture is born suspended. */
+    const guns = window.GunSfx ? GunSfx.create(ac, { enabled: () => sfxOn }) : null;
     const SFX = {
-      pistol() { noise(0.06, 0.16, 2600); tone(430, 150, 0.09, 'square', 0.10); },
-      smg() { noise(0.04, 0.11, 3000); tone(360, 180, 0.05, 'square', 0.07); },
-      shotgun() { noise(0.16, 0.34, 1400); tone(180, 60, 0.18, 'sawtooth', 0.16); },
-      sniper() { noise(0.10, 0.30, 1800); tone(760, 120, 0.22, 'sawtooth', 0.16); tone(1400, 300, 0.10, 'square', 0.08); },
+      pistol() { if (!sfxOn) return; if (guns) return guns.fire('pistol'); noise(0.06, 0.16, 2600); tone(430, 150, 0.09, 'square', 0.10); },
+      smg() { if (!sfxOn) return; if (guns) return guns.fire('smg'); noise(0.04, 0.11, 3000); tone(360, 180, 0.05, 'square', 0.07); },
+      shotgun() { if (!sfxOn) return; if (guns) return guns.fire('shotgun'); noise(0.16, 0.34, 1400); tone(180, 60, 0.18, 'sawtooth', 0.16); },
+      sniper() { if (!sfxOn) return; if (guns) return guns.fire('sniper'); noise(0.10, 0.30, 1800); tone(760, 120, 0.22, 'sawtooth', 0.16); tone(1400, 300, 0.10, 'square', 0.08); },
       empty() { tone(180, 140, 0.05, 'square', 0.05); },
       reload() { tone(300, 300, 0.04, 'square', 0.08); setTimeout(() => tone(520, 520, 0.04, 'square', 0.08), 120); setTimeout(() => noise(0.05, 0.1, 2000), 240); },
       hit() { tone(1500, 900, 0.05, 'square', 0.12); },

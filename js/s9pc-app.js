@@ -919,7 +919,28 @@
    * ⚠ The M4 asset is deliberately still in the repo and still loadable: `?gun=m4a1` restores it,
    *    because it is the A/B for anything that changes how a weapon is fitted or held. */
   const GUN_KEYS = ['pistol', 'smg', 'shotgun', 'sniper'];
-  const GUN_PART = {};                       // key -> the template entity inside the container
+  /* ⛔ REAL MODELS FIRST. Two of these were already in the repo, converted and cleared, and the
+   *    first cut of this shipped procedural stand-ins beside them — which is the same mistake as
+   *    the four-names-one-mesh bug wearing better clothes.
+   *      magnum460.glb  CC0 1.0, github.com/TheGoodFella/magnum460Blend, brought in by our own
+   *                     fbx2glb and credited in CREDITS.md. 2,120 tris.
+   *      m4a1.glb       artist-supplied and artist-cleared (models/weapons/README.md), 1,642 tris,
+   *                     and the ONLY one carrying a UV set + base-colour map.
+   *    Only SCATTER has no source — nothing in the dropped repos is a shotgun, and the two that
+   *    do carry shotguns (DAM001/blenderWeaponCreator, DanielKlas/3D-Models) have NO LICENCE FILE,
+   *    so under this repo's standing rule their geometry cannot be committed. That one is built.
+   * ⚠ `sniper_stand.glb` is deliberately NOT wired to COLD CALL: its silhouette is mirror-
+   *   symmetric top-to-bottom over 268 triangles, i.e. it is the BIPOD out of the KSR28 blend,
+   *   not the rifle. Mapping it by filename would have put a tripod in an operative's hands. */
+  const GUN_SRC = {
+    pistol: { url: 'models/weapons/magnum460.glb' },
+    smg: { url: 'models/weapons/m4a1.glb', tex: 'models/weapons/m4a1_tex.jpg' },
+    shotgun: { url: 'models/weapons/s9-guns.glb', part: 'gun_shotgun' },
+    sniper: { url: 'models/weapons/s9-guns.glb', part: 'gun_sniper' },
+  };
+  const GUN_ASSET = {};                      // key -> loaded container asset
+  const GUN_MAT = {};                        // key -> material (the M4 gets its own, textured)
+  const GUN_PART = {};                       // key -> the named node to pull out, when there is one
   /* ⚠ NOT all normalised to one length. `fitWeapon` used to scale every weapon to 0.86 m, which
    *   is correct when there is one model and ACTIVELY WRONG now: it would stretch the pistol to
    *   the length of the bolt rifle and undo the silhouette difference this file exists to create.
@@ -927,34 +948,62 @@
   const GUN_LEN = { pistol: 0.42, smg: 0.82, shotgun: 0.78, sniper: 1.02 };
   function loadWeapon() {
     if (!WANT_WEAPON) return Promise.resolve(null);
+    /* One container per distinct FILE, not per weapon — s9-guns.glb serves two keys and must not
+     * be fetched twice. `?gun=m4a1` still forces the old everything-is-a-carbine behaviour. */
     const legacy = (Q.get('gun') === 'm4a1');
-    const url = legacy ? 'models/weapons/m4a1.glb' : 'models/weapons/s9-guns.glb';
-    const tex = legacy ? loadTexture('models/weapons/m4a1_tex.jpg', true) : Promise.resolve(null);
-    return tex.then(t => {
-      gunMat = new pc.StandardMaterial();
-      gunMat.name = 'gun';
-      if (t) { gunMat.diffuseMap = t; gunMat.diffuse = new pc.Color(1, 1, 1); gunMat.diffuseMapTint = false; }
-      /* ⚠ DARK, and that is a legibility decision rather than a taste one. js/s9pc-world.js keeps
-       *   arena walls at 0.60–0.70 albedo precisely so a dark silhouette reads against them; a
-       *   bright weapon becomes the most salient thing on screen, brighter than the person
-       *   carrying it. Same value band as the bodies in js/s9pc-skin.js. */
-      else gunMat.diffuse = new pc.Color(0.20, 0.20, 0.22);
-      gunMat.useMetalness = true; gunMat.metalness = 0.62; gunMat.gloss = 0.42;
-      gunMat.update();
-      return new Promise((res, rej) => app.assets.loadFromUrl(url, 'container', (err, a) => err ? rej(new Error(err)) : res(a)));
-    }).then(asset => {
-      weaponAsset = asset;
-      /* Named parts are the contract with build-guns.py. A GLB that loads but carries the wrong
-       * names must not half-render, so a missing part falls back to whatever did load. */
-      if (!legacy) {
-        const probe = asset.resource.instantiateRenderEntity();
-        GUN_KEYS.forEach(k => { if (probe.findByName('gun_' + k)) GUN_PART[k] = 'gun_' + k; });
-        probe.destroy();
-      }
+    gunMat = new pc.StandardMaterial();
+    gunMat.name = 'gun';
+    /* ⚠ DARK. js/s9pc-world.js keeps arena walls at 0.60–0.70 albedo precisely so a dark
+     *   silhouette reads against them; a bright weapon becomes the most salient thing on screen,
+     *   brighter than the person carrying it. Same band as the bodies. */
+    gunMat.diffuse = new pc.Color(0.20, 0.20, 0.22);
+    gunMat.useMetalness = true; gunMat.metalness = 0.62; gunMat.gloss = 0.42;
+    gunMat.update();
+
+    const files = {};
+    GUN_KEYS.forEach(k => {
+      const src = legacy ? { url: 'models/weapons/m4a1.glb', tex: 'models/weapons/m4a1_tex.jpg' } : GUN_SRC[k];
+      if (!src) return;
+      (files[src.url] = files[src.url] || { keys: [], tex: src.tex }).keys.push(k);
+      if (src.part) GUN_PART[k] = src.part;
+      if (legacy) delete GUN_PART[k];
+    });
+
+    const jobs = Object.keys(files).map(url => {
+      const f = files[url];
+      const texP = f.tex ? loadTexture(f.tex, true).catch(() => null) : Promise.resolve(null);
+      return Promise.all([
+        new Promise((res, rej) => app.assets.loadFromUrl(url, 'container', (err, a) => err ? rej(new Error(url + ': ' + err)) : res(a))),
+        texP,
+      ]).then(([asset, tex]) => {
+        let mat = gunMat;
+        if (tex) {
+          /* The M4 is the only weapon with a UV set and a base-colour map, so it is the only one
+           * that gets a textured material. Everything else takes the shared dark one. */
+          mat = new pc.StandardMaterial();
+          mat.name = 'gun-tex'; mat.diffuseMap = tex; mat.diffuse = new pc.Color(1, 1, 1);
+          mat.diffuseMapTint = false; mat.useMetalness = true; mat.metalness = 0.62; mat.gloss = 0.50;
+          mat.update();
+        }
+        f.keys.forEach(k => { GUN_ASSET[k] = asset; GUN_MAT[k] = mat; });
+        if (!weaponAsset) weaponAsset = asset;      // "something loaded" for the existing guards
+      }).catch(e => {
+        /* ⚑ FAILS OPEN TO THE BUILT SET. s9-guns.glb still carries all four parts, so a 404 or a
+         * bad decode on one of the real models leaves that weapon with a plain built stand-in
+         * rather than an empty hand. Only the source is lost, never the silhouette. */
+        console.warn('[s9pc] weapon:', e && e.message);
+        f.keys.forEach(k => { if (!GUN_PART[k]) GUN_PART[k] = 'gun_' + k; });
+      });
+    });
+
+    return Promise.all(jobs).then(() => {
+      /* Any key still without an asset falls back to the built container, whichever file that is. */
+      const built = GUN_ASSET.shotgun || GUN_ASSET.sniper || weaponAsset;
+      GUN_KEYS.forEach(k => { if (!GUN_ASSET[k] && built) { GUN_ASSET[k] = built; GUN_MAT[k] = gunMat; GUN_PART[k] = GUN_PART[k] || ('gun_' + k); } });
       bodies.forEach((h, e) => giveWeapon(h, gunKeyOf(e)));
       makeViewmodel(game && game.G && game.G.me ? gunKeyOf(game.G.me) : 'smg');
-      return asset;
-    }).catch(e => { console.warn('[s9pc] weapon:', e && e.message); return null; });
+      return weaponAsset;
+    });
   }
   function gunKeyOf(e) {
     try { const w = S9Game.WEAPONS[(e && e.weapon) | 0]; return (w && w.key) || 'smg'; } catch (x) { return 'smg'; }
@@ -973,7 +1022,9 @@
   }
   const GUNFITS = {};
   function weaponEntity(key) {
-    const whole = weaponAsset.resource.instantiateRenderEntity();
+    const asset = GUN_ASSET[key] || weaponAsset;
+    if (!asset) return new pc.Entity('gun-none');
+    const whole = asset.resource.instantiateRenderEntity();
     let ent = whole;
     const part = GUN_PART[key];
     if (part) {
@@ -982,8 +1033,9 @@
       const found = whole.findByName(part);
       if (found) { found.reparent(null); whole.destroy(); ent = found; }
     }
+    const mat = GUN_MAT[key] || gunMat;
     ent.findComponents('render').forEach(r => { r.castShadows = true; r.receiveShadows = true;
-      r.meshInstances.forEach(mi => { mi.material = gunMat; mi.castShadow = true; }); });
+      r.meshInstances.forEach(mi => { mi.material = mat; mi.castShadow = true; }); });
     if (!GUNFITS[key]) GUNFITS[key] = fitWeapon(ent, GUN_LEN[key]);
     const F = GUNFITS[key]; if (!F) return ent;
     const holder = new pc.Entity('gun-' + key), pivot = new pc.Entity('gun-' + key + '-pivot');
@@ -1003,7 +1055,7 @@
    *   was right when there was one model and would now freeze an operative holding whatever they
    *   spawned with — switching weapons would change the damage and the sound and not the picture. */
   function giveWeapon(h, key) {
-    if (!weaponAsset || !h) return;
+    if (!h || !(GUN_ASSET[key] || weaponAsset)) return;
     if (!GUN_PART[key] && Object.keys(GUN_PART).length) key = GUN_PART.smg ? 'smg' : Object.keys(GUN_PART)[0];
     if (h.__gunKey === key && h.__gun) return;
     if (h.__gun) { try { h.__gun.destroy(); } catch (e) {} h.__gun = null; }

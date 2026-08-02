@@ -345,6 +345,7 @@
 
   <audio id="s9Music" loop preload="none" src="section9-theme.mp3"></audio>
 
+<script src="js/gun-sfx.js"></script>
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
@@ -443,11 +444,14 @@
   function noise(dur,vol=0.3,lp=0){ if(!sfxOn)return; try{ const a=ac(),n=a.createBufferSource(),b=a.createBuffer(1,Math.max(1,a.sampleRate*dur),a.sampleRate),d=b.getChannelData(0);
     for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length); n.buffer=b; const g=a.createGain(); g.gain.value=vol;
     let node=n; if(lp){ const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=lp; n.connect(f); node=f; } node.connect(g).connect(a.destination); n.start(); }catch{} }
+  const GUNS = window.GunSfx ? GunSfx.create(ac, { enabled: () => sfxOn }) : null;
   const SFX={
-    pistol(){ noise(0.06,0.16,2600); tone(430,150,0.09,'square',0.10); },
-    smg(){ noise(0.04,0.11,3000); tone(360,180,0.05,'square',0.07); },
-    shotgun(){ noise(0.16,0.34,1400); tone(180,60,0.18,'sawtooth',0.16); },
-    sniper(){ noise(0.10,0.30,1800); tone(760,120,0.22,'sawtooth',0.16); tone(1400,300,0.10,'square',0.08); },
+    /* Guns go through js/gun-sfx.js (4 layers + per-shot jitter); the one-burst kit stays as the
+       fail-open path, exactly as in the engine build. */
+    pistol(){ if(GUNS) return GUNS.fire('pistol'); noise(0.06,0.16,2600); tone(430,150,0.09,'square',0.10); },
+    smg(){ if(GUNS) return GUNS.fire('smg'); noise(0.04,0.11,3000); tone(360,180,0.05,'square',0.07); },
+    shotgun(){ if(GUNS) return GUNS.fire('shotgun'); noise(0.16,0.34,1400); tone(180,60,0.18,'sawtooth',0.16); },
+    sniper(){ if(GUNS) return GUNS.fire('sniper'); noise(0.10,0.30,1800); tone(760,120,0.22,'sawtooth',0.16); tone(1400,300,0.10,'square',0.08); },
     empty(){ tone(180,140,0.05,'square',0.05); },
     reload(){ tone(300,300,0.04,'square',0.08); setTimeout(()=>tone(520,520,0.04,'square',0.08),120); setTimeout(()=>noise(0.05,0.1,2000),240); },
     hit(){ tone(1500,900,0.05,'square',0.12); },

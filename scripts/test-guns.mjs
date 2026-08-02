@@ -185,6 +185,31 @@ t('the sfx keys were NOT renamed with the display names',
 /* ⚠ The lobby and the HUD each kept their OWN copy of the weapon list, which is how an "AK"
  * chip survived a rename that touched every other surface. Both are derived now; this asserts
  * the private copies did not come back. */
+/* ⛔ REAL MODELS WHERE THEY EXIST. The first cut of this shipped four procedural guns while two
+ * cleared, converted models sat in models/weapons/ unused — magnum460.glb (CC0 1.0, from
+ * github.com/TheGoodFella/magnum460Blend, credited in CREDITS.md) and the artist-supplied,
+ * artist-cleared m4a1.glb. Building a stand-in next to a real asset is the same failure as four
+ * names on one mesh, so it is asserted rather than remembered. */
+const srcBlock = /const GUN_SRC = \{([\s\S]*?)\n  \};/.exec(appSrc);
+t('js/s9pc-app.js declares a source per weapon', !!srcBlock);
+const SRC = srcBlock ? srcBlock[1] : '';
+t('SIDE BET uses the CC0 Magnum 460, not a stand-in', /pistol:\s*\{[^}]*magnum460\.glb/.test(SRC));
+t('FULL TILT uses the artist-cleared M4, with its texture',
+  /smg:\s*\{[^}]*m4a1\.glb[^}]*m4a1_tex\.jpg/.test(SRC));
+/* ⚠ sniper_stand.glb is NOT mapped to COLD CALL on purpose: 268 triangles, mirror-symmetric top
+ * to bottom — it is the BIPOD out of the KSR28 blend, not the rifle. Mapping by filename would
+ * have put a tripod in an operative's hands. */
+t('COLD CALL does NOT use sniper_stand.glb (that file is a bipod, not a rifle)',
+  !/sniper:\s*\{[^}]*sniper_stand/.test(SRC));
+for (const f of ['magnum460.glb', 'm4a1.glb', 'm4a1_tex.jpg']) {
+  let ok = false; try { ok = readFileSync(join(ROOT, 'models/weapons/' + f)).length > 1000; } catch {}
+  t(`models/weapons/${f} is present`, ok);
+}
+/* The built set stays complete so a 404 on a real model degrades to a stand-in rather than an
+ * empty hand — only the source is lost, never the silhouette. */
+t('s9-guns.glb still carries all four parts as the fail-open set',
+  KEYS.every(k => !!nodes['gun_' + k]));
+
 const uiSrc = readFileSync(join(ROOT, 'js/s9pc-ui.js'), 'utf8');
 t('the lobby derives its loadout list from S9Game.WEAPONS',
   /LOADOUTS = \(window\.S9Game/.test(uiSrc));
