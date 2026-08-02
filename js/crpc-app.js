@@ -53,7 +53,18 @@
    * multiplied against callers' own min(dpr,2) and pushed the effective ratio to 0.63, i.e. below
    * one CSS pixel, which is visibly soft. */
   const DPRCAP = (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2;
-  const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+  /* ⛔ THE TIER IS NOT THE PIXEL RATIO, AND DERIVING IT FROM `dprCap()` MADE `mid` AND `high`
+   *    UNREACHABLE. `dprCap()` ends in `Math.max(1, Math.min(dpr, cap))`, so on ANY 1× display —
+   *    i.e. every ordinary desktop monitor — it returns exactly 1 whatever the machine is, and
+   *    `1 >= 1.5` is false, so the old line below hard-selected `low` forever:
+   *        const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+   *    Measured on an emulated 1×/8-core/8 GB desktop: that formula → 'low', deviceTier() →
+   *    'high'. Two rungs apart, and the whole TIERS table below was tuned for rungs nobody got.
+   *    ⚑ This is failure #1 in scripts/test-s9cast.mjs, fixed there for Section 9 in July and
+   *    left standing here, in js/rrpc-app.js and in js/dfpc-app.js. `deviceTier()` reads the same
+   *    device signals WITHOUT the dpr term. DPRCAP stays — it is still the right answer for the
+   *    BACKING STORE, which is what it was written for. */
+  const AUTO_TIER = (window.GfxPost && GfxPost.deviceTier) ? GfxPost.deviceTier() : 'mid';
   let TIER = Q.get('q') || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
   const TIERS = {
@@ -1506,7 +1517,10 @@
 
   // ══ DEV / VERIFICATION HOOKS ════════════════════════════════════════════════════════════════
   window.__crpc = {
-    app, get G() { return G; }, get T() { return T; }, marks: MARKS,
+    /* TIER is read back for the same reason js/rrpc-app.js exposes it: the quality ladder is a
+     * DECISION the page makes about the device, and there is no other way to see which rung it
+     * landed on from outside. Without it the dprCap→deviceTier fix above could not be asserted. */
+    app, TIER, get G() { return G; }, get T() { return T; }, marks: MARKS,
     startRace, hold: v => { HOLD = !!v; },
     // the plume's raw buffers + per-pod wake, so a headless check can read what was WRITTEN
     // rather than infer it from a screenshot this container is not colour-faithful about

@@ -508,6 +508,11 @@
   <script src="js/wallet-ui.js"></script>
   <script src="js/card-hover.js"></script>
   <script src="js/arena-lobby.js"></script>
+  <!-- ⛔ eth-play.js IS DOOR C'S ONLY INPUT. js/session.js's checkVisitor() opens on
+       `window.RipEth` and returns {configured:false, open:false} without it — so on this build
+       (the one the arcade links to) the VISITOR door could never open, while section9-classic.html
+       loaded both and worked. One of the three doors in docs/SEATS.md, dark by omission. -->
+  <script src="js/eth-play.js"></script>
   <script src="js/session.js"></script>
   <script src="js/wager-payout.js"></script>
   <script src="js/game-help.js"></script>

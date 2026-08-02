@@ -56,7 +56,14 @@
    * of 1, never a multiplier — CLAUDE.md records that the multiplier version pushed the effective
    * ratio to 0.63, i.e. below one CSS pixel, which is visibly soft. */
   const DPRCAP = (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2;
-  const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+  /* ⛔ THE TIER IS NOT THE PIXEL RATIO. `dprCap()` ends in `Math.max(1, Math.min(dpr, cap))`, so
+   *    on ANY 1× display it returns exactly 1 however strong the machine is, and the old line
+   *        const AUTO_TIER = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+   *    therefore hard-selected `low` on every ordinary desktop monitor — `mid` and `high` were
+   *    unreachable without `?q=`. Measured on an emulated 1×/8-core/8 GB desktop: that formula →
+   *    'low', deviceTier() → 'high'. This is failure #1 in scripts/test-s9cast.mjs, fixed for
+   *    Section 9 and left standing here. DPRCAP stays: it is still right for the BACKING STORE. */
+  const AUTO_TIER = (window.GfxPost && GfxPost.deviceTier) ? GfxPost.deviceTier() : 'mid';
   let TIER = Q.get('q') || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
   const TIERS = {

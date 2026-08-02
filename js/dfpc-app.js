@@ -195,7 +195,14 @@ window.DFPC = (function () {
       if (!probe.getContext('webgl2')) { why = 'this browser reports no WebGL 2 context'; return false; }
 
       const DPRCAP = (window.GfxPost && GfxPost.dprCap) ? GfxPost.dprCap() : 2;
-      const AUTO = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+      /* ⛔ THE TIER IS NOT THE PIXEL RATIO. `dprCap()` ends in `Math.max(1, Math.min(dpr, cap))`,
+       *    so on ANY 1× display it returns exactly 1 however strong the machine is, and the old
+       *        const AUTO = DPRCAP >= 2 ? 'high' : (DPRCAP >= 1.5 ? 'mid' : 'low');
+       *    hard-selected `low` on every ordinary desktop monitor. Measured on an emulated
+       *    1×/8-core/8 GB desktop: that formula → 'low', deviceTier() → 'high'. Failure #1 in
+       *    scripts/test-s9cast.mjs, fixed for Section 9 and left standing here. DPRCAP stays —
+       *    it is still the right answer for the BACKING STORE, which is what it was written for. */
+      const AUTO = (window.GfxPost && GfxPost.deviceTier) ? GfxPost.deviceTier() : 'mid';
       TIER = Q.get('q') || (() => { try { return localStorage.getItem('dfpc_q'); } catch (e) { return null; } })() || AUTO;
       if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO;
       QCFG = TIERS[TIER];

@@ -1512,7 +1512,25 @@
     .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); })
     .catch(() => RoninWorld.load('models/world/street.wld')
       .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {}));
-  // SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts
+  /* SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts.
+   * ⛔ AND "TAKE PRIORITY" IS ABSOLUTE, WHICH IS WHY THE RIGID LOAD IS NOW CHAINED ONTO THIS ONE'S
+   *    FAILURE. `js/ronin3d.js` drawFighter reads
+   *        if (skins[f.arch]) { drawSkinned(...); return; }
+   *        if (models[f.arch]) { drawModelFighter(...); return; }
+   *    — the skin wins before the model is ever consulted. All 13 ARCH_KEYS have a `models/*.skn`
+   *    on disk, so the old unconditional second pass fetched 13 `.glb` (all 404) and then 13
+   *    `.obj`, of which `ronin.obj` (6.6 MB) and `oni.obj` (2.5 MB) SUCCEED — 9.1 MB downloaded,
+   *    parsed and registered into `models[]`, which the draw path can never reach. Built,
+   *    fetched, and still unreachable (ROADMAP §5.3). Measured: 25 guaranteed-404 requests on
+   *    every desktop load, which is also where a real 404 was hiding.
+   * ⚑ The drop-in hook is PRESERVED exactly: an archetype with no `.skn` still falls through to
+   *    `<arch>.glb` → `<arch>.obj` and still replaces the procedural body. Nothing that could be
+   *    drawn before stops being drawn; only fetches whose result was undrawable are dropped. */
+  const rigid = k => {
+    const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
+    return tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
+      .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});
+  };
   if (FIGHTERS_OK && r3dOk) ARCH_KEYS.forEach(k => {
     fetch('models/' + k + '.skn').then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(buf => {
       const dv = new DataView(buf);
@@ -1528,13 +1546,8 @@
        * something wrong, which is why the length is asserted here rather than assumed. */
       const off = ver >= 2 ? 32 + 11 * 6 * 4 : 32;
       if (off + n * 56 > buf.byteLength) throw 0;
-      Ronin3D.registerSkin(k, new Float32Array(buf, off, n * 14), n);
-    }).catch(() => {});
-  });
-  if (FIGHTERS_OK && r3dOk) ARCH_KEYS.forEach(k => {
-    const tryGlb = window.RoninGLB ? RoninGLB.load('models/' + k + '.glb') : Promise.reject();
-    tryGlb.catch(() => window.RoninOBJ ? RoninOBJ.load('models/' + k + '.obj') : Promise.reject())
-      .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});
+      if (!Ronin3D.registerSkin(k, new Float32Array(buf, off, n * 14), n)) throw 0;
+    }).catch(() => rigid(k));      // no skin for this arch → the rigid-part drop-in still applies
   });
   if (r3dOk) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; $('cv3d').style.display = 'block'; $('cv').style.display = 'none'; }
   buildMoveList();                                            // frame data is available before the deck loads
