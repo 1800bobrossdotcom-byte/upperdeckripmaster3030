@@ -249,7 +249,7 @@
   </div>
   <div class="hud hud-br" id="hudBR" style="display:none">
     <div class="ammo"><span class="mag" id="magNum">12</span> <span class="res" id="resNum">/ ∞</span></div>
-    <div class="weap-name" id="weapName">RIP-9 PISTOL</div>
+    <div class="weap-name" id="weapName">SIDE BET</div>
     <div class="weap-slots" id="weapSlots"></div>
   </div>
   <div class="powmsg" id="powMsg"></div>
@@ -489,7 +489,7 @@
 
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
-  const LOADOUTS=['pistol','ak','shotgun','sniper'];
+  const LOADOUTS=WEAPONS.map(w=>w.name);   // derived — a private copy is how 'ak' survived the rename
   const wager={ ante:50, cards:2, players:4, picked:[], loadout:1 };
   // player-count chips 2..8
   $('pChips').innerHTML=[2,3,4,5,6,7,8].map(n=>`<span class="pchip${n===wager.players?' on':''}" data-p="${n}">${n}</span>`).join('');
@@ -1115,10 +1115,10 @@
 
   // weapon definitions
   const WEAPONS=[
-    { name:'RIP-9 PISTOL',  key:'pistol',  dmg:22, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
-    { name:'AK RIPMASTER',  key:'smg',     dmg:17, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
-    { name:'STREET SWEEPER',key:'shotgun', dmg:9, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
-    { name:'LONG RIFLE',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
+    { name:'SIDE BET',  key:'pistol',  dmg:22, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
+    { name:'FULL TILT',  key:'smg',     dmg:17, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
+    { name:'SCATTER',key:'shotgun', dmg:9, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
+    { name:'COLD CALL',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
   ];
 
   // ══════════════════ CARD POWERS + LIVE $3030 MARKET ══════════════════
@@ -1231,7 +1231,7 @@
     playMusic(); SFX.spawn(); powMsg('◈ '+MAP.name, '#59e0ff');
     tryLock();
   }
-  function buildWeapSlots(){ $('weapSlots').innerHTML=WEAPONS.map((w,i)=>`<span class="wslot" data-w="${i}">${i+1}·${w.key==='smg'?'ak':w.key}</span>`).join('');
+  function buildWeapSlots(){ $('weapSlots').innerHTML=WEAPONS.map((w,i)=>`<span class="wslot" data-w="${i}">${i+1}·${w.key}</span>`).join('');
     $('weapSlots').querySelectorAll('.wslot').forEach(el=>{ el.onclick=()=>switchWeapon(+el.dataset.w);
       el.addEventListener('pointerdown',e=>{ if(e.pointerType==='touch'){ e.preventDefault(); switchWeapon(+el.dataset.w); } }); }); }
 
@@ -1802,7 +1802,7 @@
       draw([[86,20],[150,20],[160,-150],[150,-210],[92,-210],[74,-150]],GM.mid);            // grip/frame
       draw([[96,-150],[152,-150],[152,-280],[128,-320],[98,-296]],GM.lite);                 // slide
       draw([[128,-300],[300,-300],[300,-330],[128,-330]],GM.dark); }                        // barrel
-    else if(w.key==='smg'){   // AK RIPMASTER — wood furniture + banana mag
+    else if(w.key==='smg'){   // FULL TILT — wood furniture + banana mag
       draw([[-70,58],[36,20],[44,-4],[-30,30],[-96,66]],GM.wood);                           // wooden stock (back-left)
       draw([[40,26],[300,26],[300,-44],[40,-44]],'#24272e');                                // black lower receiver
       draw([[70,-8],[188,-8],[196,128],[64,128]],GM.hand);                                  // firing hand on the grip

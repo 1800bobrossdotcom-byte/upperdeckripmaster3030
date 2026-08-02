@@ -869,12 +869,12 @@
     if (!arch || !window.S9PCSkin) return;
     bodyPending.add(e);
     const p = S9PCSkin.spawn(app, arch, { tint: e.tint });
-    p.then(h => { bodies.set(e, h); bodyPending.delete(e); if (weaponAsset) giveWeapon(h); })
+    p.then(h => { bodies.set(e, h); bodyPending.delete(e); if (weaponAsset) giveWeapon(h, gunKeyOf(e)); })
       .catch(() => { bodyPending.delete(e);
         /* Fails open, the way the shipping game does: no .skn, a 404, a weak device ⇒ the operative
          * keeps an articulated rig instead of disappearing. Same 11 bones, same poser — only the
          * geometry hanging off them is boxes. */
-        try { const h = S9PCSkin.spawnBox(app, e.tint); bodies.set(e, h); if (weaponAsset) giveWeapon(h); } catch (err) {}
+        try { const h = S9PCSkin.spawnBox(app, e.tint); bodies.set(e, h); if (weaponAsset) giveWeapon(h, gunKeyOf(e)); } catch (err) {}
       });
   }
   function syncBodies(G) {
@@ -887,6 +887,7 @@
       // spawn-protection flicker, same read as the shipping game's
       const flick = (e.spawnT > 0 || e.iframe > 0) ? (Math.sin(G.t * 30) > 0) : true;
       if (h.entity.enabled !== flick) h.entity.enabled = flick;
+      if (weaponAsset) giveWeapon(h, gunKeyOf(e));   // a weapon swap must change the picture
       h.setPose(e);
       if (h.placeGun) h.placeGun();
     }
@@ -908,36 +909,84 @@
       img.onerror = () => rej(new Error('image ' + url)); img.src = url;
     });
   }
+  /* ⛔ FOUR WEAPONS, ONE MODEL — the artist's "all the guns look like the same gun", and it was
+   *    literal: this loaded `m4a1.glb` once and `giveWeapon` handed that same carbine to every
+   *    operative, so the pistol, the shotgun and the bolt rifle were all drawn as an M4. The
+   *    NAMES then described weapons that were not on screen, which is the second half of the
+   *    report ("the guns are misnamed").
+   * ⚑ ONE GLB, FOUR NAMED PARTS — `models/weapons/s9-guns.glb` from scripts/blender/build-guns.py,
+   *    the same contract models/dogfight.glb uses. One fetch, 1,092 triangles for all four.
+   * ⚠ The M4 asset is deliberately still in the repo and still loadable: `?gun=m4a1` restores it,
+   *    because it is the A/B for anything that changes how a weapon is fitted or held. */
+  const GUN_KEYS = ['pistol', 'smg', 'shotgun', 'sniper'];
+  const GUN_PART = {};                       // key -> the template entity inside the container
+  /* ⚠ NOT all normalised to one length. `fitWeapon` used to scale every weapon to 0.86 m, which
+   *   is correct when there is one model and ACTIVELY WRONG now: it would stretch the pistol to
+   *   the length of the bolt rifle and undo the silhouette difference this file exists to create.
+   *   These are the drawn lengths, in metres, and they are the read at range. */
+  const GUN_LEN = { pistol: 0.42, smg: 0.82, shotgun: 0.78, sniper: 1.02 };
   function loadWeapon() {
     if (!WANT_WEAPON) return Promise.resolve(null);
-    return loadTexture('models/weapons/m4a1_tex.jpg', true).then(tex => {
+    const legacy = (Q.get('gun') === 'm4a1');
+    const url = legacy ? 'models/weapons/m4a1.glb' : 'models/weapons/s9-guns.glb';
+    const tex = legacy ? loadTexture('models/weapons/m4a1_tex.jpg', true) : Promise.resolve(null);
+    return tex.then(t => {
       gunMat = new pc.StandardMaterial();
-      gunMat.name = 'm4a1'; gunMat.diffuseMap = tex; gunMat.diffuse = new pc.Color(1, 1, 1);
-      gunMat.useMetalness = true; gunMat.metalness = 0.62; gunMat.gloss = 0.55; gunMat.diffuseMapTint = false;
+      gunMat.name = 'gun';
+      if (t) { gunMat.diffuseMap = t; gunMat.diffuse = new pc.Color(1, 1, 1); gunMat.diffuseMapTint = false; }
+      /* ⚠ DARK, and that is a legibility decision rather than a taste one. js/s9pc-world.js keeps
+       *   arena walls at 0.60–0.70 albedo precisely so a dark silhouette reads against them; a
+       *   bright weapon becomes the most salient thing on screen, brighter than the person
+       *   carrying it. Same value band as the bodies in js/s9pc-skin.js. */
+      else gunMat.diffuse = new pc.Color(0.20, 0.20, 0.22);
+      gunMat.useMetalness = true; gunMat.metalness = 0.62; gunMat.gloss = 0.42;
       gunMat.update();
-      return new Promise((res, rej) => app.assets.loadFromUrl('models/weapons/m4a1.glb', 'container', (err, a) => err ? rej(new Error(err)) : res(a)));
-    }).then(asset => { weaponAsset = asset; bodies.forEach(giveWeapon); makeViewmodel(); return asset; })
-      .catch(e => { console.warn('[s9pc] weapon:', e && e.message); return null; });
+      return new Promise((res, rej) => app.assets.loadFromUrl(url, 'container', (err, a) => err ? rej(new Error(err)) : res(a)));
+    }).then(asset => {
+      weaponAsset = asset;
+      /* Named parts are the contract with build-guns.py. A GLB that loads but carries the wrong
+       * names must not half-render, so a missing part falls back to whatever did load. */
+      if (!legacy) {
+        const probe = asset.resource.instantiateRenderEntity();
+        GUN_KEYS.forEach(k => { if (probe.findByName('gun_' + k)) GUN_PART[k] = 'gun_' + k; });
+        probe.destroy();
+      }
+      bodies.forEach((h, e) => giveWeapon(h, gunKeyOf(e)));
+      makeViewmodel(game && game.G && game.G.me ? gunKeyOf(game.G.me) : 'smg');
+      return asset;
+    }).catch(e => { console.warn('[s9pc] weapon:', e && e.message); return null; });
+  }
+  function gunKeyOf(e) {
+    try { const w = S9Game.WEAPONS[(e && e.weapon) | 0]; return (w && w.key) || 'smg'; } catch (x) { return 'smg'; }
   }
   /* Measure the GLB rather than assume it: longest axis = the barrel line, second = up. The rifle
    * then fits whatever the converter emitted without a hand-tuned magic transform — the same rule
    * dogfight.html uses for its craft. */
-  function fitWeapon(ent) {
+  function fitWeapon(ent, want) {
     const aabb = new pc.BoundingBox(); let first = true;
     ent.findComponents('render').forEach(r => r.meshInstances.forEach(mi => { if (first) { aabb.copy(mi.aabb); first = false; } else aabb.add(mi.aabb); }));
     if (first) return null;
     const he = aabb.halfExtents, ctr = aabb.center;
     const size = [he.x * 2, he.y * 2, he.z * 2];
     const order = [0, 1, 2].sort((a, b) => size[b] - size[a]);
-    return { LONG: order[0], UP: order[1], k: 0.86 / (size[order[0]] || 1), ctr: [ctr.x, ctr.y, ctr.z], size };
+    return { LONG: order[0], UP: order[1], k: (want || 0.86) / (size[order[0]] || 1), ctr: [ctr.x, ctr.y, ctr.z], size };
   }
-  function weaponEntity() {
-    const ent = weaponAsset.resource.instantiateRenderEntity();
+  const GUNFITS = {};
+  function weaponEntity(key) {
+    const whole = weaponAsset.resource.instantiateRenderEntity();
+    let ent = whole;
+    const part = GUN_PART[key];
+    if (part) {
+      /* Pull the one part out of the container and drop the rest. Instantiating four separate
+       * containers would be four copies of every mesh in the file for one gun. */
+      const found = whole.findByName(part);
+      if (found) { found.reparent(null); whole.destroy(); ent = found; }
+    }
     ent.findComponents('render').forEach(r => { r.castShadows = true; r.receiveShadows = true;
       r.meshInstances.forEach(mi => { mi.material = gunMat; mi.castShadow = true; }); });
-    if (!GUNFIT) GUNFIT = fitWeapon(ent);
-    const F = GUNFIT; if (!F) return ent;
-    const holder = new pc.Entity('m4a1'), pivot = new pc.Entity('m4a1-pivot');
+    if (!GUNFITS[key]) GUNFITS[key] = fitWeapon(ent, GUN_LEN[key]);
+    const F = GUNFITS[key]; if (!F) return ent;
+    const holder = new pc.Entity('gun-' + key), pivot = new pc.Entity('gun-' + key + '-pivot');
     ent.setLocalPosition(-F.ctr[0], -F.ctr[1], -F.ctr[2]);
     pivot.addChild(ent);
     const AX = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -950,10 +999,16 @@
     holder.addChild(pivot);
     return holder;
   }
-  function giveWeapon(h) {
-    if (!weaponAsset || !h || h.__gun) return;
-    const g = weaponEntity();
-    h.entity.addChild(g); h.__gun = g;
+  /* ⚠ KEYED ON THE WEAPON, not "once per body". The old guard was `if (h.__gun) return`, which
+   *   was right when there was one model and would now freeze an operative holding whatever they
+   *   spawned with — switching weapons would change the damage and the sound and not the picture. */
+  function giveWeapon(h, key) {
+    if (!weaponAsset || !h) return;
+    if (!GUN_PART[key] && Object.keys(GUN_PART).length) key = GUN_PART.smg ? 'smg' : Object.keys(GUN_PART)[0];
+    if (h.__gunKey === key && h.__gun) return;
+    if (h.__gun) { try { h.__gun.destroy(); } catch (e) {} h.__gun = null; }
+    const g = weaponEntity(key);
+    h.entity.addChild(g); h.__gun = g; h.__gunKey = key;
     h.placeGun = () => {
       const P2 = h.pose; if (!P2) return;
       const gp = P2.grip, mz = P2.muzzle;
@@ -962,7 +1017,7 @@
       const l = Math.hypot(d[0], d[1], d[2]) || 1;
       // the body root is scaled px→metres (h/150) and the fit normalises the GLB to 0.86 m at
       // scale 1, so undoing the root scale keeps the rifle 0.86 m however tall the operative is
-      const s = S9Skin.H / ((h.state && h.state.h) || 1.72);
+      const s = S9Skin.H / ((h.state && h.state.h) || 1.72);   // px→m undo; length is GUN_LEN[key]
       g.setLocalScale(s, s, s);
       const wp = h.entity.getWorldTransform().transformPoint(new pc.Vec3(gp[0] + d[0] / l * 40, gp[1] + d[1] / l * 40, gp[2] + d[2] / l * 40));
       g.lookAt(wp);                                  // aims −z at the target, and −z is the muzzle
@@ -1159,8 +1214,15 @@
     } catch (e) { console.warn('[s9pc] sights:', e && e.message); return null; }
   }
 
-  function makeViewmodel() {
-    viewmodel = weaponEntity();
+  /* ⚑ THE VIEWMODEL SWAPS TOO. Third-person bodies were not the only place the one-model bug
+   *   showed: the player's own hands held whatever was built at load, so switching weapons changed
+   *   the damage, the spread and the sound while the picture in front of you stayed put. */
+  let VM_KEY = null;
+  function makeViewmodel(key) {
+    key = key || 'smg';
+    if (viewmodel) { try { viewmodel.destroy(); } catch (e) {} viewmodel = null; }
+    VM_KEY = key;
+    viewmodel = weaponEntity(key);
     makeHands(viewmodel);
     viewmodel.setLocalScale(VM.scale, VM.scale, VM.scale);
     cam.addChild(viewmodel);
@@ -1469,6 +1531,7 @@
       const me = G.me;
       // hide the model behind a true optical scope, and pull it toward the sightline when aiming
       const scoped = me && me.scoped && S9Game.WEAPONS[me.weapon].zoom > 1;
+      if (me && weaponAsset) { const k = gunKeyOf(me); if (k !== VM_KEY) makeViewmodel(k); }
       viewmodel.enabled = !!(me && me.alive && !scoped);
       const mk = me ? Math.max(0, Math.min(1, me.muzzle / 0.05)) : 0;
       muzzleLight.enabled = mk > 0.02;

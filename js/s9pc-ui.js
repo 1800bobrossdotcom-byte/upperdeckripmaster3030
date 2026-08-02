@@ -91,7 +91,12 @@ window.S9PCUI = (function () {
 
     // ── wager state ─────────────────────────────────────────────────────────────────────────
     const W_ANTE = { min: 0, max: 500, step: 25 }, W_CARDS = { min: 1, max: 5 };
-    const LOADOUTS = ['pistol', 'ak', 'shotgun', 'sniper'];
+    /* ⚠ DERIVED, not typed. This was `['pistol', 'ak', 'shotgun', 'sniper']` — a second, private
+     * copy of the weapon table, which is exactly why the lobby still offered an "AK" after the
+     * weapons had been renamed everywhere else. One list, one source: S9Game.WEAPONS. */
+    const LOADOUTS = (window.S9Game && S9Game.WEAPONS)
+      ? S9Game.WEAPONS.map(w => w.name)
+      : ['pistol', 'smg', 'shotgun', 'sniper'];
     const wager = { ante: 50, cards: 2, players: 4, picked: [], loadout: 1 };
     let arenaPick = -1, MAPS = [], quality = null;
     const API = { wager, onStart: null, onAbort: null, onQuality: null };
@@ -185,7 +190,10 @@ window.S9PCUI = (function () {
     function setMaps(list) { MAPS = list; paintArenaChips(); paintBuildNote(); }
     function buildWeapSlots() {
       const W = S9Game.WEAPONS;
-      $('weapSlots').innerHTML = W.map((w, i) => `<span class="wslot" data-w="${i}">${i + 1}·${w.key === 'smg' ? 'ak' : w.key}</span>`).join('');
+      /* ⚠ was `w.key === 'smg' ? 'ak' : w.key` — a display-time substitution that renamed the
+       * weapon to a real-world designation in the HUD only, so the slot said one thing and the
+       * name plate said another. The KEY is the honest label here: it is the category. */
+      $('weapSlots').innerHTML = W.map((w, i) => `<span class="wslot" data-w="${i}">${i + 1}·${w.key}</span>`).join('');
       $('weapSlots').querySelectorAll('.wslot').forEach(el => { el.onclick = () => game && game.switchWeapon(+el.dataset.w);
         el.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { e.preventDefault(); game && game.switchWeapon(+el.dataset.w); } }); });
     }

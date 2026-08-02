@@ -291,11 +291,30 @@ window.S9Game = (function () {
   }
 
   // ── weapons ─────────────────────────────────────────────────────────────────────────────────
+  /* ⛔ RENAMED. The artist's note was "the guns are misnamed", and it was true twice over.
+   *
+   * ⚑ They described weapons that were NOT ON SCREEN. All four rendered `m4a1.glb` — one carbine
+   *   — so "RIP-9 PISTOL" and "STREET SWEEPER" labelled an M4. That half is fixed in
+   *   scripts/blender/build-guns.py: four models, four silhouettes.
+   * ⚑ And two were REAL-WORLD DESIGNATIONS. "AK" is an actual weapon family and "STREET SWEEPER"
+   *   is an actual product name. This studio's standing rule is generic archetypes, clearly
+   *   satire, never a real mark — the same rule that makes every CC0-derived body carry a
+   *   ripmaster3030studios name and never its source's (js/section9-skin.js CAST, docs/CC0-SOURCES).
+   *   A gun is not exempt from a rule the characters follow.
+   *
+   * The new names are the studio's own register — the casino and the card table, which is where
+   * this project's whole vocabulary comes from — and each says what the weapon DOES:
+   *   SIDE BET   small, always on you, not what you came to play
+   *   FULL TILT  30 rounds, automatic, the commitment
+   *   SCATTER    8 pellets, literally scattered
+   *   COLD CALL  one shot from a long way off
+   * ⚠ `key` and `sfx` are UNCHANGED and must stay so — they index the foley in js/sfx-lib.js and
+   *   the material/model lookups in js/s9pc-app.js. Renaming those would silence the guns. */
   const WEAPONS = [
-    { name: 'RIP-9 PISTOL', key: 'pistol', dmg: 22, spread: 0.010, rate: 250, mag: 12, reload: 1050, auto: false, pellets: 1, zoom: 1, sfx: 'pistol', range: 60, kick: 0.9 },
-    { name: 'AK RIPMASTER', key: 'smg', dmg: 17, spread: 0.045, rate: 105, mag: 30, reload: 1500, auto: true, pellets: 1, zoom: 1, sfx: 'smg', range: 56, kick: 0.7 },
-    { name: 'STREET SWEEPER', key: 'shotgun', dmg: 9, spread: 0.10, rate: 780, mag: 6, reload: 1900, auto: false, pellets: 8, zoom: 1, sfx: 'shotgun', range: 26, kick: 1.6 },
-    { name: 'LONG RIFLE', key: 'sniper', dmg: 88, spread: 0.002, rate: 1150, mag: 5, reload: 1700, auto: false, pellets: 1, zoom: 2.7, sfx: 'sniper', range: 80, kick: 2.2 },
+    { name: 'SIDE BET', key: 'pistol', dmg: 22, spread: 0.010, rate: 250, mag: 12, reload: 1050, auto: false, pellets: 1, zoom: 1, sfx: 'pistol', range: 60, kick: 0.9 },
+    { name: 'FULL TILT', key: 'smg', dmg: 17, spread: 0.045, rate: 105, mag: 30, reload: 1500, auto: true, pellets: 1, zoom: 1, sfx: 'smg', range: 56, kick: 0.7 },
+    { name: 'SCATTER', key: 'shotgun', dmg: 9, spread: 0.10, rate: 780, mag: 6, reload: 1900, auto: false, pellets: 8, zoom: 1, sfx: 'shotgun', range: 26, kick: 1.6 },
+    { name: 'COLD CALL', key: 'sniper', dmg: 88, spread: 0.002, rate: 1150, mag: 5, reload: 1700, auto: false, pellets: 1, zoom: 2.7, sfx: 'sniper', range: 80, kick: 2.2 },
   ];
   const CTINTS = [[80, 120, 220], [220, 90, 90], [210, 200, 80], [190, 110, 220], [90, 200, 140], [230, 150, 70], [120, 210, 220], [200, 120, 170]];
   const POWS = [{ t: 'med', ch: '✚', col: [70, 230, 110] }, { t: 'armor', ch: '▣', col: [90, 180, 255] }, { t: 'ammo', ch: '▪', col: [230, 200, 90] }];
