@@ -6,18 +6,25 @@
 <title>The Market Bench · ripmaster3030studios</title>
 <meta name="description" content="The market bench — your vault of owned cards, and where you list them for sale, trade, or send. A testnet prototype today: cards save in your browser; only the $3030 buy & burn are on-chain.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../mobile.css">
 <style>
   :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
     --cyan:#27f7e4; --amber:#ffd23b; --drabink:#01130a; --leaf:#03160c;
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html{ background:var(--bg); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
-    min-height:100vh; overflow-x:hidden; padding:0 12px 80px; -webkit-tap-highlight-color:transparent; }
+    font-size:var(--t-body,13px); line-height:1.6;
+    /* 130px clears banner.js's fixed strip AND the two floating controls sfx.js/theme.js mount */
+    min-height:100vh; overflow-x:hidden; padding:0 12px 130px; -webkit-tap-highlight-color:transparent; }
   .lm{ position:fixed; inset:0; z-index:-1; pointer-events:none; background:url("../Laughing_man.svg") repeat;
     background-size:min(46vw,340px); filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6); opacity:.09; }
   .wrap{ position:relative; z-index:1; max-width:1080px; margin:0 auto; }
-  a.back{ display:inline-block; margin-top:14px; color:var(--phos); text-decoration:none;
-    font-size:11px; letter-spacing:.2em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
+  /* ⚠ `display:inline-block` beats the UA's [hidden]; ../mobile.css declares the !important
+     form once so this is safe. inline-flex is also what gives the link its 44px box. */
+  .backs{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 16px; }
+  a.back{ display:inline-flex; align-items:center; gap:6px; min-height:var(--tap,44px); margin-top:8px; padding:0 2px;
+    color:var(--phos); text-decoration:none;
+    font-size:var(--t-ui,11px); letter-spacing:.14em; text-transform:uppercase; text-shadow:0 0 8px rgba(43,255,128,.5); }
 
   /* ── branded dialog — replaces browser prompt()/confirm() popups ── */
   .urm-modal{ position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:18px;
@@ -25,20 +32,25 @@
   .urm-box{ width:min(440px,94vw); background:#02140b; border:1px solid var(--phosdim); border-radius:14px;
     padding:18px; box-shadow:0 30px 80px -20px #000, 0 0 30px rgba(43,255,128,.12); }
   .urm-box h4{ margin:0 0 4px; font-family:var(--fat); text-transform:uppercase; letter-spacing:.08em;
-    font-size:14px; color:var(--phos); }
-  .urm-box .urm-sub{ font-size:12px; color:#7fd8a8; margin-bottom:12px; line-height:1.5; }
+    font-size:var(--t-h3,14px); color:var(--phos); }
+  .urm-box .urm-sub{ font-size:var(--t-body,12px); color:#7fd8a8; margin-bottom:12px; line-height:1.55; }
   .urm-box input{ width:100%; box-sizing:border-box; background:#010a06; border:1px solid var(--phosdim);
-    border-radius:8px; color:var(--ink); font-family:var(--mono); font-size:14px; padding:10px 12px; outline:none; }
+    border-radius:8px; color:var(--ink); font-family:var(--mono); font-size:max(16px,var(--t-body,16px));
+    padding:12px 12px; outline:none; }
+  /* ⚑ 16px MINIMUM ON AN INPUT IS A FUNCTIONAL FIX, NOT A TYPOGRAPHIC ONE. iOS Safari zooms the
+     whole page in when a focused field is under 16px, and it does NOT zoom back out — you land
+     in a dialog and the page is suddenly 1.4x, off-centre, with the keyboard up. */
   .urm-box input:focus{ border-color:var(--phos); box-shadow:0 0 0 2px rgba(43,255,128,.18); }
   .urm-acts{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
-  .urm-acts button{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.06em; font-size:11px;
-    padding:9px 16px; border-radius:8px; cursor:pointer; border:1px solid var(--phosdim); background:transparent; color:var(--ink); }
+  .urm-acts button{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.06em; font-size:var(--t-ui,11px);
+    padding:0 18px; min-height:var(--tap,44px); border-radius:8px; cursor:pointer;
+    border:1px solid var(--phosdim); background:transparent; color:var(--ink); }
   .urm-acts .ok{ background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56); color:#01130a; border-color:#01130a; }
   .urm-list{ display:grid; gap:6px; max-height:40vh; overflow:auto; margin-top:4px; }
   .urm-list button{ display:flex; align-items:center; gap:10px; text-align:left; background:#010a06;
     border:1px solid var(--phosdim); border-radius:8px; color:var(--ink); font-family:var(--mono);
-    font-size:13px; padding:8px 10px; cursor:pointer; width:100%; }
-  .urm-list button:hover{ border-color:var(--phos); }
+    font-size:var(--t-body,13px); padding:10px; min-height:var(--tap,44px); cursor:pointer; width:100%; }
+  .urm-list button:hover,.urm-list button:active,.urm-list button:focus-visible{ border-color:var(--phos); }
   .urm-list img{ width:30px; height:42px; object-fit:cover; border-radius:4px; flex:none; }
   /* ── the header prop ─────────────────────────────────────────────────────────────────────
      A real 3D bench (js/site3d-prop.js, PlayCanvas) built from the same Blender-baked steel and
@@ -69,16 +81,18 @@
 
   h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
-  .sub{ text-align:center; font-size:12px; color:#5fcf8f; letter-spacing:.22em; text-transform:uppercase; margin-top:4px; }
-  .burned{ text-align:center; font-size:10.5px; color:var(--amber); letter-spacing:.14em; text-transform:uppercase; margin-top:6px; }
+  .sub{ text-align:center; font-size:var(--t-fine,12px); color:#5fcf8f; letter-spacing:.16em; text-transform:uppercase; margin-top:6px; }
+  .burned{ text-align:center; font-size:var(--t-fine,10.5px); color:var(--amber); letter-spacing:.1em; text-transform:uppercase; margin-top:8px; }
   /* honesty note — the binder is a local prototype today */
-  .honesty-note{ text-align:center; max-width:580px; margin:10px auto 0; font-size:10.5px; line-height:1.6;
-    letter-spacing:.02em; color:#5fcf8f; opacity:.85; }
+  .honesty-note{ text-align:center; max-width:580px; margin:12px auto 0; font-size:var(--t-body,10.5px); line-height:1.65;
+    letter-spacing:.02em; color:#6fd39a; }
   .honesty-note b{ color:var(--amber); }
 
   .tabs{ display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
-  .tab{ font-family:var(--fat); font-size:11px; letter-spacing:.1em; text-transform:uppercase; padding:9px 16px;
+  .tab{ font-family:var(--fat); font-size:var(--t-ui,11px); letter-spacing:.08em; text-transform:uppercase;
+    padding:0 18px; min-height:var(--tap,44px); display:inline-flex; align-items:center;
     border:1px solid var(--phosdim); background:rgba(2,16,9,.85); color:var(--ink); border-radius:999px; cursor:pointer; }
+  .tab:active{ transform:scale(.97); }
   .tab.on{ border-color:var(--phos); color:var(--phos); box-shadow:0 0 14px rgba(43,255,128,.28); }
 
   /* ── the book ── */
@@ -108,28 +122,31 @@
                url("../media/site/steel-albedo.webp") repeat, #223;
     background-size:auto,24px,auto;
     border:1px solid #123; box-shadow:0 0 6px rgba(0,0,0,.8), inset 0 0 3px rgba(43,255,128,.25); }
-  .page-no{ position:absolute; bottom:8px; font-size:9px; letter-spacing:.2em; color:#3f8f63; text-transform:uppercase; }
+  .page-no{ position:absolute; bottom:8px; font-size:var(--t-tag,9px); letter-spacing:.14em; color:#4e9d73; text-transform:uppercase; }
   .left .page-no{ left:18px; } .right .page-no{ right:18px; }
 
   .pockets{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
   .pk{ position:relative; aspect-ratio:2/3; border-radius:8px; border:1px solid var(--phosdim);
     background:rgba(0,0,0,.35); box-shadow:inset 0 0 14px rgba(0,0,0,.7); overflow:hidden; cursor:pointer;
     transition:transform .12s, box-shadow .12s; }
-  .pk:hover{ transform:translateY(-2px); box-shadow:0 6px 16px -6px #000, inset 0 0 14px rgba(0,0,0,.5); }
+  /* the pocket lifted only under a pointer; a press is the touch equivalent and is the more
+     physical read anyway — the card comes up out of the sleeve as you pull it */
+  .pk:hover,.pk:focus-visible{ transform:translateY(-2px); box-shadow:0 6px 16px -6px #000, inset 0 0 14px rgba(0,0,0,.5); }
+  .pk:active{ transform:translateY(-4px); box-shadow:0 10px 20px -8px #000, inset 0 0 14px rgba(0,0,0,.5); }
   .pk .sheen{ position:absolute; inset:0; pointer-events:none; z-index:2;
     background:linear-gradient(135deg, rgba(255,255,255,.16), transparent 42%); mix-blend-mode:screen; }
   .pk img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .pk.empty{ cursor:default; } .pk.empty:hover{ transform:none; }
+  .pk.empty{ cursor:default; } .pk.empty:hover,.pk.empty:active{ transform:none; }
   .pk.empty::after{ content:'∅'; position:absolute; inset:0; display:grid; place-items:center; color:#1c4c32; font-size:26px; }
   .pk.ghost img{ filter:grayscale(1) brightness(.32) contrast(.9); }
   .pk.ghost::before{ content:'FIND IT'; position:absolute; z-index:3; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-8deg);
-    font-family:var(--fat); font-size:10px; letter-spacing:.14em; color:var(--amber); text-shadow:0 0 8px #000; }
+    font-family:var(--fat); font-size:var(--t-tag,10px); letter-spacing:.1em; color:var(--amber); text-shadow:0 0 8px #000; }
   .pk .cnt{ position:absolute; z-index:3; right:4px; top:4px; background:#01130a; border:1px solid var(--phos); color:var(--phos);
-    font-size:9px; padding:1px 5px; border-radius:99px; font-family:var(--fat); }
-  .pk .nm{ position:absolute; z-index:3; left:0; right:0; bottom:0; padding:3px 4px; font-size:7.5px; text-align:center;
+    font-size:var(--t-tag,9px); padding:2px 6px; border-radius:99px; font-family:var(--fat); }
+  .pk .nm{ position:absolute; z-index:3; left:0; right:0; bottom:0; padding:4px; font-size:var(--t-tag,7.5px); text-align:center;
     background:linear-gradient(0deg, rgba(1,10,5,.92), transparent); text-transform:uppercase; letter-spacing:.04em;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pk .tag{ position:absolute; z-index:3; left:4px; top:4px; font-size:7px; padding:1px 4px; border-radius:3px;
+  .pk .tag{ position:absolute; z-index:3; left:4px; top:4px; font-size:var(--t-tag,7px); padding:2px 5px; border-radius:3px;
     font-family:var(--fat); text-transform:uppercase; letter-spacing:.05em; }
   .pk .tag.forged{ background:var(--acid); color:#180016; }
   .pk .tag.listed{ background:var(--amber); color:#241a00; }
@@ -148,11 +165,13 @@
   @keyframes turnBwd{ from{ transform:rotateY(0deg);} to{ transform:rotateY(172deg);} }
 
   .nav{ display:flex; align-items:center; justify-content:center; gap:16px; margin-top:16px; }
-  .nav button{ font-family:var(--fat); font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:11px 18px;
+  .nav button{ font-family:var(--fat); font-size:var(--t-ui,12px); letter-spacing:.08em; text-transform:uppercase;
+    padding:0 20px; min-height:var(--tap,44px); display:inline-flex; align-items:center;
     border-radius:999px; border:2px solid var(--drabink); color:var(--phos); background:rgba(2,16,9,.9);
     box-shadow:0 0 12px rgba(43,255,128,.2); cursor:pointer; }
+  .nav button:active:not(:disabled){ transform:scale(.96); }
   .nav button:disabled{ opacity:.3; cursor:not-allowed; box-shadow:none; }
-  .nav .where{ font-size:11px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; min-width:120px; text-align:center; }
+  .nav .where{ font-size:var(--t-fine,11px); color:#5fcf8f; letter-spacing:.1em; text-transform:uppercase; min-width:110px; text-align:center; }
 
   /* ── market bench ── */
   .market{ display:none; margin-top:18px; }
@@ -166,21 +185,22 @@
   .listing .top{ display:flex; gap:8px; padding:8px; }
   .listing img{ width:52px; height:70px; object-fit:cover; border-radius:5px; border:1px solid var(--phosdim); flex:none; }
   .listing .meta{ flex:1; min-width:0; }
-  .listing .meta .t{ font-size:11.5px; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .listing .meta .k{ font-size:9px; margin-top:3px; letter-spacing:.08em; text-transform:uppercase; }
+  .listing .meta .t{ font-size:var(--t-fine,11.5px); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .listing .meta .k{ font-size:var(--t-tag,9px); margin-top:4px; letter-spacing:.06em; text-transform:uppercase; }
   .listing .meta .k.sell{ color:var(--phos); } .listing .meta .k.trade{ color:var(--cyan); } .listing .meta .k.want{ color:var(--amber); }
-  .listing .meta .by{ font-size:8.5px; color:#5fcf8f; margin-top:2px; text-transform:uppercase; letter-spacing:.06em; }
-  .listing .price{ font-family:var(--fat); font-size:13px; color:var(--amber); padding:0 8px 6px; }
-  .listing .price small{ font-size:8px; color:#5fcf8f; font-family:var(--mono); }
+  .listing .meta .by{ font-size:var(--t-tag,8.5px); color:#5fcf8f; margin-top:3px; text-transform:uppercase; letter-spacing:.04em; }
+  .listing .price{ font-family:var(--fat); font-size:var(--t-ui,13px); color:var(--amber); padding:0 8px 6px; }
+  .listing .price small{ font-size:var(--t-tag,8px); color:#5fcf8f; font-family:var(--mono); }
   .listing .act{ display:flex; gap:6px; padding:8px; border-top:1px solid var(--phosdim); margin-top:auto; }
-  .listing .act button{ flex:1; font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:8px 6px;
+  .listing .act button{ flex:1; font-family:var(--mono); font-size:var(--t-fine,10px); text-transform:uppercase;
+    letter-spacing:.04em; padding:0 6px; min-height:var(--tap,44px);
     border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); border-radius:6px; cursor:pointer; }
   .listing .act button.buy{ border-color:var(--amber); color:var(--amber); }
   .listing .act button.cancel{ border-color:var(--acid); color:var(--acid); }
   .board-empty{ grid-column:1/-1; text-align:center; color:#5fcf8f; font-style:italic; padding:30px 8px; }
   .mkt-h{ display:flex; justify-content:space-between; align-items:baseline; margin-top:20px; }
-  .mkt-h .n{ font-family:var(--fat); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); }
-  .mkt-note{ font-size:11.5px; line-height:1.6; color:var(--ink); margin-top:6px; }
+  .mkt-h .n{ font-family:var(--fat); font-size:var(--t-fine,12px); letter-spacing:.1em; text-transform:uppercase; color:var(--amber); }
+  .mkt-note{ font-size:var(--t-body,11.5px); line-height:1.65; color:var(--ink); margin-top:8px; }
   .mkt-note .b{ color:var(--acid); }
 
   /* ── card sheet (detail modal) ── */
@@ -191,14 +211,15 @@
   .sheet .hero{ position:relative; aspect-ratio:2/3; max-height:52vh; background:#010a06; }
   .sheet .hero img{ width:100%; height:100%; object-fit:contain; display:block; }
   .sheet .body{ padding:14px 16px 18px; }
-  .sheet h3{ font-family:var(--fat); font-size:20px; text-transform:uppercase; color:var(--phos); }
-  .sheet .rar{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--amber); margin-top:2px; }
+  .sheet h3{ font-family:var(--fat); font-size:var(--t-h2,20px); text-transform:uppercase; color:var(--phos); line-height:1.15; }
+  .sheet .rar{ font-size:var(--t-fine,10px); letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-top:4px; }
   .sheet .stats{ display:flex; gap:10px; margin-top:10px; }
   .sheet .stat{ flex:1; border:1px solid var(--phosdim); border-radius:8px; padding:8px; text-align:center; background:rgba(1,10,5,.5); }
-  .sheet .stat .l{ font-size:8px; color:#5fcf8f; letter-spacing:.14em; text-transform:uppercase; }
-  .sheet .stat .v{ font-family:var(--fat); font-size:18px; color:var(--ink); margin-top:2px; }
+  .sheet .stat .l{ font-size:var(--t-tag,8px); color:#5fcf8f; letter-spacing:.1em; text-transform:uppercase; }
+  .sheet .stat .v{ font-family:var(--fat); font-size:clamp(16px,4.6vw,18px); color:var(--ink); margin-top:4px; }
   .sheet .actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
-  .sheet .actions a, .sheet .actions button{ font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+  .sheet .actions a, .sheet .actions button{ font-family:var(--fat); font-size:var(--t-ui,11px); text-transform:uppercase; letter-spacing:.06em;
+    min-height:var(--tap,44px); display:inline-flex; align-items:center; justify-content:center;
     padding:11px 10px; border-radius:8px; border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos);
     text-align:center; text-decoration:none; cursor:pointer; }
   .sheet .actions .wide{ grid-column:1/-1; }
@@ -206,11 +227,11 @@
   .sheet .actions .hot{ border-color:var(--acid); color:var(--acid); }
   .sheet .close{ position:absolute; top:8px; right:8px; z-index:4; width:30px; height:30px; border-radius:50%; border:1px solid var(--phos);
     background:rgba(1,10,5,.9); color:var(--phos); font-family:var(--fat); cursor:pointer; }
-  .sheet .miss{ font-size:12px; color:var(--amber); text-align:center; margin-top:8px; line-height:1.6; }
+  .sheet .miss{ font-size:var(--t-body,12px); color:var(--amber); text-align:center; margin-top:10px; line-height:1.65; }
 
   .toast{ position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:90; background:#01130a;
     color:var(--phos); border:1px solid var(--phos); border-radius:999px; padding:10px 18px; font-family:var(--fat);
-    font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
+    font-size:var(--t-fine,10px); letter-spacing:.06em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
   .toast.show{ opacity:1; }
 </style>
 <script src="../js/icons.js"></script>
@@ -224,9 +245,13 @@
 <body>
   <div class="lm" aria-hidden="true"></div>
   <div class="wrap">
-    <a class="back" href="../index.html">◄ back to the pack</a>
-    <a class="back" href="binder.html" style="margin-left:14px">▤ the folder</a>
-    <a class="back" href="battle.html" style="margin-left:14px"><span class="ic" data-ic="swords"></span> the arena</a>
+    <!-- ⚠ a flex row, not inline-blocks with margin: once each link is its own 44px box the
+         whitespace between inline elements collapses and two of them run together. -->
+    <div class="backs">
+      <a class="back" href="../index.html">◄ back to the pack</a>
+      <a class="back" href="binder.html">▤ the folder</a>
+      <a class="back" href="battle.html"><span class="ic" data-ic="swords"></span> the arena</a>
+    </div>
     <div class="hd">
       <div class="spacer" aria-hidden="true"></div>
       <div class="mid">
@@ -400,7 +425,7 @@
           <div class="stats">
             <div class="stat"><div class="l">ATK</div><div class="v">${c.atk??'—'}</div></div>
             <div class="stat"><div class="l">DEF</div><div class="v">${c.def??'—'}</div></div>
-            <div class="stat"><div class="l">Amp trigger</div><div class="v" style="font-size:10px">${t}</div></div>
+            <div class="stat"><div class="l">Amp trigger</div><div class="v" style="font-size:var(--t-fine,12px)">${t}</div></div>
           </div>
           <div class="actions">
             <button class="warm" data-do="sell">✚ List for sale</button>

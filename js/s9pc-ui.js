@@ -74,6 +74,12 @@ window.S9PCUI = (function () {
       pickup() { tone(600, 1200, 0.1, 'square', 0.1); },
       jump() { noise(0.05, 0.07, 1400); tone(320, 540, 0.09, 'sine', 0.05); },
       land() { noise(0.13, 0.26, 650); tone(150, 55, 0.15, 'sine', 0.13); },
+      /* ⧗ THE BOOTS LIGHT — a hard ignition crack, then a rising jet. Fired ONCE per burn (the
+       * sim tracks the edge), not per frame: a sound retriggered every tick is a buzz, and the
+       * thing that has to be audible from across the arena is that someone LEFT THE GROUND. */
+      boots() { noise(0.05, 0.20, 3400); tone(140, 460, 0.34, 'sawtooth', 0.11); tone(70, 210, 0.30, 'square', 0.06); },
+      // dry tank: the jet dying, not a UI beep. It is the sound of the escape budget being gone.
+      bootsdry() { tone(300, 90, 0.22, 'sawtooth', 0.07); noise(0.10, 0.07, 900); },
       impact() { noise(0.05, 0.14, 2200); tone(240, 120, 0.05, 'square', 0.05); },
       ricochet() { tone(2500, 900, 0.15, 'sawtooth', 0.06); setTimeout(() => tone(1700, 650, 0.1, 'square', 0.04), 30); },
     };
@@ -237,7 +243,17 @@ window.S9PCUI = (function () {
       const W = S9Game.WEAPONS;
       $('hpNum').textContent = Math.max(0, Math.ceil(e.hp)); $('hpFill').style.width = clamp(e.hp / e.maxHp * 100, 0, 100) + '%';
       $('arNum').textContent = Math.max(0, Math.ceil(e.armor)); $('arFill').style.width = clamp(e.armor / e.maxArmor * 100, 0, 100) + '%';
-      $('boFill').style.width = clamp(e.boost * 100, 0, 100) + '%';
+      /* ⧗ ONE METER, SO IT HAS TO SAY SO. Sprint and the boots draw on the same tank, and the bar
+       * was labelled "sprint" — a label that would have lied the moment the jet took a fifth of it.
+       * It now reads BOOST, turns the jet's own cyan while burning, and goes red when the tank is
+       * too low to leave the ground. That last state is the one that matters: it is the moment you
+       * are committed to the floor, in a game where breaking contact is the survival move. */
+      const bo = $('boFill'), boL = $('boLbl');
+      bo.style.width = clamp(e.boost * 100, 0, 100) + '%';
+      const dry = e.boost < 0.06;
+      bo.style.background = e.burning ? 'linear-gradient(90deg,#59e0ff,#c9f6ff)' : (dry ? 'linear-gradient(90deg,#8a2318,#ff6b57)' : '');
+      if (boL) { boL.textContent = e.burning ? 'boost · ⧗ BURN' : (dry ? 'boost · dry' : 'boost');
+        boL.style.color = e.burning ? '#59e0ff' : (dry ? '#ff6b57' : ''); }
       const amp = game.mktAmp(), mk = $('hMkt');
       if (mk) { mk.textContent = (e.surgeT > 0 ? '★ OVERCHARGE ' + e.surgeT.toFixed(1) + 's' : '◈ market ×' + amp.toFixed(2) + (amp > 1.25 ? ' · HOT' : amp < 0.95 ? ' · cold' : ''));
         mk.style.color = e.surgeT > 0 ? '#ffd23b' : (amp > 1.25 ? '#ff2ad9' : '#59e0ff'); }
@@ -321,6 +337,7 @@ window.S9PCUI = (function () {
         { type: 'aim', act: 'Aim (ADS)', touch: '2 fingers · right', key: 'RMB' },
         { type: 'dtap', act: 'Reload', touch: 'Auto · or dbl-tap FIRE', key: 'R' },
         { type: 'tap', act: 'Jump', touch: 'JUMP button', key: 'SPACE' },
+        { type: 'hold', act: '⧗ Thruster boots', touch: 'HOLD JUMP', key: 'HOLD SPACE · spends BOOST' },
         { type: 'hold', act: 'Crouch', touch: 'CROUCH button', key: 'CTRL · C' }] });
       else begin(false);
     };

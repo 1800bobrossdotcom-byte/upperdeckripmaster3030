@@ -60,9 +60,16 @@
   let TIER = Q.get('q') || AUTO_TIER;
   if (['low', 'mid', 'high'].indexOf(TIER) < 0) TIER = AUTO_TIER;
   const TIERS = {
-    high: { rtScale: 1.0, stars: 420, bloom: true, fringing: true, dither: true, bg: 48 },
-    mid: { rtScale: 0.85, stars: 260, bloom: true, fringing: true, dither: true, bg: 32 },
-    low: { rtScale: 0.7, stars: 140, bloom: true, fringing: false, dither: false, bg: 18 },
+    /* ⚑ `far` AND `lamps` ARE ON THE QUALITY LADDER, NOT ON THE RESOLUTION ONE. CLAUDE.md records
+     * Section 9's finding that `ADAPT` "could not reach any of it" because it only scaled the
+     * backing store while the frame was bound by passes it could not shrink — the fix was to make
+     * quality a LADDER (features first, resolution last). The facade is the game's structure and it
+     * stays at every tier; the far silhouette is a second screen-filling opaque layer and the wall
+     * lamps are dozens of additive quads, and both are the first things a weak device should not
+     * pay for. Dropping them costs the picture a parallax layer, not the level. */
+    high: { rtScale: 1.0, stars: 420, bloom: true, fringing: true, dither: true, bg: 48, far: true, lamps: true },
+    mid: { rtScale: 0.85, stars: 260, bloom: true, fringing: true, dither: true, bg: 32, far: true, lamps: true },
+    low: { rtScale: 0.7, stars: 140, bloom: true, fringing: false, dither: false, bg: 18, far: false, lamps: false },
   };
   const QCFG = TIERS[TIER];
 
@@ -283,7 +290,9 @@
    * backdrop has eaten the blacks entirely, which is exactly the failure mode above: a screen
    * full of colour that the enemies then have to compete with instead of sit on. */
   let BG_K = num('bg', 0.20);
-  const M = { bg: 1, stars: 1, enemies: 1, aura: 1, card: 1, pops: 1, beams: 1, bullets: 1, pows: 1, ship: 1, flash: 1 };
+  const M = { bg: 1, far: QCFG.far ? 1 : 0, facade: 1, lamps: QCFG.lamps ? 1 : 0, emps: 1,
+    stars: 1, enemies: 1, aura: 1, card: 1,
+    pops: 1, beams: 1, bullets: 1, pows: 1, ship: 1, flash: 1 };
   const fx = RRFx.create(app);
   const G = RRGame.create();
   const F = RRGame.F;
@@ -573,6 +582,12 @@
     if (seen.roll) { blip(760, 210, 0.20, 'triangle', 0.15); noise(0.14, 0.16); }
     else if (seen.dash) { blip(520, 1180, 0.09, 'triangle', 0.10); }
     if (seen.regen) { blip(600, 1100, 0.12, 'sine', 0.09); }
+    /* THE WALL. A turret's shot is a flat heavy thud rather than the fleet's thin zap — it is a
+     * different thing shooting at you and it should not be mistakable for a diver. And the WIND-UP
+     * gets the quietest sound in the game on purpose: it fires before every single dive, so it has
+     * to be a tick you feel rather than a cue you hear, or at wave 20 it is a drone. */
+    if (seen.tfire) { blip(150, 58, 0.16, 'square', 0.10); noise(0.09, 0.10); }
+    if (seen.wind) { blip(210, 430, 0.05, 'triangle', 0.035); }
     if (seen.bump) { blip(150, 70, 0.07, 'square', 0.07); }
     /* the shot is quieter than everything it might hit, on purpose: with autofire on it is the
      * most frequent sound in the game and it must not become the loudest thing in the mix. */
@@ -604,12 +619,123 @@
   const stars = [];
   function seedStars() {
     stars.length = 0;
+    /* ⚠ THE FIELD IS SHALLOWER AND WIDER THAN IT WAS, and it had to become both when the motes
+     *   started falling instead of flying at the camera. The old field ran to z −95, where the
+     *   visible half-height is 40 units against a y spread of ±12 — so 71% of the frame had no
+     *   motes in it at all. That is invisible while everything is streaming radially out of the
+     *   centre and glaring the moment they fall in straight lines. */
     for (let i = 0; i < QCFG.stars; i++) {
-      stars.push({ x: (Math.random() * 2 - 1) * 17, y: (Math.random() * 2 - 1) * 12,
-        z: -Math.random() * 90 - 2, pz: 0, v: 46 + Math.random() * 74, k: Math.random() });
+      stars.push({ x: (Math.random() * 2 - 1) * 26, y: (Math.random() * 2 - 1) * 19,
+        z: -Math.random() * 46 + 4, pz: 0, v: 46 + Math.random() * 74, k: Math.random() });
     }
   }
   seedStars();
+
+  /* ══ THE FACILITY — THE BRIEF, WRITTEN BEFORE THE CODE ════════════════════════════════════════
+   *
+   * Artist: "have the game scrolling up, like we are slowly flying through levels and like metal
+   * slug, have bases and turrets, and different types of plane ships … lets make the gfx even
+   * cooler." `docs/DESIGN-SYSTEM.md` §8 says a brief that does not decide the material, the light
+   * and above all the MOTION produces the default, and the default has been rejected twice in this
+   * project. So, all five, before any of the code below:
+   *
+   * 1 · WHAT IT IS MADE OF — §1's four layers, and the one this repo has never built.
+   *   The facility is **die-cut card stock**: flat dark ink on pressed board, cut into plates and
+   *   stacked, with a bright CUT EDGE where a plate ends. Not concrete, not sci-fi panelling — the
+   *   same material as everything else this studio makes, because everything this studio makes is
+   *   a printed object. `DESIGN-SYSTEM.md` §1 lists **die — the cut edge — ⛔ nowhere yet**, and
+   *   this is where it gets built. It is also, not by coincidence, the cheapest way to keep the
+   *   frame dark: a one-quad edge line costs almost no pixels and reads as an entire structure,
+   *   where a filled panel costs the whole area and reads as a wash.
+   *   ⚑ AND THE EDGE IS FOIL, WHICH MEANS IT MOVES. §1: "foil is defined by movement, not by
+   *     colour — a rainbow painted on a surface is a sticker of foil." A diffraction edge's hue is
+   *     a function of the angle between the eye and the edge, and here that angle genuinely
+   *     changes: the camera is fixed and the wall is sliding past it, so a plate seen at the top of
+   *     the frame is at a different angle from the same plate at the bottom. `foilHue()` keys the
+   *     cut edge on exactly that angle. Acceptance number below.
+   *
+   * 2 · HOW IT IS LIT — §2's three keys, baked, because nothing in this renderer is lit at runtime.
+   *   KEY phosphor green `#2bff80`, raking from above: every plate's TOP corners are lifted toward
+   *   it, which is what makes a flat quad read as a raised plate rather than a rectangle.
+   *   FILL acid magenta `#ff2ad9`, weak, from below: the bottom corners, so recesses are not dead.
+   *   RIM cyan `#27f7e4`, grazing: the cut edge, walking through the foil range.
+   *   GOLD `#ffd23b` is not a light — it is THE ACCENT, and it is spent on exactly one thing: a
+   *   gun that has decided to shoot at you. Nothing else in the facility is gold.
+   *
+   * 3 · WHAT MOVES, AND WHY IT PHYSICALLY MOVED — §9: this is the half that gets skipped, and a
+   *   brief that names the material and the light and waves at motion produces a beautiful object
+   *   that is dead to the touch. Every moving thing here, and its cause:
+   *     · the wall slides DOWN because the ship is climbing it. `G.scrollV` is the ship's own
+   *       vertical velocity, signed — pull up and the facility runs, push down and it eases.
+   *     · the far layer moves LESS because it is further away. Not a parallax coefficient: all
+   *       layers translate at the same world speed and the perspective camera does the rest, which
+   *       is both free and impossible to get wrong.
+   *     · a plate's cut edge changes hue because the plate's view angle changed. See 1.
+   *     · a turret's barrel swings because a servo is slewing it, and it OVERSHOOTS and settles
+   *       because a servo slewing a mass does. Then it stops — and a barrel that has stopped
+   *       following you is the whole telegraph.
+   *     · a barrel kicks back into its mount when it fires, and returns. A gun that does not recoil
+   *       is a light switch.
+   *     · a card REARS BACK before it dives — the wind-up. It is the studio's own subject: the pull
+   *       before the snap.
+   *     · motes fall past you because you are going up.
+   *   ⛔ Nothing here pulses, breathes or drifts on its own. Stop the ship climbing and the only
+   *     thing still moving is what the enemies are doing.
+   *
+   * 4 · WHAT IT SITS ON — the depth stack, and every layer is behind the play plane so the game
+   *   still reads first:
+   *     z −46  the sky field (unchanged: hue lobes, dark centre, the measured `bg` surround)
+   *     z −26  the far silhouette — the far side of the shaft, the city under you at the top
+   *     z −12  THE FACADE, and the guns bolted to it. Emplacements are at the wall's own depth.
+   *     z −1.2 … +2.6  the formation, the divers, the ship, the bolts. Untouched.
+   *   ⛔ There is NO terrain collision. You fly in front of the wall, never into it. The artist's
+   *     note was "good otherwise in fluidity" — the movement is the one thing that must not move,
+   *     and bolting geometry onto a ship that was tuned for open air is the fastest way to lose it.
+   *
+   * 5 · THE ACCEPTANCE MEASUREMENT
+   *     (a) BLACKS DO NOT COLLAPSE. `__rrpc._px().blacks` at the shipping settings, measured in
+   *         play. This is the metric that caught Section 9's engine build losing its black point
+   *         and it is the one a screen-filling new layer is most likely to break.
+   *     (b) CLIPPING STAYS AT ZERO — GfxPost's standing rule, `_px().clipped`.
+   *     (c) THE TIERS ARE MEASURABLY DIFFERENT. `__rrpc._tierScan()` reports the facade's own quad
+   *         count per tier; the ascent is DENSITY FALLING AWAY, so tier I must build several times
+   *         what tier IV does. A palette swap would pass a "do they look different" eyeball and
+   *         fail this.
+   *     (d) THE FOIL TEST, §1's own: `__rrpc._foilTest()` samples the cut-edge colour as a plate
+   *         travels from the top of the frame to the bottom and reports the median hue travel.
+   *         No shift, no foil.
+   *     (e) THE TELEGRAPH IS REAL: the shot's bearing equals the LOCKED bearing, not the ship's
+   *         current position — measured in the simulation as turret hits against a still target
+   *         versus a moving one.
+   * ═══════════════════════════════════════════════════════════════════════════════════════════ */
+
+  /* the visible half-extent of a plane at depth z. Vertical fov is fixed, so halfH does not depend
+   * on the window's aspect and halfW does — which is why the facade's column count is computed and
+   * clamped rather than assumed. */
+  const TAN_H = Math.tan(CAM.fov * Math.PI / 360);
+  function halfAt(z) { return TAN_H * (CAM.z - z); }
+
+  const LZ_FAR = -26, LZ_WALL = RRGame.EZ;      // the wall's depth is the simulation's own EZ
+  const PH = 2.4, PW = 2.6;                      // plate pitch on the facade
+  const ATIER = RRGame.TIERS;      // the ASCENT's tiers. `TIERS` above is the quality ladder.
+
+  /* one integer hash, so the facility is the SAME building every run for a given tier — the
+   * graffiti system's rule (seeded off the map name) applied to architecture. A wall that
+   * reshuffles every time you die is a wall you cannot learn. */
+  function hash3(a, b, c) {
+    let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+
+  /* ⚑ THE FOIL. Hue keyed on the angle between the camera axis and the edge — the one quantity
+   * that genuinely changes as a fixed camera watches a plate slide past. `_foilTest()` measures the
+   * travel this produces; the acceptance rule is §1's, and it is a number, not an opinion. */
+  const FOIL_K = 420, FOIL_X = 9;
+  function foilHue(x, y, z, base) {
+    const theta = Math.atan2(y - CAM.y, CAM.z - z);
+    return base + theta * FOIL_K + x * FOIL_X;
+  }
 
   /* The hue field, sampled at a grid VERTEX rather than at a cell centre — that is what lets the
    * quads share corner colours and interpolate into a continuous field instead of a tiled wall. */
@@ -630,14 +756,29 @@
    *   action is a tall column, not a circle. A round falloff dimmed the top and bottom of the
    *   screen — where the formation enters and where the ship sits — while leaving the sides lit. */
   const CFLOOR = 0.20;
+  let TS = ATIER[0];                                   // the live tier's spec, refreshed per frame
   function bgColour(u, v, t, hue0, boost, out) {
     const w = Math.sin(u * 5.1 + t * 0.7) * Math.cos(v * 4.3 - t * 0.53) * 0.5 + 0.5;
     const w2 = Math.sin((u + v) * 7.7 - t * 1.1) * 0.5 + 0.5;
     const ru = u * 2, rv = v * 2 * 0.62;
     const r2 = Math.min(1, ru * ru + rv * rv);
     const keep = CFLOOR + (1 - CFLOOR) * r2 * r2;      // r^4: holds the centre dark, lifts late
+    /* ⚑ THE SKY OPENS AS YOU CLIMB, and it is the one place the tier is allowed to change the
+     * overall level of the frame — by a little. `v` is 0 at the top of the field, so `up` is the
+     * height in the frame: in the sub-level the ceiling is the dark end and the glow is below you;
+     * by OPEN AIR it has inverted and the light is above. That is the ascent stated in the one
+     * quantity a player reads without looking — where the frame is brightest.
+     * ⚠ It is a ±25% modulation on a term the `bg` sweep already pinned. The sweep's finding was
+     *   that this field's job is to hold the CENTRE dark (blacks 12.55% at 0.20, 0.35% at 1.00),
+     *   and nothing here touches `keep`. */
+    /* ⚠ CENTRED ON 1, so no tier is globally brighter than another — the gradient TILTS, it does
+     *   not lift. The first version ran 1.00→1.55 for the upper tiers and 0.55→1.00 for the lower
+     *   ones, which is a 55% brightness rise disguised as a gradient and would have made the
+     *   ascent's payoff "the screen got brighter" rather than "the sky opened". */
+    const up = 0.5 - v;
+    const grad = 1 + (TS.n >= 3 ? 0.70 : -0.70) * (up - 0.5);
     const c = fx.hsl((hue0 + w * 150 + w2 * 60) % 360, 0.95,
-      (0.045 + w * 0.075 + w2 * 0.035) * boost * keep);
+      (0.045 + w * 0.075 + w2 * 0.035) * boost * keep * clamp(grad, 0.55, 1.55));
     out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; out[3] = 255;
     return out;
   }
@@ -649,8 +790,25 @@
      * generated field can be moved by the game state, and this studio does not ship sampled art it
      * does not own anyway. */
     const CX = 19, CY = 14, Zb = -46, EX = 66, EY = 48;
-    const hue0 = (G.market.hue + t * 8 + G.wave * 37) % 360;
-    const boost = (G.phase === 'clear' ? 1.5 : 1) * BG_K;
+    const hue0 = (G.market.hue * 0.45 + TS.hue * 0.55 + t * 8 + G.wave * 37) % 360;
+    /* ⚑ `sky` IS THE TIER'S OWN LEVEL, AND THE SWEPT `bg` IS ITS CEILING — normalised against the
+     * TOP of the range, not the middle, so 0.20 is what OPEN AIR gets and every floor below it is
+     * darker. That ordering was chosen by measurement, not by taste: with both clocks frozen and
+     * one layer switched off at a time (CLAUDE.md's isolate-before-tuning rule), the black point at
+     * tier III came apart like this —
+     *     all on          blacks 17.4%
+     *     sky field off   blacks 41.0%   ← +23.6, and it is the pre-existing layer, not the new one
+     *     far layer off   blacks 25.8%   ← +8.3
+     *     facade off      blacks 20.8%   ← +3.4
+     *     everything else       17.4%    ← no effect at all
+     * — repeatable across two interleaved passes. The facade is the cheapest thing on the screen;
+     * the field behind it was the expensive one, and tilting the field UP for the upper tiers was
+     * spending the very thing the `bg` sweep exists to protect. So the tilt only goes down.
+     * ⚑ And that is the right answer for the picture as well as for the number: the light has moved
+     *   off a flat field and onto actual objects, which is DESIGN-SYSTEM §5's "dark field, lit
+     *   object" arriving by measurement rather than by assertion. */
+    const skyK = TS.sky / 0.135;
+    const boost = (G.phase === 'clear' ? 1.5 : 1) * BG_K * skyK;
     const du = 1 / (CX - 1), dv = 1 / (CY - 1);
     const hw = EX / (CX - 1) * 0.5, hh = EY / (CY - 1) * 0.5;
     for (let j = 0; j < CY - 1; j++) {
@@ -666,6 +824,251 @@
     }
   }
 
+  // ── THE FAR LAYER ───────────────────────────────────────────────────────────────────────────
+  /* The far side of the shaft in the sub-levels; the city you have left, once you are above it.
+   * It is nearly black on purpose — its whole job is to be a SILHOUETTE, which is a shape you read
+   * off its edge rather than off its fill, and a shape read off its edge costs no brightness.
+   * ⚑ It moves less than the facade because it IS further away. Same world velocity, one perspective
+   *   divide. A parallax coefficient would be a number to get wrong; this cannot be wrong. */
+  const _fc = [0, 0, 0, 255], _fc2 = [0, 0, 0, 255];
+  function drawFar(t) {
+    const hh = halfAt(LZ_FAR), hw = hh * (OW / Math.max(1, OH));
+    const climb = G.scroll * ((CAM.z - LZ_FAR) / (CAM.z - LZ_WALL));  // same world speed, read far
+    const CW = 3.6;
+    const n = Math.min(18, Math.ceil((hw * 2) / CW) + 1);
+    const base = TS.hue + 200;
+    for (let i = -1; i <= n; i++) {
+      const x = -hw + i * CW + CW * 0.5;
+      const col = Math.round((x + climb * 0) / CW);
+      /* towers are a stack of blocks; which blocks exist comes off the hash, so the skyline is the
+       * same skyline every run and it slides rather than reshuffling. */
+      const seg = Math.floor((climb - hh) / 6) - 1;
+      for (let k = 0; k < Math.ceil(hh * 2 / 6) + 2; k++) {
+        const s = seg + k;
+        /* ⚑ THE FAR LAYER THINS WITH THE ASCENT TOO. In the shaft it is the wall opposite you and
+         * it is nearly solid; above the roof it is the city you left, and there should be almost
+         * nothing between you and the sky. Same loop, one threshold. */
+        const r = hash3(col, s, TS.n * 97);
+        if (r > (TS.n >= 4 ? 0.20 : TS.n === 3 ? 0.46 : 0.62)) continue;
+        const y = s * 6 - climb + 3;
+        const w = CW * (0.32 + r * 0.5), h = 3 * (0.5 + hash3(col, s, 7) * 0.9);
+        /* ⚠ 0.0075+0.011 COST 8.3 POINTS OF BLACK ON ITS OWN — measured with the layer switched
+         * off, and far too much for something whose entire job is to be a shape you read off its
+         * edge. A silhouette is allowed to be almost invisible; that is what makes it a silhouette. */
+        const v = 0.0038 + r * 0.0058;
+        const c = fx.hsl(base + r * 40, 0.7, v);
+        const c2 = fx.hsl(base + r * 40, 0.7, v * 0.35);
+        _fc[0] = c2[0]; _fc[1] = c2[1]; _fc[2] = c2[2];
+        _fc2[0] = c[0]; _fc2[1] = c[1]; _fc2[2] = c[2];
+        fx.gouraud(fx.B, fx.C_FLAT, x, y, LZ_FAR, w, 0, 0, 0, h, 0, _fc, _fc, _fc2, _fc2);
+      }
+    }
+  }
+
+  // ── THE FACADE ──────────────────────────────────────────────────────────────────────────────
+  /* Plates of dark printed board, stacked, each with a bright DIE EDGE along its top. The edge is
+   * the whole read — see the brief: fill costs area and buys a wash, an edge costs a line and buys
+   * a building. `full` marks a plate whose neighbour above is missing: that is a real cut against
+   * the sky and it gets the bright edge, while a seam between two stacked plates gets a dim one. */
+  const _p0 = [0, 0, 0, 255], _p1 = [0, 0, 0, 255], _p2 = [0, 0, 0, 255], _p3 = [0, 0, 0, 255];
+  let facadeQuads = 0;
+  function cellAt(r, c) {
+    /* one rule for "is there a plate here", per tier, and it is the tier's whole character:
+     *   fill      how much of the wall is solid — the ascent, as density falling away
+     *   ribbed    the assembly deck's column rhythm
+     *   glass     the tower's window grid: many cells, most of them dark, a few lit */
+    const h = hash3(r, c, TS.n * 31 + 11);
+    if (h > TS.fill) return 0;
+    return 1 + (h * 997 % 3 | 0);        // 1..3, a plate variant
+  }
+  /* the die's own proportions, per floor. `wide` says whether two cells may be cut as one plate. */
+  const CUTS = {
+    wide:   { w: 0.97, h: 0.44, wide: 1 },     // SUB-LEVEL — long low runs: plant, ducting
+    ribbed: { w: 0.78, h: 0.80, wide: 1 },     // ASSEMBLY  — chunky racks on a column rhythm
+    glass:  { w: 0.44, h: 0.92, wide: 0 },     // TOWER     — tall narrow bays, a curtain wall
+    mast:   { w: 0.20, h: 1.10, wide: 0 },     // OPEN AIR  — thin masts against nothing
+  };
+  let CUT = CUTS.wide;
+  function drawFacade(t) {
+    facadeQuads = 0;
+    CUT = CUTS[TS.rows] || CUTS.ribbed;
+    const hh = halfAt(LZ_WALL), hw = hh * (OW / Math.max(1, OH));
+    const climb = G.scroll;
+    const cols = Math.min(17, Math.ceil((hw * 2) / PW) + 2);
+    const c0 = -Math.floor(cols / 2);
+    const r0 = Math.floor((climb - hh - CAM.y) / PH) - 1;
+    const rows = Math.min(13, Math.ceil((hh * 2) / PH) + 3);
+    const KEY = [43, 255, 128], FILLC = [255, 42, 217];     // §2: key phosphor green, fill magenta
+    for (let ri = 0; ri < rows; ri++) {
+      const r = r0 + ri;
+      const py = r * PH - climb + CAM.y;
+      let skip = 0;
+      for (let ci = 0; ci < cols; ci++) {
+        const c = c0 + ci;
+        if (skip) { skip = 0; continue; }
+        const v = cellAt(r, c);
+        if (!v) continue;
+        const hsel = hash3(r, c, 5), hsel2 = hash3(r, c, 23);
+        /* ⚑ THE PLATES ARE CUT, NOT TILED, AND THAT IS WHAT STOPS THIS BEING A BRICK WALL. Every
+         * cell drawn at full pitch produces a seamless grid of identical rectangles, which is the
+         * exact defect js/rrpc-fx.js already records for the sky field ("nine by seven flat tiles
+         * read as masonry"). A plate is INSET inside its cell and some plates span two, so the
+         * ground between them stays black and the wall reads as pieces of board laid on a dark
+         * surface — which is what card stock cut and stacked actually looks like. It is also free
+         * black: every gutter is a pixel the facade does not light. */
+        let wCells = 1;
+        if (v === 3 && cellAt(r, c + 1) && CUT.wide) { wCells = 2; skip = 1; }
+        /* ⚑ AND THE TIER CHANGES THE *SHAPE* OF THE CUT, NOT ONLY HOW MUCH OF IT THERE IS. Density
+         * alone is one axis and it can read as "the same wall with holes in it"; the plate's
+         * proportion is what makes a floor recognisable at a glance. The sub-level is long low
+         * runs of plate (plant, ducting, horizontal); the tower is tall narrow bays (a curtain
+         * wall); OPEN AIR is a few thin masts against nothing. Same loop, same cost, four
+         * buildings. */
+        const pw = PW * wCells * CUT.w * (0.86 + hsel * 0.14) * 0.5;
+        const ph = PH * CUT.h * (0.80 + hsel2 * 0.22) * 0.5;
+        const px = c * PW + PW * wCells * 0.5;
+        /* the ink. ⛔ DARK BY CONSTRUCTION, AND THE FIRST BUILD OF THIS WAS NOT. At 0.042–0.080
+         * lightness the plates measured out at mean luma 68.0 with blacks down to 11.98% — against
+         * a sky field whose own effective lightness is 0.006 at the centre and 0.031 at the rim,
+         * because `bg` multiplies it by the swept 0.20. The facade was four to twenty times
+         * brighter than the sky it stands in, i.e. the game was sitting ON a lit wall. This is the
+         * wash, for the third recorded time in this project (the backdrop, the 3D card's env map,
+         * and now this), and the fix is the same one every time: the STRUCTURE carries the read,
+         * not the FILL. */
+        let val = 0.0085 + hsel * 0.0125 + v * 0.0016;
+        if (TS.rows === 'ribbed') val *= (c & 1) ? 1.0 : 0.62;      // the assembly deck's rhythm
+        if (TS.rows === 'glass') val *= 0.74;
+        const hue = TS.hue + hsel * 46 - 23;
+        const bodyLo = fx.hsl(hue, 0.72, val * 0.62);
+        _p0[0] = bodyLo[0] + FILLC[0] * 0.012; _p0[1] = bodyLo[1] + FILLC[1] * 0.012; _p0[2] = bodyLo[2] + FILLC[2] * 0.012;
+        _p1[0] = _p0[0]; _p1[1] = _p0[1]; _p1[2] = _p0[2];
+        const bodyHi = fx.hsl(hue, 0.72, val);
+        /* §2: the KEY rakes from above, so the plate's top corners catch it. That is the entire
+         * reason a flat quad reads as a raised plate instead of a rectangle. */
+        _p2[0] = bodyHi[0] + KEY[0] * 0.016; _p2[1] = bodyHi[1] + KEY[1] * 0.016; _p2[2] = bodyHi[2] + KEY[2] * 0.016;
+        _p3[0] = _p2[0]; _p3[1] = _p2[1]; _p3[2] = _p2[2];
+        fx.gouraud(fx.B, fx.C_FLAT, px, py, LZ_WALL, pw, 0, 0, 0, ph, 0, _p0, _p1, _p2, _p3);
+        facadeQuads++;
+        /* ── the DIE EDGE. Foil: hue keyed on this edge's own view angle. See foilHue().
+         * ⚑ This is the layer §1 lists as "⛔ nowhere yet" and it is doing the actual work here:
+         * a 0.07-unit line at 0.30 lightness costs about 3% of the plate's area and is the entire
+         * reason the plate has a shape. `open` — nothing stacked above — is a real cut against the
+         * sky and gets the bright edge; everything else is a seam between boards. */
+        const open = !cellAt(r + 1, c);
+        const ey = py + ph;
+        const eh = open ? 0.075 : 0.040;
+        const el = open ? 0.30 : 0.085;
+        const fh = foilHue(px, ey, LZ_WALL, TS.hue + 150);
+        const ec = fx.hsl(fh, 0.92, el * 0.45);
+        const ec2 = fx.hsl(fh + 34, 1.0, el);
+        _fc[0] = ec[0]; _fc[1] = ec[1]; _fc[2] = ec[2];
+        _fc2[0] = ec2[0]; _fc2[1] = ec2[1]; _fc2[2] = ec2[2];
+        fx.gouraud(fx.B, fx.C_FLAT, px, ey - eh * 0.5, LZ_WALL, pw, 0, 0, 0, eh, 0, _fc, _fc, _fc2, _fc2);
+        facadeQuads++;
+        // ── a lit window / lamp. GOLD is reserved for guns, so these are the tier's own colour.
+        if (M.lamps && hash3(r, c, 61) < TS.lamp) {
+          /* ⚑ IT BRIGHTENS BECAUSE IT IS AIMED OUT OF THE WALL AT YOU. A downlight's cone is
+           * strongest along its axis, so the lamp peaks as it passes the camera's centreline — a
+           * real reason for a change in brightness, rather than a sine on the clock. */
+          const th = Math.atan2(ey - CAM.y, CAM.z - LZ_WALL);
+          const k = clamp(1 - Math.abs(th) / 0.40, 0, 1);
+          const lc = fx.hsl(TS.hue + 30, 0.85, 0.50);
+          fx.billboard(fx.A, fx.C_DOT, px + (hash3(r, c, 3) - 0.5) * pw, py, LZ_WALL,
+            0.22 + k * 0.20, lc[0], lc[1], lc[2], (14 + k * 62) | 0);
+        }
+      }
+    }
+  }
+
+  // ── THE GUNS BOLTED TO IT ───────────────────────────────────────────────────────────────────
+  /* Mount plate, barrel, charge, muzzle flash. All of the structure goes in the opaque buffer with
+   * the wall it is bolted to, so a turret can never be drawn over the sky it should be in front of;
+   * only the glow is additive. */
+  const _seen = new Set();
+  function drawEmps(t) {
+    const EMPK = RRGame.EMPK;
+    /* ── PASS 1: THE BASE ITSELF. ⚑ A "base" that is three guns near each other is three guns near
+     * each other. What makes it a base is that they are all standing on ONE thing: a platform cut
+     * from the same board as the wall, spanning them, with its own die edge. It is drawn first so
+     * the mounts sit on top of it — which is the whole point of them being in a single opaque
+     * buffer where the index order IS the draw order. A lone gun gets no platform; it is bolted
+     * straight to the facade, which is the visible difference between an outpost and an
+     * installation. */
+    _seen.clear();
+    for (const e of G.emps) {
+      if (e.dead || e.n < 2 || _seen.has(e.id)) continue;
+      _seen.add(e.id);
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, live = 0;
+      for (const o of G.emps) {
+        if (o.id !== e.id || o.dead) continue;
+        const K = EMPK[o.kind];
+        x0 = Math.min(x0, o.x - K.w * 0.7); x1 = Math.max(x1, o.x + K.w * 0.7);
+        y0 = Math.min(y0, o.y - K.h * 0.8); y1 = Math.max(y1, o.y + K.h * 0.6);
+        live++;
+      }
+      if (live < 2 || y1 < -10.5 || y0 > 10.5) continue;
+      const cx = (x0 + x1) * 0.5, cy = (y0 + y1) * 0.5, hw = (x1 - x0) * 0.5, hh = (y1 - y0) * 0.5;
+      const pl = fx.hsl(TS.hue + 12, 0.6, 0.013), ph2 = fx.hsl(TS.hue + 12, 0.6, 0.026);
+      _p0[0] = _p1[0] = pl[0]; _p0[1] = _p1[1] = pl[1]; _p0[2] = _p1[2] = pl[2];
+      _p2[0] = _p3[0] = ph2[0]; _p2[1] = _p3[1] = ph2[1]; _p2[2] = _p3[2] = ph2[2];
+      fx.gouraud(fx.B, fx.C_FLAT, cx, cy, LZ_WALL, hw, 0, 0, 0, hh, 0, _p0, _p1, _p2, _p3);
+      const ec = fx.hsl(foilHue(cx, cy + hh, LZ_WALL, TS.hue + 190), 0.95, 0.24);
+      _fc[0] = _fc2[0] = ec[0]; _fc[1] = _fc2[1] = ec[1]; _fc[2] = _fc2[2] = ec[2];
+      fx.gouraud(fx.B, fx.C_FLAT, cx, cy + hh - 0.05, LZ_WALL, hw, 0, 0, 0, 0.1, 0, _fc, _fc, _fc2, _fc2);
+    }
+    for (const e of G.emps) {
+      if (e.dead) continue;
+      if (e.y > 10.5 || e.y < -10.5) continue;
+      const K = EMPK[e.kind];
+      const hurt = e.hurt > 0 ? 1 : 0;
+      const dmg = 1 - (e.hp / e.hpMax);
+      // the mount: dark board, key on top, and a bright die edge — the same plate as the wall
+      const bv = 0.020 + 0.016 * (1 - dmg);
+      const b1 = fx.hsl(K.hue, 0.55, bv * 0.6), b2 = fx.hsl(K.hue, 0.6, bv * (hurt ? 6 : 1.35));
+      _p0[0] = b1[0]; _p0[1] = b1[1]; _p0[2] = b1[2];
+      _p1[0] = b1[0]; _p1[1] = b1[1]; _p1[2] = b1[2];
+      _p2[0] = b2[0]; _p2[1] = b2[1]; _p2[2] = b2[2];
+      _p3[0] = b2[0]; _p3[1] = b2[1]; _p3[2] = b2[2];
+      fx.gouraud(fx.B, fx.C_FLAT, e.x, e.y, e.z, K.w * 0.5, 0, 0, 0, K.h * 0.5, 0, _p0, _p1, _p2, _p3);
+      const ey = e.y + K.h * 0.5;
+      const ec = fx.hsl(foilHue(e.x, ey, e.z, K.hue + 120), 0.95, hurt ? 0.85 : 0.26);
+      _fc[0] = _fc2[0] = ec[0]; _fc[1] = _fc2[1] = ec[1]; _fc[2] = _fc2[2] = ec[2];
+      fx.gouraud(fx.B, fx.C_FLAT, e.x, ey - 0.045, e.z, K.w * 0.5, 0, 0, 0, 0.09, 0, _fc, _fc, _fc2, _fc2);
+      if (!K.len) {                                     // the core: no gun, one steady eye
+        const cc = fx.hsl(K.hue, 1, 0.5 + 0.2 * (1 - dmg));
+        fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, K.w * 0.42, cc[0], cc[1], cc[2], 150);
+        continue;
+      }
+      /* THE BARREL. `e.ang` is a spring, so it overshoots the bearing and settles — a servo
+       * slewing a mass, not a lerp. `e.recoil` shortens it on the shot and lets it push back out. */
+      const len = K.len * (1 - e.recoil * 0.28);
+      const ca = Math.cos(e.ang), sa = Math.sin(e.ang);
+      const bc = hurt ? [255, 255, 255] : fx.hsl(K.hue, 0.5, 0.16);
+      fx.ribbon(fx.B, fx.C_FLAT, e.x, e.y, e.z, e.x + ca * len, e.y + sa * len, e.z, 0.105, bc[0], bc[1], bc[2], 255);
+      const mx = e.x + ca * len, my = e.y + sa * len;
+      /* ⚑ THE LOCK IS THE ONLY GOLD ON THE WALL. §2 reserves `#ffd23b` as the accent, "the one warm
+       * thing", and it is spent here: a gun that has stopped tracking and is about to fire. The
+       * charge grows, and a short dashed ray says WHICH WAY — direction, never the endpoint, so
+       * the player still has to read the geometry rather than being handed the answer. */
+      if (e.state === 'lock') {
+        const k = clamp(e.t / Math.max(0.001, K.warn), 0, 1);
+        fx.billboard(fx.A, fx.C_DOT, mx, my, e.z, 0.10 + k * 0.34, 255, 210, 59, (90 + k * 165) | 0);
+        for (let i = 1; i <= 4; i++) {
+          const d = i * 0.85 + k * 0.5;
+          fx.billboard(fx.A, fx.C_DOT, mx + ca * d, my + sa * d, e.z + 0.4 * i,
+            0.075 + k * 0.05, 255, 210, 59, ((1 - i / 5) * k * 110) | 0);
+        }
+      } else if (e.state === 'track') {
+        const tc = fx.hsl(K.hue, 1, 0.5);
+        fx.billboard(fx.A, fx.C_DOT, mx, my, e.z, 0.11, tc[0], tc[1], tc[2], 120);
+      }
+      if (e.flash > 0) {
+        fx.billboard(fx.A, fx.C_DOT, mx, my, e.z, 0.30 + e.flash * 0.55, 255, 244, 200, (e.flash * 235) | 0);
+        fx.billboard(fx.A, fx.C_RING, mx, my, e.z, 0.5 + (1 - e.flash) * 1.5, 255, 190, 90, (e.flash * 120) | 0);
+      }
+    }
+  }
+
   /* ⚑ THE WORLD HAS TO COME AT YOU. "Metal Slug on acid" is a statement about the SCREEN moving,
    * not just the ship, and the old scroll ran at 22–68 u/s with a wave multiplier that topped out
    * at 1.6 — a drift. The base rate is now roughly double, the wave ramp goes further, and — the
@@ -673,20 +1076,22 @@
    * and overdrive all pull the field past you faster. That is speed you caused, which reads as
    * speed; a constant scroll is wallpaper however fast it goes.
    * `SURGE` is smoothed, because a starfield that steps rate discontinuously reads as a stutter. */
-  let surge = 0;
-  function scrollRate(dt) {
-    const s = G.ship;
-    const want = (G.mode === 'play' && s.alive)
-      ? clamp(Math.abs(s.vy) * 0.05 + (s.dash > 0 ? 1.5 : 0) + (s.od > 0 ? 0.85 : 0) + (s.rollT > 0 ? 0.5 : 0), 0, 3.0)
-      : 0;
-    surge += (want - surge) * Math.min(1, dt * 7);
-    return 1 + (G.mode === 'play' ? Math.min(2.4, G.wave * 0.12) : 0) + surge;
-  }
+  /* ⛔ `scrollRate` IS GONE FROM THIS FILE. It was a render quantity computed at frame rate, and
+   *    an emplacement is a gameplay object that arrives on the scroll — a gameplay object cannot be
+   *    positioned by something that steps at whatever rate the browser felt like. It now lives in
+   *    `rrpc-game.js` on the fixed 1/120 s tick as `G.scrollK` / `G.scrollV` / `G.surge`, and the
+   *    wall, the guns and the motes all read the same number. ⚑ It is also SIGNED now: climbing
+   *    runs the world and diving eases it, where `Math.abs(s.vy)` used to speed the world up for
+   *    both, which is exactly backwards for an ascent. */
   function drawStars(dt, t) {
     /* Streaks, not dots. The old build did the same thing in 2D and it was the best-looking part
      * of it; here the streak is a real ribbon in world space, so it foreshortens correctly as it
-     * passes the camera instead of being stretched by a screen-space hack. */
-    const sp = scrollRate(dt);
+     * passes the camera instead of being stretched by a screen-space hack.
+     * ⚑ AND THEY FALL NOW, BECAUSE YOU ARE GOING UP. They used to fly straight at the camera,
+     *   which is the cue for forward flight and is what a wall climb must not say. Mostly −y with
+     *   a little +z: debris shed off the facility, dropping past you and drifting out of the
+     *   screen. The dominant speed cue is the wall; these are the air between you and it. */
+    const sp = G.scrollK, surge = G.surge;
     /* ⛔ THE STREAK LENGTH MUST NOT BE THE FRAME DELTA, AND IT WAS. Drawing the ribbon from where
      *    the star was to where it is looks correct at 60 fps and is a bug everywhere else: the
      *    length is `v · dt · sp`, so at 5 fps (this container, SwiftShader) a 120 u/s star drew a
@@ -697,15 +1102,20 @@
      *    The streak is now a fixed 0.055 s of travel, clamped, so it is the same length on a phone
      *    at 20 fps as on a desktop at 144 — and `stretch` is a deliberate multiplier on top of that
      *    rather than an accident of how long the last frame took. */
-    const stretch = 1 + surge * (REDUCE ? 0.35 : 0.9);
+    const stretch = 1 + Math.max(0, surge) * (REDUCE ? 0.35 : 0.9);
     for (const s of stars) {
-      s.z += s.v * dt * sp;
-      if (s.z > CAM.z + 4) { s.z = -95; s.x = (Math.random() * 2 - 1) * 17; s.y = (Math.random() * 2 - 1) * 12; }
-      const near = clamp((s.z + 95) / 95, 0, 1);
+      s.y -= s.v * dt * sp * 0.88;
+      s.z += s.v * dt * sp * 0.26;
+      if (s.y < -19 || s.z > CAM.z + 4) {
+        s.y = 19; s.x = (Math.random() * 2 - 1) * 26; s.z = -40 - Math.random() * 8;
+      }
+      const near = clamp((s.z + 40) / 48, 0, 1);
       const len = Math.min(3.4, s.v * 0.055 * sp * stretch);
-      const c = fx.hsl(G.market.hue + s.k * 120, 0.6, 0.55 + near * 0.4);
-      const a = (30 + near * 190) | 0;
-      fx.ribbon(fx.A, fx.C_DOT, s.x, s.y, s.z - len, s.x, s.y, s.z,
+      const c = fx.hsl(TS.hue + 40 + s.k * 110, 0.6, 0.5 + near * 0.42);
+      const a = (24 + near * 180) | 0;
+      /* the streak runs along the direction of travel, so it tilts as the mote's downward fall
+       * mixes with its drift toward you — the same ribbon, told the truth about where it came from. */
+      fx.ribbon(fx.A, fx.C_DOT, s.x, s.y + len * 0.88, s.z - len * 0.26, s.x, s.y, s.z,
         0.028 + near * 0.06, c[0], c[1], c[2], a);
     }
   }
@@ -738,7 +1148,10 @@
     for (const e of G.enemies) {
       if (e.state === 'dead') continue;
       const K = RRGame.KIND[e.kind];
-      const sz = K.sz * (e.kind === 2 ? 1.5 : 1.15);
+      /* ⚠ `dsz` COMES OFF THE KIND TABLE NOW. The drawn size and the simulation's hit box shared a
+       *   literal `1.5` in two files, which is exactly the coupling that lets a new enemy type
+       *   arrive with a hit box that does not match its picture. */
+      const sz = K.sz * K.dsz;
       cardBasis(e.tumble, e.pitch, e.roll, sz, _cb);
       /* WHICH FACE IS TOWARD YOU. The card's normal against the view direction picks art or back.
        * Without this the back of a card shows its front mirrored, which reads as the texture being
@@ -749,9 +1162,34 @@
        * draw loop first, which made the flash length a function of the frame rate and quietly put
        * a write to simulation state inside the renderer. */
       const hurt = e.hurt > 0 ? 1 : 0;
+      const wind = e.state === 'wind' ? e.wind : 0;
       const bright = e.state === 'dive' || e.state === 'beam' ? 255 : 205;
-      const r = hurt ? 255 : bright, g = hurt ? 255 : bright, b = hurt ? 255 : bright;
+      const wb = wind ? 205 + wind * 50 : bright;
+      const r = hurt ? 255 : wb, g = hurt ? 255 : wb, b = hurt ? 255 : wb;
       if (M.card) fx.oriented(fx.C, cell, e.x, e.y, e.z, _cb[0], _cb[1], _cb[2], _cb[3], _cb[4], _cb[5], r, g, b, 255);
+      /* ⚑ THE SILHOUETTE IS THE PROMISE OF THE PATH. Each type carries one extra piece of geometry
+       * cut from the same card, and the piece says what the card is going to DO: swept fins arc,
+       * a lance goes straight, a halo hangs about and shoots, a slung pod is heavy and crosses.
+       * They are drawn in the card's own basis, so they tumble with it and vanish edge-on with it —
+       * a billboarded badge would sit flat while its card turned, which is the sticker failure
+       * DESIGN-SYSTEM §1 names. */
+      if (M.card) {
+        const rx = _cb[0], ry = _cb[1], rz = _cb[2], ux = _cb[3], uy = _cb[4], uz = _cb[5];
+        if (e.kind === 1) {                     // FLANKER — swept trailing fins
+          for (const sgn of [-1, 1]) {
+            fx.oriented(fx.C, fx.C_FLAT, e.x + rx * sgn * 1.16 - ux * 0.62, e.y + ry * sgn * 1.16 - uy * 0.62,
+              e.z + rz * sgn * 1.16 - uz * 0.62,
+              rx * 0.34 * sgn, ry * 0.34 * sgn, rz * 0.34 * sgn, ux * 0.20, uy * 0.20, uz * 0.20,
+              255, 90, 190, 190);
+          }
+        } else if (e.kind === 3) {              // LANCER — the spike, out past the nose
+          fx.oriented(fx.C, fx.C_FLAT, e.x + ux * 1.28, e.y + uy * 1.28, e.z + uz * 1.28,
+            rx * 0.085, ry * 0.085, rz * 0.085, ux * 0.55, uy * 0.55, uz * 0.55, 255, 245, 210, 235);
+        } else if (e.kind === 5) {              // HAULER — the slung pod
+          fx.oriented(fx.C, fx.C_FLAT, e.x - ux * 1.02, e.y - uy * 1.02, e.z - uz * 1.02,
+            rx * 0.62, ry * 0.62, rz * 0.62, ux * 0.26, uy * 0.26, uz * 0.26, 120, 240, 255, 215);
+        }
+      }
       // aura — a diver's is much hotter, because the diver is what you are supposed to look at
       const diving = e.state === 'dive' || e.state === 'beam';
       /* ⚠ THE AURAS WERE EATING THE ARTWORK. At radius 1.5-2.4× the card and alpha 46/118 they
@@ -759,12 +1197,26 @@
        * clean screenshot. These are trading cards; the art is the point. The aura is now a HALO
        * that sits just outside the silhouette, and only a DIVER gets a hot one, which also makes
        * "which of these is about to kill me" readable at a glance. */
-      const c = fx.hsl(e.hue + (diving ? 0 : 40), 0.95, diving ? 0.62 : 0.42);
+      const c = fx.hsl(e.hue + (diving ? 0 : 40), 0.95, diving || wind ? 0.62 : 0.42);
       const ar = sz * (diving ? 1.3 : 0.92) * (1 + 0.10 * Math.sin(t * 7 + e.id));
-      if (M.aura) fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2], diving ? 58 : 20);
+      if (M.aura) fx.billboard(fx.A, fx.C_DOT, e.x, e.y, e.z, ar, c[0], c[1], c[2],
+        wind ? (20 + wind * 130) | 0 : (diving ? 58 : 20));
+      /* ⚑ THE WIND-UP, DRAWN AS AN IRIS CLOSING. The ring CONTRACTS onto the card over the third of
+       * a second before it commits — inward reads as loading, outward reads as discharge, and the
+       * game already spends outward rings on explosions and the roll shock. Paired with the card
+       * pulling AWAY from you (the simulation moves it along −z), the whole event is "it got
+       * smaller and hotter, then it came", which is a change you catch in the corner of your eye. */
+      if (wind) {
+        const wc = fx.hsl(e.hue + 20, 1, 0.72);
+        fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * (2.4 - wind * 1.32),
+          wc[0], wc[1], wc[2], (60 + wind * 175) | 0);
+      }
       if (e.kind === 2) {
         const rc = fx.hsl(310, 1, 0.6);
         fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * (2.2 + 0.3 * Math.sin(t * 5)), rc[0], rc[1], rc[2], 150);
+      } else if (e.kind === 4) {                // WEAVER — the halo it never takes off
+        const hc = fx.hsl(e.hue + 180, 1, 0.58);
+        fx.billboard(fx.A, fx.C_RING, e.x, e.y, e.z, sz * 1.55, hc[0], hc[1], hc[2], 120);
       }
     }
   }
@@ -983,6 +1435,7 @@
 
     readInput();
     if (!HOLD) RRGame.step(G, FROZEN != null ? 0 : dt, input);
+    TS = ATIER[clamp((G.tier || 1) - 1, 0, ATIER.length - 1)];
     playEvents();
     if (G.mode === 'over' && !overShown) showOver();
 
@@ -1007,7 +1460,13 @@
      * at a time is what proved the 3D card's wash was not the lighting. `__rrpc._mask('aura',0)`
      * and friends exist so a headless check can answer "which of these is the bright blob" in one
      * step instead of by argument. Everything defaults on; this costs one boolean per layer. */
+    /* ⚑ ORDER IS PAINTER'S ORDER INSIDE THE OPAQUE BUFFER — sky, then the far silhouette, then the
+     * facade, then the guns bolted to it. See js/rrpc-fx.js: they share one mesh instance, so this
+     * ordering is a property of these four lines rather than of the engine's opaque sort. */
     if (M.bg) drawBackdrop(t);
+    if (M.far) drawFar(t);
+    if (M.facade) drawFacade(t);
+    if (M.emps) drawEmps(t);
     if (M.stars) drawStars(dt, t);
     if (M.enemies) drawEnemies(t);
     if (M.pops) drawPops(t);
@@ -1057,7 +1516,12 @@
       else { dom.flow.innerHTML = '<small>dash·roll to build flow</small>'; dom.flow.style.color = '#4f9a72'; }
     }
     dom.score.textContent = Math.floor(G.score).toLocaleString('en-US');
-    dom.wave.innerHTML = 'wave <b>' + G.wave + '</b> · ' + (G.alive || 0) + ' up · ' + (G.diving || 0) + ' diving';
+    /* ⚑ THE FLOOR YOU ARE ON, ON THE HUD. The ascent is the reason the screen scrolls, and a reason
+     * the player cannot name is a reason they do not have. It also lands on the right side of
+     * `docs/DELTRON-3030.md` §2's split: the HUD is the CORPORATION talking, so it labels its own
+     * building in its own house voice. */
+    dom.wave.innerHTML = '<i>' + ['I', 'II', 'III', 'IV'][clamp((G.tier || 1) - 1, 0, 3)] + ' · ' + TS.name
+      + '</i> · wave <b>' + G.wave + '</b> · ' + (G.alive || 0) + ' up · ' + (G.diving || 0) + ' diving';
     dom.chain.innerHTML = '×' + G.mult + ' <small>chain ' + G.chain + '</small>';
     dom.chain.style.color = G.mult >= 4 ? '#ff2ad9' : G.mult >= 2 ? '#ffd23b' : '#2bff80';
     dom.lives.textContent = '◆'.repeat(Math.max(0, Math.min(6, G.lives)))
@@ -1209,6 +1673,47 @@
     _sharp(v) { if (!frame) return null; frame.rendering.sharpness = v; frame.update(); return v; },
     _bg(v) { BG_K = v; return v; },
     _mask(k, v) { if (k in M) M[k] = v ? 1 : 0; return Object.assign({}, M); },
+    /* ⚑ THE FOIL ACCEPTANCE TEST — `docs/DESIGN-SYSTEM.md` §1's own, applied to the die edge.
+     * Walk one plate from the top of the frame to the bottom (which is what the scroll does to it)
+     * and measure how far its hue travels. It samples the SAME `foilHue` the renderer draws with,
+     * so it cannot pass while the picture fails. No shift, no foil. */
+    _foilTest(n) {
+      const N = n || 24, hh = halfAt(LZ_WALL), hues = [];
+      for (let i = 0; i < N; i++) {
+        const y = hh - (i / (N - 1)) * hh * 2;
+        hues.push(((foilHue(0, y, LZ_WALL, TS.hue + 150) % 360) + 360) % 360);
+      }
+      let total = 0; const steps = [];
+      for (let i = 1; i < N; i++) {
+        let d = hues[i] - hues[i - 1];
+        while (d > 180) d -= 360; while (d < -180) d += 360;
+        total += Math.abs(d); steps.push(Math.abs(d));
+      }
+      steps.sort((a, b) => a - b);
+      return { totalTravelDeg: +total.toFixed(1), medianStepDeg: +steps[steps.length >> 1].toFixed(2),
+        topHue: +hues[0].toFixed(1), bottomHue: +hues[N - 1].toFixed(1), samples: N };
+    },
+    /* ⚑ THE ASCENT, AS A NUMBER. The tiers must differ in DENSITY, not only in palette — count the
+     * plates each one actually builds for the current window. A reskin passes the eye and fails
+     * this. Restores the live tier when it is done. */
+    _tierScan() {
+      const was = TS, out = [];
+      for (const T of ATIER) {
+        TS = T;
+        let n = 0;
+        const hh = halfAt(LZ_WALL), hw = hh * (OW / Math.max(1, OH));
+        const cols = Math.min(17, Math.ceil((hw * 2) / PW) + 2), c0 = -Math.floor(cols / 2);
+        const r0 = Math.floor((G.scroll - hh - CAM.y) / PH) - 1;
+        const rows = Math.min(13, Math.ceil((hh * 2) / PH) + 3);
+        for (let ri = 0; ri < rows; ri++) for (let ci = 0; ci < cols; ci++) if (cellAt(r0 + ri, c0 + ci)) n++;
+        out.push({ tier: T.n, name: T.name, plates: n, quads: n * 2, fill: T.fill });
+      }
+      TS = was;
+      return out;
+    },
+    _world() { return { tier: G.tier, name: TS.name, scroll: +G.scroll.toFixed(1),
+      scrollV: +G.scrollV.toFixed(2), scrollK: +G.scrollK.toFixed(3), surge: +G.surge.toFixed(3),
+      facadeQuads, emps: G.emps.filter(e => !e.dead).length }; },
     /* pin the render clock (and stop the starfield) so a post sweep varies exactly one thing.
      * `_freezeT(null)` resumes. */
     _freezeT(v) { FROZEN = (v == null ? null : (v === true ? performance.now() * 0.001 : v)); return FROZEN; },

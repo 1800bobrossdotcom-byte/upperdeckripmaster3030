@@ -69,7 +69,7 @@ window.DFPC = (function () {
   const num = (k, d) => (Q.has(k) && isFinite(+Q.get(k)) ? +Q.get(k) : d);
   const flag = (k, d) => (Q.has(k) ? Q.get(k) !== '0' : d);
 
-  let app = null, cam = null, rig = null, sun = null, world = null, fx = null;
+  let app = null, cam = null, rig = null, sun = null, world = null, fx = null, city = null;
   let ok = false, frame = null, ditherOn = false;
   let ships = new Map(), craftProto = null, podProto = null, trimProto = null;
   let TIER = 'high', QCFG = null, why = '';
@@ -266,9 +266,17 @@ window.DFPC = (function () {
 
       world = DFPCWorld.create(app, { envSize: QCFG.envSize, atlas: QCFG.atlas, VIEW_FAR: opt.VIEW_FAR || 34 });
       fx = window.DFPCFx ? DFPCFx.create(app, {}) : null;
+      /* ⚠ The city is OPTIONAL at every level: no module ⇒ null and every call site guards; no
+       * `models/city.glb` ⇒ it draws procedural masses; `?city=0` ⇒ it builds nothing at all. In
+       * all three cases the 260 scenery props and the whole flight model are untouched. */
+      city = window.DFPCCity ? DFPCCity.create(app, { VIEW_FAR: opt.VIEW_FAR || 34 }) : null;
 
       buildPost();
       loadArt(opt.art);
+      // ⚠ only fetch the kit if the city is actually going to build something. `?city=0` returns a
+      // stub that ignores setKit, and a 75 KB round trip to feed a no-op is the kind of thing that
+      // makes an A/B measure two different loads rather than two different renders.
+      if (city && city.stats().ok) loadCity(opt.cityArt); else cityState = 'off';
       ok = true;
       marks.boot = +(performance.now() - T0).toFixed(1);
       return true;
@@ -449,6 +457,105 @@ window.DFPC = (function () {
     } catch (e) { artState = 'procedural (' + (e && e.message) + ')'; }
   }
 
+  /* ── the city kit ───────────────────────────────────────────────────────────────────────
+   * `models/city.glb` (scripts/blender/build-city.py) carries the block kit, its LOD1 twins, the
+   * roof caps, the emissive sign band and the three landmarks. Unlike the craft, these are not
+   * drawn as loaded mesh instances: js/dfpc-city.js MERGES them, so what it needs is the raw
+   * geometry rather than a pc.Mesh — 3×3 cells of buildings become one static mesh, which is what
+   * takes the city from ~600 draw calls to ~10.
+   *
+   * ⚑ THREE FIT MODES, AND EACH IS A DIFFERENT QUESTION ABOUT WHAT MUST SURVIVE:
+   *   cube  bodies + the sign band. Every axis normalised INDEPENDENTLY to 1, base on the origin,
+   *         so the placement scale means (footprint x, HEIGHT, footprint z) directly and one mesh
+   *         serves a 1.4-unit shed and an 8.8-unit tower.
+   *   foot  roof caps. UNIFORM by the larger horizontal extent — a cap must keep its authored
+   *         proportions or a water tank on a tall building becomes a stretched drum.
+   *   tall  the landmarks. UNIFORM by height, because hero_gantry's ASPECT is what decides
+   *         whether its opening still spans an avenue, and scripts/build-craft.mjs asserts it.
+   * Fits are MEASURED in every mode, so a replacement kit drops in without retuning a constant —
+   * the same property the craft and prop fits already have.
+   */
+  const CITY_FIT = { blk: 'cube', cap: 'foot', sign: 'cube', hero: 'tall' };
+  let cityState = 'pending';
+  function extractPart(e, inst) {
+    const mi = e.render.meshInstances[0], mesh = mi.mesh;
+    /* ⚠ ALL THREE OF THESE TAKE THE ARRAY AS AN ARGUMENT AND RETURN A COUNT — including
+     * `getIndices`, which reads like a getter and is not one. Calling it bare throws "Cannot set
+     * properties of undefined (setting 'length')" from inside the engine, which the load-time
+     * try/catch then reports as `city procedural (…)`: the city silently fell back to boxes and
+     * the game kept running, which is exactly the fail-open-quietly failure mode this repo keeps
+     * finding. Verified against the vendored bundle, not from memory. */
+    const pos = [], nrm = [], idx = [];
+    mesh.getPositions(pos);
+    mesh.getNormals(nrm);
+    mesh.getIndices(idx);
+    if (!pos.length) return null;
+    if (!idx.length) for (let i = 0; i < pos.length / 3; i++) idx.push(i);
+    // the part's own node transform, relative to the container root — glTF may put the whole
+    // orientation there rather than in the vertices (CLAUDE.md records exactly that trap costing
+    // the craft its heading), so it is applied here rather than assumed to be identity
+    _mA.copy(inst.getWorldTransform()).invert();
+    const m = _mB.mul2(_mA, e.getWorldTransform());
+    const P = new Float32Array(pos.length), Nn = new Float32Array(pos.length);
+    const nm = new pc.Mat3().setFromMat4(m);        // normals: fine for the rigid node transforms
+    for (let i = 0; i < pos.length; i += 3) {       // a kit part can carry (no shear, no scale)
+      _v0.set(pos[i], pos[i + 1], pos[i + 2]); m.transformPoint(_v0, _v0);
+      P[i] = _v0.x; P[i + 1] = _v0.y; P[i + 2] = _v0.z;
+      _v1.set(nrm[i] || 0, nrm[i + 1] || 1, nrm[i + 2] || 0); nm.transformVector(_v1, _v1);
+      const l = Math.hypot(_v1.x, _v1.y, _v1.z) || 1;
+      Nn[i] = _v1.x / l; Nn[i + 1] = _v1.y / l; Nn[i + 2] = _v1.z / l;
+    }
+    return { pos: P, nrm: Nn, idx, tris: idx.length / 3 };
+  }
+  function fitPartData(d, mode) {
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < d.pos.length; i += 3) for (let k = 0; k < 3; k++) {
+      const v = d.pos[i + k]; if (v < lo[k]) lo[k] = v; if (v > hi[k]) hi[k] = v;
+    }
+    const ext = [hi[0] - lo[0] || 1, hi[1] - lo[1] || 1, hi[2] - lo[2] || 1];
+    let s;
+    if (mode === 'cube') s = [1 / ext[0], 1 / ext[1], 1 / ext[2]];
+    else if (mode === 'foot') { const u = 1 / Math.max(ext[0], ext[2]); s = [u, u, u]; }
+    else { const u = 1 / ext[1]; s = [u, u, u]; }
+    const cx = (lo[0] + hi[0]) / 2, cz = (lo[2] + hi[2]) / 2;
+    const P = new Float32Array(d.pos.length), Nn = new Float32Array(d.pos.length);
+    for (let i = 0; i < d.pos.length; i += 3) {
+      P[i] = (d.pos[i] - cx) * s[0];
+      P[i + 1] = (d.pos[i + 1] - lo[1]) * s[1];      // base on the origin: `alt` then means alt
+      P[i + 2] = (d.pos[i + 2] - cz) * s[2];
+      // an axis-independent scale needs the INVERSE on the normal, then renormalising
+      let nx = d.nrm[i] / s[0], ny = d.nrm[i + 1] / s[1], nz = d.nrm[i + 2] / s[2];
+      const l = Math.hypot(nx, ny, nz) || 1;
+      Nn[i] = nx / l; Nn[i + 1] = ny / l; Nn[i + 2] = nz / l;
+    }
+    return { pos: P, nrm: Nn, idx: d.idx, tris: d.tris };
+  }
+  function loadCity(url) {
+    try {
+      app.assets.loadFromUrl(url || 'models/city.glb', 'container', (err, asset) => {
+        if (err || !asset) { cityState = 'procedural (' + (err || 'no asset') + ')'; return; }
+        try {
+          const inst = asset.resource.instantiateRenderEntity();
+          const parts = {};
+          let n = 0;
+          inst.forEach(e => {
+            if (!e.render || !e.render.meshInstances.length) return;
+            const kind = e.name.startsWith('blk_') ? 'blk' : e.name.startsWith('cap_') ? 'cap'
+                       : e.name.startsWith('hero_') ? 'hero' : e.name.startsWith('sign') ? 'sign' : null;
+            if (!kind) return;
+            const raw = extractPart(e, inst);
+            if (!raw) return;
+            parts[e.name] = fitPartData(raw, CITY_FIT[kind]); n++;
+          });
+          inst.destroy();
+          if (!n || !parts.blk_slab) { cityState = 'procedural (kit incomplete)'; return; }
+          city.setKit(parts);
+          cityState = 'authored (' + n + ' parts)';
+        } catch (e) { cityState = 'procedural (' + (e && e.message) + ')'; }
+      });
+    } catch (e) { cityState = 'procedural (' + (e && e.message) + ')'; }
+  }
+
   // ── craft ───────────────────────────────────────────────────────────────────────────────
   const hex = h => { const s = String(h || '#2bff80').replace('#', '');
     return [(parseInt(s.slice(0, 2), 16) || 0) / 255, (parseInt(s.slice(2, 4), 16) || 0) / 255, (parseInt(s.slice(4, 6), 16) || 0) / 255]; };
@@ -616,6 +723,9 @@ window.DFPC = (function () {
     const sl = Math.hypot(sd[0], sd[1], sd[2]); sd[0] /= sl; sd[1] /= sl; sd[2] /= sl;
     world.setSun(sd);
     world.apply(wld, o);
+    // the city reads the theme's own SKIN (DFPCWorld.skinFor), so it is applied alongside the
+    // world rather than carrying a second opinion about what colour this place is
+    if (city) city.apply(wld, o);
     sun.setPosition(sd[0] * 60, sd[1] * 60, sd[2] * 60);
     sun.lookAt(0, 0, 0);
     const sc = world.sunColour();
@@ -725,6 +835,7 @@ window.DFPC = (function () {
     }
 
     world.update(G, camS, cam, o);
+    if (city) city.update(G, camS, cam, o);
     if (fx) {
       // one object, refreshed in place — this runs every frame and a fresh literal per frame is
       // garbage the collector has to chase during a fight
@@ -803,7 +914,8 @@ window.DFPC = (function () {
     const med = s.length ? s[s.length >> 1] : 0;
     const w = world.stats();
     return { ok: true, engine: 'PlayCanvas ' + pc.version, tier: TIER, art: artState,
-      post: !!frame, dither: ditherOn, frames,
+      post: !!frame, dither: ditherOn, frames, cityArt: cityState,
+      city: city ? city.stats() : null,
       median: +med.toFixed(1), p95: s.length ? +s[Math.min(s.length - 1, Math.floor(s.length * 0.95))].toFixed(1) : 0,
       worst: s.length ? +s[s.length - 1].toFixed(1) : 0,
       props: w.props, gates: w.gates, puffs: w.puffs, theme: w.theme, night: w.night,

@@ -1,0 +1,138 @@
+/* ══ THE TYPE SCALE AND THE TOUCH FLOOR ═════════════════════════════════════════════════════
+ *
+ * Loaded by every page a visitor reads: index, arcade, studio, the folder, the market bench,
+ * and the four generated docs (whitepaper / tokenomics / audit / artist, via
+ * scripts/build-pages.mjs). The games are NOT here — a full-screen canvas with its own input
+ * model is not described by a 44px rule.
+ *
+ * ⚑ THIS FILE DECLARES, IT DOES NOT APPLY. Almost everything below is a custom property; the
+ *   pages spend them in their own stylesheets. That is deliberate. Each page carries a big
+ *   inline <style>, so a shared sheet that tried to *set* `.btn { font-size }` would be an
+ *   ordering fight it loses (the inline block comes later and wins at equal specificity), and
+ *   would be won only by escalating specificity — which is how a stylesheet becomes unreadable.
+ *   Declaring the scale and letting each page spend it means the cascade never fights, and if
+ *   this file 404s the `var(--t-body, 15px)` fallbacks keep every page shipping.
+ *
+ * ⚑ WHY clamp() AND NOT BREAKPOINTS. A vw-only size keeps shrinking: 3vw is 11.7px on a 390px
+ *   phone and 9.6px on a 320px one, which is exactly how "responsive type" ends up illegible on
+ *   the smallest device that needs it most. clamp()'s FIRST argument is the floor and it is the
+ *   whole mechanism — the size is fluid between the floor and the ceiling and never below it.
+ *   Same lesson as GfxPost.dprCap, which returns an absolute cap with a floor of 1 because the
+ *   multiplier version quietly went under one CSS pixel (CLAUDE.md).
+ *
+ * TWO FLOORS, because there are two kinds of text:
+ *   · LABEL  — a chip, a card number, a tracked-out dataplate. 12px, no lower, ever.
+ *   · PROSE  — a sentence someone reads. 16px. A 13.5px paragraph passes a 12px check and still
+ *              makes the page feel like a pamphlet held at arm's length.
+ *
+ * Re-measured by `npm run mobile` at 390x844.
+ */
+
+:root{
+  /* ── LABELS ─────────────────────────────────────────────────────────────────────────────
+   * The floor is 12px and it is a floor, not a target. The ceilings are small on purpose: these
+   * are tracked-out uppercase chips in the acid-terminal voice, and a 16px chip stops being a
+   * chip. */
+  --t-tag:   clamp(12px, 3.10vw, 12.5px);   /* card numbers, rarity flags, the smallest thing allowed */
+  --t-fine:  clamp(12px, 3.25vw, 13px);     /* captions, footnotes, table headers, legal micro-copy */
+  --t-ui:    clamp(13px, 3.55vw, 14px);     /* nav, buttons, tabs, stat captions — a thing you press */
+
+  /* ── PROSE ──────────────────────────────────────────────────────────────────────────────
+   * 16px floor. Everything a person reads in sentences lands here or above. */
+  --t-body:  clamp(16px, 4.15vw, 17px);
+  --t-lede:  clamp(17px, 4.60vw, 19px);     /* the one intro paragraph per page */
+
+  /* ── HEADINGS ─────────────────────────────────────────────────────────────────────────── */
+  --t-h3:    clamp(15px, 4.30vw, 17px);
+  --t-h2:    clamp(20px, 5.60vw, 26px);
+  --t-h1:    clamp(28px, 8.00vw, 52px);
+
+  /* ── TOUCH ──────────────────────────────────────────────────────────────────────────────
+   * 44px is the platform guideline and it is a HIT BOX, not a font size. Reach it with padding
+   * and min-height; growing the label to fill it is how a nav bar turns into a menu. */
+  --tap: 44px;
+  --tap-gap: 8px;                           /* the least space that keeps two 44px boxes distinct */
+
+  /* ⚑ WHERE THE FLOATING BUTTONS SIT. sfx.js and theme.js each pin a control to the bottom
+   * corners at 42px, from a time when nothing else lived down there. banner.js's freshness strip
+   * is now ~66px tall on a phone, so both controls were half-buried by it. They read this
+   * variable with a 42px fallback, so a page that does NOT load this sheet (cards/battle.html)
+   * keeps exactly today's placement. index.html raises it again for its own news ticker. */
+  --rip-fab-bottom: 80px;
+}
+
+/* ⚠ iOS Safari inflates text in landscape unless told not to. It does this per-element, by its
+ * own heuristic, which means a carefully-set scale silently stops being the scale. */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+
+/* ⚑ `hidden` MUST MEAN HIDDEN. The user agent's `[hidden]{display:none}` is a plain element
+ * rule, so ANY class that sets `display` beats it — `display:inline-block` on a link, or
+ * `display:flex` on a row — and the attribute quietly stops doing anything. This project has
+ * already shipped that bug twice (CLAUDE.md; `#vlink[hidden]` in the folder, `.pack-actions[hidden]`
+ * on the landing page), each fixed one at a time. Declaring it once, with !important, ends the
+ * class of bug instead of the instance. Live example this fixes: index.html's countdown sets
+ * `lcGrid.hidden = true` at launch while `.lc-grid{display:flex}` — so the clock would have kept
+ * ticking underneath "THE PACK IS OPEN". */
+[hidden]{ display:none !important; }
+
+/* A visible focus ring everywhere. Cheap, and the only affordance a keyboard or switch-control
+ * user gets on pages built almost entirely out of :hover. */
+:focus-visible{ outline:2px solid currentColor; outline-offset:2px; }
+
+/* ══ TOUCH PRIMITIVES ═══════════════════════════════════════════════════════════════════════
+ * Two classes, because there are two shapes of hit box and they need different answers.
+ *
+ * `.tap` — a standalone control (a chip, a nav link, a page-turn button). Becomes its own
+ *   44px box. Safe anywhere the element is already block-ish or sits in a flex row.
+ *
+ * `.tap-row > a` — links strung through a sentence with " · " between them, which is most of
+ *   this site's footers. Growing those to 44px tall each would wreck the line, so the ROW gets
+ *   the height and the links get vertical padding inside it. ⚠ The row must have enough
+ *   row-gap that two wrapped lines of 44px boxes do not touch.
+ */
+.tap{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:var(--tap); min-width:var(--tap);
+  /* ⚠ inline-flex sets `display`, so it beats the UA's [hidden] rule — see the note above. The
+   * global [hidden] declaration is what makes this safe to hand out. */
+}
+.tap-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:var(--tap-gap) 14px; }
+.tap-row > a, .tap-row > button{
+  display:inline-flex; align-items:center; min-height:var(--tap); padding:0 2px;
+}
+
+/* ══ THE FRESHNESS BANNER (banner.js) ═══════════════════════════════════════════════════════
+ * ⚑ OVERRIDDEN HERE RATHER THAN EDITED THERE, ON PURPOSE. banner.js injects its own <style> at
+ * runtime — after this file — and it is loaded by the GAME pages too, which other work is
+ * touching. Restyling it from here reaches exactly the pages that load this sheet and cannot
+ * reach anything else. The `body` prefix is the specificity bump that beats a later stylesheet
+ * at equal weight; that is the entire trick.
+ *
+ * What was wrong: 10.5px of running prose (a sentence, telling you a keyboard shortcut) and a
+ * 22x20 close button — the smallest tap target on the whole site, at the bottom of the screen
+ * where a thumb is least accurate. */
+body #urm-fresh{
+  font-size:var(--t-fine, 12px); line-height:1.5;
+  padding:8px 52px 8px 14px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));
+}
+body #urm-fresh button{
+  right:6px; width:var(--tap); height:var(--tap); padding:0;
+  display:grid; place-items:center; font-size:var(--t-ui, 13px); border-radius:12px;
+}
+/* banner.js gives the ✕ a :hover state and nothing else — the touch twin, written here because
+ * that file is shared with the game pages and this sheet is not. */
+#urm-fresh button:active{ color:#2bff80; border-color:#2bff80; transform:translateY(-50%) scale(.92); }
+
+/* ══ MOTION ═════════════════════════════════════════════════════════════════════════════════
+ * DESIGN-SYSTEM.md §4: motion is a physical property or it does not exist, and
+ * `prefers-reduced-motion` means STILL LIT, not switched off. Nothing here starts an animation;
+ * these only make sure the transitions the pages already have stop being transitions.
+ *
+ * ⚠ NOT a blanket `animation:none` — that would kill the ticker crawl (a ticker that does not
+ * move is not a ticker), the torch flicker, and the marquee. Each page decides those; this only
+ * flattens the transition layer, which is pure garnish everywhere it appears. */
+@media (prefers-reduced-motion: reduce){
+  .tap, .tap-row > a{ transition:none; }
+}

@@ -122,6 +122,11 @@
   // ── mobile with no injected provider: one-tap "open in your wallet" deep links.
   //    Each opens THIS page inside the wallet's in-app browser, where the provider
   //    injects and connect/pay flows work with zero extra setup.
+  // ⚠ These two panels are the ONLY part of this file a phone user reads, and they are
+  //    inline-styled, so /mobile.css cannot reach them. Sizes are set here to the same floors:
+  //    16px for the explanatory line, 14px labels, and a 44px minimum on every button and link
+  //    (the cancel button measured 322x34). PRESENTATION ONLY — no selector, offset, decimal or
+  //    address in this file is touched, and `npm run test:split` still asserts all of it.
   const isMobileUA = () => matchMedia('(hover:none)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   function deepLinkPanel() {
     return new Promise(resolve => {
@@ -136,10 +141,10 @@
       ov.innerHTML =
         '<div style="width:min(360px,94vw);background:#02140b;border:1px solid #0f5c33;border-radius:14px;padding:18px;box-shadow:0 30px 80px -20px #000">' +
         '<div style="font-family:\'Arial Black\',Arial;text-transform:uppercase;letter-spacing:.06em;font-size:14px;color:#2bff80;margin-bottom:6px">Open in your wallet</div>' +
-        '<div style="font-size:11.5px;line-height:1.5;color:#9fd8b8;margin-bottom:12px">This page reopens inside your wallet’s built-in browser — it connects automatically and Base payments work.</div>' +
+        '<div style="font-size:16px;line-height:1.55;color:#9fd8b8;margin-bottom:14px">This page reopens inside your wallet’s built-in browser — it connects automatically and Base payments work.</div>' +
         links.map(([ic, nm, href]) =>
-          '<a href="' + href + '" rel="noopener" style="display:block;text-decoration:none;font-size:13px;padding:13px 14px;margin-bottom:8px;border-radius:10px;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">' + ic + ' &nbsp;' + nm + '</a>').join('') +
-        '<button data-x="1" style="width:100%;font-size:12px;padding:9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#7fd8a8">cancel</button>' +
+          '<a href="' + href + '" rel="noopener" style="display:flex;align-items:center;text-decoration:none;font-size:14px;min-height:52px;padding:0 14px;margin-bottom:9px;border-radius:10px;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">' + ic + ' &nbsp;' + nm + '</a>').join('') +
+        '<button data-x="1" style="width:100%;font-size:14px;min-height:44px;padding:0 9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#7fd8a8">cancel</button>' +
         '</div>';
       document.body.appendChild(ov);
       const done = () => { ov.remove(); resolve(null); };
@@ -163,9 +168,9 @@
       ov.innerHTML =
         '<div style="width:min(360px,94vw);background:#02140b;border:1px solid #0f5c33;border-radius:14px;padding:18px;box-shadow:0 30px 80px -20px #000">' +
         '<div style="font-family:\'Arial Black\',Arial;text-transform:uppercase;letter-spacing:.06em;font-size:14px;color:#2bff80;margin-bottom:12px">Connect a wallet</div>' +
-        '<button data-k="injected" style="width:100%;text-align:left;font-size:13px;padding:13px 14px;margin-bottom:8px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">🦊 &nbsp;Browser wallet <span style="color:#7fd8a8">(MetaMask)</span></button>' +
-        '<button data-k="walletconnect" style="width:100%;text-align:left;font-size:13px;padding:13px 14px;margin-bottom:8px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">📱 &nbsp;WalletConnect <span style="color:#7fd8a8">(mobile)</span></button>' +
-        '<button data-k="" style="width:100%;font-size:12px;padding:9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#7fd8a8">cancel</button>' +
+        '<button data-k="injected" style="width:100%;text-align:left;font-size:14px;min-height:52px;padding:0 14px;margin-bottom:9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">🦊 &nbsp;Browser wallet <span style="color:#7fd8a8">(MetaMask)</span></button>' +
+        '<button data-k="walletconnect" style="width:100%;text-align:left;font-size:14px;min-height:52px;padding:0 14px;margin-bottom:9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:rgba(43,255,128,.08);color:#d9ffe9">📱 &nbsp;WalletConnect <span style="color:#7fd8a8">(mobile)</span></button>' +
+        '<button data-k="" style="width:100%;font-size:14px;min-height:44px;padding:0 9px;border-radius:10px;cursor:pointer;border:1px solid #0f5c33;background:transparent;color:#7fd8a8">cancel</button>' +
         '</div>';
       document.body.appendChild(ov);
       const done = k => { ov.remove(); resolve(k || null); };

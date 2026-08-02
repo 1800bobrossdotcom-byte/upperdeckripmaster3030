@@ -1,0 +1,142 @@
+{
+  "generator": "png23d",
+  "card": "42",
+  "source": "cards/art/hero/42.webp",
+  "size": {
+    "w": 683,
+    "h": 1024,
+    "aspect": 0.66699
+  },
+  "units": "rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.",
+  "method": "auto+text+inpaint",
+  "command": "node scripts/png23d.mjs cards/art/hero/42.webp --out models/cards --mode layers --preview",
+  "note": "layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.",
+  "layers": [
+    {
+      "file": "layers/00-bg.png",
+      "name": "bg",
+      "kind": "background",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": true,
+      "blend": "normal",
+      "coverage": 1,
+      "why": "the card itself, with every liftable layer inpainted out of it"
+    },
+    {
+      "file": "layers/01-band0.png",
+      "name": "band0",
+      "kind": "midground",
+      "z": 0.0202,
+      "rect": [
+        0.05417,
+        0.02734,
+        0.89458,
+        0.94629
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0973,
+      "why": "colour cluster rgb(140,101,80), border share 0.37"
+    },
+    {
+      "file": "layers/02-band1.png",
+      "name": "band1",
+      "kind": "midground",
+      "z": 0.0405,
+      "rect": [
+        0.0571,
+        0.02734,
+        0.89019,
+        0.93457
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.5018,
+      "why": "colour cluster rgb(14,13,16), border share 0.17"
+    },
+    {
+      "file": "layers/03-band2.png",
+      "name": "band2",
+      "kind": "midground",
+      "z": 0.0607,
+      "rect": [
+        0.03221,
+        0.0127,
+        0.87701,
+        0.97363
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1095,
+      "why": "colour cluster rgb(233,238,231), border share 0.15"
+    },
+    {
+      "file": "layers/04-band3.png",
+      "name": "band3",
+      "kind": "subject",
+      "z": 0.081,
+      "rect": [
+        0.35139,
+        0.20313,
+        0.33968,
+        0.25684
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0525,
+      "why": "colour cluster rgb(44,140,203), border share 0.01"
+    },
+    {
+      "file": "layers/05-frame.png",
+      "name": "frame",
+      "kind": "frame",
+      "z": 0.1013,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0917,
+      "why": "peel band 0 — a printed rule 32px thick, in front of the art it surrounds"
+    },
+    {
+      "file": "layers/06-text.png",
+      "name": "text",
+      "kind": "text",
+      "z": 0.1215,
+      "rect": [
+        0.69693,
+        0.05469,
+        0.17423,
+        0.07031
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0064,
+      "boxes": [
+        [
+          0.7072,
+          0.0596,
+          0.1406,
+          0.0273
+        ],
+        [
+          0.7042,
+          0.0957,
+          0.1581,
+          0.0234
+        ]
+      ],
+      "why": "2 detected text line(s)"
+    }
+  ]
+}

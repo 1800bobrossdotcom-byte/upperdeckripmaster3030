@@ -77,9 +77,13 @@
   addEventListener('DOMContentLoaded', () => {
     btn = document.createElement('button');
     btn.id = 'soundToggle';
-    btn.style.cssText = 'position:fixed;right:12px;bottom:42px;z-index:60;font-family:' +
-      "'Courier New',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;" +
-      'padding:10px 14px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
+    /* min-height 44 rather than a taller label: the pill grows, the type does not.
+     * `--rip-fab-bottom` (mobile.css) lifts it clear of the fixed freshness strip; the 42px
+     * fallback is the historical position for pages without that sheet. */
+    btn.style.cssText = 'position:fixed;right:12px;bottom:var(--rip-fab-bottom,42px);z-index:60;font-family:' +
+      "'Courier New',monospace;font-size:13px;letter-spacing:.1em;text-transform:uppercase;" +
+      'display:inline-flex;align-items:center;min-height:44px;' +
+      'padding:0 16px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
       'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer';
     render();
     btn.onclick = async () => {

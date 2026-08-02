@@ -59,9 +59,19 @@ const GAMES = [
       const b = [...document.querySelectorAll('button,.btn')].find(e => /START|PLAY|LAUNCH|BEGIN|FLY/i.test(e.textContent || ''));
       if (b) b.click(); return b ? 'clicked' : 'none';
     } },
+  /* ⛔ THIS ROW WAS MEASURING THE LOBBY, AND EVERY NUMBER IT EVER PRINTED FOR CLOUD RACER IS VOID.
+   * The generic click finds the FIRST /START|PLAY|RACE|BEGIN/ button, which is "🔥 Ante up & race";
+   * with no wallet that path returns straight to the grid, so the sweep screenshotted a white panel
+   * on a pale gradient and reported it as the game (luma 193.1, blacks 0.9%). Driven properly the
+   * same build reads luma 140.3 and blacks 0.00% — a different picture with a different diagnosis.
+   * Cloud Racer has had a dev hook since the PlayCanvas port; use it, the way section9 and ronin
+   * already do. The header of this file says a game measured in its lobby is not measured. */
   { name: 'cloudracer', url: 'cloudracer.html', wait: 9000, drive: () => {
-      const b = [...document.querySelectorAll('button,.btn')].find(e => /START|PLAY|RACE|BEGIN/i.test(e.textContent || ''));
-      if (b) b.click(); return b ? 'clicked' : 'none';
+      const c = window.CRPC;
+      if (c && c.startRace) { try { c.startRace({ players: 6, laps: 3, real: false, cardEdge: 1 }); return 'startRace'; }
+        catch (e) { return 'threw ' + e.message; } }
+      const b = [...document.querySelectorAll('button,.btn')].find(e => /PRACTICE/i.test(e.textContent || ''));
+      if (b) b.click(); return b ? 'clicked practice' : 'no hook';
     } },
   { name: 'section9', url: 'section9.html', wait: 9000, drive: () => {
       const g = window.__s9pc && window.__s9pc.game;

@@ -357,7 +357,9 @@
     <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill hp-fill" id="hpFill"></div></div></div>
     <div class="h-vitals h-ar" style="margin-top:5px"><span class="h-lbl">armor</span> <b id="arNum">60</b></div>
     <div class="stat-wrap"><div class="stat-bar"><div class="stat-fill ar-fill" id="arFill"></div></div></div>
-    <div class="h-lbl" style="margin-top:6px">sprint</div>
+    <!-- ⧗ ONE METER: sprint AND the thruster boots draw on this. Labelled by the UI, which is
+         where the burning / dry states are written — see S9PCUI.hud. -->
+    <div class="h-lbl" id="boLbl" style="margin-top:6px">boost</div>
     <div class="stat-wrap"><div class="stat-bar" style="height:6px"><div class="stat-fill bo-fill" id="boFill"></div></div></div>
     <div class="h-lbl" id="hMkt" style="margin-top:6px;color:#59e0ff;letter-spacing:.04em"></div>
   </div>
@@ -375,12 +377,12 @@
       <span class="key desk"><kbd>MOUSE</kbd> look</span>
       <span class="key desk"><kbd>LMB</kbd> fire</span>
       <span class="key desk"><kbd>RMB</kbd> aim / zoom</span>
-      <span class="key desk"><kbd>SPACE</kbd> jump</span>
+      <span class="key desk"><kbd>SPACE</kbd> jump · <b>hold = ⧗ BOOTS</b></span>
       <span class="key desk"><kbd>R</kbd> reload</span>
       <span class="key desk"><kbd>SHIFT</kbd> sprint</span>
       <span class="key desk"><kbd>CTRL</kbd> crouch</span>
       <span class="key desk"><kbd>1-4</kbd> weapon</span>
-      <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP · CROUCH · dbl-tap FIRE = reload</span>
+      <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP (hold = ⧗ boots) · CROUCH · dbl-tap FIRE = reload</span>
     </div>
   </div>
 

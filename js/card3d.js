@@ -385,11 +385,24 @@
     }
 
     function buildLayer(spec) {
-      var sz = (spec.fit === 'full' ? 0.99 : 0.90) * spec.scale;
+      /* ⚑ A TRIMMED PLATE HAS TO BE PUT WHERE IT BELONGS. `rect` is [x,y,w,h] of the card face,
+       * origin top-left (js/card-layers.js); without it a cut-out cropped to its own ink gets
+       * stretched over the whole card. It supersedes `fit` — a plate that states its own box does
+       * not also need the face shrunk to 0.90 around it, or it lands inside the bevel twice.
+       * ⚠ y flips: the rect is image-space (down), the plate sits in GL space (up). */
+      var r = spec.rect;
+      var sz = (r || spec.fit === 'full' ? 0.99 : 0.90) * spec.scale;
       var z = Z_MIN + spec.z * (Z_MAX - Z_MIN);
-      var e = plate(z, W * sz, H * sz);
+      var e = plate(z, W * sz * (r ? r[2] : 1), H * sz * (r ? r[3] : 1));
+      /* ⚠ THE OFFSET CANNOT LIVE ON THE ENTITY. The parallax loop calls `setLocalPosition` on every
+       * plate every frame from the tilt alone, so a position written here is gone one frame later —
+       * the plate would be the right SIZE in the right place for exactly one frame and then snap to
+       * centre. It is carried on the record and added there. */
+      var ox = r ? W * sz * (r[0] + r[2] / 2 - 0.5) : 0;
+      var oy = r ? -H * sz * (r[1] + r[3] / 2 - 0.5) : 0;
+      e.setLocalPosition(ox, oy, z);
       e.enabled = false;                      // nothing is shown until its image actually decodes
-      var rec = { spec: spec, ent: e, z: z, mat: null, tex: null, nrm: null, gain: 1, off: null };
+      var rec = { spec: spec, ent: e, z: z, ox: ox, oy: oy, mat: null, tex: null, nrm: null, gain: 1, off: null };
       layerList.push(rec);
 
       function finish() {
@@ -538,7 +551,7 @@
       if (layerList.length) {
         for (var i = 0; i < layerList.length; i++) {
           var L = layerList[i], p = L.spec.par * parGain;
-          L.ent.setLocalPosition(q.x * -0.022 * p, q.y * 0.022 * p, L.z);
+          L.ent.setLocalPosition(L.ox + q.x * -0.022 * p, L.oy + q.y * 0.022 * p, L.z);
           if (L.spec.foil && L.mat) {
             if (!L.off) L.off = new pc.Vec2(0, 0);
             L.off.x = -((t * 0.16) % 1); L.mat.emissiveMapOffset = L.off;

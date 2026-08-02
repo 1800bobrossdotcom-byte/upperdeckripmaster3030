@@ -30,3 +30,9 @@ build/debug/
 # It was briefly committed (added 4bd7f23, dropped fae16c4) because nothing
 # ignored it, which is the whole reason this line exists.
 build/hero-type/
+
+# mobile audit screenshots — regenerate with `npm run mobile -- --shots`.
+# build/mobile/audit.json is deliberately NOT ignored: it is the committed BEFORE
+# snapshot the mobile pass was measured against, and re-runs write audit-latest.json.
+build/mobile/*.png
+build/mobile/audit-latest.json

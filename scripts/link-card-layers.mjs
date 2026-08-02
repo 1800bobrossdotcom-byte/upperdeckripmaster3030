@@ -26,6 +26,49 @@
  *   segmented on luminance to fake depth, and that resolving to null is the NORMAL case. This
  *   only exposes stacks that a generator already produced from real separations; a card with no
  *   `models/cards/<slug>/layers.json` gets no sidecar and stays flat.
+ *
+ * ══ WHICH CARDS GET A STACK — the gate, and the cards that FAILED it ════════════════════════
+ *
+ * ⛔ THE ANSWER IS NOT "run png23d over the deck". It ran over all 15 hero cards and produced a
+ *    layers.json for every one of them; **6 were kept**. The other 9 produced stacks that load,
+ *    parse and render — and are fakes. This is the list so nobody re-derives it by shipping them.
+ *
+ * A card qualifies only if ALL of these hold, and then only after LOOKING at
+ * `preview/_exploded.png`, because the numbers pass on cards the eye rejects:
+ *
+ *   1 THE PEEL FOUND SOMETHING. `keyPeel` must accept ≥ 1 band. With zero bands png23d falls
+ *     through to k-means over the WHOLE card — which is precisely "split flat art on a colour
+ *     key", the forbidden move. Its signature is in the log: every cluster's `borderShare`
+ *     lands in the same 0.2–0.5 range, i.e. every "layer" touches the border equally, i.e.
+ *     there is no background. Cards 34, 38, 41, 43, 45, 48 all key nothing.
+ *   2 THE FRONT PLATES ARE OBJECTS, NOT THE CARD. No cut-out over ~90% of the frame. A `subject`
+ *     at 95% is not a separation, it is the card with a hairline rim lifted off it: 35 → 95.8%,
+ *     40 → 95.0%, 46 → 98.3% (and 46's text plate came out EMPTY, 2 KB).
+ *   3 ≥ 2 plates in front of the backing, none of them empty.
+ *   4 ⚑ THE EXPLODED RENDER HAS TO BE LOOKED AT. Card 37 passes 1–3 on the numbers (2 peel bands,
+ *     subject 85.5%) and its render shows the face SHEARED IN HALF along a skin-tone cluster
+ *     boundary, with a slab of forehead floating on its own plane. That is exactly the "cut-off
+ *     hair, a subject shearing off its own shadow" the rule names. Rejected on the picture.
+ *
+ * ⚑ AND THE SETTINGS ARE PER CARD — `--mode layers` alone is not a method. Card 36 only separates
+ *   with `--cluster-above 0.9`, i.e. peel-ONLY: with the default 0.55 the k-means fires inside the
+ *   peel and returns confetti, while peel-only returns frame → inner rule → art panel → type,
+ *   which is the real printed structure. Card 49 needs `--cluster-above 0.95 --text-ground 0.12`;
+ *   without the tighter text ground a false-positive glyph group punches a hole in the portrait's
+ *   cheek and floats the fragment forward. Card 42 needs the DEFAULT — png23d's own comments cite
+ *   it as the k-means success case, and the render agrees: speckled ground, red hearts, the white
+ *   suit and the blue face all come off cleanly. Every stack now records its own command in
+ *   `models/cards/<slug>/layers.json`.
+ * ⚠ `--key grad` was tried on the cards that key nothing and is a TRAP here: the wider leash walks
+ *   the flood into the art. Card 48's subject went to 21.6% and card 49's to 17.8% — the peel
+ *   eating the portrait, which is the `alley-trio` failure png23d's own comments describe.
+ * ⚠ Card 45's strata are a CREATIVE CUT, not a separation, and were not extended to other cards.
+ *   Measured for scanline displacement (best per-row horizontal shift against the row above),
+ *   45 scores 1.3% of rows and 34 scores 1.0% — the two LOWEST in the set. There is no measurable
+ *   tear to exaggerate; slicing a card into horizontal bands is an art direction decision and it
+ *   is the artist's to make, not a thing to infer.
+ *
+ * Guarded by `npm run test:cardlayers`, which asserts 2 and 3 against every sidecar in the repo.
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, relative, basename } from 'node:path';
@@ -89,6 +132,14 @@ for (const slug of dirs) {
     z = Math.max(0, Math.min(1, z));
     const src = relative(outDir, join(SRC, slug, L.file)).split('\\').join('/');
     const out = { id: L.name || kind + i, src, z: +z.toFixed(4), fit: FIT[kind] || 'art' };
+    /* ⛔ THE RECT IS NOT OPTIONAL AND DROPPING IT DOES NOT FAIL, IT LIES. png23d emits TRIMMED
+     * cut-outs — `layer 06 text … 0.6% cover` is a 22 KB PNG cropped to a corner badge — and the
+     * reader draws a rect-less plate across the whole face. So every one of these stacks rendered
+     * as its own ink stretched edge to edge: a face blown up to the card, a badge spanning the top
+     * rule. Seven plates, seven 200s, z spanning the thickness, every check green, card ruined.
+     * The rect is already in the generator's manifest in exactly the reader's units — fractions of
+     * the card, origin top-left — so this is a passthrough, and its absence was the whole bug. */
+    if (Array.isArray(L.rect) && L.rect.length >= 4) out.rect = L.rect.slice(0, 4).map(v => +(+v).toFixed(5));
     if (L.blend && L.blend !== 'normal') out.blend = L.blend;
     /* The bottom plate carries the emboss — the reader's own default, made explicit here because
      * png23d's layer 0 is a full-frame inpainted backplate and is exactly the right one for it. */

@@ -25,14 +25,27 @@
  *   asked for screen-filling colour, and glow is how colour fills a screen.
  */
 window.RRFx = (function () {
-  const MAXA = 1400;         // additive quads: 420 stars + bolts + particles + beams + auras
-  const MAXC = 260;          // card quads: 32 enemies × 2 faces + power-ups + captive + slack
+  /* ⚠ THESE ARE DERIVED FROM THE WORST CASE, NOT PICKED. `push` drops silently past `max`, and it
+   * drops whatever was submitted LAST — which is the emplacements and the explosions, i.e. exactly
+   * the things whose absence is a bug rather than a cosmetic loss. Worked out at the widest layout
+   * the code can produce (17 facade columns × 13 rows, 40 live emplacements, a 30-kill burn):
+   *   B  sky 234 + far ≤140 + facade ≤442 + platforms ≤20 + mounts/edges/barrels ≤140  =  976
+   *   A  motes 420 + bolts ≤420 + auras/wind 80 + lamps ≤75 + gun glow ≤240 + booms ≤450 = 1685
+   *   C  40 enemies × (card + silhouette) + the ship's own card                          =    81 */
+  const MAXA = 2000;         // additive quads: motes + bolts + particles + beams + auras + lamps
+  const MAXC = 340;          // card quads: 40 enemies × (card + silhouette pieces) + power-ups
   /* ⚠ 96 WAS TOO FEW AND IT SHOWED AS A BRICK WALL. A 10×8 grid interpolates the hue field
    * piecewise-linearly, and a piecewise-linear surface has gradient discontinuities at every cell
    * edge — the eye reads those as Mach bands, i.e. a tiled wall behind the game. Dither does not
    * help: this is geometry, not 8-bit quantisation. Finer tessellation does. 18×13 = 216 quads,
-   * same fill rate, same one draw call. */
-  const MAXB = 300;          // backdrop quads: an 18×13 vertex-coloured field behind everything
+   * same fill rate, same one draw call.
+   * ⚑ AND THE FACILITY LIVES IN THIS SAME BUFFER, WHICH IS THE WHOLE REASON IT COSTS NOTHING.
+   *   Sky field (234) + the far silhouette + the scrolling facade + every mount plate and barrel go
+   *   into ONE opaque mesh, so the wall is still a single draw call — and, more importantly, the
+   *   painter's order is guaranteed. Within one mesh instance the draw order IS the index order,
+   *   so "sky, then far, then wall, then the things bolted to the wall" is a property of the code
+   *   rather than something the engine's opaque sort has to be trusted to preserve. */
+  const MAXB = 1200;         // sky field + far layer + facade panels + emplacement structure
 
   // ── the atlas ───────────────────────────────────────────────────────────────────────────────
   const CELL = 128, GRID = 4, ATLAS = CELL * GRID;

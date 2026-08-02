@@ -19,6 +19,7 @@
 <meta name="twitter:title" content="RIPMASTER3030STUDIOS · $3030">
 <meta name="twitter:description" content="A liquid trading-card game on SuperRare Liquid Editions. 100 living lenses; burn the token, curate the deck. NFA.">
 <meta name="twitter:image" content="https://ripmaster3030studios.com/upperdeckripmaster3030_01_marquee.png">
+<link rel="stylesheet" href="mobile.css">
 <style>
   :root{
     --void:#020804; --panel:#04140b; --ink:#01130a;
@@ -27,7 +28,17 @@
     --text:#b8ffd6;
     --mono:'Courier New',ui-monospace,monospace;
     --fat:'Arial Black','Arial Bold',Arial,sans-serif;
+    /* ⚑ THREE FIXED LAYERS SHARE THE BOTTOM OF THIS PAGE and they were all at the same altitude:
+       the Mandela ticker (32px), banner.js's freshness strip, and the two floating controls from
+       sfx.js and theme.js. On a phone the freshness strip covered the ticker COMPLETELY and half
+       of both buttons — measured, not guessed; see build/mobile/index.png before this change.
+       They are stacked now: ticker at 0, freshness above it, buttons above that. */
+    --ticker-h:40px;               /* two lines of 12px in the end caps, and nothing smaller */
+    --rip-fab-bottom:124px;
   }
+  /* the freshness strip sits ON TOP OF the news ticker rather than over it. `body` is the
+     specificity bump that beats banner.js's own runtime <style>. */
+  body #urm-fresh{ bottom:var(--ticker-h,40px); padding-bottom:8px; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   /* page color lives on html — body stays transparent so the fixed rain /
      watermark / scanline layers (negative z-index) show through everywhere */
@@ -35,7 +46,10 @@
   body{
     background:transparent;
     font-family:var(--mono); color:var(--text);
-    min-height:100vh; overflow-x:hidden; padding:0 12px 74px;
+    font-size:var(--t-body,14px); line-height:1.65;
+    /* ⚠ 150px, not 74: the ticker (32) plus the freshness strip (~66) plus air. Anything less
+       and the footer credits are permanently behind two bars nobody asked to read. */
+    min-height:100vh; overflow-x:hidden; padding:0 12px 176px;
     -webkit-tap-highlight-color:transparent;
   }
   /* digital rain (canvas) — slow acid hue drift does the "on acid" part */
@@ -67,13 +81,16 @@
     background:rgba(2,16,9,.72); text-decoration:none;
     box-shadow: inset 0 0 16px rgba(43,255,128,.05), 0 0 14px rgba(43,255,128,.12);
     transition:box-shadow .15s, transform .08s; }
-  .built:hover{ box-shadow: inset 0 0 16px rgba(43,255,128,.08), 0 0 24px rgba(43,255,128,.28); }
+  .built:hover,.built:active,.built:focus-visible{ box-shadow: inset 0 0 16px rgba(43,255,128,.08), 0 0 24px rgba(43,255,128,.28); }
   .built:active{ transform:translateY(1px); }
-  .built-lbl{ font-size:9px; letter-spacing:.34em; text-indent:.34em; text-transform:uppercase; color:#5fcf8f; }
+  .built-lbl{ font-size:var(--t-tag,9px); letter-spacing:.3em; text-indent:.3em; text-transform:uppercase; color:#5fcf8f; }
   .sr-logo{ height:clamp(18px,4.4vw,24px); width:auto; display:block;
     filter:invert(1) sepia(1) saturate(4) hue-rotate(85deg) brightness(1.2)
       drop-shadow(0 0 8px rgba(43,255,128,.5)); }
-  .kicker{ font-size:10.5px; letter-spacing:.5em; text-indent:.5em; color:#5fcf8f; text-transform:uppercase; margin-top:4px; }
+  /* ⚠ The tracked-out labels lose their letter-spacing as they grow — .5em of tracking on 12px
+     type is 6px per gap, and on a 390px screen "LIQUID EDITIONS · COHORT 01" then wraps into a
+     column of single words. The tracking is now the thing that gives, not the size. */
+  .kicker{ font-size:var(--t-tag,10.5px); letter-spacing:.34em; text-indent:.34em; color:#5fcf8f; text-transform:uppercase; margin-top:6px; }
   /* marquee sign: the psychedelic wordmark flanked by two live torches */
   .marquee-sign{ display:flex; align-items:center; justify-content:center; gap:clamp(4px,2vw,26px);
     margin-top:clamp(2px,1vh,10px); }
@@ -166,10 +183,10 @@
   .torch{ flex:none; width:auto; height:clamp(70px,15vw,150px); image-rendering:auto;
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(52px,13vw,90px); } }
-  .dataplate{ width:max-content; max-width:94%; margin:clamp(8px,2vh,14px) auto 0;
+  .dataplate{ width:max-content; max-width:100%; margin:clamp(8px,2vh,14px) auto 0;
     border:1px solid var(--phosdim); border-radius:999px; background:rgba(1,10,5,.72); color:#5fcf8f;
-    font-size:9px; letter-spacing:.22em; text-indent:.22em; text-transform:uppercase;
-    padding:6px 16px; box-shadow:0 0 12px rgba(43,255,128,.12); }
+    font-size:var(--t-tag,9px); letter-spacing:.16em; text-indent:.16em; text-transform:uppercase;
+    padding:8px 16px; box-shadow:0 0 12px rgba(43,255,128,.12); }
   .stars{ display:flex; justify-content:center; gap:10px; margin-top:12px; }
 
   /* ── "LOVEBEING presents … built on SuperRare" credit composition ── */
@@ -181,13 +198,16 @@
     filter:drop-shadow(0 0 16px rgba(255,42,217,.4)) drop-shadow(0 2px 6px rgba(0,0,0,.6));
     animation:lbFlow 7s linear infinite; }
   @keyframes lbFlow{ to{ background-position:280% 0; } }
-  .presents-lbl{ font-family:var(--fat); font-size:clamp(9px,2.2vw,12px); letter-spacing:.66em; text-indent:.66em;
+  .presents-lbl{ font-family:var(--fat); font-size:var(--t-tag,clamp(9px,2.2vw,12px)); letter-spacing:.5em; text-indent:.5em;
     text-transform:uppercase; color:#8fe0b6; opacity:.9; }
   .presents-lbl::before{ content:''; }
   .built-line{ display:inline-flex; align-items:center; gap:9px; text-decoration:none; margin-top:2px;
-    font-size:9px; letter-spacing:.32em; text-indent:.32em; text-transform:uppercase; color:#5fcf8f;
+    min-height:var(--tap,44px); padding:0 6px;
+    font-size:var(--t-tag,9px); letter-spacing:.26em; text-indent:.26em; text-transform:uppercase; color:#5fcf8f;
     transition:color .15s, filter .15s; }
-  .built-line:hover{ color:#8bffbb; filter:drop-shadow(0 0 8px rgba(43,255,128,.5)); }
+  /* ⚠ :hover alone is a dead affordance on a phone. Every hover state on this page now has an
+     :active twin — pressing it is the touch equivalent of pointing at it. */
+  .built-line:hover,.built-line:active{ color:#8bffbb; filter:drop-shadow(0 0 8px rgba(43,255,128,.5)); }
   .built-line .sr-logo{ height:clamp(16px,4vw,22px); }
   @media (prefers-reduced-motion:reduce){ .lovebeing-logo{ animation:none; background-position:40% 0; } }
   .intro-presents{ gap:clamp(4px,1.2vh,10px); }
@@ -204,17 +224,17 @@
     background:rgba(2,16,9,.85);
     box-shadow: inset 0 0 30px rgba(43,255,128,.06), 0 0 30px rgba(43,255,128,.18);
   }
-  .cab-label{ display:flex; justify-content:space-between; gap:14px; margin-bottom:12px;
-    font-family:var(--fat); font-size:9px; letter-spacing:.2em; text-transform:uppercase; }
+  .cab-label{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 14px; margin-bottom:12px;
+    font-family:var(--fat); font-size:var(--t-tag,9px); letter-spacing:.2em; text-transform:uppercase; }
   .cab-label .tag{ background:rgba(43,255,128,.12); border:1px solid var(--phosdim); border-radius:6px;
-    padding:3px 8px; color:var(--phos); }
+    padding:5px 8px; color:var(--phos); font-size:var(--t-tag,9px); letter-spacing:.14em; }
   .cab-label .tag.red{ background:rgba(255,42,217,.12); border-color:#7c1668; color:var(--acid); }
   .cabinet iframe{ position:relative; display:block; border:1px solid var(--phosdim); border-radius:12px;
     margin:0 auto; width:min(80vw,340px); aspect-ratio:4/6.1; background:#020a05; }
-  .cap{ text-align:center; margin-top:12px; font-size:10px;
-    letter-spacing:.28em; text-indent:.28em; text-transform:uppercase; color:#5fcf8f; }
+  .cap{ text-align:center; margin-top:12px; font-size:var(--t-tag,10px);
+    letter-spacing:.2em; text-indent:.2em; text-transform:uppercase; color:#5fcf8f; }
 
-  .creed{ margin-top:22px; text-align:center; font-size:clamp(13px,3.4vw,16px); line-height:1.7; }
+  .creed{ margin-top:22px; text-align:center; font-size:var(--t-body,clamp(13px,3.4vw,16px)); line-height:1.7; }
   .creed .sig{ display:block; margin-top:12px; color:#5fcf8f; font-style:italic; letter-spacing:.06em; }
   .creed .chant{ display:block; width:max-content; max-width:100%; margin:14px auto 0;
     font-family:var(--fat); font-size:clamp(13px,3.8vw,20px); letter-spacing:.06em; text-transform:uppercase;
@@ -227,8 +247,8 @@
     --bc:43,255,128;                                   /* accent colour (rgb) — variants override */
     position:relative; display:inline-flex; align-items:center; gap:8px; overflow:hidden;
     text-decoration:none; font-family:var(--fat); cursor:pointer;
-    font-size:11.5px; letter-spacing:.13em; text-indent:.13em; text-transform:uppercase;
-    padding:13px 22px; border-radius:12px; color:#eafff2;
+    font-size:var(--t-ui,11.5px); letter-spacing:.1em; text-indent:.1em; text-transform:uppercase;
+    padding:0 20px; min-height:var(--tap,44px); justify-content:center; border-radius:12px; color:#eafff2;
     border:1px solid rgba(var(--bc),.5);
     background:linear-gradient(180deg, rgba(var(--bc),.16), rgba(2,14,8,.72) 60%, rgba(1,8,5,.85));
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 0 0 1px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.45),
@@ -239,11 +259,16 @@
     content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
     background:linear-gradient(115deg, transparent 30%, rgba(255,255,255,.18) 48%, transparent 62%);
     transform:translateX(-120%); transition:transform .55s ease; }
-  .btn:hover{ transform:translateY(-2px); border-color:rgba(var(--bc),.9);
+  .btn:hover,.btn:focus-visible{ transform:translateY(-2px); border-color:rgba(var(--bc),.9);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px rgba(0,0,0,.3), 0 10px 24px rgba(0,0,0,.5),
       0 0 30px rgba(var(--bc),.5); }
-  .btn:hover::before{ transform:translateX(120%); }
-  .btn:active{ transform:translateY(0); }
+  /* ⚑ THE SHEEN HAD NO TOUCH TRIGGER AT ALL. It is the one bit of foil language in the button
+     set — a highlight travelling because the surface turned — and on a phone it never fired
+     once. A press is the touch equivalent of the pointer arriving, so it fires there too. */
+  .btn:hover::before,.btn:active::before,.btn:focus-visible::before{ transform:translateX(120%); }
+  .btn:active{ transform:translateY(1px); border-color:rgba(var(--bc),.9);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px rgba(0,0,0,.3), 0 3px 10px rgba(0,0,0,.5),
+      0 0 30px rgba(var(--bc),.5); }
   .btn:focus-visible{ outline:2px solid rgba(var(--bc),.9); outline-offset:3px; }
   .btn .ic{ filter:drop-shadow(0 0 6px rgba(var(--bc),.7)); }
   .btn.alt{ --bc:39,247,228; }
@@ -260,30 +285,36 @@
     background:rgba(2,16,9,.82); box-shadow: inset 0 0 22px rgba(43,255,128,.04); }
   .card:nth-child(1){ --sc:var(--phos); } .card:nth-child(2){ --sc:var(--acid); }
   .card:nth-child(3){ --sc:var(--amber); } .card:nth-child(4){ --sc:var(--cyan); }
-  .card .spec{ font-size:8px; letter-spacing:.26em; text-transform:uppercase; color:#5fcf8f; }
-  .card h3{ margin-top:6px; font-family:var(--fat); font-size:15px; letter-spacing:.08em; text-transform:uppercase;
+  .card .spec{ font-size:var(--t-tag,8px); letter-spacing:.2em; text-transform:uppercase; color:#5fcf8f; }
+  .card h3{ margin-top:8px; font-family:var(--fat); font-size:var(--t-h3,15px); letter-spacing:.06em; text-transform:uppercase;
     display:flex; align-items:center; gap:10px; color:var(--sc); text-shadow:0 0 10px var(--sc); }
-  .card h3 b{ flex:none; width:30px; height:30px; display:grid; place-items:center; border-radius:50%;
-    font-size:14px; color:var(--void); background:var(--sc); border:2px solid var(--ink);
+  .card h3 b{ flex:none; width:32px; height:32px; display:grid; place-items:center; border-radius:50%;
+    font-size:var(--t-ui,14px); color:var(--void); background:var(--sc); border:2px solid var(--ink);
     box-shadow:0 0 12px var(--sc); text-shadow:none; }
-  .card p{ margin-top:10px; font-size:13px; line-height:1.6; color:var(--text); }
+  .card p{ margin-top:10px; font-size:var(--t-body,13px); line-height:1.65; color:var(--text); }
   .card p strong{ color:var(--amber); }
 
   .one-rule{ margin-top:16px; border:1px dashed var(--acid); border-radius:10px;
-    background:rgba(30,2,24,.5); padding:12px 16px; text-align:center;
-    font-size:12.5px; line-height:1.6; color:#ffc9f2; box-shadow:0 0 18px rgba(255,42,217,.15); }
+    background:rgba(30,2,24,.5); padding:14px 16px; text-align:center;
+    font-size:var(--t-body,12.5px); line-height:1.65; color:#ffc9f2; box-shadow:0 0 18px rgba(255,42,217,.15); }
   .one-rule span{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.1em;
     color:var(--acid); text-shadow:0 0 12px var(--acid); }
-  .one-rule .wp-link{ display:inline-block; margin-top:10px; font-family:var(--fat);
-    text-transform:uppercase; letter-spacing:.08em; font-size:11px; text-decoration:none;
+  /* ⚠ `display:inline-block` here is exactly the rule CLAUDE.md warns about — it beats the user
+     agent's [hidden]. mobile.css declares `[hidden]{display:none!important}` once so this stays
+     safe; inline-flex is also what gives the chip its 44px box without growing the label. */
+  .one-rule .wp-link{ display:inline-flex; align-items:center; justify-content:center; margin-top:12px;
+    font-family:var(--fat);
+    text-transform:uppercase; letter-spacing:.06em; font-size:var(--t-ui,11px); text-decoration:none;
     color:var(--void); background:linear-gradient(180deg,#6ff3ff,var(--cyan) 60%,#0fb9ab);
-    border:2px solid var(--ink); border-radius:8px; padding:8px 14px;
+    border:2px solid var(--ink); border-radius:9px; padding:0 16px; min-height:var(--tap,44px);
     box-shadow:inset 0 3px 0 rgba(255,255,255,.4), 0 4px 0 var(--ink), 0 0 16px rgba(39,247,228,.35); }
+  .one-rule .wp-link:active{ transform:translateY(3px);
+    box-shadow:inset 0 3px 0 rgba(255,255,255,.4), 0 1px 0 var(--ink), 0 0 16px rgba(39,247,228,.35); }
 
   /* ── 1980s back-page ad spread (fake mail-order card ads, EN + 日本語) ── */
   .adzone{ margin-top:30px; }
   .adzone .adlbl{ text-align:center; font-family:var(--fat); text-transform:uppercase;
-    letter-spacing:.34em; text-indent:.34em; color:var(--phosdim); font-size:11px; }
+    letter-spacing:.22em; text-indent:.22em; color:#3d8a58; font-size:var(--t-fine,11px); }
   .adzone .adtag{ text-align:center; font-family:var(--fat); text-transform:uppercase; letter-spacing:.06em;
     font-size:clamp(13px,3.6vw,17px); color:var(--amber); margin-top:6px; text-shadow:0 0 12px rgba(255,210,59,.35); }
   .ads{ margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px; }
@@ -305,19 +336,20 @@
     background-size:260% 100%; animation:foil 5.5s ease-in-out infinite; }
   @keyframes foil{ 0%,100%{ background-position:130% 0; } 50%{ background-position:-30% 0; } }
   .ad > *{ position:relative; z-index:2; }
-  .ad .star{ align-self:center; margin-bottom:auto; display:inline-block; font-family:var(--fat); font-size:10px;
-    letter-spacing:.14em; padding:4px 10px; background:rgba(2,8,4,.82); color:#ffe95f; border:1px solid rgba(255,233,95,.5);
+  .ad .star{ align-self:center; margin-bottom:auto; display:inline-block; font-family:var(--fat); font-size:var(--t-tag,10px);
+    letter-spacing:.1em; padding:5px 10px; background:rgba(2,8,4,.82); color:#ffe95f; border:1px solid rgba(255,233,95,.5);
     border-radius:2px; text-transform:uppercase; box-shadow:0 0 12px rgba(0,0,0,.7); backdrop-filter:blur(2px); }
   .ad h4{ margin:0; font-family:var(--fat); text-transform:uppercase; line-height:.98; letter-spacing:-.01em;
     font-size:clamp(15px,3.9vw,22px); color:#fff;
     text-shadow:0 0 7px var(--glow), 0 0 18px var(--glow), 0 2px 3px #000, 1px 1px 0 #000; }
   .ad h4.jp{ font-size:clamp(16px,4.4vw,24px); line-height:1.12; letter-spacing:0; }
-  .ad p{ margin:6px 0 0; font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.02em;
+  .ad p{ margin:7px 0 0; font-family:var(--fat); font-size:var(--t-fine,11px); text-transform:uppercase; letter-spacing:.02em;
     color:#eafff2; text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.85); }
-  .ad p.jp{ text-transform:none; font-size:12px; }
-  .ad .price{ align-self:center; margin-top:11px; display:inline-block; font-family:var(--fat); background:#e01b12; color:#fff;
-    padding:6px 15px; border-radius:999px; border:2px solid #140a02; transform:rotate(-3deg);
-    font-size:13px; letter-spacing:.03em; box-shadow:0 0 14px rgba(224,27,18,.6), 2px 2px 0 rgba(0,0,0,.5); }
+  .ad p.jp{ text-transform:none; font-size:var(--t-body,12px); }
+  .ad .price{ align-self:center; margin-top:12px; display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--fat); background:#e01b12; color:#fff;
+    padding:0 18px; min-height:var(--tap,44px); border-radius:999px; border:2px solid #140a02; transform:rotate(-3deg);
+    font-size:var(--t-ui,13px); letter-spacing:.03em; box-shadow:0 0 14px rgba(224,27,18,.6), 2px 2px 0 rgba(0,0,0,.5); }
   .ad .price.dark{ background:#140a02; color:#ffe95f; box-shadow:0 0 14px rgba(255,233,95,.4), 2px 2px 0 rgba(0,0,0,.5); }
   .ad.a1{ background-image:url("pack_1_ad.webp"); --glow:#ffd23b; --tw:-1.5deg; }
   .ad.a2{ background-image:url("pack_2_ad.webp"); --glow:#ff2ad9; --tw:1.3deg; }
@@ -342,18 +374,23 @@
   /* ── geocities furniture around the ads ── */
   .gc-marquee{ margin-top:14px; overflow:hidden; white-space:nowrap; border-top:2px solid var(--phosdim);
     border-bottom:2px solid var(--phosdim); background:#02140b; }
-  .gc-marquee > span{ display:inline-block; padding:7px 0; font-family:var(--fat); text-transform:uppercase;
-    letter-spacing:.12em; font-size:12px; color:var(--phos); animation:marq 22s linear infinite; }
+  .gc-marquee > span{ display:inline-block; padding:8px 0; font-family:var(--fat); text-transform:uppercase;
+    letter-spacing:.12em; font-size:var(--t-fine,12px); color:var(--phos); animation:marq 22s linear infinite; }
   @keyframes marq{ from{ transform:translateX(100%);} to{ transform:translateX(-100%);} }
-  .gc-uc{ display:flex; align-items:center; gap:12px; margin-top:14px; justify-content:center; }
-  .gc-uc .bar{ flex:1; max-width:170px; height:15px; border:2px solid #120a1e; border-radius:3px;
+  /* ⚑ THE ONLY HORIZONTAL OVERFLOW ON THE SITE WAS HERE — 1px, and this row was it. A nowrap
+     label between two `flex:1` bars in a `nowrap` flex row cannot shrink, so the row is as wide
+     as the label whatever the viewport says. It wraps now, and the bars keep a min-width so
+     they stay barber-poles rather than slivers. */
+  .gc-uc{ display:flex; align-items:center; gap:10px 12px; margin-top:14px; justify-content:center; flex-wrap:wrap; }
+  .gc-uc .bar{ flex:1 1 90px; min-width:70px; max-width:170px; height:15px; border:2px solid #120a1e; border-radius:3px;
     background:repeating-linear-gradient(45deg,#ffd23b 0 12px,#120a1e 12px 24px); background-size:34px 34px; animation:uc 1s linear infinite; }
   @keyframes uc{ to{ background-position:34px 0; } }
-  .gc-uc .txt{ font-family:var(--fat); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber); white-space:nowrap; }
-  .gc-row{ display:flex; align-items:center; justify-content:center; gap:10px 16px; flex-wrap:wrap; margin-top:16px;
-    font-family:var(--fat); font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#7fd8a8; }
-  .gc-row .gc-badge{ border:1px solid var(--phosdim); border-radius:4px; padding:5px 9px; background:rgba(1,10,5,.6); }
-  .gc-row .gc-counter{ font-family:var(--mono); background:#000; color:#2bff80; border:1px solid #0f5c33; padding:3px 8px; letter-spacing:.34em; font-size:13px; }
+  .gc-uc .txt{ font-family:var(--fat); font-size:var(--t-fine,12px); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--amber); text-align:center; }
+  .gc-row{ display:flex; align-items:center; justify-content:center; gap:10px 14px; flex-wrap:wrap; margin-top:16px;
+    font-family:var(--fat); font-size:var(--t-fine,11px); text-transform:uppercase; letter-spacing:.06em; color:#7fd8a8; }
+  .gc-row .gc-badge{ border:1px solid var(--phosdim); border-radius:4px; padding:7px 9px; background:rgba(1,10,5,.6); }
+  .gc-row .gc-counter{ font-family:var(--mono); background:#000; color:#2bff80; border:1px solid #0f5c33; padding:3px 8px; letter-spacing:.24em; font-size:var(--t-ui,13px); }
   .gc-star{ color:#ffe95f; }
   @media (prefers-reduced-motion:reduce){
     .blink,.gspin,.wiggle,.flame,.rainbow,.throb,.gc-marquee>span,.gc-uc .bar{ animation:none; }
@@ -361,39 +398,57 @@
 
   /* ── seasons ── */
   .seasons{ margin-top:26px; }
-  .seasons .lbl{ text-align:center; font-size:11px; letter-spacing:.4em; text-indent:.4em;
+  .seasons .lbl{ text-align:center; font-size:var(--t-fine,11px); letter-spacing:.24em; text-indent:.24em;
     text-transform:uppercase; color:#5fcf8f; }
   .strip{ display:grid; gap:12px; margin-top:14px; grid-template-columns:repeat(4,1fr); }
   @media (max-width:560px){ .strip{ grid-template-columns:repeat(2,1fr); } }
   .season{ border:1px solid var(--phosdim); border-radius:10px; text-align:center; padding:16px 8px;
     background:rgba(2,16,9,.82); }
-  .season em{ display:block; font-style:normal; font-size:9px; letter-spacing:.28em; text-indent:.28em;
+  .season em{ display:block; font-style:normal; font-size:var(--t-tag,9px); letter-spacing:.16em; text-indent:.16em;
     text-transform:uppercase; color:#5fcf8f; }
-  .season span{ display:block; margin-top:6px; font-family:var(--fat); font-size:17px;
-    letter-spacing:.06em; text-transform:uppercase; color:var(--text); }
+  .season span{ display:block; margin-top:8px; font-family:var(--fat); font-size:clamp(15px,4.2vw,17px);
+    letter-spacing:.04em; text-transform:uppercase; color:var(--text); }
   .season.live span{ color:var(--phos); text-shadow:0 0 12px rgba(43,255,128,.5); }
   .season.live em::after{ content:" · live"; color:var(--phos); }
   .season.soon{ opacity:.55; } .season.soon em::after{ content:" · sealed"; }
 
-  footer{ margin-top:30px; text-align:center; font-size:10px; letter-spacing:.24em; text-indent:.24em;
-    text-transform:uppercase; color:#5fcf8f; line-height:2.2; }
-  footer a{ color:var(--phos); text-decoration:none; text-shadow:0 0 8px rgba(43,255,128,.5); }
-  .ticker{ margin-top:8px; color:var(--amber); }
-  .credit{ margin-top:8px; color:#3f8f63; letter-spacing:.1em; text-transform:none; font-size:9px; font-style:italic; }
+  footer{ margin-top:30px; text-align:center; font-size:var(--t-fine,10px); letter-spacing:.16em; text-indent:.16em;
+    text-transform:uppercase; color:#5fcf8f; line-height:2; }
+  /* the last footer line is a row of links strung on " · " — each gets a 44px box without the
+     line turning into a stack. `.tap-row` (mobile.css) is the same primitive the other pages use. */
+  footer a{ color:var(--phos); text-decoration:none; text-shadow:0 0 8px rgba(43,255,128,.5);
+    display:inline-flex; align-items:center; justify-content:center;
+    min-height:var(--tap,44px); min-width:var(--tap,44px); padding:0 4px; }
+  .ticker{ margin-top:10px; color:var(--amber); }
+  /* ⚠ These are sentences, not chrome — one of them is the soundtrack credit to the artist's
+     collaborator. They were 9px. Prose size, dim colour for hierarchy. */
+  .credit{ margin-top:10px; color:#4e9d73; letter-spacing:.04em; text-transform:none;
+    font-size:var(--t-body,9px); line-height:1.6; font-style:italic; text-indent:0; }
 
   /* ── rip-a-pack popup ── */
+  /* ⚑ THE MODAL OVERFLOWED ITS OWN PADDING ON A PHONE, and had since it was written: a 20px
+     inset around a `96vw` panel needs 40px of room that 96vw does not leave, so the panel sat
+     ~24px wider than its box and the ✕ (at right:-4px, i.e. OUTSIDE the panel) hung another 4px
+     past that. On a 390px screen the close button was half off-screen and the honesty note ran
+     off the right edge — invisible to a document-overflow check because `overflow:auto` on the
+     modal was quietly absorbing it. `100%` is the fix: the panel is now measured against the
+     box it is actually in. */
   .pack-modal{ position:fixed; inset:0; z-index:100; display:none; place-items:center;
-    background:rgba(1,8,4,.93); padding:20px; overflow:auto; perspective:1200px; }
+    background:rgba(1,8,4,.93); padding:16px 12px 24px; overflow:auto; perspective:1200px; }
   .pack-modal.show{ display:grid; }
   .pack-stars{ position:absolute; inset:0; z-index:0; pointer-events:none; width:100%; height:100%; }
-  .pack-inner{ position:relative; z-index:1; width:min(940px,96vw); text-align:center;
+  .pack-inner{ position:relative; z-index:1; width:min(940px,100%); text-align:center;
     transition:transform .5s ease, filter .5s ease, opacity .5s ease; }
   .pack-inner.recede{ transform:scale(.88); filter:blur(5px) brightness(.5); opacity:.7; pointer-events:none; }
-  .pack-title{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.16em; font-size:14px;
-    color:var(--phos); text-shadow:0 0 14px rgba(43,255,128,.5); margin-bottom:16px; }
-  .pack-close{ position:absolute; top:-8px; right:-4px; z-index:6; width:40px; height:40px; border-radius:50%;
+  .pack-title{ font-family:var(--fat); text-transform:uppercase; letter-spacing:.12em; font-size:var(--t-h3,14px);
+    color:var(--phos); text-shadow:0 0 14px rgba(43,255,128,.5);
+    /* clear the 44px close button so a long status line wraps instead of running under it */
+    margin:0 52px 16px; min-height:var(--tap,44px); display:grid; place-items:center; }
+  /* inside the panel, not hanging off it — see the note on .pack-modal */
+  .pack-close{ position:absolute; top:0; right:0; z-index:6; width:var(--tap,44px); height:var(--tap,44px);
+    border-radius:50%; display:grid; place-items:center;
     border:1px solid var(--phosdim); background:rgba(2,16,9,.9); color:var(--phos);
-    font-size:15px; cursor:pointer; box-shadow:0 0 14px rgba(43,255,128,.3); }
+    font-size:var(--t-h3,15px); cursor:pointer; box-shadow:0 0 14px rgba(43,255,128,.3); }
   .pack-stage{ display:grid; place-items:center; min-height:40vh; }
   .pack-stage.hidden{ display:none; }
   .pack-vid{ width:min(66vw,380px); border-radius:14px; border:1px solid var(--phosdim);
@@ -419,17 +474,17 @@
   .pv-card.r-rare{ box-shadow:0 0 20px rgba(255,210,59,.5); }
   .pv-card.r-mythic{ box-shadow:0 0 26px rgba(255,42,217,.55); }
   .pv-card.r-prizm{ box-shadow:0 0 20px rgba(39,247,228,.6), 0 0 44px rgba(255,42,217,.4); }
-  .pv-rr{ position:absolute; top:8px; right:8px; font-family:var(--fat); font-size:9px; text-transform:uppercase;
-    padding:3px 9px; border-radius:6px; border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); }
+  .pv-rr{ position:absolute; top:8px; right:8px; font-family:var(--fat); font-size:var(--t-tag,9px); text-transform:uppercase;
+    padding:4px 9px; border-radius:6px; border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); }
   .pv-card.r-mythic .pv-rr{ color:var(--acid); border-color:#7c1668; }
   .pv-card.r-prizm .pv-rr{ background:linear-gradient(90deg,rgba(255,42,217,.3),rgba(39,247,228,.3)); color:#fff; }
-  .pv-open{ position:absolute; left:8px; bottom:8px; font-family:var(--fat); font-size:8px; letter-spacing:.14em;
-    text-transform:uppercase; padding:4px 9px; border-radius:6px; border:1px solid var(--phosdim);
+  .pv-open{ position:absolute; left:8px; bottom:8px; font-family:var(--fat); font-size:var(--t-tag,8px); letter-spacing:.1em;
+    text-transform:uppercase; padding:5px 9px; border-radius:6px; border:1px solid var(--phosdim);
     background:rgba(1,10,5,.85); color:var(--amber); }
-  .pv-meta{ display:flex; justify-content:center; align-items:baseline; gap:14px; margin-top:12px; }
-  .pv-nm{ font-family:var(--fat); font-size:16px; text-transform:uppercase; letter-spacing:.06em;
+  .pv-meta{ display:flex; flex-wrap:wrap; justify-content:center; align-items:baseline; gap:6px 14px; margin-top:12px; }
+  .pv-nm{ font-family:var(--fat); font-size:var(--t-h3,16px); text-transform:uppercase; letter-spacing:.06em;
     color:var(--phos); text-shadow:0 0 12px rgba(43,255,128,.5); }
-  .pv-count{ font-size:11px; letter-spacing:.24em; color:var(--cyan); }
+  .pv-count{ font-size:var(--t-fine,11px); letter-spacing:.18em; color:var(--cyan); }
   .fan{ display:flex; justify-content:center; align-items:flex-start; margin-top:20px; padding:0 8px 56px; }
   .fcard{ position:relative; flex:none; width:min(16vw,84px); aspect-ratio:4/5.6; border:0; padding:0;
     background:none; cursor:pointer; perspective:600px;
@@ -437,7 +492,10 @@
     transform:rotate(var(--rot,0deg)) translateY(var(--drop,0px)); transform-origin:50% 130%;
     transition:transform .18s ease; }
   .fcard:first-child{ margin-left:0; }
-  .fcard:hover,.fcard.on{ transform:rotate(var(--rot,0deg)) translateY(calc(var(--drop,0px) - 16px)); z-index:5; }
+  /* ⚠ The fan cards lifted only on :hover, i.e. never on the device the pack modal is mostly
+     used on. `.on` is set by pack.js when a card is selected, so touch already had the state —
+     it just had no way to reach it before the tap landed. :active covers the press itself. */
+  .fcard:hover,.fcard:active,.fcard:focus-visible,.fcard.on{ transform:rotate(var(--rot,0deg)) translateY(calc(var(--drop,0px) - 16px)); z-index:5; }
   .fcard-inner{ position:relative; display:block; width:100%; height:100%; transform-style:preserve-3d;
     transform:rotateY(180deg); transition:transform .6s cubic-bezier(.5,1.3,.4,1); transition-delay:var(--d,0ms); }
   .fcard.flip .fcard-inner{ transform:rotateY(0); }
@@ -453,8 +511,8 @@
   .pack-actions[hidden]{ display:none; } /* the hidden attr must beat display:flex (busy/refusal screens) */
   /* honesty note — the pull saves locally today; only the token burn is on-chain */
   .pack-honesty{ max-width:520px; margin:16px auto 2px; padding-top:12px; text-align:center;
-    border-top:1px dashed var(--phosdim); font-size:10.5px; line-height:1.6; letter-spacing:.02em;
-    color:#5fcf8f; opacity:.85; }
+    border-top:1px dashed var(--phosdim); font-size:var(--t-body,10.5px); line-height:1.65; letter-spacing:.02em;
+    color:#6fd39a; }
   .pack-honesty b{ color:var(--amber); }
   /* z-space zoom */
   .zoom{ position:fixed; inset:0; z-index:120; display:grid; place-items:center; padding:14px;
@@ -467,15 +525,16 @@
   /* instant art poster behind the live iframe so the panel is never a blank black box */
   .zoom-poster{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; }
   .zoom-spin{ position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:2;
-    font-family:var(--mono); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--phos);
-    background:rgba(1,10,5,.7); border:1px solid var(--phosdim); border-radius:999px; padding:5px 12px; }
+    font-family:var(--mono); font-size:var(--t-tag,10px); letter-spacing:.16em; text-transform:uppercase; color:var(--phos);
+    background:rgba(1,10,5,.7); border:1px solid var(--phosdim); border-radius:999px; padding:6px 12px; }
   .zoom-panel iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; display:block;
     z-index:1; opacity:0; transition:opacity .45s ease; }
   .zoom-panel iframe.ready{ opacity:1; }
   .zoom-panel iframe.ready ~ .zoom-spin{ display:none; }
   .zoom-back{ position:fixed; top:14px; left:14px; z-index:121; cursor:pointer;
-    font-family:var(--fat); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
-    padding:12px 18px; border-radius:999px; border:2px solid var(--ink); color:var(--void);
+    display:inline-flex; align-items:center; min-height:var(--tap,44px);
+    font-family:var(--fat); font-size:var(--t-ui,11px); letter-spacing:.12em; text-transform:uppercase;
+    padding:0 20px; border-radius:999px; border:2px solid var(--ink); color:var(--void);
     background:linear-gradient(180deg,#8bffbb,var(--phos) 55%,#0fae56);
     box-shadow: inset 0 3px 0 rgba(255,255,255,.4), 0 5px 0 var(--ink), 0 0 18px rgba(43,255,128,.4); }
   .zoom-back:active{ transform:translateY(3px); }
@@ -487,23 +546,31 @@
     .ad::after{ animation:none; }
   }
   /* ── fixed bottom news ticker: Mandela-Effect "sightings" (for fun) ── */
-  .ticker-bar{ position:fixed; left:0; right:0; bottom:0; z-index:55; height:32px; display:flex; align-items:stretch;
+  .ticker-bar{ position:fixed; left:0; right:0; bottom:0; z-index:55; height:var(--ticker-h,40px); display:flex; align-items:stretch;
     background:#01110a; border-top:2px solid var(--phos); box-shadow:0 -6px 20px rgba(0,0,0,.55), 0 0 18px rgba(43,255,128,.18); }
   .tk-label{ flex:none; display:grid; place-items:center; padding:0 10px; background:var(--red); color:#fff;
-    font-family:var(--fat); font-size:8.5px; line-height:1.05; letter-spacing:.05em; text-transform:uppercase; text-align:center; }
+    font-family:var(--fat); font-size:var(--t-tag,8.5px); line-height:1.05; letter-spacing:.03em; text-transform:uppercase; text-align:center; }
   .tk-vp{ flex:1; overflow:hidden; position:relative; }
   .tk-run{ position:absolute; top:0; height:100%; display:flex; align-items:center; width:max-content;
     will-change:transform; animation:tkcrawl 95s linear infinite; }
   @keyframes tkcrawl{ from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
   .tk-seq{ display:inline-flex; align-items:center; }
-  .tk-seq > span{ padding:0 22px; font-family:var(--mono); font-size:12px; color:var(--text); white-space:nowrap; }
+  /* ⚑ THE SIGHTINGS ARE PROSE, so they take the prose size. They were 11px on a phone — the
+     bar was a decoration of a ticker rather than a ticker, because nothing in it could be read
+     as it went past. One line either way, so the 40px bar is unchanged. */
+  .tk-seq > span{ padding:0 22px; font-family:var(--mono); font-size:var(--t-body,12px); color:var(--text); white-space:nowrap; }
   .tk-seq b{ color:var(--amber); } .tk-seq .hot{ color:var(--acid); }
-  .tk-seq .me{ color:var(--phos); font-family:var(--fat); font-size:9px; letter-spacing:.12em; }
-  .tk-seq .sho{ color:var(--cyan); font-family:var(--fat); font-size:11px; letter-spacing:.06em; }
+  .tk-seq .me{ color:var(--phos); font-family:var(--fat); font-size:var(--t-tag,9px); letter-spacing:.1em; }
+  .tk-seq .sho{ color:var(--cyan); font-family:var(--fat); font-size:var(--t-body,11px); letter-spacing:.06em; }
   .tk-badge{ flex:none; display:grid; place-items:center; padding:0 11px; background:#04140b; border-left:1px solid var(--phosdim);
-    color:var(--cyan); font-family:var(--fat); font-size:8.5px; letter-spacing:.08em; text-transform:uppercase; text-align:center; line-height:1.1; }
-  .ticker-bar:hover .tk-run{ animation-play-state:paused; }
-  @media (max-width:600px){ .tk-label,.tk-badge{ font-size:7px; padding:0 6px; } .tk-seq > span{ font-size:11px; padding:0 15px; } }
+    color:var(--cyan); font-family:var(--fat); font-size:var(--t-tag,8.5px); letter-spacing:.05em; text-transform:uppercase; text-align:center; line-height:1.1; }
+  /* ⚑ HOVER-TO-PAUSE IS THE WHOLE POINT OF THIS BAR AND A PHONE COULD NEVER REACH IT — the
+     sightings are 15-word sentences crawling past at 95s a lap. Press and hold stops it, which
+     is also the more physical reading: your finger is on the tape. */
+  .ticker-bar:hover .tk-run,.ticker-bar:active .tk-run{ animation-play-state:paused; }
+  /* ⚠ The old rule dropped this bar to 7px/11px under 600px — the smallest type on the site, on
+     the device with the least room for it. It keeps the tighter padding and loses the shrink. */
+  @media (max-width:600px){ .tk-label,.tk-badge{ padding:0 7px; } .tk-seq > span{ padding:0 15px; } }
   /* a ticker must scroll to be readable — keep it moving even under reduce-motion,
      just a little calmer. hover pauses it so you can read a sighting. */
   @media (prefers-reduced-motion:reduce){ .tk-run{ animation-duration:120s; } }
@@ -526,18 +593,23 @@
   .intro-roundel{ position:absolute; left:10px; bottom:10px; width:clamp(46px,10vw,70px); z-index:2;
     filter:drop-shadow(0 2px 8px rgba(0,0,0,.6)); animation:introSpin 6s linear infinite; }
   @keyframes introSpin{ to{ transform:rotate(360deg); } }
-  .intro-cap{ font-family:var(--fat,'Arial Black',sans-serif); font-size:11px; letter-spacing:.28em;
-    text-transform:uppercase; color:#8bffbb; text-shadow:0 0 10px rgba(43,255,128,.5); animation:introBlink 1.2s steps(2) infinite; }
+  .intro-cap{ font-family:var(--fat,'Arial Black',sans-serif); font-size:var(--t-fine,11px); letter-spacing:.2em;
+    text-transform:uppercase; color:#8bffbb; text-align:center; text-shadow:0 0 10px rgba(43,255,128,.5); animation:introBlink 1.2s steps(2) infinite; }
   @keyframes introBlink{ 50%{ opacity:.4; } }
-  .intro-skip{ position:absolute; right:16px; top:16px; z-index:3; font-family:var(--fat,'Arial Black',sans-serif);
-    font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#04040a; cursor:pointer;
+  /* ⚠ SKIP IS THE MOST IMPORTANT BUTTON ON THE SITE FOR A RETURNING VISITOR — the splash plays
+     on EVERY load — and it sat top-right at 12px in 9px of padding. It is a 44px box now, and
+     `env(safe-area-inset-top)` keeps it out from under a notch. */
+  .intro-skip{ position:absolute; right:16px; top:calc(16px + env(safe-area-inset-top)); z-index:3;
+    font-family:var(--fat,'Arial Black',sans-serif);
+    display:inline-flex; align-items:center; min-height:var(--tap,44px);
+    font-size:var(--t-ui,12px); letter-spacing:.12em; text-transform:uppercase; color:#04040a; cursor:pointer;
     background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:2px solid #01130a; border-radius:999px;
-    padding:9px 18px; box-shadow:0 4px 0 #01130a, 0 0 16px rgba(43,255,128,.4); }
+    padding:0 20px; box-shadow:0 4px 0 #01130a, 0 0 16px rgba(43,255,128,.4); }
   .intro-skip:active{ transform:translateY(3px); box-shadow:0 1px 0 #01130a; }
   /* unmute sits BELOW the video (never covers it) and pulses — the intro is quick, so grab sound fast */
-  .intro-unmute{ z-index:3; display:inline-flex; align-items:center; gap:6px;
-    font-family:var(--fat,'Arial Black',sans-serif); font-size:12px;
-    letter-spacing:.08em; text-transform:uppercase; color:#031; cursor:pointer; padding:9px 16px; border-radius:999px;
+  .intro-unmute{ z-index:3; display:inline-flex; align-items:center; gap:6px; min-height:var(--tap,44px);
+    font-family:var(--fat,'Arial Black',sans-serif); font-size:var(--t-ui,12px);
+    letter-spacing:.08em; text-transform:uppercase; color:#031; cursor:pointer; padding:0 20px; border-radius:999px;
     border:2px solid #01130a; background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56);
     box-shadow:0 3px 0 #01130a, 0 0 16px rgba(43,255,128,.5); animation:umPulse 1.1s ease-in-out infinite; }
   @keyframes umPulse{ 50%{ transform:scale(1.06); box-shadow:0 3px 0 #01130a, 0 0 28px rgba(43,255,128,.95); } }
@@ -561,7 +633,7 @@
     background:linear-gradient(180deg,#ffe089,#ffd23b 50%,#ff9a3b);
     box-shadow:0 6px 0 #7a2c00, 0 0 26px rgba(255,210,59,.5); transition:transform .06s, filter .12s;
     -webkit-tap-highlight-color:transparent; }
-  .say-it:hover{ filter:brightness(1.07); }
+  .say-it:hover,.say-it:focus-visible{ filter:brightness(1.07); }
   .say-it:active{ transform:translateY(5px); box-shadow:0 1px 0 #7a2c00, 0 0 20px rgba(255,210,59,.5); }
   .say-it.slammed{ animation:sayShout .5s ease-out; }
   @keyframes sayShout{ 0%{ transform:scale(1.15); } 40%{ transform:scale(.95) rotate(-1.5deg); } 100%{ transform:scale(1); } }
@@ -670,18 +742,18 @@
           border:1px solid #0f5c33; border-radius:14px; text-align:center;
           background:radial-gradient(120% 120% at 50% 0%, rgba(43,255,128,.08), rgba(1,10,5,.72) 62%);
           box-shadow:0 0 40px rgba(43,255,128,.10), inset 0 0 30px rgba(1,10,5,.6); }
-        .lc-kick{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.28em;
-          font-size:11px; color:#ffd23b; margin-bottom:12px; }
+        .lc-kick{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.2em;
+          font-size:var(--t-fine,11px); color:#ffd23b; margin-bottom:12px; }
         .lc-kick b{ color:#27f7e4; }
         .lc-grid{ display:flex; align-items:baseline; justify-content:center; gap:6px; }
         .lc-cell{ display:flex; flex-direction:column; align-items:center; min-width:60px; }
         .lc-cell b{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(30px,8vw,50px); line-height:.95;
           color:#2bff80; text-shadow:0 0 18px rgba(43,255,128,.45); font-variant-numeric:tabular-nums; }
-        .lc-cell span{ font-family:'Courier New',monospace; font-size:10px; letter-spacing:.22em; text-transform:uppercase;
+        .lc-cell span{ font-family:'Courier New',monospace; font-size:var(--t-tag,10px); letter-spacing:.14em; text-transform:uppercase;
           color:#7fcea4; margin-top:6px; }
         .lc-sep{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(26px,7vw,44px); color:#0f5c33;
           transform:translateY(-6px); }
-        .lc-date{ font-family:'Courier New',monospace; font-size:12px; letter-spacing:.16em; color:#b8ffd6; margin-top:14px; }
+        .lc-date{ font-family:'Courier New',monospace; font-size:var(--t-fine,12px); letter-spacing:.1em; color:#b8ffd6; margin-top:14px; }
         .lc-date b{ color:#ff2ad9; }
         .lc-live{ font-family:'Arial Black',Arial,sans-serif; letter-spacing:.24em; font-size:16px; color:#2bff80;
           text-shadow:0 0 22px rgba(43,255,128,.6); padding:8px 0; }
@@ -727,14 +799,14 @@
           box-shadow:inset 0 0 30px rgba(43,255,128,.04); }
         .whatis h2{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.02em;
           font-size:clamp(18px,4.6vw,26px); color:#eafff2; margin:0 0 2px; text-shadow:0 0 16px rgba(43,255,128,.3); }
-        .whatis .wsub{ font-family:'Courier New',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+        .whatis .wsub{ font-family:'Courier New',monospace; font-size:var(--t-fine,11px); letter-spacing:.14em; text-transform:uppercase;
           color:#ffd23b; margin-bottom:14px; }
-        .whatis .wrow{ display:grid; grid-template-columns:110px 1fr; gap:8px 14px; padding:11px 0;
+        .whatis .wrow{ display:grid; grid-template-columns:130px 1fr; gap:8px 14px; padding:14px 0;
           border-top:1px dashed rgba(43,255,128,.16); }
         .whatis .wrow:first-of-type{ border-top:none; padding-top:2px; }
-        .whatis .wk{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.07em;
-          font-size:11px; color:#27f7e4; padding-top:2px; }
-        .whatis .wv{ font-family:'Courier New',monospace; font-size:13.5px; line-height:1.6; color:#cdffe6; }
+        .whatis .wk{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.05em;
+          font-size:var(--t-fine,11px); color:#27f7e4; padding-top:2px; }
+        .whatis .wv{ font-family:'Courier New',monospace; font-size:var(--t-body,13.5px); line-height:1.65; color:#cdffe6; }
         .whatis .wv b{ color:#eafff2; } .whatis .wv .p{ color:#2bff80; } .whatis .wv .a{ color:#ff2ad9; }
         .whatis .wv a{ color:#27f7e4; }
         @media (max-width:520px){ .whatis .wrow{ grid-template-columns:1fr; gap:2px; } .whatis .wk{ color:#2bff80; } }
@@ -882,7 +954,7 @@
 
     <footer>
       burn progress · gas weather · block sparkle · pure bad craziness
-      <div class="credit" style="font-style:normal;letter-spacing:.34em;text-indent:.34em;font-size:11px;color:#8bffbb;margin-top:10px">◈ WHO GIVES A RIP ◈</div>
+      <div class="credit" style="font-style:normal;letter-spacing:.2em;text-indent:.2em;color:#8bffbb;margin-top:10px">◈ WHO GIVES A RIP ◈</div>
       <div class="ticker" id="ticker">▓ 100 living lenses + Lovebeing · every burn is permanent · the pack is open ▓</div>
       <div class="credit">song produced by lovebeing &amp; sean, an unhoused friend from the street</div>
       <div class="credit">3030 forever · a bow to <strong>DELTRON 3030</strong> — Dan the Automator × Del the Funky Homosapien × Kid Koala</div>

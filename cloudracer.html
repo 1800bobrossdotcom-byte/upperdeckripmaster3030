@@ -27,9 +27,72 @@
      calibration. The rules module runs unmodified under node, which is how both sets of numbers
      were produced from shipping code rather than from a model of it.
 
+  ══ THE BRIEF — "more 3D, have the jets of the craft glowing" (artist, 2026-08-02).
+     Written before any code, to DESIGN-SYSTEM.md §8, all five points. §4 is the one that gets
+     skipped and it has been rejected twice in this project; it is answered first here.
+
+     ⛔ THE STATED STARTING NUMBERS WERE THE LOBBY, NOT THE GAME. `npm run debug cloudracer`
+        clicks the first button matching /START|PLAY|RACE|BEGIN/i, which is "🔥 Ante up & race";
+        with no wallet that returns to the grid, so luma 193.1 / blacks 0.9% described a white
+        panel on a pale gradient. Driven properly (`__crpc.startRace`) the real in-race frame read
+        luma 140.3 · rms 31.2 · clipped 0.0002% · **blacks 0.00%** — the game had no black point at
+        ALL, which is worse than reported and is exactly why a glow could not be seen in it.
+
+  1 MADE OF — the exhaust is a PLASMA PLUME, not a sprite: a lofted 5-sided tube of ionised gas
+     swept back from a die-cut bore in each nacelle. It is CEL-BANDED, not gradient — flat
+     saturated rings with hard steps, a screen print of a flame in registration, per §1's ink /
+     §7's "printed, stamped, slightly misregistered". Temperature runs hot→cold along it:
+     white-cyan at the throat, cooling through cyan `#27f7e4` to magenta `#ff2ad9`. Those are §2's
+     rim and fill, so the plume puts the studio palette in the frame twice.
+     ⚑ THE BORE IS A HOLE, and it is load-bearing: an engine bell is a recess, and a recess under a
+     top sun is dark. The old glow was an additive quad floating at z 1.47 with nothing behind it —
+     the sticker-of-foil failure in another medium. A glow needs a dark to come out of or it is a
+     decal. That dark is the one thing this frame had none of.
+
+  2 LIT BY — the plume is not lit, it IS the light, and it is the only emissive on the craft.
+     It lights the world back: a real omni at each throat washes the deck the pod is over, and any
+     cloud the plume passes through takes its colour. Everything else stays on the existing sun key
+     + sky fill; this changes nothing about how the pods are lit.
+
+  3 WHAT MOVES, AND WHY IT PHYSICALLY MOVED — one fact, and everything follows from it:
+     **the exhaust is gas that left the craft in the PAST.**
+       · LENGTH IS THRUST. Off-throttle it collapses into the bore; boost stretches it past 3× the
+         pod. The geometry changes, not the brightness — a sprite can only do brightness.
+       · IT LAGS, SO IT TRAILS. Each ring is sampled from the throat's own recent world path, by
+         ARC LENGTH not by frame index, so turning in sweeps the plume to the outside of the corner
+         and a straight leaves it dead in line. ⚑ This is the assertion a quad parented to the tail
+         can never pass, and it is the acceptance test.
+       · SHOCK DIAMONDS TRAVEL. A supersonic exhaust has standing cells; step the throttle and they
+         wash downstream. The bands scroll along the plume at exhaust velocity, so the banding IS
+         the motion rather than a texture on top of it.
+       · THE AIRBRAKE DUMPS IT — thrust off, the plume snaps back into the bore.
+       · ⛔ NOTHING MOVES ON ITS OWN. At rest the plume is a still stub in the bore. No idle pulse,
+         no breathing, no drift. All of it is the player's throttle and the player's corner.
+
+  4 SITS ON — the plume sits in the nacelle bores (the two boxes already modelled at ±0.50); the
+     pod sits on the white deck, which now takes the plume's light; and the whole circuit sits over
+     ⚑ THE STORM FLOOR — a dark cloud deck 60 u below the ribbon. "Almost no black in frame" was a
+     decision about the SUBJECT (the old near-black asphalt through the middle third) and it holds:
+     the sky is still bright, saturated and near-white at the horizon. But a high-key picture still
+     has a black point somewhere, and this one had none, so the ribbon floated in an undifferentiated
+     wash and you could not tell you were flying. You are above the weather; below it is in shadow.
+     Same move Rip Rocketer's `bgColour` surround made — full chroma at the rim, dark where the
+     subject reads against it — pointed at the half of the world that should have been dark anyway.
+
+  5 ACCEPTANCE — measured in play (`_pose` fixes the viewpoint), never in the lobby:
+       · blacks rise substantially from 0.00%, rms must not fall, clipped stays near zero
+       · plume length at boost ≥ 2× at idle          (kills "brightness only")
+       · plume tail displaced off the pod's own axis in a corner, ≈0 on a straight  (kills a sprite)
+       · band phase advances downstream, and faster at boost   (kills a static texture)
+       · a cloud behind a boosting pod takes the plume's hue   (kills "it never touches the world")
+     `__crpc._plume()` returns all four; `__crpc._clip()` returns the frame stats.
+     ⚠ Colour is judged from `_clip()`/getImageData only — this container's screenshot path rotates
+     hue on canvas content. Layout and VALUE from screenshots are fine.
+
   Query params
     ?grab=1     preserveDrawingBuffer, so a headless run can readPixels the real frame
     ?hold=1     freeze the simulation (headless capture)
+    ?plume=0    exhaust plumes off      ?floor=0    storm floor off      ?jetlight=0  no omnis
     ?q=low|mid|high   force a quality tier (default: measured from GfxPost.dprCap())
     ?post=0     engine post stack off        ?shadows=0  no shadow maps
     ?exp= ?bloom= ?sat= ?sharp= ?vig= ?ca= ?dither=   post overrides, for sweeping

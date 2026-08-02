@@ -339,6 +339,71 @@ window.S9Game = (function () {
     const powMsg = env.powMsg || function () {};
     const STEP = 0.62, GRAV = 20, JUMP = 7.4;
 
+    /* ── ⧗ THRUSTER BOOTS — the brief, before the code (docs/DESIGN-SYSTEM.md §8) ─────────────
+     *
+     * 1 · WHAT IT IS MADE OF.  A pair of short, ugly, high-pressure jets bolted under an
+     *   operative's heels — arena kit, not a flight suit. It is a CLIMB, not a wing: the boots
+     *   have thrust and no lift surface, so they can push you up and hold you up and do nothing
+     *   at all sideways that your legs were not already doing.
+     *
+     * 2 · HOW IT IS LIT.  It is a light SOURCE. The plume is additive geometry at the feet
+     *   (G.sparks → js/s9pc-fx.js, so it is depth-tested and reaches the bloom pass) and a real
+     *   omni light under the operative (js/s9pc-app.js, bootLight) that throws a moving pool on
+     *   whatever you are over. It obeys the game's existing colour law — YOURS COOL, THEIRS WARM,
+     *   the same rule the tracers use, because the only way to read a firefight is to know at a
+     *   glance whose it is.
+     *
+     * 3 · WHAT MOVES, AND WHY IT PHYSICALLY MOVED.  ⚑ This is the half that gets skipped.
+     *   · The jet is a GOVERNOR, not an accelerator. It drives `vy` toward a fixed climb rate and
+     *     never above it, and it never pulls down. That is why a tap-jump is untouched (7.4 m/s
+     *     is already faster than the jet can hold, so the jet does nothing for the first 0.15 s
+     *     of a jump) and why the boots feel like a machine holding you rather than a spring.
+     *   · It runs out of FUEL, and the fuel is the sprint meter you already had. The climb stops
+     *     because the tank is empty, not because a timer said so.
+     *   · Gravity is untouched. You come down at exactly the rate you always did.
+     *   · The camera shakes while burning because a jet under your heels vibrates.
+     *   · The FRAME SMEARS because you are moving — see the motion-smear brief in s9pc-app.js.
+     *     That is not a filter over the top; it is finite exposure time on a sensor that moved.
+     *
+     * 4 · WHAT IT SITS ON.  The sprint meter, and nothing new. ONE currency for all mobility:
+     *   ⚑ Section 9's TTK is ~1.3 s and its out-of-combat regen makes DISENGAGING the survival
+     *     move, so the meter is really an escape budget. The boots spend that budget on altitude.
+     *   ⚑ That is the whole cost, and it is why there is no cooldown: a cooldown is a timer that
+     *     tells you no; a shared meter is a decision that costs you something you wanted. You
+     *     land from a full burn with nothing left to run on, in a game where the man who saw you
+     *     take off has 1.3 seconds of work to do. It also does not regenerate off the ground.
+     *   ⚑ AND IT IS NOT A PICKUP AND NOT A CARD GATE. A pickup makes traversal random and makes
+     *     the bots path to a magic square; a card gate makes the studio's best new verb invisible
+     *     to everyone who has not staked cards. Boots are STANDARD ISSUE — every operative on the
+     *     field has them — and the cards TUNE them: `cardSpeed` (RipPowers.loadout().speed) already
+     *     multiplies ground speed and now multiplies thrust, climb and air speed too. The card
+     *     idiom is kept where it belongs: it makes your boots better, it does not make them exist.
+     *
+     * 5 · THE ACCEPTANCE MEASUREMENT.
+     *   · At rest, exactly zero: a player who never presses jump gets a byte-identical game.
+     *     `e.burning` false, meter full, plume empty, smear uniform 0, shader branch not taken.
+     *   · The bots stay honest — see stepBot: the pitch clamp opens to 72°, an airborne target
+     *     stops being something to take cover FROM, and burning is HEARD at 26 m on the same
+     *     channel being shot uses. Flying does not delete the arena's cover; it broadcasts you.
+     *   · Airborne spread ×1.9: nothing to brace against. Flight is traversal, not a duel.
+     */
+    const BOOTS = {
+      thrust: 26,     // m/s² of jet, against GRAV 20 — the margin is what climbs
+      climb: 3.6,     // m/s governed climb rate. Below JUMP 7.4 on purpose: a jump out-runs the jet
+      speed: 9.6,     // m/s lateral while burning (walk 4.3 · sprint 7.0) — the "speed" half
+      drain: 0.80,    // meter/s while burning ⇒ a full tank is 1.25 s of fire
+      lift: 4.6,      // m of climb budget above the surface you left
+      clear: 0.9,     // m held below MAP.ceilY so you can never crest the perimeter wall
+      heard: 26,      // m — a jet is loud, and that is the tell (see stepBoots)
+      bloom: 1.9,     // spread ×, airborne. A braced stance is steadier; there is no brace up there
+      shake: 0.5,     // the boots vibrate. Decays at 40/s, so this is a floor not a kick
+    };
+    /* The burn ceiling. TWO terms, both physical: the tank only holds so much climb, and the
+     * arena has a lid. ⚠ The second is load-bearing — MAP.ceilY is the perimeter wall height
+     * (6–7 m on the hand-built arenas), and without `clear` a full burn from ground level reaches
+     * 5.9 m and puts your eyes over the top of a walled yard that has nothing modelled behind it. */
+    const bootCeil = e => Math.min((MAP.ceilY || 6) - BOOTS.clear, (e.flyBase || 0) + BOOTS.lift * (e.cardSpeed || 1));
+
     const MAPS = buildMaps().map(fixSpawns);
     const BUILTIN = MAPS.length;
     let MAP = MAPS[0];
@@ -354,7 +419,9 @@ window.S9Game = (function () {
     const wager = env.wager || { ante: 50, cards: 2, players: 4, picked: [], loadout: 1 };
     const keys = {};
     const mouse = { left: false, right: false };
-    const touch = { move: { active: false, x: 0, y: 0 }, fire: false, jump: false, sprint: false, scope: false, crouch: false };
+    /* ⧗ `jump` is the one-shot the tap consumes; `jumpHold` is the pad still being held, which is
+     * what lights the boots. Two flags because on touch there is no key-repeat to tell them apart. */
+    const touch = { move: { active: false, x: 0, y: 0 }, fire: false, jump: false, jumpHold: false, sprint: false, scope: false, crouch: false };
 
     const mktAmp = () => { try { return (window.RipPowers ? RipPowers.getMarket().amp : 1) || 1; } catch (e) { return 1; } };
 
@@ -381,6 +448,57 @@ window.S9Game = (function () {
           if (e.isMe) G.shake = Math.max(G.shake, Math.min(4, -vimp * 0.4)); }
         e.onGround = true; } else e.onGround = false;
       if (e.y < -8) { e.y = sup; e.vy = 0; e.onGround = true; } }
+
+    /* ── the boots, one implementation for every operative on the field ────────────────────────
+     * Called by BOTH stepMe and stepBot, before gravity integrates. `want` is "the jet key is
+     * down" — nothing else differs between a player and a bot, which is the point: a rule the
+     * player gets and the bots do not is a cheat, not a mechanic. */
+    function stepBoots(e, dt, want) {
+      // The lift budget is measured from the surface you LEFT, so stepping off a crate does not
+      // hand you a free extra 4.6 m. Recorded while the feet are down; gravity owns `onGround`.
+      if (e.onGround) { e.flyBase = e.y; e.burning = false; e.burnT = 0; return; }
+      const head = bootCeil(e) - e.y;
+      const canBurn = !!want && e.alive && e.boost > 0.02;
+      if (!canBurn) {
+        if (e.burning && e.isMe && e.boost <= 0.02) sfx('bootsdry');   // the tank, not a timer
+        e.burning = false; e.burnT = 0; return;
+      }
+      /* ⚑ A GOVERNOR. `wantVy` is the fastest the jet is willing to hold, and thrust is only ever
+       * applied UPWARD toward it — so it cannot brake a fall it is not fast enough to hold, it
+       * cannot add to a jump already faster than it, and near the ceiling `head` tapers wantVy to
+       * zero so you ease into the lid and hover instead of clanging into it. Above the lid wantVy
+       * goes negative and the jet simply lets you sink back under. One expression, no special cases. */
+      const wantVy = Math.min(BOOTS.climb * (e.cardSpeed || 1), head * 3.2);
+      if (e.vy < wantVy) e.vy = Math.min(wantVy, e.vy + BOOTS.thrust * (e.cardSpeed || 1) * dt);
+      e.boost = Math.max(0, e.boost - BOOTS.drain * dt);
+      const first = !e.burning;
+      e.burning = true; e.burnT = (e.burnT || 0) + dt;
+      if (e.isMe) { G.shake = Math.max(G.shake, BOOTS.shake); if (first) sfx('boots'); }
+      else if (first && Math.hypot(e.x - cam.x, e.z - cam.z) < 22) sfx('boots');
+      bootExhaust(e, dt);
+      /* ⚑ THE TELL, and the reason flying is a decision. A jet is loud, so every bot inside
+       * `heard` is handed your position on exactly the channel being SHOT AT uses (lastSeen +
+       * seenT) — which routes them into suppress/push, i.e. they come to where the noise was.
+       * Burning the boots broadcasts you. Throttled to ~3 Hz; this is hearing, not telemetry. */
+      e._noiseT = (e._noiseT || 0) - dt;
+      if (e._noiseT <= 0) { e._noiseT = 0.34;
+        for (const o of G.ents) { if (o === e || !o.bot || !o.alive) continue;
+          if (Math.hypot(o.x - e.x, o.z - e.z) > BOOTS.heard) continue;
+          o.lastSeen = { x: e.x, z: e.z }; o.seenT = Math.max(o.seenT || 0, 1.6); if (!o.tgt) o.tgt = e; } }
+    }
+    /* The plume. Additive world-space geometry through G.sparks, so it is depth-tested, occluded
+     * by the crate you are behind, and picked up by the bloom pass — none of which an overlay
+     * sprite would be. Cool for you, warm for them: the tracer colour law, unchanged. */
+    function bootExhaust(e, dt) {
+      e._exT = (e._exT || 0) - dt;
+      if (e._exT > 0 || G.sparks.length > 240) return;
+      e._exT = 0.022;
+      const col = e.isMe ? [150, 240, 255] : [255, 168, 70];
+      for (let i = 0; i < 3; i++) {
+        G.sparks.push({ x: e.x + rnd(0.2, -0.2), y: e.y + 0.10, z: e.z + rnd(0.2, -0.2),
+          vx: rnd(1.3, -1.3), vy: -rnd(9.5, 5.0), vz: rnd(1.3, -1.3), t: rnd(0.24, 0.11), col });
+      }
+    }
 
     function rayAABB(ox, oy, oz, dx, dy, dz, b, maxT) {
       let tmin = 0, tmax = maxT;
@@ -421,6 +539,7 @@ window.S9Game = (function () {
         regenT: 0, tint: opt.tint || [120, 200, 220], team: opt.team, verified: !!opt.verified, kills: 0, deaths: 0,
         weapon: opt.weapon || 0, mag: 0, fireT: 0, reloadT: 0, reloading: false, triggerConsumed: false, spawnT: 0, iframe: 0, respawnT: 0,
         onGround: true, boost: 1, state: 'patrol', aiT: 0, tgt: null, wp: null, strafe: 1, strafeT: 0, reactT: 0, seenT: 0, wantFire: false, bob: 0, moving: false,
+        burning: false, burnT: 0, flyBase: 0,          // ⧗ thruster boots — see the brief above
         recoil: 0, muzzle: 0, scoped: false, ads: false, killStreak: 0,
         cardDmg: 1, cardRate: 1, cardSpeed: 1, cardArmor: 0, cardAmp: 1, surgeT: 0, overdrive: false, sigGun: '', gait: 0 };
     }
@@ -465,6 +584,7 @@ window.S9Game = (function () {
       e.weapon = firstWeapon != null ? firstWeapon : e.weapon; e.mag = WEAPONS[e.weapon].mag;
       e.state = 'patrol'; e.tgt = null; e.wp = null; e.boost = 1; e.cover = null; e.inCover = false;
       e.crouch = 0; e.eye = 1.52;
+      e.burning = false; e.burnT = 0; e.flyBase = e.y;   // ⧗ a fresh tank and a fresh lift budget
       e.yaw = spawnYaw(MAP, e.x, e.z, e.y); e.pitch = 0;
     }
 
@@ -504,7 +624,12 @@ window.S9Game = (function () {
         G.shake = Math.max(G.shake, w.kick * 1.3);
         G.fireFlash = 1; G.fireHeavy = heavy; G.fireCol = w.key === 'sniper' ? [210, 235, 255] : [255, 224, 150]; }
       else if (Math.hypot(e.x - cam.x, e.z - cam.z) < 26) sfx(w.sfx);
-      const scopeAcc = ((e.isMe && e.scoped) ? 0.35 : ((e.isMe && e.ads) ? 0.55 : 1)) * (1 - 0.35 * (e.crouch || 0));   // braced stance is steadier
+      /* Braced stance is steadier — and OFF THE GROUND THERE IS NO BRACE. The airborne term is
+       * what stops the boots being a free firing platform above the cover everyone else is using:
+       * flight is traversal, not a duel. It applies to bots too, because it is a rule of the
+       * world rather than a handicap (their own aim jitter dominates it, so it barely moves them). */
+      const scopeAcc = ((e.isMe && e.scoped) ? 0.35 : ((e.isMe && e.ads) ? 0.55 : 1)) * (1 - 0.35 * (e.crouch || 0))
+        * (e.onGround ? 1 : BOOTS.bloom);
       for (let p = 0; p < w.pellets; p++) {
         const sp = w.spread * scopeAcc;
         const ay = e.yaw + rnd(sp, -sp) + (e.isMe ? 0 : rnd(0.03, -0.03));
@@ -616,7 +741,15 @@ window.S9Game = (function () {
         const canSee = losClear(me.x, me.y, me.z, teye.x, teye.y, teye.z);
         const w = WEAPONS[e.weapon];
         const hurt = e.hp < e.maxHp * 0.42;
-        const wantCover = (e.supT > 0 || hurt || e.reloading) && !e.inCover;
+        /* ⧗ AN AIRBORNE TARGET IS NOT SOMETHING TO TAKE COVER FROM, and this is the honest half
+         * of the boots. `bakeCover` scores a point by whether LOS from it to the target's EYE is
+         * blocked — a claim about a shooter standing on the floor. Put the shooter 4 m up and
+         * every one of those points is a lie, so a bot that keeps running between them is not
+         * being cautious, it is being wrong on a schedule. When the target is off the ground and
+         * visible, the bot stops repositioning and shoots the man in the sky — who cannot crouch,
+         * cannot break LOS and is on a ballistic arc anyone can lead. */
+        const tgtAir = !tgt.onGround && (tgt.y - e.y) > 1.2;
+        const wantCover = (e.supT > 0 || hurt || e.reloading) && !e.inCover && !(tgtAir && canSee);
         if (canSee) { e.lastSeen = { x: tgt.x, z: tgt.z }; e.seenT = 2.2; if (e.reactT > 0) e.reactT -= dt; }
         else e.reactT = rnd(0.32, 0.12);
 
@@ -637,7 +770,13 @@ window.S9Game = (function () {
           e.state = 'fight'; e.inCover = false;
           if (e.mag <= 0) startReload(e);
           const wantYaw = Math.atan2(dx, dz); const wantPitch = Math.atan2((teye.y - me.y), dist);
-          e.yaw += angDiff(wantYaw - e.yaw) * Math.min(1, dt * 7); e.pitch += (clamp(wantPitch, -0.7, 0.7) - e.pitch) * Math.min(1, dt * 6);
+          /* ⧗ THE BOTS LOOK UP. The clamp was ±0.7 rad (40°) — fine for a game played on the
+           * floor, and a hard ceiling on aim the moment anything can get above you: a target
+           * 4.5 m up at 5 m out sits at 42°, i.e. two degrees outside a bot's whole world. Up is
+           * now 1.25 rad (72°), which is about as far as a person can crane; down stays shallow
+           * because nothing in this arena is below you. Without this the boots would be an
+           * exploit rather than a trade. */
+          e.yaw += angDiff(wantYaw - e.yaw) * Math.min(1, dt * 7); e.pitch += (clamp(wantPitch, -0.75, 1.25) - e.pitch) * Math.min(1, dt * 6);
           const aimed = Math.abs(angDiff(wantYaw - e.yaw)) < 0.20;
           if (dist < w.range * 0.8 && aimed && e.reactT <= 0 && e.fireT <= 0 && !e.reloading) { e.wantFire = true; bark(e, 'contact'); }
           // a COMMITTED lateral bearing held for seconds is what reads as flanking; a coin flip
@@ -669,7 +808,17 @@ window.S9Game = (function () {
         e.yaw += angDiff(Math.atan2(dx2, dz2) - e.yaw) * Math.min(1, dt * 4);
       }
       if (e.onGround && Math.random() < dt * 0.25) e.vy = JUMP * 0.7;
-      const spd = (sprint ? 6.6 : 3.9) * (e.cardSpeed || 1); const ml = Math.hypot(mvx, mvz) || 1;
+      /* ⧗ THE BOTS WEAR THE SAME BOOTS, and use them for the one thing they are for: closing a
+       * VERTICAL gap. A bot launches after a target whose feet are above its own and burns to
+       * follow it up — onto the catwalk, onto the sniper ledge, or into the air after you. It
+       * does not dogfight with them, because it would be paying the ×1.9 airborne spread for the
+       * privilege, and because a bot hovering for fun is a bot that has stopped playing the game.
+       * Same meter, same drain, same ground-only regen. */
+      const above = tgt && tgt.alive ? (tgt.y - e.y) : 0;
+      if (e.onGround && above > 1.2 && e.boost > 0.45 && Math.random() < dt * 1.6) { e.vy = JUMP; e.onGround = false; }
+      stepBoots(e, dt, above > 1.2 && e.boost > 0.25);
+      if (e.onGround && !e.burning) e.boost = Math.min(1, e.boost + dt * 0.3);
+      const spd = (e.burning ? BOOTS.speed * 0.8 : (sprint ? 6.6 : 3.9)) * (e.cardSpeed || 1); const ml = Math.hypot(mvx, mvz) || 1;
       moveEnt(e, (mvx / ml) * spd * dt, (mvz / ml) * spd * dt);
       e.moving = (Math.abs(mvx) + Math.abs(mvz)) > 0.05; e.sprinting = sprint && e.moving;
     }
@@ -698,17 +847,28 @@ window.S9Game = (function () {
       const wantCrouch = !!(keys.control || keys.c || touch.crouch);
       e.crouch = Math.max(0, Math.min(1, (e.crouch || 0) + (wantCrouch ? dt * 7 : -dt * 8)));
       e.eye = 1.52 - 0.52 * e.crouch;
-      const wantSprint = (keys.shift || touch.sprint) && fwd > 0.1 && e.crouch < 0.5;
+      /* ⧗ JUMP, THEN HOLD. A tap is the game's original jump, unchanged and untouched — hold the
+       * same key and the boots light. One key, two verbs, and the second one is discovered by
+       * doing the first for longer, which is the only tutorial a shooter gets to give. */
+      const wantJet = !!(keys[' '] || keys.alt || touch.jumpHold);
+      if ((wantJet || touch.jump) && e.onGround) { e.vy = JUMP; e.onGround = false; touch.jump = false; sfx('jump'); }
+      stepBoots(e, dt, wantJet);
+      /* ⚠ ONE METER, ONE DRAIN AT A TIME. Sprint is locked out while the jet is lit, or holding
+       * shift in the air would quietly bill you twice for the same tank. */
+      const wantSprint = (keys.shift || touch.sprint) && fwd > 0.1 && e.crouch < 0.5 && !e.burning;
       if (wantSprint && e.boost > 0.02) { e.sprinting = true; e.boost = Math.max(0, e.boost - dt * 0.42); }
-      else { e.sprinting = false; e.boost = Math.min(1, e.boost + dt * 0.3); }
-      const spd = (e.sprinting ? 7.0 : 4.3) * (1 - 0.5 * e.crouch) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
+      /* ⚑ REGEN IS GROUND-ONLY NOW. The escape budget comes back when your feet are down — that
+       * single clause is what makes a full burn committal rather than free. */
+      else { e.sprinting = false; if (e.onGround && !e.burning) e.boost = Math.min(1, e.boost + dt * 0.3); }
+      const spd = e.burning
+        ? BOOTS.speed * (e.cardSpeed || 1)
+        : (e.sprinting ? 7.0 : 4.3) * (1 - 0.5 * e.crouch) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
       const s = Math.sin(e.yaw), c = Math.cos(e.yaw);
       let mx = (s * fwd + c * strafe), mz = (c * fwd - s * strafe); const ml = Math.hypot(mx, mz);
       const mag = Math.min(1, ml);
       if (ml > 0.001) { mx /= ml; mz /= ml; moveEnt(e, mx * spd * mag * dt, mz * spd * mag * dt); e.moving = true; e.bob += dt * (e.sprinting ? 13 : 9);
         if (e.onGround) { e._stepT = (e._stepT || 0) - dt; if (e._stepT <= 0) { e._stepT = e.sprinting ? 0.28 : 0.4; sfx('step'); } } }
       else e.moving = false;
-      if ((keys[' '] || keys.alt || touch.jump) && e.onGround) { e.vy = JUMP; e.onGround = false; touch.jump = false; sfx('jump'); }
       const w = WEAPONS[e.weapon];
       const wantFire = (mouse.left || touch.fire);       // Ctrl is crouch now, as every FPS expects
       if (wantFire) { if (w.auto) { if (e.fireT <= 0) fireWeapon(e); } else { if (!e.triggerConsumed) { fireWeapon(e); e.triggerConsumed = true; } } }

@@ -6,6 +6,7 @@
 <title>The Folder · ripmaster3030studios</title>
 <meta name="description" content="The collector's folder — nine-pocket pages you turn like a book. Pull a card out of its sleeve and it flies into the starfield and becomes a live 3D lens.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../mobile.css">
 <!--
   THE FOLDER — nine pockets to a page, and pulling a card out of one is the whole point.
 
@@ -35,7 +36,8 @@
   *{margin:0;padding:0;box-sizing:border-box}
   html{background:var(--bg)}
   body{background:transparent;font-family:var(--mono);color:var(--ink);min-height:100vh;
-       overflow-x:hidden;padding:0 12px 70px;-webkit-tap-highlight-color:transparent}
+       font-size:var(--t-body,13px);line-height:1.65;
+       overflow-x:hidden;padding:0 12px 80px;-webkit-tap-highlight-color:transparent}
   .lm{position:fixed;inset:0;z-index:-1;pointer-events:none;background:url("../Laughing_man.svg") repeat;
       background-size:min(46vw,340px);
       filter:invert(1) grayscale(1) brightness(1.5) sepia(1) hue-rotate(90deg) saturate(2.6);opacity:.08}
@@ -46,21 +48,25 @@
      rather than shrinking to a stamp — a 90px binder is a smudge, not a prop. */
   .hd{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:clamp(12px,3vw,28px);align-items:center}
   @media (max-width:760px){ .hd{grid-template-columns:minmax(0,1fr)} }
-  .navs{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px}
-  .navs a{color:var(--phos);text-decoration:none;font-size:11px;letter-spacing:.2em;
-          text-transform:uppercase;text-shadow:0 0 8px rgba(43,255,128,.5)}
+  /* three links in a row, each its own 44px box — `.tap-row` in ../mobile.css is the same
+     primitive the landing page and the generated docs use for this exact shape. */
+  .navs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 16px;margin-bottom:10px}
+  .navs a{color:var(--phos);text-decoration:none;font-size:var(--t-fine,11px);letter-spacing:.14em;
+          text-transform:uppercase;text-shadow:0 0 8px rgba(43,255,128,.5);
+          display:inline-flex;align-items:center;min-height:var(--tap,44px);padding:0 2px}
   h1{font-family:var(--fat);font-size:clamp(19px,3.4vw,31px);letter-spacing:.1em;
      text-transform:uppercase;color:var(--phos);text-shadow:0 0 18px rgba(43,255,128,.35)}
-  .sub{margin-top:7px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#5fcf8f}
-  .note{margin:12px 0 0;max-width:70ch;font-size:12px;line-height:1.7;color:#7fd8a8}
+  .sub{margin-top:8px;font-size:var(--t-fine,11px);letter-spacing:.16em;text-transform:uppercase;color:#5fcf8f}
+  .note{margin:14px 0 0;max-width:70ch;font-size:var(--t-body,12px);line-height:1.7;color:#8fe3b8}
 
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-  .chip{font-family:var(--fat);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
-        padding:8px 13px;border-radius:999px;border:1px solid var(--phosdim);background:rgba(2,16,9,.7);
-        color:var(--ink);cursor:pointer}
+  .chip{font-family:var(--fat);font-size:var(--t-tag,9px);letter-spacing:.1em;text-transform:uppercase;
+        padding:6px 15px;min-height:var(--tap,44px);border-radius:999px;border:1px solid var(--phosdim);
+        background:rgba(2,16,9,.7);color:var(--ink);cursor:pointer;
+        display:inline-flex;flex-direction:column;align-items:center;justify-content:center}
   .chip.on{background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56);color:#01130a;border-color:#01130a}
-  .chip small{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.06em;opacity:.7;
-              text-transform:none;margin-top:2px}
+  .chip small{display:block;font-family:var(--mono);font-size:var(--t-tag,8px);letter-spacing:.04em;opacity:.75;
+              text-transform:none;margin-top:3px}
 
   /* ── the header prop ─────────────────────────────────────────────────────────────────────
      A real 3D binder (js/site3d-prop.js, PlayCanvas) in the same Blender-baked vinyl and steel
@@ -111,27 +117,32 @@
   .pk.empty::after{content:'';position:absolute;inset:12%;border:1px dashed rgba(184,255,214,.14);border-radius:4px}
   .pk button{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:none;cursor:pointer;display:block}
   .pk img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;transition:transform .18s ease}
+  /* ⚠ The only sign a pocket was interactive was a hover scale — dead on a phone. A press is
+     the touch equivalent, and the card pulling UP out of its sleeve is the page's own gesture. */
   .pk button:hover img,.pk button:focus-visible img{transform:scale(1.045)}
+  .pk button:active img{transform:scale(1.045) translateY(-2%)}
   /* the vinyl. A sleeve is not glass — it is a soft sheen with a hard top edge where the
      opening is, and that edge is most of what says "this card is inside something". */
   .pk .vinyl{position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(103deg,rgba(255,255,255,.16) 0 14%,rgba(255,255,255,0) 34% 66%,rgba(255,255,255,.07) 88% 100%)}
   .pk .lip{position:absolute;left:0;right:0;top:0;height:7%;pointer-events:none;
     background:linear-gradient(rgba(255,255,255,.22),rgba(255,255,255,0));border-bottom:1px solid rgba(255,255,255,.16)}
-  .pk .no{position:absolute;left:5%;top:4%;z-index:3;font-family:var(--fat);font-size:9px;letter-spacing:.06em;
-    padding:2px 6px;border-radius:5px;background:rgba(1,10,5,.82);color:var(--amber);border:1px solid var(--phosdim)}
+  .pk .no{position:absolute;left:5%;top:4%;z-index:3;font-family:var(--fat);font-size:var(--t-tag,9px);letter-spacing:.04em;
+    padding:3px 6px;border-radius:5px;background:rgba(1,10,5,.82);color:var(--amber);border:1px solid var(--phosdim)}
   .pk .nm{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:16% 7% 6%;
-    font-family:var(--fat);font-size:9px;line-height:1.25;letter-spacing:.03em;text-transform:uppercase;
+    font-family:var(--fat);font-size:var(--t-tag,9px);line-height:1.25;letter-spacing:.02em;text-transform:uppercase;
     color:#eafff2;background:linear-gradient(transparent,rgba(0,4,2,.9) 58%);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .page-no{display:block;margin-top:9px;text-align:center;font-size:9px;letter-spacing:.24em;
-           text-transform:uppercase;color:#3f8f63}
+  .page-no{display:block;margin-top:10px;text-align:center;font-size:var(--t-tag,9px);letter-spacing:.16em;
+           text-transform:uppercase;color:#4e9d73}
 
   .flip{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:16px}
-  .flip button{width:44px;height:44px;border-radius:50%;border:1px solid var(--phosdim);
-    background:rgba(2,16,9,.9);color:var(--phos);font-size:14px;cursor:pointer;box-shadow:0 0 14px rgba(43,255,128,.22)}
+  .flip button{width:var(--tap,44px);height:var(--tap,44px);border-radius:50%;border:1px solid var(--phosdim);
+    background:rgba(2,16,9,.9);color:var(--phos);font-size:var(--t-h3,14px);cursor:pointer;
+    display:grid;place-items:center;box-shadow:0 0 14px rgba(43,255,128,.22)}
+  .flip button:active:not(:disabled){transform:scale(.93)}
   .flip button:disabled{opacity:.3;cursor:default;box-shadow:none}
-  .flip span{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#5fcf8f;min-width:14ch;text-align:center}
+  .flip span{font-size:var(--t-fine,10px);letter-spacing:.14em;text-transform:uppercase;color:#5fcf8f;min-width:14ch;text-align:center}
 
   @media (max-width:760px){
     .spread{grid-template-columns:1fr}
@@ -145,11 +156,12 @@
   .warp{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:none}
   .vstage{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
           gap:clamp(6px,2.2vw,22px);padding:16px 16px 84px}
-  .vnav{flex:none;width:48px;height:48px;border-radius:50%;border:1px solid var(--phosdim);
-        background:rgba(2,16,9,.86);color:var(--phos);font-size:15px;cursor:pointer;box-shadow:0 0 14px rgba(43,255,128,.28)}
+  .vnav{flex:none;width:48px;height:48px;border-radius:50%;border:1px solid var(--phosdim);display:grid;place-items:center;
+        background:rgba(2,16,9,.86);color:var(--phos);font-size:var(--t-h3,15px);cursor:pointer;box-shadow:0 0 14px rgba(43,255,128,.28)}
   .vnav:disabled{opacity:.25;cursor:default}
-  .vclose{position:absolute;top:14px;right:14px;z-index:4;width:42px;height:42px;border-radius:50%;
-          border:1px solid var(--phosdim);background:rgba(2,16,9,.9);color:var(--phos);font-size:15px;
+  .vclose{position:absolute;top:max(14px,env(safe-area-inset-top));right:14px;z-index:4;
+          width:var(--tap,44px);height:var(--tap,44px);border-radius:50%;display:grid;place-items:center;
+          border:1px solid var(--phosdim);background:rgba(2,16,9,.9);color:var(--phos);font-size:var(--t-h3,15px);
           cursor:pointer;box-shadow:0 0 14px rgba(43,255,128,.3)}
   #vcard{position:relative;flex:none;aspect-ratio:2/3;height:min(70vh,640px);width:auto;
          max-width:min(84vw,430px);opacity:0;transition:opacity .22s ease}
@@ -164,21 +176,24 @@
          text-align:center;padding:0 12px}
   #vttl{font-family:var(--fat);font-size:clamp(13px,2.3vw,19px);letter-spacing:.05em;text-transform:uppercase;
         color:var(--phos);text-shadow:0 0 16px rgba(43,255,128,.5)}
-  #vnum{margin-top:5px;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:var(--cyan)}
-  #vlink{display:inline-block;margin-top:7px;font-size:9px;letter-spacing:.18em;text-transform:uppercase;
+  #vnum{margin-top:6px;font-size:var(--t-fine,10px);letter-spacing:.18em;text-transform:uppercase;color:var(--cyan)}
+  #vlink{display:inline-flex;align-items:center;min-height:var(--tap,44px);margin-top:2px;
+         font-size:var(--t-ui,9px);letter-spacing:.12em;text-transform:uppercase;
          color:var(--amber);text-decoration:none;border-bottom:1px solid rgba(255,210,59,.4)}
   /* ⚑ `display:inline-block` beats the user agent's `[hidden]{display:none}`, so the artist's own
      cards — which have no card page — were still offering a link to one. Any rule that sets
      display has to say what hidden means, or hidden stops meaning anything. */
   #vlink[hidden]{display:none}
-  #vmode{margin-top:7px;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#3f8f63}
+  #vmode{margin-top:2px;font-size:var(--t-tag,9px);letter-spacing:.12em;text-transform:uppercase;color:#4e9d73}
   /* the card in flight — a plain image travelling from its pocket to the middle of the warp */
   .ghost{position:fixed;z-index:110;margin:0;border-radius:7px;object-fit:cover;pointer-events:none;
          transform-origin:0 0;box-shadow:0 24px 60px rgba(0,0,0,.7);
          transition:transform .42s cubic-bezier(.3,.9,.25,1),border-radius .42s ease}
   @media (prefers-reduced-motion:reduce){ .ghost{transition-duration:.01s} }
 
-  footer{margin-top:26px;text-align:center;font-size:10px;letter-spacing:.14em;color:#3f8f63;line-height:2}
+  /* the footer is a sentence (copyright + NFA), so it takes the prose size and its hierarchy
+     from colour — the same call the generated pages' `.fine` had to make. */
+  footer{margin-top:26px;text-align:center;font-size:var(--t-body,10px);letter-spacing:.04em;color:#59ab7d;line-height:1.8}
 </style>
 <script src="/gate.js"></script>
 <script src="../js/bg-foil.js" defer></script>

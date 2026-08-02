@@ -1800,6 +1800,14 @@ function emitStack(layers, img, w, h, f, { o, dir, put, emit, log, name, source 
     size: { w, h, aspect: +(w / h).toFixed(5) },
     units: 'rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.',
     method: o.extract + (o.text ? '+text' : '') + (o.strata > 1 ? '+strata' : '') + (o.inpaint ? '+inpaint' : ''),
+    /* ⚑ THE SETTINGS THAT MADE THIS STACK, RECORDED WITH IT. `method` names the technique but not
+     * the numbers, and the numbers are the whole difference between a clean separation and a
+     * sheared face: card 36 needs `--cluster-above 0.9` (peel-only) and card 42 needs the default
+     * (k-means inside the peel). Written down in prose those settings get lost — models/README.md
+     * records that exact loss for the fighter bakes, where `--detail 2.5` had to be recovered by
+     * sweeping until the shipped file reproduced byte-identically. A card that cannot be
+     * regenerated cannot be corrected. */
+    command: 'node scripts/png23d.mjs ' + process.argv.slice(2).join(' '),
     note: 'layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.',
     layers: entries,
   };

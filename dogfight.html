@@ -379,8 +379,11 @@
 <script src="js/card-powers.js"></script>
 <!-- third-party engine, MIT, vendored verbatim: vendor/playcanvas/LICENSE -->
 <script src="vendor/playcanvas/playcanvas.min.js"></script>
-<!-- this build. fx first: it owns the quad-layer primitive that world reuses for the cloud deck -->
+<!-- this build. fx first: it owns the quad-layer primitive that world reuses for the cloud deck
+     and city reuses for its traffic. city before world only for readability; neither reads the
+     other at load time, and dfpc-app guards every city call so the file may simply be absent. -->
 <script src="js/dfpc-fx.js"></script>
+<script src="js/dfpc-city.js"></script>
 <script src="js/dfpc-world.js"></script>
 <script src="js/dfpc-app.js"></script>
 <script>
@@ -663,6 +666,21 @@
       cardAmp:1, surgeT:0, turnRamp:0, muzzle:-9, sigGun:'',
       aiT:rnd(1,0), tgt:null, evade:0, spawnT:0.7, trail:[] }; }
 
+  /* ONE place a boost gate is positioned, used by the initial seven AND by the respawn after one
+   * is collected. `near` is the inner radius (0 at match start so gates spread across the map,
+   * 10 on respawn so a collected ring does not immediately reappear on your nose).
+   * ⚑ The snap is the load-bearing half: a gate on an avenue is what turns a canyon between
+   * towers from scenery into a route worth flying. High gates (alt ≥ 5) are deliberately left
+   * where they land — they sit above the skyline, and the choice between the fast low line and
+   * the safe high one is the point. `G.plan` is null when there is no city. */
+  function placeGate(gt,near){
+    const a=rnd(TAU), r=rnd(38,near||0);
+    gt.x=wpos(cam.x+Math.cos(a)*r); gt.y=wpos(cam.y+Math.sin(a)*r);
+    gt.alt=(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8));
+    if(G.plan&&gt.alt<5){ const s=G.plan.avenueSnap(gt.x,gt.y); if(s){ gt.x=wpos(s.x); gt.y=wpos(s.y); } }
+    return gt;
+  }
+
   function startMatch(real,ethFlight){
     const netP=G.netPeers||null; G.netPeers=null; G.netMatch=!!(netP&&netP.length);
     const others=[]; const seen=new Set([myHandle()]);
@@ -671,7 +689,13 @@
       (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
       let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
     }
-    G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
+    /* ⛔ `G.gates` WAS NEVER CLEARED — a pre-existing leak, found by the city's own placement
+     * assertion rather than by looking. Every other per-match array is reset on this line and
+     * that one was not, so a rematch kept the previous match's seven boost rings and pushed seven
+     * more: 7 → 14 → 21, at stale positions, on a map that had been re-themed and re-seeded under
+     * them. Invisible in one sitting for the same reason the ship-entity leak was, and now
+     * visible because a gate has to sit on an avenue that the previous match's plan did not have. */
+    G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.gates=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
     /* `?theme=N` pins the world. A random theme per match is right for play and useless for
      * comparison — an A/B of two renderers, or of the high-key palette against `?tod=night`, is
      * meaningless if the two frames are different places. */
@@ -679,8 +703,31 @@
       return (v!=null&&isFinite(+v))?((+v%WORLDS.length)+WORLDS.length)%WORLDS.length:null; }catch{ return null; } })();
     G.timeLeft=G.dur; G.real=real; G.theme=pinT!=null?pinT:(Math.random()*WORLDS.length|0); G.sunAz=pinT!=null?1.1:rnd(TAU);
     cam.x=0; cam.y=0; cam.h=0; cam.alt=1.2; cam.roll=0; cam.ph=0;
-    for(let i=0;i<260;i++){ G.props.push({ x:rnd(WS,0), y:rnd(WS,0), alt:(Math.random()<0.82?0:rnd(1.4,0.3)), s:rnd(1.7,0.6), rot:rnd(TAU) }); }
-    for(let i=0;i<7;i++){ const a=rnd(TAU),r=rnd(38,8); G.gates.push({ x:wpos(Math.cos(a)*r), y:wpos(Math.sin(a)*r), alt:(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)), cool:0 }); }
+    /* ── the city's PLAN, if there is one ──────────────────────────────────────────────────
+     * js/dfpc-city.js builds the ground: a seeded corporate street grid with a skyline, avenues
+     * and traffic. The plan is pure math and is available the moment that file has parsed — it
+     * does NOT wait on models/city.glb, which only supplies the meshes. Two things in the
+     * simulation want to know about it, and neither is cosmetic:
+     *
+     *   ⚑ BOOST GATES GO ON AVENUES. A canyon between towers reads as scenery until there is a
+     *     REASON to be in it; a gate is the reason, and this game already has seven of them
+     *     handing out the strongest reward it has. That single line is what turns the city from
+     *     a backdrop into a level. (The gate's own alt is untouched — the high ones still sit
+     *     above the skyline, which is the choice between the fast lane and the safe one.)
+     *   ⚠ SCENERY PROPS GO IN THE PLAN'S OPEN CELLS. 260 pylons scattered uniformly would stand
+     *     inside towers and, worse, in the middle of the avenues the gates now sit on. `openSpot`
+     *     returns the nearest cell the plan deliberately left empty, so the props become the
+     *     outskirts' landscape and downtown stays flyable. A prop already spawned at altitude is
+     *     left where it is — it is above the streets by construction.
+     *
+     * `plan` is null when the module is absent or `?city=0`, and every use below guards, so this
+     * whole block is a no-op on the build that shipped yesterday. */
+    const plan=(()=>{ try{ return (window.DFPCCity&&DFPCCity.enabled())?DFPCCity.layoutFor(WORLDS[G.theme].name,WS):null; }catch(e){ return null; } })();
+    for(let i=0;i<260;i++){ const pr={ x:rnd(WS,0), y:rnd(WS,0), alt:(Math.random()<0.82?0:rnd(1.4,0.3)), s:rnd(1.7,0.6), rot:rnd(TAU) };
+      if(plan&&pr.alt<0.05){ const o=plan.openSpot(pr.x,pr.y); if(o){ pr.x=o.x; pr.y=o.y; } }
+      G.props.push(pr); }
+    G.plan=plan;
+    for(let i=0;i<7;i++){ const g={ cool:0 }; placeGate(g,0); G.gates.push(g); }
     G.wing=[HANDLES[(Math.random()*HANDLES.length)|0]];
     const myImg=craftImgs.length?craftImgs[0]:null;
     G.me=makeShip({ name:myHandle(), me:true, tint:'#27f7e4', img:myImg, verified:(window.RipWallet&&RipWallet.isConnected&&RipWallet.isConnected()) });
@@ -893,7 +940,11 @@
     if(G.me&&G.me.alive) for(const gt of G.gates){ if(gt.cool>0){ gt.cool-=dt; continue; }
       if(Math.hypot(wdel(gt.x-G.me.x),wdel(gt.y-G.me.y))<1.4&&Math.abs(gt.alt-G.me.alt)<0.9){ gt.cool=1.2;
         G.me.boostGauge=Math.min(1,G.me.boostGauge+0.55); G.me.hp=Math.min(G.me.maxHp,G.me.hp+8); powMsg('◈ BOOST RING'); sfxRing(); commsRnd('ring','#0e5a68');
-        const a=rnd(TAU),r=rnd(38,10); gt.x=wpos(cam.x+Math.cos(a)*r); gt.y=wpos(cam.y+Math.sin(a)*r); gt.alt=(Math.random()<0.35?rnd(8.2,6.7):rnd(3.6,0.8)); } }
+        /* ⛔ THE RESPAWN USED TO RE-ROLL THE POSITION ITSELF, and that quietly undid the whole
+         * point of putting gates on avenues: they START on a road and the first one you collect
+         * moves to open ground, so over a match the city stops being where the rewards are. One
+         * placement function, both callers — the same fix `drawWeapon` got in ronin3d. */
+        placeGate(gt,10); } }
     G.timeLeft-=dt;
     if(!G.over && G.timeLeft<=0) endMatch();      // deathmatch: full clock, winner = most kills
   }
@@ -1517,9 +1568,15 @@
    * input events (CLAUDE.md) — driving the simulation directly is the only way to derive a flight
    * equilibrium without a keypress accidentally waking a burst of real frames.
    * Read-only in spirit: nothing in the game reads __df. */
-  window.__df = { G, cam, world, keys, step, draw, project,
+  /* ⚑ `startMatch` IS EXPOSED, and it is the difference between measuring this game and measuring
+   * its menu. `scripts/debug-games.mjs` drives every game by clicking the first button whose text
+   * matches /START|PLAY|LAUNCH|BEGIN|FLY/ — on this page that lands on the lobby's wager controls,
+   * so the "dogfight" row of that sweep has always been a screenshot of the lobby. CLAUDE.md
+   * already records the general form of this: "a game measured in its lobby is not measured." */
+  window.__df = { G, cam, world, keys, step, draw, project, startMatch,
     K:{ WS, CAM_BACK, CAM_H, NEAR, ALT_MIN, ALT_MAX, VIEW_FAR, BOLTSPD, CLOUD_ALT, CLOUD_THICK },
     gl:()=>glReady, renderer:()=>(glReady?'dfpc':'none'),
+    plan:()=>{ try{ return (window.DFPCCity&&DFPCCity.enabled())?DFPCCity.layoutFor(world().name,WS):null; }catch(e){ return null; } },
     pc:()=>(glReady?DFPC.stats():null) };
 
   /* ── the loop ─────────────────────────────────────────────────────────────────────────────
@@ -1548,9 +1605,16 @@
   function engReadout(){
     const el=$('eng'); if(!el||!document.body.classList.contains('showeng')) return;
     const s=DFPC.stats(); if(!s.ok){ el.textContent=s.why||'engine off'; return; }
+    /* The city's budget is printed rather than trusted. docs/DESIGN-SYSTEM.md §8 asks every brief
+     * for an acceptance measurement, and the city's is "≤ 40,000 triangles, ≤ 24 draw calls" —
+     * a number that only stays true if someone can see it drift. */
+    const c=s.city;
     el.innerHTML = s.engine+' · tier '+s.tier+' · '+s.art+(s.post?' · post':' · no post')+(s.dither?'+dither':'')+'<br>'+
       s.props+' props · '+s.gates+' gates · '+s.puffs+' cloud · '+s.ships+' craft'+
       (s.fx?(' · fx '+s.fx.add+'/'+s.fx.rings+'/'+s.fx.shadow):'')+' · '+(s.night?'night':'high-key')+' '+s.theme+'<br>'+
+      (c&&c.ok?('city '+s.cityArt+' · '+c.buildings+' blocks, '+c.hi+' near/'+c.lo+' far chunks · '+
+        c.cars+' cars · <b>'+c.tris.toLocaleString('en-US')+' tris</b> in '+c.draws+' draws<br>')
+       :('city off'+(c&&c.why?(' ('+c.why+')'):'')+'<br>'))+
       '<b>'+s.median.toFixed(1)+' ms</b> median ('+(s.median>0?(1000/s.median).toFixed(0):'0')+' fps) · p95 '+s.p95.toFixed(1)+' · worst '+s.worst.toFixed(1)+' ms';
   }
   loadDeck().then(()=>{ refreshPot(); refreshEth(); });

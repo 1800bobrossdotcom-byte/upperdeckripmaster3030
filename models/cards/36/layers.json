@@ -1,0 +1,134 @@
+{
+  "generator": "png23d",
+  "card": "36",
+  "source": "cards/art/hero/36.webp",
+  "size": {
+    "w": 683,
+    "h": 1024,
+    "aspect": 0.66699
+  },
+  "units": "rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.",
+  "method": "auto+text+inpaint",
+  "command": "node scripts/png23d.mjs cards/art/hero/36.webp --out models/cards --mode layers --cluster-above 0.9 --preview",
+  "note": "layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.",
+  "layers": [
+    {
+      "file": "layers/00-bg.png",
+      "name": "bg",
+      "kind": "background",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": true,
+      "blend": "normal",
+      "coverage": 1,
+      "why": "the card itself, with every liftable layer inpainted out of it"
+    },
+    {
+      "file": "layers/01-ground.png",
+      "name": "ground",
+      "kind": "midground",
+      "z": 0.0304,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.2093,
+      "why": "peel band 0 — 66px thick, so a ground rather than a border; stays at the back"
+    },
+    {
+      "file": "layers/02-mid1.png",
+      "name": "mid1",
+      "kind": "midground",
+      "z": 0.0607,
+      "rect": [
+        0.02635,
+        0.03125,
+        0.92533,
+        0.93457
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0494,
+      "why": "peel band 1 — printed structure"
+    },
+    {
+      "file": "layers/03-subject.png",
+      "name": "subject",
+      "kind": "subject",
+      "z": 0.0911,
+      "rect": [
+        0.04392,
+        0.03613,
+        0.90922,
+        0.92676
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.6569,
+      "why": "what the peel could not key"
+    },
+    {
+      "file": "layers/04-text.png",
+      "name": "text",
+      "kind": "text",
+      "z": 0.1215,
+      "rect": [
+        0,
+        0.02637,
+        0.98682,
+        0.84863
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0864,
+      "boxes": [
+        [
+          0.0469,
+          0.0371,
+          0.9004,
+          0.0713
+        ],
+        [
+          0.6618,
+          0.5225,
+          0.2548,
+          0.0996
+        ],
+        [
+          0.3163,
+          0.7676,
+          0.2094,
+          0.1016
+        ],
+        [
+          0.757,
+          0.832,
+          0.1127,
+          0.0273
+        ],
+        [
+          0.0029,
+          0.0313,
+          0.9751,
+          0.085
+        ],
+        [
+          0.2972,
+          0.749,
+          0.634,
+          0.1123
+        ]
+      ],
+      "why": "6 detected text line(s)"
+    }
+  ]
+}

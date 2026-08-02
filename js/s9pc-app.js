@@ -107,6 +107,10 @@
    * decides how many get BUILT, i.e. how the coloured pools are DISTRIBUTED round the arena, so
    * the look of a room is unchanged while its per-frame cost stops depending on how many crates
    * the level designer put in it. */
+  /* ⧗ The motion-smear ceiling, read here because the tier table below has to know whether the
+   * pass exists at all. `?smear=0` removes it completely — allocation, blit and shader branch.
+   * Everything about what the number MEANS is in the SMEAR brief further down. */
+  const SMEAR_CEIL = clamp(num('smear', 0.55), 0, 0.85);
   const TIERS = {
     // shadowRes/cascades — the sun's cascaded shadow map. spot: ceiling fixtures, spotShadow: how
     // many of them cast. omni: practicals BUILT; omniLive: how many may be lit at once (clustered).
@@ -119,9 +123,12 @@
     //    THE CHARACTERS ARE NOT AN EFFECT. If a machine cannot afford this game, it gives up
     //    SSAO, then shadow resolution, then live lights, then cascades, then resolution — the
     //    ladder below — and it still has people in it. `?bodies=0` remains for A/B.
-    high: { shadowRes: 1024, cascades: 3, shadows: true, spot: 3, spotShadow: 1, omni: 46, omniLive: 12, ssao: true, ssaoSamples: 8, bloom: true, dither: true, fringing: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
-    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: 0, omni: 24, omniLive: 8, ssao: false, ssaoSamples: 6, bloom: true, dither: true, fringing: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
-    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: 0, omni: 8, omniLive: 5, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
+    // ⧗ `smear`: the motion-smear feedback. One full-res RGB8 target and one blit per frame, so
+    //    it is cheap next to SSAO but it is not free, and `low` is the tier that has already
+    //    given up shadows — a garnish does not outlive them.
+    high: { shadowRes: 1024, cascades: 3, shadows: true, spot: 3, spotShadow: 1, omni: 46, omniLive: 12, ssao: true, ssaoSamples: 8, bloom: true, dither: true, fringing: true, smear: true, envSize: 256, atlas: 512, aniso: 8, rtScale: 1.0 },
+    mid:  { shadowRes: 1024, cascades: 2, shadows: true, spot: 2, spotShadow: 0, omni: 24, omniLive: 8, ssao: false, ssaoSamples: 6, bloom: true, dither: true, fringing: true, smear: true, envSize: 128, atlas: 256, aniso: 4, rtScale: 0.85 },
+    low:  { shadowRes: 512, cascades: 1, shadows: false, spot: 0, spotShadow: 0, omni: 8, omniLive: 5, ssao: false, ssaoSamples: 4, bloom: true, dither: false, fringing: false, smear: false, envSize: 64, atlas: 128, aniso: 1, rtScale: 0.7 },
   };
   let QCFG = TIERS[TIER];
   /* Every one of the four is reachable from the URL, because each is a look/cost trade someone
@@ -137,6 +144,7 @@
      * is built would be silently undone the first time the controller stepped back up. */
     ssao: QCFG.ssao && on('ssao', true),
     shadows: QCFG.shadows && on('shadows', true),
+    smear: QCFG.smear && SMEAR_CEIL > 0,
   });
   const WANT_POST = on('post', true);
   const WANT_BODIES = on('bodies', true);
@@ -197,11 +205,11 @@
    *   `sharpness` maps to lerp(−0.125, −0.2, s). Different function, so this is set by matching
    *   measured local contrast rather than by copying the number across — see the report.
    *
-   * ⚠ MOTION SMEAR IS LOST. `tactical` is the only preset with `blur` non-zero (0.55) and Section
-   *   9 uses it: the composite lands in an accumulation target that samples the previous one, and
-   *   the mix is `motion × blur`, so only a whip-pan smears. PlayCanvas's CameraFrame has no
-   *   feedback pass to hang that on. It is recorded here as a known regression rather than
-   *   quietly dropped.
+   * ✅ MOTION SMEAR IS BACK — see the SMEAR brief below. `tactical` is the only GfxPost preset
+   *   with `blur` non-zero (0.55) and Section 9 is the caller it was written for. PlayCanvas's
+   *   CameraFrame still has no feedback pass, so the pass is built here out of the engine's own
+   *   parts — the ceiling, the `motion × blur` scaling, the 0.85 cap and the warm-up guard are
+   *   GfxPost's, carried across rather than re-invented.
    */
   const POST = {
     /* ⚑ BLOOM was re-measured, not carried across. GfxPost's 0.62 is an additive multiplier over
@@ -232,6 +240,73 @@
     dither: num('dither', 0.0045),
     grain: num('grain', 0.014),
     ssao: { intensity: 0.55, radius: 3.2, power: 3.0, minAngle: 12 },
+  };
+
+  /* ── ⧗ MOTION SMEAR — the brief, before the code (docs/DESIGN-SYSTEM.md §8) ─────────────────
+   *
+   * 1 · WHAT IT IS MADE OF.  One frame of the previous image, held. Not a filter and not a
+   *   texture: the accumulation target is the same idea as film left open a moment too long.
+   *
+   * 2 · HOW IT IS LIT.  It is not lit; it is EXPOSED. Everything else in the post chain shades
+   *   the frame — this one integrates it over time.
+   *
+   * 3 · WHAT MOVES, AND WHY IT PHYSICALLY MOVED.  ⚑ The half that gets skipped, so it is derived
+   *   rather than asserted. A smear is finite exposure time: during one exposure the image on the
+   *   sensor moves, and whatever moved smears by however far it went. Two things move it:
+   *     · ROTATION — the whole frame translates at ω·f. Every pixel, equally. Dominant.
+   *     · TRANSLATION — a point at distance d slides at v⊥/d rad/s, so NEAR geometry streaks and
+   *       far geometry does not. A full-screen feedback cannot do the depth half, so translation
+   *       is folded in as a scalar and deliberately weighted lower than rotation. Being honest
+   *       about that is why `wVel` is 0.55 and not 1.
+   *   ⚑ THE REFERENCE RATE IS DERIVED, NOT PICKED. The frame is fov 0.97 rad vertical over 16:10,
+   *     so horizontal fov = 2·atan(tan(0.485)·1.6) = 1.45 rad. Image motion becomes visible at
+   *     about 2% of frame width in one exposure — 0.029 rad — and at 60 Hz an exposure is 16.7 ms,
+   *     i.e. ω = 1.74 rad/s is the THRESHOLD of a visible smear. `wRef` 5.5 rad/s is roughly three
+   *     times that: a deliberate turn is faintly soft, a whip-pan saturates.
+   *   ⚑ SPEED IS MEASURED FROM THE POSITION DELTA, not from the intended velocity — so running
+   *     into a wall smears nothing, which is correct, because nothing moved.
+   *   ⚑ AND BOTH ARE MEASURED PER FRAME, NOT PER SECOND. See smearMotion(): the exposure IS the
+   *     frame, so the quantity that smears is displacement per frame and there is nothing to
+   *     divide by. The first cut divided by dt and read an 8× overstated turn rate off the sim's
+   *     CLAMPED clock under software GL — a measurement artifact that the measurement caught.
+   *   ⚑ It is a CEILING, exactly as GfxPost documents: the mix is `motion × blur`, so a still
+   *     camera is pin sharp and only motion smears. 0.55 is `PRESET.tactical.blur`, unchanged —
+   *     Section 9 is the caller that number was authored for, so it carries across as itself
+   *     rather than being re-guessed. Held under 0.85 because this is a feedback loop and above
+   *     that the frame never lets go of what it saw. Warm-up guard on the first frame after an
+   *     allocation or a resize: the "previous" target is uninitialised and mixing it is garbage.
+   *
+   * 4 · WHAT IT SITS ON.  The BACKBUFFER, which is why it is honest here. The HUD, the reticle and
+   *   the nameplates live on the separate 2D overlay canvas (#ov2d) and are composited by the
+   *   browser AFTER this — so the world smears and the instruments stay sharp, which is what a
+   *   camera behind a glass instrument panel actually does. It is folded into the existing
+   *   `composeMainEndPS` chunk beside the dither rather than added as a pass of its own, so it
+   *   costs one texture fetch plus one framebuffer blit, not another fullscreen shader.
+   *   ⚠ MEASURED at this container's device: backBufferFormat is PIXELFORMAT_RGB8 and NOT sRGB,
+   *     so the copy holds display-encoded values and the mix belongs in display space — which is
+   *     where GfxPost does it too, its whole chain being LDR. The same pow(1/2.2) round-trip the
+   *     dither already pays is reused, so there is one pow pair, not two. `s9PrevLin` covers the
+   *     other case: a device that hands back an sRGB backbuffer samples LINEAR, and the shader
+   *     re-encodes before mixing rather than silently lifting the ghost's toe.
+   *
+   * 5 · THE ACCEPTANCE MEASUREMENT.  Consecutive frames, differenced:
+   *     · camera still  ⇒ near-identical, and the uniform is exactly 0 so the branch is not taken
+   *     · fast turn     ⇒ clearly different, and the difference must FALL when the smear is on
+   *       (that is what a smear IS: this frame carrying some of the last one).
+   *   Reported as mean |Δ| per subpixel over the real backing store, via `__s9pc._smear()`.
+   */
+  const SMEAR = {
+    /* GfxPost PRESET.tactical.blur, carried across unchanged. `?smear=0` switches the whole pass
+     * off — allocation, blit and shader branch — and `?smear=0.8` re-sweeps the ceiling. */
+    ceiling: SMEAR_CEIL,
+    cap: 0.85,          // GfxPost's own clamp: a feedback loop above this never lets go
+    wRot: 1.0,          // a whip-pan alone may saturate the smear
+    wVel: 0.55,         // translation cannot, because the depth half of it is not being modelled
+    wRef: 5.5,          // rad/s that saturates the rotation term — derived above
+    vLo: 4.3,           // m/s — walking. The floor: ordinary movement does not smear
+    vHi: 9.6,           // m/s — BOOTS.speed, the fastest anything in this game goes
+    on: false, warm: false, tex: null, rt: null, w: 0, h: 0,
+    motion: 0, amt: 0, force: -1, yaw: 0, pitch: 0, px: 0, py: 0, pz: 0, seeded: false,
   };
 
   /* ⚑ CLEAN POST — `?clean=1`. Every value below was tuned honestly for a gritty tactical look,
@@ -321,13 +396,19 @@
     scale: 1, min: 0.62, max: 1,           // scale multiplies rtScale once dpr has hit its floor
     win: [], t0: 0, cool: 0, changes: 0,
   };
-  const QBASE = { ssao: QCFG.ssao, shadowRes: QCFG.shadowRes, cascades: QCFG.cascades, omniLive: QCFG.omniLive };
+  const QBASE = { ssao: QCFG.ssao, shadowRes: QCFG.shadowRes, cascades: QCFG.cascades, omniLive: QCFG.omniLive, smear: QCFG.smear };
   /* Apply ladder position `n`. Idempotent and total — it recomputes every knob from QBASE rather
    * than nudging the live value, so stepping down and back up cannot drift. Fails open: any knob
    * that throws leaves the others applied. */
   function applyStep(n) {
     const wantSsao = QBASE.ssao && n < 1;
     const wantRes = n >= 2 ? Math.max(512, QBASE.shadowRes >> 1) : QBASE.shadowRes;
+    /* ⧗ The smear joins the ladder at the same rung as the shadow map. Placed by ARGUMENT, not by
+     * measurement, and said so: it is one blit plus one fetch, so it is far from the biggest cost
+     * here, but it is the most purely decorative thing in the stack and a machine two rungs down
+     * wants frames more than it wants a garnish. Freeing it also hands back a full-res target. */
+    const wantSmear = QBASE.smear && n < 2;
+    if (QCFG.smear !== wantSmear) { QCFG.smear = wantSmear; if (!wantSmear) freeSmear(); }
     const wantLive = n >= 3 ? Math.max(2, QBASE.omniLive >> 1) : QBASE.omniLive;
     const wantCasc = n >= 4 ? Math.max(1, QBASE.cascades - 1) : QBASE.cascades;
     try {
@@ -597,7 +678,7 @@
       frame.fringing.intensity = QCFG.fringing ? POST.fringing : 0;
       frame.update();
     } catch (e) { frame = null; say('post stack failed: ' + e.message); }
-    installDither();
+    installComposeChunk();
   }
   /* ⚑ DITHER + GRAIN, injected. PlayCanvas's compose pass has neither, and GfxPost's 8×8 Bayer at
    * 0.0045 (≈1.1/255) is not decoration: it is what kills the banding an 8-bit write leaves in a
@@ -606,31 +687,153 @@
    * still linear, and dithering it directly would put the noise in the wrong space. Round-tripping
    * through an approximate display curve costs two pow() in one fullscreen pass and puts the
    * ±½ LSB where the banding actually is. */
+  /* ⧗ …AND THE MOTION SMEAR RIDES IN THE SAME CHUNK. GfxPost's composite does dither, then grain,
+   * then the feedback mix LAST — so that is the order here, inside the one pow() round-trip the
+   * dither already pays for. One texture fetch behind a branch that is not taken at rest.
+   * `s9PrevLin` is 1 only if the copy came back in an sRGB-format texture, which samples LINEAR;
+   * on this container's RGB8 backbuffer it is 0 and the sample is already display-encoded. */
   const DITHER_CHUNK = [
     'float s9_h(vec2 p){ return fract(sin(dot(p, vec2(41.0, 289.0))) * 43758.5453); }',
     'float s9_bayer(vec2 p){ vec2 t = floor(mod(p, 8.0)); float b = 0.0, s = 1.0;',
     '  for (int i = 0; i < 3; i++) { vec2 f = floor(mod(t, 2.0)); b += s * (f.x + 2.0 * mod(f.x + f.y, 2.0)); s *= 4.0; t = floor(t * 0.5); }',
     '  return b / 64.0; }',
     'uniform float s9Dither; uniform float s9Grain; uniform float s9GrainT;',
+    'uniform float s9Smear; uniform float s9PrevLin; uniform sampler2D s9Prev;',
   ].join('\n');
   const DITHER_MAIN = [
     '{ vec3 s9d = pow(max(result, vec3(0.0)), vec3(1.0 / 2.2));',
     '  s9d += (s9_bayer(gl_FragCoord.xy) - 0.5) * s9Dither;',
     '  s9d += (s9_h(uv * vec2(1023.0, 791.0) + s9GrainT) - 0.5) * s9Grain;',
+    '  if (s9Smear > 0.001) { vec3 s9p = texture2D(s9Prev, uv).rgb;',
+    '    if (s9PrevLin > 0.5) s9p = pow(max(s9p, vec3(0.0)), vec3(1.0 / 2.2));',
+    '    s9d = mix(s9d, s9p, s9Smear); }',
     '  result = pow(max(s9d, vec3(0.0)), vec3(2.2)); }',
   ].join('\n');
-  function installDither() {
-    if (!QCFG.dither || !(POST.dither > 0 || POST.grain > 0)) return;
+  /* ⚠ ONE INSTALLER, BOTH FEATURES. It used to bail on `!QCFG.dither`, which at `low` would have
+   * taken the smear down with it for an unrelated reason — and worse, silently. Every uniform
+   * defaults to 0, so a feature that is off contributes exactly nothing. */
+  function installComposeChunk() {
+    const wantDither = QCFG.dither && (POST.dither > 0 || POST.grain > 0);
+    if (!wantDither && !QCFG.smear) return;
     try {
       const chunks = pc.ShaderChunks.get(app.graphicsDevice, pc.SHADERLANGUAGE_GLSL);
       chunks.set('composeDeclarationsPS', DITHER_CHUNK);
       chunks.set('composeMainEndPS', DITHER_MAIN);
       const sc = app.graphicsDevice.scope;
-      sc.resolve('s9Dither').setValue(POST.dither);
-      sc.resolve('s9Grain').setValue(POST.grain);
+      sc.resolve('s9Dither').setValue(wantDither ? POST.dither : 0);
+      sc.resolve('s9Grain').setValue(wantDither ? POST.grain : 0);
       sc.resolve('s9GrainT').setValue(0);
-      ditherOn = true;
-    } catch (e) { ditherOn = false; console.warn('[s9pc] dither chunk not installed:', e && e.message); }
+      sc.resolve('s9PrevLin').setValue(0);
+      smearOff();                       // s9Smear = 0 and a valid 1×1 sampler from the first frame
+      ditherOn = wantDither;
+    } catch (e) { ditherOn = false; SMEAR.on = false;
+      console.warn('[s9pc] compose chunk not installed:', e && e.message); }
+  }
+
+  /* ── ⧗ the smear's own plumbing ────────────────────────────────────────────────────────────
+   * The whole thing is two operations: sample last frame in the compose (above), and copy this
+   * frame out of the backbuffer when it is done (below). `device.copyRenderTarget(null, rt, …)`
+   * is a framebuffer BLIT — GPU-side, no readback, no extra fullscreen shader — and the target
+   * is allocated in the backbuffer's own format so the blit is format-identical and cannot
+   * silently convert. Every step fails open: a throw, a false return or a GL error switches the
+   * pass off for good and the frame is then byte-identical to the build without it. */
+  const SRGB_FORMATS = [pc.PIXELFORMAT_SRGBA8, pc.PIXELFORMAT_SRGB8].filter(f => f != null);
+  /* ⚠ A 1×1 BLACK STAND-IN, and it is not decoration. `s9Prev` is a sampler the compose shader
+   * DECLARES, so the engine binds whatever the scope holds every time it runs — including on the
+   * frames where `s9Smear` is 0 and the branch is never taken. Leaving a destroyed texture there
+   * after the adaptive ladder frees the pass is a dangling GL object bound once per frame. */
+  let smearNull = null;
+  function smearOff() {
+    try {
+      if (!smearNull) { smearNull = new pc.Texture(app.graphicsDevice, { name: 's9SmearNull', width: 1, height: 1,
+        format: pc.PIXELFORMAT_RGBA8, mipmaps: false });
+        smearNull.lock().set([0, 0, 0, 255]); smearNull.unlock(); }
+      app.graphicsDevice.scope.resolve('s9Prev').setValue(smearNull);
+      app.graphicsDevice.scope.resolve('s9Smear').setValue(0);
+    } catch (e) {}
+  }
+  function ensureSmear() {
+    if (!QCFG.smear || !frame) return false;
+    const d = app.graphicsDevice, w = d.width | 0, h = d.height | 0;
+    if (w < 4 || h < 4) return false;
+    if (SMEAR.tex && SMEAR.w === w && SMEAR.h === h) return true;
+    freeSmear();
+    try {
+      SMEAR.tex = new pc.Texture(d, { name: 's9SmearPrev', width: w, height: h, format: d.backBufferFormat,
+        mipmaps: false, minFilter: pc.FILTER_LINEAR, magFilter: pc.FILTER_LINEAR,
+        addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
+      SMEAR.rt = new pc.RenderTarget({ name: 's9SmearPrevRT', colorBuffer: SMEAR.tex, depth: false, samples: 1 });
+      SMEAR.w = w; SMEAR.h = h;
+      /* ⚑ THE WARM-UP GUARD, GfxPost's. The "previous" target has never been written, so the
+       * first frame after an allocation or a resize would mix in whatever the driver left there. */
+      SMEAR.warm = false; SMEAR.on = true;
+      const sc = d.scope;
+      sc.resolve('s9Prev').setValue(SMEAR.tex);
+      sc.resolve('s9PrevLin').setValue(SRGB_FORMATS.indexOf(d.backBufferFormat) >= 0 ? 1 : 0);
+      return true;
+    } catch (e) { console.warn('[s9pc] motion smear unavailable:', e && e.message); freeSmear(); QCFG.smear = false; return false; }
+  }
+  function freeSmear() {
+    try { if (SMEAR.rt) SMEAR.rt.destroy(); } catch (e) {}
+    try { if (SMEAR.tex) SMEAR.tex.destroy(); } catch (e) {}
+    SMEAR.rt = null; SMEAR.tex = null; SMEAR.w = 0; SMEAR.h = 0; SMEAR.warm = false; SMEAR.on = false;
+    SMEAR.motion = 0; SMEAR.amt = 0;
+    smearOff();
+  }
+  /* Called once per rendered frame, AFTER the compose has landed. `postrender` is the engine's own
+   * "the composition is drawn" event, and copyRenderTarget binds its own read/draw framebuffers
+   * and restores the previous one, so it does not care what was bound when it ran. */
+  app.on('postrender', () => {
+    if (!SMEAR.on || !SMEAR.rt) return;
+    try {
+      const ok = app.graphicsDevice.copyRenderTarget(null, SMEAR.rt, true, false);
+      if (!ok) { console.warn('[s9pc] motion smear: backbuffer copy refused'); freeSmear(); QCFG.smear = false; return; }
+      SMEAR.warm = true;
+    } catch (e) { console.warn('[s9pc] motion smear copy failed:', e && e.message); freeSmear(); QCFG.smear = false; }
+  });
+  /* motion 0..1 from what ACTUALLY happened to the camera between frames — rotation first,
+   * travel second. Both from DELTAS, never from intent, so a turn stopped by the pitch clamp or a
+   * run into a wall smears nothing, because nothing moved.
+   *
+   * ⚑ MEASURED PER FRAME, NOT PER SECOND, and that correction came out of the measurement rather
+   *   than out of the theory. The first cut divided by dt to get rad/s — and `game.step` is fed
+   *   `min(0.05, dt)`, so under software GL at 3 fps the smear was reading an EIGHTFOLD
+   *   overstated turn rate off a clamped clock. The fix is not a better dt: it is that dt does not
+   *   belong here at all. THE EXPOSURE IS THE FRAME. What smears an image is how far it moved
+   *   while the shutter was open, and the shutter is open for exactly one frame — so the physical
+   *   quantity is displacement per frame, and there is nothing to divide by.
+   * ⚠ The honest consequence, stated rather than hidden: at a lower frame rate the same real turn
+   *   smears MORE, because the exposure really is longer. That is what a camera does — and it is
+   *   why the reference values below are written as rates ÷ 60: the derivation is in rad/s and
+   *   m/s, the use is per frame.
+   * ⚑ AND IT IS BOUNDED, by a number that was already here. `ADAPT.hi` is 21 ms, so a machine
+   *   whose median frame sits above that climbs the quality ladder, and step 2 FREES THIS PASS
+   *   ENTIRELY. The smear therefore only ever runs on machines holding better than ~48 fps, i.e.
+   *   within 1.26× of the 60 Hz the references are written in. The frame-rate dependence cannot
+   *   run away, because the thing it would run away on has already given the feature up.
+   * ⚠ WHICH IS ALSO WHY THE TRAVEL TERM CANNOT BE MEASURED IN THIS CONTAINER. `game.step` is fed
+   *   `min(0.05, dt)`, and under software GL every frame hits that clamp — so the player advances
+   *   0.05 s of sim per frame, 3× a 60 Hz step, and walking alone saturates `vel`. The rotation
+   *   term measures correctly (it is driven from the camera, not the clock) and lands on the
+   *   derivation to three figures; the travel term is stated analytically at 60 Hz instead:
+   *       walk 4.3 m/s → 0.0717 m/frame → vel 0.00 → mix 0.000
+   *       sprint 7.0   → 0.1167         → vel 0.51 → mix 0.154
+   *       boots 9.6    → 0.1600         → vel 1.00 → mix 0.303 */
+  const REF_HZ = 60;                                  // the frame rate the derivation above is in
+  function smearMotion() {
+    const G = game.G, c = game.cam, me = G.me;
+    if (!me || G.mode !== 'play') { SMEAR.seeded = false; return 0; }
+    if (!SMEAR.seeded) { SMEAR.seeded = true; SMEAR.yaw = c.yaw; SMEAR.pitch = c.pitch; SMEAR.px = me.x; SMEAR.py = me.y; SMEAR.pz = me.z; return 0; }
+    let dy = (c.yaw - SMEAR.yaw) % (Math.PI * 2);
+    if (dy > Math.PI) dy -= Math.PI * 2; if (dy < -Math.PI) dy += Math.PI * 2;
+    const dp = c.pitch - SMEAR.pitch;
+    SMEAR.yaw = c.yaw; SMEAR.pitch = c.pitch;
+    const dAng = Math.hypot(dy, dp);                                                  // rad this frame
+    const dPos = Math.hypot(me.x - SMEAR.px, me.y - SMEAR.py, me.z - SMEAR.pz);       // m this frame
+    SMEAR.px = me.x; SMEAR.py = me.y; SMEAR.pz = me.z;
+    const rot = clamp(dAng / (SMEAR.wRef / REF_HZ), 0, 1);
+    const vel = clamp((dPos - SMEAR.vLo / REF_HZ) / ((SMEAR.vHi - SMEAR.vLo) / REF_HZ), 0, 1);
+    return clamp(rot * SMEAR.wRot + vel * SMEAR.wVel, 0, 1);
   }
   buildPost();
 
@@ -1304,6 +1507,25 @@
   cam.addChild(muzzleLight);
   muzzleLight.enabled = false;
 
+  /* ⧗ THE BOOTS ARE A LIGHT TOO, and for the same reason: a jet is a fire, and a fire in a dark
+   * arena throws a moving pool on whatever you are over. Without it the plume is a sticker of a
+   * flame — the §1/§7 failure this studio has already been caught by once. ONE omni, only alive
+   * while burning, so it costs nothing at rest. It hangs under the CAMERA rather than in the
+   * mirrored world node because the camera is where the player's feet are, and the camera lives
+   * outside `worldMirror` on purpose (see applyCamera). Bots get the plume but not their own
+   * light: N moving shadowless omnis is exactly the per-fragment loop the tier work went to
+   * bound, and their jet is legible from its exhaust and its noise. */
+  const bootLight = new pc.Entity('boots');
+  bootLight.addComponent('light', { type: 'omni', color: new pc.Color(0.55, 0.92, 1.0), intensity: 0,
+    range: 7.5, castShadows: false, falloffMode: pc.LIGHTFALLOFF_INVERSESQUARED });
+  /* ⚠ NOT a child of the camera, and that is the whole trap. `muzzleLight` hangs off `cam`
+   * because a muzzle really is bolted to where you are looking — it must pitch with the gun.
+   * Boots are bolted to your FEET, so a camera-local offset would swing the flame out in front
+   * of you the moment you looked down. It goes on the root and is placed in engine coordinates
+   * every frame, mirrored on x exactly as the camera is (see applyCamera). */
+  app.root.addChild(bootLight);
+  bootLight.enabled = false;
+
   // ── input ───────────────────────────────────────────────────────────────────────────────────
   const K = game.keys, M = game.mouse, T = game.touch;
   let locked = false, wasLocked = false;
@@ -1427,7 +1649,11 @@
   let _fireTapT = 0;
   bindPad($('padFire'), () => { T.fire = true; const n = performance.now();
     if (n - _fireTapT < 300 && game.G.mode === 'play') game.startReload(game.G.me); _fireTapT = n; }, () => { T.fire = false; });
-  bindPad($('padJump'), () => { T.jump = true; }, null);
+  /* ⧗ TAP TO JUMP, HOLD TO BURN — the same two verbs the space bar has. `jump` is the one-shot
+   * the launch consumes; `jumpHold` is the pad still down, which is the only thing a touch device
+   * can offer in place of a held key. The release handler is now load-bearing: without it the
+   * boots would fire until the tank ran dry every time someone tapped. */
+  bindPad($('padJump'), () => { T.jump = true; T.jumpHold = true; }, () => { T.jumpHold = false; });
   bindPad($('padCrouch'), () => { T.crouch = true; }, () => { T.crouch = false; });
 
   function togglePause(force) {
@@ -1569,6 +1795,22 @@
     const sh = Math.min(G.shake, 14) * 0.008;
     if (sh > 0.0001) { jx = (Math.random() * 2 - 1) * sh; jy = (Math.random() * 2 - 1) * sh * 0.8; jz = (Math.random() * 2 - 1) * sh * 0.4; }
     cam.setPosition(-(c.x + jx), c.y + jy, c.z + jz);      // the camera lives outside the mirror
+    /* ⧗ The jet, placed at the player's own soles in engine coordinates — mirrored on x like the
+     * camera, and 0.12 BELOW the feet so the pool is thrown by a source under you rather than one
+     * inside your shins. Flickers, because a jet flickers; two incommensurate sines rather than
+     * one, so the eye cannot learn the loop — which is the §4 rule ("a loop the eye can learn is
+     * a screensaver") applied to a light instead of to a movement. */
+    {
+      const meB = G.me, burn = !!(meB && meB.burning && meB.alive);
+      bootLight.enabled = burn;
+      if (burn) {
+        bootLight.setPosition(-meB.x, meB.y - 0.12, meB.z);
+        /* `burnT` is why the sim tracks it: a jet takes a moment to come up to pressure, so the
+         * light ramps in over 0.12 s. A light that snaps to full is a switch, not a flame. */
+        const up = Math.min(1, (meB.burnT || 0) / 0.12);
+        bootLight.light.intensity = up * (5.0 + 1.6 * Math.sin(G.t * 47) * Math.sin(G.t * 31));
+      }
+    }
     {
       const me0 = G.me;
       const now = performance.now();
@@ -1687,6 +1929,17 @@
     if (ditherOn) { grainT = (grainT + 0.017) % 1000; app.graphicsDevice.scope.resolve('s9GrainT').setValue(grainT); }
     const G = game.G;
     if (G.mode === 'play' && !HOLD) game.step(Math.min(0.05, dt));
+    /* ⧗ MOTION SMEAR, once per frame and before anything draws. The order matters: measure what
+     * the camera did over the step that just ran, then hand the shader the mix it should use for
+     * the frame about to be composed. `motion × ceiling`, GfxPost's own scaling, capped at 0.85,
+     * and held at exactly 0 until the accumulation target has been written once. */
+    /* Allocated on the first PLAY frame, never in the lobby — a menu is not what this is for and
+     * a full-res target should not exist until a match does. */
+    if ((G.mode === 'play' || SMEAR.on) && ensureSmear()) {
+      SMEAR.motion = SMEAR.force >= 0 ? SMEAR.force : smearMotion();
+      SMEAR.amt = SMEAR.warm ? clamp(SMEAR.motion * SMEAR.ceiling, 0, SMEAR.cap) : 0;
+      app.graphicsDevice.scope.resolve('s9Smear').setValue(SMEAR.amt);
+    }
     if (G.mode === 'play' || G.mode === 'pause' || G.mode === 'result') {
       if (G.me) {
         syncBodies(G);
@@ -1720,7 +1973,8 @@
       (s ? (s.tris.toLocaleString() + ' tris · ' + s.parts + ' PBR mats · ' + cullN + '/' + (s.omni || 0) + ' omni lit · ' +
         (s.spot || 0) + ' spot (' + Math.min(levelFixtures.length, QCFG.spotShadow | 0) + ' cast) · ' +
         (QCFG.ssao ? 'ssao' : 'no ssao') + ' · sm ' + sun.light.shadowResolution + '×' + sun.light.numCascades + '<br>') : '') +
-      bodies.size + ' bodies · ' + (weaponAsset ? 'GLB weapon' : 'no weapon') + ' · ' + (frame ? 'post' : 'no post') + (ditherOn ? '+dither' : '') + (envOk ? ' · IBL' : '') + '<br>' +
+      bodies.size + ' bodies · ' + (weaponAsset ? 'GLB weapon' : 'no weapon') + ' · ' + (frame ? 'post' : 'no post') + (ditherOn ? '+dither' : '') +
+      (SMEAR.on ? '+smear ' + SMEAR.amt.toFixed(2) : '') + (envOk ? ' · IBL' : '') + '<br>' +
       '<b>' + med.toFixed(1) + ' ms</b> median (' + fps.toFixed(0) + ' fps) · p95 ' + p95.toFixed(1) + ' · worst ' + worst.toFixed(1) + ' ms';
   }
   if (Q.has('eng')) document.body.classList.add('showeng');
@@ -1792,6 +2046,8 @@
         alive: G.me.alive, x: +G.me.x.toFixed(2), y: +G.me.y.toFixed(2), z: +G.me.z.toFixed(2),
         yaw: +G.me.yaw.toFixed(3), pitch: +G.me.pitch.toFixed(3) } : null,
       ents: G.ents.length, bodies: bodies.size, weapon: !!weaponAsset, post: !!frame, dither: ditherOn, env: envOk, envName,
+      smear: { on: SMEAR.on, warm: SMEAR.warm, ceiling: SMEAR.ceiling, motion: +SMEAR.motion.toFixed(3), amt: +SMEAR.amt.toFixed(3) },
+      boots: G.me ? { burning: !!G.me.burning, boost: +G.me.boost.toFixed(3), vy: +G.me.vy.toFixed(2), onGround: !!G.me.onGround } : null,
       level: levelStats, fx: fx ? fx.counts : null,
       medianMs: +median(times).toFixed(2), p95Ms: +(times.slice().sort((a, b) => a - b)[Math.floor(times.length * 0.95)] || 0).toFixed(2),
       marks,
@@ -1804,6 +2060,21 @@
     _look(yaw, pitch) { const me = game.G.me; if (!me) return false; me.yaw = yaw; if (pitch != null) me.pitch = pitch;
       game.cam.yaw = yaw; if (pitch != null) game.cam.pitch = pitch; applyCamera(); return true; },
     _hold(v) { game.G.__hold = !!v; return !!game.G.__hold; },
+    /* ⧗ SMEAR PEEPHOLE. `_smear(x)` pins `motion` to x so the feedback can be measured against a
+     * known input instead of against whatever the camera happened to be doing; `_smear(-1)` hands
+     * it back to the camera. `_smear()` just reports. Same reason the post stack exposes its parts
+     * by name: measure ONE thing at a time on ONE loaded scene. */
+    _smear(force) { if (force != null) SMEAR.force = force < 0 ? -1 : clamp(force, 0, 1);
+      return { on: SMEAR.on, warm: SMEAR.warm, ceiling: SMEAR.ceiling, force: SMEAR.force,
+        motion: +SMEAR.motion.toFixed(4), amt: +SMEAR.amt.toFixed(4), w: SMEAR.w, h: SMEAR.h,
+        fmt: app.graphicsDevice.backBufferFormat, tier: QCFG.smear }; },
+    /* Free / restore the whole pass WITHOUT moving the quality ladder, so the cost of the blit can
+     * be measured against itself on one loaded scene instead of against a different tier. */
+    _smearPass(v) { QCFG.smear = !!v && QBASE.smear; if (!QCFG.smear) freeSmear(); return QCFG.smear; },
+    /* ⧗ BOOTS PEEPHOLE — hold the jet key for real, through the same flags a keyboard sets, so a
+     * headless run drives the mechanic rather than a private test path. */
+    _jet(v) { game.keys[' '] = !!v; return { held: !!v, boots: (game.G.me ? { burning: !!game.G.me.burning,
+      boost: +game.G.me.boost.toFixed(3), y: +game.G.me.y.toFixed(2), vy: +game.G.me.vy.toFixed(2) } : null) }; },
     _god() { const me = game.G.me; if (me) { me.iframe = 1e9; me.hp = me.maxHp; } },
     _hideui(v) { ['hudTL', 'hudTR', 'hudBL', 'hudBR', 'killfeed', 'comms', 'toggles', 'controls', 'eng'].forEach(id => { const e = $(id); if (e) e.style.visibility = v ? 'hidden' : ''; }); },
     _fwd() { const v = cam.forward; return [+v.x.toFixed(3), +v.y.toFixed(3), +v.z.toFixed(3)]; },

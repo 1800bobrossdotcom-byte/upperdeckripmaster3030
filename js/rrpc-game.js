@@ -112,14 +112,138 @@ window.RRGame = (function () {
     ZNEAR: 2.6,                // a diver may come this far past the formation plane
   };
 
+  // ── THE ASCENT: four tiers, and they are the reason the screen scrolls ───────────────────────
+  /* ⚑ THE VERTICAL SCROLL NEEDED A REASON, AND `docs/DELTRON-3030.md` HAD IT. "Rip Rocketer's
+   *   tiers are levels of an ascent" — you are climbing out of a corporate facility, and that is
+   *   why tier 1 and tier 4 must not look alike. "More levels" is a content answer; an ascent is a
+   *   structural one, and it is the one that makes the fourth tier feel EARNED rather than reskinned.
+   *
+   * ⚑ THE ASCENT IS LEGIBLE AS DENSITY FALLING AWAY, not as a palette swap. Tier I is a packed
+   *   sub-level; tier IV is open sky with a mast in it. That is a measurable progression (the
+   *   world's quad count per tier, see `__rrpc._tierScan()`), which a colour change is not.
+   * ⚠ A tier is FOUR waves and every fourth wave is the challenge wave, so a tier always ENDS on
+   *   the one stage where nothing shoots. That lull is the lift between floors — it was already in
+   *   the pacing and it is now doing narrative work for free.
+   * ⛔ No lyrics, no titles, no names — `docs/DELTRON-3030.md`'s hard rule. What is taken is the
+   *   SHAPE of the story (an ascent through a corporate structure), which is an idea, and ideas
+   *   are free. The tier names below are this studio's own words for its own building. */
+  const TIERS = [
+    { n: 1, name: 'SUB-LEVEL', fill: 0.94, hue: 26,  sky: 0.055, lamp: 0.10, rows: 'wide' },
+    { n: 2, name: 'ASSEMBLY',  fill: 0.80, hue: 150, sky: 0.075, lamp: 0.22, rows: 'ribbed' },
+    { n: 3, name: 'TOWER',     fill: 0.52, hue: 306, sky: 0.105, lamp: 0.22, rows: 'glass' },
+    { n: 4, name: 'OPEN AIR',  fill: 0.14, hue: 192, sky: 0.135, lamp: 0.06, rows: 'mast' },
+  ];
+  function tierOf(w) { return Math.min(4, 1 + (((w || 1) - 1) / 4 | 0)); }
+  function tierSpec(w) { return TIERS[tierOf(w) - 1]; }
+
   // ── enemy kinds ─────────────────────────────────────────────────────────────────────────────
   /* pts / dpts: parked vs DIVING. The ratio is the risk/reward statement — 3× for fighting the
    * thing that is actively trying to kill you. Galaga's own split is 50/100..800; ours is flatter
-   * because our dives are more frequent. */
+   * because our dives are more frequent.
+   *
+   * ⚑ "DIFFERENT TYPES OF PLANE SHIPS" — AND THE DESIGN QUESTION IS *HOW YOU TELL AT A GLANCE*.
+   *   The existing idiom is right and is extended rather than replaced: these are TRADING CARDS
+   *   that break formation and dive. So a type is not a different sprite with a different stat
+   *   block; it is a different PATH, and the silhouette is the promise of that path:
+   *
+   *     grunt    plain 2:3 card, face-on            curved swoop past you            (unchanged)
+   *     flanker  card + swept trailing fins         wide arc, crosses and returns    (unchanged)
+   *     ripper   card + magenta ring                stops, opens the tractor beam    (unchanged)
+   *     lancer   card carried EDGE-ON + a spike     no curve: a straight fast plunge
+   *     weaver   card + a permanent halo ring       slow sine descent, fires the whole way
+   *     hauler   card at 1.5× + a slung pod         crosses the top, drops straight down
+   *
+   *   `dive` names the path so the silhouette and the behaviour cannot drift apart — a type with
+   *   swept fins that flies straight is a lie the player only learns by dying.
+   * ⚑ AND THE *WHEN* IS A WIND-UP, NOT A LABEL. See `WIND_T`: before any dive the card rears back
+   *   away from you and its aura ignites. A change is readable in peripheral vision; a colour you
+   *   have to have learned is not. `dsz` is the drawn size multiplier and lives here so the sim's
+   *   hit box and the renderer's quad cannot disagree — they used to share a literal `1.5`. */
   const KIND = [
-    { name: 'grunt',   hp: 1, pts: 50,  dpts: 160, fire: 1.0, sz: 0.42 },
-    { name: 'flanker', hp: 2, pts: 80,  dpts: 260, fire: 1.4, sz: 0.46 },
-    { name: 'ripper',  hp: 4, pts: 400, dpts: 900, fire: 1.6, sz: 0.62 },
+    { name: 'grunt',   hp: 1, pts: 50,  dpts: 160, fire: 1.0, sz: 0.42, dsz: 1.15, dive: 'swoop' },
+    { name: 'flanker', hp: 2, pts: 80,  dpts: 260, fire: 1.4, sz: 0.46, dsz: 1.15, dive: 'swoop' },
+    { name: 'ripper',  hp: 4, pts: 400, dpts: 900, fire: 1.6, sz: 0.62, dsz: 1.50, dive: 'swoop' },
+    { name: 'lancer',  hp: 2, pts: 110, dpts: 360, fire: 0.0, sz: 0.40, dsz: 1.15, dive: 'lance' },
+    { name: 'weaver',  hp: 3, pts: 140, dpts: 420, fire: 2.0, sz: 0.48, dsz: 1.15, dive: 'weave' },
+    { name: 'hauler',  hp: 6, pts: 320, dpts: 760, fire: 0.8, sz: 0.60, dsz: 1.45, dive: 'haul', drop: 1 },
+  ];
+  /* The wind-up. 0.34 s is long enough to read and short enough that it never reads as hesitation;
+   * the dive scheduler is unchanged, so the RATE of dives is what it always was — each one simply
+   * announces itself first. A winding enemy counts against `maxDive`, or the tell would silently
+   * raise the dive ceiling. */
+  const WIND_T = 0.34;
+
+  // ── THE FACILITY: the scrolling world, and the guns bolted to it ─────────────────────────────
+  /* ⚑ THE SCROLL BELONGS TO THE SIMULATION, NOT THE RENDERER, and moving it here is the change
+   *   that makes bases possible at all. It used to live in `rrpc-app.js` as `scrollRate()`, which
+   *   was fine while the only thing it moved was the starfield — but an emplacement is a GAMEPLAY
+   *   object that arrives on the scroll, and a gameplay object cannot be positioned by a render
+   *   quantity computed at frame rate. One clock, stepped on the fixed 1/120 s tick, and the wall,
+   *   the guns and the motes can no longer disagree about how fast the world is going past.
+   *
+   * ⚑ AND THE CLIMB IS SIGNED NOW. `scrollRate` used `Math.abs(s.vy)`, so DIVING sped the world up
+   *   exactly as much as climbing did — which is backwards for an ascent and is why the old field
+   *   read as wallpaper with a speed knob. Pull up and the wall runs; push down and it eases. That
+   *   is the §4 answer for the whole backdrop: it moves because YOU are climbing it.
+   * ⚠ The flight model is NOT touched by any of this — `SHIP` is untouched, and the scroll reads
+   *   `s.vy` without ever writing it. The artist's "good otherwise in fluidity" is the movement,
+   *   and the movement is exactly what must not move. */
+  const SCROLL_BASE = 4.2;      // world units/s at the facade's depth, at k = 1
+  const EZ = -12;               // the facade plane. Emplacements live ON it, at its depth.
+  const ETOP = 11.5, EBOT = -11.5;
+
+  /* ⛔ TURRETS TRACK, THEN *STOP*, THEN FIRE WHERE THEY STOPPED. THEY DO NOT LEAD.
+   *
+   * The design question was "turrets that track and lead, or turrets that spray?" and the answer
+   * falls out of what already exists: `eFire` already fires with partial lead, from DIVERS. A diver
+   * is mobile, intelligent pressure that comes to you. A turret is fixed. If a fixed gun also led
+   * you, it would be strictly worse than a diver — unavoidable, arriving from a place you cannot
+   * choose to be away from, and punishing the same skill the divers already punish.
+   *
+   * ⚑ So an emplacement is a hazard with RHYTHM rather than intent, which is the Metal Slug idea:
+   *   the LEVEL is dangerous, separately from the enemies in it. The cycle is visible in the
+   *   geometry — the barrel swings to your bearing (track), stops dead and charges (lock), then
+   *   throws a fixed fan down that bearing (fire). The counter is "be somewhere else by then",
+   *   which is the same lesson the divers teach, so the game teaches ONE lesson twice instead of
+   *   two lessons once.
+   * ⚑ IT IS AN OPPORTUNITY, NOT A TAX. Emplacements are destructible, worth points, and they
+   *   scroll away if ignored. Clear every gun on a site and it drops a power-up.
+   * ⚠ THEY SHARE `spec.maxEB`. The live-enemy-fire ceiling was designed as a budget, not a nerf —
+   *   adding a second source of bullets outside it would have silently doubled the wall it exists
+   *   to cap. A turret shot suppressed by the budget is simply not taken. There is a second, small
+   *   cap on turret-origin bolts as well, so a wall of guns cannot crowd the divers out of it. */
+  const EMPK = [
+    /* w/h are the mount plate in world units at EZ. `warn` is the lock-and-charge window: the tell.
+     * `spread` is the beaten zone's HALF-WIDTH IN WORLD UNITS at the aim point — see empFire. */
+    { name: 'sentry', hp: 2,  pts: 90,  w: 0.72, h: 0.60, len: 0.78, track: 0.42, warn: 0.42, burst: 1, spread: 0.00, cd: 1.9, hue: 44 },
+    { name: 'gun',    hp: 4,  pts: 150, w: 1.05, h: 0.80, len: 1.02, track: 0.52, warn: 0.62, burst: 3, spread: 0.55, cd: 2.7, hue: 32 },
+    { name: 'flak',   hp: 7,  pts: 260, w: 1.45, h: 1.05, len: 1.20, track: 0.62, warn: 0.86, burst: 5, spread: 1.50, cd: 3.6, hue: 12 },
+    /* the CORE has no gun. It is the thing a base is built around, it is worth clearing, and it is
+     * the only emplacement that cannot hurt you — so a base always contains one honest reward. */
+    { name: 'core',   hp: 12, pts: 700, w: 1.7,  h: 1.7,  len: 0,    track: 0,    warn: 0,    burst: 0, spread: 0,    cd: 0,   hue: 168 },
+  ];
+  const TBOLT_V = 13.5;         // faster than EBOLT_V: it has 12 units of depth to cross first
+  const EMP_CAP = 4;            // turret-origin bolts alive at once, inside the global maxEB
+
+  /* A SITE is what actually spawns: a lone gun, a nest of two, or a BASE — a core with guns around
+   * it. Offsets are in world units on the facade. Kept as data so a tier's character is a table
+   * edit rather than a code branch. */
+  const SITES = {
+    lone:  [{ k: 0, dx: 0, dy: 0 }],
+    pair:  [{ k: 0, dx: -1.9, dy: 0.3 }, { k: 0, dx: 1.9, dy: -0.3 }],
+    post:  [{ k: 1, dx: 0, dy: 0 }],
+    twin:  [{ k: 1, dx: -2.3, dy: 0 }, { k: 1, dx: 2.3, dy: 0 }],
+    heavy: [{ k: 2, dx: 0, dy: 0 }],
+    base:  [{ k: 3, dx: 0, dy: 0 }, { k: 1, dx: -2.6, dy: -1.4 }, { k: 1, dx: 2.6, dy: -1.4 }],
+    fort:  [{ k: 3, dx: 0, dy: 0.4 }, { k: 2, dx: -3.0, dy: -1.2 }, { k: 1, dx: 3.0, dy: -1.2 }, { k: 0, dx: 0, dy: -2.6 }],
+  };
+  /* Which sites a tier builds. The ascent again: the sub-level is thick with light guns, the tower
+   * is sparser and heavier, and OPEN AIR has almost nothing — a mast and one lonely nest. */
+  const TIER_SITES = [
+    ['lone', 'lone', 'pair', 'post'],
+    ['post', 'pair', 'twin', 'base'],
+    ['twin', 'heavy', 'base', 'post'],
+    ['lone', 'heavy', 'fort'],
   ];
 
   // ── THE SHIP ────────────────────────────────────────────────────────────────────────────────
@@ -244,6 +368,9 @@ window.RRGame = (function () {
               dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0,
               flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0 },
       enemies: [], bullets: [], ebullets: [], pops: [], beams: [], pows: [],
+      /* THE FACILITY. `scroll` is world distance climbed at the facade's depth; `scrollK` is the
+       * multiplier the renderer's motes and parallax share, so nothing can drift out of step. */
+      emps: [], scroll: 0, scrollK: 1, scrollV: 0, surge: 0, tier: 1, nextSite: 14, siteId: 0,
       chain: 0, mult: 1, bestChain: 0, bombs: 1,
       shots: 0, hits: 0, waveShots: 0, waveHits: 0,
       shake: 0, flash: 0, dist: 0,
@@ -272,9 +399,10 @@ window.RRGame = (function () {
    * measure the same quantity instead of two different ones. */
   function newStat() {
     return { threatEvents: 0, dives: 0, ebullets: 0, waves: 0, peakEnemies: 0, subSteps: 0,
-      deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0,
+      deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0, dByTurret: 0,
       vulnT: 0, invT: 0, deadT: 0, shieldHits: 0, rolls: 0, dashes: 0, shocks: 0,
-      overdrives: 0, odT: 0, bestFlow: 0, bulletsCleared: 0 };
+      overdrives: 0, odT: 0, bestFlow: 0, bulletsCleared: 0,
+      sites: 0, emps: 0, empKills: 0, empShots: 0, sitesCleared: 0 };
   }
   const invuln = s => s.inv > 0 || s.iframe > 0;
 
@@ -332,12 +460,37 @@ window.RRGame = (function () {
       maxEB: bonus ? 0 : Math.min(22, 6 + (w - 1) * 1.15),
       speed: Math.min(2.5, 1 + (w - 1) * 0.075),
       ripper: !bonus && w >= 2,
+      /* ⚑ THE LEVEL'S OWN DIFFICULTY DIAL, AND IT IS A DISTANCE, NOT A RATE. `empGap` is how much
+       * of the facility passes between gun sites; it tightens with the wave and, like every other
+       * ceiling in this table, it deliberately does NOT bottom out by wave 10 — the comment above
+       * exists because that is precisely how the old escalation died. 26 units at wave 1 (about six
+       * seconds of climb) down to 9 at wave 25.
+       * ⛔ Zero on a challenge wave. The bonus stage's whole promise is that nothing can hurt you,
+       *    and a wall gun is something that can hurt you. */
+      empGap: bonus ? 0 : Math.max(9, 26 - (w - 1) * 0.72),
+      /* which of the new types are flying yet — see KIND. Tier I is deliberately UNCHANGED from
+       * what was measured: grunts, flankers and the ripper, nothing else. */
+      tier: tierOf(w),
     };
+  }
+
+  /* ⚑ WHO IS IN THE FORMATION, BY TIER — and tier I is untouched on purpose. Waves 1–4 build the
+   * exact roster that was measured and tuned (grunts, a tougher back row, the ripper); the new
+   * types are the ASCENT's escalation, so they arrive as you climb out of the sub-level rather
+   * than as a difficulty patch applied to the opening. Each entry is [kind, share of the row]. */
+  function rosterFor(tier, row, rng) {
+    if (row === 0) return 1;                                     // back row is always tougher
+    if (tier >= 2 && row === 3 && rng() < 0.42) return 3;         // lancers hang off the front edge
+    if (tier >= 3 && row === 2 && rng() < 0.30) return 4;         // weavers mid-grid
+    if (tier >= 4 && row === 1 && rng() < 0.22) return 5;         // haulers in the second rank
+    if (row === 1 && rng() < 0.35) return 1;
+    return 0;
   }
 
   function buildWave(G) {
     const w = G.wave, spec = waveSpec(w);
     G.spec = spec;
+    G.tier = spec.tier;
     G.phase = spec.bonus ? 'bonus' : 'entry';
     G.phaseT = 0; G.waveT = 0;
     G.enemies.length = 0; G.ebullets.length = 0; G.beams.length = 0;
@@ -355,16 +508,13 @@ window.RRGame = (function () {
       const squad = (i / 5) | 0;
       const side = (squad % 2) ? 1 : -1;
       let kind = 0;
-      if (!spec.bonus) {
-        if (row === 0) kind = 1;                         // the back row is tougher: shooting into
-        else if (row === 1 && rng() < 0.35) kind = 1;    // the formation should get harder, not easier
-      }
+      if (!spec.bonus) kind = rosterFor(spec.tier, row, rng);
       const e = {
         id: i, col, row, kind, hp: KIND[kind].hp, state: 'entry',
         x: 0, y: 0, z: 0, u: 0, dur: 1.35 + rng() * 0.4, delay: squad * 0.42 + (i % 5) * 0.075,
         path: null, roll: 0, pitch: 0, spin: (rng() * 2 - 1) * 3.4, tumble: rng() * TAU,
         fireT: 0.6 + rng() * 0.9, hue: (G.market.hue + i * 13) % 360, art: i % 14,
-        dived: 0, holds: null,
+        dived: 0, holds: null, wind: 0, windT: 0,
       };
       entryPath(G, e, side, rng);
       G.enemies.push(e);
@@ -376,10 +526,24 @@ window.RRGame = (function () {
       const mid = G.enemies.find(e => e.row === 0 && e.col === (F.COLS >> 1)) || G.enemies[0];
       if (mid) { mid.kind = 2; mid.hp = KIND[2].hp; G.ripper = mid; }
     }
+    /* ⛔ A CHALLENGE WAVE PROMISES THAT NOTHING CAN HURT YOU, AND A WALL GUN CAN HURT YOU. `empGap`
+     *    is already 0 so nothing new arrives, and `spec.eFire` is 0 so nothing can start tracking —
+     *    but a turret already holding a lock would get one shot off across the boundary. Stand them
+     *    down explicitly rather than relying on two other numbers to happen to cover it. */
+    if (spec.bonus) for (const e of G.emps) { e.state = 'idle'; e.fireT = 99; e.angV = 0; }
+    else for (const e of G.emps) if (e.fireT > 90) e.fireT = 0.8;
     G.stat.waves++;
     G.ev.push('wave');
-    G.bigMsg = spec.bonus ? 'CHALLENGE ·  N O   S H O O T I N G' : 'WAVE ' + w;
-    G.bigMsgT = 1.6;
+    /* ⚑ THE FLOOR IS ANNOUNCED, AND THAT IS THE INTERLUDE DOING WORK. `docs/DELTRON-3030.md` idea 1
+     * — "the interstitials carry the world; treat dead time as inventory" — and the wave-clear
+     * banner is the deadest time this game has. Reaching a new tier is the only moment the ascent
+     * is a fact rather than a background, so it gets the banner and the wave number stands aside. */
+    const newTier = spec.tier !== G.lastTier;
+    G.lastTier = spec.tier;
+    G.bigMsg = spec.bonus ? 'CHALLENGE ·  N O   S H O O T I N G'
+      : newTier ? ('TIER ' + ['I', 'II', 'III', 'IV'][spec.tier - 1] + ' · ' + TIERS[spec.tier - 1].name)
+      : 'WAVE ' + w;
+    G.bigMsgT = newTier && !spec.bonus ? 2.2 : 1.6;
   }
 
   function entryPath(G, e, side, rng) {
@@ -394,19 +558,62 @@ window.RRGame = (function () {
     e.u = 0;
   }
 
+  /* ⚑ THE WIND-UP — THE ANSWER TO "HOW DOES THE PLAYER TELL WHICH ONE IS ABOUT TO DIVE".
+   * A card that is about to commit REARS BACK: it pulls away from you along −z, squares up
+   * face-on, and its aura ignites. So for a third of a second it gets visibly SMALLER and
+   * BRIGHTER, and then it comes. A change is readable in peripheral vision; a badge you have to
+   * have learned is not — and the studio's whole subject is anticipation, which is this exact
+   * shape: the pull, then the snap. It costs one state and it upgrades every enemy type at once. */
+  function windUp(G, e) {
+    e.state = 'wind'; e.windT = WIND_T; e.wind = 0;
+    e.wx = e.x; e.wy = e.y; e.wz = e.z;
+    G.ev.push('wind');
+  }
+
   function divePath(G, e, rng) {
     /* A dive has to threaten the SHIP, not the middle of the screen. c1 pulls hard toward the
      * player's current x and TOWARD THE CAMERA (positive z) — the near-miss where a card fills the
      * frame is the single most "on acid" thing this game does and it is worth aiming for
      * explicitly. c2 overshoots past the ship so the exit is a flyby, not a stop. */
     const px = G.ship.x, sgn = Math.sign(px - e.x) || (rng() < 0.5 ? -1 : 1);
-    const wide = 1.4 + rng() * 2.2;
-    const c1x = px + sgn * -wide, c1y = 1.2 - rng() * 2.4, c1z = F.ZNEAR * (0.5 + rng() * 0.5);
-    const c2x = px + sgn * wide * 0.7, c2y = F.SHIPY + (rng() * 1.4 - 0.5), c2z = 0.4 + rng() * 1.2;
-    const ex = px + sgn * (2.5 + rng() * 4), ey = -7.5, ez = -1 + rng() * 3;
+    const style = KIND[e.kind].dive;
+    let c1x, c1y, c1z, c2x, c2y, c2z, ex, ey, ez, dur;
+    if (style === 'lance') {
+      /* ⚑ THE LANCER DOES NOT CURVE. It squares up over your column and falls straight through it,
+       * fast, without firing — a thrown blade rather than a fighter. The threat is entirely
+       * POSITIONAL, so it is the one type you answer by moving sideways rather than by shooting,
+       * and its edge-on silhouette says so before it starts. */
+      const lx = px + (rng() * 1.2 - 0.6);
+      c1x = lx; c1y = e.y - 2.2; c1z = e.z * 0.5;
+      c2x = lx; c2y = F.SHIPY + 1.2; c2z = 0.15;
+      ex = lx; ey = -8.2; ez = 0.4;
+      dur = (0.92 + rng() * 0.16) / G.spec.speed;
+    } else if (style === 'weave') {
+      /* THE WEAVER slides down slowly on a wide S and fires the whole way. It is suppression: it
+       * does not try to reach you, it tries to make a column expensive to stand in. */
+      const side = sgn;
+      c1x = px + side * 5.4; c1y = e.y - 1.4; c1z = 0.6;
+      c2x = px - side * 5.4; c2y = F.SHIPY + 2.4; c2z = 0.9;
+      ex = px + side * 2.4; ey = -7.8; ez = 0.2;
+      dur = (2.9 + rng() * 0.6) / G.spec.speed;
+    } else if (style === 'haul') {
+      /* THE HAULER comes in across the top, heavy and slow, and never reaches your altitude. You
+       * have time to kill it; the cost of ignoring it is what it drops on the way past. */
+      const side = e.x >= 0 ? 1 : -1;
+      c1x = -side * 3.0; c1y = e.y - 0.6; c1z = 1.2;
+      c2x = side * 3.0; c2y = e.y - 1.9; c2z = 1.4;
+      ex = -side * (F.X + 3.5); ey = e.y - 2.6; ez = -0.6;
+      dur = (3.2 + rng() * 0.5) / G.spec.speed;
+    } else {
+      const wide = 1.4 + rng() * 2.2;
+      c1x = px + sgn * -wide; c1y = 1.2 - rng() * 2.4; c1z = F.ZNEAR * (0.5 + rng() * 0.5);
+      c2x = px + sgn * wide * 0.7; c2y = F.SHIPY + (rng() * 1.4 - 0.5); c2z = 0.4 + rng() * 1.2;
+      ex = px + sgn * (2.5 + rng() * 4); ey = -7.5; ez = -1 + rng() * 3;
+      dur = (1.55 + rng() * 0.5) / G.spec.speed;
+    }
     e.path = [e.x, e.y, e.z, c1x, c1y, c1z, c2x, c2y, c2z, ex, ey, ez];
     e.u = 0;
-    e.dur = (1.55 + rng() * 0.5) / G.spec.speed;
+    e.dur = dur;
     e.state = 'dive';
     /* the first shot lands 0.4-0.7 s into the dive, not 0.2 — a diver shot down on approach should
      * not already have fired. It is what makes shooting the divers (the thing worth 3×) also the
@@ -609,6 +816,17 @@ window.RRGame = (function () {
     const s = G.ship;
     /* the live-fire budget. See waveSpec.maxEB. */
     if (G.spec && G.spec.maxEB) { let n = 0; for (const b of G.ebullets) if (b.live) n++; if (n >= G.spec.maxEB) return; }
+    /* ⚑ THE HAULER DROPS, IT DOES NOT AIM — and the silhouette said so before the code did. It
+     * carries a slung pod and it crosses the top of the screen without ever coming down to you, so
+     * an aimed shot from it would be a lie about what the pod is for. It releases straight down and
+     * the danger is entirely in WHERE IT IS, which is the only threat shape in the game you answer
+     * by leaving a column rather than by dodging a line. */
+    if (KIND[e.kind].drop) {
+      G.ebullets.push({ x: e.x + (G.rng() * 0.7 - 0.35), y: e.y - 0.3, z: e.z,
+        vx: 0, vy: -EBOLT_V * 0.62, vz: -e.z * 0.10, hue: e.hue, live: true, seen: false });
+      G.stat.ebullets++; G.ev.push('efire');
+      return;
+    }
     /* ⚠ LEAD IS SCALED BY THE SHIP'S TOP SPEED, NOT LEFT AT A CONSTANT. 0.55 was tuned against a
      * ship that moved 2.08 u/s; against a 9.6 u/s ship the same coefficient leads far enough ahead
      * that standing still becomes the correct dodge, which inverts the whole intent of the shot. */
@@ -619,6 +837,179 @@ window.RRGame = (function () {
       vz: dz / L * EBOLT_V, hue: e.hue, live: true, seen: false });
     G.stat.ebullets++;
     G.ev.push('efire');
+  }
+
+  // ── EMPLACEMENTS: the level shooting back ───────────────────────────────────────────────────
+  /* ⚑ THEY LIVE AT THE FACADE'S OWN DEPTH (z = EZ), NOT ON A BRACKET NEAR THE CAMERA, and that is
+   *   a deliberate call rather than a shortcut. A gun standing proud of the wall would parallax
+   *   against the wall as the world scrolled — it would visibly slide off its own mount, because a
+   *   perspective camera moves near things faster than far ones. Putting the gun ON the wall makes
+   *   the bookkeeping honest and buys two things for free: it is smaller on screen, so it reads as
+   *   part of the level rather than as an enemy; and its bolts travel 12 units of DEPTH toward you,
+   *   growing as they come, which is the clearest "this is aimed at YOU" cue this renderer has.
+   * ⚑ AND THE FORMATION SHIELDS THE LEVEL. Player bolts test the formation first and only reach an
+   *   emplacement if nothing was in the way, because a bolt dies on its first hit. So shooting the
+   *   wall means making a gap first — which is a real decision, and it is free: it is just what the
+   *   existing bullet loop already does, read in a new light. */
+  function spawnSite(G) {
+    const rng = G.rng, tier = G.tier;
+    const list = TIER_SITES[tier - 1];
+    const kind = list[(rng() * list.length) | 0];
+    const parts = SITES[kind];
+    const x = (rng() * 2 - 1) * (F.X + 1.2);
+    const id = ++G.siteId;
+    for (const p of parts) {
+      const K = EMPK[p.k];
+      G.emps.push({
+        id: id, n: parts.length, kind: p.k, x: clamp(x + p.dx, -(F.X + 2.4), F.X + 2.4), y: ETOP + p.dy, z: EZ,
+        hp: K.hp, hpMax: K.hp, hurt: 0, dead: 0,
+        /* ang is the barrel bearing, measured the way atan2 does — 0 = +x, −π/2 = straight down.
+         * It rests pointing out and slightly down, which is where a wall gun would sit idle. */
+        ang: -Math.PI / 2 + (rng() * 0.5 - 0.25), angV: 0, tgt: -Math.PI / 2,
+        /* ⚠ THE FIRST DELAY IS SHORT, AND IT HAS TO BE. A turret is only on screen for
+         * (17.5 units / scrollV) seconds, and scrollV runs from 4.2 at wave 1 to ~14 by wave 30 —
+         * so a wave-30 gun has about 1.25 s of visibility against a track-and-lock cycle of 1.1 s.
+         * Measured with the old 0.6–2.0 s idle delay: 400 emplacements spawned over a 300 s run and
+         * only 24 shots were fired, i.e. the level stopped shooting back exactly when the climb got
+         * fast. Meeting them sooner is the intended consequence of speed; meeting them ASLEEP is a
+         * bug that reads as the feature having been turned off. */
+        state: 'idle', t: 0, fireT: 0.10 + rng() * 0.40, recoil: 0, flash: 0,
+        seed: (rng() * 1e6) | 0,
+      });
+      G.stat.emps++;
+    }
+    G.stat.sites++;
+  }
+
+  function empFire(G, e) {
+    const K = EMPK[e.kind];
+    /* the GLOBAL live-fire budget first, then the turret-only one. Both are caps, not queues. */
+    if (G.spec && G.spec.maxEB) { let n = 0; for (const b of G.ebullets) if (b.live) n++; if (n >= G.spec.maxEB) return; }
+    let tb = 0; for (const b of G.ebullets) if (b.live && b.emp) tb++;
+    if (tb >= EMP_CAP) return;
+    /* ⛔ IT SHOOTS AT THE POINT IT MARKED, AND THE POINT IS IN *WORLD* SPACE. The first build froze
+     *    a BEARING instead, and against a still target it missed 41 shots out of 41 — measured, and
+     *    the cause is that the gun itself is scrolling. Between the lock and the shot the turret
+     *    falls two to eight units, so a bearing that was correct when it stopped is pointing well
+     *    below the target by the time it fires. Freezing the AIM POINT is immune to that, and it is
+     *    also the honest statement of the design: it fires at where you were standing, not at where
+     *    you are, and not at where it happened to be looking. `e.tgt` is re-derived from the marked
+     *    point every tick, so the barrel visibly holds its aim on that spot as the gun descends —
+     *    the elevation creeps up, which reads exactly like a gun that has picked its shot. */
+    const ax = e.aimX, ay = e.aimY;
+    /* ⚠ AIM FROM THE MUZZLE, NOT FROM THE MOUNT — and this was worth a measurement to find. The
+     *   first version placed the bolt at the barrel tip but computed its direction from the
+     *   turret's centre, which is the same ray displaced forward along itself: every shot then
+     *   OVERSHOT the marked point by exactly one barrel length. Against a ship that had not moved
+     *   at all, 31 tracked bolts arrived a median 0.75 units wide, and the error was in the
+     *   direction the gun was pointing — which is the signature of this bug and of no other. */
+    const mnx = ax - e.x, mny = ay - e.y, mnl = Math.hypot(mnx, mny) || 1e-4;
+    const nx = mnx / mnl, ny = mny / mnl;
+    const mx = e.x + nx * K.len, my = e.y + ny * K.len;
+    const bx = ax - mx, by = ay - my, bz = 0 - e.z;
+    const bl = Math.hypot(bx, by) || 1e-4;
+    /* ⛔ THE FAN IS A BEATEN ZONE AT THE TARGET, NOT AN ANGLE AT THE MUZZLE — and the first build
+     *    got this wrong in a way that made the whole system inert. `spread` was radians, so the
+     *    pattern's width was (angle × distance): from twelve units of depth away, a three-bolt fan
+     *    at 0.15 rad arrived nearly two units apart. Measured against a still ship: 41 shots, ZERO
+     *    hits, with the nearest bolt passing 0.38 units wide. Three separate near misses is not a
+     *    burst, it is three misses — and the difficulty silently varied with how far off to one
+     *    side the gun happened to have spawned, which is a thing the player cannot see or plan for.
+     *    `spread` is now the pattern's half-width IN WORLD UNITS at the aim point, so a gun's
+     *    beaten zone is the same size wherever it is standing. */
+    const px = -by / bl, py = bx / bl;           // perpendicular, in the facade's own plane
+    for (let i = 0; i < K.burst; i++) {
+      const off = (K.burst === 1) ? 0 : (i / (K.burst - 1) - 0.5) * 2 * K.spread;
+      const vx = bx + px * off, vy = by + py * off, vz = bz;
+      const L = Math.hypot(vx, vy, vz) || 1;
+      G.ebullets.push({ x: mx, y: my, z: e.z,
+        vx: vx / L * TBOLT_V, vy: vy / L * TBOLT_V, vz: vz / L * TBOLT_V,
+        hue: K.hue, live: true, seen: false, emp: 1 });
+      G.stat.ebullets++; G.stat.empShots++;
+    }
+    e.recoil = 1; e.flash = 1;
+    G.ev.push('tfire');
+  }
+
+  function killEmp(G, e) {
+    const K = EMPK[e.kind];
+    e.dead = 1;
+    G.pops.push({ x: e.x, y: e.y, z: e.z, boom: 1, t: 0, life: 0.7, hue: K.hue, big: e.kind >= 2 });
+    G.shake = Math.max(G.shake, e.kind >= 2 ? 11 : 4);
+    G.ev.push(e.kind >= 2 ? 'bigkill' : 'kill');
+    G.stat.empKills++;
+    award(G, K.pts, e.x, e.y, e.z, e.kind === 3);
+    /* CLEAR A WHOLE SITE and it pays out. This is the reward for engaging the LEVEL rather than
+     * only the formation — without it the wall is scenery you are allowed to shoot.
+     * ⚠ SHOT, not merely GONE. `dead = 2` is "scrolled off the bottom", and counting those would
+     *   pay out for killing the one gun of a base whose others simply left — a bonus for being
+     *   slow. `n` is the site's size, carried on every member so the pruning pass cannot lose it. */
+    let shot = 0;
+    for (const o of G.emps) if (o.id === e.id && o.dead === 1) shot++;
+    if (shot >= e.n) {
+      G.stat.sitesCleared++;
+      G.bigMsg = '▣ SITE CLEARED'; G.bigMsgT = 1.3;
+      const t = ['gun', 'rapid', 'shield', 'bomb'][(G.rng() * 4) | 0];
+      G.pows.push({ x: e.x, y: e.y, z: 0, vy: -3.0, type: t, live: true });
+      award(G, 600, e.x, e.y, e.z, true);
+    }
+  }
+
+  function stepEmps(G, h) {
+    const s = G.ship, spec = G.spec;
+    /* arrival is measured in SCROLL DISTANCE, never in seconds — so a site's spacing is a property
+     * of the building you are climbing, and speeding up means meeting them sooner rather than
+     * meeting more of them. */
+    if (G.phase !== 'bonus' && spec && spec.empGap && G.scroll >= G.nextSite) {
+      G.nextSite = G.scroll + spec.empGap * (0.72 + G.rng() * 0.56);
+      spawnSite(G);
+    }
+    let live = 0;
+    for (const e of G.emps) {
+      if (e.dead) continue;
+      live++;
+      e.y -= G.scrollV * h;
+      if (e.y < EBOT) { e.dead = 2; continue; }        // scrolled away — not a kill, no points
+      if (e.hurt > 0) e.hurt -= h;
+      if (e.flash > 0) e.flash = Math.max(0, e.flash - h * 6);
+      if (e.recoil > 0) e.recoil = Math.max(0, e.recoil - h * 5);
+      const K = EMPK[e.kind];
+      if (!K.burst) continue;                          // the core has no gun
+      e.t += h;
+      /* the visible band at the facade's depth: tan(21°)·(11.4+12) = 8.98 either side of the
+       * camera's y. Tracking a target from off screen would put the whole telegraph where nobody
+       * can read it, which is the one thing this design cannot afford. */
+      const onScreen = e.y < 8.5 && e.y > -9.0;
+      if (e.state === 'idle') {
+        e.fireT -= h;
+        if (e.fireT <= 0 && onScreen && s.alive && G.mode === 'play' && spec.eFire > 0) { e.state = 'track'; e.t = 0; }
+      } else if (e.state === 'track') {
+        /* it follows you, live and visibly — this is the half that says "it has seen you". */
+        e.aimX = s.x; e.aimY = s.y;
+        e.tgt = Math.atan2(s.y - e.y, s.x - e.x);
+        if (e.t >= K.track) { e.state = 'lock'; e.t = 0; }
+      } else if (e.state === 'lock') {
+        /* ⛔ AND THIS IS THE HALF THAT SAYS "IT HAS DECIDED". The aim point stops following you.
+         *    The barrel keeps pointing at that fixed point in the world while the gun itself falls
+         *    past it, so the elevation creeps and the player can read the marked spot off the
+         *    geometry alone. Everything needed is in the picture: a barrel that has stopped
+         *    following you is a barrel about to fire, at where you were. */
+        e.tgt = Math.atan2(e.aimY - e.y, e.aimX - e.x);
+        if (e.t >= K.warn) { empFire(G, e); e.state = 'cool'; e.t = 0; }
+      } else if (e.state === 'cool') {
+        if (e.t >= K.cd) { e.state = 'idle'; e.fireT = 0.1; }
+      }
+      /* THE TRAVERSE IS A SPRING WITH OVERSHOOT, not a lerp — the hero-wordmark rig's lesson, and
+       * for its reason: a servo slewing a mass settles, it does not glide. It is also the cheapest
+       * possible "this thing is mechanical". */
+      let d = e.tgt - e.ang;
+      while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU;
+      e.angV += d * 62 * h;
+      e.angV *= Math.pow(0.0009, h);
+      e.ang += e.angV * h;
+    }
+    G.empsLive = live;
+    if (G.emps.length > 40) G.emps = G.emps.filter(e => !e.dead);
   }
 
   // ── THE RIP ─────────────────────────────────────────────────────────────────────────────────
@@ -680,6 +1071,23 @@ window.RRGame = (function () {
     G.waveT += h; G.phaseT += h;
     G.dist += h * 44 * (1 + G.wave * 0.06);
     const spec = G.spec, rng = G.rng, s = G.ship;
+
+    /* ── THE CLIMB ─────────────────────────────────────────────────────────────────────────────
+     * ⚑ §4: the world moves because the ship is climbing it, and it moves FASTER when the player
+     *   climbs harder. `s.vy` signed, not `abs` — pulling up runs the wall, pushing down eases it.
+     *   Dash, roll and overdrive all pull the facility past you, which is the same surge the
+     *   starfield already had; what is new is that the building is on the same clock, so speed you
+     *   caused is visible in something with STRUCTURE rather than only in a field of dots.
+     * ⚠ Smoothed on the fixed tick, so it cannot stutter with the frame rate, and floored well
+     *   above zero: the vehicle is a rocket, and a rocket that can be brought to a stop by holding
+     *   ▼ is a lift. */
+    const want = (G.mode === 'play' && s.alive)
+      ? clamp(s.vy * 0.052 + (s.dash > 0 ? 1.5 : 0) + (s.od > 0 ? 0.85 : 0) + (s.rollT > 0 ? 0.5 : 0), -0.55, 3.0)
+      : 0;
+    G.surge += (want - G.surge) * Math.min(1, h * 7);
+    G.scrollK = Math.max(0.35, 1 + Math.min(2.4, G.wave * 0.12) + G.surge);
+    G.scrollV = SCROLL_BASE * G.scrollK;
+    G.scroll += G.scrollV * h;
 
     // ── ship ──
     if (!s.alive) {
@@ -773,6 +1181,10 @@ window.RRGame = (function () {
       if (e.state === 'form') {
         const want = Math.sin(G.waveT * 0.8 + e.id * 0.9) * 0.34;
         e.tumble += (want - e.tumble) * Math.min(1, h * 3.4);
+      } else if (e.state === 'wind') {
+        /* squaring up: the tumble eases to dead face-on, so the card is at its widest and
+         * brightest at the instant it commits. */
+        e.tumble += (0 - e.tumble) * Math.min(1, h * 9);
       } else {
         e.tumble += e.spin * h;
       }
@@ -796,10 +1208,20 @@ window.RRGame = (function () {
         e.roll = clamp(-_t.x * 0.055, -1.5, 1.5); e.pitch = clamp(_t.y * 0.03, -1, 1);
         /* one shot on the way in, at the bottom of the arc. Galaga's entry swarms shoot, and it
          * is what puts the first real threat inside two seconds instead of four. */
-        if (!e.entryShot && e.u > 0.34 && e.u < 0.62 && s.alive && rng() < 0.18 * spec.eFire) {
+        if (!e.entryShot && e.u > 0.34 && e.u < 0.62 && s.alive && KIND[e.kind].fire > 0 && rng() < 0.18 * spec.eFire) {
           e.entryShot = 1; eFire(G, e);
         }
         if (e.u >= 1) { e.state = 'form'; e.roll = 0; e.entryShot = 0; }
+      } else if (e.state === 'wind') {
+        /* the rear-back. It pulls away from you and drops a little, which is a real recoil shape:
+         * a thing loading up before it throws itself. The renderer reads `e.wind` for the flare. */
+        diving++;                                     // counts against maxDive — see WIND_T
+        e.windT -= h;
+        e.wind = clamp(1 - e.windT / WIND_T, 0, 1);
+        const k = Math.sin(e.wind * Math.PI * 0.5);
+        e.x = e.wx; e.y = e.wy + k * 0.30; e.z = e.wz - k * 1.15;
+        e.roll *= Math.pow(0.9, h * 60);
+        if (e.windT <= 0) { e.x = e.wx; e.y = e.wy; e.z = e.wz; e.wind = 0; divePath(G, e, rng); }
       } else if (e.state === 'form') {
         slotXYZ(G, e.col, e.row, _s);
         e.x = _s.x; e.y = _s.y; e.z = _s.z;
@@ -818,7 +1240,13 @@ window.RRGame = (function () {
         e.x = _v.x; e.y = _v.y; e.z = _v.z;
         e.roll = clamp(-_t.x * 0.04, -2.2, 2.2); e.pitch = clamp(_t.y * 0.02, -1.2, 1.2);
         e.fireT -= h;
-        if (e.fireT <= 0 && s.alive && e.y > s.y - 0.5) {
+        /* ⚠ `fire: 0` MEANS SILENT, AND divePath SEEDS fireT BEFORE THIS EVER READS IT. The lancer
+         * is defined as a type that does not shoot — its threat is entirely where it IS — but the
+         * first shot is scheduled by `divePath` for every kind alike, so without this guard it got
+         * exactly one free bolt off before `1/(0 * eFire)` = Infinity silenced it forever. One
+         * bullet from the type whose whole contract is "this one does not shoot" is worse than a
+         * type that shoots properly. */
+        if (e.fireT <= 0 && s.alive && e.y > s.y - 0.5 && KIND[e.kind].fire > 0) {
           e.fireT = 1 / (KIND[e.kind].fire * spec.eFire);
           eFire(G, e);
         }
@@ -852,10 +1280,13 @@ window.RRGame = (function () {
           /* the ripper only opens a beam if it has nothing already, you are alive, and the coin
            * lands — otherwise it dives like anything else. A guaranteed capture attempt every
            * appearance turns a gamble into a tax. */
+          /* ⚑ EVERY DIVE GOES THROUGH THE WIND-UP, INCLUDING THE RIPPER'S. `beamAt` is set here and
+           * survives the wind because `divePath` never touches it — so the tell comes first and
+           * the tractor run is announced exactly like everything else. */
           if (pick === G.ripper && !s.ripped && !s.dual && s.alive && rng() < 0.45) {
-            divePath(G, pick, rng);
             pick.beamAt = 0.45;                        // open the beam partway down the dive
-          } else divePath(G, pick, rng);
+            windUp(G, pick);
+          } else { pick.beamAt = null; windUp(G, pick); }
         }
       }
       // the ripper's mid-dive beam
@@ -910,6 +1341,23 @@ window.RRGame = (function () {
           else { b.live = false; break; }
         }
       }
+      /* ⚑ THE WALL IS SHOT WITH THE SAME GUN, and only by a bolt that got through. The formation
+       * is tested first and a bolt dies on its first hit, so an emplacement is reachable exactly
+       * when its column is clear — the level is shielded by the fleet standing in front of it.
+       * That is a real decision and it cost nothing to build: it is just the order of two loops. */
+      if (b.live && G.emps.length) {
+        for (const e of G.emps) {
+          if (e.dead) continue;
+          const K = EMPK[e.kind];
+          if (Math.abs(e.x - b.x) < K.w * 0.62 && Math.abs(e.y - b.y) < K.h * 0.75) {
+            e.hp -= b.dmg; e.hurt = 0.22;
+            hitScored(G);
+            if (e.hp <= 0) killEmp(G, e); else G.ev.push('ping');
+            if (b.pierce > 0) { b.pierce--; b.dmg *= 0.66; }
+            else { b.live = false; break; }
+          }
+        }
+      }
     }
     if (G.bullets.length > 90) G.bullets = G.bullets.filter(b => b.live);
 
@@ -925,13 +1373,24 @@ window.RRGame = (function () {
         if (d < 2.6 && b.vy < 0) { b.seen = true; G.stat.threatEvents++; }
       }
       if (b.y < -7 || Math.abs(b.x) > F.X + 4 || b.z > 5) { b.live = false; continue; }
+      /* ⚠ A TURRET BOLT IS TWELVE UNITS BEHIND THE PLAY PLANE WHEN IT IS FIRED, AND THE SHIP TEST
+       *   READS NO DEPTH AT ALL. Without this gate a bolt still deep in the world would hit you the
+       *   moment its x/y crossed yours — a death from something visibly far away, which is the
+       *   exact "unavoidable death you cannot see coming" the ram box was tightened for. The gate
+       *   is applied ONLY to emplacement bolts, so every existing hit box is byte-identical: a
+       *   diver's shot is aimed at z ≈ 0 and arrives there anyway. */
+      if (b.emp && Math.abs(b.z) > 0.9) continue;
       if (s.alive && !invuln(s)) {
         const rigs = s.dual ? [-0.62, 0.62] : [0];
         /* ⚠ THE HITBOX IS SMALLER THAN THE SHIP AND THAT IS DELIBERATE — Galaga's is too, and so is
          * every arcade shooter worth the name. The craft is drawn ~0.63 units wide; 0.26 is what
          * makes a near miss read as a near miss instead of as a lie. */
         for (const rx of rigs) {
-          if (Math.abs(b.x - (s.x + rx)) < 0.26 && Math.abs(b.y - s.y) < 0.30) { b.live = false; G.stat.dByShot++; hitShip(G); break; }
+          if (Math.abs(b.x - (s.x + rx)) < 0.26 && Math.abs(b.y - s.y) < 0.30) {
+            b.live = false;
+            if (b.emp) G.stat.dByTurret++; else G.stat.dByShot++;
+            hitShip(G); break;
+          }
         }
       }
     }
@@ -952,6 +1411,9 @@ window.RRGame = (function () {
         }
       }
     }
+
+    // ── the facility ──
+    stepEmps(G, h);
 
     // ── score pops ──
     for (const p of G.pops) { p.t += h; p.y += h * 1.1; }
@@ -1117,6 +1579,8 @@ window.RRGame = (function () {
     G.staked = !!staked; G.chain = 0; G.mult = 1; G.bestChain = 0; G.bombs = 1;
     G.shots = 0; G.hits = 0; G.dist = 0;
     G.bullets.length = 0; G.pops.length = 0; G.pows.length = 0;
+    G.emps.length = 0; G.scroll = 0; G.scrollK = 1; G.scrollV = SCROLL_BASE;
+    G.surge = 0; G.tier = 1; G.lastTier = 0; G.nextSite = 14; G.siteId = 0;
     G.captive = null;
     const shieldMax = SHIP.SHIELD + Math.max(0, Math.round((G.loadout.shield || 0) * 0.5));
     Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0,
@@ -1136,5 +1600,6 @@ window.RRGame = (function () {
   }
 
   return { create, start, step, fire, burn, dash: doDash, roll: doRoll, F, SHIP, KIND, GUNS,
-    waveSpec, multOf, slotXYZ, bez, bezT, mulberry32, shipTop, _selfCheck };
+    waveSpec, multOf, slotXYZ, bez, bezT, mulberry32, shipTop, _selfCheck,
+    TIERS, EMPK, tierOf, tierSpec, SCROLL_BASE, EZ, ETOP, EBOT, WIND_T };
 })();

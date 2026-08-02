@@ -7,44 +7,72 @@
 <meta name="description" content="The ripmaster3030studios arcade — fly Riprocketer, dogfight for the pot, and more. Every cabinet runs on your $3030 deck.">
 <meta name="theme-color" content="#02040a">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="mobile.css">
 <style>
   :root{ --lime:#2bff80; --cyan:#27f7e4; --magenta:#ff2ad9; --amber:#ffd23b; --coral:#ff6b57;
     --ink:#cdfff0; --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
   *{ margin:0; padding:0; box-sizing:border-box; }
   html,body{ min-height:100%; }
+  /* ⚠ 120px of bottom padding: banner.js pins a ~66px strip down there and the footer line
+     ("rip a pack" / "the deck") is the page's only exit besides the back link. */
   body{ font-family:var(--mono); color:var(--ink); background:radial-gradient(130% 100% at 50% -10%, #14042e 0%, #06030f 52%, #02040a 100%);
-    padding:24px 16px 60px; overflow-x:hidden; }
+    font-size:var(--t-body,14px); line-height:1.6;
+    padding:16px 16px 120px; overflow-x:hidden; }
   a{ color:inherit; text-decoration:none; }
   .wrap{ max-width:1000px; margin:0 auto; }
-  .top{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
-  .back{ font-size:12px; letter-spacing:.06em; color:#9fe6c8; } .back:hover{ color:var(--lime); }
+  .top{ display:flex; align-items:center; justify-content:space-between; gap:6px 12px; flex-wrap:wrap; margin-bottom:8px; }
+  .back{ font-size:var(--t-ui,12px); letter-spacing:.06em; color:#9fe6c8;
+    display:inline-flex; align-items:center; min-height:var(--tap,44px); padding:0 2px; }
+  .back:hover,.back:active{ color:var(--lime); }
   .tav{ display:flex; }
   .arcade-logo{ position:relative; width:min(760px,94vw); margin:18px auto 2px; }
   .arcade-logo img{ display:block; width:100%; height:auto; }
   .al-base{ mix-blend-mode:screen; }
   .al-over{ position:absolute; inset:0; mix-blend-mode:screen; opacity:.85; filter:drop-shadow(0 0 26px rgba(255,42,217,.35)); }
-  .sub{ text-align:center; font-size:12.5px; letter-spacing:.24em; text-transform:uppercase; color:var(--cyan); margin-bottom:24px; }
-  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; }
-  .cab{ position:relative; display:block; border-radius:16px; overflow:hidden; padding:20px 18px 18px; min-height:200px;
+  .sub{ text-align:center; font-size:var(--t-fine,12.5px); letter-spacing:.18em; text-transform:uppercase; color:var(--cyan); margin-bottom:24px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr)); gap:16px; }
+  /* ⚠ 96px of bottom padding, not 18: `.play` is absolutely positioned in the bottom-right and
+     was overlapping the description on a phone the moment the copy grew. The reserved strip is
+     part of the card's layout now, so the two cannot collide however long the text gets. */
+  .cab{ position:relative; display:block; border-radius:16px; overflow:hidden; padding:20px 18px 78px; min-height:200px;
     background:linear-gradient(180deg, rgba(10,20,30,.8), rgba(3,6,12,.92)); border:1px solid rgba(39,247,228,.28);
     box-shadow:0 10px 30px rgba(0,0,0,.5), inset 0 0 40px rgba(39,247,228,.05); transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
-  .cab:hover{ transform:translateY(-4px); border-color:rgba(39,247,228,.6); box-shadow:0 16px 40px rgba(0,0,0,.6), 0 0 30px rgba(39,247,228,.18), inset 0 0 40px rgba(39,247,228,.08); }
-  .cab.soon{ opacity:.72; } .cab.soon:hover{ transform:none; }
+  /* ⚑ THE LIFT WAS HOVER-ONLY, i.e. absent on the device the arcade is mostly opened on. The
+     touch equivalent is not a lift — you cannot hover a finger — it is the cabinet taking the
+     press: it settles a little and the edge lights up. Same feedback, right physics. */
+  .cab:hover,.cab:focus-visible{ transform:translateY(-4px); border-color:rgba(39,247,228,.6); box-shadow:0 16px 40px rgba(0,0,0,.6), 0 0 30px rgba(39,247,228,.18), inset 0 0 40px rgba(39,247,228,.08); }
+  .cab:active{ transform:translateY(1px) scale(.992); border-color:rgba(39,247,228,.75);
+    box-shadow:0 6px 16px rgba(0,0,0,.6), 0 0 30px rgba(39,247,228,.22), inset 0 0 40px rgba(39,247,228,.10); }
+  .cab.soon{ opacity:.72; } .cab.soon:hover,.cab.soon:active{ transform:none; }
   .ic{ font-size:40px; line-height:1; filter:drop-shadow(0 0 12px rgba(39,247,228,.5)); }
-  .nm{ font-family:var(--fat); font-size:20px; letter-spacing:.02em; margin:12px 0 4px; color:#eafff6; }
+  .nm{ font-family:var(--fat); font-size:clamp(18px,5vw,20px); letter-spacing:.02em; margin:12px 0 6px; color:#eafff6; }
   .nmlogo{ display:block; height:46px; width:auto; max-width:100%; margin:13px 0 5px;
     filter: drop-shadow(0 0 10px rgba(255,42,217,.5)) drop-shadow(0 2px 4px rgba(0,0,0,.65)); }
-  .tag{ font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); margin-bottom:8px; }
-  .dsc{ font-size:12.5px; line-height:1.55; color:#bfe9d3; }
-  .play{ position:absolute; right:16px; bottom:14px; font-family:var(--fat); font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:#031;
-    background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:1px solid #063; border-radius:8px; padding:7px 12px; box-shadow:0 3px 0 #063; }
+  .tag{ font-size:var(--t-tag,10px); letter-spacing:.14em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .dsc{ font-size:var(--t-body,12.5px); line-height:1.6; color:#bfe9d3; }
+  /* the chip keeps its corner — the whole cabinet is the link, so this is a label, not the
+     target — but it is a 44px label so a thumb that aims at it still works. */
+  .play{ position:absolute; right:18px; bottom:18px; display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--fat); font-size:var(--t-ui,12px); letter-spacing:.08em; text-transform:uppercase; color:#031;
+    background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); border:1px solid #063; border-radius:10px;
+    min-height:var(--tap,44px); padding:0 18px; box-shadow:0 3px 0 #063; }
   .cab.soon .play{ background:#1a2733; color:#7fd8a8; border-color:#2a3a48; box-shadow:0 3px 0 #12202c; }
-  .cab .rr{ position:absolute; top:12px; right:14px; font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--magenta); }
-  .foot{ text-align:center; font-size:11px; color:#7fd8a8; margin-top:26px; } .foot a{ color:var(--lime); }
+  .cab .rr{ position:absolute; top:12px; right:14px; font-size:var(--t-tag,9px); letter-spacing:.1em; text-transform:uppercase; color:var(--magenta); }
+  .foot{ text-align:center; font-size:var(--t-body,11px); color:#7fd8a8; margin-top:26px; line-height:1.9; }
+  .foot a{ color:var(--lime); display:inline-flex; align-items:center; justify-content:center;
+    min-height:var(--tap,44px); min-width:var(--tap,44px); padding:0 4px; }
 </style>
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
-  <script src="js/orient.js"></script>
+  <!-- ⛔ js/orient.js REMOVED FROM THIS PAGE, and it was the worst mobile bug on the site.
+       RipOrient self-initialises on load and shows a full-screen "TURN IT SIDEWAYS" veil on any
+       touch device in portrait. Every CABINET wants that — a first-person arena in a tall slot is
+       genuinely cramped. But this page is not a cabinet: it is the MENU, a scrolling column of
+       cards, which is the one shape a phone held upright is already perfect for. So opening the
+       arcade on a phone put a wall in front of a list, and the only way to read the list was to
+       turn the phone sideways and scroll a two-inch-tall window.
+       Verified by screenshot before this change (build/mobile/arcade.png at 390x844): the veil,
+       and nothing else. The ten game pages keep it — see the list in js/orient.js's callers. -->
 </head>
 <body>
   <div class="wrap">

@@ -7,6 +7,7 @@
 <meta name="description" content="A card and game studio. One hundred cards, each one a living lens. Play them in the arcade, keep them in the folder, watch them read the chain.">
 <meta name="theme-color" content="#04070c">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="mobile.css">
 <!--
   ripmaster3030studios — THE SHELL.
 
@@ -39,23 +40,38 @@
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html{background:var(--void);scroll-behavior:smooth}
-  body{font-family:var(--mono);color:var(--ink);overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+  body{font-family:var(--mono);color:var(--ink);overflow-x:hidden;-webkit-tap-highlight-color:transparent;
+       font-size:var(--t-body,14px);line-height:1.65}
   a{color:inherit}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(14px,3vw,28px)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 clamp(14px,3.6vw,28px)}
 
-  /* ── top bar: the site is one surface, so the nav is a rail not a menu ── */
+  /* ── top bar: the site is one surface, so the nav is a rail not a menu ──
+     ⚠ It already scrolled sideways (`overflow:auto`), which is the right shape — but the chips
+     were 26px tall and the last two sat OUTSIDE the viewport with nothing to say so. Now: 44px
+     chips, and the rail bleeds to the screen edge so a cut-off chip is the affordance. */
   .rail{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
         background:linear-gradient(180deg,rgba(4,7,12,.94),rgba(4,7,12,.72));
         border-bottom:1px solid var(--line)}
-  .rail .wrap{display:flex;align-items:center;gap:clamp(10px,2.4vw,26px);height:60px}
-  .brand{font-family:var(--fat);font-size:clamp(12px,1.7vw,15px);letter-spacing:.02em;
+  .rail .wrap{display:flex;align-items:center;gap:clamp(10px,2.4vw,26px);min-height:60px}
+  .brand{font-family:var(--fat);font-size:clamp(12px,3.4vw,15px);letter-spacing:.02em;
          text-transform:lowercase;color:var(--phos);text-decoration:none;white-space:nowrap;
+         display:inline-flex;align-items:center;min-height:var(--tap,44px);
          text-shadow:0 0 18px rgba(43,255,128,.45)}
   .brand b{color:var(--amber)}
-  .rail nav{display:flex;gap:clamp(8px,1.8vw,20px);margin-left:auto;overflow:auto}
-  .rail nav a{font-size:11px;letter-spacing:.16em;text-transform:uppercase;text-decoration:none;
-              color:#9fd9c8;white-space:nowrap;padding:6px 2px;border-bottom:2px solid transparent}
-  .rail nav a:hover{color:var(--cyan);border-bottom-color:var(--cyan)}
+  .rail nav{display:flex;gap:clamp(8px,2.6vw,20px);margin-left:auto;overflow-x:auto;
+            overscroll-behavior-x:contain;scrollbar-width:none;
+            margin-right:calc(-1 * clamp(14px,3.6vw,28px));padding-right:clamp(14px,3.6vw,28px)}
+  .rail nav::-webkit-scrollbar{display:none}
+  .rail nav a{font-size:var(--t-fine,11px);letter-spacing:.12em;text-transform:uppercase;text-decoration:none;
+              color:#9fd9c8;white-space:nowrap;padding:0 2px;border-bottom:2px solid transparent;
+              display:inline-flex;align-items:center;min-height:var(--tap,44px);flex:none}
+  .rail nav a:hover,.rail nav a:active,.rail nav a:focus-visible{color:var(--cyan);border-bottom-color:var(--cyan)}
+  @media (max-width:560px){
+    /* the brand is the same destination as #top and eats a third of the rail; below 560 the
+       nav gets the whole bar. The name is in the <title>, the h1 and the footer. */
+    .rail .brand{display:none}
+    .rail nav{margin-left:calc(-1 * clamp(14px,3.6vw,28px));padding-left:clamp(14px,3.6vw,28px)}
+  }
 
   /* ── hero: the object first ── */
   .hero{display:grid;grid-template-columns:1.15fr .85fr;gap:clamp(20px,4vw,54px);
@@ -64,43 +80,59 @@
      text-transform:uppercase}
   h1 .g{color:var(--phos);text-shadow:0 0 30px rgba(43,255,128,.4)}
   h1 .m{color:var(--acid);text-shadow:0 0 30px rgba(255,42,217,.4)}
-  .kick{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cyan);margin-bottom:14px}
-  .lede{margin-top:18px;font-size:clamp(13px,1.5vw,15px);line-height:1.75;color:#bfe3dd;max-width:52ch}
+  .kick{font-size:var(--t-fine,11px);letter-spacing:.22em;text-transform:uppercase;color:var(--cyan);margin-bottom:14px}
+  .lede{margin-top:18px;font-size:var(--t-lede,clamp(13px,1.5vw,15px));line-height:1.7;color:#bfe3dd;max-width:52ch}
   .lede b{color:var(--ink)}
   .cta{display:flex;flex-wrap:wrap;gap:11px;margin-top:26px}
-  .btn{font-family:var(--fat);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
-       text-decoration:none;padding:13px 20px;border-radius:11px;border:1px solid var(--line);
+  .btn{font-family:var(--fat);font-size:var(--t-ui,11px);letter-spacing:.1em;text-transform:uppercase;
+       text-decoration:none;padding:0 20px;min-height:var(--tap,44px);
+       display:inline-flex;align-items:center;justify-content:center;
+       border-radius:11px;border:1px solid var(--line);
        background:var(--panel);color:var(--ink);transition:transform .12s,box-shadow .12s}
-  .btn:hover{transform:translateY(-2px)}
+  .btn:hover,.btn:focus-visible{transform:translateY(-2px)}
+  /* the touch answer to a hover lift is a press — the button yields, it does not float up to
+     meet a pointer that does not exist */
+  .btn:active{transform:translateY(1px) scale(.985)}
   .btn.p{background:linear-gradient(180deg,#8bffbb,var(--phos) 58%,#0fae56);color:#02150a;border-color:#02150a;
          box-shadow:0 0 26px rgba(43,255,128,.35)}
   .btn.c{background:linear-gradient(180deg,#8ffff5,var(--cyan) 58%,#0d9c92);color:#02171a;border-color:#02171a;
          box-shadow:0 0 26px rgba(39,247,228,.3)}
   /* the live card — Card3D if the engine lands, the flat art if not */
+  /* ⚠ `touch-action:pan-y` — the same call the hero wordmark had to make (CLAUDE.md). The card
+     tilts to a pointer, and a finger IS a pointer, but a 510px-tall element that swallows drags
+     is one a phone cannot scroll past. Vertical passes through to the page; sideways tilts. */
   .heroCard{position:relative;aspect-ratio:2/3;width:min(100%,340px);margin-left:auto;
-            border-radius:4%;overflow:hidden;background:#080d14;
+            border-radius:4%;overflow:hidden;background:#080d14;touch-action:pan-y;
             box-shadow:0 30px 80px -20px #000,0 0 0 1px var(--line) inset,0 0 60px rgba(39,247,228,.10)}
+  /* the verb depends on the input, so say the right one rather than a generic one */
+  .heroTag .tc{display:none}
+  @media (hover:none){ .heroTag .pt{display:none} .heroTag .tc{display:inline} }
   .heroCard canvas,.heroCard img{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover}
   .heroTag{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:34px 6% 7%;
            background:linear-gradient(transparent,rgba(2,6,10,.92) 58%);
-           font-family:var(--fat);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
-  .heroTag small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.2em;
-                 color:var(--cyan);margin-top:5px;text-transform:uppercase}
+           font-family:var(--fat);font-size:var(--t-fine,11px);letter-spacing:.05em;text-transform:uppercase}
+  /* ⚠ "move your pointer" is a desktop instruction. On touch the card answers to a DRAG, which
+     is what the copy says below 840px — the affordance is the same object, the verb is not. */
+  .heroTag small{display:block;font-family:var(--mono);font-size:var(--t-tag,9px);letter-spacing:.14em;
+                 color:var(--cyan);margin-top:6px;text-transform:uppercase}
   @media (max-width:840px){ .hero{grid-template-columns:1fr} .heroCard{margin:0 auto} }
 
   /* ── the one-object strip: what a card IS, in four places ── */
   .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:6px 0 clamp(30px,5vw,58px)}
   .cell{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 15px}
-  .cell b{display:block;font-family:var(--fat);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
-          color:var(--amber);margin-bottom:7px}
-  .cell p{font-size:11.5px;line-height:1.65;color:#a9cfc9}
+  .cell b{display:block;font-family:var(--fat);font-size:var(--t-fine,11px);letter-spacing:.08em;text-transform:uppercase;
+          color:var(--amber);margin-bottom:8px}
+  .cell p{font-size:var(--t-body,11.5px);line-height:1.65;color:#a9cfc9}
   @media (max-width:760px){ .strip{grid-template-columns:repeat(2,1fr)} }
+  /* ⚠ Four cells of 16px prose in two columns is 84px per column on a 390px phone. Below 520
+     the strip is one column — a two-up grid that cannot fit a word is not a grid. */
+  @media (max-width:520px){ .strip{grid-template-columns:1fr} }
 
   /* ── sections ── */
   section{padding:clamp(30px,5vw,60px) 0;border-top:1px solid var(--line)}
-  h2{font-family:var(--fat);font-size:clamp(18px,3vw,28px);text-transform:uppercase;letter-spacing:.03em}
+  h2{font-family:var(--fat);font-size:var(--t-h2,clamp(18px,3vw,28px));text-transform:uppercase;letter-spacing:.03em;line-height:1.15}
   h2 span{color:var(--cyan)}
-  .sub{margin-top:9px;font-size:12.5px;line-height:1.7;color:#9fd9c8;max-width:62ch}
+  .sub{margin-top:12px;font-size:var(--t-body,12.5px);line-height:1.7;color:#9fd9c8;max-width:62ch}
 
   /* the card grid — collection design, which is what this studio actually is */
   .grid{display:grid;gap:clamp(10px,1.7vw,18px);margin-top:26px;
@@ -108,28 +140,32 @@
   .tile{position:relative;display:block;aspect-ratio:2/3;border-radius:11px;overflow:hidden;
         text-decoration:none;background:#0b1119;border:1px solid var(--line);
         transition:transform .14s,box-shadow .14s}
-  .tile:hover{transform:translateY(-4px);box-shadow:0 18px 40px -12px #000,0 0 0 1px var(--cyan) inset}
+  .tile:hover,.tile:focus-visible{transform:translateY(-4px);box-shadow:0 18px 40px -12px #000,0 0 0 1px var(--cyan) inset}
+  /* a card you press yields under the finger; it does not rise to meet it */
+  .tile:active{transform:translateY(1px) scale(.985);box-shadow:0 8px 20px -10px #000,0 0 0 1px var(--cyan) inset}
   .tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  .tile .chip{position:absolute;left:7px;top:7px;z-index:3;font-family:var(--fat);font-size:8px;
-              letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:6px;
+  .tile .chip{position:absolute;left:7px;top:7px;z-index:3;font-family:var(--fat);font-size:var(--t-tag,8px);
+              letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:6px;
               background:rgba(3,8,12,.85);color:var(--amber);border:1px solid var(--line)}
   .tile .nm{position:absolute;left:0;right:0;bottom:0;z-index:3;padding:22px 8% 8%;
-            font-family:var(--fat);font-size:10px;line-height:1.25;letter-spacing:.03em;
+            font-family:var(--fat);font-size:var(--t-fine,10px);line-height:1.25;letter-spacing:.02em;
             text-transform:uppercase;background:linear-gradient(transparent,rgba(2,6,10,.92) 58%)}
 
   /* the arcade — cabinets as cards, same language */
   .cabs{display:grid;gap:12px;margin-top:24px;grid-template-columns:repeat(auto-fill,minmax(min(250px,90vw),1fr))}
   .cab{display:block;text-decoration:none;background:var(--panel);border:1px solid var(--line);
        border-radius:14px;padding:18px;transition:transform .14s,box-shadow .14s}
-  .cab:hover{transform:translateY(-3px);box-shadow:0 16px 38px -14px #000,0 0 0 1px var(--phos) inset}
-  .cab .t{font-family:var(--fat);font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--phos)}
-  .cab .k{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin:6px 0 9px}
-  .cab .d{font-size:11.5px;line-height:1.65;color:#a9cfc9}
+  .cab:hover,.cab:focus-visible{transform:translateY(-3px);box-shadow:0 16px 38px -14px #000,0 0 0 1px var(--phos) inset}
+  .cab:active{transform:translateY(1px) scale(.99);box-shadow:0 8px 20px -12px #000,0 0 0 1px var(--phos) inset}
+  .cab .t{font-family:var(--fat);font-size:var(--t-h3,13px);text-transform:uppercase;letter-spacing:.04em;color:var(--phos)}
+  .cab .k{font-size:var(--t-tag,9px);letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin:7px 0 10px}
+  .cab .d{font-size:var(--t-body,11.5px);line-height:1.65;color:#a9cfc9}
 
-  footer{border-top:1px solid var(--line);padding:34px 0 60px;font-size:10.5px;line-height:2;
-         letter-spacing:.1em;color:#6fa79c;text-align:center}
-  footer a{color:var(--phos);text-decoration:none}
-  .nfa{margin-top:14px;color:var(--coral);letter-spacing:.16em;text-transform:uppercase;font-size:10px}
+  footer{border-top:1px solid var(--line);padding:34px 0 60px;font-size:var(--t-fine,10.5px);line-height:1.9;
+         letter-spacing:.06em;color:#7fbaad;text-align:center}
+  footer a{color:var(--phos);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;
+           min-height:var(--tap,44px);min-width:var(--tap,44px);padding:0 4px}
+  .nfa{margin-top:14px;color:var(--coral);letter-spacing:.12em;text-transform:uppercase;font-size:var(--t-fine,10px)}
 </style>
 <script src="/gate.js"></script>
 </head>
@@ -168,7 +204,7 @@
     </div>
     <div class="heroCard" id="heroCard">
       <img id="heroImg" alt="">
-      <div class="heroTag" id="heroTag">—<small>live lens · move your pointer</small></div>
+      <div class="heroTag" id="heroTag">—<small>live lens · <span class="pt">move your pointer</span><span class="tc">drag across it</span></small></div>
     </div>
   </div>
 
@@ -268,7 +304,8 @@
     const hero = list.find(c => c.number === 45) || list[0];
     const art = 'cards/' + hero.art;
     $('heroImg').src = art;
-    $('heroTag').innerHTML = hero.title + '<small>live lens · move your pointer</small>';
+    $('heroTag').innerHTML = hero.title +
+      '<small>live lens · <span class="pt">move your pointer</span><span class="tc">drag across it</span></small>';
 
     // the deck strip — first eight, straight from the same manifest the folder reads
     $('deckGrid').innerHTML = list.slice(0, 8).map(c => `

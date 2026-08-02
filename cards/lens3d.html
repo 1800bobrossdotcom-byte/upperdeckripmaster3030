@@ -229,6 +229,17 @@ function pushLayers() {
     const d = document.createElement('div');
     d.className = 'fl' + (L.fit === 'full' ? ' full' : '') + (L.blend === 'add' ? ' add' : '');
     d.style.backgroundImage = `url("${L.src}")`;
+    /* ⚑ A PLATE WITH A `rect` IS PLACED, NOT STRETCHED. `.fl`'s default is `inset:-5%` with
+     * background-size contain/cover — right for a full-bleed plate, and a lie for a trimmed
+     * cut-out, which is what every generated separation is. Card 42's title badge is 17% of the
+     * card wide; drawn at the face it spanned the whole top edge. The rect overrides all four
+     * offsets AND the sizing, so the box IS the plate and the image fills it exactly. */
+    if (L.rect) {
+      d.style.left = (L.rect[0] * 100) + '%';  d.style.top = (L.rect[1] * 100) + '%';
+      d.style.width = (L.rect[2] * 100) + '%'; d.style.height = (L.rect[3] * 100) + '%';
+      d.style.right = 'auto'; d.style.bottom = 'auto';
+      d.style.backgroundSize = '100% 100%';
+    }
     d.dataset.par = L.par;
     d.dataset.add = L.blend === 'add' ? '1' : '';
     d.dataset.op = L.opacity;

@@ -55,6 +55,19 @@
  *            hand is a drawing decision, so it is an authored number.
  *   fit      "art" (default, 0.90 of the face — inside the bevel) or "full" (0.99, edge to
  *            edge). A layer that parallaxes must not reveal its own edge: backgrounds go full.
+ *   rect     [x, y, w, h] as fractions of the card FACE, origin top-left — where this plate
+ *            actually sits. Absent = it fills the face, which is what an authored full-bleed
+ *            plate wants.
+ *            ⛔ REQUIRED FOR A TRIMMED CUT-OUT, and leaving it out does not fail, it LIES.
+ *            A plate cropped to its own ink — which is what every generated separation is, to
+ *            keep the PNGs small — drawn at the full face is that ink STRETCHED across the whole
+ *            card: a 17%-wide corner badge spread edge to edge, a face blown up to the card.
+ *            Measured on card 42 before this field existed: seven plates, all present, all 200,
+ *            z spanning the thickness, every check green, and a card that read as a smear.
+ *            Same family as the z-units trap — everything reports success.
+ *            ⚑ `rect` SUPERSEDES `fit`: a plate that says where it is does not also need to be
+ *            told how big the face is, so a rected layer is laid out against 0.99 (edge to edge)
+ *            and `fit` is ignored. `scale` still multiplies.
  *   scale    extra multiplier on the plate size, default 1.
  *   relief   0..1, how much the layer is embossed. Default 0 for every layer except the
  *            bottom-most, which gets 0.6. ⚠ Relief is a 512² CPU blur + Sobel PER LAYER; five
@@ -115,12 +128,23 @@
           drive = { gain: L.drive.gain, min: dmin, max: dmax,
                     rest: clamp(num(L.drive.rest, dmax), 0, 4) };
         }
+        /* A rect is four finite numbers with a real area. Anything else is dropped rather than
+         * repaired: a half-parsed rect would place the plate somewhere nobody authored, and
+         * "fills the face" is the honest fallback because it is what the layer meant before this
+         * field existed. Not clamped to 0..1 — a plate may legitimately bleed off the face. */
+        var rect = null;
+        if (Array.isArray(L.rect) && L.rect.length >= 4) {
+          var rx = num(L.rect[0], NaN), ry = num(L.rect[1], NaN),
+              rw = num(L.rect[2], NaN), rh = num(L.rect[3], NaN);
+          if (isFinite(rx) && isFinite(ry) && rw > 0 && rh > 0) rect = [rx, ry, rw, rh];
+        }
         out.push({
           id: (typeof L.id === 'string' && L.id) || ('l' + i),
           src: src,
           normal: abs(L.normal, base),
           z: z,
           par: num(L.par, 2 * z - 1),
+          rect: rect,
           fit: (L.fit === 'full') ? 'full' : 'art',
           scale: clamp(num(L.scale, 1), 0.2, 2),
           relief: clamp(num(L.relief, 0), 0, 1),

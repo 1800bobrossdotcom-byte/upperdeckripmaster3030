@@ -1,0 +1,94 @@
+{
+  "generator": "png23d",
+  "card": "49",
+  "source": "cards/art/hero/49.webp",
+  "size": {
+    "w": 683,
+    "h": 1024,
+    "aspect": 0.66699
+  },
+  "units": "rect is [x,y,w,h] as a fraction of the card, origin top-left. z is a fraction of card HEIGHT, +z toward the viewer.",
+  "method": "auto+text+inpaint",
+  "command": "node scripts/png23d.mjs cards/art/hero/49.webp --out models/cards --mode layers --cluster-above 0.95 --text-ground 0.12 --preview",
+  "note": "layer 0 is a full-frame opaque plate with the small foreground layers inpainted out of it; the rest are trimmed RGBA cut-outs. Array order is draw order, back to front — except in strata mode, where the planes alternate near/far but never overlap in x/y, so order does not matter. z ordering is a stated heuristic, not a depth measurement — edit it.",
+  "layers": [
+    {
+      "file": "layers/00-bg.png",
+      "name": "bg",
+      "kind": "background",
+      "z": 0,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": true,
+      "blend": "normal",
+      "coverage": 1,
+      "why": "the card itself, with every liftable layer inpainted out of it"
+    },
+    {
+      "file": "layers/01-ground.png",
+      "name": "ground",
+      "kind": "midground",
+      "z": 0.0405,
+      "rect": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.1271,
+      "why": "peel band 0 — 58px thick, so a ground rather than a border; stays at the back"
+    },
+    {
+      "file": "layers/02-subject.png",
+      "name": "subject",
+      "kind": "subject",
+      "z": 0.081,
+      "rect": [
+        0.03953,
+        0.0166,
+        0.91947,
+        0.96484
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.8192,
+      "why": "what the peel could not key"
+    },
+    {
+      "file": "layers/03-text.png",
+      "name": "text",
+      "kind": "text",
+      "z": 0.1215,
+      "rect": [
+        0.06003,
+        0.35449,
+        0.87848,
+        0.61328
+      ],
+      "opaque": false,
+      "blend": "normal",
+      "coverage": 0.0537,
+      "boxes": [
+        [
+          0.347,
+          0.3594,
+          0.0805,
+          0.042
+        ],
+        [
+          0.0673,
+          0.8428,
+          0.8624,
+          0.1191
+        ]
+      ],
+      "why": "2 detected text line(s)"
+    }
+  ]
+}

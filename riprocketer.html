@@ -27,6 +27,16 @@
   halves. The full before/after and the movement system it made room for — DASH, defence ROLL with
   i-frames, FLOW → OVERDRIVE, shields, pierce — are documented in js/rrpc-game.js's SHIP block.
 
+  ⛔ AND THEN IT WAS A GREAT SHIP IN AN EMPTY ROOM. Third verdict: "have the game scrolling up, like
+  we are slowly flying through levels and like metal slug, have bases and turrets, and different
+  types of plane ships." The vertical scroll needed a REASON, and docs/DELTRON-3030.md had it — the
+  tiers are an ASCENT, out of a corporate facility, which is why TIER I and TIER IV must not look
+  alike. Four floors: SUB-LEVEL · ASSEMBLY · TOWER · OPEN AIR, and the ascent is legible as DENSITY
+  FALLING AWAY (146 plates of facade down to 19) rather than as a palette swap. The facility is cut
+  from card stock and its guns are bolted to it; the full brief — material, light, motion, what it
+  sits on, and the acceptance numbers — is at the top of js/rrpc-app.js's THE FACILITY section, and
+  the simulation half (the climb, the emplacements, the new enemy types) is in js/rrpc-game.js.
+
   CONTROLS  ◀ ▶ ▲ ▼ fly · SPC fire (autofire is on) · SHIFT/K/Z defence roll · Q/E or a genuine
             double-tap of ◀ / ▶ dash · B burn · P pause. Touch: floating stick, FIRE, ROLL, BURN.
 
@@ -61,6 +71,9 @@
   .h-lives{ font-size:clamp(15px,3.8vw,21px); letter-spacing:2px; color:var(--amber); }
   .h-wave{ font-size:10.5px; letter-spacing:.08em; color:var(--cyan); margin-top:5px; text-transform:uppercase; }
   .h-wave b{ color:var(--magenta); }
+  /* the FLOOR you are on. It is the corporation labelling its own building, so it gets the house
+     voice: amber, fat, letter-spaced — see docs/DELTRON-3030.md §2 on the corporate/resistance split. */
+  .h-wave i{ font-style:normal; font-family:var(--fat); color:var(--amber); letter-spacing:.14em; }
   .h-wx{ font-size:10px; letter-spacing:.06em; color:#9fe6c8; margin-top:3px; text-transform:uppercase; }
   .h-wx b{ color:var(--magenta); } .h-wx .blk{ color:var(--amber); }
   .h-gun{ font-size:11px; letter-spacing:.06em; color:var(--amber); font-family:var(--fat); margin-top:4px; text-transform:uppercase; }
@@ -231,7 +244,9 @@
         <div><b>SHIELDS.</b> <i>◈◈◈</i>. A hit costs a pip, not a rig, and pips come back if you stay clean. Only a hit with no pips left takes a life.</div>
         <div><b>THE CHAIN.</b> Every hit raises it, every missed shot halves it. Up to <i>×6</i>. Hosing the screen is the losing strategy.</div>
         <div><b>THE RIP.</b> The magenta one opens a beam and steals your ship. Kill it <i>while it's diving</i> and you get the ship back alongside you — <i>DOUBLE RIG</i>, twice the guns. Kill it parked and your ship dies with it.</div>
-        <div><b>CHALLENGE WAVE</b> every fourth. Nothing shoots. Nothing can hurt you. Clear all sixteen for <i>PERFECT</i> — the only prize is having done it.</div>
+        <div><b>THE CLIMB.</b> You are flying <i>up</i> the outside of a facility, and it is four floors of it — <i>SUB-LEVEL</i>, <i>ASSEMBLY</i>, <i>TOWER</i>, <i>OPEN AIR</i>. Pull up and the wall runs faster past you. It gets emptier the higher you get.</div>
+        <div><b>THE WALL SHOOTS BACK.</b> Gun emplacements are bolted to it. A turret <i>tracks</i> you, then <i>stops</i> and glows gold — that is it deciding. It fires at where you were standing, so the answer is always <i>be somewhere else</i>. Shoot them for points; clear a whole base and it drops something.</div>
+        <div><b>CHALLENGE WAVE</b> every fourth. Nothing shoots — not the fleet, not the wall. Clear all sixteen for <i>PERFECT</i> — the only prize is having done it.</div>
       </div>
       <div class="keys-preview">
         <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> move</span><span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> rise</span>
@@ -240,7 +255,17 @@
         <span class="key desk"><kbd>SPC</kbd> fire</span>
         <span class="key touch">left thumb: stick · ROLL · hold FIRE</span>
       </div>
-      <div><button class="go" id="btnBurn">⚡ Pay 25 &amp; launch</button></div>
+      <!-- ⛔ "LAUNCH" IS DELIBERATELY NOT IN THE PAID BUTTON'S LABEL, and it is not a style choice.
+           `scripts/debug-games.mjs` drives every game by clicking the first button matching
+           /START|PLAY|LAUNCH|BEGIN/i. This one used to read "Pay 25 & launch", so the sweep clicked
+           the PAID path, `RipWallet.hasWallet()` returns true in a headless container, and the run
+           sat awaiting a treasury payment that never came — so every pixel statistic ever recorded
+           for RIP ROCKETER was of THIS HELP SCREEN at score 0. Verified: after the click, G.mode was
+           still 'gate' and #ovStart still `display:grid`. The free button now owns the word, the
+           sweep takes the practice path, and the numbers are of the game.
+           ⚠ It also matches `#btnAgain` ("Pay 25 & fly again"), so this is the more consistent
+           wording as well as the working one. Do not put "launch"/"play"/"start" back in here. -->
+      <div><button class="go" id="btnBurn">⚡ Pay 25 &amp; fly</button></div>
       <div><button class="go alt" id="btnPractice">▶ Practice launch (free)</button></div>
       <div class="mininote" id="startNote"></div>
       <div class="mininote" id="startNote2"></div>

@@ -118,8 +118,13 @@
     btn.textContent = muted ? '🔇' : '🔊';
     btn.title = muted ? 'SFX off — click for funny noises' : 'SFX on';
     btn.setAttribute('aria-label', 'toggle sound effects');
-    btn.style.cssText = 'position:fixed;left:12px;bottom:42px;z-index:130;width:40px;height:40px;border-radius:50%;' +
-      'border:1px solid #0f5c33;background:rgba(1,10,5,.82);color:#2bff80;font-size:17px;cursor:pointer;' +
+    /* 44x44 is the platform touch minimum and this is a thumb target in the worst corner of the
+     * screen for accuracy. `--rip-fab-bottom` is set by mobile.css (which raises it clear of
+     * banner.js's freshness strip); the 42px fallback is the historical position, so a page
+     * without that sheet is unchanged. */
+    btn.style.cssText = 'position:fixed;left:12px;bottom:var(--rip-fab-bottom,42px);z-index:130;' +
+      'width:44px;height:44px;border-radius:50%;display:grid;place-items:center;' +
+      'border:1px solid #0f5c33;background:rgba(1,10,5,.82);color:#2bff80;font-size:19px;cursor:pointer;' +
       'backdrop-filter:blur(4px);box-shadow:0 0 14px rgba(43,255,128,.25);line-height:1;padding:0';
     btn.onclick = () => setMute();
     (document.body || document.documentElement).appendChild(btn);
