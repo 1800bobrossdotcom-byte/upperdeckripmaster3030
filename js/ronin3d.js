@@ -358,6 +358,7 @@ window.Ronin3D = (function () {
   let _surf = -1;                                             // -1 auto · 0 ink · 1 foil · 2 emissive — RONIN-ART §1.1
   const surfOf = () => (_surf >= 0 ? _surf : (MAT_SURF[_mat | 0] || 0));
   let _flat = null;                                           // non-null → draw as a flat ink plate (the slip ghost)
+  let _nudge = null;                                          // world offset applied to a fighter matrix (slip ghosts)
   let meshVar = '';                                           // active per-fighter mesh-variant prefix
   function draw(rawName, model, color, emis, alpha) {
     const name = (meshVar && geo[meshVar + rawName]) ? meshVar + rawName : rawName;
@@ -403,8 +404,36 @@ window.Ronin3D = (function () {
      * ronin.js's collision is untouched by it. docs/RONIN-ART.md §1.3. */
     const ld = (softs[f.id] ? softs[f.id].land : 0);
     const sq = M.S(SC * (1 + ld * 0.11), SC * (1 - ld * 0.17), SC * (1 + ld * 0.11));
+    if (_nudge) pos = M.mul(M.T(_nudge[0], _nudge[1], _nudge[2]), pos);
     let fm = M.mul(M.mul(M.mul(pos, M.Ry(yaw)), M.Rz((f.rig && f.rig.bodyRot) || 0)), sq);
     return mirror ? M.mul(M.S(1, -1, 1), fm) : fm; }
+
+  /* ── THE REGISTRATION SLIP — the signature impact effect.  docs/RONIN-ART.md §3.1 ───────────
+   * The artist's lineage is hand-drawn work with DELIBERATELY CRUDE REGISTRATION. So when a
+   * fighter is struck his colour plates separate: a cyan ghost and a magenta ghost pull apart
+   * from the body and snap back over ~0.13 s. It is chromatic aberration confined to ONE OBJECT,
+   * fired by a hit — a printing failure, not a video-game glow, and it is the one impact effect
+   * in this brief that a default pipeline would never emit.
+   * ⛔ It must be on the struck body only. A full-screen aberration is a post-process everyone
+   *    has; a plate slip on the thing that was hit is a printed object being hit. */
+  const SLIP_LIFE = 0.13;
+  function slipAmt(f) {
+    if (!f || f.dead || f.state !== 'hurt') return 0;
+    const t = f.stT || 0;
+    return t > SLIP_LIFE ? 0 : 1 - t / SLIP_LIFE;
+  }
+  const SLIP_PLATES = [[[0.05, 1.0, 0.92], 1], [[1.0, 0.09, 0.70], -1]];
+  function drawPlateSlip(f) {
+    const k = slipAmt(f); if (k <= 0.002) return;
+    const d = 0.10 * k;
+    for (const pl of SLIP_PLATES) {
+      const s = pl[1];
+      _flat = { col: pl[0], a: 0.50 * k };
+      _nudge = [(camRight[0] + camUp[0] * 0.35) * d * s, (camRight[1] + camUp[1] * 0.35) * d * s, (camRight[2] + camUp[2] * 0.35) * d * s];
+      try { drawFighter(f, false); } catch (e) {}
+    }
+    _flat = null; _nudge = null;
+  }
 
   // a hand: palm + four fingers + a thumb. `along` = unit dir the fingers point (the hilt / punch line).
   function drawHand(fm, wrist, along, col, dk, a, fist) {
@@ -700,7 +729,9 @@ window.Ronin3D = (function () {
 
   function drawFighter(f, mirror) {
     const K = RoninArt.skel(f); const fm = fighterMatrix(f, mirror);
-    if (!mirror) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
+    // ⚠ `!_flat` guards the trail: a slip ghost re-draws the body twice in the same frame, and
+    //   without it each frame would push three tip samples and the streak would run 3× fast.
+    if (!mirror && !_flat) { const tp = xform(fm, K.sword.tip.x, -K.sword.tip.y, 0);   // world blade tip → 3D streak
       (f.trail3 = f.trail3 || []).unshift(tp); if (f.trail3.length > 14) f.trail3.pop(); }
     if (skins[f.arch]) { drawSkinned(f, mirror, K, fm); return; }              // real skinned deformation
     if (models[f.arch]) { drawModelFighter(f, mirror, K, fm); return; }      // real modelled geometry when loaded
@@ -740,7 +771,7 @@ window.Ronin3D = (function () {
     _mat = 5; beam(fm, K.chest, nk, 6.5, SKIN, 0, a);                                      // neck (always skin)
     _mat = bareTorso ? 5 : bm;
     orb(fm, K.armF[0].x, K.armF[0].y, 8, 20, 18, 18, TCOL, 0, a); orb(fm, K.armB[0].x, K.armB[0].y, -8, 18, 16, 16, sc(TCOL, 0.86), 0, a);   // deltoids
-    _mat = 1; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a);               // belt / obi
+    _mat = 2; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a); _mat = 0;     // belt / obi — hot-stamped hardware, so FOIL
     // ── back arm: bare skin or sleeve, glove at the hand ──
     const ARM = bareArms ? SKIN : TOP, ARMB = bareArms ? sc(SKIN, 0.88) : TOPB;
     _mat = bareArms ? 5 : lm;
@@ -751,7 +782,7 @@ window.Ronin3D = (function () {
     _mat = f.arch === 'prizm' ? 4 : 5;
     ball(fm, K.head, 13, SKIN, 0.06, a);
     drawHair(fm, f, K, HAIR, a, dk);
-    _mat = 1; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, TRIM, 0.45, a);
+    _mat = 2; bit(fm, K.head.x, K.head.y + 4, 27, 6, 27, TRIM, 0.45, a); _mat = 0;         // headband — foil
     if (!mirror) drawFace(fm, f, K, SKIN, dk, a);
     archHead(fm, f, K, tint, a, dk);
     // ── front arm + gloved hand gripping the hilt ──
@@ -807,7 +838,7 @@ window.Ronin3D = (function () {
       bit(fm, K.legF[2].x + 3, K.legF[2].y + 2, 24, 7, 14, BOOT, 0.1, a);                    // boots over the feet
       bit(fm, K.legB[2].x + 2, K.legB[2].y + 2, 22, 7, 13, sc(BOOT, 0.9), 0.1, a);
       ball(fm, K.legF[2], 6.4, BOOT, 0.05, a); ball(fm, K.legB[2], 6, sc(BOOT, 0.9), 0.05, a);
-      bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a);                         // belt / obi
+      _mat = 2; bit(fm, K.pelvis.x, K.pelvis.y - 3, 31, 9, 27, TRIM, 0.12, a); _mat = 1;      // belt / obi — foil
       _mat = 0;
       orb(fm, K.armB[2].x - 3, K.armB[2].y - 3, 0, 9, 9, 9, sc(GLOVE, 0.9), 0.08, a);        // bracers
       orb(fm, K.sword.hand.x - 4, K.sword.hand.y - 4, 0, 10, 10, 10, GLOVE, 0.08, a);
@@ -935,6 +966,7 @@ window.Ronin3D = (function () {
   // sparks (velocity-aligned streaks), dust (flat ground puffs), shock (one clean expanding ring) — lit shader, additive
   function drawFxLit(G) {
     const gY = G.groundY || 500, fx = G.fx || [];
+    _surf = 2;                                                // sparks, dust and the shock ring are LIGHT: no die edge on them
     for (const e of fx) {
       if (e.kind === 'spark') { const k = 1 - e.t / e.life; const hx = e.x * SC, hy = (gY - e.y) * SC;
         const tx = hx - (e.vx || 0) * SC * 0.018, ty = hy + (e.vy || 0) * SC * 0.018;   // tail trails the velocity
@@ -943,9 +975,12 @@ window.Ronin3D = (function () {
         draw('quad', M.mul(M.T(e.x * SC, 0.03 + pr * 0.1, (e.z || 0) * SC), M.S(r, 1, r)), [0.5, 0.44, 0.6], 0.4, (1 - pr) * 0.22); }
       else if (e.kind === 'arc') { /* drawn in the ribbon pass */ }
     }
-    const s = G.shock;                                              // ONE clean expanding ground ring (annulus mesh)
+    // ONE clean expanding ring, and it spreads ACROSS THE CARD rather than in mid-air, so a hit is
+    // visibly transmitted into the thing everyone is standing on. RONIN-ART §3.4.
+    const s = G.shock;
     if (s) { const R = s.t * 9 + 0.25, al = Math.max(0, 1 - s.t / 0.5) * 0.75 * (s.str || 1);
       draw('ring', M.mul(M.T((s.wx || 0) * SC, 0.05, 0), M.S(R, 1, R)), [1, 0.5, 0.92], 1, al); }
+    _surf = -1;
   }
   // ── anime sprite pops: camera-facing glyphs (impact stars, speed lines, "!", sweat, burst rings) ──
   const SPK = { star: 0, line: 1, bang: 2, sweat: 3, burst: 4 };
@@ -1139,6 +1174,69 @@ window.Ronin3D = (function () {
   }
   function bit3(x, y, z, sx, sy, sz, color, emis) { draw('cube', M.mul(M.T(x, y, z), M.S(sx, sy, sz)), color, emis, 1); }
 
+  /* ══ HEADLESS ART-DIRECTION PROBE — driven by scripts/test-ronin-art.mjs ═══════════════════
+   * Renders through the SHIPPED drawFighter / drawScene path into a private framebuffer at a
+   * fixed size and a fixed camera, and hands the pixels straight back.
+   *
+   * ⚠ readPixels, NEVER a screenshot. This container rotates hue on canvas content (CLAUDE.md),
+   *   so every colour claim in docs/RONIN-ART.md — foil hue travel, ink value steps — has to come
+   *   from the framebuffer the GPU actually wrote. Layout may be judged from a screenshot; colour
+   *   may not. It is also why this needs its OWN framebuffer: the game's canvas has no
+   *   `preserveDrawingBuffer`, so a readback from it outside the drawing task returns zeros.
+   *
+   * ⚑ It draws through the same functions the game does ON PURPOSE. A probe with its own copy of
+   *   the draw path measures the copy, and the copy is what drifts. Nothing in the game calls it.
+   */
+  let probeFB = null;
+  function probeTarget(size) {
+    if (probeFB && probeFB.size === size) return probeFB;
+    if (probeFB) { gl.deleteFramebuffer(probeFB.fb); gl.deleteTexture(probeFB.tex); gl.deleteRenderbuffer(probeFB.rb); probeFB = null; }
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const rb = gl.createRenderbuffer(); gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
+    const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
+    const good = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return good ? (probeFB = { fb, tex, rb, size }) : null;
+  }
+  function probe(o) {
+    if (!ok) return null;
+    o = o || {};
+    try {
+      const size = Math.max(32, Math.min(320, o.size || 128));
+      const T = probeTarget(size); if (!T) return null;
+      const az = o.az || 0, dist = o.dist == null ? 4.6 : o.dist, hgt = o.hgt == null ? 1.55 : o.hgt;
+      const look = o.look == null ? 1.45 : o.look, bg = o.bg || [0, 0, 0];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, T.fb); gl.viewport(0, 0, size, size);
+      gl.clearColor(bg[0], bg[1], bg[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      camPos = [Math.sin(az) * dist, hgt, Math.cos(az) * dist];
+      VP = M.mul(M.persp(0.72, 1, 0.1, 200), M.look(camPos, [0, look, 0], [0, 1, 0]));
+      { const fwd = norm(sub([0, look, 0], camPos)); camRight = norm(cross(fwd, [0, 1, 0])); camUp = cross(camRight, fwd); }
+      if (o.stage) drawScene({ fighters: [], fx: [], pops: [] });
+      else if (o.f) {
+        const f = o.f, sx = f.x, sz = f.z, sy = f.yLift, sw = f.w;
+        f.x = 0; f.z = 0; f.yLift = 0; f.w = null;
+        setLit(); _mat = 0;
+        try { drawFighter(f, false); } catch (e) {}
+        f.x = sx; f.z = sz; f.yLift = sy; f.w = sw;
+      }
+      const px = new Uint8Array(size * size * 4);
+      gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { size, px: Array.prototype.slice.call(px) };
+    } catch (e) { try { gl.bindFramebuffer(gl.FRAMEBUFFER, null); } catch (e2) {} return null; }
+  }
+
   return { init, render, registerModel, hasModel, registerSkin, hasSkin, setMorphVariant, setWorld, hasWorld,
-           post: () => post, get ok() { return ok; } };
+           post: () => post, get ok() { return ok; },
+           // ── art-direction introspection. Test surface only; the game never calls these. ──
+           probe, shaders: () => ({ LIT_VS, LIT_FS, GND_VS, GND_FS, TR_VS, TR_FS, SP_VS, SP_FS, SK_VS }),
+           light: () => LIGHT, soft: f => (f && softs[f.id]) || null, step: (G, dt) => stepSoft(G, dt),
+           shake: (G, dt, dir) => shakeOffset(G, dt, dir) };
 })();

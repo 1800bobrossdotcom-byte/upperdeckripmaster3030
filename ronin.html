@@ -119,6 +119,23 @@
   .tile .rr{ position:absolute; top:3px; right:3px; font-size:7px; font-family:var(--fat); text-transform:uppercase; background:rgba(0,0,0,.6); color:#fff; padding:1px 4px; border-radius:4px; }
   .tile .stk{ position:absolute; bottom:2px; right:3px; font-size:9px; font-family:var(--fat); color:var(--lime); }
   .cardsInfo{ font-size:11px; color:#c9b6ff; margin:2px 0 6px; }
+  /* move list / frame data */
+  .mvbox{ text-align:left; margin:8px 0 4px; border:1px solid rgba(180,123,255,.3); border-radius:10px; background:rgba(6,3,16,.5); }
+  .mvbox>summary{ cursor:pointer; padding:10px 12px; font-size:12px; letter-spacing:.05em; color:#c9b6ff; list-style:none; min-height:44px; display:flex; align-items:center; }
+  .mvbox>summary::-webkit-details-marker{ display:none; }
+  .mvbox[open]>summary{ color:var(--lime); border-bottom:1px solid rgba(180,123,255,.22); }
+  /* wide content scrolls inside its own box — the panel itself must never scroll sideways */
+  .mvscroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .mvtab{ border-collapse:collapse; width:100%; min-width:520px; font-size:12px; font-family:var(--mono); }
+  .mvtab th{ text-align:left; padding:6px 7px; font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:#8f7fb8; font-weight:normal; white-space:nowrap; }
+  .mvtab td{ padding:5px 7px; border-top:1px solid rgba(180,123,255,.14); white-space:nowrap; color:#d8ccf0; }
+  .mvtab td.mn{ font-family:var(--fat); font-size:11px; color:#fff; }
+  .mvtab td.mi{ color:var(--cyan); font-size:11px; }
+  .mvtab td.adv{ font-family:var(--fat); font-size:12px; color:#cbb6ff; }
+  .mvtab td.adv.ok{ color:var(--lime); } .mvtab td.adv.warn{ color:var(--amber); } .mvtab td.adv.bad{ color:var(--coral); }
+  .mvtab td.pun{ color:#9c8fc0; font-size:11px; }
+  .mvnote{ padding:8px 12px 10px; font-size:11px; line-height:1.55; color:#a99ac6; }
+  .mvnote b{ color:#e6dcff; }
   .pot{ font-family:var(--fat); font-size:16px; color:#fff; margin:6px 0; }
   .pot .c{ color:var(--magenta); }
   .roster{ font-size:11px; color:#c8b6ea; margin:4px auto 2px; }

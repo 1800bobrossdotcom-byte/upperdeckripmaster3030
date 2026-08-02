@@ -125,7 +125,16 @@
     m.onBlock = m.grab ? null : m.bs - (m.ac - 1) - m.rc;
     m.onHit = (m.grab || m.launch || m.knockdown) ? null : m.hs - (m.ac - 1) - m.rc;
     m.total = m.st + m.ac + m.rc;
-    m.stS = m.st * F; m.acS = m.ac * F; m.rcS = m.rc * F; }
+    m.stS = m.st * F; m.acS = m.ac * F; m.rcS = m.rc * F;
+    /* ⚑ THE CONVENTION, and it has to be written down or the measurement cannot check the table.
+     * "i10" means the move HITS ON FRAME 10 — frames 1–9 are startup. So the move occupies
+     * st−1+ac+rc frames and the attacker is actionable on the next one, i.e. ac+rc−1 frames
+     * after contact. The defender is locked for exactly `bs` frames from contact. Subtract:
+     *   adv = bs − (ac + rc − 1) = bs − (ac−1) − rc   ← the derivation above, and standard.
+     * `endS` is that "actionable at" moment in seconds; `npm run test:ronin` re-derives the
+     * advantage by DRIVING a blocked move and counting steps, and it lands on the table exactly
+     * because of this line. Get it wrong by one frame and every measured number is off by one. */
+    m.endS = (m.st + m.ac + m.rc - 1) * F; }
   // ordered by startup — the punish ladder is read off this, never hand-listed
   const BY_STARTUP = MOVE_IDS.filter(id => !MOVES[id].grab).sort((a, b) => MOVES[a].st - MOVES[b].st);
   /* Which moves punish a given block, by the only rule there is: a punisher lands iff its
@@ -263,8 +272,8 @@
   function framesUntilFree(f) {
     if (!f || f.dead) return 0;
     let s = Math.max(f.stun, f.bstun, f.downT);
-    if (f.swing) s = Math.max(s, f.swing.mv.stS + f.swing.mv.acS + f.swing.mv.rcS - f.stT);
-    if (f.step) s = Math.max(s, (SSTEP.st + SSTEP.ev + SSTEP.rc) * F - f.stT);
+    if (f.swing) s = Math.max(s, f.swing.mv.endS - f.stT);
+    if (f.step) s = Math.max(s, (SSTEP.st + SSTEP.ev + SSTEP.rc - 1) * F - f.stT);
     if (f.grab) s = Math.max(s, THROW_HOLD * F - f.grab.t);
     if (f.thrown) s = Math.max(s, THROW_HOLD * F - f.thrown.t);
     return Math.max(0, s) * FPS;
@@ -589,18 +598,32 @@
   }
 
   // ── update ──
-  function stepFighter(f, dt) {
-    f.stT += dt; if (f.comboT > 0) { f.comboT -= dt; if (f.comboT <= 0) f.combo = 0; }
+  /* ⛔ EVERY CLOCK TICKS IN ITS OWN PASS, BEFORE ANY HIT IS RESOLVED — and that is not tidiness,
+   * it is correctness. Fighters are stepped in array order, so with the decrement inside
+   * stepFighter a defender who happens to sit LATER in the array lost one frame of blockstun on
+   * the contact frame and an earlier one did not: the same move was −10 against one fighter and
+   * −11 against the other, depending on turn order. Ticking first makes advantage a property of
+   * the table rather than of the array, and it is why the measured numbers match to the frame. */
+  function tickTimers(f, dt) {
+    f.stT += dt;
     if (f.invuln > 0) f.invuln -= dt; if (f.stun > 0) f.stun -= dt;
+    if (f.bstun > 0) f.bstun -= dt; if (f.downT > 0) f.downT -= dt;
     if (f.rage > 0) f.rage -= dt; if (f.glow > 0) f.glow -= dt;
     if (f.ch > 0) f.ch -= dt; if (f.stepCd > 0) f.stepCd -= dt;
-    // ── FRAME-DATA CLOCKS. Blockstun keeps the guard up whatever the block key says; the down
-    //    and getup clocks are what terminate a juggle. ──
-    if (f.bstun > 0) { f.bstun -= dt; f.state = 'block'; }
-    if (f.downT > 0) { f.downT -= dt; f.state = 'down'; if (f.downT <= 0) { f.state = 'getup'; f.stT = 0; } }
+    if (f.dashCd > 0) f.dashCd -= dt; if (f.wallT > 0) f.wallT -= dt;
+    if (f.comboT > 0) { f.comboT -= dt; if (f.comboT <= 0) f.combo = 0; }
+    if (f.grab) f.grab.t += dt;
+    if (f.thrown) f.thrown.t += dt;
+  }
+  function stepFighter(f, dt) {
+    // ── FRAME-DATA STATE. Blockstun keeps the guard up whatever the block key says; the down
+    //    and getup clocks are what terminate a juggle. (The clocks themselves ticked above.) ──
+    if (f.bstun > 0) f.state = 'block';
+    if (f.downT > 0) f.state = 'down';
+    else if (f.state === 'down') { f.state = 'getup'; f.stT = 0; }
     else if (f.state === 'getup' && f.stT > GETUP_F * F) { f.state = 'idle'; f.stT = 0; }
     // ── THROW: the grab holds for THROW_HOLD frames, then it resolves or it has been broken ──
-    if (f.grab) { f.grab.t += dt; const tg = f.grab.tgt;
+    if (f.grab) { const tg = f.grab.tgt;
       if (!tg || tg.dead || !tg.thrown) { f.grab = null; f.state = 'idle'; }
       else { tg.x = f.x + f.face * 46; tg.z = f.z; tg.vx = 0; tg.yLift = 0; tg.air = false;
         if (f.grab.t >= THROW_HOLD * F) finishThrow(f); } }
@@ -641,7 +664,7 @@
           if (f.juggle) land(f); else if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
     if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.mv.stS) { sw.arced = true; spawnArc(f, sw.mv); }
-      activeHit(f); if (f.stT > sw.mv.stS + sw.mv.acS + sw.mv.rcS) { f.swing = null; f.move = null; if (f.state !== 'hurt' && f.state !== 'ko' && f.state !== 'grab' && !f.thrown) f.state = 'idle'; } }
+      activeHit(f); if (f.stT >= sw.mv.endS - F * 0.5) { f.swing = null; f.move = null; if (f.state !== 'hurt' && f.state !== 'ko' && f.state !== 'grab' && !f.thrown) f.state = 'idle'; } }
     // hurt recovery
     if (f.state === 'hurt' && f.stun <= 0 && !f.air) f.state = 'idle';
     // ko slide
@@ -1423,6 +1446,7 @@
       .then(m => { if (m) Ronin3D.registerModel(k, m); }).catch(() => {});
   });
   if (r3dOk) { glOk = false; const g = $('glcv'); if (g) g.style.display = 'none'; $('cv3d').style.display = 'block'; $('cv').style.display = 'none'; }
+  buildMoveList();                                            // frame data is available before the deck loads
   loadDeck().then(() => { buildRoster(); buildGrid(); initNet(); });
   if (window.RipWallet) { try { RipWallet.on(() => refreshPot()); } catch {} }
 })();
