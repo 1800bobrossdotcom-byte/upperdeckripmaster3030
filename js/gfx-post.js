@@ -473,25 +473,80 @@ window.GfxPost = (function () {
       }
 
       grainT = (grainT + 0.017) % 1000;
+
+      /* ── age the flashes on the WORLD clock ────────────────────────────────────────────────
+       * Real elapsed time × the time scale, so a pickup taken in bullet-time stretches out with
+       * everything else. The 0.25 s clamp is the ordinary tab-was-backgrounded guard: without it
+       * one hidden second would retire every live flash between two frames. */
+      const tN = nowMs();
+      const dtR = tPrev ? Math.min(0.25, (tN - tPrev) / 1000) : 0; tPrev = tN;
+      const dtW = dtR * tScale;
+      let pMax = 0;
+      for (let i = 0; i < 3; i++) {
+        const P = PUL[i];
+        if (P.a <= 0) continue;
+        P.age += dtW;
+        const uu = P.life > 0 ? P.age / P.life : 1;
+        if (uu >= 1) { P.a = 0; continue; }
+        /* ⚑ THE FRONT DECELERATES. r ∝ u^0.62, not u — a shell losing energy into a bigger
+         *   circumference, which is also what makes the hue walk FAST at the pickup and slow at
+         *   the frame edge. A linear front reads as a UI animation; this reads as an event. */
+        P.r = Math.pow(uu, 0.62) * O.flashReach;
+        P.a = P.amp * Math.pow(1 - uu, 1.6);
+        P.h = P.hue + uu * O.flashSpin;
+        if (P.a > pMax) pMax = P.a;
+      }
+
+      /* ── the dilation grade. Everything here is × dilAmt, so at real time it is arithmetically
+       * the frame that shipped: caNow === O.ca, satNow === O.sat, vigNow === O.vignette. ── */
+      const caNow = O.ca * (1 + dilAmt * O.dilCa + pMax * O.caPulse);
+      const satNow = O.sat * (1 - dilAmt * O.dilSat);
+      const vigNow = Math.min(0.9, O.vignette + dilAmt * O.dilVig);
+      const tintNow = dilAmt * O.dilTint;
+
       /* Motion smear. The composite normally goes straight to the screen; when it is on, the
        * composite instead lands in an accumulation target that also SAMPLES the previous one, and
        * a blit puts that on the screen. One extra full-screen pass, and only on this path.
        * accWarm guards the first frame after allocation or a resize, where the "previous" target
-       * is uninitialised memory — mixing that in is a one-frame flash of garbage. */
-      const smear = (O.blur > 0 && ensureAcc() && accWarm)
-        ? Math.max(0, Math.min(0.85, motionAmt * O.blur)) : 0;
-      const acc = O.blur > 0 && S.aT;
+       * is uninitialised memory — mixing that in is a one-frame flash of garbage.
+       * ⚑ TWO INDEPENDENT SOURCES, and `max` not `+`: the velocity term is the camera moving
+       *   during the exposure and the persistence term is the gate holding the frame. They are
+       *   different mechanisms, so adding them would double-count a fast pan in slow motion —
+       *   whichever is holding the frame harder wins.
+       * ⚑ `tScale > 1` multiplies the velocity term rather than adding a knob: a compressed clock
+       *   means the same exposure covers more world motion. Capped at tsMax so it cannot run away
+       *   into a feedback loop that never lets go. */
+      const motionMix = motionAmt * Math.max(1, Math.min(O.tsMax, tScale));
+      const wantSm = (motionMix * O.blur) + (dilAmt * O.persist) > 0.0004;
+      const accOk = (O.blur > 0 || (dilAmt > 0.0005 && O.persist > 0)) && ensureAcc();
+      const smear = (accOk && accWarm && wantSm)
+        ? Math.max(0, Math.min(0.85, Math.max(motionMix * O.blur, dilAmt * O.persist))) : 0;
+      const acc = accOk && !!S.aT;
+      // a chain that stops using the pair must forget it: the held frame is now stale, and one
+      // stale frame mixed in on resume is a ghost of a moment that has gone.
+      if (!acc) accWarm = false;
       gl.bindFramebuffer(gl.FRAMEBUFFER, acc ? S.aF : null); gl.viewport(0, 0, w, h);
       gl.useProgram(S.comp);
       gl.uniform1i(u(S.comp, 'base'), 0); gl.uniform1i(u(S.comp, 'bloom'), 1);
-      gl.uniform1f(u(S.comp, 'intensity'), O.intensity); gl.uniform1f(u(S.comp, 'ca'), O.ca);
-      gl.uniform1f(u(S.comp, 'grain'), grainT); gl.uniform1f(u(S.comp, 'vig'), O.vignette);
-      gl.uniform1f(u(S.comp, 'sat'), O.sat);
+      gl.uniform1f(u(S.comp, 'intensity'), O.intensity); gl.uniform1f(u(S.comp, 'ca'), caNow);
+      gl.uniform1f(u(S.comp, 'grain'), grainT); gl.uniform1f(u(S.comp, 'vig'), vigNow);
+      gl.uniform1f(u(S.comp, 'sat'), satNow);
       gl.uniform1f(u(S.comp, 'knee'), O.knee == null ? 0.94 : O.knee);
       gl.uniform1f(u(S.comp, 'dither'), O.dither == null ? 0.0045 : O.dither);
       gl.uniform1f(u(S.comp, 'sharpen'), O.sharpen == null ? 0.2 : O.sharpen);
       gl.uniform2f(u(S.comp, 'texel'), 1 / w, 1 / h);
       gl.uniform1f(u(S.comp, 'smear'), smear); gl.uniform1i(u(S.comp, 'prev'), 2);
+      gl.uniform1f(u(S.comp, 'tint'), tintNow);
+      /* ⚠ uv.y is 0 at the BOTTOM in this chain's fullscreen triangle, and 0 at the TOP for every
+       *   caller that has a screen position to hand us. The flip lives here, once, rather than in
+       *   every game — a convention mismatch nobody can see is a flash that appears in the wrong
+       *   half of the frame and reads as a bug in the game's projection. */
+      for (let i = 0; i < 3; i++) {
+        const P = PUL[i], n = 'p' + i;
+        if (P.a > 0) gl.uniform4f(u(S.comp, n), P.x, 1 - P.y, P.r, P.a);
+        else gl.uniform4f(u(S.comp, n), 0.5, 0.5, 0, 0);
+      }
+      gl.uniform3f(u(S.comp, 'phu'), PUL[0].h || 0, PUL[1].h || 0, PUL[2].h || 0);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, S.sceneTex);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, S.bB);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, acc ? S.aU : S.bB);
@@ -517,11 +572,117 @@ window.GfxPost = (function () {
      * deliberate: a game that stops calling motion() stops smearing rather than freezing at
      * whatever it last said. */
     function motion(v) { motionAmt = Math.max(0, Math.min(1, +v || 0)); }
-    function dispose() { freeTargets(); S.on = false; }
 
-    return { begin, end, set, motion, dispose, get on() { return S.on; }, set on(v) { S.on = !!v && !!S.comp; },
-             get opts() { return O; } };
+    /* ── ① camera(): the velocity driver, and the ONE copy of this derivation ────────────────
+     * Hand it the camera's absolute state each frame; it differences it here. That is the whole
+     * point — three games had grown three hand-rolled "how hard is the camera working" formulas
+     * with three different constants, which is CLAUDE.md's "two copies of a fact will diverge"
+     * with an extra copy. `motion(v)` still exists and is untouched for callers happy with their
+     * own number.
+     *
+     * Absolute state rather than a velocity for two reasons, both load-bearing:
+     *   · it is measured from what HAPPENED, so a turn stopped by a pitch clamp or a sprint into
+     *     a wall smears nothing, because nothing moved;
+     *   · there is no dt to get wrong. The exposure is the frame.
+     * Returns the 0..1 it set, so a caller can display or assert it.
+     * ⚠ Position may be omitted ({yaw, pitch}) for a game with no translation — the velocity
+     *   term then contributes 0 rather than reading garbage off undefined. */
+    function camera(c) {
+      if (!c) { camPrev = null; motionAmt = 0; return 0; }
+      const yaw = +c.yaw || 0, pit = +c.pitch || 0;
+      const x = +c.x || 0, y = +c.y || 0, z = +c.z || 0;
+      if (!camPrev) { camPrev = { yaw, pit, x, y, z }; motionAmt = 0; return 0; }
+      const TAU = Math.PI * 2;
+      let dy = (yaw - camPrev.yaw) % TAU;
+      if (dy > Math.PI) dy -= TAU; if (dy < -Math.PI) dy += TAU;
+      const dAng = Math.hypot(dy, pit - camPrev.pit);
+      const dPos = Math.hypot(x - camPrev.x, y - camPrev.y, z - camPrev.z);
+      camPrev.yaw = yaw; camPrev.pit = pit; camPrev.x = x; camPrev.y = y; camPrev.z = z;
+      const rot = clamp01(dAng / (O.wRef / REF_HZ));
+      const span = Math.max(1e-6, (O.vHi - O.vLo) / REF_HZ);
+      const vel = clamp01((dPos - O.vLo / REF_HZ) / span);
+      motionAmt = clamp01(rot * O.wRot + vel * O.wVel);
+      return motionAmt;
+    }
+
+    /* ── ② timeScale(): 1 = real time, <1 dilates, >1 compresses ─────────────────────────────
+     * One number in, four treatments out (persistence, registration, tint, tunnel) plus the
+     * flashes' own clock. Clamped at 0.05 so a caller that passes 0 to mean "paused" gets a
+     * held frame rather than a division by zero. */
+    function timeScale(s) {
+      tScale = Math.max(0.05, Math.min(8, +s || 1));
+      dilAmt = clamp01(1 - tScale);
+      return tScale;
+    }
+
+    /* ── ③ flash(): fire one diffraction front ───────────────────────────────────────────────
+     * o = { x, y, strength, hue, life }. x/y are 0..1 SCREEN coords with y=0 at the top; default
+     * dead centre only because a caller with no position is better served by something than by
+     * nothing, but a game that knows where the pickup was should say so — §4, "it is placed at
+     * the pickup's own screen position, never at screen centre".
+     * `hue` picks which of the four plates the front opens on (0 gold ·.25 green ·.5 cyan
+     * ·.75 magenta); omitted, it is chosen from the fire time so two pickups in a row are not
+     * the same colour, which is the difference between an effect and a loop.
+     * Three slots, oldest-first: a fourth flash replaces the one furthest through its life
+     * rather than being dropped, so a run of pickups always shows the most recent. */
+    function flash(o) {
+      o = o || {};
+      let slot = 0, worst = -1;
+      for (let i = 0; i < 3; i++) {
+        const P = PUL[i];
+        const done = P.a <= 0 ? 1e9 : (P.life > 0 ? P.age / P.life : 1);
+        if (done > worst) { worst = done; slot = i; }
+      }
+      const P = PUL[slot];
+      P.x = o.x == null ? 0.5 : clamp01(+o.x);
+      P.y = o.y == null ? 0.5 : clamp01(+o.y);
+      P.amp = Math.max(0, Math.min(2, o.strength == null ? 1 : +o.strength));
+      P.life = Math.max(0.05, +o.life || O.flashLife);
+      P.hue = o.hue == null ? (Math.floor(nowMs() * 0.004) % 4) * 0.25 : (+o.hue || 0);
+      P.age = 0; P.a = P.amp; P.r = 0; P.h = P.hue;
+      return slot;
+    }
+
+    function dispose() {
+      freeTargets(); S.on = false;
+      const i = LIVE.indexOf(api); if (i >= 0) LIVE.splice(i, 1);
+    }
+
+    const api = { begin, end, set, motion, camera, timeScale, flash, dispose,
+             get on() { return S.on; }, set on(v) { S.on = !!v && !!S.comp; },
+             get opts() { return O; },
+             // read-backs, for the harness and for an on-screen readout
+             get state() { return { motion: motionAmt, timeScale: tScale, dilate: dilAmt,
+                                    pulses: PUL.map(p => ({ a: p.a, r: p.r || 0, hue: p.h || 0 })) }; } };
+    LIVE.push(api);
+    return api;
   }
 
-  return { create, PRESET, deviceScale, dprCap, deviceTier };
+  /* ── The page-global half of the interface ─────────────────────────────────────────────────
+   * TIME IS A PROPERTY OF THE PAGE, NOT OF ONE CANVAS. A game with a 3D chain and a 2D overlay
+   * chain (or the landing page, which has three) would otherwise have to find and drive each one,
+   * and the one it forgot would be the one that kept running at full speed next to a dilated
+   * neighbour. So these fan out to every live chain, and the per-instance methods stay available
+   * for a caller that deliberately wants one canvas to disagree.
+   * `dispose()` removes an instance, so a disposed chain cannot be driven and cannot leak. */
+  const LIVE = [];
+  function timeScaleAll(s) {
+    let last = 1;
+    for (let i = 0; i < LIVE.length; i++) { try { last = LIVE[i].timeScale(s); } catch (e) {} }
+    /* ⚑ THE PITCH CUE, DUCK-TYPED. Slow motion that does not take the sound with it reads as a
+     * dropped frame rate, not as time bending — the ear is what sells it. RipSfx owns playback
+     * and this module does not, so the wire is offered rather than taken: if that module grows a
+     * `rate()`, the cue works from the moment it does and nothing here needs to change. Wrapped,
+     * because a graphics call must never be able to throw on account of the audio.
+     * ⟶ The three lines RipSfx needs: keep a module-level `rate`, set `a.playbackRate = rate` and
+     *   `a.preservesPitch = false` on the clone in play(), and export `rate: v => { rate = v; }`.
+     *   preservesPitch MUST be false — with it true the clip plays slower at the same pitch,
+     *   which is a tempo change and not a time change, and the cue is exactly the pitch. */
+    try { if (self.RipSfx && typeof RipSfx.rate === 'function') RipSfx.rate(last); } catch (e) {}
+    return last;
+  }
+  function flashAll(o) { for (let i = 0; i < LIVE.length; i++) { try { LIVE[i].flash(o); } catch (e) {} } }
+
+  return { create, PRESET, BASE, deviceScale, dprCap, deviceTier,
+           timeScale: timeScaleAll, flash: flashAll, get live() { return LIVE.length; } };
 })();

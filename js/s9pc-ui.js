@@ -237,6 +237,32 @@ window.S9PCUI = (function () {
       if (hot !== hcHot) { hcHot = hot; box.classList.toggle('hot', hot); }
     }
 
+    /* ── ⧗ THE LIVE MOBILITY TOKEN ──────────────────────────────────────────────────────────
+     * One chip, hidden unless a token is live. It says WHAT you are holding and HOW LONG you have
+     * it, in the token's own colour — the same colour as the drop on the floor and the trail
+     * behind you, because they are one object and the player should never have to learn a second
+     * mapping. The name is read from the game's own MOBS table rather than copied here: two
+     * copies of a fact diverge (ROADMAP §5.4), and this HUD has already been bitten by exactly
+     * that once (the lobby's private weapon list still saying "AK").
+     * ⚑ It also prints the world clock while a SLIP is live, because "the world is at 0.42" is
+     *   the single most confusing thing that can happen to a player with no explanation on screen.
+     * Fails quiet: no element, no MOBS, an unknown type ⇒ the chip simply stays hidden. */
+    let mbKey = '';
+    function paintMob(e) {
+      const box = $('mobBox'); if (!box) return;
+      const M = (game && game.MOBS) || null;
+      const m = e && e.mob && e.mob.t > 0 ? e.mob : null;
+      const D = m && M ? M[m.type] : null;
+      if (!D) { if (!box.hidden) { box.hidden = true; mbKey = ''; } return; }
+      box.hidden = false;
+      if (mbKey !== m.type) { mbKey = m.type;
+        box.style.setProperty('--mc', rgb(D.col));
+        $('mobCh').textContent = D.ch; $('mobName').textContent = D.name; }
+      const slip = m.type === 'slip';
+      $('mobT').textContent = m.t.toFixed(1) + 's' + (slip ? ' · world ×' + (game.G.timeScale || 1).toFixed(2) : '');
+      $('mobFill').style.width = clamp(m.t / (m.dur || 1) * 100, 0, 100) + '%';
+    }
+
     function hud() {
       if (!game) return; const G = game.G, e = G.me; if (!e) return;
       paintHudCard();
@@ -254,6 +280,7 @@ window.S9PCUI = (function () {
       bo.style.background = e.burning ? 'linear-gradient(90deg,#59e0ff,#c9f6ff)' : (dry ? 'linear-gradient(90deg,#8a2318,#ff6b57)' : '');
       if (boL) { boL.textContent = e.burning ? 'boost · ⧗ BURN' : (dry ? 'boost · dry' : 'boost');
         boL.style.color = e.burning ? '#59e0ff' : (dry ? '#ff6b57' : ''); }
+      paintMob(e);
       const amp = game.mktAmp(), mk = $('hMkt');
       if (mk) { mk.textContent = (e.surgeT > 0 ? '★ OVERCHARGE ' + e.surgeT.toFixed(1) + 's' : '◈ market ×' + amp.toFixed(2) + (amp > 1.25 ? ' · HOT' : amp < 0.95 ? ' · cold' : ''));
         mk.style.color = e.surgeT > 0 ? '#ffd23b' : (amp > 1.25 ? '#ff2ad9' : '#59e0ff'); }
@@ -277,7 +304,8 @@ window.S9PCUI = (function () {
        * appears and disappears with it. A permanent key legend across the bottom of a shooter is
        * an obstruction, not a help. */
       $('toggles').style.display = on ? 'flex' : 'none';
-      if (!on) { $('dmgVig').style.opacity = 0; const hc = $('hudCard'); if (hc) hc.hidden = true; hcSlug = null; }
+      if (!on) { $('dmgVig').style.opacity = 0; const hc = $('hudCard'); if (hc) hc.hidden = true; hcSlug = null;
+        const mb = $('mobBox'); if (mb) { mb.hidden = true; mbKey = ''; } }
     }
 
     // ── result / payout ─────────────────────────────────────────────────────────────────────
@@ -338,7 +366,13 @@ window.S9PCUI = (function () {
         { type: 'dtap', act: 'Reload', touch: 'Auto · or dbl-tap FIRE', key: 'R' },
         { type: 'tap', act: 'Jump', touch: 'JUMP button', key: 'SPACE' },
         { type: 'hold', act: '⧗ Thruster boots', touch: 'HOLD JUMP', key: 'HOLD SPACE · spends BOOST' },
-        { type: 'hold', act: 'Crouch', touch: 'CROUCH button', key: 'CTRL · C' }] });
+        { type: 'hold', act: 'Crouch', touch: 'CROUCH button', key: 'CTRL · C' },
+        /* ⧗ The tokens are on the CONTROLS card because they are a VERB, not an item — and
+         * because a power nobody knows to walk over is a power nobody has (ROADMAP §5.3). */
+        { type: 'tap', act: '⧗ Mobility tokens', touch: 'Walk over one', key: 'WALK OVER ONE' },
+        { type: 'tap', act: '▲ spring · ◈ rush', touch: 'higher jump · 2.2× ground speed', key: 'higher jump · 2.2× ground speed' },
+        { type: 'hold', act: '≋ hover · ✦ flight', touch: 'HOLD JUMP to float / fly', key: 'HOLD SPACE to float / fly' },
+        { type: 'tap', act: '◷ slip', touch: 'the world slows, you do not', key: 'the world slows, you do not' }] });
       else begin(false);
     };
     $('btnAnte').onclick = async () => {

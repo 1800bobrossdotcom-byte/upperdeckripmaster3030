@@ -155,6 +155,19 @@
   .hp-fill{ background:linear-gradient(90deg,#ff5a3c,#ffd23b 46%,#2bff80 78%); }
   .ar-fill{ background:linear-gradient(90deg,#2a7cff,#59e0ff); }
   .bo-fill{ background:linear-gradient(90deg,#0f7a4a,#2bff80); }
+  /* ⧗ THE MOBILITY CHIP — the live token, in the token's own colour (--mc, set by S9PCUI.hud).
+   * ⚠ `[hidden]` is spelled out because this rule sets `display`, and a rule that sets display
+   * has to say what hidden means or hidden stops meaning anything. Third sighting in this repo
+   * (CLAUDE.md: the launch countdown, .hcard). */
+  .mobchip{ display:flex; align-items:center; gap:6px; margin-top:7px; padding:3px 8px; width:max-content;
+    border-radius:999px; background:rgba(2,10,14,.66); border:1px solid var(--mc,#2bff80);
+    box-shadow:0 0 12px color-mix(in srgb, var(--mc,#2bff80) 45%, transparent); }
+  .mobchip[hidden]{ display:none; }
+  .mobchip .mc-ch{ font-size:12px; color:var(--mc,#2bff80); }
+  .mobchip .mc-name{ font-family:var(--fat); font-size:11px; letter-spacing:.12em; color:var(--mc,#2bff80); }
+  .mobchip b{ font-family:var(--fat); font-size:11px; color:#dff6ea; }
+  .mobchip .mc-bar{ display:block; width:52px; height:4px; border-radius:2px; background:rgba(255,255,255,.14); overflow:hidden; }
+  .mobchip .mc-bar i{ display:block; height:100%; width:100%; background:var(--mc,#2bff80); }
   .h-vitals b{ font-family:var(--fat); font-size:16px; }
   .h-hp b{ color:#8effc0; } .h-ar b{ color:#8fdcff; }
   .ammo{ font-family:var(--fat); }
@@ -361,6 +374,13 @@
          where the burning / dry states are written — see S9PCUI.hud. -->
     <div class="h-lbl" id="boLbl" style="margin-top:6px">boost</div>
     <div class="stat-wrap"><div class="stat-bar" style="height:6px"><div class="stat-fill bo-fill" id="boFill"></div></div></div>
+    <!-- ⧗ THE LIVE MOBILITY TOKEN. Hidden until one is held — a bar that is empty most of the
+         match is furniture. It carries the token's own colour so the HUD, the drop on the floor
+         and the trail behind the holder are one object seen three ways. -->
+    <div class="mobchip" id="mobBox" hidden>
+      <span class="mc-ch" id="mobCh">▲</span><span class="mc-name" id="mobName">SPRING</span><b id="mobT">14.0</b>
+      <span class="mc-bar"><i id="mobFill"></i></span>
+    </div>
     <div class="h-lbl" id="hMkt" style="margin-top:6px;color:#59e0ff;letter-spacing:.04em"></div>
   </div>
   <div class="hud hud-br" id="hudBR" style="display:none">
@@ -382,7 +402,8 @@
       <span class="key desk"><kbd>SHIFT</kbd> sprint</span>
       <span class="key desk"><kbd>CTRL</kbd> crouch</span>
       <span class="key desk"><kbd>1-4</kbd> weapon</span>
-      <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP (hold = ⧗ boots) · CROUCH · dbl-tap FIRE = reload</span>
+      <span class="key desk"><b>⧗ TOKENS</b> walk over one — ▲ spring · ◈ rush · ≋ hover · ✦ flight · ◷ slip</span>
+      <span class="key touch">left: move stick (full tilt = run) · right: drag to look, 2 fingers = aim · hold FIRE · JUMP (hold = ⧗ boots / hover / fly) · CROUCH · dbl-tap FIRE = reload · walk over a ⧗ token</span>
     </div>
   </div>
 
