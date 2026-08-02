@@ -17,10 +17,20 @@
   <circle cx="120" cy="120" r="105" fill="none" stroke="#ff3caf" stroke-width="2"/>
   <!-- wordmark ring -->
   <text font-family="Arial Black, Arial, sans-serif" font-size="16.5" fill="#ffe93b" letter-spacing="2.4" font-weight="900" paint-order="stroke" stroke="#2a0730" stroke-width=".6">
-    <textPath href="#rmTop" startOffset="50%" text-anchor="middle">UPPERDECK ★ RIPMASTER</textPath>
+    <!-- ⛔ READ THIS BEFORE EDITING. This ring said `UPPERDECK ★ RIPMASTER` until 2026-08-02 — the
+         RETIRED studio name, in vector type, on the 198 pages that embed this file. The aria-label
+         on line 1 already read `ripmaster3030studios`: the mismatch sat inside one file, exactly
+         like gate.js's logo. The 2026-08-01 rename could not see it, because it searched for the
+         ONE-WORD string `upperdeckripmaster3030` and for the bitmaps whose pixels spell it — and
+         this is a THIRD form, the name written as separate words. `npm run test:name` now looks
+         for that form too. The big 3030 on the sun disc below completes the name. -->
+    <textPath href="#rmTop" startOffset="50%" text-anchor="middle">RIPMASTER ★ STUDIOS</textPath>
   </text>
   <text font-family="Arial Black, Arial, sans-serif" font-size="15.5" fill="#27f7e4" letter-spacing="2.6" font-weight="900" paint-order="stroke" stroke="#04121f" stroke-width=".6">
-    <textPath href="#rmBot" startOffset="50%" text-anchor="middle">★ RIP THE PACK ★ SEASON ONE ★</textPath>
+    <!-- ⚠ Was `SEASON ONE`. There are no seasons — the pack schedule is TIERED, and the 33 heroes
+         are the GENESIS SET. Kept SHORTER than the string it replaced: this arc is ~295 units and
+         the old line already nearly filled it, so a longer one would have run off the path. -->
+    <textPath href="#rmBot" startOffset="50%" text-anchor="middle">★ RIP THE PACK ★ GENESIS ★</textPath>
   </text>
   <!-- sun disc -->
   <circle cx="120" cy="120" r="76" fill="url(#rmSun)"/>

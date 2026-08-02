@@ -80,7 +80,7 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>upperdeckripmaster3030 &#183; ${esc(title)} &#183; №${number}</title>
+<title>ripmaster3030studios &#183; ${esc(title)} &#183; №${number}</title>
 <meta name="robots" content="noindex">
 <!-- HERO LENS ${number}. Framed by the token's animation_url. Stands alone: no gate, no
      storage, no parent-window assumptions. The BASE art is the IPFS-pinned asset that also
@@ -151,7 +151,7 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
     <div class="face back">
       <div class="plate">
         <div>
-          <div class="bteam">upperdeckripmaster3030 &#9733; season I</div>
+          <div class="bteam">ripmaster3030studios &#9733; genesis</div>
           <div class="bt">${esc(title)}</div>
         </div>
         <div class="brule"></div>
@@ -248,7 +248,14 @@ if (unpinned.length) console.log(`\u26a0 ${unpinned.length} hero(es) UNPINNED ($
 if (!APPLY) { console.log('\nDRY RUN — nothing written. Re-run with --apply.'); process.exit(0); }
 
 mkdirSync(heroDir, { recursive: true });
-const SITE = 'https://upperdeckripmaster3030.com';
+/* ⛔ THIS WAS THE RETIRED DOMAIN UNTIL 2026-08-02, and it is the SAME DEFECT that was found in
+ *   scripts/lens-cli.mjs the same day — the twin was missed. SITE lands in the hero lens's
+ *   `animation_url` AND `external_url`, i.e. in the metadata a collector's card resolves through.
+ *   Recoverable via setUrls(), but marketplaces cache metadata hard, so "recoverable" and "not
+ *   wrong on the card for a week" are different things. Neither file ships to the CDN, and both
+ *   write strings that end up on-chain: `npm run test:name` skipping `scripts/` is exactly why
+ *   this survived, which is why the test now sweeps generator OUTPUT as well. */
+const SITE = 'https://ripmaster3030studios.com';
 for (const r of rows) {
   const cid = CIDS[r.number] || CIDS[String(r.number)] || null;
   const ext = r.base ? extname(r.base).toLowerCase() : '.gif';
@@ -273,7 +280,7 @@ for (const r of rows) {
   // the metadata the render-by-id contract will serve for this id
   writeFileSync(join(heroDir, `${r.number}.json`), JSON.stringify({
     name: `${r.title} \u00b7 \u2116${r.number}`,
-    description: 'upperdeckripmaster3030 \u2014 Season I hero lens, 1 of 1. NFA.',
+    description: 'ripmaster3030studios \u2014 genesis hero lens, 1 of 1. NFA.',
     image: cid ? `ipfs://${cid}` : null,
     animation_url: `${SITE}/cards/hero/${r.number}.html`,
     external_url: `${SITE}/cards/${r.number}`,

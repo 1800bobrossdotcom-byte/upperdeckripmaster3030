@@ -503,9 +503,35 @@ external audit "small enough to read in one sitting" is all there is.
 ⚑ **THE GENERALISATION, and it is bigger than the rename: a surface nobody looks at rots.** Every
 item above is somewhere you never open in the course of the work. **If a fact is displayed
 somewhere you do not routinely open, assume it is stale and write the test that opens it.**
-- The test checks **two** things, because there are two ways to carry a name: the **string**
-  outside a comment in any shipped file, and **references to the bitmaps whose pixels spell it**
-  (listed by hand — grep cannot see into a PNG).
+- The test checks **four** things, because there are four ways a name travels. ⚠ It said **two**
+  until 2026-08-02, and the two it was missing were live on ~200 pages while it passed:
+  1. the **string** outside a comment in any shipped file;
+  2. **references to the bitmaps whose pixels spell it** (listed by hand — grep cannot see a PNG);
+  3. ⛔ **THE NAME WRITTEN AS SEPARATE WORDS.** `Upperdeck ★ Ripmaster 3030` on **197 card backs**,
+     `UPPERDECK ★ RIPMASTER` in **`ripmaster-roundel.svg`'s own vector type** (embedded by 198
+     pages, under an `aria-label` that already read the live name — the `gate.js` mismatch again,
+     inside one file), `UPPERDECK · RIPMASTER · 3030` as the side watermark on **all four generated
+     public pages**, and `UPPERDECK<br>RIPMASTER 3030` as the **whitepaper PDF's cover headline**.
+     None is the string `upperdeckripmaster3030`, so a substring test for the joined form is blind
+     to every one of them. ⚑ **A name also travels as its own words with anything at all between
+     them.** The check anchors on the retired FIRST WORD, so `RIPMASTER 3030 STUDIOS` still passes
+     and nothing led by the dead word can.
+  4. ⛔ **THE GENERATORS THAT WRITE THE SHIPPED TREE.** The 2026-08-01 pass patched OUTPUT and left
+     ten generators armed to put it all back. Sharpest case: `restyle-backs.mjs` still emitted the
+     dead-name bitmap while the 197 shipped backs had already been repointed at the mark by hand —
+     **generator and output disagreed, so re-running it would have silently undone the fix.**
+     `scripts/` is skipped by the sweep because it does not ship; **a generator is not "a script",
+     it is the source of a surface.** Also caught here: `build-hero-lens.mjs` put the **retired
+     domain** in every hero's `animation_url`/`external_url` — the same defect found in
+     `lens-cli.mjs` the same day, whose twin was missed.
+  - ⚠ **And the deploy command handed the CLI `marquee-header.webp` as `--image`** — SuperRare's
+    own flow calls that argument *"the initial fallback metadata"*, so the token's permanent
+    fallback art was a picture spelling the retired studio name. Not a string; no search could
+    find it. Pinned now, read out of the fenced code block only.
+  - ⛔ **`docs/LAUNCH-CHECKLIST.md` told the artist to name the token `upperdeckripmaster3030`** —
+    on the one irreversible step, in the document opened once, at 11 PM, under pressure. It was
+    also stale on the deploy path ("assisted, we do not self-deploy" — retracted), on seasons, and
+    on P0. **The runbook is the ultimate surface nobody looks at.**
 - **Comments are exempt on purpose.** The record of the failure belongs next to the fix; rewriting
   history to match the present makes it false — same reason the Sepolia rehearsal logs still say
   `UR3030`.

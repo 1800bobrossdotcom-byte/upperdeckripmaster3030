@@ -19,18 +19,35 @@ const skip = new Set(['_full', '_template', '_back-preview', 'index', 'battle', 
 const TORN = '70.0,8.0 80.4,21.1 94.4,15.2 100.6,27.9 116.8,27.8 112.4,45.5 128.0,51.1 122.7,64.5 133.6,76.7 118.5,85.8 121.1,99.5 110.1,106.1 106.4,120.2 89.5,113.9 82.5,128.7 70.0,122.0 56.9,131.6 49.7,115.7 34.1,119.4 30.6,105.5 16.3,101.0 23.4,85.1 10.3,76.3 16.3,64.4 10.1,50.5 25.8,44.5 26.2,30.5 39.4,27.9 45.2,14.3 59.6,21.1';
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/* ⛔ THIS GENERATOR WAS ARMED TO REINTRODUCE THE RETIRED NAME UNTIL 2026-08-02, and that is the
+ *   general shape of the bug, not a one-off. The 2026-08-01 rename patched the OUTPUT — the 197
+ *   `cards/*.html` — and never touched the script that writes it, because `npm run test:name`
+ *   mirrors `.vercelignore` and therefore skips `scripts/`. Two strings here were stale:
+ *     · the watermark still pointed at `marquee-header.webp`, whose PIXELS spell the dead name
+ *       (the shipped backs had already been repointed at the mark by hand — so generator and
+ *       output disagreed, and re-running this would have silently undone the fix);
+ *     · `.vb-team` read `Upperdeck ★ Ripmaster 3030`, which the rename could not see at all
+ *       because it searched for the ONE-WORD string. This is the name written as SEPARATE WORDS
+ *       — a third form, alongside the string and the bitmaps.
+ * ⚠ The team line stays ONE WORD on purpose. Splitting it into `RIPMASTER ★ 3030 ★ STUDIOS`
+ *   would read better on a jersey band and would be creating a brand-new separated form, i.e.
+ *   re-committing the exact bug above. The star is decoration OUTSIDE the name.
+ * ⚠ The `season`/`S${season}` stat table below is DELIBERATELY untouched: that is card-back
+ *   print-run metadata, a different concept from the pack schedule's tiers, and the whole deck is
+ *   being clean-slated (task #71). Decide it there, not here. */
+
 function backHTML({ name, num, of, season, seasonTitle, atk, def, trig, rarity, factoid, lore }) {
   const total = atk + def, nm = esc(name);
   const factHTML = factoid ? `<b style="letter-spacing:.08em">◉ DID YOU KNOW</b><br>${esc(factoid)}` : '';
   const loreHTML = lore ? esc(lore) : '';
   return `
         <div class="vb">
-          <img class="vb-wm" src="../marquee-header.webp" alt="" aria-hidden="true" loading="lazy">
+          <img class="vb-wm" src="../media/site/mark-1024.png" alt="" aria-hidden="true" loading="lazy">
           <div class="vb-hdr">
             <svg class="vb-torn" viewBox="0 0 140 140" aria-hidden="true"><polygon points="${TORN}"/></svg>
             <img class="vb-disc" src="../ripmaster-roundel.svg" alt="" loading="lazy">
             <div class="vb-band">
-              <div class="vb-team">Upperdeck ★ Ripmaster 3030</div>
+              <div class="vb-team">★ ripmaster3030studios ★</div>
               <div class="vb-name" id="b-title">${nm}</div>
             </div>
           </div>

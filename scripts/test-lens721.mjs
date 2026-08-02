@@ -41,7 +41,7 @@ for (const a of [DEPLOYER, SIGNER]) await evm.stateManager.putAccount(a, new Acc
 // constructor(name,symbol,editionRenderer,claimSigner,externalUrl,lensBaseUrl)
 const HEAD=6*32;
 let tail='', offs=[];
-const strs=['ripmaster3030studios lens','3030L','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cards/hero/'];
+const strs=['ripmaster3030studios lens','3030L','https://ripmaster3030studios.com','https://ripmaster3030studios.com/cards/hero/'];
 // layout: str,str,addr,addr,str,str
 let dyn = HEAD;
 const p0=dyn; tail+=encStr(strs[0]); dyn=HEAD+tail.length/2;
@@ -172,7 +172,11 @@ console.log('\n── edition passthrough: mock edition -> render prototype -> l
   const MOCK = mock.createdAddress;
 
   // Ripmaster3030Renderer(liquid,name,description,externalUrl,animationUrl)
-  const rs=['upperdeckripmaster3030','a liquid trading-card game','https://upperdeckripmaster3030.com','https://upperdeckripmaster3030.com/cabinet.html'];
+  /* ⚠ Fixture strings, but they MIRROR THE REAL DEPLOY on purpose. They carried the retired name
+   and domain until 2026-08-02 — harmless to the assertions, and a live copy-paste trap for anyone
+   reading this file to learn what to pass a constructor. A fixture that models reality costs
+   nothing; one that models a retired reality teaches the wrong string. */
+  const rs=['ripmaster3030','a liquid trading-card game','https://ripmaster3030studios.com','https://ripmaster3030studios.com/cabinet.html'];
   const H=5*32; let tl='', o=H;
   const q=[]; for(const x of rs){ q.push(o); const e=encStr(x); tl+=e; o+=e.length/2; }
   const rargs = encAddr(MOCK.toString())+q.map(encUint).join('')+tl;
@@ -196,7 +200,7 @@ console.log('\n── edition passthrough: mock edition -> render prototype -> l
   t('lens tokenURI() DELEGATES to the renderer', ok(after), revertOf(after));
   const uri = ok(after) ? decStr(bytesToHex(after.execResult.returnValue)) : '';
   const json = uri.startsWith('data:application/json;base64,') ? Buffer.from(uri.split(',')[1],'base64').toString() : '';
-  t('  delegated payload is the EDITION json', json.includes('upperdeckripmaster3030'));
+  t('  delegated payload is the EDITION json', json.includes('ripmaster3030'));
   t('  carries live burn attributes', json.includes('"trait_type":"Burned"') && json.includes('Live Supply'));
   const burned0 = (json.match(/"trait_type":"Burned","value":(\d+)/)||[])[1];
   t('  burned reads 0 before any burn', burned0==='0', 'burned='+burned0);

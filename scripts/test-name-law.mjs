@@ -133,6 +133,59 @@ for (const p of all) {
 if (hits.length) hits.forEach(h => bad(h));
 else ok(true, `${files} shipped files carry the retired name only in comments`);
 
+/* ── FORM THREE: THE NAME WRITTEN AS SEPARATE WORDS ───────────────────────────────────────────
+ * ⛔ THE SWEEP ABOVE PASSED ON 2026-08-02 WHILE THE RETIRED NAME WAS LIVE ON ~200 PAGES. It looks
+ *   for the joined string `upperdeckripmaster3030`, and none of these are that string:
+ *     · `Upperdeck ★ Ripmaster 3030`  — printed on 197 card backs
+ *     · `UPPERDECK ★ RIPMASTER`       — the ring type inside ripmaster-roundel.svg, embedded by
+ *                                       198 pages; its own aria-label already said the LIVE name,
+ *                                       so the mismatch sat inside one file, exactly like gate.js
+ *     · `UPPERDECK · RIPMASTER · 3030`— the side watermark on all four generated public pages
+ *     · `UPPERDECK<br>RIPMASTER 3030` — the whitepaper PDF's COVER HEADLINE
+ * ⚑ The recorded lesson was "a name travels TWO ways: as a string, and as pixels". That was one
+ *   short. A name also travels as ITS OWN WORDS with anything at all between them — a separator,
+ *   a star, a tag. Matching only the joined form is matching one spelling of many.
+ * ⚠ The anchor is `UPPERDECK`, not `RIPMASTER`. `RIPMASTER 3030 STUDIOS` and `◂ Ripmaster 3030`
+ *   are the LIVE mark and must keep passing; it is the retired first word that may never lead. */
+console.log('\n── the retired name written as SEPARATE WORDS (any separator) ──');
+const SPLIT_RE = /upperdeck[^a-z0-9]{0,8}ripmaster/gi;
+{
+  const splitHits = [];
+  for (const p of all) {
+    const rel = relative(ROOT, p);
+    if (ALLOW.has(rel)) continue;
+    const src = readFileSync(p, 'utf8');
+    if (!SPLIT_RE.test(src)) { SPLIT_RE.lastIndex = 0; continue; }
+    SPLIT_RE.lastIndex = 0;
+    const code = stripComments(src, MARKUP.has(extname(p)));
+    code.split('\n').forEach((line, n) => {
+      const m = line.match(/upperdeck[^a-z0-9]{0,8}ripmaster/i);
+      /* The joined form is already reported by the sweep above — do not double-count it. */
+      if (m && !m[0].toLowerCase().startsWith(DEAD.slice(0, 21))) {
+        splitHits.push(`${rel}:${n + 1}  ${line.trim().slice(0, 90)}`);
+      }
+    });
+  }
+  if (splitHits.length) splitHits.forEach(h => bad(h));
+  else ok(true, 'no shipped file spells the retired name as separate words');
+}
+/* Regression pins for the three surfaces that were actually carrying it, because a sweep that
+ * finds nothing is indistinguishable from a sweep that is looking in the wrong place. */
+{
+  /* ⚠ STRIPPED, not raw. The SVG carries a comment explaining what its ring type used to say, and
+   *   reading the file raw fails on that note — comments are exempt everywhere else in this test
+   *   for exactly the reason they must be exempt here. */
+  const roundel = stripComments(readFileSync(join(ROOT, 'ripmaster-roundel.svg'), 'utf8'), true);
+  ok(!/UPPERDECK/i.test(roundel), 'ripmaster-roundel.svg — the ring type carries no retired name');
+  ok(roundel.includes('RIPMASTER ★ STUDIOS'), 'ripmaster-roundel.svg — the ring names the live studio');
+  ok(!/SEASON/i.test(roundel), 'ripmaster-roundel.svg — and says nothing about seasons');
+
+  const backs = readdirSync(join(ROOT, 'cards')).filter(f => f.endsWith('.html'));
+  const stale = backs.filter(f => /Upperdeck[^a-zA-Z0-9]{0,4}Ripmaster/i
+    .test(readFileSync(join(ROOT, 'cards', f), 'utf8')));
+  ok(stale.length === 0, `card backs — ${stale.length ? stale.length + ' still print the retired team line' : `all ${backs.length} print the live studio`}`);
+}
+
 console.log('\n── art that SPELLS the retired name may not be referenced ──');
 for (const art of DEAD_ART) {
   const refs = [];
@@ -243,6 +296,82 @@ console.log('\n── deploy-time permanents (scripts/ and contracts/ are skippe
    *   Pinned so it can never be "tidied" to match something else. */
   ok(solCode.includes('EIP712("ripmaster3030studios", "1")'),
      'the EIP-712 domain is ripmaster3030studios — DO NOT CHANGE after a voucher is signed');
+}
+
+/* ── THE GENERATORS THAT WRITE THE SHIPPED TREE ───────────────────────────────────────────────
+ * ⛔ THE 2026-08-01 RENAME PATCHED OUTPUT AND LEFT EVERY GENERATOR ARMED. `scripts/` is skipped by
+ *   the sweep because it does not ship to the CDN — but these files WRITE the files that do, and
+ *   several are run routinely (CLAUDE.md itself says of the public pages: "edit the source +
+ *   regenerate, don't edit the HTML directly"). Found stale on 2026-08-02, four days out:
+ *     · build-pages.mjs      the side watermark on all four generated public pages
+ *     · build-whitepaper.mjs the PDF's cover HEADLINE, its watermark, and its hero BITMAP
+ *     · build-hero-lens.mjs  the <title>, the visible card-back team line, the RETIRED DOMAIN in
+ *                            `animation_url`/`external_url`, and the token description
+ *     · restyle-backs.mjs    the team line + the dead-name bitmap on 197 card backs
+ *     · ingest-batch.mjs · md-to-docs.mjs · generate-lore.mjs · fbx2glb.mjs · bake-fighter.mjs
+ *       · morph-mesh.mjs     titles, kickers, an AI system prompt, and asset headers
+ * ⚑ restyle-backs.mjs is the sharpest case: the shipped backs had ALREADY been repointed at the
+ *   mark by hand, so generator and output disagreed and re-running it would have silently undone
+ *   the fix. A generator is not "a script" — it is the source of a surface.
+ * ⚠ Comments stay exempt here for the same reason as everywhere else: the record of the failure
+ *   belongs next to the fix. This checks EMITTED strings only. */
+console.log('\n── generators may not write the retired name into what they emit ──');
+{
+  const genHits = [];
+  let scanned = 0;
+  for (const f of readdirSync(join(ROOT, 'scripts')).filter(f => f.endsWith('.mjs'))) {
+    if (f === 'test-name-law.mjs') continue;      // this file quotes every bad form on purpose
+    scanned++;
+    const src = readFileSync(join(ROOT, 'scripts', f), 'utf8');
+    if (!/upperdeck/i.test(src)) continue;
+    const code = stripComments(src, false);
+    code.split('\n').forEach((line, n) => {
+      if (!/upperdeck/i.test(line)) return;
+      /* ⚠ ROOT/scratchpad path constants are real filesystem paths — the repo directory is still
+       *   named for the old project (package.json is allow-listed for the same reason). They are
+       *   not emitted into any artifact, so they are not violations. Matching on the quoted path
+       *   prefix rather than on a variable name, because the variable is called different things
+       *   in different scripts. */
+      if (/['"`]\/(home|tmp)\//.test(line)) return;
+      genHits.push(`scripts/${f}:${n + 1}  ${line.trim().slice(0, 88)}`);
+    });
+  }
+  if (genHits.length) genHits.forEach(h => bad(h));
+  else ok(true, `${scanned} generators emit nothing carrying the retired name`);
+}
+/* The two deploy-path pins that no string sweep could have found, because one is a FLAG pointing
+ * at a picture and the other is a sentence in a runbook nobody opens until the night. */
+{
+  /* ⚠ READ THE COMMAND, NOT THE PAGE. A first cut grepped the whole of TESTNET.md for
+   *   `--image .* marquee-header.webp` and failed on the BLOCKQUOTE that explains why that
+   *   argument was wrong — a checker that fires on the note describing its own fix gets muted,
+   *   and then it is not a checker (the same lesson the <style> stripper above records). So the
+   *   fenced code blocks are pulled out first and only those are asserted on. */
+  const testnet = readFileSync(join(ROOT, 'docs/TESTNET.md'), 'utf8');
+  const fenced = [...testnet.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(m => m[1]).join('\n');
+  const imageArgs = [...fenced.matchAll(/--image\s+(\S+)/g)].map(m => m[1]);
+  ok(imageArgs.length > 0, `the deploy command carries an --image to check  (${imageArgs.join(', ') || 'NONE'})`);
+  for (const art of DEAD_ART) {
+    ok(!imageArgs.some(a => a.includes(art)),
+       `--image does not hand the CLI ${art} as the token's permanent fallback art`);
+  }
+  ok(imageArgs.some(a => a.includes('media/site/mark-')),
+     'the deploy command hands the CLI the generated mark');
+
+  /* ⛔ THE RUNBOOK NAMED THE TOKEN `upperdeckripmaster3030` UNTIL 2026-08-02 — on the one step
+   *   that is irreversible, in the document read once, at 11 PM, under pressure. */
+  const runbook = readFileSync(join(ROOT, 'docs/LAUNCH-CHECKLIST.md'), 'utf8');
+  const nameClaim = runbook.match(/`name\(\)` must read `([^`]+)`/);
+  ok(nameClaim && nameClaim[1] === TOKEN_NAME,
+     `LAUNCH-CHECKLIST names the token "${nameClaim ? nameClaim[1] : 'NOT STATED'}" — must be "${TOKEN_NAME}"`);
+  ok(/`symbol\(\)` must read `3030`/.test(runbook), 'LAUNCH-CHECKLIST states the symbol too');
+  /* ⚠ Same trap as `--image`: the runbook QUOTES the retracted claim in order to correct it, so a
+   *   bare search for the sentence fails on the correction itself. The assertion that survives
+   *   rewording is the positive one — the runbook must show the CLI command the artist types,
+   *   because "you type this yourself" is the fact the old text got wrong. */
+  ok(/rare liquid-edition deploy multicurve "ripmaster3030" "3030"/.test(runbook),
+     'LAUNCH-CHECKLIST shows the deploy command the artist types — the name is not handed over');
+  ok(/--preview/.test(runbook), 'and tells them to --preview before --yes');
 }
 
 console.log('\n── the supply cap, stated in one place and spent everywhere ──');

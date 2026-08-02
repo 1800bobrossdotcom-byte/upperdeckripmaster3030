@@ -37,7 +37,19 @@ const NAV = [
  * ⚠ THE NOTE LIVES HERE, NOT IN THE TEMPLATE. It was briefly written as an HTML comment inside
  *   the shell, which (a) shipped a build note about our own naming mistake to four public pages,
  *   and (b) put BACKTICKS inside a JS template literal — the whole shell is one — so the build
- *   died on the next word. Same trap CLAUDE.md records for hero3d.js's GLSL. */
+ *   died on the next word. Same trap CLAUDE.md records for hero3d.js's GLSL.
+ *   ⚑ Written a SECOND time on 2026-08-02, by the same hand, three lines below this warning. The
+ *     rule is not "avoid backticks"; it is that a template literal is OUTPUT, so anything put in
+ *     it is published. `npm run test:name`'s generator sweep caught it, which is the only reason
+ *     it is not on four public pages right now.
+ *
+ * ⛔ AND THE SIDE WATERMARK WAS STALE IN THE SAME FILE, unnoticed by every check for a day. It
+ *    read `UPPERDECK · RIPMASTER · 3030` on all four generated pages while `npm run test:name`
+ *    passed, because the sweep looked for the JOINED string and this is the same name with
+ *    separators between its words. That is a THIRD form of the name, after the string and after
+ *    the bitmaps — a name also travels as its own words with anything at all between them. The
+ *    test now matches on the retired FIRST WORD, so `RIPMASTER 3030 STUDIOS` still passes and
+ *    nothing led by the dead word can. */
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -277,7 +289,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
 <script src="/banner.js" defer></script>
 <script src="/js/bg-foil.js" defer></script></head>
 <body>
-  <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
+  <div class="wm">RIPMASTER · 3030 · STUDIOS</div>
   <div class="topbar">
     <a class="brand" href="index.html">◂ Ripmaster 3030</a>
     <nav class="topnav">

@@ -547,7 +547,7 @@ function faceNormals(P, N, idx) {
 const pad4 = n => (n % 4 ? 4 - (n % 4) : 0);
 
 export function toGLB(meshes) {
-  const json = { asset: { version: '2.0', generator: 'upperdeckripmaster3030 fbx2glb' },
+  const json = { asset: { version: '2.0', generator: 'ripmaster3030studios fbx2glb' },
                  scene: 0, scenes: [{ nodes: [] }], nodes: [], meshes: [], accessors: [], bufferViews: [], buffers: [] };
   const blobs = []; let off = 0;
   const addView = (buf, target) => {
@@ -593,7 +593,7 @@ export function toGLB(meshes) {
 }
 
 export function toOBJ(meshes) {
-  const out = ['# upperdeckripmaster3030 — converted from FBX by scripts/fbx2glb.mjs'];
+  const out = ['# ripmaster3030studios — converted from FBX by scripts/fbx2glb.mjs'];
   let vBase = 1, nBase = 1, tBase = 1;
   const f = x => (Math.round(x * 1e6) / 1e6).toString();
   for (const m of meshes) {

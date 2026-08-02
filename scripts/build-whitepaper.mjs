@@ -16,9 +16,19 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
 const chromiumPath = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
-// ── embed the marquee hero as a data URI so the deck is fully self-contained ──
-const heroB64 = readFileSync(join(ROOT, 'marquee-header.webp')).toString('base64');
-const HERO = `data:image/webp;base64,${heroB64}`;
+/* ── embed the hero as a data URI so the deck is fully self-contained ──
+ * ⛔ THIS WAS `marquee-header.webp` UNTIL 2026-08-02 — 178 KB of type whose PIXELS read
+ *   "UPPERDECK RIPMASTER 3030", on the cover of the deck handed to SuperRare and linked from the
+ *   site, under an `alt` that already said `ripmaster3030studios`. The mismatch sat inside one
+ *   tag, exactly like gate.js's logo. The cover HEADLINE was stale in the same breath and in
+ *   plain text (`UPPERDECK<br>RIPMASTER 3030`), so the deck said the dead name twice on page one.
+ * ⚑ Neither was reachable by any check that existed: `npm run test:name` skips `scripts/`, and
+ *   the artifact it produces is a PDF, which no string sweep can read. A generator plus a binary
+ *   output is two blind spots stacked — which is why the test now sweeps generator OUTPUT too.
+ * ⚠ The mark is the screenshot of the LIVE foil wordmark (`npm run mark`), so it cannot drift
+ *   from the wordmark the site actually renders — a flat redraw would be a picture OF the mark. */
+const heroB64 = readFileSync(join(ROOT, 'media/site/mark-1024.png')).toString('base64');
+const HERO = `data:image/png;base64,${heroB64}`;
 
 // ── brand tokens (from index.html :root) ──
 const C = {
@@ -35,7 +45,7 @@ const slide = (kicker, inner, accent = C.phos) => {
   N++;
   return `<section class="slide">
     <div class="scan"></div><div class="grid"></div>
-    <div class="wm">UPPERDECK · RIPMASTER · 3030</div>
+    <div class="wm">RIPMASTER · 3030 · STUDIOS</div>
     <header class="shead">
       <span class="kick" style="color:${accent};border-color:${accent}">${kicker}</span>
       <span class="pg">${String(N).padStart(2, '0')} / ${TOTAL}</span>
@@ -59,7 +69,7 @@ S.push(`<section class="slide cover">
   <img class="hero" src="${HERO}" alt="ripmaster3030studios">
   <div class="cover-mid">
     <div class="eyebrow">TRANSPARENT WHITEPAPER · v1 · <span style="color:${C.amber}">NFA</span></div>
-    <h1 class="big">UPPERDECK<br>RIPMASTER 3030</h1>
+    <h1 class="big">RIPMASTER 3030<br>STUDIOS</h1>
     <div class="tokline">$3030 · a liquid trading-card game on <b>SuperRare Liquid Editions</b></div>
     <div class="byline">by <b>Gianni Arone</b> (lovebeing · @_lovebeing_) &nbsp;·&nbsp; SuperRare Liquid Editions — Cohort 1</div>
   </div>
@@ -367,7 +377,18 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 
   /* cover */
   .cover { padding: 0; justify-content: flex-end; }
-  .cover .hero { position: absolute; top: 0; right: 0; width: 62%; height: 100%; object-fit: cover;
+  /* NOTE object-fit:cover WAS CORRECT FOR THE OLD SOURCE AND IS WRONG FOR THIS ONE. The slot is
+     62% x 100% of a 13.333x7.5in slide = 1.10:1, nearly square. The retired marquee was 2.0:1, so
+     cover filled the height and cropped the sides, losing the ends of a banner nobody minded.
+     The mark is 1:1, so cover fills the WIDTH and crops ~9% off the top and bottom, and the mark
+     is drawn tight to its edges on purpose (the edge-ink guard in scripts/build-mark.mjs exists
+     because an earlier capture sliced RIPMASTER's final R down the stem). contain fits by height
+     and crops nothing. Same trap as the gate's .u-logo: a box sized for a 2:1 banner does not
+     hold a square, and swapping the art without re-reading the box is how type gets cut.
+     WARN NO BACKTICKS IN HERE. This whole stylesheet is inside a JS template literal, so a
+     backtick in a CSS comment ends the literal and the build dies on the next word. That trap is
+     written down in build-pages.mjs and it still caught this edit. */
+  .cover .hero { position: absolute; top: 0; right: 0; width: 62%; height: 100%; object-fit: contain;
     object-position: center; opacity: .9;
     mask-image: linear-gradient(90deg, transparent, #000 42%); -webkit-mask-image: linear-gradient(90deg, transparent, #000 42%); }
   .cover-glow { position: absolute; inset: 0;

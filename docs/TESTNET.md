@@ -106,9 +106,20 @@ op://…`), but plaintext is fine for a throwaway testnet wallet.*
 rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
   --curve-preset medium-demand \
   --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
-  --image ./marquee-header.webp \
+  --image ./media/site/mark-1024.png \
   --preview
 ```
+
+> ⛔ **`--image` WAS `./marquee-header.webp` UNTIL 2026-08-02.** That file is 178 KB of type whose
+> **pixels read "UPPERDECK RIPMASTER 3030"** — the retired studio name — and SuperRare's own create
+> flow says of this argument: *"This artwork will serve as the initial fallback metadata."* It is
+> what the token shows anywhere the render contract is not consulted, and it is not a string any
+> search could have found. `media/site/mark-1024.png` is the screenshot of the live foil wordmark
+> (`npm run mark`), so it cannot drift from what the site renders.
+>
+> ⚠ **`name` and `symbol` are POSITIONAL and frozen the moment the transaction lands.** Read them
+> back off the preview before swapping `--preview` for `--yes`. `npm run test:name` asserts this
+> exact line character-for-character, so if you edit it and the build goes red, the build is right.
 When the curve looks right, run the **same line with `--yes`** instead of `--preview`.
 Your key signs it, and after a minute the CLI prints a **contract address** (`0x…`).
 
