@@ -177,10 +177,31 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
   ~1 RARE/token; **burns permanent**; deflates **~3× → ~1.01M floor**, driven only by packs.
 - **Every card is a LENS** = a render keyed by card id on **one combined renderer + ERC-721
   lens contract**. **ERC-721 only — ERC-1155 is nixed.**
-- **Deck = 100 cards:** **33 hero 1/1s** minted (11 gacha pack-claims + 22 earned Season-1
-  game titles) + **67 render-only field lenses** (mint later) + **Lovebeing**, a
-  **holder-bound lens** (one per wallet, non-transferable, non-burnable). The 33 are a
-  **Season-1 genesis set** that persists all seasons.
+- **Deck = 100 cards:** **33 hero 1/1s** minted (**11 SuperRare auctions + 11 gacha pack-claims +
+  11 earned titles** — artist directive 2026-08-01, replacing the old 11+22) + **67 render-only
+  field lenses** (mint later) + **Lovebeing**, a **holder-bound lens** (one per wallet,
+  non-transferable, non-burnable). The 33 are a **genesis set** that persists all tiers.
+  - ✅ **THE ELEVEN EARNED TITLES ARE STATED — `docs/HERO-UNLOCKS.md`**, printed in full on
+    `whitepaper.html#titles`. The artist asked *"they need to be hard enough"*; each is a named
+    feat in a named cabinet, first claimant takes it and it closes. ⚠ Names, numbers and which
+    card ids go where are **his review**, not a blank page.
+  - ⛔ **THE LOAD-BEARING FINDING: the earned tier CANNOT BE SELF-SERVE.** Every score in this
+    project lives in `localStorage` — the whole persistence layer is four keys — so a player with
+    devtools can claim any run in seconds, and a hero 1/1 is real value. ⚑ **The fix was already
+    built**: `claimHero()` mints only against an EIP-712 voucher (`kind 2` = game title), so a
+    human decides and the chain enforces it. That inverts the problem usefully — **because a
+    person verifies before signing, the criteria can be arbitrarily hard and need not be
+    machine-checkable.** No contract change; `kind 2` covers all eleven. The site says out loud
+    that the studio is the judge and why a machine cannot referee it.
+  - ⚑ **No title can be bought** — nothing keys on holding, ripping or burning more. Ethics, and
+    it also closes the flash-borrow hole in one line: a balance is borrowable for one block, a
+    feat is not.
+  - ⚠ **A condition that merely SOUNDS hard is worse than none.** Cloud Racer's title was drafted
+    as *"win a race without braking"*; `crpc-game.js`'s own 6-pilot × 3-lap × 5-seed battery puts
+    the airbrake **last of four verbs at 0.29 s out of a 38 s race** — the easiest of the eleven
+    while reading like one of the hardest. Replaced with the light-strips (0.96 s, the biggest
+    verb on that track). **Check the number before publishing the rule.**
+  - ⚠ Economics do not move: all 33 mint as 1/1s either way. This is distribution, not supply.
 - **Packs:** ~$7 escalating buy-and-burn, ~3,560 over 4 seasons (S1 1,600 → S4 260).
 - **Games:** wager **$3030 + cards** into a pot; a **small ~10% rake burns** (deflationary,
   real on-chain via `js/wager-payout.js`), the rest + cards pay the **podium 1st/2nd/3rd
@@ -383,11 +404,83 @@ and performs WalletConnect burns — it is **NOT** for embedding.
   `min/max-aspect-ratio` media queries. Always test a hero at 320px wide in a real
   sandboxed frame.
 
+## ⛔ THE NAME LAW IS A TEST NOW — `npm run test:name` (task #99's neighbour)
+**The rename to `ripmaster3030studios` touched 258 files on 2026-08-01 and was STILL WRONG on
+200+ live surfaces a day later.** Not obscure ones:
+- `gate.js` — the **pre-launch veil's logo**, i.e. the first thing every visitor sees, was the
+  old-name bitmap **with an `alt` that already read the new name**. The mismatch sat inside one tag.
+- `index.html` **`og:image` + `twitter:image`** — the same bitmap. Every share, every unfurl.
+- whitepaper/tokenomics/audit/artist `og:image` — **`marquee-header.webp`, whose PIXELS read
+  "UPPERDECK RIPMASTER 3030"**. The filename is innocent; no string search can ever find it.
+- **`token-metadata.json` `"image"`** — the picture representing the token itself.
+- **196 card backs** — the same bitmap, printed as the watermark on every card.
+- **`js/wallet.js` WalletConnect `metadata`** — the dApp name, URL and icon **rendered inside the
+  user's wallet**. A collector on ripmaster3030studios.com was asked to approve a connection from
+  a *different name at a different domain* — the exact shape people are told to read as a phish.
+- **`js/session.js`'s SIWE statement** — the sentence a user reads in their wallet *before signing*.
+- **`api/lore.js`'s system prompt** — so generated card lore could name the retired studio.
+- plus an `aria-label`, three `<title>`s, one visible tag and 38 file headers.
+
+⚑ **THE GENERALISATION, and it is bigger than the rename: a surface nobody looks at rots.** Every
+item above is somewhere you never open in the course of the work. **If a fact is displayed
+somewhere you do not routinely open, assume it is stale and write the test that opens it.**
+- The test checks **two** things, because there are two ways to carry a name: the **string**
+  outside a comment in any shipped file, and **references to the bitmaps whose pixels spell it**
+  (listed by hand — grep cannot see into a PNG).
+- **Comments are exempt on purpose.** The record of the failure belongs next to the fix; rewriting
+  history to match the present makes it false — same reason the Sepolia rehearsal logs still say
+  `UR3030`.
+- `package.json`/`package-lock.json` keep the old name as the npm/repo identifier. Allow-listed
+  with a reason, not overlooked.
+- ⚠ The stripper must handle `<style>` as well as `<script>` — without it the checker flagged the
+  CSS comment *explaining this very bug*. A checker that cries wolf on the note describing the fix
+  gets muted, and then it is not a checker.
+
+## The mark — `npm run mark`, and it shipped CLIPPED
+`media/site/mark-{1024,512,180,32}.png` + `og-1200x630.png`, screenshot from the LIVE foil
+wordmark (a flat redraw would be a *picture of* the mark — DESIGN-SYSTEM §1).
+- ⛔ **It clipped to `.marquee-art.wordmark` — the DOM string's box, 430×430 — while the ink lives
+  on `hero3d.js`'s own canvas at 499×499**, an ~8% bleed on every side for the foil's specular and
+  the letters' overshoot. RIPMASTER's final R and STUDIOS's final S were sliced down the stem, on
+  the live `og:image`. ⚑ **It survived because both boxes are square**: the only guard asked
+  whether the capture was EMPTY, and a tight square crop of a square mark is still square.
+- ✅ **The guard that catches it is edge ink** — sample one pixel in from each side; >2% lit means
+  the type runs off the capture. It immediately found two more layers of the same bug (the credit
+  line above and the SuperRare lockup below, 3.8% and 18.3%).
+- The three fixed backdrop washes (`#rain`, `.lm`, `.crt`) come off and the page goes transparent
+  for the capture. Icons should be the mark alone, and the baked page stock left a visible seam
+  where it met the share card's flat fill — **two backgrounds that nearly match is worse than one.**
+- ⚠ **A width cap on a square is also a height cap.** `.u-logo` was `min(74vw,500px)`, sized for a
+  ~2:1 banner; at 1:1 that pushed the gate's login form off a phone. 300px now, verified.
+- ⚠ Colour is NOT verified — SwiftShader rotates hue on canvas content here. Layout and value are
+  right; re-run on a real GPU before launch.
+
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
   `build-pages.mjs` shell). Fail-closed. It is a **soft veil only** — the check runs client
   side, so treat it as a curtain, not a lock. Use Vercel Deployment Protection for anything
   that actually must not be reached.
+- ✅ **MOBILE IS DONE — `mobile.css` + `npm run mobile`.** One type scale is DECLARED in
+  `mobile.css` and SPENT by each page, so the cascade never fights the big inline `<style>` blocks
+  and a missing sheet degrades via `var(--t-body, 15px)`. **Two floors, because there are two kinds
+  of text: 12px for labels, 16px for prose.** Across nine pages: sub-12px text **172 → 0**, prose
+  under 16px **206 → 0**, taps under 44px **117 → 0**, horizontal overflow gone; clean at 320×568
+  and in landscape. Documents grew 15–25%, which is the cost of 16px prose and is the intended
+  trade. ⚠ Still SwiftShader — task #73 (a real phone) stands.
+  - ⛔ **`arcade.html` was behind a full-screen "TURN IT SIDEWAYS" veil.** It is the *menu* — a
+    scrolling column of cards, the one shape a phone held upright is perfect for. `js/orient.js`
+    self-initialises and every cabinet includes it; the arcade is not a cabinet. Removed there
+    only; the ten game pages keep it.
+  - ⛔ **`[hidden]` DID NOT WORK ON THE LAUNCH COUNTDOWN.** `.lc-grid{display:flex}` beat the UA's
+    `[hidden]{display:none}`, so on **Aug 6 at 11:11 PM** the clock would have kept ticking
+    *underneath* "▓ THE PACK IS OPEN ▓". A global `[hidden]{display:none!important}` ends the
+    class. (Third sighting of this rule in this repo — see the `display:inline-block` note below.)
+  - The generated pages' sticky topbar was **127px — three wrapped rows, 15% of the viewport, on
+    every page**; now one 58px rail. The pack modal's close button was **half off-screen**, hidden
+    from every overflow check by the modal's own `overflow:auto`. index had **three fixed bottom
+    layers at the same altitude**, the freshness strip covering the ticker and both controls.
+  - ⚑ **Hover-only affordances went to zero.** You cannot hover a finger: a hover *lift* becomes a
+    press *yield*, and the `.btn` sheen had **no** touch trigger at all.
 - Landing has: marquee + torches, countdown to Aug 6, and a **"What is this?" facts panel**
   (informative, not corporate).
 - Public pages `whitepaper/tokenomics/audit/artist` are **generated** by

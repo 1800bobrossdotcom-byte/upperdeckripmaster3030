@@ -17,7 +17,7 @@ ship finished are the contract, the lenses and the token functionality. Everythi
 | 70 | **Hand SuperRare the token name in writing, then re-read `name()` before broadcast** | `name()` and `symbol()` are baked in at deploy and unfixable. The strings are `ripmaster3030studios` and `3030`. This project already owns a token permanently stuck with a wrong name for exactly this class of slip. |
 | 72 | **Mainnet flip** — chain-config, wrong-network guard, end-to-end smoke test | |
 | 74 | **Launch night** — lift the gate, rotate creds, final copy + NFA pass | |
-| 99 | **Hero economics: 11 auction / 11 gacha / 11 earned, and the unlock criteria** | ⚠ BLOCKED ON THE ARTIST, and it is content not code. Site copy currently says 11 gacha + 22 earned. The artist proposes 11 on SuperRare auction + 11 gacha + 11 earned and asks what the earned ones actually require — *"they need to be hard enough"*. Touches index.html, the whitepaper, tokenomics, and possibly the lens voucher kinds (today: kind 1 gacha / 2 game title; a third may be needed). **Do not guess the criteria.** |
+| 99 | **Hero economics: 11 auction / 11 gacha / 11 earned, and the unlock criteria** | ✅ **STATED — `docs/HERO-UNLOCKS.md`**, and printed on the whitepaper page under §06. The eleven feats are named, one per condition, and none can be bought. ⚠ **The remaining call is the artist's and it is a REVIEW, not a blank page**: which 11 card ids go to auction, the difficulty dial on every number, whether first-claimant-takes-it or a stated date, and the names. ⚑ Needs **no contract change** — voucher `kind 2` already covers all eleven. ⚑ The load-bearing finding: every score lives in `localStorage` and is forgeable in seconds, so the earned tier **cannot be self-serve** — the EIP-712 signer is the referee, and the site says so out loud. |
 
 ---
 
@@ -52,8 +52,8 @@ ship finished are the contract, the lenses and the token functionality. Everythi
 
 | # | |
 | --- | --- |
-| 96 | Mobile: **172 text elements under 12px, 13 tap targets under 40px**, measured at 390×844. The hero is already fixed (270×31 → a square 289×289). |
-| — | The square mark now exists — cut the **favicon, app icon, OG card and token image** from it. That was half the argument for making it square. |
+| 96 | ✅ **DONE.** `mobile.css` declares one type scale (12px floor for labels, 16px for prose) and every page spends it. Nine pages: sub-12px text **172 → 0**, prose under 16px **206 → 0**, tap targets under 44px **117 → 0**, horizontal overflow gone. Clean at 320×568 and in landscape. `npm run mobile` re-measures. ⚑ Found on the way: `arcade.html` — the MENU, a scrolling column, the one shape a phone is perfect for — was behind a full-screen "TURN IT SIDEWAYS" veil; and `[hidden]` did not work on the launch countdown (`.lc-grid{display:flex}` beat the UA rule), so on Aug 6 at 11:11 PM the clock would have kept ticking *underneath* "THE PACK IS OPEN". |
+| — | ✅ **DONE — and the mark was CLIPPED for a day before anyone looked.** favicon (32), app icon (180), share card (1200×630) and the token image all now come from `npm run mark`, cut from the live foil. The capture clipped to the DOM text's 430px box while the ink lives on hero3d's 499px canvas, so RIPMASTER's R and STUDIOS's S were sliced down the stem — and it passed every guard, because a tight square crop of a square mark is still square. There is now an edge-ink guard. |
 | 47 | Coming-soon gate: frosted-glass veil + torch reveal |
 | 73 | ⚠ **Verify on a real phone.** Every mobile number in this repo is SwiftShader in a container and is RELATIVE ONLY. |
 | — | The **interstitials** (DELTRON-3030.md idea 1): loading screens, wave-clear banners, the 404 and the gate are dead inventory. Eleven of that album's twenty-one tracks are sub-minute fake broadcasts, and that is where its world gets built. |
@@ -97,6 +97,20 @@ These are the patterns worth repeating, all earned this session:
 7. **A workaround must die with its bug.** `invX` was defaulted on while the mirror was still live.
 8. **Fail open, and prove it.** Every renderer here degrades rather than blanks, and the tests
    break the build on purpose to check.
+9. **⛔ A SURFACE NOBODY LOOKS AT ROTS.** The rename touched 258 files and was still wrong on 200+
+   surfaces a day later — every one of them a place you never see while working: an `og:image`, a
+   bitmap's *interior*, a WalletConnect approval sheet, a SIWE sentence, an LLM system prompt, an
+   `aria-label`, a `<title>`. Grep found none of it, because the filenames were innocent and the
+   name was in the pixels. **The generalisation: if a fact is displayed somewhere you do not open
+   in the course of the work, assume it is stale, and write the test that opens it.**
+   `npm run test:name` is that test.
+10. **A condition that merely SOUNDS hard is worse than none.** A hero title was drafted as "win a
+   race without braking"; the game's own battery says the airbrake is worth 0.29 s out of 38 —
+   it would have handed out a 1/1 for nothing. Check the number before you publish the rule.
+11. **Verify the agent, not the report.** Three claims this session were right in the report and
+   wrong in the world until measured — and one agent corrected *me* twice. The card-layer `rect`
+   fix was confirmed by asking the live renderer where all 34 plates landed, not by re-reading the
+   JSON that had already passed its own schema check.
 
 ### Tooling that makes the above cheap
 
