@@ -404,6 +404,122 @@ window.S9Game = (function () {
      * 5.9 m and puts your eyes over the top of a walled yard that has nothing modelled behind it. */
     const bootCeil = e => Math.min((MAP.ceilY || 6) - BOOTS.clear, (e.flyBase || 0) + BOOTS.lift * (e.cardSpeed || 1));
 
+    /* ── ⧗ MOBILITY TOKENS — the brief, before the code (docs/DESIGN-SYSTEM.md §8) ─────────────
+     *
+     * Five verbs dropped onto the field: ▲ SPRING · ◈ RUSH · ≋ HOVER · ✦ FLIGHT · ◷ SLIP.
+     *
+     * 1 · WHAT IT IS MADE OF.  A stamped arena token — the same printed object this whole studio
+     *   makes, thrown on the floor of a firefight. Not a buff icon and not a shop item: a chip
+     *   with a die-cut edge that somebody has to walk over. It is CONSUMED by being touched, the
+     *   way a pack is consumed by being ripped, and what you get is a verb rather than a number.
+     *
+     * 2 · HOW IT IS LIT.  Each token is its own light — the existing supply-drop path already
+     *   draws a lit core plus a wide halo in the drop's own colour (js/s9pc-fx.js), so a token is
+     *   a coloured lamp on the arena floor and reads from across the map. The palette is the
+     *   site's, not a new one: SPRING lime, RUSH cyan, HOVER violet, FLIGHT amber, SLIP magenta.
+     *   The holder carries that colour as a trail, so the arena can SEE who has what.
+     *
+     * 3 · WHAT MOVES, AND WHY IT PHYSICALLY MOVED.  ⚑ The half that gets skipped, five ways:
+     *   · SPRING — the legs push harder. Nothing else changes: it is the SAME ballistic arc with a
+     *     bigger initial velocity, so it is still gravity that brings you down and the apex is a
+     *     number you can predict (v²/2g). 7.4 → 12.5 m/s, apex 1.37 → 3.91 m, which is the 3.2 m
+     *     sniper ledge and the 3.85 m mezzanine from the floor.
+     *   · RUSH — traction. It is a GROUND power and it does not help in the air, because a jet
+     *     has nothing to push against; that is also what stops it stacking onto the boots.
+     *   · HOVER — a governor that holds ALTITUDE rather than climb rate. It cannot lift you far
+     *     (2.4 m over the surface you left) and it never accelerates you upward hard: step off a
+     *     ledge and you keep the ledge's height, gliding out over the arena. It is a PLATFORM.
+     *   · FLIGHT — the same governor with the budget removed: climb where you like up to the
+     *     arena's lid. When it ends you FALL, and where you are standing when it does is the
+     *     whole decision.
+     *   · SLIP — ⚑ nothing about you changes at all. The WORLD's clock slows to 0.42 and yours
+     *     does not. Everything you see decelerating is decelerating; you are running at the same
+     *     speed you always were, into gaps that have stopped closing.
+     *
+     * 4 · WHAT IT SITS ON.  The arena floor, and the game that was already tuned.
+     *   ⛔ THE LOAD-BEARING CONSTRAINT: Section 9's TTK is ~1.3 s and it was tuned so that cover,
+     *     suppression and disengaging could exist. **NOT ONE OF THESE FIVE TOUCHES dmg, rate, HP,
+     *     armour or the headshot carve-out.** TTK is arithmetically identical with every token
+     *     live — 13 rounds of FULL TILT, 1.26 s — and that is asserted, not asserted-about.
+     *   ⚑ THE MOBILITY TAX. What they DO cost is your aim: every token multiplies weapon spread
+     *     while it is live, on top of the boots' existing airborne ×1.9. You are fast, you are not
+     *     deadly. That is the anti-casino line stated as a number: the prize is the manoeuvre.
+     *   ⚑ ONE AT A TIME. A live token with more than MOB_HOLD left REFUSES a new one and the new
+     *     one stays on the floor for someone else. Without this the five compose into a cheat
+     *     menu (fly + rush + slow the world), and the field stops being a place you choose in.
+     *   ⚑ AND THEY BROADCAST. RUSH/HOVER/FLIGHT hand your position to every bot inside `heard`,
+     *     on the same channel being shot at uses — the boots' rule, extended. Being fast is loud.
+     *
+     * 5 · THE ACCEPTANCE MEASUREMENT.  All in scripts/test-s9mobility.mjs, driven in a real match:
+     *   · base vs boosted traversal over a measured corridor; jump apex; hover ceiling and hold;
+     *     flight ceiling; the SLIP ratio.
+     *   · TTK with each token live == TTK with none, to the millisecond.
+     *   · every token REACHABLE — spawned onto the field and picked up by driving the game.
+     *   · bots hold tokens in a driven match (a power only the player can use is a cheat menu).
+     *   · at rest, zero: no token, no timeScale, no trail, byte-identical game.
+     *
+     * ⚠ SLIP IS RELATIVE, AND THAT IS WHY THE BOTS CAN HAVE IT. "The world slows" is a statement
+     *   about a frame of reference, and only one entity's frame can be rendered — the one behind
+     *   the eyes. So the player's SLIP slows the world; a bot's SLIP speeds the BOT up by exactly
+     *   1/0.42. Same ratio, same duration in the holder's own time, and the two compose correctly
+     *   (both holding it ⇒ both back at parity). A bot with SLIP looks, from where you stand, like
+     *   an operative moving at 2.38× — which is precisely what a slowed world looks like from
+     *   outside it. ⚑ And the trigger is NOT relative: fireT/reloadT tick on the WORLD's clock for
+     *   everyone, so nobody gets extra bullets out of it. That is what keeps TTK honest.
+     */
+    const SLIP_K = 0.42;              // the world's clock while a SLIP is live
+    const SLIP_REL = 1 / SLIP_K;      // 2.381 — the holder's advantage, identical for player and bot
+    const MOB_HOLD = 1.2;             // s left on a live token before another may replace it
+    const POW_SEEK = 22;              // m — how far a bot will detour for a drop it can use
+    const MOBS = {
+      // dur: seconds in the HOLDER's own time · wt: drop weight · bloom: weapon-spread tax
+      // heard: m at which bots are handed your position while it is live and you are moving
+      spring: { name: 'SPRING', ch: '▲', col: [120, 255, 150], dur: 14.0, wt: 3.0, bloom: 1.00, heard: 0,  jump: 1.69 },
+      rush:   { name: 'RUSH',   ch: '◈', col: [ 90, 220, 255], dur:  8.0, wt: 2.4, bloom: 1.35, heard: 18, ground: 2.2 },
+      hover:  { name: 'HOVER',  ch: '≋', col: [190, 150, 255], dur:  9.0, wt: 1.6, bloom: 1.00, heard: 20, climb: 1.1, cap: 2.4, lat: 8.6 },
+      flight: { name: 'FLIGHT', ch: '✦', col: [255, 214,  90], dur:  5.5, wt: 0.8, bloom: 1.25, heard: 34, climb: 6.5, lat: 11.5 },
+      slip:   { name: 'SLIP',   ch: '◷', col: [255,  42, 217], dur:  4.5, wt: 0.9, bloom: 1.45, heard: 0 },
+    };
+    const mobOf = e => (e && e.mob && e.mob.t > 0) ? e.mob : null;
+    const mobIs = (e, k) => { const m = mobOf(e); return !!m && m.type === k; };
+    const mobDef = e => { const m = mobOf(e); return m ? MOBS[m.type] : null; };
+    /* Refuses rather than replaces — see the ONE AT A TIME note above. Returns false when the
+     * token was not consumed, and the pickup loop leaves it on the floor for someone else. */
+    function giveMob(e, type) {
+      const D = MOBS[type]; if (!e || !e.alive || !D) return false;
+      const cur = mobOf(e); if (cur && cur.t > MOB_HOLD) return false;
+      e.mob = { type, t: D.dur, dur: D.dur };
+      if (type === 'spring' || type === 'flight' || type === 'hover') e.flyBase = e.y;
+      return true;
+    }
+    /* ⧗ THE LAUNCH VELOCITY IS A FUNCTION, NOT A CONSTANT. Every jump in the game — the player's
+     * tap, the bot's idle hop, the bot's vertical chase — reads it, so SPRING cannot be a thing
+     * only the player benefits from by construction. */
+    const jumpV = e => JUMP * (mobIs(e, 'spring') ? MOBS.spring.jump : 1);
+    /* Hearing. Lifted out of stepBoots because the tokens use exactly the same channel: a position
+     * handed to every bot in range through lastSeen/seenT, which routes them into suppress/push.
+     * Throttled to ~3 Hz — this is hearing, not telemetry. */
+    function broadcast(e, dt, radius) {
+      if (!(radius > 0)) return;
+      e._noiseT = (e._noiseT || 0) - dt;
+      if (e._noiseT > 0) return;
+      e._noiseT = 0.34;
+      for (const o of G.ents) { if (o === e || !o.bot || !o.alive) continue;
+        if (Math.hypot(o.x - e.x, o.z - e.z) > radius) continue;
+        o.lastSeen = { x: e.x, z: e.z }; o.seenT = Math.max(o.seenT || 0, 1.6); if (!o.tgt) o.tgt = e; }
+    }
+    /* The holder's colour, dragged along the ground. Same channel as the boot plume (G.sparks →
+     * depth-tested, occluded, in the bloom pass) for the same reason: an overlay sprite would be
+     * none of those. Budgeted against the same cap, so a busy frame drops it rather than the FX. */
+    function mobTrail(e, dt, D) {
+      if (!e.moving && e.onGround) return;
+      e._mtT = (e._mtT || 0) - dt;
+      if (e._mtT > 0 || G.sparks.length > 220) return;
+      e._mtT = 0.05;
+      G.sparks.push({ x: e.x + rnd(0.24, -0.24), y: e.y + rnd(0.5, 0.06), z: e.z + rnd(0.24, -0.24),
+        vx: rnd(0.5, -0.5), vy: rnd(0.7, -0.2), vz: rnd(0.5, -0.5), t: rnd(0.3, 0.14), col: D.col });
+    }
+
     const MAPS = buildMaps().map(fixSpawns);
     const BUILTIN = MAPS.length;
     let MAP = MAPS[0];
@@ -414,6 +530,11 @@ window.S9Game = (function () {
       tracers: [], sparks: [], chunks: [], flashes: [], kills: [], comms: [], myStake: [], oppStakes: [],
       hitmark: 0, dmgFlash: 0, mapIdx: 0, pows: [], powT: 6, loadout: null, myCards: [], decals: [],
       shake: 0, fireFlash: 0, fireHeavy: false, fireCol: [255, 224, 150], nearMiss: 0, scopeZoom: 1,
+      /* ⧗ THE WORLD'S CLOCK, for anything downstream that needs to know time is not 1:1 — 1 at
+       * rest, SLIP_K while the player holds a SLIP. Exposed rather than hidden inside step()
+       * because a renderer's smear, a HUD readout and a headless probe all want the same number
+       * and two copies of a fact diverge (ROADMAP §5.4). */
+      timeScale: 1,
     };
     // the wager the host lobby owns; the core only reads it
     const wager = env.wager || { ante: 50, cards: 2, players: 4, picked: [], loadout: 1 };
@@ -456,35 +577,47 @@ window.S9Game = (function () {
     function stepBoots(e, dt, want) {
       // The lift budget is measured from the surface you LEFT, so stepping off a crate does not
       // hand you a free extra 4.6 m. Recorded while the feet are down; gravity owns `onGround`.
-      if (e.onGround) { e.flyBase = e.y; e.burning = false; e.burnT = 0; return; }
-      const head = bootCeil(e) - e.y;
-      const canBurn = !!want && e.alive && e.boost > 0.02;
+      if (e.onGround) { e.flyBase = e.y; e.burning = false; e.burnKind = ''; e.burnT = 0; return; }
+      /* ⧗ ONE GOVERNOR, THREE TANKS. HOVER and FLIGHT are the same machine as the boots with a
+       * different ceiling and a different climb rate — so they are the same code path, not three.
+       * ⚑ A token carries its OWN fuel: it does not spend the boost meter, because the meter is
+       *   the escape budget and a token that emptied it would be a trap dressed as a prize. Its
+       *   cost is the clock, the spread tax and the noise. */
+      const fly = mobIs(e, 'flight'), hov = mobIs(e, 'hover'), free = fly || hov;
+      const cs = e.cardSpeed || 1;
+      const lid = (MAP.ceilY || 6) - BOOTS.clear;
+      const ceil = fly ? lid
+        : hov ? Math.min(lid, (e.flyBase || 0) + MOBS.hover.cap * cs)
+        : bootCeil(e);
+      const head = ceil - e.y;
+      const canBurn = !!want && e.alive && (free || e.boost > 0.02);
       if (!canBurn) {
-        if (e.burning && e.isMe && e.boost <= 0.02) sfx('bootsdry');   // the tank, not a timer
-        e.burning = false; e.burnT = 0; return;
+        if (e.burning && e.isMe && !free && e.boost <= 0.02) sfx('bootsdry');   // the tank, not a timer
+        e.burning = false; e.burnKind = ''; e.burnT = 0; return;
       }
       /* ⚑ A GOVERNOR. `wantVy` is the fastest the jet is willing to hold, and thrust is only ever
        * applied UPWARD toward it — so it cannot brake a fall it is not fast enough to hold, it
        * cannot add to a jump already faster than it, and near the ceiling `head` tapers wantVy to
        * zero so you ease into the lid and hover instead of clanging into it. Above the lid wantVy
-       * goes negative and the jet simply lets you sink back under. One expression, no special cases. */
-      const wantVy = Math.min(BOOTS.climb * (e.cardSpeed || 1), head * 3.2);
-      if (e.vy < wantVy) e.vy = Math.min(wantVy, e.vy + BOOTS.thrust * (e.cardSpeed || 1) * dt);
-      e.boost = Math.max(0, e.boost - BOOTS.drain * dt);
+       * goes negative and the jet simply lets you sink back under. One expression, no special cases.
+       * ⧗ HOVER's climb is 1.1 — deliberately slower than a jump's rise, so the token reads as a
+       *   float that catches you rather than a lift that carries you. FLIGHT's is 6.5, faster than
+       *   the jet's 3.6 AND with the whole arena as its ceiling: that is the difference you paid
+       *   the rarer drop for. */
+      const climb = fly ? MOBS.flight.climb : hov ? MOBS.hover.climb : BOOTS.climb;
+      const wantVy = Math.min(climb * cs, head * 3.2);
+      if (e.vy < wantVy) e.vy = Math.min(wantVy, e.vy + BOOTS.thrust * (fly ? 1.6 : 1) * cs * dt);
+      if (!free) e.boost = Math.max(0, e.boost - BOOTS.drain * dt);
       const first = !e.burning;
-      e.burning = true; e.burnT = (e.burnT || 0) + dt;
-      if (e.isMe) { G.shake = Math.max(G.shake, BOOTS.shake); if (first) sfx('boots'); }
+      e.burning = true; e.burnKind = fly ? 'flight' : hov ? 'hover' : 'jet'; e.burnT = (e.burnT || 0) + dt;
+      if (e.isMe) { G.shake = Math.max(G.shake, BOOTS.shake * (fly ? 1.3 : hov ? 0.5 : 1)); if (first) sfx('boots'); }
       else if (first && Math.hypot(e.x - cam.x, e.z - cam.z) < 22) sfx('boots');
       bootExhaust(e, dt);
       /* ⚑ THE TELL, and the reason flying is a decision. A jet is loud, so every bot inside
        * `heard` is handed your position on exactly the channel being SHOT AT uses (lastSeen +
        * seenT) — which routes them into suppress/push, i.e. they come to where the noise was.
-       * Burning the boots broadcasts you. Throttled to ~3 Hz; this is hearing, not telemetry. */
-      e._noiseT = (e._noiseT || 0) - dt;
-      if (e._noiseT <= 0) { e._noiseT = 0.34;
-        for (const o of G.ents) { if (o === e || !o.bot || !o.alive) continue;
-          if (Math.hypot(o.x - e.x, o.z - e.z) > BOOTS.heard) continue;
-          o.lastSeen = { x: e.x, z: e.z }; o.seenT = Math.max(o.seenT || 0, 1.6); if (!o.tgt) o.tgt = e; } }
+       * Burning the boots broadcasts you. A token is louder still; see MOBS.heard. */
+      broadcast(e, dt, Math.max(BOOTS.heard, fly ? MOBS.flight.heard : hov ? MOBS.hover.heard : 0));
     }
     /* The plume. Additive world-space geometry through G.sparks, so it is depth-tested, occluded
      * by the crate you are behind, and picked up by the bloom pass — none of which an overlay
@@ -539,7 +672,8 @@ window.S9Game = (function () {
         regenT: 0, tint: opt.tint || [120, 200, 220], team: opt.team, verified: !!opt.verified, kills: 0, deaths: 0,
         weapon: opt.weapon || 0, mag: 0, fireT: 0, reloadT: 0, reloading: false, triggerConsumed: false, spawnT: 0, iframe: 0, respawnT: 0,
         onGround: true, boost: 1, state: 'patrol', aiT: 0, tgt: null, wp: null, strafe: 1, strafeT: 0, reactT: 0, seenT: 0, wantFire: false, bob: 0, moving: false,
-        burning: false, burnT: 0, flyBase: 0,          // ⧗ thruster boots — see the brief above
+        burning: false, burnT: 0, burnKind: '', flyBase: 0,   // ⧗ thruster boots — see the brief above
+        mob: null,                                     // ⧗ the live mobility token, or null. ONE at a time.
         recoil: 0, muzzle: 0, scoped: false, ads: false, killStreak: 0,
         cardDmg: 1, cardRate: 1, cardSpeed: 1, cardArmor: 0, cardAmp: 1, surgeT: 0, overdrive: false, sigGun: '', gait: 0 };
     }
@@ -549,22 +683,73 @@ window.S9Game = (function () {
       if (L.shield > 0) { const bonus = Math.round(L.shield * 6); e.maxArmor += bonus; e.armor = Math.min(e.maxArmor, e.armor + bonus); }
       if (L.powerups && L.powerups.includes('overdrive')) e.overdrive = true; }
 
-    function spawnPow() {
+    /* `force` names a type (a headless run drops exactly the token it means to test); `at` places
+     * it. Both optional — the match itself passes neither, so the shipping cadence is unchanged. */
+    function spawnPow(force, at) {
       const a = mktAmp();
       const pool = [[POWS[0], 3], [POWS[1], 2], [POWS[2], 3]]; const ampW = Math.max(0, (a - 0.95)) * 6; if (ampW > 0.15) pool.push([AMPPOW, ampW]);
-      let tot = 0; for (const q of pool) tot += q[1]; let r = Math.random() * tot, pick = pool[0][0];
-      for (const [p, wt] of pool) { if ((r -= wt) <= 0) { pick = p; break; } }
-      const s = MAP.spawns[rint(MAP.spawns.length)];
-      G.pows.push({ x: s[0] + rnd(2, -2), z: s[1] + rnd(2, -2), y: (s[2] || 0) + 0.5, type: pick.t, ch: pick.ch, col: pick.col, t: 0 });
+      /* ⧗ THE MOBILITY TOKENS SHARE ONE DROP TABLE with medkits and ammo rather than getting a
+       * cadence of their own. Two spawners would be two clocks to keep honest, and it would also
+       * make a token a scheduled event rather than a thing the arena happened to give you. */
+      for (const k in MOBS) pool.push([{ t: k, ch: MOBS[k].ch, col: MOBS[k].col, mob: true }, MOBS[k].wt]);
+      let pick = null;
+      if (force) { for (const [p] of pool) if (p.t === force) pick = p;
+        if (!pick && MOBS[force]) pick = { t: force, ch: MOBS[force].ch, col: MOBS[force].col, mob: true }; }
+      if (!pick) { let tot = 0; for (const q of pool) tot += q[1]; let r = Math.random() * tot; pick = pool[0][0];
+        for (const [p, wt] of pool) { if ((r -= wt) <= 0) { pick = p; break; } } }
+      const s = at || MAP.spawns[rint(MAP.spawns.length)];
+      const pw = { x: s[0] + (at ? 0 : rnd(2, -2)), z: s[1] + (at ? 0 : rnd(2, -2)), y: (s[2] || 0) + 0.5,
+        type: pick.t, ch: pick.ch, col: pick.col, mob: !!pick.mob, t: 0 };
+      G.pows.push(pw);
+      return pw;
     }
+    /* ⚑ RETURNS WHETHER THE DROP WAS CONSUMED. It used to be void, and the pickup loop marked the
+     * drop taken unconditionally — which would have silently EATEN a mobility token that the
+     * one-at-a-time rule refused, i.e. deleted a prize and told nobody. */
     function applyPow(e, t) { const a = e.cardAmp || 1;
+      if (MOBS[t]) {
+        if (!giveMob(e, t)) return false;
+        const D = MOBS[t];
+        if (e.isMe) { sfx('pickup'); sfx('boots');
+          powMsg(D.ch + ' ' + D.name + ' · ' + D.dur.toFixed(D.dur % 1 ? 1 : 0) + 's', 'rgb(' + D.col.join(',') + ')'); }
+        else if (Math.hypot(e.x - cam.x, e.z - cam.z) < 22) sfx('pickup');
+        return true;
+      }
       if (t === 'med') e.hp = Math.min(e.maxHp, e.hp + Math.round(34 * a));
       else if (t === 'armor') e.armor = Math.min(e.maxArmor, e.armor + Math.round(30 * a));
       else if (t === 'ammo') { e.mag = WEAPONS[e.weapon].mag; e.reloading = false; e.reloadT = 0; }
       else if (t === 'amp') { e.surgeT = Math.max(e.surgeT || 0, 5.5 + 2.5 * a); e.hp = Math.min(e.maxHp, e.hp + Math.round(8 * a)); }
+      else return false;                                     // an unknown drop is ignored, not fatal
       if (e.isMe) { sfx('pickup');
         powMsg(t === 'med' ? '✚ MEDKIT' : t === 'armor' ? '▣ ARMOR' : t === 'ammo' ? '▪ AMMO' : '★ OVERCHARGE' + (e.sigGun ? ' · ' + e.sigGun.toUpperCase() : ''),
-          t === 'amp' ? '#ffd23b' : '#59e0ff'); } }
+          t === 'amp' ? '#ffd23b' : '#59e0ff'); }
+      return true;
+    }
+    /* The mobility clock, and the only place a token expires. `edt` is the HOLDER's own time — for
+     * the player that is real time even while the world crawls, for a bot it is the world's time
+     * scaled by its own relative advantage. Both therefore get `dur` seconds of their own. */
+    function stepMob(e, edt) {
+      const m = e.mob; if (!m) return;
+      m.t -= edt;
+      if (m.t <= 0) { const D = MOBS[m.type]; e.mob = null;
+        if (e.isMe) { sfx('bootsdry'); powMsg('◌ ' + D.name + ' SPENT', '#7fb0c8'); }
+        return; }
+      const D = MOBS[m.type];
+      if (e.moving || !e.onGround) { broadcast(e, edt, D.heard || 0); mobTrail(e, edt, D); }
+    }
+    /* What a bot will walk to. ⚑ It skips a token it cannot use — a bot standing on a SPRING it
+     * is not allowed to take is a bot that looks broken, and it would also deny the drop to
+     * everyone else for the 26 s the pow lives. */
+    function nearestPow(e, rad) {
+      let best = null, bd = rad * rad;
+      const cur = mobOf(e);
+      for (const pw of G.pows) { if (pw.got) continue;
+        if (pw.mob && cur && cur.t > MOB_HOLD) continue;
+        if (pw.type === 'med' && e.hp >= e.maxHp) continue;
+        const dx = pw.x - e.x, dz = pw.z - e.z, d2 = dx * dx + dz * dz;
+        if (d2 < bd) { bd = d2; best = pw; } }
+      return best;
+    }
 
     function farSpawn(avoidList, minD) { let best = null, bestScore = -1;
       for (let i = 0; i < MAP.spawns.length; i++) { const s = MAP.spawns[(i + rint(MAP.spawns.length)) % MAP.spawns.length];
@@ -584,7 +769,11 @@ window.S9Game = (function () {
       e.weapon = firstWeapon != null ? firstWeapon : e.weapon; e.mag = WEAPONS[e.weapon].mag;
       e.state = 'patrol'; e.tgt = null; e.wp = null; e.boost = 1; e.cover = null; e.inCover = false;
       e.crouch = 0; e.eye = 1.52;
-      e.burning = false; e.burnT = 0; e.flyBase = e.y;   // ⧗ a fresh tank and a fresh lift budget
+      e.burning = false; e.burnT = 0; e.burnKind = ''; e.flyBase = e.y;   // ⧗ a fresh tank and a fresh lift budget
+      /* ⧗ TOKENS DO NOT SURVIVE A DEATH. downEnt clears it too, so a corpse cannot hold a SLIP and
+       * keep the world slow; this is the belt to that braces, and it also means a respawn is a
+       * clean operative rather than one still carrying the run that got it killed. */
+      e.mob = null;
       e.yaw = spawnYaw(MAP, e.x, e.z, e.y); e.pitch = 0;
     }
 
@@ -628,8 +817,13 @@ window.S9Game = (function () {
        * what stops the boots being a free firing platform above the cover everyone else is using:
        * flight is traversal, not a duel. It applies to bots too, because it is a rule of the
        * world rather than a handicap (their own aim jitter dominates it, so it barely moves them). */
+      /* ⧗ AND THE MOBILITY TAX RIDES ON THE SAME TERM. A live token multiplies spread on top of
+       * the airborne term — the ONE cost every one of the five pays, and the reason a token makes
+       * you fast rather than lethal. It is a rule of the world, so bots pay it too; it does not
+       * touch dmg, rate, HP or armour, which is why TTK is unchanged (see the brief). */
+      const mD = mobDef(e);
       const scopeAcc = ((e.isMe && e.scoped) ? 0.35 : ((e.isMe && e.ads) ? 0.55 : 1)) * (1 - 0.35 * (e.crouch || 0))
-        * (e.onGround ? 1 : BOOTS.bloom);
+        * (e.onGround ? 1 : BOOTS.bloom) * (mD ? mD.bloom : 1);
       for (let p = 0; p < w.pellets; p++) {
         const sp = w.spread * scopeAcc;
         const ay = e.yaw + rnd(sp, -sp) + (e.isMe ? 0 : rnd(0.03, -0.03));
@@ -698,6 +892,7 @@ window.S9Game = (function () {
     }
     function downEnt(e, src, head) {
       e.alive = false; e.respawnT = e.isMe ? 2.4 : rnd(2.6, 1.8); e.deaths++;
+      e.mob = null; e.burning = false; e.burnKind = '';   // ⧗ a token dies with its holder
       chunkBurst(e.x, e.y + e.h * 0.5, e.z, e.tint, 16); chunkBurst(e.x, e.y + e.h * 0.85, e.z, [150, 140, 120], 6);
       G.flashes.push({ x: e.x, y: e.y + e.h * 0.55, z: e.z, t: 0.13, max: 0.13, big: true, col: e.tint });
       const dcam = Math.hypot(e.x - cam.x, e.z - cam.z);
@@ -787,6 +982,13 @@ window.S9Game = (function () {
           const toward = (dist > pref + 2) ? 1 : (dist < pref - 2 ? -1 : 0);
           mvx = nx * toward * 0.75 + (-nz) * e.strafe; mvz = nz * toward * 0.75 + (nx) * e.strafe;
           sprint = dist > 16;
+          /* ⧗ A BOT CONTESTS A DROP MID-FIGHT. Without this the player simply waits for a
+           * firefight and walks off with every token that lands during it, and the field stops
+           * being contested at exactly the moment it matters. A blend, not a beeline: the bot
+           * keeps fighting and drifts onto the drop. */
+          const near = nearestPow(e, 7);
+          if (near) { const px = near.x - e.x, pz = near.z - e.z, pd = Math.hypot(px, pz) || 1;
+            mvx = mvx * 0.55 + (px / pd) * 0.9; mvz = mvz * 0.55 + (pz / pd) * 0.9; }
         } else if (e.seenT > 0) {
           e.seenT -= dt; e.inCover = false;
           const lx = (e.lastSeen && e.lastSeen.x) || 0, lz = (e.lastSeen && e.lastSeen.z) || 0;
@@ -803,22 +1005,41 @@ window.S9Game = (function () {
       }
       if (e.reloading && Math.random() < dt * 1.2) bark(e, 'reload');
       if (e.state === 'patrol' || !tgt) {
-        if (!e.wp || Math.hypot(e.wp[0] - e.x, e.wp[1] - e.z) < 1.5 || Math.random() < dt * 0.2) { const s = MAP.spawns[rint(MAP.spawns.length)]; e.wp = [s[0] + rnd(3, -3), s[1] + rnd(3, -3)]; }
+        /* ⧗ BOTS GO AND GET THE DROPS. Before this a bot only ever picked one up by walking over
+         * it, and every mobility token on the field was effectively the player's — which is the
+         * definition of a cheat menu. `nearestPow` overrides the patrol waypoint, so a drop is
+         * contested by whoever is nearest rather than by whoever thought to look. */
+        const seek = nearestPow(e, POW_SEEK);
+        if (seek) e.wp = [seek.x, seek.z];
+        else if (!e.wp || Math.hypot(e.wp[0] - e.x, e.wp[1] - e.z) < 1.5 || Math.random() < dt * 0.2) { const s = MAP.spawns[rint(MAP.spawns.length)]; e.wp = [s[0] + rnd(3, -3), s[1] + rnd(3, -3)]; }
         const dx2 = e.wp[0] - e.x, dz2 = e.wp[1] - e.z, dd = Math.hypot(dx2, dz2) || 1; mvx = dx2 / dd; mvz = dz2 / dd;
         e.yaw += angDiff(Math.atan2(dx2, dz2) - e.yaw) * Math.min(1, dt * 4);
+        if (seek) sprint = dd > 4;
       }
-      if (e.onGround && Math.random() < dt * 0.25) e.vy = JUMP * 0.7;
+      if (e.onGround && Math.random() < dt * 0.25) e.vy = jumpV(e) * 0.7;
       /* ⧗ THE BOTS WEAR THE SAME BOOTS, and use them for the one thing they are for: closing a
        * VERTICAL gap. A bot launches after a target whose feet are above its own and burns to
        * follow it up — onto the catwalk, onto the sniper ledge, or into the air after you. It
        * does not dogfight with them, because it would be paying the ×1.9 airborne spread for the
        * privilege, and because a bot hovering for fun is a bot that has stopped playing the game.
        * Same meter, same drain, same ground-only regen. */
-      const above = tgt && tgt.alive ? (tgt.y - e.y) : 0;
-      if (e.onGround && above > 1.2 && e.boost > 0.45 && Math.random() < dt * 1.6) { e.vy = JUMP; e.onGround = false; }
-      stepBoots(e, dt, above > 1.2 && e.boost > 0.25);
+      /* ⧗ AND A TOKEN GIVES A BOT A REASON TO LEAVE THE FLOOR IT DID NOT HAVE. The jet closes a
+       * vertical gap to a TARGET; HOVER and FLIGHT also let a bot take a cover point that is
+       * ABOVE it, which the ledges and catwalks are full of and which no bot could previously
+       * reach on purpose. `above` is the larger of the two gaps, so one launch rule serves both. */
+      const airTok = mobIs(e, 'flight') || mobIs(e, 'hover');
+      const aboveT = tgt && tgt.alive ? (tgt.y - e.y) : 0;
+      const aboveC = (e.cover && e.state === 'cover') ? ((e.cover.y || 0) - e.y) : 0;
+      const above = Math.max(aboveT, airTok ? aboveC : 0);
+      if (e.onGround && above > 1.2 && (airTok || e.boost > 0.45) && Math.random() < dt * 1.6) { e.vy = jumpV(e); e.onGround = false; }
+      stepBoots(e, dt, above > 1.2 && (airTok || e.boost > 0.25));
       if (e.onGround && !e.burning) e.boost = Math.min(1, e.boost + dt * 0.3);
-      const spd = (e.burning ? BOOTS.speed * 0.8 : (sprint ? 6.6 : 3.9)) * (e.cardSpeed || 1); const ml = Math.hypot(mvx, mvz) || 1;
+      /* ⧗ Air lateral follows whichever machine is holding you up; on the ground RUSH multiplies.
+       * RUSH is deliberately absent from the airborne term — a jet has nothing to push against
+       * (see the brief), which is also what stops the two stacking into a rocket. */
+      const airLat = mobIs(e, 'flight') ? MOBS.flight.lat : mobIs(e, 'hover') ? MOBS.hover.lat : BOOTS.speed * 0.8;
+      const rush = mobIs(e, 'rush') ? MOBS.rush.ground : 1;
+      const spd = (e.burning ? airLat : (sprint ? 6.6 : 3.9) * rush) * (e.cardSpeed || 1); const ml = Math.hypot(mvx, mvz) || 1;
       moveEnt(e, (mvx / ml) * spd * dt, (mvz / ml) * spd * dt);
       e.moving = (Math.abs(mvx) + Math.abs(mvz)) > 0.05; e.sprinting = sprint && e.moving;
     }
@@ -851,7 +1072,7 @@ window.S9Game = (function () {
        * same key and the boots light. One key, two verbs, and the second one is discovered by
        * doing the first for longer, which is the only tutorial a shooter gets to give. */
       const wantJet = !!(keys[' '] || keys.alt || touch.jumpHold);
-      if ((wantJet || touch.jump) && e.onGround) { e.vy = JUMP; e.onGround = false; touch.jump = false; sfx('jump'); }
+      if ((wantJet || touch.jump) && e.onGround) { e.vy = jumpV(e); e.onGround = false; touch.jump = false; sfx('jump'); }
       stepBoots(e, dt, wantJet);
       /* ⚠ ONE METER, ONE DRAIN AT A TIME. Sprint is locked out while the jet is lit, or holding
        * shift in the air would quietly bill you twice for the same tank. */
@@ -860,9 +1081,17 @@ window.S9Game = (function () {
       /* ⚑ REGEN IS GROUND-ONLY NOW. The escape budget comes back when your feet are down — that
        * single clause is what makes a full burn committal rather than free. */
       else { e.sprinting = false; if (e.onGround && !e.burning) e.boost = Math.min(1, e.boost + dt * 0.3); }
+      /* ⧗ THE TOKENS, ONE LINE EACH, AND THE SAME EXPRESSION THE BOTS USE.
+       *   · air lateral is whichever machine is holding you up (jet 9.6 / hover 8.6 / flight 11.5)
+       *   · RUSH multiplies the GROUND term only — a jet has no traction, and that is what stops
+       *     it stacking onto the boots into something nothing in the arena can answer.
+       * Crouch, ADS and cardSpeed all still apply on top, unchanged: a token tunes the game that
+       * was there, it does not replace the movement model. */
+      const airLat = mobIs(e, 'flight') ? MOBS.flight.lat : mobIs(e, 'hover') ? MOBS.hover.lat : BOOTS.speed;
+      const rush = mobIs(e, 'rush') ? MOBS.rush.ground : 1;
       const spd = e.burning
-        ? BOOTS.speed * (e.cardSpeed || 1)
-        : (e.sprinting ? 7.0 : 4.3) * (1 - 0.5 * e.crouch) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
+        ? airLat * (e.cardSpeed || 1)
+        : (e.sprinting ? 7.0 : 4.3) * rush * (1 - 0.5 * e.crouch) * (e.scoped ? 0.5 : (e.ads ? 0.72 : 1)) * (e.cardSpeed || 1);
       const s = Math.sin(e.yaw), c = Math.cos(e.yaw);
       let mx = (s * fwd + c * strafe), mz = (c * fwd - s * strafe); const ml = Math.hypot(mx, mz);
       const mag = Math.min(1, ml);
@@ -903,7 +1132,7 @@ window.S9Game = (function () {
       let hi = 0; while (others.length < wager.players - 1) { let h; do { h = HANDLES[(hi++) % HANDLES.length]; } while (seen.has(h) && seen.size < HANDLES.length); seen.add(h); others.push({ h, v: false }); }
       G.ents = []; G.tracers = []; G.sparks = []; G.chunks = []; G.flashes = []; G.kills = []; G.comms = [];
       G.nearMiss = 0; G.hitmark = 0; G.dmgFlash = 0; G.shake = 0; G.fireFlash = 0; G.pows = []; G.powT = 6; G.decals = [];
-      G.t = 0; G.timeLeft = G.dur; G.real = !!real; G.over = false;
+      G.t = 0; G.timeLeft = G.dur; G.real = !!real; G.over = false; G.timeScale = 1;
       G.me = makeEnt({ name: env.myHandle ? env.myHandle() : 'you', me: true, tint: [64, 220, 200],
         verified: !!(window.RipWallet && RipWallet.isConnected && RipWallet.isConnected()) });
       G.me.weapon = wager.loadout | 0; G.ents.push(G.me);
@@ -933,48 +1162,73 @@ window.S9Game = (function () {
       return MAP;
     }
 
+    /* ⧗ THE HOLDER'S OWN CLOCK. `dt` is real time. `wdt` is the WORLD's — the two differ only
+     * while the player holds a SLIP. A bot's own clock is the world's, scaled by its own relative
+     * advantage, so a bot with a SLIP thinks, aims, moves and falls 2.38× faster than the arena
+     * around it: the same advantage the player gets, described from outside instead of inside.
+     * ⚑ The two compose. Player SLIP + bot SLIP ⇒ world 0.42, bot ×2.38 ⇒ both back at parity. */
+    const entDt = (e, dt, wdt) => e.isMe ? dt : wdt * (mobIs(e, 'slip') ? SLIP_REL : 1);
+
     function step(dt) {
-      G.t += dt;
-      // decay FIRST so a kick set later this same step still renders for at least one frame
+      /* Only the PLAYER's slip slows the world, because "the world slowed" is a claim about one
+       * frame of reference and only one of them can be rendered — see the brief. */
+      const ws = (G.me && G.me.alive && mobIs(G.me, 'slip')) ? SLIP_K : 1;
+      G.timeScale = ws;
+      const wdt = dt * ws;
+      G.t += wdt;
+      // decay FIRST so a kick set later this same step still renders for at least one frame.
+      // ⚠ These four are the PLAYER'S BODY and the player's HUD, not the world — a shake that
+      // outlasted its cause by 2.4× in slow motion would read as the camera being broken.
       if (G.shake > 0) G.shake = Math.max(0, G.shake - dt * 40);
       if (G.fireFlash > 0) G.fireFlash = Math.max(0, G.fireFlash - dt * 8);
       for (const e of G.ents) {
-        if (e.reloadT > 0) { e.reloadT -= dt * 1000; if (e.reloadT <= 0) finishReload(e); }
-        if (e.fireT > 0) e.fireT -= dt * 1000; if (e.iframe > 0) e.iframe -= dt;
-        if (e.recoil > 0) e.recoil = Math.max(0, e.recoil - dt * 4.5); if (e.muzzle > 0) e.muzzle -= dt;
-        if (e.surgeT > 0) { e.surgeT -= dt; if (e.alive) e.hp = Math.min(e.maxHp, e.hp + dt * 6 * (e.cardAmp || 1)); }
+        const edt = entDt(e, dt, wdt);
+        /* ⛔ THE TRIGGER IS NOT RELATIVE. fireT/reloadT tick on the WORLD's clock for everyone, so
+         * a SLIP buys repositioning and never a single extra bullet. That one line is what keeps
+         * TTK at 1.26 s with a token live, and it is the whole reason slow motion is allowed to
+         * exist in a game whose combat was tuned around a 1.3 s duel. */
+        if (e.reloadT > 0) { e.reloadT -= wdt * 1000; if (e.reloadT <= 0) finishReload(e); }
+        if (e.fireT > 0) e.fireT -= wdt * 1000; if (e.iframe > 0) e.iframe -= wdt;
+        if (e.recoil > 0) e.recoil = Math.max(0, e.recoil - wdt * 4.5); if (e.muzzle > 0) e.muzzle -= wdt;
+        if (e.surgeT > 0) { e.surgeT -= wdt; if (e.alive) e.hp = Math.min(e.maxHp, e.hp + wdt * 6 * (e.cardAmp || 1)); }
         /* Out-of-combat regen to 62% of max. The other half of the longer TTK: a survivable fight
          * is only interesting if disengaging is a real option, and it only becomes one if breaking
          * contact buys something back. Stops well short of full — running away is a reset, not a heal. */
-        if (e.alive && e.hp > 0) { e.regenT = (e.regenT || 0) + dt;
-          if (e.regenT > 4.5 && e.hp < e.maxHp * 0.62) e.hp = Math.min(e.maxHp * 0.62, e.hp + dt * 7); }
-        if (!e.alive) { e.respawnT -= dt; if (e.respawnT <= 0) { spawnEnt(e, e.isMe ? (wager.loadout | 0) : e.weapon); if (e.isMe) { powMsg('◈ RESPAWN', '#59e0ff'); sfx('spawn'); } } continue; }
-        if (e.isMe) stepMe(e, dt); else if (!G.__hold) stepBot(e, dt);
+        if (e.alive && e.hp > 0) { e.regenT = (e.regenT || 0) + wdt;
+          if (e.regenT > 4.5 && e.hp < e.maxHp * 0.62) e.hp = Math.min(e.maxHp * 0.62, e.hp + wdt * 7); }
+        if (!e.alive) { e.respawnT -= wdt; if (e.respawnT <= 0) { spawnEnt(e, e.isMe ? (wager.loadout | 0) : e.weapon); if (e.isMe) { powMsg('◈ RESPAWN', '#59e0ff'); sfx('spawn'); } } continue; }
+        stepMob(e, edt);
+        if (e.isMe) stepMe(e, edt); else if (!G.__hold) stepBot(e, edt);
         if (e.bot && e.wantFire && e.fireT <= 0 && !e.reloading) fireWeapon(e);
-        gravity(e, dt);
-        if (!(G.__hold && !e.isMe)) e.gait = (e.gait || 0) + (e.moving ? (e.sprinting ? 11 : 7) : 0) * dt;
+        gravity(e, edt);
+        if (!(G.__hold && !e.isMe)) e.gait = (e.gait || 0) + (e.moving ? (e.sprinting ? 11 : 7) : 0) * edt;
       }
       // supply drops
-      G.powT -= dt; if (G.powT <= 0 && G.pows.length < 4) { G.powT = rnd(11, 7) / (0.85 + (mktAmp() - 0.75) * 0.5); spawnPow(); }
-      for (const pw of G.pows) pw.t += dt;
+      G.powT -= wdt; if (G.powT <= 0 && G.pows.length < 4) { G.powT = rnd(11, 7) / (0.85 + (mktAmp() - 0.75) * 0.5); spawnPow(); }
+      for (const pw of G.pows) pw.t += wdt;
+      /* ⚑ `applyPow` now says whether it TOOK the drop. A mobility token refused by the one-at-a-
+       * time rule stays on the floor; marking it `got` unconditionally would have deleted it. */
       for (const e of G.ents) { if (!e.alive || e.spawnT > 0) continue; for (const pw of G.pows) { if (pw.got) continue;
-        if (Math.hypot(e.x - pw.x, e.z - pw.z) < 0.95 && Math.abs((e.y + 0.6) - pw.y) < 1.3) { pw.got = 1; applyPow(e, pw.type); } } }
+        if (Math.hypot(e.x - pw.x, e.z - pw.z) < 0.95 && Math.abs((e.y + 0.6) - pw.y) < 1.3) { if (applyPow(e, pw.type)) pw.got = 1; } } }
       G.pows = G.pows.filter(pw => !pw.got && pw.t < 26);
       if (G.me) { cam.x = G.me.x; cam.z = G.me.z; cam.y = G.me.y + G.me.eye + (G.me.moving && G.me.onGround ? Math.sin(G.me.bob) * 0.045 : 0);
         cam.yaw = G.me.yaw; cam.pitch = clamp(G.me.pitch - G.me.recoil * 0.05, -1.45, 1.45); }
-      // rounds fly, then their streak fades where they landed
-      for (const t of G.tracers) { if (t.p < t.len) t.p += t.sp * dt; else t.t -= dt; }
+      // rounds fly, then their streak fades where they landed. World time: a round crossing the
+      // arena in slow motion is the single clearest statement that the world has slowed.
+      for (const t of G.tracers) { if (t.p < t.len) t.p += t.sp * wdt; else t.t -= wdt; }
       G.tracers = G.tracers.filter(t => t.t > 0);
       if (G.nearMiss > 0) G.nearMiss = Math.max(0, G.nearMiss - dt * 5);
-      for (const f of G.flashes) f.t -= dt; G.flashes = G.flashes.filter(f => f.t > 0);
-      for (const s of G.sparks) { s.t -= dt; s.vy -= GRAV * 0.5 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; } G.sparks = G.sparks.filter(s => s.t > 0);
-      for (const c of G.chunks) { c.t -= dt; c.vy -= GRAV * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.z += c.vz * dt; if (c.y < 0) { c.y = 0; c.vy *= -0.35; c.vx *= 0.6; c.vz *= 0.6; } } G.chunks = G.chunks.filter(c => c.t > 0);
-      for (const k of G.kills) k.t -= dt; G.kills = G.kills.filter(k => k.t > 0);
-      for (const c of G.comms) c.t -= dt; G.comms = G.comms.filter(c => c.t > 0);
-      for (const dc of G.decals) dc.life -= dt; G.decals = G.decals.filter(dc => dc.life > 0);
+      for (const f of G.flashes) f.t -= wdt; G.flashes = G.flashes.filter(f => f.t > 0);
+      for (const s of G.sparks) { s.t -= wdt; s.vy -= GRAV * 0.5 * wdt; s.x += s.vx * wdt; s.y += s.vy * wdt; s.z += s.vz * wdt; } G.sparks = G.sparks.filter(s => s.t > 0);
+      for (const c of G.chunks) { c.t -= wdt; c.vy -= GRAV * wdt; c.x += c.vx * wdt; c.y += c.vy * wdt; c.z += c.vz * wdt; if (c.y < 0) { c.y = 0; c.vy *= -0.35; c.vx *= 0.6; c.vz *= 0.6; } } G.chunks = G.chunks.filter(c => c.t > 0);
+      for (const k of G.kills) k.t -= wdt; G.kills = G.kills.filter(k => k.t > 0);
+      for (const c of G.comms) c.t -= wdt; G.comms = G.comms.filter(c => c.t > 0);
+      for (const dc of G.decals) dc.life -= wdt; G.decals = G.decals.filter(dc => dc.life > 0);
       if (G.hitmark > 0) G.hitmark -= dt; if (G.dmgFlash > 0) G.dmgFlash = Math.max(0, G.dmgFlash - dt * 1.6);
       G.scopeZoom = lerp(G.scopeZoom || 1, (G.me && G.me.ads) ? (WEAPONS[G.me.weapon].zoom > 1 ? WEAPONS[G.me.weapon].zoom : 1.3) : 1, Math.min(1, dt * 12));
-      G.timeLeft -= dt;
+      /* The match clock is the WORLD's. A SLIP therefore costs you nothing on the timer and buys
+       * you nothing either: 4.5 s of your time is 1.89 s of the match, for everybody. */
+      G.timeLeft -= wdt;
       if (!G.over && G.timeLeft <= 0) { G.over = true; G.mode = 'result'; if (env.onEnd) env.onEnd(); }
     }
 
@@ -985,6 +1239,15 @@ window.S9Game = (function () {
       addMaps(list) { for (const m of list) MAPS.push(m); return MAPS; },
       startMatch, step, fireWeapon, startReload, switchWeapon, applyLoadout,
       supportY, moveEnt, losClear, raycast, spawnYaw, bakeCover, eyePos, lookDir, shortName, mktAmp,
+      /* ⧗ MOBILITY PEEPHOLE. Reachable as `__s9pc.game.*`, because `__s9pc` itself lives in
+       * js/s9pc-app.js. These drive the SHIPPING path — `dropToken` puts a real drop on the real
+       * floor and the real pickup loop takes it, so a headless run proves reachability by playing
+       * rather than by calling a private setter (ROADMAP §5.3: built ≠ reachable). `giveMob` is
+       * the one shortcut, and it is the same call the pickup makes. */
+      MOBS, SLIP_K, SLIP_REL, MOB_HOLD, BOOTS, JUMP, GRAV,
+      giveMob, mobOf: e => mobOf(e), jumpV,
+      dropToken(type, x, z, y) { return spawnPow(type, [x, z, y == null ? 0 : y]); },
+      spawnPow,
     };
   }
 

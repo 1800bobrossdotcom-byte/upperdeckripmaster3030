@@ -1179,6 +1179,40 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`).
 - **NFA always** — experimental art token, can go to zero; keep the disclaimers loud.
 
+## ✅ SEPOLIA PRE-FLIGHT — `npm run preflight`, keyless, and it CLOSED THREE OPEN WORRIES
+Reads the live chain with `eth_call` only — no key, no gas, no writes — so every reason to abort a
+rehearsal is knowable for free before the expensive half. Run 2026-08-02 against block 11,404,471:
+- ✅ **`getMarketState()` WORD ORDER IS CONFIRMED ON THE REAL EDITION.** It was recorded as
+  "unproven, can drift", and a transposed word puts a **280×-wrong price** on a collector's card.
+  The tick and the price are the same quantity twice, so `1.0001^tick` must equal word1 —
+  measured agreement **0.0040%**. word0 = rarePerToken. `js/lens-state.js` runs this same proof on
+  every read, so the card proves its own decoding rather than trusting a note.
+- ✅ **`maxSupply()` (`0xd5abeb01`) REALLY DOES REVERT** on this edition, while `maxTotalSupply()`
+  (`0x2ab4d052`) answers. The selector trap is now demonstrated, not remembered.
+- ✅ **`edition.renderContract()` matches what `chain-config` records** —
+  `0x948E6330…de903`. CLAUDE.md's rule is "always read it, never trust a recorded address"; the
+  recorded one is currently correct, and now that is a checked fact rather than a hope.
+- ⚠ **The rehearsal edition is frozen as `name()` "Upperdeck Ripmaster 3030" / `symbol()`
+  "UR3030"** — title case, retired studio name. Not a bug to fix: it is the exhibit for why the
+  launch deploy command is now asserted character-for-character.
+- ⚠ **Supply has moved since the 2026-07-24 record.** `totalSupply` is **998,700** of 1,000,000,
+  i.e. **1,300 burned**, not the 350 recorded below — more rips have happened on the dev
+  environment since. The buy-and-burn loop is being exercised, and it works.
+
+### ⛔ AND IT FOUND THE ONE NUMBER NOTHING HAD MEASURED: P0
+`token-model.mjs` assumes **P0 = 1 RARE/token**, and the **$7 pack rests entirely on it** — a pack
+is priced in TOKENS (350 at tier I), so its dollar price is just 350 × the token price.
+**The live Sepolia curve sits at 16.78 RARE/token — 16.8× the assumption. A 350-token pack costs
+$93 there, not $7.**
+⚠ That curve is explicitly UNCALIBRATED and its cap is 1,000,000, so this is not a forecast. But it
+is the only real curve this project has ever had, and it points the same way as SuperRare's own
+worked example (a $2,000 budget buying 9,211 tokens at ~$0.22 average). **Two independent data
+points now say the opening price is an order of magnitude above what the pack schedule assumes.**
+⚑ **The fix is free and takes one command:** `rare liquid-edition deploy multicurve … --preview`
+prints the generated curve **without submitting**. Run it at the 3,300,000 cap, put the real P0
+into `token-model.mjs`, and re-derive the pack schedule **before** the $7 figure is published
+anywhere it can be quoted back at the studio.
+
 ## Dress rehearsal (2026-07-24) — buy + burn PROVEN live
 - Artist wallet `0x5C3b…d89F` bought **367.17 UR3030 for 6,000 test RARE** (tx
   `0xee5424…807b85`) and site-ripped a pack, burning **350** (tx `0xba1716…1a78ff`).

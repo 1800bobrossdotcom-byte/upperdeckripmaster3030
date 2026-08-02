@@ -16,6 +16,80 @@
  * FAIL-OPEN BY DESIGN. If shader compilation, the FBO chain, or anything else fails, `on` goes
  * false and begin()/end() become no-ops — the game draws exactly as it did before, uncomposited.
  * A pretty frame is never worth a black screen.
+ *
+ * ═══ SPEED AND TIME — the brief, before the code (docs/DESIGN-SYSTEM.md §8) ═══════════════════
+ *
+ * Three effects, one chain. Each answers all five questions, because a brief that names the
+ * material and the light and waves at the motion produces the default — twice recorded.
+ *
+ * ── ① VELOCITY SMEAR ────────────────────────────────────────────────────────────────────────
+ * 1 MADE OF   one frame of the previous image, held. Film left open a moment too long. Not a
+ *             filter and not a texture: an accumulation target.
+ * 2 LIT BY    nothing. It is not lit, it is EXPOSED — every other stage shades the frame, this
+ *             one integrates it over time.
+ * 3 MOVES     the image on the sensor moved during the exposure, and whatever moved smears by
+ *             however far it went. ROTATION translates every pixel equally (dominant).
+ *             TRANSLATION slides a point at v⊥/d rad/s, so near geometry streaks and far
+ *             geometry does not — a full-screen feedback cannot do the depth half, so it is
+ *             folded in as a scalar weighted LOWER (`wVel` 0.55, not 1). Being honest about
+ *             that is the reason for the number.
+ *             ⚑ Measured from the camera's POSITION DELTA, never from intended velocity — so
+ *             running into a wall smears nothing, which is correct, because nothing moved.
+ *             ⚑ Per FRAME, not per second: the exposure IS the frame, so there is nothing to
+ *             divide by. Reference rates are written per second and divided by REF_HZ at use.
+ * 4 SITS ON   the backbuffer. Games draw their HUD on a separate 2D overlay composited after,
+ *             so the world smears and the instruments stay sharp — a camera behind glass.
+ * 5 MEASURED  mean |Δ| between consecutive frames must FALL when the smear is on (that is what
+ *             a smear IS); a still camera must give exactly 0 so the shader branch is not taken;
+ *             and smear LENGTH in pixels at a stated turn rate.
+ *
+ * ── ② TIME DILATION (slow-mo) ───────────────────────────────────────────────────────────────
+ * ⛔ The honest velocity smear FALLS in slow motion — the world covers less ground per exposure —
+ *    which is exactly why slow-mo cannot ride on it and needs its own treatment.
+ * 1 MADE OF   the CABINET, not the camera. A projector dropped below sync: the gate holds each
+ *             frame, the three-strip registration drifts apart, and the cool ink separates out
+ *             into the shadows first because it is the weakest plate.
+ * 2 LIT BY    the RIM, cyan `#27f7e4` (DESIGN-SYSTEM §2) — the light that picks edges out of the
+ *             dark, which is the one that should survive when the lamp is dimming.
+ * 3 MOVES     nothing new moves. Three things STOP moving fast enough: persistence (a smear
+ *             FLOOR independent of speed), registration (CA widens — the plates no longer land
+ *             together), and the tunnel narrows (vignette up, saturation down).
+ *             ⚑ And it runs the other way too: `timeScale > 1` means the exposure covers MORE
+ *             world motion, so the velocity term is multiplied rather than a new knob added.
+ * 4 SITS ON   the same backbuffer, and on the same accumulation pair — allocated lazily, so a
+ *             game that never dilates never pays for it.
+ * 5 MEASURED  hue of the darkest quartile shifts toward cyan by a stated number of degrees while
+ *             the highlights keep theirs; CA displacement in pixels at the corner; clipping 0.
+ *
+ * ── ③ THE PICKUP FLASH — "more acid like effects when taking power ups" ──────────────────────
+ * ⛔ Acid here is HUE TRAVEL AND SATURATION, not white bloom. A white flash is the default and
+ *    the default has been rejected twice in this project.
+ * 1 MADE OF   FOIL — §1's material, finally on a screen effect. A diffraction front off a
+ *             hot-stamped surface. ⚑ And it is a FOUR-COLOUR SEPARATION, not a rainbow: the
+ *             studio's own inks (gold `#ffd23b`, key green `#2bff80`, rim cyan `#27f7e4`, fill
+ *             magenta `#ff2ad9`) in flat hard bands, because §6 says the lineage is hand-drawn
+ *             saturated flat ink with crude registration — a cereal box out of register, not a
+ *             smooth CG spectrum. A continuous rainbow ramp IS the default here.
+ * 2 LIT BY    itself. It is the light source; that is what a pickup is.
+ * 3 MOVES     ⚑ THE §1 RULE, LITERALLY: the hue at a fixed pixel walks because the GEOMETRY
+ *             changed, not because a gradient scrolled. A ring expands from the pickup at a
+ *             finite, decelerating speed; the ink at any pixel is keyed to that pixel's distance
+ *             FROM THE FRONT, so as the front sweeps past, that pixel steps gold → green → cyan
+ *             → magenta. Nothing is painted on; the front moved.
+ * 4 SITS ON   the composited frame, added BEFORE the highlight rolloff — because it is light
+ *             arriving at the lens, and the knee is what stops light clipping to flat white.
+ *             It is placed at the pickup's own screen position, never at screen centre: a
+ *             centred flash is the default and it lies about where the thing was.
+ * 5 MEASURED  §1's acceptance test applied literally — hue travel in DEGREES at a fixed pixel
+ *             across the front's passage. No travel, no foil. Plus: clipping stays at 0.
+ *
+ * ── THE INTERFACE (one line each, all fail-open, all no-ops until called) ────────────────────
+ *     post.camera({yaw, pitch, x, y, z})   every frame — derives ① from what actually happened
+ *     GfxPost.timeScale(0.35)              page-global; 1 = real time, <1 dilates, >1 compresses
+ *     GfxPost.flash({x, y, strength})      fire ③; x/y are 0..1 screen coords, y=0 at the TOP
+ * The two module-level calls fan out to every live chain on the page, because time is a property
+ * of the page and not of one canvas. Per-instance methods of the same names exist for callers
+ * that want one canvas to disagree.
  */
 window.GfxPost = (function () {
   const PVS = 'attribute vec2 p; varying vec2 uv; void main(){ uv=p*0.5+0.5; gl_Position=vec4(p,0.0,1.0); }';
@@ -38,12 +112,19 @@ window.GfxPost = (function () {
    *
    *   1 chromatic aberration   sampled, so it displaces the SOURCE not the result
    *   2 additive bloom
+   *   2.5 THE PICKUP FLASH     ⚑ it goes HERE, above the knee, and that placement is the whole
+   *                            reason clipping stays at 0 with it on. The flash is LIGHT
+   *                            arriving at the lens, so it belongs on the same side of the
+   *                            rolloff as the bloom it is competing with. Added after the
+   *                            rolloff it would be the one thing in the chain that can blow out.
    *   3 HIGHLIGHT ROLLOFF      the important one. These games are LDR, so adding bloom
    *                            pushes bright pixels past 1.0 and the GPU clips them to flat
    *                            white — which is exactly how Cloudracer's cloudscape turned
    *                            into a wash. Scaling by luminance above a knee rolls those
    *                            off smoothly instead, preserving hue, and is identity below
    *                            the knee so the rest of the frame is untouched.
+   *   3.5 DILATION TINT        the cool plate separating into the shadows. A grade, keyed to
+   *                            the TOE only, so it cannot lift a highlight or clip anything.
    *   4 saturation / vignette
    *   5 ORDERED DITHER         8x8 Bayer, ±1/255. Kills the banding that shows up in dark
    *                            gradients (Section 9's corridors, the ronin night sky) where
@@ -56,25 +137,65 @@ window.GfxPost = (function () {
     'uniform sampler2D base; uniform sampler2D bloom; uniform sampler2D prev; uniform vec2 texel;' +
     'uniform float intensity; uniform float ca; uniform float grain; uniform float vig;' +
     'uniform float sat; uniform float knee; uniform float dither; uniform float sharpen; uniform float smear;' +
+    // ── speed & time. Every one of these is 0 until something calls for it, and at 0 the
+    //    branches below are not taken, so a chain nobody drives is the chain that shipped.
+    'uniform vec4 p0; uniform vec4 p1; uniform vec4 p2; uniform vec3 phu; uniform float tint;' +
     'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
     // 8x8 Bayer without a lookup texture: the classic bit-interleave, unrolled cheaply.
     'float bayer(vec2 p){ vec2 t=floor(mod(p,8.0));' +
     ' float b=0.0, s=1.0;' +
     ' for(int i=0;i<3;i++){ vec2 f=floor(mod(t,2.0)); b+=s*(f.x+2.0*mod(f.x+f.y,2.0)); s*=4.0; t=floor(t*0.5); }' +
     ' return b/64.0; }' +
+    /* THE FOUR HOUSE INKS, as a hard-stepped wheel — DESIGN-SYSTEM §2's palette, in plate order.
+     * The 0.028 shoulder is anti-aliasing, not a gradient: at 1080p it is ~3 px of the ring's
+     * width, so the bands read as flat ink with a crude register rather than as a spectrum.
+     * ⚠ The wrap back to gold gets the same shoulder as the other three, or the one seam in the
+     *   ring would be the only hard edge in it and would read as a bug. */
+    'vec3 ink(float x){ x=fract(x); const float e=0.028;' +
+    ' vec3 c=vec3(1.000,0.824,0.231);' +
+    ' c=mix(c,vec3(0.169,1.000,0.502),smoothstep(0.25-e,0.25+e,x));' +
+    ' c=mix(c,vec3(0.153,0.969,0.894),smoothstep(0.50-e,0.50+e,x));' +
+    ' c=mix(c,vec3(1.000,0.165,0.851),smoothstep(0.75-e,0.75+e,x));' +
+    ' c=mix(c,vec3(1.000,0.824,0.231),smoothstep(1.0-e,1.0,x));' +
+    ' return c; }' +
+    /* ONE diffraction front. P = (cx, cy, radius, amplitude); hu = the plate the front opens on.
+     * ⚑ The hue is keyed to (d - radius) — the pixel's distance FROM THE FRONT — so a pixel that
+     *   never moves still walks the whole wheel as the front sweeps over it. That is §1's rule
+     *   expressed as arithmetic: the colour changed because the geometry did.
+     * Aspect from `texel` (= 1/w, 1/h), so the ring is round on the screen, not on the uv square.
+     * `wash` is the ambient half — a wide, weak lift in the same ink, so the pickup lights the
+     * room rather than only drawing a hoop. */
+    'vec3 pul(vec2 c2, vec4 P, float hu){ if(P.w<=0.0) return vec3(0.0);' +
+    ' vec2 q=(c2-P.xy)*vec2(texel.y/texel.x,1.0); float d=length(q);' +
+    ' float w=0.035+0.20*P.z; float e=(d-P.z)/w;' +
+    ' float ring=exp(-e*e); float wash=exp(-d*d*2.4)*0.14;' +
+    ' return ink(hu+(d-P.z)*2.6)*(ring+wash)*P.w; }' +
     'vec3 grab(vec2 c){ vec2 dd=c-0.5; vec3 o;' +
     ' o.r=texture2D(base,c+dd*ca).r; o.g=texture2D(base,c).g; o.b=texture2D(base,c-dd*ca).b;' +
     ' return o+texture2D(bloom,c).rgb*intensity; }' +
     'void main(){ vec2 dd=uv-0.5;' +
     ' vec3 col=grab(uv);' +
+    // 2.5 — the pickup flash, ABOVE the knee. See the order note above.
+    ' vec3 pls=vec3(0.0); float pAmp=p0.w+p1.w+p2.w;' +
+    ' if(pAmp>0.0){ pls=pul(uv,p0,phu.x)+pul(uv,p1,phu.y)+pul(uv,p2,phu.z); col+=pls; }' +
     // 3 — highlight rolloff, luminance-keyed so colour does not shift
     ' float l=dot(col,vec3(0.299,0.587,0.114));' +
     ' col*= 1.0/(1.0+max(0.0,l-knee));' +
-    // 6 — unsharp against the neighbourhood (skipped when sharpen==0)
+    /* 3.5 — DILATION TINT. Cyan into the toe only: `toe` is cubed, so it is ~1 on black and
+     * ~0.06 at mid grey and exactly 0 at white. A flat hue rotate over the whole frame is the
+     * thing §1 calls out as NOT foil; separating one plate in the shadows is a print failure,
+     * which is this studio's own language and cannot touch a highlight or clip. */
+    ' if(tint>0.0001){ float toe=1.0-min(1.0,l); toe=toe*toe*toe;' +
+    '   col+= vec3(0.153,0.969,0.894)*tint*toe; }' +
+    /* 6 — unsharp against the neighbourhood (skipped when sharpen==0).
+     * ⚑ `pls*4.0` into the neighbour sum is exact cancellation, not a fudge: the sum is divided
+     *   by 4, so adding the flash to both sides leaves (col-n*0.25) unchanged. Without it the
+     *   unsharp would ring the flash against a neighbourhood that has never seen it, and the
+     *   ring would grow a hard outline that no light source has. */
     ' if(sharpen>0.001){' +
     '   vec3 n=grab(uv+vec2(texel.x,0.0))+grab(uv-vec2(texel.x,0.0))' +
     '         +grab(uv+vec2(0.0,texel.y))+grab(uv-vec2(0.0,texel.y));' +
-    '   col+= (col-n*0.25)*sharpen; }' +
+    '   col+= (col-(n+pls*4.0)*0.25)*sharpen; }' +
     // 4 — saturation, then vignette
     ' float lum=dot(col,vec3(0.299,0.587,0.114)); col=mix(vec3(lum),col,sat);' +
     ' float v=smoothstep(1.12,0.34,length(dd)); col*=mix(1.0-vig,1.0,v);' +
@@ -122,6 +243,46 @@ window.GfxPost = (function () {
     sky:      { intensity: 0.34, threshold: 0.90, ca: 0.0010, vignette: 0.22, sat: 1.05,
                 knee: 0.94, dither: 0.0060, sharpen: 0.14, passes: 2, blur: 0 },
   };
+
+  /* ── SPEED AND TIME: the shared defaults ──────────────────────────────────────────────────
+   * Merged UNDER whichever preset a caller picks, so a preset only names what it disagrees
+   * with. Every one of them is inert until the matching call is made — a chain nobody drives
+   * composites exactly the frame it composited before this block existed.
+   *
+   * ⚑ THE VELOCITY REFERENCE IS DERIVED, NOT PICKED. The house frame is fov 0.97 rad vertical
+   *   over 16:10, so horizontal fov = 2·atan(tan(0.485)·1.6) = 1.45 rad. Image motion becomes
+   *   visible at roughly 2% of frame width in one exposure — 0.029 rad — and at 60 Hz an
+   *   exposure is 16.7 ms, so ω = 1.74 rad/s is the THRESHOLD of a visible smear. `wRef` 5.5 is
+   *   about three times that: a deliberate turn is faintly soft, a whip-pan saturates.
+   * ⚠ `vLo`/`vHi` are in the CALLER'S units per second, and they are Section 9's by default
+   *   (walk 4.3, boots 9.6). A game whose top speed is higher MUST raise `vHi`, or the velocity
+   *   term saturates at its old ceiling and the blur stops being velocity-driven above it —
+   *   which is the exact failure the artist asked us to fix. `post.set({vHi: 18})`.
+   */
+  const BASE = {
+    wRot: 1.0,        // a whip-pan alone may saturate the smear
+    wVel: 0.55,       // translation may not — the depth half of it is not being modelled
+    wRef: 5.5,        // rad/s that saturates the rotation term (derived above)
+    vLo: 4.3,         // m/s — walking. The floor: ordinary movement does not smear
+    vHi: 9.6,         // m/s — the fastest a body is expected to go
+    /* TIME DILATION. `persist` is the smear FLOOR while dilated — independent of speed, because
+     * it is the gate holding the frame, not the camera moving. Held under the same 0.85 cap as
+     * everything on this feedback path. The accumulation pair is allocated lazily the first time
+     * a dilation actually happens, so a game that never slows time never pays two RGBA targets. */
+    persist: 0.58,
+    dilCa: 2.6,       // × the base CA at full dilation — the plates drifting out of register
+    dilTint: 0.17,    // cyan lifted into the toe at full dilation (see the shader's step 3.5)
+    dilSat: 0.10,     // saturation trimmed by this fraction — the lamp dimming
+    dilVig: 0.12,     // vignette added — the tunnel narrowing
+    tsMax: 2.0,       // ceiling on the time-compression multiplier, so it cannot run away
+    /* THE PICKUP FLASH. `life` is in WORLD seconds, so a flash fired during slow motion stretches
+     * with everything else — it is an event in the world, not an animation on the glass. */
+    caPulse: 5.0,     // × the base CA at the flash's peak: the prism break
+    flashLife: 0.55,
+    flashReach: 0.92, // how far across the frame the front travels, in uv (1.0 = half-width)
+    flashSpin: 0.55,  // turns of the ink wheel the front's own hue walks over its life
+  };
+  const REF_HZ = 60;  // the frame rate the reference rates above are written in
 
   /* One resolution policy, shared by every caller.
    *
@@ -184,12 +345,19 @@ window.GfxPost = (function () {
   }
 
   function create(gl, cv, opts) {
-    const O = Object.assign({}, PRESET.neon, opts || {});
+    const O = Object.assign({}, BASE, PRESET.neon, opts || {});
     const S = { on: false, w: 0, h: 0, sceneTex: null, depth: null, sceneFbo: null,
                 bA: null, bB: null, fA: null, fB: null, bright: null, blur: null, comp: null, tri: null,
                 // motion-smear accumulation: full-res ping-pong, allocated only when blur > 0
                 aT: null, aU: null, aF: null, aG: null, blit: null };
     let grainT = 0, maxAttr = 4, bound = false, motionAmt = 0, accWarm = false;
+    /* ── speed and time state. All inert: tScale 1, no pulses, no camera history. ── */
+    let tScale = 1, dilAmt = 0, camPrev = null, tPrev = 0;
+    const PUL = [ { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 },
+                  { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 },
+                  { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 } ];
+    const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+    const nowMs = () => (self.performance && performance.now) ? performance.now() : Date.now();
 
     function sh(t, src) { const o = gl.createShader(t); gl.shaderSource(o, src); gl.compileShader(o);
       if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; }
@@ -219,9 +387,12 @@ window.GfxPost = (function () {
     }
     /* Allocate the accumulation pair lazily — a caller that never sets blur never pays two
      * full-screen RGBA targets for it, and set({blur}) can turn it on later. Failure here is
-     * not fatal: the pair stays null and end() takes the ordinary direct-to-screen path. */
+     * not fatal: the pair stays null and end() takes the ordinary direct-to-screen path.
+     * ⚑ `persist` joins `blur` in the gate: slow-mo's hold uses the same pair, so a preset with
+     *   blur 0 (neon, sky) can still dilate — but only allocates the first time it actually
+     *   does, which is why the gate is here and not in create(). */
     function ensureAcc() {
-      if (S.aT || !(O.blur > 0) || !S.w) return !!S.aT;
+      if (S.aT || !(O.blur > 0 || O.persist > 0) || !S.w) return !!S.aT;
       try {
         S.aT = tex2d(S.w, S.h); S.aF = fboFor(S.aT);
         S.aU = tex2d(S.w, S.h); S.aG = fboFor(S.aU);
