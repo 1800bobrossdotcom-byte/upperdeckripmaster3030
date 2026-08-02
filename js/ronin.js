@@ -116,7 +116,7 @@
     dragon:  { name: 'DRAGON KICK',   input: 'P · K',     st: 18, ac: 3,  rc: 34, dmg: 20, bs: 18, hs: 0,  reach: 62, kind: 'kick',  knock: 300, homing: false, meter: 0.09, launch: true, note: 'the string launcher — same −18 price as the button one.' },
     crest:   { name: 'CREST WAVE',    input: 'P · K · S', st: 20, ac: 4,  rc: 33, dmg: 26, bs: 20, hs: 0,  reach: 88, kind: 'slash', knock: 260, homing: true,  meter: 0.10, knockdown: true, bound: true, note: 'the BOUND. Slams a juggled foe into the floor for one extension.' },
     tempest: { name: 'TEMPEST',       input: 'S · S · S', st: 24, ac: 6,  rc: 40, dmg: 30, bs: 22, hs: 0,  reach: 92, kind: 'slash', knock: 240, homing: true,  meter: 0.12, knockdown: true, note: 'the most committal move in the game: −23, so it is launch-punishable.' },
-    special: { name: 'BLADE NOVA',    input: 'SPACE',     st: 8,  ac: 10, rc: 30, dmg: 26, bs: 24, hs: 0,  reach: 200, kind: 'slash', knock: 320, homing: true, meter: 0, knockdown: true, invuln: 14, note: 'costs the whole meter · invulnerable frames 1–14 · still −15.' },
+    special: { name: 'BLADE NOVA',    input: 'SPACE',     st: 8,  ac: 10, rc: 30, dmg: 26, bs: 24, hs: 0,  reach: 110, kind: 'slash', knock: 320, homing: true, meter: 0, knockdown: true, invuln: 14, note: 'costs the whole meter · invulnerable frames 1–14 · still −15.' },
   };
   /* DERIVED, so the doc and the code cannot disagree about advantage even if someone retunes a
    * recovery. A move that puts the target on the floor has no on-hit number by definition. */
@@ -126,15 +126,20 @@
     m.onHit = (m.grab || m.launch || m.knockdown) ? null : m.hs - (m.ac - 1) - m.rc;
     m.total = m.st + m.ac + m.rc;
     m.stS = m.st * F; m.acS = m.ac * F; m.rcS = m.rc * F;
-    /* ⚑ THE CONVENTION, and it has to be written down or the measurement cannot check the table.
-     * "i10" means the move HITS ON FRAME 10 — frames 1–9 are startup. So the move occupies
-     * st−1+ac+rc frames and the attacker is actionable on the next one, i.e. ac+rc−1 frames
-     * after contact. The defender is locked for exactly `bs` frames from contact. Subtract:
-     *   adv = bs − (ac + rc − 1) = bs − (ac−1) − rc   ← the derivation above, and standard.
-     * `endS` is that "actionable at" moment in seconds; `npm run test:ronin` re-derives the
-     * advantage by DRIVING a blocked move and counting steps, and it lands on the table exactly
-     * because of this line. Get it wrong by one frame and every measured number is off by one. */
-    m.endS = (m.st + m.ac + m.rc - 1) * F; }
+    /* ⚑ THE CONVENTION, WRITTEN DOWN, because a fighting game is one long off-by-one and the
+     * measurement cannot check the table unless both agree on what a frame IS.
+     *   · a move's frame 1 is the frame it was input on (`stT` is 0 during that frame).
+     *   · "i10" means it HITS ON FRAME 10 — frames 1–9 are startup      → hitS = (st−1)/60
+     *   · it stays active for `ac` frames, frames st … st+ac−1
+     *   · after contact the attacker still owes (ac−1) active + rc recovery frames, so it is
+     *     actionable on frame st+ac+rc−1                                → endS = (st+ac+rc−2)/60
+     *   · the defender is locked for exactly `bs` frames from contact, actionable on st+bs
+     *   subtract:  adv = (st+bs) − (st+ac+rc−1) = bs − (ac−1) − rc      ← the standard formula
+     * ⛔ It falls out of this that an i-N move punishes a deficit of exactly −N and NOT −(N−1).
+     * That exactness is the whole ladder, and `npm run test:ronin` proves it by driving the
+     * punisher one rung too slow and requiring it to WHIFF. Move any of these three constants by
+     * one frame and that negative control fails, which is precisely what it is for. */
+    m.hitS = (m.st - 1) * F; m.endS = (m.st + m.ac + m.rc - 2) * F; }
   // ordered by startup — the punish ladder is read off this, never hand-listed
   const BY_STARTUP = MOVE_IDS.filter(id => !MOVES[id].grab).sort((a, b) => MOVES[a].st - MOVES[b].st);
   /* Which moves punish a given block, by the only rule there is: a punisher lands iff its
@@ -142,8 +147,6 @@
    * it as "the punish" would be advice a player usually cannot take. */
   function punishersFor(id) { const m = MOVES[id]; if (!m || m.onBlock == null || m.onBlock >= 0) return [];
     return BY_STARTUP.filter(p => p !== 'special' && MOVES[p].st <= -m.onBlock); }
-  function fastestPunish(adv, mvId) { if (!(adv < 0)) return null;
-    for (const p of BY_STARTUP) { if (p === 'special' || p === mvId && false) continue; if (MOVES[p].st <= -adv) return p; } return null; }
 
   /* ── JUGGLE ────────────────────────────────────────────────────────────────────────────────
    * Three things terminate a combo, and all three are needed: damage scaling makes a long one
@@ -151,10 +154,25 @@
    * there is no loop back into a new launcher. `npm run test:ronin` drives the greediest juggle
    * a human could input and asserts hits, airtime and total damage are all bounded. */
   const JSCALE = [1, 0.80, 0.68, 0.58, 0.50, 0.42, 0.35, 0.30, 0.25];
-  const JUG_G = 700;            // juggle gravity — MUCH lighter than the 1750 a jump uses, or a
-                                // launched fighter is back on the floor before you can act again
-  const LAUNCH_V = 560;         // ≈ 1.6 s of hang time at JUG_G, ≈ 224 px of rise
-  const REFLOAT = n => Math.max(90, 300 - 48 * n);   // each juggle hit lifts them less
+  /* ⚑ THESE THREE NUMBERS WERE DERIVED FROM THE FRAME TABLE, NOT PICKED. The launcher's own
+   * recovery is 36 frames and the fastest follow-up is i10, so the first juggle hit cannot land
+   * sooner than 38+9 = 47 frames after the launch — meaning a hang time under ~50 frames makes a
+   * "launcher" that no move in the game can follow up. At 700/560 the hang was 96 frames and only
+   * ONE follow-up connected. At 560/620 it is 133, which fits four.
+   * ⛔ And the FLOOR of REFLOAT is what stops it being infinite: a jab's contact-to-contact cycle
+   * is (ac+rc−1)+(st−1) = 22 frames, so once a re-float buys less than 22 frames of air the loop
+   * cannot close. 60 buys 13. That is why the floor is 60 and not a rounder number. */
+  const JUG_G = 620;            // juggle gravity — a THIRD of the 1750 a jump uses
+  const LAUNCH_V = 540;         // ≈ 1.74 s of hang at JUG_G, apex ≈ 235 px
+  const REFLOAT = n => Math.max(50, 280 - 55 * n);   // each juggle hit lifts them less
+  /* ⛔ AND A HARD CAP, because decay alone does NOT terminate a juggle and the test proved it.
+   * Re-float adds upward velocity from wherever the body already IS — it does not reset the
+   * height — so a fighter pumped up to the apex keeps enough hang time for a 22-frame jab cycle
+   * to reconnect on the way down. Driven greedily that ran SIXTEEN jabs over 8.6 s, terminating
+   * only when they finally sank below the jab. Scaling had already made it nearly worthless
+   * (1.5 damage a hit), which is exactly the trap: it LOOKED bounded because the damage was.
+   * Past the cap a hit no longer floats — it spikes them at the floor. */
+  const JUG_MAX = 5, JUG_SPIKE = 620;
   const BOUND_V = 900, BOUND_BOUNCE = 250;
   const DOWN_F = 22, GETUP_F = 16;   // on the floor, then standing up — invulnerable throughout
   const THROW_BREAK = 20, THROW_HOLD = 30;  // break window · frames until the throw resolves
@@ -179,7 +197,7 @@
       face: isMe ? 1 : -1, maxHp: hp, hp, meter: 0, state: 'idle', stT: 0, walkPh: rnd(0, 6.28), swing: null,
       // ── frame-data state. Every one of these gates `canAct` and nothing else does. ──
       bstun: 0, juggle: null, grab: null, thrown: null, downT: 0, step: null, ch: 0,
-      blockedRun: 0, lastBlock: null, aiBreakAt: null, aiPlan: null,
+      blockedRun: 0, minus: null, aiBreakAt: null, buf: null, guardT: 0,
       combo: 0, comboT: 0, stun: 0, invuln: 0.6, col: a.col, tint: a.tint, weapon: a.weapon,
       rage: 0, glow: 0, shuri: a.shuri, kos: 0, dead: false, deadT: 0, ragdoll: false, koDir: 1, aiT: rnd(0.2, 0.7), aiMove: 0,
       pow: a.pow * (isMe ? cardPow : rnd(0.85, 1.12)), spd: a.spd * (isMe ? cardSpd : rnd(0.9, 1.08)),
@@ -267,8 +285,19 @@
    * recovery — is gated HERE and nowhere else, because a second copy of this rule is how a
    * mechanic silently stops mattering. `framesUntilFree` is the same question asked in frames,
    * and it is what makes advantage MEASURABLE rather than merely tabulated. */
+  /* ⚠ `< EPS`, NOT `<= 0`. A timer set to 10 frames and decremented ten times by 1/60 does not
+   * land on zero in binary floating point — it lands on ~2.8e-17, which is > 0, so the fighter
+   * stayed locked for ONE MORE FRAME. That is not a rounding curiosity here: one frame IS the
+   * punish ladder, and it made every measured advantage exactly 1 worse than the published one
+   * and an i10 punisher fail against a −10. Timers only ever step by whole frames, so half a
+   * frame is the right tolerance: it cannot free anyone early and it cannot leave residue. */
+  const EPS = F * 0.5;
+  /* Who is holding the controller. `forceAI` lets the harness hand the PLAYER's fighter to the
+   * same stepAI the rival uses, which is the only way to measure a match where both sides play
+   * the new system — a standing player would make any "the bots cope" number meaningless. */
+  const PLAYED = f => f.isMe && !f.forceAI;
   function canAct(f) { return !!f && !f.dead && !f.swing && !f.grab && !f.thrown && !f.step
-    && f.stun <= 0 && f.bstun <= 0 && f.downT <= 0 && f.state !== 'down' && f.state !== 'getup'; }
+    && f.stun < EPS && f.bstun < EPS && f.downT < EPS && f.state !== 'down' && f.state !== 'getup'; }
   function framesUntilFree(f) {
     if (!f || f.dead) return 0;
     let s = Math.max(f.stun, f.bstun, f.downT);
@@ -292,20 +321,25 @@
   /* Input → move. The three attack buttons stay exactly where they were; what changed is that
    * `S + KICK` is now the direct LAUNCHER, so a launch punish is one input rather than a lucky
    * state of the string buffer. The strings (P·K, P·K·S, S·S·S) are untouched. */
+  function fireAttack(f, kind, low) {
+    if (kind === 'kick' && low) { f.seq = []; return startMove(f, 'rising'); }    // S+K → RISING KICK
+    pushSeq(f, kind);
+    const move = detectCombo(f);
+    if (move) { f.seq = []; startMove(f, move); comboFx(f, move); return true; }
+    return startMove(f, kind);
+  }
+  const buffer = (f, entry) => { if (f.thrown || f.downT > 0 || f.state === 'down' || f.state === 'getup') return;
+    f.buf = Object.assign({ t: 0 }, entry); };
   function tryAttack(f, kind, opt) {
     if (f.dead) return;
     if (f.thrown) { tryBreak(f); return; }                    // the same buttons break a throw
-    if (!canAct(f)) return;
     if (!MOVES[kind]) return;
-    const low = opt && opt.low;
-    if (kind === 'kick' && low) { f.seq = []; startMove(f, 'rising'); return; }   // S+K → RISING KICK
-    pushSeq(f, kind);
-    const move = detectCombo(f);
-    if (move) { f.seq = []; startMove(f, move); comboFx(f, move); }
-    else startMove(f, kind);
+    const low = !!(opt && opt.low);
+    if (!canAct(f)) { buffer(f, { kind, low }); return; }
+    fireAttack(f, kind, low);
   }
-  function tryThrow(f) { if (f.dead) return; if (f.thrown) { tryBreak(f); return; } if (!canAct(f)) return; startMove(f, 'grab'); }
-  function tryBlock(f, on) { if (f.dead) return; if (on && f.state === 'idle' || on && f.state === 'walk') { f.state = 'block'; } if (!on && f.state === 'block' && f.bstun <= 0) { f.state = 'idle'; } }
+  function tryThrow(f) { if (f.dead) return; if (f.thrown) { tryBreak(f); return; }
+    if (!canAct(f)) { buffer(f, { id: 'grab' }); return; } startMove(f, 'grab'); }
   function tryJump(f) { if (f.dead || f.air || !canAct(f)) return; if (f.state === 'block') f.state = 'idle';
     f.vy = -480; f.air = true; }
   /* ── SIDESTEP — the third axis, as a MOVE with its own frame data ──────────────────────────
@@ -348,11 +382,15 @@
     tgt.x = att.x + att.face * 46; tgt.face = -att.face; tgt.z = att.z;
     sfxHit(false); G.shake = Math.max(G.shake, 4);
     pop(2, tgt.x, groundY - 150, { col: '#ffd23b', size: 0.7, life: 0.4 });
-    if (att.isMe || tgt.isMe) showFrames((att.isMe ? 'THROW · MASH P/K TO BREAK' : 'THROWN · MASH P/K TO BREAK'), THROW_BREAK, 'warn');
+    /* The prompt is the reason the break window is a mechanic rather than a trap: a 333 ms
+     * window nobody is told about is just damage. Both sides are told, and told different
+     * things — the thrower is not the one who should be mashing. */
+    if (tgt.isMe) showFrames('THROWN · MASH P/K — ' + THROW_BREAK + 'f TO BREAK', THROW_BREAK, 'warn');
+    else if (att.isMe) showFrames('THROW · they have ' + THROW_BREAK + 'f to break', THROW_BREAK, 'good');
   }
   function tryBreak(f) {
     const th = f.thrown; if (!th) return false;
-    if (th.t > THROW_BREAK * F) return false;                 // too late — the window is closed
+    if (th.t >= THROW_BREAK * F - F * 0.5) return false;      // too late — the window is closed
     const att = th.by;
     f.thrown = null; f.state = 'idle'; f.stT = 0; f.stun = 0;
     if (att) { att.grab = null; att.state = 'idle'; att.stT = 0; att.stun = 2 * F; }   // thrower ends at −2
@@ -378,14 +416,15 @@
 
   function activeHit(f) {
     const sw = f.swing; if (!sw) return; const mv = sw.mv;
-    if (f.stT < mv.stS || f.stT > mv.stS + mv.acS) return;    // outside the active window
+    // active on frames st … st+ac−1, i.e. stT in [hitS, hitS+(ac−1)/60]
+    if (f.stT < mv.hitS - F * 0.5 || f.stT > mv.hitS + (mv.ac - 1) * F + F * 0.5) return;
     const reach = (mv.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY + (f.glow > 0 && mv.kind === 'slash' ? 30 : 0);   // scaled to the bigger bodies
     const hx = f.x + f.face * (26 + reach * 0.5), hy = groundY - 116 - f.yLift;
     G.fighters.forEach(t => {
       if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0 || t.thrown) return;
       const onSide = f.spinT > 0 || Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;   // a spin hits both sides
       const near = Math.abs(t.x - hx) < reach * 0.6 + 20;
-      const vClose = Math.abs((t.yLift) - (f.yLift)) < (t.juggle ? 300 : 60);   // a juggle follow-up must reach UP
+      const vClose = Math.abs((t.yLift) - (f.yLift)) < (t.juggle ? 420 : 60);   // a juggle follow-up must reach UP
       /* ⛔ THE HOMING RULE. A LINEAR move needs the target on the fight line; a HOMING move does
        * not care where they stepped. This one line, plus `evading`, is the entire reason the
        * third axis is a defence rather than decoration. */
@@ -404,7 +443,6 @@
     if (blocking) {
       const chip = mv.dmg * 0.12 * mul; tgt.hp -= chip; tgt.vx += dir * mv.knock * 0.28;
       tgt.bstun = mv.bs * F; tgt.state = 'block'; tgt.blockedRun = (tgt.blockedRun || 0) + 1;
-      tgt.lastBlock = { id: mv.id, adv: mv.onBlock, t: G.t };  // the defender now KNOWS the number
       att.minus = { id: mv.id, adv: mv.onBlock, t: G.t };      // …and so does the attacker
       att.blockedRun = 0;
       att.meter = Math.min(1, att.meter + mv.meter * 0.4); tgt.meter = Math.min(1, tgt.meter + 0.05);
@@ -428,14 +466,21 @@
     const launches = !!mv.launch || (counter && mv.chLaunch);
     const knockdown = launches || !!mv.knockdown;
     tgt.state = 'hurt'; tgt.stT = 0;
-    tgt.vx += dir * mv.knock * mul * (knockdown ? 1.3 : 1) * (juggling ? 0.35 : 1);
+    tgt.vx += dir * mv.knock * mul * (knockdown ? 1.3 : 1) * (juggling ? 0.12 : 1);   // a juggle keeps them overhead
     if (juggling) {                                            // ── a hit on an airborne, juggled foe
       const n = tgt.juggle.hits; tgt.juggle.hits = n + 1;
       if (mv.bound && tgt.juggle.bound && n >= 1) { tgt.juggle.bound = false; tgt.vy = BOUND_V; tgt.juggle.slam = true;
         if (att.isMe || tgt.isMe) showFrames('BOUND · FLOOR BREAK', null, 'bad'); }
+      else if (n >= JUG_MAX) tgt.vy = JUG_SPIKE;             // combo over: this one puts them down
       else tgt.vy = -REFLOAT(n);
       tgt.air = true; tgt.stun = 1.2;                          // hitstun cannot expire mid-air
-    } else if (launches) { startJuggle(tgt); tgt.vy = -LAUNCH_V; tgt.air = true; tgt.stun = 1.2; }
+    } else if (launches) { startJuggle(tgt); tgt.vy = -LAUNCH_V; tgt.air = true; tgt.stun = 1.2;
+      /* ⛔ A LAUNCH SENDS THEM UP, NOT AWAY — and this line is the difference between a launcher
+       * and a knockdown with extra steps. With the ordinary knockback applied, a launched
+       * opponent drifted ~100 px downrange during the launcher's own 36 frames of recovery, so
+       * by the time the attacker could act the target was outside JAB range and NOT ONE
+       * follow-up connected. The juggle existed in the code and never once happened. */
+      tgt.vx = dir * 60; }
     else if (knockdown) { startJuggle(tgt); tgt.juggle.hits = 3; tgt.juggle.bound = false;   // a raw knockdown floats low and scales hard
       tgt.vy = -300; tgt.air = true; tgt.stun = 1.2; }
     else { tgt.stun = (mv.hs + (counter ? 8 : 0)) * F; }
@@ -529,6 +574,10 @@
       f.aiMove = 0; f.aiStrafe = 0; return;
     }
     if (!canAct(f)) { f.aiMove = 0; f.aiStrafe = 0; return; }
+    /* A held guard is an INSTRUCTION, not a preference: without this the AI's own offence fired
+     * on the next actionable frame and `_guard(true)` produced a fighter that attacked. Only the
+     * debug hook sets it, so it costs the shipping AI nothing. */
+    if (f.aiHold) { f.state = 'block'; f.aiMove = 0; f.aiStrafe = 0; f.face = tgt.x < f.x ? -1 : 1; return; }
     f.aiT -= dt; f.face = tgt.x < f.x ? -1 : 1;
     const lowHp = f.hp < f.maxHp * 0.3;
     const free = framesUntilFree(tgt);
@@ -545,19 +594,26 @@
       let pick = null;
       for (const id of BY_STARTUP) { const m = MOVES[id];
         if (id === 'special' || id === 'grab') continue;
-        if (m.st <= free - 1 && best <= maxRange(f, m)) pick = id;     // biggest that still fits
+        if (m.st <= free && best <= maxRange(f, m)) pick = id;         // biggest that still fits
       }
       if (pick) { startMove(f, pick); f.aiMove = 0; f.aiT = 0.1;
-        if (MOVES[pick].launch) f.aiPlan = 'juggle'; return; }
-      if (f.meter >= 1 && MOVES.special.st <= free - 1 && best < 220) { trySpecial(f); f.aiT = 0.2; return; }
+        return; }
+      if (f.meter >= 1 && MOVES.special.st <= free && best < 220) { trySpecial(f); f.aiT = 0.2; return; }
     }
+    // 3a · HOLD IT. Deciding to guard and then dropping it two frames later is the same as never
+    //      guarding at all — and it is exactly what happened: the rival blocked during a 24-frame
+    //      startup, its `aiT` expired before the move went active, and it attacked into the hit.
+    //      In a 38 s match that produced FIFTEEN sidesteps and ZERO frames of blockstun.
+    if (f.guardT > 0) { f.guardT -= dt; if (canAct(f)) { f.state = 'block'; f.aiMove = 0; f.aiStrafe = 0; } return; }
     // 3 · REACT — their move is still in startup and slow enough for a human to see it coming.
     //     A LINEAR move is answered by stepping off the line; anything else by guarding.
     if (inStartup(tgt) && tgt.swing.mv.st >= AI_S.react && best < maxRange(tgt, tgt.swing.mv) + 30
         && Math.sign(f.x - tgt.x) === tgt.face) {
       const mv = tgt.swing.mv;
       if (!mv.homing && Math.random() < AI_S.step) { trySidestep(f, Math.random() < 0.5 ? 1 : -1); f.aiT = 0.25; return; }
-      if (Math.random() < AI_S.block) { f.state = 'block'; f.aiStrafe = 0; f.aiMove = 0; f.aiT = rnd(0.18, 0.34); return; }
+      if (Math.random() < AI_S.block) { f.state = 'block'; f.aiStrafe = 0; f.aiMove = 0;
+        f.guardT = (mv.total - mv.st) * F + 0.05;      // hold until THEIR move is spent
+        f.aiT = rnd(0.18, 0.34); return; }
     }
     // 4 · A TURTLE GETS THROWN. Nothing else in the game beats a held guard, which is the point.
     if ((tgt.state === 'block' || f.blockedRun >= 2) && best < maxRange(f, MOVES.grab)
@@ -571,17 +627,23 @@
     if (f.aiT <= 0) {
       f.aiT = rnd(0.22, 0.6);
       if (f.state === 'block') f.state = 'idle';
+      /* ⚑ NEUTRAL IS PART OF THE GAME. `aiT` was set BEFORE the attack, so it had almost always
+       * expired again by the time the move recovered and the rival simply attacked on loop. It
+       * was therefore never ACTIONABLE during the player's startup — which is the only moment
+       * rule 3 can fire — so it never blocked and never sidestepped, and two of its five verbs
+       * were dead. `pause` puts a real gap after the move it just committed to. */
+      const pause = mv => { f.aiT = MOVES[mv].total * F + rnd(0.06, 0.34); return true; };
       if (best < maxRange(f, MOVES.slash)) {
         const r = Math.random();
         /* Offence is weighted by SAFETY, not by damage: the jab is the default because it is
          * −3, the launcher is rare because it is −20. An AI that threw its launcher on cooldown
          * would teach the player that the punish ladder does not matter. */
-        if (r < 0.34) startMove(f, 'punch');
-        else if (r < 0.58) startMove(f, 'kick');
-        else if (r < 0.80) startMove(f, 'slash');
-        else if (r < 0.88 && best < maxRange(f, MOVES.rising) * 0.85) { startMove(f, 'rising'); f.aiPlan = 'juggle'; }
-        else if (r < 0.94) startMove(f, 'grab');
-        else { pushSeq(f, 'punch'); startMove(f, 'punch'); }   // seeds P·K / P·K·S for next time
+        if (r < 0.34) { startMove(f, 'punch'); pause('punch'); }
+        else if (r < 0.58) { startMove(f, 'kick'); pause('kick'); }
+        else if (r < 0.80) { startMove(f, 'slash'); pause('slash'); }
+        else if (r < 0.88 && best < maxRange(f, MOVES.rising) * 0.85) { startMove(f, 'rising'); pause('rising'); }
+        else if (r < 0.94) { startMove(f, 'grab'); pause('grab'); }
+        else { pushSeq(f, 'punch'); startMove(f, 'punch'); pause('punch'); }   // seeds P·K / P·K·S for next time
         f.aiMove = 0; f.aiStrafe = 0;
       } else {
         f.aiStrafe = 0;
@@ -605,9 +667,13 @@
    * −11 against the other, depending on turn order. Ticking first makes advantage a property of
    * the table rather than of the array, and it is why the measured numbers match to the frame. */
   function tickTimers(f, dt) {
-    f.stT += dt;
+    /* ⚠ `stT` is deliberately NOT here — it advances at the END of stepFighter, so that a move's
+     * frame 1 is the frame it was input on WHETHER the input came from the AI (mid-frame) or
+     * from a key / the test harness (between frames). Advancing it here made those two callers
+     * disagree by one frame, which is exactly the size of the whole punish ladder. */
     if (f.invuln > 0) f.invuln -= dt; if (f.stun > 0) f.stun -= dt;
     if (f.bstun > 0) f.bstun -= dt; if (f.downT > 0) f.downT -= dt;
+    if (f.bstun < EPS) f.bstun = 0; if (f.downT < EPS) f.downT = 0; if (f.stun < EPS) f.stun = 0;
     if (f.rage > 0) f.rage -= dt; if (f.glow > 0) f.glow -= dt;
     if (f.ch > 0) f.ch -= dt; if (f.stepCd > 0) f.stepCd -= dt;
     if (f.dashCd > 0) f.dashCd -= dt; if (f.wallT > 0) f.wallT -= dt;
@@ -616,10 +682,19 @@
     if (f.thrown) f.thrown.t += dt;
   }
   function stepFighter(f, dt) {
+    /* ── INPUT BUFFER. A press inside blockstun or recovery is not thrown away: it fires on the
+     * FIRST actionable frame, within a 4-frame window. Real fighting games all do this, and here
+     * it is load-bearing rather than a courtesy — a punish is a move you must land on the first
+     * frame you are free, and asking a human to hit that frame exactly with no buffer is asking
+     * them not to punish. 4 frames is short enough that it cannot produce a move you did not
+     * mean; a long buffer is how you get an unwanted launcher three exchanges later. */
+    if (f.buf) { if (canAct(f)) { const b = f.buf; f.buf = null;
+        if (b.id) startMove(f, b.id); else fireAttack(f, b.kind, b.low); }
+      else { f.buf.t += dt; if (f.buf.t > 4 * F) f.buf = null; } }
     // ── FRAME-DATA STATE. Blockstun keeps the guard up whatever the block key says; the down
     //    and getup clocks are what terminate a juggle. (The clocks themselves ticked above.) ──
-    if (f.bstun > 0) f.state = 'block';
-    if (f.downT > 0) f.state = 'down';
+    if (f.bstun >= EPS) f.state = 'block';
+    if (f.downT >= EPS) f.state = 'down';
     else if (f.state === 'down') { f.state = 'getup'; f.stT = 0; }
     else if (f.state === 'getup' && f.stT > GETUP_F * F) { f.state = 'idle'; f.stT = 0; }
     // ── THROW: the grab holds for THROW_HOLD frames, then it resolves or it has been broken ──
@@ -627,30 +702,33 @@
       if (!tg || tg.dead || !tg.thrown) { f.grab = null; f.state = 'idle'; }
       else { tg.x = f.x + f.face * 46; tg.z = f.z; tg.vx = 0; tg.yLift = 0; tg.air = false;
         if (f.grab.t >= THROW_HOLD * F) finishThrow(f); } }
-    if (f.thrown) { f.thrown.t += dt; if (!f.thrown.by || !f.thrown.by.grab) { f.thrown = null; if (f.state === 'thrown') f.state = 'idle'; } }
+    if (f.thrown) { if (!f.thrown.by || !f.thrown.by.grab) { f.thrown = null; if (f.state === 'thrown') f.state = 'idle'; } }
     // ── SIDESTEP: 3 startup / 12 evade / 7 recovery, driving z to the stepped position ──
-    if (f.step) { const total = (SSTEP.st + SSTEP.ev + SSTEP.rc) * F;
-      const k = clamp(f.stT / ((SSTEP.st + SSTEP.ev) * F), 0, 1);
+    if (f.step) { const total = (SSTEP.st + SSTEP.ev + SSTEP.rc - 1) * F;
       f.z = lerp(f.z, f.zGoal == null ? f.z : f.zGoal, Math.min(1, dt * 16));
-      if (f.stT >= total) { f.step = null; f.zGoal = null; if (f.state === 'sidestep') f.state = 'idle'; } }
+      if (f.stT >= total - F * 0.5) { f.step = null; f.zGoal = null; if (f.state === 'sidestep') f.state = 'idle'; } }
     // movement intent
     let mv = 0;
     if (!f.dead && canAct(f)) {
-      if (f.isMe) { mv = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0) + touch.mx; mv = clamp(mv, -1, 1); }
+      if (PLAYED(f)) { mv = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0) + touch.mx; mv = clamp(mv, -1, 1); }
       else mv = f.aiMove || 0;
     }
-    if (f.wallT > 0) f.wallT -= dt; if (f.dashCd > 0) f.dashCd -= dt;
     const canMove = !f.dead && canAct(f) && f.state !== 'block';
     if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 4300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk';   // snappier acceleration
       f.walkPh += Math.abs(mv) * dt * 16; f.stepT = (f.stepT || 0) - dt; if (!f.air && f.stepT <= 0) { spawnDust(f.x - f.face * 6, 2); f.stepT = 0.24; } }
     else if (!f.air && f.state === 'walk') f.state = 'idle';
     // friction + integrate + wall bounce (a hard knock into the stage edge rebounds)
-    f.vx *= f.air ? 0.99 : 0.75; f.x += f.vx * dt;
+    /* ⚑ A JUGGLED FIGHTER IS HELD OVERHEAD. Air friction is 0.99/frame — practically none — so
+     * the small push each juggle hit adds never bled off and the target drifted ~200 px downrange
+     * over a 2 s juggle, i.e. clean out of JAB range by the third hit. The combo then "ended"
+     * for a reason that had nothing to do with scaling, decay or the floor. 0.94 puts the total
+     * drift of a launch at ~16 px. */
+    f.vx *= f.juggle ? 0.94 : f.air ? 0.99 : 0.75; f.x += f.vx * dt;
     if ((f.x <= 30 || f.x >= worldW - 30) && Math.abs(f.vx) > 240 && (f.wallT || 0) <= 0) { f.vx *= -0.45; f.wallT = 0.25; G.shake = Math.max(G.shake, 6); spawnDust(f.x, 6); triggerShock(f.x, groundY - 70, 0.8); sfxHit(false); }
     f.x = clamp(f.x, 30, worldW - 30);
     const maxRun = 470 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 520, maxRun + 520);
     // depth strafe (z) — sidestep into fore/background; recentres on the fight line, strong when not actively strafing
-    let zin = 0; if (canMove) { zin = f.isMe ? ((keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0) + (touch.mz || 0)) : (f.aiStrafe || 0); }
+    let zin = 0; if (canMove) { zin = PLAYED(f) ? ((keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0) + (touch.mz || 0)) : (f.aiStrafe || 0); }
     if (!f.step) { f.zv += zin * 3000 * f.spd * dt; f.zv += (0 - f.z) * (Math.abs(zin) > 0.05 ? 1.4 : 7.5) * dt; f.zv *= 0.82; f.z += f.zv * dt; f.z = clamp(f.z, -120, 120); }
     // spin attacks — the whole body whirls (Ry in 3D, a flip-squash in 2D); the blade sweeps a full circle
     if (f.spinT > 0) { f.spinT -= dt; f.spin += 26 * dt; } else if (f.spin) { f.spin = 0; }
@@ -663,18 +741,19 @@
         else { f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); }
           if (f.juggle) land(f); else if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
-    if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.mv.stS) { sw.arced = true; spawnArc(f, sw.mv); }
+    if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.mv.hitS - F * 0.5) { sw.arced = true; spawnArc(f, sw.mv); }
       activeHit(f); if (f.stT >= sw.mv.endS - F * 0.5) { f.swing = null; f.move = null; if (f.state !== 'hurt' && f.state !== 'ko' && f.state !== 'grab' && !f.thrown) f.state = 'idle'; } }
     // hurt recovery
     if (f.state === 'hurt' && f.stun <= 0 && !f.air) f.state = 'idle';
     // ko slide
     if (f.dead) { f.deadT += dt; if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { f.yLift = 0; f.vy = 0; f.air = false; } } f.vx *= 0.9; f.x += f.vx * dt; }
     // block auto for me — but NEVER out of blockstun, which is the defender's half of the frame data
-    if ((f.isMe || f.aiHold) && !f.dead && f.bstun <= 0 && canAct(f) && !f.air) {
-      if (((f.isMe && (keys['s'] || keys['arrowdown'] || touch.block)) || f.aiHold) && (f.state === 'idle' || f.state === 'walk' || f.state === 'block')) f.state = 'block';
+    if ((PLAYED(f) || f.aiHold) && !f.dead && f.bstun < EPS && canAct(f) && !f.air) {
+      if (((PLAYED(f) && (keys['s'] || keys['arrowdown'] || touch.block)) || f.aiHold) && (f.state === 'idle' || f.state === 'walk' || f.state === 'block')) f.state = 'block';
       else if (f.state === 'block') f.state = 'idle';
     }
     stepRig(f, dt);
+    f.stT += dt;                                              // ← the move clock, at the END (see tickTimers)
   }
 
   // ── spring-driven skeleton: each joint chases its pose target with inertia + damping,
@@ -880,7 +959,8 @@
         if (keys['e']) G.camYaw = (G.camYaw || 0) + 1.8 * dt; }
       updateHUD(); return;                                        // world mode skips the duel sim
     }
-    if (G.started) G.fighters.forEach(f => { if (!f.isMe && !f.noAI) stepAI(f, dt); });
+    G.fighters.forEach(f => tickTimers(f, dt));               // ← every clock, before any decision
+    if (G.started) G.fighters.forEach(f => { if (!PLAYED(f) && !f.noAI) stepAI(f, dt); });
     G.fighters.forEach(f => stepFighter(f, dt));
     // soft body separation — keep the two big duellists from fully overlapping at melee range
     { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30 && Math.abs((a.z || 0) - (b.z || 0)) < 60) {
@@ -1325,23 +1405,34 @@
         onBlock: m.onBlock, onHit: m.onHit, homing: !!m.homing, launch: !!m.launch, knockdown: !!m.knockdown,
         bound: !!m.bound, chLaunch: !!m.chLaunch, grab: !!m.grab,
         punishedBy: punishersFor(id).map(p => MOVES[p].name) }; } return o; },
-    get consts() { return { FPS, HP_SCALE, JSCALE: JSCALE.slice(), JUG_G, LAUNCH_V, DOWN_F, GETUP_F,
+    get consts() { return { FPS, HP_SCALE, JSCALE: JSCALE.slice(), JUG_G, LAUNCH_V, JUG_MAX, DOWN_F, GETUP_F,
       THROW_BREAK, THROW_HOLD, SSTEP: Object.assign({}, SSTEP), react: AI_S.react }; },
     _lab(on) { if (G) G.__lab = on !== false; },
+    get jug() { return { JUG_MAX, JUG_SPIKE, REFLOAT: [0,1,2,3,4,5,6].map(REFLOAT) }; },
     _do(who, id) { const f = who === 'foe' ? G.foe : G.me; if (!canAct(f)) return false; return startMove(f, id); },
+    /* the input buffer, exposed: queue a move and it fires on the first actionable frame — which
+     * is the ONLY way to land a frame-perfect punish, from a harness or from a human thumb. */
+    _buf(who, id) { const f = who === 'foe' ? G.foe : G.me; f.buf = { id, t: 0 }; },
     _seq(who, kinds) { const f = who === 'foe' ? G.foe : G.me; f.seq = kinds.map((k, i) => ({ k, t: G.t - 0.1 * (kinds.length - i) })); },
     _press(who, kind, low) { const f = who === 'foe' ? G.foe : G.me; tryAttack(f, kind, { low: !!low }); },
     _step_(who, dir) { const f = who === 'foe' ? G.foe : G.me; trySidestep(f, dir); },
     _throw(who) { const f = who === 'foe' ? G.foe : G.me; tryThrow(f); },
     _break(who) { const f = who === 'foe' ? G.foe : G.me; return tryBreak(f); },
     _guard(who, on) { const f = who === 'foe' ? G.foe : G.me; f.aiHold = on; if (on) { if (canAct(f)) f.state = 'block'; } else if (f.state === 'block' && f.bstun <= 0) f.state = 'idle'; },
-    _ai(who, on) { const f = who === 'foe' ? G.foe : G.me; f.noAI = !on; },
+    _ai(who, on) { const f = who === 'foe' ? G.foe : G.me; f.noAI = !on; f.forceAI = !!on; },
     _place(ax, bx, az, bz) { if (!G) return; G.me.x = ax; G.foe.x = bx; if (az != null) G.me.z = az; if (bz != null) G.foe.z = bz;
       G.me.vx = G.foe.vx = 0; G.me.zv = G.foe.zv = 0; G.me.face = 1; G.foe.face = -1; },
     _reset() { if (!G) return; [G.me, G.foe].forEach(f => { f.hp = f.maxHp; f.swing = null; f.step = null; f.grab = null; f.thrown = null;
       f.stun = 0; f.bstun = 0; f.downT = 0; f.juggle = null; f.invuln = 0; f.state = 'idle'; f.stT = 0; f.air = false; f.yLift = 0;
-      f.vx = 0; f.vy = 0; f.z = 0; f.zv = 0; f.seq = []; f.meter = 0; f.combo = 0; f.spinT = 0; f.spin = 0; f.minus = null;
-      f.lastBlock = null; f.aiHold = false; f.noAI = true; f.dead = false; f.ragdoll = false; f.stepCd = 0; }); G.hitstop = 0; },
+      f.vx = 0; f.vy = 0; f.z = 0; f.zv = 0; f.seq = []; f.meter = 0; f.combo = 0; f.spinT = 0; f.spin = 0;
+      f.guardT = 0; f.ch = 0; f.aiHold = false; f.noAI = true; f.forceAI = false; f.dead = false; f.ragdoll = false;
+      f.stepCd = 0; f.buf = null; f.move = null; f.minus = null; f.blockedRun = 0; f.aiT = 0; f.aiMove = 0; f.aiStrafe = 0; });
+      /* ⚠ AND THE MATCH. A KO during an earlier measurement calls endBrawl, which sets
+       * G.started = false — after which stepAI never runs again and every later 'the bots
+       * play the new game' number silently reads ZERO. It looked like an AI that ignored
+       * the system; it was a harness measuring a finished match. */
+      G.hitstop = 0; G.mode = 'play'; G.started = true; G.timeLeft = 90; G.order = []; G.camZoom = 0;
+      const ov = $('ovResult'); if (ov) ov.classList.remove('show'); },
     get st() { const p = f => ({ state: f.state, move: f.move || null, hp: +f.hp.toFixed(2), maxHp: f.maxHp,
       free: +framesUntilFree(f).toFixed(3), canAct: canAct(f), air: f.air, y: +f.yLift.toFixed(1), z: +(f.z || 0).toFixed(1),
       juggle: f.juggle ? { hits: f.juggle.hits, bound: f.juggle.bound } : null, thrown: !!f.thrown, grabbing: !!f.grab,

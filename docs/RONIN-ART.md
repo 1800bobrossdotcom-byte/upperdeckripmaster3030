@@ -186,9 +186,17 @@ and the card reads as the lit object. **Dark field, lit object** — §5.
   §4 answer for the stage and it required no new motion at all — the movement was already there,
   keyed to combat, and the material simply now responds to it.
 - **Parallax between depth bands because the camera moved.** The backdrop is built at three real
-  depths, so a camera swing separates them. **Acceptance: the near band's screen displacement is
-  measurably larger than the far band's, at a stated ratio** — a backdrop painted at one depth
-  reports a ratio of 1.00 and fails.
+  depths, so camera motion separates them. **Acceptance: near:far screen displacement > 1.6** — a
+  backdrop painted at one depth reports 1.00 and fails. Measured **2.41**.
+  ⚑ **And the sign depends on which camera motion you measure, which is worth knowing before
+  anyone "fixes" it.** The fight camera does two different things: it TRUCKS sideways every frame
+  tracking the fighters' midpoint, and it ORBITS occasionally on `cineKick`. Under a truck you get
+  classic parallax — near moves more (41 px vs 17 px). Under an orbit that keeps *looking at the
+  centre* you get the opposite, because a distant object barely moves in the world while the view
+  direction sweeps the whole angle (far 32 px vs near 36 px, and the mid band scarcely moves at
+  all). Both separate the bands; only the truck has the sign the word usually means, and the truck
+  is the motion this camera makes constantly. The first version of the test asserted the orbit's
+  ordering and failed a renderer that was correct.
 
 ### 4 · What it sits on
 
@@ -254,6 +262,58 @@ than in mid-air, so a hit is visibly transmitted into the thing everyone is stan
 
 ---
 
+## 3½ · THE NUMBERS — `npm run test:roninart`, 40 assertions
+
+Everything below is read off the shipped renderer through `Ronin3D.probe`, which draws with the
+same `drawFighter`/`drawScene` the game uses. ⚠ Colour comes from `readPixels` into the probe's own
+framebuffer, never from a screenshot — this container rotates hue on canvas content.
+
+| what | measured | the bar |
+| --- | --- | --- |
+| silhouette, 13 bodies · 78 pairs | mean IoU **raw 0.48**, **shape-only 0.45** | raw < 0.72 |
+| worst-confusable pair | **0.78** — `rip-mascot` / `cc0-lump` | < 0.94 |
+| most distinct pair | **0.24** — `kunoichi` / `cc0-lank` | — |
+| ink value steps on a body surface | **10** (of 143 distinct luma values) | ≤ 12 |
+| foil hue travel, **floor** (`GND_FS`) | **109.5° median**, 180° max, over ±0.5 rad | ≥ 60° |
+| foil hue travel, **fighter** (`LIT_FS`) | **166.6°** over ±0.6 rad | ≥ 45° |
+| **ink** hue travel, same sweep | **6.2°** | ≤ 8° |
+| soft goods at rest, 4 s | offset **exactly 0.000**, velocity **exactly 0.000** | = 0 |
+| cloth lag behind the body | **75 ms** | > 0 |
+| propagation down the chain | **75 → 158 → 250 ms** | strictly increasing |
+| return overshoot past zero | **−2.03 px** | < 0 |
+| hitstop, 8 frames | **0.000** movement, resumes at **4.90 px** on the next live frame | = 0, then > 0 |
+| camera shake | **9 sign changes**, envelope **0.11 → 0.02 → 0.01** | oscillates + decays |
+| blade trail pointed at the camera | **46 px lit, 10 px wide** (broadside control 12 px) | was geometrically **0** |
+| plate slip, struck frame | **1423 px** of fringe outside the body | > 60 |
+| plate slip, unstruck / expired | **0 px**, **0 px** | = 0 |
+| parallax, near : far, camera truck | **2.41** (41 px / 17 px) | > 1.6 |
+| empty stage | mean luma **20.8**, clipped **0.00%**, black **50.2%** | mean < 46 |
+
+**The whole-frame numbers, `npm run debug ronin`** — median of five frames, SwiftShader, so these
+are comparable between runs and are not an fps or a colour claim:
+
+| | before | after |
+| --- | --- | --- |
+| luma mean | 35.4 | **28.5** |
+| contrast | 42.4 | **35.8** |
+| p99 | 212 | **182** |
+| clipped | 0.17% | **0.19%** |
+| black | 45.7% | **54.0%** |
+| frame-to-frame luma spread | **18.2** | **1.8** |
+
+⚠ **Read those two columns honestly, because one of them moved the wrong way.** Blacks up
+45.7 → 54.0% and p99 down 212 → 182 is the intended trade: a dark field with a lit object, which
+is what §5 asks for and what the old build did not have (its floor was a lit grid edge to edge).
+**Contrast fell 42.4 → 35.8, and that is a real cost** — the old frame bought its spread from a
+near-white mannequin and a bright grid, both of which were the problem. The number worth trusting
+is the last row: **the frame-to-frame spread collapsed from 18.2 to 1.8**, i.e. the picture is no
+longer flashing between two different exposures, which is what made the old readings a lottery.
+
+⛔ **Not measured, and not claimable:** frame time (SwiftShader — relative only), colour on a real
+GPU, and anything on a real phone. Task #73 still stands.
+
+---
+
 ## 4 · The rejection list, for this game specifically
 
 | ⛔ do not | ✅ do |
@@ -275,12 +335,21 @@ than in mid-air, so a hit is visibly transmitted into the thing everyone is stan
 1. **The three lights are `DESIGN-SYSTEM.md`'s proposal, and that file is explicitly a draft.** A
    phosphor-green key over a red oni is a real colour decision and it is his. The rig is one
    constant block; the hues can be changed without touching anything else.
-2. **The crowd.** The stage carries a low ring of onlooker standees beyond the die edge — the deck
-   watching the title fight (`DELTRON-3030.md` idea 3: the battle is a performance, and NEON RONIN
-   "lacks the sense of an audience and a championship"). They are deliberately silhouettes. Whether
-   they should be *cards*, *people*, or nothing is a call, not a bug.
-3. **The roster's silhouettes.** The measurement below names which pairs are confusable. Fixing a
-   pair means changing what a character *is*, which is design, not rendering.
+2. **The crowd, and it is the weakest thing in this pass.** Two ranks of card standees stand
+   beyond the far die edge — the deck watching the title fight (`DELTRON-3030.md` idea 3: the
+   battle is a performance, and NEON RONIN "lacks the sense of an audience and a championship").
+   ⚠ It took three attempts to make them read at all and the third gives up the material rule:
+   at 1.5 units tall they were thin bright ticks at the frame margin; enlarged and drawn as INK
+   they became a picket fence, because a 0.10-deep card at 21 units shows a near-white die edge
+   against a face ten times darker; they are now FLAT, a shade above the low sky, so the card
+   *shape* carries. **A crowd at distance is a silhouette.** Whether the audience should be cards,
+   people, or nothing at all is a call, not a bug — and "nothing" is a defensible answer.
+3. **The roster's silhouettes.** The measurement names the confusable pairs: **`rip-mascot` /
+   `cc0-lump` at 0.78**, `cc0-grid` / `cc0-squat` at 0.75, `rip-mascot` / `cc0-squat` at 0.71 —
+   all of them among the seven generated bodies, none among the original six. Fixing a pair means
+   changing what a character *is* (proportions, a silhouette prop, a weapon), which is design.
+   ⚑ The renderer can only do so much here: `cc0-lump` and `rip-mascot` are both mid-build bodies
+   with the same wardrobe slot and no distinguishing headgear.
 4. **The 2D fallback (`ronin-fighters.js`) is now a different-looking game from the 3D path.** It
    is the no-WebGL route and it must stay playable, but it has not been redirected to this brief.
    Doing so is a separate pass and should probably wait until the 3D look is signed off.

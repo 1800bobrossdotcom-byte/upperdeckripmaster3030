@@ -73,6 +73,10 @@
   .fd.good{ color:var(--lime); border-color:rgba(43,255,128,.5); }
   .fd.warn{ color:var(--amber); border-color:rgba(255,210,59,.5); }
   .fd.bad{ color:var(--coral); border-color:rgba(255,107,87,.55); }
+  /* the longest readout is "OVERHEAD CUT BLOCKED · −10 · JAB PUNISHES"; nowrap at 15px runs off a
+     568px landscape phone, and a punish hint that leaves the screen teaches nothing. 12px is the
+     label floor declared in mobile.css. */
+  @media (max-width:760px){ .fd{ font-size:12px; white-space:normal; max-width:88vw; text-align:center; line-height:1.35; } }
   .cd{ position:fixed; inset:0; display:grid; place-items:center; z-index:8; pointer-events:none; }
   .cd b{ font-family:var(--fat); font-size:18vw; color:#fff; text-shadow:0 0 40px rgba(255,42,217,.8),0 0 8px rgba(61,240,255,.6); animation:cdPop .9s ease both; }
   @keyframes cdPop{ from{ transform:scale(2.4); opacity:0; } 60%{ opacity:1; } to{ transform:scale(1); opacity:0; } }
@@ -167,16 +171,22 @@
     font-family:var(--fat); color:#fff; }
   @media (hover:none){ .pad{ display:grid; } .ctrls{ display:none; } }
   body.touch .pad{ display:grid; } body.touch .ctrls{ display:none; }
-  .pP{ right:150px; bottom:26px; width:66px; height:66px; font-size:12px; background:radial-gradient(circle at 40% 34%,#bfe6ff,#3df0ff 62%,#0c86b0); border:2px solid #063f5c; color:#042; }
-  .pK{ right:86px; bottom:78px; width:60px; height:60px; font-size:12px; background:radial-gradient(circle at 40% 34%,#ffd6a8,#ff9a3c 62%,#c05e00); border:2px solid #5c3600; }
+  /* ⛔ THE PAD CLUSTER IS LAID OUT SO NOTHING OVERLAPS, and it did not used to be: KICK and SLASH
+     shared a 14 × 26 px corner. That was survivable when kick was just kick; it is not now that
+     KICK is half of the launcher input (hold guard + KICK), because the mis-tap costs you the one
+     move in the game worth −20 on block. Every pad is ≥ 44 px and the whole cluster fits inside
+     236 × 208 px, i.e. on a 568 × 320 landscape phone. Measured, not eyeballed — a disjointness
+     check over all 21 pairs runs in the scratch harness. */
+  .pP{ right:176px; bottom:26px; width:60px; height:60px; font-size:11px; background:radial-gradient(circle at 40% 34%,#bfe6ff,#3df0ff 62%,#0c86b0); border:2px solid #063f5c; color:#042; }
+  .pK{ right:104px; bottom:60px; width:62px; height:62px; font-size:12px; background:radial-gradient(circle at 40% 34%,#ffd6a8,#ff9a3c 62%,#c05e00); border:2px solid #5c3600; }
   .pS{ right:22px; bottom:26px; width:78px; height:78px; font-size:12px; background:radial-gradient(circle at 40% 34%,#ffd0f4,#ff2ad9 60%,#8a0f76); border:2px solid #5c0850; }
-  .pX{ right:96px; bottom:150px; width:54px; height:54px; font-size:10px; background:radial-gradient(circle at 40% 34%,#e6c8ff,#b47bff 60%,#5a2e9a); border:2px solid #33146a; opacity:.5; }
+  .pX{ right:100px; bottom:132px; width:54px; height:54px; font-size:10px; background:radial-gradient(circle at 40% 34%,#e6c8ff,#b47bff 60%,#5a2e9a); border:2px solid #33146a; opacity:.5; }
   .pX.rdy{ opacity:1; box-shadow:0 0 16px var(--violet); animation:mpul .8s ease-in-out infinite; }
-  .pShuri{ right:158px; bottom:96px; width:48px; height:48px; font-size:14px; background:radial-gradient(circle at 40% 34%,#d8fff0,#2bffb0 60%,#0a8a66); border:2px solid #064; display:none; }
+  .pShuri{ right:172px; bottom:98px; width:48px; height:48px; font-size:14px; background:radial-gradient(circle at 40% 34%,#d8fff0,#2bffb0 60%,#0a8a66); border:2px solid #064; display:none; }
   /* THROW and STEP get real pads — a verb with no touch surface does not exist on a phone
-     (ROADMAP §5.3, built ≠ reachable). Both ≥ 44px, both clear of the existing four. */
-  .pG{ right:22px; bottom:118px; width:54px; height:54px; font-size:9px; background:radial-gradient(circle at 40% 34%,#ffe9b0,#ffd23b 60%,#a37a00); border:2px solid #5c4300; color:#241a00; }
-  .pE{ right:168px; bottom:158px; width:52px; height:52px; font-size:9px; background:radial-gradient(circle at 40% 34%,#cfe6ff,#7fb6ff 60%,#1c5aa8); border:2px solid #0d2f5c; }
+     (ROADMAP §5.3, built ≠ reachable). */
+  .pG{ right:26px; bottom:116px; width:54px; height:54px; font-size:9px; background:radial-gradient(circle at 40% 34%,#ffe9b0,#ffd23b 60%,#a37a00); border:2px solid #5c4300; color:#241a00; }
+  .pE{ right:168px; bottom:156px; width:52px; height:52px; font-size:9px; background:radial-gradient(circle at 40% 34%,#cfe6ff,#7fb6ff 60%,#1c5aa8); border:2px solid #0d2f5c; }
   .pad.dn{ filter:brightness(1.35); transform:scale(.92); }
   .stikBase,.stikNub{ position:fixed; z-index:7; display:none; pointer-events:none; border-radius:50%; }
   .stikBase{ width:118px; height:118px; margin:-59px 0 0 -59px; border:2px solid rgba(180,123,255,.5); background:radial-gradient(circle,rgba(180,123,255,.1),transparent 70%); }
