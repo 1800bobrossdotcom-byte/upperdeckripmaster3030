@@ -720,6 +720,16 @@
       if (staked >= g.idxs.length) selected = selected.filter(i => !g.idxs.includes(i));   // all copies staked → clear this card
       else { if (selected.length >= mode) selected.shift(); const nx = g.idxs.find(i => !selected.includes(i)); if (nx != null) selected.push(nx); }
       renderHand(); updateSlam();
+      /* ⛔ WARM THE ENGINE HERE, ON THE FIRST STAKE — not on the SLAM button.
+       * `Card3D.engine()` pulls a 2.26 MB bundle and the browser EVALUATES IT SYNCHRONOUSLY.
+       * Warming on `pointerdown` (which fires immediately before the click) put that eval
+       * squarely inside the face-off, so the VS animations elapsed against a frozen main thread
+       * and the player saw a black rectangle blink. Measured: the overlay did not paint for
+       * 3.7 s after the click, with 29 s of long tasks in the window.
+       * Staking a card is the earliest honest signal of intent — you have committed cards, a
+       * fight is coming — and it buys however long the player spends choosing. The call is
+       * idempotent (Card3D.engine caches its promise), so every later trigger is free. */
+      if (selected.length && window.CardFight && CardFight.warm) CardFight.warm('../');
     });
     if (window.CardHover) CardHover.bind($('handRow'), el => { const c = DECK.find(x => x.slug === el.dataset.slug); if (!c) return null;
       const surge = c.trigger === gas; return { art: c.art, title: c.title, rarity: c.rarity, atk: c.atk, def: c.def, trigger: c.trigger + (surge ? ' ⚡' : ''), color: `var(${RC[c.rarity] || '--common'})` }; });
@@ -869,12 +879,53 @@
       const finish = () => { fo.removeEventListener('pointermove', onMove); fo.classList.remove('show'); setTimeout(() => fo.remove(), 220); resolve({ kept }); };
       fo.addEventListener('keydown', e => { if (e.key === 'Escape') finish(); });
 
+      /* ── THE VS BEAT ─────────────────────────────────────────────────────────────────────────
+       * ⛔ THIS USED TO BE `wait(560)` THEN `wait(700)` — 1.26 s of WALL CLOCK, and the artist's
+       *    report was "there is nothing, but a quick blip of a black screen". Both halves of that
+       *    were true and they had different causes:
+       *      · 1.26 s is too short for a face-off. Asked for 2–3 s; this is ~2.4 s.
+       *      · and a `wait()` measures the CLOCK, not the SCREEN. `Card3D.engine()`'s 2.26 MB
+       *        bundle evaluates SYNCHRONOUSLY, and warming it on the SLAM button's `pointerdown`
+       *        put that eval inside this window — so the timers expired against a frozen main
+       *        thread, the CSS animations elapsed without ever painting, and the fight took the
+       *        stage. Measured before the fix: the overlay did not paint until 3.7 s after the
+       *        click, with 29 s of long tasks in the window. The backdrop is a plain gradient the
+       *        compositor can draw without the main thread, which is exactly why what survived
+       *        was a black rectangle.
+       * ⚑ SO THE BEAT IS GATED ON THE ANIMATION, NOT ON A TIMER. `strike.finished` resolves when
+       *   the VS mark has actually finished moving; if the thread stalls, the beat waits for the
+       *   real thing instead of expiring through it. The timer stays as a CEILING so a browser
+       *   that never resolves the promise (or `prefers-reduced-motion`, where there is no
+       *   animation to await) cannot hang the arena — fail-open, like everything else here. */
+      const beat = async (ms, anim) => {
+        const floor = wait(ms);
+        if (!anim) return floor;
+        // whichever is LONGER: the rendered animation, or the floor. Never shorter than both.
+        await Promise.all([floor, Promise.race([anim.finished.catch(() => {}), wait(ms + 900)])]);
+      };
       (async () => {
-        await wait(reduce ? 60 : 560);
         const arena = fo.querySelector('.fo-arena');
+        const strike = (() => { try {
+          return fo.querySelector('.fo-vs-mark').getAnimations()[0] || null;
+        } catch (e) { return null; } })();
+
+        // 1 · the stacks land and the VS strikes  (CSS owns this; we wait for it to be REAL)
+        await beat(reduce ? 60 : 1150, reduce ? null : strike);
+
+        // 2 · the totals count up, lit by the impact
         if (!reduce) arena.animate([{ filter: 'brightness(2.2) contrast(1.1)' }, { filter: 'brightness(1)' }], { duration: 400, easing: 'ease-out' });
         animateCount('foYouSig', P.total); animateCount('foHouseSig', Q.total);
-        await wait(reduce ? 60 : 700);
+        await wait(reduce ? 60 : 760);
+
+        /* 3 · THE HELD BREATH — and it is not dead air, because dead air reads as a stall.
+         *     The arena pushes in ~3%: the camera gets closer BECAUSE the fight is about to
+         *     start. DESIGN-SYSTEM §4 wants a physical reason for every movement, and "leaning
+         *     in" is one everybody has felt. Kept tiny and `both`-filled so it hands over to
+         *     CardFight at the scale it ended on rather than snapping back. */
+        if (!reduce) arena.animate(
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.028)' }],
+          { duration: 480, easing: 'cubic-bezier(.5,0,.75,.3)', fill: 'both' });
+        await wait(reduce ? 40 : 480);
         // ── the cards actually fight: each staked card throws its signature ability across
         //    the arena and HP drains to the pre-decided result (choreography, never a re-decision) ──
         if (window.CardFight) { try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce, base: '../' }); } catch (e) {} }
