@@ -423,6 +423,37 @@ and performs WalletConnect burns — it is **NOT** for embedding.
 - ⚑ Selector trap: `maxTotalSupply()` is **`0x2ab4d052`**. `0xd5abeb01` is `maxSupply()`, a
   different function that **reverts** on this edition. Verified against the chain, not guessed.
 
+## ⛔ THREE DEPLOY-TIME PERMANENTS WERE STILL WRONG ON 2026-08-02 — four days out
+Found while wiring the Sepolia run. None was reachable by any check that existed, because
+`npm run test:name` mirrors `.vercelignore` and therefore skips `scripts/` and `contracts/` —
+and "does not ship to the CDN" is **not** the same as "cannot hurt you":
+- **`scripts/lens-cli.mjs` passed the RETIRED DOMAIN as the lens's `externalUrl` AND
+  `lensBaseUrl`.** Every token minted would have been born with `external_url` and
+  `animation_url` on `upperdeckripmaster3030.com`. ⚠ Recoverable — `setUrls()` exists — but
+  marketplaces cache metadata hard, so "recoverable" and "not visible on the collector's card for
+  a week" are different things.
+- ⛔ **`Ripmaster3030Lens721.sol` generates the `animation_url` HTML ON-CHAIN and its byline read
+  `upperdeckripmaster3030`.** There is **NO SETTER** for that one — the string is compiled into
+  the bytecode. Fixing it after a deploy means deploying a new contract.
+- ✅ The **EIP-712 domain** was already correct (`ripmaster3030studios`). It is now pinned, because
+  it is part of every voucher digest: change it after one real voucher is signed and they all die.
+⚑ `npm run test:name` now pins all three explicitly (42 assertions). The lesson is the same one as
+the `og:image`, one layer deeper: **a surface nobody looks at rots, and "it isn't deployed" is not
+the same as "it isn't shipped".** A constructor argument ships.
+
+## ✅ PackSink HAD NO DEPLOY PATH — `lens-cli.mjs sink` / `deploy-sink`
+It was written, reviewed and tested (51/51) and there was **no scripted way to get it on-chain**,
+so the one contract standing between the site's stated 50/50 revenue split and what the code
+actually does was blocked on somebody hand-rolling a deployment. Compiles clean through the CLI's
+own settings: **1,773 bytes, 0 warnings** — which is also the safety argument, since with no
+external audit "small enough to read in one sitting" is all there is.
+- ⚠ **Both constructor addresses are `immutable`.** A wrong one is not a setting to change later,
+  it is a redeploy — and a wrong treasury sends every pack's studio half somewhere nobody controls.
+  `deploy-sink` refuses an address with no bytecode (pasting a wallet where the token goes is the
+  likeliest slip) and `sink` reads both back and diffs them against `chain-config`.
+- `sink` also reports the contract's balance: it should hold nothing between calls, and `flush()`
+  is permissionless so anyone can clear it.
+
 ## Deploying the lens — see `docs/DEPLOY-LENS.md`
 - **Route A (recommended): Remix.** `npm run flatten` → `contracts/build/Ripmaster3030Lens721.flat.sol`
   (19 sources inlined); paste into Remix, compiler **0.8.24 + optimizer 200 runs**, Injected

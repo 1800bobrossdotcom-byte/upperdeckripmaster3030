@@ -75,11 +75,87 @@
   function unlocked() { const o = ownSummary(); const out = {}; ARCH_KEYS.forEach(k => out[k] = ARCH[k].unlock(o)); return out; }
 
   const WEAP_REACH = { katana: 1.0, tanto: 0.82, nodachi: 1.32 };
-  const ATK = {
-    punch: { st: .02, ac: .035, rc: .07, reach: 44, dmg: 6,  knock: 90,  kind: 'punch' },   // fast jab
-    kick:  { st: .05, ac: .06,  rc: .14, reach: 58, dmg: 12, knock: 250, kind: 'kick' },     // weighty, snappier
-    slash: { st: .035, ac: .05, rc: .09, reach: 66, dmg: 15, knock: 160, kind: 'slash' },    // sharp blade whip
+
+  /* ═════════════════════════════════════════════════════════════════════════════════════════
+   * ⛔ FRAME DATA — THE ONE SOURCE. docs/RONIN-COMBAT.md carries the published table;
+   *    `npm run test:ronin` parses that markdown, reads THIS object out of the live page, and
+   *    fails if a single cell differs. The lobby's move list and the in-fight readout are
+   *    rendered from it too, so there is exactly one place a number can be wrong.
+   *    (CLAUDE.md / ROADMAP §5.4 — two copies of a fact will diverge; derive it or assert it.)
+   *
+   * ⚑ THE LOAD-BEARING NUMBER IS THE JAB AT i10 — 167 ms.
+   *   Everything else is measured against it. 10 frames is just under a human's reaction floor
+   *   (~15 f / 250 ms), so a jab cannot be blocked on reaction, only anticipated — which is what
+   *   makes it the smallest legal punish, and therefore what sets the whole ladder: a move at
+   *   −10 loses to a jab, −15 to a roundhouse, −16 to a cut, −18 to a launcher and so to a
+   *   juggle worth about a third of the bar. Every rung below lands EXACTLY on some move's
+   *   startup. That is designed, not luck.
+   *
+   * ⛔ WHAT THIS REPLACED, because it is the reason the game had no depth:
+   *   the old table was written in SECONDS and the fastest three moves started up in
+   *   .02 / .035 / .05 s = 1.2 / 2.1 / 3.0 FRAMES. Nothing was reactable, nothing could be
+   *   spaced, and there was NO BLOCKSTUN AT ALL — a blocked move left the defender free
+   *   instantly while the attacker still had ~5 frames of recovery, identically for every move
+   *   in the game. So "block" was a stance you held, not a decision you made, and a punish did
+   *   not exist as a concept. `npm run test:ronin` asserts the jab is i10 and that blockstun is
+   *   non-zero: both fail on the old build.
+   *
+   * FIELDS · st startup · ac active · rc recovery · bs blockstun · hs hitstun (all FRAMES @60)
+   *   onBlock = bs − (ac−1) − rc      onHit = hs − (ac−1) − rc     ← DERIVED, never typed
+   *   homing  a move that tracks a sidestep. A LINEAR move whiffs against one — that is the
+   *           entire reason the third axis exists, and it is asserted both ways.
+   *   launch / knockdown / bound / chLaunch / grab / juggle  see docs/RONIN-COMBAT.md §4–6.
+   * ═════════════════════════════════════════════════════════════════════════════════════════ */
+  const FPS = 60, F = 1 / FPS;
+  const MOVES = {
+    punch:   { name: 'JAB',           input: 'J · MMB',   st: 10, ac: 2,  rc: 12, dmg: 6,  bs: 10, hs: 18, reach: 44, kind: 'punch', knock: 90,  homing: true,  meter: 0.05, note: 'the yardstick. i10, −3, and the only thing that punishes a −10.' },
+    kick:    { name: 'ROUNDHOUSE',    input: 'K · RMB',   st: 15, ac: 3,  rc: 20, dmg: 13, bs: 16, hs: 26, reach: 58, kind: 'kick',  knock: 250, homing: false, meter: 0.07, chLaunch: true, note: 'linear — a sidestep eats it. LAUNCHES on counter-hit.' },
+    slash:   { name: 'OVERHEAD CUT',  input: 'L · LMB',   st: 16, ac: 3,  rc: 25, dmg: 17, bs: 17, hs: 30, reach: 66, kind: 'slash', knock: 160, homing: false, meter: 0.08, juggle: true, note: 'your damage. −10 means a blocked cut is a free jab for them.' },
+    rising:  { name: 'RISING KICK',   input: 'S+K',       st: 18, ac: 3,  rc: 36, dmg: 14, bs: 18, hs: 0,  reach: 56, kind: 'kick',  knock: 120, homing: false, meter: 0.05, launch: true, note: 'THE launcher. −20: whiff or get it blocked and you eat a juggle.' },
+    grab:    { name: 'NECK THROW',    input: 'G',         st: 12, ac: 2,  rc: 30, dmg: 24, bs: 0,  hs: 0,  reach: 40, kind: 'throw', knock: 300, homing: true,  meter: 0.06, grab: true, note: 'beats block, loses to a sidestep. 20-frame break window.' },
+    dragon:  { name: 'DRAGON KICK',   input: 'P · K',     st: 18, ac: 3,  rc: 34, dmg: 20, bs: 18, hs: 0,  reach: 62, kind: 'kick',  knock: 300, homing: false, meter: 0.09, launch: true, note: 'the string launcher — same −18 price as the button one.' },
+    crest:   { name: 'CREST WAVE',    input: 'P · K · S', st: 20, ac: 4,  rc: 33, dmg: 26, bs: 20, hs: 0,  reach: 88, kind: 'slash', knock: 260, homing: true,  meter: 0.10, knockdown: true, bound: true, note: 'the BOUND. Slams a juggled foe into the floor for one extension.' },
+    tempest: { name: 'TEMPEST',       input: 'S · S · S', st: 24, ac: 6,  rc: 40, dmg: 30, bs: 22, hs: 0,  reach: 92, kind: 'slash', knock: 240, homing: true,  meter: 0.12, knockdown: true, note: 'the most committal move in the game: −23, so it is launch-punishable.' },
+    special: { name: 'BLADE NOVA',    input: 'SPACE',     st: 8,  ac: 10, rc: 30, dmg: 26, bs: 24, hs: 0,  reach: 200, kind: 'slash', knock: 320, homing: true, meter: 0, knockdown: true, invuln: 14, note: 'costs the whole meter · invulnerable frames 1–14 · still −15.' },
   };
+  /* DERIVED, so the doc and the code cannot disagree about advantage even if someone retunes a
+   * recovery. A move that puts the target on the floor has no on-hit number by definition. */
+  const MOVE_IDS = Object.keys(MOVES);
+  for (const id of MOVE_IDS) { const m = MOVES[id]; m.id = id;
+    m.onBlock = m.grab ? null : m.bs - (m.ac - 1) - m.rc;
+    m.onHit = (m.grab || m.launch || m.knockdown) ? null : m.hs - (m.ac - 1) - m.rc;
+    m.total = m.st + m.ac + m.rc;
+    m.stS = m.st * F; m.acS = m.ac * F; m.rcS = m.rc * F; }
+  // ordered by startup — the punish ladder is read off this, never hand-listed
+  const BY_STARTUP = MOVE_IDS.filter(id => !MOVES[id].grab).sort((a, b) => MOVES[a].st - MOVES[b].st);
+  /* Which moves punish a given block, by the only rule there is: a punisher lands iff its
+   * startup fits inside the deficit. `special` is excluded — it costs a full meter, so listing
+   * it as "the punish" would be advice a player usually cannot take. */
+  function punishersFor(id) { const m = MOVES[id]; if (!m || m.onBlock == null || m.onBlock >= 0) return [];
+    return BY_STARTUP.filter(p => p !== 'special' && MOVES[p].st <= -m.onBlock); }
+  function fastestPunish(adv, mvId) { if (!(adv < 0)) return null;
+    for (const p of BY_STARTUP) { if (p === 'special' || p === mvId && false) continue; if (MOVES[p].st <= -adv) return p; } return null; }
+
+  /* ── JUGGLE ────────────────────────────────────────────────────────────────────────────────
+   * Three things terminate a combo, and all three are needed: damage scaling makes a long one
+   * not worth it, float decay makes it physically impossible, and the floor is invulnerable so
+   * there is no loop back into a new launcher. `npm run test:ronin` drives the greediest juggle
+   * a human could input and asserts hits, airtime and total damage are all bounded. */
+  const JSCALE = [1, 0.80, 0.68, 0.58, 0.50, 0.42, 0.35, 0.30, 0.25];
+  const JUG_G = 700;            // juggle gravity — MUCH lighter than the 1750 a jump uses, or a
+                                // launched fighter is back on the floor before you can act again
+  const LAUNCH_V = 560;         // ≈ 1.6 s of hang time at JUG_G, ≈ 224 px of rise
+  const REFLOAT = n => Math.max(90, 300 - 48 * n);   // each juggle hit lifts them less
+  const BOUND_V = 900, BOUND_BOUNCE = 250;
+  const DOWN_F = 22, GETUP_F = 16;   // on the floor, then standing up — invulnerable throughout
+  const THROW_BREAK = 20, THROW_HOLD = 30;  // break window · frames until the throw resolves
+  const SSTEP = { st: 3, ev: 12, rc: 7, dz: 78 };    // sidestep: 3 + 12 evade + 7 = 22 frames
+  const HP_SCALE = 1.8;
+  /* ⚑ WHY HP WENT UP. A round has to hold enough openings that learning a punish pays. At the
+   * old 100 HP a launch-punish juggle (~55) was 55% of the bar — one read ended the round, so
+   * nobody would ever experiment. At 180 the same juggle is ~31%: three openings to a round,
+   * which is the shape Tekken actually has. Damage numbers are unchanged in the table above;
+   * only the denominator moved, and `npm run test:ronin` prints the resulting round length. */
 
   // ── game state ──
   const wager = { ante: 50, cards: 2, players: 2, arch: 'ronin', picked: [] };   // NEON RONIN is a 1v1 duel
@@ -89,9 +165,12 @@
 
   function mkFighter(archKey, x, isMe, name) {
     const a = ARCH[archKey] || ARCH.ronin;
-    const hp = Math.round(a.hp * (isMe ? cardHpMul : 1));
+    const hp = Math.round(a.hp * HP_SCALE * (isMe ? cardHpMul : 1));
     return { id: idc(), arch: archKey, a, name: name || a.name, isMe: !!isMe, x, yLift: 0, vx: 0, vy: 0, air: false,
       face: isMe ? 1 : -1, maxHp: hp, hp, meter: 0, state: 'idle', stT: 0, walkPh: rnd(0, 6.28), swing: null,
+      // ── frame-data state. Every one of these gates `canAct` and nothing else does. ──
+      bstun: 0, juggle: null, grab: null, thrown: null, downT: 0, step: null, ch: 0,
+      blockedRun: 0, lastBlock: null, aiBreakAt: null, aiPlan: null,
       combo: 0, comboT: 0, stun: 0, invuln: 0.6, col: a.col, tint: a.tint, weapon: a.weapon,
       rage: 0, glow: 0, shuri: a.shuri, kos: 0, dead: false, deadT: 0, ragdoll: false, koDir: 1, aiT: rnd(0.2, 0.7), aiMove: 0,
       pow: a.pow * (isMe ? cardPow : rnd(0.85, 1.12)), spd: a.spd * (isMe ? cardSpd : rnd(0.9, 1.08)),
@@ -163,92 +242,213 @@
   // ── special combos: recent attack strings unlock named finishers ──
   function pushSeq(f, kind) { const now = G ? G.t : 0; f.seq = (f.seq || []).filter(s => now - s.t < 1.1); f.seq.push({ k: kind, t: now }); if (f.seq.length > 5) f.seq.shift(); }
   function detectCombo(f) { const s = (f.seq || []).map(x => x.k), n = s.length;
-    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'slash' && s[n - 3] === 'slash') return 'TEMPEST';        // slash·slash·slash → spinning nova cut
-    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'kick' && s[n - 3] === 'punch') return 'CREST WAVE';      // punch·kick·slash → sweeping crest
-    if (n >= 2 && s[n - 1] === 'kick' && s[n - 2] === 'punch') return 'DRAGON KICK';                             // punch·kick → launcher
+    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'slash' && s[n - 3] === 'slash') return 'tempest';        // slash·slash·slash → spinning nova cut
+    if (n >= 3 && s[n - 1] === 'slash' && s[n - 2] === 'kick' && s[n - 3] === 'punch') return 'crest';           // punch·kick·slash → sweeping crest
+    if (n >= 2 && s[n - 1] === 'kick' && s[n - 2] === 'punch') return 'dragon';                                  // punch·kick → launcher
     return null; }
-  const COMBO = {
-    'TEMPEST':     { base: 'slash', dmg: 30, knock: 240, reach: 92, big: true },
-    'CREST WAVE':  { base: 'slash', dmg: 26, knock: 260, reach: 88, big: true },
-    'DRAGON KICK': { base: 'kick',  dmg: 22, knock: 300, reach: 62, launch: true },
-  };
-  function comboAtk(move) { const d = COMBO[move], a = Object.assign({}, ATK[d.base]); a.dmg = d.dmg; a.knock = d.knock; a.reach = d.reach; a.combo = move; if (d.launch) a.launch = true; if (d.big) a.big = true; return a; }
-  function comboFx(f, move) { if (f.isMe) toast(move); flash(f.tint || '#e6c8ff', 0.3); G.shake = Math.max(G.shake, 8);
+  function comboFx(f, move) { if (f.isMe) toast(MOVES[move].name); flash(f.tint || '#e6c8ff', 0.3); G.shake = Math.max(G.shake, 8);
     { const cy = groundY - 150; pop(4, f.x, cy, { col: f.tint || '#ffe14d', size: 1.1, grow: 1.6, life: 0.42 });   // combo-name burst + radiating lines
       for (let i = 0; i < 6; i++) { const an = i / 6 * 6.28 + 0.3; pop(1, f.x + Math.cos(an) * 54, cy + Math.sin(an) * 34, { col: '#ffffff', size: 0.55, rot: an + 1.57, grow: 0.9, life: 0.28, a: 0.85 }); } }
     triggerShock(f.x + f.face * 24, groundY - 116, 1.2);
     G.fx.push({ kind: 'arc', x: f.x + f.face * 20, y: groundY - 116, face: f.face, r: 158, a0: -2.7, a1: 1.05, col: f.tint || '#eaf6ff', t: 0, life: 0.32 });   // oversized signature crescent
     sfxSpecial(); }
 
-  function tryAttack(f, kind) {
-    if (f.dead || f.stun > 0 || f.state === 'hurt' || f.state === 'ko' || f.state === 'special') return;
-    if (f.swing) return;                                      // already mid-swing
-    const base = ATK[kind]; if (!base) return;
-    pushSeq(f, kind);
-    const move = detectCombo(f); let atk = base, special = null;
-    if (move) { special = move; f.seq = []; atk = comboAtk(move); comboFx(f, move); f.state = COMBO[move].base; if (move === 'TEMPEST') f.spinT = 0.4; }   // TEMPEST whirls the body
-    else f.state = kind;
-    f.stT = 0; f.swing = { atk, hits: new Set(), fired: false, special };
-    if (f.state === 'slash' || special) sfxSlash(); else sfxWhiff();
+  /* ⛔ ONE definition of "can this fighter act". Everything that takes a turn away — recovery,
+   * blockstun, hitstun, being thrown, lying on the floor, standing back up, the sidestep's own
+   * recovery — is gated HERE and nowhere else, because a second copy of this rule is how a
+   * mechanic silently stops mattering. `framesUntilFree` is the same question asked in frames,
+   * and it is what makes advantage MEASURABLE rather than merely tabulated. */
+  function canAct(f) { return !!f && !f.dead && !f.swing && !f.grab && !f.thrown && !f.step
+    && f.stun <= 0 && f.bstun <= 0 && f.downT <= 0 && f.state !== 'down' && f.state !== 'getup'; }
+  function framesUntilFree(f) {
+    if (!f || f.dead) return 0;
+    let s = Math.max(f.stun, f.bstun, f.downT);
+    if (f.swing) s = Math.max(s, f.swing.mv.stS + f.swing.mv.acS + f.swing.mv.rcS - f.stT);
+    if (f.step) s = Math.max(s, (SSTEP.st + SSTEP.ev + SSTEP.rc) * F - f.stT);
+    if (f.grab) s = Math.max(s, THROW_HOLD * F - f.grab.t);
+    if (f.thrown) s = Math.max(s, THROW_HOLD * F - f.thrown.t);
+    return Math.max(0, s) * FPS;
   }
-  function tryBlock(f, on) { if (f.dead) return; if (on && f.state === 'idle' || on && f.state === 'walk') { f.state = 'block'; } if (!on && f.state === 'block') { f.state = 'idle'; } }
-  function tryJump(f) { if (f.dead || f.air || f.stun > 0 || f.state === 'ko') return; if (f.state === 'block') f.state = 'idle';
+
+  function startMove(f, id) {
+    const mv = MOVES[id]; if (!mv) return false;
+    f.state = mv.kind === 'punch' ? 'punch' : mv.kind === 'kick' ? 'kick' : mv.kind === 'throw' ? 'throw' : (id === 'special' ? 'special' : 'slash');
+    f.move = id; f.stT = 0; f.bstun = 0;
+    f.swing = { mv, hits: new Set(), arced: false };
+    if (mv.invuln) f.invuln = Math.max(f.invuln, mv.invuln * F);
+    if (id === 'tempest') f.spinT = 0.4; else if (id === 'special') f.spinT = 0.55;
+    if (mv.kind === 'slash') sfxSlash(); else sfxWhiff();
+    return true;
+  }
+  /* Input → move. The three attack buttons stay exactly where they were; what changed is that
+   * `S + KICK` is now the direct LAUNCHER, so a launch punish is one input rather than a lucky
+   * state of the string buffer. The strings (P·K, P·K·S, S·S·S) are untouched. */
+  function tryAttack(f, kind, opt) {
+    if (f.dead) return;
+    if (f.thrown) { tryBreak(f); return; }                    // the same buttons break a throw
+    if (!canAct(f)) return;
+    if (!MOVES[kind]) return;
+    const low = opt && opt.low;
+    if (kind === 'kick' && low) { f.seq = []; startMove(f, 'rising'); return; }   // S+K → RISING KICK
+    pushSeq(f, kind);
+    const move = detectCombo(f);
+    if (move) { f.seq = []; startMove(f, move); comboFx(f, move); }
+    else startMove(f, kind);
+  }
+  function tryThrow(f) { if (f.dead) return; if (f.thrown) { tryBreak(f); return; } if (!canAct(f)) return; startMove(f, 'grab'); }
+  function tryBlock(f, on) { if (f.dead) return; if (on && f.state === 'idle' || on && f.state === 'walk') { f.state = 'block'; } if (!on && f.state === 'block' && f.bstun <= 0) { f.state = 'idle'; } }
+  function tryJump(f) { if (f.dead || f.air || !canAct(f)) return; if (f.state === 'block') f.state = 'idle';
     f.vy = -480; f.air = true; }
+  /* ── SIDESTEP — the third axis, as a MOVE with its own frame data ──────────────────────────
+   * The analogue Q/E strafe is still there for spacing. This is the committed version: 3 frames
+   * of startup, 12 EVADE frames during which a LINEAR move passes through you, 7 of recovery.
+   * That asymmetry is the whole point of z existing — and `npm run test:ronin` proves it both
+   * ways, because "it dodged" is a weak question that a lucky whiff also passes. */
+  function trySidestep(f, dir) { if (f.dead || f.air || !canAct(f) || (f.stepCd || 0) > 0) return;
+    f.step = { dir, t: 0 }; f.state = 'sidestep'; f.stT = 0; f.stepCd = 0.30;
+    f.zGoal = clamp((f.z || 0) + dir * SSTEP.dz, -110, 110);
+    spawnDust(f.x, 3);
+    for (let i = 0; i < 3; i++) pop(1, f.x + rnd(-18, 18), groundY - 80 - rnd(0, 50), { col: '#cfe6ff', size: 0.42, rot: 0, grow: 0.5, life: 0.18, a: 0.7 }); }
+  function evading(f) { return !!f.step && f.stT >= SSTEP.st * F && f.stT < (SSTEP.st + SSTEP.ev) * F; }
   // quick ground dash (double-tap a direction) — a burst of speed + brief i-frames for agility
-  function tryDash(f, dir) { if (f.dead || f.stun > 0 || f.air || f.state === 'special' || (f.dashCd || 0) > 0) return;
-    f.vx = dir * 760 * f.spd; f.face = dir; f.invuln = Math.max(f.invuln, 0.16); f.dashCd = 0.42; if (!f.swing) f.state = 'walk';
+  function tryDash(f, dir) { if (f.dead || !canAct(f) || f.air || (f.dashCd || 0) > 0) return;
+    f.vx = dir * 760 * f.spd; f.face = dir; f.invuln = Math.max(f.invuln, 0.16); f.dashCd = 0.42; f.state = 'walk';
     f.rig.lean += dir * f.face * 0.12; spawnDust(f.x - dir * 12, 4); sfxWhiff();
     for (let i = 0; i < 4; i++) pop(1, f.x - dir * (26 + i * 16), groundY - 70 - rnd(0, 60), { col: '#cfe6ff', size: 0.5, rot: 1.57, grow: 0.5, life: 0.2, a: 0.8 }); }   // dash speed-lines
   function checkDash(f, dir) { const now = G ? G.t : 0; if (f._tapDir === dir && now - (f._tapT || -9) < 0.24) { tryDash(f, dir); f._tapT = -9; } else { f._tapDir = dir; f._tapT = now; } }
-  function tryShuri(f) { if (f.dead || f.shuri <= 0 || f.stun > 0 || f.air) return; f.shuri--;
+  function tryShuri(f) { if (f.dead || f.shuri <= 0 || !canAct(f) || f.air) return; f.shuri--;
     G.fx.push({ kind: 'shuri', x: f.x + f.face * 22, y: 0, vx: f.face * 520, side: f.id, dmg: 8 * f.pow, spin: 0 });
     sfxShuri(); if (f.isMe) updShuri(); }
-  function trySpecial(f) { if (f.dead || f.meter < 1 || f.stun > 0) return; f.meter = 0; f.state = 'special'; f.stT = 0; f.invuln = 0.7; f.spinT = 0.55;
+  /* The meter nova is now a MOVE like any other — it has startup you can be counter-hit out of,
+   * and it is −15 on block. It used to hit everything within 200 px the instant the key went
+   * down, with no startup at all, which made a full meter an unanswerable button. */
+  function trySpecial(f) { if (f.dead || f.meter < 1 || !canAct(f)) return; f.meter = 0;
+    startMove(f, 'special');
     G.shake = Math.max(G.shake, 10); flash('#e6c8ff', 0.5); triggerShock(f.x, groundY - 116, 1.6); cineKick(0.85, f.face); sfxSpecial();
-    // spin-blade nova: hits everything nearby
-    G.fighters.forEach(t => { if (t === f || t.dead) return; const d = Math.abs(t.x - f.x); if (d < 200) {
-      const dmg = 26 * f.pow, dir = Math.sign(t.x - f.x || 1); t.hp -= dmg; t.stun = 0.5; t.state = 'hurt'; t.stT = 0; t.vx += dir * 320; t.vy = -240; t.air = true;
-      impulse(t, dir, 1.4, true); for (let i = 0; i < 8; i++) spark(t.x, groundY - 116, f.tint); if (t.hp <= 0) ko(t, f); } });
-    if (f.isMe) updMeter();
+    if (f.isMe) updMeter(); }
+
+  // ── THROWS ────────────────────────────────────────────────────────────────────────────────
+  /* A throw is the answer to a player who never stops blocking, so it ignores guard entirely.
+   * Its price is that it is the only move in the game that can be REFUSED after it lands: 20
+   * frames (333 ms) to press punch or kick. Inside the window it costs the thrower 2 frames;
+   * outside it costs the thrown 24 and a knockdown. Both halves are asserted. */
+  function startThrow(att, tgt) {
+    att.grab = { tgt, t: 0, broken: false }; att.state = 'grab'; att.stT = 0; att.swing = null;
+    tgt.thrown = { by: att, t: 0 }; tgt.state = 'thrown'; tgt.stT = 0; tgt.swing = null; tgt.step = null;
+    tgt.vx = 0; tgt.bstun = 0; tgt.stun = 0;
+    tgt.x = att.x + att.face * 46; tgt.face = -att.face; tgt.z = att.z;
+    sfxHit(false); G.shake = Math.max(G.shake, 4);
+    pop(2, tgt.x, groundY - 150, { col: '#ffd23b', size: 0.7, life: 0.4 });
+    if (att.isMe || tgt.isMe) showFrames((att.isMe ? 'THROW · MASH P/K TO BREAK' : 'THROWN · MASH P/K TO BREAK'), THROW_BREAK, 'warn');
+  }
+  function tryBreak(f) {
+    const th = f.thrown; if (!th) return false;
+    if (th.t > THROW_BREAK * F) return false;                 // too late — the window is closed
+    const att = th.by;
+    f.thrown = null; f.state = 'idle'; f.stT = 0; f.stun = 0;
+    if (att) { att.grab = null; att.state = 'idle'; att.stT = 0; att.stun = 2 * F; }   // thrower ends at −2
+    f.vx = -f.face * 220; if (att) att.vx = att.face * -220;
+    spark(f.x, groundY - 116, '#8ffff0'); sfxBlock(); G.shake = Math.max(G.shake, 5);
+    pop(4, f.x, groundY - 130, { col: '#8ffff0', size: 0.9, grow: 1.2, life: 0.32 });
+    if (f.isMe || (att && att.isMe)) showFrames('THROW BROKEN · ' + Math.round(th.t * FPS) + 'f', null, 'good');
+    return true;
+  }
+  function finishThrow(att) {
+    const g = att.grab; if (!g) return; const tgt = g.tgt; att.grab = null; att.state = 'idle'; att.stT = 0;
+    if (!tgt || !tgt.thrown) return;
+    tgt.thrown = null;
+    const mv = MOVES.grab, dmg = mv.dmg * att.pow * (att.rage > 0 ? 1.3 : 1);
+    tgt.hp -= dmg; att.meter = Math.min(1, att.meter + mv.meter * att.a.meter);
+    tgt.state = 'hurt'; tgt.stT = 0; tgt.stun = 1.2; tgt.vx = att.face * mv.knock; tgt.vy = -300; tgt.air = true;
+    startJuggle(tgt); tgt.juggle.hits = 4; tgt.juggle.bound = false;   // a throw ends in a knockdown, not a combo
+    impulse(tgt, att.face, 1.6, true); popImpact(tgt.x, groundY - 116, '#ffd23b', true);
+    G.hitstop = Math.max(G.hitstop, 0.12); G.shake = Math.max(G.shake, 10); sfxKo();
+    if (att.isMe || tgt.isMe) showFrames('THROW · ' + Math.round(dmg) + ' · KND', null, 'bad');
+    if (tgt.hp <= 0) ko(tgt, att);
   }
 
   function activeHit(f) {
-    const sw = f.swing; if (!sw) return; const atk = sw.atk;
-    if (f.stT < atk.st || f.stT > atk.st + atk.ac) return;    // outside active window
-    const reach = (atk.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY + (f.glow > 0 && atk.kind === 'slash' ? 30 : 0);   // scaled to the bigger bodies
+    const sw = f.swing; if (!sw) return; const mv = sw.mv;
+    if (f.stT < mv.stS || f.stT > mv.stS + mv.acS) return;    // outside the active window
+    const reach = (mv.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY + (f.glow > 0 && mv.kind === 'slash' ? 30 : 0);   // scaled to the bigger bodies
     const hx = f.x + f.face * (26 + reach * 0.5), hy = groundY - 116 - f.yLift;
     G.fighters.forEach(t => {
-      if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0) return;
+      if (t === f || t.dead || sw.hits.has(t.id) || t.invuln > 0 || t.thrown) return;
       const onSide = f.spinT > 0 || Math.sign(t.x - f.x) === f.face || Math.abs(t.x - f.x) < 20;   // a spin hits both sides
       const near = Math.abs(t.x - hx) < reach * 0.6 + 20;
-      const vClose = Math.abs((t.yLift) - (f.yLift)) < 60;
-      const zClose = Math.abs((t.z || 0) - (f.z || 0)) < 58;      // strafed off the line → the cut whiffs
-      if (onSide && near && vClose && zClose) { sw.hits.add(t.id); resolveHit(f, t, atk, hx, hy); }
+      const vClose = Math.abs((t.yLift) - (f.yLift)) < (t.juggle ? 300 : 60);   // a juggle follow-up must reach UP
+      /* ⛔ THE HOMING RULE. A LINEAR move needs the target on the fight line; a HOMING move does
+       * not care where they stepped. This one line, plus `evading`, is the entire reason the
+       * third axis is a defence rather than decoration. */
+      const zClose = mv.homing || Math.abs((t.z || 0) - (f.z || 0)) < 58;
+      const dodged = !mv.homing && evading(t);
+      if (mv.grab && (t.air || t.yLift > 6 || t.juggle)) return;   // you cannot throw someone in the air
+      if (onSide && near && vClose && zClose && !dodged) { sw.hits.add(t.id); resolveHit(f, t, mv, hx, hy); }
+      else if (dodged && (f.isMe || t.isMe)) { showFrames(mv.name + ' SIDESTEPPED · ' + mv.rc + 'f RECOVERY', null, 'good'); sw.hits.add(t.id); }
     });
   }
-  function resolveHit(att, tgt, atk, hx, hy) {
-    const blocking = tgt.state === 'block' && Math.sign(att.x - tgt.x) === tgt.face;
-    const mul = att.pow * (att.rage > 0 ? 1.3 : 1) * (att.glow > 0 && atk.kind === 'slash' ? 1.6 : 1);
-    if (blocking) { const chip = atk.dmg * 0.16 * mul; tgt.hp -= chip; tgt.vx += att.face * atk.knock * 0.3;
-      att.meter = Math.min(1, att.meter + 0.03); tgt.meter = Math.min(1, tgt.meter + 0.05); spark(hx, hy, '#8ffff0'); sfxBlock(); G.shake = Math.max(G.shake, 2);
+  function resolveHit(att, tgt, mv, hx, hy) {
+    const dir = Math.sign(tgt.x - att.x) || att.face;
+    if (mv.grab) { startThrow(att, tgt); return; }             // throws ignore guard by definition
+    const blocking = tgt.state === 'block' && Math.sign(att.x - tgt.x) === tgt.face && !tgt.air && !tgt.juggle;
+    const mul = att.pow * (att.rage > 0 ? 1.3 : 1) * (att.glow > 0 && mv.kind === 'slash' ? 1.4 : 1);
+    if (blocking) {
+      const chip = mv.dmg * 0.12 * mul; tgt.hp -= chip; tgt.vx += dir * mv.knock * 0.28;
+      tgt.bstun = mv.bs * F; tgt.state = 'block'; tgt.blockedRun = (tgt.blockedRun || 0) + 1;
+      tgt.lastBlock = { id: mv.id, adv: mv.onBlock, t: G.t };  // the defender now KNOWS the number
+      att.minus = { id: mv.id, adv: mv.onBlock, t: G.t };      // …and so does the attacker
+      att.blockedRun = 0;
+      att.meter = Math.min(1, att.meter + mv.meter * 0.4); tgt.meter = Math.min(1, tgt.meter + 0.05);
+      spark(hx, hy, '#8ffff0'); sfxBlock(); G.shake = Math.max(G.shake, 2);
       pop(0, hx, hy, { col: '#8ffff0', size: 0.42, rot: rnd(0, 6.28), life: 0.22 }); pop(3, tgt.x + tgt.face * -14, hy - 56, { col: '#bfefff', size: 0.34, life: 0.4 });   // guard clink + sweat
-      if (att.isMe) updMeter(); return; }
-    tgt.hp -= atk.dmg * mul; tgt.stun = 0.26; tgt.state = 'hurt'; tgt.stT = 0; tgt.swing = null;
-    att.combo++; att.comboT = 1.3; att.meter = Math.min(1, att.meter + 0.06 * att.a.meter); tgt.meter = Math.min(1, tgt.meter + 0.03);
-    const finisher = atk.combo;                               // a named special-combo finisher landed
-    const knockdown = !!atk.launch || (att.combo % 3 === 0) || (atk.kind === 'kick' && att.combo >= 2);
-    const knock = atk.knock * mul;
-    tgt.vx += att.face * knock * (knockdown ? 1.4 : 1);
-    if (atk.launch) { tgt.vy = -430; tgt.air = true; tgt.stun = 0.75; }                                   // DRAGON KICK launches
-    else if (knockdown) { tgt.vy = -300; tgt.air = true; tgt.stun = 0.55; }
-    impulse(tgt, att.face, clamp(0.55 + mul * 0.5, 0.5, 1.8), knockdown);
-    for (let i = 0; i < (finisher ? 12 : knockdown ? 8 : 4); i++) spark(hx + rnd(-10, 10), hy + rnd(-12, 12), finisher ? (att.tint || '#fff') : att.tint);
-    G.hitstop = Math.max(G.hitstop, finisher ? 0.13 : knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, finisher ? 12 : knockdown ? 9 : 5);
-    popImpact(hx, hy, finisher ? '#fff0b0' : (att.tint || '#fff2a8'), !!finisher || knockdown);      // manga impact star + speed lines
+      if (att.isMe || tgt.isMe) reportBlock(att, tgt, mv);
+      if (att.isMe) updMeter(); return;
+    }
+    /* COUNTER HIT — landing inside the opponent's own move. Tekken's rule verbatim: any part of
+     * their animation counts, startup, active or recovery. It is worth 30% more, eight extra
+     * frames of hitstun, and it is the ONLY way a ROUNDHOUSE launches. */
+    const counter = !!tgt.swing || !!tgt.step;
+    const juggling = !!tgt.juggle && (tgt.air || tgt.yLift > 4);
+    let dmg = mv.dmg * mul;
+    if (counter) dmg *= 1.3;
+    if (juggling) dmg *= JSCALE[Math.min(tgt.juggle.hits, JSCALE.length - 1)];
+    tgt.hp -= dmg;
+    tgt.swing = null; tgt.step = null; tgt.bstun = 0; tgt.blockedRun = 0; att.blockedRun = 0;
+    att.combo++; att.comboT = 1.3; att.meter = Math.min(1, att.meter + mv.meter * att.a.meter); tgt.meter = Math.min(1, tgt.meter + 0.03);
+    tgt.ch = counter ? 0.35 : 0;
+    const launches = !!mv.launch || (counter && mv.chLaunch);
+    const knockdown = launches || !!mv.knockdown;
+    tgt.state = 'hurt'; tgt.stT = 0;
+    tgt.vx += dir * mv.knock * mul * (knockdown ? 1.3 : 1) * (juggling ? 0.35 : 1);
+    if (juggling) {                                            // ── a hit on an airborne, juggled foe
+      const n = tgt.juggle.hits; tgt.juggle.hits = n + 1;
+      if (mv.bound && tgt.juggle.bound && n >= 1) { tgt.juggle.bound = false; tgt.vy = BOUND_V; tgt.juggle.slam = true;
+        if (att.isMe || tgt.isMe) showFrames('BOUND · FLOOR BREAK', null, 'bad'); }
+      else tgt.vy = -REFLOAT(n);
+      tgt.air = true; tgt.stun = 1.2;                          // hitstun cannot expire mid-air
+    } else if (launches) { startJuggle(tgt); tgt.vy = -LAUNCH_V; tgt.air = true; tgt.stun = 1.2; }
+    else if (knockdown) { startJuggle(tgt); tgt.juggle.hits = 3; tgt.juggle.bound = false;   // a raw knockdown floats low and scales hard
+      tgt.vy = -300; tgt.air = true; tgt.stun = 1.2; }
+    else { tgt.stun = (mv.hs + (counter ? 8 : 0)) * F; }
+    impulse(tgt, dir, clamp(0.55 + mul * 0.5, 0.5, 1.8), knockdown);
+    const finisher = mv.knockdown || mv.launch;
+    for (let i = 0; i < (counter ? 12 : knockdown ? 8 : 4); i++) spark(hx + rnd(-10, 10), hy + rnd(-12, 12), counter ? '#fff0b0' : att.tint);
+    G.hitstop = Math.max(G.hitstop, finisher ? 0.13 : counter ? 0.10 : knockdown ? 0.11 : 0.055); G.shake = Math.max(G.shake, finisher ? 12 : knockdown ? 9 : 5);
+    popImpact(hx, hy, counter ? '#fff0b0' : (att.tint || '#fff2a8'), !!finisher || knockdown || counter);      // manga impact star + speed lines
     if (knockdown) pop(2, tgt.x, hy - 66, { col: '#ff4fa3', size: 0.6, life: 0.42 });                 // "!" over a knockdown
-    if (knockdown || finisher) { triggerShock(hx, hy, finisher ? 1.5 : 1); cineKick(finisher ? 0.72 : 0.36, att.face); }
+    if (knockdown || counter) { triggerShock(hx, hy, finisher ? 1.5 : 1); cineKick(finisher ? 0.72 : 0.36, dir); }
     sfxHit(knockdown); if (att.isMe) { bumpCombo(att.combo); updMeter(); }
+    if (att.isMe || tgt.isMe) reportHit(att, tgt, mv, dmg, counter, launches, juggling);
     if (tgt.hp <= 0) ko(tgt, att);
+  }
+  function startJuggle(f) { f.juggle = { hits: 0, bound: true, dmg0: f.hp, t: 0 }; }
+  /* ⛔ THE FLOOR IS THE TERMINATOR. Landing out of a juggle puts you down for 22 frames and then
+   * stands you up over 16 more, invulnerable throughout, so a combo cannot loop back into a new
+   * launcher. Grounded hits are deliberately out of scope — see docs/RONIN-COMBAT.md §5. */
+  function land(f) {
+    const wasJug = !!f.juggle; f.juggle = null;
+    if (wasJug || f.state === 'hurt') { f.state = 'down'; f.stT = 0; f.downT = DOWN_F * F;
+      f.invuln = Math.max(f.invuln, (DOWN_F + GETUP_F) * F); f.stun = 0; spawnDust(f.x, 6); }
   }
   function ko(tgt, killer) { if (tgt.dead) return; tgt.dead = true; tgt.deadT = 0; tgt.state = 'ko'; tgt.stT = 0; tgt.vy = -180; tgt.vx = (killer ? killer.face : 1) * 180;
     tgt.ragdoll = true; tgt.koDir = killer ? killer.face : (tgt.vx >= 0 ? 1 : -1); tgt.rig.bodyRotV += tgt.koDir * 6.5; tgt.rig.aFV += 12; tgt.rig.aBV += 10; tgt.rig.headV += tgt.koDir * 8;
@@ -262,30 +462,130 @@
     else if (aliveN <= 1) endBrawl();
   }
 
-  // ── AI ──
+  // ── the readout that TEACHES ───────────────────────────────────────────────────────────────
+  /* ⛔ REQUIREMENT: "the player must be able to learn that". Frame data nobody can see is a
+   * spreadsheet, not a game. Every block and every hit the player is part of prints the move,
+   * the number and — the load-bearing half — WHAT PUNISHES IT, straight out of `punishersFor`,
+   * so the advice is derived from the same table the simulation runs on and cannot be wrong. */
+  let fdT = 0;
+  function showFrames(txt, adv, cls) { const el = $('fd'); if (!el) return;
+    el.textContent = txt; el.className = 'fd show' + (cls ? ' ' + cls : ''); fdT = 1.5; }
+  function reportBlock(att, tgt, mv) {
+    const p = punishersFor(mv.id), adv = mv.onBlock;
+    const who = tgt.isMe ? '' : 'THEY BLOCKED · ';
+    const advice = tgt.isMe
+      ? (p.length ? ' · ' + MOVES[p[0]].name + ' PUNISHES' : ' · SAFE')
+      : (p.length ? ' · YOU ARE PUNISHABLE' : ' · SAFE');
+    showFrames(who + mv.name + ' BLOCKED · ' + (adv > 0 ? '+' : '') + adv + advice,
+      adv, tgt.isMe ? (p.length ? 'good' : 'warn') : (p.length ? 'bad' : 'good'));
+  }
+  function reportHit(att, tgt, mv, dmg, counter, launched, juggling) {
+    const bits = [mv.name];
+    if (counter) bits.push('COUNTER');
+    if (juggling) bits.push('JUGGLE ×' + (tgt.juggle ? tgt.juggle.hits : 1));
+    bits.push(Math.round(dmg) + '');
+    bits.push(launched ? 'LAUNCH' : mv.knockdown ? 'KND' : (mv.onHit > 0 ? '+' + mv.onHit : String(mv.onHit)));
+    showFrames(bits.join(' · '), mv.onHit, att.isMe ? 'good' : 'bad');
+  }
+
+  /* ── AI ────────────────────────────────────────────────────────────────────────────────────
+   * ⛔ REQUIREMENT 3: "a fighter with frame data and an opponent that ignores it is a training
+   *   dummy." So the rival reads the SAME table the player does, through the SAME two public
+   *   questions the system already answers — `framesUntilFree(o)` and `punishersFor(id)`. It
+   *   does not get a private oracle, and it does not cheat: everything below is information a
+   *   human watching the screen also has.
+   *
+   * ⚑ THE REACTION FLOOR IS THE DESIGN. `react: 15` frames means the rival will NOT block a jab
+   *   on reaction, because no human can — it only reacts to moves whose startup is ≥ 15 f. That
+   *   single number is what stops a "reads the frame data" AI from becoming an unbeatable wall,
+   *   and it is why the jab is the yardstick move. The probabilities below are the difficulty
+   *   dial; the reaction floor is not, and should not be tuned away.
+   * ⚑ NOTHING HERE KEYS ON HOLDINGS — the rival plays the same game whatever you own. */
+  const AI_S = { react: 15, punish: 0.86, block: 0.62, step: 0.34, brk: 0.40, throw: 0.30, juggle: 0.88 };
+  const reachPx = (f, mv) => (mv.reach * f.a.reach * (WEAP_REACH[f.weapon] || 1)) * 1.5 * BODY;
+  const maxRange = (f, mv) => 40 + 1.1 * reachPx(f, mv);
+  const inRecovery = o => !!o.swing && o.stT > o.swing.mv.stS + o.swing.mv.acS;
+  const inStartup = o => !!o.swing && o.stT < o.swing.mv.stS;
+
   function stepAI(f, dt) {
-    if (f.dead) return; f.aiT -= dt; if (f.stun > 0 || f.state === 'hurt') { f.aiMove = 0; return; }
+    if (f.dead) return;
     let tgt = null, best = 1e9; G.fighters.forEach(o => { if (o === f || o.dead) return; const d = Math.abs(o.x - f.x); if (d < best) { best = d; tgt = o; } });
-    if (!tgt) { f.aiMove = 0; if (f.state !== 'block') f.state = f.state === 'walk' ? 'idle' : f.state; return; }
-    f.face = tgt.x < f.x ? -1 : 1;
+    if (!tgt) { f.aiMove = 0; return; }
+
+    // 0 · BREAK — the only thing you may do while being thrown, and only for 20 frames
+    if (f.thrown) {
+      if (!f.thrown.rolled) { f.thrown.rolled = true;
+        f.aiBreakAt = Math.random() < AI_S.brk ? rnd(4, THROW_BREAK - 3) : null; }
+      if (f.aiBreakAt != null && f.thrown.t * FPS >= f.aiBreakAt) { tryBreak(f); f.aiBreakAt = null; }
+      f.aiMove = 0; f.aiStrafe = 0; return;
+    }
+    if (!canAct(f)) { f.aiMove = 0; f.aiStrafe = 0; return; }
+    f.aiT -= dt; f.face = tgt.x < f.x ? -1 : 1;
     const lowHp = f.hp < f.maxHp * 0.3;
+    const free = framesUntilFree(tgt);
+
+    // 1 · JUGGLE — they are in the air off my launcher. Fillers, then the BOUND, then one more.
+    if (tgt.juggle && (tgt.air || tgt.yLift > 4) && best < maxRange(f, MOVES.slash) && Math.random() < AI_S.juggle) {
+      const n = tgt.juggle.hits;
+      const route = (n >= 1 && tgt.juggle.bound) ? 'crest' : (n === 0 ? 'slash' : 'punch');
+      if (startMove(f, route)) { f.aiMove = 0; f.aiT = 0.05; return; }
+    }
+    // 2 · PUNISH — they are in RECOVERY (blocked or whiffed) and I can reach it before they move.
+    //     `free` is exactly the deficit; the punisher is the biggest move whose startup fits.
+    if (inRecovery(tgt) && Math.random() < AI_S.punish) {
+      let pick = null;
+      for (const id of BY_STARTUP) { const m = MOVES[id];
+        if (id === 'special' || id === 'grab') continue;
+        if (m.st <= free - 1 && best <= maxRange(f, m)) pick = id;     // biggest that still fits
+      }
+      if (pick) { startMove(f, pick); f.aiMove = 0; f.aiT = 0.1;
+        if (MOVES[pick].launch) f.aiPlan = 'juggle'; return; }
+      if (f.meter >= 1 && MOVES.special.st <= free - 1 && best < 220) { trySpecial(f); f.aiT = 0.2; return; }
+    }
+    // 3 · REACT — their move is still in startup and slow enough for a human to see it coming.
+    //     A LINEAR move is answered by stepping off the line; anything else by guarding.
+    if (inStartup(tgt) && tgt.swing.mv.st >= AI_S.react && best < maxRange(tgt, tgt.swing.mv) + 30
+        && Math.sign(f.x - tgt.x) === tgt.face) {
+      const mv = tgt.swing.mv;
+      if (!mv.homing && Math.random() < AI_S.step) { trySidestep(f, Math.random() < 0.5 ? 1 : -1); f.aiT = 0.25; return; }
+      if (Math.random() < AI_S.block) { f.state = 'block'; f.aiStrafe = 0; f.aiMove = 0; f.aiT = rnd(0.18, 0.34); return; }
+    }
+    // 4 · A TURTLE GETS THROWN. Nothing else in the game beats a held guard, which is the point.
+    if ((tgt.state === 'block' || f.blockedRun >= 2) && best < maxRange(f, MOVES.grab)
+        && f.aiT <= 0 && Math.random() < AI_S.throw) { startMove(f, 'grab'); f.blockedRun = 0; f.aiT = 0.4; return; }
+    // 5 · I AM MINUS. My last move was blocked at −10 or worse: pressing here is how you get
+    //     launched, so guard instead. This is the AI obeying the same rule it enforces.
+    if (f.minus && G.t - f.minus.t < 0.4 && f.minus.adv <= -10 && best < 160) {
+      f.state = 'block'; f.aiMove = 0; f.aiT = rnd(0.12, 0.26); return;
+    }
+
     if (f.aiT <= 0) {
-      f.aiT = rnd(0.25, 0.7);
-      if (f.meter >= 1 && best < 210 && Math.random() < 0.6) { trySpecial(f); return; }
-      if (best < 150) {                                       // in range → strike / block / sidestep
+      f.aiT = rnd(0.22, 0.6);
+      if (f.state === 'block') f.state = 'idle';
+      if (best < maxRange(f, MOVES.slash)) {
         const r = Math.random();
-        const incoming = tgt.state && /punch|kick|slash/.test(tgt.state) && Math.sign(f.x - tgt.x) === tgt.face;
-        if (incoming && r < 0.30) { f.aiStrafe = Math.random() < 0.5 ? 1 : -1; f.aiT = rnd(0.22, 0.42); }   // strafe off the line to dodge
-        else if (incoming && r < 0.52) { f.state = 'block'; f.aiStrafe = 0; f.aiT = rnd(0.2, 0.4); }
-        else { tryAttack(f, r < 0.4 ? 'punch' : r < 0.72 ? 'slash' : 'kick'); f.aiMove = 0; f.aiStrafe = 0; }
-      } else { f.aiStrafe = 0; if (best < 300) { f.aiMove = f.face; if (lowHp && Math.random() < 0.4) f.aiMove = -f.face;
-        if (f.shuri > 0 && best > 140 && Math.random() < 0.4) tryShuri(f);
-        if (!f.air && Math.random() < 0.08) tryJump(f); }
-      else { f.aiMove = f.face; } }
+        /* Offence is weighted by SAFETY, not by damage: the jab is the default because it is
+         * −3, the launcher is rare because it is −20. An AI that threw its launcher on cooldown
+         * would teach the player that the punish ladder does not matter. */
+        if (r < 0.34) startMove(f, 'punch');
+        else if (r < 0.58) startMove(f, 'kick');
+        else if (r < 0.80) startMove(f, 'slash');
+        else if (r < 0.88 && best < maxRange(f, MOVES.rising) * 0.85) { startMove(f, 'rising'); f.aiPlan = 'juggle'; }
+        else if (r < 0.94) startMove(f, 'grab');
+        else { pushSeq(f, 'punch'); startMove(f, 'punch'); }   // seeds P·K / P·K·S for next time
+        f.aiMove = 0; f.aiStrafe = 0;
+      } else {
+        f.aiStrafe = 0;
+        if (f.meter >= 1 && best < 200 && Math.random() < 0.3) { trySpecial(f); return; }
+        if (best < 340) { f.aiMove = f.face; if (lowHp && Math.random() < 0.4) f.aiMove = -f.face;
+          if (f.shuri > 0 && best > 150 && Math.random() < 0.4) tryShuri(f);
+          if (Math.random() < 0.10) trySidestep(f, Math.random() < 0.5 ? 1 : -1); }
+        else f.aiMove = f.face;
+      }
     }
     // grab a nearby pickup opportunistically
     G.pickups.forEach(p => { if (Math.abs(p.x - f.x) < 60 && Math.abs(p.x - f.x) > 8) f.aiMove = Math.sign(p.x - f.x); });
-    if (f.state !== 'block' && !f.swing && f.state !== 'special') f.state = f.aiMove ? 'walk' : (f.air ? f.state : 'idle');
+    if (f.state !== 'block' && canAct(f)) f.state = f.aiMove ? 'walk' : (f.air ? f.state : 'idle');
   }
 
   // ── update ──
@@ -293,14 +593,31 @@
     f.stT += dt; if (f.comboT > 0) { f.comboT -= dt; if (f.comboT <= 0) f.combo = 0; }
     if (f.invuln > 0) f.invuln -= dt; if (f.stun > 0) f.stun -= dt;
     if (f.rage > 0) f.rage -= dt; if (f.glow > 0) f.glow -= dt;
+    if (f.ch > 0) f.ch -= dt; if (f.stepCd > 0) f.stepCd -= dt;
+    // ── FRAME-DATA CLOCKS. Blockstun keeps the guard up whatever the block key says; the down
+    //    and getup clocks are what terminate a juggle. ──
+    if (f.bstun > 0) { f.bstun -= dt; f.state = 'block'; }
+    if (f.downT > 0) { f.downT -= dt; f.state = 'down'; if (f.downT <= 0) { f.state = 'getup'; f.stT = 0; } }
+    else if (f.state === 'getup' && f.stT > GETUP_F * F) { f.state = 'idle'; f.stT = 0; }
+    // ── THROW: the grab holds for THROW_HOLD frames, then it resolves or it has been broken ──
+    if (f.grab) { f.grab.t += dt; const tg = f.grab.tgt;
+      if (!tg || tg.dead || !tg.thrown) { f.grab = null; f.state = 'idle'; }
+      else { tg.x = f.x + f.face * 46; tg.z = f.z; tg.vx = 0; tg.yLift = 0; tg.air = false;
+        if (f.grab.t >= THROW_HOLD * F) finishThrow(f); } }
+    if (f.thrown) { f.thrown.t += dt; if (!f.thrown.by || !f.thrown.by.grab) { f.thrown = null; if (f.state === 'thrown') f.state = 'idle'; } }
+    // ── SIDESTEP: 3 startup / 12 evade / 7 recovery, driving z to the stepped position ──
+    if (f.step) { const total = (SSTEP.st + SSTEP.ev + SSTEP.rc) * F;
+      const k = clamp(f.stT / ((SSTEP.st + SSTEP.ev) * F), 0, 1);
+      f.z = lerp(f.z, f.zGoal == null ? f.z : f.zGoal, Math.min(1, dt * 16));
+      if (f.stT >= total) { f.step = null; f.zGoal = null; if (f.state === 'sidestep') f.state = 'idle'; } }
     // movement intent
     let mv = 0;
-    if (!f.dead && f.stun <= 0) {
+    if (!f.dead && canAct(f)) {
       if (f.isMe) { mv = (keys['a'] || keys['arrowleft'] ? -1 : 0) + (keys['d'] || keys['arrowright'] ? 1 : 0) + touch.mx; mv = clamp(mv, -1, 1); }
       else mv = f.aiMove || 0;
     }
     if (f.wallT > 0) f.wallT -= dt; if (f.dashCd > 0) f.dashCd -= dt;
-    const canMove = !f.dead && f.stun <= 0 && f.state !== 'block' && !f.swing && f.state !== 'special';
+    const canMove = !f.dead && canAct(f) && f.state !== 'block';
     if (canMove && Math.abs(mv) > 0.05) { f.face = mv < 0 ? -1 : 1; f.vx += mv * 4300 * f.spd * (f.rage > 0 ? 1.3 : 1) * dt; if (!f.air) f.state = 'walk';   // snappier acceleration
       f.walkPh += Math.abs(mv) * dt * 16; f.stepT = (f.stepT || 0) - dt; if (!f.air && f.stepT <= 0) { spawnDust(f.x - f.face * 6, 2); f.stepT = 0.24; } }
     else if (!f.air && f.state === 'walk') f.state = 'idle';
@@ -311,23 +628,27 @@
     const maxRun = 470 * f.spd * (f.rage > 0 ? 1.35 : 1); f.vx = clamp(f.vx, -maxRun - 520, maxRun + 520);
     // depth strafe (z) — sidestep into fore/background; recentres on the fight line, strong when not actively strafing
     let zin = 0; if (canMove) { zin = f.isMe ? ((keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0) + (touch.mz || 0)) : (f.aiStrafe || 0); }
-    f.zv += zin * 3000 * f.spd * dt; f.zv += (0 - f.z) * (Math.abs(zin) > 0.05 ? 1.4 : 7.5) * dt; f.zv *= 0.82; f.z += f.zv * dt; f.z = clamp(f.z, -120, 120);
+    if (!f.step) { f.zv += zin * 3000 * f.spd * dt; f.zv += (0 - f.z) * (Math.abs(zin) > 0.05 ? 1.4 : 7.5) * dt; f.zv *= 0.82; f.z += f.zv * dt; f.z = clamp(f.z, -120, 120); }
     // spin attacks — the whole body whirls (Ry in 3D, a flip-squash in 2D); the blade sweeps a full circle
     if (f.spinT > 0) { f.spinT -= dt; f.spin += 26 * dt; } else if (f.spin) { f.spin = 0; }
-    // vertical (jump) — dust + a thud on landing
-    if (f.air || f.yLift > 0) { f.vy += 1750 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0; f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); } if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } }
+    /* vertical — a JUGGLED fighter falls under JUG_G (700), not the 1750 a jump uses. That single
+     * constant is what makes a juggle a juggle: at jump gravity a launched opponent is back on
+     * the floor in 0.49 s, which is less than one katana swing, so no follow-up could ever exist. */
+    if (f.air || f.yLift > 0) { f.vy += (f.juggle ? JUG_G : 1750) * dt; f.yLift -= f.vy * dt;
+      if (f.yLift <= 0) { const hard = f.vy > 260; f.yLift = 0;
+        if (f.juggle && f.juggle.slam) { f.juggle.slam = false; f.vy = -BOUND_BOUNCE; f.yLift = 0.5; f.air = true; spawnDust(f.x, 8); G.shake = Math.max(G.shake, 8); }
+        else { f.vy = 0; if (f.air) { f.air = false; if (hard) { spawnDust(f.x, 5); G.shake = Math.max(G.shake, 3); }
+          if (f.juggle) land(f); else if (f.state === 'hurt' && f.stun <= 0) f.state = 'idle'; } } } }
     // swing lifecycle — fire the slash-arc crescent the instant the blade goes live
-    if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.atk.st) { sw.arced = true; spawnArc(f, sw.atk); }
-      activeHit(f); if (f.stT > sw.atk.st + sw.atk.ac + sw.atk.rc) { f.swing = null; if (f.state !== 'hurt' && f.state !== 'ko') f.state = 'idle'; } }
+    if (f.swing) { const sw = f.swing; if (!sw.arced && f.stT >= sw.mv.stS) { sw.arced = true; spawnArc(f, sw.mv); }
+      activeHit(f); if (f.stT > sw.mv.stS + sw.mv.acS + sw.mv.rcS) { f.swing = null; f.move = null; if (f.state !== 'hurt' && f.state !== 'ko' && f.state !== 'grab' && !f.thrown) f.state = 'idle'; } }
     // hurt recovery
     if (f.state === 'hurt' && f.stun <= 0 && !f.air) f.state = 'idle';
-    // special recovery
-    if (f.state === 'special' && f.stT > 0.5) f.state = 'idle';
     // ko slide
     if (f.dead) { f.deadT += dt; if (f.air || f.yLift > 0) { f.vy += 1500 * dt; f.yLift -= f.vy * dt; if (f.yLift <= 0) { f.yLift = 0; f.vy = 0; f.air = false; } } f.vx *= 0.9; f.x += f.vx * dt; }
-    // block auto for me
-    if (f.isMe && !f.dead && f.stun <= 0 && !f.swing && f.state !== 'special' && !f.air) {
-      if ((keys['s'] || keys['arrowdown'] || touch.block) && (f.state === 'idle' || f.state === 'walk' || f.state === 'block')) f.state = 'block';
+    // block auto for me — but NEVER out of blockstun, which is the defender's half of the frame data
+    if ((f.isMe || f.aiHold) && !f.dead && f.bstun <= 0 && canAct(f) && !f.air) {
+      if (((f.isMe && (keys['s'] || keys['arrowdown'] || touch.block)) || f.aiHold) && (f.state === 'idle' || f.state === 'walk' || f.state === 'block')) f.state = 'block';
       else if (f.state === 'block') f.state = 'idle';
     }
     stepRig(f, dt);
@@ -360,18 +681,42 @@
     if (st === 'idle') { const b = Math.sin(G.t * 2.2 * SS.bounce), sway = Math.sin(G.t * 1.25); T.bob = -1.5 + b * 2 * SS.bounce; T.aF = 2.35 + b * 0.05; T.aB = 2.1 - b * 0.04; T.sw = 2.7 + b * 0.06; T.lean = 0.05 + sway * 0.035; T.rot = sway * 0.03; }   // grounded stance, breathing + weight-shift
     else if (st === 'walk') { const s = Math.sin(f.walkPh); T.hF = s * 0.8; T.hB = -s * 0.8; T.kF = Math.max(0, -s) * 0.85; T.kB = Math.max(0, s) * 0.85; T.aF = 2.3 - s * 0.14; T.aB = 2.05; T.sw = 2.62; T.lean = 0.18 * spd; T.rot = s * 0.05; T.bob = Math.abs(Math.cos(f.walkPh)) * 2.4; }   // hips roll with the stride
     else if (st === 'block') { T.lean = -0.14; T.aF = -1.35; T.eF = 1.35; T.aB = -1.0; T.eB = 1.1; T.sw = 1.85; T.hF = 0.35; T.hB = -0.35; T.rot = -0.05; }   // cross guard
-    else if (st === 'punch') { const P = ATK.punch;                                                   // off-hand jab; sword hand stays up on guard, hips snap through
+    /* ⚑ THE POSE READS THE FRAME DATA. `P` is the live move, so a wind-up is exactly as long as
+     * the move's startup and the recovery is exactly as long as its recovery — retune a number
+     * in MOVES and the animation retimes with it. That is the whole reason the table is in
+     * frames: an 18-frame launcher LOOKS slower than a 10-frame jab because it IS. */
+    const P = (f.swing && f.swing.mv) || MOVES[st] || MOVES.punch;
+    if (st === 'punch') {                                                                             // off-hand jab; sword hand stays up on guard, hips snap through
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.st) { const w = t / P.st; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; T.rot = -0.05 * w; }
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.16 * ex; T.rot = 0.12 * ex; } }
-    else if (st === 'kick') { const P = ATK.kick;                                                     // roundhouse; sword held clear overhead
+      if (t < P.stS) { const w = t / P.stS; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; T.rot = -0.05 * w; }
+      else { const ex = Math.sin(clamp((t - P.stS) / (P.acS + P.rcS * 0.5), 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.16 * ex; T.rot = 0.12 * ex; } }
+    else if (st === 'kick') {                                                                         // roundhouse / rising kick; sword held clear overhead
+      const rising = f.move === 'rising';
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.st) { const w = t / P.st; T.hF = -0.3 * w; T.kF = 1.0 * w; T.lean = -0.1 * w; T.rot = -0.08 * w; }
-      else { const ex = Math.sin(clamp((t - P.st) / P.ac, 0, 1) * Math.PI); T.hF = 1.7 * ex; T.kF = -0.35 * ex; T.lean = -0.24 * ex; T.aB = 1.0; T.rot = 0.14 * ex; } }
-    else if (st === 'slash') { const P = ATK.slash;
-      if (t < P.st) { const w = t / P.st; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
-      else { const ph = clamp((t - P.st) / P.ac, 0, 1); const e = ph * ph * (3 - 2 * ph);            // smoothstep → the edge accelerates through the cut
+      if (t < P.stS) { const w = t / P.stS; T.hF = (rising ? 0.5 : -0.3) * w; T.kF = (rising ? 1.5 : 1.0) * w; T.lean = (rising ? 0.22 : -0.1) * w; T.rot = -0.08 * w; }
+      else { const ex = Math.sin(clamp((t - P.stS) / (P.acS + P.rcS * 0.5), 0, 1) * Math.PI);
+        T.hF = (rising ? -1.5 : 1.7) * ex; T.kF = -0.35 * ex; T.lean = (rising ? -0.42 : -0.24) * ex; T.aB = 1.0; T.rot = 0.14 * ex; } }   // rising = an upward arc, not a level swing
+    else if (st === 'slash') {
+      if (t < P.stS) { const w = t / P.stS; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
+      else { const ph = clamp((t - P.stS) / (P.acS + P.rcS * 0.4), 0, 1); const e = ph * ph * (3 - 2 * ph);   // smoothstep → the edge accelerates through the cut
         T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.2, 0.36, e); T.head = lerp(0.14, -0.14, e); T.hF = 0.3; T.rot = lerp(-0.1, 0.22, e); } }   // committed two-handed overhead cut, torso pitches through
+    /* ── the new frame-data states. The 2D art path (js/ronin-fighters.js) falls through to its
+     * neutral stance for anything it does not name, so these degrade rather than break — see
+     * the interface note in docs/RONIN-COMBAT.md §9. */
+    else if (st === 'throw' || st === 'grab') { const w = clamp(t / (MOVES.grab.stS + MOVES.grab.acS), 0, 1);   // both arms drive forward and clamp
+      T.aF = lerp(2.35, 0.9, w); T.eF = lerp(0.35, 0.15, w); T.aB = lerp(2.1, 0.8, w); T.eB = 0.2;
+      T.sw = 1.2; T.lean = 0.22 * w; T.rot = 0.1 * w; T.hF = 0.3; T.hB = -0.3; }
+    else if (st === 'thrown') { T.lean = -0.5; T.head = -0.45; T.aF = 1.0; T.aB = 1.2; T.eF = 0.9; T.eB = 0.9;
+      T.sw = 0.9; T.hF = -0.35; T.kF = 0.7; T.rot = -0.28 + Math.sin(t * 40) * 0.1; }                  // held up, kicking to break
+    else if (st === 'down') { T.lean = -0.2; T.head = 0.3; T.aF = 1.6; T.aB = 1.5; T.eF = 0.4; T.eB = 0.4;
+      T.sw = 1.1; T.hF = 0.9; T.kF = 1.1; T.hB = 0.6; T.kB = 0.9; T.bob = -34; T.rot = f.koDir * 1.35; }   // flat on the deck
+    else if (st === 'getup') { const w = clamp(t / (GETUP_F * F), 0, 1);
+      T.lean = lerp(-0.2, 0.02, w); T.aF = lerp(1.6, 2.35, w); T.aB = lerp(1.5, 2.1, w); T.sw = lerp(1.1, 2.7, w);
+      T.hF = lerp(0.9, 0.18, w); T.kF = lerp(1.1, 0, w); T.hB = lerp(0.6, -0.18, w); T.kB = lerp(0.9, 0, w);
+      T.bob = lerp(-34, 0, w); T.rot = f.koDir * 1.35 * (1 - w); }
+    else if (st === 'sidestep') { const d = f.step ? f.step.dir : 1, w = Math.sin(clamp(t / ((SSTEP.st + SSTEP.ev + SSTEP.rc) * F), 0, 1) * Math.PI);
+      T.lean = 0.10 * w; T.rot = -d * 0.34 * w; T.head = -d * 0.16 * w; T.bob = -3 * w;                // shoulders turn off the line
+      T.hF = 0.18 + 0.5 * w; T.kF = 0.55 * w; T.hB = -0.18 - 0.3 * w; T.kB = 0.35 * w; T.sw = 2.5; }
     else if (st === 'special') { T.sw = 1.5; T.aF = 1.45; T.eF = 0.12; T.aB = 1.4; T.lean = 0.1; T.rot = 0; T.hF = 0.2; T.hB = -0.2; }   // blade extended level — the BODY whirls (f.spin) so the edge sweeps a full circle
     else if (st === 'air') {                                                            // leaping / boosting
       const rise = f.w && f.w.vy > 0; T.sw = 2.6; T.aF = rise ? 2.9 : 2.2; T.aB = rise ? 2.7 : 1.6; T.eF = 0.3; T.eB = 0.4;
@@ -473,6 +818,7 @@
 
   function update(dt) {
     G.t += dt; window.__rnT = G.t; G.groundY = groundY; G.BODY = BODY;
+    if (G.__lab) G.hitstop = 0;                                // the combat lab measures frames, not feel
     if (G.hitstop > 0) { G.hitstop -= dt; dt = Math.min(dt, 0.006); }
     if (G.started && G.mode === 'play') { G.timeLeft -= dt; if (G.timeLeft <= 0) { G.timeLeft = 0; endBrawl(); } }
     // ── WORLD MODE: free-roam the city. Run / sprint / leap / boost-fly, camera-relative. ──
@@ -511,7 +857,7 @@
         if (keys['e']) G.camYaw = (G.camYaw || 0) + 1.8 * dt; }
       updateHUD(); return;                                        // world mode skips the duel sim
     }
-    if (G.started) G.fighters.forEach(f => { if (!f.isMe) stepAI(f, dt); });
+    if (G.started) G.fighters.forEach(f => { if (!f.isMe && !f.noAI) stepAI(f, dt); });
     G.fighters.forEach(f => stepFighter(f, dt));
     // soft body separation — keep the two big duellists from fully overlapping at melee range
     { const a = G.fighters[0], b = G.fighters[1]; if (a && b && !a.dead && !b.dead && a.yLift < 30 && b.yLift < 30 && Math.abs((a.z || 0) - (b.z || 0)) < 60) {
@@ -687,6 +1033,7 @@
     if (comboTimer > 0) { comboTimer -= 1 / 60; if (comboTimer <= 0) $('combo').classList.remove('show'); }
     let hint = []; if (me.shuri > 0) hint.push('SHURI ×' + me.shuri); if (me.glow > 0) hint.push('KATANA GLOW'); if (me.rage > 0) hint.push('RAGE');
     $('pickHint').innerHTML = hint.map(h => '<b>' + h + '</b>').join(' · ');
+    if (fdT > 0) { fdT -= 1 / 60; if (fdT <= 0) { const el = $('fd'); if (el) el.className = 'fd'; } }
     drawMinimap();
   }
   const miniCv = () => $('mini');
@@ -831,13 +1178,37 @@
     startBrawl(true);
   }
   const RN_CONTROLS = [
-    { type: 'tap', act: 'Attack — Slash · Kick · Punch', touch: 'S / K / P buttons', key: 'Mouse L · R · Middle   (or L · K · J)' },
-    { type: 'combo', act: 'Combos — chain attacks', touch: 'chain the buttons', key: 'S·S·S Tempest · P·K·S Crest · P·K Dragon' },
+    { type: 'tap', act: 'Attack — Slash i16 · Kick i15 · Jab i10', touch: 'S / K / P buttons', key: 'Mouse L · R · Middle   (or L · K · J)' },
+    { type: 'hold', act: 'Block — and it holds you in BLOCKSTUN', touch: 'Hold stick down', key: 'S · ↓' },
+    { type: 'tap', act: 'RISING KICK — the launcher, −20 on block', touch: 'hold stick down + KICK', key: 'S + K' },
+    { type: 'tap', act: 'THROW — beats block · 20f to break', touch: 'THROW button', key: 'G' },
+    { type: 'tap', act: 'SIDESTEP — linear moves whiff, homing ones do not', touch: 'STEP button', key: 'Tap Q / E  (hold = strafe)' },
+    { type: 'combo', act: 'Strings', touch: 'chain the buttons', key: 'S·S·S Tempest · P·K·S Crest · P·K Dragon' },
     { type: 'stick', act: 'Move · Jump', touch: 'Left stick · flick ↑', key: 'A D move · W jump' },
-    { type: 'dtap', act: 'Dash · Strafe depth', touch: 'Double-flick stick', key: 'Shift / dbl-tap A·D · Q E strafe' },
-    { type: 'hold', act: 'Block', touch: 'Hold stick down', key: 'S · ↓' },
-    { type: 'dtap', act: 'Special (when meter glows)', touch: 'SP button', key: 'Space' },
+    { type: 'dtap', act: 'Dash', touch: 'Double-flick stick', key: 'Shift / dbl-tap A·D' },
+    { type: 'dtap', act: 'Blade Nova (when the meter glows)', touch: 'SP button', key: 'Space' },
   ];
+  /* ── THE MOVE LIST, rendered from MOVES ────────────────────────────────────────────────────
+   * ⛔ A punish ladder nobody can read is not a game mechanic, it is trivia. This is the third
+   * consumer of the one table (game · doc · lobby), and `npm run test:ronin` asserts the DOM it
+   * produces matches the table cell for cell, so the page cannot show a stale number. */
+  function buildMoveList() {
+    const host = $('moveRows'); if (!host) return;
+    host.innerHTML = MOVE_IDS.map(id => { const m = MOVES[id], p = punishersFor(id);
+      const ob = m.onBlock == null ? '—' : (m.onBlock > 0 ? '+' : '') + m.onBlock;
+      const oh = m.grab ? 'THROW' : m.launch ? 'LAUNCH' : m.knockdown ? 'KND' : (m.onHit > 0 ? '+' + m.onHit : String(m.onHit));
+      const cls = m.onBlock == null ? '' : m.onBlock <= -15 ? ' bad' : m.onBlock <= -10 ? ' warn' : ' ok';
+      return `<tr data-move="${id}"><td class="mn">${esc(m.name)}</td><td class="mi">${esc(m.input)}</td>`
+        + `<td>i${m.st}</td><td>${m.ac}</td><td>${m.rc}</td><td>${m.dmg}</td>`
+        + `<td class="adv${cls}">${ob}</td><td class="adv">${oh}</td>`
+        + `<td class="pun">${p.length ? esc(p.map(x => MOVES[x].name).join(', ')) : '—'}</td></tr>`;
+    }).join('');
+    const n = $('moveNote');
+    if (n) n.innerHTML = 'Frames at 60 fps. <b>on&nbsp;block = blockstun − (active−1) − recovery</b>, derived, never typed. '
+      + 'A move at <b>−10</b> loses to the <b>' + MOVES.punch.name + ' (i' + MOVES.punch.st + ')</b>; at <b>−18</b> it loses to a '
+      + '<b>launcher</b>, and a launcher means a juggle. Linear moves lose to a sidestep; homing ones do not. '
+      + 'Full table and the reasoning live in <b>docs/RONIN-COMBAT.md</b>.';
+  }
   function practice() { if (window.GameHelp) GameHelp.show({ title: 'NEON RONIN', kicker: '1v1 ninja duel', controls: RN_CONTROLS, startLabel: '▶ Start practice', onStart: () => startBrawl(false) }); else startBrawl(false); }
   $('btnPractice').onclick = practice;
   $('btnAnte').onclick = () => ante(false);
@@ -845,12 +1216,18 @@
   $('btnLobby').onclick = () => { $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); buildRoster(); if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch {} } };
 
   // ═════════ INPUT ═════════
+  const lowHeld = () => !!(keys['s'] || keys['arrowdown'] || touch.block);   // S = guard = the launcher modifier
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
     if (!G || G.mode !== 'play' || !G.started || G.me.dead) return; const me = G.me;
     if (!e.repeat && (k === 'a' || k === 'arrowleft')) checkDash(me, -1);          // double-tap → dash
     else if (!e.repeat && (k === 'd' || k === 'arrowright')) checkDash(me, 1);
-    if (k === 'j') tryAttack(me, 'punch'); else if (k === 'k') tryAttack(me, 'kick'); else if (k === 'l') tryAttack(me, 'slash');
+    if (k === 'j') tryAttack(me, 'punch', { low: lowHeld() });
+    else if (k === 'k') tryAttack(me, 'kick', { low: lowHeld() });                 // S+K → RISING KICK (launcher)
+    else if (k === 'l') tryAttack(me, 'slash', { low: lowHeld() });
+    else if (k === 'g' || k === 'f') tryThrow(me);                                 // G/F → NECK THROW
+    else if (!e.repeat && (k === 'q')) trySidestep(me, -1);                        // TAP Q/E → committed SIDESTEP
+    else if (!e.repeat && (k === 'e')) trySidestep(me, 1);                         //   (holding them still strafes)
     else if (k === 'w' || k === 'arrowup') tryJump(me); else if (k === ' ') trySpecial(me); else if (k === 'u') tryShuri(me);
     else if (!e.repeat && (k === 'shift')) { const dd = (keys['a'] || keys['arrowleft']) ? -1 : (keys['d'] || keys['arrowright']) ? 1 : me.face; tryDash(me, dd); }   // Shift = dash
   });
@@ -860,7 +1237,8 @@
   const playing = () => G && G.mode === 'play' && G.started && G.me && !G.me.dead;
   const overUI = t => t && t.closest && t.closest('button, a, input, select, textarea, .pad, #ovLobby, #ovResult, #hud .top');
   addEventListener('mousedown', e => { if ((window.GameHelp && GameHelp.isTouch) || !playing() || overUI(e.target)) return;
-    if (e.button === 0) tryAttack(G.me, 'slash'); else if (e.button === 2) tryAttack(G.me, 'kick'); else if (e.button === 1) { e.preventDefault(); tryAttack(G.me, 'punch'); } });
+    const low = lowHeld();
+    if (e.button === 0) tryAttack(G.me, 'slash', { low }); else if (e.button === 2) tryAttack(G.me, 'kick', { low }); else if (e.button === 1) { e.preventDefault(); tryAttack(G.me, 'punch', { low }); } });
   addEventListener('contextmenu', e => { if (playing() && !overUI(e.target)) e.preventDefault(); });
 
   // touch: floating left move-stick (drag = move, flick up = jump, hold-down = block) + right action pads
@@ -878,8 +1256,14 @@
     const endT = e => { for (const t of e.changedTouches) if (t.identifier === sid) { sid = null; touch.mx = 0; touch.mz = 0; touch.block = false; sB.style.display = sN.style.display = 'none'; } };
     cv.addEventListener('touchend', endT); cv.addEventListener('touchcancel', endT);
     const pad = (id, fn) => { const el = $(id); if (!el) return; el.addEventListener('touchstart', e => { e.preventDefault(); el.classList.add('dn'); if (G && G.started && !G.me.dead) fn(); }, { passive: false }); const up = () => el.classList.remove('dn'); el.addEventListener('touchend', up); el.addEventListener('touchcancel', up); };
-    pad('padP', () => tryAttack(G.me, 'punch')); pad('padK', () => tryAttack(G.me, 'kick')); pad('padS', () => tryAttack(G.me, 'slash'));
+    /* ⛔ BUILT ≠ REACHABLE (ROADMAP §5.3). Every new verb gets a touch surface here or it does
+     * not exist on a phone: THROW is its own pad, STEP is its own pad, and RISING KICK is
+     * "hold the stick down + KICK", which the two-finger layout already supports because block
+     * lives on the stick and the attacks live on pads. All pads are ≥ 44 px (mobile.css rule). */
+    pad('padP', () => tryAttack(G.me, 'punch', { low: touch.block })); pad('padK', () => tryAttack(G.me, 'kick', { low: touch.block })); pad('padS', () => tryAttack(G.me, 'slash', { low: touch.block }));
     pad('padX', () => trySpecial(G.me)); pad('padShuri', () => tryShuri(G.me));
+    pad('padG', () => tryThrow(G.me));
+    pad('padE', () => trySidestep(G.me, (G.me.z || 0) > 0 ? -1 : 1));
   }
 
   // ── SFX (tiny WebAudio, unlocked by the ante/practice tap) ──
@@ -903,8 +1287,43 @@
     _hit() { if (G && G.me) tryAttack(G.me, 'slash'); }, get fighters() { return G && G.fighters; },
     // headless-test drivers (rAF is throttled in CI; step the sim directly)
     _brawl(meK, foeK) { startBrawl(false, meK, foeK); }, _start() { if (G) { G.started = true; const cd = $('cd'); if (cd) cd.classList.add('hidden'); } },
-    _step(n) { if (!G) return; for (let i = 0; i < (n || 1); i++) update(0.016); },
-    _rosterUnlocked() { const u = unlocked(); return Object.keys(u).filter(k => u[k].ok); } };
+    /* ⚑ ONE FRAME IS 1/60, NOT 0.016. The old default drifted 4% per step, which is fine for a
+     * screenshot and useless for measuring an advantage in frames. `dt` is overridable so a
+     * caller can still be explicit. */
+    _step(n, dt) { if (!G) return; const d = dt == null ? F : dt; for (let i = 0; i < (n || 1); i++) update(d); },
+    _rosterUnlocked() { const u = unlocked(); return Object.keys(u).filter(k => u[k].ok); },
+
+    /* ── the combat lab. Everything `npm run test:ronin` needs, and nothing it could fake with.
+     * `_lab(true)` turns off HITSTOP only — hitstop scales dt for BOTH fighters so it does not
+     * change advantage, but it does decouple sim frames from driven steps, and a measurement
+     * whose clock wanders is not a measurement. */
+    get frames() { const o = {}; for (const id of MOVE_IDS) { const m = MOVES[id];
+      o[id] = { name: m.name, input: m.input, st: m.st, ac: m.ac, rc: m.rc, dmg: m.dmg, bs: m.bs, hs: m.hs,
+        onBlock: m.onBlock, onHit: m.onHit, homing: !!m.homing, launch: !!m.launch, knockdown: !!m.knockdown,
+        bound: !!m.bound, chLaunch: !!m.chLaunch, grab: !!m.grab,
+        punishedBy: punishersFor(id).map(p => MOVES[p].name) }; } return o; },
+    get consts() { return { FPS, HP_SCALE, JSCALE: JSCALE.slice(), JUG_G, LAUNCH_V, DOWN_F, GETUP_F,
+      THROW_BREAK, THROW_HOLD, SSTEP: Object.assign({}, SSTEP), react: AI_S.react }; },
+    _lab(on) { if (G) G.__lab = on !== false; },
+    _do(who, id) { const f = who === 'foe' ? G.foe : G.me; if (!canAct(f)) return false; return startMove(f, id); },
+    _seq(who, kinds) { const f = who === 'foe' ? G.foe : G.me; f.seq = kinds.map((k, i) => ({ k, t: G.t - 0.1 * (kinds.length - i) })); },
+    _press(who, kind, low) { const f = who === 'foe' ? G.foe : G.me; tryAttack(f, kind, { low: !!low }); },
+    _step_(who, dir) { const f = who === 'foe' ? G.foe : G.me; trySidestep(f, dir); },
+    _throw(who) { const f = who === 'foe' ? G.foe : G.me; tryThrow(f); },
+    _break(who) { const f = who === 'foe' ? G.foe : G.me; return tryBreak(f); },
+    _guard(who, on) { const f = who === 'foe' ? G.foe : G.me; f.aiHold = on; if (on) { if (canAct(f)) f.state = 'block'; } else if (f.state === 'block' && f.bstun <= 0) f.state = 'idle'; },
+    _ai(who, on) { const f = who === 'foe' ? G.foe : G.me; f.noAI = !on; },
+    _place(ax, bx, az, bz) { if (!G) return; G.me.x = ax; G.foe.x = bx; if (az != null) G.me.z = az; if (bz != null) G.foe.z = bz;
+      G.me.vx = G.foe.vx = 0; G.me.zv = G.foe.zv = 0; G.me.face = 1; G.foe.face = -1; },
+    _reset() { if (!G) return; [G.me, G.foe].forEach(f => { f.hp = f.maxHp; f.swing = null; f.step = null; f.grab = null; f.thrown = null;
+      f.stun = 0; f.bstun = 0; f.downT = 0; f.juggle = null; f.invuln = 0; f.state = 'idle'; f.stT = 0; f.air = false; f.yLift = 0;
+      f.vx = 0; f.vy = 0; f.z = 0; f.zv = 0; f.seq = []; f.meter = 0; f.combo = 0; f.spinT = 0; f.spin = 0; f.minus = null;
+      f.lastBlock = null; f.aiHold = false; f.noAI = true; f.dead = false; f.ragdoll = false; f.stepCd = 0; }); G.hitstop = 0; },
+    get st() { const p = f => ({ state: f.state, move: f.move || null, hp: +f.hp.toFixed(2), maxHp: f.maxHp,
+      free: +framesUntilFree(f).toFixed(3), canAct: canAct(f), air: f.air, y: +f.yLift.toFixed(1), z: +(f.z || 0).toFixed(1),
+      juggle: f.juggle ? { hits: f.juggle.hits, bound: f.juggle.bound } : null, thrown: !!f.thrown, grabbing: !!f.grab,
+      stun: +f.stun.toFixed(4), bstun: +f.bstun.toFixed(4), down: +f.downT.toFixed(4), stepping: !!f.step, ch: f.ch > 0 });
+      return G ? { me: p(G.me), foe: p(G.foe), t: +G.t.toFixed(3) } : null; } };
   try { if (window.RoninGL && RoninGL.init($('glcv'))) { glOk = true; $('glcv').style.display = 'block'; } } catch (e) { glOk = false; }
   // prefer the true-3D renderer when WebGL is available; the 2D + bloom path is the fallback
   try { if (window.Ronin3D && Ronin3D.init($('cv3d'))) r3dOk = true; } catch (e) { r3dOk = false; }

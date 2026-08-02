@@ -76,8 +76,10 @@
  *             finite, decelerating speed; the ink at any pixel is keyed to that pixel's distance
  *             FROM THE FRONT, so as the front sweeps past, that pixel steps gold → green → cyan
  *             → magenta. Nothing is painted on; the front moved.
- * 4 SITS ON   the composited frame, added BEFORE the highlight rolloff — because it is light
- *             arriving at the lens, and the knee is what stops light clipping to flat white.
+ * 4 SITS ON   the composited frame, taking what is LEFT of the range rather than adding to it
+ *             (a screen blend with headroom, see the shader's step 6.5). ⛔ It was written as an
+ *             add above the highlight knee first, on the reasoning that the knee is what stops
+ *             light clipping — measured, that was wrong, and the note at the code records why.
  *             It is placed at the pickup's own screen position, never at screen centre: a
  *             centred flash is the default and it lies about where the thing was.
  * 5 MEASURED  §1's acceptance test applied literally — hue travel in DEGREES at a fixed pixel
@@ -112,11 +114,6 @@ window.GfxPost = (function () {
    *
    *   1 chromatic aberration   sampled, so it displaces the SOURCE not the result
    *   2 additive bloom
-   *   2.5 THE PICKUP FLASH     ⚑ it goes HERE, above the knee, and that placement is the whole
-   *                            reason clipping stays at 0 with it on. The flash is LIGHT
-   *                            arriving at the lens, so it belongs on the same side of the
-   *                            rolloff as the bloom it is competing with. Added after the
-   *                            rolloff it would be the one thing in the chain that can blow out.
    *   3 HIGHLIGHT ROLLOFF      the important one. These games are LDR, so adding bloom
    *                            pushes bright pixels past 1.0 and the GPU clips them to flat
    *                            white — which is exactly how Cloudracer's cloudscape turned
@@ -126,6 +123,13 @@ window.GfxPost = (function () {
    *   3.5 DILATION TINT        the cool plate separating into the shadows. A grade, keyed to
    *                            the TOE only, so it cannot lift a highlight or clip anything.
    *   4 saturation / vignette
+   *   6.5 THE PICKUP FLASH     ⚑ LAST of the colour stages, and a SCREEN with headroom rather
+   *                            than an add. It was tried above the knee first and measured at
+   *                            0.19% clipped subpixels — the note in the shader records why the
+   *                            knee cannot protect a saturated ink, and why this form cannot
+   *                            clip at all. After the unsharp, so the ring is not given an
+   *                            outline no light source has; before the dither, so the ±1 LSB
+   *                            that hides banding lands on the finished picture.
    *   5 ORDERED DITHER         8x8 Bayer, ±1/255. Kills the banding that shows up in dark
    *                            gradients (Section 9's corridors, the ronin night sky) where
    *                            8-bit output quantises a smooth ramp into visible steps.
@@ -140,6 +144,7 @@ window.GfxPost = (function () {
     // ── speed & time. Every one of these is 0 until something calls for it, and at 0 the
     //    branches below are not taken, so a chain nobody drives is the chain that shipped.
     'uniform vec4 p0; uniform vec4 p1; uniform vec4 p2; uniform vec3 phu; uniform float tint;' +
+    'uniform float pceil;' +
     'float h(vec2 p){ return fract(sin(dot(p,vec2(41.0,289.0)))*43758.5453); }' +
     // 8x8 Bayer without a lookup texture: the classic bit-interleave, unrolled cheaply.
     'float bayer(vec2 p){ vec2 t=floor(mod(p,8.0));' +
@@ -175,30 +180,53 @@ window.GfxPost = (function () {
     ' return o+texture2D(bloom,c).rgb*intensity; }' +
     'void main(){ vec2 dd=uv-0.5;' +
     ' vec3 col=grab(uv);' +
-    // 2.5 — the pickup flash, ABOVE the knee. See the order note above.
+    // the pickup flash is COMPUTED here and APPLIED at step 6.5 — see the note down there for
+    // why it is not added at this point, which is where it was first written and measured wrong.
     ' vec3 pls=vec3(0.0); float pAmp=p0.w+p1.w+p2.w;' +
-    ' if(pAmp>0.0){ pls=pul(uv,p0,phu.x)+pul(uv,p1,phu.y)+pul(uv,p2,phu.z); col+=pls; }' +
+    ' if(pAmp>0.0){ pls=pul(uv,p0,phu.x)+pul(uv,p1,phu.y)+pul(uv,p2,phu.z);' +
+    /* ⚑ ASYMPTOTE FIRST, so three overlapping flashes cannot stack past one. `p·c/(c+max(p))`
+     *   tends to c however large the sum gets. */
+    '   float pm=max(pls.r,max(pls.g,pls.b)); pls*= pceil/(pceil+pm); }' +
     // 3 — highlight rolloff, luminance-keyed so colour does not shift
     ' float l=dot(col,vec3(0.299,0.587,0.114));' +
     ' col*= 1.0/(1.0+max(0.0,l-knee));' +
-    /* 3.5 — DILATION TINT. Cyan into the toe only: `toe` is cubed, so it is ~1 on black and
-     * ~0.06 at mid grey and exactly 0 at white. A flat hue rotate over the whole frame is the
-     * thing §1 calls out as NOT foil; separating one plate in the shadows is a print failure,
-     * which is this studio's own language and cannot touch a highlight or clip. */
+    /* 3.5 — DILATION TINT. The cool plate separating out into the shadows: cyan `#27f7e4`, the
+     * RIM light of DESIGN-SYSTEM §2. `toe` is cubed, so it is ~1 on black, ~0.06 at mid grey and
+     * exactly 0 at white — a flat hue rotate over the whole frame is the thing §1 calls out as
+     * NOT foil, while one plate drifting in the shadows is a print failure, which is this
+     * studio's own language.
+     * ⛔ IT IS A LUMINANCE-PRESERVING CROSS-FADE, NOT AN ADD, AND THAT WAS MEASURED. The first
+     *   cut was `col += CYAN*tint*toe`, which at the same visible hue shift lifted mean luma
+     *   37.5 → 52.3 and cost 4.5 RMS — DESIGN-SYSTEM §5's "blacks stay black" broken, and the
+     *   same shape of mistake as the 0.62 knee: it moved the whole image to move one property of
+     *   it. Mixing toward cyan RESCALED TO THE PIXEL'S OWN LUMINANCE rotates the hue and leaves
+     *   the luminance where it was. 0.716 is cyan's luma, precomputed. */
     ' if(tint>0.0001){ float toe=1.0-min(1.0,l); toe=toe*toe*toe;' +
-    '   col+= vec3(0.153,0.969,0.894)*tint*toe; }' +
-    /* 6 — unsharp against the neighbourhood (skipped when sharpen==0).
-     * ⚑ `pls*4.0` into the neighbour sum is exact cancellation, not a fudge: the sum is divided
-     *   by 4, so adding the flash to both sides leaves (col-n*0.25) unchanged. Without it the
-     *   unsharp would ring the flash against a neighbourhood that has never seen it, and the
-     *   ring would grow a hard outline that no light source has. */
+    '   col=mix(col, vec3(0.153,0.969,0.894)*(l/0.716), min(0.92,tint*toe)); }' +
+    // 6 — unsharp against the neighbourhood (skipped when sharpen==0)
     ' if(sharpen>0.001){' +
     '   vec3 n=grab(uv+vec2(texel.x,0.0))+grab(uv-vec2(texel.x,0.0))' +
     '         +grab(uv+vec2(0.0,texel.y))+grab(uv-vec2(0.0,texel.y));' +
-    '   col+= (col-(n+pls*4.0)*0.25)*sharpen; }' +
+    '   col+= (col-n*0.25)*sharpen; }' +
     // 4 — saturation, then vignette
     ' float lum=dot(col,vec3(0.299,0.587,0.114)); col=mix(vec3(lum),col,sat);' +
     ' float v=smoothstep(1.12,0.34,length(dd)); col*=mix(1.0-vig,1.0,v);' +
+    /* 6.5 — THE PICKUP FLASH, and it takes the REMAINING HEADROOM rather than adding to what is
+     * there. ⛔ It was written as `col += pls` above the knee first, on the reasoning that the
+     * knee is what stops light clipping. MEASURED, that was wrong: the rolloff is LUMINANCE-keyed
+     * so that it cannot shift hue, and a luminance key cannot protect a SATURATED channel — one
+     * channel of a saturated ink sits far above its own luminance. At strength 1.25 the flash
+     * clipped 0.19% of subpixels straight through the knee, and a swept ceiling only ever reduced
+     * that (9.96% → 0.18% from no ceiling down to 0.40) without reaching zero, because an ADD
+     * always can.
+     * `col + pls·(0.978 − col)` is a screen blend with headroom: the result lies between col and
+     * 0.978 whatever pls is, so the flash CANNOT increase clipping — it is a property of the
+     * arithmetic, not a value that was tuned until the number went away. 0.978 leaves 0.022 of
+     * room for the dither (±0.0045) and the grain (±0.010) that follow.
+     * ⚑ And the model is right as well as safe: a flare is light filling what is LEFT of the
+     *   range, so it reads hardest on the dark parts of the frame — which on a game that is
+     *   mostly near-black is exactly the blacklight look the ask asked for. */
+    ' if(pAmp>0.0){ col+= pls*max(vec3(0.0), vec3(0.978)-col); }' +
     // 5 — ordered dither before the 8-bit write
     ' col+= (bayer(gl_FragCoord.xy)-0.5)*dither;' +
     // 7 — grain last, so it is not sharpened into crawling speckle
@@ -271,18 +299,51 @@ window.GfxPost = (function () {
      * a dilation actually happens, so a game that never slows time never pays two RGBA targets. */
     persist: 0.58,
     dilCa: 2.6,       // × the base CA at full dilation — the plates drifting out of register
-    dilTint: 0.17,    // cyan lifted into the toe at full dilation (see the shader's step 3.5)
+    /* dilTint — how far the toe cross-fades toward the cyan plate at full dilation. SWEPT, not
+     * guessed, on a held frame at full dilation. Because the mix is luminance-preserving the
+     * whole sweep is FREE, so the only question is how far is too far — and the answer comes
+     * from the midtones, not the shadows:
+     *     dilTint   mean   rms   clip%   dark-quartile hue   midtone hue
+     *       0.00    37.25  27.60  0.0000       223.9°           198.6°
+     *       0.14    37.25  27.60  0.0000       210.4°           190.6°
+     *       0.30    37.26  27.60  0.0000       199.0°  ← taken  185.9°
+     *       0.45    37.26  27.60  0.0000       190.9°           182.7°
+     *       0.70    37.26  27.60  0.0000       181.2°           179.3°
+     * Cyan's own hue is 174.5°. At 0.70 the shadows AND the midtones have both arrived there,
+     * which is a cyan filter over the picture — the flat hue-rotate §1 rejects. 0.30 moves the
+     * darkest quartile 24.9° and the midtones only 12.7°, so the frame leans cool where it is
+     * dark and keeps its own colour where there is any light in it. That separation is the
+     * effect; an equal shift everywhere would be a filter. */
+    dilTint: 0.30,
     dilSat: 0.10,     // saturation trimmed by this fraction — the lamp dimming
     dilVig: 0.12,     // vignette added — the tunnel narrowing
     tsMax: 2.0,       // ceiling on the time-compression multiplier, so it cannot run away
     /* THE PICKUP FLASH. `life` is in WORLD seconds, so a flash fired during slow motion stretches
      * with everything else — it is an event in the world, not an animation on the glass. */
     caPulse: 5.0,     // × the base CA at the flash's peak: the prism break
+    /* flashCeil — the largest FRACTION of the frame's remaining headroom one flash may take.
+     * The asymptote matters more than the number: `p·c/(c+max p)` means three flashes landing on
+     * the same pixel reach c and stop, so a run of pickups cannot compound into a white-out. */
+    flashCeil: 0.82,
     flashLife: 0.55,
     flashReach: 0.92, // how far across the frame the front travels, in uv (1.0 = half-width)
     flashSpin: 0.55,  // turns of the ink wheel the front's own hue walks over its life
   };
   const REF_HZ = 60;  // the frame rate the reference rates above are written in
+
+  /* ── THE FOUR HOUSE INKS, once, for JS ────────────────────────────────────────────────────
+   * DESIGN-SYSTEM §2's palette in plate order — gold is the ACCENT, then key, rim, fill. The
+   * composite shader carries the same four as vec3 literals because a GLSL string cannot import
+   * anything; that is a second copy of a fact, so `npm run test:gfxfx` reads the four literals
+   * back OUT of the shader source and asserts they equal these to the last decimal (ROADMAP §5.4
+   * — derive it or assert the copies agree).
+   * `ink(x)` is the same hard-stepped wheel the shader walks, for world-space FX that want to
+   * land on the same colour the screen effect would: one wheel, two renderers. */
+  const INKS = [ [255, 210, 59], [43, 255, 128], [39, 247, 228], [255, 42, 217] ];
+  function ink(x) {
+    x = x - Math.floor(x);
+    return INKS[Math.min(3, Math.floor(x * 4))];
+  }
 
   /* One resolution policy, shared by every caller.
    *
@@ -352,7 +413,7 @@ window.GfxPost = (function () {
                 aT: null, aU: null, aF: null, aG: null, blit: null };
     let grainT = 0, maxAttr = 4, bound = false, motionAmt = 0, accWarm = false;
     /* ── speed and time state. All inert: tScale 1, no pulses, no camera history. ── */
-    let tScale = 1, dilAmt = 0, camPrev = null, tPrev = 0;
+    let tScale = 1, dilAmt = 0, camPrev = null, tPrev = 0, lastSmear = 0, lastU = null;
     const PUL = [ { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 },
                   { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 },
                   { a: 0, age: 0, life: 0, x: 0.5, y: 0.5, hue: 0, amp: 0 } ];
@@ -503,6 +564,12 @@ window.GfxPost = (function () {
       const satNow = O.sat * (1 - dilAmt * O.dilSat);
       const vigNow = Math.min(0.9, O.vignette + dilAmt * O.dilVig);
       const tintNow = dilAmt * O.dilTint;
+      /* ⚑ RECORDED so the no-regression claim is testable rather than argued. A game that never
+       * calls the new API must hand the composite EXACTLY the preset it always handed it — and
+       * the A/B against the pre-change module confirmed 0 differing subpixels on all four
+       * shipping preset/motion combinations, but that A/B needs an old file and cannot live in
+       * the suite. This can: `state.uniforms` vs `opts` is the same claim, permanently. */
+      lastU = { ca: caNow, sat: satNow, vig: vigNow, tint: tintNow, smear: 0, pMax };
 
       /* Motion smear. The composite normally goes straight to the screen; when it is on, the
        * composite instead lands in an accumulation target that also SAMPLES the previous one, and
@@ -522,6 +589,7 @@ window.GfxPost = (function () {
       const smear = (accOk && accWarm && wantSm)
         ? Math.max(0, Math.min(0.85, Math.max(motionMix * O.blur, dilAmt * O.persist))) : 0;
       const acc = accOk && !!S.aT;
+      lastSmear = smear; lastU.smear = smear;
       // a chain that stops using the pair must forget it: the held frame is now stale, and one
       // stale frame mixed in on resume is a ghost of a moment that has gone.
       if (!acc) accWarm = false;
@@ -537,6 +605,11 @@ window.GfxPost = (function () {
       gl.uniform2f(u(S.comp, 'texel'), 1 / w, 1 / h);
       gl.uniform1f(u(S.comp, 'smear'), smear); gl.uniform1i(u(S.comp, 'prev'), 2);
       gl.uniform1f(u(S.comp, 'tint'), tintNow);
+      /* ⚠ CLAMPED TO 1, AND THE CLAMP IS LOAD-BEARING. The no-clip guarantee is `col + p·(H−col)`
+       * lying between col and H, and that holds only while p ≤ 1. The sweep proves it: at a
+       * ceiling of 1.15 clipping is 0.0000%, at 1.60 it is 0.1257% and unbounded it is 22.7%.
+       * So this is not defensive tidying — it is the boundary the property lives inside. */
+      gl.uniform1f(u(S.comp, 'pceil'), Math.min(1, O.flashCeil == null ? 0.82 : O.flashCeil));
       /* ⚠ uv.y is 0 at the BOTTOM in this chain's fullscreen triangle, and 0 at the TOP for every
        *   caller that has a screen position to hand us. The flip lives here, once, rather than in
        *   every game — a convention mismatch nobody can see is a flash that appears in the wrong
@@ -651,8 +724,11 @@ window.GfxPost = (function () {
     const api = { begin, end, set, motion, camera, timeScale, flash, dispose,
              get on() { return S.on; }, set on(v) { S.on = !!v && !!S.comp; },
              get opts() { return O; },
-             // read-backs, for the harness and for an on-screen readout
+             /* read-backs, for the harness and for an on-screen readout. `acc` is here because
+              * "a preset with blur 0 never allocates the accumulation pair" is a claim about
+              * MEMORY, and there is no other way to see it from outside. */
              get state() { return { motion: motionAmt, timeScale: tScale, dilate: dilAmt,
+                                    smear: lastSmear, acc: !!S.aT, warm: accWarm, uniforms: lastU,
                                     pulses: PUL.map(p => ({ a: p.a, r: p.r || 0, hue: p.h || 0 })) }; } };
     LIVE.push(api);
     return api;
@@ -683,6 +759,8 @@ window.GfxPost = (function () {
   }
   function flashAll(o) { for (let i = 0; i < LIVE.length; i++) { try { LIVE[i].flash(o); } catch (e) {} } }
 
-  return { create, PRESET, BASE, deviceScale, dprCap, deviceTier,
-           timeScale: timeScaleAll, flash: flashAll, get live() { return LIVE.length; } };
+  return { create, PRESET, BASE, INKS, ink, deviceScale, dprCap, deviceTier,
+           timeScale: timeScaleAll, flash: flashAll, get live() { return LIVE.length; },
+           // the composite source, so a harness can read the shader's own constants back out
+           get COMP_SRC() { return P_COMP; } };
 })();

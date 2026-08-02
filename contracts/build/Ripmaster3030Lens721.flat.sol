@@ -2244,7 +2244,7 @@ interface IERC20Balance {
 }
 
 /**
- *  upperdeckripmaster3030 — the LENS collection.
+ *  ripmaster3030studios — the LENS collection.
  *
  *  Every card in the 100-card deck is a lens: a render keyed by card id. This contract is
  *  both the ERC-721 that owns the hero 1/1s and the renderer that answers for every id in
@@ -2323,8 +2323,8 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
 
     string public collectionName;
     string public collectionDescription;
-    string public externalUrl;      // e.g. https://upperdeckripmaster3030.com
-    string public lensBaseUrl;      // e.g. https://upperdeckripmaster3030.com/cards/hero/
+    string public externalUrl;      // e.g. https://ripmaster3030studios.com
+    string public lensBaseUrl;      // e.g. https://ripmaster3030studios.com/cards/hero/
 
     mapping(uint256 => Card) private _cards;
     mapping(bytes32 => bool) public voucherUsed;
@@ -2616,7 +2616,14 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
             "font:12px monospace;color:#2bff80}body{display:flex;flex-direction:column}",
             ".b{flex:none;padding:6px;text-align:center}.b a{color:#ffd23b}",
             "iframe{flex:1 1 auto;border:0;width:100%;display:block}</style>",
-            '<div class=b>upperdeckripmaster3030 &#183; <a href="', url,
+            /* ⛔ THE BYLINE IS GENERATED ON-CHAIN AND SHOWN ON THE CARD. It read
+               `upperdeckripmaster3030` — the retired studio name — until 2026-08-02, which means
+               every hero's animation_url would have displayed the dead name to the collector, and
+               unlike externalUrl there is NO SETTER for it: the string is compiled into the
+               bytecode. Fixing it after a deploy means deploying a new contract.
+               ⚠ `npm run test:name` skips contracts/ (it mirrors .vercelignore) so nothing caught
+               this either. It now pins this literal. */
+            '<div class=b>ripmaster3030studios &#183; <a href="', url,
             '" target=_blank rel=noopener>open the card &#8599;</a></div>',
             '<iframe src="', url, '" allow="accelerometer;gyroscope;autoplay"></iframe>'
         );

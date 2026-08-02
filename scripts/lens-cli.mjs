@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* upperdeckripmaster3030 — lens contract CLI. The Sepolia dress rehearsal, and later the
+/* ripmaster3030studios — lens contract CLI. The Sepolia dress rehearsal, and later the
  * mainnet run, drive Ripmaster3030Lens721 from here.
  *
  *   node scripts/lens-cli.mjs verify  --at 0x…                 (read-only, NO KEY)
@@ -8,6 +8,15 @@
  *   node scripts/lens-cli.mjs cards   --at 0x… [--from cards/hero/cids.json]
  *   node scripts/lens-cli.mjs voucher --at 0x… --to 0x… --id 7 --kind 1 [--hours 72]
  *   node scripts/lens-cli.mjs claim   --at 0x… --to 0x… --id 7 --kind 1 --deadline N --sig 0x…
+ *
+ *   node scripts/lens-cli.mjs sink        --at 0x…            (read-only, NO KEY)
+ *   node scripts/lens-cli.mjs deploy-sink [--token 0x…] [--treasury 0x…]
+ *
+ * ⚑ PackSink HAD NO DEPLOY PATH AT ALL until 2026-08-02. It was written, reviewed and tested
+ *   (51/51) and there was no scripted way to get it on-chain, so the one contract standing
+ *   between the site's stated 50/50 revenue split and what the code actually does was blocked on
+ *   somebody hand-rolling a deployment. Both addresses are `immutable`, so a wrong constructor
+ *   arg is not editable — it is a redeploy. Hence `sink` reads them back before anything trusts it.
  *
  * ── keys ──────────────────────────────────────────────────────────────────────────────
  * Everything that writes needs PRIVATE_KEY in the environment; nothing here ever stores,
@@ -71,6 +80,34 @@ const ABI = parseAbi([
   'function claimHero(address,uint256,uint8,uint256,bytes)',
 ]);
 
+const SINK_ABI = parseAbi([
+  'function token() view returns (address)',
+  'function treasury() view returns (address)',
+  'function BURN_BPS() view returns (uint256)',
+  'function buyPack(uint256)',
+  'function payRake(uint256)',
+  'function flush()',
+]);
+
+/* One compiler for both contracts — `which` names the file and the contract, which are the same
+ * string in this repo. Kept generic rather than copied, because two compile() functions is two
+ * places for the optimizer settings to drift, and those settings are part of the deployed
+ * bytecode (`npm run flatten` asserts them against Remix's). */
+function compileAny(src, contractName) {
+  const findImport = p => {
+    for (const c of [join(ROOT, 'node_modules', p), join(ROOT, p)]) if (existsSync(c)) return { contents: readFileSync(c, 'utf8') };
+    return { error: 'not found: ' + p };
+  };
+  const out = JSON.parse(solc.compile(JSON.stringify({
+    language: 'Solidity',
+    sources: { [src]: { content: readFileSync(join(ROOT, src), 'utf8') } },
+    settings: { optimizer: { enabled: true, runs: 200 }, viaIR: true, outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } } },
+  }), { import: findImport }));
+  const errs = (out.errors || []).filter(e => e.severity === 'error');
+  if (errs.length) { errs.forEach(e => console.error(e.formattedMessage)); die('compile failed: ' + src); }
+  return out.contracts[src][contractName];
+}
+
 function compile() {
   const SRC = 'contracts/Ripmaster3030Lens721.sol';
   const findImport = p => {
@@ -131,10 +168,22 @@ async function deploy() {
   console.log(`deployer ${account.address}  ${formatEther(bal)} ETH on ${CHAIN.name}`);
   if (bal === 0n) die('deployer has no ETH');
   const C = compile();
+  /* ⛔ THESE SIX VALUES ARE WRITTEN INTO THE DEPLOYED CONTRACT. Two of them were still the
+   *    RETIRED DOMAIN until 2026-08-02 — every token this lens minted would have been born with
+   *    `external_url` and `animation_url` on upperdeckripmaster3030.com. `setUrls()` can fix it
+   *    afterwards, so it is recoverable, but marketplaces cache metadata hard: "recoverable" and
+   *    "not visible on the collector's card for a week" are different things.
+   *  ⚑ `npm run test:name` skips scripts/ (it mirrors .vercelignore, and scripts/ does not ship)
+   *    — which is exactly why nothing caught this. It now pins these two strings explicitly.
+   *  ⚠ `name` and `symbol` here are the LENS's, not the token's. The lens is
+   *    `ripmaster3030studios lens` / `3030L`; the ERC-20 is `ripmaster3030` / `3030`. Different
+   *    contracts, different strings, and CLAUDE.md records `UR3030L` -> `3030L` as a deploy-time
+   *    permanent. The EIP-712 domain is a third one and lives in the contract itself, where it
+   *    already reads `ripmaster3030studios` — changing it breaks every voucher ever signed. */
   const args = encodeAbiParameters(
     [{ type: 'string' }, { type: 'string' }, { type: 'address' }, { type: 'address' }, { type: 'string' }, { type: 'string' }],
     ['ripmaster3030studios lens', '3030L', renderer, signer,
-     'https://upperdeckripmaster3030.com', 'https://upperdeckripmaster3030.com/cards/hero/']
+     'https://ripmaster3030studios.com', 'https://ripmaster3030studios.com/cards/hero/']
   );
   // constructor args appended to the creation bytecode — one explicit path, no guessing
   const hash = await client.sendTransaction({ data: '0x' + C.evm.bytecode.object + args.slice(2) });
@@ -216,7 +265,62 @@ async function claim() {
   console.log(r.status === 'success' ? '✦ hero claimed' : '✗ reverted');
 }
 
-const CMDS = { verify, deploy, wire, cards, voucher, claim };
+/* ── PackSink ────────────────────────────────────────────────────────────────────────────────
+ * Reads the sink back and checks the two things that cannot be fixed afterwards. */
+async function sink() {
+  const at = val('at') || (CFG.contracts || {}).packSink || die('--at required (or set contracts.packSink)');
+  console.log(`chain    ${CHAIN.name} (${CHAIN.id})\nrpc      ${RPC}\nsink     ${at}\n`);
+  const code = await pub.getBytecode({ address: at });
+  if (!code || code === '0x') die('nothing deployed at that address');
+  const c = getContract({ address: at, abi: SINK_ABI, client: pub });
+  const [tok, tre] = await Promise.all([c.read.token(), c.read.treasury()]);
+  const wantTok = (CFG.contracts || {}).liquidEdition || '';
+  const wantTre = CFG.treasury || '';
+  console.log(`token    ${tok}`);
+  console.log(`         ${tok.toLowerCase() === wantTok.toLowerCase() ? '✓ matches chain-config.contracts.liquidEdition' : '⛔ DOES NOT MATCH chain-config — ' + wantTok}`);
+  console.log(`treasury ${tre}`);
+  console.log(`         ${tre.toLowerCase() === wantTre.toLowerCase() ? '✓ matches chain-config.treasury' : '⛔ DOES NOT MATCH chain-config — ' + wantTre}`);
+  try { console.log(`burn     ${Number(await c.read.BURN_BPS())/100}% burns, the rest to the studio`); } catch {}
+  /* ⚠ A sink holding a balance means a payment landed and was not forwarded. `flush()` is
+   *   permissionless precisely so anyone can clear it, so a non-zero balance is a nudge, not
+   *   an alarm — but it should never be non-zero for long. */
+  try {
+    const bal = await pub.readContract({ address: tok, abi: parseAbi(['function balanceOf(address) view returns (uint256)']), functionName: 'balanceOf', args: [at] });
+    console.log(`holding  ${formatEther(bal)} $3030${bal > 0n ? '   ⚠ non-zero — call flush()' : '   (holds nothing between calls, as designed)'}`);
+  } catch {}
+  console.log(`\nnext:\n  paste ${at} into js/chain-config.js -> contracts.packSink`);
+  console.log('  that ONE edit is what turns the 50/50 split on across the whole site.');
+}
+
+async function deploySink() {
+  const token = val('token') || (CFG.contracts || {}).liquidEdition || die('--token required');
+  const treasury = val('treasury') || CFG.treasury || die('--treasury required');
+  /* ⛔ BOTH ARE `immutable`. A typo here is not a setting to change later, it is a redeploy —
+   *    and a wrong treasury means every pack's studio half goes somewhere nobody controls. */
+  if (!/^0x[0-9a-fA-F]{40}$/.test(token)) die('token is not an address: ' + token);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(treasury)) die('treasury is not an address: ' + treasury);
+  const tCode = await pub.getBytecode({ address: token });
+  if (!tCode || tCode === '0x') die(`token ${token} has NO BYTECODE — that is a wallet, not the edition`);
+
+  const { account, client } = wallet();
+  const bal = await pub.getBalance({ address: account.address });
+  console.log(`deployer ${account.address}  ${formatEther(bal)} ETH on ${CHAIN.name}`);
+  console.log(`token    ${token}\ntreasury ${treasury}\n`);
+  if (bal === 0n) die('deployer has no ETH');
+
+  const C = compileAny('contracts/PackSink.sol', 'PackSink');
+  const args = encodeAbiParameters([{ type: 'address' }, { type: 'address' }], [token, treasury]);
+  const hash = await client.sendTransaction({ data: '0x' + C.evm.bytecode.object + args.slice(2) });
+  console.log('tx', hash);
+  const r = await pub.waitForTransactionReceipt({ hash });
+  console.log(r.status === 'success' ? `✦ PackSink at ${r.contractAddress}` : '✗ deploy reverted');
+  if (r.contractAddress) {
+    console.log(`\nnext:\n  node scripts/lens-cli.mjs sink --at ${r.contractAddress}`);
+    console.log(`  then paste it into js/chain-config.js -> contracts.packSink`);
+  }
+}
+
+const CMDS = { verify, deploy, wire, cards, voucher, claim, sink, 'deploy-sink': deploySink };
 if (!CMDS[cmd]) {
   console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('*/')[0].replace(/^#!.*\n/, ''));
   process.exit(cmd ? 1 : 0);

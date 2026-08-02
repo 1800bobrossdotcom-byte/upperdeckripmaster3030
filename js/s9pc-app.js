@@ -1495,6 +1495,270 @@
   }
   loadWeapon();
 
+  /* ── ⧗ FIELD PRIZES — the five mobility tokens, as objects ───────────────────────────────────
+   *
+   * ⛔ WHAT THIS REPLACES. Every drop on the field was TWO CAMERA-FACING BILLBOARD QUADS in
+   *    js/s9pc-fx.js — a bobbing coloured core and a halo — so all that distinguished RUSH from
+   *    SLIP from a medkit was an RGB triple. Colour is the first thing the bloom pass eats, the
+   *    first thing a colour-blind player loses, and it carries nothing at all in a silhouette.
+   *    And `sin(t*3)` on the height with `0.72 + 0.28*sin(t*4)` on the size is exactly the "pulse,
+   *    breathe or drift for their own sake — a loop the eye can learn is a screensaver" that
+   *    docs/DESIGN-SYSTEM.md §4 rules out by name.
+   *
+   * The meshes and the whole brief are in scripts/blender/build-pickups.py; every triangle is
+   * generated there, so nothing here needs licence clearing. The design contract, restated:
+   *
+   * ⚑ THE PART NAME IS THE MOB KEY. `models/pickups.glb` carries `pu_base` plus one part per
+   *   entry in S9Game's MOBS table — pu_rush · pu_hover · pu_flight · pu_spring · pu_slip — so
+   *   the lookup below is `'pu_' + pw.type` and there is NO translation table to drift out of
+   *   date (ROADMAP §5.4). A sixth verb is a part in the .py file and zero lines here.
+   *
+   * ⚑ EVERY IDLE MOTION IS THE ITEM'S OWN VERB, PERFORMED ON ITSELF, which is §4's actual
+   *   question and the half that got two hero wordmarks rejected. Nothing here is a sine on a
+   *   scale: the top's spin DECAYS and topples, the saucer drifts off station and CORRECTS, the
+   *   rotor weathervanes into a draught, the boot loads and FIRES with overshoot, and the glass
+   *   runs at a quarter of everything else's rate — it is not depicting slow motion, it IS slow
+   *   in a frame where nothing else is. You can name a token before you can read its HUD line.
+   *
+   * ⚠ FAILS OPEN AT EVERY STEP. A 404, a bad decode, a missing part or an unknown type leaves the
+   *   fx billboard drawing on its own and the match completely unaffected; nothing in the game
+   *   reads anything this block writes. `?pu=0` opts out, `?pu=demo` stands one of each in a row
+   *   in front of the player (ROADMAP §5.3 — built ≠ reachable, so there is a way to see them
+   *   without waiting on the drop table). */
+  const PU_ON = Q.get('pu') !== '0';
+  const PU_DEMO = Q.get('pu') === 'demo';
+  const PU_URL = 'models/pickups.glb';
+  let puAsset = null, puBayMat = null;
+  const puMat = {};                                   // type -> its own tinted material
+  const puLive = new Map();                           // pw (or demo key) -> { root, prize, st }
+
+  function puMakeMat(col, bay) {
+    const m = new pc.StandardMaterial();
+    m.name = bay ? 'pu-bay' : 'pu-prize';
+    const c = new pc.Color(col[0] / 255, col[1] / 255, col[2] / 255);
+    if (bay) {
+      /* The bay is the CORPORATE half (docs/DELTRON-3030.md §2): machined, cold, gold-accented,
+       * and it never moves. Same value band as everything else the arena built. */
+      m.diffuse = new pc.Color(0.24, 0.22, 0.18);
+      m.useMetalness = true; m.metalness = 0.80; m.gloss = 0.55;
+      m.emissive = new pc.Color(1.00, 0.82, 0.23); m.emissiveIntensity = 0.16;
+    } else {
+      /* ⚠ DARK BODY, LIT EDGE — and the dark half is not a style choice. js/s9pc-world.js holds
+       *   arena walls at 0.60–0.70 albedo precisely so a dark silhouette reads against them,
+       *   which is why the guns sit at 0.20. A bright prize in a bright room does not pop; a dark
+       *   prize with a hot edge does, and a hot edge is what the artist's own cards are made of
+       *   — a heavy keyline carrying the form with flat fills inside it, inverted for a game
+       *   where the ground is dark, so the keyline has to be the light one.
+       * ⚑ THE EDGE IS A SCHLICK FRESNEL ON A TINTED SPECULAR, i.e. the rim brightens at grazing
+       *   angles — which is what a keyline IS, because an outline is view-dependent and therefore
+       *   cannot be baked into geometry. It follows the silhouette exactly, from every bearing,
+       *   for free, and the .py file's chamfer bands are there to give it a surface to sit on
+       *   rather than a zero-width edge.
+       * ⛔ A TRUE EMISSIVE FRESNEL WOULD NEED A `chunks.emissivePS` OVERRIDE AND IS DELIBERATELY
+       *   NOT TAKEN. This engine is PlayCanvas 2.0, whose chunk contract goes through
+       *   `_addMapDefines` and is not the 1.x one most references describe; a chunk that fails to
+       *   compile does not degrade, it makes the object vanish or takes the material down with
+       *   it. Fail-open is the standing principle here and it outranks a better rim. */
+      /* ⚠ EMISSIVE 0.26, NOT 0.42, and the first driven screenshot is why: at 0.42 the emissive
+       *   term buried a 0.21 diffuse, so every prize rendered as a FLAT UNSHADED PATCH OF COLOUR
+       *   — technically the "flat saturated ink" the brief asks for, and it threw away every
+       *   chamfer, flare and die-cut band the mesh was built to carry. The silhouette still read;
+       *   the object stopped being an object. Low enough to keep the form, high enough to reach
+       *   the bright pass on a dark interior wall. */
+      m.diffuse = new pc.Color(0.21, 0.20, 0.22);
+      m.useMetalness = true; m.metalness = 0.30; m.gloss = 0.88;
+      m.specular = c; m.specularityFactor = 1.0;
+      m.useFresnel = true; m.fresnelModel = pc.FRESNEL_SCHLICK;
+      m.emissive = c; m.emissiveIntensity = 0.26;
+    }
+    m.update();
+    return m;
+  }
+
+  function loadPickups() {
+    if (!PU_ON) return Promise.resolve(null);
+    puBayMat = puMakeMat([255, 210, 59], true);
+    return new Promise(res => app.assets.loadFromUrl(PU_URL, 'container', (err, a) => {
+      if (err) { console.warn('[s9pc] pickups:', err); return res(null); }
+      puAsset = a; res(a);
+    })).catch(e => { console.warn('[s9pc] pickups:', e && e.message); return null; });
+  }
+  loadPickups();
+
+  function puColOf(type) {
+    try { const D = game.MOBS && game.MOBS[type]; if (D && D.col) return D.col; } catch (e) {}
+    return [140, 220, 255];
+  }
+
+  /* One instantiation gives the whole 6-part container; keep the bay and the one prize, drop the
+   * rest. Instantiating a container per part would be five copies of every mesh for one drop —
+   * the same reason weaponEntity() pulls a single part out of s9-guns.glb. */
+  function puEntity(type) {
+    if (!puAsset) return null;
+    const whole = puAsset.resource.instantiateRenderEntity();
+    const bay = whole.findByName('pu_base');
+    const prize = whole.findByName('pu_' + type);
+    if (!prize) { try { whole.destroy(); } catch (e) {} return null; }
+    const root = new pc.Entity('pu-' + type);
+    const pivot = new pc.Entity('pu-' + type + '-pivot');   // everything that moves hangs here
+    prize.reparent(pivot); pivot.addChild(prize); root.addChild(pivot);
+    if (bay) { bay.reparent(root); root.addChild(bay); }
+    try { whole.destroy(); } catch (e) {}
+    if (!puMat[type]) puMat[type] = puMakeMat(puColOf(type), false);
+    prize.findComponents('render').forEach(r => { r.castShadows = true; r.receiveShadows = true;
+      r.meshInstances.forEach(mi => { mi.material = puMat[type]; mi.castShadow = true; }); });
+    if (bay) bay.findComponents('render').forEach(r => { r.castShadows = false; r.receiveShadows = true;
+      r.meshInstances.forEach(mi => { mi.material = puBayMat; mi.castShadow = false; }); });
+    return { root, prize: pivot };
+  }
+
+  /* A seeded, fixed per-instance offset. Two boots in one arena must never be in phase — a
+   * synchronised pair is a loop the eye learns in one glance, which is the failure §4 names. */
+  const puSeed = o => { let h = 2166136261;
+    const s = String((o && o.x) | 0) + ',' + String((o && o.z) | 0) + ',' + String((o && o.type) || '');
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; }
+    return (h % 10000) / 10000; };
+
+  function puNew(pw, x, y, z) {
+    const built = puEntity(pw.type); if (!built) return null;
+    built.root.setLocalPosition(x, y, z);
+    world.addChild(built.root);
+    const sd = puSeed(pw);
+    return { root: built.root, prize: built.prize, sd,
+      /* rush */ w: 7.2 + sd * 2.4, spin: sd * 360, lean: 0,
+      /* hover */ px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, tz: 0, rt: 0,
+      /* flight */ air: sd * 6.283, yaw: sd * 360, yv: 0,
+      /* spring */ c: 0, cv: 0, load: 0, next: 0.8 + sd * 1.4,
+      /* slip */ ang: (sd - 0.5) * 22, av: 8.0 + sd * 4 };
+  }
+
+  /* ⧗ THE IDLE MOTION. Every branch below is a force, a fluid or a spring with a state variable —
+   * never a function of absolute time — which is exactly why none of them can be a screensaver
+   * loop and why every one of them can be genuinely at rest. */
+  function puStep(type, st, dt, near) {
+    const P = st.prize;
+    if (type === 'rush') {
+      // angular momentum, decaying. Someone flicked it; friction is taking it back.
+      if (near) st.w = Math.max(st.w, 8.4);              // a body walks past: the arena re-flicks it
+      st.w = Math.max(0, st.w - (0.55 + st.w * 0.16) * dt);
+      st.spin = (st.spin + st.w * 190 * dt) % 360;
+      // a slowing top LEANS, and it leans further the slower it gets. The barbs are genuinely
+      // off-axis in the mesh, so the wobble it draws is the mesh's own crookedness, not a fake.
+      const want = st.w > 0.25 ? Math.min(13, 1.6 + (8.4 - Math.min(8.4, st.w)) * 1.5) : 20;
+      st.lean += (want - st.lean) * Math.min(1, dt * 2.2);
+      const pr = st.spin * Math.PI / 180;
+      P.setLocalEulerAngles(st.lean * Math.cos(pr), st.spin, st.lean * Math.sin(pr));
+    } else if (type === 'hover') {
+      // station-keeping: it drifts off its mark and corrects. Not a sine — a sine is a thing being
+      // animated, a drift-and-correct is a thing holding position badly.
+      /* ⚑ MOSTLY VERTICAL, because that is the axis a hovering thing actually fights. A machine
+       * holding altitude on thrust is always slightly losing and regaining it; lateral drift is
+       * the smaller part. ⛔ Still not a bob: the target is a random walk, not a phase, so it has
+       * no period to learn and it can sit still. */
+      st.rt -= dt;
+      if (st.rt <= 0) { st.rt = 0.55 + st.sd * 0.7;
+        st.tx = (Math.random() - 0.5) * 0.10; st.tz = (Math.random() - 0.5) * 0.10;
+        st.ty = (Math.random() - 0.5) * 0.13; }
+      const K = 22, C = 5.0;
+      st.vx += ((st.tx - st.px) * K - st.vx * C) * dt; st.px += st.vx * dt;
+      st.vy += ((st.ty - st.py) * K - st.vy * C) * dt; st.py += st.vy * dt;
+      st.vz += ((st.tz - st.pz) * K - st.vz * C) * dt; st.pz += st.vz * dt;
+      P.setLocalPosition(st.px, st.py, st.pz);
+      P.setLocalEulerAngles(st.vz * 9.0, 0, -st.vx * 9.0);   // it banks into its own correction
+    } else if (type === 'flight') {
+      // weathervaning. A light lifting surface on a thin stem turns to face the room's draught.
+      st.air += dt * 0.21;
+      /* ⚠ ±68°, NOT ±210°. Drafted wide it swung through more than a full turn, which reads as a
+       *   spinning top — the item next to it in the set — rather than as a vane finding the air.
+       *   A draught in a room does not reverse through 210°. */
+      const want = Math.sin(st.air) * 46 + Math.sin(st.air * 0.37 + st.sd * 6) * 22;
+      const err = want - st.yaw;
+      st.yv += (err * 1.5 - st.yv * 5.2) * dt;               // lagging, so it always trails the air
+      st.yaw += st.yv * dt;
+      P.setLocalEulerAngles(st.yv * 0.10, st.yaw, -st.yv * 0.17);
+    } else if (type === 'spring') {
+      // LOAD AND FIRE — the pull and the snap-back, which is the studio's whole subject.
+      st.next -= dt;
+      if (st.next <= 0 && st.load <= 0 && Math.abs(st.c) < 0.02) { st.load = 1; }
+      if (st.load > 0) {                                    // the slow squat
+        st.c = Math.min(0.30, st.c + dt * 0.42);
+        if (st.c >= 0.30) { st.load = 0; st.cv = -3.1; }     // release
+      } else {                                              // the ring-out, with overshoot
+        st.cv += (-st.c * 190 - st.cv * 7.0) * dt;
+        st.c += st.cv * dt;
+        if (Math.abs(st.c) < 0.004 && Math.abs(st.cv) < 0.05) { st.c = 0; st.cv = 0;
+          if (st.next <= 0) st.next = 2.0 + st.sd * 1.8 + Math.random() * 1.4; }
+      }
+      P.setLocalScale(1 + st.c * 0.16, 1 - st.c, 1 + st.c * 0.16);
+      P.setLocalPosition(0, Math.max(0, -st.c) * 0.5, 0);    // the overshoot lifts it off the floor
+    } else if (type === 'slip') {
+      // ⚑ THE WRONG TIME-BASE. A pendulum with far more inertia than an object this size should
+      // have: period ~4.2 s against the boot's ~0.45 s, i.e. about a quarter rate. It is not
+      // depicting slow motion, it IS slow, in a frame where nothing else is.
+      st.av += (-st.ang * 2.24 - st.av * 0.10) * dt;      // ω 1.50 rad/s ⇒ period 4.19 s
+      st.ang += st.av * dt;
+      /* ⚠ IT MUST NOT DAMP TO NOTHING AND STOP. Drafted with damping 0.30 and a 6°/s nudge it
+       *   measured 0.24° of travel in 1.4 s — technically alive, visually dead, which is the
+       *   worst of both: it pays for the motion and collects none of the read. A heavy glass
+       *   barely loses energy, so the damping is a tenth and it is topped back up to ±11° at the
+       *   bottom of the swing rather than being re-kicked at random. */
+      if (Math.abs(st.ang) < 2.0 && Math.abs(st.av) > 0.2)
+        st.av = Math.sign(st.av) * 16.5;
+      P.setLocalEulerAngles(st.ang, 0, 0);
+    }
+  }
+
+  function puClear() {
+    puLive.forEach(st => { try { st.root.destroy(); } catch (e) {} });
+    puLive.clear();
+  }
+
+  function syncPickups(G, dt) {
+    if (!puAsset) return;
+    const seen = new Set();
+    const list = G.pows || [];
+    for (const pw of list) {
+      if (pw.got || !pw.mob) continue;
+      seen.add(pw);
+      let st = puLive.get(pw);
+      if (!st) {
+        /* ⚠ THE FLOOR IS ASKED FOR, NOT ASSUMED. spawnPow puts `pw.y` half a metre above the
+         *   spawn, and a baked level's floor is not y=0 (the rooftop deck is at 11.79), so
+         *   `pw.y - 0.5` would be a magic number that is wrong on three arenas. supportY is the
+         *   game's own collision answering the same question the operatives ask. */
+        let fy = pw.y - 0.5;
+        try { fy = game.supportY({ x: pw.x, z: pw.z, y: pw.y, r: 0.20 }); } catch (e) {}
+        if (!isFinite(fy)) fy = pw.y - 0.5;
+        st = puNew(pw, pw.x, fy, pw.z);
+        if (!st) continue;
+        puLive.set(pw, st);
+      }
+      const me = G.me;
+      const near = !!(me && me.alive && Math.hypot(me.x - pw.x, me.z - pw.z) < 6.5);
+      puStep(pw.type, st, dt, near);
+    }
+    if (PU_DEMO) {
+      /* ROADMAP §5.3 — built ≠ reachable. One of each, on the floor by the player's spawn, so the
+       * set can be seen and shot without waiting for a weighted drop table to roll five times. */
+      const me = G.me; if (me) {
+        ['rush', 'hover', 'flight', 'spring', 'slip'].forEach((t, i) => {
+          const key = 'demo:' + t; seen.add(key);
+          let st = puLive.get(key);
+          if (!st) {
+            const x = me.x + (i - 2) * 0.9, z = me.z + 4.0;
+            let fy = 0; try { fy = game.supportY({ x, z, y: me.y + 0.5, r: 0.20 }); } catch (e) {}
+            st = puNew({ x, z, type: t }, x, fy, z);
+            if (!st) return;
+            puLive.set(key, st);
+          }
+          puStep(t, st, dt, false);
+        });
+      }
+    }
+    puLive.forEach((st, k) => { if (!seen.has(k)) { try { st.root.destroy(); } catch (e) {} puLive.delete(k); } });
+  }
+  window.__s9pu = { live: puLive, get asset() { return puAsset; }, clear: puClear, step: puStep };
+
   /* ⚑ THE MUZZLE FLASH IS A LIGHT. Our own renderer paints a bright blob on the 2D overlay and
    * adds a centre-weighted tint on heavy shots — a picture of a flash. Here it is an omni light
    * on the camera, so firing in a dark corridor actually throws the wall, the crate and the
@@ -1728,6 +1992,7 @@
     const MAP = game.startMatch(real, arenaPick, roster, deck);
     bodies.forEach(h => { try { h.entity.destroy(); } catch (e) {} }); bodies.clear(); bodyPending = new Set();
     buildLevel(MAP);
+    puClear();                       // drops do not survive a match; their entities must not either
     ui.powMsg('◈ ' + MAP.name, '#59e0ff');
     /* Hold the sim on the start line while the bodies build. Without this the clock is already
      * running and bots are already shooting while the frame budget is being spent on uploads —
@@ -1947,6 +2212,7 @@
         // on a timer, not per frame — flipping light.enabled dirties the clustered light set
         if (nowT >= cullT) { cullT = nowT + 200; cullPracticals(false); }
         if (fx) fx.update(G, cam, nowT);
+        syncPickups(G, Math.min(0.05, dt));
         drawOverlay();
         if (frames % 4 === 0) ui.hud();
       }

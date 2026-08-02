@@ -440,7 +440,7 @@ window.S9Game = (function () {
      *   ⛔ THE LOAD-BEARING CONSTRAINT: Section 9's TTK is ~1.3 s and it was tuned so that cover,
      *     suppression and disengaging could exist. **NOT ONE OF THESE FIVE TOUCHES dmg, rate, HP,
      *     armour or the headshot carve-out.** TTK is arithmetically identical with every token
-     *     live — 13 rounds of FULL TILT, 1.26 s — and that is asserted, not asserted-about.
+     *     live — 13 rounds of FULL TILT, 1.308 s — and that is MEASURED, not asserted.
      *   ⚑ THE MOBILITY TAX. What they DO cost is your aim: every token multiplies weapon spread
      *     while it is live, on top of the boots' existing airborne ×1.9. You are fast, you are not
      *     deadly. That is the anti-casino line stated as a number: the prize is the manoeuvre.
@@ -453,7 +453,9 @@ window.S9Game = (function () {
      * 5 · THE ACCEPTANCE MEASUREMENT.  All in scripts/test-s9mobility.mjs, driven in a real match:
      *   · base vs boosted traversal over a measured corridor; jump apex; hover ceiling and hold;
      *     flight ceiling; the SLIP ratio.
-     *   · TTK with each token live == TTK with none, to the millisecond.
+     *   · TTK with each token live == TTK with none: 13 rounds, and 1.3083 s exactly for four of
+     *     the five. SLIP alone drifts 2.8 ms, a third of one simulation step, because it moves
+     *     the trigger onto a 0.42x clock and the shot boundaries land on different sub-steps.
      *   · every token REACHABLE — spawned onto the field and picked up by driving the game.
      *   · bots hold tokens in a driven match (a power only the player can use is a cheat menu).
      *   · at rest, zero: no token, no timeScale, no trail, byte-identical game.
@@ -474,10 +476,15 @@ window.S9Game = (function () {
     const MOBS = {
       // dur: seconds in the HOLDER's own time · wt: drop weight · bloom: weapon-spread tax
       // heard: m at which bots are handed your position while it is live and you are moving
-      spring: { name: 'SPRING', ch: '▲', col: [120, 255, 150], dur: 14.0, wt: 3.0, bloom: 1.00, heard: 0,  jump: 1.69 },
+      /* ⚑ THE WEIGHTS ARE MEASURED, NOT GUESSED. med/armor/ammo carry 3/2/3, so these eight-odd
+       * points put mobility at ~52% of the table — and a 150 s match produces about 15 drops, i.e.
+       * 8 tokens contested by four operatives. FLIGHT was drafted at 0.8 and turned up ONCE in
+       * three measured matches, which is not "rare", it is "absent"; 1.0 puts it at ~0.9 a match,
+       * still the rarest thing on the field. See scripts/test-s9mobility.mjs for the counts. */
+      spring: { name: 'SPRING', ch: '▲', col: [120, 255, 150], dur: 14.0, wt: 2.6, bloom: 1.00, heard: 0,  jump: 1.69 },
       rush:   { name: 'RUSH',   ch: '◈', col: [ 90, 220, 255], dur:  8.0, wt: 2.4, bloom: 1.35, heard: 18, ground: 2.2 },
-      hover:  { name: 'HOVER',  ch: '≋', col: [190, 150, 255], dur:  9.0, wt: 1.6, bloom: 1.00, heard: 20, climb: 1.1, cap: 2.4, lat: 8.6 },
-      flight: { name: 'FLIGHT', ch: '✦', col: [255, 214,  90], dur:  5.5, wt: 0.8, bloom: 1.25, heard: 34, climb: 6.5, lat: 11.5 },
+      hover:  { name: 'HOVER',  ch: '≋', col: [190, 150, 255], dur:  9.0, wt: 1.8, bloom: 1.00, heard: 20, climb: 1.1, cap: 2.4, lat: 8.6 },
+      flight: { name: 'FLIGHT', ch: '✦', col: [255, 214,  90], dur:  5.5, wt: 1.0, bloom: 1.25, heard: 34, climb: 6.5, lat: 11.5 },
       slip:   { name: 'SLIP',   ch: '◷', col: [255,  42, 217], dur:  4.5, wt: 0.9, bloom: 1.45, heard: 0 },
     };
     const mobOf = e => (e && e.mob && e.mob.t > 0) ? e.mob : null;
@@ -737,6 +744,46 @@ window.S9Game = (function () {
       const D = MOBS[m.type];
       if (e.moving || !e.onGround) { broadcast(e, edt, D.heard || 0); mobTrail(e, edt, D); }
     }
+    /* ⧗ THE HIGH GROUND, and it is the fix for a token a bot COULD NOT SPEND.
+     * The launch rule was "something is above me" — a target on a ledge, or a cover point the bot
+     * was already heading to. Measured: on a flat arena that is NEVER, so three bots handed FLIGHT
+     * rose 1.84 m between them and lit the jet exactly zero times. A prize the holder cannot spend
+     * is the same defect as a prize nobody can reach, one layer down.
+     *
+     * ⛔ AND THE FIRST FIX WAS WRONG IN A WAY ONLY THE MEASUREMENT COULD SHOW. It scanned
+     *   `MAP.cover`, which reads like the right list and is not: `bakeCover` puts its points on the
+     *   FLOOR BESIDE a box (that is what cover IS) and stores the height of whatever you would
+     *   STAND on there. On DUST BOWL every one of those is y = 0, so the picker found nothing and
+     *   reported "0 perches" — a silent no-op that looked exactly like a working feature.
+     *   The high ground is the TOP OF A SOLID, so this reads MAP.solids.
+     *
+     * A perch is: tall enough to be worth flying to (≥1.4 m up), inside what the token can climb,
+     * broad enough to stand on (1.2 m each way — which also excludes every pillar and every 1 m
+     * perimeter wall), with headroom above it, within 20 m. The bot walks to the NEAREST POINT of
+     * its footprint rather than its centre: a 42 m stand's centre is 21 m from the edge the bot is
+     * walking at, and it would never arrive. Re-picked on a 3 s timer — a decision, not a jitter. */
+    function perchFor(e, maxUp) {
+      let best = null, bs = -1e9;
+      for (const b of MAP.solids) {
+        const dy = b.y1 - e.y;
+        if (dy < 1.4 || dy > maxUp) continue;
+        if (b.x1 - b.x0 < 1.2 || b.z1 - b.z0 < 1.2) continue;
+        const px = clamp(e.x, b.x0 + 0.5, b.x1 - 0.5), pz = clamp(e.z, b.z0 + 0.5, b.z1 - 0.5);
+        const d = Math.hypot(px - e.x, pz - e.z); if (d > 20) continue;
+        let roofed = false;
+        for (const o of MAP.solids) { if (o === b) continue;
+          if (o.y0 >= b.y1 - 0.05 && o.y0 < b.y1 + 1.8 && px > o.x0 && px < o.x1 && pz > o.z0 && pz < o.z1) { roofed = true; break; } }
+        if (roofed) continue;
+        const s = dy * 2.5 - d;
+        if (s > bs) { bs = s; best = b; }
+      }
+      return best;
+    }
+    // where on that perch to stand — recomputed every frame, because the bot is moving
+    function perchPoint(e) {
+      const b = e.perchBox; if (!b) return null;
+      return { x: clamp(e.x, b.x0 + 0.5, b.x1 - 0.5), z: clamp(e.z, b.z0 + 0.5, b.z1 - 0.5), y: b.y1 };
+    }
     /* What a bot will walk to. ⚑ It skips a token it cannot use — a bot standing on a SPRING it
      * is not allowed to take is a bot that looks broken, and it would also deny the drop to
      * everyone else for the 26 s the pow lives. */
@@ -773,7 +820,7 @@ window.S9Game = (function () {
       /* ⧗ TOKENS DO NOT SURVIVE A DEATH. downEnt clears it too, so a corpse cannot hold a SLIP and
        * keep the world slow; this is the belt to that braces, and it also means a respawn is a
        * clean operative rather than one still carrying the run that got it killed. */
-      e.mob = null;
+      e.mob = null; e.perchBox = null;
       e.yaw = spawnYaw(MAP, e.x, e.z, e.y); e.pitch = 0;
     }
 
@@ -929,6 +976,14 @@ window.S9Game = (function () {
      * looking at. */
     function stepBot(e, dt) {
       e.aiT -= dt; e.strafeT -= dt; e.wantFire = false; const me = eyePos(e);
+      /* ⧗ THE PERCH, PICKED FIRST — the patrol branch below needs it as a waypoint, and the launch
+       * decision at the bottom needs it as a height, so it cannot be computed between them. */
+      const airTok = mobIs(e, 'flight') || mobIs(e, 'hover');
+      if (!airTok) { e.perchBox = null; }
+      else if (e.onGround) { e._perchT = (e._perchT || 0) - dt;
+        if (!e.perchBox || e._perchT <= 0) { e._perchT = 3;
+          e.perchBox = perchFor(e, mobIs(e, 'flight') ? 6.0 : MOBS.hover.cap - 0.2); } }
+      const perch = perchPoint(e);
       if (e.supT > 0) e.supT -= dt; if (e.flankT > 0) e.flankT -= dt; if (e.holdT > 0) e.holdT -= dt;
       let tgt = e.tgt; if (!tgt || !tgt.alive || e.aiT <= 0) { tgt = nearestFoe(e); e.tgt = tgt; e.aiT = rnd(0.7, 0.3); }
       let mvx = 0, mvz = 0, sprint = false;
@@ -986,9 +1041,19 @@ window.S9Game = (function () {
            * firefight and walks off with every token that lands during it, and the field stops
            * being contested at exactly the moment it matters. A blend, not a beeline: the bot
            * keeps fighting and drifts onto the drop. */
-          const near = nearestPow(e, 7);
+          const near = nearestPow(e, 9);
           if (near) { const px = near.x - e.x, pz = near.z - e.z, pd = Math.hypot(px, pz) || 1;
             mvx = mvx * 0.55 + (px / pd) * 0.9; mvz = mvz * 0.55 + (pz / pd) * 0.9; }
+          /* ⧗ AND IT TAKES THE HIGH GROUND MID-FIGHT, which is the whole point of the token.
+           * ⛔ Without this clause an air token is nearly dead weight in a real match: Section 9
+           *   is a free-for-all, so a bot with anyone alive nearby is in FIGHT and never reaches
+           *   the patrol branch where the perch is walked to. Measured — three bots handed FLIGHT
+           *   with a perch picked on 2,510 steps still only rose 1.31 m, because they were busy.
+           * Bounded to 9 m and blended rather than a beeline: it is a reposition inside the fight,
+           * not a bot walking away from one. */
+          else if (airTok && perch && e.y < perch.y - 1.4 && Math.hypot(perch.x - e.x, perch.z - e.z) < 9) {
+            const px = perch.x - e.x, pz = perch.z - e.z, pd = Math.hypot(px, pz) || 1;
+            mvx = mvx * 0.5 + (px / pd) * 0.95; mvz = mvz * 0.5 + (pz / pd) * 0.95; }
         } else if (e.seenT > 0) {
           e.seenT -= dt; e.inCover = false;
           const lx = (e.lastSeen && e.lastSeen.x) || 0, lz = (e.lastSeen && e.lastSeen.z) || 0;
@@ -999,7 +1064,13 @@ window.S9Game = (function () {
           if (w.key !== 'sniper' && e.mag > WEAPONS[e.weapon].mag * 0.34 && dd < w.range * 0.8
               && e.seenT > 0.9 && !e.reloading && e.fireT <= 0 && Math.random() < dt * 3.2) {
             e.wantFire = true; e.pitch += (0.02 - e.pitch) * Math.min(1, dt * 4); bark(e, 'suppress');
-          } else { mvx = dx2 / dd; mvz = dz2 / dd; sprint = true; bark(e, 'push'); }
+          } else { mvx = dx2 / dd; mvz = dz2 / dd; sprint = true; bark(e, 'push');
+            /* ⧗ AND IT PICKS THINGS UP ON THE WAY. A bot pushing to a last-known position is
+             * already crossing open ground with nothing else to decide; walking past a drop to do
+             * it is how the player ends up owning the whole field by default. */
+            const onWay = nearestPow(e, 12);
+            if (onWay) { const px = onWay.x - e.x, pz = onWay.z - e.z, pd = Math.hypot(px, pz) || 1;
+              mvx = mvx * 0.5 + (px / pd) * 0.95; mvz = mvz * 0.5 + (pz / pd) * 0.95; } }
           if (e.mag <= 0) startReload(e);
         } else e.state = 'patrol', e.inCover = false;
       }
@@ -1010,7 +1081,9 @@ window.S9Game = (function () {
          * definition of a cheat menu. `nearestPow` overrides the patrol waypoint, so a drop is
          * contested by whoever is nearest rather than by whoever thought to look. */
         const seek = nearestPow(e, POW_SEEK);
+        // a drop outranks the high ground: the token is worth more than the ledge it buys
         if (seek) e.wp = [seek.x, seek.z];
+        else if (perch) e.wp = [perch.x, perch.z];
         else if (!e.wp || Math.hypot(e.wp[0] - e.x, e.wp[1] - e.z) < 1.5 || Math.random() < dt * 0.2) { const s = MAP.spawns[rint(MAP.spawns.length)]; e.wp = [s[0] + rnd(3, -3), s[1] + rnd(3, -3)]; }
         const dx2 = e.wp[0] - e.x, dz2 = e.wp[1] - e.z, dd = Math.hypot(dx2, dz2) || 1; mvx = dx2 / dd; mvz = dz2 / dd;
         e.yaw += angDiff(Math.atan2(dx2, dz2) - e.yaw) * Math.min(1, dt * 4);
@@ -1027,10 +1100,12 @@ window.S9Game = (function () {
        * vertical gap to a TARGET; HOVER and FLIGHT also let a bot take a cover point that is
        * ABOVE it, which the ledges and catwalks are full of and which no bot could previously
        * reach on purpose. `above` is the larger of the two gaps, so one launch rule serves both. */
-      const airTok = mobIs(e, 'flight') || mobIs(e, 'hover');
       const aboveT = tgt && tgt.alive ? (tgt.y - e.y) : 0;
       const aboveC = (e.cover && e.state === 'cover') ? ((e.cover.y || 0) - e.y) : 0;
-      const above = Math.max(aboveT, airTok ? aboveC : 0);
+      // only burn for the perch once you are STANDING AGAINST IT — otherwise a bot takes off across
+      // the arena and arrives at the ledge with an empty token
+      const aboveP = (perch && Math.hypot(perch.x - e.x, perch.z - e.z) < 2.8) ? (perch.y - e.y) : 0;
+      const above = Math.max(aboveT, airTok ? Math.max(aboveC, aboveP) : 0);
       if (e.onGround && above > 1.2 && (airTok || e.boost > 0.45) && Math.random() < dt * 1.6) { e.vy = jumpV(e); e.onGround = false; }
       stepBoots(e, dt, above > 1.2 && (airTok || e.boost > 0.25));
       if (e.onGround && !e.burning) e.boost = Math.min(1, e.boost + dt * 0.3);
@@ -1185,7 +1260,7 @@ window.S9Game = (function () {
         const edt = entDt(e, dt, wdt);
         /* ⛔ THE TRIGGER IS NOT RELATIVE. fireT/reloadT tick on the WORLD's clock for everyone, so
          * a SLIP buys repositioning and never a single extra bullet. That one line is what keeps
-         * TTK at 1.26 s with a token live, and it is the whole reason slow motion is allowed to
+         * TTK at 1.308 s with a token live, and it is the whole reason slow motion is allowed to
          * exist in a game whose combat was tuned around a 1.3 s duel. */
         if (e.reloadT > 0) { e.reloadT -= wdt * 1000; if (e.reloadT <= 0) finishReload(e); }
         if (e.fireT > 0) e.fireT -= wdt * 1000; if (e.iframe > 0) e.iframe -= wdt;

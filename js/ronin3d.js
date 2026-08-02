@@ -37,57 +37,126 @@ window.Ronin3D = (function () {
   const LIT_VS = 'attribute vec3 aPos; attribute vec3 aNorm; uniform mat4 uMVP; uniform mat4 uModel;' +
     'varying vec3 vN; varying vec3 vW; varying vec3 vL;' +
     'void main(){ vN=mat3(uModel)*aNorm; vW=(uModel*vec4(aPos,1.0)).xyz; vL=aPos; gl_Position=uMVP*vec4(aPos,1.0); }';
-  // procedural materials, keyed by uMat, textured stably in object space (vL) so the pattern rides the mesh:
-  //  1 cloth/gi weave · 2 brushed metal · 3 reptile scales · 4 iridescent crystal · 5 mottled skin · 6 energy pulse · 7 wrap bands
+  /* ── THE MATERIAL — a die-cut printed standee, not a CG character.  docs/RONIN-ART.md §1.1 ──
+   *
+   * `uSurf` picks which of DESIGN-SYSTEM §1's four material layers a draw is made of, and it is
+   * the decision the whole look hangs on:
+   *
+   *   0  INK   flat saturated ink on card stock. Diffuse is QUANTISED into value steps and there
+   *            is NO specular, ever. ⚑ Not toon-shading-for-the-look: flat printed ink physically
+   *            cannot produce a smooth ramp — a printed object gets its form from value steps and
+   *            from the keyline. Acceptance: ≤12 distinct luma levels on a body surface.
+   *   1  FOIL  hot-stamped metal / crystal. ⛔ Hue walks with the HALF-ANGLE and NEVER with uTime.
+   *            The old mat-4 "crystal" did `cos(6.2831*(fac + uTime*0.25))` — iridescence on a
+   *            clock, which DESIGN-SYSTEM §1 names as the definition of a *sticker of* foil.
+   *            Acceptance: ≥60° measured hue travel across view angles here, ≤8° on ink.
+   *   2  LIGHT emissive — neon, sparks, shadow quads. Lit by nothing.
+   *
+   * THE DIE PROFILE replaces the fresnel rim, and it is the single biggest change. The old shader
+   * added `uColor*rim*0.55` to EVERY surface: the default a renderer hands you, and exactly what
+   * §7 rejects ("default extrude + uniform bevel → die-cut profile: chamfer, micro-bevel, bright
+   * rim"). A real die-cut card is BRIGHT at the very edge — you are seeing the exposed core of the
+   * board past the end of the printed area — and DARK just inside it, where the keyline prints.
+   * ⚑ An outline shader gives you the dark band and not the bright one, and reads as a sticker.
+   * Both bands, in that order, are what makes a figure read as drawn rather than rendered.
+   *
+   * `uMat` keeps the existing procedural textures (weave / scales / wraps / skin …) but they are
+   * now PRINTING: they modulate value and may never add a highlight.
+   */
   const LIT_FS = 'precision mediump float; varying vec3 vN; varying vec3 vW; varying vec3 vL;' +
     'uniform vec3 uColor; uniform float uEmis; uniform float uAlpha; uniform vec3 uLight; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uMat; uniform float uTime;' +
+    'uniform float uSurf; uniform float uSteps; uniform vec3 uKeyC; uniform vec3 uFillD; uniform vec3 uFillC; uniform vec3 uRimD; uniform vec3 uRimC; uniform float uFlat;' +
     'float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }' +
     'float vnoise(vec2 p){ vec2 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);' +
     ' float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0));' +
     ' return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }' +
-    'void main(){ vec3 N=normalize(vN); float d=max(0.0,dot(N,normalize(uLight)));' +
-    'vec3 lit=uColor*(0.26+0.9*d); vec3 V=normalize(uCam-vW); float rim=pow(1.0-max(0.0,dot(N,V)),3.0); lit+=uColor*rim*0.55;' +
-    'float sp=pow(max(0.0,dot(reflect(-normalize(uLight),N),V)),26.0); lit+=vec3(sp)*0.4;' +
-    'float ang=atan(vL.z,vL.x);' +
+    'void main(){ vec3 N=normalize(vN); vec3 V=normalize(uCam-vW); vec3 K=normalize(uLight);' +
+    ' if(uFlat>0.5){ gl_FragColor=vec4(uColor,uAlpha); return; }' +          // plate-slip ghost: pure ink, unlit
+    ' float d=max(0.0,dot(N,K));' +
+    ' float dq=floor(d*uSteps+0.5)/uSteps;' +                               // STEPPED ink — see header
+    ' float df=max(0.0,dot(N,normalize(uFillD))), dr=max(0.0,dot(N,normalize(uRimD)));' +
+    ' vec3 key=mix(vec3(1.0),uKeyC,0.62);' +                                // the key CASTS its hue, it does not replace albedo
+    ' vec3 lit=uColor*(0.20+0.92*dq)*key + uColor*uFillC*df*0.30 + uRimC*dr*0.16;' +
+    ' float ang=atan(vL.z,vL.x);' +
     'if(uMat>0.5){' +
     ' if(uMat<1.5){ float w=0.5+0.5*sin(ang*20.0)*sin(vL.y*40.0); float fold=0.86+0.16*sin(vL.y*16.0+vnoise(vec2(ang*3.0,vL.y*7.0))*4.0); lit*=(0.84+0.2*w)*fold; }' +   // cloth weave + folds
-    ' else if(uMat<2.5){ lit*=0.9+0.12*sin(vL.y*120.0); float s2=pow(max(0.0,dot(reflect(-normalize(uLight),N),V)),64.0); lit+=vec3(0.9,0.95,1.0)*s2*0.7; }' +           // brushed metal
+    ' else if(uMat<2.5){ lit*=0.92+0.10*sin(vL.y*120.0); }' +                                                                                                             // brushed grain (foil handles the shine)
     ' else if(uMat<3.5){ vec2 s=vec2(ang*3.5,vL.y*8.0); s.x+=step(1.0,mod(floor(vL.y*8.0),2.0))*0.5; vec2 g=fract(s)-0.5; float cell=smoothstep(0.30,0.5,length(g)); lit=mix(lit*1.18,lit*0.55,cell); }' +   // scales
-    ' else if(uMat<4.5){ float fac=floor(vnoise(vL.xy*7.0+vL.z*5.0)*6.0)/6.0; vec3 ir=0.5+0.5*cos(6.2831*(fac+uTime*0.25)+vec3(0.0,2.1,4.2)); lit=mix(lit,ir,0.5)+pow(rim,2.0)*0.6; }' +   // crystal
-    ' else if(uMat<5.5){ lit*=0.9+0.16*vnoise(vL.xy*9.0+vL.z*4.0); }' +                                                                                                     // skin
-    ' else if(uMat<6.5){ float pu=0.75+0.35*sin(uTime*9.0+vL.y*12.0); lit=uColor*pu+vec3(0.2)*pu; }' +                                                                      // energy
-    ' else if(uMat<7.5){ float b=step(0.5,fract(vL.y*10.0)); lit*=mix(0.68,1.06,b); }' +
-    ' else { float band=vW.y*0.16 + vW.x*0.055 + vW.z*0.055 + uTime*0.22;' +          // 8 = PSYCHEDELIC city
+    ' else if(uMat<4.5){ lit*=0.92+0.14*vnoise(vL.xy*7.0+vL.z*5.0); }' +                                                                                                  // faceted crystal grain
+    ' else if(uMat<5.5){ lit*=0.9+0.16*vnoise(vL.xy*9.0+vL.z*4.0); }' +                                                                                                   // skin
+    ' else if(uMat<6.5){ lit=uColor*1.15+vec3(0.18); }' +                                                                                                                 // energy (flat, uSurf carries it)
+    ' else if(uMat<7.5){ float b=step(0.5,fract(vL.y*10.0)); lit*=mix(0.68,1.06,b); }' +                                                                                  // wrap bands
+    ' else { float band=vW.y*0.16 + vW.x*0.055 + vW.z*0.055;' +                                                                     // 8 = baked city, printed in ink
     '   vec3 ac=0.5+0.5*cos(6.2831*(band+vec3(0.0,0.33,0.67)));' +
-    '   float rings=0.5+0.5*sin(length(vW.xz)*0.55 - uTime*1.1);' +
-    '   vec3 ac2=0.5+0.5*cos(6.2831*(rings*0.6+uTime*0.09+vec3(0.2,0.5,0.85)));' +
-    '   lit=mix(ac,ac2,0.42)*(0.5+0.85*d) + pow(rim,1.6)*vec3(1.0,0.35,0.9)*0.7;' +
-    '   lit*=0.82+0.32*sin(vW.y*2.6+uTime*1.7); } }' +                                                                                              // wraps
+    '   lit=ac*(0.34+0.85*dq)*key + uRimC*dr*0.18; } }' +
+    /* FOIL. The hue walks with the half-angle H=normalize(K+V), so it moves when the CAMERA or the
+     * OBJECT moves and is dead still when neither does. `grate` is the stamping direction in
+     * object space, which is what smears the highlight into a line instead of a dot. */
+    ' if(uSurf>0.5&&uSurf<1.5){' +
+    '   vec3 H=normalize(K+V); float hn=max(0.0,dot(H,N));' +
+    '   float ph=hn*4.6+vL.y*0.55;' +
+    '   vec3 ir=0.5+0.5*cos(6.2831*(ph+vec3(0.0,0.33,0.67)));' +
+    '   float aniso=pow(hn,44.0);' +
+    '   lit=mix(uColor*(0.16+0.72*d)*key,ir,0.60)+vec3(0.95,0.98,1.0)*aniso*0.85; }' +
+    ' else if(uSurf>1.5){ lit=uColor*(1.0+0.35*uEmis); }' +
+    /* THE DIE PROFILE — keyline first, then the bright cut core outside it. Ink and foil both get
+     * it; an emissive draw does not, because light has no cut edge. */
+    ' if(uSurf<1.5){ float fres=1.0-max(0.0,dot(N,V));' +
+    '   float kl=smoothstep(0.50,0.80,fres)*(1.0-smoothstep(0.86,0.96,fres));' +
+    '   float cut=smoothstep(0.87,0.995,fres);' +
+    '   lit*=(1.0-0.70*kl); lit+=mix(vec3(1.0,0.95,0.88),uRimC,0.42)*cut*0.80; }' +
     'lit=mix(lit,uColor*1.2,uEmis);' +
     'float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     'gl_FragColor=vec4(mix(lit,uFog,fg),uAlpha); }';
-  const GND_VS = 'attribute vec3 aPos; uniform mat4 uMVP; uniform mat4 uModel; varying vec3 vW;' +
-    'void main(){ vW=(uModel*vec4(aPos,1.0)).xyz; gl_Position=uMVP*vec4(aPos,1.0); }';
-  // WATER floor — layered travelling wave normals, fresnel sheen, caustic glimmer, psychedelic tint
-  const GND_FS = 'precision mediump float; varying vec3 vW; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha; uniform float uTime; uniform float uWater;' +
-    'void main(){ vec2 p=vW.xz;' +
-    ' float w1=sin(p.x*0.42+uTime*1.15)+sin(p.y*0.37-uTime*0.9);' +
-    ' float w2=sin((p.x+p.y)*0.24-uTime*0.62)+sin((p.x-p.y)*0.31+uTime*0.78);' +
-    ' float h=(w1+w2)*0.25;' +
-    ' vec3 N=normalize(vec3(-(cos(p.x*0.42+uTime*1.15)*0.42+cos((p.x+p.y)*0.24-uTime*0.62)*0.24)*0.6, 1.0,' +
-    '                      -(cos(p.y*0.37-uTime*0.9)*0.37+cos((p.x-p.y)*0.31+uTime*0.78)*0.31)*0.6));' +
-    ' vec3 V=normalize(uCam-vW); float fres=pow(1.0-max(0.0,dot(N,V)),3.0);' +
-    ' vec3 deep=vec3(0.02,0.05,0.14), shallow=vec3(0.10,0.42,0.62);' +
-    ' vec3 col=mix(deep,shallow,0.45+0.35*h);' +
-    ' vec3 sky=0.5+0.5*cos(6.2831*(h*0.4+uTime*0.05+vec3(0.0,0.33,0.67)));' +   // psychedelic reflection
-    ' col=mix(col,sky,fres*0.75);' +
-    ' float caust=pow(max(0.0,sin(p.x*0.9+uTime*1.3)*sin(p.y*0.8-uTime*1.1)),6.0);' +
-    ' col+=vec3(0.5,0.9,1.0)*caust*0.5;' +
-    ' float spec=pow(max(0.0,dot(reflect(-normalize(vec3(0.35,0.9,0.5)),N),V)),48.0); col+=vec3(1.0)*spec*0.6;' +
-    ' if(uWater<0.5){' +                                                        // DUEL ARENA: the original neon grid
-    '   vec2 g=abs(fract(vW.xz*0.5)-0.5); float line=1.0-smoothstep(0.0,0.06,min(g.x,g.y));' +
-    '   col=mix(vec3(0.04,0.02,0.08), vec3(0.7,0.16,0.85), line*0.8);' +
-    '   float glow=1.0-smoothstep(0.0,2.4,abs(vW.z)); col+=vec3(1.0,0.16,0.85)*glow*0.5; }' +
+  const GND_VS = 'attribute vec3 aPos; uniform mat4 uMVP; uniform mat4 uModel; varying vec3 vW; varying vec2 vC;' +
+    'void main(){ vW=(uModel*vec4(aPos,1.0)).xyz; vC=aPos.xz*2.0; gl_Position=uMVP*vec4(aPos,1.0); }';
+  /* ── THE STAGE — the ring is a card, lying on a dark table.  docs/RONIN-ART.md §2 ──────────
+   * uKind 0 = the TABLE (matte, fill-light only, falls into the dark past the card's edge)
+   *       1 = the CARD  (hot-stamped foil stock + printed guilloche + a real DIE-CUT EDGE)
+   *       2 = the shelved free-roam city's water plane, kept working, unchanged in behaviour
+   *
+   * ⚑ The card's hue walks because the CAMERA moved — the half-angle again, no uTime anywhere on
+   *   the foil path. The camera moves only on hero moments (`cineKick`), so the floor changes
+   *   colour exactly when something happened. That is §4 answered with no new motion at all.
+   * ⚠ The card is a long STRIP: its near and far die edges are real and in frame every moment,
+   *   while along the fight line it runs past the frame. Making it a true rectangle with corners
+   *   needs the stage extent, which the game does not publish yet — see the report's interface ask.
+   */
+  const GND_FS = 'precision mediump float; varying vec3 vW; varying vec2 vC; uniform vec3 uCam; uniform vec3 uFog; uniform vec2 uFogND; uniform float uAlpha; uniform float uTime; uniform float uWater;' +
+    'uniform vec2 uHalf; uniform vec3 uKeyD; uniform vec3 uKeyC; uniform vec3 uFillC; uniform vec3 uRimC;' +
+    'void main(){ vec2 p=vW.xz; vec3 V=normalize(uCam-vW); vec3 N=vec3(0.0,1.0,0.0); vec3 col;' +
+    ' if(uWater>1.5){' +                                                        // shelved city: the water plane
+    '   float w1=sin(p.x*0.42+uTime*1.15)+sin(p.y*0.37-uTime*0.9);' +
+    '   float w2=sin((p.x+p.y)*0.24-uTime*0.62)+sin((p.x-p.y)*0.31+uTime*0.78);' +
+    '   float h=(w1+w2)*0.25;' +
+    '   N=normalize(vec3(-(cos(p.x*0.42+uTime*1.15)*0.42+cos((p.x+p.y)*0.24-uTime*0.62)*0.24)*0.6, 1.0,' +
+    '                    -(cos(p.y*0.37-uTime*0.9)*0.37+cos((p.x-p.y)*0.31+uTime*0.78)*0.31)*0.6));' +
+    '   float fres=pow(1.0-max(0.0,dot(N,V)),3.0);' +
+    '   col=mix(vec3(0.02,0.05,0.14),vec3(0.10,0.42,0.62),0.45+0.35*h);' +
+    '   vec3 sky=0.5+0.5*cos(6.2831*(h*0.4+uTime*0.05+vec3(0.0,0.33,0.67)));' +
+    '   col=mix(col,sky,fres*0.75);' +
+    '   float caust=pow(max(0.0,sin(p.x*0.9+uTime*1.3)*sin(p.y*0.8-uTime*1.1)),6.0);' +
+    '   col+=vec3(0.5,0.9,1.0)*caust*0.5;' +
+    '   col+=vec3(1.0)*pow(max(0.0,dot(reflect(-normalize(vec3(0.35,0.9,0.5)),N),V)),48.0)*0.6; }' +
+    ' else if(uWater<0.5){' +                                                   // THE TABLE
+    '   float g=0.020+0.014*fract(sin(dot(floor(p*0.7),vec2(12.9898,78.233)))*43758.5);' +
+    '   col=vec3(g*0.75,g*0.62,g*1.20) + uFillC*0.030; }' +
+    ' else {' +                                                                 // THE CARD — foil stock
+    '   vec3 K=normalize(uKeyD); vec3 H=normalize(K+V); float hn=max(0.0,dot(H,N));' +
+    '   float grate=p.x*0.19;' +                                                // the stamping runs along the fight line
+    '   float ph=hn*5.2+grate;' +
+    '   vec3 ir=0.5+0.5*cos(6.2831*(ph+vec3(0.0,0.33,0.67)));' +
+    '   float aniso=pow(hn,26.0);' +
+    '   col=mix(vec3(0.035,0.020,0.070),ir*0.55,0.62)+vec3(0.9,0.95,1.0)*aniso*0.45;' +
+    '   vec2 gr=abs(fract(p*0.5)-0.5); float line=1.0-smoothstep(0.0,0.055,min(gr.x,gr.y));' +
+    '   col+=vec3(1.0,0.16,0.85)*line*0.55;' +                                  // the guilloche, printed in neon ink
+    '   float spine=1.0-smoothstep(0.0,2.2,abs(p.y)); col+=vec3(1.0,0.16,0.85)*spine*0.30;' +   // the fight line
+    /* THE DIE EDGE. `ez` is the world-unit distance to the cut. Keyline first (dark), then the
+     * exposed board core outside it (bright) — the order that makes it a card and not a sticker. */
+    '   float ez=(1.0-abs(vC.y))*uHalf.y;' +
+    '   float kl=(1.0-smoothstep(0.10,0.62,ez))*smoothstep(0.02,0.11,ez);' +
+    '   float cut=1.0-smoothstep(0.0,0.075,ez);' +
+    '   col*=(1.0-0.72*kl); col+=mix(vec3(1.0,0.95,0.88),uRimC,0.42)*cut*0.95; }' +
     ' float fg=clamp((distance(uCam,vW)-uFogND.x)/(uFogND.y-uFogND.x),0.0,1.0);' +
     ' gl_FragColor=vec4(mix(col,uFog,fg),uAlpha); }';
   // flat additive shader for smooth FX ribbons (blade trails + slash-arc crescents) — per-vertex alpha
@@ -168,23 +237,144 @@ window.Ronin3D = (function () {
   }
 
   const FOG = [0.07, 0.03, 0.15];
-  let camPos = [0, 3, 9], t3 = 0, VP = null;
+  /* ── LIGHT: the studio's own three, for the first time.  DESIGN-SYSTEM §2 / RONIN-ART §1.2 ──
+   * NEON RONIN ran a single white lamp at [0.35,0.9,0.5] with a flat 0.26 ambient. The studio has
+   * declared one light model for every surface it makes and no game had ever used it.
+   *   KEY  phosphor green, raking — does the shaping
+   *   FILL acid magenta, from below, weak — and physically true here: the floor IS magenta neon
+   *   RIM  cyan, near-grazing — what lifts a figure off a dark stage and makes the die edge read
+   * ⚠ Gold #ffd23b is NOT a light. It is the accent: the charged blade, the meter, the win.
+   * ⚠ A coloured key can eat the albedo. The key CASTS its hue (mix 0.62) rather than replacing
+   *   it, and frame saturation is a reported acceptance number, not an assumption. */
+  const LIGHT = {
+    keyD: [0.42, 0.88, 0.46], keyC: hexF('#2bff80'),
+    fillD: [-0.24, -0.90, 0.36], fillC: hexF('#ff2ad9'),
+    rimD: [-0.72, 0.20, -0.66], rimC: hexF('#27f7e4'),
+    steps: 5,                                                 // ink value steps — see RONIN-ART §1.5
+  };
+  function hexF(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+  let camPos = [0, 3, 9], t3 = 0, VP = null, tPrev = 0;
   const cam = { dist: 9, h: 2.7, az: 0 };                     // smoothed fight-camera (distance / height / azimuth)
+  /* ⛔ CAMERA SHAKE WAS WHITE NOISE — `(Math.random()*2-1) * shake`, per axis, per frame. A struck
+   * camera does not vibrate randomly: it is DISPLACED ALONG THE BLOW and rings back. This is a
+   * decaying oscillator whose axis comes from the hit direction the game already publishes
+   * (`G.camDir`, set by `cineKick`), with a small random component kept for grit so two identical
+   * hits are not identical shots. Acceptance: the trace crosses zero and its envelope decays —
+   * noise does neither, so the assertion cannot pass on the old behaviour.
+   * ⚠ `G.shake` is a LEVEL the game decays itself, so an impulse is only taken when it JUMPS. */
+  const shk = { amp: 0, ph: 0, ax: [1, 0, 0], prev: 0 };
+  function shakeOffset(G, dt, cdir) {
+    const lvl = G.shake || 0;
+    if (lvl > shk.prev + 0.5) {                                // a fresh blow, not the tail of the last one
+      shk.amp = Math.min(1.25, lvl * 0.055); shk.ph = 0;
+      shk.ax = [camRight[0] * cdir, 0.34, camRight[2] * cdir];
+    }
+    shk.prev = lvl;
+    if (shk.amp <= 0.0005) { shk.amp = 0; return [0, 0, 0]; }
+    shk.ph += dt * 46; shk.amp *= Math.exp(-dt * 11);
+    const s = Math.sin(shk.ph) * shk.amp, j = shk.amp * 0.12;
+    return [shk.ax[0] * s + (Math.random() * 2 - 1) * j, shk.ax[1] * s * 0.6, shk.ax[2] * s + (Math.random() * 2 - 1) * j];
+  }
   const u = (p, n) => gl.getUniformLocation(p, n);
   const hex = h => { const n = parseInt((h || '#c9d2e6').slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
   const sc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
+  /* ══ SOFT GOODS ═══════════════════════════════════════════════════════════════════════════
+   * Cloth, hair and shards hang off the skeleton and are driven by THE BODY'S OWN ACCELERATION.
+   * docs/RONIN-ART.md §1.3, and it is the answer to DESIGN-SYSTEM §9 — the half of a brief that
+   * has now been skipped twice in this repo, because material and light are what a renderer HAS
+   * FEATURES for and motion has to be designed.
+   *
+   * ⛔ WHAT THIS REPLACES, and each was a screensaver:
+   *      the kunoichi scarf waved on `t3*3 + i*0.7` while the fighter stood still;
+   *      five prizm crystals orbited on `t3*0.7`, forever, whatever the fighter did.
+   *
+   * The forcing term is −a of the fighter (the pseudo-force a hanging object feels in an
+   * accelerating frame) plus an angular term from the torso's rotation. ⚑ GRAVITY IS FOLDED INTO
+   * THE AUTHORED REST POSE rather than applied as a force, which is what makes the standing rule
+   * exactly true: with the body still, a = 0, every node sits at 0.000, and a test asserts it.
+   *
+   * Chained groups couple: node i springs toward node i-1's displacement, so a shove runs DOWN
+   * the cloak and dies out. Same acceptance shape as the hero wordmark's rig — "did it move" is
+   * the weak question; the assertions that bite are lag, overshoot, and propagation order.
+   */
+  const SOFT = [                                              // i0, n, stiffness, damping, mass, chained
+    { i0: 0,  n: 3, k: 165, d: 15, w: 1.00, chain: true },     // cloak / coat hem
+    { i0: 3,  n: 4, k: 210, d: 13, w: 1.45, chain: true },     // scarf — lighter, whips further
+    { i0: 7,  n: 3, k: 560, d: 27, w: 0.40, chain: false },    // hair — stiff, barely moves
+    { i0: 10, n: 5, k: 95,  d: 10, w: 1.85, chain: false },    // crystal shards — loosest
+  ];
+  const N_SOFT = 15;
+  const softs = {};                                           // fighter id → soft state
+  function softOf(f) {
+    let s = softs[f.id];
+    if (!s) { s = softs[f.id] = { seen: false, px: 0, py: 0, vx: 0, vy: 0, ax: 0, ay: 0, prot: 0, pav: 0, aa: 0,
+      land: 0, landV: 0, pAir: false, nodes: [] };
+      for (let i = 0; i < N_SOFT; i++) s.nodes.push({ x: 0, y: 0, vx: 0, vy: 0 }); }
+    return s;
+  }
+  const AC_SCALE = 1 / 5200;                                  // skeleton px/s² → cloth force units
+  function stepSoft(G, dt) {
+    if (!G || !G.fighters || dt <= 0) return;                 // dt = 0 during hitstop: the cloth HOLDS
+    for (const f of G.fighters) {
+      if (!f) continue;
+      const s = softOf(f);
+      const vx = (f.x - s.px) / dt, vy = ((f.yLift || 0) - s.py) / dt;
+      const rot = (f.rig && f.rig.bodyRot) || 0, av = (rot - s.prot) / dt;
+      if (s.seen) { s.ax = (vx - s.vx) / dt; s.ay = (vy - s.vy) / dt; s.aa = (av - s.pav) / dt; }
+      s.px = f.x; s.py = f.yLift || 0; s.vx = vx; s.vy = vy; s.prot = rot; s.pav = av; s.seen = true;
+      // A LANDING SETTLES. Touchdown is the frame `air` clears; the impulse is the speed it hit at.
+      if (s.pAir && !f.air) s.landV += Math.min(9, Math.abs(vy) * 0.010);
+      s.pAir = !!f.air;
+      s.landV += (0 - s.land) * 240 * dt - s.landV * 17 * dt; s.land += s.landV * dt;
+      if (Math.abs(s.land) < 1e-4 && Math.abs(s.landV) < 1e-4) { s.land = 0; s.landV = 0; }
+      // ⚠ clamp before integrating: a single frame of huge dt (a tab regaining focus) must not
+      //   fling the cloth off the model, and a clamp is cheaper than a substep here.
+      const fx = clampf(-s.ax * AC_SCALE, -3.2, 3.2), fy = clampf(-s.ay * AC_SCALE, -3.2, 3.2);
+      const ft = clampf(-s.aa * 0.00021, -2.4, 2.4);
+      for (const g of SOFT) {
+        for (let i = 0; i < g.n; i++) {
+          const nd = s.nodes[g.i0 + i], up = g.chain && i > 0 ? s.nodes[g.i0 + i - 1] : null;
+          const rx = up ? up.x : 0, ry = up ? up.y : 0;
+          const lever = 1 + i * 0.55;                         // further down the chain = more throw
+          const axx = (rx - nd.x) * g.k - nd.vx * g.d + fx * g.w * lever * 60 + ft * g.w * lever * 40;
+          const ayy = (ry - nd.y) * g.k - nd.vy * g.d + fy * g.w * lever * 60;
+          nd.vx += axx * dt; nd.vy += ayy * dt; nd.x += nd.vx * dt; nd.y += nd.vy * dt;
+          nd.x = clampf(nd.x, -34, 34); nd.y = clampf(nd.y, -34, 34);
+          if (Math.abs(nd.x) < 1e-4 && Math.abs(nd.vx) < 1e-4) { nd.x = 0; nd.vx = 0; }
+          if (Math.abs(nd.y) < 1e-4 && Math.abs(nd.vy) < 1e-4) { nd.y = 0; nd.vy = 0; }
+        }
+      }
+    }
+  }
+  const softN = (f, i) => (softs[f.id] ? softs[f.id].nodes[i] : { x: 0, y: 0 });
+
   function bind(name) { const g = geo[name]; gl.bindBuffer(gl.ARRAY_BUFFER, g.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12); return g.count; }
   let curMesh = '', _mat = 0;                                // active procedural material (see LIT_FS)
+  /* uSurf is derived from uMat by default so no existing call site has to change, and is
+   * overridden by setting `_surf` >= 0 for the handful of draws whose material is not implied by
+   * their texture (the tsuba, the belt hardware, the shadow quad, the neon). Reset it to -1. */
+  const MAT_SURF = [0, 0, 1, 0, 1, 0, 2, 0, 0];               // 2 brushed metal · 4 crystal = FOIL · 6 energy = LIGHT
+  let _surf = -1;                                             // -1 auto · 0 ink · 1 foil · 2 emissive — RONIN-ART §1.1
+  const surfOf = () => (_surf >= 0 ? _surf : (MAT_SURF[_mat | 0] || 0));
+  let _flat = null;                                           // non-null → draw as a flat ink plate (the slip ghost)
   let meshVar = '';                                           // active per-fighter mesh-variant prefix
   function draw(rawName, model, color, emis, alpha) {
     const name = (meshVar && geo[meshVar + rawName]) ? meshVar + rawName : rawName;
     if (curMesh !== name) { bind(name); curMesh = name; }
     gl.uniformMatrix4fv(u(litProg, 'uMVP'), false, M.mul(VP, model)); gl.uniformMatrix4fv(u(litProg, 'uModel'), false, model);
-    gl.uniform3fv(u(litProg, 'uColor'), color); gl.uniform1f(u(litProg, 'uEmis'), emis || 0); gl.uniform1f(u(litProg, 'uAlpha'), alpha == null ? 1 : alpha);
-    gl.uniform1f(u(litProg, 'uMat'), _mat); gl.uniform1f(u(litProg, 'uTime'), t3);
+    gl.uniform3fv(u(litProg, 'uColor'), _flat ? _flat.col : color); gl.uniform1f(u(litProg, 'uEmis'), emis || 0);
+    gl.uniform1f(u(litProg, 'uAlpha'), _flat ? _flat.a : (alpha == null ? 1 : alpha));
+    gl.uniform1f(u(litProg, 'uMat'), _flat ? 0 : _mat); gl.uniform1f(u(litProg, 'uTime'), t3);
+    gl.uniform1f(u(litProg, 'uSurf'), _flat ? 0 : surfOf()); gl.uniform1f(u(litProg, 'uFlat'), _flat ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, geo[name].count); }
-  function setLit() { gl.useProgram(litProg); curMesh = ''; gl.uniform3fv(u(litProg, 'uLight'), [0.35, 0.9, 0.5]); gl.uniform3fv(u(litProg, 'uCam'), camPos); gl.uniform3fv(u(litProg, 'uFog'), FOG); gl.uniform2fv(u(litProg, 'uFogND'), [17, 58]); }
+  function setLit() { gl.useProgram(litProg); curMesh = ''; lightUniforms(litProg);
+    gl.uniform3fv(u(litProg, 'uCam'), camPos); gl.uniform3fv(u(litProg, 'uFog'), FOG); gl.uniform2fv(u(litProg, 'uFogND'), [17, 58]); }
+  function lightUniforms(p) {
+    gl.uniform3fv(u(p, 'uLight'), LIGHT.keyD); gl.uniform3fv(u(p, 'uKeyC'), LIGHT.keyC);
+    gl.uniform3fv(u(p, 'uFillD'), LIGHT.fillD); gl.uniform3fv(u(p, 'uFillC'), LIGHT.fillC);
+    gl.uniform3fv(u(p, 'uRimD'), LIGHT.rimD); gl.uniform3fv(u(p, 'uRimC'), LIGHT.rimC);
+    gl.uniform1f(u(p, 'uSteps'), LIGHT.steps); gl.uniform1f(u(p, 'uFlat'), 0); }
 
   // tapered limb between two LOCAL 2D skeleton points (px, y-down) — thicker at joint a, thinner at b
   function beam(fm, a, b, r, color, emis, alpha) { const ax = a.x, ay = -a.y, bx = b.x, by = -b.y, L = Math.hypot(bx - ax, by - ay) || .001, th = Math.atan2(by - ay, bx - ax);
@@ -208,7 +398,12 @@ window.Ronin3D = (function () {
       yaw = (f.faceYaw != null ? f.faceYaw : 0) + (f.spin || 0); }
     else { pos = M.T(f.x * SC, f.yLift * SC, (f.z || 0) * SC);
       yaw = (f.face < 0 ? PI : 0) + (f.spin || 0); }
-    let fm = M.mul(M.mul(M.mul(pos, M.Ry(yaw)), M.Rz((f.rig && f.rig.bodyRot) || 0)), M.S(SC, SC, SC));
+    /* WEIGHT — a landing settles. The standee compresses on touchdown and rebounds past 1.0,
+     * scaled by the speed it hit at. ⚠ This is a RENDER spring: it never moves a hitbox, and
+     * ronin.js's collision is untouched by it. docs/RONIN-ART.md §1.3. */
+    const ld = (softs[f.id] ? softs[f.id].land : 0);
+    const sq = M.S(SC * (1 + ld * 0.11), SC * (1 - ld * 0.17), SC * (1 + ld * 0.11));
+    let fm = M.mul(M.mul(M.mul(pos, M.Ry(yaw)), M.Rz((f.rig && f.rig.bodyRot) || 0)), sq);
     return mirror ? M.mul(M.S(1, -1, 1), fm) : fm; }
 
   // a hand: palm + four fingers + a thumb. `along` = unit dir the fingers point (the hilt / punch line).
@@ -222,7 +417,9 @@ window.Ronin3D = (function () {
       beam(fm, { x: bx, y: by }, { x: tx, y: ty }, fr, col, 0, a); orb(fm, tx, ty, 0, fr * 1.6, fr * 1.6, fr * 1.6, sc(col, 0.92), 0, a); }
     beam(fm, { x: wrist.x - px * 5 + ax * 1, y: wrist.y - py * 5 + ay * 1 }, { x: wrist.x - px * 3 + ax * 6, y: wrist.y - py * 3 + ay * 6 }, fr * 1.05, col, 0, a);   // thumb
   }
-  // hair: a skull cap plus swept spikes (Tekken-style silhouette). Skipped for the shelled/crystal heads.
+  // hair: a skull cap plus swept spikes. Skipped for the shelled/crystal/hatted heads.
+  // ⚑ The spike TIPS ride the soft rig (nodes 7–9), so hair lags a head turn instead of being
+  //    welded to the skull. Stiff group: at rest it is exactly 0 and the shape is unchanged.
   function drawHair(fm, f, K, hair, a, dk) {
     if (f.arch === 'kappa' || f.arch === 'prizm' || f.arch === 'ronin') return;    // shelled / crystal / hatted heads
     const h = K.head; _mat = 0;
@@ -231,8 +428,10 @@ window.Ronin3D = (function () {
     const spikes = f.arch === 'kunoichi'
       ? [[-6, -14, -22, 2.0], [-10, -8, -26, 2.4], [-12, 0, -24, 2.7]]              // long tail sweeping back
       : [[2, -16, -16, 1.1], [-4, -18, -12, 1.5], [-10, -15, -10, 1.9], [8, -13, -12, 0.7], [-14, -9, -8, 2.3]];
-    for (const [ox, oy, len, ang] of spikes) {
-      const bx = h.x + ox, by = h.y + oy, tx = bx + Math.cos(ang) * -len, ty = by + Math.sin(ang) * -Math.abs(len) * 0.5;
+    for (let i = 0; i < spikes.length; i++) {
+      const [ox, oy, len, ang] = spikes[i], nd = softN(f, 7 + (i % 3));
+      const bx = h.x + ox, by = h.y + oy;
+      const tx = bx + Math.cos(ang) * -len - nd.x * 0.9, ty = by + Math.sin(ang) * -Math.abs(len) * 0.5 - nd.y * 0.9;
       beam(fm, { x: bx, y: by }, { x: tx, y: ty }, 4.6, hair, 0.02, a);
     }
   }
@@ -259,13 +458,26 @@ window.Ronin3D = (function () {
   // ── costumes: Tekken-style colour-blocking. Each fighter is skin + a top + pants + boots +
   //    gloves + trim + hair, instead of one flat body colour. That separation is what makes a
   //    fighter read as a dressed character rather than a monochrome mannequin.
+  /* `foot` is the archetype's ground footprint, used by the contact shadow — a squat body plants
+   * wider than a lanky one, and until this existed every fighter cast the same 0.55 disc. */
   const GARB = {
-    ronin:    { skin: '#e8c9a8', top: '#dfe6f2', pants: '#3b4258', boot: '#241a12', glove: '#8a2f2f', trim: '#9fb0d0', hair: '#20232e', bare: 'arms' },
-    kappa:    { skin: '#4fc25a', top: '#2f7d3a', pants: '#1f5e2c', boot: '#123a1c', glove: '#2bff80', trim: '#2bff80', hair: '#1a4d24', bare: 'arms' },
-    doomer:   { skin: '#c9b7a6', top: '#2a3040', pants: '#171b26', boot: '#0e1118', glove: '#3d4658', trim: '#8fa0b8', hair: '#141821', bare: 'none' },
-    oni:      { skin: '#df463b', top: '#7a1a14', pants: '#2a1410', boot: '#160a08', glove: '#f0a03c', trim: '#ff6b57', hair: '#2b0f0c', bare: 'torso' },
-    kunoichi: { skin: '#e8bfa4', top: '#c31f6d', pants: '#2b1030', boot: '#1a0a20', glove: '#ff2ad9', trim: '#ff2ad9', hair: '#1b0f1e', bare: 'none' },
-    prizm:    { skin: '#c9a6ff', top: '#7b4bd0', pants: '#3a2470', boot: '#241246', glove: '#e6c8ff', trim: '#e6c8ff', hair: '#8f5cff', bare: 'none' },
+    ronin:    { skin: '#e8c9a8', top: '#dfe6f2', pants: '#3b4258', boot: '#241a12', glove: '#8a2f2f', trim: '#9fb0d0', hair: '#20232e', bare: 'arms',  foot: 1.00 },
+    kappa:    { skin: '#4fc25a', top: '#2f7d3a', pants: '#1f5e2c', boot: '#123a1c', glove: '#2bff80', trim: '#2bff80', hair: '#1a4d24', bare: 'arms',  foot: 1.14 },
+    doomer:   { skin: '#c9b7a6', top: '#2a3040', pants: '#171b26', boot: '#0e1118', glove: '#3d4658', trim: '#8fa0b8', hair: '#141821', bare: 'none',  foot: 1.16 },
+    oni:      { skin: '#df463b', top: '#7a1a14', pants: '#2a1410', boot: '#160a08', glove: '#f0a03c', trim: '#ff6b57', hair: '#2b0f0c', bare: 'torso', foot: 1.34 },
+    kunoichi: { skin: '#e8bfa4', top: '#c31f6d', pants: '#2b1030', boot: '#1a0a20', glove: '#ff2ad9', trim: '#ff2ad9', hair: '#1b0f1e', bare: 'none',  foot: 0.84 },
+    prizm:    { skin: '#c9a6ff', top: '#7b4bd0', pants: '#3a2470', boot: '#241246', glove: '#e6c8ff', trim: '#e6c8ff', hair: '#8f5cff', bare: 'none',  foot: 0.90 },
+    /* The seven generated bodies (models/cc0 + the mascot) fell through to the ronin wardrobe, so
+     * seven distinct meshes all fought dressed as the same grey swordsman. Colour-blocked to their
+     * own ARCH palette instead. ⚠ Names are the studio's — a body may be INFORMED by a source and
+     * never NAMED after one (docs/CC0-SOURCES.md); nothing here names one. */
+    'rip-mascot': { skin: '#ffe3a0', top: '#ffd23b', pants: '#8a5a10', boot: '#2a1a04', glove: '#fff6d0', trim: '#fff6d0', hair: '#6a4408', bare: 'none', foot: 1.06 },
+    'cc0-mosh':   { skin: '#ffb8ea', top: '#ff2ad9', pants: '#2a0a24', boot: '#150512', glove: '#ff8ae0', trim: '#ff8ae0', hair: '#3a0a30', bare: 'arms', foot: 0.80 },
+    'cc0-cel':    { skin: '#c8ffdf', top: '#2bff80', pants: '#0e3a20', boot: '#061c0f', glove: '#eafff2', trim: '#0a1f12', hair: '#0a2a16', bare: 'none', foot: 1.28 },
+    'cc0-grid':   { skin: '#c8fbf6', top: '#27f7e4', pants: '#0a3a38', boot: '#041c1b', glove: '#8ff6ee', trim: '#8ff6ee', hair: '#062e2c', bare: 'none', foot: 1.02 },
+    'cc0-lank':   { skin: '#dff5e8', top: '#9fd8b8', pants: '#20402f', boot: '#0e2018', glove: '#c8f0dc', trim: '#c8f0dc', hair: '#16301f', bare: 'arms', foot: 0.76 },
+    'cc0-squat':  { skin: '#ffc9bc', top: '#ff6b57', pants: '#3a1208', boot: '#1c0804', glove: '#ffa08f', trim: '#ffa08f', hair: '#2a0d05', bare: 'torso', foot: 1.40 },
+    'cc0-lump':   { skin: '#e6d4ff', top: '#b47bff', pants: '#2c1a4a', boot: '#160c26', glove: '#d9bcff', trim: '#d9bcff', hair: '#1e1030', bare: 'none', foot: 1.08 },
   };
   function garbOf(f) { return GARB[f.arch] || GARB.ronin; }
 
@@ -420,9 +632,12 @@ window.Ronin3D = (function () {
     gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3,4,gl.FLOAT,false,56,40);
     gl.uniformMatrix4fv(u(skinProg,'uBones'), false, skinPalette(f, K, sk));
     gl.uniformMatrix4fv(u(skinProg,'uMVP'), false, M.mul(VP, fm)); gl.uniformMatrix4fv(u(skinProg,'uModel'), false, fm);
-    gl.uniform3fv(u(skinProg,'uColor'), col); gl.uniform1f(u(skinProg,'uEmis'),0); gl.uniform1f(u(skinProg,'uAlpha'),a);
-    gl.uniform1f(u(skinProg,'uMat'), bodyMat(f)); gl.uniform1f(u(skinProg,'uTime'), t3);
-    gl.uniform3fv(u(skinProg,'uLight'),[0.35,0.9,0.5]); gl.uniform3fv(u(skinProg,'uCam'),camPos);
+    gl.uniform3fv(u(skinProg,'uColor'), _flat ? _flat.col : col); gl.uniform1f(u(skinProg,'uEmis'),0);
+    gl.uniform1f(u(skinProg,'uAlpha'), _flat ? _flat.a : a);
+    gl.uniform1f(u(skinProg,'uMat'), _flat ? 0 : bodyMat(f)); gl.uniform1f(u(skinProg,'uTime'), t3);
+    lightUniforms(skinProg);
+    gl.uniform1f(u(skinProg,'uSurf'), 0); gl.uniform1f(u(skinProg,'uFlat'), _flat ? 1 : 0);
+    gl.uniform3fv(u(skinProg,'uCam'),camPos);
     gl.uniform3fv(u(skinProg,'uFog'),FOG); gl.uniform2fv(u(skinProg,'uFogND'),[17,58]);
     gl.drawArrays(gl.TRIANGLES, 0, sk.count);
     gl.disableVertexAttribArray(2); gl.disableVertexAttribArray(3);
@@ -621,37 +836,69 @@ window.Ronin3D = (function () {
     else if (f.arch === 'prizm' || art === 'prizm') { _mat = 4; orb(fm, h.x, h.y - 14, 0, 14, 22, 14, sc(hex(f.tint), dk), 0.6, a); }   // crystal crown spike
     _mat = 0;
   }
-  // cloak (ronin/doomer), trailing scarf (kunoichi) — drawn behind the torso
+  /* cloak (ronin/doomer), trailing scarf (kunoichi) — drawn behind the torso.
+   * ⛔ THE SCARF USED TO BE A SINE ON `t3`. It is now three chained soft nodes: shove the body
+   *    and the swing runs down the chain and dies out; stand still and it hangs dead straight.
+   *    The cloak is a real three-segment drape for the same reason — one rigid slab could not
+   *    express a lag no matter what drove it. docs/RONIN-ART.md §1.3. */
   function archBack(fm, f, K, col, tint, a, dk) {
     const cx = (K.chest.x + K.pelvis.x) / 2, cy = (K.chest.y + K.pelvis.y) / 2;
     if (f.arch === 'ronin' || f.arch === 'doomer') {
       _mat = 1; const cc = f.arch === 'doomer' ? sc([0.15, 0.17, 0.22], dk) : sc(hex(f.tint), dk * 0.85);
-      slab(fm, cx - 8, cy + 22, -5, 34, 92, 9, 0.05, cc, 0, a);                             // long draped haori / coat
+      let px = cx - 8, py = cy - 4;
+      for (let i = 0; i < 3; i++) {                                                         // draped haori / coat, 3 panels
+        const nd = softN(f, i), seg = [30, 34, 30][i], wid = [34, 31, 26][i];
+        px += -nd.x * 0.42; py += seg * 0.5;
+        slab(fm, px, py, -5 - i * 1.2, wid, seg + 3, 8, 0.05 - nd.x * 0.012, sc(cc, 1 - i * 0.06), 0, a);
+        px += -nd.x * 0.42; py += seg * 0.5 + nd.y * 0.10;
+      }
     } else if (f.arch === 'kunoichi') {
       _mat = 1; const sccol = sc(hex(f.tint), dk); let x = K.head.x - 4, y = K.head.y + 10;
-      for (let i = 0; i < 6; i++) { const ph = t3 * 3 + i * 0.7; x -= 13; y += 7 + Math.sin(ph) * 3.5;
-        slab(fm, x, y, -4 - i, 18, 7, 6, 0.55 + Math.sin(ph) * 0.35, sccol, 0.22, a); }        // flowing scarf
+      for (let i = 0; i < 6; i++) { const nd = softN(f, 3 + Math.min(3, i >> 1));
+        x -= 13 + nd.x * 0.24; y += 7 + nd.y * 0.30;
+        slab(fm, x, y, -4 - i, 18, 7, 6, 0.55 - nd.x * 0.035, sccol, 0.22, a); }               // trailing scarf
     }
     _mat = 0;
   }
-  // orbiting crystal shards for the prizmancer
+  /* Crystal shards for the prizmancer.
+   * ⛔ THEY USED TO ORBIT ON A TIMER — five crystals circling a motionless body, forever, which
+   *    is DESIGN-SYSTEM §4's definition of a screensaver. They now HANG in the body's field on
+   *    the loosest soft group and get thrown when it lunges. Same five crystals, opposite meaning. */
   function archShards(fm, f, K, a, dk) {
     _mat = 4; const base = sc(hex(f.tint), dk), c = K.chest;
-    for (let i = 0; i < 5; i++) { const ang = t3 * 0.7 + i * (TAU / 5), rx = Math.cos(ang) * 24, ry = Math.sin(ang) * 22;
-      slab(fm, c.x + rx, c.y + ry, Math.sin(ang) * 9, 6, 22, 6, ang * 1.4, base, 0.55, a); }
+    const REST = [[26, -14, 8], [17, 16, -9], [-24, -6, 7], [-14, 20, -6], [3, -26, 4]];
+    for (let i = 0; i < 5; i++) { const r = REST[i], nd = softN(f, 10 + i);
+      const rx = r[0] - nd.x * 1.5, ry = r[1] - nd.y * 1.5;
+      slab(fm, c.x + rx, c.y + ry, r[2], 6, 22, 6, Math.atan2(ry, rx) * 1.4, base, 0.55, a); }
     _mat = 0;
   }
   // ── 3D combat FX ──
   // smooth blade-streak ribbon (a real katana trail — a tapered, fading strip, not chunky tubes).
   // Uses trailProg (per-vertex alpha); caller binds trailProg + uVP.
+  /* ⛔ RIBBONS WERE FLAT, AND THE CAMERA SWINGS EXACTLY WHEN THEY MATTER.
+   * The width was built from a fixed perpendicular in the world x-y plane, so the moment the
+   * fight camera swung off the fight line — which is what `cineKick` does, on every hero moment —
+   * a blade trail collapsed to a line and the crescent turned edge-on. The perpendicular is now
+   * built against the VIEW vector (segment × eye-to-point), i.e. the ribbon faces the camera the
+   * way a real motion smear does. Acceptance: measured screen width, azimuth 0 vs. swung.
+   * ⚠ Degenerate case is real: a segment pointing straight at the eye has no camera-facing
+   *   perpendicular, so it falls back to the old x-y one rather than producing NaNs. */
   const ribBuf = [];
+  function ribPerp(px_, py_, pz_, dx, dy, dz) {
+    const ex = px_ - camPos[0], ey = py_ - camPos[1], ez = pz_ - camPos[2];
+    let cx = dy * ez - dz * ey, cy = dz * ex - dx * ez, cz = dx * ey - dy * ex;
+    const L = Math.hypot(cx, cy, cz);
+    if (L < 1e-5) { const l2 = Math.hypot(dx, dy) || 1; return [-dy / l2, dx / l2, 0]; }
+    return [cx / L, cy / L, cz / L];
+  }
   function ribbon(pts, wHead, wTail, aHead, col) {
     const n = pts.length; if (n < 2) return; ribBuf.length = 0;
     for (let i = 0; i < n; i++) { const p = pts[i], q = i < n - 1 ? pts[i + 1] : pts[i - 1];
-      let dx = (i < n - 1 ? q[0] - p[0] : p[0] - q[0]), dy = (i < n - 1 ? q[1] - p[1] : p[1] - q[1]);
-      const L = Math.hypot(dx, dy) || 1, px = -dy / L, py = dx / L;             // perpendicular in the x-y plane
+      const s = i < n - 1 ? 1 : -1;
+      const dx = (q[0] - p[0]) * s, dy = (q[1] - p[1]) * s, dz = (q[2] - p[2]) * s;
+      const pr = ribPerp(p[0], p[1], p[2], dx, dy, dz), px = pr[0], py = pr[1], pz = pr[2];
       const t = i / (n - 1), w = wHead + (wTail - wHead) * t, al = aHead * (1 - t) * (1 - t);
-      ribBuf.push(p[0] + px * w, p[1] + py * w, p[2], al, p[0] - px * w, p[1] - py * w, p[2], al); }
+      ribBuf.push(p[0] + px * w, p[1] + py * w, p[2] + pz * w, al, p[0] - px * w, p[1] - py * w, p[2] - pz * w, al); }
     gl.uniform3fv(u(trailProg, 'uCol'), col);
     gl.bindBuffer(gl.ARRAY_BUFFER, trailBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ribBuf), gl.DYNAMIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 16, 0);
@@ -668,10 +915,17 @@ window.Ronin3D = (function () {
   function drawArc3(e, gY) {
     const cx = e.x * SC, cy = (gY - e.y) * SC, rO = e.r * SC * 0.6, rI = rO * 0.5, fade = 1 - clampf(e.t / e.life, 0, 1);
     const c = hex(e.col || '#eaf6ff'), col = [Math.min(1, c[0] * 0.5 + 0.6), Math.min(1, c[1] * 0.5 + 0.6), Math.min(1, c[2] * 0.5 + 0.6)];
+    /* The crescent lives in the SWING plane, because that is where the edge actually travelled —
+     * but a flat band goes edge-on the instant the camera swings round, which is precisely when
+     * `cineKick` swings it. `fore` is how far the view has left the plane normal; the band gains
+     * camera-facing thickness in exactly that proportion, so it keeps screen area without ever
+     * pretending the cut happened somewhere it did not. */
+    const vz = norm(sub([cx, cy, 0], camPos));
+    const fore = clampf(1 - Math.abs(vz[2]), 0, 1), thk = fore * rO * 0.42;
     const N = 14; ribBuf.length = 0;
     for (let i = 0; i <= N; i++) { const th = e.a0 + (e.a1 - e.a0) * (i / N), cs = e.face * Math.cos(th), sn = Math.sin(th);
       const edge = fade * 0.9 * (1 - Math.abs(i / N - 0.5) * 0.7);              // brighter through the middle of the sweep
-      ribBuf.push(cx + cs * rI, cy - sn * rI, 0, edge * 0.15, cx + cs * rO, cy - sn * rO, 0, edge); }
+      ribBuf.push(cx + cs * rI, cy - sn * rI, -thk, edge * 0.15, cx + cs * rO, cy - sn * rO, thk, edge); }
     gl.uniform3fv(u(trailProg, 'uCol'), col);
     gl.bindBuffer(gl.ARRAY_BUFFER, trailBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(ribBuf), gl.DYNAMIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 16, 0);
@@ -713,10 +967,23 @@ window.Ronin3D = (function () {
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
   }
-  function drawShadow(f) { const x = f.x * SC, r = 0.55; const m = M.mul(M.mul(M.T(x, 0.02, (f.z || 0) * SC), M.S(r * 2.2, 1, r * 1.3)), M.ident());
+  /* WEIGHT IS CONTACT, AND CONTACT IS THE SHADOW.  docs/RONIN-ART.md §1.3.
+   * This was one fixed-radius quad at fixed alpha for every archetype at every altitude — so the
+   * frame carried no cue at all for how high a body was, which is the one thing a launcher needs
+   * to read. It now TIGHTENS AND DARKENS on the floor and SPREADS AND FADES in the air, and its
+   * footprint is the archetype's own: an oni's shadow is not a kunoichi's. */
+  function drawShadow(f) {
+    const alt = Math.max(0, (f.yLift || 0)) * SC;                 // metres above the card
+    const k = clampf(1 - alt / 2.1, 0, 1);                        // 1 on contact → 0 at the top of a jump
+    const g = garbOf(f), base = 0.50 * (g.foot || 1);
+    const r = base * (1 + (1 - k) * 1.35);
+    const m = M.mul(M.T(f.x * SC, 0.02, (f.z || 0) * SC), M.S(r * 2.2, 1, r * 1.3));
     if (curMesh !== 'quad') { bind('quad'); curMesh = 'quad'; }
     gl.uniformMatrix4fv(u(litProg, 'uMVP'), false, M.mul(VP, m)); gl.uniformMatrix4fv(u(litProg, 'uModel'), false, m);
-    gl.uniform3fv(u(litProg, 'uColor'), [0, 0, 0]); gl.uniform1f(u(litProg, 'uEmis'), 1); gl.uniform1f(u(litProg, 'uMat'), 0); gl.uniform1f(u(litProg, 'uAlpha'), f.dead ? 0.15 : 0.42); gl.drawArrays(gl.TRIANGLES, 0, 6); }
+    gl.uniform3fv(u(litProg, 'uColor'), [0, 0, 0]); gl.uniform1f(u(litProg, 'uEmis'), 1);
+    gl.uniform1f(u(litProg, 'uMat'), 0); gl.uniform1f(u(litProg, 'uSurf'), 2); gl.uniform1f(u(litProg, 'uFlat'), 0);
+    gl.uniform1f(u(litProg, 'uAlpha'), (f.dead ? 0.18 : 0.62) * (0.10 + 0.90 * k * k));
+    gl.drawArrays(gl.TRIANGLES, 0, 6); }
 
   function render(G) {
     if (!ok || !G) return false;
@@ -730,7 +997,20 @@ window.Ronin3D = (function () {
       const composited = post && post.begin();     // scene -> offscreen when the chain is up
       if (!composited) gl.viewport(0, 0, cv.width, cv.height);
       gl.clearColor(FOG[0], FOG[1], FOG[2], 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      t3 += 0.016;
+      /* ⛔ HITSTOP FREEZES THE RENDERER, AND IT DID NOT BEFORE.
+       * The game stops the simulation for 55–130 ms on every hit — that held frame is the whole
+       * genre — and the renderer animated straight through it on a hard-coded `t3 += 0.016`, so
+       * cloth kept flowing and foil kept walking on the one frame that is supposed to be still.
+       * It is a one-line change and it is the biggest single "Tekken" item in the file.
+       * ⚠ Real dt, not a constant: the soft-goods springs integrate against this clock, and a
+       *   fixed step under a variable frame rate is the "rig running at half speed" trap the hero
+       *   wordmark hit — it reads as mushy and invites tuning instead of fixing. */
+      const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      let dtR = tPrev ? (nowMs - tPrev) / 1000 : 0.016; tPrev = nowMs;
+      dtR = clampf(dtR, 0, 0.05);
+      if ((G.hitstop || 0) > 0) dtR = 0;
+      t3 += dtR;
+      stepSoft(G, dtR);
       const a = G.fighters[0], b = G.fighters[1];
       const midX = ((a ? a.x : 0) + (b ? b.x : 0)) / 2 * SC, sep = Math.abs(((a ? a.x : 0) - (b ? b.x : 0)) * SC);
       // ── dynamic fight-camera: gentle idle orbit, pulls in + swings on hero moments (G.camZoom / G.camDir) ──
@@ -747,10 +1027,15 @@ window.Ronin3D = (function () {
         drawScene(G); if (composited) post.end(); gl.flush(); return true;
       }
       const zoom = clampf(G.camZoom || 0, 0, 1), cdir = (G.camDir || 1) < 0 ? -1 : 1;
-      const tDist = clampf(6.8 + sep * 0.5, 6.2, 12) - zoom * 3.2, tH = 2.62 - zoom * 0.5, tAz = Math.sin(t3 * 0.22) * 0.10 + cdir * zoom * 0.36;
+      /* ⛔ THE IDLE ORBIT IS GONE — `Math.sin(t3*0.22)*0.10` drifted the camera when nothing had
+       * happened, which is DESIGN-SYSTEM §4's screensaver in the most load-bearing place in the
+       * frame. The camera now moves ONLY when the game moved it (`cineKick` → camZoom/camDir),
+       * and because the foil's hue is keyed to the view, the floor changes colour exactly when
+       * something happened. One deletion bought the stage its §4 answer. */
+      const tDist = clampf(6.8 + sep * 0.5, 6.2, 12) - zoom * 3.2, tH = 2.62 - zoom * 0.5, tAz = cdir * zoom * 0.40;
       cam.dist += (tDist - cam.dist) * 0.14; cam.h += (tH - cam.h) * 0.14; cam.az += (tAz - cam.az) * 0.16;
-      const shk = (G.shake || 0) * 0.02;
-      camPos = [midX + Math.sin(cam.az) * cam.dist + (Math.random() * 2 - 1) * shk, cam.h + (Math.random() * 2 - 1) * shk, Math.cos(cam.az) * cam.dist];
+      const sh3 = shakeOffset(G, dtR, cdir);
+      camPos = [midX + Math.sin(cam.az) * cam.dist + sh3[0], cam.h + sh3[1], Math.cos(cam.az) * cam.dist + sh3[2]];
       VP = M.mul(M.persp(0.72, cv.width / cv.height, 0.1, 70), M.look(camPos, [midX, 2.0, 0], [0, 1, 0]));
       { const fwd = norm(sub([midX, 2.0, 0], camPos)); camRight = norm(cross(fwd, [0, 1, 0])); camUp = cross(camRight, fwd); }   // billboard basis for sprite pops
 

@@ -135,8 +135,18 @@ window.Gfx2D = (function () {
       on = false;
     }
 
+    /* ── SPEED AND TIME, forwarded ────────────────────────────────────────────────────────────
+     * A 2D game holds a canvas, not a post chain — `g.post().flash(…)` works but reads as
+     * plumbing, and plumbing at a call site is how a feature ends up unreachable (the project's
+     * single most common defect). These are one-line forwards, each a no-op when the chain
+     * failed to come up, so a 2D game drives speed and time exactly the way a 3D one does.
+     * `motion` and `camera` are the velocity-driven smear; `timeScale` and `flash` also exist
+     * page-globally on GfxPost and only need calling here to make ONE canvas disagree. */
+    const via = (m, a) => { try { return (on && post && post[m]) ? post[m](a) : 0; } catch (e) { return 0; } };
     return { present, dispose, post: () => post, get on() { return on; },
              set on(v) { on = !!v && !!post; if (!v) src.style.opacity = ''; else src.style.opacity = '0'; },
+             motion: v => via('motion', v), camera: c => via('camera', c),
+             timeScale: s => via('timeScale', s), flash: o => via('flash', o),
              canvas: glcv };
   }
 
