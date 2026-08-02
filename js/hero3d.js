@@ -90,7 +90,12 @@
    *   this costs at maximum yaw is measured in scripts/build-hero-type.mjs, not assumed. */
   const CAM_D = 2.35;           // camera distance, in wordmark widths
   const OVER_X = 1.16;          // canvas overscan, so a turned letter never clips at the ends
-  const OVER_Y = 1.95;          // vertical room for the tilt and the specular bloom
+  /* ⚠ WAS 1.95, and that was sized for a 9.7:1 BAND. Ninety-five percent of a 31px-tall box is
+   *   30px of slack and nobody notices; ninety-five percent of a SQUARE 289px block is 274px of
+   *   canvas hanging below the mark, which is what put STUDIOS on top of the SuperRare line.
+   *   The block turns at most ±19° about y and a few degrees about x, so it needs the same modest
+   *   room top and bottom as it does left and right. Matching OVER_X is the honest value. */
+  const OVER_Y = 1.16;          // vertical room for the tilt and the specular bloom
   /* ⚑ THE SWAY IS CENTRED OFF-AXIS, and that is the difference between 3D type and a picture of
    *   type. Dead-on, an extrusion shows NO side wall and no bevel highlight — the first build
    *   swayed through 0° and for the fraction of a second it passed through square it was

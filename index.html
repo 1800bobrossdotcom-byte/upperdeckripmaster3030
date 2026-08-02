@@ -107,29 +107,43 @@
    * reproduce the widths the old face rendered at (671px at 1280, 243px at 390), not by eye. */
   @font-face{ font-family:'Anton'; src:url(fonts/anton.woff2) format('woff2');
     font-weight:400; font-style:normal; font-display:swap; }
-  .wordmark{ display:block; margin:0 auto; font-family:'Anton',var(--fat);
-    font-weight:900; letter-spacing:-.012em; line-height:.92; text-align:center;
+  /* ⛔ THE MARK IS A SQUARE BLOCK, three lines, each justified to the same measure.
+   * Artist: "the logo still sucks — make it a square." It was one line at 9.7:1, which on a 390px
+   * phone rendered the studio's name at 270 x 31 px — thirty-one pixels, which is the real reason
+   * it was not working. A band also has nowhere to live: app icon, favicon, OG card, SuperRare
+   * avatar and token image are all square.
+   * ⚑ EACH LINE IS SCALED SO ITS INK SPANS THE SAME WIDTH. Measured in this exact face at 100px:
+   *   RIPMASTER 404.4 · 3030 192.9 · STUDIOS 291.4, so the sizes are 1 : 2.0968 : 1.3877. That
+   *   gives the block two hard vertical edges and makes it read as a STAMP. ⚠ 3030 therefore comes
+   *   out the largest — that is a CONSEQUENCE of justifying, not a decision; do not "fix" it.
+   * ⚑ Cap height is 89 at 100px for all three, so the justified stack measures 399.1 tall against
+   *   404.4 wide — 0.987, square within 1.3%, and `aspect-ratio:1` closes the rest. That number is
+   *   why three lines works and four does not (four overshoots to 1:1.89 and no gap can shrink a
+   *   block). scripts/blender/build-hero-type.py solves the same square from measured ink.
+   * ⛔ STILL ONE WORD: the DOM text is `ripmaster3030studios` with no spaces — the name law. A
+   *   line break is not a space, so this is typographic, exactly as the 3030 balance was. */
+  .wordmark{ display:grid; justify-items:center; align-content:center; aspect-ratio:1;
+    margin:0 auto; font-family:'Anton',var(--fat);
+    font-weight:900; letter-spacing:-.012em; line-height:.89; text-align:center;
     text-transform:uppercase; white-space:nowrap; -webkit-user-select:none; user-select:none;
     background:linear-gradient(178deg,#eafff2 4%,#2bff80 24%,#27f7e4 46%,#7aa8ff 60%,#ff2ad9 80%,#ffd23b 96%);
     -webkit-background-clip:text; background-clip:text; color:transparent;
     -webkit-text-stroke:1.5px rgba(2,10,6,.55);
     filter:drop-shadow(0 2px 0 rgba(2,10,6,.9)) drop-shadow(0 0 22px rgba(43,255,128,.42))
            drop-shadow(0 0 44px rgba(255,42,217,.30)); }
-  /* ⚠ `3030` IS NOT A SUBSCRIPT. It was `font-size:.62em` and read as an imbalance in the middle
-   * of the word, because it was one — the name is RIPMASTER 3030 STUDIOS, three parts of equal
-   * standing. ⛔ Equal SIZE, still ONE WORD: the DOM string below stays `ripmaster3030studios`
-   * with no spaces, which is the name law. The digits keep a hair of positive tracking only
-   * because Anton's numerals are narrower than its caps and set tight without it.
-   * ⚑ scripts/blender/build-hero-type.py's RUNS must carry the same three sizes — the 3D mesh is
-   * cut to land on the box this rule lays out. build-hero-type.mjs asserts they agree. */
-  .wordmark .sm{ font-size:1em; letter-spacing:.012em; }
+  .wordmark span{ display:block; line-height:.89; }
+  .wordmark .l2{ font-size:2.0968em; }
+  .wordmark .l3{ font-size:1.3877em; }
   /* ⚠ `width:auto` is not optional here. Both of these classes previously styled an <img> with a
    * fixed width (min(80vw,760px)); inherited by a text node with white-space:nowrap that clips
    * the last word — the first render read "RIPMASTER3030STUDIO" with the S cut off by a torch.
    * Type sizes from its own content; it must never be given the bitmap's box. */
-  .marquee-art.wordmark{ width:auto; max-width:min(92vw,900px); font-size:clamp(27px,7.7vw,84px); }
-  .intro-wordmark.wordmark{ width:auto; max-width:92vw; font-size:clamp(24px,6.9vw,66px); }
-  @media (max-width:560px){ .wordmark{ white-space:normal; line-height:1.02; } }
+  /* ⚠ Sized by WIDTH now, not by font-size-and-hope: the block is square, so its height follows.
+   * The em below is the RIPMASTER line, and every other line is a multiple of it. */
+  .marquee-art.wordmark{ width:min(74vw,430px); max-width:none; font-size:calc(min(74vw,430px)/4.044); }
+    .intro-wordmark.wordmark{ width:min(66vw,360px); max-width:none; font-size:calc(min(66vw,360px)/4.044); }
+  /* ⚠ No small-screen reflow rule any more — the block is ALREADY three lines and square, which
+   * is the whole point. The old rule let a one-line wordmark wrap arbitrarily on a phone. */
   /* ── the 3D layer (js/hero3d.js) ──────────────────────────────────────────────────────────
    * The canvas is created, sized and positioned entirely by that file, from the wordmark's own
    * measured box — deliberately, so the module works unchanged on any page that has a `.wordmark`
@@ -573,7 +587,7 @@
       <div class="presents intro-presents">
         <div class="lovebeing-logo" role="img" aria-label="Lovebeing"></div>
         <div class="presents-lbl">presents</div>
-        <div class="intro-wordmark wordmark" role="img" aria-label="ripmaster3030studios">ripmaster<span class="sm">3030</span>studios</div>
+        <div class="intro-wordmark wordmark" role="img" aria-label="ripmaster3030studios"><span class="l1">ripmaster</span><span class="l2">3030</span><span class="l3">studios</span></div>
         <a class="built-line" href="https://superrare.com" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
           built on
           <img class="sr-logo" src="logosuperare.svg" alt="SuperRare" width="127" height="20" decoding="async">
@@ -623,7 +637,7 @@
         <div class="presents-lbl">presents</div>
         <div class="marquee-sign">
           <img class="torch" src="torch.gif" alt="" aria-hidden="true">
-          <div class="marquee-art wordmark" role="img" aria-label="ripmaster3030studios">ripmaster<span class="sm">3030</span>studios</div>
+          <div class="marquee-art wordmark" role="img" aria-label="ripmaster3030studios"><span class="l1">ripmaster</span><span class="l2">3030</span><span class="l3">studios</span></div>
           <img class="torch" src="torch.gif" alt="" aria-hidden="true">
         </div>
         <a class="built-line" href="https://superrare.com" target="_blank" rel="noopener noreferrer">

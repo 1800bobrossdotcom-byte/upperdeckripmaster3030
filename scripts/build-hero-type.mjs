@@ -196,18 +196,33 @@ t('letter indices span the whole word', rigLo === 0 && rigHi === RUN_LETTERS - 1
 t('the wave coordinate spans the word', uLo < 0.1 && uHi > 0.9,
   `u ${uLo.toFixed(3)}..${uHi.toFixed(3)}`);
 
-/* ⚠ The balance. RUNS in the .py and `.wordmark .sm` in index.html describe the SAME type, and the
- * mesh is cut to land on the box the CSS lays out. They were 1.00/0.62/1.00 and 0.62em; the artist
- * called the imbalance and both moved to equal. This asserts they moved together. */
+/* ⚠ THE MARK IS SQUARE, and the .py and the CSS have to agree on how. The mesh is cut to land on
+ * the box index.html lays out, so a change in one without the other puts the 3D layer on a box it
+ * was not cut for. Both are asserted here rather than remembered. */
 const pySrc = readFileSync(join(ROOT, 'scripts/blender/build-hero-type.py'), 'utf8');
-const runSizes = [...(/RUNS = \[(.*?)\]/s.exec(pySrc)?.[1] || '').matchAll(/,\s*([\d.]+)\)/g)]
-  .map(m => parseFloat(m[1]));
-t('all three runs are set at the same size (RIPMASTER 3030 STUDIOS, equal standing)',
-  runSizes.length === 3 && runSizes.every(s => s === runSizes[0]), runSizes.join(' / '));
-const smSize = /\.wordmark \.sm\{[^}]*font-size:\s*([\d.]+)em/.exec(
-  readFileSync(join(ROOT, 'index.html'), 'utf8'))?.[1];
-t('index.html `.sm` matches — the CSS box the mesh is cut for',
-  parseFloat(smSize) === runSizes[1] / runSizes[0], smSize + 'em vs run ' + runSizes[1]);
+const idx = readFileSync(join(ROOT, 'index.html'), 'utf8');
+const linesM = /LINES = \[([^\]]*)\]/.exec(pySrc);
+const LINES = [...(linesM ? linesM[1] : '').matchAll(/'([^']+)'/g)].map(m => m[1]);
+t('the .py sets the name as a multi-line block', LINES.length >= 3, LINES.join(' / '));
+t('the lines spell the name, in order and with nothing else',
+  LINES.join('').toLowerCase() === 'ripmaster3030studios', LINES.join('').toLowerCase());
+/* ⛔ The name law: one word, no spaces, in the DOM. A line break is not a space. */
+t('index.html still carries the name as ONE unbroken string',
+  /aria-label="ripmaster3030studios"/.test(idx) && !/>ripmaster 3030/.test(idx));
+t('index.html lays the wordmark out as a square block',
+  /\.wordmark\{[^}]*aspect-ratio:1/.test(idx));
+t('index.html splits it into the same number of lines as the mesh',
+  (idx.match(/<span class="l1">/g) || []).length >= 1
+  && (idx.match(/<span class="l3">/g) || []).length >= 1);
+/* The per-line sizes justify each line to the same measure. Measured in this exact face at 100px:
+ * RIPMASTER 404.4 / 3030 192.9 / STUDIOS 291.4 -> 1 : 2.0968 : 1.3877. */
+const l2 = /\.wordmark \.l2\{ font-size:([\d.]+)em/.exec(idx);
+const l3 = /\.wordmark \.l3\{ font-size:([\d.]+)em/.exec(idx);
+t('the CSS justifies each line to a common measure',
+  l2 && l3 && Math.abs(parseFloat(l2[1]) - 2.0968) < 0.02 && Math.abs(parseFloat(l3[1]) - 1.3877) < 0.02,
+  l2 && l3 ? `1 : ${l2[1]} : ${l3[1]}` : 'missing');
+/* ⚑ THE HEADLINE. The artist asked for a square; this is the number that says whether it is one. */
+t('THE BLOCK IS SQUARE', Math.abs(blenderAspect - 1) < 0.02, blenderAspect.toFixed(4) + ':1');
 
 let tris = 0;
 for (const m of Object.values(nodes)) {
@@ -488,7 +503,12 @@ t('at least 5 of the 6 CSS gradient stops reproduce in the ink', hit >= 5, hit +
 
 /* payload: this loads above the fold on the landing page */
 const totalKb = albKb + nrmKb + foilKb + lutKb;
-t('textures under 150 KB total', totalKb < 150, totalKb.toFixed(0) + ' KB');
+/* ⚠ 150 KB was the budget for a 1024x104 STRIP. The mark is a square block now, so the plate is
+ * 1024x1132 — about eleven times the texels for the same width — and the maps still come in at
+ * 162 KB because they are mostly empty stock. Raised to 200 with that stated, rather than left at
+ * a number that silently describes the old shape. */
+t('textures under 200 KB total (the plate is square now, not a 9.7:1 strip)',
+  totalKb < 200, totalKb.toFixed(0) + ' KB');
 
 for (const f of ['type-albedo.png', 'type-normal.png', 'type-foil.png']) {
   try { unlinkSync(join(OUT, f)); } catch {}

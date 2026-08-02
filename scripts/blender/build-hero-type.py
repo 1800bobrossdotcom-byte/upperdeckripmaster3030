@@ -96,16 +96,29 @@ FOIL_QUALITY = int(os.environ.get('HERO_FOIL_QUALITY', '92'))
 TEX_W = int(os.environ.get('HERO_TEX_W', '1024'))
 LUT_W = 256
 
-# ⚑ The word is set in three runs because the CSS is. The runs survive only as a SIZE and a
-#   kerning-context boundary now; the glyphs themselves are placed one at a time (see build_type).
-# ⚠ ALL THREE RUNS ARE 1.00, and that is the artist's call: the name is RIPMASTER 3030 STUDIOS,
-#   three parts of EQUAL STANDING. v2 carried ('3030', 0.62) — mirroring `.sm` in the CSS — which
-#   set the digits as a subscript in the middle of the word and read as an imbalance, because it
-#   was one. ⛔ Equal SIZE, still ONE WORD: the DOM string stays `ripmaster3030studios` with no
-#   spaces (the name law), so this is a typographic fix and not a rename. Change this and you must
-#   change `.wordmark .sm` in index.html in the same commit — the mesh is cut to land on the box
-#   that CSS lays out, and build-hero-type.mjs asserts the two agree.
-RUNS = [('RIPMASTER', 1.00), ('3030', 1.00), ('STUDIOS', 1.00)]
+# ⛔ THE MARK IS A SQUARE. Artist: "the logo still sucks — make it a square."
+#
+# It was ONE LINE at 9.7:1, which measured on an iPhone at 390 CSS px lands the studio's own name
+# at **270 x 31 px**. Thirty-one pixels. That is the real reason it "just is not working", and a
+# 9.7:1 mark also has nowhere to live: an app icon, a favicon, an OG card, a SuperRare avatar and
+# a token image are all SQUARE, and this studio did not have one.
+#
+# ⚑ THREE LINES, EACH JUSTIFIED TO THE SAME MEASURE. Every line is scaled independently so its ink
+#   spans exactly the same width, which gives the block two hard vertical edges and makes it read
+#   as a STAMP — a crate stencil, a die — which is the material language already in
+#   DESIGN-SYSTEM.md §1. ⚠ RIPMASTER therefore comes out small and 3030 large; that size
+#   difference is a CONSEQUENCE of the justification, not a decision anyone typed. Do not "fix" it.
+# ⛔ STILL ONE WORD. `ripmaster3030studios` stays one string with no spaces in the DOM (the name
+#   law). A line break is not a space, so this is typographic, exactly as the 3030 balance was.
+#
+# ⚠ THE BREAKDOWN IS NOT FREE — it is bounded by arithmetic, and both bounds were measured:
+#     ['RIPMASTER','3030','STUDIOS']            ink 0.52 of the width  -> too WIDE
+#     ['RIP','MASTER','3030','STUDIOS']         ink 1.89 of the width  -> too TALL
+#   Splitting a line makes its scale jump, so the block's height is roughly proportional to
+#   sum(1/glyphs-per-line). Three lines leaves room for the gap to make up the difference; four
+#   overshoots it and no gap can shrink a block. The square is enforced below from MEASURED ink.
+LINES = ['RIPMASTER', '3030', 'STUDIOS']
+LINE_GAP_MIN = 0.010     # as a fraction of the block width; below this the lines crowd
 
 EXTRUDE = 0.055          # half-depth, in units where the cap height is ~0.516
 EXTRUDE_JITTER = 0.22    # per-character, deterministic — the ragged back of a hand-set stamp
@@ -242,20 +255,32 @@ def build_type(font_path):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     fnt = bpy.data.fonts.load(font_path)
 
-    chars = [(ch, size, ri) for ri, (body, size) in enumerate(RUNS) for ch in body]
+    # ── pass 1: lay each LINE out at unit size, then justify it to a common measure ──────────
+    rows = []
+    for body in LINES:
+        cur, glyphs = 0.0, []
+        for i, ch in enumerate(body):
+            w, x0 = ink_span(fnt, ch, 1.0)
+            glyphs.append({'ch': ch, 'x': cur - x0, 'w': w, 'mid': cur + w / 2})
+            cur += w
+            if i + 1 < len(body):
+                cur += natural_gap(fnt, ch, body[i + 1]) * 1.0
+        rows.append({'glyphs': glyphs, 'w': cur or 1.0})
 
-    # pass 1 — place every glyph, measuring the font's own gap at each junction
-    place, cursor = [], 0.0
-    for i, (ch, size, ri) in enumerate(chars):
-        w, x0 = ink_span(fnt, ch, size)
-        place.append({'ch': ch, 'size': size, 'x': cursor - x0, 'w': w, 'mid': cursor + w / 2})
-        cursor += w
-        if i + 1 < len(chars):
-            nch, nsize, nri = chars[i + 1]
-            # a junction straddles two sizes; split the difference rather than pick one
-            scale = nsize if nri == ri else (size + nsize) / 2
-            cursor += natural_gap(fnt, ch, nch) * scale
-    total = cursor
+    MEASURE = 1.0
+    for r in rows:
+        r['k'] = MEASURE / r['w']
+
+    # Provisional stack. The spacing here does not have to be right — the square is enforced from
+    # measured ink after the glyphs are built, which is the only place the real heights exist.
+    place, y = [], 0.0
+    for li_, r in enumerate(rows):
+        for g in r['glyphs']:
+            place.append({'ch': g['ch'], 'size': r['k'], 'line': li_,
+                          'x': g['x'] * r['k'] - MEASURE / 2.0, 'y': y,
+                          'w': g['w'] * r['k'], 'mid': g['mid'] * r['k'] / MEASURE})
+        y -= MEASURE
+    total = MEASURE
 
     # pass 2 — build each glyph solid, with its own depth and its own die
     objs = []
@@ -263,12 +288,15 @@ def build_type(font_path):
         # ⚑ dome: a smooth forward bow across the word, NOT per-letter noise. Random z would read
         #   as letters that failed to line up; an arc reads as foil laid over a proud plate, and
         #   it is what makes the perspective legible the instant the word turns.
-        u = p['mid'] / total if total else 0.5
-        dome = DOME * EXTRUDE * (1.0 - (2.0 * u - 1.0) ** 2)
+        # dome across the BLOCK in BOTH axes — foil laid over a proud plate, not a cylinder.
+        u = p['mid']
+        v = (p['line'] + 0.5) / max(1, len(LINES))
+        dome = DOME * EXTRUDE * (1.0 - (2.0 * u - 1.0) ** 2) * (1.0 - (2.0 * v - 1.0) ** 2) * 1.6
         ext = EXTRUDE * (1.0 + (hash01(i) * 2.0 - 1.0) * EXTRUDE_JITTER)
         cu = _text_curve(fnt, p['ch'], p['size'], extrude=ext, die=DIES[i % len(DIES)])
         ob = bpy.data.objects.new('g%02d' % i, cu)
         ob.location.x = p['x']
+        ob.location.y = p['y']
         ob.location.z = dome
         bpy.context.collection.objects.link(ob)
         objs.append(ob)
@@ -304,6 +332,58 @@ def build_type(font_path):
             else:
                 dropped += 1                                # rear cap / rear chamfer, never seen
         obe.to_mesh_clear()
+
+    # ⚑ SQUARE IS ENFORCED FROM MEASURED INK, and that is the whole trick. The layout above stacks
+    #   lines using cap heights probed off a curve, and those under-predicted what the glyphs
+    #   actually build by about half — close enough to look plausible and nowhere near square.
+    #   Tuning the gap until an assertion passes would stop being true the moment a glyph, a line
+    #   or the typeface changed. So the real per-line ink extents are measured HERE, from the built
+    #   vertices, and the lines are re-stacked with the one gap that makes height equal width.
+    #   Exact, closed-form, and no second Blender pass.
+    nrows = len(rows)
+    lyl, lyh = [1e9] * nrows, [-1e9] * nrows
+    for i, gi in enumerate(vert_letter):
+        ln = place[gi]['line']
+        yv = verts[i][1]
+        if yv < lyl[ln]: lyl[ln] = yv
+        if yv > lyh[ln]: lyh[ln] = yv
+    xs0 = [v[0] for v in verts]
+    real_w = (max(xs0) - min(xs0)) or 1.0
+    line_h = [max(0.0, lyh[k] - lyl[k]) for k in range(nrows)]
+    ink_real = sum(line_h)
+    # ⚑ THE MIDDLE LINE IS INSET, AND THE INSET IS SOLVED. Justified in three lines, this name's
+    #   ink measures 1.085x its own width — 8.5% too tall to be square, and no gap can shrink a
+    #   block. Rather than accept "nearly square" or break a word across a line, the SHORTEST line
+    #   (fewest glyphs, therefore the largest type, therefore the block's accent) is scaled in
+    #   about its own centre until the sum fits exactly. RIPMASTER and STUDIOS keep the two hard
+    #   vertical edges; 3030 sits inside them. That is a stamp, not a compromise — and the factor
+    #   is derived from measured ink, so it stays correct if the typeface or the name changes.
+    GAP_WANT = 0.028
+    accent = min(range(nrows), key=lambda k: len(LINES[k]))
+    need = real_w - GAP_WANT * real_w * (nrows - 1)
+    others = ink_real - line_h[accent]
+    inset = 1.0
+    if ink_real + GAP_WANT * real_w * (nrows - 1) > real_w and line_h[accent] > 1e-6:
+        inset = max(0.35, (need - others) / line_h[accent])
+        cy_a = (lyh[accent] + lyl[accent]) / 2.0
+        verts = [((v[0] * inset) if place[vert_letter[i]]['line'] == accent else v[0],
+                  (cy_a + (v[1] - cy_a) * inset) if place[vert_letter[i]]['line'] == accent else v[1],
+                  v[2]) for i, v in enumerate(verts)]
+        lyl[accent] = cy_a + (lyl[accent] - cy_a) * inset
+        lyh[accent] = cy_a + (lyh[accent] - cy_a) * inset
+        line_h[accent] *= inset
+        ink_real = sum(line_h)
+    gap_r = (real_w - ink_real) / max(1, nrows - 1)
+    if gap_r < LINE_GAP_MIN * real_w:
+        print('  SQUARE IMPOSSIBLE ink %.4f vs width %.4f — change LINES' % (ink_real, real_w))
+        gap_r = LINE_GAP_MIN * real_w
+    cur_t, shift = real_w / 2.0, [0.0] * nrows
+    for k in range(nrows):
+        shift[k] = cur_t - lyh[k]
+        cur_t -= line_h[k] + gap_r
+    verts = [(v[0], v[1] + shift[place[vert_letter[i]]['line']], v[2]) for i, v in enumerate(verts)]
+    print('  SQUARE heights=%s gap=%.4f ink=%.4f width=%.4f inset=%.4f on "%s"'
+          % ('|'.join('%.3f' % h for h in line_h), gap_r, ink_real, real_w, inset, LINES[accent]))
 
     xs = [v[0] for v in verts]
     ys = [v[1] for v in verts]
@@ -872,7 +952,7 @@ def main():
           + '  (dropped %d rear polys)' % st['dropped'])
     print('  DEPTH chars=%d extrude %.5f..%.5f dome %.5f'
           % (st['chars'], st['ext_lo'], st['ext_hi'], st['dome']))
-    print('  RIG letters=%d runs=%s' % (st['letters'], ','.join(str(sz) for _b, sz in RUNS)))
+    print('  RIG letters=%d lines=%s' % (st['letters'], '|'.join(LINES)))
     for k, L in enumerate(letters):
         print('  LETTER %02d %s cx=%+.5f y0=%+.5f u=%.5f hw=%.5f'
               % (k, L['ch'], L['cx'], L['y0'], L['u'], L['hw']))
