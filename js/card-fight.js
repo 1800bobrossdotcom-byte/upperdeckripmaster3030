@@ -188,12 +188,34 @@ window.CardFight = (function () {
       if (!cv) return;
       cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
     resize(); const onR = () => resize(); window.addEventListener('resize', onR);
-    /* Promote the fight to the GPU: same 2D draw calls, presented through the shared post
-     * chain so the blades/hits/flashes bloom like the 3D games. Null when WebGL or GfxPost
-     * is missing, and every call site guards — the fight then plays exactly as before.
-     * Not used on the 3D path: there the geometry IS on the GPU and Gfx2D's whole job — upload a
-     * CPU-rasterised canvas and post-process it — would be a second full-screen chain for nothing. */
-    const GPU = (cv && window.Gfx2D) ? Gfx2D.attach(cv, { preset: 'neon', zIndex: 2 }) : null;
+    /* ⛔ THE BLACK RECTANGLE. `Gfx2D.attach(cv, …)` USED TO BE HERE, AND IT ERASED THE FACE-OFF.
+     *
+     * The artist's report was "there is nothing, but a quick blip of a black screen", and this
+     * was it — not the VS beat, not a stall. `js/gfx-2d.js` asks for its GL context with
+     * `{alpha:false}` and then hides the source with `opacity:0`. That is CORRECT for every
+     * other caller: in dogfight-classic, riprocketer-classic and index.html the 2D canvas IS the
+     * whole picture, and an opaque presentation of it is exactly right.
+     *
+     * ⚑ `.cf-cv` IS NOT A PICTURE. It is a mostly-transparent sheet of projectiles laid OVER the
+     *   DOM card stacks — the cards, the labels, the VS and the Σ totals are real DOM underneath
+     *   it. Presenting it opaquely paints flat black over the entire arena. Measured, same fight,
+     *   same 6 cards present in the DOM throughout, only this line differing:
+     *        with Gfx2D: arena mean luma  0.7, RMS  2.5   ← a black rectangle
+     *        without   : arena mean luma 38.4, RMS 52.7   ← the fight
+     *   The cards never went anywhere; they were painted over.
+     *
+     * ⚠ AND IT IS NOT FIXABLE BY FLIPPING `alpha` — that is why this is a removal and not a
+     *   patch. GfxPost's composite lays vignette, grain and dither over EVERY pixel, so a
+     *   transparent source comes back with an opaque dark frame stamped on it. Making the shared
+     *   chain alpha-correct is a redesign of tuning CLAUDE.md records as measured (the 0.94
+     *   highlight knee, the composite order) and shared with three other games.
+     *
+     * Nothing of substance is lost: `drawShot`/`drawFx` already glow through `ctx.shadowColor` +
+     * `shadowBlur`, which is why the fight reads correctly without the post chain. The rule this
+     * leaves behind — Gfx2D PRESENTS A PICTURE; it must never be attached to a canvas that is an
+     * overlay on top of other content. `npm run test:cardlayers` asserts the arena still has ink
+     * while the fight is running, so this cannot come back silently. */
+    const GPU = null;
 
     // fighters — one per staked card, alternating fire on a rarity-driven cadence
     const anchor = side => ({ x: side === 'you' ? W * 0.20 : W * 0.80, y: H * 0.52 });

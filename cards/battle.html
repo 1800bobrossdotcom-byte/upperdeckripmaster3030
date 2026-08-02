@@ -166,9 +166,29 @@
   .tstake-bal b{ font-family:var(--fat); color:var(--amber); }
 
   /* ── VS face-off: YOU vs THE HOUSE — tiered card stacks each side, info in the middle ── */
+  /* ⛔ THIS WAS NOT A VEIL, IT WAS A TINT. The top stop was `rgba(58,10,94,.62)` — 38% of the
+   *    arena page came straight through, and the page's own foil wordmark is the biggest,
+   *    brightest thing on it, sitting exactly where the overlay is thinnest. Measured on the
+   *    SETTLED overlay (every animation finished, so this is not a fade caught mid-flight): the
+   *    wordmark region kept RMS contrast 38.9 against the naked page's 62.0 — 63% of it — with a
+   *    peak luma of 239/255. You could read "THE ARENA" through the face-off.
+   * ⚑ The gradient stays: a flat black scrim would throw away the one thing the tint got right,
+   *    which is that the arena is still THERE behind the fight. IT IS THE ALPHA THAT WAS WRONG,
+   *    NOT THE IDEA, and the alpha is the only thing changed here. Measured on the same clean
+   *    page-only regions before and after, against the naked page:
+   *          the wordmark's "THE"   rms 64.7  →  was 14.8 (peak luma 74)  →  now 3.1 (peak 30)
+   *          the topbar nav strip   rms 38.5  →  was  8.6 (peak luma 43)  →  now 4.4 (peak 27)
+   * ⚠ THE BLUR IS DELIBERATELY LEFT AT 6 px. Raising it to 9 px only took the wordmark from 3.1
+   *   to 2.8 rms — nothing, once the alpha is right — and a full-screen `backdrop-filter` is a
+   *   per-frame cost on every device that draws this overlay (measured here at roughly HALF the
+   *   face-off's frame rate, and this container is software rendering, so read that as a
+   *   direction and not a number). Spending frames to win 0.3 rms is the wrong trade in the one
+   *   place on the site whose whole defect was that the player never got enough painted frames.
+   *   Guarded by `npm run test:cardlayers`. */
   .faceoff{ position:fixed; inset:0; z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center;
     gap:clamp(8px,2vh,16px); padding:16px clamp(6px,3vw,22px); overflow-y:auto; -webkit-overflow-scrolling:touch; --px:0; --py:0;
-    background:radial-gradient(120% 100% at 50% 0%, rgba(58,10,94,.62), rgba(1,6,3,.95) 60%, #010402 100%); backdrop-filter:blur(6px); }
+    background:radial-gradient(120% 100% at 50% 0%, rgba(50,9,82,.93), rgba(1,6,3,.985) 58%, #010402 100%);
+    backdrop-filter:blur(6px) saturate(.7); -webkit-backdrop-filter:blur(6px) saturate(.7); }
   .faceoff.show{ display:flex; animation:foIn .28s ease-out; }
   @keyframes foIn{ from{ opacity:0; } }
   .fo-weather{ text-align:center; font-size:11px; letter-spacing:.26em; text-transform:uppercase; color:#5fcf8f; }
@@ -880,55 +900,137 @@
       fo.addEventListener('keydown', e => { if (e.key === 'Escape') finish(); });
 
       /* ── THE VS BEAT ─────────────────────────────────────────────────────────────────────────
-       * ⛔ THIS USED TO BE `wait(560)` THEN `wait(700)` — 1.26 s of WALL CLOCK, and the artist's
-       *    report was "there is nothing, but a quick blip of a black screen". Both halves of that
-       *    were true and they had different causes:
-       *      · 1.26 s is too short for a face-off. Asked for 2–3 s; this is ~2.4 s.
-       *      · and a `wait()` measures the CLOCK, not the SCREEN. `Card3D.engine()`'s 2.26 MB
-       *        bundle evaluates SYNCHRONOUSLY, and warming it on the SLAM button's `pointerdown`
-       *        put that eval inside this window — so the timers expired against a frozen main
-       *        thread, the CSS animations elapsed without ever painting, and the fight took the
-       *        stage. Measured before the fix: the overlay did not paint until 3.7 s after the
-       *        click, with 29 s of long tasks in the window. The backdrop is a plain gradient the
-       *        compositor can draw without the main thread, which is exactly why what survived
-       *        was a black rectangle.
-       * ⚑ SO THE BEAT IS GATED ON THE ANIMATION, NOT ON A TIMER. `strike.finished` resolves when
-       *   the VS mark has actually finished moving; if the thread stalls, the beat waits for the
-       *   real thing instead of expiring through it. The timer stays as a CEILING so a browser
-       *   that never resolves the promise (or `prefers-reduced-motion`, where there is no
-       *   animation to await) cannot hang the arena — fail-open, like everything else here. */
-      const beat = async (ms, anim) => {
-        const floor = wait(ms);
-        if (!anim) return floor;
-        // whichever is LONGER: the rendered animation, or the floor. Never shorter than both.
-        await Promise.all([floor, Promise.race([anim.finished.catch(() => {}), wait(ms + 900)])]);
+       * ⛔ THE "BLACK SCREEN" HALF OF THE ARTIST'S REPORT WAS NEVER IN HERE AT ALL, and chasing it
+       *    in here is why the first fix did not land. It was `js/card-fight.js` handing the
+       *    projectile canvas to `Gfx2D`, which presents opaquely and painted flat black over the
+       *    whole arena — the cards were in the DOM the entire time. See the note at that call site.
+       * ⛔ THE OTHER HALF — "the vs animation should be about 2–3 seconds long" — is a statement
+       *    about the ANIMATION, and the first fix answered it by lengthening the WAIT from 1.26 s
+       *    to 2.39 s while adding almost no movement. The map of what was actually moving is in
+       *    the choreography below; 1.06 s of that window was literal stillness.
+       * ⚑ A BEAT IS SPENT IN PAINTED FRAMES, NOT IN MILLISECONDS. `wait()` measures the clock,
+       *   and the clock runs while the main thread is frozen — that is how 1.26 s of "drama"
+       *   became a blink. So a beat ends only when its floor has elapsed AND `frames` rAF
+       *   callbacks have actually been serviced AND, where there is one, the animation itself
+       *   says it has finished.
+       * ⚠ THE CEILING IS NOT OPTIONAL, and the case that proves it is a BACKGROUND TAB: a hidden
+       *   tab throttles rAF to nothing while `setTimeout` keeps firing, so a purely frame-gated
+       *   beat would park the arena forever behind another tab. Fail-open, like everything here. */
+      const rafs = n => new Promise(res => { let i = 0;
+        const step = () => { if (++i >= n) res(); else requestAnimationFrame(step); };
+        requestAnimationFrame(step); });
+      /* ⚠ THE FRAME COUNTS ARE SMALL ON PURPOSE. The gate exists to stop a beat being spent
+       *   against a FROZEN thread, not to hold the arena hostage to a slow one: at 10 fps four
+       *   frames is 400 ms, comfortably inside the 940 ms floor, so a real device never notices
+       *   the gate at all and the beats butt up against each other exactly as choreographed. Only
+       *   below ~4 fps does the gate start extending a beat, and below 4 fps there is no
+       *   animation to protect anyway — which is what the ceiling is for. */
+      const beat = async (ms, frames, anim) => {
+        const parts = [wait(ms)];
+        if (frames > 0) parts.push(rafs(frames));
+        if (anim && anim.finished) parts.push(anim.finished.catch(() => {}));
+        await Promise.race([Promise.all(parts), wait(ms + 700)]);
       };
+      /* Never throws and never returns undefined-shaped junk: an element that is gone, or a
+       * browser without `Element.animate`, must cost the choreography a movement and nothing
+       * more. `beat` treats a null the same as no animation at all. */
+      const move = (el, kf, opt) => { try { return (el && el.animate) ? el.animate(kf, opt) : null; }
+                                      catch (e) { return null; } };
       (async () => {
         const arena = fo.querySelector('.fo-arena');
-        const strike = (() => { try {
-          return fo.querySelector('.fo-vs-mark').getAnimations()[0] || null;
-        } catch (e) { return null; } })();
+        const youSide = fo.querySelector('.fo-side.you'), houseSide = fo.querySelector('.fo-side.house');
+        const mark = fo.querySelector('.fo-vs-mark');
+        const strike = (() => { try { return mark.getAnimations()[0] || null; } catch (e) { return null; } })();
 
-        // 1 · the stacks land and the VS strikes  (CSS owns this; we wait for it to be REAL)
-        await beat(reduce ? 60 : 1150, reduce ? null : strike);
+        /* ── THE CHOREOGRAPHY ────────────────────────────────────────────────────────────────
+         * ⛔ THE PREVIOUS VERSION PADDED THE CLOCK AND CALLED IT A BEAT, and that is why the
+         *    artist said it was still not working. Mapped on the real page by recording every
+         *    animation's start and duration on the document timeline (exact, frame-rate
+         *    independent), 2.4 s of face-off contained:
+         *        0 →  940 ms  ██ the collision
+         *      940 → 1567 ms  ░░ NOTHING MOVES  (627 ms)
+         *     1567 → 1967 ms  ██ a 400 ms brightness flash
+         *     1967 → 2400 ms  ░░ NOTHING MOVES  (433 ms)
+         *     2400 → 2880 ms  ██ a 2.8% scale — ~18 px over 480 ms, below the threshold of noticing
+         *    1.06 SECONDS OF LITERAL STILLNESS, and the only genuine animation was the 0.94 s
+         *    entrance that was already there before the "fix". "2–3 seconds long" is a statement
+         *    about the ANIMATION. Lengthening the wait does not lengthen the animation.
+         * ⚑ So every beat below now MOVES SOMETHING, and the moves butt up against each other —
+         *    the union of them is continuous from 0 to ~2.7 s with no gap a person can see.
+         * ⚑ DESIGN-SYSTEM §4 — what moves, and why it PHYSICALLY moved: two gangs walk into a
+         *    ring and shove. They collide (§1), they lean on each other and the mark takes the
+         *    load, the tally lands, they break apart and the view closes in. Every movement below
+         *    is one of those; none of it is a fade.
+         * ⚠ Everything uses the INDEPENDENT `translate` / `scale` properties, never `transform`.
+         *    `.fo-side` already runs `foInL`/`foInR` on `transform`, and `js/card-fight.js`'s 2D
+         *    path drives the screen shake through `arena.style.transform` — a `fill:'both'`
+         *    animation on `transform` outranks that inline style and silently eats the shake.
+         *    `translate`/`scale` compose with `transform` instead of fighting it.
+         * ⚠ REDUCED MOTION GETS A FACE-OFF, NOT A SKIPPED ONE. It used to collapse to ~160 ms of
+         *   clock, which is not "fast" — measured, the first thing that moved on that path was
+         *   CardFight's own "K.O.", so a player with the OS setting on never saw the two stacks
+         *   or their Σ totals at all. `prefers-reduced-motion` asks for no MOTION; it does not ask
+         *   for no TIME. The reduce numbers below hold a perfectly still frame for ~1.24 s —
+         *   long enough to read both totals, and `animateCount` needs ~450 ms of that just to
+         *   finish counting — while creating not one animation.
+         * ⚠ EVERY MOVE IS LONGER THAN THE BEAT THAT WAITS FOR IT, ON PURPOSE — 940/880, 740/660,
+         *   580/500. The overlap is what makes the motion CONTINUOUS rather than merely
+         *   back-to-back: a beat resolves on a timer, the next move starts on the following
+         *   animation frame, and those two are not the same instant. At 10 fps that slack is
+         *   ~100 ms, and butting the moves up exactly leaves a visible hitch between each pair —
+         *   measured at 260/217/90 ms before the overlap was added. The union below is unbroken
+         *   from 0 to ~2.6 s. */
 
-        // 2 · the totals count up, lit by the impact
-        if (!reduce) arena.animate([{ filter: 'brightness(2.2) contrast(1.1)' }, { filter: 'brightness(1)' }], { duration: 400, easing: 'ease-out' });
+        // 1 · THE COLLISION — the stacks land and the VS strikes. CSS owns it; wait for it to be REAL.
+        await beat(reduce ? 260 : 880, reduce ? 0 : 4, reduce ? null : strike);
+
+        // 2 · THE SHOVE — each side leans into the mark, is held, and settles against it. This is
+        //     the stare-down, and it is the beat that was 627 ms of nothing.
+        const press = reduce ? null : move(youSide,
+          [{ translate: '0px' }, { translate: '17px' }, { translate: '10px' }],
+          { duration: 740, easing: 'cubic-bezier(.34,1.3,.5,1)', fill: 'both' });
+        if (!reduce) {
+          move(houseSide, [{ translate: '0px' }, { translate: '-17px' }, { translate: '-10px' }],
+            { duration: 740, easing: 'cubic-bezier(.34,1.3,.5,1)', fill: 'both' });
+          // the mark is what they are leaning on, so it takes the squeeze and rings back
+          move(mark, [{ scale: '1 1' }, { scale: '.88 1.12' }, { scale: '1.05 .97' }, { scale: '1 1' }],
+            { duration: 740, easing: 'cubic-bezier(.3,1.4,.45,1)' });
+        }
+        await beat(reduce ? 300 : 660, reduce ? 0 : 3, press);
+
+        // 3 · THE TALLY — the totals count up, lit by the impact, and each Σ pops as it runs.
+        if (!reduce) {
+          arena.animate([{ filter: 'brightness(2.2) contrast(1.1)' }, { filter: 'brightness(1)' }], { duration: 400, easing: 'ease-out' });
+          for (const id of ['foYouSig', 'foHouseSig'])
+            move($(id), [{ scale: '1' }, { scale: '1.42' }, { scale: '1' }],
+              { duration: 580, easing: 'cubic-bezier(.3,1.5,.5,1)' });
+        }
         animateCount('foYouSig', P.total); animateCount('foHouseSig', Q.total);
-        await wait(reduce ? 60 : 760);
+        await beat(reduce ? 420 : 500, reduce ? 0 : 3, null);
 
-        /* 3 · THE HELD BREATH — and it is not dead air, because dead air reads as a stall.
-         *     The arena pushes in ~3%: the camera gets closer BECAUSE the fight is about to
-         *     start. DESIGN-SYSTEM §4 wants a physical reason for every movement, and "leaning
-         *     in" is one everybody has felt. Kept tiny and `both`-filled so it hands over to
-         *     CardFight at the scale it ended on rather than snapping back. */
-        if (!reduce) arena.animate(
-          [{ transform: 'scale(1)' }, { transform: 'scale(1.028)' }],
-          { duration: 480, easing: 'cubic-bezier(.5,0,.75,.3)', fill: 'both' });
-        await wait(reduce ? 40 : 480);
+        /* 4 · THE BREAK — they come off each other and the view closes in, because the fight is
+         *     about to start. `fill:'both'` so it hands over to CardFight at the scale it ended
+         *     on rather than snapping back. */
+        const brk = reduce ? null : move(arena, [{ scale: '1' }, { scale: '1.045' }],
+          { duration: 560, easing: 'cubic-bezier(.5,0,.75,.3)', fill: 'both' });
+        if (!reduce) {
+          move(youSide, [{ translate: '10px' }, { translate: '0px' }], { duration: 560, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'both' });
+          move(houseSide, [{ translate: '-10px' }, { translate: '0px' }], { duration: 560, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'both' });
+        }
+        await beat(reduce ? 260 : 560, reduce ? 0 : 3, brk);
         // ── the cards actually fight: each staked card throws its signature ability across
         //    the arena and HP drains to the pre-decided result (choreography, never a re-decision) ──
-        if (window.CardFight) { try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce, base: '../' }); } catch (e) {} }
+        /* ⚠ THE CATCH STAYS, BUT IT NO LONGER SWALLOWS. Skipping the fight is the right response
+         *   to a broken renderer — the outcome was decided before this ran, so the settle is
+         *   never at risk and the player still gets their verdict. What was wrong is that it was
+         *   SILENT: a throw here jumps straight to the banner, which reads exactly like "the
+         *   animation is broken" and leaves nothing behind to say why. It was the first suspect
+         *   when this bug was chased, and ruling it out took a wrapped `play()` and a capture run
+         *   that could have been one line in the console. */
+        if (window.CardFight) {
+          try { await CardFight.play(arena, { you, house, outcome, gas, youTotal: P.total, houseTotal: Q.total, reduce, base: '../' }); }
+          catch (e) { try { console.warn('[arena] the fight was skipped —', e); } catch (e2) {} }
+        }
         const b = $('foBanner'), youS = $('foYou'), houseS = $('foHouse');
         // the loser's staked cards fly across to the winner
         const flyAway = (sideEl, dir) => sideEl.querySelectorAll('.fo-cw').forEach((el, i) =>
