@@ -16,7 +16,7 @@
  * Usage: node scripts/debug-games.mjs [name ...]        (default: all)
  */
 import http from 'node:http';
-import { readFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -24,7 +24,12 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'build/debug');
-const PORT = 8951;
+/* ⚑ EPHEMERAL PORT, NOT A FIXED ONE. Several harnesses in this repo bind a server, and when two
+ * run at once the second dies with EADDRINUSE — which reads as "the test hangs" or "the build is
+ * broken", not as "pick another port". It cost real time this session, and a killed process leaves
+ * the port held afterwards, so the next clean run fails too. `listen(0)` asks the OS for a free
+ * one; nothing outside this file ever needs to know the number. */
+let PORT = 0;
 mkdirSync(OUT, { recursive: true });
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png',
@@ -42,7 +47,8 @@ const srv = http.createServer((rq, rs) => {
     rs.end(d);
   } catch { rs.writeHead(404); rs.end('nf'); }
 });
-await new Promise(r => srv.listen(PORT, r));
+await new Promise(r => srv.listen(0, r));
+PORT = srv.address().port;
 
 /* `drive` runs INSIDE the page after load: start the game, skip menus, get to a frame that is
  * actually representative. A menu screenshot is what made three earlier frame measurements void
@@ -152,11 +158,40 @@ for (const G of GAMES) {
     return { canvases: cs.length, biggest: cs.map(c => c.width * c.height).sort((a, b) => b - a)[0] || 0, webgl2 };
   }).catch(() => ({ canvases: -1, biggest: 0, webgl2: false }));
 
+  /* ⛔ FIVE FRAMES AND TAKE THE MEDIAN — ONE SCREENSHOT OF A GAME IS A LOTTERY.
+   *    These games throw full-screen flashes: a bomb, a wave-in, a hit, a burn. A single sample
+   *    that lands on one measures the flash, not the game, and it does so silently — the stats
+   *    look like data. Measured: Rip Rocketer read **luma 122.1, blacks 2.6%** from one frame and
+   *    **28.3, 58.6%** seconds later ON THE SAME BUILD. That is not a small error, it is the
+   *    difference between "this game is washed out" and "this game is dark", i.e. the exact
+   *    diagnosis this sweep exists to give. It would have sent a whole pass chasing a wash that
+   *    was a muzzle flash.
+   *  ⚑ MEDIAN BY LUMA, not a mean of the statistics — averaging a flash into four dark frames
+   *    still moves every number. Picking the middle FRAME throws the outlier away entirely and
+   *    keeps a real, self-consistent set of readings from one moment.
+   *  ⚠ The saved PNG is the median frame too, so the picture and the numbers always agree. */
   const shot = join(OUT, G.name + '.png');
-  let px = null;
-  try { const buf = await page.screenshot({ path: shot }); px = statsFromPng(buf); } catch (e) { errs.push('SHOT ' + e.message); }
+  let px = null, spread = null;
+  try {
+    const takes = [];
+    for (let i = 0; i < 5; i++) {
+      if (i) await page.waitForTimeout(420);
+      const buf = await page.screenshot();
+      const s = statsFromPng(buf);
+      if (s) takes.push({ s, buf });
+    }
+    if (takes.length) {
+      takes.sort((a, b) => a.s.mean - b.s.mean);
+      const mid = takes[Math.floor(takes.length / 2)];
+      px = mid.s;
+      writeFileSync(shot, mid.buf);
+      /* Report the spread. A wide one is itself the finding — it says this game's brightness is
+       * event-driven, so any single number about it needs a moment attached. */
+      spread = { n: takes.length, lo: takes[0].s.mean, hi: takes[takes.length - 1].s.mean };
+    }
+  } catch (e) { errs.push('SHOT ' + e.message); }
 
-  rows.push({ name: G.name, drove, gl, px, errs: errs.slice(0, 4), bad: bad.slice(0, 4), nerr: errs.length, nbad: bad.length });
+  rows.push({ name: G.name, drove, gl, px, spread, errs: errs.slice(0, 4), bad: bad.slice(0, 4), nerr: errs.length, nbad: bad.length });
   await ctx.close();
 }
 await browser.close();
@@ -169,6 +204,11 @@ for (const r of rows) {
   console.log(`── ${r.name.toUpperCase()}`);
   console.log(`   drive=${r.drove}  canvases=${r.gl.canvases} (max ${r.gl.biggest}px)  webgl2=${r.gl.webgl2}`);
   console.log(`   luma mean ${p.mean}  contrast ${p.contrast}  p99 ${p.p99}  CLIPPED ${p.clippedPct}%  black ${p.darkPct}%`);
+  if (r.spread) {
+    const range = (r.spread.hi - r.spread.lo).toFixed(1);
+    console.log(`   median of ${r.spread.n} frames · luma spread ${r.spread.lo}–${r.spread.hi} (${range})` +
+      (r.spread.hi - r.spread.lo > 25 ? '   ⚠ EVENT-DRIVEN — a single frame of this game means nothing' : ''));
+  }
   console.log(`   errors ${r.nerr}  4xx ${r.nbad}`);
   r.errs.forEach(e => console.log(`     ! ${e}`));
   r.bad.forEach(e => console.log(`     ? ${e}`));

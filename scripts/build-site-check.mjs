@@ -115,7 +115,10 @@ const srv = createServer(async (rq, rs) => {
     rs.end(b);
   } catch { rs.writeHead(404); rs.end('nf'); }
 });
-await new Promise(r => srv.listen(8211, r));
+/* ⚑ EPHEMERAL PORT — see the note in scripts/debug-games.mjs. A fixed port makes two concurrent
+ * harnesses collide with EADDRINUSE, which reads as a hang rather than as a port clash. */
+await new Promise(r => srv.listen(0, r));
+const PORT = srv.address().port;
 
 const pw = await import('/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
 const chromium = (pw.default || pw).chromium;
@@ -168,7 +171,7 @@ async function run(url, width, opts = {}) {
   });
   // a bare "Failed to load resource" tells you nothing; name the URL that 404'd
   page.on('response', r => { if (r.status() >= 400) errs.push('HTTP ' + r.status() + ' ' + r.url()); });
-  await page.goto('http://127.0.0.1:8211' + url, { waitUntil: 'load', timeout: 45000 });
+  await page.goto('http://127.0.0.1:${PORT}' + url, { waitUntil: 'load', timeout: 45000 });
   // the prop defers behind IntersectionObserver + requestIdleCallback, so give it room
   await page.waitForTimeout(opts.noWebGL ? 1800 : 4200);
   return { ctx, page, errs };
@@ -314,7 +317,7 @@ for (const P of PAGES) {
     const errs = [];
     page.on('pageerror', e => errs.push('pageerror: ' + e.message));
     page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
-    await page.goto('http://127.0.0.1:8211' + P.url, { waitUntil: 'load', timeout: 45000 });
+    await page.goto('http://127.0.0.1:${PORT}' + P.url, { waitUntil: 'load', timeout: 45000 });
     await page.waitForTimeout(4200);
     const a = await page.evaluate(() => {
       const c = (window.__site3d || [])[0];

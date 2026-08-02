@@ -23,7 +23,12 @@ const RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
 const TOKEN = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C'.toLowerCase();
 const POOL_MANAGER = '0xe03a1074c86cfedd5c142c4f04f1a1536e203543';
 const EMPTY_ADDR = '0x1111111111111111111111111111111111111111';
-const PORT = 8899;
+/* ⚑ EPHEMERAL PORT, NOT A FIXED ONE. Several harnesses in this repo bind a server, and when two
+ * run at once the second dies with EADDRINUSE — which reads as "the test hangs" or "the build is
+ * broken", not as "pick another port". It cost real time this session, and a killed process leaves
+ * the port held afterwards, so the next clean run fails too. `listen(0)` asks the OS for a free
+ * one; nothing outside this file ever needs to know the number. */
+let PORT = 0;
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.ico': 'image/x-icon' };
 const server = http.createServer((req, res) => {
@@ -34,7 +39,8 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'application/octet-stream' });
   fs.createReadStream(f).pipe(res);
 });
-await new Promise(r => server.listen(PORT, r));
+await new Promise(r => server.listen(0, r));
+PORT = server.address().port;
 
 // node-side JSON-RPC via curl (goes through the agent proxy cleanly)
 function rpc(method, params) {

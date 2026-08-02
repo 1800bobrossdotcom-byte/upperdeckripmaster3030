@@ -544,7 +544,10 @@ async function browserPass() {
     s.writeHead(200, { 'content-type': MIME[extname(f)] || 'application/octet-stream' });
     s.end(readFileSync(f));
   });
-  await new Promise(r => srv.listen(8213, r));
+  /* ⚑ EPHEMERAL PORT — see the note in scripts/debug-games.mjs. A fixed port makes two concurrent
+ * harnesses collide with EADDRINUSE, which reads as a hang rather than as a port clash. */
+  await new Promise(r => srv.listen(0, r));
+  const PORT = srv.address().port;
 
   const pw = await import('/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
   const chromium = (pw.default || pw).chromium;
@@ -571,7 +574,7 @@ async function browserPass() {
     /* `domcontentloaded`, not `load`: the intro splash pulls a video this check has no interest
      * in, and waiting for it cost about a minute across five page opens. Deferred scripts have
      * already run by then, and hero3d waits on document.fonts.ready by itself. */
-    await pg.goto('http://127.0.0.1:8213/index.html' + query, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await pg.goto('http://127.0.0.1:${PORT}/index.html' + query, { waitUntil: 'domcontentloaded', timeout: 45000 });
     await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
     /* ⚠ Headless rAF stalls between input events (CLAUDE.md) — a quiet second can advance the
      *   clock by exactly zero and then a keypress unblocks a burst. Pump it, don't wait on it. */
@@ -763,7 +766,7 @@ async function browserPass() {
     let release = null, hits = 0;
     const latch = new Promise(res => { release = res; });
     await pg.route(/type\.glb/, async r => { hits++; await latch; await r.continue(); });
-    await pg.goto('http://127.0.0.1:8213/index.html?grab=1', { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await pg.goto('http://127.0.0.1:${PORT}/index.html?grab=1', { waitUntil: 'domcontentloaded', timeout: 45000 });
     await pg.evaluate(() => { const s = document.getElementById('introSplash'); if (s) s.remove(); });
     for (let i = 0; i < 40; i++) { await pg.mouse.move(2 + (i % 3), 2 + (i % 2)); await pg.waitForTimeout(25); }
     const mid = await pg.evaluate(() => ({

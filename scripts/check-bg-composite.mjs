@@ -24,7 +24,10 @@ const srv = createServer(async (rq, rs) => {
     rs.end(b);
   } catch { rs.writeHead(404); rs.end('nf'); }
 });
-await new Promise(r => srv.listen(8207, r));
+/* ⚑ EPHEMERAL PORT — see the note in scripts/debug-games.mjs. A fixed port makes two concurrent
+ * harnesses collide with EADDRINUSE, which reads as a hang rather than as a port clash. */
+await new Promise(r => srv.listen(0, r));
+const PORT = srv.address().port;
 
 const pw = await import('/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
 const chromium = (pw.default || pw).chromium;
@@ -33,7 +36,7 @@ const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-11
 const ctx = await br.newContext({ viewport: { width: 1280, height: 800 } });
 await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
 const pg = await ctx.newPage();
-await pg.goto('http://127.0.0.1:8207/index.html', { waitUntil: 'load', timeout: 45000 });
+await pg.goto('http://127.0.0.1:${PORT}/index.html', { waitUntil: 'load', timeout: 45000 });
 await pg.waitForTimeout(2500);
 // hide every other layer so we measure the plate, not the page
 await pg.addStyleTag({ content: '#rain,.lm,.crt,.wrap,#banner,body>*:not(#bgFoilC):not(#bgFoil){visibility:hidden!important}' });

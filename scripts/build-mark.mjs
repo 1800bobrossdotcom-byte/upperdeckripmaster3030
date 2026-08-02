@@ -44,7 +44,12 @@ import { decodePNG, encodePNG } from './png23d.mjs';
 const require = createRequire(import.meta.url);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'media/site');
-const PORT = 8997;
+/* ⚑ EPHEMERAL PORT, NOT A FIXED ONE. Several harnesses in this repo bind a server, and when two
+ * run at once the second dies with EADDRINUSE — which reads as "the test hangs" or "the build is
+ * broken", not as "pick another port". It cost real time this session, and a killed process leaves
+ * the port held afterwards, so the next clean run fails too. `listen(0)` asks the OS for a free
+ * one; nothing outside this file ever needs to know the number. */
+let PORT = 0;
 mkdirSync(OUT, { recursive: true });
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png',
@@ -59,7 +64,8 @@ const srv = http.createServer((rq, rs) => {
     rs.end(d);
   } catch { rs.writeHead(404); rs.end('nf'); }
 });
-await new Promise(r => srv.listen(PORT, r));
+await new Promise(r => srv.listen(0, r));
+PORT = srv.address().port;
 
 const { chromium } = require('/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
 const browser = await chromium.launch({

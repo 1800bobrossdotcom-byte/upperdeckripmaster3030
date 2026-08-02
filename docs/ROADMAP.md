@@ -92,8 +92,16 @@ These are the patterns worth repeating, all earned this session:
 5. **Brief the MOTION, not just the material.** DESIGN-SYSTEM.md §8 asks five questions and §4 —
    what moves and why it physically moved — is the one that gets skipped, because a renderer has
    features for material and light and none for motion. Two hero wordmarks were rejected for this.
-6. **Measure in play, never in the menu.** Three frame measurements in this project were taken in
-   a lobby and had to be declared void. The debug sweep now drives each game past its menu.
+6. **Measure in play, never in the menu — and never from ONE frame.** Three frame measurements in
+   this project were taken in a lobby and had to be declared void; the sweep now drives each game
+   past its menu. ⛔ **Then the same lesson arrived a second time from a different direction**: one
+   screenshot of a game with full-screen flashes is a lottery. Rip Rocketer read **luma 122.1,
+   blacks 2.6%** from a single frame and **28.3, 58.6%** seconds later on the same build — the
+   difference between "this is washed out" and "this is dark", i.e. exactly the diagnosis the sweep
+   exists to give. `npm run debug` now takes **five frames and keeps the median**, saves that frame
+   as the PNG so picture and numbers agree, and prints the spread. The spread is itself a finding:
+   0.0–2.4 for index/section9/dogfight, **92.3 for Rip Rocketer**, which earns an explicit
+   "EVENT-DRIVEN — a single frame of this game means nothing".
 7. **A workaround must die with its bug.** `invX` was defaulted on while the mirror was still live.
 8. **Fail open, and prove it.** Every renderer here degrades rather than blanks, and the tests
    break the build on purpose to check.
@@ -111,6 +119,17 @@ These are the patterns worth repeating, all earned this session:
    wrong in the world until measured — and one agent corrected *me* twice. The card-layer `rect`
    fix was confirmed by asking the live renderer where all 34 plates landed, not by re-reading the
    JSON that had already passed its own schema check.
+
+### Known, measured, not yet fixed
+
+- ⚠ **NEON RONIN fires 25 requests that always 404** — `models/{ronin,kappa,doomer,oni}.glb` and
+  friends. The GLB part-loader is fail-open by design (a missing file falls back to the procedural
+  fighter), so the game is fine, but 25 guaranteed-failing requests on every load is waste, and
+  more importantly it **puts a permanent 25 in the sweep's error column**, where a real error would
+  now hide. Cheapest honest fix: ask for a part only when a manifest says it exists.
+- ⚠ **`__rrpc._px()` reads all zeros unless it is called immediately after a draw** — a WebGL canvas
+  with no `preserveDrawingBuffer` is already cleared. It returned `{luma:0, blacks:100}` when
+  called at an arbitrary moment, which looks like a black screen rather than like a bad question.
 
 ### Tooling that makes the above cheap
 

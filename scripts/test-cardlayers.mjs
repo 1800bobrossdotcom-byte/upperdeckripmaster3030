@@ -50,7 +50,12 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 8938;
+/* ⚑ EPHEMERAL PORT, NOT A FIXED ONE. Several harnesses in this repo bind a server, and when two
+ * run at once the second dies with EADDRINUSE — which reads as "the test hangs" or "the build is
+ * broken", not as "pick another port". It cost real time this session, and a killed process leaves
+ * the port held afterwards, so the next clean run fails too. `listen(0)` asks the OS for a free
+ * one; nothing outside this file ever needs to know the number. */
+let PORT = 0;
 const SHOT = path.join(ROOT, 'build/preview');   // gitignored — see .gitignore
 
 let pass = 0, fail = 0;
@@ -151,7 +156,8 @@ const srv = http.createServer((rq, rs) => {
   let d; try { d = fs.readFileSync(path.join(ROOT, p)); } catch { rs.writeHead(404); rs.end('nf'); return; }
   rs.writeHead(200, { 'content-type': MIME[path.extname(p)] || 'application/octet-stream' }); rs.end(d);
 });
-await new Promise(r => srv.listen(PORT, r));
+await new Promise(r => srv.listen(0, r));
+PORT = srv.address().port;
 
 const { chromium } = require('/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
 const browser = await chromium.launch({
