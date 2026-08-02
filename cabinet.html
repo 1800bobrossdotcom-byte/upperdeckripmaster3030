@@ -29,7 +29,14 @@
   @media (prefers-reduced-motion:no-preference){ .fire{ animation:flick 3.2s ease-in-out infinite; } }
   .sign{ position:relative; z-index:2; display:flex; align-items:center; justify-content:center; gap:clamp(4px,2.5vw,18px); width:100%; }
   .torch{ height:clamp(38px,9vw,74px); filter:drop-shadow(0 0 14px rgba(255,150,40,.5)); }
-  .logo{ width:min(72vw,380px); filter:drop-shadow(0 0 20px rgba(43,255,128,.28)); }
+    /* ⚠ `height:auto` is NOT optional. The <img> carries width/height attributes (1024x1024, so
+   * the browser can reserve the box before the file lands) and those map to a PRESENTATIONAL
+   * HINT — `height:1024px`. `aspect-ratio` only applies when a dimension is auto, so without this
+   * the mark drew 260 wide by 1024 tall. Measured. superrare.html's rule already said height:auto,
+   * which is why the same edit worked there and not here.
+   * Same family as the note in CLAUDE.md about `display:inline-block` beating `[hidden]`. */
+  .logo{ width:min(52vw,260px); height:auto; aspect-ratio:1;
+    filter:drop-shadow(0 0 20px rgba(43,255,128,.28)); }
   .kick{ position:relative; z-index:2; font-family:'Arial Black',Arial,sans-serif; letter-spacing:.22em;
     font-size:10px; color:#ffd23b; text-shadow:0 0 12px rgba(255,210,59,.35); text-align:center; }
   .stats{ position:relative; z-index:2; width:min(94vw,420px); border:1px solid #0f5c33; border-radius:12px;
@@ -70,7 +77,9 @@
 <div class="scan"></div><div class="fire"></div>
 <div class="sign">
   <img class="torch" src="torch.gif" alt="">
-  <img class="logo" src="upperdeckripmaster3030_01_marquee.png" alt="ripmaster3030studios">
+  <!-- ⛔ WAS the old-name marquee bitmap; see the note in superrare.html. Same fix, same reason:
+       this is an embed surface and it was showing a name the studio dropped. -->
+  <img class="logo" src="media/site/mark-1024.png" alt="ripmaster3030studios" width="1024" height="1024">
   <img class="torch" src="torch.gif" alt="">
 </div>
 <div class="kick">◈ A LIQUID TRADING-CARD GAME · LIVE FROM THE CHAIN ◈</div>

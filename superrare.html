@@ -92,7 +92,7 @@
   .torch{ flex:none; width:auto; height:clamp(62px,13vw,132px);
     filter:drop-shadow(0 0 16px rgba(255,140,20,.75)) drop-shadow(0 0 34px rgba(255,80,10,.4)); }
   @media (max-width:600px){ .torch{ height:clamp(48px,12vw,84px); } }
-  .marquee-art{ width:min(62vw,520px); height:auto; display:block;
+  .marquee-art{ width:min(46vw,300px); height:auto; aspect-ratio:1; display:block;
     filter:drop-shadow(0 0 26px rgba(43,255,128,.35)) drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
 
   .dataplate{ width:max-content; max-width:94%; margin:clamp(8px,2vh,14px) auto 0;
@@ -212,8 +212,16 @@
 
     <div class="marquee-sign">
       <img class="torch" src="torch.gif" alt="" aria-hidden="true">
-      <img class="marquee-art" src="upperdeckripmaster3030_01_marquee.png"
-           alt="ripmaster3030studios" width="696" height="202" decoding="async">
+      <!-- ⛔ WAS `upperdeckripmaster3030_01_marquee.png` — the OLD NAME, baked into a bitmap, on
+           the page a token's animation_url points at. CLAUDE.md records this exact failure once
+           already ("the first thing anyone saw was still UPPERDECKRIPMASTER3030"); the fix then
+           made index.html's wordmark TYPE and never reached the two EMBED surfaces, so the site
+           said the right name and SuperRare showed the wrong one.
+           ⚑ A static image and not the live 3D type ON PURPOSE: this page must stay wallet-free
+           and script-free (npm run test:embed asserts no <script src> at all), so the mark is
+           baked by `npm run mark` from the live foil rather than rendered here. -->
+      <img class="marquee-art" src="media/site/mark-1024.png"
+           alt="ripmaster3030studios" width="1024" height="1024" decoding="async">
       <img class="torch" src="torch.gif" alt="" aria-hidden="true">
     </div>
 
