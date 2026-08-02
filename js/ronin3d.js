@@ -1045,33 +1045,86 @@ window.Ronin3D = (function () {
       gl.flush(); return true;
     } catch (e) { ok = false; return false; }
   }
+  /* ── the card and the table ────────────────────────────────────────────────────────────────
+   * CARD_HALF_Z is the half-depth of the die-cut strip: the near and far cut edges are always in
+   * frame, which is what makes DESIGN-SYSTEM §5's "everything sits on something" literally true
+   * rather than a nice idea. The fighters strafe within z ±2.3, so the edge is never underfoot. */
+  const CARD_HALF_Z = 11.0, CARD_HALF_X = 62;
+  function drawFloor(midX, kind, sx, sz, y) {
+    const gm = M.mul(M.T(midX, y, 0), M.S(sx * 2, 1, sz * 2));
+    gl.uniformMatrix4fv(u(groundProg, 'uMVP'), false, M.mul(VP, gm)); gl.uniformMatrix4fv(u(groundProg, 'uModel'), false, gm);
+    gl.uniform2f(u(groundProg, 'uHalf'), sx, sz); gl.uniform1f(u(groundProg, 'uWater'), kind);
+    gl.uniform1f(u(groundProg, 'uAlpha'), 1);
+    gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  /* THE BACKDROP IS THREE REAL DEPTHS, not one painted wall. A camera swing separates them, and
+   * that separation IS the §4 answer for the backdrop: nothing moves, the view moved.
+   * Acceptance: near-band screen displacement > far-band, measured, at a stated ratio. A backdrop
+   * painted at one depth reports 1.00 and fails. Deterministic from the index — no per-frame
+   * randomness, so a headless capture of the same camera is the same picture. */
+  const BANDS = [
+    { z: -52, n: 15, sp: 7.2, w: 3.6, h0: 9,   hv: 7.0, col: [0.055, 0.030, 0.105], emis: 0.05 },
+    { z: -33, n: 17, sp: 5.4, w: 2.7, h0: 5.5, hv: 5.2, col: [0.085, 0.040, 0.155], emis: 0.10 },
+    { z: -21, n: 21, sp: 3.9, w: 1.9, h0: 2.6, hv: 3.0, col: [0.115, 0.052, 0.200], emis: 0.16 },
+  ];
+  function drawBackdrop(midX) {
+    _surf = 2;
+    for (let bi = 0; bi < BANDS.length; bi++) {
+      const B = BANDS[bi], half = (B.n - 1) / 2;
+      for (let i = 0; i < B.n; i++) {
+        const k = i - half, s1 = Math.sin(k * 12.9898 + bi * 4.1) * 43758.5453, r1 = s1 - Math.floor(s1);
+        const s2 = Math.sin(k * 78.233 + bi * 1.7) * 12345.678, r2 = s2 - Math.floor(s2);
+        const bh = B.h0 + r1 * B.hv, bx = midX + k * B.sp + (r2 - 0.5) * B.sp * 0.5;
+        bit3(bx, bh / 2, B.z - r2 * 3.5, B.w * (0.7 + r2 * 0.6), bh, B.w, B.col, B.emis);
+      }
+    }
+    /* THE AUDIENCE — the deck, watching the title fight. DELTRON-3030.md idea 3: the battle is a
+     * performance, and NEON RONIN "lacks the sense of an audience and a championship". They are
+     * card-shaped standees on end, deliberately silhouettes, and deliberately STILL: a crowd that
+     * sways on a timer is the screensaver again. See RONIN-ART §5 open question 2. */
+    for (let i = 0; i < 30; i++) {
+      const k = i - 14.5, s = Math.sin(k * 34.17) * 9871.23, r = s - Math.floor(s);
+      const zz = -(CARD_HALF_Z + 1.4 + (i % 2) * 1.5), hh = 1.5 + r * 0.5;
+      draw('cube', M.mul(M.mul(M.T(midX + k * 2.35 + (r - 0.5) * 0.9, hh / 2, zz), M.Ry((r - 0.5) * 0.5)),
+        M.S(0.88, hh, 0.07)), [0.030, 0.014, 0.058], 0.02, 1);
+    }
+    _surf = -1;
+  }
   function drawScene(G) {
     const a = G.fighters[0], b = G.fighters[1];
     const midX = G.worldMode ? (G.me && G.me.w ? G.me.w.x : 0) : ((a ? a.x : 0) + (b ? b.x : 0)) / 2 * SC;
     {
       gl.enable(gl.BLEND);
-      // 1. ground (opaque)
-      gl.useProgram(groundProg); curMesh = ''; const gm = M.mul(M.T(midX, worldMesh ? -0.35 : 0, 0), M.S(worldMesh ? 200 : 90, 1, worldMesh ? 200 : 90));
-      gl.uniformMatrix4fv(u(groundProg, 'uMVP'), false, M.mul(VP, gm)); gl.uniformMatrix4fv(u(groundProg, 'uModel'), false, gm);
-      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG); gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uAlpha'), 1); gl.uniform1f(u(groundProg, 'uTime'), t3); gl.uniform1f(u(groundProg, 'uWater'), worldMesh ? 1 : 0);
-      gl.bindBuffer(gl.ARRAY_BUFFER, geo.quad.buf); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0); gl.disableVertexAttribArray(1); gl.drawArrays(gl.TRIANGLES, 0, 6);
+      // 1. THE STAGE — the table, then the die-cut foil card lying on it. RONIN-ART §2.
+      gl.useProgram(groundProg); curMesh = '';
+      gl.uniform3fv(u(groundProg, 'uCam'), camPos); gl.uniform3fv(u(groundProg, 'uFog'), FOG);
+      gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uTime'), t3);
+      gl.uniform3fv(u(groundProg, 'uKeyD'), LIGHT.keyD); gl.uniform3fv(u(groundProg, 'uKeyC'), LIGHT.keyC);
+      gl.uniform3fv(u(groundProg, 'uFillC'), LIGHT.fillC); gl.uniform3fv(u(groundProg, 'uRimC'), LIGHT.rimC);
+      if (worldMesh) drawFloor(midX, 2, 100, 100, -0.35);            // shelved free-roam city: the water plane
+      else { drawFloor(midX, 0, 150, 90, -0.10); drawFloor(midX, 1, CARD_HALF_X, CARD_HALF_Z, 0); }
 
       setLit(); _mat = 0;
       // 1b. the baked city, if a world is loaded — one opaque batch, lit like everything else
-      if (worldMesh) { _mat = 8; draw('world', M.ident(), [0.7, 0.6, 0.9], 0, 1); _mat = 0; }   // PSYCHEDELIC city
-      // 2. the placeholder skyline + moon only exist when there's no real world loaded
+      if (worldMesh) { _mat = 8; draw('world', M.ident(), [0.7, 0.6, 0.9], 0, 1); _mat = 0; }
+      // 2. three parallax bands + the audience, only when there's no baked world
       if (!worldMesh) {
-        for (let i = -6; i <= 6; i++) { const bx = midX + i * 4.4, bh = 3 + ((i * 7 % 5 + 5) % 5) * 1.4; bit3(bx, bh / 2, -17 - ((i * 3 % 4 + 4) % 4), 2.4, bh, 1.2, [0.12, 0.06, 0.2], 0.5); }
-        draw('sph', M.mul(M.T(midX + 13, 10.5, -30), M.S(6, 6, 6)), [1, 0.96, 0.85], 1, 1);
+        drawBackdrop(midX);
+        _surf = 2; draw('sph', M.mul(M.T(midX + 15, 12.5, -60), M.S(6, 6, 6)), [1, 0.96, 0.85], 1, 1); _surf = -1;
       }
-      // 3. reflections (drawn over the floor, depth-test off, faded) — wet-floor look
+      // 3. reflections (drawn over the floor, depth-test off, faded) — the foil is a mirror
       gl.depthMask(false); gl.disable(gl.DEPTH_TEST);
       for (const f of G.fighters) if (f) drawFighter(f, true);
-      // 4. soft contact shadows
+      // 4. contact shadows
       for (const f of G.fighters) if (f) drawShadow(f);
       gl.enable(gl.DEPTH_TEST); gl.depthMask(true);
       // 5. fighters
       for (const f of G.fighters) if (f) drawFighter(f, false);
+      // 5b. THE REGISTRATION SLIP — the signature impact effect. RONIN-ART §3.1.
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false);
+      for (const f of G.fighters) if (f) drawPlateSlip(f);
+      gl.depthMask(true); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       // 6. combat FX — additive glow. Ribbons (blade streaks + slash arcs) use their own flat shader;
       //    sparks/dust/shock use the lit shader.
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.depthMask(false); _mat = 0;
