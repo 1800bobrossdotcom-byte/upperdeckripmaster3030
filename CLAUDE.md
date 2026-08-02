@@ -475,6 +475,14 @@ wordmark (a flat redraw would be a *picture of* the mark — DESIGN-SYSTEM §1).
     `[hidden]{display:none}`, so on **Aug 6 at 11:11 PM** the clock would have kept ticking
     *underneath* "▓ THE PACK IS OPEN ▓". A global `[hidden]{display:none!important}` ends the
     class. (Third sighting of this rule in this repo — see the `display:inline-block` note below.)
+    ✅ **`npm run test:launch` now drives the real page across the real boundary** — the clock is
+    skewed to 20 s before the target and then left to RUN, so the flip is produced by the page's
+    own `setInterval`, the way the night will produce it. 14 assertions over three moments (T−3d,
+    across T, T+6h). ⚑ **The assertion that bites is "not RENDERED", not "`hidden` is set"** —
+    `grid.hidden = true` was always true, including on the broken build. Verified by deleting the
+    `!important` rule and re-running: 3 failures, `display:flex` with the attribute present.
+    ⚠ This is the one thing on the site that must work at a single instant with no second attempt,
+    and until 2026-08-02 nobody had ever run it.
   - The generated pages' sticky topbar was **127px — three wrapped rows, 15% of the viewport, on
     every page**; now one 58px rail. The pack modal's close button was **half off-screen**, hidden
     from every overflow check by the modal's own `overflow:auto`. index had **three fixed bottom
