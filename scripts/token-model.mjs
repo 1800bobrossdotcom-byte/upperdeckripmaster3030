@@ -13,7 +13,7 @@
 // is EXACTLY LINEAR IN RESERVE:  P = P0 + a*R,  a = ln(M)/cap,  P(f) = P0 * M^f.
 // The true per-preset curve must be confirmed with `rare liquid-edition ... --preview`.
 //
-// THE TOKEN stays a cheap micro-token (cap 3.03M, P0≈1 RARE, FDV≈$606k — unchanged;
+// THE TOKEN stays a cheap micro-token (cap 3.3M, P0≈1 RARE, FDV≈$660k — see the CAP note below;
 // see "is 3M too low? no" in TOKEN-MATH §3). THE PACK is the one premium action: a
 // bundle of ~350 $3030 ≈ $7 at launch, so every rip is a real buy-and-burn of
 // hundreds of tokens (steady upward pressure), NOT a token reprice. Pack price
@@ -28,13 +28,32 @@
 // with SuperRare (see the audit reply + docs/ECONOMIC-FLOW.md).
 
 // ── token assumptions (swap in live values before locking) ──
-const CAP        = 33_000_000;   // maxTotalSupply ($3030), minted once, burns permanent
+/* ⛔ CAP SETTLED AT 3,300,000 — artist's call, 2026-08-02, and it reverses the 33,000,000
+ *    direction. The decision was made on ONE fact this model produces: the pack burn is
+ *    denominated in TOKENS PER PACK (350 → 1,200), so the four-tier total is a FIXED 1,014,375
+ *    whatever the cap is. The cap alone decides what fraction that is:
+ *
+ *        33,000,000  →   3.1% of mint,  1.03× contraction — deflation is not a story
+ *         3,300,000  →  30.7% of mint,  1.44× contraction — deflation is real   ← CHOSEN
+ *         3,030,000  →  33.5% of mint,  1.50× contraction — the original cap
+ *
+ * ⚠ AND THE COST IS THE MIRROR IMAGE, which must not get lost: the studio's accumulated slug
+ *   is the SAME 1,014,375 tokens, so it is also 30.7% of the mint instead of 3.1%. Raising the
+ *   cap to 33M had defused the treasury's price impact (spot −6.8% vs −53.7%); coming back to
+ *   3.3M re-arms it. §5 prints the treasury against the real float for exactly this reason, and
+ *   docs/TREASURY.md leads with it. Do not quote the burn without quoting the slug. */
+const CAP        = 3_300_000;    // maxTotalSupply ($3030), minted once, burns permanent
 const P0         = 1;           // opening price, RARE per token
 const M          = 10;          // demand multiple = end/start price ("medium-demand", verify via --preview)
 const RARE_USD   = 0.02;        // rough current-era RARE/USD — the whole $ column rides on this
 const SELL_FRAC  = 1.0;         // fraction of cap actually sold on the curve (poolLaunchSupply/cap); verify via --preview
 // ── mint-once burn ceiling (matches scripts/burn-milestones.mjs) ──
-const LIFETIME_BURN_BUDGET = 22_000_000;   // ≈ ⅔ of cap — total permanent burn to retire the whole field
+/* ⚠ STILL AN ASPIRATION, NOT A SCHEDULE — kept at ⅔ of the cap so the gap stays visible. The
+ *   pack schedule burns 1,014,375, i.e. 46% of this budget, so reaching it would need ~2.2×
+ *   today's tokens-per-pack. At 33M the same gap was 11×, which is what made the deflation claim
+ *   indefensible there; at 3.3M it is a tuning question rather than a different product. §5
+ *   prints BOTH numbers and never lets this one stand in for the schedule. */
+const LIFETIME_BURN_BUDGET = 2_200_000;    // ≈ ⅔ of cap — total permanent burn to retire the whole field
 const FLOOR_SUPPLY         = CAP - LIFETIME_BURN_BUDGET;   // ≈ 1,010,000 live tokens survive the retirement
 
 // ── pack assumptions (the $7 premium ritual — site-guided buy, then SPLIT) ──
@@ -185,11 +204,28 @@ const packsAll = TIERS.reduce((n, S) => n + Math.floor(S.budget / CARDS_PER_PACK
 const realFloat = CAP - selloutTotal;
 console.log(`Burns are PERMANENT: supply only falls. After the field's four-tier life sells through, ~${fmt(realFloat,0)} $3030`);
 console.log(`survive as the settled live float — a ${fmt(CAP/realFloat,2)}× contraction from the mint.`);
-if (CAP / realFloat < 1.5) {
-  console.log(`⚠ That is NOT a scarcity engine. Pack burns are denominated in TOKENS (${fmt(TIERS[0].base,0)}→${fmt(TIERS[TIERS.length-1].ceil,0)}),`);
-  console.log(`  so raising the cap does not scale them. To reach 3× you would need ~${fmt((CAP-CAP/3)/packsAll,0)} tokens/pack`);
+/* ⚠ TWO DIFFERENT VERDICTS, and conflating them is how a claim gets overstated. "Is the burn a
+ *   material fraction of the mint" and "is it a 3× scarcity engine" are separate questions, and
+ *   at 3.3M the answers are YES and NO. The old single branch said "DEMOTE deflation" whenever
+ *   contraction fell under 1.5×, which was right at 1.03× and would be a lie at 1.44×. */
+const contraction = CAP / realFloat, burnPct = 100 * selloutTotal / CAP;
+if (burnPct < 10) {
+  console.log(`⛔ The burn is COSMETIC at this cap — ${fmt(burnPct,1)}% of the mint. Do not lead with deflation.`);
+} else {
+  console.log(`✓ The burn is MATERIAL: ${fmt(burnPct,1)}% of the mint is destroyed for good, a ${fmt(contraction,2)}× contraction.`);
+}
+if (contraction < 2.5) {
+  console.log(`⚠ It is NOT a 3× scarcity engine, and must not be sold as one. Pack burns are denominated in`);
+  console.log(`  TOKENS (${fmt(TIERS[0].base,0)}→${fmt(TIERS[TIERS.length-1].ceil,0)}), so the cap does not scale them. Reaching 3× needs ~${fmt((CAP-CAP/3)/packsAll,0)} tokens/pack`);
   console.log(`  against today's ~${fmt(selloutTotal/packsAll,0)} — about ${fmt(((CAP-CAP/3)/packsAll)/(selloutTotal/packsAll),1)}× more, which forces P0 down by the same factor.`);
-  console.log(`  Current direction: DEMOTE deflation. The burn still raises reserve-backing per surviving token.`);
+}
+/* ⛔ THE SLUG IS THE OTHER HALF OF THE SAME SPLIT AND IT SCALES WITH THE CAP THE SAME WAY.
+ *   A small cap makes the burn look good and the treasury look enormous, by exactly the same
+ *   arithmetic. Print them together or the model is flattering the story again. */
+if (treasuryTotal / realFloat > 0.25) {
+  console.log(`⛔ CONCENTRATION: the studio's slug is ${fmt(treasuryTotal/realFloat*100,1)}% of the surviving float. At this cap that is the`);
+  console.log(`  headline risk, not the burn — the same 50/50 split that makes the burn material makes the slug large.`);
+  console.log(`  Never quote the ${fmt(burnPct,1)}% burn without it. docs/TREASURY.md leads with this.`);
 }
 console.log(`INVARIANT (mint-once): cumulative lifetime burn ≤ cap. Sellout ${selloutTotal < CAP ? '< cap ✓' : '> CAP ✗'}`);
 console.log('CARDS DO NOT RETIRE OR ASH — this is token deflation only. A partial life (fewer rips) simply');

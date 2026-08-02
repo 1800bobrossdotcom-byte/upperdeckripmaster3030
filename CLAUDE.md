@@ -19,6 +19,22 @@ This SUPERSEDES the old "NAME LAW".**
 
 - **Ticker / `symbol()`: `3030`** (written `$3030`). Confirmed by the artist. Like `name()`,
   `symbol()` is baked in at deploy — hand SuperRare `3030`, not `RMS3030`, not `$3030`.
+- ⛔ **THE TOKEN AND THE STUDIO HAVE DIFFERENT NAMES. Settled 2026-08-02.**
+  | | string |
+  | --- | --- |
+  | studio · domain · wordmark · every page | **`ripmaster3030studios`** |
+  | ERC-20 **`name()`** | **`ripmaster3030`** — no "studios" |
+  | ERC-20 **`symbol()`** | **`3030`** |
+  ⚑ This is deliberate, not a slip: the studio is `ripmaster3030studios`, and the token it
+  issues is `ripmaster3030`. A company and its product may differ. **Nothing on the site
+  changes** — the 258-file rename, the wordmark and `npm run test:name` all still enforce
+  `ripmaster3030studios` everywhere a visitor looks.
+  ⚠ `name()` is a POSITIONAL ARG the artist types into the Rare CLI and is frozen the moment the
+  transaction lands. `npm run test:name` now asserts the **exact** string in every deploy command
+  in `TESTNET.md`, `TOKEN-MATH.md` and this file, plus `token-metadata.json` — an EXACT match, not
+  a substring, because `ripmaster3030studios` *contains* `ripmaster3030` and a substring test
+  would happily pass the wrong one. That is the single likeliest way the wrong string reaches
+  the CLI. **`--preview` first, read it back, then `--yes`.**
 - ✅ **Name: `ripmaster3030studios`** — ONE word, lowercase, 3030 in the MIDDLE. Confirmed by
   the artist after being asked to disambiguate: it matches the domain `ripmaster3030studios.com`.
   ⚠ It is NOT `ripmasterstudios3030` (3030 on the end) — that ordering was written once in
@@ -129,9 +145,41 @@ date.**
 - ⚠ `index.html`'s CSS class names are still `.season`/`.seasons` — cosmetic only, left to avoid
   churn; the markup and copy say Tier.
 
-## ⚠ TOKENOMICS BEING REBUILT — supply 3,030,000 → 33,000,000
-**Artist directive: ripmaster3030studios is an indie game company with a live 33,000,000 supply.**
-Model v2.2 below is stale wherever it says 3,030,000.
+## ✅ SUPPLY SETTLED: **3,300,000** (artist, 2026-08-02) — the 33,000,000 direction is REVERSED
+**Run `npm run model` for the live numbers; `scripts/token-model.mjs` is the only source.**
+
+⚑ **THE DECISION RESTED ON ONE FACT, and it is worth keeping at the front of the head: the pack
+burn is denominated in TOKENS PER PACK (350 → 1,200), so the four-tier total is a FIXED
+1,014,375 whatever the cap is.** The cap changes nothing except what fraction that is:
+
+| cap | four-tier burn | % of mint | contraction | studio slug as % of surviving float |
+| --- | --- | --- | --- | --- |
+| 33,000,000 | 1,014,375 | 3.1% | 1.03× — none | ~3.2% |
+| **3,300,000 ← SETTLED** | 1,014,375 | **30.7%** | **1.44× — material** | ⛔ **44.4%** |
+| 3,030,000 (original) | 1,014,375 | 33.5% | 1.50× | ~50% |
+
+⛔ **THE COST IS THE MIRROR IMAGE OF THE BENEFIT, and it must never be quoted separately.** The
+50/50 split sends the *same number of tokens* to the fire and to the studio. So any cap that makes
+the burn look material makes the treasury look large **by exactly the same arithmetic** — you
+cannot have one without the other while the split is 50/50. At 33M the burn was cosmetic and the
+slug was negligible; at 3.3M the burn is real and **the studio ends up holding 44.4% of everything
+still alive.** ⚠ Raising the cap to 33M had *defused* the treasury's price impact (dumping the slug
+moved spot ~−6.8% vs ~−53.7% at ~3M); **coming back to 3.3M re-arms it.** The contract did not
+change; the denominator did. `docs/TREASURY.md` leads with this, `token-model.mjs` refuses to print
+one number without the other, and the landing page's rite §3 states both in the same breath.
+
+⚠ **It is material, and it is NOT a 3× scarcity engine** — do not let anyone round 1.44× up.
+Reaching 3× needs ~618 tokens/pack against today's ~285, about 2.2× more, which forces P0 down by
+the same factor. (At 33M that same gap was 11×, which is what made the deflation claim
+indefensible there; at 3.3M it is a tuning question rather than a different product.)
+
+⚠ Regenerated with the new cap: `tokenomics.html`, `whitepaper.html/pdf`, `audit.html`,
+`index.html`, `docs/TREASURY.md`, `docs/CURVE-TARGET.md`, `scripts/burn-milestones.mjs`.
+`npm run test:name` now pins the derived figures (30.7% · 1.44× · 44.4%) so a cap edit that
+misses the percentages fails the build.
+
+### ⚠ Historical — the 33M reasoning, kept because it is why 3.3M was chosen
+**Artist directive at the time: an indie game company with a live 33,000,000 supply.**
 
 ⛔ **The deflation story does NOT survive the supply change on its own.** Reran
 `scripts/token-model.mjs` at CAP 33,000,000 with the pack schedule untouched:
@@ -295,7 +343,7 @@ who receives it, the curve mechanism or any DEX graduation, or how the opening p
   ```
   npm install -g @rareprotocol/rare-cli          # Node 22+
   rare configure --chain sepolia --private-key-ref op://…   # 1Password ref; key NOT stored plaintext
-  rare liquid-edition deploy multicurve "ripmaster3030studios" "3030" \
+  rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
     --curve-preset medium-demand --description "…" --image ./art.png --preview
   ```
   ⚑ **`name` and `symbol` are POSITIONAL ARGS the artist types** — they are not handed to

@@ -78,7 +78,7 @@ S.push(slide('TL;DR — read this first', `
       <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$3030</b> on a bonding curve in <b>RARE</b>, <b>minted once</b>, burns permanent.</li>
       <li>The <b>100-card deck is the artwork</b> — <b>every card is a lens</b> (a render that reads the live market + burn). No ERC-1155, no per-copy editions.</li>
       <li><b>33 hero cards mint as 1/1s</b> (11 auctioned on SuperRare, 11 pulled from packs, 11 earned in the games); the other <b>67 are render-only lenses</b>, mintable later.</li>
-      <li>Packs <b>burn</b> the token — supply contracts <b>≈3×</b> (3.03M → ~1.01M) — but <b>the cards survive</b>. The token burns so the art can live.</li>
+      <li>Packs <b>burn</b> the token — supply contracts <b>≈1.44×</b> (3.3M → ~2.29M, 30.7% of the mint destroyed) — but <b>the cards survive</b>. The token burns so the art can live.</li>
       <li><b>No team pre-mint. No hidden fees.</b> The studio takes a stated cut — half of every pack and half of the 10% game rake; the rest burns. Plus <b>Lovebeing</b>, the holder lens every wallet carries.</li>
     </ul>
     <div class="callout">
@@ -98,13 +98,13 @@ S.push(slide('The game', `
       <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
       <li><b>The 33 hero lenses</b> — <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim → mint the 1/1) + <b>11 earned</b> (clear a named feat → one-of-a-kind game title → mint). One owner each.</li>
       <li><b>Play &amp; wager</b> — the games ante $3030 (<b>net-zero wagers</b> — winner takes the pot) and let you stake your cards, which transfer (never burned).</li>
-      <li><b>The burn-down</b> — packs deflate the token ≈3×; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
+      <li><b>The burn-down</b> — packs deflate the token ≈1.44×; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
     </ul>
     <div class="statwrap">
       <div class="stat"><b>100</b><span>living lens cards</span></div>
       <div class="stat"><b>33</b><span>minted hero 1/1s</span></div>
       <div class="stat"><b>67</b><span>render-only field cards</span></div>
-      <div class="stat"><b>3×</b><span>token contraction</span></div>
+      <div class="stat"><b>1.44×</b><span>token contraction</span></div>
     </div>
   </div>`, C.phos));
 
@@ -113,13 +113,13 @@ S.push(slide('The token · $3030', `
   <h2>A cheap micro-token on a Uniswap-v4 + Doppler curve.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li><b>Supply cap: 3,030,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
+      <li><b>Supply cap: 3,300,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
       <li><b>Opening price ≈ 1 RARE / token (~$0.02)</b> — kept cheap so every toll and vote is a micro-move.</li>
       <li>Liquidity is a <b>Doppler multicurve</b> (log-normal) inside a <b>Uniswap-v4 pool</b>; reserve/quote is <b>RARE</b>.</li>
       <li><b>FDV at a full curve ≈ $606k</b> — an artist-scale niche edition, by choice. Verified with <code>--preview</code> pre-mainnet.</li>
     </ul>
     <div class="statwrap">
-      <div class="stat"><b>3.03M</b><span>hard cap</span></div>
+      <div class="stat"><b>3.3M</b><span>hard cap</span></div>
       <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
       <div class="stat"><b>RARE</b><span>reserve currency</span></div>
       <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -223,7 +223,7 @@ S.push(slide('Transparency', `
       <li><b>Two contract surfaces</b> — the edition + one renderer+721 lens contract (a tiny mint footprint: 33 hero 1/1s). Nothing else to trust or exploit.</li>
       <li><b>Reproducible model</b> — <code>token-model.mjs</code> re-derives every number in this deck (supply, curve, packs, lifetime burn).</li>
       <li><b>Legible actions</b> — packs + conviction are burn txs on the one token; hero-lens mints are wallet-signed. The chain is the receipt.</li>
-      <li><b>Cards survive</b> — the burn is <b>token deflation</b> (3.03M → ~1.01M), not card death. No retirement, no ash, no ERC-1155.</li>
+      <li><b>Cards survive</b> — the burn is <b>token deflation</b> (3.3M → ~2.29M), not card death. No retirement, no ash, no ERC-1155.</li>
       <li><b>Canonical + honest</b> — <code>docs/ECONOMIC-FLOW.md</code>; field-card ownership is a labeled later phase.</li>
       <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
     </ul>

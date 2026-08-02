@@ -8,7 +8,9 @@
 // scripts/token-model.mjs). Model v2.2: 100-card deck, every card a LENS (render keyed by
 // id), 33 minted hero 1/1s (11 auctioned + 11 gacha + 11 earned; docs/HERO-UNLOCKS.md names the
 // eleven feats) + 67 render-only field cards + Lovebeing
-// holder lens; packs burn the token (mint-once; burn is real but modest at 33M — see below);
+// holder lens; packs burn the token (mint-once; the burn is MATERIAL at the 3.3M cap — 30.7% of
+// the mint — but the same 50/50 split leaves the studio holding 44.4% of the surviving float,
+// which is the headline risk and is stated wherever the burn is);
 // cards do NOT retire/ash.
 // Strong NFA / "all memes are memes" throughout.
 
@@ -225,7 +227,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
   th{ background:rgba(43,255,128,.09); color:#eafff2; font-family:var(--fat); text-transform:uppercase;
     letter-spacing:.05em; font-size:var(--t-tag,11px); }
   /* ⚑ 16px CELLS IN A SIDEWAYS-SCROLLING TABLE BEATS 13px CELLS YOU CANNOT READ. Several of
-     these cells are whole sentences ("3.1% of the 33,000,000 cap (half of each pack)"), not
+     these cells are whole sentences ("30.7% of the 3,300,000 cap (half of each pack)"), not
      figures. The table was already a horizontal scroller on a phone; what it was missing was
      any sign of that, which is what the scroll shadows above are for. */
   td{ background:rgba(1,10,5,.72); font-size:var(--t-body,13px); }
@@ -369,13 +371,13 @@ const whitepaper = `
 
   <h2><span class="n">03</span>The token · $3030</h2>
   <div class="statgrid">
-    <div class="stat"><b>33M</b><span>hard cap (mint-once)</span></div>
+    <div class="stat"><b>3.3M</b><span>hard cap (mint-once)</span></div>
     <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
     <div class="stat"><b>RARE</b><span>reserve currency</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
   </div>
   <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
-  <b>Doppler multicurve</b>. Supply is capped at <b>33,000,000</b> and <b>minted once</b> into the pool at
+  <b>Doppler multicurve</b>. Supply is capped at <b>3,300,000</b> and <b>minted once</b> into the pool at
   launch — burns are <b>permanent</b> and never re-mint. Opening price ≈ 1 RARE/token keeps every pack a
   micro-move. Full-curve FDV ≈ $606k is an <b>artist-scale niche edition, by choice</b>.</p>
 
@@ -517,7 +519,7 @@ const tokenomics = `
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>33M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -596,11 +598,11 @@ const tokenomics = `
   cap</b>. Packs burn the token down over the deck's four-tier life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
-    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed</td></tr>
+    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td><b>30.7%</b> of the 3,300,000 cap (half of each pack)</td></tr>
+    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed. <b>44.4% of the surviving float</b></td></tr>
     <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
-    <tr><td>Permanent contraction</td><td><b>≈ 1.03×</b></td><td>33M → ~31.99M. We do <b>not</b> claim deflation as the thesis</td></tr>
-    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 33M</td></tr></table>
+    <tr><td>Permanent contraction</td><td><b>≈ 1.44×</b></td><td>3.3M → ~2.29M. Material, and <b>not</b> a 3× scarcity engine</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 3.3M</td></tr></table>
   <p>Pack burns are denominated in <b>tokens</b>, not in a share of supply, so a larger mint does not
   scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
   but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
@@ -616,7 +618,7 @@ const tokenomics = `
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve against the 33M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 3.3M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>
@@ -686,7 +688,7 @@ const audit = `
   <ul>
     <li><b>Independent third-party security audit</b> of the renderer+721 lens contract — not yet performed.
       (The ERC-20 + curve come from SuperRare's protocol; the render/lens is ours.)</li>
-    <li><b>Curve calibration</b> — set the opening price against the 33M supply (with SuperRare).</li>
+    <li><b>Curve calibration</b> — set the opening price against the 3.3M supply (with SuperRare).</li>
     <li><b>Lens setup with SuperRare</b> — does the assisted 721 setup support render-by-id across 100 card-lenses
       (33 minted, 67 render-only), or do we deploy our own combined renderer+721 lens contract via the CLI?</li>
     <li><b>Mint mechanism</b> — a claim/voucher redeemer for the 11 gacha lenses (pack burn) and the 11 earned

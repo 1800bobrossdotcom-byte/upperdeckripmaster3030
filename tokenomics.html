@@ -187,7 +187,7 @@
   th{ background:rgba(43,255,128,.09); color:#eafff2; font-family:var(--fat); text-transform:uppercase;
     letter-spacing:.05em; font-size:var(--t-tag,11px); }
   /* ⚑ 16px CELLS IN A SIDEWAYS-SCROLLING TABLE BEATS 13px CELLS YOU CANNOT READ. Several of
-     these cells are whole sentences ("3.1% of the 33,000,000 cap (half of each pack)"), not
+     these cells are whole sentences ("30.7% of the 3,300,000 cap (half of each pack)"), not
      figures. The table was already a horizontal scroller on a phone; what it was missing was
      any sign of that, which is what the scroll shadows above are for. */
   td{ background:rgba(1,10,5,.72); font-size:var(--t-body,13px); }
@@ -267,7 +267,7 @@
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>33M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -346,11 +346,11 @@
   cap</b>. Packs burn the token down over the deck's four-tier life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td>3.1% of the 33,000,000 cap (half of each pack)</td></tr>
-    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed</td></tr>
+    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td><b>30.7%</b> of the 3,300,000 cap (half of each pack)</td></tr>
+    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed. <b>44.4% of the surviving float</b></td></tr>
     <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
-    <tr><td>Permanent contraction</td><td><b>≈ 1.03×</b></td><td>33M → ~31.99M. We do <b>not</b> claim deflation as the thesis</td></tr>
-    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 33M</td></tr></table>
+    <tr><td>Permanent contraction</td><td><b>≈ 1.44×</b></td><td>3.3M → ~2.29M. Material, and <b>not</b> a 3× scarcity engine</td></tr>
+    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 3.3M</td></tr></table>
   <p>Pack burns are denominated in <b>tokens</b>, not in a share of supply, so a larger mint does not
   scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
   but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
@@ -366,7 +366,7 @@
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve against the 33M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 3.3M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>

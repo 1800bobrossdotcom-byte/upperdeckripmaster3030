@@ -175,6 +175,61 @@ pin('cabinet.html', 'media/site/mark-', 'the cabinet embed shows it too');
 /* The four generated pages are OUTPUT. If they have drifted from the shell that builds them, the
  * fix above is real in the source and absent from what ships — which is its own version of this
  * whole bug, so it is checked rather than assumed. */
+/* ── THE TWO STRINGS THAT ARE BAKED IN AT DEPLOY AND CAN NEVER BE FIXED ───────────────────────
+ * ⛔ `name()` and `symbol()` are POSITIONAL ARGUMENTS the artist types into the Rare CLI. They
+ *    are frozen the moment the transaction lands, and this project already owns a token
+ *    permanently stuck with a wrong name for exactly this class of slip (the Sepolia edition
+ *    reads "Upperdeck Ripmaster 3030", title case). Task #70 exists because the deploy command
+ *    is COPY-PASTED out of these docs — so the docs are the thing that has to be right, and a
+ *    stale one is a live trap rather than a stale note.
+ * ⚠ THE TOKEN AND THE STUDIO HAVE DIFFERENT NAMES ON PURPOSE (settled 2026-08-02):
+ *      studio / domain / wordmark  = ripmaster3030studios
+ *      ERC-20 name()               = ripmaster3030      <- shorter, no "studios"
+ *      ERC-20 symbol()             = 3030
+ *    So this must be an EXACT-STRING check. A substring test would pass on the studio name,
+ *    which is the single most likely way the wrong string reaches the CLI. */
+console.log('\n── the deploy command, which becomes name() forever ──');
+const TOKEN_NAME = 'ripmaster3030', TOKEN_SYMBOL = '3030';
+const DEPLOY_RE = /deploy multicurve "([^"]*)" "([^"]*)"/g;
+/* ⚠ PLACEHOLDERS ARE NOT COMMANDS. Prose that says `deploy multicurve "…" "…"` while explaining a
+ *   past correction, and MECHANICS.md's `"<NAME>" "<SYMBOL>"` template, both match the shape and
+ *   neither is a string anyone pastes into a terminal. Failing on them would train the reader to
+ *   ignore this section, which is worse than not having it. */
+const PLACEHOLDER = a => a === '' || /^[…<]/.test(a);
+for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
+  const src = readFileSync(join(ROOT, file), 'utf8');
+  const hits = [...src.matchAll(DEPLOY_RE)].filter(h => !PLACEHOLDER(h[1]) && !PLACEHOLDER(h[2]));
+  ok(hits.length > 0, `${file} — carries a real deploy command to check`);
+  for (const h of hits) {
+    ok(h[1] === TOKEN_NAME, `${file} — name() is exactly "${TOKEN_NAME}"  (found "${h[1]}")`);
+    ok(h[2] === TOKEN_SYMBOL, `${file} — symbol() is exactly "${TOKEN_SYMBOL}"  (found "${h[2]}")`);
+  }
+}
+{
+  const meta = JSON.parse(readFileSync(join(ROOT, 'token-metadata.json'), 'utf8'));
+  ok(meta.name === TOKEN_NAME, `token-metadata.json name  — "${meta.name}"`);
+  ok(meta.symbol === TOKEN_SYMBOL, `token-metadata.json symbol  — "${meta.symbol}"`);
+}
+
+console.log('\n── the supply cap, stated in one place and spent everywhere ──');
+/* ⚠ 3,300,000 was settled after 33,000,000 was already written into the generators and the PDF.
+ *   The burn is denominated in tokens per pack, so the cap changes only the PERCENTAGES — which
+ *   is exactly the kind of edit that gets applied to the headline number and missed on the four
+ *   derived ones. Check the derived figures, not the cap. */
+{
+  const model = readFileSync(join(ROOT, 'scripts/token-model.mjs'), 'utf8');
+  ok(/const CAP\s*=\s*3_300_000;/.test(model), 'token-model.mjs CAP is 3_300_000');
+  for (const page of ['tokenomics.html', 'whitepaper.html']) {
+    const src = readFileSync(join(ROOT, page), 'utf8');
+    ok(!/33,000,000|>33M</.test(src), `${page} — no 33,000,000 left`);
+    ok(src.includes('3,300,000') || src.includes('3.3M'), `${page} — states the 3.3M cap`);
+  }
+  const tk = readFileSync(join(ROOT, 'tokenomics.html'), 'utf8');
+  ok(tk.includes('30.7%'), 'tokenomics.html — burn is 30.7% of mint');
+  ok(tk.includes('1.44'), 'tokenomics.html — contraction is 1.44x');
+  ok(tk.includes('44.4%'), 'tokenomics.html — and the studio slug is stated alongside it');
+}
+
 console.log('\n── generated pages match their generator ──');
 for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html']) {
   const src = readFileSync(join(ROOT, page), 'utf8');

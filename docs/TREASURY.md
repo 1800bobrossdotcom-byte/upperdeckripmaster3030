@@ -36,6 +36,36 @@ out of it. At `BURN_SHARE = 0.50`:
 | settled float | ~30,971,250 | **~31,985,625** |
 | permanent contraction | 1.07× | **1.03× — essentially none** |
 
+## ⛔ THE CAP IS 3,300,000 — settled 2026-08-02, and it INVERTS this page's headline
+
+The table above was computed at a 33,000,000 cap. The artist has settled the cap at
+**3,300,000**, and because the pack burn is denominated in **tokens per pack** the absolute
+numbers do not move at all — only what fraction of the mint they are:
+
+| | at 33,000,000 | **at 3,300,000 (settled)** |
+| --- | --- | --- |
+| four-tier sellout burn | 1,014,375 = **3.1%** of mint | 1,014,375 = **30.7%** of mint |
+| permanent contraction | 1.03× — essentially none | **1.44× — material** |
+| settled float | ~31,985,625 | **~2,285,625** |
+| studio slug, same period | 1,014,375 = 3.1% of mint | 1,014,375 = **30.7%** of mint |
+| **studio slug as % of the surviving float** | ~3.2% | ⛔ **44.4%** |
+
+⛔ **THE HEADLINE RISK ON THIS PAGE IS NOW THE SLUG, NOT THE BURN.** The 50/50 split sends the
+*same number of tokens* to the fire and to the studio, so any cap that makes the burn look
+material makes the treasury look large by exactly the same arithmetic. You cannot have one
+without the other while the split is 50/50. At 33M the burn was cosmetic and the slug was
+negligible; at 3.3M the burn is real and **the studio ends up holding a slug worth 44.4% of
+everything still alive.**
+
+⚠ CLAUDE.md recorded that raising the cap to 33M had *defused* the treasury's price impact —
+dumping the slug moved spot ~−6.8% there against ~−53.7% at the old ~3M cap. **Returning to
+3.3M re-arms that.** Nothing about the contract changed; the denominator did.
+
+**So: never quote the 30.7% burn without the 44.4% slug.** `token-model.mjs` now refuses to
+print one without the other, and the landing page's rite §3 states both in the same breath.
+This is the one number on the site most likely to be quoted back at the studio, and the honest
+version is the one that survives being quoted.
+
 Regenerated with it: `tokenomics.html`, `audit.html`, `whitepaper.html`, `whitepaper.pdf`,
 `index.html`, `docs/ECONOMIC-FLOW.md`, `docs/CURVE-TARGET.md`.
 

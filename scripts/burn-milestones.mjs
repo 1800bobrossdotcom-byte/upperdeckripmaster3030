@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ⚠ DEPRECATED (model v2.2, 2026-07) — CARD RETIREMENT IS CUT. ─────────────────────
 // v2.2 removed forced card retirement / ash entirely: the 100-card deck SURVIVES; the
-// burn is TOKEN DEFLATION only (3,030,000 → ~1,010,000 float, ⅔ contraction — see
+// burn is TOKEN DEFLATION only (3,300,000 → ~2,285,625 float, 1.44x contraction — see
 // scripts/token-model.mjs §5 and docs/ECONOMIC-FLOW.md §6). Scarcity now comes from
 // dwindling pack allotments + community rarity votes + voluntary compression, NOT from
 // destroying cards. This script and cards/data/_milestones.json describe the OLD
