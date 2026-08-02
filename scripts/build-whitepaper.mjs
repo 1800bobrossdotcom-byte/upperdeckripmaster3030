@@ -77,7 +77,7 @@ S.push(slide('TL;DR — read this first', `
     <ul class="bullets">
       <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$3030</b> on a bonding curve in <b>RARE</b>, <b>minted once</b>, burns permanent.</li>
       <li>The <b>100-card deck is the artwork</b> — <b>every card is a lens</b> (a render that reads the live market + burn). No ERC-1155, no per-copy editions.</li>
-      <li><b>33 hero cards mint as 1/1s</b> (11 pulled from packs, 22 earned in the games); the other <b>67 are render-only lenses</b>, mintable later.</li>
+      <li><b>33 hero cards mint as 1/1s</b> (11 auctioned on SuperRare, 11 pulled from packs, 11 earned in the games); the other <b>67 are render-only lenses</b>, mintable later.</li>
       <li>Packs <b>burn</b> the token — supply contracts <b>≈3×</b> (3.03M → ~1.01M) — but <b>the cards survive</b>. The token burns so the art can live.</li>
       <li><b>No team pre-mint. No hidden fees.</b> The studio takes a stated cut — half of every pack and half of the 10% game rake; the rest burns. Plus <b>Lovebeing</b>, the holder lens every wallet carries.</li>
     </ul>
@@ -96,7 +96,7 @@ S.push(slide('The game', `
     <ul class="bullets">
       <li><b>The field</b> — all 100 cards are live lenses, five tiers (Common → Prizm). <b>Rarity is set by community vote</b> (the Rarity Court), not decreed.</li>
       <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
-      <li><b>The 33 hero lenses</b> — <b>11 gacha</b> (pull the claim → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>
+      <li><b>The 33 hero lenses</b> — <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim → mint the 1/1) + <b>11 earned</b> (clear a named feat → one-of-a-kind game title → mint). One owner each.</li>
       <li><b>Play &amp; wager</b> — the games ante $3030 (<b>net-zero wagers</b> — winner takes the pot) and let you stake your cards, which transfer (never burned).</li>
       <li><b>The burn-down</b> — packs deflate the token ≈3×; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
     </ul>
@@ -192,7 +192,7 @@ S.push(slide('Lenses · minting &amp; compression', `
   </div>
   <p class="fine">A tier opens when the one before it sells out — not on a date. We are a game studio, not a drop calendar.</p>
   <ul class="bullets wide">
-    <li><b>33 hero lenses — the genesis set (persists across all four tiers):</b> <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
+    <li><b>33 hero lenses — the genesis set (persists across all four tiers):</b> <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b> (win a one-of-a-kind game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed.</li>
     <li><b>67 field lenses — render-only now:</b> live on-chain, unminted (readable via the CLI). Collect their copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>, on the same render — so they stay lenses, never static art.</li>
     <li><b>Lovebeing — the holder lens:</b> distributed to <b>every $3030 holder</b>, one per wallet, <b>non-transferable</b> and <b>non-burnable</b>. Nothing turns to ash — the deck survives; the token deflates.</li>
   </ul>`, C.cyan));

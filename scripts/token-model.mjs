@@ -198,7 +198,7 @@ console.log('settles the token at a higher float. Scarcity is dwindling allotmen
 // 6. reward pool — LAUNCH: none (pure liquid edition). Phase-2 reference below.
 line(); console.log(`6. HOUSE REWARD POOL — LAUNCH: NONE. A pack splits ${fmt(BURN_SHARE*100,0)}/${fmt((1-BURN_SHARE)*100,0)} burn/studio and`);
 console.log('nothing else (mint-once: the burned half is gone for good; the studio half is revenue, not a');
-console.log('pool players can win back). The hero-lens mints (11 gacha claims + 22 earned game titles) are 721 LENS');
+console.log('pool players can win back). The hero-lens mints (11 SuperRare auctions + 11 gacha claims + 11 earned titles) are 721 LENS');
 console.log('MINTS on the renderer+721 lens contract, not token payouts. A Phase-2 vault');
 console.log(`(REWARD_CUT=${REWARD_CUT?REWARD_CUT:1} ref) would divert a per-pack cut to a bounty pool`);
 console.log('INSTEAD of burning it — which would REDUCE lifetime burn below the budget above, never raise');

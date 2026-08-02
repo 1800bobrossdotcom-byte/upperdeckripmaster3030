@@ -271,7 +271,7 @@
   a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token (<b>$3030</b>) priced by a bonding
   curve in <b>RARE</b> on Uniswap-v4. The <b>100-card deck</b> is the <b>artwork</b>, and <b>every card is a
   LENS</b> — a render that reads the live market + burn. <b>33 hero cards</b> mint as <b>1/1 lenses</b>
-  (11 pulled from packs, 22 earned in the games); the other <b>67 field cards</b> are <b>render-only lenses</b>
+  (<b>11 auctioned on SuperRare</b>, 11 pulled from packs, 11 earned in the games); the other <b>67 field cards</b> are <b>render-only lenses</b>
   (live on-chain, <b>unminted</b>) that you collect and can mint later. Packs <b>burn</b> the token — supply
   <b>only falls</b> — every rip retires supply for good while the RARE reserve stays put, so
   <b>each surviving token is backed by more</b>. Ripping pays the holders. <i>The token burns
@@ -307,8 +307,10 @@
       community vote</b> (the Rarity Court), not decreed.</li>
     <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull
       <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
-    <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers — <b>11 gacha</b>
-      (pull the claim from a pack → mint the 1/1) + <b>22 earned</b> (win a one-of-a-kind game title → mint). One owner each.</li>
+    <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers —
+      <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim from a pack → mint the 1/1)
+      + <b>11 earned</b> (clear a stated feat in the cabinets → signed voucher → mint). One owner each,
+      and the eleven feats are named in §06 — they are not a mystery box.</li>
     <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
     <li><b>The burn</b> — packs retire token supply permanently without touching the reserve, so backing
@@ -362,8 +364,9 @@
   time is <b>who owns a token</b>:</p>
   <div class="cols3">
     <div class="card house"><div class="co-h">33 hero lenses · minted now</div>
-      <p style="margin:0"><b>11 gacha</b> (pull a claim from a pack → mint) + <b>22 earned</b>
-      (win a game title → signed voucher → mint). Real <b>1/1 ERC-721</b> tokens, wallet-signed. One owner each.</p></div>
+      <p style="margin:0"><b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull a claim from a pack
+      → mint) + <b>11 earned</b> (clear a named feat → signed voucher → mint). Real <b>1/1 ERC-721</b>
+      tokens, wallet-signed. One owner each.</p></div>
     <div class="card creator"><div class="co-h">67 field lenses · render-only</div>
       <p style="margin:0"><b>Live on-chain, unminted</b> (readable via the CLI). Collect their
       copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>,
@@ -375,6 +378,37 @@
   </div>
   <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
   emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
+
+  <h3 id="titles">The eleven earned titles</h3>
+  <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
+  <b>named feat in a named cabinet</b> — printed here in full, because a prize nobody can aim at is a
+  lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
+  closed.</b> One owner, forever.</p>
+  <!-- A LIST, NOT A TABLE. The shell's th,td are white-space:nowrap, so a sentence per row would
+       force the whole thing into a sideways scroll on a phone — the exact shape the mobile pass
+       just spent a day removing. Long prose belongs in a list; tables are for numbers. -->
+  <ul>
+    <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
+    <li><b>DEAD STICK</b> · <i>Dogfight</i> — win a match having <b>never pressed boost</b>.</li>
+    <li><b>ONE MAG</b> · <i>Section 9</i> — win a round with <b>more kills than reloads</b>.</li>
+    <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
+    <li><b>OPEN AIR</b> · <i>Rip Rocketer</i> — reach <b>Tier IV on one life</b>.</li>
+    <li><b>THE FACILITY IS CLOSED</b> · <i>Rip Rocketer</i> — clear <b>every emplacement in a single tier</b>.</li>
+    <li><b>CLEAN SWEEP</b> · <i>Cloud Racer</i> — win a race having taken <b>every light-strip, every lap</b>.</li>
+    <li><b>THREE CUTS</b> · <i>Neon Ronin</i> — win a duel where <b>every landed hit was part of a combo</b>.</li>
+    <li><b>NO SWORD</b> · <i>Neon Ronin</i> — win a duel using <b>no slash at all</b>.</li>
+    <li><b>HOUSE MONEY</b> · <i>The Arena</i> — take first on the podium <b>three times running</b>, never folding.</li>
+    <li><b>THE LONG COUNT</b> · <i>any five cabinets</i> — hold a <b>first-place finish in five different games</b>.</li>
+  </ul>
+  <p><b>Nothing on that list can be bought.</b> No title is unlocked by holding more $3030, ripping more
+  packs, or burning more of anything — every one is a thing you did with your hands. That is
+  deliberate: a balance can be borrowed for the length of one block, and a feat cannot.</p>
+  <div class="callout amber"><b>How a title is actually awarded, stated plainly.</b> You record the run,
+  you post it, the studio verifies it and signs a voucher, and <b>you</b> mint the card to <b>your</b>
+  wallet and pay the gas — the studio never holds it for you. <b>And the studio is the judge.</b> Every
+  score in these games lives in your own browser and can be edited in seconds, so a machine cannot
+  referee this and we are not going to pretend one does. A card studio handing out its own titles is
+  an honest arrangement; dressing it up as an oracle would not be.</div>
 
   <h2><span class="n">07</span>Steady, not a pump</h2>
   <ul>
