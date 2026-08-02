@@ -491,6 +491,27 @@
     RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); }); }catch{} }
   function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
 
+  /* ⛔ THE WEAPON TABLE IS DECLARED HERE BECAUSE THE LINE BELOW READS IT, AND IT USED TO BE
+     DECLARED ~620 LINES FURTHER DOWN. `const` hoists into the temporal dead zone, so
+     `LOADOUTS=WEAPONS.map(...)` threw `ReferenceError: Cannot access 'WEAPONS' before
+     initialization` at load — and because it threw at the TOP LEVEL of this script, every line
+     after it stopped running. Driven, the page came up with lChips, pChips and weapSlots all
+     EMPTY, zero arena chips and no start button: not degraded, dead.
+     ⚑ THIS IS THE PAGE A BROWSER WITH NO WEBGL 2 IS SENT TO. It is the fail-open route for the
+     PlayCanvas build, which has no software path — so the one page whose whole job is to work
+     when the other one cannot, did not work at all. Fail-open that fails closed is worse than
+     no fallback, because nothing reports it.
+     ⚠ Moved rather than patched around: WEAPONS is a pure literal with no dependencies, and data
+     belongs above the code that derives from it. `js/s9pc-game.js` (the shipping build) declares
+     its own copy and never had this ordering. */
+  // weapon definitions
+  const WEAPONS=[
+    { name:'SIDE BET',  key:'pistol',  dmg:22, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
+    { name:'FULL TILT',  key:'smg',     dmg:17, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
+    { name:'SCATTER',key:'shotgun', dmg:9, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
+    { name:'COLD CALL',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
+  ];
+
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
   const LOADOUTS=WEAPONS.map(w=>w.name);   // derived — a private copy is how 'ak' survived the rename
@@ -1117,13 +1138,6 @@
     recoil:0, muzzle:0, scoped:false, ads:false, killStreak:0,
     cardDmg:1, cardRate:1, cardSpeed:1, cardArmor:0, cardAmp:1, surgeT:0, overdrive:false, sigGun:'', gait:0 }; }
 
-  // weapon definitions
-  const WEAPONS=[
-    { name:'SIDE BET',  key:'pistol',  dmg:22, spread:0.010, rate:250, mag:12, reload:1050, auto:false, pellets:1, zoom:1,   sfx:'pistol', range:60, kick:0.9 },
-    { name:'FULL TILT',  key:'smg',     dmg:17, spread:0.045, rate:105, mag:30, reload:1500, auto:true,  pellets:1, zoom:1,   sfx:'smg',    range:56, kick:0.7 },
-    { name:'SCATTER',key:'shotgun', dmg:9, spread:0.10,  rate:780, mag:6,  reload:1900, auto:false, pellets:8, zoom:1,   sfx:'shotgun',range:26, kick:1.6 },
-    { name:'COLD CALL',    key:'sniper',  dmg:88, spread:0.002, rate:1150,mag:5,  reload:1700, auto:false, pellets:1, zoom:2.7, sfx:'sniper', range:80, kick:2.2 },
-  ];
 
   // ══════════════════ CARD POWERS + LIVE $3030 MARKET ══════════════════
   // your staked cards arm the operative (dmg / fire-rate / armor / speed), all flexing with the live chain.

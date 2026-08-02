@@ -164,6 +164,41 @@ for (const p of ['section9.html', 'section9-classic.html']) {
   t(`${p} loads js/eth-play.js alongside js/session.js`, /js\/eth-play\.js/.test(s));
 }
 
+// ═══ 4b · THE FAIL-OPEN ROUTE MUST ACTUALLY OPEN ═══════════════════════════════════════════════
+/* ⛔ `section9-classic.html` THREW AT LOAD AND WAS COMPLETELY UNPLAYABLE. `const LOADOUTS =
+ *   WEAPONS.map(...)` ran ~620 lines above `const WEAPONS = [...]`, and `const` hoists into the
+ *   temporal dead zone: `ReferenceError: Cannot access 'WEAPONS' before initialization`. Because
+ *   it threw at the TOP LEVEL of that script, every line after it stopped running.
+ *   Driven proof of the old state: lChips EMPTY, pChips EMPTY, weapSlots EMPTY, 0 arena chips,
+ *   no start control. After: 0 page errors, 11 arena chips, and Practice -> GameHelp -> a live
+ *   match with the HUD up and weapon slots rendered.
+ * ⚑ WHY IT BELONGS IN THE REACHABILITY SUITE. This is the page a browser with NO WEBGL 2 is sent
+ *   to — PlayCanvas has no software path, so fail-open here is a ROUTE, not a renderer. The one
+ *   page whose entire job is to work when the other cannot, did not work at all. **Fail-open that
+ *   fails closed is worse than no fallback, because nothing reports it** — the visitor sees a dead
+ *   page and the working build never knows.
+ * ⚠ SOURCE ORDER, NOT A DRIVEN PAGE, ON PURPOSE. Driving this file costs seconds and the suite
+ *   runs on every `npm test`; the defect is an ordering fact and an ordering check catches it
+ *   exactly. It will NOT catch a different TDZ elsewhere in the file — that is a known limit,
+ *   written down rather than papered over. */
+head('4b · the no-WebGL2 fallback route loads without throwing');
+{
+  /* ⚠ STRIPPED FIRST. The note above the declaration QUOTES the broken line in order to explain
+   *   it, so measuring on the raw file finds that quotation as the "first read" and fails — the
+   *   checker firing on the comment describing its own fix, which is the third time that exact
+   *   shape has come up in this repo (see the <style> stripper in test-name-law.mjs). Offsets are
+   *   only compared against code. */
+  const s = R('section9-classic.html')
+    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+    .replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' '));
+  const decl = s.indexOf('const WEAPONS=');
+  const use  = s.indexOf('WEAPONS.map(');
+  t('section9-classic.html declares WEAPONS', decl >= 0);
+  t('section9-classic.html reads WEAPONS', use >= 0);
+  t('WEAPONS is declared BEFORE anything derives from it (temporal dead zone)',
+    decl >= 0 && use >= 0 && decl < use, `declared at ${decl}, first read at ${use}`);
+}
+
 // ═══ 5 · NOTHING IS FETCHED THAT THE DRAW PATH CANNOT REACH ════════════════════════════════════
 /* ⛔ js/ronin3d.js draws `skins[arch]` BEFORE `models[arch]` and returns, so a registered skin
  *   always wins. All 13 ARCH_KEYS have a .skn on disk, and the old code still ran an
