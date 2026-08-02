@@ -289,25 +289,34 @@ framebuffer, never from a screenshot — this container rotates hue on canvas co
 | parallax, near : far, camera truck | **2.41** (41 px / 17 px) | > 1.6 |
 | empty stage | mean luma **20.8**, clipped **0.00%**, black **50.2%** | mean < 46 |
 
-**The whole-frame numbers, `npm run debug ronin`** — median of five frames, SwiftShader, so these
-are comparable between runs and are not an fps or a colour claim:
+**The whole-frame numbers, `npm run debug ronin`** — median of five frames, SwiftShader, so
+comparable between runs and never an fps or a colour claim.
 
-| | before | after |
-| --- | --- | --- |
-| luma mean | 35.4 | **28.5** |
-| contrast | 42.4 | **35.8** |
-| p99 | 212 | **182** |
-| clipped | 0.17% | **0.19%** |
-| black | 45.7% | **54.0%** |
-| frame-to-frame luma spread | **18.2** | **1.8** |
+⛔ **THIS GAME IS EVENT-DRIVEN AND ONE RUN OF THE SWEEP IS NOT A MEASUREMENT.** Run four times on
+the same build, the median frame came back at **29.1 · 29.6 · 31.5 · 37.2** depending on whether a
+hit-flash happened to land in the five-frame window — the sweep prints its own warning when the
+spread exceeds 25 and it fired on three of the four. So the comparison has to be made *within*
+regime, not against a single number:
 
-⚠ **Read those two columns honestly, because one of them moved the wrong way.** Blacks up
-45.7 → 54.0% and p99 down 212 → 182 is the intended trade: a dark field with a lit object, which
-is what §5 asks for and what the old build did not have (its floor was a lit grid edge to edge).
-**Contrast fell 42.4 → 35.8, and that is a real cost** — the old frame bought its spread from a
-near-white mannequin and a bright grid, both of which were the problem. The number worth trusting
-is the last row: **the frame-to-frame spread collapsed from 18.2 to 1.8**, i.e. the picture is no
-longer flashing between two different exposures, which is what made the old readings a lottery.
+| | before (1 run) | after, quiet frames | after, a frame with a hit in it |
+| --- | --- | --- | --- |
+| luma mean | 35.4 | **29.1 – 29.6** | 31.5 – 37.2 |
+| contrast | 42.4 | **35.6 – 36.3** | 39.5 – 48.6 |
+| p99 | 212 | **182 – 183** | 192 – 226 |
+| clipped | 0.17% | **0.18 – 0.20%** | 0.27 – **0.38%** |
+| black | 45.7% | **52.2 – 52.6%** | 48.4 – 51.7% |
+
+- ✅ **At rest the frame is a dark field again**: blacks 45.7 → 52.4%, p99 212 → 182. That is what
+  §5 asks for and what the old build did not have — its floor was a lit grid, edge to edge.
+- ⚠ **Contrast fell, 42.4 → ~36, and it is a real cost.** The old frame bought its spread from a
+  near-white mannequin and a bright grid, both of which were the defects; but the number went
+  down and should be reported going down.
+- ⚠ **Clipping during a hit is up, 0.17% → 0.38%.** The plate slip and the ring are additive on
+  top of a scene that already blooms. Below GfxPost's own threshold for concern, but it is the
+  one number that moved the wrong way in the impact work and it should be watched.
+- ⚑ **The clean number for the stage change is the probe's, not the sweep's**: an empty stage,
+  deterministic, measures mean luma **21.3 with 0.00% clipped and 50.3% black.** That is the row
+  above and it is the one to sweep a future change against.
 
 ⛔ **Not measured, and not claimable:** frame time (SwiftShader — relative only), colour on a real
 GPU, and anything on a real phone. Task #73 still stands.
