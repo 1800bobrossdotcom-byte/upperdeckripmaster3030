@@ -319,6 +319,45 @@ head('3. the VS face-off fires, and the VS is STRUCK');
     return { n, fight: !!fo.querySelector('canvas') };
   });
   await p2.screenshot({ path: path.join(SHOT, 'vs-strike.png') });
+  await ctx2.close();
+
+  /* ── 3b · reduced motion ─────────────────────────────────────────────────────────────────
+   * ⚠ THE PSEUDO-ELEMENTS ARE THE TRAP. Naming `.fo-vs-mark` in the reduce block silences the
+   *   glyph and leaves `::before` still wiping the scorch and `::after` still firing the shock
+   *   ring — the loudest half of the impact, running alone, under the setting that asked for none
+   *   of it. `getAnimations()` on the element does not see them, so this asks the computed style
+   *   of each pseudo directly. The mark must still be THERE, at its resting size: reduced motion
+   *   removes the motion, never the picture. */
+  const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  const p3 = await ctx3.newPage();
+  await p3.route('**/vendor/playcanvas/**', r => r.abort());
+  await p3.addInitScript(([slugs]) => { try {
+    localStorage.setItem('urm_admin_ok', '1');
+    localStorage.setItem('urm_vault', JSON.stringify(slugs.map(s => ({ slug: s }))));
+  } catch {} }, [slugs]);
+  await p3.goto(`http://localhost:${PORT}/cards/battle.html`, { waitUntil: 'load' });
+  await p3.waitForFunction(() => document.querySelectorAll('#handRow .tile').length >= 3, null, { timeout: 30000 });
+  await p3.evaluate(() => {
+    [...document.querySelectorAll('#handRow .tile')].slice(0, 3).forEach(t => t.click());
+    document.getElementById('slamBtn').click();
+  });
+  await p3.waitForSelector('.faceoff.show', { timeout: 60000 });
+  await p3.waitForTimeout(1600);                       // past the ember timer, which must not fire
+  const r3 = await p3.evaluate(() => {
+    const fo = document.querySelector('.faceoff'), vs = fo.querySelector('.fo-vs-mark');
+    const b = vs.getBoundingClientRect();
+    return { w: Math.round(b.width), h: Math.round(b.height), op: getComputedStyle(vs).opacity,
+             mark: vs.getAnimations().length, wrap: fo.querySelector('.fo-vs').getAnimations().length,
+             before: getComputedStyle(vs, '::before').animationName,
+             after: getComputedStyle(vs, '::after').animationName,
+             embers: document.querySelectorAll('.ember').length };
+  });
+  ok(r3.mark === 0 && r3.wrap === 0, 'reduce: the strike and the recoil are off', `${r3.mark} + ${r3.wrap} animations`);
+  ok(r3.before === 'none' && r3.after === 'none', 'reduce: the scorch and the ring are off too',
+     `::before ${r3.before}, ::after ${r3.after}`);
+  ok(r3.embers === 0, 'reduce: no embers are thrown', `${r3.embers}`);
+  ok(r3.w > 40 && r3.h > 30 && +r3.op === 1, 'reduce: the VS is still fully there', `${r3.w}×${r3.h} @ ${r3.op}`);
+  await ctx3.close();
   console.log(`       shot: build/preview/vs-strike.png  (${held.n} animations held at 300 ms${held.fight ? ', fight layer already up' : ''})`);
   await ctx2.close();
 }

@@ -11,3 +11,20 @@ scripts/
 contracts/
 build/
 .claude/
+
+# Card-separation BUILD OUTPUT — 23 MB of the 31 MB in models/cards/ that nothing fetches.
+# The only thing the site reads is models/cards/<n>/layers/*.png, named by the sidecars in
+# cards/art/hero/*.layers.json — resolved all 34 srcs, every one lives under layers/.
+# Everything below is what png23d/Blender emitted on the way there: the packed mesh, the
+# contact sheets, and card 44's source maps. Kept in git (they are how a card is re-cut);
+# kept off the CDN (a collector opening one card would otherwise pay for six cards of
+# exploded-view PNGs they never see).
+models/cards/*/preview/
+models/cards/*/layers.glb
+models/cards/*/channels.glb
+models/cards/*/channels/
+models/cards/44/albedo.png
+models/cards/44/normal.png
+models/cards/44/height.png
+models/cards/44/ao.png
+models/cards/alley-trio/*.glb
