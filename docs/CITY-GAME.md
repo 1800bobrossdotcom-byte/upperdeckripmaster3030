@@ -17,8 +17,9 @@ amazing graphics."*
 | **the place** | a **park / green pocket** AND a **neighbourhood block**, adjoining — one continuous space. A third area later. |
 | **scale** | ⛔ **MMORPG-ASPIRING.** *"that is too small of a world, maybe that is a place in it, but we are talking mmorpg size or aspiring to that size."* |
 | **scope** | **REPLACES NEON RONIN.** `ronin.html` becomes this game; the duel lives on in git history. |
-| **first animal** | **THE BIRD.** |
+| **first animal** | **THE BIRD.** ✅ Squirrel built second. |
 | **who you can be** | squirrel · dog · cat · bird |
+| **modes** | ⛔ **THREE.** *"there are 3 modes, animal mode, dogfight mode, section 9 mode."* One world; the body, the camera and whether you can be hurt are what differ. |
 
 ## ⛔ SCALE — and the one decision the whole game rests on
 
@@ -121,9 +122,28 @@ it. Worse, it fails *plausibly* — the aircraft flies, it just flies wrong.
 ### ORDER — and the one rule about retiring a cabinet
 
 1. ✅ **Animal + jet in the city**, sharing the world, the streamer and the edge.
-2. Jet combat: bolts, lock, bots — DOGFIGHT's, re-derived at city scale.
-3. Operative: Section 9's game handed a chunk's `solids` as its `MAP`.
-4. *Then* the two old cabinets retire.
+2. ✅ **All three modes traversable** — animal (bird ✅ · squirrel ✅ · cat/dog pending), dogfight,
+   and section 9 on foot in first person. TAB cycles; the world does not reload.
+3. Jet combat: bolts, lock, bots — DOGFIGHT's, re-derived at city scale.
+4. Operative combat: Section 9's weapons and bots, on a chunk's `solids`.
+5. *Then* the two old cabinets retire.
+
+⚠ **WHAT EXISTS IS TRAVERSAL, AND SAYING SO IS THE POINT.** Walking, looking, gravity, jumping,
+climbing and standing on the city are real in all three modes. Weapons, bots and the firefight are
+not. A mode that half-exists and is described as finished is how *built ≠ reachable* becomes
+*built ≠ true*.
+
+### ⚑ THE SQUIRREL OWNS THE VERTICAL — and that is why it is an animal, not a re-skin
+The bird SEES the map and cannot get into it. The squirrel goes UP anything: hold forward against
+any solid over 1.2 m and you climb it, crest it, and step onto the roof. **Every box in this city
+is climbable by construction** — the same 1:1 guarantee the generator already makes about landing,
+and it is only true because the geometry and the collision set are one thing.
+Measured: lands on the street, runs **23.2 m**, climbs **3.94 m** up a wall.
+
+### ⚠ THE OPERATIVE IS SECTION 9's CAPSULE, NOT A NEW ONE
+r 0.42 · h 1.72 · step 0.62 — Section 9's own numbers, because its map format *is* the city's chunk
+format and the body should match the thing the collision was written for. Measured: stands at
+street level, walks **11.7 m**, jumps **0.89 m**, first-person, mortal and armed.
 
 ⛔ **A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT WORKS.** The arcade shows four now, and THE
 CITY's own mode bar links the two old pages until their modes are real — so nothing shipped becomes

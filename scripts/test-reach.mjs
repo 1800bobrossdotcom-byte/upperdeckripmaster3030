@@ -120,6 +120,19 @@ head('1b · the city can actually be played by a thumb');
    * the same defect one level down, which is how it would have been missed. */
   t('the mode swap has an on-screen control, not only TAB', /tMode/.test(app) && /tMode/.test(page));
   t('one input reader serves both devices', /function readInput\(/.test(app));
+  /* ⛔ THREE MODES (artist, 2026-08-03) — and each one has to be REACHABLE, which is a different
+   * claim from "the code for it exists". A mode you cannot select is a game you cannot play, and
+   * that is the exact defect this whole file was written for. The animal picker is its own axis:
+   * folding "which game" and "which animal" into one cycle would bury a four-animal roster three
+   * presses deep, and a control nobody can find is a control nobody has. */
+  for (const m of ['animal', 'jet', 'operative'])
+    t(`mode "${m}" is in the cycle`, new RegExp("'" + m + "'").test(app));
+  t('TAB cycles the modes rather than toggling two', /cycleMode\(/.test(app));
+  t('…and there is an on-screen cycle for a phone', /tMode.*cycleMode|cycleMode\(1\)/s.test(app));
+  t('the squirrel is selectable, on both a keyboard and a thumb',
+    /setCreature\(/.test(app) && /tCreature/.test(app) && /tCreature/.test(page));
+  t('the animals are observers and the other two are not',
+    /animal:\s*\{[^}]*mortal:\s*false/.test(app) && /operative:\s*\{[^}]*mortal:\s*true/.test(app));
   /* The touch button styling has to exist in the PAGE or the controls render as bare buttons. */
   t('city.html styles the touch controls', /#touchUI/.test(page));
   t('…and hides the keyboard legend where there is no keyboard',

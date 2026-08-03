@@ -820,6 +820,40 @@ away rebuilds identically).
   half of that fix is `nearClip` 0.12 → 0.4**: near clip is a depth-PRECISION dial, and 0.12 m
   against a kilometre-scale far clip spends the whole buffer inside the first metre.
 
+### ⛔ THREE MODES IN ONE WORLD — animal · dogfight · section 9 (artist, 2026-08-03)
+*"the city game is supposed to have the fps shooter as well - and to be able to be a squirrel as
+well. so there are 3 modes, animal mode, dogfight mode, section 9 mode."*
+TAB cycles (shift-TAB back), **C** swaps animal, and a phone gets both as buttons. Driven: the
+cycle runs animal/BIRD·observer → jet/DOGFIGHT·mortal·armed → operative/SECTION 9·mortal·armed and
+**the world does not reload** — 31 near chunks before and after.
+- ⚑ **THE SQUIRREL OWNS THE VERTICAL, which is why it is an animal rather than a re-skin.** Hold
+  forward against any solid over 1.2 m and you climb it, crest it and step onto the roof. **Every
+  box in this city is climbable by construction** — the same 1:1 guarantee the generator makes
+  about landing, true only because the geometry and the collision set are one thing. Measured:
+  runs 23.2 m, climbs 3.94 m.
+- ⚑ **THE OPERATIVE IS SECTION 9's OWN CAPSULE** — r 0.42 · h 1.72 · step 0.62 — because its map
+  format IS the city's chunk format, so the body should match what the collision was written for.
+  First person, mortal, armed. Walks 11.7 m, jumps 0.89 m.
+- ⚠ **WHAT EXISTS IS TRAVERSAL.** Weapons, bots and the firefight are the next step and the docs
+  say so. A mode that half-exists and is described as finished is how *built ≠ reachable* becomes
+  *built ≠ true*.
+- ⛔ **COLLISION ORDER: VERTICAL FIRST, THEN HORIZONTAL PROBED FROM `y + step`.** Both bodies landed
+  correctly on the street and then **could not move a single metre** — `walked: 0`, `moved: 0`.
+  Gravity runs every frame, so the feet dip ~7 mm below the slab before the ground resolve catches
+  them; the HORIZONTAL test then ran at that dipped height, found `y < groundSlab.y1`, and treated
+  **the floor itself as a wall**. A body standing perfectly still on a surface it cannot walk along
+  looks like broken input and is a collision-ORDER mistake. ⚑ Probing from `y + step` also gives
+  step-up for free, which is why a kerb is a kerb and not a fence.
+- ⚠ **THE BODY SIZE HAD TO BECOME AN ARGUMENT.** `hits()` carried the bird's 0.45/0.9 as constants;
+  reusing that for a 1.72 m operative lets them stand with their head in a ceiling.
+- ⚠ **"Which game" and "which animal" are DIFFERENT AXES.** Folding them into one cycle would bury
+  a four-animal roster three presses deep. Two controls, two questions.
+- ⚠ **A width cap tuned to two buttons breaks when a third arrives** — the mobile hint clamp was
+  172px for flap+mode and had to become 246px for flap+mode+animal. Same class as the flap button
+  silently shrinking: a layout number derived from a count that changed.
+- ⚠ A squirrel's tail **curls above the back** — a straight taper trailing on the ground reads as a
+  rat. It is a rising offset per ring, not a rotation of a straight tail.
+
 ### ⛔ NO FUEL, AND IT LOOKS LIKE A BIRD — two artist corrections, 2026-08-03
 *"the bird needs to be able to just fly - and we need it looking more like a birb please. no having
 to land to keep flying."*

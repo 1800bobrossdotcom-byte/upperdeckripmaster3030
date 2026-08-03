@@ -88,8 +88,10 @@
      it is the kind of regression that only shows up in a number nobody reads. Qualifying by the
      parent id makes it (2,0,0) and states the relationship instead of shouting over it. */
   #touchUI #tFlap{ width:74px; height:74px; font-size:28px; border-color:rgba(255,107,87,.55); }
-  #touchUI #tMode{ opacity:.72; font-size:19px; }
-  #touchUI #tMode:active{ opacity:1; }
+  #touchUI #tMode, #touchUI #tCreature{ opacity:.72; font-size:19px; }
+  #touchUI #tMode:active, #touchUI #tCreature:active{ opacity:1; }
+  /* the animal picker only means anything in animal mode */
+  body[data-mode="jet"] #tCreature, body[data-mode="operative"] #tCreature{ display:none; }
   /* ⛔ THE PHONE LAYOUT, AND THE FIRST PASS WAS A WRECK. Driven at 390x844: the top-left title and
      the top-right mode bar sat at the same altitude and drew straight through each other, the
      bottom hint ran underneath both control buttons and off the right edge, and the whole thing
@@ -104,8 +106,12 @@
     #modes{ right:auto; left:calc(var(--bez) + 16px); top:calc(var(--bez) + 34px);
       text-align:left; font-size:10px; line-height:1.8; }
     #modes .kbd{ display:none; }                 /* TAB does not exist here */
+    /* ⚠ 246px, not 172. The control strip grew from two buttons to three when the animal picker
+       arrived, and a width cap tuned to the old count silently starts overlapping again — the same
+       class of regression as the flap button shrinking. Derived: 74 + 56 + 56 + two 12px gaps + a
+       16px margin. */
     #hudBL{ font-size:10.5px; line-height:1.7;
-      max-width:calc(100% - var(--bez)*2 - 172px); }   /* 172px clears both buttons, always */
+      max-width:calc(100% - var(--bez)*2 - 246px); }
     /* ⚠ HIDING THE CHIPS IS NOT HIDING THE HINT. `.key` is only the little boxed letter; the words
        around it ("fly", "flap", "dive", "turn") live in `.kw` and went on printing a keyboard
        legend, stripped of its keys, on a device with no keyboard. */
@@ -126,16 +132,17 @@
        from reach to make a count look right. That is `npm run test:reach`'s failure with the sign
        flipped. They live here until their modes are real, and then these two links go. -->
   <div class="hud" id="modes">
-    <span class="kbd"><b>TAB</b> swap · </span>
-    <span id="mAnimal">BIRD</span> <span class="dim">observer, cannot be hurt</span> ·
-    <span id="mJet">JET</span> <span class="dim">fast, mortal</span>
-    <br><span class="dim">not folded in yet →</span>
+    <span class="kbd"><b>TAB</b> mode · <b>C</b> animal · </span><b id="modeGame">ANIMAL</b>
+    <br><span class="dim">ANIMAL</span> observer, cannot be hurt ·
+    <span class="dim">DOGFIGHT · SECTION 9</span> mortal
+    <br><span class="dim">the old cabinets →</span>
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
   <div class="hud" id="hudBL">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> fly &nbsp;
     <span class="key">SPACE</span> flap &nbsp; <span class="key">SHIFT</span> dive &nbsp;
-    <span class="key">Q</span><span class="key">E</span> turn &nbsp; <span class="key">TAB</span> bird ⇄ jet<br></span>
+    <span class="key">Q</span><span class="key">E</span> turn &nbsp;
+    <span class="key">TAB</span> mode &nbsp; <span class="key">C</span> animal<br></span>
     <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · you always fly forward<br></span>
     <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
   </div>

@@ -127,16 +127,37 @@ window.CityApp = (function () {
    * ⚠ AND IT HAS TO BE ENFORCED, NOT TRUE BY OMISSION. `targetable:false` is what other systems
    *   must read; "we never gave the bird any health" is not a design, and a bot that aims at a
    *   squirrel and does no damage has already ruined the tone. */
+  /* ⚑ THREE MODES, ONE WORLD — artist, 2026-08-03: *"there are 3 modes, animal mode, dogfight
+   * mode, section 9 mode."* They share the streamer, the collision set, the edge and the light;
+   * what differs is the BODY, the CAMERA, and whether you can be hurt. */
   const MODES = {
-    animal: { name: 'BIRD',  mortal: false, targetable: false, armed: false,
-              camBack: 4.2, camUp: 1.5, fog: 1.0 },
-    jet:    { name: 'JET',   mortal: true,  targetable: true,  armed: true,
-              camBack: 15,  camUp: 4.2, fog: 1.6 },
+    animal:    { name: 'ANIMAL',    mortal: false, targetable: false, armed: false, view: 'chase' },
+    jet:       { name: 'DOGFIGHT',  mortal: true,  targetable: true,  armed: true,  view: 'chase' },
+    operative: { name: 'SECTION 9', mortal: true,  targetable: true,  armed: true,  view: 'first' },
   };
+  const ORDER = ['animal', 'jet', 'operative'];
+
+  /* ⚑ THE ANIMALS ARE LAYERS, NOT SKINS (docs/CITY-GAME.md §1) — each reaches a different part of
+   * the same city, which is what stops "pick your character" being a costume menu. The bird owns
+   * the air; the squirrel owns the VERTICAL. Cat and dog are named here so the shape of the table
+   * is honest about what is missing rather than pretending the roster is two. */
+  const CREATURES = {
+    bird:     { name: 'BIRD',     fly: true,  r: 0.45, h: 0.9,  step: 0.4, climb: false },
+    squirrel: { name: 'SQUIRREL', fly: false, r: 0.26, h: 0.42, step: 0.55, climb: true,
+                run: 9.5, jump: 7.2, grav: 26 },
+    // cat, dog — not built. See docs/CITY-GAME.md order of work, step 5.
+  };
+  let CREATURE = (() => { try { const c = localStorage.getItem('urm_city_creature');
+    return CREATURES[c] ? c : 'bird'; } catch (e) { return 'bird'; } })();
+  if (Q.get('creature') && CREATURES[Q.get('creature')]) CREATURE = Q.get('creature');
+
   let MODE = (() => { try { const m = localStorage.getItem('urm_city_mode');
     return MODES[m] ? m : 'animal'; } catch (e) { return 'animal'; } })();
   if (Q.get('mode') && MODES[Q.get('mode')]) MODE = Q.get('mode');
   const isJet = () => MODE === 'jet';
+  const isOp  = () => MODE === 'operative';
+  const isBird = () => MODE === 'animal' && CREATURE === 'bird';
+  const modeLabel = () => MODE === 'animal' ? CREATURES[CREATURE].name : MODES[MODE].name;
 
 
   // ═══ THE BIRD ═══════════════════════════════════════════════════════════════════════════════
@@ -326,6 +347,68 @@ window.CityApp = (function () {
     return loft(rings, () => INK);
   }
 
+  /* ── THE SQUIRREL ───────────────────────────────────────────────────────────────────────────
+   * ⚑ IT OWNS THE VERTICAL, and that is the whole reason it exists as a separate animal rather
+   *   than as a re-skin. The bird sees the map and cannot get INTO it; the squirrel can go up
+   *   anything, which makes the same city a different set of places. `docs/CITY-GAME.md` §1.
+   * ⚠ Generated, like everything else here: a rodent is a hunched spine, a heavy tail carried
+   *   higher than the back, and a head that is mostly cheek. None of those is a primitive. */
+  const squirrel = new pc.Entity('squirrel');
+  let sqTail = null;
+  {
+    const SEG = 10;
+    const mFur = birdMat(true), mDark = flatMat([0.10, 0.09, 0.11]), mWarm = flatMat([0.72, 0.40, 0.17]);
+    /* countershading again, and it is the same rule as the bird: dark along the back, cream on
+     * the belly, because that is what makes a small mammal read as an animal and not a lump. */
+    const RUST = [0.55, 0.30, 0.13], CREAM2 = [0.93, 0.88, 0.79];
+    const shade2 = (p) => { const t = clamp((p[1] + 0.06) / 0.14, 0, 1);
+      return [lerp3(CREAM2[0], RUST[0], t), lerp3(CREAM2[1], RUST[1], t), lerp3(CREAM2[2], RUST[2], t)]; };
+
+    // the body: a hunched arch, deepest over the hips — a squirrel sits up on its haunches
+    const bodyP = [[0.20, 0.045, 0.042, 0.010], [0.13, 0.082, 0.076, 0.020], [0.04, 0.108, 0.100, 0.024],
+                   [-0.07, 0.115, 0.106, 0.018], [-0.16, 0.090, 0.082, 0.006], [-0.22, 0.050, 0.046, -0.004]];
+    bodyPart(squirrel, loft(bodyP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
+    // head + muzzle, set high and forward
+    const headP = [[0.19, 0.048, 0.046, 0.048], [0.25, 0.072, 0.068, 0.055], [0.31, 0.066, 0.062, 0.053],
+                   [0.35, 0.036, 0.034, 0.048]];
+    bodyPart(squirrel, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
+    for (const sd of [-1, 1]) {                              // ears — the whole silhouette read
+      const e = new pc.Entity('ear' + sd);
+      e.addComponent('render', { type: 'cone' });
+      e.setLocalScale(0.038, 0.075, 0.022);
+      e.setLocalPosition(sd * 0.040, 0.108, 0.245);
+      e.render.meshInstances.forEach(mi => { mi.material = mFur; });
+      squirrel.addChild(e);
+      const y = new pc.Entity('eye' + sd);                   // eyes: big and dark, set wide
+      y.addComponent('render', { type: 'sphere' });
+      y.setLocalScale(0.024, 0.024, 0.024);
+      y.setLocalPosition(sd * 0.050, 0.062, 0.283);
+      y.render.meshInstances.forEach(mi => { mi.material = mDark; });
+      squirrel.addChild(y);
+    }
+    /* ⚑ THE TAIL IS ITS OWN PIVOT because it is the thing that MOVES — it counterweights a leap
+     * and flicks on landing, which is the §4 answer for this body. A tail welded to the spine is
+     * a decoration; one on a hinge is an animal. */
+    sqTail = new pc.Entity('tail');
+    sqTail.setLocalPosition(0, 0.02, -0.21);
+    /* ⚠ THE TAIL CURLS. A straight taper trailing on the ground reads as a rat; the S-curve
+     * carried HIGHER THAN THE BACK is the whole squirrel silhouette, and it is the fourth item on
+     * the ring — a rising y offset per station — rather than a rotation of a straight tail. */
+    const tailP = [[0.00, 0.030, 0.026, 0.00], [-0.11, 0.078, 0.040, 0.05], [-0.24, 0.104, 0.048, 0.15],
+                   [-0.34, 0.092, 0.042, 0.28], [-0.40, 0.048, 0.024, 0.39]];
+    bodyPart(sqTail, loft(tailP.map(q => ring(q[0], q[1], q[2], q[3], 8)), () => RUST), mFur);
+    squirrel.addChild(sqTail);
+    for (const sd of [-1, 1]) for (const [nm, z, len] of [['fore', 0.10, 0.09], ['hind', -0.12, 0.13]]) {
+      const l = new pc.Entity(nm + sd);
+      l.addComponent('render', { type: 'capsule' });
+      l.setLocalScale(0.036, len, 0.036);
+      l.setLocalPosition(sd * 0.072, -0.055, z);
+      l.render.meshInstances.forEach(mi => { mi.material = mWarm; });
+      squirrel.addChild(l);
+    }
+  }
+  world.addChild(squirrel);
+
   /* ── THE JET, and it is generated for the same reason the bird is: a box with two triangles is
    * the DEFAULT, and DESIGN-SYSTEM §1 exists to refuse it. A jet is a lifting body, a delta and
    * two canted fins. ⚠ It is ~9 m long against the bird's 0.9 — the city has to read as the same
@@ -377,7 +460,14 @@ window.CityApp = (function () {
     }
   }
   world.addChild(jet);
-  bird.enabled = !isJet(); jet.enabled = isJet();
+  function showBody() {
+    bird.enabled = isBird();
+    squirrel.enabled = MODE === 'animal' && CREATURE === 'squirrel';
+    jet.enabled = isJet();
+    // the operative is FIRST PERSON: there is no third-person body to show, and pretending
+    // otherwise would put a mannequin in front of the camera.
+  }
+  showBody();
 
   /* ── FLIGHT ─────────────────────────────────────────────────────────────────────────────────
    * ⛔ **THE FUEL IS GONE. Artist, 2026-08-03: *"the bird needs to be able to just fly… no having
@@ -495,8 +585,9 @@ window.CityApp = (function () {
     cv.style.touchAction = 'none';
     const ui = document.createElement('div');
     ui.id = 'touchUI';
-    ui.innerHTML = '<button id="tFlap" type="button" aria-label="flap">✦</button>' +
-                   '<button id="tMode" type="button" aria-label="switch between bird and jet">⇄</button>';
+    ui.innerHTML = '<button id="tCreature" type="button" aria-label="switch animal">◔</button>' +
+                   '<button id="tFlap" type="button" aria-label="flap or jump">✦</button>' +
+                   '<button id="tMode" type="button" aria-label="switch game mode">⇄</button>';
     document.body.appendChild(ui);
 
     let id = null, ox = 0, oy = 0;
@@ -527,14 +618,27 @@ window.CityApp = (function () {
       flapBtn.addEventListener('pointerdown', hold(true));
       flapBtn.addEventListener('pointerup', hold(false));
       flapBtn.addEventListener('pointercancel', hold(false)); }
-    if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault();
-      setMode(isJet() ? 'animal' : 'jet'); });
+    if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault(); cycleMode(1); });
+    const crBtn = $('tCreature');
+    if (crBtn) crBtn.addEventListener('click', e => { e.preventDefault();
+      if (MODE !== 'animal') setMode('animal');
+      else setCreature(CREATURE === 'bird' ? 'squirrel' : 'bird'); });
   }
   let tapFlap = 0, holdFlap = false;
 
   /* One place where touch and keys become the same three numbers, so `step()` never asks which
    * device it is on — the recorded lesson from the arena chips is that a mode branch deep in a
    * step function is how a control scheme quietly stops applying. */
+  /* ⚑ LOOK. The bird and the jet steer with the body, so `turn` was enough; an operative aims
+   * with the HEAD, which is a second axis the other two never needed. Pointer-lock on desktop,
+   * the same drag on touch — one value, `me.pitch`, read by stepGround. */
+  addEventListener('mousemove', e => {
+    if (!isOp() || document.pointerLockElement !== cv) return;
+    me.yaw += e.movementX * 0.0022;
+    me.pitch = clamp(me.pitch - e.movementY * 0.0022, -1.2, 1.2);
+  });
+  cv.addEventListener('click', () => { if (isOp() && cv.requestPointerLock) cv.requestPointerLock(); });
+
   function readInput() {
     let fwd = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
     let turn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) -
@@ -543,7 +647,13 @@ window.CityApp = (function () {
     let flap = !!keys[' '];
     if (TOUCH) {
       if (!fwd) fwd = 1;                       // forward is automatic — see the note above
-      if (touch.on) { turn = touch.dx; if (touch.dy > 0.45) dive = true; }
+      if (touch.on) {
+        turn = touch.dx;
+        /* on foot the vertical drag is LOOK, in the air it is dive — the same thumb, the axis
+         * that mode actually has. */
+        if (isOp()) me.pitch = clamp(-touch.dy * 1.1, -1.2, 1.2);
+        else if (touch.dy > 0.45) dive = true;
+      }
       if (holdFlap) flap = true;
       if (tapFlap > 0) { flap = true; tapFlap--; }
     }
@@ -672,26 +782,57 @@ window.CityApp = (function () {
    * rather than 0 — see the note in step(); a 0 default is an invisible plane to land on. */
   function makeCollide() {
     return {
-      hits(x, y, z) {
+      /* ⚠ THE BODY SIZE IS AN ARGUMENT, not a constant. A bird, a squirrel and an operative are
+       * three different volumes — 0.45/0.9 was the bird's, and reusing it for a 1.72 m operative
+       * lets them stand with their head inside a ceiling and walk through a rail at knee height.
+       * Section 9's own capsule is r 0.42 / h 1.72, which is where the operative's numbers come
+       * from; the squirrel is small enough to use gaps the others cannot. */
+      hits(x, y, z, r, h) {
+        r = r || 0.45; h = h || 0.9;
         const c = CW.chunkAt(x, z);
         for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
           const e = near.get(key(c.cx + i, c.cz + j)); if (!e) continue;
-          const S = e.solids, r = 0.45, h = 0.9;
+          const S = e.solids;
           for (let n = 0; n < S.length; n++) { const b = S[n];
             if (x + r > b.x0 && x - r < b.x1 && z + r > b.z0 && z - r < b.z1 && y + h > b.y0 && y < b.y1) return b; }
         }
         return null;
       },
-      groundBelow(x, z, y) {
-        const c = CW.chunkAt(x, z); let best = null, r = 0.45;
+      groundBelow(x, z, y, r, step) {
+        r = r || 0.45; step = step == null ? 0.9 : step;
+        const c = CW.chunkAt(x, z); let best = null;
         for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
           const e = near.get(key(c.cx + i, c.cz + j)); if (!e) continue;
           const S = e.solids;
           for (let n = 0; n < S.length; n++) { const b = S[n];
             if (x + r > b.x0 && x - r < b.x1 && z + r > b.z0 && z - r < b.z1 &&
-                b.y1 <= y + 0.9 && (best == null || b.y1 > best)) best = b.y1; }
+                b.y1 <= y + step && (best == null || b.y1 > best)) best = b.y1; }
         }
         return best;
+      },
+      /* ⚑ A WALL WITHIN REACH — what a squirrel needs and nothing else does. Returns the surface
+       * normal of the nearest solid the body is pressed against, so climbing is a property of the
+       * WORLD rather than a list of authored ladders. Every box in this city is climbable by
+       * construction, which is the same 1:1 guarantee the generator already makes about landing. */
+      wallAt(x, y, z, r) {
+        r = r || 0.5;
+        const c = CW.chunkAt(x, z);
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+          const e = near.get(key(c.cx + i, c.cz + j)); if (!e) continue;
+          const S = e.solids;
+          for (let n = 0; n < S.length; n++) { const b = S[n];
+            if (b.y1 - b.y0 < 1.2) continue;                    // a kerb is not a climb
+            if (y + 0.4 < b.y0 || y > b.y1) continue;
+            if (x + r > b.x0 && x - r < b.x1 && z + r > b.z0 && z - r < b.z1) {
+              const dx0 = Math.abs(x - b.x0), dx1 = Math.abs(x - b.x1);
+              const dz0 = Math.abs(z - b.z0), dz1 = Math.abs(z - b.z1);
+              const m = Math.min(dx0, dx1, dz0, dz1);
+              return { box: b, nx: m === dx0 ? -1 : m === dx1 ? 1 : 0,
+                              nz: m === dz0 ? -1 : m === dz1 ? 1 : 0, top: b.y1 };
+            }
+          }
+        }
+        return null;
       },
     };
   }
@@ -746,6 +887,8 @@ window.CityApp = (function () {
     const IN = readInput();
     const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
     if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
+    if (isOp()) { stepGround(dt, IN, OP); return; }
+    if (CREATURE === 'squirrel') { stepGround(dt, IN, CREATURES.squirrel); return; }
     const wantFlap = IN.flap;          // no meter: a bird can always beat its wings
 
     const spd0 = Math.hypot(me.vx, me.vz);
@@ -919,6 +1062,119 @@ window.CityApp = (function () {
     return { out, nx: dx / out, nz: dz / out };
   }
 
+  /* ── OPERATIVE — SECTION 9's mode, in the city ──────────────────────────────────────────────
+   * ⚑ THE MAP FORMAT IS ALREADY SHARED, AND THAT IS THE WHOLE POINT OF THE COMPRESSION. A Section
+   *   9 map is `MAP.solids`, a list of AABBs with a kind; `CityWorld.genChunk` emits exactly that,
+   *   so collision, raycast, line-of-sight and cover baking all run on a city chunk unmodified.
+   *   The capsule below is Section 9's own — r 0.42, h 1.72, step 0.62 — not a new invention.
+   * ⚠ WHAT IS HERE IS TRAVERSAL, AND SAYING SO IS THE POINT. Walking, looking, gravity, jumping
+   *   and standing on the city are real; weapons, bots and the firefight are the next step, and
+   *   `docs/CITY-GAME.md` lists them as such. A mode that half-exists and is described as finished
+   *   is how "built ≠ reachable" becomes "built ≠ true". */
+  const OP = { r: 0.42, h: 1.72, step: 0.62, eye: 1.58,
+               run: 6.4, sprint: 9.6, accel: 46, friction: 11, airAccel: 9,
+               jump: 6.6, grav: 26, climb: false };
+
+  /* ONE ground-movement integrator for the squirrel AND the operative, because they differ in
+   * SIZE and REACH, not in physics. Two copies would drift, and the one that drifts is always the
+   * one nobody is currently looking at. */
+  function stepGround(dt, IN, B) {
+    me.yaw += IN.turn * 2.6 * dt;
+    const hx = Math.sin(me.yaw), hz = Math.cos(me.yaw);
+    const want = IN.fwd;
+    const sprint = IN.dive && !B.climb;                       // SHIFT sprints on foot, dives in air
+    const top = sprint ? (B.sprint || B.run * 1.5) : (B.run || 6);
+    const onG = me.onGround;
+
+    /* ── THE CLIMB, and it is the squirrel's entire reason to exist. A wall within reach IS a
+     * route: hold forward against anything tall and you go up it. Every box in this city is
+     * climbable by construction — the same 1:1 guarantee the generator makes about landing, which
+     * is only true because the geometry and the collision set are one thing. */
+    let climbing = false;
+    if (B.climb && want > 0) {
+      const w = collide && collide.wallAt(me.x, me.y, me.z, B.r + 0.22);
+      if (w) {
+        climbing = true;
+        me.vy = (B.run || 9) * 0.62;
+        me.vx *= 0.5; me.vz *= 0.5;
+        if (me.y > w.top - 0.05) {                            // crest it and step onto the roof
+          me.vy = Math.max(me.vy, 2.0);
+          me.vx += hx * 3.2; me.vz += hz * 3.2;
+        }
+      }
+    }
+
+    if (!climbing) {
+      const a = (onG ? B.accel || 40 : B.airAccel || 8) * dt;
+      if (want > 0) { me.vx += hx * a; me.vz += hz * a; }
+      else if (want < 0) { me.vx -= hx * a * 0.6; me.vz -= hz * a * 0.6; }
+      else if (onG) { const f = Math.max(0, 1 - (B.friction || 10) * dt); me.vx *= f; me.vz *= f; }
+      const sp = Math.hypot(me.vx, me.vz);
+      if (sp > top) { const k = top / sp; me.vx *= k; me.vz *= k; }
+      me.vy -= (B.grav || 26) * dt;
+      if (IN.flap && onG) { me.vy = B.jump || 6.5; me.onGround = false; me.beat = 1; }
+    }
+
+    /* ── MOVE. ⛔ VERTICAL FIRST, THEN HORIZONTAL PROBED FROM ABOVE THE FEET, and both halves of
+     * that order are load-bearing.
+     *   Driven before this fix: the squirrel and the operative both LANDED correctly on the street
+     *   and then neither could move a single metre — `walked: 0`, `moved: 0`. Gravity is applied
+     *   every frame, so the feet dip ~7 mm below the slab before the ground resolve catches them;
+     *   the HORIZONTAL test then ran at that dipped height, found `y < groundSlab.y1`, and treated
+     *   the floor itself as a wall. A body standing perfectly still on a surface it cannot walk
+     *   along looks like broken input and is a collision-order mistake.
+     * ⚑ Probing from `y + step` also gives STEP-UP for free: anything shorter than the step height
+     *   is simply not in the way, which is why a kerb is a kerb and not a fence. */
+    let ny = me.y + me.vy * dt;
+    if (collide) {
+      const g = collide.groundBelow(me.x, me.z, ny, B.r, B.step);
+      if (g != null && ny <= g + 0.02 && me.vy <= 0) { ny = g; me.vy = 0; me.onGround = true; }
+      else if (!climbing) me.onGround = false;
+    }
+    let nx = me.x + me.vx * dt, nz = me.z + me.vz * dt;
+    if (collide) {
+      const probe = ny + B.step, hh = Math.max(0.2, B.h - B.step);
+      if (collide.hits(nx, probe, me.z, B.r, hh)) { nx = me.x; me.vx = 0; }
+      if (collide.hits(nx, probe, nz, B.r, hh)) { nz = me.z; me.vz = 0; }
+      // having moved, step UP onto whatever is now under us (a kerb, a stoop, a step)
+      const g2 = collide.groundBelow(nx, nz, ny + B.step, B.r, B.step);
+      if (g2 != null && g2 > ny && g2 - ny <= B.step && me.vy <= 0) { ny = g2; me.vy = 0; me.onGround = true; }
+      /* ⚠ A CEILING IS NOT A FLOOR. Without this you jump THROUGH the underside of a bridge and
+       * pop out on top of it, which reads as the city being made of paper. */
+      if (me.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = me.y; me.vy = 0; }
+    }
+    const edge = edgePush(nx, nz);
+    if (edge.out > 0) { nx += edge.nx * edge.out; nz += edge.nz * edge.out; }
+    me.x = nx; me.z = nz; me.y = ny;
+    me.speed = Math.hypot(me.vx, me.vz);
+    { const g = collide ? collide.groundBelow(me.x, me.z, me.y, B.r, B.step) : null;
+      me.alt = me.y - (g == null ? 0 : g); }
+    me.beat = Math.max(0, me.beat - dt * 2.4);
+
+    if (isOp()) {
+      /* FIRST PERSON: the camera IS the head. No lag and no spring — a settling camera on a body
+       * you are inside reads as motion sickness rather than as weight. */
+      camPos.x = me.x; camPos.y = me.y + OP.eye; camPos.z = me.z;
+      cam.setPosition(-camPos.x, camPos.y, camPos.z);
+      cam.lookAt(-(me.x + hx * 10), me.y + OP.eye + me.pitch * 10, me.z + hz * 10);
+      return;
+    }
+
+    // ── the squirrel: face the way it is going, and the TAIL counterweights
+    squirrel.setLocalPosition(me.x, me.y, me.z);
+    const lean = climbing ? -62 : clamp(-me.vy * 1.4, -22, 22);
+    squirrel.setLocalEulerAngles(lean, me.yaw * 180 / Math.PI, 0);
+    if (sqTail) sqTail.setLocalEulerAngles(clamp(-14 - me.vy * 3.4 + me.beat * 24, -70, 34), 0, 0);
+
+    const back = 2.6 + Math.min(1.6, me.speed * 0.12), up = 1.15 + Math.min(1.2, me.alt * 0.05);
+    const tx = me.x - hx * back, tz = me.z - hz * back, ty = me.y + up;
+    camPos.x += (tx - camPos.x) * Math.min(1, dt * 6.0);
+    camPos.y += (ty - camPos.y) * Math.min(1, dt * 5.0);
+    camPos.z += (tz - camPos.z) * Math.min(1, dt * 6.0);
+    cam.setPosition(-camPos.x, camPos.y, camPos.z);
+    cam.lookAt(-(me.x + hx * 3.5), me.y + 0.5, me.z + hz * 3.5);
+  }
+
   /* ── THE JET'S STEP ─────────────────────────────────────────────────────────────────────────
    * Same integrator shape as the bird — forces and springs, nothing on a clock — but a completely
    * different animal: it cannot hover, it turns by BANKING rather than by yawing, and its heading
@@ -1047,15 +1303,51 @@ window.CityApp = (function () {
     if (!MODES[m] || m === MODE) return MODE;
     MODE = m;
     try { localStorage.setItem('urm_city_mode', m); } catch (e) {}
-    bird.enabled = !isJet(); jet.enabled = isJet();
-    if (isJet()) { me.spd = Math.max(70, me.speed); me.y = Math.max(me.y, 90); me.roll = me.rollV = me.pitch = 0; }
+    showBody();
+    /* ⚠ EACH BODY HAS TO ARRIVE SOMEWHERE IT CAN EXIST. A jet at street level is inside a
+     * building; an operative at 200 m is falling. The swap places you, rather than leaving the
+     * previous mode's position to mean something it does not. */
+    if (isJet()) { me.spd = Math.max(70, me.speed); me.y = Math.max(me.y, 90);
+                   me.roll = me.rollV = me.pitch = 0; }
+    else if (isOp()) { const g = collide ? collide.groundBelow(me.x, me.z, me.y + 4, OP.r, 400) : null;
+                       me.y = (g == null ? 0 : g); me.vx = me.vy = me.vz = 0; me.pitch = 0;
+                       me.onGround = true; }
+    else if (CREATURE === 'squirrel') { const g = collide ? collide.groundBelow(me.x, me.z, me.y + 4, 0.26, 400) : null;
+                       me.y = (g == null ? 0 : g); me.vx = me.vy = me.vz = 0; me.onGround = true; }
     else { me.vx = Math.sin(me.yaw) * 16; me.vz = Math.cos(me.yaw) * 16; me.vy = 0; }
-    const b = $('modeName'); if (b) b.textContent = MODES[m].name;
-    const w = $('hudBL'); if (w) w.dataset.mode = m;
+    syncHud();
     return MODE;
   }
-  addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault();
-    setMode(isJet() ? 'animal' : 'jet'); } });
+
+  /* ⚑ THE CREATURE SWAP IS SEPARATE FROM THE MODE SWAP, because they are different questions.
+   * "Which game am I playing" and "which animal am I" are not the same axis, and folding them
+   * into one cycle is how a four-animal roster would end up buried three presses deep. */
+  function setCreature(c) {
+    if (!CREATURES[c]) return CREATURE;
+    CREATURE = c;
+    try { localStorage.setItem('urm_city_creature', c); } catch (e) {}
+    if (MODE !== 'animal') return CREATURE;
+    showBody();
+    if (c === 'squirrel') { const g = collide ? collide.groundBelow(me.x, me.z, me.y + 4, 0.26, 400) : null;
+      me.y = (g == null ? 0 : g); me.vx = me.vy = me.vz = 0; me.onGround = true; }
+    else { me.y = Math.max(me.y, 6); me.vx = Math.sin(me.yaw) * 16; me.vz = Math.cos(me.yaw) * 16; }
+    syncHud();
+    return CREATURE;
+  }
+  function cycleMode(d) { const i = ORDER.indexOf(MODE);
+    return setMode(ORDER[(i + (d || 1) + ORDER.length) % ORDER.length]); }
+  function syncHud() {
+    const b = $('modeName'); if (b) b.textContent = modeLabel();
+    const g = $('modeGame'); if (g) g.textContent = MODES[MODE].name;
+    const w = $('hudBL'); if (w) w.dataset.mode = MODE;
+    document.body.dataset.mode = MODE;
+  }
+
+  addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); cycleMode(e.shiftKey ? -1 : 1); }
+    else if (e.key.toLowerCase() === 'c' && MODE === 'animal') {
+      setCreature(CREATURE === 'bird' ? 'squirrel' : 'bird'); }
+  });
 
   app.on('update', dt => {
     step(Math.min(dt, 0.05));
@@ -1071,6 +1363,7 @@ window.CityApp = (function () {
    * CONTENT from an older frame with a hard straight edge down the middle of the sky.
    * ⚠ It reads as a rendering fault in the effect and is a lifecycle mistake in the caller. */
   ink = window.CityInk ? CityInk.attach(app, cam) : false;
+  syncHud();
   /* …and the targets have to keep up with the window, or rotating a phone reproduces it exactly. */
   window.addEventListener('resize', () => {
     try { if (cam.camera.postEffects) cam.camera.postEffects.resizeRenderTargets(); } catch (e) {}
@@ -1102,15 +1395,18 @@ window.CityApp = (function () {
         chunk: c.cx + ',' + c.cz, district: CW ? CW.districtAt(c.cx, c.cz) : '?',
         /* ⚑ THE OBSERVER RULE, EXPOSED SO IT CAN BE ASSERTED. "we never gave the bird any health"
          * is not a design — other systems must be able to READ that an animal is not a target. */
-        mode: MODE, mortal: MODES[MODE].mortal, targetable: MODES[MODE].targetable,
+        mode: MODE, creature: CREATURE, label: modeLabel(),
+        mortal: MODES[MODE].mortal, targetable: MODES[MODE].targetable,
         armed: MODES[MODE].armed, roll: +me.roll.toFixed(3),
+        onGround: me.onGround, pitch: +me.pitch.toFixed(3),
         nearChunks: near.size, farRegions: far.size, solids, tris,
         /* ⚑ THE ASSERTION THAT BITES on the silent-material bug: which material classes the world
          * actually built. Two classes across a whole city means the box translation is broken
          * again and everything is one colour, with nothing else to tell you so. */
         classes: [...cls].sort(), byClass: byClass };
     },
-    setMode, get mode() { return MODE; }, MODES, get ink() { return ink; },
+    setMode, setCreature, cycleMode, get mode() { return MODE; },
+    get creature() { return CREATURE; }, MODES, CREATURES, ORDER, get ink() { return ink; },
     /* ⚑ COLOUR IS MEASURED, NOT LOOKED AT. This container's screenshot path rotates hue on canvas
      * content — a recorded false conclusion — so the print pass is judged on a histogram read
      * straight off the drawing buffer. Needs `?readback=1`; returns null otherwise rather than
