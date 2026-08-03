@@ -96,6 +96,33 @@ window.CityApp = (function () {
   });
   app.root.addChild(cam);
 
+  /* ⛔ THIS BLOCK LIVES ABOVE THE BODIES ON PURPOSE — `const` HOISTS INTO THE TEMPORAL DEAD ZONE.
+   * It was first written next to the flight tables, below the jet's geometry, and the jet's
+   * `bird.enabled = !isJet()` then read `isJet` before its declaration: "Cannot access 'isJet'
+   * before initialization", which at module scope kills EVERY LINE AFTER IT and takes the whole
+   * app down before `window.__city` exists. The probe reads "undefined", not "broken mode swap".
+   * ⚠ Third sighting of this exact defect in this repo. Declarations that other top-level code
+   *   calls belong above it, not near the thing they describe. */
+  /* ⛔ THE ANIMAL IS AN OBSERVER AND CANNOT DIE — artist, 2026-08-03, and it is not a difficulty
+   * setting. It is the ONLY reason a mellow game and a tactical shooter can share one world: if
+   * the animal is a witness rather than a peer, a firefight two streets away becomes *weather* —
+   * something to fly over, watch and photograph. The mellow game keeps its promise ("nothing
+   * chases you") inside a world that contains people shooting at each other.
+   * ⚠ AND IT HAS TO BE ENFORCED, NOT TRUE BY OMISSION. `targetable:false` is what other systems
+   *   must read; "we never gave the bird any health" is not a design, and a bot that aims at a
+   *   squirrel and does no damage has already ruined the tone. */
+  const MODES = {
+    animal: { name: 'BIRD',  mortal: false, targetable: false, armed: false,
+              camBack: 4.2, camUp: 1.5, fog: 1.0 },
+    jet:    { name: 'JET',   mortal: true,  targetable: true,  armed: true,
+              camBack: 15,  camUp: 4.2, fog: 1.6 },
+  };
+  let MODE = (() => { try { const m = localStorage.getItem('urm_city_mode');
+    return MODES[m] ? m : 'animal'; } catch (e) { return 'animal'; } })();
+  if (Q.get('mode') && MODES[Q.get('mode')]) MODE = Q.get('mode');
+  const isJet = () => MODE === 'jet';
+
+
   // ═══ THE BIRD ═══════════════════════════════════════════════════════════════════════════════
   /* Artist, 2026-08-03: *"we need it looking more like a birb please."* The first pass was a
    * capsule with two boxes for wings and was labelled a placeholder; a placeholder you can see is
@@ -283,6 +310,59 @@ window.CityApp = (function () {
     return loft(rings, () => INK);
   }
 
+  /* ── THE JET, and it is generated for the same reason the bird is: a box with two triangles is
+   * the DEFAULT, and DESIGN-SYSTEM §1 exists to refuse it. A jet is a lifting body, a delta and
+   * two canted fins. ⚠ It is ~9 m long against the bird's 0.9 — the city has to read as the same
+   * place at both scales, which is exactly what a shared world has to prove. */
+  const jet = new pc.Entity('jet');
+  {
+    const SEG = 10;
+    const mSkin = flatMat([0.30, 0.34, 0.40]);      // cold grey — it is the one cool body in a warm city
+    const mDark = flatMat([0.09, 0.10, 0.13]);
+    const mGlow = (() => { const m = new pc.StandardMaterial();
+      m.diffuse = new pc.Color(0.05, 0.06, 0.08);
+      m.emissive = new pc.Color(0.28, 0.86, 1.00); m.emissiveIntensity = 3.2;   // the one light source it carries
+      m.useMetalness = true; m.metalness = 0; m.gloss = 0.6; m.update(); return m; })();
+
+    // fuselage: a long lifting body, widest a third back, flattened
+    const fus = [[5.2, 0.10, 0.09, 0.00], [4.2, 0.42, 0.30, -0.02], [2.6, 0.86, 0.52, -0.06],
+                 [0.8, 1.02, 0.62, -0.08], [-1.2, 0.92, 0.58, -0.06], [-3.2, 0.70, 0.50, -0.02],
+                 [-4.6, 0.52, 0.44, 0.00]];
+    bodyPart(jet, loft(fus.map(q => ring(q[0], q[1], q[2], q[3], SEG)), () => [1, 1, 1]), mSkin);
+    // canopy — a small dark blister, the thing that says "there is a person in there"
+    const can = [[3.2, 0.30, 0.16, 0.44], [2.4, 0.42, 0.28, 0.48], [1.2, 0.40, 0.26, 0.46], [0.3, 0.24, 0.14, 0.40]];
+    bodyPart(jet, loft(can.map(q => ring(q[0], q[1], q[2], q[3], SEG)), () => [1, 1, 1]), mDark);
+    // delta wings — heavy sweep, sharp tip
+    for (const sd of [-1, 1]) {
+      const w = [[0.00, 5.6, 0.30], [1.4, 4.6, 0.24], [2.8, 3.2, 0.16], [3.9, 1.6, 0.09], [4.6, 0.30, 0.05]];
+      const e = new pc.Entity('wing' + sd);
+      e.setLocalPosition(0, -0.10, 0.4);
+      bodyPart(e, wingLoft(w, sd, 3.4), mSkin);
+      jet.addChild(e);
+    }
+    /* ⚠ TWO `setLocalEulerAngles` CALLS ON ONE ENTITY IS NOT TWO ROTATIONS — the second REPLACES
+     * the first, so the cant silently vanished and the fins came out as one big forward-swept
+     * blade. One call, and the cant is folded into it: the wing loft extends along +x, so 90° about
+     * z stands it upright and the remainder tips it outboard. */
+    for (const sd of [-1, 1]) {
+      const f = new pc.Entity('fin' + sd);
+      f.setLocalPosition(sd * 0.62, 0.30, -2.9);
+      const fp = [[0.0, 1.05, 0.13], [0.55, 0.78, 0.09], [1.05, 0.26, 0.05]];
+      bodyPart(f, wingLoft(fp, 1, 0.85), mDark);
+      f.setLocalEulerAngles(0, 0, sd * 68);                      // upright (90) minus 22 of cant
+      jet.addChild(f);
+    }
+    for (const sd of [-1, 1]) {                                  // exhaust
+      const n = new pc.Entity('noz' + sd);
+      const np = [[-4.2, 0.30, 0.30, 0.00], [-4.9, 0.26, 0.26, 0.00]];
+      bodyPart(n, loft(np.map(q => ring(q[0], q[1], q[2], q[3], 8)), () => [1, 1, 1]), mGlow);
+      n.setLocalPosition(sd * 0.34, -0.04, 0);
+      jet.addChild(n);
+    }
+  }
+  world.addChild(jet);
+  bird.enabled = !isJet(); jet.enabled = isJet();
+
   /* ── FLIGHT ─────────────────────────────────────────────────────────────────────────────────
    * ⛔ **THE FUEL IS GONE. Artist, 2026-08-03: *"the bird needs to be able to just fly… no having
    *   to land to keep flying."*** The brief had argued for wing energy that only refills on the
@@ -326,8 +406,44 @@ window.CityApp = (function () {
     vDamp: 0.35,         // gentle, or a dive can never build speed
   };
 
+  /* ═══ THE JET ═══════════════════════════════════════════════════════════════════════════════
+   * Artist, 2026-08-03: *"we can actually have dogfight AND the section 9 game both play here and
+   * compress them all into the City. so play as a jet fighter or an animal."*
+   *
+   * ⛔ **DOGFIGHT IS NOT AUTHORED IN METRES, and this is the trap that would have failed
+   *   plausibly.** Its world is `WS = 150` units with `ALT_MIN 0.35 / ALT_MAX 9.0`, `STALL 2.9`,
+   *   `VREF 7.2`, `VIEW_FAR 34`. The city is 3,840 m across with 150 m towers — roughly a 25 : 1
+   *   mismatch. Copy the table over and the aircraft still flies; it just crosses the whole city in
+   *   about a second. A wrong number that crashes is cheap. A wrong number that FLIES is not.
+   *
+   * ⚑ **THE UNIT-FREE HALF PORTS EXACTLY, AND IT IS THE HALF THAT IS THE FEEL.** `rollK/rollD` are
+   *   a second-order spring in rad/s (ω = 9.0, ζ = 0.644 — measured in DOGFIGHT, not guessed), and
+   *   the turn law `heading rate = turnG · sin(roll) · pull · auth / spd^0.6` is radians per second.
+   *   Those come over untouched. Only speeds, altitudes and distances are re-derived here.
+   * ⚠ `spd^0.6` is what makes a fast jet turn WIDE — the same input at 160 m/s buys about half the
+   *   heading rate it buys at 60. That is the whole reason energy matters in a dogfight. */
+  const JET = {
+    thrust: 46,          // m/s² on the throttle
+    dragK: 0.00055,      // quadratic; balances thrust near the cap rather than at it
+    stall: 48,           // below this the wing quits — a jet cannot hover, and must not be able to
+    vref: 95,            // authority reaches 1 here
+    authMin: 0.30,       // never zero: unresponsive is a feeling, uncontrollable is a bug report
+    idle: 14,            // ⚠ thrust with NO input, so the nose never simply stops in mid-air
+    maxSpd: 168,
+    rollMax: 1.16,       // 66° commanded bank
+    rollK: 81, rollD: 11.6,          // ← DOGFIGHT's own measured spring, unit-free, unchanged
+    turnG: 10.4,                     // ← and its turn law
+    pull: 0.62,          // nose-up while banked buys the hard turn
+    pitchMax: 0.58, pitchK: 6.2,
+    climbEff: 0.62,      // climb rate = spd · sin(pitch) · this — a slow jet cannot climb
+    sink: 1.55,          // a banked wing stops holding you up
+    trade: 0.09,         // speed paid per metre of height, and refunded on the way down
+    ceil: 430,
+  };
+
   const me = { x: 0, y: 6, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, onGround: false,
-               speed: 0, flapT: 0, beat: 0, alt: 0 };
+               speed: 0, flapT: 0, beat: 0, alt: 0,
+               roll: 0, rollV: 0, pitch: 0, spd: 70 };   // jet state: a spring, not a lerp
   const keys = Object.create(null);
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
     if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault(); });
@@ -525,6 +641,7 @@ window.CityApp = (function () {
     const fwdIn = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
     const turnIn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['q'] || keys['arrowleft'] ? 1 : 0);
     const diving = !!keys['shift'];
+    if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
     const wantFlap = !!keys[' '];      // no meter: a bird can always beat its wings
 
     const spd0 = Math.hypot(me.vx, me.vz);
@@ -693,6 +810,144 @@ window.CityApp = (function () {
     return { out, nx: dx / out, nz: dz / out };
   }
 
+  /* ── THE JET'S STEP ─────────────────────────────────────────────────────────────────────────
+   * Same integrator shape as the bird — forces and springs, nothing on a clock — but a completely
+   * different animal: it cannot hover, it turns by BANKING rather than by yawing, and its heading
+   * rate falls off with speed so a fast jet turns wide. That last one is DOGFIGHT's law, unit-free
+   * and ported unchanged; every SPEED here is re-derived for a city measured in metres.
+   * ⚠ `pull` only helps while BANKED. A wings-level jet holding W does not corner, which is what
+   *   stops the aircraft handling like a car. */
+  function stepJet(dt, fwdIn, turnIn, brake) {
+    const auth = clamp((me.spd - JET.stall) / (JET.vref - JET.stall), JET.authMin, 1);
+
+    // roll: a second-order spring toward the commanded bank. ⚠ NOT a lerp — the overshoot is the snap.
+    const want = -turnIn * JET.rollMax;
+    me.rollV += (JET.rollK * (want - me.roll) - JET.rollD * me.rollV) * dt;
+    me.roll = clamp(me.roll + me.rollV * dt, -1.40, 1.40);
+
+    // pitch attitude follows the throttle/brake, and the CLIMB follows the pitch AND the speed
+    const wantP = (fwdIn > 0 ? 0.28 : 0) + (brake ? -0.5 : 0);
+    me.pitch += (clamp(wantP, -JET.pitchMax, JET.pitchMax) - me.pitch) * Math.min(1, JET.pitchK * dt);
+
+    // heading rate = turnG · sin(roll) · pull · auth / spd^0.6 — DOGFIGHT's own, unchanged
+    const pull = 1 + (fwdIn > 0 ? JET.pull : 0);
+    me.yaw += JET.turnG * Math.sin(me.roll) * pull * auth / Math.pow(Math.max(20, me.spd), 0.6) * dt;
+
+    const hx = Math.sin(me.yaw), hz = Math.cos(me.yaw);
+    let thrust = fwdIn > 0 ? JET.thrust : (fwdIn < 0 ? -JET.thrust * 0.55 : JET.idle);
+    if (brake) thrust -= JET.thrust * 0.75;
+
+    /* ── THE WORLD EDGE, AND A JET NEEDS A COMPLETELY DIFFERENT ONE FROM A BIRD ────────────────
+     * ⛔ MEASURED FAILURE FIRST: the bird's edge — cancel the outward component of thrust — was
+     *   reused here and the jet went **386 m past the wall** (max |x| 2,305.9 against ±1,920) over
+     *   60 s of throttle aimed at the corner. ⚠ And the END POSITION HID IT: the jet was turned
+     *   round and finished well inside, so a check that only read where it stopped said "fine".
+     *   The excursion is the measurement; the final position is not.
+     * ⚑ WHY the bird's fix cannot work here: it relies on being able to bring the animal to a
+     *   stop against the wall. A jet has `idle` thrust that never reaches zero and cannot fly
+     *   below `stall` — being stopped is not a state it has. So the boundary cannot be a wall to
+     *   push against; it has to be a TURN, and a turn has to begin BEFORE the edge, because the
+     *   aircraft needs a radius to do it in (measured: 239 m at cruise, 8.9 s for 360°).
+     * ⚠ Hence a wide APPROACH BAND rather than a penetration depth. `EDGE_R` is about two turn
+     *   radii; inside it the nose is walked toward the world, hardest nearest the wall. A pilot
+     *   reads that as the aircraft not wanting to go out there, which is the intent. */
+    const EDGE_R = 520;
+    if (bounds) {
+      let ex = 0, ez = 0;
+      if (bounds.max[0] - me.x < EDGE_R) ex -= 1;
+      if (me.x - bounds.min[0] < EDGE_R) ex += 1;
+      if (bounds.max[2] - me.z < EDGE_R) ez -= 1;
+      if (me.z - bounds.min[2] < EDGE_R) ez += 1;
+      if (ex || ez) {
+        const d = Math.min(bounds.max[0] - me.x, me.x - bounds.min[0],
+                           bounds.max[2] - me.z, me.z - bounds.min[2]);
+        const near = clamp(1 - d / EDGE_R, 0, 1);
+        const L = Math.hypot(ex, ez) || 1;
+        const inward = Math.atan2(ex / L, ez / L);
+        /* ⛔ NOT `sin(inward - yaw)`. SINE VANISHES AT π AS WELL AS AT 0, and π is exactly the case
+         * a boundary exists for — flying straight at the wall. Driven with the sine version: the
+         * +x wall held at 1,911.7 and the +z wall did not, **max |z| 2,164.4**, because a heading
+         * of 45° into the corner sits at the antipode of the inward normal and the correction was
+         * multiplied by sin(π) ≈ 0. A dead spot dead ahead. It looked like an asymmetry bug and
+         * was a trigonometry one.
+         * ⚑ Wrap the difference into (−π, π] and command on the ANGLE, which is largest exactly
+         *   where the sine was smallest. The tie at ±π resolves deterministically (atan2 returns
+         *   +π), so a jet aimed perfectly at the corner always breaks the same way rather than
+         *   sitting balanced on the fence.
+         * ⚠ Capped at 0.95 rad/s — above the ~0.72 rad/s the stick itself can command at cruise,
+         *   so the boundary always out-turns the pilot. */
+        const da = Math.atan2(Math.sin(inward - me.yaw), Math.cos(inward - me.yaw));
+        /* ⚑ THE RATE COMES FROM THE GEOMETRY, NOT FROM A CURVE THAT LOOKED RIGHT. To turn the
+         * velocity vector before covering the remaining distance `d` at speed `v`, the required
+         * rate is about v/d — so that is what is commanded. A fixed cap behind a quadratic ramp
+         * was measured leaking 121 m past the wall (max |z| 2,041) because at 220 m out it asked
+         * for 0.32 rad/s when the geometry needed 0.76. A boundary tuned by eye is a boundary that
+         * holds at the speed you happened to test. */
+        const rate = clamp(me.spd / Math.max(55, d), 0.3, 1.7);
+        me.yaw += clamp(da * 2.5, -1, 1) * rate * dt;
+        // and it BANKS into it, or the aircraft skids sideways like a mouse cursor
+        me.roll += clamp(da * 2.5, -1, 1) * -Math.min(1, rate) * 1.5 * near * dt;
+        me.roll = clamp(me.roll, -1.40, 1.40);
+        const outward = hx * -(ex / L) + hz * -(ez / L);
+        if (outward > 0) thrust -= JET.thrust * outward * near * 0.8;
+      }
+    }
+
+    me.spd += thrust * dt;
+    me.spd -= JET.dragK * me.spd * me.spd * dt;
+    // height costs speed and refunds it — the same one-currency rule the bird got, at jet scale
+    const climb = me.spd * Math.sin(me.pitch) * JET.climbEff - JET.sink * Math.abs(Math.sin(me.roll)) * 6;
+    me.spd -= climb * JET.trade * dt;
+    me.spd = clamp(me.spd, 18, JET.maxSpd);
+
+    me.vx = hx * me.spd; me.vz = hz * me.spd; me.vy = climb;
+    let nx = me.x + me.vx * dt, nz = me.z + me.vz * dt, ny = me.y + me.vy * dt;
+
+    /* ⚠ A JET DOES NOT LAND HERE, AND IT MUST NOT SINK INTO THE STREET EITHER. Ground contact is a
+     * CRASH, and crashes are step 2 of the compression (docs/CITY-GAME.md) — until then the floor
+     * is a hard deck that pushes the nose up, which is honest about being unfinished rather than
+     * pretending the aircraft is fine while it is inside a building. */
+    const g = collide ? collide.groundBelow(nx, nz, ny) : null;
+    const deck = (g == null ? 0 : g) + 12;
+    if (ny < deck) { ny = deck; me.pitch = Math.max(me.pitch, 0.12); }
+    if (ny > JET.ceil) { ny = JET.ceil; me.pitch = Math.min(me.pitch, -0.05); }
+    me.x = nx; me.z = nz; me.y = ny; me.speed = me.spd; me.onGround = false;
+    me.alt = ny - (g == null ? 0 : g);
+
+    jet.setLocalPosition(me.x, me.y, me.z);
+    jet.setLocalEulerAngles(me.pitch * 180 / Math.PI, me.yaw * 180 / Math.PI, -me.roll * 180 / Math.PI);
+
+    /* the chase camera sits back and ABOVE, and looks along the nose — at 160 m/s a bird's 4 m
+     * lag frames nothing but tailplane. It also banks with the aircraft, which is most of why a
+     * jet feels like a jet rather than like a camera following a jet. */
+    const M = MODES.jet;
+    const tx = me.x - hx * M.camBack, tz = me.z - hz * M.camBack, ty = me.y + M.camUp;
+    camPos.x += (tx - camPos.x) * Math.min(1, dt * 5.0);
+    camPos.y += (ty - camPos.y) * Math.min(1, dt * 4.0);
+    camPos.z += (tz - camPos.z) * Math.min(1, dt * 5.0);
+    cam.setPosition(-camPos.x, camPos.y, camPos.z);
+    cam.lookAt(-(me.x + hx * 40), me.y + me.pitch * 30, me.z + hz * 40);
+    cam.setLocalEulerAngles(cam.getLocalEulerAngles().x, cam.getLocalEulerAngles().y,
+                            cam.getLocalEulerAngles().z + me.roll * 34);
+  }
+
+  /* ── the mode swap. ⚑ It changes the BODY and the CAMERA and nothing else: one world, one
+   * streamer, one edge, one collision set. That is the whole claim the compression rests on, and
+   * making the swap live (rather than a reload) is what proves it. */
+  function setMode(m) {
+    if (!MODES[m] || m === MODE) return MODE;
+    MODE = m;
+    try { localStorage.setItem('urm_city_mode', m); } catch (e) {}
+    bird.enabled = !isJet(); jet.enabled = isJet();
+    if (isJet()) { me.spd = Math.max(70, me.speed); me.y = Math.max(me.y, 90); me.roll = me.rollV = me.pitch = 0; }
+    else { me.vx = Math.sin(me.yaw) * 16; me.vz = Math.cos(me.yaw) * 16; me.vy = 0; }
+    const b = $('modeName'); if (b) b.textContent = MODES[m].name;
+    const w = $('hudBL'); if (w) w.dataset.mode = m;
+    return MODE;
+  }
+  addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault();
+    setMode(isJet() ? 'animal' : 'jet'); } });
+
   app.on('update', dt => {
     step(Math.min(dt, 0.05));
     if (ready) streamAround(me.x, me.z);
@@ -724,12 +979,17 @@ window.CityApp = (function () {
         yaw: +me.yaw.toFixed(3), speed: +me.speed.toFixed(2),
         alt: +me.alt.toFixed(2), onGround: me.onGround,
         chunk: c.cx + ',' + c.cz, district: CW ? CW.districtAt(c.cx, c.cz) : '?',
+        /* ⚑ THE OBSERVER RULE, EXPOSED SO IT CAN BE ASSERTED. "we never gave the bird any health"
+         * is not a design — other systems must be able to READ that an animal is not a target. */
+        mode: MODE, mortal: MODES[MODE].mortal, targetable: MODES[MODE].targetable,
+        armed: MODES[MODE].armed, roll: +me.roll.toFixed(3),
         nearChunks: near.size, farRegions: far.size, solids, tris,
         /* ⚑ THE ASSERTION THAT BITES on the silent-material bug: which material classes the world
          * actually built. Two classes across a whole city means the box translation is broken
          * again and everything is one colour, with nothing else to tell you so. */
         classes: [...cls].sort(), byClass: byClass };
     },
+    setMode, get mode() { return MODE; }, MODES,
     _step(n, dt) { for (let i = 0; i < (n || 1); i++) { step(dt == null ? 1 / 60 : dt);
       if (ready) streamAround(me.x, me.z); } },
     _place(x, y, z, yaw) { me.x = x; me.y = y; me.z = z; if (yaw != null) me.yaw = yaw;

@@ -847,6 +847,59 @@ to land to keep flying."*
   ⚠ **A probe that sets the camera will be overwritten** — the live `app.on('update')` re-places it
     every frame, which reads as "the framing is wrong" and is not. `app.off('update')` first.
 
+### ⛔ THE COMPRESSION: SIX CABINETS → **FOUR**, and the city is where three of them go
+*Artist, 2026-08-03: "the animals are invincible and more as observers… we can actually have
+dogfight AND the section 9 game both play here and compress them all into the City. so play as a
+jet fighter or an animal. then we compress our games to 4 games total."*
+**THE CITY · RIP ROCKETER · CLOUD RACER · THE ARENA.** Plan: `docs/CITY-GAME.md` § THE COMPRESSION.
+- ⚑ **THE INVINCIBLE ANIMAL IS WHAT MAKES IT WORK, and it is not a difficulty setting.** A mellow
+  game and a tactical shooter cannot share a world as PEERS. They can if the animal is a **witness**:
+  it cannot be hurt, targeted or armed, so a firefight two streets over becomes **weather** —
+  something to fly over, watch and photograph. The mellow game keeps its promise ("nothing chases
+  you") inside a world containing people shooting at each other, and **a photograph of someone
+  else's war is a better card than a kill count** — the anti-casino position as a mechanic.
+  ⚠ **Enforced, not true by omission**: `MODES` carries `mortal/targetable/armed` and `__city.s`
+  exposes them, because "we never gave the bird any health" is not a design and a bot that aims at
+  a squirrel for zero damage has already ruined the tone.
+- ⚑ **SECTION 9's MAP FORMAT *IS* THE CITY'S CHUNK FORMAT — not luck, it is why the generator was
+  built out of collision boxes.** A Section 9 map is `MAP.solids` (AABBs + kind); `genChunk` emits
+  exactly that, so collision, raycast, AI line-of-sight, cover baking and spawn validation all run
+  on a city chunk unmodified. The renderer is already shared (`S9PCWorld.buildFor`).
+- ⛔ **DOGFIGHT IS NOT AUTHORED IN METRES, and it would have failed PLAUSIBLY.** Its world is
+  `WS = 150` with `ALT 0.35–9.0`, `STALL 2.9`, `VREF 7.2` — against a 3,840 m city with 150 m
+  towers, roughly **25 : 1**. Copy the table over and the aircraft still flies, it just crosses the
+  whole city in a second. ⚑ **The UNIT-FREE half ports exactly and is the half that is the feel**:
+  the roll spring (`ROLL_K 81 / ROLL_D 11.6`, ω 9.0, ζ 0.644) and `heading rate = TURN_G·sin(roll)·
+  pull·auth / spd^0.6` are radians and seconds. Only speeds, altitudes and distances are re-derived.
+  Measured after: cruise 168 m/s, **360° in 8.9 s, radius ~238 m**.
+- ⛔ **A JET NEEDS A COMPLETELY DIFFERENT WORLD EDGE FROM A BIRD, and three separate measurements
+  were needed to get it right:**
+  1. Reusing the bird's edge (cancel outward thrust) leaked **386 m** past the wall. The bird's fix
+     relies on being able to STOP something against it; a jet has idle thrust and a stall speed, so
+     "stopped" is not a state it has. **The boundary has to be a TURN, begun before the edge.**
+  2. ⚠ **AND THE END POSITION HID IT.** The jet was turned round and finished well inside, so a
+     check that read where it stopped said "fine". **The excursion is the measurement.**
+  3. ⛔ **`sin(inward − yaw)` HAS A DEAD SPOT AT π — exactly the case a boundary exists for.**
+     Flying straight at the corner sits at the antipode, the correction was multiplied by ≈ 0, and
+     one wall held while the other leaked 244 m. It read as an asymmetry bug and was trigonometry.
+     Wrap the difference into (−π, π] and command on the ANGLE, which is largest where the sine was
+     smallest. ⚑ And **the rate comes from the geometry** (`v/d`, the rate needed to turn inside the
+     remaining distance), not from a curve that looked right — a boundary tuned by eye holds at the
+     speed you happened to test. Final: max |x| 1,745 · |z| 1,918.8 against ±1,920.
+  ⚠ **A handling number taken next to a wall is a measurement of the wall** — the 360° test read
+  50 s / 1,337 m until it was moved to the world centre; nothing had regressed.
+- ⚠ **TDZ, THIRD SIGHTING.** `MODES`/`isJet` sat below the jet's geometry, which calls `isJet()`;
+  `const` hoists into the temporal dead zone, so it threw at module scope and took the whole app
+  down before `window.__city` existed — the probe reads "undefined", not "broken mode swap".
+- ⚠ **Two `setLocalEulerAngles` calls on one entity is not two rotations** — the second REPLACES the
+  first, so the jet's fin cant silently vanished and both fins came out as one forward-swept blade.
+- ⛔ **A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT WORKS.** `section9.html` and `dogfight.html`
+  left the grid and are still reached **from THE CITY's own mode bar**, and `test:reach` now
+  ASSERTS that link rather than allow-listing it — deleting the route to a working game to make a
+  count look right is test:reach's own failure with the sign flipped. When the modes land, those
+  two assertions are what should fail. Proved to bite: removing one link fails 1, adding a fifth
+  cabinet fails 1. 66 → 65 (two cabinets out, three assertions in).
+
 ### ⛔ THE FIRST FLIGHT MODEL WAS A HELICOPTER, AND THE ARC SAID SO
 Held SPACE was a sustained +15 m/s² and held W +26, so 70 driven frames took the bird to **y 48.5
 over a level whose highest roof is 17.5**, then out through the side at (41, 36) against ±27 × ±23.

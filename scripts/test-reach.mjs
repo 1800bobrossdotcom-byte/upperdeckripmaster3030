@@ -78,14 +78,29 @@ const arcade = R('arcade.html');
  * simply stops guarding, and the new game is exactly as capable of shipping unreachable as the old
  * one was. `ronin.html` is deliberately NOT asserted any more: it is history, it still resolves for
  * anyone holding the URL, and nothing is required to link it. */
-const CABINETS = ['section9.html', 'riprocketer.html', 'dogfight.html', 'cloudracer.html',
-                  'city.html', 'cards/battle.html'];
+const CABINETS = ['city.html', 'riprocketer.html', 'cloudracer.html', 'cards/battle.html'];
+/* ⛔ SIX → FOUR (artist, 2026-08-03). `section9.html` and `dogfight.html` left the GRID because
+ * they fold into THE CITY as modes — but they are NOT orphaned and must not be: their modes are
+ * unfinished, so THE CITY's mode bar carries the route until they land. That is asserted below
+ * rather than allow-listed, because "it is linked from somewhere" is exactly the kind of claim
+ * that quietly stops being true. When the modes ship, these two assertions are what should fail. */
+const FOLDING = ['dogfight.html', 'section9.html'];
 for (const c of CABINETS) {
   t(`arcade.html links ${c}`, new RegExp('href="' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"').test(arcade));
 }
 /* studio.html's deep link. An anchor that does not exist does not error — it silently lands on
  * the top of the page, which is exactly why nobody noticed. */
 t('the #ronin anchor studio.html deep-links to exists', /id="ronin"/.test(arcade));
+{
+  const city = R('city.html');
+  for (const f of FOLDING) {
+    t(`${f} is still reachable from THE CITY while its mode is unfinished`,
+      new RegExp('href="' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"').test(city));
+  }
+  t('arcade.html is down to four cabinets',
+    (arcade.match(/<a class="cab"/g) || []).length === 4,
+    (arcade.match(/<a class="cab"/g) || []).length + ' found');
+}
 
 // ═══ 2 · NO SHIPPED PAGE IS AN ORPHAN ══════════════════════════════════════════════════════════
 /* A page nothing navigates to is a page no visitor sees. Three are orphans BY DESIGN and are

@@ -62,6 +62,77 @@ it. The bird is the fastest way to put the city in front of a camera and find ou
 
 ---
 
+## ⛔ THE COMPRESSION — six cabinets become FOUR, and the city is where three of them go
+
+*Artist, 2026-08-03: "the animals are invincible and more as observers… we can actually have
+dogfight AND the section 9 game both play here and compress them all into the City. so play as a
+jet fighter or an animal. then we compress our games to 4 games total."*
+
+| | before | after |
+| --- | --- | --- |
+| 1 | SECTION 9 TASK FORCE | **THE CITY** — animal · jet · operative, one world |
+| 2 | DOGFIGHT | RIP ROCKETER |
+| 3 | CLOUD RACER | CLOUD RACER |
+| 4 | RIP ROCKETER | THE ARENA (cards) |
+| 5 | THE CITY | — |
+| 6 | THE ARENA | — |
+
+### ⚑ THE INVINCIBLE ANIMAL IS WHAT MAKES THIS WORK, and it is not a difficulty setting
+
+A mellow game about noticing things and a tactical shooter cannot share a world **as peers**. They
+can share one if the animal is a **witness**: it cannot be hurt, cannot be targeted, and cannot
+shoot. Then a firefight two streets over is *weather* — something you fly over, watch, and
+photograph. That is the ethos stated as a mechanic, in the artist's own frame: the anti-casino
+position is that the prize is the having-done-it, and **a photograph of someone else's war is a
+better card than a kill count.**
+
+- **The animal cannot die. The jet and the operative can.** That single asymmetry is the whole
+  difference between the three modes, and it means the mellow game keeps its promise — *nothing
+  chases you* — inside a world that contains people shooting at each other.
+- ⚠ It also has to be enforced, not merely true by omission. An animal must be **absent from the
+  target list**, not just tough: a bot that aims at a squirrel and does no damage still ruins the
+  tone, and "we forgot to add health to the bird" is not a design.
+
+### ✅ WHAT ACTUALLY PORTS — measured, not assumed
+
+⚑ **SECTION 9's MAP FORMAT *IS* THE CITY'S CHUNK FORMAT, and that is not luck** — it is why the
+generator was built out of collision boxes. A Section 9 map is `MAP.solids`, a list of AABBs with a
+kind; `CityWorld.genChunk` emits exactly that. So collision, raycast, AI line-of-sight, cover
+baking and spawn validation all run on a city chunk unmodified. The renderer is already shared:
+`city.html` draws through `S9PCWorld.buildFor`, which is Section 9's own world builder.
+
+### ⛔ WHAT DOES NOT PORT, AND IT WOULD HAVE BITTEN SILENTLY
+
+**DOGFIGHT IS NOT AUTHORED IN METRES.** Its world is `WS = 150` units wide with `ALT_MIN 0.35 /
+ALT_MAX 9.0`, `STALL 2.9`, `VREF 7.2`, `VIEW_FAR 34`. The city is **3,840 m** across with buildings
+up to 150 m. That is roughly a **25 : 1 scale mismatch**, and dropping the numbers in unchanged
+gives a jet that crosses the entire city in about a second, or crawls, depending which way you read
+it. Worse, it fails *plausibly* — the aircraft flies, it just flies wrong.
+
+- ⚑ **The UNIT-FREE parts port exactly and are the valuable half**: the roll spring (`ROLL_K 81 /
+  ROLL_D 11.6`, ω = 9.0 rad/s, ζ = 0.644 — re-derived and measured, per its own note) and the turn
+  law `heading rate = TURN_G · sin(roll) · pull · auth / spd^0.6` are in radians and seconds. Those
+  are the feel. **Speeds, altitudes and view distances are the only things that must be re-derived.**
+- ⚠ **DOGFIGHT'S WORLD WRAPS (`wdel`); THE CITY HAS AN EDGE.** A toroidal world never needs a
+  boundary, so nothing in that game has ever had to answer what happens at one. The city already
+  has a soft edge that cancels the outward component of thrust (built for the bird, and driven: 60 s
+  of full power at the corner ends at 1920.9 against a ±1920 wall). The jet inherits it.
+
+### ORDER — and the one rule about retiring a cabinet
+
+1. ✅ **Animal + jet in the city**, sharing the world, the streamer and the edge.
+2. Jet combat: bolts, lock, bots — DOGFIGHT's, re-derived at city scale.
+3. Operative: Section 9's game handed a chunk's `solids` as its `MAP`.
+4. *Then* the two old cabinets retire.
+
+⛔ **A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT WORKS.** The arcade shows four now, and THE
+CITY's own mode bar links the two old pages until their modes are real — so nothing shipped becomes
+unreachable in the meantime. `npm run test:reach` exists precisely because "built ≠ reachable", and
+deleting the route to a working game to make a count look right is that same failure with the sign
+flipped.
+
+---
+
 ## 1 · WHAT IT IS
 
 ⛔ **The one idea that ties it to the studio, and the reason this is not a generic walking sim:**
