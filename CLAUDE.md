@@ -650,6 +650,17 @@ wordmark (a flat redraw would be a *picture of* the mark — DESIGN-SYSTEM §1).
   sets `display` has to also say what hidden means, or hidden stops meaning anything.
 - ⚠ `pkill -f <pattern>` matches **the bash command line running it**, so a script that pkills
   its own name kills its own shell. Cost two silent test runs that looked like hangs.
+- ⛔ **`npm test | tail` REPORTS THE PIPE'S EXIT CODE, NOT npm's** — and `npm test` chains 17 scripts
+  with `&&`, so a failure HALTS the chain and the tail shows whichever suite ran last, looking
+  exactly like a clean finish. Reported "green" twice off `| tail -8` and `| grep`; the chain had
+  actually stopped at `test:ronin` with 1 failure and `test:reach` never ran. ⚑ **Redirect to a file
+  and read `$?` from npm itself** (`npm test > log 2>&1; echo $?`). Same shape as every other defect
+  in this file: nothing tells you, and the wrong answer is the reassuring one.
+- ⚠ **`test:ronin` FLAKES UNDER LOAD — 57/58 once in a full chain, 58/58 on three standalone runs
+  and in a clean unpiped chain.** It is the one harness here that depends on real timing: the window
+  must be ≥700px (`DEVICE_OK`, or no level loads and the assertions cannot bite) and it drives input
+  events, which this container's rAF stalls between. **A single failure there is not a regression
+  until it reproduces** — check what the failing suite actually reads before chasing it.
 
 ## ⛔ ART DIRECTION MUST BE DESIGNED, NOT MOOD-BOARDED — `docs/DESIGN-SYSTEM.md`
 **Artist, 2026-08-01: "everything needs actual art direction that is designed."** Said right after
