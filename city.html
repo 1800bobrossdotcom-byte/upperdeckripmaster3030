@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ripmaster3030studios · the city</title>
+<meta name="theme-color" content="#0d1b2a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  THE CITY GAME — step 1 of docs/CITY-GAME.md. Replaces NEON RONIN (artist, 2026-08-03).
+
+  ⚠ WORKING TITLE ONLY. The name is the artist's call and the brief lists candidates (STRAYS /
+  FOUND / THE LOT / PERCH). The FILE is called `city.html` because that is descriptive rather than
+  a guess — baking a name that then has to be renamed is exactly the trap `npm run test:name`
+  exists to catch, and this project already owns a token permanently stuck with a wrong name.
+
+  WHAT THIS STEP IS, and what it deliberately is not:
+    · it is  — the BIRD, flying, over a place that already exists (`models/world/lido.wld`), lit
+               and framed per the brief, so acceptance test 1 can be answered: DOES THE PLACE READ
+               FROM THE AIR?
+    · it is not — the park, the neighbourhood, the other three animals, found cards, or photo
+               mode. Those are steps 2-5 and each is named in the brief.
+  ⚑ Bird first was the artist's call over my suggestion of the squirrel, and he was right: the
+    quadruped rig is a KNOWN hard problem that no prototype de-risks, while "is this place worth
+    looking at" is the UNKNOWN one, and a mellow game lives or dies on it.
+
+  ⚠ THE BIRD'S BODY IS A PLACEHOLDER AND IS MEANT TO BE. Step 1 asks about the CITY, not the
+    animal; a beautifully modelled bird over a place that does not read would answer the wrong
+    question. DESIGN-SYSTEM §1 applies to it when it is its own step.
+-->
+<style>
+  :root{ --sky:#8fc4e8; --ink:#0d1b2a; --paper:#f4ead8; --accent:#ff6b57; --rad:14px; --bez:12px; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--ink); color:var(--paper);
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; overflow:hidden; }
+  #cv{ position:fixed; inset:var(--bez); border-radius:var(--rad); display:block;
+    width:calc(100% - var(--bez)*2); height:calc(100% - var(--bez)*2); background:var(--sky); }
+  .hud{ position:fixed; z-index:5; pointer-events:none; text-shadow:0 1px 3px rgba(0,0,0,.5); }
+  #hudTL{ left:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); font-size:12px; letter-spacing:.16em; opacity:.9; }
+  #hudTL b{ color:var(--accent); }
+  #hudBL{ left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); font-size:11.5px; line-height:1.9; opacity:.78; }
+  #fuel{ position:fixed; z-index:5; left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 74px);
+    width:180px; height:7px; border-radius:4px; background:rgba(0,0,0,.35); overflow:hidden; pointer-events:none; }
+  #fuelIn{ height:100%; width:100%; background:linear-gradient(90deg,#ffd23b,#ff6b57); transition:width .12s linear; }
+  .key{ display:inline-block; min-width:20px; padding:1px 6px; margin-right:4px; border-radius:5px;
+    background:rgba(244,234,216,.14); border:1px solid rgba(244,234,216,.22); font-size:10.5px; }
+  #nogl{ position:fixed; inset:0; z-index:40; display:none; place-items:center; padding:24px; text-align:center; background:var(--ink); }
+  #nogl.show{ display:grid; }
+  #nogl .panel{ max-width:460px; }
+  #nogl h2{ font-size:clamp(18px,5vw,26px); color:var(--accent); letter-spacing:.04em; }
+  #nogl p{ font-size:12.5px; line-height:1.7; margin:12px 0; opacity:.85; }
+  #nogl a{ color:var(--sky); }
+  /* ⚠ [hidden] must win. A rule that sets `display` has to say what hidden means, or hidden stops
+     meaning anything — this repo has hit that three times (the launch countdown was the worst). */
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+  <canvas id="cv"></canvas>
+
+  <div class="hud" id="hudTL">◈ THE CITY <b>· working title ·</b> step 1 · the bird</div>
+  <div id="fuel"><div id="fuelIn"></div></div>
+  <div class="hud" id="hudBL">
+    <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> fly &nbsp;
+    <span class="key">SPACE</span> climb &nbsp; <span class="key">SHIFT</span> dive &nbsp;
+    <span class="key">Q</span><span class="key">E</span> turn<br>
+    <span style="opacity:.6">fuel refills when you perch — a bird that must land</span>
+  </div>
+
+  <div id="nogl"><div class="panel">
+    <h2>This needs WebGL 2</h2>
+    <p>The city renders through PlayCanvas, which has no software fallback. If you are on an older
+    browser, or a machine with GPU acceleration switched off, that is the thing to change.</p>
+    <p><b><a href="index.html">◄ back to the pack</a></b></p>
+    <p style="opacity:.55" id="noglWhy"></p>
+  </div></div>
+
+<script src="/gate.js"></script>
+<script src="vendor/playcanvas/playcanvas.min.js"></script>
+<script src="js/ronin-world.js"></script>
+<script src="js/section9-world.js"></script>
+<script src="js/s9pc-world.js"></script>
+<script src="js/city-world.js"></script>
+<script src="js/gfx-post.js"></script>
+<script src="js/city-app.js"></script>
+</body></html>

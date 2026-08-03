@@ -119,18 +119,21 @@
         <span class="play">▶ Race</span>
       </a>
 
-      <!-- ⛔ THIS CABINET WAS MISSING AND THE GAME WAS UNREACHABLE. `ronin.html` appeared in ZERO
-           shipped files — not this grid, not index.html, not sitemap.xml — while CLAUDE.md has
-           always recorded NEON RONIN as "Reached via arcade.html". `studio.html` even links
-           `arcade.html#ronin`, an anchor that did not exist. Built ≠ reachable, ROADMAP §5.3.
-           The id is what makes that studio.html link land on the cabinet. -->
-      <a class="cab" id="ronin" href="ronin.html">
-        <span class="rr">1v1 duel</span>
+      <!-- ⛔ THIS CABINET WAS NEON RONIN AND IS NOW THE CITY. Artist, 2026-08-03: *"neon ronin
+           honestly sucks as a game… how about a game that has us as a squirrel and we just explore
+           the city… very mellow game. large levels. amazing graphics."* The duel is retired; it
+           lives on in git history. See docs/CITY-GAME.md.
+           ⚠ THE id="ronin" STAYS. `studio.html` links `arcade.html#ronin` and that anchor is a
+           promise made to a URL that has already been shared — comments are history and are exempt,
+           but an href is a promise (test:reach §4b). A dead anchor scrolls the visitor nowhere and
+           looks exactly like a broken page. Renaming it is a separate, deliberate job. -->
+      <a class="cab" id="ronin" href="city.html">
+        <span class="rr">explore</span>
         <div class="ic" data-ic="flame" data-ic-size="40"></div>
-        <div class="nm">NEON RONIN</div>
-        <div class="tag">sword duel · true 3D</div>
-        <div class="dsc">A one-on-one ninja duel on a neon grid. Thirteen fighters — six originals and the studio's seven generated bodies — unlocked by the cards you hold. Ante $3030 + cards; <b>winner takes the pot</b>. Rooftop, arcade and vault arenas.</div>
-        <span class="play">▶ Duel</span>
+        <div class="nm">THE CITY</div>
+        <div class="tag">working title · a bird, a city</div>
+        <div class="dsc">Nothing chases you and there is nothing to lose. Fly a bird over a city you can land on — park, block, river, plaza — and look for cards, items and things worth photographing. <b>A photograph you take becomes a card.</b> Wing energy refills when you perch, so it is a bird that must land.</div>
+        <span class="play">▶ Fly</span>
       </a>
 
       <a class="cab" href="cards/battle.html">

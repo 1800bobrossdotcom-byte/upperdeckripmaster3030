@@ -756,6 +756,101 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   bring visibly warps your fighter**. Also accepted by `registerModel(arch, parsed, {morph})`.
   ⚠ Morphing does NOT launder copyright — a distorted recognisable character is still a
   derivative work. Use on our procedural bodies / the artist's own models.
+## ⛔ NEON RONIN IS RETIRED — the cabinet is **THE CITY** now (artist, 2026-08-03)
+*"neon ronin honestly sucks as a game, I am trying to think how we salvage it to be something else?
+how about a game that has us as a squirrel and we just explore the city with other squirrels or
+birds or cats… very mellow game. large levels. amazing graphics."*
+Brief: **`docs/CITY-GAME.md`**. Page: **`city.html`** + `js/city-app.js` + `js/city-world.js`.
+Settled with the artist: place = **park AND neighbourhood block, adjoining**; scope = **replaces
+NEON RONIN**; first animal = **the BIRD**; you can be squirrel · dog · cat · bird.
+- ⛔ **THE HOOK, and it is what stops this being a generic walking sim: A PHOTOGRAPH YOU TAKE
+  BECOMES A CARD.** The artist's own frame is that *the trading card is a SIZE before it is
+  anything* — and a photo is already that shape. `explore → notice → frame → shoot → it is in your
+  binder` is the rip/pull/reveal in another key, and it is the anti-casino position exactly: the
+  prize is a thing you MADE, not a thing you won.
+- ⚑ **THE ANIMALS ARE LAYERS, NOT SKINS.** Bird = the whole map from above, briefly, and **scouts**;
+  squirrel takes the vertical (branches, wires, ledges); cat gets *in* (gaps, sills, under things);
+  dog is nose-level and finds what is buried or behind. **A card seen from the air is a PLAN rather
+  than a pickup** — that one asymmetry is worth more than any amount of stat tuning.
+- ⚑ **BIRD FIRST WAS THE ARTIST'S CALL OVER MY SUGGESTION OF THE SQUIRREL, AND HE WAS RIGHT.** The
+  quadruped rig is a *known* hard problem that no prototype de-risks; **whether the place is worth
+  looking at is the UNKNOWN one**, and a mellow game about noticing things lives or dies on it.
+
+### ⛔ SCALE: **3.84 km** — *"we are talking mmorpg size or aspiring to that size"*
+First build was `lido.wld` alone and the artist's reply was immediate: *"that is too small of a
+world, maybe that is a place in it."* `js/city-world.js` is a **32 × 32 grid of 120 m chunks,
+seeded, streamed, pure** (`genChunk(cx,cz,lod)` reads no state and writes none, so a chunk thrown
+away rebuilds identically).
+- ⚑ **THE CITY IS GENERATED, NOT AUTHORED, and every other choice follows.** A hand-built 3.8 km
+  city is an asset budget this studio does not have. **What the artist authors is the LANGUAGE** —
+  massing rules, material vocabulary, district mix — and hand-built `.wld` places drop in as
+  **LANDMARKS**. `lido.wld` is now literally what he called it: *a place in it*, one chunk, with
+  the city around it. Add one by adding a row to `CityWorld.LANDMARKS`.
+- ⚑ **THE GEOMETRY *IS* THE COLLISION SET** — boxes are emitted once and used for both. Acceptance
+  test 3 ("18 of 20 surfaces that look landable must be landable") is **1:1 by construction and
+  cannot drift, because there is no second representation to drift from.** That is the answer to
+  `street.wld`'s 57 collision boxes for 69,513 triangles.
+- ⚑ **A RIVER IS THE CHEAPEST LEGIBILITY IN A GENERATED CITY.** `riverZ(x)` is a function of x, so
+  adjacent chunks *cannot* disagree; it gives the map an orientation readable in one frame from the
+  air (= acceptance test 1) and bridges land on the street grid by construction — a thing to fly
+  under, the single most bird-specific geometry in the city. **Height variance is the second**: the
+  first pass was 9–33 m everywhere and from 600 m up read as one flat crust with nowhere to aim for.
+- ⚠ **Streaming is two tiers and the far one is a DRAW-CALL decision, not a triangle one.** Near
+  5 × 5 chunks full detail (and the only ones that collide — they are the only ones you can touch);
+  horizon = 4 × 4-chunk regions merged into one map each, so a kilometre of city is a couple of
+  dozen draw calls rather than several hundred. **LOD 1 MUST EMIT THE SAME MASSES AS LOD 0** — the
+  generator draws every building's height and footprint *before* any detail so the random sequence
+  lines up — or a tower changes height as you fly toward it.
+
+### ⛔ THE SAME SILENT FAILURE, TWICE IN ONE DAY: a level that loads and is the wrong colour
+- **The lido rendered as two tones of sandstone.** `RoninWorld` returns AABBs as `{name, lo[], hi[]}`;
+  `S9PCWorld.buildFor` reads `b.x0…b.z1`. Handing the boxes straight over compared every triangle
+  centroid against `undefined` — false for all 16,108 — so **every triangle fell through to kind
+  `wall`** and a place with a turquoise pool, red awnings, planting and white stone came out flat
+  sand. **No error. No 404.** `section9-world.js`'s own KINDS table warns about exactly this
+  ("an object NAME is a material assignment… it fails silently"); the warning was about names and
+  the defect was one layer under it, in the SHAPE. Fixed: 2 material classes → **8**.
+- ⚑ **SO `city-world.js` ASSIGNS THE CLASS EXPLICITLY AND NEVER INFERS IT.** Name→kind inference
+  exists because a Blender-baked `.wld` has nothing but a name; **we are the author and know a road
+  is a road at the instant we emit it**, so guessing it back out of a string we just wrote would be
+  inventing a chance to be wrong. `CityWorld.audit()` + `__city.s.classes` make it a measurement.
+- ⚠ **EVERY SLAB MUST SIT ABOVE y = 0.** `boxSoup` lays a ground plane at exactly 0, so the river's
+  surface at −0.15 was **hidden under it** and the whole river drew as a wide pale band with no
+  water in it. Then 3 cm of clearance z-fought into moiré at 600 m — 12 cm now, **and the other
+  half of that fix is `nearClip` 0.12 → 0.4**: near clip is a depth-PRECISION dial, and 0.12 m
+  against a kilometre-scale far clip spends the whole buffer inside the first metre.
+
+### ⛔ THE FIRST FLIGHT MODEL WAS A HELICOPTER, AND THE ARC SAID SO
+Held SPACE was a sustained +15 m/s² and held W +26, so 70 driven frames took the bird to **y 48.5
+over a level whose highest roof is 17.5**, then out through the side at (41, 36) against ±27 × ±23.
+- ⚑ **A WINGBEAT IS DISCRETE.** `flapEvery` is a refractory period, so SPACE is a beat you spend,
+  not a button you lean on. **Gliding is free and is the default** (speed² buys lift; at ~15 m/s it
+  cancels gravity), **diving is free and tucks** (drag × 0.45 — the swoop), and **only the wings
+  cost**: W and SPACE drain, glide and dive do not, perching refills. So the loop is *climb hard →
+  glide far → perch*, and the fuel is what makes it mellow.
+- ⚠ **LIFT MUST BE CAPPED** — uncapped, speed² at the speed cap is +34 m/s² and the bird is a rocket.
+- ⚠ **A BOUNDARY YOU CAN LEAN AGAINST IS NOT A BOUNDARY.** The first soft edge was a spring the
+  thrust simply out-muscled: at 8 m outside it the two balanced and the bird hung there, stalled,
+  outside the world, then sank onto the y=0 plane — **word for word the shelved city's "stood on a
+  water plane with the city floating in the distance"**. The fix cancels the outward COMPONENT OF
+  THRUST, which cannot be out-muscled. Related: `RoninWorld.groundAt` returns **0** when nothing is
+  under you, i.e. an invisible floor everywhere; `groundBelow` returns **null**, so nothing lands
+  on nothing.
+- ⚠ **THE CEILING IS AN ABSOLUTE ALTITUDE, NOT A FRACTION OF THE WORLD.** Derived from the span it
+  was right for a 54 m courtyard and became **1,848 m** the moment the world became a 3.84 km city.
+- ⚠ **THE CHASE CAMERA MUST LOOK DOWN AS YOU CLIMB.** Framed level, a bird at 40 m fills the screen
+  with sky and the city is off the bottom of the frame — the first flight screenshot was pure blue
+  with a bird in it, and that is a FRAMING bug that looks exactly like a flight one.
+
+⚠ **STILL OPEN and the artist's:** the game's NAME (STRAYS · FOUND · THE LOT · PERCH — `test:name`
+pins it the moment it exists), how a photographed card is marked so it never passes as one of his,
+whether the animals share one city, whether anyone else is in it, and whether time of day moves.
+⚠ **NOT BUILT YET:** the quadruped rig (the 11-bone skeleton is a BIPED — biggest new piece), photo
+mode, found cards in the world. Steps 3–5 of the brief.
+⚠ `ronin.html` is **kept and still resolves** — a shared URL should keep working — but nothing links
+it. It is allow-listed in `test:reach`'s `ORPHAN_OK` **with a reason**, which is the difference
+between a decision and an oversight.
+
 - **Games** are self-contained HTML canvas/WebGL (dogfight, section9 + `js/section9-gl.js`,
   riprocketer, cloudracer + `js/cloudracer-gl.js`, ronin = NEON RONIN 1v1 ninja duel in
   `js/ronin.js` (renderer-agnostic game logic) + `js/ronin-fighters.js` (IK skeleton +

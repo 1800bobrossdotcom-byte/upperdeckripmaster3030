@@ -72,8 +72,14 @@ function navigatorsOf(page) {
  *   Proof of the old state: `grep -rn "ronin\.html"` over every shipped file returned NOTHING. */
 head('1 · every cabinet is reachable from the arcade');
 const arcade = R('arcade.html');
+/* ⚠ `ronin.html` WAS THIS LIST'S SIXTH ENTRY AND IS NOW `city.html`. NEON RONIN was retired on
+ * 2026-08-03 (artist: "neon ronin honestly sucks as a game") and THE CITY took its cabinet. The
+ * entry is REPLACED, not deleted — a guard that is dropped when the thing it guards is replaced
+ * simply stops guarding, and the new game is exactly as capable of shipping unreachable as the old
+ * one was. `ronin.html` is deliberately NOT asserted any more: it is history, it still resolves for
+ * anyone holding the URL, and nothing is required to link it. */
 const CABINETS = ['section9.html', 'riprocketer.html', 'dogfight.html', 'cloudracer.html',
-                  'ronin.html', 'cards/battle.html'];
+                  'city.html', 'cards/battle.html'];
 for (const c of CABINETS) {
   t(`arcade.html links ${c}`, new RegExp('href="' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"').test(arcade));
 }
@@ -91,6 +97,13 @@ const ORPHAN_OK = {
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool, deliberately unlinked',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
+  /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
+   * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
+   * shared should keep working — but nothing is required to link it any more, so the orphan sweep
+   * would otherwise fail forever on a page that is orphaned ON PURPOSE. Listing it here with the
+   * reason is the difference between a decision and an oversight; that distinction is the entire
+   * value of this allowlist. */
+  'ronin.html': 'RETIRED — replaced in the arcade by city.html (THE CITY). Kept so the URL resolves.',
   'cards/_template.html': 'the card generator template, not a page',
   'cards/_full.html': 'a generator template, not a page',
   'cards/_back-preview.html': 'a generator template, not a page',

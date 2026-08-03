@@ -427,7 +427,17 @@ window.S9PCWorld = (function () {
    * `kindOf` is a per-triangle kind array (from the owning collision box for a baked level, or
    * straight off the solid for a hand-built one) and `nameOf` an optional per-triangle name.
    * Everything below is shared by both arena kinds. */
-  function meshParts(app, V, kindOf, nameOf, open) {
+  /* ⚑ `clsOf` IS AN EXPLICIT OVERRIDE AND IT EXISTS BECAUSE `classOf` IS NOT IDEMPOTENT.
+   * `classOf` translates an S9World *kind* (from an authored object's name) into a material
+   * *class*, and for five of the nine classes the two vocabularies do not overlap: hand it
+   * `'metal'` and it matches none of its cases, falls through to the up-facing test and returns
+   * `'deck'`. A generator that already KNOWS what it is emitting therefore had its roads silently
+   * repainted sand and its teal shopfronts repainted cream — no error, right geometry, wrong
+   * colour, which is the third time that exact failure shape has appeared in this pipeline.
+   * ⚠ Making `classOf` idempotent would NOT be the fix: `'wall'` is both a class AND kindOf's
+   *   default, and a baked level relies on `'wall' + ny > 0.5` becoming `deck` so floors are
+   *   floors. So the override is a separate channel rather than a smarter guess. */
+  function meshParts(app, V, kindOf, nameOf, open, clsOf) {
     const tris = (V.length / 18) | 0;                              // 3 verts × 6 floats
 
     /* ⚠ THE INTERLEAVE IS pos3 + norm3, SO THE NORMAL STARTS AT +3, NOT AT +0 — and getting that
@@ -452,7 +462,9 @@ window.S9PCWorld = (function () {
     const buckets = {}; for (const k of ORDER) buckets[k] = [];
     for (let t = 0; t < tris; t++) {
       const o = t * 18, n = nrm(o);
-      buckets[classOf(kindOf ? kindOf[t] : 'wall', n[1], nameOf ? nameOf[t] : '')].push(t);
+      const forced = clsOf && clsOf[t];
+      buckets[(forced && buckets[forced]) ? forced
+              : classOf(kindOf ? kindOf[t] : 'wall', n[1], nameOf ? nameOf[t] : '')].push(t);
     }
     /* Bucket FIRST, then ask for materials — an arena only pays (in texture fetches and in canvas
      * generation) for the classes it actually contains. Every built-in arena is five of the nine. */
@@ -521,6 +533,7 @@ window.S9PCWorld = (function () {
   function boxSoup(MAP) {
     const V = [];                                   // pos3 + norm3 interleaved, 3 verts per tri
     const kinds = [];                               // one kind per triangle, parallel to V
+    const clss = [];                                // …and an optional explicit class override
     /* ⚠ WINDING. `a,b,c,d` are listed anticlockwise as seen from OUTSIDE the surface, and
      * PlayCanvas's front face is CCW — but the triangles have to be emitted `a,c,b` / `a,d,c` for
      * that to hold. Emitting them in the obvious `a,b,c` order produces the mirror winding and
@@ -529,34 +542,34 @@ window.S9PCWorld = (function () {
      * Checked, not guessed — for the top face, (P5−P4)×(P6−P5) = (0, −(x1−x0)(z1−z0), 0), i.e.
      * −Y, while the declared normal is +Y. Lighting uses the declared normal, so this is a
      * CULLING bug only, which is exactly why it looks like missing geometry rather than bad shading. */
-    function quad(a, b, c, d, n, kind) {
+    function quad(a, b, c, d, n, kind, cls) {
       const t = [[a, c, b], [a, d, c]];
       for (const tri of t) {
         for (const p of tri) { V.push(p[0], p[1], p[2], n[0], n[1], n[2]); }
-        kinds.push(kind);
+        kinds.push(kind); clss.push(cls || null);
       }
     }
-    function box(x0, y0, z0, x1, y1, z1, kind) {
+    function box(x0, y0, z0, x1, y1, z1, kind, cls) {
       const P = [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1],
                  [x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]];
-      quad(P[4], P[5], P[6], P[7], [0, 1, 0], kind);          // top
-      quad(P[3], P[2], P[1], P[0], [0, -1, 0], kind);         // bottom
-      quad(P[0], P[1], P[5], P[4], [0, 0, -1], kind);         // −z
-      quad(P[2], P[3], P[7], P[6], [0, 0, 1], kind);          // +z
-      quad(P[1], P[2], P[6], P[5], [1, 0, 0], kind);          // +x
-      quad(P[3], P[0], P[4], P[7], [-1, 0, 0], kind);         // −x
+      quad(P[4], P[5], P[6], P[7], [0, 1, 0], kind, cls);          // top
+      quad(P[3], P[2], P[1], P[0], [0, -1, 0], kind, cls);         // bottom
+      quad(P[0], P[1], P[5], P[4], [0, 0, -1], kind, cls);         // −z
+      quad(P[2], P[3], P[7], P[6], [0, 0, 1], kind, cls);          // +z
+      quad(P[1], P[2], P[6], P[5], [1, 0, 0], kind, cls);          // +x
+      quad(P[3], P[0], P[4], P[7], [-1, 0, 0], kind, cls);         // −x
     }
     const pad = 1.2;
     // ground plane — the hand-built arenas have no floor solid; y=0 IS the ground
     quad([MAP.x0 - pad, 0, MAP.z0 - pad], [MAP.x1 + pad, 0, MAP.z0 - pad],
          [MAP.x1 + pad, 0, MAP.z1 + pad], [MAP.x0 - pad, 0, MAP.z1 + pad], [0, 1, 0], 'plat');
-    for (const b of MAP.solids) box(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.kind || 'wall');
+    for (const b of MAP.solids) box(b.x0, b.y0, b.z0, b.x1, b.y1, b.z1, b.kind || 'wall', b.cls);
     if (!MAP.open) {                                 // a lid, so an interior is an interior
       const cy = MAP.ceilY || 6;
       quad([MAP.x0 - pad, cy, MAP.z1 + pad], [MAP.x1 + pad, cy, MAP.z1 + pad],
            [MAP.x1 + pad, cy, MAP.z0 - pad], [MAP.x0 - pad, cy, MAP.z0 - pad], [0, -1, 0], 'wall');
     }
-    return { verts: new Float32Array(V), kinds };
+    return { verts: new Float32Array(V), kinds, clss };
   }
 
   /* Build the render meshes for ANY Section 9 map — baked (`MAP.mesh.verts`) or hand-built
@@ -564,12 +577,12 @@ window.S9PCWorld = (function () {
   function buildFor(app, MAP) {
     const t0 = performance.now();
     const baked = !!(MAP.mesh && MAP.mesh.verts && MAP.mesh.verts.length);
-    let verts, ownerKind, ownerName;
+    let verts, ownerKind, ownerName, ownerCls = null;
     if (baked) {
       verts = MAP.mesh.verts;
       const boxes = MAP.solids || [];
       const tris = (verts.length / 18) | 0, eps = 0.06;
-      const kk = new Array(tris), nn = new Array(tris);
+      const kk = new Array(tris), nn = new Array(tris), cc = new Array(tris);
       for (let t = 0; t < tris; t++) {
         const o = t * 18;
         const cx = (verts[o] + verts[o + 6] + verts[o + 12]) / 3;
@@ -579,13 +592,13 @@ window.S9PCWorld = (function () {
         for (let i = 0; i < boxes.length; i++) { const b = boxes[i];
           if (cx >= b.x0 - eps && cx <= b.x1 + eps && cy >= b.y0 - eps && cy <= b.y1 + eps &&
               cz >= b.z0 - eps && cz <= b.z1 + eps) { k = b; break; } }
-        kk[t] = k ? k.kind : 'wall'; nn[t] = k ? k.name : '';
+        kk[t] = k ? k.kind : 'wall'; nn[t] = k ? k.name : ''; cc[t] = k ? (k.cls || null) : null;
       }
-      ownerKind = kk; ownerName = nn;
+      ownerKind = kk; ownerName = nn; ownerCls = cc;
     } else {
-      const s = boxSoup(MAP); verts = s.verts; ownerKind = s.kinds; ownerName = null;
+      const s = boxSoup(MAP); verts = s.verts; ownerKind = s.kinds; ownerName = null; ownerCls = s.clss;
     }
-    const { parts, stats } = meshParts(app, verts, ownerKind, ownerName, !!MAP.open);
+    const { parts, stats } = meshParts(app, verts, ownerKind, ownerName, !!MAP.open, ownerCls);
     const root = new pc.Entity('level');
     const instances = parts.map(p => { const mi = new pc.MeshInstance(p.mesh, p.material, root); mi.castShadow = true; return mi; });
     root.addComponent('render', { meshInstances: instances, castShadows: true, receiveShadows: true });

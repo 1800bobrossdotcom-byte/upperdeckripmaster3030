@@ -14,9 +14,41 @@ amazing graphics."*
 | | decision |
 | --- | --- |
 | **the place** | a **park / green pocket** AND a **neighbourhood block**, adjoining — one continuous space. A third area later. |
+| **scale** | ⛔ **MMORPG-ASPIRING.** *"that is too small of a world, maybe that is a place in it, but we are talking mmorpg size or aspiring to that size."* |
 | **scope** | **REPLACES NEON RONIN.** `ronin.html` becomes this game; the duel lives on in git history. |
 | **first animal** | **THE BIRD.** |
 | **who you can be** | squirrel · dog · cat · bird |
+
+## ⛔ SCALE — and the one decision the whole game rests on
+
+**3.84 km × 3.84 km** — a 32 × 32 grid of 120 m chunks, streamed. `js/city-world.js`.
+
+⚑ **THE CITY IS GENERATED, NOT AUTHORED, and every other choice follows from that.** A hand-built
+3.8 km city is an asset budget this studio does not have and would take longer to make than the
+game. A generated one is a few hundred lines. **What the artist authors is the LANGUAGE** — the
+massing rules, the material vocabulary, the district mix — and hand-built `.wld` places drop in as
+**LANDMARKS** inside it. `lido.wld` (54 × 46 m) is now exactly what the artist called it: *a place
+in it*, occupying one chunk, with the generated city around it. Add a landmark by adding a row to
+`CityWorld.LANDMARKS`.
+
+⚑ **AND THE GENERATOR IS BUILT OUT OF ITS OWN COLLISION.** Every visible surface is a box that is
+also a collider, because the geometry is *derived from* the collision set rather than the other way
+round. **Acceptance test 3 — "18 of 20 surfaces that look landable must be landable" — is 1:1 by
+construction and cannot drift, because there is no second representation to drift from.** That is
+the direct answer to `street.wld`'s 57 boxes for 69,513 triangles.
+
+What the world carries: a **river** (a continuous function of x, so adjacent chunks cannot disagree
+— it gives the map an orientation readable in one frame from the air, and bridges to fly under),
+**park**, **neighbourhood block**, and **plaza** as the sparse third area. Districts come from a
+continuous noise field, so park and block *adjoin* everywhere it crosses the threshold — there are
+no district walls, only a gradient, which is what the artist asked for.
+
+⚠ **Streaming is two tiers and the second one is a DRAW-CALL decision, not a triangle one.** Near:
+5 × 5 chunks at full detail — the only ones that collide, because they are the only ones you can
+touch. Horizon: 4 × 4-chunk regions merged into one map each, so a kilometre of city costs a couple
+of dozen draw calls instead of several hundred. **LOD 1 must emit the same masses as LOD 0** (the
+generator draws every building's height and footprint before any detail so the random sequence
+lines up) or a tower changes height as you fly toward it. That is a contract between tiers.
 
 **What you do:** explore, and look for cards, items and power-ups. Take photos. That is the whole
 loop. There is no fail state and nothing chases you.
@@ -157,8 +189,9 @@ than a floor. Every surface in this game is stood on, climbed, or perched on, so
 | piece | state |
 | --- | --- |
 | `js/ronin-world.js` | **146 lines, works.** accel 78 · run 15 · sprint 30 · gravity 42 · `leapBonus` 0.42 (jump scales with run speed) · boost-flight with fuel that refills on the ground. **This is the bird's flight model, already written.** |
-| `models/world/street.wld` | **69,513 tris · 82 × 80 × 120 m.** A city block with towers. ⚠ only 57 collision boxes — coarse. |
-| `models/world/lido.wld` | 16,108 tris · 54 × 18 × 46 m · **170 boxes, 12 spawns.** Denser collision; the better starting shape. |
+| `js/city-world.js` | ✅ **BUILT.** The generated world: 3.84 km, seeded, chunked, pure. River · park · block · plaza · landmarks. Geometry *is* the collision set. |
+| `models/world/street.wld` | **69,513 tris · 82 × 80 × 120 m.** A city block with towers. ⚠ only 57 collision boxes — coarse. **Now a LANDMARK inside the generated city**, not the world. |
+| `models/world/lido.wld` | 16,108 tris · 54 × 18 × 46 m · **170 boxes, 12 spawns.** ✅ **The first landmark**, and the artist's own "a place in it". |
 | level pipeline | `npm run level` → Blender → `.wld` + `.cols.json`. Works. |
 | engine | **PlayCanvas, adopted.** Section 9's build is the working reference: shadow maps, clustered lights, SSAO, bloom, the CameraFrame stack, quality tiers. |
 | pickups | portal drop + collection + `js/card-powers.js`, built 2026-08-02. Directly reusable as *found cards*. |
