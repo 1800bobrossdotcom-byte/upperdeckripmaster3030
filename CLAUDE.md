@@ -829,6 +829,46 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
   WORLD_ON && DEVICE_OK` — two unrelated things, two switches. **Defaults are unchanged**
   (procedural bodies, neon grid), so the shipping duel looks exactly as it did.
   ⚑ `.skn` files are heavy (`ronin.skn` is 5.7 MB) — `DEVICE_OK` is still the mobile protection.
+- ## ⛔ THE ARENA CHIPS SWAPPED THE GAME, NOT THE STAGE — fixed 2026-08-02 (artist report)
+  **Picking Rooftop, Arcade or Vault turned the DUEL OFF.** The picker wrote `urm_world='1'`, which
+  is the *shelved free-roam city* flag, and the world branch of `update()` ends
+  `updateHUD(); return;` — so **the entire combat simulation was skipped**. Attacks, hitboxes,
+  blocking, combos, meter and KO never ran; `f.state` was written straight from walk speed; Q/E
+  turned the camera instead of sidestepping; W/S were forward/back instead of jump/guard. Driven,
+  same keys, 40 steps: neon grid reached `slash`, the other three never left `idle`, and the two
+  fighters spawned **~3,000 units apart**. Exactly the report: *"fighting controls are not working
+  in the xyz space arena."*
+  - ⚑ **THE FIX IS THAT A LEVEL IS A STAGE, NOT A MODE**, which is also what the artist asked for
+    ("just have them fighting side scroll style") and what Tekken actually is — 3D bodies on a 2D
+    fight plane with a depth sidestep, which `f.z` + Q/E already implement. `urm_stage` picks the
+    arena; `urm_freeroam` keeps the city mode alive for whoever picks it up. **The renderer already
+    had them separate** — `worldMesh` gates the geometry, `G.worldMode` gates the chase camera —
+    only `ronin.js` conflated them.
+  - ⚠ **A ROOM IS NOT A STAGE.** Three staging bugs, each found only by LOOKING:
+    (a) drawn whole, the level put walls *between the camera and the fight* — so geometry in front
+    of the fight line is culled at upload, which is why you never see a Tekken stage's fourth wall;
+    (b) culling by triangle CENTROID left a wall-sized wedge across a fighter, because these
+    levels have very large triangles — the test is whether **any** part reaches in front, not
+    where the middle is; (c) that cull then ate the floor and the fighters stood on void — **a
+    near-horizontal surface cannot occlude a side-on duel**, so floors are exempt.
+  - ⚠ **The stage was drawing and was invisible, which looks identical to not drawing.** The duel's
+    fog is 17→58 m, right for a ~3 m table; the levels measure **rooftop x ±82.5 · y 0→57.2 ·
+    z ±78.1**, arcade ±60/27.5/±42.7, vault ±49.7/25.9/±52.4, so every backdrop sat past the fog
+    end and all three read as the same void. The range is now **derived from the level's own
+    measured depth**, not picked by eye — a "geometry outside the visible range" fix, the same
+    shape as Section 9's missing `open:true`, *not* a lighting-taste decision.
+  - ⚠ **A single authored spawn is the wrong stage origin** — a spawn is where a player *enters*,
+    usually at the edge facing in, which put the whole vault duel outside the room. The centroid of
+    all spawns, dropped to the floor, lands the fight inside the space on all three.
+  - ⛔ **AND THE TEST DID NOT BITE UNTIL THE VIEWPORT WAS FIXED.** `npm run test:ronin` grew 12
+    assertions that all passed against the *broken* build, because the harness ran at 1000×**640**
+    and `DEVICE_OK` needs `min(w,h) ≥ 700` — no level loaded, so the defect could not occur.
+    Caught only by reverting the fix and re-running, which is the one thing that proves an
+    assertion bites. At 760 the revert fails **9**. The window height is now load-bearing and says
+    so. 40 → 55.
+  - ⚠ **Still the artist's call:** how each arena is lit and dressed. The fight reads clearly in all
+    three and the levels are visible, but rooftop is a plain deck next to arcade's cabinet row —
+    that is DESIGN-SYSTEM §1/§2 work, not a constant to nudge.
   **Combat (M4):** fighters hold the blade UPRIGHT in a jodan ready stance → committed
   overhead cuts; agility physics (snappier accel/jump, double-tap **dash** w/ i-frames);
   **depth strafe** (`f.z`, Q/E) that recentres on the fight line and lets an off-line target

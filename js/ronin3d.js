@@ -729,9 +729,63 @@ window.Ronin3D = (function () {
     dressLoaded(fm, f, K, a, dk, sk.dress);          // costume + weapon ride the skeleton, not the mesh
   }
   /* Baked city world (see scripts/bake-world.mjs). Uploaded once, drawn as one opaque batch. */
-  let worldMesh = null;
-  function setWorld(verts) { if (!ok || !verts || !verts.length) return false;
-    try { mesh('world', verts); worldMesh = true; return true; } catch (e) { return false; } }
+  let worldMesh = null, worldOrigin = [0, 0, 0], worldFar = 60;
+  /* `origin` moves the LEVEL onto the fight line rather than bending the duel onto the level.
+     The duel is authored in its own space — fighters draw at (f.x*SC, f.yLift*SC, f.z*SC), i.e. a
+     plane at world y=0, z~0 running along x — and every combat verb in ronin.js is written
+     against it. Translating one opaque batch by -origin is a matrix; re-homing the duel would
+     mean touching hitboxes, the camera, shadows, reflections and FX, all of which assume y=0.
+     Pass the level's authored spawn and its floor arrives under the fighters' feet. */
+  /* ⛔ A ROOM IS NOT A STAGE, AND DRAWING IT WHOLE PUTS THE CAMERA INSIDE IT. These levels were
+   *   authored to be walked through in first person; the duel camera sits ~7-12 m back on +z
+   *   looking at the fight plane, so every wall, crate and rail BETWEEN it and the fighters
+   *   occludes the fight. Measured on the rooftop: props covered both fighters and the read of
+   *   the whole duel. This is the standard fighting-game answer — a 3D arena is dressed from
+   *   behind and the front wall is simply not drawn, which is why you never see the fourth wall
+   *   of a Tekken stage.
+   * ⚑ CULLED AT UPLOAD, NOT PER FRAME. It is one opaque batch drawn once; filtering the vertex
+   *   data costs nothing at runtime and needs no clip plane in the shader. A triangle is kept or
+   *   dropped WHOLE — clipping per vertex would tear the geometry open along the cut.
+   * ⚠ JUDGED BY ITS NEAREST VERTEX, NOT ITS CENTROID. A centroid test was tried first and left a
+   *   wall-sized wedge across the arcade's right-hand fighter: these levels have very large
+   *   triangles, so one whose MIDDLE is safely behind the cut can still reach many metres in
+   *   front of it. The centroid answers "where is this triangle", and the question is actually
+   *   "does any part of it get between the camera and the fight".
+   * ⚠ The cut sits slightly IN FRONT of the fight plane (z = FRONT_CUT), not on it: the floor
+   *   has to run toward the camera past the fighters' feet or they stand on a visible ledge. */
+  const FRONT_CUT = 2.2;                       // metres in front of the fight line (z = 0)
+  function setWorld(verts, origin) { if (!ok || !verts || !verts.length) return false;
+    try {
+      const o = (origin && origin.length === 3) ? origin.slice() : [0, 0, 0];
+      const st = 6, tri = st * 3;              // interleaved pos3 + norm3, 3 verts per triangle
+      const keep = [];
+      for (let i = 0; i + tri <= verts.length; i += tri) {
+        /* ⚠ FLOORS ARE EXEMPT, and leaving them out was visible: the cut removed the ground in
+           FRONT of the fight line, so the bottom third of frame went to void and the fighters
+           stood on nothing. A near-horizontal surface below the camera's eyeline cannot occlude a
+           side-on duel no matter how close it comes — only uprights can. So the test is "is this
+           a wall in the way", not "is this in the way". Averaged normal, because the three
+           vertices of a floor triangle all point the same way anyway. */
+        const ny = (verts[i + 4] + verts[i + st + 4] + verts[i + 2 * st + 4]) / 3;
+        if (ny <= 0.7) {                       // not a floor — check whether it blocks the view
+          const nz = Math.max(verts[i + 2], verts[i + st + 2], verts[i + 2 * st + 2]) - o[2];
+          if (nz > FRONT_CUT) continue;        // any part in front of the fight would block it
+        }
+        for (let k = 0; k < tri; k++) keep.push(verts[i + k]);
+      }
+      /* Fail OPEN: if the cut removed everything (an origin outside the level, a mesh that is not
+         interleaved the way this assumes) draw the level whole rather than draw nothing. An
+         occluded stage is a bug; a missing stage is a blank screen. */
+      const use = keep.length >= tri ? new Float32Array(keep) : verts;
+      /* the level's own reach from the fight line — drives its fog range, see drawScene */
+      let far = 0;
+      for (let i = 0; i + st <= use.length; i += st) {
+        const dx = use[i] - o[0], dz = use[i + 2] - o[2];
+        const d = Math.sqrt(dx * dx + dz * dz); if (d > far) far = d;
+      }
+      worldFar = Math.max(24, far);
+      mesh('world', use); worldMesh = true; worldOrigin = o;
+      return true; } catch (e) { return false; } }
   function hasWorld() { return !!worldMesh; }
   /* Build a morphed set of the body primitives for one fighter, so an owned card visibly
    * reshapes that fighter's body. Cheap + cached: built once per variant id. */
@@ -1241,12 +1295,33 @@ window.Ronin3D = (function () {
       gl.uniform2fv(u(groundProg, 'uFogND'), [10, 44]); gl.uniform1f(u(groundProg, 'uTime'), t3);
       gl.uniform3fv(u(groundProg, 'uKeyD'), LIGHT.keyD); gl.uniform3fv(u(groundProg, 'uKeyC'), LIGHT.keyC);
       gl.uniform3fv(u(groundProg, 'uFillC'), LIGHT.fillC); gl.uniform3fv(u(groundProg, 'uRimC'), LIGHT.rimC);
-      if (worldMesh) drawFloor(midX, 2, 100, 100, -0.35);            // shelved free-roam city: the water plane
-      else { drawFloor(midX, 0, 150, 90, -0.10); drawFloor(midX, 1, CARD_HALF_X, CARD_HALF_Z, 0); }
+      /* ⚠ THE WATER PLANE IS A FREE-ROAM PROP, NOT A STAGE FLOOR. It belongs to the shelved city
+         (something to see past the edge of the world while running around); under a DUEL it sits
+         0.35 below the fight line and reads as the fighters standing on nothing. A level used as
+         a stage brings its own floor in the mesh, so it gets neither plane — but the card floor
+         is kept for the neon grid, which is the fight's own table (RONIN-ART section 2). */
+      if (worldMesh && G.worldMode) drawFloor(midX, 2, 100, 100, -0.35);
+      else if (!worldMesh) { drawFloor(midX, 0, 150, 90, -0.10); drawFloor(midX, 1, CARD_HALF_X, CARD_HALF_Z, 0); }
 
       setLit(); _mat = 0;
       // 1b. the baked city, if a world is loaded — one opaque batch, lit like everything else
-      if (worldMesh) { _mat = 8; draw('world', M.ident(), [0.7, 0.6, 0.9], 0, 1); _mat = 0; }
+      /* ⛔ THE STAGE WAS DRAWING AND WAS INVISIBLE, which is a different bug from not drawing and
+       *   looks identical on screen. The duel's fog is 17->58 m, tuned for the neon grid: that
+       *   table is ~3 m wide and everything past it SHOULD go to fog. A baked level is not a
+       *   table. Measured extents of the three:
+       *       rooftop  x +/-82.5  y 0->57.2  z +/-78.1   (2,900 tris, 1,307 behind the cut)
+       *       arcade   x +/-60    y 0->27.5  z +/-42.7  (10,684 tris, 5,978 behind)
+       *       vault    x +/-49.7  y 0->25.9  z +/-52.4   (6,624 tris, 3,337 behind)
+       *   Its backdrop therefore sits 40-80 m out — entirely past the 58 m fog end — so the arena
+       *   was fogged to flat colour and all three read as the same empty void.
+       * ⚑ THE RANGE IS DERIVED FROM THE GEOMETRY, NOT PICKED BY EYE. `worldFar` is the level's own
+       *   measured depth, so a new level brings its own range and nobody re-tunes a constant. This
+       *   is a "the geometry is outside the visible range" correctness fix, the same shape as
+       *   Section 9's missing `open:true` flag — NOT a lighting-taste decision. How the arena
+       *   should actually be lit and dressed is the artist's (DESIGN-SYSTEM section 1/2). */
+      if (worldMesh) { _mat = 8; setFog(worldFar * 0.35, worldFar * 1.15);
+        draw('world', M.T(-worldOrigin[0], -worldOrigin[1], -worldOrigin[2]), [0.7, 0.6, 0.9], 0, 1);
+        setFog(17, 58); _mat = 0; }
       // 2. the printed sky, three parallax bands, the audience — only when there's no baked world
       if (!worldMesh) {
         drawSky(midX);

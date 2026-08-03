@@ -245,8 +245,30 @@
     const iv = setInterval(() => { n--; if (n > 0) { $('cdB').textContent = n; sfxGong(); }
       else if (n === 0) { $('cdB').textContent = 'FIGHT'; sfxGong(); }
       else { clearInterval(iv); $('cd').classList.add('hidden'); G.started = true; } }, 700);
-    // drop both fighters into the city if a world is loaded
-    if (window.RoninWorld && RoninWorld.world) { G.worldMode = true; G.camYaw = 0;
+    /* ⛔ THE ARENAS WERE NOT FIGHTS. Until 2026-08-02 this branch fired whenever a baked level had
+     *   loaded, and the arena picker set the free-roam flag — so choosing Rooftop, Arcade or Vault
+     *   silently swapped the DUEL for the shelved city-explore mode. The world branch in update()
+     *   ends in `updateHUD(); return;`, so the entire combat simulation was skipped: attacks,
+     *   hitboxes, blocking, combos, meter and KO never ran, and `f.state` was written straight
+     *   from walk speed. Q/E turned the camera instead of sidestepping; W/S were forward/back
+     *   instead of jump/guard.
+     *   Driven proof of the old state, same build, same keys — press L (slash), step 40 frames:
+     *       neon grid   → f.state cycles through 'slash'
+     *       rooftop     → f.state stays 'idle'      (and the two spawned ~3,000 units apart)
+     *       arcade      → f.state stays 'idle'
+     *   The fighting controls did nothing in three of the four arenas, which is exactly what was
+     *   reported. Not a subtle input bug — a whole different mode wearing the arena picker's name.
+     * ⚑ THE FIX IS THAT A LEVEL IS A STAGE, NOT A MODE. NEON RONIN is a side-on duel — that is
+     *   what every verb in this file is written against (`f.x` along the fight line, `f.face`,
+     *   `f.z` for the Tekken-style depth sidestep). A baked level is scenery for that fight, so
+     *   the level now loads and DRAWS while the ordinary duel runs inside it. The renderer already
+     *   kept these separate: `worldMesh` gates the city geometry, `G.worldMode` gates the chase
+     *   camera. Only ronin.js was conflating them.
+     * ⚠ Free-roam is NOT deleted — movement, collision and the chase cam all work and are a whole
+     *   task's work. It moves behind its own flag (`urm_freeroam`), reachable for whoever picks it
+     *   up. The old `urm_world` key is deliberately NOT honoured here: the picker wrote it, so
+     *   anyone carrying it wants the arena they clicked, not a mode they never asked for. */
+    if (FREEROAM && window.RoninWorld && RoninWorld.world) { G.worldMode = true; G.camYaw = 0;
       // Authored spawns first (kit.spawn → bake-world → cols.json); the search is the fallback
       // for levels that carry none. The old hard-coded hints (0,-4)/(8,-10) were tuned for the
       // street scene and mean nothing in a level built to a different plan.
@@ -1449,7 +1471,27 @@
   // ⚑ SHELVED: free-roam city mode is parked for a future game. The code stays (movement,
   //   collision, chase cam all work) but NEON RONIN ships as the duel. Opt in with
   //   localStorage urm_world='1' to keep developing it.
-  let WORLD_ON = false; try { WORLD_ON = localStorage.getItem('urm_world') === '1'; } catch (e) {}
+  /* ⚑ TWO FLAGS, BECAUSE THEY ARE TWO DIFFERENT QUESTIONS — and conflating them is what made the
+   *   fighting controls dead in three arenas (see the note in startBrawl):
+   *     urm_stage    WHICH ARENA the duel happens in. '' = the neon grid, else a baked level.
+   *                  The lobby's arena picker writes this. It never changes the game mode.
+   *     urm_freeroam THE SHELVED CITY-EXPLORE MODE. Dev-only, off by default, no UI.
+   * ⚠ `urm_world` is the retired key: the picker used to write it, so a returning player carries
+   *   it while having only ever asked for an arena. It is read ONCE, as a stage migration, and
+   *   never as a mode — otherwise everyone who clicked Rooftop before today comes back to a mode
+   *   they never chose. It is not a vault key, so nothing collectible is lost by retiring it. */
+  let STAGE = '', FREEROAM = false;
+  try {
+    FREEROAM = localStorage.getItem('urm_freeroam') === '1';
+    STAGE = localStorage.getItem('urm_stage');
+    if (STAGE == null) {                                    // migrate the old picker's keys, once
+      STAGE = localStorage.getItem('urm_world') === '1' ? (localStorage.getItem('urm_level') || '') : '';
+      localStorage.setItem('urm_stage', STAGE);
+      localStorage.removeItem('urm_world');
+    }
+    STAGE = String(STAGE || '').replace(/[^a-z0-9_-]/gi, '');
+  } catch (e) { STAGE = ''; FREEROAM = false; }
+  const WORLD_ON = !!STAGE || FREEROAM;                     // "is there a baked level to fetch?"
   // The device budget is asked separately from the world flag: the lobby's arena picker needs
   // to know "could this machine run a 3D level?" even while the flag is off, or every chip
   // would read as unavailable on a perfectly capable desktop.
@@ -1483,21 +1525,20 @@
     const box = $('levelChips'); if (!box) return;
     const LEVELS = [{ k: '', n: 'Neon grid' }, { k: 'rooftop', n: 'Rooftop' },
                     { k: 'arcade', n: 'Arcade' }, { k: 'vault', n: 'Vault' }];
-    let cur = '';
-    try { cur = WORLD_ON ? (localStorage.getItem('urm_level') || 'street') : ''; } catch (e) {}
+    const cur = STAGE;
     box.innerHTML = LEVELS.map(l => '<span class="achip' + (l.k === cur ? ' on' : '') +
       (!DEVICE_OK && l.k ? ' off' : '') + '" data-k="' + l.k + '">' + l.n + '</span>').join('');
     const note = $('levelNote');
     if (note) note.textContent = DEVICE_OK
-      ? 'Neon grid is the classic flat duel. The others are full 3D levels you move through — WASD, Shift to sprint, Space to jump/boost.'
+      ? 'Where the duel happens. Same fight, same controls, every arena — the level is the stage, not a different game.'
       : 'Full 3D levels need a desktop-class device, so this stays on the neon grid.';
     box.querySelectorAll('.achip').forEach(el => el.onclick = () => {
       const k = el.dataset.k;
       if (k && !DEVICE_OK) return;
-      try {
-        if (k) { localStorage.setItem('urm_world', '1'); localStorage.setItem('urm_level', k); }
-        else localStorage.removeItem('urm_world');
-      } catch (e) {}
+      /* Writes the STAGE only. It used to set `urm_world='1'`, which is the free-roam mode flag —
+         so picking an arena swapped the game out from under the player and killed every combat
+         verb. A picker labelled "Arena" may choose an arena and nothing else. */
+      try { localStorage.setItem('urm_stage', k || ''); localStorage.removeItem('urm_world'); } catch (e) {}
       location.reload();
     });
 
@@ -1506,12 +1547,37 @@
   // WORLD: load the baked level if present — the duel gets a real place to happen in.
   // Levels are built by `npm run level -- <name>` (scripts/blender/build-level.py → .wld);
   // pick one with localStorage urm_level, and an unknown name just falls back to the street.
-  let LEVEL = 'street';
-  try { LEVEL = (localStorage.getItem('urm_level') || 'street').replace(/[^a-z0-9_-]/gi, ''); } catch (e) {}
+  const LEVEL = STAGE || 'street';   // STAGE is already sanitised; 'street' is the free-roam default
+  /* ⚑ THE STAGE ORIGIN. A duel happens on a plane at world y=0 / z~0 along x; a baked level is
+   *   authored wherever its designer put it, and a rooftop deck tops out at y=11.79 while the
+   *   arcade pit floor is at 1.05. Drawing the mesh at identity therefore leaves the fighters
+   *   standing in mid-air or buried, so the level is translated by its own authored spawn and its
+   *   floor arrives underfoot. Authored beats searched — findSpawn's spiral lands you SOMEWHERE
+   *   LEGAL, which is not the same as somewhere the level was meant to be entered from — and the
+   *   search is kept only for levels that carry no spawns.
+   * ⚠ `y` is the floor the spawn stands ON, so it is used as-is; adding a body offset here would
+   *   sink the stage by that much. */
+  const stageOrigin = () => { try {
+    const w = RoninWorld.world, sp = (w && w.spawns) || [];
+    /* ⚠ ONE SPAWN IS THE WRONG ORIGIN, and it fails in two opposite ways depending on the level.
+     *   A spawn is where a PLAYER enters, which is typically at the edge facing in: the vault's
+     *   put the whole duel outside the room, in the void, with a sliver of wall at frame left.
+     *   The CENTROID of every spawn is the middle of the space the level was designed to be
+     *   played in, so the fight lands inside the room on all three. Falls back to the search only
+     *   when a level carries no authored spawns at all. */
+    if (sp.length) {
+      const cx = sp.reduce((a, s) => a + s.x, 0) / sp.length;
+      const cz = sp.reduce((a, s) => a + s.z, 0) / sp.length;
+      const g = RoninWorld.findSpawn(cx, cz);          // drop to the real floor under that point
+      return [g.x, g.y, g.z];
+    }
+    const f = RoninWorld.findSpawn(0, 0);
+    return f ? [f.x, f.y, f.z] : [0, 0, 0];
+  } catch (e) { return [0, 0, 0]; } };
   if (HEAVY_OK && r3dOk && window.RoninWorld) RoninWorld.load('models/world/' + LEVEL + '.wld')
-    .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); })
+    .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts, stageOrigin()); })
     .catch(() => RoninWorld.load('models/world/street.wld')
-      .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts); }).catch(() => {}));
+      .then(w => { if (w && w.verts) Ronin3D.setWorld(w.verts, stageOrigin()); }).catch(() => {}));
   /* SKINNED fighters (.skn = real vertex deformation) take priority over rigid parts.
    * ⛔ AND "TAKE PRIORITY" IS ABSOLUTE, WHICH IS WHY THE RIGID LOAD IS NOW CHAINED ONTO THIS ONE'S
    *    FAILURE. `js/ronin3d.js` drawFighter reads

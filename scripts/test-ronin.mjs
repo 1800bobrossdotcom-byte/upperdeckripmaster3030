@@ -661,6 +661,62 @@ if (notFound.length) console.log('  4xx (fail-open assets, listed so a NEW one i
   + [...new Set(notFound)].slice(0, 6).join(' · ') + (new Set(notFound).size > 6 ? ` · +${new Set(notFound).size - 6} more` : ''));
 t('no JS errors during the whole run', pageErrs.length === 0, pageErrs.slice(0, 3).join(' | ') || 'clean');
 
+/* ═══ THE ARENA PICKER MAY NOT TURN THE FIGHT OFF ════════════════════════════════════════════
+ * ⛔ Until 2026-08-02 the lobby's Arena chips wrote the free-roam flag, so choosing Rooftop,
+ *   Arcade or Vault swapped the DUEL for the shelved city-explore mode. That branch of update()
+ *   ends `updateHUD(); return;` — the entire combat sim was skipped, and `f.state` was written
+ *   from walk speed instead. The fighting controls did nothing in three of the four arenas.
+ * ⚑ THE ASSERTION THAT BITES IS THE ATTACK STATE, NOT THE KEY EVENT. The keydown handler always
+ *   fired and `keys[]` was always set — reading input back would have passed on the broken build.
+ *   What was missing is the SIMULATION, so the test presses the key and then looks for the move.
+ *   Driven proof of the old state, same keys, 40 steps: neon grid reached 'slash', rooftop and
+ *   arcade never left 'idle'.
+ * ⛔ THE VIEWPORT IS PART OF THE ASSERTION, AND GETTING IT WRONG MADE THIS TEST USELESS. First
+ *   cut ran at 1000x640 with a note claiming the mode swapped on the stage key alone. It does
+ *   not: the old code entered free-roam on `RoninWorld.world` being LOADED, and the level only
+ *   loads when the device budget passes (`min(innerWidth, innerHeight) >= 700`). At 640 tall no
+ *   level ever loaded, so the broken build behaved like the fixed one and all twelve assertions
+ *   passed against the defect. Caught by reverting the fix and re-running — which is the only
+ *   thing that tells you an assertion bites. 760 clears the budget.
+ * ⚠ So this suite's window height is load-bearing. Lower it below 700 and these go quietly
+ *   green forever. */
+console.log('\n── the arena is a stage, not a different game ──');
+for (const stage of ['', 'rooftop', 'arcade', 'vault']) {
+  const c2 = await browser.newContext({ viewport: { width: 1100, height: 760 } });   // >= 700: see note
+  await c2.addInitScript(([lv]) => { try {
+    localStorage.setItem('urm_admin_ok', '1'); localStorage.setItem('urm_stage', lv);
+    localStorage.removeItem('urm_world'); localStorage.removeItem('urm_freeroam');
+  } catch {} }, [stage]);
+  const pg = await c2.newPage();
+  await pg.goto(`http://127.0.0.1:${PORT}/ronin.html`, { waitUntil: 'domcontentloaded' });
+  await pg.waitForFunction(() => window.__rn && window.__rn.frames, null, { timeout: 40000 });
+  /* ⚠ The .wld fetch is async and ARCADE is the biggest (10,684 triangles), so starting the brawl
+     immediately raced it: rooftop and vault loaded, arcade did not, and its three assertions went
+     vacuous. Wait for the level rather than sleeping a guessed interval. */
+  if (stage) await pg.waitForFunction(() => !!(window.RoninWorld && RoninWorld.world), null, { timeout: 40000 })
+    .catch(() => {});
+  const r = await pg.evaluate(async () => {
+    const rn = window.__rn;
+    rn._brawl('ronin', 'oni'); rn._start(); rn._lab(true);
+    await new Promise(r => setTimeout(r, 60));
+    const f = rn.fighters, seen = new Set();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'l' }));   // L = slash
+    for (let i = 0; i < 40; i++) { rn._step(1); if (f[0]) seen.add(f[0].state); }
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'l' }));
+    return { states: [...seen], freeRoam: !!(f[0] && f[0].w), gap: Math.abs(f[0].x - f[1].x) | 0,
+      levelLoaded: !!(window.RoninWorld && RoninWorld.world) };
+  });
+  const name = stage || 'neon grid';
+  t(`${name}: pressing L produces an ATTACK, not a walk cycle`, r.states.includes('slash'),
+    'states seen: ' + r.states.join(','));
+  t(`${name}: the duel sim owns the fighters (no free-roam world body)`, !r.freeRoam);
+  t(`${name}: they start at duel range, not across a city`, r.gap > 40 && r.gap < 900, 'gap ' + r.gap);
+  /* The guard on the guard: if the level stops loading, the three above stop testing anything.
+     Only the baked stages load one — the neon grid is the no-level case by definition. */
+  if (stage) t(`${name}: the baked level actually loaded (else the checks above are vacuous)`, r.levelLoaded);
+  await c2.close();
+}
+
 await browser.close();
 srv.close();
 console.log(`\n${pass} passed, ${fail} failed`);
