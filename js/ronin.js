@@ -320,6 +320,27 @@
   const PLAYED = f => f.isMe && !f.forceAI;
   function canAct(f) { return !!f && !f.dead && !f.swing && !f.grab && !f.thrown && !f.step
     && f.stun < EPS && f.bstun < EPS && f.downT < EPS && f.state !== 'down' && f.state !== 'getup'; }
+  /* ── CANCELS: what turns three moves into a COMBO ─────────────────────────────────────────
+   * ⛔ THE STRINGS WERE NOT STRINGS. `canAct` requires `!f.swing`, so from the input frame to the
+   *   last recovery frame every press was dropped — a "combo" was three separate moves, each paid
+   *   for in full, with a dead beat between them. That is the single biggest reason the fighting
+   *   read as mechanical: there was no flow to find, only a queue to wait out. Worst case, JAB ->
+   *   ROUNDHOUSE cost 24 + 38 = 62 frames of which 32 were recovery nobody could act through.
+   * ⚑ THE GENRE'S ANSWER, AND THE ONE RULE THAT KEEPS IT HONEST: recovery may be cut ONLY by a
+   *   move that CONNECTED (`swing.connected`, set on a clean hit and never on a block), and only
+   *   after its active frames are over. So:
+   *     · a hit that lands flows straight into the next attack — the combo,
+   *     · a BLOCKED move still owes every recovery frame, so `onBlock` and the whole punish
+   *       ladder in docs/RONIN-COMBAT.md are untouched and all 55 assertions still hold,
+   *     · a WHIFF still owes them too, so throwing out moves is still punished.
+   * ⚠ ONE CANCEL PER MOVE (`swing.cancelled`), which is what stops a jab looping into itself
+   *   forever. The string tables in detectCombo remain the only route to the named finishers. */
+  function canCancel(f) {
+    const sw = f && f.swing;
+    if (!sw || !sw.connected || sw.cancelled) return false;
+    if (f.dead || f.thrown || f.grab) return false;
+    return f.stT >= sw.mv.hitS + (sw.mv.ac - 1) * F - EPS;    // active frames are done
+  }
   function framesUntilFree(f) {
     if (!f || f.dead) return 0;
     let s = Math.max(f.stun, f.bstun, f.downT);
@@ -357,7 +378,10 @@
     if (f.thrown) { tryBreak(f); return; }                    // the same buttons break a throw
     if (!MOVES[kind]) return;
     const low = !!(opt && opt.low);
-    if (!canAct(f)) { buffer(f, { kind, low }); return; }
+    if (!canAct(f)) {
+      if (canCancel(f)) { f.swing.cancelled = true; f.swing = null; f.move = null; fireAttack(f, kind, low); return; }
+      buffer(f, { kind, low }); return;
+    }
     fireAttack(f, kind, low);
   }
   function tryThrow(f) { if (f.dead) return; if (f.thrown) { tryBreak(f); return; }
@@ -462,6 +486,9 @@
     if (mv.grab) { startThrow(att, tgt); return; }             // throws ignore guard by definition
     const blocking = tgt.state === 'block' && Math.sign(att.x - tgt.x) === tgt.face && !tgt.air && !tgt.juggle;
     const mul = att.pow * (att.rage > 0 ? 1.3 : 1) * (att.glow > 0 && mv.kind === 'slash' ? 1.4 : 1);
+    /* ⚑ THE CONNECT FLAG — what makes a cancel legal. Set on a CLEAN hit only, never on a block,
+       so cancelling can never shorten the punish window a blocked move owes. See canCancel(). */
+    if (!blocking && att.swing) att.swing.connected = true;
     if (blocking) {
       const chip = mv.dmg * 0.12 * mul; tgt.hp -= chip; tgt.vx += dir * mv.knock * 0.28;
       tgt.bstun = mv.bs * F; tgt.state = 'block'; tgt.blockedRun = (tgt.blockedRun || 0) + 1;
@@ -705,14 +732,25 @@
   }
   function stepFighter(f, dt) {
     /* ── INPUT BUFFER. A press inside blockstun or recovery is not thrown away: it fires on the
-     * FIRST actionable frame, within a 4-frame window. Real fighting games all do this, and here
+     * FIRST actionable frame, within a BUF_F-frame window. Real fighting games all do this, and here
      * it is load-bearing rather than a courtesy — a punish is a move you must land on the first
      * frame you are free, and asking a human to hit that frame exactly with no buffer is asking
-     * them not to punish. 4 frames is short enough that it cannot produce a move you did not
-     * mean; a long buffer is how you get an unwanted launcher three exchanges later. */
-    if (f.buf) { if (canAct(f)) { const b = f.buf; f.buf = null;
+     * them not to punish.
+     * ⚠ 4 FRAMES WAS TOO STRICT AND IT READ AS "the button did nothing". 4/60 = 67 ms, which is
+     *   inside human input jitter, so at speed a good chunk of correct presses were eaten and the
+     *   fighter just stood there — unresponsive, which the eye reads as mechanical. 7 frames
+     *   (117 ms) is the middle of the genre's own range and still far short of the "unwanted
+     *   launcher three exchanges later" a long buffer buys. Stated once, used in both places. */
+  const BUF_F = 7;
+    /* ⚠ A BUFFERED PRESS CANCELS TOO. Without this second condition the cancel window would only
+       exist for an input that arrived on exactly the right frame, i.e. for nobody — the press
+       that continues a combo is almost always made DURING the previous move, which is precisely
+       what the buffer catches. */
+    if (f.buf) { const cancel = !f.buf.id && canCancel(f);
+      if (canAct(f) || cancel) { const b = f.buf; f.buf = null;
+        if (cancel) { f.swing.cancelled = true; f.swing = null; f.move = null; }
         if (b.id) startMove(f, b.id); else fireAttack(f, b.kind, b.low); }
-      else { f.buf.t += dt; if (f.buf.t > 4 * F) f.buf = null; } }
+      else { f.buf.t += dt; if (f.buf.t > BUF_F * F) f.buf = null; } }
     // ── FRAME-DATA STATE. Blockstun keeps the guard up whatever the block key says; the down
     //    and getup clocks are what terminate a juggle. (The clocks themselves ticked above.) ──
     if (f.bstun >= EPS) f.state = 'block';
@@ -812,17 +850,17 @@
     const P = (f.swing && f.swing.mv) || MOVES[st] || MOVES.punch;
     if (st === 'punch') {                                                                             // off-hand jab; sword hand stays up on guard, hips snap through
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.stS) { const w = t / P.stS; T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; T.rot = -0.05 * w; }
-      else { const ex = Math.sin(clamp((t - P.stS) / (P.acS + P.rcS * 0.5), 0, 1) * Math.PI); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.16 * ex; T.rot = 0.12 * ex; } }
+      if (t < P.stS) { const w = antic(t / P.stS); T.aB = 2.1 - 1.6 * w; T.eB = 1.4; T.lean = -0.06 * w; T.rot = -0.05 * w; }
+      else { const ex = snap((t - P.stS) / (P.acS + P.rcS * 0.5)); T.aB = 0.5 - 0.9 * ex; T.eB = 1.2 - 1.1 * ex; T.lean = 0.16 * ex; T.rot = 0.12 * ex; } }
     else if (st === 'kick') {                                                                         // roundhouse / rising kick; sword held clear overhead
       const rising = f.move === 'rising';
       T.aF = 2.4; T.eF = 0.3; T.sw = 2.62;
-      if (t < P.stS) { const w = t / P.stS; T.hF = (rising ? 0.5 : -0.3) * w; T.kF = (rising ? 1.5 : 1.0) * w; T.lean = (rising ? 0.22 : -0.1) * w; T.rot = -0.08 * w; }
-      else { const ex = Math.sin(clamp((t - P.stS) / (P.acS + P.rcS * 0.5), 0, 1) * Math.PI);
+      if (t < P.stS) { const w = antic(t / P.stS); T.hF = (rising ? 0.5 : -0.3) * w; T.kF = (rising ? 1.5 : 1.0) * w; T.lean = (rising ? 0.22 : -0.1) * w; T.rot = -0.08 * w; }
+      else { const ex = snap((t - P.stS) / (P.acS + P.rcS * 0.5));
         T.hF = (rising ? -1.5 : 1.7) * ex; T.kF = -0.35 * ex; T.lean = (rising ? -0.42 : -0.24) * ex; T.aB = 1.0; T.rot = 0.14 * ex; } }   // rising = an upward arc, not a level swing
     else if (st === 'slash') {
-      if (t < P.stS) { const w = t / P.stS; T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
-      else { const ph = clamp((t - P.stS) / (P.acS + P.rcS * 0.4), 0, 1); const e = ph * ph * (3 - 2 * ph);   // smoothstep → the edge accelerates through the cut
+      if (t < P.stS) { const w = antic(t / P.stS); T.sw = lerp(2.7, 4.05, w); T.aF = lerp(2.35, 3.0, w); T.eF = 0.28; T.aB = lerp(2.1, 2.6, w); T.lean = -0.2 * w; T.head = 0.14 * w; T.hF = 0.12 + 0.16 * w; T.rot = -0.1 * w; }   // wind-up: load back, blade cocks overhead
+      else { const ph = clamp((t - P.stS) / (P.acS + P.rcS * 0.4), 0, 1); const e = strike(ph);   // fast out, hard arrest — peak speed lands ON the active frames
         T.sw = lerp(4.05, 0.6, e); T.aF = lerp(3.0, 0.42, e); T.eF = lerp(0.28, 0.08, e); T.aB = lerp(2.6, 0.6, e); T.lean = lerp(-0.2, 0.36, e); T.head = lerp(0.14, -0.14, e); T.hF = 0.3; T.rot = lerp(-0.1, 0.22, e); } }   // committed two-handed overhead cut, torso pitches through
     /* ── the new frame-data states. The 2D art path (js/ronin-fighters.js) falls through to its
      * neutral stance for anything it does not name, so these degrade rather than break — see
@@ -856,6 +894,35 @@
     else if (st === 'hurt') { T.lean = -0.34; T.aF = 1.4; T.aB = 1.7; T.eF = 0.2; T.sw = 1.1; T.head = -0.3; T.hF = -0.2; T.rot = -0.12; }
     return T;
   }
+  /* ── THE STRIKE CURVES ────────────────────────────────────────────────────────────────────
+   * ⛔ "TOO MECHANICAL" IS A CURVE PROBLEM, NOT A FRAME-COUNT ONE, and the frame table was
+   *   already right: JAB is i10 with 24 total frames, which is Tekken's own jab almost exactly.
+   *   What made it read like a machine was WHERE THE SPEED SAT inside those frames:
+   *     1. the wind-up was LINEAR (`w = t / stS`, straight into a lerp) — a constant-rate
+   *        approach is the single most robotic motion there is, because nothing in a body moves
+   *        at a constant rate;
+   *     2. the strike used SMOOTHSTEP, `ph*ph*(3-2*ph)`, which is ease-in-out — so the edge was
+   *        slowest at the START of the swing, i.e. AT THE CONTACT FRAME, and slowest again at the
+   *        end. The one instant that must be fastest was the one the curve slowed down;
+   *     3. punch and kick used `sin(phase*PI)`, a SYMMETRIC out-and-back. Nothing a fighter does
+   *        is symmetric — a jab leaves fast and comes back slower, and the asymmetry IS the snap.
+   * ⚑ These replace all three. The frame data is untouched: every hitbox still opens and closes
+   *   on exactly the frame `docs/RONIN-COMBAT.md` says, so the punish ladder and all 55 of its
+   *   assertions are unaffected. This changes what the strike LOOKS like, which is what was
+   *   actually wrong. Speed you can see beats a number you cannot. */
+  /* Anticipation: a body LOADS slowly and then cocks quickly. Ease-in (cubic). */
+  const antic = w => w * w * (2 - w) * 0.55 + w * w * w * 0.45;
+  /* The strike: accelerate hard, arrive, and ARREST. Peak speed lands in the first third, which
+     is where the active frames are, and the tail decelerates into the recovery pose rather than
+     coasting. `1-(1-x)^3` is the standard "fast out, hard stop" and it is the opposite of the
+     smoothstep it replaces. */
+  const strike = x => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+  /* Out-and-back for jabs and kicks, deliberately ASYMMETRIC: out in the first 32% of the
+     window, back over the remaining 68%. The old sin() spent equal time on both and read like a
+     piston. Returns 0..1..0. */
+  const snap = x => { const c = clamp(x, 0, 1);
+    return c < 0.32 ? strike(c / 0.32) : Math.pow(1 - (c - 0.32) / 0.68, 1.7); };
+
   function stepRig(f, dt) {
     const r = f.rig; if (!r) return;
     if (f.ragdoll) {                                          // limp: limbs hang, body tumbles under its spin + gravity

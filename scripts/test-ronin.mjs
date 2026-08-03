@@ -680,6 +680,47 @@ t('no JS errors during the whole run', pageErrs.length === 0, pageErrs.slice(0, 
  *   thing that tells you an assertion bites. 760 clears the budget.
  * ⚠ So this suite's window height is load-bearing. Lower it below 700 and these go quietly
  *   green forever. */
+/* ═══ CANCELS: a connecting hit flows into the next move ══════════════════════════════════════
+ * ⛔ THE STRINGS WERE NOT STRINGS. `canAct` requires `!f.swing`, so from the input frame to the
+ *   last recovery frame every press was dropped and a "combo" was three separate moves with a
+ *   dead beat between them. That is why the fighting read as mechanical — there was no flow to
+ *   find, only a queue to wait out. JAB is i10/ac2/rc12, so without a cancel the next move cannot
+ *   start before frame 23 no matter what you press.
+ * ⚑ THE ASSERTION THAT BITES IS THE ASYMMETRY, not "a cancel happened". A cancel that fired on
+ *   everything would also pass "the second move came out early" — and it would quietly delete the
+ *   punish ladder, because a blocked move that can cancel owes nothing. So this measures BOTH
+ *   sides: early on a clean hit, and NOT early on a whiff. */
+console.log('\n── cancels: a hit flows, a whiff pays ──');
+{
+  const C = await page.evaluate(() => {
+    const rn = window.__rn, MV = rn.frames, jab = MV.punch;
+    const free = jab.st + jab.ac + jab.rc - 1;          // first actionable frame with NO cancel
+    const run = gap => {
+      rn._reset(); rn._ai('foe', false); rn._guard('foe', false); rn._place(600, 600 + gap);
+      rn._step(1); rn._lab(true);
+      if (!rn._do('me', 'punch')) return { err: 'jab refused' };
+      const me = rn.fighters.find(f => f.isMe);
+      let second = -1, landed = false, hp0 = rn.fighters.find(f => !f.isMe).hp;
+      for (let n = 1; n <= 60; n++) {
+        rn._step(1);
+        const foe = rn.fighters.find(f => !f.isMe);
+        if (foe.hp < hp0 - 1e-9) landed = true;
+        if (n === jab.st + jab.ac) rn._press('me', 'kick');   // press the moment actives end
+        if (second < 0 && me.move && me.move !== 'punch') second = n;
+      }
+      return { second, landed, free };
+    };
+    return { hit: run(70), whiff: run(1200), free };
+  });
+  t('the lab drove a clean jab hit', C.hit && C.hit.landed, JSON.stringify(C.hit));
+  t('⚑ a CONNECTING jab cancels into the next move before its recovery ends',
+    C.hit && C.hit.second > 0 && C.hit.second < C.free,
+    `second move on frame ${C.hit && C.hit.second}, no-cancel free frame ${C.free}`);
+  t('⛔ a WHIFFED jab pays every recovery frame (the punish ladder is untouched)',
+    C.whiff && (C.whiff.second < 0 || C.whiff.second >= C.free),
+    `second move on frame ${C.whiff && C.whiff.second}, free frame ${C.free}`);
+}
+
 console.log('\n── the arena is a stage, not a different game ──');
 for (const stage of ['', 'rooftop', 'arcade', 'vault']) {
   const c2 = await browser.newContext({ viewport: { width: 1100, height: 760 } });   // >= 700: see note
