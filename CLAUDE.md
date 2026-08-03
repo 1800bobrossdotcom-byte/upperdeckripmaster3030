@@ -882,28 +882,48 @@ in `.kw` and went on printing a keyboard legend stripped of its keys.
 ⚠ **`fov` is VERTICAL**, so a portrait phone already sees far more sky than a desktop; the same
 look-down on top of that put the bird at the very top of frame. Droop is scaled by aspect now.
 
-### ⚠ THE PRINT PASS IS BUILT AND IS **OFF BY DEFAULT** — `js/city-ink.js`, `?ink=1`
-docs/CITY-GAME.md §2's "painted card stock" answer: posterise value into flat fields, ink line from
-a DEPTH edge (silhouettes) + a LUMA edge (creases within a form), plates misregistered by a pixel,
-paper tooth. ⚠ **Misregistration is NOT chromatic aberration** — CA is radial and grows toward the
-frame edge (a lens artefact); misregistration is a UNIFORM translation per plate, because the paper
-went through the press askew. Getting that wrong reads as a cheap camera instead of a cheap print.
-⛔ **It renders BLACK and I am recording the retreat rather than hiding it.** A/B through the same
-path: 93 luma levels and 39.5% saturation with it off, **1 level and 100% dark with it on**, screenshot
-confirms an empty canvas under a live HUD. ⚠ **NOT** a missing input and **NOT** the maths —
-`render()` is called, `input.colorBuffer` is present, output is the backbuffer, and a PASSTHROUGH
-shader is black too. Remaining suspect: the shader LANGUAGE (this engine compiles GLSL ES 3.00 on
-WebGL2; the code is ES 1.00 `varying`/`texture2D`/`gl_FragColor`), and **a shader that fails to LINK
-is indistinguishable from one that outputs zero.** Shipping a look that blanks the game is worse
-than shipping the default look.
-⚑ Two engine facts worth keeping: `pc.PostEffect` is an **ES class** (the prototype-borrowing form
-throws), and `pc.PostEffect.quadVertexShader` calls `getImageEffectUV()`, a shader **chunk** that
-`createShaderFromCode` does not inject. Also `addEffect` reads **`needsDepthBuffer` off the effect** —
-asking the camera directly is not the same thing.
-⚑ **`?readback=1` makes colour MEASURABLE** — `preserveDrawingBuffer` plus a luma histogram, because
+### ✅ THE PRINT PASS IS LIVE — `js/city-ink.js`, and it is §2's "painted card stock" answered
+Posterise the VALUE into flat fields (hue kept — quantising each channel separately drags colour
+toward grey), an ink line from a **DEPTH edge** (silhouettes) **+ a LUMA edge** (creases within a
+form; neither alone is sufficient — depth misses two walls meeting at the same distance, luma
+misses a dark building against a dark building), plates **misregistered**, paper tooth.
+⚠ **MISREGISTRATION IS NOT CHROMATIC ABERRATION.** CA is radial and grows toward the frame edge — a
+lens artefact. Misregistration is a **uniform** translation per plate, because the paper went
+through the press askew. Getting it wrong reads as a cheap camera instead of a cheap print.
+⚑ Measured A/B through the same path, same place: distinct luma levels **97 → 83**, near-black
+**0.5% → 5.14%** (that is the drawing), saturation held at ~39%. `?noink=1` is the off switch.
+
+⛔ **IT RENDERED THE WHOLE FRAME BLACK FOR SEVERAL ROUNDS AND EVERY SIGNAL POINTED AWAY FROM THE
+CAUSE.** Shader `ready` true / `failed` false, GL program present, queue enabled, `render()` called
+every frame with a live `input.colorBuffer`, output the backbuffer — and a shader outputting a
+CONSTANT RED was *still* black. ⚑ **The fault was the last argument:**
+`drawQuadWithShader(device, target, shader, RECT)` — the queue hands `render()` the **camera's**
+rect, which is NORMALISED (0..1), while drawQuadWithShader's own default builds one in **PIXELS**.
+Forwarding it gave the pass a viewport **one pixel across**: it drew perfectly, somewhere nobody
+could see. **Omit the argument.**
+⚑ **THE ISOLATION THAT CRACKED IT WAS THE CONSTANT COLOUR.** A passthrough shader cannot tell "the
+sampling is broken" from "nothing reaches the screen" — a constant can, because it deletes the
+input entirely. **When two failures look identical, delete one of them.**
+⚠ **And a rectangular patch of "stale content" in the sky was NOT an artefact** — it is a gap
+between two towers showing distant ground, present with the pass off too. Checked before chasing.
+
+Engine facts worth keeping: `pc.PostEffect` is an **ES class** (prototype-borrowing throws);
+`pc.PostEffect.quadVertexShader` calls `getImageEffectUV()`, a shader **chunk** `createShaderFromCode`
+does not inject, so write your own VS; `addEffect` reads **`needsDepthBuffer` off the effect**, not
+from the camera; **an unbound `sampler2D` is not a no-op** on SwiftShader; and `addEffect` allocates
+its offscreen target from the canvas size **at that moment**, so attach AFTER the first `resize()`
+and call `resizeRenderTargets()` on window resize.
+⚠ **A comment containing BACKTICKS inside a shader template literal ends the string** — the module
+then fails to parse, `CityInk` is never defined, and every probe reports "not attached" while the
+page falls open to the default look. **Fourth sighting of this trap in this repo.**
+⚑ **`?readback=1` makes colour MEASURABLE** (`preserveDrawingBuffer` + a luma histogram), because
 this container's screenshot path rotates hue on canvas content. ⚠ Bind the DEFAULT framebuffer
-first: the engine leaves its own target bound, and an unqualified `readPixels` came back 100% black,
-which reads exactly like a broken renderer and was a bound-target mistake.
+first — the engine leaves its own target bound and an unqualified `readPixels` returns 100% black,
+which reads exactly like a broken renderer.
+⛔ **AND THE CONTROL STOPPED BEING A CONTROL** when the flag flipped from opt-in to opt-out: the A/B
+ran the pass on BOTH halves and reported a difference of ~zero. **An A/B whose halves are identical
+looks like a null result, which is the most expensive kind of wrong measurement.** The probe now
+throws if the control attaches.
 
 ### ⛔ THE COMPRESSION: SIX CABINETS → **FOUR**, and the city is where three of them go
 *Artist, 2026-08-03: "the animals are invincible and more as observers… we can actually have

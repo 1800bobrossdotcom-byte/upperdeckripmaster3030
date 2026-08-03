@@ -110,7 +110,7 @@ window.CityApp = (function () {
    * ⚠ It FAILS OPEN: a shader that will not compile, or an engine whose post queue is elsewhere,
    *   returns false and the city draws exactly as before. `?noink=1` is the off switch and is also
    *   how the before/after is measured. */
-  const ink = window.CityInk ? CityInk.attach(app, cam) : false;
+  let ink = false;      // attached AFTER the first resize — see the note at app.start()
 
   /* ⛔ THIS BLOCK LIVES ABOVE THE BODIES ON PURPOSE — `const` HOISTS INTO THE TEMPORAL DEAD ZONE.
    * It was first written next to the flight tables, below the jet's geometry, and the jet's
@@ -1063,6 +1063,18 @@ window.CityApp = (function () {
   });
 
   resize();
+  /* ⛔ THE PRINT PASS IS ATTACHED AFTER THE FIRST RESIZE, and that ordering is the whole fix for a
+   * defect that looked like a shader bug. `PostEffectQueue.addEffect` allocates its offscreen
+   * target from the canvas size AT THAT MOMENT. Attaching at module scope allocated it against the
+   * canvas's pre-layout size; `resize()` then grew the canvas, the scene rendered into part of the
+   * (now undersized, reallocated-or-not) target, and a rectangular block of the frame showed STALE
+   * CONTENT from an older frame with a hard straight edge down the middle of the sky.
+   * ⚠ It reads as a rendering fault in the effect and is a lifecycle mistake in the caller. */
+  ink = window.CityInk ? CityInk.attach(app, cam) : false;
+  /* …and the targets have to keep up with the window, or rotating a phone reproduces it exactly. */
+  window.addEventListener('resize', () => {
+    try { if (cam.camera.postEffects) cam.camera.postEffects.resizeRenderTargets(); } catch (e) {}
+  });
   app.start();
   loadWorld();
 

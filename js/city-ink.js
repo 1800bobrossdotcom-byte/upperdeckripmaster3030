@@ -61,6 +61,7 @@ window.CityInk = (function () {
     uniform float uPlate;        // misregistration, in pixels
     uniform float uTooth;        // paper grain
     uniform float uHasDepth;     // 1 when the engine actually filled a scene depth map
+    uniform float uHaze;         // how hard the drawing dissolves into the distance
     uniform vec3  uInkCol;
     varying vec2 vUv0;
 
@@ -75,6 +76,15 @@ window.CityInk = (function () {
 
     void main() {
       vec2 uv = vUv0;
+      /* THE DECISIVE ISOLATION. uRaw 2 outputs a CONSTANT - no texture read at all. If the frame
+       * turns red the quad draws and the shader links, and the fault is the sampling; if it stays
+       * black, nothing is reaching the backbuffer and the sampling is innocent. Two possibilities
+       * that look identical from outside, separated by one uniform.
+       * WARN NO BACKTICKS IN HERE. This whole shader is a template literal, so a backtick in a
+       *   comment ENDS THE STRING - the module then fails to parse, CityInk is never defined,
+       *   attach() is never reached, and the page falls open to the default look while every probe
+       *   reports "not attached". Fourth sighting of this trap in this repo. */
+      if (uRaw > 1.5) { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); return; }
       if (uRaw > 0.5) { gl_FragColor = vec4(texture2D(uColorBuffer, uv).rgb, 1.0); return; }
 
       /* ── 3 · MISREGISTRATION. A fixed offset per plate, identical everywhere in frame. Red goes
@@ -110,6 +120,13 @@ window.CityInk = (function () {
 
       float e = clamp(max(dE * uDepthEdge * uHasDepth, lE * uLumaEdge), 0.0, 1.0);
       e = smoothstep(0.25, 0.85, e) * uInk;
+      /* AERIAL PERSPECTIVE. The scene arrives with fog already applied, but posterising flattens
+       * it - a far building and a near one end up in the same value band and the frame loses its
+       * depth, which is the bad kind of flat rather than the intended kind. So the DRAWING fades
+       * with distance while the line itself keeps its weight: an illustrator lets the far half of
+       * a picture dissolve, they do not draw it with a thinner pen.
+       * WARN device depth is heavily compressed, so almost the whole far field sits just under 1. */
+      e *= mix(1.0, 1.0 - smoothstep(0.984, 0.9996, dC), uHaze * uHasDepth);
       col = mix(col, uInkCol, e);
 
       /* ── 4 · TOOTH. Fixed in screen space and deliberately NOT animated: a print does not
@@ -130,25 +147,25 @@ window.CityInk = (function () {
     lumaEdge: 3.4,
     plate: 1.15,       // pixels. One to two is the whole idea; four is a fault, not a style.
     tooth: 0.030,
+    haze: 0.85,        // 0 = draw the horizon as hard as the foreground; 1 = let it go entirely
     inkCol: [0.055, 0.045, 0.075],   // not pure black — cheap ink is warm-dark or cool-dark, never 0
   };
 
   function attach(app, cameraEntity, opts) {
     try {
-      /* ⛔ OPT-IN, NOT OPT-OUT, AND THAT IS A RETREAT I AM RECORDING RATHER THAN HIDING. Attached
-       * by default this pass renders the frame BLACK: driven A/B through the same path, 93 luma
-       * levels and 39.5% saturation with it off, 1 level and 100% dark with it on, and a screenshot
-       * confirms an empty canvas with the HUD still drawn over it.
-       * ⚠ It is NOT a missing input and NOT the maths: `render()` is called (10 times), `input`
-       *   and `input.colorBuffer` are both present, the output is the backbuffer, and a passthrough
-       *   shader that only samples the colour buffer is black too. The remaining suspect is the
-       *   shader LANGUAGE — this engine compiles as GLSL ES 3.00 on WebGL2 while the code here is
-       *   ES 1.00 (`varying` / `texture2D` / `gl_FragColor`), and a shader that fails to LINK is
-       *   indistinguishable from one that outputs zero.
-       * ⛔ Shipping a look that blanks the game is worse than shipping the default look. `?ink=1`
-       *   turns it on for whoever is working on it; everyone else gets a city they can see. */
+      /* ⛔ THIS PASS RENDERED THE WHOLE FRAME BLACK FOR SEVERAL ROUNDS, AND THE CAUSE IS WORTH
+       * KEEPING because every signal pointed away from it. Shader `ready` true and `failed` false,
+       * GL program present, queue enabled, `render()` called every frame with a live
+       * `input.colorBuffer`, output the backbuffer — and a shader that output a CONSTANT RED was
+       * still black. ⚑ The fault was the last argument: `drawQuadWithShader(device, target,
+       * shader, RECT)`. The queue hands `render()` the CAMERA's rect, which is NORMALISED (0..1),
+       * while drawQuadWithShader's own default builds one in PIXELS. Forwarding it gave the pass a
+       * viewport ONE PIXEL ACROSS — so it drew perfectly, somewhere nobody could see.
+       * ⚠ The isolation that cracked it was the constant colour. A passthrough shader cannot tell
+       *   "the sampling is broken" from "nothing reaches the screen"; a constant can, because it
+       *   removes the input entirely. When two failures look identical, delete one of them. */
       const Q = new URLSearchParams(location.search);
-      if (Q.get('ink') !== '1') return false;
+      if (Q.get('noink') === '1') return false;
       if (!window.pc || !pc.PostEffect || !pc.createShaderFromCode || !pc.drawQuadWithShader) return false;
       const cam = cameraEntity && cameraEntity.camera;
       if (!cam || !cam.postEffects) return false;
@@ -172,7 +189,7 @@ window.CityInk = (function () {
        *   depth term is gated on `uHasDepth` instead of on hope. */
       const dummy = new pc.Texture(device, { width: 1, height: 1, mipmaps: false, name: 'inkNoDepth' });
 
-      const RAW = Q.get('inkraw') === '1' ? 1 : 0;
+      const RAW = +(Q.get('inkraw') || 0);
       const shader = pc.createShaderFromCode(device, VS, FS,
         'cityInk', { aPosition: pc.SEMANTIC_POSITION });
       if (!shader) return false;
@@ -204,9 +221,17 @@ window.CityInk = (function () {
           s.resolve('uLumaEdge').setValue(L.lumaEdge);
           s.resolve('uPlate').setValue(L.plate);
           s.resolve('uTooth').setValue(L.tooth);
+          s.resolve('uHaze').setValue(L.haze);
           s.resolve('uInkCol').setValue(L.inkCol);
           s.resolve('uRaw').setValue(RAW);
-          pc.drawQuadWithShader(d, output, this.shader, rect);
+          /* WARN DO NOT FORWARD `rect`. The queue hands render() the CAMERA's rect, which is
+           * NORMALISED (0..1) - and drawQuadWithShader's own default builds a rect in PIXELS
+           * (`s.z = t ? t.width : c.width`). Passing the normalised one through gives the pass a
+           * viewport one pixel across, so the quad draws correctly into an area nobody can see.
+           * Everything upstream reports healthy: shader ready, not failed, GL program present,
+           * queue enabled, render() called with a live colour buffer - and the frame is black even
+           * when the shader outputs a constant. Omitting the argument takes the pixel default. */
+          pc.drawQuadWithShader(d, output, this.shader);
         }
       }
 
