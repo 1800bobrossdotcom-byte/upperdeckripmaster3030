@@ -254,10 +254,57 @@ window.Ronin3D = (function () {
       gl.bindAttribLocation(skinProg,0,'aPos'); gl.bindAttribLocation(skinProg,1,'aNorm'); gl.bindAttribLocation(skinProg,2,'aIdx'); gl.bindAttribLocation(skinProg,3,'aWgt');
       gl.linkProgram(skinProg);
       // shared bloom/rolloff/dither/sharpen chain; fails open to a direct draw
-      try { post = window.GfxPost ? GfxPost.create(gl, cv, GfxPost.PRESET.neon) : null; } catch (e) { post = null; }
+      /* ⛔ NEON RONIN HAD NO MOTION SMEAR AT ALL — `PRESET.neon` ships `blur: 0`, and this file
+       *   never called `post.motion()`. Grepped across every game: only js/dogfight-gl.js and
+       *   js/section9-gl.js drive that hook, so the FIGHTING GAME — the one where things move
+       *   fastest and stop hardest — was the one with no smear. Artist: it should read as fast
+       *   and furious.
+       * ⚑ THE CEILING IS RAISED HERE, NOT IN THE PRESET. `neon` is shared with Rip Rocketer,
+       *   whose own file says in as many words "neon's blur is 0, so there is nothing to lose.
+       *   Noted so nobody adds one" — changing the preset would hand a smear to a game that
+       *   deliberately has none. `{...PRESET.neon, blur}` is the documented way to disagree with
+       *   one field, and gfx-post merges it per-instance.
+       * ⚠ 0.62 sits between `tactical`'s 0.55 (a gritty FPS, deliberately restrained) and the
+       *   0.85 hard cap the feedback loop allows. It is a CEILING scaled every frame by
+       *   post.motion(), so a fighter standing still is pin sharp — see roninMotion(). */
+      try { post = window.GfxPost ? GfxPost.create(gl, cv, { ...GfxPost.PRESET.neon, blur: 0.62 }) : null; } catch (e) { post = null; }
       gl.enable(gl.DEPTH_TEST); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); ok = true; return true;
     } catch (e) { ok = false; gl = null; return false; }
   }
+
+  /* ── WHAT THE SMEAR IS FOR ────────────────────────────────────────────────────────────────
+   * DESIGN-SYSTEM §4: motion, and a reason it physically moved. A blur keyed to a timer is the
+   * screensaver this project keeps rejecting; a blur keyed to SPEED is the camera telling you the
+   * truth about how fast the thing in front of it is travelling.
+   * ⛔ THE LOAD-BEARING TERM IS HITSTOP, AND IT IS INVERTED ON PURPOSE. This renderer already
+   *   freezes on impact (the held frame is the whole genre). A smear that kept running through
+   *   that freeze would blur the one frame that must be RAZOR SHARP — the moment of contact is
+   *   the read. So hitstop drives motion to ZERO, and the frames either side of it carry the
+   *   speed. Sharp-fast-sharp is what reads as impact; uniformly smeared reads as mush.
+   * ⚠ Every term is a state the SIM owns — nothing here samples absolute time, so a paused or
+   *   idle match composites exactly the frame it composited before this existed. */
+  function roninMotion(G, dt) {
+    if (!G || !G.fighters) return 0;
+    if ((G.hitstop || 0) > 0.001) return 0;          // the impact frame stays sharp
+    let m = 0;
+    for (const f of G.fighters) {
+      if (!f || f.dead) continue;
+      /* Travel. `vx` is in duel units/s; a dash is 760·spd, a walk a few hundred, so the dash is
+         what saturates this and a walk barely registers — which is the point. */
+      m = Math.max(m, Math.min(1, Math.abs(f.vx || 0) / 700));
+      // a spin attack whips the whole body through the frame
+      if (f.spinT > 0) m = Math.max(m, 0.85);
+      // an active attack: the blade is the fastest thing on screen
+      if (f.state === 'slash' || f.state === 'kick' || f.state === 'punch') m = Math.max(m, 0.55);
+    }
+    // the cinematic camera swing on a finisher — the WORLD moved, not the fighter
+    m = Math.max(m, Math.min(1, (G.camZoom || 0) * 0.9));
+    /* Ease DOWN slowly, up instantly. Smear should arrive with the movement and linger a beat
+       behind it, the way an exposure does; snapping it off at the end of a dash loses the tail. */
+    _mo = Math.max(m, _mo - dt * 3.2);
+    return _mo;
+  }
+  let _mo = 0;
 
   const FOG = [0.07, 0.03, 0.15];
   /* ── LIGHT: the studio's own three, for the first time.  DESIGN-SYSTEM §2 / RONIN-ART §1.2 ──
@@ -1162,6 +1209,11 @@ window.Ronin3D = (function () {
       let dtR = tPrev ? (nowMs - tPrev) / 1000 : 0.016; tPrev = nowMs;
       dtR = clampf(dtR, 0, 0.05);
       if ((G.hitstop || 0) > 0) dtR = 0;
+      /* ⚠ AFTER dtR EXISTS, NOT BEFORE. This sat above the frame clock on the first pass and
+         `let dtR` hoists into the temporal dead zone — a ReferenceError that would have taken the
+         whole renderer down, which is the same defect found in section9-classic.html the same
+         day. `post.motion()` only has to precede `post.end()`, so here is early enough. */
+      if (post && post.motion) post.motion(roninMotion(G, dtR));
       t3 += dtR;
       stepSoft(G, dtR);
       const a = G.fighters[0], b = G.fighters[1];
