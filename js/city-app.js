@@ -39,7 +39,13 @@ window.CityApp = (function () {
     return null;
   }
 
-  const app = new pc.Application(cv, { graphicsDeviceOptions: { antialias: true, alpha: false } });
+  /* ⚠ `?readback=1` turns on `preserveDrawingBuffer` SO THAT COLOUR CAN BE MEASURED. The standing
+   * rule here is that this container's screenshot path rotates hue on canvas content, so colour is
+   * judged from pixels and never from a PNG — and `readPixels` on a live WebGL canvas returns
+   * zeros without this flag. It is off by default because it costs a frame copy. */
+  const READBACK = Q.get('readback') === '1';
+  const app = new pc.Application(cv, { graphicsDeviceOptions: {
+    antialias: true, alpha: false, preserveDrawingBuffer: READBACK } });
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
 
@@ -95,6 +101,16 @@ window.CityApp = (function () {
     fov: 62, nearClip: 0.4, farClip: 400,
   });
   app.root.addChild(cam);
+
+  /* ⛔ THE PRINT PASS — docs/CITY-GAME.md §2, "what it is MADE OF". Until now the city shipped in
+   * Section 9's PBR palette: correct, competent, and the DEFAULT, which is the DESIGN-SYSTEM §1
+   * failure this project has recorded three times already. `js/city-ink.js` posterises the value
+   * into flat fields, draws a dark line where forms meet, and misregisters the plates by a pixel —
+   * painted card stock rather than a render of a city.
+   * ⚠ It FAILS OPEN: a shader that will not compile, or an engine whose post queue is elsewhere,
+   *   returns false and the city draws exactly as before. `?noink=1` is the off switch and is also
+   *   how the before/after is measured. */
+  const ink = window.CityInk ? CityInk.attach(app, cam) : false;
 
   /* ⛔ THIS BLOCK LIVES ABOVE THE BODIES ON PURPOSE — `const` HOISTS INTO THE TEMPORAL DEAD ZONE.
    * It was first written next to the flight tables, below the jet's geometry, and the jet's
@@ -450,6 +466,91 @@ window.CityApp = (function () {
   addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
+  /* ═══ TOUCH ═══════════════════════════════════════════════════════════════════════════════════
+   * ⛔ ARTIST, 2026-08-03: "still can't fly bird on mobile" — AND THE REASON IS THAT THERE WAS NO
+   *   TOUCH INPUT AT ALL. Every control in this game was a `keydown`. On a phone there is no
+   *   keyboard, so the bird could not be flown, turned, or launched: the city loaded, drew
+   *   perfectly, and did nothing. ⚑ That is this project's own recorded failure shape one more
+   *   time — built ≠ reachable — except the unreachable thing was the entire game, on the device
+   *   most people will open it on, and nothing errored to say so.
+   *
+   * ⚑ THE SCHEME IS BUILT FOR THE GAME THIS IS, not copied off a shooter:
+   *     · FORWARD IS AUTOMATIC. A mellow game about looking at things should not ask you to hold a
+   *       throttle with one thumb for its entire length. The bird always beats forward gently; you
+   *       steer. That removes a whole control rather than shrinking it.
+   *     · DRAG ANYWHERE TO STEER — left/right turns, up/down pitches. No stick to find and no
+   *       fixed zone to miss: wherever the thumb lands becomes the centre.
+   *     · TAP TO FLAP. A tap is a beat, which is exactly what SPACE is on a keyboard — the input
+   *       and the mechanic are the same shape.
+   *     · A MODE BUTTON, because TAB does not exist on a phone and the jet would otherwise be
+   *       unreachable there — the same defect, one level down.
+   * ⚠ Touch targets are 56px, above the 44px floor `mobile.css` sets for the rest of the site.
+   * ⚠ `touch-action: none` on the canvas, or the browser eats the drag as a scroll gesture and the
+   *   bird twitches once per swipe. */
+  const TOUCH = (() => { try { return matchMedia('(pointer: coarse)').matches ||
+    ('ontouchstart' in window) || navigator.maxTouchPoints > 0; } catch (e) { return false; } })();
+  const touch = { on: false, dx: 0, dy: 0, auto: 0 };
+
+  if (TOUCH) {
+    cv.style.touchAction = 'none';
+    const ui = document.createElement('div');
+    ui.id = 'touchUI';
+    ui.innerHTML = '<button id="tFlap" type="button" aria-label="flap">✦</button>' +
+                   '<button id="tMode" type="button" aria-label="switch between bird and jet">⇄</button>';
+    document.body.appendChild(ui);
+
+    let id = null, ox = 0, oy = 0;
+    const REACH = 90;                       // px of drag for full deflection
+    cv.addEventListener('pointerdown', e => {
+      if (id !== null) return;
+      id = e.pointerId; ox = e.clientX; oy = e.clientY; touch.on = true;
+      try { cv.setPointerCapture(id); } catch (err) {}
+    });
+    cv.addEventListener('pointermove', e => {
+      if (e.pointerId !== id) return;
+      touch.dx = clamp((e.clientX - ox) / REACH, -1, 1);
+      touch.dy = clamp((e.clientY - oy) / REACH, -1, 1);
+      e.preventDefault();
+    });
+    const release = e => { if (e.pointerId !== id) return;
+      id = null; touch.on = false; touch.dx = 0; touch.dy = 0; };
+    cv.addEventListener('pointerup', release);
+    cv.addEventListener('pointercancel', release);
+
+    /* ⚠ A TAP IS A POINTERUP THAT DID NOT DRAG. Firing the flap on every pointerup would beat the
+     * wings at the end of every steering swipe, which reads as the bird lurching whenever you turn. */
+    cv.addEventListener('pointerup', e => {
+      if (Math.abs(e.clientX - ox) < 12 && Math.abs(e.clientY - oy) < 12) tapFlap = 2;
+    });
+    const flapBtn = $('tFlap'), modeBtn = $('tMode');
+    if (flapBtn) { const hold = v => e => { e.preventDefault(); holdFlap = v; };
+      flapBtn.addEventListener('pointerdown', hold(true));
+      flapBtn.addEventListener('pointerup', hold(false));
+      flapBtn.addEventListener('pointercancel', hold(false)); }
+    if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault();
+      setMode(isJet() ? 'animal' : 'jet'); });
+  }
+  let tapFlap = 0, holdFlap = false;
+
+  /* One place where touch and keys become the same three numbers, so `step()` never asks which
+   * device it is on — the recorded lesson from the arena chips is that a mode branch deep in a
+   * step function is how a control scheme quietly stops applying. */
+  function readInput() {
+    let fwd = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
+    let turn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) -
+               (keys['a'] || keys['q'] || keys['arrowleft'] ? 1 : 0);
+    let dive = !!keys['shift'];
+    let flap = !!keys[' '];
+    if (TOUCH) {
+      if (!fwd) fwd = 1;                       // forward is automatic — see the note above
+      if (touch.on) { turn = touch.dx; if (touch.dy > 0.45) dive = true; }
+      if (holdFlap) flap = true;
+      if (tapFlap > 0) { flap = true; tapFlap--; }
+    }
+    return { fwd, turn, dive, flap };
+  }
+
+
   /* ── THE WORLD ──────────────────────────────────────────────────────────────────────────────
    * ⛔ THE CITY IS STREAMED, BECAUSE IT IS 3.84 km ACROSS. Artist, 2026-08-03: *"that is too small
    *   of a world, maybe that is a place in it, but we are talking mmorpg size or aspiring to that
@@ -621,10 +722,14 @@ window.CityApp = (function () {
     app.scene.fog.start = reach * 0.30; app.scene.fog.end = reach * 0.95;
     cam.camera.farClip = reach * 1.25;
 
-    // start on the street beside the lido, so the first thing in shot is an authored place
+    /* Start on the street beside the lido, so the first thing in shot is an authored place.
+     * ⚠ AND ON THE GROUND THAT IS ACTUALLY THERE — the spawn height is read from the collider
+     * rather than assumed, because a hand-written 1.4 was how the bird ended up under the road. */
     const lm = CW.LANDMARKS[0];
-    me.x = lm.cx * CW.CHUNK + 22; me.z = lm.cz * CW.CHUNK + CW.CHUNK / 2; me.y = 1.4;
+    me.x = lm.cx * CW.CHUNK + 22; me.z = lm.cz * CW.CHUNK + CW.CHUNK / 2;
     streamAround(me.x, me.z);
+    const g0 = collide.groundBelow(me.x, me.z, 60);
+    me.y = (g0 == null ? 0 : g0) + 0.45;
     ready = true;
     return Promise.all(jobs).then(() => {
       /* the landmark chunks were built before their file arrived — drop them so the next stream
@@ -638,11 +743,10 @@ window.CityApp = (function () {
   // ── step ────────────────────────────────────────────────────────────────────────────────────
   function step(dt) {
     if (!ready) return;
-    const fwdIn = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
-    const turnIn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['q'] || keys['arrowleft'] ? 1 : 0);
-    const diving = !!keys['shift'];
+    const IN = readInput();
+    const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
     if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
-    const wantFlap = !!keys[' '];      // no meter: a bird can always beat its wings
+    const wantFlap = IN.flap;          // no meter: a bird can always beat its wings
 
     const spd0 = Math.hypot(me.vx, me.vz);
     // no rudder without airflow — a bird turns by banking, and banking needs air over the wing
@@ -787,7 +891,12 @@ window.CityApp = (function () {
     camPos.x += (tx - camPos.x) * Math.min(1, dt * 4.2);
     camPos.y += (ty - camPos.y) * Math.min(1, dt * 3.4);
     camPos.z += (tz - camPos.z) * Math.min(1, dt * 4.2);
-    const ahead = 7 + me.speed * 0.35, droop = Math.min(0.62, me.alt / 55) * ahead;
+    /* ⚠ THE DROOP IS SCALED BY ASPECT. `fov` is VERTICAL, so a portrait phone already sees far
+     * more sky and ground than a desktop does; applying the same look-down on top of that put the
+     * bird at the very top of the frame, nearly out of shot. Measured at 390x844. */
+    const aspect = Math.max(0.4, (cv.clientWidth || 16) / (cv.clientHeight || 9));
+    const tall = Math.min(1, aspect / 1.35);
+    const ahead = 7 + me.speed * 0.35, droop = Math.min(0.62, me.alt / 55) * ahead * tall;
     /* the mirror: game (x,y,z) -> camera (-x,y,z), and yaw PI - gameYaw. See the header. */
     cam.setPosition(-camPos.x, camPos.y, camPos.z);
     cam.lookAt(-(me.x + hx * ahead), me.y + 0.35 - droop, me.z + hz * ahead);
@@ -989,7 +1098,38 @@ window.CityApp = (function () {
          * again and everything is one colour, with nothing else to tell you so. */
         classes: [...cls].sort(), byClass: byClass };
     },
-    setMode, get mode() { return MODE; }, MODES,
+    setMode, get mode() { return MODE; }, MODES, get ink() { return ink; },
+    /* ⚑ COLOUR IS MEASURED, NOT LOOKED AT. This container's screenshot path rotates hue on canvas
+     * content — a recorded false conclusion — so the print pass is judged on a histogram read
+     * straight off the drawing buffer. Needs `?readback=1`; returns null otherwise rather than
+     * quietly handing back a frame of zeros, which is what an unflagged readPixels does. */
+    _pixels() {
+      const gl = app.graphicsDevice.gl;
+      if (!READBACK || !gl) return null;
+      const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+      const px = new Uint8Array(w * h * 4);
+      /* ⚠ BIND THE DEFAULT FRAMEBUFFER FIRST. The engine leaves its own render target bound at the
+       * end of a frame, so an unqualified readPixels samples THAT — and the first run of this probe
+       * came back 100% black with one luma level, which reads exactly like a broken renderer and
+       * was a bound-target mistake. */
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const hist = new Uint32Array(256);
+      let sat = 0, dark = 0, n = 0;
+      for (let i = 0; i < px.length; i += 4 * 7) {              // every 7th pixel: plenty, and fast
+        const r = px[i], g = px[i + 1], b = px[i + 2];
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+        hist[(0.299 * r + 0.587 * g + 0.114 * b) | 0]++;
+        sat += mx ? (mx - mn) / mx : 0;
+        if (mx < 46) dark++;
+        n++;
+      }
+      /* "distinct levels" is the posterise measurement: a smooth render fills most of the 256
+       * buckets, a print fills a handful. The 0.2% floor keeps stray dither out of the count. */
+      let levels = 0; const floor = n * 0.002;
+      for (let i = 0; i < 256; i++) if (hist[i] > floor) levels++;
+      return { levels, sat: +(sat / n * 100).toFixed(1), darkPct: +(dark / n * 100).toFixed(2), sampled: n };
+    },
     _step(n, dt) { for (let i = 0; i < (n || 1); i++) { step(dt == null ? 1 / 60 : dt);
       if (ready) streamAround(me.x, me.z); } },
     _place(x, y, z, yaw) { me.x = x; me.y = y; me.z = z; if (yaw != null) me.yaw = yaw;

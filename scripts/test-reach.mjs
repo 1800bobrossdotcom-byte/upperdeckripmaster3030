@@ -102,6 +102,30 @@ t('the #ronin anchor studio.html deep-links to exists', /id="ronin"/.test(arcade
     (arcade.match(/<a class="cab"/g) || []).length + ' found');
 }
 
+/* ═══ 1b · A GAME IS NOT REACHABLE IF YOU CANNOT PLAY IT ══════════════════════════════════════
+ * ⛔ ARTIST, 2026-08-03: "still can't fly bird on mobile." THE CITY had NO touch input at all —
+ *   every control was a `keydown`, so on a phone the world loaded, streamed, rendered and did
+ *   nothing. That is this file's own subject one level deeper than it had been looking: the page
+ *   was reachable, the GAME was not, on the device most people open it on. Nothing errored.
+ * ⚑ So reachability now includes the input path. These assertions fail on the build that shipped
+ *   before them, which is the standing rule for every assertion in this file. */
+head('1b · the city can actually be played by a thumb');
+{
+  const app = R('js/city-app.js'), page = R('city.html');
+  t('city-app registers pointer handlers, not only keys', /addEventListener\('pointerdown'/.test(app));
+  t('…and reads a drag as steering', /pointermove/.test(app) && /touch\.dx/.test(app));
+  t('…and a tap as a wingbeat', /tapFlap/.test(app));
+  t('touch controls are injected on a coarse pointer', /pointer: coarse/.test(app) && /touchUI/.test(app));
+  /* ⚠ TAB does not exist on a phone, so without an on-screen swap the jet is unreachable there —
+   * the same defect one level down, which is how it would have been missed. */
+  t('the mode swap has an on-screen control, not only TAB', /tMode/.test(app) && /tMode/.test(page));
+  t('one input reader serves both devices', /function readInput\(/.test(app));
+  /* The touch button styling has to exist in the PAGE or the controls render as bare buttons. */
+  t('city.html styles the touch controls', /#touchUI/.test(page));
+  t('…and hides the keyboard legend where there is no keyboard',
+    /#hudBL \.key, #hudBL \.kw\{ display:none/.test(page));
+}
+
 // ═══ 2 · NO SHIPPED PAGE IS AN ORPHAN ══════════════════════════════════════════════════════════
 /* A page nothing navigates to is a page no visitor sees. Three are orphans BY DESIGN and are
  * listed with their reason — an allow-list rather than a blanket exemption, so a NEW orphan

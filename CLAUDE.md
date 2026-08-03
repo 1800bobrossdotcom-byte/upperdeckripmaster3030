@@ -847,6 +847,64 @@ to land to keep flying."*
   ⚠ **A probe that sets the camera will be overwritten** — the live `app.on('update')` re-places it
     every frame, which reads as "the framing is wrong" and is not. `app.off('update')` first.
 
+### ⛔ "STILL CAN'T FLY BIRD ON MOBILE" — THERE WAS NO TOUCH INPUT AT ALL
+Artist, 2026-08-03. Every control in THE CITY was a `keydown`. On a phone the world loaded,
+streamed and rendered perfectly and **did nothing** — no way to turn, launch or flap.
+⚑ **This is the repo's own "built ≠ reachable" one level deeper than `test:reach` had been
+looking**: the PAGE was reachable, the GAME was not, on the device most people open it on, and
+nothing errored to say so. `test:reach` §1b now covers the INPUT PATH (8 assertions).
+- ⚑ **THE SCHEME IS BUILT FOR THIS GAME, not copied off a shooter. FORWARD IS AUTOMATIC** — a
+  mellow game about looking at things must not ask you to hold a throttle for its whole length,
+  and removing a control beats shrinking one. **Drag anywhere steers** (wherever the thumb lands
+  becomes the centre — no stick to find), **tap flaps** (a tap IS a beat, so input and mechanic are
+  the same shape), and there is a **mode button**, because TAB does not exist on a phone and the
+  jet would otherwise be unreachable there — the same defect one level down.
+- ⚠ **A tap is a pointerup that did NOT drag.** Firing on every pointerup beats the wings at the
+  end of every steering swipe, which reads as the bird lurching whenever you turn.
+- ⚠ `readInput()` merges touch and keys into three numbers so `step()` never asks what device it is
+  on — the arena-chips lesson, where a device branch deep in a step function is how a control
+  scheme quietly stops applying.
+
+⛔ **AND THE PHONE FOUND A REAL WORLD BUG: THE GROUND WAS NOT A COLLIDER.** The bird spawned at
+**y −0.62, under the road it was standing on**, and sank. `S9PCWorld.boxSoup` draws a ground plane
+at y = 0 for every map, but that plane is RENDER-ONLY — it is not in `MAP.solids`. So it was the one
+piece of visible geometry in the city that was not also a collider, and every courtyard and every
+landmark forecourt was a hole you could see a street through. ⚑ `city-world.js`'s whole claim is
+"the geometry IS the collision set"; **a piece of geometry arriving from somewhere else breaks that
+silently, and silently is the only way it breaks.** A real ground slab is emitted per chunk now, and
+the spawn height is READ FROM THE COLLIDER rather than hand-written.
+⚠ **The phone HUD was a wreck and it was invisible from a desktop**: title and mode bar drew through
+each other, the hint ran under both buttons and off-screen, and it advertised "TAB swap" to a device
+with no keyboard. ⚑ The fix is to stop fighting for the corners — one column, and the hint is
+WIDTH-CAPPED so it can never reach the buttons rather than nudged until it happens not to.
+⚠ **Hiding `.key` is not hiding the hint** — that is only the boxed letter; the words around it live
+in `.kw` and went on printing a keyboard legend stripped of its keys.
+⚠ **`fov` is VERTICAL**, so a portrait phone already sees far more sky than a desktop; the same
+look-down on top of that put the bird at the very top of frame. Droop is scaled by aspect now.
+
+### ⚠ THE PRINT PASS IS BUILT AND IS **OFF BY DEFAULT** — `js/city-ink.js`, `?ink=1`
+docs/CITY-GAME.md §2's "painted card stock" answer: posterise value into flat fields, ink line from
+a DEPTH edge (silhouettes) + a LUMA edge (creases within a form), plates misregistered by a pixel,
+paper tooth. ⚠ **Misregistration is NOT chromatic aberration** — CA is radial and grows toward the
+frame edge (a lens artefact); misregistration is a UNIFORM translation per plate, because the paper
+went through the press askew. Getting that wrong reads as a cheap camera instead of a cheap print.
+⛔ **It renders BLACK and I am recording the retreat rather than hiding it.** A/B through the same
+path: 93 luma levels and 39.5% saturation with it off, **1 level and 100% dark with it on**, screenshot
+confirms an empty canvas under a live HUD. ⚠ **NOT** a missing input and **NOT** the maths —
+`render()` is called, `input.colorBuffer` is present, output is the backbuffer, and a PASSTHROUGH
+shader is black too. Remaining suspect: the shader LANGUAGE (this engine compiles GLSL ES 3.00 on
+WebGL2; the code is ES 1.00 `varying`/`texture2D`/`gl_FragColor`), and **a shader that fails to LINK
+is indistinguishable from one that outputs zero.** Shipping a look that blanks the game is worse
+than shipping the default look.
+⚑ Two engine facts worth keeping: `pc.PostEffect` is an **ES class** (the prototype-borrowing form
+throws), and `pc.PostEffect.quadVertexShader` calls `getImageEffectUV()`, a shader **chunk** that
+`createShaderFromCode` does not inject. Also `addEffect` reads **`needsDepthBuffer` off the effect** —
+asking the camera directly is not the same thing.
+⚑ **`?readback=1` makes colour MEASURABLE** — `preserveDrawingBuffer` plus a luma histogram, because
+this container's screenshot path rotates hue on canvas content. ⚠ Bind the DEFAULT framebuffer
+first: the engine leaves its own target bound, and an unqualified `readPixels` came back 100% black,
+which reads exactly like a broken renderer and was a bound-target mistake.
+
 ### ⛔ THE COMPRESSION: SIX CABINETS → **FOUR**, and the city is where three of them go
 *Artist, 2026-08-03: "the animals are invincible and more as observers… we can actually have
 dogfight AND the section 9 game both play here and compress them all into the City. so play as a

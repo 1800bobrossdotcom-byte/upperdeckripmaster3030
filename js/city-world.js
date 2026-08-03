@@ -354,6 +354,16 @@ window.CityWorld = (function () {
     const district = districtAt(cx, cz);
     const lm = landmarkAt(cx, cz);
     const R = rngFrom(h3(cx, cz, SEED));
+    /* ⛔ THE GROUND IS A REAL SLAB, AND LEAVING IT OUT WAS A HOLE IN THE WHOLE CLAIM THIS FILE
+     * MAKES. `S9PCWorld.boxSoup` draws a ground plane at y = 0 for every map — but that plane is
+     * RENDER-ONLY, it is not in `MAP.solids`, so it was the one piece of visible geometry in the
+     * city that was not also a collider. Everywhere outside a lawn, a road strip or a building —
+     * i.e. every courtyard and every landmark chunk's forecourt — you could SEE a street and fall
+     * straight through it. Measured on a phone: the bird spawned at y −0.62, under the road it was
+     * standing on, and sank.
+     * ⚑ This file's central claim is "the geometry IS the collision set"; a piece of geometry that
+     *   arrives from somewhere else breaks it silently, and silently is the only way it breaks. */
+    box(out, 'ground', 'deck', x0, -0.8, z0, x0 + CHUNK, GROUND, z0 + CHUNK);
     streets(out, x0, z0);                            // every chunk lays its own two edges of road
     if (lm) {
       /* An authored place holds its own chunk. Only the surrounding street is generated, so nothing
