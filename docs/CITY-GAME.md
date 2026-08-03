@@ -1,4 +1,4 @@
-# THE CITY GAME — design brief
+# THE CITY — design brief
 
 > ⚠ **A DRAFT FOR THE ARTIST. Proposals, not decisions.** Same status as `docs/DESIGN-SYSTEM.md`.
 > Strike what is wrong. Nothing here is settled except the four decisions recorded at the top.
@@ -13,6 +13,7 @@ amazing graphics."*
 
 | | decision |
 | --- | --- |
+| **the name** | ✅ **THE CITY.** *"the city is what we can call it."* STRAYS / FOUND / THE LOT / PERCH are dead. Pinned by `npm run test:name`. |
 | **the place** | a **park / green pocket** AND a **neighbourhood block**, adjoining — one continuous space. A third area later. |
 | **scale** | ⛔ **MMORPG-ASPIRING.** *"that is too small of a world, maybe that is a place in it, but we are talking mmorpg size or aspiring to that size."* |
 | **scope** | **REPLACES NEON RONIN.** `ronin.html` becomes this game; the duel lives on in git history. |
@@ -244,8 +245,6 @@ block the place.
 
 ## 5 · OPEN — the artist's calls
 
-- **The name.** NEON RONIN is dead. Candidates only, all his: **STRAYS** · **FOUND** ·
-  **THE LOT** · **PERCH**. ⚠ Whatever it is, `npm run test:name` will pin it the moment it exists.
 - **How a photographed card is marked** so it never passes as one of the artist's.
 - Do the animals share one city, or does each get its own start?
 - Is there anyone else in it — other players' animals, or is it solitary? (The lobby and presence

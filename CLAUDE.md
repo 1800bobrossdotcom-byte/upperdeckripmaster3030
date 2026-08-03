@@ -875,9 +875,20 @@ over a level whose highest roof is 17.5**, then out through the side at (41, 36)
   with sky and the city is off the bottom of the frame — the first flight screenshot was pure blue
   with a bird in it, and that is a FRAMING bug that looks exactly like a flight one.
 
-⚠ **STILL OPEN and the artist's:** the game's NAME (STRAYS · FOUND · THE LOT · PERCH — `test:name`
-pins it the moment it exists), how a photographed card is marked so it never passes as one of his,
-whether the animals share one city, whether anyone else is in it, and whether time of day moves.
+### ✅ THE NAME IS **THE CITY** (artist, 2026-08-03) — *"the city is what we can call it"*
+STRAYS · FOUND · THE LOT · PERCH are dead. ⚑ **`npm run test:name` PINS IT**, which is the standing
+rule the moment a name exists, and it checks the SHIPPED SURFACES a visitor reads — the `<title>`,
+the on-screen title, the arcade cabinet — plus that no retired candidate and no "working title"
+survives on any of them. Comments are exempt, same as everywhere else here: the note recording the
+decision has to name what it rejected, and a checker that fires on its own explanation gets muted.
+⚠ **Proved to bite**: breaking the HUD to `PERCH · working title` and the cabinet back to
+`NEON RONIN` fails **5** assertions. 56 → 64.
+⚠ The FILE stays `city.html` — named descriptively rather than guessed, and it landed on the right
+word. A URL that already resolves keeps resolving.
+
+⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
+his, whether the animals share one city, whether anyone else is in it, and whether time of day
+moves.
 ⚠ **NOT BUILT YET:** the quadruped rig (the 11-bone skeleton is a BIPED — biggest new piece), photo
 mode, found cards in the world. Steps 3–5 of the brief.
 ⚠ `ronin.html` is **kept and still resolves** — a shared URL should keep working — but nothing links

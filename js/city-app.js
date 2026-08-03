@@ -1,4 +1,4 @@
-/* ripmaster3030studios — THE CITY (working title) · step 1: the bird.
+/* ripmaster3030studios — THE CITY · the bird.
  *
  * Brief: docs/CITY-GAME.md. This answers ONE question — acceptance test 1, "does the place read
  * from the air" — and deliberately answers nothing else.

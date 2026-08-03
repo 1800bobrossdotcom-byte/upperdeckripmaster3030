@@ -393,6 +393,48 @@ console.log('\n── the supply cap, stated in one place and spent everywhere �
   ok(tk.includes('44.4%'), 'tokenomics.html — and the studio slug is stated alongside it');
 }
 
+/* ═══ THE GAME'S NAME ═════════════════════════════════════════════════════════════════════════
+ * ✅ **THE CITY** — artist, 2026-08-03: *"the city is what we can call it."* The candidates
+ * (STRAYS / FOUND / THE LOT / PERCH) are dead.
+ *
+ * ⚑ IT IS PINNED HERE THE MOMENT IT EXISTS, which is this repo's standing rule for a name, and the
+ *   rule was written from two expensive lessons: the launch token's `name()` is frozen at deploy,
+ *   and the 258-file studio rename was STILL WRONG on ~200 live surfaces a day after it "finished"
+ *   — because a surface nobody opens rots. A name is not settled when it is decided. It is settled
+ *   when something opens the surfaces that carry it.
+ * ⚠ The check is deliberately about the SHIPPED SURFACES a visitor reads — the tab, the on-screen
+ *   title, the arcade cabinet — not about the source comments. Comments are history and are exempt
+ *   for the same reason the Sepolia rehearsal logs still say `UR3030`. */
+console.log('\n── THE CITY: the game is named, and the name is on its surfaces ──');
+{
+  const GAME = 'THE CITY';
+  const city = readFileSync(join(ROOT, 'city.html'), 'utf8');
+  const arcade = readFileSync(join(ROOT, 'arcade.html'), 'utf8');
+
+  const title = city.match(/<title>([^<]*)<\/title>/);
+  ok(!!title && title[1].includes(GAME),
+     `city.html <title> carries "${GAME}" — got ${title ? JSON.stringify(title[1]) : 'NO TITLE'}`);
+  ok(new RegExp('id="hudTL"[^>]*>[\\s\\S]{0,40}' + GAME).test(city),
+     'city.html — the on-screen title reads THE CITY');
+
+  /* ⛔ THE DEAD CANDIDATES MUST NOT SURVIVE ANYWHERE A VISITOR LOOKS. Four names were floated and
+   *   any of them left on a live surface reads as a game that has not decided what it is. Comments
+   *   are stripped first, exactly as the studio-name sweep does — the note recording the decision
+   *   necessarily mentions the names it rejected, and a checker that fires on its own explanation
+   *   gets muted, and then it is not a checker. */
+  const visible = stripComments(city, true) + "\n" + stripComments(arcade, true);
+  for (const dead of ['STRAYS', 'THE LOT', 'PERCH']) {
+    ok(!new RegExp('\\b' + dead + '\\b').test(visible),
+       `no retired candidate "${dead}" on a live surface`);
+  }
+  ok(!/working title/i.test(visible), 'and "working title" is gone — the name is settled');
+
+  // the arcade is where a visitor meets it, so that is the one that must not drift
+  ok(/<a class="cab" id="ronin" href="city\.html">[\s\S]{0,400}<div class="nm">THE CITY<\/div>/.test(arcade),
+     'arcade.html — the cabinet that links city.html is titled THE CITY');
+  ok(!/NEON RONIN/.test(stripComments(arcade, true)), 'arcade.html — NEON RONIN is off the visible grid');
+}
+
 console.log('\n── generated pages match their generator ──');
 for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html']) {
   const src = readFileSync(join(ROOT, page), 'utf8');

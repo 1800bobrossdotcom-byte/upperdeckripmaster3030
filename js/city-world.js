@@ -1,4 +1,4 @@
-/* ripmaster3030studios — THE CITY (working title) · the world.
+/* ripmaster3030studios — THE CITY · the world.
  *
  * Artist, 2026-08-03: *"that is too small of a world, maybe that is a place in it, but we are
  * talking mmorpg size or aspiring to that size."* — and the original ask said **large levels**.
