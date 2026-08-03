@@ -1078,11 +1078,78 @@ decision has to name what it rejected, and a checker that fires on its own expla
 ⚠ The FILE stays `city.html` — named descriptively rather than guessed, and it landed on the right
 word. A URL that already resolves keeps resolving.
 
+### ✅ SECTION 9 ON THE GROUND — `js/city-ops.js` (artist, 2026-08-03)
+*"you should be able to play as Section 9 on the ground in the city as well."* The operative mode
+was TRAVERSAL — walk, look, jump, nothing to shoot and nothing shooting back. It is a firefight now.
+- ⛔ **THE NUMBERS ARE SECTION 9's CHARACTER FOR CHARACTER AND CANNOT DRIFT.** 150 HP / 60 armour,
+  AK 17 · pistol 22 · buckshot 9 · rifle 88 ⇒ ~1.3 s TTK; headshot ×2.1 AND armour soaking 15% of a
+  headshot vs 45% of a body hit; regen to 62% after 4.5 s; tracers at 340 m/s. ⚑ **`npm run
+  test:reach` parses BOTH `city-ops.js` and `s9pc-game.js` and asserts the tables are identical** —
+  importing `S9Game.WEAPONS` would cost 104 KB of maps, HUD and match clock to read one array, so
+  the coupling is a TEST rather than a require. Verified to bite (2 edited numbers → 2 failures).
+- ⛔ **THE OBSERVER RULE IS A STRUCTURE, NOT A PROMISE.** `candidates()` is the ONLY place a target
+  list is built and it reads `targetable`; `hostilesFor()` may only NARROW it, so an animal is
+  absent *before* teams are considered. Driven: a squirrel sat on an operative's boots for 15 s and
+  drew **zero rounds**. *"We never gave the bird any health" is not a design.*
+- ⛔ **NO TEAMS MEANT THE STREET CLEARED ITSELF** — four bots seeded 50 m apart killed each other in
+  13 s and none were alive when the player arrived. A free-for-all is what Section 9's ARENA is; a
+  city you wander into is not, and "everyone was already dead when you got there" reads as an empty
+  game, not an atmosphere.
+- ⛔ **DESTROYING ONE BODY DESTROYED THE MESH ALL OF THEM SHARE.** `S9PCSkin` memoises
+  `BUILT[arch].mesh`, so `entity.destroy()` took the vertex buffer with it and the next operative of
+  that archetype drew from a dead one — *"Cannot read properties of null (reading 'getFormat')"*,
+  with nothing visibly wrong until a body stopped rendering. **Bodies are PARKED, never destroyed**,
+  which is also cheaper in a streamed city that recycles them constantly.
+- ⛔ **THE RETICLE AND THE BULLET DISAGREED.** The first-person camera read `pitch` as a SLOPE
+  (`y + pitch*10`) while the shot left along `sin(pitch)`. Identical at 0; 26.6° vs 28.6° at 0.5.
+  Same defect class as the mirrored scene, and invisible until you shoot at something above you.
+- ⛔ **A BOT WITH NO LINE OF SIGHT HAD NO REASON TO COME.** `lastSeen` only exists once somebody has
+  been SEEN, so hostiles fell through to `patrol` and walked **110 m in random directions** while
+  the player stood in the street. A `push` state fixed it — correct for a sentry, wrong for a squad.
+- ⚠ **THE DIFFICULTY KNOB IS AIM AND NOTHING ELSE** — the cone widens with range, with how recently
+  the bot acquired you (~1.2 s settle) and with your own speed. Never dmg/rate/HP/armour, which is
+  what keeps TTK arithmetically identical to the arena's. Measured: four operatives take a
+  stationary player from 150 to down in **11.2 s**, first hit landing at **5.2 s**.
+- ⚠ **THE VIEWMODEL HAD TO CLEAR `nearClip`, WHICH THIS GAME RAISED TO 0.4 m** (for depth precision
+  against a kilometre far clip — the river was moiréing at 600 m). Held at the usual ~0.4 m its
+  whole front half was sliced off and it read as a featureless slab. Held at 0.9 m and sized for
+  that distance. **A viewmodel's position is decided by the projection, not by the fiction.**
+- ⚠ **AN UNARMED OPERATIVE READS AS A BUG** (this repo's own rule, from the sword and the rifle).
+  The gun hangs off the **`armF1` BONE**, so one implementation fits every archetype — and its
+  offsets come from `S9Skin.BIND`, where the forearm is **21 px**: laying parts out to py 44 put two
+  floating black boxes beside the operative's head. ⚠ It also had to stop being near-black; the
+  vests are ~0.16 and the print pass posterises to ~6 steps, so a 0.085 weapon merged into the body
+  and the fix for "looks unarmed" produced an operative who still looked unarmed.
+- ⚠ **THE RETICLE SEPARATES BY HUE, NOT VALUE.** Measured: cream at 0.85 opacity, rendering
+  correctly at frame centre, and genuinely unreadable over the sand street — the whole map is that
+  value family. The accent is the one hue nothing in this city occupies. ⛔ Its gap is a gradient
+  stop now; the first version cut it with a self-intersecting `clip-path`, which is legal CSS that
+  rendered NOTHING while the HUD readout said `reticle=on`. **An attribute is not a pixel.**
+- ⚠ **ON A PHONE, ON FOOT, IT IS TWO PADS** — left thumb moves, right thumb looks, `◉` holds the
+  trigger. The one-pad flight scheme (auto-forward + drag to steer) is right for a bird that cannot
+  stop and wrong for a body that can, must aim independently of where it walks, and has a trigger.
+- ⚑ **A DEAD OPERATIVE DROPS A CARD**, which is the one line that keeps the firefight in the same
+  game as the bird and the squirrel rather than a second game sharing a street.
+- ⚑ **ONE COLLISION RESOLVE FOR EVERY BODY ON FOOT** — `moveBody()` was lifted out of `stepGround`
+  and handed to `city-ops`. `stepGround`'s own comment said why: two copies drift, and the one that
+  drifts is the one nobody is looking at. A bot sinking through a kerb the player steps over is that
+  bug with an audience.
+- ⚠ **WHAT THE CITY HAS IS SECTION 9's COMBAT, NOT SECTION 9's GAME** — no match clock, no arena
+  picker, no loadout, no card powers, no powerups. The cabinet link stays for exactly that reason.
+- ⚠ **FOUR PROBE MISTAKES REPORTED AS GAME BUGS**, every one the same shape: placing the player
+  0.2 m above the bot's ground put the eye at 1.78 against a capsule topping out at 1.72, so every
+  round went overhead and "damage does nothing"; firing ten sniper rounds without re-aiming at a bot
+  that walks 4.5 m between shots measured my own leading, not the weapon; a synchronous `_step` loop
+  gives an async `.skn` fetch no gap to resolve in, so "the bodies never load" was a statement about
+  the probe; and letting `_seed` accumulate across five sections ended with 14 operatives against a
+  cap of 4, i.e. measuring a crowd the probe had built itself.
+
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
 moves.
 ⚠ **NOT BUILT YET:** the quadruped rig (the 11-bone skeleton is a BIPED — biggest new piece), photo
-mode, found cards in the world. Steps 3–5 of the brief.
+mode, found cards in the world, and **JET COMBAT** (bolts, lock, bots, re-derived at city scale) —
+the last thing standing between the two old cabinets and retirement.
 ⚠ `ronin.html` is **kept and still resolves** — a shared URL should keep working — but nothing links
 it. It is allow-listed in `test:reach`'s `ORPHAN_OK` **with a reason**, which is the difference
 between a decision and an oversight.

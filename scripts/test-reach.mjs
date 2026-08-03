@@ -149,6 +149,84 @@ head('1b · the city can actually be played by a thumb');
   }
   t('the animals are observers and the other two are not',
     /animal:\s*\{[^}]*mortal:\s*false/.test(app) && /operative:\s*\{[^}]*mortal:\s*true/.test(app));
+
+  /* ⛔ SECTION 9 ON THE GROUND (artist, 2026-08-03: "you should be able to play as Section 9 on
+   * the ground in the city as well"). Before this the operative mode was TRAVERSAL — you could
+   * walk, look and jump, and there was nothing to shoot and nothing shooting back. That state is
+   * precisely how "built ≠ reachable" turns into "built ≠ true": the mode existed, was selectable,
+   * and was not the game it was named after. These assertions fail against that build. */
+  {
+    const ops = R('js/city-ops.js');
+    t('city.html loads the combat module', /js\/city-ops\.js/.test(page));
+    t('…and the bodies Section 9 already has',
+      /js\/section9-skin\.js/.test(page) && /js\/s9pc-skin\.js/.test(page));
+    t('the operative has a trigger, on a mouse AND on a thumb',
+      /mousedown/.test(app) && /tFire/.test(app) && /tFire/.test(page));
+    t('…and a reticle and a health readout that only exist while armed',
+      /id="reticle"/.test(page) && /id="combat"/.test(page) &&
+      /reticle.*isOp\(\)|isOp\(\).*reticle/s.test(app));
+    t('the firefight advances in EVERY mode, above the per-mode early returns',
+      /stepOps\(dt\);[\s\S]{0,80}if \(IN\.act\)/.test(app));
+    t('bots exist, take cover, and are drawn as real bodies',
+      /S9PCSkin\.spawn/.test(ops) && /pickCover/.test(ops) && /spawnBox/.test(ops));
+    t('a shot is a ray against the same boxes the city is built from',
+      /collide\.rayHit/.test(ops) && /rayHit\(/.test(app));
+    t('a dead operative drops a card into the binder', /onKill/.test(ops) && /drops\.drop/.test(app));
+
+    /* ⛔ THE OBSERVER RULE, AS A STRUCTURE RATHER THAN A PROMISE. There must be exactly ONE place
+     * a target list is built, it must read `targetable`, and bot acquisition must go through it —
+     * `hostilesFor` may only NARROW that list. Driven end-to-end this holds (a squirrel sat on an
+     * operative's boots for fifteen seconds and drew zero rounds); this is what stops a later edit
+     * from quietly adding a second path. */
+    t('there is one target list and it reads `targetable`',
+      /function candidates\(player\)/.test(ops) && /player\.targetable/.test(ops));
+    t('…and bot acquisition narrows it rather than rebuilding it',
+      /function hostilesFor\([^)]*\)\s*\{\s*const all = candidates\(/.test(ops));
+    t('…and it is exposed so a driver can assert it', /targets\(player\)/.test(ops) && /_targets\(/.test(app));
+
+    /* ⛔ THE NUMBERS MUST NOT DRIFT FROM SECTION 9's. They were tuned together — 150 HP / 60
+     * armour with AK 17 / pistol 22 / buckshot 9 / rifle 88 is a ~1.3 s TTK, and at the old
+     * 0.63 s neither cover nor suppression nor disengaging can exist. Importing `S9Game.WEAPONS`
+     * at runtime would cost 104 KB of maps, HUD and match clock to read one array, so the
+     * coupling is asserted here instead — the same arrangement that keeps `build-hero-type.mjs`'s
+     * Python RUNS and the CSS type scale moving together. */
+    const s9 = R('js/s9pc-game.js');
+    const table = src => {
+      const out = {};
+      const re = /\{ name: '([^']+)', key: '([^']+)', dmg: ([\d.]+), spread: ([\d.]+), rate: (\d+), mag: (\d+), reload: (\d+)/g;
+      let m; while ((m = re.exec(src))) out[m[2]] = m.slice(1).join('|');
+      return out;
+    };
+    const A = table(s9), B = table(ops);
+    const keys = Object.keys(A);
+    t('Section 9 still declares four weapons', keys.length === 4, keys.length + ' found');
+    for (const k of keys)
+      t(`weapon "${k}" is identical in the city and in the arena`, A[k] === B[k],
+        'arena ' + A[k] + '  ·  city ' + B[k]);
+    for (const [what, re] of [['150 HP', /hp:\s*150/], ['60 armour', /armor:\s*60/],
+                              ['a x2.1 headshot', /headMul:\s*2\.1/],
+                              ['armour soaking 15% of a headshot', /headSoak:\s*0\.15/],
+                              ['…and 45% of a body hit', /bodySoak:\s*0\.45/],
+                              ['regen to 62% after 4.5 s', /regenAfter:\s*4\.5/],
+                              ['tracers travelling at 340 m/s', /tracerSpeed:\s*340/]])
+      t('the city keeps ' + what, re.test(ops));
+
+    /* ⚠ And the operative's CAPSULE has to be one number too, or a bullet misses a body you could
+     * not have walked through. `city-app` falls back to a literal when the module is absent. */
+    /* ⚠ Checked per NUMBER, not as one string. city-ops declares the capsule once in `TUNE` and
+     * re-uses it in `BODY`; city-app's fallback is a flat literal. A regex written against one
+     * file's LAYOUT passes there and fails on the other for a reason that has nothing to do with
+     * the numbers agreeing — which is what it did on the first run. */
+    for (const [what, re] of [['radius 0.42', /r:\s*0\.42/], ['height 1.72', /h:\s*1\.72/],
+                              ['step 0.62', /step:\s*0\.62/], ['eye 1.58', /eye:\s*1\.58/]])
+      t(`the operative capsule keeps ${what} in both files`, re.test(ops) && re.test(app));
+    t('…and city-app prefers the module over its own fallback',
+      /const OP = \(window\.CityOps && CityOps\.BODY\)/.test(app));
+    /* ⛔ ONE COLLISION RESOLVE. A bot that sinks through a kerb the player steps over is the
+     * "two copies drift" bug with an audience — `stepGround`'s own comment says so. */
+    t('bots and the player share one collision resolve',
+      /function moveBody\(b, dt, B, climbing\)/.test(app) && /moveBody\(b, dt, BODY, false\)/.test(ops));
+  }
   /* The touch button styling has to exist in the PAGE or the controls render as bare buttons. */
   t('city.html styles the touch controls', /#touchUI/.test(page));
   t('…and hides the keyboard legend where there is no keyboard',

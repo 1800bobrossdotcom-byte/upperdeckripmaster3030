@@ -588,9 +588,19 @@ window.CityApp = (function () {
    * ⚠ Touch targets are 56px, above the 44px floor `mobile.css` sets for the rest of the site.
    * ⚠ `touch-action: none` on the canvas, or the browser eats the drag as a scroll gesture and the
    *   bird twitches once per swipe. */
+  /* ⛔ AND THE ONE-PAD SCHEME DOES NOT SURVIVE CONTACT WITH A BODY ON FOOT. Everything above is
+   *   right for a bird: it cannot stop, so forward is free and a single drag is the whole
+   *   instrument. An operative can stop, must aim independently of where it is walking, and has a
+   *   trigger — three things a single pad cannot express at once. Left over on a phone, auto-
+   *   forward meant an operative that walked into a wall while you tried to look at something.
+   * ⚑ ON FOOT IT IS TWO PADS, and the split is by SCREEN HALF rather than by a drawn stick: left
+   *   thumb moves, right thumb looks, wherever each lands becomes its own centre. Same principle
+   *   as the flight pad — no zone to miss — applied to a body that needs two axes of intent. */
   const TOUCH = (() => { try { return matchMedia('(pointer: coarse)').matches ||
     ('ontouchstart' in window) || navigator.maxTouchPoints > 0; } catch (e) { return false; } })();
-  const touch = { on: false, dx: 0, dy: 0, auto: 0 };
+  const touch = { on: false, dx: 0, dy: 0, auto: 0,
+                  move: { on: false, x: 0, y: 0 }, look: { on: false, x: 0, y: 0 } };
+  const onFoot = () => isOp() || (MODE === 'animal' && CREATURE === 'squirrel');
 
   if (TOUCH) {
     cv.style.touchAction = 'none';
@@ -598,38 +608,60 @@ window.CityApp = (function () {
     ui.id = 'touchUI';
     ui.innerHTML = '<button id="tAct" type="button" aria-label="drop a card">✱</button>' +
                    '<button id="tCreature" type="button" aria-label="switch animal">◔</button>' +
+                   '<button id="tFire" type="button" aria-label="fire">◉</button>' +
                    '<button id="tFlap" type="button" aria-label="flap or jump">✦</button>' +
                    '<button id="tMode" type="button" aria-label="switch game mode">⇄</button>';
     document.body.appendChild(ui);
 
-    let id = null, ox = 0, oy = 0;
     const REACH = 90;                       // px of drag for full deflection
+    const pads = new Map();                 // pointerId -> { kind, ox, oy }
     cv.addEventListener('pointerdown', e => {
-      if (id !== null) return;
-      id = e.pointerId; ox = e.clientX; oy = e.clientY; touch.on = true;
-      try { cv.setPointerCapture(id); } catch (err) {}
+      /* ⚠ THE KIND IS DECIDED AT TOUCH-DOWN AND HELD. Re-reading the half on every move would
+       * flip a thumb from move to look the moment it dragged across the middle of the screen. */
+      const kind = !onFoot() ? 'steer'
+        : (e.clientX < (cv.clientWidth || innerWidth) / 2 ? 'move' : 'look');
+      if (kind === 'steer' && pads.size) return;
+      for (const p of pads.values()) if (p.kind === kind) return;
+      pads.set(e.pointerId, { kind, ox: e.clientX, oy: e.clientY });
+      if (kind === 'steer') touch.on = true;
+      else touch[kind].on = true;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
     });
     cv.addEventListener('pointermove', e => {
-      if (e.pointerId !== id) return;
-      touch.dx = clamp((e.clientX - ox) / REACH, -1, 1);
-      touch.dy = clamp((e.clientY - oy) / REACH, -1, 1);
+      const p = pads.get(e.pointerId); if (!p) return;
+      const dx = clamp((e.clientX - p.ox) / REACH, -1, 1);
+      const dy = clamp((e.clientY - p.oy) / REACH, -1, 1);
+      if (p.kind === 'steer') { touch.dx = dx; touch.dy = dy; }
+      else { touch[p.kind].x = dx; touch[p.kind].y = dy; }
       e.preventDefault();
     });
-    const release = e => { if (e.pointerId !== id) return;
-      id = null; touch.on = false; touch.dx = 0; touch.dy = 0; };
+    const release = e => {
+      const p = pads.get(e.pointerId); if (!p) return;
+      pads.delete(e.pointerId);
+      if (p.kind === 'steer') { touch.on = false; touch.dx = 0; touch.dy = 0; }
+      else { touch[p.kind].on = false; touch[p.kind].x = 0; touch[p.kind].y = 0; }
+      /* ⚠ A TAP IS A POINTERUP THAT DID NOT DRAG. Firing the flap on every pointerup would beat
+       * the wings at the end of every steering swipe, which reads as the bird lurching whenever
+       * you turn. On foot the same gesture on the LOOK half is the trigger — a tap where you are
+       * aiming is the one place a shot could mean anything else. */
+      if (Math.abs(e.clientX - p.ox) < 12 && Math.abs(e.clientY - p.oy) < 12) {
+        if (p.kind === 'look' && isOp()) tapFire = 2; else if (p.kind !== 'look') tapFlap = 2;
+      }
+    };
     cv.addEventListener('pointerup', release);
     cv.addEventListener('pointercancel', release);
 
-    /* ⚠ A TAP IS A POINTERUP THAT DID NOT DRAG. Firing the flap on every pointerup would beat the
-     * wings at the end of every steering swipe, which reads as the bird lurching whenever you turn. */
-    cv.addEventListener('pointerup', e => {
-      if (Math.abs(e.clientX - ox) < 12 && Math.abs(e.clientY - oy) < 12) tapFlap = 2;
-    });
-    const flapBtn = $('tFlap'), modeBtn = $('tMode');
+    const flapBtn = $('tFlap'), modeBtn = $('tMode'), fireBtn = $('tFire');
     if (flapBtn) { const hold = v => e => { e.preventDefault(); holdFlap = v; };
       flapBtn.addEventListener('pointerdown', hold(true));
       flapBtn.addEventListener('pointerup', hold(false));
       flapBtn.addEventListener('pointercancel', hold(false)); }
+    /* ⚠ HELD, NOT TAPPED. FULL TILT is an automatic weapon; a click-per-round trigger would make
+     * the only auto in the game the slowest thing in it on the device most people are holding. */
+    if (fireBtn) { const hold = v => e => { e.preventDefault(); holdFire = v; };
+      fireBtn.addEventListener('pointerdown', hold(true));
+      fireBtn.addEventListener('pointerup', hold(false));
+      fireBtn.addEventListener('pointercancel', hold(false)); }
     if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault(); cycleMode(1); });
     const actBtn = $('tAct');
     if (actBtn) actBtn.addEventListener('click', e => { e.preventDefault(); actTap = 2; });
@@ -638,7 +670,10 @@ window.CityApp = (function () {
       if (MODE !== 'animal') setMode('animal');
       else setCreature(CREATURE === 'bird' ? 'squirrel' : 'bird'); });
   }
-  let tapFlap = 0, holdFlap = false;
+  /* ⚠ ALL THE INPUT LATCHES IN ONE PLACE, ABOVE EVERY READER. `const`/`let` hoist into the
+   * temporal dead zone, and a top-level read above the declaration takes the whole app down
+   * silently — three sightings in this repo, one of them in this very file. */
+  let tapFlap = 0, holdFlap = false, tapFire = 0, holdFire = false, mouseDown = false;
 
   /* One place where touch and keys become the same three numbers, so `step()` never asks which
    * device it is on — the recorded lesson from the arena chips is that a mode branch deep in a
@@ -652,6 +687,22 @@ window.CityApp = (function () {
     me.pitch = clamp(me.pitch - e.movementY * 0.0022, -1.2, 1.2);
   });
   cv.addEventListener('click', () => { if (isOp() && cv.requestPointerLock) cv.requestPointerLock(); });
+
+  /* ── the trigger, and the weapon selector. ⚠ THE FIRST CLICK IS THE POINTER LOCK, NOT A SHOT.
+   * Firing on it too would spend a round every time you clicked back into the window, and on
+   * COLD CALL that is a fifth of the magazine for tabbing away. */
+  cv.addEventListener('mousedown', e => { if (e.button !== 0) return;
+    if (isOp() && document.pointerLockElement === cv) mouseDown = true; });
+  addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
+  addEventListener('blur', () => { mouseDown = false; });
+  addEventListener('wheel', e => { if (!isOp() || !ops) return;
+    ops.cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: true });
+  addEventListener('keydown', e => {
+    if (!isOp() || !ops) return;
+    const k = e.key.toLowerCase();
+    if (k === 'r') ops.reload();
+    else if (k >= '1' && k <= '4') ops.switchWeapon(+k - 1);
+  });
 
   /* ⚑ ONE ACTION KEY FOR BOTH ANIMALS, and it means the same thing in both: LET GO OF SOMETHING.
    * The bird lets go of a card into the air; the squirrel lets go of the one in its mouth. One
@@ -674,23 +725,42 @@ window.CityApp = (function () {
     let fwd = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
     let turn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) -
                (keys['a'] || keys['q'] || keys['arrowleft'] ? 1 : 0);
+    /* ⚑ A/D STRAFES ONCE THERE IS A MOUSE DOING THE TURNING. In every other body A/D is the only
+     * way to change heading, so it turns; in an FPS the mouse turns and A/D sidesteps, and a
+     * shooter where A/D spins the camera is a shooter nobody can play. Q/E keep turning in both,
+     * which is what makes the mode usable before the first click grabs the pointer lock. */
+    let strafe = 0;
+    if (isOp()) {
+      strafe = (keys['d'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['arrowleft'] ? 1 : 0);
+      turn = (keys['e'] ? 1 : 0) - (keys['q'] ? 1 : 0);
+    }
     let dive = !!keys['shift'];
     let flap = !!keys[' '];
+    let fire = mouseDown && isOp();
     if (TOUCH) {
-      if (!fwd) fwd = 1;                       // forward is automatic — see the note above
-      if (touch.on) {
-        turn = touch.dx;
-        /* on foot the vertical drag is LOOK, in the air it is dive — the same thumb, the axis
-         * that mode actually has. */
-        if (isOp()) me.pitch = clamp(-touch.dy * 1.1, -1.2, 1.2);
-        else if (touch.dy > 0.45) dive = true;
+      if (!onFoot()) {
+        if (!fwd) fwd = 1;                     // forward is automatic — see the note above
+        if (touch.on) { turn = touch.dx; if (touch.dy > 0.45) dive = true; }
+      } else {
+        /* two pads: left is where you are going, right is where you are looking. ⚠ The look pad
+         * drives RATES, not absolutes — an absolute pitch means letting go re-centres your aim,
+         * which is exactly the thing a thumb must not do mid-firefight. */
+        if (touch.move.on) { fwd = -touch.move.y;
+          if (isOp()) strafe = touch.move.x; else turn = touch.move.x; }
+        if (touch.look.on) {
+          turn += touch.look.x * 1.35;
+          me.pitch = clamp(me.pitch - touch.look.y * 1.9 * (1 / 60), -1.2, 1.2);
+        }
+        if (touch.move.on && Math.abs(touch.move.y) > 0.82) dive = true;   // push the stick to run
       }
       if (holdFlap) flap = true;
       if (tapFlap > 0) { flap = true; tapFlap--; }
+      if (holdFire) fire = true;
+      if (tapFire > 0) { fire = true; tapFire--; }
     }
     let act = false;
     if (actTap > 0) { act = true; actTap--; }
-    return { fwd, turn, dive, flap, act };
+    return { fwd, turn, strafe, dive, flap, act, fire };
   }
 
 
@@ -714,7 +784,7 @@ window.CityApp = (function () {
    * ⚠ NOTHING IS CACHED, AND THAT IS THE POINT: `genChunk` is pure, so a chunk that leaves range
    *   is destroyed outright and rebuilt identically when you turn round. A cache here would be a
    *   second source of truth for the shape of the world. */
-  let ready = false, bounds = null, collide = null, LEVEL = null, drops = null;
+  let ready = false, bounds = null, collide = null, LEVEL = null, drops = null, ops = null;
   const NEAR_R = 2;                    // chunks: 5 x 5 full-detail = 600 m of city you can land on
   const REGION = 4;                    // chunks per side of a horizon region
   const FAR_R = 2;                     // regions: 5 x 5 = 20 x 20 chunks = 2.4 km of visible city
@@ -843,6 +913,45 @@ window.CityApp = (function () {
         }
         return best;
       },
+      /* ⚑ RAY vs the city — the slab method over the near chunks' AABBs. Section 9 needs exactly
+       * three things from a world and this is the third: collide, stand on, and SEE THROUGH or
+       * not. ⚠ It is the same box list the geometry was built from, so a shot cannot pass through
+       * something you can see — the 1:1 guarantee again, now doing work for line of sight and for
+       * every bullet. Returns the hit distance, or null. */
+      rayHit(ox, oy, oz, dx, dy, dz, maxT) {
+        const c = CW.chunkAt(ox, oz);
+        let best = maxT == null ? 400 : maxT, hit = null;
+        const rng = Math.ceil(Math.min(best, 240) / CW.CHUNK) + 1;
+        for (let i = -rng; i <= rng; i++) for (let j = -rng; j <= rng; j++) {
+          const e = near.get(key(c.cx + i, c.cz + j)); if (!e) continue;
+          const S = e.solids;
+          for (let n = 0; n < S.length; n++) { const b = S[n];
+            let t0 = 0, t1 = best, ok = true;
+            for (const [o, d, lo, hi] of [[ox, dx, b.x0, b.x1], [oy, dy, b.y0, b.y1], [oz, dz, b.z0, b.z1]]) {
+              if (Math.abs(d) < 1e-8) { if (o < lo || o > hi) { ok = false; break; } continue; }
+              let a = (lo - o) / d, bb = (hi - o) / d;
+              if (a > bb) { const t = a; a = bb; bb = t; }
+              if (a > t0) t0 = a; if (bb < t1) t1 = bb;
+              if (t0 > t1) { ok = false; break; }
+            }
+            if (ok && t0 >= 0 && t0 < best) { best = t0; hit = b; }
+          }
+        }
+        return hit ? { t: best, box: hit } : null;
+      },
+      /* ⚑ THE BOXES AROUND A POINT — what `js/city-ops.js` bakes cover out of. Section 9 bakes
+       * cover once per map from `MAP.solids`; a generated city has no bake step and no fixed map,
+       * so the same list has to be answerable as a query. Same boxes, same 1:1 guarantee: a bot
+       * cannot hide behind something that is not there to see. */
+      solidsNear(x, z) {
+        const c = CW.chunkAt(x, z); const out = [];
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+          const e = near.get(key(c.cx + i, c.cz + j)); if (!e) continue;
+          const S = e.solids;
+          for (let n = 0; n < S.length; n++) out.push(S[n]);
+        }
+        return out;
+      },
       /* ⚑ A WALL WITHIN REACH — what a squirrel needs and nothing else does. Returns the surface
        * normal of the nearest solid the body is pressed against, so climbing is a property of the
        * WORLD rather than a list of authored ladders. Every box in this city is climbable by
@@ -895,6 +1004,14 @@ window.CityApp = (function () {
     drops = window.CityDrops
       ? CityDrops.create(app, world, { collide, makeSquirrel: buildSquirrel })
       : null;
+    /* ⚑ SECTION 9 ON THE GROUND — artist, 2026-08-03. `moveBody` is handed over rather than
+     * reimplemented, so a bot walks this city by exactly the rule the player does; `onKill` is the
+     * line that keeps the firefight in the SAME game as the bird and the squirrel, because what
+     * falls out of an operative is a card and cards go in the binder. */
+    ops = window.CityOps
+      ? CityOps.create(app, world, { collide, moveBody, camera: cam,
+          onKill: (x, y, z) => { if (drops) drops.drop(x, y, z, 0, 0); } })
+      : null;
     /* Haze is set from the FAR TIER's reach, so the horizon fades into it instead of ending at a
      * hard edge — the same "geometry outside the visible range" correctness fix the duel stages
      * needed, only here the range is the streamer's and is known exactly. */
@@ -929,7 +1046,12 @@ window.CityApp = (function () {
   function step(dt) {
     if (!ready) return;
     stepDrops(dt);
+    /* ⚠ INPUT FIRST, THEN THE FIREFIGHT. `step()` returns early for the jet and for every body on
+     * foot, so anything that must run in EVERY mode has to happen above those branches — that is
+     * how a bot would otherwise freeze mid-reload the moment you became a bird. */
     const IN = readInput();
+    if (ops) ops.setTrigger(IN.fire);
+    stepOps(dt);
     if (IN.act) doAction();
     const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
     if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
@@ -1113,13 +1235,49 @@ window.CityApp = (function () {
    *   9 map is `MAP.solids`, a list of AABBs with a kind; `CityWorld.genChunk` emits exactly that,
    *   so collision, raycast, line-of-sight and cover baking all run on a city chunk unmodified.
    *   The capsule below is Section 9's own — r 0.42, h 1.72, step 0.62 — not a new invention.
-   * ⚠ WHAT IS HERE IS TRAVERSAL, AND SAYING SO IS THE POINT. Walking, looking, gravity, jumping
-   *   and standing on the city are real; weapons, bots and the firefight are the next step, and
-   *   `docs/CITY-GAME.md` lists them as such. A mode that half-exists and is described as finished
-   *   is how "built ≠ reachable" becomes "built ≠ true". */
-  const OP = { r: 0.42, h: 1.72, step: 0.62, eye: 1.58,
+   * ✅ THE FIREFIGHT IS REAL NOW — `js/city-ops.js`, artist 2026-08-03. This file still owns the
+   *   BODY (walking, looking, gravity, the camera); that one owns what happens to it (the weapon,
+   *   the bots, damage, the observer rule). The split is deliberate: movement is shared with the
+   *   squirrel and combat is not, so folding them together would put a weapon on an animal.
+   * ⚑ THE CAPSULE COMES FROM CityOps, NOT FROM A SECOND OPINION ABOUT IT. Section 9's own numbers
+   *   are r 0.42 / h 1.72 / step 0.62; the literal below is only what this file falls back to when
+   *   the combat module is absent, and `npm run test:reach` asserts the two agree. */
+  const OP = (window.CityOps && CityOps.BODY) ||
+             { r: 0.42, h: 1.72, step: 0.62, eye: 1.58,
                run: 6.4, sprint: 9.6, accel: 46, friction: 11, airAccel: 9,
                jump: 6.6, grav: 26, climb: false };
+
+  /* ⚑ THE COLLISION RESOLVE, FOR ANY BODY ON FOOT — the player's squirrel, the player's operative,
+   * and every bot `js/city-ops.js` puts in the street. `b` is any `{x,y,z,vx,vy,vz,onGround}`.
+   * Exported through the dev hook and handed to CityOps, so there is exactly one answer in this
+   * game to "what happens when a body meets the city". */
+  function moveBody(b, dt, B, climbing) {
+    let ny = b.y + b.vy * dt;
+    if (collide) {
+      const g = collide.groundBelow(b.x, b.z, ny, B.r, B.step);
+      if (g != null && ny <= g + 0.02 && b.vy <= 0) { ny = g; b.vy = 0; b.onGround = true; }
+      else if (!climbing) b.onGround = false;
+    }
+    let nx = b.x + b.vx * dt, nz = b.z + b.vz * dt;
+    if (collide) {
+      const probe = ny + B.step, hh = Math.max(0.2, B.h - B.step);
+      if (collide.hits(nx, probe, b.z, B.r, hh)) { nx = b.x; b.vx = 0; }
+      if (collide.hits(nx, probe, nz, B.r, hh)) { nz = b.z; b.vz = 0; }
+      // having moved, step UP onto whatever is now under us (a kerb, a stoop, a step)
+      const g2 = collide.groundBelow(nx, nz, ny + B.step, B.r, B.step);
+      if (g2 != null && g2 > ny && g2 - ny <= B.step && b.vy <= 0) { ny = g2; b.vy = 0; b.onGround = true; }
+      /* ⚠ A CEILING IS NOT A FLOOR. Without this you jump THROUGH the underside of a bridge and
+       * pop out on top of it, which reads as the city being made of paper. */
+      if (b.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = b.y; b.vy = 0; }
+    }
+    const edge = edgePush(nx, nz);
+    if (edge.out > 0) { nx += edge.nx * edge.out; nz += edge.nz * edge.out; }
+    b.x = nx; b.z = nz; b.y = ny;
+    b.speed = Math.hypot(b.vx, b.vz);
+    { const g = collide ? collide.groundBelow(b.x, b.z, b.y, B.r, B.step) : null;
+      b.alt = b.y - (g == null ? 0 : g); }
+    return b;
+  }
 
   /* ONE ground-movement integrator for the squirrel AND the operative, because they differ in
    * SIZE and REACH, not in physics. Two copies would drift, and the one that drifts is always the
@@ -1152,9 +1310,15 @@ window.CityApp = (function () {
 
     if (!climbing) {
       const a = (onG ? B.accel || 40 : B.airAccel || 8) * dt;
+      /* ⚑ STRAFE IS A SECOND WISH AXIS, NOT A SECOND MOVEMENT SYSTEM: the right vector of the same
+       * heading, added to the same accumulator. An operative sidesteps out of a doorway; a bird
+       * and a squirrel never ask for it and pass 0, so nothing else in the game changes. */
+      const sx = IN.strafe || 0;
+      const rx = hz, rz = -hx;                              // right = heading rotated -90°
       if (want > 0) { me.vx += hx * a; me.vz += hz * a; }
       else if (want < 0) { me.vx -= hx * a * 0.6; me.vz -= hz * a * 0.6; }
-      else if (onG) { const f = Math.max(0, 1 - (B.friction || 10) * dt); me.vx *= f; me.vz *= f; }
+      if (sx) { me.vx += rx * a * sx * 0.85; me.vz += rz * a * sx * 0.85; }
+      if (!want && !sx && onG) { const f = Math.max(0, 1 - (B.friction || 10) * dt); me.vx *= f; me.vz *= f; }
       const sp = Math.hypot(me.vx, me.vz);
       if (sp > top) { const k = top / sp; me.vx *= k; me.vz *= k; }
       me.vy -= (B.grav || 26) * dt;
@@ -1170,31 +1334,12 @@ window.CityApp = (function () {
      *   the floor itself as a wall. A body standing perfectly still on a surface it cannot walk
      *   along looks like broken input and is a collision-order mistake.
      * ⚑ Probing from `y + step` also gives STEP-UP for free: anything shorter than the step height
-     *   is simply not in the way, which is why a kerb is a kerb and not a fence. */
-    let ny = me.y + me.vy * dt;
-    if (collide) {
-      const g = collide.groundBelow(me.x, me.z, ny, B.r, B.step);
-      if (g != null && ny <= g + 0.02 && me.vy <= 0) { ny = g; me.vy = 0; me.onGround = true; }
-      else if (!climbing) me.onGround = false;
-    }
-    let nx = me.x + me.vx * dt, nz = me.z + me.vz * dt;
-    if (collide) {
-      const probe = ny + B.step, hh = Math.max(0.2, B.h - B.step);
-      if (collide.hits(nx, probe, me.z, B.r, hh)) { nx = me.x; me.vx = 0; }
-      if (collide.hits(nx, probe, nz, B.r, hh)) { nz = me.z; me.vz = 0; }
-      // having moved, step UP onto whatever is now under us (a kerb, a stoop, a step)
-      const g2 = collide.groundBelow(nx, nz, ny + B.step, B.r, B.step);
-      if (g2 != null && g2 > ny && g2 - ny <= B.step && me.vy <= 0) { ny = g2; me.vy = 0; me.onGround = true; }
-      /* ⚠ A CEILING IS NOT A FLOOR. Without this you jump THROUGH the underside of a bridge and
-       * pop out on top of it, which reads as the city being made of paper. */
-      if (me.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = me.y; me.vy = 0; }
-    }
-    const edge = edgePush(nx, nz);
-    if (edge.out > 0) { nx += edge.nx * edge.out; nz += edge.nz * edge.out; }
-    me.x = nx; me.z = nz; me.y = ny;
-    me.speed = Math.hypot(me.vx, me.vz);
-    { const g = collide ? collide.groundBelow(me.x, me.z, me.y, B.r, B.step) : null;
-      me.alt = me.y - (g == null ? 0 : g); }
+     *   is simply not in the way, which is why a kerb is a kerb and not a fence.
+     * ⚑ IT LIVES IN `moveBody` NOW, because `js/city-ops.js`'s bots have to walk this city the same
+     *   way the player does, and the comment three lines above says why: two copies drift, and the
+     *   one that drifts is the one nobody is currently looking at. A bot that sinks through a kerb
+     *   the player steps over is that bug with an audience. */
+    moveBody(me, dt, B, climbing);
     me.beat = Math.max(0, me.beat - dt * 2.4);
 
     if (isOp()) {
@@ -1202,7 +1347,14 @@ window.CityApp = (function () {
        * you are inside reads as motion sickness rather than as weight. */
       camPos.x = me.x; camPos.y = me.y + OP.eye; camPos.z = me.z;
       cam.setPosition(-camPos.x, camPos.y, camPos.z);
-      cam.lookAt(-(me.x + hx * 10), me.y + OP.eye + me.pitch * 10, me.z + hz * 10);
+      /* ⛔ PITCH IS AN ANGLE, AND THE CAMERA HAD BEEN READING IT AS A SLOPE. `y + pitch * 10` is
+       * tan-like; `js/city-ops.js` fires along `(sin(yaw)cos(pitch), sin(pitch), cos(yaw)cos(pitch))`,
+       * i.e. radians. They agree exactly at 0 and diverge with elevation — at 0.5 the view is
+       * 26.6° and the round left at 28.6°. That is the reticle lying about where the shot goes,
+       * which is the same defect class as the mirrored scene ("aim off" and "mouse inverted" were
+       * one bug), and it is invisible until somebody shoots at something above them. */
+      const cp = Math.cos(me.pitch);
+      cam.lookAt(-(me.x + hx * 10 * cp), me.y + OP.eye + Math.sin(me.pitch) * 10, me.z + hz * 10 * cp);
       return;
     }
 
@@ -1387,6 +1539,12 @@ window.CityApp = (function () {
     const g = $('modeGame'); if (g) g.textContent = MODES[MODE].name;
     const w = $('hudBL'); if (w) w.dataset.mode = MODE;
     document.body.dataset.mode = MODE;
+    /* ⚠ LEAVING THE MODE HAS TO LEAVE THE FIGHT. The reticle and the health bar are the two things
+     * that would otherwise sit over a bird, and a HUD element that survives its own mode is the
+     * same class of defect as the launch countdown that kept ticking under "THE PACK IS OPEN". */
+    const c = $('combat'); if (c && !isOp()) { c.dataset.on = ''; hudCache = ''; }
+    const r = $('reticle'); if (r) r.dataset.on = isOp() ? '1' : '';
+    if (ops && !isOp()) ops.setTrigger(false);
   }
 
   addEventListener('keydown', e => {
@@ -1403,6 +1561,39 @@ window.CityApp = (function () {
   /* ⚠ The drops advance inside `step()` rather than on their own tick, or a headless run that
    * drives `_step` would move the player and freeze the world around them — the same trap as a
    * probe that measures this container's rAF instead of the game. */
+  /* ⚑ THE FIREFIGHT ADVANCES ON THE SAME TICK AS EVERYTHING ELSE, for the reason recorded just
+   * below about the drops: a headless run that drives `_step` must move the world, not only the
+   * player. ⚠ AND IT RUNS IN EVERY MODE. A bot mid-reload when you swap to the bird would
+   * otherwise be frozen mid-reload when you swap back — and more importantly the bots have to be
+   * able to STOP: `step` reads `targetable` off the player, so switching to an animal is what
+   * makes them lose you, and that only happens if they are still thinking. */
+  function stepOps(dt) {
+    if (!ops) return;
+    ops.step(dt, { x: me.x, y: me.y, z: me.z, yaw: me.yaw, pitch: me.pitch,
+                   mode: MODE, armed: MODES[MODE].armed, targetable: MODES[MODE].targetable,
+                   onGround: me.onGround, speed: me.speed });
+    if (isOp()) syncCombatHud();
+  }
+
+  /* ⚠ A HUD THAT ONLY UPDATES WHEN IT CHANGES IS A HUD THAT LIES AFTER A MODE SWAP. This is
+   * written every frame in operative mode and CLEARED by `syncHud` on the way out, rather than
+   * left showing the health you had when you stopped being mortal. */
+  let hudCache = '';
+  function syncCombatHud() {
+    const el = $('combat'); if (!el || !ops) return;
+    const h = ops.hud;
+    const bar = n => { const k = Math.round(clamp(n, 0, 1) * 10);
+      return '█'.repeat(k) + '·'.repeat(10 - k); };
+    const s = h.alive
+      ? ('HP ' + bar(h.hp / h.maxHp) + ' ' + h.hp + (h.armor > 0 ? '  ▣ ' + h.armor : '') +
+         '\n' + h.weapon + '  ' + (h.reloading ? 'RELOADING' : h.mag + '/' + h.magSize) +
+         '   ◈ ' + h.bots + '   ' + h.kills + '–' + h.deaths)
+      : ('DOWN — back up in ' + h.down + 's\n' + h.kills + '–' + h.deaths);
+    if (s !== hudCache) { hudCache = s; el.textContent = s; }
+    el.dataset.on = '1';
+    el.dataset.hurt = h.hp / h.maxHp < 0.34 ? '1' : '';
+  }
+
   function stepDrops(dt) {
     if (!drops) return;
     /* ⚠ carryY 0.30 put the card INSIDE the squirrel — the body is ~0.19 deep and the card is
@@ -1469,6 +1660,14 @@ window.CityApp = (function () {
     },
     setMode, setCreature, cycleMode, get mode() { return MODE; },
     get drops() { return drops; }, _act() { return doAction(); },
+    /* ⛔ THE FIREFIGHT, EXPOSED SO THE OBSERVER RULE IS A MEASUREMENT. `ops.targets(player)` is the
+     * only place a target list is built, so a driver can put a bird next to four operatives and
+     * assert it never appears in one — which is the difference between an ethos and a comment. */
+    get ops() { return ops; },
+    _fire() { return ops ? ops.fire({ x: me.x, y: me.y, z: me.z, yaw: me.yaw, pitch: me.pitch,
+      mode: MODE, armed: MODES[MODE].armed, targetable: MODES[MODE].targetable }) : false; },
+    _targets() { return ops ? ops.targets({ x: me.x, y: me.y, z: me.z,
+      targetable: MODES[MODE].targetable }) : []; },
     get creature() { return CREATURE; }, MODES, CREATURES, ORDER, get ink() { return ink; },
     /* ⚑ COLOUR IS MEASURED, NOT LOOKED AT. This container's screenshot path rotates hue on canvas
      * content — a recorded false conclusion — so the print pass is judged on a histogram read

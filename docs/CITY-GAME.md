@@ -125,13 +125,64 @@ it. Worse, it fails *plausibly* — the aircraft flies, it just flies wrong.
 2. ✅ **All three modes traversable** — animal (bird ✅ · squirrel ✅ · cat/dog pending), dogfight,
    and section 9 on foot in first person. TAB cycles; the world does not reload.
 3. Jet combat: bolts, lock, bots — DOGFIGHT's, re-derived at city scale.
-4. Operative combat: Section 9's weapons and bots, on a chunk's `solids`.
+4. ✅ **Operative combat: Section 9's weapons and bots, on a chunk's `solids`** — `js/city-ops.js`.
 5. *Then* the two old cabinets retire.
 
-⚠ **WHAT EXISTS IS TRAVERSAL, AND SAYING SO IS THE POINT.** Walking, looking, gravity, jumping,
-climbing and standing on the city are real in all three modes. Weapons, bots and the firefight are
-not. A mode that half-exists and is described as finished is how *built ≠ reachable* becomes
-*built ≠ true*.
+⚠ **THE JET IS STILL TRAVERSAL, AND SAYING SO IS THE POINT.** Flying it is real; bolts, lock and
+bots are not. A mode that half-exists and is described as finished is how *built ≠ reachable*
+becomes *built ≠ true*.
+
+### ✅ SECTION 9 ON THE GROUND — `js/city-ops.js` (artist, 2026-08-03)
+*"you should be able to play as Section 9 on the ground in the city as well."*
+
+**The numbers are Section 9's, character for character**, because they were tuned together: 150 HP
+/ 60 armour, AK 17 · pistol 22 · buckshot 9 · rifle 88 ⇒ ~1.3 s TTK, headshot ×2.1 **and** armour
+soaking only 15% of a headshot against 45% of a body hit, out-of-combat regen to 62% after 4.5 s,
+tracers travelling at 340 m/s. At the old 0.63 s TTK cover, suppression and disengaging cannot
+exist — nobody lives long enough to use them.
+⚑ **And they cannot drift:** `npm run test:reach` parses **both** `city-ops.js` and `s9pc-game.js`
+and asserts the tables are identical. Importing `S9Game.WEAPONS` at runtime would cost 104 KB of
+maps, HUD and match clock to read one array, so the coupling is a test rather than a require —
+the same arrangement that keeps `build-hero-type.mjs`'s Python RUNS and the CSS type scale
+together. Verified to bite: two edited numbers → two failures.
+
+**Measured end to end** (`ops.mjs`, headless): a magazine empties and tracers travel; four bots
+spawn with real skinned bodies (`cc0-cel` · `cc0-grid` · `oni` · `kappa`), stand on the street and
+walk 10–29 m; a COLD CALL headshot takes **157.1** off a bot — 88 × 2.1 less a 15% armour soak, to
+the decimal — and the body drops a card into the binder; four operatives take a stationary player
+from 150 to down in **11.2 s**, first hit landing at **5.2 s**.
+
+⛔ **THE OBSERVER RULE IS A STRUCTURE, NOT A PROMISE.** `candidates()` is the only place a target
+list is built and it reads `targetable` off the candidate; bot acquisition calls `hostilesFor()`,
+which may only **narrow** that list. So an animal is absent *before* teams are even considered.
+Driven: a squirrel sat on an operative's boots for fifteen seconds and drew **zero rounds**, health
+never fell, and the bots went on thinking. *"We never gave the bird any health" is not a design.*
+
+**Four defects found by driving it, all of which look like something else:**
+- ⛔ **No teams meant the street cleared itself.** Four bots seeded 50 m apart killed each other in
+  thirteen seconds — 8 spawned, 5 dead, zero alive by the time the player walked over. A deathmatch
+  is what Section 9's *arena* is; a city you wander into is not, and "everyone was already dead
+  when you got there" reads as an empty game rather than an atmosphere.
+- ⛔ **Destroying a body destroyed the mesh every other body shares.** `S9PCSkin` memoises
+  `BUILT[arch].mesh`, so `entity.destroy()` took the vertex buffer with it and the next operative
+  of that archetype rendered from a dead one — *"Cannot read properties of null (reading
+  'getFormat')"*, with nothing visibly wrong until a body stopped drawing. Bodies are **parked**
+  now, never destroyed, which is also cheaper.
+- ⛔ **The reticle and the bullet disagreed.** The first-person camera read `pitch` as a slope
+  (`y + pitch * 10`) while the shot left along `sin(pitch)`. Identical at 0, 26.6° vs 28.6° at 0.5
+  — the same defect class as the mirrored scene, and invisible until you shoot at something above
+  you.
+- ⛔ **Bots with no line of sight wandered off.** `lastSeen` only exists once somebody has been
+  *seen*, so a hostile that had never had eyes on you had no reason to come: measured, they walked
+  110 m in random directions while the player stood in the street. A `push` state fixed it. That is
+  correct for a sentry and wrong for a squad sent to find you.
+
+⚠ **The difficulty knob is AIM and nothing else** — cone widens with range, with how recently the
+bot acquired you (~1.2 s settle), and with your own speed. Not dmg, not rate, not HP, not armour,
+which is what keeps TTK arithmetically identical to the arena's.
+
+⚠ **What the city has is Section 9's COMBAT, not Section 9's GAME.** No match clock, no arena
+picker, no loadout, no card powers, no powerups. The cabinet link stays for that reason.
 
 ### ⚑ THE SQUIRREL OWNS THE VERTICAL — and that is why it is an animal, not a re-skin
 The bird SEES the map and cannot get into it. The squirrel goes UP anything: hold forward against
@@ -173,6 +224,19 @@ to be balanced; the physics did it.**
 r 0.42 · h 1.72 · step 0.62 — Section 9's own numbers, because its map format *is* the city's chunk
 format and the body should match the thing the collision was written for. Measured: stands at
 street level, walks **11.7 m**, jumps **0.89 m**, first-person, mortal and armed.
+
+⚑ **AND A BULLET MUST MISS EXACTLY WHAT YOU COULD NOT WALK THROUGH.** The capsule the shot tests
+against is the same one the collider uses, and `npm run test:reach` asserts all four numbers appear
+in both `city-ops.js` and `city-app.js` — checked per number, because the two files declare them in
+different shapes and a regex written against one file's *layout* passes there and fails on the
+other for reasons that have nothing to do with the numbers agreeing. (It did exactly that on the
+first run.)
+
+⚑ **ONE COLLISION RESOLVE FOR EVERY BODY ON FOOT.** `moveBody()` was lifted out of `stepGround`
+and handed to `city-ops`, so a bot walks this city by the rule the player does. `stepGround`'s own
+comment already said why — *two copies drift, and the one that drifts is always the one nobody is
+currently looking at* — and a bot sinking through a kerb the player steps over is that bug with an
+audience.
 
 ⛔ **A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT WORKS.** The arcade shows four now, and THE
 CITY's own mode bar links the two old pages until their modes are real — so nothing shipped becomes

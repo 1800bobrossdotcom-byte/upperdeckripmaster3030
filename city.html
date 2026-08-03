@@ -55,8 +55,43 @@
   #carry{ left:50%; transform:translateX(-50%); bottom:calc(var(--bez) + 96px);
     font-size:11px; letter-spacing:.22em; color:var(--accent); opacity:0; transition:opacity .18s; }
   #carry[data-on="1"]{ opacity:.95; }
+  /* ── SECTION 9 ON THE GROUND. Two elements, and both are OFF unless the mode is armed — a HUD
+       that survives its own mode is the launch-countdown bug wearing a health bar. */
+  #combat{ right:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); text-align:right;
+    font-size:12px; line-height:1.7; letter-spacing:.10em; white-space:pre; opacity:0;
+    transition:opacity .16s; }
+  #combat[data-on="1"]{ opacity:.92; }
+  #combat[data-hurt="1"]{ color:#ff6b57; }
+  /* ⚠ AND THE LEGEND HAS TO GET OUT OF ITS WAY. `#hudBL` runs the full width of the bottom, so at
+     1100px the key hints printed straight THROUGH the health bar — the phone layout had already
+     been width-capped for exactly this and the desktop one never was, because on desktop there
+     had been nothing in that corner until now. Derived: the readout is ~22ch of 12px monospace. */
+  #hudBL[data-mode="operative"]{ max-width:calc(100% - var(--bez)*2 - 260px); }
+  /* ⚠ A CROSS, NOT A DOT. A single dot vanishes against the city's own posterised speckle at the
+     exact moment you need it; two strokes with a gap read as an instrument at any value.
+     ⛔ THE GAP IS A GRADIENT STOP, NOT A `clip-path`. The first version cut the gap with a
+     self-intersecting polygon — legal CSS, and it rendered NOTHING, so the reticle was absent from
+     a frame whose own HUD readout said `reticle=on`. An attribute is not a pixel.
+     ⛔ AND IT SEPARATES BY HUE, NOT BY VALUE. Measured cream at 0.85 opacity over the sand street
+     and it is genuinely rendering (24x24 at frame centre) and genuinely unreadable — paper #f4ead8
+     against a road that posterises to a warm tan is a value match, and the whole map is that
+     family. The accent is the one hue nothing in this city occupies, so it reads over sand, over
+     sky and over a dark wall without needing to be bigger. */
+  #reticle{ left:50%; top:50%; width:26px; height:26px; margin:-13px 0 0 -13px; opacity:0;
+    filter:drop-shadow(0 0 2px rgba(0,0,0,.95)) drop-shadow(0 1px 2px rgba(0,0,0,.75)); }
+  #reticle[data-on="1"]{ opacity:.95; }
+  #reticle::before, #reticle::after{ content:""; position:absolute; }
+  #reticle::before{ left:50%; top:0; width:2.5px; height:100%; margin-left:-1.25px;
+    background:linear-gradient(180deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
+  #reticle::after{ top:50%; left:0; height:2.5px; width:100%; margin-top:-1.25px;
+    background:linear-gradient(90deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
   .touchonly{ display:none; }
   @media (pointer: coarse){ .touchonly{ display:inline; } }
+  /* ⚠ `[hidden]` is not used here on purpose — these two are swapped by an attribute selector on
+     the parent, so there is exactly one rule deciding which legend is on screen. */
+  #hudBL .op{ display:none; }
+  #hudBL[data-mode="operative"] .fly{ display:none; }
+  #hudBL[data-mode="operative"] .op{ display:inline; }
   #modes{ right:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); text-align:right;
     font-size:11px; line-height:2; letter-spacing:.05em; opacity:.85; pointer-events:auto; }
   #modes b{ color:var(--accent); }
@@ -98,6 +133,14 @@
   body[data-mode="jet"] #tAct, body[data-mode="operative"] #tAct{ display:none; }
   #touchUI #tAct{ opacity:.72; font-size:19px; }
   #touchUI #tAct:active{ opacity:1; }
+  /* ⚑ THE TRIGGER IS THE BIGGEST THING ON SCREEN IN THE MODE THAT HAS ONE — the same rule that
+     made FLAP 74px: a control's size tracks how often a thumb wants it. It exists ONLY in
+     operative mode; a fire button over a bird is the observer rule broken in the UI. */
+  #tFire{ display:none; }
+  body[data-mode="operative"] #touchUI #tFire{ display:grid; width:74px; height:74px; font-size:26px;
+    border-color:rgba(255,107,87,.6); }
+  body[data-mode="operative"] #touchUI #tFlap{ width:56px; height:56px; font-size:22px;
+    border-color:rgba(244,234,216,.35); }
   /* ⛔ THE PHONE LAYOUT, AND THE FIRST PASS WAS A WRECK. Driven at 390x844: the top-left title and
      the top-right mode bar sat at the same altitude and drew straight through each other, the
      bottom hint ran underneath both control buttons and off the right edge, and the whole thing
@@ -132,20 +175,30 @@
 
   <div class="hud" id="hudTL">◈ THE CITY <b>· ripmaster3030studios ·</b> <span id="modeName">BIRD</span></div>
 
-  <!-- ⛔ THE MODE BAR ALSO CARRIES THE TWO GAMES THAT HAVE NOT FOLDED IN YET, and that is not a
-       placeholder — it is the rule. The arcade shows four cabinets now, so `dogfight.html` and
-       `section9.html` would be ORPHANED the moment they left the grid, i.e. a working game deleted
-       from reach to make a count look right. That is `npm run test:reach`'s failure with the sign
-       flipped. They live here until their modes are real, and then these two links go. -->
+  <!-- ⛔ THE MODE BAR ALSO CARRIES THE TWO OLD CABINETS, and that is not a placeholder — it is the
+       rule. The arcade shows four cabinets now, so `dogfight.html` and `section9.html` would be
+       ORPHANED the moment they left the grid, i.e. a working game deleted from reach to make a
+       count look right. That is `npm run test:reach`'s failure with the sign flipped.
+       ⚠ SECTION 9's mode is a real firefight now (js/city-ops.js) and the link STILL STAYS, because
+       what the city has is Section 9's COMBAT, not Section 9's GAME — no match clock, no arena
+       picker, no loadout, no card powers, no powerups. Retiring the cabinet on the strength of the
+       shared half would delete four features nobody replaced. DOGFIGHT's mode is still traversal
+       only: you can fly it, and there is nothing to shoot. -->
   <div class="hud" id="modes">
     <span class="kbd"><b>TAB</b> mode · <b>C</b> animal · </span><b id="modeGame">ANIMAL</b>
     <br><span class="dim">ANIMAL</span> observer, cannot be hurt ·
-    <span class="dim">DOGFIGHT · SECTION 9</span> mortal
+    <span class="dim">DOGFIGHT · SECTION 9</span> mortal, armed
     <br><span class="dim">the old cabinets →</span>
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
   <div class="hud" id="carry"></div>
+  <div class="hud" id="reticle"></div>
+  <div class="hud" id="combat"></div>
+  <!-- ⚠ TWO LEGENDS, SWITCHED BY THE MODE, because they are two control schemes and printing the
+       flight one over a firefight is a lie the player pays for. `js/city-app.js` sets
+       `#hudBL[data-mode]`; `.op` shows only in operative mode and `.fly` only outside it. -->
   <div class="hud" id="hudBL">
+    <span class="fly">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> fly &nbsp;
     <span class="key">SPACE</span> flap &nbsp; <span class="key">SHIFT</span> dive &nbsp;
     <span class="key">Q</span><span class="key">E</span> turn &nbsp;
@@ -153,6 +206,16 @@
     <span class="key">F</span> drop<br></span>
     <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · ✦ hold · ◔ animal · ⇄ mode · ✱ drop<br></span>
     <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
+    </span>
+    <span class="op">
+    <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp;
+    mouse aim &nbsp; <span class="key">CLICK</span> fire &nbsp; <span class="key">R</span> reload &nbsp;
+    <span class="key">1</span>–<span class="key">4</span> weapon &nbsp;
+    <span class="key">SHIFT</span> sprint &nbsp; <span class="key">SPACE</span> jump &nbsp;
+    <span class="key">TAB</span> mode<br></span>
+    <span class="touchonly" style="opacity:.75">left thumb moves · right thumb looks · ◉ fire · ✦ jump · ⇄ mode<br></span>
+    <span style="opacity:.6">click once to take the mouse · become an animal and nothing shoots at you</span>
+    </span>
   </div>
 
   <div id="nogl"><div class="panel">
@@ -169,7 +232,14 @@
 <script src="js/section9-world.js"></script>
 <script src="js/s9pc-world.js"></script>
 <script src="js/city-world.js"></script>
+<!-- ⚑ THE BODIES SECTION 9 ALREADY HAS. `section9-skin.js` is the poser and `s9pc-skin.js` is the
+     PlayCanvas rig; between them an operative in this city is the same articulated body as one in
+     the arena, down to the bind skeleton. 47 KB for both, against 104 KB for the whole game — and
+     `js/city-ops.js` fails open to an empty street if either is missing. -->
+<script src="js/section9-skin.js"></script>
+<script src="js/s9pc-skin.js"></script>
 <script src="js/city-drops.js"></script>
+<script src="js/city-ops.js"></script>
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>
