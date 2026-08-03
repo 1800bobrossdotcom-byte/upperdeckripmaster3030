@@ -97,43 +97,202 @@ window.CityApp = (function () {
   app.root.addChild(cam);
 
   // ═══ THE BIRD ═══════════════════════════════════════════════════════════════════════════════
-  /* ⚠ PLACEHOLDER BODY, ON PURPOSE. Step 1 asks whether the CITY reads from the air; a beautiful
-   * bird over a place that does not read would answer the wrong question, and DESIGN-SYSTEM §1
-   * gets its turn when the body is its own step. What IS real here is how it MOVES. */
+  /* Artist, 2026-08-03: *"we need it looking more like a birb please."* The first pass was a
+   * capsule with two boxes for wings and was labelled a placeholder; a placeholder you can see is
+   * still the thing on screen, so it is a bird now.
+   *
+   * ⚑ IT IS GENERATED GEOMETRY, NOT PRIMITIVES, because DESIGN-SYSTEM §1 is exactly about this:
+   *   a capsule and two boxes IS the default an engine hands you, and the recorded diagnosis of
+   *   the rejected hero wordmark was that "an agent handed a mood reaches for the default". A bird
+   *   is a lofted taper, a swept wing and a fanned tail — none of which is a primitive.
+   * ⚑ WHAT IT IS MADE OF (§1): painted card stock. Flat saturated ink, near-black where forms
+   *   meet, countershaded the way a real bird is — dark above, cream below — which here is done
+   *   with VERTEX COLOUR keyed on height, so it costs one attribute and no texture.
+   * ⚑ WHAT MOVES AND WHY (§4): the wing has a SHOULDER AND AN ELBOW, and the elbow lags the
+   *   shoulder. That lag is the whole reason a wingbeat reads as a wingbeat rather than as a
+   *   rotating plank — the outer hand is still coming down as the inner arm starts back up. The
+   *   tail fans when it is doing work (turning, braking) and sits closed when it is not.
+   * ⚠ Nothing here is driven by a clock. Beat phase comes from the impulse that caused it and the
+   *   tail from the turn input, so a perched bird is genuinely still. */
+
+  /* Loft a series of cross-section rings into a closed solid. Rings are arrays of [x,y,z] with the
+   * same point count; consecutive rings are stitched, and the ends are capped with fans.
+   * Normals are accumulated per face and normalised — the honest way, since a lofted taper has no
+   * analytic normal worth writing out. */
+  function loft(rings, cols) {
+    const n = rings[0].length, m = rings.length;
+    const pos = [], col = [], idx = [];
+    for (let r = 0; r < m; r++) for (let i = 0; i < n; i++) {
+      pos.push(rings[r][i][0], rings[r][i][1], rings[r][i][2]);
+      const c = cols ? cols(rings[r][i], r / (m - 1)) : [1, 1, 1];
+      col.push(c[0], c[1], c[2], 1);
+    }
+    for (let r = 0; r + 1 < m; r++) for (let i = 0; i < n; i++) {
+      const a = r * n + i, b = r * n + (i + 1) % n, c = (r + 1) * n + i, d = (r + 1) * n + (i + 1) % n;
+      idx.push(a, c, b, b, c, d);
+    }
+    // caps — a fan around each end ring's centroid, so the solid is closed and lights correctly
+    for (const [r, flip] of [[0, true], [m - 1, false]]) {
+      let cx = 0, cy = 0, cz = 0;
+      for (let i = 0; i < n; i++) { cx += rings[r][i][0]; cy += rings[r][i][1]; cz += rings[r][i][2]; }
+      const ci = pos.length / 3;
+      pos.push(cx / n, cy / n, cz / n);
+      const c = cols ? cols([cx / n, cy / n, cz / n], r / (m - 1)) : [1, 1, 1];
+      col.push(c[0], c[1], c[2], 1);
+      for (let i = 0; i < n; i++) { const a = r * n + i, b = r * n + (i + 1) % n;
+        if (flip) idx.push(ci, a, b); else idx.push(ci, b, a); }
+    }
+    const P = new Float32Array(pos), I = new Uint16Array(idx), N = new Float32Array(P.length);
+    for (let t = 0; t < I.length; t += 3) {
+      const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+      const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2];
+      const vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      for (const o of [a, b, c]) { N[o] += nx; N[o + 1] += ny; N[o + 2] += nz; }
+    }
+    for (let i = 0; i < N.length; i += 3) {
+      const l = Math.hypot(N[i], N[i + 1], N[i + 2]) || 1;
+      N[i] /= l; N[i + 1] /= l; N[i + 2] /= l;
+    }
+    const mesh = new pc.Mesh(app.graphicsDevice);
+    mesh.setPositions(P); mesh.setNormals(N); mesh.setColors(new Float32Array(col));
+    mesh.setIndices(I); mesh.update(pc.PRIMITIVE_TRIANGLES);
+    return mesh;
+  }
+
+  /* An ellipse ring in the xy plane at z, squashed and offset — the body's cross-section. */
+  function ring(z, rx, ry, oy, seg) {
+    const out = [];
+    for (let i = 0; i < seg; i++) { const a = i / seg * Math.PI * 2;
+      out.push([Math.cos(a) * rx, Math.sin(a) * ry + oy, z]); }
+    return out;
+  }
+
+  const INK = [0.13, 0.17, 0.24];        // near-black slate: the back, the wing, the tail
+  const CREAM = [0.94, 0.88, 0.74];      // the belly. Countershading is what makes a bird a bird.
+  const BEAK = [0.98, 0.55, 0.16];       // one warm accent, spent only on beak and feet
+
+  function birdMat(vertexColour) {
+    const m = new pc.StandardMaterial();
+    m.diffuse = new pc.Color(1, 1, 1);
+    m.useMetalness = true; m.metalness = 0.0; m.gloss = 0.22;
+    if (vertexColour) m.diffuseVertexColor = true;
+    m.update();
+    return m;
+  }
+  function flatMat(rgb) {
+    const m = new pc.StandardMaterial();
+    m.diffuse = new pc.Color(rgb[0], rgb[1], rgb[2]);
+    m.useMetalness = true; m.metalness = 0.0; m.gloss = 0.22;
+    m.update();
+    return m;
+  }
+
   const bird = new pc.Entity('bird');
   const wings = [];
+  let tailE = null;
   {
-    const mat = new pc.StandardMaterial();
-    mat.diffuse = new pc.Color(0.10, 0.11, 0.14);
-    mat.gloss = 0.30; mat.useMetalness = true; mat.metalness = 0.0;
-    mat.update();
-    const body = new pc.Entity('body');
-    body.addComponent('render', { type: 'capsule' });
-    body.setLocalScale(0.20, 0.34, 0.20);
-    body.setLocalEulerAngles(90, 0, 0);                       // lying along travel
-    body.render.meshInstances.forEach(mi => { mi.material = mat; });
-    bird.addChild(body);
-    /* Two wings on their own pivots at the shoulder, so a beat is a ROTATION about the body rather
-     * than a scale or a bob. Placeholder shapes, real hinge — the hinge is what step() drives. */
-    for (const s of [-1, 1]) {
-      const piv = new pc.Entity('shoulder' + s);
-      piv.setLocalPosition(s * 0.06, 0.02, -0.02);
-      const w = new pc.Entity('wing' + s);
-      w.addComponent('render', { type: 'box' });
-      w.setLocalScale(0.62, 0.03, 0.22);
-      w.setLocalPosition(s * 0.33, 0, 0);
-      w.render.meshInstances.forEach(mi => { mi.material = mat; });
-      piv.addChild(w); bird.addChild(piv);
-      wings.push({ e: piv, s });
+    const matBody = birdMat(true), matBeak = flatMat(BEAK), matInk = flatMat(INK);
+    /* countershading: ink above the waterline, cream below, with a short blend so it reads as
+     * printed rather than as two halves bolted together */
+    const shade = (p) => { const t = clamp((p[1] + 0.045) / 0.11, 0, 1);
+      return [lerp3(CREAM[0], INK[0], t), lerp3(CREAM[1], INK[1], t), lerp3(CREAM[2], INK[2], t)]; };
+
+    // ── the body: a lofted taper, nose at +z, tail at −z ──────────────────────────────────────
+    const SEG = 12;
+    /* ⚠ THE FIRST BODY WAS 5.8 : 1 AND READ AS A DART, not a bird — long, narrow, tapering to a
+     * point. A pigeon is nearer 2 : 1 with the mass forward of centre and a blunt end where the
+     * tail takes over. Shorter and fatter, and the taper stops rather than running to a spike. */
+    const prof = [[0.36, 0.034, 0.032, 0.014], [0.30, 0.082, 0.076, 0.008], [0.22, 0.134, 0.126, 0.000],
+                  [0.10, 0.172, 0.160, -0.008], [-0.02, 0.185, 0.170, -0.012], [-0.16, 0.156, 0.142, -0.006],
+                  [-0.28, 0.104, 0.094, 0.006], [-0.37, 0.048, 0.044, 0.018]];
+    bodyPart(bird, loft(prof.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
+
+    // ── the head, set forward and a little high, and a BEAK — the read at any distance ────────
+    const headP = [[0.34, 0.062, 0.058, 0.052], [0.41, 0.094, 0.090, 0.062], [0.49, 0.098, 0.094, 0.064],
+                   [0.56, 0.078, 0.074, 0.060], [0.60, 0.044, 0.042, 0.054]];
+    bodyPart(bird, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
+    const beakP = [[0.58, 0.038, 0.032, 0.052], [0.66, 0.026, 0.019, 0.049], [0.74, 0.006, 0.005, 0.046]];
+    bodyPart(bird, loft(beakP.map(q => ring(q[0], q[1], q[2], q[3], 8)), null), matBeak);
+    for (const s of [-1, 1]) {                                    // eyes: two ink dots, no more
+      const e = new pc.Entity('eye' + s);
+      e.addComponent('render', { type: 'sphere' });
+      e.setLocalScale(0.028, 0.028, 0.028);
+      e.setLocalPosition(s * 0.072, 0.086, 0.512);
+      e.render.meshInstances.forEach(mi => { mi.material = matInk; });
+      bird.addChild(e);
     }
+
+    /* ── the wings. TWO JOINTS: shoulder then elbow, and the elbow is a CHILD of the shoulder so
+     * it inherits the beat and adds its own lag. A single-pivot wing is a plank. */
+    for (const s of [-1, 1]) {
+      const sh = new pc.Entity('shoulder' + s);
+      sh.setLocalPosition(s * 0.105, 0.055, 0.06);
+      /* ⚠ CHORD 0.15 ON A 0.86 SPAN IS A BLADE. A bird's inner wing is nearly as deep as its body
+       * and that depth is most of what the silhouette is; the outer hand is what tapers. */
+      const inner = [[0.00, 0.290, 0.034], [0.13, 0.300, 0.028], [0.26, 0.272, 0.022]];
+      bodyPart(sh, wingLoft(inner, s), matBody, shade);
+      const el = new pc.Entity('elbow' + s);
+      el.setLocalPosition(s * 0.26, 0, 0);
+      // outer hand: long, swept back, tapering to a point — the primaries
+      const outer = [[0.00, 0.268, 0.022], [0.16, 0.238, 0.016], [0.32, 0.186, 0.011],
+                     [0.46, 0.112, 0.007], [0.58, 0.026, 0.004]];
+      bodyPart(el, wingLoft(outer, s, 0.30), matBody, shade);
+      sh.addChild(el); bird.addChild(sh);
+      wings.push({ sh, el, s });
+    }
+
+    // ── the tail: a flat fan behind the body, and it FANS when the bird is working ────────────
+    tailE = new pc.Entity('tail');
+    tailE.setLocalPosition(0, 0.014, -0.36);
+    const tailP = [[0.00, 0.052, 0.014], [-0.14, 0.104, 0.010], [-0.30, 0.152, 0.007], [-0.42, 0.168, 0.005]];
+    bodyPart(tailE, tailLoft(tailP), matBody, shade);
+    bird.addChild(tailE);
   }
   world.addChild(bird);
 
+  function lerp3(a, b, t) { return a + (b - a) * t; }
+  function bodyPart(parent, mesh, mat) {
+    const e = new pc.Entity('part');
+    const mi = new pc.MeshInstance(mesh, mat, e);
+    e.addComponent('render', { meshInstances: [mi], castShadows: true });
+    parent.addChild(e);
+    return e;
+  }
+  /* A wing is a solid, not a plane: a single-sided sheet vanishes from below under back-face
+   * culling, and turning culling off for it would light both faces the same and kill the form.
+   * Stations are [spanOffset, chord, thickness]; `sweep` rakes the trailing edge back. */
+  function wingLoft(st, s, sweep) {
+    const sw = sweep || 0.10;
+    const rings = st.map((q, i) => {
+      const t = i / (st.length - 1), x = s * q[0], c = q[1], th = q[2], back = -sw * t * t;
+      const out = [];
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2;
+        out.push([x, Math.sin(a) * th, back + Math.cos(a) * c * 0.5 - c * 0.10]); }
+      return out;
+    });
+    return loft(rings, () => INK);
+  }
+  function tailLoft(st) {
+    const rings = st.map(q => {
+      const out = [];
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2;
+        out.push([Math.cos(a) * q[1], Math.sin(a) * q[2], q[0]]); }
+      return out;
+    });
+    return loft(rings, () => INK);
+  }
+
   /* ── FLIGHT ─────────────────────────────────────────────────────────────────────────────────
-   * `RoninWorld.MOVE` is tuned for a ninja on foot; a bird is a different animal and gets its own
-   * numbers. What is KEPT is the one idea worth keeping — ⚑ WING ENERGY DRAINS IN THE AIR AND
-   * REFILLS ON THE GROUND, i.e. a bird that MUST LAND, which is what makes a perch a decision
-   * rather than a pause.
+   * ⛔ **THE FUEL IS GONE. Artist, 2026-08-03: *"the bird needs to be able to just fly… no having
+   *   to land to keep flying."*** The brief had argued for wing energy that only refills on the
+   *   ground — "a bird that must land" — on the grounds that it makes a perch a decision. It also
+   *   makes a mellow game about looking at things into a game about a meter, and in a city 3.84 km
+   *   across it means running out over the middle of the river. Overruled, and rightly.
+   *   ⚑ What SURVIVES the removal is everything that made it feel like a bird rather than a drone,
+   *     because none of it was ever the fuel: the beat is still discrete, the glide is still free
+   *     and still the default, and height and speed are still one currency. The meter was a
+   *     constraint bolted onto a good model, not the model.
    *
    * ⛔ THE FIRST VERSION WAS A HELICOPTER, AND THE ARC SAID SO. Held SPACE was a sustained
    *   +15 m/s² and held W a sustained +26, so 70 driven frames took the bird from y 2.5 to
@@ -144,19 +303,16 @@ window.CityApp = (function () {
    *     · a WINGBEAT IS DISCRETE. `flapEvery` is a refractory period, so SPACE is a beat you
    *       spend, not a button you lean on. Holding it gives you beats at a wing's rate.
    *     · GLIDING IS FREE AND IS THE DEFAULT. Speed² buys lift; at `glideSpd` it exactly cancels
-   *       gravity, so a fast bird sinks slowly and a slow one drops. Height and speed are one
-   *       currency — the same trade DOGFIGHT's flight model already proves works.
+   *       gravity, so a fast bird sinks slowly and a slow one drops.
    *     · LIFT IS CAPPED. Uncapped, spd² at the speed cap produced +34 m/s² of climb and the bird
    *       became a rocket. 1.35× gravity leaves ~5 m/s² of climb, which is a bird.
    *     · DIVING IS FREE, AND IT TUCKS. SHIFT cuts drag as well as adding descent, so a dive is
    *       genuinely how you buy speed back — the swoop.
-   *     · ONLY THE WINGS COST. W (beat forward) and SPACE (beat up) drain; glide and dive do not.
-   *       So the loop is climb hard → glide far → perch, and it is the fuel that makes it mellow.
    * ⚠ Nothing here reads absolute time, so a bird sitting on a ledge is genuinely still — the
    *   DESIGN-SYSTEM §4 rule this project keeps having to re-learn. */
   const FLY = {
     thrust: 14,          // held W — a beat forward, not an engine
-    dragK: 0.0125,       // QUADRATIC. v halves in ~4 s from 20 m/s, so a glide carries.
+    dragK: 0.0080,       // QUADRATIC, and LOW — a glide has to carry hundreds of metres, not tens.
     tuckDrag: 0.45,      // × dragK while diving — a tucked bird is cleaner
     gravity: 14,
     lift: 0.062,         // spd² × this = lift. glideSpd = sqrt(gravity/lift) ≈ 15 m/s.
@@ -164,17 +320,13 @@ window.CityApp = (function () {
     flapV: 6.2,          // one beat, straight into vy. An impulse, not an acceleration.
     flapFwd: 2.6,        //   …and a little forward: a bird beats down AND back
     flapEvery: 0.32,     // s. The refractory period IS what makes it a wingbeat.
-    flapCost: 0.050,     // wing energy per beat
-    thrustCost: 0.16,    //   …and per second of held forward beating
     dive: 16,            // SHIFT
     turn: 2.2,           // rad/s at speed; scaled down when slow — no rudder without airflow
     maxSpd: 28,
     vDamp: 0.35,         // gentle, or a dive can never build speed
-    refill: 0.62,        // per second perched
-    minLaunch: 0.12,     // cannot beat below this
   };
 
-  const me = { x: 0, y: 6, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, fuel: 1, onGround: false,
+  const me = { x: 0, y: 6, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, onGround: false,
                speed: 0, flapT: 0, beat: 0, alt: 0 };
   const keys = Object.create(null);
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
@@ -373,7 +525,7 @@ window.CityApp = (function () {
     const fwdIn = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
     const turnIn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) - (keys['a'] || keys['q'] || keys['arrowleft'] ? 1 : 0);
     const diving = !!keys['shift'];
-    const wantFlap = !!keys[' '] && me.fuel > FLY.minLaunch;
+    const wantFlap = !!keys[' '];      // no meter: a bird can always beat its wings
 
     const spd0 = Math.hypot(me.vx, me.vz);
     // no rudder without airflow — a bird turns by banking, and banking needs air over the wing
@@ -386,21 +538,16 @@ window.CityApp = (function () {
      * bird and a helicopter, and it is a state variable rather than a function of the clock. */
     me.flapT = Math.max(0, me.flapT - dt);
     me.beat = Math.max(0, me.beat - dt * 3.4);          // the visual settle after a beat
-    if (wantFlap && me.flapT <= 0 && !me.onGround) {
+    if (wantFlap && me.flapT <= 0) {
       me.flapT = FLY.flapEvery; me.beat = 1;
-      me.vy += FLY.flapV;
-      me.vx += hx * FLY.flapFwd; me.vz += hz * FLY.flapFwd;
-      me.fuel = Math.max(0, me.fuel - FLY.flapCost);
-    } else if (wantFlap && me.onGround) {               // launch: the first beat off the ground
-      me.flapT = FLY.flapEvery; me.beat = 1;
-      me.vy += FLY.flapV * 1.25; me.onGround = false;
-      me.fuel = Math.max(0, me.fuel - FLY.flapCost);
+      me.vy += me.onGround ? FLY.flapV * 1.25 : FLY.flapV;   // the launch beat is the bigger one
+      if (!me.onGround) { me.vx += hx * FLY.flapFwd; me.vz += hz * FLY.flapFwd; }
+      me.onGround = false;
     }
 
     // held W is a beat FORWARD, and like every beat it spends wing energy
     let thrust = 0;
-    if (fwdIn > 0 && me.fuel > FLY.minLaunch) { thrust = FLY.thrust;
-      me.fuel = Math.max(0, me.fuel - FLY.thrustCost * dt); }
+    if (fwdIn > 0) thrust = FLY.thrust;
     else if (fwdIn < 0) { me.vx *= (1 - 1.6 * dt); me.vz *= (1 - 1.6 * dt); }
 
     /* ── the boundary, applied to the THRUST rather than only to the velocity. ⛔ The first version
@@ -425,6 +572,29 @@ window.CityApp = (function () {
     const lift = Math.min(spd * spd * FLY.lift, FLY.gravity * FLY.liftCap);
     me.vy += (lift - FLY.gravity) * dt;
     if (diving) me.vy -= FLY.dive * dt;
+
+    /* ⛔ THE TERM THAT MAKES "HEIGHT AND SPEED ARE ONE CURRENCY" LITERALLY TRUE, and without it the
+     * sentence was only a comment. Conservation of energy is `v·dv = −g·dh`: descending BUYS
+     * airspeed and climbing SPENDS it. Measured before it existed — released at 111 m with wing
+     * energy gone, the bird carried **15 m in 15 seconds** and arrived at the ground almost
+     * vertically. That is a parachute. Lift was being computed from a speed that nothing was
+     * feeding, so the glide bled to nothing and then simply fell.
+     * ⚠ It is the same trade DOGFIGHT already proves works (`spd -= dAlt * 3.4` there); the
+     *   difference is only that this side derives it rather than picking a constant.
+     * ⚠ Divide by a FLOORED speed. At v → 0 the true dv → ∞, and a bird hovering at zero would be
+     *   flung forward by its own sink rate. */
+    /* ⛔ ONLY THE DESCENT HALF, AND THE SYMMETRIC VERSION IS A MEASURED FAILURE, not a shortcut.
+     * Taxing the climb by the same rule divides by the HORIZONTAL speed, which during a powered
+     * climb is small while `vy` is large — so the factor collapses, and it collapses again next
+     * frame. Driven: speed went 19.6 → 0.1 in two seconds and the bird sank vertically out of the
+     * world. Physically that is even correct (a bird climbing at 20 m/s with 1 m/s forward really
+     * has put everything into the climb) and it is still useless as a game.
+     * ⚑ The climb is ALREADY paid for, twice: lift is capped at 1.35 g so climb rate is bounded,
+     *   and beating costs wing energy. The asymmetry buys the swoop without the spiral. */
+    if (me.vy < 0 && spd > 0.2) {
+      const dv = Math.min(FLY.gravity * -me.vy * dt / Math.max(spd, 6), 1.2);
+      me.vx *= 1 + dv / spd; me.vz *= 1 + dv / spd;
+    }
 
     // quadratic drag, because that is what makes a glide carry and a dive build
     const kDrag = FLY.dragK * (diving ? FLY.tuckDrag : 1);
@@ -468,8 +638,6 @@ window.CityApp = (function () {
     { const g = collide ? collide.groundBelow(me.x, me.z, me.y) : null;
       me.alt = g == null ? me.y - (bounds ? bounds.min[1] : 0) : me.y - g; }
 
-    // ⚑ perched: the wing energy comes back. A bird that must land.
-    if (me.onGround) me.fuel = Math.min(1, me.fuel + FLY.refill * dt);
 
     /* ── the body: bank into the turn, pitch with climb rate, and the WINGS BEAT. Attitude comes
      * from MOTION and the beat from the impulse that caused it — never from a clock. */
@@ -477,7 +645,20 @@ window.CityApp = (function () {
     const bank = clamp(-turnIn * 34 * Math.min(1, me.speed / 12), -38, 38);
     const pitch = clamp(-me.vy * 2.4, -42, 42);
     bird.setLocalEulerAngles(pitch, me.yaw * 180 / Math.PI, bank);
-    for (const w of wings) w.e.setLocalEulerAngles(0, 0, w.s * (me.beat * 46 - 8));
+    /* ⚑ THE ELBOW LAGS THE SHOULDER, and that lag IS the wingbeat. Driven together they are a
+     * rotating plank; ~90 ms apart the outer hand is still coming down while the inner arm has
+     * started back up, which is the shape every bird makes. `beat` decays from the IMPULSE that
+     * caused it, so this is a spring settling, not a loop playing. */
+    const beatOut = Math.max(0, me.beat - 0.28);
+    for (const w of wings) {
+      w.sh.setLocalEulerAngles(0, 0, w.s * (me.beat * 52 - 6));
+      w.el.setLocalEulerAngles(0, 0, w.s * (beatOut * 64 - 4 + Math.min(0, -me.speed * 0.2)));
+    }
+    /* the tail fans when the bird is WORKING — turning hard, or slow and about to stall — and
+     * closes when it is not. A tail that is always fanned is a decoration. */
+    if (tailE) { const work = Math.min(1, Math.abs(turnIn) * 0.7 + Math.max(0, 1 - me.speed / 9));
+      tailE.setLocalScale(1 + work * 0.85, 1, 1);
+      tailE.setLocalEulerAngles(-work * 16, 0, clamp(-turnIn * 12, -12, 12)); }
 
     /* ── the camera SETTLES, it does not follow. A perfect track reads as a drone. ──────────────
      * ⚑ AND IT LOOKS DOWN THE HIGHER YOU ARE. Framed level, a bird at 40 m fills the screen with
@@ -494,7 +675,7 @@ window.CityApp = (function () {
     cam.setPosition(-camPos.x, camPos.y, camPos.z);
     cam.lookAt(-(me.x + hx * ahead), me.y + 0.35 - droop, me.z + hz * ahead);
 
-    const f = $('fuelIn'); if (f) f.style.width = (me.fuel * 100).toFixed(0) + '%';
+
   }
   const camPos = { x: 0, y: 8, z: -6 };
   /* The world edge as an inward normal + how far past it you are. Kept separate from `step` because
@@ -540,7 +721,7 @@ window.CityApp = (function () {
         if (v.parts) for (const p of v.parts) { cls.add(p.key); tris += (p.mesh && p.mesh.primitive && p.mesh.primitive[0] ? p.mesh.primitive[0].count / 3 : 0) | 0; } }
       const c = CW ? CW.chunkAt(me.x, me.z) : { cx: 0, cz: 0 };
       return { ready, x: +me.x.toFixed(2), y: +me.y.toFixed(2), z: +me.z.toFixed(2),
-        yaw: +me.yaw.toFixed(3), speed: +me.speed.toFixed(2), fuel: +me.fuel.toFixed(3),
+        yaw: +me.yaw.toFixed(3), speed: +me.speed.toFixed(2),
         alt: +me.alt.toFixed(2), onGround: me.onGround,
         chunk: c.cx + ',' + c.cz, district: CW ? CW.districtAt(c.cx, c.cz) : '?',
         nearChunks: near.size, farRegions: far.size, solids, tris,

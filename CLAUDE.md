@@ -820,14 +820,47 @@ away rebuilds identically).
   half of that fix is `nearClip` 0.12 → 0.4**: near clip is a depth-PRECISION dial, and 0.12 m
   against a kilometre-scale far clip spends the whole buffer inside the first metre.
 
+### ⛔ NO FUEL, AND IT LOOKS LIKE A BIRD — two artist corrections, 2026-08-03
+*"the bird needs to be able to just fly - and we need it looking more like a birb please. no having
+to land to keep flying."*
+- ⛔ **THE WING-ENERGY METER IS GONE.** The brief had argued for it ("a bird that must land" makes a
+  perch a decision). It also makes a mellow game about looking at things into **a game about a
+  meter**, and in a 3.84 km city it means running out over the middle of the river.
+  ⚑ **Everything that made it feel like a bird rather than a drone SURVIVED the removal**, because
+  none of it was ever the fuel: the beat is still discrete, the glide is still free and default,
+  height and speed are still one currency. **The meter was a constraint bolted onto a good model.**
+- ⛔ **"PLACEHOLDER" IS NOT A DEFENCE FOR WHAT IS ON SCREEN.** The body was a capsule and two boxes,
+  labelled a placeholder in three separate comments — and a placeholder you can see is still the
+  thing the artist sees. It is generated geometry now: a lofted taper, a **two-joint** wing
+  (shoulder + elbow), a fanning tail, a beak, and countershading done with **vertex colour** keyed
+  on height (dark above, cream below) so it costs one attribute and no texture.
+  ⚑ **A capsule and two boxes IS the default an engine hands you** — the exact DESIGN-SYSTEM §1
+    failure, and the third time on this project. A bird is a taper, a sweep and a fan; none of
+    those is a primitive.
+  ⚑ **§4 — what moves and why: THE ELBOW LAGS THE SHOULDER.** Driven together they are a rotating
+    plank; ~90 ms apart the outer hand is still coming down while the inner arm has started back
+    up, which is the shape every bird makes. The tail fans only when the bird is *working*
+    (turning, or slow); a tail that is always fanned is a decoration.
+  ⚠ **The first body was 5.8 : 1 and read as a DART.** A pigeon is nearer 2 : 1 with the mass
+    forward. Likewise a 0.15 chord on a 0.86 span is a blade, not a wing — a bird's inner wing is
+    nearly as deep as its body, and that depth is most of the silhouette.
+  ⚠ **A probe that sets the camera will be overwritten** — the live `app.on('update')` re-places it
+    every frame, which reads as "the framing is wrong" and is not. `app.off('update')` first.
+
 ### ⛔ THE FIRST FLIGHT MODEL WAS A HELICOPTER, AND THE ARC SAID SO
 Held SPACE was a sustained +15 m/s² and held W +26, so 70 driven frames took the bird to **y 48.5
 over a level whose highest roof is 17.5**, then out through the side at (41, 36) against ±27 × ±23.
 - ⚑ **A WINGBEAT IS DISCRETE.** `flapEvery` is a refractory period, so SPACE is a beat you spend,
   not a button you lean on. **Gliding is free and is the default** (speed² buys lift; at ~15 m/s it
-  cancels gravity), **diving is free and tucks** (drag × 0.45 — the swoop), and **only the wings
-  cost**: W and SPACE drain, glide and dive do not, perching refills. So the loop is *climb hard →
-  glide far → perch*, and the fuel is what makes it mellow.
+  cancels gravity) and **diving tucks** (drag × 0.45 — the swoop).
+- ⛔ **"HEIGHT AND SPEED ARE ONE CURRENCY" WAS ONLY A COMMENT UNTIL THE ENERGY TERM EXISTED.**
+  Conservation is `v·dv = −g·dh`. Without it, released at 111 m the bird **carried 15 m in 15 s**
+  and arrived almost vertically — a parachute. With it: **245 m for 22 m of height, about 11 : 1.**
+  ⚠ **Only the DESCENT half, and the symmetric version is a MEASURED failure.** Taxing the climb by
+  the same rule divides by the *horizontal* speed, which during a powered climb is small while `vy`
+  is large, so the factor collapses — and again next frame. Driven: 19.6 → 0.1 m/s in two seconds,
+  sinking vertically out of the world. The climb is already paid for twice (lift capped at 1.35 g,
+  and beating is the only way up).
 - ⚠ **LIFT MUST BE CAPPED** — uncapped, speed² at the speed cap is +34 m/s² and the bird is a rocket.
 - ⚠ **A BOUNDARY YOU CAN LEAN AGAINST IS NOT A BOUNDARY.** The first soft edge was a spring the
   thrust simply out-muscled: at 8 m outside it the two balanced and the bird hung there, stalled,

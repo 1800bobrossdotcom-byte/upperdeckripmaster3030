@@ -22,9 +22,14 @@
     quadruped rig is a KNOWN hard problem that no prototype de-risks, while "is this place worth
     looking at" is the UNKNOWN one, and a mellow game lives or dies on it.
 
-  ⚠ THE BIRD'S BODY IS A PLACEHOLDER AND IS MEANT TO BE. Step 1 asks about the CITY, not the
-    animal; a beautifully modelled bird over a place that does not read would answer the wrong
-    question. DESIGN-SYSTEM §1 applies to it when it is its own step.
+  ⚠ THE BIRD'S BODY WAS A PLACEHOLDER AND IS NOT ANY MORE — artist, 2026-08-03: "we need it
+    looking more like a birb please." A placeholder you can see is still the thing on screen. It is
+    now generated geometry (lofted taper, swept two-joint wing, fanning tail, beak), because a
+    capsule and two boxes is exactly the DEFAULT that DESIGN-SYSTEM §1 exists to refuse.
+  ⛔ AND THERE IS NO FUEL. "the bird needs to be able to just fly - no having to land to keep
+    flying." The brief had wing energy that only refilled on the ground; a meter is the opposite of
+    mellow, and in a 3.84 km city it means running out over the river. Everything that made it feel
+    like a bird survives the removal, because none of it was ever the meter.
 -->
 <style>
   :root{ --sky:#8fc4e8; --ink:#0d1b2a; --paper:#f4ead8; --accent:#ff6b57; --rad:14px; --bez:12px; }
@@ -37,9 +42,6 @@
   #hudTL{ left:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); font-size:12px; letter-spacing:.16em; opacity:.9; }
   #hudTL b{ color:var(--accent); }
   #hudBL{ left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); font-size:11.5px; line-height:1.9; opacity:.78; }
-  #fuel{ position:fixed; z-index:5; left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 74px);
-    width:180px; height:7px; border-radius:4px; background:rgba(0,0,0,.35); overflow:hidden; pointer-events:none; }
-  #fuelIn{ height:100%; width:100%; background:linear-gradient(90deg,#ffd23b,#ff6b57); transition:width .12s linear; }
   .key{ display:inline-block; min-width:20px; padding:1px 6px; margin-right:4px; border-radius:5px;
     background:rgba(244,234,216,.14); border:1px solid rgba(244,234,216,.22); font-size:10.5px; }
   #nogl{ position:fixed; inset:0; z-index:40; display:none; place-items:center; padding:24px; text-align:center; background:var(--ink); }
@@ -57,12 +59,11 @@
   <canvas id="cv"></canvas>
 
   <div class="hud" id="hudTL">◈ THE CITY <b>· working title ·</b> step 1 · the bird</div>
-  <div id="fuel"><div id="fuelIn"></div></div>
   <div class="hud" id="hudBL">
     <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> fly &nbsp;
-    <span class="key">SPACE</span> climb &nbsp; <span class="key">SHIFT</span> dive &nbsp;
+    <span class="key">SPACE</span> flap &nbsp; <span class="key">SHIFT</span> dive &nbsp;
     <span class="key">Q</span><span class="key">E</span> turn<br>
-    <span style="opacity:.6">fuel refills when you perch — a bird that must land</span>
+    <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
   </div>
 
   <div id="nogl"><div class="panel">

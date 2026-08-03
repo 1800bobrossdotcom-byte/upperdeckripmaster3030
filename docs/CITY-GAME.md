@@ -142,11 +142,19 @@ state variable, never a function of absolute time** — the rule the pickups alr
 
 - **Leaves and grass** move because something *passed through them*. A bird landing bends the
   branch it lands on, and the branch springs back. Wind is a slow drift, not a loop.
-- **The bird itself**: wingbeats cost height, a glide trades height for distance, and a perch is a
-  full stop with a settle. ⚑ `js/ronin-world.js` already has `leapBonus` — a jump whose distance
-  scales with run speed — and `boostUp/boostMax/boostDrain/boostRefill`, i.e. **flight with a fuel
-  budget that refills on the ground.** That is a bird that must land, which is a better bird than
-  one that can hover forever.
+- **The bird itself**: a wingbeat is a discrete impulse with a refractory period, a glide trades
+  height for distance, and a perch is a full stop with a settle.
+  ⛔ **THERE IS NO FUEL. Artist, 2026-08-03: *"the bird needs to be able to just fly - no having to
+  land to keep flying."*** This section previously argued for wing energy that only refills on the
+  ground — "a bird that must land" — on the grounds that it makes a perch a decision. It also turns
+  a mellow game about looking at things into a game about a meter, and in a city 3.84 km across it
+  means running out over the middle of the river. **Overruled, and rightly.**
+  ⚑ **What survives the removal is everything that made it feel like a bird rather than a drone**,
+  because none of it was ever the fuel: the beat is still discrete (a held key gives beats at a
+  wing's rate, not thrust), the glide is still free and still the default, and height and speed are
+  still one currency. The meter was a constraint bolted onto a good model, not the model.
+  ⚠ Measured after the change: sustained climb to the 210 m ceiling, and **245 m of glide for 22 m
+  of height** — about 11 : 1 — where before it carried 15 m in 15 s and arrived almost vertically.
 - **The camera settles, it does not follow.** A chase camera that tracks perfectly reads as a
   drone. It should lag, then catch up, then overshoot slightly and settle — the same spring
   language as everything else here.
@@ -196,6 +204,7 @@ than a floor. Every surface in this game is stood on, climbed, or perched on, so
 | engine | **PlayCanvas, adopted.** Section 9's build is the working reference: shadow maps, clustered lights, SSAO, bloom, the CameraFrame stack, quality tiers. |
 | pickups | portal drop + collection + `js/card-powers.js`, built 2026-08-02. Directly reusable as *found cards*. |
 | bodies | `S9Skin` auto-skinning from `.skn`; `scripts/blender/build-cc0-chars.py` generates bodies procedurally, no third-party mesh committed. |
+| the bird | ✅ **BUILT** — generated geometry in `js/city-app.js`: lofted taper, swept **two-joint** wing (shoulder + lagging elbow), fanning tail, beak, countershading by vertex colour. Not primitives, because a capsule and two boxes *is* the default DESIGN-SYSTEM §1 exists to refuse. |
 
 ### ⚠ What does NOT exist, stated plainly
 
