@@ -178,7 +178,7 @@ for (const p of ['section9.html']) {
  *   software path; `#nogl` has to say so and hand the visitor somewhere that actually works. A
  *   panel still linking the deleted build would be the worst of both — it looks like a fallback
  *   and 404s. */
-head('4b · the no-WebGL2 route is honest, not a dead link');
+head('4b · the no-WebGL2 route is honest, not a dead link and not a false promise');
 {
   const s9 = R('section9.html');
   /* ⚠ THE DETECTION IS IN THE MODULE, NOT THE PAGE. First cut asserted `getContext('webgl2')`
@@ -190,16 +190,35 @@ head('4b · the no-WebGL2 route is honest, not a dead link');
   t('it shows the #nogl panel rather than a black rectangle', /id="nogl"/.test(s9));
   t('it sends the visitor to the arcade, which still has 2D-capable games',
     /<a href="arcade\.html"/.test(s9));
-  t('section9-classic.html is gone from the tree', !existsSync(join(ROOT, 'section9-classic.html')));
+  /* ⚠ ALL FOUR, not just Section 9's. The artist removed the rest on 2026-08-02 ("we don't need
+     the classic versions for any games"), so every arcade cabinet is a PlayCanvas build and there
+     is no game left that runs without WebGL 2. Checking one of the four would let the other three
+     rot back in. */
+  for (const f of ['section9-classic.html', 'riprocketer-classic.html',
+                   'dogfight-classic.html', 'cloudracer-classic.html'])
+    t(`${f} is gone from the tree`, !existsSync(join(ROOT, f)));
   /* ⚠ LINKS, NOT MENTIONS. A first cut grepped every shipped file for the STRING and failed on
      eight of them — all comments, including the note in section9.html explaining the removal and
      the sibling classic pages describing the arrangement they share. Comments are exempt across
      this whole repo for the same reason (see test-name-law.mjs): the record of a change belongs
      next to it. What must not survive is a live href, and `navigatorsOf` already resolves those
      — it is the function this file uses to answer exactly this question everywhere else. */
-  const stale = navigatorsOf('section9-classic.html');
-  t('⛔ nothing NAVIGATES to the removed build (a dead link is worse than no link)',
-    stale.length === 0, stale.join(', ') || 'no inbound links');
+  for (const f of ['section9-classic.html', 'riprocketer-classic.html',
+                   'dogfight-classic.html', 'cloudracer-classic.html']) {
+    const stale = navigatorsOf(f);
+    t(`⛔ nothing NAVIGATES to ${f} (a dead link is worse than no link)`,
+      stale.length === 0, stale.join(', ') || 'no inbound links');
+  }
+  /* ⛔ AND NO PANEL MAY PROMISE A GAME THAT ALSO NEEDS WEBGL 2. section9.html's #nogl told the
+     visitor "DOGFIGHT and RIP ROCKETER both degrade to a 2D renderer and will run here" — written
+     on 2026-08-02 and WRONG THE MOMENT IT WAS WRITTEN, because both had already been ported and
+     dogfight.html's own comment says it "cannot fall back to a 2D renderer". A claim about
+     another page has to be checked against that page. */
+  for (const f of ['section9.html', 'riprocketer.html', 'dogfight.html', 'cloudracer.html']) {
+    const src = R(f);
+    t(`${f}'s no-WebGL2 panel does not send the visitor to another WebGL-2-only game`,
+      !/(degrade|degrades|fall back|falls open)[^<]{0,80}(will run here|runs? (essentially )?anywhere)/i.test(src));
+  }
 }
 
 // ═══ 5 · NOTHING IS FETCHED THAT THE DRAW PATH CANNOT REACH ════════════════════════════════════

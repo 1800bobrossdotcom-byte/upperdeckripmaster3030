@@ -503,10 +503,16 @@
            A dead link here would be worse than no link, so the panel now says what is true and
            sends people somewhere that actually works. ⚠ DOGFIGHT and RIP ROCKETER keep their own
            2D fallbacks, so the arcade is not a dead end for this visitor. -->
-      <p>There is no fallback build for Section 9 any more. If you are on an older browser or a
-      machine with GPU acceleration switched off, that is the thing to change.</p>
-      <p><b><a href="arcade.html">Back to the arcade →</a></b><br>
-      DOGFIGHT and RIP ROCKETER both degrade to a 2D renderer and will run here.</p>
+      <p>There is no fallback build any more — every game in the arcade renders through
+      PlayCanvas. If you are on an older browser, or on a machine with GPU acceleration switched
+      off, that is the thing to change.</p>
+      <!-- ⚠ THIS USED TO SAY "DOGFIGHT and RIP ROCKETER both degrade to a 2D renderer and will run
+           here." THAT WAS WRONG when it was written (2026-08-02) and it is a good example of why a
+           claim about ANOTHER page has to be checked against that page: those two had already been
+           ported to PlayCanvas, and dogfight.html's own comment says in as many words that it
+           "cannot fall back to a 2D renderer". Sending a visitor with no WebGL 2 to a cabinet that
+           also needs WebGL 2 is a worse answer than admitting there is nowhere to send them. -->
+      <p><b><a href="index.html">Back to the pack →</a></b></p>
       <p style="opacity:.6" id="noglWhy"></p>
     </div>
   </div>

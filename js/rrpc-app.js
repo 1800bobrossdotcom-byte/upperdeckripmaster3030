@@ -29,7 +29,7 @@
  * ── NO SOFTWARE PATH ──────────────────────────────────────────────────────────────────────────
  * PlayCanvas has no software fallback, so this build genuinely requires WebGL 2. Fail-open is a
  * standing principle in this repo, so it is preserved as a ROUTE rather than as a renderer:
- * `riprocketer-classic.html` is the previous hand-rolled 2D-canvas build, kept verbatim, and a
+ * (`riprocketer-classic.html` was the previous hand-rolled 2D-canvas build; REMOVED 2026-08-02,
  * browser without WebGL 2 is sent there. Exactly what `section9.html` does.
  */
 (function () {

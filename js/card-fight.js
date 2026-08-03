@@ -193,7 +193,7 @@ window.CardFight = (function () {
      * The artist's report was "there is nothing, but a quick blip of a black screen", and this
      * was it — not the VS beat, not a stall. `js/gfx-2d.js` asks for its GL context with
      * `{alpha:false}` and then hides the source with `opacity:0`. That is CORRECT for every
-     * other caller: in dogfight-classic, riprocketer-classic and index.html the 2D canvas IS the
+     * other caller: in index.html the 2D canvas IS the
      * whole picture, and an opaque presentation of it is exactly right.
      *
      * ⚑ `.cf-cv` IS NOT A PICTURE. It is a mostly-transparent sheet of projectiles laid OVER the

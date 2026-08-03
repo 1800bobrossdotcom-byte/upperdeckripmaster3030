@@ -952,8 +952,23 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
     - ⚑ It also ends a real divergence: the classic build never received the sky-drop supply work
       (0 hits for `stepPow`/`restY`/`dropH`) and had no mobility tokens at all, so the two builds
       had been drifting apart with only one of them tested against the artist's reports.
-    - ⚠ `riprocketer-classic.html`, `dogfight-classic.html` and `cloudracer-classic.html` are
-      UNTOUCHED — those games' 2D paths are real fallbacks that still work.
+  - ⛔ **AND THEN ALL FOUR WENT (artist, 2026-08-02): "we don't need the classic versions for any
+    games, too distracting."** `riprocketer-classic.html`, `dogfight-classic.html` and
+    `cloudracer-classic.html` deleted too. **EVERY ARCADE CABINET IS A PLAYCANVAS BUILD NOW, SO
+    NOTHING IN THE ARCADE RUNS WITHOUT WEBGL 2.** That is the whole cost, stated once, plainly.
+    - ⛔ **I HAD JUST TOLD THE ARTIST THE OPPOSITE.** section9.html's `#nogl` said *"DOGFIGHT and
+      RIP ROCKETER both degrade to a 2D renderer and will run here"* — **wrong the moment it was
+      written.** I took it from this file's older `Gfx2D` note, which predates their PlayCanvas
+      ports; `dogfight.html`'s own comment says in as many words that it *"cannot fall back to a
+      2D renderer"*. ⚑ **A CLAIM ABOUT ANOTHER PAGE HAS TO BE CHECKED AGAINST THAT PAGE** — a
+      stale note in CLAUDE.md is not evidence, and sending a visitor with no WebGL 2 to a cabinet
+      that also needs WebGL 2 is a worse answer than admitting there is nowhere to send them.
+      `npm run test:reach` §4b now asserts that no `#nogl` panel promises a game that also needs
+      the thing the visitor does not have.
+    - ⚠ Two live `<a href>`s survived the first pass again — cloudracer's lobby mininote and its
+      file header. The guard caught both because it resolves LINKS (`navigatorsOf`) rather than
+      grepping the string, and because it now checks **all four** names, not just Section 9's.
+      Checking one of four is how the other three rot back in.
   - ⚑ **THE SCENE WAS RENDERING MIRRORED — one cause, three bug reports.** "Mouse inverted",
     "strafe backwards" and "aim off" were all the same defect. Verified numerically: at yaw 0 the
     camera's forward matched the game's (0,0,1) but its RIGHT was (−1,0,0) against the game's

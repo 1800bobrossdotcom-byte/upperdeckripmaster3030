@@ -360,7 +360,8 @@ window.DFPC = (function () {
    * broadside, tail to the right of frame, exactly the "stuck flying in one direction" signature
    * CLAUDE.md records against the classic renderer's camera yaw. Same family of defect, different
    * transform. `js/ronin-glb.js` — the CLASSIC build's loader — walks the scene graph and applies
-   * `nodeMatrix`, which is why `dogfight-classic.html` was right the whole time and this was not.
+   * `nodeMatrix`, which is why the old hand-rolled build was right the whole time and this was
+   * not. (That build, `dogfight-classic.html`, was removed 2026-08-02.)
    * A port regression, not a modelling error.
    *
    * ⚑ THE FIX MEASURES AND PLACES IN THE SAME FRAME. `meshInstance.aabb` is already the

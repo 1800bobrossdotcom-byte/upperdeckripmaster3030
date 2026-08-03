@@ -8,11 +8,13 @@
 <meta name="theme-color" content="#8fc9ef">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <!--
-  CLOUD RACER · ENGINE BUILD — PlayCanvas. This IS cloudracer.html; the hand-rolled WebGL1 renderer
-  is kept whole at `cloudracer-classic.html` as the rollback, the free A/B, and where a browser with
-  no WebGL 2 is sent (PlayCanvas has no software path, so fail-open is preserved as a ROUTE rather
-  than as a renderer).
-  ⚠ Section 9 dropped its classic build on 2026-08-02 and is engine-only; CLOUD RACER keeps its.
+  CLOUD RACER · ENGINE BUILD — PlayCanvas. This IS cloudracer.html, and as of 2026-08-02 it is the
+  only one: the hand-rolled WebGL1 renderer at `cloudracer-classic.html` was removed with the other
+  three classic builds (artist's call — "we don't need the classic versions for any games").
+  ⚠ WHAT WENT WITH IT: the rollback, the free A/B, and the route for a browser with no WebGL 2.
+  PlayCanvas has no software path, so fail-open for this game was a ROUTE rather than a renderer,
+  and that route is gone. EVERY arcade cabinet is a PlayCanvas build now, so `#nogl` states the
+  requirement and does NOT offer another game — there is no longer one that would run.
 
   ══ THE ARTIST'S NOTE WAS "too slow mundane, needs rehaul". That is a FEEL complaint first, so the
      pacing was measured on the old build before anything was drawn, and it was worse than slow:
@@ -302,8 +304,7 @@
     <div><button class="go" id="btnAnte">🔥 Ante up &amp; race</button></div>
     <div><button class="go alt" id="btnPractice">▶ Practice race (no stakes)</button></div>
     <div class="mininote" id="lobNote"></div>
-    <div class="mininote" style="opacity:.7">Engine build (PlayCanvas). The original renderer is still here:
-      <a href="cloudracer-classic.html" style="color:#1a7fae">cloudracer-classic.html</a>.</div>
+    <div class="mininote" style="opacity:.7">Engine build (PlayCanvas).</div>
   </div>
 </div>
 
@@ -328,9 +329,11 @@
     <h1>CLOUD <em>RACER</em></h1>
     <div class="tag">this build needs WebGL 2</div>
     <div class="sub">The engine build runs on PlayCanvas, which has no software fallback —
-      <span id="noglWhy">this browser reports no WebGL 2 context</span>. The original renderer runs
-      on WebGL 1 and is still shipped, unchanged.</div>
-    <div><a class="go alt" href="cloudracer-classic.html" style="text-decoration:none;display:block">▶ Play the classic build</a></div>
+      <span id="noglWhy">this browser reports no WebGL 2 context</span>.
+      <!-- ⛔ The WebGL-1 classic build was REMOVED 2026-08-02 (artist's call). Every arcade game is
+           a PlayCanvas build now, so there is no game to send this visitor to; the panel says so
+           rather than linking a page that 404s. -->
+      There is no fallback build any more — every game in the arcade renders through PlayCanvas.</div>
     <div><a class="go" href="index.html" style="text-decoration:none;display:block">◀ back to the pack</a></div>
   </div>
 </div>

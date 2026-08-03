@@ -272,7 +272,7 @@
       <div class="mininote" id="startNote"></div>
       <div class="mininote" id="startNote2"></div>
       <div class="lb" id="lbGate"></div>
-      <div class="mininote"><a href="arcade.html">◄ back to the arcade</a> · <a href="riprocketer-classic.html">classic build</a></div>
+      <div class="mininote"><a href="arcade.html">◄ back to the arcade</a></div>
     </div>
   </div>
 
@@ -297,9 +297,15 @@
       <h2>This build needs WebGL 2</h2>
       <p>RIP ROCKETER's engine build renders through PlayCanvas, which has no software fallback —
       there is no 2D path to drop back to, so rather than show you a black rectangle it says so.</p>
-      <p><b><a href="riprocketer-classic.html">Play the classic build instead →</a></b><br>
-      Its renderer is hand-rolled and degrades all the way down to a plain 2D canvas, so it runs
-      essentially anywhere.</p>
+      <!-- ⛔ THIS OFFERED THE CLASSIC BUILD. All four `*-classic.html` pages were removed on
+           2026-08-02 (artist's call: "we don't need the classic versions for any games"), and
+           with them the last route for a browser without WebGL 2. A dead link here would be
+           worse than none — it looks like a fallback and 404s — so the panel says what is
+           true. ⚠ It does NOT point at another game: every arcade cabinet is a PlayCanvas
+           build now, so there is nothing here that runs without WebGL 2. -->
+      <p>There is no fallback build any more — every game in the arcade renders through
+      PlayCanvas. If you are on an older browser, or on a machine with GPU acceleration
+      switched off, that is the thing to change.</p>
       <p style="opacity:.6" id="noglWhy"></p>
     </div>
   </div>

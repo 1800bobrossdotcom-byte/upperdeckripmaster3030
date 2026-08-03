@@ -77,7 +77,8 @@ window.DFPCWorld = (function () {
    * on a lit deck, so under the old dark colours it is a dark line on a dark ground and mostly
    * disappears. Measured on the same arena: `?tod=night` comes back luma 15.1, RMS 8.3, 34% of the
    * frame under luma 12 — flatter than the classic build's own 53 / 54.6 / 22%. If you want the
-   * renderers compared, compare `dogfight-classic.html`; this switch answers a different question. */
+   * renderers compared, that was `dogfight-classic.html`'s job — removed 2026-08-02. This switch
+   * answers a different question anyway. */
   function skinFor(world) {
     const S = SKINS[world.name];
     if (NIGHT || !S) {
