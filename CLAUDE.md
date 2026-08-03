@@ -935,10 +935,25 @@ culture as art, safely (generic archetypes, clearly satire, never deceptive).
     re-derived in the engine's terms, not left at defaults. Also `Gfx2D` and the **2D fallback**
     (PlayCanvas has no software path, so WebGL2 becomes a hard requirement) — fail-open at every
     step is a standing principle here, so dropping it is a DESIGN decision to be made openly.
-  - ✅ **SHIPPED — the PlayCanvas build IS `section9.html`.** The hand-rolled renderer is kept
-    at `section9-classic.html`, unchanged and still playable: the rollback, the free A/B, and
-    where a browser with **no WebGL 2** is sent (PlayCanvas has no software path, so fail-open is
-    preserved as a ROUTE rather than a renderer).
+  - ✅ **SHIPPED — the PlayCanvas build IS `section9.html`.**
+  - ⛔ **`section9-classic.html` IS DELETED (artist's call, 2026-08-02). Section 9 has ONE build.**
+    The hand-rolled renderer had been kept as the rollback, the free A/B, and the route for a
+    browser with **no WebGL 2**. All three are gone with it, and the third is the one that costs
+    something: **fail-open was preserved as a ROUTE rather than a renderer, and that route no
+    longer exists.** WebGL 2 is now a hard requirement for this game.
+    - `#nogl` states the requirement plainly and sends the visitor to `arcade.html`, where
+      **DOGFIGHT and RIP ROCKETER still carry their own 2D fallbacks** — so it is a closed door
+      with a sign on it, not a black rectangle and not a dead link.
+    - ⚠ **A live `<a href="section9-classic.html">` survived the first pass** in the footer
+      mininote, four comments deep into the same file I had just edited. `npm run test:reach` §4b
+      caught it — and the assertion only works because it resolves LINKS via `navigatorsOf()`
+      rather than grepping the string, which matched eight files that merely *mention* the
+      removed build in comments. Mentions are history and are exempt; an href is a promise.
+    - ⚑ It also ends a real divergence: the classic build never received the sky-drop supply work
+      (0 hits for `stepPow`/`restY`/`dropH`) and had no mobility tokens at all, so the two builds
+      had been drifting apart with only one of them tested against the artist's reports.
+    - ⚠ `riprocketer-classic.html`, `dogfight-classic.html` and `cloudracer-classic.html` are
+      UNTOUCHED — those games' 2D paths are real fallbacks that still work.
   - ⚑ **THE SCENE WAS RENDERING MIRRORED — one cause, three bug reports.** "Mouse inverted",
     "strafe backwards" and "aim off" were all the same defect. Verified numerically: at yaw 0 the
     camera's forward matched the game's (0,0,1) but its RIGHT was (−1,0,0) against the game's

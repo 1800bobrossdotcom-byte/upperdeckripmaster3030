@@ -168,14 +168,16 @@ t('NO TWO WEAPONS SHARE A SILHOUETTE (four names on one mesh scores 1.000)',
  * product name; the same rule that makes every CC0-derived body carry a studio name and never
  * its source's applies to a gun. */
 const gameSrc = readFileSync(join(ROOT, 'js/s9pc-game.js'), 'utf8');
-const classicSrc = readFileSync(join(ROOT, 'section9-classic.html'), 'utf8');
+/* ⚠ `section9-classic.html` WAS REMOVED on 2026-08-02 (artist's call), so every assertion
+ * that used to check BOTH builds now checks the one that ships. The checks are kept rather
+ * than deleted — the rule each states is still the rule; it simply has one surface now. */
 for (const bad of ['AK RIPMASTER', 'STREET SWEEPER', 'RIP-9 PISTOL', 'LONG RIFLE']) {
   t(`no weapon is called "${bad}" any more`,
-    gameSrc.indexOf("'" + bad + "'") < 0 && classicSrc.indexOf("'" + bad + "'") < 0);
+    gameSrc.indexOf("'" + bad + "'") < 0);
 }
 for (const k of KEYS) {
   t(`${NAMES[k]} is the name in BOTH builds`,
-    gameSrc.indexOf("'" + NAMES[k] + "'") >= 0 && classicSrc.indexOf("'" + NAMES[k] + "'") >= 0);
+    gameSrc.indexOf("'" + NAMES[k] + "'") >= 0);
 }
 /* ⚠ key/sfx index the foley in js/sfx-lib.js and the model lookup in s9pc-app. Renaming those
  * would silence the guns, so the rename must have left them alone. */
@@ -217,8 +219,7 @@ t('the lobby derives its loadout list from S9Game.WEAPONS',
  * so a naive search matches the very documentation of the thing it is checking is gone. */
 const decomment = src => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 t('no build hard-codes an "ak" weapon label any more',
-  !/'ak'/.test(decomment(uiSrc)) && !/'ak'/.test(decomment(classicSrc)),
-  'js/s9pc-ui.js + section9-classic.html');
+  !/'ak'/.test(decomment(uiSrc)), 'js/s9pc-ui.js');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

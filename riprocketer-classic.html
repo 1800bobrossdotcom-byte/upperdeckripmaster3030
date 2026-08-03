@@ -13,7 +13,8 @@
   `riprocketer.html` is now the PlayCanvas engine build. This file is the rollback, the free A/B,
   and where a browser with NO WEBGL 2 is sent: PlayCanvas has no software path, so fail-open is
   preserved here as a ROUTE rather than as a renderer. Same arrangement as
-  section9.html / section9-classic.html.
+  section9.html. ⚠ Section 9's own classic build was DELETED 2026-08-02; this one stays,
+  because its 2D path still works and is still the fallback for a machine without WebGL 2.
 
   ⚠ It is also the thing the pacing complaint was measured against. Instrumented over 77 seconds
     of game time it held a mean of 1.71 enemies on screen, fired zero enemy bullets for the first

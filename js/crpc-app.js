@@ -34,7 +34,7 @@
    * PlayCanvas has no software path, so this build genuinely requires WebGL2. Fail-open is a
    * standing principle here, so the fallback is not a worse renderer — it is the previous build,
    * kept whole at `cloudracer-classic.html`, which runs on WebGL1 and falls open further to a
-   * static page. Same shape as section9 / section9-classic. */
+   * static page. (Section 9 shared this shape until its classic build was deleted 2026-08-02.) */
   const gl2 = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch (e) { return false; } })();
   if (!gl2 || !window.pc || !window.CRGame) {
     const n = $('nogl');

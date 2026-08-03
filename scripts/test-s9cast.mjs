@@ -36,7 +36,9 @@ const skin = readFileSync(join(ROOT, 'js/section9-skin.js'), 'utf8');
 const pcSkin = readFileSync(join(ROOT, 'js/s9pc-skin.js'), 'utf8');
 const pcApp = readFileSync(join(ROOT, 'js/s9pc-app.js'), 'utf8');
 const pcGame = readFileSync(join(ROOT, 'js/s9pc-game.js'), 'utf8');
-const classic = readFileSync(join(ROOT, 'section9-classic.html'), 'utf8');
+/* ⚠ `section9-classic.html` WAS REMOVED on 2026-08-02 (artist's call), so every assertion
+ * that used to check BOTH builds now checks the one that ships. The checks are kept rather
+ * than deleted — the rule each states is still the rule; it simply has one surface now. */
 const gfx = readFileSync(join(ROOT, 'js/gfx-post.js'), 'utf8');
 
 // ── the cast ─────────────────────────────────────────────────────────────────────────────────
@@ -73,7 +75,6 @@ t('archFor picks from the rotating live roster, not the head of CAST',
   /function archFor\(i\) \{ return playFor\(i\)\.arch; \}/.test(skin));
 t('the engine build rotates the cast at match start',
   /S9Skin\.setRoster/.test(pcGame), 'js/s9pc-game.js');
-t('the classic build rotates it too', /S9Skin\.setRoster/.test(classic), 'section9-classic.html');
 
 // ── the material table must cover every playable body ────────────────────────────────────────
 /* It has gone stale twice. Missing entries do not throw — they fall through to one generic dark

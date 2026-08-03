@@ -198,12 +198,12 @@ t('COLD CALL is the only weapon with a delayed slap-back',
 /* Fail-open: both builds must still carry the old kit behind a guard, so a missing module is a
  * quieter game rather than a silent one. */
 const ui = readFileSync(join(ROOT, 'js/s9pc-ui.js'), 'utf8');
-const cls = readFileSync(join(ROOT, 'section9-classic.html'), 'utf8');
+/* ⚠ `section9-classic.html` WAS REMOVED on 2026-08-02 (artist's call), so every assertion
+ * that used to check BOTH builds now checks the one that ships. The checks are kept rather
+ * than deleted — the rule each states is still the rule; it simply has one surface now. */
 t('the engine build falls open to the old kit', /if \(guns\) return guns\.fire\('smg'\); noise\(/.test(ui));
-t('the classic build falls open too', /if\(GUNS\) return GUNS\.fire\('smg'\); noise\(/.test(cls));
-t('both builds load js/gun-sfx.js',
-  /<script src="js\/gun-sfx\.js"><\/script>/.test(readFileSync(join(ROOT, 'section9.html'), 'utf8'))
-  && /<script src="js\/gun-sfx\.js"><\/script>/.test(cls));
+t('the shipping build loads js/gun-sfx.js',
+  /<script src="js\/gun-sfx\.js"><\/script>/.test(readFileSync(join(ROOT, 'section9.html'), 'utf8')));
 
 await browser.close();
 srv.close();

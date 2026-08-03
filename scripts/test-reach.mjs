@@ -158,45 +158,48 @@ for (const [f, hook] of [['js/rrpc-app.js', '__rrpc'], ['js/crpc-app.js', '__crp
  *   docs/SEATS.md, dark by omission rather than by decision. */
 head('4 · every seat door has the module it reads');
 t('js/session.js checkVisitor reads window.RipEth', /const R = window\.RipEth/.test(R('js/session.js')));
-for (const p of ['section9.html', 'section9-classic.html']) {
+/* ⚠ This used to loop over section9.html AND section9-classic.html. The classic build was removed
+ * on 2026-08-02 (artist's call); the rule is unchanged, it just has one surface to check now. */
+for (const p of ['section9.html']) {
   const s = R(p);
   if (!/js\/session\.js/.test(s)) continue;
   t(`${p} loads js/eth-play.js alongside js/session.js`, /js\/eth-play\.js/.test(s));
 }
 
-// ═══ 4b · THE FAIL-OPEN ROUTE MUST ACTUALLY OPEN ═══════════════════════════════════════════════
-/* ⛔ `section9-classic.html` THREW AT LOAD AND WAS COMPLETELY UNPLAYABLE. `const LOADOUTS =
- *   WEAPONS.map(...)` ran ~620 lines above `const WEAPONS = [...]`, and `const` hoists into the
- *   temporal dead zone: `ReferenceError: Cannot access 'WEAPONS' before initialization`. Because
- *   it threw at the TOP LEVEL of that script, every line after it stopped running.
- *   Driven proof of the old state: lChips EMPTY, pChips EMPTY, weapSlots EMPTY, 0 arena chips,
- *   no start control. After: 0 page errors, 11 arena chips, and Practice -> GameHelp -> a live
- *   match with the HUD up and weapon slots rendered.
- * ⚑ WHY IT BELONGS IN THE REACHABILITY SUITE. This is the page a browser with NO WEBGL 2 is sent
- *   to — PlayCanvas has no software path, so fail-open here is a ROUTE, not a renderer. The one
- *   page whose entire job is to work when the other cannot, did not work at all. **Fail-open that
- *   fails closed is worse than no fallback, because nothing reports it** — the visitor sees a dead
- *   page and the working build never knows.
- * ⚠ SOURCE ORDER, NOT A DRIVEN PAGE, ON PURPOSE. Driving this file costs seconds and the suite
- *   runs on every `npm test`; the defect is an ordering fact and an ordering check catches it
- *   exactly. It will NOT catch a different TDZ elsewhere in the file — that is a known limit,
- *   written down rather than papered over. */
-head('4b · the no-WebGL2 fallback route loads without throwing');
+// ═══ 4b · THE NO-WEBGL2 ROUTE MUST NOT BE A DEAD LINK ═════════════════════════════════════════
+/* ⛔ HISTORY, because the lesson outlived the file. `section9-classic.html` threw at load and was
+ *   completely unplayable — `const LOADOUTS = WEAPONS.map(...)` ran ~620 lines above
+ *   `const WEAPONS = [...]`, and `const` hoists into the temporal dead zone, so it died at the
+ *   TOP LEVEL and every line after it stopped running. Driven: lChips, pChips and weapSlots all
+ *   EMPTY, 0 arena chips, no start control. That page was the fail-open route for a browser with
+ *   no WebGL 2 — **fail-open that fails closed is worse than no fallback, because nothing reports
+ *   it.** It was fixed, and then REMOVED entirely on 2026-08-02 (artist's call).
+ * ⚑ SO THE ROUTE IS NOW AN HONEST REFUSAL, and that is what gets checked. PlayCanvas has no
+ *   software path; `#nogl` has to say so and hand the visitor somewhere that actually works. A
+ *   panel still linking the deleted build would be the worst of both — it looks like a fallback
+ *   and 404s. */
+head('4b · the no-WebGL2 route is honest, not a dead link');
 {
-  /* ⚠ STRIPPED FIRST. The note above the declaration QUOTES the broken line in order to explain
-   *   it, so measuring on the raw file finds that quotation as the "first read" and fails — the
-   *   checker firing on the comment describing its own fix, which is the third time that exact
-   *   shape has come up in this repo (see the <style> stripper in test-name-law.mjs). Offsets are
-   *   only compared against code. */
-  const s = R('section9-classic.html')
-    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
-    .replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' '));
-  const decl = s.indexOf('const WEAPONS=');
-  const use  = s.indexOf('WEAPONS.map(');
-  t('section9-classic.html declares WEAPONS', decl >= 0);
-  t('section9-classic.html reads WEAPONS', use >= 0);
-  t('WEAPONS is declared BEFORE anything derives from it (temporal dead zone)',
-    decl >= 0 && use >= 0 && decl < use, `declared at ${decl}, first read at ${use}`);
+  const s9 = R('section9.html');
+  /* ⚠ THE DETECTION IS IN THE MODULE, NOT THE PAGE. First cut asserted `getContext('webgl2')`
+     against section9.html and failed — that call lives in js/s9pc-app.js, which is where the
+     decision is made and where it belongs. Asserting on the wrong file is a test that reports
+     the code is missing when it is merely somewhere else. */
+  t('the shipping build still detects a missing WebGL 2 context',
+    /getContext\('webgl2'\)/.test(R('js/s9pc-app.js')));
+  t('it shows the #nogl panel rather than a black rectangle', /id="nogl"/.test(s9));
+  t('it sends the visitor to the arcade, which still has 2D-capable games',
+    /<a href="arcade\.html"/.test(s9));
+  t('section9-classic.html is gone from the tree', !existsSync(join(ROOT, 'section9-classic.html')));
+  /* ⚠ LINKS, NOT MENTIONS. A first cut grepped every shipped file for the STRING and failed on
+     eight of them — all comments, including the note in section9.html explaining the removal and
+     the sibling classic pages describing the arrangement they share. Comments are exempt across
+     this whole repo for the same reason (see test-name-law.mjs): the record of a change belongs
+     next to it. What must not survive is a live href, and `navigatorsOf` already resolves those
+     — it is the function this file uses to answer exactly this question everywhere else. */
+  const stale = navigatorsOf('section9-classic.html');
+  t('⛔ nothing NAVIGATES to the removed build (a dead link is worse than no link)',
+    stale.length === 0, stale.join(', ') || 'no inbound links');
 }
 
 // ═══ 5 · NOTHING IS FETCHED THAT THE DRAW PATH CANNOT REACH ════════════════════════════════════
