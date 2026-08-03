@@ -129,5 +129,43 @@ for (const k of KEYS) {
     new RegExp(`type === '${k}'`).test(step));
 }
 
+/* ═══ EVERY DROP HAS A VISUAL ═════════════════════════════════════════════════════════════════
+ * ⛔ MED, ARMOR AND AMMO WERE INVISIBLE — the three commonest drops on the field. `pickups.glb`
+ *   carries `pu_base` plus one part per MOBS entry and nothing else, so `pu_med` was never found;
+ *   on top of that syncPickups opened with `if (pw.got || !pw.mob) continue`. Driven proof of the
+ *   old state: drop one of every type, read both sides — 8 in G.pows, 5 rendered. By drop weight
+ *   (med 3 · armor 2 · ammo 3 against 8.7 of mobility) that is ~48% OF EVERY DROP with nothing
+ *   drawn, while being fully live in the sim: you could walk over one and be healed by nothing.
+ * ⚑ The assertion is on the CONTRACT, not the count: every type S9Game can put in G.pows must
+ *   have somewhere to get a colour and must not be filtered out of the draw. */
+const FIELD = [...gameSrc.matchAll(/\{\s*t:\s*'(med|armor|ammo)'/g)].map(m => m[1]);
+t('js/s9pc-game.js still declares the three field drops', FIELD.length === 3, FIELD.join(', '));
+for (const k of FIELD)
+  t(`${k} has a colour in js/s9pc-app.js (it is not in MOBS, so puColOf needs its own table)`,
+    new RegExp(`PU_FIELD_COL\\s*=\\s*\\{[^}]*\\b${k}\\b`).test(appSrc));
+t('syncPickups no longer filters the draw down to mobility tokens',
+  !/if \(pw\.got \|\| !pw\.mob\) continue/.test(appSrc));
+t('a type with no GLB part still gets a prize (puFieldPrize), so nothing is silently invisible',
+  /function puFieldPrize\(/.test(appSrc) && /findByName\('pu_' \+ type\) \|\| puFieldPrize\(type\)/.test(appSrc));
+
+/* ═══ SUPPLY ARRIVES THROUGH A PORTAL, AND THE FALL IS THE SIM'S ══════════════════════════════
+ * Artist directive: it "shoots down from the sky in a sparkle portal so players can try and find
+ * them". ⚑ The descent lives in js/s9pc-game.js, not the renderer, because four operatives and
+ * the bots must agree on where a drop is and when it becomes takeable — a render-only fall would
+ * let a client collect something another client still sees in the air. */
+t('spawnPow releases the drop above its resting place', /y: restY \+ DROP_H, restY/.test(gameSrc));
+t('the drop height is stated once and handed to the renderer', /dropH: DROP_H/.test(gameSrc));
+t('the fall is integrated in the sim under the game\'s own gravity',
+  /function stepPow\(/.test(gameSrc) && /pw\.fv = Math\.min\([^)]*GRAV \* dt\)/.test(gameSrc));
+t('⛔ a falling drop CANNOT be collected out of the air',
+  /for \(const pw of G\.pows\) \{ if \(pw\.got \|\| pw\.fall\) continue;/.test(gameSrc));
+t('the 26 s lifetime starts on landing, not on release',
+  /if \(!pw\.fall\) pw\.t \+= wdt/.test(gameSrc));
+t('the renderer rides pw.y down and draws the portal', /function puFall\(/.test(appSrc));
+t('the portal mouth stays at the release height — a door does not follow what came through it',
+  /pw\.dropH \|\| 18/.test(appSrc));
+t('the portal is destroyed with its drop (no orphan doors)',
+  (appSrc.match(/if \(st\.portal\) st\.portal\.destroy\(\)/g) || []).length >= 2);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

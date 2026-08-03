@@ -705,10 +705,36 @@ window.S9Game = (function () {
       if (!pick) { let tot = 0; for (const q of pool) tot += q[1]; let r = Math.random() * tot; pick = pool[0][0];
         for (const [p, wt] of pool) { if ((r -= wt) <= 0) { pick = p; break; } } }
       const s = at || MAP.spawns[rint(MAP.spawns.length)];
-      const pw = { x: s[0] + (at ? 0 : rnd(2, -2)), z: s[1] + (at ? 0 : rnd(2, -2)), y: (s[2] || 0) + 0.5,
+      /* ⧗ SUPPLY COMES DOWN FROM THE SKY. A drop that simply appears on the floor is something a
+       * player finds by walking over it; a drop that punches down through a portal is something
+       * four players SEE AT THE SAME MOMENT and race for. That race is the whole point — it turns
+       * a pickup into a contested event, and it is why the fall is in the SIM and not a render
+       * flourish: every operative and every bot has to be able to see it coming, and the arrival
+       * has to happen at one agreed instant for everyone.
+       * ⚠ `restY` is where it ENDS UP and is the only position the collision test ever uses. `y`
+       *   is where it is RIGHT NOW. Keeping them separate is what stops a falling drop being
+       *   collected out of the air from directly underneath — see the `fall` guard in the pickup
+       *   loop. */
+      const restY = (s[2] || 0) + 0.5;
+      const pw = { x: s[0] + (at ? 0 : rnd(2, -2)), z: s[1] + (at ? 0 : rnd(2, -2)),
+        y: restY + DROP_H, restY, dropH: DROP_H, fv: 0, fall: 1, portal: 0,
         type: pick.t, ch: pick.ch, col: pick.col, mob: !!pick.mob, t: 0 };
       G.pows.push(pw);
       return pw;
+    }
+    /* How far up the portal opens. Chosen so the fall reads as an EVENT you can look up at and
+     * still lands fast: from 18 m at GRAV 20 that is ~1.34 s, about the same as this game's
+     * time-to-kill, so a drop is worth breaking off a fight for but never worth waiting out. */
+    const DROP_H = 18;
+    /* Falls under the game's own gravity — the same constant the operatives fall at, so a drop
+     * reads as part of the world rather than an animation played near it. Terminal speed caps it
+     * so the last metre is legible instead of a teleport. */
+    function stepPow(pw, dt) {
+      if (!pw.fall) { pw.portal = Math.max(0, pw.portal - dt * 1.7); return; }
+      pw.portal = Math.min(1, pw.portal + dt * 6);        // the portal irises open as it fires
+      pw.fv = Math.min(26, pw.fv + GRAV * dt);
+      pw.y -= pw.fv * dt;
+      if (pw.y <= pw.restY) { pw.y = pw.restY; pw.fall = 0; pw.landed = 1; pw.slam = 1; }
     }
     /* ⚑ RETURNS WHETHER THE DROP WAS CONSUMED. It used to be void, and the pickup loop marked the
      * drop taken unconditionally — which would have silently EATEN a mobility token that the
@@ -791,6 +817,9 @@ window.S9Game = (function () {
       let best = null, bd = rad * rad;
       const cur = mobOf(e);
       for (const pw of G.pows) { if (pw.got) continue;
+        /* ⚑ A bot MAY path to a drop that is still falling — that is the race, and a bot that
+           stands still until it lands would lose every contested drop to a human who ran early.
+           It just cannot COLLECT one in the air; that guard is in the pickup loop. */
         if (pw.mob && cur && cur.t > MOB_HOLD) continue;
         if (pw.type === 'med' && e.hp >= e.maxHp) continue;
         const dx = pw.x - e.x, dz = pw.z - e.z, d2 = dx * dx + dz * dz;
@@ -1280,10 +1309,12 @@ window.S9Game = (function () {
       }
       // supply drops
       G.powT -= wdt; if (G.powT <= 0 && G.pows.length < 4) { G.powT = rnd(11, 7) / (0.85 + (mktAmp() - 0.75) * 0.5); spawnPow(); }
-      for (const pw of G.pows) pw.t += wdt;
+      /* ⚠ THE 26 s LIFETIME STARTS WHEN IT LANDS, not when the portal opens. Ticking `t` during
+         the fall would spend a fifth of a drop's time on the floor before anyone could reach it. */
+      for (const pw of G.pows) { stepPow(pw, wdt); if (!pw.fall) pw.t += wdt; }
       /* ⚑ `applyPow` now says whether it TOOK the drop. A mobility token refused by the one-at-a-
        * time rule stays on the floor; marking it `got` unconditionally would have deleted it. */
-      for (const e of G.ents) { if (!e.alive || e.spawnT > 0) continue; for (const pw of G.pows) { if (pw.got) continue;
+      for (const e of G.ents) { if (!e.alive || e.spawnT > 0) continue; for (const pw of G.pows) { if (pw.got || pw.fall) continue;
         if (Math.hypot(e.x - pw.x, e.z - pw.z) < 0.95 && Math.abs((e.y + 0.6) - pw.y) < 1.3) { if (applyPow(e, pw.type)) pw.got = 1; } } }
       G.pows = G.pows.filter(pw => !pw.got && pw.t < 26);
       if (G.me) { cam.x = G.me.x; cam.z = G.me.z; cam.y = G.me.y + G.me.eye + (G.me.moving && G.me.onGround ? Math.sin(G.me.bob) * 0.045 : 0);

@@ -688,7 +688,11 @@ for (const stage of ['', 'rooftop', 'arcade', 'vault']) {
     localStorage.removeItem('urm_world'); localStorage.removeItem('urm_freeroam');
   } catch {} }, [stage]);
   const pg = await c2.newPage();
-  await pg.goto(`http://127.0.0.1:${PORT}/ronin.html`, { waitUntil: 'domcontentloaded' });
+  /* ⚠ EXPLICIT TIMEOUT. This block passed standalone and TIMED OUT INSIDE `npm test`, where a
+     dozen other suites have browsers up and the machine is loaded — playwright's 30 s default is
+     comfortable for one page and not for the fourth cold context in a busy chain. A test that
+     only passes when run alone is worse than no test: it breaks the build for everyone else. */
+  await pg.goto(`http://127.0.0.1:${PORT}/ronin.html`, { waitUntil: 'domcontentloaded', timeout: 90000 });
   await pg.waitForFunction(() => window.__rn && window.__rn.frames, null, { timeout: 40000 });
   /* ⚠ The .wld fetch is async and ARCADE is the biggest (10,684 triangles), so starting the brawl
      immediately raced it: rooftop and vault loaded, arcade did not, and its three assertions went

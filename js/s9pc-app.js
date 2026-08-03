@@ -1585,19 +1585,51 @@
   }
   loadPickups();
 
+  /* The three field drops are not in MOBS — that table is mobility only — so their colours come
+     from S9Game's POWS/AMPPOW, mirrored here. Same values, one lookup, no translation table. */
+  const PU_FIELD_COL = { med: [70, 230, 110], armor: [90, 180, 255], ammo: [230, 200, 90], amp: [255, 214, 90] };
   function puColOf(type) {
     try { const D = game.MOBS && game.MOBS[type]; if (D && D.col) return D.col; } catch (e) {}
+    if (PU_FIELD_COL[type]) return PU_FIELD_COL[type];
     return [140, 220, 255];
   }
 
   /* One instantiation gives the whole 6-part container; keep the bay and the one prize, drop the
    * rest. Instantiating a container per part would be five copies of every mesh for one drop —
    * the same reason weaponEntity() pulls a single part out of s9-guns.glb. */
+  /* ⛔ MED, ARMOR AND AMMO WERE INVISIBLE — and they are the commonest drops on the field.
+   *   `models/pickups.glb` carries `pu_base` plus one part per MOBS entry (the five mobility
+   *   tokens) and nothing else, so `findByName('pu_med')` returned null, `puEntity` bailed, and
+   *   syncPickups additionally skipped anything with `!pw.mob`. Driven proof: drop one of every
+   *   type and read both sides — 8 in `G.pows`, 5 rendered. By drop weight (med 3 · armor 2 ·
+   *   ammo 3 against 8.7 of mobility) that is ~48% OF EVERY DROP WITH NO VISUAL AT ALL. They were
+   *   fully live in the simulation the whole time: walk over one and you were healed by nothing.
+   * ⚑ Built from primitives rather than added to the GLB on purpose. The .glb is written by
+   *   `scripts/blender/build-pickups.py` behind a silhouette-distinctness BUILD GATE; these three
+   *   are read at a glance from colour and a simple form and do not need to enter that contest,
+   *   and adding them there would mean a Blender round-trip to fix a renderer omission. */
+  function puFieldPrize(type) {
+    const g = new pc.Entity('pu_' + type);
+    const add = (w, h, d, x, y, z) => { const e = new pc.Entity();
+      e.addComponent('render', { type: 'box' }); e.setLocalScale(w, h, d); e.setLocalPosition(x, y, z);
+      g.addChild(e); return e; };
+    if (type === 'med') {                       // an upright cross — the one universally read shape
+      add(0.46, 0.15, 0.15, 0, 0.30, 0); add(0.15, 0.46, 0.15, 0, 0.30, 0);
+    } else if (type === 'armor') {              // a plate, leaning as if propped against the bay
+      const p = add(0.40, 0.46, 0.10, 0, 0.30, 0); p.setLocalEulerAngles(0, 0, 9);
+    } else if (type === 'amp') {                // a tall spike: the rare one, and it stands out
+      add(0.13, 0.62, 0.13, 0, 0.36, 0); add(0.30, 0.10, 0.30, 0, 0.10, 0);
+    } else {                                    // ammo — a squat crate, deliberately the dullest
+      add(0.42, 0.28, 0.30, 0, 0.20, 0);
+    }
+    return g;
+  }
+
   function puEntity(type) {
     if (!puAsset) return null;
     const whole = puAsset.resource.instantiateRenderEntity();
     const bay = whole.findByName('pu_base');
-    const prize = whole.findByName('pu_' + type);
+    const prize = whole.findByName('pu_' + type) || puFieldPrize(type);
     if (!prize) { try { whole.destroy(); } catch (e) {} return null; }
     const root = new pc.Entity('pu-' + type);
     const pivot = new pc.Entity('pu-' + type + '-pivot');   // everything that moves hangs here
@@ -1708,8 +1740,64 @@
     }
   }
 
+  /* ── THE SKY DROP AND ITS PORTAL ──────────────────────────────────────────────────────────
+   * Artist directive: supply "shoots down from the sky in a sparkle portal so players can try and
+   * find them." The FALL itself is the sim's (js/s9pc-game.js `stepPow`), because every operative
+   * and bot has to agree on where the drop is and when it lands. What lives here is only what it
+   * LOOKS like: the entity riding `pw.y` down, the portal it came through, and the slam.
+   * ⚑ THE PORTAL IS A DOOR, NOT A SPARKLE FIELD. It irises open at the release height, stays for
+   *   the length of the fall, and shuts behind. Scattering loose glitter would be DESIGN-SYSTEM
+   *   §4's screensaver — motion with nothing behind it — where a ring that opens because
+   *   something came through it is motion that has a cause.
+   * ⚠ Fails open twice: no `portalMat` (a shader that would not compile) and no `pw.restY` (an
+   *   older save, a hand-placed drop) both degrade to a drop that is simply on the floor. */
+  let puPortalMat = null;
+  function puPortal() {
+    if (!puPortalMat) {
+      puPortalMat = new pc.StandardMaterial();
+      puPortalMat.diffuse = new pc.Color(0, 0, 0);
+      puPortalMat.emissive = new pc.Color(1, 0.86, 0.42);
+      puPortalMat.emissiveIntensity = 1.0;
+      puPortalMat.blendType = pc.BLEND_ADDITIVE;
+      puPortalMat.depthWrite = false;
+      puPortalMat.cull = pc.CULLFACE_NONE;
+      puPortalMat.update();
+    }
+    const e = new pc.Entity('pu-portal');
+    e.addComponent('render', { type: 'cylinder', castShadows: false, receiveShadows: false });
+    e.render.meshInstances.forEach(mi => { mi.material = puPortalMat; mi.castShadow = false; });
+    return e;
+  }
+
+  function puFall(pw, st, dt) {
+    if (pw.restY == null) return;                       // nothing to animate: it was never in the air
+    const drop = st.groundY != null ? st.groundY : (pw.restY - 0.5);
+    const air = Math.max(0, pw.y - pw.restY);           // metres still to fall
+    st.root.setLocalPosition(pw.x, drop + air, pw.z);
+
+    if (pw.portal > 0.001) {
+      if (!st.portal) { st.portal = puPortal(); world.addChild(st.portal); }
+      /* The mouth sits at the RELEASE height and never moves — a door does not follow what came
+         through it. Its radius is the iris; it shrinks to nothing as `pw.portal` decays. */
+      const r = 0.15 + pw.portal * 1.05;
+      st.portal.setLocalPosition(pw.x, drop + (pw.dropH || 18), pw.z);
+      st.portal.setLocalScale(r, 0.03, r);
+      st.portal.setLocalEulerAngles(0, (st.sd * 360 + (pw.t || 0) * 40) % 360, 0);
+    } else if (st.portal) { try { st.portal.destroy(); } catch (e) {} st.portal = null; }
+
+    /* The landing. One squash on the prize, released by a spring — the drop hit the floor, so the
+       floor pushed back. `slam` is set by the sim on the frame it lands, and consumed here. */
+    if (pw.slam) { st.slam = 1; pw.slam = 0; }
+    if (st.slam > 0) {
+      st.slam = Math.max(0, st.slam - dt * 3.4);
+      const k = st.slam * st.slam;
+      st.prize.setLocalScale(1 + k * 0.34, 1 - k * 0.42, 1 + k * 0.34);
+    } else if (st.prizeScaled) { st.prize.setLocalScale(1, 1, 1); st.prizeScaled = 0; }
+    if (st.slam > 0) st.prizeScaled = 1;
+  }
+
   function puClear() {
-    puLive.forEach(st => { try { st.root.destroy(); } catch (e) {} });
+    puLive.forEach(st => { try { st.root.destroy(); } catch (e) {} try { if (st.portal) st.portal.destroy(); } catch (e) {} });
     puLive.clear();
   }
 
@@ -1718,7 +1806,7 @@
     const seen = new Set();
     const list = G.pows || [];
     for (const pw of list) {
-      if (pw.got || !pw.mob) continue;
+      if (pw.got) continue;              // ⚑ was `|| !pw.mob` — that hid med/armor/ammo entirely
       seen.add(pw);
       let st = puLive.get(pw);
       if (!st) {
@@ -1726,16 +1814,26 @@
          *   spawn, and a baked level's floor is not y=0 (the rooftop deck is at 11.79), so
          *   `pw.y - 0.5` would be a magic number that is wrong on three arenas. supportY is the
          *   game's own collision answering the same question the operatives ask. */
-        let fy = pw.y - 0.5;
-        try { fy = game.supportY({ x: pw.x, z: pw.z, y: pw.y, r: 0.20 }); } catch (e) {}
-        if (!isFinite(fy)) fy = pw.y - 0.5;
+        /* ⚠ ASK ABOUT THE RESTING PLACE, NOT THE CURRENT ONE. A drop now falls from 18 m, so
+           `pw.y` at spawn is up in the sky and supportY from there answers about a rooftop, not
+           the floor it is heading for. `restY` is the landing point the sim already computed. */
+        const groundY = pw.restY != null ? pw.restY : pw.y;
+        let fy = groundY - 0.5;
+        try { fy = game.supportY({ x: pw.x, z: pw.z, y: groundY, r: 0.20 }); } catch (e) {}
+        if (!isFinite(fy)) fy = groundY - 0.5;
         st = puNew(pw, pw.x, fy, pw.z);
         if (!st) continue;
+        st.groundY = fy;
         puLive.set(pw, st);
       }
       const me = G.me;
       const near = !!(me && me.alive && Math.hypot(me.x - pw.x, me.z - pw.z) < 6.5);
-      puStep(pw.type, st, dt, near);
+      puFall(pw, st, dt);
+      /* ⚑ THE IDLE MOTION IS SUSPENDED WHILE IT IS FALLING. Spinning a rush token through its
+         descent would say "this is an object playing its animation near a drop", not "this is
+         the object arriving". It picks its idle up on landing, which is also when the slam
+         happens, so the two read as one event. */
+      if (!pw.fall) puStep(pw.type, st, dt, near);
     }
     if (PU_DEMO) {
       /* ROADMAP §5.3 — built ≠ reachable. One of each, on the floor by the player's spawn, so the
@@ -1755,7 +1853,9 @@
         });
       }
     }
-    puLive.forEach((st, k) => { if (!seen.has(k)) { try { st.root.destroy(); } catch (e) {} puLive.delete(k); } });
+    puLive.forEach((st, k) => { if (!seen.has(k)) { try { st.root.destroy(); } catch (e) {}
+      try { if (st.portal) st.portal.destroy(); } catch (e) {}      // or the door outlives the drop
+      puLive.delete(k); } });
   }
   window.__s9pu = { live: puLive, get asset() { return puAsset; }, clear: puClear, step: puStep };
 
