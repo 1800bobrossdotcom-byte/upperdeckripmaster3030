@@ -52,6 +52,9 @@
   #hudTL{ left:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); font-size:12px; letter-spacing:.16em; opacity:.9; }
   #hudTL b{ color:var(--accent); }
   #hudBL{ left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); font-size:11.5px; line-height:1.9; opacity:.78; }
+  #carry{ left:50%; transform:translateX(-50%); bottom:calc(var(--bez) + 96px);
+    font-size:11px; letter-spacing:.22em; color:var(--accent); opacity:0; transition:opacity .18s; }
+  #carry[data-on="1"]{ opacity:.95; }
   .touchonly{ display:none; }
   @media (pointer: coarse){ .touchonly{ display:inline; } }
   #modes{ right:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); text-align:right;
@@ -91,7 +94,10 @@
   #touchUI #tMode, #touchUI #tCreature{ opacity:.72; font-size:19px; }
   #touchUI #tMode:active, #touchUI #tCreature:active{ opacity:1; }
   /* the animal picker only means anything in animal mode */
-  body[data-mode="jet"] #tCreature, body[data-mode="operative"] #tCreature{ display:none; }
+  body[data-mode="jet"] #tCreature, body[data-mode="operative"] #tCreature,
+  body[data-mode="jet"] #tAct, body[data-mode="operative"] #tAct{ display:none; }
+  #touchUI #tAct{ opacity:.72; font-size:19px; }
+  #touchUI #tAct:active{ opacity:1; }
   /* ⛔ THE PHONE LAYOUT, AND THE FIRST PASS WAS A WRECK. Driven at 390x844: the top-left title and
      the top-right mode bar sat at the same altitude and drew straight through each other, the
      bottom hint ran underneath both control buttons and off the right edge, and the whole thing
@@ -111,7 +117,7 @@
        class of regression as the flap button shrinking. Derived: 74 + 56 + 56 + two 12px gaps + a
        16px margin. */
     #hudBL{ font-size:10.5px; line-height:1.7;
-      max-width:calc(100% - var(--bez)*2 - 246px); }
+      max-width:calc(100% - var(--bez)*2 - 314px); }   /* four buttons now, not three */
     /* ⚠ HIDING THE CHIPS IS NOT HIDING THE HINT. `.key` is only the little boxed letter; the words
        around it ("fly", "flap", "dive", "turn") live in `.kw` and went on printing a keyboard
        legend, stripped of its keys, on a device with no keyboard. */
@@ -138,12 +144,14 @@
     <br><span class="dim">the old cabinets →</span>
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
+  <div class="hud" id="carry"></div>
   <div class="hud" id="hudBL">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> fly &nbsp;
     <span class="key">SPACE</span> flap &nbsp; <span class="key">SHIFT</span> dive &nbsp;
     <span class="key">Q</span><span class="key">E</span> turn &nbsp;
-    <span class="key">TAB</span> mode &nbsp; <span class="key">C</span> animal<br></span>
-    <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · you always fly forward<br></span>
+    <span class="key">TAB</span> mode &nbsp; <span class="key">C</span> animal &nbsp;
+    <span class="key">F</span> drop<br></span>
+    <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · ✦ hold · ◔ animal · ⇄ mode · ✱ drop<br></span>
     <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
   </div>
 
@@ -161,6 +169,7 @@
 <script src="js/section9-world.js"></script>
 <script src="js/s9pc-world.js"></script>
 <script src="js/city-world.js"></script>
+<script src="js/city-drops.js"></script>
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>

@@ -353,60 +353,71 @@ window.CityApp = (function () {
    *   anything, which makes the same city a different set of places. `docs/CITY-GAME.md` §1.
    * ⚠ Generated, like everything else here: a rodent is a hunched spine, a heavy tail carried
    *   higher than the back, and a head that is mostly cheek. None of those is a primitive. */
-  const squirrel = new pc.Entity('squirrel');
-  let sqTail = null;
-  {
-    const SEG = 10;
-    const mFur = birdMat(true), mDark = flatMat([0.10, 0.09, 0.11]), mWarm = flatMat([0.72, 0.40, 0.17]);
-    /* countershading again, and it is the same rule as the bird: dark along the back, cream on
-     * the belly, because that is what makes a small mammal read as an animal and not a lump. */
-    const RUST = [0.55, 0.30, 0.13], CREAM2 = [0.93, 0.88, 0.79];
-    const shade2 = (p) => { const t = clamp((p[1] + 0.06) / 0.14, 0, 1);
-      return [lerp3(CREAM2[0], RUST[0], t), lerp3(CREAM2[1], RUST[1], t), lerp3(CREAM2[2], RUST[2], t)]; };
+  /* ⚑ A FACTORY, NOT AN INLINE BODY, because `js/city-drops.js` needs rival squirrels and two
+   * squirrel definitions would drift — and the one that drifts is always the one nobody is
+   * currently looking at. `scale` exists so a rival can be slightly smaller than you without a
+   * second mesh. Returns the entity; `.tail` is the pivot the caller may animate. */
+  function buildSquirrel(scale) {
+    const squirrel = new pc.Entity('squirrel');
+      let sqTail = null;
+      {
+        const SEG = 10;
+      const mFur = birdMat(true), mDark = flatMat([0.10, 0.09, 0.11]), mWarm = flatMat([0.72, 0.40, 0.17]);
+      /* countershading again, and it is the same rule as the bird: dark along the back, cream on
+       * the belly, because that is what makes a small mammal read as an animal and not a lump. */
+      const RUST = [0.55, 0.30, 0.13], CREAM2 = [0.93, 0.88, 0.79];
+      const shade2 = (p) => { const t = clamp((p[1] + 0.06) / 0.14, 0, 1);
+        return [lerp3(CREAM2[0], RUST[0], t), lerp3(CREAM2[1], RUST[1], t), lerp3(CREAM2[2], RUST[2], t)]; };
 
-    // the body: a hunched arch, deepest over the hips — a squirrel sits up on its haunches
-    const bodyP = [[0.20, 0.045, 0.042, 0.010], [0.13, 0.082, 0.076, 0.020], [0.04, 0.108, 0.100, 0.024],
-                   [-0.07, 0.115, 0.106, 0.018], [-0.16, 0.090, 0.082, 0.006], [-0.22, 0.050, 0.046, -0.004]];
-    bodyPart(squirrel, loft(bodyP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
-    // head + muzzle, set high and forward
-    const headP = [[0.19, 0.048, 0.046, 0.048], [0.25, 0.072, 0.068, 0.055], [0.31, 0.066, 0.062, 0.053],
-                   [0.35, 0.036, 0.034, 0.048]];
-    bodyPart(squirrel, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
-    for (const sd of [-1, 1]) {                              // ears — the whole silhouette read
-      const e = new pc.Entity('ear' + sd);
-      e.addComponent('render', { type: 'cone' });
-      e.setLocalScale(0.038, 0.075, 0.022);
-      e.setLocalPosition(sd * 0.040, 0.108, 0.245);
-      e.render.meshInstances.forEach(mi => { mi.material = mFur; });
-      squirrel.addChild(e);
-      const y = new pc.Entity('eye' + sd);                   // eyes: big and dark, set wide
-      y.addComponent('render', { type: 'sphere' });
-      y.setLocalScale(0.024, 0.024, 0.024);
-      y.setLocalPosition(sd * 0.050, 0.062, 0.283);
-      y.render.meshInstances.forEach(mi => { mi.material = mDark; });
-      squirrel.addChild(y);
-    }
-    /* ⚑ THE TAIL IS ITS OWN PIVOT because it is the thing that MOVES — it counterweights a leap
-     * and flicks on landing, which is the §4 answer for this body. A tail welded to the spine is
-     * a decoration; one on a hinge is an animal. */
-    sqTail = new pc.Entity('tail');
-    sqTail.setLocalPosition(0, 0.02, -0.21);
-    /* ⚠ THE TAIL CURLS. A straight taper trailing on the ground reads as a rat; the S-curve
-     * carried HIGHER THAN THE BACK is the whole squirrel silhouette, and it is the fourth item on
-     * the ring — a rising y offset per station — rather than a rotation of a straight tail. */
-    const tailP = [[0.00, 0.030, 0.026, 0.00], [-0.11, 0.078, 0.040, 0.05], [-0.24, 0.104, 0.048, 0.15],
-                   [-0.34, 0.092, 0.042, 0.28], [-0.40, 0.048, 0.024, 0.39]];
-    bodyPart(sqTail, loft(tailP.map(q => ring(q[0], q[1], q[2], q[3], 8)), () => RUST), mFur);
-    squirrel.addChild(sqTail);
-    for (const sd of [-1, 1]) for (const [nm, z, len] of [['fore', 0.10, 0.09], ['hind', -0.12, 0.13]]) {
-      const l = new pc.Entity(nm + sd);
-      l.addComponent('render', { type: 'capsule' });
-      l.setLocalScale(0.036, len, 0.036);
-      l.setLocalPosition(sd * 0.072, -0.055, z);
-      l.render.meshInstances.forEach(mi => { mi.material = mWarm; });
-      squirrel.addChild(l);
-    }
+      // the body: a hunched arch, deepest over the hips — a squirrel sits up on its haunches
+      const bodyP = [[0.20, 0.045, 0.042, 0.010], [0.13, 0.082, 0.076, 0.020], [0.04, 0.108, 0.100, 0.024],
+                     [-0.07, 0.115, 0.106, 0.018], [-0.16, 0.090, 0.082, 0.006], [-0.22, 0.050, 0.046, -0.004]];
+      bodyPart(squirrel, loft(bodyP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
+      // head + muzzle, set high and forward
+      const headP = [[0.19, 0.048, 0.046, 0.048], [0.25, 0.072, 0.068, 0.055], [0.31, 0.066, 0.062, 0.053],
+                     [0.35, 0.036, 0.034, 0.048]];
+      bodyPart(squirrel, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade2), mFur);
+      for (const sd of [-1, 1]) {                              // ears — the whole silhouette read
+        const e = new pc.Entity('ear' + sd);
+        e.addComponent('render', { type: 'cone' });
+        e.setLocalScale(0.038, 0.075, 0.022);
+        e.setLocalPosition(sd * 0.040, 0.108, 0.245);
+        e.render.meshInstances.forEach(mi => { mi.material = mFur; });
+        squirrel.addChild(e);
+        const y = new pc.Entity('eye' + sd);                   // eyes: big and dark, set wide
+        y.addComponent('render', { type: 'sphere' });
+        y.setLocalScale(0.024, 0.024, 0.024);
+        y.setLocalPosition(sd * 0.050, 0.062, 0.283);
+        y.render.meshInstances.forEach(mi => { mi.material = mDark; });
+        squirrel.addChild(y);
+      }
+      /* ⚑ THE TAIL IS ITS OWN PIVOT because it is the thing that MOVES — it counterweights a leap
+       * and flicks on landing, which is the §4 answer for this body. A tail welded to the spine is
+       * a decoration; one on a hinge is an animal. */
+      sqTail = new pc.Entity('tail');
+      sqTail.setLocalPosition(0, 0.02, -0.21);
+      /* ⚠ THE TAIL CURLS. A straight taper trailing on the ground reads as a rat; the S-curve
+       * carried HIGHER THAN THE BACK is the whole squirrel silhouette, and it is the fourth item on
+       * the ring — a rising y offset per station — rather than a rotation of a straight tail. */
+      const tailP = [[0.00, 0.030, 0.026, 0.00], [-0.11, 0.078, 0.040, 0.05], [-0.24, 0.104, 0.048, 0.15],
+                     [-0.34, 0.092, 0.042, 0.28], [-0.40, 0.048, 0.024, 0.39]];
+      bodyPart(sqTail, loft(tailP.map(q => ring(q[0], q[1], q[2], q[3], 8)), () => RUST), mFur);
+      squirrel.addChild(sqTail);
+      for (const sd of [-1, 1]) for (const [nm, z, len] of [['fore', 0.10, 0.09], ['hind', -0.12, 0.13]]) {
+        const l = new pc.Entity(nm + sd);
+        l.addComponent('render', { type: 'capsule' });
+        l.setLocalScale(0.036, len, 0.036);
+        l.setLocalPosition(sd * 0.072, -0.055, z);
+        l.render.meshInstances.forEach(mi => { mi.material = mWarm; });
+        squirrel.addChild(l);
+      }
   }
+    squirrel.setLocalScale(scale || 1, scale || 1, scale || 1);
+    squirrel.tail = sqTail;
+    return squirrel;
+  }
+  const squirrel = buildSquirrel(1);
+  const sqTail = squirrel.tail;
   world.addChild(squirrel);
 
   /* ── THE JET, and it is generated for the same reason the bird is: a box with two triangles is
@@ -585,7 +596,8 @@ window.CityApp = (function () {
     cv.style.touchAction = 'none';
     const ui = document.createElement('div');
     ui.id = 'touchUI';
-    ui.innerHTML = '<button id="tCreature" type="button" aria-label="switch animal">◔</button>' +
+    ui.innerHTML = '<button id="tAct" type="button" aria-label="drop a card">✱</button>' +
+                   '<button id="tCreature" type="button" aria-label="switch animal">◔</button>' +
                    '<button id="tFlap" type="button" aria-label="flap or jump">✦</button>' +
                    '<button id="tMode" type="button" aria-label="switch game mode">⇄</button>';
     document.body.appendChild(ui);
@@ -619,6 +631,8 @@ window.CityApp = (function () {
       flapBtn.addEventListener('pointerup', hold(false));
       flapBtn.addEventListener('pointercancel', hold(false)); }
     if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault(); cycleMode(1); });
+    const actBtn = $('tAct');
+    if (actBtn) actBtn.addEventListener('click', e => { e.preventDefault(); actTap = 2; });
     const crBtn = $('tCreature');
     if (crBtn) crBtn.addEventListener('click', e => { e.preventDefault();
       if (MODE !== 'animal') setMode('animal');
@@ -639,6 +653,23 @@ window.CityApp = (function () {
   });
   cv.addEventListener('click', () => { if (isOp() && cv.requestPointerLock) cv.requestPointerLock(); });
 
+  /* ⚑ ONE ACTION KEY FOR BOTH ANIMALS, and it means the same thing in both: LET GO OF SOMETHING.
+   * The bird lets go of a card into the air; the squirrel lets go of the one in its mouth. One
+   * verb, two bodies — which is how a control scheme stays learnable as the roster grows. */
+  let actTap = 0;
+  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f') actTap = 2; });
+
+  function doAction() {
+    if (!drops || MODE !== 'animal') return null;
+    if (CREATURE === 'bird') {
+      /* ⚠ Inherits the bird's velocity and is tossed BACKWARD. A card that left forward would
+       * out-run the bird and land ahead of it, which is neither funny nor useful — and the joke
+       * IS the mechanic: you cannot place it precisely, you have to fly over the spot. */
+      return drops.drop(me.x, me.y, me.z, me.vx, me.vz);
+    }
+    return drops.dropCarried(me);
+  }
+
   function readInput() {
     let fwd = (keys['w'] || keys['arrowup'] ? 1 : 0) - (keys['s'] || keys['arrowdown'] ? 1 : 0);
     let turn = (keys['d'] || keys['e'] || keys['arrowright'] ? 1 : 0) -
@@ -657,7 +688,9 @@ window.CityApp = (function () {
       if (holdFlap) flap = true;
       if (tapFlap > 0) { flap = true; tapFlap--; }
     }
-    return { fwd, turn, dive, flap };
+    let act = false;
+    if (actTap > 0) { act = true; actTap--; }
+    return { fwd, turn, dive, flap, act };
   }
 
 
@@ -681,7 +714,7 @@ window.CityApp = (function () {
    * ⚠ NOTHING IS CACHED, AND THAT IS THE POINT: `genChunk` is pure, so a chunk that leaves range
    *   is destroyed outright and rebuilt identically when you turn round. A cache here would be a
    *   second source of truth for the shape of the world. */
-  let ready = false, bounds = null, collide = null, LEVEL = null;
+  let ready = false, bounds = null, collide = null, LEVEL = null, drops = null;
   const NEAR_R = 2;                    // chunks: 5 x 5 full-detail = 600 m of city you can land on
   const REGION = 4;                    // chunks per side of a horizon region
   const FAR_R = 2;                     // regions: 5 x 5 = 20 x 20 chunks = 2.4 km of visible city
@@ -856,6 +889,12 @@ window.CityApp = (function () {
      * ceiling is 90 m above it. */
     bounds = { min: [-CW.EXTENT, -4, -CW.EXTENT], max: [CW.EXTENT, 120, CW.EXTENT] };
     collide = makeCollide();
+    /* ⛔ THE BIRD PLANTS, THE SQUIRREL TAKES — artist, 2026-08-03. This is the first time the
+     * animal LAYERS touch each other rather than merely seeing different things, which is the
+     * difference between a roster and a game. See js/city-drops.js. */
+    drops = window.CityDrops
+      ? CityDrops.create(app, world, { collide, makeSquirrel: buildSquirrel })
+      : null;
     /* Haze is set from the FAR TIER's reach, so the horizon fades into it instead of ending at a
      * hard edge — the same "geometry outside the visible range" correctness fix the duel stages
      * needed, only here the range is the streamer's and is known exactly. */
@@ -871,6 +910,11 @@ window.CityApp = (function () {
     streamAround(me.x, me.z);
     const g0 = collide.groundBelow(me.x, me.z, 60);
     me.y = (g0 == null ? 0 : g0) + 0.45;
+    /* ⚑ THE RIVALS EXIST FROM THE FIRST FRAME, not after a walk. A steal needs somebody to steal
+     * FROM, so seeding them at the spawn is what makes the mechanic present rather than
+     * theoretical — and they are placed on ground read from the collider, the same rule the
+     * player's own spawn had to learn the hard way. */
+    if (drops) drops.seed(me.x, me.z, 4);
     ready = true;
     return Promise.all(jobs).then(() => {
       /* the landmark chunks were built before their file arrived — drop them so the next stream
@@ -884,7 +928,9 @@ window.CityApp = (function () {
   // ── step ────────────────────────────────────────────────────────────────────────────────────
   function step(dt) {
     if (!ready) return;
+    stepDrops(dt);
     const IN = readInput();
+    if (IN.act) doAction();
     const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
     if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
     if (isOp()) { stepGround(dt, IN, OP); return; }
@@ -1354,6 +1400,22 @@ window.CityApp = (function () {
     if (ready) streamAround(me.x, me.z);
   });
 
+  /* ⚠ The drops advance inside `step()` rather than on their own tick, or a headless run that
+   * drives `_step` would move the player and freeze the world around them — the same trap as a
+   * probe that measures this container's rAF instead of the game. */
+  function stepDrops(dt) {
+    if (!drops) return;
+    /* ⚠ carryY 0.30 put the card INSIDE the squirrel — the body is ~0.19 deep and the card is
+     * 0.48 tall, so it needs to clear the back or the whole point (that you can SEE who has it)
+     * is lost. Held high, like a squirrel with something in its mouth. */
+    drops.step(dt, { x: me.x, y: me.y, z: me.z, yaw: me.yaw,
+                     mode: MODE === 'animal' ? CREATURE : MODE, carryY: 0.48 });
+    const el = $('carry');
+    if (el) { const c = drops.counts;
+      el.textContent = c.carried ? ('CARRYING ' + c.carried) : '';
+      el.dataset.on = c.carried ? '1' : ''; }
+  }
+
   resize();
   /* ⛔ THE PRINT PASS IS ATTACHED AFTER THE FIRST RESIZE, and that ordering is the whole fix for a
    * defect that looked like a shader bug. `PostEffectQueue.addEffect` allocates its offscreen
@@ -1406,6 +1468,7 @@ window.CityApp = (function () {
         classes: [...cls].sort(), byClass: byClass };
     },
     setMode, setCreature, cycleMode, get mode() { return MODE; },
+    get drops() { return drops; }, _act() { return doAction(); },
     get creature() { return CREATURE; }, MODES, CREATURES, ORDER, get ink() { return ink; },
     /* ⚑ COLOUR IS MEASURED, NOT LOOKED AT. This container's screenshot path rotates hue on canvas
      * content — a recorded false conclusion — so the print pass is judged on a histogram read

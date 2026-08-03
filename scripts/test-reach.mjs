@@ -131,6 +131,22 @@ head('1b · the city can actually be played by a thumb');
   t('…and there is an on-screen cycle for a phone', /tMode.*cycleMode|cycleMode\(1\)/s.test(app));
   t('the squirrel is selectable, on both a keyboard and a thumb',
     /setCreature\(/.test(app) && /tCreature/.test(app) && /tCreature/.test(page));
+  /* ⛔ THE DROPS ARE THE FIRST TIME THE ANIMAL LAYERS TOUCH EACH OTHER (artist, 2026-08-03:
+   * "have the birds poop out and place power ups and squirrels and carry power ups and steal
+   * them"). Until this, "the animals are LAYERS not skins" was a claim about what each one could
+   * SEE. A bird that plants and a squirrel that takes makes it a claim about what each can DO to
+   * the other — and a mechanic with no control bound to it is the same as one that does not
+   * exist, which is what this file is for. */
+  {
+    const dr = R('js/city-drops.js');
+    t('city.html loads the drops module', /js\/city-drops\.js/.test(page));
+    t('the bird can drop, on a key AND on a thumb',
+      /doAction\(/.test(app) && /'f'/.test(app) && /tAct/.test(app) && /tAct/.test(page));
+    t('a drop FALLS rather than being placed', /GRAV/.test(dr) && /d\.vy -= GRAV/.test(dr));
+    t('the squirrel carries, and only one', /carried = d/.test(dr) && /if \(!carried\)/.test(dr));
+    t('there is somebody to steal FROM', /addRival|rivals\.push/.test(dr));
+    t('…and stealing is its own act with its own reach', /STEAL_R/.test(dr) && /log\.stolen\+\+/.test(dr));
+  }
   t('the animals are observers and the other two are not',
     /animal:\s*\{[^}]*mortal:\s*false/.test(app) && /operative:\s*\{[^}]*mortal:\s*true/.test(app));
   /* The touch button styling has to exist in the PAGE or the controls render as bare buttons. */

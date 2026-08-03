@@ -820,6 +820,33 @@ away rebuilds identically).
   half of that fix is `nearClip` 0.12 → 0.4**: near clip is a depth-PRECISION dial, and 0.12 m
   against a kilometre-scale far clip spends the whole buffer inside the first metre.
 
+### ✅ THE BIRD PLANTS, THE SQUIRREL TAKES — `js/city-drops.js` (artist, 2026-08-03)
+*"have the birds poop out and place power ups and squirrels and carry power ups and steal them haha"*
+- ⛔ **FIRST TIME THE ANIMAL LAYERS ACT ON EACH OTHER.** "Layers, not skins" was until now a claim
+  about what each one could SEE. A bird that plants and a squirrel that takes makes it a claim about
+  what each can DO TO THE OTHER — the difference between a roster and a game.
+- ⚑ **THE JOKE IS THE MECHANIC.** A drop FALLS, so you cannot place it precisely — you fly over the
+  spot and let go. The bird's advantage (seeing everything) becomes a decision and its disadvantage
+  (no fine control) becomes the cost. **Neither had to be balanced; the physics did it.**
+- ⚑ **A DROP IS A CARD, and this is the one place in the project where `box` is the RIGHT primitive
+  rather than the lazy one** — the trading card is a SIZE before it is anything. That distinction
+  is the whole of DESIGN-SYSTEM §1: the default is only wrong when it is not also the truth.
+- ⚑ **RIVAL SQUIRRELS ARE THE OTHER END OF THE STEAL**, not decoration — a steal needs somebody to
+  steal FROM. They are also the first living thing in the city, which answers the brief's open
+  "is there anyone else in it?" in the mellow direction: yes, and they want your stuff.
+- ⚠ **Steal reach > pick-up reach.** Taking it off someone is the EASY half; catching them was the
+  hard half. Reversed, the chase is pointless.
+- ⚠ **A carried card at 0.30 is INSIDE the squirrel** (body ~0.19 deep, card 0.48 tall). Seeing who
+  has it is the entire point of carrying.
+- ⛔ **AND A SILENT PATCH FAILURE COST A ROUND: `str.replace()` MATCHES NOTHING AND SAYS NOTHING.**
+  The `drops.seed()` call was written against an anchor that an earlier edit had already changed, so
+  it was never inserted — rivals came back `0`, which reads as a broken spawn and was a no-op edit.
+  ⚑ Every scripted patch here now raises on a missed anchor. **An edit that does nothing is worse
+  than one that errors, for exactly the reason this repo keeps re-learning: nothing tells you.**
+- ⚠ Two probe mistakes worth remembering, both of which reported "the game is broken" about the
+  probe: measuring `taken` AFTER the settle that already took the card, and placing the squirrel
+  9 m from a card that was on a terrace — which put it inside the lido wall.
+
 ### ⛔ THREE MODES IN ONE WORLD — animal · dogfight · section 9 (artist, 2026-08-03)
 *"the city game is supposed to have the fps shooter as well - and to be able to be a squirrel as
 well. so there are 3 modes, animal mode, dogfight mode, section 9 mode."*

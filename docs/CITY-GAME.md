@@ -140,6 +140,35 @@ is climbable by construction** — the same 1:1 guarantee the generator already 
 and it is only true because the geometry and the collision set are one thing.
 Measured: lands on the street, runs **23.2 m**, climbs **3.94 m** up a wall.
 
+### ✅ THE BIRD PLANTS AND THE SQUIRREL TAKES — the layers finally touch
+*Artist, 2026-08-03: "have the birds poop out and place power ups and squirrels and carry power ups
+and steal them haha"* — `js/city-drops.js`.
+
+⛔ **THIS IS THE FIRST TIME THE ANIMAL LAYERS ACT ON EACH OTHER.** §1 says the animals are LAYERS
+rather than skins, but until now that was a claim about what each one could *see*. A bird that
+**plants** and a squirrel that **takes** makes it a claim about what each can *do to the other*,
+which is the difference between a roster and a game.
+
+⚑ **THE JOKE IS THE MECHANIC.** A drop comes out of the bird and **falls** — you cannot place it
+precisely, you have to fly over the right spot and let go. The bird's advantage (seeing the whole
+map) is spent as a real decision and its disadvantage (no fine control) is the cost. **Neither had
+to be balanced; the physics did it.**
+
+- A drop is **a card**, because in this studio it could not be anything else — the trading card is
+  a SIZE before it is anything, so a flat rectangle is the *correct* primitive here rather than the
+  lazy one. Four kinds: RIP · FOIL · LENS · ASH, identified by flat saturated colour, which in a
+  posterised city IS the icon.
+- The squirrel carries **exactly one** — a full mouth also slows you down.
+- **Rival squirrels are the other end of the steal**, not decoration: they want the same cards, they
+  are slower than you, and they carry one each. They are also the first thing in this city that is
+  ALIVE, which answers the brief's open question ("is there anyone else in it?") in the mellow
+  direction: yes, and they want your stuff, and that is the entire conflict.
+- ⚠ **Steal range is deliberately LARGER than pick-up range.** Taking something off somebody should
+  be the easy part once you have caught them — the hard part was catching them. The other way round
+  makes the chase pointless.
+- Measured in one run: 5 dropped, 5 landed (two on raised surfaces — they land where they land),
+  **take 0 → 1**, **steal 0 → 1**.
+
 ### ⚠ THE OPERATIVE IS SECTION 9's CAPSULE, NOT A NEW ONE
 r 0.42 · h 1.72 · step 0.62 — Section 9's own numbers, because its map format *is* the city's chunk
 format and the body should match the thing the collision was written for. Measured: stands at
