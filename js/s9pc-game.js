@@ -704,7 +704,7 @@ window.S9Game = (function () {
         if (!pick && MOBS[force]) pick = { t: force, ch: MOBS[force].ch, col: MOBS[force].col, mob: true }; }
       if (!pick) { let tot = 0; for (const q of pool) tot += q[1]; let r = Math.random() * tot; pick = pool[0][0];
         for (const [p, wt] of pool) { if ((r -= wt) <= 0) { pick = p; break; } } }
-      const s = at || MAP.spawns[rint(MAP.spawns.length)];
+      const s = at || dropSite();
       /* ⧗ SUPPLY COMES DOWN FROM THE SKY. A drop that simply appears on the floor is something a
        * player finds by walking over it; a drop that punches down through a portal is something
        * four players SEE AT THE SAME MOMENT and race for. That race is the whole point — it turns
@@ -721,6 +721,48 @@ window.S9Game = (function () {
         type: pick.t, ch: pick.ch, col: pick.col, mob: !!pick.mob, t: 0 };
       G.pows.push(pw);
       return pw;
+    }
+    /* ⛔ SUPPLY WAS LANDING WHERE NOBODY WAS. The drop point was `MAP.spawns[random]` — the
+     *   PLAYER SPAWN POINTS, which are deliberately scattered to the far corners (`farSpawn`
+     *   literally picks the one furthest from every living operative, because that is what a
+     *   respawn wants). Measured on NIGHT MARKET, eight consecutive natural drops landed at
+     *   (-19.6, 7.8) (17.5, 17.8) (21.5, -8) (20.8, -10.8) … — spread +/-20 m across an aisle map,
+     *   so a portal opened somewhere you could not see, behind shelving, and the token settled
+     *   where the fight was not. They landed correctly and they landed OUT OF THE GAME.
+     * ⚑ A supply drop is a CONTESTED EVENT or it is nothing. It goes near the living operatives,
+     *   which is the whole point of announcing it with a portal — everyone sees it, everyone can
+     *   reach it, and who gets there first is the play.
+     * ⚠ NOT ON TOP OF ANYONE. `MIN_D` keeps it out of arm's reach of the nearest operative, or
+     *   the drop is a gift to whoever happened to be standing there rather than a race. And the
+     *   site is validated against the arena's own floor the same way a spawn is — an unreachable
+     *   drop is the bug this is fixing, so it must not introduce a new one. */
+    const DROP_MIN_D = 6, DROP_SPREAD = 9;
+    function dropSite() {
+      const live = G.ents.filter(e => e && e.alive);
+      if (!live.length) return MAP.spawns[rint(MAP.spawns.length)];
+      const cx = live.reduce((a, e) => a + e.x, 0) / live.length;
+      const cz = live.reduce((a, e) => a + e.z, 0) / live.length;
+      for (let tries = 0; tries < 12; tries++) {
+        const an = Math.random() * Math.PI * 2, rad = DROP_MIN_D + Math.random() * DROP_SPREAD;
+        const x = cx + Math.cos(an) * rad, z = cz + Math.sin(an) * rad;
+        let near = 1e9; for (const e of live) { const d = Math.hypot(e.x - x, e.z - z); if (d < near) near = d; }
+        if (near < DROP_MIN_D) continue;                       // too close to be a race
+        const probe = { x, z, y: (live[0].y || 0) + 1, r: 0.3 };
+        let fy = 0; try { fy = supportY(probe); } catch (e) { continue; }
+        if (!isFinite(fy)) continue;
+        /* Inside a shelf or a crate? Same MAP.solids the operatives collide against — a box that
+           straddles the token's own height means the drop would be buried in geometry. */
+        let buried = false;
+        for (const b of MAP.solids) {
+          if (b.x1 <= x - 0.3 || b.x0 >= x + 0.3 || b.z1 <= z - 0.3 || b.z0 >= z + 0.3) continue;
+          if (b.y1 > fy + 0.15 && b.y0 < fy + 0.9) { buried = true; break; }
+        }
+        if (buried) continue;
+        // the arena's own bounds, so a drop can never land outside the playable box
+        if (x < MAP.x0 + 1 || x > MAP.x1 - 1 || z < MAP.z0 + 1 || z > MAP.z1 - 1) continue;
+        return [x, z, fy];
+      }
+      return MAP.spawns[rint(MAP.spawns.length)];              // fail back to the old behaviour
     }
     /* How far up the portal opens. Chosen so the fall reads as an EVENT you can look up at and
      * still lands fast: from 18 m at GRAV 20 that is ~1.34 s, about the same as this game's

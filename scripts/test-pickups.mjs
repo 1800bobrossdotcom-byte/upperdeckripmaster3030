@@ -167,5 +167,20 @@ t('the portal mouth stays at the release height — a door does not follow what 
 t('the portal is destroyed with its drop (no orphan doors)',
   (appSrc.match(/if \(st\.portal\) st\.portal\.destroy\(\)/g) || []).length >= 2);
 
+/* ⛔ AND THEY WERE LANDING WHERE NOBODY WAS. The drop point was `MAP.spawns[random]` — the PLAYER
+ *   SPAWN POINTS, which are scattered to the far corners on purpose (`farSpawn` picks the one
+ *   FURTHEST from every living operative, because that is what a respawn wants). Measured on
+ *   NIGHT MARKET, eight consecutive natural drops: (-19.6,7.8) (17.5,17.8) (21.5,-8) (20.8,-10.8)
+ *   … spread +/-20 m across an aisle map. They landed correctly and they landed OUT OF THE GAME.
+ *   After: (-3.8,9.5) (9.6,2.4) (8.3,-9.9) (-6.6,-8.5) — in among the operatives. */
+t('supply is placed near the living operatives, not at a random respawn corner',
+  /const s = at \|\| dropSite\(\)/.test(gameSrc) && /function dropSite\(/.test(gameSrc));
+t('…and never within arm\'s reach of one, or it is a gift rather than a race',
+  /if \(near < DROP_MIN_D\) continue;/.test(gameSrc));
+t('…nor buried in a shelf, nor outside the arena bounds',
+  /buried = true/.test(gameSrc) && /MAP\.x0 \+ 1/.test(gameSrc));
+t('…and it still falls back to a spawn point if no site validates',
+  (gameSrc.match(/MAP\.spawns\[rint\(MAP\.spawns\.length\)\]/g) || []).length >= 2);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
