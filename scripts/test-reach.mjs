@@ -58,6 +58,18 @@ function navigatorsOf(page) {
     const fromDir = dirname(f) === '.' ? '' : dirname(f) + '/';
     const rel = page.startsWith(fromDir) ? page.slice(fromDir.length) : page;
     const forms = new Set([page, rel, '/' + page, '../' + page]);
+    /* ⛔ A SERVER SERVES A DIRECTORY'S index.html, AND THIS WAS BLIND TO IT. `index.html` links the
+     * deck as href="cards/" and every card page backs out with href="./" — neither of which is a
+     * .html string, so the sweep saw the deck as unlinked. It was then EXEMPTED as a "root", which
+     * is the worst possible resolution: a root with no inbound link is just an orphan with a
+     * special name, and the exemption meant nothing ever checked that a visitor could reach the
+     * 197 cards at all. Resolve the directory form and the exemption is not needed. */
+    if (page === 'index.html' || page.endsWith('/index.html')) {
+      const dir = page.slice(0, -'index.html'.length);            // '' or 'cards/'
+      const relDir = dir.startsWith(fromDir) ? dir.slice(fromDir.length) : dir;
+      for (const d of [dir, relDir, '/' + dir, '../' + dir]) forms.add(d === '' ? './' : d);
+      if (dir === fromDir) { forms.add('./'); forms.add(''); }
+    }
     const alt = [...forms].map(esc).join('|');
     return new RegExp('(?:href|src|action)\\s*=\\s*["\'](?:' + alt + ')(?:[#?][^"\']*)?["\']' +
                       '|location(?:\\.href)?\\s*=\\s*["\'](?:' + alt + ')' +
@@ -401,7 +413,7 @@ t(`all ${CARD_PAGES.length} card pages are reachable from the deck index`, cardO
 
 for (const [f] of TEXT) {
   if (!f.endsWith('.html')) continue;
-  if (f === 'index.html' || f === 'cards/index.html') continue;      // roots
+  if (f === 'index.html') continue;      // the domain itself is the only real root
   if (ORPHAN_OK[f] || CARD_PAGES.includes(f)) continue;
   const nav = navigatorsOf(f);
   t(`${f} is navigated to by something`, nav.length > 0, nav.slice(0, 3).join(', ') || 'NO INBOUND LINK');
@@ -616,6 +628,82 @@ head('6b · the first of the 33 is reachable, and the type is still geometry');
    * "made out of the 100" quietly becomes "made out of three files somebody typed in 2026". */
   t('the pigment pool comes from the deck manifest',
     /hero-manifest\.json/.test(proof) && /pigment/.test(proof));
+}
+
+// ═══ 2c · CAN A VISITOR ACTUALLY WALK THERE FROM THE FRONT DOOR? ═══════════════════════════════
+/* ⛔ THE ORPHAN SWEEP ABOVE CANNOT ANSWER THIS, AND FINDING THAT OUT IS THE POINT. It asks "does
+ * anything link this page", which a CLOSED CYCLE satisfies trivially: the deck links its 196 card
+ * pages and every card page links `./` straight back, so the whole card surface would keep passing
+ * §2 with the single door on the home page removed — measured, by removing it. A set of pages that
+ * only point at each other is unreachable and perfectly non-orphaned.
+ * ⚑ So this one WALKS. Breadth-first from index.html, resolving hrefs the way a server does, and
+ *   asks how many clicks each surface actually is. That is the question the artist asked
+ *   ("where are the cards"), and it is a different question from the one §2 was answering. */
+head('2c · the surfaces a visitor comes for are a short walk from the front door');
+{
+  const norm = p2 => {
+    const out = [];
+    for (const seg of p2.split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') out.pop(); else out.push(seg);
+    }
+    return out.join('/');
+  };
+  const resolve = (from, h) => {
+    if (/^(https?:|mailto:|tel:|#|javascript:|data:)/i.test(h)) return null;
+    let t2 = h.split('#')[0].split('?')[0];
+    if (t2 === '') t2 = './';
+    let abs = t2.startsWith('/') ? t2.slice(1)
+      : norm((dirname(from) === '.' ? '' : dirname(from) + '/') + t2);
+    if (abs === '' || t2.endsWith('/')) abs = norm(abs + '/index.html');
+    if (!/\.[a-z0-9]+$/i.test(abs)) abs = norm(abs + '/index.html');
+    return TEXT.has(abs) ? abs : null;
+  };
+  const dist = { 'index.html': 0 }, via = {};
+  for (const q = ['index.html']; q.length;) {
+    const f = q.shift();
+    const src = TEXT.get(f) || '';
+    for (const m of src.matchAll(/(?:href|data-href)\s*=\s*["']([^"']+)/g)) {
+      const t2 = resolve(f, m[1]);
+      if (!t2 || !t2.endsWith('.html') || dist[t2] !== undefined) continue;
+      dist[t2] = dist[f] + 1; via[t2] = f; q.push(t2);
+    }
+  }
+  /* ⚠ The bar is CLICKS, not existence. Three is generous — it is "home, a hub, the thing" — and
+   * anything past it is a page the artist will not find, which is the failure being guarded. */
+  for (const [page, why] of [
+    ['cards/index.html', 'the deck'],
+    ['cards/binder.html', 'the folder'],
+    ['cards/proof.html', 'the 33'],
+    ['cards/market.html', 'the market bench'],
+    ['arcade.html', 'the arcade'],
+    ['city.html', 'THE CITY'],
+  ]) {
+    t(`${why} is reachable from the home page`, dist[page] !== undefined && dist[page] <= 3,
+      dist[page] === undefined ? 'NO WALK EXISTS' : `${dist[page]} click(s), via ${via[page]}`);
+  }
+}
+
+// ═══ 6c · THE DECK IS NOT A DEAD END ═══════════════════════════════════════════════════════════
+/* Artist, 2026-08-04, looking at a card page: *"where are the cards, I'm not seeing them in the
+ * folder or the deck or anywhere."* Both pages rendered and both were one click from home — and he
+ * was still right. `cards/index.html` carried exactly ONE link, back to the pack, so a visitor who
+ * arrived at the 197 cards found no sign that the folder, his own cards or the generated heroes
+ * existed. ⚑ REACHABLE-FROM-SOMEWHERE IS NOT FINDABLE-FROM-WHERE-YOU-ARE, and that gap is this
+ * file's whole subject one level further in than it had been looking. */
+head('6c · the deck offers a way onward, and the generator that writes it agrees');
+{
+  const deck = TEXT.get('cards/index.html') || '';
+  t('the deck links THE FOLDER', /href="binder\.html"/.test(deck));
+  t('the deck links THE 33', /href="proof\.html"/.test(deck));
+  /* ⛔ AND THE GENERATOR MUST CARRY IT. `cards/index.html` is written by
+   * `scripts/ingest-batch.mjs`; patching only the output leaves the generator armed to put the
+   * dead end back on the next ingest, which is exactly the failure `test:name` §4 was built for
+   * (`restyle-backs.mjs` emitting the dead-name bitmap over hand-fixed output). */
+  const gen = readFileSync(join(ROOT, 'scripts/ingest-batch.mjs'), 'utf8');
+  t('…and the generator emits the same nav', /class="decknav"/.test(gen) &&
+    /href="binder\.html"/.test(gen) && /href="proof\.html"/.test(gen));
+  t('…and so does the shipped page', /class="decknav"/.test(deck));
 }
 
 // ═══ 7 · THE SITEMAP LISTS THE CABINETS IT HAS ═════════════════════════════════════════════════

@@ -140,6 +140,18 @@ function buildGallery() {
     border-radius:999px;padding:8px 18px;font-family:'Arial Black',Arial,sans-serif;
     font-size:10px;letter-spacing:.22em;text-indent:.22em;text-transform:uppercase;
     color:#111;text-decoration:none}
+  /* ⛔ THE DECK WAS A DEAD END. 197 cards and exactly one way out — back to the pack. So a
+     visitor who came here looking for the folder, the artist's own cards or the generated
+     heroes found no sign that any of them existed, and the honest answer to "where are the
+     cards" was "on a page this one never mentions". Reachable-from-somewhere is not the same
+     as findable-from-where-you-are. */
+  .decknav{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px auto 2px}
+  .decknav a{display:inline-block;background:#f6ecc9;border:3px solid #000;border-radius:999px;
+    padding:8px 16px;font-family:'Arial Black',Arial,sans-serif;font-size:10px;
+    letter-spacing:.18em;text-indent:.18em;text-transform:uppercase;color:#111;
+    text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+  .decknav a:hover,.decknav a:focus{background:#2bff80;outline:none}
+  .decknav a.hot{background:#ff9a3b}
   h2.tier{margin:30px 0 12px;text-align:center}
   h2.tier span{display:inline-block;border:3px solid #000;border-radius:999px;
     padding:6px 20px;font-family:'Arial Black',Arial,sans-serif;font-size:11px;
@@ -220,6 +232,11 @@ function buildGallery() {
     <header>
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
+      <div class="decknav">
+        <a href="binder.html">▤ the folder</a>
+        <a href="binder.html#hero-34">✎ the artist's cards</a>
+        <a class="hot" href="proof.html">◆ the 33 · plate proof</a>
+      </div>
       <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $3030 to vote any card up or
       down the ladder. Enough conviction moves its rarity; enough scorn votes it off the
       island. <b>⛨ HODL votes</b> anchor a card where it is — downvotes must burn through
