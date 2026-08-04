@@ -206,6 +206,29 @@ head('1b · the city can actually be played by a thumb');
     t('the weapon goes away at the wheel', /!player\.driving/.test(R('js/city-ops.js')));
   }
 
+  /* ⛔ SECTION 9'S CONTROLS, NOT A SUBSET — artist, 2026-08-04: "port over the guns and controls
+   * from other game." The weapon TABLE was already asserted identical; the SCHEME was not, and it
+   * was missing the two bindings that change how the weapon behaves rather than how it looks:
+   * RMB aim and CTRL crouch. section9.html's own legend is the reference. */
+  {
+    const ops = R('js/city-ops.js');
+    t('right mouse aims, and the context menu is suppressed',
+      /e\.button === 2/.test(app) && /contextmenu/.test(app));
+    t('…on a thumb too', /tAds/.test(app) && /tAds/.test(page));
+    /* ⛔ AIMING TIGHTENS THE CONE. Without this the button is a zoom lens, not a weapon state —
+     * one value drives the pose, the fov and the accuracy so they cannot disagree. Driven: COLD
+     * CALL pulls fov 62 -> 23, which is 62/2.7 to the decimal, and returns on release. */
+    t('aiming tightens the cone as well as the view', /tight = w\.key === 'shotgun' \? 1/.test(ops));
+    t('…and the zoom comes from the WEAPON', /Math\.max\(1, w\.zoom\)/.test(ops));
+    t('…and collapses when you cannot aim', /const canAds = armed && me\.alive && !me\.reloading/.test(ops));
+    /* CTRL crouch: a real state — lower eye, slower walk — not a camera offset. Driven: eye drops
+     * 0.55 m and creeping covers 5.4 m where walking covers 12.2. */
+    t('CTRL crouches', /crouch: !!keys\['control'\]/.test(app) && /me\.crouchT/.test(app));
+    t('…and it actually slows you down', /crouch \? \(B\.run \|\| 6\) \* 0\.45/.test(app));
+    t('the legend names the ported bindings',
+      /RMB<\/span> aim/.test(page) && /CTRL<\/span> crouch/.test(page));
+  }
+
   /* ⛔ EVERY KEY THE STEP FUNCTIONS READ OFF `MODES` MUST EXIST IN IT — DOGFIGHT RENDERED AN EMPTY
    * SKY FOR TWO COMMITS BECAUSE TWO DID NOT. `e19fa30` defined `camBack`/`camUp` on the jet entry;
    * `c17d1f7` rewrote the table into the mortal/targetable/armed one and dropped them, while

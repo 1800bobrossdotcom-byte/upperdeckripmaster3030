@@ -654,6 +654,7 @@ window.CityApp = (function () {
     ui.id = 'touchUI';
     ui.innerHTML = '<button id="tAct" type="button" aria-label="drop a card">✱</button>' +
                    '<button id="tCreature" type="button" aria-label="switch animal">◔</button>' +
+                   '<button id="tAds" type="button" aria-label="aim">◎</button>' +
                    '<button id="tFire" type="button" aria-label="fire">◉</button>' +
                    '<button id="tFlap" type="button" aria-label="flap or jump">✦</button>' +
                    '<button id="tMode" type="button" aria-label="switch game mode">⇄</button>';
@@ -704,6 +705,13 @@ window.CityApp = (function () {
       flapBtn.addEventListener('pointercancel', hold(false)); }
     /* ⚠ HELD, NOT TAPPED. FULL TILT is an automatic weapon; a click-per-round trigger would make
      * the only auto in the game the slowest thing in it on the device most people are holding. */
+    /* ⚠ AIM IS A HOLD ON A PHONE TOO, and it sits beside the trigger rather than replacing a
+     * tap gesture — the right thumb is already the look pad, so a gesture would have fought it. */
+    const adsBtn = $('tAds');
+    if (adsBtn) { const hold = v => e => { e.preventDefault(); holdAds = v; };
+      adsBtn.addEventListener('pointerdown', hold(true));
+      adsBtn.addEventListener('pointerup', hold(false));
+      adsBtn.addEventListener('pointercancel', hold(false)); }
     if (fireBtn) { const hold = v => e => { e.preventDefault(); holdFire = v; };
       fireBtn.addEventListener('pointerdown', hold(true));
       fireBtn.addEventListener('pointerup', hold(false));
@@ -719,7 +727,8 @@ window.CityApp = (function () {
   /* ⚠ ALL THE INPUT LATCHES IN ONE PLACE, ABOVE EVERY READER. `const`/`let` hoist into the
    * temporal dead zone, and a top-level read above the declaration takes the whole app down
    * silently — three sightings in this repo, one of them in this very file. */
-  let tapFlap = 0, holdFlap = false, tapFire = 0, holdFire = false, mouseDown = false;
+  let tapFlap = 0, holdFlap = false, tapFire = 0, holdFire = false, mouseDown = false,
+      adsDown = false, holdAds = false;
 
   /* One place where touch and keys become the same three numbers, so `step()` never asks which
    * device it is on — the recorded lesson from the arena chips is that a mode branch deep in a
@@ -737,10 +746,18 @@ window.CityApp = (function () {
   /* ── the trigger, and the weapon selector. ⚠ THE FIRST CLICK IS THE POINTER LOCK, NOT A SHOT.
    * Firing on it too would spend a round every time you clicked back into the window, and on
    * COLD CALL that is a fifth of the magazine for tabbing away. */
-  cv.addEventListener('mousedown', e => { if (e.button !== 0) return;
-    if (isOp() && document.pointerLockElement === cv) mouseDown = true; });
-  addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false; });
-  addEventListener('blur', () => { mouseDown = false; });
+  cv.addEventListener('mousedown', e => {
+    if (!isOp() || document.pointerLockElement !== cv) return;
+    if (e.button === 0) mouseDown = true;
+    /* ⛔ RIGHT MOUSE AIMS — Section 9's own binding, and the one missing control that changes how
+     * the weapon BEHAVES rather than only how it looks. `contextmenu` must be suppressed or the
+     * browser eats the press. */
+    else if (e.button === 2) { adsDown = true; e.preventDefault(); }
+  });
+  cv.addEventListener('contextmenu', e => { if (isOp()) e.preventDefault(); });
+  addEventListener('mouseup', e => { if (e.button === 0) mouseDown = false;
+    else if (e.button === 2) adsDown = false; });
+  addEventListener('blur', () => { mouseDown = false; adsDown = false; });
   addEventListener('wheel', e => { if (!isOp() || !ops) return;
     ops.cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: true });
   addEventListener('keydown', e => {
@@ -822,7 +839,10 @@ window.CityApp = (function () {
     }
     let act = false;
     if (actTap > 0) { act = true; actTap--; }
-    return { fwd, turn, strafe, dive, flap, act, fire, hand: !!keys[' '] };
+    /* ⚑ CROUCH is Section 9's CTRL, and it is a real state rather than a camera offset: it
+     * lowers the eye, slows the walk and steadies the aim, which is why anyone crouches. */
+    return { fwd, turn, strafe, dive, flap, act, fire, hand: !!keys[' '],
+             ads: (adsDown || holdAds) && isOp(), crouch: !!keys['control'] && isOp() };
   }
 
 
@@ -1159,7 +1179,7 @@ window.CityApp = (function () {
      * foot, so anything that must run in EVERY mode has to happen above those branches — that is
      * how a bot would otherwise freeze mid-reload the moment you became a bird. */
     const IN = readInput();
-    if (ops) ops.setTrigger(IN.fire);
+    if (ops) { ops.setTrigger(IN.fire); ops.setAds(IN.ads); }
     stepOps(dt);
     /* ⛔ DRIVING REPLACES THE BODY'S STEP, NOT THE MODE. You are still an animal or an operative —
      * `targetable` and `armed` are untouched — you are simply in a car, so the car integrates and
@@ -1406,8 +1426,12 @@ window.CityApp = (function () {
     me.yaw += IN.turn * 2.6 * dt;
     const hx = Math.sin(me.yaw), hz = Math.cos(me.yaw);
     const want = IN.fwd;
-    const sprint = IN.dive && !B.climb;                       // SHIFT sprints on foot, dives in air
-    const top = sprint ? (B.sprint || B.run * 1.5) : (B.run || 6);
+    const crouch = !!IN.crouch;
+    const sprint = IN.dive && !B.climb && !crouch;            // SHIFT sprints on foot, dives in air
+    const top = crouch ? (B.run || 6) * 0.45 : sprint ? (B.sprint || B.run * 1.5) : (B.run || 6);
+    /* ⚠ THE EYE FOLLOWS AS A SPRING, not as a snap. A crouch that teleports the camera down 40 cm
+     * reads as a glitch; the same settle every other camera here uses reads as ducking. */
+    me.crouchT = (me.crouchT || 0) + ((crouch ? 1 : 0) - (me.crouchT || 0)) * Math.min(1, dt * 9);
     const onG = me.onGround;
 
     /* ── THE CLIMB, and it is the squirrel's entire reason to exist. A wall within reach IS a
@@ -1465,7 +1489,7 @@ window.CityApp = (function () {
     if (isOp()) {
       /* FIRST PERSON: the camera IS the head. No lag and no spring — a settling camera on a body
        * you are inside reads as motion sickness rather than as weight. */
-      camPos.x = me.x; camPos.y = me.y + OP.eye; camPos.z = me.z;
+      camPos.x = me.x; camPos.y = me.y + OP.eye - (me.crouchT || 0) * 0.55; camPos.z = me.z;
       cam.setPosition(-camPos.x, camPos.y, camPos.z);
       /* ⛔ PITCH IS AN ANGLE, AND THE CAMERA HAD BEEN READING IT AS A SLOPE. `y + pitch * 10` is
        * tan-like; `js/city-ops.js` fires along `(sin(yaw)cos(pitch), sin(pitch), cos(yaw)cos(pitch))`,
@@ -1474,7 +1498,9 @@ window.CityApp = (function () {
        * which is the same defect class as the mirrored scene ("aim off" and "mouse inverted" were
        * one bug), and it is invisible until somebody shoots at something above them. */
       const cp = Math.cos(me.pitch);
-      cam.lookAt(-(me.x + hx * 10 * cp), me.y + OP.eye + Math.sin(me.pitch) * 10, me.z + hz * 10 * cp);
+      cam.lookAt(-(me.x + hx * 10 * cp),
+                 me.y + OP.eye - (me.crouchT || 0) * 0.55 + Math.sin(me.pitch) * 10,
+                 me.z + hz * 10 * cp);
       return;
     }
 

@@ -98,8 +98,8 @@ window.CityOps = (function () {
     const me = { hp: TUNE.hp, armor: TUNE.armor, maxHp: TUNE.hp, alive: true, downT: 0,
                  weapon: 1, mag: WEAPONS[1].mag, reloading: false, reloadT: 0, fireT: 0,
                  regenT: 0, recoil: 0, kick: 0, hitmark: 0, dmgFlash: 0, nearMiss: 0,
-                 kills: 0, deaths: 0 };
-    let trigger = false;
+                 kills: 0, deaths: 0, ads: 0 };
+    let trigger = false, wantAds = false;
 
     // ── FX pools ────────────────────────────────────────────────────────────────────────────
     /* ⚑ A TRACER IS A ROUND IN FLIGHT, NOT A DRAWN LINE. Damage lands hitscan at the trigger pull;
@@ -218,6 +218,10 @@ window.CityOps = (function () {
       view.addChild(viewFlash);
       camEnt.addChild(view);
     }
+    /* the un-zoomed field of view, captured once so ADS has something to return to. ⚠ Read from
+     * the camera rather than assumed: `city-app.js` sets it, and a hard-coded 62 here would be a
+     * second opinion that silently wins whenever the first one changes. */
+    let BASE_FOV = (camEnt && camEnt.camera) ? camEnt.camera.fov : 62;
     const vs = { sway: 0, swayT: 0, bob: 0 };
     function stepView(dt, player, armed) {
       if (!view) return;
@@ -231,9 +235,20 @@ window.CityOps = (function () {
       vs.bob += spd * dt * 2.6;
       const walk = Math.min(1, spd / 6);
       const bx = Math.sin(vs.bob) * 0.012 * walk, by = Math.abs(Math.cos(vs.bob)) * 0.010 * walk;
+      /* ⛔ AIMING MOVES THE WEAPON ONTO THE RETICLE. `s9pc-app.js` records the reason its ADS pose
+       * is `x = 0`: that is what puts the sights on the crosshair. Interpolating between the hip
+       * carry and that pose is the whole animation — no clip, just the same spring the sway uses,
+       * driven by a state that also tightens the cone and pulls the fov in. */
+      const a = me.ads;
       const k = me.kick;                                   // the ONLY input to recoil
-      view.setLocalPosition(0.27 + vs.sway + bx, -0.235 - by + k * 0.018, -0.92 + k * 0.10);
-      view.setLocalEulerAngles(k * 9, -4.5 + vs.sway * 40, 1.5 + vs.sway * 22);
+      const hipX = 0.27 + vs.sway + bx, adsX = 0.0 + vs.sway * 0.3;
+      const hipY = -0.235 - by, adsY = -0.078 - by * 0.3;
+      view.setLocalPosition(hipX + (adsX - hipX) * a,
+                            hipY + (adsY - hipY) * a + k * 0.018,
+                            -0.92 + (0.30 * a) + k * 0.10);
+      view.setLocalEulerAngles(k * 9 * (1 - a * 0.5),
+                               (-4.5 + vs.sway * 40) * (1 - a),
+                               (1.5 + vs.sway * 22) * (1 - a));
       viewFlash.enabled = k > 0.55;
       if (viewFlash.enabled) { const s = 0.08 + k * 0.14;
         viewFlash.setLocalScale(s, s, s * 1.6); }
@@ -408,8 +423,14 @@ window.CityOps = (function () {
       const ox = player.x, oy = player.y + TUNE.eye, oz = player.z;
       const cp = Math.cos(player.pitch || 0);
       const bx = Math.sin(player.yaw) * cp, by = Math.sin(player.pitch || 0), bz = Math.cos(player.yaw) * cp;
+      /* ⛔ AIMING TIGHTENS THE CONE — that is what aiming IS, and without it the right mouse
+       * button is a zoom lens rather than a weapon state. Section 9 ties the two together and so
+       * does this: `me.ads` is the same 0..1 that moves the viewmodel and pulls the fov in, so the
+       * sight picture and the accuracy can never disagree. SCATTER is exempt on purpose — a
+       * shotgun's spread is the weapon, not the aim. */
+      const tight = w.key === 'shotgun' ? 1 : (1 - 0.62 * me.ads);
       for (let i = 0; i < w.pellets; i++) {
-        const d = spread(bx, by, bz, w.spread);
+        const d = spread(bx, by, bz, w.spread * tight);
         shoot({ isMe: true, x: ox, y: oy, z: oz }, ox, oy, oz, d[0], d[1], d[2], w, player, true);
       }
       if (me.mag <= 0) startReload();
@@ -732,6 +753,16 @@ window.CityOps = (function () {
        * feature rather than a side effect of forgetting to ask. Caught by looking at the frame —
        * the chase camera was correct and the gun was still there in front of it. */
       const armed = !!(player && player.armed && player.mode === 'operative' && !player.driving);
+      /* ⚠ Aiming COLLAPSES when you cannot aim — down, driving, or out of the mode — rather than
+       * being left latched at whatever it was. A weapon state that survives its own mode is the
+       * HUD-survives-its-mode bug with a fov attached. */
+      const canAds = armed && me.alive && !me.reloading;
+      me.ads += ((canAds && wantAds ? 1 : 0) - me.ads) * Math.min(1, dt * 11);
+      if (camEnt && camEnt.camera) {
+        const w = WEAPONS[me.weapon];
+        const want = BASE_FOV / (1 + (Math.max(1, w.zoom) - 1) * me.ads);
+        camEnt.camera.fov += (want - camEnt.camera.fov) * Math.min(1, dt * 11);
+      }
       if (armed && !view) buildView(camEnt);
       stepView(dt, player || { yaw: 0, speed: 0 }, armed);
       if (armed && trigger && me.alive) {
@@ -821,6 +852,8 @@ window.CityOps = (function () {
     return {
       step, BODY, WEAPONS, TUNE,
       setTrigger(v) { trigger = !!v; },
+      setAds(v) { wantAds = !!v; },
+      get ads() { return me.ads; },
       get trigger() { return trigger; },
       fire(player) { return fireOnce(player); },
       reload: startReload, switchWeapon, cycleWeapon,

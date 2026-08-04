@@ -1212,6 +1212,25 @@ camera banks with the body.
   hanging in front of it. `armed` gates the viewmodel and the trigger together, and both are wrong
   while driving — a drive-by is a feature, not a side effect of forgetting to ask.
 
+### ✅ SECTION 9's CONTROLS, NOT A SUBSET OF THEM (artist, 2026-08-04)
+*"port over the guns and controls from other game."* The weapon TABLE was already asserted
+identical; the SCHEME was not, and the two bindings it was missing are exactly the two that change
+how the weapon BEHAVES rather than how it looks.
+- ⛔ **RMB AIMS, AND AIMING TIGHTENS THE CONE.** One value — `me.ads` — drives the viewmodel pose,
+  the field of view and the accuracy, so the sight picture and the group can never disagree. Without
+  the cone term the right button is a zoom lens rather than a weapon state. Measured: COLD CALL
+  (zoom 2.7) pulls fov **62 → 23**, which is 62/2.7 to the decimal, and returns on release; FULL
+  TILT (zoom 1) brings the weapon up without magnifying. ⚠ SCATTER is exempt — a shotgun's spread
+  IS the weapon, not the aim. ⚠ `contextmenu` must be suppressed or the browser eats the press.
+- ⛔ **CROUCH IS A STATE, NOT A CAMERA OFFSET.** CTRL lowers the eye, slows the walk and steadies
+  the aim, which is why anyone crouches. Measured: eye drops **0.55 m** and creeping covers 5.4 m
+  where walking covers 12.2. The eye follows as a spring — a camera that teleports down 40 cm reads
+  as a glitch.
+- ⚠ **A PATCH SCRIPT THAT DIES BEFORE ITS WRITE ROLLS BACK EVERY EDIT BEFORE IT**, and the "ok"
+  lines it already printed are only STAGED. Two edits were lost that way and the failure surfaced
+  three steps later as `ReferenceError: adsDown is not defined`. Writing at the end is the safe
+  design; treating the progress output as proof of application is the mistake.
+
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
 moves.

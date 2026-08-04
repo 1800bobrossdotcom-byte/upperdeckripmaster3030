@@ -168,7 +168,9 @@
   /* ⚑ THE TRIGGER IS THE BIGGEST THING ON SCREEN IN THE MODE THAT HAS ONE — the same rule that
      made FLAP 74px: a control's size tracks how often a thumb wants it. It exists ONLY in
      operative mode; a fire button over a bird is the observer rule broken in the UI. */
-  #tFire{ display:none; }
+  #tFire, #tAds{ display:none; }
+  body[data-mode="operative"] #touchUI #tAds{ display:grid; opacity:.72; font-size:21px; }
+  body[data-mode="operative"] #touchUI #tAds:active{ opacity:1; }
   body[data-mode="operative"] #touchUI #tFire{ display:grid; width:74px; height:74px; font-size:26px;
     border-color:rgba(255,107,87,.6); }
   body[data-mode="operative"] #touchUI #tFlap{ width:56px; height:56px; font-size:22px;
@@ -192,7 +194,7 @@
        class of regression as the flap button shrinking. Derived: 74 + 56 + 56 + two 12px gaps + a
        16px margin. */
     #hudBL{ font-size:10.5px; line-height:1.7;
-      max-width:calc(100% - var(--bez)*2 - 314px); }   /* four buttons now, not three */
+      max-width:calc(100% - var(--bez)*2 - 384px); }   /* five: aim joined fire */
     /* ⚠ HIDING THE CHIPS IS NOT HIDING THE HINT. `.key` is only the little boxed letter; the words
        around it ("fly", "flap", "dive", "turn") live in `.kw` and went on printing a keyboard
        legend, stripped of its keys, on a device with no keyboard. */
@@ -272,10 +274,11 @@
     <span class="op">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp;
     mouse aim &nbsp; <span class="key">CLICK</span> fire &nbsp; <span class="key">R</span> reload &nbsp;
+    <span class="key">RMB</span> aim &nbsp; <span class="key">CTRL</span> crouch &nbsp;
     <span class="key">1</span>–<span class="key">4</span> weapon &nbsp;
     <span class="key">SHIFT</span> sprint &nbsp; <span class="key">SPACE</span> jump &nbsp;
-    <span class="key">TAB</span> mode<br></span>
-    <span class="touchonly" style="opacity:.75">left thumb moves · right thumb looks · ◉ fire · ✦ jump · ⇄ mode<br></span>
+    <span class="key">E</span> drive &nbsp; <span class="key">TAB</span> mode<br></span>
+    <span class="touchonly" style="opacity:.75">left thumb moves · right thumb looks · ◉ fire · ◎ aim · ✦ jump · ⇄ mode<br></span>
     <span style="opacity:.6">click once to take the mouse · become an animal and nothing shoots at you</span>
     </span>
   </div>
