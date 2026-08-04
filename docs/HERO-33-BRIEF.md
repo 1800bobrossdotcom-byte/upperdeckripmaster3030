@@ -13,7 +13,29 @@ how we measure it.** Nothing gets built until all five are answered.
 
 ---
 
-## 0 · ⛔ THE FONT IS A DEPLOY DECISION, NOT A STYLE ONE
+## 0 · ✅ SETTLED — **NO FONT** (artist, 2026-08-04)
+
+**The type is geometry.** Nothing ships as a font and nothing is named in CSS.
+`scripts/build-card-type.py` (`npm run cardtype`) turns a name into contours at BUILD time; the
+browser gets polygons and never asks what is installed.
+
+- Outline source is **Liberation Sans Bold** — metric-compatible with Arial, so it is the look
+  that was asked for, and OFL, which permits derivative works. ⚠ Tracing Arial itself would still
+  be deriving from a licensed face. **What is committed is coordinates, not type software.**
+- ⚑ **And it is the better art answer, not the compromise.** A displaced plate, a mis-registered
+  separation and a torn edge are things you do to SHAPES. A CSS font cannot be pulled apart; an
+  outline can. **The glitch wants the type to be a mesh.**
+- ⚠ `DecomposingRecordingPen`, not `RecordingPen` — composite glyphs are references, and a plain
+  recording pen hands back the reference. The symptom is a letter that comes out silently EMPTY,
+  which reads as a spacing bug rather than a missing glyph. A missing codepoint exits loudly for
+  the same reason: a dropped glyph is a name that ships wrong on a 1/1.
+
+Proven: `SCRAM JETS` → 9 letters · 11 contours · 830 points; `GET IT OUT OF MY HOME` → 16 letters ·
+19 contours. Counters stay hollow, metrics match.
+
+### Why it mattered — the reasoning, kept
+
+## 0b · ⛔ THE FONT WAS A DEPLOY DECISION, NOT A STYLE ONE
 
 `--fat` is `'Arial Black', Arial, sans-serif`. **Arial Black does not exist on Linux or Android**,
 and we vendor Anton, Bungee and Share Tech Mono — no Arial. On the site that is cosmetic drift. On
@@ -196,7 +218,6 @@ a direction from a mood board; the point of step 1 is to have something concrete
 
 ## 8 · OPEN — the artist's calls
 
-- **Font route** — outlines (recommended) or Liberation Sans?
 - **How recombinant?** A hero built visibly *out of* named field cards is a different statement from
   one that merely uses them as texture. Both are defensible; they are different sets.
 - **How damaged at full burn?** Legible-but-worn, or genuinely destroyed at the end state?
