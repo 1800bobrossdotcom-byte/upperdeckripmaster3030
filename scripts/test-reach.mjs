@@ -585,6 +585,39 @@ head('6 · the layered cards resolve, and the page that can show them is named')
   }
 }
 
+// ═══ 6b · THE FIRST OF THE 33 IS REACHABLE, AND ITS TYPE IS NOT A FONT ═════════════════════════
+/* `npm run test:hero` measures what the card DOES. This measures what nobody would notice was
+ * missing: that a visitor can get to it at all, and that two structural promises are still true in
+ * the source rather than only in the header comment. */
+head('6b · the first of the 33 is reachable, and the type is still geometry');
+{
+  const proof = TEXT.get('cards/proof.html') || '';
+  t('cards/proof.html exists and loads the renderer', /js\/hero-card\.js/.test(proof));
+  const nav = navigatorsOf('cards/proof.html').filter(n => !ORPHAN_OK[n]);
+  t('…and something that is not itself an orphan links it', nav.length > 0,
+    nav.join(', ') || 'NO INBOUND LINK');
+  t('the committed type outlines exist', existsSync(join(ROOT, 'cards/type/plate-proof.json')));
+  t('…and the page reads them rather than naming a font',
+    /type\/plate-proof\.json/.test(proof) && !/font-family:[^;]*Arial Black/.test(proof));
+
+  /* ⚠ COMMENTS STRIPPED FIRST, and this bit immediately: the renderer's own header explains that
+   * Math.random appears nowhere in it, so the first version of this check failed on the sentence
+   * describing the property it was verifying. That is `test:name`'s recorded lesson in a new
+   * place — a checker that cries wolf on its own explanation gets muted, and then it is not a
+   * checker. The record of a rule belongs next to the code that keeps it. */
+  const hc = (TEXT.get('js/hero-card.js') || '')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+  /* ⛔ Determinism is STRUCTURAL, not a promise: acceptance 5 is only true because there is no
+   * entropy in the render path at all. One random call or one clock read would end it, and the
+   * failure would surface as a flaky byte-comparison in a different test entirely. */
+  t('the renderer draws on no entropy', !/Math\s*\.\s*random/.test(hc));
+  t('…and reads no clock', !/Date\s*\.\s*now|performance\s*\.\s*now|new\s+Date/.test(hc));
+  /* ⛔ And the pigment must come from the deck manifest. A hardcoded list of card files is how
+   * "made out of the 100" quietly becomes "made out of three files somebody typed in 2026". */
+  t('the pigment pool comes from the deck manifest',
+    /hero-manifest\.json/.test(proof) && /pigment/.test(proof));
+}
+
 // ═══ 7 · THE SITEMAP LISTS THE CABINETS IT HAS ═════════════════════════════════════════════════
 head('7 · the sitemap lists every cabinet');
 {

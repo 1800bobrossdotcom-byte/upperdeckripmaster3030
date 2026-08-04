@@ -131,10 +131,22 @@ screensaver, and it also destroys the one thing that makes a glitch land: **cont
 - the stock **flexes** — press it and it dishes, release and it rings, exactly as the wordmark's
   20-letter rig already does
 
-**2 · THE PRESS RUNS.** The generative layer. Not a loop on a clock — a *cycle* with a physical
-story: the sheet advances, the plates hunt for registration and never quite find it, the ink film
-thins and recovers. Slow, irregular, mostly imperceptible. **You should notice it the way you
-notice a fridge stopping.**
+**2 · THE PRESS RUNS.** The generative layer: the sheet advances, the plates hunt for registration
+and never quite find it, the ink film thins and recovers.
+
+⛔ **AND THIS SECTION CONTRADICTED ITSELF. STILLNESS WON — settled in step 1.** The first draft
+wanted the press on a slow clock, "the way you notice a fridge stopping." That cannot coexist with
+"zero displacement, zero drift, nothing breathing" three paragraphs up, and acceptance 2 demands
+**exactly 0** over ten seconds with no input. One of them had to go, and the ambient cycle is the
+one that should: it is the screensaver §3 rejects, and it destroys the contrast with stillness that
+makes a glitch land at all.
+⚑ **So the press is driven by HANDLING.** Work you put into the card accumulates, and at one
+sheet's worth the impression **advances** — new registration, new ink film, new creases, the type
+re-set with fresh slop. It is the same input as motion 1 at a different timescale, it is physical
+(a press runs when somebody runs it), and a card nobody is touching is a card sitting on a table.
+⚑ **A corollary worth keeping: your card is ONE BAD PULL.** Registration is frozen at the moment
+of the impression, not drifting under you. That is what makes it a specific object rather than an
+effect, and it is also what makes acceptance 4 measurable.
 
 **3 · ⛔ THE TOKEN DEGRADES IT — and this is the one that makes it LIVING rather than merely
 animated.** The renderer already reads `getMarketState()` and derives burn from
@@ -186,6 +198,32 @@ art acknowledges the state of the edition, it does not reward you for it.
 screenshot and fails #1 — it is a *sticker of* foil. A radial RGB split passes the eye and fails #4
 — it is a lens artefact wearing a print costume.
 
+### ✅ 1–5 are MEASURED on card 1 — `npm run test:hero`, 20 assertions
+
+| # | measured | bar |
+| --- | --- | --- |
+| 1 | **612°** median hue travel across 9 yaws | ≥ 200 |
+| 2 | flex **exactly 0** after 10 s, and the frame is **byte-identical** | exact |
+| 3 | dish −0.067 under the thumb, **+0.014 overshoot** past rest on release, settles to 2e−26 | > 0 |
+| 4 | plates move 5.20 px, spread **0.21 of the shift**, slope 1.31 px/radius | < 0.35 |
+| 5 | same seed + same drive → **byte-identical**; a different seed differs | exact |
+
+⚑ **AND FOUR AND FIVE PROVE THEY DISCRIMINATE, IN THE TEST ITSELF.** #4 runs the same block-match
+over a build whose registration has been made deliberately **radial** and requires it to fail
+(it does: spread 0.35, slope 9.40). #5 requires two *different* seeds to differ, because "the two
+frames match" is trivially true of two black frames. **A check that cannot fail is not a check.**
+⚠ The other four were proved to bite by sabotage, and the result is worth keeping: killing the
+grating dropped #1 from 612° to **12°**; a wall-clock breath in the shader broke the frame hash
+(and #5 with it) **while "flex is exactly 0" stayed green** — which is precisely why the
+frame-identity half of #2 is the load-bearing one; replacing the spring with a lerp took the
+overshoot to **0.00000** while "it moves" still passed.
+
+⛔ **#10 IS NOT PROVEN AND MUST NOT BE ASSUMED.** `cards/proof.html` loads `/gate.js`, so in a
+sandboxed iframe at an opaque origin it shows the **pre-launch veil**, measured. That is the gate
+working — this is an unreleased prototype — but `?bare` is a chromeless *studio* view, not a
+media-slot mode. The sandbox pass belongs to a real `cards/hero/NN.html`, which carries no gate by
+design. Step §7.5.
+
 ---
 
 ## 6 · MEMETIC NAMES
@@ -204,8 +242,9 @@ commit messages or metadata.
 
 Each step ends in something that can be **looked at**, because that is the only way this gets judged.
 
-1. **ONE card, end to end.** Type as outlines, deck samples as pigment, print-glitch on a stock
-   that flexes, on-chain degrade stubbed behind a slider. *Ends in: acceptance 1–5 on that card.*
+1. ✅ **ONE card, end to end — BUILT. `cards/proof.html`, "PLATE PROOF".** Type as outlines, deck
+   samples as pigment, print-glitch on a stock that flexes, on-chain degrade behind a slider.
+   *Ended in: acceptance 1–5, above.* Reached from **the folder** (`cards/binder.html`, ◆ THE 33).
 2. **The generator.** Seed → composition, so #6 is provable across 33 rather than asserted.
 3. **Wire the real chain state** — `getMarketState()` + `tierOfHolder()`. *Ends in: #9.*
 4. **The 33**, once the artist has struck what is wrong with 1–3.
@@ -213,6 +252,27 @@ Each step ends in something that can be **looked at**, because that is the only 
 
 ⚠ **1 is a prototype and should be treated as disposable.** The recorded failure mode is agreeing
 a direction from a mood board; the point of step 1 is to have something concrete to reject.
+
+### What step 1 actually produced — and where it is weak
+
+**The idea it commits to:** the card is a **four-colour separation of a composition made out of
+the deck**, and every artefact is a printing failure. Each ink is laid down at its own
+registration and screened at its own angle (15° / 75° / 0° / 45°), so the mis-registration and the
+moiré are not effects applied to a picture — they *fall out* of printing one picture four times
+with the plates in slightly the wrong place. Ink multiplies the paper's reflectance, never adds to
+it, which is the single line keeping the whole thing on the paper side of the fence.
+
+⚠ **Three weaknesses, stated rather than hidden:**
+- **The burn end state is busier, not obviously more damaged.** The screen coarsens and the roller
+  starves, but at 0.85 it reads as *a worse print* rather than *a card that has been through
+  something*. §8's "how damaged at full burn" is the live question and the slider is there to
+  argue with.
+- **The tear barely reads.** Crease relief is subtle by design (the first pass drew hard black
+  scratches), and it may now be too subtle to be a feature.
+- **The composition is legible but not composed.** Three sources at three scales stopped it
+  reading as one card lightly filtered, which was the first failure — but *where* the figure sits
+  and *what* it is next to is authorship, not a seed. That is §8's first question and it is the
+  one that decides whether the 33 are a set or a batch.
 
 ---
 

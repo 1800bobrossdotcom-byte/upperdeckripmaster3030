@@ -1,0 +1,257 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PLATE PROOF — the first of the 33</title>
+<!--
+  ripmaster3030studios — THE 33, STEP ONE.  cards/proof.html
+      ?seed=N     a different sheet off the same press
+      ?burn=0..1  stub the on-chain damage without a chain
+      ?bare       the card alone, no rail — the shape a media slot gets
+
+  ⛔ THIS IS A PROOF AND IT IS MEANT TO BE REJECTED. `docs/HERO-33-BRIEF.md` §7 says so in as
+     many words: the recorded failure mode on this project is agreeing a direction off a mood
+     board, so step one exists to be something SPECIFIC to argue with. Nothing here is a decision.
+     A plate proof is literally what a printer pulls to find out what is wrong — the name is the
+     honest description of the file, and it is a placeholder because §6 says the 33 names are the
+     artist's, not generated.
+
+  WHAT IT IS CLAIMING, in one line each. Every one of them is measured by `npm run test:hero`:
+     · the type is GEOMETRY, not a font          (built by scripts/build-card-type.py)
+     · the artwork is composed out of the DECK   (three of the artist's own cards, by seed)
+     · the damage is PRINT, not screen           (four inks, four registrations, four screens)
+     · it is dead still until you touch it       (and the press only runs when you run it)
+     · the die edge is foil                      (hue walks with the angle, or it is a sticker)
+
+  ⚠ The dials on the right are STUBS. `js/lens-state.js` is what wires this to the real market
+    and that is step §7.3 — putting a slider where the chain goes is a way to look at the end
+    state now, not a claim that it is wired.
+
+  ⛔ `?bare` IS NOT A MEDIA-SLOT MODE, and it would be very easy to assume it is. This page loads
+     `/gate.js`, so inside a sandboxed iframe at an opaque origin it shows the PRE-LAUNCH VEIL —
+     measured, not guessed: the frame comes up as the admin login, not as a card. That is the
+     gate behaving correctly (it is fail-closed and this is an unreleased prototype), and it means
+     acceptance 10 is NOT proven by anything here. The real lens is a `cards/hero/NN.html` built
+     by `scripts/build-hero-lens.mjs`, which carries no gate by design, and standing that up is
+     step §7.5. `?bare` only removes the dials.
+-->
+<style>
+  :root { --ink:#07070a; --stock:#e7ddc8; --hot:#ff2a6d; --cool:#27f7e4; --gold:#ffd23b;
+          --dim:#8b8b98; --t-body:15px; --t-small:12px; }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--ink);color:var(--stock);
+            font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%}
+  a{color:var(--cool)}
+  [hidden]{display:none!important}
+
+  .wrap{display:grid;grid-template-columns:1fr 300px;gap:26px;padding:22px;
+        min-height:100vh;align-items:start}
+  @media (max-width:860px){ .wrap{grid-template-columns:1fr;gap:18px} }
+
+  /* the card box: 2:3, sized off whichever axis is actually the constraint.
+     ⚠ The recorded aspect trap — `height:100%` + `max-width:100%` makes aspect-ratio silently
+     yield (measured 0.571 instead of 2:3). Cap ONE axis and let the other follow. */
+  #stage{position:relative;display:grid;place-items:center;min-height:62vh}
+  #card{position:relative;aspect-ratio:2/3;height:min(84vh,900px);width:auto;max-width:100%;
+        touch-action:pan-y}
+  @media (max-aspect-ratio:2/3){ #card{width:min(92vw,620px);height:auto} }
+  #card canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:3%;
+               box-shadow:0 14px 44px rgba(0,0,0,.72), 0 0 0 1px rgba(255,255,255,.07)}
+  /* ⚑ FAILS OPEN. No WebGL2, a blocked image, a shader that will not link ⇒ HeroCard.build
+     resolves to null and this stays on screen. A collector never sees a broken frame. */
+  #fallback{position:absolute;inset:0;border-radius:3%;display:grid;place-items:center;
+            text-align:center;padding:8%;background:
+              radial-gradient(120% 80% at 50% 12%, #241b12 0%, #0d0a08 68%, #050405 100%);
+            border:1px solid rgba(255,255,255,.10);color:var(--dim);line-height:1.5;
+            font-size:var(--t-body)}
+  #fallback b{display:block;color:var(--stock);letter-spacing:.14em;margin-bottom:10px}
+
+  .rail{font-size:var(--t-body);line-height:1.55}
+  .rail h1{font:900 20px/1.15 Arial,Helvetica,sans-serif;letter-spacing:.06em;margin:0 0 2px}
+  .rail .sub{color:var(--hot);font-size:var(--t-small);letter-spacing:.16em;margin:0 0 14px}
+  .rail p{color:var(--dim);margin:0 0 14px}
+  .grp{border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 13px;margin:0 0 12px;
+       background:rgba(255,255,255,.025)}
+  .grp label{display:block;font-size:var(--t-small);letter-spacing:.14em;color:var(--stock);
+             margin:0 0 6px}
+  .grp .v{float:right;color:var(--gold);font-family:ui-monospace,'Courier New',monospace}
+  input[type=range]{width:100%;accent-color:var(--hot);height:26px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  button{font:700 13px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;color:var(--stock);
+         background:#16161d;border:1px solid rgba(255,255,255,.18);border-radius:6px;
+         padding:0 14px;min-height:44px;cursor:pointer}
+  button:hover{border-color:var(--cool);color:var(--cool)}
+  .read{font:12px/1.7 ui-monospace,'Courier New',monospace;color:var(--dim);
+        white-space:pre-wrap;word-break:break-word}
+  .read b{color:var(--cool);font-weight:400}
+  .note{font-size:var(--t-small);color:var(--dim);line-height:1.6}
+  .note strong{color:var(--gold);font-weight:700}
+  body.bare .wrap{grid-template-columns:1fr;padding:0}
+  body.bare .rail{display:none}
+  body.bare #stage{min-height:100vh}
+</style>
+
+<div class="wrap">
+  <div id="stage">
+    <div id="card">
+      <div id="fallback"><b>PLATE PROOF</b>this card needs WebGL&nbsp;2 to print.<br>
+        the artwork is generated, so there is nothing flat to fall back to yet — a pinned base
+        image is step §7.5.</div>
+      <canvas id="cv" width="640" height="960" aria-label="PLATE PROOF — a generative hero card"></canvas>
+    </div>
+  </div>
+
+  <div class="rail">
+    <h1>PLATE PROOF</h1>
+    <p class="sub">THE 33 · STEP 1 · DISPOSABLE</p>
+    <p>Press and drag the card. The stock dishes under your thumb and rings when you let go, the
+      plates part as it turns, and the die edge walks its hue. Keep handling it and the sheet
+      advances — a new impression, new registration, new ink.</p>
+
+    <div class="grp">
+      <label>BURN <span class="v" id="vBurn">0.00</span></label>
+      <input type="range" id="burn" min="0" max="1" step="0.01" value="0">
+      <div class="note">stubbed. the real one is <code>maxTotalSupply − totalSupply</code>.
+        <strong>more burned ⇒ more damaged</strong> — the screen coarsens, the roller starves,
+        the stock opens.</div>
+    </div>
+
+    <div class="grp">
+      <label>REGISTRATION <span class="v" id="vReg">1.00</span></label>
+      <input type="range" id="reg" min="0" max="2.5" step="0.01" value="1">
+      <div class="note">take it to <strong>0</strong> and the card prints in perfect register.
+        that is the control the acceptance test uses — the offsets have to be one constant vector
+        per plate, not a radius.</div>
+    </div>
+
+    <div class="grp">
+      <label>THE PRESS</label>
+      <div class="row">
+        <button type="button" id="pull">PULL ANOTHER</button>
+        <button type="button" id="reseed">NEW SEED</button>
+      </div>
+      <div class="note">a pull is one impression. <strong>nothing here runs on a clock</strong> —
+        left alone the card is a card on a table.</div>
+    </div>
+
+    <div class="grp">
+      <label>READOUT</label>
+      <div class="read" id="read">—</div>
+    </div>
+
+    <p class="note">Made from three of the artist's own cards, chosen by the seed. The name is set
+      from outlines built at build time — <strong>no font ships and none is named</strong>, so it
+      renders the same on a machine with none installed.<br><br>
+      Brief: <code>docs/HERO-33-BRIEF.md</code>. Back to <a href="binder.html">the folder</a>.</p>
+  </div>
+</div>
+
+<script src="/gate.js"></script>
+<script src="../js/hero-card.js"></script>
+<script>
+(function () {
+  'use strict';
+  var Q = new URLSearchParams(location.search);
+  if (Q.has('bare')) document.body.classList.add('bare');
+
+  var cv = document.getElementById('cv'), box = document.getElementById('card');
+  var seed = parseInt(Q.get('seed'), 10); if (!isFinite(seed) || seed <= 0) seed = 3030;
+  var ctrl = null;
+
+  function size() {
+    var r = box.getBoundingClientRect();
+    var dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.max(64, Math.round(r.width * dpr));
+    cv.height = Math.max(96, Math.round(r.height * dpr));
+    if (ctrl) ctrl.render();
+  }
+
+  /* The pigment is the deck. The manifest is FETCHED rather than listed here so the card cannot
+   * advertise a source that is no longer in the set — the same reason the binder's depth strip
+   * reads `layered.json` instead of six hardcoded numbers. */
+  function pigment() {
+    return fetch('hero-manifest.json').then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var arr = (Array.isArray(rows) ? rows : (rows.cards || [])).map(function (c) { return c.art; })
+          .filter(Boolean);
+        return arr.length ? arr : ['art/hero/42.webp'];
+      }).catch(function () { return ['art/hero/42.webp']; });
+  }
+
+  function typeSpec() {
+    return fetch('type/plate-proof.json').then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
+  function readout() {
+    if (!ctrl) return;
+    var p = ctrl.probe();
+    document.getElementById('read').innerHTML =
+      'seed   <b>' + seed + '</b>\n' +
+      'sheet  <b>#' + p.sheet + '</b>\n' +
+      'inks   <b>C M Y K</b>\n' +
+      'reg    <b>' + [0, 1, 2, 3].map(function (i) {
+        return (p.reg[i * 2] * 100).toFixed(2) + ',' + (p.reg[i * 2 + 1] * 100).toFixed(2);
+      }).join('  ') + '</b>  (% of card)\n' +
+      'flex   <b>' + p.maxFlex.toFixed(5) + '</b>\n' +
+      'pigment\n  ' + p.pigment.map(function (s) { return s.replace(/^.*\//, ''); }).join('\n  ');
+  }
+
+  function start() {
+    Promise.all([pigment(), typeSpec()]).then(function (r) {
+      return HeroCard.build({ canvas: cv, seed: seed, pigment: r[0], type: r[1] });
+    }).then(function (c) {
+      if (!c) return;                                    // fails open — the panel stays up
+      ctrl = c;
+      window.__proof = c;                                // the acceptance harness's handle
+      document.getElementById('fallback').hidden = true;
+      size();
+      c.setState({ burn: parseFloat(Q.get('burn')) || 0 });
+      c.loop(true);
+      readout();
+      setInterval(readout, 400);
+    });
+  }
+
+  // ── handling ────────────────────────────────────────────────────────────────────────────
+  // Pointer, not mouse: a card is a thing you touch, and `touch-action:pan-y` on the box means
+  // a phone can still scroll past it — the recorded wordmark lesson, same shape.
+  function at(e) {
+    var r = box.getBoundingClientRect();
+    return [((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2];
+  }
+  box.addEventListener('pointerdown', function (e) {
+    if (!ctrl) return;
+    box.setPointerCapture(e.pointerId);
+    var p = at(e); ctrl.pointer(p[0], p[1], true);
+  });
+  box.addEventListener('pointermove', function (e) {
+    if (!ctrl) return;
+    var p = at(e); ctrl.pointer(p[0], p[1], e.buttons > 0 || e.pressure > 0);
+  }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (k) {
+    box.addEventListener(k, function () { if (ctrl) ctrl.pointer(0, 0, false); });
+  });
+
+  // ── the dials ───────────────────────────────────────────────────────────────────────────
+  var burn = document.getElementById('burn'), reg = document.getElementById('reg');
+  burn.addEventListener('input', function () {
+    document.getElementById('vBurn').textContent = (+burn.value).toFixed(2);
+    if (ctrl) ctrl.setState({ burn: +burn.value });
+  });
+  reg.addEventListener('input', function () {
+    document.getElementById('vReg').textContent = (+reg.value).toFixed(2);
+    if (ctrl) ctrl.setRegistration(+reg.value);
+  });
+  document.getElementById('pull').addEventListener('click', function () {
+    if (ctrl) { ctrl.pull(); readout(); }
+  });
+  document.getElementById('reseed').addEventListener('click', function () {
+    var q = new URLSearchParams(location.search);
+    q.set('seed', String(1 + Math.floor(Math.random() * 99999)));
+    location.search = q.toString();
+  });
+
+  addEventListener('resize', size);
+  start();
+})();
+</script>

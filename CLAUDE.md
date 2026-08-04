@@ -738,6 +738,78 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ✅ THE 33 · STEP 1 — `cards/proof.html` + `js/hero-card.js`, `npm run test:hero` (20)
+*Artist, 2026-08-04: "make them from scratch as 3D cards … living generative works with glitches
+and fx treatments. use the 100 cards as source material to paint these cards." Then: "no font."*
+Brief `docs/HERO-33-BRIEF.md`. Reached from the folder (`cards/binder.html`, ◆ THE 33).
+- ⚑ **THE CARD IS A FOUR-COLOUR SEPARATION OF A COMPOSITION MADE OUT OF THE DECK.** Each ink is
+  laid down at its own registration and screened at its own angle (15/75/0/45), so the
+  mis-registration and the moiré are not effects applied to a picture — they **fall out of
+  printing one picture four times with the plates slightly wrong**. Two properties the brief needs
+  therefore become STRUCTURAL rather than promised: the offset is uniform across the frame because
+  it is one vector per plate, and every sample resolves to a deck card because there is no other
+  image in the shader. ⛔ Ink MULTIPLIES the paper's reflectance and never adds — one line, and it
+  is what keeps the thing a card instead of a screen.
+- ⛔ **REGISTRATION IS FROZEN, PARALLAX IS NOT, and conflating them would have made acceptance 4
+  unmeasurable.** Registration is a press failure: fixed at the impression, identical from every
+  angle — **your card is one bad pull**. Parallax is depth, per element, and moves only when you
+  do. Hold the view still, step the registration, and the field must be one constant vector.
+- ⛔ **THE BRIEF CONTRADICTED ITSELF AND STILLNESS WON.** §3 wanted an ambient press cycle *and*
+  "zero displacement, nothing breathing" — and acceptance 2 demands **exactly 0** over ten seconds.
+  ⚑ **The press is driven by HANDLING now**: work accumulates and the sheet ADVANCES. Same input
+  as motion 1 at another timescale, physical, and a card nobody touches is a card on a table.
+- ⚑ **FOUR AND FIVE PROVE THEY DISCRIMINATE, INSIDE THE TEST.** #4 re-runs its block-match over a
+  build whose registration is deliberately RADIAL and requires it to FAIL (spread 0.21 vs 0.35,
+  slope 1.31 vs 9.40); #5 requires two different seeds to differ, because "the frames match" is
+  trivially true of two black frames. The other four were proved by sabotage: killing the grating
+  took hue travel **612° → 12°**; a lerp took the overshoot to **0.00000** while "it moves" still
+  passed; ⚠ **a wall-clock breath in the shader broke the frame hash while "flex is exactly 0"
+  stayed green** — which is exactly why #2's load-bearing half is frame identity, not the springs.
+- ⛔ **THE ALPHA CHANNEL OF A GENERATED CANVAS IS NOT A DATA CHANNEL.** Crease height was written
+  into the composition texture's alpha via `putImageData`; a 2D canvas stores pixels PREMULTIPLIED,
+  so alpha 0 multiplies that pixel's colour by zero. **Every mask in the texture was wiped wherever
+  there was no crease** — i.e. almost everywhere — and the card went on rendering the ground card
+  alone, edge to edge, which looks exactly like a composition nobody finished. Alpha stays 255 in
+  every generated texture; a fourth channel of data gets a fourth channel of another texture.
+- ⛔ **`createTexture` BINDS TO WHATEVER UNIT IS ACTIVE.** The type plate is rebuilt on every pull,
+  long after setup, and it bound itself over unit 3 — the composition plate's slot. `uComp` then
+  sampled the TYPE texture, and because that texture also has three meaningful channels the card
+  kept rendering: strips masked to the letterforms, the figure window to the printer's marks, the
+  trim to the crease relief. ⚑ **A wrong sampler binding never errors; it paints with the wrong
+  data, and the picture is plausible enough to argue about.** Every texture names its unit now.
+- ⚠ **`ctx.rect(x, y, w, h)` takes a HEIGHT.** Passing the window's BOTTOM EDGE ran the art window
+  31 px past the name, so the title came out straddling the lip — half on stock, half on dark
+  artwork, and it read as a colour choice. One `WINDOW()` for the trim and the type.
+- ⚠ **A 2:3 card needs the aspect IN the projection.** One scale on x and y overscanned it 1.5×
+  vertically; the trim, the marks and the whole name were off-frame, and **the middle of a card
+  still looks like a card**, so it read as composition rather than projection.
+- ⚠ **The screen ruling was wrong in BOTH directions, an octave each way.** At 118 cells the dots
+  were the picture; at 240 they aliased into a moiré grid against a 500-px buffer — a rendering
+  failure dressed as a print one. 170. Paper tooth had the same problem at 900.
+- ⚠ **All three pigment cards at 1:1 average into ONE card.** Three pictures of the same kind of
+  thing at the same size is a filter, not a composition. Ground zoomed to a field, mid mirrored at
+  another scale, only the figure near card-size — and cropped ABOVE the source's own name, or the
+  hero wears somebody else's title.
+- ⚠ **A crease is WIDE and SHALLOW.** 0.6–1.8% of the card with a normal gain of 26 put hard black
+  lines across the art: at that width the height field swings past the terminator in one texel and
+  a FOLD renders as a SCRATCH. And the die edge is an EDGE — a foil band from 0.86 gave the card a
+  rainbow border, which is the decal acceptance 1 exists to catch.
+- ⛔ **`?bare` IS NOT A MEDIA-SLOT MODE.** `cards/proof.html` loads `/gate.js`, so in a sandboxed
+  iframe at an opaque origin it shows the **pre-launch veil** — measured, not assumed. The gate is
+  right (unreleased prototype); the point is that **acceptance 10 is NOT proven by anything here**
+  and must not be assumed from a chromeless view. That belongs to a real `cards/hero/NN.html`.
+- ⚠ **`test:reach` §6b strips comments before checking for entropy**, because the renderer's own
+  header explains that `Math.random` appears nowhere in it and the first version failed on the
+  sentence describing the property it was verifying. Same lesson as `test:name`, new place.
+- ⚠ **Two renderers on purpose, and the test is whether they would share a fix.** `js/card3d.js`
+  stays THE ONE dynamic card — it reproduces art someone painted, with a measured colour pipeline.
+  This one generates the artwork and damages it. When the 33 land, the honest composition is that
+  this draws the ARTWORK and card3d frames it.
+- ⚠ **Open, and the artist's:** the burn end state reads as *a worse print* rather than a card that
+  has been through something; the tear may now be too subtle to be a feature; and **where the
+  figure sits is authorship, not a seed** — which decides whether the 33 are a set or a batch.
+  Plus §8's standing four, including the 33 names.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
