@@ -169,6 +169,47 @@ window.CityOps = (function () {
         e.setLocalPosition(px, py, pz); e.setLocalScale(sx, sy, sz);
         view.addChild(e);
       }
+      /* ⛔ "WHERE ARE MY DUDES HANDS" — artist, 2026-08-04, and he is right: a weapon floating in
+       * the corner of the frame with nothing holding it is the DESIGN-SYSTEM §1 failure in its
+       * purest form. A gun is not an object in space, it is an object BEING HELD, and the hands
+       * are most of what makes a first-person shooter read as a body rather than a camera.
+       * ⚑ FORE HAND ON THE HANDGUARD, REAR HAND ON THE GRIP, and a forearm running back out of
+       *   frame from each — that last part matters, because a pair of disembodied hands is the
+       *   same defect one step smaller. The rear arm is angled in toward the shoulder that would
+       *   be carrying it; the fore arm crosses under the barrel, which is what a two-handed carry
+       *   actually looks like from behind the sights.
+       * ⚠ Skin has to be a DIFFERENT VALUE from the weapon or the print pass posterises both into
+       *   one silhouette — the same lesson the bots' rifle just taught, in reverse: there the gun
+       *   was too dark against the body, here the body must not match the gun. */
+      const skin = new pc.StandardMaterial();
+      skin.diffuse = new pc.Color(0.42, 0.30, 0.23);
+      skin.useMetalness = true; skin.metalness = 0; skin.gloss = 0.16; skin.update();
+      const cuff = new pc.StandardMaterial();
+      cuff.diffuse = new pc.Color(0.15, 0.155, 0.17);
+      cuff.useMetalness = true; cuff.metalness = 0.1; cuff.gloss = 0.22; cuff.update();
+      //            x      y      z     sx     sy     sz    rotX rotY  material
+      /* ⚠ THE ARM DROP IS BOUNDED BY THE FRAME, NOT BY ANATOMY. First pass hung the forearms at
+       * −0.19 under a viewmodel already at −0.29; at 0.92 m out with this fov the bottom of the
+       * frame is −0.48, so the arms ended exactly on the edge and were sliced off — hands with no
+       * arms, which is the defect this is fixing wearing a different hat. Everything is measured
+       * back from the frame edge now. */
+      const hands = [
+        [ 0.020, -0.062, -0.250, 0.085, 0.075, 0.115,   0,   0, skin],   // fore hand, on the guard
+        [ 0.105, -0.140, -0.190, 0.075, 0.075, 0.330, -20,  16, skin],   // …and its forearm
+        [ 0.005, -0.058,  0.150, 0.085, 0.090, 0.110,   0,   0, skin],   // rear hand, on the grip
+        [ 0.140, -0.112,  0.330, 0.080, 0.080, 0.300, -11,  20, skin],   // …and its forearm
+        [ 0.125, -0.152,  0.010, 0.088, 0.088, 0.090, -20,  16, cuff],   // sleeve cuffs, so the arms
+        [ 0.160, -0.126,  0.470, 0.092, 0.092, 0.090, -11,  20, cuff],   //   end in a garment
+      ];
+      for (const [px, py, pz, sx, sy, sz, rx, ry, m] of hands) {
+        const e = new pc.Entity('vh');
+        const mi = new pc.MeshInstance(rifleMesh(), m, e);
+        mi.castShadow = false;
+        e.addComponent('render', { meshInstances: [mi], castShadows: false, receiveShadows: true });
+        e.setLocalPosition(px, py, pz); e.setLocalScale(sx, sy, sz);
+        e.setLocalEulerAngles(rx, ry, 0);
+        view.addChild(e);
+      }
       viewFlash = new pc.Entity('muzzle');
       const fm = new pc.MeshInstance(rifleMesh(), matSpark, viewFlash);
       viewFlash.addComponent('render', { meshInstances: [fm], castShadows: false, receiveShadows: false });
@@ -191,7 +232,7 @@ window.CityOps = (function () {
       const walk = Math.min(1, spd / 6);
       const bx = Math.sin(vs.bob) * 0.012 * walk, by = Math.abs(Math.cos(vs.bob)) * 0.010 * walk;
       const k = me.kick;                                   // the ONLY input to recoil
-      view.setLocalPosition(0.32 + vs.sway + bx, -0.29 - by + k * 0.018, -0.92 + k * 0.10);
+      view.setLocalPosition(0.27 + vs.sway + bx, -0.235 - by + k * 0.018, -0.92 + k * 0.10);
       view.setLocalEulerAngles(k * 9, -4.5 + vs.sway * 40, 1.5 + vs.sway * 22);
       viewFlash.enabled = k > 0.55;
       if (viewFlash.enabled) { const s = 0.08 + k * 0.14;

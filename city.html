@@ -85,6 +85,32 @@
     background:linear-gradient(180deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
   #reticle::after{ top:50%; left:0; height:2.5px; width:100%; margin-top:-1.25px;
     background:linear-gradient(90deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
+  /* ── THE MODE BAR. Top-centre, because that is the one place neither the title (left) nor the
+       mode notes (right) already occupy, and because a control for "which game am I playing"
+       belongs where you look first rather than tucked into a corner. */
+  #modeBar{ left:50%; transform:translateX(-50%); top:calc(var(--bez) + 10px);
+    display:flex; align-items:center; gap:0; pointer-events:auto; }
+  .mchip{ font:inherit; font-size:11px; letter-spacing:.16em; padding:8px 14px; min-height:34px;
+    color:var(--paper); background:rgba(13,27,42,.5); border:1px solid rgba(244,234,216,.22);
+    border-right-width:0; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    cursor:pointer; opacity:.62; transition:opacity .15s, background .15s; }
+  .mchip:first-child{ border-radius:7px 0 0 7px; }
+  .mchip:last-of-type{ border-radius:0 7px 7px 0; border-right-width:1px; }
+  .mchip:hover{ opacity:.9; }
+  /* the live one is LIT, not merely un-dimmed — a selected state you have to compare to notice is
+     not a selected state. */
+  .mchip[data-on="1"]{ opacity:1; color:var(--ink); background:var(--accent);
+    border-color:var(--accent); font-weight:700; }
+  .mhint{ font-size:10px; letter-spacing:.14em; opacity:.45; margin-left:10px; }
+  .mhint b{ color:var(--accent); }
+  /* ⚠ 44px ON A THUMB. Measured at 34 — under the tap floor `mobile.css` holds the rest of the
+     site to, and this is now the primary way into two thirds of the game. TAB does not exist here
+     either, so the hint goes and the chips take the space it frees. */
+  @media (pointer: coarse){
+    .mhint{ display:none; }
+    #modeBar{ top:calc(var(--bez) + 6px); }
+    .mchip{ min-height:44px; padding:8px 12px; font-size:10.5px; letter-spacing:.10em; }
+  }
   .touchonly{ display:none; }
   @media (pointer: coarse){ .touchonly{ display:inline; } }
   /* ⚠ `[hidden]` is not used here on purpose — these two are swapped by an attribute selector on
@@ -185,6 +211,18 @@
        picker, no loadout, no card powers, no powerups. Retiring the cabinet on the strength of the
        shared half would delete four features nobody replaced. DOGFIGHT's mode is still traversal
        only: you can fly it, and there is nothing to shoot. -->
+  <!-- ⛔ THE MODE SWITCH IS A ROW OF BUTTONS NOW — artist, 2026-08-04: *"we need to make the
+       controls more clear to toggle between players."* It was a `TAB` in 11px grey text and a
+       phone-only `⇄`, i.e. the way into two thirds of this game was a keyboard hint most people
+       never read. Three named, clickable chips with the live one lit says what the game contains
+       AND how to change it in the same object — and it works on a phone by being the same control
+       rather than a second one that has to be kept in step. -->
+  <div class="hud" id="modeBar">
+    <button class="mchip" data-mode="animal" type="button">ANIMAL</button
+    ><button class="mchip" data-mode="jet" type="button">DOGFIGHT</button
+    ><button class="mchip" data-mode="operative" type="button">SECTION 9</button>
+    <span class="mhint"><b>TAB</b></span>
+  </div>
   <div class="hud" id="modes">
     <span class="kbd"><b>TAB</b> mode · <b>C</b> animal · </span><b id="modeGame">ANIMAL</b>
     <br><span class="dim">ANIMAL</span> observer, cannot be hurt ·
@@ -213,13 +251,17 @@
          aircraft. Same class as the phone hint advertising TAB: a control legend that does not
          match the mode is a lie the player pays for. Read off stepJet: W throttles and pulls,
          S is reverse thrust, A/D bank (there is no rudder — it turns by banking), SHIFT is the
-         airbrake and drops the nose. -->
+         airbrake and drops the nose.
+         ⚠ REWRITTEN AGAIN when DOGFIGHT's model was ported, because the port CHANGED the bindings:
+         W/S is now the pitch stick (up is nose-up), A/D is roll, SHIFT is the afterburner and Q is
+         the airbrake — dogfight.html's own scheme. Leaving the old words would have been the same
+         defect as the animal legend over an aircraft, one revision later. -->
     <span class="jet">
-    <span class="kw"><span class="key">W</span> throttle &nbsp; <span class="key">S</span> back off &nbsp;
-    <span class="key">A</span><span class="key">D</span> bank &nbsp; <span class="key">SHIFT</span> airbrake &nbsp;
-    <span class="key">TAB</span> mode<br></span>
-    <span class="touchonly" style="opacity:.75">drag to bank · ⇄ mode<br></span>
-    <span style="opacity:.6">it turns by BANKING, so hold a bank and pull · nothing to shoot yet</span>
+    <span class="kw"><span class="key">W</span><span class="key">S</span> pitch &nbsp;
+    <span class="key">A</span><span class="key">D</span> roll &nbsp; <span class="key">SHIFT</span> boost &nbsp;
+    <span class="key">Q</span> airbrake &nbsp; <span class="key">TAB</span> mode<br></span>
+    <span class="touchonly" style="opacity:.75">drag to roll and pitch · ⇄ mode<br></span>
+    <span style="opacity:.6">it turns by BANKING — roll, then pull · bank alone is the wide turn, bank + pull is the hard one</span>
     </span>
     <span class="op">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp;

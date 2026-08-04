@@ -152,6 +152,15 @@ head('1b · the city can actually be played by a thumb');
   for (const m of ['animal', 'jet', 'operative'])
     t(`mode "${m}" is in the cycle`, new RegExp("'" + m + "'").test(app));
   t('TAB cycles the modes rather than toggling two', /cycleMode\(/.test(app));
+  /* ⛔ AND THE WAY IN IS VISIBLE — artist, 2026-08-04: "we need to make the controls more clear to
+   * toggle between players." A keyboard hint in 11px grey is not a control anyone finds; three
+   * named chips are. Each mode must have one, they must be wired to `setMode`, and exactly one
+   * must be lit from the SAME `syncHud` everything else uses — a selector showing a state it does
+   * not set is worse than the hint it replaced. */
+  for (const m of ['animal', 'jet', 'operative'])
+    t(`the mode bar carries a chip for "${m}"`, new RegExp('class="mchip" data-mode="' + m + '"').test(page));
+  t('…the chips call setMode', /querySelectorAll\('\.mchip'\)[\s\S]{0,120}setMode\(el\.dataset\.mode\)/.test(app));
+  t('…and syncHud lights exactly the live one', /mchip[\s\S]{0,140}dataset\.on = el\.dataset\.mode === MODE/.test(app));
   t('…and there is an on-screen cycle for a phone', /tMode.*cycleMode|cycleMode\(1\)/s.test(app));
   t('the squirrel is selectable, on both a keyboard and a thumb',
     /setCreature\(/.test(app) && /tCreature/.test(app) && /tCreature/.test(page));

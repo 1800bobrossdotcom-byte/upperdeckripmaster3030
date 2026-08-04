@@ -556,23 +556,52 @@ window.CityApp = (function () {
    *   Those come over untouched. Only speeds, altitudes and distances are re-derived here.
    * ⚠ `spd^0.6` is what makes a fast jet turn WIDE — the same input at 160 m/s buys about half the
    *   heading rate it buys at 60. That is the whole reason energy matters in a dogfight. */
+  /* ⛔ DOGFIGHT's FLIGHT MODEL, PORTED — artist, 2026-08-04: *"the jet flight physics and controls
+   *   need to be ported from dogfight."* The previous table borrowed four of its numbers and
+   *   re-invented the rest, which is how you get an aircraft that reads as *nearly* right: it had
+   *   no boost, no airbrake, no thrust lapse with height, no G-bleed, no stall nose-drop, no
+   *   descending turn, and its terminal speed was a `maxSpd` clamp rather than a thrust/drag
+   *   balance. The whole feel of `dogfight.html` lives in exactly those.
+   *
+   * ⚑ THE PORT IS A SCALE CHANGE AND NOTHING ELSE, which is the only way to keep the feel while
+   *   moving to a world 25.6× bigger (DOGFIGHT is 150 units across, this city is 3,840 m).
+   *   Under a uniform spatial scale S:
+   *     · lengths, speeds and accelerations  × S      (STALL, VREF, SINK, BLEED, THRUST, BOOST)
+   *     · quadratic drag                     ÷ S      (so terminal √(T/D) scales by S — correct)
+   *     · anything in radians or seconds     unchanged (ROLL_K/D, PITCH_K, ROLL_MAX, AUTH_MIN…)
+   *     · dimensionless ratios               unchanged (CLIMB_EFF, PULL, LAPSE, TRADE, BRAKE_DRAG)
+   *   ⛔ **TURN_G IS THE ONE THAT IS NOT OBVIOUS AND THE ONE THAT WAS WRONG.** The heading law is
+   *     ω = TURN_G·sin(roll)·pull·auth / spd^0.6, and that 0.6 exponent means it does NOT scale
+   *     like a speed. To hold the turn RATE (and therefore make the radius scale with the world,
+   *     which is what "the same aircraft in a bigger city" means) TURN_G must go up by S^0.6 =
+   *     6.97, not by S and not by 1. It was being used RAW at 10.4 against speeds 25× larger, so
+   *     every turn was ~7× too wide — the single biggest reason the jet did not feel like
+   *     DOGFIGHT's. 10.4 × 6.97 = 72.5.
+   * ⚠ Terminal speeds that fall out of this: √(191.7/0.003613) = **230 m/s** dry and **563 m/s**
+   *   on boost — the same 6.8 s to cross the world DOGFIGHT has, because the ratio is preserved.
+   */
+  const S_JET = 3840 / 150;                    // this city ÷ DOGFIGHT's world
   const JET = {
-    thrust: 46,          // m/s² on the throttle
-    dragK: 0.00055,      // quadratic; balances thrust near the cap rather than at it
-    stall: 48,           // below this the wing quits — a jet cannot hover, and must not be able to
-    vref: 95,            // authority reaches 1 here
-    authMin: 0.30,       // never zero: unresponsive is a feeling, uncontrollable is a bug report
-    idle: 14,            // ⚠ thrust with NO input, so the nose never simply stops in mid-air
-    maxSpd: 168,
-    rollMax: 1.16,       // 66° commanded bank
-    rollK: 81, rollD: 11.6,          // ← DOGFIGHT's own measured spring, unit-free, unchanged
-    turnG: 10.4,                     // ← and its turn law
-    pull: 0.62,          // nose-up while banked buys the hard turn
-    pitchMax: 0.58, pitchK: 6.2,
-    climbEff: 0.62,      // climb rate = spd · sin(pitch) · this — a slow jet cannot climb
-    sink: 1.55,          // a banked wing stops holding you up
-    trade: 0.09,         // speed paid per metre of height, and refunded on the way down
-    ceil: 430,
+    stall: 2.9 * S_JET,          // 74.2 — below this the wing quits and the nose drops
+    vref: 7.2 * S_JET,           // 184.3 — authority reaches 1 here
+    authMin: 0.34,               // never zero: unresponsive is a feeling, uncontrollable is a bug
+    rollMax: 1.16,               // 66° commanded bank
+    rollLim: 1.40,               // 80° — the overshoot a snap roll may reach
+    rollK: 81, rollD: 11.6,      // ω 9.0, ζ 0.644: 95% of bank in 0.25 s with ~7% overshoot
+    turnG: 10.4 * Math.pow(S_JET, 0.6),        // 72.5 — see the note above
+    pull: 0.62,                  // nose-up while banked buys the hard turn
+    pitchMax: 0.58, pitchK: 6.2, // 33° of attitude
+    climbEff: 0.62,              // climb = spd · sin(pitch) · this — a slow jet cannot climb
+    sink: 1.55 * S_JET,          // 39.7 — a banked wing stops holding you up
+    lapse: 0.45,                 // thrust lost at the ceiling: thin air
+    trade: 3.0,                  // speed paid per unit of height, refunded coming down
+    bleed: 2.2 * S_JET,          // 56.3 — energy scrubbed by pulling G
+    drag: 0.0925 / S_JET,        // 0.003613
+    thrust: 7.49 * S_JET,        // 191.7
+    boost: 44.8 * S_JET,         // 1146.9
+    brakeDrag: 3.2,
+    altMin: 0.35 * S_JET,        // 9.0 m — the deck
+    ceil: 9.0 * S_JET,           // 230.4 m — and the towers reach ~150, so it clears them
   };
 
   const me = { x: 0, y: 6, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, onGround: false,
@@ -1115,7 +1144,10 @@ window.CityApp = (function () {
     stepOps(dt);
     if (IN.act) doAction();
     const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
-    if (isJet()) { stepJet(dt, fwdIn, turnIn, diving); return; }
+    /* ⚑ DOGFIGHT's OWN BINDINGS: ◀▶ / A-D ROLL (there is no rudder — the heading follows the bank),
+     * ▲▼ / W-S PITCH with UP being nose-up, SHIFT boost, Q airbrake. ⚠ `-IN.fwd` because W reads as
+     * +1 everywhere else in this game and nose-up is NEGATIVE pitch in the model being ported. */
+    if (isJet()) { stepJet(dt, -fwdIn, turnIn, !!keys['q'], diving); return; }
     if (isOp()) { stepGround(dt, IN, OP); return; }
     if (CREATURE === 'squirrel') { stepGround(dt, IN, CREATURES.squirrel); return; }
     const wantFlap = IN.flap;          // no meter: a bird can always beat its wings
@@ -1444,25 +1476,40 @@ window.CityApp = (function () {
    * and ported unchanged; every SPEED here is re-derived for a city measured in metres.
    * ⚠ `pull` only helps while BANKED. A wings-level jet holding W does not corner, which is what
    *   stops the aircraft handling like a car. */
-  function stepJet(dt, fwdIn, turnIn, brake) {
+  /* ⛔ THIS IS `flyShip` FROM `dogfight.html`, PORTED WHOLE — not paraphrased. Each block below is
+   * that function's, in its order, with only the constants scaled (see JET above). Where its own
+   * comments record a measured failure, the failure is real and the shape that avoids it is kept.
+   * ⚠ `roll` is COMMANDED BY A STICK, not by a turn key: `rollIn` is left/right deflection and the
+   *   heading follows the bank. That is the control scheme it asked for, and it is why the
+   *   aircraft always lags its own input — which is the weight. */
+  function stepJet(dt, pitchIn, rollIn, brake, boost) {
     const auth = clamp((me.spd - JET.stall) / (JET.vref - JET.stall), JET.authMin, 1);
 
-    // roll: a second-order spring toward the commanded bank. ⚠ NOT a lerp — the overshoot is the snap.
-    const want = -turnIn * JET.rollMax;
-    me.rollV += (JET.rollK * (want - me.roll) - JET.rollD * me.rollV) * dt;
-    me.roll = clamp(me.roll + me.rollV * dt, -1.40, 1.40);
+    // ── roll: a spring-damper toward the commanded bank. Second order ON PURPOSE — a first-order
+    //    lerp arrives asymptotically and can never overshoot, so a snap and a slow input feel the
+    //    same. The overshoot is the snap.
+    const want = clamp(rollIn, -1, 1) * JET.rollMax;
+    me.rollV += ((want - me.roll) * JET.rollK * auth - me.rollV * JET.rollD) * dt;
+    me.roll = clamp(me.roll + me.rollV * dt, -JET.rollLim, JET.rollLim);
 
-    // pitch attitude follows the throttle/brake, and the CLIMB follows the pitch AND the speed
-    const wantP = (fwdIn > 0 ? 0.28 : 0) + (brake ? -0.5 : 0);
-    me.pitch += (clamp(wantP, -JET.pitchMax, JET.pitchMax) - me.pitch) * Math.min(1, JET.pitchK * dt);
+    // ── pitch attitude. ⚠ NEGATIVE pitchIn is NOSE UP, as in DOGFIGHT: `vs = -sin(pitch)·spd`.
+    const wp = clamp(pitchIn, -1, 1) * JET.pitchMax;
+    me.pitch += (wp - me.pitch) * Math.min(1, dt * JET.pitchK * (0.45 + 0.55 * auth));
 
-    // heading rate = turnG · sin(roll) · pull · auth / spd^0.6 — DOGFIGHT's own, unchanged
-    const pull = 1 + (fwdIn > 0 ? JET.pull : 0);
+    /* ── heading FROM the bank. ω ∝ sin(roll)/spd^0.6 rather than /spd: a true coordinated turn is
+     *    ω = g·tanφ/V, which at boost speed would leave the aircraft barely able to steer. The 0.6
+     *    keeps the shape of the trade — fast is wide — without making the afterburner a
+     *    punishment. `pull` is the nose-up input: bank alone is the sustainable turn, bank + pull
+     *    is the hard turn, and the difference between them is the whole fight. */
+    const pull = 1 + JET.pull * Math.max(0, -clamp(pitchIn, -1, 1));
     me.yaw += JET.turnG * Math.sin(me.roll) * pull * auth / Math.pow(Math.max(20, me.spd), 0.6) * dt;
 
     const hx = Math.sin(me.yaw), hz = Math.cos(me.yaw);
-    let thrust = fwdIn > 0 ? JET.thrust : (fwdIn < 0 ? -JET.thrust * 0.55 : JET.idle);
-    if (brake) thrust -= JET.thrust * 0.75;
+    /* ⚑ THRUST LAPSES WITH HEIGHT and that is what stops the ceiling being a free perch. TRADE is
+     * the reversible cost of CHANGING height; LAPSE is the standing cost of BEING high. Together
+     * they make altitude a bank account you must eventually spend. */
+    const rho = 1 - JET.lapse * clamp((me.y - JET.altMin) / (JET.ceil - JET.altMin), 0, 1);
+    let thrust = (boost ? JET.boost : (brake ? JET.thrust * 0.12 : JET.thrust)) * rho;
 
     /* ── THE WORLD EDGE, AND A JET NEEDS A COMPLETELY DIFFERENT ONE FROM A BIRD ────────────────
      * ⛔ MEASURED FAILURE FIRST: the bird's edge — cancel the outward component of thrust — was
@@ -1478,7 +1525,15 @@ window.CityApp = (function () {
      * ⚠ Hence a wide APPROACH BAND rather than a penetration depth. `EDGE_R` is about two turn
      *   radii; inside it the nose is walked toward the world, hardest nearest the wall. A pilot
      *   reads that as the aircraft not wanting to go out there, which is the intent. */
-    const EDGE_R = 520;
+    /* ⛔ AND THE BAND HAS TO BE DERIVED FROM THE TURN, NOT FIXED — the ported model made a fixed
+     * 520 m obsolete the moment boost arrived. Turn radius is v/ω with ω = turnG·sin(rollMax)/v^0.6,
+     * i.e. **radius grows as v^1.6**: 74 m at cruise but 310 m on the afterburner. Measured with
+     * the old constant: straight at the corner under boost leaked to |x| 2,068 against ±1,920.
+     * ⚠ Same lesson as the original edge work, one rung up — a boundary tuned by eye holds at the
+     *   speed you happened to test, and the port changed the speed by 3×. Two radii of warning,
+     *   floored so a slow jet still gets a sane band. */
+    const turnR = Math.pow(Math.max(20, me.spd), 1.6) / (JET.turnG * Math.sin(JET.rollMax));
+    const EDGE_R = clamp(2.2 * turnR, 420, 1100);
     if (bounds) {
       let ex = 0, ez = 0;
       if (bounds.max[0] - me.x < EDGE_R) ex -= 1;
@@ -1510,7 +1565,13 @@ window.CityApp = (function () {
          * was measured leaking 121 m past the wall (max |z| 2,041) because at 220 m out it asked
          * for 0.32 rad/s when the geometry needed 0.76. A boundary tuned by eye is a boundary that
          * holds at the speed you happened to test. */
-        const rate = clamp(me.spd / Math.max(55, d), 0.3, 1.7);
+        /* ⚠ …AND IT NEEDS MARGIN OVER THAT MINIMUM. `v/d` is the rate that turns the velocity
+         * vector in EXACTLY the distance remaining, i.e. the aircraft grazes the wall with nothing
+         * to spare — and at a corner the true distance is shorter than the per-axis `d`, so the
+         * exact answer leaks. Measured at boost with the bare v/d: |x| 2,065 against ±1,920. 1.8×
+         * turns it inside the band with room, and the cap rises with it or the multiplier is a
+         * multiplier of nothing. */
+        const rate = clamp(1.8 * me.spd / Math.max(55, d), 0.3, 3.0);
         me.yaw += clamp(da * 2.5, -1, 1) * rate * dt;
         // and it BANKS into it, or the aircraft skids sideways like a mouse cursor
         me.roll += clamp(da * 2.5, -1, 1) * -Math.min(1, rate) * 1.5 * near * dt;
@@ -1520,24 +1581,56 @@ window.CityApp = (function () {
       }
     }
 
-    me.spd += thrust * dt;
-    me.spd -= JET.dragK * me.spd * me.spd * dt;
-    // height costs speed and refunds it — the same one-currency rule the bird got, at jet scale
-    const climb = me.spd * Math.sin(me.pitch) * JET.climbEff - JET.sink * Math.abs(Math.sin(me.roll)) * 6;
-    me.spd -= climb * JET.trade * dt;
-    me.spd = clamp(me.spd, 18, JET.maxSpd);
+    /* ── thrust vs drag. TERMINAL SPEED EMERGES FROM THE BALANCE instead of being clamped to a
+     *    `maxSpd`, and that is where the coasting comes from: let off at 500 and you sail, you do
+     *    not snap back. The clamp it replaces was the single most un-DOGFIGHT thing here. */
+    const D = JET.drag * (brake ? JET.brakeDrag : 1);
+    me.spd += (thrust - D * me.spd * me.spd) * dt;
 
-    me.vx = hx * me.spd; me.vz = hz * me.spd; me.vy = climb;
-    let nx = me.x + me.vx * dt, nz = me.z + me.vz * dt, ny = me.y + me.vy * dt;
+    /* ── vertical. Climb rate is SPEED × attitude, so height is bought with energy by construction
+     *    and a jet that has spent its energy simply cannot go up.
+     * ⛔ THE LIFT COMPONENT IS `cos(roll)` WITH NO FLOOR UNDER IT. DOGFIGHT records measuring the
+     *   old propped-up version: at a 66° bank it still passed 62% of the nose-up through as
+     *   ascent, so a hard turn was a CLIMB — the opposite of what a hard turn is. Pulling in a
+     *   bank points the lift vector sideways; that is the entire mechanism by which banking turns
+     *   you, so the vertical share is cos(roll), full stop. At 66° that is 0.41 and at the 80°
+     *   limit 0.17: you cannot climb inside a hard turn, which is what makes committing cost.
+     * ⚑ AND IT SINKS — a wing on its side is not holding the aircraft up, so a hard turn descends.
+     *   This is the only place in the model where something happens that you did not command, and
+     *   that is exactly what "weight" means. */
+    const cr = Math.max(0, Math.cos(clamp(me.roll, -1.5, 1.5)));
+    let vs = -Math.sin(me.pitch) * me.spd * JET.climbEff * cr * auth
+             - JET.sink * (1 - cr) * Math.min(1, me.spd / JET.vref);
+    if (me.spd < JET.stall) vs -= (JET.stall - me.spd) * 1.35;   // the nose drops, like it or not
+
+    me.vx = hx * me.spd; me.vz = hz * me.spd; me.vy = vs;
+    let nx = me.x + me.vx * dt, nz = me.z + me.vz * dt;
 
     /* ⚠ A JET DOES NOT LAND HERE, AND IT MUST NOT SINK INTO THE STREET EITHER. Ground contact is a
      * CRASH, and crashes are step 2 of the compression (docs/CITY-GAME.md) — until then the floor
      * is a hard deck that pushes the nose up, which is honest about being unfinished rather than
      * pretending the aircraft is fine while it is inside a building. */
-    const g = collide ? collide.groundBelow(nx, nz, ny) : null;
-    const deck = (g == null ? 0 : g) + 12;
-    if (ny < deck) { ny = deck; me.pitch = Math.max(me.pitch, 0.12); }
-    if (ny > JET.ceil) { ny = JET.ceil; me.pitch = Math.min(me.pitch, -0.05); }
+    const g = collide ? collide.groundBelow(nx, nz, me.y) : null;
+    const deck = Math.max((g == null ? 0 : g) + 12, JET.altMin);
+    const a0 = me.y, aWant = me.y + vs * dt;
+    let ny = clamp(aWant, deck, JET.ceil);
+    if (ny <= deck && vs < 0) me.pitch = Math.max(me.pitch, 0.12);
+    if (ny >= JET.ceil && vs > 0) me.pitch = Math.min(me.pitch, -0.05);
+
+    // energy exchange, billed against the CLAMPED altitude so grinding the ceiling is not charged
+    me.spd -= (ny - a0) * JET.trade;
+    /* ⚑ …BUT THE DECK IS NOT A FREE TURN, and a plain clamp made it one. With the sink above, a
+     * hard bank on the floor wants to descend and cannot, dAlt comes out 0, and the turn costs
+     * nothing at maximum thrust in the thickest air — the ceiling exploit upside down. The
+     * asymmetry is PHYSICAL: a blocked CLIMB means the nose is up and you are flying level, one g,
+     * nothing to pay for; a blocked SINK means the wing is banked hard and something is still
+     * holding the aircraft up, and that something is induced drag. So the floor bills. */
+    if (aWant < ny) me.spd -= (ny - aWant) * JET.trade * 0.55;
+    // ── G-bleed. Squared in `pull`, so the hard turn costs disproportionately more than the flat one
+    me.spd -= JET.bleed * Math.abs(Math.sin(me.roll)) * pull * pull * auth * dt;
+    me.spd = Math.max(JET.stall * 0.55, me.spd);
+    me.gLoad = 1 / Math.max(0.15, Math.cos(clamp(me.roll, -1.4, 1.4))) * pull;
+
     me.x = nx; me.z = nz; me.y = ny; me.speed = me.spd; me.onGround = false;
     me.alt = ny - (g == null ? 0 : g);
 
@@ -1578,7 +1671,10 @@ window.CityApp = (function () {
     /* ⚠ EACH BODY HAS TO ARRIVE SOMEWHERE IT CAN EXIST. A jet at street level is inside a
      * building; an operative at 200 m is falling. The swap places you, rather than leaving the
      * previous mode's position to mean something it does not. */
-    if (isJet()) { me.spd = Math.max(70, me.speed); me.y = Math.max(me.y, 90);
+    /* ⚠ ARRIVE ABOVE STALL, not at some remembered walking pace. The ported model has a real stall
+     * below which the nose drops and authority collapses, so entering the jet at a squirrel's
+     * 9 m/s would hand you an aircraft already falling out of the sky. */
+    if (isJet()) { me.spd = Math.max(JET.vref, me.speed); me.y = Math.max(me.y, 90);
                    me.roll = me.rollV = me.pitch = 0; }
     else if (isOp()) { const g = collide ? collide.groundBelow(me.x, me.z, me.y + 4, OP.r, 400) : null;
                        me.y = (g == null ? 0 : g); me.vx = me.vy = me.vz = 0; me.pitch = 0;
@@ -1615,10 +1711,19 @@ window.CityApp = (function () {
     /* ⚠ LEAVING THE MODE HAS TO LEAVE THE FIGHT. The reticle and the health bar are the two things
      * that would otherwise sit over a bird, and a HUD element that survives its own mode is the
      * same class of defect as the launch countdown that kept ticking under "THE PACK IS OPEN". */
+    /* ⚑ THE MODE BAR IS DRIVEN FROM HERE, so the lit chip cannot disagree with the mode — it is
+     * the same `syncHud` every other path already calls. A second place that decides which chip is
+     * on is a second place that can be wrong. */
+    for (const el of document.querySelectorAll('.mchip'))
+      el.dataset.on = el.dataset.mode === MODE ? '1' : '';
     const c = $('combat'); if (c && !isOp()) { c.dataset.on = ''; hudCache = ''; }
     const r = $('reticle'); if (r) r.dataset.on = isOp() ? '1' : '';
     if (ops && !isOp()) ops.setTrigger(false);
   }
+
+  /* ⚠ Wired here rather than in the page, so the buttons and TAB go through ONE `setMode`. */
+  for (const el of document.querySelectorAll('.mchip'))
+    el.addEventListener('click', e => { e.preventDefault(); setMode(el.dataset.mode); });
 
   addEventListener('keydown', e => {
     if (e.key === 'Tab') { e.preventDefault(); cycleMode(e.shiftKey ? -1 : 1); }
