@@ -110,6 +110,37 @@ gets composited into a 1/1 — and `docs/CC0-SOURCES.md`'s rule stands: informed
   direction — that is what makes it read as *the plate moved* rather than as *a filter was applied*.
 - Ambient stays low. Paper in a room, not paper in a lightbox.
 
+### ✅ IT IS A REAL MATERIAL NOW — artist, 2026-08-04: *"add pbr textures, metallic foil etc."*
+
+Cook-Torrance GGX with albedo / roughness / metallic / normal, three lights and a room — and the
+whole of it turns on **four surfaces on one sheet**, each with its own physics:
+
+| | roughness | metallic | relief |
+| --- | --- | --- | --- |
+| bare stock (the trim) | 0.86 | 0 | paper fibre, with a grain direction |
+| ink film | 0.52 | 0 | follows the picture; halftone dots stand up as beads |
+| the coated window | ×0.44 | 0 | **the varnish fills the tooth as well as smoothing it** |
+| the die edge + the name | 0.19, anisotropic along the stamp | **1** | — |
+
+- ⛔ **THE ENVIRONMENT IS REACHABLE ONLY THROUGH THE METALLIC TERM.** That is the whole of §2's
+  first rule turned into a line of code rather than an intention, and it is asserted: switch the
+  room off and the **artwork must come back byte-identical while the foil changes.**
+- ⛔ **THE GRATING IS THE METAL'S REFLECTANCE, NOT A TINT OVER THE TOP.** In the first pass the
+  diffracted hue was mixed over the finished pixel — which is a decal with extra steps. A foil
+  stamp is a thin metal layer: no diffuse at all, specular tinted by the metal, and a grating ruled
+  into it makes that tint a function of the half-angle. So `pal()` feeds F0 and Fresnel carries it.
+  Measured effect: hue travel **612° → 802°**, and the colour now arrives *through* the lighting.
+- ⛔ **LIGHTS AND THE ROOM ARE IN WORLD SPACE.** They used to be handed to an object-space normal,
+  so the key turned *with the card* and the highlight never moved — printed-on shading wearing a
+  material's clothes.
+- ⚑ **The room is analytic** — a cool wash overhead, a warm bounce off the table, a softbox where
+  the key is, a cooler window opposite. No HDRI, no second request, and roughness widens both
+  sources, which is the only part of an IBL that matters on a surface this glossy.
+- ⚠ **"Metal" is not "shiny".** A metal in a room *reflects the room*, so it does not go dark when
+  one light moves — it goes dark when it has neither. Measured: with the room off and the key away
+  from the specular the die edge falls to **0.022**; a coloured plastic in the same place sits at
+  **0.249**.
+
 ---
 
 ## 3 · ⛔ WHAT MOVES, AND WHY IT PHYSICALLY MOVED
@@ -193,25 +224,40 @@ art acknowledges the state of the edition, it does not reward you for it.
 | 8 | the type is not a font | renders identically with **no fonts installed** | exact |
 | 9 | it degrades with burn | frame at burn=0 vs burn=max measurably differs | distinct |
 | 10 | it survives the sandbox | loads at opaque origin, 320 px, no storage, no wallet | renders |
+| m1 | the foil is METAL | with the room off and the key away it has nothing left | < 0.03 |
+| m2 | the artwork never sees the room | frame with env on vs off, inside the art window | byte-identical |
+| m3 | the stock has a grain | fibre normal's x slope against its y slope | ≠ 1.00 |
+| m4 | it is a lit surface | the bare trim's local contrast across a key sweep | > 10% |
+| m5 | the highlights survive | pixels clipped to pure white | < 0.4% |
 
 ⚠ **1 and 4 are the two that catch a fake.** A rainbow gradient painted on a surface passes a
 screenshot and fails #1 — it is a *sticker of* foil. A radial RGB split passes the eye and fails #4
 — it is a lens artefact wearing a print costume.
 
-### ✅ 1–5 are MEASURED on card 1 — `npm run test:hero`, 20 assertions
+### ✅ 1–5 are MEASURED on card 1 — `npm run test:hero`, 30 assertions
 
 | # | measured | bar |
 | --- | --- | --- |
-| 1 | **612°** median hue travel across 9 yaws | ≥ 200 |
+| 1 | **802°** median hue travel across 9 yaws | ≥ 200 |
 | 2 | flex **exactly 0** after 10 s, and the frame is **byte-identical** | exact |
 | 3 | dish −0.067 under the thumb, **+0.014 overshoot** past rest on release, settles to 2e−26 | > 0 |
-| 4 | plates move 5.20 px, spread **0.21 of the shift**, slope 1.31 px/radius | < 0.35 |
+| 4 | every block's shift lands on **one of the four plate offsets** (median miss 2.5 px), and points nowhere: **cos(shift, position) = 0.03** | ~0 |
 | 5 | same seed + same drive → **byte-identical**; a different seed differs | exact |
 
 ⚑ **AND FOUR AND FIVE PROVE THEY DISCRIMINATE, IN THE TEST ITSELF.** #4 runs the same block-match
-over a build whose registration has been made deliberately **radial** and requires it to fail
-(it does: spread 0.35, slope 9.40). #5 requires two *different* seeds to differ, because "the two
-frames match" is trivially true of two black frames. **A check that cannot fail is not a check.**
+over a build whose registration has been made deliberately **radial** and requires it to fail —
+**cos 0.03 for the press against −0.97 for the lens**, which needs no threshold at all because the
+two answers are 0 and 1. #5 requires two *different* seeds to differ, because "the two frames match"
+is trivially true of two black frames. **A check that cannot fail is not a check.**
+
+⚠ **#4 TOOK THREE TRIES AND THE FIRST TWO WERE WRONG IN AN INSTRUCTIVE WAY.** A low-spread bar is
+wrong: a four-plate print is *supposed* to disagree block to block, and it disagrees by the
+predicted amount (the four offsets give mean 8.0 px / sd 3.55; measured 8.10 / 3.07). A slope of
+magnitude against position is wrong too: it picks up *which plate dominates each region*, which
+follows the composition rather than the geometry — it read −3.67 on a build whose offsets are,
+structurally, four constants with nowhere for a position to enter. What separates a press failure
+from a lens artefact is **direction**: chromatic aberration points away from the centre and a press
+has no idea where the centre is.
 ⚠ The other four were proved to bite by sabotage, and the result is worth keeping: killing the
 grating dropped #1 from 612° to **12°**; a wall-clock breath in the shader broke the frame hash
 (and #5 with it) **while "flex is exactly 0" stayed green** — which is precisely why the
@@ -262,6 +308,12 @@ moiré are not effects applied to a picture — they *fall out* of printing one 
 with the plates in slightly the wrong place. Ink multiplies the paper's reflectance, never adds to
 it, which is the single line keeping the whole thing on the paper side of the fence.
 
+⚑ **The material was sabotaged four ways and each one failed the right assertion**: the foil made a
+coloured plastic (die luminance 0.022 → **0.249**); the artwork allowed to see the room (**the
+byte-identity fails**, which is `card3d.js`'s most expensive recorded bug caught by a test rather
+than by an eye); the fibre replaced with an undirected hash (grain **1.31× → 1.03×**); the highlight
+knee removed (**0% → 11.1%** of the card clipped to flat white).
+
 ⚠ **Three weaknesses, stated rather than hidden:**
 - **The burn end state is busier, not obviously more damaged.** The screen coarsens and the roller
   starves, but at 0.85 it reads as *a worse print* rather than *a card that has been through
@@ -273,6 +325,17 @@ it, which is the single line keeping the whole thing on the paper side of the fe
   reading as one card lightly filtered, which was the first failure — but *where* the figure sits
   and *what* it is next to is authorship, not a seed. That is §8's first question and it is the
   one that decides whether the 33 are a set or a batch.
+- **The ink's own relief is nearly invisible at card size.** The halftone dots are modelled as
+  beads standing proud of the stock, with an analytic slope — and the term fades itself out below
+  about three device pixels a cell, which at a normal viewing size is most of the time. It is
+  correct (relief you cannot resolve should flatten, not sparkle) and it means the detail only
+  exists when someone leans in. Whether that is worth its cost is a real question.
+
+⚑ **The pigment is now the WHOLE DECK** — artist, 2026-08-04: *"lets be sure to remix any of the
+194+ cards we have available."* Both manifests, merged: **211 sources**, so a seed draws three from
+211 rather than three from 15 and two cards pulled a minute apart stop landing on the same
+pictures. Fetched, never listed, so the clean-slate (task #71) swaps the pigment without touching
+the renderer.
 
 ---
 

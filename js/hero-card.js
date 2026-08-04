@@ -326,6 +326,62 @@
     return c;
   }
 
+  /* ── THE STOCK ITSELF ────────────────────────────────────────────────────────────────────
+   * A tiling PBR texture for the card board: RG = the fibre normal, B = a roughness jitter.
+   *
+   * ⚑ IT IS FIBRES, NOT NOISE, AND THAT IS THE WHOLE POINT. A hash gives you grain with no
+   *   DIRECTION, and paper's tooth is directional — pulp fibres lie down in the machine
+   *   direction and catch a raking light as short streaks, which is why a hash reads as digital
+   *   noise however carefully it is tuned and why a scanned paper texture always looks better
+   *   than a procedural one. Short strokes at a biased angle cost the same and read as paper.
+   * ⚠ It has to TILE, so every stroke is drawn nine times, wrapped. A seam on card stock is the
+   *   one artefact nobody would forgive, because it is a straight line on a surface that has none.
+   * ⚠ Alpha stays 255 — see the note under buildComp. This function writes through
+   *   getImageData/putImageData and would wipe its own colour channels otherwise. */
+  function buildStock(seed, N) {
+    const c = document.createElement('canvas');
+    c.width = c.height = N;
+    const g = c.getContext('2d');
+    const r = rng(seed ^ 0x7F4A7C15);
+    g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, N, N);
+    g.lineCap = 'round';
+    const strokes = Math.round(N * 5.2);
+    for (let i = 0; i < strokes; i++) {
+      // biased toward the machine direction, but never all the way — pulp is not combed
+      const a = (r() < 0.72 ? 0 : Math.PI / 2) + (r() - 0.5) * 1.5;
+      const len = N * (0.006 + r() * 0.030), w = N * (0.0018 + r() * 0.0055);
+      const v = r() < 0.5 ? 128 - Math.round(r() * 52) : 128 + Math.round(r() * 52);
+      const x = r() * N, y = r() * N;
+      g.strokeStyle = 'rgba(' + v + ',' + v + ',' + v + ',0.5)';
+      g.lineWidth = w;
+      for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+        g.beginPath();
+        g.moveTo(x + ox * N - Math.cos(a) * len, y + oy * N - Math.sin(a) * len);
+        g.lineTo(x + ox * N + Math.cos(a) * len, y + oy * N + Math.sin(a) * len);
+        g.stroke();
+      }
+    }
+    // height -> normal. Sobel, wrapped, so the normal tiles as cleanly as the height did.
+    const img = g.getImageData(0, 0, N, N), d = img.data;
+    const h = new Float32Array(N * N);
+    for (let i = 0, k = 0; i < d.length; i += 4, k++) h[k] = d[i] / 255;
+    const at = (x, y) => h[((y + N) % N) * N + ((x + N) % N)];
+    const out = g.createImageData(N, N), o = out.data;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const gx = (at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1))
+               - (at(x - 1, y - 1) + 2 * at(x - 1, y) + at(x - 1, y + 1));
+      const gy = (at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1))
+               - (at(x - 1, y - 1) + 2 * at(x, y - 1) + at(x + 1, y - 1));
+      const k = (y * N + x) * 4;
+      o[k]     = Math.round(clamp(-gx * 0.5 + 0.5, 0, 1) * 255);
+      o[k + 1] = Math.round(clamp(-gy * 0.5 + 0.5, 0, 1) * 255);
+      o[k + 2] = Math.round(clamp(at(x, y), 0, 1) * 255);   // roughness jitter, from height
+      o[k + 3] = 255;                                        // ⛔ never 0. See buildComp.
+    }
+    g.putImageData(out, 0, 0);
+    return c;
+  }
+
   // ── shaders ───────────────────────────────────────────────────────────────────────────────
 
   const VS = `#version 300 es
@@ -387,7 +443,7 @@ in vec3 vW;
 in vec2 vFace;
 out vec4 frag;
 
-uniform sampler2D uPigA, uPigB, uPigC, uComp, uType;
+uniform sampler2D uPigA, uPigB, uPigC, uComp, uType, uStock;
 uniform mat3 uRot;
 uniform vec3 uEye;
 uniform vec2 uReg[4];        // registration, uv — FROZEN per impression, uniform per plate
@@ -397,7 +453,6 @@ uniform vec4 uFilm;          // ink film per plate
 uniform vec4 uPress;         // x screen freq · y roller bands · z roller phase · w starve
 uniform vec4 uDmg;           // x burn · y tear · z dot gain · w edge wear
 uniform vec4 uFoilP;         // x grating cycles · y thin film · z sheen · w patch cycles
-uniform vec3 uKeyDir, uKeyCol, uAmb;
 uniform vec2 uPar;           // x parallax gain · y type depth
 uniform float uSeed;
 uniform float uRegGain;      // 0 kills registration entirely — the acceptance-4 control
@@ -409,10 +464,30 @@ uniform float uRegGain;      // 0 kills registration entirely — the acceptance
  * wrong measurement; js/city-ink.js paid for that lesson once already. Off in every real path. */
 uniform float uRegRadial;
 
+/* ── THE MATERIAL ────────────────────────────────────────────────────────────────────────────
+ * ⛔ LIGHTS AND THE ENVIRONMENT ARE IN WORLD SPACE. They used to be handed straight to an
+ *   object-space normal, which means the key light TURNED WITH THE CARD — so the highlight sat
+ *   in the same place however you moved it, and the surface read as printed-on shading rather
+ *   than as a lit object. Everything below converts a world direction into object space with
+ *   (d * uRot), which is uRot's transpose applied to d, i.e. world -> object for free. */
+uniform vec3 uKeyDir, uKeyCol;
+uniform vec3 uFillDir, uFillCol;
+uniform vec3 uRimDir, uRimCol;
+uniform vec4 uRough;         // x stock · y ink film · z foil · w varnish (how coated the window is)
+uniform vec4 uRelief;        // x paper fibre · y ink height · z crease · w halftone dome
+uniform vec2 uTile;          // stock-texture tiling
+/* ⛔ THE ENVIRONMENT SWITCH, AND IT GUARDS THIS REPO'S MOST EXPENSIVE RECORDED MISTAKE. Giving a
+ * card an environment map is right for METAL and wrong for ARTWORK: a standard material samples
+ * the environment for ambient specular too, and on the art plate that lands as a broad milky
+ * sheen — measured in js/card3d.js as lifted blacks and lost saturation, and in the CSS .glare
+ * before that. Here the environment is reachable ONLY through the metallic term, so the ink can
+ * never pick it up. npm run test:hero asserts exactly that: switch this off and the artwork must
+ * come back BYTE-IDENTICAL while the foil changes. */
+uniform float uEnvOn;
+
 const vec3 STOCK = vec3(0.905, 0.874, 0.796);      // the site's own card stock
 const vec3 LUMA  = vec3(0.2126, 0.7152, 0.0722);
-
-float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+const float PI = 3.14159265359;
 
 /* One cyclic palette, so the diffracted hue can walk forever and never hit a seam. Cosine form:
  * every channel is periodic in t by construction, which a gradient texture only is if somebody
@@ -421,6 +496,36 @@ vec3 pal(float t) {
   return clamp(vec3(0.55, 0.47, 0.52) + vec3(0.45, 0.44, 0.48)
     * cos(6.28318530718 * (t + vec3(0.00, 0.33, 0.67))), 0.0, 1.0);
 }
+
+/* ── THE ROOM, ANALYTICALLY ──────────────────────────────────────────────────────────────────
+ * No cubemap, no HDRI, no second request — a card in the media slot has to load cold from one
+ * origin, and an equirect costs more than the whole renderer. A studio is not complicated: a
+ * cool wash overhead, a warm bounce off the table, one big softbox up-left where the key is, and
+ * a cooler window to the right. rough widens both sources, which is the only part of an IBL
+ * that matters on a surface this glossy — a mirror sees the softbox as a hard rectangle, a
+ * brushed foil sees it as a smear, and that difference IS the material. */
+vec3 envAt(vec3 d, float rough) {
+  float up = d.y * 0.5 + 0.5;
+  vec3 room = mix(vec3(0.105, 0.088, 0.076), vec3(0.30, 0.315, 0.365), smoothstep(0.12, 0.95, up));
+  float r2 = clamp(rough * rough, 0.002, 1.0);
+  vec3 box = uKeyCol * 0.80 * pow(max(dot(d, normalize(uKeyDir)), 0.0), mix(700.0, 2.2, r2));
+  vec3 win = vec3(0.40, 0.48, 0.66) * pow(max(dot(d, normalize(vec3(0.86, 0.16, 0.48))), 0.0),
+                                          mix(180.0, 2.0, r2));
+  return room + box + win;
+}
+
+// ── Cook-Torrance, the standard parts, named so they can be checked against a reference ──────
+float D_GGX(float ndh, float tdh, float bdh, float ax, float ay) {
+  float d = tdh * tdh / (ax * ax) + bdh * bdh / (ay * ay) + ndh * ndh;
+  return 1.0 / (PI * ax * ay * d * d + 1e-7);
+}
+float V_Smith(float ndv, float ndl, float a) {       // height-correlated, Heitz
+  float a2 = a * a;
+  float gv = ndl * sqrt(ndv * ndv * (1.0 - a2) + a2);
+  float gl = ndv * sqrt(ndl * ndl * (1.0 - a2) + a2);
+  return 0.5 / max(gv + gl, 1e-5);
+}
+vec3 F_Schlick(vec3 f0, float u) { return f0 + (1.0 - f0) * pow(1.0 - u, 5.0); }
 
 /* ── THE ARTWORK ─────────────────────────────────────────────────────────────────────────────
  * Composed live out of three deck cards. par is the PARALLAX offset for this view; each
@@ -467,15 +572,28 @@ vec4 sep(vec3 c) {
 /* An AM halftone: rotate into the plate's own screen angle, and a dot whose RADIUS is
  * sqrt(density) so its AREA is the density. ⚠ The moiré this produces between plates is not an
  * artefact to suppress — it is the reason real separations use 15/75/0/45 degrees, and it is
- * most of what the eye reads as "printed". */
-float screenDot(vec2 u, float ang, float freq, float d) {
+ * most of what the eye reads as "printed".
+ *
+ * ⚑ IT ALSO RETURNS THE DOT'S OWN SLOPE, because a halftone dot is not a stain — it is a bead of
+ *   ink standing proud of the stock, and under a raking light the dots are the FIRST thing you
+ *   see on a real card. dn is the analytic gradient of a spherical cap of radius rad, rotated
+ *   back out of the screen frame. Analytic rather than differenced: at three device pixels per
+ *   cell a differenced normal is pure noise.
+ * ⚠ And it fades out when the cell gets smaller than about three pixels, or the relief aliases
+ *   into exactly the moiré grid the ruling was retuned to avoid. */
+float screenDot(vec2 u, float ang, float freq, float d, out vec2 dn) {
   float s = sin(ang), co = cos(ang);
   vec2 r = vec2(u.x * co - u.y * s, u.x * s + u.y * co) * freq;
   vec2 f = fract(r) - 0.5;
   float dist = length(f) * 2.0;
   float rad = sqrt(clamp(d, 0.0, 1.0)) * 1.128;
-  float aa = max(fwidth(dist), 0.02);
-  return smoothstep(rad + aa, rad - aa, dist);
+  float px = max(fwidth(dist), 1e-4);
+  float cov = smoothstep(rad + px, rad - px, dist);
+  float hh = sqrt(max(rad * rad - dist * dist, 0.0));
+  vec2 dir = dist > 1e-4 ? f / max(length(f), 1e-5) : vec2(0.0);
+  vec2 g = dir * (dist / max(hh, 0.06)) * cov * smoothstep(0.72, 0.30, px);
+  dn = vec2(g.x * co + g.y * s, -g.x * s + g.y * co);
+  return cov;
 }
 
 void main(void) {
@@ -485,11 +603,8 @@ void main(void) {
 
   /* ⚠ relief is uType.b, NOT uComp.a — the alpha channel of a generated canvas is not a data
    * channel; see the note above buildComp's return. */
-  float relief = texture(uType, vUv).b;
-  // Paper tooth. ⚠ Frequency, not amount: at 900 cells the grain was finer than the render's
-  // own pixels and came back as a moiré screen door over the whole card — an aliasing artefact
-  // that reads exactly like a bad texture.
-  float tooth = h21(floor(vUv * 380.0)) * 0.055;
+  vec3 plate = texture(uType, vUv).rgb;              // r name · g marks · b crease
+  float relief = plate.b;
 
   /* ── the press ────────────────────────────────────────────────────────────────────────────
    * Four impressions of the same picture, each at its own registration, each screened at its own
@@ -497,62 +612,138 @@ void main(void) {
    * DOWN, so no ink can add light and the card cannot glow. */
   float freq = uPress.x * mix(1.0, 0.42, uDmg.x);    // burn coarsens the screen until it gives up
   vec3 transmit = vec3(1.0);
+  float inkD = 0.0;
+  vec2 dotN = vec2(0.0);
   for (int p = 0; p < 4; p++) {
-    vec2 u = vUv + mix(uReg[p], (vUv - 0.5) * length(uReg[p]) * 5.0, uRegRadial) * uRegGain;
+    vec2 u = vUv + mix(uReg[p], (vUv - 0.5) * length(uReg[p]) * 3.0, uRegRadial) * uRegGain;
     vec4 s = sep(artAt(u, par));
     float d = s[p] * uFilm[p];
     // the roller: bands ACROSS the sheet, because that is the axis the roller turns on
     float band = 1.0 + uPress.w * sin(u.y * uPress.y + uPress.z + float(p) * 0.7);
     d = clamp(d * band + uDmg.z * 0.10, 0.0, 1.0);
-    float cov = screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d);
+    vec2 dn;
+    float cov = screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d, dn);
     transmit *= mix(vec3(1.0), uInk[p], cov);
+    inkD += d;
+    if (p == 3) dotN = dn;                           // K only — four relief grids is noise
+  }
+  float inkCov = clamp(inkD * 0.55, 0.0, 1.0);
+
+  /* ── THE SURFACE ─────────────────────────────────────────────────────────────────────────
+   * Four separate things happened to this piece of card and each one has its own physics:
+   *   FIBRE   the stock's own tooth. A real texture, not a hash — paper is fibres lying down
+   *           in directions, and a hash has no direction, which is why hash tooth reads as
+   *           digital noise however well it is tuned.
+   *   INK     laid down wet and dried proud. Its HEIGHT follows the picture and its dots stand
+   *           up individually, and where it is thick the surface gets SMOOTHER, because the
+   *           film flows out flatter than the paper it is sitting on.
+   *   CREASE  a fold in the board, under everything.
+   *   EMBOSS  the name, struck into the stock by the same plate that inked it. */
+  vec3 fib = texture(uStock, vUv * uTile).rgb;
+  /* ⚑ A VARNISH FILLS THE TOOTH. It is not only a roughness change — a coating floods the paper's
+   * fibre and levels it, which is exactly why coated stock feels and photographs smoother. So the
+   * same mask that drops the roughness drops the fibre relief, and the trim keeps its grain. */
+  float coat = 1.0 - 0.72 * uRough.w * (1.0 - clamp(texture(uComp, vUv).b, 0.0, 1.0));
+  vec2 nT = (fib.xy * 2.0 - 1.0) * (uRelief.x * coat)
+          + vec2(dFdx(inkCov), dFdy(inkCov)) * uRelief.y
+          + vec2(dFdx(relief), dFdy(relief)) * uRelief.z
+          + dotN * uRelief.w
+          + vec2(dFdx(plate.r), dFdy(plate.r)) * -1.6;
+  vec3 N = normalize(Ng + vec3(nT, 0.0));
+
+  /* ⚑ SPOT VARNISH. The art window is coated and the trim is bare stock — a real finish on a real
+   * card, and the cheapest way to make one surface read as two materials. It is a ROUGHNESS
+   * boundary and nothing else: no colour changes across it, which is exactly why it is worth
+   * having, because it can only be seen by how the light behaves. */
+  float win = 1.0 - clamp(texture(uComp, vUv).b, 0.0, 1.0);
+  float rough = mix(uRough.x, uRough.y, inkCov) + (fib.z - 0.5) * 0.16;
+  rough = mix(rough, rough * (1.0 - 0.62 * uRough.w), win);
+  rough = clamp(rough + uDmg.x * 0.14, 0.045, 1.0);   // burn scuffs the coating
+
+  /* ── THE FOIL IS A METAL, and the grating is its SPECTRAL REFLECTANCE ────────────────────
+   * ⛔ This is the difference between v1 and this pass. Before, the diffracted hue was MIXED over
+   *   the finished pixel, which is a tint — a decal with extra steps. A foil stamp is a thin
+   *   METAL layer: it has no diffuse at all, its specular is tinted by the metal, and a grating
+   *   ruled into it makes that tint a function of the half-angle. So pal() feeds F0 and the
+   *   Fresnel term carries it, which means the colour now arrives THROUGH the lighting rather
+   *   than on top of it — and it goes where the light goes.
+   * The phase is js/hero3d.js's: (L+V) projected onto the surface axes plus a thin-film term
+   * going as 1/cos, so the hue keeps moving even when nothing but your head does. */
+  vec2 ee = abs(vFace) / vec2(1.0, 1.5);
+  /* ⚠ THE DIE EDGE IS AN EDGE. At 0.86 the foil band covered the whole trim and the card wore a
+   * rainbow border — a decal, which is the exact thing acceptance 1 exists to catch. */
+  float edge = smoothstep(0.952, 0.982, max(ee.x, ee.y));
+  float metal = clamp(edge + plate.r * 0.62, 0.0, 1.0) * (1.0 - uDmg.w * 0.55);
+
+  vec3 T0 = normalize(vec3(1.0, 0.0, 0.0) - Ng * Ng.x);
+  vec3 B0 = cross(Ng, T0);
+  float ndvG = clamp(dot(Ng, V), 0.0, 1.0);
+  float film = uFoilP.y / max(ndvG, 0.22);
+  float axV = dot(T0, V) + 0.62 * dot(B0, V);
+  float base = 0.35 * (1.0 - vUv.y) + uFoilP.w * relief + film + uFoilP.x * axV + uSeed;
+  vec3 foilTint = pal(base);
+
+  rough = mix(rough, uRough.z, metal);
+  vec3 albedo = STOCK * transmit * (1.0 - metal);    // ⛔ metal has no diffuse. Ever.
+  vec3 f0 = mix(vec3(0.045), foilTint, metal);
+
+  /* ⚑ THE DIE STAMP HAS A DIRECTION, so the foil is ANISOTROPIC — the highlight smears ALONG the
+   * edge instead of sitting on it as a bead. On a vertical edge the knife ran down the card, on a
+   * horizontal one it ran across, and the type was struck left to right. */
+  vec3 Tf = (ee.x > ee.y && edge > 0.5) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+  vec3 T = normalize(Tf - N * dot(N, Tf));
+  vec3 B = cross(N, T);
+  float a = max(rough * rough, 1e-3);
+  float aniso = mix(1.0, 3.1, metal);
+  float ax = clamp(a * aniso, 1e-3, 1.0), ay = clamp(a / aniso, 1e-3, 1.0);
+
+  float ndv = clamp(dot(N, V), 1e-4, 1.0);
+
+  /* One light, done properly, three times. Lw arrives in WORLD space and is rotated into the
+   * card's frame, so turning the card sweeps the highlight across it — which is the entire
+   * reason to have a material at all. */
+  vec3 col = vec3(0.0);
+  for (int i = 0; i < 3; i++) {
+    vec3 Lw = i == 0 ? uKeyDir : (i == 1 ? uFillDir : uRimDir);
+    vec3 lc = i == 0 ? uKeyCol : (i == 1 ? uFillCol : uRimCol);
+    vec3 L = normalize(Lw * uRot);
+    float ndl = dot(N, L);
+    // wrapped diffuse: paper is not a sphere, it terminates soft because light gets in and out
+    float wrap = clamp((ndl + 0.20) / 1.20, 0.0, 1.0);
+    col += albedo * lc * wrap / PI;
+    if (ndl <= 0.0) continue;
+    vec3 H = normalize(L + V);
+    float ndh = clamp(dot(N, H), 0.0, 1.0), vdh = clamp(dot(V, H), 0.0, 1.0);
+    /* The grating's path difference splits into a light half and a view half; the view half is
+     * already in base, so only the light half is added here. Without it the hue would walk with
+     * the camera and stand still under a moving light, which is half a foil. */
+    float axL = dot(T0, L) + 0.62 * dot(B0, L);
+    vec3 F = F_Schlick(mix(vec3(0.045), pal(base + uFoilP.x * axL), metal), vdh);
+    float spec = D_GGX(ndh, dot(T, H), dot(B, H), ax, ay) * V_Smith(ndv, ndl, a) * ndl;
+    col += lc * F * spec * uFoilP.z;
   }
 
-  vec3 paper = STOCK * (1.0 - tooth);
-  vec3 col = paper * transmit;
-
-  /* ── the stock, lit ──────────────────────────────────────────────────────────────────────
-   * ONE low raking key. Raking, so the relief reads: the crease, the ink sitting proud, the die
-   * edge. a wrap rather than a clamped N.L because paper is not a sphere and terminates soft. */
-  vec3 N = normalize(Ng + vec3(dFdx(relief), dFdy(relief), 0.0) * 4.5);
-  float ndl = dot(N, normalize(uKeyDir));
-  col *= uAmb + uKeyCol * clamp((ndl + 0.22) / 1.22, 0.0, 1.0);
+  /* ── THE ENVIRONMENT, AND ONLY THE METAL MAY SEE IT ──────────────────────────────────────
+   * The reflection is taken to WORLD space, so the room stays put while the card turns. */
+  vec3 R = uRot * reflect(-V, N);
+  vec3 Fenv = F_Schlick(f0, ndv);
+  col += envAt(R, rough) * Fenv * metal * uEnvOn;
+  // ⛔ …and the artwork gets DIFFUSE bounce only. No ambient specular on ink — see uEnvOn.
+  vec3 Nw = uRot * N;
+  float ao = 1.0 - 0.42 * clamp(length(vec2(dFdx(relief), dFdy(relief))) * 9.0, 0.0, 1.0);
+  col += albedo * mix(vec3(0.070, 0.062, 0.062), vec3(0.235, 0.246, 0.285), Nw.y * 0.5 + 0.5) * ao;
 
   /* ── the tear ────────────────────────────────────────────────────────────────────────────
    * At full burn the stock is opened: the ink stops and the raw board shows, darker at the lip
    * where the fibre lifts. It is the one place the ARTWORK is absent rather than damaged. */
   float tear = smoothstep(0.60, 0.86, relief) * uDmg.y;
-  col = mix(col, paper * (0.62 + 0.38 * (1.0 - tear)), tear);
+  col = mix(col, STOCK * (0.36 + 0.30 * (1.0 - tear)), tear);
 
-  /* ── the die edge is FOIL ────────────────────────────────────────────────────────────────
-   * The physics is js/hero3d.js's, deliberately: this studio has one foil, and its grating
-   * phase is (L+V) projected onto the surface axes, plus a thin-film term that goes as 1/cos so
-   * the hue keeps moving even when the light does not. ⛔ A rainbow gradient painted on a
-   * surface is a STICKER OF foil and fails acceptance 1 — the hue has to walk with the angle. */
-  /* ⚠ THE DIE EDGE IS AN EDGE. At 0.86 the foil band covered the whole trim and the card wore a
-   * rainbow border — a decal, which is the exact thing acceptance 1 exists to catch. A die-cut
-   * edge is the last millimetre of the card, where the knife broke through the foil layer. */
-  vec2 e = abs(vFace) / vec2(1.0, 1.5);
-  float edge = smoothstep(0.952, 0.982, max(e.x, e.y));
-  float foilM = clamp(edge + texture(uType, vUv).r * 0.55, 0.0, 1.0) * (1.0 - uDmg.w * 0.55);
-  if (foilM > 0.002) {
-    vec3 T0 = normalize(vec3(1.0, 0.0, 0.0) - Ng * Ng.x);
-    vec3 B0 = cross(Ng, T0);
-    float ndv = clamp(dot(Ng, V), 0.0, 1.0);
-    float film = uFoilP.y / max(ndv, 0.22);
-    float axV = dot(T0, V) + 0.62 * dot(B0, V);
-    float base = 0.35 * (1.0 - vUv.y) + uFoilP.w * relief + film + uFoilP.x * axV + uSeed;
-
-    vec3 L = normalize(uKeyDir);
-    vec3 H = normalize(L + V);
-    float an = exp(-3.4 * (1.0 - dot(N, H)) / 0.30);
-    float axL = dot(T0, L) + 0.62 * dot(B0, L);
-    // specular off metal — NOT an additive glow. It is bounded by the sheen and by the mask.
-    col += pal(base + uFoilP.x * axL) * uKeyCol * (an * uFoilP.z * foilM);
-    col = mix(col, pal(base) * max(dot(col, LUMA), 0.10) / max(dot(pal(base), LUMA), 0.05),
-              foilM * 0.55);
-  }
-
+  /* ⚠ ONE HIGHLIGHT ROLLOFF, and it is the GfxPost lesson brought over rather than re-learned:
+   * this is an LDR target and a metal specular goes well past 1.0, where the GPU clips it to flat
+   * white and the foil loses its colour exactly where it is brightest. The knee compresses the
+   * top instead of clamping it. */
+  col = mix(col, 1.0 - exp(-col), smoothstep(0.86, 1.10, dot(col, LUMA)));
   frag = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;
 
@@ -588,12 +779,19 @@ void main(void) {
    * was missing. ⚑ Nothing errored and nothing was blank — a wrong sampler binding quietly
    * paints with the wrong data, and the picture it produces is plausible enough to argue about.
    * Every texture here now names its unit, once, where it is created. */
-  function texFrom(gl, src, unit, wrap) {
+  function texFrom(gl, src, unit, wrap, mips) {
     const t = gl.createTexture();
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    /* ⚠ A TILING TEXTURE NEEDS MIPMAPS OR IT IS NOISE. The stock's fibre normal is laid down at
+     * roughly three texels per device pixel, and minifying a NORMAL map without mips samples one
+     * arbitrary fibre per pixel — which came back as salt-and-pepper specular over the whole
+     * card and reads exactly like a bad material rather than like undersampling. Mipping a normal
+     * map also shrinks its variance with distance, which is the correct behaviour anyway: paper
+     * tooth you cannot resolve should flatten, not sparkle. */
+    if (mips) gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap || gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap || gl.CLAMP_TO_EDGE);
@@ -666,23 +864,36 @@ void main(void) {
       gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
 
       // ── textures ─────────────────────────────────────────────────────────────────────────
-      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4 };
-      const texA = texFrom(gl, imgs[0], UNIT.uPigA, gl.REPEAT);
-      const texB = texFrom(gl, imgs[1], UNIT.uPigB, gl.REPEAT);
-      const texC = texFrom(gl, imgs[2], UNIT.uPigC);
-      const texComp = texFrom(gl, buildComp(seed, 512), UNIT.uComp);
+      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
+      /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
+       * chroma speckle and the obvious suspect was the new material — but switching every relief
+       * term to zero changed nothing, which ruled the normals out in one shot and pointed at the
+       * ALBEDO. The mid plate is sampled at 1.9x MINIFICATION and the figure a little under 1:1,
+       * so without mips each pixel takes one arbitrary texel out of a 683x1024 scan. It is the
+       * same undersampling as the stock texture, one layer up, and it was there before any of
+       * this material work — the PBR pass only made it legible by sharpening the surface. */
+      const texA = texFrom(gl, imgs[0], UNIT.uPigA, gl.REPEAT, true);
+      const texB = texFrom(gl, imgs[1], UNIT.uPigB, gl.REPEAT, true);
+      const texC = texFrom(gl, imgs[2], UNIT.uPigC, gl.CLAMP_TO_EDGE, true);
+      const compCanvas = buildComp(seed, 512);
+      const texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0), UNIT.uType);
+      const stockCanvas = buildStock(seed, 256);
+      const texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
 
       const U = n => gl.getUniformLocation(prog, n);
       const u = {
         rot: U('uRot'), eye: U('uEye'), flex: U('uFlex[0]'), proj: U('uProj'),
         reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng'), film: U('uFilm'),
         press: U('uPress'), dmg: U('uDmg'), foilP: U('uFoilP'),
-        keyDir: U('uKeyDir'), keyCol: U('uKeyCol'), amb: U('uAmb'),
+        keyDir: U('uKeyDir'), keyCol: U('uKeyCol'),
+        fillDir: U('uFillDir'), fillCol: U('uFillCol'),
+        rimDir: U('uRimDir'), rimCol: U('uRimCol'),
+        rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
-       ['uType', texType]].forEach(([n, t]) => {
+       ['uType', texType], ['uStock', texStock]].forEach(([n, t]) => {
         gl.uniform1i(U(n), UNIT[n]);
         gl.activeTexture(gl.TEXTURE0 + UNIT[n]); gl.bindTexture(gl.TEXTURE_2D, t);
       });
@@ -720,6 +931,7 @@ void main(void) {
         yaw: 0, yawV: 0, yawT: 0, pitch: 0, pitchV: 0, pitchT: 0,
         px: 0, py: 0, down: false, work: 0, lastX: 0, lastY: 0,
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
+        lightA: 2.36, envOn: 1,
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
       // measures. A critically damped spring passes "did it move" and fails "is it stock".
@@ -797,10 +1009,35 @@ void main(void) {
          * print one. 170 is the compromise: a visible screen at 500px, a real one at 900. */
         gl.uniform4f(u.press, 170 * (1 - 0.10 * S.burn), sheetState.band, sheetState.phase, sheetState.starve + 0.20 * S.burn);
         gl.uniform4f(u.dmg, S.burn, S.burn * 0.9, S.burn * 0.5, S.burn);
-        gl.uniform4f(u.foilP, 1.55, 0.30, 0.62 + 0.5 * S.price, 0.34);
-        gl.uniform3f(u.keyDir, -0.62, 0.52, 0.58);
-        gl.uniform3f(u.keyCol, 1.16, 1.09, 0.98);
-        gl.uniform3f(u.amb, 0.30, 0.30, 0.34);
+        gl.uniform4f(u.foilP, 1.55, 0.30, 1.0 + 0.55 * S.price, 0.34);
+        /* ── THE THREE LIGHTS, IN WORLD SPACE ────────────────────────────────────────────
+         * Key up-left and low, because a raking key is what makes relief read; a cool fill from
+         * the right so the shadow side is not dead; a dim rim behind to find the die edge. The
+         * key azimuth is a dial on the proof page, since the fastest way to see whether a
+         * material is real is to move the light rather than the object. */
+        /* ⛔ THE KEY ORBITS THE FACE, IT DOES NOT ORBIT THE CARD. The first rig swung the light
+         * through a full circle in the xz plane, which put it BEHIND an opaque sheet for half the
+         * sweep: N.L went negative, the diffuse term vanished and the card came out near black at
+         * the default angle. A card is lit from the side you are looking at. z stays positive and
+         * the azimuth walks the light around the face. */
+        const ka = S.lightA;
+        gl.uniform3f(u.keyDir, Math.cos(ka) * 0.74, Math.sin(ka) * 0.74, 0.58);
+        /* ⚠ THESE ARE IRRADIANCES, NOT "brightness". The diffuse term is albedo/PI, which is the
+         * correct Lambert BRDF and is also 3.14x dimmer than the ad-hoc `albedo * light` it
+         * replaced — so the first PBR pass came out nearly black and read as a broken shader. If
+         * you divide by PI you have to put the PI back in the light. */
+        gl.uniform3f(u.keyCol, 4.05, 3.82, 3.42);
+        gl.uniform3f(u.fillDir, 0.78, 0.10, 0.62);
+        gl.uniform3f(u.fillCol, 0.86, 1.00, 1.30);
+        gl.uniform3f(u.rimDir, -0.52, -0.40, 0.40);       // bounce off the table, low and behind
+        gl.uniform3f(u.rimCol, 0.62, 0.58, 0.70);
+        /* stock · ink film · foil · varnish. ⚑ The ink is SMOOTHER than the paper — a wet film
+         * flows out flatter than the fibre it dried on, which is why a heavily-inked area on a
+         * real card is the glossy part and why this cannot be one roughness. */
+        gl.uniform4f(u.rough, 0.86, 0.52, 0.19, 0.90);
+        gl.uniform4f(u.relief, 0.18, 0.90, 2.20, 0.10);
+        gl.uniform2f(u.tile, 2.4, 3.6);
+        gl.uniform1f(u.envOn, S.envOn);
         gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
         gl.uniform1f(u.seed, (seed % 997) / 997);
         gl.uniform1f(u.regGain, S.regGain);
@@ -852,11 +1089,23 @@ void main(void) {
         },
         // acceptance-4's control: 0 prints the card in perfect register.
         // `radial` is the deliberately-WRONG build the harness must be able to reject.
+        // the key light's azimuth, radians. Moving the LIGHT is the fastest way to find out
+        // whether a surface is a material or a picture of one.
+        setLight: a => { S.lightA = a; },
+        /* ⛔ THE ENVIRONMENT SWITCH IS THE ANTI-WASH ASSERTION'S CONTROL. Off, the metal loses its
+         * reflection and the ARTWORK must not change by a single byte. */
+        setEnv: on => { S.envOn = on ? 1 : 0; },
         setRegistration: (g, radial) => {
           S.regGain = clamp(g, 0, 3);
           S.regRad = clamp(radial || 0, 0, 1);
         },
         pull: () => pull(sheetState.n + 1),
+        /* The material maps themselves, so they can be LOOKED AT and measured rather than
+         * inferred from the lit result. `stock` is RG = the fibre normal, B = a roughness jitter;
+         * `comp` is R strips / G figure window / B trim. Both are generated, both tile or clamp
+         * as the shader expects, and a harness that can read them can assert a property of the
+         * TEXTURE instead of guessing at it through three lights and an environment. */
+        maps: () => ({ stock: stockCanvas, comp: compCanvas }),
         probe: () => ({
           sheet: sheetState.n,
           reg: sheetState.reg.slice(),
@@ -866,7 +1115,7 @@ void main(void) {
           maxFlex: S.flex.reduce((m, v) => Math.max(m, Math.abs(v)), 0),
           yaw: S.yaw, pitch: S.pitch, work: S.work,
           burn: S.burn, price: S.price, depth: S.depth,
-          regGain: S.regGain, regRad: S.regRad,
+          regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           pigment: pig.slice(),
         }),
         destroy: () => { loop(false); },

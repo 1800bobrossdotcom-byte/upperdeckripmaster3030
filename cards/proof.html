@@ -106,6 +106,10 @@
     <p>Press and drag the card. The stock dishes under your thumb and rings when you let go, the
       plates part as it turns, and the die edge walks its hue. Keep handling it and the sheet
       advances — a new impression, new registration, new ink.</p>
+    <p>It is a real material now: paper fibre, ink standing proud of the stock with its halftone
+      dots as beads, a spot varnish on the window against bare trim, and a die edge that is
+      <em>metal</em> — no diffuse at all, and the grating is its reflectance rather than a tint
+      laid over the top. Three sources are drawn from all 211 cards in the deck.</p>
 
     <div class="grp">
       <label>BURN <span class="v" id="vBurn">0.00</span></label>
@@ -121,6 +125,14 @@
       <div class="note">take it to <strong>0</strong> and the card prints in perfect register.
         that is the control the acceptance test uses — the offsets have to be one constant vector
         per plate, not a radius.</div>
+    </div>
+
+    <div class="grp">
+      <label>KEY LIGHT <span class="v" id="vLight">135°</span></label>
+      <input type="range" id="light" min="0" max="360" step="1" value="135">
+      <div class="note">move the light, not the card. <strong>a material answers a light</strong> —
+        the coated window flashes, the bare trim does not, and the foil edge walks its hue. Shading
+        painted onto a texture cannot do any of that.</div>
     </div>
 
     <div class="grp">
@@ -165,16 +177,26 @@
     if (ctrl) ctrl.render();
   }
 
-  /* The pigment is the deck. The manifest is FETCHED rather than listed here so the card cannot
-   * advertise a source that is no longer in the set — the same reason the binder's depth strip
-   * reads `layered.json` instead of six hardcoded numbers. */
+  /* ── THE PIGMENT IS THE WHOLE DECK ────────────────────────────────────────────────────────
+   * Artist, 2026-08-04: *"lets be sure to remix any of the 194+ cards we have available."* BOTH
+   * manifests, merged — the 196 field cards and the 15 of the artist's own. 211 sources, so the
+   * seed picks three from 211 rather than three from 15, and two cards drawn a minute apart do
+   * not keep landing on the same three pictures.
+   * ⚑ FETCHED, never listed here, so the card cannot advertise a source that has left the set —
+   *   the same reason the binder's depth strip reads `layered.json` instead of six typed numbers.
+   *   It also means the clean-slate (task #71) swaps the pigment without touching this file.
+   * ⚠ Either manifest failing on its own is survivable: the pool is whatever arrived. */
   function pigment() {
-    return fetch('hero-manifest.json').then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (rows) {
-        var arr = (Array.isArray(rows) ? rows : (rows.cards || [])).map(function (c) { return c.art; })
-          .filter(Boolean);
-        return arr.length ? arr : ['art/hero/42.webp'];
-      }).catch(function () { return ['art/hero/42.webp']; });
+    var one = function (url, base) {
+      return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (raw) {
+        var rows = !raw ? [] : (Array.isArray(raw) ? raw : (raw.cards || []));
+        return rows.map(function (c) { return c.art; }).filter(Boolean);
+      }).catch(function () { return []; });
+    };
+    return Promise.all([one('manifest.json'), one('hero-manifest.json')]).then(function (r) {
+      var all = r[0].concat(r[1]);
+      return all.length ? all : ['art/hero/42.webp'];
+    });
   }
 
   function typeSpec() {
@@ -193,6 +215,7 @@
         return (p.reg[i * 2] * 100).toFixed(2) + ',' + (p.reg[i * 2 + 1] * 100).toFixed(2);
       }).join('  ') + '</b>  (% of card)\n' +
       'flex   <b>' + p.maxFlex.toFixed(5) + '</b>\n' +
+      'finish <b>varnish · foil · fibre</b>\n' +
       'pigment\n  ' + p.pigment.map(function (s) { return s.replace(/^.*\//, ''); }).join('\n  ');
   }
 
@@ -241,6 +264,11 @@
   reg.addEventListener('input', function () {
     document.getElementById('vReg').textContent = (+reg.value).toFixed(2);
     if (ctrl) ctrl.setRegistration(+reg.value);
+  });
+  var light = document.getElementById('light');
+  light.addEventListener('input', function () {
+    document.getElementById('vLight').textContent = light.value + '\u00b0';
+    if (ctrl) ctrl.setLight(+light.value * Math.PI / 180);
   });
   document.getElementById('pull').addEventListener('click', function () {
     if (ctrl) { ctrl.pull(); readout(); }

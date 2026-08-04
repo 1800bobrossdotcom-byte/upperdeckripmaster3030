@@ -810,6 +810,81 @@ Brief `docs/HERO-33-BRIEF.md`. Reached from the folder (`cards/binder.html`, ◆
   figure sits is authorship, not a seed** — which decides whether the 33 are a set or a batch.
   Plus §8's standing four, including the 33 names.
 
+### ✅ AND IT IS A REAL MATERIAL — PBR + metallic foil (artist, 2026-08-04)
+*"these are awesome - lets keep texturing and add pbr textures, metallic foil etc."* Cook-Torrance
+GGX, albedo/roughness/metallic/normal, three lights and an analytic room. **`npm run test:hero` 30.**
+- ⛔ **THE ENVIRONMENT IS REACHABLE ONLY THROUGH THE METALLIC TERM**, which is `js/card3d.js`'s most
+  expensive recorded bug turned into a structure instead of an intention: an env map on the art
+  plate lands as ambient specular, i.e. a milky wash, measured there as lifted blacks and lost
+  saturation. **Asserted: switch the room off and the ARTWORK must come back byte-identical while
+  the FOIL changes.** Letting the artwork see it fails that assertion instantly.
+- ⛔ **THE GRATING IS THE METAL'S REFLECTANCE, NOT A TINT OVER THE TOP.** v1 mixed the diffracted
+  hue over the finished pixel — a decal with extra steps. A foil stamp is thin metal: no diffuse,
+  specular tinted by the metal, and a ruled grating makes that tint a function of the half-angle.
+  `pal()` feeds F0 and Fresnel carries it, so the colour arrives THROUGH the lighting. Hue travel
+  **612° → 802°** as a side effect.
+- ⛔ **"METAL" IS NOT "SHINY", AND MY FIRST TEST FOR IT WAS PHYSICALLY WRONG.** I asserted the foil
+  goes dark when the key moves away; it bottomed out at 0.46 of its peak and the assertion was the
+  thing at fault — **a metal in a room reflects the room.** A metal has exactly two sources and no
+  diffuse, so the exact test removes BOTH: room off, key off-specular, die edge falls to **0.022**,
+  while the same build with the foil turned into a coloured plastic sits at **0.249**.
+  ⚠ An earlier version asked whether the HIGHLIGHT was tinted, and the coloured-plastic build
+  passed it — a saturated matte patch has saturated bright pixels too.
+- ⛔ **LIGHTS AND THE ROOM ARE IN WORLD SPACE.** They were being handed to an OBJECT-space normal,
+  so the key turned with the card and the highlight never moved: printed-on shading wearing a
+  material's clothes. ⚠ And the first world-space rig swung the key through a full circle in xz,
+  which put it BEHIND an opaque sheet for half the sweep — N·L went negative and the card came out
+  near black. **A card is lit from the side you are looking at**; the azimuth orbits the FACE.
+- ⚠ **IF YOU DIVIDE BY π YOU HAVE TO PUT THE π BACK IN THE LIGHT.** Swapping `albedo * light` for
+  the correct Lambert `albedo/π` is a 3.14× dim, and the first PBR pass read as a broken shader.
+- ⛔ **TWO LAYERS OF THE SAME UNDERSAMPLING, AND THE ISOLATION PASS IS WHAT FOUND IT.** The card came
+  back covered in fine chroma speckle and the obvious suspect was the new material — but zeroing
+  every relief term changed nothing, which ruled the normals out in one shot and pointed at the
+  ALBEDO. **The pigment textures are minified (the mid plate at 1.9×) with no mipmaps**, so each
+  pixel took one arbitrary texel out of a 683×1024 scan. Same defect in the new stock texture at
+  ~3 texels/pixel. Mipped, and the tiling dropped 7×10.5 → 2.4×3.6. ⚑ It predated the material work
+  entirely; the PBR pass only made it legible by sharpening the surface.
+- ⚑ **A VARNISH FILLS THE TOOTH, it does not only smooth it** — so the same mask that drops the
+  roughness in the art window drops the fibre relief, and the bare trim keeps its grain.
+- ⚑ **PAPER TOOTH IS FIBRES, NOT NOISE.** A hash has grain with no DIRECTION; pulp lies down in the
+  machine direction and catches a raking light as short streaks. Asserted on the generated map
+  (x slope vs y slope **1.31×**; a hash gives **1.03×**). ⚠ I asserted the ratio the wrong way round
+  first — fibres running along x put the larger slope on **y**.
+- ⛔ **AND THE "TOOTH" TEST HAD TO BE RENAMED BECAUSE IT DID NOT TEST TOOTH.** With the fibre
+  switched off entirely the light-sweep assertion still passed: a crease crossing the patch answers
+  a light too. It now claims only what it proves — *the bare stock answers a moving light* — and the
+  fibre claim is asserted directly on the texture. `ctrl.maps()` exists for that: a property of a
+  MAP should be measured on the map.
+- ⚠ **The halftone dots are modelled as beads standing proud** (analytic spherical-cap slope,
+  faded out below ~3 device pixels a cell so it cannot alias). Correct, and nearly invisible at
+  card size — relief you cannot resolve should flatten rather than sparkle. Worth its cost is an
+  open question.
+- ⚠ **The GfxPost knee, carried over rather than re-learned:** this is an LDR target and metal
+  specular runs past 1.0. Removing the rolloff clips **11.1%** of the card to flat white.
+
+### ⛔ ACCEPTANCE 4 TOOK THREE TRIES, AND THE FIRST TWO WOULD HAVE FAILED ON A CORRECT CARD
+Measuring "the mis-registration is uniform" is harder than it looks on a FOUR-plate print:
+- **A low-spread bar is wrong.** Four plates at four registrations are SUPPOSED to disagree, and
+  they disagree by a predictable amount: the offsets give mean 8.0 px / sd 3.55, and the block
+  matcher reported **8.10 / 3.07**. The spread is the plates, not the measurement.
+- **A slope of magnitude against position is wrong too.** It picks up which plate dominates each
+  region, which follows the COMPOSITION — it read **−3.67** on a build whose offsets are four
+  constants with nowhere for a position to enter.
+- ✅ **The right invariant is DIRECTION.** Chromatic aberration points away from the centre; a press
+  has no idea where the centre of the sheet is. `mean cos(shift, position)` = **0.03** for the real
+  build against **−0.97** for the radial control — no threshold to tune, because the two answers are
+  0 and 1. ⚠ And my first cosine flipped the position's y by hand: readPixels is bottom-up AND a
+  feature moves by MINUS the sampling offset, so both reversals cancel. Flipping one made the terms
+  cancel and the radial control measured 0.119 against the real build's 0.086 — **a control that had
+  stopped controlling.**
+- ⚠ **A block matcher over a halftone is matching a periodic signal**, so it locks onto the wrong
+  dot: widening the search window took the honest build's measured shift from 4.6 px to 8.5 px.
+  Low-pass first; the claim is about the picture, not the screen.
+
+### ⚑ THE PIGMENT IS THE WHOLE DECK — 211 sources
+*"lets be sure to remix any of the 194+ cards we have available."* Both manifests merged, fetched
+rather than listed, so the clean-slate (task #71) swaps the pigment without touching the renderer.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
