@@ -1155,6 +1155,38 @@ was TRAVERSAL — walk, look, jump, nothing to shoot and nothing shooting back. 
   the probe; and letting `_seed` accumulate across five sections ended with 14 operatives against a
   cap of 4, i.e. measuring a crowd the probe had built itself.
 
+### ⛔ DOGFIGHT RENDERED AN EMPTY SKY FOR TWO COMMITS — a dropped constant, and NOTHING said so
+Artist sent a screenshot of the mode: pure clear colour, no city, no jet. `MODES.jet` carried
+`camBack: 15 / camUp: 4.2` in `e19fa30`; `c17d1f7` rewrote the table into the
+mortal/targetable/armed one and **did not carry them over**, while `stepJet` went on reading
+`M.camBack`. `x - hx * undefined` is **NaN**, it propagates into `camPos` and then into
+`cam.setPosition`, and **a camera at NaN draws nothing** — so the whole city was there the entire
+time, behind a frame that was only the clear colour.
+- ⚑ **IT SURVIVED BECAUSE THE PHYSICS WAS PERFECT.** Every driven measurement of the jet — cruise
+  168 m/s, 360° in 8.9 s, the world-edge excursions at 1,745 / 1,918.8 — reads `__city.s`, which
+  never looked at the camera. **The numbers all passed while the game showed nothing.** That is
+  "a surface nobody looks at rots" with the surface being *the picture*.
+- ⚑ **THREE GUARDS, because one would have been the wrong lesson.** (a) `MODES.jet` carries them
+  again, and **only** the jet does — the bird and squirrel derive their chase distance per frame,
+  so a constant there is dead data; (b) a non-finite `camPos` is caught at the write and snapped
+  back to the aircraft, counted in `__city.s.camBad`, which a driven probe asserts is **0** in all
+  four bodies; (c) `test:reach` pulls every `M.<prop>` read out of the source and requires the
+  **bound entry** to define it.
+- ⛔ **AND THE FIRST VERSION OF (c) PASSED ON THE BROKEN BUILD.** It collected key names from the
+  WHOLE table, so `camBack` sitting on the ANIMAL entry satisfied a read of `MODES.jet.camBack`.
+  Caught only by reverting the fix and watching it stay green. ⚠ **The dead data I had added "for
+  completeness" is what defeated the check** — completeness in a table that only one consumer reads
+  is not tidiness, it is noise that can absorb a real failure.
+- ⛔ **`npm run test:reach` NOW PARSES EVERY SHIPPED BROWSER SCRIPT (§0), because it scored 121/121
+  on a `city-app.js` that did not compile.** Every other check in that file is a text match, so a
+  `SyntaxError` is invisible to all of them — the page serves, nothing 404s, and the game is simply
+  absent. `new Function` compiles without executing, which is exactly the question. ⚠ Scoped to
+  browser scripts: `api/*.js` are Vercel ESM handlers that `new Function` cannot parse by
+  definition, and flagging them was the check being wrong rather than the files.
+- ⚠ **The legend fell through to the animal one**, so DOGFIGHT advertised "flap · dive · animal ·
+  drop" over an aircraft. Read off `stepJet` instead: W throttles and pulls, S backs off, A/D bank
+  (there is no rudder), SHIFT is the airbrake.
+
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
 moves.

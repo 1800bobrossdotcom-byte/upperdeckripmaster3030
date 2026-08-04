@@ -130,9 +130,26 @@ window.CityApp = (function () {
   /* ⚑ THREE MODES, ONE WORLD — artist, 2026-08-03: *"there are 3 modes, animal mode, dogfight
    * mode, section 9 mode."* They share the streamer, the collision set, the edge and the light;
    * what differs is the BODY, the CAMERA, and whether you can be hurt. */
+  /* ⛔ `camBack` / `camUp` ARE LOAD-BEARING AND WERE DROPPED IN A REWRITE — DOGFIGHT RENDERED AN
+   * EMPTY SKY FOR TWO COMMITS. `e19fa30` defined them here; `c17d1f7` replaced this table with the
+   * mortal/targetable/armed one and did not carry them over, while `stepJet` went on reading
+   * `M.camBack`. `x - hx * undefined` is **NaN**, NaN propagates into `camPos` and then into
+   * `cam.setPosition`, and a camera at NaN draws NOTHING — so the frame is the clear colour and
+   * the whole city is still there behind it.
+   * ⚑ THE FAILURE IS SILENT IN BOTH DIRECTIONS, which is why it survived: nothing throws, and the
+   *   PHYSICS is untouched, so every driven measurement of the jet (cruise 168 m/s, 360° in 8.9 s,
+   *   the world-edge excursions) kept passing — they read `__city.s`, which never looks at the
+   *   camera. **A number nobody reads is a surface nobody looks at.**
+   * ⚠ ONLY THE JET CARRIES THEM, ON PURPOSE. The bird and the squirrel derive their own chase
+   *   distance from speed and altitude every frame, so a constant here would be dead data — and
+   *   dead data is not harmless: the first version of the guard below put `camBack` on all three
+   *   entries "for completeness", which made the check pass on the broken build, because it only
+   *   asked whether the NAME appeared anywhere in the table. A check that passes for the wrong
+   *   reason is worse than no check. */
   const MODES = {
     animal:    { name: 'ANIMAL',    mortal: false, targetable: false, armed: false, view: 'chase' },
-    jet:       { name: 'DOGFIGHT',  mortal: true,  targetable: true,  armed: true,  view: 'chase' },
+    jet:       { name: 'DOGFIGHT',  mortal: true,  targetable: true,  armed: true,  view: 'chase',
+                 camBack: 15, camUp: 4.2 },
     operative: { name: 'SECTION 9', mortal: true,  targetable: true,  armed: true,  view: 'first' },
   };
   const ORDER = ['animal', 'jet', 'operative'];
@@ -1215,6 +1232,9 @@ window.CityApp = (function () {
 
   }
   const camPos = { x: 0, y: 8, z: -6 };
+  /* counts frames the camera had to be rescued from a non-finite position — exposed on `__city.s`
+   * so a headless run can assert ZERO rather than trusting that a screenshot looked fine. */
+  let camBad = 0;
   /* The world edge as an inward normal + how far past it you are. Kept separate from `step` because
    * it is asked twice (once to trim thrust, once to push) and because a world that is a generated
    * region rather than one baked level will want to answer it differently. */
@@ -1488,6 +1508,15 @@ window.CityApp = (function () {
     camPos.x += (tx - camPos.x) * Math.min(1, dt * 5.0);
     camPos.y += (ty - camPos.y) * Math.min(1, dt * 4.0);
     camPos.z += (tz - camPos.z) * Math.min(1, dt * 5.0);
+    /* ⛔ A NaN CAMERA DRAWS NOTHING, AND NOTHING TELLS YOU. One undefined constant upstream is
+     * enough (see the note on MODES), and the result is a full-screen clear colour that looks like
+     * a world that failed to load rather than a view matrix that failed to compute. Snapping back
+     * to the aircraft is not a fix for the arithmetic — it is a refusal to render a blank frame,
+     * so the mistake shows up as a camera in the wrong place instead of as an empty sky. */
+    if (!isFinite(camPos.x) || !isFinite(camPos.y) || !isFinite(camPos.z)) {
+      camPos.x = me.x - hx * 15; camPos.y = me.y + 4.2; camPos.z = me.z - hz * 15;
+      camBad++;
+    }
     cam.setPosition(-camPos.x, camPos.y, camPos.z);
     cam.lookAt(-(me.x + hx * 40), me.y + me.pitch * 30, me.z + hz * 40);
     cam.setLocalEulerAngles(cam.getLocalEulerAngles().x, cam.getLocalEulerAngles().y,
@@ -1653,6 +1682,11 @@ window.CityApp = (function () {
         armed: MODES[MODE].armed, roll: +me.roll.toFixed(3),
         onGround: me.onGround, pitch: +me.pitch.toFixed(3),
         nearChunks: near.size, farRegions: far.size, solids, tris,
+        /* ⛔ THE ONE NUMBER THAT WOULD HAVE CAUGHT THE EMPTY DOGFIGHT SKY. Everything else in this
+         * object comes from the physics, which was perfectly healthy while the view matrix was
+         * NaN — so every measurement passed and the game rendered nothing. `camBad > 0` means a
+         * frame was drawn from a camera that had to be rescued; it must be 0. */
+        camBad, cam: [+camPos.x.toFixed(1), +camPos.y.toFixed(1), +camPos.z.toFixed(1)],
         /* ⚑ THE ASSERTION THAT BITES on the silent-material bug: which material classes the world
          * actually built. Two classes across a whole city means the box translation is broken
          * again and everything is one colour, with nothing else to tell you so. */

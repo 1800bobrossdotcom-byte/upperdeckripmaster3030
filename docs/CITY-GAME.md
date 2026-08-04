@@ -132,6 +132,36 @@ it. Worse, it fails *plausibly* — the aircraft flies, it just flies wrong.
 bots are not. A mode that half-exists and is described as finished is how *built ≠ reachable*
 becomes *built ≠ true*.
 
+### ⛔ …AND FOR TWO COMMITS IT DID NOT EVEN RENDER — the empty DOGFIGHT sky
+`MODES.jet` carried `camBack: 15 / camUp: 4.2`; the three-modes rewrite replaced the table and did
+not carry them over, while `stepJet` went on reading `M.camBack`. `x - hx * undefined` is **NaN**,
+which reaches `cam.setPosition`, and **a camera at NaN draws nothing** — the whole city was there
+the entire time behind a frame of clear colour.
+
+⚑ **IT SURVIVED BECAUSE THE PHYSICS WAS PERFECT.** Cruise 168 m/s, 360° in 8.9 s, the world-edge
+excursions — every one of those reads `__city.s`, which never looked at the camera. The numbers all
+passed while the game showed nothing. **A surface nobody looks at rots, and here the surface was
+the picture.**
+
+Three guards, because one would have been the wrong lesson:
+1. `MODES.jet` carries them again, and **only** the jet does — the bird and the squirrel derive
+   their chase distance per frame, so a constant on those entries is dead data.
+2. A non-finite `camPos` is caught at the write, snapped back to the aircraft, and counted in
+   `__city.s.camBad` — which a driven probe asserts is **0** across bird, squirrel, jet and
+   operative. That is the number whose absence let this ship.
+3. `npm run test:reach` pulls every `M.<prop>` read out of the source and requires the **bound
+   entry** to define it.
+
+⛔ **The first version of guard 3 passed on the broken build.** It collected key names from the
+whole table, so `camBack` sitting on the ANIMAL entry satisfied a read of `MODES.jet.camBack` —
+caught only by reverting the fix and watching it stay green. ⚠ The dead data added "for
+completeness" is exactly what absorbed the failure.
+
+⛔ **And `test:reach` scored 121/121 on a `city-app.js` that did not compile**, because every check
+in it is a text match. §0 now parses every shipped browser script with `new Function` (compiles
+without executing). Scoped to browser scripts — `api/*.js` are Vercel ESM handlers that cannot
+parse that way, and flagging them was the check being wrong rather than the files.
+
 ### ✅ SECTION 9 ON THE GROUND — `js/city-ops.js` (artist, 2026-08-03)
 *"you should be able to play as Section 9 on the ground in the city as well."*
 

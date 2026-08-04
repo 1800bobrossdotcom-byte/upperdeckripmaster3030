@@ -70,6 +70,30 @@ function navigatorsOf(page) {
  *   renderer — was in no href, no sitemap entry and no nav anywhere in the repo. `studio.html`
  *   linked `arcade.html#ronin`, an anchor that did not exist, and studio.html is itself unlinked.
  *   Proof of the old state: `grep -rn "ronin\.html"` over every shipped file returned NOTHING. */
+/* ⛔ A FILE THAT DOES NOT PARSE IS NOT REACHABLE EITHER, AND THIS SUITE HAPPILY PASSED ONE. Every
+ * check here is a text match, so a `SyntaxError` in a shipped script is invisible to all of them —
+ * a broken comment delimiter in `city-app.js` scored 121/121 while the page could not run at all.
+ * That is this file's own subject in its purest form: the page is served, the script 404s nothing,
+ * and the game is simply absent. `new Function` compiles without executing, which is exactly the
+ * question being asked — does this parse — and costs nothing. */
+/* ⚠ BROWSER SCRIPTS ONLY. `api/*.js` are Vercel serverless handlers — real ES modules with
+ * `import`/`export default`, which `new Function` cannot parse BY DEFINITION and which no page
+ * loads with a <script src>. Flagging them was the check being wrong, not the files; scoping it
+ * here rather than widening the parser keeps the assertion meaning one thing. `vendor/` is
+ * third-party and not ours to fix. */
+head('0 · every shipped browser script actually parses');
+{
+  const js = [...TEXT.keys()].filter(f => f.endsWith('.js') &&
+    !f.startsWith('vendor/') && !f.startsWith('api/'));
+  t('there are shipped scripts to check', js.length > 10, js.length + ' files');
+  let bad = 0;
+  for (const f of js) {
+    try { new Function(TEXT.get(f)); }
+    catch (e) { bad++; t(`${f} parses`, false, String(e.message).slice(0, 90)); }
+  }
+  t('every shipped browser script parses', bad === 0, bad ? bad + ' failed to parse' : js.length + ' files');
+}
+
 head('1 · every cabinet is reachable from the arcade');
 const arcade = R('arcade.html');
 /* ⚠ `ronin.html` WAS THIS LIST'S SIXTH ENTRY AND IS NOW `city.html`. NEON RONIN was retired on
@@ -149,6 +173,42 @@ head('1b · the city can actually be played by a thumb');
   }
   t('the animals are observers and the other two are not',
     /animal:\s*\{[^}]*mortal:\s*false/.test(app) && /operative:\s*\{[^}]*mortal:\s*true/.test(app));
+
+  /* ⛔ EVERY KEY THE STEP FUNCTIONS READ OFF `MODES` MUST EXIST IN IT — DOGFIGHT RENDERED AN EMPTY
+   * SKY FOR TWO COMMITS BECAUSE TWO DID NOT. `e19fa30` defined `camBack`/`camUp` on the jet entry;
+   * `c17d1f7` rewrote the table into the mortal/targetable/armed one and dropped them, while
+   * `stepJet` went on reading `M.camBack`. `x - hx * undefined` is NaN, NaN reaches
+   * `cam.setPosition`, and a camera at NaN draws NOTHING — the frame is the clear colour with the
+   * whole city still behind it.
+   * ⚑ IT SURVIVED BECAUSE THE PHYSICS WAS FINE. Every driven measurement of the jet (cruise
+   *   168 m/s, 360° in 8.9 s, the world-edge excursions) reads `__city.s`, which never looked at
+   *   the camera — so the numbers all passed while the game showed nothing. This check is static
+   *   and cheap: pull the property names out of the reads and require each to be a key. */
+  /* ⛔ AND IT IS CHECKED PER ENTRY, NOT ACROSS THE WHOLE TABLE. The first version of this guard
+   * collected every key name anywhere in `MODES` and asked whether the read appeared among them —
+   * so with `camBack` present on the ANIMAL entry it passed while the JET entry was missing it,
+   * i.e. it passed on the exact build it was written to catch. Proved by reverting the fix and
+   * watching it stay green. `stepJet` binds `const M = MODES.jet`, so the JET entry is the one
+   * that has to carry them. */
+  {
+    const table = (app.match(/const MODES = \{[\s\S]*?\n  \};/) || [''])[0];
+    const bound = [...app.matchAll(/const M = MODES\.(\w+)/g)].map(m => m[1]);
+    const reads = new Set([...app.matchAll(/\bM\.(\w+)/g)].map(m => m[1]));
+    t('the MODES table was found', table.length > 100, table.length + ' chars');
+    t('something binds an entry and reads it', bound.length > 0 && reads.size > 0,
+      bound.join(', ') + ' → ' + [...reads].join(', '));
+    for (const name of new Set(bound)) {
+      const entry = (table.match(new RegExp(name + ':\\s*\\{[\\s\\S]*?\\},')) || [''])[0];
+      t(`the "${name}" entry was found in MODES`, entry.length > 20);
+      for (const r of reads)
+        t(`MODES.${name} defines "${r}", which stepJet reads off it`,
+          new RegExp('\\b' + r + '\\s*:').test(entry));
+    }
+    /* and the camera must never be rescued from a non-finite position — the runtime counterpart,
+     * asserted by the driven probe via `__city.s.camBad`. */
+    t('a non-finite camera is caught rather than drawn',
+      /isFinite\(camPos\.x\)/.test(app) && /camBad\+\+/.test(app) && /camBad,/.test(app));
+  }
 
   /* ⛔ SECTION 9 ON THE GROUND (artist, 2026-08-03: "you should be able to play as Section 9 on
    * the ground in the city as well"). Before this the operative mode was TRAVERSAL — you could

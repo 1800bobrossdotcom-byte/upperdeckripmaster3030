@@ -89,9 +89,10 @@
   @media (pointer: coarse){ .touchonly{ display:inline; } }
   /* ⚠ `[hidden]` is not used here on purpose — these two are swapped by an attribute selector on
      the parent, so there is exactly one rule deciding which legend is on screen. */
-  #hudBL .op{ display:none; }
-  #hudBL[data-mode="operative"] .fly{ display:none; }
+  #hudBL .op, #hudBL .jet{ display:none; }
+  #hudBL[data-mode="operative"] .fly, #hudBL[data-mode="jet"] .fly{ display:none; }
   #hudBL[data-mode="operative"] .op{ display:inline; }
+  #hudBL[data-mode="jet"] .jet{ display:inline; }
   #modes{ right:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); text-align:right;
     font-size:11px; line-height:2; letter-spacing:.05em; opacity:.85; pointer-events:auto; }
   #modes b{ color:var(--accent); }
@@ -206,6 +207,19 @@
     <span class="key">F</span> drop<br></span>
     <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · ✦ hold · ◔ animal · ⇄ mode · ✱ drop<br></span>
     <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
+    </span>
+    <!-- ⚠ AND A JET DOES NOT FLAP OR DROP CARDS. The legend was two-way (animal / operative) and
+         DOGFIGHT fell through to the animal one, printing "flap · dive · animal · drop" over an
+         aircraft. Same class as the phone hint advertising TAB: a control legend that does not
+         match the mode is a lie the player pays for. Read off stepJet: W throttles and pulls,
+         S is reverse thrust, A/D bank (there is no rudder — it turns by banking), SHIFT is the
+         airbrake and drops the nose. -->
+    <span class="jet">
+    <span class="kw"><span class="key">W</span> throttle &nbsp; <span class="key">S</span> back off &nbsp;
+    <span class="key">A</span><span class="key">D</span> bank &nbsp; <span class="key">SHIFT</span> airbrake &nbsp;
+    <span class="key">TAB</span> mode<br></span>
+    <span class="touchonly" style="opacity:.75">drag to bank · ⇄ mode<br></span>
+    <span style="opacity:.6">it turns by BANKING, so hold a bank and pull · nothing to shoot yet</span>
     </span>
     <span class="op">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp;
