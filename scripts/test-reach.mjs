@@ -559,11 +559,30 @@ head('6 · the layered cards resolve, and the page that can show them is named')
   const renders = [...TEXT].filter(([f, s]) => f.endsWith('.html') && /js\/card-layers\.js/.test(s)).map(([f]) => f);
   t('at least one shipped page loads js/card-layers.js', renders.length > 0, renders.join(', '));
   const reachable = renders.filter(p => navigatorsOf(p).some(n => !ORPHAN_OK[n]));
-  /* ⚠ THIS IS THE OPEN FINDING, NOT A PASSING STATE. `cards/lens3d.html` is linked ONLY from
-   *   studio.html, which nothing links — so today `reachable` is empty and this prints the fact
-   *   rather than failing the build, because promoting a draft shell is the artist's call. */
-  console.log(`  note layer-capable pages reachable from a linked page: ${reachable.length}` +
-              (reachable.length ? ' (' + reachable.join(', ') + ')' : ' — see docs/REACHABILITY.md R2'));
+  /* ⛔ THIS WAS A NOTE AND IS AN ASSERTION NOW — artist, 2026-08-04: "fix reachability for the six
+   *   so I may at least see ideas." It printed `0` for as long as it existed: `cards/lens3d.html`
+   *   was linked ONLY from `studio.html`, which is itself an allow-listed orphan, so the single
+   *   route into the flagship feature started from a page nothing links. Six generated, linked and
+   *   tested layer stacks that no visitor could reach — this file's own subject, on the one
+   *   feature it was least affordable on.
+   * ⚑ `cards/binder.html` carries the DEPTH strip now, and the binder is reached from battle,
+   *   market and deck3d. Printing the count was the honest thing while promoting a draft shell was
+   *   the artist's call to make; he has made it, so it fails the build from here. */
+  t('a layer-capable page is reachable from a page that is not itself an orphan',
+    reachable.length > 0, reachable.join(', ') || 'none — see docs/REACHABILITY.md R2');
+  /* …and the menu into them must be DERIVED, not a hand-typed row of numbers that silently stops
+   * matching the sidecars the moment the set changes. */
+  const idxF = join(hero, 'layered.json');
+  t('the depth index is generated beside the sidecars', existsSync(idxF));
+  if (existsSync(idxF)) {
+    const idx = JSON.parse(readFileSync(idxF, 'utf8'));
+    const have = cars.map(f => basename(f, '.layers.json')).sort();
+    t('…and it lists exactly the cards that have a stack',
+      JSON.stringify((idx.cards || []).slice().sort()) === JSON.stringify(have),
+      (idx.cards || []).join(', '));
+    t('…and the binder reads it rather than hardcoding the list',
+      /layered\.json/.test(TEXT.get('cards/binder.html') || ''));
+  }
 }
 
 // ═══ 7 · THE SITEMAP LISTS THE CABINETS IT HAS ═════════════════════════════════════════════════

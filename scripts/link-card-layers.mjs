@@ -159,5 +159,21 @@ for (const slug of dirs) {
   wrote++;
 }
 
+/* ⛔ AND AN INDEX, because otherwise the six are reachable only by knowing their numbers. Which
+ * cards have depth is a FACT THE LINKER KNOWS and every reader was having to rediscover — the
+ * binder would have had to probe fifteen sidecar URLs and count the 404s to build a menu. Writing
+ * it here means the list cannot drift from the sidecars it describes: same pass, same run.
+ * ⚠ This is what closes `test:reach` §6's standing note. The stacks were generated, linked,
+ *   tested and INVISIBLE — reachable only from `studio.html`, which is itself an allow-listed
+ *   orphan, so the one route in started from a page nothing links. Built, tested, unreachable is
+ *   this repo's signature defect and it had it by the throat on its own flagship feature. */
+const idx = readdirSync(join(ROOT, 'cards/art/hero'))
+  .filter(f => f.endsWith('.layers.json'))
+  .map(f => basename(f, '.layers.json'))
+  .sort((a, b) => (+a || 0) - (+b || 0));
+writeFileSync(join(ROOT, 'cards/art/hero/layered.json'),
+  JSON.stringify({ v: 1, note: 'Written by scripts/link-card-layers.mjs. Cards with a real layer stack.', cards: idx }, null, 2) + '\n');
+console.log(`  ok   layered.json  <- ${idx.length} card(s): ${idx.join(', ')}`);
+
 console.log(`\n${wrote} sidecar(s) written, ${skipped} skipped.`);
 if (!wrote) console.log('nothing linked — run the generator first, or check models/cards/*/layers.json');
