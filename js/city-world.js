@@ -380,9 +380,19 @@ window.CityWorld = (function () {
    * far ring is 80-odd chunks and each built separately would be its own entity with its own
    * mesh instance per material class — several hundred draw calls to show a horizon. Merged
    * 4 x 4 at a time it is a couple of dozen. */
-  function genRegion(cx, cz, n) {
+  /* ⛔ `skip` IS WHY THE CITY STOPPED FLICKERING. The horizon tier and the near tier both emit the
+   * same masses, so wherever they overlap the same wall is drawn twice from two different model
+   * transforms — the depths differ by float noise and the winner flips as the camera moves.
+   * Measured across 18 cameras before the fix: toggling the horizon tier changed a MEAN 19.8% of
+   * near-field pixels and 65% at worst, i.e. the LOD stand-in was winning outright over the
+   * detailed geometry across most of the view.
+   * ⚠ ONE FROZEN CAMERA SAID 0.00% AND THAT WAS A LUCKY SAMPLE. z-fighting is view-dependent by
+   *   definition; a single static frame proves nothing about the one the player is looking from.
+   *   Sample many, at shallow angles, or the measurement agrees with whatever you already think. */
+  function genRegion(cx, cz, n, skip) {
     const solids = [];
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      if (skip && skip(cx + i, cz + j)) continue;
       const c = genChunk(cx + i, cz + j, 1);
       for (const b of c.solids) solids.push(b);
     }

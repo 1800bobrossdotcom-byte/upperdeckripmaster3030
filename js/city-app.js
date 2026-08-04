@@ -863,15 +863,29 @@ window.CityApp = (function () {
     return lvl;
   }
 
+  /* Which of a region's chunks the near tier is currently drawing at full detail. That set IS the
+   * hole the horizon copy must leave, and it is also the region's cache key: when it changes, the
+   * region is stale and has to be rebuilt. */
+  function holeOf(rx, rz) {
+    let sig = '';
+    for (let i = 0; i < REGION; i++) for (let j = 0; j < REGION; j++) {
+      const k = key(rx * REGION + i, rz * REGION + j);
+      if (near.has(k)) sig += k + ';';
+    }
+    return sig;
+  }
+
   function buildRegion(rx, rz) {
-    const g = CW.genRegion(rx * REGION, rz * REGION, REGION);
-    if (!g.solids.length) { far.set(key(rx, rz), { ent: null }); return; }
+    const hole = holeOf(rx, rz);
+    const g = CW.genRegion(rx * REGION, rz * REGION, REGION,
+      (cx, cz) => near.has(key(cx, cz)));
+    if (!g.solids.length) { far.set(key(rx, rz), { ent: null, hole }); return; }
     const lvl = S9PCWorld.buildFor(app, { name: 'r' + rx + '_' + rz, solids: g.solids, open: true,
                                           x0: g.x0, z0: g.z0, x1: g.x1, z1: g.z1 });
     /* The horizon never receives shadows and never casts them — it is past the shadow distance
      * anyway, and asking for 80 chunks of shadow casters is how a streamer eats a frame. */
     if (lvl && lvl.root && lvl.root.render) { lvl.root.render.castShadows = false; lvl.root.render.receiveShadows = false; }
-    far.set(key(rx, rz), { ent: lvl ? lvl.root : null, parts: lvl ? lvl.parts : null });
+    far.set(key(rx, rz), { ent: lvl ? lvl.root : null, parts: lvl ? lvl.parts : null, hole });
   }
 
   /* Decide what should exist, queue what does not, drop what should not. Called every frame; the
@@ -885,14 +899,44 @@ window.CityApp = (function () {
     }
     const rc = { rx: Math.floor(c.cx / REGION), rz: Math.floor(c.cz / REGION) };
     for (let i = -FAR_R; i <= FAR_R; i++) for (let j = -FAR_R; j <= FAR_R; j++) {
-      const rx = rc.rx + i, rz = rc.rz + j;
-      if (!far.has(key(rx, rz))) pending.push({ d: 40 + i * i + j * j, fn: () => buildRegion(rx, rz), k: key(rx, rz), near: 0 });
+      const rx = rc.rx + i, rz = rc.rz + j, rk = key(rx, rz);
+      const have = far.get(rk);
+      /* ⚑ STALE IF ITS HOLE MOVED. A region is not just "built or not" any more — it is built
+       * AROUND a particular set of near chunks, and when that set changes the copy underneath is
+       * wrong in one of two ways: geometry drawn twice, or a gap. Rebuilding on the signature
+       * makes the tier self-correcting without any special cases for which way it drifted. */
+      if (!have) pending.push({ d: 40 + i * i + j * j, fn: () => buildRegion(rx, rz), k: rk, near: 0 });
+      /* ⛔ A STALE REGION OUTRANKS A NEW HORIZON REGION AND EVERY NEAR CHUNK BUT THE CLOSEST, and
+       * that priority is load-bearing rather than tidy. A stale region is what BLOCKS the near
+       * tier from shedding chunks (see the destroy pass below), so starving it leaks geometry:
+       * measured at jet speed with these jobs behind the new-chunk queue, the near tier grew to
+       * **111 chunks against a working set of 25** — four times the geometry, silently, because
+       * nothing was ever destroyed. Near chunks span d 0–8; 10 puts a refill immediately after
+       * them and well ahead of the 40+ band. */
+      else if (have.hole !== holeOf(rx, rz))
+        pending.push({ d: 10 + i * i + j * j, fn: () => { destroyEntry(have); buildRegion(rx, rz); }, k: rk, near: 0 });
     }
     pending.sort((a, b) => a.d - b.d);
     for (let n = 0; n < BUILD_BUDGET && pending.length; n++) { const job = pending.shift(); job.fn(); }
 
+    /* ⛔ A NEAR CHUNK MAY NOT BE DESTROYED WHILE A REGION IS STILL LEAVING A HOLE FOR IT, or the
+     * ground opens up and you see straight through the world for as long as the rebuild queue
+     * takes. That is strictly worse than the double-draw this whole scheme exists to remove, so
+     * the ordering is: region refills first, chunk goes second. It resolves on the next frame
+     * because dropping out of `wantNear` is what marks the region stale in the first place. */
     for (const [k, v] of near) { const p = k.split(',');
       if (Math.abs(+p[0] - c.cx) > NEAR_R + 1 || Math.abs(+p[1] - c.cz) > NEAR_R + 1) {
+        const rk = key(Math.floor(+p[0] / REGION), Math.floor(+p[1] / REGION));
+        const reg = far.get(rk);
+        /* ⚠ AND THE WAIT IS BOUNDED. An unbounded "wait for the refill" is a pin, and a pin whose
+         * release depends on a queue is a leak the moment that queue is busy — which is exactly
+         * what 111 chunks was. After the grace period the chunk goes regardless: a momentary gap
+         * 360 m away, at the far edge of the near tier, costs far less than unbounded growth, and
+         * with the priority above it should never actually be reached. */
+        if (reg && reg.hole && reg.hole.indexOf(k + ';') >= 0) {
+          v.pinned = (v.pinned || 0) + 1;
+          if (v.pinned < 90) continue;
+        }
         destroyEntry(v); if (v.extra) destroyEntry({ ent: v.extra.root, parts: v.extra.parts }); near.delete(k); } }
     for (const [k, v] of far) { const p = k.split(',');
       if (Math.abs(+p[0] - rc.rx) > FAR_R + 1 || Math.abs(+p[1] - rc.rz) > FAR_R + 1) { destroyEntry(v); far.delete(k); } }
@@ -1659,6 +1703,9 @@ window.CityApp = (function () {
   const api = {
     app, get level() { return LEVEL; }, get bounds() { return bounds; }, get ready() { return ready; },
     get near() { return near; },
+    /* the horizon tier, exposed for the same reason `near` is: a flicker report can only be
+     * diagnosed by turning one tier off and measuring the other. */
+    get __far() { return far; },
     get s() {
       let tris = 0, solids = 0;
       const cls = new Set(), byClass = {};
