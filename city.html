@@ -55,6 +55,11 @@
   #carry{ left:50%; transform:translateX(-50%); bottom:calc(var(--bez) + 96px);
     font-size:11px; letter-spacing:.22em; color:var(--accent); opacity:0; transition:opacity .18s; }
   #carry[data-on="1"]{ opacity:.95; }
+  /* the drive prompt / speedo. Sits above the carry line so the two never collide, and it is the
+     same element for both because a prompt and a speedo are never both true. */
+  #ride{ left:50%; transform:translateX(-50%); bottom:calc(var(--bez) + 132px);
+    font-size:12px; letter-spacing:.2em; color:var(--accent); opacity:0; transition:opacity .16s; }
+  #ride[data-on="1"]{ opacity:.95; }
   /* ── SECTION 9 ON THE GROUND. Two elements, and both are OFF unless the mode is armed — a HUD
        that survives its own mode is the launch-countdown bug wearing a health bar. */
   #combat{ right:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); text-align:right;
@@ -231,6 +236,7 @@
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
   <div class="hud" id="carry"></div>
+  <div class="hud" id="ride"></div>
   <div class="hud" id="reticle"></div>
   <div class="hud" id="combat"></div>
   <!-- ⚠ TWO LEGENDS, SWITCHED BY THE MODE, because they are two control schemes and printing the
@@ -296,6 +302,7 @@
 <script src="js/s9pc-skin.js"></script>
 <script src="js/city-drops.js"></script>
 <script src="js/city-ops.js"></script>
+<script src="js/city-rides.js"></script>
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>

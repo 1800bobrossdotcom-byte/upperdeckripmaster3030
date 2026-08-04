@@ -1187,6 +1187,31 @@ time, behind a frame that was only the clear colour.
   drop" over an aircraft. Read off `stepJet` instead: W throttles and pulls, S backs off, A/D bank
   (there is no rudder), SHIFT is the airbrake.
 
+### ✅ CARS — `js/city-rides.js` (artist, 2026-08-04: *"lets make some land vehicles we can hop in and drive"*)
+Parked on the street grid the generator already draws; **E** gets in and **E** gets out; the chase
+camera banks with the body.
+- ⚑ **A CAR IS THE MISSING MIDDLE.** The bird sees the whole map and cannot touch it, the squirrel
+  touches everything and cannot cover ground, the operative covers it at 6.4 m/s. A car does 30 m/s
+  along the streets — which is the one thing that makes the STREET GRID legible. You learn a city
+  by driving it.
+- ⛔ **DRIVING REPLACES THE BODY'S STEP, NOT THE MODE.** Making it a fourth mode would have put a
+  loophole in the observer rule shaped like a car door. Driven: a squirrel drives, `targetable`
+  stays **false** and it never enters a target list. The bird and the jet are REFUSED rather than
+  half-supported — "it sort of works if you land first" is the kind of almost-rule that becomes a
+  bug report.
+- ⛔ **STEERING IS A RATE THAT NEEDS ROAD SPEED**, and that single property is most of what
+  separates a car from a character controller wearing one. Asserted: `spunWhileParked` **0.000 rad**
+  over two seconds of full lock at rest. Grip is finite rather than absolute, so the back steps out
+  under power and the handbrake just lowers the number — the slide is the same line, not a mode.
+- ⛔ **A HEIGHT TEST ALONE PARKS CARS ON THE RIVER.** The street grid runs straight across it and
+  the water's surface slab answers `groundBelow` at street level, so the first build had cars
+  floating mid-channel — **found by looking at the frame, not by any number**. `CityWorld.inRiver`
+  is the generator's own function, so the check agrees with the geometry by construction; both ends
+  of a 4 m body are tested or one straddling the bank is still half in.
+- ⚠ **THE WEAPON GOES AWAY AT THE WHEEL.** The chase camera was correct and the rifle was still
+  hanging in front of it. `armed` gates the viewmodel and the trigger together, and both are wrong
+  while driving — a drive-by is a feature, not a side effect of forgetting to ask.
+
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
 moves.

@@ -727,7 +727,11 @@ window.CityOps = (function () {
           me.hp = Math.min(TUNE.hp * TUNE.regenTo, me.hp + dt * TUNE.regenRate);
       }
 
-      const armed = !!(player && player.armed && player.mode === 'operative');
+      /* ⚠ …AND NOT WHILE DRIVING. `armed` gates the viewmodel AND the trigger, and both are wrong
+       * at the wheel: nobody holds a rifle in front of their face to steer, and a drive-by is a
+       * feature rather than a side effect of forgetting to ask. Caught by looking at the frame —
+       * the chase camera was correct and the gun was still there in front of it. */
+      const armed = !!(player && player.armed && player.mode === 'operative' && !player.driving);
       if (armed && !view) buildView(camEnt);
       stepView(dt, player || { yaw: 0, speed: 0 }, armed);
       if (armed && trigger && me.alive) {

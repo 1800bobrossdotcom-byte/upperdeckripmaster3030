@@ -183,6 +183,29 @@ head('1b · the city can actually be played by a thumb');
   t('the animals are observers and the other two are not',
     /animal:\s*\{[^}]*mortal:\s*false/.test(app) && /operative:\s*\{[^}]*mortal:\s*true/.test(app));
 
+  /* ⛔ CARS — artist, 2026-08-04: "lets make some land vehicles we can hop in and drive." */
+  {
+    const rd = R('js/city-rides.js');
+    t('city.html loads the rides module', /js\/city-rides\.js/.test(page));
+    t('one key gets you in AND out', /rides\.driving[\s\S]{0,120}rides\.exit\(/.test(app) &&
+      /rides\.enter\(/.test(app));
+    t('…and there is a prompt that only shows when a car is in reach',
+      /id="ride"/.test(page) && /function syncRideHud/.test(app));
+    /* ⛔ THE ONE PROPERTY THAT SEPARATES A CAR FROM A CHARACTER CONTROLLER: steering needs road
+     * speed, so a parked car cannot pivot. Driven: spunWhileParked 0.000 rad over 2 s of full
+     * lock at rest. */
+    t('steering is a rate that needs speed', /steerRef/.test(rd) && /auth = Math\.min\(sp \/ CAR\.steerRef/.test(rd));
+    t('grip is finite, so it can slide', /driftGrip/.test(rd) && /hand \? CAR\.driftGrip : CAR\.grip/.test(rd));
+    t('a car does not park on the river', /inRiver/.test(rd));
+    /* ⛔ AND THE OBSERVER RULE SURVIVES A CAR DOOR. Driving is not a fourth MODE — it replaces the
+     * body's step, not its mode — so an animal at the wheel is still an animal. Driven: a squirrel
+     * drove and stayed absent from every target list. */
+    t('driving replaces the step, not the mode', /rides\.driving\) \{ stepDrive/.test(app));
+    t('…and the bird and the jet are refused rather than half-supported',
+      /function canDrive/.test(rd) && /mode !== 'jet' && player\.mode !== 'bird'/.test(rd));
+    t('the weapon goes away at the wheel', /!player\.driving/.test(R('js/city-ops.js')));
+  }
+
   /* ⛔ EVERY KEY THE STEP FUNCTIONS READ OFF `MODES` MUST EXIST IN IT — DOGFIGHT RENDERED AN EMPTY
    * SKY FOR TWO COMMITS BECAUSE TWO DID NOT. `e19fa30` defined `camBack`/`camUp` on the jet entry;
    * `c17d1f7` rewrote the table into the mortal/targetable/armed one and dropped them, while
@@ -234,8 +257,22 @@ head('1b · the city can actually be played by a thumb');
     t('…and a reticle and a health readout that only exist while armed',
       /id="reticle"/.test(page) && /id="combat"/.test(page) &&
       /reticle.*isOp\(\)|isOp\(\).*reticle/s.test(app));
-    t('the firefight advances in EVERY mode, above the per-mode early returns',
-      /stepOps\(dt\);[\s\S]{0,80}if \(IN\.act\)/.test(app));
+    /* ⚠ ANCHORED ON THE MEANING, NOT ON THE NEXT LINE. The first version matched `stepOps(dt);`
+     * followed within 80 characters by `if (IN.act)`, and adding the drive branch between them
+     * broke it while the property it checks was still perfectly true. What actually matters is
+     * that `stepOps` runs ABOVE every early return in `step()` — otherwise a bot freezes
+     * mid-reload the moment you become a bird or get into a car. */
+    {
+      const body = (app.match(/function step\(dt\) \{[\s\S]*?\n  \}/) || [''])[0];
+      /* ⚠ …against the MODE BRANCHES, not against any `return`. The first attempt compared with
+       * the first `return;` in the function, which is the `if (!ready)` guard on line one — so it
+       * failed on a build where the property was true. Twice now in this file: an assertion is
+       * only as good as the thing it actually points at. */
+      const atOps = body.indexOf('stepOps(dt)');
+      const atJet = body.indexOf('if (isJet())');
+      t('the firefight advances in EVERY mode, above the per-mode early returns',
+        atOps >= 0 && atJet >= 0 && atOps < atJet, 'stepOps@' + atOps + ' modeBranches@' + atJet);
+    }
     t('bots exist, take cover, and are drawn as real bodies',
       /S9PCSkin\.spawn/.test(ops) && /pickCover/.test(ops) && /spawnBox/.test(ops));
     t('a shot is a ray against the same boxes the city is built from',

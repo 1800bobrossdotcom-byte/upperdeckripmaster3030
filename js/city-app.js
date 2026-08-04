@@ -756,6 +756,22 @@ window.CityApp = (function () {
   let actTap = 0;
   addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f') actTap = 2; });
 
+  /* ⛔ ONE KEY, BOTH DIRECTIONS. `E` gets in and `E` gets out — a separate exit key is a key you
+   * have to be told about, and the prompt already says E. ⚠ It is deliberately NOT the action key
+   * `F`: the squirrel drops a card with F while standing next to a car, and one key doing two
+   * unrelated things depending on proximity is how a control scheme starts lying. */
+  addEventListener('keydown', e => {
+    if (e.key.toLowerCase() !== 'e' || !rides) return;
+    if (rides.driving) {
+      const spot = rides.exit(OP.r, OP.h);
+      if (spot) { me.x = spot.x; me.y = spot.y; me.z = spot.z;
+                  me.vx = me.vy = me.vz = 0; me.speed = 0; me.onGround = true; showBody(); }
+    } else if (rides.enter({ x: me.x, z: me.z, mode: MODE === 'animal' ? CREATURE : MODE })) {
+      showBody();
+    }
+    syncHud();
+  });
+
   function doAction() {
     if (!drops || MODE !== 'animal') return null;
     if (CREATURE === 'bird') {
@@ -806,7 +822,7 @@ window.CityApp = (function () {
     }
     let act = false;
     if (actTap > 0) { act = true; actTap--; }
-    return { fwd, turn, strafe, dive, flap, act, fire };
+    return { fwd, turn, strafe, dive, flap, act, fire, hand: !!keys[' '] };
   }
 
 
@@ -830,7 +846,7 @@ window.CityApp = (function () {
    * ⚠ NOTHING IS CACHED, AND THAT IS THE POINT: `genChunk` is pure, so a chunk that leaves range
    *   is destroyed outright and rebuilt identically when you turn round. A cache here would be a
    *   second source of truth for the shape of the world. */
-  let ready = false, bounds = null, collide = null, LEVEL = null, drops = null, ops = null;
+  let ready = false, bounds = null, collide = null, LEVEL = null, drops = null, ops = null, rides = null;
   const NEAR_R = 2;                    // chunks: 5 x 5 full-detail = 600 m of city you can land on
   const REGION = 4;                    // chunks per side of a horizon region
   const FAR_R = 2;                     // regions: 5 x 5 = 20 x 20 chunks = 2.4 km of visible city
@@ -1098,6 +1114,9 @@ window.CityApp = (function () {
      * reimplemented, so a bot walks this city by exactly the rule the player does; `onKill` is the
      * line that keeps the firefight in the SAME game as the bird and the squirrel, because what
      * falls out of an operative is a card and cards go in the binder. */
+    /* ⚑ CARS — artist, 2026-08-04. Same shape as the drops and the firefight: its own module,
+     * handed the one collider, failing open to a city with no cars in it. */
+    rides = window.CityRides ? CityRides.create(app, world, { collide }) : null;
     ops = window.CityOps
       ? CityOps.create(app, world, { collide, moveBody, camera: cam,
           onKill: (x, y, z) => { if (drops) drops.drop(x, y, z, 0, 0); } })
@@ -1142,6 +1161,11 @@ window.CityApp = (function () {
     const IN = readInput();
     if (ops) ops.setTrigger(IN.fire);
     stepOps(dt);
+    /* ⛔ DRIVING REPLACES THE BODY'S STEP, NOT THE MODE. You are still an animal or an operative —
+     * `targetable` and `armed` are untouched — you are simply in a car, so the car integrates and
+     * the body rides along at its seat. Making this a fourth MODE would have put a loophole in the
+     * observer rule shaped like a car door. */
+    if (rides && rides.driving) { stepDrive(dt, IN); return; }
     if (IN.act) doAction();
     const fwdIn = IN.fwd, turnIn = IN.turn, diving = IN.dive;
     /* ⚑ DOGFIGHT's OWN BINDINGS: ◀▶ / A-D ROLL (there is no rudder — the heading follows the bank),
@@ -1469,6 +1493,35 @@ window.CityApp = (function () {
     cam.lookAt(-(me.x + hx * 3.5), me.y + 0.5, me.z + hz * 3.5);
   }
 
+  /* ── DRIVING. The car owns the physics; this owns where you and the camera are while it does.
+   * ⚠ The body is parked AT THE SEAT rather than hidden, so everything that reads `me.x/y/z` —
+   * the streamer, the drops, the bots' line of sight — keeps working with no special case for
+   * "in a vehicle". One position, as everywhere else in this game. */
+  function stepDrive(dt, IN) {
+    const c = rides.driving;
+    rides.step(dt, { x: me.x, z: me.z, mode: MODE === 'animal' ? CREATURE : MODE }, IN);
+    me.x = c.x; me.y = c.y; me.z = c.z; me.yaw = c.yaw;
+    me.vx = c.vx; me.vz = c.vz; me.vy = c.vy;
+    me.speed = c.spd; me.onGround = c.onGround; me.alt = 0;
+    showBody();                                   // whatever body you are stays out of sight
+    /* the chase camera sits back and above and BANKS WITH THE CAR, which is most of why a slide
+     * reads as a slide rather than as the road turning underneath you. */
+    const hx = Math.sin(c.yaw), hz = Math.cos(c.yaw);
+    const back = 7.4 + Math.min(4.5, c.spd * 0.16), up = 3.0 + Math.min(1.4, c.spd * 0.04);
+    const tx = c.x - hx * back, tz = c.z - hz * back, ty = c.y + up;
+    camPos.x += (tx - camPos.x) * Math.min(1, dt * 5.2);
+    camPos.y += (ty - camPos.y) * Math.min(1, dt * 4.4);
+    camPos.z += (tz - camPos.z) * Math.min(1, dt * 5.2);
+    if (!isFinite(camPos.x) || !isFinite(camPos.y) || !isFinite(camPos.z)) {
+      camPos.x = c.x - hx * 7.4; camPos.y = c.y + 3.0; camPos.z = c.z - hz * 7.4; camBad++;
+    }
+    cam.setPosition(-camPos.x, camPos.y, camPos.z);
+    cam.lookAt(-(c.x + hx * 14), c.y + 1.2, c.z + hz * 14);
+    const roll = -c.roll * 26;
+    cam.setLocalEulerAngles(cam.getLocalEulerAngles().x, cam.getLocalEulerAngles().y,
+                            cam.getLocalEulerAngles().z + roll);
+  }
+
   /* ── THE JET'S STEP ─────────────────────────────────────────────────────────────────────────
    * Same integrator shape as the bird — forces and springs, nothing on a clock — but a completely
    * different animal: it cannot hover, it turns by BANKING rather than by yawing, and its heading
@@ -1746,9 +1799,15 @@ window.CityApp = (function () {
    * able to STOP: `step` reads `targetable` off the player, so switching to an animal is what
    * makes them lose you, and that only happens if they are still thinking. */
   function stepOps(dt) {
+    /* \u26a0 The cars tick even when you are on foot, or none would ever be parked near you — the
+     * population lives in the same step as the operatives' for the same reason. */
+    if (rides && !rides.driving) rides.step(dt, { x: me.x, z: me.z,
+      mode: MODE === 'animal' ? CREATURE : MODE }, null);
+    syncRideHud();
     if (!ops) return;
     ops.step(dt, { x: me.x, y: me.y, z: me.z, yaw: me.yaw, pitch: me.pitch,
                    mode: MODE, armed: MODES[MODE].armed, targetable: MODES[MODE].targetable,
+                   driving: !!(rides && rides.driving),
                    onGround: me.onGround, speed: me.speed });
     if (isOp()) syncCombatHud();
   }
@@ -1770,6 +1829,20 @@ window.CityApp = (function () {
     if (s !== hudCache) { hudCache = s; el.textContent = s; }
     el.dataset.on = '1';
     el.dataset.hurt = h.hp / h.maxHp < 0.34 ? '1' : '';
+  }
+
+  /* ⚠ A PROMPT YOU ONLY SEE WHEN IT APPLIES. A permanent "E to drive" is furniture; one that
+   * appears when a car is actually in reach is information. The same element carries the speedo
+   * while driving, because the two are never both true. */
+  function syncRideHud() {
+    const el = $('ride'); if (!el) return;
+    if (!rides) { el.dataset.on = ''; return; }
+    if (rides.driving) { const h = rides.hud;
+      el.textContent = h.kph + ' KM/H   \u00b7   E to get out   \u00b7   SPACE handbrake';
+      el.dataset.on = '1'; return; }
+    const near = (MODE !== 'jet' && !isBird()) ? rides.near(me.x, me.z) : null;
+    el.textContent = near ? 'E \u2014 drive' : '';
+    el.dataset.on = near ? '1' : '';
   }
 
   function stepDrops(dt) {
@@ -1850,6 +1923,7 @@ window.CityApp = (function () {
      * only place a target list is built, so a driver can put a bird next to four operatives and
      * assert it never appears in one — which is the difference between an ethos and a comment. */
     get ops() { return ops; },
+    get rides() { return rides; },
     _fire() { return ops ? ops.fire({ x: me.x, y: me.y, z: me.z, yaw: me.yaw, pitch: me.pitch,
       mode: MODE, armed: MODES[MODE].armed, targetable: MODES[MODE].targetable }) : false; },
     _targets() { return ops ? ops.targets({ x: me.x, y: me.y, z: me.z,
