@@ -704,6 +704,75 @@ console.log('\n§12 the number says which of the two things you are making');
   await ctx.close();
 }
 
+/* ═══ 13 · THE CARD PRINTS ITS NAME ONCE, AND ON THE TRIM ═════════════════════════════════════
+ * ⛔ THE SITE-WIDE BREAKAGE NO TEST CAUGHT. Artist, 2026-08-05: *"those changes broke
+ *   everything."* Every card on the site was printing its name TWICE — once in ink, once as an
+ *   emboss about 16px away — with a ghost of the title lying across the artwork.
+ * ⚑ THE CAUSE IS A COUPLING, NOT A VALUE. The name's INK is laid inside `artAt` at the type
+ *   element's own displaced UV; its RELIEF is read in the main body at the undisplaced one,
+ *   because the crease and the marks sharing that texture belong to the sheet and must never
+ *   travel. The two agreed only while the type's displacement was exactly zero. Giving the stack
+ *   a lateral slide broke that silently, and removing the slide was not enough — the
+ *   magnification alone still split them.
+ * ⚠ AND EVERY SUITE WAS GREEN THROUGHOUT, INCLUDING THIS ONE. 44 + 68 + 10 + 147 assertions, and
+ *   not one of them asked where the name lands. They all checked the FORGE, which pushes its own
+ *   base and hid it; the defect lived at the renderer's DEFAULTS, which is what every other
+ *   surface builds with. Test the defaults, not just the panel.
+ * ⚑ MEASURED BY DIFFERENCE, which needs no threshold: render the card, rename it, and the pixels
+ *   that change ARE the name. Where they lie is then a fact rather than a guess. */
+console.log('\n§13 the name is struck once, on the trim, at the renderer\'s own defaults');
+{
+  const { ctx, page } = await forge(1440, 900);
+  const r = await page.evaluate(async () => {
+    const spec = await fetch('type/alphabet.json').then(r => r.json()).catch(() => null);
+    const grab = u => fetch(u).then(r => r.json())
+      .then(raw => (Array.isArray(raw) ? raw : raw.cards).map(c => c.art).filter(Boolean));
+    const pool = (await grab('manifest.json')).concat(await grab('hero-manifest.json'));
+    const cv = document.createElement('canvas');
+    cv.width = 300; cv.height = 450; document.body.appendChild(cv);
+    /* ⚠ NOTHING IS SET. This is the card js/card-press.js builds for the binder, the deck tiles,
+     *   lens3d and the field — the renderer's defaults and no panel in sight. */
+    const c = await window.HeroCard.build({ canvas: cv, seed: 7011, pigment: pool, type: spec,
+                                            rarity: 'rare', name: 'AAAAAAAA' });
+    if (!c) return { err: 'no build' };
+    c.setView(0, 0); c.writeOn(1);
+    for (let i = 0; i < 30; i++) c.advance(16);
+    const shot = () => { c.render(); const p = c.pixels(); return { w: p.w, h: p.h, d: p.data }; };
+    const A = shot();
+    c.setText({ name: '' });                    // same sheet, same everything — only the words go
+    const B = shot();
+    /* readPixels is bottom-up: row 0 is the BOTTOM of the card, where the trim and name live */
+    const rows = new Float64Array(A.h);
+    for (let y = 0; y < A.h; y++) {
+      let s = 0;
+      for (let x = 0; x < A.w; x++) {
+        const i = (y * A.w + x) * 4;
+        s += Math.abs(A.d[i] - B.d[i]) + Math.abs(A.d[i + 1] - B.d[i + 1]) + Math.abs(A.d[i + 2] - B.d[i + 2]);
+      }
+      rows[y] = s / A.w;
+    }
+    const peak = rows.reduce((m, v) => Math.max(m, v), 0);
+    const lit = [];
+    for (let y = 0; y < A.h; y++) if (rows[y] > peak * 0.22) lit.push(y);
+    /* group the lit rows into contiguous bands — two bands means two names */
+    const bands = [];
+    for (const y of lit) {
+      const last = bands[bands.length - 1];
+      if (last && y - last[1] <= 4) last[1] = y; else bands.push([y, y]);
+    }
+    return { h: A.h, peak: +peak.toFixed(1), bands: bands.map(b => [b[0], b[1]]),
+             topOfName: bands.length ? Math.max(...bands.map(b => b[1])) / A.h : 0 };
+  });
+  ok(!r.err, 'a card builds at the renderer defaults', r.err || 'built');
+  ok(r.peak > 2, 'the name is actually printed', `peak row difference ${r.peak}`);
+  ok(r.bands.length === 1, 'and it appears in exactly ONE band — not printed twice',
+     `${r.bands.length} band(s): ${r.bands.map(b => b[0] + '–' + b[1]).join(', ')}`);
+  /* bottom-up: the name lives in the lower fifth of the card, on the trim under the art window */
+  ok(r.topOfName < 0.30, 'in the trim at the foot of the card, not across the artwork',
+     `highest name row at ${(r.topOfName * 100).toFixed(0)}% up from the bottom`);
+  await ctx.close();
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await browser.close();
 srv.close();

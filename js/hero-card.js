@@ -958,6 +958,10 @@ vec3 F_Schlick(vec3 f0, float u) { return f0 + (1.0 - f0) * pow(1.0 - u, 5.0); }
  * element takes it scaled by its own depth through the card, which is what gives the picture
  * thickness. Registration is NOT applied here — it belongs to the plate, not to the picture. */
 vec2 zuv(vec2 u, float z) { return (u - 0.5) / (1.0 + z) + 0.5; }
+/* how much of an element's depth is spent on magnification rather than travel. ⚠ FILE SCOPE on
+ * purpose: the name's INK and the name's RELIEF are sampled in two different functions, and the
+ * two must use the same number or the emboss separates from the letter it belongs to. */
+const float ZS = 0.18;
 
 vec3 artAt(vec2 u, vec2 par) {
   /* ── ⛔ "THESE ARE NOT SEPARATED LAYERS IT IS JUST ZOOMING IN" ───────────────────────────
@@ -989,11 +993,21 @@ vec3 artAt(vec2 u, vec2 par) {
    *   apart, which is the thing the control is named after.
    * ⚠ Ground stays at ZBASE 0 and therefore never moves at all: it is the sheet the rest are
    *   stacked on, and a reference that drifts is not a reference. */
-  const float ZS = 0.18;              // how much of the depth is spent on magnification
   vec2 uG = zuv(u, uElemZ.x * ZS) + par * uElemZ.x + vec2(-0.255, -0.150) * uElemZ.x;
   vec2 uM = zuv(u, uElemZ.y * ZS) + par * uElemZ.y + vec2( 0.220, -0.275) * uElemZ.y;
   vec2 uF = zuv(u, uElemZ.z * ZS) + par * uElemZ.z + vec2( 0.290,  0.185) * uElemZ.z;
-  vec2 uT = zuv(u, uElemZ.w * ZS) + par * uElemZ.w + vec2(-0.120,  0.255) * uElemZ.w;
+  /* ⛔ THE NAME DOES NOT TRAVEL AT ALL, AND MAKING IT TRAVEL PRINTED IT TWICE. Its INK is laid
+   * here; its RELIEF is read further down from the same texture at the undisplaced UV, because
+   * the crease and the marks sharing that texture belong to the SHEET. The two agreed only while
+   * the type's displacement was zero. Give it any — a slide OR the magnification — and the
+   * letter's ink goes one way while its emboss stays: a second, embossed copy of the name, on
+   * every card on the site rather than only in the forge.
+   * ⚑ AND THE FIX IS NOT TO DISPLACE THE RELIEF TOO. STRUCK TYPE IS NOT A COLLAGE LAYER. "Layers"
+   *   names the pictures the card is composed FROM; the name is stamped on the stock, which is
+   *   exactly why the trim and the marks beside it never move either — this file says so three
+   *   lines further down. A card whose title drifts off its own trim is not a deeper card, it is
+   *   a misprint. The artwork separates; the type stays where it was struck. */
+  vec2 uT = u;
 
   /* ⛔ THE THREE SOURCES ARE SAMPLED AT THREE DIFFERENT SCALES, and that is not a look — it is
    * the difference between a composition and a filter. The first cut took all three at roughly
@@ -1192,6 +1206,9 @@ void main(void) {
 
   /* ⚠ relief is uType.b, NOT uComp.a — the alpha channel of a generated canvas is not a data
    * channel; see the note above buildComp's return. */
+  /* ⚑ ONE SAMPLE, UNDISPLACED — and it is correct again only because the name no longer
+   * travels. See the note on uT: ink and relief come from the same texture and any displacement
+   * applied to one and not the other prints the name twice. */
   vec3 plate = texture(uType, vUv).rgb;              // r name · g marks · b crease
   float relief = plate.b;
 
@@ -1687,7 +1704,13 @@ void main(void) {
          * Setting it to 1 turned every card on the site into a single deck card at card size, and
          * nothing would have said so. The forge pushes its own base through `applyAll`. */
         pigs: 3,         // 1 = one card · 3 = + ground/mid · 6 = + wash, strip, inset
-        press: 0,        // the impression's own character: 0 = a clean pull, 1 = as it printed
+        /* ⛔ ONE, AND THIS IS THE RENDERER'S DEFAULT — NOT THE FORGE'S BASE. Same distinction as
+         * `pigs`, and I got it wrong the same way: the artist's "raw" is what the EDITOR opens
+         * at, while this constant is what every other surface gets. Shipping 0 here took the
+         * press character off every card on the site at once — even film, no roller band, no
+         * starve, on the binder, the deck, lens3d and the field cards. The forge pushes its own
+         * base through applyAll; the site keeps the card as it prints. */
+        press: 1,        // the impression's own character: 0 = a clean pull, 1 = as it printed
         faceUp: true,    // which way up it is sitting
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
