@@ -309,6 +309,7 @@
 <script src="../js/hero-card.js"></script>
 <script src="../js/card-back.js"></script>
 <script src="../js/card-press.js"></script>
+<script src="../js/card-view.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
      the header prop or the first opened card asks for it first. -->
@@ -471,11 +472,9 @@
     /* ⚑ WALKING THE DECK REPRINTS. `show()` reseeds the press and swaps its three plates in
      *   place — it never rebuilds, because getContext('webgl2') hands back the same context and
      *   a binder is exactly the page where that leak would go unnoticed for a hundred cards. */
-    if (ctrl) {
-      ctrl.setArt(url); ctrl.setRarity(card.rarity);
-      if (press) press.show(pressCard(card));
-      return;
-    }
+    /* the viewer owns the card once it is up; card3d only drives the pre-press fallback */
+    if (press) { press.show(pressCard(card)); return; }
+    if (ctrl) { ctrl.setArt(url); ctrl.setRarity(card.rarity); return; }
     Card3D.engine('../').then(() => {
       const cv = document.createElement('canvas');
       $('vcard').insertBefore(cv, $('vflat'));
@@ -489,12 +488,18 @@
       ctrl.setArt(url); ctrl.setRarity(card.rarity);
       $('vflat').style.display = 'none';
       $('vmode').textContent = 'playcanvas 3d · live lens';
-      if (!/[?&]flat\b/.test(location.search) && window.CardPress) {
-        CardPress.frame({ cardCtrl: ctrl, base: '', card: pressCard(card),
-                          tilt: () => tilt, down: () => held })
-          .then(p => { if (!p) return;              // fails open — the flat plate stands
+      /* ⛔ THE PRESS IS THE VIEWER, NOT A TEXTURE ON ANOTHER CARD — artist, 2026-08-05:
+       *   "the same cardviewer used in the proof.html with the environments, in every viewer."
+       *   Hanging the press on card3d's slab flattened its material to a picture and then re-lit
+       *   that picture, which is where the room, the raking key and the foil's hue travel went.
+       * ⚠ card3d is destroyed once the viewer takes over: two WebGL contexts drawing the same
+       *   card means the one underneath is paid for and never seen. */
+      if (!/[?&]flat\b/.test(location.search) && window.CardView) {
+        CardView.mount({ box: $('vcard'), base: '', card: pressCard(card) })
+          .then(p => { if (!p) return;              // fails open — card3d's plate stands
                        press = p; window.__press = p;   // handle for the harness
-                       $('vmode').textContent = 'playcanvas 3d · pressed'; });
+                       try { ctrl.destroy(); ctrl = null; } catch (e) {}
+                       $('vmode').textContent = 'the press · pressed'; });
       }
     }).catch(() => { $('vmode').textContent = 'flat (engine blocked)'; });
   }
