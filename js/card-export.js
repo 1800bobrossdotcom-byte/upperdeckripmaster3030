@@ -225,15 +225,27 @@
   async function gif(ctrl, opts) {
     const o = opts || {};
     /* ⚑ Defaults SWEPT against the encoded file, not chosen by eye — see docs/HERO-33-BRIEF.md.
-     * A four-ink halftone is high-entropy and LZW hates it, so frames are not free: the cost of
-     * smoothness is paid in megabytes and the two have to be picked together. */
+     * A four-ink halftone is high-entropy and LZW hates it, so frames are NOT free — the cost of
+     * smoothness is paid in megabytes and the two have to be picked together:
+     *     old build          3.03 fps   7.92 s   1.64 MB   24 frames
+     *     fps20 48f 128col  20.00 fps   2.40 s   3.29 MB
+     *     fps20 48f  64col  20.00 fps   2.40 s   2.73 MB
+     *  -> fps20 36f  64col  20.00 fps   1.80 s   2.07 MB   <- shipped
+     * 6.6x the playback rate for 1.26x the file. */
     const FPS = clamp(o.fps || 20, 4, 50);
-    const LOOP = clamp(o.loop || 2.4, 0.4, 8);
+    const LOOP = clamp(o.loop || 1.8, 0.4, 8);
     const N = clamp(o.frames || Math.round(FPS * LOOP), 4, 120);
     /* Defaults tuned against the measured file, not guessed: 480x720 x 16 at 256 colours came out
      * at 5.2 MB. A card is shared, so it has to be a few megabytes at most. */
+    /* ⚠ `maxW` IS QUANTISED AND LOOKS LIKE IT IS NOT. `grab` downsamples by an INTEGER box
+     * factor `k = round(w / maxW)`, so on a 504-wide card every maxW from ~253 to ~336 lands on
+     * k = 2 and produces exactly 252x378. Swept: maxW 320 and maxW 260 came out byte-for-byte the
+     * same size. The integer factor is RIGHT — a fractional box resamples the halftone into
+     * moire — but a caller tuning this for file size will conclude the encoder is broken. */
     const MAXW = o.maxW || 320;
-    let COLS = clamp(o.colors || 128, 8, 256);
+    /* 64, not 128. A four-ink print has a narrow gamut ON PURPOSE, so the extra 64 slots buy very
+     * little and cost 0.56 MB at 48 frames (3.29 -> 2.73). Swept, not guessed. */
+    let COLS = clamp(o.colors || 64, 8, 256);
     { let pw = 2; while (pw < COLS) pw <<= 1; COLS = pw; }   // a GIF table is a power of two
     const prog = o.onProgress || function () {};
     const before = ctrl.probe();

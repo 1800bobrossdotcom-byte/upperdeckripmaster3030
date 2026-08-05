@@ -375,9 +375,11 @@
     if (!ctrl) return;
     busy(true, 0);
     shot('printing…');
+    /* ⚑ No frame count here on purpose — card-export's own swept defaults (20 fps, 36 frames,
+     * 64 colours, 1.80 s loop, ~2.07 MB) are the measured trade and a number pasted at the call
+     * site would quietly override them. */
     CardExport.gif(ctrl, {
       name: exportName(),
-      frames: 30,
       onProgress: function (p, note) { busy(true, p); shot(note); },
     }).then(landed).catch(function (e) { busy(false); shot('the export failed: ' + e); });
   });

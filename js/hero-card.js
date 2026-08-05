@@ -1079,7 +1079,15 @@ void main(void) {
     const seed = (o.seed >>> 0) || 3030;
     const pool = o.pigment && o.pigment.length ? o.pigment : [];
     if (pool.length < 1) return Promise.resolve(null);
-    const pig = pickPigment(seed, pool);
+    /* ⛔ THE FORGE NEEDS ROLES, AND HANDING `pigment` EXACTLY THREE DOES NOT GIVE THEM.
+     * `pickPigment` draws three from the pool WITHOUT REPLACEMENT but in a seeded ORDER, so a
+     * three-element pool comes back as a random PERMUTATION of itself. That is right for a card
+     * the press pulls by itself and wrong for one somebody composed: the card you chose as the
+     * figure can come out as the ground, and nothing errors — you just get a composition you did
+     * not ask for and cannot tell from a bad seed. `pigmentExact` is the composed path: three
+     * URLs in role order (ground, mid, figure), used verbatim. */
+    const exact = o.pigmentExact && o.pigmentExact.length === 3 && o.pigmentExact.every(Boolean);
+    const pig = exact ? o.pigmentExact.slice() : pickPigment(seed, pool);
 
     return Promise.all(pig.map(loadImage)).then(imgs => {
       if (imgs.some(i => !i)) return null;                 // fails open — a card, not a hole
@@ -1132,9 +1140,16 @@ void main(void) {
        * so without mips each pixel takes one arbitrary texel out of a 683x1024 scan. It is the
        * same undersampling as the stock texture, one layer up, and it was there before any of
        * this material work — the PBR pass only made it legible by sharpening the surface. */
-      const texA = texFrom(gl, imgs[0], UNIT.uPigA, gl.REPEAT, true);
-      const texB = texFrom(gl, imgs[1], UNIT.uPigB, gl.REPEAT, true);
-      const texC = texFrom(gl, imgs[2], UNIT.uPigC, gl.CLAMP_TO_EDGE, true);
+      let texA = texFrom(gl, imgs[0], UNIT.uPigA, gl.REPEAT, true);
+      let texB = texFrom(gl, imgs[1], UNIT.uPigB, gl.REPEAT, true);
+      let texC = texFrom(gl, imgs[2], UNIT.uPigC, gl.CLAMP_TO_EDGE, true);
+      /* ⚑ WRAP MODE IS PER ROLE, NOT PER SLOT-NUMBER. Ground and mid are sampled well outside
+       * 0..1 (one is zoomed to a field, the other mirrored at another scale), so they REPEAT;
+       * the figure is cropped near card size and must CLAMP or it tiles a face. A plate swap has
+       * to carry the role's wrap with it — reuploading all three as REPEAT puts a grid of tiny
+       * faces where the figure should be, which reads as a composition bug rather than a
+       * sampler one. */
+      const PIG_WRAP = [gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE];
       const compCanvas = buildComp(seed, 512);
       const texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
@@ -1420,6 +1435,40 @@ void main(void) {
           render();
         },
         text: () => ({ name: TEXT.name, sub: TEXT.sub }),
+        /* ── ⚑ THE FORGE: PUT A DIFFERENT PLATE ON THE PRESS ──────────────────────────────
+         * `setPigment([ground, mid, figure]) -> Promise<bool>`. Three deck cards, in ROLE
+         * order, swapped into the live card.
+         * ⛔ IT MUST NOT BE A REBUILD, and this is the hazard that decides the whole design.
+         *   `canvas.getContext('webgl2')` returns the SAME context on a second call, and
+         *   `build()` never releases the first card's program, buffers or six textures — so
+         *   calling it twice on one canvas leaks everything and leaves two cards fighting over
+         *   the same uniforms. Nothing throws. Swapping three textures in place is not an
+         *   optimisation, it is the only correct move.
+         * ⚑ AND IT ANSWERS §4, WHICH A PICKER ON ITS OWN DOES NOT. Choosing a plate is a
+         *   PHYSICAL act — the press takes the new plate and the sheet prints again — so the
+         *   write-on is re-run rather than the card cutting to the new image. The forge's
+         *   feedback and the write-on are the same mechanism, not two features.
+         * ⚠ Fails open and ATOMICALLY: if any of the three images will not load, nothing is
+         *   swapped and the card keeps the plates it had. A half-applied composition (new
+         *   ground, old figure) is a card nobody chose. */
+        setPigment: urls => {
+          if (!urls || urls.length !== 3 || !urls.every(Boolean)) return Promise.resolve(false);
+          return Promise.all(urls.map(loadImage)).then(next => {
+            if (next.some(i => !i)) return false;            // atomic: all three, or none
+            const old = [texA, texB, texC];
+            const made = [
+              texFrom(gl, next[0], UNIT.uPigA, PIG_WRAP[0], true),
+              texFrom(gl, next[1], UNIT.uPigB, PIG_WRAP[1], true),
+              texFrom(gl, next[2], UNIT.uPigC, PIG_WRAP[2], true),
+            ];
+            texA = made[0]; texB = made[1]; texC = made[2];
+            old.forEach(t => gl.deleteTexture(t));
+            pig.length = 0; urls.forEach(u => pig.push(u));  // so probe() reports what is ON it
+            S.arrive = 0;                                    // the sheet prints again
+            render();
+            return true;
+          }).catch(() => false);
+        },
         /* The material maps themselves, so they can be LOOKED AT and measured rather than
          * inferred from the lit result. `stock` is RG = the fibre normal, B = a roughness jitter;
          * `comp` is R strips / G figure window / B trim. Both are generated, both tile or clamp
