@@ -85,7 +85,7 @@
   async function refreshBal(el) {
     const w = W(); const bal = el.querySelector('[data-bal]'); if (!bal || !w) return;
     if (!w.isLive()) { bal.textContent = 'practice'; return; }
-    try { const b = await w.balance(); bal.textContent = '◈ ' + b.tokens.toLocaleString('en-US') + ' $UR'; } catch { bal.textContent = '◈ —'; }
+    try { const b = await w.balance(); bal.textContent = '◈ ' + b.tokens.toLocaleString('en-US') + ' $3030'; } catch { bal.textContent = '◈ —'; }
   }
 
   function render(el) {

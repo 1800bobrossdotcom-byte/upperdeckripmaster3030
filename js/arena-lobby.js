@@ -89,7 +89,7 @@ window.ArenaLobby = (function () {
     return '<div class="al-row ' + st + (p.me ? ' me' : '') + (p.verified ? ' signed' : '') + '">' +
       '<span class="al-orb ' + st + '" title="' + st + '"></span>' + av +
       '<div class="al-body"><div class="al-nm">' + esc(p.handle) + seal + '</div>' +
-      '<div class="al-meta"><b>' + ((p.balance || 0).toLocaleString('en-US')) + '</b> $UR · ' + (p.cards || 0) + ' cards' + wl + live + '</div></div>' +
+      '<div class="al-meta"><b>' + ((p.balance || 0).toLocaleString('en-US')) + '</b> $3030 · ' + (p.cards || 0) + ' cards' + wl + live + '</div></div>' +
       action + '</div>';
   }
 

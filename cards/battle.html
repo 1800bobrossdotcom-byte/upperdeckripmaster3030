@@ -924,7 +924,7 @@
     return new Promise(resolve => {
       const oppLabel = opts.oppLabel || 'the house';
       const anteTxt = opts.anteText != null ? opts.anteText : (ante > 0 ? `ante ${ante}` : '');
-      const potTxt = opts.potText != null ? opts.potText : (ante > 0 ? `pot ${ante * 2} $UR` : '');
+      const potTxt = opts.potText != null ? opts.potText : (ante > 0 ? `pot ${ante * 2} $3030` : '');
       const fo = document.createElement('div'); fo.className = 'faceoff'; fo.tabIndex = -1;
       fo.innerHTML =
         `<div class="fo-weather">gas weather · <b>${escFO(gas)}</b></div>` +
@@ -1340,7 +1340,7 @@
         `<div class="pvp-card">` +
         `<div class="pvp-hd"><span class="ic" data-ic="swords"></span> face-off · ${escFO(opponent.handle)}</div>` +
         `<div class="pvp-opp"><span class="lob-st ${opponent.status || 'idle'}"></span>` +
-          `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $UR · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
+          `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $3030 · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
         `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner takes the loser's stack, ties stand. <span class="pvp-count" id="pvpCount"></span></div>` +
         `<div class="pvp-tray" id="pvpTray"></div>` +
         `<div class="pvp-hand" id="pvpHand"></div>` +
@@ -1404,7 +1404,7 @@
     const burnTag = burn ? (br.mode === 'onchain' ? ' · wager (on-chain)' : ' · wager (practice)') : '';
     const res = await openFaceoff(you, oppCards, P, Q, outcome, 0, {
       oppLabel: oppName, push: true,
-      potText: burn > 0 ? `🔥 ${burn} $UR each` : 'cards only',
+      potText: burn > 0 ? `🔥 ${burn} $3030 each` : 'cards only',
       anteText: burn > 0 ? `🔥 ${burn}` : ''
     });
     const v = $('verdict');
@@ -1420,7 +1420,7 @@
       log += `${escFO(oppName)} took your ${you.length} staked card${you.length > 1 ? 's' : ''}${burnTag}.`;
     } else {
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
-      log += `Dead even — both keep their cards${burn ? `, and the ${burn} $UR ante is returned` : ''}.`;
+      log += `Dead even — both keep their cards${burn ? `, and the ${burn} $3030 ante is returned` : ''}.`;
     }
     $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();
