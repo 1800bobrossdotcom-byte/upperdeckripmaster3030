@@ -135,12 +135,22 @@ const arcade = R('arcade.html');
  * simply stops guarding, and the new game is exactly as capable of shipping unreachable as the old
  * one was. `ronin.html` is deliberately NOT asserted any more: it is history, it still resolves for
  * anyone holding the URL, and nothing is required to link it. */
-const CABINETS = ['city.html', 'riprocketer.html', 'cloudracer.html', 'cards/battle.html'];
-/* ⛔ SIX → FOUR (artist, 2026-08-03). `section9.html` and `dogfight.html` left the GRID because
- * they fold into THE CITY as modes — but they are NOT orphaned and must not be: their modes are
- * unfinished, so THE CITY's mode bar carries the route until they land. That is asserted below
- * rather than allow-listed, because "it is linked from somewhere" is exactly the kind of claim
- * that quietly stops being true. When the modes ship, these two assertions are what should fail. */
+/* ⛔ SIX → FOUR → SIX. They left the grid on 2026-08-03 ("compress our games to 4 games total")
+ * and came back on 2026-08-05 ("lets restore dogfight and section 9 task force as games").
+ * ⚑ THE COUNT WAS NEVER THE INVARIANT — the note left here when they went said so in as many
+ *   words: A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT WORKS, and "when the modes ship, these
+ *   two assertions are what should fail." The modes did not ship. THE CITY carries SECTION 9's
+ *   COMBAT but not its GAME (no match clock, arena picker, loadout, card powers or powerups) and
+ *   JET COMBAT WAS NEVER BUILT — no bolts, no lock, no bots. So the honest assertion is not "how
+ *   many tiles are there" but "is every game a visitor can play on the shelf where they look for
+ *   games", which is this file's own subject: reachable-from-somewhere is not
+ *   findable-from-where-you-are. A fixed count asserted the inventory NUMBER and would have had
+ *   to be edited either way — it could never have caught the thing that was actually wrong. */
+const CABINETS = ['city.html', 'riprocketer.html', 'cloudracer.html', 'cards/battle.html',
+                  'dogfight.html', 'section9.html'];
+/* ⚠ STILL ASSERTED FROM THE CITY TOO, and that is not a duplicate. The mode bar is the SEAM — the
+ * city is where these two share a world — and the route existed there the whole time they were off
+ * the shelf. Deleting it now to tidy a number is the same mistake with the sign flipped. */
 const FOLDING = ['dogfight.html', 'section9.html'];
 for (const c of CABINETS) {
   t(`arcade.html links ${c}`, new RegExp('href="' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"').test(arcade));
@@ -154,9 +164,15 @@ t('the #ronin anchor studio.html deep-links to exists', /id="ronin"/.test(arcade
     t(`${f} is still reachable from THE CITY while its mode is unfinished`,
       new RegExp('href="' + f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"').test(city));
   }
-  t('arcade.html is down to four cabinets',
-    (arcade.match(/<a class="cab"/g) || []).length === 4,
-    (arcade.match(/<a class="cab"/g) || []).length + ' found');
+  /* ⚑ EVERY TILE IS A REAL GAME AND EVERY REAL GAME HAS A TILE — a set comparison, not a count.
+   * A number would pass a grid containing six tiles pointing at the wrong six pages, and would
+   * fail for the honest reason of the roster changing. This bites on both sides: a cabinet added
+   * for a page that is not in CABINETS fails, and a game dropped off the shelf fails. */
+  const tiles = [...arcade.matchAll(/<a class="cab"[^>]*href="([^"]+)"/g)].map(m => m[1]).sort();
+  const want = CABINETS.slice().sort();
+  t('the arcade shelf is exactly the roster',
+    JSON.stringify(tiles) === JSON.stringify(want),
+    tiles.length + ' tiles: ' + tiles.join(' · '));
 }
 
 /* ═══ 1b · A GAME IS NOT REACHABLE IF YOU CANNOT PLAY IT ══════════════════════════════════════

@@ -83,14 +83,19 @@
     <div class="arcade-logo"><img src="arcade2.png" alt="ARCADE" class="al-base"><img src="arcade23.png" alt="" aria-hidden="true" class="al-over"></div>
     <div class="sub">ripmaster3030studios · your deck is the machine</div>
 
-    <!-- ⛔ SIX CABINETS BECAME FOUR. Artist, 2026-08-03: "we can actually have dogfight AND the
-         section 9 game both play here and compress them all into the City… then we compress our
-         games to 4 games total." SECTION 9 and DOGFIGHT fold into THE CITY as modes — one world,
-         one streamer, one collision set (see docs/CITY-GAME.md · THE COMPRESSION).
-         ⚠ BOTH PAGES STILL EXIST AND ARE STILL REACHED — from THE CITY's own mode bar — because
-         their modes are not finished. Deleting the route to a working game to make a count look
-         right is `npm run test:reach`'s failure with the sign flipped, and test:reach now asserts
-         the link exists rather than merely allowing it. Those two links go when the modes land. -->
+    <!-- ⛔ SIX BECAME FOUR, AND SIX AGAIN. Artist, 2026-08-03: "compress our games to 4 games
+         total" — SECTION 9 and DOGFIGHT folded into THE CITY as modes. Artist, 2026-08-05: "lets
+         restore dogfight and section 9 task force as games."
+         ⚑ THIS IS NOT A REVERSAL, IT IS THE RULE THE COMPRESSION WAS WRITTEN UNDER. The standing
+         line, recorded when they left the grid, is: A CABINET IS NOT REMOVED UNTIL ITS REPLACEMENT
+         WORKS — and the replacements did not land. THE CITY has SECTION 9's COMBAT but not its
+         GAME (no match clock, no arena picker, no loadout, no card powers, no powerups), and JET
+         COMBAT WAS NEVER BUILT AT ALL — no bolts, no lock, no bots, nothing re-derived at city
+         scale. Both cabinets are complete games; the modes are two thirds of one. Keeping the
+         count at four was making an inventory number true at the cost of the inventory.
+         ⚠ THE CITY MODE-BAR LINKS STAY. They are not a duplicate route, they are the seam: the
+         city is where the two share a world, and `test:reach` asserts those links precisely so
+         nobody deletes a working route to tidy a number. -->
     <div class="grid">
       <a class="cab" href="riprocketer.html">
         <span class="rr">on-rails</span>
@@ -126,6 +131,28 @@
         <div class="tag">a bird, a city, no hurry</div>
         <div class="dsc">Nothing chases you and there is nothing to lose. Fly a bird over a city you can land on — park, block, river, plaza — and look for cards, items and things worth photographing. <b>A photograph you take becomes a card.</b> Wing energy refills when you perch, so it is a bird that must land.</div>
         <span class="play">▶ Fly</span>
+      </a>
+
+      <!-- ⚠ RESTORED 2026-08-05. Both were reachable the whole time from THE CITY's mode bar —
+           this puts them back on the shelf where a visitor looks for a game rather than inside
+           another one, which is `test:reach`'s own subject: reachable-from-somewhere is not
+           findable-from-where-you-are. -->
+      <a class="cab" href="dogfight.html">
+        <span class="rr">air combat</span>
+        <div class="ic" data-ic="bolt" data-ic-size="40"></div>
+        <div class="nm">DOGFIGHT</div>
+        <div class="tag">energy fighting for the pot</div>
+        <div class="dsc">Height and speed are one currency: climbing spends it, diving buys it back, and a sustained hard turn scrubs both. Ante $3030 + cards, run the gates, and the <b>podium splits the pot</b>. Boost still means escape.</div>
+        <span class="play">▶ Fly</span>
+      </a>
+
+      <a class="cab" href="section9.html">
+        <span class="rr">tactical</span>
+        <div class="ic" data-ic="target" data-ic-size="40"></div>
+        <div class="nm">SECTION 9 TASK FORCE</div>
+        <div class="tag">cover, suppress, flank</div>
+        <div class="dsc">150 HP over 60 armour and a ~1.3 s time-to-kill, so cover and suppression are real decisions rather than decoration. Nine arenas, four weapons, bots that take cover and flank on a committed bearing. Your deck is the loadout.</div>
+        <span class="play">▶ Deploy</span>
       </a>
 
       <a class="cab" href="cards/battle.html">
