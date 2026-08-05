@@ -470,6 +470,24 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * whole safety of this rule and it is invisible until the day the domain is attached. */
   ok(red.length > 0 && red.every(r => (r.has || []).some(h => h.type === 'host')),
     '…and every redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+
+  /* ⛔ AND HOST-SCOPED IS NOT ENOUGH — THIS IS THE ONE THAT TOOK THE SITE DOWN, 2026-08-05.
+   * A `www -> apex` rule lived here and was perfectly host-scoped. It still looped, because the
+   * PLATFORM already owns apex<->www: the dashboard serves `www` as Production and 308s the apex
+   * to it, so the app's rule bounced Production back to a host that bounced it straight back.
+   * curl gave up at 50 hops; the artist got a dark site.
+   * ⚑ THE RULE: apex<->www BELONGS TO THE PLATFORM AND NOWHERE ELSE. Whichever of the two is
+   *   Production, a redirect here that matches EITHER of them is aimed at the host serving the
+   *   site. So the test is not "is it scoped" but "what does the scope actually MATCH" — the
+   *   regex is run against the live hosts rather than eyeballed. */
+  const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com'];
+  const aimedAtLive = red.flatMap(r => (r.has || [])
+    .filter(h => h.type === 'host')
+    .flatMap(h => LIVE_HOSTS.filter(host => { try { return new RegExp('^(?:' + h.value + ')$').test(host); } catch { return false; } })));
+  ok(aimedAtLive.length === 0,
+    '…and NONE of them matches a live host, so it cannot fight the platform\'s own apex/www rule — '
+    + (aimedAtLive.length ? '⛔ REDIRECT LOOP: this config redirects ' + aimedAtLive.join(' + ')
+       + ', which the platform is already redirecting. That is a dark site.' : 'clear'));
   /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an
    * identity change, not a link-breaking one. It also protects any `animation_url` already
    * pointing at the old host. */
