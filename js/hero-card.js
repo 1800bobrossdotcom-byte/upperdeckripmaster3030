@@ -864,7 +864,14 @@ uniform vec2 uPar;           // x parallax gain · y type depth
  *   centre, which is also why its displacement field GROWS WITH RADIUS: the exact mirror image of
  *   registration, which must be uniform and radius-free. The same block matcher measures both and
  *   the two answers are opposite. */
-uniform vec4 uElemZ;         // ground · mid · figure · type
+/* ⛔ SEVEN DEPTHS, ONE PER LAYER — artist, 2026-08-05, pointing at cards/lens3d.html?hero=42:
+ * *"like this … we successfully separated 6 cards or so before, just import that back in there."*
+ * That page is the LAYERED card (js/card-layers.js): every plate authored separately, each at its
+ * own z, sliding against the others as it turns. This press had only FOUR element depths —
+ * ground, mid, figure, type — so at six sources three of them shared a plane with the first three
+ * and could not separate from them however far LAYERS was pushed. Six pictures, three planes.
+ * ⚑ Now every source owns a plane, which is what "layered" has meant on this project all along. */
+uniform float uElemZ[7];     // ground · mid · figure · wash · strip · inset · type
 uniform sampler2D uBack;     // the reverse
 uniform float uBackRGB;      // 1 = a DESIGNED back (full colour) · 0 = the generated stand-in
 uniform float uFrameFoil;    // how much of the border is METAL rather than ink — rarity
@@ -993,9 +1000,13 @@ vec3 artAt(vec2 u, vec2 par) {
    *   apart, which is the thing the control is named after.
    * ⚠ Ground stays at ZBASE 0 and therefore never moves at all: it is the sheet the rest are
    *   stacked on, and a reference that drifts is not a reference. */
-  vec2 uG = zuv(u, uElemZ.x * ZS) + par * uElemZ.x + vec2(-0.255, -0.150) * uElemZ.x;
-  vec2 uM = zuv(u, uElemZ.y * ZS) + par * uElemZ.y + vec2( 0.220, -0.275) * uElemZ.y;
-  vec2 uF = zuv(u, uElemZ.z * ZS) + par * uElemZ.z + vec2( 0.290,  0.185) * uElemZ.z;
+  vec2 uG = zuv(u, uElemZ[0] * ZS) + par * uElemZ[0] + vec2(-0.255, -0.150) * uElemZ[0];
+  vec2 uM = zuv(u, uElemZ[1] * ZS) + par * uElemZ[1] + vec2( 0.220, -0.275) * uElemZ[1];
+  vec2 uF = zuv(u, uElemZ[2] * ZS) + par * uElemZ[2] + vec2( 0.290,  0.185) * uElemZ[2];
+  /* the second three, each on its own plane and its own bearing — no two layers travel together */
+  vec2 uW = zuv(u, uElemZ[3] * ZS) + par * uElemZ[3] + vec2(-0.180,  0.300) * uElemZ[3];
+  vec2 uS = zuv(u, uElemZ[4] * ZS) + par * uElemZ[4] + vec2( 0.330, -0.105) * uElemZ[4];
+  vec2 uI = zuv(u, uElemZ[5] * ZS) + par * uElemZ[5] + vec2(-0.310, -0.235) * uElemZ[5];
   /* ⛔ THE NAME DOES NOT TRAVEL AT ALL, AND MAKING IT TRAVEL PRINTED IT TWICE. Its INK is laid
    * here; its RELIEF is read further down from the same texture at the undisplaced UV, because
    * the crease and the marks sharing that texture belong to the SHEET. The two agreed only while
@@ -1054,15 +1065,14 @@ vec3 artAt(vec2 u, vec2 par) {
    *   is dark. That is a recorded, expensive bug in this exact file. A fourth channel of data
    *   gets a fourth channel of ANOTHER texture. */
   if (uNPig > 3) {
-    vec4 m2 = texture(uComp2, uM);
-    vec3 wash = texture(uPigD, uG * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
-    c = mix(c, wash, texture(uComp2, uG).r * 0.72);
+    vec3 wash = texture(uPigD, uW * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
+    c = mix(c, wash, texture(uComp2, uW).r * 0.72);
     /* turned against the sheet: a strip laid square to the trim reads as a panel, not a scrap */
-    vec2 uS = mat2(0.87, -0.49, 0.49, 0.87) * (uM * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
-    vec3 strip = texture(uPigE, uS).rgb;
-    c = mix(c, strip, m2.g);
-    vec3 inset = texture(uPigF, (uF - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
-    c = mix(c, inset, texture(uComp2, uF).b);
+    vec2 uSr = mat2(0.87, -0.49, 0.49, 0.87) * (uS * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
+    vec3 strip = texture(uPigE, uSr).rgb;
+    c = mix(c, strip, texture(uComp2, uS).g);
+    vec3 inset = texture(uPigF, (uI - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
+    c = mix(c, inset, texture(uComp2, uI).b);
   }
 
   /* The trim and the marks are on the STOCK, so they take no depth — they are not floating
@@ -1660,7 +1670,7 @@ void main(void) {
         rimDir: U('uRimDir'), rimCol: U('uRimCol'),
         rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
-        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'), backRGB: U('uBackRGB'),
+        elemZ: U('uElemZ[0]'), frameFoil: U('uFrameFoil'), mot: U('uMot'), backRGB: U('uBackRGB'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
        ['uType', texType], ['uStock', texStock], ['uBack', texBack],
@@ -1898,8 +1908,18 @@ void main(void) {
          * ⚑ EACH ELEMENT LEADS OR LAGS. Driven together they are one zoom, which passes "did it
          *   move" and is not depth — the same weak question the wordmark rig had to answer. The
          *   offsets are what make the stack travel THROUGH itself. */
-        const ZBASE = [0.00, 0.30, 0.70, 1.00];        // where each element rests in the stack
-        const ZLEAD = MOTION.lead;                     // and how far round the cycle it is
+        /* ⛔ SEVEN PLANES, EVENLY SPACED THROUGH THE CARD. Ground rests against the backing at 0
+         * and the type sits at the glass at 1; the five between are the layers that can actually
+         * separate. ⚠ Even spacing is deliberate — bunching them would make two sources share a
+         * plane again, which is exactly the defect this replaces. */
+        const ZBASE = [0.00, 0.17, 0.34, 0.51, 0.68, 0.85, 1.00];
+        /* ⚠ A MOTION CARRIES FOUR LEAD PHASES AND THERE ARE SEVEN ELEMENTS. Repeating the four
+         *   would give elements 0 and 4 the same phase, i.e. two planes moving in lockstep — the
+         *   lockstep this whole change exists to break. The fourth lead belongs to the TYPE, which
+         *   is always last, and the five middle planes are spread across the first three. */
+        const ML = MOTION.lead;
+        const ZLEAD = [ML[0], ML[1], ML[2], (ML[0] + ML[1]) * 0.5 + 0.11,
+                       (ML[1] + ML[2]) * 0.5 + 0.23, (ML[2] + ML[0]) * 0.5 + 0.37, ML[3]];
         /* ⚑ `S.stack` SCALES THE WHOLE STACK, rest positions and travel together, because those
          * are the two halves of one property: how far apart the four elements sit through the
          * card's thickness. Scaling only the travel would give a card whose layers separate when
@@ -1908,8 +1928,8 @@ void main(void) {
         const zAmp = (0.085 + 0.055 * S.depth) * MOTION.amp * S.stack;
         const zc = i => ZBASE[i] * S.stack * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
                       + zAmp * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5;
-        elemZ = [zc(0), zc(1), zc(2), zc(3)];
-        gl.uniform4f(u.elemZ, elemZ[0], elemZ[1], elemZ[2], elemZ[3]);
+        elemZ = [zc(0), zc(1), zc(2), zc(3), zc(4), zc(5), zc(6)];
+        gl.uniform1fv(u.elemZ, new Float32Array(elemZ));
         /* ⚑ THE WRITE-ON IS ALSO AN ARRIVAL. `S.arrive` runs 0→1 once when the card is first
          * handled or opened, and it MULTIPLIES INTO the motion's own write-on — so every card
          * prints itself on the way in, and the one motion that reprints keeps doing it forever.
@@ -1938,7 +1958,7 @@ void main(void) {
       }
 
       // ── the rAF driver, which is a CONVENIENCE and never the source of truth ─────────────
-      let elemZ = [0, 0, 0, 0];              // last frame's stack depths, for the harness
+      let elemZ = [0, 0, 0, 0, 0, 0, 0];     // last frame's stack depths, for the harness
       let raf = 0, last = 0;
       function loop(on) {
         if (!on) { if (raf) cancelAnimationFrame(raf); raf = 0; return; }
