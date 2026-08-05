@@ -166,7 +166,7 @@
           const c = list[+(b && b.dataset.i)] || {};
           return { art: img.getAttribute('src'), title: (c.title || '').toUpperCase(),
                    rarity: c.rarity || 'common' };
-        }, { base: 'cards/' });
+        }, { base: 'cards/', onDone: repaintIfCurrent });
       }).catch(() => {});
     };
 
@@ -286,7 +286,7 @@
     card.className = 'pv-card r-' + esc(c.rarity);
     // paint the art as a CSS background (reliable on every mobile browser/WebView;
     // a JS-assigned <img>.src can fail to repaint on Samsung Internet et al.)
-    card.style.backgroundImage = "url('cards/" + c.art + "')";
+    card.style.backgroundImage = "url('" + faceOf(i) + "')";
     card.setAttribute('aria-label', c.title);
     document.getElementById('pvRr').textContent = c.rarity;
     document.getElementById('pvNm').textContent = c.title;
@@ -294,6 +294,32 @@
     card.classList.remove('pop'); void card.offsetWidth; card.classList.add('pop');
     reveal.querySelectorAll('.fcard').forEach((f, j) => f.classList.toggle('on', j === i));
   }
+
+  /* ── ⚑ THE POPUP SHOWS THE SAME PRINT THE FAN DOES, AND REUSES ITS BAKE ──────────────────
+   * The selected card paints a CSS background-image rather than an <img> (a JS-assigned .src can
+   * fail to repaint on some mobile WebViews — see the note above), so CardPress.tile, which
+   * swaps an image's src, cannot reach it. Baking a SECOND still for the same card would be the
+   * obvious fix and the wrong one: it is a second trip through the one shared press for a
+   * picture that already exists two elements away.
+   * ⛔ WITHOUT THIS THE PACK CONTRADICTED ITSELF ON ONE SCREEN — seven pressed cards fanned along
+   *   the bottom and the big flat scan of the selected one above them, which reads as the press
+   *   having failed on the card you are actually looking at. Found by looking at the frame; every
+   *   number said the fan was fine, and the fan WAS fine.
+   * ⚠ Falls back to the flat art whenever the bake has not landed (or never will), so the popup
+   *   is never empty and never waits. */
+  const faceOf = i => {
+    const f = reveal.querySelector('.fcard[data-i="' + i + '"] img');
+    if (f && f.getAttribute('data-pressed')) return f.src;    // the print, already baked
+    return 'cards/' + cards[i].art;
+  };
+  /* and when a bake lands on the card that is currently selected, repaint it — without this the
+   * first card you look at stays flat until you click away and back. */
+  const repaintIfCurrent = img => {
+    const b = img.closest('.fcard');
+    if (!b || +b.dataset.i !== cur) return;
+    const card = document.getElementById('pvCard');
+    if (card) card.style.backgroundImage = "url('" + img.src + "')";
+  };
 
   document.getElementById('packOpen') && document.getElementById('packOpen').addEventListener('click', open);
   document.getElementById('packClose') && document.getElementById('packClose').addEventListener('click', close);
