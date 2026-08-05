@@ -75,6 +75,19 @@
              margin:0 0 6px}
   .grp .v{float:right;color:var(--gold);font-family:ui-monospace,'Courier New',monospace}
   input[type=range]{width:100%;accent-color:var(--hot);height:26px}
+  /* ⚠ THIS PAGE HAD NEVER BEEN MOBILE-AUDITED — `npm run mobile` carries nine pages and this is
+     not one of them. First measurement at 390x844 once the forge went in: FOUR controls under the
+     44px floor the rest of the site is held to, and three of them are the dials themselves
+     (burn / registration / key light, all 26px). A slider you cannot catch with a thumb is a
+     slider that does not exist on a phone.
+     ⚠ Coarse pointers only: a 44px track inside a 300px desktop rail would add 54px of dead
+     height to a panel a mouse hits perfectly well at 26. */
+  @media (pointer: coarse) {
+    input[type=range]{height:44px}
+    /* an anchor is TEXT, so a min-height leaves the hit box the size of the letterform — the box
+       grows and the link stays 14px tall inside it. inline-flex makes the element its own box. */
+    .rail a{display:inline-flex;align-items:center;min-height:44px}
+  }
   .row{display:flex;gap:8px;flex-wrap:wrap}
   button{font:700 13px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;color:var(--stock);
          background:#16161d;border:1px solid rgba(255,255,255,.18);border-radius:6px;
@@ -96,6 +109,42 @@
   #shot .note{margin-top:6px}
   .bar{height:4px;border-radius:2px;background:#2a2a34;overflow:hidden;margin-top:8px}
   .bar i{display:block;height:100%;width:0;background:var(--hot);transition:width .12s linear}
+  /* ── THE FORGE ──────────────────────────────────────────────────────────────────────────
+     ⚠ THERE WAS NO `input[type=text]` RULE IN THIS FILE AT ALL — line 77 styles ranges only.
+       A raw text input therefore lands at the user-agent default: ~13px, ~21px tall, and dark
+       text on a white box against an --ink page. That is under BOTH mobile floors (12px for
+       labels, 16px for prose) and under the 44px tap target, so it would have shipped as the
+       one control on the page nobody could read or hit. */
+  .sec{font:900 12px/1 Arial,Helvetica,sans-serif;letter-spacing:.22em;color:var(--dim);
+       margin:22px 0 8px;padding-top:12px;border-top:1px solid rgba(255,255,255,.14)}
+  .sec:first-of-type{margin-top:6px}
+  .grp input[type=text], .grp select{
+       width:100%;min-height:44px;font:700 15px/1.2 Arial,Helvetica,sans-serif;
+       color:var(--stock);background:#101017;border:1px solid rgba(255,255,255,.18);
+       border-radius:6px;padding:0 10px;margin:0 0 8px;-webkit-appearance:none;appearance:none}
+  .grp input[type=text]:focus, .grp select:focus{outline:none;border-color:var(--cool)}
+  .grp select{background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),
+                               linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+       background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;
+       background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:30px}
+  .slot{font-size:var(--t-small);letter-spacing:.14em;color:var(--dim);margin:0 0 4px}
+  /* rarity chips — the frame family. 44px tall, and the live one reads by HUE not weight,
+     because a bolder-but-same-colour chip is invisible to anyone who does not know the set. */
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font:700 12px/1 Arial,Helvetica,sans-serif;letter-spacing:.10em;color:var(--dim);
+        background:#14141b;border:1px solid rgba(255,255,255,.16);border-radius:6px;
+        padding:0 11px;min-height:44px;cursor:pointer}
+  .chip[aria-pressed=true]{color:var(--ink);background:var(--gold);border-color:var(--gold)}
+  /* ⚑ THE RAIL WAS A WALL OF PROSE, NOT A WALL OF DIALS — six controls against ~24 lines of
+     copy. Adding a forge on top of that is what would have made it unusable, so the copy folds
+     away instead of being deleted: the sentence that says what a control DOES stays visible,
+     the paragraph explaining WHY is one tap away. */
+  details.why{margin:6px 0 0}
+  details.why summary{font-size:var(--t-small);letter-spacing:.10em;color:var(--cool);
+       cursor:pointer;min-height:26px;line-height:26px;list-style:none}
+  details.why summary::-webkit-details-marker{display:none}
+  details.why summary::before{content:'▸ ';}
+  details.why[open] summary::before{content:'▾ ';}
   body.bare .wrap{grid-template-columns:1fr;padding:0}
   body.bare .rail{display:none}
   body.bare #stage{min-height:100vh}
@@ -121,6 +170,46 @@
       dots as beads, a spot varnish on the window against bare trim, and a die edge that is
       <em>metal</em> — no diffuse at all, and the grating is its reflectance rather than a tint
       laid over the top. Three sources are drawn from all 211 cards in the deck.</p>
+
+    <h2 class="sec">THE FORGE · WHAT IS ON THE PLATES</h2>
+
+    <div class="grp">
+      <label>THE THREE SOURCES <span class="v" id="vPig">seeded</span></label>
+      <div class="slot">GROUND — zoomed to a field</div>
+      <select id="slotG" aria-label="ground plate"></select>
+      <div class="slot">MID — mirrored, another scale</div>
+      <select id="slotM" aria-label="mid plate"></select>
+      <div class="slot">FIGURE — near card size</div>
+      <select id="slotF" aria-label="figure plate"></select>
+      <div class="row"><button type="button" id="shuffle">SHUFFLE</button>
+                       <button type="button" id="reseed">NEW SEED</button></div>
+      <details class="why"><summary>why three, and why those roles</summary>
+        <div class="note">Every card here is a composition made out of the deck, printed four
+        times with the plates slightly wrong. The three sources are the picture; the seed decides
+        the masks, the registration and the stock. <strong>Choosing a plate is a physical act</strong>
+        — the press takes it and the sheet prints again, so the card draws itself back on.</div>
+      </details>
+    </div>
+
+    <div class="grp">
+      <label>WHAT IT SAYS</label>
+      <input type="text" id="tName" maxlength="22" placeholder="PLATE PROOF" aria-label="card name">
+      <input type="text" id="tSub" maxlength="28" placeholder="a second line (optional)" aria-label="second line">
+      <div class="note" id="tNote">set from committed outlines — <strong>no font ships and none is
+        named</strong>. 68 glyphs: A–Z, 0–9 and punctuation; anything else is quietly dropped.</div>
+    </div>
+
+    <div class="grp">
+      <label>FRAME <span class="v" id="vRar">legendary</span></label>
+      <div class="chips" id="rarChips"></div>
+      <details class="why"><summary>why the border changes</summary>
+        <div class="note">A printer sets a rule from repeated pieces of TYPE — border sorts, out of
+        the same fount as the name. <strong>Rarity picks the family, the seed picks the frame</strong>,
+        so no two cards share a border and you can read the tier off the edge.</div>
+      </details>
+    </div>
+
+    <h2 class="sec">THE PRESS · HOW BADLY IT PRINTED</h2>
 
     <div class="grp">
       <label>BURN <span class="v" id="vBurn">0.00</span></label>
@@ -160,10 +249,9 @@
     </div>
 
     <div class="grp">
-      <label>THE PRESS</label>
+      <label>THE IMPRESSION</label>
       <div class="row">
         <button type="button" id="pull">PULL ANOTHER</button>
-        <button type="button" id="reseed">NEW SEED</button>
       </div>
       <div class="note">a pull is one impression. <strong>nothing here runs on a clock</strong> —
         left alone the card is a card on a table.</div>
@@ -194,7 +282,8 @@
 
   var cv = document.getElementById('cv'), box = document.getElementById('card');
   var seed = parseInt(Q.get('seed'), 10); if (!isFinite(seed) || seed <= 0) seed = 3030;
-  var ctrl = null;
+  var ctrl = null, POOL = [], RARITY = 'legendary';
+  var RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
   function size() {
     var r = box.getBoundingClientRect();
@@ -217,12 +306,19 @@
     var one = function (url, base) {
       return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (raw) {
         var rows = !raw ? [] : (Array.isArray(raw) ? raw : (raw.cards || []));
-        return rows.map(function (c) { return c.art; }).filter(Boolean);
+        /* ⚑ KEEP THE TITLE. It was thrown away one line after being parsed, which was fine while
+         * the pool was only ever fed to `pickPigment` — a forge needs a name a human can choose
+         * BY. Both manifests carry a real one. */
+        return rows.map(function (c) {
+          if (!c || !c.art) return null;
+          return { art: c.art, title: String(c.title || c.slug || c.art).slice(0, 42),
+                   key: String(c.art).replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, '') };
+        }).filter(Boolean);
       }).catch(function () { return []; });
     };
     return Promise.all([one('manifest.json'), one('hero-manifest.json')]).then(function (r) {
       var all = r[0].concat(r[1]);
-      return all.length ? all : ['art/hero/42.webp'];
+      return all.length ? all : [{ art: 'art/hero/42.webp', title: 'CARD 42', key: '42' }];
     });
   }
 
@@ -250,9 +346,25 @@
     Promise.all([pigment(), typeSpec()]).then(function (r) {
       /* The 33 are 1/1s, so the proof wears a high-tier frame — and `?rarity=` overrides it, so
        * the whole ladder can be looked at on one card without hunting through the field. */
+      POOL = r[0];
       var rar = Q.get('rarity') || 'legendary';
-      return HeroCard.build({ canvas: cv, seed: seed, pigment: r[0], type: r[1],
-        name: 'PLATE PROOF', rarity: rar });
+      RARITY = rar;
+      /* ⚑ THE FORGE IS IN THE URL, WHICH IS WHAT MAKES IT SHAREABLE WITH NO BACKEND. A forged
+       * card is `?g=&m=&f=&name=&sub=&rarity=&seed=` and nothing else — paste the link and the
+       * same card prints. The slots are stored by FILENAME STEM rather than by index into the
+       * pool: an index is a promise about the ORDER of two manifests this file does not own, and
+       * the deck clean-slate would silently repoint every shared link at different pictures.
+       * ⚠ A stem that no longer exists falls back to the seeded pick rather than failing. */
+      var chosen = ['g', 'm', 'f'].map(function (k) {
+        var want = Q.get(k); if (!want) return null;
+        var hit = POOL.filter(function (c) { return c.key === want; })[0];
+        return hit ? hit.art : null;
+      });
+      var exact = chosen.every(Boolean) ? chosen : null;
+      return HeroCard.build({ canvas: cv, seed: seed, type: r[1], rarity: rar,
+        pigment: POOL.map(function (c) { return c.art; }),
+        pigmentExact: exact,
+        name: Q.get('name') || 'PLATE PROOF', sub: Q.get('sub') || '' });
     }).then(function (c) {
       if (!c) return;                                    // fails open — the panel stays up
       ctrl = c;
@@ -262,6 +374,7 @@
       c.setState({ burn: parseFloat(Q.get('burn')) || 0 });
       c.loop(true);
       goLive();
+      fillSlots(); fillRarity();
       readout();
       setInterval(readout, 400);
     });
@@ -321,6 +434,123 @@
   });
 
   // ── the dials ───────────────────────────────────────────────────────────────────────────
+  /* ══ THE FORGE ═════════════════════════════════════════════════════════════════════════
+   * ⛔ BUILT WITH createElement + textContent, NEVER innerHTML. The 211 option labels come out
+   *   of two manifests as authored strings — one of them is literally "Hulk Hoggin'" — so an
+   *   innerHTML picker is an injection surface fed by content this file does not own, and the
+   *   apostrophe alone would break a naive template. */
+  function fillSlots() {
+    ['slotG', 'slotM', 'slotF'].forEach(function (id, role) {
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      POOL.forEach(function (c, i) {
+        var o = document.createElement('option');
+        o.value = c.key;
+        o.textContent = c.title;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', applyPlates);
+    });
+    syncSlots();
+  }
+  /* Show what is actually ON the card, which after a seeded pick is not what the selects say. */
+  function syncSlots() {
+    if (!ctrl) return;
+    var on = ctrl.probe().pigment || [];
+    ['slotG', 'slotM', 'slotF'].forEach(function (id, i) {
+      var sel = document.getElementById(id); if (!sel || !on[i]) return;
+      var key = String(on[i]).replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, '');
+      sel.value = key;
+    });
+    var v = document.getElementById('vPig');
+    if (v) v.textContent = Q.has('g') ? 'forged' : 'seeded';
+  }
+  function plateUrls() {
+    return ['slotG', 'slotM', 'slotF'].map(function (id) {
+      var sel = document.getElementById(id); if (!sel) return null;
+      var hit = POOL.filter(function (c) { return c.key === sel.value; })[0];
+      return hit ? hit.art : null;
+    });
+  }
+  /* ⚑ NO PAGE RELOAD. `ctrl.setPigment` swaps the three textures on the live card and re-runs
+   * the write-on, so the press takes the new plate and the sheet prints again in front of you.
+   * Rebuilding instead would leak the entire first card — `getContext('webgl2')` hands back the
+   * SAME context and `build()` never releases anything. */
+  function applyPlates() {
+    var urls = plateUrls();
+    if (!ctrl || !urls.every(Boolean)) return;
+    ctrl.setPigment(urls).then(function (ok) {
+      if (!ok) return;
+      var v = document.getElementById('vPig'); if (v) v.textContent = 'forged';
+      readout(); stamp();
+    });
+  }
+  document.getElementById('shuffle').addEventListener('click', function () {
+    if (!POOL.length) return;
+    ['slotG', 'slotM', 'slotF'].forEach(function (id) {
+      var sel = document.getElementById(id); if (!sel) return;
+      sel.value = POOL[Math.floor(Math.random() * POOL.length)].key;
+    });
+    applyPlates();
+  });
+
+  // ── the words ──────────────────────────────────────────────────────────────────────────
+  /* ⚠ DEBOUNCED, because `setText` is not cheap: it deletes a texture, re-bakes a 512x768
+   * canvas (creases, trim targets, colour bar, border sorts, both impressed lines) and
+   * re-uploads. Per keystroke that is a visibly janky field. */
+  var tName = document.getElementById('tName'), tSub = document.getElementById('tSub'), tT = 0;
+  function words() {
+    clearTimeout(tT);
+    tT = setTimeout(function () {
+      if (!ctrl) return;
+      ctrl.setText({ name: tName.value || 'PLATE PROOF', sub: tSub.value || '' });
+      readout(); stamp();
+    }, 180);
+  }
+  if (tName) { tName.value = Q.get('name') || ''; tName.addEventListener('input', words); }
+  if (tSub) { tSub.value = Q.get('sub') || ''; tSub.addEventListener('input', words); }
+
+  // ── the frame family ───────────────────────────────────────────────────────────────────
+  /* ⛔ RARITY IS A BUILD ARGUMENT, not ctrl state — it selects the SORTS family the border is set
+   * from and the foil weight, both baked at build. So this one control genuinely does reload, and
+   * it is the only one that does. Saying so on the page beats a chip that silently does nothing. */
+  function fillRarity() {
+    var box = document.getElementById('rarChips'); if (!box) return;
+    RARITIES.forEach(function (r) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = r.toUpperCase();
+      b.setAttribute('aria-pressed', String(r === RARITY));
+      b.addEventListener('click', function () { go({ rarity: r }); });
+      box.appendChild(b);
+    });
+    var v = document.getElementById('vRar'); if (v) v.textContent = RARITY;
+  }
+
+  /* ⚑ THE FORGE LIVES IN THE URL — that is what makes a forged card shareable with no backend.
+   * Slots are stored by filename STEM, not by index into the pool: an index is a promise about
+   * the ORDER of two manifests this file does not own, and the deck clean-slate would silently
+   * repoint every shared link at different pictures. */
+  function forgeQuery(extra) {
+    var q = new URLSearchParams();
+    q.set('seed', String(seed));
+    var slots = ['g', 'm', 'f'];
+    ['slotG', 'slotM', 'slotF'].forEach(function (id, i) {
+      var sel = document.getElementById(id);
+      if (sel && sel.value) q.set(slots[i], sel.value);
+    });
+    if (tName && tName.value) q.set('name', tName.value);
+    if (tSub && tSub.value) q.set('sub', tSub.value);
+    q.set('rarity', RARITY);
+    Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
+    return q;
+  }
+  function go(extra) { location.search = forgeQuery(extra).toString(); }
+  /* Keep the address bar honest as you forge, WITHOUT reloading — so copying the URL at any
+   * moment gives back exactly the card on screen. */
+  function stamp() {
+    try { history.replaceState(null, '', location.pathname + '?' + forgeQuery().toString()); } catch (e) {}
+  }
+
   var burn = document.getElementById('burn'), reg = document.getElementById('reg');
   burn.addEventListener('input', function () {
     document.getElementById('vBurn').textContent = (+burn.value).toFixed(2);
@@ -344,7 +574,14 @@
     location.search = q.toString();
   });
 
-  function exportName() { return 'ripmaster3030studios-plate-proof-' + seed; }
+  /* ⚠ THE FILE MUST CARRY THE CARD'S OWN NAME. A collector who forges a card, names it, and
+   * saves it was getting `…-plate-proof-3030.png` — the one thing missing from the file was the
+   * words printed on the thing inside it. */
+  function exportName() {
+    var t = (ctrl && ctrl.text && ctrl.text().name) || 'plate proof';
+    var slug = String(t).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'card';
+    return 'ripmaster3030studios-' + slug + '-' + seed;
+  }
 
   /* ── EXPORT ─────────────────────────────────────────────────────────────────────────────
    * ⛔ Right-click-save-as does not work on a canvas — the browser offers "Save image as…" for an
