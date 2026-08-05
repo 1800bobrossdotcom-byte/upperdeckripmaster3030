@@ -274,6 +274,19 @@
 
   <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
+  <!-- ⛔ THE FIRE BUTTON WAS DESIGNED, STYLED, AND NEVER PUT ON THE PAGE.
+       Artist, 2026-08-05: *"for mobile for dog fight, there is no way to shoot."* He was right,
+       and the touch fire worked the whole time: holding the RIGHT HALF of the canvas fires, and
+       a hit-test at 844x390 and 740x360 confirms all twelve sample points reach the canvas. But
+       `.pad`, `.pad.fire`, `.pad.boost` and `.pad.zoom` are fully written in this file's own CSS
+       — a 92px red button with `display:flex` under `@media (hover:none)` — and `grep -c
+       'class="pad'` returned **0**. The rule had nothing to style.
+       ⚑ SO THE CONTROL EXISTED AND THE AFFORDANCE DID NOT, which is indistinguishable from a
+         broken game: you look for a button, there is none, you conclude you cannot shoot. The
+         half-screen hold stays as the fast path — this teaches it. -->
+  <button class="pad fire" id="padFire" type="button" aria-label="fire">FIRE</button>
+  <button class="pad boost" id="padBoost" type="button" aria-label="boost">BOOST</button>
+  <button class="pad zoom" id="padZoom" type="button" aria-label="zoom">ZOOM</button>
   <div class="controls" id="controls">
     <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd> roll</span>
     <span class="key desk"><kbd>▲</kbd><kbd>▼</kbd> pitch</span>
@@ -827,6 +840,10 @@
   // touch combat lives on the right half of the tube (the left half owns the fly stick):
   //   hold anywhere right = fire · a second finger on the right = zoom (precision)
   const rightPtrs=new Set(); let touchFire=false, touchZoom=false;
+  /* ⚠ Declared HERE, above every reader. `let` hoists into the temporal dead zone and a
+   *   read above the declaration takes the whole game down silently — four sightings in
+   *   this repo, and the input latches are exactly where it keeps happening. */
+  let padBoostHeld=false, padZoomOn=false;
   // floating touch flight stick — relative control: it spawns under your thumb, drag = yaw/climb
   const stick={ id:null, cx:0, cy:0, x:0, y:0, lastX:1 };
   const sB=$('stickBase'), sN=$('stickNub');
@@ -862,6 +879,31 @@
   addEventListener('pointerup',ptrEnd); addEventListener('pointercancel',ptrEnd);
   cv.addEventListener('contextmenu',e=>e.preventDefault());
 
+  /* ── the touch pads. Latches, not taps — a trigger is something you HOLD ──────────────────
+   * ⚠ They feed the SAME `touchFire`/`touchZoom`/`boostHeld` the half-screen scheme feeds, so
+   *   `step()` never learns there are two ways in. The recorded arena-chips lesson: a device
+   *   branch deep in a step function is how a control scheme quietly stops applying.
+   * ⚠ `padFire` must not also count as a right-half press, or letting go of the button while a
+   *   finger rests on the right half leaves the trigger stuck down. It stops propagation. */
+  (function padWire(){
+    const bind=(id,on,off)=>{ const el=$(id); if(!el) return;
+      const dn=e=>{ e.preventDefault(); e.stopPropagation(); el.classList.add('on'); on();
+        try{ el.setPointerCapture(e.pointerId); }catch{} };
+      const up=e=>{ e.preventDefault(); e.stopPropagation(); el.classList.remove('on'); off(); };
+      el.addEventListener('pointerdown',dn);
+      el.addEventListener('pointerup',up);
+      el.addEventListener('pointercancel',up);
+      el.addEventListener('pointerleave',up);
+      el.addEventListener('contextmenu',e=>e.preventDefault()); };
+    bind('padFire', ()=>{ touchFire=true; }, ()=>{ touchFire=rightPtrs.size>0; });
+    bind('padBoost',()=>{ padBoostHeld=true; }, ()=>{ padBoostHeld=false; });
+    /* zoom is a MODE, not a hold — a thumb cannot hold zoom and fly at the same time, which is
+     * exactly why the two-finger gesture exists on the canvas and is wrong as a button. */
+    const z=$('padZoom');
+    if(z) z.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation();
+      padZoomOn=!padZoomOn; z.classList.toggle('on',padZoomOn); });
+  })();
+
   function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
   function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
   function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
@@ -882,7 +924,11 @@
     const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1)*(surge?1.6:1);        // zoomed precision + staked-card damage + surge
     for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
       G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser||surge, me:s.isMe, home, surge }); }
-    if(s.isMe){ s.muzzle=G.t; (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
+    /* ⚠ EVERY ship stamps it, not only yours — a flash is how you spot who is shooting at you,
+     *   and it was inside the `isMe` branch beside the recoil and the shake, which are genuinely
+     *   yours alone. (It was also read by nothing at all until js/dogfight-gl.js drew it.) */
+    s.muzzle=G.t;
+    if(s.isMe){ (s.zoom?sfxRecoil():sfxFire()); G.shake=Math.max(G.shake, s.zoom?5:1.4);
       if(G.netMatch&&window.RipFight) RipFight.send({k:'f',x:s.x,y:s.y,alt:s.alt,h:base,sp}); } else sfxEfire(); }
   // semi-automatic bursts: a held trigger fires a short rat-tat-tat, then a cooldown before the next burst
   function tryFire(s,want){ const now=performance.now(); const rap=(s.rapid>0||s.overdrive||s.surgeT>0), rt=s.cardRate||1;   // cards lift rate of fire
@@ -1195,14 +1241,14 @@
      * The two ends of one throttle on one control is the only version of this that survives a
      * thumb in a dogfight. */
     const mag=Math.hypot(stick.x,stick.y), slam=stick.id!==null&&mag>0.88;
-    const wantB=!!(keys.Shift||keys.shift||(slam&&stick.y<-0.55));
+    const wantB=!!(keys.Shift||keys.shift||padBoostHeld||(slam&&stick.y<-0.55));
     if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
     /* ⚑ AIRBRAKE — the missing half of the throttle, and the reason this is a dogfight rather than
      *   a race. It is what lets a defender make an attacker overshoot, and it TIGHTENS your turn
      *   (radius = spd/ω) while it lasts. One momentary key, no state to forget it is in. */
     s.brake=!!(keys.q||keys.Q||(slam&&stick.y>0.55));
     s.ctl={ roll:yaw, pitch, boost:s.boost, brake:s.brake };
-    s.zoom=!!(keys.Control||keys.control||rmZoom||touchZoom);  // hold Ctrl / right-click / 2-finger right = precision zoom
+    s.zoom=!!(keys.Control||keys.control||rmZoom||touchZoom||padZoomOn);  // hold Ctrl / right-click / 2-finger right = precision zoom
     s.wantFire=!!(fireHeld||ptrFire||touchFire);
   }
   // a net peer's craft: chase their broadcast state (wrap-aware lerp), stats come from the owner

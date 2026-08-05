@@ -90,7 +90,27 @@ window.CityDrops = (function () {
      * that leaves forward would out-run the bird and land ahead of it, which is neither funny nor
      * useful. Inherits the bird's horizontal velocity, or it appears to fall out of a stationary
      * sky while the bird flies on. */
+    /* ── ⛔ THE POUCH. THE BIRD CANNOT MINT A CARD FROM NOTHING ───────────────────────────────
+     * Artist, 2026-08-05: *"there is a bug for squirrel and bird. both cannot drop power ups.
+     * unlimited power ups."*
+     *
+     * ⛔ MEASURED: 100 presses produced 106 cards. `drop()` conjured one on every press with no
+     *   bound of any kind, so a minute of holding the key carpets a 3.84 km city and the pick-up
+     *   loop — the squirrel's whole reason to exist — becomes pointless. **Scarcity is not a
+     *   balance knob here, it is the mechanic**: a steal needs something worth stealing.
+     * ⛔ AND THE TWO HALVES OF THE REPORT HAVE ONE ROOT. The squirrel returns null unless it is
+     *   carrying, the bird always succeeded but tosses the card BACKWARD and DOWN — behind the
+     *   chase camera, off-screen. So one animal did nothing and the other did something you could
+     *   not see, and **both read as "the drop is broken"**. Nothing anywhere reported either.
+     * ⚑ SO CARDS COME FROM THE WORLD AND GO BACK TO IT. The bird carries a small pouch, fills it
+     *   by flying low over loose cards — the same reach the squirrel takes with, so one rule
+     *   covers both — and `drop()` refuses when it is empty. That closes the loop the game
+     *   already had: the squirrel steals, the bird plants, and neither creates supply. */
+    const POUCH_MAX = 5;
+    let pouch = 3;
     function drop(x, y, z, vx, vz, kindId) {
+      if (pouch <= 0) return null;              // ⚠ refuses, and the caller says so out loud
+      pouch--;
       const kind = kindId ? (KINDS.find(k => k.id === kindId) || KINDS[0])
                           : KINDS[(Math.abs((x * 31 + z * 17) | 0)) % KINDS.length];
       const d = { x, y: y - 0.12, z, vx: vx * 0.55, vy: -0.6, vz: vz * 0.55,
@@ -209,6 +229,24 @@ window.CityDrops = (function () {
         carried.held = null; carried.landed = false; carried.vy = 0;
         carried.vx = carried.vz = 0; carried = null; log.lost++;
       }
+      /* ⚑ THE BIRD REFILLS BY FLYING LOW OVER A LOOSE CARD — the pouch's only source, which is
+       *   what keeps supply closed. ⚠ The vertical reach is generous (2.4 m against the
+       *   squirrel's 1.6) because a bird arrives with speed and cannot hover onto a spot; asking
+       *   for the squirrel's precision from something that glides is asking for a control the
+       *   bird does not have. Its whole trade is "sees everything, places nothing exactly". */
+      if (player.mode === 'bird' && pouch < POUCH_MAX) {
+        for (const d of drops) {
+          if (d.held || !d.landed) continue;
+          if (Math.hypot(d.x - player.x, d.z - player.z) < TAKE_R * 1.6 &&
+              Math.abs(d.y - player.y) < 2.4) {
+            const i = drops.indexOf(d);
+            if (i >= 0) { if (d.ent && d.ent.destroy) { try { d.ent.destroy(); } catch (e) {} }
+                          drops.splice(i, 1); }
+            pouch++; log.taken++;
+            break;                              // one per frame, so a low pass is a pass, not a hoover
+          }
+        }
+      }
     }
 
     function dropCarried(player) {
@@ -234,10 +272,12 @@ window.CityDrops = (function () {
     return {
       drop, dropCarried, step, seed, addRival, KINDS,
       get carried() { return carried; },
+      get pouch() { return pouch; },
+      get pouchMax() { return POUCH_MAX; },
       get counts() {
         let loose = 0, held = 0, flying = 0;
         for (const d of drops) { if (!d.landed) flying++; else if (d.held) held++; else loose++; }
-        return { total: drops.length, loose, held, flying,
+        return { total: drops.length, loose, held, flying, pouch, pouchMax: POUCH_MAX,
                  rivals: rivals.length, rivalsHolding: rivals.filter(r => r.holding).length,
                  carried: carried ? carried.kind.name : null, ...log };
       },
