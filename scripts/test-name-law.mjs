@@ -305,6 +305,31 @@ console.log('\n── deploy-time permanents (scripts/ and contracts/ are skippe
    *   Pinned so it can never be "tidied" to match something else. */
   ok(solCode.includes('EIP712("ripmaster3030studios", "1")'),
      'the EIP-712 domain is ripmaster3030studios — DO NOT CHANGE after a voucher is signed');
+
+  /* ⛔ AND THE RUNBOOK, WHICH IS THE ROUTE THE ARTIST IS ACTUALLY SENT DOWN.
+   *   The three pins above cover scripts/lens-cli.mjs — Route B. docs/DEPLOY-LENS.md recommends
+   *   Route A (Remix), where the artist TYPES these six constructor values by hand, and its table
+   *   carried `upperdeckripmaster3030 lens` plus the retired domain twice until 2026-08-05.
+   *   `name_` HAS NO SETTER: a wrong one is a redeploy, not a correction. So the tested route was
+   *   the one nobody uses and the recommended route was unchecked — the LAUNCH-CHECKLIST failure
+   *   again, one document over. A runbook is a deploy surface. */
+  const runbook = readFileSync(join(ROOT, 'docs/DEPLOY-LENS.md'), 'utf8');
+  const ctor = runbook.slice(runbook.indexOf('| # | field | value |'), runbook.indexOf('⛔ **THIS TABLE'));
+  ok(ctor.length > 0 && !ctor.includes(DEAD),
+     'DEPLOY-LENS.md constructor table carries no retired name or domain');
+  ok(ctor.includes('`ripmaster3030studios lens`'),
+     'the runbook names the lens ripmaster3030studios lens — frozen at deploy, NO SETTER');
+  ok(ctor.includes('`3030L`'), 'the runbook carries the lens symbol 3030L');
+  ok(ctor.includes('`https://ripmaster3030studios.com`')
+     && ctor.includes('`https://ripmaster3030studios.com/cards/hero/`'),
+     'the runbook carries the live externalUrl and lensBaseUrl');
+  /* ⚠ Route A and Route B must not drift apart — they deploy the SAME contract, so a value that
+   *   differs between them means one of the two is wrong and only one of them is tested. */
+  for (const s of ['ripmaster3030studios lens', '3030L',
+                   'https://ripmaster3030studios.com', 'https://ripmaster3030studios.com/cards/hero/']) {
+    ok(cliCode.includes(`'${s}'`) && ctor.includes(`\`${s}\``),
+       `Route A and Route B agree on "${s}"`);
+  }
 }
 
 /* ── THE GENERATORS THAT WRITE THE SHIPPED TREE ───────────────────────────────────────────────
