@@ -358,7 +358,7 @@ Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.
                 * lens3d with proof.html and make that how every card is displayed. Both are
                 * optional in exactly the way everything else on this line is: missing, blocked
                 * or WebGL2-less and the card falls back to the flat plate it has always shown. */
-               '../js/hero-card.js', '../js/card-back.js', '../js/card-press.js']
+               '../js/hero-card.js', '../js/card-back.js', '../js/card-press.js', '../js/card-view.js']
               .map(loadScript))
   .then(() => { startState(); return loadLayers(); })
   .catch(() => {});
@@ -414,12 +414,18 @@ function build3D() {
     addEventListener('pointerdown', () => { held = true; }, { passive: true });
     addEventListener('pointerup',   () => { held = false; }, { passive: true });
     addEventListener('pointercancel', () => { held = false; }, { passive: true });
-    CardPress.frame({
-      cardCtrl, base: '', card: pressCard(),
-      tilt: () => tilt, down: () => held,
-    }).then(p => {
-      if (!p) return;                                   // fails open — the flat plate stands
+    /* ⛔ THE PRESS IS THE VIEWER NOW, NOT A TEXTURE ON ANOTHER CARD. Artist: "the same
+     *   cardviewer used in the proof.html with the environments, in every viewer." Framing the
+     *   press on card3d's slab took its material — the room the foil reflects, the raking key,
+     *   the varnish flash — and flattened it to a picture, then re-lit that picture with a second
+     *   renderer's lights. `js/card-view.js` is proof.html's viewer lifted whole, so this page
+     *   and the forge are now the same object rather than two things that agree by coincidence.
+     * ⚠ The card3d controller is destroyed on success — leaving it would be two WebGL contexts
+     *   drawing the same card, and the one underneath would never be seen. */
+    CardView.mount({ box: $('card'), base: '', card: pressCard() }).then(p => {
+      if (!p) return;                                   // fails open — card3d's plate stands
       window.__press = p;
+      try { cardCtrl.destroy(); } catch (e) {}
       /* ⛔ THE PRESS IS THE LAYERING NOW, AND FORGETTING THIS COST A ROUND. `setLayers` switches
        *   the `art` and `back` plates OFF and mounts an authored stack in front of them — so the
        *   press printed a perfect face onto a plane that was no longer being drawn. Nothing
@@ -431,7 +437,6 @@ function build3D() {
        *   registrations. Running the authored stack on top would be two layer systems competing
        *   for the same 26 thousandths of card thickness. */
       pressed = true;
-      ctrl.setLayers(null);
       mode();
     });
   }
