@@ -24,6 +24,47 @@
   const packBurn = () => Math.max(1, ((window.RIPMASTER_CHAIN || {}).packBurn) || 350);
   let lastTx = null, practice = false, lastSplit = false;   // lastSplit: went through PackSink
 
+  /* ── ⛔ THE REVEAL IS THE ONE CARD THAT HAS TO BE AN OBJECT ────────────────────────────────
+   * Artist, 2026-08-05: *"we need the same cardviewer used in the proof.html with the
+   * environments, in as every viewer. each card should have a back too."*
+   *
+   * ⚑ AND THIS IS THE VIEWER THAT MATTERS MOST, because of what the pack IS. The artist's own
+   *   frame for this project is anticipation — *the rip, the pull, the reveal* — and the reveal
+   *   was the last place showing a flat still OF a print. Seven pressed cards fanned along the
+   *   bottom and a photograph of one above them. The selected card is the press itself now, in
+   *   its room and under its raking key: press the stock, turn it, flip it onto the designed back.
+   *   The fan stays baked, deliberately — a card you are not holding is a card on the table.
+   * ⚠ THE FLAT BACKGROUND STAYS UNDERNEATH AND IS NEVER CLEARED. `CardView` resolves `null`
+   *   unless the press proves it printed, so on any failure the poster is simply still there.
+   *   Clearing it on success would trade a guaranteed picture for a hoped-for one. */
+  let viewer = null;
+  const cardRec = (list, i) => {
+    const c = (list || [])[i];
+    if (!c) return null;
+    return { art: 'cards/' + c.art, title: (c.title || '').toUpperCase(),
+             rarity: c.rarity || 'common' };
+  };
+  /* ⛔ AND IT MUST BE TORN DOWN BEFORE THE REVEAL IS REBUILT. `showCards()` replaces the whole
+   *   panel with `innerHTML`, which throws the canvas away without releasing its GL context —
+   *   so ripping a second pack would build a second press and orphan the first. Browsers cap
+   *   live contexts and drop the oldest silently, which surfaces as a card blanking somewhere
+   *   else entirely, several pulls later. */
+  const dropViewer = () => {
+    if (!viewer) return;
+    try { viewer.destroy(); } catch {}
+    viewer = null;
+  };
+  const mountViewer = (list) => {
+    const box = document.getElementById('pvCard');
+    if (!box || !window.CardView || viewer) return;
+    CardView.mount({ box, base: 'cards/', card: cardRec(list, cur) }).then(v => {
+      if (!v) return;                        // the press never printed — the poster stands
+      viewer = v;
+      box.classList.add('live');
+      v.show(cardRec(cards, cur));
+    }).catch(() => {});
+  };
+
   const pstyle = document.createElement('style');
   pstyle.textContent =
     '.pack-note{ text-align:center; font-size:13px; line-height:1.6; color:#cfe9ee; max-width:440px; margin:24px auto 6px; padding:0 12px; }' +
@@ -107,6 +148,7 @@
     reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
       have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
   function close() {
+    dropViewer();                      // a press rendering behind a closed modal is a battery bill
     if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
     modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {}
   }
@@ -131,6 +173,7 @@
   let cards = [], cur = 0;
 
   function showCards() {
+    dropViewer();                      // the panel below is about to be replaced wholesale
     stage.classList.add('hidden'); stage.classList.remove('spin');
     if (title) title.textContent = 'your pull';
     cards = pull(PACK); cur = 0;
@@ -160,7 +203,7 @@
         document.head.appendChild(s);
       });
       inject('js/hero-card.js').then(() => inject('js/card-back.js'))
-        .then(() => inject('js/card-press.js')).then(() => {
+        .then(() => inject('js/card-press.js')).then(() => inject('js/card-view.js')).then(() => {
         if (!window.CardPress) return;
         CardPress.grid('.fcard img', img => {
           const b = img.closest('.fcard');
@@ -168,6 +211,7 @@
           return { art: img.getAttribute('src'), title: (c.title || '').toUpperCase(),
                    rarity: c.rarity || 'common' };
         }, { base: 'cards/', onDone: repaintIfCurrent });
+        mountViewer(list);
       }).catch(() => {});
     };
 
@@ -187,6 +231,11 @@
         '<a class="pv-card" id="pvCard" href="#" aria-label="selected card">' +
           '<span class="pv-rr" id="pvRr"></span>' +
           '<span class="pv-open">open card ↗</span>' +
+          /* ⚠ Shown only once a live press has mounted (`.pv-card.live`). Offering to turn over
+           *   a background-image would be a button that does nothing, which is worse than no
+           *   button — and the poster path is the one that runs when WebGL2 is missing. */
+          '<button type="button" class="pv-flip" id="pvFlip" aria-label="turn the card over">' +
+          '⇄ back</button>' +
         '</a>' +
         '<button type="button" class="pv-nav" id="pvNext" aria-label="next card">▶</button>' +
       '</div>' +
@@ -211,9 +260,31 @@
     pressFan(cards);
     document.getElementById('pvPrev').onclick = () => view((cur + n - 1) % n);
     document.getElementById('pvNext').onclick = () => view((cur + 1) % n);
-    document.getElementById('pvCard').addEventListener('click', e => {
+    /* ⚠ A DRAG IS NOT A CLICK, and once the card is a live press this stops being pedantic:
+     *   pressing the stock and turning the card both end in a `click` on the anchor, so without
+     *   this every handling gesture threw the visitor into the zoom. Same distinction the phone
+     *   flight controls had to make — a tap is a pointerup that did not drag. */
+    const pv = document.getElementById('pvCard');
+    let dragged = false, downAt = null;
+    pv.addEventListener('pointerdown', e => { dragged = false; downAt = [e.clientX, e.clientY]; });
+    pv.addEventListener('pointermove', e => {
+      if (!downAt) return;
+      if (Math.abs(e.clientX - downAt[0]) + Math.abs(e.clientY - downAt[1]) > 8) dragged = true;
+    }, { passive: true });
+    pv.addEventListener('click', e => {
       if (e.metaKey || e.ctrlKey || e.button !== 0) return; // let open-in-new-tab through
-      e.preventDefault(); openZoom();
+      e.preventDefault();
+      downAt = null;
+      if (dragged) { dragged = false; return; }
+      openZoom();
+    });
+    const flip = document.getElementById('pvFlip');
+    flip.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();          // never the zoom
+      if (!viewer) return;
+      let up = true;
+      try { up = viewer.flip(); } catch {}
+      flip.textContent = up ? '⇄ back' : '⇄ front';
     });
     view(0);
     setTimeout(() => { actions.hidden = false; busy = false; }, n * 130 + 700);
@@ -288,6 +359,8 @@
     // paint the art as a CSS background (reliable on every mobile browser/WebView;
     // a JS-assigned <img>.src can fail to repaint on Samsung Internet et al.)
     card.style.backgroundImage = "url('" + faceOf(i) + "')";
+    /* the live press, when there is one — the poster underneath stays as the fallback */
+    if (viewer) { try { viewer.show(cardRec(cards, i)); } catch {} }
     card.setAttribute('aria-label', c.title);
     document.getElementById('pvRr').textContent = c.rarity;
     document.getElementById('pvNm').textContent = c.title;

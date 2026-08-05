@@ -1124,6 +1124,74 @@ nothing 404s, and the probe reports a live press with the right three plates on 
 - ⚠ **STILL OPEN: why the press draws nothing on the artist's machine.** The guard makes it
   harmless, not explained. `cards/proof.html` is the press ALONE and is the one-look discriminator.
 
+## ✅ ONE CARD VIEWER EVERYWHERE — `js/card-view.js`, and the reveal is a card now
+*Artist, 2026-08-05: "we need the same cardviewer used in the proof.html with the enviroments - in
+as every viewer. each card should have a back too."* `CardView.mount({box, card, base})` is
+proof.html's viewer lifted whole; `cards/lens3d.html`, `cards/binder.html`'s starfield and the
+**pack reveal** all call it. `npm run test:press` 10 → 16.
+- ⚑ **THE REVEAL WAS THE LAST FLAT CARD ON THE SITE, AND IT IS THE ONE THAT MATTERS MOST.** The
+  artist's frame for this whole project is anticipation — *the rip, the pull, the reveal* — and
+  `#pvCard` was a CSS `background-image` of a bake: seven pressed cards fanned along the bottom and
+  a photograph of one above them. It is the press itself now, in its room, and **`⇄ BACK` turns it
+  over onto the real designed back** (`js/card-back.js` rasterises the card's own page).
+- ⛔ **`flip()` HAD NEVER WORKED IN A LIVE VIEWER, AND THE BUTTON REPORTED SUCCESS.** It did
+  `S.yawT += PI` and set a separate `faceUp` flag — but `advance()` rewrites `S.yawT` from the
+  pointer **every frame**, so the half-turn survived exactly one tick. The card twitched, sprang
+  back to its face, and the flag said it had turned over. ⚑ It only ever appeared to work in a
+  STILL, where nothing advances — which is why nothing had caught it. **Two representations of one
+  fact, disagreeing.** Now there is one: the pointer target is `pointer + faceTurn`, and `faceUp`
+  is DERIVED. The shader was never at fault; it reads `V.z < 0.0`, i.e. the geometry.
+  ⚠ **The assertion is the ANGLE, not the flag** — `faceUp === false` is trivially true of the
+  broken build. What it could never do is get past edge-on and stay there while the loop runs.
+- ⛔ **`CardView` WAS A THIRD PATH WITHOUT THE FAIL-OPEN GUARD.** `frame()` and `tile()` both prove
+  ink before swapping; this one handed back a controller the moment the press BUILT, and callers
+  destroy their fallback on success — so a press that builds and draws nothing laid a sheet of
+  paper-white over a working card. **The exact defect the artist reported, in a new file, two days
+  later.** It mounts at `opacity:0` and does not resolve until `CardPress.__hasInk` says a real
+  sheet printed; 240 frames, then `null`.
+- ⛔ **`press.destroy()` DID NOT RELEASE THE GL CONTEXT.** Browsers cap live WebGL contexts near
+  sixteen and **silently drop the oldest**, so the pack rebuilding its reveal on every pull would
+  not fail on the seventeenth rip — it would blank a card somebody opened ten minutes earlier.
+  `WEBGL_lose_context` now, and the pack tears its viewer down before `innerHTML` replaces it.
+- ⚠ **The designed back is OFF for stills** (`live({backs:false})`). A back costs a fetch of the
+  card's page, a fetch of every stylesheet it links, a live DOM host and a 520×780 foreignObject
+  raster — and `bake()` shares `live()`, so wiring it unconditionally put all four on the one path
+  that runs **196 times**, to prepare a face a thumbnail has no pointer to turn.
+
+### ⛔ THE CARD LOOKED WASHED, AND THREE MEASUREMENTS SAID THREE DIFFERENT THINGS
+- ✅ **The ink is fine.** Pressed vs the flat source, same size, same path, 12 cards: mean +7.9 luma,
+  **sd +6.2 (MORE tonal range)**, pale-pixel share **−6.2 points**. It is not starving.
+- ✅ **The "two near-blank cards" in the fan did not exist.** All seven measured `pale 0`, range
+  ~198, `data-pressed`. At dpr 3 they are full four-colour prints. It was overlap at dpr 1 — *the
+  eye again, and the measurement was right.*
+- ⛔ **What IS real is SAMPLING.** The ruling is a fixed 170 cells across the card, a property of
+  the PRINT; how many dots a buffer can carry is a property of the BUFFER. At 270 px a cell is
+  ~1.6 device pixels and the screen samples itself into speckle — measured at up to **1.38× the
+  high-frequency energy** of the same card rendered at 900 and downsampled, which is the optically
+  correct answer (it is what stepping back from a real card does). Not detail, moiré.
+- ⛔ **I FIXED IT IN THE SHADER FIRST AND THE MEASUREMENT REFUSED IT TWICE.** Fading coverage
+  toward flat density took 270 to **0.75–0.77** of the correct HF — *softer than the truth, i.e.
+  mush, which is worse than mild aliasing* — **and moved the 900-px reference by ~3.5%**, so my
+  claim that it was "bounded to small canvases" was simply false. ⚑ **The knee is `fwidth`, which
+  varies with angle and perspective: you cannot assert "it only engages below N pixels" about a
+  shader without measuring the big case too.** Reverted; the print is byte-for-byte back.
+- ✅ **`CardView.backingScale()` supersamples instead** — fix the sampling, leave the print alone.
+  ⚠ **The floor comes from `deviceTier()`, NOT `dprCap()`, and this repo has already paid for that
+  distinction once**: `dprCap()` ends in `min(devicePixelRatio, cap)`, so an ordinary 1× desktop
+  scores 1 — `gfx-post.js`'s own note records Section 9 deriving a quality tier from it and
+  switching every character model off on exactly that machine. A literal floor of 2 is the same
+  mistake with the sign flipped: it shoves a save-data phone `dprCap` deliberately held at 1 back
+  up to 2. ⚑ **`cards/proof.html` was the surface most exposed** — it capped at `min(dpr, 2)`, so
+  on a 1× monitor **the hundred cards were being graded at the one ratio that aliases**, and the
+  reaction to that would have been to retune the press. It reads the shared function now.
+
+⚠ **Two traps hit again, and both are in this file already.** (a) **`new Function` compiles without
+executing**, so `test:reach` §0 scored the pack clean while `showCards()` threw `list is not
+defined` on a stray call and the entire reveal never built — **a driven probe is the only thing
+that finds a runtime reference error.** (b) **A comment containing BACKTICKS inside a shader
+template literal ends the string** — tenth sighting, and I put it in the very note warning against
+untested shader claims. `HeroCard` was simply never defined and every press on the site fell open.
+
 ## ✅ THE FORGE IS THE TOOL THE HUNDRED GET MADE WITH — `cards/proof.html`
 *Artist, 2026-08-05: "the press needs more creation options (layered card) animated card /
 collaged card / registration etc — these should all be settings so I can create the final 100

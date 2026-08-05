@@ -1108,7 +1108,27 @@ void sep6(vec3 c, out float s[6]) {
  *   back out of the screen frame. Analytic rather than differenced: at three device pixels per
  *   cell a differenced normal is pure noise.
  * ⚠ And it fades out when the cell gets smaller than about three pixels, or the relief aliases
- *   into exactly the moiré grid the ruling was retuned to avoid. */
+ *   into exactly the moiré grid the ruling was retuned to avoid.
+ *
+ *
+ * ⛔ AND DO NOT "FIX" A SMALL RENDER HERE — THE ANSWER IS TO SAMPLE IT PROPERLY, NOT TO SOFTEN
+ *   THE PRINT. The ruling is fixed at 170 cells across the card, a property of the PRINT, while
+ *   how many dots a buffer can carry is a property of the BUFFER. A 270-px render puts a cell at
+ *   ~1.6 device pixels and speckles; measured against the same card rendered at 900 and
+ *   downsampled — the optically correct answer — it carried up to 1.38x the high-frequency
+ *   energy. Not detail, moiré.
+ * ⚠ I TRIED FADING COVERAGE TOWARD FLAT DENSITY HERE AND REVERTED IT, because the measurement
+ *   refused it twice over: it took the 270 render to 0.75-0.77 of the correct HF (softer than
+ *   the truth — mush, which is worse than mild aliasing), AND it moved the 900-px reference by
+ *   ~3.5%, so the claim that it was bounded to small canvases was simply false. The knee is
+ *   fwidth, which varies with angle and perspective, so "it only engages below N pixels" is not
+ *   a thing you can assert about a shader without measuring the big case too.
+ * ⚑ js/card-view.js supersamples instead: it floors the card's backing store above the display's
+ *   own ratio, which reproduces the reference condition (ratio 0.98-1.01) and costs 4x the fill
+ *   on one small canvas. Fix the sampling, leave the print alone.
+ * ⚠ NO BACKTICKS ANYWHERE IN THIS COMMENT. It lives inside a template literal, so one ends the
+ *   shader string, HeroCard is never defined, and every press on the site silently does not
+ *   exist. Tenth sighting of that trap in this repo, and this note is where I hit it. */
 float screenDot(vec2 u, float ang, float freq, float d, out vec2 dn) {
   float s = sin(ang), co = cos(ang);
   vec2 r = vec2(u.x * co - u.y * s, u.x * s + u.y * co) * freq;
@@ -1688,7 +1708,18 @@ void main(void) {
          * nothing would have said so. The forge pushes its own base through `applyAll`. */
         pigs: 3,         // 1 = one card · 3 = + ground/mid · 6 = + wash, strip, inset
         press: 0,        // the impression's own character: 0 = a clean pull, 1 = as it printed
-        faceUp: true,    // which way up it is sitting
+        /* ⛔ WHICH WAY UP IT IS SITTING IS A PERSISTENT HALF-TURN, NOT A BOOLEAN AND NOT AN
+         *   IMPULSE. `flip()` used to do `S.yawT += PI` and set a separate `faceUp` flag — and
+         *   `advance()` overwrites `S.yawT` from the pointer on EVERY frame, so the half-turn
+         *   survived exactly one tick. The card twitched and sprang straight back to its face
+         *   while the flag said it had turned over. **The button worked, the label changed, and
+         *   the card never flipped** — two representations of one fact, disagreeing, with
+         *   nothing thrown. It only ever appeared to work in a still, where nothing advances.
+         * ⚑ So there is ONE representation now: the pointer target is `pointer + faceTurn`, and
+         *   `faceUp` is DERIVED from it rather than stored beside it. The shader was never at
+         *   fault — it picks the back off `V.z < 0.0`, i.e. off the geometry, which is the one
+         *   thing that cannot drift from where the card is actually pointing. */
+        faceTurn: 0,     // 0 or PI
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
@@ -1727,7 +1758,7 @@ void main(void) {
           S.flexV[i] += a * dt; S.flex[i] += S.flexV[i] * dt;
         }
         // the turn follows the pointer, on its own softer spring
-        S.yawT = S.px * 0.42; S.pitchT = -S.py * 0.30;
+        S.yawT = S.px * 0.42 + S.faceTurn; S.pitchT = -S.py * 0.30;
         let a = -RK * (S.yaw - S.yawT) - RC * S.yawV;
         S.yawV += a * dt; S.yaw += S.yawV * dt;
         a = -RK * (S.pitch - S.pitchT) - RC * S.pitchV;
@@ -2091,8 +2122,8 @@ void main(void) {
         backIsDesigned: () => backIsDesigned,
         /* ⚑ TURN IT OVER. The press already renders the reverse whenever the card is past
          *   edge-on; this is the deliberate version of that for a viewer's flip button. */
-        flip: () => { S.yawT += Math.PI; S.faceUp = !S.faceUp; return S.faceUp; },
-        faceUp: () => S.faceUp,
+        flip: () => { S.faceTurn = S.faceTurn ? 0 : Math.PI; return !S.faceTurn; },
+        faceUp: () => !S.faceTurn,
         /* ── ⚑ PRINT A DIFFERENT CARD ON THE SAME PRESS ──────────────────────────────────
          * `reseed(seed) -> bool`. Everything the seed decides — the composition masks, the
          * paper stock, the temperament, the press motion, the impression — re-derived in place.
@@ -2199,13 +2230,29 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
-          faceUp: S.faceUp, number: TEXT.number, backIsDesigned: backIsDesigned,
+          faceUp: !S.faceTurn, faceTurn: S.faceTurn,
+          number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
           rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,
           elemZ: elemZ.slice(),
           pigment: pig.slice(),
         }),
-        destroy: () => { loop(false); },
+        /* ⛔ AND IT RELEASES THE CONTEXT, WHICH IS NOT TIDINESS. A browser caps live WebGL
+         *   contexts at around sixteen and silently drops the OLDEST when a new one is asked
+         *   for. Every surface that builds a press on a fresh canvas — the pack reveal rebuilds
+         *   its card on every pull, the folder on every deep link — leaks one per visit, so the
+         *   seventeenth rip does not fail: it blanks a card somebody opened ten minutes ago,
+         *   with nothing thrown and nothing logged. `WEBGL_lose_context` is the only way to hand
+         *   one back; stopping the loop merely stops drawing into it.
+         * ⚠ Best-effort by design — the extension is optional, and a browser without it is no
+         *   worse off than before this line existed. */
+        destroy: () => {
+          loop(false);
+          try {
+            const ext = gl.getExtension('WEBGL_lose_context');
+            if (ext) ext.loseContext();
+          } catch (e) {}
+        },
       };
       return ctrl;
     }).catch(() => null);
