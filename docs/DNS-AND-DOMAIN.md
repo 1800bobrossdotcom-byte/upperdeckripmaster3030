@@ -127,6 +127,38 @@ host, which is the most a checker can do about it.
 
 ---
 
+## 4½ · ⛔ THE OUTAGE, 2026-08-05 — the redirect that took the site dark was OURS
+
+The artist reported the site dark one day before launch. It was: `www` 308'd to the apex, the apex
+308'd back to `www`, and curl gave up at fifty hops.
+
+**Both halves were "correct" in isolation.** The platform serves **`www` as Production** and 308s
+the apex to it — that is the dashboard's job and it was right. `vercel.json` also carried a
+`www → apex` rule, host-scoped exactly as §5 below demands. Host-scoped is what makes a rule safe
+against matching *every* domain; it does nothing about aiming at the *one* domain the site is
+served from.
+
+⚑ **THE RULE: apex↔www BELONGS TO THE PLATFORM AND NOWHERE ELSE.** Whichever of the two is
+Production, a redirect in `vercel.json` that matches *either* is aimed at a host the platform is
+already redirecting. Own the OLD domain here; own nothing else.
+
+⚠ **AND EVERY MEASUREMENT POINTED AWAY FROM IT, IN THE REASSURING DIRECTION.** The old-domain
+forward was landing on `www` — not on the apex our rule names — which proved these rules were not
+the ones firing. True, right up until the deployment carrying them went live. **"My config is not
+what is running" has a shelf life of exactly one deploy.**
+
+✅ `npm run test:name` now runs each redirect's host regex **against the live hosts** instead of
+checking that a scope exists. Proved to bite by restoring the exact committed config that caused
+the outage — 1 failure, naming the host.
+
+⚠ **The canonical host is `www`, and every shipped surface names the apex** — canonicals,
+`og:url`, `sitemap.xml`, `robots.txt`, `token-metadata.json`. They all resolve (apex 308s to `www`),
+so nothing is broken, but each is one hop from the truth. **The one-click fix is in the dashboard,
+not here:** make the apex Production and let `www` redirect to it. Then every string already
+shipped is exact and this repo still owns nothing but the old-domain forward.
+
+---
+
 ## 5 · The repo side, already done and pushed
 
 - `vercel.json` — host-scoped, path-preserving, permanent redirects for the old apex, the old

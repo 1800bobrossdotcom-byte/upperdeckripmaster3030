@@ -560,6 +560,40 @@ wordmark (a flat redraw would be a *picture of* the mark — DESIGN-SYSTEM §1).
 - ⚠ Colour is NOT verified — SwiftShader rotates hue on canvas content here. Layout and value are
   right; re-run on a real GPU before launch.
 
+## ⛔ THE SITE WENT DARK ONE DAY BEFORE LAUNCH, AND THE REDIRECT THAT DID IT WAS OURS
+Artist: *"lets focus on getting the site up - dark atm."* `www` 308'd to the apex, the apex 308'd
+back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4½.
+- ⚑ **BOTH HALVES WERE CORRECT IN ISOLATION.** The platform serves **`www` as Production** and 308s
+  the apex to it — the dashboard's job, done right. `vercel.json` ALSO carried a `www → apex` rule,
+  host-scoped exactly as the existing test demanded. **Host-scoped stops a rule matching EVERY
+  domain; it says nothing about aiming at the ONE domain the site is served from.**
+  ⛔ **apex↔www belongs to the platform and nowhere else.** This repo owns the OLD-domain forward
+  and nothing else.
+- ⛔ **EVERY MEASUREMENT POINTED AWAY FROM IT, IN THE REASSURING DIRECTION.** The old-domain forward
+  was landing on `www` — not on the apex our rule names — which *proved* these rules were not the
+  ones firing. True, right up until the deploy carrying them went live. ⚑ **"My config is not what
+  is running" has a shelf life of exactly one deploy**, and the window it is true in is the window
+  you write the rule in.
+- ⚑ **THE TEST WAS ASKING THE WRONG QUESTION AND PASSING.** It asserted a host scope EXISTS. It now
+  runs each redirect's host regex **against the live hosts** and fails if any matches. Proved to
+  bite by restoring the exact committed config that caused the outage: 1 failure, naming the host.
+  ⚠ My first sabotage attempt passed — the shell ate a backslash, so the regex tested a literal
+  `\\` and matched nothing. **A sabotage that does not reproduce the original bytes proves nothing**;
+  use `git show HEAD:<file>` rather than hand-retyping the defect.
+- ⚠ **"Dark" had a second, legitimate cause and they must not be conflated:** behind the loop the
+  pre-launch veil (`gate.js`) is doing exactly its job — a visitor sees `◈ PRIVATE · PRE-LAUNCH ◈`
+  and a password field at `z-index 2147483647`. Verified separately that the site BEHIND it is
+  healthy (1,670 words, 19 links, countdown live, wordmark canvas up, **0 JS errors, 0 failed
+  requests**) — because lifting the veil on launch night reveals whatever is under it, and that is
+  a bad moment to find out.
+- ⚠ **The canonical host is `www`; every shipped surface names the apex** (canonicals, `og:url`,
+  `sitemap.xml`, `robots.txt`, `token-metadata.json`). All resolve — apex 308s to `www` — so nothing
+  is broken, but each is one hop from the truth. **The fix is one dashboard click, not a sweep:**
+  make the apex Production, let `www` redirect to it, and every string already shipped is exact.
+- ⚠ Chromium here cannot use the agent proxy for outbound TLS (`ERR_CONNECTION_RESET`), so a live
+  headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
+  answers the same question; `curl` reaches the real host fine and is what proves the redirect.
+
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
   `build-pages.mjs` shell). Fail-closed. It is a **soft veil only** — the check runs client
