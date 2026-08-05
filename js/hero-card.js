@@ -140,6 +140,32 @@
    *   B  the frame        — rules, corner marks, the printed border
    *   A  UNUSED, and it must stay at 255 — see the note under this function.
    */
+  /* ⛔ ROUGH AND ROTO'D, NOT FEATHERED — artist, 2026-08-05: *"remove the shitty feathered edges
+   * for separation - keep it rough and roto'd."* Every mask boundary here was a radial or linear
+   * GRADIENT, which is a soft alpha ramp: the layer fades out instead of ending. That is why the
+   * layers read as flat pieces floating rather than as plates that were CUT — a feathered edge
+   * has no cut in it, so there is nothing for depth to be a property of.
+   * ⚑ A roto is traced by hand around a subject: a HARD edge that wanders. The wander is the
+   *   evidence of the hand, and the hardness is what makes it a separate piece of material. Two
+   *   noise terms, same reason a torn edge needs them — one slow (where the hand is going) and
+   *   one fast (the tremor). Dropping the fast term gives a smooth lasso; dropping the slow one
+   *   gives a vibrating circle. */
+  function rotoPath(g, cx, cy, rx, ry, r, rough) {
+    const N = 96, ph1 = r() * TAU, ph2 = r() * TAU, ph3 = r() * TAU;
+    const k1 = 2 + Math.floor(r() * 3), k2 = 7 + Math.floor(r() * 6), k3 = 17 + Math.floor(r() * 11);
+    g.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * TAU;
+      const w = 1
+        + Math.sin(t * k1 + ph1) * 0.16 * rough
+        + Math.sin(t * k2 + ph2) * 0.075 * rough
+        + Math.sin(t * k3 + ph3) * 0.035 * rough;
+      const x = cx + Math.cos(t) * rx * w, y = cy + Math.sin(t) * ry * w;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);   // straight segments: a traced cut
+    }
+    g.closePath();
+  }
+
   function buildComp(seed, N) {
     const c = document.createElement('canvas');
     c.width = N; c.height = Math.round(N * 1.5);
@@ -183,12 +209,9 @@
     {
       const cx = (0.32 + r() * 0.36) * W, cy = (0.26 + r() * 0.26) * H;
       const rx = (0.24 + r() * 0.12) * W, ry = rx * (1.15 + r() * 0.5);
-      const gr = g.createRadialGradient(cx, cy, rx * 0.20, cx, cy, rx);
-      gr.addColorStop(0, 'rgb(0,255,0)'); gr.addColorStop(0.72, 'rgb(0,235,0)');
-      gr.addColorStop(1, 'rgb(0,0,0)');
-      g.fillStyle = gr;
-      g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy);
-      g.beginPath(); g.arc(cx, cy, rx, 0, TAU); g.fill(); g.restore();
+      g.fillStyle = 'rgb(0,255,0)';
+      rotoPath(g, cx, cy, rx, ry, r, 1.0);
+      g.fill();
     }
 
     /* ── B · THE TRIM ────────────────────────────────────────────────────────────────────
@@ -230,12 +253,11 @@
      * gradient rather than a shape: a hard-edged wash is a panel. */
     {
       const a = r() * TAU, cx = (0.2 + r() * 0.6) * W, cy = (0.2 + r() * 0.6) * H;
-      const gr = g.createLinearGradient(cx - Math.cos(a) * W, cy - Math.sin(a) * H,
-                                        cx + Math.cos(a) * W, cy + Math.sin(a) * H);
-      gr.addColorStop(0, 'rgb(0,0,0)');
-      gr.addColorStop(0.35 + r() * 0.2, 'rgb(190,0,0)');
-      gr.addColorStop(1, 'rgb(40,0,0)');
-      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      /* ⚠ the wash is the widest layer, so its cut has to be the loosest — a tight roto on a
+       *   field reads as a second figure. Big radii, low roughness. */
+      g.fillStyle = 'rgb(210,0,0)';
+      rotoPath(g, cx, cy, W * (0.62 + r() * 0.30), H * (0.55 + r() * 0.30), r, 0.55);
+      g.fill();
     }
 
     /* G · the STRIPS — a few small torn scraps, not a band across the card. ⚠ Deliberately
@@ -260,11 +282,9 @@
       const cx = (0.18 + r() * 0.30 + (r() < 0.5 ? 0 : 0.34)) * W;
       const cy = (0.52 + r() * 0.30) * H;
       const rad = (0.13 + r() * 0.09) * W;
-      const gr = g.createRadialGradient(cx, cy, rad * 0.15, cx, cy, rad);
-      gr.addColorStop(0, 'rgb(0,0,255)'); gr.addColorStop(0.68, 'rgb(0,0,205)');
-      gr.addColorStop(1, 'rgb(0,0,0)');
-      g.fillStyle = gr;
-      g.beginPath(); g.arc(cx, cy, rad, 0, TAU); g.fill();
+      g.fillStyle = 'rgb(0,0,235)';
+      rotoPath(g, cx, cy, rad, rad * (0.82 + r() * 0.5), r, 1.25);
+      g.fill();
     }
     return c;
   }
@@ -1000,13 +1020,27 @@ vec3 artAt(vec2 u, vec2 par) {
    *   apart, which is the thing the control is named after.
    * ⚠ Ground stays at ZBASE 0 and therefore never moves at all: it is the sheet the rest are
    *   stacked on, and a reference that drifts is not a reference. */
-  vec2 uG = zuv(u, uElemZ[0] * ZS) + par * uElemZ[0] + vec2(-0.255, -0.150) * uElemZ[0];
-  vec2 uM = zuv(u, uElemZ[1] * ZS) + par * uElemZ[1] + vec2( 0.220, -0.275) * uElemZ[1];
-  vec2 uF = zuv(u, uElemZ[2] * ZS) + par * uElemZ[2] + vec2( 0.290,  0.185) * uElemZ[2];
-  /* the second three, each on its own plane and its own bearing — no two layers travel together */
-  vec2 uW = zuv(u, uElemZ[3] * ZS) + par * uElemZ[3] + vec2(-0.180,  0.300) * uElemZ[3];
-  vec2 uS = zuv(u, uElemZ[4] * ZS) + par * uElemZ[4] + vec2( 0.330, -0.105) * uElemZ[4];
-  vec2 uI = zuv(u, uElemZ[5] * ZS) + par * uElemZ[5] + vec2(-0.310, -0.235) * uElemZ[5];
+  /* ⛔ DEPTH IS WHAT THE VIEW DOES TO A LAYER, NOT WHERE THE LAYER WAS GLUED. Artist: *"there is
+   * no z space separation … they are just chopped up and flat floating."* Exactly right, and the
+   * numbers said so: the parallax gain was 0.030 and multiplied by the view vector, so face-on it
+   * was ~0, while the fixed per-layer bearings I had added were 0.25–0.33 — TEN TIMES LARGER and
+   * completely view-independent. So the layers were displaced by a constant. A constant offset is
+   * a collage that was pasted down crooked; it is not depth, and no amount of it ever becomes
+   * depth, because depth is defined by RESPONDING TO THE EYE.
+   * ⚑ THE SHIFT IS NOW OVERWHELMINGLY PARALLAX: one direction, set by where you are looking, and
+   *   a MAGNITUDE PER LAYER set by how deep it sits. That is the whole definition. Turn the card
+   *   and the near layers sweep across the far ones; hold it still and they sit where the stack
+   *   puts them. The small residual bearing is the collage's own registration — real pieces are
+   *   laid down slightly off — and it is a quarter of what it was so it cannot masquerade as
+   *   depth on its own.
+   * ⚠ PAR IS SCALED BY THE STACK at the uniform, so at LAYERS 0 both terms are exactly 0 and the
+   *   base card is untouched. */
+  vec2 uG = zuv(u, uElemZ[0] * ZS) + par * uElemZ[0] + vec2(-0.064, -0.038) * uElemZ[0];
+  vec2 uM = zuv(u, uElemZ[1] * ZS) + par * uElemZ[1] + vec2( 0.055, -0.069) * uElemZ[1];
+  vec2 uF = zuv(u, uElemZ[2] * ZS) + par * uElemZ[2] + vec2( 0.073,  0.046) * uElemZ[2];
+  vec2 uW = zuv(u, uElemZ[3] * ZS) + par * uElemZ[3] + vec2(-0.045,  0.075) * uElemZ[3];
+  vec2 uS = zuv(u, uElemZ[4] * ZS) + par * uElemZ[4] + vec2( 0.083, -0.026) * uElemZ[4];
+  vec2 uI = zuv(u, uElemZ[5] * ZS) + par * uElemZ[5] + vec2(-0.078, -0.059) * uElemZ[5];
   /* ⛔ THE NAME DOES NOT TRAVEL AT ALL, AND MAKING IT TRAVEL PRINTED IT TWICE. Its INK is laid
    * here; its RELIEF is read further down from the same texture at the undisplaced UV, because
    * the crease and the marks sharing that texture belong to the SHEET. The two agreed only while
@@ -1948,7 +1982,13 @@ void main(void) {
          * and catches. Same clock as the stack, so nothing has its own tempo. */
         const rf = FOIL_BY_RARITY[RAR] !== undefined ? FOIL_BY_RARITY[RAR] : 0;
         gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
-        gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
+        /* ⛔ THE PARALLAX GAIN IS THE DEPTH, so it rides the stack. At 0.030 a layer moved 3% of
+         * the card between dead-on and a hard tilt, which is below the threshold of "that one is
+         * further away" — it read as nothing, and the constant bearings read as everything. Scaled
+         * by the stack it reaches ~0.29 at LAYERS 2.5, i.e. a near layer sweeps a third of the
+         * card across a far one as you turn it. ⚠ At LAYERS 0 this is the old value times zero:
+         * the base card has no depth and no parallax, which is what a flat print is. */
+        gl.uniform2f(u.par, (0.030 + 0.020 * S.depth) * (1.0 + 3.6 * S.stack), 1.0);
         gl.uniform1f(u.seed, (seed % 997) / 997);
         gl.uniform1f(u.backRGB, backIsDesigned ? 1.0 : 0.0);
         gl.uniform1f(u.regGain, S.regGain);
