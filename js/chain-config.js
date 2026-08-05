@@ -11,7 +11,14 @@ window.RIPMASTER_CHAIN = {
   // WalletConnect (mobile wallets). Free project id from https://cloud.reown.com —
   // paste it here and mobile users can connect + burn. Empty = WC option hidden,
   // injected/MetaMask still works. (js/wallet.js)
-  walletConnectProjectId: "8b9d15349eb2a2cd42434a8c3de9c579",   // Reown (WalletConnect) — publishable id; domain-allowlisted to upperdeckripmaster3030.com
+  /* ⛔ A REOWN PROJECT ID IS ALLOW-LISTED BY DOMAIN, AND THAT IS THE ONE THING THE DOMAIN
+   * REDIRECT CANNOT FIX. Serving the site from a host that is not on the project's allowed list
+   * does not degrade gracefully — mobile wallet connect simply fails, at the exact moment a
+   * collector is trying to rip a pack. It is a dashboard setting, not a code change, so no test
+   * can repair it; `npm run test:name` asserts only that this note names the LIVE host, which is
+   * the most a checker can do about a fact that lives on somebody else's server.
+   * ⚠ REQUIRED: ripmaster3030studios.com must be on the allowed-domains list before launch. */
+  walletConnectProjectId: "8b9d15349eb2a2cd42434a8c3de9c579",   // Reown (WalletConnect) — publishable id; allow-list must include ripmaster3030studios.com
   // $3030 burned per pack rip (the "buy the ticket" — deflationary). Real price;
   // note the uncalibrated Sepolia test curve prices 1 $3030 at ~16 RARE, so a
   // pack ≈ 5,700 test RARE (the rehearsal wallet was funded accordingly).

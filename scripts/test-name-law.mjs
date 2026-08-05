@@ -58,8 +58,17 @@ const DEAD_ART = [
 
 /* The npm package name and the lockfile that mirrors it. This is the repo/directory identifier,
  * not a surface anyone renders; renaming it churns the lockfile and every path in it to change
- * nothing a visitor sees. Recorded here so "why is it still there" has an answer. */
-const ALLOW = new Set(['package.json', 'package-lock.json']);
+ * nothing a visitor sees. Recorded here so "why is it still there" has an answer.
+ *
+ * ⚑ AND `vercel.json`, WHICH IS THE ONE PLACE THE DEAD NAME MUST SURVIVE. The redirect that
+ *   RETIRES the old domain has to name the old domain — you cannot forward a host you are not
+ *   allowed to mention. It is the law's own instrument, not a leak past it, and it is the only
+ *   file where the string appears in service of removing itself.
+ * ⚠ Scoped deliberately: the whole file is exempt from the STRING sweep, and the redirect's shape
+ *   is asserted separately at the bottom of this suite (host-scoped so it cannot loop,
+ *   path-preserving, permanent, destination on the live domain). An exemption without a
+ *   replacement check is just a blind spot with a comment on it. */
+const ALLOW = new Set(['package.json', 'package-lock.json', 'vercel.json']);
 
 let fails = 0, checks = 0, files = 0;
 const ok = (c, m) => { checks++; if (c) { console.log('  ok    ' + m); } else { fails++; console.log('  FAIL  ' + m); } };
@@ -440,6 +449,44 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
   const src = readFileSync(join(ROOT, page), 'utf8');
   ok(src.includes('media/site/og-1200x630.png') && !src.includes('marquee-header.webp'),
      `${page} — regenerated with the new share card`);
+}
+
+// ═══ THE DOMAIN, AND THE ONE THING A REDIRECT CANNOT FIX ═══════════════════════════════════════
+/* Artist, 2026-08-05: "we should also set up ripmaster3030studios.com and our redirect stuff now."
+ * ⚑ THE GIT REPO STAYS. A repository name is not a hostname — `upperdeckripmaster3030` is the npm
+ *   and repo identifier, already allow-listed above with a reason, and Vercel serves any domain
+ *   from any project. Renaming it would break clone URLs to buy nothing. */
+{
+  const vj = JSON.parse(readFileSync(join(ROOT, 'vercel.json'), 'utf8'));
+  const red = vj.redirects || [];
+  const hosts = red.flatMap(r => (r.has || []).map(h => h.value)).join(' ');
+  ok(
+    red.some(r => /upperdeckripmaster3030/.test(JSON.stringify(r.has || [])) &&
+                  /ripmaster3030studios\.com/.test(r.destination) && r.permanent === true),
+    'the old domain redirects to the new one');
+  /* ⛔ HOST-SCOPED, OR IT IS AN INFINITE LOOP. A Vercel redirect with no `has` host condition
+   * applies to EVERY domain the project serves — including the destination — so a bare
+   * `/:path*` -> the new host would bounce the new host to itself forever. The scope is the
+   * whole safety of this rule and it is invisible until the day the domain is attached. */
+  ok(red.length > 0 && red.every(r => (r.has || []).some(h => h.type === 'host')),
+    '…and every redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an
+   * identity change, not a link-breaking one. It also protects any `animation_url` already
+   * pointing at the old host. */
+  ok(red.every(r => /:path\*/.test(r.destination)), '…and it preserves the path');
+
+  /* ⛔ AND HERE IS THE PART A REDIRECT CANNOT FIX. A WalletConnect/Reown project id is
+   * ALLOW-LISTED BY DOMAIN in their dashboard. Serving the site from a host that is not on that
+   * list does not degrade — mobile wallet connect simply fails, at the exact moment a collector
+   * is trying to rip a pack. It is not a code change and no test can repair it; what a test CAN
+   * do is refuse to let it be forgotten, which is what this is. */
+  const cc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  const wc = /walletConnectProjectId:\s*"([^"]*)"/.exec(cc);
+  const stale = !/allow-list must include ripmaster3030studios\.com/.test(cc);
+  ok(!wc || !wc[1] || !stale,
+    '⚠ the WalletConnect id is allow-listed for the LIVE domain — '+(stale ? 'ACTION FOR THE ARTIST: add ripmaster3030studios.com to the Reown project\'s allowed ' +
+            'domains, then update the note in js/chain-config.js. Until then mobile wallet ' +
+            'connect fails on the new host.' : 'note is current'));
 }
 
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
