@@ -33,6 +33,10 @@
 window.CityInk = (function () {
   'use strict';
 
+  /* THE RUSH — module state, so the game drives the speed blur every frame without reaching
+     inside the effect object. x = strength 0..1, yz = the focus point in screen uv. */
+  var RUSH = [0, 0.5, 0.5];
+
   /* ⛔ OUR OWN VERTEX SHADER, NOT `pc.PostEffect.quadVertexShader`. The engine's version calls
    * `getImageEffectUV()`, which is a shader CHUNK — and `createShaderFromCode` does not inject
    * chunks, so the vertex stage failed to link while `createShaderFromCode` still handed back a
@@ -73,6 +77,7 @@ window.CityInk = (function () {
     float depthAt(vec2 uv) { return texture2D(uSceneDepthMap, uv).r; }
 
     uniform float uRaw;          // ?inkraw=1 — passthrough, to isolate binding from maths
+    uniform vec3  uRush;         // x = strength 0..1, y = focus u, z = focus v  (THE DASH)
 
     void main() {
       vec2 uv = vUv0;
@@ -92,9 +97,42 @@ window.CityInk = (function () {
          it would soften the whole image rather than fringe it. */
       vec2 dR = vec2( 1.0,  0.45) * uTexel * uPlate;
       vec2 dB = vec2(-0.85, 0.70) * uTexel * uPlate;
-      vec3 col = vec3(texture2D(uColorBuffer, uv + dR).r,
-                      texture2D(uColorBuffer, uv).g,
-                      texture2D(uColorBuffer, uv + dB).b);
+
+      /* WARN 3.5 - THE RUSH. Speed blur for THE DASH, and it goes in HERE, before the posterise
+         and before the ink line, because it is part of the PICTURE and not a gloss over the top.
+         Blurring after the drawing would smear the ink line into a grey haze and undo the whole
+         print pass; blurring the input means the plates are made FROM a smeared photograph, which
+         is what a fast pan through a press actually looks like.
+         WARN IT IS RADIAL FROM WHERE YOU ARE GOING, NOT A UNIFORM SMEAR. A runner sees the world
+         stream outward past the point they are heading at, and the point they are heading at
+         stays sharp - that is parallax, not a filter. A uniform blur is a camera shake and reads
+         as a broken frame rather than as speed. The focus point comes in as uRush.yz so it can
+         follow the heading rather than sitting at screen centre.
+         WARN AND IT IS FREE WHEN STILL: strength 0 takes the early-out and the pass is byte for
+         byte what it was. That is asserted - the city at rest must be unchanged. */
+      vec2 baseUv = uv;
+      if (uRush.x > 0.002) {
+        vec2 toC = uRush.yz - uv;
+        vec3 acc = vec3(0.0); float wsum = 0.0;
+        for (int i = 0; i < 6; i++) {
+          float k = float(i) / 5.0;
+          float w = 1.0 - k * 0.72;
+          vec2 su = uv + toC * (k * uRush.x * 0.34);
+          acc += vec3(texture2D(uColorBuffer, su + dR).r,
+                      texture2D(uColorBuffer, su).g,
+                      texture2D(uColorBuffer, su + dB).b) * w;
+          wsum += w;
+        }
+        vec3 rushCol = acc / wsum;
+        float rl = max(luma(rushCol), 1e-4);
+        float rls = floor(rl * uSteps + 0.5) / uSteps;
+        gl_FragColor = vec4(clamp(rushCol * (rls / rl), 0.0, 1.0), 1.0);
+        return;
+      }
+
+      vec3 col = vec3(texture2D(uColorBuffer, baseUv + dR).r,
+                      texture2D(uColorBuffer, baseUv).g,
+                      texture2D(uColorBuffer, baseUv + dB).b);
 
       /* ── 1 · POSTERISE. Quantise the VALUE and keep the hue: scaling the whole rgb triple by the
          ratio of stepped-to-original luma flattens the shading into bands without dragging the
@@ -224,6 +262,9 @@ window.CityInk = (function () {
           s.resolve('uHaze').setValue(L.haze);
           s.resolve('uInkCol').setValue(L.inkCol);
           s.resolve('uRaw').setValue(RAW);
+          /* THE RUSH - x strength, yz the point being run at. Rests at 0, so a city standing
+             still takes the shader's early-out and the pass is byte for byte what it was. */
+          s.resolve('uRush').setValue(RUSH);
           /* WARN DO NOT FORWARD `rect`. The queue hands render() the CAMERA's rect, which is
            * NORMALISED (0..1) - and drawQuadWithShader's own default builds a rect in PIXELS
            * (`s.z = t ? t.width : c.width`). Passing the normalised one through gives the pass a
@@ -246,5 +287,14 @@ window.CityInk = (function () {
     }
   }
 
-  return { attach, LOOK };
+  /* Drive the speed blur. WARN `rush(0)` must restore the resting look EXACTLY — the city at
+     rest is the baseline every other measurement in this repo was taken against, and a pass that
+     leaves a trace at zero strength quietly re-grades the whole game. Asserted. */
+  function rush(k, u, v) {
+    RUSH[0] = Math.max(0, Math.min(1, k || 0));
+    if (typeof u === 'number') RUSH[1] = u;
+    if (typeof v === 'number') RUSH[2] = v;
+  }
+
+  return { attach, LOOK, rush, rushState: function () { return RUSH.slice(); } };
 })();

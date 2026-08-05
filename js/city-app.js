@@ -160,10 +160,29 @@ window.CityApp = (function () {
    * is honest about what is missing rather than pretending the roster is two. */
   const CREATURES = {
     bird:     { name: 'BIRD',     fly: true,  r: 0.45, h: 0.9,  step: 0.4, climb: false },
+    /* ⚑ THE SQUIRREL IS THE SPEED-RUN BODY (artist, 2026-08-05: "snappy squirrel racing game …
+     * like sonic … but very fast"). `sprint` is explicit rather than the 1.5x default, because
+     * the gap between cruise and sprint IS the game: 11.5 -> 23 m/s is 83 km/h and it is what
+     * makes the vault reachable and the miss painful. ⚠ `accel` is raised WITH it — a high top
+     * speed you take eight seconds to reach reads as sluggish, not fast, and the recorded
+     * boundary lesson applies here too: the number that feels like a lot is usually low. */
     squirrel: { name: 'SQUIRREL', fly: false, r: 0.26, h: 0.42, step: 0.55, climb: true,
-                run: 9.5, jump: 7.2, grav: 26 },
+                run: 11.5, sprint: 23, accel: 62, friction: 7, jump: 7.4, grav: 26 },
     // cat, dog — not built. See docs/CITY-GAME.md order of work, step 5.
   };
+  /* ── THE DASH ────────────────────────────────────────────────────────────────────────────
+   * ⚠ DECLARED HERE, ABOVE EVERY READER. `const`/`let` hoist into the temporal dead zone, and
+   *   this file has already been taken down three times by a constant defined below the function
+   *   that reads it — the whole app throws at module scope and the probe reports "undefined"
+   *   rather than "the mode is broken". VAULT_SPD is read inside stepGround, far below.
+   * ⚑ VAULT_SPD sits between cruise (11.5) and sprint (23): you cannot vault at a walk and you
+   *   cannot fail to vault at a sprint, so the threshold is a decision you make with the sprint
+   *   key rather than a lottery. VAULT_LIFT 0.5 turns 16 m/s into 8 m/s of climb — about 2.4 m of
+   *   rise, which clears a one-storey wall and not a tower. */
+  const VAULT_SPD = 15.5;
+  const VAULT_LIFT = 0.50;
+  let dash = null;
+
   let CREATURE = (() => { try { const c = localStorage.getItem('urm_city_creature');
     return CREATURES[c] ? c : 'bird'; } catch (e) { return 'bird'; } })();
   if (Q.get('creature') && CREATURES[Q.get('creature')]) CREATURE = Q.get('creature');
@@ -1181,6 +1200,7 @@ window.CityApp = (function () {
     const IN = readInput();
     if (ops) { ops.setTrigger(IN.fire); ops.setAds(IN.ads); }
     stepOps(dt);
+    stepDash(dt);          // ⛔ inside step(), so `_step(n)` advances it too
     /* ⛔ DRIVING REPLACES THE BODY'S STEP, NOT THE MODE. You are still an animal or an operative —
      * `targetable` and `armed` are untouched — you are simply in a car, so the car integrates and
      * the body rides along at its seat. Making this a fourth MODE would have put a loophole in the
@@ -1427,7 +1447,13 @@ window.CityApp = (function () {
     const hx = Math.sin(me.yaw), hz = Math.cos(me.yaw);
     const want = IN.fwd;
     const crouch = !!IN.crouch;
-    const sprint = IN.dive && !B.climb && !crouch;            // SHIFT sprints on foot, dives in air
+    /* ⛔ `!B.climb` LOCKED THE SPRINT OFF THE ONE BODY THAT NEEDS IT. The clause was there to stop
+     * SHIFT double-booking as a dive, but it keys on the wrong property: the SQUIRREL climbs, so
+     * the squirrel could never sprint — measured, 11.5 m/s flat out with SHIFT held, against a
+     * 23 m/s cap that was simply unreachable. And it is not a cosmetic cap: VAULT_SPD sits above
+     * cruise, so the entire speed-is-the-lift mechanic was unreachable too, on a body that looked
+     * like it was working. ⚑ Ask whether the body HAS a sprint gear, not whether it can climb. */
+    const sprint = IN.dive && !crouch && (B.sprint ? true : !B.climb);
     const top = crouch ? (B.run || 6) * 0.45 : sprint ? (B.sprint || B.run * 1.5) : (B.run || 6);
     /* ⚠ THE EYE FOLLOWS AS A SPRING, not as a snap. A crouch that teleports the camera down 40 cm
      * reads as a glitch; the same settle every other camera here uses reads as ducking. */
@@ -1443,13 +1469,40 @@ window.CityApp = (function () {
       const w = collide && collide.wallAt(me.x, me.y, me.z, B.r + 0.22);
       if (w) {
         climbing = true;
-        me.vy = (B.run || 9) * 0.62;
-        me.vx *= 0.5; me.vz *= 0.5;
-        if (me.y > w.top - 0.05) {                            // crest it and step onto the roof
-          me.vy = Math.max(me.vy, 2.0);
-          me.vx += hx * 3.2; me.vz += hz * 3.2;
+        /* ⚑ SPEED IS THE LIFT — the whole of THE DASH, in one branch, and it is DESIGN-SYSTEM §4
+         * answered with physics rather than a feature. Sonic is not "a fast character"; it is a
+         * game where SPEED IS THE ROUTE. This city already had a high line (the roofs) and only a
+         * slow way onto it (this crawl, 0.62 of run). So the fast line is the SAME geometry taken
+         * at speed: arrive above VAULT_SPD and you convert horizontal momentum into height and go
+         * OVER, arrive below it and you grind. Nothing is authored and no ramps are placed —
+         * every box in the city is a vault by construction, the same 1:1 guarantee the generator
+         * already makes about landing and climbing, and true only because the geometry and the
+         * collision set are one thing.
+         * ⚑ Losing speed is not a fail state, it DROPS YOU TO THE SLOW ROUTE. You lose time and
+         *   never a thing you own — Sonic's own punishment, and the studio's anti-casino line. */
+        const approach = Math.hypot(me.vx, me.vz);
+        if (approach >= VAULT_SPD) {
+          /* A vault TRADES speed for height and keeps most of it: 0.86 rather than 0.5, so
+           * arriving fast still leaves you fast on the roof. ⚠ The lift is proportional to the
+           * approach — a constant would make 12 m/s and 23 m/s climb identically and delete the
+           * reason to go fast, which is the whole mechanic. */
+          me.vy = Math.max(me.vy, approach * VAULT_LIFT);
+          me.vx *= 0.86; me.vz *= 0.86;
+          if (me.y > w.top - 0.05) {
+            me.vy = Math.max(me.vy, 2.5);
+            me.vx += hx * 5.5; me.vz += hz * 5.5;             // fly off the lip, still carrying it
+          }
+          if (!me.vaulting) { me.vaulting = 1; if (dash) dash.countVault(); }
+        } else {
+          me.vaulting = 0;
+          me.vy = (B.run || 9) * 0.62;
+          me.vx *= 0.5; me.vz *= 0.5;
+          if (me.y > w.top - 0.05) {                          // crest it and step onto the roof
+            me.vy = Math.max(me.vy, 2.0);
+            me.vx += hx * 3.2; me.vz += hz * 3.2;
+          }
         }
-      }
+      } else me.vaulting = 0;
     }
 
     if (!climbing) {
@@ -1815,6 +1868,70 @@ window.CityApp = (function () {
     if (ready) streamAround(me.x, me.z);
   });
 
+  /* ── THE DASH ────────────────────────────────────────────────────────────────────────────
+   * ⚠ ON THE SAME TICK AS EVERYTHING ELSE, for the reason recorded above about the drops and the
+   *   firefight: a headless run that drives `_step` must advance the world, not only the player.
+   * ⚑ THE RUSH IS THE SPEEDOMETER, NOT A MOOD. Blur strength is a pure function of how fast the
+   *   body is actually moving — it starts at cruise and reaches full at the sprint cap — so it can
+   *   never say "fast" while you are walking. That is the difference between motion blur and a
+   *   filter, and it is also why it is free when you stand still: at rest the shader takes an
+   *   early-out and the pass is byte for byte the resting city. */
+  function stepDash(dt) {
+    if (!window.CityInk || !CityInk.rush) return;
+    const fast = (MODE === 'animal' && CREATURE === 'squirrel');
+    if (!fast) { CityInk.rush(0); return; }
+    const sp = Math.hypot(me.vx || 0, me.vz || 0);
+    const B = CREATURES.squirrel;
+    const k = Math.max(0, Math.min(1, (sp - B.run * 0.75) / (B.sprint - B.run * 0.75)));
+    /* ⚑ THE FOCUS IS WHERE YOU ARE GOING, and on a chase camera that is not screen centre: the
+     * camera trails and looks slightly down, so the heading projects a little above middle. A
+     * radial blur focused at 0.5,0.5 streaks the world past a point you are not running at, which
+     * reads as a wobble rather than as speed. */
+    CityInk.rush(k * 0.85, 0.5, 0.46);
+    if (dash) {
+      const ev = dash.step(dt, me);
+      if (ev) onDashEvent(ev);
+      syncDashHud();
+    }
+  }
+
+  function onDashEvent(ev) {
+    const el = document.getElementById('dashMsg');
+    if (!el) return;
+    if (ev.kind === 'gate') {
+      el.textContent = 'GATE ' + ev.n + '/' + ev.of + '  ·  ' + ev.split.toFixed(2) + 's';
+    } else {
+      el.textContent = ev.improved
+        ? '\u25c6 ' + ev.time.toFixed(2) + 's  ·  NEW BEST  ·  top ' + ev.topSpeed.toFixed(1) + ' m/s'
+        : ev.time.toFixed(2) + 's  ·  best ' + (ev.best || 0).toFixed(2) + 's';
+    }
+  }
+
+  function syncDashHud() {
+    const el = document.getElementById('dashHud');
+    if (!el || !dash) return;
+    const h = dash.hud();
+    if (!h.running && !h.done) { el.textContent = 'THE DASH \u00b7 RUN TO START'; return; }
+    const d = h.next ? Math.round(Math.hypot(me.x - h.next.x, me.z - h.next.z)) : 0;
+    el.textContent = h.t.toFixed(2) + 's  \u00b7  GATE ' + (h.gate + 1) + '/' + h.of +
+      '  \u00b7  ' + d + 'm' + (h.best ? '  \u00b7  best ' + h.best.toFixed(2) + 's' : '');
+  }
+
+  /* Open the course when the page asks for it. ⚠ It does NOT force the creature: arriving as a
+   * bird with a squirrel course laid under you is a legible state (you can see the gates from the
+   * air, which is the bird's whole job), and silently swapping the player's body on a query
+   * parameter is the kind of surprise this project has already recorded as a bug. */
+  if (Q.has('dash') && window.CityDash) {
+    dash = CityDash.create({ world: window.CityWorld,
+                             seed: parseInt(Q.get('dash'), 10) || 3030 });
+    /* ⚠ The readouts are `hidden` in the markup and only unhidden when a course actually exists —
+     * an empty timer on a city nobody is racing is a HUD element that means nothing, and this
+     * page has already been through one round of four things claiming the same altitude. */
+    if (dash) ['dashHud', 'dashMsg'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.hidden = false;
+    });
+  }
+
   /* ⚠ The drops advance inside `step()` rather than on their own tick, or a headless run that
    * drives `_step` would move the player and freeze the world around them — the same trap as a
    * probe that measures this container's rAF instead of the game. */
@@ -1824,6 +1941,12 @@ window.CityApp = (function () {
    * otherwise be frozen mid-reload when you swap back — and more importantly the bots have to be
    * able to STOP: `step` reads `targetable` off the player, so switching to an animal is what
    * makes them lose you, and that only happens if they are still thinking. */
+  /* ⛔ THE DASH ADVANCES INSIDE `step()`, NOT ON THE UPDATE HANDLER — and the first cut of this
+   * got it wrong in exactly the way this file already warns about two comments below. `_step(n)`
+   * is what every headless probe drives, and it calls `step()` directly; a system hung off
+   * `app.on('update')` is therefore FROZEN for the entire measurement while the player moves
+   * normally around it. The clock would have read 0.00 s after a four-second sprint and it would
+   * have looked like a broken timer rather than a probe that never ticked it. */
   function stepOps(dt) {
     /* \u26a0 The cars tick even when you are on foot, or none would ever be parked near you — the
      * population lives in the same step as the operatives' for the same reason. */

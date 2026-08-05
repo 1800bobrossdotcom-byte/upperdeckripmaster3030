@@ -301,6 +301,10 @@
        never read. Three named, clickable chips with the live one lit says what the game contains
        AND how to change it in the same object — and it works on a phone by being the same control
        rather than a second one that has to be kept in step. -->
+  <!-- THE DASH. One column with the mode stack, never a fifth corner — the phone HUD was
+       already a wreck once from four things claiming the same altitude. -->
+  <div class="hud" id="dashHud" hidden></div>
+  <div class="hud" id="dashMsg" hidden></div>
   <div class="hud" id="modeBar">
     <button class="mchip" data-mode="animal" type="button">ANIMAL</button
     ><button class="mchip" data-mode="jet" type="button">DOGFIGHT</button
@@ -392,6 +396,7 @@
 <script src="js/city-drops.js"></script>
 <script src="js/city-ops.js"></script>
 <script src="js/city-rides.js"></script>
+<script src="js/city-dash.js"></script>
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>
