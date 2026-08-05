@@ -74,7 +74,25 @@
      *   layout collapsed, and the only thing left with a size was the watermark at 134% —
      *   which rendered as a giant wordmark and looked like a texture bug rather than a
      *   missing stylesheet. `opts.css` is how the caller supplies the right rules. */
-    var css = o.css || allCss(el.ownerDocument);
+    /* ⛔ THE LIVE KEY LIGHT DOES NOT GO INTO THE TEXTURE. `cards/cardback.css` gives the back a
+     *   moving specular lobe (`.back::before/::after`) so a card page's reverse answers the
+     *   pointer. Baking it here would print ONE frozen highlight into the paper and then hand
+     *   that paper to a renderer that lights it again — the same double-lighting that
+     *   `js/card3d.js` recorded as "the wash", arriving through the back door and looking like a
+     *   dirty scan rather than like a bug. The press lights its own reverse; this is only the
+     *   plate. ⚠ It must be a CSS override rather than a DOM removal: they are pseudo-elements,
+     *   so there is no node to strip — they arrive with the inlined stylesheet.
+     * ⚠ AND IT IS INSURANCE RATHER THAN THE THING THAT SAVES US TODAY — measured, because a
+     *   comment claiming a fix that does nothing is worse than no comment. Rasterising the same
+     *   back with and without this rule produces a BYTE-IDENTICAL plate in Chromium: an SVG
+     *   foreignObject rendered through an <img> does not composite `mix-blend-mode` at all, so
+     *   neither layer arrives either way. That is a rendering detail of one engine, not a
+     *   guarantee — the rule costs one string and holds if any browser starts honouring it.
+     *   `npm run test:back` §3 asserts the PROPERTY (no light reaches the plate) rather than the
+     *   presence of this rule, so it keeps meaning something if the engine changes. */
+    var css = (o.css || allCss(el.ownerDocument))
+      + '\n.back::before,.back::after,.face.back::before,.face.back::after'
+      + '{ display:none !important; background:none !important; }';
     var clone = el.cloneNode(true);
 
     var srcs = [].slice.call(el.querySelectorAll('img'));

@@ -45,10 +45,20 @@
   Type is Arial bold, all caps — the artist's meme font. It is also a system font, so it needs
   no external request and survives the sandbox where a webfont would not.
 -->
+<link rel="stylesheet" href="viewer.css">
 <style>
   :root { --ink:#07070a; --hot:#ff2a6d; --cool:#27f7e4; --gold:#ffd23b; }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:var(--ink);overflow:hidden;
+  /* ⚑ THE STUDIO'S STOCK, not a void. Artist, 2026-08-05: every viewer wears the same skin.
+     ⚠ DECLARED LOCALLY, and that is deliberate: this page is framed at an OPAQUE ORIGIN with an
+       unknown CSP, so cards/viewer.css may never arrive. The colour is written here and the
+       stylesheet only adds the printed blob on top of it — a blocked sheet leaves a card on a
+       purple ground, never a card on nothing. */
+  /* ⚠ THIS DOCUMENT HAS NO <body> TAG — it is a bare page, so there is no element to hang
+     `rip-skin` on. The token is spent directly instead, which is exactly what mobile.css's
+     header describes: the sheet declares, the page spends. */
+  body{background-image:var(--rip-stock);background-size:cover;background-position:center}
+  html,body{margin:0;height:100%;background-color:#7b2ff7;overflow:hidden;
             font-family:Arial,Helvetica,sans-serif;font-weight:700;
             -webkit-text-size-adjust:100%}
   /* the card box: 2:3, centred, and sized off whichever axis is actually the constraint */
@@ -358,7 +368,9 @@ Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.
                 * lens3d with proof.html and make that how every card is displayed. Both are
                 * optional in exactly the way everything else on this line is: missing, blocked
                 * or WebGL2-less and the card falls back to the flat plate it has always shown. */
-               '../js/hero-card.js', '../js/card-back.js', '../js/card-press.js', '../js/card-view.js']
+               '../js/hero-card.js', '../js/card-back.js', '../js/card-press.js', '../js/card-view.js',
+               /* and the door to the reverse — see turnable() below */
+               '../js/card-flip.js']
               .map(loadScript))
   .then(() => { startState(); return loadLayers(); })
   .catch(() => {});
@@ -437,9 +449,27 @@ function build3D() {
        *   registrations. Running the authored stack on top would be two layer systems competing
        *   for the same 26 thousandths of card thickness. */
       pressed = true;
+      turnable(p);
       mode();
     });
   }
+  /* ── ⚑ THE REVERSE, IN THE MEDIA SLOT ────────────────────────────────────────────────────
+   * Artist, 2026-08-05: the back belongs in every viewer — and this is the viewer a COLLECTOR
+   * gets, inside the token itself. `js/card-back.js` rasterises the card's own designed back off
+   * its page and the press lights it as paper.
+   * ⚠ NO NAVIGATION HERE, EVER. This page is framed at an opaque origin: it may show the card and
+   *   turn the card, and it must not grow links or ask for a wallet — the same rule
+   *   `superrare.html` is built on. A flip is the card doing what a card does.
+   * ⚠ And it is best-effort: fetching the back is a network request the frame may refuse, in
+   *   which case no chip appears and the lens is exactly what it was. */
+  let turned = null;
+  function turnable(p) {
+    if (!window.RipFlip || turned) return;
+    RipFlip.attach({ box: $('card'), card: pressCard(), base: '',
+                     press: () => (p && p.press) || null, mount: $('stage') })
+      .then(t => { turned = t; });
+  }
+
   /* The record the press needs. `art` is the resolved URL it will actually fetch; the IDENTITY
    * it seeds from is the filename stem, so this card prints the same here as it does in the
    * binder and in the deck browser. */

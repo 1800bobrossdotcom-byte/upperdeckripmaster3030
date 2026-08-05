@@ -118,12 +118,29 @@ function buildGallery() {
     <div class="grid">${tiles}</div>`;
   }).join('');
 
-  const page = `<!doctype html>
+    /* ⛔ AND `\\b` HAS TO BE DOUBLED IN HERE, WHICH IT WAS NOT. Everything below is inside a
+     template literal, where `\b` is not a word boundary — it is the BACKSPACE character. So the
+     generator has been emitting /\x08r-([a-z]+)\x08/ into the deck browser's own script: a regex
+     that matches nothing, silently, which makes every tile bake at rarity "common" and the
+     ?flat switch stop working. The shipped cards/index.html has the correct bytes only because
+     it was hand-patched on 2026-08-04 (CLAUDE.md records that divergence), so re-running
+     `npm run gallery` would have introduced the bug rather than fixed it — the restyle-backs
+     failure exactly: generator and output disagreeing, with the generator armed to win.
+     ⚠ Ninth-ish sighting of an escape inside a template literal in this repo; the backtick
+     version of it is recorded four times already. */
+const page = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>The Deck · ripmaster3030studios</title>
+<!-- THE SKIN — one definition of the studio's printed look, and also what styles a turned tile
+     (.rip-face / .rip-turnable). A tile with no sheet grows a flip chip that flips nothing.
+     NOTE: this template has ALREADY diverged from the shipped cards/index.html (CLAUDE.md,
+     2026-08-04: the court copy differs, so it was patched rather than regenerated). Both carry
+     this link now; the rest of the divergence is untouched, because regenerating would revert
+     live text. -->
+<link rel="stylesheet" href="viewer.css">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Georgia,'Times New Roman',serif;padding:18px 10px 40px;
@@ -197,6 +214,26 @@ function buildGallery() {
   .tile-num{position:relative;z-index:3;margin-top:3%;text-align:center;font-family:'Arial Black',Arial,sans-serif;
     font-size:8px;letter-spacing:.2em;text-indent:.2em;color:rgba(0,0,0,.55)}
   @media (prefers-reduced-motion:reduce){ .tile.lit{transform:scale(1.03)} }
+  /* ── ⚑ THE REVERSE, ON A TILE ────────────────────────────────────────────────────────────
+     Artist, 2026-08-05: the back belongs in every viewer, and 196 tiles with no reverse is the
+     largest card surface on the site. Only the ART turns: the name plate, the number and the
+     rarity court stay where they are, because they are the deck's furniture rather than the
+     card's face.
+     ⚠ PERSPECTIVE HAS TO BE ON THE TILE. The .grid rule already declares one, but perspective applies
+       to a box's DIRECT children only — it reaches .tile and stops, so a turning .tile-art would
+       have gone round flat, which reads as a sprite swap rather than as a card.
+     ⚠ The chip sits top-LEFT: .rr (rarity) owns the top right and .locktag owns the bottom left
+       of the art box. */
+  .tile{perspective:700px}
+  .tile-art .rip-face{border-radius:inherit}
+  .tflip{position:absolute;top:4px;left:4px;z-index:5;width:22px;height:22px;border-radius:50%;
+    border:2px solid #000;background:#f6ecc9;color:#111;font-size:11px;line-height:1;cursor:pointer;
+    display:grid;place-items:center;padding:0;opacity:.55;transition:opacity .15s,background .15s}
+  .tile:hover .tflip,.tile:focus-within .tflip,.tflip:focus-visible{opacity:1}
+  .tflip:hover{background:#9be34f}
+  .tflip[disabled]{opacity:.35;cursor:default}
+  /* a finger has no hover, so on touch the chip is always legible and always 44px */
+  @media (pointer:coarse){ .tflip{opacity:.9;width:32px;height:32px;font-size:14px} }
   /* ── the rarity court: burn-to-vote on every tile ── */
   .tile{cursor:pointer}
   .court-note{margin:14px auto 0;max-width:640px;text-align:center;background:#f6ecc9;
@@ -253,12 +290,18 @@ function buildGallery() {
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // navigate on tile click/Enter (vote buttons excluded)
   document.querySelectorAll('.tile[data-href]').forEach(function(t){
+    /* ⚠ THE TILE IS A LINK, AND ITS OWN LISTENER RUNS FIRST. The flip chip's handler is
+       delegated on the document, so it only ever sees a click AFTER this one has bubbled past —
+       and by then location.href has already been assigned and the page is leaving. Calling
+       stopPropagation over there cannot help: it is downstream. The vote buttons solved this
+       the same way, and the chip belongs on the same list rather than in a new mechanism. */
+    var ownControl = function(ev){ return ev.target.closest('.vote') || ev.target.closest('.tflip'); };
     t.addEventListener('click', function(ev){
-      if (ev.target.closest('.vote')) return;
+      if (ownControl(ev)) return;
       location.href = t.dataset.href;
     });
     t.addEventListener('keydown', function(ev){
-      if (ev.key === 'Enter' && !ev.target.closest('.vote')) location.href = t.dataset.href;
+      if (ev.key === 'Enter' && !ownControl(ev)) location.href = t.dataset.href;
     });
   });
   // the rarity court (preview): each ▲/▼ simulates a 1 $3030 burn, kept on this
@@ -330,15 +373,65 @@ function buildGallery() {
   <script src="../js/card-press.js" defer></script>
   <script>
   addEventListener('load', function () {
-    if (!window.CardPress || /[?&]flat\b/.test(location.search)) return;
+    if (!window.CardPress || /[?&]flat\\b/.test(location.search)) return;
     CardPress.grid('.tile-art img', function (img) {
       var t = img.closest('.tile');
-      var r = t && (t.className.match(/\br-([a-z]+)\b/) || [])[1];
+      var r = t && (t.className.match(/\\br-([a-z]+)\\b/) || [])[1];
       var n = t && t.querySelector('.tile-name');
       return { art: img.getAttribute('src'),
                title: ((n && n.textContent) || img.alt || '').toUpperCase(),
                rarity: r || 'common' };
     }, { base: '' });
+  });
+  </script>
+  <!-- ⚑ AND EVERY TILE TURNS OVER. js/card-back.js rasterises a card's own designed back off its
+       own page — its trivia, its vitals, its statistics table — so the reverse in the deck is the
+       real one rather than a stand-in drawn from a manifest.
+       LAZY, AND THAT IS THE DESIGN, not an optimisation: attaching 196 of these on load would
+       fetch and rasterise 196 card pages before anybody saw anything. The chip is markup, the
+       back is fetched the first time somebody asks for one, and a card whose page will not
+       rasterise loses its chip rather than gaining a button that does nothing.
+       NOTE: no backticks in this comment — it is emitted from a template literal in
+       scripts/ingest-batch.mjs. -->
+  <script src="../js/card-flip.js" defer></script>
+  <script>
+  addEventListener('load', function () {
+    if (!window.RipFlip || !window.CardBack) return;
+    document.querySelectorAll('.tile .tile-art').forEach(function (a) {
+      if (a.querySelector('.tflip')) return;
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'tflip'; b.title = 'turn it over';
+      b.setAttribute('aria-label', 'turn the card over');
+      b.textContent = '\\u21bb';
+      a.appendChild(b);
+    });
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.tflip');
+      if (!b) return;
+      /* ⚠ the tile is a link — without this the page navigates away mid-flip */
+      e.preventDefault(); e.stopPropagation();
+      var art = b.closest('.tile-art'), tile = b.closest('.tile');
+      if (!art || !tile) return;
+      if (art.__ripflip) { art.__ripflip.flip(); return; }
+      var img = art.querySelector('img'), n = tile.querySelector('.tile-name');
+      if (!img) return;
+      /* ⛔ THE TILE'S OWN src IS NOT THE CARD'S IDENTITY BY THE TIME YOU CLICK. js/card-press.js
+         bakes each tile on view and assigns a data: URI, so reading src here gives a 40KB base64
+         blob whose filename stem is garbage — CardBack then fetches a page that cannot exist,
+         returns null, and the chip deletes itself. It looked exactly like a card with no back.
+         The tile's data-href IS the card's page, which is the thing being asked for. */
+      var slug = (tile.getAttribute('data-href') || '').replace(/\.html.*$/, '');
+      if (!slug) return;
+      b.disabled = true;
+      RipFlip.attach({ box: art, base: '', mount: null, tapCard: false,
+                       card: { slug: slug, art: img.getAttribute('src'),
+                               title: ((n && n.textContent) || img.alt || '').toUpperCase(),
+                               rarity: (tile.className.match(/\\br-([a-z]+)\\b/) || [])[1] || 'common' } })
+        .then(function (f) {
+          b.disabled = false;
+          if (f) f.flip(); else b.remove();   // no back to show ⇒ no control for it
+        });
+    });
   });
   </script>
 </body>

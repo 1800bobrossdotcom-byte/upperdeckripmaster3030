@@ -1,0 +1,136 @@
+/* ripmaster3030studios — ONE SKIN FOR EVERY CARD SURFACE.   `cards/viewer.css`
+ *
+ * Artist, 2026-08-05: *"backs of cards need to be present in every viewer. every viewer should
+ * look like this snazzy one"* — then, asked which part: *"the background and navs I mean and
+ * buttons etc."*
+ *
+ * ══ ⛔ THE STUDIO HAD TWO LOOKS AND NOBODY HAD DECIDED BETWEEN THEM ═════════════════════════
+ * A card page and the deck browser are printed objects: displaced-turbulence blob stock, a
+ * yellow board on a red rim, cream plates, and buttons that are 3px of black around a bright
+ * fill. The folder, the market bench and the lens are an acid-green terminal: near-black ground,
+ * hairline #0f5c33 borders, phosphor text. Both are good. They are not the same studio, and a
+ * collector walking pack → deck → folder → lens crossed the line four times.
+ * ⚑ THE PRINTED ONE WINS BECAUSE IT IS THE ONE THE CARD IS MADE OF. Everything here is LIFTED
+ *   from `cards/index.html` and the card pages rather than invented — same blob, same board,
+ *   same rims, same pill — so this file is an extraction, not a redesign, and the artist is
+ *   ratifying work he has already approved.
+ *
+ * ⚑ IT DECLARES AND THE PAGES SPEND, exactly like `mobile.css`, and for the same reason: every
+ *   one of these pages carries a large inline <style> that comes later in the cascade and would
+ *   win any fight this sheet started. So the tokens are variables, the classes are new names
+ *   nothing else uses, and a page opts in by wearing `rip-skin` on <body>.
+ * ⚠ Sizes are spent from mobile.css's scale with its own fallbacks, so the 12px label floor and
+ *   the 44px tap floor hold here too — the deck's own chips are 10px, which is below the floor
+ *   this project set for itself and is not a thing to copy forward.
+ * ⚠ Nothing here is required for a page to work. No skin, no board, no button styling ⇒ the
+ *   page renders as plain HTML in its own stylesheet, which is what it did before.
+ */
+
+:root{
+  /* ⚑ THE STOCK. The landing page, the deck browser and all 196 card pages each carry their own
+   * inline copy of this data URI with a different turbulence seed. This is the card pages' one
+   * (seed 11) — the surface the artist pointed at. */
+  --rip-stock-color:#7b2ff7;
+  --rip-stock:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='1350'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.009' numOctaves='3' seed='11'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='190'/%3E%3C/filter%3E%3Cg filter='url(%23t)'%3E%3Crect width='900' height='1350' fill='%237b2ff7'/%3E%3Ccircle cx='450' cy='675' r='640' fill='%232a6cff'/%3E%3Ccircle cx='450' cy='675' r='540' fill='%2337d34a'/%3E%3Ccircle cx='450' cy='675' r='440' fill='%23ffe93b'/%3E%3Ccircle cx='450' cy='675' r='340' fill='%23ff9a3b'/%3E%3Ccircle cx='450' cy='675' r='250' fill='%23ff4b4b'/%3E%3Ccircle cx='450' cy='675' r='165' fill='%23ff5fd0'/%3E%3Ccircle cx='450' cy='675' r='85' fill='%23ffe93b'/%3E%3C/g%3E%3C/svg%3E");
+  --rip-ink:#111;                 /* the one ink. Near-black, never pure. */
+  --rip-rule:#000;                /* the 3px keyline every printed element carries */
+  --rip-board:#ffd93b;            /* the board the cards are laid on */
+  --rip-rim:#ff6b57;             /* and the rim it is trimmed with */
+  --rip-plate:#f6ecc9;            /* cream — captions, chips, panels */
+  --rip-blue:#63b3ff;
+  --rip-green:#9be34f;
+  --rip-pink:#ff5fd0;
+  --rip-sun:#ffe93b;
+  --rip-pulp:url("../media/site/pulp-albedo.webp");
+}
+
+/* ── the ground ──────────────────────────────────────────────────────────────────────────── */
+body.rip-skin{
+  background:var(--rip-stock-color) var(--rip-stock) center/cover no-repeat fixed;
+  color:var(--rip-ink);
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ⚑ THE BOARD IS PRINTED, NOT FILLED — the deck browser's own note, and the reason it is worth
+ * carrying here: `background-blend-mode:multiply` over a baked newsprint is literally what ink on
+ * paper does, and the white scrim on top is the strength knob that keeps the type's contrast.
+ * Both numbers (.50 board / .66 plate) were MEASURED there by scripts/build-site-check.mjs
+ * against a 12% contrast tolerance; they are carried across unchanged rather than re-eyeballed. */
+.rip-board{
+  background-image:linear-gradient(rgba(255,255,255,.50),rgba(255,255,255,.50)),var(--rip-pulp);
+  background-repeat:repeat; background-size:auto,300px;
+  background-blend-mode:normal,multiply; background-color:var(--rip-board);
+  border:3px solid var(--rip-rule); border-radius:16px;
+  box-shadow:0 0 0 10px var(--rip-rim),0 0 0 13px var(--rip-rule),0 24px 50px rgba(0,0,0,.5);
+  padding:clamp(12px,3vw,26px);
+}
+.rip-plate{
+  background-image:linear-gradient(rgba(255,255,255,.66),rgba(255,255,255,.66)),var(--rip-pulp);
+  background-repeat:repeat; background-size:auto,260px;
+  background-blend-mode:normal,multiply; background-color:var(--rip-plate);
+  border:3px solid var(--rip-rule); border-radius:10px;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); padding:10px 14px; color:var(--rip-ink);
+}
+
+/* ── the buttons ─────────────────────────────────────────────────────────────────────────── */
+/* ⚠ A HOVER LIFT BECOMES A PRESS YIELD ON A FINGER — the mobile pass's own finding. So the
+ * pressed state is the one that always exists and hover only brightens the fill. */
+.rip-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.5em;
+  min-height:var(--tap,44px); padding:8px 16px;
+  background:var(--rip-plate); border:3px solid var(--rip-rule); border-radius:999px;
+  font-family:'Arial Black',Arial,sans-serif; font-size:var(--t-ui,13px);
+  letter-spacing:.18em; text-indent:.18em; text-transform:uppercase;
+  color:var(--rip-ink); text-decoration:none; cursor:pointer;
+  box-shadow:0 4px 0 var(--rip-rule); transition:background .15s, transform .08s, box-shadow .08s;
+}
+.rip-btn:hover,.rip-btn:focus-visible{ background:var(--rip-green); outline:none; }
+.rip-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--rip-rule); }
+.rip-btn[disabled]{ opacity:.45; cursor:default; box-shadow:0 4px 0 var(--rip-rule); }
+.rip-btn.hot{ background:var(--rip-rim); }
+.rip-btn.cool{ background:var(--rip-blue); }
+.rip-btn.on{ background:var(--rip-sun); }
+.rip-nav{ display:flex; flex-wrap:wrap; gap:var(--tap-gap,8px); justify-content:center;
+  align-items:center; margin:8px auto 2px; }
+
+/* ── the flip control, and the caption under it ──────────────────────────────────────────── */
+/* the card page's own chip: a dark lozenge with the studio's yellow in it, sitting UNDER the
+ * card and never over the art. */
+.rip-flip{
+  display:inline-flex; align-items:center; gap:.6em; min-height:var(--tap,44px);
+  padding:8px 18px; background:rgba(0,0,0,.62); border:2px solid var(--rip-rule);
+  border-radius:999px; font-family:'Arial Black',Arial,sans-serif; font-size:var(--t-fine,12px);
+  letter-spacing:.14em; text-transform:uppercase; color:var(--rip-sun); cursor:pointer;
+  -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  /* ⚠ a flip chip must never wrap: "back to the front" over two lines doubles its height and it
+     is usually sitting on the card it is about. */
+  white-space:nowrap;
+}
+.rip-flip:hover,.rip-flip:focus-visible{ color:#fff; border-color:var(--rip-sun); outline:none; }
+.rip-flip .rip-turn{ display:inline-block; transition:transform .5s cubic-bezier(.5,1.4,.4,1); }
+.rip-flip[aria-pressed="true"] .rip-turn{ transform:rotate(180deg); }
+.rip-hint{ text-align:center; font:var(--t-fine,12px)/1.4 'Courier New',monospace;
+  letter-spacing:.06em; color:#b8ffd6; opacity:.75; margin-top:5px; }
+
+/* ── the DOM back, for a viewer with no press ────────────────────────────────────────────── */
+/* ⚑ A CARD TURNS OVER EVEN WITH NO WebGL2. `js/card-flip.js` puts the rasterised designed back
+ * in here and turns the pair; this is the same 3D flip the card pages use, so the gesture is one
+ * gesture everywhere rather than a different animation per surface. */
+/* ⛔ THE HOLDER CLIPS, THE TURNER TURNS, AND THEY CANNOT BE THE SAME ELEMENT. `overflow` other
+ *   than visible forces `transform-style` back to FLAT, so a half turn applied to a box that
+ *   clips its contents has no 3D left in it and `backface-visibility` stops meaning anything —
+ *   measured as a deck tile turning over to show its own front, mirrored. The holder therefore
+ *   only ever gains a perspective. */
+.rip-holder{ perspective:900px; }
+.rip-turnable{ position:absolute; inset:0; transform-style:preserve-3d;
+  transition:transform .6s cubic-bezier(.5,1.4,.4,1); }
+.rip-turnable.rip-turned{ transform:rotateY(180deg); }
+.rip-face{ position:absolute; inset:0; border-radius:inherit; overflow:hidden;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden; }
+.rip-face.rip-rev{ transform:rotateY(180deg); background:#0a0414; }
+.rip-face.rip-rev img{ width:100%; height:100%; display:block; object-fit:fill; }
+
+@media (prefers-reduced-motion:reduce){
+  .rip-turnable{ transition:none; }
+  .rip-flip .rip-turn{ transition:none; }
+}

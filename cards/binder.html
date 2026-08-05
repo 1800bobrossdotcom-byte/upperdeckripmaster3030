@@ -7,6 +7,11 @@
 <meta name="description" content="The collector's folder — nine-pocket pages you turn like a book. Pull a card out of its sleeve and it flies into the starfield and becomes a live 3D lens.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../mobile.css">
+<!-- ⚑ THE SKIN. One definition of the studio's printed look — blob stock, the board, the pill —
+     lifted out of the card pages and the deck browser and worn by every card surface. See the
+     header of cards/viewer.css: this page used to be an acid-green terminal, which is a second
+     studio a collector crossed into halfway through the deck. -->
+<link rel="stylesheet" href="viewer.css">
 <!--
   THE FOLDER — nine pockets to a page, and pulling a card out of one is the whole point.
 
@@ -34,7 +39,10 @@
          --cyan:#27f7e4; --amber:#ffd23b;
          --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
   *{margin:0;padding:0;box-sizing:border-box}
-  html{background:var(--bg)}
+  /* ⚠ THE CANVAS COLOUR HAS TO MOVE TOO. A background on <html> paints the canvas and STOPS the
+     body's own background propagating to it, so skinning the body alone leaves the old ground
+     showing anywhere the body does not reach. */
+  html{background:var(--rip-stock-color,#7b2ff7)}
   body{background:transparent;font-family:var(--mono);color:var(--ink);min-height:100vh;
        font-size:var(--t-body,13px);line-height:1.65;
        overflow-x:hidden;padding:0 12px 80px;-webkit-tap-highlight-color:transparent}
@@ -205,18 +213,51 @@
   /* the footer is a sentence (copyright + NFA), so it takes the prose size and its hierarchy
      from colour — the same call the generated pages' `.fine` had to make. */
   footer{margin-top:26px;text-align:center;font-size:var(--t-body,10px);letter-spacing:.04em;color:#59ab7d;line-height:1.8}
+
+  /* ══ THE SKIN, SPENT ═══════════════════════════════════════════════════════════════════════
+   * `cards/viewer.css` declares the studio's printed look; this maps this page's own class names
+   * onto it. It has to live here rather than in the shared sheet for the reason `mobile.css`
+   * states in its own header: this inline block comes LAST in the cascade and would win any
+   * fight the shared sheet picked, so the shared sheet declares primitives and each page spends
+   * them. The mapping is local because the legacy names are local.
+   * ⚠ INK ON PAPER, NOT PHOSPHOR ON BLACK. Every text colour here was chosen against a near-black
+   *   ground; over the blob stock, #8fe3b8 body copy on a yellow lobe is unreadable. So the copy
+   *   goes onto a plate and the type goes to the one ink — which is what the deck browser and the
+   *   card pages already do, and is why they work over the same background. */
+  header{ margin-top:14px; }
+  header .hd, .depthstrip{
+    background-image:linear-gradient(rgba(255,255,255,.66),rgba(255,255,255,.66)),var(--rip-pulp);
+    background-repeat:repeat; background-size:auto,260px;
+    background-blend-mode:normal,multiply; background-color:var(--rip-plate);
+    border:3px solid var(--rip-rule); border-radius:12px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); padding:clamp(12px,2.4vw,20px); }
+  h1{ color:var(--rip-ink); text-shadow:none; }
+  .sub,.note,.dnote,footer{ color:#3a2c17; text-shadow:none; }
+  .dlabel{ color:#7a2c00; }
+  .depthstrip a{ border:3px solid var(--rip-rule); border-radius:999px; color:var(--rip-ink);
+    background:var(--rip-blue); font-family:var(--fat); letter-spacing:.14em;
+    box-shadow:0 3px 0 var(--rip-rule); }
+  .depthstrip a:hover,.depthstrip a:focus{ background:var(--rip-green); color:var(--rip-ink); }
+  /* the source chips are .rip-btn now and carry a second line, so they stack */
+  .rip-btn.stack{ flex-direction:column; gap:2px; line-height:1.25; text-indent:0; }
+  .rip-btn.stack small{ font-family:var(--mono); font-size:var(--t-tag,12px); letter-spacing:.02em;
+    text-transform:none; opacity:.72; }
+  .chip.rip-btn.on{ background:var(--rip-sun); border-color:var(--rip-rule); color:var(--rip-ink); }
+  /* ⚠ the laughing-man tile is the TERMINAL's wallpaper — over the blob it is two grounds
+     fighting, and the blob is the one the artist pointed at. */
+  .lm{ display:none; }
 </style>
 <script src="/gate.js"></script>
 <script src="../js/bg-foil.js" defer></script>
 </head>
-<body>
+<body class="rip-skin">
 <div class="lm" aria-hidden="true"></div>
 <div class="wrap">
   <header>
-    <div class="navs">
-      <a href="../index.html">◄ back to the pack</a>
-      <a href="battle.html">⚔ the arena</a>
-      <a href="market.html">⇄ the market bench</a>
+    <div class="navs rip-nav">
+      <a class="rip-btn" href="../index.html">◄ back to the pack</a>
+      <a class="rip-btn" href="battle.html">⚔ the arena</a>
+      <a class="rip-btn" href="market.html">⇄ the market bench</a>
     </div>
     <div class="hd">
       <div>
@@ -293,6 +334,7 @@
     <button class="vnav" id="vnext" type="button" aria-label="next card">▶</button>
   </div>
   <div id="vmeta">
+    <div id="vturn"></div>
     <div id="vttl">—</div><div id="vnum">—</div>
     <a id="vlink" href="#" hidden>open the card page →</a>
     <div id="vmode">flat</div>
@@ -310,6 +352,11 @@
 <script src="../js/card-back.js"></script>
 <script src="../js/card-press.js"></script>
 <script src="../js/card-view.js"></script>
+<!-- ⚑ AND THE DOOR TO THE REVERSE. js/card-back.js has been rasterising the designed back off
+     each card's own page all along and the press has been uploading it — what was missing was any
+     way to turn the card over, because press.flip() bumped a yaw target that advance() reassigned
+     every frame. js/card-flip.js is the control; the fix is in js/hero-card.js. -->
+<script src="../js/card-flip.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
      the header prop or the first opened card asks for it first. -->
@@ -473,8 +520,8 @@
      *   place — it never rebuilds, because getContext('webgl2') hands back the same context and
      *   a binder is exactly the page where that leak would go unnoticed for a hundred cards. */
     /* the viewer owns the card once it is up; card3d only drives the pre-press fallback */
-    if (press) { press.show(pressCard(card)); return; }
-    if (ctrl) { ctrl.setArt(url); ctrl.setRarity(card.rarity); return; }
+    if (press) { press.show(pressCard(card)); turnable(card); return; }
+    if (ctrl) { ctrl.setArt(url); ctrl.setRarity(card.rarity); turnable(card); return; }
     Card3D.engine('../').then(() => {
       const cv = document.createElement('canvas');
       $('vcard').insertBefore(cv, $('vflat'));
@@ -484,7 +531,9 @@
          * sunlit would have the edges catching a light that is visibly not in the room */
         env: new URL('../models/env/satara_night.png', location.href).href,
       });
-      if (!ctrl) { $('vmode').textContent = 'flat (no webgl)'; return; }
+      /* ⚠ NO ENGINE IS NOT NO BACK. The front degrades to a flat picture and that is the standing
+       *   trade here; the back is the card's DOSSIER, so it turns over with plain CSS instead. */
+      if (!ctrl) { $('vmode').textContent = 'flat (no webgl)'; turnable(card); return; }
       ctrl.setArt(url); ctrl.setRarity(card.rarity);
       $('vflat').style.display = 'none';
       $('vmode').textContent = 'playcanvas 3d · live lens';
@@ -496,12 +545,29 @@
        *   card means the one underneath is paid for and never seen. */
       if (!/[?&]flat\b/.test(location.search) && window.CardView) {
         CardView.mount({ box: $('vcard'), base: '', card: pressCard(card) })
-          .then(p => { if (!p) return;              // fails open — card3d's plate stands
+          .then(p => { if (!p) { turnable(card); return; }   // fails open — card3d's plate stands
                        press = p; window.__press = p;   // handle for the harness
                        try { ctrl.destroy(); ctrl = null; } catch (e) {}
-                       $('vmode').textContent = 'the press · pressed'; });
+                       $('vmode').textContent = 'the press · pressed';
+                       turnable(card); });
       }
     }).catch(() => { $('vmode').textContent = 'flat (engine blocked)'; });
+  }
+
+  /* ── ⚑ THE REVERSE ────────────────────────────────────────────────────────────────────────
+   * Artist, 2026-08-05: *"backs of cards need to be present in every viewer."* This one now has
+   * one, and it is the card's OWN designed back — `js/card-back.js` rasterises the real vintage
+   * back off that card's page (its trivia, its vitals, its statistics) and the press lights it as
+   * paper. See js/card-flip.js for why this could never have worked before today.
+   * ⚠ MOUNTED ONCE, RE-POINTED PER CARD. Walking the folder must not stack a chip per card, and
+   *   the next card always arrives face up — you do not hand somebody a card reverse-first. */
+  let turnCtrl = null;
+  function turnable(card) {
+    if (!window.RipFlip) return;                       // fails open: no module, no chip
+    if (turnCtrl) { turnCtrl.show(pressCard(card)); return; }
+    RipFlip.attach({ box: $('vcard'), card: pressCard(card), base: '',
+                     press: () => (press ? press.press : null), mount: $('vturn') })
+      .then(t => { turnCtrl = t; });
   }
 
   /* tilt: pointer where there is one, device orientation on a phone. Both clamped — a card that
@@ -586,7 +652,7 @@
 
   function chips() {
     $('chips').innerHTML = Object.entries(SOURCES).map(([k, s]) =>
-      `<button class="chip${k === which ? ' on' : ''}" data-src="${k}">${s.label}<small>${s.note}</small></button>`).join('');
+      `<button class="chip rip-btn stack${k === which ? ' on' : ''}" data-src="${k}">${s.label}<small>${s.note}</small></button>`).join('');
     $('chips').querySelectorAll('.chip').forEach(b =>
       b.onclick = () => { if (b.dataset.src !== which) load(b.dataset.src); });
   }

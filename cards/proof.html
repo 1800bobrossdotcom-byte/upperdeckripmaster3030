@@ -1,6 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="viewer.css">
 <title>PLATE PROOF — the first of the 33</title>
 <!--
   ripmaster3030studios — THE 33, STEP ONE.  cards/proof.html
@@ -597,6 +598,10 @@ frame and seed are left alone">RESET TO BASE</button>
 <script src="../js/lens-state.js" onerror="void 0"></script>
 <script src="../js/hero-card.js"></script>
 <script src="../js/card-export.js"></script>
+<!-- ⚑ THE REVERSE. The forge is where the hundred get made, so it is the one place the back has
+     to be checkable before a card is saved — a number and a name are printed on it. The press
+     already renders its own reverse; js/card-flip.js is the door. -->
+<script src="../js/card-flip.js"></script>
 <script>
 (function () {
   'use strict';
@@ -708,6 +713,13 @@ frame and seed are left alone">RESET TO BASE</button>
       applyAll(c);
       c.loop(true);
       goLive();
+      /* ⚑ TURN IT OVER — the number and the name are printed on the back, so the forge must be
+       * able to show it before the card is filed. */
+      if (window.RipFlip) {
+        RipFlip.attach({ box: document.getElementById('card'), press: function () { return c; },
+                         mount: document.getElementById('stage'), tapCard: false })
+          .catch(function () {});
+      }
       fillSlots(); fillRarity(); renderDeck();
       readout();
       setInterval(readout, 400);

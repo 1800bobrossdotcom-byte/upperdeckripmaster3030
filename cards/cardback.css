@@ -2,9 +2,29 @@
    Shared across every card page (injected by scripts/restyle-backs.mjs). All sizing is
    in cqw (1% of the card-back width) so the layout scales with the card, not the viewport.
    The thick outer frame keeps each card's own --f color; the stock is manila. */
+
+/* ⛔ THE FRAME ATE THE CARD, AND IT IS THE ONE DECLARATION IN THIS FILE THAT COULD NOT WORK.
+ *   Artist, 2026-08-05: *"the backs … [need to] fit to full size (here it is not)"* — the manila
+ *   stock sat in a fat band of frame colour instead of filling the card.
+ * ⚑ A CONTAINER QUERY UNIT RESOLVES AGAINST THE NEAREST **ANCESTOR** CONTAINER — an element that
+ *   declares `container-type` cannot query ITSELF. Every other cqw here is on a DESCENDANT
+ *   (`.back .vb…`) and correctly measures the card. This one was on `.back`, so it fell all the
+ *   way back to the viewport, and the frame grew with the WINDOW while the card stayed capped:
+ *
+ *       viewport   390    760   1280   1600   1920
+ *       frame     13px   26px   44px   55px   65px      ← 3.4% of the window, not of the card
+ *       stock     92.4%  88.6%  81.0%  76.1%  71.5%     ← of the card's width
+ *
+ *   Measured, not reasoned: the artist's screenshot is the 1920 column. Nothing errored, nothing
+ *   overflowed, and on the narrow window it was developed in it looked very nearly right — which
+ *   is why it shipped on 196 pages.
+ * ⚠ A PERCENTAGE IS NOT A COSMETIC SWAP FOR cqw HERE, IT IS THE CORRECT UNIT: padding percentages
+ *   resolve against the CONTAINING BLOCK's inline size, and `.back` is `inset:0` inside `.card`,
+ *   so 3.4% is 3.4% of the card at every window width, forever. At the 460px design size it is
+ *   15.6px — the 16px frame `cards/_back-preview.html` was drawn with. */
 .back{ container-type:size;
   background:var(--f,#2f74c0) !important; border:0 !important;
-  padding:3.4cqw !important; display:block !important; color:#241b10; }
+  padding:3.4% !important; display:block !important; color:#241b10; }
 
 .back .vb{ position:relative; height:100%; border-radius:3.4cqw; padding:3.4cqw 3.2cqw 2.6cqw;
   background:
@@ -86,3 +106,52 @@
   overflow:hidden; text-overflow:ellipsis; max-width:52%; }
 .back .vb-live.hot{ color:#c2185b; }
 .back .vb-hide{ display:none !important; }
+
+/* ══ THE KEY LIGHT ON THE REVERSE ═══════════════════════════════════════════════════════════
+ * Artist, 2026-08-05: *"the backs [need to be] treated with keylight effects."*
+ *
+ * ⛔ THE BACK WAS THE ONE SURFACE ON THIS CARD THAT WAS NOT AN OBJECT. The front carries four
+ *   layers that answer the pointer — `.inflate` (the coating's broad sheen), `.glare`, the foil,
+ *   the glitter — and the reverse carried none of them, so turning the card over turned it into a
+ *   scan of a card. Every other lesson in this project points at that: a surface that does not
+ *   answer a light is a picture OF a thing.
+ *
+ * ⚑ WHAT IT IS MADE OF: the same coated stock as the front, inside a die-cut frame in the card's
+ *   own colour. So the light it answers is the same light, not a second lighting model.
+ * ⚑ HOW IT IS LIT: ONE warm key. `::before` is its specular lobe on the coating; `::after` seats
+ *   the side away from it so the card reads as a lit slab rather than an evenly-scanned sheet.
+ * ⚑ WHAT MOVES, AND WHY IT PHYSICALLY MOVED: nothing moves on its own. `--px/--py` are the card's
+ *   ATTITUDE — the same two numbers that tilt the slab and drive the front's sheen — so the
+ *   highlight travels because the CARD turned under a fixed light, which is the only reason a
+ *   highlight on a piece of card ever travels. At rest both are 0 and the lobe sits dead
+ *   centre-top, exactly where an overhead key puts it, and it is completely still.
+ * ⚠ WARM, AND NEVER A RAINBOW. Prism belongs to the foil die edge (the press draws that in the
+ *   shader); a manila back that throws spectrum is the "sticker of foil" failure DESIGN-SYSTEM §1
+ *   forbids, on the one surface with no foil on it.
+ * ⚠ FALLBACKS ON BOTH VARS. A viewer that never writes them — a binder pocket, a grid tile —
+ *   gets the rest pose rather than `calc()` with an empty operand, which is an invalid
+ *   declaration and drops the whole layer.
+ * ⚠ AND IT IS STRIPPED WHEN THE BACK IS RASTERISED (`js/card-back.js`): the press lights its own
+ *   reverse, so baking this into the texture would freeze one highlight into the paper and then
+ *   light it again — the wash bug, arriving through the back door. */
+/* ⛔ AND THE FIRST VERSION OF THIS WAS A SCREEN BLEND, WHICH IS THE WRONG PHYSICS FOR PAPER AND
+ *   MEASURED AS ALMOST NOTHING. Manila stock sits at luma ~220; adding white to it has nowhere to
+ *   go, so sweeping the card from --px −1 to +1 moved the left/right balance by 3.5 levels — a
+ *   light you cannot see is not a light. ⚑ A KEY ON A DIFFUSE SURFACE IS AN ILLUMINATION FALLOFF,
+ *   NOT A HOTSPOT: the paper is bright where it faces the lamp and falls off away from it, which
+ *   is a MULTIPLY and has the whole range below white to move in. The specular lobe is a separate,
+ *   much smaller thing that belongs to the COATING, not to the fibre — so it is a second layer,
+ *   tight and weak, rather than the whole effect. Two materials, two terms. */
+.back::before, .back::after{ content:""; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none; }
+/* THE KEY — how much light reaches each part of the sheet. White = facing the lamp. */
+.back::before{ z-index:5; mix-blend-mode:multiply;
+  background:radial-gradient(122% 104% at calc(50% + var(--px,0)*44%) calc(32% + var(--py,0)*38%),
+    #ffffff 0%, #f8f3e9 36%, #e0d8c7 70%, #c4baa4 100%); }
+/* THE COATING — one small gloss where the lamp is mirrored, and the far corner seated. */
+.back::after{ z-index:6; mix-blend-mode:soft-light;
+  background:
+    radial-gradient(34% 24% at calc(50% + var(--px,0)*44%) calc(30% + var(--py,0)*36%),
+      rgba(255,255,255,.85), rgba(255,255,255,.14) 54%, transparent 78%),
+    radial-gradient(farthest-corner circle at calc(50% + var(--px,0)*58%) calc(50% + var(--py,0)*58%),
+      rgba(255,255,255,.10) 6%, rgba(0,0,0,0) 34%, rgba(0,0,0,.34) 122%); }

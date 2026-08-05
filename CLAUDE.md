@@ -1269,6 +1269,96 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ⛔ THE BACK OF THE CARD — `npm run test:back` (38), and it was FOUR defects
+*Artist, 2026-08-05, with a screenshot: "we need to make sure the backs are treated with keylight
+effects and also fit to full size (here it is not) - backs of cards need to be present in every
+viewer. every viewer should look like this snazzy one" → "the background and navs I mean and
+buttons etc."* Each one was invisible to every check that existed.
+
+- ⛔ **THE FRAME ATE THE CARD, AND IT IS THE ONE DECLARATION IN `cardback.css` THAT COULD NOT WORK.**
+  `.back{padding:3.4cqw}` — and **a container query unit resolves against the nearest ANCESTOR
+  container, so an element that declares `container-type` cannot query ITSELF.** It fell through to
+  the viewport, so the frame tracked the WINDOW while the card stayed capped at ~460px:
+
+  | viewport | 390 | 760 | 1280 | 1920 |
+  | --- | --- | --- | --- | --- |
+  | frame | 13px | 26px | 44px | 65px |
+  | stock fills | 92.4% | 88.6% | 81.0% | **71.5%** |
+
+  ⚑ Every OTHER cqw in that file is on a DESCENDANT and was always right, which is exactly why
+  nobody looked at this one. **A percentage is the correct unit, not a workaround**: padding
+  percentages resolve against the containing block, and `.back` is `inset:0` inside `.card`.
+  ⚠ **One viewport cannot see this.** At 390px the bug was 92.4% correct and looked fine; the
+  defect only exists as a SPREAD across widths, so the test asserts the spread (0.01% now, 20.9%
+  before) as well as the four values.
+- ⛔ **THE BACK WAS NOT LIT — IN BOTH RENDERERS, UNDER COMMENTS SAYING IT WAS.** The front carries
+  four layers that answer the pointer and the reverse carried none; in the press,
+  `hero-card.js`'s `V.z < 0` branch **RETURNED thirty lines above the lights**, under a note
+  reading *"same stock, same light, same die edge"*. It is the same three lights, the same wrapped
+  diffuse, the same GGX and the same room rule now.
+  ⚑ **THE OUTWARD NORMAL OF THE REVERSE IS −Ng**, and that is the whole trick — lighting it with
+  the front's normal puts every light on the wrong side of the paper.
+  ⚠ Also corrected: the branch encoded `pow(1/2.2)` and the front does not, so **the two sides of
+  one sheet were on different transfer curves**, and it was cut from a lighter stock than
+  `STOCK`. One card, one paper, one curve.
+- ⛔ **AND A KEY ON PAPER IS AN ILLUMINATION FALLOFF, NOT A HOTSPOT.** The first CSS version was a
+  screen blend — manila sits at luma ~220, so adding white to it moved the left/right balance by
+  **3.5 levels**. A MULTIPLY has the whole range below white to move in: **centroid travel 0.14 →
+  0.90, balance +23 → −31** across the sweep, against a sabotage control that measures 0.000.
+  The specular lobe is a second, much smaller layer, because the coating and the fibre are two
+  materials.
+- ⛔ **NO VIEWER COULD REACH A BACK AT ALL, AND THE CAUSE WAS ONE LINE.** `press.flip()` bumped the
+  yaw TARGET by π; `advance()` opens by assigning that target from the pointer, **every frame**. So
+  the card never turned — measured at **yaw 0.000 at +80/300/700/1500/2500 ms** — while `faceUp`
+  reported that it had. ⚑ **The designed back was being rasterised, uploaded to the GPU and was
+  unreachable.** Which-way-up is a STATE the target is built FROM now. **Assert the yaw, not the
+  flag** — the flag was correct on the broken build. (Third sighting: the `[hidden]` countdown,
+  the reticle's `clip-path`, this.)
+- ✅ **`js/card-flip.js` (`RipFlip`) IS THE DOOR, and it does not need WebGL2.** The front is a
+  picture and degrades to a picture; **the back is the card's DOSSIER** — trivia, vitals,
+  statistics, lore — so losing it with the renderer is a different and worse trade. Press present ⇒
+  the real object turns; no press ⇒ a CSS half-turn onto the rasterised designed back. **No back
+  obtainable ⇒ no chip at all**, because a flip button that does nothing reads as a broken page.
+  - ⛔ **THE TURN NEEDS ITS OWN ELEMENT. `overflow` other than visible FORCES `transform-style`
+    back to flat** — it is a grouping property — so a half-turn applied to the box that also CLIPS
+    has no 3D left and `backface-visibility` stops meaning anything. Measured as deck tiles turning
+    over to show **their own front, mirrored**, with the real back behind it. The holder clips, a
+    nested `.rip-turnable` turns.
+  - ⛔ **A TILE'S `src` IS NOT ITS IDENTITY BY THE TIME YOU CLICK IT.** `card-press.js` bakes each
+    tile on view and assigns a data: URI, so reading `src` gives a blob whose filename stem is
+    garbage, `CardBack` fetches a page that cannot exist, and the chip deletes itself — which looks
+    exactly like a card with no back. `data-href` IS the card's page.
+  - ⚠ **The tile's own click listener runs BEFORE a delegated one and navigates away.**
+    `stopPropagation` in the delegated handler is downstream and cannot help; the chip joins the
+    vote buttons on the tile's own exclusion list.
+  - ⚠ The rasteriser strips the live light layers so a frozen highlight is never baked into the
+    plate and then lit again (the wash, through the back door). **Measured: it changes nothing
+    today** — Chromium's `foreignObject` does not composite `mix-blend-mode` at all, byte-identical
+    either way — so it is insurance, and the test asserts the PROPERTY rather than the rule.
+- ✅ **ONE SKIN — `cards/viewer.css`.** The studio had two looks and nobody had decided between
+  them: the card pages and the deck browser are printed objects (blob stock, yellow board on a red
+  rim, cream plates, 3px keylines) and the folder, the bench and the lens were an acid-green
+  terminal. **A collector walking pack → deck → folder → lens crossed the line four times.** The
+  printed one wins because it is what the CARD is made of, and every value in that file is LIFTED
+  from surfaces the artist already approved — an extraction, not a redesign.
+  ⚑ **It declares and the pages spend**, exactly like `mobile.css` and for the same reason: each of
+  these pages carries a big inline `<style>` that comes later in the cascade and would win any
+  fight the shared sheet started.
+  ⚠ **`html` has to move too** — a background on `<html>` paints the canvas and STOPS the body's
+  own background reaching it. ⚠ And the copy goes onto a PLATE: every colour on those pages was
+  picked against near-black, and phosphor green over a yellow lobe of the blob is unreadable.
+  ⚠ **Left alone deliberately:** the folder's starfield viewer (its own room, and the warp is the
+  pack-rip gesture), the bench's ledger leaves and the sheet — those are OBJECTS, not the page.
+  `cards/battle.html` is a game cabinet with 82 sub-12px elements already open against it; it is
+  not skinned here, and that is a decision rather than an oversight.
+- ⛔ **AND THE DECK GENERATOR WAS EMITTING A BACKSPACE.** `scripts/ingest-batch.mjs` writes
+  `cards/index.html` from a template literal, where **`\b` is not a word boundary — it is
+  U+0008**. Five of them, including `/[?&]flat\b/` and the rarity match, so a regenerated deck
+  browser would have had a regex that silently matches nothing and every tile baking as `common`.
+  The shipped file only had the right bytes because it was hand-patched on 2026-08-04. ⚠ **My own
+  first patch then ended the template early with a backtick in a comment** — tenth sighting in this
+  repo. The test asserts both: zero stray backticks, every `\b` doubled.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

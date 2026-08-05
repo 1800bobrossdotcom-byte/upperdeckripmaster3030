@@ -1080,7 +1080,11 @@ void main(void) {
      * which is what keeps both sides the same material. */
     vec3 stockN = texture(uStock, bUv * uTile).rgb;
     float tooth = (stockN.b - 0.5) * 2.0;
-    vec3 paper = uInk[3] * 0.0 + vec3(0.960, 0.945, 0.905) * (1.0 + tooth * 0.055);
+    /* ⚠ THE SAME STOCK CONSTANT AS THE FRONT, not a second near-miss of it. This read
+     *   vec3(0.960,0.945,0.905) — lighter and cooler than STOCK — so the two sides of one sheet
+     *   were cut from two different papers, which is precisely the drift the note above claims
+     *   not to have. One card, one stock. */
+    vec3 paper = uInk[3] * 0.0 + STOCK * (1.0 + tooth * 0.055);
     /* burn opens the stock on the back too — a card that has been through something has been
      * through it on both sides. */
     paper *= 1.0 - uDmg.w * 0.28;
@@ -1096,25 +1100,86 @@ void main(void) {
     vec3 ink = vec3(0.140, 0.118, 0.128);
     vec3 oneInk = mix(paper, paper * ink, cover * (0.94 - uDmg.y * 0.22));
     vec3 designed = bp * (0.90 + tooth * 0.05) * (1.0 - uDmg.w * 0.22);
-    vec3 col = mix(oneInk, designed, uBackRGB);
+    vec3 albB = mix(oneInk, designed, uBackRGB);
+
+    /* ══ ⛔ AND UNTIL NOW IT WAS NOT LIT AT ALL — THE COMMENT ABOVE SAID "SAME LIGHT" AND THE
+     *      CODE RETURNED BEFORE REACHING ANY ═══════════════════════════════════════════════════
+     * Artist, 2026-08-05: *"the backs [need to be] treated with keylight effects."*
+     * This branch computed an albedo, tinted a hairline of die edge with a hand-rolled Blinn lobe,
+     * applied a knee and RETURNED — thirty lines above the three lights, the wrapped diffuse, the
+     * GGX specular, the varnish, the fibre normal and the room. So the front was a material and
+     * the back was a swatch, and turning the card over turned it into a scan of a card.
+     * ⚑ IT IS THE SAME LIGHTING NOW, NOT A SECOND ONE THAT AGREES TODAY. Same three lights, same
+     *   wrapped diffuse, same GGX, same anisotropic die edge, same environment rule (only the
+     *   METAL may see the room), same LDR knee, same output encode. A back that answered a light
+     *   with its own model would drift from the front on the first tuning pass, and the side
+     *   nobody screenshots is the side that would drift.
+     * ⛔ THE OUTWARD NORMAL OF THE REVERSE IS −Ng, AND THIS IS THE WHOLE TRICK. We are past
+     *   edge-on, so the surface facing the eye is the BACK of the sheet. Lighting it with the
+     *   front's normal puts every light on the wrong side of the paper: the key would rake it
+     *   when it was actually behind the card, the highlight would sit still while the card turned,
+     *   and it would look — exactly as before — like a picture.
+     * ⚠ ITS TANGENT PERTURBATION MIRRORS IN X TOO. The plate is sampled mirrored (bUv), so a
+     *   tooth normal taken straight from it lights the fibre as though the sheet were transparent.
+     * ⚠ NO GAMMA POW HERE ANY MORE. The old branch encoded pow(1/2.2) and the front does not —
+     *   two transfer curves on one object, which is why the reverse always read paler and flatter
+     *   than the face it is printed on the other side of. */
+    float bCov = mix(cover, 1.0 - dot(bp, LUMA), uBackRGB);
+    vec2 bnT = (stockN.xy * 2.0 - 1.0) * uRelief.x
+             + vec2(dFdx(bCov), dFdy(bCov)) * uRelief.y * 0.45;
+    vec3 NgB = -Ng;
+    vec3 Nb = normalize(NgB + vec3(-bnT.x, bnT.y, 0.0));
 
     /* the die edge is the SAME foil, so the two sides agree about the object's rim */
     /* ⚠ AN EDGE, NOT A BORDER. At 0.030 this came out as a rainbow band framing the whole back
      *   — which is the decal failure the front's acceptance test exists to catch, reproduced on
      *   the reverse. A die edge is the CUT: a few thousandths of the card, where the blade went
      *   through the foil layer. Anything wider is a sticker of foil. */
-    float edge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
-    float die = smoothstep(0.0075, 0.0015, edge);
-    if (die > 0.001) {
-      vec3 Nb = normalize(vec3(-stockN.r * 0.35, -stockN.g * 0.35, 1.0));
-      vec3 Lb = normalize(vec3(cos(uKeyDir.x), sin(uKeyDir.x), 0.85));
-      vec3 Hb = normalize(Lb + vec3(V.x, V.y, -V.z));
-      float g = pow(max(dot(Nb, Hb), 0.0), 42.0);
-      col = mix(col, pal(fract(dot(Hb.xy, vec2(11.0, 7.0)) * 3.0)) * (0.35 + g * 2.2), die);
+    vec2 eeB = abs(vFace) / vec2(1.0, 1.5);
+    float die = smoothstep(0.952, 0.982, max(eeB.x, eeB.y)) * (1.0 - uDmg.w * 0.55);
+
+    float ndvB = clamp(dot(Nb, V), 1e-4, 1.0);
+    vec3 T0b = normalize(vec3(1.0, 0.0, 0.0) - NgB * NgB.x);
+    vec3 B0b = cross(NgB, T0b);
+    float baseB = 0.35 * (1.0 - vUv.y) + uFoilP.y / max(ndvB, 0.22)
+                + uFoilP.x * (dot(T0b, V) + 0.62 * dot(B0b, V)) + uSeed;
+
+    /* the back is bare stock — no spot varnish over there, so it keeps its tooth */
+    float roughB = clamp(mix(uRough.x, uRough.y, bCov) + (stockN.z - 0.5) * 0.16, 0.045, 1.0);
+    roughB = mix(roughB, uRough.z, die);
+    vec3 albedoB = albB * (1.0 - die);                 // ⛔ metal has no diffuse. Ever.
+    vec3 f0B = mix(vec3(0.045), pal(baseB), die);
+    vec3 Tfb = (eeB.x > eeB.y && die > 0.5) ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 Tb = normalize(Tfb - Nb * dot(Nb, Tfb));
+    vec3 Bb = cross(Nb, Tb);
+    float aB = max(roughB * roughB, 1e-3);
+    float anisoB = mix(1.0, 3.1, die);
+    float axb = clamp(aB * anisoB, 1e-3, 1.0), ayb = clamp(aB / anisoB, 1e-3, 1.0);
+
+    vec3 col = vec3(0.0);
+    for (int i = 0; i < 3; i++) {
+      vec3 Lw = i == 0 ? uKeyDir : (i == 1 ? uFillDir : uRimDir);
+      vec3 lc = i == 0 ? uKeyCol : (i == 1 ? uFillCol : uRimCol);
+      vec3 L = normalize(Lw * uRot);
+      float ndl = dot(Nb, L);
+      float wrap = clamp((ndl + 0.20) / 1.20, 0.0, 1.0);
+      col += albedoB * lc * wrap / PI;
+      if (ndl <= 0.0) continue;
+      vec3 H = normalize(L + V);
+      float ndh = clamp(dot(Nb, H), 0.0, 1.0), vdh = clamp(dot(V, H), 0.0, 1.0);
+      float axL = dot(T0b, L) + 0.62 * dot(B0b, L);
+      vec3 F = F_Schlick(mix(vec3(0.045), pal(baseB + uFoilP.x * axL), die), vdh);
+      float spec = D_GGX(ndh, dot(Tb, H), dot(Bb, H), axb, ayb) * V_Smith(ndvB, ndl, aB) * ndl;
+      col += lc * F * spec * uFoilP.z;
     }
+    /* the room, and ONLY the die edge may see it — the same rule the artwork lives under */
+    col += envAt(uRot * reflect(-V, Nb), roughB) * F_Schlick(f0B, ndvB) * die * uEnvOn;
+    vec3 NwB = uRot * Nb;
+    col += albedoB * mix(vec3(0.070, 0.062, 0.062), vec3(0.235, 0.246, 0.285), NwB.y * 0.5 + 0.5);
+
     /* the same LDR knee the front uses, or metal specular clips to flat white */
-    col = col / (1.0 + col * 0.18);
-    frag = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+    col = mix(col, 1.0 - exp(-col), smoothstep(0.86, 1.10, dot(col, LUMA)));
+    frag = vec4(clamp(col, 0.0, 1.0), 1.0);
     return;
   }
 
@@ -1612,6 +1677,7 @@ void main(void) {
         pigs: 3,         // 1 = one card · 3 = + ground/mid · 6 = + wash, strip, inset
         press: 0,        // the impression's own character: 0 = a clean pull, 1 = as it printed
         faceUp: true,    // which way up it is sitting
+        face: 0,         // …as an angle: 0 face up, π turned over. The yaw target is built FROM it.
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
@@ -1649,8 +1715,10 @@ void main(void) {
           const a = -FK * (S.flex[i] - tgt[i]) - FC * S.flexV[i];
           S.flexV[i] += a * dt; S.flex[i] += S.flexV[i] * dt;
         }
-        // the turn follows the pointer, on its own softer spring
-        S.yawT = S.px * 0.42; S.pitchT = -S.py * 0.30;
+        /* the turn follows the pointer, on its own softer spring, ABOUT WHICHEVER FACE IS UP.
+         * ⚠ `S.face` is the half turn, and it has to be part of the target rather than added to
+         *   it once — this line is why `flip()` used to do nothing at all (see flip's note). */
+        S.yawT = S.face + S.px * 0.42; S.pitchT = -S.py * 0.30;
         let a = -RK * (S.yaw - S.yawT) - RC * S.yawV;
         S.yawV += a * dt; S.yaw += S.yawV * dt;
         a = -RK * (S.pitch - S.pitchT) - RC * S.pitchV;
@@ -1998,9 +2066,26 @@ void main(void) {
         },
         backIsDesigned: () => backIsDesigned,
         /* ⚑ TURN IT OVER. The press already renders the reverse whenever the card is past
-         *   edge-on; this is the deliberate version of that for a viewer's flip button. */
-        flip: () => { S.yawT += Math.PI; S.faceUp = !S.faceUp; return S.faceUp; },
+         *   edge-on; this is the deliberate version of that for a viewer's flip button.
+         *
+         * ⛔ AND IT DID NOT TURN. `flip()` bumped the yaw TARGET by π — and `advance()` opens with
+         *   `S.yawT = S.px * 0.42`, unconditionally, every frame. So the target was overwritten
+         *   before the spring could take a single step: `faceUp` went false, `probe()` reported
+         *   false, the button lit up, and the card sat at yaw 0.000 showing its front. Measured
+         *   at +80/300/700/1500/2500 ms — yaw 0.000 at every one of them.
+         * ⛔ THAT IS WHY THE ARTIST COULD NOT FIND A BACK IN ANY VIEWER. The folder, the lens and
+         *   everything else driving the press called this function, got `false` back, and believed
+         *   it. `js/card-back.js` was rasterising the designed back correctly the whole time, and
+         *   `setBack` was uploading it to a texture that nothing could ever look at.
+         * ⚑ THE FIX IS THAT WHICH-WAY-UP IS A STATE, NOT AN IMPULSE. A half turn you add once is
+         *   erased by anything that writes the target; a half turn the target is BUILT FROM
+         *   survives every frame, and the pointer still tilts the card about whichever face is up.
+         *   Same shape as this repo's recorded `[hidden]` failures: the flag was always right, and
+         *   nothing downstream was reading it. */
+        flip: () => { S.faceUp = !S.faceUp; S.face = S.faceUp ? 0 : Math.PI; return S.faceUp; },
         faceUp: () => S.faceUp,
+        /* the same thing without the toggle, for a caller that knows which side it wants */
+        showFace: up => { S.faceUp = !!up; S.face = S.faceUp ? 0 : Math.PI; return S.faceUp; },
         /* ── ⚑ PRINT A DIFFERENT CARD ON THE SAME PRESS ──────────────────────────────────
          * `reseed(seed) -> bool`. Everything the seed decides — the composition masks, the
          * paper stock, the temperament, the press motion, the impression — re-derived in place.

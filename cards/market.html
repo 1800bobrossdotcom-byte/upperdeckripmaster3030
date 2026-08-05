@@ -7,12 +7,16 @@
 <meta name="description" content="The market bench — your vault of owned cards, and where you list them for sale, trade, or send. A testnet prototype today: cards save in your browser; only the $3030 buy & burn are on-chain.">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../mobile.css">
+<!-- ⚑ THE SKIN — one definition of the studio's printed look; see cards/viewer.css. -->
+<link rel="stylesheet" href="viewer.css">
 <style>
   :root{ --bg:#020804; --ink:#b8ffd6; --phos:#2bff80; --phosdim:#0f5c33; --acid:#ff2ad9;
     --cyan:#27f7e4; --amber:#ffd23b; --drabink:#01130a; --leaf:#03160c;
     --mono:'Courier New',ui-monospace,monospace; --fat:'Arial Black',Arial,sans-serif; }
   *{ margin:0; padding:0; box-sizing:border-box; }
-  html{ background:var(--bg); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
+  /* ⚠ the canvas colour moves with the skin — a background on <html> stops the body's own
+     background reaching the canvas. */
+  html{ background:var(--rip-stock-color,#7b2ff7); } body{ background:transparent; font-family:var(--mono); color:var(--ink);
     font-size:var(--t-body,13px); line-height:1.6;
     /* 130px clears banner.js's fixed strip AND the two floating controls sfx.js/theme.js mount */
     min-height:100vh; overflow-x:hidden; padding:0 12px 130px; -webkit-tap-highlight-color:transparent; }
@@ -210,6 +214,9 @@
     box-shadow:0 0 44px rgba(43,255,128,.28); overflow:hidden; max-height:92vh; overflow-y:auto; }
   .sheet .hero{ position:relative; aspect-ratio:2/3; max-height:52vh; background:#010a06; }
   .sheet .hero img{ width:100%; height:100%; object-fit:contain; display:block; }
+  /* ⚑ the card's own box inside the hero — the close button must NOT turn with the card */
+  .sheet .heroimg{ position:absolute; inset:0; transform-style:preserve-3d; }
+  .sheet .rip-flip{ position:absolute; left:50%; bottom:8px; transform:translateX(-50%); z-index:4; }
   .sheet .body{ padding:14px 16px 18px; }
   .sheet h3{ font-family:var(--fat); font-size:var(--t-h2,20px); text-transform:uppercase; color:var(--phos); line-height:1.15; }
   .sheet .rar{ font-size:var(--t-fine,10px); letter-spacing:.12em; text-transform:uppercase; color:var(--amber); margin-top:4px; }
@@ -229,6 +236,28 @@
     background:rgba(1,10,5,.9); color:var(--phos); font-family:var(--fat); cursor:pointer; }
   .sheet .miss{ font-size:var(--t-body,12px); color:var(--amber); text-align:center; margin-top:10px; line-height:1.65; }
 
+  /* ══ THE SKIN, SPENT ═══════════════════════════════════════════════════════════════════════
+   * cards/viewer.css declares the studio's printed look; this maps this page's names onto it.
+   * ⚠ INK ON PAPER, NOT PHOSPHOR ON BLACK — every colour here was picked against a near-black
+   *   ground, and phosphor green over a yellow lobe of the blob stock is unreadable. The copy
+   *   goes onto a plate; the bench itself (the ledger leaves, the sheet) stays dark, because
+   *   that is the OBJECT rather than the page. */
+  .hd, .honesty-note, .burned{
+    background-image:linear-gradient(rgba(255,255,255,.66),rgba(255,255,255,.66)),var(--rip-pulp);
+    background-repeat:repeat; background-size:auto,260px;
+    background-blend-mode:normal,multiply; background-color:var(--rip-plate);
+    border:3px solid var(--rip-rule); border-radius:12px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.6); padding:clamp(10px,2.2vw,18px); }
+  .honesty-note, .burned{ max-width:640px; margin-left:auto; margin-right:auto; }
+  h1{ color:var(--rip-ink); text-shadow:none; }
+  .sub{ color:#3a2c17; }
+  .honesty-note{ color:#3a2c17; } .honesty-note b{ color:#7a2c00; }
+  .burned{ color:#7a2c00; }
+  .backs{ justify-content:center; }
+  .tab.rip-btn.on{ background:var(--rip-sun); border-color:var(--rip-rule); color:var(--rip-ink);
+    box-shadow:0 4px 0 var(--rip-rule); }
+  .lm{ display:none; }   /* two grounds fighting; the blob is the one the studio prints on */
+
   .toast{ position:fixed; left:50%; bottom:64px; transform:translateX(-50%); z-index:90; background:#01130a;
     color:var(--phos); border:1px solid var(--phos); border-radius:999px; padding:10px 18px; font-family:var(--fat);
     font-size:var(--t-fine,10px); letter-spacing:.06em; text-transform:uppercase; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90vw; text-align:center; }
@@ -241,15 +270,15 @@
      requestIdleCallback, so `defer` here only orders the parse, not the 2.26 MB. -->
 <script src="../js/site3d-prop.js" defer></script>
 </head>
-<body>
+<body class="rip-skin">
   <div class="lm" aria-hidden="true"></div>
   <div class="wrap">
     <!-- ⚠ a flex row, not inline-blocks with margin: once each link is its own 44px box the
          whitespace between inline elements collapses and two of them run together. -->
     <div class="backs">
-      <a class="back" href="../index.html">◄ back to the pack</a>
-      <a class="back" href="binder.html">▤ the folder</a>
-      <a class="back" href="battle.html"><span class="ic" data-ic="swords"></span> the arena</a>
+      <a class="back rip-btn" href="../index.html">◄ back to the pack</a>
+      <a class="back rip-btn" href="binder.html">▤ the folder</a>
+      <a class="back rip-btn" href="battle.html"><span class="ic" data-ic="swords"></span> the arena</a>
     </div>
     <div class="hd">
       <div class="spacer" aria-hidden="true"></div>
@@ -265,9 +294,9 @@
       <b>$3030</b> buy &amp; burn are on-chain right now.</div>
 
     <div class="tabs">
-      <button class="tab on" data-view="mine">◈ My cards</button>
-      <button class="tab" data-view="set">▚ Full set</button>
-      <button class="tab" data-view="market">⇄ The market</button>
+      <button class="tab rip-btn on" data-view="mine">◈ My cards</button>
+      <button class="tab rip-btn" data-view="set">▚ Full set</button>
+      <button class="tab rip-btn" data-view="market">⇄ The market</button>
     </div>
 
     <!-- BINDER -->
@@ -419,7 +448,7 @@
     } else {
       const t = c.trigger||'—';
       $('sheet').innerHTML = `<div class="hero"><button class="close" id="x">✕</button>
-          <img src="${c.art}" alt="${c.title}"></div>
+          <div class="heroimg"><img src="${c.art}" alt="${c.title}"></div></div>
         <div class="body"><h3>${c.title}</h3><div class="rar">${forged?'forged':rar}${cell.n>1?' · ×'+cell.n+' owned':''}</div>
           <div class="stats">
             <div class="stat"><div class="l">ATK</div><div class="v">${c.atk??'—'}</div></div>
@@ -434,6 +463,13 @@
           </div></div>`;
     }
     $('scrim').classList.add('show');
+    /* ⚑ TURN IT OVER — artist, 2026-08-05: the back belongs in every viewer, and this one shows
+     * the card you actually own. A ghost (a pocket you have not filled) does not turn: there is
+     * nothing of yours on the other side of it. */
+    const holder = $('sheet').querySelector('.heroimg');
+    if (holder && window.RipFlip && !ghost) {
+      RipFlip.attach({ box: holder, card: c, base: '', mount: $('sheet').querySelector('.hero') });
+    }
     $('x') && ($('x').onclick=closeSheet);
     const toMkt=$('toMkt'); if(toMkt) toMkt.onclick=()=>{ closeSheet(); setView('market'); };
     $('sheet').querySelectorAll('[data-do]').forEach(b=>b.onclick=()=>doAction(b.dataset.do, cell));
@@ -567,6 +603,11 @@
     .catch(()=>{ DECK=[]; go(); });
 })();
 </script>
+<!-- ⚑ THE REVERSE. js/card-back.js rasterises each card's own designed back off its page;
+     js/card-flip.js turns the card over. This bench has no press, so the flip is a plain CSS
+     half-turn — the back is the card's DOSSIER and must not depend on WebGL2. -->
+<script src="../js/card-back.js"></script>
+<script src="../js/card-flip.js"></script>
 <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
 </body>
