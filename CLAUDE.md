@@ -909,6 +909,84 @@ the deck or anywhere."* Both pages rendered, both were one click from home, and 
 *"lets be sure to remix any of the 194+ cards we have available."* Both manifests merged, fetched
 rather than listed, so the clean-slate (task #71) swaps the pigment without touching the renderer.
 
+## ⛔ THE CABINETS ON A PHONE — `npm run test:cab` (2026-08-05)
+*Artist: "put a subagent on fixing the mobile games (controls, bugs, gfx, details) | do same for
+desktop."* Four cabinets, driven at 390×844 · 844×390 · 740×360 · 320×568 · 1100×700 · 1280×800.
+**298 assertions, every one proved to bite by reverting its fix.**
+
+⚑ **THE HEADLINE, AND IT IS THIS FILE'S OWN SUBJECT ONE LEVEL IN: `test:reach` §1b WAS TRUE AND THE
+GAME WAS STILL UNPLAYABLE.** It asserts — correctly — that THE CITY registers pointer handlers,
+injects `#touchUI` on a coarse pointer and carries a chip per mode. All of that held while, at
+390×844, the control strip was **414px wide in a 390px viewport** with the drop button at x −50,
+a **FIRE button sat on screen over the bird**, the legend was **0px wide and 607px tall**, and three
+HUD blocks drew through each other. **Every static assertion passed and nothing errored.** A text
+match cannot see a number that only exists once the page has laid out.
+
+- ⛔ **THE SAME SPECIFICITY TRAP, ONE RULE BELOW THE COMMENT THAT RECORDS IT.** `#tFire, #tAds
+  {display:none}` is (1,0,0); `#touchUI button{display:grid}` four rules above is (1,0,1), so
+  `grid` won and the observer rule was broken **in the UI** — in the file whose own note claims that
+  is the thing prevented. The note above `#tFlap` states the arithmetic and was applied to one rule
+  and not to this one. **A recorded lesson protects the line it was written on and nothing else.**
+- ⛔ **A CAP DERIVED BY SUBTRACTION HAS A ZERO IN IT.** The legend's `max-width:calc(100% − 24px −
+  384px)` is negative below 408px and clamps to 0. The reservation had been raised 172 → 246 → 384
+  as controls were added, each time correctly describing the strip, and nothing ever measured the
+  result. It has its own ROW now instead of sharing one.
+  ⚠ And a reservation for a box whose width is its own content (`#combat` is `white-space:pre`) is a
+  reservation that is *sometimes* wrong — that version failed intermittently at 180px vs past it.
+- ⛔ **`banner.js` WAS SITTING ON TOP OF THE GAMES' CONTROLS, INCLUDING ON A DESKTOP.** A strip
+  written for a document, at the highest z-index on the site, loaded by cabinets. It covered RIP
+  ROCKETER's FIRE pad by **28px** at 390×844; at 844×390 it is **11.1% of the whole screen** and
+  buried CLOUD RACER's boost meter, tells and speed unit; at 1280×800 it clipped `.ctrls` by 11px.
+  ⛔ **And it made ACCEPTING A FACE-OFF unclickable on every viewport** — THE ARENA's challenge
+  toast at `bottom:18px` under z-index 98, the press landing on a cache notice, no error.
+  ⚑ **The fix is a measurement, not a guess:** the strip publishes its own height as
+  `--urm-banner` (on mount, on rotate, through a `ResizeObserver` because it re-wraps on its own,
+  and 0 when tucked away) and the pages that own the bottom of the screen subtract it. A hard-coded
+  "about 40px" elsewhere is how city.html's caps drifted until one reached zero.
+- ⛔ **A THIRD OF THE CITY WAS UNCLICKABLE ON ANY DESKTOP UNDER ~1280px.** `#modes` is
+  `pointer-events:auto` for two links it carries and is a right-anchored ~488px block painting
+  AFTER `#modeBar`, so it swallowed the SECTION 9 chip: at 1100×700 **four of five sample points
+  return `#modes`** and a real click leaves the mode at `animal`. At 1280 the chip ends at 764 and
+  the notes start at 764 — it clears by NOTHING and reports fine. ⚑ **A hover-and-click surface
+  should be the size of the thing you can click, not of the box it was laid out in**; the exception
+  belongs on the `<button>` and the `<a>`, never on their parents. ⚑ And **`elementFromPoint` is
+  the assertion, not a rectangle** — two boxes overlapping is a layout fact, whether the click
+  lands is the question the player asks.
+- ⛔ **THE ARENA WAS NOT PLAYABLE AT ALL IN PORTRAIT**, behind `js/orient.js`'s undismissable veil —
+  on the orientation a shared link opens in. It is a **scrolling column of DOM panels** (this file
+  already says its UI "is DOM/CSS, not canvas"), i.e. the `arcade.html` call. The veil is gone
+  there; the five genuinely-wide cabinets keep it. ⚠ **A judgement call, and one line to reverse.**
+  Behind it: 9px of horizontal overflow from the sparkle layer's bleed, and **26 controls under the
+  44px tap floor → 0**. `npm run mobile` carried nine pages and no cabinets, and could not have
+  carried this one — **a page behind a veil is a page whose defects are invisible and unreachable
+  at the same time**, which is why lifting the veil and adding the audit row had to happen together.
+- ⚠ **CLOUD RACER's third boost tell did not fit its own capsule** — 215px of content in a 190px
+  box, so SLIDING ran under the pilot avatar **on every viewport including the desktop**. Fixed by
+  making the type fit the box: widening it would have pushed the avatar off a 320px phone, i.e. one
+  overflow traded for another. Its launch prompt also wrapped its last word onto the pod.
+
+### ⚠ Three assertions were written WRONG FIRST, and each says so in the file
+- **A HAND-PICKED LIST OF PAIRS STOPS COVERING THE LAYOUT THE MOMENT THE LAYOUT MOVES.** The overlap
+  check named six pairs and omitted `hudBL × modes` — precisely the pair that collides on a 360px
+  landscape phone — so reverting that fix left the suite green. It is all fifteen pairs now, from a
+  loop.
+- **"NOTHING IS COVERED" IS TRIVIALLY TRUE OF A CONTROL THAT IS NOT RENDERED.** The health readout
+  was 0×0 for every run until the suite stepped the simulation after the mode swap (`syncCombatHud`
+  runs inside `stepOps`, i.e. on a frame, and this container stalls rAF). RIP ROCKETER's pads are
+  asserted PRESENT before they are asserted clear. Same shape as asserting `hidden` instead of
+  "not drawn". Likewise the challenge toast has to be `.show`n before it can be hit-tested — its
+  opacity lives on the PARENT, so its buttons read at full opacity through a hidden toast.
+- ⛔ **844×390 IS THE WRONG LANDSCAPE VIEWPORT TO TEST ALONE.** It clears the mode-notes collision
+  by 16px while **740×360 overlaps by 14** and 667×375 clears by one. **A viewport chosen for
+  convenience can hide a defect as easily as it can prevent one** — `test:ronin`'s recorded "the
+  test did not bite until the viewport was fixed", with the sign flipped.
+
+⚠ **STILL OPEN.** THE ARENA carries **82 elements under 12px and 4 prose blocks under 16px** — a
+typography pass with the recorded cost (documents grew 15–25%), deliberately not attempted here.
+⚠ **`test:cardlayers` FLAKES AND IT IS NOT NEW**: on an unmodified `battle.html` it read 81 / 78 /
+80 / 94% against a `>= 0.78` bar with worst gaps of 510–610 ms, i.e. the assertion sits inside this
+container's own rAF-stall noise. A single failure there is not a regression until it reproduces.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
