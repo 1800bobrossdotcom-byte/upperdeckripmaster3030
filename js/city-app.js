@@ -1472,8 +1472,23 @@ window.CityApp = (function () {
       const g2 = collide.groundBelow(nx, nz, ny + B.step, B.r, B.step);
       if (g2 != null && g2 > ny && g2 - ny <= B.step && b.vy <= 0) { ny = g2; b.vy = 0; b.onGround = true; }
       /* ⚠ A CEILING IS NOT A FLOOR. Without this you jump THROUGH the underside of a bridge and
-       * pop out on top of it, which reads as the city being made of paper. */
-      if (b.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = b.y; b.vy = 0; }
+       * pop out on top of it, which reads as the city being made of paper.
+       * ⛔ AND IT CANNOT APPLY TO A BODY THAT IS CLIMBING — THIS IS THE "STUCK ON WALL LEDGES"
+       *   REPORT, AND IT IS NOT THE LIP. A climbing squirrel is BY DEFINITION pressed into the
+       *   wall it is climbing: `wallAt` reaches `r + 0.22`, so the body's own footprint overlaps
+       *   the box, and its head at `y + h` is INSIDE it. The ceiling test then fires on the very
+       *   wall being climbed and pins `ny` back to where it started, every frame, forever.
+       *   ⚑ Measured: a squirrel against a wall spanning z 37..38 · y 0..8.9, holding forward for
+       *     seven seconds — `vy` set to +5.58 every frame and **y constant at 0.99 for all 420
+       *     ticks**, `onGround` false, nothing thrown. It reads exactly like being glued to the
+       *     wall, which is what was reported.
+       *   ⚠ It looks like a floor bug and it is a CEILING bug; the give-away is `onGround:false`
+       *     with a body that is neither rising nor falling. Gravity is not being skipped — the
+       *     climb is being cancelled after the fact.
+       * ⚑ Skipping it while climbing is safe because the climb has its own ceiling: `mantle()`
+       *   ends the ascent at the wall's top and puts the body on the roof. An overhang above a
+       *   climbable wall stops you when you arrive on it, not by freezing you halfway up. */
+      if (!climbing && b.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = b.y; b.vy = 0; }
     }
     const edge = edgePush(nx, nz);
     if (edge.out > 0) { nx += edge.nx * edge.out; nz += edge.nz * edge.out; }
@@ -2204,6 +2219,12 @@ window.CityApp = (function () {
     },
     _step(n, dt) { for (let i = 0; i < (n || 1); i++) { step(dt == null ? 1 / 60 : dt);
       if (ready) streamAround(me.x, me.z); } },
+    /* ⚑ THE COLLIDER ITSELF, so a harness can ask the world the same questions the physics asks
+     * rather than inferring them from where a body ended up. Reasoning backwards from a frozen
+     * position cost several rounds on the squirrel's ledge; `hits`/`groundBelow`/`wallAt` answer
+     * in one call each. */
+    get _collide() { return collide; },
+    get _me() { return me; },
     _place(x, y, z, yaw) { me.x = x; me.y = y; me.z = z; if (yaw != null) me.yaw = yaw;
       me.vx = me.vy = me.vz = 0; camPos.x = x; camPos.y = y; camPos.z = z;
       streamAround(x, z); step(1 / 60); },

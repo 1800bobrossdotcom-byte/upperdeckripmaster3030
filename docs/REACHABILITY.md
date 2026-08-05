@@ -397,7 +397,10 @@ deploy weight. Deleting an artist's source material is not a sweep's call.
 
 **Checked and clean** (so nobody re-checks them): `textures/*` — all 27 driven by
 `textures/manifest.json`, all 9 classes in `ORDER`. `media/site/*` — the six PBR maps are built as
-`'media/site/' + s.map + '-albedo.webp'` in `js/site3d-prop.js`; templated, not orphaned.
+`media/site/*-albedo.webp` are tiled by the flat CSS on `cards/{binder,index,market}.html`.
+(They were ALSO the PlayCanvas site props' material set; those props were removed 2026-08-05 —
+artist: *"random 3D icons that do nothing was not what I was intending"* — and the textures
+stayed, because the flat pages had always been tiled with them.)
 `cards/art/*.webp` — **197 files, 0 unreferenced.** `models/world/*.cols.json` — fetched by
 `RoninWorld.load()` deriving them from the `.wld` path. `models/cards/*/preview/`, `*.glb`,
 card 44's source maps — build output, `.vercelignore`d with the reason written in.

@@ -838,19 +838,6 @@
         .whatis .wv a{ color:#27f7e4; }
         @media (max-width:520px){ .whatis .wrow{ grid-template-columns:1fr; gap:2px; } .whatis .wk{ color:#2bff80; } }
       
-  /* ── the 3D prop slot (js/site3d-prop.js) ────────────────────────────────────────────────
-     ⚠ The flat glyph is the FALLBACK and it is this page's own markup — it is faded out only
-     after the engine has produced a real frame, so a failure is invisible rather than a hole. */
-  .prop3d{ position:relative; width:min(26vw,190px); aspect-ratio:1/1; margin:14px auto 4px;
-    border-radius:14px; overflow:hidden; border:1px solid rgba(43,255,128,.16);
-    background:linear-gradient(rgba(2,10,5,.44),rgba(2,10,5,.64)), #020a05;
-    box-shadow:0 20px 44px -20px #000, 0 0 22px rgba(43,255,128,.05) inset; }
-  .prop3d .flat{ position:absolute; inset:0; display:grid; place-items:center; font-size:44px;
-    color:rgba(43,255,128,.30); text-shadow:0 0 22px rgba(43,255,128,.22);
-    transition:opacity .5s ease; pointer-events:none; }
-  .prop3d.is3d .flat{ opacity:0; }
-  @media (max-width:760px){ .prop3d{ width:min(54vw,180px); } }
-  @media (prefers-reduced-motion:reduce){ .prop3d .flat{ transition:none; } }
 </style>
       <h2>What is this?</h2>
       <div class="wsub">the actual facts · no corporate</div>
@@ -883,14 +870,6 @@
       <span class="chant">Burn the token · Choose the canon · Rip the pack</span>
     </div>
 
-    <!-- ⚑ A REAL OBJECT ON THE PAGE, not a replacement for it. Artist, 2026-08-05: the current
-         site upgraded WITH PlayCanvas elements. `js/site3d-prop.js` drops one lit object into a
-         slot and changes nothing else — same Blender-baked stock the flat CSS is tiled with, two
-         renderers: CSS tiles it, the engine lights it.
-         ⛔ FAILS OPEN, and the fallback is the page's OWN markup: `.flat` is here in the HTML and
-            is only faded out after the first real frame. No WebGL2, a blocked vendor script, a
-            404 on a texture, Save-Data on ⇒ this page is exactly the page it was. -->
-    <div class="prop3d" data-site3d="pack" aria-hidden="true"><span class="flat">✦</span></div>
 
     <div class="btns">
       <button class="btn rip" id="packOpen" type="button">✦ Rip a pack ✦</button>
@@ -1161,6 +1140,5 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>
-<script src="js/site3d-prop.js" defer></script>
 </body>
 </html>
