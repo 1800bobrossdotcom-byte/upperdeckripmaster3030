@@ -863,14 +863,30 @@
     e.preventDefault();
     const r=cv.getBoundingClientRect();
     if(e.clientX < r.left + r.width/2){                                  // LEFT ½ → fly stick under the thumb
-      if(stick.id===null){ stick.id=e.pointerId; stick.cx=e.clientX; stick.cy=e.clientY; stick.x=0; stick.y=0; stickShow(e.clientX,e.clientY);
+      /* ⛔ INSET FROM THE EDGES — measured at −0.29 deflection for a thumb landing 20px from the
+       *   left edge against −1.00 mid-screen, i.e. a third of the aircraft's authority in the one
+       *   direction a left thumb naturally sits. Centring at least R from every edge means the
+       *   full 56px of travel physically exists wherever you touch. */
+      if(stick.id===null){ const R=56;
+        const cx=clamp(e.clientX,R,innerWidth-R), cy=clamp(e.clientY,R,innerHeight-R);
+        stick.id=e.pointerId; stick.cx=cx; stick.cy=cy;
+        const dx0=e.clientX-cx, dy0=e.clientY-cy;
+        stick.x=clamp(dx0/R,-1,1); stick.y=clamp(dy0/R,-1,1); if(stick.x)stick.lastX=stick.x;
+        stickShow(cx,cy); sN.style.left=(cx+dx0)+'px'; sN.style.top=(cy+dy0)+'px';
         const n=performance.now(); if(n-_tapC<300)doRoll(stick.lastX>=0?1:-1); _tapC=n; } }
     else { rightPtrs.add(e.pointerId); touchFire=true; touchZoom=rightPtrs.size>=2;   // RIGHT ½ → fire; 2nd finger = zoom
       try{ cv.setPointerCapture(e.pointerId); }catch{} } });
   addEventListener('pointermove',e=>{
     if(e.pointerType==='mouse'){ if(ptrAim)setAim(e); return; }
+    /* ⛔ THE ANCHOR FOLLOWS PAST THE RIM — same defect and same fix as js/rrpc-app.js, which is
+     *   why this comment is short and that one is long. The stick spawns under your thumb with a
+     *   56px rim; land near an edge and you physically cannot drag far enough to reach full
+     *   deflection, so the aircraft turns and boosts at a fraction of its authority in that
+     *   direction, on a control that looks like it is working. `slam` (boost/brake) reads
+     *   `stick.y < -0.55`, so on a thumb resting low the BOOST was simply unreachable. */
     if(e.pointerId===stick.id){ const R=56, dz=10; let dx=e.clientX-stick.cx, dy=e.clientY-stick.cy; const m=Math.hypot(dx,dy);
-      if(m>R){ const k=R/m; dx*=k; dy*=k; }
+      if(m>R){ const k=R/m; stick.cx=e.clientX-dx*k; stick.cy=e.clientY-dy*k; dx*=k; dy*=k;
+               sB.style.left=stick.cx+'px'; sB.style.top=stick.cy+'px'; }
       stick.x=(m<dz)?0:clamp(dx/R,-1,1); stick.y=(m<dz)?0:clamp(dy/R,-1,1); if(stick.x)stick.lastX=stick.x;
       sN.style.left=(stick.cx+dx)+'px'; sN.style.top=(stick.cy+dy)+'px'; } });
   function ptrEnd(e){ if(e.pointerType==='mouse'){ ptrAim=false; ptrFire=false; rmZoom=false; return; }
@@ -1731,5 +1747,6 @@
   if(glReady) DFPC.start(tick);
 })();
 </script>
+  <script src="js/game-toggles.js" defer></script>
 </body>
 </html>
