@@ -201,13 +201,35 @@
   }
 
   /* ── the GIF ─────────────────────────────────────────────────────────────────────────────
-   * One full press cycle, looping forever. Options: `frames` (default 30), `scale`, `name`,
-   * `onProgress(0..1, note)`.
+   * One full press cycle, looping forever. Options: `fps`, `loop` (seconds), `frames`, `colors`,
+   * `maxW`, `name`, `onProgress(0..1, note)`.
+   *
+   * ⛔ THE PLAYBACK RATE IS NOT THE PRESS PERIOD, AND CONFLATING THEM EXPORTED A SLIDESHOW.
+   *   `delay` used to be derived from the card's own press cycle — `period * 100 / N` — so 24
+   *   frames of an 8-second cycle came out at 33 centiseconds a frame. Measured off the encoded
+   *   file, not assumed: **3.03 fps.** A card ON THE PAGE is ambient and is meant to be slow; a
+   *   GIF is a thing somebody posts, and at 3 fps it reads as broken rather than as calm.
+   *   ⚑ Two independent knobs now. `fps` is how fast the FILE plays; `frames` is how finely the
+   *   cycle is sampled. The loop still spans phase 0..1 exactly, so it still wraps seamlessly —
+   *   the press simply runs faster in the file than on the page, which is what a shared loop
+   *   wants. Nothing about the card changes; only the timebase the file is written with.
+   *
+   * ⚠ A DELAY OF 1 IS SLOWER THAN A DELAY OF 5, which is the one genuinely counterintuitive
+   *   thing in this format. Browsers clamp a GIF frame delay of 0 or 1 centisecond UP to 10 (a
+   *   very old defence against seizure-inducing files), so asking for 100 fps yields 10 fps —
+   *   the reassuring-looking edit that makes it eight times worse. Floor of 2, and the ceiling on
+   *   `fps` exists for the same reason.
+   *
    * ⚠ The card is put back exactly as it was found — spin state, phase, view. An export that
    *   leaves the card stopped at frame 29 looks like the export broke it. */
   async function gif(ctrl, opts) {
     const o = opts || {};
-    const N = clamp(o.frames || 24, 4, 120);
+    /* ⚑ Defaults SWEPT against the encoded file, not chosen by eye — see docs/HERO-33-BRIEF.md.
+     * A four-ink halftone is high-entropy and LZW hates it, so frames are not free: the cost of
+     * smoothness is paid in megabytes and the two have to be picked together. */
+    const FPS = clamp(o.fps || 20, 4, 50);
+    const LOOP = clamp(o.loop || 2.4, 0.4, 8);
+    const N = clamp(o.frames || Math.round(FPS * LOOP), 4, 120);
     /* Defaults tuned against the measured file, not guessed: 480x720 x 16 at 256 colours came out
      * at 5.2 MB. A card is shared, so it has to be a few megabytes at most. */
     const MAXW = o.maxW || 320;
@@ -238,7 +260,9 @@
     const pal = palette(frames, COLS);
     const map = mapper(pal);
     const { w, h } = frames[0];
-    const delay = Math.max(2, Math.round((before.period || 8) * 100 / N));   // centiseconds
+    /* centiseconds per frame, from the requested PLAYBACK rate — never from `before.period`.
+     * See the header: floor of 2, because 1 and 0 are clamped up to 10 by the browser. */
+    const delay = clamp(Math.round(100 / FPS), 2, 100);
 
     const b = [];
     const str = s => { for (let i = 0; i < s.length; i++) b.push(s.charCodeAt(i)); };

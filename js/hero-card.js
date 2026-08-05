@@ -419,7 +419,7 @@
     }
   }
 
-  function buildType(spec, seed, N, sheet, name, rarity) {
+  function buildType(spec, seed, N, sheet, name, rarity, sub) {
     const c = document.createElement('canvas');
     c.width = N; c.height = Math.round(N * 1.5);
     const g = c.getContext('2d');
@@ -453,38 +453,62 @@
      * widths, set here — so renaming a card is a string edit with no rebuild and still no font.
      * ⚠ 67 field cards would otherwise mean 67 baked words, and a placeholder name that costs a
      *   build step to change is a placeholder that becomes permanent by friction. */
-    spec = setLine(spec, name);
-    if (!spec || !spec.letters || !spec.letters.length) return c;
+    /* ⚑ THE FOUNT IS KEPT, and this is not tidiness — it is the bug. `setLine` CONSUMES an
+     * alphabet into a laid line: hand it a line and it returns that line back unchanged, because
+     * a laid line has no `.glyphs`. When there was only ever one line, `spec = setLine(spec,…)`
+     * was harmless. The moment a SECOND line exists, setting it from the overwritten `spec`
+     * returns the FIRST line again — so the card would print its name twice, at two sizes, and
+     * nothing would error. Two names is a plausible-looking card, which is the expensive kind. */
+    const fount = spec;
+    const nameL = setLine(fount, name);
+    const subL = sub ? setLine(fount, sub) : null;
+    if (!nameL || !nameL.letters || !nameL.letters.length) return c;
     const r = rng((seed ^ 0x2545F491) + sheet * 7919);
-    const bb = spec.bbox, wEm = Math.max(1e-3, bb[2] - bb[0]), hEm = Math.max(1e-3, bb[3] - bb[1]);
     /* Set on the band of raw stock BELOW the art window — where a card puts its name, and the
-     * only place on a dark composition where heavy black type is legible at all. The size is
-     * derived from the band so the name can never grow out of it: cap height is 62% of the band,
-     * and the width caps it for a long name. */
+     * only place on a dark composition where heavy black type is legible at all. Sizes are
+     * derived from the band so type can never grow out of it, and the width caps a long name. */
     const bandH = H - m - win.bottom;
-    const capW = (W - m * 2.6) / wEm, capH = (bandH * 0.62) / hEm;
-    const sc = Math.min(capW, capH), boxW = wEm * sc, boxX = (W - boxW) / 2;
-    const boxY = win.bottom + (bandH + hEm * sc) / 2;
+
+    /* One impression's worth of slop PER LETTER — small, and it is the difference between "set in
+     * a typeface" and "pulled off a plate". Both lines go through it, so they came off the same
+     * pull rather than looking like two separate print jobs. */
+    function impress(line, capFrac, midY) {
+      const bb = line.bbox;
+      const wEm = Math.max(1e-3, bb[2] - bb[0]), hEm = Math.max(1e-3, bb[3] - bb[1]);
+      const sc = Math.min((W - m * 2.6) / wEm, (bandH * capFrac) / hEm);
+      const boxW = wEm * sc, boxX = (W - boxW) / 2, boxY = midY + hEm * sc / 2;
+      for (const L of line.letters) {
+        const kx = (r() - 0.5) * boxW * 0.012, ky = (r() - 0.5) * boxW * 0.008;
+        const rot = (r() - 0.5) * 0.030;
+        g.save();
+        g.translate(boxX + kx, boxY + ky);
+        g.rotate(rot);
+        g.beginPath();
+        for (const cont of L.contours) {
+          for (let i = 0; i < cont.length; i++) {
+            const x = (cont[i][0] - bb[0]) * sc, y = (bb[3] - cont[i][1]) * sc - hEm * sc;
+            i ? g.lineTo(x, y) : g.moveTo(x, y);
+          }
+          g.closePath();
+        }
+        g.fill('evenodd');
+        g.restore();
+      }
+    }
 
     g.fillStyle = 'rgb(255,0,0)';
-    for (const L of spec.letters) {
-      // one impression's worth of slop per letter — small, and it is the difference between
-      // "set in a typeface" and "pulled off a plate"
-      const kx = (r() - 0.5) * boxW * 0.012, ky = (r() - 0.5) * boxW * 0.008;
-      const rot = (r() - 0.5) * 0.030;
-      g.save();
-      g.translate(boxX + kx, boxY + ky);
-      g.rotate(rot);
-      g.beginPath();
-      for (const cont of L.contours) {
-        for (let i = 0; i < cont.length; i++) {
-          const x = (cont[i][0] - bb[0]) * sc, y = (bb[3] - cont[i][1]) * sc - hEm * sc;
-          i ? g.lineTo(x, y) : g.moveTo(x, y);
-        }
-        g.closePath();
-      }
-      g.fill('evenodd');
-      g.restore();
+    /* ⛔ A SECOND LINE IS SUBORDINATE BY CONSTRUCTION. Two lines at the same size are not "two
+     * lines", they are a different card — the eye has nowhere to land first. The name keeps the
+     * lion's share of the band and the second line is set at roughly a third of it, which is
+     * where a subtitle sits on a real card.
+     * ⚠ The no-subtitle path is byte-for-byte the old one — same cap fraction, same centre, and
+     *   the same rng draws in the same order — so every card already pulled still prints
+     *   identically. A text feature that quietly re-rolls the existing deck is not a feature. */
+    if (subL) {
+      impress(nameL, 0.44, win.bottom + bandH * 0.34);
+      impress(subL, 0.20, win.bottom + bandH * 0.73);
+    } else {
+      impress(nameL, 0.62, win.bottom + bandH * 0.5);
     }
     return c;
   }
@@ -1092,6 +1116,14 @@ void main(void) {
 
       // ── textures ─────────────────────────────────────────────────────────────────────────
       const MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
+      /* ── WHAT THE CARD SAYS ───────────────────────────────────────────────────────────────
+       * Artist, 2026-08-05: *"need to be able to add text"*. Held as state rather than read out
+       * of `o` at every bake, because `setText` has to survive a PULL — the type plate is rebuilt
+       * on every impression (it carries the crease relief, which is per-sheet), and a rebake that
+       * went back to `o.name` would silently revert the collector's own words the first time they
+       * advanced the press. The same class of bug as the seed that re-rolls: nothing errors, the
+       * card simply stops saying what you typed. */
+      const TEXT = { name: o.name, sub: o.sub || '' };
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
@@ -1105,7 +1137,7 @@ void main(void) {
       const texC = texFrom(gl, imgs[2], UNIT.uPigC, gl.CLAMP_TO_EDGE, true);
       const compCanvas = buildComp(seed, 512);
       const texComp = texFrom(gl, compCanvas, UNIT.uComp);
-      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, o.name, o.rarity), UNIT.uType);
+      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
       const stockCanvas = buildStock(seed, 256);
       const texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
 
@@ -1150,7 +1182,7 @@ void main(void) {
         sheetState.phase = r() * TAU;
         sheetState.starve = 0.03 + r() * 0.14;
         gl.deleteTexture(texType);
-        texType = texFrom(gl, buildType(o.type, seed, 512, n, o.name, o.rarity), UNIT.uType);
+        texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
       }
       pull(0);
 
@@ -1370,6 +1402,24 @@ void main(void) {
           S.regRad = clamp(radial || 0, 0, 1);
         },
         pull: () => pull(sheetState.n + 1),
+        /* ── SET THE CARD'S OWN WORDS ─────────────────────────────────────────────────────
+         * `setText({name, sub})`. Re-bakes the type plate at the CURRENT sheet, so the words
+         * change without advancing the press — typing your name should not re-roll the
+         * registration, the film weights or the crease pattern, which is what calling `pull`
+         * would have done. Same sheet in, same sheet out; only the words differ.
+         * ⚠ Unknown characters are DROPPED by `setLine`, not substituted and never thrown on:
+         *   the alphabet is 68 committed outlines and an emoji is simply not in the fount. A
+         *   card that refuses to print because of one character is worse than one that sets the
+         *   rest, and `build-card-type.py` is where a missing glyph is supposed to fail loudly. */
+        setText: t => {
+          if (!t) return;
+          if (typeof t.name === 'string') TEXT.name = t.name;
+          if (typeof t.sub === 'string') TEXT.sub = t.sub;
+          gl.deleteTexture(texType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
+          render();
+        },
+        text: () => ({ name: TEXT.name, sub: TEXT.sub }),
         /* The material maps themselves, so they can be LOOKED AT and measured rather than
          * inferred from the lit result. `stock` is RG = the fibre normal, B = a roughness jitter;
          * `comp` is R strips / G figure window / B trim. Both are generated, both tile or clamp
