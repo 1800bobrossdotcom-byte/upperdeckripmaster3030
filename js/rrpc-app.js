@@ -494,13 +494,55 @@
   ov.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') { dragging = true; mouseSteer(e); return; }
     e.preventDefault();
-    if (stick.id === null) { stick.id = e.pointerId; stick.cx = e.clientX; stick.cy = e.clientY; stick.x = 0; stick.y = 0; stickShow(e.clientX, e.clientY); }
+    /* ⛔ THE ANCHOR IS INSET FROM THE EDGES, AND THAT IS THE HALF THAT ACTUALLY FIXED IT.
+     *   Measured: a thumb landing 20 px from the left edge and dragging to the edge reached
+     *   **sx −0.29** — 29% of top speed — against −1.00 for the same drag mid-screen. The
+     *   anchor-follow below cannot help there, because it only engages once you PASS the rim and
+     *   the thumb runs out of glass 36 px short of it. Placing the centre at least R from every
+     *   edge means the full 56 px of travel always physically exists.
+     * ⚠ A touch inside that margin therefore starts already deflected — which is right, not a
+     *   side effect: you put your thumb on the far left of the screen, you are asking to go left. */
+    if (stick.id === null) {
+      const R = 56;
+      const cx = clamp(e.clientX, R, innerWidth - R), cy = clamp(e.clientY, R, innerHeight - R);
+      stick.id = e.pointerId; stick.cx = cx; stick.cy = cy;
+      const dx = e.clientX - cx, dy = e.clientY - cy;
+      stick.x = clamp(dx / R, -1, 1); stick.y = clamp(dy / R, -1, 1);
+      stickShow(cx, cy);
+      sN.style.left = (cx + dx) + 'px'; sN.style.top = (cy + dy) + 'px';
+    }
   });
   ov.addEventListener('pointermove', e => { if (dragging && e.pointerType === 'mouse') mouseSteer(e); });
+  /* ── ⛔ THE ANCHOR FOLLOWS, SO FULL SPEED IS ALWAYS REACHABLE ─────────────────────────────
+   * Artist, 2026-08-05: *"on mobile we cannot move fast like we can on desktop."*
+   *
+   * ⚑ IT IS NOT THE TOP SPEED, AND THE ARITHMETIC SAYS SO. The stick drives a target velocity of
+   *   `sx * shipTop(spdK)`, and `shipTop` is DERIVED as `ACC / -ln(DRAG)` — which is exactly the
+   *   terminal velocity the keyboard's `v += ACC*h` reaches under the same drag. The two controls
+   *   agree on the ceiling by construction. What differed was whether you can ever ASK for it.
+   * ⛔ THE STICK SPAWNS WHERE YOUR THUMB LANDS AND ITS RIM IS 56 px AWAY. Land 20 px from the
+   *   left edge — which is precisely where a left thumb rests on a phone — and there is nowhere
+   *   left to drag: deflection clamps at 20/56, i.e. **36% of top speed, in that direction only**.
+   *   The ship is not slow, it is being asked to go slowly, and the asymmetry is invisible from a
+   *   desktop because a mouse has no edge to run out of.
+   * ⚑ SO PUSHING PAST THE RIM WALKS THE ANCHOR INSTEAD OF CLAMPING. Deflection still saturates at
+   *   R, the nub still sits on its rim, and full travel is available from anywhere on the glass —
+   *   including hard against an edge. It also makes the control self-correcting: the stick drifts
+   *   under the thumb rather than the thumb having to find the stick.
+   * ⚠ It must NOT re-centre when you come back inside the rim, or the stick would follow you home
+   *   and neutral would move every time you eased off. Only the saturating case moves it. */
   addEventListener('pointermove', e => {
     if (e.pointerType === 'mouse' || e.pointerId !== stick.id) return;
-    const R = 56, dz = 10; let dx = e.clientX - stick.cx, dy = e.clientY - stick.cy;
-    const m = Math.hypot(dx, dy); if (m > R) { const s = R / m; dx *= s; dy *= s; }
+    const R = 56, dz = 10;
+    let dx = e.clientX - stick.cx, dy = e.clientY - stick.cy;
+    const m = Math.hypot(dx, dy);
+    if (m > R) {
+      const s = R / m;
+      stick.cx = e.clientX - dx * s;          // drag the anchor along behind the thumb
+      stick.cy = e.clientY - dy * s;
+      dx *= s; dy *= s;
+      stickShow(stick.cx, stick.cy);
+    }
     stick.x = m < dz ? 0 : clamp(dx / R, -1, 1); stick.y = m < dz ? 0 : clamp(dy / R, -1, 1);
     sN.style.left = (stick.cx + dx) + 'px'; sN.style.top = (stick.cy + dy) + 'px';
   });

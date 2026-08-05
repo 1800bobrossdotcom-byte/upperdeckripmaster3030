@@ -489,6 +489,11 @@
   .pv-card.r-rare{ box-shadow:0 0 20px rgba(255,210,59,.5); }
   .pv-card.r-mythic{ box-shadow:0 0 26px rgba(255,42,217,.55); }
   .pv-card.r-prizm{ box-shadow:0 0 20px rgba(39,247,228,.6), 0 0 44px rgba(255,42,217,.4); }
+  /* ⚠ THE BADGES SIT ABOVE THE PRESS. js/card-view.js appends its canvas to this box, so it is
+     the LAST child and — with every layer at auto z-index — paints over both labels. They read
+     as having vanished the moment the reveal became a live card. */
+  .pv-card > .pv-rr, .pv-card > .pv-open{ z-index:2; }
+  .pv-card canvas{ z-index:1; border-radius:inherit; }
   .pv-rr{ position:absolute; top:8px; right:8px; font-family:var(--fat); font-size:var(--t-tag,9px); text-transform:uppercase;
     padding:4px 9px; border-radius:6px; border:1px solid var(--phosdim); background:rgba(1,10,5,.85); color:var(--phos); }
   .pv-card.r-mythic .pv-rr{ color:var(--acid); border-color:#7c1668; }
@@ -496,6 +501,14 @@
   .pv-open{ position:absolute; left:8px; bottom:8px; font-family:var(--fat); font-size:var(--t-tag,8px); letter-spacing:.1em;
     text-transform:uppercase; padding:5px 9px; border-radius:6px; border:1px solid var(--phosdim);
     background:rgba(1,10,5,.85); color:var(--amber); }
+  /* ⚠ 44px tall, because a control on a card is a control a thumb has to hit — the mobile pass
+     took taps under 44px to zero and a new one must not walk that back. */
+  .pv-flip{ display:none; position:absolute; right:8px; bottom:8px; z-index:3; min-height:44px;
+    font-family:var(--fat); font-size:var(--t-tag,8px); letter-spacing:.1em; text-transform:uppercase;
+    padding:5px 11px; border-radius:6px; border:1px solid var(--phosdim); cursor:pointer;
+    background:rgba(1,10,5,.85); color:var(--phos); }
+  .pv-card.live .pv-flip{ display:block; }
+  .pv-flip:active{ transform:scale(.94); }
   .pv-meta{ display:flex; flex-wrap:wrap; justify-content:center; align-items:baseline; gap:6px 14px; margin-top:12px; }
   .pv-nm{ font-family:var(--fat); font-size:var(--t-h3,16px); text-transform:uppercase; letter-spacing:.06em;
     color:var(--phos); text-shadow:0 0 12px rgba(43,255,128,.5); }

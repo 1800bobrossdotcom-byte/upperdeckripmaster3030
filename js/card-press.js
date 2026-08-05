@@ -218,9 +218,17 @@
          *   name for one frame — and one frame is all a screenshot or a texture upload needs. */
         /* ⚑ THE DESIGNED BACK, NOT THE STAND-IN. `js/card-back.js` rasterises the real
          *   vintage back off the card's own page — its trivia, its vitals, its trait tags — and
-         *   hands it to the press. Best-effort: a card with no page keeps the generated back. */
+         *   hands it to the press. Best-effort: a card with no page keeps the generated back.
+         * ⛔ AND IT IS OFF FOR STILLS, WHICH IS NOT AN OPTIMISATION — IT IS THE DIFFERENCE
+         *   BETWEEN A DECK BROWSER AND A DENIAL OF SERVICE. Rasterising a back costs a fetch of
+         *   the card's whole HTML page, a fetch of every stylesheet that page links, a live DOM
+         *   host in this document and a 520x780 foreignObject raster. `bake()` runs the same
+         *   `live()` press, so wiring the back unconditionally put all four on the ONE path that
+         *   runs 196 times — to prepare a face nobody can turn over, because a still is face-up
+         *   by definition and has no pointer to flip it. Off here, on in every live viewer. */
+        var wantBack = o.backs !== false;
         function dressBack(card) {
-          if (!global.CardBack) return;
+          if (!wantBack || !global.CardBack) return;
           try {
             CardBack.forCard(card, { base: (o.base === undefined ? base : o.base) + '' })
               .then(function (cv) { if (cv) { try { press.setBack(cv); } catch (e) {} } })
@@ -274,7 +282,7 @@
       if (_bakeCanvas.width !== W || _bakeCanvas.height !== H) {
         _bakeCanvas.width = W; _bakeCanvas.height = H;
       }
-      return live({ canvas: _bakeCanvas, base: o.base, card: card }).then(function (ctrl) {
+      return live({ canvas: _bakeCanvas, base: o.base, card: card, backs: false }).then(function (ctrl) {
         if (!ctrl) return null;
         return ctrl.show(card).then(function () {
           /* ⚑ A STILL IS A FINISHED SHEET. The write-on is a handling animation; a thumbnail is

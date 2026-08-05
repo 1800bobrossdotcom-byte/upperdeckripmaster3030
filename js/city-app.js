@@ -737,7 +737,7 @@ window.CityApp = (function () {
       fireBtn.addEventListener('pointercancel', hold(false)); }
     if (modeBtn) modeBtn.addEventListener('click', e => { e.preventDefault(); cycleMode(1); });
     const actBtn = $('tAct');
-    if (actBtn) actBtn.addEventListener('click', e => { e.preventDefault(); actTap = 2; });
+    if (actBtn) actBtn.addEventListener('click', e => { e.preventDefault(); actTap = 1; });
     const crBtn = $('tCreature');
     if (crBtn) crBtn.addEventListener('click', e => { e.preventDefault();
       if (MODE !== 'animal') setMode('animal');
@@ -760,7 +760,41 @@ window.CityApp = (function () {
     me.yaw += e.movementX * 0.0022;
     me.pitch = clamp(me.pitch - e.movementY * 0.0022, -1.2, 1.2);
   });
-  cv.addEventListener('click', () => { if (isOp() && cv.requestPointerLock) cv.requestPointerLock(); });
+  /* ── ⛔ THE POINTER LOCK IS THE "FREEZES AND LOCKS" REPORT, AND IT IS THREE DEFECTS ─────────
+   * Artist, 2026-08-05: *"when moving from jet to on the ground with gun, the game freezes and
+   * locks."* Every number stayed healthy through it — mode swaps, ground contact, `camBad` 0, no
+   * throw — because the simulation was never the problem. The INPUT was:
+   *
+   *  (a) ⛔ ENTERING THE OPERATIVE, THE VIEW WOULD NOT TURN AND NOTHING SAID WHY. `mousemove`
+   *      returns early unless `document.pointerLockElement === cv`, and the lock is only ever
+   *      requested by a canvas click. Come from the jet — where the mouse does nothing and you
+   *      have no reason to have clicked — and you land in a first-person body whose camera
+   *      ignores the mouse. **That is exactly what "frozen" looks like from the chair.**
+   *  (b) ⛔ LEAVING THE OPERATIVE NEVER RELEASED IT. Lock the pointer, press TAB, and you are in
+   *      a chase-camera game with the cursor still captured and invisible: the mode chips, the
+   *      cabinet links and the arcade are all unclickable. **That is "locks", literally.**
+   *  (c) ⚠ A REFUSED LOCK WAS SILENT. Chrome rejects `requestPointerLock` for about a second
+   *      after an Escape exit, and it rejects it entirely on a call with no user gesture. The
+   *      click then does nothing, forever, with no error anyone sees.
+   *
+   * ⚑ The prompt is the fix for all three, because it makes the state VISIBLE: it is shown
+   *   whenever the operative is unlocked, hidden the moment the lock takes, and it comes back on
+   *   `pointerlockerror` instead of the click vanishing. A missing affordance cannot be found by
+   *   any assertion about the simulation, which is why nothing here caught it. */
+  function syncLock() {
+    const el = $('lockHint');
+    if (!el) return;
+    el.hidden = !(isOp() && document.pointerLockElement !== cv);
+  }
+  cv.addEventListener('click', () => {
+    if (!isOp() || !cv.requestPointerLock) return;
+    try {
+      const p = cv.requestPointerLock();
+      if (p && p.catch) p.catch(() => syncLock());     // newer Chrome returns a promise
+    } catch (e) { syncLock(); }
+  });
+  document.addEventListener('pointerlockchange', syncLock);
+  document.addEventListener('pointerlockerror', syncLock);
 
   /* ── the trigger, and the weapon selector. ⚠ THE FIRST CLICK IS THE POINTER LOCK, NOT A SHOT.
    * Firing on it too would spend a round every time you clicked back into the window, and on
@@ -790,7 +824,11 @@ window.CityApp = (function () {
    * The bird lets go of a card into the air; the squirrel lets go of the one in its mouth. One
    * verb, two bodies — which is how a control scheme stays learnable as the roster grows. */
   let actTap = 0;
-  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f') actTap = 2; });
+  /* ⚠ ONE PRESS IS ONE DROP. This latched 2 and `readInput` spends one per call, so every press
+   *   dropped TWICE — invisible while the supply was infinite, and immediately wrong once the
+   *   pouch is five deep. A latch exists to survive a frame where input is not read; a latch of
+   *   two is a repeat. */
+  addEventListener('keydown', e => { if (e.key.toLowerCase() === 'f') actTap = 1; });
 
   /* ⛔ ONE KEY, BOTH DIRECTIONS. `E` gets in and `E` gets out — a separate exit key is a key you
    * have to be told about, and the prompt already says E. ⚠ It is deliberately NOT the action key
@@ -808,15 +846,22 @@ window.CityApp = (function () {
     syncHud();
   });
 
+  /* the last thing the drop key did, shown for a beat — see the note on the carry HUD */
+  let dropSay = 0, dropMsg = '';
+  function says(m) { dropMsg = m; dropSay = 1.6; }
   function doAction() {
     if (!drops || MODE !== 'animal') return null;
     if (CREATURE === 'bird') {
       /* ⚠ Inherits the bird's velocity and is tossed BACKWARD. A card that left forward would
        * out-run the bird and land ahead of it, which is neither funny nor useful — and the joke
        * IS the mechanic: you cannot place it precisely, you have to fly over the spot. */
-      return drops.drop(me.x, me.y, me.z, me.vx, me.vz);
+      const d = drops.drop(me.x, me.y, me.z, me.vx, me.vz);
+      says(d ? ('DROPPED ' + d.kind.name) : 'POUCH EMPTY — fly low over a card to pick one up');
+      return d;
     }
-    return drops.dropCarried(me);
+    const d = drops.dropCarried(me);
+    says(d ? ('DROPPED ' + d.kind.name) : 'NOTHING TO DROP — take one off the ground or off a rival');
+    return d;
   }
 
   function readInput() {
@@ -1464,6 +1509,38 @@ window.CityApp = (function () {
      * route: hold forward against anything tall and you go up it. Every box in this city is
      * climbable by construction — the same 1:1 guarantee the generator makes about landing, which
      * is only true because the geometry and the collision set are one thing. */
+    /* ── ⛔ THE LIP IS A LIMIT CYCLE, AND THAT IS THE "STUCK ON WALL LEDGES" REPORT ───────────
+     * Artist, 2026-08-05: *"the squirell gets stuck on wall ledges and that shouldn't happen."*
+     *
+     * ⛔ THE CLIMB ENDS BY LOSING ITS OWN WALL. `wallAt` only returns a box while `y <= b.y1`, so
+     *   the instant the squirrel's feet clear the top the wall stops existing: `climbing` goes
+     *   false, gravity resumes, the body drops back into reach, `wallAt` finds it again and it
+     *   climbs again. **A stable oscillation at the lip** — it reads as being stuck to the wall,
+     *   and nothing errors because every individual frame is doing exactly what it was told.
+     * ⛔ AND THE OLD CREST WAS A NUDGE, WHICH CANNOT WIN THE RACE IT IS IN. It added `hx * 3.2`
+     *   to velocity for the frame or two the body was inside the crest band — while the same
+     *   branch multiplied horizontal speed by 0.5 EVERY frame. The push decayed faster than it
+     *   could carry the body the `r + 0.22` it needs to clear the footprint.
+     * ⚑ SO CRESTING IS A PLACEMENT, NOT AN IMPULSE. Reaching the top puts the body ON the roof,
+     *   past the edge, standing — which is what the old comment already claimed ("crest it and
+     *   step onto the roof") and what a nudge could only sometimes achieve. It cannot oscillate,
+     *   because it ends the climb by ending the reason to climb.
+     * ⚠ REFUSED IF THE LANDING IS NOT CLEAR. A wall with something standing on it would otherwise
+     *   teleport the squirrel inside it — and the body keeps grinding instead, which is the
+     *   honest outcome: there is genuinely nowhere to go. */
+    function mantle(w, carry) {
+      if (me.y + B.h < w.top) return false;              // head still below the lip
+      const nx = hx, nz = hz;
+      const reach = (B.r || 0.26) + 0.34;
+      const tx = me.x + nx * reach, tz = me.z + nz * reach, ty = w.top + 0.02;
+      if (collide && collide.hits(tx, ty, tz, B.r, B.h)) return false;
+      me.x = tx; me.z = tz; me.y = ty;
+      me.vy = 0; me.onGround = true;
+      me.vx = nx * carry; me.vz = nz * carry;            // step off carrying what you arrived with
+      me.vaulting = 0;
+      return true;
+    }
+
     let climbing = false;
     if (B.climb && want > 0) {
       const w = collide && collide.wallAt(me.x, me.y, me.z, B.r + 0.22);
@@ -1488,19 +1565,13 @@ window.CityApp = (function () {
            * reason to go fast, which is the whole mechanic. */
           me.vy = Math.max(me.vy, approach * VAULT_LIFT);
           me.vx *= 0.86; me.vz *= 0.86;
-          if (me.y > w.top - 0.05) {
-            me.vy = Math.max(me.vy, 2.5);
-            me.vx += hx * 5.5; me.vz += hz * 5.5;             // fly off the lip, still carrying it
-          }
+          if (mantle(w, 5.5)) climbing = false;               // fly off the lip, still carrying it
           if (!me.vaulting) { me.vaulting = 1; if (dash) dash.countVault(); }
         } else {
           me.vaulting = 0;
           me.vy = (B.run || 9) * 0.62;
           me.vx *= 0.5; me.vz *= 0.5;
-          if (me.y > w.top - 0.05) {                          // crest it and step onto the roof
-            me.vy = Math.max(me.vy, 2.0);
-            me.vx += hx * 3.2; me.vz += hz * 3.2;
-          }
+          if (mantle(w, 3.2)) climbing = false;               // crest it and step onto the roof
         }
       } else me.vaulting = 0;
     }
@@ -1814,6 +1885,13 @@ window.CityApp = (function () {
     else if (CREATURE === 'squirrel') { const g = collide ? collide.groundBelow(me.x, me.z, me.y + 4, 0.26, 400) : null;
                        me.y = (g == null ? 0 : g); me.vx = me.vy = me.vz = 0; me.onGround = true; }
     else { me.vx = Math.sin(me.yaw) * 16; me.vz = Math.cos(me.yaw) * 16; me.vy = 0; }
+    /* ⛔ HAND THE POINTER BACK ON THE WAY OUT. Only the operative reads the mouse; every other
+     *   mode is a chase camera where a captured, invisible cursor is pure loss — the mode chips,
+     *   the cabinet links and the arcade all become unclickable and the only escape is a key the
+     *   player has no reason to guess. `syncLock` then shows or clears the prompt for the mode
+     *   actually being entered, so the two can never disagree. */
+    if (!isOp() && document.pointerLockElement === cv) { try { document.exitPointerLock(); } catch (e) {} }
+    syncLock();
     syncHud();
     return MODE;
   }
@@ -1996,15 +2074,26 @@ window.CityApp = (function () {
 
   function stepDrops(dt) {
     if (!drops) return;
+    if (dropSay > 0) dropSay -= dt;      // the report fades; the pouch count under it does not
     /* ⚠ carryY 0.30 put the card INSIDE the squirrel — the body is ~0.19 deep and the card is
      * 0.48 tall, so it needs to clear the back or the whole point (that you can SEE who has it)
      * is lost. Held high, like a squirrel with something in its mouth. */
     drops.step(dt, { x: me.x, y: me.y, z: me.z, yaw: me.yaw,
                      mode: MODE === 'animal' ? CREATURE : MODE, carryY: 0.48 });
+    /* ⛔ THE PRESS HAS TO REPORT SOMETHING, ALWAYS. Half the "cannot drop power ups" report was
+     *   silence: a squirrel with empty hands and a bird with an empty pouch both did exactly
+     *   nothing, and the bird's successful drop goes BACKWARD and DOWN — behind the chase camera,
+     *   where you cannot see it either. So the only three states a player can be in are printed:
+     *   what you are carrying, how full the pouch is, and — for a moment — that the last press
+     *   found nothing to drop. */
     const el = $('carry');
     if (el) { const c = drops.counts;
-      el.textContent = c.carried ? ('CARRYING ' + c.carried) : '';
-      el.dataset.on = c.carried ? '1' : ''; }
+      let txt = '';
+      if (c.carried) txt = 'CARRYING ' + c.carried;
+      else if (CREATURE === 'bird' && MODE === 'animal') txt = 'POUCH ' + c.pouch + '/' + c.pouchMax;
+      if (dropSay > 0) txt = dropMsg;
+      el.textContent = txt;
+      el.dataset.on = txt ? '1' : ''; }
   }
 
   resize();
@@ -2017,6 +2106,10 @@ window.CityApp = (function () {
    * ⚠ It reads as a rendering fault in the effect and is a lifecycle mistake in the caller. */
   ink = window.CityInk ? CityInk.attach(app, cam) : false;
   syncHud();
+  /* ⚠ AND AT BOOT, because the mode is restored from localStorage — reload while in SECTION 9
+   *   and `setMode` never runs, so the prompt would never be shown on the one entry path where
+   *   the player has not touched anything yet. */
+  syncLock();
   /* …and the targets have to keep up with the window, or rotating a phone reproduces it exactly. */
   window.addEventListener('resize', () => {
     try { if (cam.camera.postEffects) cam.camera.postEffects.resizeRenderTargets(); } catch (e) {}

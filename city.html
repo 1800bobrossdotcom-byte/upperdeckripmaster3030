@@ -90,6 +90,17 @@
     background:linear-gradient(180deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
   #reticle::after{ top:50%; left:0; height:2.5px; width:100%; margin-top:-1.25px;
     background:linear-gradient(90deg,var(--accent) 0 32%,transparent 32% 68%,var(--accent) 68% 100%); }
+  /* ⛔ THE PROMPT THAT SAYS THE VIEW NEEDS A CLICK. Sits under the reticle rather than over it,
+       and is `pointer-events:none` so it can never eat the very click it is asking for — a
+       prompt you cannot click through is the bug it exists to fix, wearing a hat.
+     ⚠ `!important` on hidden, because this file sets `display` on `.hud` and the UA's
+       `[hidden]{display:none}` loses to any specificity that does — the third sighting of that
+       rule in this repo, and it took the launch countdown down once already. */
+  #lockHint{ left:50%; top:50%; margin-top:26px; transform:translateX(-50%); text-align:center;
+    pointer-events:none; padding:10px 16px; border-radius:8px; line-height:1.5;
+    background:rgba(4,10,6,.82); border:1px solid var(--accent); }
+  #lockHint b{ letter-spacing:.14em; }
+  .hud[hidden]{ display:none !important; }
   /* ── THE MODE BAR. Top-centre, because that is the one place neither the title (left) nor the
        mode notes (right) already occupy, and because a control for "which game am I playing"
        belongs where you look first rather than tucked into a corner. */
@@ -339,6 +350,14 @@
   <div class="hud" id="carry"></div>
   <div class="hud" id="ride"></div>
   <div class="hud" id="reticle"></div>
+  <!-- ⛔ THE OPERATIVE CANNOT LOOK UNTIL THE CANVAS IS POINTER-LOCKED, AND NOTHING SAID SO.
+       `mousemove` returns early unless `document.pointerLockElement === cv`, so a player who
+       switched into SECTION 9 and moved the mouse got a view that would not turn — with no
+       error, no cursor change and no message. That is the artist's "the game freezes and
+       locks", and it is a MISSING AFFORDANCE rather than a broken simulation: every number
+       (mode, ground, camBad) reads healthy the whole time. -->
+  <div class="hud" id="lockHint" hidden><b>CLICK TO LOOK</b><br>
+    <span>mouse aims · <span class="key">ESC</span> releases it</span></div>
   <div class="hud" id="combat"></div>
   <!-- ⚠ TWO LEGENDS, SWITCHED BY THE MODE, because they are two control schemes and printing the
        flight one over a firefight is a lie the player pays for. `js/city-app.js` sets

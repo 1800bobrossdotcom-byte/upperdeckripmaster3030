@@ -619,6 +619,11 @@ frame and seed are left alone">RESET TO BASE</button>
 <script src="../js/chain-config.js" onerror="void 0"></script>
 <script src="../js/lens-state.js" onerror="void 0"></script>
 <script src="../js/hero-card.js"></script>
+<!-- ⚑ For CardView.backingScale() only — the forge drives the press itself. gfx-post carries
+     deviceTier(), which is how "weak machine" keeps ONE definition in this repo. Both are
+     optional: size() falls back if either is missing. -->
+<script src="../js/gfx-post.js" onerror="void 0"></script>
+<script src="../js/card-view.js" onerror="void 0"></script>
 <script src="../js/card-export.js"></script>
 <script>
 (function () {
@@ -631,9 +636,18 @@ frame and seed are left alone">RESET TO BASE</button>
   var ctrl = null, POOL = [], RARITY = 'legendary';
   var RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
+  /* ⛔ THE BACKING RATIO IS `js/card-view.js`'s, NOT THIS FILE'S — AND THIS WAS THE SURFACE MOST
+   *   EXPOSED TO GETTING IT WRONG. It read `min(devicePixelRatio, 2)`, so on an ordinary 1x
+   *   monitor the forge rendered a ~600-px card at 1:1 — a halftone cell under two device pixels,
+   *   which speckles. **That is the screen the hundred cards get judged on**, so a sampling
+   *   artefact here is indistinguishable from the print being wrong, and the reaction to it would
+   *   have been to retune the press.
+   * ⚠ Falls back to the old rule if card-view.js is absent, because the forge must keep working
+   *   with a module missing — but the fallback is now the thing that can drift, not the default. */
   function size() {
     var r = box.getBoundingClientRect();
-    var dpr = Math.min(devicePixelRatio || 1, 2);
+    var dpr = (window.CardView && CardView.backingScale)
+      ? CardView.backingScale() : Math.min(devicePixelRatio || 1, 2);
     cv.width = Math.max(64, Math.round(r.width * dpr));
     cv.height = Math.max(96, Math.round(r.height * dpr));
     if (ctrl) ctrl.render();

@@ -179,6 +179,59 @@ console.log('\n── 3 · THE GUARD ITSELF: a flat fill is not a card ───
   await ctx.close();
 }
 
+console.log('\n── 4 · THE CARD ACTUALLY TURNS OVER ───────────────────────────────────────────');
+/* ⛔ THE BUTTON WORKED, THE LABEL CHANGED, AND THE CARD NEVER FLIPPED. `flip()` did
+ *   `S.yawT += PI` and set a separate `faceUp` flag — but `advance()` rewrites `S.yawT` from the
+ *   pointer on EVERY frame, so the half-turn survived exactly one tick. The card twitched and
+ *   sprang straight back to its face while the flag insisted it had turned over. It only ever
+ *   appeared to work in a STILL, where nothing advances — which is why every check that existed
+ *   passed. Two representations of one fact, disagreeing, with nothing thrown.
+ * ⚑ SO THE ASSERTION IS THE ANGLE, NOT THE FLAG. `faceUp` returning false is trivially true of
+ *   the broken build; what it could never do is get the card past edge-on and KEEP it there
+ *   while the loop runs. The shader picks the back off `V.z < 0.0`, i.e. off the geometry, so
+ *   the yaw is the only thing that decides what a viewer sees. */
+{
+  const { ctx, page } = await visit('/cards/');
+  await page.waitForTimeout(4000);
+  const r = await page.evaluate(async () => {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 384;
+    cv.style.cssText = 'position:absolute;left:-99999px;top:0;width:1px;height:1px';
+    document.body.appendChild(cv);
+    const P = await CardPress.live({ canvas: cv, base: '', backs: false });
+    if (!P) return { built: false };
+    const p = P.press;
+    const spin = (ms) => { for (let i = 0; i < ms / 16; i++) { p.advance(16); } };
+    const yaw = () => p.probe().yaw;
+    spin(600);
+    const restYaw = yaw(), restUp = p.probe().faceUp;
+    const said = p.flip();
+    spin(1500);                       // let the spring settle, with advance() running throughout
+    const turned = yaw(), turnedUp = p.probe().faceUp;
+    p.flip();
+    spin(1500);
+    const back = yaw(), backUp = p.probe().faceUp;
+    return { built: true, restYaw, restUp, said, turned, turnedUp, back, backUp };
+  });
+  ok(r.built, 'a press to turn over', String(r.built));
+  if (r.built) {
+    ok(Math.abs(r.restYaw) < 0.2, 'it starts square to the viewer', 'yaw ' + r.restYaw.toFixed(3));
+    ok(r.restUp === true, '…and reports itself face up', String(r.restUp));
+    /* past edge-on: |cos(yaw)| is the facing, so > PI/2 is the back. THIS is the one that fails
+     * on the old build — it measured ~0.00 after the spring pulled the half-turn back out. */
+    ok(Math.abs(r.turned) > Math.PI / 2,
+      'flip() turns it PAST EDGE-ON and it STAYS there while the loop runs — the assertion that '
+      + 'bites, because a target the pointer spring overwrites springs back',
+      'yaw ' + r.turned.toFixed(3) + ' rad (needs > ' + (Math.PI / 2).toFixed(3) + ')');
+    ok(r.said === false && r.turnedUp === false,
+      '…and faceUp agrees with the geometry rather than with a flag beside it',
+      'flip() returned ' + r.said + ', probe says ' + r.turnedUp);
+    ok(Math.abs(r.back) < 0.2 && r.backUp === true,
+      'flipping again brings the front back', 'yaw ' + r.back.toFixed(3) + ' · faceUp ' + r.backUp);
+  }
+  await ctx.close();
+}
+
 await br.close();
 srv.close();
 console.log(`\n${pass} passed, ${fail} failed`);
