@@ -325,12 +325,16 @@ frame and seed are left alone">RESET TO BASE</button>
 
     <div class="grp">
       <label>THE THREE SOURCES <span class="v" id="vPig">seeded</span></label>
-      <div class="slot">GROUND — zoomed to a field</div>
-      <select id="slotG" aria-label="ground plate"></select>
-      <div class="slot">MID — mirrored, another scale</div>
-      <select id="slotM" aria-label="mid plate"></select>
-      <div class="slot">FIGURE — near card size</div>
-      <select id="slotF" aria-label="figure plate"></select>
+      <!-- ⚑ THE FIGURE SELECT IS FIRST AND ALWAYS VISIBLE, because at ONE plate it IS the card.
+           Ground and mid are the two the collage ADDS, so they appear at three. -->
+      <div class="slot" id="figCap">THE CARD — printed at card size</div>
+      <select id="slotF" aria-label="the card"></select>
+      <div id="slotsGM" hidden>
+        <div class="slot">GROUND — zoomed to a field, behind everything</div>
+        <select id="slotG" aria-label="ground plate"></select>
+        <div class="slot">MID — mirrored, another scale</div>
+        <select id="slotM" aria-label="mid plate"></select>
+      </div>
       <!-- ⚑ THE SECOND THREE. Hidden while the collage is set to three, because six selects on a
            card printing three of them is six chances to spend an hour on a plate that is not on
            the press. `[hidden]{display:none!important}` at the top of this file is what makes
@@ -343,8 +347,12 @@ frame and seed are left alone">RESET TO BASE</button>
         <div class="slot">INSET — a tight crop, held in one region</div>
         <select id="slotI" aria-label="inset plate"></select>
       </div>
-      <div class="row" style="margin-top:8px">
-        <button type="button" id="pigs">THREE PLATES</button></div>
+      <!-- ⛔ ONE · THREE · SIX, and ONE is the base — artist: "base means reset to base as in
+           1 card, not three cards." A collage is a treatment, so it has to be added. Chips
+           rather than a toggle because there are three states, and rather than a slider because
+           each is a different COMPOSITION, not more of the same thing. -->
+      <div class="slot" style="margin-top:10px">HOW MANY CARDS ARE ON IT</div>
+      <div class="chips" id="pigsChips"></div>
       <div class="row"><button type="button" id="shuffle">SHUFFLE</button>
                        <button type="button" id="reseed">NEW SEED</button></div>
       <details class="why"><summary>why three, and why those roles</summary>
@@ -984,16 +992,67 @@ frame and seed are left alone">RESET TO BASE</button>
     { id: 'inks', k: 'inks', d: 0, on: 'SIX PLATES · + O G', off: 'FOUR PLATES · C M Y K',
       put: function (c, v) { c.setInks(v ? 6 : 4); },
       say: function (on) { return on ? '6 plates' : '4 plates'; } },
-    { id: 'pigs', k: 'pigs', d: 0, on: 'SIX PLATES', off: 'THREE PLATES',
-      put: function (c, v) { c.setPigs(v ? 6 : 3); },
-      say: function (on) { return on ? '6 plates' : '3 plates'; },
-      /* the three extra pickers only exist while the press is reading them */
-      also: function (on) {
-        var box = document.getElementById('slots6'); if (box) box.hidden = !on;
-        var v = document.getElementById('vColl');
-        if (v) v.textContent = on ? '6 plates' : '3 plates';
+  ];
+
+  /* ══ ⛔ A CONTROL WITH MORE THAN TWO STATES ═══════════════════════════════════════════════
+   * The plate count is 1, 3 or 6 — three genuinely different compositions, not a strength — so it
+   * is neither a toggle nor a slider. ⚑ It still has to be ONE ROW IN A TABLE, because the whole
+   * reason this file has DIALS and TOGGLES is that a control which is not in the table is a
+   * control that can be moved but not saved, or saved but not reloaded, and every failure in that
+   * family is silent and costs a card. `CHOICES` is the same contract for an n-way pick: label,
+   * value into the press, query key, saved record, base. */
+  var CHOICES = [
+    { id: 'pigsChips', k: 'pigs', d: 1, values: [1, 3, 6],
+      label: function (v) { return v === 1 ? 'ONE' : (v === 3 ? 'THREE' : 'SIX'); },
+      put: function (c, v) { c.setPigs(v); },
+      say: function (v) { return v === 1 ? '1 card' : v + ' cards'; },
+      /* only show the pickers the press is actually reading — six selects on a card printing
+       * one of them is five chances to spend an hour on a plate that is not on the press */
+      also: function (v) {
+        var six = document.getElementById('slots6'); if (six) six.hidden = v < 6;
+        var gm = document.getElementById('slotsGM'); if (gm) gm.hidden = v < 3;
+        var cap = document.getElementById('figCap');
+        if (cap) cap.textContent = v <= 1 ? 'THE CARD — printed at card size'
+                                          : 'FIGURE — near card size';
+        var vv = document.getElementById('vColl');
+        if (vv) vv.textContent = v === 1 ? '1 card' : v + ' cards';
       } },
   ];
+  function choiceVal(C) {
+    var box = document.getElementById(C.id);
+    var on = box && box.querySelector('[aria-pressed=true]');
+    var v = on ? +on.getAttribute('data-v') : C.d;
+    return C.values.indexOf(v) < 0 ? C.d : v;
+  }
+  function showChoice(C) {
+    var v = choiceVal(C);
+    var vEl = document.getElementById('v' + C.id.charAt(0).toUpperCase() + C.id.slice(1));
+    if (vEl && C.say) vEl.textContent = C.say(v);
+    if (C.also) { try { C.also(v); } catch (e) {} }
+  }
+  function setChoice(C, v, push) {
+    var box = document.getElementById(C.id); if (!box) return;
+    [].slice.call(box.children).forEach(function (b) {
+      b.setAttribute('aria-pressed', String(+b.getAttribute('data-v') === v));
+    });
+    showChoice(C);
+    if (push && ctrl) { try { C.put(ctrl, v); } catch (e) {} }
+  }
+  function buildChoices() {
+    CHOICES.forEach(function (C) {
+      var box = document.getElementById(C.id); if (!box) return;
+      var q = Q.get(C.k), want = (q !== null && C.values.indexOf(+q) >= 0) ? +q : C.d;
+      C.values.forEach(function (v) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'chip'; b.textContent = C.label(v);
+        b.setAttribute('data-v', String(v));
+        b.setAttribute('aria-pressed', String(v === want));
+        b.addEventListener('click', function () { setChoice(C, v, true); stamp(); });
+        box.appendChild(b);
+      });
+      showChoice(C);
+    });
+  }
   function dialEl(id) { return document.getElementById(id); }
   function putReg(c) {
     var g = dialEl('reg'), r = dialEl('rad');
@@ -1026,6 +1085,7 @@ frame and seed are left alone">RESET TO BASE</button>
     if (!c) return;
     DIALS.forEach(function (D) { var el = dialEl(D.id); if (el) { try { D.put(c, +el.value); } catch (e) {} } });
     TOGGLES.forEach(function (T) { try { T.put(c, toggleOn(T) ? 1 : 0); } catch (e) {} });
+    CHOICES.forEach(function (C) { try { C.put(c, choiceVal(C)); } catch (e) {} });
     var mo = dialEl('motion');
     if (mo) { try { c.setMotion(mo.value || null); } catch (e) {} }
     showMotion();
@@ -1102,6 +1162,7 @@ frame and seed are left alone">RESET TO BASE</button>
     TOGGLES.forEach(function (T) {
       if ((toggleOn(T) ? 1 : 0) !== (T.d ? 1 : 0)) out.push(T.id);
     });
+    CHOICES.forEach(function (C) { if (choiceVal(C) !== C.d) out.push(C.k); });
     var mo = dialEl('motion'); if (mo && mo.value) out.push('motion');
     return out;
   }
@@ -1137,6 +1198,7 @@ frame and seed are left alone">RESET TO BASE</button>
       b.setAttribute('aria-pressed', T.d ? 'true' : 'false'); showToggle(T);
       if (ctrl) { try { T.put(ctrl, T.d ? 1 : 0); } catch (e) {} }
     });
+    CHOICES.forEach(function (C) { setChoice(C, C.d, true); });
     var mo = dialEl('motion');
     if (mo) { mo.value = ''; if (ctrl) { try { ctrl.setMotion(null); } catch (e) {} } showMotion(); }
     stamp();
@@ -1410,6 +1472,7 @@ frame and seed are left alone">RESET TO BASE</button>
       var el = dialEl(D.id); if (el) q.set(D.k, String(+el.value));
     });
     TOGGLES.forEach(function (T) { q.set(T.k, toggleOn(T) ? '1' : '0'); });
+    CHOICES.forEach(function (C) { q.set(C.k, String(choiceVal(C))); });
     var mo = dialEl('motion'); if (mo && mo.value) q.set('mot', mo.value);
     if (SLOT) q.set('n', String(SLOT));
     Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
@@ -1432,6 +1495,7 @@ frame and seed are left alone">RESET TO BASE</button>
    *   copies of a pattern is exactly how the fourth one gets written slightly differently
    *   and stops reaching the URL. `seedControlsFromUrl` wires all of them from the table. */
   seedControlsFromUrl();
+  buildChoices();
   buildTabs();
   syncBase();
   document.getElementById('reset').addEventListener('click', resetBase);

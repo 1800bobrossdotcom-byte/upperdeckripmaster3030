@@ -91,8 +91,12 @@ async function forge(w, h, query = '') {
  *   fails 36 of 36 — every control at every viewport, card 0% visible. */
 console.log('\n§1 the card stays on screen while you edit it');
 const VIEWS = [[1440, 900, 'laptop'], [1280, 800, 'desktop'], [390, 844, 'phone']];
-const CONTROLS = ['slotG', 'tName', 'rarChips', 'stack', 'motion', 'rad', 'price',
-                  'burn', 'reg', 'light', 'pull', 'slots'];
+/* ⚠ slotF, NOT slotG. Ground and mid are hidden at the base count now — they are two of the
+ *   pickers the collage ADDS — and an element with no box measures as 0x0, which would have made
+ *   this section quietly stop testing anything at that control. The figure picker is the one that
+ *   is on the panel at every count. */
+const CONTROLS = ['slotF', 'tName', 'rarChips', 'pigsChips', 'stack', 'motion', 'rad', 'price',
+                  'burn', 'press', 'reg', 'light', 'pull', 'slots'];
 for (const [w, h, label] of VIEWS) {
   const { ctx, page, errs } = await forge(w, h);
   const r = await page.evaluate((ids) => {
@@ -209,9 +213,27 @@ console.log('\n§3 a fresh forge opens at base — no changes applied');
       return { k, ink: 1 + (0 - 1) * 0 };            // press 0 forces the lerp to identity
     });
     c.setMotion(null);
-    return { press: p.press, filmSpread, motions: worst.length };
+    return { press: p.press, pigs: p.pigs, filmSpread, motions: worst.length };
   });
   ok(raw.press === 0, 'the press amount starts at a clean pull', `press ${raw.press}`);
+  /* ⛔ AND THE BASE IS ONE CARD — artist: *"base means reset to base as in 1 card, not three
+   * cards."* The panel was reading "no changes applied" over a composition of THREE deck cards.
+   * A collage is a treatment; it has to be something you add, or the first thing the tool tells
+   * you is untrue. */
+  ok(raw.pigs === 1, 'the base card is ONE card, not a collage of three', `${raw.pigs} on it`);
+  /* ⛔ AND THE FORGE'S BASE IS NOT THE RENDERER'S DEFAULT. Two different questions, and conflating
+   * them shipped a site-wide change by accident: `js/card-press.js` — and through it the binder,
+   * lens3d, the deck tiles and `js/card-view.js` — plus `cards/field.html` all build with the
+   * renderer's own default, so setting THAT to one card turned every card on the site into a
+   * single deck card at card size. Caught by `test:hero` acceptance 4 in one run, because a
+   * one-card composition at card framing CLAMPS at the window edge and the registration block
+   * matcher then reads a systematic inward bias (mean cos −0.357 against a 0 = a press bar).
+   * ⚑ The forge pushes its base through `applyAll`; the renderer keeps the composition the rest
+   *   of the site ships. Asserted in the SOURCE, because a page cannot see another page's default. */
+  const rsrc = await readFile(join(ROOT, 'js', 'hero-card.js'), 'utf8');
+  const dflt = (rsrc.match(/^\s*pigs:\s*(\d)/m) || [])[1];
+  ok(dflt === '3', 'while the RENDERER still defaults to the three-card composition the site ships',
+     `js/hero-card.js S.pigs = ${dflt}`);
   ok(raw.filmSpread === 0, 'so every plate takes an EVEN film — no uneven inking on a raw card',
      `worst deviation from 1.0 is ${raw.filmSpread}`);
   await ctx.close();
@@ -517,7 +539,10 @@ console.log('\n§10 the collage goes to six sources, and comes back');
     c.setView(0, 0); c.writeOn(1);
     for (let i = 0; i < 20; i++) c.advance(16);
     const px = () => { c.render(); return c.pixels().data; };
-    const three = px().slice();
+    /* ⚠ PIN THE COUNT. This first shot used to be taken at "whatever base is", and base was
+     *   three — so when base became ONE the comparison silently changed what it was comparing and
+     *   reported 713,474 bytes differing. The test was right to fail; it was measuring 1 vs 3. */
+    c.setPigs(3); const three = px().slice();
     c.setPigs(6); const six = px().slice();
     c.setPigs(3); const back = px().slice();
     let diff = 0, changed = 0;
@@ -537,17 +562,26 @@ console.log('\n§10 the collage goes to six sources, and comes back');
      `${r.changed.toFixed(1)}% of pixels changed`);
   /* the three extra pickers must appear with the plates they drive, and only then */
   const ui = await page.evaluate(() => {
-    const box = () => document.getElementById('slots6').hidden;
-    const before = box();
-    document.getElementById('pigs').click();
-    const after = box();
-    const n = document.querySelectorAll('#slots6 select').length;
-    document.getElementById('pigs').click();
-    return { before, after, n, backAgain: box(), probe: window.__proof.probe().pigs };
+    const chip = v => document.querySelector('#pigsChips [data-v="' + v + '"]');
+    const state = () => ({ gm: document.getElementById('slotsGM').hidden,
+                           six: document.getElementById('slots6').hidden,
+                           cap: document.getElementById('figCap').textContent,
+                           pigs: window.__proof.probe().pigs });
+    chip(1).click(); const one = state();
+    chip(3).click(); const three = state();
+    chip(6).click(); const six = state();
+    chip(1).click();
+    return { one, three, six, n: document.querySelectorAll('#slots6 select').length };
   });
-  ok(ui.before === true && ui.after === false && ui.backAgain === true && ui.n === 3,
-     'and the three extra pickers appear only when the press is reading them',
-     `${ui.n} pickers`);
+  /* ⛔ EACH COUNT SHOWS EXACTLY THE PICKERS THE PRESS IS READING. Six selects on a card printing
+   * one of them is five chances to spend an hour on a plate that is not on the press. */
+  ok(ui.one.pigs === 1 && ui.one.gm === true && ui.one.six === true && /THE CARD/.test(ui.one.cap),
+     'at ONE the panel shows one picker, and calls it the card', `"${ui.one.cap}"`);
+  ok(ui.three.pigs === 3 && ui.three.gm === false && ui.three.six === true
+     && /FIGURE/.test(ui.three.cap),
+     'at THREE ground and mid appear and the figure is a role again');
+  ok(ui.six.pigs === 6 && ui.six.gm === false && ui.six.six === false && ui.n === 3,
+     'at SIX the last three appear too', `${ui.n} extra pickers`);
   await ctx.close();
 }
 
@@ -560,10 +594,15 @@ console.log('\n§11 six plates survive the URL, and a three-plate card still loa
 {
   const { ctx, page } = await forge(1440, 900);
   const q = await page.evaluate(async () => {
-    document.getElementById('pigs').click();     // six sources
+    document.querySelector('#pigsChips [data-v="6"]').click();   // six sources
     document.getElementById('inks').click();     // six inks
     await new Promise(r => setTimeout(r, 150));
-    const sels = [].slice.call(document.querySelectorAll('#slotG,#slotM,#slotF,#slotW,#slotS,#slotI'));
+    /* ⚠ BY ID, IN ROLE ORDER. querySelectorAll returns DOCUMENT order, and the figure picker is
+     *   first in the markup now because at ONE plate it is the card — so a comma-list selector
+     *   compares the press's ground/mid/figure against the panel's figure/ground/mid and reports
+     *   the same three stems as a mismatch. */
+    const ids = ['slotG', 'slotM', 'slotF', 'slotW', 'slotS', 'slotI'];
+    const sels = ids.map(i => document.getElementById(i));
     sels.forEach((s, i) => { s.value = s.options[10 + i * 3].value;
       s.dispatchEvent(new Event('change', { bubbles: true })); });
     await new Promise(r => setTimeout(r, 900));
@@ -575,8 +614,8 @@ console.log('\n§11 six plates survive the URL, and a three-plate card still loa
   const r = await p2.evaluate(() => {
     const p = window.__proof.probe();
     return { inks: p.inks, pigs: p.pigs,
-             got: [].slice.call(document.querySelectorAll('#slotG,#slotM,#slotF,#slotW,#slotS,#slotI'))
-                    .map(s => s.value),
+             got: ['slotG', 'slotM', 'slotF', 'slotW', 'slotS', 'slotI']
+                    .map(i => document.getElementById(i).value),
              on: p.pigment.map(u => String(u).replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, '')) };
   });
   ok(r.inks === 6 && r.pigs === 6, 'both toggles came back', `${r.inks} inks · ${r.pigs} sources`);

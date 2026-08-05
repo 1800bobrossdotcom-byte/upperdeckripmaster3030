@@ -930,12 +930,27 @@ vec3 artAt(vec2 u, vec2 par) {
    * FIELD rather than a picture, the mid strips arrive at a different scale and mirrored, and
    * only the figure is near card-size — cropped above the source's own name, because otherwise
    * the hero wears somebody else's title across its chest. */
-  vec3 c = texture(uPigA, uG * vec2(0.30, 0.20) + vec2(0.20, 0.34)).rgb;
-  vec3 mid = texture(uPigB, uM * vec2(-1.90, 1.25) + vec2(1.42, -0.16)).rgb;
-  c = mix(c, mid, texture(uComp, uM).r);
-
-  vec3 fig = texture(uPigC, (uF - vec2(0.50, 0.40)) * vec2(1.02, 0.76) + vec2(0.50, 0.34)).rgb;
-  c = mix(c, fig, texture(uComp, uF).g);
+  /* ⛔ ONE CARD IS THE BASE — artist, 2026-08-05: *"base means reset to base as in 1 card, not
+   * three cards."* He is right and the panel was lying: it read "no changes applied" over a
+   * composition of THREE deck cards. A collage is a treatment. It has to be something you ADD,
+   * or "base" means nothing and the first thing the tool tells you is untrue.
+   * ⚑ AT ONE PLATE THE SOURCE IS FRAMED AS THE FIGURE, NOT AS THE GROUND, and that is the whole
+   *   difference between "one card" and "one card destroyed". The ground role is zoomed to
+   *   0.30 x 0.20 — deliberately past legibility, because its job is to be a FIELD behind the
+   *   other two. Showing that alone would answer "one card" with an abstract smear and read as a
+   *   broken base. The figure's framing is the card at card size, clamped, cropped above the
+   *   source's own name. ⚠ It must CLAMP: uPigA and uPigB repeat, and a card-size sample through
+   *   a REPEAT wrap tiles a grid of little faces the moment it leaves 0..1. */
+  vec2 uFig = (uF - vec2(0.50, 0.40)) * vec2(1.02, 0.76) + vec2(0.50, 0.34);
+  vec3 c;
+  if (uNPig <= 1) {
+    c = texture(uPigC, uFig).rgb;                       // one card, printed
+  } else {
+    c = texture(uPigA, uG * vec2(0.30, 0.20) + vec2(0.20, 0.34)).rgb;
+    vec3 mid = texture(uPigB, uM * vec2(-1.90, 1.25) + vec2(1.42, -0.16)).rgb;
+    c = mix(c, mid, texture(uComp, uM).r);
+    c = mix(c, texture(uPigC, uFig).rgb, texture(uComp, uF).g);
+  }
 
   /* ── ⛔ THREE MORE SOURCES, AND EACH ONE HAD TO EARN A DIFFERENT SCALE ────────────────────
    * Artist, 2026-08-05: the plate separator goes to six, and so does the collage.
@@ -1587,7 +1602,14 @@ void main(void) {
         lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
         stack: 1,        // how far the four elements separate through the card's thickness
         inks: 4,         // 4 = C M Y K · 6 = + orange and green, each on its own screen
-        pigs: 3,         // 3 = ground/mid/figure · 6 = + wash, strip, inset
+        /* ⛔ THREE, AND THIS IS THE RENDERER'S DEFAULT — NOT THE FORGE'S BASE. They are different
+         * questions and conflating them was caught by `test:hero` acceptance 4 within one run.
+         * The artist's *"base means 1 card"* is about what the EDITOR opens at; this constant is
+         * what EVERY OTHER SURFACE gets — `js/card-press.js` (and through it the binder, lens3d,
+         * the deck tiles and `js/card-view.js`) and `cards/field.html` all build with the default.
+         * Setting it to 1 turned every card on the site into a single deck card at card size, and
+         * nothing would have said so. The forge pushes its own base through `applyAll`. */
+        pigs: 3,         // 1 = one card · 3 = + ground/mid · 6 = + wash, strip, inset
         press: 0,        // the impression's own character: 0 = a clean pull, 1 = as it printed
         faceUp: true,    // which way up it is sitting
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
@@ -1874,7 +1896,10 @@ void main(void) {
          * uniform and nothing is loaded, baked or re-rolled when it flips. That is what lets it
          * be a toggle you flick back and forth while looking at the card, which is the whole
          * point of it being a toggle rather than a rebuild. */
-        setPigs: n => { S.pigs = (n | 0) === 6 ? 6 : 3; return S.pigs; },
+        /* ⚠ 1, 3 or 6 and nothing between — each is a different COMPOSITION, not a strength.
+         *   Anything else snaps down to the nearest real one rather than being rejected, so a
+         *   stale link cannot land the press on a count the shader has no branch for. */
+        setPigs: n => { n = n | 0; S.pigs = n >= 6 ? 6 : (n >= 3 ? 3 : 1); return S.pigs; },
 
         /* ── HOW HARD THE PRESS RAN ───────────────────────────────────────────────────────
          * 0 is a clean pull: even film across every plate, no roller band, no starve, and the
