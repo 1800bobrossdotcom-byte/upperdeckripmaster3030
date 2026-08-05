@@ -1,19 +1,33 @@
-/* ripmaster3030studios — pre-launch ADMIN GATE (client-side veil).
+/* ripmaster3030studios — pre-launch ADMIN GATE (client-side veil).  ⛔ THE VEIL IS OFF.
  *
- * Hides the whole site behind an admin login until launch. Fail-closed: with JS
- * off, or before you log in, nothing is visible. Access is remembered per-device
- * (localStorage), so you log in once. Styled to match the landing page (torches,
- * marquee logo, acid-terminal palette).
+ * Artist, 2026-08-05: *"lets take off the password protection now"*. `LIVE = true` and this
+ * file returns before it draws anything. The site is PUBLIC.
  *
- * ⚠ Soft veil — the password ships in the page source, so it stops search engines
- * and casual visitors but not a determined one. For HARD protection also enable
- * Vercel → Settings → Deployment Protection → Password (server-side).
+ * ⚑ ONE FLAG, NOT A SIXTY-NINE-FILE SWEEP, and that is deliberate. 69 shipped pages carry
+ *   `<script src="/gate.js">` and `scripts/build-pages.mjs` writes it into every page it
+ *   generates. Stripping the tag from the OUTPUT would leave the generator armed to put it
+ *   back — this repo's recorded `restyle-backs.mjs` failure, where generator and output
+ *   disagreed and re-running silently undid the fix — and a sweep that misses one page leaves
+ *   a surface veiled that nobody will open until a collector does. Turning the veil off at its
+ *   source cannot miss a page and cannot be undone by a regenerate.
+ * ⚑ Reversible in one character: set LIVE to false.
  *
- * Change the password: edit PASS below.  Admin email: ADMIN below.
+ * ⚠ THE PASSWORD BELOW IS BURNED and must not be reused. It has been in a public repository,
+ *   in page source, on every one of those 69 pages, for the whole pre-launch period — that is
+ *   what a client-side veil IS. It is kept here only so flipping LIVE back gives a working
+ *   gate; if the veil ever goes back up for something that matters, change it first. For
+ *   protection that is actually protection, use the platform's own Deployment Protection,
+ *   which runs server-side and never ships a secret to the client at all.
+ *
+ * ⚠ Nothing else changes when the veil lifts: `robots.txt` already reads `Allow: /` and no
+ *   page carries `noindex`, so the site becomes indexable the moment crawlers next call.
  */
 (function () {
+  var LIVE = true;                      // ← ⛔ the site is public. false puts the veil back.
+  if (LIVE) return;
+
   var ADMIN = '1800bobrossdotcom@gmail.com';
-  var PASS = 'ripmaster3030';           // ← change me
+  var PASS = 'ripmaster3030';           // ← BURNED, see the header. Change before any reuse.
   var KEY = 'urm_admin_ok';
 
   try { if (localStorage.getItem(KEY) === '1') return; } catch (e) { /* gate anyway */ }
