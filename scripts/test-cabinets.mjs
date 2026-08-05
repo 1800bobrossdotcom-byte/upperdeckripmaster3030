@@ -369,6 +369,44 @@ head('3 · THE ARENA is reachable and does not slide sideways in portrait');
   await ctx.close();
 }
 
+/* ⛔ 3b · ACCEPTING A FACE-OFF WAS UNCLICKABLE ON EVERY VIEWPORT. The incoming-challenge toast sits
+ *   at `bottom:18px` under z-index 98; the freshness strip is `bottom:0` at z-index 2147483000.
+ *   Measured with `elementFromPoint` on the SHOWN toast: at 390×844 ACCEPT spans y 792…836 with
+ *   the strip's top at 790, so its centre returns the strip's own <b>; at 844×390 and at
+ *   1280×800 the same. **The one verb the whole lobby exists for landed on a cache notice**, and
+ *   nothing errors — the toast animates in perfectly.
+ * ⚑ THE TOAST HAS TO BE SHOWN TO BE MEASURED. `.lob-toast` is opacity 0 / pointer-events none
+ *   until `.show`, so a sweep over "visible controls" reads its buttons at full opacity (the
+ *   opacity is on the PARENT) against whatever is behind a hidden toast — a false positive on a
+ *   real bug, which is the worst of both. This drives the state instead.
+ * ⚑ Proved to bite: dropping `var(--urm-banner)` from `.lob-toast` fails 6 (both buttons, three
+ *   viewports). */
+head('3b · THE ARENA: an incoming challenge can actually be accepted');
+for (const [tag, w, h, touch] of [['390×844 portrait', 390, 844, true],
+                                  ['844×390 landscape', 844, 390, true],
+                                  ['1280×800 desktop', 1280, 800, false]]) {
+  const { ctx, page } = await open('cards/battle.html', { w, h, touch });
+  await page.waitForTimeout(4000);
+  const r = await page.evaluate(() => {
+    const tst = document.getElementById('lobToast');
+    document.getElementById('lobToastTxt').innerHTML = '<b>SmugFrog</b> wants a face-off';
+    tst.classList.add('show');
+    const hit = id => { const el = document.getElementById(id); const b = el.getBoundingClientRect();
+      const e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return { ok: e === el || el.contains(e),
+        got: e ? ((e.id || e.className || e.tagName) + '').slice(0, 20) : 'null',
+        y: Math.round(b.top) + '…' + Math.round(b.bottom) };
+    };
+    const bn = document.getElementById('urm-fresh');
+    return { yes: hit('ltYes'), no: hit('ltNo'),
+      banner: bn ? Math.round(bn.getBoundingClientRect().top) : null };
+  });
+  for (const k of ['yes', 'no'])
+    t(`${tag}: the challenge toast's ${k === 'yes' ? 'ACCEPT' : 'BACK DOWN'} takes a click`,
+      r[k].ok, r[k].y + ' · strip top ' + r.banner + (r[k].ok ? '' : ' · press lands on ' + r[k].got));
+  await ctx.close();
+}
+
 // ═══ 4 · CLOUD RACER's HUD FITS ITS OWN BOXES ═════════════════════════════════════════════════
 /* ⛔ NOT A MOBILE BUG — it was wrong on the desktop too, which is why the phone pass found it.
  *   `.tells` measured 215px of content in a `.boost` capsule whose content box is 190, so the
