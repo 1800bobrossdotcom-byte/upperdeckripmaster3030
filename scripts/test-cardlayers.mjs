@@ -618,9 +618,17 @@ head('4. the face-off is watchable — ink, motion, and a veil that veils');
     spans.push([Math.max(0, s), s + a.dur]);
   }
   spans.sort((x, y) => x[0] - y[0]);
+  /* ⚑ THE MERGE TOLERANCE IS TWO MEASURED FRAMES, NOT 1 ms — and this file already made the
+   *   argument, three paragraphs down, before applying it to the wrong thing. A beat that
+   *   resolves on a timer and a next move that starts on the following frame are ~2 frames apart
+   *   NO MATTER HOW THE CHOREOGRAPHY IS WRITTEN. At 2.5 rAF fps that is 800 ms of pure callback
+   *   latency counted as dead air. Splitting one continuous move into two spans because the
+   *   container blinked is measuring the container. */
+  const frameMs = 1000 / Math.max(0.5, M.fps);
+  const joinMs = Math.max(1, 2 * frameMs);
   const merged = [];
   for (const [s, e] of spans) { const l = merged[merged.length - 1];
-    if (l && s <= l[1] + 1) l[1] = Math.max(l[1], e); else merged.push([s, e]); }
+    if (l && s <= l[1] + joinMs) l[1] = Math.max(l[1], e); else merged.push([s, e]); }
   const motion = merged.reduce((a, [s, e]) => a + (e - s), 0);
   const span = merged.length ? merged[merged.length - 1][1] - merged[0][0] : 0;
   let worstGap = 0;
@@ -642,10 +650,34 @@ head('4. the face-off is watchable — ink, motion, and a veil that veils');
    *   behind a 400 ms flash is 360 ms of stillness at ANY frame rate. This build measures 0.85
    *   in this container and ~0.98 where frames are real. */
   const ratio = span > 0 ? motion / span : 0;
-  ok(ratio >= 0.78, 'and that span is SPENT MOVING, not waiting',
-     `${(ratio * 100).toFixed(0)}% of the ${Math.round(span)} ms window is animation ` +
-     `(${Math.round(motion)} ms; worst gap ${Math.round(worstGap)} ms) — the old beat was 63%`);
-  if (M.fps < 5) console.log(`       (only ${M.fps.toFixed(1)} rAF fps — read the gap as the container, not the build)`);
+  /* ⛔ THIS ASSERTION FAILED ON UNCHANGED CODE ROUGHLY HALF THE TIME, AND THE NUMBERS SAY WHY.
+   *   Five runs of the SAME tree, clean main, nothing touched:
+   *       fps 3.4 -> 80% ok    fps 3.2 -> 86% ok
+   *       fps 2.6 -> 74% FAIL  fps 2.5 -> 71% FAIL  fps 1.5 -> 75% FAIL
+   *   The ratio tracks the container's frame rate monotonically. ⚑ AND THE COLUMN THAT PROVES IT
+   *   IS THE NUMERATOR: motion was 2820 / 2723 / 2820 / 2747 / 2820 ms — it does not move,
+   *   because animation durations live on the document timeline and a stall cannot shorten them.
+   *   Only the WINDOW stretched: 3527 -> 3877. So `motion` is a property of the BUILD and `span`
+   *   is a property of the CONTAINER, and dividing one by the other measures the container.
+   * ⚑ SO THE BAR DEPENDS ON WHETHER THE FRAMES ARE REAL, and this file already had that policy —
+   *   it just never wired this assertion into it (see the fps gate above; all five runs were
+   *   under its 5 fps floor). Where frames are real the RATIO is the assertion, because it is the
+   *   one that catches dead air the build leaves. Where they are not, the ratio cannot separate
+   *   build from container, so the bar moves to MOTION, which is frame-rate independent and still
+   *   fails a build that stops animating.
+   * ⚠ NEVER A SILENT SKIP. Both numbers print either way, and the line says which bar it used —
+   *   a test that quietly stops asserting is worse than one that fails. */
+  const realFrames = M.fps >= 5;
+  if (realFrames) {
+    ok(ratio >= 0.78, 'and that span is SPENT MOVING, not waiting',
+       `${(ratio * 100).toFixed(0)}% of the ${Math.round(span)} ms window is animation ` +
+       `(${Math.round(motion)} ms; worst gap ${Math.round(worstGap)} ms) — the old beat was 63%`);
+  } else {
+    ok(motion >= 2400, 'and that span is SPENT MOVING, not waiting (motion bar — frames are not real here)',
+       `${Math.round(motion)} ms of animation at ${M.fps.toFixed(1)} rAF fps; the ratio reads ` +
+       `${(ratio * 100).toFixed(0)}% of a ${Math.round(span)} ms window (worst gap ` +
+       `${Math.round(worstGap)} ms) and is NOT the bar below 5 fps — the old beat moved for 1820 ms`);
+  }
   await c4.close();
 
   /* ── 4.5 · THE VEIL ─────────────────────────────────────────────────────────────────────
