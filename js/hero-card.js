@@ -584,23 +584,30 @@
       g.lineTo(cx + Math.cos(a) * i1, cy + Math.sin(a) * i1);
       g.stroke();
     }
-    // the number, large, in the middle of the roundel
-    const nTxt = (number > 0) ? String(number) : '—';
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '700 ' + Math.round(R * 0.92) + 'px "Arial Black", Arial, sans-serif';
-    g.fillText(nTxt, cx, cy + R * 0.02);
-    g.font = '700 ' + Math.round(W * 0.038) + 'px "Arial Black", Arial, sans-serif';
-    g.fillText('OF 100', cx, cy + R * 0.62);
+    /* ⛔ NO TYPE ON THE STAND-IN, AND `npm run test:name` IS RIGHT TO INSIST.
+     *   This renderer names NO FONT — the front's words are set from 68 committed outlines, so a
+     *   card renders identically on a machine with none installed. I set the number and the
+     *   studio here with `Arial Black`, which does not exist on Linux or Android: every one of
+     *   those machines would have silently substituted something else, and the stand-in back
+     *   would look different per platform while the front stayed exact.
+     * ⚑ So the stand-in carries NO WORDS AT ALL — stock, rules, and the roundel's geometry. That
+     *   is honest rather than a compromise: this back only appears on a card that has no designed
+     *   back yet, and an unprinted reverse is a real thing. The moment `js/card-back.js` finds the
+     *   card's page, the DESIGNED back replaces this outright.
+     * ⚠ If words are ever wanted here, they go through the outline fount `buildType` already
+     *   uses. They do not come back as canvas text. */
+    // a target ring where the number will be struck, so the plate reads as unfinished, not empty
+    g.lineWidth = Math.max(1, W * 0.006);
+    g.beginPath(); g.arc(cx, cy, R * 0.44, 0, TAU); g.stroke();
+    g.beginPath(); g.moveTo(cx - R * 0.20, cy); g.lineTo(cx + R * 0.20, cy);
+    g.moveTo(cx, cy - R * 0.20); g.lineTo(cx, cy + R * 0.20); g.stroke();
 
-    // the studio, set in a band under the roundel
-    g.font = '700 ' + Math.round(W * 0.052) + 'px "Arial Black", Arial, sans-serif';
-    g.fillText('RIPMASTER3030STUDIOS', cx, H * 0.665);
-    // the card's own title and the tier it was struck in
-    g.font = '700 ' + Math.round(W * 0.044) + 'px "Arial Black", Arial, sans-serif';
-    g.fillText(String(name || '').slice(0, 22).toUpperCase(), cx, H * 0.735);
-    g.font = Math.round(W * 0.032) + 'px "Courier New", monospace';
-    g.fillText('GENESIS · ' + String(rarity || 'common').toUpperCase(), cx, H * 0.788);
-    if (sub) g.fillText(String(sub).slice(0, 30).toUpperCase(), cx, H * 0.832);
+    // three ruled lines where the studio, the title and the tier are set on a finished back
+    g.lineWidth = Math.max(1, W * 0.004);
+    [0.665, 0.735, 0.788].forEach(function (y, i) {
+      const half = W * (i === 0 ? 0.30 : i === 1 ? 0.24 : 0.17);
+      g.beginPath(); g.moveTo(cx - half, H * y); g.lineTo(cx + half, H * y); g.stroke();
+    });
 
     // a rule of border sorts along the foot, out of the same fount as the front
     drawBorder(g, null, rng(seed ^ 0x1B873593), W, H, m, rarity);
