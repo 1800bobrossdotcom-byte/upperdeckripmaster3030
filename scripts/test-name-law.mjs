@@ -519,6 +519,70 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * pointing at the old host. */
   ok(red.every(r => /:path\*/.test(r.destination)), '…and it preserves the path');
 
+  /* ══ ⛔ THE CACHE RULE THAT MADE THE WHOLE CARD SURFACE A WEEK STALE — 2026-08-05 ═══════════
+   * Artist: *"the cards are not updated on site."* They were not. The deploy was correct, every
+   * file was on the origin, and `curl` returned the new bytes — and a returning visitor's browser
+   * had been told to keep the OLD ones for SEVEN DAYS.
+   *
+   * ⛔ THE CAUSE IS RULE ORDER, AND BOTH RULES WERE INDIVIDUALLY RIGHT. `/(.*).html` and
+   *   `/(.*).js` set must-revalidate; `/cards/(.*)` sets max-age=604800 to cache the ARTWORK,
+   *   which is correct and desirable. But in Vercel LATER RULES WIN, and `/cards/(.*)` came
+   *   last — so it silently overrode the document rules for every page, script and manifest
+   *   under /cards/. Measured on the live host: cards/index.html, cards/cardnav.js,
+   *   cards/binder.html, cards/lens3d.html, cards/manifest.json and all 196 card pages were all
+   *   `max-age=604800`, while /index.html and /js/*.js were correctly must-revalidate.
+   * ⚑ SO THE SYMPTOM IS UNBOUNDED, NOT SPECIFIC TO ONE CHANGE. Any edit to the deck browser, the
+   *   folder, the token's own lens page or the card manifest was invisible to anyone who had
+   *   visited in the past week. The deck clean-slate (task #71) would have shipped to nobody.
+   * ⚑ AND EVERY SIGNAL POINTED AWAY FROM IT, in the reassuring direction: the commit was pushed,
+   *   the deployment was live, the files 200'd with the right content, and the modules the pages
+   *   needed were themselves fresh (they live at /js/, outside the rule). The one thing nobody
+   *   had read was a response HEADER.
+   *
+   * The test resolves Cache-Control the way the platform does — every matching rule applies and
+   * the LAST one wins — and asserts the outcome per path, rather than that some rule exists.
+   * ⚠ It asserts BOTH directions on purpose. "No document is long-cached" is trivially satisfied
+   *   by deleting the asset rules, which would throw away the artwork caching this site actually
+   *   wants; so the artwork is asserted to STAY long-cached in the same breath. */
+  {
+    const rx = (src) => new RegExp('^' + src
+      .split('(.*)').map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(.*)') + '$');
+    const cacheFor = (p) => {
+      let v = null;
+      for (const rule of (vj.headers || [])) {
+        if (!rx(rule.source).test(p)) continue;
+        for (const h of (rule.headers || [])) {
+          if (String(h.key).toLowerCase() === 'cache-control') v = h.value;
+        }
+      }
+      return v;
+    };
+    const maxAge = (v) => { const m = /max-age=(\d+)/.exec(v || ''); return m ? +m[1] : null; };
+
+    /* Everything a visitor must get the newest copy of. Each one is a real path on this site,
+     * and /cards/ is over-represented deliberately — that is where the rule bit. */
+    const DOCS = ['/index.html', '/arcade.html', '/cards/index.html', '/cards/binder.html',
+                  '/cards/lens3d.html', '/cards/proof.html', '/cards/alley-trio.html',
+                  '/cards/cardnav.js', '/js/card-press.js', '/js/hero-card.js', '/pack.js',
+                  '/cards/manifest.json', '/cards/hero-manifest.json', '/cards/type/alphabet.json',
+                  '/cardback.css'];
+    const stale = DOCS.filter(p => (maxAge(cacheFor(p)) || 0) > 60);
+    ok(stale.length === 0,
+      'no page, script, stylesheet or manifest is cached in the browser for more than a minute — '
+      + (stale.length ? '⛔ STALE SITE: ' + stale.map(p => p + ' ' + cacheFor(p)).join(', ')
+         : DOCS.length + ' paths, all revalidating'));
+
+    /* …and the artwork keeps its long cache, or the "fix" is just a slower site. */
+    const ART = ['/cards/art/alley-trio.webp', '/cards/art/hero/42.webp',
+                 '/models/env/satara_night.png'];
+    const uncached = ART.filter(p => (maxAge(cacheFor(p)) || 0) < 3600);
+    ok(uncached.length === 0,
+      '…while card artwork and models stay long-cached — '
+      + (uncached.length ? '⛔ ' + uncached.join(', ') + ' lost its cache'
+         : ART.length + ' asset paths at ' + maxAge(cacheFor(ART[0])) + 's'));
+  }
+
+
   /* ⛔ AND HERE IS THE PART A REDIRECT CANNOT FIX. A WalletConnect/Reown project id is
    * ALLOW-LISTED BY DOMAIN in their dashboard. Serving the site from a host that is not on that
    * list does not degrade — mobile wallet connect simply fails, at the exact moment a collector
