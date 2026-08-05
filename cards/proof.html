@@ -43,17 +43,51 @@
   a{color:var(--cool)}
   [hidden]{display:none!important}
 
-  .wrap{display:grid;grid-template-columns:1fr 300px;gap:26px;padding:22px;
+  /* ⛔ THE CARD SCROLLED OFF THE SCREEN, AND THAT WAS THE WHOLE BUG ────────────────────────
+     Artist, 2026-08-05: *"I can't even see the changes to the cards I am making the way it is
+     built."* Measured before touching anything, at three viewports, by scrolling each control
+     to the middle of the viewport and asking how much of the CARD was still on screen:
+
+         laptop 1440x900   9 of 11 controls →   0% of the card visible
+         desktop 1280x800  9 of 11 controls →   0%
+         phone 390x844    11 of 11 controls →   0%
+
+     The rail is 5,183px tall against a 900px viewport and `align-items:start` parks the card at
+     the top of it, so every control past the second group is a control you operate blind. There
+     was nothing subtle about it and no measurement had ever been taken.
+
+     ⚑ THE FIX IS THAT THE CARD IS THE VIEWPORT AND THE RAIL SCROLLS PAST IT. `position:sticky`
+       inside a grid whose row is as tall as the rail gives the stage the rail's whole height to
+       travel in, so the card is pinned for the entire length of the panel.
+     ⚠ TWO LAYOUTS, TWO MECHANISMS, and the second is not optional. In a ONE-COLUMN grid each
+       item gets its own row, so the stage's containing block is exactly its own height — sticky
+       has zero travel and silently does nothing. The narrow layout therefore drops to block
+       flow, where the containing block is `.wrap` and the card really does pin. A sticky rule
+       that quietly no-ops on the device the artist is holding is worse than no rule. */
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:26px;padding:22px;
         min-height:100vh;align-items:start}
-  @media (max-width:860px){ .wrap{grid-template-columns:1fr;gap:18px} }
 
   /* the card box: 2:3, sized off whichever axis is actually the constraint.
      ⚠ The recorded aspect trap — `height:100%` + `max-width:100%` makes aspect-ratio silently
      yield (measured 0.571 instead of 2:3). Cap ONE axis and let the other follow. */
-  #stage{position:relative;display:grid;place-items:center;min-height:62vh}
+  #stage{position:sticky;top:22px;display:grid;place-items:center;
+         height:calc(100vh - 44px);min-height:0}
   #card{position:relative;aspect-ratio:2/3;height:min(84vh,900px);width:auto;max-width:100%;
         touch-action:pan-y}
   @media (max-aspect-ratio:2/3){ #card{width:min(92vw,620px);height:auto} }
+
+  /* ⚠ AFTER the aspect rule ON PURPOSE. A 390x844 phone is 0.46 : 1, which MATCHES
+     `max-aspect-ratio:2/3` — so the portrait rule fires there and would size the card to 92vw
+     (359x538 of an 844px screen, i.e. the pinned card eating two thirds of the viewport and the
+     controls back off the bottom). Later wins; this has to come last. */
+  @media (max-width:860px){
+    .wrap{display:block;padding:0}
+    /* the card rides at the top of the screen and the panel scrolls underneath it */
+    #stage{top:0;height:auto;padding:10px 0 8px;background:var(--ink);z-index:5;
+           box-shadow:0 12px 20px -10px rgba(0,0,0,.95)}
+    #card{height:min(42vh,430px);width:auto}
+    .rail{padding:0 14px 30px}
+  }
   #card canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:3%;
                box-shadow:0 14px 44px rgba(0,0,0,.72), 0 0 0 1px rgba(255,255,255,.07)}
   /* ⚑ FAILS OPEN. No WebGL2, a blocked image, a shader that will not link ⇒ HeroCard.build
@@ -147,7 +181,44 @@
   details.why[open] summary::before{content:'▾ ';}
   body.bare .wrap{grid-template-columns:1fr;padding:0}
   body.bare .rail{display:none}
-  body.bare #stage{min-height:100vh}
+  /* ⚠ the pinned stage has a height and an offset now, and `?bare` has to undo both — a sticky
+     box 44px short of the viewport inside a page with nothing to scroll is just a card sitting
+     44px high with a gap under it. */
+  body.bare #stage{position:relative;top:0;height:100vh;min-height:100vh;padding:0;box-shadow:none}
+
+  /* ── ⚑ THE PANEL IS FOUR PANES, BECAUSE 5,183px OF RAIL IS NOT A PANEL ────────────────────
+     Pinning the card fixes seeing it. It does not fix REACHING a control: the rail was five and
+     a half screens of continuous scroll, so finding REGISTRATION meant leaving PLATES behind and
+     losing your place every time. The four tabs are not a new organisation — they are the four
+     `.sec` headings this page already had, promoted from captions you scroll past into a bar you
+     press. One pane is in flow at a time, so the panel is bounded by construction.
+     ⚠ `[hidden]` is load-bearing here and this file's own `[hidden]{display:none!important}` is
+       what makes it safe — a pane whose `display` is set by any later rule would keep drawing
+       underneath the live one. Third sighting of that rule in this repo. */
+  .tabs{position:sticky;top:22px;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);
+        gap:4px;margin:0 0 14px;padding:6px 0 8px;background:var(--ink)}
+  .tab{position:relative;font:800 11px/1 Arial,Helvetica,sans-serif;letter-spacing:.12em;
+       color:var(--dim);background:#14141b;border:1px solid rgba(255,255,255,.16);
+       border-radius:6px;padding:0 4px;min-height:44px;cursor:pointer}
+  .tab:hover{border-color:var(--cool);color:var(--cool)}
+  .tab[aria-selected=true]{color:var(--ink);background:var(--stock);border-color:var(--stock)}
+  /* ⚑ THE DOT ANSWERS "WHERE ARE MY CHANGES?" — a pane holding anything off its base value is
+     marked, so the panel can tell you what you have touched without you opening all four. */
+  .tab .dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;
+            background:var(--hot);display:none}
+  .tab.off .dot{display:block}
+  @media (max-width:860px){
+    /* static on a phone: the pinned CARD owns the top of the screen and two stacked sticky
+       bands would leave nothing to look at. Each pane is short enough to reach without it. */
+    .tabs{position:static}
+  }
+  /* ── the base readout: what this card is, before anything was done to it ── */
+  .base{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  .base .st{font:700 var(--t-small)/1.3 Arial,Helvetica,sans-serif;letter-spacing:.12em;
+            color:var(--dim)}
+  .base .st.off{color:var(--hot)}
+  #reset{min-height:34px;padding:0 10px;font-size:11px}
+  @media (pointer:coarse){ #reset{min-height:44px} }
   /* the hundred — a slot per card. ⚠ 34px cells at a 44px tap target via padding on the row:
      a hundred 44px buttons is 4400px of grid on a phone, so the CELL is small and the HIT area
      is not. */
@@ -182,14 +253,36 @@
   <div class="rail">
     <h1>PLATE PROOF</h1>
     <p class="sub">THE 33 · STEP 1 · DISPOSABLE</p>
-    <p>Press and drag the card. The stock dishes under your thumb and rings when you let go, the
-      plates part as it turns, and the die edge walks its hue. Keep handling it and the sheet
-      advances — a new impression, new registration, new ink.</p>
-    <p>It is a real material now: paper fibre, ink standing proud of the stock with its halftone
-      dots as beads, a spot varnish on the window against bare trim, and a die edge that is
-      <em>metal</em> — no diffuse at all, and the grating is its reflectance rather than a tint
-      laid over the top. Three sources are drawn from all 211 cards in the deck.</p>
+    <!-- ⚑ THE PROSE FOLDS AWAY. Two paragraphs is ~200px of permanent rail above the first
+         control, on a panel whose entire problem was that controls were too far from the card.
+         It is not deleted — the copy explaining what the material IS still matters the first
+         time somebody opens this — it is one tap behind the thing you came to use. -->
+    <details class="why"><summary>what this is</summary>
+      <p>Press and drag the card. The stock dishes under your thumb and rings when you let go, the
+        plates part as it turns, and the die edge walks its hue. Keep handling it and the sheet
+        advances — a new impression, new registration, new ink.</p>
+      <p>It is a real material: paper fibre, ink standing proud of the stock with its halftone
+        dots as beads, a spot varnish on the window against bare trim, and a die edge that is
+        <em>metal</em> — no diffuse at all, and the grating is its reflectance rather than a tint
+        laid over the top. Three sources are drawn from all 211 cards in the deck.</p>
+    </details>
 
+    <div class="tabs" id="tabs" role="tablist"></div>
+
+    <!-- ⛔ THE CARD STARTS AS THE BASE CARD — artist, 2026-08-05: *"the card should always start
+         as the base card with no changes, THEN I apply the changes in the editor."* -->
+    <div class="base">
+      <span class="st" id="vBase">BASE · no changes applied</span>
+      <!-- ⚠ THE TREATMENTS, NOT THE CARD. Reset puts every dial back to the value at which it
+           does nothing; it does not touch the plates, the words, the frame or the seed. Those
+           are the card's identity — the thing being made — and a reset that threw an hour of
+           composition away to undo a slider would be used exactly once. `offBase()` counts the
+           same set, so the readout and the button can never disagree about what "base" means. -->
+      <button type="button" id="reset" title="every dial back to no-effect — the plates, words,
+frame and seed are left alone">RESET TO BASE</button>
+    </div>
+
+    <section class="pane" data-pane="plates" role="tabpanel" aria-label="the plates">
     <h2 class="sec">THE FORGE · WHAT IS ON THE PLATES</h2>
 
     <div class="grp">
@@ -228,6 +321,9 @@
       </details>
     </div>
 
+    </section>
+
+    <section class="pane" data-pane="build" role="tabpanel" aria-label="the build" hidden>
     <h2 class="sec">THE BUILD · WHAT KIND OF CARD THIS IS</h2>
 
     <div class="grp">
@@ -290,6 +386,9 @@
         foil should die while the print stays byte-identical.</div>
     </div>
 
+    </section>
+
+    <section class="pane" data-pane="press" role="tabpanel" aria-label="the press" hidden>
     <h2 class="sec">THE PRESS · HOW BADLY IT PRINTED</h2>
 
     <div class="grp">
@@ -338,6 +437,9 @@
         left alone the card is a card on a table.</div>
     </div>
 
+    </section>
+
+    <section class="pane" data-pane="deck" role="tabpanel" aria-label="the hundred" hidden>
     <h2 class="sec">THE HUNDRED · SAVE AND NUMBER</h2>
 
     <div class="grp">
@@ -378,6 +480,7 @@
       <label>READOUT</label>
       <div class="read" id="read">—</div>
     </div>
+    </section>
 
     <p class="note">Made from three of the artist's own cards, chosen by the seed. The name is set
       from outlines built at build time — <strong>no font ships and none is named</strong>, so it
@@ -525,6 +628,18 @@
    *   leaves it alone; a dial absent from it is unclaimed, so the market drives it. That makes a
    *   freshly-opened forge follow the chain and a SAVED card frozen — which is the behaviour each
    *   one needs, decided by one fact rather than by a mode nobody would remember to set. */
+  /* ⛔ AND THE CHAIN NO LONGER DRIVES A FRESH FORGE — IT IS OPT-IN NOW, `?live=1`.
+   * The rule above ("a dial absent from the URL is unclaimed, so the market drives it") was
+   * decided for a card being DISPLAYED, and it is still right there. In the FORGE it is the last
+   * thing standing between the artist and a defined starting point: with no query string all
+   * three dials were unclaimed, so a fresh forge opened at whatever the market happened to be
+   * that minute and opened somewhere ELSE the next morning. *"The card should always start as
+   * the base card"* cannot be true of a card whose opening state is read off a live curve.
+   * ⚑ THE LIVE LENS IS NOT REMOVED, IT IS ASKED FOR. `?live=1` restores the old behaviour whole,
+   *   the reader still runs, and the `#live` note still reports what the chain says — it simply
+   *   reports instead of reaching in. A tool for MAKING a hundred cards needs a fixed origin; a
+   *   card being LOOKED AT needs the market. Those are different jobs on one renderer. */
+  var LIVE_DRIVES = Q.get('live') === '1';
   var AUTHORED = { burn: Q.get('burn') !== null, price: Q.get('price') !== null,
                    depth: Q.get('dep') !== null };
   function goLive() {
@@ -533,15 +648,15 @@
       LensState.watch(function (state, d) {
         if (!ctrl || !d) return;
         var push = {};
-        if (!AUTHORED.burn)  push.burn  = d.burn;
-        if (!AUTHORED.price) push.price = d.price;
-        if (!AUTHORED.depth) push.depth = d.depth;
+        if (LIVE_DRIVES && !AUTHORED.burn)  push.burn  = d.burn;
+        if (LIVE_DRIVES && !AUTHORED.price) push.price = d.price;
+        if (LIVE_DRIVES && !AUTHORED.depth) push.depth = d.depth;
         ctrl.setState(push);
         /* and the sliders follow only where the chain is actually driving, so the panel never
          * shows a number the card is not using — the divergence that hid this bug. */
         [['burn', 'burn', 'vBurn'], ['price', 'price', 'vPrice'], ['depth', 'depth', 'vDepth']]
           .forEach(function (r) {
-            if (AUTHORED[r[0]] || !d.live) return;
+            if (!LIVE_DRIVES || AUTHORED[r[0]] || !d.live) return;
             var el = document.getElementById(r[1]), v = document.getElementById(r[2]);
             if (el) el.value = d[r[0]];
             if (v) v.textContent = (+d[r[0]]).toFixed(2);
@@ -549,13 +664,15 @@
         var el = document.getElementById('live');
         if (el) {
           el.textContent = d.live
-            ? 'LIVE · burn ' + d.burn.toFixed(3) + ' · price ' + d.price.toFixed(2) +
+            ? (LIVE_DRIVES ? 'LIVE · DRIVING · ' : 'the chain reads ')
+              + 'burn ' + d.burn.toFixed(3) + ' · price ' + d.price.toFixed(2) +
               ' · depth ' + d.depth.toFixed(2)
+              + (LIVE_DRIVES ? '' : ' — the dials are yours (?live=1 to follow it)')
             : 'the chain did not answer — the dials are yours';
-          el.className = d.live ? 'note live' : 'note';
+          el.className = d.live && LIVE_DRIVES ? 'note live' : 'note';
         }
         var claimed = Object.keys(AUTHORED).filter(function (k) { return AUTHORED[k]; });
-        if (el && claimed.length) el.textContent += ' · yours: ' + claimed.join(', ');
+        if (el && LIVE_DRIVES && claimed.length) el.textContent += ' · yours: ' + claimed.join(', ');
       }, { every: 60000 });
     } catch (e) {}
   }
@@ -658,16 +775,30 @@
   if (tSub) { tSub.value = Q.get('sub') || ''; tSub.addEventListener('input', words); }
 
   // ── the frame family ───────────────────────────────────────────────────────────────────
-  /* ⛔ RARITY IS A BUILD ARGUMENT, not ctrl state — it selects the SORTS family the border is set
-   * from and the foil weight, both baked at build. So this one control genuinely does reload, and
-   * it is the only one that does. Saying so on the page beats a chip that silently does nothing. */
+  /* ⛔ RARITY USED TO RELOAD THE PAGE, AND IT NEVER HAD TO. It was called a build argument because
+   * it was READ as one — `o.rarity` at all five sites — but it only ever reaches the card through
+   * the border sorts baked into the type plate and the `uFrameFoil` uniform, and both re-derive in
+   * place. `js/hero-card.js` holds it as state now and `setRarity` rebakes exactly what `setText`
+   * already rebakes. ⚑ The reload was the reason nobody looked at the ladder: six tiers meant six
+   * full rebuilds, each losing the scroll position and re-printing the sheet from nothing, so you
+   * never saw two frames next to each other. Six chips that repaint instantly is a different tool.
+   * ⚠ The chips still fall back to the reload if the press is not up — a chip that silently does
+   *   nothing is worse than a slow one. */
   function fillRarity() {
     var box = document.getElementById('rarChips'); if (!box) return;
     RARITIES.forEach(function (r) {
       var b = document.createElement('button');
       b.type = 'button'; b.className = 'chip'; b.textContent = r.toUpperCase();
       b.setAttribute('aria-pressed', String(r === RARITY));
-      b.addEventListener('click', function () { go({ rarity: r }); });
+      b.addEventListener('click', function () {
+        if (!(ctrl && ctrl.setRarity && ctrl.setRarity(r))) { go({ rarity: r }); return; }
+        RARITY = r;
+        [].slice.call(box.children).forEach(function (c) {
+          c.setAttribute('aria-pressed', String(c.textContent === r.toUpperCase()));
+        });
+        var v = document.getElementById('vRar'); if (v) v.textContent = RARITY;
+        readout(); stamp();
+      });
       box.appendChild(b);
     });
     var v = document.getElementById('vRar'); if (v) v.textContent = RARITY;
@@ -689,21 +820,39 @@
    * ⚑ THAT IS THE WHOLE REQUIREMENT FOR A HUNDRED-CARD DECK: a card is only finished if it
    *   reprints. The press is deterministic by construction (no `Math.random` anywhere in it), so
    *   a complete record plus a seed IS the card — but only if the record is actually complete. */
+  /* ⛔ `d` IS THE BASE VALUE, AND THAT IS THE WHOLE OF THE SECOND DIRECTIVE ─────────────────
+   * Artist, 2026-08-05: *"the card should always start as the base card with no changes, THEN I
+   * apply the changes in the editor."*
+   *
+   * ⚑ SO EVERY TREATMENT'S DEFAULT IS THE VALUE AT WHICH IT DOES NOTHING. It was not: the forge
+   *   opened with the registration gain at 1 (the sheet already printed askew), the stack at 1
+   *   (already parted through the card's thickness), price and depth at 0.5 (the foil already
+   *   driven) and the press RUNNING a press failure the seed had picked. Five treatments were
+   *   applied before the artist touched a control, so moving a dial changed a card that was
+   *   already somewhere — you could see the card move and still not know what any one dial did.
+   *   A base is what makes a change legible as a change.
+   * ⚑ AND IT AGREES WITH THE BRIEF'S OWN ACCEPTANCE 2, which this page's header states in as many
+   *   words: *"it is dead still until you touch it — and the press only runs when you run it."*
+   *   The panel had been shipping the opposite of its own claim. `spin` base is OFF.
+   * ⚠ NOT EVERY CONTROL IS A TREATMENT. The key light is a viewing condition — a card with no
+   *   light is not a base card, it is an unlit one — and the cycle period has no effect at all
+   *   while the press is stopped. The room is the room. Those three keep their tuned values, and
+   *   `isBase()` is measured against this column, not against zero. */
   var DIALS = [
     { id: 'burn',   k: 'burn',  d: 0,   dp: 2, put: function (c, v) { c.setState({ burn: v }); } },
-    { id: 'price',  k: 'price', d: 0.5, dp: 2, put: function (c, v) { c.setState({ price: v }); } },
-    { id: 'depth',  k: 'dep',   d: 0.5, dp: 2, put: function (c, v) { c.setState({ depth: v }); } },
+    { id: 'price',  k: 'price', d: 0,   dp: 2, put: function (c, v) { c.setState({ price: v }); } },
+    { id: 'depth',  k: 'dep',   d: 0,   dp: 2, put: function (c, v) { c.setState({ depth: v }); } },
     /* ⚠ REGISTRATION IS ONE CALL WITH TWO ARGUMENTS, so either slider has to send both or the
      *   other silently resets to 0 — a dial that works until you touch its neighbour. */
-    { id: 'reg',    k: 'reg',   d: 1,   dp: 2, put: function (c) { putReg(c); } },
+    { id: 'reg',    k: 'reg',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
     { id: 'rad',    k: 'rad',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
-    { id: 'stack',  k: 'stack', d: 1,   dp: 2, put: function (c, v) { c.setStack(v); } },
+    { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
     { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
     { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
       unit: '°' },
   ];
   var TOGGLES = [
-    { id: 'spin', k: 'spin', d: 1, on: 'RUNNING', off: 'STOPPED',
+    { id: 'spin', k: 'spin', d: 0, on: 'RUNNING', off: 'STOPPED',
       put: function (c, v) { c.setSpin(v); } },
     { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
       put: function (c, v) { c.setEnv(v); } },
@@ -746,6 +895,128 @@
     var chosen = mo && mo.value;
     var live = ctrl ? (ctrl.probe().motion || '—') : '—';
     v.textContent = chosen ? chosen : 'seeded · ' + live;
+  }
+
+  /* ══ THE FOUR PANES ══════════════════════════════════════════════════════════════════════
+   * Read out of the DOM rather than typed here, so a fifth `<section class="pane">` needs no edit
+   * in this file — the same rule the motion list already follows. The label is the `.sec` heading
+   * the pane already carried, cut at its first `·`: the panel names itself. */
+  var PANES = [];
+  function buildTabs() {
+    var bar = document.getElementById('tabs');
+    var panes = [].slice.call(document.querySelectorAll('.pane'));
+    if (!bar || !panes.length) return;
+    PANES = panes.map(function (p) {
+      var h = p.querySelector('.sec');
+      return { key: p.getAttribute('data-pane') || '', el: p,
+               label: (h ? h.textContent : '').split('·')[0].replace(/^THE\s+/i, '').trim() };
+    });
+    bar.style.gridTemplateColumns = 'repeat(' + PANES.length + ',1fr)';
+    PANES.forEach(function (P) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'tab'; b.setAttribute('role', 'tab');
+      b.setAttribute('data-tab', P.key);
+      b.textContent = P.label;
+      /* ⚠ createElement, not innerHTML — same standing rule as everywhere else on this page. */
+      var dot = document.createElement('span'); dot.className = 'dot';
+      dot.setAttribute('aria-hidden', 'true');
+      b.appendChild(dot);
+      b.addEventListener('click', function () { showTab(P.key); });
+      bar.appendChild(b);
+      P.tab = b;
+    });
+    showTab(Q.get('tab') || PANES[0].key);
+  }
+  function showTab(key) {
+    if (!PANES.length) return;
+    if (!PANES.some(function (P) { return P.key === key; })) key = PANES[0].key;
+    PANES.forEach(function (P) {
+      var on = P.key === key;
+      P.el.hidden = !on;
+      P.tab.setAttribute('aria-selected', String(on));
+    });
+    /* ⚠ NOT in the shareable query. A tab is where the artist is LOOKING, not part of the card —
+     *   putting it in `forgeQuery` would make two identical cards compare unequal and would write
+     *   a viewing preference into all hundred saved records. */
+    syncBase();
+  }
+
+  /* ══ ⛔ THE BASE CARD, AND WHAT HAS BEEN DONE TO IT ═══════════════════════════════════════
+   * Artist: *"the card should always start as the base card with no changes, THEN I apply the
+   * changes in the editor."* Half of that is the `d` column above; this is the other half —
+   * SAYING so. A base you cannot verify is just a different set of numbers.
+   * ⚑ AND IT IS THE SECOND ANSWER TO THE ORIGINAL COMPLAINT. Pinning the card shows you the card;
+   *   this shows you the EDIT. "What have I changed?" was unanswerable on a panel five screens
+   *   long — you had to scroll all four sections and remember. Now the count is on screen and the
+   *   pane holding the change is dotted, so a change is findable from anywhere. */
+  function offBase() {
+    var out = [];
+    DIALS.forEach(function (D) {
+      var el = dialEl(D.id);
+      /* ⚠ compare at the control's OWN precision. A range step of 0.01 round-trips through
+       *   `toFixed`/parse with a tail that makes 0 !== 0 for a slider nobody has touched, and a
+       *   base indicator that lights up on its own is one that gets ignored inside a day. */
+      if (el && Math.abs(+el.value - D.d) > 0.0005) out.push(D.id);
+    });
+    TOGGLES.forEach(function (T) {
+      if ((toggleOn(T) ? 1 : 0) !== (T.d ? 1 : 0)) out.push(T.id);
+    });
+    var mo = dialEl('motion'); if (mo && mo.value) out.push('motion');
+    return out;
+  }
+  function syncBase() {
+    var off = offBase();
+    var v = document.getElementById('vBase');
+    if (v) {
+      v.textContent = off.length ? (off.length + ' change' + (off.length === 1 ? '' : 's')
+                                    + ' applied · ' + off.join(' '))
+                                 : 'BASE · no changes applied';
+      v.className = 'st' + (off.length ? ' off' : '');
+    }
+    /* dot the pane each off-base control lives in — derived from the DOM, so a control that
+     * moves to another pane cannot leave a stale mapping behind. */
+    PANES.forEach(function (P) { P.tab && P.tab.classList.remove('off'); });
+    off.forEach(function (id) {
+      var el = document.getElementById(id); if (!el) return;
+      var pane = el.closest ? el.closest('.pane') : null; if (!pane) return;
+      var key = pane.getAttribute('data-pane');
+      PANES.forEach(function (P) { if (P.key === key && P.tab) P.tab.classList.add('off'); });
+    });
+  }
+  /* Back to the base card. Writes through the same two tables the panel is built from, so a new
+   * control is reset by existing code rather than by a line somebody has to remember to add. */
+  function resetBase() {
+    DIALS.forEach(function (D) {
+      var el = dialEl(D.id); if (!el) return;
+      el.value = D.d; showDial(D);
+      if (ctrl) { try { D.put(ctrl, +el.value); } catch (e) {} }
+    });
+    TOGGLES.forEach(function (T) {
+      var b = dialEl(T.id); if (!b) return;
+      b.setAttribute('aria-pressed', T.d ? 'true' : 'false'); showToggle(T);
+      if (ctrl) { try { T.put(ctrl, T.d ? 1 : 0); } catch (e) {} }
+    });
+    var mo = dialEl('motion');
+    if (mo) { mo.value = ''; if (ctrl) { try { ctrl.setMotion(null); } catch (e) {} } showMotion(); }
+    stamp();
+  }
+
+  /* ⛔ THE EXPORTED STILL WAS COVERING THE LIVE CARD — the second cause of the same complaint.
+   * `CardExport.attach` puts an `<img>` over the card at `inset:0` and `z-index:3` so the browser
+   * offers "Save image as…", which is right and is why it exists. It stays until you press BACK
+   * TO THE CARD — a button that lived in a different section of a five-screen rail. So the first
+   * export of a session silently froze the card, and every dial moved after that changed a card
+   * nobody could see, with nothing on screen to say why. ⚑ Anything that changes the card drops
+   * the still: the export is a snapshot OF a state, so it stops being true the moment the state
+   * moves, and holding a stale picture over a live card is the one thing a card editor must not
+   * do. `stamp()` is the single point every control already funnels through. */
+  function clearShot(quiet) {
+    var img = stage && stage.querySelector('img.rcsa');
+    if (!img) return;
+    try { URL.revokeObjectURL(img.src); } catch (e) {}
+    img.remove();
+    var b = document.getElementById('bClear'); if (b) b.hidden = true;
+    if (!quiet) shot('the card changed, so the export was dropped — save again when it is right.');
   }
 
   /* Seed every control from the URL BEFORE the press is built, so the first frame is already the
@@ -794,7 +1065,7 @@
       });
     }
     var rp = document.getElementById('reprint');
-    if (rp) rp.addEventListener('click', function () { if (ctrl) { ctrl.writeOn(0); } });
+    if (rp) rp.addEventListener('click', function () { if (ctrl) { ctrl.writeOn(0); clearShot(); } });
   }
 
   /* ══ ⚑ THE HUNDRED — SAVE AND NUMBER ═════════════════════════════════════════════════════
@@ -970,8 +1241,13 @@
   function go(extra) { location.search = forgeQuery(extra).toString(); }
   /* Keep the address bar honest as you forge, WITHOUT reloading — so copying the URL at any
    * moment gives back exactly the card on screen. */
+  /* ⚑ THE ONE PLACE EVERY CONTROL ALREADY FUNNELS THROUGH, so the two things that must be true
+   *   after ANY edit — the base readout is honest, and no stale export is covering the card — are
+   *   true by construction rather than by each handler remembering to say so. */
   function stamp() {
     try { history.replaceState(null, '', location.pathname + '?' + forgeQuery().toString()); } catch (e) {}
+    syncBase();
+    clearShot();
   }
 
   /* ⛔ BURN, REGISTRATION AND THE KEY LIGHT USED TO BE WIRED BY HAND HERE, EACH WITH ITS OWN
@@ -979,6 +1255,9 @@
    *   copies of a pattern is exactly how the fourth one gets written slightly differently
    *   and stops reaching the URL. `seedControlsFromUrl` wires all of them from the table. */
   seedControlsFromUrl();
+  buildTabs();
+  syncBase();
+  document.getElementById('reset').addEventListener('click', resetBase);
   document.getElementById('bSave').addEventListener('click', saveSlot);
   document.getElementById('bDrop').addEventListener('click', dropSlot);
   document.getElementById('bDeckOut').addEventListener('click', exportDeck);
@@ -991,12 +1270,26 @@
   });
   if (SLOT) { var sn = document.getElementById('slotNo'); if (sn) sn.value = String(SLOT); }
   renderDeck();
+  /* ⚠ A PULL AND A REPRINT CHANGE THE CARD WITHOUT CHANGING A SETTING, so neither goes through
+   *   `stamp()` and neither would have dropped a stale export on its own. */
   document.getElementById('pull').addEventListener('click', function () {
-    if (ctrl) { ctrl.pull(); readout(); }
+    if (ctrl) { ctrl.pull(); readout(); clearShot(); }
   });
+  /* ⛔ NEW SEED WAS A FULL PAGE RELOAD AND `ctrl.reseed()` WAS SITTING RIGHT THERE, UNUSED.
+   * The setter re-derives everything the seed decides — the composition masks, the stock, the
+   * temperament, the press motion, the impression — in place, which is exactly what the reload
+   * was paying three seconds and the scroll position for. ⚑ Behaviour is UNCHANGED, not merely
+   * similar: the plates are pinned in the query string by `stamp()` from the moment `syncSlots`
+   * runs, so the reload path preserved them too. Re-rolling the seed has never re-picked the
+   * pigment; it re-rolls everything the seed OWNS. */
   document.getElementById('reseed').addEventListener('click', function () {
-    var q = new URLSearchParams(location.search);
-    q.set('seed', String(1 + Math.floor(Math.random() * 99999)));
+    var next = 1 + Math.floor(Math.random() * 99999);
+    if (ctrl && ctrl.reseed && ctrl.reseed(next)) {
+      seed = next;
+      readout(); stamp();
+      return;
+    }
+    var q = forgeQuery({ seed: String(next) });      // no press yet — fall back to the boot path
     location.search = q.toString();
   });
 
@@ -1047,9 +1340,7 @@
     }).then(landed).catch(function (e) { busy(false); shot('the export failed: ' + e); });
   });
   document.getElementById('bClear').addEventListener('click', function () {
-    var img = stage.querySelector('img.rcsa');
-    if (img) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.remove(); }
-    document.getElementById('bClear').hidden = true;
+    clearShot(true);                       // quiet: the button IS the explanation
     shot('back to the live card.');
   });
 

@@ -1132,6 +1132,18 @@ void main(void) {
        * advanced the press. The same class of bug as the seed that re-rolls: nothing errors, the
        * card simply stops saying what you typed. */
       const TEXT = { name: o.name, sub: o.sub || '' };
+      /* ── ⚑ AND RARITY IS STATE FOR THE SAME REASON, ONE STEP FURTHER ──────────────────────
+       * It was read out of `o` at all five sites, which made it a BUILD ARGUMENT — so the forge's
+       * rarity chips could only change the frame by reloading the whole page, and the one control
+       * that reloads is the one an artist stops touching. It never needed to be: rarity reaches
+       * the card through exactly two doors, `buildType`'s border sorts and the `uFrameFoil`
+       * uniform, and BOTH are re-derivable in place. The type plate is already re-baked by
+       * `setText` and on every pull; the foil is read fresh every frame at `render()`. Holding it
+       * here rather than in `o` is the whole of what makes `setRarity` possible.
+       * ⚠ It must survive a PULL and a RESEED for the same reason the words do — a rebake that
+       *   went back to `o.rarity` would silently revert the chosen frame the first time the press
+       *   advanced, which is the bug this comment's neighbour was written about. */
+      let RAR = o.rarity;
 
       /* ── ⚑ TEMPERAMENT — the same market, worn differently ──────────────────────────────
        * Studied off RELICS (docs/RELICS-STUDY.md): the market falls for all of them at once,
@@ -1181,7 +1193,7 @@ void main(void) {
       const PIG_WRAP = [gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE];
       let compCanvas = buildComp(seed, 512);
       let texComp = texFrom(gl, compCanvas, UNIT.uComp);
-      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
+      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
 
@@ -1226,7 +1238,7 @@ void main(void) {
         sheetState.phase = r() * TAU;
         sheetState.starve = 0.03 + r() * 0.14;
         gl.deleteTexture(texType);
-        texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
+        texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
       }
       pull(0);
 
@@ -1387,7 +1399,7 @@ void main(void) {
         /* ⚑ AND IT BREATHES WITH THE PRESS. The higher the tier the more the frame answers the
          * cycle — at the impression the foil is flat to the sheet, away from it the border lifts
          * and catches. Same clock as the stack, so nothing has its own tempo. */
-        const rf = FOIL_BY_RARITY[o.rarity] !== undefined ? FOIL_BY_RARITY[o.rarity] : 0;
+        const rf = FOIL_BY_RARITY[RAR] !== undefined ? FOIL_BY_RARITY[RAR] : 0;
         gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
         gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
         gl.uniform1f(u.seed, (seed % 997) / 997);
@@ -1494,10 +1506,32 @@ void main(void) {
           if (typeof t.name === 'string') TEXT.name = t.name;
           if (typeof t.sub === 'string') TEXT.sub = t.sub;
           gl.deleteTexture(texType);
-          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
           render();
         },
         text: () => ({ name: TEXT.name, sub: TEXT.sub }),
+        /* ── ⛔ THE FRAME FAMILY, LIVE — and it is the control that had to stop reloading ─────
+         * `setRarity('epic')`. Rarity picks the border SORTS family and the foil weight; the seed
+         * picks which frame out of that family. Both doors are re-derivable in place, so this is
+         * `setText` with one more thing rebaked — the type plate carries the border, and the foil
+         * uniform is read fresh every frame.
+         * ⚑ WHY IT MATTERS MORE THAN IT LOOKS: this was the last control in the forge that could
+         *   only act by reloading the page, and a reload costs the card's whole arrival — the
+         *   press prints on from nothing, the scroll position resets, and the artist is looking
+         *   at a fresh page instead of at the change they just made. A comparison you cannot
+         *   make side by side is one nobody makes, so the ladder went unlooked-at.
+         * ⚠ Same sheet in, same sheet out. Changing the frame must not re-roll the registration,
+         *   the film weights or the crease pattern — those belong to the impression, not to the
+         *   tier, and `pull` is the only thing allowed to touch them. */
+        setRarity: r => {
+          if (typeof r !== 'string' || !r || r === RAR) return false;
+          RAR = r;
+          gl.deleteTexture(texType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
+          render();
+          return true;
+        },
+        rarity: () => RAR,
         /* ── ⚑ PRINT A DIFFERENT CARD ON THE SAME PRESS ──────────────────────────────────
          * `reseed(seed) -> bool`. Everything the seed decides — the composition masks, the
          * paper stock, the temperament, the press motion, the impression — re-derived in place.
@@ -1592,7 +1626,7 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           seed: seed,
-          rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
+          rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,
           elemZ: elemZ.slice(),
           pigment: pig.slice(),
         }),
