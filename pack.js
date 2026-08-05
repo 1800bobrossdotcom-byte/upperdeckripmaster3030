@@ -141,6 +141,35 @@
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
     if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $3030 burned on-chain · cards saved in-browser';
+    /* ⚑ THE PULL IS A PRINT — artist, 2026-08-05. The cards you rip are the same object as the
+     *   cards in the folder and on the token's own page: a four-colour proof of the artwork,
+     *   screened, mis-registered, on paper (js/hero-card.js via js/card-press.js).
+     * ⛔ INJECTED WHEN THE PACK OPENS, NEVER ON PAGE LOAD. This is the landing page; the press is
+     *   a WebGL2 renderer plus a manifest fetch, and making the front door pay for it before
+     *   anybody has clicked anything is the exact cost profile js/site3d-prop.js exists to avoid.
+     *   Nobody pays for the press until they rip a pack.
+     * ⚠ The zoom view needs nothing: it already frames the card's own page in an iframe, and
+     *   that page presses itself through cards/cardnav.js. One implementation, not two. */
+    const pressFan = (list) => {
+      if (/[?&]flat\b/.test(location.search)) return;
+      const inject = src => new Promise(res => {
+        if (src.indexOf('hero-card') > 0 && window.HeroCard) return res(true);
+        if (src.indexOf('card-press') > 0 && window.CardPress) return res(true);
+        const s = document.createElement('script');
+        s.src = src; s.onload = () => res(true); s.onerror = () => res(false);
+        document.head.appendChild(s);
+      });
+      inject('js/hero-card.js').then(() => inject('js/card-press.js')).then(() => {
+        if (!window.CardPress) return;
+        CardPress.grid('.fcard img', img => {
+          const b = img.closest('.fcard');
+          const c = list[+(b && b.dataset.i)] || {};
+          return { art: img.getAttribute('src'), title: (c.title || '').toUpperCase(),
+                   rarity: c.rarity || 'common' };
+        }, { base: 'cards/' });
+      }).catch(() => {});
+    };
+
     const n = cards.length, mid = (n - 1) / 2;
     const fan = cards.map((c, i) => {
       const rot = ((i - mid) * 9).toFixed(1);
@@ -178,6 +207,7 @@
     requestAnimationFrame(() => requestAnimationFrame(() =>
       reveal.querySelectorAll('.fcard').forEach(f => f.classList.add('flip'))));
     reveal.querySelectorAll('.fcard').forEach(f => f.addEventListener('click', () => view(+f.dataset.i)));
+    pressFan(cards);
     document.getElementById('pvPrev').onclick = () => view((cur + n - 1) % n);
     document.getElementById('pvNext').onclick = () => view((cur + 1) % n);
     document.getElementById('pvCard').addEventListener('click', e => {

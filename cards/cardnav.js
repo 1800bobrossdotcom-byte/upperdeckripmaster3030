@@ -2,6 +2,66 @@
    Peeks the previous/next card staggered on each side and lets you flip through the whole
    deck: swipe on touch, ◀/▶ arrows on desktop, or tap a peek. Deck order = manifest order,
    wrapping around. No-ops inside an embedded lens iframe (read-only art). */
+/* ── ⚑ THE CARD PAGE IS A PRINT — artist, 2026-08-05 ─────────────────────────────────────────
+ * The press (js/hero-card.js, seen whole at cards/proof.html) is how every card is displayed,
+ * and there are 196 card pages. They all already load THIS file, so the press arrives here
+ * rather than as a 197th edit to 196 nearly-identical documents — which is also the only version
+ * of this that cannot drift page to page.
+ *
+ * ⛔ ITS OWN BLOCK, AND IT RUNS WHEN FRAMED. The navigation below returns early inside an iframe
+ *   because a framed card is a painting and must not grow arrows. A PRINT is not navigation: it
+ *   is what the card looks like, and the framed view is exactly where it most needs to look like
+ *   the rest of the studio. Folding it into the nav's early return would have silently exempted
+ *   the one surface a collector sees inside the token.
+ * ⚠ The modules are injected rather than added to 196 <script> tags. Failure at any step — no
+ *   WebGL2, a blocked script, a 404 on a manifest — leaves the page exactly as it was.
+ * ⚠ ?flat opts out. The press crops and screens the artwork, so the drawing has to stay
+ *   reachable as drawn, from the page that is ABOUT that drawing most of all.
+ */
+(() => {
+  if (/[?&]flat\b/.test(location.search)) return;
+  const img = document.querySelector('.face.front img');
+  if (!img || !img.getAttribute('src')) return;
+  const inject = src => new Promise(res => {
+    const s = document.createElement('script');
+    s.src = new URL(src, location.href).href;
+    s.onload = () => res(true); s.onerror = () => res(false);   // resolve either way, never reject
+    document.head.appendChild(s);
+  });
+  /* ⛔ THE CSS EFFECT STACK COMES OFF WHEN THE PRINT LANDS, AND THIS IS THE SAME LESSON AS
+   *   THE LAYER STACK IN cards/lens3d.html: **the press is the treatment now, and two
+   *   treatments fight.** These pages carry .glare (a white diagonal at opacity .5 in
+   *   mix-blend-mode: screen), .glitter, .sweep, .foil and friends — the holographic dressing a
+   *   FLAT SCAN needed. Screen-blending white over a four-colour print lifts every black and
+   *   drags the saturation out, which is the wash CLAUDE.md already records costing two passes
+   *   on js/card3d.js. Measured here as a print that came out milky next to the same card in
+   *   the binder, which is what sent me looking.
+   * ⚑ And none of it is lost: the press has REAL foil (metal, specular, hue walking with the
+   *   half-angle), real relief and real paper. It is the thing the CSS was imitating.
+   * ⚠ Injected rather than edited into 196 documents, and applied only on a SUCCESSFUL bake —
+   *   a page whose press never arrived must keep the dressing it has always had. */
+  const dropTheWash = () => {
+    const s = document.createElement('style');
+    s.textContent = '.card .face.front .depth,.card .face.front .foil,.card .face.front .inflate,'
+      + '.card .face.front .crackle,.card .face.front .glare,.card .face.front .glitter,'
+      + '.card .face.front .sweep{display:none!important}';
+    document.head.appendChild(s);
+  };
+
+  inject('../js/hero-card.js')
+    .then(() => inject('../js/card-press.js'))
+    .then(() => {
+      if (!window.CardPress) return;
+      const card = document.getElementById('card');
+      const rarity = card && (card.className.match(/\bt-([a-z]+)\b/) || [])[1];
+      const title = (document.getElementById('b-title') || {}).textContent || img.alt || '';
+      CardPress.tile(img, { art: img.getAttribute('src'), title: title.toUpperCase(),
+                            rarity: rarity || 'common' },
+                     { base: '', w: 512, h: 768, onDone: dropTheWash });
+    })
+    .catch(() => {});
+})();
+
 (() => {
   if (window.self !== window.top) return;                 // the framed lens stays a plain painting
   const slug = decodeURIComponent((location.pathname.split('/').pop() || '').replace(/\.html$/, ''));

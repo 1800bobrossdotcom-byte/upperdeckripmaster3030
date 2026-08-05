@@ -285,6 +285,8 @@
 </footer>
 
 <script src="js/card3d.js"></script>
+<script src="js/hero-card.js" defer></script>
+<script src="js/card-press.js" defer></script>
 <script>
 /* The hero card is the real renderer — the same js/card3d.js the folder uses and the same code a
  * token's animation_url frames. It is the argument the page is making, so it should be the actual
@@ -323,6 +325,13 @@
       if (!ctrl) return;
       ctrl.setArt(new URL(art, location.href).href);
       $('heroImg').style.display = 'none';
+      /* the same press every other card surface uses — see js/card-press.js */
+      if (window.CardPress && !/[?&]flat\b/.test(location.search)) {
+        CardPress.frame({ cardCtrl: ctrl, base: 'cards/', tilt: () => tilt,
+                          card: { art: new URL(art, location.href).href,
+                                  title: (hero.title || '').toUpperCase(),
+                                  rarity: hero.rarity } }).catch(() => {});
+      }
     }).catch(() => {});
   }).catch(() => {});
 })();
