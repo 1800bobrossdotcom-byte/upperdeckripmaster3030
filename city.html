@@ -93,8 +93,21 @@
   /* ── THE MODE BAR. Top-centre, because that is the one place neither the title (left) nor the
        mode notes (right) already occupy, and because a control for "which game am I playing"
        belongs where you look first rather than tucked into a corner. */
+  /* ⛔ THE CONTAINERS ARE TRANSPARENT TO A POINTER AND ONLY THE CONTROLS INSIDE THEM ARE NOT.
+       `#modes` was `pointer-events:auto` for the sake of the two cabinet links it carries, and it
+       is a RIGHT-ANCHORED BLOCK ~488px wide that paints AFTER `#modeBar` — so wherever the two
+       boxes overlap, the mode notes swallow the click. Measured with `elementFromPoint` across
+       each chip: at 1280×800 the chip ends at 764 and the notes start at 764, so it clears by
+       nothing and reports fine; **at 1100×700 four of five sample points across the SECTION 9 chip
+       return `#modes`, and a real click on it leaves the mode at `animal`.** The way into a third
+       of this game is dead on any desktop window narrower than ~1280, and the two elements that
+       collide were authored two days apart by people looking at one window size each.
+       ⚑ A hover-and-click surface should be the size of the thing you can click, not the size of
+       the box it was laid out in. `.hud` is already `pointer-events:none`; the exception belongs
+       on the `<button>` and the `<a>`, not on their parents. */
   #modeBar{ left:50%; transform:translateX(-50%); top:calc(var(--bez) + 10px);
-    display:flex; align-items:center; gap:0; pointer-events:auto; }
+    display:flex; align-items:center; gap:0; pointer-events:none; }
+  .mchip{ pointer-events:auto; }
   /* ⚠ `white-space:nowrap` because "SECTION 9" WRAPPED. On a 390px phone the three chips share
      231px and the widest label broke across two lines inside a 44px pill — a control that changes
      height with its own text is a control the row below it cannot be positioned against. */
@@ -129,7 +142,8 @@
   #hudBL[data-mode="operative"] .op{ display:inline; }
   #hudBL[data-mode="jet"] .jet{ display:inline; }
   #modes{ right:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); text-align:right;
-    font-size:11px; line-height:2; letter-spacing:.05em; opacity:.85; pointer-events:auto; }
+    font-size:11px; line-height:2; letter-spacing:.05em; opacity:.85; pointer-events:none; }
+  #modes a{ pointer-events:auto; }
   #modes b{ color:var(--accent); }
   #modes .dim{ opacity:.5; }
   #modes a{ color:var(--sky); text-decoration:underline; text-underline-offset:3px;
