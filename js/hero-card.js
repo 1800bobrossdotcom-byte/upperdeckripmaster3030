@@ -1076,7 +1076,7 @@ void main(void) {
     } catch (e) { gl = null; }
     if (!gl) return Promise.resolve(null);
 
-    const seed = (o.seed >>> 0) || 3030;
+    let seed = (o.seed >>> 0) || 3030;
     const pool = o.pigment && o.pigment.length ? o.pigment : [];
     if (pool.length < 1) return Promise.resolve(null);
     /* ⛔ THE FORGE NEEDS ROLES, AND HANDING `pigment` EXACTLY THREE DOES NOT GIVE THEM.
@@ -1123,7 +1123,7 @@ void main(void) {
       gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
 
       // ── textures ─────────────────────────────────────────────────────────────────────────
-      const MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
+      let MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
       /* ── WHAT THE CARD SAYS ───────────────────────────────────────────────────────────────
        * Artist, 2026-08-05: *"need to be able to add text"*. Held as state rather than read out
        * of `o` at every bake, because `setText` has to survive a PULL — the type plate is rebuilt
@@ -1150,8 +1150,8 @@ void main(void) {
        *   it does not make the deck as a whole darker or lighter. A temperament whose mean drifts
        *   is a global grade wearing a per-card costume, and it would quietly invalidate every
        *   burn figure already measured against this renderer. */
-      const TEMPER = (() => {
-        const r = rng(seed ^ 0x6C8E9CF5);
+      const makeTemper = (s) => {
+        const r = rng(s ^ 0x6C8E9CF5);
         const about1 = (spread) => 1 - spread + r() * spread * 2;
         return {
           plate: [about1(0.45), about1(0.45), about1(0.55), about1(0.40)],
@@ -1159,7 +1159,8 @@ void main(void) {
           starve: about1(0.60),          // how fast the roller runs dry
           foil: about1(0.40),            // how hard price drives the die edge
         };
-      })();
+      };
+      let TEMPER = makeTemper(seed);
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
@@ -1178,11 +1179,11 @@ void main(void) {
        * faces where the figure should be, which reads as a composition bug rather than a
        * sampler one. */
       const PIG_WRAP = [gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE];
-      const compCanvas = buildComp(seed, 512);
-      const texComp = texFrom(gl, compCanvas, UNIT.uComp);
+      let compCanvas = buildComp(seed, 512);
+      let texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
-      const stockCanvas = buildStock(seed, 256);
-      const texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
+      let stockCanvas = buildStock(seed, 256);
+      let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
 
       const U = n => gl.getUniformLocation(prog, n);
       const u = {
@@ -1469,6 +1470,41 @@ void main(void) {
           render();
         },
         text: () => ({ name: TEXT.name, sub: TEXT.sub }),
+        /* ── ⚑ PRINT A DIFFERENT CARD ON THE SAME PRESS ──────────────────────────────────
+         * `reseed(seed) -> bool`. Everything the seed decides — the composition masks, the
+         * paper stock, the temperament, the press motion, the impression — re-derived in place.
+         *
+         * ⛔ THIS IS THE SAME RULE AS `setPigment`, ONE LEVEL UP, AND IT IS WHY THE PRESS CAN
+         *   BE THE SITE'S CARD RENDERER AT ALL. `canvas.getContext('webgl2')` hands back the
+         *   SAME context on a second call and `build()` never releases, so "show the next card"
+         *   cannot mean "build again" — a binder you page through would leak a program, a vertex
+         *   buffer and six textures per card, and nothing would throw. A card is a set of
+         *   textures on one press; changing cards changes the textures.
+         * ⛔ AND WITHOUT IT EVERY CARD ON THE SITE WOULD WEAR ONE TEMPERAMENT. `TEMPER`, the
+         *   composition, the crease pattern and the registration are all functions of the seed
+         *   and were all frozen at build. Reusing one press across a deck without re-deriving
+         *   them is precisely the "one meter in a hundred copies" failure that TEMPER was added
+         *   to end (docs/RELICS-STUDY.md §2) — arriving by the back door, through reuse.
+         * ⚠ The sheet returns to impression 0 and the write-on restarts, because this is a
+         *   different card and not a further pull of the one you were holding. */
+        reseed: s => {
+          const next = (s >>> 0) || 3030;
+          if (next === seed) return false;
+          seed = next;
+          TEMPER = makeTemper(seed);
+          MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
+          gl.deleteTexture(texComp);
+          compCanvas = buildComp(seed, 512);
+          texComp = texFrom(gl, compCanvas, UNIT.uComp);
+          gl.deleteTexture(texStock);
+          stockCanvas = buildStock(seed, 256);
+          texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
+          pull(0);                 // a fresh impression — and it rebakes the type at the new seed
+          S.arrive = 0;            // the sheet prints on again, so a card SWAP is a press event
+          render();
+          return true;
+        },
+        seed: () => seed,
         /* ── ⚑ THE FORGE: PUT A DIFFERENT PLATE ON THE PRESS ──────────────────────────────
          * `setPigment([ground, mid, figure]) -> Promise<bool>`. Three deck cards, in ROLE
          * order, swapped into the live card.
@@ -1524,6 +1560,7 @@ void main(void) {
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, arrive: S.arrive,
+          seed: seed,
           rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
           elemZ: elemZ.slice(),
           pigment: pig.slice(),

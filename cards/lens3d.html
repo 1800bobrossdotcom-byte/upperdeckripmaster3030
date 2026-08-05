@@ -352,7 +352,13 @@ function loadScript(rel) {
  * `dprCap()`, because "what counts as a weak device" must have exactly one definition and this
  * page is the one most likely to open in a phone's media slot. Any of them missing just removes
  * that capability. */
-Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.js', '../js/gfx-post.js']
+Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.js', '../js/gfx-post.js',
+               /* ⚑ THE PRESS. `js/hero-card.js` generates the card's FACE and `js/card-press.js`
+                * is the seam that hangs it on this page's 3D card — artist, 2026-08-05: combine
+                * lens3d with proof.html and make that how every card is displayed. Both are
+                * optional in exactly the way everything else on this line is: missing, blocked
+                * or WebGL2-less and the card falls back to the flat plate it has always shown. */
+               '../js/hero-card.js', '../js/card-press.js']
               .map(loadScript))
   .then(() => { startState(); return loadLayers(); })
   .catch(() => {});
@@ -381,13 +387,74 @@ function build3D() {
   if (!ctrl) { $('mode').textContent = 'css fallback (no webgl)'; return; }
   ctrl.setArt(ART); ctrl.setRarity(CARD.rarity);
   ctrl.setLayers(SPEC);                       // null for every card today — the flat plate
+  mountPress(ctrl);
   if (DRIVERS) ctrl.setState(DRIVERS);        // else the tuned resting values stand
+  /* ── ⚑ THE PRESS ON THE CARD ─────────────────────────────────────────────────────────────
+   * Artist, 2026-08-05: *"WE NEED TO COMBINE THIS PROCESS … LAYERED WITH THIS PROCESS AND FX …
+   * I WANT THE SECOND AS THE MAIN WAY ALL CARDS ARE DISPLAYED."*
+   *
+   * The press prints this card's face — the artwork separated into four inks, each laid down at
+   * its own registration and screened at its own angle, on paper, with a metal foil die edge —
+   * and Card3D frames that as an object. `js/card-press.js` carries the whole seam so that the
+   * binder, the deck browser and the popups do exactly this and not five slightly different
+   * versions of it.
+   *
+   * ⚑ THE CARD'S OWN ART IS THE FIGURE PLATE. Ground and mid come out of the deck by this card's
+   *   seed; the drawing stays the subject. `docs/RELICS-STUDY.md` §4 names the risk this avoids
+   *   in as many words — *"the risk for us is burying a drawing under a simulation"*.
+   * ⛔ `?flat=1` KEEPS THE FAITHFUL PLATE, and it is not a debug flag. The press CROPS and
+   *   SCREENS the artwork on purpose, so it is a treatment and not a reproduction; a collector
+   *   has to be able to see the drawing as it was drawn, from the page the token itself frames.
+   * ⚠ setArt ran a moment ago and stays as the base plate — the press swaps in only once it has
+   *   printed, so there is never a blank frame while a manifest is in flight. */
+  let pressed = false;
+  function mountPress(cardCtrl) {
+    if (qs.has('flat') || !window.CardPress) return;
+    let held = false;
+    addEventListener('pointerdown', () => { held = true; }, { passive: true });
+    addEventListener('pointerup',   () => { held = false; }, { passive: true });
+    addEventListener('pointercancel', () => { held = false; }, { passive: true });
+    CardPress.frame({
+      cardCtrl, base: '', card: pressCard(),
+      tilt: () => tilt, down: () => held,
+    }).then(p => {
+      if (!p) return;                                   // fails open — the flat plate stands
+      window.__press = p;
+      /* ⛔ THE PRESS IS THE LAYERING NOW, AND FORGETTING THIS COST A ROUND. `setLayers` switches
+       *   the `art` and `back` plates OFF and mounts an authored stack in front of them — so the
+       *   press printed a perfect face onto a plane that was no longer being drawn. Nothing
+       *   errored, the probe reported a live press with the right three plates on it, and the
+       *   screenshot was byte-for-byte the card as it had always looked. **A renderer that is
+       *   working and not being drawn looks exactly like one that never started.**
+       * ⚑ And clearing them is not a compromise: the press already stacks ground, mid, figure
+       *   and type at their own parallax depths and separates each into four ink plates at four
+       *   registrations. Running the authored stack on top would be two layer systems competing
+       *   for the same 26 thousandths of card thickness. */
+      pressed = true;
+      ctrl.setLayers(null);
+      mode();
+    });
+  }
+  /* The record the press needs. `art` is the resolved URL it will actually fetch; the IDENTITY
+   * it seeds from is the filename stem, so this card prints the same here as it does in the
+   * binder and in the deck browser. */
+  function pressCard() {
+    return { art: ART || CARD.art, title: (CARD.title || '').toUpperCase(),
+             rarity: CARD.rarity, sub: (CARD.omen || '').toUpperCase() };
+  }
+
   const mode = () => { $('mode').textContent =
-    'playcanvas 3d · ' + (SPEC ? SPEC.layers.length + ' layers' : 'flat plate')
+    'playcanvas 3d · ' + (pressed ? 'pressed'
+                                  : SPEC ? SPEC.layers.length + ' layers' : 'flat plate')
     + (DRIVERS && DRIVERS.live ? ' · live' : ''); };
   window.__pcCard = {
-    retex:   () => { ctrl.setArt(ART); ctrl.setRarity(CARD.rarity); ctrl.setLayers(SPEC); mode(); },
-    relayer: () => { ctrl.setLayers(SPEC); mode(); },
+    /* ⚠ AND THE PRESS HAS TO HEAR ABOUT A CARD SWAP. `use()` calls retex when a different
+     *   card resolves; without this line the object would carry the new title and the old
+     *   printed face — which looks like a caching bug and is a missing call. */
+    retex:   () => { ctrl.setArt(ART); ctrl.setRarity(CARD.rarity);
+                     ctrl.setLayers(pressed ? null : SPEC);
+                     if (window.__press) window.__press.show(pressCard()); mode(); },
+    relayer: () => { ctrl.setLayers(pressed ? null : SPEC); mode(); },
     state:   d  => { ctrl.setState(d); mode(); },
     ctrl
   };

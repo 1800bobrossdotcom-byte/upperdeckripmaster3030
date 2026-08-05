@@ -333,6 +333,76 @@
       });
     }
 
+
+    /* ── ⚑ THE ART CAN BE A LIVE CANVAS, NOT ONLY A URL ──────────────────────────────────────
+     * Artist, 2026-08-05: the generative press (`js/hero-card.js`, seen at cards/proof.html) is
+     * how every card is displayed from now on, LAYERED into this card. `js/card-press.js` is the
+     * seam; this is the socket it plugs into.
+     *
+     * ⚑ THE DIVISION OF LABOUR IS THE WHOLE DESIGN, and it is the one hero-card's own header
+     *   already wrote down and left for later: **the press draws the ARTWORK and this frames
+     *   it.** So the press canvas arrives here as the art plate and everything below it — the
+     *   bevel, the thickness, the travelling foil band, the parallax rig, the measured colour
+     *   pipeline — is untouched. Neither renderer learns about the other.
+     *
+     * ⛔ A CANVAS SOURCE MUST BE RE-UPLOADED, AND THAT IS THE ONLY REAL DIFFERENCE FROM `setArt`.
+     *   An `Image` decodes once and never changes; a live press redraws every frame, and a
+     *   texture built from it once would freeze on whatever was on screen at upload — a card
+     *   that renders perfectly and then simply stops moving, with nothing anywhere reporting a
+     *   problem. `upload()` per frame is what keeps the press LIVE on the object.
+     * ⚠ AND THE NORMAL MAP DELIBERATELY DOES NOT FOLLOW IT. The relief map is a Sobel of the
+     *   artwork's luminance, which costs a full-resolution CPU pass over the pixels; running
+     *   that every frame would put the press's own halftone dots through an edge detector sixty
+     *   times a second for a relief nobody can see moving. It is taken ONCE, from the first
+     *   finished sheet, and re-taken only when the card changes (`restamp`).
+     * ⚠ `mipmaps:false` on purpose. Regenerating a mip chain on every upload is most of the cost
+     *   of the upload, and this plate is shown at roughly 1:1 — there is no minification to
+     *   defend against, which is the opposite of the pigment plates inside the press itself. */
+    var liveSrc = null, liveTex = null;
+    function setArtSource(src, opts) {
+      if (!src) { liveSrc = null; return false; }
+      var o2 = opts || {};
+      artUrl = null;                       // a later setArt(url) must not be swallowed as a no-op
+      if (!liveTex) {
+        var tOpts = { mipmaps: false, addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+                      addressV: pc.ADDRESS_CLAMP_TO_EDGE };
+        if (pc.PIXELFORMAT_SRGBA8 !== undefined) tOpts.format = pc.PIXELFORMAT_SRGBA8;
+        try { liveTex = new pc.Texture(app.graphicsDevice, tOpts); }
+        catch (e) { try { liveTex = new pc.Texture(app.graphicsDevice, {}); } catch (e2) { return false; } }
+        if ('srgb' in liveTex) liveTex.srgb = true;
+      }
+      liveSrc = src;
+      try { liveTex.setSource(src); } catch (e) { liveSrc = null; return false; }
+      var nrm = null;
+      if (o2.relief !== false) {
+        try { nrm = normalFromImage(pc, app.graphicsDevice, src, 1.0); } catch (e) { nrm = null; }
+      }
+      /* Same material decision as setArt, deliberately: emissive at full strength, no skybox,
+       * metalness 0. A press sheet is a finished artwork and must not be re-graded by a key
+       * light any more than a scan is. */
+      art.render.material = mkMat({
+        emissiveMap: liveTex, emissive: new pc.Color(1, 1, 1), diffuse: new pc.Color(0, 0, 0),
+        normalMap: nrm, bumpiness: nrm ? .30 : 0, gloss: .62, metalness: 0, useMetalness: false,
+        specular: new pc.Color(.05, .05, .05), useSkybox: false
+      });
+      back.render.material = mkMat({
+        diffuseMap: liveTex, normalMap: nrm, bumpiness: nrm ? .34 : 0,
+        diffuse: new pc.Color(.16, .16, .2), gloss: .25, useSkybox: false
+      });
+      return true;
+    }
+    /* Re-take the relief from whatever is on the source right now — call after a card swap has
+     * finished printing, not during the write-on, or the normals come off a half-printed sheet. */
+    function restamp() {
+      if (!liveSrc) return false;
+      try {
+        var nrm = normalFromImage(pc, app.graphicsDevice, liveSrc, 1.0);
+        if (art.render.material) { art.render.material.normalMap = nrm; art.render.material.update(); }
+        if (back.render.material) { back.render.material.normalMap = nrm; back.render.material.update(); }
+        return true;
+      } catch (e) { return false; }
+    }
+
     /* ── holographic sweep ───────────────────────────────────────────────────────────────────
      * ⚑ With BLEND_ADDITIVE, `opacity` does NOT attenuate — additive adds src to dst regardless,
      *   so the strength has to live in the emissive COLOUR. The first version was uniformly
@@ -545,6 +615,8 @@
     var _off = new pc.Vec2(0, 0);
     app.on('update', function (dt) {
       if (!reduce) t += dt;
+      // the live press redraws every frame; a texture uploaded once would freeze on frame one
+      if (liveSrc && liveTex) { try { liveTex.upload(); } catch (e) {} }
       var q = getTilt() || { x: 0, y: 0 };
       root.setLocalEulerAngles(-q.y * 13, q.x * 16, q.x * -2);
       // the layers slide against each other by depth — the parallax that sells it
@@ -581,6 +653,8 @@
     var ctrl = {
       app: app, root: root, art: art, back: back, fx: fx, holo: holo, key: key, rim: rim, body: body,
       setArt: setArt,
+      setArtSource: setArtSource,
+      restamp: restamp,
       setLayers: setLayers,
       setState: setState,
       /* Read-only views for a headless check — "is the stack actually mounted, and what is the
