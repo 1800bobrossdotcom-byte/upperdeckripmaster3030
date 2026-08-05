@@ -105,7 +105,14 @@
   /* ⚠ ONE ROW. Adding the roll and the dash pushed this to two rows, and the second row went
      behind the site-wide banner at the foot of the page — i.e. the two NEW controls were the
      ones you could not read. Labels are short and it is lifted clear of the banner. */
-  .controls{ position:fixed; z-index:5; left:50%; bottom:40px; transform:translateX(-50%); display:flex; gap:6px 10px; flex-wrap:wrap;
+  /* ⛔ …AND THE SITE-WIDE FRESHNESS STRIP IS THE THIRD LAYER AT THAT ALTITUDE. `banner.js` is
+     `position:fixed;bottom:0` at the highest z-index on the site and this page loads it. Measured
+     on iPhone-class emulation: it covered the FIRE pad by **28px** and the ROLL pad by 22px at
+     390×844, and by 9px at 844×390 where the strip is 11% of the whole screen. The comment above
+     is about this exact failure one layer up ("the second row went behind the site-wide banner");
+     the strip publishes its measured height now, so every bottom-anchored control here subtracts
+     it instead of being nudged until it happens to clear. */
+  .controls{ position:fixed; z-index:5; left:50%; bottom:calc(40px + var(--urm-banner, 0px)); transform:translateX(-50%); display:flex; gap:6px 10px; flex-wrap:wrap;
     justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px; max-width:96vw;
     background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); }
   .key{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:#bfe9d3; }
@@ -115,13 +122,13 @@
   .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none; touch-action:none;
     align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; letter-spacing:.05em; color:#031; }
   .pad.on{ filter:brightness(1.35); transform:scale(.94); }
-  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px); width:92px; height:92px;
+  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px + var(--urm-banner, 0px)); width:92px; height:92px;
     background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
-  .pad.bomb{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px); width:66px; height:66px;
+  .pad.bomb{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px + var(--urm-banner, 0px)); width:66px; height:66px;
     background:radial-gradient(circle at 40% 34%,#ffc7f4,#ff2ad9 60%,#7a0a5c); border:2px solid #4a0636; box-shadow:0 0 18px rgba(255,42,217,.5); color:#fff; }
   /* ROLL gets its own pad rather than a gesture: a defensive move you have to discover is a
      defensive move nobody uses. Left of FIRE so it falls under the same thumb. */
-  .pad.roll{ right:calc(var(--bez) + 112px); bottom:calc(var(--bez) + 22px); width:72px; height:72px;
+  .pad.roll{ right:calc(var(--bez) + 112px); bottom:calc(var(--bez) + 22px + var(--urm-banner, 0px)); width:72px; height:72px;
     background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0b5a66); border:2px solid #063f47; box-shadow:0 0 20px rgba(39,247,228,.5); color:#022; }
   .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
   #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);

@@ -59,6 +59,12 @@ window.ArenaLobby = (function () {
       ".al-act.seek{background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56);border-color:#01130a;color:#02120a;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 3px 0 #01130a;animation:alGlow 1.2s ease-in-out infinite;}",
       "@keyframes alGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.22)}}",
       ".al-act:disabled{filter:grayscale(.7) brightness(.65);cursor:not-allowed;}",
+      /* ⚠ 32px HIGH ON A PHONE, AND IT IS THE ONLY BUTTON IN THIS COMPONENT. `padding:8px 12px`
+       * around 10px type measures 88×32 — under the 44px tap floor the rest of this site is held
+       * to, on the control that starts a match. This module is shared by THE ARENA, Section 9 and
+       * Cloud Racer, so the floor belongs here rather than being re-typed in three pages: one
+       * rule, three lobbies, and it cannot drift. */
+      "@media(pointer:coarse){.al-act{min-height:44px;padding:8px 14px;}}",
       ".al-pill{flex:none;font-family:'Arial Black',Arial,sans-serif;font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 9px;border-radius:20px;border:1px solid;}",
       ".al-pill.idle{color:#7fae95;border-color:rgba(120,150,135,.4);}",
       ".al-pill.seeking{color:#04140b;background:#2bff80;border-color:#2bff80;box-shadow:0 0 12px rgba(43,255,128,.5);}",

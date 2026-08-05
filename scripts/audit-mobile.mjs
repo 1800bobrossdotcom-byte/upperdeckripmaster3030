@@ -73,6 +73,15 @@ const PAGES = [
       const t = [...document.querySelectorAll('.tab')].find(x => /market/i.test(x.textContent));
       if (t) t.click();
     } },
+  /* ⛔ THE ARENA WAS NEVER IN THIS LIST, AND IT IS THE ONE CABINET THIS AUDIT APPLIES TO. The other
+   * three are full-screen WebGL pictures whose "text" is a HUD; `cards/battle.html` is a scrolling
+   * column of DOM panels — a document that happens to be a game — and it is exactly what the four
+   * numbers here were written to measure. It was excluded because `js/orient.js` put a full-screen
+   * "TURN IT SIDEWAYS" veil over it in portrait, so an audit at 390×844 would have measured the
+   * VEIL: four perfect numbers describing a page nobody could reach. ⚑ The veil came off on
+   * 2026-08-05 (a card game is a column, the same call as arcade.html), which is what makes this
+   * row measurable rather than decorative. */
+  { name: 'battle', url: 'cards/battle.html', settle: 4500 },
 ];
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png',

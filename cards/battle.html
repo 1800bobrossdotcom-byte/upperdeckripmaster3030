@@ -412,7 +412,20 @@
   a.back{ color:var(--lime); text-shadow:0 0 8px rgba(43,255,128,.5) !important; }
   .sub{ color:#5fcf8f; }
   /* ── arena title: the chrome/gold logo with a pulsing glow + sparkle particles ── */
-  .arena-title-wrap{ position:relative; width:min(560px,90vw); margin:6px auto 0; aspect-ratio:1456/816; }
+  /* ⛔ `overflow:clip` — THE SPARKLE LAYER WAS THE PAGE'S HORIZONTAL SCROLLBAR. `.arena-particles`
+     deliberately BLEEDS (`inset:-14% -8%`, 116% × 128%) so the embers are not cut off at the
+     title's edge, and nothing clipped it. On a 390px phone the wrap is 90vw = 351px, so the bleed
+     reaches 407px and the DOCUMENT measured **399 wide in a 390 viewport** — the page slid
+     sideways under a thumb, on the one cabinet whose whole interface is a column you scroll.
+     ⚑ ONE AXIS, AND THAT MATTERS: the bleed is not decoration-for-its-own-sake, it is how embers
+     drift IN from outside the title rather than popping into existence at its edge. `overflow-x`
+     alone keeps the whole vertical bleed and removes only the axis that could widen the document.
+     `clip` rather than `hidden` because `hidden` on one axis forces the other to `auto` — which
+     would have replaced a document-wide scrollbar with a local one, i.e. moved the bug.
+     ⚑ And it FAILS OPEN: a browser that does not know `overflow-x:clip` ignores the declaration
+     and gets exactly today's behaviour, never a clipped title. */
+  .arena-title-wrap{ position:relative; width:min(560px,90vw); margin:6px auto 0; aspect-ratio:1456/816;
+    overflow-x:clip; }
   .arena-particles{ position:absolute; inset:-14% -8%; width:116%; height:128%; pointer-events:none; z-index:0; }
   .arena-title{ position:relative; z-index:1; width:100%; height:auto; display:block;
     filter:drop-shadow(0 0 16px rgba(43,255,128,.5)) drop-shadow(0 0 40px rgba(255,42,217,.35));
@@ -540,10 +553,46 @@
   .pvp-note{ font-size:10.5px; color:#8fbfa4; line-height:1.55; margin-top:7px; } .pvp-note b{ color:var(--amber); }
   .pvp-btns{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
   .pvp-btns .btn.go{ background:linear-gradient(180deg,#ff9a6b,#ff5a3c 60%,#c22); border-color:#601; }
+
+  /* ══ THUMBS ═══════════════════════════════════════════════════════════════════════════════
+     ⛔ THIS PAGE HAD NEVER BEEN MEASURED ON A PHONE, BECAUSE `js/orient.js` COVERED IT. The
+     site-wide mobile audit (`npm run mobile`) carries nine pages and none of the four cabinets;
+     THE ARENA is the one cabinet the audit's four numbers apply to — it is a document that
+     happens to be a game — and it was excluded because at 390×844 the harness would have
+     measured a "TURN IT SIDEWAYS" veil rather than the page. **A page hidden behind a veil is a
+     page whose defects are invisible AND unreachable at the same time**, which is why removing
+     the veil and adding the audit row had to happen together.
+     ⚑ First measurement, 390×844: **26 controls under the 44px tap floor** the rest of this site
+     is held to — the challenge buttons at 32px, the wager chips at 28, the mode row at 35, the
+     name field at 28, and the four nav links at 12–14px. Those are not decorations; they are how
+     you answer a challenge, size a stack and get back out.
+     ⚠ Height only, and only where a thumb goes. Widening these would rewrap the panels they sit
+     in; a taller hit box costs a few pixels of vertical rhythm and nothing else. */
+  @media (pointer: coarse) {
+    .tchip, .mode, .lob-seek, .wbtn, .wbuy, .btn,
+    .lt-yes, .lt-no{ min-height:44px; }
+    .lob-me input{ min-height:44px; }
+    /* ⚠ the nav links are TEXT, so a min-height alone leaves the hit box the size of the
+       letterform — the box grows and the anchor stays 13px tall inside it. `inline-flex` makes
+       the element its own hit box. */
+    a.back{ display:inline-flex; align-items:center; min-height:44px; }
+  }
 </style>
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
-  <script src="../js/orient.js"></script>
+  <!-- ⛔ `js/orient.js` REMOVED FROM THIS PAGE — the same call, and the same reasoning, as
+       `arcade.html`. THE ARENA is not a wide picture: CLAUDE.md records outright that "cards/
+       battle.html's card UI is DOM/CSS, not canvas — its only canvas is the decorative
+       #arenaParticles sparkle layer". What it actually is, is a SCROLLING COLUMN of panels —
+       the ledger, the challenge list, the rules, the weather, the wager chips, the stack — and a
+       scrolling column is the one shape a phone held upright is perfect for.
+       ⚑ THE VEIL IS NOT A HINT, IT IS A WALL: it covers the viewport, there is no dismiss, and the
+       only way past it is to rotate. So in portrait this cabinet was **not playable at all**, on
+       the orientation a link opens in. Measured at 390×844 with the veil lifted: the column reads
+       cleanly top to bottom, every panel fits, and the only overflow was the sparkle bleed fixed
+       above. The wide part of this game — the fight — is `js/card-fight.js`, which sizes itself
+       from `arena.getBoundingClientRect()` and therefore has no orientation to be wrong about.
+       ⚠ The five genuinely-wide cabinets keep the veil; see the callers list in js/orient.js. -->
 </head>
 <body>
   <div class="bg" aria-hidden="true"></div><div class="sun" aria-hidden="true"></div>
