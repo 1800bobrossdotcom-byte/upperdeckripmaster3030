@@ -389,10 +389,18 @@ frame and seed are left alone">RESET TO BASE</button>
     <div class="grp">
       <label>LAYERS <span class="v" id="vStack">1.00</span></label>
       <input type="range" id="stack" min="0" max="2.5" step="0.01" value="1">
-      <div class="note">how far the four elements — ground, mid, figure, type — sit apart
-        <strong>through the card's thickness</strong>. At <strong>0</strong> they are coplanar and
-        the card is a flat print; turn it up and the stack travels through itself as the press
-        runs. This is depth in the BUILD, not an animation: it is there when the card is still.</div>
+      <!-- ⛔ AND IT SAYS WHAT IT CAN ACTUALLY DO AT THIS CARD COUNT. Artist, 2026-08-05: "the
+           build section is not working. these are not separated layers it is just zooming in."
+           He was on a ONE-card card with this at 2.50 — and with one picture there is nothing to
+           separate it FROM, so all the dial can do is move that one picture and its type. A
+           control offered at full range when it has no layers to act on reads as broken, and the
+           honest fix is for the panel to say so rather than for the dial to pretend. -->
+      <div class="note" id="stackNote"></div>
+      <div class="note">each element sits at its own depth <strong>through the card's
+        thickness</strong> and slides along its own bearing. At <strong>0</strong> they are
+        coplanar and the card is a flat print. ⚠ Depth on its own is a <em>magnification about the
+        centre</em> — which is exactly what a zoom is — so the elements <strong>also separate
+        laterally</strong>, or the stack would only ever be visible with the card tilted.</div>
     </div>
 
     <div class="grp">
@@ -1016,6 +1024,17 @@ frame and seed are left alone">RESET TO BASE</button>
                                           : 'FIGURE — near card size';
         var vv = document.getElementById('vColl');
         if (vv) vv.textContent = v === 1 ? '1 card' : v + ' cards';
+        /* ⚑ LAYERS CAN ONLY SEPARATE WHAT IS THERE. At one card the stack has the artwork and
+         * the type and nothing else, so it slides those two apart and that is all it can do —
+         * saying so is the difference between a control that looks broken and one that is
+         * honest about its input. */
+        var sn = document.getElementById('stackNote');
+        if (sn) sn.innerHTML = v === 1
+          ? '⚠ <strong>one card on the press</strong> — the stack can only part the artwork from '
+            + 'the name. For layers that visibly separate, put <strong>three</strong> or '
+            + '<strong>six</strong> cards on it in THE FORGE.'
+          : '<strong>' + v + ' cards</strong> on the press — each rides its own depth and its own '
+            + 'bearing, so the stack parts into ' + v + ' pieces plus the type.';
       } },
   ];
   function choiceVal(C) {

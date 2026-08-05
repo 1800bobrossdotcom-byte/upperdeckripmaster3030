@@ -917,11 +917,27 @@ vec3 F_Schlick(vec3 f0, float u) { return f0 + (1.0 - f0) * pow(1.0 - u, 5.0); }
 vec2 zuv(vec2 u, float z) { return (u - 0.5) / (1.0 + z) + 0.5; }
 
 vec3 artAt(vec2 u, vec2 par) {
-  // one depth per element: it sets the magnification AND how far the parallax carries it
-  vec2 uG = zuv(u, uElemZ.x) + par * uElemZ.x;
-  vec2 uM = zuv(u, uElemZ.y) + par * uElemZ.y;
-  vec2 uF = zuv(u, uElemZ.z) + par * uElemZ.z;
-  vec2 uT = zuv(u, uElemZ.w) + par * uElemZ.w;
+  /* ── ⛔ "THESE ARE NOT SEPARATED LAYERS IT IS JUST ZOOMING IN" ───────────────────────────
+   * Artist, 2026-08-05, on the BUILD pane. He is right, and this file said so itself: the note on
+   * uElemZ reads *"Z IS A SCALE, NOT AN OFFSET — depth here is a magnification about the frame
+   * centre."* That is true physics and it is the wrong ANSWER, because a magnification about the
+   * centre is what a zoom is. Seen face-on, a stack that only scales cannot look separated — the
+   * layers slide apart only when the card is tilted, and a control you have to tilt the card to
+   * observe is a control that reads as broken.
+   * ⚑ SO EACH ELEMENT ALSO SLIDES, along its own fixed bearing, by an amount proportional to how
+   *   deep it sits. That is the exploded view of a stack of transparencies, which is the thing
+   *   "layered card" actually names. Ground has ZBASE 0 and therefore never moves — it is the
+   *   sheet the others are stacked ON, and a reference that drifts is not a reference.
+   * ⚑ THE OFFSET IS UNIFORM AND THE ZOOM IS RADIAL, so the two are separable BY MEASUREMENT: the
+   *   same block matcher acceptance 4 uses reports cos ~= 1 for a pure magnification and ~= 0 for
+   *   a lateral slide. That is how "it separates" is asserted instead of asserted-by-adjective.
+   * ⚠ At stack 0 every uElemZ is 0, so every offset is exactly 0 and the base card is untouched.
+   * ⚠ These are applied INSIDE artAt, identically for every ink plate, so the difference BETWEEN
+   *   plates is still only the registration vector and acceptance 4 is unaffected. */
+  vec2 uG = zuv(u, uElemZ.x) + par * uElemZ.x + vec2(-0.086, -0.050) * uElemZ.x;
+  vec2 uM = zuv(u, uElemZ.y) + par * uElemZ.y + vec2( 0.074, -0.092) * uElemZ.y;
+  vec2 uF = zuv(u, uElemZ.z) + par * uElemZ.z + vec2( 0.098,  0.062) * uElemZ.z;
+  vec2 uT = zuv(u, uElemZ.w) + par * uElemZ.w + vec2(-0.040,  0.086) * uElemZ.w;
 
   /* ⛔ THE THREE SOURCES ARE SAMPLED AT THREE DIFFERENT SCALES, and that is not a look — it is
    * the difference between a composition and a filter. The first cut took all three at roughly
