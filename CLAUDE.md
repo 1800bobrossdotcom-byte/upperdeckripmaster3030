@@ -1153,6 +1153,113 @@ what's left)."*
 - ⚠ **localStorage IS NOT THE ARTIFACT AND THE UI SAYS SO.** One browser, and clearing site data
   takes the deck. The JSON export is what survives — commit it and the set rebuilds anywhere.
   Import MERGES rather than replaces; a partial import must not delete finished cards.
+### ⛔ THE EDITOR: THE CARD WAS OFF THE SCREEN — `npm run test:forge` (60)
+*Artist, 2026-08-05: "we need to fix the card/proof.html — the cards need a better editor — I
+can't even see the changes to the cards I am making the way it is built."* He was describing a
+measurement nobody had taken. Scroll each control to the middle of the viewport — which is what
+using it means — and ask how much of the CARD is still on screen:
+
+| | controls with the card **0%** visible |
+| --- | --- |
+| laptop 1440×900 | **9 of 11** |
+| desktop 1280×800 | **9 of 11** |
+| phone 390×844 | **11 of 11** |
+
+The rail was **5,183px against a 900px viewport** and `align-items:start` parked the card at the
+top of it. **100% at every control now, and the page is 1,183px instead of 5,227px.**
+- ⚑ **THE HEADLINE IS `test:cab`'s LESSON ONE LEVEL IN: A TEXT MATCH CANNOT SEE A NUMBER THAT ONLY
+  EXISTS ONCE THE PAGE HAS LAID OUT.** `test:reach` asserts this page is reachable and it is;
+  `test:hero` asserts the press renders and it does. **Both were green throughout.** "Is the
+  control present" and "can you use the control" are different questions, and only the second is
+  the artist's. The page also looked completely fine in a screenshot of its first screen — which
+  is the only screen anyone ever screenshots.
+- ⚠ **TWO LAYOUTS, TWO MECHANISMS, and the second is not optional.** Sticky works on wide because
+  the grid ROW is as tall as the rail. **In a ONE-COLUMN grid each item gets its own row, so the
+  stage's containing block is exactly its own height and sticky silently no-ops** — the narrow
+  layout drops to block flow. A sticky rule that quietly does nothing on the device the artist is
+  holding is worse than no rule. ⚠ And the narrow block must come AFTER the `max-aspect-ratio:2/3`
+  rule, which a 0.46:1 phone also matches.
+- ⛔ **A STALE EXPORT WAS COVERING THE LIVE CARD — the second, independent cause of the same
+  complaint.** `CardExport.attach` puts an `<img>` over the card at `z-index:3` so right-click-save
+  works (correct, and why it exists), and it stayed until BACK TO THE CARD was pressed — a button
+  in a different section of the five-screen rail. **The first export of a session froze the card
+  and every edit after it was invisible.** An export is a snapshot OF a state; it stops being true
+  the moment the state moves. `stamp()` drops it.
+- ⛔ **THE CARD NOW OPENS AS THE BASE CARD** — *"the card should always start as the base card with
+  no changes, THEN I apply the changes in the editor."* **Five treatments were applied before the
+  artist touched anything**: registration 1, stack 1, price/depth 0.5, and the press RUNNING a
+  seeded press failure. Every dial's default is the value at which it does nothing, so moving one
+  is legible. ⚑ **It also made the panel agree with the brief's own acceptance 2**, which this
+  page's header states in as many words — *"dead still until you touch it"* — and which the panel
+  had been shipping the opposite of. ⚠ Not every control is a treatment: the key light is a
+  viewing condition and the room is the room; those keep their tuned values.
+- ⛔ **AND THE CHAIN WAS DRIVING A FRESH FORGE.** With no query string all three market dials were
+  unclaimed, so the forge opened wherever the market was that minute. **A card being DISPLAYED
+  should read the market; a card being MADE needs a fixed origin.** Following it is `?live=1` now;
+  the reader still runs and still reports.
+- ⚑ **RARITY AND NEW SEED STOPPED RELOADING THE PAGE.** `ctrl.reseed()` already existed and was
+  unused. Rarity was *called* a build argument because it was READ as one (`o.rarity` at five
+  sites) — it reaches the card only through the type plate's border sorts and the `uFrameFoil`
+  uniform, both re-derivable in place, so it is state now and `setRarity` rebakes what `setText`
+  already rebakes. **The reload is why the ladder went unlooked-at: six tiers meant six rebuilds,
+  each losing the scroll position and reprinting the sheet from nothing.**
+- ⚠ **TWO SABOTAGES FIRST REPORTED GREEN BECAUSE THE SHELL ATE THE QUOTES** and the edit never
+  applied, and a third CRASHED the harness instead of failing it — no FAIL line, no total, which
+  reads like a clean run. **A sabotage that does not come back as a NAMED failure has proved
+  nothing.** Recorded already for a backslash; it is quotes and execution contexts too.
+
+### ✅ SIX PLATES, ON BOTH AXES — and "plates" meant both
+*Artist: "i need my plate separator to have up to 6 plates … a toggle that just creates the card
+with 6 plates as before."* Two different things in this renderer are called plates; asked which,
+the answer was **both**.
+- **THE SEPARATION 4 → 6:** C M Y K + **orange and green**, each on its own screen angle (52.5°,
+  22.5°) and its own registration. ⛔ **THEY ARE AN INK SPLIT, NOT TWO MORE LAYERS** — orange takes
+  the part magenta and yellow were both carrying, green the part cyan and yellow shared, and that
+  load comes OFF the process inks. **So the card reaches further without going darker: luma
+  91.06 → 91.22 while 63% of its pixels change.** Adding instead of splitting would have piled two
+  more inks onto a subtractive stack and driven everything toward black, which is what "6 plates
+  looks worse" would actually have been.
+- **THE COLLAGE 3 → 6:** wash (zoomed past ground, a colour field), strip (tiled small, turned off
+  the sheet's axis), inset (a tight crop held in one region). ⚠ **The recorded failure is the
+  count, not the roles** — *"three pigment cards at 1:1 average into ONE card"* — so six at similar
+  scales is that failure with a bigger number. The three new roles take the scales the first three
+  do not. ⚑ Masked from a **second texture**, never `uComp`'s alpha: a 2D canvas stores
+  premultiplied, which is a recorded and expensive bug in this exact file.
+- ⛔ **TWO ORDERING HAZARDS THAT WOULD HAVE SILENTLY REWRITTEN EVERY SAVED CARD.** (a) The two spot
+  plates are drawn **LAST** in `pull()` — widening the loop from 4 to 6 would have consumed four
+  more numbers *before* the film weights, roller band, phase and starve, so every impression in the
+  deck would land differently. (b) A card saved before today names only `g/m/f`, and requiring all
+  six in the URL **failed `every()` on all of them** — dropping the artist's three chosen plates
+  and reprinting the seeded pick, **with the card still rendering**. Take the leading run; the
+  press pads the rest from its own seed.
+- ⚠ **Only the first three sources are load-bearing.** Requiring all six would mean one 404 on a
+  source the card is not even printing takes the whole card down — and the deck is being
+  clean-slated, so a missing image is a WHEN.
+- ✅ Both toggles ride the existing `DIALS`/`TOGGLES` table, so both save, reload, reach the URL,
+  count against the base and reset **for free**. Both prove **byte-identical round-trips** (0 bytes
+  differ returning to 4 inks / 3 sources).
+
+### ✅ THE NUMBER SAYS HOW THE CARD IS SERVED — and the hundred slots had NEVER laid out
+*Artist: "i name card and save card as a number designating where it lays in the deck and how it
+is served (1-33, 34-100)."* **1–33** are hero 1/1s minted by voucher and built as live HTML lenses;
+**34–100** are render-only field cards `tokenURI(id)` draws without any mint. The panel says which
+one you are making **before** you save — typing the number IS when that decision gets made — the
+grid separates the bands by hue, the deck counts per band, and the record carries it into the JSON.
+- ⛔ **90 OVERLAPPING PAIRS, AND IT PREDATES THIS PASS.** Measured on the build before any of this
+  work: grid **272px**, tracks **24.5px**, cells **44px** — every cell overflowed its track by
+  ~20px and sat on its neighbour, so the hundred slots rendered as a smear.
+  ⚑ **THE CAUSE IS TWO CORRECT RULES MEETING**: `.num` is a `<button>` so it inherits the site's
+  44px tap floor, and **`aspect-ratio:1/1` turns a HEIGHT floor into a WIDTH floor.** Neither rule
+  is wrong. The tap target is bought with COLUMNS now (5 across on a coarse pointer, ~60px).
+  ⚠ The comment that sat there claimed the tap target was handled *"via padding on the row"*.
+  **There was no such padding. A note describing a mechanism that was never built is worse than no
+  note, because it stops the next person looking.**
+- ⛔ **AND `.grp .v` WAS A `float:right`.** The longer deck count (311px in a 340px rail) collapsed
+  the grid to **1px with 2px tracks**, because **a grid container shrinks to avoid a float** the way
+  a BFC root does. The float was correct for every value this panel had ever held, right up until a
+  value got long — the recorded "a layout number derived from content that changed" failure. The
+  label is a flex row now, so a long value wraps instead of eating its neighbour's width.
+
 - ⚑ New press setters: **`setStack(k)`** (layer separation through the card's thickness — 0 is
   coplanar, and it scales rest positions AND travel together, because depth that only appears when
   the card moves is an animation rather than a build) and **`setMotion(key)`** (eight named press
