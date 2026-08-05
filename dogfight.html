@@ -500,8 +500,24 @@
     sfxRoll(); powMsg('◈ SNAP ROLL'); }
 
   // ── net roster (RipNet): who's at the table ──
+  /* ⛔ THESE ARE THE HOUSE, AND THEY MUST READ AS THE HOUSE. Artist, 2026-08-05: "remove bot
+   * examples for online lobby and only those really logged in" — then: "if no one is here, allow
+   * to wager against house and bots", "and in that instance will only be for cards since house
+   * has no funds 3030".
+   * ⚑ SO THE RULE IS NOT "NO BOTS", IT IS "NO BOT WEARING A PERSON'S NAME." A filler pilot given
+   *   a gonzo handle and a win-loss record is indistinguishable from a human at the table, which
+   *   is the one thing a wagering table must never be ambiguous about. Marked `house:true` and
+   *   PREFIXED where the name is read, not in a tooltip — if you have to hover to find out who
+   *   you are betting against, it is not disclosed.
+   * ⚑ AND THE HOUSE CANNOT ANTE WHAT IT DOES NOT HAVE. It holds no $3030, so a table with any
+   *   house pilot on it is CARDS ONLY: the token ante is forced to zero and nothing is burned.
+   *   That is not a restriction bolted on, it falls out of the fiction — and it means a house
+   *   game can never fabricate $3030 into the pot, the burn or the ledger. */
+  const HOUSE_TAG = '⌂ HOUSE';
   const HANDLES=['Raoul Duke','Chuck Meltdown','Baron Von Blazed','Denim Reaper','Cogito Ribbit','Slim Bridger',
     'Duck Loathing','Reservoir Frog','Deltoid Zeus','Bail Denied','Technicolor Yawn','Kitchen Bandido','Rug-Pull Rick','Too Weird To Live'];
+  /* true when any seat at the table is the house — read by the pot maths and by the copy */
+  let houseAtTable=false;
   let roster=[];
   if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
       address:(window.RipWallet&&RipWallet.account())||undefined });
@@ -543,16 +559,33 @@
   }
   function refreshPot(){
     $('anteVal').textContent=wager.ante; $('cardsVal').textContent=wager.cards; $('pickN').textContent=wager.cards;
-    const tokPot=wager.ante*wager.players, cardPot=wager.cards*wager.players;
-    const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
-    const ethSide=(ethW.usdEach>0)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
-    $('potLine').innerHTML=`POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
-    // seat preview from live roster + filler
+    /* ⛔ THE SEATS ARE RESOLVED BEFORE THE POT, and the order is the whole point. The pot used to
+     * be computed first, so it could not know whether it was a human table or a house table —
+     * and a house table must not print a $3030 pot, because the house has none to put in. */
     const others=[]; const seen=new Set([myHandle()]);
     (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified,a:p.address}); } });
-    let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+    let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false,house:true}); }
+    houseAtTable=others.some(o=>o.house);
+
+    /* ⚑ A HOUSE TABLE IS CARDS ONLY. The house holds no $3030, so there is nothing for it to
+     * ante — the token pot is zero and NOTHING BURNS. `wager.ante` itself is left alone so the
+     * number you chose is still there the moment a human sits down; only the EFFECTIVE ante is
+     * zeroed. Zeroing the setting instead would silently rewrite the player's choice, and they
+     * would never know why their ante reset.
+     * ⚑ It also means a house game can never fabricate $3030 into the pot, the burn or the
+     *   ledger — the economy cannot be inflated by playing alone. */
+    const effAnte = houseAtTable ? 0 : wager.ante;
+    const tokPot=effAnte*wager.players, cardPot=wager.cards*wager.players;
+    const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
+    const ethSide=(ethW.usdEach>0 && !houseAtTable)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
+    $('potLine').innerHTML = houseAtTable
+      ? `POT · <span class="c">${cardPot}</span> cards <span style="opacity:.66;font-size:.85em">· ⌂ house table — cards only, no $3030 and nothing burns · podium 50/30/20</span>`
+      : `POT · <b>${potNet.toLocaleString('en-US')}</b> $3030 + <span class="c">${cardPot}</span> cards${ethSide} <span style="opacity:.66;font-size:.85em">· 🔥${potBurn} burned · podium 50/30/20</span>`;
+
     const meA=(window.RipWallet&&RipWallet.account())||null;
-    const seat=o=>(o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
+    const seat=o=>o.house
+      ? '<span style="color:#8b8b98">'+HOUSE_TAG+' '+esc(o.h)+'</span>'
+      : (o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
     $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
     // gate the table button — TWO lanes in: the $3030 burn + full card stake, OR a banked ETH flight
     const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
@@ -693,7 +726,7 @@
     if(G.netMatch){ netP.forEach(p=>others.push({ h:p.handle||('pilot '+String(p.id).slice(2,6)), v:false, net:true, nid:p.id })); }
     else{
       (roster||[]).forEach(p=>{ if(others.length<wager.players-1 && !seen.has(p.handle)){ seen.add(p.handle); others.push({h:p.handle,v:!!p.verified}); } });
-      let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false}); }
+      let hi=0; while(others.length<wager.players-1){ let h; do{ h=HANDLES[(hi++)%HANDLES.length]; }while(seen.has(h)&&seen.size<HANDLES.length); seen.add(h); others.push({h,v:false,house:true}); }
     }
     /* ⛔ `G.gates` WAS NEVER CLEARED — a pre-existing leak, found by the city's own placement
      * assertion rather than by looking. Every other per-match array is reset on this line and
