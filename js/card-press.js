@@ -449,5 +449,9 @@
   global.CardPress = {
     pool: pool, typeSpec: typeSpec, seedFor: seedFor, platesFor: platesFor, stemOf: stemOf,
     live: live, frame: frame, bake: bake, tile: tile, grid: grid, hash: hash,
+    /* exposed for scripts/test-press.mjs: the property this guard defends is asserted ON
+     * the guard, not inferred through three layers of page. Same reason hero-card exposes
+     * `maps()` — a property of a texture belongs measured on the texture. */
+    __hasInk: hasInk,
   };
 })(window);

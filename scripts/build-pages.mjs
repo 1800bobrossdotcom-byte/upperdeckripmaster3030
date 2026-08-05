@@ -286,7 +286,6 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
   }
 </style>
 <script src="/gate.js"></script>
-<script src="/banner.js" defer></script>
 <script src="/js/bg-foil.js" defer></script></head>
 <body>
   <div class="wm">RIPMASTER · 3030 · STUDIOS</div>

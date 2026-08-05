@@ -298,7 +298,22 @@ for (const [tag, w, h, touch] of [['844×390 landscape phone', 844, 390, true],
       for (const c of cls) o[c] = rect(document.querySelector('.' + c));
       return o;
     }, { ids: sel, cls: page_ === 'CLOUD RACER' ? ['h-spd', 'boost', 'ctrls'] : ['controls'] });
-    t(`${page_} ${tag}: the strip publishes its height`, /^\d+px$/.test(r.varPx) && r.varPx !== '0px', r.varPx);
+    /* ⛔ THE STRIP IS GONE (2026-08-05) AND THIS ASSERTION IS GENERALISED, NOT DELETED.
+     *   `banner.js` told visitors to hard-refresh a stale site; the staleness was a cache-header
+     *   bug in vercel.json and is fixed, so the apology came off with it. But "a fixed bar at the
+     *   highest z-index on the site buries the game controls" is a hazard that outlives any one
+     *   bar, and deleting the check would leave the next one unguarded.
+     * ⚑ So the rule is now the TWO LEGITIMATE STATES: either there is no strip at all, or there
+     *   is one and it publishes its height so the pages below can subtract it. What is never
+     *   allowed is a strip that exists and does not measure itself — exactly the state that
+     *   covered RIP ROCKETER's FIRE pad by 28px and 11.1% of CLOUD RACER's screen.
+     * ⚠ The COVERAGE assertions below are untouched and still run. They are trivially satisfied
+     *   while no strip exists, which is fine — they are the ones that must not be deleted,
+     *   because they are what bites the day a bar comes back. */
+    const strip = r.banner && r.banner.shown;
+    t(`${page_} ${tag}: no unmeasured strip is pinned over the controls`,
+      !strip || (/^\d+px$/.test(r.varPx) && r.varPx !== '0px'),
+      strip ? 'strip present, publishes ' + (r.varPx || 'NOTHING') : 'no strip');
     const names = Object.keys(r).filter(k => k !== 'banner' && k !== 'varPx');
     /* ⚠ AND THE CONTROLS HAVE TO BE THERE TO BE CLEAR OF IT. `hit()` is false for an element that
      * is not rendered, so "nothing is covered" is trivially true of a page whose pads have

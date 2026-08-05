@@ -1064,6 +1064,66 @@ typography pass with the recorded cost (documents grew 15–25%), deliberately n
 80 / 94% against a `>= 0.78` bar with worst gaps of 510–610 ms, i.e. the assertion sits inside this
 container's own rAF-stall noise. A single failure there is not a regression until it reproduces.
 
+## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
+*Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
+every file was on the origin, `curl` returned the new bytes, and the newest commit was live.
+- ⛔ **RULE ORDER IN `vercel.json`, AND BOTH RULES WERE INDIVIDUALLY RIGHT.** `/(.*).html` and
+  `/(.*).js` set `must-revalidate`; `/cards/(.*)` sets `max-age=604800` to cache card ARTWORK,
+  which is correct and wanted. **Later rules win**, and `/cards/(.*)` came last — so it silently
+  overrode the document rules for every page, script and manifest under `/cards/`. Measured live:
+  `cards/index.html`, `cards/cardnav.js`, `cards/binder.html`, `cards/lens3d.html`,
+  `cards/manifest.json` and all 196 card pages were `max-age=604800`, while `/index.html` and
+  `/js/*.js` were correctly revalidating. **The fix is a REORDER, not a rewrite.**
+- ⚑ **SO THE PRESS SHIPPED AND WAS UNREACHABLE.** `js/card-press.js` and `js/hero-card.js` live at
+  `/js/`, outside the rule, so they were always fresh. The pages that CALL them were a week old.
+  The modules sat there and nothing invoked them.
+- ⛔ **A HEADER FIX DOES NOT REACH A COPY ALREADY STORED.** A browser told to keep something for a
+  week does not re-ask — it serves what it has, per URL. So after the fix the artist still had to
+  hard-refresh **each card page individually**. There is no server-side remedy for an
+  already-poisoned entry; it expires or the visitor busts it. ⚑ **That makes a bad cache header a
+  DELAYED-ACTION bug: the damage keeps running for its whole max-age after the fix lands.** Verified
+  no service worker exists, so it does self-heal.
+- ⚑ **EVERY SIGNAL POINTED AWAY FROM IT IN THE REASSURING DIRECTION** — commit pushed, deployment
+  live, files 200 with the right content, every dependency present. **The one thing nobody had read
+  was a response HEADER.** Same shape as the redirect outage three days earlier: correct in
+  isolation, wrong in composition.
+- ✅ `npm run test:name` now **RESOLVES** Cache-Control the way the platform does (every match
+  applies, last wins) and asserts the outcome per path rather than that some rule exists. It checks
+  **both directions** — "no document is long-cached" is trivially satisfied by deleting the asset
+  rules and making the site slower, so the artwork is asserted to STAY cached in the same breath.
+  Proved to bite with `git show HEAD:vercel.json`: 1 failure naming all nine stale paths.
+- ⚠ `banner.js`'s "fresh paint ships daily — hard refresh" strip was the studio **living with this
+  bug**. It is still true for anyone poisoned before the fix; remove it after that week.
+
+## ⛔ THE PRESS COULD TAKE A CARD AWAY — the first fail-open violation in this repo
+*Artist: "the cards are not displaying in the viewer, the binder, the binder viewer, or into the
+deck."* `js/card-press.js` replaced a WORKING card with the press's output **before knowing the
+press had produced anything**:
+- `frame()` bound `card3d`'s art plate to the press canvas immediately ⇒ a press that never drew
+  left the 3D card rendering an EMPTY texture, permanently, and the flat plate was already gone.
+- `tile()` assigned `img.src = canvas.toDataURL(...)` unconditionally ⇒ an empty bake painted a
+  blank rectangle over a good card.
+⚑ **Everything else here is allowed to be absent** — no WebGL2, no engine, a blocked script, a 404
+on a manifest — and the page is still the page it was. **This was the first thing in the repo that
+could make the page WORSE by failing**, and it is invisible by construction: nothing throws,
+nothing 404s, and the probe reports a live press with the right three plates on it.
+- ⚠ **"NOT BLANK" IS NOT "ALPHA > 0".** The press's stock is near-white, so a canvas cleared to
+  paper is **fully opaque and completely empty**. The test is that the pixels **VARY** — a card is
+  a picture and a picture has tonal range; a flat fill of any colour has none.
+- ⛔ **I HAD THE EVIDENCE AND MISREAD IT.** Card 44 in the pockets, cards 1 and 6 in the rip fan and
+  several deck tiles came back near-blank in my own screenshots; I recorded them as "pale ink" and
+  went hunting a specular wash. They were empty bakes. **A measurement that explains away a visible
+  defect is worse than no measurement.**
+- ✅ **`npm run test:press` (10) — and the only assertion that means anything is a SABOTAGE.** "Does
+  the press work" was always yes; the question is what happens when it does not, and you cannot ask
+  that of a healthy press. The suite builds a press that is correct in every way and renders
+  nothing. Before: deck browser **0/8** cards surviving, pockets **0/8**. After: **8/8** and
+  **8/8**. ⚠ It asserts BOTH directions — a guard that never engages loses no cards either, so a
+  healthy press must still visibly press (49 pressed). ⚑ That second assertion **passed on the
+  broken build**, which is exactly why it could never have been the test on its own.
+- ⚠ **STILL OPEN: why the press draws nothing on the artist's machine.** The guard makes it
+  harmless, not explained. `cards/proof.html` is the press ALONE and is the one-look discriminator.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
