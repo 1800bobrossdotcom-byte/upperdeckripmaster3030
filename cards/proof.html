@@ -489,6 +489,21 @@ frame and seed are left alone">RESET TO BASE</button>
 
     <!-- ⛔ THE PLATE SEPARATOR — artist, 2026-08-05: "i need my plate separator to have up to 6
          plates … a toggle that just creates the card with 6 plates as before." -->
+    <!-- ⛔ THE PRINTER'S FURNITURE, OFF BY DEFAULT — artist, 2026-08-05: "why do all the cards
+         have this registration marking over them diminishing their quality? I turn them to zero
+         and they are still there."  Because they were never the registration DIAL: that offsets
+         the ink plates, while these are struck marks. Two different things the page called
+         registration, and only one of them had a control. Now they both do. -->
+    <div class="grp">
+      <label>PRINTER'S MARKS <span class="v" id="vMarks">off</span></label>
+      <div class="row"><button type="button" id="marks">MARKS OFF</button></div>
+      <div class="note">the four <strong>crop targets</strong> at the corners and the
+        <strong>colour bar</strong> down the trim. ⚠ These are not the registration dial and
+        turning that to 0 was never going to remove them — they are marks a printer strikes on a
+        <em>check</em> sheet, and on a finished card they read as damage. Off is the default; the
+        window hairline and the border sorts are the card's frame and always stay.</div>
+    </div>
+
     <div class="grp">
       <label>THE SEPARATION <span class="v" id="vInks">4 plates</span></label>
       <div class="row"><button type="button" id="inks">FOUR PLATES · C M Y K</button></div>
@@ -997,6 +1012,9 @@ frame and seed are left alone">RESET TO BASE</button>
       put: function (c, v) { c.setSpin(v); } },
     { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
       put: function (c, v) { c.setEnv(v); } },
+    /* the plate-proof furniture — base OFF, because these belong to a check sheet */
+    { id: 'marks', k: 'marks', d: 0, on: 'MARKS ON', off: 'MARKS OFF',
+      put: function (c, v) { c.setMarks(!!v); } },
     { id: 'inks', k: 'inks', d: 0, on: 'SIX PLATES · + O G', off: 'FOUR PLATES · C M Y K',
       put: function (c, v) { c.setInks(v ? 6 : 4); },
       say: function (on) { return on ? '6 plates' : '4 plates'; } },
@@ -1281,8 +1299,26 @@ frame and seed are left alone">RESET TO BASE</button>
         var o = document.createElement('option'); o.value = k; o.textContent = k; mo.appendChild(o);
       });
       mo.value = Q.get('mot') || '';
+      /* ⛔ CHOOSING A MOTION HAS TO SHOW YOU THE MOTION — artist, 2026-08-05: *"the motion is not
+       * previewing."* It was not, and the cause is the base card: the press is STOPPED at base
+       * (which is correct, and is the brief's own acceptance 2), so `setMotion` loaded a press
+       * failure onto a cylinder that was not turning and the card sat there. Every one of the
+       * eight looked identical, because none of them was running.
+       * ⚑ PICKING ONE STARTS THE PRESS. Choosing a motion is a request to see it — there is no
+       *   other reason to touch that control — so the toggle follows the choice rather than
+       *   making you find a second control to make the first one do anything. Going back to
+       *   `seeded` stops it again, so the base is still one click away and STOPPED still means
+       *   stopped. ⚠ Through the same TOGGLES row the button uses, so the label, the URL, the
+       *   base count and the press all move together; poking `setSpin` directly here would put
+       *   the panel and the card in different states, which is the divergence this file keeps
+       *   re-learning. */
       mo.addEventListener('change', function () {
         if (ctrl) { try { ctrl.setMotion(mo.value || null); } catch (e) {} }
+        var spin = document.getElementById('spin');
+        if (spin) {
+          var want = !!mo.value;
+          if ((spin.getAttribute('aria-pressed') !== 'false') !== want) spin.click();
+        }
         showMotion(); stamp();
       });
     }

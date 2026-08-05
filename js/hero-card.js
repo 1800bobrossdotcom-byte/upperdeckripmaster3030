@@ -393,28 +393,57 @@
    * which passes "did it move" and is not depth — that is asserted separately.
    */
   const c1 = p => (1 - Math.cos(TAU * p)) * 0.5;        // 0 at the wrap, 1 at half — smooth both ends
+  /* ⛔ EACH MOTION OWNS A DIFFERENT AXIS — artist, 2026-08-05: *"the motion needs to be more
+   * distinct for each one."* He is right and the table said why: `roller`, `flutter` and
+   * `dry-down` were all THE SAME CHANNEL, an ink multiplier oscillating, differing only in range
+   * and rate — 0.82..1.16, 0.85..1.05, 0.74..1.14. Three of eight named press failures rendered
+   * as "the card gets a bit lighter, a bit faster or a bit slower", which is one motion with
+   * three names. And `slur`, the only one that moved the sheet SIDEWAYS, did it by 1.1% of the
+   * card, i.e. under a millimetre at card size.
+   * ⚑ THERE ARE FIVE VISIBLE AXES HERE AND THEY WERE NOT BEING SPENT: ink density (x), lateral
+   *   slip (y), the ghost strike (z), the write-on front (w), and the z-ripple amplitude that
+   *   `amp` drives through the stack. Every motion now leads on a DIFFERENT one and is pushed far
+   *   enough to read, and the ones that share an axis differ in SHAPE — a spike is not a swell.
+   * ⚠ Amplitude is not the whole of it: `sharp` and `dwell` below make two motions on the same
+   *   channel read differently even at the same range, which is what stops this becoming eight
+   *   sine waves again. */
+  const sharp = p => Math.pow(c1(p), 3.2);              // a snap: flat, then a sudden landing
+  const dwell = p => Math.pow(c1(p), 0.42);             // a swell that sits at the top
   const MOTIONS = [
-    { key: 'impression',                                 // the plates land together, once a cycle
-      lead: [0.00, 0.62, 0.28, 0.45], amp: 1.00,
-      mot: p => [1, 0, 0, 1] },
-    { key: 'roller',                                     // ink band travels: over-ink, then starve
-      lead: [0.00, 0.35, 0.70, 0.15], amp: 0.55,
-      mot: p => [0.82 + 0.34 * c1(p), 0, 0, 1] },
-    { key: 'slur',                                       // the sheet moves under the blanket
-      lead: [0.00, 0.20, 0.55, 0.80], amp: 0.45,
-      mot: p => [1, 0.011 * Math.sin(TAU * p), 0, 1] },
-    { key: 'doubling',                                   // the cylinder bounces and strikes twice
-      lead: [0.00, 0.50, 0.25, 0.75], amp: 0.40,
-      mot: p => [1, 0, c1(p), 1] },
-    { key: 'flutter',                                    // web tension: the stock ripples in z
-      lead: [0.00, 0.12, 0.24, 0.36], amp: 1.35,
-      mot: p => [0.95 + 0.10 * Math.cos(TAU * 2 * p), 0, 0, 1] },
-    { key: 'dry-down',                                   // the film sinks into the stock, recovers
-      lead: [0.00, 0.44, 0.88, 0.22], amp: 0.30,
-      mot: p => [0.74 + 0.40 * c1(p), 0, 0, 1] },
-    { key: 'makeready',                                  // the operator is still getting it right
-      lead: [0.00, 0.66, 0.33, 0.90], amp: 0.85,
-      mot: p => [0.88 + 0.24 * c1(p), 0.006 * Math.sin(TAU * p), 0.35 * c1(p), 1] },
+    /* THE BEAT — everything snaps flat once a cycle. Leads on the STACK (amp), with a hard ink
+     * spike exactly at the landing, so the whole card resolves in one frame and drifts apart. */
+    { key: 'impression',
+      lead: [0.00, 0.62, 0.28, 0.45], amp: 1.75,
+      mot: p => [0.90 + 0.28 * sharp(p), 0, 0, 1] },
+    /* THE ROLLER — ink density, swung hard and held. Over-inks to solid, then runs dry. */
+    { key: 'roller',
+      lead: [0.00, 0.35, 0.70, 0.15], amp: 0.30,
+      mot: p => [0.52 + 0.86 * dwell(p), 0, 0, 1] },
+    /* THE SLUR — the sheet moves under the blanket. Leads on LATERAL SLIP, and at 1.1% nobody
+     * could see it; 4.4% is a smear you can read across the card. */
+    { key: 'slur',
+      lead: [0.00, 0.20, 0.55, 0.80], amp: 0.25,
+      mot: p => [1, 0.044 * Math.sin(TAU * p), 0, 1] },
+    /* THE BOUNCE — the cylinder strikes twice. Leads on the GHOST, and the ghost gets its own
+     * small counter-slip so the second impression is visibly beside the first, not on top. */
+    { key: 'doubling',
+      lead: [0.00, 0.50, 0.25, 0.75], amp: 0.22,
+      mot: p => [1, -0.012 * sharp(p), 0.35 + 0.65 * dwell(p), 1] },
+    /* THE FLUTTER — web tension. Leads on the STACK at DOUBLE RATE with the ink held still, so
+     * it is unmistakably a ripple through the card rather than a change of inking. */
+    { key: 'flutter',
+      lead: [0.00, 0.12, 0.24, 0.36], amp: 2.20,
+      mot: p => [1, 0.008 * Math.sin(TAU * 3 * p), 0, 1] },
+    /* THE DRY-DOWN — the film sinks into the stock. Same channel as the roller and deliberately
+     * the opposite SHAPE: a slow deep sink that lingers at the bottom instead of the top. */
+    { key: 'dry-down',
+      lead: [0.00, 0.44, 0.88, 0.22], amp: 0.12,
+      mot: p => [1.18 - 0.66 * dwell(p), 0, 0, 1] },
+    /* THE MAKEREADY — everything wrong at once. The only motion that spends FOUR axes together,
+     * which is what makes "the operator is still getting it right" legible as a state. */
+    { key: 'makeready',
+      lead: [0.00, 0.66, 0.33, 0.90], amp: 1.05,
+      mot: p => [0.72 + 0.46 * c1(p), 0.026 * Math.sin(TAU * 2 * p), 0.55 * sharp(p), 1] },
     /* ⛔ THE ONE THAT WRITES ITSELF ON, and it is the only motion whose loop is a REPRINT: the
      * sheet feeds through, the impression lands top to bottom, the card sits finished for most of
      * the cycle, and then the next sheet starts. So `w` rests at 1 and dips — a card you catch
@@ -485,7 +514,7 @@
     }
   }
 
-  function buildType(spec, seed, N, sheet, name, rarity, sub) {
+  function buildType(spec, seed, N, sheet, name, rarity, sub, marks) {
     const c = document.createElement('canvas');
     c.width = N; c.height = Math.round(N * 1.5);
     const g = c.getContext('2d');
@@ -495,20 +524,34 @@
     const rc = rng((seed ^ 0x27D4EB2F) + sheet * 104729);
     drawCreases(g, W, H, rc);                                // B
 
-    // ── G · the trim marks ────────────────────────────────────────────────────────────────
+    /* ── G · the trim marks ──────────────────────────────────────────────────────────────
+     * ⛔ OFF BY DEFAULT — artist, 2026-08-05: *"why do all the cards have this registration
+     * marking over them diminishing their quality? I turn them to zero and they are still
+     * there."* They are still there because they are NOT the registration dial: that dial offsets
+     * the ink plates, while these are printed MARKS — four crop targets and a colour bar struck
+     * into the trim. Two different things a page called "registration" in two places, and only
+     * one of them had a control.
+     * ⚑ They belong to a PLATE PROOF, which is a sheet a printer pulls to check a job — not to a
+     *   finished card. On the hundred they are furniture from the wrong stage of the process, so
+     *   the default is off and wanting them is the thing you say.
+     * ⚠ The window hairline and the border sorts are NOT marks and are never gated: those are the
+     *   card's frame, and the rarity tier is read off them. */
+    if (marks) {
+      g.strokeStyle = 'rgb(0,255,0)'; g.fillStyle = 'rgb(0,255,0)';
+      g.lineWidth = Math.max(1, W * 0.0035);
+      for (const [tx, ty] of [[m * 0.48, m * 0.48], [W - m * 0.48, m * 0.48],
+        [m * 0.48, H - m * 0.48], [W - m * 0.48, H - m * 0.48]]) {
+        const rr = m * 0.26;
+        g.beginPath(); g.arc(tx, ty, rr, 0, TAU); g.stroke();
+        g.beginPath(); g.moveTo(tx - rr * 1.8, ty); g.lineTo(tx + rr * 1.8, ty);
+        g.moveTo(tx, ty - rr * 1.8); g.lineTo(tx, ty + rr * 1.8); g.stroke();
+      }
+      // the colour bar, down the right-hand trim: four solids in plate order
+      for (let i = 0; i < 4; i++) {
+        g.fillRect(W - m * 0.72, H * 0.34 + i * m * 0.62, m * 0.44, m * 0.44);
+      }
+    }
     g.strokeStyle = 'rgb(0,255,0)'; g.fillStyle = 'rgb(0,255,0)';
-    g.lineWidth = Math.max(1, W * 0.0035);
-    for (const [tx, ty] of [[m * 0.48, m * 0.48], [W - m * 0.48, m * 0.48],
-      [m * 0.48, H - m * 0.48], [W - m * 0.48, H - m * 0.48]]) {
-      const rr = m * 0.26;
-      g.beginPath(); g.arc(tx, ty, rr, 0, TAU); g.stroke();
-      g.beginPath(); g.moveTo(tx - rr * 1.8, ty); g.lineTo(tx + rr * 1.8, ty);
-      g.moveTo(tx, ty - rr * 1.8); g.lineTo(tx, ty + rr * 1.8); g.stroke();
-    }
-    // the colour bar, down the right-hand trim: four solids in plate order
-    for (let i = 0; i < 4; i++) {
-      g.fillRect(W - m * 0.72, H * 0.34 + i * m * 0.62, m * 0.44, m * 0.44);
-    }
     g.lineWidth = Math.max(1, W * 0.0028);
     g.strokeRect(win.x, win.y, win.w, win.h);                // the window's own hairline
     drawBorder(g, spec, rng(seed ^ 0x1B873593), W, H, m, rarity);
@@ -934,10 +977,23 @@ vec3 artAt(vec2 u, vec2 par) {
    * ⚠ At stack 0 every uElemZ is 0, so every offset is exactly 0 and the base card is untouched.
    * ⚠ These are applied INSIDE artAt, identically for every ink plate, so the difference BETWEEN
    *   plates is still only the registration vector and acceptance 4 is unaffected. */
-  vec2 uG = zuv(u, uElemZ.x) + par * uElemZ.x + vec2(-0.086, -0.050) * uElemZ.x;
-  vec2 uM = zuv(u, uElemZ.y) + par * uElemZ.y + vec2( 0.074, -0.092) * uElemZ.y;
-  vec2 uF = zuv(u, uElemZ.z) + par * uElemZ.z + vec2( 0.098,  0.062) * uElemZ.z;
-  vec2 uT = zuv(u, uElemZ.w) + par * uElemZ.w + vec2(-0.040,  0.086) * uElemZ.w;
+  /* ⛔ THE SLIDE HAS TO BEAT THE ZOOM, AND FIRST TIME ROUND IT DID NOT — artist, twice: *"these
+   * are not separated layers it is just zooming in"*, then *"the layer separation is still not
+   * working (just still zooming in)."* Adding a lateral offset was the right move and the
+   * MAGNITUDES made it pointless. Measured at LAYERS 2.5: the figure was magnified 1.61x while
+   * sliding 6% of the card — the zoom was roughly TEN TIMES the slide, so the slide was a
+   * rounding error on a zoom and the control read exactly as it had before.
+   * ⚑ SO DEPTH KEEPS ONLY A HINT OF ITS MAGNIFICATION (ZS below) and spends the rest as travel.
+   *   The figure now magnifies ~1.11x and slides ~17% of the card: still unmistakably deeper —
+   *   perspective is what tells you which layer is on top — but what you SEE is the layers coming
+   *   apart, which is the thing the control is named after.
+   * ⚠ Ground stays at ZBASE 0 and therefore never moves at all: it is the sheet the rest are
+   *   stacked on, and a reference that drifts is not a reference. */
+  const float ZS = 0.18;              // how much of the depth is spent on magnification
+  vec2 uG = zuv(u, uElemZ.x * ZS) + par * uElemZ.x + vec2(-0.255, -0.150) * uElemZ.x;
+  vec2 uM = zuv(u, uElemZ.y * ZS) + par * uElemZ.y + vec2( 0.220, -0.275) * uElemZ.y;
+  vec2 uF = zuv(u, uElemZ.z * ZS) + par * uElemZ.z + vec2( 0.290,  0.185) * uElemZ.z;
+  vec2 uT = zuv(u, uElemZ.w * ZS) + par * uElemZ.w + vec2(-0.120,  0.255) * uElemZ.w;
 
   /* ⛔ THE THREE SOURCES ARE SAMPLED AT THREE DIFFERENT SCALES, and that is not a look — it is
    * the difference between a composition and a filter. The first cut took all three at roughly
@@ -1480,6 +1536,11 @@ void main(void) {
        *   went back to `o.rarity` would silently revert the chosen frame the first time the press
        *   advanced, which is the bug this comment's neighbour was written about. */
       let RAR = o.rarity;
+      /* ⛔ THE PRINTER'S MARKS, OFF UNLESS ASKED FOR. Held beside RAR and for the identical
+       * reason: `pull(0)` and the first type bake both run ABOVE the `const S` block, so
+       * reading this off S would throw in the temporal dead zone and take the whole card down
+       * before anything existed to report it. Fourth sighting of that trap in this repo. */
+      let MARKS = !!o.marks;
 
       /* ── ⚑ TEMPERAMENT — the same market, worn differently ──────────────────────────────
        * Studied off RELICS (docs/RELICS-STUDY.md): the market falls for all of them at once,
@@ -1542,7 +1603,7 @@ void main(void) {
       let texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let comp2Canvas = buildComp2(seed, 512);
       let texComp2 = texFrom(gl, comp2Canvas, UNIT.uComp2);
-      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub), UNIT.uType);
+      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
       /* the reverse. Rebuilt whenever the words, the number or the seed change — it carries
@@ -1605,7 +1666,7 @@ void main(void) {
         }
         sheetState.film.push(0.78 + r() * 0.30, 0.78 + r() * 0.30);
         gl.deleteTexture(texType);
-        texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
+        texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
       }
       pull(0);
 
@@ -1924,6 +1985,21 @@ void main(void) {
          *   This is the character that used to arrive whether or not anybody asked for it. */
         setPress: v => { S.press = clamp(v, 0, 1); },
 
+        /* ── THE PLATE-PROOF FURNITURE ────────────────────────────────────────────────────
+         * `setMarks(true)` puts the crop targets and the colour bar back. Off is the default:
+         * they are what a printer strikes on a CHECK sheet, and on a finished card they read as
+         * damage. Rebakes the type plate at the current sheet, exactly like setText and setRarity
+         * — same sheet in, same sheet out, so the impression is untouched. */
+        setMarks: on => {
+          const want = !!on;
+          if (want === MARKS) return false;
+          MARKS = want;
+          gl.deleteTexture(texType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
+          render();
+          return true;
+        },
+
         /* ANIMATED — which press failure this card performs. Eight named presets, and the list
          * is READ from the module rather than typed into the UI, so adding a ninth does not need
          * an edit in two places. `null` hands it back to the seed. */
@@ -1962,7 +2038,7 @@ void main(void) {
           if (typeof t.number === 'number') TEXT.number = t.number | 0;
           rebake();
           gl.deleteTexture(texType);
-          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
           render();
         },
         text: () => ({ name: TEXT.name, sub: TEXT.sub, number: TEXT.number }),
@@ -1983,7 +2059,7 @@ void main(void) {
           if (typeof r !== 'string' || !r || r === RAR) return false;
           RAR = r;
           gl.deleteTexture(texType);
-          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
+          texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
           render();
           return true;
         },
@@ -2122,7 +2198,7 @@ void main(void) {
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
-          inks: S.inks, pigs: S.pigs, press: S.press,
+          inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
           faceUp: S.faceUp, number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
           rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,

@@ -796,10 +796,24 @@ if (!R.built) {
     R.loop.seam < R.loop.mid * 1.6,
     `a 0.008-cycle step costs ${R.loop.seam.toFixed(2)} at the wrap vs ${R.loop.mid.toFixed(2)} ` +
     `mid-cycle (a sawtooth blows this up)`);
-  t('p · the impression moves in Z — it grows with radius, unlike registration',
-    Math.abs(R.zmove.cos) > 0.5 && R.zmove.far > R.zmove.near * 1.6,
-    `cos ${R.zmove.cos.toFixed(2)} (registration's is ~0) · edge ${R.zmove.far.toFixed(1)} px ` +
-    `vs centre ${R.zmove.near.toFixed(1)} px`);
+  /* ⛔ THIS ASSERTION WAS INVERTED ON PURPOSE, 2026-08-05, AND THE OLD ONE IS WHY THE CONTROL WAS
+   * BROKEN. It used to demand that the stack's displacement be RADIAL and GROW WITH RADIUS
+   * (|cos| > 0.5, edge > 1.6x centre) — the signature of a magnification about the frame centre,
+   * which is precisely what a zoom is. It passed for months, and the artist's report was *"these
+   * are not separated layers it is just zooming in."* The test was faithfully describing the bug.
+   * ⚑ A STACK THAT SEPARATES MUST MOVE ITS CENTRE. A zoom about the middle cannot: at zero
+   *   eccentricity a magnification displaces nothing, so a card whose centre is still is a card
+   *   that is only being scaled. Measured after the fix: centre 22.6 px against edge 17.0, i.e.
+   *   the uniform slide now dominates the magnification hint rather than the other way round.
+   * ⚠ AND THE DISTINCTION FROM REGISTRATION DID NOT GO WITH IT — it moved to the assertion below,
+   *   which requires the four elements to sit at four DIFFERENT depths. That is the thing
+   *   registration can never do: registration offsets ink plates and is identical for every
+   *   element, while the stack offsets elements and is identical for every ink. Losing the radius
+   *   test costs nothing because the per-element test carries the claim. */
+  t('p · the stack SEPARATES — the centre travels, so it is not a zoom about the centre',
+    R.zmove.near > 3 && Math.abs(R.zmove.cos) < 0.85,
+    `centre ${R.zmove.near.toFixed(1)} px · edge ${R.zmove.far.toFixed(1)} px · ` +
+    `cos ${R.zmove.cos.toFixed(2)} (a pure zoom is centre ~0, |cos| ~1)`);
   /* ⚑ "Did it move" is the weak question again — a global zoom passes it and is not depth. What
    * bites is that the four elements are at DIFFERENT depths at the same instant. */
   t('p · this card draws a named motion of its own', typeof R.motionKey === 'string' &&
