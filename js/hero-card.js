@@ -1588,6 +1588,7 @@ void main(void) {
         stack: 1,        // how far the four elements separate through the card's thickness
         inks: 4,         // 4 = C M Y K · 6 = + orange and green, each on its own screen
         pigs: 3,         // 3 = ground/mid/figure · 6 = + wash, strip, inset
+        press: 0,        // the impression's own character: 0 = a clean pull, 1 = as it printed
         faceUp: true,    // which way up it is sitting
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
@@ -1665,7 +1666,24 @@ void main(void) {
         const focal = (asp > 2 / 3) ? (0.96 * D / 1.5) : (0.96 * D * asp);
         gl.uniform2f(u.proj, focal / asp, focal);
         gl.uniform2fv(u.reg, new Float32Array(sheetState.reg));
-        gl.uniform1fv(u.film, new Float32Array(sheetState.film));
+        /* ── ⛔ RAW MEANS RAW — artist, 2026-08-05: *"cards need to be raw on editor."* ────────
+         * Registration and burn were already at zero and the card was STILL not raw, because
+         * three of the press's characteristics were gated by nothing at all: the per-plate ink
+         * FILM (measured at base: 0.947 / 1.053 / 0.975 / 1.03 — uneven inking), the roller BAND,
+         * and the roller STARVE. All three are drawn fresh on every impression and were applied
+         * unconditionally, so "no changes applied" still printed a sheet with uneven ink, a band
+         * across it and a dry patch.
+         * ⚑ THE TELL WAS THAT THE DIALS READ ZERO AND THE CARD DID NOT LOOK IT. A control panel
+         *   showing base while the press prints character is the same divergence that hid the
+         *   live-chain bug — the panel was honest about everything it knew about, and these three
+         *   were not on it.
+         * ⚠ SO THE IMPRESSION'S CHARACTER IS A DIAL NOW, not a constant. At 0 the sheet takes an
+         *   even film, no band and no starve — a clean pull. At 1 it prints with the character
+         *   this impression actually drew. The numbers are unchanged; what changed is that
+         *   reaching them is a decision. */
+        const pw = S.press;
+        gl.uniform1fv(u.film, new Float32Array(
+          sheetState.film.map(f => 1 + (f - 1) * pw)));
         gl.uniform1i(u.nInk, S.inks);
         /* ⚠ the split is what the spot plates TAKE, so it only has meaning at six. Held below 1
          * because an ink that took the whole overlap would leave magenta and yellow with nothing
@@ -1682,8 +1700,12 @@ void main(void) {
          * out, per card — and the ratios between the four plates are now this card's rather than
          * the renderer's, so one sheet loses its cyan first and another its key. */
         const bT = S.burn;
+        /* ⚠ the BAND is a frequency and the STARVE is an amplitude — scaling the frequency
+         *   would just make the banding finer, so it is the starve (which multiplies it in the
+         *   shader) that has to go to zero for a clean pull. Burn's own contribution is left
+         *   alone: that is damage the collector asked for, not the sheet's character. */
         gl.uniform4f(u.press, 170 * (1 - 0.10 * bT * TEMPER.screen), sheetState.band,
-                     sheetState.phase, sheetState.starve + 0.20 * bT * TEMPER.starve);
+                     sheetState.phase, sheetState.starve * pw + 0.20 * bT * TEMPER.starve);
         gl.uniform4f(u.dmg, clamp(bT * TEMPER.plate[0], 0, 1), clamp(bT * 0.9 * TEMPER.plate[1], 0, 1),
                             clamp(bT * 0.5 * TEMPER.plate[2], 0, 1), clamp(bT * TEMPER.plate[3], 0, 1));
         gl.uniform4f(u.foilP, 1.55, 0.30, 1.0 + 0.55 * S.price * TEMPER.foil, 0.34);
@@ -1739,7 +1761,14 @@ void main(void) {
          * handled or opened, and it MULTIPLIES INTO the motion's own write-on — so every card
          * prints itself on the way in, and the one motion that reprints keeps doing it forever.
          * Two different events, one mechanism, and neither has to know about the other. */
-        const mv = MOTION.mot(S.phase);
+        /* ⛔ AND THE MOTION IS LERPED TO ITS OWN NO-OP, because whether a stopped press was
+         *   neutral DEPENDED ON WHICH FAILURE THE SEED DREW. `slur` at phase 0 is [1,0,0,1] and
+         *   harmless; `roller` and `dry-down` open at 0.82 and 0.74 on the ink multiplier, so
+         *   the same "base" card printed lighter or heavier purely by seed. A base that is not
+         *   the same base on every card is not a base. [1,0,0,·] is the identity here: full ink,
+         *   no slur, no doubling. */
+        const mvRaw = MOTION.mot(S.phase);
+        const mv = [1 + (mvRaw[0] - 1) * pw, mvRaw[1] * pw, mvRaw[2] * pw, mvRaw[3]];
         gl.uniform4f(u.mot, mv[0], mv[1], mv[2], Math.min(mv[3], S.arrive));
         /* ⚑ AND IT BREATHES WITH THE PRESS. The higher the tier the more the frame answers the
          * cycle — at the impression the foil is flat to the sheet, away from it the border lifts
@@ -1846,6 +1875,13 @@ void main(void) {
          * be a toggle you flick back and forth while looking at the card, which is the whole
          * point of it being a toggle rather than a rebuild. */
         setPigs: n => { S.pigs = (n | 0) === 6 ? 6 : 3; return S.pigs; },
+
+        /* ── HOW HARD THE PRESS RAN ───────────────────────────────────────────────────────
+         * 0 is a clean pull: even film across every plate, no roller band, no starve, and the
+         * motion sitting at its own identity. 1 is the impression as this sheet actually drew it.
+         * ⚠ It does NOT touch registration or burn — those have their own dials and always did.
+         *   This is the character that used to arrive whether or not anybody asked for it. */
+        setPress: v => { S.press = clamp(v, 0, 1); },
 
         /* ANIMATED — which press failure this card performs. Eight named presets, and the list
          * is READ from the module rather than typed into the UI, so adding a ninth does not need
@@ -2045,7 +2081,7 @@ void main(void) {
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
-          inks: S.inks, pigs: S.pigs,
+          inks: S.inks, pigs: S.pigs, press: S.press,
           faceUp: S.faceUp, number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
           rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,

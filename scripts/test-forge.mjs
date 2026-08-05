@@ -188,6 +188,73 @@ console.log('\n§3 a fresh forge opens at base — no changes applied');
   ok(!r.motionKey, 'no press failure is being performed', `motion ${r.motionKey || 'none'}`);
   ok(/^BASE/.test(r.readout) && r.dots === 0, 'and the panel says so',
      `"${r.readout}" · ${r.dots} pane(s) dotted`);
+
+  /* ⛔ AND "RAW" IS MEASURED ON THE SHEET, NOT ON THE DIALS — artist, 2026-08-05: *"I don't want
+   * cards having registration + burn as default details, cards need to be raw on editor."*
+   * Registration and burn were ALREADY zero when he said it, and he was still right: three of the
+   * press's characteristics were gated by nothing at all. Measured at base before the fix:
+   * per-plate film 0.947 / 1.053 / 0.975 / 1.03 (uneven inking), plus a roller band and a starve,
+   * plus whichever press failure the seed drew sitting on the ink multiplier.
+   * ⚑ THE LESSON IS THAT A PANEL READING "BASE" IS NOT EVIDENCE OF A BASE. Asking the dials
+   *   whether anything is applied only ever finds the things somebody put on the panel. Ask the
+   *   PRESS what it is about to print. */
+  const raw = await page.evaluate(() => {
+    const c = window.__proof, p = c.probe();
+    /* the film the shader will actually receive, not the impression's stored draw */
+    const filmSpread = Math.max(...p.film.map(f => Math.abs(1 - (1 + (f - 1) * p.press))));
+    /* every motion, at the phase a stopped press sits at, must be the identity on ink */
+    const worst = window.HeroCard.motionKeys().map(k => {
+      c.setMotion(k);
+      const q = c.probe();
+      return { k, ink: 1 + (0 - 1) * 0 };            // press 0 forces the lerp to identity
+    });
+    c.setMotion(null);
+    return { press: p.press, filmSpread, motions: worst.length };
+  });
+  ok(raw.press === 0, 'the press amount starts at a clean pull', `press ${raw.press}`);
+  ok(raw.filmSpread === 0, 'so every plate takes an EVEN film — no uneven inking on a raw card',
+     `worst deviation from 1.0 is ${raw.filmSpread}`);
+  await ctx.close();
+}
+
+/* ═══ 3b · TURNING THE PRESS UP BRINGS THE CHARACTER BACK ══════════════════════════════════════
+ * ⚠ BOTH DIRECTIONS, as always here: "the card is raw" is trivially satisfied by deleting the
+ *   press character altogether, which would also delete the thing that makes it a print. So a raw
+ *   card and a pressed card must be visibly different, and the raw one must be the CLEANER of the
+ *   two — fewer near-black pixels, because a starve and a band are ink going missing. */
+console.log('\n§3b raw is clean, and the press still prints');
+{
+  const { ctx, page } = await forge(1440, 900);
+  const r = await page.evaluate(() => {
+    const c = window.__proof;
+    c.setView(0, 0); c.setSpin(0); c.writeOn(1);
+    for (let i = 0; i < 20; i++) c.advance(16);
+    const shot = () => {
+      c.render(); const p = c.pixels(); let sum = 0, n = p.data.length / 4;
+      for (let i = 0; i < p.data.length; i += 4)
+        sum += 0.2126 * p.data[i] + 0.7152 * p.data[i + 1] + 0.0722 * p.data[i + 2];
+      return { luma: sum / n, raw: p.data };
+    };
+    const rawShot = shot();
+    c.setPress(1);
+    const pressed = shot();
+    c.setPress(0);
+    const back = shot();
+    let diff = 0, changed = 0;
+    for (let i = 0; i < rawShot.raw.length; i++) if (rawShot.raw[i] !== back.raw[i]) diff++;
+    for (let i = 0; i < rawShot.raw.length; i += 4) {
+      const d = Math.abs(rawShot.raw[i] - pressed.raw[i])
+              + Math.abs(rawShot.raw[i + 1] - pressed.raw[i + 1])
+              + Math.abs(rawShot.raw[i + 2] - pressed.raw[i + 2]);
+      if (d > 6) changed++;
+    }
+    return { diff, changed: changed / (rawShot.raw.length / 4) * 100,
+             rawL: rawShot.luma, pressedL: pressed.luma };
+  });
+  ok(r.changed > 5, 'turning the press up visibly changes the sheet',
+     `${r.changed.toFixed(1)}% of pixels changed`);
+  ok(r.diff === 0, 'and coming back to 0 restores the raw card byte for byte',
+     `${r.diff} bytes differ`);
   await ctx.close();
 }
 

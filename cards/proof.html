@@ -446,6 +446,22 @@ frame and seed are left alone">RESET TO BASE</button>
     <section class="pane" data-pane="press" role="tabpanel" aria-label="the press" hidden>
     <h2 class="sec">THE PRESS · HOW BADLY IT PRINTED</h2>
 
+    <!-- ⛔ RAW MEANS RAW — artist, 2026-08-05: "cards need to be raw on editor like asked."
+         Registration and burn were already at zero and the card still was not raw: the per-plate
+         ink film, the roller band and the roller starve were applied whether or not anyone asked,
+         and the seeded press failure sat on the ink multiplier. They are one dial now, and it
+         starts at 0. -->
+    <div class="grp">
+      <label>PRESS <span class="v" id="vPress">0.00</span></label>
+      <input type="range" id="press" min="0" max="1" step="0.01" value="0">
+      <div class="note">at <strong>0 the sheet takes a clean pull</strong> — even ink across every
+        plate, no roller band, no dry patch, and the press failure sitting still at its own
+        identity. That is the raw card. Turn it up and the impression prints with the character it
+        actually drew. ⚠ This is separate from <strong>burn</strong> (damage the market did) and
+        <strong>registration</strong> (the paper going through askew) — both have their own dials
+        and always did.</div>
+    </div>
+
     <div class="grp">
       <label>BURN <span class="v" id="vBurn">0.00</span></label>
       <input type="range" id="burn" min="0" max="1" step="0.01" value="0">
@@ -948,6 +964,8 @@ frame and seed are left alone">RESET TO BASE</button>
     { id: 'reg',    k: 'reg',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
     { id: 'rad',    k: 'rad',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
     { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
+    /* the impression's own character — base 0 is a clean pull, which is what "raw" means */
+    { id: 'press',  k: 'press', d: 0,   dp: 2, put: function (c, v) { c.setPress(v); } },
     { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
     { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
       unit: '°' },
