@@ -1237,6 +1237,8 @@ void main(void) {
         px: 0, py: 0, down: false, work: 0, lastX: 0, lastY: 0,
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
         lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
+        stack: 1,        // how far the four elements separate through the card's thickness
+        motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
       // measures. A critically damped spring passes "did it move" and fails "is it stock".
@@ -1366,8 +1368,13 @@ void main(void) {
          *   offsets are what make the stack travel THROUGH itself. */
         const ZBASE = [0.00, 0.30, 0.70, 1.00];        // where each element rests in the stack
         const ZLEAD = MOTION.lead;                     // and how far round the cycle it is
-        const zAmp = (0.085 + 0.055 * S.depth) * MOTION.amp;
-        const zc = i => ZBASE[i] * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
+        /* ⚑ `S.stack` SCALES THE WHOLE STACK, rest positions and travel together, because those
+         * are the two halves of one property: how far apart the four elements sit through the
+         * card's thickness. Scaling only the travel would give a card whose layers separate when
+         * it moves and lie flat when it stops — depth as an animation rather than as a build.
+         * At 0 every element is coplanar (a flat print); at 1 it is the tuned default. */
+        const zAmp = (0.085 + 0.055 * S.depth) * MOTION.amp * S.stack;
+        const zc = i => ZBASE[i] * S.stack * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
                       + zAmp * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5;
         elemZ = [zc(0), zc(1), zc(2), zc(3)];
         gl.uniform4f(u.elemZ, elemZ[0], elemZ[1], elemZ[2], elemZ[3]);
@@ -1438,6 +1445,27 @@ void main(void) {
         // the key light's azimuth, radians. Moving the LIGHT is the fastest way to find out
         // whether a surface is a material or a picture of one.
         setLight: a => { S.lightA = a; },
+        /* ── ⚑ THE FORGE'S REMAINING KNOBS — artist, 2026-08-05 ────────────────────────────
+         * *"the press needs more creation options (layered card) animated card / collaged card
+         * / registration etc — these should all be settings so I can create the final 100."*
+         * Everything else the forge needs was already a setter; these two were not, and they are
+         * the two the artist named first.
+         * ⚠ THEY ARE STATE, NOT ARGUMENTS. A card is only reproducible if every knob round-trips
+         *   through `probe()` and back — a setting that exists but cannot be read back cannot be
+         *   saved, and a card that cannot be saved is not a card in a hundred-card deck. */
+
+        /* LAYERED — how far the four elements separate through the card's thickness.
+         * 0 = coplanar, a flat print. 1 = the tuned default. Above 1 the stack exaggerates. */
+        setStack: k => { S.stack = clamp(k, 0, 3); },
+
+        /* ANIMATED — which press failure this card performs. Eight named presets, and the list
+         * is READ from the module rather than typed into the UI, so adding a ninth does not need
+         * an edit in two places. `null` hands it back to the seed. */
+        setMotion: k => {
+          S.motionKey = k || null;
+          MOTION = (S.motionKey && byKey(S.motionKey)) || (o.motion && byKey(o.motion)) || motionFor(seed);
+          return MOTION.key;
+        },
         // the press cycle: 0..1 round one revolution. `spin` stops it dead for a still frame.
         setPhase: p => { S.phase = ((p % 1) + 1) % 1; },
         // print it on again from nothing — and 1 skips straight to a finished sheet
@@ -1492,7 +1520,10 @@ void main(void) {
           if (next === seed) return false;
           seed = next;
           TEMPER = makeTemper(seed);
-          MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
+          /* ⚠ an EXPLICIT choice survives a reseed. Without this, choosing a motion and then
+           *   re-rolling the seed silently reverts to the seed's pick — the same class of
+           *   bug as setText being lost on a pull. */
+          MOTION = (S.motionKey && byKey(S.motionKey)) || (o.motion && byKey(o.motion)) || motionFor(seed);
           gl.deleteTexture(texComp);
           compCanvas = buildComp(seed, 512);
           texComp = texFrom(gl, compCanvas, UNIT.uComp);
@@ -1559,7 +1590,7 @@ void main(void) {
                     starve: TEMPER.starve, foil: TEMPER.foil },
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
-          motion: MOTION.key, arrive: S.arrive,
+          motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           seed: seed,
           rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
           elemZ: elemZ.slice(),
@@ -1571,6 +1602,8 @@ void main(void) {
     }).catch(() => null);
   }
 
-  global.HeroCard = { build: build, VERSION: VERSION, INK: INK, ANG: ANG,
+  /* the motion names, so a UI never hard-codes a list this file owns */
+  const motionKeys = () => MOTIONS.map(m => m.key);
+  global.HeroCard = { build: build, VERSION: VERSION, INK: INK, ANG: ANG, motionKeys: motionKeys,
     MOTIONS: MOTIONS.map(m => m.key) };
 })(window);

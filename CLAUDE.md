@@ -1124,6 +1124,44 @@ nothing 404s, and the probe reports a live press with the right three plates on 
 - ⚠ **STILL OPEN: why the press draws nothing on the artist's machine.** The guard makes it
   harmless, not explained. `cards/proof.html` is the press ALONE and is the one-look discriminator.
 
+## ✅ THE FORGE IS THE TOOL THE HUNDRED GET MADE WITH — `cards/proof.html`
+*Artist, 2026-08-05: "the press needs more creation options (layered card) animated card /
+collaged card / registration etc — these should all be settings so I can create the final 100
+cards. there should be a way to save and number the cards too (i manually number, you let me know
+what's left)."*
+- ⚑ **ONE TABLE DRIVES FOUR THINGS** — the control's label, the value pushed into the press, the
+  URL, and the saved record. They are the same list of facts, and as four separate lists they
+  drift: a dial you can move but cannot save, one that saves and does not reload, or a URL missing
+  the knob you just spent an hour on. Every failure in that family is silent and each one costs a
+  card you cannot reproduce. **`DIALS` + `TOGGLES` are that list.**
+- ⚑ **A SAVED CARD IS ITS URL.** The forge already serialised the whole press state into the query
+  string, so a record is that string plus a number — no second format to keep in step, and loading
+  a card is the page's own boot path rather than a parallel "apply" that can drift from it. The
+  slot grid NAVIGATES; the tested path is the one that runs.
+- ⛔ **THE LIVE CHAIN WAS OVERWRITING THE ARTIST'S SETTINGS.** `goLive()` pushed `{burn, price,
+  depth}` from the market every 60 s over whatever was on the panel, and synced only the BURN
+  slider back — so price and depth silently diverged from the numbers on screen. Right for a card
+  being DISPLAYED, exactly wrong for one being MADE, and it broke the property the whole tool
+  rests on. Measured: saved price 0.17 / depth 0.91, reloaded 0.50 / 0.50.
+  ⚑ **The rule is the URL**: a dial named in the query string was chosen by a person, so the chain
+  leaves it alone; a dial absent from it is unclaimed, so the market drives it. A fresh forge
+  follows the chain, a saved card is frozen — one fact, not a mode nobody remembers to set.
+- ⛔ **`.slot` WAS ALREADY TAKEN.** The new 100-slot grid used `.slot`, which is the plate-role
+  caption 25 lines up — `aspect-ratio:1/1` turned all three captions into giant empty squares. It
+  RENDERED, so nothing errored; found by looking at the frame. `.numgrid`/`.num` now. **A generic
+  class name in a page that already has a design system collides silently.**
+- ⚠ **localStorage IS NOT THE ARTIFACT AND THE UI SAYS SO.** One browser, and clearing site data
+  takes the deck. The JSON export is what survives — commit it and the set rebuilds anywhere.
+  Import MERGES rather than replaces; a partial import must not delete finished cards.
+- ⚑ New press setters: **`setStack(k)`** (layer separation through the card's thickness — 0 is
+  coplanar, and it scales rest positions AND travel together, because depth that only appears when
+  the card moves is an animation rather than a build) and **`setMotion(key)`** (eight named press
+  failures; the list is READ from `HeroCard.motionKeys()` so a ninth needs no UI edit). Both are
+  STATE and both round-trip through `probe()` — a setting that cannot be read back cannot be saved.
+- ✅ **Verified by round-trip, which is the only test that matters here**: dial thirteen settings
+  off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
+  require every value plus all three plates to return. `✓ every setting came back`.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

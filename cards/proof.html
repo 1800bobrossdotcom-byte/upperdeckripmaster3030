@@ -148,6 +148,25 @@
   body.bare .wrap{grid-template-columns:1fr;padding:0}
   body.bare .rail{display:none}
   body.bare #stage{min-height:100vh}
+  /* the hundred — a slot per card. ⚠ 34px cells at a 44px tap target via padding on the row:
+     a hundred 44px buttons is 4400px of grid on a phone, so the CELL is small and the HIT area
+     is not. */
+  /* ⛔ NAMED `num`, NOT `slot`. `.slot` ALREADY EXISTED on this page — it is the plate-role
+     caption ("GROUND — zoomed to a field") defined 25 lines up — and a second `.slot` rule with
+     `aspect-ratio:1/1` turned all three captions into giant empty squares. It RENDERED, so
+     nothing errored and nothing 404'd; it was found by looking at the frame. A generic class
+     name in a page that already has a design system is a collision waiting to happen, and the
+     collision is always silent. */
+  .numgrid{ display:grid; grid-template-columns:repeat(10,1fr); gap:3px; margin:6px 0 2px; }
+  .num{ appearance:none; -webkit-appearance:none; min-width:0; padding:0;
+    aspect-ratio:1/1; display:grid; place-items:center; cursor:pointer;
+    font:600 var(--t-tag,10px)/1 ui-monospace,Menlo,Consolas,monospace; letter-spacing:0;
+    color:#6d6a63; background:#141310; border:1px solid #26241e; border-radius:3px;
+    transition:background .12s ease, color .12s ease, border-color .12s ease; }
+  .num:hover,.num:focus-visible{ border-color:#6d6a63; color:#cfc9ba; outline:none; }
+  .num.full{ background:#2b2618; border-color:#7a6a34; color:#f3d98a; }
+  .num.here{ background:#f3d98a; border-color:#f3d98a; color:#141310; }
+  @media (pointer:coarse){ .numgrid{ gap:4px } .num{ font-size:var(--t-tag,11px) } }
 </style>
 
 <div class="wrap">
@@ -209,6 +228,68 @@
       </details>
     </div>
 
+    <h2 class="sec">THE BUILD · WHAT KIND OF CARD THIS IS</h2>
+
+    <div class="grp">
+      <label>LAYERS <span class="v" id="vStack">1.00</span></label>
+      <input type="range" id="stack" min="0" max="2.5" step="0.01" value="1">
+      <div class="note">how far the four elements — ground, mid, figure, type — sit apart
+        <strong>through the card's thickness</strong>. At <strong>0</strong> they are coplanar and
+        the card is a flat print; turn it up and the stack travels through itself as the press
+        runs. This is depth in the BUILD, not an animation: it is there when the card is still.</div>
+    </div>
+
+    <div class="grp">
+      <label>MOTION <span class="v" id="vMot">—</span></label>
+      <select id="motion" aria-label="press motion"></select>
+      <div class="row"><button type="button" id="spin">RUNNING</button>
+                       <button type="button" id="reprint">REPRINT</button></div>
+      <label style="margin-top:10px">CYCLE <span class="v" id="vPer">8.0s</span></label>
+      <input type="range" id="period" min="1" max="24" step="0.5" value="8">
+      <div class="note">eight named press failures — the plates landing together, the roller
+        starving, the sheet slurring under the blanket. <strong>Each is a real thing a press
+        does</strong>, which is why the card reads as a print rather than as an effect. Leave it
+        on <em>seeded</em> and the card picks its own.</div>
+    </div>
+
+    <div class="grp">
+      <label>COLLAGE <span class="v" id="vColl">3 plates</span></label>
+      <div class="note">the composition is set in <strong>THE FORGE</strong> above — three deck
+        cards in role order. <strong>Ground</strong> is zoomed to a field, <strong>mid</strong> is
+        mirrored at another scale, <strong>figure</strong> sits near card size and is the subject.
+        Three pictures of the same size average into one; the roles are what make it a collage
+        instead of a blend.</div>
+    </div>
+
+    <div class="grp">
+      <label>RADIAL <span class="v" id="vRad">0.00</span></label>
+      <input type="range" id="rad" min="0" max="1" step="0.01" value="0">
+      <div class="note">⛔ <strong>this is the wrong kind of misregistration, on purpose.</strong>
+        A press shifts each plate by ONE CONSTANT VECTOR — the paper went through askew. Radial
+        error grows from the centre outward, which is a LENS artefact, not a printing one. It is
+        exposed because the acceptance test needs a control that fails; leave it at 0 for a card
+        that is honestly printed.</div>
+    </div>
+
+    <div class="grp">
+      <label>PRICE <span class="v" id="vPrice">0.50</span></label>
+      <input type="range" id="price" min="0" max="1" step="0.01" value="0.5">
+      <label style="margin-top:10px">DEPTH <span class="v" id="vDepth">0.50</span></label>
+      <input type="range" id="depth" min="0" max="1" step="0.01" value="0.5">
+      <div class="note">the other two market dials. <strong>Price drives the foil die edge</strong>
+        and depth drives how far the stack travels. Each card wears them differently — the
+        temperament is part of its seed, so the same reading lands differently on every card.</div>
+    </div>
+
+    <div class="grp">
+      <label>ROOM <span class="v" id="vEnv">on</span></label>
+      <div class="row"><button type="button" id="env">ROOM ON</button></div>
+      <div class="note">the environment the metal reflects. ⛔ <strong>the artwork never sees
+        it</strong> — only the foil does. An environment on the art plate lands as a milky ambient
+        wash, which is a measured failure this renderer is built to avoid. Switch it off and the
+        foil should die while the print stays byte-identical.</div>
+    </div>
+
     <h2 class="sec">THE PRESS · HOW BADLY IT PRINTED</h2>
 
     <div class="grp">
@@ -255,6 +336,42 @@
       </div>
       <div class="note">a pull is one impression. <strong>nothing here runs on a clock</strong> —
         left alone the card is a card on a table.</div>
+    </div>
+
+    <h2 class="sec">THE HUNDRED · SAVE AND NUMBER</h2>
+
+    <div class="grp">
+      <label>THIS CARD IS № <span class="v" id="vLeft">—</span></label>
+      <div class="row">
+        <input type="number" id="slotNo" min="1" max="100" step="1" placeholder="1–100"
+               aria-label="card number" style="width:92px">
+        <button type="button" id="bSave">SAVE TO №</button>
+        <button type="button" id="bDrop">CLEAR №</button>
+      </div>
+      <div class="note" id="saveNote">every setting on this page is saved with the number —
+        the three plates, the words, the frame, the seed, the layers, the motion, the
+        registration and the dials. <strong>A saved card reprints exactly</strong>, because the
+        press is deterministic and the record is complete.</div>
+    </div>
+
+    <div class="grp">
+      <label>THE DECK <span class="v" id="vTaken">0 of 100</span></label>
+      <div class="numgrid" id="slots" role="list"></div>
+      <div class="note">filled numbers are lit. <strong>Click one to load it back</strong> and it
+        reprints exactly as saved. ⚠ This is stored <strong>in this browser only</strong> — there
+        is no server. Export the set to keep it.</div>
+    </div>
+
+    <div class="grp">
+      <label>KEEP THE SET</label>
+      <div class="row">
+        <button type="button" id="bDeckOut">EXPORT DECK JSON</button>
+        <button type="button" id="bDeckIn">IMPORT</button>
+        <input type="file" id="deckFile" accept="application/json" hidden>
+      </div>
+      <div class="note">⛔ <strong>the JSON is the real artifact, not the browser store.</strong>
+        Clearing site data loses the deck; the file does not. Export it, commit it, and the whole
+        set rebuilds anywhere.</div>
     </div>
 
     <div class="grp">
@@ -371,10 +488,14 @@
       window.__proof = c;                                // the acceptance harness's handle
       document.getElementById('fallback').hidden = true;
       size();
-      c.setState({ burn: parseFloat(Q.get('burn')) || 0 });
+      /* ⚑ SEEDED BEFORE, APPLIED AFTER. The controls take their values from the URL before the
+       *   press exists, then the whole panel is pushed in once — so a card opened from a link is
+       *   the same object as the same card dialled in by hand, rather than the default card
+       *   re-adjusted a frame later (which is visible, and is a different first impression). */
+      applyAll(c);
       c.loop(true);
       goLive();
-      fillSlots(); fillRarity();
+      fillSlots(); fillRarity(); renderDeck();
       readout();
       setInterval(readout, 400);
     });
@@ -393,12 +514,38 @@
    * ⚠ FAILS OPEN AND STAYS HANDSOME. Blocked, offline, sandboxed, 404 — `LensState` is simply
    *   never defined, the dials rest where they are, and what you see is what ships in a blocked
    *   frame. The slider keeps working; the chain only ever OVERRIDES it, and says when it has. */
+  /* ⛔ AN AUTHORED DIAL IS THE ARTIST'S AND THE CHAIN MAY NOT TOUCH IT.
+   * The live reader used to push `{burn, price, depth}` from the market every 60 seconds, over
+   * whatever was on the panel — and it only synced the BURN slider back, so price and depth
+   * silently diverged from the numbers on screen. For a card being DISPLAYED that push is right:
+   * the card should read the live market. For a card being MADE it is exactly wrong, and it broke
+   * the one property this whole tool rests on — **a saved card must reprint**. Measured: saved
+   * price 0.17 / depth 0.91, reloaded 0.50 / 0.50.
+   * ⚑ THE RULE IS THE URL. A dial named in the query string was chosen by a person, so the chain
+   *   leaves it alone; a dial absent from it is unclaimed, so the market drives it. That makes a
+   *   freshly-opened forge follow the chain and a SAVED card frozen — which is the behaviour each
+   *   one needs, decided by one fact rather than by a mode nobody would remember to set. */
+  var AUTHORED = { burn: Q.get('burn') !== null, price: Q.get('price') !== null,
+                   depth: Q.get('dep') !== null };
   function goLive() {
     try {
       if (!window.LensState) return;
       LensState.watch(function (state, d) {
         if (!ctrl || !d) return;
-        ctrl.setState({ burn: d.burn, price: d.price, depth: d.depth });
+        var push = {};
+        if (!AUTHORED.burn)  push.burn  = d.burn;
+        if (!AUTHORED.price) push.price = d.price;
+        if (!AUTHORED.depth) push.depth = d.depth;
+        ctrl.setState(push);
+        /* and the sliders follow only where the chain is actually driving, so the panel never
+         * shows a number the card is not using — the divergence that hid this bug. */
+        [['burn', 'burn', 'vBurn'], ['price', 'price', 'vPrice'], ['depth', 'depth', 'vDepth']]
+          .forEach(function (r) {
+            if (AUTHORED[r[0]] || !d.live) return;
+            var el = document.getElementById(r[1]), v = document.getElementById(r[2]);
+            if (el) el.value = d[r[0]];
+            if (v) v.textContent = (+d[r[0]]).toFixed(2);
+          });
         var el = document.getElementById('live');
         if (el) {
           el.textContent = d.live
@@ -407,8 +554,8 @@
             : 'the chain did not answer — the dials are yours';
           el.className = d.live ? 'note live' : 'note';
         }
-        var b = document.getElementById('burn');
-        if (b && d.live) { b.value = d.burn; document.getElementById('vBurn').textContent = d.burn.toFixed(2); }
+        var claimed = Object.keys(AUTHORED).filter(function (k) { return AUTHORED[k]; });
+        if (el && claimed.length) el.textContent += ' · yours: ' + claimed.join(', ');
       }, { every: 60000 });
     } catch (e) {}
   }
@@ -530,6 +677,272 @@
    * Slots are stored by filename STEM, not by index into the pool: an index is a promise about
    * the ORDER of two manifests this file does not own, and the deck clean-slate would silently
    * repoint every shared link at different pictures. */
+  /* ══ ⚑ EVERY SETTING, IN ONE TABLE ═══════════════════════════════════════════════════════
+   * Artist, 2026-08-05: *"these should all be settings so I can create the final 100 cards …
+   * there should be a way to save and number the cards too."*
+   *
+   * ⛔ ONE TABLE DRIVES FOUR THINGS — the control's label, the value pushed into the press, the
+   *   URL, and the saved record. They are the same list of facts, and the moment they are four
+   *   separate lists they drift: a dial you can move but cannot save, or one that saves and does
+   *   not reload, or a URL that is missing the one knob you just spent an hour on. Every failure
+   *   in that family is silent, and every one of them costs a card you cannot reproduce.
+   * ⚑ THAT IS THE WHOLE REQUIREMENT FOR A HUNDRED-CARD DECK: a card is only finished if it
+   *   reprints. The press is deterministic by construction (no `Math.random` anywhere in it), so
+   *   a complete record plus a seed IS the card — but only if the record is actually complete. */
+  var DIALS = [
+    { id: 'burn',   k: 'burn',  d: 0,   dp: 2, put: function (c, v) { c.setState({ burn: v }); } },
+    { id: 'price',  k: 'price', d: 0.5, dp: 2, put: function (c, v) { c.setState({ price: v }); } },
+    { id: 'depth',  k: 'dep',   d: 0.5, dp: 2, put: function (c, v) { c.setState({ depth: v }); } },
+    /* ⚠ REGISTRATION IS ONE CALL WITH TWO ARGUMENTS, so either slider has to send both or the
+     *   other silently resets to 0 — a dial that works until you touch its neighbour. */
+    { id: 'reg',    k: 'reg',   d: 1,   dp: 2, put: function (c) { putReg(c); } },
+    { id: 'rad',    k: 'rad',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
+    { id: 'stack',  k: 'stack', d: 1,   dp: 2, put: function (c, v) { c.setStack(v); } },
+    { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
+    { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
+      unit: '°' },
+  ];
+  var TOGGLES = [
+    { id: 'spin', k: 'spin', d: 1, on: 'RUNNING', off: 'STOPPED',
+      put: function (c, v) { c.setSpin(v); } },
+    { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
+      put: function (c, v) { c.setEnv(v); } },
+  ];
+  function dialEl(id) { return document.getElementById(id); }
+  function putReg(c) {
+    var g = dialEl('reg'), r = dialEl('rad');
+    c.setRegistration(g ? +g.value : 1, r ? +r.value : 0);
+  }
+  function num(v, dp, unit) { return (+v).toFixed(dp) + (unit || ''); }
+
+  /* the label beside each control, and the readback the artist actually reads */
+  function showDial(D) {
+    var el = dialEl(D.id), v = document.getElementById('v' + D.id.charAt(0).toUpperCase() + D.id.slice(1));
+    if (el && v) v.textContent = num(el.value, D.dp, D.unit);
+  }
+  function showToggle(T) {
+    var b = dialEl(T.id); if (!b) return;
+    var on = b.getAttribute('aria-pressed') !== 'false';
+    b.textContent = on ? T.on : T.off;
+    var v = document.getElementById('v' + T.id.charAt(0).toUpperCase() + T.id.slice(1));
+    if (v) v.textContent = on ? 'on' : 'off';
+  }
+  function toggleOn(T) { var b = dialEl(T.id); return !b || b.getAttribute('aria-pressed') !== 'false'; }
+
+  /* Push the whole panel into the press. Called once after the build and never again as a batch —
+   * individual controls push themselves — so a card that opens from a URL looks identical to the
+   * same card dialled in by hand. */
+  function applyAll(c) {
+    if (!c) return;
+    DIALS.forEach(function (D) { var el = dialEl(D.id); if (el) { try { D.put(c, +el.value); } catch (e) {} } });
+    TOGGLES.forEach(function (T) { try { T.put(c, toggleOn(T) ? 1 : 0); } catch (e) {} });
+    var mo = dialEl('motion');
+    if (mo) { try { c.setMotion(mo.value || null); } catch (e) {} }
+    showMotion();
+  }
+  function showMotion() {
+    var v = document.getElementById('vMot'), mo = dialEl('motion');
+    if (!v) return;
+    var chosen = mo && mo.value;
+    var live = ctrl ? (ctrl.probe().motion || '—') : '—';
+    v.textContent = chosen ? chosen : 'seeded · ' + live;
+  }
+
+  /* Seed every control from the URL BEFORE the press is built, so the first frame is already the
+   * card the link describes rather than the default one re-dialled a moment later. */
+  function seedControlsFromUrl() {
+    DIALS.forEach(function (D) {
+      var el = dialEl(D.id); if (!el) return;
+      var q = Q.get(D.k);
+      el.value = (q !== null && q !== '' && isFinite(+q)) ? +q : D.d;
+      showDial(D);
+      el.addEventListener('input', function () {
+        showDial(D);
+        if (ctrl) { try { D.put(ctrl, +el.value); } catch (e) {} }
+        stamp();
+      });
+    });
+    TOGGLES.forEach(function (T) {
+      var b = dialEl(T.id); if (!b) return;
+      var q = Q.get(T.k);
+      b.setAttribute('aria-pressed', (q === null || q === '') ? (T.d ? 'true' : 'false')
+                                                             : (q === '1' ? 'true' : 'false'));
+      showToggle(T);
+      b.addEventListener('click', function () {
+        var on = b.getAttribute('aria-pressed') !== 'false';
+        b.setAttribute('aria-pressed', on ? 'false' : 'true');
+        showToggle(T);
+        if (ctrl) { try { T.put(ctrl, on ? 0 : 1); } catch (e) {} }
+        stamp();
+      });
+    });
+    var mo = dialEl('motion');
+    if (mo) {
+      /* ⚑ THE LIST IS READ FROM THE MODULE THAT OWNS IT. Typing eight names here would be a
+       *   second copy of a list js/hero-card.js already has, and the copy that rots is always
+       *   the one nobody is looking at. */
+      var o0 = document.createElement('option');
+      o0.value = ''; o0.textContent = 'seeded · let the card choose';
+      mo.appendChild(o0);
+      (window.HeroCard && HeroCard.motionKeys ? HeroCard.motionKeys() : []).forEach(function (k) {
+        var o = document.createElement('option'); o.value = k; o.textContent = k; mo.appendChild(o);
+      });
+      mo.value = Q.get('mot') || '';
+      mo.addEventListener('change', function () {
+        if (ctrl) { try { ctrl.setMotion(mo.value || null); } catch (e) {} }
+        showMotion(); stamp();
+      });
+    }
+    var rp = document.getElementById('reprint');
+    if (rp) rp.addEventListener('click', function () { if (ctrl) { ctrl.writeOn(0); } });
+  }
+
+  /* ══ ⚑ THE HUNDRED — SAVE AND NUMBER ═════════════════════════════════════════════════════
+   * Artist, 2026-08-05: *"there should be a way to save and number the cards too (i manually
+   * number you let me know whats left)."*
+   *
+   * ⚑ A SAVED CARD IS ITS URL. The forge already serialises the entire press state into the query
+   *   string, so the record IS that string plus a number — there is no second format to keep in
+   *   step, and loading a card is the page's own boot path rather than a parallel "apply" that
+   *   can drift from it. That is why the slot grid navigates instead of poking the live press:
+   *   the tested path is the one that runs.
+   * ⛔ localStorage IS NOT THE ARTIFACT AND THE UI SAYS SO. It is one browser, and clearing site
+   *   data takes the deck with it. The EXPORT is the thing that survives — a file the artist can
+   *   commit, hand back, or rebuild the whole set from on any machine. A tool that quietly stores
+   *   a hundred cards' work in a place one settings click can erase is a trap, not a feature.
+   */
+  var DECK_KEY = 'urm_forge_deck';
+  var SLOT = (function () { var n = parseInt(Q.get('n'), 10); return (n >= 1 && n <= 100) ? n : 0; })();
+
+  function deckRead() {
+    try { var o = JSON.parse(localStorage.getItem(DECK_KEY) || '{}'); return (o && typeof o === 'object') ? o : {}; }
+    catch (e) { return {}; }
+  }
+  function deckWrite(o) {
+    try { localStorage.setItem(DECK_KEY, JSON.stringify(o)); return true; } catch (e) { return false; }
+  }
+  /* what a slot stores: the query that rebuilds it, plus the two things a human reads in a list */
+  function currentRecord() {
+    return { q: forgeQuery().toString(),
+             name: (tName && tName.value) || '',
+             rarity: RARITY,
+             seed: seed };
+  }
+
+  function saveSlot() {
+    var el = document.getElementById('slotNo');
+    var n = parseInt(el && el.value, 10);
+    var note = document.getElementById('saveNote');
+    if (!(n >= 1 && n <= 100)) {
+      if (note) note.textContent = 'pick a number from 1 to 100 first.';
+      return;
+    }
+    var deck = deckRead();
+    /* ⚠ OVERWRITING IS A DECISION, NOT A SIDE EFFECT. Saving over a finished card by mistyping a
+     *   number is exactly the kind of loss this tool exists to prevent. */
+    if (deck[n] && !confirm('№ ' + n + ' already holds "' + (deck[n].name || 'untitled')
+                            + '". Replace it?')) return;
+    SLOT = n;
+    deck[n] = currentRecord();
+    var okWrite = deckWrite(deck);
+    if (note) note.textContent = okWrite
+      ? 'saved as № ' + n + '. ' + leftText()
+      : '⛔ could not write to this browser’s storage — export the deck instead.';
+    stamp(); renderDeck();
+  }
+  function dropSlot() {
+    var el = document.getElementById('slotNo');
+    var n = parseInt(el && el.value, 10);
+    if (!(n >= 1 && n <= 100)) return;
+    var deck = deckRead();
+    if (!deck[n]) return;
+    if (!confirm('Clear № ' + n + ' ("' + (deck[n].name || 'untitled') + '")?')) return;
+    delete deck[n]; deckWrite(deck);
+    if (SLOT === n) SLOT = 0;
+    renderDeck();
+  }
+
+  function leftText() {
+    var deck = deckRead(), taken = Object.keys(deck).length;
+    if (taken >= 100) return 'the hundred is complete.';
+    var free = [];
+    for (var i = 1; i <= 100 && free.length < 6; i++) if (!deck[i]) free.push(i);
+    return (100 - taken) + ' still to make — next free: ' + free.join(', ')
+           + (100 - taken > free.length ? '…' : '');
+  }
+
+  /* ⛔ createElement, NEVER innerHTML — the card names in here are authored strings the artist
+   *   typed, and one of the deck's own titles is literally "Hulk Hoggin'". */
+  function renderDeck() {
+    var wrap = document.getElementById('slots'); if (!wrap) return;
+    var deck = deckRead();
+    while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+    for (var i = 1; i <= 100; i++) {
+      var rec = deck[i];
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'num' + (rec ? ' full' : '') + (i === SLOT ? ' here' : '');
+      b.textContent = String(i);
+      b.setAttribute('role', 'listitem');
+      b.title = rec ? (rec.name || 'untitled') + ' — click to load' : 'free';
+      b.setAttribute('aria-label', rec ? 'card ' + i + ': ' + (rec.name || 'untitled') + ', load it'
+                                       : 'card ' + i + ', free');
+      if (rec) {
+        (function (q) {
+          b.addEventListener('click', function () { location.search = q; });
+        })(rec.q);
+      } else {
+        (function (n) {
+          b.addEventListener('click', function () {
+            var el = document.getElementById('slotNo'); if (el) el.value = String(n);
+          });
+        })(i);
+      }
+      wrap.appendChild(b);
+    }
+    var taken = Object.keys(deck).length;
+    var vt = document.getElementById('vTaken'); if (vt) vt.textContent = taken + ' of 100';
+    var vl = document.getElementById('vLeft');
+    if (vl) vl.textContent = SLOT ? String(SLOT) : 'unnumbered';
+    var note = document.getElementById('saveNote');
+    if (note && !/saved as|could not/.test(note.textContent)) note.textContent = leftText();
+  }
+
+  function exportDeck() {
+    var deck = deckRead();
+    var out = { studio: 'ripmaster3030studios', set: 'the hundred',
+                count: Object.keys(deck).length, cards: deck };
+    var blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ripmaster3030studios-deck.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { try { a.remove(); URL.revokeObjectURL(a.href); } catch (e) {} }, 400);
+  }
+  function importDeck(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var note = document.getElementById('saveNote');
+      try {
+        var o = JSON.parse(fr.result);
+        var cards = (o && o.cards) || o;
+        if (!cards || typeof cards !== 'object') throw new Error('shape');
+        /* ⚠ MERGE, DO NOT REPLACE. Importing a partial set should not delete the cards already
+         *   in this browser — that is a destructive default nobody asks for. */
+        var deck = deckRead(), added = 0;
+        Object.keys(cards).forEach(function (k) {
+          var n = parseInt(k, 10);
+          if (n >= 1 && n <= 100 && cards[k] && cards[k].q) { deck[n] = cards[k]; added++; }
+        });
+        deckWrite(deck); renderDeck();
+        if (note) note.textContent = 'merged ' + added + ' card(s). ' + leftText();
+      } catch (e) {
+        if (note) note.textContent = '⛔ that file is not a deck export.';
+      }
+    };
+    fr.readAsText(file);
+  }
+
   function forgeQuery(extra) {
     var q = new URLSearchParams();
     q.set('seed', String(seed));
@@ -541,6 +954,16 @@
     if (tName && tName.value) q.set('name', tName.value);
     if (tSub && tSub.value) q.set('sub', tSub.value);
     q.set('rarity', RARITY);
+    /* ⚑ EVERY DIAL, NOT JUST THE ONES THAT EXISTED FIRST. A URL that carries seven of nine
+     *   settings is a link that gives back a DIFFERENT card, and the two it drops are whichever
+     *   were added last — i.e. the ones being worked on. Written from the same table the panel
+     *   is built from, so a new control cannot be forgotten here. */
+    DIALS.forEach(function (D) {
+      var el = dialEl(D.id); if (el) q.set(D.k, String(+el.value));
+    });
+    TOGGLES.forEach(function (T) { q.set(T.k, toggleOn(T) ? '1' : '0'); });
+    var mo = dialEl('motion'); if (mo && mo.value) q.set('mot', mo.value);
+    if (SLOT) q.set('n', String(SLOT));
     Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
     return q;
   }
@@ -551,20 +974,23 @@
     try { history.replaceState(null, '', location.pathname + '?' + forgeQuery().toString()); } catch (e) {}
   }
 
-  var burn = document.getElementById('burn'), reg = document.getElementById('reg');
-  burn.addEventListener('input', function () {
-    document.getElementById('vBurn').textContent = (+burn.value).toFixed(2);
-    if (ctrl) ctrl.setState({ burn: +burn.value });
+  /* ⛔ BURN, REGISTRATION AND THE KEY LIGHT USED TO BE WIRED BY HAND HERE, EACH WITH ITS OWN
+   *   listener and its own label update. They are rows in DIALS now — three hand-written
+   *   copies of a pattern is exactly how the fourth one gets written slightly differently
+   *   and stops reaching the URL. `seedControlsFromUrl` wires all of them from the table. */
+  seedControlsFromUrl();
+  document.getElementById('bSave').addEventListener('click', saveSlot);
+  document.getElementById('bDrop').addEventListener('click', dropSlot);
+  document.getElementById('bDeckOut').addEventListener('click', exportDeck);
+  document.getElementById('bDeckIn').addEventListener('click', function () {
+    document.getElementById('deckFile').click();
   });
-  reg.addEventListener('input', function () {
-    document.getElementById('vReg').textContent = (+reg.value).toFixed(2);
-    if (ctrl) ctrl.setRegistration(+reg.value);
+  document.getElementById('deckFile').addEventListener('change', function (e) {
+    if (e.target.files && e.target.files[0]) importDeck(e.target.files[0]);
+    e.target.value = '';
   });
-  var light = document.getElementById('light');
-  light.addEventListener('input', function () {
-    document.getElementById('vLight').textContent = light.value + '\u00b0';
-    if (ctrl) ctrl.setLight(+light.value * Math.PI / 180);
-  });
+  if (SLOT) { var sn = document.getElementById('slotNo'); if (sn) sn.value = String(SLOT); }
+  renderDeck();
   document.getElementById('pull').addEventListener('click', function () {
     if (ctrl) { ctrl.pull(); readout(); }
   });
