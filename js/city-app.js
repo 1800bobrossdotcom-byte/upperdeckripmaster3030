@@ -1509,6 +1509,38 @@ window.CityApp = (function () {
      * route: hold forward against anything tall and you go up it. Every box in this city is
      * climbable by construction — the same 1:1 guarantee the generator makes about landing, which
      * is only true because the geometry and the collision set are one thing. */
+    /* ── ⛔ THE LIP IS A LIMIT CYCLE, AND THAT IS THE "STUCK ON WALL LEDGES" REPORT ───────────
+     * Artist, 2026-08-05: *"the squirell gets stuck on wall ledges and that shouldn't happen."*
+     *
+     * ⛔ THE CLIMB ENDS BY LOSING ITS OWN WALL. `wallAt` only returns a box while `y <= b.y1`, so
+     *   the instant the squirrel's feet clear the top the wall stops existing: `climbing` goes
+     *   false, gravity resumes, the body drops back into reach, `wallAt` finds it again and it
+     *   climbs again. **A stable oscillation at the lip** — it reads as being stuck to the wall,
+     *   and nothing errors because every individual frame is doing exactly what it was told.
+     * ⛔ AND THE OLD CREST WAS A NUDGE, WHICH CANNOT WIN THE RACE IT IS IN. It added `hx * 3.2`
+     *   to velocity for the frame or two the body was inside the crest band — while the same
+     *   branch multiplied horizontal speed by 0.5 EVERY frame. The push decayed faster than it
+     *   could carry the body the `r + 0.22` it needs to clear the footprint.
+     * ⚑ SO CRESTING IS A PLACEMENT, NOT AN IMPULSE. Reaching the top puts the body ON the roof,
+     *   past the edge, standing — which is what the old comment already claimed ("crest it and
+     *   step onto the roof") and what a nudge could only sometimes achieve. It cannot oscillate,
+     *   because it ends the climb by ending the reason to climb.
+     * ⚠ REFUSED IF THE LANDING IS NOT CLEAR. A wall with something standing on it would otherwise
+     *   teleport the squirrel inside it — and the body keeps grinding instead, which is the
+     *   honest outcome: there is genuinely nowhere to go. */
+    function mantle(w, carry) {
+      if (me.y + B.h < w.top) return false;              // head still below the lip
+      const nx = hx, nz = hz;
+      const reach = (B.r || 0.26) + 0.34;
+      const tx = me.x + nx * reach, tz = me.z + nz * reach, ty = w.top + 0.02;
+      if (collide && collide.hits(tx, ty, tz, B.r, B.h)) return false;
+      me.x = tx; me.z = tz; me.y = ty;
+      me.vy = 0; me.onGround = true;
+      me.vx = nx * carry; me.vz = nz * carry;            // step off carrying what you arrived with
+      me.vaulting = 0;
+      return true;
+    }
+
     let climbing = false;
     if (B.climb && want > 0) {
       const w = collide && collide.wallAt(me.x, me.y, me.z, B.r + 0.22);
@@ -1533,19 +1565,13 @@ window.CityApp = (function () {
            * reason to go fast, which is the whole mechanic. */
           me.vy = Math.max(me.vy, approach * VAULT_LIFT);
           me.vx *= 0.86; me.vz *= 0.86;
-          if (me.y > w.top - 0.05) {
-            me.vy = Math.max(me.vy, 2.5);
-            me.vx += hx * 5.5; me.vz += hz * 5.5;             // fly off the lip, still carrying it
-          }
+          if (mantle(w, 5.5)) climbing = false;               // fly off the lip, still carrying it
           if (!me.vaulting) { me.vaulting = 1; if (dash) dash.countVault(); }
         } else {
           me.vaulting = 0;
           me.vy = (B.run || 9) * 0.62;
           me.vx *= 0.5; me.vz *= 0.5;
-          if (me.y > w.top - 0.05) {                          // crest it and step onto the roof
-            me.vy = Math.max(me.vy, 2.0);
-            me.vx += hx * 3.2; me.vz += hz * 3.2;
-          }
+          if (mantle(w, 3.2)) climbing = false;               // crest it and step onto the roof
         }
       } else me.vaulting = 0;
     }
