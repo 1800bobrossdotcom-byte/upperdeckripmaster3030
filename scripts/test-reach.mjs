@@ -684,10 +684,24 @@ head('2c · the surfaces a visitor comes for are a short walk from the front doo
     ['cards/market.html', 'the market bench'],
     ['arcade.html', 'the arcade'],
     ['city.html', 'THE CITY'],
+    /* ⚑ A PROPOSAL THE ARTIST CANNOT OPEN IS NOT A PROPOSAL. `studio.html` — the other draft
+     * home page — is an allow-listed orphan, and that is precisely how six generated layer
+     * stacks became unreachable: the only route into them started from a page nothing linked.
+     * The sheet is linked from index.html and this is the assertion that keeps it linked. */
+    ['studio3d.html', 'THE UNCUT SHEET (the proposed landing surface)'],
   ]) {
     t(`${why} is reachable from the home page`, dist[page] !== undefined && dist[page] <= 3,
       dist[page] === undefined ? 'NO WALK EXISTS' : `${dist[page]} click(s), via ${via[page]}`);
   }
+  /* ⛔ AND IT MUST NEVER LOOK LIKE THE DECISION HAS BEEN MADE. index.html is the front page
+   * until the artist says otherwise; a proposal that stops saying so is a promotion nobody
+   * authorised. Two ways out of it, both of them 44px doors, and the word on its face. */
+  const s3 = TEXT.get('studio3d.html') || '';
+  t('the proposed landing surface says on its own face that it is a proposal',
+    /proposal/i.test(s3) && /not final art/i.test(s3));
+  t('…and it links back to the page it proposes to replace',
+    (s3.match(/href="index\.html"/g) || []).length >= 2,
+    `${(s3.match(/href="index\.html"/g) || []).length} routes home`);
 }
 
 // ═══ 6c · THE DECK IS NOT A DEAD END ═══════════════════════════════════════════════════════════
