@@ -12,10 +12,19 @@
  *   RipNet.accept(id) / decline(id)
  *   RipNet.onMatch(cb)              cb({opponent, oppStack})  — go! launch the face-off
  *
- * LocalNet is fully live: BroadcastChannel gives you REAL presence across browser tabs
- * on this device, and a pack of bot rippers keep the room warm (some seeking, some who
- * will call you out). Swap in KVNet (see docs/MULTIPLAYER.md) to go internet-wide with
- * zero UI changes.
+ * ⛔ THE ROOM IS REAL PEOPLE ONLY. Artist, 2026-08-05: "remove bot examples for online lobby
+ *   and only those really logged in."
+ *   Presence has two sources and BOTH are real: BroadcastChannel across this device's tabs, and
+ *   `/api/presence` (Vercel + Upstash KV) across the internet. The bot population that used to
+ *   "keep the room warm" is GONE — no synthetic handles, no synthetic challenges, no synthetic
+ *   opponents.
+ * ⚑ AND AN EMPTY ROOM IS THE POINT, NOT A REGRESSION. A lobby padded with five invented rippers
+ *   reads as a busy game and is a lie the visitor cannot detect — the exact reassuring-wrong-
+ *   answer shape this project keeps recording. "Nobody is here yet" is TRUE, it is actionable
+ *   (bring someone), and it makes the difference between one player and two visible instead of
+ *   hidden under fake company. It also means the room's population is now a real measurement:
+ *   if it says 3, three people are actually here.
+ * ⚠ The bot CHALLENGE path went with them. Nothing can call you out that is not a person.
  */
 (() => {
   const HANDLES = ['Raoul Duke', 'Chuck Meltdown', 'Baron Von Blazed', 'Denim Reaper', 'Cogito Ribbit',
@@ -45,25 +54,20 @@
   const listeners = { lobby: [], challenge: [], match: [] };
   const emit = (ev, arg) => listeners[ev].forEach(f => { try { f(arg); } catch {} });
 
-  // ── LocalNet: BroadcastChannel presence across tabs + a bot population ──
+  // ── LocalNet: BroadcastChannel across this device's tabs, merged with /api/presence ──
   function LocalNet() {
     const players = new Map();               // id -> profile
     players.set(me.id, me);
     let bc = null; try { bc = new BroadcastChannel('urm-arena'); } catch {}
 
-    // bots keep the room alive
+    /* ⛔ NO BOT POPULATION. Removed 2026-08-05 on the artist's call. `bots` stays as an empty
+     * array rather than being deleted outright because three loops below still name it, and an
+     * empty array makes every one of them a no-op that reads correctly — a `bots` that does not
+     * exist would throw, and a throw in the lobby tick is how a room stops updating at all. */
     const bots = [];
-    const nBots = 5 + rnd(4);
-    const usedH = new Set([me.handle]);
-    for (let i = 0; i < nBots; i++) {
-      let h; do { h = pick(HANDLES); } while (usedH.has(h) && usedH.size < HANDLES.length); usedH.add(h);
-      const b = { id: uid(), handle: h, balance: 200 + rnd(9) * 350, cards: 3 + rnd(40),
-        status: Math.random() < .45 ? 'seeking' : 'idle', bot: true, wl: rnd(9) + '-' + rnd(6) };
-      bots.push(b); players.set(b.id, b);
-    }
 
     const roster = () => [...players.values()].sort((a, b) =>
-      (a.me ? -1 : b.me ? 1 : 0) || ((a.bot ? 1 : 0) - (b.bot ? 1 : 0)) || b.balance - a.balance);   // you → real humans → bots
+      (a.me ? -1 : b.me ? 1 : 0) || b.balance - a.balance);          // you, then everyone else
     const pushLobby = () => emit('lobby', roster());
 
     // presence heartbeat + receive
@@ -80,7 +84,7 @@
 
     // ── internet-wide presence: heartbeat /api/presence (Vercel + Upstash KV) and
     //    merge the live roster in. Auto-detects: where the API isn't deployed or the
-    //    KV isn't configured it goes quiet after one probe and tabs+bots carry on.
+    //    KV isn't configured it goes quiet after one probe and cross-tab presence carries on.
     let kvLive = null;                         // null = unprobed, false = unavailable
     async function kvBeat() {
       if (kvLive === false) return;
@@ -102,20 +106,20 @@
     }
     kvBeat(); const kvTick = setInterval(kvBeat, 5000);
 
-    // prune stale tabs; cycle bot statuses; occasional bot callout (a nudge!)
+    /* Prune whoever has stopped heartbeating. ⚠ THE STALE WINDOW HAS TO EXCEED THE SLOWEST
+     * HEARTBEAT OR REAL PEOPLE FLICKER OUT AND BACK: tabs announce on change, KV beats every
+     * 5 s, and the server holds a record for TTL 20 s. 12 s was safe when the room was mostly
+     * bots that never expired; with only real players left it is the whole roster, so it is 24 s
+     * — one server TTL plus a beat of slack. A lobby that drops people who are still there is
+     * indistinguishable from a lobby nobody is in. */
     const tick = setInterval(() => {
       const now = Date.now(); let changed = false;
-      players.forEach((p, id) => { if (!p.me && !p.bot && p.lastSeen && now - p.lastSeen > 12000) { players.delete(id); changed = true; } });
-      bots.forEach(b => { if (Math.random() < .18) { b.status = Math.random() < .5 ? 'seeking' : 'idle'; changed = true; } });
-      // a seeking bot occasionally calls YOU out
-      if (me.status !== 'battling' && Math.random() < .10) {
-        const s = bots.filter(b => b.status === 'seeking'); if (s.length) emit('challenge', { id: 'c_' + uid(), from: pick(s), bot: true });
-      }
+      players.forEach((p, id) => {
+        if (!p.me && p.lastSeen && now - p.lastSeen > 24000) { players.delete(id); changed = true; }
+      });
       if (changed) pushLobby();
     }, 4000);
 
-    // a card stack for a bot opponent
-    const botStack = n => Array.from({ length: n }, () => ({ rarity: pick(RARE) }));   // resolved to real cards by the arena
     let pending = null;                        // an outbound challenge awaiting accept
 
     function startMatch(opponent, oppStack) { me.status = 'battling'; emit('match', { opponent, oppStack: oppStack || null }); }
@@ -127,20 +131,22 @@
       setHandle(h) { me.handle = (h == null ? '' : String(h)).trim().slice(0, 24) || me.handle;
         store.set('urm_net_handle', me.handle); ses.set('urm_net_shandle', me.handle); players.set(me.id, me); announce(); pushLobby(); },
       me: () => me,
+      /* ⛔ EVERY CHALLENGE IS NOW A REAL ONE. The `target.bot` branches are gone with the
+       * population — a dead branch that silently auto-accepts is worse than none, because the
+       * day a real player's record arrives with a stray flag it would start a match against
+       * nobody and look like a working game. */
       challenge(id) {
         const target = players.get(id); if (!target) return;
         const cid = 'c_' + uid(); pending = { cid, id };
-        if (target.bot) {                      // bots decide fast
-          setTimeout(() => { if (Math.random() < .8) startMatch(target, botStack(3)); else emit('lobby', roster()); }, 700 + rnd(900));
-        } else if (bc) { bc.postMessage({ t: 'challenge', to: id, from: me.id, fromHandle: me.handle, cid }); }
+        if (bc) bc.postMessage({ t: 'challenge', to: id, from: me.id, fromHandle: me.handle, cid });
         return cid;
       },
       accept(ch) {
-        if (ch.bot || (ch.from && ch.from.bot)) { const opp = ch.from; startMatch(opp, botStack(3)); return; }
+        if (!ch || !ch.from) return;
         if (bc) bc.postMessage({ t: 'accept', to: ch.from.id, from: me.id, oppStack: null });
         startMatch(ch.from, null);
       },
-      decline(ch) { if (!ch.bot && bc && ch.from) bc.postMessage({ t: 'decline', to: ch.from.id, from: me.id }); },
+      decline(ch) { if (bc && ch && ch.from) bc.postMessage({ t: 'decline', to: ch.from.id, from: me.id }); },
       onLobby: cb => { listeners.lobby.push(cb); cb(roster()); },
       onChallenge: cb => listeners.challenge.push(cb),
       onMatch: cb => listeners.match.push(cb),

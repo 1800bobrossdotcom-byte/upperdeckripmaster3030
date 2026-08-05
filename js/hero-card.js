@@ -1132,6 +1132,34 @@ void main(void) {
        * advanced the press. The same class of bug as the seed that re-rolls: nothing errors, the
        * card simply stops saying what you typed. */
       const TEXT = { name: o.name, sub: o.sub || '' };
+
+      /* ── ⚑ TEMPERAMENT — the same market, worn differently ──────────────────────────────
+       * Studied off RELICS (docs/RELICS-STUDY.md): the market falls for all of them at once,
+       * and yet "a fragile Sacred Shard darkens toward collapse while a Buried Monolith merely
+       * dims." The shared reading is shared; how a given object WEARS it comes out of its own
+       * identity.
+       * ⛔ WITHOUT THIS THE DECK IS ONE METER IN A HUNDRED COPIES, and the giveaway was one
+       *   line: `uDmg` was `(burn, burn*0.9, burn*0.5, burn)` — fixed ratios, identical on every
+       *   card, so all 100 cards degraded in exactly the same proportion at exactly the same
+       *   rate. A collector could never learn a card's temperament because it did not have one.
+       * ⚑ IT IS A MATERIAL PROPERTY, NOT A RANDOM NUMBER — which is what keeps it inside
+       *   DESIGN-SYSTEM §1 instead of being noise. This sheet's stock is more absorbent, its
+       *   cyan film thinner, its blanket more worn. Those are things a real sheet differs in,
+       *   and they are exactly the things that decide how a press failure lands on it.
+       * ⚠ MEAN 1.0 ON EVERY AXIS, DELIBERATELY. This REDISTRIBUTES the response across the deck;
+       *   it does not make the deck as a whole darker or lighter. A temperament whose mean drifts
+       *   is a global grade wearing a per-card costume, and it would quietly invalidate every
+       *   burn figure already measured against this renderer. */
+      const TEMPER = (() => {
+        const r = rng(seed ^ 0x6C8E9CF5);
+        const about1 = (spread) => 1 - spread + r() * spread * 2;
+        return {
+          plate: [about1(0.45), about1(0.45), about1(0.55), about1(0.40)],
+          screen: about1(0.55),          // how far the ruling coarsens as the press starves
+          starve: about1(0.60),          // how fast the roller runs dry
+          foil: about1(0.40),            // how hard price drives the die edge
+        };
+      })();
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
@@ -1290,9 +1318,15 @@ void main(void) {
          * to see. ⚠ And 240 was an octave too FINE for the buffer — under ~3 device pixels per
          * dot the screen aliases into a moiré grid, which is a rendering failure dressed as a
          * print one. 170 is the compromise: a visible screen at 500px, a real one at 900. */
-        gl.uniform4f(u.press, 170 * (1 - 0.10 * S.burn), sheetState.band, sheetState.phase, sheetState.starve + 0.20 * S.burn);
-        gl.uniform4f(u.dmg, S.burn, S.burn * 0.9, S.burn * 0.5, S.burn);
-        gl.uniform4f(u.foilP, 1.55, 0.30, 1.0 + 0.55 * S.price, 0.34);
+        /* ⚑ EVERY MARKET DIAL GOES THROUGH THE TEMPERAMENT. Same burn in, a different picture
+         * out, per card — and the ratios between the four plates are now this card's rather than
+         * the renderer's, so one sheet loses its cyan first and another its key. */
+        const bT = S.burn;
+        gl.uniform4f(u.press, 170 * (1 - 0.10 * bT * TEMPER.screen), sheetState.band,
+                     sheetState.phase, sheetState.starve + 0.20 * bT * TEMPER.starve);
+        gl.uniform4f(u.dmg, clamp(bT * TEMPER.plate[0], 0, 1), clamp(bT * 0.9 * TEMPER.plate[1], 0, 1),
+                            clamp(bT * 0.5 * TEMPER.plate[2], 0, 1), clamp(bT * TEMPER.plate[3], 0, 1));
+        gl.uniform4f(u.foilP, 1.55, 0.30, 1.0 + 0.55 * S.price * TEMPER.foil, 0.34);
         /* ── THE THREE LIGHTS, IN WORLD SPACE ────────────────────────────────────────────
          * Key up-left and low, because a raking key is what makes relief read; a cool fill from
          * the right so the shadow side is not dead; a dim rim behind to find the die edge. The
@@ -1484,6 +1518,9 @@ void main(void) {
           maxFlex: S.flex.reduce((m, v) => Math.max(m, Math.abs(v)), 0),
           yaw: S.yaw, pitch: S.pitch, work: S.work,
           burn: S.burn, price: S.price, depth: S.depth,
+          /* exposed so a harness can assert the SPREAD across seeds rather than eyeball it */
+          temper: { plate: TEMPER.plate.slice(), screen: TEMPER.screen,
+                    starve: TEMPER.starve, foil: TEMPER.foil },
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, arrive: S.arrive,

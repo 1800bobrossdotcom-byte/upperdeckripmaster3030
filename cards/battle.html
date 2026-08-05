@@ -639,7 +639,7 @@
         <span class="lob-meta">others can call you out by it</span>
       </div>
       <div class="lob-list" id="lobList"><div class="lob-empty">warming up the room…</div></div>
-      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$3030</b> ante — a small rake burns, the winner takes the pot. Cross-tab presence is real; the rest of the room is bots until the backend goes live (docs/MULTIPLAYER.md).</div>
+      <div class="side-label" style="margin:10px 2px 0">Challenge a ripper — winner takes the loser's staked cards. Both wager a <b style="color:#ffd23b">$3030</b> ante — a small rake burns, the winner takes the pot. <b style="color:#27f7e4">Everyone in this room is a real person.</b> Presence is live across your own tabs and across the internet (<code>/api/presence</code>) — there are no bots, so if the room is empty, it is empty. Bring someone.</div>
     </div>
 
     <div class="panel">
@@ -1227,7 +1227,7 @@
 
   // ── THE LOBBY: live presence + player-vs-player challenges ──────────────────
   //   Presence + matchmaking come from window.RipNet (arena-net.js). LocalNet gives
-  //   REAL cross-tab presence plus a bot population today; a KVNet adapter swaps in
+  //   REAL presence only — cross-tab plus /api/presence. No bots (artist, 2026-08-05).
   //   for an internet-wide room with zero changes here (docs/MULTIPLAYER.md). The
   //   PvP stake = the same cards as house-play + a $3030 BURN ante both sides pay
   //   to enter (a real on-chain burn once the token is live; practice chips until then).

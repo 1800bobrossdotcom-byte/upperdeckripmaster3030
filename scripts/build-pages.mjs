@@ -755,18 +755,15 @@ const artist = `
   <p>The <b>1/1 marquee</b> at the top of the deck is <b>Lovebeing</b> — the artist's own name. It is a
   <b>holder-bound lens</b>: every $3030 holder carries one, one per wallet, and it <b>can't be burned</b> or
   duplicated. It never appears in a pack — hold the token and it's yours.</p>
-  <p><a class="btn" href="cards/lovebeing.html">✦ View the 1/1 marquee →</a></p>
+  <p><a class="btn" href="cards/lovebeing.html">✦ View the 1/1 marquee →</a></p>`;
 
-  <h2><span class="n">05</span>Elsewhere</h2>
-  <div class="cta">
-    <a class="btn cy" href="https://x.com/_lovebeing_" target="_blank" rel="noopener">𝕏 X · @_lovebeing_</a>
-    <a class="btn cy" href="https://www.gianniaronestudio.com/" target="_blank" rel="noopener">◆ Studio</a>
-    <a class="btn cy" href="https://www.lovebeing.world/" target="_blank" rel="noopener">▤ Archive</a>
-    <a class="btn cy" href="https://www.instagram.com/gianniarone/" target="_blank" rel="noopener">◎ Instagram</a>
-    <a class="btn cy" href="https://soundcloud.com/gianniarone" target="_blank" rel="noopener">♪ SoundCloud</a>
-  </div>
-  <p class="fine" style="margin-top:14px">The game's soundtrack was produced by <b>lovebeing &amp; sean</b>, an
-  unhoused friend from the street. <span style="color:#4ea472">Links are the artist's own — verify before sharing.</span></p>`;
+/* ⛔ §05 "ELSEWHERE" REMOVED — artist, 2026-08-05. It carried five outbound links (X, the studio
+ * site, the archive, Instagram, SoundCloud) and the soundtrack credit naming a second person.
+ * ⚑ REMOVED FROM THE GENERATOR, NOT FROM artist.html. This page is GENERATED, so deleting the
+ *   block from the output alone leaves the generator armed to put it straight back on the next
+ *   `npm run pages` — this repo's recorded `restyle-backs.mjs` failure, where generator and
+ *   output disagreed and re-running silently undid the fix. The output is regenerated from here.
+ * ⚠ Nothing else linked those URLs, so no route is broken by their going. */
 
 // ─────────────────────────── write ───────────────────────────
 const pages = [
