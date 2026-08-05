@@ -95,7 +95,11 @@
        belongs where you look first rather than tucked into a corner. */
   #modeBar{ left:50%; transform:translateX(-50%); top:calc(var(--bez) + 10px);
     display:flex; align-items:center; gap:0; pointer-events:auto; }
+  /* ⚠ `white-space:nowrap` because "SECTION 9" WRAPPED. On a 390px phone the three chips share
+     231px and the widest label broke across two lines inside a 44px pill — a control that changes
+     height with its own text is a control the row below it cannot be positioned against. */
   .mchip{ font:inherit; font-size:11px; letter-spacing:.16em; padding:8px 14px; min-height:34px;
+    white-space:nowrap;
     color:var(--paper); background:rgba(13,27,42,.5); border:1px solid rgba(244,234,216,.22);
     border-right-width:0; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
     cursor:pointer; opacity:.62; transition:opacity .15s, background .15s; }
@@ -167,8 +171,17 @@
   #touchUI #tAct:active{ opacity:1; }
   /* ⚑ THE TRIGGER IS THE BIGGEST THING ON SCREEN IN THE MODE THAT HAS ONE — the same rule that
      made FLAP 74px: a control's size tracks how often a thumb wants it. It exists ONLY in
-     operative mode; a fire button over a bird is the observer rule broken in the UI. */
-  #tFire, #tAds{ display:none; }
+     operative mode; a fire button over a bird is the observer rule broken in the UI.
+     ⛔ AND IT WAS NOT, FOR AS LONG AS IT EXISTED — SAME SPECIFICITY TRAP AS THE FLAP BUTTON, ONE
+     RULE FURTHER DOWN THE SAME BLOCK. `#tFire, #tAds` is (1,0,0) and `#touchUI button` above it
+     is (1,0,1), so `display:grid` WON and a FIRE button and an AIM button sat on screen over the
+     bird — the observer rule broken in the UI, which is the exact thing the paragraph above
+     claims is prevented. Measured at 390px: six controls instead of four, a strip **414px wide in
+     a 390px viewport**, so the DROP button was pushed to x −50 and off the screen entirely. The
+     note directly above `#tFlap` says "specificity, not !important" and states the arithmetic;
+     the fix it describes was applied to one rule and not to this one. Qualifying by the parent
+     makes it (2,0,0) — measured 414px → 278px, and no trigger over an animal. */
+  #touchUI #tFire, #touchUI #tAds{ display:none; }
   body[data-mode="operative"] #touchUI #tAds{ display:grid; opacity:.72; font-size:21px; }
   body[data-mode="operative"] #touchUI #tAds:active{ opacity:1; }
   body[data-mode="operative"] #touchUI #tFire{ display:grid; width:74px; height:74px; font-size:26px;
@@ -185,21 +198,85 @@
      mode line under it, then the world, then the hint — and the hint is width-capped so it can
      never reach the buttons rather than being nudged until it happens not to. */
   @media (pointer: coarse), (max-width: 560px) {
-    #hudTL{ font-size:10.5px; letter-spacing:.10em; }
-    #modes{ right:auto; left:calc(var(--bez) + 16px); top:calc(var(--bez) + 34px);
-      text-align:left; font-size:10px; line-height:1.8; }
+    /* ⛔ THE TOP OF THE PHONE WAS THREE LAYERS AT ONE ALTITUDE, AGAIN. The 2026-08-03 pass fixed
+       exactly this ("stop fighting for the corners — one column") and then the MODE BAR arrived on
+       2026-08-04 and was given `top:calc(var(--bez) + 6px)` without anybody re-opening a phone.
+       Measured at 390×844: `#modeBar` 18…62, `#hudTL` 26…38 and `#modes` 46…122 — the title drew
+       THROUGH the chips and the chips drew through the mode notes, so the first line of the game
+       read "◈ THE C[ANIMAL]aster3030stud[SECTION]BIRD". A surface nobody opens rots, and the phone
+       is still the surface nobody was opening. ⚑ One column, in reading order, with each row's top
+       derived from the row above it rather than picked. */
+    #hudTL{ font-size:10.5px; letter-spacing:.10em; top:calc(var(--bez) + 56px); }
+    #modes{ right:auto; left:calc(var(--bez) + 16px); top:calc(var(--bez) + 76px);
+      text-align:left; font-size:10px; line-height:1.8;
+      /* ⚠ …and a right margin, or the last word sits ON the bezel: the box was `left:28` with no
+         cap, i.e. exactly the viewport width, and "SECTION 9" was clipped down its final glyph. */
+      max-width:calc(100% - var(--bez)*2 - 32px); }
     #modes .kbd{ display:none; }                 /* TAB does not exist here */
-    /* ⚠ 246px, not 172. The control strip grew from two buttons to three when the animal picker
-       arrived, and a width cap tuned to the old count silently starts overlapping again — the same
-       class of regression as the flap button shrinking. Derived: 74 + 56 + 56 + two 12px gaps + a
-       16px margin. */
-    #hudBL{ font-size:10.5px; line-height:1.7;
-      max-width:calc(100% - var(--bez)*2 - 384px); }   /* five: aim joined fire */
+    /* ⛔ THE LEGEND WAS 0px WIDE AND 607px TALL — one word per line, straight up the middle of the
+       game. `max-width:calc(100% - 24px - 384px)` is NEGATIVE below 408px of viewport, and a
+       negative max-width clamps to zero; every phone this studio cares about is narrower than
+       that. The number had been raised twice (172 → 246 → 384) as controls were added, each time
+       correctly describing the strip and each time getting closer to eating the whole line, and
+       nothing ever measured the result. ⚑ A CAP DERIVED BY SUBTRACTION HAS A ZERO IN IT — so the
+       legend stops sharing the row with the controls and takes its own row ABOVE them, which is
+       the same "stop fighting for the corners" fix one edge round. Its only reservation now is the
+       health readout, which is the one thing genuinely beside it, and only in the mode that has
+       one. Measured 390×844: 0×607 → 338×~70. */
+    #hudBL{ font-size:10.5px; line-height:1.7; bottom:calc(var(--bez) + 140px);
+      max-width:calc(100% - var(--bez)*2 - 24px); }
+    /* ⚠ AND THE TWO TRANSIENT PROMPTS ARE ROWS OF THEIR OWN. `#carry` (bottom 96) and `#ride`
+       (bottom 132) were authored against a bottom-left legend that ran along a single line; with
+       the legend now a three-line block above the pads they sat INSIDE it, so "E — drive" printed
+       through the control hint. They only appear when they apply, which is exactly why nobody
+       would ever see it on a desktop or in a still frame. From the bezel up: pads · carry · ride ·
+       readout · legend, each row clearing the one below it. */
+    #carry{ bottom:calc(var(--bez) + 92px); }
+    #ride{ bottom:calc(var(--bez) + 116px); }
+    /* ⚠ AND THE HEALTH READOUT WAS UNDER THE THUMB PADS. `#combat` and `#touchUI` are both
+       bottom-right at `--bez + 14px`, which on a desktop is fine because there are no pads there;
+       on a phone the trigger sat on top of the health bar. It takes the row above them.
+       ⛔ STACKED, NOT SHARING A ROW — and the first attempt DID share one, with the legend capped
+       to leave 200px for the readout. It failed intermittently, which is the tell: `#combat` is
+       `white-space:pre` and its width is its LONGEST LINE, so it grows when the weapon name is
+       longer or the word RELOADING appears, and it measured 180px on one frame and past the
+       reservation on the next. **A reservation for a box whose width is its own content is a
+       reservation that is sometimes wrong** — and on the frames it is wrong, the health bar and
+       the legend print through each other while you are being shot at. Two rows have no width to
+       contend over. `#combat` is always exactly two lines (both branches of the readout are), so
+       the 40px the legend steps up by is a constant rather than a guess. */
+    #combat{ font-size:10px; line-height:1.55; letter-spacing:.04em;
+      bottom:calc(var(--bez) + 140px); }
+    /* ⚠ …and it has to re-state `max-width`, because the DESKTOP rule that reserves 260px for the
+       readout is `#hudBL[data-mode="operative"]` — specificity (1,1,0) — and beats this block's
+       plain `#hudBL` (1,0,0) from inside a media query. Media queries do not add specificity; a
+       narrower rule does not win by being narrower. Left alone it read 106px on a 390px phone,
+       which is the same "cap derived by subtraction" arithmetic walking toward zero again. */
+    #hudBL[data-mode="operative"]{ bottom:calc(var(--bez) + 180px);
+      max-width:calc(100% - var(--bez)*2 - 24px); }
     /* ⚠ HIDING THE CHIPS IS NOT HIDING THE HINT. `.key` is only the little boxed letter; the words
        around it ("fly", "flap", "dive", "turn") live in `.kw` and went on printing a keyboard
        legend, stripped of its keys, on a device with no keyboard. */
     #hudBL .key, #hudBL .kw{ display:none; }
     #touchUI{ bottom:calc(var(--bez) + 10px); }
+  }
+  /* ⛔ A PHONE HELD SIDEWAYS IS ~360px TALL, AND THAT IS THE ORIENTATION THIS GAME IS BUILT FOR.
+     The one-column layout above is right for 844px of height and runs out of room in 360.
+     ⚠ AND 844×390 — THE OBVIOUS ONE TO TEST — CLEARS IT BY 16px, WHICH IS THE TRAP. Measured with
+     this rule removed, in operative mode: 844×390 legend at 162 against notes ending at 146 (fine,
+     and it says nothing); **740×360 legend at 132 against notes ending at 146 — 14px of overlap**;
+     640×360 the same; 667×375 clears by ONE pixel. So the widest landscape phone is the only size
+     that works, and testing it alone would have reported a layout that is broken on most of the
+     others. ⚑ What goes is PROSE, never a control: the caption under a lit three-chip selector
+     that already says the same thing, and one flavour line per legend.
+     ⚠ 420px, not 520: every landscape phone is 360–430 tall and every portrait one is 568+, so the
+     threshold separates the two orientations and touches nothing else. A 500px-tall DESKTOP window
+     has the width to lay the same prose out in half the lines, and taking it away there would be
+     answering a measurement that was never made. */
+  @media (max-height: 420px) {
+    #modes .why{ display:none; }
+    #hudBL .flav{ display:none; }
+    #modes{ line-height:1.6; }
   }
   [hidden]{ display:none !important; }
 </style>
@@ -232,8 +309,12 @@
   </div>
   <div class="hud" id="modes">
     <span class="kbd"><b>TAB</b> mode · <b>C</b> animal · </span><b id="modeGame">ANIMAL</b>
-    <br><span class="dim">ANIMAL</span> observer, cannot be hurt ·
-    <span class="dim">DOGFIGHT · SECTION 9</span> mortal, armed
+    <!-- ⚠ `.why` is the prose that the LIT CHIP above already says. It is the first thing to go on
+         a short viewport (a phone held sideways is 390px tall), because the mode bar is a control
+         and this is a caption for it. The cabinet links below are NOT prose and never go — they
+         are the only route to two shipped games. -->
+    <span class="why"><br><span class="dim">ANIMAL</span> observer, cannot be hurt ·
+    <span class="dim">DOGFIGHT · SECTION 9</span> mortal, armed</span>
     <br><span class="dim">the old cabinets →</span>
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
@@ -252,7 +333,7 @@
     <span class="key">TAB</span> mode &nbsp; <span class="key">C</span> animal &nbsp;
     <span class="key">F</span> drop<br></span>
     <span class="touchonly" style="opacity:.75">drag to steer · tap to flap · ✦ hold · ◔ animal · ⇄ mode · ✱ drop<br></span>
-    <span style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
+    <span class="flav" style="opacity:.6">nothing chases you · nothing to run out of · go and look at something</span>
     </span>
     <!-- ⚠ AND A JET DOES NOT FLAP OR DROP CARDS. The legend was two-way (animal / operative) and
          DOGFIGHT fell through to the animal one, printing "flap · dive · animal · drop" over an
@@ -269,7 +350,7 @@
     <span class="key">A</span><span class="key">D</span> roll &nbsp; <span class="key">SHIFT</span> boost &nbsp;
     <span class="key">Q</span> airbrake &nbsp; <span class="key">TAB</span> mode<br></span>
     <span class="touchonly" style="opacity:.75">drag to roll and pitch · ⇄ mode<br></span>
-    <span style="opacity:.6">it turns by BANKING — roll, then pull · bank alone is the wide turn, bank + pull is the hard one</span>
+    <span class="flav" style="opacity:.6">it turns by BANKING — roll, then pull · bank alone is the wide turn, bank + pull is the hard one</span>
     </span>
     <span class="op">
     <span class="kw"><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> move &nbsp;
@@ -279,7 +360,12 @@
     <span class="key">SHIFT</span> sprint &nbsp; <span class="key">SPACE</span> jump &nbsp;
     <span class="key">E</span> drive &nbsp; <span class="key">TAB</span> mode<br></span>
     <span class="touchonly" style="opacity:.75">left thumb moves · right thumb looks · ◉ fire · ◎ aim · ✦ jump · ⇄ mode<br></span>
-    <span style="opacity:.6">click once to take the mouse · become an animal and nothing shoots at you</span>
+    <!-- ⚠ "click once to take the mouse" IS A KEYBOARD-AND-MOUSE INSTRUCTION and was printed to
+         phones, where there is no pointer lock to take and the aim is the right thumb. Same defect
+         class as the phone hint that advertised TAB: a legend that does not match the device is a
+         lie the player pays for. It rides in `.kw`, which is already the class this page hides
+         where there is no keyboard, so there is one rule deciding it rather than two. -->
+    <span class="flav" style="opacity:.6"><span class="kw">click once to take the mouse · </span>become an animal and nothing shoots at you</span>
     </span>
   </div>
 
