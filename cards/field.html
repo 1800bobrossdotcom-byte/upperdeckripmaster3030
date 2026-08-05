@@ -1,0 +1,307 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Field · cards 34–100 · ripmaster3030studios</title>
+<!--
+  ripmaster3030studios — CARDS 34–100, THE FIELD.  cards/field.html?n=47
+      ?n=34..100  which card        ?burn=0..1  stub the on-chain damage
+      ?still      stop the press    ?bare       the card alone, no rail
+
+  Model v2.2's deck is 100: 33 hero 1/1s, 67 render-only field lenses, and Lovebeing. These are
+  the 67. A card is a SEED — `cards/field-deck.json` is 67 numbers and 67 names, and
+  `js/hero-card.js` turns each one into a specific, permanent card. Nothing here is a rendered
+  asset, so the whole field re-paints itself when the deck's pigment changes under it.
+
+  ⛔ THE NAMES ARE PLACEHOLDERS and the manifest says so. They are real printing-trade terms —
+     press faults, typesetter's furniture, bindery operations — so the set reads as one object
+     while staying obviously provisional. Naming is the artist's (HERO-33-BRIEF §6), and a rename
+     is one string in that JSON: the type is composed in the browser from an alphabet of outlines,
+     so there is no font, no rebuild and no new asset.
+
+  ⚑ THE ANIMATION LIVES IN Z AND LOOPS — artist's directive. Nothing slides across the picture
+     plane; the layer stack travels THROUGH the card's thickness, and once per revolution it lands
+     flat and the print resolves. The loop closes exactly — `npm run test:hero` requires the frame
+     at phase 0 and phase 1 to be byte-identical, because a loop that jumps is the one defect a
+     "looks fine" review never catches.
+-->
+<style>
+  :root { --ink:#07070a; --stock:#e7ddc8; --hot:#ff2a6d; --cool:#27f7e4; --gold:#ffd23b;
+          --dim:#8b8b98; --t-body:15px; --t-small:12px; }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--ink);color:var(--stock);
+            font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%}
+  a{color:var(--cool)}
+  [hidden]{display:none!important}
+
+  .wrap{display:grid;grid-template-columns:1fr 300px;gap:26px;padding:22px;
+        min-height:100vh;align-items:start}
+  @media (max-width:860px){ .wrap{grid-template-columns:1fr;gap:18px} }
+
+  /* ⚠ the recorded aspect trap: cap ONE axis and let the other follow, or aspect-ratio yields */
+  #stage{position:relative;display:grid;place-items:center;min-height:62vh}
+  #card{position:relative;aspect-ratio:2/3;height:min(80vh,860px);width:auto;max-width:100%;
+        touch-action:pan-y}
+  @media (max-aspect-ratio:2/3){ #card{width:min(92vw,600px);height:auto} }
+  #card canvas{position:absolute;inset:0;width:100%;height:100%;display:block;border-radius:3%;
+               box-shadow:0 14px 44px rgba(0,0,0,.72), 0 0 0 1px rgba(255,255,255,.07)}
+  #fallback{position:absolute;inset:0;border-radius:3%;display:grid;place-items:center;
+            text-align:center;padding:8%;background:
+              radial-gradient(120% 80% at 50% 12%, #241b12 0%, #0d0a08 68%, #050405 100%);
+            border:1px solid rgba(255,255,255,.10);color:var(--dim);line-height:1.5;
+            font-size:var(--t-body)}
+  #fallback b{display:block;color:var(--stock);letter-spacing:.14em;margin-bottom:10px}
+
+  .rail{font-size:var(--t-body);line-height:1.55}
+  .rail h1{font:900 20px/1.15 Arial,Helvetica,sans-serif;letter-spacing:.05em;margin:0 0 2px}
+  .rail .sub{color:var(--hot);font-size:var(--t-small);letter-spacing:.16em;margin:0 0 14px}
+  .rail p{color:var(--dim);margin:0 0 14px}
+  .grp{border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 13px;margin:0 0 12px;
+       background:rgba(255,255,255,.025)}
+  .grp label{display:block;font-size:var(--t-small);letter-spacing:.14em;color:var(--stock);margin:0 0 6px}
+  .grp .v{float:right;color:var(--gold);font-family:ui-monospace,'Courier New',monospace}
+  input[type=range]{width:100%;accent-color:var(--hot);height:26px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button,.btn{font:700 13px/1 Arial,Helvetica,sans-serif;letter-spacing:.08em;color:var(--stock);
+    background:#16161d;border:1px solid rgba(255,255,255,.18);border-radius:6px;padding:0 14px;
+    min-height:44px;display:inline-flex;align-items:center;cursor:pointer;text-decoration:none}
+  button:hover,.btn:hover{border-color:var(--cool);color:var(--cool)}
+  .note{font-size:var(--t-small);color:var(--dim);line-height:1.6}
+  .note strong{color:var(--gold);font-weight:700}
+  /* the index: 67 numbers, so you can see the whole field is there and jump anywhere in it */
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:4px}
+  #grid a{display:flex;align-items:center;justify-content:center;min-height:38px;border-radius:5px;
+    border:1px solid rgba(255,255,255,.14);color:var(--dim);text-decoration:none;
+    font:700 11px/1 ui-monospace,'Courier New',monospace}
+  #grid a:hover{border-color:var(--cool);color:var(--cool)}
+  #grid a.on{background:var(--hot);border-color:var(--hot);color:#0a0207}
+  body.bare .wrap{grid-template-columns:1fr;padding:0}
+  body.bare .rail{display:none}
+  body.bare #stage{min-height:100vh}
+</style>
+
+<div class="wrap">
+  <div id="stage">
+    <div id="card">
+      <div id="fallback"><b>THE FIELD</b>these cards need WebGL&nbsp;2 to print.<br>
+        the artwork is generated, so there is nothing flat to fall back to yet — a pinned base
+        image is step §7.5 of the brief.</div>
+      <canvas id="cv" width="640" height="960" aria-label="a field card"></canvas>
+    </div>
+  </div>
+
+  <div class="rail">
+    <h1 id="ttl">—</h1>
+    <p class="sub" id="sub">CARDS 34–100 · THE FIELD</p>
+    <p>Sixty-seven render-only lenses. <strong>The animation lives in z</strong> — nothing slides
+      across the card; the layer stack travels through its thickness and once a cycle it lands flat
+      and the print resolves. Press and drag to handle it.</p>
+
+    <div class="grp">
+      <label>THE CARD</label>
+      <div class="row">
+        <a class="btn" id="prev" href="#">◀</a>
+        <a class="btn" id="next" href="#">▶</a>
+        <a class="btn" href="index.html">▚ the deck</a>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label>THE PRESS <span class="v" id="vPhase">0.00</span></label>
+      <input type="range" id="phase" min="0" max="1" step="0.001" value="0">
+      <div class="row"><button type="button" id="spin">STOP THE PRESS</button></div>
+      <div class="note">one revolution is 8 s. drag it and you can find the instant the plates
+        land — <strong>the loop closes exactly</strong>, so phase 0 and phase 1 are the same frame
+        to the byte.</div>
+    </div>
+
+    <div class="grp">
+      <label>BURN <span class="v" id="vBurn">0.00</span></label>
+      <input type="range" id="burn" min="0" max="1" step="0.01" value="0">
+      <div class="note" id="live">reading the chain…</div>
+      <div class="note"><code>maxTotalSupply − totalSupply</code>, read over a public RPC.
+        <strong>read-only, never a wallet.</strong> blocked or offline, the slider is yours.</div>
+    </div>
+
+    <div class="grp">
+      <label>KEY LIGHT <span class="v" id="vLight">135°</span></label>
+      <input type="range" id="light" min="0" max="360" step="1" value="135">
+      <div class="note">move the light, not the card — the coated window flashes, the bare trim
+        does not, and the die edge is metal.</div>
+    </div>
+
+    <div class="grp">
+      <label>THE FIELD · 34–100</label>
+      <div id="grid"></div>
+    </div>
+
+    <p class="note">⛔ <strong>The names are placeholders</strong> — real printing-trade terms, so
+      the set reads as one object while staying obviously provisional. Naming is yours; one string
+      in <code>cards/field-deck.json</code> and there is nothing to rebuild.<br><br>
+      The 33 are elsewhere: <a href="proof.html">◆ PLATE PROOF</a>.</p>
+  </div>
+</div>
+
+<script src="/gate.js"></script>
+<script src="../js/chain-config.js" onerror="void 0"></script>
+<script src="../js/lens-state.js" onerror="void 0"></script>
+<script src="../js/hero-card.js"></script>
+<script>
+(function () {
+  'use strict';
+  var Q = new URLSearchParams(location.search);
+  if (Q.has('bare')) document.body.classList.add('bare');
+  var cv = document.getElementById('cv'), box = document.getElementById('card');
+  var ctrl = null, DECK = null, N = 34;
+
+  function size() {
+    var r = box.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
+    cv.width = Math.max(64, Math.round(r.width * dpr));
+    cv.height = Math.max(96, Math.round(r.height * dpr));
+    if (ctrl) ctrl.render();
+  }
+
+  /* Both manifests, merged — the artist's ask: remix any of the 194+ cards available. Fetched
+   * rather than listed, so the clean-slate swaps the pigment without touching this page. */
+  function pigment() {
+    var one = function (url) {
+      return fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (raw) {
+        var rows = !raw ? [] : (Array.isArray(raw) ? raw : (raw.cards || []));
+        return rows.map(function (c) { return c.art; }).filter(Boolean);
+      }).catch(function () { return []; });
+    };
+    return Promise.all([one('manifest.json'), one('hero-manifest.json')]).then(function (r) {
+      var all = r[0].concat(r[1]);
+      return all.length ? all : ['art/hero/42.webp'];
+    });
+  }
+
+  function paintIndex() {
+    document.getElementById('grid').innerHTML = DECK.cards.map(function (c) {
+      return '<a href="?n=' + c.n + '"' + (c.n === N ? ' class="on"' : '') +
+             ' title="' + c.name + '">' + c.n + '</a>';
+    }).join('');
+    var i = DECK.cards.findIndex(function (c) { return c.n === N; });
+    var p = DECK.cards[(i - 1 + DECK.cards.length) % DECK.cards.length];
+    var nx = DECK.cards[(i + 1) % DECK.cards.length];
+    document.getElementById('prev').href = '?n=' + p.n;
+    document.getElementById('next').href = '?n=' + nx.n;
+  }
+
+  function start() {
+    Promise.all([
+      fetch('field-deck.json').then(function (r) { return r.json(); }),
+      fetch('type/alphabet.json').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+      pigment(),
+    ]).then(function (r) {
+      DECK = r[0];
+      var want = parseInt(Q.get('n'), 10);
+      var card = DECK.cards.filter(function (c) { return c.n === want; })[0] || DECK.cards[0];
+      N = card.n;
+      document.getElementById('ttl').textContent = card.name;
+      document.getElementById('sub').textContent =
+        'CARD ' + card.n + ' OF 100 · ' + String(card.rarity).toUpperCase();
+      document.title = card.name + ' · card ' + card.n + ' · ripmaster3030studios';
+      paintIndex();
+      // ⚠ rarity has to travel WITH the card — it picks the border's family of sorts and how
+      // much of the frame is foil. Leaving it out silently gives every card a common frame,
+      // which looks like a working feature and is the feature not arriving.
+      return HeroCard.build({ canvas: cv, seed: card.seed, pigment: r[2], type: r[1],
+        name: card.name, rarity: card.rarity });
+    }).then(function (c) {
+      if (!c) return;                                    // fails open — the panel stays up
+      ctrl = c;
+      window.__field = c;
+      document.getElementById('fallback').hidden = true;
+      size();
+      c.setState({ burn: parseFloat(Q.get('burn')) || 0 });
+      if (Q.has('still')) { c.setSpin(false); document.getElementById('spin').textContent = 'RUN THE PRESS'; }
+      c.loop(true);
+      goLive();
+      setInterval(function () {
+        if (!ctrl) return;
+        var p = ctrl.probe();
+        document.getElementById('vPhase').textContent = p.phase.toFixed(2);
+        if (document.activeElement !== phase) phase.value = p.phase;
+      }, 120);
+    });
+  }
+
+
+  /* ── ⚑ IT IS A LIVE LENS ─────────────────────────────────────────────────────────────────
+   * Artist, 2026-08-04: *"these are all live lenses so the more connectivity we have the better."*
+   * `js/lens-state.js` reads the $3030 edition's own market over a PUBLIC RPC and hands back three
+   * 0..1 dials. That is brief §7.3, and it is what turns the burn slider from a stub into the
+   * chain: more burned ⇒ more damaged, on the real number.
+   * ⛔ READ-ONLY, AND NEVER A WALLET. `eth_call` over `fetch` is the entire network surface — it
+   *   can show state and it cannot move anything. A frame that asks for a wallet is
+   *   indistinguishable from one that has been swapped for a malicious frame, and SuperRare's
+   *   security team was right about that once already.
+   * ⚠ FAILS OPEN AND STAYS HANDSOME. Blocked, offline, sandboxed, 404 — `LensState` is simply
+   *   never defined, the dials rest where they are, and what you see is what ships in a blocked
+   *   frame. The slider keeps working; the chain only ever OVERRIDES it, and says when it has. */
+  function goLive() {
+    try {
+      if (!window.LensState) return;
+      LensState.watch(function (state, d) {
+        if (!ctrl || !d) return;
+        ctrl.setState({ burn: d.burn, price: d.price, depth: d.depth });
+        var el = document.getElementById('live');
+        if (el) {
+          el.textContent = d.live
+            ? 'LIVE · burn ' + d.burn.toFixed(3) + ' · price ' + d.price.toFixed(2) +
+              ' · depth ' + d.depth.toFixed(2)
+            : 'the chain did not answer — the dials are yours';
+          el.className = d.live ? 'note live' : 'note';
+        }
+        var b = document.getElementById('burn');
+        if (b && d.live) { b.value = d.burn; document.getElementById('vBurn').textContent = d.burn.toFixed(2); }
+      }, { every: 60000 });
+    } catch (e) {}
+  }
+
+  // ── handling ────────────────────────────────────────────────────────────────────────────
+  function at(e) {
+    var r = box.getBoundingClientRect();
+    return [((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2];
+  }
+  box.addEventListener('pointerdown', function (e) {
+    if (!ctrl) return;
+    box.setPointerCapture(e.pointerId);
+    var p = at(e); ctrl.pointer(p[0], p[1], true);
+  });
+  box.addEventListener('pointermove', function (e) {
+    if (!ctrl) return;
+    var p = at(e); ctrl.pointer(p[0], p[1], e.buttons > 0 || e.pressure > 0);
+  }, { passive: true });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (k) {
+    box.addEventListener(k, function () { if (ctrl) ctrl.pointer(0, 0, false); });
+  });
+
+  // ── the dials ───────────────────────────────────────────────────────────────────────────
+  var phase = document.getElementById('phase'), burn = document.getElementById('burn'),
+      light = document.getElementById('light'), spin = document.getElementById('spin');
+  phase.addEventListener('input', function () {
+    if (!ctrl) return;
+    ctrl.setSpin(false); spin.textContent = 'RUN THE PRESS';
+    ctrl.setPhase(+phase.value); ctrl.render();
+    document.getElementById('vPhase').textContent = (+phase.value).toFixed(2);
+  });
+  spin.addEventListener('click', function () {
+    if (!ctrl) return;
+    var on = ctrl.probe().spin ? 0 : 1;
+    ctrl.setSpin(on);
+    spin.textContent = on ? 'STOP THE PRESS' : 'RUN THE PRESS';
+  });
+  burn.addEventListener('input', function () {
+    document.getElementById('vBurn').textContent = (+burn.value).toFixed(2);
+    if (ctrl) ctrl.setState({ burn: +burn.value });
+  });
+  light.addEventListener('input', function () {
+    document.getElementById('vLight').textContent = light.value + '°';
+    if (ctrl) ctrl.setLight(+light.value * Math.PI / 180);
+  });
+
+  addEventListener('resize', size);
+  start();
+})();
+</script>

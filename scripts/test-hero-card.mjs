@@ -159,8 +159,15 @@ const R = await page.evaluate(async () => {
   }
 
   // ── 2 · STILL: ten seconds, no input, and the FRAME must not move either ───────────────
+  /* ⚠ THIS ASSERTION HAD TO NARROW, AND SAYING SO IS THE POINT. It used to demand a byte-identical
+   * frame over ten seconds full stop — which encoded a decision the artist has since overruled:
+   * the press RUNS now, looping in z. Deleting the test would have thrown away what it was really
+   * protecting, which is that nothing DRIFTS. So the claim is now exact: with the press stopped
+   * the card is dead still, the springs sit at exactly 0, and the only motion the card has is a
+   * closed cycle — which the loop test below measures on its own terms. */
   {
     A.setView(0, 0);
+    A.setSpin(false); A.setPhase(0);
     A.render();
     const before = hash(A.pixels());
     const p0 = A.probe();
@@ -168,6 +175,7 @@ const R = await page.evaluate(async () => {
     A.render();
     const after = hash(A.pixels());
     const p1 = A.probe();
+    A.setSpin(true);
     out.still = {
       maxFlex: p1.maxFlex,
       maxVel: p1.flexV.reduce((m, v) => Math.max(m, Math.abs(v)), 0),
@@ -321,7 +329,12 @@ const R = await page.evaluate(async () => {
   {
     const B = await mk(3030, 360, 540);
     const C = await mk(4747, 360, 540);
+    /* ⚠ RESET THE PHASE FIRST. A ran the press during the loop tests and B and C are fresh, so
+     * without this the three cards start at different points in the cycle and "same seed, same
+     * frame" fails on a build that is perfectly deterministic — the test measuring its own setup
+     * rather than the renderer. */
     const drive = c => {
+      c.setSpin(false); c.setPhase(0);
       c.setView(0.18, -0.07);
       c.pointer(0.3, -0.2, true);
       for (let i = 0; i < 25; i++) c.advance(16.6667);
@@ -466,6 +479,92 @@ const R = await page.evaluate(async () => {
     out.fibre = { ax: ax / (sd2.length / 4), ay: ay / (sd2.length / 4), alphaBad: alpha0 };
   }
 
+  /* ══ THE PRESS RUNS — the loop, and it lives in Z ═══════════════════════════════════════
+   * Artist, 2026-08-04: "have the animations live in z space and be looping." Two claims, and
+   * they need two different measurements — one about TIME and one about SPACE. */
+  {
+    A.setSpin(false); A.setView(0, 0); A.setRegistration(1, 0);
+
+    /* ⛔ A LOOP THAT DOES NOT CLOSE IS THE ONE DEFECT NOBODY CATCHES BY WATCHING. The jump happens
+     * once every revolution, for one frame, and the eye writes it off as a stutter. Phase 0 and
+     * phase 1 are the same instant, so the frame must be identical TO THE BYTE. */
+    A.setPhase(0); A.render(); const z0 = hash(A.pixels());
+    A.setPhase(1); A.render(); const z1 = hash(A.pixels());
+    A.setPhase(0.5); A.render(); const zHalf = hash(A.pixels());
+
+    /* ⛔ AND "PHASE 0 EQUALS PHASE 1" IS TRIVIALLY TRUE OF ANYTHING THAT WRAPS — a build driven by
+     * a SAWTOOTH passed it, because 0 % 1 and 1 % 1 are the same number even though the animation
+     * snaps back hard a thousandth of a cycle earlier. The endpoints matching says the
+     * parameterisation is periodic; it says nothing about whether the PICTURE is continuous.
+     * ⚑ So step ACROSS the seam and compare that step to an identical one in mid-cycle. A closed
+     *   loop makes the two steps the same size; a sawtooth makes the seam enormous. The mid-cycle
+     *   step is the control, which is what stops this being another absolute threshold. */
+    const meanAbs = (a, b) => {
+      let sum = 0, n = 0;
+      for (let i = 0; i < a.data.length; i += 4 * 3) { sum += Math.abs(a.data[i] - b.data[i]); n++; }
+      return sum / n;
+    };
+    const frameAt = p2 => { A.setPhase(p2); A.render(); const px = A.pixels(); return { data: px.data }; };
+    const seamA = frameAt(0.996), seamB = frameAt(0.004);
+    const midA = frameAt(0.496), midB = frameAt(0.504);
+    out.loop = { closes: z0 === z1, moves: z0 !== zHalf, z0, z1, zHalf,
+      seam: meanAbs(seamA, seamB), mid: meanAbs(midA, midB) };
+
+    /* ⛔ Z IS A SCALE, NOT AN OFFSET, so the displacement field of a depth move GROWS WITH RADIUS —
+     * the exact mirror of registration, which must be uniform and radius-free. The same block
+     * matcher answers both, and the two answers are opposite: that is what makes each of them
+     * mean something rather than just being a number that came out. */
+    const zField = () => {
+      A.setPhase(0.02); A.render(); const a = A.pixels();
+      A.setPhase(0.5); A.render(); const b = A.pixels();
+      const W = a.w, H = a.h, S = 5, RNG = 16, out2 = [];
+      const lum = px => {
+        const T = new Float32Array(W * H), B = new Float32Array(W * H), L = new Float32Array(W * H);
+        for (let i = 0, p2 = 0; i < px.data.length; i += 4, p2++)
+          T[p2] = px.data[i] * 0.299 + px.data[i + 1] * 0.587 + px.data[i + 2] * 0.114;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s2 = 0;
+          for (let k = -2; k <= 2; k++) s2 += T[y * W + Math.min(W - 1, Math.max(0, x + k))];
+          B[y * W + x] = s2 / 5; }
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let s2 = 0;
+          for (let k = -2; k <= 2; k++) s2 += B[Math.min(H - 1, Math.max(0, y + k)) * W + x];
+          L[y * W + x] = s2 / 5; }
+        return L;
+      };
+      const LA = lum(a), LB = lum(b);
+      for (let by = 0; by < S; by++) for (let bx = 0; bx < S; bx++) {
+        const x0 = Math.round(W * (0.18 + 0.64 * bx / (S - 1))) - 18;
+        const y0 = Math.round(H * (0.20 + 0.60 * by / (S - 1))) - 18;
+        let best = 1e18, bdx = 0, bdy = 0, energy = 0;
+        for (let dy = -RNG; dy <= RNG; dy++) for (let dx = -RNG; dx <= RNG; dx++) {
+          let sum = 0;
+          for (let y = 0; y < 36; y += 2) for (let x = 0; x < 36; x += 2) {
+            const d = LA[(y0 + y) * W + (x0 + x)] - LB[(y0 + y + dy) * W + (x0 + x + dx)];
+            sum += d * d;
+          }
+          if (sum < best) { best = sum; bdx = dx; bdy = dy; }
+        }
+        for (let y = 2; y < 36; y += 2) for (let x = 0; x < 36; x += 2)
+          energy += Math.abs(LA[(y0 + y) * W + (x0 + x)] - LA[(y0 + y - 2) * W + (x0 + x)]);
+        if (energy > 900) out2.push({ dx: bdx, dy: bdy, x: bx / (S - 1) - 0.5, y: by / (S - 1) - 0.5 });
+      }
+      let cosSum = 0, n = 0, far = 0, near = 0, nf = 0, nn = 0;
+      for (const b2 of out2) {
+        const pr = Math.hypot(b2.x, b2.y), sr = Math.hypot(b2.dx, b2.dy);
+        if (pr > 0.30) { far += sr; nf++; } else if (pr < 0.18) { near += sr; nn++; }
+        if (pr < 0.15 || sr < 1.0) continue;
+        cosSum += (b2.dx * b2.x + b2.dy * b2.y) / (pr * sr); n++;
+      }
+      return { n: out2.length, cos: n ? cosSum / n : 0,
+        near: nn ? near / nn : 0, far: nf ? far / nf : 0 };
+    };
+    out.zmove = zField();
+    A.setPhase(0);
+    // and the elements must lead and lag, or the "stack" is one global zoom
+    A.setPhase(0.3); A.render();
+    out.stack = A.probe().elemZ.slice();
+    A.setPhase(0); A.render(); A.setSpin(true);
+  }
+
   // ── 6 · the type comes from the JSON, not from anything installed ──────────────────────
   {
     const D = await mk(3030, 360, 540);
@@ -503,8 +602,8 @@ if (!R.built) {
   t('2 · still at rest — flex is EXACTLY zero after 10 s',
     R.still.maxFlex === 0 && R.still.maxVel === 0,
     `flex ${R.still.maxFlex} · vel ${R.still.maxVel}`);
-  t('2 · still at rest — and the FRAME is byte-identical', R.still.frameSame,
-    `${R.still.before} vs ${R.still.after}`);
+  t('2 · with the press stopped, the FRAME is byte-identical over 10 s', R.still.frameSame,
+    `${R.still.before} vs ${R.still.after} — nothing drifts`);
   t('2 · the press does not run on its own', R.still.sheetBefore === R.still.sheetAfter,
     `sheet #${R.still.sheetAfter}`);
 
@@ -574,6 +673,24 @@ if (!R.built) {
    * colour exactly where it is brightest. The knee has to be doing its job. */
   t('m · the highlights do not clip to flat white', R.white < 0.004,
     `${(R.white * 100).toFixed(3)}% of the card is pure white`);
+
+  /* ── THE PRESS ───────────────────────────────────────────────────────────────────────── */
+  t('p · the loop CLOSES — phase 0 and phase 1 are the same frame to the byte', R.loop.closes,
+    `${R.loop.z0} vs ${R.loop.z1}`);
+  t('p · …and it is somewhere else in between', R.loop.moves, `half-cycle ${R.loop.zHalf}`);
+  t('p · …and the picture is CONTINUOUS across the seam, not just equal at the ends',
+    R.loop.seam < R.loop.mid * 1.6,
+    `a 0.008-cycle step costs ${R.loop.seam.toFixed(2)} at the wrap vs ${R.loop.mid.toFixed(2)} ` +
+    `mid-cycle (a sawtooth blows this up)`);
+  t('p · the motion is in Z — it grows with radius, unlike registration',
+    Math.abs(R.zmove.cos) > 0.5 && R.zmove.far > R.zmove.near * 1.6,
+    `cos ${R.zmove.cos.toFixed(2)} (registration's is ~0) · edge ${R.zmove.far.toFixed(1)} px ` +
+    `vs centre ${R.zmove.near.toFixed(1)} px`);
+  /* ⚑ "Did it move" is the weak question again — a global zoom passes it and is not depth. What
+   * bites is that the four elements are at DIFFERENT depths at the same instant. */
+  t('p · the stack travels through itself, not as one zoom',
+    new Set(R.stack.map(v => v.toFixed(4))).size === 4,
+    'z = ' + R.stack.map(v => v.toFixed(3)).join(' · '));
 
   // 5
   t('5 · same seed, same drive -> byte-identical frame', R.det.same, R.det.a);

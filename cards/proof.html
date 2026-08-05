@@ -114,9 +114,10 @@
     <div class="grp">
       <label>BURN <span class="v" id="vBurn">0.00</span></label>
       <input type="range" id="burn" min="0" max="1" step="0.01" value="0">
-      <div class="note">stubbed. the real one is <code>maxTotalSupply − totalSupply</code>.
+      <div class="note" id="live">reading the chain…</div>
+      <div class="note"><code>maxTotalSupply − totalSupply</code>, read over a public RPC.
         <strong>more burned ⇒ more damaged</strong> — the screen coarsens, the roller starves,
-        the stock opens.</div>
+        the stock opens. <strong>read-only, never a wallet</strong>; blocked, the slider is yours.</div>
     </div>
 
     <div class="grp">
@@ -158,6 +159,8 @@
 </div>
 
 <script src="/gate.js"></script>
+<script src="../js/chain-config.js" onerror="void 0"></script>
+<script src="../js/lens-state.js" onerror="void 0"></script>
 <script src="../js/hero-card.js"></script>
 <script>
 (function () {
@@ -200,7 +203,7 @@
   }
 
   function typeSpec() {
-    return fetch('type/plate-proof.json').then(function (r) { return r.ok ? r.json() : null; })
+    return fetch('type/alphabet.json').then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; });
   }
 
@@ -221,7 +224,11 @@
 
   function start() {
     Promise.all([pigment(), typeSpec()]).then(function (r) {
-      return HeroCard.build({ canvas: cv, seed: seed, pigment: r[0], type: r[1] });
+      /* The 33 are 1/1s, so the proof wears a high-tier frame — and `?rarity=` overrides it, so
+       * the whole ladder can be looked at on one card without hunting through the field. */
+      var rar = Q.get('rarity') || 'legendary';
+      return HeroCard.build({ canvas: cv, seed: seed, pigment: r[0], type: r[1],
+        name: 'PLATE PROOF', rarity: rar });
     }).then(function (c) {
       if (!c) return;                                    // fails open — the panel stays up
       ctrl = c;
@@ -230,9 +237,43 @@
       size();
       c.setState({ burn: parseFloat(Q.get('burn')) || 0 });
       c.loop(true);
+      goLive();
       readout();
       setInterval(readout, 400);
     });
+  }
+
+
+  /* ── ⚑ IT IS A LIVE LENS ─────────────────────────────────────────────────────────────────
+   * Artist, 2026-08-04: *"these are all live lenses so the more connectivity we have the better."*
+   * `js/lens-state.js` reads the $3030 edition's own market over a PUBLIC RPC and hands back three
+   * 0..1 dials. That is brief §7.3, and it is what turns the burn slider from a stub into the
+   * chain: more burned ⇒ more damaged, on the real number.
+   * ⛔ READ-ONLY, AND NEVER A WALLET. `eth_call` over `fetch` is the entire network surface — it
+   *   can show state and it cannot move anything. A frame that asks for a wallet is
+   *   indistinguishable from one that has been swapped for a malicious frame, and SuperRare's
+   *   security team was right about that once already.
+   * ⚠ FAILS OPEN AND STAYS HANDSOME. Blocked, offline, sandboxed, 404 — `LensState` is simply
+   *   never defined, the dials rest where they are, and what you see is what ships in a blocked
+   *   frame. The slider keeps working; the chain only ever OVERRIDES it, and says when it has. */
+  function goLive() {
+    try {
+      if (!window.LensState) return;
+      LensState.watch(function (state, d) {
+        if (!ctrl || !d) return;
+        ctrl.setState({ burn: d.burn, price: d.price, depth: d.depth });
+        var el = document.getElementById('live');
+        if (el) {
+          el.textContent = d.live
+            ? 'LIVE · burn ' + d.burn.toFixed(3) + ' · price ' + d.price.toFixed(2) +
+              ' · depth ' + d.depth.toFixed(2)
+            : 'the chain did not answer — the dials are yours';
+          el.className = d.live ? 'note live' : 'note';
+        }
+        var b = document.getElementById('burn');
+        if (b && d.live) { b.value = d.burn; document.getElementById('vBurn').textContent = d.burn.toFixed(2); }
+      }, { every: 60000 });
+    } catch (e) {}
   }
 
   // ── handling ────────────────────────────────────────────────────────────────────────────

@@ -125,6 +125,51 @@ def glyph_contours(font, glyphset, name, steps):
     return contours
 
 
+def build_alphabet(font_path, steps=8):
+    """Every glyph a card name can use, ONCE — not 67 baked words.
+
+    ⚑ THE ARTIST HAS TO BE ABLE TO RENAME A CARD BY EDITING A STRING. Baking one JSON per name
+      means every rename is a build step and a commit, which is how a placeholder name becomes
+      permanent by friction. An alphabet plus each glyph's advance width is the same information
+      in a fortieth of the space, and the browser sets the line — so `{name: "SOME OTHER NAME"}`
+      just works, with no rebuild and still no font.
+    ⚠ Same rules as build(): decomposed outlines, loud on a missing codepoint.
+    """
+    font = TTFont(font_path)
+    glyphset = font.getGlyphSet()
+    cmap = font.getBestCmap()
+    upem = font["head"].unitsPerEm
+    hmtx = font["hmtx"]
+    # ⚑ THE PUNCTUATION IS FOR THE BORDERS, not for the names. A printer sets a border from
+    # repeated pieces of TYPE — border sorts, printers' flowers — so every card's frame is drawn
+    # from this same fount. That is why the slashes, pipes, carets and brackets are here.
+    chars = ("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+             " .,;:'\"!?&-_/\\|()[]{}<>=+*#$%@^~")
+    glyphs = {}
+    for ch in chars:
+        cp = ord(ch)
+        if cp not in cmap:
+            sys.exit(f"glyph missing from the font: {ch!r} (U+{cp:04X})")
+        gname = cmap[cp]
+        cons = glyph_contours(font, glyphset, gname, steps) if ch != " " else []
+        glyphs[ch] = {
+            "adv": hmtx[gname][0] / upem,
+            # ⚠ 4 dp in EM units is a tenth of a font unit at 1000 upem — far finer than any
+            # rasteriser can see, and it halves the file. A lens has to load cold in a media slot.
+            "contours": [[[round(x / upem, 4), round(y / upem, 4)] for (x, y) in c] for c in cons],
+        }
+    return {
+        "v": 1,
+        "kind": "alphabet",
+        "note": ("Outlines only — NO FONT SHIPS AND NO FONT IS NAMED. Built by "
+                 "scripts/build-card-type.py --alphabet from a metric-compatible OFL face; what "
+                 "is stored here is coordinates, not type software. See docs/HERO-33-BRIEF.md §0."),
+        "units": "em (y up, origin on the baseline)",
+        "cap": max((p[1] for g in glyphs.values() for c in g["contours"] for p in c), default=0.7),
+        "glyphs": glyphs,
+    }
+
+
 def build(text, font_path, steps=8, tracking=0.0):
     font = TTFont(font_path)
     glyphset = font.getGlyphSet()
@@ -182,7 +227,8 @@ def to_svg(spec, px=1200):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("text")
+    ap.add_argument("text", nargs="?", default="")
+    ap.add_argument("--alphabet", action="store_true", help="emit every glyph once, not one word")
     ap.add_argument("--out", help="write the JSON here")
     ap.add_argument("--svg", help="also write an SVG proof here")
     ap.add_argument("--font", help="override the outline source")
@@ -190,6 +236,19 @@ def main():
     ap.add_argument("--tracking", type=float, default=0.0, help="extra letterspacing, em")
     a = ap.parse_args()
 
+    if a.alphabet:
+        spec = build_alphabet(find_font(a.font), a.steps)
+        pts = sum(len(c) for g in spec["glyphs"].values() for c in g["contours"])
+        cons = sum(len(g["contours"]) for g in spec["glyphs"].values())
+        if a.out:
+            os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
+            with open(a.out, "w") as f:
+                json.dump(spec, f, separators=(",", ":"))
+            print(f"  ok   {a.out}")
+        print(f"       alphabet  ->  {len(spec['glyphs'])} glyphs · {cons} contours · {pts} points")
+        return
+    if not a.text:
+        sys.exit("give a name, or pass --alphabet")
     spec = build(a.text.upper(), find_font(a.font), a.steps, a.tracking)
     pts = sum(len(c) for L in spec["letters"] for c in L["contours"])
     cons = sum(len(L["contours"]) for L in spec["letters"])

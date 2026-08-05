@@ -263,7 +263,113 @@
    *      target reports on the artwork it is sitting next to. The joke tells itself.
    *   B  the crease relief — see drawCreases. It is here because it is per-SHEET, like the name.
    */
-  function buildType(spec, seed, N, sheet) {
+  /* Compose a line from the alphabet: advance widths accumulated, contours offset. Returns a
+   * spec in exactly the shape a baked word has, so nothing downstream knows which route it came. */
+  function setLine(spec, name) {
+    if (!spec || !spec.glyphs) return spec;                 // already a baked word (or nothing)
+    const txt = String(name || '').toUpperCase();
+    const letters = [];
+    let pen = 0;
+    for (const ch of txt) {
+      const g = spec.glyphs[ch] || spec.glyphs[' '];
+      if (!g) continue;
+      if (g.contours.length) {
+        letters.push({
+          ch: ch, adv: g.adv, x: pen,
+          contours: g.contours.map(c => c.map(pt => [pt[0] + pen, pt[1]])),
+        });
+      }
+      pen += g.adv;
+    }
+    if (!letters.length) return null;
+    const xs = [], ys = [];
+    for (const L of letters) for (const c of L.contours) for (const pt of c) { xs.push(pt[0]); ys.push(pt[1]); }
+    return { letters: letters, advance: pen,
+      bbox: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
+  }
+
+  /* ── THE FRAME IS SET FROM TYPE ───────────────────────────────────────────────────────────
+   * Artist, 2026-08-04: *"lets do cool different frames for each card with ascii patterns etc"*
+   * and *"separate frames by card rarity type."*
+   *
+   * ⚑ THIS IS NOT A DECORATION BOLTED ON — it is how borders were actually made. A printer sets a
+   *   rule from repeated pieces of TYPE: border sorts, printers' flowers, a run of the same sort
+   *   locked in the chase. So the frame comes out of the SAME FOUNT as the name, drawn from the
+   *   same committed outlines, which is why it belongs to this card rather than sitting on it.
+   *   It is also, straightforwardly, ASCII art — the two traditions are the same idea a century
+   *   apart, and this project's whole register lives in that overlap.
+   * ⛔ RARITY PICKS THE FAMILY, THE SEED PICKS THE FRAME. A collector reads the tier off the edge
+   *   without being told, and no two cards share a border. Quiet rules at the bottom, dense
+   *   compound sorts at the top. */
+  const SORTS = {
+    common:    [['-'], ['.'], [':'], ['. '], ['-.']],
+    uncommon:  [['+'], ['='], ['|'], ['+-'], ['=.']],
+    rare:      [['/', '\\'], ['<', '>'], ['^'], ['/', '.'], ['~']],
+    epic:      [['#'], ['*'], ['%'], ['#.'], ['*+']],
+    legendary: [['@'], ['&'], ['$'], ['@.'], ['&+']],
+    mythic:    [['#', '@'], ['%', '@'], ['@', '#', '%'], ['$', '@'], ['#', '%', '#']],
+  };
+  /* ⛔ AND "GLOW" IS FOIL, NOT LIGHT. The brief bans an emissive glitch outright — a glow makes it
+   * a SCREEN and this is a card. What a rare card actually does is carry more FOIL: the border
+   * stops being ink and becomes metal, so it is dark until you turn it and then it flares. That is
+   * a glow you can hold, it escalates cleanly, and it costs nothing but a mask. */
+  const FOIL_BY_RARITY = { common: 0.0, uncommon: 0.10, rare: 0.30, epic: 0.55, legendary: 0.80,
+    mythic: 1.0, prizm: 1.0, marquee: 1.0 };
+
+  function fillGlyph(g, contours, x, y, sc) {
+    if (!contours || !contours.length) return;
+    g.beginPath();
+    for (const c of contours) {
+      for (let i = 0; i < c.length; i++) {
+        const px = x + c[i][0] * sc, py = y - c[i][1] * sc;
+        i ? g.lineTo(px, py) : g.moveTo(px, py);
+      }
+      g.closePath();
+    }
+    g.fill('evenodd');
+  }
+
+  /* Run one motif all the way round the trim. ⚠ The count is derived from the SIDE LENGTH and
+   * rounded, then the cell is recomputed from it — set the cell first and the last sort on each
+   * side lands short of the corner, which is the one thing a border must never do. */
+  function drawBorder(g, alpha, r, W, H, m, rarity) {
+    if (!alpha || !alpha.glyphs) return;
+    const fam = SORTS[rarity] || SORTS.common;
+    const motif = fam[Math.floor(r() * fam.length)];
+    /* ⚠ THE BORDER HAS TO FIT IN THE TRIM, and the first cut did not: a sort at 21 px with a
+     * second pass 18 px inside it ran to 45 px on a 32 px band, so the frame climbed over the
+     * window and ate the artwork. Every number below is a fraction of the trim width `m`, and the
+     * inner pass is placed so its far edge still lands short of it. */
+    const cell = m * (0.26 + r() * 0.10);
+    const inset = m * (0.30 + r() * 0.06);
+    const sc = cell * (1.15 + r() * 0.25);
+    const dbl = r() < 0.34;                    // some cards get a second, inner run
+
+    const run = (x0, y0, dx, dy, len, rot) => {
+      const k = Math.max(2, Math.round(len / cell));
+      const step = len / k;
+      for (let i = 0; i < k; i++) {
+        const ch = motif[i % motif.length];
+        const gl = alpha.glyphs[ch];
+        if (!gl || !gl.contours.length) continue;
+        const x = x0 + dx * (i + 0.5) * step, y = y0 + dy * (i + 0.5) * step;
+        g.save();
+        g.translate(x, y);
+        if (rot) g.rotate(rot);
+        fillGlyph(g, gl.contours, -gl.adv * sc * 0.5, sc * 0.22, sc);
+        g.restore();
+      }
+    };
+    for (let pass = 0; pass < (dbl ? 2 : 1); pass++) {
+      const o = inset + pass * cell * 1.15;
+      run(o, o, 1, 0, W - 2 * o, 0);                       // top
+      run(o, H - o, 1, 0, W - 2 * o, 0);                   // bottom
+      run(o, o, 0, 1, H - 2 * o, Math.PI / 2);             // left
+      run(W - o, o, 0, 1, H - 2 * o, Math.PI / 2);         // right
+    }
+  }
+
+  function buildType(spec, seed, N, sheet, name, rarity) {
     const c = document.createElement('canvas');
     c.width = N; c.height = Math.round(N * 1.5);
     const g = c.getContext('2d');
@@ -289,8 +395,15 @@
     }
     g.lineWidth = Math.max(1, W * 0.0028);
     g.strokeRect(win.x, win.y, win.w, win.h);                // the window's own hairline
+    drawBorder(g, spec, rng(seed ^ 0x1B873593), W, H, m, rarity);
 
     // ── R · the name ──────────────────────────────────────────────────────────────────────
+    /* Two ways in, and the second is the one that matters. A BAKED spec is one word, built by
+     * `build-card-type.py "SOME NAME"`. An ALPHABET plus a string is 53 glyphs and their advance
+     * widths, set here — so renaming a card is a string edit with no rebuild and still no font.
+     * ⚠ 67 field cards would otherwise mean 67 baked words, and a placeholder name that costs a
+     *   build step to change is a placeholder that becomes permanent by friction. */
+    spec = setLine(spec, name);
     if (!spec || !spec.letters || !spec.letters.length) return c;
     const r = rng((seed ^ 0x2545F491) + sheet * 7919);
     const bb = spec.bbox, wEm = Math.max(1e-3, bb[2] - bb[0]), hEm = Math.max(1e-3, bb[3] - bb[1]);
@@ -454,6 +567,20 @@ uniform vec4 uPress;         // x screen freq · y roller bands · z roller phas
 uniform vec4 uDmg;           // x burn · y tear · z dot gain · w edge wear
 uniform vec4 uFoilP;         // x grating cycles · y thin film · z sheen · w patch cycles
 uniform vec2 uPar;           // x parallax gain · y type depth
+/* ⛔ THE LOOP LIVES IN Z — artist, 2026-08-04: "have the animations live in z space and be
+ * looping." Four depths through the card's thickness, one per element of the composition, and the
+ * press cycle drives them. THIS SUPERSEDES the stillness decision recorded in §3 of the brief: I
+ * argued an ambient cycle is a screensaver and the artist has decided otherwise — but WHERE he put
+ * it is what saves the argument. Nothing slides across the picture plane. The stack travels
+ * THROUGH the card and once per revolution it lands flat and the print resolves, which is a beat
+ * rather than a drift, and it is what a press actually does.
+ * ⚑ Z IS A SCALE, NOT AN OFFSET. Moving something along the view axis at zero eccentricity does
+ *   not move it sideways — it makes it BIGGER. So depth here is a magnification about the frame
+ *   centre, which is also why its displacement field GROWS WITH RADIUS: the exact mirror image of
+ *   registration, which must be uniform and radius-free. The same block matcher measures both and
+ *   the two answers are opposite. */
+uniform vec4 uElemZ;         // ground · mid · figure · type
+uniform float uFrameFoil;    // how much of the border is METAL rather than ink — rarity
 uniform float uSeed;
 uniform float uRegGain;      // 0 kills registration entirely — the acceptance-4 control
 /* ⛔ THE CONTROL FOR ACCEPTANCE 4, AND IT EXISTS SO THE MEASUREMENT CAN PROVE IT DISCRIMINATES.
@@ -531,11 +658,14 @@ vec3 F_Schlick(vec3 f0, float u) { return f0 + (1.0 - f0) * pow(1.0 - u, 5.0); }
  * Composed live out of three deck cards. par is the PARALLAX offset for this view; each
  * element takes it scaled by its own depth through the card, which is what gives the picture
  * thickness. Registration is NOT applied here — it belongs to the plate, not to the picture. */
+vec2 zuv(vec2 u, float z) { return (u - 0.5) / (1.0 + z) + 0.5; }
+
 vec3 artAt(vec2 u, vec2 par) {
-  vec2 uG = u + par * 0.00;
-  vec2 uM = u + par * 0.30;
-  vec2 uF = u + par * 0.70;
-  vec2 uT = u + par * uPar.y;
+  // one depth per element: it sets the magnification AND how far the parallax carries it
+  vec2 uG = zuv(u, uElemZ.x) + par * uElemZ.x;
+  vec2 uM = zuv(u, uElemZ.y) + par * uElemZ.y;
+  vec2 uF = zuv(u, uElemZ.z) + par * uElemZ.z;
+  vec2 uT = zuv(u, uElemZ.w) + par * uElemZ.w;
 
   /* ⛔ THE THREE SOURCES ARE SAMPLED AT THREE DIFFERENT SCALES, and that is not a look — it is
    * the difference between a composition and a filter. The first cut took all three at roughly
@@ -553,6 +683,8 @@ vec3 artAt(vec2 u, vec2 par) {
 
   /* The trim and the marks are on the STOCK, so they take no depth — they are not floating
    * above the picture, they are the picture stopping. Only the name is carried up the stack. */
+  // ⚠ the trim and the marks are the SHEET. They never travel — if the paper moved in z there
+  // would be nothing for the stack to be inside, and the whole depth would read as a zoom.
   vec4 m = texture(uComp, u);
   c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0));       // raw stock: the trim
   c = mix(c, vec3(0.055, 0.048, 0.062), texture(uType, uT).r);       // the name
@@ -673,7 +805,11 @@ void main(void) {
   /* ⚠ THE DIE EDGE IS AN EDGE. At 0.86 the foil band covered the whole trim and the card wore a
    * rainbow border — a decal, which is the exact thing acceptance 1 exists to catch. */
   float edge = smoothstep(0.952, 0.982, max(ee.x, ee.y));
-  float metal = clamp(edge + plate.r * 0.62, 0.0, 1.0) * (1.0 - uDmg.w * 0.55);
+  /* ⛔ THE RARITY'S "GLOW" IS THIS ONE TERM. plate.g is the printer's marks AND the border sorts,
+   * so raising uFrameFoil turns the frame from ink into metal: dark head-on, flaring when the card
+   * turns, hue walking with the grating. No emission anywhere — see the header. */
+  float metal = clamp(edge + plate.r * 0.62 + plate.g * uFrameFoil, 0.0, 1.0)
+              * (1.0 - uDmg.w * 0.55);
 
   vec3 T0 = normalize(vec3(1.0, 0.0, 0.0) - Ng * Ng.x);
   vec3 B0 = cross(Ng, T0);
@@ -877,7 +1013,7 @@ void main(void) {
       const texC = texFrom(gl, imgs[2], UNIT.uPigC, gl.CLAMP_TO_EDGE, true);
       const compCanvas = buildComp(seed, 512);
       const texComp = texFrom(gl, compCanvas, UNIT.uComp);
-      let texType = texFrom(gl, buildType(o.type, seed, 512, 0), UNIT.uType);
+      let texType = texFrom(gl, buildType(o.type, seed, 512, 0, o.name, o.rarity), UNIT.uType);
       const stockCanvas = buildStock(seed, 256);
       const texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
 
@@ -891,6 +1027,7 @@ void main(void) {
         rimDir: U('uRimDir'), rimCol: U('uRimCol'),
         rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
+        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
        ['uType', texType], ['uStock', texStock]].forEach(([n, t]) => {
@@ -921,7 +1058,7 @@ void main(void) {
         sheetState.phase = r() * TAU;
         sheetState.starve = 0.03 + r() * 0.14;
         gl.deleteTexture(texType);
-        texType = texFrom(gl, buildType(o.type, seed, 512, n), UNIT.uType);
+        texType = texFrom(gl, buildType(o.type, seed, 512, n, o.name, o.rarity), UNIT.uType);
       }
       pull(0);
 
@@ -931,7 +1068,7 @@ void main(void) {
         yaw: 0, yawV: 0, yawT: 0, pitch: 0, pitchV: 0, pitchT: 0,
         px: 0, py: 0, down: false, work: 0, lastX: 0, lastY: 0,
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
-        lightA: 2.36, envOn: 1,
+        lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1,
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
       // measures. A critically damped spring passes "did it move" and fails "is it stock".
@@ -947,6 +1084,11 @@ void main(void) {
       function advance(dtMs) {
         const dt = clamp((dtMs || 0) / 1000, 0, 0.05);
         if (dt <= 0) return;
+
+        /* The press runs. `phase` is the only quantity here that advances without you, and it
+         * wraps rather than growing — an accumulating float would drift out of precision after a
+         * few hours in a media slot and the loop would stop closing. */
+        if (S.spin) { S.phase += dt / S.period; if (S.phase >= 1) S.phase -= Math.floor(S.phase); }
 
         // the thumb: a press dishes the stock under the contact and tilts it away from it
         const press = S.down ? 0.055 : 0;
@@ -1038,6 +1180,26 @@ void main(void) {
         gl.uniform4f(u.relief, 0.18, 0.90, 2.20, 0.10);
         gl.uniform2f(u.tile, 2.4, 3.6);
         gl.uniform1f(u.envOn, S.envOn);
+        /* ── THE PRESS CYCLE, IN Z ────────────────────────────────────────────────────────
+         * ⛔ THE LOOP MUST CLOSE EXACTLY. cos is periodic in phase with period 1 AND its
+         *   derivative is 0 at both ends, so the wrap is C-1 continuous — no jump, and no visible
+         *   flinch at the seam either, which is the failure a "looks fine" review never catches.
+         *   `npm run test:hero` requires the frame at phase 0 and at phase 1 to be BYTE-identical.
+         * ⚑ EACH ELEMENT LEADS OR LAGS. Driven together they are one zoom, which passes "did it
+         *   move" and is not depth — the same weak question the wordmark rig had to answer. The
+         *   offsets are what make the stack travel THROUGH itself. */
+        const ZBASE = [0.00, 0.30, 0.70, 1.00];        // where each element rests in the stack
+        const ZLEAD = [0.00, 0.62, 0.28, 0.45];        // and how far round the cycle it is
+        const zAmp = 0.085 + 0.055 * S.depth;
+        const zc = i => ZBASE[i] * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
+                      + zAmp * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5;
+        elemZ = [zc(0), zc(1), zc(2), zc(3)];
+        gl.uniform4f(u.elemZ, elemZ[0], elemZ[1], elemZ[2], elemZ[3]);
+        /* ⚑ AND IT BREATHES WITH THE PRESS. The higher the tier the more the frame answers the
+         * cycle — at the impression the foil is flat to the sheet, away from it the border lifts
+         * and catches. Same clock as the stack, so nothing has its own tempo. */
+        const rf = FOIL_BY_RARITY[o.rarity] !== undefined ? FOIL_BY_RARITY[o.rarity] : 0;
+        gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
         gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
         gl.uniform1f(u.seed, (seed % 997) / 997);
         gl.uniform1f(u.regGain, S.regGain);
@@ -1047,6 +1209,7 @@ void main(void) {
       }
 
       // ── the rAF driver, which is a CONVENIENCE and never the source of truth ─────────────
+      let elemZ = [0, 0, 0, 0];              // last frame's stack depths, for the harness
       let raf = 0, last = 0;
       function loop(on) {
         if (!on) { if (raf) cancelAnimationFrame(raf); raf = 0; return; }
@@ -1092,6 +1255,10 @@ void main(void) {
         // the key light's azimuth, radians. Moving the LIGHT is the fastest way to find out
         // whether a surface is a material or a picture of one.
         setLight: a => { S.lightA = a; },
+        // the press cycle: 0..1 round one revolution. `spin` stops it dead for a still frame.
+        setPhase: p => { S.phase = ((p % 1) + 1) % 1; },
+        setSpin: on => { S.spin = on ? 1 : 0; },
+        setPeriod: sec => { S.period = Math.max(0.5, sec); },
         /* ⛔ THE ENVIRONMENT SWITCH IS THE ANTI-WASH ASSERTION'S CONTROL. Off, the metal loses its
          * reflection and the ARTWORK must not change by a single byte. */
         setEnv: on => { S.envOn = on ? 1 : 0; },
@@ -1116,6 +1283,9 @@ void main(void) {
           yaw: S.yaw, pitch: S.pitch, work: S.work,
           burn: S.burn, price: S.price, depth: S.depth,
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
+          phase: S.phase, period: S.period, spin: S.spin,
+          rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
+          elemZ: elemZ.slice(),
           pigment: pig.slice(),
         }),
         destroy: () => { loop(false); },

@@ -608,9 +608,14 @@ head('6b · the first of the 33 is reachable, and the type is still geometry');
   const nav = navigatorsOf('cards/proof.html').filter(n => !ORPHAN_OK[n]);
   t('…and something that is not itself an orphan links it', nav.length > 0,
     nav.join(', ') || 'NO INBOUND LINK');
-  t('the committed type outlines exist', existsSync(join(ROOT, 'cards/type/plate-proof.json')));
+  t('the committed type outlines exist', existsSync(join(ROOT, 'cards/type/alphabet.json')));
+  /* ⚠ The proof used to load a BAKED word (`plate-proof.json`) and now composes from the
+   * alphabet, because 67 field cards would otherwise be 67 baked words — and a name that costs a
+   * build step to change is a name that becomes permanent by friction. Either route is still no
+   * font; what must never appear is a font NAMED in CSS, because that hands the collector's
+   * machine a vote over the permanent artwork. */
   t('…and the page reads them rather than naming a font',
-    /type\/plate-proof\.json/.test(proof) && !/font-family:[^;]*Arial Black/.test(proof));
+    /type\/(alphabet|plate-proof)\.json/.test(proof) && !/font-family:[^;]*Arial Black/.test(proof));
 
   /* ⚠ COMMENTS STRIPPED FIRST, and this bit immediately: the renderer's own header explains that
    * Math.random appears nowhere in it, so the first version of this check failed on the sentence
@@ -675,6 +680,7 @@ head('2c · the surfaces a visitor comes for are a short walk from the front doo
     ['cards/index.html', 'the deck'],
     ['cards/binder.html', 'the folder'],
     ['cards/proof.html', 'the 33'],
+    ['cards/field.html', 'the field, cards 34–100'],
     ['cards/market.html', 'the market bench'],
     ['arcade.html', 'the arcade'],
     ['city.html', 'THE CITY'],
@@ -704,6 +710,49 @@ head('6c · the deck offers a way onward, and the generator that writes it agree
   t('…and the generator emits the same nav', /class="decknav"/.test(gen) &&
     /href="binder\.html"/.test(gen) && /href="proof\.html"/.test(gen));
   t('…and so does the shipped page', /class="decknav"/.test(deck));
+}
+
+// ═══ 6d · THE FIELD — CARDS 34–100 ═════════════════════════════════════════════════════════════
+/* Artist, 2026-08-04: *"lets create cards 34-100"*, *"different frames for each card with ascii
+ * patterns"*, *"separate frames by card rarity type"* and *"these are all live lenses so the more
+ * connectivity we have the better."* `npm run test:hero` measures what a card DOES; this checks
+ * that the set exists, is complete, and reaches a visitor without a wallet in sight. */
+head('6d · the field is complete, framed by rarity, and live without a wallet');
+{
+  const deck = JSON.parse(R('cards/field-deck.json'));
+  t('the field is 67 cards, 34–100', deck.count === 67 && deck.range[0] === 34 && deck.range[1] === 100,
+    `${deck.count} cards`);
+  t('…every number in the range is present exactly once',
+    new Set(deck.cards.map(c => c.n)).size === 67 &&
+    deck.cards.every(c => c.n >= 34 && c.n <= 100));
+  t('…every card has its own name and its own seed',
+    new Set(deck.cards.map(c => c.name)).size === 67 &&
+    new Set(deck.cards.map(c => c.seed)).size === 67);
+  /* ⚠ The names are placeholders and the FILE has to keep saying so — a provisional name that
+   * stops announcing itself is how a placeholder becomes canon by silence. */
+  t('…and the manifest still says the names are placeholders', deck.namesArePlaceholders === true);
+  const byR = {};
+  for (const c of deck.cards) byR[c.rarity] = (byR[c.rarity] || 0) + 1;
+  t('…and the rarity pyramid is intact', Object.keys(byR).length === 6 && byR.common === 24 &&
+    byR.mythic === 2, Object.entries(byR).map(([k, v]) => k + ' ' + v).join(' · '));
+
+  const field = TEXT.get('cards/field.html') || '';
+  /* ⛔ THE RARITY HAS TO TRAVEL WITH THE CARD. It picks the border's family of sorts and how much
+   * of the frame is foil; leaving it off the build call gives every card a common frame, which
+   * looks like a working feature and is the feature not arriving. It did, once. */
+  t('the viewer passes rarity to the renderer', /rarity:\s*card\.rarity/.test(field));
+  t('…and composes the name from the alphabet, not a baked word',
+    /type\/alphabet\.json/.test(field) && /name:\s*card\.name/.test(field));
+  t('the alphabet of outlines ships', existsSync(join(ROOT, 'cards/type/alphabet.json')));
+
+  /* ⛔ LIVE, AND NEVER A WALLET. SuperRare's security team flagged this once and they were right:
+   * a frame that asks for a wallet is indistinguishable from one that has been swapped. Read-only
+   * eth_call over fetch is the whole network surface. */
+  for (const f of ['cards/field.html', 'cards/proof.html']) {
+    const src = (TEXT.get(f) || '').replace(/<!--[\s\S]*?-->/g, ' ');
+    t(`${f} reads the chain`, /lens-state\.js/.test(src) && /LensState/.test(src));
+    t(`…and asks for no wallet`, !/window\.ethereum|WalletConnect|eth_requestAccounts|personal_sign/.test(src));
+  }
 }
 
 // ═══ 7 · THE SITEMAP LISTS THE CABINETS IT HAS ═════════════════════════════════════════════════

@@ -235,6 +235,7 @@ function buildGallery() {
       <div class="decknav">
         <a href="binder.html">▤ the folder</a>
         <a href="binder.html#hero-34">✎ the artist's cards</a>
+        <a href="field.html">◈ the field · 34–100</a>
         <a class="hot" href="proof.html">◆ the 33 · plate proof</a>
       </div>
       <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $3030 to vote any card up or
