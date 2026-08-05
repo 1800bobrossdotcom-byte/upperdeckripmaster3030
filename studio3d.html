@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THE UNCUT SHEET · ripmaster3030studios</title>
+<meta name="description" content="A proposed landing surface for ripmaster3030studios: the studio's own uncut press sheet, eight-up, foil-stamped in the tail margin. Tear a card out to go somewhere.">
+<meta name="theme-color" content="#020804">
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="mobile.css">
+<style>
+  /* ══ THE UNCUT SHEET — a PROPOSAL, and it is meant to be rejected in specifics ═══════════
+   * Art direction: docs/BRAND-3030.md. Renderer: js/sheet3d.js.
+   *
+   * ⛔ THIS PAGE DOES NOT REPLACE index.html AND MUST NOT BE PROMOTED WITHOUT THE ARTIST'S
+   *   CALL. It is descended from that page on purpose — same void, same phosphor, same mono
+   *   voice, the same two torches — and it changes exactly one thing: the studio stops being a
+   *   poster about a card and becomes the sheet the cards are printed on.
+   *
+   * ⚑ EVERYTHING BELOW THE CANVAS IS A COMPLETE PAGE ON ITS OWN. PlayCanvas has no software
+   *   path, so WebGL2 is a hard requirement for the sheet — and a hard requirement is only
+   *   acceptable when the door has a sign on it rather than a black rectangle behind it. With
+   *   no WebGL2, a blocked vendor script or a shader that will not link, the CSS press sheet
+   *   below stays exactly where it is and every one of the eight links still works. */
+  :root{
+    --void:#020804; --panel:#04140b; --ink:#01130a;
+    --phos:#2bff80; --phosdim:#0f5c33;
+    --acid:#ff2ad9; --cyan:#27f7e4; --amber:#ffd23b;
+    --text:#b8ffd6;
+    --stock:#e7dfcd;            /* the paper. Measured against the shader's uPaper. */
+    --stock-2:#d8cdb4;
+    --mono:'Courier New',ui-monospace,monospace;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ background:var(--void); }
+  body{ font-family:var(--mono); color:var(--text); background:transparent;
+    font-size:var(--t-body,16px); line-height:1.62;
+    min-height:100vh; overflow-x:hidden; padding:0 12px 132px;
+    -webkit-tap-highlight-color:transparent; }
+  /* ⚠ third sighting of this rule in this repo: any stylesheet that sets `display` has to say
+     what hidden means, or the UA's [hidden]{display:none} loses and hidden stops meaning
+     anything. It cost the launch countdown a night it could not repeat. */
+  [hidden]{ display:none !important; }
+  a{ color:inherit; text-decoration:none; }
+  .crt{ position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px); }
+  .wrap{ position:relative; z-index:1; max-width:1080px; margin:0 auto; }
+
+  /* ── the rail ── */
+  .rail{ display:flex; align-items:center; justify-content:space-between; gap:2px 14px;
+    flex-wrap:wrap; padding:2px 0 0; }
+  .rail a{ display:inline-flex; align-items:center; min-height:var(--tap,44px); padding:0 4px;
+    font-size:var(--t-ui,13px); letter-spacing:.08em; color:#9fe6c8; }
+  .rail a:hover,.rail a:active{ color:var(--phos); }
+  .stamp{ font-size:var(--t-tag,12px); letter-spacing:.22em; text-indent:.22em;
+    text-transform:uppercase; color:var(--amber); border:1px solid #6b5410;
+    background:rgba(255,210,59,.08); border-radius:6px; padding:6px 10px; }
+
+  /* ── masthead. The studio's name is TEXT, always, in the DOM.
+       ⛔ A canvas-only name is a bitmap of the name, and a bitmap of the name is exactly how
+       the retired studio name survived a 258-file rename on 200+ live surfaces. The foil slug
+       on the sheet says the same string; this is the one a machine can read. ── */
+  header{ text-align:center; margin-top:clamp(2px,1vh,14px); }
+  .lede b{ color:#eafff2; }
+  .studio{ font-size:clamp(19px,5.4vw,34px); letter-spacing:.04em; text-transform:lowercase;
+    color:#eafff2; font-weight:700; line-height:1.05;
+    text-shadow:0 0 18px rgba(43,255,128,.35), 0 2px 0 rgba(2,10,6,.9); }
+  .kick{ margin-top:6px; font-size:var(--t-tag,12px); letter-spacing:.30em; text-indent:.30em;
+    text-transform:uppercase; color:#5fcf8f; }
+  .lede{ max-width:60ch; margin:12px auto 0; font-size:var(--t-body,16px); color:#a6e8c6; }
+
+  /* ── the press bed: the canvas host ──
+       ⚠ min-height is in px as well as vh, because a landscape phone's 62vh is 200px and a
+       sheet 200px tall is not a sheet, it is a strip. */
+  .bed{ position:relative; margin:14px auto 0; width:100%;
+    height:clamp(420px, 66vh, 760px);
+    border:1px solid #10331f; border-radius:12px; overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 0%, #0a1a10 0%, #04100a 55%, #020804 100%);
+    box-shadow: inset 0 0 46px rgba(0,0,0,.65), 0 0 26px rgba(43,255,128,.10);
+    touch-action:pan-y;                 /* vertical drags must still scroll the page */
+  }
+  .bed canvas.sheet-canvas{ display:block; width:100%; height:100%; touch-action:pan-y; cursor:grab; }
+  .bed canvas.sheet-canvas:active{ cursor:grabbing; }
+  /* ⛔ THE HINT WAS AN OVERLAY AND IT COVERED THE THING IT WAS DESCRIBING — first the foil
+     slug at the bottom, then the top two cards when it was moved. A phone's bed is nearly all
+     sheet, so there is no corner for it to hide in. It is a line of COPY, so it lives with the
+     copy: "stop fighting for the corners", which is the same fix the city's phone HUD needed. */
+  .hint{ display:inline-block; margin:8px auto 0;
+    font-size:var(--t-tag,12px); letter-spacing:.16em; text-transform:uppercase;
+    color:#7fd8ab; background:rgba(1,10,5,.72); border:1px solid #123a24; border-radius:999px;
+    padding:7px 14px; }
+
+  /* ── THE FLAT SHEET — the fallback, and it is a real sheet, not an apology ──
+       Printed stock, crop marks in the corners, a perforation between every pair. It is what
+       the page IS until the engine has produced a frame, and what it stays if the engine
+       never does. */
+  .flat{ position:absolute; inset:0; display:grid; place-content:center; padding:16px; }
+  .flat-sheet{ background:
+      linear-gradient(180deg, var(--stock) 0%, var(--stock-2) 100%);
+    padding:14px 14px 34px; border-radius:3px; position:relative;
+    box-shadow:0 18px 40px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4);
+    max-width:100%; }
+  .flat-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  @media (min-width:720px){ .flat-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); } }
+  .flat-card{ display:block; aspect-ratio:2/3; border:2px solid #16110c; border-radius:2px;
+    background:linear-gradient(155deg,#ff2ad9 0%,#ff2ad9 42%,#27f7e4 42%,#27f7e4 66%,var(--stock) 66%);
+    position:relative; overflow:hidden; min-height:96px;
+    display:flex; flex-direction:column; justify-content:flex-end; }
+  .flat-card b{ display:block; background:#16110c; color:var(--stock);
+    font-size:var(--t-tag,12px); letter-spacing:.10em; text-transform:uppercase;
+    padding:6px 5px; text-align:center; font-weight:700; }
+  .flat-card i{ position:absolute; top:5px; left:5px; font-style:normal; background:#16110c;
+    color:var(--stock); font-size:var(--t-tag,12px); padding:2px 6px; }
+  .flat-card:hover,.flat-card:focus-visible{ outline:3px solid var(--amber); outline-offset:2px; }
+  .flat-slug{ position:absolute; left:0; right:0; bottom:8px; text-align:center;
+    font-size:var(--t-tag,12px); letter-spacing:.12em; color:#16110c; text-transform:uppercase; }
+
+  /* ── the docket: the eight, as text, always present.
+       ⚑ Not a duplicate of the sheet by accident — a press sheet HAS a job docket, and it is
+       the one route a keyboard, a screen reader or a browser with no WebGL2 can take. ── */
+  .docket{ margin:18px auto 0; border:1px solid var(--phosdim); border-radius:10px;
+    background:rgba(2,16,9,.82); padding:clamp(12px,2.6vw,18px); }
+  .docket h2{ font-size:var(--t-tag,12px); letter-spacing:.24em; text-indent:.24em;
+    text-transform:uppercase; color:#5fcf8f; font-weight:400; margin-bottom:10px; }
+  .docket ol{ list-style:none; display:grid; gap:var(--tap-gap,8px) 14px;
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
+  .docket a{ display:flex; align-items:center; gap:10px; min-height:var(--tap,44px);
+    padding:0 8px; border:1px solid #10331f; border-radius:8px; font-size:var(--t-ui,13px);
+    letter-spacing:.06em; text-transform:uppercase; color:#c9ffe2; background:rgba(1,10,5,.5); }
+  .docket a:hover,.docket a:active{ border-color:var(--phosdim); color:var(--phos);
+    box-shadow:0 0 14px rgba(43,255,128,.18); }
+  .docket a span{ color:var(--amber); font-size:var(--t-tag,12px); }
+  .docket a em{ font-style:normal; color:#6fbf95; font-size:var(--t-tag,12px); margin-left:auto; }
+
+  /* ── the note ── */
+  .note{ margin:18px auto 0; max-width:74ch; border:1px dashed #2a4a37; border-radius:10px;
+    padding:clamp(12px,2.6vw,18px); background:rgba(2,16,9,.5); font-size:var(--t-body,16px); }
+  .note h2{ font-size:var(--t-h3,17px); color:#eafff2; margin-bottom:8px; letter-spacing:.04em; }
+  .note p + p{ margin-top:9px; }
+  .note b{ color:var(--phos); }
+  .note code{ color:var(--cyan); font-size:.95em; }
+  footer{ margin:22px auto 0; text-align:center; font-size:var(--t-fine,12px); color:#5a9c78; }
+  footer a{ color:#8fe0b6; }
+  @media (prefers-reduced-motion:reduce){ .crt{ display:none; } }
+</style>
+<script src="/gate.js"></script>
+</head>
+<body>
+<div class="crt" aria-hidden="true"></div>
+<div class="wrap">
+
+  <nav class="rail">
+    <a href="index.html">◂ the current front page</a>
+    <span class="stamp">proposal · not final art</span>
+  </nav>
+
+  <!-- ⚠ THE MASTHEAD WAS 400px TALL ON A PHONE AND PUT THE SHEET ENTIRELY BELOW THE FOLD — on
+       a page whose whole argument is the object. A six-line lede is a desktop habit; the copy
+       that survives is the sentence that tells you what to do with your thumb. -->
+  <header>
+    <h1 class="studio">ripmaster3030studios</h1>
+    <div class="kick">the uncut sheet · eight up</div>
+    <p class="lede">A card is one card on a press sheet before it is anything else.
+      <b>Pull one out sideways.</b></p>
+    <div class="hint" id="hint">drag a card sideways to tear it out</div>
+  </header>
+
+  <div class="bed" id="bed">
+    <!-- ⛔ THE FALLBACK IS THE PAGE UNTIL THE ENGINE PRODUCES A FRAME, and it is a printed
+         sheet in its own right rather than a placeholder. All eight links are real and are in
+         the served HTML, so the orphan sweep and a text browser see the same routes a visitor
+         does. It is hidden only after js/sheet3d.js resolves — never before, never on a bet. -->
+    <div class="flat" id="flat">
+      <div class="flat-sheet">
+        <div class="flat-grid">
+          <a class="flat-card" href="arcade.html"><i>01</i><b>the arcade</b></a>
+          <a class="flat-card" href="city.html"><i>02</i><b>the city</b></a>
+          <a class="flat-card" href="cards/binder.html"><i>03</i><b>the folder</b></a>
+          <a class="flat-card" href="cards/proof.html"><i>04</i><b>the 33</b></a>
+          <a class="flat-card" href="cards/market.html"><i>05</i><b>the market</b></a>
+          <a class="flat-card" href="whitepaper.html"><i>06</i><b>the paper</b></a>
+          <a class="flat-card" href="tokenomics.html"><i>07</i><b>the numbers</b></a>
+          <a class="flat-card" href="artist.html"><i>08</i><b>the artist</b></a>
+        </div>
+        <div class="flat-slug">ripmaster3030studios</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="docket" aria-label="job docket — what is on the sheet">
+    <h2>Job docket · 8 up</h2>
+    <ol>
+      <li><a href="arcade.html"><span>01</span> the arcade <em>four cabinets</em></a></li>
+      <li><a href="city.html"><span>02</span> the city <em>fly it · walk it</em></a></li>
+      <li><a href="cards/binder.html"><span>03</span> the folder <em>nine pockets</em></a></li>
+      <li><a href="cards/proof.html"><span>04</span> the 33 <em>genesis set</em></a></li>
+      <li><a href="cards/market.html"><span>05</span> the market <em>the bench</em></a></li>
+      <li><a href="whitepaper.html"><span>06</span> the paper <em>how it works</em></a></li>
+      <li><a href="tokenomics.html"><span>07</span> the numbers <em>burn and float</em></a></li>
+      <li><a href="artist.html"><span>08</span> the artist <em>lovebeing</em></a></li>
+    </ol>
+  </section>
+
+  <section class="note">
+    <h2>What this is, and what it is not</h2>
+    <!-- ⚠ no inline anchor in this paragraph on purpose: a link strung through prose cannot be
+         44px tall without wrecking the line, and the rail at the top and the footer below both
+         already go home. Two 44px doors beat three, one of which is 19px. -->
+    <p>A <b>proposed</b> landing surface, built to be argued with. The front page is still
+      <code>index.html</code> and nothing here has replaced it.</p>
+    <p><b>Made of</b> — warm card stock, three spot inks (acid, cyan, key) laid down at three
+      registrations, and one hot-foil stamp in the tail margin. Ink multiplies the paper and
+      never adds, which is why the stock is pale on a black site: on black stock there is
+      nothing to print with.</p>
+    <p><b>Lit by</b> — the two torches off the front page, promoted to real lamps: warm, raking,
+      flickering. Phosphor green is the room, not an ink. Cyan is the rim that finds a torn edge.</p>
+    <p><b>What moves</b> — nothing, until you touch it. Then the stock dishes under your finger,
+      the perforation gives, and the sheet snaps back when the card comes away. The tear does not
+      reverse: paper does not un-tear.</p>
+    <p><b>Not done</b> — the card faces are generated placeholder ink, not the artist's work; the
+      eight names are a first cut; and the whole page is disposable by design. Strike what is
+      wrong. <span style="color:#6fbf95">NFA — experimental art token, it can go to zero.</span></p>
+  </section>
+
+  <!-- ⚑ `.tap-row` is mobile.css's own answer to a footer of links strung through a sentence:
+       the ROW carries the 44px and the links get their height inside it, so the line does not
+       break into a column of buttons. Growing each link to 44px tall is the wrong fix. -->
+  <footer class="tap-row">
+    <a href="index.html">ripmaster3030studios</a> <span>· $3030 ·</span>
+    <a href="arcade.html">arcade</a> <span>·</span>
+    <a href="cards/binder.html">the folder</a>
+  </footer>
+</div>
+
+<script src="js/sheet3d.js"></script>
+<script>
+/* ⚠ The canvas is mounted, and the flat sheet hidden, only after the engine has RESOLVED a
+ *   controller. Hiding first and hoping is how a page ends up as a black rectangle on the one
+ *   browser that could not run it. */
+(function () {
+  var bed = document.getElementById('bed'), flat = document.getElementById('flat'),
+      hint = document.getElementById('hint');
+  hint.hidden = true;
+  if (!window.Sheet3D) return;
+  var q = new URLSearchParams(location.search);
+  Sheet3D.mount(bed, {
+    manual: q.has('manual'), readback: q.has('readback'), noNav: q.has('nonav')
+  }).then(function (ctrl) {
+    if (!ctrl) return;                       // no WebGL2 / blocked engine ⇒ the flat sheet stays
+    flat.hidden = true;
+    hint.hidden = false;
+    /* the hint is a one-shot: once you have torn one, you know. */
+    bed.addEventListener('pointerdown', function () { hint.hidden = true; }, { once: true });
+  });
+})();
+</script>
+<script src="/banner.js" defer></script>
+</body>
+</html>

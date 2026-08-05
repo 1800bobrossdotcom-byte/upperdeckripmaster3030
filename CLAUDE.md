@@ -772,6 +772,49 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ◱ THE BRAND — `docs/BRAND-3030.md` + `studio3d.html`, `npm run test:sheet` (25)
+*Artist, 2026-08-05: "lets design (inspired by the current site) and rebrand for ripmaster 3030
+studios … the entire site in interactive webgl for playcanvas."* ⚠ **A PROPOSAL, and disposable on
+purpose** — `index.html` is untouched and the new page says "proposal · not final art" on its face.
+- ⚑ **THE POSITION: THE STUDIO IS A PRESS, NOT A POSTER.** `index.html` is a *poster about* a card;
+  `studio3d.html` is **the uncut sheet the cards come off** — eight up, crop marks, colour bar, a
+  perforation between every pair, the slug hot-foil-stamped in the tail margin. ⛔ **The navigation
+  IS the physical act: you tear a card out**, and the studio's verb is RIP. That is §4 answered
+  with a mechanic instead of a light vector, which is the half two rejected wordmarks skipped.
+- ⛔ **THE STOCK IS PALE ON A BLACK SITE, AND IT IS A STRUCTURAL ARGUMENT.** Ink MULTIPLIES the
+  paper and never adds; on near-black stock there is nothing to multiply, so **black stock forces
+  additive ink** — the exact thing `hero-card.js` forbids. Measured: halve the paper and the print
+  halves, **ratio 0.508**; at zero stock only 1.45% survives (the sheen, which is not albedo).
+- ⛔ **⟨proposal⟩ GOLD IS PROMOTED FROM ACCENT TO KEY LIGHT**, contradicting `DESIGN-SYSTEM §2` on
+  purpose: that file says gold "is not a light" and two paragraphs later notes the two torches sit
+  exactly where two warm keys would go. A torch *is* a light. Green becomes the ROOM, not an ink —
+  which is also what stops warm paper going ill under a green key. Strike or ratify; do not leave.
+- ⛔ **TWO MEASUREMENTS WERE WRONG BEFORE THEY WERE RIGHT, AND BOTH WRONG ANSWERS WERE REASSURING:**
+  (a) **the readback returned a STALE frame every time** — render, bind framebuffer 0, `readPixels`
+  is the obvious thing and a pure-red clear colour still read back green. Nothing errored, and the
+  harness reported the foil and its own sabotage control as **identical**, i.e. an A/B whose halves
+  are the same, which looks exactly like a null result. Read from a RenderTarget you own.
+  (b) **the hue statistic punished the fix** — a MEAN hue over the slug averages away the thing it
+  measures, so refining the grating (unambiguously more diffractive) drove the number **99° → 63°**.
+  The right statistic is per-point travel, sampled by PROJECTING points on the foil through the live
+  camera; a fixed fraction of the moving screen box is a different piece of foil at every angle.
+  Final: **median 586°, control 51°** — 11.5× separation.
+- ⚑ **Measured**: coupling n+1 0 ms → n+2 67 ms (kills 8 loose springs — proved by setting
+  `COUPLE = 0`, which fails that one assertion); release overshoots +0.196 → −0.061; the coupling
+  **dies with the web** (2.2 × 10⁻¹⁸ after the tear); tear is monotone; at rest max displacement is
+  **exactly 0**; WebGL2 refused ⇒ 8/8 card links + 8/8 docket links live and no canvas inserted.
+- ⚠ **The torches flicker and the sheet does not.** A flame is a combustion — the one thing with its
+  own reason to move — and it touches LIGHT, never geometry, which is why test 4 asserts
+  displacement rather than a frame hash. (The hero card recorded a shader breath that broke a frame
+  hash while "flex is exactly 0" stayed green. Assert the thing you mean.)
+- ⚠ Also caught here: the sheet printed **mirror-image** (canvas Y counts down, UV V counts up); the
+  paper CLIPPED at ~1.5 linear, which is why ink-multiply first read 0.68 — clipped paper cannot be
+  dimmed; and the masthead was 400px tall on a phone, putting the whole object below the fold.
+- ⚠ **NOT DECIDED, and the artist's:** whether this replaces the front page at all, the eight card
+  names, the card faces (generated placeholder ink — eight distinct compositions, but *which* one
+  goes *where* is authorship, the same open question as the 33's figure placement), and the
+  typeface question. Plan for the rest of the site + honest sizing: `BRAND-3030.md` §9.
+
 ## ✅ THE 33 · STEP 1 — `cards/proof.html` + `js/hero-card.js`, `npm run test:hero` (20)
 *Artist, 2026-08-04: "make them from scratch as 3D cards … living generative works with glitches
 and fx treatments. use the 100 cards as source material to paint these cards." Then: "no font."*
