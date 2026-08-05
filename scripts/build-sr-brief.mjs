@@ -48,7 +48,7 @@ const C = {
 };
 
 let N = 1;
-const TOTAL = 8;
+const TOTAL = 11;
 const slide = (kicker, inner, accent = C.phos) => {
   N++;
   return `<section class="slide">
@@ -94,7 +94,7 @@ S.push(slide('WHAT IT IS', `
       <b>Gianni Arone (lovebeing)</b>. Its edition, <b>$3030</b>, is a SuperRare Liquid Edition,
       and every card in the deck is a <b>Liquid Lens</b> — a render that reads the chain and
       changes with it.</p>
-      <p>The deck is <b>100 cards</b>. There are <b>four arcade cabinets</b> you can play right
+      <p>The deck is <b>100 cards</b>. There are <b>six arcade cabinets</b> you can play right
       now. And the token's only job is to be <b>spent</b>: you rip packs with it, you wager it,
       and a share of every rip is destroyed permanently.</p>
       <p class="small dim">The studio is <b>ripmaster3030studios</b>. The edition it issues is
@@ -211,18 +211,26 @@ S.push(slide('THE ECONOMY', `
 
 /* 07 · playable */
 S.push(slide('IT IS PLAYABLE TODAY', `
-  <h1>Four cabinets. Your cards are the pieces.</h1>
-  <div class="grid4">
-    <div class="cell"><div class="ct big">THE CITY</div><p class="small">A 3.84 km generated city.
-      Be a bird, squirrel, cat or dog — or a jet, or an operative on foot. <b>The animals cannot be
+  <h1>Six cabinets. Your cards are the pieces.</h1>
+  <div class="grid3 tight">
+    <div class="cell"><div class="ct big">THE CITY <span class="tag">explore</span></div>
+      <p class="small">A <b>3.84 km generated city</b> — 32×32 streamed chunks. Be a bird,
+      squirrel, cat or dog; or fly a jet; or walk it as an operative. <b>The animals cannot be
       hurt or targeted</b>, so a firefight two streets over is weather: something to fly over,
       watch, and photograph.</p></div>
-    <div class="cell"><div class="ct big">RIP ROCKETER</div>
+    <div class="cell"><div class="ct big">SECTION 9 <span class="tag">tactical</span></div>
+      <p class="small">First-person, six arenas plus baked levels. Bots take cover, flank and
+      suppress; ~1.3 s time-to-kill so cover is worth using.</p></div>
+    <div class="cell"><div class="ct big">DOGFIGHT <span class="tag">air combat</span></div>
+      <p class="small">Height and speed are <b>one currency</b> — climbing spends it, diving buys
+      it back. Raymarched clouds with self-shadowing.</p></div>
+    <div class="cell"><div class="ct big">RIP ROCKETER <span class="tag">on-rails</span></div>
       <p class="small">Vertical shooter — bases, turrets, ship variety.</p></div>
-    <div class="cell"><div class="ct big">CLOUD RACER</div>
+    <div class="cell"><div class="ct big">CLOUD RACER <span class="tag">anti-grav</span></div>
       <p class="small">Sky racing through a real cloudscape.</p></div>
-    <div class="cell"><div class="ct big">THE ARENA</div><p class="small">Wager cards and $3030
-      into a pot; the podium takes it, first place the most. A small rake burns.</p></div>
+    <div class="cell"><div class="ct big">THE ARENA <span class="tag">1v1</span></div>
+      <p class="small">Wager cards and $3030 into a pot; the podium takes it, first place the most.
+      A small rake burns.</p></div>
   </div>
   <div class="callout wide" style="border-color:${C.cyan}">
     <div class="clabel" style="color:${C.cyan}">THE HOOK</div>
@@ -231,6 +239,102 @@ S.push(slide('IT IS PLAYABLE TODAY', `
     your binder. It is the rip and the reveal in another key, and the prize is a thing you
     <b>made</b> rather than a thing you won.</p>
   </div>`, C.cyan));
+
+/* 09 · the contracts */
+S.push(slide('TECHNICAL · THE CONTRACTS', `
+  <h1>Two contracts of our own. Both small enough to read in one sitting.</h1>
+  <div class="two">
+    <div>
+      <p><b>We write the contracts; SuperRare provides the platform.</b> The edition itself is a
+      SuperRare Liquid Edition — <code>name()</code> <b>ripmaster3030</b>, <code>symbol()</code>
+      <b>3030</b>, deployed by the artist from his own verified wallet via the Rare Protocol CLI.</p>
+      <table class="tt">
+        <tr><th>CONTRACT</th><th>WHAT IT IS</th><th>SIZE</th></tr>
+        <tr><td><code>Ripmaster3030Lens721</code></td>
+            <td>the deck — ERC-721 + on-chain renderer + voucher mint</td><td>16,155 B</td></tr>
+        <tr><td><code>Ripmaster3030Renderer</code></td>
+            <td>edition passthrough — reads <code>getMarketState()</code></td><td>—</td></tr>
+        <tr><td><code>PackSink</code></td>
+            <td>the 50/50 split, in one atomic call</td><td><b>1,773 B</b></td></tr>
+      </table>
+      <p class="small">solc 0.8.24, viaIR, <b>0 warnings</b>. <b>55/55 EVM tests</b> on the lens.</p>
+    </div>
+    <div class="callout">
+      <div class="clabel">WHY PACKSINK EXISTS AT ALL</div>
+      <p class="small">A pack burns half and pays half. <b>That cannot be two client-side
+      transactions</b> — a wallet can sign the burn and reject the transfer, and the collector's
+      tokens are destroyed, the studio is unpaid, and no pack is owed. There is no ordering that
+      fixes it, because there is no atomicity between two signatures. So it is one contract call.</p>
+      <p class="small"><b>No owner, no admin, no upgrade, no pause.</b> Both destination addresses
+      are <code>immutable</code>. It holds nothing between calls, and <code>flush()</code> is
+      permissionless <em>because</em> its destination cannot change — opening it to everyone grants
+      no power, while an owner-gated sweep would have added the admin key the contract exists to
+      not have.</p>
+    </div>
+  </div>`, C.cyan));
+
+/* 10 · the lens */
+S.push(slide('TECHNICAL · THE LENS', `
+  <h1>A card is a function of chain state, evaluated when someone looks at it.</h1>
+  <div class="two">
+    <div>
+      <p><code>tokenURI()</code> is the edition passthrough; <code>tokenURI(uint256 id)</code>
+      renders a specific card. Ids <b>1–100 render whether or not they have been minted</b> — the
+      67 field lenses are render-only, so OpenZeppelin's revert-on-nonexistent is wrong here and
+      is deliberately not used.</p>
+      <p>The renderer reads the edition's <code>getMarketState()</code> and derives burn from
+      <code>maxTotalSupply − totalSupply</code>. SuperRare's own documentation names the available
+      inputs: <b>price, supply, liquidity, burn progress and balances</b>.</p>
+      <p><b>Holding is one of those inputs.</b> <code>tierOfHolder()</code> reads your $3030
+      balance and the card renders it — <b>Ash · Spark · Ember · Flame · Inferno</b>, anchored on
+      the pack rather than round numbers: one pack, ten, a hundred, a thousand.</p>
+      <p class="small dim">No staking contract. No emissions. Nothing to drain, and nothing to
+      claim — the art acknowledges you, it does not pay you.</p>
+    </div>
+    <div class="callout" style="border-color:${C.red}">
+      <div class="clabel" style="color:${C.red}">THE ONE THAT MUST NEVER REVERT</div>
+      <p class="small"><code>tierOfHolder</code> is called from <code>tokenURI</code>, so a revert
+      would take the metadata of <b>all 100 cards</b> offline at once, on a marketplace, and
+      permanently as far as any cache is concerned.</p>
+      <p class="small">It has two guards, and <code>try/catch</code> alone is <b>not</b> enough:
+      Solidity's contract-existence check fires <em>before</em> the call and is not catchable. So
+      an explicit <code>code.length == 0</code> test is load-bearing — without it, pasting a wallet
+      address where the token's belongs reverts the whole deck. <b>Found by a test, not by
+      reasoning.</b></p>
+    </div>
+  </div>`, C.cyan));
+
+/* 11 · how it is built */
+S.push(slide('TECHNICAL · HOW IT IS BUILT', `
+  <h1>No build step. No framework. Everything fails open.</h1>
+  <div class="grid4">
+    <div class="cell"><div class="ct">FRONT END</div><p class="small">Plain HTML, CSS and
+      JavaScript. <b>No bundler, no framework, no build.</b> What is in the repo is what the
+      browser runs.</p></div>
+    <div class="cell"><div class="ct">3D</div><p class="small"><b>PlayCanvas</b> (MIT, UMD, no
+      build step) for the cabinets and the card. Cards are rendered in <b>WebGL2</b>.</p></div>
+    <div class="cell"><div class="ct">ART PIPELINE</div><p class="small">Blender → GLB, plus a
+      dependency-free <b>FBX reader</b> that handles binary 6.x/7.x and ASCII — it reads files
+      Blender refuses.</p></div>
+    <div class="cell"><div class="ct">TESTS</div><p class="small"><b>21 suites, ~1,190
+      assertions</b>, headless Chromium. Every one proved to bite by reverting its own fix.</p></div>
+  </div>
+  <div class="two" style="margin-top:.16in">
+    <div class="callout">
+      <div class="clabel">FAIL OPEN — THE ONE STANDING RULE</div>
+      <p class="small">No WebGL2, a blocked script, a 404 on a manifest, a chain that will not
+      answer: <b>the page is still the page it was.</b> Not a spinner, not a broken frame — the
+      flat card, the readable document, the working link. Several test suites exist only to
+      <em>break</em> the build and check that it degrades rather than dies.</p>
+    </div>
+    <div class="callout" style="border-color:${C.amber}">
+      <div class="clabel" style="color:${C.amber}">DETERMINISM</div>
+      <p class="small"><code>Math.random</code> appears <b>nowhere</b> in the card renderer. Every
+      seeded quantity comes from one hash of the card's own identity, and every animated quantity
+      is integrated from a caller-supplied clock. <b>The same card renders byte-identically on any
+      machine, forever</b> — which is what makes a 1/1 a 1/1 rather than a lucky frame.</p>
+    </div>
+  </div>`, C.amber));
 
 /* 08 · lines to lift */
 S.push(slide('LINES YOU CAN LIFT', `
@@ -324,6 +428,14 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
     color: ${C.cyan}; margin: .05in 0 .06in; text-transform: uppercase; }
   .ct.big { font-size: 14.5px; color: ${C.amber}; }
 
+  table.tt { width: 100%; border-collapse: collapse; margin: .10in 0; font-size: 12.5px; }
+  table.tt th { text-align: left; color: ${C.cyan}; font-family: 'Arial Black', Arial, sans-serif;
+    font-size: 10px; letter-spacing: .13em; padding: .04in .06in; border-bottom: 1px solid ${C.phosdeep}; }
+  table.tt td { padding: .05in .06in; border-bottom: 1px solid rgba(10,61,34,.6); vertical-align: top; }
+  code { font-family: 'Courier New', monospace; color: ${C.cyan}; font-size: .95em; }
+  .grid3.tight .cell { padding: .12in .13in; }
+  .tag { font-family: 'Courier New', monospace; font-size: 9.5px; letter-spacing: .1em;
+    color: ${C.phosdim}; text-transform: lowercase; }
   ul.lift { margin: 0; padding: 0; list-style: none; }
   ul.lift li { font-size: 14.5px; line-height: 1.42; color: #eaffe8; margin-bottom: .11in;
     padding-left: .2in; border-left: 3px solid ${C.phos}; }

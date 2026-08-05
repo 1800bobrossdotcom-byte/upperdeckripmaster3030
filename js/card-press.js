@@ -216,9 +216,22 @@
         /* ⚠ ORDER MATTERS AND IT IS NOT ARBITRARY. `reseed` re-bakes the type plate from the
          *   seed, so the words have to be set AFTER it or the new card prints the old card's
          *   name for one frame — and one frame is all a screenshot or a texture upload needs. */
+        /* ⚑ THE DESIGNED BACK, NOT THE STAND-IN. `js/card-back.js` rasterises the real
+         *   vintage back off the card's own page — its trivia, its vitals, its trait tags — and
+         *   hands it to the press. Best-effort: a card with no page keeps the generated back. */
+        function dressBack(card) {
+          if (!global.CardBack) return;
+          try {
+            CardBack.forCard(card, { base: (o.base === undefined ? base : o.base) + '' })
+              .then(function (cv) { if (cv) { try { press.setBack(cv); } catch (e) {} } })
+              .catch(function () {});
+          } catch (e) {}
+        }
+        dressBack(first);
         function show(card) {
           if (!card) return Promise.resolve(false);
           current = card;
+          dressBack(card);
           try { press.reseed(seedFor(card)); } catch (e) {}
           try { press.setText({ name: card.title || card.name || '', sub: card.sub || '' }); } catch (e) {}
           return press.setPigment(platesFor(card, list)).catch(function () { return false; });

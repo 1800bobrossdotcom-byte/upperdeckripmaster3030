@@ -49,6 +49,7 @@
   };
 
   inject('../js/hero-card.js')
+    .then(() => inject('../js/card-back.js'))
     .then(() => inject('../js/card-press.js'))
     .then(() => {
       if (!window.CardPress) return;
