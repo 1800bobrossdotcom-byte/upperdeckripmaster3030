@@ -31,6 +31,7 @@ async function kv(cmd) {
 }
 
 const S = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
+const NUM = (v, lim) => Math.max(-lim, Math.min(lim, Math.round((+v || 0) * 10) / 10));
 const cleanRec = b => {
   const id = S(b.id, 24), handle = S(b.handle, 32).trim();
   if (!/^p_[a-z0-9]{4,20}$/.test(id) || !handle) return null;
@@ -42,6 +43,12 @@ const cleanRec = b => {
     cards: Math.max(0, Math.min(9999, +b.cards | 0)),
     verified: !!b.verified,
     ...(b.seek ? { seek: true } : {}),          // hunting a human dogfight
+    /* ⚑ A COARSE POSITION, for THE CITY. The roster is a heartbeat with a 20 s TTL, so this can
+     * say "somebody is over by the river" and can never animate them — the smooth half rides the
+     * peer-to-peer channels (js/city-net.js). Clamped to the world's own bounds so a bad client
+     * cannot write a body outside the map or a NaN into everybody's roster. */
+    ...(Number.isFinite(+b.px) ? { px: NUM(b.px, 2000), py: NUM(b.py, 4000), pz: NUM(b.pz, 2000),
+                                   pb: S(b.pb, 12) || 'bird' } : {}),
     ...(addr ? { address: addr } : {}),
     ...(b.sig ? { sig: S(b.sig, 200) } : {}),
     t: Date.now() };

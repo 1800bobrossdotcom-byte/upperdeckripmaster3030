@@ -1883,6 +1883,43 @@ how the weapon BEHAVES rather than how it looks.
   ⚠ One assertion was mis-timed, not mis-designed: `#carry` is written inside `stepDrops`, i.e.
   once per frame, so reading it in the same tick as `_act()` measures the frame BEFORE the press.
 
+### ✅ OTHER PEOPLE ARE IN THE CITY — `js/city-net.js`, `npm run test:citynet` (10)
+*Artist, 2026-08-05: "for city we need to wire in mmorpg dynamics for multiplayer for people in
+game."* Two real pages, two identities, each with the other's body in their world.
+- ⚑ **TWO LAYERS, BECAUSE THEY ANSWER TWO QUESTIONS, and the split is the game's own design.**
+  `/api/presence` is DISCOVERY — a heartbeat with a 20 s TTL, so it can say *who* is in the city
+  and roughly where, and can never animate anyone. WebRTC data channels over `/api/signal` are
+  MOTION — ~9 Hz, peer to peer, no game server. ⚑ **That is the bird's own asymmetry, as netcode:**
+  `CITY-GAME.md` says the bird SCOUTS — sees the whole map, touches none of it — and the roster is
+  exactly that. Getting close enough to watch somebody move is the part you fly over and earn.
+- ⛔ **ONLY THE LOWER ID OFFERS, AND WITHOUT IT NOTHING EVER CONNECTS.** Both sides see each other
+  on the same roster tick, so both created an offer, each then received one while already in
+  `have-local-offer`, and `setRemoteDescription` rejected on both. **Measured: roster 1 and peers
+  0 on each of two live tabs, with no error anywhere.** `js/df-net.js` states the tie-break in its
+  own header — *"in each pair the lower id makes the offer"* — and I did not carry it over. **A
+  rule recorded in the file you are copying FROM is not a rule you have applied.**
+- ⛔ **ANIMALS ONLY, ON PURPOSE.** DOGFIGHT and SECTION 9 are matches with shooter-authoritative
+  netcode; a persistent world and a scored match are different contracts, and merging them would
+  put a loophole in the observer rule shaped like a jet. Switching to a combat mode leaves the
+  shared world — `body:null` is how the wire says so, and a peer with no body is not drawn.
+- ⚑ **`buildBird()` IS A FACTORY NOW**, for the reason `buildSquirrel` already had written down: a
+  second caller exists, and two bird definitions would drift. ⚠ **TDZ, FOURTH SIGHTING** — the
+  extraction renamed `bird.` to `ent.` and missed three `bodyPart(bird, …)` ARGUMENTS, so the
+  const was read above its own declaration and the whole app died at module scope. `__city` simply
+  never appears; the probe reports "not ready", not "broken bird".
+- ⚠ **THE NAME TAG NEEDS A DEPTH TEST.** `worldToScreen` returns a point for geometry BEHIND the
+  camera too, so ignoring `z <= 0` pins every peer you have flown past to the top of the screen,
+  mirrored, permanently. And it is projected from the MIRRORED space the camera lives in while the
+  body is placed in the unmirrored one — one space for bodies, the flip on the camera only.
+- ⚠ **`test:citynet` runs `/api/presence` and `/api/signal` IN MEMORY** to the same protocol the
+  Vercel handlers speak, so it needs no network and no keys. Proved to bite by deleting the
+  tie-break: 2 peers → 0. ⚑ **"A peer exists" is the weak question** — a stale first packet
+  satisfies it forever; the assertion that discriminates is that BRAVO walks 60 m and ALPHA reads
+  10 → 70.
+- ⚠ **NOT BUILT: interaction.** You can see each other and where each other is. Trading, stealing
+  across the wire, and shared drops are the next step — the mesh is capped at 6 peers nearest-first
+  because a full P2P mesh is O(n²) with nothing to relay through.
+
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
 moves.
