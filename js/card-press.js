@@ -146,6 +146,49 @@
     return [g.art, m.art, art || g.art];
   }
 
+  /* ── ⛔ NOTHING IS SWAPPED IN UNTIL IT IS PROVEN TO HAVE INK ON IT ────────────────────────
+   * Artist, 2026-08-05: *"the cards are not displaying in the viewer, the binder, the binder
+   * viewer, or into the deck."*
+   *
+   * ⛔ THE DEFECT WAS MINE AND IT IS A FAIL-OPEN VIOLATION, WHICH IS THIS REPO'S ONE STANDING
+   *   PRINCIPLE. Both paths replaced a WORKING card with the press's output before knowing the
+   *   press had produced anything:
+   *     · `frame()` bound card3d's art plate to the press canvas immediately, so if the press
+   *       never drew, the 3D card rendered an EMPTY texture — a blank card, permanently, and the
+   *       flat plate it used to show had already been overwritten.
+   *     · `tile()` assigned `img.src = canvas.toDataURL(...)` unconditionally, so an empty bake
+   *       replaced a perfectly good card with a blank rectangle.
+   *   Failing open means the page keeps what it had. Neither of these did.
+   * ⚑ AND IT IS INVISIBLE BY CONSTRUCTION: nothing throws, no request 404s, the probe reports a
+   *   live press with the right three plates on it. The card is simply not there. That is why
+   *   the guard has to be a MEASUREMENT of the pixels rather than a check that the call returned.
+   * ⚠ "Not blank" is not "alpha > 0". A canvas cleared to opaque paper-white is fully opaque and
+   *   completely empty, and the press's stock IS near-white — so the test is that the pixels
+   *   VARY. A card is a picture; a picture has range. A flat fill of any colour has none. */
+  function hasInk(cv) {
+    try {
+      var W = cv.width, H = cv.height;
+      if (!W || !H) return false;
+      var s = document.createElement('canvas');
+      s.width = 48; s.height = 72;
+      var g = s.getContext('2d');
+      g.clearRect(0, 0, 48, 72);
+      g.drawImage(cv, 0, 0, 48, 72);
+      var d = g.getImageData(0, 0, 48, 72).data;
+      var lo = 255, hi = 0, opaque = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 8) opaque++;
+        var l = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        if (l < lo) lo = l;
+        if (l > hi) hi = l;
+        n++;
+      }
+      /* mostly opaque AND with real tonal range. 24 levels is far below anything a printed card
+       * can be and far above the rounding noise of a resample. */
+      return opaque > n * 0.5 && (hi - lo) > 24;
+    } catch (e) { return false; }
+  }
+
   /* ── the one live press ───────────────────────────────────────────────────────────────────
    * Memoised on the canvas element itself, because the constraint being defended is a property
    * of that canvas's GL context and of nothing else. */
@@ -227,10 +270,14 @@
           try { ctrl.press.writeOn(1); } catch (e) {}
           try { ctrl.press.setView(0, 0); } catch (e) {}
           try { ctrl.press.render(); } catch (e) {}
+          /* ⛔ AN EMPTY SNAPSHOT IS A FAILURE, NOT A RESULT. Returning it hands the caller a
+           *   blank rectangle to paint over a working card. Null means "keep what you had",
+           *   which is the only honest answer when the press produced nothing. */
+          if (!hasInk(_bakeCanvas)) return null;
           var out = document.createElement('canvas');
           out.width = W; out.height = H;
           out.getContext('2d').drawImage(_bakeCanvas, 0, 0, W, H);
-          return out;
+          return hasInk(out) ? out : null;
         });
       }).catch(function () { return null; });
     };
@@ -277,14 +324,23 @@
     return live({ canvas: cv, base: o.base, card: o.card }).then(function (P) {
       if (!P) { try { cv.remove(); } catch (e) {} return null; }
       var press = P.press;
-      if (!cardCtrl.setArtSource(cv, { relief: false })) {
-        try { cv.remove(); } catch (e) {}
-        return null;
+      /* ⛔ DRAW FIRST, BIND SECOND. Binding card3d's art plate to a canvas the press has not
+       *   drawn into yet replaces a working card with an empty texture, and if the press then
+       *   fails for any reason the card is blank forever with nothing reported. Print one sheet,
+       *   prove there is ink on it, and only then take over the plate. */
+      var bound = false;
+      function tryBind() {
+        if (bound) return true;
+        if (!hasInk(cv)) return false;
+        bound = !!cardCtrl.setArtSource(cv, { relief: false });
+        return bound;
       }
+      try { press.writeOn(1); press.render(); } catch (e) {}
+      tryBind();
 
       var tilt = o.tilt || function () { return { x: 0, y: 0 }; };
       var down = o.down || function () { return false; };
-      var last = 0, raf = 0, stopped = false, stamped = false;
+      var last = 0, raf = 0, stopped = false, stamped = false, tries = 0;
 
       function tick(now) {
         if (stopped) return;
@@ -295,10 +351,14 @@
         var t = tilt() || { x: 0, y: 0 };
         try { press.pointer(t.x, t.y, !!down()); } catch (e) {}
         try { press.advance(dt); press.render(); } catch (e) {}
+        /* ⚠ Keep trying for a few frames: the plates load asynchronously, so the first sheet can
+         *   legitimately be empty. If it never gains ink the card simply stays as it was, which
+         *   is the whole point — the page keeps what it had. */
+        if (!bound && ++tries < 240) tryBind();
         /* ⚠ THE RELIEF IS TAKEN ONCE THE SHEET HAS FINISHED PRINTING, NOT BEFORE. A Sobel of a
          *   half-arrived write-on stamps the card with the relief of a partial impression, and
          *   it is a full-resolution CPU pass, so it must not run per frame either. */
-        if (!stamped) {
+        if (!stamped && bound) {
           var a = 0;
           try { a = press.probe().arrive; } catch (e) { a = 0; }
           if (a >= 0.999) { stamped = true; try { cardCtrl.restamp(); } catch (e) {} }
@@ -347,7 +407,15 @@
       bake(card, { base: o.base, w: o.w || 256, h: o.h || 384 }).then(function (c) {
         if (!c) return;                                  // fails open — the flat tile stands
         try {
-          img.src = c.toDataURL('image/webp', 0.86);
+          var url = c.toDataURL('image/webp', 0.86);
+          /* ⛔ AND THE ENCODE ITSELF CAN FAIL SOFTLY. A browser without canvas WebP export hands
+           *   back a PNG (fine), but a tainted canvas throws and a failed encode can return a
+           *   stub like "data:," — assigning either replaces a good card with a broken image
+           *   icon. Length is a crude test and it is the right one: a real 256x384 card does not
+           *   encode to a few dozen bytes. */
+          if (!url || url.length < 512) return;
+          /* the swap is the last thing that happens, and only after everything is proven */
+          img.src = url;
           img.setAttribute('data-pressed', '1');
           if (o.onDone) o.onDone(img);
         } catch (e) {}
