@@ -56,7 +56,13 @@
       /* ⚠ THE ✕ WAS A 22×20 TAP TARGET — the one control on this strip, on the device that
        * most needs to dismiss it, at half the 44px floor the rest of the site is held to.
        * Coarse pointers only: a 44px button inside a 28px desktop strip would double the
-       * height of a notice for the sake of a mouse that does not need the help. */
+       * height of a notice for the sake of a mouse that does not need the help.
+       * ⚠ AND THE COST IS MEASURED AND CONFINED, rather than assumed to be zero: the extra right
+       * padding pushes the copy to a third line ONLY on the narrowest phone — 320x568 goes 54px
+       * to 68px (9.6% of the viewport to 12%), while 390x844 stays 54, 844x390 stays 43 and the
+       * desktop stays 28. That is the device where the strip costs most and also the one where a
+       * 22x20 dismiss is hardest to hit, so it is the right trade; `--urm-banner` means no game
+       * control is covered either way. */
       '@media (pointer:coarse){#urm-fresh{padding-right:54px;}',
         '#urm-fresh button{min-width:44px;min-height:44px;}}',
     ].join('');

@@ -485,8 +485,18 @@
   .lob-seal{ color:var(--amber); font-size:11px; text-shadow:0 0 8px rgba(255,210,59,.7); }
   .lob-addr{ font-family:'Courier New',monospace; color:#c79a5a; letter-spacing:.02em; }
 
-  /* incoming-challenge toast */
-  .lob-toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(24px); z-index:98; opacity:0; pointer-events:none;
+  /* incoming-challenge toast
+     ⛔ ITS TWO BUTTONS WERE UNDER THE FRESHNESS STRIP, ON EVERY VIEWPORT. `banner.js` is
+     position:fixed;bottom:0 at z-index 2147483000 — the highest on the site — and this toast sits
+     at `bottom:18px` under z-index 98. Measured with `elementFromPoint` on the SHOWN toast:
+       390×844   ACCEPT at y 792…836, strip top 790  →  centre returns the strip's own <b>
+       844×390   ACCEPT at y 338…382, strip top 347  →  same
+       1280×800  ACCEPT at y 761…792, strip top 772  →  `urm-fresh`
+     So ACCEPTING A FACE-OFF — the one verb the whole lobby exists for — could not be clicked
+     anywhere except the top few pixels of the button, and only on a desktop. Nothing errors: the
+     toast animates in perfectly and the press lands on a cache notice. ⚑ The strip publishes its
+     measured height now, so both toasts subtract it rather than being nudged clear. */
+  .lob-toast{ position:fixed; left:50%; bottom:calc(18px + var(--urm-banner, 0px)); transform:translateX(-50%) translateY(24px); z-index:98; opacity:0; pointer-events:none;
     transition:opacity .25s ease, transform .25s ease; display:flex; align-items:center; gap:12px; max-width:94vw;
     padding:12px 16px; border-radius:12px; border:2px solid var(--magenta); background:rgba(10,2,20,.95);
     box-shadow:0 22px 60px -18px #000, 0 0 28px rgba(255,42,217,.5); }
@@ -497,7 +507,7 @@
   .lt-yes{ background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56); color:var(--bg); }
   .lt-no{ background:transparent; color:#b8ffd6; border:1px solid var(--purple); }
   /* mini status toast */
-  .mini-toast{ position:fixed; left:50%; bottom:76px; transform:translateX(-50%) translateY(12px); z-index:96; opacity:0; pointer-events:none;
+  .mini-toast{ position:fixed; left:50%; bottom:calc(76px + var(--urm-banner, 0px)); transform:translateX(-50%) translateY(12px); z-index:96; opacity:0; pointer-events:none;
     transition:opacity .2s, transform .2s; font-family:var(--fat); font-size:11px; letter-spacing:.06em; text-transform:uppercase;
     color:var(--lime); background:rgba(1,12,6,.94); border:1px solid var(--purple); border-radius:999px; padding:8px 15px; box-shadow:0 0 18px rgba(43,255,128,.25); }
   .mini-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -914,7 +924,7 @@
     return new Promise(resolve => {
       const oppLabel = opts.oppLabel || 'the house';
       const anteTxt = opts.anteText != null ? opts.anteText : (ante > 0 ? `ante ${ante}` : '');
-      const potTxt = opts.potText != null ? opts.potText : (ante > 0 ? `pot ${ante * 2} $UR` : '');
+      const potTxt = opts.potText != null ? opts.potText : (ante > 0 ? `pot ${ante * 2} $3030` : '');
       const fo = document.createElement('div'); fo.className = 'faceoff'; fo.tabIndex = -1;
       fo.innerHTML =
         `<div class="fo-weather">gas weather · <b>${escFO(gas)}</b></div>` +
@@ -1330,7 +1340,7 @@
         `<div class="pvp-card">` +
         `<div class="pvp-hd"><span class="ic" data-ic="swords"></span> face-off · ${escFO(opponent.handle)}</div>` +
         `<div class="pvp-opp"><span class="lob-st ${opponent.status || 'idle'}"></span>` +
-          `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $UR · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
+          `<div><b>${escFO(opponent.handle)}</b> — ${(opponent.balance || 0).toLocaleString('en-US')} $3030 · ${opponent.cards || 0} cards${opponent.wl ? ' · ' + escFO(opponent.wl) : ''}</div></div>` +
         `<div class="pvp-sub">they stake <b style="color:#ff2ad9">${n}</b> card${n > 1 ? 's' : ''}. Pick <b style="color:#2bff80">${n}</b> of yours — winner takes the loser's stack, ties stand. <span class="pvp-count" id="pvpCount"></span></div>` +
         `<div class="pvp-tray" id="pvpTray"></div>` +
         `<div class="pvp-hand" id="pvpHand"></div>` +
@@ -1394,7 +1404,7 @@
     const burnTag = burn ? (br.mode === 'onchain' ? ' · wager (on-chain)' : ' · wager (practice)') : '';
     const res = await openFaceoff(you, oppCards, P, Q, outcome, 0, {
       oppLabel: oppName, push: true,
-      potText: burn > 0 ? `🔥 ${burn} $UR each` : 'cards only',
+      potText: burn > 0 ? `🔥 ${burn} $3030 each` : 'cards only',
       anteText: burn > 0 ? `🔥 ${burn}` : ''
     });
     const v = $('verdict');
@@ -1410,7 +1420,7 @@
       log += `${escFO(oppName)} took your ${you.length} staked card${you.length > 1 ? 's' : ''}${burnTag}.`;
     } else {
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
-      log += `Dead even — both keep their cards${burn ? `, and the ${burn} $UR ante is returned` : ''}.`;
+      log += `Dead even — both keep their cards${burn ? `, and the ${burn} $3030 ante is returned` : ''}.`;
     }
     $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();

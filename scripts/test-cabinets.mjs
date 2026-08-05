@@ -216,6 +216,56 @@ head(`1 · THE CITY is playable with a thumb (${V.tag}, coarse pointer)`);
 }
 }
 
+// ═══ 1c · THE MODE CHIPS ARE ACTUALLY CLICKABLE, ACROSS THEIR WHOLE WIDTH ══════════════════════
+/* ⛔ A DESKTOP BUG THE PHONE PASS FOUND, AND THE WORST KIND: the control is drawn, it is lit, it
+ *   is styled, and it does nothing. `#modes` — the mode notes — was `pointer-events:auto` for the
+ *   sake of the two cabinet links it carries, and it is a right-anchored ~488px block that paints
+ *   AFTER `#modeBar`, so wherever the two boxes overlap the notes take the click.
+ *   Measured with `elementFromPoint` at five points across each chip:
+ *     1280×800  chip ends at 764, notes start at 764 — clears by nothing, reports fine
+ *     1100×700  FOUR OF FIVE points on the SECTION 9 chip return `#modes`, and a real click on it
+ *               leaves the mode at `animal`. A third of this game unreachable on any desktop
+ *               window narrower than ~1280.
+ * ⚑ `elementFromPoint` IS THE ASSERTION, NOT A RECTANGLE. Two boxes overlapping is a layout fact;
+ *   whether the click lands is a different question, and it is the one the player asks. Proved to
+ *   bite: restoring `#modes{pointer-events:auto}` fails 5 at 1100×700 and 0 at 1280×800 — which is
+ *   also why the narrow window is in the list. */
+head('1c · the mode chips take a click across their whole width');
+for (const [tag, w, h, touch] of [['1280×800 desktop', 1280, 800, false],
+                                  ['1100×700 the narrow desktop window', 1100, 700, false],
+                                  ['390×844 phone', 390, 844, true]]) {
+  const { ctx, page } = await open('city.html', { w, h, touch });
+  await page.waitForTimeout(6000);
+  const r = await page.evaluate(() => {
+    const out = [];
+    for (const chip of document.querySelectorAll('.mchip')) {
+      const b = chip.getBoundingClientRect();
+      const dead = [0.1, 0.35, 0.6, 0.85, 0.95].filter(f => {
+        const el = document.elementFromPoint(b.left + b.width * f, b.top + b.height / 2);
+        return !(el === chip || (el && chip.contains(el)));
+      });
+      out.push({ m: chip.dataset.mode, dead: dead.length,
+        over: dead.length ? (() => { const el = document.elementFromPoint(b.left + b.width * 0.9, b.top + b.height / 2);
+          return el ? (el.id || el.className || el.tagName) + '' : 'null'; })() : '' });
+    }
+    /* …and a real click, because a hit test is a model of a click and this is the actual verb. */
+    const last = [...document.querySelectorAll('.mchip')].pop();
+    const b = last.getBoundingClientRect();
+    const before = window.__city.mode;
+    const el = document.elementFromPoint(b.right - 6, b.top + b.height / 2);
+    if (el) el.click();
+    const after = window.__city.mode;
+    window.__city.setMode('animal');
+    return { chips: out, click: before + '→' + after, want: last.dataset.mode };
+  });
+  for (const c of r.chips)
+    t(`${tag}: the "${c.m}" chip is live across its width`, c.dead === 0,
+      c.dead ? c.dead + '/5 points swallowed by ' + c.over : 'all 5 points hit the chip');
+  t(`${tag}: …and a click on the far edge of the last chip switches mode`,
+    r.click.endsWith('→' + r.want), r.click);
+  await ctx.close();
+}
+
 // ═══ 2 · THE FRESHNESS STRIP IS NOT ON TOP OF THE CONTROLS ═════════════════════════════════════
 /* ⛔ `banner.js` is `position:fixed;bottom:0` at z-index 2147483000 — the highest on the site —
  *   and the cabinets load it. Measured before the fix: at 390×844 it covered RIP ROCKETER's FIRE
@@ -316,6 +366,44 @@ head('3 · THE ARENA is reachable and does not slide sideways in portrait');
   });
   t('every control clears the 44px tap floor', taps.length === 0,
     taps.length ? taps.length + ' under: ' + taps.slice(0, 6).join(' · ') : 'all clear');
+  await ctx.close();
+}
+
+/* ⛔ 3b · ACCEPTING A FACE-OFF WAS UNCLICKABLE ON EVERY VIEWPORT. The incoming-challenge toast sits
+ *   at `bottom:18px` under z-index 98; the freshness strip is `bottom:0` at z-index 2147483000.
+ *   Measured with `elementFromPoint` on the SHOWN toast: at 390×844 ACCEPT spans y 792…836 with
+ *   the strip's top at 790, so its centre returns the strip's own <b>; at 844×390 and at
+ *   1280×800 the same. **The one verb the whole lobby exists for landed on a cache notice**, and
+ *   nothing errors — the toast animates in perfectly.
+ * ⚑ THE TOAST HAS TO BE SHOWN TO BE MEASURED. `.lob-toast` is opacity 0 / pointer-events none
+ *   until `.show`, so a sweep over "visible controls" reads its buttons at full opacity (the
+ *   opacity is on the PARENT) against whatever is behind a hidden toast — a false positive on a
+ *   real bug, which is the worst of both. This drives the state instead.
+ * ⚑ Proved to bite: dropping `var(--urm-banner)` from `.lob-toast` fails 6 (both buttons, three
+ *   viewports). */
+head('3b · THE ARENA: an incoming challenge can actually be accepted');
+for (const [tag, w, h, touch] of [['390×844 portrait', 390, 844, true],
+                                  ['844×390 landscape', 844, 390, true],
+                                  ['1280×800 desktop', 1280, 800, false]]) {
+  const { ctx, page } = await open('cards/battle.html', { w, h, touch });
+  await page.waitForTimeout(4000);
+  const r = await page.evaluate(() => {
+    const tst = document.getElementById('lobToast');
+    document.getElementById('lobToastTxt').innerHTML = '<b>SmugFrog</b> wants a face-off';
+    tst.classList.add('show');
+    const hit = id => { const el = document.getElementById(id); const b = el.getBoundingClientRect();
+      const e = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+      return { ok: e === el || el.contains(e),
+        got: e ? ((e.id || e.className || e.tagName) + '').slice(0, 20) : 'null',
+        y: Math.round(b.top) + '…' + Math.round(b.bottom) };
+    };
+    const bn = document.getElementById('urm-fresh');
+    return { yes: hit('ltYes'), no: hit('ltNo'),
+      banner: bn ? Math.round(bn.getBoundingClientRect().top) : null };
+  });
+  for (const k of ['yes', 'no'])
+    t(`${tag}: the challenge toast's ${k === 'yes' ? 'ACCEPT' : 'BACK DOWN'} takes a click`,
+      r[k].ok, r[k].y + ' · strip top ' + r.banner + (r[k].ok ? '' : ' · press lands on ' + r[k].got));
   await ctx.close();
 }
 

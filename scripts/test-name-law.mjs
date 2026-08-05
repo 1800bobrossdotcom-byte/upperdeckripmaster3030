@@ -444,6 +444,32 @@ console.log('\n── THE CITY: the game is named, and the name is on its surfac
   ok(!/NEON RONIN/.test(stripComments(arcade, true)), 'arcade.html — NEON RONIN is off the visible grid');
 }
 
+/* ═══ THE TICKER, ON THE SURFACES THAT PRINT IT ══════════════════════════════════════════════
+ * ⛔ `$UR` WAS STILL BEING PRINTED TO PLAYERS ON 2026-08-05 — four days after `$UR3030` → `$3030`
+ *   swept 258 files. Not in a doc: in `js/wallet-ui.js`'s BALANCE CHIP ("◈ 2,000 $UR"), which
+ *   every page carrying the wallet header shows; in `js/arena-lobby.js`'s roster row, i.e. every
+ *   ripper in three lobbies; and four times in THE ARENA's own copy — the pot, the ante, the
+ *   opponent card and the tie message.
+ * ⚑ WHY THE EXISTING SWEEP COULD NOT SEE IT: it anchors on `upperdeckripmaster3030`, on `UR3030`,
+ *   and on the retired name written as separate words. `$UR` is a TRUNCATION — none of those
+ *   patterns matches it, and it reads as a plausible abbreviation rather than as a leftover, which
+ *   is exactly why it survived a 258-file pass and four days of people looking at it.
+ *   **A name also travels as a piece of itself**, which is the same lesson as "a name travels as
+ *   its own words with anything between them", one cut further in.
+ * ⚠ Comments are exempt, as everywhere here — `cards/arena-net.js`'s header documents the old
+ *   field name and that is history. What must not survive is a string a player reads. */
+console.log('\n── the ticker a player reads is $3030, not a truncation of a dead one ──');
+{
+  const TICKER_SURFACES = ['js/wallet-ui.js', 'js/arena-lobby.js', 'cards/battle.html',
+                           'cards/market.html', 'cards/binder.html', 'index.html'];
+  for (const f of TICKER_SURFACES) {
+    let src;
+    try { src = readFileSync(join(ROOT, f), 'utf8'); } catch (e) { continue; }
+    const visible = stripComments(src, f.endsWith('.html'));
+    ok(!/\$UR\b/.test(visible), `${f} — no "$UR" on a surface a player reads`);
+  }
+}
+
 console.log('\n── generated pages match their generator ──');
 for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html']) {
   const src = readFileSync(join(ROOT, page), 'utf8');
