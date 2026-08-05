@@ -61,6 +61,20 @@
   .foot{ text-align:center; font-size:var(--t-body,11px); color:#7fd8a8; margin-top:26px; line-height:1.9; }
   .foot a{ color:var(--lime); display:inline-flex; align-items:center; justify-content:center;
     min-height:var(--tap,44px); min-width:var(--tap,44px); padding:0 4px; }
+
+  /* ── the 3D prop slot (js/site3d-prop.js) ────────────────────────────────────────────────
+     ⚠ The flat glyph is the FALLBACK and it is this page's own markup — it is faded out only
+     after the engine has produced a real frame, so a failure is invisible rather than a hole. */
+  .prop3d{ position:relative; width:min(26vw,190px); aspect-ratio:1/1; margin:14px auto 4px;
+    border-radius:14px; overflow:hidden; border:1px solid rgba(43,255,128,.16);
+    background:linear-gradient(rgba(2,10,5,.44),rgba(2,10,5,.64)), #020a05;
+    box-shadow:0 20px 44px -20px #000, 0 0 22px rgba(43,255,128,.05) inset; }
+  .prop3d .flat{ position:absolute; inset:0; display:grid; place-items:center; font-size:44px;
+    color:rgba(43,255,128,.30); text-shadow:0 0 22px rgba(43,255,128,.22);
+    transition:opacity .5s ease; pointer-events:none; }
+  .prop3d.is3d .flat{ opacity:0; }
+  @media (max-width:760px){ .prop3d{ width:min(54vw,180px); } }
+  @media (prefers-reduced-motion:reduce){ .prop3d .flat{ transition:none; } }
 </style>
   <script src="/gate.js"></script>
   <script src="/banner.js" defer></script>
@@ -96,6 +110,9 @@
          ⚠ THE CITY MODE-BAR LINKS STAY. They are not a duplicate route, they are the seam: the
          city is where the two share a world, and `test:reach` asserts those links precisely so
          nobody deletes a working route to tidy a number. -->
+    <!-- one cabinet, as an object, on the shelf that had no 3D on it at all -->
+    <div class="prop3d" data-site3d="cabinet" aria-hidden="true"><span class="flat">▚</span></div>
+
     <div class="grid">
       <a class="cab" href="riprocketer.html">
         <span class="rr">on-rails</span>
@@ -176,5 +193,6 @@
 <script>
   if(window.RipTavern){ try{ RipTavern.mount('#tavern'); }catch{} }
 </script>
+<script src="js/site3d-prop.js" defer></script>
 </body>
 </html>

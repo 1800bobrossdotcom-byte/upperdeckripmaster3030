@@ -263,6 +263,55 @@
 
   /* THE MARKET BENCH — a brushed steel top with a card standing in a holder, a short stack, and
    * a few chips. It is the counter you deal across, not a shop window. */
+  /* ── THE PACK — the studio's own verb, standing on a shelf ────────────────────────────────
+   * Artist, 2026-08-05: the current site, upgraded with real elements — not replaced.
+   * ⚑ IT IS A FOIL PACKET, NOT A BOX, and the difference is the whole read. A wrapper is thin,
+   *   it creases, and its top is a CRIMPED SEAL rather than a lid — so the silhouette is a
+   *   slightly pillowed slab with a serrated band across the head. Model it as a box and you get
+   *   a matchbox, which is DESIGN-SYSTEM §1's default failure in miniature.
+   * ⚠ The crimp is FOUR TEETH, not a texture. At 190 px a bump map for the serration disappears
+   *   entirely; geometry survives the size the prop is actually seen at, which is the only size
+   *   that matters here. */
+  PROPS.pack = function (pc, app, root) {
+    var foil = material(pc, app, 'chip');
+    var seal = material(pc, app, 'steel');
+
+    // the body — pillowed, so two slabs a hair apart rather than one solid
+    part(pc, root, 'box', [1.30, 1.85, 0.16], [0, -0.10, 0.05], [0, 0, 0], foil);
+    part(pc, root, 'box', [1.24, 1.79, 0.10], [0, -0.10, -0.06], [0, 0, 0], foil);
+
+    // the crimped head — a band, then the teeth that make it read as a SEAL
+    part(pc, root, 'box', [1.34, 0.26, 0.09], [0, 0.90, 0], null, seal);
+    for (var i = 0; i < 4; i++) {
+      part(pc, root, 'cone', [0.17, 0.13, 0.10], [-0.48 + i * 0.32, 1.03, 0], [180, 0, 0], seal);
+    }
+    /* one card just breaking the seal — the object states the verb before any copy does */
+    part(pc, root, 'box', [0.80, 1.18, 0.02], [0.13, 1.28, 0.02], [0, 0, 9],
+         material(pc, app, 'pulp', [1, .82, .23]));
+    return { camera: [0, 0.25, 3.5], look: [0, 0.05, 0], spin: 0.16, tiltGain: 1.0 };
+  };
+
+  /* ── THE CABINET — one arcade machine, for the shelf that had no 3D on it at all ──────────
+   * ⚠ A cabinet is a WEDGE, not a rectangle: the screen is raked back and the control deck juts
+   *   forward under it. Drawn as a plain upright box it reads as a fridge. The rake is the
+   *   silhouette. */
+  PROPS.cabinet = function (pc, app, root) {
+    var body = material(pc, app, 'vinyl');
+    var glass = material(pc, app, 'paint', [0.06, 0.09, 0.08]);
+    var deck = material(pc, app, 'steel');
+
+    part(pc, root, 'box', [1.05, 2.10, 0.86], [0, 0, 0], null, body);          // the hull
+    part(pc, root, 'box', [0.88, 0.80, 0.06], [0, 0.52, 0.44], [-12, 0, 0], glass);  // raked screen
+    part(pc, root, 'box', [0.98, 0.10, 0.42], [0, -0.14, 0.50], [-26, 0, 0], deck);  // control deck
+    // marquee — lit face at the top, the one part of a cabinet you read from across a room
+    part(pc, root, 'box', [1.00, 0.30, 0.10], [0, 1.02, 0.40], [-8, 0, 0],
+         material(pc, app, 'paint', [1, .82, .23]));
+    [-0.26, 0.26].forEach(function (x) {                                        // two sticks
+      part(pc, root, 'cylinder', [0.05, 0.20, 0.05], [x, -0.02, 0.44], [-26, 0, 0], deck);
+    });
+    return { camera: [1.5, 0.6, 3.3], look: [0, -0.05, 0], spin: 0.12, tiltGain: 0.9 };
+  };
+
   PROPS.bench = function (pc, app, root) {
     var steel = material(pc, app, 'steel');
     var vinyl = material(pc, app, 'vinyl');
