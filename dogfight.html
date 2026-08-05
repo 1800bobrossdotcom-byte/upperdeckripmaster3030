@@ -530,6 +530,8 @@
   // ── wager state ──
   const W_ANTE={min:0,max:500,step:25}, W_CARDS={min:1,max:5};
   const wager={ ante:50, cards:2, players:3, picked:[] };   // picked = slugs
+  /* true only when a signed-in wallet can actually put $3030 on the line — see the ante gate */
+  let myAnteLive=false;
   const ethW={ usdEach:0 };                                  // ETH side-pot pledge per pilot (≤ $3)
   function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
 
@@ -575,7 +577,10 @@
      * ⚑ It also means a house game can never fabricate $3030 into the pot, the burn or the
      *   ledger — the economy cannot be inflated by playing alone. */
     const effAnte = houseAtTable ? 0 : wager.ante;
-    const tokPot=effAnte*wager.players, cardPot=wager.cards*wager.players;
+    /* ⚑ THE POT IS MADE OF WHO ACTUALLY PUT IN. Every seat stakes cards; only signed-in seats
+     * stake $3030, so the token pot counts anteing seats and the card pot counts all of them. */
+    const antes = houseAtTable ? 0 : (wager.players - (myAnteLive ? 0 : 1));
+    const tokPot=effAnte*Math.max(0,antes), cardPot=wager.cards*wager.players;
     const potBurn=Math.round(tokPot*WagerPayout.BURN_PCT), potNet=tokPot-potBurn;
     const ethSide=(ethW.usdEach>0 && !houseAtTable)?` + <span style="color:#ffd23b">⟠ $${(ethW.usdEach*wager.players).toFixed(2)} side-pot</span>`:'';
     $('potLine').innerHTML = houseAtTable
@@ -587,17 +592,36 @@
       ? '<span style="color:#8b8b98">'+HOUSE_TAG+' '+esc(o.h)+'</span>'
       : (o.v?'⚜ ':'')+esc(o.h)+(o.a?' <span style="color:#ffd23b">⟠'+esc(o.a.slice(2,6))+'…'+esc(o.a.slice(-4))+'</span>':'');
     $('roster').innerHTML='at the table: <span class="v">◈ '+esc(myHandle())+(meA?' <span style="color:#ffd23b">⟠'+esc(meA.slice(2,6))+'…'+esc(meA.slice(-4))+'</span>':'')+'</span> · '+others.map(seat).join(' · ');
-    // gate the table button — TWO lanes in: the $3030 burn + full card stake, OR a banked ETH flight
+    /* ── ⚑ THE DOOR IS NOT THE GATE; THE ANTE IS ──────────────────────────────────────────
+     * Artist, 2026-08-05: "only need to sign in to participate in ante, but can still
+     * participate in ante game, can onboard by saying if they win 'hey login with a wallet to
+     * claim'."
+     * ⚑ SO NOBODY IS TURNED AWAY. A visitor with no wallet sits down, flies the same match and
+     *   stakes the same cards. What they cannot do is put $3030 in, because they have no wallet
+     *   to put it from — and the onboarding moment is the one they have EARNED, not one they
+     *   meet at the door.
+     * ⛔ AND YOU CAN ONLY WIN WHAT YOU COULD HAVE LOST. That is the correction that keeps this
+     *   fair rather than merely generous: if an unanteed pilot could take the token pot, the
+     *   people who DID stake would be funding a free roll they cannot opt out of. So an
+     *   unanteed seat plays for CARDS — it stakes cards, it wins cards — and the token pot is
+     *   made of, and split between, the seats that actually filled it. Nothing is confiscated
+     *   and nothing is conjured.
+     * ⚠ It follows that a table's token pot shrinks when an unanteed pilot joins. That is
+     *   correct and it is stated on the page rather than hidden. */
     const Wt=window.RipWallet, hasFlights=!!(window.RipEth&&RipEth.plays()>0);
-    const canToken=liveToken()&&Wt&&Wt.hasWallet();
+    const signedIn=!!(Wt&&Wt.hasWallet());
+    myAnteLive=signedIn&&liveToken();
     const enoughCards=wager.picked.length===wager.cards;
-    $('btnAnte').disabled=!((canToken&&enoughCards)||hasFlights);
+    // cards are the only thing everyone can stake, so cards are the only requirement to fly
+    $('btnAnte').disabled=!(enoughCards||hasFlights);
     // note
     const note=$('lobNote');
     if(hasFlights) note.innerHTML='⟠ <b>flight credit armed</b> — Ante up &amp; fly uses 1 of your <b>'+RipEth.plays()+'</b> banked flights.'
       +(enoughCards?' Your '+wager.cards+' picked cards ride the pot for keeps.':' Pick '+wager.cards+' cards to also stake them (optional).');
     else if(!liveToken()) note.innerHTML='$3030 isn’t live on this network yet — insert an ETH coin above to fly the table, or run a <b>practice</b> scrimmage.';
-    else if(!(Wt&&Wt.hasWallet())) note.innerHTML='Connect a wallet (sign the ledger) to ante real $3030 and stake cards for keeps.';
+    else if(!signedIn) note.innerHTML='<b style="color:#27f7e4">You can fly this table right now.</b> '
+      + 'No wallet means no $3030 ante — you stake your <b>'+wager.cards+' cards</b> and you play for cards. '
+      + 'Sign the ledger any time to put tokens on the line too.';
     else if(!enoughCards) note.innerHTML=`Pick <b>${wager.cards}</b> card${wager.cards>1?'s':''} for the pot to ante for keeps.`;
     else note.innerHTML='Real ante: <b>'+wager.ante+' $3030</b> burned to enter · your <b>'+wager.cards+'</b> cards go in the pot.';
   }
