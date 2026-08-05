@@ -301,6 +301,13 @@
 
 <script src="../js/gfx-post.js"></script>
 <script src="../js/card3d.js"></script>
+<!-- ⚑ THE PRESS. The viewer shows every card as a four-colour print (js/hero-card.js)
+     framed by the 3D card — artist, 2026-08-05. js/card-press.js is the seam, and it is
+     the SAME seam cards/lens3d.html uses, so pulling a card out of a pocket and opening
+     the token's own page are the same object. Both optional: missing or WebGL2-less and
+     the viewer is the flat card in a starfield it has always been. -->
+<script src="../js/hero-card.js"></script>
+<script src="../js/card-press.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
      the header prop or the first opened card asks for it first. -->
@@ -325,6 +332,24 @@
   const twoUp = () => getComputedStyle($('pkR').parentNode).display !== 'none';
   const pages = () => Math.max(1, Math.ceil(DECK.length / PER));
 
+  /* ⚑ THE POCKETS ARE PRINTS TOO. A still per card, baked on view through the one shared
+   *   press, so a card in its sleeve and the same card pulled into the starfield are the same
+   *   object at two levels of liveness. Pulling one out then dissolves a still into a live press
+   *   rather than a flat scan into a print, which is why the flight still reads as one thing.
+   * ⛔ CALLED ON EVERY PAGE TURN, NOT ONCE. `render()` rewrites both pockets' innerHTML, so the
+   *   images from the previous spread are gone and the new ones have never been seen. Wiring
+   *   this at startup only would print page one and leave every other page flat — and it would
+   *   look deliberate, which is the worst kind of wrong. `tile()` no-ops on an image it has
+   *   already claimed, so calling it again per turn is free. */
+  function pressPockets() {
+    if (!window.CardPress || /[?&]flat\b/.test(location.search)) return;
+    CardPress.grid('.pk img', img => ({
+      art: img.getAttribute('src'),
+      title: (img.alt || '').toUpperCase(),
+      rarity: (DECK[+(img.closest('button') || {}).dataset?.i] || {}).rarity || 'common',
+    }), { base: '' });
+  }
+
   function pocket(card) {
     if (!card) return '<div class="pk empty"><span class="vinyl"></span><span class="lip"></span></div>';
     const t = String(card.title || '').replace(/"/g, '&quot;');
@@ -346,6 +371,7 @@
     };
     fill('pkL', 'noL', page);
     fill('pkR', 'noR', page + 1);
+    pressPockets();
     $('pgLbl').textContent = step === 2 && page + 1 < n ? `pages ${page + 1}–${page + 2} of ${n}`
                                                        : `page ${page + 1} of ${n}`;
     $('prevPg').disabled = page === 0;
@@ -427,10 +453,28 @@
    * would leak contexts and browsers cap them at around sixteen. If the engine never arrives,
    * #vflat stays visible and the card is a handsome flat one in a starfield, which is a
    * perfectly good thing to be. */
-  let tilt = { x: 0, y: 0 };
+  let tilt = { x: 0, y: 0 }, held = false, press = null;
+  addEventListener('pointerdown',   () => { held = true;  }, { passive: true });
+  addEventListener('pointerup',     () => { held = false; }, { passive: true });
+  addEventListener('pointercancel', () => { held = false; }, { passive: true });
+
+  /* The record the press prints from. ⚠ `art` is the resolved URL it fetches; the IDENTITY it
+   * seeds from is the filename stem, so a card prints the same here, on its own page and in the
+   * token's media slot. Same card, same sheet, wherever you meet it. */
+  const pressCard = c => ({ art: new URL(c.art, location.href).href,
+                            title: (c.title || c.name || '').toUpperCase(),
+                            rarity: c.rarity, sub: (c.omen || '').toUpperCase() });
+
   function mount(card) {
     const url = new URL(card.art, location.href).href;
-    if (ctrl) { ctrl.setArt(url); ctrl.setRarity(card.rarity); return; }
+    /* ⚑ WALKING THE DECK REPRINTS. `show()` reseeds the press and swaps its three plates in
+     *   place — it never rebuilds, because getContext('webgl2') hands back the same context and
+     *   a binder is exactly the page where that leak would go unnoticed for a hundred cards. */
+    if (ctrl) {
+      ctrl.setArt(url); ctrl.setRarity(card.rarity);
+      if (press) press.show(pressCard(card));
+      return;
+    }
     Card3D.engine('../').then(() => {
       const cv = document.createElement('canvas');
       $('vcard').insertBefore(cv, $('vflat'));
@@ -444,6 +488,13 @@
       ctrl.setArt(url); ctrl.setRarity(card.rarity);
       $('vflat').style.display = 'none';
       $('vmode').textContent = 'playcanvas 3d · live lens';
+      if (!/[?&]flat\b/.test(location.search) && window.CardPress) {
+        CardPress.frame({ cardCtrl: ctrl, base: '', card: pressCard(card),
+                          tilt: () => tilt, down: () => held })
+          .then(p => { if (!p) return;              // fails open — the flat plate stands
+                       press = p;
+                       $('vmode').textContent = 'playcanvas 3d · pressed'; });
+      }
     }).catch(() => { $('vmode').textContent = 'flat (engine blocked)'; });
   }
 

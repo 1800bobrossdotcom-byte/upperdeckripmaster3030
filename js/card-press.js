@@ -323,8 +323,63 @@
     }).catch(function () { try { cv.remove(); } catch (e) {} return null; });
   }
 
+  /* ── ⚑ A GRID OF PRINTS — `tile(img, card, opts)` ─────────────────────────────────────────
+   * Swap a flat `<img>` for a pressed still of the same card, ON VIEW.
+   *
+   * ⛔ LAZY IS NOT AN OPTIMISATION HERE, IT IS THE DESIGN. The deck browser is 196 tiles. Baking
+   *   them up front means one shared press doing 196 reseeds and 588 image loads before anybody
+   *   sees anything — a page that hangs on open, which is strictly worse than a page of flat
+   *   cards. On view, one at a time, the visitor gets the deck immediately and the tiles they
+   *   are actually looking at print themselves.
+   * ⚑ AND THE FLAT IMAGE STAYS UNTIL ITS BAKE LANDS. There is never a blank tile, never a
+   *   layout shift (the still is the same 2:3 box), and a browser with no WebGL2 simply keeps
+   *   the deck it already had. `data-pressed` is set only after a real swap, so a harness can
+   *   tell "printed" from "never got there" — which is the distinction that matters, and the one
+   *   an eye cannot make on a page where both states show a card.
+   * ⚠ 256x384, not the viewer's 512. A tile is ~200 CSS px; a 512 bake is four times the fill
+   *   rate for texels nothing can resolve, on the one path that runs 196 times. */
+  function tile(img, card, opts) {
+    if (!img || !card || !global.HeroCard) return;
+    if (img.__pressed) return;
+    img.__pressed = true;
+    var o = opts || {};
+    var go = function () {
+      bake(card, { base: o.base, w: o.w || 256, h: o.h || 384 }).then(function (c) {
+        if (!c) return;                                  // fails open — the flat tile stands
+        try {
+          img.src = c.toDataURL('image/webp', 0.86);
+          img.setAttribute('data-pressed', '1');
+          if (o.onDone) o.onDone(img);
+        } catch (e) {}
+      }).catch(function () {});
+    };
+    if (!global.IntersectionObserver) { go(); return; }
+    try {
+      var io = new IntersectionObserver(function (ents) {
+        if (ents.some(function (e) { return e.isIntersecting; })) { io.disconnect(); go(); }
+      }, { rootMargin: '400px' });
+      io.observe(img);
+    } catch (e) { go(); }
+  }
+
+  /* Wire a whole grid in one call. `sel` picks the images; `read` turns one into a card record.
+   * ⚠ Save-Data and reduced-motion are NOT the same question and only one of them applies: a
+   *   still print does not move, so reduced-motion has no opinion about it. Save-Data does —
+   *   this is 196 extra decodes and three source images each. */
+  function grid(sel, read, opts) {
+    var o = opts || {};
+    try { if (navigator.connection && navigator.connection.saveData) return 0; } catch (e) {}
+    var imgs = (o.root || document).querySelectorAll(sel);
+    for (var i = 0; i < imgs.length; i++) {
+      var rec = null;
+      try { rec = read(imgs[i]); } catch (e) { rec = null; }
+      if (rec && rec.art) tile(imgs[i], rec, o);
+    }
+    return imgs.length;
+  }
+
   global.CardPress = {
     pool: pool, typeSpec: typeSpec, seedFor: seedFor, platesFor: platesFor, stemOf: stemOf,
-    live: live, frame: frame, bake: bake, hash: hash,
+    live: live, frame: frame, bake: bake, tile: tile, grid: grid, hash: hash,
   };
 })(window);

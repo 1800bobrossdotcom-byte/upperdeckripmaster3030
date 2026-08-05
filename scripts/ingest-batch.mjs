@@ -317,6 +317,29 @@ function buildGallery() {
   });
 })();
 </script>
+  <!-- EVERY TILE IS A PRINT — artist, 2026-08-05: the press (cards/proof.html) is how all cards
+       are displayed, the deck browser included. js/card-press.js bakes each tile ON VIEW through
+       the one shared press and swaps the still in; the flat card stays until its bake lands, so
+       the deck is complete from the first frame and a browser without WebGL2 keeps the deck it
+       already had. ?flat opts out — the press CROPS and SCREENS the artwork, so it is a treatment
+       and not a reproduction, and the drawings have to stay reachable as drawn.
+       NOTE: no backticks in this comment. It is emitted from inside a template literal in
+       scripts/ingest-batch.mjs, where one would end the string and break the generator. -->
+  <script src="../js/hero-card.js" defer></script>
+  <script src="../js/card-press.js" defer></script>
+  <script>
+  addEventListener('load', function () {
+    if (!window.CardPress || /[?&]flat\b/.test(location.search)) return;
+    CardPress.grid('.tile-art img', function (img) {
+      var t = img.closest('.tile');
+      var r = t && (t.className.match(/\br-([a-z]+)\b/) || [])[1];
+      var n = t && t.querySelector('.tile-name');
+      return { art: img.getAttribute('src'),
+               title: ((n && n.textContent) || img.alt || '').toUpperCase(),
+               rarity: r || 'common' };
+    }, { base: '' });
+  });
+  </script>
 </body>
 </html>
 `;
