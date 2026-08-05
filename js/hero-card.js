@@ -102,14 +102,20 @@
    * three of them are chosen by seed and every pixel of ground, mid and figure comes out of one
    * of the three. Acceptance 7 ("every sampled source resolves to one of the 100") is then a
    * property of the code rather than a promise — there is no other image in the shader. */
+  /* ⚠ SIX NOW, AND EXTENDING THIS LOOP IS SAFE WHERE EXTENDING THE IMPRESSION'S WAS NOT. The
+   * first three draws consume this seed's random stream in exactly the order they always did and
+   * nothing else reads it afterwards, so every existing card keeps the same ground, mid and
+   * figure and merely gains three more sources it can choose to print. */
+  const NPIG = 6;
   function pickPigment(seed, pool) {
     const r = rng(seed ^ 0x9E3779B9), out = [], used = {};
-    while (out.length < 3 && out.length < pool.length) {
+    let guard = 0;
+    while (out.length < NPIG && out.length < pool.length && guard++ < 4000) {
       const i = Math.floor(r() * pool.length);
       if (used[i]) continue;
       used[i] = 1; out.push(pool[i]);
     }
-    while (out.length < 3) out.push(pool[0]);
+    while (out.length < NPIG) out.push(pool[out.length % Math.max(1, pool.length)] || pool[0]);
     return out;
   }
 
@@ -200,6 +206,66 @@
     g.rect(win.x, win.y, win.w, win.h);
     g.fill('evenodd');
 
+    return c;
+  }
+
+  /* ── THE SECOND MASK PLATE — where the three extra sources land ──────────────────────────
+   * R wash · G strip · B inset. A separate texture rather than uComp's alpha, for the reason
+   * spelled out immediately below this function: a 2D canvas premultiplies, so alpha is not a
+   * data channel here and never will be.
+   * ⚑ SEEDED OFF A DIFFERENT CONSTANT so the extra masks do not land exactly where the first
+   *   three do. Sharing uComp's stream would put the strip mask on top of the figure window on
+   *   every card in the deck — six sources arranged in three places, which is the "it averages
+   *   into one card" failure wearing a bigger number.
+   * ⚠ Alpha stays 255. */
+  function buildComp2(seed, N) {
+    const c = document.createElement('canvas');
+    c.width = N; c.height = Math.round(N * 1.5);
+    const g = c.getContext('2d', { willReadFrequently: false });
+    const W = c.width, H = c.height, r = rng(seed ^ 0x2545F491);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'lighter';
+
+    /* R · the WASH — one soft sweep, low and wide. It is a colour field, so its mask is a
+     * gradient rather than a shape: a hard-edged wash is a panel. */
+    {
+      const a = r() * TAU, cx = (0.2 + r() * 0.6) * W, cy = (0.2 + r() * 0.6) * H;
+      const gr = g.createLinearGradient(cx - Math.cos(a) * W, cy - Math.sin(a) * H,
+                                        cx + Math.cos(a) * W, cy + Math.sin(a) * H);
+      gr.addColorStop(0, 'rgb(0,0,0)');
+      gr.addColorStop(0.35 + r() * 0.2, 'rgb(190,0,0)');
+      gr.addColorStop(1, 'rgb(40,0,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+
+    /* G · the STRIPS — a few small torn scraps, not a band across the card. ⚠ Deliberately
+     * SMALL and FEW: this channel is the one most able to bury the figure, and a scrap that
+     * covers a third of the card is a second ground rather than a collage element. */
+    {
+      const n = 2 + Math.floor(r() * 3);
+      for (let s = 0; s < n; s++) {
+        const w = (0.10 + r() * 0.16) * W, h = (0.05 + r() * 0.13) * H;
+        const x = r() * (W - w), y = r() * (H - h);
+        g.save();
+        g.translate(x + w / 2, y + h / 2); g.rotate((r() - 0.5) * 0.7);
+        g.fillStyle = 'rgb(0,' + (150 + Math.floor(r() * 90)) + ',0)';
+        g.fillRect(-w / 2, -h / 2, w, h);
+        g.restore();
+      }
+    }
+
+    /* B · the INSET — one small soft pocket, held away from the middle so it reads as a second
+     * element beside the figure rather than a smear over it. */
+    {
+      const cx = (0.18 + r() * 0.30 + (r() < 0.5 ? 0 : 0.34)) * W;
+      const cy = (0.52 + r() * 0.30) * H;
+      const rad = (0.13 + r() * 0.09) * W;
+      const gr = g.createRadialGradient(cx, cy, rad * 0.15, cx, cy, rad);
+      gr.addColorStop(0, 'rgb(0,0,255)'); gr.addColorStop(0.68, 'rgb(0,0,205)');
+      gr.addColorStop(1, 'rgb(0,0,0)');
+      g.fillStyle = gr;
+      g.beginPath(); g.arc(cx, cy, rad, 0, TAU); g.fill();
+    }
     return c;
   }
 
@@ -631,12 +697,23 @@ in vec2 vFace;
 out vec4 frag;
 
 uniform sampler2D uPigA, uPigB, uPigC, uComp, uType, uStock;
+/* the second three sources and their own mask plate — only sampled when uNPig is 6 */
+uniform sampler2D uPigD, uPigE, uPigF, uComp2;
+uniform int uNPig;           // 3 = ground/mid/figure · 6 = + wash, strip, inset
 uniform mat3 uRot;
 uniform vec3 uEye;
-uniform vec2 uReg[4];        // registration, uv — FROZEN per impression, uniform per plate
-uniform vec3 uInk[4];        // ink transmittance
-uniform vec4 uAng;           // screen angle per plate, radians
-uniform vec4 uFilm;          // ink film per plate
+/* ⛔ SIX PLATES, NOT FOUR — artist, 2026-08-05: *"i need my plate separator to have up to 6
+ * plates … a toggle that just creates the card with 6 plates as before."* C M Y K, plus ORANGE
+ * and GREEN on their own screens at their own registrations. uNInk is 4 or 6 and nothing else.
+ * ⚠ NO BACKTICKS IN HERE. This is inside a JS template literal, so one backtick ends the shader
+ *   source, CardHero never defines and the page falls open with no card and no error. Recorded
+ *   four times in CLAUDE.md before this comment was written, and it still caught this edit. */
+uniform vec2 uReg[6];        // registration, uv — FROZEN per impression, uniform per plate
+uniform vec3 uInk[6];        // ink transmittance
+uniform float uAng[6];       // screen angle per plate, radians
+uniform float uFilm[6];      // ink film per plate
+uniform int uNInk;           // 4 = process, 6 = process + two spot inks
+uniform float uSplit;        // how much load the spot inks take off the process inks
 uniform vec4 uPress;         // x screen freq · y roller bands · z roller phase · w starve
 uniform vec4 uDmg;           // x burn · y tear · z dot gain · w edge wear
 uniform vec4 uFoilP;         // x grating cycles · y thin film · z sheen · w patch cycles
@@ -767,6 +844,33 @@ vec3 artAt(vec2 u, vec2 par) {
   vec3 fig = texture(uPigC, (uF - vec2(0.50, 0.40)) * vec2(1.02, 0.76) + vec2(0.50, 0.34)).rgb;
   c = mix(c, fig, texture(uComp, uF).g);
 
+  /* ── ⛔ THREE MORE SOURCES, AND EACH ONE HAD TO EARN A DIFFERENT SCALE ────────────────────
+   * Artist, 2026-08-05: the plate separator goes to six, and so does the collage.
+   * ⚠ THE RECORDED FAILURE IS THE ONE TO AVOID HERE: "all three pigment cards at 1:1 average
+   *   into ONE card. Three pictures of the same kind of thing at the same size is a FILTER, not
+   *   a composition." Doubling the sources doubles that risk rather than halving it — six cards
+   *   laid on top of each other at similar scales is mud, and it would read as "6 plates looks
+   *   worse" when the fault was the roles, not the count. So the three new ones take the scales
+   *   the first three do not: WASH is zoomed past ground until it is pure colour field, STRIP is
+   *   tiled small and turned against the sheet's own axis, and INSET is a tight crop held in one
+   *   region of the card rather than spread across it.
+   * ⚑ AND THEY ARE MASKED FROM A SECOND TEXTURE, NOT FROM uComp's ALPHA. uComp is a generated
+   *   2D canvas and a 2D canvas stores pixels PREMULTIPLIED — writing a mask into alpha there
+   *   multiplies that pixel's colour by zero and wipes the other three masks wherever the new one
+   *   is dark. That is a recorded, expensive bug in this exact file. A fourth channel of data
+   *   gets a fourth channel of ANOTHER texture. */
+  if (uNPig > 3) {
+    vec4 m2 = texture(uComp2, uM);
+    vec3 wash = texture(uPigD, uG * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
+    c = mix(c, wash, texture(uComp2, uG).r * 0.72);
+    /* turned against the sheet: a strip laid square to the trim reads as a panel, not a scrap */
+    vec2 uS = mat2(0.87, -0.49, 0.49, 0.87) * (uM * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
+    vec3 strip = texture(uPigE, uS).rgb;
+    c = mix(c, strip, m2.g);
+    vec3 inset = texture(uPigF, (uF - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
+    c = mix(c, inset, texture(uComp2, uF).b);
+  }
+
   /* The trim and the marks are on the STOCK, so they take no depth — they are not floating
    * above the picture, they are the picture stopping. Only the name is carried up the stack. */
   // ⚠ the trim and the marks are the SHEET. They never travel — if the paper moved in z there
@@ -784,11 +888,33 @@ vec3 artAt(vec2 u, vec2 par) {
 
 /* Grey-component replacement — a real four-colour separation, not a channel split. Pulling K out
  * first is why the shadows go NEUTRAL instead of muddy purple when the plates slip. */
-vec4 sep(vec3 c) {
+/* ⛔ AND THE TWO EXTRA PLATES ARE AN INK SPLIT, NOT TWO MORE LAYERS ON TOP. This is the whole
+ * difference between a six-colour press and "CMYK with some orange painted over it": a real
+ * extended-gamut separation gives orange the part of the picture MAGENTA AND YELLOW were already
+ * carrying between them, and green the part shared by CYAN and YELLOW — then takes that load OFF
+ * the process inks. Total ink stays where it was; what changes is that two hues are now laid by a
+ * plate that can actually reach them, on their own screens, at their own registration.
+ * ⚑ SO THE CARD DOES NOT GET DARKER WHEN YOU TURN IT ON, and that is a property to check rather
+ *   than hope for: adding rather than splitting would have piled two more inks onto a subtractive
+ *   stack and driven the whole card toward black, which reads as "6 plates looks worse".
+ * ⚠ AT FOUR INKS IT MUST BE THE OLD FUNCTION EXACTLY. uNInk == 4 leaves o and g at zero and
+ *   never touches c/m/y, so the four-colour card is byte-identical to the one this renderer has
+ *   always printed — the same discipline as the room switch, and asserted the same way. */
+void sep6(vec3 c, out float s[6]) {
   c = clamp(c, 0.0, 1.0);
   float k = 1.0 - max(max(c.r, c.g), c.b);
   float ik = max(1.0 - k, 1e-3);
-  return vec4((1.0 - c.r - k) / ik, (1.0 - c.g - k) / ik, (1.0 - c.b - k) / ik, k);
+  float cy = (1.0 - c.r - k) / ik;
+  float mg = (1.0 - c.g - k) / ik;
+  float yl = (1.0 - c.b - k) / ik;
+  float o = 0.0, g = 0.0;
+  if (uNInk > 4) {
+    o = min(mg, yl) * uSplit;          // orange is what magenta and yellow were both carrying
+    mg -= o; yl -= o;
+    g  = min(cy, yl) * uSplit;         // green likewise out of cyan and yellow
+    cy -= g; yl -= g;
+  }
+  s[0] = cy; s[1] = mg; s[2] = yl; s[3] = k; s[4] = o; s[5] = g;
 }
 
 /* An AM halftone: rotate into the plate's own screen angle, and a dot whose RADIUS is
@@ -839,16 +965,18 @@ void main(void) {
   /* ⚑ THE SHEET SLIPS ALONG ITS OWN FEED AXIS — one direction, not a blur. A blur is what you draw
    * when you do not know why something moved; a slur has a direction because the paper does. */
   vec2 slip = vec2(uMot.y * 0.55, uMot.y);
-  for (int p = 0; p < 4; p++) {
+  for (int p = 0; p < uNInk; p++) {
     vec2 u = vUv + mix(uReg[p], (vUv - 0.5) * length(uReg[p]) * 3.0, uRegRadial) * uRegGain
            + slip * (float(p) * 0.33 + 0.2);
-    vec4 s = sep(artAt(u, par));
+    float s[6]; sep6(artAt(u, par), s);
     float d = s[p] * uFilm[p] * uMot.x;
     /* DOUBLING: the cylinder bounces and strikes again a hair off. ⚠ max(), never add — a second
      * impression cannot make ink darker than solid, it makes it WIDER, which is exactly why
      * doubling is a legible fault rather than a general darkening. */
-    if (uMot.z > 0.001)
-      d = max(d, sep(artAt(u + vec2(0.0055, 0.0092) * uMot.z, par))[p] * uFilm[p] * uMot.x * 0.58);
+    if (uMot.z > 0.001) {
+      float s2[6]; sep6(artAt(u + vec2(0.0055, 0.0092) * uMot.z, par), s2);
+      d = max(d, s2[p] * uFilm[p] * uMot.x * 0.58);
+    }
     // the roller: bands ACROSS the sheet, because that is the axis the roller turns on
     float band = 1.0 + uPress.w * sin(u.y * uPress.y + uPress.z + float(p) * 0.7);
     d = clamp(d * band + uDmg.z * 0.10, 0.0, 1.0);
@@ -1002,13 +1130,23 @@ void main(void) {
   // Process inks as TRANSMITTANCES, and the classic screen angles. 15/75/0/45 is not decoration:
   // those four are the angles that keep the rosette from collapsing into a visible pattern, and
   // yellow gets 0 because the eye is least sensitive to its moiré.
+  /* ⚠ SIX INKS, AND THE FIRST FOUR ARE UNTOUCHED. A four-colour card must keep printing exactly
+   * as it always has — the two spot inks are only ever reached when `uNInk` is 6. */
   const INK = [
     [0.06, 0.66, 0.90],   // C
     [0.90, 0.10, 0.52],   // M
     [0.98, 0.84, 0.10],   // Y
     [0.10, 0.09, 0.11],   // K
+    [0.96, 0.42, 0.08],   // O — orange: passes red, holds green, kills blue
+    [0.12, 0.72, 0.34],   // G — green
   ];
-  const ANG = [15, 75, 0, 45].map(d => (d * Math.PI) / 180);
+  /* ⚑ THE SPOT ANGLES SIT 7.5° OFF THEIR NEIGHBOURS, which is what an extended-gamut press
+   * actually does — with six screens you cannot keep every pair 30° apart, so the trade is a
+   * tighter rosette and more beat between plates. Here that is the point rather than the cost:
+   * this shader's own note says the moiré between screens "is not an artefact to suppress — it is
+   * most of what the eye reads as printed". Six plates beat harder than four. */
+  const ANG = [15, 75, 0, 45, 52.5, 22.5].map(d => (d * Math.PI) / 180);
+  const NINK = { process: 4, extended: 6 };
 
   function loadImage(url) {
     return new Promise(res => {
@@ -1086,10 +1224,23 @@ void main(void) {
      * figure can come out as the ground, and nothing errors — you just get a composition you did
      * not ask for and cannot tell from a bad seed. `pigmentExact` is the composed path: three
      * URLs in role order (ground, mid, figure), used verbatim. */
-    const exact = o.pigmentExact && o.pigmentExact.length === 3 && o.pigmentExact.every(Boolean);
-    const pig = exact ? o.pigmentExact.slice() : pickPigment(seed, pool);
+    /* ⚠ `pigmentExact` may carry THREE or SIX now — a card composed before the collage went to
+     *   six names only its first three, and must keep printing. Anything short is padded from
+     *   this seed's own pick, so the extra plates are the ones the card would have chosen. */
+    const px = (o.pigmentExact || []).filter(Boolean);
+    const exact = px.length === 3 || px.length === NPIG;
+    const seededPig = pickPigment(seed, pool);
+    const pig = exact ? px.slice() : seededPig.slice();
+    while (pig.length < NPIG) pig.push(seededPig[pig.length] || pig[0]);
 
     return Promise.all(pig.map(loadImage)).then(imgs => {
+      /* ⛔ ONLY THE FIRST THREE ARE LOAD-BEARING. Requiring all six would mean one 404 on a
+       * source the card is not even printing takes the whole card down — and the deck is being
+       * clean-slated, so a missing image is a WHEN, not an if. The three extra roles fall back to
+       * the three that must exist; the card composes differently rather than not at all. */
+      if (imgs[0] && imgs[1] && imgs[2]) {
+        for (let i = 3; i < NPIG; i++) if (!imgs[i]) { imgs[i] = imgs[i - 3]; pig[i] = pig[i - 3]; }
+      }
       if (imgs.some(i => !i)) return null;                 // fails open — a card, not a hole
 
       const errs = [];
@@ -1173,7 +1324,8 @@ void main(void) {
         };
       };
       let TEMPER = makeTemper(seed);
-      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
+      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5,
+                     uPigD: 6, uPigE: 7, uPigF: 8, uComp2: 9 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
        * term to zero changed nothing, which ruled the normals out in one shot and pointed at the
@@ -1190,9 +1342,17 @@ void main(void) {
        * to carry the role's wrap with it — reuploading all three as REPEAT puts a grid of tiny
        * faces where the figure should be, which reads as a composition bug rather than a
        * sampler one. */
-      const PIG_WRAP = [gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE];
+      /* wash and strip are sampled far outside 0..1 (a field and a tiled scrap), the inset is a
+       * tight crop and must CLAMP for the same reason the figure does. */
+      const PIG_WRAP = [gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE,
+                        gl.REPEAT, gl.REPEAT, gl.CLAMP_TO_EDGE];
+      let texD = texFrom(gl, imgs[3], UNIT.uPigD, PIG_WRAP[3], true);
+      let texE = texFrom(gl, imgs[4], UNIT.uPigE, PIG_WRAP[4], true);
+      let texF = texFrom(gl, imgs[5], UNIT.uPigF, PIG_WRAP[5], true);
       let compCanvas = buildComp(seed, 512);
       let texComp = texFrom(gl, compCanvas, UNIT.uComp);
+      let comp2Canvas = buildComp2(seed, 512);
+      let texComp2 = texFrom(gl, comp2Canvas, UNIT.uComp2);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
@@ -1200,7 +1360,8 @@ void main(void) {
       const U = n => gl.getUniformLocation(prog, n);
       const u = {
         rot: U('uRot'), eye: U('uEye'), flex: U('uFlex[0]'), proj: U('uProj'),
-        reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng'), film: U('uFilm'),
+        reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng[0]'), film: U('uFilm[0]'),
+        nInk: U('uNInk'), split: U('uSplit'), nPig: U('uNPig'),
         press: U('uPress'), dmg: U('uDmg'), foilP: U('uFoilP'),
         keyDir: U('uKeyDir'), keyCol: U('uKeyCol'),
         fillDir: U('uFillDir'), fillCol: U('uFillCol'),
@@ -1210,12 +1371,13 @@ void main(void) {
         elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
-       ['uType', texType], ['uStock', texStock]].forEach(([n, t]) => {
+       ['uType', texType], ['uStock', texStock],
+       ['uPigD', texD], ['uPigE', texE], ['uPigF', texF], ['uComp2', texComp2]].forEach(([n, t]) => {
         gl.uniform1i(U(n), UNIT[n]);
         gl.activeTexture(gl.TEXTURE0 + UNIT[n]); gl.bindTexture(gl.TEXTURE_2D, t);
       });
       gl.uniform3fv(u.ink, new Float32Array([].concat.apply([], INK)));
-      gl.uniform4f(u.ang, ANG[0], ANG[1], ANG[2], ANG[3]);
+      gl.uniform1fv(u.ang, new Float32Array(ANG));
 
       /* ── THE IMPRESSION ──────────────────────────────────────────────────────────────────
        * Everything a single pull off the press decides. Re-rolled only when the sheet advances,
@@ -1223,7 +1385,7 @@ void main(void) {
        * ⚑ Registration is stored ONCE, as one vector per plate, and the shader adds exactly that
        *   vector to every fragment of that plate. Acceptance 4 ("uniform per plate, not radial")
        *   is therefore structural: there is nowhere for a radius to enter. */
-      const sheetState = { n: 0, reg: [], film: [1, 1, 1, 1], band: 9, phase: 0, starve: 0.05 };
+      const sheetState = { n: 0, reg: [], film: [1, 1, 1, 1, 1, 1], band: 9, phase: 0, starve: 0.05 };
       function pull(n) {
         const r = rng((seed ^ 0x85EBCA6B) + n * 2654435761);
         sheetState.n = n;
@@ -1237,6 +1399,17 @@ void main(void) {
         sheetState.band = 5 + r() * 9;
         sheetState.phase = r() * TAU;
         sheetState.starve = 0.03 + r() * 0.14;
+        /* ⛔ THE TWO SPOT PLATES ARE DRAWN LAST, AND THE ORDER IS LOAD-BEARING. Widening the loop
+         * above from 4 to 6 would have consumed four more numbers out of this impression's random
+         * sequence BEFORE the film weights, the roller band, the phase and the starve — so every
+         * one of those would land on a different value and EVERY CARD ALREADY SAVED would reprint
+         * as a different card. Nothing would error; a hundred records would simply stop being
+         * what they say they are. Drawing the extra plates after everything else leaves the four
+         * process plates the exact sequence they have always had. */
+        for (let p = 4; p < 6; p++) {
+          sheetState.reg.push((r() - 0.5) * 0.020, (r() - 0.5) * 0.032);
+        }
+        sheetState.film.push(0.78 + r() * 0.30, 0.78 + r() * 0.30);
         gl.deleteTexture(texType);
         texType = texFrom(gl, buildType(o.type, seed, 512, n, TEXT.name, RAR, TEXT.sub), UNIT.uType);
       }
@@ -1250,6 +1423,8 @@ void main(void) {
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
         lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
         stack: 1,        // how far the four elements separate through the card's thickness
+        inks: 4,         // 4 = C M Y K · 6 = + orange and green, each on its own screen
+        pigs: 3,         // 3 = ground/mid/figure · 6 = + wash, strip, inset
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
@@ -1326,7 +1501,13 @@ void main(void) {
         const focal = (asp > 2 / 3) ? (0.96 * D / 1.5) : (0.96 * D * asp);
         gl.uniform2f(u.proj, focal / asp, focal);
         gl.uniform2fv(u.reg, new Float32Array(sheetState.reg));
-        gl.uniform4f(u.film, sheetState.film[0], sheetState.film[1], sheetState.film[2], sheetState.film[3]);
+        gl.uniform1fv(u.film, new Float32Array(sheetState.film));
+        gl.uniform1i(u.nInk, S.inks);
+        /* ⚠ the split is what the spot plates TAKE, so it only has meaning at six. Held below 1
+         * because an ink that took the whole overlap would leave magenta and yellow with nothing
+         * in their shared hues and the rosette would come apart. */
+        gl.uniform1f(u.split, S.inks > 4 ? 0.62 : 0.0);
+        gl.uniform1i(u.nPig, S.pigs);
         /* ⚠ THE SCREEN RULING IS THE WHOLE LEGIBILITY OF THE CARD, and the first cut had it an
          * octave too coarse: at ~118 cells across the dots WERE the picture and the artwork
          * underneath could not be read at all. A card is printed at a ruling you have to lean in
@@ -1470,6 +1651,26 @@ void main(void) {
          * 0 = coplanar, a flat print. 1 = the tuned default. Above 1 the stack exaggerates. */
         setStack: k => { S.stack = clamp(k, 0, 3); },
 
+        /* ── ⛔ THE PLATE SEPARATOR: FOUR PLATES OR SIX ────────────────────────────────────
+         * `setInks(6)`. Artist, 2026-08-05: *"i need my plate separator to have up to 6 plates …
+         * that is a toggle that just creates the card with 6 plates as before."*
+         * ⚑ IT IS A TOGGLE, NOT A DIAL, because there is no such thing as four and a half plates
+         *   — a press either has a unit for an ink or it does not. Anything not 6 is 4.
+         * ⚠ NO REBAKE AND NO PULL. The two extra plates already have their registration and their
+         *   film weight in this impression (drawn at the end of `pull`, see the note there), so
+         *   flipping the separator prints the SAME SHEET with two more units inked — which is
+         *   what it would mean on a press. Re-rolling the impression here would make the toggle
+         *   silently change the card's identity as well as its separation. */
+        setInks: n => { S.inks = (n | 0) === 6 ? 6 : 4; return S.inks; },
+
+        /* ── THE COLLAGE: THREE SOURCES OR SIX ────────────────────────────────────────────
+         * The other half of the artist's "6 plates". All six textures are always resident and
+         * always current — this only decides how many the composition READS, so the toggle is a
+         * uniform and nothing is loaded, baked or re-rolled when it flips. That is what lets it
+         * be a toggle you flick back and forth while looking at the card, which is the whole
+         * point of it being a toggle rather than a rebuild. */
+        setPigs: n => { S.pigs = (n | 0) === 6 ? 6 : 3; return S.pigs; },
+
         /* ANIMATED — which press failure this card performs. Eight named presets, and the list
          * is READ from the module rather than typed into the UI, so adding a ninth does not need
          * an edit in two places. `null` hands it back to the seed. */
@@ -1561,6 +1762,12 @@ void main(void) {
           gl.deleteTexture(texComp);
           compCanvas = buildComp(seed, 512);
           texComp = texFrom(gl, compCanvas, UNIT.uComp);
+          /* ⚠ the second mask plate is a function of the seed too. Leaving it behind would put
+           * the new card's extra sources exactly where the old card's were — a reseed that only
+           * half re-derives the composition. */
+          gl.deleteTexture(texComp2);
+          comp2Canvas = buildComp2(seed, 512);
+          texComp2 = texFrom(gl, comp2Canvas, UNIT.uComp2);
           gl.deleteTexture(texStock);
           stockCanvas = buildStock(seed, 256);
           texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
@@ -1586,19 +1793,24 @@ void main(void) {
          * ⚠ Fails open and ATOMICALLY: if any of the three images will not load, nothing is
          *   swapped and the card keeps the plates it had. A half-applied composition (new
          *   ground, old figure) is a card nobody chose. */
+        /* ⚠ THREE OR SIX. Handing it three swaps the first three roles and leaves wash, strip and
+         *   inset exactly as they were — which is what the panel does while the collage is set to
+         *   three, and it means turning the collage up does not silently discard a composition. */
         setPigment: urls => {
-          if (!urls || urls.length !== 3 || !urls.every(Boolean)) return Promise.resolve(false);
+          const n = urls && urls.length;
+          if (!urls || (n !== 3 && n !== NPIG) || !urls.every(Boolean)) return Promise.resolve(false);
+          const SLOT = ['uPigA', 'uPigB', 'uPigC', 'uPigD', 'uPigE', 'uPigF'];
           return Promise.all(urls.map(loadImage)).then(next => {
-            if (next.some(i => !i)) return false;            // atomic: all three, or none
-            const old = [texA, texB, texC];
-            const made = [
-              texFrom(gl, next[0], UNIT.uPigA, PIG_WRAP[0], true),
-              texFrom(gl, next[1], UNIT.uPigB, PIG_WRAP[1], true),
-              texFrom(gl, next[2], UNIT.uPigC, PIG_WRAP[2], true),
-            ];
-            texA = made[0]; texB = made[1]; texC = made[2];
+            if (next.some(i => !i)) return false;            // atomic: all of them, or none
+            const live = [texA, texB, texC, texD, texE, texF];
+            const old = live.slice(0, n);
+            const made = next.map((im, i) => texFrom(gl, im, UNIT[SLOT[i]], PIG_WRAP[i], true));
+            if (n > 0) texA = made[0];
+            if (n > 1) texB = made[1];
+            if (n > 2) texC = made[2];
+            if (n > 3) { texD = made[3]; texE = made[4]; texF = made[5]; }
             old.forEach(t => gl.deleteTexture(t));
-            pig.length = 0; urls.forEach(u => pig.push(u));  // so probe() reports what is ON it
+            for (let i = 0; i < n; i++) pig[i] = urls[i];    // so probe() reports what is ON it
             S.arrive = 0;                                    // the sheet prints again
             render();
             return true;
@@ -1625,6 +1837,7 @@ void main(void) {
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
+          inks: S.inks, pigs: S.pigs,
           seed: seed,
           rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,
           elemZ: elemZ.slice(),

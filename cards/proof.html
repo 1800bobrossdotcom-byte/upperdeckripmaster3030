@@ -105,9 +105,20 @@
   .rail p{color:var(--dim);margin:0 0 14px}
   .grp{border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:12px 13px;margin:0 0 12px;
        background:rgba(255,255,255,.025)}
-  .grp label{display:block;font-size:var(--t-small);letter-spacing:.14em;color:var(--stock);
-             margin:0 0 6px}
-  .grp .v{float:right;color:var(--gold);font-family:ui-monospace,'Courier New',monospace}
+  /* ⛔ THE VALUE WAS A `float:right` AND IT ATE THE SLOT GRID. Measured, not guessed: the deck
+     count grew from "0 of 100" to "0 of 100 · 0/33 heroes · 0/67 field" — 311px of float in a
+     340px rail — and A GRID CONTAINER SHRINKS TO AVOID A FLOAT the way a BFC root does. So
+     `.numgrid` came out **1px wide** with `repeat(10,1fr)` resolving to 2px tracks, while the
+     44px cells overflowed and overlapped each other 5px apart. The hundred slots rendered as a
+     narrow column of stacked numbers.
+     ⚑ Nothing errored and no rule was wrong — the float was correct for every value this panel
+     had ever put in it, and it stayed correct right up until a value got long. That is the
+     recorded "a layout number derived from content that changed" failure, and the fix is to stop
+     deriving it: a flex row lets a long value WRAP instead of stealing its neighbour's width. */
+  .grp label{display:flex;flex-wrap:wrap;gap:0 8px;justify-content:space-between;
+             align-items:baseline;font-size:var(--t-small);letter-spacing:.14em;
+             color:var(--stock);margin:0 0 6px}
+  .grp .v{color:var(--gold);font-family:ui-monospace,'Courier New',monospace}
   input[type=range]{width:100%;accent-color:var(--hot);height:26px}
   /* ⚠ THIS PAGE HAD NEVER BEEN MOBILE-AUDITED — `npm run mobile` carries nine pages and this is
      not one of them. First measurement at 390x844 once the forge went in: FOUR controls under the
@@ -228,16 +239,43 @@
      nothing errored and nothing 404'd; it was found by looking at the frame. A generic class
      name in a page that already has a design system is a collision waiting to happen, and the
      collision is always silent. */
+  /* ⛔ THE HUNDRED SLOTS HAVE NEVER LAID OUT — 90 OVERLAPPING PAIRS, AND IT PREDATES THIS PASS.
+     Measured on the build before any of this work: grid 272px, tracks 24.5px, cells **44px**, so
+     every cell overflowed its track by ~20px and sat on top of its neighbour. The whole point of
+     the grid is to see at a glance which numbers are taken, and it was rendering as a smear.
+     ⚑ THE CAUSE IS TWO CORRECT RULES MEETING. `.num` is a `<button>`, and the global button rule
+       four blocks up sets `min-height:44px` for the tap floor the rest of the site is held to.
+       `.num` overrides the padding but not the min-height — and `aspect-ratio:1/1` turns a HEIGHT
+       floor into a WIDTH floor. Neither rule is wrong; the combination is, and it is invisible to
+       anything that only asks whether the cells exist.
+     ⚠ The comment that used to sit here claimed the tap target was handled "via padding on the
+       row". There was no such padding. A note describing a mechanism that was never built is
+       worse than no note, because it stops the next person looking. */
   .numgrid{ display:grid; grid-template-columns:repeat(10,1fr); gap:3px; margin:6px 0 2px; }
-  .num{ appearance:none; -webkit-appearance:none; min-width:0; padding:0;
+  .num{ appearance:none; -webkit-appearance:none; min-width:0; min-height:0; padding:0;
     aspect-ratio:1/1; display:grid; place-items:center; cursor:pointer;
     font:600 var(--t-tag,10px)/1 ui-monospace,Menlo,Consolas,monospace; letter-spacing:0;
     color:#6d6a63; background:#141310; border:1px solid #26241e; border-radius:3px;
     transition:background .12s ease, color .12s ease, border-color .12s ease; }
   .num:hover,.num:focus-visible{ border-color:#6d6a63; color:#cfc9ba; outline:none; }
+  /* ⚑ THE TWO BANDS ARE VISIBLE IN THE GRID. 1–33 are heroes and 34–100 are field cards — two
+     different products off one press — so the grid should not read as a hundred identical boxes.
+     ⚠ Separated by HUE, not by weight: a slightly-bolder cell is invisible to anyone who has not
+     already been told there is a split, which is the same argument the rarity chips carry. */
+  .num.hero{ border-color:#4a3f6b; color:#9a8fc0; }
   .num.full{ background:#2b2618; border-color:#7a6a34; color:#f3d98a; }
+  .num.hero.full{ background:#241f38; border-color:#6f5fa8; color:#c6b8f0; }
   .num.here{ background:#f3d98a; border-color:#f3d98a; color:#141310; }
-  @media (pointer:coarse){ .numgrid{ gap:4px } .num{ font-size:var(--t-tag,11px) } }
+  .num.hero.here{ background:#c6b8f0; border-color:#c6b8f0; color:#141310; }
+  /* ⚑ AND THE TAP FLOOR IS BOUGHT WITH COLUMNS, NOT WITH min-height — which is the only way to
+     buy it once the cell is square and the track sets its size. Ten columns in a phone-width rail
+     is a 31px cell however the button is styled; five columns is ~60px, comfortably over the 44px
+     floor, at the cost of twenty rows instead of ten. That is the honest trade, and it is a trade
+     rather than the silent overflow it replaced. */
+  @media (pointer:coarse){
+    .numgrid{ gap:4px; grid-template-columns:repeat(5,1fr) }
+    .num{ font-size:var(--t-tag,12px) }
+  }
 </style>
 
 <div class="wrap">
@@ -293,6 +331,20 @@ frame and seed are left alone">RESET TO BASE</button>
       <select id="slotM" aria-label="mid plate"></select>
       <div class="slot">FIGURE — near card size</div>
       <select id="slotF" aria-label="figure plate"></select>
+      <!-- ⚑ THE SECOND THREE. Hidden while the collage is set to three, because six selects on a
+           card printing three of them is six chances to spend an hour on a plate that is not on
+           the press. `[hidden]{display:none!important}` at the top of this file is what makes
+           that safe. -->
+      <div id="slots6" hidden>
+        <div class="slot">WASH — zoomed past ground, a colour field</div>
+        <select id="slotW" aria-label="wash plate"></select>
+        <div class="slot">STRIP — tiled small, turned off the sheet's axis</div>
+        <select id="slotS" aria-label="strip plate"></select>
+        <div class="slot">INSET — a tight crop, held in one region</div>
+        <select id="slotI" aria-label="inset plate"></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button type="button" id="pigs">THREE PLATES</button></div>
       <div class="row"><button type="button" id="shuffle">SHUFFLE</button>
                        <button type="button" id="reseed">NEW SEED</button></div>
       <details class="why"><summary>why three, and why those roles</summary>
@@ -350,11 +402,14 @@ frame and seed are left alone">RESET TO BASE</button>
 
     <div class="grp">
       <label>COLLAGE <span class="v" id="vColl">3 plates</span></label>
-      <div class="note">the composition is set in <strong>THE FORGE</strong> above — three deck
-        cards in role order. <strong>Ground</strong> is zoomed to a field, <strong>mid</strong> is
+      <div class="note">the composition is set in <strong>THE FORGE</strong> above — deck cards
+        in role order. <strong>Ground</strong> is zoomed to a field, <strong>mid</strong> is
         mirrored at another scale, <strong>figure</strong> sits near card size and is the subject.
-        Three pictures of the same size average into one; the roles are what make it a collage
-        instead of a blend.</div>
+        At six you also get <strong>wash</strong> (zoomed past ground, a colour field),
+        <strong>strip</strong> (tiled small and turned off the sheet's axis) and
+        <strong>inset</strong> (a tight crop held in one region). ⚠ Pictures of the same size
+        average into one — <strong>the roles are what make it a collage instead of a blend</strong>,
+        which is why the three extra ones take scales the first three do not.</div>
     </div>
 
     <div class="grp">
@@ -398,6 +453,20 @@ frame and seed are left alone">RESET TO BASE</button>
       <div class="note"><code>maxTotalSupply − totalSupply</code>, read over a public RPC.
         <strong>more burned ⇒ more damaged</strong> — the screen coarsens, the roller starves,
         the stock opens. <strong>read-only, never a wallet</strong>; blocked, the slider is yours.</div>
+    </div>
+
+    <!-- ⛔ THE PLATE SEPARATOR — artist, 2026-08-05: "i need my plate separator to have up to 6
+         plates … a toggle that just creates the card with 6 plates as before." -->
+    <div class="grp">
+      <label>THE SEPARATION <span class="v" id="vInks">4 plates</span></label>
+      <div class="row"><button type="button" id="inks">FOUR PLATES · C M Y K</button></div>
+      <div class="note">the card is separated into inks, and each one is laid down at its own
+        registration on its own screen angle. Six adds <strong>orange and green</strong> — and
+        they are an <strong>ink split, not two more layers</strong>: orange takes the part magenta
+        and yellow were both carrying, green the part cyan and yellow shared, and that load comes
+        OFF the process inks. So the card does not go darker, it reaches further — measured, luma
+        91.06 → 91.22. Two more screens also means the plates <strong>beat harder</strong>, which
+        is most of what the eye reads as printed.</div>
     </div>
 
     <div class="grp">
@@ -450,10 +519,20 @@ frame and seed are left alone">RESET TO BASE</button>
         <button type="button" id="bSave">SAVE TO №</button>
         <button type="button" id="bDrop">CLEAR №</button>
       </div>
+      <!-- ⛔ THE NUMBER IS NOT A LABEL, IT DECIDES HOW THE CARD IS SERVED — artist, 2026-08-05:
+           "i name card and save card as a number designating where it lays in the deck and how it
+           is served (1-33, 34-100)."  That split is model v2.2 and it is already load-bearing
+           everywhere else in this repo: 1–33 are the hero 1/1s, minted by voucher, built as live
+           HTML by scripts/build-hero-lens.mjs and framed by the token's animation_url; 34–100 are
+           render-only field lenses that tokenURI(id) draws without any mint.  Two different
+           products from one press.  ⚑ The panel says which one you are making BEFORE you save,
+           because a number typed into a box is exactly the moment that decision gets made, and
+           finding out afterwards means renumbering a finished card. -->
+      <div class="note" id="vBand">1–33 · a hero</div>
       <div class="note" id="saveNote">every setting on this page is saved with the number —
-        the three plates, the words, the frame, the seed, the layers, the motion, the
-        registration and the dials. <strong>A saved card reprints exactly</strong>, because the
-        press is deterministic and the record is complete.</div>
+        all six plates, the separation, the words, the frame, the seed, the layers, the motion,
+        the registration and the dials. <strong>A saved card reprints exactly</strong>, because
+        the press is deterministic and the record is complete.</div>
     </div>
 
     <div class="grp">
@@ -575,12 +654,19 @@ frame and seed are left alone">RESET TO BASE</button>
        * pool: an index is a promise about the ORDER of two manifests this file does not own, and
        * the deck clean-slate would silently repoint every shared link at different pictures.
        * ⚠ A stem that no longer exists falls back to the seeded pick rather than failing. */
-      var chosen = ['g', 'm', 'f'].map(function (k) {
+      var chosen = ['g', 'm', 'f', 'w', 's', 'i'].map(function (k) {
         var want = Q.get(k); if (!want) return null;
         var hit = POOL.filter(function (c) { return c.key === want; })[0];
         return hit ? hit.art : null;
       });
-      var exact = chosen.every(Boolean) ? chosen : null;
+      /* ⛔ EVERY CARD SAVED BEFORE THE COLLAGE WENT TO SIX NAMES ONLY g, m AND f, and requiring
+       * all six here would have failed `every(Boolean)` on all of them — silently dropping the
+       * three plates the artist chose and reprinting the seeded pick instead. The card would
+       * still render, which is exactly what makes it dangerous: a hundred saved records quietly
+       * becoming different cards, with nothing to say so. Take the LEADING RUN of named plates;
+       * `js/hero-card.js` pads the rest from this seed's own pick. */
+      var run = 0; while (run < chosen.length && chosen[run]) run++;
+      var exact = (run === 3 || run === 6) ? chosen.slice(0, run) : null;
       return HeroCard.build({ canvas: cv, seed: seed, type: r[1], rarity: rar,
         pigment: POOL.map(function (c) { return c.art; }),
         pigmentExact: exact,
@@ -703,8 +789,19 @@ frame and seed are left alone">RESET TO BASE</button>
    *   of two manifests as authored strings — one of them is literally "Hulk Hoggin'" — so an
    *   innerHTML picker is an injection surface fed by content this file does not own, and the
    *   apostrophe alone would break a naive template. */
+  /* ⚑ SIX SLOTS, ONE TABLE — the same rule DIALS and TOGGLES already follow, for the same
+   * reason. The id, the query key and the caption were about to become three parallel lists of
+   * six, and a plate that can be chosen but not saved (or saved but not reloaded) is a card the
+   * artist cannot reproduce. ⚠ The first three keys stay 'g','m','f': every card already saved
+   * and every link already shared names them, and renaming them would quietly repoint a hundred
+   * records at the seeded pick. */
+  var SLOTS = [
+    { id: 'slotG', k: 'g' }, { id: 'slotM', k: 'm' }, { id: 'slotF', k: 'f' },
+    { id: 'slotW', k: 'w' }, { id: 'slotS', k: 's' }, { id: 'slotI', k: 'i' },
+  ];
+  var slotIds = SLOTS.map(function (S) { return S.id; });
   function fillSlots() {
-    ['slotG', 'slotM', 'slotF'].forEach(function (id, role) {
+    slotIds.forEach(function (id, role) {
       var sel = document.getElementById(id);
       if (!sel) return;
       POOL.forEach(function (c, i) {
@@ -721,7 +818,7 @@ frame and seed are left alone">RESET TO BASE</button>
   function syncSlots() {
     if (!ctrl) return;
     var on = ctrl.probe().pigment || [];
-    ['slotG', 'slotM', 'slotF'].forEach(function (id, i) {
+    slotIds.forEach(function (id, i) {
       var sel = document.getElementById(id); if (!sel || !on[i]) return;
       var key = String(on[i]).replace(/^.*\//, '').replace(/\.[a-z0-9]+$/i, '');
       sel.value = key;
@@ -730,7 +827,7 @@ frame and seed are left alone">RESET TO BASE</button>
     if (v) v.textContent = Q.has('g') ? 'forged' : 'seeded';
   }
   function plateUrls() {
-    return ['slotG', 'slotM', 'slotF'].map(function (id) {
+    return slotIds.map(function (id) {
       var sel = document.getElementById(id); if (!sel) return null;
       var hit = POOL.filter(function (c) { return c.key === sel.value; })[0];
       return hit ? hit.art : null;
@@ -742,7 +839,11 @@ frame and seed are left alone">RESET TO BASE</button>
    * SAME context and `build()` never releases anything. */
   function applyPlates() {
     var urls = plateUrls();
-    if (!ctrl || !urls.every(Boolean)) return;
+    /* ⚠ 3 or 6, never a partial set. A select whose stem has left the pool has no value, and
+     *   sending a half-filled list would swap some roles and leave others — a composition nobody
+     *   chose, which is the failure `setPigment`'s own atomicity note exists to prevent. */
+    if (!urls.slice(0, 6).every(Boolean)) urls = urls.slice(0, 3);
+    if (!ctrl || !urls.length || !urls.every(Boolean)) return;
     ctrl.setPigment(urls).then(function (ok) {
       if (!ok) return;
       var v = document.getElementById('vPig'); if (v) v.textContent = 'forged';
@@ -751,7 +852,7 @@ frame and seed are left alone">RESET TO BASE</button>
   }
   document.getElementById('shuffle').addEventListener('click', function () {
     if (!POOL.length) return;
-    ['slotG', 'slotM', 'slotF'].forEach(function (id) {
+    slotIds.forEach(function (id) {
       var sel = document.getElementById(id); if (!sel) return;
       sel.value = POOL[Math.floor(Math.random() * POOL.length)].key;
     });
@@ -851,11 +952,29 @@ frame and seed are left alone">RESET TO BASE</button>
     { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
       unit: '°' },
   ];
+  /* ⚑ THE TWO "6 PLATES" TOGGLES RIDE THE TABLE THAT ALREADY EXISTS, which is the whole payoff
+   * of there being one. Both are genuinely BINARY — a press either has a unit for an ink or it
+   * does not, and there is no such thing as four and a half plates — so they need no new
+   * machinery: they save, reload, appear in the URL, count against the base and reset with
+   * everything else, for free. Base is the card as it has always printed: four inks, three
+   * sources. */
   var TOGGLES = [
     { id: 'spin', k: 'spin', d: 0, on: 'RUNNING', off: 'STOPPED',
       put: function (c, v) { c.setSpin(v); } },
     { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
       put: function (c, v) { c.setEnv(v); } },
+    { id: 'inks', k: 'inks', d: 0, on: 'SIX PLATES · + O G', off: 'FOUR PLATES · C M Y K',
+      put: function (c, v) { c.setInks(v ? 6 : 4); },
+      say: function (on) { return on ? '6 plates' : '4 plates'; } },
+    { id: 'pigs', k: 'pigs', d: 0, on: 'SIX PLATES', off: 'THREE PLATES',
+      put: function (c, v) { c.setPigs(v ? 6 : 3); },
+      say: function (on) { return on ? '6 plates' : '3 plates'; },
+      /* the three extra pickers only exist while the press is reading them */
+      also: function (on) {
+        var box = document.getElementById('slots6'); if (box) box.hidden = !on;
+        var v = document.getElementById('vColl');
+        if (v) v.textContent = on ? '6 plates' : '3 plates';
+      } },
   ];
   function dialEl(id) { return document.getElementById(id); }
   function putReg(c) {
@@ -874,7 +993,11 @@ frame and seed are left alone">RESET TO BASE</button>
     var on = b.getAttribute('aria-pressed') !== 'false';
     b.textContent = on ? T.on : T.off;
     var v = document.getElementById('v' + T.id.charAt(0).toUpperCase() + T.id.slice(1));
-    if (v) v.textContent = on ? 'on' : 'off';
+    /* ⚠ "on"/"off" is the wrong word for a toggle whose two positions are both a NUMBER OF
+     *   PLATES — "THE SEPARATION · on" says nothing about whether the card is printing four inks
+     *   or six. `say` lets a toggle name its own states; the rest keep on/off. */
+    if (v) v.textContent = T.say ? T.say(on) : (on ? 'on' : 'off');
+    if (T.also) { try { T.also(on); } catch (e) {} }
   }
   function toggleOn(T) { var b = dialEl(T.id); return !b || b.getAttribute('aria-pressed') !== 'false'; }
 
@@ -1094,9 +1217,13 @@ frame and seed are left alone">RESET TO BASE</button>
   }
   /* what a slot stores: the query that rebuilds it, plus the two things a human reads in a list */
   function currentRecord() {
+    var b = bandOf(parseInt((document.getElementById('slotNo') || {}).value, 10));
     return { q: forgeQuery().toString(),
              name: (tName && tName.value) || '',
              rarity: RARITY,
+             /* ⚑ stored on the record so the EXPORT says how each card is served without anyone
+              *   having to re-derive the split from the key. The JSON is the artifact. */
+             band: b ? b.key : null,
              seed: seed };
   }
 
@@ -1133,6 +1260,31 @@ frame and seed are left alone">RESET TO BASE</button>
     renderDeck();
   }
 
+  /* ⚑ WHAT A NUMBER MEANS — the deck's two bands, from model v2.2. Read off ONE function so the
+   * band shown while you type, the band on the saved record and the band in the slot grid cannot
+   * drift from each other. */
+  function bandOf(n) {
+    if (!(n >= 1 && n <= 100)) return null;
+    return n <= 33
+      ? { key: 'hero', label: '№ ' + n + ' · 1–33 · A HERO',
+          how: 'a 1/1 — minted by voucher, built as a live HTML lens and framed by the token’s '
+             + 'animation_url. 11 auctioned · 11 gacha · 11 earned titles.' }
+      : { key: 'field', label: '№ ' + n + ' · 34–100 · A FIELD CARD',
+          how: 'render-only — tokenURI(id) draws it without any mint, so it needs no voucher '
+             + 'and never enters the hero supply.' };
+  }
+  function showBand() {
+    var el = document.getElementById('vBand'); if (!el) return;
+    var n = parseInt((document.getElementById('slotNo') || {}).value, 10);
+    var b = bandOf(n);
+    el.innerHTML = '';                                  // ⛔ never innerHTML with a card's name
+    if (!b) { el.textContent = 'pick a number — 1–33 is a hero, 34–100 is a field card.'; return; }
+    var strong = document.createElement('strong');
+    strong.textContent = b.label;
+    el.appendChild(strong);
+    el.appendChild(document.createTextNode(' — ' + b.how));
+  }
+
   function leftText() {
     var deck = deckRead(), taken = Object.keys(deck).length;
     if (taken >= 100) return 'the hundred is complete.';
@@ -1152,12 +1304,16 @@ frame and seed are left alone">RESET TO BASE</button>
       var rec = deck[i];
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'num' + (rec ? ' full' : '') + (i === SLOT ? ' here' : '');
+      b.className = 'num' + (i <= 33 ? ' hero' : '') + (rec ? ' full' : '')
+                    + (i === SLOT ? ' here' : '');
       b.textContent = String(i);
       b.setAttribute('role', 'listitem');
-      b.title = rec ? (rec.name || 'untitled') + ' — click to load' : 'free';
-      b.setAttribute('aria-label', rec ? 'card ' + i + ': ' + (rec.name || 'untitled') + ', load it'
-                                       : 'card ' + i + ', free');
+      var bd = bandOf(i);
+      b.title = (rec ? (rec.name || 'untitled') + ' — click to load' : 'free')
+                + ' · ' + (bd.key === 'hero' ? 'hero (1–33)' : 'field card (34–100)');
+      b.setAttribute('aria-label', (rec ? 'card ' + i + ': ' + (rec.name || 'untitled') + ', load it'
+                                        : 'card ' + i + ', free')
+                                     + ', ' + (bd.key === 'hero' ? 'hero' : 'field card'));
       if (rec) {
         (function (q) {
           b.addEventListener('click', function () { location.search = q; });
@@ -1166,13 +1322,17 @@ frame and seed are left alone">RESET TO BASE</button>
         (function (n) {
           b.addEventListener('click', function () {
             var el = document.getElementById('slotNo'); if (el) el.value = String(n);
+            showBand();
           });
         })(i);
       }
       wrap.appendChild(b);
     }
     var taken = Object.keys(deck).length;
-    var vt = document.getElementById('vTaken'); if (vt) vt.textContent = taken + ' of 100';
+    var heroes = Object.keys(deck).filter(function (k) { return +k <= 33; }).length;
+    var vt = document.getElementById('vTaken');
+    if (vt) vt.textContent = taken + ' of 100 · ' + heroes + '/33 heroes · '
+                             + (taken - heroes) + '/67 field';
     var vl = document.getElementById('vLeft');
     if (vl) vl.textContent = SLOT ? String(SLOT) : 'unnumbered';
     var note = document.getElementById('saveNote');
@@ -1217,10 +1377,9 @@ frame and seed are left alone">RESET TO BASE</button>
   function forgeQuery(extra) {
     var q = new URLSearchParams();
     q.set('seed', String(seed));
-    var slots = ['g', 'm', 'f'];
-    ['slotG', 'slotM', 'slotF'].forEach(function (id, i) {
-      var sel = document.getElementById(id);
-      if (sel && sel.value) q.set(slots[i], sel.value);
+    SLOTS.forEach(function (S) {
+      var sel = document.getElementById(S.id);
+      if (sel && sel.value) q.set(S.k, sel.value);
     });
     if (tName && tName.value) q.set('name', tName.value);
     if (tSub && tSub.value) q.set('sub', tSub.value);
@@ -1258,6 +1417,8 @@ frame and seed are left alone">RESET TO BASE</button>
   buildTabs();
   syncBase();
   document.getElementById('reset').addEventListener('click', resetBase);
+  document.getElementById('slotNo').addEventListener('input', showBand);
+  showBand();
   document.getElementById('bSave').addEventListener('click', saveSlot);
   document.getElementById('bDrop').addEventListener('click', dropSlot);
   document.getElementById('bDeckOut').addEventListener('click', exportDeck);
