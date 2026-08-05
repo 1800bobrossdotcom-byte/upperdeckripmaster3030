@@ -277,6 +277,31 @@ window.DFPCFx = (function () {
                    c[0] * 0.35 + 160, c[1] * 0.35 + 160, c[2] * 0.35 + 160, 255);
       }
 
+      /* ── ⛔ THE MUZZLE FLASH, AND IT WENT INTO THE WRONG RENDERER FIRST ────────────────
+       * Artist, 2026-08-05: *"not seeing the gun fire."* `dogfight.html` sets `s.muzzle = G.t`
+       * on every shot and NOTHING read it — so the audio fired, the shake fired, the bolt left,
+       * and the gun itself never lit.
+       * ⛔ I FIXED IT IN `js/dogfight-gl.js`, WHICH THIS PAGE DOES NOT LOAD. That file is the
+       *   RETIRED hand-rolled renderer; `dogfight.html` loads `js/dfpc-app.js` and mentions the
+       *   old one only in comments. The change was correct, committed, described as done — and
+       *   unreachable. **`built ≠ reachable`, in the file where I had just written that phrase
+       *   about somebody else's control.** The give-away was there to be checked in one grep and
+       *   I checked the file I had open instead of the file the page loads.
+       * ⚠ Drawn for EVERY craft, not only yours: a flash is how you find who is shooting at you,
+       *   which is worth more in a dogfight than seeing your own. 70 ms, additive, decaying —
+       *   short enough to read as a flash rather than a lamp. */
+      if (G.ships) for (const s of G.ships) {
+        if (s.dead || s.muzzle == null) continue;
+        const age = (G.t || 0) - s.muzzle;
+        if (age < 0 || age > 0.07) continue;
+        const k = 1 - age / 0.07;
+        const dx = wdel(s.x - cam.x), dz = wdel(s.y - cam.y);
+        if (Math.hypot(dx, dz) > FAR) continue;
+        const ch = Math.cos(s.h || 0), sh = Math.sin(s.h || 0);
+        add.ribbon(dx + ch * 0.5, s.alt, dz + sh * 0.5, dx + ch * 1.05, s.alt, dz + sh * 1.05,
+                   0.30 * k, 0.04 * k, 255 * k, 224 * k, 120 * k, 255);
+      }
+
       /* ── bursts ────────────────────────────────────────────────────────────────────────
        * Camera-facing embers that DIM as they die (life², so they die fast), with the subtended
        * size capped — burst velocities run to ±6/s and one that drifts near the eye would

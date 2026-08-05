@@ -845,40 +845,10 @@ window.DFGL = (function () {
       }
       drawArr(a);
     }
-    /* ── ⛔ THE MUZZLE FLASH, WHICH WAS DEAD STATE FOR ITS WHOLE LIFE ────────────────────────
-     * Artist, 2026-08-05: *"for mobile for dog fight, there is no way to shoot and not seeing
-     * the gun fire."*
-     * ⛔ `dogfight.html` sets `s.muzzle = G.t` on every shot you take — and **nothing anywhere
-     *   read it.** Written once per trigger pull, consumed by no renderer, reported by no probe.
-     *   The audio fired, the shake fired, the bolt left, and the gun itself never lit, so a burst
-     *   at anything further than tracer-reading distance looked like the trigger had not worked.
-     * ⚑ SAME SHAPE AS THE DROPPED `camBack` CONSTANT: a value the physics happily maintained
-     *   while the picture said nothing. **A field that is written and never read is not "spare",
-     *   it is a feature that was never finished** — and it is invisible to every test that
-     *   measures the simulation, because the simulation is correct.
-     * ⚠ Drawn for every ship, not only yours: a flash is how you find who is shooting at you,
-     *   which is worth more in a dogfight than seeing your own. Short (70 ms) and additive, so it
-     *   reads as a flash rather than a lamp; scaled by how recently it fired so it decays. */
-    if (G.ships && G.ships.length) {
-      const a = [];
-      for (const s of G.ships) {
-        if (s.dead || s.muzzle == null) continue;
-        const age = (G.t || 0) - s.muzzle;
-        if (age < 0 || age > 0.07) continue;
-        const k = 1 - age / 0.07;
-        const dx = wdel(s.x - cam.x), dz = wdel(s.y - cam.y);
-        if (Math.hypot(dx, dz) > FAR) continue;
-        const ch = Math.cos(s.h || 0), sh2 = Math.sin(s.h || 0);
-        /* at the gun ports — just ahead of the nose, where the bolt is actually born (0.7) */
-        const p = [dx + ch * 0.62, s.alt, dz + sh2 * 0.62];
-        const w = (0.10 + 0.14 * k);
-        const c = [1.0 * k, (0.86 * k), (0.42 * k)];
-        beam(a, p, [dx + ch * 1.05, s.alt, dz + sh2 * 1.05], w, c);
-        beam(a, [dx + ch * 0.5, s.alt, dz + sh2 * 0.5], p, w * 1.5,
-             [c[0], c[1] * 0.8, c[2] * 0.5]);
-      }
-      if (a.length) drawArr(a);
-    }
+    /* ⚠ THE MUZZLE FLASH FOR THIS GAME LIVES IN `js/dfpc-fx.js`, NOT HERE. `dogfight.html`
+     * loads `js/dfpc-app.js`; this hand-rolled renderer is RETIRED and the page names it only
+     * in comments. A flash added here was correct, committed and completely unreachable — the
+     * repo's own `built != reachable` rule, paid for in the file rather than read out of it. */
     /* Bursts are camera-facing spark diamonds that DIM as they die. The M1 version was an
      * axis-aligned quad at constant full brightness — a burst that drifted near the camera
      * (their velocities run to ±6/s) filled a third of the screen as a flat lit slab. Facing

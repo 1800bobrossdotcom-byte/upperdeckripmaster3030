@@ -772,6 +772,37 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ⛔ I FIXED THE MUZZLE FLASH IN A RENDERER THE PAGE DOES NOT LOAD
+*Artist: "not seeing the gun fire."* `dogfight.html` sets `s.muzzle = G.t` on every shot and
+nothing read it. I added the draw to **`js/dogfight-gl.js` — the RETIRED hand-rolled renderer.**
+`dogfight.html` loads **`js/dfpc-app.js`** (PlayCanvas) and names the old one only in comments.
+- ⛔ **CORRECT, COMMITTED, DESCRIBED AS DONE, AND UNREACHABLE.** `built ≠ reachable` — this repo's
+  own phrase, which I had written about somebody else's control two commits earlier. One `grep -n
+  'script src' dogfight.html` would have settled it; **I checked the file I had open instead of the
+  file the page loads.**
+- ⚑ **THE TELL WAS AVAILABLE AND CHEAP THE WHOLE TIME.** When a fix is going into a module you did
+  not open the page through, verify the PAGE loads it before writing a line. Live now in
+  `js/dfpc-fx.js` beside the tracers; measured on the shipped page — `muzzle` −9 → 0.20 at
+  `G.t` 0.20, bolt away, so the 70 ms window the FX reads is hit on that frame.
+- ⚠ The dead copy is removed and the reason left in its place, so the next person to open the
+  retired renderer learns it is retired instead of trusting what is in it.
+
+## ⚠ THE "MORE REALISTIC" PASS — BOTH GAMES ALREADY CARRY THE CUES, AND THAT IS THE FINDING
+*Artist: "make cloud racer and dogfight even more realistic next pass."* Before changing anything
+I went to add the obvious physical cue — field of view scaling with speed — and **it is already
+there in both.** `js/dfpc-app.js:795` scales fov by a shove term AND a G-load term; the camera
+already lags the airframe on a first-order spring (τ ≈ 0.14 s); `js/cloudracer-gl.js` advertises
+and carries speed-scaled fog and fov.
+- ⛔ **SO I HAVE NOT GUESSED AT ONE.** `DESIGN-SYSTEM §9` records what happens when an agent is
+  handed a mood: it reaches for the default and produces something technically correct and dead —
+  twice for the wordmark, and a third time for the site props the artist deleted on the same day.
+  Inventing another speculative visual change on a renderer that already has the physical cues is
+  that failure a fourth time.
+- ⚑ **WHAT THIS NEEDS IS THE BRIEF §9 DEMANDS**, from the artist: what specifically reads as
+  UNREAL to him — the sky, the ground, the aircraft's weight, the hit feedback — plus what it is
+  MADE OF, how it is LIT, what MOVES and why it physically moved, and the acceptance measurement.
+  A named target gets a real pass; "more realistic" gets a default.
+
 ## ⛔ THE SITE 3D PROPS ARE GONE — "random 3D icons that do nothing" (artist, 2026-08-05)
 *"what are all these weird 3D objects that are half baked. remove them. when I asked for the site
 updated in playcanvas, random 3D icons that do nothing, was not what I was intending."*
