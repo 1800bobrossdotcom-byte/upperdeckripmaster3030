@@ -299,22 +299,31 @@ console.log('\n§4 the panel says what has been changed, and reset undoes it');
     const after = { text: document.getElementById('vBase').textContent,
                     dots: [].map.call(document.querySelectorAll('.tab.off'),
                                       t => t.getAttribute('data-tab')).sort(),
-                    burn: window.__proof.probe().burn };
+                    burn: window.__proof.probe().burn,
+                    pigs: window.__proof.probe().pigs };
     document.getElementById('reset').click();
     await new Promise(r2 => setTimeout(r2, 120));
     const back = { text: document.getElementById('vBase').textContent,
                    dots: document.querySelectorAll('.tab.off').length,
-                   burn: window.__proof.probe().burn, stack: window.__proof.probe().stack };
+                   burn: window.__proof.probe().burn, stack: window.__proof.probe().stack,
+                   pigs: window.__proof.probe().pigs };
     return { after, back };
   });
-  ok(/2 changes/.test(r.after.text), 'it counts the changes', `"${r.after.text}"`);
-  ok(r.after.dots.join(',') === 'build,press', 'and dots the panes holding them',
+  /* ⚑ THREE, NOT TWO — and the third is the point. Moving LAYERS off zero with one card on the
+   * press puts three on, because a stack cannot separate one picture from itself. The count is
+   * right: three things about this card now differ from base, and the panel names all three. */
+  ok(/3 changes/.test(r.after.text), 'it counts the changes', `"${r.after.text}"`);
+  ok(r.after.pigs === 3, 'and LAYERS brought the cards it needs to have layers at all',
+     `${r.after.pigs} on the press`);
+  /* the plate count lives in FORGE, so a stack change now dots three panes rather than two */
+  ok(r.after.dots.join(',') === 'build,plates,press', 'and dots the panes holding them',
      r.after.dots.join(', ') || 'none');
   ok(Math.abs(r.after.burn - 0.4) < 0.001, 'the press actually received the change',
      `burn ${r.after.burn}`);
-  ok(/^BASE/.test(r.back.text) && r.back.dots === 0 && r.back.burn === 0 && r.back.stack === 0,
-     'RESET TO BASE returns the card and the readout together',
-     `"${r.back.text}" · burn ${r.back.burn} · stack ${r.back.stack}`);
+  ok(/^BASE/.test(r.back.text) && r.back.dots === 0 && r.back.burn === 0 && r.back.stack === 0
+     && r.back.pigs === 1,
+     'RESET TO BASE returns the card and the readout together — back to one card',
+     `"${r.back.text}" · burn ${r.back.burn} · stack ${r.back.stack} · ${r.back.pigs} card`);
   await ctx.close();
 }
 

@@ -406,7 +406,8 @@ frame and seed are left alone">RESET TO BASE</button>
     <div class="grp">
       <label>MOTION <span class="v" id="vMot">—</span></label>
       <select id="motion" aria-label="press motion"></select>
-      <div class="row"><button type="button" id="spin">RUNNING</button>
+      <div class="row"><button type="button" id="preview">▶ PREVIEW</button>
+                       <button type="button" id="spin">RUNNING</button>
                        <button type="button" id="reprint">REPRINT</button></div>
       <label style="margin-top:10px">CYCLE <span class="v" id="vPer">8.0s</span></label>
       <input type="range" id="period" min="1" max="24" step="0.5" value="8">
@@ -1008,7 +1009,19 @@ frame and seed are left alone">RESET TO BASE</button>
      *   other silently resets to 0 — a dial that works until you touch its neighbour. */
     { id: 'reg',    k: 'reg',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
     { id: 'rad',    k: 'rad',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
-    { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
+    /* ⛔ LAYERS PUTS CARDS ON THE PRESS WHEN IT NEEDS THEM. Artist, 2026-08-05: *"none of these
+     * are working — get it separating layers like you had before"*, from a panel reading LAYERS
+     * 0.00 and COLLAGE 1 card. Both were doing exactly what they say: at zero the elements are
+     * coplanar, and with one picture there is nothing to separate it FROM. Every control was
+     * honest and the panel was still dead, which is a worse failure than a wrong number.
+     * ⚑ A control that cannot act without another control should ACQUIRE it, not send you to a
+     *   different pane to read a note about it. Dragging LAYERS off zero with one card on the
+     *   press puts three on — enough to have layers at all — and says so. It never takes cards
+     *   away and never reduces a count you chose, so it can only ever make the dial work. */
+    { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) {
+        c.setStack(v);
+        if (v > 0.001) needCards();
+      } },
     /* the impression's own character — base 0 is a clean pull, which is what "raw" means */
     { id: 'press',  k: 'press', d: 0,   dp: 2, put: function (c, v) { c.setPress(v); } },
     { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
@@ -1141,6 +1154,43 @@ frame and seed are left alone">RESET TO BASE</button>
     if (mo) { try { c.setMotion(mo.value || null); } catch (e) {} }
     showMotion();
   }
+  /* ⛔ AND THE PRESS RUNS AT 8 SECONDS A REVOLUTION, WHICH IS WHY "IT IS NOT PREVIEWING".
+   * Choosing a motion already started the press — that shipped and is live — but one cycle takes
+   * eight seconds, so the first four are spent drifting toward an extremum nobody waits for. A
+   * preview that is indistinguishable from a still card for several seconds has not previewed
+   * anything. ⚑ PREVIEW runs it at 2.2s so the failure reads in one glance, and puts the cycle
+   * back where it was when you stop, because the cycle is a SETTING of the card and a preview
+   * must not quietly rewrite it. */
+  var PREVIEW_CYCLE = 2.2, prevCycle = null;
+  function preview(on) {
+    var per = dialEl('period'), spin = dialEl('spin');
+    if (!per || !spin) return;
+    var running = spin.getAttribute('aria-pressed') !== 'false';
+    if (on === undefined) on = !(running && prevCycle !== null);
+    if (on) {
+      if (prevCycle === null) prevCycle = +per.value;
+      per.value = PREVIEW_CYCLE;
+      if (!running) spin.click();
+    } else {
+      if (prevCycle !== null) { per.value = prevCycle; prevCycle = null; }
+      if (running) spin.click();
+    }
+    showDial(DIALS.filter(function (D) { return D.id === 'period'; })[0]);
+    if (ctrl) { try { ctrl.setPeriod(+per.value); } catch (e) {} }
+    var b = document.getElementById('preview');
+    if (b) b.textContent = on ? '■ STOP PREVIEW' : '▶ PREVIEW';
+    stamp();
+  }
+  /* put three cards on the press if there is only one — see the LAYERS note */
+  function needCards() {
+    var C = CHOICES.filter(function (x) { return x.k === 'pigs'; })[0];
+    if (!C || choiceVal(C) > 1) return false;
+    setChoice(C, 3, true);
+    var sn = document.getElementById('stackNote');
+    if (sn) sn.innerHTML = '⚑ <strong>three cards put on the press</strong> so the stack has '
+      + 'layers to separate — LAYERS cannot part one picture from itself.';
+    return true;
+  }
   function showMotion() {
     var v = document.getElementById('vMot'), mo = dialEl('motion');
     if (!v) return;
@@ -1230,7 +1280,17 @@ frame and seed are left alone">RESET TO BASE</button>
      * moves to another pane cannot leave a stale mapping behind. */
     PANES.forEach(function (P) { P.tab && P.tab.classList.remove('off'); });
     off.forEach(function (id) {
-      var el = document.getElementById(id); if (!el) return;
+      /* ⚠ A CHOICE IS NAMED BY ITS QUERY KEY, NOT BY ITS ELEMENT ID. `offBase` reports 'pigs'
+       *   because that is what the URL and the readout call it, but the DOM element is
+       *   'pigsChips' — so the lookup returned null and the pane holding the plate count never
+       *   got its dot. Silent: the readout counted the change correctly and only the marker was
+       *   missing, which is the half of a signal nobody notices is gone. */
+      var el = document.getElementById(id);
+      if (!el) {
+        var C = CHOICES.filter(function (x) { return x.k === id; })[0];
+        el = C && document.getElementById(C.id);
+      }
+      if (!el) return;
       var pane = el.closest ? el.closest('.pane') : null; if (!pane) return;
       var key = pane.getAttribute('data-pane');
       PANES.forEach(function (P) { if (P.key === key && P.tab) P.tab.classList.add('off'); });
@@ -1328,11 +1388,10 @@ frame and seed are left alone">RESET TO BASE</button>
        *   re-learning. */
       mo.addEventListener('change', function () {
         if (ctrl) { try { ctrl.setMotion(mo.value || null); } catch (e) {} }
-        var spin = document.getElementById('spin');
-        if (spin) {
-          var want = !!mo.value;
-          if ((spin.getAttribute('aria-pressed') !== 'false') !== want) spin.click();
-        }
+        /* ⚑ choosing one PREVIEWS it — at the preview cycle, not at the card's own 8 seconds.
+         * Going back to `seeded` stops the press and restores the cycle, so the base is still
+         * one click away and the card's real setting is never quietly overwritten. */
+        preview(!!mo.value);
         showMotion(); stamp();
       });
     }
@@ -1568,6 +1627,7 @@ frame and seed are left alone">RESET TO BASE</button>
   buildTabs();
   syncBase();
   document.getElementById('reset').addEventListener('click', resetBase);
+  document.getElementById('preview').addEventListener('click', function () { preview(); });
   document.getElementById('slotNo').addEventListener('input', showBand);
   showBand();
   document.getElementById('bSave').addEventListener('click', saveSlot);
