@@ -358,7 +358,7 @@ Promise.all(['../js/chain-config.js', '../js/lens-state.js', '../js/card-layers.
                 * lens3d with proof.html and make that how every card is displayed. Both are
                 * optional in exactly the way everything else on this line is: missing, blocked
                 * or WebGL2-less and the card falls back to the flat plate it has always shown. */
-               '../js/hero-card.js', '../js/card-press.js']
+               '../js/hero-card.js', '../js/card-back.js', '../js/card-press.js']
               .map(loadScript))
   .then(() => { startState(); return loadLayers(); })
   .catch(() => {});

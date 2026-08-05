@@ -307,6 +307,7 @@
      the token's own page are the same object. Both optional: missing or WebGL2-less and
      the viewer is the flat card in a starfield it has always been. -->
 <script src="../js/hero-card.js"></script>
+<script src="../js/card-back.js"></script>
 <script src="../js/card-press.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
@@ -492,7 +493,7 @@
         CardPress.frame({ cardCtrl: ctrl, base: '', card: pressCard(card),
                           tilt: () => tilt, down: () => held })
           .then(p => { if (!p) return;              // fails open — the flat plate stands
-                       press = p;
+                       press = p; window.__press = p;   // handle for the harness
                        $('vmode').textContent = 'playcanvas 3d · pressed'; });
       }
     }).catch(() => { $('vmode').textContent = 'flat (engine blocked)'; });

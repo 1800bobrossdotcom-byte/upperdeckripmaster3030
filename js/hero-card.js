@@ -525,6 +525,90 @@
    *   one artefact nobody would forgive, because it is a straight line on a surface that has none.
    * ⚠ Alpha stays 255 — see the note under buildComp. This function writes through
    *   getImageData/putImageData and would wipe its own colour channels otherwise. */
+  /* ── ⛔ THE BACK OF THE CARD ────────────────────────────────────────────────────────────────
+   * Artist, 2026-08-05: *"each card should have a back too."*
+   *
+   * ⚑ A CARD IS TWO-SIDED OR IT IS A PICTURE. That is this project's own first principle about the
+   *   form — *"a size before it is anything else… two sides: a front that shows, a back that
+   *   tells"* — and the press has been rendering one side of it. Turned round, the card showed its
+   *   own front mirrored, which is the tell that there was no object there at all.
+   *
+   * ⛔ THE BACK IS PRINTED ON THE SAME SHEET, NOT PASTED ON. It is the same stock, the same fibre,
+   *   the same die-cut foil edge and the same light — only the plate differs. That is why it is a
+   *   generated plate sampled by the same shader rather than a second texture composited by a
+   *   second path: a back that came from somewhere else would not weather, crease or catch the
+   *   light the way the front does, and the two sides would read as different materials.
+   * ⚠ ONE INK. A real card back is a single plate — one colour on stock — which is why it does
+   *   NOT go through the four-ink separation. Running it through would give the back a moiré and
+   *   a misregistration it never had, and misregistration is a property of a four-colour pull.
+   *
+   * ⚑ WHAT IT SAYS: the studio, the card's number out of the hundred, its title, the tier it was
+   *   struck in, and a rule of border sorts from the same fount as the front. The number is the
+   *   point — a back is where a card tells you what it is inside a set.
+   */
+  function buildBack(seed, N, name, number, rarity, sub) {
+    const c = document.createElement('canvas');
+    c.width = N; c.height = Math.round(N * 1.5);
+    const g = c.getContext('2d');
+    const W = c.width, H = c.height, m = Math.round(W * 0.062);
+    const r = rng(seed ^ 0x3C6EF372);
+
+    /* ⛔ BLACK IS "NO INK", NOT "BLACK INK". The shader multiplies this plate INTO the paper, so
+     *   the channel is COVERAGE: 0 leaves bare stock, 1 lays the ink down full. Filling this
+     *   canvas with white would print a solid slab and hide the card. */
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'lighter';
+    g.fillStyle = 'rgb(255,255,255)'; g.strokeStyle = 'rgb(255,255,255)';
+
+    // the field — a flat tint over the whole back, the way a card back is one colour on stock
+    g.globalAlpha = 0.30; g.fillRect(m * 0.55, m * 0.55, W - m * 1.1, H - m * 1.1);
+    g.globalAlpha = 1;
+
+    // a double rule inside the trim
+    g.lineWidth = Math.max(1, W * 0.010);
+    g.strokeRect(m * 0.92, m * 0.92, W - m * 1.84, H - m * 1.84);
+    g.lineWidth = Math.max(1, W * 0.004);
+    g.strokeRect(m * 1.28, m * 1.28, W - m * 2.56, H - m * 2.56);
+
+    /* the roundel — concentric rules and a ring of ticks. Drawn rather than fetched: an <img>
+     * here would make the plate wait on a network the rest of the press never touches. */
+    const cx = W / 2, cy = H * 0.40, R = W * 0.26;
+    g.lineWidth = Math.max(1, W * 0.008);
+    g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+    g.lineWidth = Math.max(1, W * 0.003);
+    g.beginPath(); g.arc(cx, cy, R * 0.82, 0, TAU); g.stroke();
+    for (let i = 0; i < 36; i++) {
+      const a = i / 36 * TAU, i0 = R * 0.86, i1 = R * (i % 3 === 0 ? 0.96 : 0.92);
+      g.beginPath();
+      g.moveTo(cx + Math.cos(a) * i0, cy + Math.sin(a) * i0);
+      g.lineTo(cx + Math.cos(a) * i1, cy + Math.sin(a) * i1);
+      g.stroke();
+    }
+    // the number, large, in the middle of the roundel
+    const nTxt = (number > 0) ? String(number) : '—';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '700 ' + Math.round(R * 0.92) + 'px "Arial Black", Arial, sans-serif';
+    g.fillText(nTxt, cx, cy + R * 0.02);
+    g.font = '700 ' + Math.round(W * 0.038) + 'px "Arial Black", Arial, sans-serif';
+    g.fillText('OF 100', cx, cy + R * 0.62);
+
+    // the studio, set in a band under the roundel
+    g.font = '700 ' + Math.round(W * 0.052) + 'px "Arial Black", Arial, sans-serif';
+    g.fillText('RIPMASTER3030STUDIOS', cx, H * 0.665);
+    // the card's own title and the tier it was struck in
+    g.font = '700 ' + Math.round(W * 0.044) + 'px "Arial Black", Arial, sans-serif';
+    g.fillText(String(name || '').slice(0, 22).toUpperCase(), cx, H * 0.735);
+    g.font = Math.round(W * 0.032) + 'px "Courier New", monospace';
+    g.fillText('GENESIS · ' + String(rarity || 'common').toUpperCase(), cx, H * 0.788);
+    if (sub) g.fillText(String(sub).slice(0, 30).toUpperCase(), cx, H * 0.832);
+
+    // a rule of border sorts along the foot, out of the same fount as the front
+    drawBorder(g, null, rng(seed ^ 0x1B873593), W, H, m, rarity);
+
+    g.globalCompositeOperation = 'source-over';
+    return c;
+  }
+
   function buildStock(seed, N) {
     const c = document.createElement('canvas');
     c.width = c.height = N;
@@ -654,6 +738,8 @@ uniform vec2 uPar;           // x parallax gain · y type depth
  *   registration, which must be uniform and radius-free. The same block matcher measures both and
  *   the two answers are opposite. */
 uniform vec4 uElemZ;         // ground · mid · figure · type
+uniform sampler2D uBack;     // the reverse
+uniform float uBackRGB;      // 1 = a DESIGNED back (full colour) · 0 = the generated stand-in
 uniform float uFrameFoil;    // how much of the border is METAL rather than ink — rarity
 /* ⛔ ONE MOTION IS NOT A SET — artist, 2026-08-05: "that is one out of many different animations
  * we can have… every card can have animation, but they should be different each one, with details
@@ -822,6 +908,67 @@ void main(void) {
   vec3 Ng = normalize(vN);
   vec3 V = normalize((uEye - vW) * uRot);            // world -> object, see hero3d.js
   vec2 par = -V.xy / max(abs(V.z), 0.30) * uPar.x;
+
+  /* ══ ⛔ THE REVERSE ═══════════════════════════════════════════════════════════════════════
+   * V is the view vector in OBJECT space, so V.z < 0 means the card has been turned past
+   * edge-on and we are looking at its back. Without this the quad rendered its own FRONT
+   * mirrored — which is exactly what a card that is a picture rather than an object looks like.
+   * ⚑ SAME STOCK, SAME LIGHT, SAME DIE EDGE — only the plate differs. The back is printed on
+   *   this sheet, not pasted onto it, so it is shaded by the code below rather than by a second
+   *   path that would weather differently from the front.
+   * ⚠ U IS MIRRORED, because you are seeing the sheet from behind. Forgetting that prints the
+   *   back's own type in reverse, which reads as a rendering bug rather than as a card.
+   * ⚠ ONE INK, deliberately: a card back is a single plate, so it does NOT go through the
+   *   four-colour separation. Running it through would give the back a moiré and a
+   *   misregistration that only a four-colour pull can have.
+   * ⚠ NO BACKTICKS IN THIS COMMENT. It lives inside a JS template literal, where one ends
+   *   the string and the whole module stops parsing. Ninth sighting in this repo.
+   */
+  if (V.z < 0.0) {
+    vec2 bUv = vec2(1.0 - vUv.x, vUv.y);
+    vec3 bp = texture(uBack, bUv).rgb;
+    float cover = clamp(bp.r, 0.0, 1.0);
+    /* the paper first, then one ink multiplied into it — the same subtractive rule as the front,
+     * which is what keeps both sides the same material. */
+    vec3 stockN = texture(uStock, bUv * uTile).rgb;
+    float tooth = (stockN.b - 0.5) * 2.0;
+    vec3 paper = uInk[3] * 0.0 + vec3(0.960, 0.945, 0.905) * (1.0 + tooth * 0.055);
+    /* burn opens the stock on the back too — a card that has been through something has been
+     * through it on both sides. */
+    paper *= 1.0 - uDmg.w * 0.28;
+    /* ⛔ A DESIGNED BACK IS ALREADY A PICTURE — SHOW ITS COLOUR, DO NOT RE-INK IT.
+     *   The generated stand-in is a single plate, so its red channel is COVERAGE and one ink gets
+     *   multiplied into the paper. The designed back (cards/cardback.css) is finished full-colour
+     *   artwork: manila stock, a gold name band, the card's own frame colour. Running that
+     *   through the one-ink path threw away two of its three channels and printed it as a grey
+     *   ghost of itself — which reads as a broken texture and is a wrong assumption about what
+     *   the plate contains.
+     * ⚑ Either way it is still LIT as paper below, so both kinds of back answer the same light
+     *   and belong to the same object. */
+    vec3 ink = vec3(0.140, 0.118, 0.128);
+    vec3 oneInk = mix(paper, paper * ink, cover * (0.94 - uDmg.y * 0.22));
+    vec3 designed = bp * (0.90 + tooth * 0.05) * (1.0 - uDmg.w * 0.22);
+    vec3 col = mix(oneInk, designed, uBackRGB);
+
+    /* the die edge is the SAME foil, so the two sides agree about the object's rim */
+    /* ⚠ AN EDGE, NOT A BORDER. At 0.030 this came out as a rainbow band framing the whole back
+     *   — which is the decal failure the front's acceptance test exists to catch, reproduced on
+     *   the reverse. A die edge is the CUT: a few thousandths of the card, where the blade went
+     *   through the foil layer. Anything wider is a sticker of foil. */
+    float edge = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+    float die = smoothstep(0.0075, 0.0015, edge);
+    if (die > 0.001) {
+      vec3 Nb = normalize(vec3(-stockN.r * 0.35, -stockN.g * 0.35, 1.0));
+      vec3 Lb = normalize(vec3(cos(uKeyDir.x), sin(uKeyDir.x), 0.85));
+      vec3 Hb = normalize(Lb + vec3(V.x, V.y, -V.z));
+      float g = pow(max(dot(Nb, Hb), 0.0), 42.0);
+      col = mix(col, pal(fract(dot(Hb.xy, vec2(11.0, 7.0)) * 3.0)) * (0.35 + g * 2.2), die);
+    }
+    /* the same LDR knee the front uses, or metal specular clips to flat white */
+    col = col / (1.0 + col * 0.18);
+    frag = vec4(pow(clamp(col, 0.0, 1.0), vec3(1.0 / 2.2)), 1.0);
+    return;
+  }
 
   /* ⚠ relief is uType.b, NOT uComp.a — the alpha channel of a generated canvas is not a data
    * channel; see the note above buildComp's return. */
@@ -1131,7 +1278,7 @@ void main(void) {
        * went back to `o.name` would silently revert the collector's own words the first time they
        * advanced the press. The same class of bug as the seed that re-rolls: nothing errors, the
        * card simply stops saying what you typed. */
-      const TEXT = { name: o.name, sub: o.sub || '' };
+      const TEXT = { name: o.name, sub: o.sub || '', number: (o.number | 0) || 0 };
 
       /* ── ⚑ TEMPERAMENT — the same market, worn differently ──────────────────────────────
        * Studied off RELICS (docs/RELICS-STUDY.md): the market falls for all of them at once,
@@ -1161,7 +1308,7 @@ void main(void) {
         };
       };
       let TEMPER = makeTemper(seed);
-      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
+      const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5, uBack: 6 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
        * term to zero changed nothing, which ruled the normals out in one shot and pointed at the
@@ -1184,6 +1331,11 @@ void main(void) {
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
+      /* the reverse. Rebuilt whenever the words, the number or the seed change — it carries
+       * all three, so a card whose back disagreed with its front would be a different card. */
+      let backCanvas = buildBack(seed, 512, TEXT.name, TEXT.number, o.rarity, TEXT.sub);
+      let texBack = texFrom(gl, backCanvas, UNIT.uBack);
+      let backIsDesigned = false;   // true once a caller supplies the real designed back
 
       const U = n => gl.getUniformLocation(prog, n);
       const u = {
@@ -1195,10 +1347,10 @@ void main(void) {
         rimDir: U('uRimDir'), rimCol: U('uRimCol'),
         rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
-        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'),
+        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'), backRGB: U('uBackRGB'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
-       ['uType', texType], ['uStock', texStock]].forEach(([n, t]) => {
+       ['uType', texType], ['uStock', texStock], ['uBack', texBack]].forEach(([n, t]) => {
         gl.uniform1i(U(n), UNIT[n]);
         gl.activeTexture(gl.TEXTURE0 + UNIT[n]); gl.bindTexture(gl.TEXTURE_2D, t);
       });
@@ -1238,6 +1390,7 @@ void main(void) {
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
         lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
         stack: 1,        // how far the four elements separate through the card's thickness
+        faceUp: true,    // which way up it is sitting
         motionKey: null, // an explicit choice overrides the seed's pick; null = the seed's
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
@@ -1391,6 +1544,7 @@ void main(void) {
         gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
         gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
         gl.uniform1f(u.seed, (seed % 997) / 997);
+        gl.uniform1f(u.backRGB, backIsDesigned ? 1.0 : 0.0);
         gl.uniform1f(u.regGain, S.regGain);
         gl.uniform1f(u.regRad, S.regRad);
         gl.activeTexture(gl.TEXTURE0 + UNIT.uType); gl.bindTexture(gl.TEXTURE_2D, texType);
@@ -1424,6 +1578,17 @@ void main(void) {
         return { w: w, h: h, data: px };
       }
 
+        /* ⚠ THE BACK CARRIES THE WORDS AND THE NUMBER, so it is re-struck whenever either
+         *   moves. A front that says one thing and a back that says another is two cards. */
+        const rebake = () => {
+          /* ⚠ NEVER OVER-STRIKE A DESIGNED BACK. Re-generating on a reseed or a setText would
+           *   silently swap the artist's back for the stand-in — which looks like the design
+           *   reverting itself, and is the worst kind of wrong because nothing errors. */
+          if (backIsDesigned) return;
+          gl.deleteTexture(texBack);
+          backCanvas = buildBack(seed, 512, TEXT.name, TEXT.number, o.rarity, TEXT.sub);
+          texBack = texFrom(gl, backCanvas, UNIT.uBack);
+        };
       const ctrl = {
         version: VERSION,
         canvas: canvas,             // js/card-export.js needs it for toBlob
@@ -1493,11 +1658,42 @@ void main(void) {
           if (!t) return;
           if (typeof t.name === 'string') TEXT.name = t.name;
           if (typeof t.sub === 'string') TEXT.sub = t.sub;
+          if (typeof t.number === 'number') TEXT.number = t.number | 0;
+          rebake();
           gl.deleteTexture(texType);
           texType = texFrom(gl, buildType(o.type, seed, 512, sheetState.n, TEXT.name, o.rarity, TEXT.sub), UNIT.uType);
           render();
         },
-        text: () => ({ name: TEXT.name, sub: TEXT.sub }),
+        text: () => ({ name: TEXT.name, sub: TEXT.sub, number: TEXT.number }),
+        /* ── ⛔ THE DESIGNED BACK GOES HERE. THE GENERATED ONE IS ONLY A STAND-IN ─────────────
+         * Artist, 2026-08-05: *"the backs are already designed."* They are — the vintage
+         * sports-card back in `cards/cardback.css`, on all 196 card pages: manila stock, the
+         * torn-paper punch-through, the roundel, the gold name band, the trivia with its answer
+         * printed upside down, the vitals, the statistics table, the trait tags.
+         * ⛔ I BUILT A NEW ONE INSTEAD OF LOOKING FOR THE ONE THAT EXISTED. That is the mistake
+         *   this repo warns about in its own words — *"when unsure what something should look
+         *   like, the answer is look at the artist's own work"* — and it cost a round.
+         * ⚑ `js/card-back.js` rasterises the REAL markup through an SVG foreignObject, so what
+         *   lands on the reverse is the designed back itself with that card's own content, not a
+         *   redraw of it that would drift the first time the design changed.
+         * ⚠ `buildBack` stays as the fallback for a caller that has no designed back to hand (a
+         *   forge proof, a card with no page yet). A stand-in is fine; a stand-in that silently
+         *   replaces the real thing is not, which is why this setter exists at all. */
+        setBack: src => {
+          if (!src) return false;
+          try {
+            gl.deleteTexture(texBack);
+            texBack = texFrom(gl, src, UNIT.uBack);
+            backIsDesigned = true;
+            render();
+            return true;
+          } catch (e) { return false; }
+        },
+        backIsDesigned: () => backIsDesigned,
+        /* ⚑ TURN IT OVER. The press already renders the reverse whenever the card is past
+         *   edge-on; this is the deliberate version of that for a viewer's flip button. */
+        flip: () => { S.yawT += Math.PI; S.faceUp = !S.faceUp; return S.faceUp; },
+        faceUp: () => S.faceUp,
         /* ── ⚑ PRINT A DIFFERENT CARD ON THE SAME PRESS ──────────────────────────────────
          * `reseed(seed) -> bool`. Everything the seed decides — the composition masks, the
          * paper stock, the temperament, the press motion, the impression — re-derived in place.
@@ -1531,6 +1727,7 @@ void main(void) {
           stockCanvas = buildStock(seed, 256);
           texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
           pull(0);                 // a fresh impression — and it rebakes the type at the new seed
+          rebake();                // …and the reverse, which is seeded too
           S.arrive = 0;            // the sheet prints on again, so a card SWAP is a press event
           render();
           return true;
@@ -1591,6 +1788,7 @@ void main(void) {
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
+          faceUp: S.faceUp, number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
           rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
           elemZ: elemZ.slice(),

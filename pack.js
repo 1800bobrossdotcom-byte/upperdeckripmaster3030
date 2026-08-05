@@ -159,7 +159,8 @@
         s.src = src; s.onload = () => res(true); s.onerror = () => res(false);
         document.head.appendChild(s);
       });
-      inject('js/hero-card.js').then(() => inject('js/card-press.js')).then(() => {
+      inject('js/hero-card.js').then(() => inject('js/card-back.js'))
+        .then(() => inject('js/card-press.js')).then(() => {
         if (!window.CardPress) return;
         CardPress.grid('.fcard img', img => {
           const b = img.closest('.fcard');
