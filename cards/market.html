@@ -52,32 +52,16 @@
     font-size:var(--t-body,13px); padding:10px; min-height:var(--tap,44px); cursor:pointer; width:100%; }
   .urm-list button:hover,.urm-list button:active,.urm-list button:focus-visible{ border-color:var(--phos); }
   .urm-list img{ width:30px; height:42px; object-fit:cover; border-radius:4px; flex:none; }
-  /* ── the header prop ─────────────────────────────────────────────────────────────────────
-     A real 3D bench (js/site3d-prop.js, PlayCanvas) built from the same Blender-baked steel and
-     vinyl this page is tiled with. ⛔ FAILS OPEN: `.flat` is the page's own markup and is faded
-     only once `is3d` says a canvas exists. No WebGL2 / Save-Data ⇒ textured plate + glyph. */
   .hd{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:clamp(10px,2.5vw,26px);
     align-items:center; margin-top:8px; }
   .hd .mid{ min-width:0; }
   .hd h1{ margin-top:0; }
-  .prop3d{ position:relative; width:min(26vw,190px); aspect-ratio:1/1; border-radius:14px; overflow:hidden;
-    border:1px solid rgba(43,255,128,.16);
-    background:linear-gradient(rgba(2,10,5,.44),rgba(2,10,5,.64)),
-               url("../media/site/vinyl-albedo.webp") repeat, #020a05;
-    background-size:auto,170px,auto;
-    box-shadow:0 20px 44px -20px #000, 0 0 22px rgba(43,255,128,.05) inset; }
-  .prop3d .flat{ position:absolute; inset:0; display:grid; place-items:center; font-size:44px;
-    color:rgba(43,255,128,.30); text-shadow:0 0 22px rgba(43,255,128,.22);
-    transition:opacity .5s ease; pointer-events:none; }
-  .prop3d.is3d .flat{ opacity:0; }
   /* the left slot is a spacer that keeps the title optically centred; it goes first on a phone */
   .hd .spacer{ width:min(26vw,190px); }
   @media (max-width:760px){
     .hd{ grid-template-columns:minmax(0,1fr); }
     .hd .spacer{ display:none; }
-    .prop3d{ width:min(54vw,180px); margin:12px auto 0; }
   }
-  @media (prefers-reduced-motion:reduce){ .prop3d .flat{ transition:none; } }
 
   h1{ margin-top:8px; text-align:center; font-family:var(--fat); text-transform:uppercase;
     font-size:clamp(26px,8vw,52px); color:var(--phos); text-shadow:0 0 18px rgba(43,255,128,.5); }
@@ -102,8 +86,8 @@
   @media (max-width:640px){ .binder{ grid-template-columns:1fr; } .book .page.right{ display:none; } }
   /* ⚑ The leaves are the BAKED VINYL under the existing ledger grid, not instead of it — the
      grid is what says "ledger" and the vinyl is what says "binder". The scrim above it is the
-     strength knob; what has to stay legible is the composite, and scripts/build-site-check.mjs
-     measures it in the boxes the leaf numbers actually sit in. */
+     strength knob; what has to stay legible is the composite, in the boxes the leaf numbers
+     actually sit in. */
   .page{ position:relative; padding:20px 16px; min-height:420px; background:
       linear-gradient(180deg, rgba(43,255,128,.05), rgba(0,0,0,0)),
       repeating-linear-gradient(90deg, rgba(43,255,128,.045) 0 1px, transparent 1px 34px),
@@ -239,7 +223,6 @@
 <script src="../js/bg-foil.js" defer></script>
 <!-- the header prop. Site3D defers its own engine fetch behind IntersectionObserver +
      requestIdleCallback, so `defer` here only orders the parse, not the 2.26 MB. -->
-<script src="../js/site3d-prop.js" defer></script>
 </head>
 <body>
   <div class="lm" aria-hidden="true"></div>
@@ -257,7 +240,6 @@
         <h1>The Market Bench</h1>
         <div class="sub">your vault · deal the market</div>
       </div>
-      <div class="prop3d" data-site3d="bench" aria-hidden="true"><span class="flat">⇄</span></div>
     </div>
     <div class="burned" id="burned"></div>
     <div class="honesty-note">Your binder is a <b>testnet prototype</b> — cards, listings &amp; the burn

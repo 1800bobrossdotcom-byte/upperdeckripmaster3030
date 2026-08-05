@@ -772,6 +772,26 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ⛔ THE SITE 3D PROPS ARE GONE — "random 3D icons that do nothing" (artist, 2026-08-05)
+*"what are all these weird 3D objects that are half baked. remove them. when I asked for the site
+updated in playcanvas, random 3D icons that do nothing, was not what I was intending."*
+`js/site3d-prop.js` and its five hosts (`index`, `arcade`, `cards/{binder,index,market}`) deleted,
+with the CSS, the loader tags and the explanatory notes. `scripts/build-site-check.mjs` went with
+them — it existed to hold those props to numbers and was never wired into `npm test`.
+- ⚑ **I MISREAD "UPGRADE THE SITE WITH PLAYCANVAS ELEMENTS" AS "PUT AN ENGINE OBJECT ON EACH
+  PAGE".** The brief was about the site LOOKING like it came from the same studio as the games;
+  what shipped was a decorative binder, a bench and a fan of cards sitting in a slot, doing
+  nothing and reacting to nothing. **That is DESIGN-SYSTEM §4 unanswered — "what MOVES and why it
+  physically moved" — for the third recorded time**, and the fact that each one was measured,
+  fail-open and correctly lit is exactly the trap §9 describes: the easy half answered well.
+- ⚠ **THE TEXTURES STAYED, and that distinction is the whole of the cleanup.** `media/site/{pulp,
+  steel,vinyl}-{albedo,normal}.webp` are tiled by the FLAT CSS on those three card pages and
+  always were; the props merely shared them. `scripts/blender/build-site-props.py` and
+  `build-site-props.mjs` stay for the same reason — deleting the bake would have quietly orphaned
+  live page styling to tidy up a removed feature.
+- ⚠ Verified by loading all five pages: no errors, no gaps where a prop used to be. `test:name`
+  77/77 and `test:reach` 197/197.
+
 ## ◱ THE BRAND — `docs/BRAND-3030.md` + `studio3d.html`, `npm run test:sheet` (25)
 *Artist, 2026-08-05: "lets design (inspired by the current site) and rebrand for ripmaster 3030
 studios … the entire site in interactive webgl for playcanvas."* ⚠ **A PROPOSAL, and disposable on
@@ -1829,6 +1849,39 @@ how the weapon BEHAVES rather than how it looks.
   lines it already printed are only STAGED. Two edits were lost that way and the failure surfaced
   three steps later as `ReferenceError: adsDown is not defined`. Writing at the end is the safe
   design; treating the progress output as proof of application is the mistake.
+
+### ⛔ THE SQUIRREL COULD NOT CLIMB AT ALL — the CEILING clamp, not the ledge · `npm run test:city`
+*Artist, 2026-08-05: "the squirell gets stuck on wall ledges and that shouldn't happen."*
+- ⛔ **`moveBody`'s ceiling clamp FIRED ON THE WALL BEING CLIMBED.** A climbing squirrel is pressed
+  INTO its wall by construction — `wallAt` reaches `r + 0.22`, so the body's footprint overlaps the
+  box and its head at `y + h` is **inside** it. `if (b.vy > 0 && hits(nx, ny + B.h, nz, …))` then
+  reset `ny` to where it started, every frame, forever. Measured: `vy` set to **+5.58** every tick
+  and **y constant at 0.99 for all 420 ticks**, `onGround` false, nothing thrown.
+- ⚑ **THE GIVE-AWAY IS `onGround:false` ON A BODY THAT IS NEITHER RISING NOR FALLING.** That rules
+  gravity out — it is not being skipped, the climb is being CANCELLED after the fact. It looks like
+  a floor bug and it is a ceiling bug, and it reads to a player as being glued to the wall.
+- ⚠ **I SHIPPED THE WRONG DIAGNOSIS FIRST.** I read the lip as a limit cycle (crest ⇒ `wallAt`
+  stops matching ⇒ fall ⇒ re-reach) and fixed *that* — replacing a decaying nudge with a real
+  mantle, which is a genuine improvement and is now exercised. But it was never the reported bug,
+  and I committed it saying so: *"reasoned from the code, not driven."* **The honest label was
+  right and the fix was still not the cause.** Only the driven probe found the real one.
+- ⛔ **AND THE HARNESS LIED TWICE ON THE WAY THERE, both in the reassuring direction.** (a) A
+  synthetic `KeyboardEvent` dispatched from inside the page moved the body **0 m** while gravity
+  and the ground resolve both worked — an input-path artefact that reads exactly like broken
+  physics. `page.keyboard.down` (a TRUSTED event) is the only reliable drive. (b) rAF frame
+  counting is useless here: the baseline bird measured **6–8 real frames in 10.5 s**, so every
+  wall-clock movement test reports 0. `__city._step(n, dt)` is the clock.
+- ✅ **`__city._collide` and `._me` are exposed now** so a harness can ask the world the same
+  questions the physics asks instead of inferring them from where a body stopped. One call
+  (`hits` at the frozen position) settled what several rounds of reasoning had not.
+- ✅ **`npm run test:city` (12)** — the first driven suite this game has had. `test:reach` parses
+  these files and asserts the handlers exist, and **all of that was true the whole time**: a text
+  match cannot see a body that does not move. Proved to bite by deleting the `!climbing` guard:
+  3 failures, y pinned at 0.99. Also guards the pouch bound, the drop's HUD report, and that the
+  pointer-lock prompt shows in SECTION 9 **and not in the modes that do not use the mouse** —
+  both directions, because "shown in operative" is trivially satisfied by showing it always.
+  ⚠ One assertion was mis-timed, not mis-designed: `#carry` is written inside `stepDrops`, i.e.
+  once per frame, so reading it in the same tick as `_act()` measures the frame BEFORE the press.
 
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day

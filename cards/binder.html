@@ -79,29 +79,12 @@
   .chip small{display:block;font-family:var(--mono);font-size:var(--t-tag,8px);letter-spacing:.04em;opacity:.75;
               text-transform:none;margin-top:3px}
 
-  /* ── the header prop ─────────────────────────────────────────────────────────────────────
-     A real 3D binder (js/site3d-prop.js, PlayCanvas) in the same Blender-baked vinyl and steel
-     the flat page is tiled with. ⛔ FAILS OPEN: the `.flat` glyph below is the page's own markup
-     and is only faded out once `is3d` says a canvas exists and has drawn. No WebGL2, no engine,
-     Save-Data on ⇒ you get the textured plate and the glyph, which is a finished thing to be. */
-  .prop3d{position:relative;width:min(38vw,238px);aspect-ratio:1/1;border-radius:14px;overflow:hidden;
-          border:1px solid rgba(43,255,128,.16);
-          background:linear-gradient(rgba(2,10,5,.42),rgba(2,10,5,.62)),
-                     url("../media/site/vinyl-albedo.webp") repeat, #020a05;
-          background-size:auto,180px,auto;
-          box-shadow:0 24px 50px -22px #000, 0 0 26px rgba(43,255,128,.05) inset}
-  .prop3d .flat{position:absolute;inset:0;display:grid;place-items:center;font-size:52px;
-                color:rgba(43,255,128,.34);text-shadow:0 0 24px rgba(43,255,128,.25);
-                transition:opacity .5s ease;pointer-events:none}
-  .prop3d.is3d .flat{opacity:0}
-  @media (max-width:760px){ .prop3d{width:min(58vw,200px);margin:14px auto 0} }
-  @media (prefers-reduced-motion:reduce){ .prop3d .flat{transition:none} }
 
   /* ── the binder ──────────────────────────────────────────────────────────────────────── */
   /* ⚑ The covers are the BAKED VINYL, not a gradient — same tile the 3D prop's covers use, so
      the object in the header and the object under your cursor are made of one material. The
      scrim layer on top is the strength knob: the albedo measures mean luma 23.7 on its own, and
-     what has to stay legible is the COMPOSITE (scripts/build-site-check.mjs measures it). */
+     what has to stay legible is the COMPOSITE, in the boxes text actually sits in. */
   .binder{margin-top:18px;
           background:linear-gradient(rgba(2,10,5,.50),rgba(2,10,5,.72)),
                      url("../media/site/vinyl-albedo.webp") repeat,
@@ -229,7 +212,6 @@
           Empty pockets are cards nobody has filed yet.
         </p>
       </div>
-      <div class="prop3d" data-site3d="binder" aria-hidden="true"><span class="flat">▤</span></div>
     </div>
     <div class="chips" id="chips"></div>
     <!-- ⛔ THE DEPTH STRIP. Six of the artist's cards have real layer stacks — separated plates
@@ -313,7 +295,6 @@
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
      the header prop or the first opened card asks for it first. -->
-<script src="../js/site3d-prop.js"></script>
 <script>
 (() => {
   'use strict';
