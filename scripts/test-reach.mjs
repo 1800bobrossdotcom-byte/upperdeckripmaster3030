@@ -104,6 +104,27 @@ head('0 · every shipped browser script actually parses');
     catch (e) { bad++; t(`${f} parses`, false, String(e.message).slice(0, 90)); }
   }
   t('every shipped browser script parses', bad === 0, bad ? bad + ' failed to parse' : js.length + ' files');
+  /* ⛔ AND THE SAME TRAP HAS NOW COST SIX ROUNDS, so it gets an assertion that NAMES it. A BACKTICK
+   * inside a comment inside a shader template literal ENDS THE STRING. §0 above does catch it —
+   * the file stops parsing — but it reports `SyntaxError: Unexpected identifier 'smoothstep'`,
+   * which sends you looking at GLSL rather than at a quote mark thirty lines up. The failure
+   * message is the whole value here: a check that fires for the right reason and explains the
+   * wrong one is only half a check. */
+  {
+    const bt = [];
+    for (const [f, src] of TEXT) {
+      if (!f.endsWith('.js') || f.startsWith('vendor/') || f.startsWith('api/')) continue;
+      // every ES template literal whose body looks like GLSL
+      for (const m of src.matchAll(/`((?:[^`\\]|\\.)*)`/g)) {
+        if (!/#version|precision |void main|gl_Position|uniform /.test(m[1])) continue;
+        // a shader body cannot contain a backtick — if one did, this regex would have stopped early
+        const after = src.slice(m.index + m[0].length, m.index + m[0].length + 40);
+        if (/^\s*[A-Za-z_]/.test(after) && !/^\s*(;|\)|,|\.)/.test(after)) bt.push(f);
+      }
+    }
+    t('no shader literal is cut short by a backtick in a comment', bt.length === 0,
+      bt.length ? 'CHECK THE COMMENTS IN: ' + [...new Set(bt)].join(', ') : 'shader literals close cleanly');
+  }
 }
 
 head('1 · every cabinet is reachable from the arcade');
@@ -744,6 +765,25 @@ head('6d · the field is complete, framed by rarity, and live without a wallet')
   t('…and composes the name from the alphabet, not a baked word',
     /type\/alphabet\.json/.test(field) && /name:\s*card\.name/.test(field));
   t('the alphabet of outlines ships', existsSync(join(ROOT, 'cards/type/alphabet.json')));
+
+  /* Artist: "we should have right click save as (RCSA) functions for collectors." ⛔ RCSA does not
+   * work on a canvas — the browser offers "Save image as…" for an <img> and nothing at all for a
+   * <canvas>. So the export has to produce a real image and put it in front of the card, and the
+   * assertion is about the <img>, not about the button. */
+  for (const f of ['cards/field.html', 'cards/proof.html']) {
+    const src = TEXT.get(f) || '';
+    t(`${f} can export a still and a GIF`, /CardExport\.still/.test(src) && /CardExport\.gif/.test(src));
+    t('…and hands it to an <img> so right-click / long-press works',
+      /CardExport\.attach/.test(src) && /\.rcsa/.test(src));
+  }
+  /* ⚠ …and the overlay must not eat the card while it is EMPTY, or handling silently stops
+   * working — a layout bug that reads as a broken renderer. */
+  t('the export overlay is inert until something lands',
+    ['cards/field.html', 'cards/proof.html'].every(f =>
+      /#save\{[^}]*pointer-events:none/.test(TEXT.get(f) || '')));
+  t('the exporter ships and pulls in no dependency',
+    existsSync(join(ROOT, 'js/card-export.js')) &&
+    !/require\(|import .* from |cdn\.|unpkg|jsdelivr/.test(R('js/card-export.js')));
 
   /* ⛔ LIVE, AND NEVER A WALLET. SuperRare's security team flagged this once and they were right:
    * a frame that asks for a wallet is indistinguishable from one that has been swapped. Read-only

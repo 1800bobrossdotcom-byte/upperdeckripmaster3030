@@ -104,9 +104,22 @@ const R = await page.evaluate(async () => {
     document.body.appendChild(cv);
     return window.HeroCard.build({ canvas: cv, seed: seed, pigment: pool, type: spec });
   }
+  const mkM = (seed, W, H, motion) => {
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    document.body.appendChild(cv);
+    return window.HeroCard.build({ canvas: cv, seed: seed, pigment: pool, type: spec, motion: motion });
+  };
   const A = await mk(3030, 360, 540);
   if (!A) { out.built = false; return out; }
   out.built = true;
+  /* ⚠ FINISH THE SHEET BEFORE MEASURING IT. Cards now WRITE THEMSELVES ON — the impression lands
+   * down the sheet over about a second and a half — so a card measured straight after build is a
+   * card half printed. Two assertions caught it the moment the write-on landed: "nothing drifts"
+   * saw the ink still arriving, and the registration block-match found ZERO blocks with any detail
+   * in them, because most of the card was still blank stock. Both were right; the setup was wrong.
+   * The write-on gets its own measurements further down. */
+  A.writeOn(1);
 
   const still = (c, n) => { for (let i = 0; i < n; i++) c.advance(16.6667); };
   const hash = px => {                       // FNV-1a over the whole buffer — byte-identical or not
@@ -333,8 +346,12 @@ const R = await page.evaluate(async () => {
      * without this the three cards start at different points in the cycle and "same seed, same
      * frame" fails on a build that is perfectly deterministic — the test measuring its own setup
      * rather than the renderer. */
+    /* ⚠ …and the sheet has to be FINISHED too. A is a card that has been handled all through this
+     * harness; B and C are seconds old and still printing. Without this the three start in
+     * different states and "same seed, same frame" fails on a renderer that is perfectly
+     * deterministic — the test measuring its own setup, for the second time in this file. */
     const drive = c => {
-      c.setSpin(false); c.setPhase(0);
+      c.setSpin(false); c.setPhase(0); c.writeOn(1);
       c.setView(0.18, -0.07);
       c.pointer(0.3, -0.2, true);
       for (let i = 0; i < 25; i++) c.advance(16.6667);
@@ -514,9 +531,10 @@ const R = await page.evaluate(async () => {
      * the exact mirror of registration, which must be uniform and radius-free. The same block
      * matcher answers both, and the two answers are opposite: that is what makes each of them
      * mean something rather than just being a number that came out. */
-    const zField = () => {
-      A.setPhase(0.02); A.render(); const a = A.pixels();
-      A.setPhase(0.5); A.render(); const b = A.pixels();
+    const zFieldOn = (C) => {
+      C.setView(0, 0);
+      C.setPhase(0.02); C.render(); const a = C.pixels();
+      C.setPhase(0.5); C.render(); const b = C.pixels();
       const W = a.w, H = a.h, S = 5, RNG = 16, out2 = [];
       const lum = px => {
         const T = new Float32Array(W * H), B = new Float32Array(W * H), L = new Float32Array(W * H);
@@ -557,12 +575,63 @@ const R = await page.evaluate(async () => {
       return { n: out2.length, cos: n ? cosSum / n : 0,
         near: nn ? near / nn : 0, far: nf ? far / nf : 0 };
     };
-    out.zmove = zField();
+    /* ⛔ THE Z-SIGNATURE BELONGS TO A MOTION, NOT TO THE CARD, and assuming otherwise broke this
+     * assertion the moment there were eight of them: seed 3030 draws SLUR, which is a sideways
+     * smear and correctly has no radial component at all. So the claim is measured on the motion
+     * that makes it — the impression, the plates converging through the card's thickness — and
+     * the card under test names it rather than hoping. */
+    const Z = await mkM(3030, 360, 540, 'impression');
+    if (Z) {
+      Z.writeOn(1); Z.setSpin(false);
+      out.zmove = (() => { const save = A; try { return zFieldOn(Z); } finally { void save; } })();
+      Z.destroy();
+    }
     A.setPhase(0);
     // and the elements must lead and lag, or the "stack" is one global zoom
     A.setPhase(0.3); A.render();
     out.stack = A.probe().elemZ.slice();
+    out.motionKey = A.probe().motion;
+    out.motionCount = (window.HeroCard.MOTIONS || []).length;
     A.setPhase(0); A.render(); A.setSpin(true);
+  }
+
+  /* ══ THE WRITE-ON — the sheet feeding through ═══════════════════════════════════════════ */
+  {
+    A.setSpin(false); A.setPhase(0); A.setView(0, 0);
+    const inkRows = () => {
+      const px = A.pixels(), W = px.w, H = px.h, rows = [];
+      // readPixels is bottom-up, so walk from the card's TOP down
+      for (let b = 0; b < 8; b++) {
+        let dark = 0, n = 0;
+        const y1 = Math.round(H * (0.90 - b * 0.09)), y0 = Math.round(H * (0.90 - b * 0.09 - 0.07));
+        for (let y = y0; y < y1; y += 2) for (let x = Math.round(W * 0.2); x < Math.round(W * 0.8); x += 2) {
+          const k = (y * W + x) * 4;
+          if (px.data[k] * 0.299 + px.data[k + 1] * 0.587 + px.data[k + 2] * 0.114 < 150) dark++;
+          n++;
+        }
+        rows.push(dark / n);
+      }
+      return rows;                                    // [0] is the top band, [7] the bottom
+    };
+    A.writeOn(0); A.render();
+    const blank = inkRows();
+    // half way through the impression: the top has ink, the bottom is still bare stock
+    for (let i = 0; i < 45; i++) A.advance(16.6667);
+    A.render();
+    const half = inkRows();
+    for (let i = 0; i < 240; i++) A.advance(16.6667);
+    A.render();
+    const ramped = hash(A.pixels());
+    /* ⚠ Taken AFTER the ramp, not before it. Ordered the other way the comparison spans every
+     * other state this harness has touched, and a mismatch tells you nothing about the write-on. */
+    A.writeOn(1); A.render(); const done = hash(A.pixels());
+    out.write = {
+      blankInk: blank.reduce((a, b) => a + b, 0) / blank.length,
+      halfTop: half.slice(0, 3).reduce((a, b) => a + b, 0) / 3,
+      halfBottom: half.slice(5).reduce((a, b) => a + b, 0) / 3,
+      finished: ramped === done,
+    };
+    A.writeOn(1); A.setSpin(true);
   }
 
   // ── 6 · the type comes from the JSON, not from anything installed ──────────────────────
@@ -576,6 +645,40 @@ const R = await page.evaluate(async () => {
     E.setView(0, 0); E.render();
     out.typeDrives = hash(D.pixels()) !== hash(E.pixels());
     D.destroy(); E.destroy();
+  }
+
+  /* ══ TAKE IT WITH YOU — the export ══════════════════════════════════════════════════════
+   * ⚑ A GIF ENCODER EITHER PRODUCES A VALID FILE OR IT DOES NOT, and "it looked fine in the
+   * browser" is not the test: every decoder in the world is more forgiving than the spec, so a
+   * stream with a desynchronised colour table can display in Chrome and be rubbish everywhere the
+   * collector actually posts it. This walks the stream the way the format says to. */
+  {
+    const g = await window.CardExport.gif(A, { frames: 8, name: 't', maxW: 160 });
+    const buf = new Uint8Array(await g.blob.arrayBuffer());
+    const str = (a, n) => String.fromCharCode.apply(null, buf.slice(a, a + n));
+    // walk blocks properly — counting 0x21 0xF9 byte pairs also hits LZW payload
+    let n = 0, i = 13 + 3 * (1 << ((buf[10] & 7) + 1)), guard = 0;
+    while (i < buf.length && guard++ < 1e6) {
+      const c = buf[i];
+      if (c === 0x3B) break;
+      if (c === 0x21) { i += 2; while (buf[i]) i += buf[i] + 1; i++; continue; }
+      if (c === 0x2C) {
+        n++; i += 10;
+        if (buf[i - 1] & 0x80) i += 3 * (1 << ((buf[i - 1] & 7) + 1));
+        i++; while (buf[i]) i += buf[i] + 1; i++; continue;
+      }
+      break;
+    }
+    out.gif = {
+      header: str(0, 6), frames: n, bytes: buf.length,
+      trailer: buf[buf.length - 1] === 0x3B,
+      loops: String.fromCharCode.apply(null, buf.slice(0, 900)).indexOf('NETSCAPE2.0') > 0,
+      w: buf[6] | (buf[7] << 8), h: buf[8] | (buf[9] << 8),
+      // the card must be put back the way it was found
+      spinAfter: A.probe().spin, phaseAfter: A.probe().phase,
+    };
+    const png = await window.CardExport.still(A, { name: 't' });
+    out.png = { bytes: png.blob.size, type: png.blob.type };
   }
 
   // ── 7 · fails open ─────────────────────────────────────────────────────────────────────
@@ -674,6 +777,17 @@ if (!R.built) {
   t('m · the highlights do not clip to flat white', R.white < 0.004,
     `${(R.white * 100).toFixed(3)}% of the card is pure white`);
 
+  /* ── THE WRITE-ON ────────────────────────────────────────────────────────────────────── */
+  t('w · before the impression the sheet is BLANK STOCK, not a faded picture',
+    R.write.blankInk < 0.04, `${(R.write.blankInk * 100).toFixed(1)}% of it carries ink`);
+  /* ⛔ AND IT ARRIVES DOWN THE SHEET, which is the difference between a press and a fade-in. Half
+   * way through, the top is printed and the bottom has not been touched. A crossfade would show
+   * the two ends at the same density and pass any "is it animating" check. */
+  t('w · …and it lands top-first, in the order the cylinder touches it',
+    R.write.halfTop > R.write.halfBottom * 2.0,
+    `top ${(R.write.halfTop * 100).toFixed(0)}% vs bottom ${(R.write.halfBottom * 100).toFixed(0)}%`);
+  t('w · …and it finishes as the same card', R.write.finished);
+
   /* ── THE PRESS ───────────────────────────────────────────────────────────────────────── */
   t('p · the loop CLOSES — phase 0 and phase 1 are the same frame to the byte', R.loop.closes,
     `${R.loop.z0} vs ${R.loop.z1}`);
@@ -682,12 +796,14 @@ if (!R.built) {
     R.loop.seam < R.loop.mid * 1.6,
     `a 0.008-cycle step costs ${R.loop.seam.toFixed(2)} at the wrap vs ${R.loop.mid.toFixed(2)} ` +
     `mid-cycle (a sawtooth blows this up)`);
-  t('p · the motion is in Z — it grows with radius, unlike registration',
+  t('p · the impression moves in Z — it grows with radius, unlike registration',
     Math.abs(R.zmove.cos) > 0.5 && R.zmove.far > R.zmove.near * 1.6,
     `cos ${R.zmove.cos.toFixed(2)} (registration's is ~0) · edge ${R.zmove.far.toFixed(1)} px ` +
     `vs centre ${R.zmove.near.toFixed(1)} px`);
   /* ⚑ "Did it move" is the weak question again — a global zoom passes it and is not depth. What
    * bites is that the four elements are at DIFFERENT depths at the same instant. */
+  t('p · this card draws a named motion of its own', typeof R.motionKey === 'string' &&
+    R.motionKey.length > 2, R.motionKey + ' (of ' + R.motionCount + ')');
   t('p · the stack travels through itself, not as one zoom',
     new Set(R.stack.map(v => v.toFixed(4))).size === 4,
     'z = ' + R.stack.map(v => v.toFixed(3)).join(' · '));
@@ -699,6 +815,24 @@ if (!R.built) {
   // 6 / 7
   t('the name comes from the committed outlines', R.typeDrives === true);
   t('a missing pigment fails open to null', R.failsOpen === true);
+
+  /* ── THE EXPORT ──────────────────────────────────────────────────────────────────────── */
+  t('x · the GIF is a well-formed GIF89a', R.gif.header === 'GIF89a' && R.gif.trailer,
+    `${R.gif.header} · ${(R.gif.bytes / 1024).toFixed(0)} KB · ${R.gif.w}x${R.gif.h}`);
+  /* ⛔ EVERY FRAME, AND NOT ONE MORE. Frames are sampled at i/N and never at 1, because phase 1 IS
+   * phase 0 — including it duplicates a frame and the loop hitches once a cycle, in a file the
+   * collector will watch a hundred times. Walking the block stream is the only way to count them:
+   * scanning for the 0x21 0xF9 byte pair also hits LZW payload and reported 67 for a 24-frame
+   * file, which is a measurement that looks like a bug in the encoder and is a bug in the ruler. */
+  t('x · …with exactly the frames asked for, and no duplicate at the seam', R.gif.frames === 8,
+    `${R.gif.frames} frames`);
+  t('x · …and it loops forever', R.gif.loops, 'NETSCAPE2.0 present');
+  /* ⚠ An export that leaves the card stopped at the last frame looks like the export broke it. */
+  t('x · the card is put back the way it was found',
+    R.gif.spinAfter === 1 && R.gif.phaseAfter < 0.001,
+    `spin ${R.gif.spinAfter} · phase ${R.gif.phaseAfter.toFixed(3)}`);
+  t('x · and a still comes out as a PNG', R.png.type === 'image/png' && R.png.bytes > 2000,
+    `${(R.png.bytes / 1024).toFixed(0)} KB`);
 }
 t('no page errors', errs.length === 0, errs.join(' | ') || 'clean');
 

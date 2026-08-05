@@ -85,6 +85,17 @@
   .read b{color:var(--cool);font-weight:400}
   .note{font-size:var(--t-small);color:var(--dim);line-height:1.6}
   .note strong{color:var(--gold);font-weight:700}
+  /* ── TAKE IT WITH YOU ── the exported image sits in front of the card so the browser's own
+     right-click / long-press menu works. A canvas offers no "Save image as"; an <img> does. */
+  /* ⚠ pointer-events:none while EMPTY, or an invisible full-card overlay eats every drag and the
+     card silently stops responding to handling — a layout bug that reads as a broken renderer. */
+  #save{position:absolute;inset:0;z-index:3;pointer-events:none}
+  #save .rcsa{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+    border-radius:3%;cursor:context-menu;background:#07070a;pointer-events:auto}
+  #shot{margin-top:8px}
+  #shot .note{margin-top:6px}
+  .bar{height:4px;border-radius:2px;background:#2a2a34;overflow:hidden;margin-top:8px}
+  .bar i{display:block;height:100%;width:0;background:var(--hot);transition:width .12s linear}
   body.bare .wrap{grid-template-columns:1fr;padding:0}
   body.bare .rail{display:none}
   body.bare #stage{min-height:100vh}
@@ -92,7 +103,7 @@
 
 <div class="wrap">
   <div id="stage">
-    <div id="card">
+    <div id="card"><div id="save"></div>
       <div id="fallback"><b>PLATE PROOF</b>this card needs WebGL&nbsp;2 to print.<br>
         the artwork is generated, so there is nothing flat to fall back to yet — a pinned base
         image is step §7.5.</div>
@@ -129,6 +140,18 @@
     </div>
 
     <div class="grp">
+      <label>TAKE IT WITH YOU</label>
+      <div class="row">
+        <button type="button" id="bPng">SAVE PNG</button>
+        <button type="button" id="bGif">SAVE GIF</button>
+        <button type="button" id="bClear" hidden>BACK TO THE CARD</button>
+      </div>
+      <div class="bar" id="bar" hidden><i></i></div>
+      <div class="note" id="shot">a GIF is one full press cycle, looping — the same card, the same
+        seed, every time. once it lands, <strong>right-click it (or long-press) and save</strong>;
+        the button is there for people who look for a button.</div>
+    </div>
+    <div class="grp">
       <label>KEY LIGHT <span class="v" id="vLight">135°</span></label>
       <input type="range" id="light" min="0" max="360" step="1" value="135">
       <div class="note">move the light, not the card. <strong>a material answers a light</strong> —
@@ -162,6 +185,7 @@
 <script src="../js/chain-config.js" onerror="void 0"></script>
 <script src="../js/lens-state.js" onerror="void 0"></script>
 <script src="../js/hero-card.js"></script>
+<script src="../js/card-export.js"></script>
 <script>
 (function () {
   'use strict';
@@ -318,6 +342,50 @@
     var q = new URLSearchParams(location.search);
     q.set('seed', String(1 + Math.floor(Math.random() * 99999)));
     location.search = q.toString();
+  });
+
+  function exportName() { return 'ripmaster3030studios-plate-proof-' + seed; }
+
+  /* ── EXPORT ─────────────────────────────────────────────────────────────────────────────
+   * ⛔ Right-click-save-as does not work on a canvas — the browser offers "Save image as…" for an
+   * `<img>` and nothing at all for a `<canvas>`, however the pixels got there. So the export
+   * produces a real image and puts it in front of the card; after that the collector's own muscle
+   * memory does the work, which is worth more than any button. Both paths share one code path. */
+  var stage = document.getElementById('save') || document.getElementById('card');
+  function shot(msg) { document.getElementById('shot').innerHTML = msg; }
+  function busy(on, p) {
+    var bar = document.getElementById('bar');
+    bar.hidden = !on;
+    bar.firstElementChild.style.width = Math.round((p || 0) * 100) + '%';
+    document.getElementById('bPng').disabled = on;
+    document.getElementById('bGif').disabled = on;
+  }
+  function landed(r) {
+    CardExport.attach(stage, r);
+    document.getElementById('bClear').hidden = false;
+    shot('<strong>' + r.name + '</strong> · ' + (r.blob.size / 1024 / 1024).toFixed(2) + ' MB — ' +
+         'right-click or long-press to save, or drag it out.');
+  }
+  document.getElementById('bPng').addEventListener('click', function () {
+    if (!ctrl) return;
+    busy(true, 0.5);
+    CardExport.still(ctrl, { name: exportName() }).then(function (r) { busy(false); landed(r); });
+  });
+  document.getElementById('bGif').addEventListener('click', function () {
+    if (!ctrl) return;
+    busy(true, 0);
+    shot('printing…');
+    CardExport.gif(ctrl, {
+      name: exportName(),
+      frames: 30,
+      onProgress: function (p, note) { busy(true, p); shot(note); },
+    }).then(landed).catch(function (e) { busy(false); shot('the export failed: ' + e); });
+  });
+  document.getElementById('bClear').addEventListener('click', function () {
+    var img = stage.querySelector('img.rcsa');
+    if (img) { try { URL.revokeObjectURL(img.src); } catch (e) {} img.remove(); }
+    document.getElementById('bClear').hidden = true;
+    shot('back to the live card.');
   });
 
   addEventListener('resize', size);

@@ -316,6 +316,56 @@
   const FOIL_BY_RARITY = { common: 0.0, uncommon: 0.10, rare: 0.30, epic: 0.55, legendary: 0.80,
     mythic: 1.0, prizm: 1.0, marquee: 1.0 };
 
+  /* ── THE EIGHT MOTIONS ───────────────────────────────────────────────────────────────────
+   * Each is a pure function of phase (0..1) returning the drivers, and each is a named press
+   * phenomenon rather than an effect. ⛔ EVERY ONE MUST BE PERIODIC IN PHASE WITH PERIOD 1, and
+   * built from cos/sin of TAU*phase so the derivative matches at the wrap too — a loop that is
+   * merely equal at its ends still flinches once a revolution, and `npm run test:hero` measures
+   * the step ACROSS the seam against an identical step mid-cycle to catch exactly that.
+   *
+   * `lead` staggers the four elements through the card's thickness. ⚠ Lockstep is a global zoom,
+   * which passes "did it move" and is not depth — that is asserted separately.
+   */
+  const c1 = p => (1 - Math.cos(TAU * p)) * 0.5;        // 0 at the wrap, 1 at half — smooth both ends
+  const MOTIONS = [
+    { key: 'impression',                                 // the plates land together, once a cycle
+      lead: [0.00, 0.62, 0.28, 0.45], amp: 1.00,
+      mot: p => [1, 0, 0, 1] },
+    { key: 'roller',                                     // ink band travels: over-ink, then starve
+      lead: [0.00, 0.35, 0.70, 0.15], amp: 0.55,
+      mot: p => [0.82 + 0.34 * c1(p), 0, 0, 1] },
+    { key: 'slur',                                       // the sheet moves under the blanket
+      lead: [0.00, 0.20, 0.55, 0.80], amp: 0.45,
+      mot: p => [1, 0.011 * Math.sin(TAU * p), 0, 1] },
+    { key: 'doubling',                                   // the cylinder bounces and strikes twice
+      lead: [0.00, 0.50, 0.25, 0.75], amp: 0.40,
+      mot: p => [1, 0, c1(p), 1] },
+    { key: 'flutter',                                    // web tension: the stock ripples in z
+      lead: [0.00, 0.12, 0.24, 0.36], amp: 1.35,
+      mot: p => [0.95 + 0.10 * Math.cos(TAU * 2 * p), 0, 0, 1] },
+    { key: 'dry-down',                                   // the film sinks into the stock, recovers
+      lead: [0.00, 0.44, 0.88, 0.22], amp: 0.30,
+      mot: p => [0.74 + 0.40 * c1(p), 0, 0, 1] },
+    { key: 'makeready',                                  // the operator is still getting it right
+      lead: [0.00, 0.66, 0.33, 0.90], amp: 0.85,
+      mot: p => [0.88 + 0.24 * c1(p), 0.006 * Math.sin(TAU * p), 0.35 * c1(p), 1] },
+    /* ⛔ THE ONE THAT WRITES ITSELF ON, and it is the only motion whose loop is a REPRINT: the
+     * sheet feeds through, the impression lands top to bottom, the card sits finished for most of
+     * the cycle, and then the next sheet starts. So `w` rests at 1 and dips — a card you catch
+     * mid-print is the exception, not the state. */
+    { key: 'feed',
+      lead: [0.00, 0.30, 0.60, 0.90], amp: 0.65,
+      mot: p => [1, 0, 0, Math.min(1, 0.12 + 1.35 * Math.pow(c1(p), 0.55))] },
+  ];
+  /* Which motion a card has is part of the card, like its pigment and its border: derived from the
+   * seed, never stored, so a card cannot drift away from its own animation. */
+  const motionFor = seed => MOTIONS[Math.floor(rng(seed ^ 0x5F356495)() * MOTIONS.length)];
+  /* ⚠ AND IT CAN BE NAMED. `{motion:'impression'}` forces one — for a harness that needs to
+   * measure a specific claim (the z-signature belongs to the impression; a SLUR is a sideways
+   * smear and correctly has none), and for looking at the family without hunting for a seed that
+   * happens to have the one you want. Unset is the honest default: the card decides. */
+  const byKey = k => MOTIONS.filter(m => m.key === k)[0];
+
   function fillGlyph(g, contours, x, y, sc) {
     if (!contours || !contours.length) return;
     g.beginPath();
@@ -581,6 +631,18 @@ uniform vec2 uPar;           // x parallax gain · y type depth
  *   the two answers are opposite. */
 uniform vec4 uElemZ;         // ground · mid · figure · type
 uniform float uFrameFoil;    // how much of the border is METAL rather than ink — rarity
+/* ⛔ ONE MOTION IS NOT A SET — artist, 2026-08-05: "that is one out of many different animations
+ * we can have… every card can have animation, but they should be different each one, with details
+ * that are particular to the card and the border too."
+ * ⚑ EVERY MOTION IS A REAL THING THAT HAPPENS ON A PRESS, which is the constraint that stops eight
+ *   animations becoming eight effects. The card is not being animated; it is being PRINTED, badly,
+ *   in eight different ways. And all of them still live in Z and still close exactly — those two
+ *   properties belong to the CARD, not to the motion, so they are measured once and hold for all.
+ *     x  ink gain    the roller carrying too much, or running dry
+ *     y  sheet slip  the paper moving under the blanket while the ink is wet — SLUR
+ *     z  ghost       the plate striking twice, a hair apart — DOUBLING
+ *     w  write-on    how much of the impression has landed; 1 is a finished sheet */
+uniform vec4 uMot;
 uniform float uSeed;
 uniform float uRegGain;      // 0 kills registration entirely — the acceptance-4 control
 /* ⛔ THE CONTROL FOR ACCEPTANCE 4, AND IT EXISTS SO THE MEASUREMENT CAN PROVE IT DISCRIMINATES.
@@ -687,8 +749,12 @@ vec3 artAt(vec2 u, vec2 par) {
   // would be nothing for the stack to be inside, and the whole depth would read as a zoom.
   vec4 m = texture(uComp, u);
   c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0));       // raw stock: the trim
-  c = mix(c, vec3(0.055, 0.048, 0.062), texture(uType, uT).r);       // the name
-  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g);        // the printer's marks
+  /* The name and the border sorts are struck by the same cylinder as everything else, so they
+   * arrive WITH the sheet — the type writes itself on rather than fading up. */
+  float frontT = 1.2 - 1.4 * uMot.w;
+  float ink = smoothstep(frontT, frontT + 0.18, 1.0 - u.y);
+  c = mix(c, vec3(0.055, 0.048, 0.062), texture(uType, uT).r * ink);   // the name
+  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g * ink);    // marks + border sorts
   return c;
 }
 
@@ -746,10 +812,19 @@ void main(void) {
   vec3 transmit = vec3(1.0);
   float inkD = 0.0;
   vec2 dotN = vec2(0.0);
+  /* ⚑ THE SHEET SLIPS ALONG ITS OWN FEED AXIS — one direction, not a blur. A blur is what you draw
+   * when you do not know why something moved; a slur has a direction because the paper does. */
+  vec2 slip = vec2(uMot.y * 0.55, uMot.y);
   for (int p = 0; p < 4; p++) {
-    vec2 u = vUv + mix(uReg[p], (vUv - 0.5) * length(uReg[p]) * 3.0, uRegRadial) * uRegGain;
+    vec2 u = vUv + mix(uReg[p], (vUv - 0.5) * length(uReg[p]) * 3.0, uRegRadial) * uRegGain
+           + slip * (float(p) * 0.33 + 0.2);
     vec4 s = sep(artAt(u, par));
-    float d = s[p] * uFilm[p];
+    float d = s[p] * uFilm[p] * uMot.x;
+    /* DOUBLING: the cylinder bounces and strikes again a hair off. ⚠ max(), never add — a second
+     * impression cannot make ink darker than solid, it makes it WIDER, which is exactly why
+     * doubling is a legible fault rather than a general darkening. */
+    if (uMot.z > 0.001)
+      d = max(d, sep(artAt(u + vec2(0.0055, 0.0092) * uMot.z, par))[p] * uFilm[p] * uMot.x * 0.58);
     // the roller: bands ACROSS the sheet, because that is the axis the roller turns on
     float band = 1.0 + uPress.w * sin(u.y * uPress.y + uPress.z + float(p) * 0.7);
     d = clamp(d * band + uDmg.z * 0.10, 0.0, 1.0);
@@ -760,6 +835,22 @@ void main(void) {
     if (p == 3) dotN = dn;                           // K only — four relief grids is noise
   }
   float inkCov = clamp(inkD * 0.55, 0.0, 1.0);
+
+  /* ⛔ THE WRITE-ON IS THE SHEET FEEDING THROUGH — artist: "add in write on effects." Not a wipe
+   * laid over the top: ink ARRIVES, down the sheet, in the order the cylinder touches it, and the
+   * leading edge is soft because a nip is a line of contact rather than a knife. Ahead of the line
+   * there is nothing yet — RAW STOCK, not a faded picture, because a half-printed sheet is not a
+   * translucent one. That distinction is the whole difference between a press and a fade-in. */
+  /* ⚠ THE SENSE OF THIS WAS INVERTED AND EVERY TEST AGREED WITH IT. Written as
+   * smoothstep(w*1.3 - 0.18, w*1.3, y) it makes w=0 a FINISHED sheet and w=1 a blank one —
+   * exactly backwards from the comment above and from the arrival ramp, which ramps 0→1 as the card
+   * appears. The card came up fully printed and then erased itself. It was caught by the
+   * registration block-match reporting ZERO blocks with any detail in them, i.e. by a measurement
+   * that had nothing to do with the write-on: landed is a THRESHOLD THAT FALLS, so it is
+   * written that way. */
+  float front = 1.2 - 1.4 * uMot.w;                  // the line of contact, sweeping down the sheet
+  float landed = smoothstep(front, front + 0.18, 1.0 - vUv.y);
+  transmit = mix(vec3(1.0), transmit, landed);
 
   /* ── THE SURFACE ─────────────────────────────────────────────────────────────────────────
    * Four separate things happened to this piece of card and each one has its own physics:
@@ -1000,6 +1091,7 @@ void main(void) {
       gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
 
       // ── textures ─────────────────────────────────────────────────────────────────────────
+      const MOTION = (o.motion && byKey(o.motion)) || motionFor(seed);
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
@@ -1027,7 +1119,7 @@ void main(void) {
         rimDir: U('uRimDir'), rimCol: U('uRimCol'),
         rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
-        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'),
+        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
        ['uType', texType], ['uStock', texStock]].forEach(([n, t]) => {
@@ -1068,7 +1160,7 @@ void main(void) {
         yaw: 0, yawV: 0, yawT: 0, pitch: 0, pitchV: 0, pitchT: 0,
         px: 0, py: 0, down: false, work: 0, lastX: 0, lastY: 0,
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
-        lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1,
+        lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
       };
       // Springs. K/C chosen so release OVERSHOOTS — zeta ~0.30, which is what acceptance 3
       // measures. A critically damped spring passes "did it move" and fails "is it stock".
@@ -1089,6 +1181,8 @@ void main(void) {
          * wraps rather than growing — an accumulating float would drift out of precision after a
          * few hours in a media slot and the loop would stop closing. */
         if (S.spin) { S.phase += dt / S.period; if (S.phase >= 1) S.phase -= Math.floor(S.phase); }
+        // the first impression, once, on the way in
+        if (S.arrive < 1) S.arrive = Math.min(1, S.arrive + dt * S.arriveRate);
 
         // the thumb: a press dishes the stock under the contact and tilts it away from it
         const press = S.down ? 0.055 : 0;
@@ -1189,12 +1283,18 @@ void main(void) {
          *   move" and is not depth — the same weak question the wordmark rig had to answer. The
          *   offsets are what make the stack travel THROUGH itself. */
         const ZBASE = [0.00, 0.30, 0.70, 1.00];        // where each element rests in the stack
-        const ZLEAD = [0.00, 0.62, 0.28, 0.45];        // and how far round the cycle it is
-        const zAmp = 0.085 + 0.055 * S.depth;
+        const ZLEAD = MOTION.lead;                     // and how far round the cycle it is
+        const zAmp = (0.085 + 0.055 * S.depth) * MOTION.amp;
         const zc = i => ZBASE[i] * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
                       + zAmp * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5;
         elemZ = [zc(0), zc(1), zc(2), zc(3)];
         gl.uniform4f(u.elemZ, elemZ[0], elemZ[1], elemZ[2], elemZ[3]);
+        /* ⚑ THE WRITE-ON IS ALSO AN ARRIVAL. `S.arrive` runs 0→1 once when the card is first
+         * handled or opened, and it MULTIPLIES INTO the motion's own write-on — so every card
+         * prints itself on the way in, and the one motion that reprints keeps doing it forever.
+         * Two different events, one mechanism, and neither has to know about the other. */
+        const mv = MOTION.mot(S.phase);
+        gl.uniform4f(u.mot, mv[0], mv[1], mv[2], Math.min(mv[3], S.arrive));
         /* ⚑ AND IT BREATHES WITH THE PRESS. The higher the tier the more the frame answers the
          * cycle — at the impression the foil is flat to the sheet, away from it the border lifts
          * and catches. Same clock as the stack, so nothing has its own tempo. */
@@ -1237,6 +1337,7 @@ void main(void) {
 
       const ctrl = {
         version: VERSION,
+        canvas: canvas,             // js/card-export.js needs it for toBlob
         pigment: pig,
         pointer: pointer,
         advance: advance,
@@ -1257,6 +1358,8 @@ void main(void) {
         setLight: a => { S.lightA = a; },
         // the press cycle: 0..1 round one revolution. `spin` stops it dead for a still frame.
         setPhase: p => { S.phase = ((p % 1) + 1) % 1; },
+        // print it on again from nothing — and 1 skips straight to a finished sheet
+        writeOn: (v) => { S.arrive = v === undefined ? 0 : clamp(v, 0, 1); },
         setSpin: on => { S.spin = on ? 1 : 0; },
         setPeriod: sec => { S.period = Math.max(0.5, sec); },
         /* ⛔ THE ENVIRONMENT SWITCH IS THE ANTI-WASH ASSERTION'S CONTROL. Off, the metal loses its
@@ -1284,6 +1387,7 @@ void main(void) {
           burn: S.burn, price: S.price, depth: S.depth,
           regGain: S.regGain, regRad: S.regRad, lightA: S.lightA, envOn: S.envOn,
           phase: S.phase, period: S.period, spin: S.spin,
+          motion: MOTION.key, arrive: S.arrive,
           rarity: o.rarity || null, frameFoil: FOIL_BY_RARITY[o.rarity] || 0,
           elemZ: elemZ.slice(),
           pigment: pig.slice(),
@@ -1294,5 +1398,6 @@ void main(void) {
     }).catch(() => null);
   }
 
-  global.HeroCard = { build: build, VERSION: VERSION, INK: INK, ANG: ANG };
+  global.HeroCard = { build: build, VERSION: VERSION, INK: INK, ANG: ANG,
+    MOTIONS: MOTIONS.map(m => m.key) };
 })(window);
