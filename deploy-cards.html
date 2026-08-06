@@ -315,7 +315,14 @@
     if (t && t !== '0x') {
       const uri = decStr(t, 0);
       try {
-        const j = JSON.parse(atob(uri.split(',')[1]));
+        /* ⛔ atob RETURNS BYTES, AND JSON.parse READS THEM AS UTF-16. The contract emits
+           `· №` as UTF-8 (0xC2 0xB7, 0xE2 0x84 0x96), so a bare atob printed "______ Â· â„–1"
+           for metadata that is byte-perfect on-chain. ⚑ The dangerous half is not the ugly
+           string — it is that a readout claiming corrupted metadata invites re-sending a 3.2M
+           gas transaction, or "fixing" titles that were never broken. Decode as UTF-8. */
+        const bin = atob(uri.split(',')[1]);
+        const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+        const j = JSON.parse(new TextDecoder('utf-8').decode(bytes));
         img = j.image ? 1 : 0;
         say(`\ntokenURI(1).name  ${JSON.stringify(j.name)}`, 'ok');
         say(`tokenURI(1).image ${JSON.stringify(j.image || null)}`, j.image ? 'ok' : 'bad');
