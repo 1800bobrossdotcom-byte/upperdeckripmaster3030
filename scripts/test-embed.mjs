@@ -112,18 +112,48 @@ console.log('\n── the embed reads the SAME chain the rest of the site does �
   const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
   const CFG = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({});
   const ed = (html.match(/var EDITION = '(0x[0-9a-fA-F]{40})'/) || [])[1];
-  const rpc = (html.match(/var RPC = '([^']+)'/) || [])[1];
+  const rpcBlock = (html.match(/var RPCS = \[([\s\S]*?)\]/) || [])[1] || '';
+  const rpcs = [...rpcBlock.matchAll(/'([^']+)'/g)].map(m => m[1]);
   ok('the embed names an edition', !!ed, ed || 'none');
   ok('…and it is the one chain-config names',
     !!ed && ed.toLowerCase() === String((CFG.contracts || {}).liquidEdition).toLowerCase(),
     `embed ${ed} vs config ${(CFG.contracts || {}).liquidEdition}`);
-  /* ⚠ The RPC is checked for the right NETWORK, not for string equality: the embed deliberately
-   *   uses a CORS-open public node (a sandboxed frame is at an opaque origin) and need not use the
-   *   same provider the site does. What it must never do is read a different chain. */
+
+  /* ⛔ MORE THAN ONE ENDPOINT, BECAUSE ONE WAS A SINGLE POINT OF FAILURE ON THE ONE SURFACE
+   *   SUPERRARE RENDERS. Artist, 2026-08-06, from a phone: "token balance not showing on mobile"
+   *   — both live cells were em-dashes while the two hardcoded ones rendered fine. Driven at four
+   *   viewports and inside a sandboxed frame the code is correct everywhere, and the em-dash
+   *   state reproduces ONLY on request failure: there was simply nothing behind the one URL.
+   * ⚑ AND THIS TEST IS WHY IT SURVIVED. It pinned the endpoint's NETWORK and had no opinion about
+   *   how many there were, so a single point of failure was invisible to a guard written to watch
+   *   this exact value. `js/chain-config.js` had already carried four since two of three were
+   *   found dead; the embed cannot import it (no <script src>) and inlined the ADDRESS but not
+   *   the LIST. A count is now part of the contract. */
+  ok('the embed carries MORE THAN ONE rpc — no single point of failure',
+    rpcs.length >= 3, rpcs.length + ' endpoint(s)');
+  /* ⚠ Checked for the right NETWORK, not for string equality: the embed deliberately uses
+   *   CORS-open public nodes (a sandboxed frame is at an opaque origin) and need not use the same
+   *   providers the site does. What none of them may ever do is read a different chain. */
   const wantsTestnet = CFG.network !== 'mainnet';
-  ok('…and its RPC points at the same network as chain-config',
-    !!rpc && /sepolia/i.test(rpc) === wantsTestnet,
-    `${rpc} while chain-config says ${CFG.network}`);
+  const wrong = rpcs.filter(r => /sepolia/i.test(r) !== wantsTestnet);
+  ok('…and every one of them points at the same network as chain-config',
+    rpcs.length > 0 && wrong.length === 0,
+    wrong.length ? `${wrong.join(', ')} while chain-config says ${CFG.network}` : rpcs.length + ' ok');
+  ok('…and none is duplicated (a repeated url is a fallback that is not one)',
+    new Set(rpcs).size === rpcs.length, rpcs.join(', '));
+
+  /* ⛔ A LIST IS NOT A FALLBACK UNLESS SOMETHING WALKS IT, and this repo has shipped exactly that
+   *   mistake before — `built ≠ reachable`, one layer in. Four urls read by code that only ever
+   *   uses [0] passes every assertion above and fails in production identically. */
+  ok('…and the reader actually tries all of them',
+    /RPCS\s*\.\s*forEach/.test(html) && !/RPCS\s*\[\s*0\s*\]/.test(html));
+  /* ⛔ AND IT SAYS SO WHEN IT CANNOT REACH ANY. An em-dash under a label reading "live supply ·
+   *   read from the contract" is a promise with nothing behind it, indistinguishable from a
+   *   supply of zero or a dead contract — the failure the artist had to report by hand because
+   *   the page would not report it itself. */
+  ok('…and it retries rather than giving up on one attempt', /setTimeout\(function \(\) \{ attempt\(/.test(html));
+  ok('…and it states the failure instead of leaving a mystery dash',
+    /unreachable from here/.test(html));
 }
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : ''}\n`);

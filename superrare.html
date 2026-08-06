@@ -252,7 +252,7 @@
     </p>
 
     <div class="state">
-      <div class="cell lead"><b id="sSupply">—</b><span>live supply · read from the contract</span></div>
+      <div class="cell lead"><b id="sSupply">—</b><span id="sSupplyLbl">live supply · read from the contract</span></div>
       <div class="cell lead"><b id="sBurned">—</b><span id="sBurnedLbl">burned forever</span></div>
       <div class="cell"><b>100</b><span>cards in the deck</span></div>
       <div class="cell"><b>33</b><span>hero 1/1 lenses</span></div>
@@ -375,8 +375,29 @@
    *   no shared config means no drift protection from the config. `npm run test:embed` pins them
    *   against chain-config instead, so the two cannot disagree again without the build failing.
    * ⚠ Read-only `eth_call` over fetch is the ONLY network access this page has, and that is
-   *   deliberate: it can show state and cannot move anything. */
-  var RPC = 'https://ethereum-rpc.publicnode.com';
+   *   deliberate: it can show state and cannot move anything.
+   *
+   * ⛔ AND IT WAS ONE ENDPOINT, WITH NO FALLBACK, ON THE ONE SURFACE SUPERRARE RENDERS.
+   *   Artist, 2026-08-06, from a phone: "token balance not showing on mobile" — both live cells
+   *   were em-dashes while the two hardcoded ones (100 cards, 33 heroes) rendered fine. Driven at
+   *   four viewports, top-level and inside a sandboxed frame, the code is correct everywhere; the
+   *   em-dash state reproduces ONLY when the request fails. So the request was not getting through
+   *   from his network, and there was nothing behind it.
+   * ⚑ THE SITE HAD ALREADY LEARNED THIS AND THE EMBED DID NOT INHERIT IT. `js/chain-config.js`
+   *   carries FOUR endpoints — added after two of three were found dead — and `js/lens-state.js`
+   *   walks the whole list before reporting `unreachable`. This page cannot import that config
+   *   (no `<script src>`, which is the security property), so it inlined the value and **copied
+   *   the address but not the LIST**. `npm run test:embed` pinned the endpoint's NETWORK and had
+   *   no opinion about how many there were, so a single point of failure was invisible to it.
+   * ⚠ Measured from an opaque origin before choosing them: all four answer `access-control-allow-
+   *   origin: *` and support JSON-RPC batching. (`eth.llamarpc.com` is dead — 521 — and is not
+   *   here for that reason.) */
+  var RPCS = [
+    'https://ethereum-rpc.publicnode.com',
+    'https://eth.drpc.org',
+    'https://rpc.mevblocker.io',
+    'https://eth.merkle.io'
+  ];
   var EDITION = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33';
   // 0x2ab4d052 = maxTotalSupply(). 0xd5abeb01 is maxSupply(), a DIFFERENT function that
   // REVERTS on this edition — checked against the chain, not guessed.
@@ -392,15 +413,58 @@
    *   burn is real, so the digits are the argument. */
   function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
   function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
-  function call(data) {
-    return fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
-        params: [{ to: EDITION, data: data }, 'latest'] }) })
+  function tok(hex) {
+    if (!hex || hex === '0x') return null;
+    try { return Number(BigInt(hex) / 1000000000000000000n); } catch (e) { return null; }
+  }
+
+  /* ⚑ ONE BATCH, ONE ENDPOINT, ONE BLOCK. Racing the two reads independently could take the
+   *   supply from one provider and the cap from another — different blocks, and `burned` is the
+   *   SUBTRACTION of the two. The cap is frozen at deploy so it is harmless today, which is
+   *   exactly the kind of thing that is fine until it is not. A batch also halves the requests,
+   *   which matters on the connection this bug was reported from. */
+  function readOne(url, ms) {
+    /* ⚠ A FETCH WITH NO TIMEOUT CAN HANG FOREVER ON A PHONE, and a race is only as fast as its
+     *   fastest SETTLED promise — one endpoint left hanging would keep the whole read pending
+     *   long after the other three had failed. AbortController rather than AbortSignal.timeout,
+     *   which is too new to assume inside somebody else's frame. */
+    var ac = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = setTimeout(function () { try { ac && ac.abort(); } catch (e) {} }, ms);
+    return fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+      signal: ac ? ac.signal : undefined,
+      body: JSON.stringify([
+        { jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: EDITION, data: SEL.total }, 'latest'] },
+        { jsonrpc: '2.0', id: 2, method: 'eth_call', params: [{ to: EDITION, data: SEL.max }, 'latest'] }
+      ]) })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
-        if (!j || !j.result || j.result === '0x') return null;
-        return Number(BigInt(j.result) / 1000000000000000000n);
+        clearTimeout(timer);
+        if (!Array.isArray(j)) return null;              // an error object is not a batch
+        var by = function (id) { for (var i = 0; i < j.length; i++) if (j[i] && j[i].id === id) return j[i]; return null; };
+        var a = by(1), b = by(2);
+        var live = a && tok(a.result), max = b && tok(b.result);
+        return (live > 0 && max > 0) ? { live: live, max: max } : null;
+      })
+      .catch(function () { clearTimeout(timer); return null; });
+  }
+
+  /* ⚑ RACE, DO NOT SEQUENCE. Walking four endpoints one at a time costs four timeouts before
+   *   anything appears — on a bad mobile connection that is most of a minute of em-dashes, which
+   *   is the reported symptom with extra steps. Fired together, the answer arrives at the speed
+   *   of whichever provider is reachable. Resolves on the first GOOD read; null only when every
+   *   one of them has failed. (Hand-rolled rather than Promise.any: the losing case here is a
+   *   resolved null, not a rejection, so `any` would take the first null as a win.) */
+  function read(ms) {
+    return new Promise(function (done) {
+      var left = RPCS.length, settled = false;
+      RPCS.forEach(function (url) {
+        readOne(url, ms).then(function (v) {
+          if (settled) return;
+          if (v) { settled = true; return done(v); }
+          if (--left === 0) done(null);
+        });
       });
+    });
   }
 
   try {
@@ -409,20 +473,47 @@
      * caps at 1,000,000, so "burned" would have rendered ~32M — a false claim, shown
      * confidently, on the first page a collector sees. Burned appears only when both numbers
      * came from the same contract and the subtraction means something. */
-    Promise.all([call(SEL.total), call(SEL.max)]).then(function (r) {
-      var live = r[0], max = r[1];
-      if (live > 0) set('sSupply', fmt(live));
-      if (live > 0 && max > 0 && max >= live) {
-        var burned = max - live;
-        set('sBurned', fmt(burned));
+    var show = function (v) {
+      set('sSupply', fmt(v.live));
+      if (v.max >= v.live) {
+        set('sBurned', fmt(v.max - v.live));
         /* ⚑ THE LABEL CARRIES THE CAP, NOT A PERCENTAGE. `docs/PACK-PRICING.md` forbids publishing
          *   a burn percentage — the pack is a DOLLAR target, so a rising token buys fewer tokens
          *   and burns less, and any printed share drifts with nobody editing anything. "of
          *   3,030,000 minted" is a FACT that stays true whatever the price does, and it lets a
          *   reader do the division themselves if they want it. */
-        set('sBurnedLbl', 'burned forever · of ' + fmt(max) + ' minted');
+        set('sBurnedLbl', 'burned forever · of ' + fmt(v.max) + ' minted');
       }
-    }).catch(function () { /* static copy stands */ });
+    };
+
+    /* ⚑ A MEDIA SLOT IS LONG-LIVED, SO KEEP TRYING — but SAY SO LONG BEFORE GIVING UP, and those
+     *   are two separate schedules. A phone between cells, a carrier hiccup or a momentary rate
+     *   limit all resolve on their own, so quitting after one attempt turns a blip into a
+     *   permanent blank; equally, staying silent for the whole retry ladder means a minute of
+     *   unexplained em-dashes, which is the reported symptom with better internals.
+     * ⛔ SO THE LABEL TELLS THE TRUTH AT ~20 s AND THE READING CARRIES ON UNDERNEATH IT. An
+     *   em-dash under "live supply · read from the contract" is a promise with nothing behind it
+     *   — indistinguishable from a supply of zero, a dead contract, or a bug — and this repo's
+     *   own rule is that a control which does nothing is worse than an absent one. A later
+     *   attempt that succeeds overwrites the label with the real one, so admitting the failure
+     *   costs nothing and the tile still heals itself.
+     * ⚠ Bounded, because it must never become a poll: six attempts over about two minutes. */
+    var WAIT = [7000, 8000, 9000, 10000, 12000, 12000];      // per-attempt timeout
+    var GAP = [4000, 8000, 15000, 25000, 40000];             // pause before the NEXT attempt
+    var SAY_AFTER = 2;                                       // attempts before we admit it
+    (function attempt(n) {
+      read(WAIT[n]).then(function (v) {
+        if (v) {
+          set('sSupplyLbl', 'live supply · read from the contract');   // heal a stated failure
+          return show(v);
+        }
+        if (n + 1 >= SAY_AFTER) {
+          set('sSupplyLbl', 'live supply · chain unreachable from here');
+          set('sBurnedLbl', 'burned forever · chain unreachable from here');
+        }
+        if (n + 1 < WAIT.length) setTimeout(function () { attempt(n + 1); }, GAP[n]);
+      });
+    })(0);
   } catch (e) { /* static copy stands */ }
 })();
 </script>

@@ -457,10 +457,56 @@ and performs WalletConnect burns — it is **NOT** for embedding.
   exact reflex phishing needs.
 - **Read-only `eth_call` over `fetch` is allowed** — it can show state, it cannot move anything,
   and the page degrades to static copy when blocked (which it will be in a sandboxed frame).
-- Guarded by **`npm run test:embed`** — 17 assertions; fails if any wallet identifier or any
+- Guarded by **`npm run test:embed`** — 25 assertions; fails if any wallet identifier or any
   `<script src>` reappears. A comment does not survive a hurried edit; a failing test does.
 - ⚑ Selector trap: `maxTotalSupply()` is **`0x2ab4d052`**. `0xd5abeb01` is `maxSupply()`, a
   different function that **reverts** on this edition. Verified against the chain, not guessed.
+
+### ⛔ AND ITS TWO LIVE NUMBERS RAN ON ONE RPC WITH NOTHING BEHIND IT
+*Artist, 2026-08-06, from a phone: "token balance not showing on mobile."* Both chain-read cells
+were em-dashes while the two hardcoded ones (100 cards, 33 heroes) rendered fine.
+- ⚑ **DRIVEN BEFORE CHANGING ANYTHING, WHICH IS WHAT NAMED THE HALF THAT WAS BROKEN.** The page at
+  1280×800, 390×844 (iPhone UA), 360×800 (Android UA) and inside a **sandboxed iframe at an opaque
+  origin** — the actual SuperRare case — renders `3,023,437 / 10,029` in every one. **The em-dash
+  state reproduces only when the request fails.** So the code was never the problem and no amount
+  of reading it would have found this.
+- ⛔ **`var RPC = '…publicnode.com'` — ONE ENDPOINT, NO FALLBACK, ON THE ONE SURFACE SUPERRARE
+  RENDERS.** `js/chain-config.js` has carried **four** since two of three were found dead, and
+  `js/lens-state.js` walks the whole list before reporting `unreachable`. ⚑ **The embed could not
+  inherit that and nobody noticed the gap**: no `<script src>` is the security property, so the
+  value is inlined — and the inlining **copied the ADDRESS but not the LIST**. The site fails over;
+  the embed had one URL and a shrug.
+- ⛔ **AND `test:embed` WAS WATCHING THAT EXACT LINE WHILE MISSING IT.** It pinned the endpoint's
+  NETWORK — the right question after the mainnet flip — and had **no opinion about how many there
+  were**. A guard written against a value can be blind to the value's arity. It now asserts ≥3
+  endpoints, no duplicates, all on the config's network, **that something actually walks the list**
+  (four urls read by code that only uses `[0]` passes every other assertion and fails identically
+  in production), that it retries, and that it states the failure. Proved to bite against
+  `git show HEAD:superrare.html`: **5 named failures**.
+- ⚑ **ONE BATCH, ONE ENDPOINT, ONE BLOCK.** Racing the two reads independently could take the
+  supply from one provider and the cap from another — and `burned` is the SUBTRACTION of the two.
+  The cap is frozen at deploy so it is harmless today, which is exactly the kind of thing that is
+  fine until it is not. ⚠ **Race, do not sequence**: four endpoints walked one at a time on a bad
+  mobile connection is most of a minute of em-dashes, i.e. the reported symptom with better
+  internals. ⚠ And a fetch with **no timeout can hang forever**, so one stalled endpoint would keep
+  the whole race pending after the other three had already failed — `AbortController`, not
+  `AbortSignal.timeout`, which is too new to assume inside somebody else's frame.
+- ⛔ **RETRYING AND ADMITTING FAILURE ARE TWO DIFFERENT SCHEDULES, and conflating them was my first
+  version.** A media slot is long-lived, so quitting after one attempt turns a blip into a
+  permanent blank; but staying silent for the whole ladder is ~80 s of unexplained dashes. **The
+  label tells the truth at ~20 s and the reading carries on underneath it**, so a later success
+  overwrites it — admitting the failure costs nothing and the tile still heals. Measured: dead at
+  first, network returns, **label goes back to "read from the contract" and the numbers appear.**
+- ⛔ **A MYSTERY DASH IS WORSE THAN A SENTENCE.** An em-dash under *"live supply · read from the
+  contract"* is a promise with nothing behind it — indistinguishable from a supply of zero, a dead
+  contract or a bug — and it is why this had to be reported by hand instead of reporting itself.
+  It now reads *"chain unreachable from here"*. Same rule as `theme.js`'s buried button: **a
+  control that does nothing is worse than an absent one.**
+- ⚠ **WHAT IS STILL NOT KNOWN, and it is not knowable from here:** *which* cause blocked his
+  phone — carrier DNS, a content blocker, a rate limit, a moment of no signal. Four endpoints plus
+  retry is the fix for all of them, and the new label is what will name the next one.
+- ⚠ Cache-Control on `/superrare.html` resolves to `must-revalidate` (checked against the live
+  host, not assumed), so this reaches a phone on the next load — no repeat of the week-stale cards.
 
 ## ⛔ THREE DEPLOY-TIME PERMANENTS WERE STILL WRONG ON 2026-08-02 — four days out
 Found while wiring the Sepolia run. None was reachable by any check that existed, because
