@@ -118,6 +118,19 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     string public collectionDescription;
     string public externalUrl;      // e.g. https://ripmaster3030studios.com
     string public lensBaseUrl;      // e.g. https://ripmaster3030studios.com/cards/hero/
+    /* ⚑ THE FIELD'S LIVE LENS — artist, 2026-08-06: cards 34…100 are pulled in gacha packs and
+     * are NEVER minted (only the 33 are ownable), but they must still be readable AS LENSES.
+     * They were: `tokenURI(id)` has always rendered them. What they were not was LIVE — heroes
+     * got an `animation_url` and the field got a still image, so 67 of the hundred were a
+     * photograph of a card the press generates live.
+     * ⚠ A SEPARATE BASE URL, NOT A SHARED ONE, because the two pages address a card differently:
+     *   a hero is a PATH (`/cards/hero/7.html`, one generated file each) and a field card is a
+     *   QUERY (`/cards/field.html?n=47`, one page driven by a seed). Forcing one string to serve
+     *   both would mean inventing 67 files that do not need to exist.
+     * ⚠ Defaulted in the constructor and settable, so there is nothing to forget on deploy night
+     *   and nothing frozen into the bytecode. The constructor signature is UNCHANGED — lens-cli
+     *   and DEPLOY-LENS.md both depend on renderer 3rd and signer 4th. */
+    string public fieldBaseUrl;     // e.g. https://ripmaster3030studios.com/cards/field.html?n=
 
     /* ── TENURE — the one input that cannot be bought, borrowed, or faked ─────────────────────
      * ⛔ THIS CLOSES THE ACKNOWLEDGED HOLE IN THE TIER DESIGN. A BALANCE IS A SNAPSHOT: it can be
@@ -177,6 +190,10 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         claimSigner = claimSigner_;
         externalUrl = externalUrl_;
         lensBaseUrl = lensBaseUrl_;
+        /* Derived rather than taken as a 7th constructor arg: the signature is load-bearing
+         * (renderer 3rd, signer 4th — lens-cli.mjs and the Remix table both count positions) and
+         * a default that is right out of the box cannot be forgotten the way setEdition was. */
+        fieldBaseUrl = string(abi.encodePacked(externalUrl_, "/cards/field.html?n="));
         collectionName = name_;
 
         /* Default ladder, anchored on the PACK rather than on round numbers: a launch pack is
@@ -202,9 +219,13 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         tierAt = t;
         emit TiersSet(t);
     }
-    function setUrls(string calldata external_, string calldata lensBase_) external onlyOwner {
+    function setUrls(string calldata external_, string calldata lensBase_, string calldata fieldBase_)
+        external
+        onlyOwner
+    {
         externalUrl = external_;
         lensBaseUrl = lensBase_;
+        fieldBaseUrl = fieldBase_;
     }
     function setDescription(string calldata d) external onlyOwner { collectionDescription = d; }
 
@@ -491,15 +512,19 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         if (bytes(c.cid).length != 0) {
             media = string(abi.encodePacked(',"image":"ipfs://', c.cid, '"'));
         }
-        if (hero && bytes(lensBaseUrl).length != 0) {
-            media = string(
-                abi.encodePacked(
-                    media,
-                    ',"animation_url":"',
-                    _animHtml(string(abi.encodePacked(lensBaseUrl, idStr, ".html"))),
-                    '"'
-                )
-            );
+        /* ⛔ EVERY CARD IN THE DECK IS LIVE NOW, NOT JUST THE THIRTY-THREE. The field's lens is
+         *   the same press that draws the heroes, so a still image was the one thing on the card
+         *   that was not true about it. Ownership is what separates the two halves — the 33 can
+         *   be held, the 67 cannot — and that distinction is carried by `Class` and `Minted`,
+         *   which is where it belongs. It was never a reason for 67 cards to stop moving.
+         * ⚠ Two shapes, because the two pages address a card differently: a hero is a path and a
+         *   field card is a query. Either base being empty simply drops that half's
+         *   `animation_url` — the ipfs `image` is the permanent record and always survives. */
+        string memory lensUrl = hero
+            ? (bytes(lensBaseUrl).length != 0 ? string(abi.encodePacked(lensBaseUrl, idStr, ".html")) : "")
+            : (bytes(fieldBaseUrl).length != 0 ? string(abi.encodePacked(fieldBaseUrl, idStr)) : "");
+        if (bytes(lensUrl).length != 0) {
+            media = string(abi.encodePacked(media, ',"animation_url":"', _animHtml(lensUrl), '"'));
         }
 
         /* ⚠ "Deck: Season I" used to be baked in here. Seasons were removed (artist directive,

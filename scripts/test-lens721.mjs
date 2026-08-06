@@ -83,7 +83,21 @@ console.log('\n── rendering ──');
   const json = uri.startsWith('data:application/json;base64,') ? Buffer.from(uri.split(',')[1],'base64').toString() : '';
   t('UNMINTED field card 42 renders (does not revert)', ok(r) && json.includes('WAT HAPPEN'));
   t('  field card has ipfs image', json.includes('"image":"ipfs://bafyFIELD42"'));
-  t('  field card has NO animation_url', !json.includes('animation_url'));
+  /* ⛔ THE FIELD IS LIVE TOO — artist, 2026-08-06. It used to assert the OPPOSITE, and the
+   *   opposite was the defect: 67 of the hundred cards were a still photograph of a card this
+   *   studio's press generates live. Ownership is what separates the two halves (the 33 can be
+   *   held, the 67 cannot) and that lives in `Class`/`Minted`, not in whether the card moves. */
+  t('  field card IS live — it has an animation_url', json.includes('"animation_url":"data:text/html;base64,'));
+  {
+    const anim = json.split('"animation_url":"')[1].split('"')[0];
+    const html = Buffer.from(anim.split(',')[1], 'base64').toString();
+    /* ⚠ A FIELD CARD IS A QUERY, A HERO IS A PATH. `?n=42`, not `/42.html` — the field is one
+     *   page driven by a seed and the heroes are 67 generated files. Asserting the SHAPE catches
+     *   a future edit that collapses the two base URLs into one, which would 404 every field
+     *   card's lens while the metadata still looked perfectly well-formed. */
+    t('    ...pointing at the field page BY QUERY, not a hero path',
+      html.includes('/cards/field.html?n=42') && !html.includes('/cards/hero/42'));
+  }
   t('  field card classed "Field Lens"', json.includes('Field Lens'));
   t('  reports Minted:no', json.includes('"trait_type":"Minted","value":"no"'));
 }
