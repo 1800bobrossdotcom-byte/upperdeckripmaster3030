@@ -729,12 +729,14 @@
 <script src="../js/card-fight.js"></script>
 <script src="../js/wallet-ui.js"></script>
 <script src="arena-net.js"></script>
+<script src="../js/card-stats.js"></script>
+<script src="../js/deck-source.js"></script>
 <script>
 (() => {
   const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
   const RC = { common:'--common', uncommon:'--uncommon', rare:'--rare', mythic:'--mythic', prizm:'--prizm' };
   const $ = id => document.getElementById(id);
-  let DECK = [], hand = [], houseStack = [], selected = [], mode = 3, gas = TRIGGERS[0], busy = false;
+  let DECK = [], LEGACY = [], hand = [], houseStack = [], selected = [], mode = 3, gas = TRIGGERS[0], busy = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const rnd = n => Math.floor(Math.random()*n);
   const pick = (arr, k) => { const c=[...arr]; const out=[]; while(out.length<k && c.length) out.push(c.splice(rnd(c.length),1)[0]); return out; };
@@ -772,11 +774,23 @@
   }
 
   function forgedById(){ try { return new Map(JSON.parse(localStorage.getItem('urm_forged')||'[]').map(f=>[f.id,f])); } catch { return new Map(); } }
+  /* ⛔ THE VAULT IS PRUNED AND SAVED BACK — `renderVault()` drops any entry that does not resolve
+   *   and WRITES THE RESULT TO localStorage. So an index that does not know about a card does not
+   *   merely hide it: opening this page once DESTROYS it, permanently, on the one screen where a
+   *   collector keeps what they pulled. Switching DECK to the hundred without this would have
+   *   deleted every card ripped before the deck changed — the standing rule here is that the
+   *   `urm_*` keys are never wiped, and this is that rule with teeth.
+   * ⚑ THE RETIRED 196 RESOLVE, THEY DO NOT DEAL. `DECK` is the hundred and is the only thing the
+   *   hand, the gallery and the shelf are built FROM; `LEGACY` exists so an old save still finds
+   *   its card. `npm run test:cardlayers` §3 seeds a vault from `cards/manifest.json`, which is
+   *   how this was caught — it timed out waiting for a hand that could no longer exist.
+   * ⚠ LEGACY first so the hundred win any future slug collision (a Map keeps the last write). */
+  function deckIndex(){ return new Map([...LEGACY, ...DECK].map(c => [c.slug, c])); }
   function resolveEntry(e, bySlug, fById){ return e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null; }
 
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
-    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+    const bySlug = deckIndex(), fById = forgedById();
     hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
@@ -809,7 +823,7 @@
        * idempotent (Card3D.engine caches its promise), so every later trigger is free. */
       if (selected.length && window.CardFight && CardFight.warm) CardFight.warm('../');
     });
-    if (window.CardHover) CardHover.bind($('handRow'), el => { const c = DECK.find(x => x.slug === el.dataset.slug); if (!c) return null;
+    if (window.CardHover) CardHover.bind($('handRow'), el => { const c = deckIndex().get(el.dataset.slug); if (!c) return null;
       const surge = c.trigger === gas; return { art: c.art, title: c.title, rarity: c.rarity, atk: c.atk, def: c.def, trigger: c.trigger + (surge ? ' ⚡' : ''), color: `var(${RC[c.rarity] || '--common'})` }; });
     $('handInfo').textContent = `${hand.length} owned · ${gArr.length} kinds · ${selected.length}/${mode} staked`;
   }
@@ -1162,7 +1176,7 @@
     renderVault();
   }
   function renderVault(){
-    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+    const bySlug = deckIndex(), fById = forgedById();
     const v = vault();
     const clean = v.filter(e => resolveEntry(e, bySlug, fById));
     if (clean.length !== v.length) saveVault(clean);
@@ -1248,7 +1262,7 @@
   const statusWord = s => s === 'seeking' ? 'seeking a fight' : s === 'battling' ? 'mid-battle' : 'idle';
   function liveToken(){ try { const a = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
     return /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0+$/.test(a); } catch { return false; } }
-  function ownedHand(){ const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+  function ownedHand(){ const bySlug = deckIndex(), fById = forgedById();
     return vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean); }
 
   function toastMini(msg){
@@ -1495,8 +1509,16 @@
   $('reroll').onclick = () => { if(!busy) rollGas(); };
 
   // boot
-  fetch('manifest.json').then(r => r.json()).then(m => {
-    DECK = m.cards;
+  /* ⛔ THIS READ `manifest.json` — the 196 PLACEHOLDERS, the ink the press prints FROM. The arena
+   *   is where you STAKE a card, so it was asking a player to wager the stand-ins. `RipDeck.load`
+   *   is the one join that returns the hundred WITH vitals: this page reads `c.atk`, `c.def` and
+   *   `c.trigger` on every card, and the hundred carry none of their own — `js/card-stats.js`
+   *   derives them from each card's seed, which lives in `deck.json`, not in the manifest. Any
+   *   single-file load here is a deck with no stats or the wrong cards; there is no version of
+   *   this that is one fetch. */
+  Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(r => {
+    DECK = r[0] || []; LEGACY = r[1] || [];
+    if (!DECK.length) throw 0;
     renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby(); initWallet();
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';

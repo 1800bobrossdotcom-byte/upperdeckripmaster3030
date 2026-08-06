@@ -662,7 +662,60 @@ console.log('\n── 11 · THE TWO EARNED-TITLE CONDITIONS — docs/HERO-UNLOCK
     'ok ' + t.flowLapsed + ' · held ' + t.held + 's');
 }
 
-console.log('\n── 12 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
+console.log('\n── 12 · THE TWO TITLES THIS CABINET CAN AWARD ─────────────────────────────────');
+/* ⛔ RIP ROCKETER COULD NOT AWARD ANYTHING UNTIL 2026-08-06. `js/title-ledger.js` listed two
+ *   titles for this cabinet and `riprocketer.html` never loaded the file, so both sat on the
+ *   redeem surface permanently unclaimable — with a real 1/1 behind each. `test:reach` proves a
+ *   module parses and `test:cab` proves the page lays out; NEITHER can see a <script> that was
+ *   never included. Only driving the award can.
+ * ⚠ `_pump()` is the clock, for the same recorded reason as `_step`: the detectors live in
+ *   playEvents() and the over-screen check, which run on the RENDER frame, and rAF stalls in this
+ *   container — the first driven run of this reported a working detector as dead. */
+{
+  const t = await page.evaluate(() => {
+    const G = __rrpc.G, out = {};
+    out.ledger = !!window.RipTitles;
+    if (!out.ledger) return out;
+    out.rr = RipTitles.TITLES.filter(x => x.game === 'RIP ROCKETER').map(x => x.id);
+    out.cards = RipTitles.cards(); out.titles = RipTitles.TITLES.length;
+
+    // COLD BARREL — both directions off a COMPLETED tier
+    RipTitles.reset();
+    G.tierDone = { tier: 1, flowOk: true, odOnly: false }; G.ev.push('tierdone'); __rrpc._pump();
+    out.coldDenied = !RipTitles.cleared('coldbarrel');
+    G.tierDone = { tier: 2, flowOk: true, odOnly: true }; G.ev.push('tierdone'); __rrpc._pump();
+    const rec = RipTitles.cleared('coldbarrel');
+    out.coldAwarded = !!rec; out.coldTier = rec && rec.evidence && rec.evidence.tier;
+
+    // and the flag it reads is produced by the SIMULATION, not just by poking G.tierDone
+    G.stat.tierOdOnly = true; G.ship.od = 0; G.ship.fireT = -99; RRGame.fire(G);
+    out.simClearsOnColdShot = G.stat.tierOdOnly === false;
+
+    // TWO MILLION FEET — through the real over screen, both sides of the bar
+    const run = score => { RipTitles.reset(); __rrpc.start(false);
+      G.score = score; G.mode = 'over'; __rrpc._pump();
+      return !!RipTitles.cleared('twomillion'); };
+    out.under = run(1999999); out.at = run(2000000);
+    return out;
+  });
+  ok(t.ledger === true, 'riprocketer.html LOADS the ledger — the script that was missing', 'RipTitles ' + t.ledger);
+  ok(t.titles === 9 && t.cards === 11,
+    'nine titles, eleven cards — 11 auction + 11 gacha + 11 earned = 33 is untouched',
+    t.titles + ' titles · ' + t.cards + ' cards');
+  ok(JSON.stringify(t.rr) === JSON.stringify(['twomillion', 'coldbarrel']),
+    'and this cabinet owns the two that replaced the pair nothing could award', JSON.stringify(t.rr));
+  /* ⚑ BOTH DIRECTIONS ON EACH. "Not awarded" is trivially true of a detector that never fires —
+   * which is precisely the bug this section exists because of. */
+  ok(t.coldDenied === true, 'COLD BARREL is DENIED on a tier where the gun was fired cold');
+  ok(t.coldAwarded === true && t.coldTier === 2,
+    '…and awarded on a clean tier, carrying that tier as evidence', 'tier ' + t.coldTier);
+  ok(t.simClearsOnColdShot === true,
+    'the flag it reads is set by the SIMULATION — one cold shot clears it');
+  ok(t.under === false && t.at === true,
+    'TWO MILLION FEET discriminates exactly at the bar', '1,999,999 → ' + t.under + ' · 2,000,000 → ' + t.at);
+}
+
+console.log('\n── 13 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
 ok(errs.length === 0, 'no page errors', errs.slice(0, 3).join(' | ') || 'clean');
 
 await br.close();

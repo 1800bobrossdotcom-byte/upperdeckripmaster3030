@@ -479,8 +479,8 @@ const whitepaper = `
     <li><b>DEAD STICK</b> · <i>Dogfight</i> — win a match having <b>never pressed boost</b>.</li>
     <li><b>ONE MAG</b> · <i>Section 9</i> — win a round with <b>more kills than reloads</b>.</li>
     <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <li><b>OPEN AIR</b> · <i>Rip Rocketer</i> — reach <b>Tier IV on one life</b>.</li>
-    <li><b>THE FACILITY IS CLOSED</b> · <i>Rip Rocketer</i> — clear <b>every emplacement in a single tier</b>.</li>
+    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it.</li>
+    <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
     <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
     <li><b>DEAD AIR</b> · <i>The City</i> — as the bird, cover <b>300 m in one unbroken glide</b> — no wingbeat — <b>never more than 40 m above the ground</b>.</li>
     <li><b>BOTH ENDS</b> · <i>The City</i> — <b>plant a card from the air as the bird, then take that same card back as the squirrel</b>, in one visit.</li>
