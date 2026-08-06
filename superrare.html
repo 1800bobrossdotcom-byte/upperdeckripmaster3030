@@ -353,8 +353,18 @@
 /* Read-only, best-effort, optional. No wallet, no provider, no library — this formats two
  * numbers. Blocked inside a sandboxed frame? The static copy stands. */
 (function () {
-  var RPC = 'https://ethereum-sepolia-rpc.publicnode.com';
-  var EDITION = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C';
+  /* ⛔ THESE TWO ARE A SECOND SOURCE OF TRUTH, AND THE MAINNET FLIP COULD NOT REACH THEM.
+   *   This page carries NO `<script src>` on purpose — that is what keeps it wallet-free inside a
+   *   marketplace frame — so it cannot import js/chain-config.js and has to inline what it reads.
+   *   The nine-field flip moved the whole site to mainnet and left the SuperRare embed quietly
+   *   reporting SEPOLIA: 998,575 live / 1,425 burned, on the one surface SuperRare itself renders.
+   * ⚑ THE COST OF THE SECURITY PROPERTY IS EXACTLY THIS, and it is worth paying with eyes open:
+   *   no shared config means no drift protection from the config. `npm run test:embed` pins them
+   *   against chain-config instead, so the two cannot disagree again without the build failing.
+   * ⚠ Read-only `eth_call` over fetch is the ONLY network access this page has, and that is
+   *   deliberate: it can show state and cannot move anything. */
+  var RPC = 'https://ethereum-rpc.publicnode.com';
+  var EDITION = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33';
   // 0x2ab4d052 = maxTotalSupply(). 0xd5abeb01 is maxSupply(), a DIFFERENT function that
   // REVERTS on this edition — checked against the chain, not guessed.
   var SEL = { total: '0x18160ddd', max: '0x2ab4d052' };
