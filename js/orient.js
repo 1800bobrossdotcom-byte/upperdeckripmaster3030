@@ -108,7 +108,7 @@ window.RipOrient = (function () {
     VEIL.innerHTML =
       '<i class="ph" aria-hidden="true"></i>' +
       '<h2>TURN IT SIDEWAYS</h2>' +
-      '<p>These cabinets are built wide. Rotate your phone for the full screen.</p>';
+      '<p>These games are built wide. Rotate your phone for the full screen.</p>';
     /* The button only appears where a lock is actually possible. Offering "GO FULLSCREEN" on an
      * iPhone and having nothing happen is worse than not offering it. */
     if (canLock()) {

@@ -124,15 +124,15 @@ S.push(slide('The token · $3030', `
   <div class="cols">
     <ul class="bullets">
       <li><b>Supply cap: 3,300,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
-      <li><b>Opening price ≈ 1 RARE / token (~$0.02)</b> — kept cheap so every toll and vote is a micro-move.</li>
+      <li><b>Opening price ≈ $0.08 / $3030 — MEASURED, not modelled.</b> SuperRare ran the live mainnet <code>--preview</code> at the full 3.3M supply on the <b>low-demand</b> preset, no initial RARE liquidity, no creator allocation.</li>
       <li>Liquidity is a <b>Doppler multicurve</b> (log-normal) inside a <b>Uniswap-v4 pool</b>; reserve/quote is <b>RARE</b>.</li>
-      <li><b>FDV at a full curve ≈ $606k</b> — an artist-scale niche edition, by choice. Verified with <code>--preview</code> pre-mainnet.</li>
+      <li><b>FDV at a full curve ≈ $2.6M</b> — an artist-scale niche edition, by choice. ⚠ This assumes a demand multiple of 10 across the whole curve, which the preview did <b>not</b> give us: illustration, not forecast.</li>
     </ul>
     <div class="statwrap">
       <div class="stat"><b>3.3M</b><span>hard cap</span></div>
-      <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
+      <div class="stat"><b>~$0.08</b><span>opening / token</span></div>
       <div class="stat"><b>RARE</b><span>reserve currency</span></div>
-      <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+      <div class="stat"><b>~$2.6M</b><span>full-curve FDV*</span></div>
     </div>
   </div>
   <p class="fine">Two on-chain unknowns are confirmed with the Rare CLI before mainnet: the effective demand multiple <b>M</b> and the <b>sell-fraction</b>. The whole model is reproducible in <code>scripts/token-model.mjs</code>.</p>`, C.amber));

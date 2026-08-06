@@ -622,6 +622,94 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
 
+## ⛔ THE FRONT PAGE PUT EVERYTHING IT MAKES BELOW EVERYTHING IT EXPLAINS
+*Artist, 2026-08-06: "call them games instead of cabinets. there are 6 games … do a site sweep for
+text updates. condense site. look at ui/ux flow. make it more of a funnel — get into the games and
+the cards immediately - take the hero card off - redesign the buttons and fix landing page."*
+
+⚑ **THE NUMBER IS THE WHOLE ARGUMENT, AND NOBODY HAD EVER TAKEN IT: the first thing a visitor could
+press on `index.html` was 3,516 px down on a phone** (3,093 on a desktop, 3,039 in landscape).
+Above it sat a splash, a masthead, a full-screen countdown, a five-row facts table, a framed lens
+and a creed. The games were the word "Arcade" in a flat row of **eight identically-sized buttons**,
+two thirds of the way down. Driven at four viewports, before and after:
+
+| | phone 390×844 | desktop 1280×800 | landscape 844×390 |
+| --- | --- | --- | --- |
+| first pressable action, before | 3,516 px | 3,093 px | 3,039 px |
+| **after** | **~430 px** | **~500 px** | **~275 px** |
+| page height | 10,259 → 8,605 | 6,907 → 4,824 | 7,842 → 5,112 |
+
+- ✅ **THREE DOORS, IN THE ORDER A STRANGER DOES THEM IN** — play (free) · the cards (free) · rip a
+  pack (the only one that costs money, deliberately last) — then **the six games as a grid on the
+  front page** and **six card doors** under it. Every card surface is ONE click from the door now.
+- ⛔ **THE HERO CARD IS OFF** (artist). The framed `cards/lovebeing.html` lens is gone from the
+  landing page; it is still reached from the deck, so nothing was orphaned.
+- ⛔ **THE PAGE EXPLAINED ITSELF TWICE.** "What is this?" and "How to play" covered the same five
+  subjects in ~700 words, back to back, both above anything you could do. Merged into one pass of
+  five steps. ⚠ **Nothing honest was dropped** — the no-published-burn-percentage argument, the
+  concentration-risk sentence and the testnet-prototype note all survive, because those are the
+  paragraphs that earn the page its trust and they are the first thing a condensation loses.
+- ⚑ **BUTTONS: ONE PRIMITIVE, THREE RANKS, ONE PRESS.** There were TWO button languages — `.btn`
+  (a neon chip whose only feedback was a **hover** sheen) and `.wp-link` (a hard-shadowed arcade key
+  that actually travels) — two paragraphs apart, for the same class of action. Now every button on
+  the page collapses the same offset shadow under a matching translate, so a finger gets the same
+  physics everywhere; rank is size and fill, never a different mechanism. The sheen fires on press
+  as well as hover, because **a hover affordance does not exist on a phone.**
+- ⛔ **A WIDTH CAP ON A SQUARE IS A HEIGHT CAP, AND THE WORDMARK HAD NO `vh` TERM.** At
+  `min(74vw,430px)` a phone held sideways asked for a 430 px-tall block in a 390 px-tall window.
+  `--wmw:min(58vw,380px,38vh)` — and the width and the font-size read ONE custom property instead of
+  repeating the same expression twice. **Third sighting** (`.u-logo`; the legend cap that clamped to
+  zero by subtraction).
+- ⛔ **`banner.js` IS GONE FROM THE REPO AND THE PAGE WAS STILL AVOIDING IT** — `--rip-fab-bottom:124px`
+  and 176 px of body padding reserved for a freshness strip that does not ship. ~110 px of dead space
+  under the footer on every screen. ⚑ **A layout number derived from a DELETED thing is worse than one
+  derived from a changed count: there is nothing on screen to look wrong.**
+- ⚠ **TWO LAYOUT BUGS THAT ONLY LOOKING FOUND.** (a) The game/card tiles placed two children with
+  `grid-row` and no COLUMN, so auto-placement put the tagline in the chevron's cell — it rendered,
+  linked, cleared 44 px and measured clean on every number the probe asks. **A partially-placed grid
+  is one the browser finishes for you, plausibly and wrong.** (b) Five steps in a four-track grid came
+  out 4 + 1 with two thirds of a row empty. Every cell is placed explicitly now.
+- ⚠ **STILL OPEN, MEASURED, NOT FIXED: the shared floating audio furniture sits on page content at
+  the arrival scroll position on SHORT viewports.** At 390×844 and 1280×800 all three doors are 5/5
+  pressable; at **320×568 and 844×390** `theme.js`'s 239 px `#soundBar` and `sfx.js`'s toggle cover
+  the middle of a door (1/5 and 0/5 of sampled points reach it). Nothing is dead — the page scrolls,
+  and every door is fully pressable once scrolled — but it is the `banner.js`-over-the-controls shape
+  again. ⚑ **The fix belongs to `theme.js`/`sfx.js` and therefore to all ~213 pages, not to a
+  landing-page pass**; the recorded remedy is the cabinets' collapsible `.toggles` cog.
+
+### ⛔ AND THE SWEEP FOUND FOUR THINGS WORSE THAN THE WORD "CABINET"
+- ⛔ **THE WHITEPAPER PUBLISHED THE DEAD OPENING PRICE — `~$0.02`, on launch day, 4× wrong.**
+  `docs/PACK-PRICING.md` has said **≈$0.08 measured** since 2026-08-06. **`tokenomics.html`
+  contradicted ITSELF**: §01 said `~1 RARE` / `~$606k FDV` / `medium-demand` while §03, two
+  paragraphs below, correctly said `$0.08` / `low-demand` / `$2,640,000`. ⚑ Fixed at the GENERATOR
+  (`scripts/build-pages.mjs`) and regenerated; every M-derived figure is now labelled **illustration,
+  not forecast**, which is what PACK-PRICING itself instructs.
+- ⛔ **`audit.html` STILL SAID "a ~350-token bundle ≈ $7." AND `test:name` SCORED IT GREEN.** Both
+  pins exist and both were defeated by punctuation: `\b350\s*tokens?` cannot match `350-token`
+  (a hyphen is not whitespace) and `\$\s*7(?![\d,.])` cannot match `$7.` at the end of a sentence
+  (the lookahead that stops `$70` also stops a full stop). ⚑ **A pin tuned to one SPELLING guards
+  one spelling** — the hand-picked-list failure with a regex instead of a list. Both now match the
+  SHAPE; proved to bite by restoring the exact bytes (0 failures → 2, named).
+- ⛔ **TWO OF THE ELEVEN EARNED HERO TITLES NAME A RETIRED GAME.** THREE CUTS and NO SWORD live in
+  NEON RONIN, which lost its slot to THE CITY on 2026-08-03 and which **nothing on the site links**.
+  The page promises them, so the ROUTE must exist: `whitepaper.html` links `ronin.html` directly and
+  says out loud that it is retired. ⚠ **Re-siting those two conditions is AUTHORSHIP and is the
+  artist's** — deleting two published titles would be the studio taking a prize back.
+- ⛔ **THE ARCADE DESCRIBED A GAME THAT IS NOT THE ONE THAT SHIPS, in both directions at once.** THE
+  CITY's card promised *"a photograph you take becomes a card"* (**photo mode is not built**) and
+  closed on *"wing energy refills when you perch, so it is a bird that must land"* — **the exact
+  mechanic the artist had removed** (*"no having to land to keep flying"*). A menu is where a visitor
+  decides what to open, so a description there is a promise.
+- ⚠ Also: `studio.html` had a tile titled *"Neon Ronin · 1v1 duel"* pointing at `arcade.html#ronin`,
+  an anchor deliberately kept alive whose game has been THE CITY for three days — **it named one game
+  and opened another.** And DOGFIGHT and CLOUD RACER carried the **same icon** on the one shelf whose
+  job is telling six games apart.
+- ⛔ **`test-all.mjs`'s OWN OUTPUT FAILS `test:name`.** `test-results.json` records a failing suite's
+  error verbatim, including the absolute import path — which begins with the repo directory, still
+  named for the retired studio. `test:all` passes (name runs first, before the file exists) and the
+  very next standalone `test:name` fails with six errors that have nothing to do with the tree.
+  Allow-listed by name. **A checker that cries wolf at its own scratch paper gets muted.**
+
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
   `build-pages.mjs` shell). Fail-closed. It is a **soft veil only** — the check runs client

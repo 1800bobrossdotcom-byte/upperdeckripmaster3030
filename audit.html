@@ -303,8 +303,11 @@
     <li><b>Renderer display bugs.</b> The render read 100% "circulating" and 0 per-RARE; <b>fixed</b> to read
       BURNED % (<code>max − total</code>) and a 2-dp per-RARE value in <code>contracts/Ripmaster3030Renderer.sol</code>
       (re-callable <code>setRenderContract</code>, no token redeploy).</li>
-    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
-      ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
+    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed</b> at the time
+      to ~1 RARE/token. <b>Then fixed again, properly:</b> that peg was still an assumption, and SuperRare's live
+      mainnet previews measured the real open at <b>≈$0.08 per $3030</b> — 4× the assumed figure. The pack is a
+      <b>dollar target</b> now ($10 → $20 across the four tiers), so a token count cannot go stale with it:
+      Tier I is <b>125 $3030</b> at the measured open. See <a href="tokenomics.html">Tokenomics</a> §03.</li>
     <li><b>Over-claimed "supply only goes down."</b> <b>Fixed:</b> the docs now state plainly that net supply =
       buys − burns (sign indeterminate short-term); deflation is <i>pressure</i>, and over the deck's life burns dominate.</li>
   </ul>

@@ -68,7 +68,17 @@ const DEAD_ART = [
  *   is asserted separately at the bottom of this suite (host-scoped so it cannot loop,
  *   path-preserving, permanent, destination on the live domain). An exemption without a
  *   replacement check is just a blind spot with a comment on it. */
-const ALLOW = new Set(['package.json', 'package-lock.json', 'vercel.json']);
+/* ⛔ `test-results.json` IS THE TEST HARNESS'S OWN OUTPUT AND IT FAILS THIS TEST. `test-all.mjs`
+ *   writes it as it goes, and a suite that dies on a missing dependency records the error verbatim
+ *   — including the ABSOLUTE PATH it was imported from, which begins `/home/user/upperdeckripmaster3030/`.
+ *   The repo directory is still named for the retired studio, so the sweep reads a genuine hit in a
+ *   file that ships nowhere. It is gitignored; the sweep walks the FILESYSTEM, not git, which is
+ *   correct (an unignored stray must still be caught) and is exactly why this one needs naming.
+ *   ⚑ The symptom is the worst kind: `npm run test:all` passes (name runs first, before the file
+ *   exists) and the very next standalone `npm run test:name` fails with six errors that have nothing
+ *   to do with the working tree. A checker that cries wolf at its own scratch paper gets muted —
+ *   this file's own recorded lesson, from the CSS comment that explained the bug it flagged. */
+const ALLOW = new Set(['package.json', 'package-lock.json', 'vercel.json', 'test-results.json']);
 
 let fails = 0, checks = 0, files = 0;
 const ok = (c, m) => { checks++; if (c) { console.log('  ok    ' + m); } else { fails++; console.log('  FAIL  ' + m); } };
@@ -621,8 +631,19 @@ console.log('\n── the supply cap, stated in one place and spent everywhere �
     ok(!/30\.7\s*%/.test(src), `${page} — no 30.7% burn forecast`);
     ok(!/44\.4\s*%/.test(src), `${page} — no 44.4% studio-slug forecast`);
     ok(!/1\.44\s*×|1\.44x/i.test(src), `${page} — no 1.44x contraction forecast`);
-    ok(!/\$\s*7(\.00)?(?![\d,.])/.test(src), `${page} — no $7 pack`);
-    ok(!/\b350\s*(\$3030|tokens?)\b/i.test(src), `${page} — no 350-token pack`);
+    /* ⛔ BOTH OF THESE PINS WERE DEFEATED BY PUNCTUATION, AND audit.html WALKED THROUGH THE GAP.
+     *   It carried "the pack is a ~350-token bundle ≈ $7." — the exact two figures this loop
+     *   exists to forbid — and scored green on both, twice over:
+     *     · `\b350\s*tokens?` cannot match `350-token`, because a HYPHEN is not whitespace;
+     *     · `\$\s*7(?![\d,.])` cannot match `$7.` at the end of a sentence, because the lookahead
+     *       that stops `$7` matching inside `$70` or `$7.50` also stops it matching a FULL STOP.
+     *   ⚑ Each regex was written against the one phrasing that was on the page the day it was
+     *   written. A pin tuned to a spelling is a pin that only guards that spelling — the same
+     *   shape as the hand-picked file list this loop was itself built to replace, and as the
+     *   `cost`/`need` variable-name match that missed pack.js's third flooring site. Match the
+     *   SHAPE: any separator between the number and its unit, and no lookahead beyond digits. */
+    ok(!/\$\s*7(\.00)?(?!\d|[.,]\d)/.test(src), `${page} — no $7 pack`);
+    ok(!/\b350[\s\-–—]*(\$3030|tokens?)\b/i.test(src), `${page} — no 350-token pack`);
   }
 }
 

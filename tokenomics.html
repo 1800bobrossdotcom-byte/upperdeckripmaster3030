@@ -267,12 +267,15 @@
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
     <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
-    <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
+    <div class="stat"><b>~$0.08</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
-    <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+    <div class="stat"><b>~$2.6M</b><span>full-curve FDV*</span></div>
   </div>
-  <p style="margin-top:14px" class="fine">*<code>medium-demand</code> preset, verified on-chain with <code>--preview</code> before mainnet.
-  RARE≈$0.02 assumed for USD columns; re-peg on deploy day. Everything below is reproduced by
+  <p style="margin-top:14px" class="fine">*The opening price is <b>measured</b> — SuperRare's live mainnet
+  <code>--preview</code> on the <code>low-demand</code> preset at the full 3.3M supply. <b>M is not</b>: the
+  preview gave the open and the first band, not the whole curve, so <b>every M-derived figure here (the FDV,
+  RARE-to-fill, the sensitivity table) is illustration, not forecast.</b> RARE≈$0.02 is a separate assumption
+  used only for the reserve-currency columns; re-peg on deploy day. Everything below is reproduced by
   <code>scripts/token-model.mjs</code> — run it to re-derive.</p>
 
   <h2><span class="n">02</span>What a Liquid Edition is</h2>

@@ -90,10 +90,16 @@ part that took the thought; the **numbers** are the part to argue about.
 | 8 | **THREE CUTS** | NEON RONIN | Win a duel where **every landed hit was part of a combo** (TEMPEST, CREST WAVE or DRAGON KICK). | The combos are recent-attack strings — slash·slash·slash, punch·kick·slash, punch·kick. Landing only combo hits means never throwing the panic button, against an opponent whose blocks reset your sequence. |
 | 9 | **NO SWORD** | NEON RONIN | Win a duel using **no slash at all** — punches, kicks, dashes and the meter special only. | NEON RONIN is a sword duel; this is the title for refusing the sword. Reach on punch/kick is a fraction of the blade's, so it is fought entirely inside the opponent's range. |
 | 10 | **HOUSE MONEY** | THE ARENA | Take **first place on the podium three times running** without folding once. | 1st/2nd/3rd pays 50/30/20 and folding is always available. Three in a row without taking the exit is a run where you were never allowed to be careful. |
-| 11 | **THE LONG COUNT** | *cross-game* | Hold a **first-place finish in five different cabinets** — five of the eight, your choice which. | The only title that cannot be won by being excellent at one thing. It is the studio's own shape: a card and game studio, not a game studio with cards. **Best candidate for the uncontested variant** — state a date, award it to the broadest verified run. |
+| 11 | **THE LONG COUNT** | *cross-game* | Hold a **first-place finish in five different games** — five of the six on the shelf, your choice which. | The only title that cannot be won by being excellent at one thing. It is the studio's own shape: a card and game studio, not a game studio with cards. **Best candidate for the uncontested variant** — state a date, award it to the broadest verified run. |
 
 **Coverage:** DOGFIGHT ×2 · SECTION 9 ×2 · RIP ROCKETER ×2 · CLOUD RACER ×1 · NEON RONIN ×2 ·
-THE ARENA ×1 · cross-game ×1. Every cabinet with a scoreboard owns at least one.
+THE ARENA ×1 · cross-game ×1. Every game with a scoreboard owns at least one.
+⛔ **AND TWO OF THEM NAME A RETIRED GAME.** NEON RONIN left the arcade on 2026-08-03 when THE CITY
+replaced it — it is playable at `ronin.html` and nothing on the site links it. So #8 and #9 promise a
+1/1 in a game a visitor cannot find. ⚑ `whitepaper.html` now links the duel directly and says out loud
+that it is retired, because the page publishes the promise and the route has to match it. **Re-siting
+those two conditions in a live game is authorship and is the artist's call** — deleting two published
+titles would be the studio taking a prize back, so nothing has been deleted.
 ⚠ Eleven **titles**, thirteen **cards** — see §4¾, which is unresolved.
 
 ## 4½ · THE STREAK, measured — and it is not the shape it looks like
@@ -230,7 +236,7 @@ states no split, so it cannot be wrong about one.
 
 1. **Which 11 of the 33 go to auction**, which 11 are gacha, which 11 are earned. This document
    assumes the split exists; it does not assign card ids. Art-led decision.
-2. **The difficulty dial.** Every number in §4 (three in a row, five cabinets, one life to Tier IV)
+2. **The difficulty dial.** Every number in §4 (three in a row, five games, one life to Tier IV)
    is a starting position, chosen to be reachable by a good player in an evening and not by a
    casual one at all. Move them.
 3. **Rule 4** — first-claimant-takes-it, versus holding a few titles open to a stated date.
