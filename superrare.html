@@ -109,7 +109,20 @@
 
   .state{ display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:8px; margin-top:14px; }
   .cell{ border:1px solid var(--phosdeep); border-radius:8px; padding:8px 10px; background:rgba(1,19,10,.7); }
-  .cell b{ display:block; font-family:var(--fat); font-size:clamp(14px,3.2vw,19px); color:var(--phos); }
+  /* ⚑ TABULAR FIGURES, AND IT IS A FUNCTIONAL FIX RATHER THAN A TASTE ONE. These digits are read
+     off the chain and re-rendered, so with proportional numerals a 1 is narrower than a 7 and the
+     whole figure re-flows every refresh — a supply counter that twitches reads as unreliable,
+     which is the opposite of the claim it is making. `tabular-nums` gives every digit the same
+     advance so only the digits change, not the layout. */
+  .cell b{ display:block; font-family:var(--fat); font-size:clamp(14px,3.2vw,19px); color:var(--phos);
+    font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1; }
+  /* ⛔ THE SUPPLY IS THE POINT OF THIS PANEL, so it is sized like it. Everything else here is a
+     constant — 100 cards, 33 heroes, a cap — and only these two move. Giving all four cells equal
+     weight said the numbers that change matter no more than the ones that cannot. */
+  .cell.lead{ grid-column:span 2; border-color:var(--phos); background:rgba(1,32,16,.75); }
+  .cell.lead b{ font-size:clamp(20px,5.4vw,30px); letter-spacing:-.01em; }
+  /* ⚠ Wraps to one-per-row below the point where two 9-character figures collide. */
+  @media (max-width:430px){ .cell.lead{ grid-column:1/-1; } }
   .cell span{ display:block; margin-top:2px; font-size:9px; letter-spacing:.16em;
     text-transform:uppercase; color:var(--phosdim); }
 
@@ -239,8 +252,8 @@
     </p>
 
     <div class="state">
-      <div class="cell"><b id="sSupply">—</b><span>live supply</span></div>
-      <div class="cell"><b id="sBurned">—</b><span>burned forever</span></div>
+      <div class="cell lead"><b id="sSupply">—</b><span>live supply · read from the contract</span></div>
+      <div class="cell lead"><b id="sBurned">—</b><span id="sBurnedLbl">burned forever</span></div>
       <div class="cell"><b>100</b><span>cards in the deck</span></div>
       <div class="cell"><b>33</b><span>hero 1/1 lenses</span></div>
     </div>
@@ -369,7 +382,15 @@
   // REVERTS on this edition — checked against the chain, not guessed.
   var SEL = { total: '0x18160ddd', max: '0x2ab4d052' };
 
-  function fmt(n) { return n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : Math.round(n).toLocaleString(); }
+  /* ⛔ NEVER ABRIDGE THE SUPPLY. It rendered `3.03M`, which is what 3,030,000 AND 3,029,875 both
+   *   round to — so the abbreviation erased the only thing this number exists to show: that it is
+   *   going DOWN, permanently, and by how much. A burn of 125 was invisible; the first ten
+   *   thousand would have been too.
+   * ⚑ Artist, 2026-08-06: *"show live number of token, not abridged version, more compelling."*
+   *   He is right on both counts, and the second is the stronger one — 3,029,875 reads as a
+   *   ledger, 3.03M reads as a marketing round-off. The whole claim of this project is that the
+   *   burn is real, so the digits are the argument. */
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
   function set(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; }
   function call(data) {
     return fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -391,7 +412,16 @@
     Promise.all([call(SEL.total), call(SEL.max)]).then(function (r) {
       var live = r[0], max = r[1];
       if (live > 0) set('sSupply', fmt(live));
-      if (live > 0 && max > 0 && max >= live) set('sBurned', fmt(max - live));
+      if (live > 0 && max > 0 && max >= live) {
+        var burned = max - live;
+        set('sBurned', fmt(burned));
+        /* ⚑ THE LABEL CARRIES THE CAP, NOT A PERCENTAGE. `docs/PACK-PRICING.md` forbids publishing
+         *   a burn percentage — the pack is a DOLLAR target, so a rising token buys fewer tokens
+         *   and burns less, and any printed share drifts with nobody editing anything. "of
+         *   3,030,000 minted" is a FACT that stays true whatever the price does, and it lets a
+         *   reader do the division themselves if they want it. */
+        set('sBurnedLbl', 'burned forever · of ' + fmt(max) + ' minted');
+      }
     }).catch(function () { /* static copy stands */ });
   } catch (e) { /* static copy stands */ }
 })();
