@@ -836,6 +836,11 @@
          page was 3,516px down on a phone. ⚑ These three are the page now, and their order is the
          order a stranger does them in: play something (free), look at the cards (free), then buy
          a pack — the one thing that costs money, deliberately last. -->
+    <!-- WHO IS ONLINE, right where a visitor chooses a door. The presence API has been
+         live and answering the whole time; it was only ever rendered INSIDE a cabinet, so
+         the only way to learn somebody was around was to already be playing with them.
+         Empty by default, and empty when the room is empty — it never draws "0 online". -->
+    <div id="onlineNow"></div>
     <nav class="doors" aria-label="Start here">
       <a class="door" href="arcade.html">
         <span class="d-ic ic" data-ic="joystick" data-ic-size="26"></span>
@@ -1309,5 +1314,6 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>
+<script src="js/online-now.js" defer></script>
 </body>
 </html>
