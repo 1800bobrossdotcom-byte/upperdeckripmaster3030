@@ -12,6 +12,22 @@ contracts/
 build/
 .claude/
 
+# ⛔ THE FORGE IS THE ARTIST'S CONSOLE AND IS NOT PART OF THE PUBLIC SITE.
+# Artist, 2026-08-06: *"no one should have access to the plate proof console except me."*
+# `cards/proof.html` is the plate-proof editor the hundred are made on — every press dial, the
+# save/number panel and the deck's JSON export. Unlinking it would have been obscurity: the
+# pre-launch veil has been OFF since 2026-08-05 (gate.js `LIVE = true`), so anyone who typed the
+# URL, or read it out of the repo, had the whole console. Not shipping the file is the lock.
+#
+# ⚑ IT STAYS IN GIT, AND THAT IS THE POINT OF DOING IT HERE RATHER THAN DELETING. The file is
+#   still on disk, so `npm run test:forge`, `test:deck`, `test:hero` and `npm run deck:bake` all
+#   keep driving it locally and the artist keeps working in it via `npm run forge`. Only the CDN
+#   never sees it.
+# ⚠ `scripts/test-name-law.mjs` mirrors this file by DIRECTORY (`SKIP_DIR`), so proof.html is
+#   still swept for the name law. Deliberate: it is a surface the artist reads every day, and a
+#   file that does not ship can still be wrong in front of the person who owns it.
+cards/proof.html
+
 # Card-separation BUILD OUTPUT — 23 MB of the 31 MB in models/cards/ that nothing fetches.
 # The only thing the site reads is models/cards/<n>/layers/*.png, named by the sidecars in
 # cards/art/hero/*.layers.json — resolved all 34 srcs, every one lives under layers/.
