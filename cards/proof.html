@@ -404,6 +404,29 @@ frame and seed are left alone">RESET TO BASE</button>
     </div>
 
     <div class="grp">
+      <label>THE SCREEN <span class="v" id="vScreen">0.00</span></label>
+      <input type="range" id="screen" min="0" max="1" step="0.01" value="0">
+      <div class="note">the <strong>halftone stipple</strong> — each plate broken into dots on its
+        own screen angle. At <strong>0 the ink is laid in continuous tone</strong> and the artwork
+        is seen directly instead of through a screen. Everything else survives: the plates, their
+        registrations, the film weights, the roller band. It is still a separation and still a
+        print, just not a <em>screened</em> one. ⚠ The dot relief goes with it — beads of ink
+        standing proud are the stipple in three dimensions.</div>
+    </div>
+
+    <div class="grp">
+      <label>THE EDGE <span class="v" id="vFrame">framed</span></label>
+      <div class="row"><button type="button" id="frame">FRAMED · TRIM + SORTS</button></div>
+      <div class="note"><strong>Frameless</strong> takes the trim away and the composition runs to
+        the die edge — a <strong>full bleed</strong>, which is a real thing a press does and a
+        different kind of card. It takes the border sorts with it: sorts are set INTO the trim, so
+        a frameless card with a ruled border still on it is a border round nothing. The name stays
+        — that is the card's title, not its frame. ⚠ The trim is what makes the artwork read as a
+        <em>window</em>; bleeding to all four edges is what turned the first proof into wallpaper.
+        That is why this is an option and not the default.</div>
+    </div>
+
+    <div class="grp">
       <label>MOTION <span class="v" id="vMot">—</span></label>
       <select id="motion" aria-label="press motion"></select>
       <div class="row"><button type="button" id="preview">▶ PREVIEW</button>
@@ -1047,6 +1070,8 @@ frame and seed are left alone">RESET TO BASE</button>
     { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
     /* the impression's own character — base 0 is a clean pull, which is what "raw" means */
     { id: 'press',  k: 'press', d: 0,   dp: 2, put: function (c, v) { c.setPress(v); } },
+    /* ⚠ base 0 — the artist's call: no stipple unless it is asked for */
+    { id: 'screen', k: 'scr',   d: 0,   dp: 2, put: function (c, v) { c.setScreen(v); } },
     /* the loops: how many, and how fast they run against the press revolution */
     { id: 'sprites', k: 'spr', d: 0, dp: 0,
       put: function (c, v) { c.setSprites({ count: v, kind: loopKind(), type: TYPE_SPEC }); } },
@@ -1067,6 +1092,11 @@ frame and seed are left alone">RESET TO BASE</button>
       put: function (c, v) { c.setSpin(v); } },
     { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
       put: function (c, v) { c.setEnv(v); } },
+    /* ⚠ d:1 — FRAMED is the base. Frameless is a change you apply, which is the whole point of
+     *   the base card: the thing you start from is the card as it prints. */
+    { id: 'frame', k: 'frame', d: 1, on: 'FRAMED · TRIM + SORTS', off: 'FRAMELESS · FULL BLEED',
+      put: function (c, v) { c.setFrame(!!v); },
+      say: function (on) { return on ? 'framed' : 'frameless'; } },
     /* the plate-proof furniture — base OFF, because these belong to a check sheet */
     { id: 'marks', k: 'marks', d: 0, on: 'MARKS ON', off: 'MARKS OFF',
       put: function (c, v) { c.setMarks(!!v); } },
