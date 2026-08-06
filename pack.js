@@ -149,11 +149,27 @@
    *   whole hero band. That is over-inclusive and safe in exactly the way the rate is not: the
    *   chain mints only against a `kind 1` voucher a person signs, so the studio still decides
    *   which card a slip becomes. The RATE is the part a machine had to get right. */
-  const GACHA_PER_PACK = 11 / 3560;      // eleven gacha heroes over the four tiers' packs
+  /* ⛔ ELEVEN CARDS ARE IN THE PACK, NOT THIRTY-THREE. Artist, 2026-08-06: *"there are only 11
+   *   heros in gacha 11 in game 11 auction."* The first fix got the RATE right and still drew from
+   *   all 33 — so a gacha pull could have landed on a card promised to an auction or to a game
+   *   title, which is a different card being given away twice.
+   * ⚠ THE IDS BELOW ARE PROVISIONAL; THE COUNT IS NOT. Nothing in the repo assigns the 33 to
+   *   routes — `deck-manifest.json` has no route field, HERO-UNLOCKS.md names nine titles without
+   *   card numbers, and the hero titles are still `______`. Which specific card is auctioned,
+   *   pulled or earned is AUTHORSHIP and the artist's alone, so this is a contiguous split stated
+   *   in one editable line rather than a guess buried in logic. Change the array, nothing else.
+   * ⚑ Being wrong here is cheap in a way the rate was not: a hero still mints only against a
+   *   human-signed `kind 1` voucher, so the studio sees which card a slip names before it exists.
+   *   The pack must simply stop OFFERING cards that were never its to offer. */
+  const GACHA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];   // 11 — auction 1–11, earned 23–33
+  const GACHA_PER_PACK = GACHA_IDS.length / 3560;   // eleven of them over the four tiers' packs
   const isHero = c => c && c.band === 'hero';
+  const isGacha = c => isHero(c) && GACHA_IDS.indexOf(Number(c.id)) >= 0;
   const pull = n => {
     const field = DECK.filter(c => !isHero(c));
-    const heroes = DECK.filter(isHero);
+    /* ⛔ THE GACHA ELEVEN, NOT EVERY HERO. Drawing from all 33 would offer cards reserved for the
+     *   auctions and the game titles — the same 1/1 promised down two routes. */
+    const heroes = DECK.filter(isGacha);
     /* Fall back to the whole deck only if the manifest carried no bands at all — otherwise an
      * empty `field` would silently produce an empty pack. */
     const pool = field.length ? field : DECK;

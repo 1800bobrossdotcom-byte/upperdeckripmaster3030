@@ -1171,23 +1171,27 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
 {
   console.log('\n── the pack hands out 1/1 heroes at the rate eleven of them can support ──');
   const src = readFileSync(join(ROOT, 'pack.js'), 'utf8');
-  const m = /const GACHA_PER_PACK = ([^;]+);[\s\S]*?(const isHero = [\s\S]*?\n  \};)/.exec(src);
+  const m = /(const GACHA_IDS = \[[^\]]*\];[\s\S]*?)(const pull = [\s\S]*?\n  \};)/.exec(src);
   ok(!!m, 'pack.js exposes an extractable gacha rate + pull');
   if (m) {
     const DECK = [];
     for (let i = 1; i <= 33; i++) DECK.push({ id: i, band: 'hero' });
     for (let i = 34; i <= 100; i++) DECK.push({ id: i, band: 'field' });
-    const fn = new Function('DECK', 'rnd',
-      `const GACHA_PER_PACK = ${m[1]};\n${m[2]}\nreturn pull;`);
-    const pull = fn(DECK, n => Math.floor(Math.random() * n));
+    const fn = new Function('DECK', 'rnd', `${m[1]}\n${m[2]}\nreturn { pull, GACHA_IDS };`);
+    const { pull, GACHA_IDS } = fn(DECK, n => Math.floor(Math.random() * n));
+    /* ⛔ ELEVEN, AND ONLY THOSE ELEVEN. Artist: "there are only 11 heros in gacha 11 in game 11
+     *   auction." The first fix got the RATE right and still drew from all 33, so a pull could
+     *   land on a card promised to an auction or a game title — the same 1/1 offered twice. */
+    ok(GACHA_IDS.length === 11, 'the gacha pool is exactly eleven cards', String(GACHA_IDS.length));
 
     const PACKS = 3560, SIZE = 7;
-    let heroes = 0, twoPlus = 0, wrongSize = 0;
+    let heroes = 0, twoPlus = 0, wrongSize = 0, outsidePool = 0;
     for (let i = 0; i < PACKS; i++) {
       const p = pull(SIZE);
       if (p.length !== SIZE) wrongSize++;
-      const h = p.filter(c => c.band === 'hero').length;
-      heroes += h; if (h > 1) twoPlus++;
+      const hs = p.filter(c => c.band === 'hero');
+      for (const c of hs) if (!GACHA_IDS.includes(Number(c.id))) outsidePool++;
+      heroes += hs.length; if (hs.length > 1) twoPlus++;
     }
     /* ⚠ A WIDE BAND ON PURPOSE. Eleven events over 3,560 trials is Poisson: the 99.9% interval is
      *   roughly 2–24, so a tight bar would flake nightly and get muted. The bug being caught was
@@ -1198,6 +1202,8 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
     ok(twoPlus === 0, 'no pack ever contains two heroes — each is a 1/1', `${twoPlus} packs did`);
     ok(wrongSize === 0, 'the hero substitutes for a field card, it does not lengthen the pack',
       `${wrongSize} packs came out the wrong size`);
+    ok(outsidePool === 0, 'the pack never offers a hero reserved for an auction or a game title',
+      `${outsidePool} pulls came from outside the gacha eleven`);
   }
 }
 

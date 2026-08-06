@@ -334,3 +334,34 @@ false as a *title* count and true as a *card* count, and the page must not blur 
 `whitepaper.html` it generates — and both are done. **The generator was edited and the page
 regenerated from it**, never the other way round: patching output and leaving the generator armed
 is `restyle-backs.mjs`'s recorded failure, and it is the fifth time this project has had to say so.
+
+---
+
+## ⚑ WHICH OF THE 33 GOES DOWN WHICH ROUTE — settled 2026-08-06
+
+Artist: *"there are only 11 heros in gacha 11 in game 11 auction"*, then *"you pick the cards
+random is fine they are all cool."* So the split is picked and written down here, because it was
+previously **nowhere**: `cards/deck-manifest.json` has no route field, the titles below name no
+card numbers, and every hero title is still `______`.
+
+| ids | route | who hands it over |
+| --- | --- | --- |
+| **1 – 11** | **AUCTION** | sold on SuperRare |
+| **12 – 22** | **GACHA** | pulled from a pack — `GACHA_IDS` in `pack.js` |
+| **23 – 33** | **EARNED** | the nine titles in this document, eleven seats |
+
+⛔ **FIXED, NOT RANDOM, AND THAT IS THE ONE PLACE THE ARTIST'S "random is fine" NEEDED READING
+RATHER THAN OBEYING.** He was answering *which cards* — any of them, they are all good. He was not
+asking for the assignment to be re-rolled: a card that is in the gacha pool this week and the
+auction pool next week is a 1/1 promised down two routes, which is the exact failure this split
+exists to prevent. The choice was arbitrary; the *stability* is not.
+
+⚑ **THE COUNT IS THE SETTLED PART, THE IDS ARE ONE EDITABLE LINE.** Change `GACHA_IDS` in
+`pack.js` and the pack follows; `npm run test:name` asserts the pool is exactly eleven and that no
+pull ever offers a card from outside it, so a redistribution that breaks the arithmetic fails
+loudly rather than silently over-issuing.
+
+⚠ **Being wrong about WHICH is cheap; being wrong about HOW MANY was not.** A hero mints only
+against a human-signed `kind 1` voucher, so the studio sees the card a claim names before it
+exists. The pack simply must not OFFER what was never its to offer — and until 2026-08-06 it
+offered all 33 at a rate that would have handed out ~8,224 of the eleven that exist.
