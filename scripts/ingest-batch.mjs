@@ -233,10 +233,20 @@ function buildGallery() {
       <span class="plate"><h1>✦ The Deck ✦</h1></span>
       <a class="back" href="../">← back to the pack</a>
       <div class="decknav">
+        <a class="hot" href="deck.html">✦ THE HUNDRED · the real deck</a>
         <a href="binder.html">▤ the folder</a>
         <a href="binder.html#hero-34">✎ the artist's cards</a>
-        <a href="field.html">◈ the field · 34–100</a>
-        <a class="hot" href="proof.html">◆ the 33 · plate proof</a>
+        <a href="proof.html">⚙ the forge</a>
+      </div>
+      <!-- ⛔ KEEP THIS IN STEP WITH cards/index.html. This generator emits that page, so a nav
+           fixed only in the output is a nav this script re-breaks the next time it runs — the
+           restyle-backs.mjs failure, which is the reason the rule exists. The 196 cards below
+           are the PIGMENT the press prints from, not the deck; the deck is cards/deck.html. -->
+      <div class="court-note" style="background:#63b3ff">
+        <b>◆ THESE ARE SOURCE PICTURES, NOT THE DECK.</b> The 196 below are the placeholder set
+        the studio built against — they are the <b>ink</b> the press prints with, and every card
+        in the hundred is a collage of six of them. The deck itself is
+        <a href="deck.html" style="color:#111"><b>THE HUNDRED ↗</b></a>.
       </div>
       <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $3030 to vote any card up or
       down the ladder. Enough conviction moves its rarity; enough scorn votes it off the

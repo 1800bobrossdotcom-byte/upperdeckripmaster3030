@@ -490,7 +490,16 @@ console.log('\n── generators may not write the retired name into what they e
   const genHits = [];
   let scanned = 0;
   for (const f of readdirSync(join(ROOT, 'scripts')).filter(f => f.endsWith('.mjs'))) {
-    if (f === 'test-name-law.mjs') continue;      // this file quotes every bad form on purpose
+    /* ⚠ A HARNESS THAT FORBIDS THE NAME HAS TO BE ABLE TO SAY IT. This sweep's subject is what
+     *   generators EMIT — a test script emits nothing, and `test-wc.mjs` names the retired studio
+     *   inside the very assertion that keeps it out of the wallet approval sheet. Flagging that is
+     *   the checker firing on its own fix, which is how a checker gets muted, and this file
+     *   already carried the same exemption for itself. Scoped to `test-*.mjs` deliberately: no
+     *   test harness here writes a shipped artifact (the one that writes anything at all puts
+     *   .pgm masks into a gitignored build/ directory), so nothing they contain can reach a
+     *   surface. ⛔ If a test ever starts GENERATING output, it stops qualifying and this
+     *   exemption has to be narrowed. */
+    if (/^test-.*\.mjs$/.test(f)) continue;
     scanned++;
     const src = readFileSync(join(ROOT, 'scripts', f), 'utf8');
     if (!/upperdeck/i.test(src)) continue;
