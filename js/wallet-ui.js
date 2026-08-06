@@ -127,7 +127,8 @@
         '<div class="tav-name">' + esc(handleOf(acct)) + '</div>' +
         '<div class="tav-sub">duly signed &amp; sealed</div>' +
         '<div class="tav-row copy" data-copy="' + esc(acct) + '"><span class="k">Your mark</span><span class="v">' + esc(short(acct)) + '</span></div>' +
-        '<div class="tav-row"><span class="k">The house</span><span class="v">' + esc(w.chainName()) + (w.kind() === 'walletconnect' ? ' · WC' : '') + '</span></div>' +
+        '<div class="tav-row"><span class="k">The house</span><span class="v" data-house>reading…</span></div>' +
+        '<div class="tav-row tav-warn" data-warn hidden><span class="k">⚠</span><span class="v"></span></div>' +
         '<div class="tav-row tav-purse"><span class="k">Coin purse</span><span class="v" data-purse>' + (live ? 'counting…' : 'practice chips') + '</span></div>' +
         '<a class="tav-buy" href="' + w.buyUrl() + '" target="_blank" rel="noopener noreferrer">⚜ Buy more $3030 ↗</a>' +
         '<button type="button" class="tav-leave">✕ Leave the tavern (disconnect)</button>' +
@@ -141,7 +142,40 @@
       try { navigator.clipboard.writeText(a); toast('mark copied'); } catch {}
     };
     ov.querySelector('.tav-leave').onclick = async () => { close(); await w.disconnect(); toast('you left the tavern'); };
-    if (live) { try { const b = await w.balance(); const p = ov.querySelector('[data-purse]'); if (p) p.textContent = b.tokens.toLocaleString('en-US') + ' $3030'; } catch {} }
+    /* ⛔ "THE HOUSE" MEANS WHERE YOU ARE, SO IT MUST READ THE WALLET, NOT THE CONFIG. It printed
+     *   `chainName()` — the CONFIGURED chain — so on launch night it told the artist he was on
+     *   Ethereum while his wallet sat on Sepolia, and showed a zero purse next to it. Two
+     *   different facts under one label, and the wrong one was the reassuring one.
+     * ⚑ A BALANCE THAT COULD NOT BE READ IS NOT ZERO. `b.ok` is false for a wrong chain or a dead
+     *   read, and printing `0` there is a lie about somebody's money. It says so instead, and
+     *   offers the one-tap fix rather than leaving them to work it out. */
+    try {
+      const want = w.chainName();
+      const on = await w.walletChainName();
+      const house = ov.querySelector('[data-house]');
+      if (house) house.textContent = (on || want) + (w.kind() === 'walletconnect' ? ' · WC' : '');
+      const warn = ov.querySelector('[data-warn]');
+      const mismatch = on && on !== want;
+      if (mismatch && warn) {
+        warn.hidden = false;
+        warn.querySelector('.v').innerHTML =
+          'your wallet is on <b>' + esc(on) + '</b>, $3030 lives on <b>' + esc(want) + '</b> — ' +
+          '<a href="#" data-switch style="color:#7a3e00">switch</a>';
+        warn.querySelector('[data-switch]').onclick = async (e) => {
+          e.preventDefault();
+          const r = await w.ensureChain();
+          if (r && r.ok) { close(); toast('switched to ' + want + ' — reopen the ledger'); }
+          else toast('could not switch — do it in your wallet');
+        };
+      }
+      if (live) {
+        const b = await w.balance();
+        const p = ov.querySelector('[data-purse]');
+        if (p) p.textContent = b.ok
+          ? b.tokens.toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' $3030'
+          : (b.reason === 'wrong-chain' ? 'can\u2019t read on ' + (on || 'this chain') : 'unreadable');
+      }
+    } catch {}
   }
 
   const refreshAll = () => mounts.forEach(el => { if (document.body.contains(el)) render(el); else mounts.delete(el); });
