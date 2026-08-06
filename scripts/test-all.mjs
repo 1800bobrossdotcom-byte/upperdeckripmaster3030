@@ -32,7 +32,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  * the order is deliberate (cheap text checks first, driven browser suites after), and a derived
  * list would silently pick up any future `test:something` that is not part of the gate. */
 const SUITES = [
-  'name', 'launch', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
+  'name', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
   'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
 ];

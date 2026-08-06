@@ -68,12 +68,15 @@
     min-height:100vh; overflow-x:hidden; padding:0 12px calc(var(--ticker-h,40px) + 28px);
     -webkit-tap-highlight-color:transparent;
   }
-  /* ⚑ THE LAUNCH-NIGHT GUARD, DECLARED LOCALLY AS WELL AS IN mobile.css. `[hidden]` is beaten by
-     any rule that sets `display`, and this page sets `display:flex` on the countdown grid — the
-     recorded bug that would have left the clock ticking underneath "THE PACK IS OPEN". mobile.css
-     declares this once for the whole site and `npm run test:launch` proves it, but the flip is the
-     one thing here that must work at a single instant with no second attempt, so it does not
-     depend on a second file arriving. Two identical declarations cannot disagree. */
+  /* ⚑ `hidden` MUST MEAN HIDDEN, and this outlived the clock it was written for. `[hidden]` is a
+     plain element rule, so ANY class that sets `display` beats it — the recorded bug was
+     `.lc-grid{display:flex}` on the launch countdown, which would have left it ticking underneath
+     "THE PACK IS OPEN" on the one night that could not be repeated.
+     ⚠ THE COUNTDOWN IS GONE AND THIS RULE IS NOT, because the rule was never about the clock.
+     `.pack-actions[hidden]` on the rip modal depends on it right now, as do the two market links
+     further down, which ship hidden and are revealed only once a pool is configured. mobile.css
+     declares it once for the whole site; it is repeated here so a page whose furniture depends on
+     it does not depend on a second file arriving. Two identical declarations cannot disagree. */
   [hidden]{ display:none !important; }
   /* digital rain (canvas) — slow acid hue drift does the "on acid" part */
   #rain{ position:fixed; inset:0; z-index:-3; width:100%; height:100%; display:block;
@@ -887,64 +890,21 @@
         });
       })();</script>
 
-    <section class="launch-countdown" id="launchClock" aria-label="Launch countdown to Tier I">
-      <style>
-        /* ⚠ SLIMMED, NOT MOVED. This block was a 4-cell clock the height of a phone screen sitting
-           between the masthead and the first thing you could press. It is a strip now — same ids,
-           same script, same [hidden] flip that npm run test:launch drives across the boundary. */
-        .launch-countdown{ position:relative; z-index:2; max-width:720px; margin:18px auto 0; padding:12px 16px;
-          border:1px solid #0f5c33; border-radius:12px; text-align:center;
-          background:radial-gradient(120% 120% at 50% 0%, rgba(43,255,128,.08), rgba(1,10,5,.72) 62%);
-          box-shadow:0 0 30px rgba(43,255,128,.09), inset 0 0 26px rgba(1,10,5,.6); }
-        .lc-kick{ font-family:'Arial Black',Arial,sans-serif; text-transform:uppercase; letter-spacing:.18em;
-          font-size:var(--t-tag,10px); color:#ffd23b; margin-bottom:8px; }
-        .lc-kick b{ color:#27f7e4; }
-        .lc-grid{ display:flex; align-items:baseline; justify-content:center; gap:4px; }
-        .lc-cell{ display:flex; flex-direction:column; align-items:center; min-width:52px; }
-        .lc-cell b{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(24px,6.4vw,38px); line-height:.95;
-          color:#2bff80; text-shadow:0 0 18px rgba(43,255,128,.45); font-variant-numeric:tabular-nums; }
-        .lc-cell span{ font-family:'Courier New',monospace; font-size:var(--t-tag,10px); letter-spacing:.14em; text-transform:uppercase;
-          color:#7fcea4; margin-top:4px; }
-        .lc-sep{ font-family:'Arial Black',Arial,sans-serif; font-size:clamp(20px,5.4vw,32px); color:#0f5c33;
-          transform:translateY(-5px); }
-        .lc-date{ font-family:'Courier New',monospace; font-size:var(--t-fine,12px); letter-spacing:.08em; color:#b8ffd6; margin-top:10px; }
-        .lc-date b{ color:#ff2ad9; }
-        .lc-live{ font-family:'Arial Black',Arial,sans-serif; letter-spacing:.24em; font-size:16px; color:#2bff80;
-          text-shadow:0 0 22px rgba(43,255,128,.6); padding:8px 0; }
-        @media (prefers-reduced-motion:no-preference){ .lc-live{ animation:lcPulse 1.1s ease-in-out infinite; } }
-        @keyframes lcPulse{ 50%{ opacity:.55; } }
-      </style>
-      <div class="lc-kick">◈ Tier <b>I</b> — the drop ◈</div>
-      <div class="lc-grid" id="lcGrid">
-        <div class="lc-cell"><b id="lcD">--</b><span>days</span></div>
-        <div class="lc-sep">:</div>
-        <div class="lc-cell"><b id="lcH">--</b><span>hrs</span></div>
-        <div class="lc-sep">:</div>
-        <div class="lc-cell"><b id="lcM">--</b><span>min</span></div>
-        <div class="lc-sep">:</div>
-        <div class="lc-cell"><b id="lcS">--</b><span>sec</span></div>
-      </div>
-      <div class="lc-live" id="lcLive" hidden>▓ THE PACK IS OPEN ▓</div>
-      <div class="lc-date">AUGUST 6, 2026 · <b>11:11 PM</b> ET · <span id="lcTz">$3030 goes live</span></div>
-      <script>(function(){
-        /* 11:11 PM America/New_York on 2026-08-06 = 2026-08-07T03:11:00Z (EDT, UTC-4) */
-        var TARGET = Date.UTC(2026, 7, 7, 3, 11, 0);
-        var grid = document.getElementById('lcGrid'), live = document.getElementById('lcLive');
-        var el = { D: document.getElementById('lcD'), H: document.getElementById('lcH'), M: document.getElementById('lcM'), S: document.getElementById('lcS') };
-        var p2 = function(n){ return (n < 10 ? '0' : '') + n; };
-        function tick(){
-          var ms = TARGET - Date.now();
-          if (ms <= 0) { if (grid) grid.hidden = true; if (live) live.hidden = false; return true; }
-          var s = Math.floor(ms / 1000);
-          el.D.textContent = Math.floor(s / 86400);
-          el.H.textContent = p2(Math.floor(s % 86400 / 3600));
-          el.M.textContent = p2(Math.floor(s % 3600 / 60));
-          el.S.textContent = p2(s % 60);
-          return false;
-        }
-        if (!tick()) { var t = setInterval(function(){ if (tick()) clearInterval(t); }, 1000); }
-      })();</script>
-    </section>
+    <!-- ⛔ THE LAUNCH COUNTDOWN IS GONE — the token is live and trading, so a clock counting
+         DOWN to the drop was telling every visitor the opposite of the truth: it read 6h 25m
+         remaining while the pool was already taking buys. A countdown outlives its subject the
+         instant the thing arrives, and this one had nothing left to say.
+         ⚠ DELETING A FEATURE IS TWO JOBS — the thing, and what called it. `npm run test:launch`
+         existed ONLY to drive `#lcGrid`/`#lcLive` across the boundary, so it is retired with the
+         markup rather than left to fail: out of `npm test`, out of `test-all.mjs`'s SUITES list,
+         and the script deleted. §0 of test-all asserts those two lists name the same suites, so a
+         half-removal fails loudly instead of silently. (The music pass removed a binding and left
+         five callers behind; every match in two games threw at the final whistle.)
+         ⚑ WHAT SURVIVES ON PURPOSE: the global `[hidden]{display:none!important}` near the top of
+         this file. It was written for this clock — the recorded bug where `.lc-grid{display:flex}`
+         beat the UA rule and would have left the countdown ticking UNDERNEATH "THE PACK IS OPEN" —
+         but the rule is not about the clock. `.pack-actions[hidden]` on the rip modal depends on
+         it today, and the lesson is cited from three other files. -->
 
     <!-- ══ THE SIX GAMES, ON THE FRONT PAGE ══════════════════════════════════════════════════
          ⛔ THEY WERE ONE WORD ("Arcade") IN A ROW OF EIGHT BUTTONS. A visitor could not tell
