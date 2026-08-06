@@ -46,10 +46,17 @@
       cond: 'Win a round with more kills than reloads.' },
     { id: 'ghost',    name: 'GHOST WALK',            game: 'SECTION 9',   seats: 1,
       cond: 'Take a round on a baked level without ever being the first to fire.' },
-    { id: 'openair',  name: 'OPEN AIR',              game: 'RIP ROCKETER', seats: 1,
-      cond: 'Reach Tier IV on one life.' },
-    { id: 'facility', name: 'THE FACILITY IS CLOSED', game: 'RIP ROCKETER', seats: 1,
-      cond: 'Clear every emplacement in a single tier.' },
+    /* ⛔ THESE TWO REPLACED OPEN AIR AND THE FACILITY IS CLOSED, AND THE REASON IS NOT TASTE.
+     * Those two were listed here and `riprocketer.html` did not load this file at all, so nothing
+     * could ever award them — listed and unclaimable on the surface that hands out 1/1s. The
+     * artist's 2026-08-06 directive was to turn earned cards into points and combo unlocks, and
+     * the budget is fixed at 11 cards, so the two slots that were already dead are the only ones
+     * that can change without deleting a title that works. See docs/HERO-UNLOCKS.md §4.
+     * ⚠ Both are MEASURED, not guessed — the conditions and their costs are in that doc. */
+    { id: 'twomillion', name: 'TWO MILLION FEET',    game: 'RIP ROCKETER', seats: 1,
+      cond: 'Post a run of 2,000,000 points — clearing the whole facility scores about 690,000.' },
+    { id: 'coldbarrel', name: 'COLD BARREL',         game: 'RIP ROCKETER', seats: 1,
+      cond: 'Clear one whole tier having fired only while OVERDRIVE was lit.' },
     { id: 'streak',   name: 'THE STREAK',            game: 'CLOUD RACER', seats: 3,
       cond: 'Win 33 races in a row — 6 pilots, 3 laps or longer.' },
     { id: 'deadair',  name: 'DEAD AIR',              game: 'THE CITY',    seats: 1,
