@@ -396,10 +396,36 @@ console.log('\n── the supply cap, stated in one place and spent everywhere �
     ok(!/33,000,000|>33M</.test(src), `${page} — no 33,000,000 left`);
     ok(src.includes('3,300,000') || src.includes('3.3M'), `${page} — states the 3.3M cap`);
   }
-  const tk = readFileSync(join(ROOT, 'tokenomics.html'), 'utf8');
-  ok(tk.includes('30.7%'), 'tokenomics.html — burn is 30.7% of mint');
-  ok(tk.includes('1.44'), 'tokenomics.html — contraction is 1.44x');
-  ok(tk.includes('44.4%'), 'tokenomics.html — and the studio slug is stated alongside it');
+  /* ⚠ COMMENTS STRIPPED, for the same reason they are everywhere else in this file: the page's own
+   *   mobile-table note QUOTES the retired cell ("30.7% of the 3,300,000 cap") as the example of what
+   *   a cell used to look like. A checker that fires on the note explaining the fix gets muted, and
+   *   then it is not a checker. */
+  const tk = stripComments(readFileSync(join(ROOT, 'tokenomics.html'), 'utf8'), true);
+  /* ⛔ THESE THREE PINS USED TO ASSERT 30.7% / 1.44x / 44.4% AND NOW ASSERT THEIR ABSENCE. That
+   * inversion is the point, so it is written down rather than quietly swapped.
+   *
+   * SuperRare ran the live mainnet CLI previews on 2026-08-06 and measured the opening price at
+   * ~$0.08 per $3030 — 4x the $0.02 the whole pack schedule assumed. Their conclusion:
+   *   "we should not promise a fixed 30.7% burn. That model requires roughly 570 tokens per pack
+   *    on average, already about $46 per pack at the opening price ... Better to publish live
+   *    burn and studio totals."
+   * Confirmed from our own numbers, from the other direction: 1,014,375 / 3,560 packs / 0.50 =
+   * 570.0 gross tokens per pack, x $0.08 = $45.60.
+   *
+   * ⚑ SO A PERCENTAGE ON A PAGE IS NOW A PROMISE ABOUT A PRICE NOBODY CONTROLS — and it drifts in
+   * the counter-intuitive direction: the pack is priced in DOLLARS, so a RISING token buys FEWER
+   * tokens and burns LESS. A pinned number would go stale with nobody editing anything, which is
+   * this file's own subject. The test therefore guards the ABSENCE of a forecast and the PRESENCE
+   * of the live reading. Full record: docs/PACK-PRICING.md. */
+  ok(!/30\.7\s*%/.test(tk), 'tokenomics.html — the 30.7% burn forecast is GONE (it assumed a $0.02 token)');
+  ok(!/44\.4\s*%/.test(tk), 'tokenomics.html — and so is the 44.4% studio-slug forecast');
+  ok(!/\$\s*7(\.00)?(?![\d,.])/.test(tk),
+    'tokenomics.html — no $7 pack (350 tokens is $28 at the measured open)');
+  /* ⚠ BOTH DIRECTIONS. "No percentage" is trivially satisfied by a page that says nothing about
+   *   the burn at all, which would be worse than a wrong number — it would be silence about the
+   *   mechanism the whole token rests on. So the live-reading language has to be there too. */
+  ok(/live|on-chain|read from the chain/i.test(tk),
+    'tokenomics.html — …and it says the burn is READ LIVE instead');
 }
 
 /* ═══ THE GAME'S NAME ═════════════════════════════════════════════════════════════════════════
