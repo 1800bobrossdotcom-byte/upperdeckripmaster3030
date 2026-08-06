@@ -266,6 +266,17 @@ for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
     ok(h[1] === TOKEN_NAME, `${file} — name() is exactly "${TOKEN_NAME}"  (found "${h[1]}")`);
     ok(h[2] === TOKEN_SYMBOL, `${file} — symbol() is exactly "${TOKEN_SYMBOL}"  (found "${h[2]}")`);
   }
+  /* ⛔ AND THE CURVE PRESET, WHICH IS A DEPLOY-TIME PERMANENT NOBODY HAD PINNED.
+   * The preset decides the opening price and the whole liquidity shape, and it is frozen the
+   * moment the transaction lands — exactly like name() and symbol() two lines up. It was
+   * `medium-demand` in NINE files, including two copy-pasteable deploy commands, when SuperRare's
+   * live mainnet preview recommends **low-demand** (zero initial RARE liquidity, no creator
+   * allocation, opens ≈$0.08). ⚑ This is the copy-paste trap that already caught name and symbol
+   * once, on a THIRD argument nobody had thought to check — which is the argument for pinning
+   * every positional the artist types, not the ones we happen to have been burned by. */
+  ok(!/--curve-preset\s+(?!low-demand)\S+/.test(src),
+    `${file} — the deploy command uses --curve-preset low-demand`,
+    (src.match(/--curve-preset\s+\S+/) || ['none'])[0]);
 }
 {
   const meta = JSON.parse(readFileSync(join(ROOT, 'token-metadata.json'), 'utf8'));

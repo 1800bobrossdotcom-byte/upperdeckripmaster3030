@@ -189,44 +189,40 @@ console.log('\n── getMarketState() and the word-order proof ──');
   }
 }
 
-// ── 4b. what the live price implies for the PACK ─────────────────────────────────────────────
-/* ⛔ THIS IS THE MOST DECISION-RELEVANT NUMBER ON THE CHAIN AND IT IS NOT IN ANY DOC.
- *    `scripts/token-model.mjs` assumes P0 = 1 RARE per token, and the whole $7 pack rests on it:
- *    a pack is priced in TOKENS (350 at tier I), so the dollar price is just 350 x the token
- *    price. The Sepolia edition is the only real curve this project has ever had, and it does
- *    not open anywhere near 1 RARE. SuperRare's own worked example (CLAUDE.md, from their
- *    create-flow) points the same way — a $2,000 budget bought 9,211 tokens at ~$0.22 average.
- *  ⚠ The Sepolia curve is UNCALIBRATED and its cap is 1,000,000, not 3,300,000, so this is not a
- *    forecast. It is a reason to run `--preview` before believing the pack price, which is the
- *    single cheapest de-risking step left. */
-console.log('\n── what the live curve implies for a $7 pack ──');
+// ── 4b. the pack, against the MEASURED opening price ─────────────────────────────────────────
+/* ✅ P0 IS MEASURED NOW — this block used to be the loudest thing in the preflight, because the
+ *    pack schedule rested on an assumed P0 nobody had checked. SuperRare ran the live mainnet CLI
+ *    previews on 2026-08-06 at the full 3,300,000 supply (low-demand preset, zero initial RARE
+ *    liquidity, no creator allocation) and it opens at ~$0.08 per $3030 — 4x the old $0.02
+ *    assumption. The block's own prediction ("an order of magnitude low") was right.
+ *  ⛔ CONSEQUENCE: the pack is priced in DOLLARS now ($10/$12/$15/$20 by tier, artist-approved),
+ *    and the token count is derived at each tier open and LOCKED for that tier. Tier I = 125.
+ *  ⚠ THE SEPOLIA CURVE IS STILL UNCALIBRATED and its cap is 1,000,000, not 3,300,000. It is
+ *    EXPECTED to disagree with mainnet and that disagreement is not a finding — which is exactly
+ *    why this is a note and never a failure. A preflight that exits 1 on a documented, expected
+ *    condition is a preflight everyone learns to ignore. */
+console.log('\n── the pack, against the MEASURED mainnet opening price ──');
 {
   const st = await call(EDITION, SEL.getMarketState);
   if (!st.err && st.result && st.result !== '0x') {
     const rarePerToken = fx(big(words(st.result)[0]));
-    const RARE_USD = 0.0159;                       // the rate SuperRare's own create-flow showed
-    const MODEL_P0 = 1;                            // scripts/token-model.mjs
-    const PACK_TOKENS = 350;                       // tier I base
-    const liveUsd = rarePerToken * RARE_USD * PACK_TOKENS;
-    const modelUsd = MODEL_P0 * RARE_USD * PACK_TOKENS;
-    info(`live spot            ${rarePerToken.toFixed(3)} RARE/token   (model assumes ${MODEL_P0})`);
-    info(`350-token pack HERE  $${liveUsd.toFixed(2)}`);
-    info(`350-token pack MODEL $${modelUsd.toFixed(2)}   <- the $7 the whole schedule is built on`);
-    const ratio = rarePerToken / MODEL_P0;
-    /* ⚠ A NOTE, NOT A FAILURE, and the distinction is deliberate. This does not BLOCK a
-     *   rehearsal — it is the reason to run one. A preflight that exits 1 on a documented,
-     *   expected condition is a preflight everyone learns to ignore, which is the same failure
-     *   as the checker that cried wolf on the comment explaining its own bug. */
-    if (ratio < 2) { pass++; console.log(`  ✓ the live curve is within 2x of the modelled P0 (${ratio.toFixed(1)}x)`); }
-    else {
-      warn++;
-      console.log(`  ⚠ P0 IS ASSUMED, NOT KNOWN — the live curve is ${ratio.toFixed(1)}x the modelled opening price`);
-      info(`⛔ ${ratio.toFixed(0)}x OFF. On this curve a tier-I pack costs $${liveUsd.toFixed(0)}, not $7.`);
-      info(`   That is not a bug — this edition's curve was never calibrated — but it means P0 is`);
-      info(`   ASSUMED, not known, and the pack schedule is downstream of it. Run the Rare CLI with`);
-      info(`   --preview at the 3,300,000 cap and put the real number into token-model.mjs BEFORE`);
-      info(`   the pack price is published anywhere it can be quoted back at the studio.`);
-    }
+    const RARE_USD  = 0.0159;      // the rate SuperRare's own create-flow showed
+    const MAINNET_P0_USD = 0.08;   // MEASURED, mainnet preview, low-demand, 3.3M supply
+    const TIER1_USD = 10;
+    const tier1Tok  = Math.round(TIER1_USD / MAINNET_P0_USD);
+    const liveUsdPerTok = rarePerToken * RARE_USD;
+    info(`mainnet open (MEASURED)  $${MAINNET_P0_USD.toFixed(4)}/token  ->  tier I = ${tier1Tok} $3030 for $${TIER1_USD}`);
+    info(`                          burned ${(tier1Tok/2).toFixed(1)} · studio ${(tier1Tok/2).toFixed(1)}`);
+    info(`this Sepolia curve       $${liveUsdPerTok.toFixed(4)}/token  (${rarePerToken.toFixed(2)} RARE) — UNCALIBRATED, cap 1,000,000`);
+    pass++;
+    console.log('  ✓ P0 is measured, not assumed — the pack is a DOLLAR target (docs/PACK-PRICING.md)');
+    /* ⚠ The one thing still worth a warning: the preview must be re-read at deploy time. The
+     *   measured $0.08 is a quote, and a quote has a shelf life. */
+    warn++;
+    console.log('  ⚠ RE-READ `--preview` AT DEPLOY and confirm the open is still ~$0.08');
+    info(`   If it has moved materially, re-derive docs/PACK-PRICING.md FIRST — the tier-I token`);
+    info(`   count is the number the site will actually charge, and it is locked for the tier.`);
+    info(`   ⛔ Preset must be --curve-preset low-demand. It is a DEPLOY-TIME PERMANENT.`);
   }
 }
 

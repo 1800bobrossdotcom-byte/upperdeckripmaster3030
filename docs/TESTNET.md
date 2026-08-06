@@ -104,7 +104,7 @@ op://…`), but plaintext is fine for a throwaway testnet wallet.*
 **Always `--preview` first** — it shows the bonding curve without spending anything.
 ```bash
 rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-  --curve-preset medium-demand \
+  --curve-preset low-demand \
   --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
   --image ./media/site/mark-1024.png \
   --preview

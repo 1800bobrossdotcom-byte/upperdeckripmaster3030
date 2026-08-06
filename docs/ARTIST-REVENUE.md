@@ -72,7 +72,7 @@ burn**, never creator income, for exactly this reason.
   connected to their verified SuperRare account. Whatever the creator terms are, they attach to
   that deployment — which is one more reason the golden rule matters: deploy from the right
   wallet or the indexer never associates the drop with the artist profile at all.
-- **The curve is a preset** (`--curve-preset medium-demand`), and `--preview` prints the generated
+- **The curve is a preset** (`--curve-preset low-demand`), and `--preview` prints the generated
   curve without submitting. That gives real numbers for the *curve* — not for the split.
 
 ### The questions to put to SuperRare, in writing, before deploying
