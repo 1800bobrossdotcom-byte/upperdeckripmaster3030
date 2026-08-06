@@ -1060,5 +1060,48 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
   }
 }
 
+/* ── THE RENDERER'S COMPILED BYTES ────────────────────────────────────────────────────────────
+ * ⛔ THIS IS THE SURFACE THE NAME LAW NEVER CHECKED, AND IT NEARLY SHIPPED THE RETIRED NAME
+ *   PERMANENTLY. `contracts/` is skipped by the sweep because it does not go to the CDN — but a
+ *   render contract DRAWS. On 2026-08-06, hours after the token deployed, the renderer source
+ *   still wrote `upperdeckripmaster3030` into the on-chain SVG's own <text> and into the
+ *   animation_url HTML byline, and `deploy-render.html` shipped a pre-compiled blob carrying
+ *   those strings plus `UR3030 per RARE` and the Sepolia edition address.
+ * ⚑ NONE OF IT HAS A SETTER. `setMeta`/`setAnimationUrl` change the constructor strings; the SVG
+ *   text and the byline are compiled into the bytecode. Deploy is the last moment they are free.
+ * ⚑ AND THE CHECK IS ON THE COMPILED BYTES, NOT THE .sol. Reading the source is not the same as
+ *   reading what deploys — that gap is exactly how the stale blob survived a rename that touched
+ *   258 files. Decode the blob the page will actually send. */
+{
+  console.log('\n── the renderer contract, and the bytes deploy-render.html will send ──');
+  const sol = readFileSync(join(ROOT, 'contracts/Ripmaster3030Renderer.sol'), 'utf8');
+  const solCode = sol.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  ok(!/upperdeckripmaster3030/.test(solCode),
+    'Ripmaster3030Renderer.sol draws no retired name (comments exempt)');
+
+  const page = readFileSync(join(ROOT, 'deploy-render.html'), 'utf8');
+  const m = /const BLOB = '0x([0-9a-f]+)'/.exec(page);
+  ok(!!m, 'deploy-render.html carries a deployment blob');
+  if (m) {
+    const bytes = Buffer.from(m[1], 'hex').toString('latin1');
+    ok(!bytes.includes('upperdeckripmaster3030'), 'the blob contains no retired studio name');
+    ok(!bytes.includes('UR3030'), 'the blob contains no retired ticker');
+    ok(bytes.includes(LIVE), `the blob names the live studio (${LIVE})`);
+    /* ⛔ THE ONE THAT MATTERS MOST FOR SUPERRARE. index.html loads pack.js and js/wallet.js, so
+     *   an animation_url pointing at the site ROOT puts wallet code inside a marketplace iframe —
+     *   the exact thing their security team flagged, and why the wallet-free superrare.html
+     *   exists. The Sepolia renderer was set to the root and it went unnoticed for three weeks. */
+    ok(bytes.includes('/superrare.html'),
+      'the animation_url frames the WALLET-FREE embed, not the site root');
+    ok(!/ripmaster3030studios\.com\/"/.test(bytes) && !bytes.includes('upperdeckripmaster3030.com'),
+      '…and not the retired domain');
+    /* The edition the renderer is bolted to is a constructor arg and cannot be changed after. */
+    ok(bytes.toLowerCase().includes('\x1dK\xcb\xb5'.toLowerCase()) || /1d4bcbb505182a49303cc3b23eff1e3157147a33/i.test(m[1]),
+      'the blob is bolted to the MAINNET edition 0x1D4bcbb5…47A33');
+  }
+  ok(/const TOKEN = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33'/.test(page),
+    'deploy-render.html points at the mainnet edition');
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);
