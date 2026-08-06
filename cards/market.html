@@ -292,7 +292,7 @@
   const PER = 9; // nine-pocket page
   const ASK = { common:5, uncommon:8, rare:15, mythic:40, prizm:120, forged:24 };
   const TOLL = { send:1, trade:3 };
-  let DECK = [], view = 'mine', spread = 0, turning = false;
+  let DECK = [], LEGACY = [], view = 'mine', spread = 0, turning = false;
 
   const say = (() => { const t=document.createElement('div'); t.className='toast'; document.body.appendChild(t);
     let tm; return m=>{ t.textContent=m; t.classList.add('show'); clearTimeout(tm); tm=setTimeout(()=>t.classList.remove('show'),2600); }; })();
@@ -301,7 +301,10 @@
   const save = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const vault = () => load('urm_vault');
   const forgedById = () => new Map(load('urm_forged').map(f=>[f.id,f]));
-  const bySlug = () => new Map(DECK.map(c=>[c.slug,c]));
+  /* ⚠ LEGACY first, DECK second: a Map keeps the LAST write, so the hundred win any collision.
+     The slugs do not currently overlap (the hundred are numbered, the retired set is worded),
+     but ordering it by intent means a future collision cannot quietly resolve the wrong way. */
+  const bySlug = () => new Map([...LEGACY, ...DECK].map(c=>[c.slug,c]));
   const burnedTotal = () => { try { return +(localStorage.getItem('urm_burned')||0); } catch { return 0; } };
   const burn = (n, why) => { try { localStorage.setItem('urm_burned', String(burnedTotal()+n)); } catch {}
     renderBurned(); say('🔥 '+n+' $3030 burned — '+why); };
@@ -412,7 +415,7 @@
             <button class="warm" data-do="sell">✚ List for sale</button>
             <button class="warm" data-do="trade">⇄ List for trade</button>
             <button data-do="send">✉ Send / gift</button>
-            <a href="${c.slug}.html">◈ View card</a>
+            <a href="${c.href || (c.slug + '.html')}">◈ View card</a>
           </div></div>`;
     }
     $('scrim').classList.add('show');
@@ -545,8 +548,27 @@
     if(view!=='market'){ if(e.key==='ArrowRight') turn(1); if(e.key==='ArrowLeft') turn(-1); } });
 
   renderBurned();
-  fetch('manifest.json').then(r=>r.json()).then(m=>{ DECK=m.cards||[]; go(); })
-    .catch(()=>{ DECK=[]; go(); });
+  /* ⛔ THIS READ `manifest.json` AND SHOWED THE 196 PLACEHOLDERS — artist, on the live site:
+   *   "these are all old cards?" They were. `cards/deck.html`'s own header states the rule in as
+   *   many words: `manifest.json` is THE INK, the source pictures the press prints FROM — "Not
+   *   cards. Do not present it as cards." The hundred live in `deck-manifest.json`, which is
+   *   what deck.html and pack.js already read. The bench was the surface that never got the memo,
+   *   and the front page links it as a card door, so a visitor met the stand-ins.
+   * ⚑ BOTH ARE LOADED, AND ONLY ONE IS THE DECK. The grid, the shelf and the full-set view are
+   *   built from DECK — the hundred, and nothing else. The old set is kept ONLY as a resolver of
+   *   last resort, because a vault entry saved before the deck changed carries a word-slug
+   *   (`blue-boar`) and the hundred are numbered: switching outright would have silently emptied
+   *   the bench of every card a collector had already pulled. This repo's standing rule is that
+   *   the `urm_*` keys are never wiped, and a card vanishing from your own shelf is that rule
+   *   broken with an audience. LEGACY is never rendered as available stock. */
+  Promise.all([
+    fetch('deck-manifest.json').then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch('manifest.json').then(r=>r.ok?r.json():null).catch(()=>null)
+  ]).then(([d, old])=>{
+    DECK   = (d && (d.cards||d)) || [];
+    LEGACY = (old && (old.cards||old)) || [];
+    go();
+  }).catch(()=>{ DECK=[]; LEGACY=[]; go(); });
 })();
 </script>
 <script src="../theme.js"></script>
