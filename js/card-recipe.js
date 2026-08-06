@@ -106,6 +106,12 @@
       sub: Q.get('sub') || '',
       rarity: Q.get('rarity') || 'common',
       n: parseInt(Q.get('n'), 10) || null,
+      /* ⚑ THE BAND IS DERIVED, NOT CARRIED. The recipe string has no `band` — but model v2.2 is
+       * exact and unchanging about the split: 1–33 are the hero 1/1s, 34–100 the render-only
+       * field lenses. Deriving it means the back cannot disagree with the deck about which a
+       * card is, and there is no fourth place for that fact to go stale. */
+      band: (function (n) { return n == null ? null : (n <= 33 ? 'hero' : 'field'); })(
+        parseInt(Q.get('n'), 10) || null),
       slugs: slugs, vals: vals,
     };
   }
@@ -159,6 +165,26 @@
         }).then(function (press) {
           if (!press) return null;
           apply(press, parsed, type);
+
+          /* ── ⛔ THE BACK. THIS PATH NEVER DRESSED ONE, AND THAT IS WHY THERE WERE NO BACKS ────
+           * `js/card-press.js` has `dressBack()` and calls it on build and on every `show()`.
+           * This module — the path every one of the HUNDRED takes — did not, so the folder, the
+           * deck and the pack rip all turned a card over onto the press's generated stand-in: a
+           * plate with rules and a roundel and deliberately no words on it. Artist, 2026-08-06:
+           * *"make sure all cards named have backs of cards with stats - not seeing those."*
+           * ⚠ BEST EFFORT, ALWAYS. A back that will not build leaves the stand-in exactly where
+           *   it was; nothing here may take a working card away. Same contract as dressBack. */
+          function dress(p) {
+            if (!global.CardBack || !CardBack.forDeckCard || p.n == null) return;
+            try {
+              CardBack.forDeckCard(
+                { id: p.n, title: p.name, rarity: p.rarity, seed: p.seed, band: o.band || p.band },
+                { base: base })
+                .then(function (cv) { if (cv) { try { press.setBack(cv); } catch (e) {} } })
+                .catch(function () {});
+            } catch (e) {}
+          }
+          dress(parsed);
           /* ⚑ SHOW ANOTHER CARD ON THE PRESS THAT IS ALREADY THERE. `getContext('webgl2')` hands
            * back the SAME context on a second call and HeroCard never releases, so walking the
            * hundred by rebuilding would leak a program, buffers and seven textures per card —
@@ -172,6 +198,11 @@
              *   the previous card's name for a frame — and a frame is all a texture upload needs. */
             try { press.setText({ name: p.name, sub: p.sub }); } catch (e) {}
             apply(press, p, type);
+            /* ⚠ AND ON EVERY WALK OF THE DECK, NOT ONLY ON BUILD. One press serves the whole
+             *   hundred, so a back dressed once would follow the reader from card to card —
+             *   every card in the folder showing card 1's vitals, which is worse than no back at
+             *   all because it looks authored. */
+            dress(p);
             var exact = exactFor(p, list);
             return exact ? press.setPigment(exact).catch(function () { return false; })
                          : Promise.resolve(true);

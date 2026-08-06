@@ -257,6 +257,9 @@
         /* ⛔ BEFORE card-view, AND NOT OPTIONAL NOW THAT THE PULL IS THE HUNDRED. `card-view`
          *   routes `recipe:` to `CardRecipe`; with the module missing it falls through to the
          *   picture path and presses the baked sheet — a card of a card, silently. */
+        /* the back's statistics table is filled from CardStats — without it the designed back
+         * builds with the template card's numbers, which is wrong rather than empty. */
+        .then(() => inject('js/card-stats.js'))
         .then(() => inject('js/card-recipe.js'))
         .then(() => inject('js/card-view.js'))
         /* ⚑ THE STARFIELD VIEWER — artist, 2026-08-06: *"pack rip should use that one too - the
