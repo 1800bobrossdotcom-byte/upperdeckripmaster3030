@@ -98,7 +98,7 @@ window.RIPMASTER_CHAIN = {
      * WALLET-FREE embed. ⛔ NOT the site root: index.html loads pack.js and js/wallet.js, and
      * framing that inside a marketplace is what SuperRare's security team flagged. The Sepolia
      * renderer pointed at the root of the RETIRED domain and nobody noticed for three weeks. */
-    renderContract:"0xeAbDFb01644B6df6de39437d7bb441b4069F3FE2",
+    renderContract:"0xeAbdfb01644B6df6de39437d7bB441b4069F3Fe2",
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
@@ -118,7 +118,7 @@ window.RIPMASTER_CHAIN = {
      * ⚑ Before this line existed, the first real mainnet rip burned 125 $3030 and paid the studio
      * NOTHING — measured, not feared: totalSupply fell by exactly 125 while the treasury stayed at
      * 0. That is the documented fallback behaving correctly, and it is what this one edit ends. */
-    packSink:      "0x384936ee3BAf9b81715117D180Ca2aA4abE6018E",
+    packSink:      "0x384936Ee3Baf9B81715117d180Ca2aA4abe6018E",
   },
   // ── SEATS (js/session.js) ──────────────────────────────────────────────────────────
   // $3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or

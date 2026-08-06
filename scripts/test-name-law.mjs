@@ -36,6 +36,18 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEAD = 'upperdeckripmaster3030';
+
+/* EIP-55: hex digits are upper-cased where the corresponding nibble of keccak256(lowercase addr)
+ * is >= 8. Implemented against viem's keccak so the test has no hand-rolled hash in it. */
+import { keccak256, toHex } from 'viem';
+const checksum = (addr) => {
+  const lower = addr.toLowerCase().replace(/^0x/, '');
+  const h = keccak256(toHex(lower)).replace(/^0x/, '');
+  let out = '0x';
+  for (let i = 0; i < 40; i++) out += parseInt(h[i], 16) >= 8 ? lower[i].toUpperCase() : lower[i];
+  return out;
+};
+
 const LIVE = 'ripmaster3030studios';
 
 /* ⛔ THE CAP HAS ONE DECLARATION AND EVERY DEPLOY COMMAND IS CHECKED AGAINST IT.
@@ -1101,6 +1113,28 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
   }
   ok(/const TOKEN = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33'/.test(page),
     'deploy-render.html points at the mainnet edition');
+}
+
+/* ── EVERY ADDRESS IN chain-config IS EIP-55 CHECKSUMMED ──────────────────────────────────────
+ * ⛔ TWO OF THEM WERE NOT, AND BOTH WERE THE ONES I TYPED THE CASING OF RATHER THAN COPYING —
+ *   renderContract and packSink, added on launch night. RPCs ignore case, so nothing broke and
+ *   nothing ever would have; that is precisely why it needs a test. A mixed-case address whose
+ *   checksum does NOT validate is the signal that a human retyped it, which is the one operation
+ *   that can silently transpose a character. Some tooling (viem among it) rejects them outright.
+ * ⚑ The treasury already had a bespoke checksum assertion. Generalised to the whole file, because
+ *   a hand-picked list of addresses to check is this repo's most-repeated failure. */
+{
+  console.log('\n── every address in chain-config is EIP-55 checksummed ──');
+  const src = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  /* Only MIXED-case addresses carry a checksum; an all-lower or all-upper one is unchecksummed
+   * by convention rather than wrong, so requiring mixed case is the actual claim. */
+  const found = [...src.matchAll(/(\w+)\s*:\s*"(0x[0-9a-fA-F]{40})"/g)];
+  ok(found.length >= 5, `chain-config carries addresses to check`, String(found.length));
+  for (const [, key, addr] of found) {
+    const mixed = /[a-f]/.test(addr.slice(2)) && /[A-F]/.test(addr.slice(2));
+    ok(mixed && checksum(addr) === addr,
+      `chain-config.${key} is a valid EIP-55 checksummed address`, addr);
+  }
 }
 
 console.log(`\n${checks - fails} passed, ${fails} failed.`);

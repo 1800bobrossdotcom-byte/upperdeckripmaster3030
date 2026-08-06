@@ -464,6 +464,7 @@ const ORPHAN_OK = {
    *   to press something that will only ever fail for them. Allow-listed WITH THE REASON, which is
    *   this file's own distinction between a decision and an oversight. */
   'deploy-sink.html': 'an operator tool, deliberately unlinked',
+  'deploy-lens.html': 'an operator tool, deliberately unlinked',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
   /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
    * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
