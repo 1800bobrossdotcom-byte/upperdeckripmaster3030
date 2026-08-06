@@ -80,9 +80,16 @@ const save = () => { try { writeFileSync(OUT, JSON.stringify(results, null, 2));
  * assertion counts, not just pass/fail — a suite that silently drops from 60 assertions to 2 is
  * still "passing", and that is a real failure mode this repo has hit (a harness that crashes
  * instead of failing prints no total at all). */
+/* ⚠ THERE ARE TWO SUMMARY FORMATS IN THIS REPO, and reading only one reported "—" for three
+ *   suites — embed, pack and split, i.e. the PackSink and wallet-calldata suites, some of the
+ *   most load-bearing here. A dash is indistinguishable from a suite that ran no assertions at
+ *   all, which is a real failure mode: a harness that CRASHES instead of failing prints no total
+ *   either, and this repo has already been fooled by exactly that. Both shapes are read now. */
 const tally = (s) => {
-  const m = [...s.matchAll(/(\d+)\s+passed,\s+(\d+)\s+failed/g)].pop();
-  return m ? { passed: +m[1], failed: +m[2] } : null;
+  const a = [...s.matchAll(/(\d+)\s+passed,\s+(\d+)\s+failed/g)].pop();
+  if (a) return { passed: +a[1], failed: +a[2] };
+  const b = [...s.matchAll(/(\d+)\s*\/\s*(\d+)\s+passed/g)].pop();
+  return b ? { passed: +b[1], failed: +b[2] - +b[1] } : null;
 };
 
 const run = (name) => new Promise((resolve) => {

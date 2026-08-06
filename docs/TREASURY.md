@@ -190,7 +190,7 @@ Two things the implementation is careful about:
 
 ## 2. Pack purchase — ✅ CONTRACT BUILT AND TESTED (`contracts/PackSink.sol`, 28/28)
 
-Currently a pack is one call: `RipWallet.burn(350)` → `burn(uint256)` on the token.
+Currently a pack is one call: `RipWallet.burn(packBurn)` → `burn(uint256)` on the token — `packBurn` is the tier count from `js/chain-config.js` (Tier I = 125; it was hard-written as 350 here while the config still carried the dead $7-era number).
 
 **A 50/50 split cannot just become two calls.** `burn()` then `transfer()` is two separate
 transactions, and a wallet can approve the first and reject the second — or the second can simply

@@ -881,5 +881,111 @@ console.log('\n── the pack price, which is the number a collector actually p
   }
 }
 
+/* ── THE MAINNET FLIP IS NINE FIELDS, AND A PARTIAL FLIP IS THE FAILURE ──────────────────────
+ * Task #72 is written as "flip network to mainnet", which reads like one edit and is nine:
+ * network, chainId, label, the RPC list, the liquid factory, RARE, the edition address, the
+ * render contract — each correct in isolation and only meaningful together.
+ * ⛔ A HALF-FLIPPED CONFIG DOES NOT ERROR, IT MISBEHAVES QUIETLY, and every symptom points
+ *   somewhere else. `chainId` alone drives `wantChainId()` in js/wallet.js, which decides the
+ *   network the collector's wallet is FORCED onto, which SuperRare host `buyUrl()` points at
+ *   (testnet ids go to dev.superrare.co), and every explorer link on the site. So
+ *   `network:"mainnet"` with the Sepolia chainId left behind gives you a mainnet-branded site
+ *   that herds people onto a testnet and links them to a testnet explorer — with nothing thrown.
+ * ⚑ This is the redirect outage's shape exactly: two settings each defensible on their own,
+ *   wrong in composition. The instrument is the same one that fixed it — derive the expectation
+ *   from what the config CLAIMS to be, then check every other field against that claim.
+ * ⚠ It is written now, while the answer is still "sepolia", precisely so it is already in place
+ *   on the night — a guard added after the flip guards nothing. */
+console.log('\n── the mainnet flip: every chain-scoped field must agree with `network` ──');
+{
+  /* Evaluate the config rather than regex it — it is a plain object literal assigned to a global,
+   * so the file itself is the most faithful parser available and cannot drift from what ships. */
+  const src = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  let CFG = null;
+  try { CFG = new Function('window', src + '; return window.RIPMASTER_CHAIN;')({}); } catch {}
+  ok(!!CFG, 'js/chain-config.js evaluates to a config object');
+
+  if (CFG) {
+    const net = String(CFG.network || '');
+    ok(net === 'sepolia' || net === 'mainnet', `network is a known chain  ("${net}")`);
+    const isMain = net === 'mainnet';
+
+    ok(Number(CFG.chainId) === (isMain ? 1 : 11155111),
+      `chainId matches network=${net} — drives wantChainId(), the forced wallet chain, buyUrl() and every explorer link`,
+      String(CFG.chainId));
+
+    /* A visible string: "sepolia block" shipped on a mainnet site is a label a collector reads. */
+    ok(isMain ? !/sepolia|testnet/i.test(String(CFG.label || ''))
+              : /sepolia/i.test(String(CFG.label || '')),
+      `label matches network=${net}`, String(CFG.label));
+
+    const rpcs = CFG.rpcs || [];
+    ok(rpcs.length > 0, 'there are RPCs to check');
+    const testnetRpc = rpcs.filter(u => /sepolia|testnet|goerli/i.test(u));
+    ok(isMain ? testnetRpc.length === 0 : testnetRpc.length === rpcs.length,
+      `every RPC matches network=${net}`, testnetRpc.join(', ') || rpcs.join(', '));
+
+    /* The protocol addresses are per-chain FACTS, recorded in docs/RESEARCH-NOTES.md. */
+    const FACTORY = { sepolia: '0xb1777091C953fa2aC1fD67f2b3e2f61343F5Ce5e',
+                      mainnet: '0x25f993C222fE5e891128a782A5168f1C78629540' };
+    const p = CFG.protocol || {};
+    ok(String(p.liquidFactory || '').toLowerCase() === FACTORY[net].toLowerCase(),
+      `protocol.liquidFactory is the ${net} Liquid Factory`, String(p.liquidFactory));
+
+    /* ⚠ MAINNET RARE IS ONLY RECORDED TRUNCATED (`0xba5BDe66…6350`, docs/TOKEN-MATH.md), so the
+     *   full value CANNOT be asserted and must NOT be guessed — a wrong reserve token is not a
+     *   typo, it is the pool pointing at the wrong asset. What is checkable is that it stopped
+     *   being the Sepolia one, plus a named action item so the gap is impossible to walk past. */
+    const SEPOLIA_RARE = '0x197FaeF3f59eC80113e773Bb6206a17d183F97CB';
+    if (isMain) {
+      ok(String(p.rare || '').toLowerCase() !== SEPOLIA_RARE.toLowerCase(),
+        '⛔ ACTION: protocol.rare must be MAINNET RARE — the repo records it only as 0xba5BDe66…6350; get the full address from SuperRare, do not guess it',
+        String(p.rare));
+    } else {
+      ok(String(p.rare || '').toLowerCase() === SEPOLIA_RARE.toLowerCase(),
+        'protocol.rare is Sepolia RARE', String(p.rare));
+    }
+
+    /* ⛔ AND THE CONTRACTS. The Sepolia edition and renderer are recorded addresses; on mainnet
+     *   they are DIFFERENT contracts, and leaving either behind points the site at an address
+     *   with no code on the chain it is now talking to. `isLive()` only tests the SHAPE of an
+     *   address, so a stale one passes it and every read silently returns nothing. */
+    const SEPOLIA_EDITION  = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C';
+    const SEPOLIA_RENDERER = '0x948E633054c516253D21d313aC789B37935de903';
+    const c = CFG.contracts || {};
+    for (const [key, sep] of [['liquidEdition', SEPOLIA_EDITION], ['renderContract', SEPOLIA_RENDERER]]) {
+      const got = String(c[key] || '');
+      ok(isMain ? got.toLowerCase() !== sep.toLowerCase() : got.toLowerCase() === sep.toLowerCase(),
+        isMain ? `contracts.${key} is NOT the Sepolia address any more`
+               : `contracts.${key} is the recorded Sepolia address`, got);
+    }
+    /* ⚠ And the standing rule for the renderer, which no test can enforce: READ IT OFF THE
+     *   EDITION (`edition.renderContract()`), never from a note. chain-config once carried a
+     *   superseded renderer that looked perfectly plausible. */
+
+    /* ⛔ ON MAINNET, SHIPPING PackSink DARK MAKES THE SITE'S OWN COPY UNTRUE.
+     *   With `packSink` empty, RipWallet.payPack falls back to a plain 100% burn — deliberate,
+     *   because nothing may half-execute. But three public pages state the split as FACT:
+     *     index.html      "half burns and half funds the studio"
+     *     tokenomics.html "A pack and a game rake split 50/50"
+     *     whitepaper.html "half burns, half funds the studio"
+     *   ⚑ THE DEGRADATION IS HONEST EVERYWHERE IT IS REPORTED AT RUNTIME — pack.js's receipt and
+     *   WagerPayout.splitLive() both read hasSink() and say what actually happened. What cannot
+     *   adapt is STATIC PROSE. `lens721` empty is a different case and is fine: that door falls
+     *   back to the local vault and MARKS ITSELF `verified:false`, i.e. it tells the truth about
+     *   itself.
+     *   ⚠ Sepolia is exempt on purpose — rehearsing the fallback is the whole point of shipping
+     *   dark. Going live on MAINNET with the copy ahead of the code is the problem, and it is a
+     *   LAUNCH GATE rather than a code defect: deploy the sink and paste the address, or change
+     *   the copy. Either resolves it. Shipping resolves neither. */
+    if (isMain) {
+      const sink = String((CFG.contracts || {}).packSink || '').trim();
+      ok(/^0x[0-9a-fA-F]{40}$/.test(sink) && !/^0x0+$/.test(sink),
+        '⛔ LAUNCH GATE: on mainnet contracts.packSink must be DEPLOYED — empty means every pack burns 100% while index/tokenomics/whitepaper state a 50/50 split as fact (task #89)',
+        sink || 'EMPTY');
+    }
+  }
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);
