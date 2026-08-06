@@ -37,12 +37,17 @@ window.RIPMASTER_CHAIN = {
    * for one studio's money. Artist's call: use the SuperRare-account wallet, so all studio
    * revenue lands in one place and matches the identity that deploys the edition.
    *
-   * ⚠ RESIDUAL RISK, STATED RATHER THAN SOLVED: this is ALSO the deploy wallet and the contract
-   * owner, and those are three different risk profiles in one key — a treasury accumulates a
-   * balance worth stealing, an owner key can repoint every card, a deployer signs at launch.
-   * The note that used to live here argued for splitting them and that argument still stands.
-   * It is one config line until PackSink is deployed, and a migration afterwards. */
-  treasury: '0x432D71bA14D2602B566dD9e3e098E24859d166c9',
+   * ✅ AND IT IS A COLD WALLET — artist's call, 2026-08-06. This is a Ledger address that signs
+   * NOTHING here, which is what makes it free: `_split()` PUSHES with `token.transfer(treasury,…)`
+   * and `flush()` is permissionless, so the treasury is a pure RECEIVER. Cold storage costs the
+   * mechanism nothing and removes the one key whose balance only ever grows.
+   * ⚑ THE WALLET IT REPLACED WAS THE OPPOSITE PROFILE: the SuperRare account wallet must be HOT
+   * (it signs the edition deploy, it connects to sites, it owns the lens). Putting a
+   * monotonically-accumulating slug behind a hot key is the combination worth avoiding, and
+   * `immutable` means deploy day was the only moment it was free to change.
+   * ⚠ The DEPLOY wallet is a separate question and is unaffected: the edition must still be
+   * deployed from the SuperRare-account wallet or the drop never associates with the profile. */
+  treasury: '0x8455cF296e1265b494605207e97884813De21950',
   /* Pack purchase split — half burns, half funds the studio. See docs/TREASURY.md for why this
    * CANNOT be done as two client-side transactions. */
   packSplit: { burn: 0.50, treasury: 0.50 },

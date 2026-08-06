@@ -195,7 +195,8 @@ published at all. Kept because the reasoning that picked the cap still stands. P
 risk is small (dumping the slug moves spot ~−6.8%); **concentration risk is the opposite of small.**
 It is 1.44×, not a 3× scarcity engine — reaching 3× needs ~618 tokens/pack against today's ~285.
 
-**Treasury** `0x5C3b…d89F`. Rip Rocketer's flat 25-token launch fee goes **100%** to the treasury —
+**Treasury** `0x8455cF29…De21950` — **COLD (Ledger)**, receives only; it was `0x5C3b…d89F`
+(the Sepolia wallet) until 2026-08-06. Rip Rocketer's flat 25-token launch fee goes **100%** to the treasury —
 one address, one operation, a plain transfer, no contract needed. Reach for a contract when there
 is something to make **atomic**, not by habit.
 
