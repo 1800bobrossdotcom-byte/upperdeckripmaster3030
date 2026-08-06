@@ -567,8 +567,23 @@
     function setState(d) {
       drivers = d && typeof d === 'object'
         ? { live: !!d.live, burn: +d.burn || 0, price: isFinite(d.price) ? d.price : 0.5,
-            depth: isFinite(d.depth) ? d.depth : 0.5 }
-        : { live: false, burn: 0, price: 0.5, depth: 0.5 };
+            depth: isFinite(d.depth) ? d.depth : 0.5,
+            /* ⚠ CARRIED, NOT YET SPENT — and that is a decision, not an oversight.
+             * `hold` is the lens's holding tier (0..1). js/hero-card.js spends it on the foil's
+             * RULING: a finer grating, so the hue travels further as you turn the card. That works
+             * there because the press generates its own foil.
+             * ⛔ HERE IT WOULD FIGHT THE BURN. This renderer expresses burn as COUNTABLE foil
+             *   bands — `bands = 1 + round(3*burn)` — and the note below says why: "a number
+             *   nobody can read becomes a thing you can count". Making the same bands finer to
+             *   show holding makes them uncountable, so the two dials would be arguing over one
+             *   channel and the more important of the two would lose.
+             * ⚠ The alternative on offer is an emissive lift, and this repo already ruled on that:
+             *   "GLOW IS FOIL, NOT LIGHT — a glow makes it a SCREEN and this is a card."
+             * So it is exposed on `drivers` for a page that wants it, and the mapping is left
+             * OPEN for the artist rather than invented. A weak mapping shipped is harder to
+             * remove than a gap recorded. */
+            hold: isFinite(d.hold) ? d.hold : 0 }
+        : { live: false, burn: 0, price: 0.5, depth: 0.5, hold: 0 };
       var price = drivers.live ? drivers.price : 0.5;
       var depth = drivers.live ? drivers.depth : 0.5;
       var burn  = drivers.live ? drivers.burn  : 0;

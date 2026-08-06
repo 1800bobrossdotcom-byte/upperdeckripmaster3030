@@ -62,12 +62,23 @@ That's expected and reported separately.)
 
 | # | field | value |
 |---|---|---|
-| 1 | `name_` | `upperdeckripmaster3030 lens` |
+| 1 | `name_` | `ripmaster3030studios lens` |
 | 2 | `symbol_` | `3030L` |
 | 3 | `editionRenderer_` | `0x948E633054c516253D21d313aC789B37935de903` |
 | 4 | `claimSigner_` | *your signer address — not the deployer* |
-| 5 | `externalUrl_` | `https://upperdeckripmaster3030.com` |
-| 6 | `lensBaseUrl_` | `https://upperdeckripmaster3030.com/cards/hero/` |
+| 5 | `externalUrl_` | `https://ripmaster3030studios.com` |
+| 6 | `lensBaseUrl_` | `https://ripmaster3030studios.com/cards/hero/` |
+
+⛔ **THIS TABLE CARRIED THE RETIRED NAME AND THE RETIRED DOMAIN UNTIL 2026-08-05**, in rows 1, 5
+and 6 — i.e. **the recommended route told the artist to type the dead studio name into the one
+argument that has no setter.** `name_` is frozen at deploy: fixing it afterwards means deploying a
+new contract. `externalUrl_`/`lensBaseUrl_` are recoverable via `setUrls()`, but marketplaces cache
+metadata hard, so "recoverable" and "not on the collector's card for a week" are different things.
+⚑ It survived because `npm run test:name` pinned these three strings in **`scripts/lens-cli.mjs`**
+(Route B) and in the contract — **and nothing read Route A, the route this file recommends.** The
+tested path was the one nobody is sent down. It is pinned here now too. Same lesson as
+`LAUNCH-CHECKLIST.md` naming the token wrong: **the runbook is the ultimate surface nobody looks
+at**, and a deploy argument ships even though a document does not.
 
 ⚑ `editionRenderer_` above is the **live** renderer, read off `edition.renderContract()` on
 2026-07-27 — not the older `0xEB5Dc231…FDFF7` that some docs used to carry. If in any doubt,
@@ -96,7 +107,7 @@ Faster if you're comfortable with a key in your shell. Same result.
 
 ```bash
 npm install                                  # pulls solc, viem, OZ from package.json
-npm run test:lens                            # 31/31 locally BEFORE spending gas
+npm run test:lens                            # 98/98 locally BEFORE spending gas
 
 export PRIVATE_KEY=0x…                       # your shell only. never commit, never paste in chat
 node scripts/lens-cli.mjs deploy \
@@ -113,6 +124,10 @@ node scripts/lens-cli.mjs verify --at 0x<new lens>
 ```bash
 # register card art (reads cards/hero/cids.json)
 node scripts/lens-cli.mjs cards --at 0x<lens>
+
+# ⛔ TURN STAKING ON. Without this every card renders "Holding: Ash · Tier 0" forever.
+node scripts/lens-cli.mjs tiers --at 0x<lens> --edition 0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C
+node scripts/lens-cli.mjs tiers --at 0x<lens>            # read it back — no key needed
 
 # issue a hero voucher — kind 1 = gacha pack-claim, 2 = earned game title
 node scripts/lens-cli.mjs voucher --at 0x<lens> --to 0x<collector> --id 7 --kind 1
@@ -139,6 +154,15 @@ on-chain ownership.
 - **`setCards` before pinning.** `cards/hero/cids.json` must hold real CIDs; the builder
   reports `UNPINNED` for anything missing. Registering an empty CID means `image` is null and
   the card has no permanent record.
+- ⛔ **Forgetting `setEdition`.** The tier/staking read is fully built and tested, and it is
+  **off** on a fresh deploy — `edition` is `address(0)`, so all 100 cards render *Holding: Ash ·
+  Tier 0* and nothing anywhere reports a fault. Until 2026-08-05 there was no scripted way to
+  make this call and no step here for it; `verify` now says so out loud, and `tiers` is the fix.
+- ⚠ **Pasting a wallet where the token goes.** `setEdition` to an address with no bytecode does
+  **not** revert — the contract deliberately swallows it (a revert in `tierOfHolder` would take
+  the metadata of the whole deck offline, permanently as far as any cache is concerned). So the
+  failure is silent and looks exactly like "tiers just don't work". `tiers --edition` refuses an
+  address with no code for that reason.
 
 ## Verifying the source on Etherscan (optional, nice to have)
 

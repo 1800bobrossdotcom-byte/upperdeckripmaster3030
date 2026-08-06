@@ -2244,6 +2244,26 @@ interface IERC20Balance {
 }
 
 /**
+ * The rest of the edition's read surface — the part that makes this a *Liquid* lens rather than
+ * an ERC-721 that happens to read a balance.
+ *
+ * ⚠ DELIBERATELY SEPARATE FROM IERC20Balance, AND THAT SEPARATION IS LOAD-BEARING. The tier read
+ *   must keep working against a plain ERC-20 that has `balanceOf` and none of this. Folding them
+ *   into one interface would not break compilation — it would make every market call a *possible*
+ *   new way for `tierOfHolder` to fail, and `tierOfHolder` is called from `tokenURI`. Two
+ *   interfaces, two independently guarded reads, one address.
+ */
+interface IEditionMarket {
+    function totalSupply() external view returns (uint256);
+    function maxTotalSupply() external view returns (uint256);
+    /// (rarePerToken, tokenPerRare, sqrtPriceX96, currentTick, liquidity, currentSupply)
+    function getMarketState()
+        external
+        view
+        returns (uint256, uint256, uint160, int24, uint128, uint256);
+}
+
+/**
  *  ripmaster3030studios — the LENS collection.
  *
  *  Every card in the 100-card deck is a lens: a render keyed by card id. This contract is
@@ -2325,6 +2345,33 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     string public collectionDescription;
     string public externalUrl;      // e.g. https://ripmaster3030studios.com
     string public lensBaseUrl;      // e.g. https://ripmaster3030studios.com/cards/hero/
+    /* ⚑ THE FIELD'S LIVE LENS — artist, 2026-08-06: cards 34…100 are pulled in gacha packs and
+     * are NEVER minted (only the 33 are ownable), but they must still be readable AS LENSES.
+     * They were: `tokenURI(id)` has always rendered them. What they were not was LIVE — heroes
+     * got an `animation_url` and the field got a still image, so 67 of the hundred were a
+     * photograph of a card the press generates live.
+     * ⚠ A SEPARATE BASE URL, NOT A SHARED ONE, because the two pages address a card differently:
+     *   a hero is a PATH (`/cards/hero/7.html`, one generated file each) and a field card is a
+     *   QUERY (`/cards/field.html?n=47`, one page driven by a seed). Forcing one string to serve
+     *   both would mean inventing 67 files that do not need to exist.
+     * ⚠ Defaulted in the constructor and settable, so there is nothing to forget on deploy night
+     *   and nothing frozen into the bytecode. The constructor signature is UNCHANGED — lens-cli
+     *   and DEPLOY-LENS.md both depend on renderer 3rd and signer 4th. */
+    string public fieldBaseUrl;     // e.g. https://ripmaster3030studios.com/cards/field.html?n=
+
+    /* ── TENURE — the one input that cannot be bought, borrowed, or faked ─────────────────────
+     * ⛔ THIS CLOSES THE ACKNOWLEDGED HOLE IN THE TIER DESIGN. A BALANCE IS A SNAPSHOT: it can be
+     *   flash-borrowed for one block, so it is only ever safe to spend on something purely
+     *   aesthetic. CLAUDE.md's own note says the fix is "held-over-time, OFF-CHAIN" — but it is
+     *   available on-chain for one SSTORE in a function that is already writing storage, and
+     *   on-chain is strictly better than a server nobody can audit.
+     * ⚑ TIME IS NOT LENDABLE. There is no transaction that gives you a year of tenure, which is
+     *   exactly the artist's position — "the tangible prize is the having-done-it". Balance says
+     *   what you can afford; tenure says what you actually did.
+     * ⚠ Set on MINT and on every transfer, so it means "held by the CURRENT owner since". It is
+     *   not lifetime provenance and must never be described as such.
+     * uint64 because seconds since 1970 overflow it in the year 584,942,417,355. */
+    mapping(uint256 => uint64) public heldSince;
 
     mapping(uint256 => Card) private _cards;
     mapping(bytes32 => bool) public voucherUsed;
@@ -2370,6 +2417,10 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         claimSigner = claimSigner_;
         externalUrl = externalUrl_;
         lensBaseUrl = lensBaseUrl_;
+        /* Derived rather than taken as a 7th constructor arg: the signature is load-bearing
+         * (renderer 3rd, signer 4th — lens-cli.mjs and the Remix table both count positions) and
+         * a default that is right out of the box cannot be forgotten the way setEdition was. */
+        fieldBaseUrl = string(abi.encodePacked(externalUrl_, "/cards/field.html?n="));
         collectionName = name_;
 
         /* Default ladder, anchored on the PACK rather than on round numbers: a LAUNCH pack is
@@ -2408,9 +2459,13 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         tierAt = t;
         emit TiersSet(t);
     }
-    function setUrls(string calldata external_, string calldata lensBase_) external onlyOwner {
+    function setUrls(string calldata external_, string calldata lensBase_, string calldata fieldBase_)
+        external
+        onlyOwner
+    {
         externalUrl = external_;
         lensBaseUrl = lensBase_;
+        fieldBaseUrl = fieldBase_;
     }
     function setDescription(string calldata d) external onlyOwner { collectionDescription = d; }
 
@@ -2484,6 +2539,11 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     {
         address from = _ownerOf(tokenId);
         if (isLovebeing(tokenId) && from != address(0)) revert Soulbound();
+        /* ⚠ STAMPED ON EVERY OWNERSHIP CHANGE, INCLUDING THE MINT — the mint IS the start of the
+         *   first owner's tenure, and skipping it would make a never-transferred card read as
+         *   held since 1970, i.e. the oldest card in the deck. The single most likely way to get
+         *   this wrong is to only stamp transfers. */
+        heldSince[tokenId] = uint64(block.timestamp);
         return super._update(to, tokenId, auth);
     }
 
@@ -2523,6 +2583,23 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         return tierOfHolder(_ownerOf(id));
     }
 
+    /**
+     * Seconds the CURRENT owner has held this card. 0 if it has never been minted.
+     *
+     * ⚑ THE RENDER USE IS THAT INK CURES. A sheet off the press is wet — dense, glossy, liable to
+     *   offset onto whatever it touches — and it sets over hours and days into a matte, stable
+     *   print. So a card that just changed hands can render WET and settle as it is held. That is
+     *   a real property of a real print, it moves in one direction, and no amount of money makes
+     *   it move faster.
+     * ⚠ Tenure with the CURRENT owner, not lifetime provenance: it resets on every transfer, by
+     *   design. A card that has been passed around is a card that keeps arriving wet.
+     */
+    function heldFor(uint256 id) public view returns (uint256) {
+        uint64 since = heldSince[id];
+        if (since == 0 || block.timestamp <= since) return 0;
+        return block.timestamp - since;
+    }
+
     /* The ladder is anchored on the pack (~350 $3030), so a holder can say what they hold in
      * packs rather than in round numbers. Fire, because the token burns so the art can live —
      * the torches on the landing page are the same idea. */
@@ -2532,6 +2609,115 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         if (t == 2) return "Ember";
         if (t == 3) return "Flame";
         return "Inferno";
+    }
+
+    /* ── THE MARKET READ — what makes this a LIQUID lens ──────────────────────────────────────
+     * SuperRare names the inputs a lens may use: "price, supply, liquidity, burn progress,
+     * balances". Until now this contract read exactly one of them (balances). The edition's own
+     * passthrough renderer read the market, but that is the EDITION's card — nothing per-lens.
+     * So a card in this deck could not say anything about the market it lives in.
+     *
+     * ⛔ EVERY GUARD ON `tierOfHolder` APPLIES HERE, AND MORE OF THEM, because this is three
+     *   external calls instead of one and it is reached from `tokenURI`. A revert here would take
+     *   the metadata of ALL 100 CARDS offline at once, on a marketplace, permanently as far as any
+     *   cache is concerned. Hence: the extcodesize check that try/catch cannot cover, a try/catch
+     *   per call, and `live` left false on any failure so callers get the same neutral answer they
+     *   get before an edition is ever set.
+     */
+    struct Market {
+        bool live;              // did the whole read succeed?
+        uint256 burnBps;        // basis points of the mint permanently burned, 0…10000
+        uint256 rarePerToken;   // word0 of getMarketState — verified word order, see ILiquid
+        int24 tick;
+        uint128 liquidity;
+    }
+
+    function _market() internal view returns (Market memory m) {
+        if (edition == address(0) || edition.code.length == 0) return m;   // m.live == false
+
+        uint256 max;
+        try IEditionMarket(edition).maxTotalSupply() returns (uint256 v) { max = v; } catch { return m; }
+        /* ⚠ A zero cap is not "nothing burned", it is a token that does not answer this question —
+         *   and dividing by it would revert, which is the one thing this function may never do. */
+        if (max == 0) return m;
+
+        uint256 supply;
+        try IEditionMarket(edition).totalSupply() returns (uint256 v) { supply = v; } catch { return m; }
+        /* ⚠ SUPPLY ABOVE THE CAP IS NONSENSE, AND THE HONEST ANSWER IS SILENCE. js/lens-state.js
+         *   records the same guard for the same reason: a "burned" figure derived from a cap that
+         *   sits under the live supply is a false claim, and a false burn number on a collector's
+         *   card is worse than no number. Underflow would revert; this returns neutral instead. */
+        if (supply > max) return m;
+        /* ⛔ AND THE MULTIPLICATION ITSELF CAN OVERFLOW, WHICH REVERTS IN 0.8.x. A token reporting
+         *   an astronomical cap — an unlimited-supply ERC-20 returning type(uint256).max, say —
+         *   makes `diff * 10_000` wrap, and a revert here takes all 100 cards offline. Found by
+         *   re-reading this function, not by a failing test: every OTHER guard returns neutral, so
+         *   this one line was the last remaining way for the market read to throw. Above the
+         *   threshold, divide first — `max / 10_000` is then still enormous, so nothing rounds to
+         *   zero and no precision that matters is lost. */
+        uint256 diff = max - supply;
+        m.burnBps = max > type(uint256).max / 10_000
+            ? diff / (max / 10_000)
+            : (diff * 10_000) / max;
+
+        /* ⚑ The price half is allowed to fail on its own without costing us the burn figure. A
+         *   plain ERC-20 with a cap but no curve still has a real, publishable burn. */
+        try IEditionMarket(edition).getMarketState()
+            returns (uint256 rpt, uint256, uint160, int24 t, uint128 liq, uint256)
+        {
+            m.rarePerToken = rpt;
+            m.tick = t;
+            m.liquidity = liq;
+        } catch {}
+
+        m.live = true;
+    }
+
+    /// Basis points of the mint permanently burned, 0…10000. 0 when the edition is unset or mute.
+    function burnBps() public view returns (uint256) {
+        return _market().burnBps;
+    }
+
+    /// The whole market read in one call. `live` false ⇒ every other field is meaningless.
+    function marketSnapshot()
+        external
+        view
+        returns (bool live, uint256 burnBps_, uint256 rarePerToken, int24 tick, uint128 liquidity)
+    {
+        Market memory m = _market();
+        return (m.live, m.burnBps, m.rarePerToken, m.tick, m.liquidity);
+    }
+
+    /**
+     * Everything the live card page needs about one lens, in ONE eth_call.
+     *
+     * ⚑ WHY THIS EXISTS: the page was making four round-trips (ownerOf, tierOf, and two supply
+     *   reads against the edition) to draw one card, and a card in a sandboxed marketplace frame
+     *   is exactly where a round-trip is most likely to be blocked or slow. One call also means
+     *   the four numbers cannot disagree with each other — they are read at one block, which a
+     *   sequence of four calls does not guarantee.
+     * ⚠ `tier` is the OWNER's holding. An unminted card has no owner and therefore no tier, which
+     *   is 0 — the same answer as an owner holding nothing, and deliberately so: the card does not
+     *   report on a person who has not arrived.
+     */
+    function lensState(uint256 id)
+        external
+        view
+        returns (
+            bool live,
+            uint8 tier,
+            uint256 burnBps_,
+            bool minted,
+            uint256 rarePerToken,
+            int24 tick,
+            uint128 liquidity,
+            uint256 heldSeconds
+        )
+    {
+        Market memory m = _market();
+        address who = _ownerOf(id);
+        return (m.live, tierOfHolder(who), m.burnBps, who != address(0),
+                m.rarePerToken, m.tick, m.liquidity, heldFor(id));
     }
 
     // ── rendering ────────────────────────────────────────────────────────────────────────
@@ -2566,21 +2752,35 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         if (bytes(c.cid).length != 0) {
             media = string(abi.encodePacked(',"image":"ipfs://', c.cid, '"'));
         }
-        if (hero && bytes(lensBaseUrl).length != 0) {
-            media = string(
-                abi.encodePacked(
-                    media,
-                    ',"animation_url":"',
-                    _animHtml(string(abi.encodePacked(lensBaseUrl, idStr, ".html"))),
-                    '"'
-                )
-            );
+        /* ⛔ EVERY CARD IN THE DECK IS LIVE NOW, NOT JUST THE THIRTY-THREE. The field's lens is
+         *   the same press that draws the heroes, so a still image was the one thing on the card
+         *   that was not true about it. Ownership is what separates the two halves — the 33 can
+         *   be held, the 67 cannot — and that distinction is carried by `Class` and `Minted`,
+         *   which is where it belongs. It was never a reason for 67 cards to stop moving.
+         * ⚠ Two shapes, because the two pages address a card differently: a hero is a path and a
+         *   field card is a query. Either base being empty simply drops that half's
+         *   `animation_url` — the ipfs `image` is the permanent record and always survives. */
+        string memory lensUrl = hero
+            ? (bytes(lensBaseUrl).length != 0 ? string(abi.encodePacked(lensBaseUrl, idStr, ".html")) : "")
+            : (bytes(fieldBaseUrl).length != 0 ? string(abi.encodePacked(fieldBaseUrl, idStr)) : "");
+        if (bytes(lensUrl).length != 0) {
+            media = string(abi.encodePacked(media, ',"animation_url":"', _animHtml(lensUrl), '"'));
         }
 
         /* ⚠ "Deck: Season I" used to be baked in here. Seasons were removed (artist directive,
          *   2026-08-01 — the pack schedule is TIERED, not a calendar), and this string would have
          *   gone on-chain in the metadata of all 100 cards. Caught before deploy. */
         uint8 tier = tierOf(id);
+        /* ⚑ BURN IS THE ONE MARKET NUMBER THAT BELONGS IN CACHED METADATA, and the reason is the
+         *   caching itself. Marketplaces cache tokenURI hard and refetch on their own schedule, so
+         *   any attribute here is a number that will be READ LATE. Burn is monotonic — it only
+         *   ever rises — so a stale burn reads as "at least this much", which is true. A stale
+         *   PRICE or TICK reads as a lie about what the token is worth right now, and that is why
+         *   they are exposed on `lensState()`/`marketSnapshot()` for the live page instead of
+         *   being baked in here. Same reasoning that already exposes the tier twice.
+         * ⚑ It is also the one that means something in this project: the token burns so the art
+         *   can live. Basis points, so a partial pack still moves it. */
+        uint256 burned = _market().burnBps;
         string memory attrs = string(
             abi.encodePacked(
                 ',"attributes":[',
@@ -2589,6 +2789,7 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
                 '{"trait_type":"Card","value":', idStr, "},",
                 '{"trait_type":"Holding","value":"', tierName(tier), '"},',
                 '{"trait_type":"Tier","value":', uint256(tier).toString(), "},",
+                '{"trait_type":"Burned bps","value":', burned.toString(), "},",
                 '{"trait_type":"Minted","value":"', _ownerOf(id) == address(0) ? "no" : "yes", '"}]}'
             )
         );

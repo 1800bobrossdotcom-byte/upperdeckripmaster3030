@@ -37,6 +37,35 @@ window.CityInk = (function () {
      inside the effect object. x = strength 0..1, yz = the focus point in screen uv. */
   var RUSH = [0, 0.5, 0.5];
 
+  /* ── THE BURN — THE ONE PIECE OF STATE EVERY PLAYER SHARES ────────────────────────────────
+   * 0..1, from `js/lens-state.js`'s burn dial (the $3030 edition's own maxTotalSupply -
+   * totalSupply). Module state like RUSH, so the app drives it without reaching into the effect.
+   *
+   * ⚑ WHY THIS AND NOT A PER-PLAYER INPUT. Every other chain read available here — a balance, a
+   *   tier, a tenure — describes ONE WALLET, so spending it makes the city a private room. The
+   *   burn is the only number in this project that is GLOBAL, MONOTONIC, PERMANENT and identical
+   *   for everyone: two players a continent apart at the same block are looking at the same city,
+   *   and nobody can put it back. That is what turns a single-player walking sim into a place with
+   *   a history, and it costs one eth_call.
+   *
+   * ⛔ IT MAKES THE PRINT BETTER, NOT WORSE, AND THAT IS A DELIBERATE RULE. The obvious mapping is
+   *   "supply burns, so the ink runs out" — and it is the anti-pattern this repo just wrote down:
+   *   degrading the world as the community burns makes their burning a PUNISHMENT, and a treadmill
+   *   nobody opted into. The project's own line is the other way round — the token burns so the
+   *   ART CAN LIVE — so a burn buys a better print run: more tonal steps (a richer separation) and
+   *   TIGHTER registration (a press that has been paid for). Both are true of a real job with a
+   *   bigger budget, which is the test every mapping here has to pass.
+   *
+   * ⚠ BOUNDED SO THE CHARACTER SURVIVES. `steps` stops at 9 because the header note says past
+   *   that it stops reading as print, and `plate` stops at 0.80 rather than 0 because this file
+   *   already says "one to two is the whole idea" — a perfectly registered city is not a reward,
+   *   it is a different, blander object. The burn refines the print; it never erases it.
+   * ⚠ AT 0 THE CITY IS EXACTLY THE CITY THAT SHIPS TODAY — the lerps below are identities at 0,
+   *   so no chain, a blocked RPC or a sandboxed frame all render the same city as before. */
+  var BURN = 0;
+  var BURN_STEPS = 9.0;    // ceiling: past this the posterise stops reading as print
+  var BURN_PLATE = 0.80;   // floor: keep the misregistration that IS the look
+
   /* ⛔ OUR OWN VERTEX SHADER, NOT `pc.PostEffect.quadVertexShader`. The engine's version calls
    * `getImageEffectUV()`, which is a shader CHUNK — and `createShaderFromCode` does not inject
    * chunks, so the vertex stage failed to link while `createShaderFromCode` still handed back a
@@ -253,11 +282,12 @@ window.CityInk = (function () {
           s.resolve('uHasDepth').setValue(dm ? 1 : 0);
           if (!dm) s.resolve('uSceneDepthMap').setValue(dummy);
           s.resolve('uTexel').setValue([1 / d.width, 1 / d.height]);
-          s.resolve('uSteps').setValue(L.steps);
+          /* the burn refines the job: more separation, tighter register. Identity at BURN 0. */
+          s.resolve('uSteps').setValue(L.steps + (BURN_STEPS - L.steps) * BURN);
           s.resolve('uInk').setValue(L.ink);
           s.resolve('uDepthEdge').setValue(L.depthEdge);
           s.resolve('uLumaEdge').setValue(L.lumaEdge);
-          s.resolve('uPlate').setValue(L.plate);
+          s.resolve('uPlate').setValue(L.plate + (BURN_PLATE - L.plate) * BURN);
           s.resolve('uTooth').setValue(L.tooth);
           s.resolve('uHaze').setValue(L.haze);
           s.resolve('uInkCol').setValue(L.inkCol);
@@ -296,5 +326,22 @@ window.CityInk = (function () {
     if (typeof v === 'number') RUSH[2] = v;
   }
 
-  return { attach, LOOK, rush, rushState: function () { return RUSH.slice(); } };
+  /* ⚠ Anything unreadable is 0 — the city as it ships. A chain that cannot be reached must never
+   *   be able to change how the world looks; that is the same fail-open rule the whole repo runs
+   *   on, applied to the one input that is allowed to be shared. */
+  function setBurn(v) {
+    v = Number(v);
+    BURN = (isFinite(v) && v > 0) ? Math.min(1, v) : 0;
+    return BURN;
+  }
+
+  return { attach, LOOK, rush, setBurn,
+    rushState: function () { return RUSH.slice(); },
+    /* what the shader is ACTUALLY being handed, so a harness asserts the uniform rather than
+     * recomputing the formula beside it and testing its own copy. */
+    burnState: function () {
+      return { burn: BURN,
+        steps: LOOK.steps + (BURN_STEPS - LOOK.steps) * BURN,
+        plate: LOOK.plate + (BURN_PLATE - LOOK.plate) * BURN };
+    } };
 })();
