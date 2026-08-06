@@ -383,13 +383,13 @@ const whitepaper = `
 
   <h2><span class="n">03</span>The token · $3030</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.3M</b><span>hard cap (mint-once)</span></div>
+    <div class="stat"><b>3.03M</b><span>hard cap (mint-once)</span></div>
     <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
     <div class="stat"><b>RARE</b><span>reserve currency</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
   </div>
   <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
-  <b>Doppler multicurve</b>. Supply is capped at <b>3,300,000</b> and <b>minted once</b> into the pool at
+  <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and <b>minted once</b> into the pool at
   launch — burns are <b>permanent</b> and never re-mint. Opening price ≈ 1 RARE/token keeps every pack a
   micro-move. Full-curve FDV ≈ $606k is an <b>artist-scale niche edition, by choice</b>.</p>
 
@@ -543,7 +543,7 @@ const tokenomics = `
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -562,7 +562,7 @@ const tokenomics = `
 
   <h2><span class="n">03</span>Price schedule</h2>
   <p>The opening price is <b>measured, not modelled</b>: SuperRare ran the live mainnet previews against
-  the full 3,300,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
+  the full 3,030,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
   <b>no creator allocation</b>. It opens at about <b>$0.08 per $3030</b>, with 30% of supply in the
   gentlest $0.08–$0.16 band. Everything below is priced off that.</p>
   <p>⚑ The pack column runs the <b>other</b> way to the old one, and that is the important part: the pack
@@ -633,7 +633,7 @@ const tokenomics = `
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
     <tr><td>Burned so far</td><td><b>read live</b></td><td><code>maxTotalSupply() − totalSupply()</code>, from the chain</td></tr>
     <tr><td>To the studio, so far</td><td><b>read live</b></td><td>the other half of every pack — revenue, not destroyed</td></tr>
-    <tr><td>Cap (mint-once)</td><td><b>3,300,000</b></td><td>minted once; burns never re-mint</td></tr>
+    <tr><td>Cap (mint-once)</td><td><b>3,030,000</b></td><td>minted once; burns never re-mint</td></tr>
     <tr><td>Invariant</td><td>Σ 🔥 ≤ cap ✓</td><td>supply only ever falls</td></tr></table>
   <p><b>We do not publish a target burn percentage, and that is deliberate.</b> A pack is priced in
   <b>dollars</b>, so the number of tokens it burns depends on what a token costs that day — and it moves
@@ -656,7 +656,7 @@ const tokenomics = `
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve against the 3.3M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 3.03M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>
@@ -726,7 +726,7 @@ const audit = `
   <ul>
     <li><b>Independent third-party security audit</b> of the renderer+721 lens contract — not yet performed.
       (The ERC-20 + curve come from SuperRare's protocol; the render/lens is ours.)</li>
-    <li><b>Curve calibration</b> — set the opening price against the 3.3M supply (with SuperRare).</li>
+    <li><b>Curve calibration</b> — set the opening price against the 3.03M supply (with SuperRare).</li>
     <li><b>Lens setup with SuperRare</b> — does the assisted 721 setup support render-by-id across 100 card-lenses
       (33 minted, 67 render-only), or do we deploy our own combined renderer+721 lens contract via the CLI?</li>
     <li><b>Mint mechanism</b> — a claim/voucher redeemer for the 11 gacha lenses (pack burn) and the 11 earned

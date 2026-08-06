@@ -5,9 +5,16 @@
 // After deploying with the Rare CLI (docs/TESTNET.md), paste the addresses here
 // and commit — the site redeploys and starts reading real testnet state.
 window.RIPMASTER_CHAIN = {
-  network: "sepolia",              // "sepolia" while testing, "mainnet" for S1
-  label: "sepolia block",
-  chainId: 11155111,               // Sepolia (mainnet = 1)
+  /* ⛔ FLIPPED TO MAINNET 2026-08-06, the night $3030 deployed. Nine fields move together and a
+   * PARTIAL flip does not error — chainId alone drives wantChainId() in js/wallet.js (the network
+   * a collector's wallet is forced onto), which SuperRare host buyUrl() points at, and every
+   * explorer link. `npm run test:name` derives the expectation from `network` and checks the other
+   * eight against it, so a half-flip fails loudly instead of quietly herding people onto a
+   * testnet. Written while the answer was still "sepolia", because a guard added after the flip
+   * guards nothing. */
+  network: "mainnet",
+  label: "block",
+  chainId: 1,
   // WalletConnect (mobile wallets). Free project id from https://cloud.reown.com —
   // paste it here and mobile users can connect + burn. Empty = WC option hidden,
   // injected/MetaMask still works. (js/wallet.js)
@@ -69,19 +76,29 @@ window.RIPMASTER_CHAIN = {
   approveBatch: 12,
   // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
   rpcs: [
-    "https://ethereum-sepolia-rpc.publicnode.com",
-    "https://rpc.sepolia.org",
+    "https://ethereum-rpc.publicnode.com",
+    "https://cloudflare-eth.com",
+    "https://rpc.ankr.com/eth",
   ],
   // Pure Liquid Edition: just the ERC-20 token + its render contract. No ballot/vault
   // contracts (see docs/LAUNCH-ARCHITECTURE.md). Fill these after the Sepolia deploy
   // (docs/TESTNET.md) and commit — the site starts reading real testnet state.
   contracts: {
-    liquidEdition: "0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C", // Sepolia deploy 2026-07-19 (rare liquid-edition deploy multicurve)
+    /* ✦ $3030 ON ETHEREUM MAINNET — deployed 2026-08-06, block 25,697,191, tx 0xe983b77e…9f2c,
+     * from 0x432D71bA…59d166c9 (the SuperRare account wallet, so the drop associates with the
+     * artist profile). Verified on-chain, not taken from the CLI's own output: name() reads
+     * `ripmaster3030`, symbol() `3030`, maxTotalSupply() 3,030,000, decimals 18. */
+    liquidEdition: "0x1D4bcbb505182a49303CC3B23EfF1E3157147A33",
     // LIVE renderer — read off the edition itself (edition.renderContract()) on 2026-07-27,
     // not from memory. This is the artist's updated deploy: name() is lowercase, it emits
     // animation_url framing the site, and $3030-per-RARE reads 0.06 rather than the 0 the
     // previous build truncated to. Superseded 0xEB5Dc231…FDFF7, which is an older prototype.
-    renderContract:"0x948E633054c516253D21d313aC789B37935de903", // Sepolia, artist deploy (verified on-chain 2026-07-27)
+    /* ✦ MAINNET renderer, 2026-08-06 — READ OFF edition.renderContract(), never from a note.
+     * Its animation_url frames https://www.ripmaster3030studios.com/superrare.html, the
+     * WALLET-FREE embed. ⛔ NOT the site root: index.html loads pack.js and js/wallet.js, and
+     * framing that inside a marketplace is what SuperRare's security team flagged. The Sepolia
+     * renderer pointed at the root of the RETIRED domain and nobody noticed for three weeks. */
+    renderContract:"0xeAbDFb01644B6df6de39437d7bb441b4069F3FE2",
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
@@ -106,7 +123,13 @@ window.RIPMASTER_CHAIN = {
   ],
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
   protocol: {
-    liquidFactory: "0xb1777091C953fa2aC1fD67f2b3e2f61343F5Ce5e",
-    rare:          "0x197FaeF3f59eC80113e773Bb6206a17d183F97CB",
+    // Mainnet multicurve factory — the `Factory:` line the deploy printed, 2026-08-06.
+    liquidFactory: "0x25f993C222fE5e891128a782A5168f1C78629540",
+    /* ⛔ THE RESERVE TOKEN, AND THE ONE VALUE THE REPO ONLY EVER HELD TRUNCATED (0xba5BDe66…6350).
+     * A wrong reserve token is not a typo, it is the pool pointing at the wrong asset, so this was
+     * VERIFIED rather than completed from memory: this address returns symbol() "RARE" and name()
+     * "SuperRare" on mainnet, AND matches the recorded prefix and suffix. Two independent
+     * directions agreeing is the standard this number needed. */
+    rare:          "0xba5BDe662c17e2aDFF1075610382B9B691296350",
   },
 };

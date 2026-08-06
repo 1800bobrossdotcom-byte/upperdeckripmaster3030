@@ -24,7 +24,7 @@ interface ILiquid {
         );
 }
 
-/// @title upperdeckripmaster3030 — render prototype
+/// @title ripmaster3030studios — render prototype
 /// @notice PROTOTYPE renderer for the $3030 Liquid Edition. Proves the
 ///         mechanism: the token's tokenURI() delegates here, and this reads
 ///         LIVE market state (supply, price, tick) off the token to draw a
@@ -54,10 +54,14 @@ contract Ripmaster3030Renderer {
     string public externalUrl;
     // When set, emitted as ERC-721-metadata "animation_url" — marketplaces
     // (SuperRare included) render it as a live iframe in the token page's media
-    // slot, so the SITE ITSELF becomes the edition's display: the full arcade at
-    // upperdeckripmaster3030.com. If the marketplace sandbox fights the full site
-    // (opaque origin: no injected wallet, no storage), setAnimationUrl() flips to
-    // the sandbox-safe /cabinet.html — owner-settable, no redeploy.
+    // slot, so the SITE ITSELF becomes the edition's display.
+    // ⛔ POINT THIS AT /superrare.html, NOT AT THE SITE ROOT. index.html loads pack.js
+    //    and js/wallet.js; framing it inside a marketplace puts wallet code in their
+    //    iframe, which is exactly what SuperRare's security team flagged on
+    //    cabinet.html and precisely why the wallet-free superrare.html exists.
+    //    The Sepolia renderer was set to the site root and nobody noticed.
+    // ⚠ cabinet.html is NOT the fallback for that reason — it performs WalletConnect
+    //    burns. superrare.html is the embeddable one; npm run test:embed guards it.
     string public animationUrl;
 
     constructor(
@@ -185,7 +189,7 @@ contract Ripmaster3030Renderer {
             "<style>html,body{margin:0;height:100%;overflow:hidden;background:#02120a;font:12px monospace;color:#2bff80}",
             "body{display:flex;flex-direction:column}.b{flex:none;padding:6px;text-align:center}.b a{color:#ffd23b}",
             "iframe{flex:1 1 auto;border:0;width:100%;display:block}</style>",
-            "<div class=b>upperdeckripmaster3030 &#183; <a href=\"", url, "\" target=_blank rel=noopener>open the full arcade &#8599;</a></div>",
+            "<div class=b>ripmaster3030studios &#183; <a href=\"", url, "\" target=_blank rel=noopener>open the full arcade &#8599;</a></div>",
             "<iframe src=\"", url, "\" allow=\"accelerometer;gyroscope;autoplay\"></iframe>"
         );
         return string(abi.encodePacked("data:text/html;base64,", Base64.encode(html)));
@@ -236,7 +240,7 @@ contract Ripmaster3030Renderer {
                 '<rect x="18" y="18" width="564" height="804" rx="22" fill="none" stroke="url(#g)" stroke-width="6"/>',
                 // ONE WORD, lowercase, always — artist's law. textLength force-fits
                 // the full word to the card face so no renderer ever wraps it.
-                '<text x="300" y="150" text-anchor="middle" font-family="Arial Black,Arial" font-size="38" textLength="540" lengthAdjust="spacingAndGlyphs" fill="url(#g)">upperdeckripmaster3030</text>',
+                '<text x="300" y="150" text-anchor="middle" font-family="Arial Black,Arial" font-size="38" textLength="540" lengthAdjust="spacingAndGlyphs" fill="url(#g)">ripmaster3030studios</text>',
                 '<text x="300" y="224" text-anchor="middle" font-family="monospace" font-size="21" fill="#8fffc4">$', _escXml(s.sym), " &#183; LIQUID EDITION</text>"
             )
         );

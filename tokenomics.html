@@ -266,7 +266,7 @@
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
     <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -285,7 +285,7 @@
 
   <h2><span class="n">03</span>Price schedule</h2>
   <p>The opening price is <b>measured, not modelled</b>: SuperRare ran the live mainnet previews against
-  the full 3,300,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
+  the full 3,030,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
   <b>no creator allocation</b>. It opens at about <b>$0.08 per $3030</b>, with 30% of supply in the
   gentlest $0.08–$0.16 band. Everything below is priced off that.</p>
   <p>⚑ The pack column runs the <b>other</b> way to the old one, and that is the important part: the pack
@@ -356,7 +356,7 @@
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
     <tr><td>Burned so far</td><td><b>read live</b></td><td><code>maxTotalSupply() − totalSupply()</code>, from the chain</td></tr>
     <tr><td>To the studio, so far</td><td><b>read live</b></td><td>the other half of every pack — revenue, not destroyed</td></tr>
-    <tr><td>Cap (mint-once)</td><td><b>3,300,000</b></td><td>minted once; burns never re-mint</td></tr>
+    <tr><td>Cap (mint-once)</td><td><b>3,030,000</b></td><td>minted once; burns never re-mint</td></tr>
     <tr><td>Invariant</td><td>Σ 🔥 ≤ cap ✓</td><td>supply only ever falls</td></tr></table>
   <p><b>We do not publish a target burn percentage, and that is deliberate.</b> A pack is priced in
   <b>dollars</b>, so the number of tokens it burns depends on what a token costs that day — and it moves
@@ -379,7 +379,7 @@
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve against the 3.3M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 3.03M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>
