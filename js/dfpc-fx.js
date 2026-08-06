@@ -275,6 +275,28 @@ window.DFPCFx = (function () {
                    c[0] * 0.42, c[1] * 0.42, c[2] * 0.42, 255);
         add.ribbon(dx, b.alt, dz, dx - ch * 0.62, b.alt, dz - sh * 0.62, 0.13, 0.05,
                    c[0] * 0.35 + 160, c[1] * 0.35 + 160, c[2] * 0.35 + 160, 255);
+        /* ── ⛔ THE HEAD GLOW, AND WITHOUT IT YOUR OWN FIRE IS INVISIBLE ────────────────────
+         * A ribbon expresses the STREAK, which is the round's motion integrated by your eye —
+         * and a streak seen end-on has no length to express. From the chase camera you fire
+         * along the view axis, so that is the normal case for your OWN gun, not a corner one:
+         * measured, the tracer collapses 43 px → 3.3 px in 0.4 s while sitting on the vanishing
+         * point. The rounds were being drawn the whole time; they were drawn as a line pointing
+         * at the lens.
+         * ⚑ A tracer is not only a streak — it is a burning round, and burning is isotropic. So
+         *   the glow is a camera-facing blob that keeps its size whatever the angle, and the
+         *   streak remains the part that foreshortens. Side-on you read a line, head-on a dot,
+         *   and both are true rather than one being a fallback for the other.
+         * ⚠ Sized against DISTANCE, not held constant: a fixed-radius blob is a dot at 30 units
+         *   and a dinner plate at 2, and bolts spawn 0.7 from the muzzle. */
+        /* ⚠ THE GLOW KEEPS ITS HUE. The first version pushed every channel +170, which is the same
+         * move the ribbon head makes — and it is right THERE, where a thin bright core sits on top
+         * of a coloured streak. Alone on a pale sky or against this game's near-white skyline, a
+         * desaturated warm-white blob has almost no contrast and disappears exactly where it most
+         * needs to read. Hue is what separates a round from the city behind it, so the glow stays
+         * saturated and gets its brightness from being ADDITIVE rather than from being white. */
+        const bd = Math.hypot(dx, dz) || 1e-3;
+        add.billboard(dx, b.alt, dz, Math.min(0.15, 0.045 + bd * 0.009),
+                      c[0] * 0.72 + 60, c[1] * 0.72 + 60, c[2] * 0.72 + 60, 255);
       }
 
       /* ── ⛔ THE MUZZLE FLASH, AND IT WENT INTO THE WRONG RENDERER FIRST ────────────────
@@ -298,8 +320,33 @@ window.DFPCFx = (function () {
         const dx = wdel(s.x - cam.x), dz = wdel(s.y - cam.y);
         if (Math.hypot(dx, dz) > FAR) continue;
         const ch = Math.cos(s.h || 0), sh = Math.sin(s.h || 0);
-        add.ribbon(dx + ch * 0.5, s.alt, dz + sh * 0.5, dx + ch * 1.05, s.alt, dz + sh * 1.05,
-                   0.30 * k, 0.04 * k, 255 * k, 224 * k, 120 * k, 255);
+        /* ⛔ AND THE FLASH HAD THE SAME DEFECT AS THE TRACER, ONE STEP EARLIER IN THE CHAIN. It
+         * was a 0.55-unit ribbon laid along the heading — i.e. pointing straight at the lens on
+         * your own aircraft, where it projects to a smear a couple of pixels long. A muzzle
+         * flash is an expanding ball of burning gas; end-on it is a DISC, which is precisely the
+         * view from which you most need to see your own gun fire.
+         * ⚑ It is drawn at each HARDPOINT now (`s.gunLat`, set by emitBolt), so the flash and the
+         *   bolt leave the same place. That is the artist's literal complaint — shots that come
+         *   from the gun — and it only became expressible once the guns had positions at all.
+         * ⚠ Falls back to the centreline for any craft that has not fired since this shipped, and
+         *   for net peers, whose bolts arrive over the wire without a hardpoint. */
+        const lat = (s.gunLat && s.gunLat.length) ? s.gunLat : [0];
+        for (let i = 0; i < lat.length; i++) {
+          /* the same lateral basis emitBolt uses: forward is (ch, sh), so left is (−sh, ch). */
+          const mx = dx + ch * 0.62 - sh * lat[i], mz = dz + sh * 0.62 + ch * lat[i];
+          /* ⚠ SIZED DOWN AND CAPPED NEAR THE LENS. Your own aircraft sits 2.4 units away, so a
+           * radius that reads correctly at combat range is a 44 px blob on your own wing — the
+           * first version bloomed into a single gold smear across the whole tail of the craft.
+           * A flash is small, hot and brief; the reason you see it is that it is BRIGHT, not that
+           * it is big. Growing gently with distance keeps it readable on other people's guns,
+           * which is what it is mostly for. */
+          add.billboard(mx, s.alt, mz, Math.min(0.13, (0.055 + 0.055 * k) * (0.5 + Math.hypot(mx, mz) * 0.05)),
+                        255 * k, 224 * k, 120 * k, 255);
+          /* the flare along the barrel survives too — side-on it is what reads as a gun going
+           * off rather than a lamp switching on. Short, so it cannot become a beam. */
+          add.ribbon(mx, s.alt, mz, mx + ch * 0.42 * k, s.alt, mz + sh * 0.42 * k,
+                     0.13 * k, 0.02 * k, 255 * k, 214 * k, 110 * k, 255);
+        }
       }
 
       /* ── bursts ────────────────────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@
  *        filename is innocent. No string search will ever find it, so the assets whose PIXELS
  *        carry the retired name are listed by hand and any reference to one is a failure.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -258,10 +258,37 @@ const DEPLOY_RE = /deploy multicurve "([^"]*)" "([^"]*)"/g;
  *   neither is a string anyone pastes into a terminal. Failing on them would train the reader to
  *   ignore this section, which is worse than not having it. */
 const PLACEHOLDER = a => a === '' || /^[…<]/.test(a);
-for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
+/* ⛔ THE FILE LIST WAS HAND-PICKED AND MISSED THE LAUNCH RUNBOOK. It read TESTNET.md,
+ *   TOKEN-MATH.md and CLAUDE.md — while SIX files carry a `deploy multicurve` line, and the three
+ *   it skipped included **docs/LAUNCH-CHECKLIST.md**, i.e. the document actually open on launch
+ *   night, on the one step that cannot be undone. ⚑ This is the recorded hand-picked-list failure
+ *   verbatim ("a hand-picked list of pairs stops covering the layout the moment the layout
+ *   moves" — the cabinet overlap check that omitted the one pair that collides). A list of files
+ *   that must be right is exactly the kind of list that must be DERIVED. */
+const DEPLOY_DOCS = [
+  ...readdirSync(join(ROOT, 'docs')).filter(f => f.endsWith('.md')).map(f => 'docs/' + f),
+  ...readdirSync(ROOT).filter(f => f.endsWith('.md')),
+].filter(f => /deploy multicurve/.test(readFileSync(join(ROOT, f), 'utf8')));
+/* ⛔ AND A DEAD FILE MAY NOT CARRY A LIVE WEAPON. TOKEN-MATH.md is banner-marked stale, and it was
+ *   still holding a runnable deploy command whose name, symbol and preset had all been fixed
+ *   while `--image` still pointed at `./cards/art/<hero>.png` — a path that resolves to nothing,
+ *   in the placeholder deck task #71 deletes. A HALF-UPDATED command is more dangerous than a
+ *   wholly stale one: the three things a reader spot-checks are all correct, so it reads as
+ *   current. ⚑ And "marked dead" is not protection when the banner covers only NUMBERS and the
+ *   hazard is a COMMAND — a reader obeying the banner exactly would still paste it. So the
+ *   command was removed rather than corrected (the standing rule is that a doc silently edited
+ *   to look current is worse than one plainly marked dead), and its ABSENCE is now the assertion. */
+const DEAD_DOCS = { 'docs/TOKEN-MATH.md': 'banner-marked stale — must not carry a runnable deploy command' };
+for (const [file, why] of Object.entries(DEAD_DOCS)) {
+  ok(!DEPLOY_DOCS.includes(file), `${file} carries NO deploy command — ${why}`);
+}
+ok(DEPLOY_DOCS.length > 0, `deploy commands found to check  (${DEPLOY_DOCS.join(', ')})`);
+ok(DEPLOY_DOCS.includes('docs/LAUNCH-CHECKLIST.md'),
+  '…including the LAUNCH-CHECKLIST, the runbook open on the night');
+for (const file of DEPLOY_DOCS) {
   const src = readFileSync(join(ROOT, file), 'utf8');
   const hits = [...src.matchAll(DEPLOY_RE)].filter(h => !PLACEHOLDER(h[1]) && !PLACEHOLDER(h[2]));
-  ok(hits.length > 0, `${file} — carries a real deploy command to check`);
+  if (!hits.length) continue;                  // template-only (MECHANICS.md's "<NAME>" "<SYMBOL>")
   for (const h of hits) {
     ok(h[1] === TOKEN_NAME, `${file} — name() is exactly "${TOKEN_NAME}"  (found "${h[1]}")`);
     ok(h[2] === TOKEN_SYMBOL, `${file} — symbol() is exactly "${TOKEN_SYMBOL}"  (found "${h[2]}")`);
@@ -312,6 +339,60 @@ for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
     '…and is NOT the hot deploy wallet — the treasury is COLD',
     m && m[1] === DEPLOY_WALLET ? 'TREASURY IS THE DEPLOY KEY' : 'separate');
   /* One destination for studio money: the Base arcade fee must agree with the treasury. */
+  /* ⛔ THE CLAIM SIGNER IS A FOURTH WALLET AND MUST NOT BE THE OWNER. It is a HOT key that signs
+   *   hero vouchers all season; the owner can repoint every card in the deck. If the signer leaks
+   *   and it is also the owner, the whole collection goes with it. `lens-cli verify` warns when
+   *   they match, but a warning printed after the fact is not a guard — the runbook is pinned here
+   *   so the wrong pair cannot reach the constructor in the first place.
+   * ⚠ Fixable via setClaimSigner (unlike the treasury), so this is a quality gate, not a
+   *   catastrophe gate — which is exactly why it is worth automating rather than remembering. */
+  /* ⛔ AND THE FIRST VERSION OF THIS CHECK WAS A TAUTOLOGY. It declared `const SIGNER = '0x42A6…'`
+   *   and then asserted `SIGNER !== DEPLOY_WALLET` — two literals this file writes itself, so the
+   *   only edit that could ever fail it is an edit to this file. Every doc could name the wrong
+   *   address and it would print three green ticks. Same shape as the redirect outage's test,
+   *   which asserted that a host scope EXISTED rather than running it against the live hosts.
+   * ⚑ SO THE ADDRESS IS READ OUT OF EACH POSITION THE ARTIST ACTUALLY TYPES FROM, and every one
+   *   has to agree. The failure this guards is not "someone forgets the signer" — it is the
+   *   copy-paste trap that has already bitten this project twice (the deploy command carrying the
+   *   old name and symbol; `--image` pointing at the retired wordmark): one of four surfaces gets
+   *   updated and the other three keep the old value, and the one nobody reread is the one open
+   *   at 11 PM. Four positions, four extractions, one assertion each. */
+  {
+    const SIGNER = '0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049';
+    const rb = readFileSync(join(ROOT, 'docs/DEPLOY-LENS.md'), 'utf8');
+    const lc = readFileSync(join(ROOT, 'docs/LAUNCH-CHECKLIST.md'), 'utf8');
+    const ADDR = /0x[0-9a-fA-F]{40}/;
+    /* Each entry: the line that carries the signer, and how the artist meets it. */
+    const seats = [
+      ['DEPLOY-LENS `--signer` flag (Route B, the string typed at the CLI)',
+        (rb.match(/--signer\s+(0x[0-9a-fA-F]{40})/) || [])[1]],
+      ['DEPLOY-LENS constructor arg 4 (Route A, pasted into Remix)',
+        ((rb.split('\n').find(l => /claimSigner_/.test(l)) || '').match(ADDR) || [])[0]],
+      ['DEPLOY-LENS wallet table, claim-signer row',
+        ((rb.split('\n').find(l => /^\|.*claim signer/i.test(l)) || '').match(ADDR) || [])[0]],
+      ['LAUNCH-CHECKLIST address table, claim-signer row',
+        ((lc.split('\n').find(l => /^\|.*claim signer/i.test(l)) || '').match(ADDR) || [])[0]],
+    ];
+    for (const [where, got] of seats) {
+      ok(got === SIGNER, `claim signer — ${where}`, got || 'NOT FOUND');
+    }
+    /* ⛔ AND THE SEPARATION IS ASSERTED AGAINST WHAT THE DOCS SAY, not against my own constants.
+     *   The signer is a HOT key that signs vouchers all season; the owner can repoint every card
+     *   in the deck. If they are the same address and it leaks, the whole collection goes with
+     *   it. `lens-cli verify` warns when they match — but a warning printed after the deploy is
+     *   not a guard. ⚠ Fixable later via setClaimSigner (unlike the treasury's immutable args),
+     *   so this is a quality gate rather than a catastrophe gate; it is automated precisely
+     *   because "we'll remember to use a different wallet" is the kind of thing nobody does at
+     *   11 PM with a countdown running. */
+    const typed = seats.map(s => s[1]).filter(Boolean);
+    ok(typed.length > 0 && typed.every(a => a.toLowerCase() !== DEPLOY_WALLET.toLowerCase()),
+      '…and no signer position carries the owner/deploy wallet',
+      typed.find(a => a.toLowerCase() === DEPLOY_WALLET.toLowerCase()) || 'separate');
+    ok(typed.length > 0 && typed.every(a => a.toLowerCase() !== STUDIO_WALLET.toLowerCase()),
+      '…nor the cold treasury — a signer has to sign, so it cannot be cold',
+      typed.find(a => a.toLowerCase() === STUDIO_WALLET.toLowerCase()) || 'separate');
+  }
+
   const ep = readFileSync(join(ROOT, 'js/eth-play.js'), 'utf8');
   const h = ep.match(/const HANGAR = '(0x[0-9a-fA-F]{40})'/);
   ok(h && h[1] === STUDIO_WALLET,
@@ -436,16 +517,39 @@ console.log('\n── generators may not write the retired name into what they e
    *   argument was wrong — a checker that fires on the note describing its own fix gets muted,
    *   and then it is not a checker (the same lesson the <style> stripper above records). So the
    *   fenced code blocks are pulled out first and only those are asserted on. */
-  const testnet = readFileSync(join(ROOT, 'docs/TESTNET.md'), 'utf8');
-  const fenced = [...testnet.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(m => m[1]).join('\n');
-  const imageArgs = [...fenced.matchAll(/--image\s+(\S+)/g)].map(m => m[1]);
-  ok(imageArgs.length > 0, `the deploy command carries an --image to check  (${imageArgs.join(', ') || 'NONE'})`);
-  for (const art of DEAD_ART) {
-    ok(!imageArgs.some(a => a.includes(art)),
-       `--image does not hand the CLI ${art} as the token's permanent fallback art`);
+  /* ⛔ AND IT CHECKED ONE DOC OUT OF THREE. This pin read only TESTNET.md, while the same
+   *   `--image` flag appears in LAUNCH-CHECKLIST.md — the document actually open on launch night —
+   *   and in TOKEN-MATH.md, which carried a THIRD answer: `./cards/art/<hero>.png`. That path
+   *   resolves to nothing (`<hero>` is a literal placeholder) and points into the PLACEHOLDER
+   *   deck being clean-slated by task #71. ⚑ Checking one of three is how the other two rot back
+   *   in — this file's own recorded lesson, from the `#nogl` panels and the four cabinet names.
+   *   So every doc is swept for fenced deploy commands and each one is held to the same bar. */
+  const docFiles = readdirSync(join(ROOT, 'docs')).filter(f => f.endsWith('.md'))
+    .map(f => ['docs/' + f, readFileSync(join(ROOT, 'docs', f), 'utf8')]);
+  const imageArgs = [];                       // [file, path]
+  for (const [file, src] of docFiles) {
+    const fenced = [...src.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(m => m[1]).join('\n');
+    for (const m of fenced.matchAll(/--image\s+(\S+)/g)) imageArgs.push([file, m[1]]);
   }
-  ok(imageArgs.some(a => a.includes('media/site/mark-')),
-     'the deploy command hands the CLI the generated mark');
+  ok(imageArgs.length > 0,
+    `a deploy command carries an --image to check  (${imageArgs.map(a => a[1]).join(', ') || 'NONE'})`);
+  for (const art of DEAD_ART) {
+    const hit = imageArgs.find(a => a[1].includes(art));
+    ok(!hit, `no --image hands the CLI ${art} as the token's permanent fallback art`,
+      hit ? `${hit[0]} → ${hit[1]}` : 'clear');
+  }
+  ok(imageArgs.every(a => a[1].includes('media/site/mark-')),
+    'EVERY --image in every doc hands the CLI the generated mark',
+    imageArgs.map(a => a[1]).join(', '));
+  /* ⛔ AND THE PATH HAS TO RESOLVE. `--image` is what SuperRare's flow calls "the initial fallback
+   *   metadata" — the token's PERMANENT art, frozen at deploy. A path that does not exist is not
+   *   caught by any name check, because there is no name in it to be wrong: the CLI simply fails
+   *   at 11 PM, or worse, uploads whatever a shell glob happened to match. The file is on disk or
+   *   the assertion fails. This is the cheapest possible check and nothing was doing it. */
+  for (const [file, p] of imageArgs) {
+    const rel = p.replace(/^\.\//, '');
+    ok(existsSync(join(ROOT, rel)), `…and ${p} exists on disk  (${file})`);
+  }
 
   /* ⛔ THE RUNBOOK NAMED THE TOKEN `upperdeckripmaster3030` UNTIL 2026-08-02 — on the one step
    *   that is irreversible, in the document read once, at 11 PM, under pressure. */
@@ -715,6 +819,66 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
     '⚠ the WalletConnect id is allow-listed for the LIVE domain — '+(stale ? 'ACTION FOR THE ARTIST: add ripmaster3030studios.com to the Reown project\'s allowed ' +
             'domains, then update the note in js/chain-config.js. Until then mobile wallet ' +
             'connect fails on the new host.' : 'note is current'));
+}
+
+/* ── THE PACK PRICE: THE DOCS SAID 125 AND THE CODE CHARGED 350 ──────────────────────────────
+ * ⛔ The pricing change the artist approved on 2026-08-06 was written into docs/PACK-PRICING.md
+ *   and NEVER into js/chain-config.js. The site would have taken 350 $3030 a pack — about $28 at
+ *   the measured $0.08 open, against an approved tier-I price of $10. ⚑ A decision recorded only
+ *   in prose is not implemented, and the docs are not what runs. Nothing was checking the number
+ *   a collector actually pays.
+ * ⚑ THE EXPECTED COUNT IS DERIVED FROM THE PRICING DOC, NOT RESTATED HERE. Restating it would
+ *   make this a third copy of the same fact and give it its own way to go stale — which is the
+ *   exact defect being guarded. The doc's tier table is the source; this reads tier I out of it
+ *   and requires the config to match.
+ * ⚠ Tier I only. Tiers II–IV are re-derived from the live price on the day each opens and then
+ *   locked, so their token counts are SCENARIO in the doc and must not be asserted as facts. */
+console.log('\n── the pack price, which is the number a collector actually pays ──');
+{
+  const pricing = readFileSync(join(ROOT, 'docs/PACK-PRICING.md'), 'utf8');
+  /* The tier-I row: | **I** | 1,600 | **$10** | **125** | 62.5 | 62.5 | */
+  const row = pricing.split('\n').find(l => /^\|\s*\*\*I\*\*\s*\|/.test(l));
+  ok(!!row, 'PACK-PRICING.md carries a tier-I row to read the pack price out of');
+  const cells = (row || '').split('|').map(c => c.replace(/\*/g, '').trim());
+  const tier1 = cells.map(c => c.replace(/,/g, '')).find(c => /^\d+$/.test(c) && +c > 100 && +c < 1000);
+  ok(!!tier1, `…and a token count in it  (${tier1 || 'NONE'})`);
+
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  const pb = /^\s*packBurn:\s*(\d+)/m.exec(stripComments(cfgSrc, false));
+  ok(!!pb, 'chain-config declares packBurn');
+  ok(pb && tier1 && pb[1] === tier1,
+    `chain-config.packBurn is the tier-I count from PACK-PRICING.md  (config ${pb ? pb[1] : '?'} vs doc ${tier1})`);
+
+  /* ⛔ AND THE FALLBACKS ARE A SECOND SOURCE OF TRUTH. `pack.js` and `cabinet.html` each carry
+   *   `CFG.packBurn || N` — they are separate shipped files with nothing to import, so the
+   *   literal is unavoidable. What is avoidable is it DISAGREEING: all three said 350 while the
+   *   config was being changed, and the copies nobody opens are the ones that ship a wrong price.
+   *   Same instrument as the city-ops/s9pc weapon tables — coupled by a test, not a require. */
+  for (const f of ['pack.js', 'cabinet.html']) {
+    const src = stripComments(readFileSync(join(ROOT, f), 'utf8'), /\.html$/.test(f));
+    const fb = [...src.matchAll(/packBurn\s*\)?\s*\|\|\s*(\d+)/g)].map(m => m[1]);
+    ok(fb.length > 0, `${f} — has a packBurn fallback to check  (${fb.join(', ') || 'NONE'})`);
+    ok(fb.every(v => v === tier1),
+      `…and every one equals the config  (${fb.join(', ')} vs ${tier1})`);
+  }
+
+  /* ⛔ THE RECEIPT MUST NOT ROUND THE SPLIT. PackSink computes burned = amount*5000/10000 and
+   *   toTreasury = amount - burned, so the halves are EXACT in wei for any input. `Math.floor`
+   *   printed "62 · 63" for a 125-token pack — a receipt claiming a split the chain never did.
+   *   It was invisible at 350 because an even number halves cleanly, so the bug shipped hidden
+   *   behind a round price and only an odd tier price could ever have exposed it. */
+  /* ⚠ AND THE FIRST VERSION OF THIS ASSERTION NAMED THE VARIABLES — `cost` and `packBurn()` —
+   *   so it MISSED a third flooring site that called the same quantity `need`, in the approve
+   *   prompt. The fix passed its own test while still printing "62 burns, 63 funds the studio"
+   *   on the busiest screen in the flow. ⚑ Matching a SHAPE covers the site you forgot; matching
+   *   a NAME covers only the sites you already had in mind, which is the hand-picked-list failure
+   *   this file records twice over — committed here a third time, in a test written to prevent it. */
+  for (const f of ['pack.js', 'cabinet.html']) {
+    const src = stripComments(readFileSync(join(ROOT, f), 'utf8'), /\.html$/.test(f));
+    const floors = [...src.matchAll(/Math\.floor\s*\([^)]*\/\s*2\s*\)/g)].map(m => m[0]);
+    ok(floors.length === 0,
+      `${f} — the pack receipt does not floor the exact 50/50 split`, floors.join(' · ') || 'none');
+  }
 }
 
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
