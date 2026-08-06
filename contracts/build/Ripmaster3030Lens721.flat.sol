@@ -2423,13 +2423,26 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         fieldBaseUrl = string(abi.encodePacked(externalUrl_, "/cards/field.html?n="));
         collectionName = name_;
 
-        /* Default ladder, anchored on the PACK rather than on round numbers: a launch pack is
-         * ~350 $3030, so the tiers are one pack, ten, a hundred, a thousand. That makes the
+        /* Default ladder, anchored on the PACK rather than on round numbers: a LAUNCH pack is
+         * 125 $3030, so the tiers are one pack, ten, a hundred, a thousand. That makes the
          * answer to "what do I need to hold?" sayable in the project's own unit of account.
-         * ⚠ Assumes the edition's 18 decimals; `setTiers` exists to correct that if it differs.
+         *
+         * ⛔ IT WAS 350 AND THAT WAS DEAD THE MOMENT THE OPENING PRICE WAS MEASURED. The 350
+         * figure came from an assumed $0.02 token; the mainnet preview puts the open at ~$0.08,
+         * where a $10 pack is 125 tokens. Deploying the old ladder would have put the FIRST rung
+         * at 350 tokens = $28 — nearly three packs — while the comment beside it claimed the rung
+         * meant "one pack". The rationale would have been false on the day it shipped.
+         *
+         * ⚠ AND THE ANCHOR IS NOW A LAUNCH-TIME ONE, not a permanent truth. The pack is priced in
+         * DOLLARS (docs/PACK-PRICING.md), so its token count is re-derived at every tier open —
+         * "one pack" stops being a fixed number of tokens after tier I. This ladder is therefore
+         * the pack AS AT LAUNCH, and `setTiers` is the documented correction path. Say "125" on
+         * the site, not "one pack", once tier II opens.
+         *
+         * ⚠ Assumes the edition's 18 decimals; `setTiers` also covers that if it differs.
          * The constructor signature is deliberately UNCHANGED — scripts/lens-cli.mjs and
          * docs/DEPLOY-LENS.md both depend on renderer being 3rd and signer 4th. */
-        tierAt = [uint256(350 ether), 3_500 ether, 35_000 ether, 350_000 ether];
+        tierAt = [uint256(125 ether), 1_250 ether, 12_500 ether, 125_000 ether];
     }
 
     // ── admin ────────────────────────────────────────────────────────────────────────────
