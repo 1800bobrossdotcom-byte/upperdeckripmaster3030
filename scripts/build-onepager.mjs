@@ -32,7 +32,7 @@ const chromiumPath = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-119
 
 /* ── the figures, and then the proof that they are still true ─────────────────────────────── */
 const F = {
-  cap: '3,300,000',
+  cap: '3,030,000',
   packTok: '125',
   packUsd: '$10',
   tiers: '1,600 → 1,100 → 600 → 260',

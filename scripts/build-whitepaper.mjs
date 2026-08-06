@@ -123,13 +123,13 @@ S.push(slide('The token · $3030', `
   <h2>A cheap micro-token on a Uniswap-v4 + Doppler curve.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li><b>Supply cap: 3,300,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
+      <li><b>Supply cap: 3,030,000 $3030</b>. <b>Minted once</b> into the pool at launch; burns are <b>permanent</b> and never re-mint.</li>
       <li><b>Opening price ≈ 1 RARE / token (~$0.02)</b> — kept cheap so every toll and vote is a micro-move.</li>
       <li>Liquidity is a <b>Doppler multicurve</b> (log-normal) inside a <b>Uniswap-v4 pool</b>; reserve/quote is <b>RARE</b>.</li>
       <li><b>FDV at a full curve ≈ $606k</b> — an artist-scale niche edition, by choice. Verified with <code>--preview</code> pre-mainnet.</li>
     </ul>
     <div class="statwrap">
-      <div class="stat"><b>3.3M</b><span>hard cap</span></div>
+      <div class="stat"><b>3.03M</b><span>hard cap</span></div>
       <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
       <div class="stat"><b>RARE</b><span>reserve currency</span></div>
       <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
@@ -233,7 +233,7 @@ S.push(slide('Transparency', `
       <li><b>Two contract surfaces</b> — the edition + one renderer+721 lens contract (a tiny mint footprint: 33 hero 1/1s). Nothing else to trust or exploit.</li>
       <li><b>Reproducible model</b> — <code>token-model.mjs</code> re-derives every number in this deck (supply, curve, packs, lifetime burn).</li>
       <li><b>Legible actions</b> — packs + conviction are burn txs on the one token; hero-lens mints are wallet-signed. The chain is the receipt.</li>
-      <li><b>Cards survive</b> — the burn is <b>token deflation</b> (3.3M → ~2.29M), not card death. No retirement, no ash, no ERC-1155.</li>
+      <li><b>Cards survive</b> — the burn is <b>token deflation</b> (3.03M → ~2.76M), not card death. No retirement, no ash, no ERC-1155.</li>
       <li><b>Canonical + honest</b> — <code>docs/ECONOMIC-FLOW.md</code>; field-card ownership is a labeled later phase.</li>
       <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
     </ul>

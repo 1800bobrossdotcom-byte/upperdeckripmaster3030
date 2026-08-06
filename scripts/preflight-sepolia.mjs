@@ -192,12 +192,12 @@ console.log('\n── getMarketState() and the word-order proof ──');
 // ── 4b. the pack, against the MEASURED opening price ─────────────────────────────────────────
 /* ✅ P0 IS MEASURED NOW — this block used to be the loudest thing in the preflight, because the
  *    pack schedule rested on an assumed P0 nobody had checked. SuperRare ran the live mainnet CLI
- *    previews on 2026-08-06 at the full 3,300,000 supply (low-demand preset, zero initial RARE
+ *    previews on 2026-08-06 at the full 3,030,000 supply (low-demand preset, zero initial RARE
  *    liquidity, no creator allocation) and it opens at ~$0.08 per $3030 — 4x the old $0.02
  *    assumption. The block's own prediction ("an order of magnitude low") was right.
  *  ⛔ CONSEQUENCE: the pack is priced in DOLLARS now ($10/$12/$15/$20 by tier, artist-approved),
  *    and the token count is derived at each tier open and LOCKED for that tier. Tier I = 125.
- *  ⚠ THE SEPOLIA CURVE IS STILL UNCALIBRATED and its cap is 1,000,000, not 3,300,000. It is
+ *  ⚠ THE SEPOLIA CURVE IS STILL UNCALIBRATED and its cap is 1,000,000, not 3,030,000. It is
  *    EXPECTED to disagree with mainnet and that disagreement is not a finding — which is exactly
  *    why this is a note and never a failure. A preflight that exits 1 on a documented, expected
  *    condition is a preflight everyone learns to ignore. */
@@ -207,7 +207,7 @@ console.log('\n── the pack, against the MEASURED mainnet opening price ─�
   if (!st.err && st.result && st.result !== '0x') {
     const rarePerToken = fx(big(words(st.result)[0]));
     const RARE_USD  = 0.0159;      // the rate SuperRare's own create-flow showed
-    const MAINNET_P0_USD = 0.08;   // MEASURED, mainnet preview, low-demand, 3.3M supply
+    const MAINNET_P0_USD = 0.08;   // MEASURED, mainnet preview, low-demand, 3.03M supply
     const TIER1_USD = 10;
     const tier1Tok  = Math.round(TIER1_USD / MAINNET_P0_USD);
     const liveUsdPerTok = rarePerToken * RARE_USD;

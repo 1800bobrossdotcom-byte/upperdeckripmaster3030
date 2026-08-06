@@ -41,7 +41,7 @@ says a whitelisted artist may use **either** the guided create flow **or** the R
 CLI, and `name` and `symbol` are **positional arguments you type**:
 
 ```bash
-rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3300000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
+rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3030000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
 ```
 
 This is **better** than the assisted path, because `--preview` prints the whole thing without
@@ -89,7 +89,11 @@ artist profile.** That one is not fixed by redeploying anything else.
 
 ## ✅ P0 IS MEASURED — and it changed the preset and the pack price
 
-**Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the full 3,300,000 supply.
+⚠ **MEASURED AT 3,300,000 — AND THE CAP IS NOW 3,030,000, SO RE-READ IT.** Whether the CLI's
+opening price moves with the cap is not something to reason out; read it off `--preview` at the
+real cap before `--yes`. Everything below, including tier I = 125 tokens, is provisional until then.
+
+**Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the then-current supply.
 This section used to say P0 was the one number nobody had measured. It is measured now, and the
 prediction it made — "an order of magnitude low" — was right: the answer is **4×**.
 
@@ -119,10 +123,20 @@ seller walks the curve down alone. Say it plainly; do not let a collector discov
 
 ---
 
-## Supply: 3,300,000
+## Supply: 3,030,000
 
-Settled by the artist 2026-08-02, reversing the 33,000,000 direction. Run `npm run model`;
-`scripts/token-model.mjs` is the only source.
+⛔ **CHANGED ON LAUNCH DAY, 2026-08-06** — artist: *"mainnet plan should be 3,030,000 tokens
+$3030"*. The supply and the ticker are now the same number, which is the version of this decision
+that explains itself to a stranger. It also returns to the figure the project started from, before
+the 33,000,000 detour and the 3,300,000 correction.
+
+Run `npm run model`; `scripts/token-model.mjs` is the **only** declaration, and `npm run test:name`
+reads the cap out of it to check every deploy command and every public page. There is deliberately
+no second copy of this number anywhere.
+
+⛔ **`maxTotalSupply` IS FROZEN AT DEPLOY.** `--total-supply 3030000` must be on the command line;
+the CLI's silent default is **1,000,000**, which is exactly how the Sepolia edition ended up with a
+cap nobody chose.
 
 ⚠ **The old cap table that lived here has been removed.** Every figure in it (1,014,375 burned,
 30.7%, 1.44×, 44.4%) assumed a **$0.02** token and a fixed **350–1,200** tokens per pack. Both

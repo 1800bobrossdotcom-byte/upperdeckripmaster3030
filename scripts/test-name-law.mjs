@@ -38,6 +38,18 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEAD = 'upperdeckripmaster3030';
 const LIVE = 'ripmaster3030studios';
 
+/* ⛔ THE CAP HAS ONE DECLARATION AND EVERY DEPLOY COMMAND IS CHECKED AGAINST IT.
+ *   `maxTotalSupply` is frozen the instant the transaction lands, and this repo has already been
+ *   bitten twice on it: once by `--total-supply` being ABSENT from every runbook (the CLI silently
+ *   defaults to 1,000,000, which is why the Sepolia edition reads 1,000,000 — nobody chose that),
+ *   and once by the number itself moving. Read from `scripts/token-model.mjs`, the file
+ *   `npm run model` runs, so a doc and the model cannot disagree about a permanent. */
+const MODEL_CAP = (() => {
+  const m = /^const CAP\s*=\s*([0-9_]+)/m.exec(readFileSync(join(ROOT, 'scripts/token-model.mjs'), 'utf8'));
+  if (!m) { console.log('  FAIL cannot read CAP from scripts/token-model.mjs'); process.exit(1); }
+  return Number(m[1].replace(/_/g, ''));
+})();
+
 /* Mirrors .vercelignore — if it does not ship, it is not a surface. `docs/` in particular holds
  * the rehearsal records, which are HISTORY and must keep saying what actually happened. */
 const SKIP_DIR = new Set(['node_modules', '.git', 'docs', 'scripts', 'contracts', 'build', '.claude',
@@ -339,8 +351,16 @@ for (const file of DEPLOY_DOCS) {
     const supply = cmd.match(/--total-supply\s+(\S+)/);
     ok(!!supply, `${file} — the deploy command SETS --total-supply (the CLI defaults to 1,000,000)`,
       supply ? supply[1] : 'MISSING — would mint 1,000,000');
-    ok(supply && supply[1] === '3300000',
-      `${file} — …and it is the settled cap, 3300000`, supply ? supply[1] : 'none');
+    /* ⚑ THE CAP IS READ FROM token-model.mjs, NOT RESTATED HERE. It moved 3,300,000 → 3,030,000
+     *   on launch day (artist: "mainnet plan should be 3,030,000 tokens $3030" — the supply and
+     *   the ticker are the same number, which is the version of this decision that explains
+     *   itself). A literal in this test would have been a SECOND source of truth for a
+     *   deploy-time permanent, and the failure mode is the worst available: the guard keeps
+     *   passing while pinning the superseded number, exactly like the 30.7% pins that had to be
+     *   inverted. One declaration, in the file `npm run model` runs. */
+    ok(supply && supply[1] === String(MODEL_CAP),
+      `${file} — …and it is the settled cap from token-model.mjs, ${MODEL_CAP}`,
+      supply ? supply[1] : 'none');
     /* The chain is not permanent, but deploying the launch token to the wrong one wastes the
      * name and the moment — and the CLI defaults to whatever `rare configure` last set. */
     const chain = cmd.match(/--chain\s+(\S+)/);
@@ -613,17 +633,25 @@ console.log('\n── generators may not write the retired name into what they e
 }
 
 console.log('\n── the supply cap, stated in one place and spent everywhere ──');
-/* ⚠ 3,300,000 was settled after 33,000,000 was already written into the generators and the PDF.
- *   The burn is denominated in tokens per pack, so the cap changes only the PERCENTAGES — which
- *   is exactly the kind of edit that gets applied to the headline number and missed on the four
- *   derived ones. Check the derived figures, not the cap. */
+/* ⚠ THE CAP HAS MOVED THREE TIMES — 3,030,000 → 33,000,000 → 3,300,000 → 3,030,000 — and each
+ *   time the headline number got edited while something derived from it did not. The burn is
+ *   denominated in tokens per pack, so the cap changes only the PERCENTAGES, which is precisely
+ *   the class of edit that gets half-applied.
+ * ⛔ SO THE MODEL IS THE ONLY DECLARATION AND EVERY PAGE IS CHECKED AGAINST IT — and there is
+ *   deliberately NO assertion that the model's cap equals some number written here. That check
+ *   would compare a literal in this file against a value READ FROM the model, i.e. two things
+ *   this test controls, which is the tautology the claim-signer guard was caught being earlier
+ *   today: three green ticks that no edit outside the test could ever fail. The claim worth
+ *   making is "the pages agree with the model", and it needs exactly one source. */
 {
-  const model = readFileSync(join(ROOT, 'scripts/token-model.mjs'), 'utf8');
-  ok(/const CAP\s*=\s*3_300_000;/.test(model), 'token-model.mjs CAP is 3_300_000');
+  const capComma = MODEL_CAP.toLocaleString('en-US');           // 3,030,000
   for (const page of ['tokenomics.html', 'whitepaper.html']) {
     const src = readFileSync(join(ROOT, page), 'utf8');
     ok(!/33,000,000|>33M</.test(src), `${page} — no 33,000,000 left`);
-    ok(src.includes('3,300,000') || src.includes('3.3M'), `${page} — states the 3.3M cap`);
+    ok(src.includes(capComma), `${page} — states the cap the model declares (${capComma})`);
+    /* ⚠ BOTH DIRECTIONS. "states the new cap" is satisfied by a page that states BOTH, which is
+     *   what a find-and-replace that misses one table cell actually produces. */
+    ok(!src.includes('3,300,000'), `${page} — and the superseded 3,300,000 is gone`);
   }
   /* ⚠ COMMENTS STRIPPED, for the same reason they are everywhere else in this file: the page's own
    *   mobile-table note QUOTES the retired cell ("30.7% of the 3,300,000 cap") as the example of what
