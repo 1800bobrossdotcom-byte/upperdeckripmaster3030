@@ -107,6 +107,20 @@
     try {
       const w = await ready(btn); if (!w) { btn.disabled = false; return; }
       const acct = w.account();
+      /* ⛔ REFUSE TO DEPLOY FROM THE CLAIM SIGNER. The deployer becomes `owner`, and owner can
+       *   repoint every card while the signer is a hot key used all season — the entire point of
+       *   taking them as two separate arguments. On 2026-08-06 the artist switched MetaMask to the
+       *   signer to check the address, pressed Deploy again, and got a second lens whose owner IS
+       *   the signing key. The page happily built it, because nothing here was watching WHICH
+       *   wallet was connected — only that one was.
+       * ⚑ The Verify step DID catch it ("owner and claim signer are DIFFERENT keys" failed), which
+       *   is the difference between a wasted deploy and a launched mistake. But catching it after
+       *   the transaction is the expensive place to catch it, so it moves before the button. */
+      if (acct && acct.toLowerCase() === SIGNER.toLowerCase()) {
+        log('⛔ that is the CLAIM SIGNER wallet. The deployer becomes owner, and owner must NOT be', 'bad');
+        log('   the hot signing key. Switch MetaMask to the SuperRare wallet and try again.', 'bad');
+        btn.disabled = false; return;
+      }
       const gasEst = BigInt(await w.request('eth_estimateGas', [{ from: acct, data: BLOB }]).catch(() => '0x4c4b40'));
       const gasLim = gasEst * 115n / 100n;
       log('gas ' + gasLim + ' — deploying from ' + acct + ', confirm in your wallet…');
