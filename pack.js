@@ -326,7 +326,20 @@
        *   always has (`bySlug.get()` → undefined → filtered out), so nothing throws.
        * ⚑ `n` is the hundred's own number, written alongside so a resolver can be added later
        *   without a migration — the entries written tonight will already carry what it needs. */
-      cards.forEach(c => v.push(c.id != null ? { slug: c.slug, n: c.id } : { slug: c.slug }));
+      /* ⛔ A PRACTICE PULL AND A PAID RIP WROTE THE SAME ROW — artist, on the bench: *"prefilled
+       *   when I already bought cards."* Every free practice pull landed in the vault
+       *   indistinguishable from a pack he burned $3030 for, so the shelf was full before he
+       *   bought anything and the purchase read as nothing.
+       * ⚑ `p` IS ADDITIVE, exactly like `n` above: eight surfaces key on `{slug}` and none of
+       *   them look at unknown fields, so nothing needs a migration and nothing else moves.
+       * ⚠ IT ONLY MARKS ROWS WRITTEN FROM NOW ON — a row already in the vault carries no
+       *   provenance and none can be invented for it. That is a limit, not a fix, and the honest
+       *   thing is to say so rather than back-fill a guess about which pulls were paid for. */
+      cards.forEach(c => {
+        const row = c.id != null ? { slug: c.slug, n: c.id } : { slug: c.slug };
+        if (practice) row.p = 1;
+        v.push(row);
+      });
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
     if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $3030 burned on-chain · cards saved in-browser';
