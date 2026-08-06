@@ -53,12 +53,21 @@
   --tap: 44px;
   --tap-gap: 8px;                           /* the least space that keeps two 44px boxes distinct */
 
-  /* ⚑ WHERE THE FLOATING BUTTONS SIT. sfx.js and theme.js each pin a control to the bottom
-   * corners at 42px, from a time when nothing else lived down there. banner.js's freshness strip
-   * is now ~66px tall on a phone, so both controls were half-buried by it. They read this
-   * variable with a 42px fallback, so a page that does NOT load this sheet (cards/battle.html)
-   * keeps exactly today's placement. index.html raises it again for its own news ticker. */
-  --rip-fab-bottom: 80px;
+  /* ⛔ THIS WAS 80px TO CLEAR A BAR THAT IS NO LONGER IN THE REPO. The note it replaces said so
+   * itself — "banner.js's freshness strip is now ~66px tall on a phone, so both controls were
+   * half-buried by it" — and `banner.js` has since been deleted. The reservation outlived it, so
+   * sfx.js's toggle and theme.js's transport floated 80px up with an empty 80px band underneath,
+   * sitting in the middle of the reading area instead of at the edge where a floating player
+   * belongs. Measured on four document pages at four viewports before this change.
+   * ⚑ A LAYOUT NUMBER DERIVED FROM A DELETED THING IS WORSE THAN ONE DERIVED FROM A CHANGED
+   * COUNT: there is nothing on screen to look wrong, so nothing ever points at it. Same defect
+   * index.html carried as `--rip-fab-bottom:124px` and 176px of body padding.
+   * ⚠ Who this moves, checked rather than assumed: the CABINETS do not read it at all — every one
+   * of them has a `.toggles` row, so theme.js docks into that instead of floating a bar, and none
+   * of them loads sfx.js. `cards/battle.html` does not load this sheet and keeps the 42px
+   * fallback. So this moves the floating controls on DOCUMENT pages only, which is exactly where
+   * the dead band was. index.html still raises it for its own news ticker (40px + air). */
+  --rip-fab-bottom: 14px;
 }
 
 /* ⚠ iOS Safari inflates text in landscape unless told not to. It does this per-element, by its

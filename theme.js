@@ -294,11 +294,26 @@
      * length, and an uncapped fixed bar would run off a phone. */
     bar = document.createElement('div');
     bar.id = 'soundBar';
+    /* ⛔ THE BAR IS A LAYOUT BOX, NOT A CONTROL, AND IT WAS TAKING HITS ACROSS ITS WHOLE WIDTH.
+     * Three 44px buttons with 6px gaps sit inside a ~157px pill, and every pixel of it — the
+     * gaps, the padding, the rounded corners — swallowed presses meant for the page underneath.
+     * Measured with `elementFromPoint` on a 24x40 grid across four document pages: `soundBar`
+     * ITSELF (not any button) took 4-11 sample points per viewport, i.e. content that was
+     * unpressable for no reason at all.
+     * ⚑ THE RULE IS ALREADY IN THIS REPO, from THE CITY's `#modes` swallowing the SECTION 9 chip:
+     * a hit surface should be the size of the thing you can click, not of the box it was laid out
+     * in. The exception belongs on the BUTTON, never on its parent.
+     * ⚠ `pointer-events:auto` therefore has to go on the button skin below — inheriting `none`
+     * from the parent would make the transport itself dead, which is the opposite failure and a
+     * far worse one. `npm run test:theme` §9 clicks all three, so it bites immediately.
+     * ⚠ The width cap is tighter too (was min(80vw,380px) = 256px of furniture on a 320px phone).
+     * The label carries a TRACK TITLE — somebody else's string, of any length — and it already
+     * ellipsizes, so the cap is the only thing bounding how much screen a long title can take. */
     bar.style.cssText = 'position:fixed;right:12px;bottom:var(--rip-fab-bottom,42px);z-index:60;' +
-      'display:inline-flex;align-items:center;gap:6px;max-width:min(80vw,380px)';
+      'display:inline-flex;align-items:center;gap:6px;pointer-events:none;max-width:min(62vw,300px)';
     var skin = "font-family:'Courier New',monospace;font-size:13px;letter-spacing:.1em;" +
       'text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;' +
-      'min-height:44px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
+      'min-height:44px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;pointer-events:auto;' +
       'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer;';
     // 44px minimum on the skips too — the mobile pass took taps under 44px to zero and a new
     // control under the floor walks that back.

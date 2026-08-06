@@ -669,13 +669,38 @@ two thirds of the way down. Driven at four viewports, before and after:
   linked, cleared 44 px and measured clean on every number the probe asks. **A partially-placed grid
   is one the browser finishes for you, plausibly and wrong.** (b) Five steps in a four-track grid came
   out 4 + 1 with two thirds of a row empty. Every cell is placed explicitly now.
-- ⚠ **STILL OPEN, MEASURED, NOT FIXED: the shared floating audio furniture sits on page content at
-  the arrival scroll position on SHORT viewports.** At 390×844 and 1280×800 all three doors are 5/5
-  pressable; at **320×568 and 844×390** `theme.js`'s 239 px `#soundBar` and `sfx.js`'s toggle cover
-  the middle of a door (1/5 and 0/5 of sampled points reach it). Nothing is dead — the page scrolls,
-  and every door is fully pressable once scrolled — but it is the `banner.js`-over-the-controls shape
-  again. ⚑ **The fix belongs to `theme.js`/`sfx.js` and therefore to all ~213 pages, not to a
-  landing-page pass**; the recorded remedy is the cabinets' collapsible `.toggles` cog.
+### ⛔ AND THE FLOATING AUDIO CONTROLS WERE SWALLOWING PRESSES THEY HAD NO USE FOR
+The landing-page pass measured them covering the middle of a door at the arrival scroll position on
+short viewports. Two causes, both structural, both fixed; what is left is arithmetic.
+- ⛔ **`#soundBar` IS A LAYOUT BOX, NOT A CONTROL, AND IT TOOK HITS ACROSS ITS WHOLE WIDTH.** Three
+  44 px buttons with 6 px gaps sit inside a ~157 px pill, and the gaps, the padding and the rounded
+  corners all swallowed presses meant for the page. Measured with `elementFromPoint` on a 24 × 40
+  grid over four document pages at four viewports: **the container itself took 4–11 sample points
+  per viewport** — content unpressable for no reason at all. ⚑ **The rule was already in this repo**,
+  from THE CITY's `#modes` swallowing the SECTION 9 chip: *a hit surface should be the size of the
+  thing you can click, not of the box it was laid out in.* `pointer-events:none` on the bar,
+  `auto` on the button skin. ⚠ The `auto` is load-bearing — inheriting `none` would kill the
+  transport, which is the far worse failure; `test:theme` §9 clicks all three and bites instantly.
+- ⛔ **`--rip-fab-bottom: 80px` WAS CLEARING A BAR THAT IS NO LONGER IN THE REPO.** Its own note said
+  so — *"banner.js's freshness strip is now ~66px tall"* — and `banner.js` has since been deleted, so
+  both controls floated 80 px up with an empty band under them, sitting in the READING area instead
+  of at the edge. 14 px now. ⚠ **Who this moves was checked, not assumed:** every cabinet has a
+  `.toggles` row so `theme.js` docks instead of floating, and none loads `sfx.js`; `cards/battle.html`
+  does not load `mobile.css` and keeps the 42 px fallback. Document pages only — which is where the
+  dead band was. Same defect `index.html` carried as `124px` + 176 px of body padding.
+- ✅ **Measured, before → after.** `soundBar` is gone from every tally at every viewport. Furniture
+  blocking the screen: whitepaper **2.3→1.9 · 4.7→4.0 · 3.2→2.1 %**, arcade **1.9→1.5 · 3.8→3.0 ·
+  2.6→1.6 %**. Doors pressable at the arrival position: 390×844 and 1280×800 **5/5 on all three**;
+  320×568 and 844×390 improved 1/5 → 2/5. Proved to bite by restoring the exact bytes —
+  `soundBar` reappears at 4/7/10 points. `test:theme` 89/89, `test:cab` 298/298.
+- ⚠ **WHAT IS LEFT IS NOT A BUG, IT IS ARITHMETIC, and it should not be "fixed" by hiding a control.**
+  Three transport buttons at the 44 px floor plus the SFX toggle is ~200 px of a 320 px band, and
+  `test:theme` §9 requires all three to be present, ≥44 px and clickable **from a standing start** —
+  that is the artist's own ask ("skip tracks or go back through tracks along with pause / play"),
+  encoded as a test, and it is what rules out the cabinets' collapsed-cog remedy here. ⚑ On
+  `index.html` the dominant blocker is now **the Mandela ticker, not the audio** — 48–96 of 960
+  sample points, i.e. **10% of the screen at 844×390** for a decorative crawl. Whether a 40 px tape
+  earns that on a phone held sideways is the artist's call, not a defect.
 
 ### ⛔ AND THE SWEEP FOUND FOUR THINGS WORSE THAN THE WORD "CABINET"
 - ⛔ **THE WHITEPAPER PUBLISHED THE DEAD OPENING PRICE — `~$0.02`, on launch day, 4× wrong.**
