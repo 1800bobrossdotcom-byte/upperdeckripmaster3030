@@ -151,29 +151,46 @@
         fixed list off this same origin and returns only counts and CIDs. A browser that could
         see the JWT would be a browser that leaks it to every extension on the machine. */
   document.getElementById('pin').onclick = async () => {
-    log.textContent = 'asking the server what is already pinned…';
+    const btn = document.getElementById('pin');
+    log.textContent = 'checking the server…';
+    btn.disabled = true;
     try {
       const pre = await (await fetch('/api/pin', { cache: 'no-store' })).json();
       if (pre.error) { say('⛔ ' + pre.error, 'bad'); return; }
-      say(`${pre.pinned}/${pre.total} already retrievable · PINATA_JWT ${pre.ready ? 'is set ✓' : 'NOT SET ⛔'}`,
-          pre.ready ? 'ok' : 'bad');
       if (!pre.ready) {
-        /* ⚠ Names only, never a value — enough to tell "the variable is missing" from "the key is
-           wrong", which are different problems with different fixes. */
+        say('⛔ PINATA_JWT is NOT set on this deployment', 'bad');
         say('   env vars matching /PINATA/: ' + (pre.env.length ? pre.env.join(', ') : '(none)'), 'bad');
-        say('   Set PINATA_JWT in the Vercel project and REDEPLOY — env changes do not reach a', 'bad');
-        say('   deployment that is already built.', 'bad');
+        say('   ⚑ Setting it in the Vercel project is not enough — an env change does not reach a', 'bad');
+        say('     deployment that is already built. Set it, then REDEPLOY, then reload this page.', 'bad');
         return;
       }
-      if (pre.pinned === pre.total) { say('✓ nothing to do — run ①', 'ok'); return; }
-      say('pinning ' + (pre.total - pre.pinned) + ' file(s)… this takes a moment');
-      const r = await fetch('/api/pin', { method: 'POST' });
-      const j = await r.json();
-      say(`pinned ${j.pinned} · already live ${j.alreadyLive} · failed ${(j.failed || []).length}`,
-          (j.failed || []).length ? 'warn' : 'ok');
-      for (const f of j.failed || []) say(`  ⛔ ${f.id}: ${f.why}`, 'bad');
-      say('\nnow run ① — a successful upload is not a successful pin.', 'dim');
+      say('✓ PINATA_JWT is set · ' + pre.total + ' heroes to pin', 'ok');
+
+      /* ⛔ THE CLIENT DRIVES THE LOOP because a serverless function has a wall clock and 33
+         uploads do not fit inside it. Small slices also mean progress is visible: a single long
+         request that returns nothing is indistinguishable from a broken key. */
+      let from = 0, ok = 0, bad = 0;
+      while (from !== null) {
+        const r = await fetch('/api/pin?from=' + from + '&count=3', { method: 'POST' });
+        const j = await r.json();
+        if (j.error) { say('⛔ ' + j.error, 'bad'); break; }
+        for (const id of j.pinned || []) {
+          ok++; const c = document.getElementById('s-' + id);
+          if (c) { c.textContent = '↑'; c.className = 's ok'; }
+        }
+        for (const f of j.failed || []) {
+          bad++; const c = document.getElementById('s-' + f.id);
+          if (c) { c.textContent = '⛔'; c.className = 's bad'; }
+          say('  ⛔ ' + f.id + ': ' + f.why, 'bad');
+        }
+        say('  ' + (ok + bad) + '/' + j.total + ' uploaded', 'dim');
+        from = j.next;
+      }
+      say('\nuploaded ' + ok + ' · failed ' + bad, bad ? 'warn' : 'ok');
+      say('now run ① — a successful upload is not a successful pin, and the check that', 'dim');
+      say('matters runs in THIS browser against gateways that are not the uploader.', 'dim');
     } catch (e) { say('⛔ ' + (e.message || e), 'bad'); }
+    finally { btn.disabled = false; }
   };
 
   /* ── ① is the art actually there? ─────────────────────────────────────────────────────── */
