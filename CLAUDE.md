@@ -1236,6 +1236,51 @@ level in again.
   sabotage harness that restores with git destroys everything unstaged in the same file. **Commit
   before sabotaging**, and restore from the bytes you read rather than from the index.
 
+## ⛔ CLOUD RACER'S TITLE IS A STREAK NOW — `js/cr-streak.js`, `npm run test:crstreak` (47)
+*Artist, 2026-08-06: "for cloud racer win 33 races in a row unlock a hero card (3x this is
+available)."* Replaces CLEAN SWEEP as `docs/HERO-UNLOCKS.md` #7; measurement in its §4½.
+- ⛔ **"IN A ROW" IS ONLY A RULE IF LEAVING COSTS YOU THE STREAK.** Count at the flag and the title
+  silently becomes *"win 33 races, retrying whenever one goes badly"* — watch the first corner,
+  reload if the 0.99 bot gets you. That is the treadmill HERO-UNLOCKS rule 1 forbids, and **nothing
+  reports a tab that went away.** So the ledger **arms at the green light** and only a finish
+  disarms it; a live marker at the next load is an abandoned race. **Reloading to dodge a loss and
+  taking the loss are the same event.** ⚠ The countdown is deliberately OUTSIDE that window —
+  nothing has happened yet, so leaving cannot be dodging anything.
+- ⛔ **CHECK THE NUMBER BEFORE PUBLISHING THE RULE — and the number says this is a CONCENTRATION
+  test, not a skill test.** Driven on `crpc-game.js` under node with its own `botInput` at skill
+  1.0 as the pilot: **win rate 100%**. The cliff is vertical — 1.00 → 100%, 0.99 → 95%, 0.98 →
+  47.5%, 0.97 → 5%, 0.96 → **0%** — so the title is **free or impossible** with almost no band
+  between. For anyone who can win, 33 in a row is **~22 minutes of not losing focus**, which brushes
+  rule 1. ⚑ **This is the braking-title lesson with the sign flipped**: that one *sounded* hard and
+  was free; this one is genuinely demanding of attention and genuinely undemanding of pace. Say
+  both halves rather than let "33" imply a difficulty it does not carry.
+- ⚑ **THE RACE FORGIVES THE MISTAKES A PLAYER RECOGNISES AND PUNISHES THE ONE THEY DO NOT.**
+  Injecting discrete blunders: **missing a brake point is entirely free** (eight of them, still
+  100%), a barrier clip costs nothing until the third, but **lifting for nothing once costs a fifth
+  of your wins** (100% → 80%). The skill it actually tests is *trusting the grip*.
+- ⛔ **THE LOBBY HAD TO BE PINNED, AND THE SOFT SETTING IS ALSO THE FAST ONE.** Field and laps are
+  player-chosen: 4·2 is **15.6 min** and absorbs **3** clips; 6·3 is 21.9 min and absorbs **2**.
+  Floor at 6·3, and a FLOOR not an equality — 8·5 is longer and more forgiving, so it counts. ⚠
+  **Practice counts, and that is rule 2 not kindness**: requiring the ante puts 33 rakes between a
+  player and the title, i.e. a criterion money reaches.
+- ⛔ **`mount()` RUNS TWICE AND `recover()` IS DESTRUCTIVE.** crpc-ui self-mounts on
+  DOMContentLoaded *and* is called as `CRUI.ready()` by crpc-app. The second run found no marker,
+  reported no break and **repainted the explanation away** — the reset was correct throughout, only
+  the sentence saying why was lost, which is the half the player needs. Latched now. **Both mounts
+  are correct in isolation**; only the test found it.
+- ⚠ **FOUR SABOTAGES, AND THE THIRD PROVED A GAP RATHER THAN A GUARD.** Deleting the abandonment
+  break fails 4; unpinning the lobby fails 5; removing `.h-tl`'s wrap fails 2 (the fourth capsule
+  sits on the position list at 320 and 390). **Moving `arm()` into `raceStarted` — which makes
+  quitting during the lights cost your streak — passed all 45.** The claim was in the module header
+  with nothing behind it; B10/B11 exist because of that, and now it fails 2.
+- ⛔ **UNRESOLVED AND THE ARTIST'S: THREE SEATS MAKES 35 HEROES.** `11 auction + 11 gacha + 11
+  earned` is the settled 33, and 33 is the deck (`tokenURI` 1–33), not a slogan. Three seats on one
+  title makes the earned tier 13. Options in HERO-UNLOCKS §4¾. ⚑ **So the ×3 is on NO public page
+  and no aggregate count was touched** — every "11 earned" is true under option A and false under
+  B, and printing "eleven earned titles" beside "one has three seats" is shipping a contradiction.
+  The condition change *is* published (it stands alone); the multiplicity waits. The game's result
+  screen says "three" and states no split, so it cannot be wrong about one.
+
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
 every file was on the origin, `curl` returned the new bytes, and the newest commit was live.

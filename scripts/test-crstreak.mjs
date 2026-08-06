@@ -254,6 +254,34 @@ head('B · the page');
   await ctx.close();
 }
 
+/* ⛔ THE COUNTDOWN IS OUTSIDE THE ARMED WINDOW, and this pair exists because the claim was in the
+ * module header with nothing behind it. Sabotage proved the gap: moving `arm()` from the `go`
+ * event up into `raceStarted` — which makes leaving during the lights cost you the streak —
+ * passed all 45 assertions. A rule the player experiences as a bug, invisible to the suite that
+ * was written to guard the rule. */
+{
+  const ctx = await br.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+  const page = await ctx.newPage();
+  await page.goto(`http://127.0.0.1:${PORT}/cloudracer.html`, { waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.CRUI && window.CRStreak, null, { timeout: 90000 });
+  await page.evaluate(`(${DRIVE})({ players: 6, laps: 3, real: false }, true)`);
+  await page.evaluate(`(${FINISH})(true)`);                       // bank a win: streak 1
+  // now build a race and walk out while the lights are still counting
+  const inCount = await page.evaluate(() => {
+    const G = window.CRPC.startRace({ players: 6, laps: 3, real: false });
+    window.CRUI.hud(G);                                            // the app paints during the count
+    return { live: localStorage.getItem('urm_cr_live'), started: G.started, cd: G.countdown > 0 };
+  });
+  ok(inCount.cd && !inCount.started && inCount.live === null,
+    'B10 ⛔ a race still on the countdown is not armed', 'live=' + inCount.live);
+  await page.reload({ waitUntil: 'load', timeout: 90000 });
+  await page.waitForFunction(() => window.CRUI && window.CRStreak, null, { timeout: 90000 });
+  const kept = await page.evaluate(() => localStorage.getItem('urm_cr_streak'));
+  ok(kept === '1', 'B11 so leaving before the lights costs nothing', 'n=' + kept);
+  await ctx.close();
+}
+
 head('B · layout, at the viewports test:cab drives');
 for (const [w, h] of [[320, 568], [390, 844], [844, 390], [740, 360], [1280, 800]]) {
   const { ctx, page } = await open(w, h);

@@ -458,7 +458,10 @@ const whitepaper = `
     <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
     <li><b>OPEN AIR</b> · <i>Rip Rocketer</i> — reach <b>Tier IV on one life</b>.</li>
     <li><b>THE FACILITY IS CLOSED</b> · <i>Rip Rocketer</i> — clear <b>every emplacement in a single tier</b>.</li>
-    <li><b>CLEAN SWEEP</b> · <i>Cloud Racer</i> — win a race having taken <b>every light-strip, every lap</b>.</li>
+    <!-- ⚠ #7 was CLEAN SWEEP (every light-strip, every lap) until 2026-08-06; the artist replaced
+         the condition. The ×3 he set alongside it is NOT printed here on purpose — it would make
+         "eleven earned" on this same page false. See docs/HERO-UNLOCKS.md §4¾, unresolved. -->
+    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
     <li><b>THREE CUTS</b> · <i>Neon Ronin</i> — win a duel where <b>every landed hit was part of a combo</b>.</li>
     <li><b>NO SWORD</b> · <i>Neon Ronin</i> — win a duel using <b>no slash at all</b>.</li>
     <li><b>HOUSE MONEY</b> · <i>The Arena</i> — take first on the podium <b>three times running</b>, never folding.</li>
