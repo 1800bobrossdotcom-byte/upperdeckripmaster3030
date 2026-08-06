@@ -530,7 +530,13 @@ console.log('\n§9 the separation goes to six plates, and comes back');
      `${r.diff} bytes differ`);
   ok(r.changed > 20, 'and six plates really does reprint the card',
      `${r.changed.toFixed(1)}% of pixels changed`);
-  ok(Math.abs(r.sixL - r.fourL) < 4, 'without simply making it darker — it is a split, not a pile',
+  /* ⚠ ONE-SIDED, BECAUSE ONLY ONE SIDE IS A FAILURE. The guard exists because ADDING two inks
+   * to a subtractive stack drives everything toward black — that is what "6 plates looks worse"
+   * would be. A two-sided bound also failed the card for getting LIGHTER, which is the split
+   * working: with the halftone off the ink is laid in continuous tone and the spot plates take
+   * their load off the process inks more cleanly, so six comes out 4.3 luma brighter than four.
+   * Rejecting that would be rejecting the fix for succeeding. */
+  ok(r.sixL > r.fourL - 4, 'without simply making it darker — it is a split, not a pile',
      `luma ${r.fourL.toFixed(2)} → ${r.sixL.toFixed(2)}`);
   await ctx.close();
 }

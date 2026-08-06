@@ -858,6 +858,8 @@ uniform sampler2D uSpriteTex;
 uniform vec4 uSprite;        // x cols · y rows · z frame index · w how many are struck (0 = none)
 uniform vec4 uSpriteP[4];    // per sprite: xy centre (uv) · z scale · w rotation
 uniform int uNPig;           // 3 = ground/mid/figure · 6 = + wash, strip, inset
+uniform float uFrame;        // 1 = trim + border sorts · 0 = FRAMELESS, artwork to the die edge
+uniform float uScreen;       // 1 = halftone dots · 0 = continuous tone, no stipple
 uniform mat3 uRot;
 uniform vec3 uEye;
 /* ⛔ SIX PLATES, NOT FOUR — artist, 2026-08-05: *"i need my plate separator to have up to 6
@@ -1206,14 +1208,26 @@ vec3 artAt(vec2 u, vec2 par) {
    * above the picture, they are the picture stopping. Only the name is carried up the stack. */
   // ⚠ the trim and the marks are the SHEET. They never travel — if the paper moved in z there
   // would be nothing for the stack to be inside, and the whole depth would read as a zoom.
+  /* ── ⛔ FRAMELESS — artist, 2026-08-06 ────────────────────────────────────────────────────
+   * The trim is the RAW STOCK left unprinted: a trading card's border is where the ink stops, and
+   * this channel says "no artwork here" so the paper does the rest. Frameless takes it away and
+   * the composition runs to the die edge — a FULL BLEED, which is a real thing a press does and a
+   * different kind of card, not a card with a missing part.
+   * ⚠ AND IT COSTS SOMETHING THIS FILE ALREADY RECORDED: *"bleeding the composition to all four
+   *   edges is what turned the first proof into wallpaper."* The trim is what makes the artwork
+   *   read as a WINDOW. That was a finding about the default, not a prohibition — but it is why
+   *   this is an option rather than the new normal, and why the panel says so out loud.
+   * ⚑ It takes the border sorts with it. Sorts are set INTO the trim, so a frame-less card with a
+   *   ruled border still on it is a border round nothing — the one arrangement that would look
+   *   like a bug rather than a choice. The NAME stays: it is the card's title, not its frame. */
   vec4 m = texture(uComp, u);
-  c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0));       // raw stock: the trim
+  c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0) * uFrame);   // raw stock: the trim
   /* The name and the border sorts are struck by the same cylinder as everything else, so they
    * arrive WITH the sheet — the type writes itself on rather than fading up. */
   float frontT = 1.2 - 1.4 * uMot.w;
   float ink = smoothstep(frontT, frontT + 0.18, 1.0 - u.y);
   c = mix(c, vec3(0.055, 0.048, 0.062), texture(uType, uT).r * ink);   // the name
-  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g * ink);    // marks + border sorts
+  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g * ink * uFrame);  // sorts + marks
   return c;
 }
 
@@ -1396,7 +1410,19 @@ void main(void) {
     float band = 1.0 + uPress.w * sin(u.y * uPress.y + uPress.z + float(p) * 0.7);
     d = clamp(d * band + uDmg.z * 0.10, 0.0, 1.0);
     vec2 dn;
-    float cov = screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d, dn);
+    /* ⛔ THE STIPPLE COMES OFF — artist, 2026-08-06: *"I do not want the stipling on the cards
+     * anymore, it diminished the art."* That is the AM halftone: each plate broken into dots on
+     * its own screen angle. It is most of what made the card read as PRINTED, and it is also a
+     * screen laid over somebody's artwork — at card size the dots are a texture the picture has
+     * to be seen through, and he is right that it costs the art more than it buys the press.
+     * ⚑ AT 0 THE INK IS LAID IN CONTINUOUS TONE: the density goes down as coverage directly,
+     *   which is what a photographic or a digital press does. Everything else survives — the four
+     *   or six plates, their registrations, the film weights, the roller band, the trapping — so
+     *   it is still a separation and still a print, just not a SCREENED one.
+     * ⚠ The dot relief goes with it. Beads of ink standing proud are the stipple in three
+     *   dimensions; keeping them over continuous tone would emboss dots that are not there. */
+    float cov = mix(d, screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d, dn), uScreen);
+    dn *= uScreen;
     transmit *= mix(vec3(1.0), uInk[p], cov);
     inkD += d;
     if (p == 3) dotN = dn;                           // K only — four relief grids is noise
@@ -1821,7 +1847,8 @@ void main(void) {
         rot: U('uRot'), eye: U('uEye'), flex: U('uFlex[0]'), proj: U('uProj'),
         reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng[0]'), film: U('uFilm[0]'),
         nInk: U('uNInk'), split: U('uSplit'), nPig: U('uNPig'),
-        sprite: U('uSprite'), spriteP: U('uSpriteP[0]'),
+        sprite: U('uSprite'), spriteP: U('uSpriteP[0]'), frame: U('uFrame'),
+        screen: U('uScreen'),
         press: U('uPress'), dmg: U('uDmg'), foilP: U('uFoilP'),
         keyDir: U('uKeyDir'), keyCol: U('uKeyCol'),
         fillDir: U('uFillDir'), fillCol: U('uFillCol'),
@@ -1901,6 +1928,8 @@ void main(void) {
          * base through applyAll; the site keeps the card as it prints. */
         press: 1,        // the impression's own character: 0 = a clean pull, 1 = as it printed
         shadow: 1,       // how hard the lifted layers shade what is under them
+        frame: 1,        // 1 = trim and border sorts · 0 = frameless, full bleed
+        screen: 0,       // 0 = continuous tone (the artist's call) · 1 = the halftone stipple
         sprites: 0,      // how many hand-drawn loops are struck on the sheet (0..4)
         spriteRate: 1,   // loops per press revolution
         /* ⛔ WHICH WAY UP IT IS SITTING IS A PERSISTENT HALF-TURN, NOT A BOOLEAN AND NOT AN
@@ -2015,6 +2044,8 @@ void main(void) {
          * in their shared hues and the rosette would come apart. */
         gl.uniform1f(u.split, S.inks > 4 ? 0.62 : 0.0);
         gl.uniform1i(u.nPig, S.pigs);
+        gl.uniform1f(u.frame, S.frame);
+        gl.uniform1f(u.screen, S.screen);
         /* ⚑ THE LOOP RUNS ON THE PRESS'S OWN CLOCK. A sprite with its own timer would be the one
          * thing on this card moving to a rhythm nothing else shares — and the brief's acceptance 2
          * is that the card is dead still until you touch it. Stopped press, stopped loop. */
@@ -2243,6 +2274,13 @@ void main(void) {
         /* how hard a lifted layer shades what is beneath it. 0 removes the shadows entirely,
          * which is also the control the acceptance measurement uses. */
         setShadow: v => { S.shadow = clamp(v, 0, 1.6); },
+        /* ⚑ A UNIFORM, NOT A REBAKE. The trim and the sorts are already in the composition and
+         * type plates; frameless simply stops PRINTING them, which is what a press would do. So
+         * the toggle is instant and the card's identity — its seed, its impression, its words —
+         * is untouched. Re-baking would have re-rolled nothing and cost a texture upload. */
+        setFrame: on => { S.frame = on ? 1 : 0; render(); return !!S.frame; },
+        /* the halftone. 0 lays the ink in continuous tone; 1 is the screened print. */
+        setScreen: v => { S.screen = clamp(v, 0, 1); render(); },
         setSprites: o => {
           o = o || {};
           const n = Math.max(0, Math.min(4, o.count === undefined ? S.sprites : (o.count | 0)));
@@ -2490,7 +2528,7 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
-          shadow: S.shadow,
+          shadow: S.shadow, frame: !!S.frame, screen: S.screen,
           sprites: S.sprites, spriteKind: SPRITE && SPRITE.kind,
           spriteFrames: SPRITE && SPRITE.frames, spriteRate: S.spriteRate,
           faceUp: !S.faceTurn, faceTurn: S.faceTurn,
