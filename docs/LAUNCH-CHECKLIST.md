@@ -167,9 +167,12 @@ degrades deliberately rather than pretending. That is safe, but it means **the s
 of the code** until they land.
 
 - [ ] **`PackSink`** — the atomic 50/50 splitter. Empty ⇒ every pack burns 100% and the studio is
-      paid nothing, while the pages say half funds the studio. `node scripts/lens-cli.mjs
-      deploy-sink`, then paste into `chain-config.contracts.packSink`.
+      paid nothing, while the pages say half funds the studio. Full sequence: **runbook step 4**.
       ⚠ Both constructor addresses are `immutable`. A wrong treasury is a redeploy, not a setting.
+      ⚑ **Blocked on the edition** — `token` is the edition address, so this cannot be deployed to
+      mainnet until the edition is. On Sepolia it can be rehearsed today.
+      ⚑ `node scripts/lens-cli.mjs sink-check` answers every reason to abort **with no key and no
+      gas**, including the one nothing used to check: whether the token can actually `burn`.
 - [ ] **`Ripmaster3030Lens721`** — render-by-id + voucher mint. Empty ⇒ the collector seat door
       falls back to the local vault and marks itself `verified:false`. See `docs/DEPLOY-LENS.md`;
       Remix is the recommended route (the key never leaves MetaMask).
@@ -238,8 +241,28 @@ Decide this early, while it's a plan rather than a scramble.
 1. `--preview` the deploy. **Read `name` and `symbol` back. Stop if either is wrong.**
 2. `--yes`. Read `name()` off the deployed contract. **Stop if it is wrong.**
 3. Deploy + set the render contract; confirm the token page renders the site.
-4. Deploy `PackSink` and the lens; paste all addresses into `js/chain-config.js`; push; confirm
-   live. `RipWallet.hasSink()` should now report the split is real.
+4. **`PackSink` — four steps, and it CANNOT start before step 2.** Its `token` argument is the
+   edition and it is `immutable`, so until the edition exists there is nothing to point it at.
+   ⚑ The gap is not dangerous, only work: the site is still on Sepolia at this point, so **no one
+   can buy a pack in the window between the edition landing and the sink landing.**
+   - 4a. `node scripts/lens-cli.mjs sink-check` — **no key, no gas.** Proves the token has
+     bytecode, that it really exposes `burn(uint256)` (PackSink calls it inside `_split`; a token
+     without it bricks the contract forever), that the treasury is an EOA, and that both match
+     `chain-config`. Do this BEFORE holding a key.
+   - 4b. Deploy. **Remix is the recommended route** — `contracts/PackSink.sol` has *zero* imports,
+     so unlike the lens there is nothing to flatten: paste the file, solc **0.8.24 + optimizer 200
+     runs**, Injected Provider, constructor `(token, treasury)`. ~2,000 bytes, 0 warnings.
+     CLI alternative: `node scripts/lens-cli.mjs deploy-sink` (refuses to run if either argument
+     disagrees with `chain-config`; `--force` to override deliberately).
+   - 4c. `node scripts/lens-cli.mjs sink --at 0x…` — keyless read-back of both `immutable` args.
+     ⚠ **Read them. This is the last moment either one can be wrong for free.**
+   - 4d. Paste into `chain-config.contracts.packSink`. That ONE edit turns the split on site-wide;
+     `RipWallet.hasSink()` then reports it as real.
+   Then the lens, per `docs/DEPLOY-LENS.md`. Push; confirm live.
+   ⛔ **`npm run test:name` FAILS if `network` is `mainnet` while `packSink` is empty**, so this
+   cannot be silently skipped — the pages state the 50/50 split as fact, and an empty slot means
+   every pack burns 100% with the studio paid nothing. Deploy it, or change the copy. Shipping
+   resolves neither.
 5. Smoke test: buy → rip → burn. Confirm `totalSupply` moves.
 6. Lift the gate.
 7. Countdown flips itself at `03:11Z` — no manual step. (Verified: `npm run test:launch` skews the
