@@ -1301,13 +1301,25 @@ available)."* Replaces CLEAN SWEEP as `docs/HERO-UNLOCKS.md` #7; measurement in 
   sits on the position list at 320 and 390). **Moving `arm()` into `raceStarted` — which makes
   quitting during the lights cost your streak — passed all 45.** The claim was in the module header
   with nothing behind it; B10/B11 exist because of that, and now it fails 2.
-- ⛔ **UNRESOLVED AND THE ARTIST'S: THREE SEATS MAKES 35 HEROES.** `11 auction + 11 gacha + 11
-  earned` is the settled 33, and 33 is the deck (`tokenURI` 1–33), not a slogan. Three seats on one
-  title makes the earned tier 13. Options in HERO-UNLOCKS §4¾. ⚑ **So the ×3 is on NO public page
-  and no aggregate count was touched** — every "11 earned" is true under option A and false under
-  B, and printing "eleven earned titles" beside "one has three seats" is shipping a contradiction.
-  The condition change *is* published (it stands alone); the multiplicity waits. The game's result
-  screen says "three" and states no split, so it cannot be wrong about one.
+- ✅ **SETTLED 2026-08-06 — NINE TITLES, ELEVEN CARDS, 33 INTACT.** Three seats made the earned
+  tier 13 against a settled 11. The artist resolved it by redistributing: *"disperse the remaining
+  cards that are not in cloud race or riprocketer — and create ways for the players to redeem them
+  in dog fight, section 9, or the city."* CLOUD RACER 3 · RIP ROCKETER 2 · DOGFIGHT 2 · SECTION 9 2
+  · THE CITY 2 = **11 cards over 9 titles**, so **no aggregate on any public page moved** — "11
+  earned" was true before and is true now. That is why option A was worth holding for; option B
+  would have moved the gacha count on six generated surfaces and in the token model.
+- ⛔ **AND IT CAUGHT TWO TITLES POINTING AT A RETIRED CABINET.** THREE CUTS and NO SWORD were NEON
+  RONIN's, and **NEON RONIN has not existed since 2026-08-03** — THE CITY replaced it. Two of the
+  eleven ways to win a 1/1 named a game that is not in the arcade, in the document that tells
+  players how to win one. **"A surface nobody looks at rots", on the page with real value behind
+  it.** Their replacements are THE CITY's two, in the cabinet that replaced their cabinet.
+  ⚠ HOUSE MONEY (THE ARENA) and THE LONG COUNT (cross-game) went too, because the instruction named
+  three destinations and neither is one. **THE ARENA now carries no title and it is a live
+  cabinet** — flagged for the artist, not silently accepted.
+- ⚠ **THE COUNTING NOUN IS LOAD-BEARING NOW.** Eleven **cards** across nine **titles**. The
+  whitepaper heading said "The eleven earned titles" over a list that is now nine; it reads
+  "eleven earned cards, across nine titles". A page that says eleven and lists nine is the small
+  untruth that gets quoted back.
 
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
