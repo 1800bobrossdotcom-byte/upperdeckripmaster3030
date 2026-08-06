@@ -654,6 +654,14 @@
       <b>gone</b> from your binder if you lose (in this prototype, all of it saved in your
       browser). No cards, no deal. <span class="omen">Ties go to the house.
       The house always eats.</span></p>
+      <!-- ⛔ SAY THE RULE ON THE PAGE, because a player who knows the arena cannot produce a 1/1
+           will not grind it hoping for one — and a rule nobody can read is a rule that gets
+           discovered as a disappointment. -->
+      <p class="rules" style="margin-top:9px"><b style="color:var(--amber)">The 33 are not in this
+      room.</b> The arena deals the <b>67 field cards</b>. You cannot win a 1/1 here and you cannot
+      stake one — a hero comes from <a href="../index.html#rip">ripping a pack</a> or from
+      <a href="../whitepaper.html#titles">earning a title</a>, and nothing else. If you hold one it
+      stays on your shelf; it just does not come to the table.</p>
     </div>
 
     <div class="gas">
@@ -741,6 +749,30 @@
   const rnd = n => Math.floor(Math.random()*n);
   const pick = (arr, k) => { const c=[...arr]; const out=[]; while(out.length<k && c.length) out.push(c.splice(rnd(c.length),1)[0]); return out; };
 
+  /* ⛔ THE ARENA IS A FIELD-CARD GAME. THE 33 ARE NOT IN ITS STOCK, AND THAT IS THE WHOLE RULE.
+   *   Artist, 2026-08-06: "make sure if we play the house in the gacha pack arena that it is hard
+   *   to win 1/33 cards" — then, minutes later, "I had just won like 3 more 1/1 rare cards."
+   *   He had. The house drew from the WHOLE deck and a win handed you everything it staked.
+   * ⚑ MEASURED, on the shipped scoring, 200,000 games per row. The house picks at random; a player
+   *   stakes their BEST cards, so the player wins 89.7%-95.5% of the time. At the 3-card stake that
+   *   is 0.94 heroes PER GAME; at the 7-card stake, 2.12. The designed path is 11 gacha heroes over
+   *   3,560 packs — one per 323.6 packs, about $3,236 at a $10 tier-I pack. The arena was handing
+   *   one over roughly every game, free, in seconds.
+   * ⛔ AND THE BANDS LEAKED EQUALLY: ~0.27 auction and ~0.27 earned cards per game. The auction
+   *   eleven are being SOLD on SuperRare; the earned eleven are supposed to cost a named feat that
+   *   a human verified before signing a voucher. Neither is a difficulty question, so neither is
+   *   tuned here — they are simply not stock.
+   * ⚑ AND NEITHER ARE THE GACHA ELEVEN. `pack.js` may offer 12-22 because a pack is the designed
+   *   gacha path and costs money; a free, repeatable, ~90%-win game cannot be a second source of
+   *   the same eleven cards at ANY rate, because grinding would dominate paying instantly. One
+   *   rule, stated once: THE ARENA NEVER CREATES A HERO.
+   * ⚠ HERO_MAX mirrors Ripmaster3030Lens721's own constant, and the key is the ID — not the band
+   *   string, which a deck served without it makes silently absent. Same key pack.js reserves on. */
+  const HERO_MAX = 33;
+  const isHero = c => { const n = Number(c && c.id); return n >= 1 && n <= HERO_MAX; };
+  /* everything the arena is allowed to HAND OUT. Never DECK. */
+  const stock = () => DECK.filter(c => !isHero(c));
+
   // wager modes (pog stacks): pairings 1/2/3, combos 3/4/7
   const MODES = [[1,'Single'],[2,'Pair'],[3,'Trips'],[4,'Quad'],[7,'Full Slam']];
   function renderModes(){
@@ -812,7 +844,7 @@
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
     const bySlug = playIndex(), fById = forgedById();
-    hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
+    hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(c => c && !isHero(c));
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
       $('handInfo').textContent = '0 in your folder';
@@ -1164,7 +1196,7 @@
     if (busy || selected.length !== mode) return;
     busy = true; updateSlam(); $('dealBtn').disabled = true;
     const you = selected.map(i => hand[i]);
-    houseStack = pick(DECK, mode);                       // the house commits from the whole deck
+    houseStack = pick(stock(), mode);                    // ⛔ stock(), never DECK — see the rule above
     const P = power(you), Q = power(houseStack);
     const outcome = P.total > Q.total ? 'win' : (P.total < Q.total ? 'lose' : 'tie');
     const ante = Math.max(0, Math.min(tokenWager, tokens()));
@@ -1196,9 +1228,21 @@
   // knows (renamed or voted off) is pruned instead of showing a broken thumb.
   function vault(){ try { return JSON.parse(localStorage.getItem('urm_vault')||'[]'); } catch { return []; } }
   function saveVault(v){ try { localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200))); } catch {} }
+  /* ⛔ THIS WROTE `{slug}` AND NOTHING ELSE, AND THAT IS WHY THE EXISTING REPAIR COULD NOT SEE
+   *   ARENA CARDS. `pack.js`'s healVault() keys on `row.n`; an arena row has no `n`, so
+   *   `RESERVED_N(undefined)` is false and every hero ever won off the house was invisible to the
+   *   one function written to find exactly this. `pack.js`'s own comment — "THIS FILE IS THE ONLY
+   *   WRITER OF urm_vault ROWS CARRYING n" — was true, and the conclusion drawn from it was not.
+   * ⚑ The row now carries the ID and its SOURCE. `n` is what every band rule in this project keys
+   *   on, and `src` is what lets a repair tell a legitimately pack-pulled gacha hero from one the
+   *   arena handed over — a distinction that is impossible to make after the fact from a slug.
+   * ⚠ And the filter here is belt-and-braces on top of stock(): a card cannot be collected if it
+   *   is one of the 33, whatever produced it. Two independent guards, because this is the line
+   *   that writes to a collector's shelf. */
   function collect(cards){
     const v = vault();
-    cards.forEach(c => v.push({slug:c.slug}));
+    (cards || []).forEach(c => { if (!c || isHero(c)) return;
+      v.push(c.id != null ? { slug: c.slug, n: c.id, src: 'arena' } : { slug: c.slug, src: 'arena' }); });
     saveVault(v); renderVault();
   }
   function removeOwned(indices){
@@ -1303,8 +1347,16 @@
   const statusWord = s => s === 'seeking' ? 'seeking a fight' : s === 'battling' ? 'mid-battle' : 'idle';
   function liveToken(){ try { const a = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
     return /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0+$/.test(a); } catch { return false; } }
+  /* ⛔ THE MIRROR OF THE SAME HAZARD: A 1/1 MUST NOT BE STAKEABLE EITHER. Closing only the
+   *   winning side leaves a collector able to LOSE a legitimately pulled hero to the house on a
+   *   coin flip — and the house is not a person, so it is not transferred to anyone, it is simply
+   *   gone. This project's standing rule is that cards transfer and are never destroyed in a game.
+   * ⚑ So it is one rule on both sides, which is also why it is easy to say on the page: THE ARENA
+   *   IS A FIELD-CARD GAME. Heroes are not stock and they are not chips.
+   * ⚠ Filtered out of the HAND, not out of the VAULT — renderVault() reads the vault directly, so
+   *   a hero you own still shows on your shelf. It is unplayable here, not hidden. */
   function ownedHand(){ const bySlug = deckIndex(), fById = forgedById();
-    return vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean); }
+    return vault().map(e => resolveEntry(e, bySlug, fById)).filter(c => c && !isHero(c)); }
 
   function toastMini(msg){
     let t = $('miniToast'); if (!t){ t = document.createElement('div'); t.id = 'miniToast'; t.className = 'mini-toast'; document.body.appendChild(t); }
@@ -1330,15 +1382,23 @@
   function hideToast(){ $('lobToast').classList.remove('show'); curChallenge = null; clearTimeout(onIncoming._t); }
 
   // resolve an opponent's stack (rarity hints from the net layer, or unknown) into real deck cards
+  /* ⛔ THIS ONE IS WORSE THAN THE HOUSE, BECAUSE IT INVENTS CARDS NOBODY OWNED. The wire carries
+   *   only RARITY HINTS, so the opponent's actual cards are reconstructed here — and it
+   *   reconstructed them from the whole DECK, heroes included. Winning a face-off therefore did
+   *   not TRANSFER a 1/1 from another collector, it CREATED one out of a rarity string.
+   * ⚠ Same `stock()` as the house, and for the same reason: nothing the arena materialises may be
+   *   one of the 33. A hero a real opponent genuinely holds is not expressible on this wire at
+   *   all — the hint is a rarity, not an id — so nothing legitimate is lost by excluding them. */
   function resolveOppStack(oppStack, n){
-    const byRar = {}; DECK.forEach(c => { (byRar[c.rarity] = byRar[c.rarity] || []).push(c); });
+    const S = stock(); if (!S.length) return [];
+    const byRar = {}; S.forEach(c => { (byRar[c.rarity] = byRar[c.rarity] || []).push(c); });
     const hints = (oppStack && oppStack.length) ? oppStack : Array.from({ length: n }, () => ({}));
     const out = [];
     for (const h of hints.slice(0, n)){
-      const pool = (h.rarity && byRar[h.rarity] && byRar[h.rarity].length) ? byRar[h.rarity] : DECK;
+      const pool = (h.rarity && byRar[h.rarity] && byRar[h.rarity].length) ? byRar[h.rarity] : S;
       out.push(pool[rnd(pool.length)]);
     }
-    while (out.length < n && DECK.length) out.push(DECK[rnd(DECK.length)]);
+    while (out.length < n) out.push(S[rnd(S.length)]);
     return out;
   }
 
@@ -1584,6 +1644,15 @@
    *   derives them from each card's seed, which lives in `deck.json`, not in the manifest. Any
    *   single-file load here is a deck with no stats or the wrong cards; there is no version of
    *   this that is one fetch. */
+  /* ⚑ A DEV HOOK, THE SAME PATTERN `__city` AND `__rrpc` ALREADY USE HERE, AND IT EXISTS FOR A
+   *   REASON THIS FILE PAID FOR: everything that decides what the arena can hand out lives inside
+   *   this IIFE, so no driven check could ever ask "what did the house just stake?" — and that is
+   *   precisely the question `test:cab` and `test:reach` could not answer while the arena was
+   *   giving away 1/1s. Reads only; it exposes no way to write a card that `collect()` would not
+   *   already refuse, and nothing here is authoritative — the chain mints only against a voucher. */
+  window.__arena = { DECK: () => DECK, stock, pick, isHero, resolveOppStack, collect,
+                     hand: () => hand, vault };
+
   Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(r => {
     DECK = r[0] || []; LEGACY = r[1] || [];
     if (!DECK.length) throw 0;

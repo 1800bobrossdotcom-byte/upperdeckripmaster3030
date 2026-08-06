@@ -294,7 +294,14 @@ head('3. the VS face-off fires, and the VS is STRUCK');
    * ⚑ SEEDING FROM THE DECK THE PLAYER ACTUALLY HAS is also what makes this test mean something:
    *   a fixture built from a source the product has stopped using tests a path nobody walks. */
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/deck-manifest.json'), 'utf8'));
-  const slugs = (man.cards || man).slice(0, 8).map(c => String(c.slug));
+  /* ⛔ AND `slice(0, 8)` WAS IDS 1-8 — EIGHT AUCTION 1/1s. The fixture handed the player a folder
+   *   of cards that are being SOLD on SuperRare, i.e. a hand nobody can ever have; it only worked
+   *   because the arena used to let any card be held and staked. Since heroes stopped being
+   *   playable this seeds an empty hand and times out waiting for tiles.
+   * ⚑ Which is this file's own recorded lesson one level in: a fixture built from a source the
+   *   product has stopped using tests a path nobody walks. The 67 FIELD cards are what a folder
+   *   actually holds. */
+  const slugs = (man.cards || man).filter(c => Number(c.id) > 33).slice(0, 8).map(c => String(c.slug));
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference' });
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(String(e).slice(0, 200)));
@@ -477,7 +484,14 @@ head('4. the face-off is watchable — ink, motion, and a veil that veils');
    *   can no longer exist. A shadowed binding is invisible to a reader who has already seen the
    *   name defined correctly further up. */
   const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/deck-manifest.json'), 'utf8'));
-  const slugs = (man.cards || man).slice(0, 8).map(c => String(c.slug));
+  /* ⛔ AND `slice(0, 8)` WAS IDS 1-8 — EIGHT AUCTION 1/1s. The fixture handed the player a folder
+   *   of cards that are being SOLD on SuperRare, i.e. a hand nobody can ever have; it only worked
+   *   because the arena used to let any card be held and staked. Since heroes stopped being
+   *   playable this seeds an empty hand and times out waiting for tiles.
+   * ⚑ Which is this file's own recorded lesson one level in: a fixture built from a source the
+   *   product has stopped using tests a path nobody walks. The 67 FIELD cards are what a folder
+   *   actually holds. */
+  const slugs = (man.cards || man).filter(c => Number(c.id) > 33).slice(0, 8).map(c => String(c.slug));
 
   /* ⚠ SMALL VIEWPORT, DECOR OFF, ENGINE BLOCKED. Not to flatter the numbers — to get a frame
    *   rate at all. This container is SwiftShader, and at 1100×820 with the page's two

@@ -2162,6 +2162,68 @@ other."* Two halves, and only the first was the one I was asked about.
   from the chip and nobody had asked about the other axis. **A thumb is round** — 44 px is a floor on
   both, and the assertion reads both numbers now.
 
+## ⛔ THE ARENA WAS HANDING OUT 1/1s — ~1 A GAME, FREE · `npm run test:arena` (23)
+*Artist, 2026-08-06: "make sure if we play the house in the gacha pack arena that it is hard to win
+1/33 cards." Then, minutes later: "I had just won like 3 more 1/1 rare cards."* He had.
+- ⛔ **`houseStack = pick(DECK, mode)` — THE WHOLE HUNDRED — AND A WIN TOOK EVERYTHING IT STAKED.**
+  `pack.js` has filtered this correctly since the gacha fix (`reserved()` keyed on the id); the
+  arena had no such filter, and nothing compared the two. **The comment on the line said what it
+  did** — *"the house commits from the whole deck"* — which is the shape this file keeps recording:
+  the defect was documented, in place, by the person who wrote it.
+- ⚑ **MEASURED ON THE SHIPPED SCORING, 200,000 GAMES A ROW, AND THE NUMBERS ARE THE ARGUMENT.** The
+  house picks at RANDOM; a player stakes their BEST k. So the player wins **89.7–95.5%**, and:
+  | stake | 1 | 2 | 3 | 4 | 7 |
+  | --- | --- | --- | --- | --- | --- |
+  | heroes won per game (greedy) | 0.30 | 0.63 | **0.94** | 1.26 | **2.12** |
+  The designed path is 11 gacha heroes over 3,560 packs — **one per 323.6 packs, ~$3,236** at a $10
+  tier-I pack. The arena was giving one away **roughly every game, free, in seconds.**
+- ⛔ **AND THE BANDS LEAKED EQUALLY: ~0.27 AUCTION AND ~0.27 EARNED CARDS PER GAME.** The auction
+  eleven are being SOLD; the earned eleven are supposed to cost a named feat a human verified before
+  signing a `kind 2` voucher. **Neither is a difficulty question**, so neither was tuned — they are
+  simply not stock.
+- ⚑ **NOR ARE THE GACHA ELEVEN, AND THAT IS THE LOAD-BEARING CALL.** A pack may offer 12–22 because
+  it is the designed gacha path and it costs money; **a free, repeatable, ~90%-win game cannot be a
+  second source of the same eleven cards at ANY rate**, because grinding dominates paying
+  instantly. One rule, stated once, on the page as well as in the code: **THE ARENA NEVER CREATES A
+  HERO.**
+- ⛔ **THE PvP PATH WAS WORSE, BECAUSE IT INVENTED CARDS RATHER THAN MOVING THEM.** The wire carries
+  only RARITY HINTS, so `resolveOppStack` reconstructs an opponent's stack — out of `DECK`. Winning
+  a face-off **materialised a 1/1 nobody had ever owned**. One `stock()` feeds both it and the
+  house, because two pools is how one of them drifts.
+- ⛔ **AND THE MIRROR: A 1/1 COULD BE *LOST* TO THE HOUSE ON A COIN FLIP.** Closing only the winning
+  side leaves a collector able to stake a legitimately pulled hero against a house that is not a
+  person — so it is not transferred, it is gone, against the standing "cards transfer, never
+  burned" rule. Heroes are out of the HAND too. ⚠ Filtered from the hand, **not** from the vault:
+  unplayable here, still on your shelf.
+- ⛔ **THE EXISTING REPAIR WAS STRUCTURALLY BLIND TO ALL OF IT, AND THE REASON IS ONE MISSING
+  FIELD.** `healVault()` keys on `row.n`; the arena's `collect()` wrote **`{slug}` with no `n`**, so
+  `RESERVED_N(undefined)` was false for every hero ever won off the house. ⚑ `pack.js`'s own note —
+  *"THIS FILE IS THE ONLY WRITER OF `urm_vault` ROWS CARRYING `n`"* — **was true, and the conclusion
+  drawn from it was false.** The repair resolves the row's SLUG now, so an id is recovered whether
+  or not anybody wrote it down. **This project's "reserve by a key that cannot go missing" rule,
+  turned on the repair itself.**
+- ⚑ **AND `src` IS WHAT KEEPS THE ARTIST'S REAL CARDS.** A gacha hero pulled from a PACK is
+  legitimate and survives; the same card handed over by the arena never was. Only the row can tell
+  them apart, so arena rows stamp `src:'arena'` and a row with **no `n` at all** is a legacy arena
+  row by construction. Asserted in both directions — id 15 from a pack is kept while 3, 30 and 18
+  go.
+- ⛔ **EARNED TITLES ARE UNTOUCHED, AND THIS WAS CHECKED BEFORE ANYTHING WAS WRITTEN.** The artist
+  had legitimately cleared **TWO MILLION FEET** (a 2,000,000-point RIP ROCKETER run,
+  `js/rrpc-app.js:2059`). A cleared title is a CLAIM SLIP in `urm_titles` — `js/title-ledger.js`'s
+  own header says *"Nothing here awards anything"* — and **never a card row**, so no vault repair
+  can reach it. ⚠ The one thing worse than the bug would have been taking away a card somebody
+  actually earned; that is an assertion now, not a hope.
+- ⚠ **AND THE FIX BROKE A TEST FIXTURE IN A WAY THAT WAS ITSELF THE FINDING.** `test:cardlayers`
+  seeded its arena vault with `slice(0, 8)` of the manifest — **ids 1–8, eight AUCTION 1/1s**, a
+  hand nobody can ever have. It only worked because any card used to be holdable. That block's own
+  comment already said the lesson: *a fixture built from a source the product has stopped using
+  tests a path nobody walks.* ⚠ And there were **two** copies of the line, not one.
+- ⚠ **`window.__arena` EXISTS BECAUSE NOTHING COULD ASK THE QUESTION.** Everything deciding what the
+  arena hands out lived inside the page's IIFE, so no driven check could ask *"what did the house
+  just stake?"* — which is exactly why `test:cab` and `test:reach` were green throughout. Same
+  pattern as `__city` / `__rrpc`. **Proved to bite** by splicing the defect line **verbatim out of
+  git** (not retyped): **34.1% of every card the old build staked was a 1/1.**
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
