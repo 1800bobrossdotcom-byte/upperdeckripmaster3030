@@ -545,13 +545,42 @@
   function addToVault(ref){ const v=vault(); v.push(ref.forged?{forged:ref.forged}:{slug:ref.slug}); save('urm_vault', v.slice(-200)); }
 
   // ── market ──
+  /* ⛔ THE HOUSE SHELF SEEDED ONCE AND NEVER AGAIN — `if(m.some(by==='house')) return m` — so the
+   *   board a visitor sees was FROZEN INTO localStorage from whatever deck was loaded the first
+   *   time they opened this page. Every listing denormalises its own `title`/`art`/`rar` at the
+   *   moment it is written, so pointing the page at the hundred did NOT move it: the shelf went on
+   *   serving the retired 196 out of storage, mixed in with fresh `by:'you'` listings made from
+   *   the new deck. Artist, on the live site: *"the market has weird old cards mixed with new
+   *   listings."*
+   * ⚑ A CACHE OF DENORMALISED ROWS DOES NOT FOLLOW ITS SOURCE, and that is the whole bug. Changing
+   *   what `DECK` means fixes every surface that READS the deck and none that already COPIED it.
+   *   Same shape as the CDN cache header: the fix landed and the stale copies kept serving.
+   * ⛔ HOUSE LISTINGS ARE CULLED, `by:'you'` LISTINGS ARE NEVER TOUCHED. The house shelf is studio
+   *   inventory — dropping a stale row costs nobody anything. A player's listing is a card they
+   *   own and have committed; deleting it is the vault rule broken from the other side, and a
+   *   listing on a retired card is still HONEST because they do still own that card. */
   function seedHouse(){
-    let m=load('urm_market'); if(m.some(l=>l.by==='house')) return m;
+    let m=load('urm_market');
+    const inDeck = new Set(DECK.map(c=>String(c.slug)));
+    const kept = m.filter(l => l.by!=='house' || inDeck.has(String((l.ref||{}).slug)));
+    if(kept.length !== m.length){ m = kept; save('urm_market', m); }
+    if(m.some(l=>l.by==='house')) return m;
     const bs=bySlug();
-    // cards culled to the house + a curated shelf so the board is never bare
-    const houseSlugs = load('urm_house').filter(s=>bs.has(s));
+    /* ⛔ FIELD CARDS ONLY, AND THIS IS A MODEL CONSTRAINT RATHER THAN A TASTE ONE. The re-seed
+     *   formula walks the deck at a fixed stride, and against the hundred that lands on ids
+     *   7, 19 and 31 — three of the 33 HERO 1/1s — putting them on a shelf at 8 $3030. The heroes
+     *   are distributed exactly three ways (11 auctioned, 11 gacha, 11 earned) and the earned tier
+     *   rests on "no title can be bought". A bench offering hero #7 for eight tokens contradicts
+     *   the model on a public page. The 67 field cards are the collectable half; they are what a
+     *   bench is for.
+     * ⚠ `bySlug()` resolves the RETIRED set too (so an old save still shows), so `urm_house` has to
+     *   be filtered against the current deck rather than against that map — otherwise a culled
+     *   old slug walks straight back in through the door the cull just closed. */
+    const field = DECK.filter(c=>c.band==='field');
+    const pool  = field.length ? field : DECK;
+    const houseSlugs = load('urm_house').filter(s=>inDeck.has(String(s)));
     const shelf = [];
-    for(let i=6;i<DECK.length && shelf.length<8;i+=Math.max(1,Math.floor(DECK.length/8))) shelf.push(DECK[i].slug);
+    for(let i=0;i<pool.length && shelf.length<8;i+=Math.max(1,Math.floor(pool.length/8))) shelf.push(pool[i].slug);
     const uniq=[...new Set([...houseSlugs, ...shelf])].slice(0,12);
     for(const slug of uniq){ const c=bs.get(slug); if(!c) continue;
       m.push({ id:'hs-'+slug, kind:'sell', by:'house', ask:ASK[c.rarity||'rare']||10, key:'s:'+slug, ref:{slug}, title:c.title, art:c.art, rar:c.rarity }); }

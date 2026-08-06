@@ -786,6 +786,20 @@
    *   how this was caught — it timed out waiting for a hand that could no longer exist.
    * ⚠ LEGACY first so the hundred win any future slug collision (a Map keeps the last write). */
   function deckIndex(){ return new Map([...LEGACY, ...DECK].map(c => [c.slug, c])); }
+  /* ⛔ AND RESOLVING IS NOT OWNING — artist, on the live arena: *"still showing old cards in
+   *   battle."* `deckIndex()` above exists so an old save is never DESTROYED by the prune, and it
+   *   did that job; but `renderHand()` built the folder from the same map, so all 196 retired
+   *   cards a player had ever practice-pulled came back as their collection — "81 in your folder,
+   *   73 kinds" of the ink the press prints from.
+   * ⚑ THE SPLIT IS THE FIX AND IT IS THE BENCH'S, VERBATIM: ownership resolves against the
+   *   HUNDRED ONLY (`playIndex`), while the FULL index still resolves anywhere a card must merely
+   *   be NAMED or KEPT. `cards/market.html` settled this on the artist's *"it is showing old cards
+   *   and prefilled when I already bought cards"* — the arena is the fifth surface of the same
+   *   defect, and taking a different decision here would make two pages disagree about what a
+   *   player owns.
+   * ⚑ BUILT FROM DECK, NOT `deckIndex()` MINUS LEGACY — a card can then only be playable because
+   *   it IS in the deck, rather than because it failed to be in a list. */
+  function playIndex(){ return new Map(DECK.map(c => [c.slug, c])); }
   /* ⚠ CARRY THE ROW'S PROVENANCE THROUGH THE RESOLVE. `p` marks a free practice pull, and it was
    *   being dropped here — which is why nothing on the site could tell a practice card from one
    *   somebody burned $3030 for, even though pack.js has written the flag since the artist first
@@ -797,7 +811,7 @@
 
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
-    const bySlug = deckIndex(), fById = forgedById();
+    const bySlug = playIndex(), fById = forgedById();
     hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
@@ -1193,13 +1207,23 @@
     renderVault();
   }
   function renderVault(){
+    /* ⚠ THE PRUNE STILL USES THE FULL INDEX, AND THAT IS LOAD-BEARING. This function WRITES ITS
+     *   RESULT BACK to localStorage, so pruning against the hundred would not hide a retired card
+     *   — it would DELETE it, permanently, on the one screen where a collector keeps what they
+     *   pulled. Resolve wide, play narrow. */
     const bySlug = deckIndex(), fById = forgedById();
+    const play = playIndex();
     const v = vault();
     const clean = v.filter(e => resolveEntry(e, bySlug, fById));
     if (clean.length !== v.length) saveVault(clean);
-    $('vaultCnt').textContent = clean.length;
-    $('vaultMini').innerHTML = clean.slice(-8).reverse().map(e => {
-      const c = resolveEntry(e, bySlug, fById);
+    /* ⚑ SAID OUT LOUD, NOT SILENTLY DROPPED. A card vanishing off your own shelf with no
+     *   explanation is the same defect from the other side — the bench states the archived count
+     *   for exactly this reason, so the arena states it too. */
+    const playable = clean.filter(e => resolveEntry(e, play, fById)).length;
+    const archived = clean.length - playable;
+    $('vaultCnt').textContent = playable + (archived ? ' (+' + archived + ' archived)' : '');
+    $('vaultMini').innerHTML = clean.filter(e => resolveEntry(e, play, fById)).slice(-8).reverse().map(e => {
+      const c = resolveEntry(e, play, fById);
       return `<img src="${c.art}" alt="" title="${c.title}" loading="lazy" onerror="this.remove()">`;
     }).join('');
   }

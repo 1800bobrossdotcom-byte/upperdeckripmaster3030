@@ -285,8 +285,16 @@ head('2. the browser reaches every plate');
 
 head('3. the VS face-off fires, and the VS is STRUCK');
 {
-  const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/manifest.json'), 'utf8'));
-  const slugs = man.cards.slice(0, 8).map(c => c.slug);
+  /* ⛔ THIS SEEDED FROM `cards/manifest.json` — the retired 196 — AND THE ARENA NO LONGER DEALS
+   *   THEM. `cards/deck.html`'s header states the rule: that file is THE INK, the source pictures
+   *   the press prints from, "not cards, do not present it as cards". The arena resolves the old
+   *   set so a save is never destroyed, but it builds a HAND from the hundred only (artist, on the
+   *   live arena: "still showing old cards in battle"). Seeded from the ink, this waited 30s for a
+   *   hand that can no longer exist and timed out.
+   * ⚑ SEEDING FROM THE DECK THE PLAYER ACTUALLY HAS is also what makes this test mean something:
+   *   a fixture built from a source the product has stopped using tests a path nobody walks. */
+  const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/deck-manifest.json'), 'utf8'));
+  const slugs = (man.cards || man).slice(0, 8).map(c => String(c.slug));
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference' });
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', e => errs.push(String(e).slice(0, 200)));
@@ -462,8 +470,14 @@ head('3. the VS face-off fires, and the VS is STRUCK');
  */
 head('4. the face-off is watchable — ink, motion, and a veil that veils');
 {
-  const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/manifest.json'), 'utf8'));
-  const slugs = man.cards.slice(0, 8).map(c => c.slug);
+  /* ⛔ SECOND SEED, SAME FIX — and I patched §3's and stopped, which is this repo's own recorded
+   *   "checking one of five is how the other four rot back in" committed inside the very edit
+   *   that was supposed to prevent it. §4 shadows the outer `man`/`slugs` with its own read, so
+   *   fixing §3 left this one seeding the retired 196 and it timed out waiting for a hand that
+   *   can no longer exist. A shadowed binding is invisible to a reader who has already seen the
+   *   name defined correctly further up. */
+  const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'cards/deck-manifest.json'), 'utf8'));
+  const slugs = (man.cards || man).slice(0, 8).map(c => String(c.slug));
 
   /* ⚠ SMALL VIEWPORT, DECOR OFF, ENGINE BLOCKED. Not to flatter the numbers — to get a frame
    *   rate at all. This container is SwiftShader, and at 1100×820 with the page's two
