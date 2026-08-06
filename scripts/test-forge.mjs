@@ -309,14 +309,15 @@ console.log('\n§4 the panel says what has been changed, and reset undoes it');
                    pigs: window.__proof.probe().pigs };
     return { after, back };
   });
-  /* ⚑ THREE, NOT TWO — and the third is the point. Moving LAYERS off zero with one card on the
-   * press puts three on, because a stack cannot separate one picture from itself. The count is
-   * right: three things about this card now differ from base, and the panel names all three. */
-  ok(/3 changes/.test(r.after.text), 'it counts the changes', `"${r.after.text}"`);
-  ok(r.after.pigs === 3, 'and LAYERS brought the cards it needs to have layers at all',
+  ok(/2 changes/.test(r.after.text), 'it counts the changes', `"${r.after.text}"`);
+  /* ⛔ AND LAYERS MUST NOT GO AND GET MORE CARDS. It briefly did, and that was the whole
+   * misunderstanding — artist: *"the layers should be created from THAT ONE SOURCE."* A stack
+   * separates the picture you chose into slices at different depths; fetching more pictures is
+   * the COLLAGE control and a different question. This asserts the source count is untouched, so
+   * the two can never be conflated again. */
+  ok(r.after.pigs === 1, 'and LAYERS separates the ONE source rather than fetching more',
      `${r.after.pigs} on the press`);
-  /* the plate count lives in FORGE, so a stack change now dots three panes rather than two */
-  ok(r.after.dots.join(',') === 'build,plates,press', 'and dots the panes holding them',
+  ok(r.after.dots.join(',') === 'build,press', 'and dots the panes holding them',
      r.after.dots.join(', ') || 'none');
   ok(Math.abs(r.after.burn - 0.4) < 0.001, 'the press actually received the change',
      `burn ${r.after.burn}`);

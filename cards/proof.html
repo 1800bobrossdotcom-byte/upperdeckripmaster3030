@@ -417,6 +417,27 @@ frame and seed are left alone">RESET TO BASE</button>
         on <em>seeded</em> and the card picks its own.</div>
     </div>
 
+    <!-- ⛔ THE HAND-DRAWN LOOPS — artist, 2026-08-05: "small gif sprites and loops that look
+         handddrawn … infinite abstract, ascii art, generative and cool" / "where are the handmade
+         animations and glyphs, gifs section as well". js/card-sprites.js draws them. -->
+    <div class="grp">
+      <label>HANDMADE LOOPS <span class="v" id="vLoops">none</span></label>
+      <div class="slot">WHAT IS DRAWN</div>
+      <div class="chips" id="loopChips"></div>
+      <label style="margin-top:10px">HOW MANY <span class="v" id="vSprites">0</span></label>
+      <input type="range" id="sprites" min="0" max="4" step="1" value="0">
+      <label style="margin-top:10px">LOOP RATE <span class="v" id="vSrate">1.0</span></label>
+      <input type="range" id="srate" min="0.25" max="6" step="0.25" value="1">
+      <div class="note">small drawings struck into the print — <strong>a boiling line</strong>,
+        redrawn from scratch every frame the way hand-drawn animation is, so it crawls instead of
+        tweening. <strong>ASCII kinds are set from the card's own committed fount</strong>, so no
+        font ships and none is named. ⚑ They go in as <strong>ink</strong>, before the plate
+        separation — so they take the halftone, the registration error and the press damage like
+        every other mark, instead of sitting on top as a sticker. They ride the figure's plane, so
+        they have the same depth as the layer they sit on. Where they land is the seed's.
+        ⚠ They run on the press's own clock: <strong>stopped press, stopped loop</strong>.</div>
+    </div>
+
     <div class="grp">
       <label>COLLAGE <span class="v" id="vColl">3 plates</span></label>
       <div class="note">the composition is set in <strong>THE FORGE</strong> above — deck cards
@@ -619,6 +640,7 @@ frame and seed are left alone">RESET TO BASE</button>
 <script src="/gate.js"></script>
 <script src="../js/chain-config.js" onerror="void 0"></script>
 <script src="../js/lens-state.js" onerror="void 0"></script>
+<script src="../js/card-sprites.js"></script>
 <script src="../js/hero-card.js"></script>
 <!-- ⚑ For CardView.backingScale() only — the forge drives the press itself. gfx-post carries
      deviceTier(), which is how "weak machine" keeps ONE definition in this repo. Both are
@@ -634,7 +656,7 @@ frame and seed are left alone">RESET TO BASE</button>
 
   var cv = document.getElementById('cv'), box = document.getElementById('card');
   var seed = parseInt(Q.get('seed'), 10); if (!isFinite(seed) || seed <= 0) seed = 3030;
-  var ctrl = null, POOL = [], RARITY = 'legendary';
+  var ctrl = null, POOL = [], RARITY = 'legendary', TYPE_SPEC = null;
   var RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
   /* ⛔ THE BACKING RATIO IS `js/card-view.js`'s, NOT THIS FILE'S — AND THIS WAS THE SURFACE MOST
@@ -707,7 +729,7 @@ frame and seed are left alone">RESET TO BASE</button>
     Promise.all([pigment(), typeSpec()]).then(function (r) {
       /* The 33 are 1/1s, so the proof wears a high-tier frame — and `?rarity=` overrides it, so
        * the whole ladder can be looked at on one card without hunting through the field. */
-      POOL = r[0];
+      POOL = r[0]; TYPE_SPEC = r[1];
       var rar = Q.get('rarity') || 'legendary';
       RARITY = rar;
       /* ⚑ THE FORGE IS IN THE URL, WHICH IS WHAT MAKES IT SHAREABLE WITH NO BACKEND. A forged
@@ -1018,12 +1040,18 @@ frame and seed are left alone">RESET TO BASE</button>
      *   different pane to read a note about it. Dragging LAYERS off zero with one card on the
      *   press puts three on — enough to have layers at all — and says so. It never takes cards
      *   away and never reduces a count you chose, so it can only ever make the dial work. */
-    { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) {
-        c.setStack(v);
-        if (v > 0.001) needCards();
-      } },
+    /* ⛔ LAYERS DOES NOT FETCH MORE CARDS. It briefly did, and that was the whole
+     * misunderstanding: "the layers should be created from that one source." A stack separates
+     * the picture you chose; it does not go and get more pictures. More sources is the COLLAGE
+     * control, and it is a different question with its own chips. */
+    { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
     /* the impression's own character — base 0 is a clean pull, which is what "raw" means */
     { id: 'press',  k: 'press', d: 0,   dp: 2, put: function (c, v) { c.setPress(v); } },
+    /* the loops: how many, and how fast they run against the press revolution */
+    { id: 'sprites', k: 'spr', d: 0, dp: 0,
+      put: function (c, v) { c.setSprites({ count: v, kind: loopKind(), type: TYPE_SPEC }); } },
+    { id: 'srate',  k: 'srate', d: 1, dp: 2,
+      put: function (c, v) { c.setSprites({ rate: v }); } },
     { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
     { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
       unit: '°' },
@@ -1054,7 +1082,23 @@ frame and seed are left alone">RESET TO BASE</button>
    * control that can be moved but not saved, or saved but not reloaded, and every failure in that
    * family is silent and costs a card. `CHOICES` is the same contract for an n-way pick: label,
    * value into the press, query key, saved record, base. */
+  function loopKind() {
+    var C = CHOICES.filter(function (x) { return x.k === 'loop'; })[0];
+    return C ? C.values[C.values.indexOf(choiceVal(C))] : null;
+  }
   var CHOICES = [
+    /* ⚠ the kind list is READ from the module that owns it, so a seventh generator needs no edit
+     *   here — the same rule the motion list follows. */
+    { id: 'loopChips', k: 'loop', d: 'boil',
+      values: (window.CardSprites ? CardSprites.kinds() : ['boil']),
+      label: function (v) { return String(v).toUpperCase(); },
+      put: function (c, v) { c.setSprites({ kind: v, type: TYPE_SPEC }); },
+      say: function (v) { return v; },
+      also: function (v) {
+        var el = document.getElementById('vLoops');
+        var n = dialEl('sprites');
+        if (el) el.textContent = (n && +n.value > 0) ? v : 'none';
+      } },
     { id: 'pigsChips', k: 'pigs', d: 1, values: [1, 3, 6],
       label: function (v) { return v === 1 ? 'ONE' : (v === 3 ? 'THREE' : 'SIX'); },
       put: function (c, v) { c.setPigs(v); },
@@ -1075,18 +1119,26 @@ frame and seed are left alone">RESET TO BASE</button>
          * honest about its input. */
         var sn = document.getElementById('stackNote');
         if (sn) sn.innerHTML = v === 1
-          ? '⚠ <strong>one card on the press</strong> — the stack can only part the artwork from '
-            + 'the name. For layers that visibly separate, put <strong>three</strong> or '
-            + '<strong>six</strong> cards on it in THE FORGE.'
-          : '<strong>' + v + ' cards</strong> on the press — each rides its own depth and its own '
-            + 'bearing, so the stack parts into ' + v + ' pieces plus the type.';
+          ? '<strong>one card, cut into four</strong> — LAYERS slices THIS card along its roto cuts '
+            + 'and stands the pieces at different depths, so they slide across each other as it turns.'
+          : '<strong>' + v + ' cards</strong> on the press — each rides its own plane, so the stack '
+            + 'parts into ' + v + ' pieces.';
       } },
   ];
+  /* ⚠ VALUES MAY BE NUMBERS OR STRINGS. This was written for the plate count (1/3/6) and coerced
+   * with unary +, which turns every loop-kind name into NaN — the chip would light, the URL would
+   * carry it and the press would be handed nothing, silently. Coerce only when the table's own
+   * values are numeric. */
+  function coerce(C, raw) {
+    if (raw === null || raw === undefined) return C.d;
+    var num = typeof C.values[0] === 'number';
+    var v = num ? +raw : String(raw);
+    return C.values.indexOf(v) < 0 ? C.d : v;
+  }
   function choiceVal(C) {
     var box = document.getElementById(C.id);
     var on = box && box.querySelector('[aria-pressed=true]');
-    var v = on ? +on.getAttribute('data-v') : C.d;
-    return C.values.indexOf(v) < 0 ? C.d : v;
+    return coerce(C, on ? on.getAttribute('data-v') : C.d);
   }
   function showChoice(C) {
     var v = choiceVal(C);
@@ -1097,7 +1149,7 @@ frame and seed are left alone">RESET TO BASE</button>
   function setChoice(C, v, push) {
     var box = document.getElementById(C.id); if (!box) return;
     [].slice.call(box.children).forEach(function (b) {
-      b.setAttribute('aria-pressed', String(+b.getAttribute('data-v') === v));
+      b.setAttribute('aria-pressed', String(coerce(C, b.getAttribute('data-v')) === v));
     });
     showChoice(C);
     if (push && ctrl) { try { C.put(ctrl, v); } catch (e) {} }
@@ -1105,7 +1157,7 @@ frame and seed are left alone">RESET TO BASE</button>
   function buildChoices() {
     CHOICES.forEach(function (C) {
       var box = document.getElementById(C.id); if (!box) return;
-      var q = Q.get(C.k), want = (q !== null && C.values.indexOf(+q) >= 0) ? +q : C.d;
+      var q = Q.get(C.k), want = coerce(C, q);
       C.values.forEach(function (v) {
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'chip'; b.textContent = C.label(v);
