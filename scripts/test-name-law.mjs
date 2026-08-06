@@ -1248,5 +1248,44 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
   }
 }
 
+/* ═══ THE LIVE MARKET ══════════════════════════════════════════════════════════════════════════
+ * ⛔ A CHART LINK IS A CLAIM ABOUT WHICH MARKET IS OURS. Point it at the wrong pool and the site
+ *   sends its own collectors to somebody else's token, from the front page, with the studio's
+ *   name above it. That is the `protocol.rare` lesson — "a wrong reserve token is not a typo" —
+ *   applied to the one surface a visitor actually clicks.
+ * ⚑ THE POOL ID IS 32 BYTES, NOT 20. A Uniswap v4 pool is a hash of its key into the singleton
+ *   PoolManager, not a contract, so this repo's usual `^0x[0-9a-fA-F]{40}$` address check would
+ *   REJECT a perfectly correct value — and an address pasted here would PASS one. The length is
+ *   the discriminator and it is asserted in both directions.
+ * ⚠ What cannot be checked offline is that the pool's baseToken is our edition. It was verified
+ *   against DexScreener's API when it was added (baseToken 0x1D4bcbb5…47A33 = contracts
+ *   .liquidEdition, quoteToken = protocol.rare, symbol `3030`), and that is a one-time proof, not
+ *   a standing guard — so the assertion here is the SHAPE plus the single-declaration rule. */
+console.log('\n── the market link points at one pool, declared once ──');
+{
+  /* ⚠ EVALUATED, NOT REGEXED — the same way this file reads the config everywhere else, so the
+   *   parser here cannot drift from what actually ships to a browser. */
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  let CHAIN = null;
+  try { CHAIN = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({}); } catch {}
+  const m = ((CHAIN || {}).market || {});
+  const id = String(m.poolId || '').trim();
+  ok(/^0x[0-9a-fA-F]{64}$/.test(id),
+    'market.poolId is a 32-byte Uniswap v4 pool id', id || 'EMPTY');
+  ok(!/^0x[0-9a-fA-F]{40}$/.test(id),
+    '…and NOT a 20-byte contract address pasted into a pool field', String(id.length - 2) + ' hex chars');
+  /* ⛔ ONE COPY. The link is BUILT from the id (RipWallet.chartUrl), so the 66-character hex must
+   *   appear in the config exactly once — a second literal is a second thing to get wrong and
+   *   nothing on screen would look different. */
+  const copies = (cfgSrc.match(new RegExp(id, 'gi')) || []).length;
+  ok(copies === 1, 'the pool id is declared exactly once in chain-config', copies + ' copies');
+  ok(!/dexscreener\.com\/[a-z]+\/0x[0-9a-fA-F]{64}/.test(cfgSrc),
+    '…and no full chart URL is hard-coded beside it');
+  /* the wallet builds it, and refuses to build one from a malformed id */
+  const w = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  ok(/chartUrl/.test(w) && /\{64\}/.test(w),
+    'js/wallet.js builds the chart link and validates the id length');
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);

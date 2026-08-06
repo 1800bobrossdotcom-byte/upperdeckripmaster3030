@@ -165,6 +165,33 @@ window.RIPMASTER_CHAIN = {
     "https://mainnet.base.org",
   ],
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
+  /* ✦ THE LIVE MARKET — the edition graduated to a DEX, which docs/ECONOMIC-FLOW.md had carried
+   * as "timing unknown" since 2026-08-01. Uniswap **v4**, reserve in RARE, on Ethereum mainnet.
+   *
+   * ⛔ THIS IS A POOL ID, NOT AN ADDRESS — 32 bytes / 66 characters, where an address is 20 / 42.
+   *   A v4 pool is not a contract: liquidity lives in the singleton PoolManager and a pool is
+   *   identified by the hash of its key. So it must never be fed to `explorerAddr()`, and any
+   *   check that validates it with the repo's usual `^0x[0-9a-fA-F]{40}$` will reject a perfectly
+   *   correct value. It is a market identifier and nothing else.
+   *
+   * ⚑ VERIFIED IN BOTH DIRECTIONS BEFORE IT WAS PUBLISHED, which is the standard `protocol.rare`
+   *   set when it was the one value the repo held only truncated. DexScreener's API for this pool
+   *   returns baseToken 0x1D4bcbb5…47A33 — EXACTLY `contracts.liquidEdition` — with name
+   *   `ripmaster3030` and symbol `3030`, and quoteToken 0xba5BDe66…296350, EXACTLY
+   *   `protocol.rare`. A chart link is a claim about which market is ours; pasting one without
+   *   checking is how a site sends its own collectors to somebody else's token.
+   * ⚑ AND IT CONFIRMED THE OPEN. It priced at $0.07957 against the ≈$0.08 SuperRare measured off
+   *   the mainnet `--preview`, and an FDV of $241,118 against `npm run model`'s $242,400 — inside
+   *   0.5%. The number the whole pack schedule was re-derived from is the number the market made.
+   *
+   * ⚠ ONE DECLARATION. `chart` is BUILT from `poolId` at read time (see RipWallet.chartUrl) rather
+   *   than stored beside it, because two copies of a 66-character hex string is two chances to
+   *   ship a link to the wrong market and no way to notice. */
+  market: {
+    poolId: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6",
+    chartHost: "https://dexscreener.com/ethereum/",
+  },
+
   protocol: {
     // Mainnet multicurve factory — the `Factory:` line the deploy printed, 2026-08-06.
     liquidFactory: "0x25f993C222fE5e891128a782A5168f1C78629540",
