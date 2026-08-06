@@ -1147,6 +1147,95 @@ typography pass with the recorded cost (documents grew 15–25%), deliberately n
 80 / 94% against a `>= 0.78` bar with worst gaps of 510–610 ms, i.e. the assertion sits inside this
 container's own rAF-stall noise. A single failure there is not a regression until it reproduces.
 
+## ⛔ RIP ROCKETER HAD NO DASH ON A PHONE AT ALL — `npm run test:rr` (52), and it is gestures now
+*Artist, 2026-08-06: "double tap on either side to go fast side to side. take the gun button off
+and have it always shooting. take off unnessary buttons. let finger draw fast paths with double
+tap. lets get wild cool on mobile controls for this game." Then, on seeing it: "I don't believe we
+need the roll button either."*
+
+⛔ **HALF THE GAME WAS UNREACHABLE ON THE DEVICE MOST PEOPLE OPEN IT ON, AND NOTHING SAID SO.** This
+cabinet is built on DASH → ROLL → FLOW → OVERDRIVE — its own start screen says *"moving well IS
+shooting well"* — and on touch **the dash had no binding of any kind**. Not a broken one: none. So
+the FLOW chain needed two verbs and a thumb could reach one, which made OVERDRIVE, the entire
+reward loop, unreachable. ⚑ `test:reach` §1b asserts this cabinet registers pointer handlers and
+`test:cab` asserts its pads are on screen and clear — **both green throughout**. A text match
+cannot see a gesture that was never bound and a rectangle cannot see one that does not fire; this
+is `test:cab`'s own headline (THE CITY was unplayable while every static assertion passed) one
+level in again.
+
+✅ **THE SCHEME IS ONE THING THAT ESCALATES: tap more, go harder.**
+| gesture | verb |
+| --- | --- |
+| drag | fly — the anchor-following stick, unchanged |
+| **tap** | **ROLL**, toward the side you tapped. i-frames, and the shock clears bullets |
+| **tap tap** | that roll, and the ship comes **OUT of it DASHING** |
+| **tap tap + hold** | …and then **draws a fast path** at ~1.9× top speed to wherever the finger goes |
+| BURN | the only button left |
+
+- ⛔ **THE ROLL BUTTON COULD NOT COME OFF, I ARGUED SO IN THE FILE, AND THE ARGUMENT WAS RIGHT AND
+  THE CONCLUSION WRONG.** The only tap-shaped gesture left is the FIRST HALF of the double tap, so
+  a tap-roll must fire a roll before every dash — and `doDash` refuses while `rollT > 0`. **So
+  removing the button removes the dash**, silently, with "the dash sometimes doesn't work" as the
+  only symptom. ⚑ **The collision IS the FLOW combo**: a gesture that rolls and then dashes is two
+  of the three links OVERDRIVE needs, from one motion. All it needed was for the refused dash to
+  survive — `SHIP.DASH_BUF`, which is a better simulation anyway and fixes the same swallowed input
+  on a keyboard. Proved: reverting the buffer fails **9** assertions with `stat.dashes 0`.
+  ⚑ It is also better ergonomics than the pad: a 92 px circle in one corner became the whole free
+  half of the glass, **with a direction the pad never had** (it read the stick, so a roll while
+  flying straight was always the directionless pop-up).
+- ⚠ **THE ROLL FIRES ON THE PRESS FOR A SECOND FINGER AND ON THE RELEASE FOR A LONE THUMB, and the
+  split is the only way to have both.** The very first press on the glass is how STEERING begins,
+  so it cannot roll; a press landing while a thumb is already flying cannot be steering, so it can,
+  and a panic button must not wait for a release. Both directions asserted.
+- ⛔ **A TAP NEEDS BOTH HALVES — neither travelled nor lingered — AND THE DISTANCE HALF IS THE ONE
+  THAT MATTERS HERE.** Steering is a continuous drag on the same glass, so a time-only test rolls
+  the ship every time you steer briskly, which is unplayable rather than merely wrong. Proved by
+  deleting `p.moved < TAP_SLOP`: **five phantom dashes out of six steering flicks**. ⚠ And the
+  suite did NOT catch it at first — awaiting each CDP command made the "brisk" drag ~900 ms, past
+  the time limit, so the distance half was never exercised. **A timing harness slower than the
+  window it tests measures itself.**
+- ⛔ **THE TOUCH STICK HAS ALWAYS SETTLED AT 68% OF THE KEYBOARD.** `v += (T − v)·k` followed four
+  lines later by `v *= DRAG^h` converges to `T·dk/(1 − d(1−k))` = **0.659·T** — 6.44 u/s against
+  the keyboard's 9.45 — under a comment claiming *"the two controls agree on the ceiling by
+  construction"*. It is the artist's earlier *"on mobile we cannot move fast like we can on
+  desktop"* one layer below where that was answered: the anchor fix made full deflection ASKABLE,
+  this makes it worth asking for. `RRGame.seek` aims past the target by exactly what the drag is
+  about to take back — derived, not tuned, and a function of `h` so it cannot rot. **9.77 u/s now.**
+  ⚠ **The first version of that assertion read `_selfCheck()`, which runs `seek` on its own** — so
+  it proved the arithmetic and said nothing about whether `stepShip` calls it. Reverting the stick
+  branch left the suite at **35/35**. It drives a real thumb now.
+- ⛔ **`?hold=1` DRAINED INPUT EDGES INTO A FROZEN SIMULATION.** `readInput()` ran outside the HOLD
+  guard, and the dash and roll are edge-triggered — consumed once, then cleared — so a gesture was
+  a race between the finger and the next animation frame. Found by a probe that tapped, stepped
+  once and read zero rolls.
+- ⚑ **GESTURES ARE TIMED OFF `e.timeStamp`, NOT THE HANDLER CLOCK, AND IT WAS MEASURED.** Driven
+  live at ~60 fps over 80 taps, `performance.now() − e.timeStamp` inside the handler ran **45 ms
+  min · 77 p50 · 148 max — a 103 ms spread against a 300 ms window**. A constant lag cancels in a
+  difference; that variance does not, and it makes the dash unreliable exactly when there is most
+  on screen. ⚠ SwiftShader numbers, so a direction and an existence proof rather than a phone's.
+- ⚠ **THE DRAWN PATH IS A SEEK, NOT A CURSOR** — it writes a target velocity and inherits the
+  ship's drag, wall bounce and bank, the same rule the dash and roll already obey. Its cost is that
+  the map is ABSOLUTE: your fingertip sits on top of the thing you are keeping alive. Measured
+  18.56 u/s, 1.96× the keyboard, 8.78 units of travel in 0.50 s against the stick's 4.53.
+- ⛔ **TWO DEFECTS CAME FROM LOOKING AT A FRAME AND FROM NOTHING ELSE.** (a) The draw ring is a
+  PROMISE, and it was pointing at field y 2.07 while the sim clamped the ship to 0.30 — a leash
+  into the formation with the ship nowhere near it, every number correct. (b) The touch legend is
+  prose inside `.key`, which is `display:inline-flex`, so it broke per word-group and orphaned its
+  own separators onto separate lines. **Text wants to be text.**
+- ⛔ **`fx.counts()` COULD NOT ANSWER "IS THE INK DRAWING" AND AGREED WITH ME ANYWAY.** The ship's
+  own afterimage brightens during a draw, so the additive quad count rises either way; +11 quads
+  was read as proof and was a confounded measurement. `__rrpc._touch().ink` counts the ribbon
+  segments themselves — 10 points, 6–7 segments on a real drag.
+- ⚠ **THREE HARNESS ARTEFACTS, EVERY ONE REPORTING A WORKING FEATURE AS BROKEN.** (a) Awaiting each
+  CDP command puts **174 ms of press and 427 ms between taps** — the driver could not produce a
+  double tap at all; pipelined, 2 ms and 124 ms. (b) `Input.dispatchTouchEvent`'s touchEnd list is
+  the points that **END**, not the ones that remain, so passing the survivor released the steering
+  thumb. (c) A dozen touchMoves dispatched at once makes Chrome fire `pointercancel` and end the
+  draw, while awaiting each gives ~6 points/second. **Neither extreme is a finger**; group them.
+- ⛔ **AND `git checkout -- <file>` REVERTED MY OWN UNCOMMITTED WORK during the sabotage sweep.** A
+  sabotage harness that restores with git destroys everything unstaged in the same file. **Commit
+  before sabotaging**, and restore from the bytes you read rather than from the index.
+
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
 every file was on the origin, `curl` returned the new bytes, and the newest commit was live.
@@ -1419,6 +1508,59 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
 - ✅ **Verified by round-trip, which is the only test that matters here**: dial thirteen settings
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
+
+## ⛔ P0 IS MEASURED: **≈$0.08**, AND IT KILLED THE PACK SCHEDULE — `docs/PACK-PRICING.md`
+**SuperRare, 2026-08-06, off the live mainnet CLI previews at the full 3,300,000 supply:
+low-demand preset · ZERO initial RARE liquidity · NO creator allocation.** Opens ≈**$0.08 per
+$3030**, 30% of supply in the gentlest $0.08–$0.16 band.
+- ⛔ **THE ASSUMPTION WAS $0.02 AND THE TRUTH IS 4× THAT.** `docs/STATE-OF-PLAY.md` §6 had this
+  flagged as *"the number nothing has measured … upstream of the entire pack economy"* and
+  predicted "an order of magnitude above" from two independent data points. **It was right.** The
+  whole pack schedule was resting on it.
+- ⛔ **THE 350–1,200 TOKEN PACK AMOUNTS ARE DEAD.** At $0.08, 350 tokens is a **$28** pack, not the
+  $7 the site had published since March. **Packs are priced in DOLLARS now — $10/$12/$15/$20** —
+  and the token count is derived from the live price when a tier opens and **LOCKED for that
+  tier**. Tier I = **125 $3030**, 62.5 burned / 62.5 to the studio.
+  ⚑ Lock-at-open is the only rule that works: recomputing per purchase makes the pack a moving
+  target mid-tier and makes "1,600 packs" unpriceable; never recomputing lets a 3× appreciation
+  turn a $12 pack into a $36 one.
+- ⛔ **NO BURN PERCENTAGE IS PUBLISHED, AND THE 30.7% PIN IS INVERTED.** Holding 30.7% needs ~570
+  gross tokens/pack ≈ **$46**. ⚑ **Confirmed from BOTH directions, which is the strongest evidence
+  this project has had on any number:** SuperRare derived 570 from the preview; our own model gives
+  1,014,375 ÷ 3,560 packs ÷ 0.50 = **570.0**, × $0.08 = **$45.60**.
+  ⚑ **So 30.7% was never a property of the design — it was a property of a $0.02 token.** And the
+  drift runs the way nobody expects: **the pack is a dollar target, so a RISING token buys FEWER
+  tokens and burns LESS.** A percentage on a page would go stale with nobody editing anything.
+  ✅ `npm run test:name`'s three pins now assert the **ABSENCE** of 30.7% / 1.44× / 44.4% and the
+  **PRESENCE** of live-reading language — both directions, since "no percentage" is trivially
+  satisfied by a page that says nothing about the burn at all.
+- ⚠ **AND THE PIN ONLY COVERED `tokenomics.html`.** The first version left whitepaper, audit,
+  artist and the front page free to keep publishing a $7 pack with the suite green. It loops all
+  five now. **Checking one of five is how the other four rot back in.**
+- ⛔ **IT ALSO CAUGHT A DEPLOY-TIME DEFAULT NOBODY WOULD HAVE LOOKED AT: the staking ladder.**
+  `Ripmaster3030Lens721.sol` seeds `tierAt = [350, 3_500, 35_000, 350_000]` with a comment saying
+  the rungs mean *"one pack, ten, a hundred, a thousand"*. At the measured price **the first rung
+  is $28 — nearly three packs — and the comment beside it would have been false on the day it
+  shipped.** Re-anchored to **125 / 1,250 / 12,500 / 125,000**. ✅ `setTiers` exists, so this was
+  correctable rather than permanent — but the default is what deploys if nobody checks.
+  ⚠ **And the ANCHOR ITSELF is now launch-time only**: a pack stops being a fixed token count after
+  tier I, so say "125", not "one pack", once tier II opens.
+- ✅ **THE RESERVE-SEED CONTRADICTION IS SETTLED.** Two docs recorded a ~10,000 RARE seed while the
+  model printed **0**. **Zero was right** — there is no bid below spot on day one, so the first
+  seller walks the curve down alone. Say it out loud rather than let it be discovered.
+- ⚠ **`M` (end/start over the whole curve) IS STILL ASSUMED AT 10.** The preview gave the opening
+  price and the first band, not the full curve. **Nothing M-derived may be quoted as measured** —
+  FDV at full, RARE-to-fill and the sensitivity table are labelled illustration.
+- ⚠ **STILL THE ARTIST'S:** $10/$12/$15/$20 is SuperRare's recommendation and replaces a **$7**
+  figure *he* set. It needs his yes before launch.
+- ⚠ **`docs/TREASURY.md` and `docs/CURVE-TARGET.md` are BANNER-MARKED, not patched** — the split,
+  the allotments and mint-once are still correct there; every token-count and percentage is stale.
+  A doc quietly edited to look current is worse than one plainly marked.
+- ⛔ **`docs/MAINNET-PREFLIGHT.md` — SuperRare requires ONE FRESH-WALLET MAINNET TEST before public
+  launch:** approval flow, exact PackSink price enforcement, true supply-reducing burn, 50/50
+  split, card mint/render, all six games. ⚠ **A fresh wallet is the whole point and the easiest
+  step to skip** — the artist's wallet has approvals, a vault and a warm cache, and cannot fail the
+  way a collector's will. ⚠ Gates 2, 4 and 5 are blocked until PackSink + Lens721 are deployed.
 
 ## ✅ THE CARD PAGE IS A CARD — `cards/card-stage.js`, `npm run test:press` (16 → 26)
 *Artist, 2026-08-06, pointing at two screenshots: "this is the wrong viewer for the card — should

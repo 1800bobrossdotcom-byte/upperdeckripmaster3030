@@ -92,8 +92,8 @@ ripping or burning *more*: a balance is borrowable for one block, a feat is not.
 
 ### Staking = the lens reads your balance
 No staking contract, no emissions, nothing to drain. `tierOfHolder()` reads the owner's `$3030` and
-the render changes: **Ash · Spark · Ember · Flame · Inferno**, anchored on the pack (350 / 3,500 /
-35,000 / 350,000 — one pack, ten, a hundred, a thousand). **The art acknowledges you; it does not
+the render changes: **Ash · Spark · Ember · Flame · Inferno**, anchored on the launch pack (125 / 1,250 /
+12,500 / 125,000 — one pack, ten, a hundred, a thousand). **The art acknowledges you; it does not
 pay you.** SuperRare's own docs name holder balances as a documented render input.
 
 ### The games — four cabinets
@@ -157,14 +157,24 @@ has been through something; where the figure sits is authorship, not a seed; and
 
 ## 5 · THE ECONOMY — live numbers from `npm run model`
 
-**Supply 3,300,000. Opens ~1 RARE/token (assumed — see §6). Demand multiple M = 10.**
+**Supply 3,300,000. Opens ≈$0.08/token — MEASURED on the mainnet preview (low-demand preset, zero
+initial RARE liquidity, no creator allocation), not assumed.** ⚠ M = 10 is still an assumption.
 
-| tier | packs | tokens/pack (base→ceil) | tier burn | cumulative | % of mint | → studio |
-| --- | --- | --- | --- | --- | --- | --- |
-| I | 1,600 | 350 → 525 | 350,000 | 350,000 | 10.6% | 350,000 |
-| II | 1,100 | 450 → 675 | 309,375 | 659,375 | 20.0% | 309,375 |
-| III | 600 | 600 → 900 | 225,000 | 884,375 | 26.8% | 225,000 |
-| IV | 260 | 800 → 1200 | 130,000 | **1,014,375** | **30.7%** | **1,014,375** |
+⛔ **The pack is priced in DOLLARS and no burn percentage is published.** The token count is
+re-derived from the live price when each tier opens and then locked for that tier, so only tier I's
+is knowable today. Full reasoning: `docs/PACK-PRICING.md`.
+
+| tier | packs | price | $3030/pack | burned | → studio |
+| --- | --- | --- | --- | --- | --- |
+| I | 1,600 | **$10** | **125** | 62.5 | 62.5 |
+| II | 1,100 | $12 | set at open | half | half |
+| III | 600 | $15 | set at open | half | half |
+| IV | 260 | $20 | set at open | half | half |
+
+⚠ **The old schedule (350–1,200 tokens, a 30.7% burn) is dead.** It assumed a $0.02 token; at the
+measured $0.08 open, 350 tokens is a **$28** pack. Holding the old burn figure would need ~570
+tokens a pack — about **$46** — which SuperRare and this repo's own model derived independently and
+agreed on to the cent.
 
 **A tier opens when the previous one SELLS OUT — not on a date.** That is a promise about supply,
 not about time, and it is honest whether it takes three weeks or three years. A "season" would owe
@@ -177,9 +187,11 @@ makes the burn look material makes the treasury look large **by exactly the same
 | cap | four-tier burn | % of mint | contraction | studio as % of surviving float |
 | --- | --- | --- | --- | --- |
 | 33,000,000 | 1,014,375 | 3.1% | 1.03× — none | ~3.2% |
-| **3,300,000 ← settled** | 1,014,375 | **30.7%** | **1.44×** | ⛔ **44.4%** |
+| **3,300,000 ← settled** | ⚠ see below | *not published* | *not published* | *read live* |
 
-At 3.3M the burn is real **and the studio ends up holding 44.4% of everything still alive.** Price
+⚠ **This table is HISTORY — it is why 3.3M was chosen, and every figure in it assumed a $0.02
+token.** At the measured $0.08 the four-tier burn is a fraction of 1,014,375, and no percentage is
+published at all. Kept because the reasoning that picked the cap still stands. Price
 risk is small (dumping the slug moves spot ~−6.8%); **concentration risk is the opposite of small.**
 It is 1.44×, not a 3× scarcity engine — reaching 3× needs ~618 tokens/pack against today's ~285.
 
@@ -189,25 +201,30 @@ is something to make **atomic**, not by habit.
 
 ---
 
-## 6 · ⛔ THE NUMBER NOTHING HAS MEASURED — and it is upstream of the entire pack economy
+## 6 · ✅ P0 IS MEASURED — and this section's own prediction was right
 
-`token-model.mjs` assumes **P0 = 1 RARE/token**, and **the $7 pack rests entirely on it**: a pack is
-priced in *tokens* (350 at tier I), so its dollar price is just 350 × the token price.
+**Resolved 2026-08-06.** SuperRare ran the live mainnet CLI previews against the full 3,300,000
+supply and recommends the **low-demand** preset, **zero initial RARE liquidity**, **no creator
+allocation**. It opens at **≈$0.08 per $3030**, with 30% of supply in the gentlest $0.08–$0.16 band.
 
-- The live **Sepolia curve sits at 16.78 RARE/token — 16.8× the assumption.** A 350-token pack
-  costs **$93** there, not $7. That curve is explicitly uncalibrated and has a different cap, so it
-  is not a forecast.
-- SuperRare's own worked example points the same way: a $2,000 budget buying 9,211 tokens at an
-  average of **$0.22**, an order of magnitude above the assumed $0.02.
+⚑ **This section predicted "an order of magnitude above the assumed $0.02" from two independent
+data points, and it was right** — the answer is **4×**. The pack schedule really was resting on the
+one number nobody had measured.
 
-**Two independent data points say the opening price is an order of magnitude above what the pack
-schedule assumes.** ⚑ The fix is free and takes one command: the CLI's `--preview` prints the
-generated curve **without submitting.** Run it at the 3,300,000 cap, put the real P0 into the model,
-and re-derive the pack schedule **before $7 is published anywhere it can be quoted back.**
+**What it cost:** the 350–1,200 token pack amounts are dead. At $0.08 a 350-token pack is **$28**,
+not $7. Packs are priced in **dollars** now — $10 / $12 / $15 / $20 — with the token count derived
+at each tier open and locked for that tier.
 
-⚠ **Also unresolved:** two documents record a ~10,000 RARE reserve seed at deploy; the model prints
-reserve = **0** at launch. One is wrong, and it decides **whether there is any bid below spot on day
-one** — i.e. whether the first seller walks the curve down alone.
+⛔ **And no burn percentage is published any more.** Holding the old 30.7% would need ~570 tokens a
+pack ≈ **$46**. SuperRare derived that from the preview; this repo's model derives the same figure
+from the other direction (1,014,375 ÷ 3,560 packs ÷ 0.50 = 570.0 gross tokens, × $0.08 = $45.60).
+The site publishes **live burn and studio totals** read from the chain instead of a forecast.
+Full record: `docs/PACK-PRICING.md`.
+
+✅ **The reserve-seed contradiction is settled too.** Two documents recorded a ~10,000 RARE seed at
+deploy while the model printed reserve = **0**. **Zero was right** — there is no bid below spot on
+day one, so the first seller walks the curve down alone. That is a real property of this launch and
+should be said out loud rather than discovered.
 
 ---
 
@@ -257,7 +274,7 @@ characterisation, and the tax treatment of treasury receipts. Both need a profes
 
 | # | thing | why it matters | state |
 | --- | --- | --- | --- |
-| 1 | **P0 unmeasured** | the entire pack schedule and the $7 headline rest on it; two data points say it is ~17× off | ⛔ open — one free command fixes it |
+| 1 | ~~P0 unmeasured~~ | **✅ CLOSED 2026-08-06** — measured at ≈$0.08 on the mainnet preview (4× the assumption). Packs are dollar-priced now and no burn % is published. `docs/PACK-PRICING.md` | ✅ resolved |
 | 2 | **PackSink + Lens721 not deployed** | the site states a 50/50 split; the code **ships dark** and falls back to a 100% burn until an address is pasted in | ⛔ open — written, tested, deploy path scripted |
 | 3 | **Deploy-time permanents** | `name()`, `symbol()`, the lens EIP-712 domain, the lens symbol, and a byline **compiled into the renderer's bytecode** are frozen the moment the transaction lands. There is no setter for the byline. | ✅ all pinned by `npm run test:name`; **`--preview` first, read it back, then `--yes`** |
 | 4 | **No external audit** | Sepolia rehearsal + internal review is the entire safety net. SuperRare states plainly that they do not QA custom renderers. | accepted (artist's call) |

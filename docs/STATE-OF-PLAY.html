@@ -91,7 +91,7 @@
 </ul>
 <p>⛔ <strong>The earned tier cannot be self-serve.</strong> Every score in this project lives in <code>localStorage</code>, so a player with devtools can claim any run in seconds — and a hero 1/1 is real value. The fix was already built: <code>claimHero()</code> mints only against an EIP-712 voucher, so a <strong>human decides and the chain enforces it.</strong> That inverts the problem usefully — because a person verifies before signing, the criteria can be arbitrarily hard and need not be machine-checkable. Nothing keys on holding, ripping or burning <em>more</em>: a balance is borrowable for one block, a feat is not.</p>
 <h3>Staking = the lens reads your balance</h3>
-<p>No staking contract, no emissions, nothing to drain. <code>tierOfHolder()</code> reads the owner's <code>$3030</code> and the render changes: <strong>Ash · Spark · Ember · Flame · Inferno</strong>, anchored on the pack (350 / 3,500 / 35,000 / 350,000 — one pack, ten, a hundred, a thousand). <strong>The art acknowledges you; it does not pay you.</strong> SuperRare's own docs name holder balances as a documented render input.</p>
+<p>No staking contract, no emissions, nothing to drain. <code>tierOfHolder()</code> reads the owner's <code>$3030</code> and the render changes: <strong>Ash · Spark · Ember · Flame · Inferno</strong>, anchored on the launch pack (125 / 1,250 / 12,500 / 125,000 — one pack, ten, a hundred, a thousand). <strong>The art acknowledges you; it does not pay you.</strong> SuperRare's own docs name holder balances as a documented render input.</p>
 <h3>The games — four cabinets</h3>
 <div class="tw"><table><thead><tr><th>cabinet</th><th>what it is</th></tr></thead><tbody>
 <tr><td><strong>THE CITY</strong></td><td>3.84 km generated city, streamed. Three modes in one world: <strong>animal</strong> (bird/squirrel/cat/dog — invincible observers), <strong>dogfight</strong> (jets), <strong>section 9</strong> (ground firefight). Drivable cars. The hook: <strong>a photograph you take becomes a card.</strong></td></tr>
@@ -119,31 +119,31 @@
 <p>⚠ <strong>Open, and the artist's</strong>: the burn end state reads as <em>a worse print</em> rather than a card that has been through something; where the figure sits is authorship, not a seed; and the 33 names.</p>
 <hr>
 <h2>5 · THE ECONOMY — live numbers from <code>npm run model</code></h2>
-<p><strong>Supply 3,300,000. Opens ~1 RARE/token (assumed — see §6). Demand multiple M = 10.</strong></p>
-<div class="tw"><table><thead><tr><th>tier</th><th>packs</th><th>tokens/pack (base→ceil)</th><th>tier burn</th><th>cumulative</th><th>% of mint</th><th>→ studio</th></tr></thead><tbody>
-<tr><td>I</td><td>1,600</td><td>350 → 525</td><td>350,000</td><td>350,000</td><td>10.6%</td><td>350,000</td></tr>
-<tr><td>II</td><td>1,100</td><td>450 → 675</td><td>309,375</td><td>659,375</td><td>20.0%</td><td>309,375</td></tr>
-<tr><td>III</td><td>600</td><td>600 → 900</td><td>225,000</td><td>884,375</td><td>26.8%</td><td>225,000</td></tr>
-<tr><td>IV</td><td>260</td><td>800 → 1200</td><td>130,000</td><td><strong>1,014,375</strong></td><td><strong>30.7%</strong></td><td><strong>1,014,375</strong></td></tr>
+<p><strong>Supply 3,300,000. Opens ≈$0.08/token — MEASURED on the mainnet preview (low-demand preset, zero initial RARE liquidity, no creator allocation), not assumed.</strong> ⚠ M = 10 is still an assumption.</p>
+<p>⛔ <strong>The pack is priced in DOLLARS and no burn percentage is published.</strong> The token count is re-derived from the live price when each tier opens and then locked for that tier, so only tier I's is knowable today. Full reasoning: <code>docs/PACK-PRICING.md</code>.</p>
+<div class="tw"><table><thead><tr><th>tier</th><th>packs</th><th>price</th><th>$3030/pack</th><th>burned</th><th>→ studio</th></tr></thead><tbody>
+<tr><td>I</td><td>1,600</td><td><strong>$10</strong></td><td><strong>125</strong></td><td>62.5</td><td>62.5</td></tr>
+<tr><td>II</td><td>1,100</td><td>$12</td><td>set at open</td><td>half</td><td>half</td></tr>
+<tr><td>III</td><td>600</td><td>$15</td><td>set at open</td><td>half</td><td>half</td></tr>
+<tr><td>IV</td><td>260</td><td>$20</td><td>set at open</td><td>half</td><td>half</td></tr>
 </tbody></table></div>
+<p>⚠ <strong>The old schedule (350–1,200 tokens, a 30.7% burn) is dead.</strong> It assumed a $0.02 token; at the measured $0.08 open, 350 tokens is a <strong>$28</strong> pack. Holding the old burn figure would need ~570 tokens a pack — about <strong>$46</strong> — which SuperRare and this repo's own model derived independently and agreed on to the cent.</p>
 <p><strong>A tier opens when the previous one SELLS OUT — not on a date.</strong> That is a promise about supply, not about time, and it is honest whether it takes three weeks or three years. A "season" would owe the public a drop every year forever.</p>
 <h3>⛔ The cost is the mirror image of the benefit and must never be quoted separately</h3>
 <p>The 50/50 split sends <strong>the same number of tokens</strong> to the fire and to the studio. Any cap that makes the burn look material makes the treasury look large <strong>by exactly the same arithmetic.</strong></p>
 <div class="tw"><table><thead><tr><th>cap</th><th>four-tier burn</th><th>% of mint</th><th>contraction</th><th>studio as % of surviving float</th></tr></thead><tbody>
 <tr><td>33,000,000</td><td>1,014,375</td><td>3.1%</td><td>1.03× — none</td><td>~3.2%</td></tr>
-<tr><td><strong>3,300,000 ← settled</strong></td><td>1,014,375</td><td><strong>30.7%</strong></td><td><strong>1.44×</strong></td><td>⛔ <strong>44.4%</strong></td></tr>
+<tr><td><strong>3,300,000 ← settled</strong></td><td>⚠ see below</td><td><em>not published</em></td><td><em>not published</em></td><td><em>read live</em></td></tr>
 </tbody></table></div>
-<p>At 3.3M the burn is real <strong>and the studio ends up holding 44.4% of everything still alive.</strong> Price risk is small (dumping the slug moves spot ~−6.8%); <strong>concentration risk is the opposite of small.</strong> It is 1.44×, not a 3× scarcity engine — reaching 3× needs ~618 tokens/pack against today's ~285.</p>
+<p>⚠ <strong>This table is HISTORY — it is why 3.3M was chosen, and every figure in it assumed a $0.02 token.</strong> At the measured $0.08 the four-tier burn is a fraction of 1,014,375, and no percentage is published at all. Kept because the reasoning that picked the cap still stands. Price risk is small (dumping the slug moves spot ~−6.8%); <strong>concentration risk is the opposite of small.</strong> It is 1.44×, not a 3× scarcity engine — reaching 3× needs ~618 tokens/pack against today's ~285.</p>
 <p><strong>Treasury</strong> <code>0x5C3b…d89F</code>. Rip Rocketer's flat 25-token launch fee goes <strong>100%</strong> to the treasury — one address, one operation, a plain transfer, no contract needed. Reach for a contract when there is something to make <strong>atomic</strong>, not by habit.</p>
 <hr>
-<h2>6 · ⛔ THE NUMBER NOTHING HAS MEASURED — and it is upstream of the entire pack economy</h2>
-<p><code>token-model.mjs</code> assumes <strong>P0 = 1 RARE/token</strong>, and <strong>the $7 pack rests entirely on it</strong>: a pack is priced in <em>tokens</em> (350 at tier I), so its dollar price is just 350 × the token price.</p>
-<ul>
-<li>The live <strong>Sepolia curve sits at 16.78 RARE/token — 16.8× the assumption.</strong> A 350-token pack costs <strong>$93</strong> there, not $7. That curve is explicitly uncalibrated and has a different cap, so it is not a forecast.</li>
-<li>SuperRare's own worked example points the same way: a $2,000 budget buying 9,211 tokens at an average of <strong>$0.22</strong>, an order of magnitude above the assumed $0.02.</li>
-</ul>
-<p><strong>Two independent data points say the opening price is an order of magnitude above what the pack schedule assumes.</strong> ⚑ The fix is free and takes one command: the CLI's <code>--preview</code> prints the generated curve <strong>without submitting.</strong> Run it at the 3,300,000 cap, put the real P0 into the model, and re-derive the pack schedule <strong>before $7 is published anywhere it can be quoted back.</strong></p>
-<p>⚠ <strong>Also unresolved:</strong> two documents record a ~10,000 RARE reserve seed at deploy; the model prints reserve = <strong>0</strong> at launch. One is wrong, and it decides <strong>whether there is any bid below spot on day one</strong> — i.e. whether the first seller walks the curve down alone.</p>
+<h2>6 · ✅ P0 IS MEASURED — and this section's own prediction was right</h2>
+<p><strong>Resolved 2026-08-06.</strong> SuperRare ran the live mainnet CLI previews against the full 3,300,000 supply and recommends the <strong>low-demand</strong> preset, <strong>zero initial RARE liquidity</strong>, <strong>no creator allocation</strong>. It opens at <strong>≈$0.08 per $3030</strong>, with 30% of supply in the gentlest $0.08–$0.16 band.</p>
+<p>⚑ <strong>This section predicted "an order of magnitude above the assumed $0.02" from two independent data points, and it was right</strong> — the answer is <strong>4×</strong>. The pack schedule really was resting on the one number nobody had measured.</p>
+<p><strong>What it cost:</strong> the 350–1,200 token pack amounts are dead. At $0.08 a 350-token pack is <strong>$28</strong>, not $7. Packs are priced in <strong>dollars</strong> now — $10 / $12 / $15 / $20 — with the token count derived at each tier open and locked for that tier.</p>
+<p>⛔ <strong>And no burn percentage is published any more.</strong> Holding the old 30.7% would need ~570 tokens a pack ≈ <strong>$46</strong>. SuperRare derived that from the preview; this repo's model derives the same figure from the other direction (1,014,375 ÷ 3,560 packs ÷ 0.50 = 570.0 gross tokens, × $0.08 = $45.60). The site publishes <strong>live burn and studio totals</strong> read from the chain instead of a forecast. Full record: <code>docs/PACK-PRICING.md</code>.</p>
+<p>✅ <strong>The reserve-seed contradiction is settled too.</strong> Two documents recorded a ~10,000 RARE seed at deploy while the model printed reserve = <strong>0</strong>. <strong>Zero was right</strong> — there is no bid below spot on day one, so the first seller walks the curve down alone. That is a real property of this launch and should be said out loud rather than discovered.</p>
 <hr>
 <h2>7 · STUDIO FUNDING &amp; VESTING — options, not decisions</h2>
 <p><strong>Nothing here is decided.</strong> The treasury takes 50% of every pack and 5% of every game rake by construction, so the studio is revenue-funded rather than pre-funded; there is no allocation, no round, no team tokens. The open question is what discipline, if any, the studio puts on <strong>its own</strong> tokens — and the reason it matters is §5: at settlement the treasury is <strong>44.4% of surviving float</strong>, which is the single most legitimate thing a sceptic can point at.</p>
@@ -157,7 +157,7 @@
 <hr>
 <h2>8 · RISKS AND BLOCKERS, RANKED</h2>
 <div class="tw"><table><thead><tr><th>#</th><th>thing</th><th>why it matters</th><th>state</th></tr></thead><tbody>
-<tr><td>1</td><td><strong>P0 unmeasured</strong></td><td>the entire pack schedule and the $7 headline rest on it; two data points say it is ~17× off</td><td>⛔ open — one free command fixes it</td></tr>
+<tr><td>1</td><td>~~P0 unmeasured~~</td><td><strong>✅ CLOSED 2026-08-06</strong> — measured at ≈$0.08 on the mainnet preview (4× the assumption). Packs are dollar-priced now and no burn % is published. <code>docs/PACK-PRICING.md</code></td><td>✅ resolved</td></tr>
 <tr><td>2</td><td><strong>PackSink + Lens721 not deployed</strong></td><td>the site states a 50/50 split; the code <strong>ships dark</strong> and falls back to a 100% burn until an address is pasted in</td><td>⛔ open — written, tested, deploy path scripted</td></tr>
 <tr><td>3</td><td><strong>Deploy-time permanents</strong></td><td><code>name()</code>, <code>symbol()</code>, the lens EIP-712 domain, the lens symbol, and a byline <strong>compiled into the renderer's bytecode</strong> are frozen the moment the transaction lands. There is no setter for the byline.</td><td>✅ all pinned by <code>npm run test:name</code>; <strong><code>--preview</code> first, read it back, then <code>--yes</code></strong></td></tr>
 <tr><td>4</td><td><strong>No external audit</strong></td><td>Sepolia rehearsal + internal review is the entire safety net. SuperRare states plainly that they do not QA custom renderers.</td><td>accepted (artist's call)</td></tr>

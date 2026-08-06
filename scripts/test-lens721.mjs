@@ -254,10 +254,12 @@ console.log('\n── tiers: the render reads your balance ──');
   t('setEdition wires the token', ok(await call(sel('setEdition(address)') + encAddr(TOKEN.toString()))));
   t('a zero balance is tier 0', (await tierOfHolder(ALICE)) === 0);
 
-  /* ⚑ BOUNDARIES ARE THE WHOLE TEST. The ladder is anchored on the pack (~350 $3030), so the
+  /* ⚑ BOUNDARIES ARE THE WHOLE TEST. The ladder is anchored on the LAUNCH pack (125 $3030 — see
+   * docs/PACK-PRICING.md; it was 350 under the assumed $0.02 token and the measured open is
+   * $0.08), so the
    *   interesting inputs are one wei under each threshold and exactly on it — an off-by-one in
    *   `>=` vs `>` is invisible at any other input. */
-  const LADDER = [[350, 1], [3_500, 2], [35_000, 3], [350_000, 4]];
+  const LADDER = [[125, 1], [1_250, 2], [12_500, 3], [125_000, 4]];
   let held = 0n;
   for (const [threshold, want] of LADDER) {
     const justUnder = BigInt(threshold) * E18 - 1n - held;

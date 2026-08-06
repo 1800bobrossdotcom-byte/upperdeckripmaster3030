@@ -13,7 +13,7 @@
  *   must not.
  *
  * ══ ⛔ WHAT IS DELIBERATELY NOT IN IT ═══════════════════════════════════════════════════════
- * ⛔ **NO PACK PRICE, NO TOKEN PRICE, NO FDV, NO "3x DEFLATION".** The $7 pack figure rests
+ * ⛔ **NO FORECAST BURN, NO FDV, NO "3x DEFLATION".** The pack is a DOLLAR target ($10 at tier I)
  *   entirely on an ASSUMED opening price of 1 RARE/token, and two independent readings say that
  *   assumption is an order of magnitude out — the live Sepolia curve sits near 16.8 RARE/token,
  *   and SuperRare's own worked example opens far above it. A price in a SOCIAL brief is the most
@@ -186,7 +186,7 @@ S.push(slide('THE ECONOMY', `
   <div class="grid4">
     <div class="cell"><div class="num sm">3,300,000</div><div class="ct">SUPPLY · mint-once</div></div>
     <div class="cell"><div class="num sm">4 TIERS</div><div class="ct">1,600 → 1,100 → 600 → 260 packs</div></div>
-    <div class="cell"><div class="num sm">30.7%</div><div class="ct">of the mint burned if all four sell out</div></div>
+    <div class="cell"><div class="num sm">live</div><div class="ct">burn read on-chain — no percentage is forecast</div></div>
     <div class="cell"><div class="num sm">50 / 50</div><div class="ct">every pack — half burned, half funds the studio</div></div>
   </div>
   <div class="two" style="margin-top:.16in">

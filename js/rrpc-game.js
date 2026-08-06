@@ -293,6 +293,10 @@ window.RRGame = (function () {
 
     /* THE DASH — offensive movement, and the first half of "fast combos for movement". */
     DASH_V: 27, DASH_T: 0.17, DASH_CD: 0.30, DASH_I: 0.10,
+    /* how long a refused dash stays asked-for. Longer than ROLL_T (0.42) on purpose — see the
+     * buffer note in stepShip: the whole point is that a dash asked for DURING a roll lands as
+     * the roll ends, which is the FLOW chain the game is built to reward. */
+    DASH_BUF: 0.50,
 
     /* THE DEFENCE ROLL — the brief asked for this by name. i-frames are the point: 0.30 s of the
      * 0.42 s roll is invulnerable, so a read beats a bullet. It is also the ONLY way to delete
@@ -317,6 +321,26 @@ window.RRGame = (function () {
     FLOW_WIN: 1.15, FLOW_OD: 3, OD_T: 4.2, OD_CD: 6.0,
     OD_RATE: 1.7, OD_DMG: 1.6, OD_SPD: 1.22, OD_CAP: 2,
 
+    /* ── THE DRAWN PATH — the touch scheme's third verb ──────────────────────────────────
+     * Artist, 2026-08-06: *"let finger draw fast paths with double tap."* Double-tap and KEEP the
+     * second tap down and the ship stops being steered and starts being LED: it seeks the
+     * fingertip's own position in the field at DRAW_K × the normal top speed, so whatever line
+     * the finger draws on the glass is the line the ship flies.
+     *
+     * ⚑ IT IS A SEEK, NOT A TELEPORT, and that is the same rule the dash and the roll already
+     *   obey (see the impulse note in stepShip): it writes a target VELOCITY and lets the ship's
+     *   own drag, wall bounce and bank carry it out. `s.x = fingerX` would be a cursor with a
+     *   spaceship drawn on it — it would pass through the wall, never bank, and never overshoot.
+     * ⚑ AND IT COSTS SOMETHING, which is why it can be strictly faster without being strictly
+     *   better: the map is ABSOLUTE. The stick is relative and its anchor follows your thumb, so
+     *   it never runs out of glass; a drawn path puts your fingertip exactly where the ship is,
+     *   which means your own finger is on top of the thing you are trying to keep alive. It is a
+     *   burst you take across open space, not a way to play the whole wave.
+     * ⚠ DRAW_G is a gain in (u/s) per unit of error, so it saturates at drawTop for anything
+     *   further than drawTop/DRAW_G ≈ 1.2 units away. Inside that it eases in, which is what
+     *   stops the ship buzzing either side of a stationary fingertip. */
+    DRAW_K: 1.9, DRAW_G: 15, DRAW_R: 22,
+
     /* SURVIVABILITY. A hit spends a SHIELD pip, not a life — Section 9's armour pool, in this
      * game's language — and pips come back after REGEN clean seconds, which is Section 9's
      * out-of-combat regen almost to the number (4.5 s there). ⚑ The dead time was as bad as the
@@ -326,10 +350,35 @@ window.RRGame = (function () {
   };
   /* Derived, so the numbers in the comment above cannot drift away from the code. */
   function shipTop(loadSpeed) { return SHIP.ACC * (loadSpeed || 1) / -Math.log(SHIP.DRAG); }
+
+  /* ── ⛔ A VELOCITY TARGET SETTLES BELOW ITSELF, AND THE TOUCH STICK HAS ALWAYS BEEN 27% SLOW ──
+   * `v += (T − v) * k` followed — every tick, four lines later — by `v *= DRAG^h` does NOT settle
+   * at T. Solving the fixed point v = (v + (T−v)k)·d gives v = T·dk / (1 − d(1−k)); at the fixed
+   * 1/120 s tick with k = 16h that is **0.659·T**. So the stick's real ceiling was 6.44 u/s while
+   * the keyboard's `v += ACC·h` reaches 8.84 u/s under the same drag — and the comment sitting
+   * over that line claimed *"the two controls agree on the ceiling by construction"*.
+   * ⚑ IT IS THE ARTIST'S OWN COMPLAINT, ONE LAYER DOWN. *"On mobile we cannot move fast like we
+   *   can on desktop"* was answered in rrpc-app.js by making full deflection REACHABLE from
+   *   anywhere on the glass — correct, and it fixed what you could ASK for. This is what you got
+   *   when you asked: full deflection was already worth two thirds of a keyboard.
+   * ⚑ The fix is not a fudge factor, it is the inverse of the arithmetic above: aim past the
+   *   target by exactly what the drag is about to take back. Degenerates correctly — at k = 1 it
+   *   is 1/d, i.e. "set the velocity that survives one tick of drag" — and it is a function of h,
+   *   so it cannot rot if the tick ever changes. */
+  function seek(v, target, k, d) { return v + (target * (1 - d * (1 - k)) / (d * k) - v) * k; }
+
   function _selfCheck() {
-    const top = shipTop(1);
+    const top = shipTop(1), h = 1 / 120, d = Math.pow(SHIP.DRAG, h);
+    /* the stick's ACHIEVED terminal speed, run out on the same loop the game uses, so the claim
+     * that the two controls share a ceiling is a measurement rather than an assertion. */
+    const settle = (drive) => { let v = 0; for (let i = 0; i < 2400; i++) { v = drive(v); v *= d; } return v; };
+    const kk = Math.min(1, h * 16);
     return { topSpeed: +top.toFixed(2), crossSec: +((F.X * 2) / top).toFixed(2),
-      tau: +(1 / -Math.log(SHIP.DRAG)).toFixed(3), dragPerTick: +Math.pow(SHIP.DRAG, 1 / 120).toFixed(4) };
+      tau: +(1 / -Math.log(SHIP.DRAG)).toFixed(3), dragPerTick: +d.toFixed(4),
+      keyTop: +settle(v => v + SHIP.ACC * h).toFixed(2),
+      stickTop: +settle(v => seek(v, top, kk, d)).toFixed(2),
+      stickTopRaw: +settle(v => v + (top - v) * kk).toFixed(2),
+      drawTop: +settle(v => seek(v, top * SHIP.DRAW_K, Math.min(1, h * SHIP.DRAW_R), d)).toFixed(2) };
   }
 
   // ── cubic bezier, and its tangent (used for banking) ────────────────────────────────────────
@@ -365,7 +414,7 @@ window.RRGame = (function () {
       ship: { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0, inv: 2,
               iframe: 0, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0,
               shield: SHIP.SHIELD, shieldMax: SHIP.SHIELD, sinceHit: 0,
-              dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0,
+              dash: 0, dashCd: 0, dashDir: 0, dashBuf: 0, dashBufDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
               flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0 },
       enemies: [], bullets: [], ebullets: [], pops: [], beams: [], pows: [],
       /* THE FACILITY. `scroll` is world distance climbed at the facade's depth; `scrollK` is the
@@ -1134,8 +1183,22 @@ window.RRGame = (function () {
       if (s.rollCd > 0) s.rollCd -= h;
 
       // ── the two new verbs. Edge-triggered by the driver; the simulation owns the rules.
-      if (input.dash) doDash(G, input.dashDir || (input.right ? 1 : input.left ? -1 : (s.vx >= 0 ? 1 : -1)));
       if (input.roll) doRoll(G, input.rollDir || (input.right ? 1 : input.left ? -1 : (Math.abs(s.vx) > 0.6 ? Math.sign(s.vx) : 0)));
+      /* ── ⛔ THE DASH IS BUFFERED, AND IT IS WHAT MAKES ROLL → DASH A COMBO RATHER THAN A RACE ──
+       * `doDash` refuses while `rollT > 0` — correctly; a barrel roll is a committed 0.42 s and a
+       * dash out of the middle of one would cancel the animation the i-frames are read from. But
+       * FLOW exists to reward exactly that chain, so "ask during a roll and lose the input" makes
+       * the game's own combo depend on releasing a key at the right millisecond.
+       * ⚑ IT BECAME LOAD-BEARING WHEN THE ROLL BUTTON CAME OFF (artist, 2026-08-06: *"I don't
+       *   believe we need the roll button either"*). On touch a tap now rolls and a double tap is
+       *   two taps — so the dash request ALWAYS lands mid-roll, by construction, and without this
+       *   the double tap the artist asked for by name would be swallowed every single time by the
+       *   gesture that precedes it. `DASH_BUF` outlasts a roll on purpose, so the dash fires as
+       *   the roll ends: you tap-tap, and the ship rolls and comes out of it dashing.
+       * ⚠ It is a BUFFER, not a queue — a later request overwrites an earlier one rather than
+       *   stacking, so holding a gesture down can never bank dashes to spend later. */
+      if (input.dash) { s.dashBuf = SHIP.DASH_BUF; s.dashBufDir = input.dashDir || (input.right ? 1 : input.left ? -1 : (s.vx >= 0 ? 1 : -1)); }
+      if (s.dashBuf > 0) { s.dashBuf -= h; if (doDash(G, s.dashBufDir)) s.dashBuf = 0; }
 
       const ax = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       const ay = (input.up ? 1 : 0) - (input.down ? 1 : 0);
@@ -1152,19 +1215,29 @@ window.RRGame = (function () {
         s.spin += (TAU / SHIP.ROLL_T) * h;
         if (s.rollT <= 0) { s.spin = 0; s.rollDir = 0; }
       }
-      if (input.stick) {
+      /* ⛔ DRAG IS PER SECOND. `Math.pow(0.88, h*120)` was 0.88 per TICK — see the SHIP block.
+       *    Everything about how this ship feels came out of that one exponent. */
+      const d = Math.pow(SHIP.DRAG, h);
+      if (input.draw) {
+        /* THE DRAWN PATH. The driver hands over a point in the FIELD, not a deflection, so the
+         * ship chases where the finger actually is. See SHIP.DRAW_* for why this is a seek. */
+        const top = shipTop(spdK) * SHIP.DRAW_K, k = Math.min(1, h * SHIP.DRAW_R);
+        const tx = clamp(input.dx, -F.X, F.X), ty = clamp(input.dy, F.YBOT, F.YTOP);
+        s.vx = seek(s.vx, clamp((tx - s.x) * SHIP.DRAW_G, -top, top), k, d);
+        s.vy = seek(s.vy, clamp((ty - s.y) * SHIP.DRAW_G, -top, top) * SHIP.VACC, k, d);
+        s.drawT = 0.08;                       // for the renderer; decays below so a dropped
+      } else if (input.stick) {               // finger cannot leave the effect running
         /* the touch stick drives a TARGET velocity, so a thumb at the rim is full speed. It has to
-         * scale with the same top speed as the keyboard or the two controls play different games. */
-        const top = shipTop(spdK);
-        s.vx += (input.sx * top - s.vx) * Math.min(1, h * 16);
-        s.vy += (-input.sy * top * SHIP.VACC - s.vy) * Math.min(1, h * 16);
+         * scale with the same top speed as the keyboard or the two controls play different games —
+         * `seek` is what makes that true rather than merely claimed. */
+        const top = shipTop(spdK), k = Math.min(1, h * 16);
+        s.vx = seek(s.vx, input.sx * top, k, d);
+        s.vy = seek(s.vy, -input.sy * top * SHIP.VACC, k, d);
       } else {
         s.vx += ax * acc * h;
         s.vy += ay * acc * SHIP.VACC * h;
       }
-      /* ⛔ DRAG IS PER SECOND. `Math.pow(0.88, h*120)` was 0.88 per TICK — see the SHIP block.
-       *    Everything about how this ship feels came out of that one exponent. */
-      const d = Math.pow(SHIP.DRAG, h);
+      if (s.drawT > 0) s.drawT -= h;
       s.vx *= d; s.vy *= d;
       s.x += s.vx * h;
       s.y = clamp(s.y + s.vy * h, F.YBOT, F.YTOP);
@@ -1601,7 +1674,7 @@ window.RRGame = (function () {
     Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0,
       inv: 1.4, iframe: 0, dual: false, ripped: false, rapid: 0, fireT: 0,
       shield: shieldMax, shieldMax, sinceHit: 0,
-      dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0,
+      dash: 0, dashCd: 0, dashDir: 0, dashBuf: 0, dashBufDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
       flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0,
       // ⚑ you OPEN on the tri, not the twin. "The best ship and guns in the universe" cannot
       //   start below the second rung of its own ladder.
@@ -1615,6 +1688,6 @@ window.RRGame = (function () {
   }
 
   return { create, start, step, fire, burn, dash: doDash, roll: doRoll, F, SHIP, KIND, GUNS,
-    waveSpec, multOf, slotXYZ, bez, bezT, mulberry32, shipTop, _selfCheck,
+    waveSpec, multOf, slotXYZ, bez, bezT, mulberry32, shipTop, seek, _selfCheck,
     TIERS, EMPK, tierOf, tierSpec, SCROLL_BASE, EZ, ETOP, EBOT, WIND_T };
 })();
