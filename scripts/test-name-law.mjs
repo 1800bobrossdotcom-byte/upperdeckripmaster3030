@@ -821,5 +821,65 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
             'connect fails on the new host.' : 'note is current'));
 }
 
+/* ── THE PACK PRICE: THE DOCS SAID 125 AND THE CODE CHARGED 350 ──────────────────────────────
+ * ⛔ The pricing change the artist approved on 2026-08-06 was written into docs/PACK-PRICING.md
+ *   and NEVER into js/chain-config.js. The site would have taken 350 $3030 a pack — about $28 at
+ *   the measured $0.08 open, against an approved tier-I price of $10. ⚑ A decision recorded only
+ *   in prose is not implemented, and the docs are not what runs. Nothing was checking the number
+ *   a collector actually pays.
+ * ⚑ THE EXPECTED COUNT IS DERIVED FROM THE PRICING DOC, NOT RESTATED HERE. Restating it would
+ *   make this a third copy of the same fact and give it its own way to go stale — which is the
+ *   exact defect being guarded. The doc's tier table is the source; this reads tier I out of it
+ *   and requires the config to match.
+ * ⚠ Tier I only. Tiers II–IV are re-derived from the live price on the day each opens and then
+ *   locked, so their token counts are SCENARIO in the doc and must not be asserted as facts. */
+console.log('\n── the pack price, which is the number a collector actually pays ──');
+{
+  const pricing = readFileSync(join(ROOT, 'docs/PACK-PRICING.md'), 'utf8');
+  /* The tier-I row: | **I** | 1,600 | **$10** | **125** | 62.5 | 62.5 | */
+  const row = pricing.split('\n').find(l => /^\|\s*\*\*I\*\*\s*\|/.test(l));
+  ok(!!row, 'PACK-PRICING.md carries a tier-I row to read the pack price out of');
+  const cells = (row || '').split('|').map(c => c.replace(/\*/g, '').trim());
+  const tier1 = cells.map(c => c.replace(/,/g, '')).find(c => /^\d+$/.test(c) && +c > 100 && +c < 1000);
+  ok(!!tier1, `…and a token count in it  (${tier1 || 'NONE'})`);
+
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  const pb = /^\s*packBurn:\s*(\d+)/m.exec(stripComments(cfgSrc, false));
+  ok(!!pb, 'chain-config declares packBurn');
+  ok(pb && tier1 && pb[1] === tier1,
+    `chain-config.packBurn is the tier-I count from PACK-PRICING.md  (config ${pb ? pb[1] : '?'} vs doc ${tier1})`);
+
+  /* ⛔ AND THE FALLBACKS ARE A SECOND SOURCE OF TRUTH. `pack.js` and `cabinet.html` each carry
+   *   `CFG.packBurn || N` — they are separate shipped files with nothing to import, so the
+   *   literal is unavoidable. What is avoidable is it DISAGREEING: all three said 350 while the
+   *   config was being changed, and the copies nobody opens are the ones that ship a wrong price.
+   *   Same instrument as the city-ops/s9pc weapon tables — coupled by a test, not a require. */
+  for (const f of ['pack.js', 'cabinet.html']) {
+    const src = stripComments(readFileSync(join(ROOT, f), 'utf8'), /\.html$/.test(f));
+    const fb = [...src.matchAll(/packBurn\s*\)?\s*\|\|\s*(\d+)/g)].map(m => m[1]);
+    ok(fb.length > 0, `${f} — has a packBurn fallback to check  (${fb.join(', ') || 'NONE'})`);
+    ok(fb.every(v => v === tier1),
+      `…and every one equals the config  (${fb.join(', ')} vs ${tier1})`);
+  }
+
+  /* ⛔ THE RECEIPT MUST NOT ROUND THE SPLIT. PackSink computes burned = amount*5000/10000 and
+   *   toTreasury = amount - burned, so the halves are EXACT in wei for any input. `Math.floor`
+   *   printed "62 · 63" for a 125-token pack — a receipt claiming a split the chain never did.
+   *   It was invisible at 350 because an even number halves cleanly, so the bug shipped hidden
+   *   behind a round price and only an odd tier price could ever have exposed it. */
+  /* ⚠ AND THE FIRST VERSION OF THIS ASSERTION NAMED THE VARIABLES — `cost` and `packBurn()` —
+   *   so it MISSED a third flooring site that called the same quantity `need`, in the approve
+   *   prompt. The fix passed its own test while still printing "62 burns, 63 funds the studio"
+   *   on the busiest screen in the flow. ⚑ Matching a SHAPE covers the site you forgot; matching
+   *   a NAME covers only the sites you already had in mind, which is the hand-picked-list failure
+   *   this file records twice over — committed here a third time, in a test written to prevent it. */
+  for (const f of ['pack.js', 'cabinet.html']) {
+    const src = stripComments(readFileSync(join(ROOT, f), 'utf8'), /\.html$/.test(f));
+    const floors = [...src.matchAll(/Math\.floor\s*\([^)]*\/\s*2\s*\)/g)].map(m => m[0]);
+    ok(floors.length === 0,
+      `${f} — the pack receipt does not floor the exact 50/50 split`, floors.join(' · ') || 'none');
+  }
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);
