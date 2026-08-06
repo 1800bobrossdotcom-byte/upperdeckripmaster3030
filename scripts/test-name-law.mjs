@@ -310,6 +310,36 @@ for (const file of DEPLOY_DOCS) {
   const badPreset = fenced.match(/--curve-preset\s+(?!low-demand)(\S+)/);
   ok(!badPreset, `${file} — every pasteable deploy command uses --curve-preset low-demand`,
     badPreset ? 'found ' + badPreset[1] : 'low-demand');
+
+  /* ⛔⛔ EVERY PIN ABOVE CHECKS AN ARGUMENT THAT IS PRESENT. NONE OF THEM COULD ASK WHETHER A
+   *    REQUIRED ONE WAS MISSING — and on 2026-08-06, running the documented command for real,
+   *    the preview came back:
+   *
+   *        Max total supply: 1000000        <- the settled cap is 3,300,000
+   *
+   *    `--total-supply` appears in NO deploy command anywhere in this repo, and the CLI silently
+   *    defaults to 1,000,000. `maxTotalSupply` is frozen at deploy. Every runbook here would have
+   *    minted a token with a THIRD of the intended supply, permanently, and the pins would all
+   *    have been green — because they were watching the arguments we had already been burned by.
+   *    ⚑ It is also why the Sepolia rehearsal edition reads 1,000,000: nobody chose that number,
+   *    it was the default, and it looked deliberate for months.
+   *    ⚑ THE GENERALISATION: a copy-paste guard that only validates what is written cannot see an
+   *    OMISSION, and an omitted argument on a CLI with defaults is indistinguishable from a
+   *    deliberate choice. Assert the argument is THERE before asserting it is right.
+   * ⚠ Only fenced blocks that actually deploy — `--preview`-less prose and the `--help` output
+   *   are not commands anyone pastes to mint something. */
+  for (const cmd of fenced.match(/rare liquid-edition deploy multicurve[^\n`]*/g) || []) {
+    if (/<NAME>|<SYMBOL>|…/.test(cmd)) continue;          // templates, not pasteable commands
+    const supply = cmd.match(/--total-supply\s+(\S+)/);
+    ok(!!supply, `${file} — the deploy command SETS --total-supply (the CLI defaults to 1,000,000)`,
+      supply ? supply[1] : 'MISSING — would mint 1,000,000');
+    ok(supply && supply[1] === '3300000',
+      `${file} — …and it is the settled cap, 3300000`, supply ? supply[1] : 'none');
+    /* The chain is not permanent, but deploying the launch token to the wrong one wastes the
+     * name and the moment — and the CLI defaults to whatever `rare configure` last set. */
+    const chain = cmd.match(/--chain\s+(\S+)/);
+    ok(!!chain, `${file} — …and names its --chain explicitly`, chain ? chain[1] : 'MISSING');
+  }
 }
 /* ── ⛔ THE TREASURY IS A DEPLOY-TIME PERMANENT TOO ───────────────────────────────────────────
  * `chain-config.treasury` becomes PackSink's `treasury` constructor argument, which is

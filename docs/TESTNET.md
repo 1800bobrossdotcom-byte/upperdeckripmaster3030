@@ -103,11 +103,7 @@ op://…`), but plaintext is fine for a throwaway testnet wallet.*
 ### Step 2 — preview the token, then deploy it
 **Always `--preview` first** — it shows the bonding curve without spending anything.
 ```bash
-rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-  --curve-preset low-demand \
-  --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
-  --image ./media/site/mark-1024.png \
-  --preview
+rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain sepolia --total-supply 3300000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
 ```
 
 > ⛔ **`--image` WAS `./marquee-header.webp` UNTIL 2026-08-02.** That file is 178 KB of type whose
