@@ -1904,11 +1904,31 @@ void main(void) {
       pull(0);
 
       // ── state ────────────────────────────────────────────────────────────────────────────
+      /* what the LAST frame actually handed uFrameFoil — see the note at the assignment */
+      let lastFrameFoil = 0;
       const S = {
         flex: [0, 0, 0, 0, 0], flexV: [0, 0, 0, 0, 0],
         yaw: 0, yawV: 0, yawT: 0, pitch: 0, pitchV: 0, pitchT: 0,
         px: 0, py: 0, down: false, work: 0, lastX: 0, lastY: 0,
         burn: 0, price: 0.5, depth: 0.5, regGain: 1, regRad: 0, view: null,
+        /* ⚑ HOLDING — the fourth market dial, and the one that is about a PERSON rather than the
+         * market. 0 = Ash, 1 = Inferno, i.e. the lens's tier/4 (contract: tierOf/lensState).
+         * ⛔ IT DRIVES THE FOIL'S BRILLIANCE, NOT ITS COVERAGE, AND THAT SEPARATION IS THE WHOLE
+         *   DESIGN. Coverage is `uFrameFoil`, set by RARITY — how much of the border is metal
+         *   rather than ink. That is what the card IS, and the artist decides it. If holding also
+         *   moved coverage, a common card in a rich wallet would read as a mythic one, i.e. rarity
+         *   would be purchasable — and this project says out loud that nothing may be bought
+         *   (docs/HERO-UNLOCKS.md: "no title can be bought"). So holding buys a FINER-RULED foil
+         *   instead: same amount of metal, splitting light harder. A better print run buys exactly
+         *   that. Coverage says what the card is; brilliance says who is holding it, and the two
+         *   can never be mistaken for each other.
+         * ⚑ It is measurable by DESIGN-SYSTEM §1's own acceptance test — "foil is defined by
+         *   movement, not colour… render at several view angles and MEASURE the hue shift" — so
+         *   this dial is asserted as hue travel per degree of tilt, not as a screenshot.
+         * ⛔ AT 0 THE CARD MUST BE EXACTLY WHAT IT IS TODAY. An unheld card is the artist's card,
+         *   not a degraded one; the multiplier below is 1.0 at hold 0 for that reason, and a test
+         *   asserts the frame is byte-identical. */
+        hold: 0,
         lightA: 2.36, envOn: 1, phase: 0, period: 8.0, spin: 1, arrive: 0, arriveRate: 0.62,
         stack: 1,        // how far the four elements separate through the card's thickness
         inks: 4,         // 4 = C M Y K · 6 = + orange and green, each on its own screen
@@ -2074,7 +2094,13 @@ void main(void) {
                      sheetState.phase, sheetState.starve * pw + 0.20 * bT * TEMPER.starve);
         gl.uniform4f(u.dmg, clamp(bT * TEMPER.plate[0], 0, 1), clamp(bT * 0.9 * TEMPER.plate[1], 0, 1),
                             clamp(bT * 0.5 * TEMPER.plate[2], 0, 1), clamp(bT * TEMPER.plate[3], 0, 1));
-        gl.uniform4f(u.foilP, 1.55, 0.30, 1.0 + 0.55 * S.price * TEMPER.foil, 0.34);
+        /* ⚑ x IS THE GRATING'S RULING — how many cycles of path difference per unit of tilt. It
+         *   multiplies BOTH halves of the grating (axV through `base`, axL at the light), so
+         *   raising it splits light harder in every direction the card can turn: more hue travel
+         *   per degree, which is the one thing DESIGN-SYSTEM §1 accepts as evidence of real foil.
+         *   1.55 at hold 0 — the value every card on the site prints at today, unchanged. */
+        gl.uniform4f(u.foilP, 1.55 * (1 + 0.55 * S.hold), 0.30,
+                     1.0 + 0.55 * S.price * TEMPER.foil, 0.34);
         /* ── THE THREE LIGHTS, IN WORLD SPACE ────────────────────────────────────────────
          * Key up-left and low, because a raking key is what makes relief read; a cool fill from
          * the right so the shadow side is not dead; a dim rim behind to find the die edge. The
@@ -2150,6 +2176,12 @@ void main(void) {
          * cycle — at the impression the foil is flat to the sheet, away from it the border lifts
          * and catches. Same clock as the stack, so nothing has its own tempo. */
         const rf = FOIL_BY_RARITY[RAR] !== undefined ? FOIL_BY_RARITY[RAR] : 0;
+        /* ⚠ STASHED SO THE TEST CAN ASSERT WHAT WAS ACTUALLY SENT. `probe()` used to report the
+         *   FOIL_BY_RARITY constant, which is rarity-only by construction — so an assertion that
+         *   "holding does not change coverage" read a number holding could not have changed, and
+         *   would have passed a build that wired S.hold straight into uFrameFoil. Assert the thing
+         *   you mean: this is the value the shader got. */
+        lastFrameFoil = rf;
         gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
         /* ⛔ THE PARALLAX GAIN IS THE DEPTH, so it rides the stack. At 0.030 a layer moved 3% of
          * the card between dead-on and a hard tilt, which is below the threshold of "that one is
@@ -2219,7 +2251,12 @@ void main(void) {
           if (typeof st.burn === 'number') S.burn = clamp(st.burn, 0, 1);
           if (typeof st.price === 'number') S.price = clamp(st.price, 0, 1);
           if (typeof st.depth === 'number') S.depth = clamp(st.depth, 0, 1);
+          if (typeof st.hold === 'number') S.hold = clamp(st.hold, 0, 1);
         },
+        /* Tier 0…4 straight from the contract (`tierOf`/`lensState`), so a caller never has to
+         * know the ladder is four rungs. Anything unreadable is 0 — an unheld card, which is the
+         * same thing the page shows before a wallet is connected at all. */
+        setTier: n => { S.hold = clamp((Number(n) || 0) / 4, 0, 1); },
         // acceptance-4's control: 0 prints the card in perfect register.
         // `radial` is the deliberately-WRONG build the harness must be able to reject.
         // the key light's azimuth, radians. Moving the LIGHT is the fastest way to find out
@@ -2520,7 +2557,11 @@ void main(void) {
           flexV: S.flexV.slice(),
           maxFlex: S.flex.reduce((m, v) => Math.max(m, Math.abs(v)), 0),
           yaw: S.yaw, pitch: S.pitch, work: S.work,
-          burn: S.burn, price: S.price, depth: S.depth,
+          burn: S.burn, price: S.price, depth: S.depth, hold: S.hold,
+          /* the ruling the foil is actually printing at — the number the hue-travel test moves.
+           * Reported rather than recomputed by the harness, so the assertion reads the SHADER's
+           * input and not a second copy of the formula that could drift from it. */
+          grating: 1.55 * (1 + 0.55 * S.hold),
           /* exposed so a harness can assert the SPREAD across seeds rather than eyeball it */
           temper: { plate: TEMPER.plate.slice(), screen: TEMPER.screen,
                     starve: TEMPER.starve, foil: TEMPER.foil },
@@ -2535,6 +2576,8 @@ void main(void) {
           number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
           rarity: RAR || null, frameFoil: FOIL_BY_RARITY[RAR] || 0,
+          /* the coverage the SHADER received, not the constant it was derived from */
+          frameFoilSent: lastFrameFoil,
           elemZ: elemZ.slice(),
           pigment: pig.slice(),
         }),

@@ -480,7 +480,146 @@ console.log('\n── 9 · …AND IT WORKS WITH THE GAME ACTUALLY RUNNING ──
   await p2.close();
 }
 
-console.log('\n── 10 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
+console.log('\n── 10 · THE COMBO CAMERA AND THE EXPOSURE SMEAR ───────────────────────────────');
+/* Artist, 2026-08-06: *"lets add in some motion blur and camera angles now for dynamic combo
+ * sequences."* The combo is FLOW — dash → roll → dash, three links light OVERDRIVE — so the
+ * assertions below are all about the camera being driven BY THAT STATE MACHINE. "The camera
+ * moved" is the weak question; a timer would pass it.
+ *
+ * ⚠ `_camStep` exists because `_step` advances the SIMULATION only and the camera lives in the
+ *   render frame. A probe that stepped the sim and read the camera would be reading a rig that
+ *   never moved, and every assertion here would pass or fail for the wrong reason. */
+/* ⛔ THIS SECTION OWNS ITS OWN PAGE, AND THE FIRST VERSION DID NOT — IT MEASURED A BUILD WITH THE
+ * FEATURE SWITCHED OFF AND CALLED IT A REGRESSION. The suite runs at 844×390, where the quality
+ * tier resolves to `low`, and `low` carries `smear: 0` ON PURPOSE — a weak device should not pay
+ * for an exposure pass. So every smear number came back 0.00000 and two assertions failed against
+ * code that was working. ⚑ Same genre as this repo's `test:ronin` note ("the test did not bite
+ * until the viewport was fixed"), with the sign flipped: here the viewport made a healthy feature
+ * look broken. Force the tier, and assert the OFF case separately rather than inferring it. */
+{
+  const pc3 = await ctx.newPage();
+  await pc3.goto(`http://127.0.0.1:${PORT}/riprocketer.html?hold=1&q=high`, { waitUntil: 'load', timeout: 90000 });
+  await pc3.waitForFunction(() => window.__rrpc && window.__rrpc._cam, null, { timeout: 90000 });
+  await pc3.evaluate(() => __rrpc.start(false));
+  await pc3.waitForTimeout(700);
+  const page = pc3;                       // shadow, so the section reads the same as the others
+  const park = () => page.evaluate(() => {
+    const s = __rrpc.G.ship;
+    s.x = 0; s.y = -3.05; s.vx = 0; s.vy = 0; s.alive = true; s.inv = 0; s.iframe = 0;
+    s.dash = 0; s.dashCd = 0; s.rollT = 0; s.rollCd = 0; s.flow = 0; s.flowT = 0; s.od = 0; s.odCd = 0;
+    __rrpc.G.shake = 0; __rrpc.G.phase = 'fight'; __rrpc.G.phaseT = 9;
+    for (let i = 0; i < 200; i++) __rrpc._camStep(1, 1 / 60);
+    return __rrpc._cam();
+  });
+  const rest = await park();
+  /* ⛔ THE LOAD-BEARING ONE, and it is EXACTLY 0 rather than "small". The smear is an exposure
+   * integral of how far the camera travelled, so a still camera must produce a still frame — not
+   * a nearly-still one. A threshold here would pass a shader that permanently smudges the game.
+   * Same shape as the hero rig's "at rest every letter is exactly 0". */
+  ok(rest.len === 0, 'at rest the exposure smear is EXACTLY zero, not merely small',
+    'len ' + rest.len);
+  /* ⛔ ROTATION IS IDENTITY, AND THIS ASSERTION PROTECTS THE TOUCH CONTROLS, NOT THE LOOK.
+   * `_field()`/`_screen()` map the draw-path gesture using NOMINAL camera constants — reading the
+   * live camera would close a finger ⇒ ship ⇒ camera ⇒ finger loop. A yaw added later "because
+   * camera angles" would desync the fingertip from the ship by the whole rotation, silently, on
+   * the control that shipped the week before. Dolly and crane are safe; a rotation is not. */
+  ok(rest.rot.every(v => Math.abs(v) < 0.001),
+    'the camera never rotates — the draw-path mapping assumes the optical axis is where it was',
+    'euler ' + JSON.stringify(rest.rot));
+
+  const chain = await page.evaluate(() => {
+    const s = __rrpc.G.ship, out = {};
+    const tick = n => { for (let i = 0; i < n; i++) { __rrpc._step(2, 1 / 120); __rrpc._camStep(1, 1 / 60); } };
+    s.x = 0; s.y = -3.05; s.vx = 0; s.vy = 0; s.alive = true; s.inv = 0;
+    s.dash = 0; s.dashCd = 0; s.rollT = 0; s.rollCd = 0; s.flow = 0; s.flowT = 0; s.od = 0; s.odCd = 0;
+    __rrpc.G.shake = 0; tick(30);
+    out.idle = __rrpc._cam().len;
+    RRGame.dash(__rrpc.G, 1); tick(10); out.d1 = __rrpc._cam().len; out.f1 = __rrpc.G.ship.flow;
+    tick(18); RRGame.roll(__rrpc.G, -1); tick(8); out.r = __rrpc._cam().len; out.f2 = __rrpc.G.ship.flow;
+    tick(40); RRGame.dash(__rrpc.G, 1); tick(8); out.d2 = __rrpc._cam().len; out.f3 = __rrpc.G.ship.flow;
+    tick(6); out.od = __rrpc._cam().len; out.odT = __rrpc.G.ship.od; out.cam = __rrpc._cam();
+    return out;
+  });
+  /* ⚑ THE ASSERTION THAT DISCRIMINATES: the smear ESCALATES along the chain. "It blurred" is
+   * satisfied by any constant; a ramp that tracks flow 1 → 2 → 3 → overdrive can only come from
+   * the combo state. Measured 0.0006 → 0.0009 → 0.0015 → 0.0026, a 4.3× rise. */
+  ok(chain.d1 < chain.r && chain.r < chain.d2 && chain.d2 < chain.od,
+    'the smear ESCALATES through dash → roll → dash → overdrive, so the combo is what drives it',
+    [chain.d1, chain.r, chain.d2, chain.od].map(v => (+v).toFixed(5)).join(' → '));
+  ok(chain.f3 >= 3 && chain.odT > 0, 'the chain really did light OVERDRIVE (not a coincidental ramp)',
+    'flow ' + chain.f1 + '→' + chain.f2 + '→' + chain.f3 + ' · od ' + (+chain.odT).toFixed(2));
+  ok(chain.od / Math.max(1e-9, chain.idle) > 2.5,
+    'overdrive smears materially more than idle flight — the effect is an event, not a wash',
+    (chain.od / Math.max(1e-9, chain.idle)).toFixed(1) + '×');
+  /* the camera geometry itself: in on the dolly, down on the crane, ahead on the lead. */
+  ok(chain.cam.z < rest.z - 0.3 && chain.cam.y < rest.y - 0.08,
+    'OVERDRIVE dollies the camera IN and cranes it DOWN — a real angle change, not a zoom',
+    'Δz ' + (chain.cam.z - rest.z).toFixed(3) + ' · Δy ' + (chain.cam.y - rest.y).toFixed(3));
+  ok(chain.cam.rot.every(v => Math.abs(v) < 0.001),
+    'and it is STILL not rotating at full overdrive deflection', 'euler ' + JSON.stringify(chain.cam.rot));
+  /* ⛔ THE BOUND THE COMMENT IN rrpc-app.js CLAIMS — AND MY FIRST VERSION OF IT COULD NOT FAIL.
+   * I asserted that `_field` round-trips through `_screen`. Both use NOMINAL camera constants and
+   * are exact inverses of each other by construction, so that assertion is true on any build,
+   * including one where the camera has flown off to the moon. It measured nothing.
+   * ⚑ The real question is whether the nominal mapping still agrees with the LIVE camera once the
+   *   dolly has moved it: the finger picks a world point through nominal (z 11.4, fov 42°) while
+   *   the ship is DRAWN through the live one. So project the picked point through the actual
+   *   camera and compare it back to where the finger was. That can fail, and it is the number the
+   *   dolly has to stay inside. */
+  const err = await page.evaluate(() => {
+    const ov = document.getElementById('rrov'), r = ov.getBoundingClientRect();
+    const px = r.left + r.width * 0.72, py = r.top + r.height * 0.34;
+    const f = __rrpc._field(px, py);
+    const v = new pc.Vec3(f.x, f.y, 0);
+    const s = __rrpc.cam.camera.worldToScreen(v, new pc.Vec3());
+    return { dx: Math.abs(s.x - px) / r.width, dy: Math.abs(s.y - py) / r.height,
+             z: __rrpc._cam().z, fov: __rrpc._cam().fov };
+  });
+  /* the existing `drift` already spends ±0.5 world units of the same kind of disagreement, which
+   * is ~3.6% of the frame. The dolly must not cost more than that on either axis. */
+  ok(err.dx < 0.036 && err.dy < 0.036,
+    'at full combo deflection the finger and the LIVE camera still agree to within what drift already spends',
+    'off by ' + (err.dx * 100).toFixed(1) + '% / ' + (err.dy * 100).toFixed(1) + '% of frame'
+      + ' · cam z ' + err.z + ' fov ' + err.fov);
+  const hi = await page.evaluate(() => __rrpc._cam());
+  ok(hi.smear === true && hi.taps > 1, 'the high tier actually has the exposure pass installed',
+    'taps ' + hi.taps + ' shutter ' + hi.shutter);
+  await park();
+  await pc3.close();
+}
+
+/* ⚑ AND THE OFF CASE, WHICH IS THE HALF THAT KEEPS THE LADDER HONEST. "No smear on low" is
+ * trivially satisfied by a build where the smear never works anywhere — so it is asserted
+ * alongside the high-tier assertion above, not instead of it. This is the fail-open direction:
+ * the game must render and play identically with the pass absent. */
+{
+  const lo = await ctx.newPage();
+  const loErrs = [];
+  lo.on('pageerror', e => loErrs.push(e.message.slice(0, 160)));
+  await lo.goto(`http://127.0.0.1:${PORT}/riprocketer.html?hold=1&q=low`, { waitUntil: 'load', timeout: 90000 });
+  await lo.waitForFunction(() => window.__rrpc && window.__rrpc._cam, null, { timeout: 90000 });
+  await lo.evaluate(() => __rrpc.start(false));
+  await lo.waitForTimeout(600);
+  /* ⚠ THE PHASE HAS TO BE PARKED OR THIS MEASURES THE WAVE-ENTRY PULL-BACK, NOT THE DOLLY. On
+   * `phase === 'entry'` the camera adds up to +1.4 to z so the formation arrives from further
+   * away — correct, and it swamps the combo's −0.78. The first version of this read z 12.02 and
+   * reported the angles as missing on the low tier when they were working: a probe measuring the
+   * wrong moment, which is this repo's most-repeated harness mistake. */
+  const c = await lo.evaluate(() => {
+    const s = __rrpc.G.ship; s.od = 4; s.flow = 3; s.vx = 9; s.alive = true;
+    __rrpc.G.phase = 'fight'; __rrpc.G.phaseT = 9; __rrpc.G.shake = 0;
+    for (let i = 0; i < 120; i++) __rrpc._camStep(1, 1 / 60);
+    return __rrpc._cam();
+  });
+  ok(c.smear === false && c.taps === 0, 'the LOW tier ships no exposure pass at all',
+    'smear ' + c.smear + ' taps ' + c.taps);
+  ok(c.z < 11.4 - 0.3, 'but the combo CAMERA still moves there — the angles are not a quality feature',
+    'z ' + c.z);
+  ok(loErrs.length === 0, 'and nothing throws with the pass absent', loErrs.slice(0, 2).join(' | ') || 'clean');
+  await lo.close();
+}
+
+console.log('\n── 11 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
 ok(errs.length === 0, 'no page errors', errs.slice(0, 3).join(' | ') || 'clean');
 
 await br.close();

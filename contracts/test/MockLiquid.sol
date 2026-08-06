@@ -27,6 +27,17 @@ contract MockLiquid {
     int24 private _tick = -13_500;
     uint256 private _currentSupply = 3_030_000 ether;
 
+    /* ⚑ balanceOf AND the market surface live on ONE address, because on the real edition they
+     *   do. Splitting them across two mocks would have tested a shape that cannot occur: the lens
+     *   points `edition` at a single ERC-20 and reads both the holder's balance and the curve off
+     *   it. A mock that cannot do both cannot catch the two interacting. */
+    mapping(address => uint256) public balanceOf;
+
+    /// Live supply. Burned is derived by the reader as maxTotalSupply - totalSupply.
+    function totalSupply() external view returns (uint256) { return _currentSupply; }
+
+    function mint(address to, uint256 amountWei) external { balanceOf[to] += amountWei; }
+
     /// Burn tokens out of the live supply, exactly as a real pack rip would.
     function burnFromSupply(uint256 amountWei) external {
         _currentSupply = _currentSupply > amountWei ? _currentSupply - amountWei : 0;
@@ -34,6 +45,10 @@ contract MockLiquid {
 
     function setTick(int24 t) external { _tick = t; }
     function setTokenPerRare(uint256 v) external { _tokenPerRare = v; }
+    /* Test-only levers for the two nonsense states a real token should never reach and a reader
+     * must survive anyway: a zero cap (division) and a cap under the live supply (underflow). */
+    function setMaxTotalSupply(uint256 v) external { maxTotalSupply = v; }
+    function setCurrentSupply(uint256 v) external { _currentSupply = v; }
 
     function getMarketState()
         external
