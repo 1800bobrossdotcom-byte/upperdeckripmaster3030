@@ -109,7 +109,16 @@ window.RIPMASTER_CHAIN = {
      * also means THE SITE COPY IS AHEAD OF THE CODE until this is filled in: the pages say half
      * funds the studio and, with this empty, all of it burns. Deploy, paste, rehearse on Sepolia.
      * The UI reads RipWallet.hasSink() and says which is actually happening. */
-    packSink:      "",
+    /* ✦ DEPLOYED ON MAINNET 2026-08-06, tx 0x150a6a01…a09e, from 0x432D71bA…59d166c9.
+     * Verified independently of the deploy page's own success message: token() is the $3030
+     * edition, treasury() is the COLD wallet, BURN_BPS is 5000, and the deployed runtime is
+     * BYTE-IDENTICAL to our compiled source once the three `immutable` injection sites are masked
+     * back to their zero placeholders — which is the strongest form this check takes, because a
+     * transaction landing and a transaction landing with the RIGHT arguments are different facts.
+     * ⚑ Before this line existed, the first real mainnet rip burned 125 $3030 and paid the studio
+     * NOTHING — measured, not feared: totalSupply fell by exactly 125 while the treasury stayed at
+     * 0. That is the documented fallback behaving correctly, and it is what this one edit ends. */
+    packSink:      "0x384936ee3BAf9b81715117D180Ca2aA4abE6018E",
   },
   // ── SEATS (js/session.js) ──────────────────────────────────────────────────────────
   // $3030 needed to seat yourself as a HOLDER. Entry only — it is never spent or
