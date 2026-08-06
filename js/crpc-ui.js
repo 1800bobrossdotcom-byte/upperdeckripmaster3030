@@ -129,8 +129,52 @@
 
   // ══ HUD ═════════════════════════════════════════════════════════════════════════════════════
   let lastLap = -1, lastTier = -1;
+  /* THE STREAK. `js/cr-streak.js` owns the ledger; this file only arms it, settles it and paints
+   * it. `raceCfg` is kept because both of those calls need the lobby the race was STARTED with —
+   * reading `wager` at the flag would read whatever the player has since clicked in the lobby
+   * behind the result overlay, which is a different race. */
+  let raceCfg = null, armed = false, recovered = null;   // null = recovery has not run this load
+  // ⚠ read through window at CALL time, never captured into a const above its own declaration —
+  //   the temporal-dead-zone slip this repo has now paid for four times.
+  const CS = () => window.CRStreak || null;
   function toast(msg, ms) { const t = $('toast'); if (!t) return; t.textContent = msg; t.classList.add('show');
     clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), ms || 1300); }
+
+  /* ── THE STREAK is painted in three places because it answers three different questions: the
+   *    HUD says "this one counts, and it is number n", the result says what just happened to the
+   *    count, and the lobby says where you stand before committing to another forty seconds. All
+   *    three no-op when `cr-streak.js` is absent — the game is the game without a title in it. */
+  function armStreak() {
+    const S = CS(); if (!S || armed) return;
+    armed = true;
+    S.arm(raceCfg || { players: wager.players, laps: wager.laps });
+  }
+  let lastChip = '';
+  function paintStreakChip() {
+    const el = $('streakChip'); if (!el) return;
+    const S = CS();
+    if (!S) { el.hidden = true; return; }
+    const q = S.qualifies(raceCfg || {}), st = S.read();
+    // ⚠ signature-gated, like the tier pips. This runs every frame and innerHTML is not free.
+    const sig = q + '|' + st.n;
+    if (sig === lastChip) return;
+    lastChip = sig; el.hidden = false;
+    el.className = 'cap streak' + (q ? '' : ' off');
+    el.innerHTML = q
+      ? `<div class="sl">STREAK</div><div class="sn"><b>${st.n}</b><small>/${S.TARGET}</small></div>`
+      : `<div class="sl">STREAK</div><div class="sx">${S.PIN.players} pilots<br>${S.PIN.laps} laps only</div>`;
+  }
+  function paintLobbyStreak(msg) {
+    const el = $('lobStreak'); if (!el) return;
+    const S = CS(); if (!S) { el.hidden = true; return; }
+    const st = S.read();
+    el.hidden = false;
+    el.innerHTML = (msg ? `<b class="brk">${esc(msg)}</b> ` : '') +
+      `<b>THE STREAK</b> · ${st.n} / ${S.TARGET} consecutive wins` +
+      (st.best ? ` · best ${st.best}` : '') +
+      `<br><span class="q">Counts at <b>${S.PIN.players} pilots · ${S.PIN.laps} laps</b> or longer, practice or for keeps. ` +
+      `Finish anywhere but first — or leave a race once it has started — and the count returns to zero.</span>`;
+  }
 
   function hud(G) {
     const me = G.me, CR = window.CRGame, T = G.T;
@@ -185,6 +229,7 @@
     else { lamp.className = 'lamp'; lamp.textContent = ''; }
     // slipstream + slide + graze tells — the boost bar is a budget now, so what is FILLING it has
     // to be on screen or the economy is invisible and the player just watches a bar move.
+    paintStreakChip();
     $('tellDraft').classList.toggle('on', me.draft > 0.15);
     $('tellSlide').classList.toggle('on', (me.slip || 0) > 0.08);
     $('tellGraze').classList.toggle('on', !!me.graze);
@@ -193,7 +238,12 @@
     // events → toasts
     while (G.events.length) {
       const e = G.events.shift();
-      if (e.kind === 'tier') toast('TIER ' + e.tier + ' — FASTER', 1300);
+      /* ⛔ ARM ON THE GREEN LIGHT, not in `raceStarted`. `raceStarted` runs while the count is
+       * still on the clock, and a race nobody has driven yet cannot be a race anybody is
+       * abandoning — arming there would break a streak for quitting before the lights. This is
+       * the exact instant the race becomes losable, so it is the instant the window opens. */
+      if (e.kind === 'go') armStreak();
+      else if (e.kind === 'tier') toast('TIER ' + e.tier + ' — FASTER', 1300);
       else if (e.kind === 'lap' && e.lap < G.laps) toast('LAP ' + (e.lap + 1) + ' · ' + e.time.toFixed(2) + 's', 1000);
       else if (e.kind === 'pad') toast('⚡ BOOST', 460);
       else if (e.kind === 'graze') toast('◤ GRAZE', 420);
@@ -235,6 +285,35 @@
       const c = bySlug.get(sl); if (!c) return '';
       return `<div class="tile" style="--rc:var(${RC[c.rarity] || '--common'})"><span class="rr">${c.rarity}</span><img src="cards/${c.art}" onerror="this.style.opacity=.15"></div>`;
     }).join('') : '';
+    /* ── SETTLE THE STREAK. `first` is the podium's 1st, i.e. the race was won outright — which is
+     *    the same test the title uses, so the ledger and the result screen can never disagree
+     *    about what happened. Painted from what settle() RETURNS rather than from a second read,
+     *    because two representations of one fact is how `CardView.flip()` shipped broken. */
+    const S = CS(), sl = $('streakLine');
+    if (S && sl) {
+      const r = S.settle(myRank === 0, raceCfg || { players: wager.players, laps: wager.laps });
+      armed = false;
+      if (!r.counting) {
+        sl.className = 'streakLine off';
+        sl.innerHTML = `This race did not count toward <b>THE STREAK</b> — it runs at <b>${S.PIN.players} pilots · ${S.PIN.laps} laps</b> or longer.`;
+      } else if (r.hit || r.over) {
+        /* ⚑ THE STREAK JOINS THE SHARED LEDGER, so all nine titles live behind one REDEEM panel
+         * instead of this cabinet having a private way of saying the same thing. cr-streak.js
+         * still owns the streak's own semantics — arming, breaking, the pin — because those are
+         * racing rules; the CLAIM is not. */
+        try { if (window.RipTitles) RipTitles.award('streak', { wins: r.n, lobby: '6x3+', seats: S.SEATS }); } catch (e) {}
+        sl.className = 'streakLine hit';
+        sl.innerHTML = `◆ <b>${r.n} WINS IN A ROW.</b> That is <b>THE STREAK</b> — one of the ${S.SEATS === 1 ? 'earned' : S.SEATS} hero 1/1s on this title. ` +
+          `<span class="q">Your browser cannot award it and does not pretend to: post the unbroken capture of all ${S.TARGET} races, the studio verifies it and signs the voucher, and you mint the card yourself.</span>`;
+      } else if (r.broke) {
+        sl.className = 'streakLine brk';
+        sl.innerHTML = `<b>STREAK BROKEN</b> — you were on <b>${r.was}</b>. Back to 0 / ${S.TARGET}.`;
+      } else {
+        sl.className = 'streakLine' + (r.n ? ' on' : '');
+        sl.innerHTML = r.n ? `<b>STREAK ${r.n} / ${S.TARGET}</b> — ${S.TARGET - r.n} more without dropping one.`
+                           : `<b>STREAK 0 / ${S.TARGET}.</b> It starts with the next win.`;
+      }
+    }
     $('scaNote').innerHTML = real
       ? 'Your <b>🔥' + P.anteBurn + ' $3030</b> rake burned on-chain — permanent, deflationary. The rest of the pot + staked cards pay the <b>podium 1st/2nd/3rd (50/30/20)</b>; card winnings move for keeps in your vault. Real on-chain token-pot escrow ships with the <b>721 lens</b> — Phase-2.'
       : 'Practice race — no tokens burned, no cards moved. Ante up with a signed wallet to race the podium for keeps.';
@@ -244,6 +323,7 @@
 
   function raceStarted(G, cfg) {
     done = false; lastLap = -1; lastTier = -1;
+    raceCfg = cfg || null; armed = false; lastChip = '';
     makePilots(cfg.players);
     $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show'); $('hud').classList.remove('hidden');
     const img = $('pilotImg'); if (img) img.src = pilots[0].url;
@@ -286,6 +366,21 @@
 
   function mount() {
     if (!$('pChips')) return;
+    /* ⛔ RECOVER BEFORE ANYTHING CAN ARM. A live marker at load means a race was started and never
+     * finished — the abandonment case the whole design turns on — so this has to run on the way
+     * in, and the player has to be TOLD, or a streak that vanished silently reads as a bug rather
+     * than as the rule doing its job.
+     * ⛔ AND IT MUST LATCH, BECAUSE `mount` RUNS TWICE. This file self-mounts on DOMContentLoaded
+     *   AND is called as `CRUI.ready()` at the end of crpc-app.js. `recover()` is destructive by
+     *   design — it consumes the marker — so the second run found nothing, reported no break, and
+     *   REPAINTED THE MESSAGE AWAY. The streak was correctly reset to 0 the whole time and the
+     *   only thing lost was the sentence explaining why, which is the half the player needs.
+     *   Caught by the test, not by reading: both mounts are correct in isolation. */
+    if (recovered === null) {
+      recovered = '';
+      try { const S = CS(); if (S) { const r = S.recover(); if (r.broke) recovered = 'You left a race — streak reset from ' + r.was + '.'; } } catch (e) {}
+    }
+    paintLobbyStreak(recovered);
     $('pChips').innerHTML = [4, 6, 8].map(n => `<span class="pchip${n === wager.players ? ' on' : ''}" data-p="${n}">${n}</span>`).join('');
     $('lChips').innerHTML = [2, 3, 5].map(n => `<span class="lchip${n === wager.laps ? ' on' : ''}" data-l="${n}">${n}</span>`).join('');
     document.querySelectorAll('[data-ante]').forEach(b => b.onclick = () => { wager.ante = clamp(wager.ante + (+b.dataset.ante) * 25, 0, 500); refreshPot(); });
@@ -295,7 +390,7 @@
     $('btnPractice').onclick = practice;
     $('btnAnte').onclick = () => ante(false);
     $('btnRematch').onclick = () => { $('ovResult').classList.remove('show'); ante(true); };
-    $('btnLobby').onclick = () => { $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch (e) {} } };
+    $('btnLobby').onclick = () => { $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show'); paintLobbyStreak(); if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch (e) {} } };
 
     /* ── TOUCH: no buttons. Left thumb drags to steer, right thumb holds to boost, and the
      * airbrake is a second finger down on the left of the boost zone. Carried over because it

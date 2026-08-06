@@ -621,8 +621,19 @@ console.log('\n§11 six plates survive the URL, and a three-plate card still loa
     const sels = ids.map(i => document.getElementById(i));
     sels.forEach((s, i) => { s.value = s.options[10 + i * 3].value;
       s.dispatchEvent(new Event('change', { bubbles: true })); });
-    await new Promise(r => setTimeout(r, 900));
-    return { search: location.search, want: sels.map(s => s.value) };
+    /* ⛔ WAIT FOR THE CONDITION, NOT FOR A CLOCK. `applyPlates` calls setPigment, which loads
+     * SIX images before `stamp()` writes the choice into the URL — so a fixed 900ms wait is a
+     * race, and under suite load it loses. When it lost, the reload found no g/m/f, fell back to
+     * the seeded pick, and the failure read as "the plates did not round-trip" — a product bug
+     * that was not there. Poll for the six keys instead; a harness slower than the thing it
+     * measures measures itself. */
+    const want = sels.map(s => s.value);
+    for (let i = 0; i < 120; i++) {
+      const q = new URLSearchParams(location.search);
+      if (['g','m','f','w','s','i'].every((k, n) => q.get(k) === want[n])) break;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    return { search: location.search, want };
   });
   await ctx.close();
 
