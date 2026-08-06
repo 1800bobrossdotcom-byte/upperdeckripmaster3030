@@ -132,8 +132,25 @@
    *   same picture is a blur of one image, and it is the likeliest accident here because the
    *   card is itself in the pool. Filtered by art path, and the fallback keeps the roles
    *   distinct rather than failing. */
-  function platesFor(card, list) {
-    var me = idOf(card), art = (card && card.art) || '';
+  /* ⛔ THE CALLER'S ART PATH IS RELATIVE TO THE CALLER, NOT TO US — and that is why the pack
+   * reveal on index.html was a flat poster while cards/proof.html pressed perfectly.
+   * `pool()` resolves every manifest path against `base` ("cards/"); the FIGURE plate did not,
+   * because it is taken from the card the CALLER handed in. From a page inside cards/ that is
+   * correct and it is what the old comment here promised. From the ROOT — index.html, where the
+   * pack lives — "art/x.webp" resolves to /art/x.webp, which 404s.
+   * ⛔ AND A 404 ON ONE PLATE TAKES THE WHOLE CARD DOWN: HeroCard.build is atomic on its first
+   *   three images, so it returns null, CardPress.live returns null, CardView resolves null and
+   *   the fail-open guard leaves the flat poster standing. Every layer behaved exactly as
+   *   designed and the artist saw a card with no press on it — "this is still the wrong viewer
+   *   for the card pull, it doesn't show the fx of the card."
+   * ⚑ Nothing errored anywhere. The guard that makes a missing press harmless is the same guard
+   *   that makes a missing press SILENT, which is why this needed driving rather than reading. */
+  function resolveArt(u, base) {
+    if (!u) return u;
+    return /^(https?:|\/|\.)/.test(u) ? u : (base || '') + u;
+  }
+  function platesFor(card, list, base) {
+    var me = idOf(card), art = resolveArt((card && card.art) || '', base);
     var others = (list || []).filter(function (c) { return idOf(c) !== me; });
     if (!others.length) return [art, art, art];
     var s = seedFor(card), a = (s ^ 0x9E3779B9) >>> 0;
@@ -203,7 +220,7 @@
       var list = r[0], spec = r[1];
       var first = o.card || list[0];
       if (!first) return null;
-      var plates = platesFor(first, list);
+      var plates = platesFor(first, list, base);
       return global.HeroCard.build({
         canvas: canvas, seed: seedFor(first), type: spec,
         rarity: (first && first.rarity) || 'common',
@@ -242,7 +259,7 @@
           dressBack(card);
           try { press.reseed(seedFor(card)); } catch (e) {}
           try { press.setText({ name: card.title || card.name || '', sub: card.sub || '' }); } catch (e) {}
-          return press.setPigment(platesFor(card, list)).catch(function () { return false; });
+          return press.setPigment(platesFor(card, list, base)).catch(function () { return false; });
         }
         return {
           press: press,
