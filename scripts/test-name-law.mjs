@@ -1137,5 +1137,48 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
   }
 }
 
+/* ── THE GACHA RATE ───────────────────────────────────────────────────────────────────────────
+ * ⛔ THE PACK USED TO PULL UNIFORMLY FROM ALL 100 CARDS, so 33 of which are 1/1 heroes. The
+ *   artist's first real mainnet rip returned THREE heroes; simulated over a full four-tier run
+ *   the old draw hands out ~8,224 of the eleven that exist. Nothing was minted (no lens yet) and
+ *   hero claims require a human-signed voucher, which is the only reason this was embarrassing
+ *   rather than expensive.
+ * ⚑ THE TEST RUNS THE REAL FUNCTION, IT DOES NOT READ IT. `pull` is extracted from the shipped
+ *   pack.js and executed against a synthetic 33/67 deck, because a text match on a constant would
+ *   pass on any code that computed the right number and then ignored it — which is exactly the
+ *   shape of the bug it is guarding. */
+{
+  console.log('\n── the pack hands out 1/1 heroes at the rate eleven of them can support ──');
+  const src = readFileSync(join(ROOT, 'pack.js'), 'utf8');
+  const m = /const GACHA_PER_PACK = ([^;]+);[\s\S]*?(const isHero = [\s\S]*?\n  \};)/.exec(src);
+  ok(!!m, 'pack.js exposes an extractable gacha rate + pull');
+  if (m) {
+    const DECK = [];
+    for (let i = 1; i <= 33; i++) DECK.push({ id: i, band: 'hero' });
+    for (let i = 34; i <= 100; i++) DECK.push({ id: i, band: 'field' });
+    const fn = new Function('DECK', 'rnd',
+      `const GACHA_PER_PACK = ${m[1]};\n${m[2]}\nreturn pull;`);
+    const pull = fn(DECK, n => Math.floor(Math.random() * n));
+
+    const PACKS = 3560, SIZE = 7;
+    let heroes = 0, twoPlus = 0, wrongSize = 0;
+    for (let i = 0; i < PACKS; i++) {
+      const p = pull(SIZE);
+      if (p.length !== SIZE) wrongSize++;
+      const h = p.filter(c => c.band === 'hero').length;
+      heroes += h; if (h > 1) twoPlus++;
+    }
+    /* ⚠ A WIDE BAND ON PURPOSE. Eleven events over 3,560 trials is Poisson: the 99.9% interval is
+     *   roughly 2–24, so a tight bar would flake nightly and get muted. The bug being caught was
+     *   off by a factor of ~750, and any band that catches THAT is doing its job. */
+    ok(heroes >= 1 && heroes <= 40,
+      `a full four-tier run hands out single-digit-ish heroes, not thousands`,
+      `${heroes} over ${PACKS} packs (eleven exist)`);
+    ok(twoPlus === 0, 'no pack ever contains two heroes — each is a 1/1', `${twoPlus} packs did`);
+    ok(wrongSize === 0, 'the hero substitutes for a field card, it does not lengthen the pack',
+      `${wrongSize} packs came out the wrong size`);
+  }
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);

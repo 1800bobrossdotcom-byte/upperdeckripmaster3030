@@ -130,9 +130,40 @@
    *   count it twice. The rarity string still drives the frame, the glow and the caption.
    * ⚠ A pull can repeat a card; the practice pull always could, and on-device cards are not
    *   ownership — the honesty strip on the modal says exactly that. */
+  /* ⛔ THE PACK PULLED UNIFORMLY FROM ALL 100 AND HANDED OUT 1/1s BY THE HANDFUL. The artist's
+   *   first real mainnet rip returned THREE heroes, which is not a fluke — it is the arithmetic:
+   *   33 heroes in a 100-card deck, drawn with replacement, gives 2.31 expected heroes in a
+   *   7-card pack and a 93.9% chance of at least one. Measured, not estimated.
+   * ⛔ THE HEROES ARE 1/1s. There is exactly ONE of each, ever, and only ELEVEN of the 33 are
+   *   gacha pack-claims — across ~3,560 packs. The honest rate is 11/3560 = 0.309% per pack, and
+   *   never two in one pack, because a second would be a promise the supply cannot keep.
+   * ⚑ THE FIELD IS THE PACK. Cards 34–100 are render-only lenses: `tokenURI(id)` draws them
+   *   without any mint, so they are unlimited by construction and a repeat costs nothing. That is
+   *   what a pack is made of. A hero is the exception that makes the pack worth opening.
+   * ⚠ NOTHING WAS LOST BY THIS. No lens is deployed, so not one of those pulls minted anything —
+   *   they were localStorage rows. Had the lens been live first, the site would have been
+   *   promising 1/1s it could not deliver, and the only thing standing between it and a real
+   *   over-issue was that hero claims REQUIRE a human-signed voucher. That backstop is why this
+   *   is embarrassing rather than expensive.
+   * ⚠ WHICH eleven are gacha is the artist's call and is not yet assigned, so the draw is over the
+   *   whole hero band. That is over-inclusive and safe in exactly the way the rate is not: the
+   *   chain mints only against a `kind 1` voucher a person signs, so the studio still decides
+   *   which card a slip becomes. The RATE is the part a machine had to get right. */
+  const GACHA_PER_PACK = 11 / 3560;      // eleven gacha heroes over the four tiers' packs
+  const isHero = c => c && c.band === 'hero';
   const pull = n => {
+    const field = DECK.filter(c => !isHero(c));
+    const heroes = DECK.filter(isHero);
+    /* Fall back to the whole deck only if the manifest carried no bands at all — otherwise an
+     * empty `field` would silently produce an empty pack. */
+    const pool = field.length ? field : DECK;
     const out = [];
-    for (let i = 0; i < n && DECK.length; i++) out.push(DECK[rnd(DECK.length)]);
+    for (let i = 0; i < n && pool.length; i++) out.push(pool[rnd(pool.length)]);
+    /* At most ONE, and only sometimes. Replaces a field card rather than lengthening the pack, so
+     * the pack size a collector was told about stays true. */
+    if (heroes.length && Math.random() < GACHA_PER_PACK && out.length) {
+      out[rnd(out.length)] = heroes[rnd(heroes.length)];
+    }
     return out.filter(Boolean);
   };
 
