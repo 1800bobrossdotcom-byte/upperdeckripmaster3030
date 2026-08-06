@@ -886,6 +886,17 @@ purpose** — `index.html` is untouched and the new page says "proposal · not f
   names, the card faces (generated placeholder ink — eight distinct compositions, but *which* one
   goes *where* is authorship, the same open question as the 33's figure placement), and the
   typeface question. Plan for the rest of the site + honest sizing: `BRAND-3030.md` §9.
+- ⛔ **UNLINKED FROM THE HOME PAGE, 2026-08-06 (artist).** *"remove this and instead mention how we
+  aspire to port these games to google play to extend the onchain activity and create a physical
+  deck — replace with that section."* `index.html` carries a **Where this is going** section where
+  the button was. The sheet itself is **untouched and NOT promoted** — it still says *proposal · not
+  final art* on its face — so `test:reach` keeps those two assertions and moves the page into
+  `ORPHAN_OK` **with the reason**, which is the difference between a decision and an oversight.
+  ⚠ The rule it replaces ("the sheet is linked from index.html and this is the assertion that keeps
+  it linked") is dead; anything still asserting it is stale.
+  ⚠ **EVERY VERB IN THE NEW SECTION IS "WANT TO", DELIBERATELY.** It is a roadmap on a public page
+  for a token about to launch: neither store approval nor a print run is ours to promise, so nothing
+  there is dated, priced or scheduled, and it says so in its own last line.
 
 ## ✅ THE 33 · STEP 1 — `cards/proof.html` + `js/hero-card.js`, `npm run test:hero` (20)
 *Artist, 2026-08-04: "make them from scratch as 3D cards … living generative works with glitches
@@ -1448,9 +1459,56 @@ attribution, and the artist's own removal path if it is ever asked for.
   timing measured is the module's.
 - ⚑ **COVERAGE WAS THE ARTIST'S ACTUAL COMPLAINT.** `sfx.js` was on 208 pages and `theme.js` on
   **three** — index, battle, market — so "site music" was a claim about 1.4% of the site. It is on
-  **207** now: every card page, every document, the hubs. ⛔ **Skipped on purpose:** the game
-  cabinets (they have their own audio, and a second music stream fights it), `superrare.html` (must
-  stay script-free), and the card templates that render inside sandboxed iframes.
+  **213** now: every card page, every document, the hubs **and all six cabinets**. ⛔ **Skipped on
+  purpose:** `superrare.html` (must stay script-free) and the card templates that render inside
+  sandboxed iframes.
+
+### ⛔ AND IT GOES INTO THE GAMES — the cabinets' own soundtracks are deleted
+*Artist, 2026-08-06: "the music should carry over to in games, game lobbies and remove the music
+that is in games currently - so it is persistent throughout."* `TWSI.mp3` and
+`riprocketer-theme.mp3` are gone, with every `tgMusic` / `dfMusic` / `rrMusic` / `s9Music` /
+`playMusic` / `toggleMusic` in `dogfight.html`, `riprocketer.html`, `section9.html`,
+`js/rrpc-app.js`, `js/s9pc-ui.js` and `js/s9pc-app.js`. **SFX stay** — he said music.
+⚠ `section9-theme.mp3` never existed in the repo, so that cabinet's `<audio>` had been pointing at
+a 404 the whole time. A soundtrack nobody could hear is the "surface nobody looks at" rule applied
+to sound.
+- ⛔ **AND THE FLOATING PILL WAS `banner.js` ALL OVER AGAIN.** Driven at 844×390 the bottom-right
+  control sat **on DOGFIGHT's FIRE pad and THE CITY's flap and mode buttons, and WON the hit
+  test** — the controls under it were dead. At 116px wide THE CITY has **no free corner at all** in
+  portrait (BR flap/mode, BL act, TR/TL the mode chips), so no amount of nudging fixes it.
+  ⚑ **The answer was already in the repo**: every cabinet has a `.toggles` row that
+  `js/game-toggles.js` collapses behind a 44px cog, and that is exactly where each game's own
+  `♪ music` button lived. `theme.js` appends there when it finds one — inheriting the cabinet's own
+  button styling AND the collapse for free, because the collapsed state is a CSS rule keyed on the
+  ROW, so a button added later is hidden by it too. **One control, two homes, chosen by what the
+  page is.** Measured after: **0 collisions on all six cabinets at 390×844 · 844×390 · 1280×800.**
+- ⚠ **THREE CABINETS HAD NO SUCH ROW** — city, cloudracer, ronin — so the "collapsable audio menu,
+  games across the board" ask had quietly reached only half the board. They have one now, anchored
+  bottom-left, which is the corner measured free at all three viewports.
+- ⚠ **"IT COVERS NOTHING" IS TRIVIALLY TRUE OF A CONTROL THAT IS NEVER RENDERED**, and collapsed-
+  by-default is exactly that shape. So the load-bearing half of `test:theme` §7 is that **opening
+  the cog reveals a ≥44px control that takes its own hit and actually starts the music**.
+- ⚠ **TWO FALSE FAILURES, BOTH THE HARNESS.** A cabinet in its LOBBY has a launch overlay at
+  z-index 10 above the row's 6 — correct, and it owns the hit test until the match starts; asking
+  the question anyway reported DOGFIGHT's lobby as a defect. And 300 ms after the press was not
+  enough under suite load, while the same click measured `playing:true` every time when driven
+  alone.
+
+### ✅ SKIP FORWARD, SKIP BACK — `#soundPrev` · `#soundToggle` · `#soundNext`
+*Artist: "have the ability to skip tracks or go back through tracks along with pause / play."*
+⚑ **A SET IS NOT A SONG.** The mp3 this replaced was one loop, where a skip would have meant
+nothing; this is somebody's album, so *"not this one"* is a thing a listener now wants to say — and
+without it their only option is to turn the music off, which is the same silence with worse
+feelings about it.
+- ⚠ **Skipping while PAUSED has to START PLAYING.** `widget.next()` on a parked player moves the
+  needle and stays parked, so the press looks broken; a skip is a request for the next TRACK, not
+  for a silent seek. Asserted from a standing start.
+- ⚑ **ONE FIXED BAR, NOT THREE FIXED BUTTONS** — three separately-positioned fixed elements is
+  three numbers to keep in step, and this repo has paid for that twice already (index's three
+  bottom layers at one altitude; city's caps drifting until one reached zero).
+- ⚠ **`bury()` HAD TO LEARN ABOUT THEM.** It was written when there was one button; burying one of
+  three would leave skip buttons that skip nothing — precisely the failure the burial exists to
+  prevent. Asserted separately.
 - ⚠ **AND THE GENERATOR WAS PATCHED WITH THE OUTPUT** — `scripts/build-pages.mjs` emits the four
   public pages' script tags, so patching only the HTML would have left it armed to put the old
   state back. That is `restyle-backs.mjs`'s failure exactly, and it is the fourth time.

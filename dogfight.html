@@ -272,7 +272,7 @@
   <div class="powmsg" id="powMsg"></div>
   <div class="comms" id="comms"><div class="comms-por" id="commsPor">W</div><div class="comms-txt"><b id="commsNm">WINGMATE</b><span id="commsLn"></span></div></div>
 
-  <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
+  <div class="toggles" id="toggles"><button class="tg" id="tgView">◉ chase</button><button class="tg" id="tgSfx"><span class="ic" data-ic="sound"></span> sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <!-- ⛔ THE FIRE BUTTON WAS DESIGNED, STYLED, AND NEVER PUT ON THE PAGE.
        Artist, 2026-08-05: *"for mobile for dog fight, there is no way to shoot."* He was right,
@@ -378,8 +378,6 @@
   </div>
   <div id="eng"></div>
 
-  <!-- dogfight soundtrack: drop TWSI.mp3 at the site root -->
-  <audio id="dfMusic" loop preload="none" src="TWSI.mp3"></audio>
 
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
@@ -472,7 +470,7 @@
     buildGrid(); }).catch(()=>{ $('cardsInfo').textContent='deck manifest missing — rip a pack first'; }); }
 
   // ── SFX / music ──
-  let AC=null, sfxOn=true, musicOn=true; const ac=()=>AC||(AC=new(window.AudioContext||window.webkitAudioContext)());
+  let AC=null, sfxOn=true; const ac=()=>AC||(AC=new(window.AudioContext||window.webkitAudioContext)());
   function blip(f0,f1,dur,type='square',vol=0.14){ if(!sfxOn)return; try{ const a=ac(),o=a.createOscillator(),g=a.createGain();
     o.type=type; o.frequency.setValueAtTime(f0,a.currentTime); o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),a.currentTime+dur);
     g.gain.setValueAtTime(vol,a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
@@ -487,8 +485,6 @@
         sfxWarp=()=>blip(280,1100,0.32,'sine',0.1), sfxWin=()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f,0.16,'triangle',0.14),i*130));},
         // a bolt CROSSING you, not hitting you — doppler-ish falling whine + air crack
         sfxZip=()=>{blip(1500,240,0.11,'sawtooth',0.07); noise(0.05,0.05);};
-  const music=$('dfMusic');
-  function playMusic(){ if(!musicOn)return; try{ music.volume=0.5; const p=music.play(); if(p&&p.catch)p.catch(()=>{});}catch{} }
   function powMsg(t){ const el=$('powMsg'); el.textContent=t; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
   // ── wingmate radio comms ──
   const WINGLINES={ start:['Break and attack!','All craft, engage!','Let’s tear it up!'], kill:['Enemy down!','Nice shot!','Scratch one!','Boom — got ’em!'],
@@ -831,7 +827,7 @@
     $('hMe').textContent=(G.me.verified?'⚜ ':'')+'you';
     $('hLoad').textContent=G.loadout?G.loadout.summary:'';
     if(window.RipNet){ try{ RipNet.setStatus('battling'); }catch{} }
-    playMusic(); sfxWarp(); if(sfxOn&&window.RipSfx) RipSfx.play('gearup',0.5);   // strap in — recorded, not synthesized
+    sfxWarp(); if(sfxOn&&window.RipSfx) RipSfx.play('gearup',0.5);   // strap in — recorded, not synthesized
     powMsg('◈ '+world().name.toUpperCase()); setTimeout(()=>commsRnd('start','#0e5a68'),700);
   }
 
@@ -920,11 +916,10 @@
       padZoomOn=!padZoomOn; z.classList.toggle('on',padZoomOn); });
   })();
 
-  function togglePause(){ if(G.mode==='play'){G.mode='pause';music.pause();$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';playMusic();$('tgPause').textContent='⏸ pause';} }
+  function togglePause(){ if(G.mode==='play'){G.mode='pause';$('tgPause').textContent='▶ resume';} else if(G.mode==='pause'){G.mode='play';$('tgPause').textContent='⏸ pause';} }
   function toggleSfx(){ sfxOn=!sfxOn; $('tgSfx').classList.toggle('off',!sfxOn); }
-  function toggleMusic(){ musicOn=!musicOn; $('tgMusic').classList.toggle('off',!musicOn); if(musicOn&&G.mode==='play')playMusic(); else music.pause(); }
   function toggleView(){ G.view=G.view==='chase'?'cockpit':'chase'; const b=$('tgView'); if(b)b.textContent=G.view==='cockpit'?'◉ cockpit':'◉ chase'; }
-  $('tgPause').onclick=togglePause; $('tgSfx').onclick=toggleSfx; $('tgMusic').onclick=toggleMusic; { const b=$('tgView'); if(b)b.onclick=toggleView; }
+  $('tgPause').onclick=togglePause; $('tgSfx').onclick=toggleSfx; { const b=$('tgView'); if(b)b.onclick=toggleView; }
 
   // ── weapons / combat (world-space bolts) ──
   const WEAP=[ {bolts:[0],rate:220,dmg:12,name:'cannon'}, {bolts:[-0.05,0.05],rate:200,dmg:11,name:'twin'},
@@ -1748,5 +1743,6 @@
 })();
 </script>
   <script src="js/game-toggles.js" defer></script>
+  <script src="theme.js"></script>
 </body>
 </html>

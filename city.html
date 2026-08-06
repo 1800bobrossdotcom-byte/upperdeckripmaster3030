@@ -180,6 +180,19 @@
   /* ── TOUCH. Injected by js/city-app.js only on a coarse pointer, so a desktop never sees it.
      ⚠ 56px, above the 44px tap floor mobile.css sets for the rest of the site — these are held
      while flying, not tapped once, and a control you hold wants more than the minimum. */
+  /* ⛔ THE AUDIO CONTROL IS A COLLAPSED COG, NOT A FLOATING PILL — a measurement, not a taste.
+     Driven at 390x844 and 844x390, theme.js's 116px pill covered #tFlap and #tMode, and it WON the
+     hit test, so the bird could not be flapped. At 116px wide THE CITY has no free corner in
+     portrait at all (BR flap/mode, BL act, TR/TL the mode chips); at 44px the bottom-left is clear
+     at every viewport. So this cabinet gets the same collapsible row dogfight/riprocketer/section9
+     already have — js/game-toggles.js collapses it by default and theme.js appends its button to
+     it, which is also the 'collapsable audio menu, games across the board' ask that missed here. */
+  .toggles{ position:fixed; z-index:7; left:calc(var(--bez) + 12px); bottom:calc(var(--bez) + 12px);
+    display:flex; gap:8px; align-items:center; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:inherit; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; color:#2bff80; background:rgba(2,16,9,.82);
+    border:1px solid rgba(43,255,128,.34); border-radius:999px; padding:9px 12px; min-height:44px; }
+  .tg.off{ opacity:.5; }
   #touchUI{ position:fixed; z-index:6; right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 14px);
     display:flex; gap:12px; align-items:flex-end; }
   #touchUI button{ width:56px; height:56px; border-radius:50%; font-size:22px; line-height:1;
@@ -445,8 +458,11 @@
 <script src="js/city-net.js"></script>
 <script src="js/city-ops.js"></script>
 <script src="js/city-rides.js"></script>
+<div class="toggles" id="toggles"></div>
+<script src="js/game-toggles.js" defer></script>
 <script src="js/city-dash.js"></script>
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>
+  <script src="theme.js"></script>
 </body></html>

@@ -32,7 +32,7 @@ window.S9PCUI = (function () {
     const ownedSlugs = () => vault().map(e => e && e.slug).filter(s => s && bySlug.has(s));
 
     // ── audio: the same oscillator kit (guns, hits, feedback) + RipSfx for the recorded foley ──
-    let AC = null, sfxOn = true, musicOn = true;
+    let AC = null, sfxOn = true;
     const ac = () => AC || (AC = new (window.AudioContext || window.webkitAudioContext)());
     function tone(f0, f1, dur, type, vol) { if (!sfxOn) return; type = type || 'square'; vol = vol == null ? 0.14 : vol;
       try { const a = ac(), o = a.createOscillator(), g = a.createGain();
@@ -83,8 +83,6 @@ window.S9PCUI = (function () {
       impact() { noise(0.05, 0.14, 2200); tone(240, 120, 0.05, 'square', 0.05); },
       ricochet() { tone(2500, 900, 0.15, 'sawtooth', 0.06); setTimeout(() => tone(1700, 650, 0.1, 'square', 0.04), 30); },
     };
-    const music = $('s9Music');
-    function playMusic() { if (!musicOn) return; try { music.volume = 0.45; const p = music.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
     function powMsg(t, col) { const el = $('powMsg'); if (!el) return; el.textContent = t; el.style.color = col || '';
       el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
 
@@ -354,7 +352,7 @@ window.S9PCUI = (function () {
       $('ovLobby').classList.remove('show'); $('ovResult').classList.remove('show'); $('ovPause').classList.remove('show');
       showMatchChrome(true); buildWeapSlots();
       if (window.RipNet) { try { RipNet.setStatus('battling'); } catch (e) {} }
-      playMusic(); SFX.spawn();
+      SFX.spawn();
       if (API.onStart) API.onStart(real, arenaPick, roster, { list: DECK, bySlug });
     }
     $('btnPractice').onclick = () => {
@@ -393,8 +391,7 @@ window.S9PCUI = (function () {
       if (API.onAbort) API.onAbort(); };
 
     function toggleSfx() { sfxOn = !sfxOn; $('tgSfx').classList.toggle('off', !sfxOn); $('tgSfx').textContent = sfxOn ? '🔊 sfx' : '🔇 sfx'; }
-    function toggleMusic() { musicOn = !musicOn; $('tgMusic').classList.toggle('off', !musicOn); if (musicOn && game && game.G.mode === 'play') playMusic(); else music.pause(); }
-    $('tgSfx').onclick = toggleSfx; $('tgMusic').onclick = toggleMusic;
+    $('tgSfx').onclick = toggleSfx;
 
     // ── deck ────────────────────────────────────────────────────────────────────────────────
     function loadDeck() {
@@ -408,7 +405,7 @@ window.S9PCUI = (function () {
     if (window.RipWallet) window.RipWallet.on(() => refreshPot());
 
     Object.assign(API, {
-      sfx: SFX, powMsg, sfxOn: () => sfxOn, music, playMusic, toggleSfx, toggleMusic,
+      sfx: SFX, powMsg, sfxOn: () => sfxOn, toggleSfx,
       myHandle, vault, saveVault, ownedSlugs, toast,
       begin, attach, setMaps, paintArenaChips, paintBuildNote, paintQualityChips, hud, result, showMatchChrome, buildGrid, refreshPot,
       get deck() { return { list: DECK, bySlug }; },

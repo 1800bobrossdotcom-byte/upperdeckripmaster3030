@@ -2027,7 +2027,7 @@
     else if (game.G.mode === 'pause' && !force) resume();
   }
   function resume() { if (game.G.mode !== 'pause') return; game.G.mode = 'play';
-    $('ovPause').classList.remove('show'); $('tgPause').textContent = '⏸ pause'; ui.playMusic(); tryLock(); }
+    $('ovPause').classList.remove('show'); $('tgPause').textContent = '⏸ pause'; tryLock(); }
   $('tgPause').onclick = () => togglePause();
   $('btnResume').onclick = resume;
 

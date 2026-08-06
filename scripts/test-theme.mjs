@@ -75,6 +75,8 @@ const STUB = (mode) => {
         play() { window.__scCalls.push('play'); (binds.play || []).forEach(f => f()); },
         pause() { window.__scCalls.push('pause'); (binds.pause || []).forEach(f => f()); },
         skip(n) { window.__scCalls.push('skip:' + n); (binds.play || []).forEach(f => f()); },
+        next() { window.__scCalls.push('next'); (binds.play || []).forEach(f => f()); },
+        prev() { window.__scCalls.push('prev'); (binds.play || []).forEach(f => f()); },
         seekTo(ms) { window.__scCalls.push('seekTo:' + ms); },
         setVolume(v) { window.__scCalls.push('vol:' + v); },
         getSounds(cb) { cb([{ title: 'one' }, { title: 'two' }, { title: 'three' }]); },
@@ -253,6 +255,149 @@ head('6 · opening a page and leaving does not wipe the saved place');
   }));
   ok(parseFloat(s.t) === 120.5, 'the saved position survives a page that never played', 't=' + s.t);
   ok(parseInt(s.n, 10) === 3, 'and so does the saved track', 'n=' + s.n);
+  await ctx.close();
+}
+
+// ── 7 · ⛔ IN A CABINET IT LIVES IN THE TOGGLES ROW, AND IT MUST STILL BE REACHABLE ───────
+head('7 · the cabinets: no floating pill over the playfield, and the cog still opens it');
+{
+  /* Driven at 844×390 the old bottom-right pill sat ON DOGFIGHT's FIRE pad and THE CITY's flap
+   * and mode buttons, winning the hit test — banner.js's recorded failure, repeated. The control
+   * belongs in the `.toggles` row instead. ⚠ But "it does not cover anything" is trivially
+   * satisfied by a control that is never rendered, so the load-bearing half of this block is that
+   * OPENING THE COG REVEALS IT and it still drives the music. */
+  const CABS = ['/city.html', '/dogfight.html', '/riprocketer.html',
+                '/cloudracer.html', '/ronin.html', '/section9.html'];
+  for (const page_ of CABS) {
+    const [w, h] = [844, 390];
+    const ctx = await br.newContext({ viewport: { width: w, height: h }, hasTouch: true });
+    await ctx.route('**w.soundcloud.com**', r => r.abort());
+    await ctx.addInitScript(STUB, 'ready');
+    await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+    const p = await ctx.newPage();
+    const errs = [];
+    p.on('pageerror', e => errs.push(e.message.slice(0, 110)));
+    await p.goto(`http://127.0.0.1:${PORT}${page_}`, { waitUntil: 'domcontentloaded', timeout: 40000 });
+    await p.waitForTimeout(2500);
+
+    const placed = await p.evaluate(() => {
+      const b = document.getElementById('soundToggle');
+      return { exists: !!b, inRow: !!(b && b.closest('.toggles')), pill: !!(b && b.style.position === 'fixed') };
+    });
+    ok(placed.exists, `${page_}: the music control is on the page`);
+    ok(placed.inRow, `${page_}: it is IN the toggles row`, 'not floating over the playfield');
+    ok(!placed.pill, `${page_}: it is not a fixed pill here`);
+
+    /* ⚠ TWO HARNESS FACTS, BOTH OF WHICH READ AS PRODUCT BUGS FIRST.
+     *   · DOGFIGHT's own CSS keeps `.toggles` at `display:none` until a match starts — correct,
+     *     and nothing to do with this control. Measuring in the lobby reported a 0×0 button and
+     *     looked exactly like a control that never renders. The row is forced visible here so the
+     *     assertion is about OUR button's reachability, not about the game's show/hide.
+     *   · 300 ms after the press was not enough under suite load — the same click measured
+     *     `playing:true` every time when driven alone. A timing artifact, not a dead button. */
+    await p.evaluate(() => {
+      const row = document.querySelector('.toggles'); if (row) row.style.display = 'flex';
+      const c = document.getElementById('tgCog'); if (c) c.click();
+    });
+    await p.waitForTimeout(300);
+    const open = await p.evaluate(() => {
+      const b = document.getElementById('soundToggle'); if (!b) return { no: true };
+      const r = b.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      /* ⚠ A cabinet sitting in its LOBBY has a launch overlay above everything (z-index 10 vs the
+       * toggles row's 6) — correct, and it owns the hit test until the match starts. That is not
+       * this control being covered by a game control, which is what section 7 exists to catch, so
+       * the question is only asked when no overlay is up. Asking it anyway reported DOGFIGHT's
+       * lobby as a defect. */
+      const veiled = !!document.querySelector('.ov.show, #ripOrient:not([hidden])');
+      return { w: Math.round(r.width), h: Math.round(r.height), veiled,
+        own: !!(hit && (hit === b || b.contains(hit))), label: b.textContent };
+    });
+    ok(open.w > 0 && open.h >= 44, `${page_}: opening the cog reveals a real 44px control`,
+      open.w + 'x' + open.h);
+    ok(open.veiled || open.own,
+      `${page_}: and the press lands on it, not on a game control underneath`,
+      open.veiled ? 'lobby overlay is up — correctly on top' : 'hit-tested clear');
+
+    await p.evaluate(() => document.getElementById('soundToggle').click());
+    await p.waitForTimeout(1200);
+    const playing = await p.evaluate(() => window.__urmTheme.playing);
+    ok(playing, `${page_}: pressing it actually starts the music`);
+    ok(errs.length === 0, `${page_}: no page errors`, errs.join(' | '));
+    await ctx.close();
+  }
+}
+
+// ── 8 · the games' own music is gone ──────────────────────────────────────────────────────
+head('8 · one soundtrack, not four');
+{
+  const files = ['dogfight.html', 'riprocketer.html', 'section9.html',
+    'js/rrpc-app.js', 'js/s9pc-ui.js', 'js/s9pc-app.js'];
+  let hits = [];
+  for (const f of files) {
+    const t = await readFile(join(ROOT, f), 'utf8');
+    for (const pat of ['tgMusic', 'dfMusic', 'rrMusic', 's9Music', 'playMusic', 'toggleMusic'])
+      if (t.includes(pat)) hits.push(f + ':' + pat);
+  }
+  ok(hits.length === 0, 'no cabinet still drives its own soundtrack', hits.join(', ') || 'clean');
+  for (const f of ['city.html', 'cloudracer.html', 'dogfight.html', 'riprocketer.html',
+                   'ronin.html', 'section9.html', 'arcade.html']) {
+    const t = await readFile(join(ROOT, f), 'utf8');
+    ok(/<script src="theme\.js"><\/script>/.test(t), f + ' carries the site music');
+  }
+}
+
+// ── 9 · the transport ─────────────────────────────────────────────────────────────────────
+head('9 · skip forward, skip back, and both work from a standing start');
+{
+  /* Artist: *"the ability to skip tracks or go back through tracks along with pause / play."*
+   * ⚠ The load-bearing case is skipping while PAUSED. `next()` on a parked player moves the
+   * needle and stays parked, so the press would look dead — a skip is a request for the next
+   * TRACK, not a silent seek, so it has to start playing too. */
+  const { page, ctx, errs } = await run('ready');
+  const present = await page.evaluate(() => ({
+    prev: !!document.getElementById('soundPrev'),
+    play: !!document.getElementById('soundToggle'),
+    next: !!document.getElementById('soundNext'),
+    taps: ['soundPrev', 'soundToggle', 'soundNext'].map(id => {
+      const r = document.getElementById(id).getBoundingClientRect();
+      return Math.round(Math.min(r.width, r.height));
+    }),
+    offscreen: (() => { const r = document.getElementById('soundBar').getBoundingClientRect();
+      return r.right > innerWidth + 1 || r.left < -1; })(),
+  }));
+  ok(present.prev && present.play && present.next, 'all three transport controls are there');
+  ok(present.taps.every(v => v >= 44), 'every one clears the 44px tap floor', present.taps.join('/'));
+  ok(!present.offscreen, 'the bar fits the viewport');
+
+  // from a standing start (never played), NEXT must both skip and start
+  await page.click('#soundNext');
+  await page.waitForTimeout(900);
+  let s = await page.evaluate(() => ({ playing: window.__urmTheme.playing, calls: window.__scCalls }));
+  ok(s.calls.indexOf('next') >= 0, 'NEXT asks the widget for the next track', s.calls.join(','));
+  ok(s.playing, '…and starts playing rather than skipping in silence');
+
+  await page.click('#soundPrev');
+  await page.waitForTimeout(500);
+  s = await page.evaluate(() => window.__scCalls);
+  ok(s.indexOf('prev') >= 0, 'PREV goes back through the set', s.join(','));
+  ok(errs.length === 0, 'no page errors', errs.join(' | '));
+  await ctx.close();
+}
+
+// ── 10 · a dead widget takes the WHOLE transport with it ──────────────────────────────────
+head('10 · burying removes every control, not just the play button');
+{
+  /* The transport was added after bury() was written. Burying one of three would leave skip
+   * buttons that skip nothing — exactly the failure the burial exists to prevent. */
+  const { page, ctx } = await run('dead', () => {
+    try { localStorage.setItem('urm_sound', 'on'); } catch {}
+  });
+  const budget = await page.evaluate(() => window.__urmTheme.bootMs);
+  await page.waitForTimeout(budget + 1500);
+  const left = await page.evaluate(() => ['soundPrev', 'soundToggle', 'soundNext', 'soundBar']
+    .filter(id => !!document.getElementById(id)));
+  ok(left.length === 0, 'every control is gone, bar included', left.join(',') || 'clean');
   await ctx.close();
 }
 
