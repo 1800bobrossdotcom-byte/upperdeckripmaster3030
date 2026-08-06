@@ -787,6 +787,27 @@ nothing read it. I added the draw to **`js/dogfight-gl.js` — the RETIRED hand-
 - ⚠ The dead copy is removed and the reason left in its place, so the next person to open the
   retired renderer learns it is retired instead of trusting what is in it.
 
+### ✅ `built ≠ reachable`, POINTED AT MODULES — `test:reach` §0b, and it deleted 180 KB
+§0 proved every shipped script PARSES and said nothing about whether any page reaches it. Two
+failures came through that gap **in one day**: the muzzle flash above, and then — arguing that
+CLOUD RACER already scales fov with speed — I cited `js/cloudracer-gl.js`, **also retired.**
+⚑ **THE SECOND ONE IS THE WORSE OF THE TWO: a dead file gave a RIGHT answer for the wrong reason.**
+The live build (`js/crpc-app.js:1476`) really does scale fov, so the conclusion survived and the
+evidence was worthless. Nothing would have told me.
+- ⛔ **A RETIRED RENDERER IS NOT INERT.** It is plausible, well-commented, self-consistent and
+  wrong, and it reads exactly like the live one — which is what makes it a trap rather than
+  clutter. **Four of them were shipping to the CDN**: `cloudracer.js`, `cloudracer-gl.js`,
+  `dogfight-gl.js`, `section9-gl.js`, ~180 KB. The artist deleted the classic *pages* on
+  2026-08-02 (*"we don't need the classic versions for any games, too distracting"*); these are
+  the modules that deletion left behind, so removing them executes a decision already made.
+- ⚠ **BOTH HALVES OF THE DETECTION WERE WRONG FIRST, AND BOTH WRONG ANSWERS WERE REASSURING.**
+  (a) It counted COMMENT mentions — `js/dfpc-fx.js` names `js/dogfight-gl.js` in the very comment
+  explaining that it is dead, which made the dead file look live. (b) It scanned HTML for
+  `<script src>` only, so `cards/lens3d.html`, which loads four modules from an array inside an
+  inline `<script>`, reported them all as orphans. Strip comments, and read the dynamic loaders.
+- ⚠ Proved to bite by restoring one deleted file: 1 failure, naming it. `DEAD_OK` exists and is
+  EMPTY on purpose — a module nothing loads should be deleted, not listed.
+
 ## ⚠ THE "MORE REALISTIC" PASS — BOTH GAMES ALREADY CARRY THE CUES, AND THAT IS THE FINDING
 *Artist: "make cloud racer and dogfight even more realistic next pass."* Before changing anything
 I went to add the obvious physical cue — field of view scaling with speed — and **it is already

@@ -104,6 +104,44 @@ head('0 · every shipped browser script actually parses');
     catch (e) { bad++; t(`${f} parses`, false, String(e.message).slice(0, 90)); }
   }
   t('every shipped browser script parses', bad === 0, bad ? bad + ' failed to parse' : js.length + ' files');
+
+  /* ── ⛔ 0b · AND SOMETHING HAS TO ACTUALLY LOAD IT ────────────────────────────────────────
+   * §0 proves every module PARSES. It says nothing about whether any page reaches it, and that
+   * gap has now cost real work twice in one day:
+   *   · the artist reported *"not seeing the gun fire"*; I put the muzzle flash in
+   *     `js/dogfight-gl.js`, which is the RETIRED renderer. `dogfight.html` loads
+   *     `js/dfpc-app.js`. Correct, committed, described as done, and unreachable.
+   *   · then, arguing that CLOUD RACER already scales fov with speed, I cited
+   *     `js/cloudracer-gl.js` — also retired. The claim happened to be true of the live build
+   *     too, which is worse: **a dead file gave a right answer for the wrong reason.**
+   * ⚑ A retired renderer is not inert. It is a plausible, well-commented, wrong place to work,
+   *   and it reads exactly like the live one. This is `built ≠ reachable` pointed at MODULES
+   *   rather than at pages, and it is the same sweep §2 already runs on HTML.
+   * ⚠ THE DETECTION HAS TO IGNORE COMMENTS AND HAS TO READ HTML'S DYNAMIC LOADERS. My first cut
+   *   did neither: `js/dfpc-fx.js` mentions `js/dogfight-gl.js` in the very comment explaining
+   *   that it is dead, which made the dead file look live; and `cards/lens3d.html` loads four
+   *   modules from an array inside an inline `<script>`, which a `<script src>` scan cannot see.
+   *   Both failures were in the REASSURING direction. */
+  const bare = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ')
+                     .replace(/<!--[\s\S]*?-->/g, ' ');
+  const loaded = new Set();
+  for (const [f, body] of TEXT) {
+    if (!/\.(html|js)$/.test(f)) continue;
+    const src = bare(body);
+    for (const m of src.matchAll(/<script[^>]+src=["']([^"']+)["']/g))
+      loaded.add(m[1].split('?')[0].replace(/^.*\//, ''));
+    for (const m of src.matchAll(/["'`]([\w./-]*js\/[\w.-]+\.js)["'`]/g))
+      loaded.add(m[1].replace(/^.*\//, ''));
+  }
+  const DEAD_OK = {
+    /* nothing yet — a module that no page loads should be deleted, not listed. This exists so a
+     * genuine exception (a module fetched by a name this scan cannot see) can be recorded WITH
+     * ITS REASON rather than silently exempted, which is how §2's `ORPHAN_OK` works. */
+  };
+  const unloaded = js.filter(f => !loaded.has(f.replace(/^.*\//, '')) && !DEAD_OK[f]);
+  t('every shipped browser module is loaded by some page — a module nothing reaches is a '
+    + 'plausible, well-commented, WRONG place to fix a bug',
+    unloaded.length === 0, unloaded.length ? unloaded.join(', ') : js.length + ' modules, all reached');
   /* ⛔ AND THE SAME TRAP HAS NOW COST SIX ROUNDS, so it gets an assertion that NAMES it. A BACKTICK
    * inside a comment inside a shader template literal ENDS THE STRING. §0 above does catch it —
    * the file stops parsing — but it reports `SyntaxError: Unexpected identifier 'smoothstep'`,
