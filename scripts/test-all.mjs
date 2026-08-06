@@ -22,7 +22,7 @@
  * Usage:  node scripts/test-all.mjs [--only a,b] [--skip c,d] [--timeout 600]
  */
 import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -34,8 +34,33 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SUITES = [
   'name', 'launch', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
-  'theme', 'forge', 'reach', 'cab', 'rr', 'city', 'citynet',
+  'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'city', 'citynet',
 ];
+/* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
+ * Keeping it literal is right (see the note above: the order is deliberate and a derived list
+ * would sweep up any future `test:*` that is not part of the gate) — but "literal" means it is a
+ * SECOND place the suites are named, and a second list falls behind. It already did: `crstreak`
+ * was added to the chain and missed here, and this runner reported a board of **26 green squares
+ * out of 27** with no indication a suite was absent. ⚑ A missing square on a board whose entire
+ * job is "show me everything" is the exact reassuring-wrong-answer this file was written against,
+ * so the two are reconciled as SETS here and the run refuses to start if they disagree. */
+const CHAIN = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    return [...String(pkg.scripts?.test || '').matchAll(/\btest:([a-z0-9-]+)/g)].map((m) => m[1]);
+  } catch { return null; }
+})();
+if (CHAIN && CHAIN.length) {
+  const missing = CHAIN.filter((s) => !SUITES.includes(s));
+  const extra = SUITES.filter((s) => !CHAIN.includes(s));
+  if (missing.length || extra.length) {
+    console.error('\n⛔ scripts/test-all.mjs is out of step with package.json\'s `test` chain.');
+    if (missing.length) console.error('   in the chain, MISSING from this board: ' + missing.join(', '));
+    if (extra.length) console.error('   on this board, NOT in the chain:        ' + extra.join(', '));
+    console.error('   Fix SUITES above, or the chain — a board with a square missing reads as complete.\n');
+    process.exit(1);
+  }
+}
 
 const arg = (flag) => {
   const i = process.argv.indexOf(flag);
