@@ -205,33 +205,6 @@
   @media (prefers-reduced-motion:reduce){
     .lovebeing-logo{ animation:none; } .btn{ transition:none; }
   }
-
-  /* ── THE 33, in the media slot ────────────────────────────────────────────────────────────
-     ⛔ THEY CANNOT APPEAR IN SUPERRARE'S OWN UI. The heroes are ERC-721s on our lens contract;
-        the edition is a separate ERC-20 and carries no pointer to it (probed: lens(), lenses(),
-        lensContract(), lensOf(), totalLenses() — none exist). So SuperRare has no way to
-        discover them. ⚑ But THIS page IS the edition's media, so the cards can be shown in the
-        same pixels. Whether they become auctionable there is SuperRare's call, not a code
-        change.
-     ⚠ Static markup, enhanced by the chain — never built by JS. The page's standing rule is that
-        it degrades to static copy when scripting or the network is blocked, and a grid that only
-        exists once an eth_call returns would be an empty box in exactly that case. */
-  .heroes{ margin:22px 0 6px; }
-  .heroes h3{ font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--dim);
-              margin:0 0 4px; font-weight:700; }
-  .heroes .sub{ font-size:11.5px; color:var(--dim); margin:0 0 12px; }
-  .hgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(84px,1fr)); gap:8px; }
-  .hcard{ display:block; text-decoration:none; color:inherit; border:1px solid #16663c;
-          border-radius:7px; overflow:hidden; background:#04180e; position:relative; }
-  .hcard img{ display:block; width:100%; aspect-ratio:2/3; object-fit:cover; background:#02120a; }
-  .hcard b{ display:block; font-size:9.5px; letter-spacing:.06em; padding:4px 5px 1px;
-            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .hcard i{ display:block; font-size:8.5px; font-style:normal; color:var(--dim); padding:0 5px 5px; }
-  .hcard .own{ position:absolute; top:4px; right:4px; font-size:8px; letter-spacing:.08em;
-               padding:2px 5px; border-radius:99px; background:#0a2a18; border:1px solid #1c7a48;
-               color:#2bff80; }
-  .hcard.unminted{ opacity:.55; }
-  @media (max-width:520px){ .hgrid{ grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); } }
 </style>
 </head>
 <body>
@@ -299,49 +272,6 @@
       <li><b>Play the games.</b> All six games run in a browser. Your cards carry powers into them.</li>
       <li><b>Earn a hero.</b> 33 of the 100 mint as 1/1 lenses — some pulled, some won.</li>
     </ol>
-
-
-    <!-- ⚑ THE 33 — generated from cards/deck-manifest.json by scripts/build-sr-heroes.mjs, so the
-         titles here cannot drift from the ones written on-chain by setCards. Do not hand-edit. -->
-    <div class="heroes">
-      <h3>The 33 · hero 1/1 lenses</h3>
-      <p class="sub" id="hSub">11 auction &middot; 11 pulled from packs &middot; 11 earned in the games</p>
-      <div class="hgrid">
-      <a class="hcard" id="h1" href="https://www.ripmaster3030studios.com/cards/1" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/1.webp" alt="______ — card 1" loading="lazy" decoding="async"><b>______</b><i>№1</i></a>
-      <a class="hcard" id="h2" href="https://www.ripmaster3030studios.com/cards/2" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/2.webp" alt="______ — card 2" loading="lazy" decoding="async"><b>______</b><i>№2</i></a>
-      <a class="hcard" id="h3" href="https://www.ripmaster3030studios.com/cards/3" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/3.webp" alt="''''''' — card 3" loading="lazy" decoding="async"><b>'''''''</b><i>№3</i></a>
-      <a class="hcard" id="h4" href="https://www.ripmaster3030studios.com/cards/4" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/4.webp" alt="monero — card 4" loading="lazy" decoding="async"><b>monero</b><i>№4</i></a>
-      <a class="hcard" id="h5" href="https://www.ripmaster3030studios.com/cards/5" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/5.webp" alt="MOM NOTE — card 5" loading="lazy" decoding="async"><b>MOM NOTE</b><i>№5</i></a>
-      <a class="hcard" id="h6" href="https://www.ripmaster3030studios.com/cards/6" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/6.webp" alt="====== — card 6" loading="lazy" decoding="async"><b>======</b><i>№6</i></a>
-      <a class="hcard" id="h7" href="https://www.ripmaster3030studios.com/cards/7" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/7.webp" alt="DANCE HEALTH — card 7" loading="lazy" decoding="async"><b>DANCE HEALTH</b><i>№7</i></a>
-      <a class="hcard" id="h8" href="https://www.ripmaster3030studios.com/cards/8" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/8.webp" alt="SAM!!!!!!!! — card 8" loading="lazy" decoding="async"><b>SAM!!!!!!!!</b><i>№8</i></a>
-      <a class="hcard" id="h9" href="https://www.ripmaster3030studios.com/cards/9" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/9.webp" alt=",.,.,.,.,. — card 9" loading="lazy" decoding="async"><b>,.,.,.,.,.</b><i>№9</i></a>
-      <a class="hcard" id="h10" href="https://www.ripmaster3030studios.com/cards/10" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/10.webp" alt="DAVID HAMMONS — card 10" loading="lazy" decoding="async"><b>DAVID HAMMONS</b><i>№10</i></a>
-      <a class="hcard" id="h11" href="https://www.ripmaster3030studios.com/cards/11" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/11.webp" alt="_____ — card 11" loading="lazy" decoding="async"><b>_____</b><i>№11</i></a>
-      <a class="hcard" id="h12" href="https://www.ripmaster3030studios.com/cards/12" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/12.webp" alt="_____ — card 12" loading="lazy" decoding="async"><b>_____</b><i>№12</i></a>
-      <a class="hcard" id="h13" href="https://www.ripmaster3030studios.com/cards/13" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/13.webp" alt="_____ — card 13" loading="lazy" decoding="async"><b>_____</b><i>№13</i></a>
-      <a class="hcard" id="h14" href="https://www.ripmaster3030studios.com/cards/14" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/14.webp" alt="group chat — card 14" loading="lazy" decoding="async"><b>group chat</b><i>№14</i></a>
-      <a class="hcard" id="h15" href="https://www.ripmaster3030studios.com/cards/15" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/15.webp" alt="c00lin — card 15" loading="lazy" decoding="async"><b>c00lin</b><i>№15</i></a>
-      <a class="hcard" id="h16" href="https://www.ripmaster3030studios.com/cards/16" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/16.webp" alt="parchment — card 16" loading="lazy" decoding="async"><b>parchment</b><i>№16</i></a>
-      <a class="hcard" id="h17" href="https://www.ripmaster3030studios.com/cards/17" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/17.webp" alt="mind-ela — card 17" loading="lazy" decoding="async"><b>mind-ela</b><i>№17</i></a>
-      <a class="hcard" id="h18" href="https://www.ripmaster3030studios.com/cards/18" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/18.webp" alt="&amp; — card 18" loading="lazy" decoding="async"><b>&amp;</b><i>№18</i></a>
-      <a class="hcard" id="h19" href="https://www.ripmaster3030studios.com/cards/19" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/19.webp" alt="hehe — card 19" loading="lazy" decoding="async"><b>hehe</b><i>№19</i></a>
-      <a class="hcard" id="h20" href="https://www.ripmaster3030studios.com/cards/20" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/20.webp" alt="we got this — card 20" loading="lazy" decoding="async"><b>we got this</b><i>№20</i></a>
-      <a class="hcard" id="h21" href="https://www.ripmaster3030studios.com/cards/21" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/21.webp" alt="euphoric — card 21" loading="lazy" decoding="async"><b>euphoric</b><i>№21</i></a>
-      <a class="hcard" id="h22" href="https://www.ripmaster3030studios.com/cards/22" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/22.webp" alt="prince prince — card 22" loading="lazy" decoding="async"><b>prince prince</b><i>№22</i></a>
-      <a class="hcard" id="h23" href="https://www.ripmaster3030studios.com/cards/23" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/23.webp" alt="SOFT OPENING — card 23" loading="lazy" decoding="async"><b>SOFT OPENING</b><i>№23</i></a>
-      <a class="hcard" id="h24" href="https://www.ripmaster3030studios.com/cards/24" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/24.webp" alt="NO TAKEBACKS — card 24" loading="lazy" decoding="async"><b>NO TAKEBACKS</b><i>№24</i></a>
-      <a class="hcard" id="h25" href="https://www.ripmaster3030studios.com/cards/25" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/25.webp" alt="&gt;&gt;&gt;&gt;&gt;&gt; — card 25" loading="lazy" decoding="async"><b>&gt;&gt;&gt;&gt;&gt;&gt;</b><i>№25</i></a>
-      <a class="hcard" id="h26" href="https://www.ripmaster3030studios.com/cards/26" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/26.webp" alt="ISNESS — card 26" loading="lazy" decoding="async"><b>ISNESS</b><i>№26</i></a>
-      <a class="hcard" id="h27" href="https://www.ripmaster3030studios.com/cards/27" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/27.webp" alt="______ — card 27" loading="lazy" decoding="async"><b>______</b><i>№27</i></a>
-      <a class="hcard" id="h28" href="https://www.ripmaster3030studios.com/cards/28" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/28.webp" alt="SCRAM!!! — card 28" loading="lazy" decoding="async"><b>SCRAM!!!</b><i>№28</i></a>
-      <a class="hcard" id="h29" href="https://www.ripmaster3030studios.com/cards/29" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/29.webp" alt="JOE ROBERTS — card 29" loading="lazy" decoding="async"><b>JOE ROBERTS</b><i>№29</i></a>
-      <a class="hcard" id="h30" href="https://www.ripmaster3030studios.com/cards/30" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/30.webp" alt="MERCY RULE — card 30" loading="lazy" decoding="async"><b>MERCY RULE</b><i>№30</i></a>
-      <a class="hcard" id="h31" href="https://www.ripmaster3030studios.com/cards/31" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/31.webp" alt="WHOLE THING — card 31" loading="lazy" decoding="async"><b>WHOLE THING</b><i>№31</i></a>
-      <a class="hcard" id="h32" href="https://www.ripmaster3030studios.com/cards/32" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/32.webp" alt=";;;;;;;; — card 32" loading="lazy" decoding="async"><b>;;;;;;;;</b><i>№32</i></a>
-      <a class="hcard" id="h33" href="https://www.ripmaster3030studios.com/cards/33" target="_blank" rel="noopener noreferrer"><img src="cards/art/deck/33.webp" alt="LAST ONE OUT — card 33" loading="lazy" decoding="async"><b>LAST ONE OUT</b><i>№33</i></a>
-      </div>
-    </div>
 
     <div class="btns">
       <a class="btn" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">Enter the studio ↗</a>
@@ -479,47 +409,6 @@
      * caps at 1,000,000, so "burned" would have rendered ~32M — a false claim, shown
      * confidently, on the first page a collector sees. Burned appears only when both numbers
      * came from the same contract and the subtraction means something. */
-
-  /* ── THE 33: mark the ones that exist ──────────────────────────────────────────────────────
-     ⛔ READ-ONLY, AND ON A DIFFERENT CONTRACT. The heroes are ERC-721s on the lens; the edition
-        above is the ERC-20. Two addresses, one transport. Still eth_call over fetch — nothing
-        here can move anything, which is the property this page is guarded on.
-     ⚠ ENHANCEMENT ONLY. The tiles are already in the HTML; this adds a badge to the minted ones
-        and dims the rest. If the chain is unreachable every card still shows, unlabelled, which
-        is the honest degradation — the alternative (build the grid from the chain) would leave
-        an empty box for anyone behind a blocker. */
-  var LENS = '0xe2d11bC2f0122Be198a6e102fD2567888878e138';
-  function lensCall(data) {
-    return fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call',
-        params: [{ to: LENS, data: data }, 'latest'] }) })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return j && j.result && j.result !== '0x' ? j.result : null; })
-      .catch(function () { return null; });
-  }
-  function markHeroes() {
-    var live = 0, done = 0;
-    for (var i = 1; i <= 33; i++) (function (n) {
-      var hex = n.toString(16); while (hex.length < 64) hex = '0' + hex;
-      /* 0x6352211e = ownerOf(uint256). It REVERTS for a token that does not exist, which is
-         exactly the signal we want: a null answer means unminted, not an error. */
-      lensCall('0x6352211e' + hex).then(function (r) {
-        var el = document.getElementById('h' + n);
-        done++;
-        if (el && r && /[1-9a-f]/.test(r.slice(26))) {
-          live++;
-          var b = document.createElement('span'); b.className = 'own'; b.textContent = '1/1';
-          el.appendChild(b);
-        } else if (el) { el.className += ' unminted'; }
-        if (done === 33) {
-          var s = document.getElementById('hSub');
-          if (s && live) s.textContent = live + ' of 33 minted \u00b7 11 auction \u00b7 11 pulled from packs \u00b7 11 earned in the games';
-        }
-      });
-    })(i);
-  }
-  markHeroes();
-
     Promise.all([call(SEL.total), call(SEL.max)]).then(function (r) {
       var live = r[0], max = r[1];
       if (live > 0) set('sSupply', fmt(live));
