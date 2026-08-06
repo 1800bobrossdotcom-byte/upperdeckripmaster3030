@@ -20,7 +20,10 @@ async function kv(cmd) {
   return r.json();
 }
 const S = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
-const ROOM = /^df_[A-Za-z0-9_]{3,30}$/, PID = /^p_[a-z0-9]{4,20}$/;
+/* ⚠ `city_` joins `df_` because THE CITY is a PERSISTENT room rather than a match: everyone
+ * in the shared world signals through one mailbox and stays. Widening the pattern is all that
+ * takes — the mailbox itself never cared what the room was for. */
+const ROOM = /^(?:df|city)_[A-Za-z0-9_]{3,30}$/, PID = /^p_[a-z0-9]{4,20}$/;
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

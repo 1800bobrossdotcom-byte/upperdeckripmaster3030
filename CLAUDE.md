@@ -772,6 +772,37 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ⛔ I FIXED THE MUZZLE FLASH IN A RENDERER THE PAGE DOES NOT LOAD
+*Artist: "not seeing the gun fire."* `dogfight.html` sets `s.muzzle = G.t` on every shot and
+nothing read it. I added the draw to **`js/dogfight-gl.js` — the RETIRED hand-rolled renderer.**
+`dogfight.html` loads **`js/dfpc-app.js`** (PlayCanvas) and names the old one only in comments.
+- ⛔ **CORRECT, COMMITTED, DESCRIBED AS DONE, AND UNREACHABLE.** `built ≠ reachable` — this repo's
+  own phrase, which I had written about somebody else's control two commits earlier. One `grep -n
+  'script src' dogfight.html` would have settled it; **I checked the file I had open instead of the
+  file the page loads.**
+- ⚑ **THE TELL WAS AVAILABLE AND CHEAP THE WHOLE TIME.** When a fix is going into a module you did
+  not open the page through, verify the PAGE loads it before writing a line. Live now in
+  `js/dfpc-fx.js` beside the tracers; measured on the shipped page — `muzzle` −9 → 0.20 at
+  `G.t` 0.20, bolt away, so the 70 ms window the FX reads is hit on that frame.
+- ⚠ The dead copy is removed and the reason left in its place, so the next person to open the
+  retired renderer learns it is retired instead of trusting what is in it.
+
+## ⚠ THE "MORE REALISTIC" PASS — BOTH GAMES ALREADY CARRY THE CUES, AND THAT IS THE FINDING
+*Artist: "make cloud racer and dogfight even more realistic next pass."* Before changing anything
+I went to add the obvious physical cue — field of view scaling with speed — and **it is already
+there in both.** `js/dfpc-app.js:795` scales fov by a shove term AND a G-load term; the camera
+already lags the airframe on a first-order spring (τ ≈ 0.14 s); `js/cloudracer-gl.js` advertises
+and carries speed-scaled fog and fov.
+- ⛔ **SO I HAVE NOT GUESSED AT ONE.** `DESIGN-SYSTEM §9` records what happens when an agent is
+  handed a mood: it reaches for the default and produces something technically correct and dead —
+  twice for the wordmark, and a third time for the site props the artist deleted on the same day.
+  Inventing another speculative visual change on a renderer that already has the physical cues is
+  that failure a fourth time.
+- ⚑ **WHAT THIS NEEDS IS THE BRIEF §9 DEMANDS**, from the artist: what specifically reads as
+  UNREAL to him — the sky, the ground, the aircraft's weight, the hit feedback — plus what it is
+  MADE OF, how it is LIT, what MOVES and why it physically moved, and the acceptance measurement.
+  A named target gets a real pass; "more realistic" gets a default.
+
 ## ⛔ THE SITE 3D PROPS ARE GONE — "random 3D icons that do nothing" (artist, 2026-08-05)
 *"what are all these weird 3D objects that are half baked. remove them. when I asked for the site
 updated in playcanvas, random 3D icons that do nothing, was not what I was intending."*
@@ -1882,6 +1913,43 @@ how the weapon BEHAVES rather than how it looks.
   both directions, because "shown in operative" is trivially satisfied by showing it always.
   ⚠ One assertion was mis-timed, not mis-designed: `#carry` is written inside `stepDrops`, i.e.
   once per frame, so reading it in the same tick as `_act()` measures the frame BEFORE the press.
+
+### ✅ OTHER PEOPLE ARE IN THE CITY — `js/city-net.js`, `npm run test:citynet` (10)
+*Artist, 2026-08-05: "for city we need to wire in mmorpg dynamics for multiplayer for people in
+game."* Two real pages, two identities, each with the other's body in their world.
+- ⚑ **TWO LAYERS, BECAUSE THEY ANSWER TWO QUESTIONS, and the split is the game's own design.**
+  `/api/presence` is DISCOVERY — a heartbeat with a 20 s TTL, so it can say *who* is in the city
+  and roughly where, and can never animate anyone. WebRTC data channels over `/api/signal` are
+  MOTION — ~9 Hz, peer to peer, no game server. ⚑ **That is the bird's own asymmetry, as netcode:**
+  `CITY-GAME.md` says the bird SCOUTS — sees the whole map, touches none of it — and the roster is
+  exactly that. Getting close enough to watch somebody move is the part you fly over and earn.
+- ⛔ **ONLY THE LOWER ID OFFERS, AND WITHOUT IT NOTHING EVER CONNECTS.** Both sides see each other
+  on the same roster tick, so both created an offer, each then received one while already in
+  `have-local-offer`, and `setRemoteDescription` rejected on both. **Measured: roster 1 and peers
+  0 on each of two live tabs, with no error anywhere.** `js/df-net.js` states the tie-break in its
+  own header — *"in each pair the lower id makes the offer"* — and I did not carry it over. **A
+  rule recorded in the file you are copying FROM is not a rule you have applied.**
+- ⛔ **ANIMALS ONLY, ON PURPOSE.** DOGFIGHT and SECTION 9 are matches with shooter-authoritative
+  netcode; a persistent world and a scored match are different contracts, and merging them would
+  put a loophole in the observer rule shaped like a jet. Switching to a combat mode leaves the
+  shared world — `body:null` is how the wire says so, and a peer with no body is not drawn.
+- ⚑ **`buildBird()` IS A FACTORY NOW**, for the reason `buildSquirrel` already had written down: a
+  second caller exists, and two bird definitions would drift. ⚠ **TDZ, FOURTH SIGHTING** — the
+  extraction renamed `bird.` to `ent.` and missed three `bodyPart(bird, …)` ARGUMENTS, so the
+  const was read above its own declaration and the whole app died at module scope. `__city` simply
+  never appears; the probe reports "not ready", not "broken bird".
+- ⚠ **THE NAME TAG NEEDS A DEPTH TEST.** `worldToScreen` returns a point for geometry BEHIND the
+  camera too, so ignoring `z <= 0` pins every peer you have flown past to the top of the screen,
+  mirrored, permanently. And it is projected from the MIRRORED space the camera lives in while the
+  body is placed in the unmirrored one — one space for bodies, the flip on the camera only.
+- ⚠ **`test:citynet` runs `/api/presence` and `/api/signal` IN MEMORY** to the same protocol the
+  Vercel handlers speak, so it needs no network and no keys. Proved to bite by deleting the
+  tie-break: 2 peers → 0. ⚑ **"A peer exists" is the weak question** — a stale first packet
+  satisfies it forever; the assertion that discriminates is that BRAVO walks 60 m and ALPHA reads
+  10 → 70.
+- ⚠ **NOT BUILT: interaction.** You can see each other and where each other is. Trading, stealing
+  across the wire, and shared drops are the next step — the mesh is capped at 6 peers nearest-first
+  because a full P2P mesh is O(n²) with nothing to relay through.
 
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day
