@@ -451,7 +451,20 @@ window.RRGame = (function () {
       deaths: 0, dByShot: 0, dByRam: 0, dByRip: 0, dByTurret: 0,
       vulnT: 0, invT: 0, deadT: 0, shieldHits: 0, rolls: 0, dashes: 0, shocks: 0,
       overdrives: 0, odT: 0, bestFlow: 0, bulletsCleared: 0,
-      sites: 0, emps: 0, empKills: 0, empShots: 0, sitesCleared: 0 };
+      sites: 0, emps: 0, empKills: 0, empShots: 0, sitesCleared: 0,
+      /* ── ⚑ THE TWO EARNED-TITLE COUNTERS — see docs/HERO-UNLOCKS.md ─────────────────────────
+       * A hero 1/1 is real value and every score in this project lives in localStorage, so the
+       * earned tier is claimed against an EIP-712 voucher a human signs — the studio is the judge
+       * and says so. ⚑ THE CONSEQUENCE IS NOT "the numbers do not matter", IT IS THE OPPOSITE: a
+       * judge watches a screen capture, so a condition is only claimable if the run SHOWS its own
+       * evidence. These two exist to be displayed, not to gate anything in code.
+       * `flowHeld` is the longest unbroken stretch of live FLOW in the run — the chain lapses the
+       * moment `flowT` runs out, so this is a stopwatch on the dash→roll→dash rhythm.
+       * `odKills`/`kills` is how many of your kills landed with OVERDRIVE lit. ⚠ Both are RUN
+       * totals; the titles are scoped to a tier and a wave, so `tierFlowOk` and the per-wave pair
+       * carry the scoped answer and reset on the boundary that owns them. */
+      flowHeld: 0, flowRun: 0, kills: 0, odKills: 0,
+      tierFlowOk: true, tierOdOnly: true };
   }
   const invuln = s => s.inv > 0 || s.iframe > 0;
 
@@ -588,6 +601,10 @@ window.RRGame = (function () {
      * banner is the deadest time this game has. Reaching a new tier is the only moment the ascent
      * is a fact rather than a background, so it gets the banner and the wave number stands aside. */
     const newTier = spec.tier !== G.lastTier;
+    /* ⚠ A NEW TIER IS A CLEAN SHEET FOR THE CHAIN TITLE, and the reset belongs here rather than
+     * in `start()`: the attempt is scoped to ONE tier, so failing tier II must not lock you out
+     * of claiming it on tier III in the same run. */
+    if (newTier) { G.stat.tierFlowOk = true; G.stat.tierOdOnly = true; }
     G.lastTier = spec.tier;
     G.bigMsg = spec.bonus ? 'CHALLENGE ·  N O   S H O O T I N G'
       : newTier ? ('TIER ' + ['I', 'II', 'III', 'IV'][spec.tier - 1] + ' · ' + TIERS[spec.tier - 1].name)
@@ -731,6 +748,19 @@ window.RRGame = (function () {
     }
   }
 
+  /* ⛔ DYING BREAKS THE CHAIN, AND IT HAS TO BE SAID OUT LOUD RATHER THAN ASSUMED. The FLOW decay
+   * runs inside the `s.alive` branch, so a DEAD ship's `flowT` never counts down — measured, a
+   * tireless bot died three times in 85 s and `tierFlowOk` was still true at the end. "Held the
+   * chain through a whole tier" has to mean you were flying for all of it; a combo that survives
+   * your own death is the kind of rule that makes a title worth nothing. Both death paths call
+   * this — the ordinary one and THE RIP, which is also a life. */
+  function breakFlow(G) {
+    const s = G.ship;
+    if (G.stat.flowRun > G.stat.flowHeld) G.stat.flowHeld = G.stat.flowRun;
+    G.stat.flowRun = 0; G.stat.tierFlowOk = false;
+    s.flow = 0; s.flowT = 0;
+  }
+
   function doDash(G, dir) {
     const s = G.ship;
     if (!s.alive || s.dashCd > 0 || s.rollT > 0) return false;
@@ -841,6 +871,16 @@ window.RRGame = (function () {
     let live = 0; for (const b of G.bullets) if (b.live) live++;
     if (live >= cap * rigs.length * g.bolts.length) return;
     s.fireT = G.t;
+    /* ⛔ FIRE DISCIPLINE, AND IT KEYS ON THE SHOT RATHER THAN ON THE KILL — the difference is the
+     * whole reason this title is claimable. Scoping it to KILLS measured out at 99%, not 100:
+     * a ram or a rip kills something outside the window, so a condition demanding every kill in
+     * overdrive is defeated by an accident the player never chose. **A shot is the one thing
+     * entirely under their control**, and a silent gun is obvious on a screen capture, which is
+     * what a human judge is actually watching. See docs/HERO-UNLOCKS.md.
+     * ⚠ Cleared per TIER, not per run: scoped to one wave a trigger-holding bot banks it by
+     * accident (measured 100% on waves 1, 3 and 10), and across a whole tier it never does —
+     * 67% is the best an undisciplined run reaches. */
+    if (s.od <= 0) G.stat.tierOdOnly = false;
     const dmg = g.dmg * (G.loadout.dmg || 1) * (s.od > 0 ? SHIP.OD_DMG : 1);
     for (const rx of rigs) {
       for (let i = 0; i < g.bolts.length; i++) {
@@ -1077,6 +1117,7 @@ window.RRGame = (function () {
   function rip(G) {
     const s = G.ship;
     s.alive = false; s.respawn = 1.5; G.lives--; G.stat.deaths++;
+    breakFlow(G);
     G.captive = { hue: G.ripper ? G.ripper.hue : 300, freed: false };
     s.ripped = true; s.dual = false;
     G.bigMsg = '◈ RIPPED'; G.bigMsgT = 1.8; G.ev.push('rip'); G.shake = Math.max(G.shake, 22); G.flash = 1;
@@ -1176,7 +1217,19 @@ window.RRGame = (function () {
       }
 
       // ── THE FLOW WINDOW. It decays; overdrive burns down separately.
-      if (s.flowT > 0) { s.flowT -= h; if (s.flowT <= 0) s.flow = 0; }
+      /* ⚑ THE FLOW STOPWATCH. `flowRun` is how long the chain has been alive without lapsing; it
+       * banks into `flowHeld` and resets the instant it drops. ⚠ The lapse also clears
+       * `tierFlowOk`, which is the whole of the tier-scoped title — a single dropped chain any
+       * time in four waves ends the attempt, and it has to be recorded AT the lapse because
+       * nothing afterwards can tell that it happened. */
+      if (s.flowT > 0) {
+        s.flowT -= h; G.stat.flowRun += h;
+        if (s.flowT <= 0) {
+          s.flow = 0;
+          if (G.stat.flowRun > G.stat.flowHeld) G.stat.flowHeld = G.stat.flowRun;
+          G.stat.flowRun = 0; G.stat.tierFlowOk = false;
+        }
+      }
       if (s.od > 0) { s.od -= h; G.stat.odT += h; if (s.od <= 0) { G.msg = 'overdrive out'; G.msgT = 0.8; } }
       if (s.odCd > 0) s.odCd -= h;
       if (s.dashCd > 0) s.dashCd -= h;
@@ -1526,6 +1579,15 @@ window.RRGame = (function () {
     const K = KIND[e.kind];
     const diving = (e.state === 'dive' || e.state === 'beam');
     e.state = 'dead'; e.deadT = 0;
+    /* ⚑ COUNTED HERE, ONCE, FOR EVERY DEATH — the ram, the rip, the beam and the ordinary bolt all
+     * arrive through this one function, so a kill cannot be scored by one path and missed by
+     * another. `od > 0` is read at the instant of the kill rather than at the shot: OVERDRIVE is
+     * 4.2 s lit on a 10.2 s cycle (a 41.2% ceiling), so a bolt fired inside the window can easily
+     * land outside it, and the title is about killing IN overdrive. */
+    if (G.phase !== 'bonus') {
+      G.stat.kills++;
+      if (G.ship.od > 0) G.stat.odKills++;
+    }
     G.pops.push({ x: e.x, y: e.y, z: e.z, boom: 1, t: 0, life: 0.6, hue: e.hue, big: e.kind === 2 });
     G.shake = Math.max(G.shake, e.kind === 2 ? 16 : 5);
     G.ev.push(e.kind === 2 ? 'bigkill' : (diving ? 'divekill' : 'kill'));
@@ -1589,6 +1651,7 @@ window.RRGame = (function () {
       return;
     }
     s.alive = false; s.respawn = SHIP.RESPAWN; G.lives--; G.stat.deaths++;
+    breakFlow(G);
     G.chain = 0; G.mult = 1;
     G.shake = Math.max(G.shake, 20); G.flash = 1; G.ev.push('die');
     G.pops.push({ x: s.x, y: s.y, z: 0, boom: 1, t: 0, life: 0.9, hue: 40, big: true });

@@ -2034,7 +2034,26 @@
     $('overBest').textContent = best.toLocaleString('en-US');
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;
     $('overTag').textContent = idx === 0 ? '★ NEW HIGH SCORE ★' : idx >= 0 ? ('you made #' + (idx + 1) + ' on the board') : 'the formation got you';
-    $('overStats').innerHTML = 'wave <b>' + G.wave + '</b> · best chain <b>' + G.bestChain + '</b> · accuracy <b>' + acc + '%</b>';
+    /* ── ⚑ THE TITLE LINE, AND IT EXISTS BECAUSE A HUMAN IS THE JUDGE ─────────────────────────
+     * docs/HERO-UNLOCKS.md: the earned tier cannot be self-serve — every score here lives in
+     * localStorage, so a hero 1/1 is claimed against an EIP-712 voucher the studio signs after
+     * watching a screen capture of the run. ⚑ That inverts into a UI requirement rather than out
+     * of one: **a condition nobody can see on the run is a condition nobody can claim.** These
+     * three numbers are exactly what the two RIP ROCKETER combo titles ask for, printed where a
+     * recording will catch them, and they gate nothing in code.
+     * ⚠ The OD share is the BEST WAVE's, not the run's — the title is scoped to a single wave,
+     * and a run average would quietly be a different and much easier condition. */
+    const st = G.stat || {};
+    /* ⚠ `flowRun` is the chain that is STILL ALIVE when the run ends, and it only banks into
+     * `flowHeld` on a lapse — so a player whose best stretch was their last one would be shown a
+     * zero. Read the max of the two. */
+    const held = Math.max(st.flowHeld || 0, st.flowRun || 0);
+    const odShare = st.kills ? Math.round((st.odKills || 0) / st.kills * 100) : 0;
+    $('overStats').innerHTML = 'wave <b>' + G.wave + '</b> · best chain <b>' + G.bestChain
+      + '</b> · accuracy <b>' + acc + '%</b>'
+      + '<br><span style="opacity:.85">flow held <b>' + held.toFixed(1)
+      + 's</b> · overdrives <b>' + (st.overdrives || 0)
+      + '</b> · kills in overdrive <b>' + odShare + '%</b></span>';
     lbRender($('lbOver'), idx); lbRender($('lbGate'), -1);
     const ni = $('lbName');
     if (ni) { ni.value = getName();

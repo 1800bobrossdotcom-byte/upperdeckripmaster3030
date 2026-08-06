@@ -75,21 +75,45 @@ part that took the thought; the **numbers** are the part to argue about.
 | # | Title | Game | The condition | Why it is hard |
 |---|---|---|---|---|
 | 1 | **THE WIRE** | DOGFIGHT | Pass **every boost gate on the map** in a single match without taking a hit. | The gates are placed apart on purpose and high gates (alt ≥ 5) are left in deliberately. Flying the whole route means never straightening up, and the energy model taxes every climb — you are spending the speed you need to dodge with. |
-| 2 | **DEAD STICK** | DOGFIGHT | Win a match having **never pressed boost**. | Boost is the escape button; equilibria are 5.6 climbing / 9 cruise / 12.4 diving / 19.9 boosting. Giving it up means every disengage is bought with altitude, against bots that dive to convert height when they close. |
-| 3 | **ONE MAG** | SECTION 9 | Win a round with **more kills than reloads**. | TTK is ~1.3 s at 150 HP + 60 armour by design, so a body-shot duel costs most of a magazine. The only way past it is headshots — ×2.1, and armour soaks 15% instead of 45%. It is an accuracy title wearing an ammo title's clothes. |
+| 2 | **TWO MILLION FEET** | RIP ROCKETER | Post a run of **2,000,000 points**. | ⚑ Measured off the shipping `KIND` table and `waveSpec`, not guessed. A full clear of the whole facility — TIER I to TIER IV, all sixteen waves — scores about **688,876** at strong play. Two million is **wave 38**: you beat the building and then survived twenty-two waves of what comes after it. |
+| 3 | **ABOVE THE WEATHER** | RIP ROCKETER | Post a run of **5,000,000 points**. | **Wave 75** at strong play, **wave 43** if you play the perfect ceiling (every kill on a diver, ×6 chain, 100% accuracy). Past TIER IV the wave table stops escalating and simply keeps coming — 40 craft a wave, forever. This is the one that stops being about the fight and starts being about attention. |
 | 4 | **GHOST WALK** | SECTION 9 | Take a round on **any baked level** (ARCADE PIT · THE VAULT · ROOFTOP) **without ever being the first to fire**. | The bots bake cover from `MAP.solids` and score positions by whether line-of-sight to your eye is blocked. Letting them shoot first means winning every fight from behind their own plan. |
-| 5 | **OPEN AIR** | RIP ROCKETER | Reach **TIER IV** on one life. | Four floors, four waves each, sixteen waves without dying. Plate density falls 146 → 25 as you climb, so the last floor is the loneliest and the easiest place to get careless. |
-| 6 | **THE FACILITY IS CLOSED** | RIP ROCKETER | Clear **every emplacement** in a single tier — all guns on all sites, none left behind. | The turrets track, stop, then fire where they stopped, and a player bolt only reaches the wall through a gap in the diver formation. You have to fight two things at once, on purpose, for a whole floor. |
+| 5 | **ESCAPE VELOCITY** | RIP ROCKETER | Post a run of **10,000,000 points**. | **Wave 121** at strong play, **wave 76** at the ceiling. ⚠ Stated plainly because it should be: this is hours in a single sitting and it may go unclaimed for a long time. It is the set's **uncontested variant** — if nobody takes it, the studio states a date and awards it to the highest verified run rather than leaving a card dead forever. |
+| 6 | **NEVER STILL** | RIP ROCKETER | Clear **one whole TIER — four waves — without the FLOW chain ever lapsing**, and without dying. | FLOW decays `FLOW_WIN` 1.15 s after the last dash or roll, and a dash comes off cooldown every 0.47 s, so holding it means a movement input at least every second for **23–30 seconds** (measured tier length) while a wave dives at you. ⛔ **Dying breaks the chain** — the decay only runs while you are alive, so without that rule a bot died three times and still 'held' it. Measured: a tireless flow-chaser holds it indefinitely while alive, and the first death is what ends the attempt. |
 | 7 | **CLEAN SWEEP** | CLOUD RACER | Win a race having taken **every light-strip on the circuit** — all nine, every lap. | ⚑ This one is measured, not guessed. `js/crpc-game.js` ran a 6-pilot × 3-lap × 5-seed battery adding one verb at a time: taking the strips is worth **0.96 s, the single biggest verb on the track**, ahead of the racing line (0.71) and braking (0.29). Nine strips × three laps with no misses, while still finishing first, is that skill executed perfectly. |
 | 8 | **THREE CUTS** | NEON RONIN | Win a duel where **every landed hit was part of a combo** (TEMPEST, CREST WAVE or DRAGON KICK). | The combos are recent-attack strings — slash·slash·slash, punch·kick·slash, punch·kick. Landing only combo hits means never throwing the panic button, against an opponent whose blocks reset your sequence. |
-| 9 | **NO SWORD** | NEON RONIN | Win a duel using **no slash at all** — punches, kicks, dashes and the meter special only. | NEON RONIN is a sword duel; this is the title for refusing the sword. Reach on punch/kick is a fraction of the blade's, so it is fought entirely inside the opponent's range. |
+| 9 | **COLD BARREL** | RIP ROCKETER | Clear **one whole TIER having fired only while OVERDRIVE was lit.** | ⚑ OVERDRIVE runs 4.2 s on a 10.2 s cycle — a hard **41.2% ceiling**, measured live at 41.9% — so this gives up nearly six-tenths of your firing window while the formation keeps diving. Cost, measured: firing only in overdrive reached **wave 6 against wave 13** for the same bot firing freely, and scored 21,525 against 111,095. ⚠ It keys on the SHOT, not the kill: a ram or a rip kills something outside the window, which measured out at 99% and would have made a 'every kill' version defeated by an accident the player never chose. A silent gun is also the thing a judge can actually see on a capture. |
 | 10 | **HOUSE MONEY** | THE ARENA | Take **first place on the podium three times running** without folding once. | 1st/2nd/3rd pays 50/30/20 and folding is always available. Three in a row without taking the exit is a run where you were never allowed to be careful. |
 | 11 | **THE LONG COUNT** | *cross-game* | Hold a **first-place finish in five different cabinets** — five of the eight, your choice which. | The only title that cannot be won by being excellent at one thing. It is the studio's own shape: a card and game studio, not a game studio with cards. **Best candidate for the uncontested variant** — state a date, award it to the broadest verified run. |
 
-**Coverage:** DOGFIGHT ×2 · SECTION 9 ×2 · RIP ROCKETER ×2 · CLOUD RACER ×1 · NEON RONIN ×2 ·
-THE ARENA ×1 · cross-game ×1. Every cabinet with a scoreboard owns at least one.
+**Coverage:** DOGFIGHT ×1 · SECTION 9 ×1 · **RIP ROCKETER ×5** · CLOUD RACER ×1 · NEON RONIN ×1 ·
+THE ARENA ×1 · cross-game ×1. Every cabinet still owns at least one.
 
-⚑ **One title was written, measured, and thrown away — worth recording.** #7 was first drafted as
+⚠ **THE CONCENTRATION IS A CONSEQUENCE, NOT A PREFERENCE, AND IT IS THE ARTIST'S TO OVERRULE.**
+Five of the eleven now sit in one cabinet because both directives point there: a points ladder in
+the millions only means anything in the cabinet that HAS a cumulative score, and the combo titles
+were placed in RIP ROCKETER on request. The three titles that made room — DEAD STICK, ONE MAG and
+NO SWORD — were chosen because each was the *second* title in its cabinet and each was the
+"refuse a tool" shape, which the set already says twice. **OPEN AIR and THE FACILITY IS CLOSED
+were retired to make room and are worth keeping in a drawer**; they are good conditions, they were
+simply the two RIP ROCKETER slots the new five needed.
+
+⚑ **THREE MORE CONDITIONS WERE WRITTEN, MEASURED AND THROWN AWAY IN THIS PASS — the rule below
+is not decoration, it caught all three.**
+- *"Hold OVERDRIVE for a whole wave."* **Impossible by construction.** `odCd` is `OD_T + OD_CD`,
+  i.e. a 10.2 s cycle with 4.2 s lit, so overdrive cannot be sustained past 4.2 s by any input.
+  A title nobody can ever satisfy is worse than an easy one — it is a lie on a public page.
+- *"Clear a WAVE with every kill in overdrive."* **Free.** A bot that merely holds the trigger and
+  dashes banks a 100% wave by accident — measured on waves 1, 3 and 10, at 24, 28 and 40 kills, so
+  a minimum-kill floor does not save it. Only the TIER scope survives: the same undisciplined bot
+  peaks at 67% over a tier and falls to 38%.
+- *"Every KILL in overdrive"* (as opposed to every shot). **Unclaimable.** A disciplined bot
+  measured 99%, not 100 — one incidental ram/rip kill lands outside the window. The condition now
+  keys on the shot, which is the only part the player controls.
+⚠ Also corrected here: project memory recorded overdrive at *"114 of 180 seconds — 66% uptime"*,
+which today's constants make arithmetically impossible (4.2/10.2 = 41.2%). Live measurement: 41.9%.
+
+⚑ **One title was written, measured, and thrown away when this file was first drafted.** #7 was first drafted as
 *"win a race without braking"*, which sounds like a handicap and is nearly free: `crpc-game.js`'s
 own battery puts the airbrake last of the four verbs at **0.29 s out of a 38 s race**, and at the
 grip the circuit shipped with, most of the lap is flat anyway. It would have been the easiest of
