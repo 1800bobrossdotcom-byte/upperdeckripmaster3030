@@ -82,7 +82,7 @@ custom renderer + front end are ours.
 - **Total Token Supply / Cap:** **Capped — 3,030,000 `$3030`, minted once.** Burns are
   **permanent** (never re-mint). `burnProgress = maxTotalSupply − totalSupply()` is the
   render's burn meter. Full-curve FDV ≈ $606k — an artist-scale niche edition, by choice.
-- **Curve / Price:** multicurve **`--curve-preset medium-demand`** (Uniswap-v4 + Doppler,
+- **Curve / Price:** multicurve **`--curve-preset low-demand`** (Uniswap-v4 + Doppler,
   reserve in **RARE**), previewed with `--preview` and tuned to the **steadiest** slope.
   **Opening price ≈ 1 RARE/token (~$0.02)** — the token stays a cheap micro-token.
   **Reserve seed ≈ 10,000 RARE** at deploy (to confirm with the cohort).

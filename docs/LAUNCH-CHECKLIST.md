@@ -42,7 +42,7 @@ CLI, and `name` and `symbol` are **positional arguments you type**:
 
 ```bash
 rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-  --curve-preset medium-demand \
+  --curve-preset low-demand \
   --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
   --image ./media/site/mark-1024.png \
   --preview
@@ -70,48 +70,53 @@ retired name. **That is the precedent.** Everything else on this page is recover
 
 ---
 
-## ⛔ The one number nobody has measured: P0
+## ✅ P0 IS MEASURED — and it changed the preset and the pack price
 
-**`--preview` also settles this, for free, in the same command.**
+**Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the full 3,300,000 supply.
+This section used to say P0 was the one number nobody had measured. It is measured now, and the
+prediction it made — "an order of magnitude low" — was right: the answer is **4×**.
 
-`scripts/token-model.mjs` assumes the token opens at **1 RARE**, and the **$7 pack rests
-entirely on that** — a pack is priced in *tokens* (350 at tier I), so its dollar price is just
-350 × the token price. Two independent readings say the assumption is an order of magnitude low:
+| | |
+| --- | --- |
+| preset | **`low-demand`** ⚠ **not `medium-demand`** — the command above was changed |
+| initial RARE liquidity | **0** |
+| creator allocation | **0** |
+| **opens at** | **≈ $0.08 per $3030** |
 
-| source | opening price | a 350-token pack |
-| --- | --- | --- |
-| `token-model.mjs` assumption | 1 RARE ≈ $0.02 | **$7** |
-| live Sepolia curve (`npm run preflight`, block 11,404,471) | **16.78 RARE** | **$93** |
-| SuperRare's own worked example | ~$0.22 average | — |
+⛔ **THE PACK IS PRICED IN DOLLARS NOW — $10 / $12 / $15 / $20 by tier.** ✅ Approved by the
+artist 2026-08-06. At the measured open, **tier I is 125 $3030** — 62.5 burned, 62.5 to the
+studio. The token count for tiers II–IV is worked out from the **live price on the day that tier
+opens** and then **locked for that tier**.
 
-⚠ The Sepolia curve is explicitly **uncalibrated** and its cap is 1,000,000, so it is not a
-forecast. But it is the only real curve this project has ever had, and it points the same way as
-SuperRare's example.
+⛔ **DO NOT PUBLISH A BURN PERCENTAGE.** Holding the old 30.7% would need ~570 tokens a pack ≈
+**$46**. The site reports **live burn** (`maxTotalSupply() − totalSupply()`) and the live studio
+total instead. Full record: `docs/PACK-PRICING.md`.
 
-- [ ] **Run `--preview` at the real cap, put the printed P0 into `token-model.mjs`, and re-derive
-      the pack schedule — BEFORE `$7` is published anywhere it can be quoted back at the studio.**
+- [ ] Run `--preview` at the real cap and **confirm the printed opening price is still ≈$0.08**
+      before `--yes`. If it has moved materially, `docs/PACK-PRICING.md` is re-derived first —
+      the tier-I token count is the number the site will charge.
+
+✅ **The reserve seed is 0, and that is settled too.** Two documents recorded a ~10,000 RARE seed;
+the model printed 0. **Zero is right** — there is no bid below spot on day one, so the first
+seller walks the curve down alone. Say it plainly; do not let a collector discover it.
 
 ---
 
-## Supply: 3,300,000 — and the two numbers that must always be quoted together
+## Supply: 3,300,000
 
 Settled by the artist 2026-08-02, reversing the 33,000,000 direction. Run `npm run model`;
 `scripts/token-model.mjs` is the only source.
 
-The pack burn is denominated in **tokens per pack** (350 → 1,200), so the four-tier total is a
-fixed **1,014,375** at any cap. The cap only decides what fraction that is:
+⚠ **The old cap table that lived here has been removed.** Every figure in it (1,014,375 burned,
+30.7%, 1.44×, 44.4%) assumed a **$0.02** token and a fixed **350–1,200** tokens per pack. Both
+assumptions are dead. The reasoning that picked 3.3M still stands and is kept in
+`docs/STATE-OF-PLAY.md` as history.
 
-| cap | four-tier burn | % of mint | contraction | studio slug as % of surviving float |
-| --- | --- | --- | --- | --- |
-| 33,000,000 | 1,014,375 | 3.1% | 1.03× — none | ~3.2% |
-| **3,300,000 ← settled** | 1,014,375 | **30.7%** | **1.44×** | ⛔ **44.4%** |
+⛔ **The one rule that survives unchanged: the burn and the studio slug are the same arithmetic
+and may never be quoted apart.** The 50/50 split sends the same number of tokens to the fire and
+to the studio. `token-model.mjs` still refuses to print one without the other.
 
-⛔ **These are the same arithmetic and may never be quoted apart.** The 50/50 split sends the
-same number of tokens to the fire and to the studio, so any cap that makes the burn look material
-makes the treasury look large by exactly that much. `token-model.mjs` refuses to print one
-without the other.
-
-⚠ It is **not** a 3× scarcity engine. Do not let anyone round 1.44× up.
+⚠ It is **not** a scarcity engine, and nothing here should be sold as one.
 
 ---
 

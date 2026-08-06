@@ -278,7 +278,13 @@ head('2 · the site-wide freshness strip covers no game control');
 for (const [tag, w, h, touch] of [['844×390 landscape phone', 844, 390, true],
                                   ['1280×800 desktop', 1280, 800, false]]) {
   for (const [page_, url, sel, drive] of [
-    ['RIP ROCKETER', 'riprocketer.html', ['tFire', 'tRoll', 'tBomb'], 'rr'],
+    /* ⚠ `tFire` AND `tRoll` were both here and are both DELETED (artist, 2026-08-06: "take the gun
+     * button off and have it always shooting" … "I don't believe we need the roll button either").
+     * BURN is the only pad left and is still asserted PRESENT below for the reason written there —
+     * "nothing is covered" is trivially true of a control that vanished — and the gestures that
+     * replaced the other two are driven end to end by `npm run test:rr`, because a pad's absence
+     * is only correct if something took its job. */
+    ['RIP ROCKETER', 'riprocketer.html', ['tBomb'], 'rr'],
     ['CLOUD RACER', 'cloudracer.html', [], 'cr'],
   ]) {
     const { ctx, page } = await open(url, { w, h, touch });
@@ -321,7 +327,7 @@ for (const [tag, w, h, touch] of [['844×390 landscape phone', 844, 390, true],
      * the pads are the whole control scheme, so their presence is asserted rather than assumed. */
     if (touch && page_ === 'RIP ROCKETER') {
       const dark = sel.filter(k => !(r[k] && r[k].shown));
-      t(`${page_} ${tag}: the thumb pads are on screen at all`, dark.length === 0,
+      t(`${page_} ${tag}: the thumb pad is on screen at all`, dark.length === 0,
         dark.join(', ') || sel.map(k => k + ' ' + r[k].w + 'px').join(' · '));
     }
     const covered = names.filter(k => hit(r.banner, r[k], 0)).map(k => k);

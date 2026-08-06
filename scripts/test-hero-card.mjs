@@ -136,38 +136,89 @@ const R = await page.evaluate(async () => {
     A.setRegistration(1, 0);
     A.setView(0, 0);
     const W = 360, H = 540;
-    const meds = [];
-    for (let i = 0; i < 9; i++) {
-      const yaw = -0.60 + (1.20 * i) / 8;
-      A.setView(yaw, 0);
-      A.render();
-      const px = A.pixels();
-      const hs = [];
-      // readPixels is bottom-up; the die edge sits in the outer ~2-4% of the half-extent
-      for (let y = Math.round(H * 0.961); y < Math.round(H * 0.974); y++) {
-        for (let x = Math.round(W * 0.35); x < Math.round(W * 0.65); x++) {
-          const k = (y * W + x) * 4;
-          const r = px.data[k] / 255, g = px.data[k + 1] / 255, b = px.data[k + 2] / 255;
-          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-          if (mx - mn < 0.05) continue;
-          let h;
-          if (mx === r) h = ((g - b) / (mx - mn) + 6) % 6;
-          else if (mx === g) h = (b - r) / (mx - mn) + 2;
-          else h = (r - g) / (mx - mn) + 4;
-          hs.push(h * 60);
+    /* Lifted into a function so HOLDING can be measured with the SAME instrument as the foil
+     * itself. Two copies of this loop would be two chances for the comparison to be measuring
+     * something other than the thing it names. */
+    const measureTravel = () => {
+      const meds = [];
+      for (let i = 0; i < 9; i++) {
+        const yaw = -0.60 + (1.20 * i) / 8;
+        A.setView(yaw, 0);
+        A.render();
+        const px = A.pixels();
+        const hs = [];
+        // readPixels is bottom-up; the die edge sits in the outer ~2-4% of the half-extent
+        for (let y = Math.round(H * 0.961); y < Math.round(H * 0.974); y++) {
+          for (let x = Math.round(W * 0.35); x < Math.round(W * 0.65); x++) {
+            const k = (y * W + x) * 4;
+            const r = px.data[k] / 255, g = px.data[k + 1] / 255, b = px.data[k + 2] / 255;
+            const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            if (mx - mn < 0.05) continue;
+            let h;
+            if (mx === r) h = ((g - b) / (mx - mn) + 6) % 6;
+            else if (mx === g) h = (b - r) / (mx - mn) + 2;
+            else h = (r - g) / (mx - mn) + 4;
+            hs.push(h * 60);
+          }
         }
+        hs.sort((a, b) => a - b);
+        meds.push(hs.length ? hs[hs.length >> 1] : null);
       }
-      hs.sort((a, b) => a - b);
-      meds.push(hs.length ? hs[hs.length >> 1] : null);
+      let travel = 0, n = 0;
+      for (let i = 1; i < meds.length; i++) {
+        if (meds[i] == null || meds[i - 1] == null) continue;
+        let d = meds[i] - meds[i - 1];
+        while (d > 180) d -= 360; while (d < -180) d += 360;
+        travel += Math.abs(d); n++;
+      }
+      return { travel: travel, samples: n, meds: meds.map(m => m == null ? null : +m.toFixed(1)) };
+    };
+    out.foil = measureTravel();
+
+    /* ── HOLDING: the lens's tier, as the foil's RULING ────────────────────────────────────
+     * The staking read has existed and been tested for days and drove ZERO pixels — two lines of
+     * JSON on a marketplace. This is the payoff, and it is measured the only way DESIGN-SYSTEM §1
+     * accepts: "foil is defined by movement… render at several view angles and MEASURE the hue
+     * shift." A finer-ruled foil splits light harder, so Inferno must TRAVEL further than Ash.
+     * ⛔ AND COVERAGE MUST NOT MOVE. If holding changed how much of the border is metal, a common
+     *   card in a rich wallet would read as a mythic one — rarity would be purchasable. Both
+     *   halves are asserted, because "it changed" alone would pass a build that changed the
+     *   wrong thing. */
+    A.setTier(0); A.render();
+    const ash = measureTravel();
+    const ashProbe = A.probe();
+    A.setTier(4); A.render();
+    const inferno = measureTravel();
+    const infProbe = A.probe();
+    /* ⚠ AND BACK TO 0 MUST RETURN THE ORIGINAL CARD, not merely something similar. An unheld card
+     *   is the artist's card; a dial that cannot go home is a dial that permanently alters the
+     *   work of anyone who once connected a funded wallet. */
+    A.setTier(0); A.render();
+    const home = hash(A.pixels());
+    A.setTier(0); A.render();
+    /* ⚠ MEASURE COVERAGE ON A CARD OF ITS OWN, AND NEVER ON `A`. At A's own rarity the coverage is
+     *   0, so "ash cover === inferno cover" is 0 === 0 — true even of a build where holding adds
+     *   coverage. The obvious fix, A.setRarity('rare'), broke test 5 THREE BLOCKS LATER: setRarity
+     *   rebakes the type plate and putting the rarity back does not undo the rebake, so "same seed
+     *   -> byte-identical frame" started failing with nothing pointing at this block. A
+     *   measurement that mutates shared state fails somebody else's assertion, far from the cause.
+     *   Same shape as the tier ladder leaking between blocks in test:lens today. */
+    const Bc = await mk(3030, 360, 540);
+    let coverAsh = null, coverInf = null;
+    if (Bc) {
+      Bc.writeOn(1);
+      Bc.setRarity('rare');
+      Bc.setTier(0); Bc.render(); coverAsh = Bc.probe().frameFoilSent;
+      Bc.setTier(4); Bc.render(); coverInf = Bc.probe().frameFoilSent;
+      Bc.destroy();
     }
-    let travel = 0, n = 0;
-    for (let i = 1; i < meds.length; i++) {
-      if (meds[i] == null || meds[i - 1] == null) continue;
-      let d = meds[i] - meds[i - 1];
-      while (d > 180) d -= 360; while (d < -180) d += 360;
-      travel += Math.abs(d); n++;
-    }
-    out.foil = { travel: travel, samples: n, meds: meds.map(m => m == null ? null : +m.toFixed(1)) };
+    out.hold = {
+      ashCover: coverAsh, infernoCover: coverInf,
+      ashTravel: ash.travel, infernoTravel: inferno.travel,
+      ashGrating: ashProbe.grating, infernoGrating: infProbe.grating,
+      ashHold: ashProbe.hold, infernoHold: infProbe.hold,
+      returnsHome: home === hash(A.pixels()),
+    };
     A.setView(null);
   }
 
@@ -700,6 +751,31 @@ if (!R.built) {
   // 1
   t('1 · it is foil — hue walks with the angle', R.foil.travel >= 200,
     `${R.foil.travel.toFixed(0)} deg over ${R.foil.samples + 1} yaws (bar 200)`);
+
+  /* ── HOLDING · the lens tier reaches the artwork ─────────────────────────────────────────
+   * Before this, tierOfHolder drove nothing a collector could see. */
+  {
+    const H = R.hold;
+    t('1h · holding is OFF at tier 0 and full at tier 4', H.ashHold === 0 && H.infernoHold === 1,
+      `hold ${H.ashHold} -> ${H.infernoHold}`);
+    t('1h · the ruling at Ash is the value every card prints at today', Math.abs(H.ashGrating - 1.55) < 1e-9,
+      `${H.ashGrating}`);
+    /* ⛔ THE ONE THAT BITES. A finer grating must MEASURABLY split light harder. */
+    t('1h · Inferno foil travels further than Ash — holding is visible',
+      H.infernoTravel > H.ashTravel * 1.10,
+      `${H.ashTravel.toFixed(0)} deg -> ${H.infernoTravel.toFixed(0)} deg (+${((H.infernoTravel / H.ashTravel - 1) * 100).toFixed(0)}%)`);
+    /* ⛔ AND THE ONE THAT KEEPS IT HONEST: coverage is rarity's, and holding may not touch it.
+     *   Without this, "holding changed the card" would pass a build that let money buy rarity. */
+    /* Reads frameFoilSent — what the SHADER got — and at a rarity whose coverage is non-zero,
+     * so a build that let holding add coverage fails here instead of passing on 0 === 0. */
+    t('1h · …while foil COVERAGE is untouched — holding cannot buy rarity',
+      H.ashCover === H.infernoCover && H.ashCover > 0,
+      /* ⚠ PRINT BOTH. The first version said "cover 0.3 both ways" from H.ashCover alone — which
+       *   it still printed while FAILING, i.e. the failure message asserted the opposite of the
+       *   failure. A detail line that can lie is worse than no detail line. */
+      `Ash ${H.ashCover} · Inferno ${H.infernoCover}`);
+    t('1h · and tier 0 returns the original card exactly', H.returnsHome === true);
+  }
 
   // 2
   t('2 · still at rest — flex is EXACTLY zero after 10 s',
