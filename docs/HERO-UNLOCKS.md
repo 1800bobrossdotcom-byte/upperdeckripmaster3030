@@ -80,17 +80,44 @@ part that took the thought; the **numbers** are the part to argue about.
 
 | # | Title | Game | The condition | Why it is hard |
 |---|---|---|---|---|
-| 1 | **THE WIRE** | DOGFIGHT | Pass **every boost gate on the map** in a single match without taking a hit. | The gates are placed apart on purpose and high gates (alt ≥ 5) are left in deliberately. Flying the whole route means never straightening up, and the energy model taxes every climb — you are spending the speed you need to dodge with. |
-| 2 | **DEAD STICK** | DOGFIGHT | Win a match having **never pressed boost**. | Boost is the escape button; equilibria are 5.6 climbing / 9 cruise / 12.4 diving / 19.9 boosting. Giving it up means every disengage is bought with altitude, against bots that dive to convert height when they close. |
-| 3 | **ONE MAG** | SECTION 9 | Win a round with **more kills than reloads**. | TTK is ~1.3 s at 150 HP + 60 armour by design, so a body-shot duel costs most of a magazine. The only way past it is headshots — ×2.1, and armour soaks 15% instead of 45%. It is an accuracy title wearing an ammo title's clothes. |
-| 4 | **GHOST WALK** | SECTION 9 | Take a round on **any baked level** (ARCADE PIT · THE VAULT · ROOFTOP) **without ever being the first to fire**. | The bots bake cover from `MAP.solids` and score positions by whether line-of-sight to your eye is blocked. Letting them shoot first means winning every fight from behind their own plan. |
-| 5 | **OPEN AIR** | RIP ROCKETER | Reach **TIER IV** on one life. | Four floors, four waves each, sixteen waves without dying. Plate density falls 146 → 25 as you climb, so the last floor is the loneliest and the easiest place to get careless. |
-| 6 | **THE FACILITY IS CLOSED** | RIP ROCKETER | Clear **every emplacement** in a single tier — all guns on all sites, none left behind. | The turrets track, stop, then fire where they stopped, and a player bolt only reaches the wall through a gap in the diver formation. You have to fight two things at once, on purpose, for a whole floor. |
+| 1 | **GHOST WALK** | SECTION 9 | Take a round on **any baked level** (ARCADE PIT · THE VAULT · ROOFTOP) **without ever being the first to fire**. | The bots bake cover from `MAP.solids` and score positions by whether line-of-sight to your eye is blocked. Letting them shoot first means winning every fight from behind their own plan. |
+| 2 | **TWO MILLION FEET** | RIP ROCKETER | Post a run of **2,000,000 points**. | ⚑ Measured off the shipping `KIND` table and `waveSpec`, not guessed. A full clear of the whole facility — TIER I to TIER IV, all sixteen waves — scores about **688,876** at strong play. Two million is **wave 38**: you beat the building and then survived twenty-two waves of what comes after it. |
+| 3 | **ABOVE THE WEATHER** | RIP ROCKETER | Post a run of **5,000,000 points**. | **Wave 75** at strong play, **wave 43** if you play the perfect ceiling (every kill on a diver, ×6 chain, 100% accuracy). Past TIER IV the wave table stops escalating and simply keeps coming — 40 craft a wave, forever. This is the one that stops being about the fight and starts being about attention. |
+| 4 | **ESCAPE VELOCITY** | RIP ROCKETER | Post a run of **10,000,000 points**. | **Wave 121** at strong play, **wave 76** at the ceiling. ⚠ Stated plainly because it should be: this is hours in a single sitting and it may go unclaimed for a long time. It is the set's **uncontested variant** — if nobody takes it, the studio states a date and awards it to the highest verified run rather than leaving a card dead forever. |
+| 5 | **NEVER STILL** | RIP ROCKETER | Clear **one whole TIER — four waves — without the FLOW chain ever lapsing**, and without dying. | FLOW decays `FLOW_WIN` 1.15 s after the last dash or roll, and a dash comes off cooldown every 0.47 s, so holding it means a movement input at least every second for **23–30 seconds** (measured tier length) while a wave dives at you. ⛔ **Dying breaks the chain** — the decay only runs while you are alive, so without that rule a bot died three times and still 'held' it. Measured: a tireless flow-chaser holds it indefinitely while alive, and the first death is what ends the attempt. |
+| 6 | **COLD BARREL** | RIP ROCKETER | Clear **one whole TIER having fired only while OVERDRIVE was lit.** | ⚑ OVERDRIVE runs 4.2 s on a 10.2 s cycle — a hard **41.2% ceiling**, measured live at 41.9% — so this gives up nearly six-tenths of your firing window while the formation keeps diving. Cost, measured: firing only in overdrive reached **wave 6 against wave 13** for the same bot firing freely, and scored 21,525 against 111,095. ⚠ It keys on the SHOT, not the kill: a ram or a rip kills something outside the window, which measured out at 99% and would have made a 'every kill' version defeated by an accident the player never chose. A silent gun is also the thing a judge can actually see on a capture. |
 | 7 | **THE STREAK** ⚑×3 | CLOUD RACER | **Win 33 races in a row.** 6 pilots · 3 laps or longer, practice or for keeps. Finish anywhere but first — or leave a race once the lights have gone green — and the count returns to zero. **Three seats**, so the first three pilots to do it each take a 1/1. | Artist's rule, 2026-08-06. ⚠ It is a test of **concentration**, not of pace, and §4½ below measures exactly how much of each. Live in the game: `js/cr-streak.js`, `npm run test:crstreak` (47). |
 | 8 | **DEAD AIR** | THE CITY | As the bird, cover **300 m in one unbroken glide** — not a single wingbeat — and **never more than 40 m above the ground beneath you**. | ⚑ Measured on the shipping build. The glide ratio is a flat **8.2 : 1** at every altitude, so 40 m of height is **328 m** of glide and no more: 300 m spends 91% of the physical maximum. You cannot climb out of trouble and you cannot go over anything — and **2 of 5 straight lines from random city points hit a building** (190 m and 311 m against 327 m in the clear). So it is won by READING THE CITY before you commit, which is the one thing the bird is for. |
 | 9 | **BOTH ENDS** | THE CITY | In one unbroken visit: **plant a card from the air as the bird, then take that same card back as the squirrel.** | ⚑ The only title that makes you play two animals. `docs/CITY-GAME.md`'s claim is that the animals are **layers, not skins** — the bird sees everything and cannot place precisely, the squirrel owns the vertical and cannot cover ground. This is that claim as a condition: you drop it where you can only guess, then you have to go and physically get it, on foot, up whatever it landed on. ⚠ Rival squirrels take loose cards, so the clock is somebody else's. |
 
-**Coverage — 9 titles, 11 cards, and the arithmetic closes:** DOGFIGHT ×2 · SECTION 9 ×2 ·
+⛔ **THE TWO PASSES OVER-SUBSCRIBED THE SAME BUDGET, AND THE ARITHMETIC IS WHY THIS LIST SHRANK.**
+The earned tier is **11 CARDS**, because `11 auction + 11 gacha + 11 earned = 33` and the 33 is
+settled. Two independent passes on 2026-08-06 each spent that budget: one gave THE STREAK three
+seats and named two new THE CITY titles; the other turned five cards into the points ladder and
+the two RIP ROCKETER combo titles. Together they wanted 16 cards for an 11-card tier.
+
+**Coverage — 9 titles, 11 cards, and the arithmetic closes:** RIP ROCKETER ×5 · CLOUD RACER ×1
+**with three seats** · THE CITY ×2 · SECTION 9 ×1 = **11 earned heroes**, so
+`11 auction + 11 gacha + 11 earned` = **33** is untouched and **no aggregate on any public page
+moves**.
+
+⛔ **THE COST, STATED LOUDLY BECAUSE IT IS A REGRESSION AND IT IS THE ARTIST'S TO REVERSE:
+DOGFIGHT NOW OWNS NO TITLE.** The principle this file has carried until today — *every cabinet
+with a scoreboard owns at least one* — no longer holds. It is the direct price of the artist's
+own two directives (five cards to points/combos, three seats on THE STREAK) meeting a fixed 11.
+Retired to pay for it: THE WIRE and DEAD STICK (DOGFIGHT), ONE MAG (SECTION 9), OPEN AIR and THE
+FACILITY IS CLOSED (RIP ROCKETER), THREE CUTS and NO SWORD (NEON RONIN, a retired cabinet),
+HOUSE MONEY (THE ARENA) and THE LONG COUNT (cross-game). **All nine are good conditions and are
+kept in §4¾'s drawer, not deleted.**
+
+⚠ **Three ways to give DOGFIGHT its card back, with the exact cost of each — pick one:**
+1. **Drop the 5,000,000 rung.** The ladder becomes 2M → 10M, RIP ROCKETER ×4, and THE WIRE comes
+   back. Cheapest fix; costs the middle rung, which is the least distinct of the three.
+2. **Drop a seat from THE STREAK.** Two seats instead of three frees one card and brings THE WIRE
+   back with every cabinet covered. Costs the artist's own ×3.
+3. **Leave it.** DOGFIGHT is covered by the compression into THE CITY anyway — its mode lives
+   there — so the cabinet without a title is arguably not a cabinet without a presence.
+
 RIP ROCKETER ×2 · THE CITY ×2 · CLOUD RACER ×1 **with three seats** = **11 earned heroes**, so
 `11 auction + 11 gacha + 11 earned` = **33** is untouched. §4¾ records how it got here.
 
@@ -181,7 +208,31 @@ the artist's streak, and §4½ measures it the same way: it is a **concentration
 pattern is worth naming: **every time this title was written from how it sounded, the number
 disagreed.** Check it, then publish it.
 
-⚑ **One title was written, measured, and thrown away — worth recording.** #7 was first drafted as
+⚠ **THE CONCENTRATION IS A CONSEQUENCE, NOT A PREFERENCE, AND IT IS THE ARTIST'S TO OVERRULE.**
+Five of the eleven now sit in one cabinet because both directives point there: a points ladder in
+the millions only means anything in the cabinet that HAS a cumulative score, and the combo titles
+were placed in RIP ROCKETER on request. The three titles that made room — DEAD STICK, ONE MAG and
+NO SWORD — were chosen because each was the *second* title in its cabinet and each was the
+"refuse a tool" shape, which the set already says twice. **OPEN AIR and THE FACILITY IS CLOSED
+were retired to make room and are worth keeping in a drawer**; they are good conditions, they were
+simply the two RIP ROCKETER slots the new five needed.
+
+⚑ **THREE MORE CONDITIONS WERE WRITTEN, MEASURED AND THROWN AWAY IN THIS PASS — the rule below
+is not decoration, it caught all three.**
+- *"Hold OVERDRIVE for a whole wave."* **Impossible by construction.** `odCd` is `OD_T + OD_CD`,
+  i.e. a 10.2 s cycle with 4.2 s lit, so overdrive cannot be sustained past 4.2 s by any input.
+  A title nobody can ever satisfy is worse than an easy one — it is a lie on a public page.
+- *"Clear a WAVE with every kill in overdrive."* **Free.** A bot that merely holds the trigger and
+  dashes banks a 100% wave by accident — measured on waves 1, 3 and 10, at 24, 28 and 40 kills, so
+  a minimum-kill floor does not save it. Only the TIER scope survives: the same undisciplined bot
+  peaks at 67% over a tier and falls to 38%.
+- *"Every KILL in overdrive"* (as opposed to every shot). **Unclaimable.** A disciplined bot
+  measured 99%, not 100 — one incidental ram/rip kill lands outside the window. The condition now
+  keys on the shot, which is the only part the player controls.
+⚠ Also corrected here: project memory recorded overdrive at *"114 of 180 seconds — 66% uptime"*,
+which today's constants make arithmetically impossible (4.2/10.2 = 41.2%). Live measurement: 41.9%.
+
+⚑ **One title was written, measured, and thrown away when this file was first drafted.** #7 was first drafted as
 *"win a race without braking"*, which sounds like a handicap and is nearly free: `crpc-game.js`'s
 own battery puts the airbrake last of the four verbs at **0.29 s out of a 38 s race**, and at the
 grip the circuit shipped with, most of the lap is flat anyway. It would have been the easiest of
