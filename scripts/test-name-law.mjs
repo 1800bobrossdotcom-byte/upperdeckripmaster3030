@@ -962,6 +962,28 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
     /* ⚠ And the standing rule for the renderer, which no test can enforce: READ IT OFF THE
      *   EDITION (`edition.renderContract()`), never from a note. chain-config once carried a
      *   superseded renderer that looked perfectly plausible. */
+
+    /* ⛔ ON MAINNET, SHIPPING PackSink DARK MAKES THE SITE'S OWN COPY UNTRUE.
+     *   With `packSink` empty, RipWallet.payPack falls back to a plain 100% burn — deliberate,
+     *   because nothing may half-execute. But three public pages state the split as FACT:
+     *     index.html      "half burns and half funds the studio"
+     *     tokenomics.html "A pack and a game rake split 50/50"
+     *     whitepaper.html "half burns, half funds the studio"
+     *   ⚑ THE DEGRADATION IS HONEST EVERYWHERE IT IS REPORTED AT RUNTIME — pack.js's receipt and
+     *   WagerPayout.splitLive() both read hasSink() and say what actually happened. What cannot
+     *   adapt is STATIC PROSE. `lens721` empty is a different case and is fine: that door falls
+     *   back to the local vault and MARKS ITSELF `verified:false`, i.e. it tells the truth about
+     *   itself.
+     *   ⚠ Sepolia is exempt on purpose — rehearsing the fallback is the whole point of shipping
+     *   dark. Going live on MAINNET with the copy ahead of the code is the problem, and it is a
+     *   LAUNCH GATE rather than a code defect: deploy the sink and paste the address, or change
+     *   the copy. Either resolves it. Shipping resolves neither. */
+    if (isMain) {
+      const sink = String((CFG.contracts || {}).packSink || '').trim();
+      ok(/^0x[0-9a-fA-F]{40}$/.test(sink) && !/^0x0+$/.test(sink),
+        '⛔ LAUNCH GATE: on mainnet contracts.packSink must be DEPLOYED — empty means every pack burns 100% while index/tokenomics/whitepaper state a 50/50 split as fact (task #89)',
+        sink || 'EMPTY');
+    }
   }
 }
 
