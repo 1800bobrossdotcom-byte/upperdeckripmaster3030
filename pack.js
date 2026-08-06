@@ -110,7 +110,67 @@
   }).then(rec => {
     const R = (rec && rec.cards) || {};
     DECK = DECK.map(c => Object.assign({}, c, { recipe: (R[String(c.id)] || {}).q || null }));
+    healVault();
   }).catch(() => {});
+
+  /* ── ⛔ RETROACTIVE: A PACK ONCE OFFERED CARDS IT WAS NEVER ENTITLED TO OFFER ────────────────
+   * Before the reservation was keyed on the card's ID, a rip could hand out an auction 1/1
+   * (1–11) or an earned title (23–33). Those rows are sitting in collectors' vaults right now,
+   * showing in the binder as cards they hold.
+   *
+   * ⚑ NOTHING IS WRONG ON-CHAIN, AND SAYING SO PRECISELY IS THE POINT. A rip burns tokens and
+   *   writes a LOCAL row; a hero exists only once the studio signs a kind-1 voucher and someone
+   *   redeems it. Verified against the chain: ids 12–33 have never been minted, and all eleven
+   *   that exist are 1–11 in the studio's own wallet. So this is not a recovery — it is removing
+   *   a promise the site should never have displayed.
+   *
+   * ⚑ THIS FILE IS THE ONLY WRITER OF `urm_vault` ROWS CARRYING `n`, which is what makes fixing
+   *   it here sufficient rather than hopeful: a browser holding a bad row necessarily ran this
+   *   code to get it.
+   *
+   * ⚠ THE REPLACEMENT IS DETERMINISTIC, SEEDED BY THE ROW BEING REPLACED. A random swap would
+   *   re-roll on every page load — a collector could refresh until they liked the card, which is
+   *   a worse thing to build than the bug. Same bad row always yields the same field card.
+   * ⚠ AND IT IS NOT SILENT. Quietly editing somebody's collection is the wrong shape even when
+   *   the edit is correct; the swap leaves `swapped` on the row so the binder can say what
+   *   happened, and it is announced once. */
+  const RESERVED_N = n => { const v = Number(n); return v >= 1 && v <= 33 && GACHA_IDS.indexOf(v) < 0; };
+  function healVault() {
+    try {
+      const raw = localStorage.getItem('urm_vault');
+      if (!raw) return;
+      const v = JSON.parse(raw);
+      if (!Array.isArray(v) || !v.length) return;
+      const field = DECK.filter(c => Number(c.id) > 33);
+      if (!field.length) return;                 // nothing legitimate to offer — leave it alone
+      let fixed = 0;
+      const out = v.map(row => {
+        if (!row || !RESERVED_N(row.n)) return row;
+        /* stable hash of the row we are replacing → the same substitute, every load, forever */
+        let h = 2166136261;
+        for (const ch of String(row.slug) + ':' + row.n) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+        const sub = field[Math.abs(h) % field.length];
+        fixed++;
+        return Object.assign({}, row, { slug: sub.slug, n: sub.id, swapped: row.n });
+      });
+      if (!fixed) return;
+      localStorage.setItem('urm_vault', JSON.stringify(out));
+      const note = document.createElement('div');
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:2147483000;'
+        + 'max-width:520px;margin:0 auto;padding:11px 14px;border:1px solid #1c7a48;border-radius:9px;'
+        + 'background:#04180e;color:#d9ffe9;font:12.5px/1.5 \'Courier New\',monospace';
+      note.innerHTML = '<b style="color:#ffd23b">' + fixed + ' card' + (fixed === 1 ? '' : 's') +
+        ' in your folder were swapped.</b><br>A pack offered ' + (fixed === 1 ? 'a card' : 'cards') +
+        ' reserved for the auctions and the earned titles — it should never have. ' +
+        'Nothing on-chain was affected: those 1/1s were never minted to anyone. ' +
+        'You have field cards in their place. <button style="margin-left:6px;min-height:32px;' +
+        'background:#0a2a18;color:#2bff80;border:1px solid #1c7a48;border-radius:6px;' +
+        'font:inherit;cursor:pointer;padding:3px 10px">ok</button>';
+      note.querySelector('button').onclick = () => note.remove();
+      document.body.appendChild(note);
+    } catch (e) {}
+  }
 
   const rnd = n => Math.floor(Math.random() * n);
   const pickTier = () => {
