@@ -138,6 +138,9 @@
   /* ── the starfield viewer ────────────────────────────────────────────────────────────── */
   .viewer{position:fixed;inset:0;z-index:100;display:none;background:rgba(1,8,4,.94);perspective:1200px}
   .viewer.show{display:block}
+  .pk .copies{position:absolute;top:6px;right:6px;z-index:3;font-style:normal;font-size:10px;
+    letter-spacing:.06em;padding:2px 6px;border-radius:99px;background:#0a2a18;color:#2bff80;
+    border:1px solid #1c7a48}
   .warp{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:none}
   .vstage{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;
           gap:clamp(6px,2.2vw,22px);padding:16px 16px 84px}
@@ -212,6 +215,12 @@
       </div>
     </div>
     <div class="chips" id="chips"></div>
+    <p id="mineInfo" style="margin:6px 0 0;font-size:11.5px;letter-spacing:.05em;color:#7fd8a8;text-align:center"></p>
+    <p id="mineEmpty" style="display:none;margin:10px 0 0;font-size:12px;line-height:1.6;color:#7fd8a8;text-align:center">
+      Your folder is empty. <a href="../index.html" style="color:#ffd23b">Rip a pack</a> — or take the free
+      practice pull — and the cards land here.<br>
+      <span style="opacity:.75">Cards live in this browser. They are not on-chain, and clearing site data clears them.</span>
+    </p>
     <!-- ⛔ THE THREE STUDIO STRIPS ARE GONE — artist, 2026-08-06: *"these links are not needed -
          no one should have access to the plate proof console except me."* ◈ DEPTH (a generated
          row into `lens3d.html`), ◆ THE 33 (`proof.html`) and ◈ THE FIELD (`field.html`) all came
@@ -312,10 +321,27 @@
    *   hundred names six of them BY SLUG as its plates, and `js/card-press.js` `pool()` still
    *   fetches both manifests to resolve them. Stop them being fetchable and all 100 cards
    *   silently print as different cards. They stop being SHOWN; they keep being INK. */
+  /* ⛔ A FOLDER IS A COLLECTION, NOT A CATALOGUE — artist: "the binder should show only the cards
+   *   I've collected." It read `deck-manifest.json` and showed all 100 regardless of what anyone
+   *   had, with no knowledge of the vault at all: zero references to `urm_vault` in this file.
+   *   So every visitor saw a full folder, which is the same untruth the arena tells by counting
+   *   practice pulls as "owned" — the site conflating cards that EXIST with cards you HAVE.
+   * ⚑ THE HUNDRED STAYS, AS A SEPARATE CHIP. Being able to look at the whole set is worth
+   *   keeping; it just is not what a folder means. Collected leads. */
   const SOURCES = {
-    hundred: { file: 'deck-manifest.json', label: 'the hundred', note: '33 heroes · 67 field' },
+    collected: { file: 'deck-manifest.json', label: 'collected', note: 'what you have pulled', mine: true },
+    hundred:   { file: 'deck-manifest.json', label: 'the hundred', note: '33 heroes · 67 field' },
   };
-  let which = 'hundred', DECK = [], page = 0, cur = -1, ctrl = null;
+  let which = 'collected', DECK = [], page = 0, cur = -1, ctrl = null;
+
+  /* The vault is the same `{slug, n, p}` rows pack.js writes. ⚠ `n` is the hundred's own number
+   * and is the reliable key — games also push PLACEHOLDER slugs from cards/manifest.json, which
+   * are a different set and simply will not resolve here. Falling back to slug picks up the
+   * oldest rows, written before `n` was added. */
+  function vaultRows() {
+    try { const v = JSON.parse(localStorage.getItem('urm_vault') || '[]'); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
 
   const twoUp = () => getComputedStyle($('pkR').parentNode).display !== 'none';
   const pages = () => Math.max(1, Math.ceil(DECK.length / PER));
@@ -353,7 +379,14 @@
       <img loading="lazy" src="${card.art}" alt="${t}">
       <span class="vinyl"></span><span class="lip"></span>
       <span class="no">${String(card.number ?? '').padStart(2, '0')}</span>
+      ${copyBadge(card)}
       <span class="nm">${t}</span></button></div>`;
+  }
+
+  /* ⚠ Copies are a fact about a COLLECTION and meaningless in the catalogue, so the badge only
+   *   appears where it means something. */
+  function copyBadge(c) {
+    return (c && c.copies > 1) ? '<i class="copies" aria-label="' + c.copies + ' copies">×' + c.copies + '</i>' : '';
   }
 
   function render() {
@@ -372,6 +405,12 @@
                                                        : `page ${page + 1} of ${n}`;
     $('prevPg').disabled = page === 0;
     $('nextPg').disabled = page + step >= n;
+    /* ⛔ AN EMPTY FOLDER HAS TO SAY WHY. Nine empty sleeves under a page number reads as a broken
+     *   page, not as "you have not pulled anything yet" — and this is now the DEFAULT view, so it
+     *   is the first thing a new visitor meets. It also states plainly that these cards live in
+     *   the browser, which the folder never said anywhere. */
+    const empt = document.getElementById('mineEmpty');
+    if (empt) empt.style.display = (SOURCES[which] && SOURCES[which].mine && !DECK.length) ? 'block' : 'none';
   }
   const turn = d => { page += (twoUp() ? 2 : 1) * d; render(); };
   $('prevPg').onclick = () => turn(-1);
@@ -617,6 +656,32 @@
         number: c.number != null ? c.number : c.id,
         recipe: (R[String(c.id)] || {}).q || null,
       }));
+      /* ⛔ COUNT COPIES, DO NOT JUST FILTER. A folder shows what you hold, and holding three of a
+       *   card is a fact about your collection — the pocket carries ×N the way the arena's hand
+       *   does. ⚠ Practice pulls are INCLUDED but marked: they are real cards to play with and
+       *   were never paid for, and the honest move is to say which is which rather than to hide
+       *   them or to let them pass as ripped. */
+      if (SOURCES[key].mine) {
+        const rows = vaultRows();
+        const byN = new Map(), bySlug = new Map();
+        DECK.forEach(c => { byN.set(String(c.number), c); bySlug.set(String(c.slug), c); });
+        const held = new Map();
+        for (const r of rows) {
+          const c = (r && r.n != null && byN.get(String(r.n))) || (r && bySlug.get(String(r.slug)));
+          if (!c) continue;                                  // a placeholder slug from a game — not of the hundred
+          const e = held.get(c.number) || Object.assign({}, c, { copies: 0, practice: 0 });
+          e.copies++; if (r.p) e.practice++;
+          held.set(c.number, e);
+        }
+        DECK = [...held.values()].sort((a, b) => a.number - b.number).map((c, i) => Object.assign(c, { _i: i }));
+        const tot = DECK.reduce((a, c) => a + c.copies, 0);
+        const prac = DECK.reduce((a, c) => a + c.practice, 0);
+        const lbl = document.getElementById('mineInfo');
+        if (lbl) lbl.textContent = DECK.length
+          ? `${DECK.length} of the hundred · ${tot} card${tot === 1 ? '' : 's'}` +
+            (prac ? ` · ${prac} from practice pulls` : '')
+          : '';
+      }
       page = 0; render();
       /* #card-7 opens straight into the viewer, so a card is a link you can send someone.
        * ⚠ `hero`/`deck` are still accepted: those hashes have been shared, and a URL that
@@ -638,7 +703,12 @@
    *   source that key does not exist, `SOURCES.hero` is undefined, and the whole load fell into
    *   its own catch — "deck manifest unavailable", no error in the console, every pocket empty.
    * ⚑ The hash names a CARD now, never a source. Found by driving the page, not by reading it. */
-  load('hundred');
+  /* ⛔ THIS SAID `load('hundred')` AND SILENTLY OVERRODE THE DECLARED DEFAULT. `which` is
+   *   initialised at the top of the file and this line ignored it, so changing the default did
+   *   exactly nothing — the chip still came up on the catalogue and every driven check reported
+   *   the old view. Two definitions of one fact, and the one further from the declaration wins.
+   *   Boot from the variable, so there is only one place that decides. */
+  load(which);
 })();
 </script>
   <script src="../theme.js"></script>

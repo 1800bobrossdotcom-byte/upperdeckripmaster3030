@@ -786,7 +786,14 @@
    *   how this was caught — it timed out waiting for a hand that could no longer exist.
    * ⚠ LEGACY first so the hundred win any future slug collision (a Map keeps the last write). */
   function deckIndex(){ return new Map([...LEGACY, ...DECK].map(c => [c.slug, c])); }
-  function resolveEntry(e, bySlug, fById){ return e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null; }
+  /* ⚠ CARRY THE ROW'S PROVENANCE THROUGH THE RESOLVE. `p` marks a free practice pull, and it was
+   *   being dropped here — which is why nothing on the site could tell a practice card from one
+   *   somebody burned $3030 for, even though pack.js has written the flag since the artist first
+   *   raised it. The flag existed and nothing read it. */
+  function resolveEntry(e, bySlug, fById){
+    const c = e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null;
+    return c && e.p ? Object.assign({}, c, { practice: 1 }) : c;
+  }
 
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
@@ -794,7 +801,7 @@
     hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
-      $('handInfo').textContent = '0 owned';
+      $('handInfo').textContent = '0 in your folder';
       selected = []; updateSlam(); return;
     }
     // compress multiples: one tile per unique card with a ×N badge (declutter the grid)
@@ -825,7 +832,17 @@
     });
     if (window.CardHover) CardHover.bind($('handRow'), el => { const c = deckIndex().get(el.dataset.slug); if (!c) return null;
       const surge = c.trigger === gas; return { art: c.art, title: c.title, rarity: c.rarity, atk: c.atk, def: c.def, trigger: c.trigger + (surge ? ' ⚡' : ''), color: `var(${RC[c.rarity] || '--common'})` }; });
-    $('handInfo').textContent = `${hand.length} owned · ${gArr.length} kinds · ${selected.length}/${mode} staked`;
+    /* ⛔ "OWNED" WAS DOING WORK IT HAS NOT EARNED, AND THE ARTIST CAUGHT IT: "I don't own 81
+     *   cards." Two things were wrong in one word. Free practice pulls were counted the same as
+     *   paid rips — his own recorded complaint, "prefilled when I already bought cards" — and
+     *   NOTHING IN THIS VAULT IS OWNED ON-CHAIN ANYWAY. These are local rows in one browser; the
+     *   only cards that exist as tokens are the eleven 1/1s. Saying "owned" on a page that also
+     *   talks about staking real value is the small untruth that gets quoted back.
+     * ⚑ Practice cards stay PLAYABLE — the arena is free, and taking them away to make a number
+     *   honest would be fixing the wrong end. They are labelled, not removed. */
+    const prac = hand.filter(c => c.practice).length;
+    $('handInfo').textContent = `${hand.length} in your folder · ${gArr.length} kinds` +
+      (prac ? ` · ${prac} practice` : '') + ` · ${selected.length}/${mode} staked`;
   }
 
   function renderHouse(reveal){
@@ -868,7 +885,7 @@
     $('verdict').className = 'verdict'; $('verdict').textContent = '';
     $('youScore').textContent = '0'; $('houseScore').textContent = '0';
     $('log').innerHTML = hand.length
-      ? `Your cards: <b class="b">${hand.length}</b> owned. Stake <b class="b">${mode}</b> and slam — win and collect, lose and they're gone.`
+      ? `Your cards: <b class="b">${hand.length}</b> in your folder. Stake <b class="b">${mode}</b> and slam — win and collect, lose and they're gone.`
       : `No cards, no deal. <b class="b">Rip a pack</b> to get cards. (Voting in the gallery needs no cards — only tokens.)`;
     updateSlam();
   }
