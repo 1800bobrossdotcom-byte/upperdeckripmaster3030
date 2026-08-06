@@ -1800,6 +1800,41 @@ forge use. Measured on a driven page: **sd 63.5 against the press's own 63.7.**
 - ⚠ Not patched into `lovebeing.html` on purpose: it is embedded as an **iframe on the home page**,
   where the module no-ops anyway, so the five extra modules would download to do nothing.
 
+### ⛔ AND THEN MY FIX FOR THE PULL BECAME THE BUG — `base` MUST NEVER TOUCH `card.art` (test:press §6)
+*Artist, on the pull, twice: "this is still the wrong viewer for the card pull — no fx are
+showing."* It was the right viewer. It was **falling open**, because of the commit written for that
+exact complaint (`a8efd46`), which shipped for a day and took the reveal AND all seven fan bakes on
+`index.html` down together.
+- ⛔ **TWO PATHS ARRIVE FROM DIFFERENT PLACES AND ONLY ONE IS OURS TO RESOLVE.** `pool(base)` reads
+  `cards/manifest.json`, whose `art` is written relative to THAT file, so ground and mid need
+  `base`. **`card.art` is handed in by the CALLER and is already resolved against the caller's own
+  document** — `pack.js` passes `"cards/"+art` from the root, binder/lens3d/card-stage pass an
+  absolute URL. `a8efd46` added a `resolveArt()` that prefixed `base` onto that one too, so the
+  FIGURE plate asked for `/cards/cards/art/<card>.webp`.
+- ⛔ **A 404 ON ONE PLATE TAKES THE WHOLE CARD DOWN, IN SILENCE.** `HeroCard.build` is atomic on its
+  first three images ⇒ null ⇒ `CardPress.live` null ⇒ `CardView` null ⇒ the fail-open guard leaves
+  the flat poster standing. **Every layer behaved exactly as designed and the card had no press on
+  it.** ⚑ The guard that makes a missing press harmless is the same guard that makes it SILENT.
+- ⛔ **THE VERIFICATION THAT SHIPPED IT DROVE `CardPress.live` WITH A MANIFEST-SHAPED RECORD
+  (`"art/x.webp"`) INSTEAD OF THE ONE `pack.js` BUILDS (`"cards/art/x.webp"`).** Both are legal
+  calls; only one is the CALL SITE, and the wrong one passed with a green tick. Same rule the
+  sabotage notes already record — **a check that does not reproduce the real bytes proves nothing,
+  and it proves it convincingly.** ⚑ Hence §6 drives **index.html itself**: opens the pack, takes
+  the practice pull, reads the reveal.
+- ⚑ **THE ASSERTION THAT BITES IS THE SERVER'S 404 LOG, NOT "a canvas exists".** Every other symptom
+  is downstream of a missing plate and every one is silent — the server is the only party in the
+  stack that ever learns. Both directions are asserted, since a press that never mounts requests
+  nothing and would satisfy a 404 check on its own. Proved to bite with `git show HEAD:js/card-press.js`:
+  **4 named failures, while §1–§5 stayed green throughout** — which is exactly why the gap existed.
+  Before: canvas false, no `.live`, fan **0/7**, one 404. After: canvas 405×597, ink sd 70.4, fan
+  **7/7**, and **mean |Δpx| 21.2 across a drag** — it answers a hand.
+- ⚠ **§5's `deadView` SABOTAGE LOST ITS RACE UNDER LOAD AND ACCUSED THE PRODUCT.** A
+  `setInterval(…,4)` waiting for `window.CardView` is starved by the page's own synchronous work,
+  so in a loaded run three assertions reported the fail-open guard as broken on a build where it is
+  fine — and the identical code passed twice in isolation. It intercepts on **ASSIGNMENT** now (a
+  property setter defined before `card-view.js` exists) **and asserts that it engaged at all**,
+  because without that meta-assertion a coin-flip reads as a regression.
+
 ## ♪ THE SITE MUSIC IS STREAMED, NOT HELD — `theme.js`, `npm run test:theme` (29)
 *Artist, 2026-08-06: "incorporate this album now by this artist as the streaming music persistent
 throughout the website experience. removing the smiling man song by me and sean."*
