@@ -466,6 +466,11 @@ const ORPHAN_OK = {
    * reason is the difference between a decision and an oversight; that distinction is the entire
    * value of this allowlist. */
   'ronin.html': 'RETIRED — replaced in the arcade by city.html (THE CITY). Kept so the URL resolves.',
+  /* ⚠ UNLINKED ON THE ARTIST'S CALL, 2026-08-06 — index.html carries the roadmap section where
+   * the link used to be. The page is untouched and still says "proposal · not final art" on its
+   * own face; only the door from the home page is gone. Recorded here because the difference
+   * between a decision and an oversight is the entire value of this allowlist. */
+  'studio3d.html': 'THE UNCUT SHEET — a proposal the artist unlinked from the home page.',
   'cards/_template.html': 'the card generator template, not a page',
   'cards/_full.html': 'a generator template, not a page',
   'cards/_back-preview.html': 'a generator template, not a page',
@@ -759,18 +764,14 @@ head('2c · the surfaces a visitor comes for are a short walk from the front doo
     ['cards/market.html', 'the market bench'],
     ['arcade.html', 'the arcade'],
     ['city.html', 'THE CITY'],
-    /* ⚑ A PROPOSAL THE ARTIST CANNOT OPEN IS NOT A PROPOSAL. `studio.html` — the other draft
-     * home page — is an allow-listed orphan, and that is precisely how six generated layer
-     * stacks became unreachable: the only route into them started from a page nothing linked.
-     * The sheet is linked from index.html and this is the assertion that keeps it linked. */
-    ['studio3d.html', 'THE UNCUT SHEET (the proposed landing surface)'],
   ]) {
     t(`${why} is reachable from the home page`, dist[page] !== undefined && dist[page] <= 3,
       dist[page] === undefined ? 'NO WALK EXISTS' : `${dist[page]} click(s), via ${via[page]}`);
   }
-  /* ⛔ AND IT MUST NEVER LOOK LIKE THE DECISION HAS BEEN MADE. index.html is the front page
-   * until the artist says otherwise; a proposal that stops saying so is a promotion nobody
-   * authorised. Two ways out of it, both of them 44px doors, and the word on its face. */
+  /* ⛔ IT MUST STILL NEVER LOOK LIKE THE DECISION HAS BEEN MADE. The artist took the link down on
+   * 2026-08-06 (the home page carries the roadmap section in its place), so the sheet is an
+   * allow-listed orphan now rather than a linked proposal — but the page itself is unchanged and
+   * has NOT been promoted, so the word on its face and the routes home still have to hold. */
   const s3 = TEXT.get('studio3d.html') || '';
   t('the proposed landing surface says on its own face that it is a proposal',
     /proposal/i.test(s3) && /not final art/i.test(s3));

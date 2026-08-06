@@ -66,16 +66,50 @@
    * resume is broken" and is actually the exit handler helpfully saving nothing at all. */
   var pos = savedTime(), idx = savedIdx();
 
-  // ── the pill ──────────────────────────────────────────────────────────────────────────
+  // ── the control ───────────────────────────────────────────────────────────────────────
+  /* ⛔ IN A CABINET IT IS NOT A FLOATING PILL, AND THAT IS A MEASUREMENT, NOT A PREFERENCE.
+   * Driven at 844×390, the bottom-right pill sat ON TOP OF DOGFIGHT's FIRE pad and THE CITY's
+   * flap and mode buttons — it won the hit test, so the controls under it were dead. That is
+   * `banner.js`'s recorded failure exactly: a document widget at the highest z-index, loaded by
+   * a game, covering the one control the player uses continuously.
+   * ⚑ Every cabinet already HAS a home for an audio control — the `.toggles` row, which is where
+   * each game's own `♪ music` button lived until this commit, and which `js/game-toggles.js`
+   * collapses behind a cog. Appending a `.tg` there inherits the game's own styling AND the
+   * collapse for free (the collapsed state is a CSS rule keyed on the row, so a button added
+   * later is hidden by it too). One control, two homes, chosen by what the page is. */
+  var inRow = false, bar = null, prevBtn = null, nextBtn = null;
+
   function render() {
     if (!btn) return;
-    var label = playing ? (title ? '♪ ' + title : '♪ sound: on')
-              : booting ? '♪ …'
-              : '♪ sound: off';
-    btn.textContent = label;
+    if (inRow) {
+      btn.textContent = '♪ music';
+      btn.classList.toggle('off', !playing);   // the cabinets' own convention for a control that is off
+    } else {
+      btn.textContent = playing ? (title ? '♪ ' + title : '♪ sound: on')
+                      : booting ? '♪ …'
+                      : '♪ sound: off';
+    }
     btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
     btn.title = CREDIT;
     btn.setAttribute('aria-label', (playing ? 'pause' : 'play') + ' site music — ' + CREDIT);
+  }
+
+  /* ── the transport ──────────────────────────────────────────────────────────────────────
+   * Artist: *"have the ability to skip tracks or go back through tracks along with pause/play."*
+   * ⚑ A SET IS NOT A SONG, and that is the whole argument for these two buttons: the mp3 this
+   * replaced was ONE loop, where a skip would have meant nothing. This is somebody's album, so
+   * "not this one" is a thing a listener now wants to say, and without it their only option is
+   * to turn the music off — which is the same silence with worse feelings about it.
+   * ⚠ Skipping while PAUSED has to start playing. `widget.next()` on a paused player moves the
+   * needle and leaves it parked, so the press would look broken; and a skip is an explicit
+   * request for the next track, not for a silent seek. */
+  function step(dir) {
+    if (dead) return;
+    if (!ready) return boot(function () { step(dir); });
+    seekTo = 0;                       // a deliberate skip must not be dragged back to the old position
+    try { dir > 0 ? widget.next() : widget.prev(); } catch (e) { return; }
+    if (!playing) { try { widget.play(); } catch (e) {} }
+    setTimeout(function () { if (!playing && !dead) armGesture(); }, GEST_MS);
   }
 
   /* The one place the button goes away. Called when the widget cannot be brought up, so the
@@ -83,8 +117,13 @@
   function bury(why) {
     dead = true; booting = false; playing = false;
     set(KEY, 'off');
-    if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
-    btn = null;
+    /* ⚠ EVERY control goes, not just the play button. The transport was added after this
+     * function was written, and burying one of three would leave a skip button that skips
+     * nothing — which is precisely the failure this whole path exists to prevent. */
+    [prevBtn, btn, nextBtn, bar].forEach(function (el) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+    btn = prevBtn = nextBtn = bar = null;
     if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
     frame = null; widget = null; ready = false;
     if (window.console && console.info) console.info('[theme] site music unavailable (' + why + ')');
@@ -212,24 +251,64 @@
   }
 
   // ── mount ─────────────────────────────────────────────────────────────────────────────
+  function mkBtn(id, label, onPress) {
+    var b = document.createElement('button');
+    b.id = id; b.type = 'button'; b.textContent = label;
+    b.onclick = onPress;
+    /* A cabinet canvas swallows pointer events for aim or a fly stick, and every one of these
+     * sits above it, so a press must not also reach the game underneath. Same reason as the cog's. */
+    ['pointerdown', 'pointerup', 'touchstart'].forEach(function (k) {
+      b.addEventListener(k, function (e) { e.stopPropagation(); }, { passive: true });
+    });
+    return b;
+  }
+
   function mount() {
-    btn = document.createElement('button');
-    btn.id = 'soundToggle';
-    btn.type = 'button';
-    /* min-height 44 rather than a taller label: the pill grows, the type does not.
-     * `--rip-fab-bottom` (mobile.css) lifts it clear of the fixed freshness strip; the 42px
-     * fallback is the historical position for pages without that sheet. The width cap is new —
-     * the label now carries a TRACK TITLE, which is somebody else's string and can be any
-     * length, and an uncapped fixed pill would run off a phone. */
-    btn.style.cssText = 'position:fixed;right:12px;bottom:var(--rip-fab-bottom,42px);z-index:60;font-family:' +
-      "'Courier New',monospace;font-size:13px;letter-spacing:.1em;text-transform:uppercase;" +
-      'display:inline-flex;align-items:center;min-height:44px;' +
-      'max-width:min(62vw,320px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' +
-      'padding:0 16px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
-      'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer';
+    var toggle = function () { if (playing) stop(); else start(); };
+    prevBtn = mkBtn('soundPrev', '◀◀', function () { step(-1); });
+    btn     = mkBtn('soundToggle', '', toggle);
+    nextBtn = mkBtn('soundNext', '▶▶', function () { step(1); });
+    prevBtn.setAttribute('aria-label', 'previous track');
+    nextBtn.setAttribute('aria-label', 'next track');
+    prevBtn.title = 'previous track';
+    nextBtn.title = 'next track';
+
+    var row = document.querySelector('.toggles');
+    if (row) {
+      inRow = true;
+      // the game's own button style — three controls that look like they belong to the cabinet
+      prevBtn.className = btn.className = nextBtn.className = 'tg';
+      render();
+      row.appendChild(prevBtn); row.appendChild(btn); row.appendChild(nextBtn);
+      if (wantOn()) start();
+      return;
+    }
+
+    /* ⚑ ONE FIXED BAR, NOT THREE FIXED BUTTONS. Three separately-positioned fixed elements is
+     * three numbers to keep in step, and this repo has already paid for that twice (index's
+     * "three fixed bottom layers at the same altitude", city's caps drifting until one reached
+     * zero). The bar owns the position; the buttons just sit in it.
+     * ⚠ `--rip-fab-bottom` (mobile.css) lifts it clear of the fixed freshness strip; the 42px
+     * fallback is the historical position for pages without that sheet. The width cap matters
+     * more than it used to — the label carries a TRACK TITLE, somebody else's string of any
+     * length, and an uncapped fixed bar would run off a phone. */
+    bar = document.createElement('div');
+    bar.id = 'soundBar';
+    bar.style.cssText = 'position:fixed;right:12px;bottom:var(--rip-fab-bottom,42px);z-index:60;' +
+      'display:inline-flex;align-items:center;gap:6px;max-width:min(80vw,380px)';
+    var skin = "font-family:'Courier New',monospace;font-size:13px;letter-spacing:.1em;" +
+      'text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;' +
+      'min-height:44px;border-radius:99px;border:1px solid #0f5c33;color:#2bff80;' +
+      'background:rgba(2,16,9,.9);box-shadow:0 0 14px rgba(43,255,128,.3);cursor:pointer;';
+    // 44px minimum on the skips too — the mobile pass took taps under 44px to zero and a new
+    // control under the floor walks that back.
+    prevBtn.style.cssText = skin + 'min-width:44px;padding:0 8px;flex:0 0 auto';
+    nextBtn.style.cssText = skin + 'min-width:44px;padding:0 8px;flex:0 0 auto';
+    btn.style.cssText = skin + 'padding:0 14px;flex:0 1 auto;overflow:hidden;' +
+      'white-space:nowrap;text-overflow:ellipsis;display:inline-block;line-height:44px';
     render();
-    btn.onclick = function () { if (playing) stop(); else start(); };
-    document.body.appendChild(btn);
+    bar.appendChild(prevBtn); bar.appendChild(btn); bar.appendChild(nextBtn);
+    document.body.appendChild(bar);
 
     // if the set was playing when we left the last page, pick it back up here
     if (wantOn()) start();
@@ -252,6 +331,6 @@
     get button()  { return btn; },
     get frame()   { return frame; },
     set: SET, credit: CREDIT, api: API, player: PLAYER, bootMs: BOOT_MS,
-    start: start, stop: stop, boot: boot
+    start: start, stop: stop, boot: boot, step: step
   };
 })();
