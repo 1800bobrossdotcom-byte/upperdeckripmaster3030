@@ -297,6 +297,11 @@
         sl.className = 'streakLine off';
         sl.innerHTML = `This race did not count toward <b>THE STREAK</b> — it runs at <b>${S.PIN.players} pilots · ${S.PIN.laps} laps</b> or longer.`;
       } else if (r.hit || r.over) {
+        /* ⚑ THE STREAK JOINS THE SHARED LEDGER, so all nine titles live behind one REDEEM panel
+         * instead of this cabinet having a private way of saying the same thing. cr-streak.js
+         * still owns the streak's own semantics — arming, breaking, the pin — because those are
+         * racing rules; the CLAIM is not. */
+        try { if (window.RipTitles) RipTitles.award('streak', { wins: r.n, lobby: '6x3+', seats: S.SEATS }); } catch (e) {}
         sl.className = 'streakLine hit';
         sl.innerHTML = `◆ <b>${r.n} WINS IN A ROW.</b> That is <b>THE STREAK</b> — one of the ${S.SEATS === 1 ? 'earned' : S.SEATS} hero 1/1s on this title. ` +
           `<span class="q">Your browser cannot award it and does not pretend to: post the unbroken capture of all ${S.TARGET} races, the studio verifies it and signs the voucher, and you mint the card yourself.</span>`;

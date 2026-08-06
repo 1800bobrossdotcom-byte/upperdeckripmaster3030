@@ -389,6 +389,8 @@
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
 <script src="js/wager-payout.js"></script>
+<!-- the earned-title ledger + redeem panel, shared with SECTION 9 and THE CITY -->
+<script src="js/title-ledger.js"></script>
 <script src="js/game-help.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/sfx-lib.js"></script>
@@ -678,6 +680,7 @@
       else if(m.k==='f'&&s){ G.bolts.push({x:m.x,y:m.y,alt:m.alt,h:m.h,life:1.4,dmg:0,me:false,own:s,noHit:true,sp:m.sp||BOLTSPD}); }
       else if(m.k==='hit'&&G.me&&G.me.alive&&G.mode==='play'){ if(G.me.iframe>0)return;   // barrel roll still deflects
         let d=(+m.dmg||0)*0.55; if(G.me.sh>0)d*=0.4; G.me.hp-=d; G.shake=Math.max(G.shake,8); sfxHit(); G._lastBy=pid;
+        TT.hit=true;                                    // …and here, or a netted hit would not count
         if(G.me.hp<=0){ G.me.alive=false; G.me.respawnT=2.6; G.me.deaths++; boom(G.me.x,G.me.y,G.me.alt,G.me.tint,true);
           powMsg('✖ YOU WERE DOWNED'); RipFight.send({k:'down',by:G._lastBy}); } }
       else if(m.k==='down'){ if(s){ s.alive=false; s.respawnT=2.2; boom(s.x,s.y,s.alt,s.tint,true); }
@@ -690,6 +693,12 @@
     refreshEth(); });
 
   // ── the match ──
+  /* ⚑ THE TWO EARNED TITLES (docs/HERO-UNLOCKS.md #1/#2). Three booleans and a counter, reset with
+   * the match. The LEDGER is js/title-ledger.js, shared with SECTION 9 and THE CITY — a claim is
+   * not game logic, and three copies of the claim wording would drift. Fails open: no RipTitles on
+   * the page and every line here is a no-op. */
+  const TT={ gates:0, hit:false, boosted:false, need:7 };
+  function ttAward(id,ev){ try{ if(window.RipTitles) RipTitles.award(id,ev); }catch(e){} }
   const G={ mode:'lobby', t:0, dur:120, timeLeft:120, ships:[], bolts:[], bursts:[], rings:[], pows:[], props:[], gates:[], powT:6, shake:0,
     real:false, myStake:[], oppStakes:[], me:null, over:false, view:'chase', theme:0, lock:null, gscroll:0, sunAz:0, wing:[] };
   // ── toroidal world: an "infinite self-contained map" whose edges portal over ──
@@ -767,6 +776,9 @@
      * them. Invisible in one sitting for the same reason the ship-entity leak was, and now
      * visible because a gate has to sit on an avenue that the previous match's plan did not have. */
     G.ships=[]; G.bolts=[]; G.bursts=[]; G.rings=[]; G.pows=[]; G.props=[]; G.gates=[]; G.powT=6; G.shake=0; G.t=0; G.over=false; G.lock=null; G.gscroll=0;
+    /* ⚠ RESET WITH THE MATCH, for the same reason G.gates had to be cleared here: a rematch that
+     * inherits the previous match's state is a title awarded for two matches' work. */
+    TT.gates=0; TT.hit=false; TT.boosted=false;
     /* `?theme=N` pins the world. A random theme per match is right for play and useless for
      * comparison — an A/B of two renderers, or of the high-key palette against `?tod=night`, is
      * meaningless if the two frames are different places. */
@@ -1066,6 +1078,7 @@
             break; }
           if(s.iframe>0){ b.life=0; G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(4,-4),vy:rnd(4,-4),va:0,life:.4,col:'#8ffff0'}); break; }   // barrel-roll deflects
           b.life=0; let dmg=b.dmg; if(!b.me)dmg*=0.55; if(s.sh>0)dmg*=0.4; s.hp-=dmg; if(b.me)G.hitT=G.t;   // hit-marker feedback
+          if(s.isMe&&!b.me) TT.hit=true;                 // THE WIRE dies here
           G.bursts.push({x:b.x,y:b.y,alt:s.alt,vx:rnd(3,-3),vy:rnd(3,-3),va:rnd(2,-1),life:.5,col:b.me?'#ffd23b':'#ff5a3c'});
           if(s.isMe){ G.shake=Math.max(G.shake,8); sfxHit(); if(s.hp>0&&s.hp<55&&Math.random()<0.05)commsRnd('hit','#7a1e2a'); }
           if(s.hp<=0){ s.alive=false; s.respawnT=s.isMe?2.6:2.2; s.deaths++; boom(s.x,s.y,s.alt,s.tint,true);
@@ -1088,6 +1101,7 @@
          * point of putting gates on avenues: they START on a road and the first one you collect
          * moves to open ground, so over a match the city stops being where the rewards are. One
          * placement function, both callers — the same fix `drawWeapon` got in ronin3d. */
+        TT.gates++;                     // THE WIRE — the map carries seven
         placeGate(gt,10); } }
     G.timeLeft-=dt;
     if(!G.over && G.timeLeft<=0) endMatch();      // deathmatch: full clock, winner = most kills
@@ -1278,7 +1292,7 @@
      * thumb in a dogfight. */
     const mag=Math.hypot(stick.x,stick.y), slam=stick.id!==null&&mag>0.88;
     const wantB=!!(keys.Shift||keys.shift||padBoostHeld||(slam&&stick.y<-0.55));
-    if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
+    if(wantB&&s.boostGauge>0.02){ s.boost=true; s.boostGauge=Math.max(0,s.boostGauge-dt*0.5); if(s.isMe)TT.boosted=true; } else { s.boost=false; s.boostGauge=Math.min(1,s.boostGauge+dt*0.28); }
     /* ⚑ AIRBRAKE — the missing half of the throttle, and the reason this is a dogfight rather than
      *   a race. It is what lets a defender make an attacker overshoot, and it TIGHTENS your turn
      *   (radius = spd/ω) while it lasts. One momentary key, no state to forget it is in. */
@@ -1334,12 +1348,17 @@
   }
 
   // ── result / payout ──
-  function endMatch(){ G.over=true; G.mode='result'; music.pause();
+  function endMatch(){ G.over=true; G.mode='result';
     if(window.RipNet){ try{ RipNet.setStatus('idle'); }catch{} }
     // deathmatch: winner is whoever racked up the most kills over the clock
     const ranked = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp));
     let winner = ranked[0];
     const iWon = winner && winner.isMe; commsRnd(iWon?'win':'lose', iWon?'#0e5a68':'#7a1e2a');
+    /* ⛔ THE WIRE does NOT require the win — the condition is the route and the clean sheet, and
+     * adding "and win" would be a second bar nobody wrote down. DEAD STICK does require it,
+     * because refusing the escape button only means anything if you still came first. */
+    if(TT.gates>=TT.need && !TT.hit) ttAward('wire',{gates:TT.gates, hitsTaken:0});
+    if(iWon && !TT.boosted) ttAward('deadstick',{won:true, boostPresses:0, kills:G.me?G.me.kills:0});
     const myRank=ranked.findIndex(s=>s.isMe);
     const P=WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);   // podium split: 1st/2nd/3rd take pot + cards
     const onPodium=P.myPlace>=0;
@@ -1717,7 +1736,11 @@
    * matches /START|PLAY|LAUNCH|BEGIN|FLY/ — on this page that lands on the lobby's wager controls,
    * so the "dogfight" row of that sweep has always been a screenshot of the lobby. CLAUDE.md
    * already records the general form of this: "a game measured in its lobby is not measured." */
-  window.__df = { G, cam, world, keys, step, draw, project, startMatch,
+  /* ⚑ THE TITLE TRACKER IS EXPOSED, for the reason `__city.s` and `__crpc.s` are: a condition
+   * that fires once, deep in a match, is otherwise only assertable by playing a whole match in a
+   * container whose rAF stalls. `_ttEnd` runs the real settle, so the harness drives the shipping
+   * path rather than a copy of the rule. */
+  window.__df = { G, cam, world, keys, step, draw, project, startMatch, TT, _ttEnd: () => endMatch(),
     K:{ WS, CAM_BACK, CAM_H, NEAR, ALT_MIN, ALT_MAX, VIEW_FAR, BOLTSPD, CLOUD_ALT, CLOUD_THICK },
     gl:()=>glReady, renderer:()=>(glReady?'dfpc':'none'),
     plan:()=>{ try{ return (window.DFPCCity&&DFPCCity.enabled())?DFPCCity.layoutFor(world().name,WS):null; }catch(e){ return null; } },

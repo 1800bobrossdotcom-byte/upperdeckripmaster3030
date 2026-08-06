@@ -536,6 +536,39 @@ for (const [f, hook] of [['js/rrpc-app.js', '__rrpc'], ['js/crpc-app.js', '__crp
  *   section9-classic.html loaded both. Driven proof of the old state: `!!window.RipEth` was
  *   false on section9.html and true on section9-classic.html. One of the three doors in
  *   docs/SEATS.md, dark by omission rather than by decision. */
+/* ═══ 3d · A REMOVED FEATURE MUST NOT LEAVE ITS VARIABLE BEHIND ══════════════════════════════
+ * ⛔ THE MUSIC PASS DELETED THE CABINETS' SOUNDTRACKS AND LEFT FIVE CALLS ON THE BINDING IT HAD
+ *   JUST REMOVED, and two of them were fatal on the busiest line in the game:
+ *     dogfight.html   endMatch()   → `music.pause()` threw before the ranking, the payout, the
+ *                                    card winnings and the whole result overlay. EVERY MATCH.
+ *     s9pc-ui.js      result()     → the same, in SECTION 9.
+ *     s9pc-app.js     togglePause()→ `ui.music` is undefined, so pausing threw.
+ *     s9pc-ui.js      btnAbort     → threw past RipNet and onAbort.
+ *     rrpc-app.js                  → inside a try/catch, so merely dead.
+ * ⚑ NOTHING COULD SEE IT. §0 compiles every script with `new Function`, which does not EXECUTE —
+ *   a ReferenceError on a line that only runs at the final whistle is invisible to every static
+ *   check here, and the games look perfect until the clock hits zero. It was found by a title
+ *   test driving the real `endMatch()`, i.e. by running the line.
+ * ⚑ THE RULE IS NARROW ON PURPOSE: site music belongs to `theme.js` and persists across pages by
+ *   design, so NO cabinet has any business holding a music handle. That makes "zero references"
+ *   the correct assertion rather than a heuristic about undefined variables. */
+head('3d · the deleted per-game soundtracks left no callers');
+{
+  const SURFACES = ['dogfight.html', 'section9.html', 'riprocketer.html', 'cloudracer.html',
+    'city.html', 'js/s9pc-ui.js', 'js/s9pc-app.js', 'js/rrpc-app.js', 'js/crpc-ui.js',
+    'js/crpc-app.js', 'js/dfpc-app.js', 'js/city-app.js'];
+  const bad = [];
+  for (const f of SURFACES) {
+    /* Comments stripped, same reason as everywhere else here: this file's own note QUOTES the
+     * five broken calls, and a checker that fires on the description of the bug gets muted. */
+    const code = (R(f) || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const m = code.match(/\b(?:ui\.)?(?:music|dfMusic|rrMusic|s9Music|tgMusic)\s*\.\s*(?:play|pause|load)\s*\(/g);
+    if (m) bad.push(f + ' ×' + m.length);
+  }
+  t('no cabinet calls a per-game music handle — theme.js owns the sound and games must not pause it',
+    bad.length === 0, bad.join(', ') || (SURFACES.length + ' surfaces clean'));
+}
+
 head('4 · every seat door has the module it reads');
 t('js/session.js checkVisitor reads window.RipEth', /const R = window\.RipEth/.test(R('js/session.js')));
 /* ⚠ This used to loop over section9.html AND section9-classic.html. The classic build was removed

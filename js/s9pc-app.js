@@ -2021,7 +2021,7 @@
   bindPad($('padCrouch'), () => { T.crouch = true; }, () => { T.crouch = false; });
 
   function togglePause(force) {
-    if (game.G.mode === 'play') { game.G.mode = 'pause'; ui.music.pause();
+    if (game.G.mode === 'play') { game.G.mode = 'pause';
       $('pauseSub').textContent = isTouch ? 'Deployment on hold. Tap resume to drop back in.' : 'Pointer released. Click to lock the mouse and drop back in.';
       $('ovPause').classList.add('show'); $('tgPause').textContent = '▶ resume'; }
     else if (game.G.mode === 'pause' && !force) resume();

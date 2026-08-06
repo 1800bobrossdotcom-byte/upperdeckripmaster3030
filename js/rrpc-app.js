@@ -2024,7 +2024,6 @@
   }
   function showOver() {
     overShown = true;
-    try { music.pause(); } catch (e) {}
     const e = { name: getName(), score: Math.floor(G.score), wave: G.wave, chain: G.bestChain, ts: Date.now() };
     const list = lbLoad(); list.push(e); list.sort((x, y) => y.score - x.score);
     const top = list.slice(0, 10); lbSave(top);
