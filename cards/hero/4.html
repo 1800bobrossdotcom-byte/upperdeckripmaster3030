@@ -9,6 +9,17 @@
      storage, no parent-window assumptions. The BASE art is the IPFS-pinned asset that also
      sits in the metadata as image — this page is how it is displayed, not where it lives. -->
 <style>
+  /* ⚑ THE STARFIELD, lifted from the folder's viewer and the pack rip UNCHANGED — opening a
+     card from the folder, pulling one from a pack, and meeting one in the token's media slot
+     should be the same event. Plain 2D on purpose: this page also runs the press's WebGL
+     context, and a full-screen bloom chain behind the subject is the most expensive thing here
+     by a wide margin. */
+  .warp{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;display:block}
+  .scene{z-index:1}
+  /* The press mounts here — a sibling laid over the card's box, never a child of .card, which
+     carries its own rotateY/rotateX. A canvas inside it would be turned twice. */
+  #cvStage{position:absolute;inset:0;z-index:2;opacity:0;pointer-events:none;
+           transition:opacity .25s ease-out}
   html,body{margin:0;height:100%;background:#000;overflow:hidden;
     font-family:'Courier New',ui-monospace,monospace;-webkit-text-size-adjust:100%}
   body{display:flex;align-items:center;justify-content:center;perspective:1200px}
@@ -63,7 +74,9 @@
 </style>
 </head>
 <body>
+<canvas class="warp" id="warp" aria-hidden="true"></canvas>
 <div class="scene" id="scene">
+  <div id="cvStage" aria-hidden="true"></div>
   <div class="card" id="card">
     <div class="face front" id="front">
       <img class="base" id="base" src="https://ipfs.io/ipfs/QmZTUxqTZagqsQjGPho4SESSTXuRDcFt7Ds5nTPP9BUkhE" alt="monero">
@@ -118,6 +131,109 @@
       if(i<alt.length){ img.src=alt[i++]; }
       else { document.getElementById('front').classList.add('dead'); }
     });
+  } catch(e){}
+
+  /* ── the starfield ──────────────────────────────────────────────────────────────────────
+   * Runs whether or not anything below it loads — it is CSS and 2D canvas and needs no engine,
+   * so a card that falls all the way back to the flat plate still arrives out of a warp. */
+  try {
+    var cv=document.getElementById('warp'), ctx=cv&&cv.getContext('2d');
+    if(ctx){
+      var slow=matchMedia('(prefers-reduced-motion:reduce)').matches;
+      var dpr=Math.min(devicePixelRatio||1,1.25);
+      var N=matchMedia('(max-width:760px)').matches?170:300, SPEED=slow?3.1:6.2;
+      var w=0,h=0,cx=0,cy=0,stars=[],raf=0;
+      function size(){ w=innerWidth;h=innerHeight;cx=w/2;cy=h/2;
+        cv.width=w*dpr;cv.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); }
+      function spawn(){ return {x:(Math.random()*2-1)*w,y:(Math.random()*2-1)*h,z:Math.random()*w||1}; }
+      function frame(){
+        ctx.fillStyle='rgba(1,8,4,0.34)'; ctx.fillRect(0,0,w,h);
+        for(var n=0;n<stars.length;n++){ var s=stars[n], pz=s.z; s.z-=SPEED;
+          if(s.z<=1){ stars[n]=spawn(); stars[n].z=w; continue; }
+          var k=130/s.z, pk=130/pz, a=Math.min(1,(1-s.z/w)*1.4);
+          ctx.strokeStyle='rgba('+(205+Math.floor(a*50))+',255,225,'+a.toFixed(2)+')';
+          ctx.lineWidth=Math.max(0.4,(1-s.z/w)*2.6);
+          ctx.beginPath(); ctx.moveTo(cx+s.x*pk,cy+s.y*pk); ctx.lineTo(cx+s.x*k,cy+s.y*k); ctx.stroke(); }
+        raf=requestAnimationFrame(frame);
+      }
+      size(); stars=[]; for(var q=0;q<N;q++) stars.push(spawn()); frame();
+      addEventListener('resize',size,{passive:true});
+      /* ⚠ A HIDDEN TAB SHOULD NOT BE RUNNING A STARFIELD. A media slot scrolled out of view in a
+         marketplace is exactly that case, and it is on somebody else's page. */
+      document.addEventListener('visibilitychange',function(){
+        if(document.hidden){ cancelAnimationFrame(raf); raf=0; } else if(!raf){ size(); frame(); }
+      });
+    }
+  } catch(e){}
+
+  /* ── ⛔ THE PRESS — proof.html's viewer, on the token's own page ─────────────────────────
+   * Artist: *"the viewers here need to have the same awesome ability as the proof.html viewer
+   * with turning ability graphics etc, losing all the fx."* This page was the last flat card
+   * in the project: a CSS-tilted <img>, no press, no room, no material.
+   *
+   * ⛔ THE HUNDRED ARE RECIPES, NOT PICTURES, AND GUESSING WRONG DOES NOT ERROR. Every one of
+   *   1–33 has an entry in cards/deck.json carrying its seed, its six plate slugs and every dial
+   *   the artist set. Passing this card's flat art in as 'card:' instead would press a
+   *   SEPARATION OF A SEPARATION at a seed derived from the filename — a card that renders
+   *   beautifully and is a different card. js/card-view.js states this in as many words; the
+   *   caller says which it has and never infers it.
+   *
+   * ⚑ ADDITIVE, NEVER SUBSTITUTIVE. The flat plate above already works — it walks a gateway
+   *   chain down to a local copy and then to a legible plate. Nothing here removes it until a
+   *   real sheet has printed, because this repo's one fail-open violation was exactly that:
+   *   swapping a working card for the press's output before knowing the press produced anything.
+   * ⚠ Absolute /js/ and /cards/ paths: this page is framed from a data: URL at an opaque origin,
+   *   so a relative path resolves against something we do not control. */
+  try {
+    if (/[?&]flat/.test(location.search)) return;
+    var MODS=['/js/gfx-post.js','/js/hero-card.js','/js/card-back.js','/js/card-press.js',
+              '/js/card-recipe.js','/js/card-view.js'];
+    var loaded=0;
+    function next(){
+      if(loaded>=MODS.length){ press(); return; }
+      var s=document.createElement('script'); s.src=MODS[loaded++];
+      s.onload=next; s.onerror=next;          // resolve either way; a missing module just removes it
+      document.head.appendChild(s);
+    }
+    function press(){
+      if(!window.CardView||!window.CardRecipe) return;   // flat card stands
+      fetch('/cards/deck.json',{cache:'force-cache'}).then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){
+          var rec=d&&d.cards&&d.cards['4'];
+          if(!rec||!rec.q) return;
+          var stage=document.getElementById('cvStage'), card=document.getElementById('card');
+          return CardView.mount({box:stage, recipe:rec.q, base:'/cards/'}).then(function(v){
+            /* ⛔ A CONTROLLER IS NOT A PRINTED CARD. mount() resolving is not evidence that ink
+             *   landed — driven against a press that clears to nothing it still hands one back.
+             *   Check the pixels here, before anything is taken away.
+             * ⚠ "NOT BLANK" IS NOT "ALPHA > 0": the stock is near-white, so a paper-coloured
+             *   canvas is fully opaque and completely empty. The test is tonal VARIANCE. */
+            if(!v) return;
+            var cvs=stage.querySelector('canvas');
+            if(!cvs||!printed(cvs)){ try{v.destroy();}catch(e){} return; }
+            stage.style.opacity='1'; stage.style.pointerEvents='auto';
+            /* visibility, not display — the stage is inset:0 against this box. */
+            card.style.visibility='hidden';
+            window.__heroView=v;
+            var hint=document.querySelector('.hint');
+            if(hint){ hint.textContent='tap to turn ↺  ·  drag to tilt'; }
+            var flip=function(e){ if(e){e.preventDefault();e.stopPropagation();} try{v.flip();}catch(err){} };
+            stage.addEventListener('dblclick',flip);
+            addEventListener('keydown',function(e){ if(e.key==='f'||e.key==='F') flip(); });
+          });
+        }).catch(function(){});
+    }
+    function printed(c){
+      try{
+        var g=document.createElement('canvas'), n=48; g.width=n; g.height=n;
+        var x=g.getContext('2d',{willReadFrequently:true}); if(!x) return true;
+        x.drawImage(c,0,0,n,n);
+        var p=x.getImageData(0,0,n,n).data, s=0, s2=0, m=n*n;
+        for(var i=0;i<p.length;i+=4){ var l=(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114); s+=l; s2+=l*l; }
+        var mean=s/m; return Math.sqrt(Math.max(0,s2/m-mean*mean))>4;
+      }catch(e){ return true; }      // cross-origin or no 2D — do not punish the press for it
+    }
+    next();
   } catch(e){}
 })();
 </script>
