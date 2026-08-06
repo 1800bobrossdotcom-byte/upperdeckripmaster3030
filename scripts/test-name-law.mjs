@@ -236,7 +236,13 @@ pin('index.html', 'twitter:image" content="https://ripmaster3030studios.com/medi
 pin('scripts/build-pages.mjs', 'media/site/og-1200x630.png',
     'the four generated pages inherit it from the shell, not from a hand-edit');
 pin('js/wallet.js', "name: 'ripmaster3030studios'", 'the WalletConnect sheet names the live studio');
-pin('js/wallet.js', "url: 'https://ripmaster3030studios.com'", 'and points at the live domain');
+/* ⚠ WAS `url: 'https://ripmaster3030studios.com'` — a hard-coded APEX while the platform serves
+ *   `www` as Production. The sheet is now derived from the host the collector is actually on
+ *   (js/wallet.js `siteOrigin()`), so what this pins is the FALLBACK: an origin the site does not
+ *   recognise must land on the live domain, never on whatever host served the page. The
+ *   derivation itself is driven at a real studio host in `npm run test:wc` §3b. */
+pin('js/wallet.js', "return 'https://ripmaster3030studios.com';",
+    'and falls back to the live domain when the origin is unrecognised');
 pin('js/session.js', 'Take a seat in the ripmaster3030studios arena', 'the SIWE statement matches the site');
 pin('api/lore.js', `lore-keeper for "${LIVE}"`, 'generated lore names the live studio');
 /* ⚠ Pinned to the PREFIX, not a filename. The assertion is "it shows the generated mark", and
@@ -320,6 +326,36 @@ for (const file of DEPLOY_DOCS) {
   const badPreset = fenced.match(/--curve-preset\s+(?!low-demand)(\S+)/);
   ok(!badPreset, `${file} — every pasteable deploy command uses --curve-preset low-demand`,
     badPreset ? 'found ' + badPreset[1] : 'low-demand');
+
+  /* ⛔⛔ EVERY PIN ABOVE CHECKS AN ARGUMENT THAT IS PRESENT. NONE OF THEM COULD ASK WHETHER A
+   *    REQUIRED ONE WAS MISSING — and on 2026-08-06, running the documented command for real,
+   *    the preview came back:
+   *
+   *        Max total supply: 1000000        <- the settled cap is 3,300,000
+   *
+   *    `--total-supply` appears in NO deploy command anywhere in this repo, and the CLI silently
+   *    defaults to 1,000,000. `maxTotalSupply` is frozen at deploy. Every runbook here would have
+   *    minted a token with a THIRD of the intended supply, permanently, and the pins would all
+   *    have been green — because they were watching the arguments we had already been burned by.
+   *    ⚑ It is also why the Sepolia rehearsal edition reads 1,000,000: nobody chose that number,
+   *    it was the default, and it looked deliberate for months.
+   *    ⚑ THE GENERALISATION: a copy-paste guard that only validates what is written cannot see an
+   *    OMISSION, and an omitted argument on a CLI with defaults is indistinguishable from a
+   *    deliberate choice. Assert the argument is THERE before asserting it is right.
+   * ⚠ Only fenced blocks that actually deploy — `--preview`-less prose and the `--help` output
+   *   are not commands anyone pastes to mint something. */
+  for (const cmd of fenced.match(/rare liquid-edition deploy multicurve[^\n`]*/g) || []) {
+    if (/<NAME>|<SYMBOL>|…/.test(cmd)) continue;          // templates, not pasteable commands
+    const supply = cmd.match(/--total-supply\s+(\S+)/);
+    ok(!!supply, `${file} — the deploy command SETS --total-supply (the CLI defaults to 1,000,000)`,
+      supply ? supply[1] : 'MISSING — would mint 1,000,000');
+    ok(supply && supply[1] === '3300000',
+      `${file} — …and it is the settled cap, 3300000`, supply ? supply[1] : 'none');
+    /* The chain is not permanent, but deploying the launch token to the wrong one wastes the
+     * name and the moment — and the CLI defaults to whatever `rare configure` last set. */
+    const chain = cmd.match(/--chain\s+(\S+)/);
+    ok(!!chain, `${file} — …and names its --chain explicitly`, chain ? chain[1] : 'MISSING');
+  }
 }
 /* ── ⛔ THE TREASURY IS A DEPLOY-TIME PERMANENT TOO ───────────────────────────────────────────
  * `chain-config.treasury` becomes PackSink's `treasury` constructor argument, which is
@@ -500,7 +536,16 @@ console.log('\n── generators may not write the retired name into what they e
   const genHits = [];
   let scanned = 0;
   for (const f of readdirSync(join(ROOT, 'scripts')).filter(f => f.endsWith('.mjs'))) {
-    if (f === 'test-name-law.mjs') continue;      // this file quotes every bad form on purpose
+    /* ⚠ A HARNESS THAT FORBIDS THE NAME HAS TO BE ABLE TO SAY IT. This sweep's subject is what
+     *   generators EMIT — a test script emits nothing, and `test-wc.mjs` names the retired studio
+     *   inside the very assertion that keeps it out of the wallet approval sheet. Flagging that is
+     *   the checker firing on its own fix, which is how a checker gets muted, and this file
+     *   already carried the same exemption for itself. Scoped to `test-*.mjs` deliberately: no
+     *   test harness here writes a shipped artifact (the one that writes anything at all puts
+     *   .pgm masks into a gitignored build/ directory), so nothing they contain can reach a
+     *   surface. ⛔ If a test ever starts GENERATING output, it stops qualifying and this
+     *   exemption has to be narrowed. */
+    if (/^test-.*\.mjs$/.test(f)) continue;
     scanned++;
     const src = readFileSync(join(ROOT, 'scripts', f), 'utf8');
     if (!/upperdeck/i.test(src)) continue;

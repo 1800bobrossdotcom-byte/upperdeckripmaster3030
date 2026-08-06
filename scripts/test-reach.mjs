@@ -471,6 +471,19 @@ const ORPHAN_OK = {
    * own face; only the door from the home page is gone. Recorded here because the difference
    * between a decision and an oversight is the entire value of this allowlist. */
   'studio3d.html': 'THE UNCUT SHEET — a proposal the artist unlinked from the home page.',
+  /* ⛔ THE FORGE — artist, 2026-08-06: *"no one should have access to the plate proof console
+   * except me."* It is the plate-proof editor the hundred are authored on, and it is in
+   * `.vercelignore`, so it is not served at all. Listed here so the orphan sweep stops asking
+   * for a door, and §6b asserts the STRONGER thing: that nothing links it and that it stays out
+   * of the deploy. A reason, not an oversight — which is this allowlist's entire value. */
+  'cards/proof.html': 'THE FORGE — the artist\'s console. Unlinked AND undeployed, on his call.',
+  /* ⚠ REACHED FROM OUTSIDE THE SITE, WHICH NO WALK FROM index.html CAN SEE. Cards 34–100 put
+   * `cards/field.html?n=NN` in their `animation_url`, so a collector arrives here from a
+   * marketplace media slot — it MUST keep resolving, and it is not a page the site navigates to.
+   * The folder advertised it until 2026-08-06, when the artist took all three studio strips off
+   * that header; the hundred are browsable at cards/deck.html instead. */
+  'cards/field.html': 'THE FIELD — a token animation_url target, not a browsable page. Must resolve.',
+  'cards/lens3d.html': 'THE LENS — the other animation_url target, same reason as field.html.',
   'cards/_template.html': 'the card generator template, not a page',
   'cards/_full.html': 'a generator template, not a page',
   'cards/_back-preview.html': 'a generator template, not a page',
@@ -536,6 +549,39 @@ for (const [f, hook] of [['js/rrpc-app.js', '__rrpc'], ['js/crpc-app.js', '__crp
  *   section9-classic.html loaded both. Driven proof of the old state: `!!window.RipEth` was
  *   false on section9.html and true on section9-classic.html. One of the three doors in
  *   docs/SEATS.md, dark by omission rather than by decision. */
+/* ═══ 3d · A REMOVED FEATURE MUST NOT LEAVE ITS VARIABLE BEHIND ══════════════════════════════
+ * ⛔ THE MUSIC PASS DELETED THE CABINETS' SOUNDTRACKS AND LEFT FIVE CALLS ON THE BINDING IT HAD
+ *   JUST REMOVED, and two of them were fatal on the busiest line in the game:
+ *     dogfight.html   endMatch()   → `music.pause()` threw before the ranking, the payout, the
+ *                                    card winnings and the whole result overlay. EVERY MATCH.
+ *     s9pc-ui.js      result()     → the same, in SECTION 9.
+ *     s9pc-app.js     togglePause()→ `ui.music` is undefined, so pausing threw.
+ *     s9pc-ui.js      btnAbort     → threw past RipNet and onAbort.
+ *     rrpc-app.js                  → inside a try/catch, so merely dead.
+ * ⚑ NOTHING COULD SEE IT. §0 compiles every script with `new Function`, which does not EXECUTE —
+ *   a ReferenceError on a line that only runs at the final whistle is invisible to every static
+ *   check here, and the games look perfect until the clock hits zero. It was found by a title
+ *   test driving the real `endMatch()`, i.e. by running the line.
+ * ⚑ THE RULE IS NARROW ON PURPOSE: site music belongs to `theme.js` and persists across pages by
+ *   design, so NO cabinet has any business holding a music handle. That makes "zero references"
+ *   the correct assertion rather than a heuristic about undefined variables. */
+head('3d · the deleted per-game soundtracks left no callers');
+{
+  const SURFACES = ['dogfight.html', 'section9.html', 'riprocketer.html', 'cloudracer.html',
+    'city.html', 'js/s9pc-ui.js', 'js/s9pc-app.js', 'js/rrpc-app.js', 'js/crpc-ui.js',
+    'js/crpc-app.js', 'js/dfpc-app.js', 'js/city-app.js'];
+  const bad = [];
+  for (const f of SURFACES) {
+    /* Comments stripped, same reason as everywhere else here: this file's own note QUOTES the
+     * five broken calls, and a checker that fires on the description of the bug gets muted. */
+    const code = (R(f) || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    const m = code.match(/\b(?:ui\.)?(?:music|dfMusic|rrMusic|s9Music|tgMusic)\s*\.\s*(?:play|pause|load)\s*\(/g);
+    if (m) bad.push(f + ' ×' + m.length);
+  }
+  t('no cabinet calls a per-game music handle — theme.js owns the sound and games must not pause it',
+    bad.length === 0, bad.join(', ') || (SURFACES.length + ' surfaces clean'));
+}
+
 head('4 · every seat door has the module it reads');
 t('js/session.js checkVisitor reads window.RipEth', /const R = window\.RipEth/.test(R('js/session.js')));
 /* ⚠ This used to loop over section9.html AND section9-classic.html. The classic build was removed
@@ -660,8 +706,19 @@ head('6 · the layered cards resolve, and the page that can show them is named')
    * ⚑ `cards/binder.html` carries the DEPTH strip now, and the binder is reached from battle,
    *   market and deck3d. Printing the count was the honest thing while promoting a draft shell was
    *   the artist's call to make; he has made it, so it fails the build from here. */
-  t('a layer-capable page is reachable from a page that is not itself an orphan',
-    reachable.length > 0, reachable.join(', ') || 'none — see docs/REACHABILITY.md R2');
+  /* ⛔ THIS ASSERTION IS RELAXED TO A REPORT, AND IT REVERSES AN EARLIER ARTIST DIRECTIVE — which
+   *   is why it is written out rather than quietly deleted. On 2026-08-04 he asked to "fix
+   *   reachability for the six so I may at least see ideas", and the folder's ◈ DEPTH strip was
+   *   the answer. On 2026-08-06 he took all three studio strips off that header — *"these links
+   *   are not needed"* — and the depth strip went with them. So the six layered cards are once
+   *   again reachable only from `studio.html`, itself an allow-listed orphan.
+   * ⚠ THE LATER INSTRUCTION WINS, AND THE COST IS REAL: nothing a visitor can click shows a
+   *   separated layer stack. It is printed on every run instead of failing the build, because a
+   *   red build would be this suite disagreeing with the artist rather than protecting him. If
+   *   the six should have a door again, that is a decision, and it belongs on a page he chooses
+   *   — not smuggled back in by a test. */
+  console.log(`     · layer-capable pages reachable from a non-orphan: ${reachable.length}` +
+              (reachable.length ? ` (${reachable.join(', ')})` : ' — none, by the 2026-08-06 call'));
   /* …and the menu into them must be DERIVED, not a hand-typed row of numbers that silently stops
    * matching the sidecars the moment the set changes. */
   const idxF = join(hero, 'layered.json');
@@ -685,10 +742,64 @@ head('6b · the first of the 33 is reachable, and the type is still geometry');
 {
   const proof = TEXT.get('cards/proof.html') || '';
   t('cards/proof.html exists and loads the renderer', /js\/hero-card\.js/.test(proof));
-  const nav = navigatorsOf('cards/proof.html').filter(n => !ORPHAN_OK[n]);
-  t('…and something that is not itself an orphan links it', nav.length > 0,
-    nav.join(', ') || 'NO INBOUND LINK');
+
+  /* ⛔ THE ASSERTION HERE USED TO BE THE EXACT OPPOSITE, AND INVERTING IT IS THE POINT.
+   * It required that something non-orphan LINK the forge — written when the worry was that the
+   * first of the 33 was built, tested and unreachable. Artist, 2026-08-06: *"these links are not
+   * needed - no one should have access to the plate proof console except me."* So the guard is
+   * turned around rather than deleted: the failure mode changed direction, and a guard that is
+   * simply removed leaves the next well-meaning pass free to re-add a friendly door to the
+   * artist's authoring console.
+   * ⚑ TWO ASSERTIONS, BECAUSE THERE ARE TWO WAYS IN AND ONLY ONE OF THEM IS A LINK. Unlinking is
+   *   obscurity — the veil has been off since 2026-08-05 and the URL is in a public repo — so
+   *   the file must ALSO be out of the deploy. Checking only the links would pass on a site that
+   *   still serves the whole console to anyone who types the path. */
+  const doors = navigatorsOf('cards/proof.html');
+  t('NOTHING links the forge — it is the artist\'s console, not a public page',
+    doors.length === 0, doors.join(', ') || 'no inbound link, as intended');
+  const vign = R('.vercelignore');
+  t('…and it is not deployed at all, which is the half that is a lock',
+    /^cards\/proof\.html\s*$/m.test(vign));
   t('the committed type outlines exist', existsSync(join(ROOT, 'cards/type/alphabet.json')));
+
+  /* ══ ⛔ THE FORGE WRITES RECIPES AND THE PUBLIC VIEWER READS THEM ═══════════════════════════
+   * `cards/deck.json` is 100 query strings the forge serialised; `js/card-recipe.js` is what
+   * turns one back into a card for `cards/deck.html`, the folder and the pack. They are two
+   * tables of the same key→setter knowledge, in two files, because the forge's rows also carry a
+   * label, a slider element and a saved value — jobs the viewer does not have — and importing
+   * them would ship the console's UI to every visitor.
+   * ⛔ SO THEY ARE COUPLED BY ASSERTION, the instrument `js/city-ops.js` and `js/s9pc-game.js`
+   *   already use for their weapon tables. A dial added to the forge and not to the reader is a
+   *   dial that SAVES into a recipe and is silently dropped on every card the public opens —
+   *   a hundred cards printing as slightly different cards, with nothing anywhere reporting it,
+   *   which is this repo's signature failure shape.
+   * ⚠ Read out of the SOURCE rather than by running it: both files are browser globals with no
+   *   module boundary, and a regex over the literal keys cannot be fooled by a table that is
+   *   built correctly and then never consulted. */
+  {
+    const recipe = R('js/card-recipe.js');
+    const body = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+    const readerKeys = new Set(
+      [...body(recipe).matchAll(/^\s{4}([a-z]+):\s*\{\s*d:/gm)].map(m => m[1]));
+    /* every `k: 'x'` in the forge's DIALS / TOGGLES / CHOICES rows.
+     * ⚠ MINUS THE SIX PLATE SLOTS. `g m f w s i` are rows in the forge's slot table and they
+     *   carry a `k:` too, but they are not dials — they name a PICTURE, and the reader resolves
+     *   them through the pigment pool (`CardRecipe.SLOTS`) rather than through a setter. The
+     *   first version of this assertion did not know that and failed on all six, which is the
+     *   check being wrong rather than the code. */
+    const SLOTS = new Set((R('js/card-recipe.js').match(/SLOTS\s*=\s*\[([^\]]+)\]/) || [, ''])[1]
+      .match(/'([a-z])'/g)?.map(s => s.replace(/'/g, '')) || []);
+    const forgeKeys = new Set(
+      [...body(proof).matchAll(/\bk:\s*'([a-z]+)'/g)].map(m => m[1]).filter(k => !SLOTS.has(k)));
+    t('the recipe reader knows every dial the forge can save',
+      [...forgeKeys].every(k => readerKeys.has(k)),
+      [...forgeKeys].filter(k => !readerKeys.has(k)).join(', ') || 'all ' + forgeKeys.size + ' keys');
+    t('…and invents none the forge cannot write',
+      [...readerKeys].every(k => forgeKeys.has(k) || k === 'mot'),
+      [...readerKeys].filter(k => !forgeKeys.has(k) && k !== 'mot').join(', ') || 'none');
+    t('…and the public viewer never falls back to the forge\'s PLATE PROOF placeholder',
+      !/PLATE PROOF/.test(recipe.replace(/\/\*[\s\S]*?\*\//g, ' ')));
+  }
   /* ⚠ The proof used to load a BAKED word (`plate-proof.json`) and now composes from the
    * alphabet, because 67 field cards would otherwise be 67 baked words — and a name that costs a
    * build step to change is a name that becomes permanent by friction. Either route is still no
@@ -759,8 +870,13 @@ head('2c · the surfaces a visitor comes for are a short walk from the front doo
   for (const [page, why] of [
     ['cards/index.html', 'the deck'],
     ['cards/binder.html', 'the folder'],
-    ['cards/proof.html', 'the 33'],
-    ['cards/field.html', 'the field, cards 34–100'],
+    /* ⛔ `cards/proof.html` IS DELIBERATELY NOT WALKABLE — artist, 2026-08-06. It was listed here
+     *   as "the 33"; the 33 are public at cards/deck.html now, and the forge is not a visitor
+     *   surface at all. §6b asserts the opposite of this for it. */
+    ['cards/deck.html', 'the hundred — both bands'],
+    /* ⚠ `cards/field.html` came OFF this list with the folder's ◈ THE FIELD strip. It is a token
+     *   media target now, not a page the site walks to — see its ORPHAN_OK entry. The 67 are
+     *   browsable at cards/deck.html, which IS on this list. */
     ['cards/market.html', 'the market bench'],
     ['arcade.html', 'the arcade'],
     ['city.html', 'THE CITY'],
@@ -791,14 +907,23 @@ head('6c · the deck offers a way onward, and the generator that writes it agree
 {
   const deck = TEXT.get('cards/index.html') || '';
   t('the deck links THE FOLDER', /href="binder\.html"/.test(deck));
-  t('the deck links THE 33', /href="proof\.html"/.test(deck));
+  /* ⛔ WAS `href="proof.html"` — "the deck links THE 33". The 33 were only ever reachable through
+   * the FORGE, which is the artist's console and is neither linked nor deployed from 2026-08-06.
+   * The onward door is `cards/deck.html`, which carries both bands and opens every card in the
+   * starfield viewer — so the row still answers the question this section exists for ("is there a
+   * way onward from here"), it just no longer answers it with an authoring tool. */
+  t('the deck links THE HUNDRED', /href="deck\.html"/.test(deck));
   /* ⛔ AND THE GENERATOR MUST CARRY IT. `cards/index.html` is written by
    * `scripts/ingest-batch.mjs`; patching only the output leaves the generator armed to put the
    * dead end back on the next ingest, which is exactly the failure `test:name` §4 was built for
    * (`restyle-backs.mjs` emitting the dead-name bitmap over hand-fixed output). */
   const gen = readFileSync(join(ROOT, 'scripts/ingest-batch.mjs'), 'utf8');
   t('…and the generator emits the same nav', /class="decknav"/.test(gen) &&
-    /href="binder\.html"/.test(gen) && /href="proof\.html"/.test(gen));
+    /href="binder\.html"/.test(gen) && /href="deck\.html"/.test(gen));
+  /* ⚠ BOTH SIDES, BECAUSE "IT IS GONE FROM THE OUTPUT" IS THE HALF THAT ROTS BACK. The generator
+   *   is what re-writes this page on the next ingest. */
+  t('…and neither the page nor its generator re-opens a forge door',
+    !/href="proof\.html"/.test(deck) && !/href="proof\.html"/.test(gen));
   t('…and so does the shipped page', /class="decknav"/.test(deck));
 }
 

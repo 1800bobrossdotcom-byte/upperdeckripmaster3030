@@ -214,7 +214,12 @@
         document.head.appendChild(s);
       });
       inject('js/hero-card.js').then(() => inject('js/card-back.js'))
-        .then(() => inject('js/card-press.js')).then(() => inject('js/card-view.js')).then(() => {
+        .then(() => inject('js/card-press.js')).then(() => inject('js/card-view.js'))
+        /* ⚑ THE STARFIELD VIEWER — artist, 2026-08-06: *"pack rip should use that one too - the
+         *   one with the starfield."* Same module the folder and `cards/deck.html` open, so a
+         *   card pulled out of a pack and a card pulled out of a sleeve are the same object in
+         *   the same room. Injected here with the rest, i.e. only once somebody has ripped. */
+        .then(() => inject('js/card-starfield.js')).then(() => {
         if (!window.CardPress) return;
         CardPress.grid('.fcard img', img => {
           const b = img.closest('.fcard');
@@ -287,7 +292,7 @@
       e.preventDefault();
       downAt = null;
       if (dragged) { dragged = false; return; }
-      openZoom();
+      zoomIn();
     });
     const flip = document.getElementById('pvFlip');
     flip.addEventListener('click', e => {
@@ -304,6 +309,37 @@
   // ── z-space shift: the viewed card flies forward into its full live page,
   //    the pull recedes behind it; "back to the pull" reverses the move ──
   let zoomEl = null;
+  /* ── ⛔ OPENING A PULL IS THE STARFIELD VIEWER NOW ────────────────────────────────────────
+   * Artist, 2026-08-06: *"pack rip should use that one too - the one with the starfield."*
+   *
+   * ⛔ WHAT IT REPLACES WAS A WHOLE SECOND PAGE. `openZoom()` framed `cards/<slug>.html` in an
+   *   IFRAME — a fresh document, its own stylesheets, its own `cards/card-stage.js` press and its
+   *   own WebGL context, layered over the one this modal is already running. It showed a card,
+   *   so nothing read as broken; it was simply not the viewer the folder uses, and it cost a
+   *   second press to prove it.
+   * ⚑ THE SEVEN GO IN AS A SET, so ◀ ▶ inside the viewer walk YOUR PULL rather than dead-ending
+   *   on the one you tapped — the pull is the thing you just earned, and paging it is the point.
+   * ⚠ `base: 'cards/'` resolves the PIGMENT MANIFEST, and `cardRec` has already resolved
+   *   `card.art` against this document. `js/card-press.js` records what happens when those two
+   *   are confused: the figure plate asks for /cards/cards/… , one 404 takes the whole card down
+   *   atomically, and every layer fails open in silence.
+   * ⚠ FALLS BACK TO THE IFRAME ZOOM, which is not two viewers by accident. The press modules are
+   *   injected lazily on the first rip, so a blocked script or no WebGL2 leaves `CardStarfield`
+   *   undefined — and the old zoom is a real page that works without any of it. The starfield is
+   *   what you get; the iframe is what you get instead of nothing. */
+  function zoomIn() {
+    if (window.CardStarfield && cards.length) {
+      const items = cards.map((c, i) => ({
+        card: cardRec(cards, i),
+        title: c.title || '',
+        meta: [c.rarity, 'pull ' + (i + 1) + ' of ' + cards.length].filter(Boolean).join(' · '),
+        href: c.slug ? 'cards/' + c.slug + '.html' : '',
+      }));
+      if (window.CardStarfield.open({ items, index: cur, base: 'cards/' })) return;
+    }
+    openZoom();
+  }
+
   function openZoom() {
     const c = cards[cur]; if (!c || zoomEl) return;
     const zoom = document.createElement('div');

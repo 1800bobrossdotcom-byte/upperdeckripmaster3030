@@ -310,7 +310,6 @@ window.S9PCUI = (function () {
     function result() {
       const G = game.G;
       try { document.exitPointerLock && document.exitPointerLock(); } catch (e) {}
-      music.pause();
       if (window.RipNet) { try { RipNet.setStatus('idle'); } catch (e) {} }
       const ranked = G.ents.slice().sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
       const winner = ranked[0], iWon = winner && winner.isMe;
@@ -386,7 +385,7 @@ window.S9PCUI = (function () {
     $('btnLobby').onclick = () => { $('ovResult').classList.remove('show'); $('ovLobby').classList.add('show');
       if (game) game.G.mode = 'lobby'; if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch (e) {} } };
     $('btnAbort').onclick = () => { if (game) { game.G.mode = 'lobby'; game.G.over = true; }
-      $('ovPause').classList.remove('show'); showMatchChrome(false); $('ovLobby').classList.add('show'); music.pause();
+      $('ovPause').classList.remove('show'); showMatchChrome(false); $('ovLobby').classList.add('show');
       if (window.RipNet) { try { RipNet.setStatus('seeking'); } catch (e) {} }
       if (API.onAbort) API.onAbort(); };
 

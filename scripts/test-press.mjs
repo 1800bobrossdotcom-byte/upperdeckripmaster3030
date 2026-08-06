@@ -45,6 +45,11 @@ const ok = (cond, msg, detail) => {
   else { fail++; console.log('  FAIL ' + msg + (detail ? '  — ' + detail : '')); }
 };
 
+/* ⚑ THE 404 LOG IS AN ASSERTION, NOT DEBUG OUTPUT. A plate that will not load is the one failure
+ *   this whole file exists for and the only one nothing reports: the press returns null, every
+ *   guard behaves exactly as designed, and the page keeps its flat card in silence. The server
+ *   is the only place in the stack that KNOWS. §6 reads it. */
+const missed = [];
 const srv = createServer(async (req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0]);
   if (p.endsWith('/')) p += 'index.html';
@@ -52,7 +57,7 @@ const srv = createServer(async (req, res) => {
     const b = await readFile(join(ROOT, p));
     res.writeHead(200, { 'content-type': MIME[extname(p)] || 'application/octet-stream' });
     res.end(b);
-  } catch { res.writeHead(404); res.end('not found'); }
+  } catch { missed.push(p); res.writeHead(404); res.end('not found'); }
 });
 await new Promise(r => srv.listen(PORT, r));
 
@@ -299,21 +304,31 @@ const pump = (page, n) => page.evaluate(async (n) => {
  *   outside: a `mount()` that RESOLVES A CONTROLLER over a canvas with nothing on it. That is
  *   not hypothetical — it is what mount actually did under a dead press, which is why this
  *   module checks the pixels itself rather than trusting the resolve. */
+/* ⛔ IT PATCHES ON ASSIGNMENT, NOT BY POLLING, AND THE DIFFERENCE IS A RACE THIS SUITE HAS
+ *   ALREADY LOST. A `setInterval(…, 4)` waiting for `window.CardView` is starved by whatever the
+ *   page is doing synchronously, so under load — a full `npm test`, several browsers up — the
+ *   real `mount()` ran first and three assertions reported the fail-open guard as BROKEN on a
+ *   build where it is fine. In isolation the same code passed twice. ⚑ A sabotage whose timing
+ *   decides whether it engages is a coin flip that reads as a regression, so the interception is
+ *   made unloseable: the property is defined BEFORE card-view.js exists, and the wrap happens in
+ *   the setter — i.e. at the instant of assignment, with nothing in between to be starved. */
 const deadView = () => {
-  const t = setInterval(() => {
-    if (!window.CardView || !window.CardView.mount) return;
-    clearInterval(t);
-    window.CardView.mount = (o) => {
-      const cv = document.createElement('canvas');
-      cv.width = 300; cv.height = 450;
-      cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
-      // paper-white and completely empty: fully OPAQUE, so "alpha > 0" would call this a card
-      const x = cv.getContext('2d');
-      x.fillStyle = '#f2ece0'; x.fillRect(0, 0, cv.width, cv.height);
-      if (o && o.box) o.box.appendChild(cv);
-      return Promise.resolve({ show() {}, flip() { return true; }, destroy() {} });
-    };
-  }, 4);
+  const dead = (o) => {
+    const cv = document.createElement('canvas');
+    cv.width = 300; cv.height = 450;
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+    // paper-white and completely empty: fully OPAQUE, so "alpha > 0" would call this a card
+    const x = cv.getContext('2d');
+    x.fillStyle = '#f2ece0'; x.fillRect(0, 0, cv.width, cv.height);
+    if (o && o.box) o.box.appendChild(cv);
+    return Promise.resolve({ show() {}, flip() { return true; }, destroy() {} });
+  };
+  let held;
+  Object.defineProperty(window, 'CardView', {
+    configurable: true,
+    get() { return held; },
+    set(v) { held = v; if (held) { held.mount = dead; window.__sabotaged = true; } },
+  });
 };
 
 {
@@ -329,6 +344,7 @@ const deadView = () => {
     const card = document.getElementById('card');
     const img = card && card.querySelector('.face.front img');
     return { stage: !!document.getElementById('cvStage'),
+             sabotaged: !!window.__sabotaged,
              view: !!window.__cardStageView,
              flatVisible: card ? getComputedStyle(card).visibility !== 'hidden' : false,
              /* ⚑ THE PROPERTY THAT MATTERS IS THAT IT CANNOT DO HARM, not that it was tidied
@@ -338,11 +354,104 @@ const deadView = () => {
                return !st || getComputedStyle(st).pointerEvents === 'none'; })(),
              art: !!(img && img.getAttribute('src')) };
   });
+  /* ⚑ FIRST, THAT THE SABOTAGE ENGAGED AT ALL. Without this the three assertions below are
+   *   claims about a HEALTHY press wearing a broken press's name, and a failure among them
+   *   accuses the product instead of the harness — which is exactly what happened once. */
+  ok(s.sabotaged, 'the sabotage engaged — mount() really was replaced before the page ran');
   ok(!s.view, 'a viewer that resolves over an EMPTY canvas never takes the card page over');
   ok(s.flatVisible && s.art,
     '⛔ THE CARD IS STILL THERE — the flat card stands when nothing was printed');
   ok(s.inert, 'and nothing is left that can swallow a tap meant for the card');
   ok(errs.length === 0, 'it fails quietly', errs.slice(0, 2).join(' | ') || 'clean');
+  await ctx.close();
+}
+
+console.log('\n── 6 · THE PACK REVEAL IS A LIVE PRESS, DRIVEN FROM THE ROOT ──────────────────');
+/* Artist, 2026-08-06, on the pull, twice: *"this is still the wrong viewer for the card pull —
+ * no fx are showing."* It was the right viewer. It was falling open, and it fell open because of
+ * a fix written for this very complaint.
+ *
+ * ⛔ THE DEFECT: `platesFor` prefixed `base` onto the CALLER's art path. `base` resolves the
+ *   MANIFEST; the caller's `card.art` is already resolved against the caller's own document —
+ *   `pack.js` hands in "cards/"+art from the root. Prefixed again, the figure plate asked for
+ *   /cards/cards/art/<card>.webp, HeroCard.build is atomic on its first three images, and the
+ *   reveal AND all seven fan bakes went flat at once. Driven before: canvas false, fan 0/7,
+ *   one 404. After: canvas 405x597, .live, fan 7/7, no 404s.
+ *
+ * ⚑ AND THE VERIFICATION THAT SHIPPED IT DROVE THE PRESS WITH A MANIFEST-SHAPED RECORD RATHER
+ *   THAN THE ONE `pack.js` BUILDS. Both are valid calls into `CardPress.live`; only one is the
+ *   call site. That is why this section drives INDEX.HTML — the real page, the real record, the
+ *   real base — instead of asking the press a question of the harness's own devising.
+ *
+ * ⚠ THE ASSERTION THAT BITES IS THE 404 COUNT, NOT "a canvas exists". Every other symptom here
+ *   is downstream of a missing plate and every one of them is silent; the server is the only
+ *   party that ever learns. Both directions are asserted anyway — a press that never mounts also
+ *   requests nothing and would satisfy a 404 check on its own.
+ *
+ * ⚠ NOT waitForSelector: playwright's poll is rAF-driven and this container stalls rAF, so it
+ *   times out on elements plainly present. Poll from node against a wall clock. */
+{
+  missed.length = 0;
+  const ctx = await br.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(1800);
+
+  const until = async (sel, ms) => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < ms) {
+      if (await page.evaluate(s => !!document.querySelector(s), sel).catch(() => false)) return true;
+      await page.waitForTimeout(250);
+    }
+    return false;
+  };
+  await page.evaluate(() => { const b = document.getElementById('packOpen'); if (b) b.click(); });
+  /* headless has no wallet, so the on-chain rip blocks and offers the practice pull — the SAME
+   * reveal, which is the surface under test. */
+  if (await until('#ripPractice', 25000)) {
+    await page.evaluate(() => document.getElementById('ripPractice').click());
+  }
+  const gotReveal = await until('#pvCard', 30000);
+  await pump(page, 140);
+
+  const s = await page.evaluate(() => {
+    const box = document.getElementById('pvCard');
+    const cv = box && box.querySelector('canvas');
+    let sd = 0;
+    if (cv) {
+      try {
+        const t = document.createElement('canvas'); t.width = 40; t.height = 60;
+        const x = t.getContext('2d'); x.drawImage(cv, 0, 0, 40, 60);
+        const d = x.getImageData(0, 0, 40, 60).data;
+        let n = 0, sum = 0, sq = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          n++; sum += l; sq += l * l;
+        }
+        const m = sum / n; sd = Math.sqrt(Math.max(0, sq / n - m * m));
+      } catch (e) {}
+    }
+    return { live: !!(box && box.classList.contains('live')), canvas: !!cv,
+             sd: +sd.toFixed(1),
+             fanPressed: [...document.querySelectorAll('.fcard img')]
+               .filter(i => i.getAttribute('data-pressed')).length,
+             fanTotal: document.querySelectorAll('.fcard img').length };
+  });
+  const artMisses = [...new Set(missed)].filter(p => /\/(art|cards)\//.test(p));
+
+  ok(gotReveal && s.fanTotal === 7, 'the pull reveals seven cards', s.fanTotal + ' in the fan');
+  ok(artMisses.length === 0,
+    '⛔ NO PLATE 404s FROM THE ROOT — the pack\'s own record resolves',
+    artMisses.slice(0, 3).join(' , ') || 'every plate 200');
+  ok(s.canvas && s.live,
+    '⛔ THE REVEAL IS THE PRESS, NOT A POSTER — a live card mounted and took the box');
+  ok(s.sd > 20, 'and there is ink on it', 'sd ' + s.sd);
+  ok(s.fanPressed === s.fanTotal && s.fanTotal > 0,
+    'every card in the fan printed too', s.fanPressed + '/' + s.fanTotal);
+  ok(errs.length === 0, 'and the page is clean', errs.slice(0, 2).join(' | ') || 'no errors');
   await ctx.close();
 }
 

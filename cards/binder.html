@@ -60,17 +60,8 @@
   .note{margin:14px 0 0;max-width:70ch;font-size:var(--t-body,12px);line-height:1.7;color:#8fe3b8}
 
   .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-  .depthstrip{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px;
-    padding:10px 12px;border:1px solid rgba(139,255,187,.30);border-radius:10px;
-    background:rgba(4,26,14,.45)}
-  .depthstrip[hidden]{display:none}
-  .dlabel{font-family:var(--fat);font-size:var(--t-tag,9px);letter-spacing:.14em;color:var(--phos)}
-  .dnote{font-family:var(--mono);font-size:var(--t-tag,9px);letter-spacing:.03em;opacity:.7}
-  .depthstrip a{font-family:var(--mono);font-size:var(--t-tag,10px);letter-spacing:.06em;
-    padding:7px 11px;min-height:32px;display:inline-flex;align-items:center;
-    border:1px solid rgba(139,255,187,.45);border-radius:7px;color:var(--phos);text-decoration:none}
-  .depthstrip a:hover,.depthstrip a:focus{background:var(--phos);color:#01130a}
-  @media (pointer:coarse){ .depthstrip a{min-height:44px;padding:10px 14px} }
+  /* ⚠ `.depthstrip` / `.dlabel` / `.dnote` went with the three studio strips (see the header).
+     Dead CSS is not inert here — it is the next person's evidence that a feature still exists. */
   .chip{font-family:var(--fat);font-size:var(--t-tag,9px);letter-spacing:.1em;text-transform:uppercase;
         padding:6px 15px;min-height:var(--tap,44px);border-radius:999px;border:1px solid var(--phosdim);
         background:rgba(2,16,9,.7);color:var(--ink);cursor:pointer;
@@ -214,40 +205,23 @@
       </div>
     </div>
     <div class="chips" id="chips"></div>
-    <!-- ⛔ THE DEPTH STRIP. Six of the artist's cards have real layer stacks — separated plates
-         with z, parallax and a raked key light — and until now the ONLY route to see one was
-         `studio.html`, which is itself an allow-listed orphan. Generated, linked, tested and
-         invisible: this repo's signature defect, on its own flagship feature.
-         ⚑ The list is FETCHED, not written here. `scripts/link-card-layers.mjs` emits
-         `layered.json` in the same pass that writes the sidecars, so the menu cannot advertise a
-         card whose stack was dropped, or miss one that was added. A hardcoded row of six numbers
-         would have been wrong the first time the set changed. -->
-    <div class="depthstrip" id="depthStrip" hidden>
-      <span class="dlabel">◈ DEPTH</span>
-      <span class="dnote">these have separated plates — open one and move the pointer</span>
-      <span id="depthLinks"></span>
-    </div>
-    <!-- ⛔ THE 33 — the generated heroes, cards 1–33, and this strip is NOT hidden behind a fetch.
-         The depth strip above is derived from `layered.json` because its contents change; there is
-         exactly one prototype and it either exists or it does not, so a live link is the honest
-         markup. `docs/HERO-33-BRIEF.md` §7 calls step one DISPOSABLE, which only means anything if
-         the artist can actually open it and say no. -->
-    <div class="depthstrip">
-      <span class="dlabel">◆ THE 33</span>
-      <span class="dnote">generated heroes, painted out of the deck — the first one is a proof to
-        argue with</span>
-      <span><a href="proof.html">PLATE PROOF</a></span>
-    </div>
-    <!-- ⚑ CARDS 34–100. Model v2.2's field: 67 render-only lenses, each one a seed rather than a
-         file, with the animation living in z and looping. Linked here AND from the deck, because
-         "reachable from somewhere" is not "findable from where you are" — that lesson cost a
-         round on 2026-08-04 and the fix is two doors, not a better one. -->
-    <div class="depthstrip">
-      <span class="dlabel">◈ THE FIELD</span>
-      <span class="dnote">cards 34–100 — sixty-seven of them, the stack breathing through the
-        card's thickness</span>
-      <span><a href="field.html">OPEN THE FIELD</a></span>
-    </div>
+    <!-- ⛔ THE THREE STUDIO STRIPS ARE GONE — artist, 2026-08-06: *"these links are not needed -
+         no one should have access to the plate proof console except me."* ◈ DEPTH (a generated
+         row into `lens3d.html`), ◆ THE 33 (`proof.html`) and ◈ THE FIELD (`field.html`) all came
+         off this header together, on his call.
+         ⛔ THE FORGE IS NOT A PUBLIC SURFACE ANY MORE, AND UNLINKING IS THE SMALL HALF OF THAT.
+            `cards/proof.html` is in `.vercelignore`, so it is never uploaded — a 404 on the live
+            host rather than a page you have to know not to mention. Removing a link is obscurity;
+            not deploying the file is the lock. Both, because a link left behind would then be a
+            broken link as well as an invitation.
+         ⚑ NOTHING IS STRANDED, and that is what made this safe to do rather than a trade. The
+            hundred live at `cards/deck.html`, which lists both bands and opens every card in the
+            SAME starfield viewer this folder uses (`js/card-starfield.js`) — so the door that
+            closed here reopened somewhere a visitor was already going. `field.html` keeps
+            resolving because cards 34–100 point their `animation_url` at it; it simply is not
+            advertised from the folder.
+         ⚠ `npm run test:reach` §6b now fails the build if ANY page links the forge — the
+            assertion it replaced demanded the opposite, so the guard is inverted, not deleted. -->
   </header>
 
   <div class="binder">
@@ -550,20 +524,13 @@
   })();
 
   /* ── the deck ─────────────────────────────────────────────────────────────────────────── */
-  /* ⚠ FAILS OPEN, LOUDLY-ENOUGH. No `layered.json` (nobody has run `npm run cardlayers`) or a
-   * malformed one ⇒ the strip simply never un-hides and the folder is exactly what it was. It is
-   * `hidden` in the markup rather than shown-then-emptied, so a slow fetch cannot flash an empty
-   * bar. ⚑ And it links to the VIEWER, not to a modal here: `cards/lens3d.html` is the same page a
-   * token's `animation_url` frames, so what the artist judges is the thing a collector will see. */
-  (function depthStrip() {
-    fetch('art/hero/layered.json').then(r => r.ok ? r.json() : null).then(d => {
-      const ids = d && Array.isArray(d.cards) ? d.cards : [];
-      if (!ids.length) return;
-      document.getElementById('depthLinks').innerHTML = ids.map(n =>
-        `<a href="lens3d.html?hero=${encodeURIComponent(n)}">${n}</a>`).join(' ');
-      document.getElementById('depthStrip').hidden = false;
-    }).catch(() => {});
-  })();
+  /* ⛔ `depthStrip()` WENT WITH ITS MARKUP — artist, 2026-08-06. It fetched `art/hero/layered.json`
+   * and printed a row of card numbers into `#depthLinks`, which no longer exists; left behind, it
+   * would have been a fetch on every folder load writing into null. **Deleting a feature is two
+   * jobs** — the thing, and what called it — and this repo has already paid for the second half
+   * once, when a music pass removed a binding and left five calls on it that threw at the final
+   * whistle of every DOGFIGHT and SECTION 9 match. The layer sidecars and `layered.json` are
+   * untouched on disk; only the folder's advertisement of them is gone. */
 
   function chips() {
     $('chips').innerHTML = Object.entries(SOURCES).map(([k, s]) =>

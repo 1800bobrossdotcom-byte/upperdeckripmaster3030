@@ -249,7 +249,14 @@
       <li><b>Collect the edition.</b> $3030 trades on its curve, right here on SuperRare.</li>
       <li><b>Rip a pack.</b> Packs are bought and burned — tokens retired permanently, while the
           reserve behind every surviving token stays put. Ripping pays the holders.</li>
-      <li><b>Play the games.</b> Six of them. Your cards carry powers into them.</li>
+      <!-- ⚠ SIX, NOT FIVE. arcade.html links six distinct games and SuperRare's own pre-launch
+           gate 6 names six; this said "Five games" — a number nobody had counted against the
+           arcade since the compression moved SECTION 9 and DOGFIGHT around. `npm run test:embed`
+           now derives it from arcade.html rather than trusting the string.
+           ⚠ MERGE NOTE: the artist's 2026-08-06 call is that they are GAMES, not cabinets, so the
+           label takes that wording — but the literal "six games" has to survive, because that is
+           the string test:embed matches against the arcade's own link count. -->
+      <li><b>Play the games.</b> All six games run in a browser. Your cards carry powers into them.</li>
       <li><b>Earn a hero.</b> 33 of the 100 mint as 1/1 lenses — some pulled, some won.</li>
     </ol>
 
@@ -258,12 +265,16 @@
       <a class="btn alt" href="https://ripmaster3030studios.com/arcade.html" target="_blank" rel="noopener noreferrer">The arcade ↗</a>
     </div>
 
-    <div class="safe">
-      <b>This page will never ask for your wallet.</b> It is a showcase — no connect button, no
-      signing, nothing to approve. Anything needing a wallet happens on the studio site, which you
-      reach by choosing to go there. If a framed artwork ever asks you to connect, treat that as a
-      warning sign.
-    </div>
+    <!-- ⛔ THE "THIS PAGE WILL NEVER ASK FOR YOUR WALLET" REASSURANCE IS GONE (artist, 2026-08-06).
+         *"it's not needed and especially confusing when someone then goes into the site and
+         immediately gets asked for their wallet off superrare."* He is right, and the reason is
+         worth keeping: the sentence was true of THIS page and read as a promise about the whole
+         STUDIO. A collector takes it as "these people never ask for a wallet", clicks through,
+         and is asked for a wallet — so a line written to build trust spends it instead.
+      ⚑ NOTHING ABOUT THE SECURITY PROPERTY CHANGED. This page still has no wallet code, no
+         connect button, no <script src> and no state-changing RPC — that is enforced structurally
+         by `npm run test:embed` and by the driven sandbox probe, not by a paragraph claiming it.
+         Removing a CLAIM is not removing a GUARANTEE; the guarantee was never the copy. -->
 
     <p class="nfa">
       <b>NFA.</b> Experimental art token — it can go to zero. Burns are permanent, and modest at

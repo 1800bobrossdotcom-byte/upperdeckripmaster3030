@@ -1,7 +1,8 @@
 /* ripmaster3030studios — ONE CARD VIEWER, EVERYWHERE.   `CardView`
  *
  *   CardView.mount({box, card, base, flat}) -> Promise<ctrl|null>   never rejects
- *       ctrl.show(card)   -> Promise<bool>    put a different card in the same viewer
+ *   CardView.mount({box, recipe, base})     -> …one of the HUNDRED, from cards/deck.json
+ *       ctrl.show(card | recipeString)      -> Promise<bool>    another card, same press
  *       ctrl.flip()       -> bool            turn it over; true = face up
  *       ctrl.press        -> the HeroCard controller
  *       ctrl.destroy()
@@ -130,7 +131,41 @@
       return true;
     }
 
-    box.__cardview = CardPress.live({ canvas: cv, base: o.base, card: o.card }).then(function (P) {
+    /* ── ⛔ TWO KINDS OF CARD ARRIVE HERE, AND ONLY ONE OF THEM IS A PICTURE ──────────────────
+     * `card:` is a picture — the 196, the artist's own scans, a pack pull. Its seed is a hash of
+     * the art's filename stem and `js/card-press.js` draws its ground and mid out of the pigment
+     * pool. That is the folder's card and the pack's card.
+     * `recipe:` is one of the HUNDRED — a query string out of `cards/deck.json` carrying the
+     * seed, the six plate slugs and every dial the artist set. `js/card-recipe.js` prints it.
+     * ⛔ THEY ARE NOT INTERCHANGEABLE, AND GUESSING WRONG DOES NOT ERROR. Passing a deck card's
+     *   BAKED SHEET in as `card:` would press a separation of a separation, at a seed derived
+     *   from the filename `<n>.webp`, with plates nobody chose — a card that renders beautifully
+     *   and is a different card. The caller says which it has; this never infers it.
+     * ⚑ ONE VIEWER EITHER WAY, which is the whole requirement — the room, the raking key, the
+     *   pointer and the ink gate below are identical, because the only thing that differs is how
+     *   the press was seeded. */
+    function sourceFor() {
+      if (o.recipe && global.CardRecipe) {
+        return CardRecipe.build({ canvas: cv, q: o.recipe, base: o.base }).then(function (press) {
+          if (!press) return null;
+          var cur = o.recipe;
+          return {
+            press: press,
+            card: function () { return { recipe: cur }; },
+            show: function (rec) {
+              var q = (rec && rec.recipe) || rec;
+              if (!q || typeof q !== 'string') return Promise.resolve(false);
+              cur = q;
+              return press.__show(q);
+            },
+            destroy: function () { try { press.destroy(); } catch (e) {} },
+          };
+        });
+      }
+      return CardPress.live({ canvas: cv, base: o.base, card: o.card });
+    }
+
+    box.__cardview = sourceFor().then(function (P) {
       if (!P) { try { cv.remove(); } catch (e) {} box.__cardview = null; return null; }
       var press = P.press;
 

@@ -884,6 +884,7 @@ window.S9Game = (function () {
       if (e.isMe && env.sfxOn && env.sfxOn() && window.RipSfx) RipSfx.play('gearup', 0.5);   // 23 shuffled takes: kit being handled
       // ⚑ restored — section9.html loses this whole line into the comment above it
       e.spawnT = 0; e.iframe = 1.4; e.respawnT = 0; e.reloading = false; e.reloadT = 0; e.fireT = 0;
+      if (e.isMe) TT.shotAt = false;      // per LIFE — see the note on TT
       e.weapon = firstWeapon != null ? firstWeapon : e.weapon; e.mag = WEAPONS[e.weapon].mag;
       e.state = 'patrol'; e.tgt = null; e.wp = null; e.boost = 1; e.cover = null; e.inCover = false;
       e.crouch = 0; e.eye = 1.52;
@@ -919,9 +920,37 @@ window.S9Game = (function () {
     }
     let decalId = 0;
 
+    /* ⚑ THE TWO EARNED TITLES (docs/HERO-UNLOCKS.md #3/#4). Counters only; `js/title-ledger.js`
+     * owns the ledger and the redeem panel, shared with DOGFIGHT and THE CITY.
+     * ⛔ GHOST WALK IS PER LIFE, NOT PER ROUND. "Never the first to fire" measured once per round
+     *    would be satisfied by being shot at in the opening seconds and then opening every
+     *    subsequent fight yourself, which is not the title. `shotAt` resets on every respawn, so
+     *    each life has to be entered the same way: let them commit first. */
+    const TT = { reloads: 0, shotAt: false, ghostVoid: false, fired: 0 };
+    function ttAward(id, ev) { try { if (typeof window !== 'undefined' && window.RipTitles) window.RipTitles.award(id, ev); } catch (e) {} }
+    function ttReset() { TT.reloads = 0; TT.shotAt = false; TT.ghostVoid = false; TT.fired = 0; }
+    /* Settled once, at the flag. ⚠ The winner is derived HERE rather than read off the result
+     * screen, so the ledger and the scoreboard cannot disagree about who took the round — the
+     * "two representations of one fact" failure this repo has already paid for in CardView.flip. */
+    function ttSettle() {
+      if (!G.me) return;
+      const ranked = G.ents.slice().sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
+      const iWon = ranked[0] === G.me;
+      if (iWon && G.me.kills > TT.reloads) {
+        ttAward('onemag', { kills: G.me.kills, reloads: TT.reloads, won: true });
+      }
+      /* ⛔ BAKED LEVELS ONLY, and the flag comes from the loader rather than from a list of names
+       * kept here. A name list is a second place the truth lives and it drifts the moment a fourth
+       * level lands — `addMaps` marks them as it takes them. */
+      if (iWon && !TT.ghostVoid && TT.fired > 0 && MAP && MAP.baked) {
+        ttAward('ghost', { level: MAP.name, shotsFired: TT.fired, openedFire: 'never first', won: true });
+      }
+    }
+
     function fireWeapon(e) {
       const w = WEAPONS[e.weapon]; if (e.reloading || e.fireT > 0) return;
       if (e.mag <= 0) { if (e.isMe) sfx('empty'); startReload(e); return; }
+      if (e.isMe) { TT.fired++; if (!TT.shotAt) TT.ghostVoid = true; }   // GHOST WALK dies on the first unprovoked shot
       e.mag--; e.fireT = w.rate / ((e.cardRate || 1) * ((e.surgeT > 0 || e.overdrive) ? 1.35 : 1));
       e.recoil = Math.min(1.4, e.recoil + w.kick * 0.5); e.muzzle = 0.05;
       const mo = muzzleOrigin(e);
@@ -982,6 +1011,7 @@ window.S9Game = (function () {
      * earshot get it too, because hearing someone else reload is tactical information. */
     function startReload(e) { if (!e || e.reloading) return; const w = WEAPONS[e.weapon]; if (e.mag >= w.mag) return;
       e.reloading = true; e.reloadT = w.reload;
+      if (e.isMe) TT.reloads++;                       // ONE MAG counts them here, at the one place a mag starts
       if (!(env.sfxOn && env.sfxOn())) return;
       const d = e.isMe ? 0 : Math.hypot(e.x - cam.x, e.z - cam.z);
       if (e.isMe) { if (window.RipSfx) RipSfx.play(w.key === 'shotgun' ? 'attachMachine' : 'attach', 0.5); else sfx('reload'); }
@@ -999,6 +1029,7 @@ window.S9Game = (function () {
        * and without that carve-out a longer TTK quietly kills the sniper — a full-power head hit
        * would be soaked into a survivable body shot and precision would stop being worth it. */
       if (e.armor > 0) { const soak = Math.min(e.armor, dmg * (head ? 0.15 : 0.45)); e.armor -= soak; dmg -= soak; }
+      if (e.isMe && src && src !== e) TT.shotAt = true;   // they committed first — GHOST WALK stays alive
       e.hp -= dmg; e.regenT = 0;
       /* Being shot is information: it is the single behaviour that makes the longer TTK read as
        * a firefight rather than a longer damage race. */
@@ -1279,6 +1310,7 @@ window.S9Game = (function () {
       G.ents = []; G.tracers = []; G.sparks = []; G.chunks = []; G.flashes = []; G.kills = []; G.comms = [];
       G.nearMiss = 0; G.hitmark = 0; G.dmgFlash = 0; G.shake = 0; G.fireFlash = 0; G.pows = []; G.powT = 6; G.decals = [];
       G.t = 0; G.timeLeft = G.dur; G.real = !!real; G.over = false; G.timeScale = 1;
+      ttReset();     // ⚠ with the round, or a rematch inherits the last one's tally
       G.me = makeEnt({ name: env.myHandle ? env.myHandle() : 'you', me: true, tint: [64, 220, 200],
         verified: !!(window.RipWallet && RipWallet.isConnected && RipWallet.isConnected()) });
       G.me.weapon = wager.loadout | 0; G.ents.push(G.me);
@@ -1377,14 +1409,17 @@ window.S9Game = (function () {
       /* The match clock is the WORLD's. A SLIP therefore costs you nothing on the timer and buys
        * you nothing either: 4.5 s of your time is 1.89 s of the match, for everybody. */
       G.timeLeft -= wdt;
-      if (!G.over && G.timeLeft <= 0) { G.over = true; G.mode = 'result'; if (env.onEnd) env.onEnd(); }
+      if (!G.over && G.timeLeft <= 0) { G.over = true; G.mode = 'result'; ttSettle(); if (env.onEnd) env.onEnd(); }
     }
 
     return {
       G, cam, keys, mouse, touch, WEAPONS, MAPS, PAL, BUILTIN, HANDLES,
       get MAP() { return MAP; },
       set MAP(m) { MAP = m; },
-      addMaps(list) { for (const m of list) MAPS.push(m); return MAPS; },
+      addMaps(list) { for (const m of list) { m.baked = true; MAPS.push(m); } return MAPS; },
+      /* ⚑ Exposed for the same reason DOGFIGHT's is: ONE MAG and GHOST WALK each fire once at the
+       * end of a round, and a container that delivers 6-8 frames in ten seconds cannot play one. */
+      _tt: TT, _ttSettle: ttSettle,
       startMatch, step, fireWeapon, startReload, switchWeapon, applyLoadout,
       supportY, moveEnt, losClear, raycast, spawnYaw, bakeCover, eyePos, lookDir, shortName, mktAmp,
       /* ⧗ MOBILITY PEEPHOLE. Reachable as `__s9pc.game.*`, because `__s9pc` itself lives in

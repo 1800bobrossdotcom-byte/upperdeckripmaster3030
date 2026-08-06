@@ -34,7 +34,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SUITES = [
   'name', 'launch', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
-  'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'city', 'citynet',
+  'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list
