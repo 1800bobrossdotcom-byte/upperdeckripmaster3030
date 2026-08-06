@@ -66,10 +66,37 @@ console.log('\n── sandbox-hostile assumptions ──');
 ok('no localStorage', !/localStorage/.test(code));
 ok('no window.parent / top', !/window\s*\.\s*(parent|top)\b/.test(code));
 
-console.log('\n── it must still send people somewhere, and say it is safe ──');
+console.log('\n── it must still send people somewhere, and be true about it ──');
 ok('links to the studio site', /ripmaster3030studios\.com/.test(html));
-ok('states it will never ask for a wallet', /never ask for your wallet/i.test(html));
 ok('carries the NFA disclaimer', /\bNFA\b/.test(html));
+/* ⛔ THE "THIS PAGE WILL NEVER ASK FOR YOUR WALLET" ASSERTION IS GONE, AND ON PURPOSE.
+ *   Artist, 2026-08-06: the sentence "is not needed and especially confusing when someone then
+ *   goes into the site and immediately gets asked for their wallet off superrare." It was true of
+ *   the EMBED and read as a promise about the STUDIO, so a line written to build trust spent it
+ *   at the first click.
+ * ⚑ IT WAS ALSO THE WEAKEST ASSERTION IN THIS FILE, and that is the part worth keeping in mind:
+ *   it checked that the page CLAIMED to be safe. Every other check above proves the page IS —
+ *   no wallet identifier, no <script src>, no localStorage, no window.parent. A guarantee is
+ *   structural; a claim is a string. Deleting the string removes nothing the security depends on. */
+
+/* ⚠ AND THE GAME COUNT IS DERIVED, NOT TRUSTED. The embed said "Five games" while arcade.html
+ *   links SIX cabinets — a number nobody had recounted after the compression shuffled SECTION 9
+ *   and DOGFIGHT off the grid and back. A hand-written count on a page inside somebody else's
+ *   marketplace is exactly the surface nobody reopens, so it is read off the arcade instead. */
+const arcade = readFileSync(join(ROOT, 'arcade.html'), 'utf8');
+const cabinets = new Set(
+  [...arcade.matchAll(/href="((?:city|riprocketer|cloudracer|section9|dogfight|cards\/battle)\.html)"/g)]
+    .map(m => m[1]));
+const WORD = { 4: 'four', 5: 'five', 6: 'six', 7: 'seven' };
+/* ⚠ COMMENTS STRIPPED, AND I WALKED INTO THIS WRITING IT. The note above records that the page
+ *   USED to say "Five games" — so the first version of this check matched its own explanation and
+ *   reported the corrected page as still wrong. Fourth sighting of that trap in this repo and the
+ *   second one I have committed today. A checker must read what SHIPS, never the prose about it. */
+const shipped = html.replace(/<!--[\s\S]*?-->/g, '');
+const claimed = (shipped.match(/\b(three|four|five|six|seven|\d+)\s+games\b/i) || [])[1];
+ok(`the embed's game count matches the arcade (${cabinets.size} cabinets)`,
+  !!claimed && String(claimed).toLowerCase() === WORD[cabinets.size],
+  `embed says "${claimed || 'nothing'}", arcade links ${cabinets.size}`);
 
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : ''}\n`);
 process.exit(fail ? 1 : 0);
