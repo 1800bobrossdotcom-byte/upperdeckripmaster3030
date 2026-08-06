@@ -266,6 +266,23 @@ for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
     ok(h[1] === TOKEN_NAME, `${file} — name() is exactly "${TOKEN_NAME}"  (found "${h[1]}")`);
     ok(h[2] === TOKEN_SYMBOL, `${file} — symbol() is exactly "${TOKEN_SYMBOL}"  (found "${h[2]}")`);
   }
+  /* ⛔ AND THE CURVE PRESET, WHICH IS A DEPLOY-TIME PERMANENT NOBODY HAD PINNED.
+   * The preset decides the opening price and the whole liquidity shape, and it is frozen the
+   * moment the transaction lands — exactly like name() and symbol() two lines up. It was
+   * `medium-demand` in NINE files, including two copy-pasteable deploy commands, when SuperRare's
+   * live mainnet preview recommends **low-demand** (zero initial RARE liquidity, no creator
+   * allocation, opens ≈$0.08). ⚑ This is the copy-paste trap that already caught name and symbol
+   * once, on a THIRD argument nobody had thought to check — which is the argument for pinning
+   * every positional the artist types, not the ones we happen to have been burned by. */
+  /* ⚠ FENCED BLOCKS ONLY, and I walked into the exact trap this file warns about before adding
+   *   it: the first version matched anywhere, so it fired on the CLAUDE.md sentence RECORDING the
+   *   fix — "Every one said `--curve-preset medium-demand`". A checker that cries wolf on the note
+   *   describing its own bug gets muted, and then it is not a checker. Prose quoting the retired
+   *   value is history and must stay; a string someone can PASTE INTO A TERMINAL lives in a fence. */
+  const fenced = (src.match(/```[\s\S]*?```/g) || []).join('\n');
+  const badPreset = fenced.match(/--curve-preset\s+(?!low-demand)(\S+)/);
+  ok(!badPreset, `${file} — every pasteable deploy command uses --curve-preset low-demand`,
+    badPreset ? 'found ' + badPreset[1] : 'low-demand');
 }
 {
   const meta = JSON.parse(readFileSync(join(ROOT, 'token-metadata.json'), 'utf8'));
@@ -305,6 +322,31 @@ console.log('\n── deploy-time permanents (scripts/ and contracts/ are skippe
    *   Pinned so it can never be "tidied" to match something else. */
   ok(solCode.includes('EIP712("ripmaster3030studios", "1")'),
      'the EIP-712 domain is ripmaster3030studios — DO NOT CHANGE after a voucher is signed');
+
+  /* ⛔ AND THE RUNBOOK, WHICH IS THE ROUTE THE ARTIST IS ACTUALLY SENT DOWN.
+   *   The three pins above cover scripts/lens-cli.mjs — Route B. docs/DEPLOY-LENS.md recommends
+   *   Route A (Remix), where the artist TYPES these six constructor values by hand, and its table
+   *   carried `upperdeckripmaster3030 lens` plus the retired domain twice until 2026-08-05.
+   *   `name_` HAS NO SETTER: a wrong one is a redeploy, not a correction. So the tested route was
+   *   the one nobody uses and the recommended route was unchecked — the LAUNCH-CHECKLIST failure
+   *   again, one document over. A runbook is a deploy surface. */
+  const runbook = readFileSync(join(ROOT, 'docs/DEPLOY-LENS.md'), 'utf8');
+  const ctor = runbook.slice(runbook.indexOf('| # | field | value |'), runbook.indexOf('⛔ **THIS TABLE'));
+  ok(ctor.length > 0 && !ctor.includes(DEAD),
+     'DEPLOY-LENS.md constructor table carries no retired name or domain');
+  ok(ctor.includes('`ripmaster3030studios lens`'),
+     'the runbook names the lens ripmaster3030studios lens — frozen at deploy, NO SETTER');
+  ok(ctor.includes('`3030L`'), 'the runbook carries the lens symbol 3030L');
+  ok(ctor.includes('`https://ripmaster3030studios.com`')
+     && ctor.includes('`https://ripmaster3030studios.com/cards/hero/`'),
+     'the runbook carries the live externalUrl and lensBaseUrl');
+  /* ⚠ Route A and Route B must not drift apart — they deploy the SAME contract, so a value that
+   *   differs between them means one of the two is wrong and only one of them is tested. */
+  for (const s of ['ripmaster3030studios lens', '3030L',
+                   'https://ripmaster3030studios.com', 'https://ripmaster3030studios.com/cards/hero/']) {
+    ok(cliCode.includes(`'${s}'`) && ctor.includes(`\`${s}\``),
+       `Route A and Route B agree on "${s}"`);
+  }
 }
 
 /* ── THE GENERATORS THAT WRITE THE SHIPPED TREE ───────────────────────────────────────────────

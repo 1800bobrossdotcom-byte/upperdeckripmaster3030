@@ -344,12 +344,12 @@ who receives it, the curve mechanism or any DEX graduation, or how the opening p
   npm install -g @rareprotocol/rare-cli          # Node 22+
   rare configure --chain sepolia --private-key-ref op://…   # 1Password ref; key NOT stored plaintext
   rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-    --curve-preset medium-demand --description "…" --image ./art.png --preview
+    --curve-preset low-demand --description "…" --image ./art.png --preview
   ```
   ⚑ **`name` and `symbol` are POSITIONAL ARGS the artist types** — they are not handed to
   SuperRare and hoped for. `--preview` first, `--yes` to submit. This de-risks the naming
   problem enormously: preview, read it back, then commit.
-- ⚑ **The curve is a PRESET, not a hand-calibration.** `--curve-preset medium-demand` is what
+- ⚑ **The curve is a PRESET, not a hand-calibration.** `--curve-preset low-demand` is what
   `token-model.mjs`'s `M = 10` was already modelling. **`--preview` prints the generated curve
   without submitting — that is how to get real numbers instead of assumed ones.** Run it on
   Sepolia before modelling anything further.
@@ -1551,8 +1551,16 @@ $3030**, 30% of supply in the gentlest $0.08–$0.16 band.
 - ⚠ **`M` (end/start over the whole curve) IS STILL ASSUMED AT 10.** The preview gave the opening
   price and the first band, not the full curve. **Nothing M-derived may be quoted as measured** —
   FDV at full, RARE-to-fill and the sensitivity table are labelled illustration.
-- ⚠ **STILL THE ARTIST'S:** $10/$12/$15/$20 is SuperRare's recommendation and replaces a **$7**
-  figure *he* set. It needs his yes before launch.
+- ✅ **APPROVED BY THE ARTIST, 2026-08-06** — *"yes on pricing changes"*. $10/$12/$15/$20 is
+  settled; the $7 figure the site had carried since March is retired.
+- ⛔ **AND THE CURVE PRESET WAS WRONG IN NINE FILES, INCLUDING TWO COPY-PASTEABLE DEPLOY COMMANDS.**
+  Every one said `--curve-preset medium-demand`; SuperRare's measured recommendation is
+  **`low-demand`**. ⚑ **The preset is a DEPLOY-TIME PERMANENT** — it decides the opening price and
+  the whole liquidity shape and is frozen when the transaction lands, exactly like `name()` and
+  `symbol()`. It is the same copy-paste trap task #70 exists for, **on a third positional argument
+  nobody had thought to check** — which is the argument for pinning EVERY positional the artist
+  types, not just the ones we have already been burned by. `npm run test:name` pins it now (106
+  assertions); proved to bite by restoring `medium-demand` in `TESTNET.md` — 1 failure, named.
 - ⚠ **`docs/TREASURY.md` and `docs/CURVE-TARGET.md` are BANNER-MARKED, not patched** — the split,
   the allotments and mint-once are still correct there; every token-count and percentage is stale.
   A doc quietly edited to look current is worse than one plainly marked.

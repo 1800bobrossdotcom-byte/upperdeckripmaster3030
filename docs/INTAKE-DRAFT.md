@@ -49,7 +49,7 @@ custom ballot mechanics. Acknowledge the support boundary: renderer + front end 
 - **Target Launch Date**: after a full Sepolia dress rehearsal (see MECHANICS.md §8)
 - **Supply**: capped. A round, thematic number (e.g. 3,030,000 for the 3030 motif).
   Capped + burn-only-sink = every season provably shrinks the supply.
-- **Curve**: start `--curve-preset medium-demand`, inspect with `--preview`, tune.
+- **Curve**: start `--curve-preset low-demand` — **SuperRare’s recommendation off the live mainnet preview, 2026-08-06**; inspect with `--preview`, tune.
 - **721 Lenses**: **Yes** — one Companion Lens Collection per season, 8 winning cards
   (+ chase variants selected by lock-block hash). Supply per card: small editions
   (e.g. 30 each) or 1/1s for chase — decide with SuperRare during assisted setup.

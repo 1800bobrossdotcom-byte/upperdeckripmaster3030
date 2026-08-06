@@ -51,8 +51,14 @@ ok(SEL['maxTotalSupply()'] === '0x2ab4d052', 'maxTotalSupply() is 0x2ab4d052');
 ok(!Object.values(SEL).includes('0xd5abeb01'),
    'maxSupply() 0xd5abeb01 must NOT appear — it reverts on this edition');
 ok(SEL['getMarketState()'] === '0xd8165743', 'getMarketState() is 0xd8165743');
-// the three calls the card actually needs, no more: every extra call is another way to be slow
-ok(Object.keys(SEL).length === 3, 'exactly three reads');
+/* The calls the card actually needs, no more: every extra call is another way to be slow.
+ * ⚑ THREE ON THE EDITION + ONE ON THE LENS. The fourth is `lensState(id)`, and it is a read of a
+ *   DIFFERENT CONTRACT — the 721 rather than the ERC-20 — which is why it is worth counting
+ *   separately rather than letting this number drift upward unremarked. It needs no wallet: the
+ *   contract resolves the card's owner itself, so the card learns who holds it without asking the
+ *   viewer to connect anything, which is the only reason a tier read can ship in the media slot. */
+ok(Object.keys(SEL).length === 4, 'exactly four reads — three on the edition, one on the lens');
+ok(SEL['lensState(uint256)'] === '0x9fa9fc54', 'lensState(uint256) is 0x9fa9fc54');
 
 head('2. static state — what ships when the frame blocks the network');
 const S = LensState.STATIC;
@@ -189,6 +195,73 @@ ok((c3.match(/useSkybox:\s*false/g) || []).length >= 3,
    'every artwork material still sets useSkybox:false — THE WASH');
 ok(/prefers-reduced-motion/.test(c3), 'card3d honours prefers-reduced-motion');
 ok(/GfxPost\.dprCap/.test(c3), 'card3d caps DPR through the one weak-device definition');
+
+/* ── 8 · THE SHARED BURN, THE ONE CHAIN READ A GAME MAKES ────────────────────────────────────
+ * No game consulted any of this until now. THE CITY's print pass reads the burn dial, and the
+ * burn is the only number in the project that is GLOBAL, MONOTONIC, PERMANENT and identical for
+ * every player — two people a continent apart at the same block see the same city.
+ * ⚑ CityInk is a browser module but it takes no DOM to answer these, so it is loaded with a fake
+ *   window rather than a browser: the claims are about arithmetic, and a headless GL harness
+ *   would only add ways for the test to fail for reasons that are not the subject. */
+head('8. the shared burn — THE CITY reads the edition');
+{
+  const inkSrc = fs.readFileSync(path.join(ROOT, 'js/city-ink.js'), 'utf8');
+  const w = {};
+  new Function('window', inkSrc)(w);
+  const Ink = w.CityInk;
+  ok(!!Ink && typeof Ink.setBurn === 'function', 'CityInk exposes setBurn');
+
+  /* ⛔ THE LOAD-BEARING ONE: at burn 0 the city must be the city that ships. A chain that cannot
+   *   be reached must never change how the world looks. */
+  Ink.setBurn(0);
+  const at0 = Ink.burnState();
+  ok(at0.steps === Ink.LOOK.steps && at0.plate === Ink.LOOK.plate,
+     `burn 0 is EXACTLY today's city — steps ${at0.steps}, plate ${at0.plate}`);
+
+  /* ⛔ AND IT REFINES THE PRINT RATHER THAN DEGRADING IT. "Supply burns so the ink runs out" is
+   *   the obvious mapping and it is the recorded anti-pattern: it makes the community's burning a
+   *   punishment. More steps and TIGHTER register is a press that has been paid for. */
+  Ink.setBurn(1);
+  const at1 = Ink.burnState();
+  ok(at1.steps > at0.steps, `a burnt supply buys MORE separation — ${at0.steps} -> ${at1.steps}`);
+  ok(at1.plate < at0.plate, `...and TIGHTER registration — ${at0.plate} -> ${at1.plate}`);
+
+  // monotonic across the range, because burn only ever goes one way
+  let mono = true, prevS = -Infinity, prevP = Infinity;
+  for (let i = 0; i <= 10; i++) {
+    Ink.setBurn(i / 10);
+    const st = Ink.burnState();
+    if (st.steps < prevS || st.plate > prevP) mono = false;
+    prevS = st.steps; prevP = st.plate;
+  }
+  ok(mono, 'the mapping is monotonic over 0..1 — burn never goes backwards, nor does the print');
+
+  /* ⚠ BOUNDED, because the misregistration IS the look. A perfectly registered city is not a
+   *   reward, it is a blander object — city-ink.js's own note says one to two pixels is the
+   *   whole idea. */
+  Ink.setBurn(1);
+  ok(Ink.burnState().plate >= 0.75, `registration never reaches zero — floor ${Ink.burnState().plate}`);
+  ok(Ink.burnState().steps <= 9.0, `posterise stops at 9 — past that it stops reading as print`);
+
+  // garbage in, today's city out. A bad read may not be able to repaint the world.
+  for (const junk of [undefined, null, NaN, -5, 'x', {}]) {
+    Ink.setBurn(junk);
+    if (Ink.burnState().burn !== 0) { ok(false, `junk burn ${String(junk)} was not rejected`); break; }
+  }
+  ok(Ink.burnState().burn === 0, 'an unreadable burn falls back to 0, not to a random city');
+  Ink.setBurn(2);
+  ok(Ink.burnState().burn === 1, 'and it clamps above 1 rather than running past the ceiling');
+
+  // the wiring actually exists — a dial nothing drives is a dial that does nothing
+  const app = fs.readFileSync(path.join(ROOT, 'js/city-app.js'), 'utf8');
+  ok(/LensState\.watch/.test(app) && /CityInk\.setBurn/.test(app),
+     'city-app watches LensState and forwards the burn');
+  const cityHtml = fs.readFileSync(path.join(ROOT, 'city.html'), 'utf8');
+  ok(/js\/lens-state\.js/.test(cityHtml) && /js\/chain-config\.js/.test(cityHtml),
+     'city.html actually loads the reader — the script tag is the whole feature');
+  ok(/onerror="void 0"/.test(cityHtml.split('js/lens-state.js')[0].slice(-160) + 'js/lens-state.js'),
+     'and it fails open if the script is blocked');
+}
 
 if (process.argv.includes('--live')) {
   head('8. LIVE — against the real Sepolia edition');

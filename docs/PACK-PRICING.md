@@ -1,7 +1,7 @@
 # Pack pricing — the pack is a DOLLAR target, and no burn percentage is promised
 
 **Source: SuperRare's review of the live mainnet Liquid Editions CLI previews, 2026-08-06.**
-Canonical numbers: `npm run model` (`scripts/token-block.mjs` → `scripts/token-model.mjs`).
+Canonical numbers: `npm run model` (`scripts/token-model.mjs`).
 This file records the decision and the arithmetic behind it. It supersedes the `$7 / 350-token`
 pack schedule everywhere it still appears.
 
@@ -11,7 +11,7 @@ pack schedule everywhere it still appears.
 
 | setting | value |
 | --- | --- |
-| preset | **low-demand** |
+| preset | **low-demand** ⚠ every deploy command said `medium-demand` until 2026-08-06 |
 | initial RARE liquidity | **0** |
 | creator allocation | **0** |
 | supply | 3,300,000 (unchanged) |
@@ -103,10 +103,10 @@ projection to check either one. `js/lens-state.js` already reads the first of th
 - The tier allotments (1,600 / 1,100 / 600 / 260) and the sell-out trigger are unchanged.
 - Burns remain permanent and mint-once.
 
-## 5 · Open, and the artist's
+## 5 · Settled, and still open
 
-- **The $10/$12/$15/$20 targets are SuperRare's recommendation, not yet the artist's decision.**
-  They replace a $7 figure the artist set and the site has published. This needs his yes.
+- ✅ **APPROVED BY THE ARTIST, 2026-08-06** — *"yes on pricing changes"*. The $10/$12/$15/$20
+  ladder is settled and replaces the $7 figure the site had published since March.
 - Whether the four dollar targets are the right ladder at all — the shape (rising with scarcity)
   is his design; only the level moved.
 - **`M` (end/start over the whole curve) is still assumed at 10.** The preview gave us the opening

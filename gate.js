@@ -26,6 +26,21 @@
   var LIVE = true;                      // ← ⛔ the site is public. false puts the veil back.
   if (LIVE) return;
 
+  /* ⛔ A VEIL MAY NEVER COVER AN EMBED, AND THIS IS NOT ABOUT TODAY. The flag above is off, so
+   * nothing below runs right now — but it is documented as "reversible in one character", and
+   * the day it flips back every card whose `animation_url` frames a page carrying this script
+   * would render a PASSWORD PROMPT in a marketplace media slot. A token is permanent and a veil
+   * is temporary; the permanent thing must not be able to be broken by the temporary one.
+   * ⚑ Cards 34…100 point their animation_url at `cards/field.html?n=NN`, which carries this
+   *   script — so this is the guard that lets a browsable studio page double as a media target.
+   *   Same argument as the LIVE flag itself: fix it at the source, where it cannot miss a page
+   *   and cannot be undone by a regenerate.
+   * ⚠ It loses nothing. This has always been a curtain rather than a lock — the check is
+   *   client-side and the password has been in a public repo on 69 pages — so anyone who wanted
+   *   past it never needed an iframe. Real protection is the platform's Deployment Protection,
+   *   which runs server-side and is unaffected by any of this. */
+  try { if (window.top !== window.self) return; } catch (e) { return; }   // cross-origin ⇒ framed
+
   var ADMIN = '1800bobrossdotcom@gmail.com';
   var PASS = 'ripmaster3030';           // ← BURNED, see the header. Change before any reuse.
   var KEY = 'urm_admin_ok';
