@@ -205,6 +205,22 @@
      * needs an `approve` first, so this is two wallet prompts rather than one; `onStep` says
      * which one you are looking at, because an unexplained second prompt reads as a scam. */
     const split = w.hasSink && w.hasSink();
+    /* ⛔ ON MAINNET, NO SINK MEANS A STALE PAGE — REFUSE RATHER THAN BURN THE WHOLE PACK.
+     *   PackSink shipped dark on purpose: with the slot empty, payPack falls back to a plain 100%
+     *   burn. That was the right behaviour for every day the contract did not exist. The moment it
+     *   was deployed it stopped being right, because the only way to reach this branch on mainnet
+     *   is a tab that loaded chain-config BEFORE the address was pasted in.
+     * ⚑ MEASURED, NOT FEARED: the artist ripped from such a tab minutes after the deploy. 125
+     *   burned, treasury 0, allowance 0 — the approve step never even started. Nothing errored and
+     *   the reveal played normally; three public pages say half funds the studio and none of it
+     *   did.
+     * ⚑ THIS IS `payTreasury`'s OWN RULE, WHICH THIS FILE ALREADY STATES: it fails closed rather
+     *   than falling back to a burn, because a fallback that performs a DIFFERENT ECONOMIC ACTION
+     *   is worse than a refusal. A 100% burn is a different economic action from a 50/50 split.
+     * ⚠ Sepolia and any un-deployed chain keep the fallback — rehearsing it is the whole point of
+     *   shipping dark, and there the copy and the code agree. */
+    var CFG = window.RIPMASTER_CHAIN || {};
+    if (!split && CFG.network === 'mainnet') return ripStale();
     showBusy(split ? 'approve ' + need + ' $3030 for the pack…'
                    : 'confirm the burn of ' + need + ' $3030 in your wallet…');
     const r = await w.payPack(need, step => showBusy(step === 'approve'
@@ -228,6 +244,16 @@
     const r = document.getElementById('ripRetry'); if (r) r.onclick = () => startRip();
     const p = document.getElementById('ripPractice'); if (p) p.onclick = () => { practice = true; lastTx = null; rip(); };
   }
+  /* ⚑ IT OFFERS THE FIX RATHER THAN NAMING THE FAULT. "Reload" is the entire remedy — the config
+   *   is `must-revalidate`, so one refresh picks up the deployed address — and a collector should
+   *   never have to know what a PackSink is to get out of this. */
+  function ripStale() { busy = false; if (title) title.textContent = 'this page is out of date';
+    reveal.innerHTML = '<div class="pack-note">This tab loaded before the studio split went live, ' +
+      'so a rip here would burn the whole pack instead of sending half to the studio. ' +
+      '<b>Reload and try again</b> — nothing has been spent.</div>' +
+      '<div class="pack-cta"><button type="button" class="btn gold" id="ripReload">↻ Reload</button></div>';
+    var b = document.getElementById('ripReload'); if (b) b.onclick = function () { location.reload(); }; }
+
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
   function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $3030';
