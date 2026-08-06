@@ -319,6 +319,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       <span>ripmaster3030studios.com</span>
     </footer>
   </div>
+  <script src="theme.js"></script>
   <script src="sfx.js"></script>
 </body></html>`;
 
