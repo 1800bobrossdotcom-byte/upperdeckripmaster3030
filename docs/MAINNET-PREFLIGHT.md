@@ -18,6 +18,34 @@ curve, the real name, the real PackSink and the real treasury are in the same tr
 
 ---
 
+## Readiness — what is already proved, and what only the artist can do
+
+| gate | state | blocked on |
+| --- | --- | --- |
+| 1 · token approval flow | ⏳ code ready, unproven on mainnet | the mainnet edition + a fresh wallet holding real $3030 |
+| 2 · exact PackSink price | ⏳ **contract + price both ready** | **PackSink not deployed (task #89)** |
+| 3 · supply-reducing burn | ✅ *proved on Sepolia* — 1,300 burned, `totalSupply` fell and never came back (`npm run preflight`) | repeating it on mainnet |
+| 4 · 50/50 studio split | ⏳ `PackSink.sol` 1,773 bytes, **51/51 EVM tests**, halves exact in wei for every input | **PackSink not deployed (task #89)** |
+| 5 · card mint / render | ⏳ `Ripmaster3030Lens721` **99/99 tests**, flattens byte-identical for Remix | **Lens721 not deployed (task #89)** |
+| 6 · all six games | ✅ **pre-checked — `npm run test:gate6`** | a real phone (task #73); the rest is confirmation |
+
+⚑ **GATE 6 IS THE ONLY ONE THAT NEEDS NO WALLET, NO CONTRACT AND NO CHAIN**, which is why it is
+the one that could be taken off the list in advance. `npm run test:gate6` drives all six cabinets
+on a desktop and a phone and asserts each one loads, builds its renderer, is **not** showing the
+no-WebGL panel, does not overflow, and throws nothing. ⛔ *"It loaded"* is the weak question — a
+cabinet displaying `#nogl` loads perfectly and is unplayable, and that is exactly the shape a
+smoke test lets through.
+
+⚠ **A green run there is a PRE-CHECK, not gate 6 signed off.** It says nothing about real GPU
+hardware (this container is SwiftShader — task #73) and nothing about whether the games are any
+good. And gates 2, 4 and 5 cannot even be attempted until PackSink and Lens721 are on-chain.
+
+✅ **The price is now wired, not just documented.** `js/chain-config.js` said `packBurn: 350` — the
+$7-era number, ~$28 at the measured open — until 2026-08-06. Tier I is **125 $3030** and
+`npm run test:name` pins it to `docs/PACK-PRICING.md`, so gate 2 has a number to enforce against.
+
+---
+
 ## The six gates
 
 Every line is either ✅ with evidence (a tx hash, a number, a screenshot) or the launch does not
