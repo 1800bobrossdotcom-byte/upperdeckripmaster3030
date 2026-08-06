@@ -102,11 +102,11 @@ the two RIP ROCKETER combo titles. Together they wanted 16 cards for an 11-card 
 moves**.
 
 ⛔ **THE COST, STATED LOUDLY BECAUSE IT IS A REGRESSION AND IT IS THE ARTIST'S TO REVERSE:
-DOGFIGHT NOW OWNS NO TITLE.** The principle this file has carried until today — *every cabinet
+DOGFIGHT NOW OWNS NO TITLE.** The principle this file has carried until today — *every game
 with a scoreboard owns at least one* — no longer holds. It is the direct price of the artist's
 own two directives (five cards to points/combos, three seats on THE STREAK) meeting a fixed 11.
 Retired to pay for it: THE WIRE and DEAD STICK (DOGFIGHT), ONE MAG (SECTION 9), OPEN AIR and THE
-FACILITY IS CLOSED (RIP ROCKETER), THREE CUTS and NO SWORD (NEON RONIN, a retired cabinet),
+FACILITY IS CLOSED (RIP ROCKETER), THREE CUTS and NO SWORD (NEON RONIN, a retired game),
 HOUSE MONEY (THE ARENA) and THE LONG COUNT (cross-game). **All nine are good conditions and are
 kept in §4¾'s drawer, not deleted.**
 
@@ -114,9 +114,9 @@ kept in §4¾'s drawer, not deleted.**
 1. **Drop the 5,000,000 rung.** The ladder becomes 2M → 10M, RIP ROCKETER ×4, and THE WIRE comes
    back. Cheapest fix; costs the middle rung, which is the least distinct of the three.
 2. **Drop a seat from THE STREAK.** Two seats instead of three frees one card and brings THE WIRE
-   back with every cabinet covered. Costs the artist's own ×3.
+   back with every game covered. Costs the artist's own ×3.
 3. **Leave it.** DOGFIGHT is covered by the compression into THE CITY anyway — its mode lives
-   there — so the cabinet without a title is arguably not a cabinet without a presence.
+   there — so the game without a title is arguably not a game without a presence.
 
 RIP ROCKETER ×2 · THE CITY ×2 · CLOUD RACER ×1 **with three seats** = **11 earned heroes**, so
 `11 auction + 11 gacha + 11 earned` = **33** is untouched. §4¾ records how it got here.
@@ -209,10 +209,10 @@ pattern is worth naming: **every time this title was written from how it sounded
 disagreed.** Check it, then publish it.
 
 ⚠ **THE CONCENTRATION IS A CONSEQUENCE, NOT A PREFERENCE, AND IT IS THE ARTIST'S TO OVERRULE.**
-Five of the eleven now sit in one cabinet because both directives point there: a points ladder in
-the millions only means anything in the cabinet that HAS a cumulative score, and the combo titles
+Five of the eleven now sit in one game because both directives point there: a points ladder in
+the millions only means anything in the game that HAS a cumulative score, and the combo titles
 were placed in RIP ROCKETER on request. The three titles that made room — DEAD STICK, ONE MAG and
-NO SWORD — were chosen because each was the *second* title in its cabinet and each was the
+NO SWORD — were chosen because each was the *second* title in its game and each was the
 "refuse a tool" shape, which the set already says twice. **OPEN AIR and THE FACILITY IS CLOSED
 were retired to make room and are worth keeping in a drawer**; they are good conditions, they were
 simply the two RIP ROCKETER slots the new five needed.
@@ -267,15 +267,15 @@ six generated surfaces and in the token model.
 
 ⛔ **FOUR TITLES WERE STRUCK, AND ONLY TWO OF THOSE WERE A JUDGEMENT CALL.**
 - **THREE CUTS** and **NO SWORD** were NEON RONIN's, and ⚑ **NEON RONIN HAS NOT EXISTED SINCE
-  2026-08-03** — the artist retired it and THE CITY replaced that cabinet. Two of the eleven
+  2026-08-03** — the artist retired it and THE CITY replaced that game. Two of the eleven
   titles had been pointing at a game that is not in the arcade, in a document nobody had reopened
   since. **That is this project's own "a surface nobody looks at rots", on the page that tells
   players how to win a 1/1.** Removing them executes a decision already made; the two CITY titles
-  are their replacements, in the cabinet that replaced their cabinet.
+  are their replacements, in the game that replaced their game.
 - **HOUSE MONEY** (THE ARENA) and **THE LONG COUNT** (cross-game) are the judgement call, and they
   went because the instruction named three destinations and neither is one of them.
-  ⚠ **THE ARENA NOW HAS NO TITLE — flagging it, because it is a live cabinet** and the old
-  coverage rule was "every cabinet with a scoreboard owns at least one". Say the word and
+  ⚠ **THE ARENA NOW HAS NO TITLE — flagging it, because it is a live game** and the old
+  coverage rule was "every game with a scoreboard owns at least one". Say the word and
   HOUSE MONEY comes back; it would need a card from somewhere, and the honest source is one of
   THE CITY's two.
 
@@ -290,15 +290,15 @@ six generated surfaces and in the token model.
 
 1. **Which 11 of the 33 go to auction**, which 11 are gacha, which 11 are earned. This document
    assumes the split exists; it does not assign card ids. Art-led decision.
-2. **The difficulty dial.** Every number in §4 (three in a row, five cabinets, one life to Tier IV)
+2. **The difficulty dial.** Every number in §4 (three in a row, five games, one life to Tier IV)
    is a starting position, chosen to be reachable by a good player in an evening and not by a
    casual one at all. Move them.
 3. **Rule 4** — first-claimant-takes-it, versus holding a few titles open to a stated date.
    ⚑ Partly answered: #7 now has three seats. Whether any other title should is open.
 4. **The names.** Written in the studio's voice; easiest thing in here to replace.
 5. ✅ **§4¾ — settled 2026-08-06.** Nine titles, eleven cards, 33 intact. ⚠ The live question
-   left inside it: **THE ARENA now carries no title.** It is a shipping cabinet with a scoreboard,
-   and the old coverage rule said every such cabinet owns one.
+   left inside it: **THE ARENA now carries no title.** It is a shipping game with a scoreboard,
+   and the old coverage rule said every such game owns one.
 6. ⚠ **§4½ — whether THE STREAK should carry a per-race rider.** As stated it is 22 minutes of
    concentration at a 100% win rate. *Every one of the 33 also clean — no barrier contact* would
    make it a skill test; it would also no longer be only his rule.
@@ -318,7 +318,7 @@ supply change.
 
 ✅ **Published.** `scripts/build-pages.mjs` §titles and the generated `whitepaper.html#titles` now
 carry the nine titles, with THE STREAK marked as holding **three seats**. THE ARENA and the
-cross-game title are gone from the list; NEON RONIN's two are gone with the cabinet.
+cross-game title are gone from the list; NEON RONIN's two are gone with the game.
 
 ✅ **No aggregate moved, and that is the point of option A.** Every "11 earned" on the site —
 `index.html` rite §4, `build-pages.mjs` (whitepaper body, tokenomics, hero panel),

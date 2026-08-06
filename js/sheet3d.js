@@ -71,7 +71,7 @@
    * Every one is a page that already exists. A sheet with a card on it that goes nowhere is a
    * dead end, which is this repo's own recorded failure ("where are the cards"). */
   var CARDS = [
-    { n: '01', t: 'THE ARCADE',  s: 'FOUR CABINETS',   href: 'arcade.html' },
+    { n: '01', t: 'THE ARCADE',  s: 'SIX GAMES',       href: 'arcade.html' },
     { n: '02', t: 'THE CITY',    s: 'FLY IT · WALK IT', href: 'city.html' },
     { n: '03', t: 'THE FOLDER',  s: 'NINE POCKETS',    href: 'cards/binder.html' },
     { n: '04', t: 'THE 33',      s: 'GENESIS SET',     href: 'cards/proof.html' },

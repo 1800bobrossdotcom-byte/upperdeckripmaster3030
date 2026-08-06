@@ -372,7 +372,7 @@ const whitepaper = `
       <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
     <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers —
       <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim from a pack → mint the 1/1)
-      + <b>11 earned</b> (clear a stated feat in the cabinets → signed voucher → mint). One owner each,
+      + <b>11 earned</b> (clear a stated feat in the games → signed voucher → mint). One owner each,
       and the eleven feats are named in §06 — they are not a mystery box.</li>
     <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
@@ -384,14 +384,19 @@ const whitepaper = `
   <h2><span class="n">03</span>The token · $3030</h2>
   <div class="statgrid">
     <div class="stat"><b>3.03M</b><span>hard cap (mint-once)</span></div>
-    <div class="stat"><b>~$0.02</b><span>opening / token</span></div>
+    <div class="stat"><b>~$0.08</b><span>opening / token*</span></div>
     <div class="stat"><b>RARE</b><span>reserve currency</span></div>
-    <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+    <div class="stat"><b>~$2.4M</b><span>full-curve FDV*</span></div>
   </div>
   <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
   <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and <b>minted once</b> into the pool at
-  launch — burns are <b>permanent</b> and never re-mint. Opening price ≈ 1 RARE/token keeps every pack a
-  micro-move. Full-curve FDV ≈ $606k is an <b>artist-scale niche edition, by choice</b>.</p>
+  launch — burns are <b>permanent</b> and never re-mint. It opens at about <b>$0.08 per $3030</b>, which is
+  <b>measured, not modelled</b>: SuperRare ran the live mainnet previews at the full supply on the
+  <b>low-demand</b> preset, with no initial RARE liquidity and no creator allocation.</p>
+  <p class="fine">*Only the opening price is measured. The full-curve FDV above assumes a demand multiple of
+  10 across the whole curve, which the preview did <b>not</b> give us — it is <b>illustration, not
+  forecast</b>, and it is an <b>artist-scale niche edition, by choice</b>. See
+  <a href="tokenomics.html">Tokenomics</a> §03.</p>
 
   <h2><span class="n">04</span>The economy · where every token goes</h2>
   <p>One direction: <b>the fire</b>. There is no toll wallet, no creator-cut contract, no house
@@ -421,7 +426,10 @@ const whitepaper = `
     <tr><td>Tier II</td><td>1,100 packs</td><td>$12</td></tr>
     <tr><td>Tier III</td><td>600 packs</td><td>$15</td></tr>
     <tr><td>Tier IV</td><td>260 packs</td><td>$20</td></tr></table>
-  <p class="fine">*Floor at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total. See <a href="tokenomics.html">Tokenomics</a>.</p>
+  <p class="fine">*The pack is a <b>dollar target</b>, not a token count: the number of $3030 it takes is fixed
+  from the live price when a tier opens and locked for that tier. At the measured $0.08 open a Tier I pack is
+  <b>125 $3030</b>. ⚑ It runs the way you would not expect — a <b>rising</b> token buys <b>fewer</b> tokens
+  per pack, so it burns fewer. ≈3,560 packs total. See <a href="tokenomics.html">Tokenomics</a>.</p>
 
   <h2><span class="n">06</span>Lenses, minting &amp; the Compression rite</h2>
   <p>Every card is a lens — a render keyed by id — so the deck exists as art from day one. What changes over
@@ -445,7 +453,7 @@ const whitepaper = `
 
   <h3 id="titles">The eleven earned cards, across nine titles</h3>
   <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
-  <b>named feat in a named cabinet</b> — printed here in full, because a prize nobody can aim at is a
+  <b>named feat in a named game</b> — printed here in full, because a prize nobody can aim at is a
   lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
   closed.</b> One owner each — except <b>THE STREAK</b>, which has <b>three seats</b>, so the first
   three pilots to do it each take their own 1/1. Nine titles, eleven cards.</p>
@@ -544,12 +552,15 @@ const tokenomics = `
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
     <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
-    <div class="stat"><b>~1 RARE</b><span>opening price / token</span></div>
+    <div class="stat"><b>~$0.08</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
-    <div class="stat"><b>~$606k</b><span>full-curve FDV</span></div>
+    <div class="stat"><b>~$2.4M</b><span>full-curve FDV*</span></div>
   </div>
-  <p style="margin-top:14px" class="fine">*<code>medium-demand</code> preset, verified on-chain with <code>--preview</code> before mainnet.
-  RARE≈$0.02 assumed for USD columns; re-peg on deploy day. Everything below is reproduced by
+  <p style="margin-top:14px" class="fine">*The opening price is <b>measured</b> — SuperRare's live mainnet
+  <code>--preview</code> on the <code>low-demand</code> preset at the full 3.3M supply. <b>M is not</b>: the
+  preview gave the open and the first band, not the whole curve, so <b>every M-derived figure here (the FDV,
+  RARE-to-fill, the sensitivity table) is illustration, not forecast.</b> RARE≈$0.02 is a separate assumption
+  used only for the reserve-currency columns; re-peg on deploy day. Everything below is reproduced by
   <code>scripts/token-model.mjs</code> — run it to re-derive.</p>
 
   <h2><span class="n">02</span>What a Liquid Edition is</h2>
@@ -568,12 +579,12 @@ const tokenomics = `
   <p>⚑ The pack column runs the <b>other</b> way to the old one, and that is the important part: the pack
   is a fixed <b>$10</b>, so a rising token buys <b>fewer</b> tokens per pack — and burns fewer.</p>
   <table><tr><th>f (sold)</th><th>spot ($)</th><th>$3030 in a $10 pack</th><th>burned per pack</th><th>FDV ($)</th></tr>
-    <tr><td>0.00 (launch)</td><td><b>$0.0800</b></td><td><b>125</b></td><td><b>62.5</b></td><td>$264,000</td></tr>
-    <tr><td>0.10</td><td>$0.1007</td><td>99</td><td>49.5</td><td>$332,349</td></tr>
-    <tr><td>0.25</td><td>$0.1423</td><td>70</td><td>35.0</td><td>$469,472</td></tr>
-    <tr><td>0.50</td><td>$0.2530</td><td>40</td><td>20.0</td><td>$834,835</td></tr>
-    <tr><td>0.75</td><td>$0.4499</td><td>22</td><td>11.0</td><td>$1,484,584</td></tr>
-    <tr><td>1.00 (full)</td><td>$0.8000</td><td>13</td><td>6.3</td><td>$2,640,000</td></tr></table>
+    <tr><td>0.00 (launch)</td><td><b>$0.0800</b></td><td><b>125</b></td><td><b>62.5</b></td><td>$242,400</td></tr>
+    <tr><td>0.10</td><td>$0.1007</td><td>99</td><td>49.5</td><td>$305,164</td></tr>
+    <tr><td>0.25</td><td>$0.1423</td><td>70</td><td>35.0</td><td>$431,055</td></tr>
+    <tr><td>0.50</td><td>$0.2530</td><td>40</td><td>20.0</td><td>$766,536</td></tr>
+    <tr><td>0.75</td><td>$0.4499</td><td>22</td><td>11.0</td><td>$1,363,115</td></tr>
+    <tr><td>1.00 (full)</td><td>$0.8000</td><td>13</td><td>6.3</td><td>$2,424,000</td></tr></table>
   <p class="fine">⚠ Only the launch row is measured. The rest assume a demand multiple of 10 over the whole
   curve, which the preview did <b>not</b> give us — treat every row below the first as illustration, not
   forecast. FDV is the <b>token</b> line and is unchanged by the pack size.</p>
@@ -582,9 +593,9 @@ const tokenomics = `
   <p>The pack price does not appear here, because it does not move: it is a dollar target. What moves is
   how many tokens a pack takes off the curve, and therefore how much it burns.</p>
   <table><tr><th>M</th><th>spot@100%</th><th>tokens in a $10 pack @0</th><th>@50%</th><th>@100%</th><th>FDV@100%</th></tr>
-    <tr><td>3 (flat)</td><td>$0.2400</td><td>125</td><td>72</td><td>42</td><td>$792,000</td></tr>
-    <tr><td><b>10 (assumed)</b></td><td>$0.8000</td><td>125</td><td>40</td><td>13</td><td>$2,640,000</td></tr>
-    <tr><td>30 (steep)</td><td>$2.4000</td><td>125</td><td>23</td><td>4</td><td>$7,920,000</td></tr></table>
+    <tr><td>3 (flat)</td><td>$0.2400</td><td>125</td><td>72</td><td>42</td><td>$727,200</td></tr>
+    <tr><td><b>10 (assumed)</b></td><td>$0.8000</td><td>125</td><td>40</td><td>13</td><td>$2,424,000</td></tr>
+    <tr><td>30 (steep)</td><td>$2.4000</td><td>125</td><td>23</td><td>4</td><td>$7,272,000</td></tr></table>
 
   <h2><span class="n">05</span>Slippage &amp; steady growth</h2>
   <p>Price-impact at launch is exact: <code>impact = a·ΔR / P0</code>.</p>
@@ -706,8 +717,11 @@ const audit = `
     <li><b>Renderer display bugs.</b> The render read 100% "circulating" and 0 per-RARE; <b>fixed</b> to read
       BURNED % (<code>max − total</code>) and a 2-dp per-RARE value in <code>contracts/Ripmaster3030Renderer.sol</code>
       (re-callable <code>setRenderContract</code>, no token redeploy).</li>
-    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed:</b> the peg is
-      ~1 RARE/token; the pack is a ~350-token bundle ≈ $7.</li>
+    <li><b>A ~100× pricing error in an early doc.</b> A stale peg implied a ~$0.001 pack. <b>Fixed</b> at the time
+      to ~1 RARE/token. <b>Then fixed again, properly:</b> that peg was still an assumption, and SuperRare's live
+      mainnet previews measured the real open at <b>≈$0.08 per $3030</b> — 4× the assumed figure. The pack is a
+      <b>dollar target</b> now ($10 → $20 across the four tiers), so a token count cannot go stale with it:
+      Tier I is <b>125 $3030</b> at the measured open. See <a href="tokenomics.html">Tokenomics</a> §03.</li>
     <li><b>Over-claimed "supply only goes down."</b> <b>Fixed:</b> the docs now state plainly that net supply =
       buys − burns (sign indeterminate short-term); deflation is <i>pressure</i>, and over the deck's life burns dominate.</li>
   </ul>

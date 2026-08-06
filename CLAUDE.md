@@ -633,6 +633,119 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
 
+## ⛔ THE FRONT PAGE PUT EVERYTHING IT MAKES BELOW EVERYTHING IT EXPLAINS
+*Artist, 2026-08-06: "call them games instead of cabinets. there are 6 games … do a site sweep for
+text updates. condense site. look at ui/ux flow. make it more of a funnel — get into the games and
+the cards immediately - take the hero card off - redesign the buttons and fix landing page."*
+
+⚑ **THE NUMBER IS THE WHOLE ARGUMENT, AND NOBODY HAD EVER TAKEN IT: the first thing a visitor could
+press on `index.html` was 3,516 px down on a phone** (3,093 on a desktop, 3,039 in landscape).
+Above it sat a splash, a masthead, a full-screen countdown, a five-row facts table, a framed lens
+and a creed. The games were the word "Arcade" in a flat row of **eight identically-sized buttons**,
+two thirds of the way down. Driven at four viewports, before and after:
+
+| | phone 390×844 | desktop 1280×800 | landscape 844×390 |
+| --- | --- | --- | --- |
+| first pressable action, before | 3,516 px | 3,093 px | 3,039 px |
+| **after** | **~430 px** | **~500 px** | **~275 px** |
+| page height | 10,259 → 8,605 | 6,907 → 4,824 | 7,842 → 5,112 |
+
+- ✅ **THREE DOORS, IN THE ORDER A STRANGER DOES THEM IN** — play (free) · the cards (free) · rip a
+  pack (the only one that costs money, deliberately last) — then **the six games as a grid on the
+  front page** and **six card doors** under it. Every card surface is ONE click from the door now.
+- ⛔ **THE HERO CARD IS OFF** (artist). The framed `cards/lovebeing.html` lens is gone from the
+  landing page; it is still reached from the deck, so nothing was orphaned.
+- ⛔ **THE PAGE EXPLAINED ITSELF TWICE.** "What is this?" and "How to play" covered the same five
+  subjects in ~700 words, back to back, both above anything you could do. Merged into one pass of
+  five steps. ⚠ **Nothing honest was dropped** — the no-published-burn-percentage argument, the
+  concentration-risk sentence and the testnet-prototype note all survive, because those are the
+  paragraphs that earn the page its trust and they are the first thing a condensation loses.
+- ⚑ **BUTTONS: ONE PRIMITIVE, THREE RANKS, ONE PRESS.** There were TWO button languages — `.btn`
+  (a neon chip whose only feedback was a **hover** sheen) and `.wp-link` (a hard-shadowed arcade key
+  that actually travels) — two paragraphs apart, for the same class of action. Now every button on
+  the page collapses the same offset shadow under a matching translate, so a finger gets the same
+  physics everywhere; rank is size and fill, never a different mechanism. The sheen fires on press
+  as well as hover, because **a hover affordance does not exist on a phone.**
+- ⛔ **A WIDTH CAP ON A SQUARE IS A HEIGHT CAP, AND THE WORDMARK HAD NO `vh` TERM.** At
+  `min(74vw,430px)` a phone held sideways asked for a 430 px-tall block in a 390 px-tall window.
+  `--wmw:min(58vw,380px,38vh)` — and the width and the font-size read ONE custom property instead of
+  repeating the same expression twice. **Third sighting** (`.u-logo`; the legend cap that clamped to
+  zero by subtraction).
+- ⛔ **`banner.js` IS GONE FROM THE REPO AND THE PAGE WAS STILL AVOIDING IT** — `--rip-fab-bottom:124px`
+  and 176 px of body padding reserved for a freshness strip that does not ship. ~110 px of dead space
+  under the footer on every screen. ⚑ **A layout number derived from a DELETED thing is worse than one
+  derived from a changed count: there is nothing on screen to look wrong.**
+- ⚠ **TWO LAYOUT BUGS THAT ONLY LOOKING FOUND.** (a) The game/card tiles placed two children with
+  `grid-row` and no COLUMN, so auto-placement put the tagline in the chevron's cell — it rendered,
+  linked, cleared 44 px and measured clean on every number the probe asks. **A partially-placed grid
+  is one the browser finishes for you, plausibly and wrong.** (b) Five steps in a four-track grid came
+  out 4 + 1 with two thirds of a row empty. Every cell is placed explicitly now.
+### ⛔ AND THE FLOATING AUDIO CONTROLS WERE SWALLOWING PRESSES THEY HAD NO USE FOR
+The landing-page pass measured them covering the middle of a door at the arrival scroll position on
+short viewports. Two causes, both structural, both fixed; what is left is arithmetic.
+- ⛔ **`#soundBar` IS A LAYOUT BOX, NOT A CONTROL, AND IT TOOK HITS ACROSS ITS WHOLE WIDTH.** Three
+  44 px buttons with 6 px gaps sit inside a ~157 px pill, and the gaps, the padding and the rounded
+  corners all swallowed presses meant for the page. Measured with `elementFromPoint` on a 24 × 40
+  grid over four document pages at four viewports: **the container itself took 4–11 sample points
+  per viewport** — content unpressable for no reason at all. ⚑ **The rule was already in this repo**,
+  from THE CITY's `#modes` swallowing the SECTION 9 chip: *a hit surface should be the size of the
+  thing you can click, not of the box it was laid out in.* `pointer-events:none` on the bar,
+  `auto` on the button skin. ⚠ The `auto` is load-bearing — inheriting `none` would kill the
+  transport, which is the far worse failure; `test:theme` §9 clicks all three and bites instantly.
+- ⛔ **`--rip-fab-bottom: 80px` WAS CLEARING A BAR THAT IS NO LONGER IN THE REPO.** Its own note said
+  so — *"banner.js's freshness strip is now ~66px tall"* — and `banner.js` has since been deleted, so
+  both controls floated 80 px up with an empty band under them, sitting in the READING area instead
+  of at the edge. 14 px now. ⚠ **Who this moves was checked, not assumed:** every cabinet has a
+  `.toggles` row so `theme.js` docks instead of floating, and none loads `sfx.js`; `cards/battle.html`
+  does not load `mobile.css` and keeps the 42 px fallback. Document pages only — which is where the
+  dead band was. Same defect `index.html` carried as `124px` + 176 px of body padding.
+- ✅ **Measured, before → after.** `soundBar` is gone from every tally at every viewport. Furniture
+  blocking the screen: whitepaper **2.3→1.9 · 4.7→4.0 · 3.2→2.1 %**, arcade **1.9→1.5 · 3.8→3.0 ·
+  2.6→1.6 %**. Doors pressable at the arrival position: 390×844 and 1280×800 **5/5 on all three**;
+  320×568 and 844×390 improved 1/5 → 2/5. Proved to bite by restoring the exact bytes —
+  `soundBar` reappears at 4/7/10 points. `test:theme` 89/89, `test:cab` 298/298.
+- ⚠ **WHAT IS LEFT IS NOT A BUG, IT IS ARITHMETIC, and it should not be "fixed" by hiding a control.**
+  Three transport buttons at the 44 px floor plus the SFX toggle is ~200 px of a 320 px band, and
+  `test:theme` §9 requires all three to be present, ≥44 px and clickable **from a standing start** —
+  that is the artist's own ask ("skip tracks or go back through tracks along with pause / play"),
+  encoded as a test, and it is what rules out the cabinets' collapsed-cog remedy here. ⚑ On
+  `index.html` the dominant blocker is now **the Mandela ticker, not the audio** — 48–96 of 960
+  sample points, i.e. **10% of the screen at 844×390** for a decorative crawl. Whether a 40 px tape
+  earns that on a phone held sideways is the artist's call, not a defect.
+
+### ⛔ AND THE SWEEP FOUND FOUR THINGS WORSE THAN THE WORD "CABINET"
+- ⛔ **THE WHITEPAPER PUBLISHED THE DEAD OPENING PRICE — `~$0.02`, on launch day, 4× wrong.**
+  `docs/PACK-PRICING.md` has said **≈$0.08 measured** since 2026-08-06. **`tokenomics.html`
+  contradicted ITSELF**: §01 said `~1 RARE` / `~$606k FDV` / `medium-demand` while §03, two
+  paragraphs below, correctly said `$0.08` / `low-demand` / `$2,640,000`. ⚑ Fixed at the GENERATOR
+  (`scripts/build-pages.mjs`) and regenerated; every M-derived figure is now labelled **illustration,
+  not forecast**, which is what PACK-PRICING itself instructs.
+- ⛔ **`audit.html` STILL SAID "a ~350-token bundle ≈ $7." AND `test:name` SCORED IT GREEN.** Both
+  pins exist and both were defeated by punctuation: `\b350\s*tokens?` cannot match `350-token`
+  (a hyphen is not whitespace) and `\$\s*7(?![\d,.])` cannot match `$7.` at the end of a sentence
+  (the lookahead that stops `$70` also stops a full stop). ⚑ **A pin tuned to one SPELLING guards
+  one spelling** — the hand-picked-list failure with a regex instead of a list. Both now match the
+  SHAPE; proved to bite by restoring the exact bytes (0 failures → 2, named).
+- ⛔ **TWO OF THE ELEVEN EARNED HERO TITLES NAME A RETIRED GAME.** THREE CUTS and NO SWORD live in
+  NEON RONIN, which lost its slot to THE CITY on 2026-08-03 and which **nothing on the site links**.
+  The page promises them, so the ROUTE must exist: `whitepaper.html` links `ronin.html` directly and
+  says out loud that it is retired. ⚠ **Re-siting those two conditions is AUTHORSHIP and is the
+  artist's** — deleting two published titles would be the studio taking a prize back.
+- ⛔ **THE ARCADE DESCRIBED A GAME THAT IS NOT THE ONE THAT SHIPS, in both directions at once.** THE
+  CITY's card promised *"a photograph you take becomes a card"* (**photo mode is not built**) and
+  closed on *"wing energy refills when you perch, so it is a bird that must land"* — **the exact
+  mechanic the artist had removed** (*"no having to land to keep flying"*). A menu is where a visitor
+  decides what to open, so a description there is a promise.
+- ⚠ Also: `studio.html` had a tile titled *"Neon Ronin · 1v1 duel"* pointing at `arcade.html#ronin`,
+  an anchor deliberately kept alive whose game has been THE CITY for three days — **it named one game
+  and opened another.** And DOGFIGHT and CLOUD RACER carried the **same icon** on the one shelf whose
+  job is telling six games apart.
+- ⛔ **`test-all.mjs`'s OWN OUTPUT FAILS `test:name`.** `test-results.json` records a failing suite's
+  error verbatim, including the absolute import path — which begins with the repo directory, still
+  named for the retired studio. `test:all` passes (name runs first, before the file exists) and the
+  very next standalone `test:name` fails with six errors that have nothing to do with the tree.
+  Allow-listed by name. **A checker that cries wolf at its own scratch paper gets muted.**
+
 ## Site state
 - **Pre-launch admin gate** is ON (`gate.js`, injected in every page's `<head>` + the
   `build-pages.mjs` shell). Fail-closed. It is a **soft veil only** — the check runs client
