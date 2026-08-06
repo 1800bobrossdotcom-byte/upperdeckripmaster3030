@@ -426,6 +426,20 @@ console.log('\n── the supply cap, stated in one place and spent everywhere �
    *   mechanism the whole token rests on. So the live-reading language has to be there too. */
   ok(/live|on-chain|read from the chain/i.test(tk),
     'tokenomics.html — …and it says the burn is READ LIVE instead');
+
+  /* ⛔ AND IT GUARDS EVERY PUBLIC PAGE, NOT JUST THIS ONE — which is this file's whole subject.
+   * The first version of these pins checked `tokenomics.html` alone, so whitepaper.html,
+   * audit.html, artist.html and the front page were free to keep publishing a $7 pack and a
+   * 30.7% burn with the suite green. A surface nobody looks at rots; a surface nobody TESTS
+   * rots while the build says it is fine. Checking one of five is how the other four rot back in. */
+  for (const page of ['index.html', 'whitepaper.html', 'audit.html', 'artist.html', 'tokenomics.html']) {
+    const src = stripComments(readFileSync(join(ROOT, page), 'utf8'), true);
+    ok(!/30\.7\s*%/.test(src), `${page} — no 30.7% burn forecast`);
+    ok(!/44\.4\s*%/.test(src), `${page} — no 44.4% studio-slug forecast`);
+    ok(!/1\.44\s*×|1\.44x/i.test(src), `${page} — no 1.44x contraction forecast`);
+    ok(!/\$\s*7(\.00)?(?![\d,.])/.test(src), `${page} — no $7 pack`);
+    ok(!/\b350\s*(\$3030|tokens?)\b/i.test(src), `${page} — no 350-token pack`);
+  }
 }
 
 /* ═══ THE GAME'S NAME ═════════════════════════════════════════════════════════════════════════
