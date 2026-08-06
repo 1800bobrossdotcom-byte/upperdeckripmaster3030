@@ -74,9 +74,9 @@
      * stays at every tier; the far silhouette is a second screen-filling opaque layer and the wall
      * lamps are dozens of additive quads, and both are the first things a weak device should not
      * pay for. Dropping them costs the picture a parallax layer, not the level. */
-    high: { rtScale: 1.0, stars: 420, bloom: true, fringing: true, dither: true, bg: 48, far: true, lamps: true },
-    mid: { rtScale: 0.85, stars: 260, bloom: true, fringing: true, dither: true, bg: 32, far: true, lamps: true },
-    low: { rtScale: 0.7, stars: 140, bloom: true, fringing: false, dither: false, bg: 18, far: false, lamps: false },
+    high: { rtScale: 1.0, stars: 420, bloom: true, fringing: true, dither: true, bg: 48, far: true, lamps: true, smear: 9 },
+    mid: { rtScale: 0.85, stars: 260, bloom: true, fringing: true, dither: true, bg: 32, far: true, lamps: true, smear: 5 },
+    low: { rtScale: 0.7, stars: 140, bloom: true, fringing: false, dither: false, bg: 18, far: false, lamps: false, smear: 0 },
   };
   const QCFG = TIERS[TIER];
 
@@ -130,6 +130,18 @@
      * 1.9, above), which is where glow is supposed to come from. A bloom wide and strong enough to
      * make a bolt shine makes the backdrop shine too, and then nothing shines. */
     bloom: num('bloom', 0.04),
+    /* ⚑ SHUTTER ANGLE, and it is a real photographic quantity rather than a blur "amount": the
+     * fraction of each frame the shutter is open. Film's standard is 180°, i.e. 0.5, which is
+     * why cinema motion looks the way it does — and it is the value that makes the smear the
+     * TRUE exposure integral instead of a number picked to taste. Above ~0.7 the frame reads as
+     * dragging (the shutter is open nearly the whole frame and nothing is ever sharp); at 0 the
+     * smear is off entirely and the compose chunk skips the taps. `?shutter=N` to sweep it. */
+    shutter: num('shutter', 0.5),
+    /* the mix ceiling. Even at full smear a little of the sharp frame is kept: a completely
+     * smeared frame during OVERDRIVE is one you cannot read, and this game asks you to read
+     * bullets while moving fastest. Swept against nothing — this is a legibility floor, not a
+     * measurement, and it is stated as such. */
+    smearMax: num('smearmax', 0.82),
     /* ⚑ THE TONEMAPPER IS THE HIGHLIGHT-KNEE PORT, AND WHAT IS MEASURABLE IS *THAT IT MUST BE A
      * ROLLOFF CURVE* — not which rolloff curve. Measured at the shipping settings, each tonemapper
      * twice, interleaved, on a frame with both the simulation AND the render clock frozen:
@@ -246,39 +258,105 @@
       frame.fringing.intensity = QCFG.fringing ? POST.fringing : 0;
       frame.update();
     } catch (e) { frame = null; console.warn('[rrpc] post stack failed:', e && e.message); }
-    installDither();
+    installCompose();
   }
   /* Dither + grain, injected exactly as s9pc-app.js does: PlayCanvas's compose pass has neither,
    * and GfxPost's 8×8 Bayer at 0.0045 (≈1.1/255) is what kills banding in a dark gradient — which
    * this game is almost entirely made of. `composeMainEndPS` runs after the vignette and BEFORE
    * gammaCorrectOutput, so the value is still linear and has to be round-tripped through an
    * approximate display curve to put the ±½ LSB where the banding actually is. */
-  const DITHER_CHUNK = [
+  /* ── ⚑ CAMERA MOTION BLUR RIDES IN THE SAME CHUNK, AND IT HAS TO ────────────────────────────
+   * `composeMainEndPS` is ONE slot. `chunks.set` REPLACES, so installing a smear chunk and a
+   * dither chunk separately means the second one silently deletes the first — no error, no
+   * warning, and the symptom is "the feature I just wrote does nothing", which is this repo's
+   * single most-repeated failure. One chunk, both effects, each gated by its own uniform.
+   *
+   * ⚑ WHY THE SMEAR IS EXACT RATHER THAN A STYLE FILTER. Motion blur is not a look, it is the
+   *   exposure integral: the shutter is open for a fraction of the frame and whatever moved
+   *   across the sensor in that time is summed. So the offset is not tuned — it is literally
+   *   HOW FAR THE CAMERA MOVED THIS FRAME, in UV, times the shutter angle. No divide by dt, no
+   *   velocity buffer, and it is **exactly zero when the camera is still** rather than
+   *   approximately zero, which is what makes it assertable.
+   * ⛔ IT IS CAMERA BLUR, NOT OBJECT BLUR, AND THAT LINE IS DELIBERATE. Per-object smear needs a
+   *   velocity buffer, and a velocity buffer means `prepassEnabled = true` — the scene renders
+   *   TWICE. CLAUDE.md records that exact flag as the whole of Section 9's frame-rate cliff
+   *   (low→mid +88%). Camera blur needs no prepass and is EXACT for every pixel, because a
+   *   camera that translates or zooms smears the entire frame uniformly whatever is in it. The
+   *   honest cost: the scrolling facade does not smear on its own. Stated, not hidden.
+   * ⚑ THE RADIAL TERM IS THE FOV PUNCH'S OWN DERIVATIVE. The dash already widens the lens
+   *   42° → 46.2°; a widening lens pushes every point outward from the centre, so its rate IS a
+   *   radial screen velocity. The dash gets a zoom-smear for free, derived from a number that
+   *   was already there rather than from a second knob invented to look fast.
+   * ⚠ Bloom is NOT smeared — it is applied to `result` before this chunk runs. Physically the
+   *   glow should come off the blurred image, but bloom is a wide isotropic blur and is very
+   *   nearly invariant under a short directional one, so the error is small and one-directional.
+   *   Sampling order here matches main(): grade, then tonemap, so the taps land in the same
+   *   colour space as `result` and a zero-length smear cannot tint the frame. */
+  const SMEAR_TAPS = QCFG.smear | 0;
+  const COMPOSE_CHUNK = [
     'float rr_h(vec2 p){ return fract(sin(dot(p, vec2(41.0, 289.0))) * 43758.5453); }',
     'float rr_bayer(vec2 p){ vec2 t = floor(mod(p, 8.0)); float b = 0.0, s = 1.0;',
     '  for (int i = 0; i < 3; i++) { vec2 f = floor(mod(t, 2.0)); b += s * (f.x + 2.0 * mod(f.x + f.y, 2.0)); s *= 4.0; t = floor(t * 0.5); }',
     '  return b / 64.0; }',
     'uniform float rrDither; uniform float rrGrain; uniform float rrGrainT;',
+    'uniform vec2 rrSmear; uniform float rrSmearR; uniform float rrSmearK;',
   ].join('\n');
-  const DITHER_MAIN = [
-    '{ vec3 rrd = pow(max(result, vec3(0.0)), vec3(1.0 / 2.2));',
-    '  rrd += (rr_bayer(gl_FragCoord.xy) - 0.5) * rrDither;',
-    '  rrd += (rr_h(uv * vec2(1023.0, 791.0) + rrGrainT) - 0.5) * rrGrain;',
-    '  result = pow(max(rrd, vec3(0.0)), vec3(2.2)); }',
+  /* The length (in UV) at which the smear fully takes over. ⚑ MEASURED, and the first value was
+   * wrong for a reason worth keeping: I set it to 0.010 sized against "how much blur can the
+   * player tolerate", which is the wrong question. Driven through a real FLOW chain the exposure
+   * length runs 0.0006 (idle) → 0.0026 (overdrive) — i.e. **about 2.3 px at 900 wide**. The
+   * LENGTH is what costs legibility and it is tiny by construction, because the camera itself
+   * barely travels; the MIX only decides how much of the sharp frame is kept at that length. So
+   * 0.010 meant the effect never rose above a 26% mix even at full overdrive — invisible work.
+   * 0.004 puts the chain at 0.15 → 0.22 → 0.37 → 0.65 with the same 2 px smear. */
+  const SMEAR_FULL = 0.004;
+  const COMPOSE_MAIN = [
+    SMEAR_TAPS > 1 ? [
+      '{ vec2 rrd = rrSmear + (uv - 0.5) * rrSmearR;',
+      '  float rrl = length(rrd);',
+      /* ⚠ the >0 test is what makes "at rest the frame is byte-identical" true rather than
+       * nearly true: with no camera motion this block is not entered at all. */
+      '  if (rrSmearK > 0.0 && rrl > 0.0) {',
+      '    vec3 rracc = vec3(0.0);',
+      '    for (int i = 0; i < ' + SMEAR_TAPS + '; i++) {',
+      /* symmetric about the pixel: the shutter opens before and closes after this instant */
+      '      float rrt = (float(i) / float(' + (SMEAR_TAPS - 1) + ')) - 0.5;',
+      '      vec3 rrs = texture2DLod(sceneTexture, clamp(uv + rrd * rrt, 0.0, 1.0), 0.0).rgb;',
+      '      #ifdef GRADING',
+      '        rrs = applyGrading(rrs);',
+      '      #endif',
+      '      rracc += toneMap(max(vec3(0.0), rrs));',
+      '    }',
+      '    rracc /= float(' + SMEAR_TAPS + ');',
+      '    result = mix(result, rracc, min(rrSmearK, rrl / ' + SMEAR_FULL.toFixed(4) + '));',
+      '  } }',
+    ].join('\n') : '',
+    '{ vec3 rrg = pow(max(result, vec3(0.0)), vec3(1.0 / 2.2));',
+    '  rrg += (rr_bayer(gl_FragCoord.xy) - 0.5) * rrDither;',
+    '  rrg += (rr_h(uv * vec2(1023.0, 791.0) + rrGrainT) - 0.5) * rrGrain;',
+    '  result = pow(max(rrg, vec3(0.0)), vec3(2.2)); }',
   ].join('\n');
-  let ditherOn = false;
-  function installDither() {
-    if (!QCFG.dither || !(POST.dither > 0 || POST.grain > 0)) return;
+  let ditherOn = false, smearOn = false;
+  function installCompose() {
+    const wantDither = QCFG.dither && (POST.dither > 0 || POST.grain > 0);
+    const wantSmear = SMEAR_TAPS > 1 && POST.shutter > 0;
+    if (!wantDither && !wantSmear) return;
     try {
       const chunks = pc.ShaderChunks.get(app.graphicsDevice, pc.SHADERLANGUAGE_GLSL);
-      chunks.set('composeDeclarationsPS', DITHER_CHUNK);
-      chunks.set('composeMainEndPS', DITHER_MAIN);
+      chunks.set('composeDeclarationsPS', COMPOSE_CHUNK);
+      chunks.set('composeMainEndPS', COMPOSE_MAIN);
       const sc = app.graphicsDevice.scope;
-      sc.resolve('rrDither').setValue(POST.dither);
-      sc.resolve('rrGrain').setValue(POST.grain);
+      sc.resolve('rrDither').setValue(wantDither ? POST.dither : 0);
+      sc.resolve('rrGrain').setValue(wantDither ? POST.grain : 0);
       sc.resolve('rrGrainT').setValue(0);
-      ditherOn = true;
-    } catch (e) { ditherOn = false; console.warn('[rrpc] dither chunk not installed:', e && e.message); }
+      sc.resolve('rrSmear').setValue([0, 0]);
+      sc.resolve('rrSmearR').setValue(0);
+      sc.resolve('rrSmearK').setValue(0);
+      ditherOn = wantDither; smearOn = wantSmear;
+    } catch (e) {
+      ditherOn = false; smearOn = false;
+      console.warn('[rrpc] compose chunk not installed:', e && e.message);
+    }
   }
   buildPost();
 
@@ -1705,6 +1783,11 @@
    * pins the render clock and stops the starfield so a sweep varies ONE thing. */
   let FROZEN = null;
   let camFov = CAM.fov;
+  /* the combo camera's own smoothed state, and the previous frame's camera — the smear is a
+   * DIFFERENCE, so it needs somewhere to remember where the camera was. `h` is the world
+   * half-height at z=0, which is what carries the fov and the dolly in one number. */
+  let comboK = 0, comboLead = 0, smearLen = 0;
+  const camPrev = { x: 0, y: CAM.y, h: Math.tan(CAM.fov * Math.PI / 360) * CAM.z };
   /* ⚠ NEITHER OF THESE EXISTED IN THE ENGINE BUILD, and the new movement system is what made the
    * first one matter: a dash now punches the FOV and a roll spins the ship, which are exactly the
    * two things a vestibular-sensitive player asked not to be given.
@@ -1717,6 +1800,97 @@
   addEventListener('visibilitychange', () => {
     if (document.hidden && G.mode === 'play') togglePause();
   });
+  function stepCamera(dt) {
+  // camera: a shake and a gentle push toward the action. Never a roll — this is a fixed cabinet
+  // and rolling the world in a game where left means left is how you lose the player.
+  const sh = G.shake * (REDUCE ? 0 : 0.006);
+  /* ── ⚑ THE COMBO CAMERA — DOLLY AND CRANE, NEVER A ROTATION ────────────────────────────────
+   * Artist: *"camera angles for dynamic combo sequences."* The combo here is FLOW: chain a dash
+   * into a roll into a dash and three links light OVERDRIVE. So the camera is driven by
+   * `ship.flow` / `ship.od` — by the STATE MACHINE, not by a timer and not by a cut. It tightens
+   * as you chain and commits when overdrive lights, which is the sequence made visible.
+   *
+   * ⛔ IT CANNOT ROTATE, AND THAT IS A HARD CONSTRAINT WITH TWO INDEPENDENT REASONS.
+   *   (a) The line already in this file: rolling the world in a game where left means left is
+   *       how you lose the player.
+   *   (b) ⚑ THE ONE THAT WOULD HAVE BITTEN SILENTLY: `_field()` / `_screen()` map the touch
+   *       DRAW-PATH gesture between finger and world, and they use NOMINAL camera constants on
+   *       purpose — reading the live camera closes a feedback loop (ship moves ⇒ camera moves ⇒
+   *       the target the ship is chasing moves). A yaw would desync the fingertip from the ship
+   *       by the whole rotation, on the control that shipped last week. A dolly along z and a
+   *       crane along y keep the optical axis where the mapping assumes it is.
+   * ⚠ The dolly is therefore BOUNDED, not free: `COMBO.z` is small enough that the draw-path
+   *   landing error stays inside what the existing `drift` already spends. `test:rr` asserts the
+   *   bound rather than trusting this comment.
+   * ⚑ AND IT IS A DOLLY *ZOOM*: the fov punch below widens while this pushes in, which is the
+   *   Vertigo shot — the framing barely changes while the perspective stretches. That is why it
+   *   reads as the camera getting excited rather than as the game zooming. */
+  const COMBO = { z: 0.78, y: 0.20, lead: 0.030 };
+  const flowK = REDUCE || G.mode !== 'play' || !G.ship.alive ? 0
+    : clamp(G.ship.flow / Math.max(1, RRGame.SHIP.FLOW_OD), 0, 1);
+  const odK = REDUCE || !G.ship.alive ? 0 : (G.ship.od > 0 ? 1 : 0);
+  /* the chase-camera LEAD: during overdrive the camera sits slightly ahead of where the ship is
+   * going, the way a chase car leads a bike. It is velocity, not position — so it points where
+   * you are ABOUT to be, which is the whole reason a lead reads as speed. */
+  const leadX = odK * clamp(G.ship.vx * COMBO.lead, -0.42, 0.42);
+  comboK += ((flowK * 0.45 + odK * 0.55) - comboK) * Math.min(1, dt * 6);
+  comboLead += (leadX - comboLead) * Math.min(1, dt * 5);
+  const drift = clamp(G.ship.x * 0.055, -0.5, 0.5);
+  /* ⛔ THE JITTER IS DRAWN ONCE AND REUSED. Calling Math.random() again below to "remove" it
+   * subtracts a DIFFERENT number than was added, which does not cancel the shake — it adds a
+   * second independent one. The smear would then be driven by noise on every frame the screen
+   * shook, i.e. exactly the frames it most needs to be honest on. */
+  const jx = (Math.random() - 0.5) * sh, jy = (Math.random() - 0.5) * sh;
+  const camX = drift + comboLead + jx;
+  const camY = CAM.y - comboK * COMBO.y + jy;
+  const camZ = CAM.z - comboK * COMBO.z + (G.phase === 'entry' ? 1.4 : 0) * clamp(1 - G.phaseT, 0, 1);
+  cam.setPosition(camX, camY, camZ);
+  /* ⚑ FOV PUNCH. Widening the lens during a dash or overdrive is the oldest speed trick there is
+   * and it costs one lerp: the periphery accelerates outward faster than the centre, so the same
+   * scroll rate reads as more. Kept small (42° → ~46°) and SMOOTHED — an fov that steps is a
+   * visible pop, and a big one is nausea. It is a lens change, never a roll or a shake. */
+  const wantFov = CAM.fov + (!REDUCE && G.mode === 'play' && G.ship.alive
+    ? (G.ship.dash > 0 ? 4.2 : 0) + (G.ship.od > 0 ? 1.8 : 0) + clamp((Math.abs(G.ship.vx) - 7) * 0.22, 0, 1.6) : 0);
+  camFov += (wantFov - camFov) * Math.min(1, dt * 9);
+  cam.camera.fov = camFov;
+
+  /* ── ⚑ THE SMEAR IS MEASURED OFF THE CAMERA, AFTER IT HAS MOVED ─────────────────────────────
+   * Everything above decided where the camera is THIS frame. The exposure integral is simply how
+   * far it travelled since the last one, in UV, times the shutter angle — so this must run after
+   * the move and before the draw, and it needs no velocity, no dt and no tuning.
+   * ⚠ SHAKE IS EXCLUDED. It is `Math.random()` per frame, so including it would inject a
+   *   full-strength smear in a random direction on every single frame — a permanent blur that
+   *   looks like a broken shader and never reads as motion. The camera the smear measures is the
+   *   camera without its jitter: shake is sensor rattle, not travel. */
+  if (smearOn) {
+    const halfH = Math.tan(camFov * Math.PI / 360) * camZ;      // world half-height at z=0
+    const halfW = halfH * Math.max(0.05, OW / Math.max(1, OH));
+    const sx = camX - jx, sy = camY - jy;
+    /* a camera moving +x slides the world −x across the sensor, hence the sign. UV is 0..1, so a
+     * world displacement is divided by the FULL extent, which is twice the half-extent. */
+    let ux = -(sx - camPrev.x) / (2 * halfW);
+    let uy = (sy - camPrev.y) / (2 * halfH);
+    /* the radial term: a widening lens pushes every point outward from the centre, so the frame
+     * slides inward across the sensor at a rate equal to the FRACTIONAL change in half-height. */
+    let ur = (halfH - camPrev.h) / Math.max(1e-6, halfH);
+    const k = POST.shutter * (REDUCE ? 0 : 1);
+    camPrev.x = sx; camPrev.y = sy; camPrev.h = halfH;
+    /* ⚠ CLAMPED, because a teleport is not a motion. Respawn, wave entry and the first frame
+     * after a resize all move the camera a long way in one step, and an unclamped exposure
+     * integral turns that into one frame of full-frame streaking — which reads as a glitch,
+     * not as speed. The clamp is generous enough that nothing the ship can do reaches it. */
+    const LIM = 0.035;
+    ux = clamp(ux, -LIM, LIM) * k; uy = clamp(uy, -LIM, LIM) * k; ur = clamp(ur, -LIM, LIM) * k;
+    try {
+      const sc = app.graphicsDevice.scope;
+      sc.resolve('rrSmear').setValue([ux, uy]);
+      sc.resolve('rrSmearR').setValue(ur);
+      sc.resolve('rrSmearK').setValue(POST.smearMax);
+    } catch (e) {}
+    smearLen = Math.hypot(ux, uy) + Math.abs(ur) * 0.5;
+  }
+  }
+
   let fpsWin = [], lastT = performance.now();
   const HOLD = on('hold', false);
   app.on('update', dtRaw => {
@@ -1741,20 +1915,7 @@
     playEvents();
     if (G.mode === 'over' && !overShown) showOver();
 
-    // camera: a shake and a gentle push toward the action. Never a roll — this is a fixed cabinet
-    // and rolling the world in a game where left means left is how you lose the player.
-    const sh = G.shake * (REDUCE ? 0 : 0.006);
-    const drift = clamp(G.ship.x * 0.055, -0.5, 0.5);
-    cam.setPosition(drift + (Math.random() - 0.5) * sh, CAM.y + (Math.random() - 0.5) * sh,
-      CAM.z + (G.phase === 'entry' ? 1.4 : 0) * clamp(1 - G.phaseT, 0, 1));
-    /* ⚑ FOV PUNCH. Widening the lens during a dash or overdrive is the oldest speed trick there is
-     * and it costs one lerp: the periphery accelerates outward faster than the centre, so the same
-     * scroll rate reads as more. Kept small (42° → ~46°) and SMOOTHED — an fov that steps is a
-     * visible pop, and a big one is nausea. It is a lens change, never a roll or a shake. */
-    const wantFov = CAM.fov + (!REDUCE && G.mode === 'play' && G.ship.alive
-      ? (G.ship.dash > 0 ? 4.2 : 0) + (G.ship.od > 0 ? 1.8 : 0) + clamp((Math.abs(G.ship.vx) - 7) * 0.22, 0, 1.6) : 0);
-    camFov += (wantFov - camFov) * Math.min(1, dt * 9);
-    cam.camera.fov = camFov;
+    stepCamera(dt);
 
     fx.begin();
     fx.setCamBasis(cam);
@@ -1968,6 +2129,20 @@
       drawing: draw.id !== null, stick: stick.id !== null,
       dx: +draw.x.toFixed(2), dy: +draw.y.toFixed(2), autofire: AUTOFIRE, coarse: COARSE,
       pads: ['tBomb', 'tRoll', 'tFire'].map(id => id + ':' + (document.getElementById(id) ? 'y' : 'n')).join(' ') }),
+    /* ⚑ THE CAMERA AND THE SMEAR, READ BACK, for the same reason `_touch` exists: "the blur is on"
+     * is not a question a screenshot can answer in this container, because SwiftShader rotates hue
+     * on canvas content and a smeared frame and a soft one look alike. These are the numbers the
+     * shader is actually being handed. `len` is the exposure length in UV — the thing that must be
+     * EXACTLY 0 when the camera is still, which is an assertion a threshold could never be. */
+    _cam: () => ({ x: +cam.getPosition().x.toFixed(4), y: +cam.getPosition().y.toFixed(4),
+      z: +cam.getPosition().z.toFixed(4), fov: +camFov.toFixed(3),
+      combo: +comboK.toFixed(4), lead: +comboLead.toFixed(4),
+      /* the rotation is asserted, not assumed: the draw-path mapping depends on it being identity
+       * and a future "just a little yaw" would break the control silently. */
+      rot: cam.getEulerAngles().data ? Array.from(cam.getEulerAngles().data).map(v => +v.toFixed(3))
+        : [+cam.getEulerAngles().x.toFixed(3), +cam.getEulerAngles().y.toFixed(3), +cam.getEulerAngles().z.toFixed(3)],
+      smear: smearOn, taps: SMEAR_TAPS, shutter: POST.shutter, len: +smearLen.toFixed(6),
+      dither: ditherOn, reduce: REDUCE }),
     _field: (x, y) => fieldAt(x, y),
     /* ⚠ THE CLOCK A PROBE CAN TRUST, and it is `__city._step`'s twin for the same recorded
      * reason: this container stalls rAF (6-8 real frames in 10.5 s measured), so a wall-clock
@@ -1982,6 +2157,17 @@
         dash: +s.dash.toFixed(3), rollT: +s.rollT.toFixed(3), drawT: +s.drawT.toFixed(3),
         flow: s.flow, od: +s.od.toFixed(2), dashes: G.stat.dashes, rolls: G.stat.rolls,
         bolts: G.bullets.filter(b => b.live).length, shots: G.shots, held: !!HOLD };
+    },
+    /* ⚑ THE CAMERA'S OWN CLOCK, and it exists for a reason `_step` cannot cover: `_step` advances
+     * the SIMULATION only, while the camera and the smear live in the render frame. So a probe
+     * that drove `_step` a thousand times and then read `_cam()` would be reading a camera that
+     * had never moved — every combo assertion would measure the rig at rest and pass or fail for
+     * the wrong reason. `_camStep` advances the camera the same deterministic way, and rAF being
+     * stalled in this container is then irrelevant to both halves. */
+    _camStep(n, dt) {
+      const h = dt || 1 / 60;
+      for (let i = 0; i < (n || 1); i++) stepCamera(h);
+      return this._cam();
     },
     /* ⚑ THE HANDEDNESS CHECK. Three known world points through the live camera. This is the test
      * that Section 9's port did not have, and CLAUDE.md records that its absence cost three
