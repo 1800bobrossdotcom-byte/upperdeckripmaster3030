@@ -1409,6 +1409,58 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ♪ THE SITE MUSIC IS STREAMED, NOT HELD — `theme.js`, `npm run test:theme` (29)
+*Artist, 2026-08-06: "incorporate this album now by this artist as the streaming music persistent
+throughout the website experience. removing the smiling man song by me and sean."*
+The set is **BASIX — "GO-TEAM!"**; `smilingman.mp3` (2.8 MB) is deleted. `CREDITS.md` carries the
+attribution, and the artist's own removal path if it is ever asked for.
+- ⛔ **NOTHING IS DOWNLOADED OR RE-HOSTED, AND THAT IS THE WHOLE SHAPE OF THE MODULE.** There is no
+  direct stream URL to point an `<audio>` at, so the only legitimate way to play someone else's set
+  is their own embedded player: an off-screen widget iframe driven through the official Widget API.
+  Copying the audio in would be smaller, faster and **seamless**, and would be taking the record
+  instead of playing it. Every constraint below is downstream of that one decision.
+- ⚠ **IT IS GENUINELY LESS CONTINUOUS THAN THE MP3, AND SAYING SO IS THE POINT.** The site is many
+  separate HTML pages and a cross-origin iframe cannot survive a navigation — it is destroyed with
+  the document and rebuilt from scratch. The PLACE is persisted (`urm_sound_n` track index +
+  `urm_sound_t` seconds) and the next page seeks back to it, so you resume where you were; you just
+  hear a gap first, and clicking fast through card pages restarts the player each time. ⚑ **The
+  only two fixes are re-hosting the audio (not ours to do) or a single-page shell (a much larger
+  change than a music swap).** Do not let anyone record this as "seamless".
+- ⛔ **FAIL OPEN HERE MEANS THE BUTTON HAS TO BE ABLE TO DIE, WHICH IS THE OPPOSITE OF EVERY OTHER
+  MODULE IN THIS REPO.** Everything else fails open by leaving the page as it found it. A music
+  button cannot: the visitor presses it, gets silence, and concludes the site is broken — so a
+  control that does nothing is WORSE than no control. The widget is not booted until the music is
+  actually wanted (a visitor who never turns it on pays no third-party weight at all), and if it
+  does not report READY inside `BOOT_MS` the button and the dead iframe **remove themselves** and
+  nothing else on the page moves.
+- ⚑ **THE ONLY ASSERTION IN `test:theme` THAT MEANS ANYTHING IS THE SABOTAGE, AND THE CONTAINER IS
+  WHY.** Outbound TLS from headless Chromium is reset here, so "does the music play" is unaskable —
+  every network path answers no. But that is exactly what a visitor behind a blocker or a corporate
+  proxy sees, so the failure path is the one worth guarding. `window.SC` is **stubbed**, not
+  fetched, which makes both paths drivable locally: a widget that reports READY, and one that never
+  does. ⚠ The healthy path is asserted TOO — "the button went away" is trivially satisfied by a
+  module that always buries itself.
+- ⚠ **A FALSE FAILURE FROM `waitUntil:'load'`, AND IT IS THIS FILE'S OWN GENRE.** A dynamically
+  inserted iframe with a `src` DELAYS the window load event, so waiting for `load` on a page whose
+  player points at an unreachable host returned only after the connection gave up — **past the 9 s
+  budget**. The grace-period assertion then read a button that had already been correctly buried
+  and called it a bug. Wait for the document, not the network; abort the third-party request so the
+  timing measured is the module's.
+- ⚑ **COVERAGE WAS THE ARTIST'S ACTUAL COMPLAINT.** `sfx.js` was on 208 pages and `theme.js` on
+  **three** — index, battle, market — so "site music" was a claim about 1.4% of the site. It is on
+  **207** now: every card page, every document, the hubs. ⛔ **Skipped on purpose:** the game
+  cabinets (they have their own audio, and a second music stream fights it), `superrare.html` (must
+  stay script-free), and the card templates that render inside sandboxed iframes.
+- ⚠ **AND THE GENERATOR WAS PATCHED WITH THE OUTPUT** — `scripts/build-pages.mjs` emits the four
+  public pages' script tags, so patching only the HTML would have left it armed to put the old
+  state back. That is `restyle-backs.mjs`'s failure exactly, and it is the fourth time.
+- ⚠ `theme.js` now carries `if (window.self !== window.top) return;` — `sfx.js` always had it and
+  `theme.js` never did. Without it every embedded card iframe starts its own copy of the album.
+- ⚠ The pill sits `right:12px`, the SFX toggle `left:12px` — opposite corners, verified by driving
+  four real pages at 390×844 and 1280×800: on-screen, ≥44px, zero collisions with any other fixed
+  control. The width is capped (`min(62vw,320px)`, ellipsis) because the label now carries a TRACK
+  TITLE — somebody else's string, of any length, on a fixed element.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

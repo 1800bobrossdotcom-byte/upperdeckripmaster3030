@@ -32,6 +32,21 @@
 See `docs/BLENDER-PIPELINE.md` for the wider survey of Blender and texturing tooling,
 including which of it can and cannot be used here.
 
+## Music
+
+- **BASIX — "GO-TEAM!"** is the site's music.
+  Set: **https://soundcloud.com/basix265/sets/go-team** · artist: **https://soundcloud.com/basix265**
+  ⛔ **The audio is NOT in this repository and is not re-hosted anywhere by us.** `theme.js`
+  drives SoundCloud's own embedded player (`w.soundcloud.com`) through their public Widget
+  API, so every play is served by SoundCloud, counts for the artist, and runs under
+  SoundCloud's terms. Copying the files in would be smaller, faster and seamless across
+  page loads — and would be taking the record instead of playing it.
+  ⚠ **Permission is the artist's to hold, not the code's.** Embedding a public SoundCloud set
+  is what the widget is published for, but if BASIX ever asks for it to come down, the whole
+  removal is deleting `theme.js`'s script tags — no asset to purge, because there is no asset.
+  ⚑ Replaces the previous site song ("smilingman", by lovebeing & sean), removed at the
+  artist's request along with its `smilingman.mp3`.
+
 ## Everything else
 
 - Original art, card designs, code, contracts, and the $3030 experience by
