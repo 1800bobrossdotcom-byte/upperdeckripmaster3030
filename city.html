@@ -52,6 +52,14 @@
   #hudTL{ left:calc(var(--bez) + 16px); top:calc(var(--bez) + 14px); font-size:12px; letter-spacing:.16em; opacity:.9; }
   #hudTL b{ color:var(--accent); }
   #hudBL{ left:calc(var(--bez) + 16px); bottom:calc(var(--bez) + 14px); font-size:11.5px; line-height:1.9; opacity:.78; }
+  /* the peer name tags. Positioned per frame by city-app.js through the live camera, so they
+     sit at 0,0 until they are placed — and `[data-on]` is what reveals them, never the
+     position, or a peer flashes at the top-left corner on their first frame. */
+  #peers{ left:0; top:0; width:0; height:0; }
+  .peertag{ position:fixed; left:0; top:0; font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); opacity:0; transition:opacity .2s;
+    white-space:nowrap; text-shadow:0 1px 2px rgba(0,0,0,.95), 0 0 10px rgba(0,0,0,.7); }
+  .peertag[data-on="1"]{ opacity:.92; }
   #carry{ left:50%; transform:translateX(-50%); bottom:calc(var(--bez) + 96px);
     font-size:11px; letter-spacing:.22em; color:var(--accent); opacity:0; transition:opacity .18s; }
   #carry[data-on="1"]{ opacity:.95; }
@@ -172,6 +180,19 @@
   /* ── TOUCH. Injected by js/city-app.js only on a coarse pointer, so a desktop never sees it.
      ⚠ 56px, above the 44px tap floor mobile.css sets for the rest of the site — these are held
      while flying, not tapped once, and a control you hold wants more than the minimum. */
+  /* ⛔ THE AUDIO CONTROL IS A COLLAPSED COG, NOT A FLOATING PILL — a measurement, not a taste.
+     Driven at 390x844 and 844x390, theme.js's 116px pill covered #tFlap and #tMode, and it WON the
+     hit test, so the bird could not be flapped. At 116px wide THE CITY has no free corner in
+     portrait at all (BR flap/mode, BL act, TR/TL the mode chips); at 44px the bottom-left is clear
+     at every viewport. So this cabinet gets the same collapsible row dogfight/riprocketer/section9
+     already have — js/game-toggles.js collapses it by default and theme.js appends its button to
+     it, which is also the 'collapsable audio menu, games across the board' ask that missed here. */
+  .toggles{ position:fixed; z-index:7; left:calc(var(--bez) + 12px); bottom:calc(var(--bez) + 12px);
+    display:flex; gap:8px; align-items:center; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:inherit; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; color:#2bff80; background:rgba(2,16,9,.82);
+    border:1px solid rgba(43,255,128,.34); border-radius:999px; padding:9px 12px; min-height:44px; }
+  .tg.off{ opacity:.5; }
   #touchUI{ position:fixed; z-index:6; right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 14px);
     display:flex; gap:12px; align-items:flex-end; }
   #touchUI button{ width:56px; height:56px; border-radius:50%; font-size:22px; line-height:1;
@@ -347,6 +368,12 @@
     <br><span class="dim">the old cabinets →</span>
     <a href="dogfight.html">DOGFIGHT</a> · <a href="section9.html">SECTION 9</a>
   </div>
+  <!-- ⛔ OTHER PEOPLE. `js/city-net.js` puts every other player in the shared world into this
+       host as a projected name tag, with their real body in the scene beside it. The host is
+       always present and empty by default: an empty city is TRUE and is the honest answer
+       when nobody else is on, which is the same call the arena lobby made when the bots were
+       removed — a world padded with invented company is a lie the visitor cannot detect. -->
+  <div class="hud" id="peers"></div>
   <div class="hud" id="carry"></div>
   <div class="hud" id="ride"></div>
   <div class="hud" id="reticle"></div>
@@ -427,8 +454,12 @@
 <script src="js/section9-skin.js"></script>
 <script src="js/s9pc-skin.js"></script>
 <script src="js/city-drops.js"></script>
+<script src="cards/arena-net.js"></script>
+<script src="js/city-net.js"></script>
 <script src="js/city-ops.js"></script>
 <script src="js/city-rides.js"></script>
+<div class="toggles" id="toggles"></div>
+<script src="js/game-toggles.js" defer></script>
 <script src="js/city-dash.js"></script>
 <!-- the shared burn: the city's print pass reads the $3030 edition. onerror so a blocked
      fetch leaves the city exactly as it is — see startSharedBurn() in js/city-app.js. -->
@@ -437,4 +468,5 @@
 <script src="js/city-ink.js"></script>
 <script src="js/gfx-post.js"></script>
 <script src="js/city-app.js"></script>
+  <script src="theme.js"></script>
 </body></html>

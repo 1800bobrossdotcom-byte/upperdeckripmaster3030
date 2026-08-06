@@ -140,6 +140,32 @@
    *   B  the frame        — rules, corner marks, the printed border
    *   A  UNUSED, and it must stay at 255 — see the note under this function.
    */
+  /* ⛔ ROUGH AND ROTO'D, NOT FEATHERED — artist, 2026-08-05: *"remove the shitty feathered edges
+   * for separation - keep it rough and roto'd."* Every mask boundary here was a radial or linear
+   * GRADIENT, which is a soft alpha ramp: the layer fades out instead of ending. That is why the
+   * layers read as flat pieces floating rather than as plates that were CUT — a feathered edge
+   * has no cut in it, so there is nothing for depth to be a property of.
+   * ⚑ A roto is traced by hand around a subject: a HARD edge that wanders. The wander is the
+   *   evidence of the hand, and the hardness is what makes it a separate piece of material. Two
+   *   noise terms, same reason a torn edge needs them — one slow (where the hand is going) and
+   *   one fast (the tremor). Dropping the fast term gives a smooth lasso; dropping the slow one
+   *   gives a vibrating circle. */
+  function rotoPath(g, cx, cy, rx, ry, r, rough) {
+    const N = 96, ph1 = r() * TAU, ph2 = r() * TAU, ph3 = r() * TAU;
+    const k1 = 2 + Math.floor(r() * 3), k2 = 7 + Math.floor(r() * 6), k3 = 17 + Math.floor(r() * 11);
+    g.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * TAU;
+      const w = 1
+        + Math.sin(t * k1 + ph1) * 0.16 * rough
+        + Math.sin(t * k2 + ph2) * 0.075 * rough
+        + Math.sin(t * k3 + ph3) * 0.035 * rough;
+      const x = cx + Math.cos(t) * rx * w, y = cy + Math.sin(t) * ry * w;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);   // straight segments: a traced cut
+    }
+    g.closePath();
+  }
+
   function buildComp(seed, N) {
     const c = document.createElement('canvas');
     c.width = N; c.height = Math.round(N * 1.5);
@@ -183,12 +209,9 @@
     {
       const cx = (0.32 + r() * 0.36) * W, cy = (0.26 + r() * 0.26) * H;
       const rx = (0.24 + r() * 0.12) * W, ry = rx * (1.15 + r() * 0.5);
-      const gr = g.createRadialGradient(cx, cy, rx * 0.20, cx, cy, rx);
-      gr.addColorStop(0, 'rgb(0,255,0)'); gr.addColorStop(0.72, 'rgb(0,235,0)');
-      gr.addColorStop(1, 'rgb(0,0,0)');
-      g.fillStyle = gr;
-      g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy);
-      g.beginPath(); g.arc(cx, cy, rx, 0, TAU); g.fill(); g.restore();
+      g.fillStyle = 'rgb(0,255,0)';
+      rotoPath(g, cx, cy, rx, ry, r, 1.0);
+      g.fill();
     }
 
     /* ── B · THE TRIM ────────────────────────────────────────────────────────────────────
@@ -230,12 +253,11 @@
      * gradient rather than a shape: a hard-edged wash is a panel. */
     {
       const a = r() * TAU, cx = (0.2 + r() * 0.6) * W, cy = (0.2 + r() * 0.6) * H;
-      const gr = g.createLinearGradient(cx - Math.cos(a) * W, cy - Math.sin(a) * H,
-                                        cx + Math.cos(a) * W, cy + Math.sin(a) * H);
-      gr.addColorStop(0, 'rgb(0,0,0)');
-      gr.addColorStop(0.35 + r() * 0.2, 'rgb(190,0,0)');
-      gr.addColorStop(1, 'rgb(40,0,0)');
-      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      /* ⚠ the wash is the widest layer, so its cut has to be the loosest — a tight roto on a
+       *   field reads as a second figure. Big radii, low roughness. */
+      g.fillStyle = 'rgb(210,0,0)';
+      rotoPath(g, cx, cy, W * (0.62 + r() * 0.30), H * (0.55 + r() * 0.30), r, 0.55);
+      g.fill();
     }
 
     /* G · the STRIPS — a few small torn scraps, not a band across the card. ⚠ Deliberately
@@ -260,11 +282,9 @@
       const cx = (0.18 + r() * 0.30 + (r() < 0.5 ? 0 : 0.34)) * W;
       const cy = (0.52 + r() * 0.30) * H;
       const rad = (0.13 + r() * 0.09) * W;
-      const gr = g.createRadialGradient(cx, cy, rad * 0.15, cx, cy, rad);
-      gr.addColorStop(0, 'rgb(0,0,255)'); gr.addColorStop(0.68, 'rgb(0,0,205)');
-      gr.addColorStop(1, 'rgb(0,0,0)');
-      g.fillStyle = gr;
-      g.beginPath(); g.arc(cx, cy, rad, 0, TAU); g.fill();
+      g.fillStyle = 'rgb(0,0,235)';
+      rotoPath(g, cx, cy, rad, rad * (0.82 + r() * 0.5), r, 1.25);
+      g.fill();
     }
     return c;
   }
@@ -833,7 +853,13 @@ out vec4 frag;
 uniform sampler2D uPigA, uPigB, uPigC, uComp, uType, uStock;
 /* the second three sources and their own mask plate — only sampled when uNPig is 6 */
 uniform sampler2D uPigD, uPigE, uPigF, uComp2;
+/* ── the hand-drawn loops. One sheet, cells laid out in a grid; uSprite carries where we are. */
+uniform sampler2D uSpriteTex;
+uniform vec4 uSprite;        // x cols · y rows · z frame index · w how many are struck (0 = none)
+uniform vec4 uSpriteP[4];    // per sprite: xy centre (uv) · z scale · w rotation
 uniform int uNPig;           // 3 = ground/mid/figure · 6 = + wash, strip, inset
+uniform float uFrame;        // 1 = trim + border sorts · 0 = FRAMELESS, artwork to the die edge
+uniform float uScreen;       // 1 = halftone dots · 0 = continuous tone, no stipple
 uniform mat3 uRot;
 uniform vec3 uEye;
 /* ⛔ SIX PLATES, NOT FOUR — artist, 2026-08-05: *"i need my plate separator to have up to 6
@@ -851,7 +877,7 @@ uniform float uSplit;        // how much load the spot inks take off the process
 uniform vec4 uPress;         // x screen freq · y roller bands · z roller phase · w starve
 uniform vec4 uDmg;           // x burn · y tear · z dot gain · w edge wear
 uniform vec4 uFoilP;         // x grating cycles · y thin film · z sheen · w patch cycles
-uniform vec2 uPar;           // x parallax gain · y type depth
+uniform vec2 uPar;           // x parallax gain · y how hard lifted layers shade below
 /* ⛔ THE LOOP LIVES IN Z — artist, 2026-08-04: "have the animations live in z space and be
  * looping." Four depths through the card's thickness, one per element of the composition, and the
  * press cycle drives them. THIS SUPERSEDES the stillness decision recorded in §3 of the brief: I
@@ -864,7 +890,14 @@ uniform vec2 uPar;           // x parallax gain · y type depth
  *   centre, which is also why its displacement field GROWS WITH RADIUS: the exact mirror image of
  *   registration, which must be uniform and radius-free. The same block matcher measures both and
  *   the two answers are opposite. */
-uniform vec4 uElemZ;         // ground · mid · figure · type
+/* ⛔ SEVEN DEPTHS, ONE PER LAYER — artist, 2026-08-05, pointing at cards/lens3d.html?hero=42:
+ * *"like this … we successfully separated 6 cards or so before, just import that back in there."*
+ * That page is the LAYERED card (js/card-layers.js): every plate authored separately, each at its
+ * own z, sliding against the others as it turns. This press had only FOUR element depths —
+ * ground, mid, figure, type — so at six sources three of them shared a plane with the first three
+ * and could not separate from them however far LAYERS was pushed. Six pictures, three planes.
+ * ⚑ Now every source owns a plane, which is what "layered" has meant on this project all along. */
+uniform float uElemZ[7];     // ground · mid · figure · wash · strip · inset · type
 uniform sampler2D uBack;     // the reverse
 uniform float uBackRGB;      // 1 = a DESIGNED back (full colour) · 0 = the generated stand-in
 uniform float uFrameFoil;    // how much of the border is METAL rather than ink — rarity
@@ -961,7 +994,36 @@ vec2 zuv(vec2 u, float z) { return (u - 0.5) / (1.0 + z) + 0.5; }
 /* how much of an element's depth is spent on magnification rather than travel. ⚠ FILE SCOPE on
  * purpose: the name's INK and the name's RELIEF are sampled in two different functions, and the
  * two must use the same number or the emboss separates from the letter it belongs to. */
-const float ZS = 0.18;
+/* ⚑ MORE DEPTH — artist, 2026-08-06. 0.18 kept the perspective term almost invisible, which was
+ * right while the separation was a constant offset and wrong now that it is parallax: perspective
+ * is how you tell WHICH layer is nearer, and without it the stack reads as pieces at one height. */
+const float ZS = 0.34;
+
+/* ── ⛔ A LAYER THAT STANDS PROUD CASTS A SHADOW ─────────────────────────────────────────────
+ * Artist, 2026-08-06: *"more z depth - drop shadows on z depth would be cool."* It is the single
+ * strongest depth cue there is, and it is the honest one: a piece of card lifted off the sheet
+ * throws the key light's shadow onto whatever is under it. Parallax only tells you about depth
+ * when you MOVE; a shadow tells you while the card is dead still, which is most of the time.
+ * ⚑ THE GEOMETRY IS NOT A STYLE CHOICE. Displacement = height x tan(incidence), so the shadow
+ *   slides AWAY FROM THE KEY at a distance set by how high the layer sits — the same uKeyDir the
+ *   foil and the paper tooth already answer, so moving the light moves the shadows with it. A
+ *   shadow with a hardcoded offset is a drop-shadow filter; this is a cast shadow.
+ * ⚠ AND THE PENUMBRA GROWS WITH HEIGHT. A contact shadow is sharp and a lifted one is soft —
+ *   that softening is most of what the eye reads as "how far above". Three taps rather than one,
+ *   spread along the light's own axis, which is where a real penumbra spreads.
+ * ⚠ It darkens by MULTIPLYING, never by mixing toward a colour: this sheet is ink on paper and a
+ *   shadow removes light, it does not add grey. Same rule as the ink itself. */
+float castShadow(sampler2D m, vec2 uv, int ch, vec2 dir, float z) {
+  float soft = 0.010 + 0.055 * z;
+  float a = 0.0;
+  for (int k = 0; k < 5; k++) {
+    vec2 o = uv - dir * z - dir * soft * float(k);
+    vec4 t = texture(m, o);
+    float v = ch == 0 ? t.r : (ch == 1 ? t.g : t.b);
+    a += v;
+  }
+  return clamp(a / 5.0, 0.0, 1.0);
+}
 
 vec3 artAt(vec2 u, vec2 par) {
   /* ── ⛔ "THESE ARE NOT SEPARATED LAYERS IT IS JUST ZOOMING IN" ───────────────────────────
@@ -993,9 +1055,27 @@ vec3 artAt(vec2 u, vec2 par) {
    *   apart, which is the thing the control is named after.
    * ⚠ Ground stays at ZBASE 0 and therefore never moves at all: it is the sheet the rest are
    *   stacked on, and a reference that drifts is not a reference. */
-  vec2 uG = zuv(u, uElemZ.x * ZS) + par * uElemZ.x + vec2(-0.255, -0.150) * uElemZ.x;
-  vec2 uM = zuv(u, uElemZ.y * ZS) + par * uElemZ.y + vec2( 0.220, -0.275) * uElemZ.y;
-  vec2 uF = zuv(u, uElemZ.z * ZS) + par * uElemZ.z + vec2( 0.290,  0.185) * uElemZ.z;
+  /* ⛔ DEPTH IS WHAT THE VIEW DOES TO A LAYER, NOT WHERE THE LAYER WAS GLUED. Artist: *"there is
+   * no z space separation … they are just chopped up and flat floating."* Exactly right, and the
+   * numbers said so: the parallax gain was 0.030 and multiplied by the view vector, so face-on it
+   * was ~0, while the fixed per-layer bearings I had added were 0.25–0.33 — TEN TIMES LARGER and
+   * completely view-independent. So the layers were displaced by a constant. A constant offset is
+   * a collage that was pasted down crooked; it is not depth, and no amount of it ever becomes
+   * depth, because depth is defined by RESPONDING TO THE EYE.
+   * ⚑ THE SHIFT IS NOW OVERWHELMINGLY PARALLAX: one direction, set by where you are looking, and
+   *   a MAGNITUDE PER LAYER set by how deep it sits. That is the whole definition. Turn the card
+   *   and the near layers sweep across the far ones; hold it still and they sit where the stack
+   *   puts them. The small residual bearing is the collage's own registration — real pieces are
+   *   laid down slightly off — and it is a quarter of what it was so it cannot masquerade as
+   *   depth on its own.
+   * ⚠ PAR IS SCALED BY THE STACK at the uniform, so at LAYERS 0 both terms are exactly 0 and the
+   *   base card is untouched. */
+  vec2 uG = zuv(u, uElemZ[0] * ZS) + par * uElemZ[0] + vec2(-0.064, -0.038) * uElemZ[0];
+  vec2 uM = zuv(u, uElemZ[1] * ZS) + par * uElemZ[1] + vec2( 0.055, -0.069) * uElemZ[1];
+  vec2 uF = zuv(u, uElemZ[2] * ZS) + par * uElemZ[2] + vec2( 0.073,  0.046) * uElemZ[2];
+  vec2 uW = zuv(u, uElemZ[3] * ZS) + par * uElemZ[3] + vec2(-0.045,  0.075) * uElemZ[3];
+  vec2 uS = zuv(u, uElemZ[4] * ZS) + par * uElemZ[4] + vec2( 0.083, -0.026) * uElemZ[4];
+  vec2 uI = zuv(u, uElemZ[5] * ZS) + par * uElemZ[5] + vec2(-0.078, -0.059) * uElemZ[5];
   /* ⛔ THE NAME DOES NOT TRAVEL AT ALL, AND MAKING IT TRAVEL PRINTED IT TWICE. Its INK is laid
    * here; its RELIEF is read further down from the same texture at the undisplaced UV, because
    * the crease and the marks sharing that texture belong to the SHEET. The two agreed only while
@@ -1030,11 +1110,43 @@ vec3 artAt(vec2 u, vec2 par) {
   vec2 uFig = (uF - vec2(0.50, 0.40)) * vec2(1.02, 0.76) + vec2(0.50, 0.34);
   vec3 c;
   if (uNPig <= 1) {
-    c = texture(uPigC, uFig).rgb;                       // one card, printed
+    /* ── ⛔ ONE CARD, CUT INTO LAYERS — artist, 2026-08-06: *"for a single card the layers are
+     * creating 3 sources when there is only one source selected. The layers should be created
+     * from THAT ONE SOURCE. STILL no z space separation and depth."*
+     * ⚑ THIS IS THE THING I HAD BACKWARDS ALL DAY. LAYERS was reaching for more SOURCE CARDS —
+     *   it even pulled two in automatically — when what it has to do is take the single card you
+     *   chose and SEPARATE IT: cut it into regions and stand those regions at different depths.
+     *   That is what cards/lens3d.html does with an authored sidecar, and it is what "layered
+     *   card" has always meant here. More pictures is a collage; one picture in slices is depth.
+     * ⚑ THE CUTS ARE THE ROTO MASKS, which is why they had to stop being feathered first: a
+     *   region with a soft edge cannot sit at a depth, because half of it is at two depths. Four
+     *   regions — the ground behind everything, then the three roto'd cuts — each sampling THE
+     *   SAME TEXTURE at its own parallax offset, so they slide across each other as the card
+     *   turns. Nearest is drawn last, so it occludes.
+     * ⚠ At LAYERS 0 every uElemZ is 0, all four offsets collapse to one and the card is the flat
+     *   print it always was — byte-identical, which is what keeps the base honest. */
+    vec4 cut = texture(uComp2, u);
+    c = texture(uPigC, uFig).rgb;                       // the sheet the cuts are lifted off
+    /* ⚑ MORE TRAVEL. These were 0.05 and read as a nudge; at 0.11 a lifted piece clearly stands
+     * somewhere else from the sheet it came off. */
+    vec2 fB = uFig + (par + vec2(-0.112, -0.065)) * uElemZ[1];
+    vec2 fM = uFig + (par + vec2( 0.130,  0.082)) * uElemZ[3];
+    vec2 fN = uFig + (par + vec2(-0.095,  0.142)) * uElemZ[5];
+    vec2 ldir = normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20;
+    /* Back to front. Each layer SHADOWS what is already down, then is laid on top — so a shadow
+     * can never fall on the piece casting it, and a near layer shades the far ones as it must. */
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 0, ldir, uElemZ[1]) * (1.0 - step(0.5, cut.r)));
+    c = mix(c, texture(uPigC, fB).rgb, step(0.5, cut.r));
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 1, ldir, uElemZ[3]) * (1.0 - step(0.5, cut.g)));
+    c = mix(c, texture(uPigC, fM).rgb, step(0.5, cut.g));
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 2, ldir, uElemZ[5]) * (1.0 - step(0.5, cut.b)));
+    c = mix(c, texture(uPigC, fN).rgb, step(0.5, cut.b));
   } else {
     c = texture(uPigA, uG * vec2(0.30, 0.20) + vec2(0.20, 0.34)).rgb;
     vec3 mid = texture(uPigB, uM * vec2(-1.90, 1.25) + vec2(1.42, -0.16)).rgb;
     c = mix(c, mid, texture(uComp, uM).r);
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp, u, 1, normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20,
+                                   uElemZ[2]) * (1.0 - texture(uComp, uF).g));
     c = mix(c, texture(uPigC, uFig).rgb, texture(uComp, uF).g);
   }
 
@@ -1054,29 +1166,68 @@ vec3 artAt(vec2 u, vec2 par) {
    *   is dark. That is a recorded, expensive bug in this exact file. A fourth channel of data
    *   gets a fourth channel of ANOTHER texture. */
   if (uNPig > 3) {
-    vec4 m2 = texture(uComp2, uM);
-    vec3 wash = texture(uPigD, uG * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
-    c = mix(c, wash, texture(uComp2, uG).r * 0.72);
+    vec2 ldir2 = normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20;
+    vec3 wash = texture(uPigD, uW * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
+    c *= mix(1.0, 1.0 - (1.0 - 0.42) * uPar.y, castShadow(uComp2, u, 0, ldir2, uElemZ[3]));
+    c = mix(c, wash, texture(uComp2, uW).r * 0.72);
     /* turned against the sheet: a strip laid square to the trim reads as a panel, not a scrap */
-    vec2 uS = mat2(0.87, -0.49, 0.49, 0.87) * (uM * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
-    vec3 strip = texture(uPigE, uS).rgb;
-    c = mix(c, strip, m2.g);
-    vec3 inset = texture(uPigF, (uF - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
-    c = mix(c, inset, texture(uComp2, uF).b);
+    vec2 uSr = mat2(0.87, -0.49, 0.49, 0.87) * (uS * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
+    vec3 strip = texture(uPigE, uSr).rgb;
+    c = mix(c, strip, texture(uComp2, uS).g);
+    vec3 inset = texture(uPigF, (uI - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 2, ldir2, uElemZ[5]) * (1.0 - texture(uComp2, uI).b));
+    c = mix(c, inset, texture(uComp2, uI).b);
+  }
+
+  /* ── ⛔ THE LOOPS ARE STRUCK IN INK, NOT LAID OVER THE TOP ─────────────────────────────
+   * Artist, 2026-08-05: *"small gif sprites and loops that look handddrawn … infinite abstract,
+   * ascii art, generative and cool."* They are drawn by js/card-sprites.js and they arrive HERE,
+   * inside artAt — which means they go through the four (or six) plate separation, take the
+   * halftone screen, take the registration error and take the press's damage, exactly like every
+   * other mark on the sheet. ⚑ That is the whole difference between a sprite that is ON the card
+   *   and a sprite that is IN the print. Compositing them after the separation would have made
+   *   them a sticker — the decal failure this renderer's first acceptance test exists to catch.
+   * ⚠ They ride the FIGURE's plane, so they sit in the stack and parallax with it rather than
+   *   floating at zero depth in front of a card that has depth. */
+  for (int i = 0; i < 4; i++) {
+    if (float(i) >= uSprite.w) break;
+    vec4 SP = uSpriteP[i];
+    vec2 d = (uF - SP.xy) / max(SP.z, 0.001);
+    float ca = cos(SP.w), sa = sin(SP.w);
+    vec2 q = vec2(d.x * ca - d.y * sa, d.x * sa + d.y * ca) + 0.5;
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) continue;
+    /* into the sheet's own cell */
+    float col = mod(uSprite.z, uSprite.x);
+    float row = floor(uSprite.z / uSprite.x);
+    vec2 cellUv = (vec2(col, row) + q) / vec2(uSprite.x, uSprite.y);
+    float cov = texture(uSpriteTex, cellUv).r;
+    c = mix(c, vec3(0.055, 0.048, 0.062), clamp(cov, 0.0, 1.0));
   }
 
   /* The trim and the marks are on the STOCK, so they take no depth — they are not floating
    * above the picture, they are the picture stopping. Only the name is carried up the stack. */
   // ⚠ the trim and the marks are the SHEET. They never travel — if the paper moved in z there
   // would be nothing for the stack to be inside, and the whole depth would read as a zoom.
+  /* ── ⛔ FRAMELESS — artist, 2026-08-06 ────────────────────────────────────────────────────
+   * The trim is the RAW STOCK left unprinted: a trading card's border is where the ink stops, and
+   * this channel says "no artwork here" so the paper does the rest. Frameless takes it away and
+   * the composition runs to the die edge — a FULL BLEED, which is a real thing a press does and a
+   * different kind of card, not a card with a missing part.
+   * ⚠ AND IT COSTS SOMETHING THIS FILE ALREADY RECORDED: *"bleeding the composition to all four
+   *   edges is what turned the first proof into wallpaper."* The trim is what makes the artwork
+   *   read as a WINDOW. That was a finding about the default, not a prohibition — but it is why
+   *   this is an option rather than the new normal, and why the panel says so out loud.
+   * ⚑ It takes the border sorts with it. Sorts are set INTO the trim, so a frame-less card with a
+   *   ruled border still on it is a border round nothing — the one arrangement that would look
+   *   like a bug rather than a choice. The NAME stays: it is the card's title, not its frame. */
   vec4 m = texture(uComp, u);
-  c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0));       // raw stock: the trim
+  c = mix(c, vec3(0.930, 0.902, 0.836), clamp(m.b, 0.0, 1.0) * uFrame);   // raw stock: the trim
   /* The name and the border sorts are struck by the same cylinder as everything else, so they
    * arrive WITH the sheet — the type writes itself on rather than fading up. */
   float frontT = 1.2 - 1.4 * uMot.w;
   float ink = smoothstep(frontT, frontT + 0.18, 1.0 - u.y);
   c = mix(c, vec3(0.055, 0.048, 0.062), texture(uType, uT).r * ink);   // the name
-  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g * ink);    // marks + border sorts
+  c = mix(c, vec3(0.120, 0.108, 0.128), texture(uType, u).g * ink * uFrame);  // sorts + marks
   return c;
 }
 
@@ -1259,7 +1410,19 @@ void main(void) {
     float band = 1.0 + uPress.w * sin(u.y * uPress.y + uPress.z + float(p) * 0.7);
     d = clamp(d * band + uDmg.z * 0.10, 0.0, 1.0);
     vec2 dn;
-    float cov = screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d, dn);
+    /* ⛔ THE STIPPLE COMES OFF — artist, 2026-08-06: *"I do not want the stipling on the cards
+     * anymore, it diminished the art."* That is the AM halftone: each plate broken into dots on
+     * its own screen angle. It is most of what made the card read as PRINTED, and it is also a
+     * screen laid over somebody's artwork — at card size the dots are a texture the picture has
+     * to be seen through, and he is right that it costs the art more than it buys the press.
+     * ⚑ AT 0 THE INK IS LAID IN CONTINUOUS TONE: the density goes down as coverage directly,
+     *   which is what a photographic or a digital press does. Everything else survives — the four
+     *   or six plates, their registrations, the film weights, the roller band, the trapping — so
+     *   it is still a separation and still a print, just not a SCREENED one.
+     * ⚠ The dot relief goes with it. Beads of ink standing proud are the stipple in three
+     *   dimensions; keeping them over continuous tone would emboss dots that are not there. */
+    float cov = mix(d, screenDot(u * vec2(1.0, 1.5), uAng[p], freq, d, dn), uScreen);
+    dn *= uScreen;
     transmit *= mix(vec3(1.0), uInk[p], cov);
     inkD += d;
     if (p == 3) dotN = dn;                           // K only — four relief grids is noise
@@ -1573,6 +1736,9 @@ void main(void) {
        *   went back to `o.rarity` would silently revert the chosen frame the first time the press
        *   advanced, which is the bug this comment's neighbour was written about. */
       let RAR = o.rarity;
+      /* the fount the card is set in, kept so the ASCII loops draw from the SAME committed
+       * outlines the name does — no font ships, and no second fetch to get one */
+      const SPRITE_TYPE = o.type;
       /* ⛔ THE PRINTER'S MARKS, OFF UNLESS ASKED FOR. Held beside RAR and for the identical
        * reason: `pull(0)` and the first type bake both run ABOVE the `const S` block, so
        * reading this off S would throw in the temporal dead zone and take the whole card down
@@ -1612,7 +1778,7 @@ void main(void) {
        * 6 — and a duplicated unit does not error, it silently paints one with the other. This
        * file's own note two screens up records exactly that failure. */
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5, uBack: 6,
-                     uPigD: 7, uPigE: 8, uPigF: 9, uComp2: 10 };
+                     uPigD: 7, uPigE: 8, uPigF: 9, uComp2: 10, uSpriteTex: 11 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
        * term to zero changed nothing, which ruled the normals out in one shot and pointed at the
@@ -1640,6 +1806,33 @@ void main(void) {
       let texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let comp2Canvas = buildComp2(seed, 512);
       let texComp2 = texFrom(gl, comp2Canvas, UNIT.uComp2);
+      /* ⚠ ALWAYS BOUND, even with no sprites and no module. An unbound sampler2D is not a no-op
+       * on SwiftShader — recorded in this repo — so a card with the loops switched off still
+       * needs a texture there. A 1x1 black pixel is "no ink anywhere", which is exactly right. */
+      const blankSheet = (() => {
+        const b = document.createElement('canvas'); b.width = b.height = 1;
+        const bg = b.getContext('2d'); bg.fillStyle = '#000'; bg.fillRect(0, 0, 1, 1); return b;
+      })();
+      let SPRITE = null;                       // {canvas, frames, cols, rows, kind}
+      /* ⚑ WHERE THEY LAND IS THE SEED'S, NOT THE UI'S. Four slots of (cx, cy, scale, rotation),
+       * re-derived whenever the seed changes so a card's loops belong to that card the way its
+       * pigment and its border do. ⚠ Kept OFF the figure's centre — a loop over the subject's
+       * face is a defacement, not an ornament. */
+      let SPRITE_PLACE = new Float32Array(16);
+      function placeSprites() {
+        const r = rng(seed ^ 0x1D2C6FE3);
+        for (let i = 0; i < 4; i++) {
+          const edge = r();
+          const cx = edge < 0.5 ? 0.16 + r() * 0.20 : 0.64 + r() * 0.20;
+          const cy = 0.16 + r() * 0.66;
+          SPRITE_PLACE[i * 4 + 0] = cx;
+          SPRITE_PLACE[i * 4 + 1] = cy;
+          SPRITE_PLACE[i * 4 + 2] = 0.14 + r() * 0.13;      // scale, in uv
+          SPRITE_PLACE[i * 4 + 3] = (r() - 0.5) * 0.9;      // rotation, radians
+        }
+      }
+      placeSprites();
+      let texSprite = texFrom(gl, blankSheet, UNIT.uSpriteTex);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
@@ -1654,17 +1847,20 @@ void main(void) {
         rot: U('uRot'), eye: U('uEye'), flex: U('uFlex[0]'), proj: U('uProj'),
         reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng[0]'), film: U('uFilm[0]'),
         nInk: U('uNInk'), split: U('uSplit'), nPig: U('uNPig'),
+        sprite: U('uSprite'), spriteP: U('uSpriteP[0]'), frame: U('uFrame'),
+        screen: U('uScreen'),
         press: U('uPress'), dmg: U('uDmg'), foilP: U('uFoilP'),
         keyDir: U('uKeyDir'), keyCol: U('uKeyCol'),
         fillDir: U('uFillDir'), fillCol: U('uFillCol'),
         rimDir: U('uRimDir'), rimCol: U('uRimCol'),
         rough: U('uRough'), relief: U('uRelief'), tile: U('uTile'), envOn: U('uEnvOn'),
         par: U('uPar'), seed: U('uSeed'), regGain: U('uRegGain'), regRad: U('uRegRadial'),
-        elemZ: U('uElemZ'), frameFoil: U('uFrameFoil'), mot: U('uMot'), backRGB: U('uBackRGB'),
+        elemZ: U('uElemZ[0]'), frameFoil: U('uFrameFoil'), mot: U('uMot'), backRGB: U('uBackRGB'),
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
        ['uType', texType], ['uStock', texStock], ['uBack', texBack],
-       ['uPigD', texD], ['uPigE', texE], ['uPigF', texF], ['uComp2', texComp2]].forEach(([n, t]) => {
+       ['uPigD', texD], ['uPigE', texE], ['uPigF', texF], ['uComp2', texComp2],
+       ['uSpriteTex', texSprite]].forEach(([n, t]) => {
         gl.uniform1i(U(n), UNIT[n]);
         gl.activeTexture(gl.TEXTURE0 + UNIT[n]); gl.bindTexture(gl.TEXTURE_2D, t);
       });
@@ -1751,6 +1947,11 @@ void main(void) {
          * starve, on the binder, the deck, lens3d and the field cards. The forge pushes its own
          * base through applyAll; the site keeps the card as it prints. */
         press: 1,        // the impression's own character: 0 = a clean pull, 1 = as it printed
+        shadow: 1,       // how hard the lifted layers shade what is under them
+        frame: 1,        // 1 = trim and border sorts · 0 = frameless, full bleed
+        screen: 0,       // 0 = continuous tone (the artist's call) · 1 = the halftone stipple
+        sprites: 0,      // how many hand-drawn loops are struck on the sheet (0..4)
+        spriteRate: 1,   // loops per press revolution
         /* ⛔ WHICH WAY UP IT IS SITTING IS A PERSISTENT HALF-TURN, NOT A BOOLEAN AND NOT AN
          *   IMPULSE. `flip()` used to do `S.yawT += PI` and set a separate `faceUp` flag — and
          *   `advance()` overwrites `S.yawT` from the pointer on EVERY frame, so the half-turn
@@ -1863,6 +2064,18 @@ void main(void) {
          * in their shared hues and the rosette would come apart. */
         gl.uniform1f(u.split, S.inks > 4 ? 0.62 : 0.0);
         gl.uniform1i(u.nPig, S.pigs);
+        gl.uniform1f(u.frame, S.frame);
+        gl.uniform1f(u.screen, S.screen);
+        /* ⚑ THE LOOP RUNS ON THE PRESS'S OWN CLOCK. A sprite with its own timer would be the one
+         * thing on this card moving to a rhythm nothing else shares — and the brief's acceptance 2
+         * is that the card is dead still until you touch it. Stopped press, stopped loop. */
+        if (SPRITE && S.sprites > 0) {
+          const fr = Math.floor(S.phase * SPRITE.frames * S.spriteRate) % SPRITE.frames;
+          gl.uniform4f(u.sprite, SPRITE.cols, SPRITE.rows, fr, Math.min(S.sprites, 4));
+          gl.uniform4fv(u.spriteP, new Float32Array(SPRITE_PLACE));
+        } else {
+          gl.uniform4f(u.sprite, 1, 1, 0, 0);
+        }
         /* ⚠ THE SCREEN RULING IS THE WHOLE LEGIBILITY OF THE CARD, and the first cut had it an
          * octave too coarse: at ~118 cells across the dots WERE the picture and the artwork
          * underneath could not be read at all. A card is printed at a ruling you have to lean in
@@ -1924,8 +2137,18 @@ void main(void) {
          * ⚑ EACH ELEMENT LEADS OR LAGS. Driven together they are one zoom, which passes "did it
          *   move" and is not depth — the same weak question the wordmark rig had to answer. The
          *   offsets are what make the stack travel THROUGH itself. */
-        const ZBASE = [0.00, 0.30, 0.70, 1.00];        // where each element rests in the stack
-        const ZLEAD = MOTION.lead;                     // and how far round the cycle it is
+        /* ⛔ SEVEN PLANES, EVENLY SPACED THROUGH THE CARD. Ground rests against the backing at 0
+         * and the type sits at the glass at 1; the five between are the layers that can actually
+         * separate. ⚠ Even spacing is deliberate — bunching them would make two sources share a
+         * plane again, which is exactly the defect this replaces. */
+        const ZBASE = [0.00, 0.17, 0.34, 0.51, 0.68, 0.85, 1.00];
+        /* ⚠ A MOTION CARRIES FOUR LEAD PHASES AND THERE ARE SEVEN ELEMENTS. Repeating the four
+         *   would give elements 0 and 4 the same phase, i.e. two planes moving in lockstep — the
+         *   lockstep this whole change exists to break. The fourth lead belongs to the TYPE, which
+         *   is always last, and the five middle planes are spread across the first three. */
+        const ML = MOTION.lead;
+        const ZLEAD = [ML[0], ML[1], ML[2], (ML[0] + ML[1]) * 0.5 + 0.11,
+                       (ML[1] + ML[2]) * 0.5 + 0.23, (ML[2] + ML[0]) * 0.5 + 0.37, ML[3]];
         /* ⚑ `S.stack` SCALES THE WHOLE STACK, rest positions and travel together, because those
          * are the two halves of one property: how far apart the four elements sit through the
          * card's thickness. Scaling only the travel would give a card whose layers separate when
@@ -1934,8 +2157,8 @@ void main(void) {
         const zAmp = (0.085 + 0.055 * S.depth) * MOTION.amp * S.stack;
         const zc = i => ZBASE[i] * S.stack * (0.35 + 0.65 * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5)
                       + zAmp * (1 - Math.cos(TAU * (S.phase + ZLEAD[i]))) * 0.5;
-        elemZ = [zc(0), zc(1), zc(2), zc(3)];
-        gl.uniform4f(u.elemZ, elemZ[0], elemZ[1], elemZ[2], elemZ[3]);
+        elemZ = [zc(0), zc(1), zc(2), zc(3), zc(4), zc(5), zc(6)];
+        gl.uniform1fv(u.elemZ, new Float32Array(elemZ));
         /* ⚑ THE WRITE-ON IS ALSO AN ARRIVAL. `S.arrive` runs 0→1 once when the card is first
          * handled or opened, and it MULTIPLIES INTO the motion's own write-on — so every card
          * prints itself on the way in, and the one motion that reprints keeps doing it forever.
@@ -1960,7 +2183,13 @@ void main(void) {
          *   you mean: this is the value the shader got. */
         lastFrameFoil = rf;
         gl.uniform1f(u.frameFoil, rf * (0.72 + 0.28 * (1 - Math.cos(TAU * S.phase)) * 0.5));
-        gl.uniform2f(u.par, 0.030 + 0.020 * S.depth, 1.0);
+        /* ⛔ THE PARALLAX GAIN IS THE DEPTH, so it rides the stack. At 0.030 a layer moved 3% of
+         * the card between dead-on and a hard tilt, which is below the threshold of "that one is
+         * further away" — it read as nothing, and the constant bearings read as everything. Scaled
+         * by the stack it reaches ~0.29 at LAYERS 2.5, i.e. a near layer sweeps a third of the
+         * card across a far one as you turn it. ⚠ At LAYERS 0 this is the old value times zero:
+         * the base card has no depth and no parallax, which is what a flat print is. */
+        gl.uniform2f(u.par, (0.030 + 0.020 * S.depth) * (1.0 + 6.2 * S.stack), S.shadow);
         gl.uniform1f(u.seed, (seed % 997) / 997);
         gl.uniform1f(u.backRGB, backIsDesigned ? 1.0 : 0.0);
         gl.uniform1f(u.regGain, S.regGain);
@@ -1970,7 +2199,7 @@ void main(void) {
       }
 
       // ── the rAF driver, which is a CONVENIENCE and never the source of truth ─────────────
-      let elemZ = [0, 0, 0, 0];              // last frame's stack depths, for the harness
+      let elemZ = [0, 0, 0, 0, 0, 0, 0];     // last frame's stack depths, for the harness
       let raf = 0, last = 0;
       function loop(on) {
         if (!on) { if (raf) cancelAnimationFrame(raf); raf = 0; return; }
@@ -2068,6 +2297,51 @@ void main(void) {
          *   Anything else snaps down to the nearest real one rather than being rejected, so a
          *   stale link cannot land the press on a count the shader has no branch for. */
         setPigs: n => { n = n | 0; S.pigs = n >= 6 ? 6 : (n >= 3 ? 3 : 1); return S.pigs; },
+
+        /* ── ⛔ THE HAND-DRAWN LOOPS ───────────────────────────────────────────────────────
+         * `setSprites({kind, count, frames, rate})`. Builds a sheet with js/card-sprites.js and
+         * strikes up to four of them into the print. `count: 0` takes them off.
+         * ⚑ FAILS OPEN AT EVERY STEP, like everything else here: no module, a generator that
+         *   throws, a canvas that will not allocate ⇒ the sheet is null, the count goes to zero
+         *   and the card is exactly the card it was. A decoration must never be able to cost you
+         *   the card it decorates.
+         * ⚠ Rebuilding the sheet is a texture upload, so it happens on a SETTING change and never
+         *   per frame — the frame index is a uniform, which is the whole reason it is one sheet
+         *   with cells rather than a texture per frame. */
+        /* how hard a lifted layer shades what is beneath it. 0 removes the shadows entirely,
+         * which is also the control the acceptance measurement uses. */
+        setShadow: v => { S.shadow = clamp(v, 0, 1.6); },
+        /* ⚑ A UNIFORM, NOT A REBAKE. The trim and the sorts are already in the composition and
+         * type plates; frameless simply stops PRINTING them, which is what a press would do. So
+         * the toggle is instant and the card's identity — its seed, its impression, its words —
+         * is untouched. Re-baking would have re-rolled nothing and cost a texture upload. */
+        setFrame: on => { S.frame = on ? 1 : 0; render(); return !!S.frame; },
+        /* the halftone. 0 lays the ink in continuous tone; 1 is the screened print. */
+        setScreen: v => { S.screen = clamp(v, 0, 1); render(); },
+        setSprites: o => {
+          o = o || {};
+          const n = Math.max(0, Math.min(4, o.count === undefined ? S.sprites : (o.count | 0)));
+          if (typeof o.rate === 'number') S.spriteRate = clamp(o.rate, 0.25, 8);
+          if (n === 0) { S.sprites = 0; render(); return { count: 0, kind: SPRITE && SPRITE.kind }; }
+          const want = o.kind || (SPRITE && SPRITE.kind) || null;
+          const need = !SPRITE || (want && SPRITE.kind !== want)
+                       || (o.frames && SPRITE.frames !== (o.frames | 0));
+          if (need && global.CardSprites) {
+            const made = global.CardSprites.sheet({
+              seed: seed, kind: want, type: o.type || o.alphabet || (o.spec || SPRITE_TYPE),
+              frames: o.frames || 12, cell: 128 });
+            if (made && made.canvas) {
+              gl.deleteTexture(texSprite);
+              texSprite = texFrom(gl, made.canvas, UNIT.uSpriteTex);
+              SPRITE = made;
+            }
+          }
+          S.sprites = SPRITE ? n : 0;            // no sheet, no sprites — never a broken card
+          render();
+          return { count: S.sprites, kind: SPRITE && SPRITE.kind,
+                   frames: SPRITE && SPRITE.frames };
+        },
+        spriteKinds: () => (global.CardSprites ? global.CardSprites.kinds() : []),
 
         /* ── HOW HARD THE PRESS RAN ───────────────────────────────────────────────────────
          * 0 is a clean pull: even film across every plate, no roller band, no starve, and the
@@ -2222,6 +2496,7 @@ void main(void) {
           gl.deleteTexture(texStock);
           stockCanvas = buildStock(seed, 256);
           texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
+          placeSprites();          // the loops belong to the card, so they move with the seed
           pull(0);                 // a fresh impression — and it rebakes the type at the new seed
           rebake();                // …and the reverse, which is seeded too
           S.arrive = 0;            // the sheet prints on again, so a card SWAP is a press event
@@ -2294,6 +2569,9 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
+          shadow: S.shadow, frame: !!S.frame, screen: S.screen,
+          sprites: S.sprites, spriteKind: SPRITE && SPRITE.kind,
+          spriteFrames: SPRITE && SPRITE.frames, spriteRate: S.spriteRate,
           faceUp: !S.faceTurn, faceTurn: S.faceTurn,
           number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,

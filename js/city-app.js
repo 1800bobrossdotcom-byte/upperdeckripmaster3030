@@ -288,10 +288,14 @@ window.CityApp = (function () {
     return m;
   }
 
-  const bird = new pc.Entity('bird');
-  const wings = [];
-  let tailE = null;
-  {
+  /* ⚑ A FACTORY, NOT AN INLINE BODY — the same argument `buildSquirrel` already makes twelve
+   * lines below, now that a SECOND caller exists: `js/city-net.js` gives every other player in
+   * the city their real body, and two bird definitions would drift exactly the way two squirrel
+   * definitions would have. Returns the entity plus the parts a caller has to animate. */
+  function buildBird() {
+    const ent = new pc.Entity('bird');
+    const wings = [];
+    let tail = null;
     const matBody = birdMat(true), matBeak = flatMat(BEAK), matInk = flatMat(INK);
     /* countershading: ink above the waterline, cream below, with a short blend so it reads as
      * printed rather than as two halves bolted together */
@@ -306,21 +310,21 @@ window.CityApp = (function () {
     const prof = [[0.36, 0.034, 0.032, 0.014], [0.30, 0.082, 0.076, 0.008], [0.22, 0.134, 0.126, 0.000],
                   [0.10, 0.172, 0.160, -0.008], [-0.02, 0.185, 0.170, -0.012], [-0.16, 0.156, 0.142, -0.006],
                   [-0.28, 0.104, 0.094, 0.006], [-0.37, 0.048, 0.044, 0.018]];
-    bodyPart(bird, loft(prof.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
+    bodyPart(ent, loft(prof.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
 
     // ── the head, set forward and a little high, and a BEAK — the read at any distance ────────
     const headP = [[0.34, 0.062, 0.058, 0.052], [0.41, 0.094, 0.090, 0.062], [0.49, 0.098, 0.094, 0.064],
                    [0.56, 0.078, 0.074, 0.060], [0.60, 0.044, 0.042, 0.054]];
-    bodyPart(bird, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
+    bodyPart(ent, loft(headP.map(q => ring(q[0], q[1], q[2], q[3], SEG)), shade), matBody);
     const beakP = [[0.58, 0.038, 0.032, 0.052], [0.66, 0.026, 0.019, 0.049], [0.74, 0.006, 0.005, 0.046]];
-    bodyPart(bird, loft(beakP.map(q => ring(q[0], q[1], q[2], q[3], 8)), null), matBeak);
+    bodyPart(ent, loft(beakP.map(q => ring(q[0], q[1], q[2], q[3], 8)), null), matBeak);
     for (const s of [-1, 1]) {                                    // eyes: two ink dots, no more
       const e = new pc.Entity('eye' + s);
       e.addComponent('render', { type: 'sphere' });
       e.setLocalScale(0.028, 0.028, 0.028);
       e.setLocalPosition(s * 0.072, 0.086, 0.512);
       e.render.meshInstances.forEach(mi => { mi.material = matInk; });
-      bird.addChild(e);
+      ent.addChild(e);
     }
 
     /* ── the wings. TWO JOINTS: shoulder then elbow, and the elbow is a CHILD of the shoulder so
@@ -338,17 +342,21 @@ window.CityApp = (function () {
       const outer = [[0.00, 0.268, 0.022], [0.16, 0.238, 0.016], [0.32, 0.186, 0.011],
                      [0.46, 0.112, 0.007], [0.58, 0.026, 0.004]];
       bodyPart(el, wingLoft(outer, s, 0.30), matBody, shade);
-      sh.addChild(el); bird.addChild(sh);
+      sh.addChild(el); ent.addChild(sh);
       wings.push({ sh, el, s });
     }
 
     // ── the tail: a flat fan behind the body, and it FANS when the bird is working ────────────
-    tailE = new pc.Entity('tail');
-    tailE.setLocalPosition(0, 0.014, -0.36);
+    tail = new pc.Entity('tail');
+    tail.setLocalPosition(0, 0.014, -0.36);
     const tailP = [[0.00, 0.052, 0.014], [-0.14, 0.104, 0.010], [-0.30, 0.152, 0.007], [-0.42, 0.168, 0.005]];
-    bodyPart(tailE, tailLoft(tailP), matBody, shade);
-    bird.addChild(tailE);
+    bodyPart(tail, tailLoft(tailP), matBody, shade);
+    ent.addChild(tail);
+    return { ent: ent, wings: wings, tail: tail };
   }
+  const _bird = buildBird();
+  const bird = _bird.ent, wings = _bird.wings;
+  let tailE = _bird.tail;
   world.addChild(bird);
 
   function lerp3(a, b, t) { return a + (b - a) * t; }
@@ -1194,6 +1202,7 @@ window.CityApp = (function () {
     drops = window.CityDrops
       ? CityDrops.create(app, world, { collide, makeSquirrel: buildSquirrel })
       : null;
+    startNet();
     /* ⚑ SECTION 9 ON THE GROUND — artist, 2026-08-03. `moveBody` is handed over rather than
      * reimplemented, so a bot walks this city by exactly the rule the player does; `onKill` is the
      * line that keeps the firefight in the SAME game as the bird and the squirrel, because what
@@ -1472,8 +1481,23 @@ window.CityApp = (function () {
       const g2 = collide.groundBelow(nx, nz, ny + B.step, B.r, B.step);
       if (g2 != null && g2 > ny && g2 - ny <= B.step && b.vy <= 0) { ny = g2; b.vy = 0; b.onGround = true; }
       /* ⚠ A CEILING IS NOT A FLOOR. Without this you jump THROUGH the underside of a bridge and
-       * pop out on top of it, which reads as the city being made of paper. */
-      if (b.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = b.y; b.vy = 0; }
+       * pop out on top of it, which reads as the city being made of paper.
+       * ⛔ AND IT CANNOT APPLY TO A BODY THAT IS CLIMBING — THIS IS THE "STUCK ON WALL LEDGES"
+       *   REPORT, AND IT IS NOT THE LIP. A climbing squirrel is BY DEFINITION pressed into the
+       *   wall it is climbing: `wallAt` reaches `r + 0.22`, so the body's own footprint overlaps
+       *   the box, and its head at `y + h` is INSIDE it. The ceiling test then fires on the very
+       *   wall being climbed and pins `ny` back to where it started, every frame, forever.
+       *   ⚑ Measured: a squirrel against a wall spanning z 37..38 · y 0..8.9, holding forward for
+       *     seven seconds — `vy` set to +5.58 every frame and **y constant at 0.99 for all 420
+       *     ticks**, `onGround` false, nothing thrown. It reads exactly like being glued to the
+       *     wall, which is what was reported.
+       *   ⚠ It looks like a floor bug and it is a CEILING bug; the give-away is `onGround:false`
+       *     with a body that is neither rising nor falling. Gravity is not being skipped — the
+       *     climb is being cancelled after the fact.
+       * ⚑ Skipping it while climbing is safe because the climb has its own ceiling: `mantle()`
+       *   ends the ascent at the wall's top and puts the body on the roof. An overhang above a
+       *   climbable wall stops you when you arrive on it, not by freezing you halfway up. */
+      if (!climbing && b.vy > 0 && collide.hits(nx, ny + B.h, nz, B.r, 0.1)) { ny = b.y; b.vy = 0; }
     }
     const edge = edgePush(nx, nz);
     if (edge.out > 0) { nx += edge.nx * edge.out; nz += edge.nz * edge.out; }
@@ -2072,6 +2096,81 @@ window.CityApp = (function () {
     el.dataset.on = near ? '1' : '';
   }
 
+  /* ── ⛔ OTHER PEOPLE ARE IN THE CITY WITH YOU — `js/city-net.js` ──────────────────────────
+   * Artist, 2026-08-05: *"for city we need to wire in mmorpg dynamics for multiplayer for people
+   * in game."*
+   * ⚑ A PEER GETS A REAL BODY, from the same two factories the player's own body comes from.
+   *   That is why `buildBird` stopped being an inline block: a second caller existed, and this
+   *   file already paid for that lesson once with the squirrel.
+   * ⚠ ANIMALS ONLY. Switching to DOGFIGHT or SECTION 9 leaves the shared world — those are
+   *   matches with their own shooter-authoritative netcode, and merging a persistent world with
+   *   a scored match would put a loophole in the observer rule shaped like a jet.
+   * ⚠ THE TAG IS A SPRITE-FREE DOM LABEL projected each frame rather than 3D text: the engine
+   *   has no font here, and a name you cannot read is a name that is not doing its job. */
+  let net = null;
+  const netBodies = new Map();
+  /* ⛔ THE NAME IS PROJECTED THROUGH THE LIVE CAMERA, AND IT HAS TO BE HIDDEN BEHIND YOU.
+   *   `worldToScreen` returns a point for geometry BEHIND the camera too — its z is the view
+   *   depth, and ignoring the sign pins every peer you have flown past to the top of the screen,
+   *   mirrored, forever. A tag with no depth test is a tag that lies about where somebody is.
+   * ⚠ The camera lives in the MIRRORED space (see the note in `move`), so the point handed to it
+   *   must be flipped even though the body itself is not. */
+  const _p = new pc.Vec3();
+  function tagAt(h, s) {
+    if (!h.tag) return;
+    _p.set(-s.x, s.y + (h.kind === 'squirrel' ? 0.5 : 0.32), s.z);
+    const sp = cam.camera.worldToScreen(_p, _p.clone());
+    const behind = sp.z <= 0;
+    const far = Math.hypot(s.x - me.x, s.z - me.z) > 220;
+    if (behind || far) { h.tag.dataset.on = ''; return; }
+    h.tag.dataset.on = '1';
+    h.tag.style.transform = 'translate(-50%,-100%) translate(' + Math.round(sp.x) + 'px,'
+      + Math.round(sp.y) + 'px)';
+  }
+  function startNet() {
+    if (!window.CityNet || net) return;
+    try {
+      net = CityNet.start({
+        self: () => ({ x: me.x, y: me.y, z: me.z, yaw: me.yaw,
+                       body: MODE === 'animal' ? CREATURE : null,
+                       moving: me.speed > 0.6 }),
+        spawn: (id, info) => {
+          /* ⛔ A PEER IN A COMBAT MODE IS NOT DRAWN. `body:null` is how city-net says "this
+           *   person left the shared world"; giving them a squirrel would put a body in the
+           *   street that the observer rule says is not there. */
+          if (!info || !info.body) return null;
+          const ent = info.body === 'squirrel' ? buildSquirrel(1) : buildBird().ent;
+          ent.name = 'peer:' + id;
+          world.addChild(ent);
+          const tag = document.createElement('div');
+          tag.className = 'peertag';
+          tag.textContent = info.name || 'stray';
+          const host = $('peers'); if (host) host.appendChild(tag);
+          const h = { ent, tag, kind: info.body };
+          netBodies.set(id, h);
+          return h;
+        },
+        despawn: (id, h) => {
+          if (!h) return;
+          try { h.ent.destroy(); } catch (e) {}
+          try { h.tag.remove(); } catch (e) {}
+          netBodies.delete(id);
+        },
+        move: (h, s) => {
+          if (!h || !h.ent) return;
+          /* ⚠ GAME COORDINATES, UNMIRRORED — the same space `me.x/y/z` lives in and the same
+           *   call the player's own squirrel makes. The left/right-handedness flip this engine
+           *   needs is applied to the CAMERA (`cam.setPosition(-camPos.x, …)`), not to the
+           *   bodies, so a peer written in camera space would stand in the city's mirror image.
+           *   One space for every body, which is what makes a distance readable at all. */
+          h.ent.setLocalPosition(s.x, s.y, s.z);
+          h.ent.setLocalEulerAngles(0, s.yaw * 180 / Math.PI, 0);
+          tagAt(h, s);
+        },
+      });
+    } catch (e) { net = null; }
+  }
+
   function stepDrops(dt) {
     if (!drops) return;
     if (dropSay > 0) dropSay -= dt;      // the report fades; the pouch count under it does not
@@ -2231,6 +2330,16 @@ window.CityApp = (function () {
     },
     _step(n, dt) { for (let i = 0; i < (n || 1); i++) { step(dt == null ? 1 / 60 : dt);
       if (ready) streamAround(me.x, me.z); } },
+    /* ⚑ THE COLLIDER ITSELF, so a harness can ask the world the same questions the physics asks
+     * rather than inferring them from where a body ended up. Reasoning backwards from a frozen
+     * position cost several rounds on the squirrel's ledge; `hits`/`groundBelow`/`wallAt` answer
+     * in one call each. */
+    get _collide() { return collide; },
+    get _me() { return me; },
+    /* the shared world, exposed so two driven tabs can assert they can SEE each other — which
+     * is the only measurement that means anything about multiplayer. */
+    get net() { return net; },
+    get _peerBodies() { return netBodies; },
     _place(x, y, z, yaw) { me.x = x; me.y = y; me.z = z; if (yaw != null) me.yaw = yaw;
       me.vx = me.vy = me.vz = 0; camPos.x = x; camPos.y = y; camPos.z = z;
       streamAround(x, z); step(1 / 60); },

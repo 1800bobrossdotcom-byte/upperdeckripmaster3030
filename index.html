@@ -838,19 +838,6 @@
         .whatis .wv a{ color:#27f7e4; }
         @media (max-width:520px){ .whatis .wrow{ grid-template-columns:1fr; gap:2px; } .whatis .wk{ color:#2bff80; } }
       
-  /* ── the 3D prop slot (js/site3d-prop.js) ────────────────────────────────────────────────
-     ⚠ The flat glyph is the FALLBACK and it is this page's own markup — it is faded out only
-     after the engine has produced a real frame, so a failure is invisible rather than a hole. */
-  .prop3d{ position:relative; width:min(26vw,190px); aspect-ratio:1/1; margin:14px auto 4px;
-    border-radius:14px; overflow:hidden; border:1px solid rgba(43,255,128,.16);
-    background:linear-gradient(rgba(2,10,5,.44),rgba(2,10,5,.64)), #020a05;
-    box-shadow:0 20px 44px -20px #000, 0 0 22px rgba(43,255,128,.05) inset; }
-  .prop3d .flat{ position:absolute; inset:0; display:grid; place-items:center; font-size:44px;
-    color:rgba(43,255,128,.30); text-shadow:0 0 22px rgba(43,255,128,.22);
-    transition:opacity .5s ease; pointer-events:none; }
-  .prop3d.is3d .flat{ opacity:0; }
-  @media (max-width:760px){ .prop3d{ width:min(54vw,180px); } }
-  @media (prefers-reduced-motion:reduce){ .prop3d .flat{ transition:none; } }
 </style>
       <h2>What is this?</h2>
       <div class="wsub">the actual facts · no corporate</div>
@@ -859,7 +846,7 @@
 
       <div class="wrow"><div class="wk">The cards</div><div class="wv"><b>100 hand-made cards</b>, and every one is a <b>lens</b> — living art that reads the live market and the fire. <span class="p">33</span> mint as <b>1/1s</b> (<span class="p">11</span> auctioned on SuperRare, pull <span class="p">11</span> from packs, earn <span class="p">11</span> in the games); <span class="p">67</span> are on-chain lenses you collect; and <span class="a">Lovebeing</span> rides in every holder's wallet.</div></div>
 
-      <div class="wrow"><div class="wk">The drop</div><div class="wv">Buy a <b>pack</b> — about <b>$7</b> of $3030 — <b>half burned, half to the studio</b> — and rip your cards. Every pack feeds the fire, and <b>a burn never comes back</b>: the supply that goes in is gone for good. All four tiers of packs burn on the order of <b>1M tokens</b>. <i>The token burns so the art can live</i> — that's the point of it, not a promise about the price.</div></div>
+      <div class="wrow"><div class="wk">The drop</div><div class="wv">Buy a <b>pack</b> — about <b>$10</b> of $3030 — <b>half burned, half to the studio</b> — and rip your cards. Every pack feeds the fire, and <b>a burn never comes back</b>: the supply that goes in is gone for good. All four tiers of packs burn on the order of <b>1M tokens</b>. <i>The token burns so the art can live</i> — that's the point of it, not a promise about the price.</div></div>
 
       <div class="wrow"><div class="wk">The games</div><div class="wv">Three arcade cabinets. <b>Stake your cards</b>, wager $3030 (net-zero — winner takes the pot), and win the one-of-a-kind <b>title lenses</b>. Your cards aren't cosmetic — they <b>arm you</b>, scaled by live chain heat.</div></div>
 
@@ -883,14 +870,6 @@
       <span class="chant">Burn the token · Choose the canon · Rip the pack</span>
     </div>
 
-    <!-- ⚑ A REAL OBJECT ON THE PAGE, not a replacement for it. Artist, 2026-08-05: the current
-         site upgraded WITH PlayCanvas elements. `js/site3d-prop.js` drops one lit object into a
-         slot and changes nothing else — same Blender-baked stock the flat CSS is tiled with, two
-         renderers: CSS tiles it, the engine lights it.
-         ⛔ FAILS OPEN, and the fallback is the page's OWN markup: `.flat` is here in the HTML and
-            is only faded out after the first real frame. No WebGL2, a blocked vendor script, a
-            404 on a texture, Save-Data on ⇒ this page is exactly the page it was. -->
-    <div class="prop3d" data-site3d="pack" aria-hidden="true"><span class="flat">✦</span></div>
 
     <div class="btns">
       <button class="btn rip" id="packOpen" type="button">✦ Rip a pack ✦</button>
@@ -901,12 +880,28 @@
       <a class="btn gold" href="cards/binder.html">▤ The folder</a>
       <a class="btn" href="#ritual">◈ How it works</a>
       <a class="btn alt" href="whitepaper.html">§ Whitepaper · NFA</a>
-      <!-- ⚑ A PROPOSED replacement for this page, linked from it on purpose. `studio.html` is
-           an allow-listed orphan and that is exactly how six generated layer stacks ended up
-           unreachable behind a draft nobody linked; a proposal the artist cannot open is not a
-           proposal. It says "proposal" on its own face and nothing has been promoted. -->
-      <a class="btn" href="studio3d.html">◱ The uncut sheet · proposal</a>
     </div>
+
+    <!-- ⚑ WHERE THIS IS GOING — replaced the "uncut sheet · proposal" link here on the artist's
+         call, 2026-08-06. ⚠ EVERY VERB IS "WANT TO" ON PURPOSE. This is a roadmap on a public
+         page for a token that is about to launch, and the one thing it must never do is read as
+         a commitment: neither store approval nor a print run is ours to promise. Nothing here is
+         scheduled, nothing is priced, and the NFA line elsewhere on this page is the rest of it. -->
+    <section class="panel creed" id="ahead" aria-labelledby="ahead-t">
+      <span class="how-title" id="ahead-t" style="display:block">Where this is going</span>
+      <p><strong>We want to put the cabinets on Google Play.</strong> THE CITY, RIP ROCKETER,
+      CLOUD RACER and THE ARENA already run in a browser; on a phone's home screen they would be
+      played in the places a browser tab never gets opened — on a couch, on a train — and every
+      pack ripped and every rake burned there is the same <strong>$3030</strong> moving on the
+      same chain. The point of the port is not distribution for its own sake: it is to put the
+      on-chain half of this game in front of people who would never have gone looking for it.</p>
+      <p><strong>And we want to print a physical deck.</strong> The trading card is a
+      <em>size</em> before it is anything else — palm, phone, a front that shows and a back that
+      tells — and this whole studio is built out of that shape. A real deck you can hold, riffle
+      and sleeve is the form finally arriving in the form it was borrowed from.</p>
+      <p class="sig">Both are ambitions, not announcements — no date, no store listing, no print
+      run. When either becomes real it will be shown, not promised.</p>
+    </section>
 
     <section class="ritual" id="ritual">
       <div class="how-title">How to play</div>
@@ -915,18 +910,24 @@
           <p><strong>$3030</strong> is the fuel. One liquid token on SuperRare's bonding
           curve — buy it, hold it, sell it back anytime. Everything below runs on it.</p></div>
         <div class="card"><div class="spec">Rite §2 · Pack</div><h3><b>2</b> Rip a pack</h3>
-          <p><strong>Seven cards for about $7</strong> — the one premium move: buy ~350 $3030 on
-          the curve, then <strong>half burns and half funds the studio</strong>, in one transaction.
-          Your pulls come off that tx. Each tier's
-          <strong>allotment dwindles</strong>, so packs get scarcer and pricier the deeper the game runs.</p></div>
+          <p><strong>Seven cards for about $10</strong> — the one premium move: the site buys that much
+          $3030 on the curve, then <strong>half burns and half funds the studio</strong>, in one
+          transaction. Your pulls come off that tx. The pack is priced in <strong>dollars</strong>
+          ($10 → $20 across the four tiers); the token amount is set from the live price when a tier
+          opens and <strong>locked for that tier</strong>. Each tier's <strong>allotment dwindles</strong>,
+          so packs get scarcer and pricier the deeper the game runs.</p></div>
         <div class="card"><div class="spec">Rite §3 · The fire</div><h3><b>3</b> Burn the token down</h3>
           <p>Half of every pack burns <strong>$3030</strong> for good, so supply only ever falls — never
-          re-mints, never comes back. Across all four tiers that's <strong>1,014,375 tokens</strong> out of
-          <strong>3,300,000</strong> — <strong>30.7% of the mint gone for good</strong>, a <strong>1.44×</strong>
-          contraction. Real, permanent, and <strong>not</strong> a 3× scarcity engine; we'll take the honest
-          number over the exciting one. ⚠ The other half of that same split is <strong>revenue</strong>, and
-          it leaves the studio holding a slug worth <strong>44.4% of the surviving float</strong> — the
-          concentration is the risk here, not the burn, and we'd rather you heard it from us.
+          re-mints, never comes back. ⚠ <strong>We don't publish a target burn percentage</strong>, and
+          that's deliberate: a pack costs a fixed number of <em>dollars</em>, so how many tokens it burns
+          depends on what a token costs that day — and it runs the way you wouldn't expect, because a
+          <strong>more expensive token means fewer tokens burned per pack</strong>. Any percentage we
+          printed here would be a promise about a price nobody controls. So we show you
+          <strong>what has actually been burned</strong>, read live off the chain, and the studio's total
+          beside it. Real, permanent, and <strong>not</strong> a scarcity engine; we'll take the honest
+          number over the exciting one. ⚠ The other half of that same split is <strong>revenue</strong> —
+          the studio's slug is the concentration risk here, not the burn, and we'd rather you heard it
+          from us.
           The <strong>100 cards all survive</strong>: nothing
           turns to ash. Rarity is set by <strong>community vote</strong>;
           <strong>the token burns so the art can live</strong>.</p></div>
@@ -1161,6 +1162,5 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
 <script src="theme.js"></script>
 <script src="pack.js"></script>
 <script src="sfx.js"></script>
-<script src="js/site3d-prop.js" defer></script>
 </body>
 </html>

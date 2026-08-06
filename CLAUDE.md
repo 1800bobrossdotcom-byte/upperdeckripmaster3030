@@ -772,6 +772,78 @@ geometry and fx"* — and he was right.
   wordmark has always been a different face per platform — pin/vendor, draw as outlines, or keep
   the accident). Do not treat any of it as settled until he has struck what is wrong.
 
+## ⛔ I FIXED THE MUZZLE FLASH IN A RENDERER THE PAGE DOES NOT LOAD
+*Artist: "not seeing the gun fire."* `dogfight.html` sets `s.muzzle = G.t` on every shot and
+nothing read it. I added the draw to **`js/dogfight-gl.js` — the RETIRED hand-rolled renderer.**
+`dogfight.html` loads **`js/dfpc-app.js`** (PlayCanvas) and names the old one only in comments.
+- ⛔ **CORRECT, COMMITTED, DESCRIBED AS DONE, AND UNREACHABLE.** `built ≠ reachable` — this repo's
+  own phrase, which I had written about somebody else's control two commits earlier. One `grep -n
+  'script src' dogfight.html` would have settled it; **I checked the file I had open instead of the
+  file the page loads.**
+- ⚑ **THE TELL WAS AVAILABLE AND CHEAP THE WHOLE TIME.** When a fix is going into a module you did
+  not open the page through, verify the PAGE loads it before writing a line. Live now in
+  `js/dfpc-fx.js` beside the tracers; measured on the shipped page — `muzzle` −9 → 0.20 at
+  `G.t` 0.20, bolt away, so the 70 ms window the FX reads is hit on that frame.
+- ⚠ The dead copy is removed and the reason left in its place, so the next person to open the
+  retired renderer learns it is retired instead of trusting what is in it.
+
+### ✅ `built ≠ reachable`, POINTED AT MODULES — `test:reach` §0b, and it deleted 180 KB
+§0 proved every shipped script PARSES and said nothing about whether any page reaches it. Two
+failures came through that gap **in one day**: the muzzle flash above, and then — arguing that
+CLOUD RACER already scales fov with speed — I cited `js/cloudracer-gl.js`, **also retired.**
+⚑ **THE SECOND ONE IS THE WORSE OF THE TWO: a dead file gave a RIGHT answer for the wrong reason.**
+The live build (`js/crpc-app.js:1476`) really does scale fov, so the conclusion survived and the
+evidence was worthless. Nothing would have told me.
+- ⛔ **A RETIRED RENDERER IS NOT INERT.** It is plausible, well-commented, self-consistent and
+  wrong, and it reads exactly like the live one — which is what makes it a trap rather than
+  clutter. **Four of them were shipping to the CDN**: `cloudracer.js`, `cloudracer-gl.js`,
+  `dogfight-gl.js`, `section9-gl.js`, ~180 KB. The artist deleted the classic *pages* on
+  2026-08-02 (*"we don't need the classic versions for any games, too distracting"*); these are
+  the modules that deletion left behind, so removing them executes a decision already made.
+- ⚠ **BOTH HALVES OF THE DETECTION WERE WRONG FIRST, AND BOTH WRONG ANSWERS WERE REASSURING.**
+  (a) It counted COMMENT mentions — `js/dfpc-fx.js` names `js/dogfight-gl.js` in the very comment
+  explaining that it is dead, which made the dead file look live. (b) It scanned HTML for
+  `<script src>` only, so `cards/lens3d.html`, which loads four modules from an array inside an
+  inline `<script>`, reported them all as orphans. Strip comments, and read the dynamic loaders.
+- ⚠ Proved to bite by restoring one deleted file: 1 failure, naming it. `DEAD_OK` exists and is
+  EMPTY on purpose — a module nothing loads should be deleted, not listed.
+
+## ⚠ THE "MORE REALISTIC" PASS — BOTH GAMES ALREADY CARRY THE CUES, AND THAT IS THE FINDING
+*Artist: "make cloud racer and dogfight even more realistic next pass."* Before changing anything
+I went to add the obvious physical cue — field of view scaling with speed — and **it is already
+there in both.** `js/dfpc-app.js:795` scales fov by a shove term AND a G-load term; the camera
+already lags the airframe on a first-order spring (τ ≈ 0.14 s); `js/cloudracer-gl.js` advertises
+and carries speed-scaled fog and fov.
+- ⛔ **SO I HAVE NOT GUESSED AT ONE.** `DESIGN-SYSTEM §9` records what happens when an agent is
+  handed a mood: it reaches for the default and produces something technically correct and dead —
+  twice for the wordmark, and a third time for the site props the artist deleted on the same day.
+  Inventing another speculative visual change on a renderer that already has the physical cues is
+  that failure a fourth time.
+- ⚑ **WHAT THIS NEEDS IS THE BRIEF §9 DEMANDS**, from the artist: what specifically reads as
+  UNREAL to him — the sky, the ground, the aircraft's weight, the hit feedback — plus what it is
+  MADE OF, how it is LIT, what MOVES and why it physically moved, and the acceptance measurement.
+  A named target gets a real pass; "more realistic" gets a default.
+
+## ⛔ THE SITE 3D PROPS ARE GONE — "random 3D icons that do nothing" (artist, 2026-08-05)
+*"what are all these weird 3D objects that are half baked. remove them. when I asked for the site
+updated in playcanvas, random 3D icons that do nothing, was not what I was intending."*
+`js/site3d-prop.js` and its five hosts (`index`, `arcade`, `cards/{binder,index,market}`) deleted,
+with the CSS, the loader tags and the explanatory notes. `scripts/build-site-check.mjs` went with
+them — it existed to hold those props to numbers and was never wired into `npm test`.
+- ⚑ **I MISREAD "UPGRADE THE SITE WITH PLAYCANVAS ELEMENTS" AS "PUT AN ENGINE OBJECT ON EACH
+  PAGE".** The brief was about the site LOOKING like it came from the same studio as the games;
+  what shipped was a decorative binder, a bench and a fan of cards sitting in a slot, doing
+  nothing and reacting to nothing. **That is DESIGN-SYSTEM §4 unanswered — "what MOVES and why it
+  physically moved" — for the third recorded time**, and the fact that each one was measured,
+  fail-open and correctly lit is exactly the trap §9 describes: the easy half answered well.
+- ⚠ **THE TEXTURES STAYED, and that distinction is the whole of the cleanup.** `media/site/{pulp,
+  steel,vinyl}-{albedo,normal}.webp` are tiled by the FLAT CSS on those three card pages and
+  always were; the props merely shared them. `scripts/blender/build-site-props.py` and
+  `build-site-props.mjs` stay for the same reason — deleting the bake would have quietly orphaned
+  live page styling to tidy up a removed feature.
+- ⚠ Verified by loading all five pages: no errors, no gaps where a prop used to be. `test:name`
+  77/77 and `test:reach` 197/197.
+
 ## ◱ THE BRAND — `docs/BRAND-3030.md` + `studio3d.html`, `npm run test:sheet` (25)
 *Artist, 2026-08-05: "lets design (inspired by the current site) and rebrand for ripmaster 3030
 studios … the entire site in interactive webgl for playcanvas."* ⚠ **A PROPOSAL, and disposable on
@@ -814,6 +886,17 @@ purpose** — `index.html` is untouched and the new page says "proposal · not f
   names, the card faces (generated placeholder ink — eight distinct compositions, but *which* one
   goes *where* is authorship, the same open question as the 33's figure placement), and the
   typeface question. Plan for the rest of the site + honest sizing: `BRAND-3030.md` §9.
+- ⛔ **UNLINKED FROM THE HOME PAGE, 2026-08-06 (artist).** *"remove this and instead mention how we
+  aspire to port these games to google play to extend the onchain activity and create a physical
+  deck — replace with that section."* `index.html` carries a **Where this is going** section where
+  the button was. The sheet itself is **untouched and NOT promoted** — it still says *proposal · not
+  final art* on its face — so `test:reach` keeps those two assertions and moves the page into
+  `ORPHAN_OK` **with the reason**, which is the difference between a decision and an oversight.
+  ⚠ The rule it replaces ("the sheet is linked from index.html and this is the assertion that keeps
+  it linked") is dead; anything still asserting it is stale.
+  ⚠ **EVERY VERB IN THE NEW SECTION IS "WANT TO", DELIBERATELY.** It is a roadmap on a public page
+  for a token about to launch: neither store approval nor a print run is ours to promise, so nothing
+  there is dated, priced or scheduled, and it says so in its own last line.
 
 ## ✅ THE 33 · STEP 1 — `cards/proof.html` + `js/hero-card.js`, `npm run test:hero` (20)
 *Artist, 2026-08-04: "make them from scratch as 3D cards … living generative works with glitches
@@ -1337,6 +1420,139 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ✅ THE CARD PAGE IS A CARD — `cards/card-stage.js`, `npm run test:press` (16 → 26)
+*Artist, 2026-08-06, pointing at two screenshots: "this is the wrong viewer for the card — should
+be like the way we see the plate proof cards with lighting and card texture / 3d fx … that is done
+correct in the binder / folder viewer."* **Both were CARD PAGES** — the first is just the one you
+land on after a pull — and they were the last flat surface on the site: a CSS-tilted `<img>` in a
+`.card` div, no press, no material, no room. They now mount the same `CardView` the binder and the
+forge use. Measured on a driven page: **sd 63.5 against the press's own 63.7.**
+- ⚠ **THE FLAT CARD IS HIDDEN, NEVER REMOVED.** `visibility:hidden` keeps its box — which is what
+  the stage is measured from on every resize — and keeps the card BACK in the document, where
+  `cardnav.js` and the chain readers write `#b-live`, `#b-wl`, `#b-burn` and a dozen more ids.
+  Removing the element would take the page's data plumbing with it, silently.
+- ⛔ **`CardView.mount` RESOLVING IS NOT PROOF A CARD WAS PRINTED, and believing it was reproduced
+  this repo's ONE fail-open violation in a new file, on 196 pages.** Driven against a mount that
+  hands back a controller over an empty canvas, the module hid a perfectly good flat card behind
+  nothing. **The pixels are checked HERE now**, before anything is taken away. ⚠ "Not blank" is not
+  "alpha > 0" — the stock is near-white, so a paper-coloured canvas is fully opaque and completely
+  empty; the test is tonal VARIANCE. ⚑ And the stage is `pointer-events:none` until a card prints,
+  because **"it removes itself" is a weaker property than "it cannot swallow a tap"**.
+- ⛔ **TWO SABOTAGES PROVED NOTHING BEFORE THE THIRD ONE BIT — and both wrong answers accused the
+  product.** Patching `HeroCard.build` by POLLING loses the race to a page that presses at
+  `DOMContentLoaded` (`/cards/` and the binder press later, which is why the same sabotage works
+  there); patching on ASSIGNMENT did not kill the render either. Both left the press healthy —
+  **measured ink true, sd 64.2, a perfectly good card** — while three assertions reported the guard
+  as broken. ⚑ **A sabotage that does not engage proves the OPPOSITE of the truth.** The one that
+  works breaks the exact contract this module depends on and cannot verify from outside: a
+  `mount()` that resolves over an empty canvas.
+- ⚠ **`?flat` opts out**, same as the binder — the press CROPS and SCREENS, so it is a treatment
+  and not a reproduction, and the drawings stay reachable as drawn.
+- ⚠ **PUMP rAF FROM INSIDE THE PAGE.** `CardView` proves ink over a **240-frame** budget and this
+  container delivers 6–8 real frames in ten seconds, so a wall-clock wait reports a viewer that
+  never resolved — which reads exactly like a broken mount and is the harness. Third sighting.
+- ⚠ Not patched into `lovebeing.html` on purpose: it is embedded as an **iframe on the home page**,
+  where the module no-ops anyway, so the five extra modules would download to do nothing.
+
+## ♪ THE SITE MUSIC IS STREAMED, NOT HELD — `theme.js`, `npm run test:theme` (29)
+*Artist, 2026-08-06: "incorporate this album now by this artist as the streaming music persistent
+throughout the website experience. removing the smiling man song by me and sean."*
+The set is **BASIX — "GO-TEAM!"**; `smilingman.mp3` (2.8 MB) is deleted. `CREDITS.md` carries the
+attribution, and the artist's own removal path if it is ever asked for.
+- ⛔ **NOTHING IS DOWNLOADED OR RE-HOSTED, AND THAT IS THE WHOLE SHAPE OF THE MODULE.** There is no
+  direct stream URL to point an `<audio>` at, so the only legitimate way to play someone else's set
+  is their own embedded player: an off-screen widget iframe driven through the official Widget API.
+  Copying the audio in would be smaller, faster and **seamless**, and would be taking the record
+  instead of playing it. Every constraint below is downstream of that one decision.
+- ⚠ **IT IS GENUINELY LESS CONTINUOUS THAN THE MP3, AND SAYING SO IS THE POINT.** The site is many
+  separate HTML pages and a cross-origin iframe cannot survive a navigation — it is destroyed with
+  the document and rebuilt from scratch. The PLACE is persisted (`urm_sound_n` track index +
+  `urm_sound_t` seconds) and the next page seeks back to it, so you resume where you were; you just
+  hear a gap first, and clicking fast through card pages restarts the player each time. ⚑ **The
+  only two fixes are re-hosting the audio (not ours to do) or a single-page shell (a much larger
+  change than a music swap).** Do not let anyone record this as "seamless".
+- ⛔ **FAIL OPEN HERE MEANS THE BUTTON HAS TO BE ABLE TO DIE, WHICH IS THE OPPOSITE OF EVERY OTHER
+  MODULE IN THIS REPO.** Everything else fails open by leaving the page as it found it. A music
+  button cannot: the visitor presses it, gets silence, and concludes the site is broken — so a
+  control that does nothing is WORSE than no control. The widget is not booted until the music is
+  actually wanted (a visitor who never turns it on pays no third-party weight at all), and if it
+  does not report READY inside `BOOT_MS` the button and the dead iframe **remove themselves** and
+  nothing else on the page moves.
+- ⚑ **THE ONLY ASSERTION IN `test:theme` THAT MEANS ANYTHING IS THE SABOTAGE, AND THE CONTAINER IS
+  WHY.** Outbound TLS from headless Chromium is reset here, so "does the music play" is unaskable —
+  every network path answers no. But that is exactly what a visitor behind a blocker or a corporate
+  proxy sees, so the failure path is the one worth guarding. `window.SC` is **stubbed**, not
+  fetched, which makes both paths drivable locally: a widget that reports READY, and one that never
+  does. ⚠ The healthy path is asserted TOO — "the button went away" is trivially satisfied by a
+  module that always buries itself.
+- ⚠ **A FALSE FAILURE FROM `waitUntil:'load'`, AND IT IS THIS FILE'S OWN GENRE.** A dynamically
+  inserted iframe with a `src` DELAYS the window load event, so waiting for `load` on a page whose
+  player points at an unreachable host returned only after the connection gave up — **past the 9 s
+  budget**. The grace-period assertion then read a button that had already been correctly buried
+  and called it a bug. Wait for the document, not the network; abort the third-party request so the
+  timing measured is the module's.
+- ⚑ **COVERAGE WAS THE ARTIST'S ACTUAL COMPLAINT.** `sfx.js` was on 208 pages and `theme.js` on
+  **three** — index, battle, market — so "site music" was a claim about 1.4% of the site. It is on
+  **213** now: every card page, every document, the hubs **and all six cabinets**. ⛔ **Skipped on
+  purpose:** `superrare.html` (must stay script-free) and the card templates that render inside
+  sandboxed iframes.
+
+### ⛔ AND IT GOES INTO THE GAMES — the cabinets' own soundtracks are deleted
+*Artist, 2026-08-06: "the music should carry over to in games, game lobbies and remove the music
+that is in games currently - so it is persistent throughout."* `TWSI.mp3` and
+`riprocketer-theme.mp3` are gone, with every `tgMusic` / `dfMusic` / `rrMusic` / `s9Music` /
+`playMusic` / `toggleMusic` in `dogfight.html`, `riprocketer.html`, `section9.html`,
+`js/rrpc-app.js`, `js/s9pc-ui.js` and `js/s9pc-app.js`. **SFX stay** — he said music.
+⚠ `section9-theme.mp3` never existed in the repo, so that cabinet's `<audio>` had been pointing at
+a 404 the whole time. A soundtrack nobody could hear is the "surface nobody looks at" rule applied
+to sound.
+- ⛔ **AND THE FLOATING PILL WAS `banner.js` ALL OVER AGAIN.** Driven at 844×390 the bottom-right
+  control sat **on DOGFIGHT's FIRE pad and THE CITY's flap and mode buttons, and WON the hit
+  test** — the controls under it were dead. At 116px wide THE CITY has **no free corner at all** in
+  portrait (BR flap/mode, BL act, TR/TL the mode chips), so no amount of nudging fixes it.
+  ⚑ **The answer was already in the repo**: every cabinet has a `.toggles` row that
+  `js/game-toggles.js` collapses behind a 44px cog, and that is exactly where each game's own
+  `♪ music` button lived. `theme.js` appends there when it finds one — inheriting the cabinet's own
+  button styling AND the collapse for free, because the collapsed state is a CSS rule keyed on the
+  ROW, so a button added later is hidden by it too. **One control, two homes, chosen by what the
+  page is.** Measured after: **0 collisions on all six cabinets at 390×844 · 844×390 · 1280×800.**
+- ⚠ **THREE CABINETS HAD NO SUCH ROW** — city, cloudracer, ronin — so the "collapsable audio menu,
+  games across the board" ask had quietly reached only half the board. They have one now, anchored
+  bottom-left, which is the corner measured free at all three viewports.
+- ⚠ **"IT COVERS NOTHING" IS TRIVIALLY TRUE OF A CONTROL THAT IS NEVER RENDERED**, and collapsed-
+  by-default is exactly that shape. So the load-bearing half of `test:theme` §7 is that **opening
+  the cog reveals a ≥44px control that takes its own hit and actually starts the music**.
+- ⚠ **TWO FALSE FAILURES, BOTH THE HARNESS.** A cabinet in its LOBBY has a launch overlay at
+  z-index 10 above the row's 6 — correct, and it owns the hit test until the match starts; asking
+  the question anyway reported DOGFIGHT's lobby as a defect. And 300 ms after the press was not
+  enough under suite load, while the same click measured `playing:true` every time when driven
+  alone.
+
+### ✅ SKIP FORWARD, SKIP BACK — `#soundPrev` · `#soundToggle` · `#soundNext`
+*Artist: "have the ability to skip tracks or go back through tracks along with pause / play."*
+⚑ **A SET IS NOT A SONG.** The mp3 this replaced was one loop, where a skip would have meant
+nothing; this is somebody's album, so *"not this one"* is a thing a listener now wants to say — and
+without it their only option is to turn the music off, which is the same silence with worse
+feelings about it.
+- ⚠ **Skipping while PAUSED has to START PLAYING.** `widget.next()` on a parked player moves the
+  needle and stays parked, so the press looks broken; a skip is a request for the next TRACK, not
+  for a silent seek. Asserted from a standing start.
+- ⚑ **ONE FIXED BAR, NOT THREE FIXED BUTTONS** — three separately-positioned fixed elements is
+  three numbers to keep in step, and this repo has paid for that twice already (index's three
+  bottom layers at one altitude; city's caps drifting until one reached zero).
+- ⚠ **`bury()` HAD TO LEARN ABOUT THEM.** It was written when there was one button; burying one of
+  three would leave skip buttons that skip nothing — precisely the failure the burial exists to
+  prevent. Asserted separately.
+- ⚠ **AND THE GENERATOR WAS PATCHED WITH THE OUTPUT** — `scripts/build-pages.mjs` emits the four
+  public pages' script tags, so patching only the HTML would have left it armed to put the old
+  state back. That is `restyle-backs.mjs`'s failure exactly, and it is the fourth time.
+- ⚠ `theme.js` now carries `if (window.self !== window.top) return;` — `sfx.js` always had it and
+  `theme.js` never did. Without it every embedded card iframe starts its own copy of the album.
+- ⚠ The pill sits `right:12px`, the SFX toggle `left:12px` — opposite corners, verified by driving
+  four real pages at 390×844 and 1280×800: on-screen, ≥44px, zero collisions with any other fixed
+  control. The width is capped (`min(62vw,320px)`, ellipsis) because the label now carries a TRACK
+  TITLE — somebody else's string, of any length, on a fixed element.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
@@ -1829,6 +2045,76 @@ how the weapon BEHAVES rather than how it looks.
   lines it already printed are only STAGED. Two edits were lost that way and the failure surfaced
   three steps later as `ReferenceError: adsDown is not defined`. Writing at the end is the safe
   design; treating the progress output as proof of application is the mistake.
+
+### ⛔ THE SQUIRREL COULD NOT CLIMB AT ALL — the CEILING clamp, not the ledge · `npm run test:city`
+*Artist, 2026-08-05: "the squirell gets stuck on wall ledges and that shouldn't happen."*
+- ⛔ **`moveBody`'s ceiling clamp FIRED ON THE WALL BEING CLIMBED.** A climbing squirrel is pressed
+  INTO its wall by construction — `wallAt` reaches `r + 0.22`, so the body's footprint overlaps the
+  box and its head at `y + h` is **inside** it. `if (b.vy > 0 && hits(nx, ny + B.h, nz, …))` then
+  reset `ny` to where it started, every frame, forever. Measured: `vy` set to **+5.58** every tick
+  and **y constant at 0.99 for all 420 ticks**, `onGround` false, nothing thrown.
+- ⚑ **THE GIVE-AWAY IS `onGround:false` ON A BODY THAT IS NEITHER RISING NOR FALLING.** That rules
+  gravity out — it is not being skipped, the climb is being CANCELLED after the fact. It looks like
+  a floor bug and it is a ceiling bug, and it reads to a player as being glued to the wall.
+- ⚠ **I SHIPPED THE WRONG DIAGNOSIS FIRST.** I read the lip as a limit cycle (crest ⇒ `wallAt`
+  stops matching ⇒ fall ⇒ re-reach) and fixed *that* — replacing a decaying nudge with a real
+  mantle, which is a genuine improvement and is now exercised. But it was never the reported bug,
+  and I committed it saying so: *"reasoned from the code, not driven."* **The honest label was
+  right and the fix was still not the cause.** Only the driven probe found the real one.
+- ⛔ **AND THE HARNESS LIED TWICE ON THE WAY THERE, both in the reassuring direction.** (a) A
+  synthetic `KeyboardEvent` dispatched from inside the page moved the body **0 m** while gravity
+  and the ground resolve both worked — an input-path artefact that reads exactly like broken
+  physics. `page.keyboard.down` (a TRUSTED event) is the only reliable drive. (b) rAF frame
+  counting is useless here: the baseline bird measured **6–8 real frames in 10.5 s**, so every
+  wall-clock movement test reports 0. `__city._step(n, dt)` is the clock.
+- ✅ **`__city._collide` and `._me` are exposed now** so a harness can ask the world the same
+  questions the physics asks instead of inferring them from where a body stopped. One call
+  (`hits` at the frozen position) settled what several rounds of reasoning had not.
+- ✅ **`npm run test:city` (12)** — the first driven suite this game has had. `test:reach` parses
+  these files and asserts the handlers exist, and **all of that was true the whole time**: a text
+  match cannot see a body that does not move. Proved to bite by deleting the `!climbing` guard:
+  3 failures, y pinned at 0.99. Also guards the pouch bound, the drop's HUD report, and that the
+  pointer-lock prompt shows in SECTION 9 **and not in the modes that do not use the mouse** —
+  both directions, because "shown in operative" is trivially satisfied by showing it always.
+  ⚠ One assertion was mis-timed, not mis-designed: `#carry` is written inside `stepDrops`, i.e.
+  once per frame, so reading it in the same tick as `_act()` measures the frame BEFORE the press.
+
+### ✅ OTHER PEOPLE ARE IN THE CITY — `js/city-net.js`, `npm run test:citynet` (10)
+*Artist, 2026-08-05: "for city we need to wire in mmorpg dynamics for multiplayer for people in
+game."* Two real pages, two identities, each with the other's body in their world.
+- ⚑ **TWO LAYERS, BECAUSE THEY ANSWER TWO QUESTIONS, and the split is the game's own design.**
+  `/api/presence` is DISCOVERY — a heartbeat with a 20 s TTL, so it can say *who* is in the city
+  and roughly where, and can never animate anyone. WebRTC data channels over `/api/signal` are
+  MOTION — ~9 Hz, peer to peer, no game server. ⚑ **That is the bird's own asymmetry, as netcode:**
+  `CITY-GAME.md` says the bird SCOUTS — sees the whole map, touches none of it — and the roster is
+  exactly that. Getting close enough to watch somebody move is the part you fly over and earn.
+- ⛔ **ONLY THE LOWER ID OFFERS, AND WITHOUT IT NOTHING EVER CONNECTS.** Both sides see each other
+  on the same roster tick, so both created an offer, each then received one while already in
+  `have-local-offer`, and `setRemoteDescription` rejected on both. **Measured: roster 1 and peers
+  0 on each of two live tabs, with no error anywhere.** `js/df-net.js` states the tie-break in its
+  own header — *"in each pair the lower id makes the offer"* — and I did not carry it over. **A
+  rule recorded in the file you are copying FROM is not a rule you have applied.**
+- ⛔ **ANIMALS ONLY, ON PURPOSE.** DOGFIGHT and SECTION 9 are matches with shooter-authoritative
+  netcode; a persistent world and a scored match are different contracts, and merging them would
+  put a loophole in the observer rule shaped like a jet. Switching to a combat mode leaves the
+  shared world — `body:null` is how the wire says so, and a peer with no body is not drawn.
+- ⚑ **`buildBird()` IS A FACTORY NOW**, for the reason `buildSquirrel` already had written down: a
+  second caller exists, and two bird definitions would drift. ⚠ **TDZ, FOURTH SIGHTING** — the
+  extraction renamed `bird.` to `ent.` and missed three `bodyPart(bird, …)` ARGUMENTS, so the
+  const was read above its own declaration and the whole app died at module scope. `__city` simply
+  never appears; the probe reports "not ready", not "broken bird".
+- ⚠ **THE NAME TAG NEEDS A DEPTH TEST.** `worldToScreen` returns a point for geometry BEHIND the
+  camera too, so ignoring `z <= 0` pins every peer you have flown past to the top of the screen,
+  mirrored, permanently. And it is projected from the MIRRORED space the camera lives in while the
+  body is placed in the unmirrored one — one space for bodies, the flip on the camera only.
+- ⚠ **`test:citynet` runs `/api/presence` and `/api/signal` IN MEMORY** to the same protocol the
+  Vercel handlers speak, so it needs no network and no keys. Proved to bite by deleting the
+  tie-break: 2 peers → 0. ⚑ **"A peer exists" is the weak question** — a stale first packet
+  satisfies it forever; the assertion that discriminates is that BRAVO walks 60 m and ALPHA reads
+  10 → 70.
+- ⚠ **NOT BUILT: interaction.** You can see each other and where each other is. Trading, stealing
+  across the wire, and shared drops are the next step — the mesh is capped at 6 peers nearest-first
+  because a full P2P mesh is O(n²) with nothing to relay through.
 
 ⚠ **STILL OPEN and the artist's:** how a photographed card is marked so it never passes as one of
 his, whether the animals share one city, whether anyone else is in it, and whether time of day

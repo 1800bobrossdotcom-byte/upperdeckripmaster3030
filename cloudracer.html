@@ -102,6 +102,21 @@
     ?adapt=0    disable adaptive resolution
 -->
 <script src="/gate.js"></script>
+<style>
+  /* ⛔ THE AUDIO CONTROL IS A COLLAPSED COG, NOT A FLOATING BAR — measured, not chosen.
+     theme.js's fixed transport bar is 212px wide and sat on this cabinet's own controls at a
+     playable viewport, winning the hit test. Every cabinet already has a home for an audio
+     control — the .toggles row that js/game-toggles.js collapses behind a cog — and this one
+     did not, which is also the 'collapsable audio menu, games across the board' ask missing
+     here. Bottom-left: measured free at 390x844, 844x390 and 1280x800. */
+  .toggles{ position:fixed; z-index:60; left:12px; bottom:12px; display:flex; gap:8px; align-items:center; }
+  .tg{ pointer-events:auto; cursor:pointer; font-family:'Courier New',monospace; font-size:11px;
+    letter-spacing:.06em; text-transform:uppercase; color:#2bff80; background:rgba(2,16,9,.86);
+    border:1px solid rgba(43,255,128,.34); border-radius:999px; padding:9px 12px; min-height:44px; }
+  .tg.off{ opacity:.5; }
+</style>
+<div class="toggles" id="toggles"></div>
+<script src="js/game-toggles.js" defer></script>
 <script src="js/chain-config.js"></script>
 <script src="js/wallet.js"></script>
 <script src="js/wallet-ui.js"></script>
@@ -362,5 +377,6 @@
 <script src="js/crpc-game.js"></script>
 <script src="js/crpc-ui.js"></script>
 <script src="js/crpc-app.js"></script>
+  <script src="theme.js"></script>
 </body>
 </html>

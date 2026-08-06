@@ -328,6 +328,13 @@ function buildGallery() {
   <script src="../js/hero-card.js" defer></script>
   <script src="../js/card-back.js" defer></script>
   <script src="../js/card-press.js" defer></script>
+  <!-- Audio. Both were patched into the shipped cards/index.html and were missing HERE, which is
+       the restyle-backs.mjs failure: a generator left armed puts the defect back, and the defect
+       this time is a silent site. This template has already diverged from its output (see the
+       decknav note in CLAUDE.md), so it is not safe to regenerate blind — but it must at least
+       not LOSE things when someone eventually does. -->
+  <script src="../theme.js"></script>
+  <script src="../sfx.js"></script>
   <script>
   addEventListener('load', function () {
     if (!window.CardPress || /[?&]flat\b/.test(location.search)) return;

@@ -413,7 +413,7 @@
     </div>
   </div>
 
-  <div class="toggles" id="toggles"><button class="tg" id="tgMusic">♪ music</button><button class="tg" id="tgSfx">🔊 sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
+  <div class="toggles" id="toggles"><button class="tg" id="tgSfx">🔊 sfx</button><button class="tg" id="tgPause">⏸ pause</button></div>
 
   <div class="tstick" id="tsBase" aria-hidden="true"></div>
   <div class="tstick-nub" id="tsNub" aria-hidden="true"></div>
@@ -517,7 +517,6 @@
     </div>
   </div>
 
-  <audio id="s9Music" loop preload="none" src="section9-theme.mp3"></audio>
 
   <script>if (new URLSearchParams(location.search).get('crt') === '1') document.body.classList.add('crt-on');</script>
   <!-- shared site modules, unmodified -->
@@ -552,5 +551,6 @@
   <script src="js/s9pc-fx.js"></script>
   <script src="js/s9pc-app.js"></script>
   <script src="js/game-toggles.js" defer></script>
+  <script src="theme.js"></script>
 </body>
 </html>

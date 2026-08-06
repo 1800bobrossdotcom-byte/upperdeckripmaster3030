@@ -374,6 +374,25 @@ frame and seed are left alone">RESET TO BASE</button>
     <div class="grp">
       <label>FRAME <span class="v" id="vRar">legendary</span></label>
       <div class="chips" id="rarChips"></div>
+      <!-- ⛔ FRAMELESS BELONGS HERE, NOT IN ANOTHER PANE. It was in BUILD, which is where the kind
+           of CARD is decided — but "does this card have a frame at all" is a question about the
+           FRAME, and the artist went looking for it under this label. A control filed by its
+           mechanism instead of by its subject is a control nobody finds.
+           ⚠ It is a SEPARATE chip, not a seventh tier. Rarity picks which family the border is set
+           from AND how much of it is foil; frameless decides whether the border prints. Making it
+           a tier would have meant choosing "no frame" silently threw the tier away — and the foil
+           weight with it. Two questions, two controls, one row. -->
+      <div class="chips" style="margin-top:6px">
+        <button type="button" id="frame" class="chip">FRAMED · TRIM + SORTS</button>
+        <span class="v" id="vFrame" style="align-self:center">framed</span>
+      </div>
+      <div class="note"><strong>Frameless</strong> takes the trim away and the composition runs to
+        the die edge — a <strong>full bleed</strong>, a real thing a press does and a different
+        kind of card. It takes the border sorts with it: sorts are set INTO the trim, so a
+        frameless card with a ruled border still on it is a border round nothing. The name stays —
+        that is the card's title, not its frame. ⚠ The trim is what makes the artwork read as a
+        <em>window</em>; bleeding to all four edges is what turned the first proof into wallpaper.
+        That is why it is an option and not the default.</div>
       <details class="why"><summary>why the border changes</summary>
         <div class="note">A printer sets a rule from repeated pieces of TYPE — border sorts, out of
         the same fount as the name. <strong>Rarity picks the family, the seed picks the frame</strong>,
@@ -404,9 +423,21 @@ frame and seed are left alone">RESET TO BASE</button>
     </div>
 
     <div class="grp">
+      <label>THE SCREEN <span class="v" id="vScreen">0.00</span></label>
+      <input type="range" id="screen" min="0" max="1" step="0.01" value="0">
+      <div class="note">the <strong>halftone stipple</strong> — each plate broken into dots on its
+        own screen angle. At <strong>0 the ink is laid in continuous tone</strong> and the artwork
+        is seen directly instead of through a screen. Everything else survives: the plates, their
+        registrations, the film weights, the roller band. It is still a separation and still a
+        print, just not a <em>screened</em> one. ⚠ The dot relief goes with it — beads of ink
+        standing proud are the stipple in three dimensions.</div>
+    </div>
+
+    <div class="grp">
       <label>MOTION <span class="v" id="vMot">—</span></label>
       <select id="motion" aria-label="press motion"></select>
-      <div class="row"><button type="button" id="spin">RUNNING</button>
+      <div class="row"><button type="button" id="preview">▶ PREVIEW</button>
+                       <button type="button" id="spin">RUNNING</button>
                        <button type="button" id="reprint">REPRINT</button></div>
       <label style="margin-top:10px">CYCLE <span class="v" id="vPer">8.0s</span></label>
       <input type="range" id="period" min="1" max="24" step="0.5" value="8">
@@ -414,6 +445,27 @@ frame and seed are left alone">RESET TO BASE</button>
         starving, the sheet slurring under the blanket. <strong>Each is a real thing a press
         does</strong>, which is why the card reads as a print rather than as an effect. Leave it
         on <em>seeded</em> and the card picks its own.</div>
+    </div>
+
+    <!-- ⛔ THE HAND-DRAWN LOOPS — artist, 2026-08-05: "small gif sprites and loops that look
+         handddrawn … infinite abstract, ascii art, generative and cool" / "where are the handmade
+         animations and glyphs, gifs section as well". js/card-sprites.js draws them. -->
+    <div class="grp">
+      <label>HANDMADE LOOPS <span class="v" id="vLoops">none</span></label>
+      <div class="slot">WHAT IS DRAWN</div>
+      <div class="chips" id="loopChips"></div>
+      <label style="margin-top:10px">HOW MANY <span class="v" id="vSprites">0</span></label>
+      <input type="range" id="sprites" min="0" max="4" step="1" value="0">
+      <label style="margin-top:10px">LOOP RATE <span class="v" id="vSrate">1.0</span></label>
+      <input type="range" id="srate" min="0.25" max="6" step="0.25" value="1">
+      <div class="note">small drawings struck into the print — <strong>a boiling line</strong>,
+        redrawn from scratch every frame the way hand-drawn animation is, so it crawls instead of
+        tweening. <strong>ASCII kinds are set from the card's own committed fount</strong>, so no
+        font ships and none is named. ⚑ They go in as <strong>ink</strong>, before the plate
+        separation — so they take the halftone, the registration error and the press damage like
+        every other mark, instead of sitting on top as a sticker. They ride the figure's plane, so
+        they have the same depth as the layer they sit on. Where they land is the seed's.
+        ⚠ They run on the press's own clock: <strong>stopped press, stopped loop</strong>.</div>
     </div>
 
     <div class="grp">
@@ -618,6 +670,7 @@ frame and seed are left alone">RESET TO BASE</button>
 <script src="/gate.js"></script>
 <script src="../js/chain-config.js" onerror="void 0"></script>
 <script src="../js/lens-state.js" onerror="void 0"></script>
+<script src="../js/card-sprites.js"></script>
 <script src="../js/hero-card.js"></script>
 <!-- ⚑ For CardView.backingScale() only — the forge drives the press itself. gfx-post carries
      deviceTier(), which is how "weak machine" keeps ONE definition in this repo. Both are
@@ -633,7 +686,7 @@ frame and seed are left alone">RESET TO BASE</button>
 
   var cv = document.getElementById('cv'), box = document.getElementById('card');
   var seed = parseInt(Q.get('seed'), 10); if (!isFinite(seed) || seed <= 0) seed = 3030;
-  var ctrl = null, POOL = [], RARITY = 'legendary';
+  var ctrl = null, POOL = [], RARITY = 'legendary', TYPE_SPEC = null;
   var RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
 
   /* ⛔ THE BACKING RATIO IS `js/card-view.js`'s, NOT THIS FILE'S — AND THIS WAS THE SURFACE MOST
@@ -706,7 +759,7 @@ frame and seed are left alone">RESET TO BASE</button>
     Promise.all([pigment(), typeSpec()]).then(function (r) {
       /* The 33 are 1/1s, so the proof wears a high-tier frame — and `?rarity=` overrides it, so
        * the whole ladder can be looked at on one card without hunting through the field. */
-      POOL = r[0];
+      POOL = r[0]; TYPE_SPEC = r[1];
       var rar = Q.get('rarity') || 'legendary';
       RARITY = rar;
       /* ⚑ THE FORGE IS IN THE URL, WHICH IS WHAT MAKES IT SHAREABLE WITH NO BACKEND. A forged
@@ -1008,9 +1061,29 @@ frame and seed are left alone">RESET TO BASE</button>
      *   other silently resets to 0 — a dial that works until you touch its neighbour. */
     { id: 'reg',    k: 'reg',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
     { id: 'rad',    k: 'rad',   d: 0,   dp: 2, put: function (c) { putReg(c); } },
+    /* ⛔ LAYERS PUTS CARDS ON THE PRESS WHEN IT NEEDS THEM. Artist, 2026-08-05: *"none of these
+     * are working — get it separating layers like you had before"*, from a panel reading LAYERS
+     * 0.00 and COLLAGE 1 card. Both were doing exactly what they say: at zero the elements are
+     * coplanar, and with one picture there is nothing to separate it FROM. Every control was
+     * honest and the panel was still dead, which is a worse failure than a wrong number.
+     * ⚑ A control that cannot act without another control should ACQUIRE it, not send you to a
+     *   different pane to read a note about it. Dragging LAYERS off zero with one card on the
+     *   press puts three on — enough to have layers at all — and says so. It never takes cards
+     *   away and never reduces a count you chose, so it can only ever make the dial work. */
+    /* ⛔ LAYERS DOES NOT FETCH MORE CARDS. It briefly did, and that was the whole
+     * misunderstanding: "the layers should be created from that one source." A stack separates
+     * the picture you chose; it does not go and get more pictures. More sources is the COLLAGE
+     * control, and it is a different question with its own chips. */
     { id: 'stack',  k: 'stack', d: 0,   dp: 2, put: function (c, v) { c.setStack(v); } },
     /* the impression's own character — base 0 is a clean pull, which is what "raw" means */
     { id: 'press',  k: 'press', d: 0,   dp: 2, put: function (c, v) { c.setPress(v); } },
+    /* ⚠ base 0 — the artist's call: no stipple unless it is asked for */
+    { id: 'screen', k: 'scr',   d: 0,   dp: 2, put: function (c, v) { c.setScreen(v); } },
+    /* the loops: how many, and how fast they run against the press revolution */
+    { id: 'sprites', k: 'spr', d: 0, dp: 0,
+      put: function (c, v) { c.setSprites({ count: v, kind: loopKind(), type: TYPE_SPEC }); } },
+    { id: 'srate',  k: 'srate', d: 1, dp: 2,
+      put: function (c, v) { c.setSprites({ rate: v }); } },
     { id: 'period', k: 'per',   d: 8,   dp: 1, put: function (c, v) { c.setPeriod(v); }, unit: 's' },
     { id: 'light',  k: 'light', d: 135, dp: 0, put: function (c, v) { c.setLight(v * Math.PI / 180); },
       unit: '°' },
@@ -1026,6 +1099,11 @@ frame and seed are left alone">RESET TO BASE</button>
       put: function (c, v) { c.setSpin(v); } },
     { id: 'env',  k: 'env',  d: 1, on: 'ROOM ON', off: 'ROOM OFF',
       put: function (c, v) { c.setEnv(v); } },
+    /* ⚠ d:1 — FRAMED is the base. Frameless is a change you apply, which is the whole point of
+     *   the base card: the thing you start from is the card as it prints. */
+    { id: 'frame', k: 'frame', d: 1, on: 'FRAMED · TRIM + SORTS', off: 'FRAMELESS · FULL BLEED',
+      put: function (c, v) { c.setFrame(!!v); },
+      say: function (on) { return on ? 'framed' : 'frameless'; } },
     /* the plate-proof furniture — base OFF, because these belong to a check sheet */
     { id: 'marks', k: 'marks', d: 0, on: 'MARKS ON', off: 'MARKS OFF',
       put: function (c, v) { c.setMarks(!!v); } },
@@ -1041,7 +1119,23 @@ frame and seed are left alone">RESET TO BASE</button>
    * control that can be moved but not saved, or saved but not reloaded, and every failure in that
    * family is silent and costs a card. `CHOICES` is the same contract for an n-way pick: label,
    * value into the press, query key, saved record, base. */
+  function loopKind() {
+    var C = CHOICES.filter(function (x) { return x.k === 'loop'; })[0];
+    return C ? C.values[C.values.indexOf(choiceVal(C))] : null;
+  }
   var CHOICES = [
+    /* ⚠ the kind list is READ from the module that owns it, so a seventh generator needs no edit
+     *   here — the same rule the motion list follows. */
+    { id: 'loopChips', k: 'loop', d: 'boil',
+      values: (window.CardSprites ? CardSprites.kinds() : ['boil']),
+      label: function (v) { return String(v).toUpperCase(); },
+      put: function (c, v) { c.setSprites({ kind: v, type: TYPE_SPEC }); },
+      say: function (v) { return v; },
+      also: function (v) {
+        var el = document.getElementById('vLoops');
+        var n = dialEl('sprites');
+        if (el) el.textContent = (n && +n.value > 0) ? v : 'none';
+      } },
     { id: 'pigsChips', k: 'pigs', d: 1, values: [1, 3, 6],
       label: function (v) { return v === 1 ? 'ONE' : (v === 3 ? 'THREE' : 'SIX'); },
       put: function (c, v) { c.setPigs(v); },
@@ -1062,18 +1156,26 @@ frame and seed are left alone">RESET TO BASE</button>
          * honest about its input. */
         var sn = document.getElementById('stackNote');
         if (sn) sn.innerHTML = v === 1
-          ? '⚠ <strong>one card on the press</strong> — the stack can only part the artwork from '
-            + 'the name. For layers that visibly separate, put <strong>three</strong> or '
-            + '<strong>six</strong> cards on it in THE FORGE.'
-          : '<strong>' + v + ' cards</strong> on the press — each rides its own depth and its own '
-            + 'bearing, so the stack parts into ' + v + ' pieces plus the type.';
+          ? '<strong>one card, cut into four</strong> — LAYERS slices THIS card along its roto cuts '
+            + 'and stands the pieces at different depths, so they slide across each other as it turns.'
+          : '<strong>' + v + ' cards</strong> on the press — each rides its own plane, so the stack '
+            + 'parts into ' + v + ' pieces.';
       } },
   ];
+  /* ⚠ VALUES MAY BE NUMBERS OR STRINGS. This was written for the plate count (1/3/6) and coerced
+   * with unary +, which turns every loop-kind name into NaN — the chip would light, the URL would
+   * carry it and the press would be handed nothing, silently. Coerce only when the table's own
+   * values are numeric. */
+  function coerce(C, raw) {
+    if (raw === null || raw === undefined) return C.d;
+    var num = typeof C.values[0] === 'number';
+    var v = num ? +raw : String(raw);
+    return C.values.indexOf(v) < 0 ? C.d : v;
+  }
   function choiceVal(C) {
     var box = document.getElementById(C.id);
     var on = box && box.querySelector('[aria-pressed=true]');
-    var v = on ? +on.getAttribute('data-v') : C.d;
-    return C.values.indexOf(v) < 0 ? C.d : v;
+    return coerce(C, on ? on.getAttribute('data-v') : C.d);
   }
   function showChoice(C) {
     var v = choiceVal(C);
@@ -1084,7 +1186,7 @@ frame and seed are left alone">RESET TO BASE</button>
   function setChoice(C, v, push) {
     var box = document.getElementById(C.id); if (!box) return;
     [].slice.call(box.children).forEach(function (b) {
-      b.setAttribute('aria-pressed', String(+b.getAttribute('data-v') === v));
+      b.setAttribute('aria-pressed', String(coerce(C, b.getAttribute('data-v')) === v));
     });
     showChoice(C);
     if (push && ctrl) { try { C.put(ctrl, v); } catch (e) {} }
@@ -1092,7 +1194,7 @@ frame and seed are left alone">RESET TO BASE</button>
   function buildChoices() {
     CHOICES.forEach(function (C) {
       var box = document.getElementById(C.id); if (!box) return;
-      var q = Q.get(C.k), want = (q !== null && C.values.indexOf(+q) >= 0) ? +q : C.d;
+      var q = Q.get(C.k), want = coerce(C, q);
       C.values.forEach(function (v) {
         var b = document.createElement('button');
         b.type = 'button'; b.className = 'chip'; b.textContent = C.label(v);
@@ -1140,6 +1242,43 @@ frame and seed are left alone">RESET TO BASE</button>
     var mo = dialEl('motion');
     if (mo) { try { c.setMotion(mo.value || null); } catch (e) {} }
     showMotion();
+  }
+  /* ⛔ AND THE PRESS RUNS AT 8 SECONDS A REVOLUTION, WHICH IS WHY "IT IS NOT PREVIEWING".
+   * Choosing a motion already started the press — that shipped and is live — but one cycle takes
+   * eight seconds, so the first four are spent drifting toward an extremum nobody waits for. A
+   * preview that is indistinguishable from a still card for several seconds has not previewed
+   * anything. ⚑ PREVIEW runs it at 2.2s so the failure reads in one glance, and puts the cycle
+   * back where it was when you stop, because the cycle is a SETTING of the card and a preview
+   * must not quietly rewrite it. */
+  var PREVIEW_CYCLE = 2.2, prevCycle = null;
+  function preview(on) {
+    var per = dialEl('period'), spin = dialEl('spin');
+    if (!per || !spin) return;
+    var running = spin.getAttribute('aria-pressed') !== 'false';
+    if (on === undefined) on = !(running && prevCycle !== null);
+    if (on) {
+      if (prevCycle === null) prevCycle = +per.value;
+      per.value = PREVIEW_CYCLE;
+      if (!running) spin.click();
+    } else {
+      if (prevCycle !== null) { per.value = prevCycle; prevCycle = null; }
+      if (running) spin.click();
+    }
+    showDial(DIALS.filter(function (D) { return D.id === 'period'; })[0]);
+    if (ctrl) { try { ctrl.setPeriod(+per.value); } catch (e) {} }
+    var b = document.getElementById('preview');
+    if (b) b.textContent = on ? '■ STOP PREVIEW' : '▶ PREVIEW';
+    stamp();
+  }
+  /* put three cards on the press if there is only one — see the LAYERS note */
+  function needCards() {
+    var C = CHOICES.filter(function (x) { return x.k === 'pigs'; })[0];
+    if (!C || choiceVal(C) > 1) return false;
+    setChoice(C, 3, true);
+    var sn = document.getElementById('stackNote');
+    if (sn) sn.innerHTML = '⚑ <strong>three cards put on the press</strong> so the stack has '
+      + 'layers to separate — LAYERS cannot part one picture from itself.';
+    return true;
   }
   function showMotion() {
     var v = document.getElementById('vMot'), mo = dialEl('motion');
@@ -1230,7 +1369,17 @@ frame and seed are left alone">RESET TO BASE</button>
      * moves to another pane cannot leave a stale mapping behind. */
     PANES.forEach(function (P) { P.tab && P.tab.classList.remove('off'); });
     off.forEach(function (id) {
-      var el = document.getElementById(id); if (!el) return;
+      /* ⚠ A CHOICE IS NAMED BY ITS QUERY KEY, NOT BY ITS ELEMENT ID. `offBase` reports 'pigs'
+       *   because that is what the URL and the readout call it, but the DOM element is
+       *   'pigsChips' — so the lookup returned null and the pane holding the plate count never
+       *   got its dot. Silent: the readout counted the change correctly and only the marker was
+       *   missing, which is the half of a signal nobody notices is gone. */
+      var el = document.getElementById(id);
+      if (!el) {
+        var C = CHOICES.filter(function (x) { return x.k === id; })[0];
+        el = C && document.getElementById(C.id);
+      }
+      if (!el) return;
       var pane = el.closest ? el.closest('.pane') : null; if (!pane) return;
       var key = pane.getAttribute('data-pane');
       PANES.forEach(function (P) { if (P.key === key && P.tab) P.tab.classList.add('off'); });
@@ -1328,11 +1477,10 @@ frame and seed are left alone">RESET TO BASE</button>
        *   re-learning. */
       mo.addEventListener('change', function () {
         if (ctrl) { try { ctrl.setMotion(mo.value || null); } catch (e) {} }
-        var spin = document.getElementById('spin');
-        if (spin) {
-          var want = !!mo.value;
-          if ((spin.getAttribute('aria-pressed') !== 'false') !== want) spin.click();
-        }
+        /* ⚑ choosing one PREVIEWS it — at the preview cycle, not at the card's own 8 seconds.
+         * Going back to `seeded` stops the press and restores the cycle, so the base is still
+         * one click away and the card's real setting is never quietly overwritten. */
+        preview(!!mo.value);
         showMotion(); stamp();
       });
     }
@@ -1568,6 +1716,7 @@ frame and seed are left alone">RESET TO BASE</button>
   buildTabs();
   syncBase();
   document.getElementById('reset').addEventListener('click', resetBase);
+  document.getElementById('preview').addEventListener('click', function () { preview(); });
   document.getElementById('slotNo').addEventListener('input', showBand);
   showBand();
   document.getElementById('bSave').addEventListener('click', saveSlot);

@@ -284,23 +284,30 @@
     &nbsp; (f = tokens sold ÷ cap). A buy of ΔR RARE raises price by exactly <code>a·ΔR</code>.</p></div>
 
   <h2><span class="n">03</span>Price schedule</h2>
-  <p>The pack column holds the bundle fixed at 350 tokens and reprices it by the token's spot — isolating one
-  of the two pack escalators (token appreciation). The designed escalation is in <a href="#packs">§6</a>.</p>
-  <table><tr><th>f (sold)</th><th>spot (RARE)</th><th>spot ($)</th><th>pack of 350 ($)</th><th>FDV ($)</th><th>reserve (RARE)</th></tr>
-    <tr><td>0.00 (launch)</td><td>1.000</td><td>$0.0200</td><td><b>$7.00</b></td><td>$60,600</td><td>0</td></tr>
-    <tr><td>0.10</td><td>1.259</td><td>$0.0252</td><td>$8.81</td><td>$76,291</td><td>340,723</td></tr>
-    <tr><td>0.25</td><td>1.778</td><td>$0.0356</td><td>$12.45</td><td>$107,764</td><td>1,024,147</td></tr>
-    <tr><td>0.50</td><td>3.162</td><td>$0.0632</td><td>$22.14</td><td>$191,634</td><td>2,845,368</td></tr>
-    <tr><td>0.75</td><td>5.623</td><td>$0.1125</td><td>$39.36</td><td>$340,779</td><td>6,084,006</td></tr>
-    <tr><td>1.00 (full)</td><td>10.000</td><td>$0.2000</td><td>$70.00</td><td>$606,000</td><td>11,843,211</td></tr></table>
-  <p class="fine">Walking the curve to full takes ~11.84M RARE (~$237k) of net buys; avg fill ~3.91 RARE/token.
-  FDV is the <b>token</b> line — unchanged by the pack size.</p>
+  <p>The opening price is <b>measured, not modelled</b>: SuperRare ran the live mainnet previews against
+  the full 3,300,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
+  <b>no creator allocation</b>. It opens at about <b>$0.08 per $3030</b>, with 30% of supply in the
+  gentlest $0.08–$0.16 band. Everything below is priced off that.</p>
+  <p>⚑ The pack column runs the <b>other</b> way to the old one, and that is the important part: the pack
+  is a fixed <b>$10</b>, so a rising token buys <b>fewer</b> tokens per pack — and burns fewer.</p>
+  <table><tr><th>f (sold)</th><th>spot ($)</th><th>$3030 in a $10 pack</th><th>burned per pack</th><th>FDV ($)</th></tr>
+    <tr><td>0.00 (launch)</td><td><b>$0.0800</b></td><td><b>125</b></td><td><b>62.5</b></td><td>$264,000</td></tr>
+    <tr><td>0.10</td><td>$0.1007</td><td>99</td><td>49.5</td><td>$332,349</td></tr>
+    <tr><td>0.25</td><td>$0.1423</td><td>70</td><td>35.0</td><td>$469,472</td></tr>
+    <tr><td>0.50</td><td>$0.2530</td><td>40</td><td>20.0</td><td>$834,835</td></tr>
+    <tr><td>0.75</td><td>$0.4499</td><td>22</td><td>11.0</td><td>$1,484,584</td></tr>
+    <tr><td>1.00 (full)</td><td>$0.8000</td><td>13</td><td>6.3</td><td>$2,640,000</td></tr></table>
+  <p class="fine">⚠ Only the launch row is measured. The rest assume a demand multiple of 10 over the whole
+  curve, which the preview did <b>not</b> give us — treat every row below the first as illustration, not
+  forecast. FDV is the <b>token</b> line and is unchanged by the pack size.</p>
 
   <h2><span class="n">04</span>Demand-multiple sensitivity</h2>
-  <table><tr><th>M</th><th>pack@0</th><th>pack@50%</th><th>pack@100%</th><th>FDV@100%</th><th>RARE to fill</th></tr>
-    <tr><td>3 (flat)</td><td>$7.00</td><td>$12.12</td><td>$21.00</td><td>$181,800</td><td>5.52M</td></tr>
-    <tr><td><b>10 (medium — rec.)</b></td><td>$7.00</td><td>$22.14</td><td>$70.00</td><td>$606,000</td><td>11.84M</td></tr>
-    <tr><td>30 (steep)</td><td>$7.00</td><td>$38.34</td><td>$210.00</td><td>$1,818,000</td><td>25.84M</td></tr></table>
+  <p>The pack price does not appear here, because it does not move: it is a dollar target. What moves is
+  how many tokens a pack takes off the curve, and therefore how much it burns.</p>
+  <table><tr><th>M</th><th>spot@100%</th><th>tokens in a $10 pack @0</th><th>@50%</th><th>@100%</th><th>FDV@100%</th></tr>
+    <tr><td>3 (flat)</td><td>$0.2400</td><td>125</td><td>72</td><td>42</td><td>$792,000</td></tr>
+    <tr><td><b>10 (assumed)</b></td><td>$0.8000</td><td>125</td><td>40</td><td>13</td><td>$2,640,000</td></tr>
+    <tr><td>30 (steep)</td><td>$2.4000</td><td>125</td><td>23</td><td>4</td><td>$7,920,000</td></tr></table>
 
   <h2><span class="n">05</span>Slippage &amp; steady growth</h2>
   <p>Price-impact at launch is exact: <code>impact = a·ΔR / P0</code>.</p>
@@ -320,13 +327,15 @@
   rises each tier. Allotments are sized so a full four-tier sellout burns the whole budget (§7) and no
   more. The schedule is <b>site-enforced</b> (packs are guided buy+burns of the one token — there is no pack
   contract) and fully auditable from the burn txs.</p>
-  <table><tr><th>Tier</th><th>Pack allotment</th><th>base → ceil (tok)</th><th>base ≈ $*</th><th>ceil ≈ $*</th><th>tier 🔥 (tok)</th></tr>
-    <tr><td>Tier I</td><td>1,600 packs</td><td>350 → 525</td><td>$7.00</td><td>$10.50</td><td>350,000</td></tr>
-    <tr><td>Tier II</td><td>1,100 packs</td><td>450 → 675</td><td>$9.00</td><td>$13.50</td><td>309,375</td></tr>
-    <tr><td>Tier III</td><td>600 packs</td><td>600 → 900</td><td>$12.00</td><td>$18.00</td><td>225,000</td></tr>
-    <tr><td>Tier IV</td><td>260 packs</td><td>800 → 1,200</td><td>$16.00</td><td>$24.00</td><td>130,000</td></tr></table>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total;
-  full sellout 🔥 ≈ 1,014,375 burned + 1,014,375 to the studio. Curator-set at each tier open, recalibrated to the live token price.</p>
+  <table><tr><th>Tier</th><th>Pack allotment</th><th>price</th><th>$3030 per pack*</th><th>burned</th><th>to the studio</th></tr>
+    <tr><td>Tier I</td><td>1,600 packs</td><td>$10</td><td>125</td><td>62.5</td><td>62.5</td></tr>
+    <tr><td>Tier II</td><td>1,100 packs</td><td>$12</td><td>set at open</td><td>half</td><td>half</td></tr>
+    <tr><td>Tier III</td><td>600 packs</td><td>$15</td><td>set at open</td><td>half</td><td>half</td></tr>
+    <tr><td>Tier IV</td><td>260 packs</td><td>$20</td><td>set at open</td><td>half</td><td>half</td></tr></table>
+  <p class="fine">*The pack is priced in <b>dollars</b>. The token amount is worked out from the live
+  $3030 price on the day a tier opens and then <b>locked for that tier</b> — so it is a fixed, knowable
+  number while you are buying, and only tier I's is knowable today. At the opening price of about
+  <b>$0.08</b> a token, a $10 pack is 125 $3030. ≈3,560 packs across the four tiers.</p>
 
   <h2><span class="n">07</span>The burn schedule</h2>
   <p>The only on-chain spend is the one token. A pack and a game rake <b>split 50/50</b> — half
@@ -334,7 +343,7 @@
   half-execute. The studio's cut is stated on the tin; there is no hidden fee and no house pool players can
   win back. Hero-lens <b>mints</b> are wallet-signed 721 mints, not token payouts.</p>
   <table><tr><th>Action</th><th>Cost</th><th>→</th></tr>
-    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>~350 → escalates (§6)</td><td><span class="fire">🔥 half</span> · half studio</td></tr>
+    <tr><td>rip a pack (field cards + rare gacha claim)</td><td>$10 → $20 by tier (§6)</td><td><span class="fire">🔥 half</span> · half studio</td></tr>
     <tr><td>conviction burn (voluntary)</td><td>any amount</td><td class="fire">🔥</td></tr>
     <tr><td><b>compression</b> (own every copy of a field card → 1/1)</td><td>compression cost</td><td class="fire">🔥</td></tr>
     <tr><td>game rake (10% of the pot)</td><td>10% of the wagered pot</td><td><span class="fire">🔥 5%</span> · 5% studio</td></tr>
@@ -345,14 +354,19 @@
   cap</b>. Packs burn the token down over the deck's four-tier life toward a permanent floor. <b>Cards do not
   retire or ash</b> — this is token deflation only.</p>
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
-    <tr><td>Full four-tier sellout 🔥</td><td><b>1,014,375</b></td><td><b>30.7%</b> of the 3,300,000 cap (half of each pack)</td></tr>
-    <tr><td>To the studio, same period</td><td><b>1,014,375</b></td><td>the other half — revenue, not destroyed. <b>44.4% of the surviving float</b></td></tr>
-    <tr><td>Settled live float</td><td><b>~31,985,625</b></td><td>survives as the permanent float</td></tr>
-    <tr><td>Permanent contraction</td><td><b>≈ 1.44×</b></td><td>3.3M → ~2.29M. Material, and <b>not</b> a 3× scarcity engine</td></tr>
-    <tr><td>Invariant (mint-once)</td><td>Σ 🔥 ≤ cap ✓</td><td>1.01M &lt; 3.3M</td></tr></table>
-  <p>Pack burns are denominated in <b>tokens</b>, not in a share of supply, so a larger mint does not
-  scale them. The burn is still real and permanent — it raises reserve-backing per surviving token —
-  but at this supply it is <b>not</b> a scarcity engine, and we do not present it as one.</p>
+    <tr><td>Burned so far</td><td><b>read live</b></td><td><code>maxTotalSupply() − totalSupply()</code>, from the chain</td></tr>
+    <tr><td>To the studio, so far</td><td><b>read live</b></td><td>the other half of every pack — revenue, not destroyed</td></tr>
+    <tr><td>Cap (mint-once)</td><td><b>3,300,000</b></td><td>minted once; burns never re-mint</td></tr>
+    <tr><td>Invariant</td><td>Σ 🔥 ≤ cap ✓</td><td>supply only ever falls</td></tr></table>
+  <p><b>We do not publish a target burn percentage, and that is deliberate.</b> A pack is priced in
+  <b>dollars</b>, so the number of tokens it burns depends on what a token costs that day — and it moves
+  in the direction people do not expect: <b>if the token gets more expensive, a $12 pack buys fewer
+  tokens and burns less</b>. Any percentage printed here would be a promise about a price nobody
+  controls, and it would go stale on its own. So the site reports <b>what has actually been burned</b>,
+  read from the chain, instead of what we hope will be.</p>
+  <p>The burn is real and permanent — it raises reserve-backing per surviving token — but it is
+  <b>not</b> a scarcity engine and we do not present it as one. Reaching a 3× contraction would need
+  packs of roughly <b>$99</b>. The studio chose playable pack prices over a deflation headline.</p>
   <p class="fine">A partial life (fewer rips) simply settles the token at a higher float. The deck reaches its
   fully-deflated float only if the community truly burns across the tiers. No burn ever re-mints.</p>
   <div class="callout"><p style="margin:0">Net supply change = <b>buys − burns</b> (sign indeterminate in the short
@@ -380,5 +394,6 @@
       <span>ripmaster3030studios.com</span>
     </footer>
   </div>
+  <script src="theme.js"></script>
   <script src="sfx.js"></script>
 </body></html>

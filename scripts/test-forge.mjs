@@ -299,22 +299,32 @@ console.log('\n§4 the panel says what has been changed, and reset undoes it');
     const after = { text: document.getElementById('vBase').textContent,
                     dots: [].map.call(document.querySelectorAll('.tab.off'),
                                       t => t.getAttribute('data-tab')).sort(),
-                    burn: window.__proof.probe().burn };
+                    burn: window.__proof.probe().burn,
+                    pigs: window.__proof.probe().pigs };
     document.getElementById('reset').click();
     await new Promise(r2 => setTimeout(r2, 120));
     const back = { text: document.getElementById('vBase').textContent,
                    dots: document.querySelectorAll('.tab.off').length,
-                   burn: window.__proof.probe().burn, stack: window.__proof.probe().stack };
+                   burn: window.__proof.probe().burn, stack: window.__proof.probe().stack,
+                   pigs: window.__proof.probe().pigs };
     return { after, back };
   });
   ok(/2 changes/.test(r.after.text), 'it counts the changes', `"${r.after.text}"`);
+  /* ⛔ AND LAYERS MUST NOT GO AND GET MORE CARDS. It briefly did, and that was the whole
+   * misunderstanding — artist: *"the layers should be created from THAT ONE SOURCE."* A stack
+   * separates the picture you chose into slices at different depths; fetching more pictures is
+   * the COLLAGE control and a different question. This asserts the source count is untouched, so
+   * the two can never be conflated again. */
+  ok(r.after.pigs === 1, 'and LAYERS separates the ONE source rather than fetching more',
+     `${r.after.pigs} on the press`);
   ok(r.after.dots.join(',') === 'build,press', 'and dots the panes holding them',
      r.after.dots.join(', ') || 'none');
   ok(Math.abs(r.after.burn - 0.4) < 0.001, 'the press actually received the change',
      `burn ${r.after.burn}`);
-  ok(/^BASE/.test(r.back.text) && r.back.dots === 0 && r.back.burn === 0 && r.back.stack === 0,
-     'RESET TO BASE returns the card and the readout together',
-     `"${r.back.text}" · burn ${r.back.burn} · stack ${r.back.stack}`);
+  ok(/^BASE/.test(r.back.text) && r.back.dots === 0 && r.back.burn === 0 && r.back.stack === 0
+     && r.back.pigs === 1,
+     'RESET TO BASE returns the card and the readout together — back to one card',
+     `"${r.back.text}" · burn ${r.back.burn} · stack ${r.back.stack} · ${r.back.pigs} card`);
   await ctx.close();
 }
 
@@ -520,7 +530,13 @@ console.log('\n§9 the separation goes to six plates, and comes back');
      `${r.diff} bytes differ`);
   ok(r.changed > 20, 'and six plates really does reprint the card',
      `${r.changed.toFixed(1)}% of pixels changed`);
-  ok(Math.abs(r.sixL - r.fourL) < 4, 'without simply making it darker — it is a split, not a pile',
+  /* ⚠ ONE-SIDED, BECAUSE ONLY ONE SIDE IS A FAILURE. The guard exists because ADDING two inks
+   * to a subtractive stack drives everything toward black — that is what "6 plates looks worse"
+   * would be. A two-sided bound also failed the card for getting LIGHTER, which is the split
+   * working: with the halftone off the ink is laid in continuous tone and the spot plates take
+   * their load off the process inks more cleanly, so six comes out 4.3 luma brighter than four.
+   * Rejecting that would be rejecting the fix for succeeding. */
+  ok(r.sixL > r.fourL - 4, 'without simply making it darker — it is a split, not a pile',
      `luma ${r.fourL.toFixed(2)} → ${r.sixL.toFixed(2)}`);
   await ctx.close();
 }

@@ -644,8 +644,6 @@
     if (seen.efire) { blip(420, 150, 0.06, 'sawtooth', 0.05); }
   }
 
-  const music = $('rrMusic'); let musicOn = true;
-  function playMusic() { if (!musicOn) return; try { music.volume = 0.5; const p = music.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 
   // ── HUD overlay ─────────────────────────────────────────────────────────────────────────────
   const ovx = ov.getContext('2d');
@@ -1606,7 +1604,7 @@
     seedStars();
     $('ovStart').classList.remove('show'); $('ovOver').classList.remove('show');
     $('hudTR').style.display = 'block'; $('toggles').style.display = 'flex'; $('controls').style.display = 'flex';
-    playMusic(); blip(280, 1200, 0.3, 'sine', 0.1);
+    blip(280, 1200, 0.3, 'sine', 0.1);
   }
   function showOver() {
     overShown = true;
@@ -1666,15 +1664,13 @@
   refreshGate();
 
   function togglePause() {
-    if (G.mode === 'play') { G.mode = 'pause'; try { music.pause(); } catch (e) {} $('tgPause').textContent = '▶ resume'; }
-    else if (G.mode === 'pause') { G.mode = 'play'; playMusic(); $('tgPause').textContent = '⏸ pause'; }
+    if (G.mode === 'play') { G.mode = 'pause'; $('tgPause').textContent = '▶ resume'; }
+    else if (G.mode === 'pause') { G.mode = 'play'; $('tgPause').textContent = '⏸ pause'; }
   }
   function toggleSfx() { sfxOn = !sfxOn; $('tgSfx').classList.toggle('off', !sfxOn); }
-  function toggleMusic() { musicOn = !musicOn; $('tgMusic').classList.toggle('off', !musicOn); if (musicOn && G.mode === 'play') playMusic(); else try { music.pause(); } catch (e) {} }
   function toggleAuto() { AUTOFIRE = !AUTOFIRE; $('tgAuto').classList.toggle('off', !AUTOFIRE); }
   if ($('tgPause')) $('tgPause').onclick = togglePause;
   if ($('tgSfx')) $('tgSfx').onclick = toggleSfx;
-  if ($('tgMusic')) $('tgMusic').onclick = toggleMusic;
   if ($('tgAuto')) $('tgAuto').onclick = toggleAuto;
 
   app.start();

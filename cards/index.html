@@ -19,7 +19,7 @@
      does, and it can only ever DARKEN, so it cannot punch a highlight through the black type.
      ⚑ AND THAT IS EXACTLY WHY IT NEEDED A SCRIM. Multiply alone took the cream plates from
      relative luminance 0.838 to 0.589 and the worst-case ink contrast from 15.97:1 to 9.02:1 —
-     a 43% loss, caught by scripts/build-site-check.mjs and invisible to me in the screenshot,
+     a 43% loss, caught by measuring the composite and invisible to me in the screenshot,
      which just looked like nicer paper. The white layer on top is the strength knob: it lifts
      the plate back and scales the texture's amplitude with it, one number, measured rather than
      eyeballed. 0.66 is the smallest value that holds every measured region inside the 12%
@@ -137,20 +137,6 @@
     font-family:'Arial Black',Arial,sans-serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
     opacity:0;pointer-events:none;transition:opacity .25s}
   .toast.show{opacity:1}
-  /* ── the header prop ─────────────────────────────────────────────────────────────────────
-     A real 3D fan of cards on a pulp mat (js/site3d-prop.js, PlayCanvas). ⛔ FAILS OPEN: `.flat`
-     is this page's own markup and is faded only once `is3d` says a canvas exists and has drawn.
-     ⚠ Its lighting is NOT the site's phosphor rig — see PROPS.stack. A near-black prop with
-     magenta neon on a yellow MAD board reads as a hole, not as an object. */
-  .prop3d{position:relative;width:min(46vw,300px);aspect-ratio:4/3;margin:14px auto 0;
-    border:3px solid #000;border-radius:12px;overflow:hidden;
-    background:url("../media/site/pulp-albedo.webp") repeat, #f6ecc9;
-    background-size:200px,auto;background-blend-mode:multiply;
-    box-shadow:0 0 0 4px #ff6b57,0 10px 26px rgba(0,0,0,.45)}
-  .prop3d .flat{position:absolute;inset:0;display:grid;place-items:center;font-size:44px;
-    color:rgba(0,0,0,.32);transition:opacity .5s ease;pointer-events:none}
-  .prop3d.is3d .flat{opacity:0}
-  @media (prefers-reduced-motion:reduce){ .prop3d .flat{transition:none} }
   /* laughing-man tiled watermark over the backdrop */
   .lm{position:fixed;inset:0;z-index:0;pointer-events:none;
     background:url("../Laughing_man.svg") repeat;background-size:min(46vw,340px);
@@ -172,7 +158,6 @@
         <a href="field.html">◈ the field · 34–100</a>
         <a class="hot" href="proof.html">◆ the 33 · plate proof</a>
       </div>
-      <div class="prop3d" data-site3d="stack" aria-hidden="true"><span class="flat">▚</span></div>
       <div class="court-note"><b>▲⛨▼ THE RARITY COURT</b> — burn $3030 to vote any card up or
       down the ladder. Enough conviction moves its rarity; enough scorn pushes it <b>down</b> the
       ladder — but never off the deck (cards survive). <b>⛨ HODL votes</b> anchor a card where it is —
@@ -2623,7 +2608,6 @@
 })();
 </script>
   <script src="../js/icons.js"></script>
-  <script src="../js/site3d-prop.js"></script>
   <!-- EVERY TILE IS A PRINT — artist, 2026-08-05: the press (cards/proof.html) is how all cards
        are displayed, the deck browser included. js/card-press.js bakes each tile ON VIEW through
        the one shared press and swaps the still in; the flat card stays until its bake lands, so
@@ -2648,6 +2632,7 @@
     }, { base: '' });
   });
   </script>
+  <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
 </body>
 </html>

@@ -189,7 +189,7 @@
      *   screened, mis-registered, on paper (js/hero-card.js via js/card-press.js).
      * ⛔ INJECTED WHEN THE PACK OPENS, NEVER ON PAGE LOAD. This is the landing page; the press is
      *   a WebGL2 renderer plus a manifest fetch, and making the front door pay for it before
-     *   anybody has clicked anything is the exact cost profile js/site3d-prop.js exists to avoid.
+     *   anybody has clicked anything is a cost the front door must not pay.
      *   Nobody pays for the press until they rip a pack.
      * ⚠ The zoom view needs nothing: it already frames the card's own page in an iframe, and
      *   that page presses itself through cards/cardnav.js. One implementation, not two. */

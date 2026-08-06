@@ -894,8 +894,17 @@ if (!R.built) {
    * bites is that the four elements are at DIFFERENT depths at the same instant. */
   t('p · this card draws a named motion of its own', typeof R.motionKey === 'string' &&
     R.motionKey.length > 2, R.motionKey + ' (of ' + R.motionCount + ')');
-  t('p · the stack travels through itself, not as one zoom',
-    new Set(R.stack.map(v => v.toFixed(4))).size === 4,
+  /* ⛔ EVERY LAYER ON ITS OWN PLANE, however many there are. This used to demand exactly FOUR
+   * distinct depths, which quietly became the ceiling: the press grew to six sources while the
+   * stack still had four planes, so three of the six shared a plane with the first three and
+   * could not separate from them however far LAYERS was pushed. Six pictures, three planes — and
+   * the artist reported it as "the layer separation is still not working". Counting to a constant
+   * is how a test stops describing the thing and starts describing an old version of it.
+   * ⚑ Asserted against the stack's OWN LENGTH, so adding a layer cannot silently reintroduce a
+   *   shared plane, and separately that there are at least the seven the composition now needs. */
+  t('p · every layer sits on its own plane — no two travel together',
+    new Set(R.stack.map(v => v.toFixed(4))).size === R.stack.length && R.stack.length >= 7,
+    `${R.stack.length} layers, ${new Set(R.stack.map(v => v.toFixed(4))).size} distinct · ` +
     'z = ' + R.stack.map(v => v.toFixed(3)).join(' · '));
 
   // 5
