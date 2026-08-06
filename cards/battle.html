@@ -1502,9 +1502,36 @@
     $('ltNo').onclick = () => { if (!curChallenge) return; net.decline(curChallenge); hideToast(); };
     net.onLobby(renderLobby);
     net.onChallenge(onIncoming);
+    /* ⚠ A REFUSAL HAS TO BE SAID OUT LOUD. Until the inbox existed the challenger got nothing
+       back under any outcome, so "they said no" and "the message never arrived" looked the same
+       — which is the shape of the bug this whole path was rewritten to fix. */
+    net.onReply(r => { if (r && r.kind === 'decline') toastMini((r.from && r.from.handle || 'they') + ' passed'); });
     net.onMatch(m => { hideToast(); openPvp(m.opponent, m.oppStack); });
     net.join(myProfile());
     addEventListener('focus', pushProfile);
+    callOut();
+  }
+
+  /* ── ?vs=<player id> — arriving from the front page with somebody already in mind ───────────
+   * ⛔ THE CHALLENGE IS SENT FROM HERE, NOT FROM THE PAGE THE NAME WAS ON. js/online-now.js is
+   *   read-only by design: a visitor reading the front page is not a player, and registering them
+   *   as one to send a challenge would put a body in the roster that is not in the room. So the
+   *   ⚔ on a name is a LINK — it brings you to the arena, where you are a player, and the arena
+   *   issues the challenge. That also means the reply has somewhere to land.
+   * ⚠ It waits for the target to appear in the roster rather than firing blind, because
+   *   `net.challenge(id)` returns undefined for an unknown id and would otherwise be a button
+   *   press with no message and no explanation. If they are gone, say so. */
+  function callOut(){
+    let vs = '';
+    try { vs = new URLSearchParams(location.search).get('vs') || ''; } catch {}
+    if (!/^p_[a-z0-9]{4,20}$/.test(vs)) return;
+    if (net.me().id === vs) return;                       // your own link, back to yourself
+    const t0 = Date.now();
+    const look = setInterval(() => {
+      const p = lobbyPlayers.find(x => x.id === vs && !x.me);
+      if (p){ clearInterval(look); net.challenge(vs); toastMini('calling out ' + p.handle + '…'); return; }
+      if (Date.now() - t0 > 9000){ clearInterval(look); toastMini('that ripper has left the room'); }
+    }, 400);
   }
 
   // ── the Tavern Ledger (wallet) + the identity bridge into the lobby ──

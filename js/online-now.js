@@ -13,6 +13,13 @@
  *   the count with people who are not there — turning the single number this exists to publish
  *   into a lie, and sending the first real challenger to somebody who is reading a whitepaper.
  *   A lurker is invisible here on purpose.
+ * ⚑ SO THE ⚔ IS A LINK, NOT A SEND. It carries the target's id to the arena (`?vs=…`) and the
+ *   ARENA issues the challenge, because that is where you become a player and where an answer
+ *   has somewhere to land. Pressing it is the moment you stop lurking, and it is one navigation
+ *   — no message leaves this page, so this module stays read-only in the letter and the spirit.
+ * ⚠ AND IT ONLY APPEARS ON RIPPERS WHO ARE IN THE ARENA. A challenge to somebody flying a jet in
+ *   THE CITY would sit in their mailbox and quietly expire — an invitation that cannot be seen is
+ *   worse than no button, so their chip just takes you to the game they are actually in.
  *
  * ⚠ NO NEW FLOATING FURNITURE. It renders into a container the page already lays out, and does
  *   nothing at all if that container is absent. This repo has twice paid for a fixed element
@@ -65,13 +72,27 @@
       '.on-now .on-seek{color:#ffd23b}',
       '.on-now .on-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}',
       /* ⚠ 44px floor — these are the primary way in for anybody who sees a name they want to
-         play, and a tap target under the floor on a phone is the whole feature not working. */
-      '.on-now a.on-p{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 12px;',
-      '  border:1px solid #16663c;border-radius:999px;background:#04180e;color:#d9ffe9;',
-      '  text-decoration:none;font-size:11.5px}',
-      '.on-now a.on-p:hover,.on-now a.on-p:focus{border-color:#2bff80;color:#2bff80;outline:none}',
-      '.on-now a.on-p.seek{border-color:#ffd23b;color:#ffd23b}',
-      '.on-now a.on-p small{opacity:.6;letter-spacing:.06em}',
+         play, and a tap target under the floor on a phone is the whole feature not working.
+         ⛔ THE CHIP IS A CONTAINER, NOT A LINK. It holds two separate destinations — the name
+         goes where they are, the ⚔ goes to the arena carrying their id — and nesting one link
+         inside another is invalid HTML that browsers resolve however they like. */
+      '.on-now .on-p{display:inline-flex;align-items:stretch;border:1px solid #16663c;',
+      '  border-radius:999px;background:#04180e;overflow:hidden}',
+      '.on-now .on-p.seek{border-color:#ffd23b}',
+      '.on-now .on-p a{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:6px 12px;',
+      '  color:#d9ffe9;text-decoration:none;font-size:11.5px}',
+      '.on-now .on-p a:hover,.on-now .on-p a:focus{color:#2bff80;background:#07281599;outline:none}',
+      '.on-now .on-p.seek a.on-go{color:#ffd23b}',
+      '.on-now .on-p a small{opacity:.6;letter-spacing:.06em}',
+      /* the ⚔ is its own 44px target with its own border, so a thumb aiming at "challenge" can
+         never land on "go and watch them" — two actions one pixel apart is one action. */
+      /* ⚠ 44px IS A FLOOR ON BOTH AXES. Driven at 390x844 this measured 44 TALL and 35 WIDE —
+         it inherited its height from the chip and nobody had asked about the other dimension.
+         A thumb is round. `min-width` + centring, and the check now reads both numbers. */
+      '.on-now .on-p a.on-vs{border-left:1px solid #16663c;padding:6px 12px;min-width:44px;',
+      '  justify-content:center;color:#ff6ad5;font-size:13px;letter-spacing:0}',
+      '.on-now .on-p.seek a.on-vs{border-left-color:#ffd23b}',
+      '.on-now .on-p a.on-vs:hover,.on-now .on-p a.on-vs:focus{color:#fff;background:#5a0f4a}',
     ].join('');
     document.head.appendChild(s);
   }
@@ -96,8 +117,17 @@
     var rows = list.slice(0, 12).map(function (p) {
       var w = WHERE[p.game] || { label: String(p.game || 'the arcade').toUpperCase(), href: 'arcade.html' };
       var seek = p.status === 'seeking';
-      return '<a class="on-p' + (seek ? ' seek' : '') + '" href="' + esc(w.href) + '">' +
-        (seek ? '⚔ ' : '') + esc(p.handle) + ' <small>' + esc(w.label) + '</small></a>';
+      /* ⚠ CHALLENGEABLE IS NARROWER THAN ONLINE, and the id has to be one the arena will accept.
+       *   `?vs=` is validated there against the same pattern the server validates — matching it
+       *   here too means a malformed roster row renders a name and simply no sword, rather than
+       *   a button that leads to an arena that quietly ignores it. */
+      var can = p.game === 'arena' && p.status !== 'battling' && /^p_[a-z0-9]{4,20}$/.test(p.id || '');
+      return '<span class="on-p' + (seek ? ' seek' : '') + '">' +
+        '<a class="on-go" href="' + esc(w.href) + '">' + (seek ? '⚔ ' : '') + esc(p.handle) +
+        ' <small>' + esc(w.label) + '</small></a>' +
+        (can ? '<a class="on-vs" href="cards/battle.html?vs=' + encodeURIComponent(p.id) +
+          '" title="challenge ' + esc(p.handle) + '" aria-label="challenge ' + esc(p.handle) + '">⚔</a>' : '') +
+        '</span>';
     }).join('');
 
     EL.className = 'on-now live';

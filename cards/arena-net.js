@@ -10,7 +10,19 @@
  *   RipNet.challenge(id)            call someone out
  *   RipNet.onChallenge(cb)          cb({id, from})  — someone called YOU out
  *   RipNet.accept(id) / decline(id)
+ *   RipNet.onReply(cb)              cb({kind, from})  — YOUR challenge was answered
  *   RipNet.onMatch(cb)              cb({opponent, oppStack})  — go! launch the face-off
+ *
+ * ⛔ EVERY CHALLENGE USED TO STOP AT THE EDGE OF THE DEVICE, AND THE BUTTON REPORTED SUCCESS.
+ *   `challenge()` did one thing — `bc.postMessage(...)` — and a BroadcastChannel is same-browser,
+ *   same-machine. Presence, meanwhile, has been internet-wide since /api/presence shipped. So the
+ *   lobby correctly showed a real stranger, ArenaLobby correctly drew them a CHALLENGE button,
+ *   the click handler correctly ran, and the invitation went nowhere at all: no error, no reject,
+ *   no timeout, nothing on either screen. ⚑ THE HALF YOU COULD SEE WAS THE GLOBAL HALF, which is
+ *   why this survived — the roster is the visible evidence that "multiplayer works".
+ * ⚑ Challenges now ride the SAME heartbeat as the roster (api/presence.js's per-recipient inbox).
+ *   BroadcastChannel is kept for the same-device case because it is instant and free, so every
+ *   message goes out both ways and arrivals are de-duplicated by (cid, kind).
  *
  * ⛔ THE ROOM IS REAL PEOPLE ONLY. Artist, 2026-08-05: "remove bot examples for online lobby
  *   and only those really logged in."
@@ -51,7 +63,7 @@
     || (() => { const v = pick(HANDLES); ses.set('urm_net_shandle', v); return v; })();
   let me = { id: myId, handle: myHandle, balance: 0, cards: 0, status: 'idle', bot: false, me: true };
 
-  const listeners = { lobby: [], challenge: [], match: [] };
+  const listeners = { lobby: [], challenge: [], match: [], reply: [] };
   const emit = (ev, arg) => listeners[ev].forEach(f => { try { f(arg); } catch {} });
 
   // ── LocalNet: BroadcastChannel across this device's tabs, merged with /api/presence ──
@@ -76,9 +88,14 @@
       const m = e.data || {};
       if (m.t === 'hi' && m.p && m.p.id !== me.id) { players.set(m.p.id, { ...m.p, lastSeen: Date.now() }); announce(); pushLobby(); }
       else if (m.t === 'bye' && m.p) { players.delete(m.p); pushLobby(); }
-      else if (m.t === 'challenge' && m.to === me.id) { emit('challenge', { id: m.cid, from: players.get(m.from) || { handle: m.fromHandle, id: m.from } }); }
-      else if (m.t === 'accept' && m.to === me.id) { startMatch(players.get(m.from), m.oppStack); }
-      else if (m.t === 'decline' && m.to === me.id) { emit('lobby', roster()); }
+      /* ⚠ SAME (cid, kind) DEDUP AS THE WIRE. Two tabs of one browser are on BOTH transports, so
+       * without this every same-device challenge raises the toast twice. */
+      else if (m.t === 'challenge' && m.to === me.id && fresh(m.cid + ':call')) {
+        emit('challenge', { id: m.cid, from: players.get(m.from) || { handle: m.fromHandle, id: m.from } }); }
+      else if (m.t === 'accept' && m.to === me.id && fresh((m.cid || m.from) + ':accept')) {
+        pending = null; startMatch(players.get(m.from), m.oppStack); }
+      else if (m.t === 'decline' && m.to === me.id && fresh((m.cid || m.from) + ':decline')) {
+        pending = null; emit('reply', { kind: 'decline', from: players.get(m.from) || { id: m.from, handle: m.fromHandle || 'a ripper' } }); }
     };
     addEventListener('beforeunload', () => bc && bc.postMessage({ t: 'bye', p: me.id }));
 
@@ -86,13 +103,40 @@
     //    merge the live roster in. Auto-detects: where the API isn't deployed or the
     //    KV isn't configured it goes quiet after one probe and cross-tab presence carries on.
     let kvLive = null;                         // null = unprobed, false = unavailable
+    let pending = null;                        // an outbound challenge awaiting an answer
+    let outbox = [];                           // envelopes waiting for the next beat
+    /* ⚠ De-duplicate on (cid, kind), not on cid. Every message goes out over BOTH transports, so
+     * a same-device peer receives each one twice — and a challenge and its answer share a cid by
+     * design, so keying on cid alone would swallow the accept as a repeat of the call. */
+    const seen = new Set();
+    const fresh = k => { if (seen.has(k)) return false; seen.add(k);
+      if (seen.size > 200) seen.delete(seen.values().next().value); return true; };
+    const whoIs = m => players.get(m.from) || { id: m.from, handle: m.fromHandle || 'a ripper' };
+    /* ⛔ ONLY A PAGE THAT CAN SHOW A CHALLENGE ASKS FOR ONE. Every cabinet heartbeats here; a
+     * cabinet with no listener draining its own mailbox would eat an invitation and render
+     * nothing, which is strictly worse than leaving it to wait out its 90 s server TTL. */
+    const wantInbox = () => listeners.challenge.length > 0 || listeners.reply.length > 0;
+
+    function takeInbox(list) {
+      for (const raw of (list || [])) {
+        let m = raw; if (typeof m === 'string') { try { m = JSON.parse(m); } catch { continue; } }
+        if (!m || !m.cid || !m.kind || !fresh(m.cid + ':' + m.kind)) continue;
+        if (m.kind === 'call') emit('challenge', { id: m.cid, from: whoIs(m), remote: true });
+        else if (!pending || pending.cid !== m.cid) continue;   // an answer to a call we did not make
+        else if (m.kind === 'accept') { const who = whoIs(m); pending = null; startMatch(who, null); }
+        else { const who = whoIs(m); pending = null; emit('reply', { kind: 'decline', from: who }); }
+      }
+    }
+
     async function kvBeat() {
       if (kvLive === false) return;
-      try {
+      const ch = outbox; outbox = [];          // ⚠ take it BEFORE the await, or a challenge issued
+      try {                                    //   mid-flight is cleared without ever being sent
         const r = await fetch('/api/presence', { method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id: me.id, handle: me.handle, balance: me.balance, cards: me.cards,
             status: me.status, verified: me.verified, address: me.address, seek: !!me.seek,
-            game: /dogfight/.test(location.pathname) ? 'dogfight' : /section9/.test(location.pathname) ? 'section9' : 'arena' }) });
+            game: /dogfight/.test(location.pathname) ? 'dogfight' : /section9/.test(location.pathname) ? 'section9' : 'arena',
+            ...(ch.length ? { ch } : {}), ...(wantInbox() ? { inbox: 1 } : {}) }) });
         if (r.status === 503 || r.status === 404) { kvLive = false; return; }
         const j = await r.json().catch(() => null);
         if (!j || !j.ok) { if (kvLive === null) kvLive = false; return; }
@@ -102,8 +146,18 @@
           players.set(p.id, { ...p, remote: true, lastSeen: Date.now() }); changed = true;
         }
         if (changed) pushLobby();
-      } catch { if (kvLive === null) kvLive = false; }
+        takeInbox(j.inbox);
+      } catch {
+        if (kvLive === null) kvLive = false;
+        /* ⚠ PUT AN UNSENT CHALLENGE BACK. A dropped fetch is the one moment a person is actively
+         * waiting on this, and losing it here is indistinguishable from the bug this file was
+         * rewritten to fix — the button pressed, nothing happening, nothing said. */
+        if (ch.length && kvLive !== false) outbox = ch.concat(outbox).slice(0, 4);
+      }
     }
+    /* ⚑ A CHALLENGE DOES NOT WAIT FOR THE NEXT TICK. Up to 5 s of nothing after pressing a button
+     * reads as a broken control, and the person on the other end is standing in a lobby. */
+    const wire = env => { outbox.push(env); if (outbox.length > 4) outbox.shift(); kvBeat(); };
     kvBeat(); const kvTick = setInterval(kvBeat, 5000);
 
     /* Prune whoever has stopped heartbeating. ⚠ THE STALE WINDOW HAS TO EXCEED THE SLOWEST
@@ -120,8 +174,6 @@
       if (changed) pushLobby();
     }, 4000);
 
-    let pending = null;                        // an outbound challenge awaiting accept
-
     function startMatch(opponent, oppStack) { me.status = 'battling'; emit('match', { opponent, oppStack: oppStack || null }); }
 
     return {
@@ -135,20 +187,36 @@
        * population — a dead branch that silently auto-accepts is worse than none, because the
        * day a real player's record arrives with a stray flag it would start a match against
        * nobody and look like a working game. */
+      /* ⚑ BOTH TRANSPORTS, EVERY TIME. BroadcastChannel is instant and free but stops at this
+       * machine; the wire reaches anyone. Sending over both and de-duplicating on arrival is one
+       * line cheaper than deciding per-recipient which one to use — and a decision like that is
+       * exactly what was wrong here, because `remote` is a flag that can simply be missing. */
       challenge(id) {
         const target = players.get(id); if (!target) return;
         const cid = 'c_' + uid(); pending = { cid, id };
         if (bc) bc.postMessage({ t: 'challenge', to: id, from: me.id, fromHandle: me.handle, cid });
+        wire({ cid, to: id, kind: 'call', fromHandle: me.handle });
         return cid;
       },
       accept(ch) {
         if (!ch || !ch.from) return;
-        if (bc) bc.postMessage({ t: 'accept', to: ch.from.id, from: me.id, oppStack: null });
+        if (bc) bc.postMessage({ t: 'accept', to: ch.from.id, from: me.id, cid: ch.id, oppStack: null });
+        if (ch.id) wire({ cid: ch.id, to: ch.from.id, kind: 'accept', fromHandle: me.handle });
         startMatch(ch.from, null);
       },
-      decline(ch) { if (bc && ch && ch.from) bc.postMessage({ t: 'decline', to: ch.from.id, from: me.id }); },
+      decline(ch) {
+        if (!ch || !ch.from) return;
+        if (bc) bc.postMessage({ t: 'decline', to: ch.from.id, from: me.id, cid: ch.id });
+        if (ch.id) wire({ cid: ch.id, to: ch.from.id, kind: 'decline', fromHandle: me.handle });
+      },
+      /* ⚠ THE CHALLENGER USED TO GET NOTHING BACK, EVER — a decline re-emitted the lobby and the
+       * person who pressed the button was left watching a roster. An unanswered invitation and a
+       * refused one look identical from the outside, so refusal has to be said out loud. */
+      pending: () => pending,
+      roster: () => roster(),                  // a read, for driven checks — never leaks a listener
       onLobby: cb => { listeners.lobby.push(cb); cb(roster()); },
       onChallenge: cb => listeners.challenge.push(cb),
+      onReply: cb => listeners.reply.push(cb),
       onMatch: cb => listeners.match.push(cb),
       dispose() { clearInterval(tick); clearInterval(kvTick); bc && bc.postMessage({ t: 'bye', p: me.id }); },
     };
@@ -167,8 +235,11 @@
     challenge(id) { return this._a().challenge(id); },
     accept(ch) { return this._a().accept(ch); },
     decline(ch) { return this._a().decline(ch); },
+    pending() { const a = this._a(); return a.pending ? a.pending() : null; },
+    roster() { const a = this._a(); return a.roster ? a.roster() : []; },
     onLobby(cb) { return this._a().onLobby(cb); },
     onChallenge(cb) { return this._a().onChallenge(cb); },
+    onReply(cb) { const a = this._a(); return a.onReply ? a.onReply(cb) : undefined; },
     onMatch(cb) { return this._a().onMatch(cb); },
   };
   window.RipNet = RipNet;

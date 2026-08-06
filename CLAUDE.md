@@ -2058,6 +2058,64 @@ feelings about it.
   control. The width is capped (`min(62vw,320px)`, ellipsis) because the label now carries a TRACK
   TITLE — somebody else's string, of any length, on a fixed element.
 
+## ⛔ THE CHALLENGE NEVER LEFT THE DEVICE — `js/online-now.js` + the inbox, `npm run test:challenge` (37)
+*Artist, 2026-08-06: "lets make it easier for people to see each other online and challenge each
+other."* Two halves, and only the first was the one I was asked about.
+
+- ⛔ **THE PLUMBING WAS LIVE AND NOBODY COULD SEE IT.** `/api/presence` was configured, answering,
+  and heartbeaten by every cabinet — but the roster rendered **only inside a cabinet**, so the one
+  way to learn somebody was online was to already be in a game with them. `js/online-now.js` puts
+  the roster on `index.html` and `arcade.html`, where a visitor actually arrives.
+  ⛔ **READ-ONLY, AND IT STAYS READ-ONLY.** It GETs and never heartbeats: a visitor reading the
+  front page is not a player, and registering them would inflate the one number this exists to
+  publish and send the first real challenger to somebody reading a whitepaper. An empty room
+  renders **nothing** rather than "0 online" — a zero is a reason not to come back.
+- ⛔ **AND THEN THE REAL FINDING: `RipNet.challenge()` WAS ONE LINE — `bc.postMessage(...)`.** A
+  BroadcastChannel stops at the machine it was opened on. **Presence has been internet-wide since
+  `/api/presence` shipped; invitation never was.** So two real people saw each other, `ArenaLobby`
+  correctly drew them a CHALLENGE button, the click handler correctly ran, and **nothing happened
+  on either screen** — no error, no reject, no timeout, nothing to report. `accept` and `decline`
+  had the same defect, so even the same-device case could not answer a stranger.
+  ⚑ **IT SURVIVED BECAUSE THE HALF YOU CAN SEE IS THE GLOBAL HALF.** The roster is the visible
+  evidence that "multiplayer works", and it was working. Every static check in the repo passed
+  throughout, because each of them can see the button and none of them can see whether the message
+  arrived — `test:cab`'s headline (THE CITY unplayable while every assertion held) one layer out,
+  at the network.
+- ✅ **THE INBOX RIDES THE HEARTBEAT THAT ALREADY EXISTS.** A challenge is `RPUSH`ed onto the
+  RECIPIENT's key and drained by their next beat, so the common case costs no extra round trip and
+  there is no second transport to keep alive. Both transports fire every time and arrivals
+  de-duplicate on **(cid, kind)** — ⚠ not on cid, because a call and its answer share one by
+  design and keying on cid alone swallows the accept as a repeat.
+- ⛔ **A CHALLENGE MAY ONLY BE SENT ALONGSIDE A VALID RECORD FOR THE SENDER, and that is
+  structural rather than politeness: you cannot issue an invitation you are not reachable to
+  receive the answer to.** The sender is taken from the RECORD, never from the envelope — otherwise
+  any client could post a face-off signed with somebody else's id and the named challenger would
+  never know. Mailbox capped at 8, TTL 90 s.
+- ⛔ **DRAIN ONLY WHEN THERE IS SOMETHING TO SHOW IT ON.** Every cabinet heartbeats here; a page
+  with no challenge listener emptying its own mailbox in passing would **eat** the invitation, which
+  is strictly worse than leaving it to wait out its TTL until they open the arena.
+- ⚑ **SO THE ⚔ ON THE FRONT PAGE IS A LINK, NOT A SEND** — `cards/battle.html?vs=<id>`. The ARENA
+  issues the challenge, because that is where you become a player and where an answer has somewhere
+  to land; pressing it is the moment you stop lurking, and it is one navigation, so the strip stays
+  read-only in the letter and the spirit. ⚠ **It appears only on rippers who are IN the arena** —
+  an invitation to somebody flying a jet would sit in a mailbox and expire, and **a button that
+  cannot be seen by its recipient is worse than no button**.
+- ⚠ **A REFUSAL HAD TO BE SAID OUT LOUD.** `decline` used to re-emit the lobby, so the challenger
+  got nothing back under any outcome and "they said no" was indistinguishable from "it never
+  arrived" — the same bug in miniature. `RipNet.onReply` now names them.
+- ⚑ **THE HARNESS DRIVES `api/presence.js` ITSELF against a fake Redis**, so the validation, the
+  cap, the drain rule and the LPOP fallback are the shipped code — a harness that reimplements the
+  thing it tests proves the harness. ⚠ `LPOP key count` is one op with no lost-message race;
+  LRANGE+DEL drops anything landing between the two calls, so it is the **fallback**, exercised
+  deliberately by a server stub that refuses the count argument.
+- ⚑ **TWO SEPARATE BROWSER CONTEXTS IS THE WHOLE MEASUREMENT.** Chromium partitions
+  BroadcastChannel per context, so the local transport cannot reach across the harness and anything
+  that arrives got there over the wire. **Proved to bite** by restoring the shipped `challenge()`
+  with only the two wire calls removed: **0 challenges received**, silently, exactly as reported.
+- ⚠ **AND THE SUITE FOUND A TAP TARGET THAT WAS 44 TALL AND 35 WIDE.** The ⚔ inherited its height
+  from the chip and nobody had asked about the other axis. **A thumb is round** — 44 px is a floor on
+  both, and the assertion reads both numbers now.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
