@@ -853,6 +853,10 @@ out vec4 frag;
 uniform sampler2D uPigA, uPigB, uPigC, uComp, uType, uStock;
 /* the second three sources and their own mask plate — only sampled when uNPig is 6 */
 uniform sampler2D uPigD, uPigE, uPigF, uComp2;
+/* ── the hand-drawn loops. One sheet, cells laid out in a grid; uSprite carries where we are. */
+uniform sampler2D uSpriteTex;
+uniform vec4 uSprite;        // x cols · y rows · z frame index · w how many are struck (0 = none)
+uniform vec4 uSpriteP[4];    // per sprite: xy centre (uv) · z scale · w rotation
 uniform int uNPig;           // 3 = ground/mid/figure · 6 = + wash, strip, inset
 uniform mat3 uRot;
 uniform vec3 uEye;
@@ -1075,7 +1079,29 @@ vec3 artAt(vec2 u, vec2 par) {
   vec2 uFig = (uF - vec2(0.50, 0.40)) * vec2(1.02, 0.76) + vec2(0.50, 0.34);
   vec3 c;
   if (uNPig <= 1) {
-    c = texture(uPigC, uFig).rgb;                       // one card, printed
+    /* ── ⛔ ONE CARD, CUT INTO LAYERS — artist, 2026-08-06: *"for a single card the layers are
+     * creating 3 sources when there is only one source selected. The layers should be created
+     * from THAT ONE SOURCE. STILL no z space separation and depth."*
+     * ⚑ THIS IS THE THING I HAD BACKWARDS ALL DAY. LAYERS was reaching for more SOURCE CARDS —
+     *   it even pulled two in automatically — when what it has to do is take the single card you
+     *   chose and SEPARATE IT: cut it into regions and stand those regions at different depths.
+     *   That is what cards/lens3d.html does with an authored sidecar, and it is what "layered
+     *   card" has always meant here. More pictures is a collage; one picture in slices is depth.
+     * ⚑ THE CUTS ARE THE ROTO MASKS, which is why they had to stop being feathered first: a
+     *   region with a soft edge cannot sit at a depth, because half of it is at two depths. Four
+     *   regions — the ground behind everything, then the three roto'd cuts — each sampling THE
+     *   SAME TEXTURE at its own parallax offset, so they slide across each other as the card
+     *   turns. Nearest is drawn last, so it occludes.
+     * ⚠ At LAYERS 0 every uElemZ is 0, all four offsets collapse to one and the card is the flat
+     *   print it always was — byte-identical, which is what keeps the base honest. */
+    vec4 cut = texture(uComp2, u);
+    c = texture(uPigC, uFig).rgb;                       // the sheet the cuts are lifted off
+    vec2 fB = uFig + (par + vec2(-0.052, -0.030)) * uElemZ[1];
+    vec2 fM = uFig + (par + vec2( 0.061,  0.038)) * uElemZ[3];
+    vec2 fN = uFig + (par + vec2(-0.044,  0.066)) * uElemZ[5];
+    c = mix(c, texture(uPigC, fB).rgb, step(0.5, cut.r));
+    c = mix(c, texture(uPigC, fM).rgb, step(0.5, cut.g));
+    c = mix(c, texture(uPigC, fN).rgb, step(0.5, cut.b));
   } else {
     c = texture(uPigA, uG * vec2(0.30, 0.20) + vec2(0.20, 0.34)).rgb;
     vec3 mid = texture(uPigB, uM * vec2(-1.90, 1.25) + vec2(1.42, -0.16)).rgb;
@@ -1107,6 +1133,31 @@ vec3 artAt(vec2 u, vec2 par) {
     c = mix(c, strip, texture(uComp2, uS).g);
     vec3 inset = texture(uPigF, (uI - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
     c = mix(c, inset, texture(uComp2, uI).b);
+  }
+
+  /* ── ⛔ THE LOOPS ARE STRUCK IN INK, NOT LAID OVER THE TOP ─────────────────────────────
+   * Artist, 2026-08-05: *"small gif sprites and loops that look handddrawn … infinite abstract,
+   * ascii art, generative and cool."* They are drawn by js/card-sprites.js and they arrive HERE,
+   * inside artAt — which means they go through the four (or six) plate separation, take the
+   * halftone screen, take the registration error and take the press's damage, exactly like every
+   * other mark on the sheet. ⚑ That is the whole difference between a sprite that is ON the card
+   *   and a sprite that is IN the print. Compositing them after the separation would have made
+   *   them a sticker — the decal failure this renderer's first acceptance test exists to catch.
+   * ⚠ They ride the FIGURE's plane, so they sit in the stack and parallax with it rather than
+   *   floating at zero depth in front of a card that has depth. */
+  for (int i = 0; i < 4; i++) {
+    if (float(i) >= uSprite.w) break;
+    vec4 SP = uSpriteP[i];
+    vec2 d = (uF - SP.xy) / max(SP.z, 0.001);
+    float ca = cos(SP.w), sa = sin(SP.w);
+    vec2 q = vec2(d.x * ca - d.y * sa, d.x * sa + d.y * ca) + 0.5;
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) continue;
+    /* into the sheet's own cell */
+    float col = mod(uSprite.z, uSprite.x);
+    float row = floor(uSprite.z / uSprite.x);
+    vec2 cellUv = (vec2(col, row) + q) / vec2(uSprite.x, uSprite.y);
+    float cov = texture(uSpriteTex, cellUv).r;
+    c = mix(c, vec3(0.055, 0.048, 0.062), clamp(cov, 0.0, 1.0));
   }
 
   /* The trim and the marks are on the STOCK, so they take no depth — they are not floating
@@ -1617,6 +1668,9 @@ void main(void) {
        *   went back to `o.rarity` would silently revert the chosen frame the first time the press
        *   advanced, which is the bug this comment's neighbour was written about. */
       let RAR = o.rarity;
+      /* the fount the card is set in, kept so the ASCII loops draw from the SAME committed
+       * outlines the name does — no font ships, and no second fetch to get one */
+      const SPRITE_TYPE = o.type;
       /* ⛔ THE PRINTER'S MARKS, OFF UNLESS ASKED FOR. Held beside RAR and for the identical
        * reason: `pull(0)` and the first type bake both run ABOVE the `const S` block, so
        * reading this off S would throw in the temporal dead zone and take the whole card down
@@ -1656,7 +1710,7 @@ void main(void) {
        * 6 — and a duplicated unit does not error, it silently paints one with the other. This
        * file's own note two screens up records exactly that failure. */
       const UNIT = { uPigA: 0, uPigB: 1, uPigC: 2, uComp: 3, uType: 4, uStock: 5, uBack: 6,
-                     uPigD: 7, uPigE: 8, uPigF: 9, uComp2: 10 };
+                     uPigD: 7, uPigE: 8, uPigF: 9, uComp2: 10, uSpriteTex: 11 };
       /* ⚠ MIPPED, and finding this took an isolation pass. The card came back covered in fine
        * chroma speckle and the obvious suspect was the new material — but switching every relief
        * term to zero changed nothing, which ruled the normals out in one shot and pointed at the
@@ -1684,6 +1738,33 @@ void main(void) {
       let texComp = texFrom(gl, compCanvas, UNIT.uComp);
       let comp2Canvas = buildComp2(seed, 512);
       let texComp2 = texFrom(gl, comp2Canvas, UNIT.uComp2);
+      /* ⚠ ALWAYS BOUND, even with no sprites and no module. An unbound sampler2D is not a no-op
+       * on SwiftShader — recorded in this repo — so a card with the loops switched off still
+       * needs a texture there. A 1x1 black pixel is "no ink anywhere", which is exactly right. */
+      const blankSheet = (() => {
+        const b = document.createElement('canvas'); b.width = b.height = 1;
+        const bg = b.getContext('2d'); bg.fillStyle = '#000'; bg.fillRect(0, 0, 1, 1); return b;
+      })();
+      let SPRITE = null;                       // {canvas, frames, cols, rows, kind}
+      /* ⚑ WHERE THEY LAND IS THE SEED'S, NOT THE UI'S. Four slots of (cx, cy, scale, rotation),
+       * re-derived whenever the seed changes so a card's loops belong to that card the way its
+       * pigment and its border do. ⚠ Kept OFF the figure's centre — a loop over the subject's
+       * face is a defacement, not an ornament. */
+      let SPRITE_PLACE = new Float32Array(16);
+      function placeSprites() {
+        const r = rng(seed ^ 0x1D2C6FE3);
+        for (let i = 0; i < 4; i++) {
+          const edge = r();
+          const cx = edge < 0.5 ? 0.16 + r() * 0.20 : 0.64 + r() * 0.20;
+          const cy = 0.16 + r() * 0.66;
+          SPRITE_PLACE[i * 4 + 0] = cx;
+          SPRITE_PLACE[i * 4 + 1] = cy;
+          SPRITE_PLACE[i * 4 + 2] = 0.14 + r() * 0.13;      // scale, in uv
+          SPRITE_PLACE[i * 4 + 3] = (r() - 0.5) * 0.9;      // rotation, radians
+        }
+      }
+      placeSprites();
+      let texSprite = texFrom(gl, blankSheet, UNIT.uSpriteTex);
       let texType = texFrom(gl, buildType(o.type, seed, 512, 0, TEXT.name, RAR, TEXT.sub, MARKS), UNIT.uType);
       let stockCanvas = buildStock(seed, 256);
       let texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
@@ -1698,6 +1779,7 @@ void main(void) {
         rot: U('uRot'), eye: U('uEye'), flex: U('uFlex[0]'), proj: U('uProj'),
         reg: U('uReg[0]'), ink: U('uInk[0]'), ang: U('uAng[0]'), film: U('uFilm[0]'),
         nInk: U('uNInk'), split: U('uSplit'), nPig: U('uNPig'),
+        sprite: U('uSprite'), spriteP: U('uSpriteP[0]'),
         press: U('uPress'), dmg: U('uDmg'), foilP: U('uFoilP'),
         keyDir: U('uKeyDir'), keyCol: U('uKeyCol'),
         fillDir: U('uFillDir'), fillCol: U('uFillCol'),
@@ -1708,7 +1790,8 @@ void main(void) {
       };
       [['uPigA', texA], ['uPigB', texB], ['uPigC', texC], ['uComp', texComp],
        ['uType', texType], ['uStock', texStock], ['uBack', texBack],
-       ['uPigD', texD], ['uPigE', texE], ['uPigF', texF], ['uComp2', texComp2]].forEach(([n, t]) => {
+       ['uPigD', texD], ['uPigE', texE], ['uPigF', texF], ['uComp2', texComp2],
+       ['uSpriteTex', texSprite]].forEach(([n, t]) => {
         gl.uniform1i(U(n), UNIT[n]);
         gl.activeTexture(gl.TEXTURE0 + UNIT[n]); gl.bindTexture(gl.TEXTURE_2D, t);
       });
@@ -1775,6 +1858,8 @@ void main(void) {
          * starve, on the binder, the deck, lens3d and the field cards. The forge pushes its own
          * base through applyAll; the site keeps the card as it prints. */
         press: 1,        // the impression's own character: 0 = a clean pull, 1 = as it printed
+        sprites: 0,      // how many hand-drawn loops are struck on the sheet (0..4)
+        spriteRate: 1,   // loops per press revolution
         /* ⛔ WHICH WAY UP IT IS SITTING IS A PERSISTENT HALF-TURN, NOT A BOOLEAN AND NOT AN
          *   IMPULSE. `flip()` used to do `S.yawT += PI` and set a separate `faceUp` flag — and
          *   `advance()` overwrites `S.yawT` from the pointer on EVERY frame, so the half-turn
@@ -1887,6 +1972,16 @@ void main(void) {
          * in their shared hues and the rosette would come apart. */
         gl.uniform1f(u.split, S.inks > 4 ? 0.62 : 0.0);
         gl.uniform1i(u.nPig, S.pigs);
+        /* ⚑ THE LOOP RUNS ON THE PRESS'S OWN CLOCK. A sprite with its own timer would be the one
+         * thing on this card moving to a rhythm nothing else shares — and the brief's acceptance 2
+         * is that the card is dead still until you touch it. Stopped press, stopped loop. */
+        if (SPRITE && S.sprites > 0) {
+          const fr = Math.floor(S.phase * SPRITE.frames * S.spriteRate) % SPRITE.frames;
+          gl.uniform4f(u.sprite, SPRITE.cols, SPRITE.rows, fr, Math.min(S.sprites, 4));
+          gl.uniform4fv(u.spriteP, new Float32Array(SPRITE_PLACE));
+        } else {
+          gl.uniform4f(u.sprite, 1, 1, 0, 0);
+        }
         /* ⚠ THE SCREEN RULING IS THE WHOLE LEGIBILITY OF THE CARD, and the first cut had it an
          * octave too coarse: at ~118 cells across the dots WERE the picture and the artwork
          * underneath could not be read at all. A card is printed at a ruling you have to lean in
@@ -2092,6 +2187,41 @@ void main(void) {
          *   stale link cannot land the press on a count the shader has no branch for. */
         setPigs: n => { n = n | 0; S.pigs = n >= 6 ? 6 : (n >= 3 ? 3 : 1); return S.pigs; },
 
+        /* ── ⛔ THE HAND-DRAWN LOOPS ───────────────────────────────────────────────────────
+         * `setSprites({kind, count, frames, rate})`. Builds a sheet with js/card-sprites.js and
+         * strikes up to four of them into the print. `count: 0` takes them off.
+         * ⚑ FAILS OPEN AT EVERY STEP, like everything else here: no module, a generator that
+         *   throws, a canvas that will not allocate ⇒ the sheet is null, the count goes to zero
+         *   and the card is exactly the card it was. A decoration must never be able to cost you
+         *   the card it decorates.
+         * ⚠ Rebuilding the sheet is a texture upload, so it happens on a SETTING change and never
+         *   per frame — the frame index is a uniform, which is the whole reason it is one sheet
+         *   with cells rather than a texture per frame. */
+        setSprites: o => {
+          o = o || {};
+          const n = Math.max(0, Math.min(4, o.count === undefined ? S.sprites : (o.count | 0)));
+          if (typeof o.rate === 'number') S.spriteRate = clamp(o.rate, 0.25, 8);
+          if (n === 0) { S.sprites = 0; render(); return { count: 0, kind: SPRITE && SPRITE.kind }; }
+          const want = o.kind || (SPRITE && SPRITE.kind) || null;
+          const need = !SPRITE || (want && SPRITE.kind !== want)
+                       || (o.frames && SPRITE.frames !== (o.frames | 0));
+          if (need && global.CardSprites) {
+            const made = global.CardSprites.sheet({
+              seed: seed, kind: want, type: o.type || o.alphabet || (o.spec || SPRITE_TYPE),
+              frames: o.frames || 12, cell: 128 });
+            if (made && made.canvas) {
+              gl.deleteTexture(texSprite);
+              texSprite = texFrom(gl, made.canvas, UNIT.uSpriteTex);
+              SPRITE = made;
+            }
+          }
+          S.sprites = SPRITE ? n : 0;            // no sheet, no sprites — never a broken card
+          render();
+          return { count: S.sprites, kind: SPRITE && SPRITE.kind,
+                   frames: SPRITE && SPRITE.frames };
+        },
+        spriteKinds: () => (global.CardSprites ? global.CardSprites.kinds() : []),
+
         /* ── HOW HARD THE PRESS RAN ───────────────────────────────────────────────────────
          * 0 is a clean pull: even film across every plate, no roller band, no starve, and the
          * motion sitting at its own identity. 1 is the impression as this sheet actually drew it.
@@ -2245,6 +2375,7 @@ void main(void) {
           gl.deleteTexture(texStock);
           stockCanvas = buildStock(seed, 256);
           texStock = texFrom(gl, stockCanvas, UNIT.uStock, gl.REPEAT, true);
+          placeSprites();          // the loops belong to the card, so they move with the seed
           pull(0);                 // a fresh impression — and it rebakes the type at the new seed
           rebake();                // …and the reverse, which is seeded too
           S.arrive = 0;            // the sheet prints on again, so a card SWAP is a press event
@@ -2313,6 +2444,8 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
+          sprites: S.sprites, spriteKind: SPRITE && SPRITE.kind,
+          spriteFrames: SPRITE && SPRITE.frames, spriteRate: S.spriteRate,
           faceUp: !S.faceTurn, faceTurn: S.faceTurn,
           number: TEXT.number, backIsDesigned: backIsDesigned,
           seed: seed,
