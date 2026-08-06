@@ -130,9 +130,56 @@
    *   count it twice. The rarity string still drives the frame, the glow and the caption.
    * ⚠ A pull can repeat a card; the practice pull always could, and on-device cards are not
    *   ownership — the honesty strip on the modal says exactly that. */
+  /* ⛔ THE PACK PULLED UNIFORMLY FROM ALL 100 AND HANDED OUT 1/1s BY THE HANDFUL. The artist's
+   *   first real mainnet rip returned THREE heroes, which is not a fluke — it is the arithmetic:
+   *   33 heroes in a 100-card deck, drawn with replacement, gives 2.31 expected heroes in a
+   *   7-card pack and a 93.9% chance of at least one. Measured, not estimated.
+   * ⛔ THE HEROES ARE 1/1s. There is exactly ONE of each, ever, and only ELEVEN of the 33 are
+   *   gacha pack-claims — across ~3,560 packs. The honest rate is 11/3560 = 0.309% per pack, and
+   *   never two in one pack, because a second would be a promise the supply cannot keep.
+   * ⚑ THE FIELD IS THE PACK. Cards 34–100 are render-only lenses: `tokenURI(id)` draws them
+   *   without any mint, so they are unlimited by construction and a repeat costs nothing. That is
+   *   what a pack is made of. A hero is the exception that makes the pack worth opening.
+   * ⚠ NOTHING WAS LOST BY THIS. No lens is deployed, so not one of those pulls minted anything —
+   *   they were localStorage rows. Had the lens been live first, the site would have been
+   *   promising 1/1s it could not deliver, and the only thing standing between it and a real
+   *   over-issue was that hero claims REQUIRE a human-signed voucher. That backstop is why this
+   *   is embarrassing rather than expensive.
+   * ⚠ WHICH eleven are gacha is the artist's call and is not yet assigned, so the draw is over the
+   *   whole hero band. That is over-inclusive and safe in exactly the way the rate is not: the
+   *   chain mints only against a `kind 1` voucher a person signs, so the studio still decides
+   *   which card a slip becomes. The RATE is the part a machine had to get right. */
+  /* ⛔ ELEVEN CARDS ARE IN THE PACK, NOT THIRTY-THREE. Artist, 2026-08-06: *"there are only 11
+   *   heros in gacha 11 in game 11 auction."* The first fix got the RATE right and still drew from
+   *   all 33 — so a gacha pull could have landed on a card promised to an auction or to a game
+   *   title, which is a different card being given away twice.
+   * ⚠ THE IDS BELOW ARE PROVISIONAL; THE COUNT IS NOT. Nothing in the repo assigns the 33 to
+   *   routes — `deck-manifest.json` has no route field, HERO-UNLOCKS.md names nine titles without
+   *   card numbers, and the hero titles are still `______`. Which specific card is auctioned,
+   *   pulled or earned is AUTHORSHIP and the artist's alone, so this is a contiguous split stated
+   *   in one editable line rather than a guess buried in logic. Change the array, nothing else.
+   * ⚑ Being wrong here is cheap in a way the rate was not: a hero still mints only against a
+   *   human-signed `kind 1` voucher, so the studio sees which card a slip names before it exists.
+   *   The pack must simply stop OFFERING cards that were never its to offer. */
+  const GACHA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];   // 11 — auction 1–11, earned 23–33
+  const GACHA_PER_PACK = GACHA_IDS.length / 3560;   // eleven of them over the four tiers' packs
+  const isHero = c => c && c.band === 'hero';
+  const isGacha = c => isHero(c) && GACHA_IDS.indexOf(Number(c.id)) >= 0;
   const pull = n => {
+    const field = DECK.filter(c => !isHero(c));
+    /* ⛔ THE GACHA ELEVEN, NOT EVERY HERO. Drawing from all 33 would offer cards reserved for the
+     *   auctions and the game titles — the same 1/1 promised down two routes. */
+    const heroes = DECK.filter(isGacha);
+    /* Fall back to the whole deck only if the manifest carried no bands at all — otherwise an
+     * empty `field` would silently produce an empty pack. */
+    const pool = field.length ? field : DECK;
     const out = [];
-    for (let i = 0; i < n && DECK.length; i++) out.push(DECK[rnd(DECK.length)]);
+    for (let i = 0; i < n && pool.length; i++) out.push(pool[rnd(pool.length)]);
+    /* At most ONE, and only sometimes. Replaces a field card rather than lengthening the pack, so
+     * the pack size a collector was told about stays true. */
+    if (heroes.length && Math.random() < GACHA_PER_PACK && out.length) {
+      out[rnd(out.length)] = heroes[rnd(heroes.length)];
+    }
     return out.filter(Boolean);
   };
 
@@ -158,6 +205,22 @@
      * needs an `approve` first, so this is two wallet prompts rather than one; `onStep` says
      * which one you are looking at, because an unexplained second prompt reads as a scam. */
     const split = w.hasSink && w.hasSink();
+    /* ⛔ ON MAINNET, NO SINK MEANS A STALE PAGE — REFUSE RATHER THAN BURN THE WHOLE PACK.
+     *   PackSink shipped dark on purpose: with the slot empty, payPack falls back to a plain 100%
+     *   burn. That was the right behaviour for every day the contract did not exist. The moment it
+     *   was deployed it stopped being right, because the only way to reach this branch on mainnet
+     *   is a tab that loaded chain-config BEFORE the address was pasted in.
+     * ⚑ MEASURED, NOT FEARED: the artist ripped from such a tab minutes after the deploy. 125
+     *   burned, treasury 0, allowance 0 — the approve step never even started. Nothing errored and
+     *   the reveal played normally; three public pages say half funds the studio and none of it
+     *   did.
+     * ⚑ THIS IS `payTreasury`'s OWN RULE, WHICH THIS FILE ALREADY STATES: it fails closed rather
+     *   than falling back to a burn, because a fallback that performs a DIFFERENT ECONOMIC ACTION
+     *   is worse than a refusal. A 100% burn is a different economic action from a 50/50 split.
+     * ⚠ Sepolia and any un-deployed chain keep the fallback — rehearsing it is the whole point of
+     *   shipping dark, and there the copy and the code agree. */
+    var CFG = window.RIPMASTER_CHAIN || {};
+    if (!split && CFG.network === 'mainnet') return ripStale();
     showBusy(split ? 'approve ' + need + ' $3030 for the pack…'
                    : 'confirm the burn of ' + need + ' $3030 in your wallet…');
     const r = await w.payPack(need, step => showBusy(step === 'approve'
@@ -181,6 +244,16 @@
     const r = document.getElementById('ripRetry'); if (r) r.onclick = () => startRip();
     const p = document.getElementById('ripPractice'); if (p) p.onclick = () => { practice = true; lastTx = null; rip(); };
   }
+  /* ⚑ IT OFFERS THE FIX RATHER THAN NAMING THE FAULT. "Reload" is the entire remedy — the config
+   *   is `must-revalidate`, so one refresh picks up the deployed address — and a collector should
+   *   never have to know what a PackSink is to get out of this. */
+  function ripStale() { busy = false; if (title) title.textContent = 'this page is out of date';
+    reveal.innerHTML = '<div class="pack-note">This tab loaded before the studio split went live, ' +
+      'so a rip here would burn the whole pack instead of sending half to the studio. ' +
+      '<b>Reload and try again</b> — nothing has been spent.</div>' +
+      '<div class="pack-cta"><button type="button" class="btn gold" id="ripReload">↻ Reload</button></div>';
+    var b = document.getElementById('ripReload'); if (b) b.onclick = function () { location.reload(); }; }
+
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
   function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $3030';

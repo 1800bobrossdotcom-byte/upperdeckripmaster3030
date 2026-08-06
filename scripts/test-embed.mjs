@@ -98,5 +98,33 @@ ok(`the embed's game count matches the arcade (${cabinets.size} cabinets)`,
   !!claimed && String(claimed).toLowerCase() === WORD[cabinets.size],
   `embed says "${claimed || 'nothing'}", arcade links ${cabinets.size}`);
 
+
+/* ⛔ THE EMBED'S CHAIN VALUES ARE A SECOND SOURCE OF TRUTH AND MUST MATCH THE FIRST.
+ *   This page carries no <script src> — the property that keeps it wallet-free in a marketplace
+ *   frame — so it cannot import js/chain-config.js and inlines the RPC and the edition instead.
+ *   On launch night the nine-field mainnet flip moved the whole site and left THIS page reporting
+ *   Sepolia's supply, on the one surface SuperRare itself renders. Nothing errored; the numbers
+ *   were simply another chain's.
+ * ⚑ The security property costs exactly this, so the test pays it back: the values are pinned
+ *   against chain-config, which is the only place either is decided. */
+console.log('\n── the embed reads the SAME chain the rest of the site does ──');
+{
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  const CFG = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({});
+  const ed = (html.match(/var EDITION = '(0x[0-9a-fA-F]{40})'/) || [])[1];
+  const rpc = (html.match(/var RPC = '([^']+)'/) || [])[1];
+  ok('the embed names an edition', !!ed, ed || 'none');
+  ok('…and it is the one chain-config names',
+    !!ed && ed.toLowerCase() === String((CFG.contracts || {}).liquidEdition).toLowerCase(),
+    `embed ${ed} vs config ${(CFG.contracts || {}).liquidEdition}`);
+  /* ⚠ The RPC is checked for the right NETWORK, not for string equality: the embed deliberately
+   *   uses a CORS-open public node (a sandboxed frame is at an opaque origin) and need not use the
+   *   same provider the site does. What it must never do is read a different chain. */
+  const wantsTestnet = CFG.network !== 'mainnet';
+  ok('…and its RPC points at the same network as chain-config',
+    !!rpc && /sepolia/i.test(rpc) === wantsTestnet,
+    `${rpc} while chain-config says ${CFG.network}`);
+}
+
 console.log(`\n${pass}/${pass + fail} passed${fail ? ` — ${fail} FAILED` : ''}\n`);
 process.exit(fail ? 1 : 0);

@@ -140,3 +140,52 @@ before launch belongs behind Vercel Deployment Protection, not `gate.js`.
 ⛔ **If any gate fails, the honest move is to delay the public launch, not to launch and patch.**
 The burn is permanent and the contract addresses are immutable; there is no second attempt at
 either.
+
+---
+
+# ✅ LAUNCH-NIGHT STATUS — 2026-08-06, every contract live
+
+| # | gate | state | how it is known |
+| --- | --- | --- | --- |
+| 1 | token approval flow | ✅ **proven live** | the artist bought 355.49 $3030 (29 RARE) and the balance read back off-chain |
+| 2 | exact PackSink price enforcement | ⏳ **not proven live** | see below |
+| 3 | true supply-reducing burn | ✅ **proven live** | `totalSupply` 3,030,000 → 3,029,750 across two rips. Not a transfer to a dead address — the supply itself fell |
+| 4 | 50/50 studio split | ⏳ **not proven live** | see below |
+| 5 | card mint / render | ✅ **render proven live** | `tokenURI(40)` returns full metadata for a FIELD card with **no mint at all**. Mint-by-voucher is untested and deliberately so — see the CID note |
+| 6 | all six games | ✅ pre-checked | `npm run test:gate6`, 60/60, desktop + phone |
+
+## Gates 2 and 4 — what is and is not known, stated precisely
+
+Both hinge on one live round-trip through PackSink that has not happened. **What IS established:**
+
+- `npm run test:pack` — **51/51**, EVM tests against the exact contract source.
+- The **deployed bytecode is byte-identical to that source**, proved by masking the three token
+  and three treasury `immutable` injection sites back to their zero placeholders and finding the
+  runtime verbatim inside our creation blob.
+- On-chain reads: `token()` is the edition, `treasury()` is the cold wallet, `BURN_BPS` is **5000**.
+- `npm run test:split` — **55/55** on the browser's hand-assembled calldata, with both selectors
+  recomputed from the ABI rather than written from memory (writing them from memory got both wrong).
+
+So the arithmetic, the deployment and the calldata are each proven. **What is not proven is one
+live browser→contract round trip**, and it is worth being exact about that rather than claiming the
+gate on the strength of its parts.
+
+⛔ **THE FIRST ATTEMPT FAILED AND IS WHY THIS SECTION EXISTS.** The artist ripped minutes after
+PackSink was wired in: 125 burned, treasury 0, allowance 0 — his tab was holding the pre-PackSink
+config. Nothing errored. The fallback behaved exactly as documented and was, by then, wrong.
+✅ `pack.js` now **refuses to rip** when `hasSink()` is false on mainnet, because there is no longer
+any legitimate way to reach that branch. Sepolia keeps the fallback.
+
+⚠ **Blocked on tokens, not on code.** A pack is 125 $3030; the artist holds 105.49 and has no RARE
+to buy more. Gas is not the constraint — 0.00078 ETH against the ~0.000028 the two transactions
+cost at current prices. It is one rip whenever the wallet is topped up.
+
+## Gate 5 — render is proven, mint is deliberately not
+
+`cards/hero/cids.json` still holds placeholders, so a hero minted today would point at nothing.
+**This does not block anything**, and the reason is worth stating because it was initially got
+wrong: a pack pull mints nothing. `pack.js` contains no minting path. A hero becomes a token only
+when the studio signs a `kind 2`/`kind 1` voucher, and `setCards` is `onlyOwner` with no freeze.
+
+⛔ **So the ordering constraint is: do not sign a hero voucher until the art is pinned.** Ripping is
+free. That is a deliberate human act, not something a collector can trigger.

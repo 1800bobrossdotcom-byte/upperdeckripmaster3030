@@ -102,7 +102,20 @@ window.RIPMASTER_CHAIN = {
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
-    lens721:       "",
+    /* ✦ DEPLOYED ON MAINNET 2026-08-06, tx 0xa3cf618f…c096, owner 0x432D71bA…59d166c9,
+     * claim signer 0x42A6baD4…eb049 — DIFFERENT KEYS, which is the property the two-argument
+     * constructor exists for and the only one that cannot be fixed afterwards. setEdition wired in
+     * a second transaction (0x52d35d32…36e2), so staking reads real balances rather than silently
+     * rendering every card at tier 0.
+     * ⚑ Proven by reading the chain, not the deploy page: tokenURI(40) returns metadata for a
+     * FIELD card with no mint at all — Deck "Genesis", Class "Field Lens", Holding/Tier present,
+     * Minted "no". That single call proves render-by-id, the seasons→tiers fix surviving into
+     * on-chain metadata, and setEdition having taken, all at once.
+     * ⚠ A SECOND LENS EXISTS AT 0x938fa651…32d1c AND MUST NEVER BE USED. It was deployed minutes
+     * earlier with MetaMask on the claim signer, so its owner IS the hot signing key. It is inert:
+     * it owns nothing, nothing references it, and this line is the only place the site could ever
+     * have pointed. Recorded so nobody later finds it on-chain and assumes it is the real one. */
+    lens721:       "0xe2d11bC2f0122Be198a6e102fD2567888878e138",
     /* contracts/PackSink.sol — the atomic 50/50 splitter for pack payments and game rakes.
      * ⚠ EMPTY = every split path in js/wallet.js falls back to a plain 100% burn, exactly as
      * lens721:"" degrades the collector seat. That is deliberate (nothing half-executes), but it

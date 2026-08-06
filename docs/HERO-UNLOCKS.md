@@ -334,3 +334,89 @@ false as a *title* count and true as a *card* count, and the page must not blur 
 `whitepaper.html` it generates — and both are done. **The generator was edited and the page
 regenerated from it**, never the other way round: patching output and leaving the generator armed
 is `restyle-backs.mjs`'s recorded failure, and it is the fifth time this project has had to say so.
+
+---
+
+## ⚑ WHICH OF THE 33 GOES DOWN WHICH ROUTE — settled 2026-08-06
+
+Artist: *"there are only 11 heros in gacha 11 in game 11 auction"*, then *"you pick the cards
+random is fine they are all cool."* So the split is picked and written down here, because it was
+previously **nowhere**: `cards/deck-manifest.json` has no route field, the titles below name no
+card numbers, and every hero title is still `______`.
+
+| ids | route | who hands it over |
+| --- | --- | --- |
+| **1 – 11** | **AUCTION** | sold on SuperRare — **0.1 ETH reserve, all eleven** (artist, 2026-08-06) |
+| **12 – 22** | **GACHA** | pulled from a pack — `GACHA_IDS` in `pack.js` |
+| **23 – 33** | **EARNED** | the nine titles in this document, eleven seats |
+
+⛔ **FIXED, NOT RANDOM, AND THAT IS THE ONE PLACE THE ARTIST'S "random is fine" NEEDED READING
+RATHER THAN OBEYING.** He was answering *which cards* — any of them, they are all good. He was not
+asking for the assignment to be re-rolled: a card that is in the gacha pool this week and the
+auction pool next week is a 1/1 promised down two routes, which is the exact failure this split
+exists to prevent. The choice was arbitrary; the *stability* is not.
+
+⚑ **THE COUNT IS THE SETTLED PART, THE IDS ARE ONE EDITABLE LINE.** Change `GACHA_IDS` in
+`pack.js` and the pack follows; `npm run test:name` asserts the pool is exactly eleven and that no
+pull ever offers a card from outside it, so a redistribution that breaks the arithmetic fails
+loudly rather than silently over-issuing.
+
+⚠ **Being wrong about WHICH is cheap; being wrong about HOW MANY was not.** A hero mints only
+against a human-signed `kind 1` voucher, so the studio sees the card a claim names before it
+exists. The pack simply must not OFFER what was never its to offer — and until 2026-08-06 it
+offered all 33 at a rate that would have handed out ~8,224 of the eleven that exist.
+
+### ⚑ The auction reserve — 0.1 ETH, uniform
+
+Artist, 2026-08-06: *"the cards for auction will all be .1 eth reserves."* Eleven cards, one
+reserve, so the floor for the whole auction tier is **1.1 ETH**.
+
+⚑ **UNIFORM IS A POSITION, NOT A SHORTCUT.** Pricing the eleven differently would be the studio
+publishing its own ranking of the set before a single collector had seen them — and the deck's
+scarcity is already authored into the cards (each carries its own rarity). One reserve says the
+ranking is the market's to make, which is the same argument that made the pack draw uniform rather
+than re-weighting an already-weighted set.
+
+⚠ **NOT PUBLISHED ANYWHERE YET, DELIBERATELY.** `docs/` does not ship (`.vercelignore`), so this
+is recorded and not announced. A reserve price is a commercial commitment and putting it on
+index/whitepaper is a separate decision the artist should make on purpose rather than inherit from
+a passing line in a chat. The public pages currently say "11 auctioned on SuperRare" and no price.
+
+---
+
+## ⛔ `______` IS A TITLE. DO NOT "FIX" IT.
+
+Artist, 2026-08-06: *"some of the names be like that — `______` untitled type shit."*
+
+Several of the 33 are **deliberately untitled**, and the underscores are the artwork's own name —
+the blank a collector fills in, which is exactly the MAD-magazine / trading-card register this
+studio works in. It is not a placeholder awaiting copy.
+
+⚠ **THIS NEEDED WRITING DOWN BECAUSE A DELIBERATE BLANK IS INDISTINGUISHABLE FROM AN UNFINISHED
+ONE**, and this repo's whole method is sweeping for surfaces that look unfinished. I flagged
+`______` twice tonight as an outstanding task before the artist corrected me. The next consistency
+pass, human or otherwise, would have "completed" it — and quietly deleted a naming decision.
+
+⚑ So: no test asserts these are non-empty, and none should. If a check is ever wanted here it must
+assert the opposite — that `______` SURVIVES — which is the same shape as the name law's rule that
+the retired studio name must be *absent*: state the intended condition, not the tidy-looking one.
+
+⚠ WHICH of the 33 stay untitled is the artist's, unstated, and does not need stating before launch —
+titles reach the chain through `setCards(ids, cids, titles)`, which is `onlyOwner`, unfrozen, and
+callable before or after any mint.
+
+---
+
+## ⚑ THE CID GATE IS THE SIGNATURE, NOT THE RIP
+
+Asked whether the hero art must be pinned before ripping — *"what if I rip a hero?"* — the answer
+is no, and the reason is worth keeping:
+
+- **A pull mints nothing.** `pack.js` contains no minting path. A hero pull writes a row to
+  `localStorage` and burns tokens; that is the whole of it.
+- **A hero becomes a token only when the studio signs a `kind 1` voucher** and someone calls
+  `claimHero`. The CID is read at THAT moment.
+- **`setCards` has no freeze** — `onlyOwner`, no already-minted check, callable twice.
+
+So the ordering constraint is: **do not sign a hero voucher until the art is pinned.** That is a
+deliberate human act, not something a collector can trigger. Ripping is free.
