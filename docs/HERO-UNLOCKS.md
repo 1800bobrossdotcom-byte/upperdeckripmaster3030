@@ -90,6 +90,32 @@ part that took the thought; the **numbers** are the part to argue about.
 | 8 | **DEAD AIR** | THE CITY | As the bird, cover **300 m in one unbroken glide** — not a single wingbeat — and **never more than 40 m above the ground beneath you**. | ⚑ Measured on the shipping build. The glide ratio is a flat **8.2 : 1** at every altitude, so 40 m of height is **328 m** of glide and no more: 300 m spends 91% of the physical maximum. You cannot climb out of trouble and you cannot go over anything — and **2 of 5 straight lines from random city points hit a building** (190 m and 311 m against 327 m in the clear). So it is won by READING THE CITY before you commit, which is the one thing the bird is for. |
 | 9 | **BOTH ENDS** | THE CITY | In one unbroken visit: **plant a card from the air as the bird, then take that same card back as the squirrel.** | ⚑ The only title that makes you play two animals. `docs/CITY-GAME.md`'s claim is that the animals are **layers, not skins** — the bird sees everything and cannot place precisely, the squirrel owns the vertical and cannot cover ground. This is that claim as a condition: you drop it where you can only guess, then you have to go and physically get it, on foot, up whatever it landed on. ⚠ Rival squirrels take loose cards, so the clock is somebody else's. |
 
+⛔ **STATUS 2026-08-06 — THE TABLE BELOW IS A PROPOSAL, NOT WHAT THE GAME AWARDS.**
+`js/title-ledger.js` is the only thing that can award a title, and it currently carries the OLDER
+set: THE WIRE · DEAD STICK · ONE MAG · GHOST WALK · OPEN AIR · THE FACILITY IS CLOSED · THE STREAK
+(×3) · DEAD AIR · BOTH ENDS. **The public pages follow the LEDGER**, because a page promising a
+condition no cabinet can detect — with a real 1/1 behind it — is the worst direction for this
+error to run.
+
+⚑ **THE COLLISION, PLAINLY.** Two passes ran the same day. One implemented detectors, a redeem
+surface and `npm run test:titles` for the old set; the other (this table) turned five cards into
+the points ladder and the two RIP ROCKETER combo titles the artist asked for. Neither knew about
+the other.
+- **Working today, with detectors and tests:** THE WIRE, DEAD STICK (dogfight.html) · ONE MAG,
+  GHOST WALK (`js/s9pc-game.js`) · THE STREAK (`js/crpc-ui.js`) · DEAD AIR, BOTH ENDS
+  (`js/city-app.js`). Seven titles, nine cards.
+- ⛔ **Not wired at all: OPEN AIR and THE FACILITY IS CLOSED.** `riprocketer.html` does not load
+  `js/title-ledger.js`, so RIP ROCKETER cannot award anything. They are listed and unclaimable —
+  `built ≠ reachable`, on the redeem surface.
+- **The budget is 11 cards** and the working set already spends 9, so **at most two** of the five
+  proposed can land without deleting something that works.
+
+⚠ **THE DECISION IS THE ARTIST'S AND IT IS NOT FREE EITHER WAY:** taking the full ladder means
+deleting three working, tested titles (THE WIRE, DEAD STICK, ONE MAG) and leaving DOGFIGHT with
+none; taking two means the ladder is one rung instead of three. The stats the combo titles need
+are already live in `js/rrpc-game.js` (`tierFlowOk`, `tierOdOnly`, and the run summary prints
+flow-held / overdrives / OD kill share), so whichever way it goes, the measuring is done.
+
 ⛔ **THE TWO PASSES OVER-SUBSCRIBED THE SAME BUDGET, AND THE ARITHMETIC IS WHY THIS LIST SHRANK.**
 The earned tier is **11 CARDS**, because `11 auction + 11 gacha + 11 earned = 33` and the 33 is
 settled. Two independent passes on 2026-08-06 each spent that budget: one gave THE STREAK three
