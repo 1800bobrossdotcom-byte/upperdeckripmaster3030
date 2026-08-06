@@ -41,11 +41,7 @@ says a whitelisted artist may use **either** the guided create flow **or** the R
 CLI, and `name` and `symbol` are **positional arguments you type**:
 
 ```bash
-rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-  --curve-preset low-demand \
-  --description "A liquid trading-card game of psychedelic hyperfoil cartoon spirits." \
-  --image ./media/site/mark-1024.png \
-  --preview
+rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3300000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
 ```
 
 This is **better** than the assisted path, because `--preview` prints the whole thing without

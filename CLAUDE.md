@@ -371,9 +371,20 @@ who receives it, the curve mechanism or any DEX graduation, or how the opening p
   ```
   npm install -g @rareprotocol/rare-cli          # Node 22+
   rare configure --chain sepolia --private-key-ref op://…   # 1Password ref; key NOT stored plaintext
-  rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-    --curve-preset low-demand --description "…" --image ./art.png --preview
+  rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3300000 --curve-preset low-demand --description "…" --image ./media/site/mark-1024.png
   ```
+  ⛔ **`--total-supply` IS NOT OPTIONAL AND WAS MISSING FROM EVERY RUNBOOK UNTIL 2026-08-06.**
+  Run for real, the preview came back `Max total supply: 1000000` — the CLI's silent default —
+  against a settled cap of **3,300,000**, and `maxTotalSupply` is frozen at deploy. ⚑ It is also
+  why the Sepolia rehearsal edition reads 1,000,000: nobody chose that, it was the default, and
+  it looked deliberate for months.
+  ⛔ **ONE LINE, NO CONTINUATIONS.** The multi-line bash form was pasted into PowerShell, where
+  `\` is not a continuation, so **line 1 executed alone as a complete command** — with `--preview`
+  still sitting on line 5. It only failed because `--description`/`--image` are mandatory. A
+  truncated prefix reaching a deploy CLI is a live deploy; put `--preview` FIRST among the flags
+  so anything that falls off the end is a required argument and the command fails closed.
+  ⚠ Non-ASCII in `--description` (em-dashes) can be mangled by the shell into mojibake baked into
+  the token page. Keep it ASCII.
   ⚑ **`name` and `symbol` are POSITIONAL ARGS the artist types** — they are not handed to
   SuperRare and hoped for. `--preview` first, `--yes` to submit. This de-risks the naming
   problem enormously: preview, read it back, then commit.

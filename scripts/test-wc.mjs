@@ -153,11 +153,51 @@ ok(I.showQrModal === true, '…and the wallet picker opens');
 /* The block rendered INSIDE the wallet — proved as sent, not as written. */
 const M = I.metadata || {};
 ok(M.name === 'ripmaster3030studios', 'the approval sheet names the live studio', M.name);
-ok(M.url === 'https://ripmaster3030studios.com', '…at the live domain', M.url);
-ok(!!(M.icons || [])[0] && /ripmaster3030studios\.com/.test(M.icons[0]), '…with an icon from it', (M.icons || [])[0]);
+/* ⚑ THE URL IS DERIVED FROM THE HOST, so at localhost it must be the CANONICAL FALLBACK — an
+ *   unknown origin must never name itself inside somebody's wallet. The other direction (a real
+ *   studio host derives to ITSELF) is proved in section 3b, because one of these two assertions
+ *   alone is satisfied by a hard-coded string, which is exactly what this change removed. */
+ok(M.url === 'https://ripmaster3030studios.com',
+  '…at the canonical domain when the origin is unknown (localhost ⇒ fallback)', M.url);
+ok(!!(M.icons || [])[0] && M.icons[0] === M.url + '/media/site/mark-512.png',
+  '…with an icon from the SAME origin as the url', (M.icons || [])[0]);
 ok(!JSON.stringify(M).match(/upperdeck/i), 'no retired name reaches the wallet');
 ok(sent.enabled, 'enable() ran — the session proposal was raised');
 ok(sent.r && sent.r.ok, 'connect() reports success', sent.r ? (sent.r.reason || 'ok') : 'no result');
+
+/* ── 3b · THE URL REALLY DERIVES — driven from a studio host, not from localhost ────────────────
+ * ⛔ WITHOUT THIS THE CHECK ABOVE IS SATISFIED BY A HARD-CODED STRING, i.e. by the exact defect
+ *   this change removed: the sheet said the APEX while the site is served from `www`, so a
+ *   collector was shown a host they were not on and WalletConnect's own domain verification had
+ *   two different answers to compare. A single assertion at localhost cannot tell a working
+ *   derivation from a constant — they agree there by construction.
+ * ⚑ Chromium resolves the real hostname to our loopback server via --host-resolver-rules, so the
+ *   page genuinely runs at `www.ripmaster3030studios.com` and `location.hostname` is the live
+ *   host. Nothing leaves the container; the name never reaches DNS. */
+console.log('\n── 3b · the dApp URL follows the host the collector is on ──');
+const hostBrowser = await chromium.launch({
+  executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--no-sandbox', `--host-resolver-rules=MAP www.ripmaster3030studios.com 127.0.0.1`],
+});
+const hctx = await hostBrowser.newContext({ ...devices['iPhone 13'], ignoreHTTPSErrors: true });
+const hpage = await hctx.newPage();
+await hpage.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+await hpage.route('https://esm.sh/**', route =>
+  route.fulfill({ status: 200, contentType: 'text/javascript', body: STUB }));
+await hpage.goto(`http://www.ripmaster3030studios.com:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+await hpage.waitForTimeout(1200);
+const onHost = await hpage.evaluate(async () => {
+  await window.RipWallet.connect('walletconnect');
+  return { host: location.hostname, meta: (globalThis.__wcInit || {}).metadata || null };
+});
+ok(onHost.host === 'www.ripmaster3030studios.com',
+  'the page really is running at the live host', onHost.host);
+ok(onHost.meta && onHost.meta.url === 'https://www.ripmaster3030studios.com',
+  '⛔ the approval sheet names THAT host, not the apex', onHost.meta ? onHost.meta.url : 'no metadata');
+ok(onHost.meta && (onHost.meta.icons || [])[0] === 'https://www.ripmaster3030studios.com/media/site/mark-512.png',
+  '…and the icon comes from it too (the apex one 308s, and a wallet may not follow it)',
+  onHost.meta ? (onHost.meta.icons || [])[0] : '');
+await hostBrowser.close();
 
 /* ── 4 · the metadata a collector reads INSIDE their wallet ────────────────────────────────── */
 console.log('\n── 4 · what the wallet shows the collector ──');
@@ -167,9 +207,33 @@ const meta = /metadata:\s*\{([\s\S]*?)\}/.exec(src)?.[1] || '';
  *   ripmaster3030studios.com was asked to approve a connection from a different name at a
  *   different address — the exact shape people are told to read as a phish. */
 ok(/name:\s*'ripmaster3030studios'/.test(meta), 'the dApp NAME is the live studio');
-ok(/url:\s*'https:\/\/ripmaster3030studios\.com'/.test(meta), 'the dApp URL is the live domain');
-ok(/icons:\s*\['https:\/\/ripmaster3030studios\.com\//.test(meta), 'the icon is served from the live domain');
+ok(/url:\s*siteOrigin\(\)/.test(meta), 'the dApp URL is DERIVED from the host, not written down');
+ok(/icons:\s*\[siteOrigin\(\)\s*\+/.test(meta), 'the icon is served from that same origin');
 ok(!/upperdeck/i.test(meta), 'no retired name survives in the approval sheet');
+/* ⚠ The fallback is the one part that IS written down, so it is pinned: an unknown origin must
+ *   land on the canonical host and never on whatever host happened to serve the page. */
+const originFn = /function siteOrigin\(\)\s*\{([\s\S]*?)\n  \}/.exec(src)?.[1] || '';
+ok(/return 'https:\/\/ripmaster3030studios\.com';/.test(originFn),
+  'an unknown origin falls back to the canonical domain');
+/* ⛔ RUN THE PATTERN, DO NOT READ IT. My first version matched the regex SOURCE with another
+ *   regex and failed on its own correct input — `(^|\.)` in a matcher means "start or a dot", not
+ *   the literal characters. That is the redirect outage's exact mistake in miniature: it asserted
+ *   a host rule EXISTED instead of running it against hosts, and the fix there was to run it.
+ *   Behaviour is the claim; the source text is just how the claim happens to be spelled. */
+const HOSTRE = new RegExp((/const SITE_HOST = \/(.*)\/;/.exec(src) || [])[1] || '$^');
+for (const h of ['ripmaster3030studios.com', 'www.ripmaster3030studios.com'])
+  ok(HOSTRE.test(h), `the host test accepts our own host ${h}`);
+/* ⚠ AND THE OTHER DIRECTION, WHICH IS THE HALF THAT MATTERS: this string ends up inside a wallet
+ *   approval sheet, so a pattern that accepts everything would let a preview build — or a clone —
+ *   present itself under our identity. A suffix lookalike is the one a bare `includes` would miss.
+ * ⛔ THE RETIRED DOMAIN IS IN THIS LIST ON PURPOSE. My first version accepted it, and
+ *   `npm run test:name` failed the build — correctly: deriving there would print the retired
+ *   studio name inside a wallet approval sheet, the exact surface the name law exists for. It
+ *   forwards to the live host anyway, so nobody connects from it. */
+for (const h of ['upperdeckripmaster3030.com', 'www.upperdeckripmaster3030.com',
+                 'ripmaster3030studios.com.evil.example', 'notripmaster3030studios.com',
+                 'urm-preview-abc123.vercel.app', 'localhost'])
+  ok(!HOSTRE.test(h), `…and refuses ${h}`);
 
 /* ── 5 · the fallback, because the SDK can fail and a dead end is unacceptable ─────────────── */
 console.log('\n── 5 · the deep-link fallback ──');
@@ -238,9 +302,12 @@ ok(errs.length === 0, 'no uncaught page errors on the mobile path', errs[0] || '
 await browser.close(); srv.close();
 
 console.log(`\n⚠ NOT PROVEN HERE — the Reown DOMAIN ALLOW-LIST.`);
-console.log(`  A project id is allow-listed by ORIGIN and this harness's origin is localhost.`);
-console.log(`  ACTION: cloud.reown.com → this project → Allowed Domains must list`);
-console.log(`  ripmaster3030studios.com (and www.). Until it does, mobile connect fails on the`);
-console.log(`  live host with no graceful degradation — it is a dashboard setting, not code.`);
+console.log(`  A project id is allow-listed by ORIGIN and this harness's origin is localhost, so`);
+console.log(`  no pass in this file can speak for the live host. It is a dashboard setting, not code.`);
+console.log(`  STATUS 2026-08-06: the artist allow-listed ripmaster3030studios.com, www., and the`);
+console.log(`  retired upperdeckripmaster3030.com. www. matters most — the platform serves it as`);
+console.log(`  Production and 308s the apex to it, so www. is the origin a collector arrives at.`);
+console.log(`  RE-CHECK IF PRODUCTION EVER MOVES TO THE APEX: the metadata url now follows the host`);
+console.log(`  automatically (section 3b), but the ALLOW-LIST does not — that stays a dashboard job.`);
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);
