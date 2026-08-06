@@ -868,7 +868,15 @@ head('2c · the surfaces a visitor comes for are a short walk from the front doo
   /* ⚠ The bar is CLICKS, not existence. Three is generous — it is "home, a hub, the thing" — and
    * anything past it is a page the artist will not find, which is the failure being guarded. */
   for (const [page, why] of [
-    ['cards/index.html', 'the deck'],
+    /* ⛔ `cards/index.html` CAME OFF THIS LIST — artist, 2026-08-06, hours before launch: *"only
+     *   the 100 cards need to be shown."* That page is a grid of the 196 PLACEHOLDER pictures,
+     *   and it sat one click from home labelled "▚ Into the deck". It is the PIGMENT index — the
+     *   ink the press prints from — and `cards/deck.html` says so in as many words. The page and
+     *   all 196 card pages still RESOLVE (shared URLs keep working, and the press still fetches
+     *   the manifest); nothing routes a visitor to them any more.
+     * ⚠ It is still `navigatorsOf`-reachable, because the 196 card pages each link back to it —
+     *   a closed cycle, which §2c exists to see through. That is why this is a WALK entry being
+     *   removed and not an ORPHAN_OK entry being added. */
     ['cards/binder.html', 'the folder'],
     /* ⛔ `cards/proof.html` IS DELIBERATELY NOT WALKABLE — artist, 2026-08-06. It was listed here
      *   as "the 33"; the 33 are public at cards/deck.html now, and the forge is not a visitor

@@ -265,6 +265,10 @@
 <script src="../js/hero-card.js"></script>
 <script src="../js/card-back.js"></script>
 <script src="../js/card-press.js"></script>
+<!-- ⚑ REQUIRED NOW THAT THE FOLDER HOLDS THE HUNDRED. A deck card is a RECIPE, and card-view
+     routes `recipe:` here; without this file it silently falls through to the picture path and
+     presses the baked sheet — a card of a card. -->
+<script src="../js/card-recipe.js"></script>
 <script src="../js/card-view.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
      is present, so this page fetches the 2.26 MB vendor script exactly once no matter whether
@@ -276,15 +280,23 @@
   const PER = 9;                       // nine pockets to a page, which is what a real folder is
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* TWO DECKS, and the labels say which is which rather than quietly mixing them. The artist's
-   * own cards are the real deck; the 196 are the placeholder set that the clean-slate replaces.
-   * Merging them would be inventing canon, so they stay separate and the placeholder set is
-   * named as such on the chip. */
+  /* ⛔ ONE DECK: THE HUNDRED — artist, 2026-08-06, hours before launch: *"only the 100 cards need
+   * to be shown."*
+   *
+   * ⛔ THIS FOLDER USED TO CARRY TWO DECKS THAT ARE NOT THE DECK. A chip for
+   *   `hero-manifest.json` (15 scans numbered 34–49) and a chip for `manifest.json` (196
+   *   placeholders), both predating the hundred and neither ever repointed when the real deck
+   *   landed. `cards/deck.html`'s own header says of the second one, in as many words: *"the ink.
+   *   Not cards. Do not present it as cards."* This page was the last one still presenting it as
+   *   a deck, and labelling it "the placeholder deck" did not make that true.
+   * ⛔ THE 211 PICTURES ARE NOT DELETED AND MUST NOT BE. They are the PIGMENT: every one of the
+   *   hundred names six of them BY SLUG as its plates, and `js/card-press.js` `pool()` still
+   *   fetches both manifests to resolve them. Stop them being fetchable and all 100 cards
+   *   silently print as different cards. They stop being SHOWN; they keep being INK. */
   const SOURCES = {
-    hero: { file: 'hero-manifest.json', label: "the artist's cards", note: 'real artwork' },
-    deck: { file: 'manifest.json',      label: 'the placeholder deck', note: 'stand-ins, being replaced' },
+    hundred: { file: 'deck-manifest.json', label: 'the hundred', note: '33 heroes · 67 field' },
   };
-  let which = 'hero', DECK = [], page = 0, cur = -1, ctrl = null;
+  let which = 'hundred', DECK = [], page = 0, cur = -1, ctrl = null;
 
   const twoUp = () => getComputedStyle($('pkR').parentNode).display !== 'none';
   const pages = () => Math.max(1, Math.ceil(DECK.length / PER));
@@ -300,6 +312,14 @@
    *   already claimed, so calling it again per turn is free. */
   function pressPockets() {
     if (!window.CardPress || /[?&]flat\b/.test(location.search)) return;
+    /* ⛔ NEVER PRESS ONE OF THE HUNDRED. `art/deck/<n>.webp` IS ALREADY A PRESSED SHEET, pulled by
+     *   `npm run deck:bake`. Running it back through the press prints a four-colour separation OF
+     *   a four-colour separation, seeded from the filename `<n>` rather than from the card's own
+     *   recipe and with plates nobody chose — and it RENDERS, so nothing looks broken. It is
+     *   simply a different card in the pocket than the one the viewer opens.
+     * ⚑ The pockets were pressed here because they used to hold SOURCE PICTURES, where pressing
+     *   is what turns a picture into a card. The hundred arrive already printed. */
+    if (DECK.some(c => c && c.recipe)) return;
     CardPress.grid('.pk img', img => ({
       art: img.getAttribute('src'),
       title: (img.alt || '').toUpperCase(),
@@ -376,12 +396,18 @@
     if (card.number != null) bits.push('№ ' + String(card.number).padStart(2, '0'));
     if (card.rarity) bits.push(card.rarity);
     if (card.atk != null || card.def != null) bits.push(`atk ${card.atk ?? '—'} · def ${card.def ?? '—'}`);
-    bits.push(which === 'hero' ? 'ripmaster3030studios' : 'placeholder');
+    bits.push(card.band === 'hero' ? 'hero 1/1' : (card.band === 'field' ? 'field lens' : 'ripmaster3030studios'));
     $('vnum').textContent = bits.join(' · ');
     const link = $('vlink');
-    if (card.slug) { link.href = card.slug + '.html'; link.hidden = false; } else { link.hidden = true; }
+    /* ⛔ THE HUNDRED HAVE NO PER-CARD PAGE, and their `slug` is the NUMBER — "1".."100". Following
+     *   the old rule would have offered "open the card page →" pointing at `1.html`, which does
+     *   not exist: a link that 404s on the busiest control in the viewer. A card of the hundred
+     *   IS this viewer; there is nowhere further to go. */
+    if (card.slug && !card.recipe && !/^\d+$/.test(String(card.slug))) {
+      link.href = card.slug + '.html'; link.hidden = false;
+    } else { link.hidden = true; }
     $('vprev').disabled = cur === 0; $('vnext').disabled = cur === DECK.length - 1;
-    if (card.number != null) location.hash = which + '-' + card.number;
+    if (card.number != null) location.hash = 'card-' + card.number;
   }
 
   function close() {
@@ -428,7 +454,10 @@
      *   place — it never rebuilds, because getContext('webgl2') hands back the same context and
      *   a binder is exactly the page where that leak would go unnoticed for a hundred cards. */
     /* the viewer owns the card once it is up; card3d only drives the pre-press fallback */
-    if (press) { press.show(pressCard(card)); return; }
+    /* ⚑ A CARD OF THE HUNDRED IS SHOWN BY ITS RECIPE, NOT BY ITS PICTURE — see the note on
+     *   `pressPockets` and the header of `js/card-recipe.js`. `card.recipe` is the query string
+     *   the forge wrote; `js/card-view.js` routes it to `CardRecipe` instead of `CardPress`. */
+    if (press) { press.show(card.recipe || pressCard(card)); return; }
     if (ctrl) { ctrl.setArt(url); ctrl.setRarity(card.rarity); return; }
     Card3D.engine('../').then(() => {
       const cv = document.createElement('canvas');
@@ -450,7 +479,9 @@
        * ⚠ card3d is destroyed once the viewer takes over: two WebGL contexts drawing the same
        *   card means the one underneath is paid for and never seen. */
       if (!/[?&]flat\b/.test(location.search) && window.CardView) {
-        CardView.mount({ box: $('vcard'), base: '', card: pressCard(card) })
+        CardView.mount(card.recipe
+          ? { box: $('vcard'), base: '', recipe: card.recipe }
+          : { box: $('vcard'), base: '', card: pressCard(card) })
           .then(p => { if (!p) return;              // fails open — card3d's plate stands
                        press = p; window.__press = p;   // handle for the harness
                        try { ctrl.destroy(); ctrl = null; } catch (e) {}
@@ -541,13 +572,28 @@
 
   function load(key) {
     which = key; chips();
-    fetch(SOURCES[key].file).then(r => r.json()).then(raw => {
+    /* ⚑ TWO FILES, AND THE SECOND ONE IS WHAT MAKES THE VIEWER REAL. `deck-manifest.json` is the
+     *   baked SHEETS — the pocket thumbnails. `deck.json` is the RECIPES, and a recipe is the
+     *   only thing that can re-print a card of the hundred live. Optional: without it the pockets
+     *   still fill and the viewer falls back to the flat sheet, which is a card in a starfield —
+     *   a perfectly good thing to be, and this page's standing promise. */
+    Promise.all([
+      fetch(SOURCES[key].file).then(r => r.json()),
+      fetch('deck.json').then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([raw, recipes]) => {
       const arr = Array.isArray(raw) ? raw : (raw.cards || Object.values(raw)[0] || []);
-      DECK = arr.map((c, i) => Object.assign({ _i: i }, c));
+      const R = (recipes && recipes.cards) || {};
+      DECK = arr.map((c, i) => Object.assign({ _i: i }, c, {
+        /* the manifest calls it `id`; every pocket, caption and deep link here says `number` */
+        number: c.number != null ? c.number : c.id,
+        recipe: (R[String(c.id)] || {}).q || null,
+      }));
       page = 0; render();
-      // #hero-34 opens straight into the viewer, so a card is a link you can send someone
-      const m = /^#(hero|deck)-(\d+)$/.exec(location.hash);
-      if (m && m[1] === key) {
+      /* #card-7 opens straight into the viewer, so a card is a link you can send someone.
+       * ⚠ `hero`/`deck` are still accepted: those hashes have been shared, and a URL that
+       *   resolved yesterday should resolve today. They all mean the hundred now. */
+      const m = /^#(card|hero|deck)-(\d+)$/.exec(location.hash);
+      if (m) {
         const i = DECK.findIndex(c => String(c.number) === m[2]);
         if (i >= 0) { page = Math.floor(i / PER); render(); open(i, null); }
       }
@@ -558,8 +604,12 @@
     });
   }
 
-  const h = /^#(hero|deck)-\d+$/.exec(location.hash);
-  load(h ? h[1] : 'hero');
+  /* ⛔ THIS LINE READ `load(h ? h[1] : 'hero')` AND IT IS WHY THE FOLDER CAME UP EMPTY. The hash
+   *   used to name the SOURCE ('hero' / 'deck'), so it was passed straight in as a key. With one
+   *   source that key does not exist, `SOURCES.hero` is undefined, and the whole load fell into
+   *   its own catch — "deck manifest unavailable", no error in the console, every pocket empty.
+   * ⚑ The hash names a CARD now, never a source. Found by driving the page, not by reading it. */
+  load('hundred');
 })();
 </script>
   <script src="../theme.js"></script>
