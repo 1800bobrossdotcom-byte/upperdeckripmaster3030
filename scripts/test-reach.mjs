@@ -528,6 +528,17 @@ t(`all ${CARD_PAGES.length} card pages are reachable from the deck index`, cardO
 for (const [f] of TEXT) {
   if (!f.endsWith('.html')) continue;
   if (f === 'index.html') continue;      // the domain itself is the only real root
+  /* ⛔ THE HERO LENSES ARE REACHED FROM THE CHAIN, NOT FROM THE SITE — same class as
+   *   superrare.html, which is allow-listed for exactly this reason. Each token's on-chain
+   *   `animation_url` is https://www.…/cards/hero/<id>.html, so the inbound link lives in
+   *   contract storage where no crawler of ours can see it. Requiring a site link would push
+   *   toward adding a decorative one to satisfy a test, which is worse than the exemption.
+   * ⚠ NOT a blanket pass for the directory: only the 33 numbered lens pages are exempt, so a
+   *   stray file dropped in cards/hero/ is still an orphan and still fails.
+   * ⚑ They are NOT unreachable in practice — /cards/<1–33> redirects here, which is what makes
+   *   `external_url` resolve too. That routing is asserted in test:name, not by pretending a
+   *   link exists. */
+  if (/^cards\/hero\/([1-9]|[12][0-9]|3[0-3])\.html$/.test(f)) continue;
   if (ORPHAN_OK[f] || CARD_PAGES.includes(f)) continue;
   const nav = navigatorsOf(f);
   t(`${f} is navigated to by something`, nav.length > 0, nav.slice(0, 3).join(', ') || 'NO INBOUND LINK');
