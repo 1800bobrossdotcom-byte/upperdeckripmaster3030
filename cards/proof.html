@@ -374,6 +374,25 @@ frame and seed are left alone">RESET TO BASE</button>
     <div class="grp">
       <label>FRAME <span class="v" id="vRar">legendary</span></label>
       <div class="chips" id="rarChips"></div>
+      <!-- ⛔ FRAMELESS BELONGS HERE, NOT IN ANOTHER PANE. It was in BUILD, which is where the kind
+           of CARD is decided — but "does this card have a frame at all" is a question about the
+           FRAME, and the artist went looking for it under this label. A control filed by its
+           mechanism instead of by its subject is a control nobody finds.
+           ⚠ It is a SEPARATE chip, not a seventh tier. Rarity picks which family the border is set
+           from AND how much of it is foil; frameless decides whether the border prints. Making it
+           a tier would have meant choosing "no frame" silently threw the tier away — and the foil
+           weight with it. Two questions, two controls, one row. -->
+      <div class="chips" style="margin-top:6px">
+        <button type="button" id="frame" class="chip">FRAMED · TRIM + SORTS</button>
+        <span class="v" id="vFrame" style="align-self:center">framed</span>
+      </div>
+      <div class="note"><strong>Frameless</strong> takes the trim away and the composition runs to
+        the die edge — a <strong>full bleed</strong>, a real thing a press does and a different
+        kind of card. It takes the border sorts with it: sorts are set INTO the trim, so a
+        frameless card with a ruled border still on it is a border round nothing. The name stays —
+        that is the card's title, not its frame. ⚠ The trim is what makes the artwork read as a
+        <em>window</em>; bleeding to all four edges is what turned the first proof into wallpaper.
+        That is why it is an option and not the default.</div>
       <details class="why"><summary>why the border changes</summary>
         <div class="note">A printer sets a rule from repeated pieces of TYPE — border sorts, out of
         the same fount as the name. <strong>Rarity picks the family, the seed picks the frame</strong>,
@@ -412,18 +431,6 @@ frame and seed are left alone">RESET TO BASE</button>
         registrations, the film weights, the roller band. It is still a separation and still a
         print, just not a <em>screened</em> one. ⚠ The dot relief goes with it — beads of ink
         standing proud are the stipple in three dimensions.</div>
-    </div>
-
-    <div class="grp">
-      <label>THE EDGE <span class="v" id="vFrame">framed</span></label>
-      <div class="row"><button type="button" id="frame">FRAMED · TRIM + SORTS</button></div>
-      <div class="note"><strong>Frameless</strong> takes the trim away and the composition runs to
-        the die edge — a <strong>full bleed</strong>, which is a real thing a press does and a
-        different kind of card. It takes the border sorts with it: sorts are set INTO the trim, so
-        a frameless card with a ruled border still on it is a border round nothing. The name stays
-        — that is the card's title, not its frame. ⚠ The trim is what makes the artwork read as a
-        <em>window</em>; bleeding to all four edges is what turned the first proof into wallpaper.
-        That is why this is an option and not the default.</div>
     </div>
 
     <div class="grp">
