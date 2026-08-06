@@ -70,6 +70,27 @@ retired name. **That is the precedent.** Everything else on this page is recover
 
 ---
 
+## The four addresses, and which key is hot
+
+⛔ **Read this before you paste anything.** Four distinct wallets, and mixing two of them is either
+permanent or expensive.
+
+| wallet | role | key | fixable? |
+| --- | --- | --- | --- |
+| `0x8455cF296e1265b494605207e97884813De21950` | **treasury** — packs, rake, arcade fee | **COLD (Ledger)**, signs nothing | ⛔ `immutable` in PackSink — redeploy |
+| `0x432D71bA14D2602B566dD9e3e098E24859d166c9` | **deploys the edition**, owns the lens | HOT, by necessity | ⛔ deploy wallet is permanent for profile association |
+| `0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049` | **claim signer** — signs hero vouchers | HOT, used all season | ✅ `setClaimSigner` |
+| `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` | Sepolia rehearsals | testnet only | n/a |
+
+⚑ **The treasury signs NOTHING** — `_split()` pushes to it and `flush()` is permissionless — which
+is why cold costs the mechanism nothing.
+⛔ **The claim signer MUST be an EOA.** The contract verifies with `ECDSA.recover`; a Safe or any
+contract wallet reverts every claim with `BadSignature()`.
+⛔ **Deploy the edition from the SuperRare-account wallet or the drop never associates with the
+artist profile.** That one is not fixed by redeploying anything else.
+
+---
+
 ## ✅ P0 IS MEASURED — and it changed the preset and the pack price
 
 **Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the full 3,300,000 supply.

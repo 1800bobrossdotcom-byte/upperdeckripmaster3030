@@ -40,7 +40,7 @@ const decU = h => BigInt('0x' + (h.replace(/^0x/, '') || '0'));
 const evm = await EVM.create({ common: new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Shanghai }) });
 const DEP = new Address(hexToBytes('0x1111111111111111111111111111111111111111'));
 const BUYER = new Address(hexToBytes('0x2222222222222222222222222222222222222222'));
-const TREAS = '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F';
+const TREAS = '0x8455cF296e1265b494605207e97884813De21950';
 for (const a of [DEP, BUYER]) await evm.stateManager.putAccount(a, new Account(0n, 10n ** 20n));
 
 const deploy = async (bin, args = '') => {

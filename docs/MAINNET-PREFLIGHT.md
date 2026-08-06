@@ -71,8 +71,33 @@ Reachable from `arcade.html`, loading, playable, no console errors, on **desktop
 
 ---
 
+## 0 · The flip itself is NINE fields — run `npm run test:name` after it
+
+⛔ **"Flip `network` to mainnet" reads like one edit and is nine**: `network`, `chainId`, `label`,
+the RPC list, `protocol.liquidFactory`, `protocol.rare`, `contracts.liquidEdition`,
+`contracts.renderContract` — and `packSink`/`lens721` once they exist. **A partial flip does not
+error; it misbehaves quietly.** `chainId` alone decides which network the collector's wallet is
+forced onto, which SuperRare host `buyUrl()` points at (testnet ids go to `dev.superrare.co`), and
+every explorer link on the site — so `network:"mainnet"` with the Sepolia `chainId` left behind
+gives a mainnet-branded site that herds people onto a testnet, with nothing thrown.
+
+✅ **`npm run test:name` now derives every chain-scoped field from whatever `network` claims to be
+and fails on each one that disagrees.** Change `network` alone and it prints the remaining eight as
+named failures — i.e. the flip has a checklist that cannot be half-completed. Verified by doing
+exactly that: 7 failures, each naming its field.
+
+⚠ **One value it cannot check: MAINNET RARE.** The repo records it only truncated
+(`0xba5BDe66…6350`, `docs/TOKEN-MATH.md`). **Get the full address from SuperRare and do not guess
+it** — a wrong reserve token is not a typo, it is the pool pointing at the wrong asset. The test
+asserts only that it stopped being the Sepolia one, and says so.
+
+⚠ And the standing rule no test can enforce: **read the renderer off the edition**
+(`edition.renderContract()`), never from a recorded note. `chain-config` once carried a superseded
+renderer that looked entirely plausible.
+
 ## Order
 
+0. Flip `chain-config` (all nine fields) and run `npm run test:name` until it is green.
 1. Deploy `PackSink` + `Ripmaster3030Lens721`; paste addresses into `chain-config` *(task #89 —
    still open, and gates 2, 4 and 5 cannot run until it is done)*.
 2. Fresh wallet, fresh browser profile.

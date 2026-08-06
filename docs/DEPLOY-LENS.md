@@ -17,8 +17,8 @@ Sepolia, and break it there.
 
 | | what it does | should be |
 |---|---|---|
-| **deployer / owner** | admin — can retarget the renderer, register card art | your SuperRare-linked wallet, `0x5C3bc6dD…35d89F` |
-| **claim signer** | signs hero vouchers all season | **a different wallet** |
+| **deployer / owner** | admin — can retarget the renderer, register card art | ⛔ **MAINNET: `0x432D71bA14D2602B566dD9e3e098E24859d166c9`** — the SuperRare-account wallet. ⚠ This table said `0x5C3bc6dD…35d89F` until 2026-08-06; that is the **Sepolia** wallet. SuperRare's golden rule is that the edition must be deployed from the exact wallet connected to the verified account, or the drop is not associated with the artist profile. |
+| **claim signer** | signs hero vouchers all season | ✅ **`0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049`** — artist's, 2026-08-06. A different wallet from the owner, deliberately. |
 
 They *can* be the same address and the contract will work. Don't. The signer is a hot key
 you'll use repeatedly to issue claims; the owner can rewrite what every card points at. If
@@ -65,7 +65,7 @@ That's expected and reported separately.)
 | 1 | `name_` | `ripmaster3030studios lens` |
 | 2 | `symbol_` | `3030L` |
 | 3 | `editionRenderer_` | `0x948E633054c516253D21d313aC789B37935de903` |
-| 4 | `claimSigner_` | *your signer address — not the deployer* |
+| 4 | `claimSigner_` | **`0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049`** ⛔ **must be an EOA** — the contract verifies with `ECDSA.recover`, so a Safe or any contract wallet reverts every claim with `BadSignature()` (no EIP-1271 path). |
 | 5 | `externalUrl_` | `https://ripmaster3030studios.com` |
 | 6 | `lensBaseUrl_` | `https://ripmaster3030studios.com/cards/hero/` |
 
@@ -112,7 +112,7 @@ npm run test:lens                            # 98/98 locally BEFORE spending gas
 export PRIVATE_KEY=0x…                       # your shell only. never commit, never paste in chat
 node scripts/lens-cli.mjs deploy \
   --renderer 0x948E633054c516253D21d313aC789B37935de903 \
-  --signer   0x<your signer address>
+  --signer   0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049
 
 node scripts/lens-cli.mjs verify --at 0x<new lens>
 ```

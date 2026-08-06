@@ -1,5 +1,21 @@
 # $3030 — the economic flow (canonical)
 
+> ## ⚠ CANONICAL FOR STRUCTURE — **NOT** FOR THE PACK PRICE OR THE CAP (updated 2026-08-06)
+> **Pack price: `docs/PACK-PRICING.md`. Live numbers: `npm run model`. Cap: 3,300,000.**
+>
+> ⛔ This file is pointed at from CLAUDE.md as *the* canonical narrative, so a stale figure here
+> propagates further than one anywhere else. Two had gone stale, **a generation apart**:
+> - the pack was written as **~350 tok (~$7) → ~1,200 tok (~$24)**. Dead: the open is a MEASURED
+>   ~$0.08, which makes 350 tokens a **$28** pack. Packs are a **dollar target** —
+>   **$10 / $12 / $15 / $20** — with the token count re-derived at each tier open and then locked.
+> - §5 measured the contraction **against a 33,000,000 cap**. That direction was REVERSED on
+>   2026-08-02; the cap is **3,300,000**.
+>
+> ⚑ Both are fixed in place below. The lesson is the label: **"canonical" is a claim about
+> STRUCTURE — which contract does what, what is atomic, what burns — and it does not extend to
+> the NUMBERS, which move.** A doc that is canonical about everything is a doc nobody dares
+> correct, and this one had gone two decisions stale while carrying the word at the top.
+
 *How the token, the packs, the lenses, the games, and the burn fit together.
 **Model v2.2 — the handmade 100-card deck.** Decisions locked with the artist are
 marked ✅; items still needing SuperRare are marked ⏳.*
@@ -100,14 +116,25 @@ transactions can half-execute; see `docs/TREASURY.md` for why that is not negoti
 - **Allotment (site-enforced, dwindling):** Tier I **1,600** → II **1,100** → III **600**
   → IV **260** = **≈3,560 packs**. The pack count is bounded by the **burn budget, not
   card supply** — allotment gone ⇒ that tier closes and the next opens (secondary market in between).
-- **Price escalates** within a tier (base→ceil as the allotment sells) and across
-  tiers: **~350 tok (~$7)** in Tier I → **~1,200 tok (~$24)** by Tier IV, on top of token
-  appreciation.
+- **Price is a DOLLAR target and escalates across tiers: $10 → $12 → $15 → $20.** The `$3030`
+  amount is derived from the live token price when a tier OPENS and then **locked for that
+  tier** — at the measured ~$0.08 open, Tier I is **125 $3030** (62.5 burned · 62.5 to the
+  studio). ⚑ Locking at open is the only rule that is both honest to the dollar price and stable
+  enough to publish: recomputing per purchase makes "1,600 packs" unpriceable, never recomputing
+  lets a 3× appreciation turn a $12 pack into a $36 one. `js/chain-config.js` `packBurn` carries
+  the current tier's count and is pinned to `docs/PACK-PRICING.md` by `npm run test:name`.
+  ⛔ The old **~350 tok (~$7) → ~1,200 tok (~$24)** schedule is dead — it assumed a $0.02 token.
 - A pack reveals **field cards** (site-layer). **Rarely** it carries one of the **11
   gacha lens-claims** — mint it and you have a hero lens. **Lovebeing is not in packs.**
 - **Full four-tier sellout burns ≈ 1.01M** and pays the studio ≈ **1.01M** (`token-model.mjs`)
-  — see §6. ⚠ Against a 33M cap that is a **1.03× contraction, i.e. essentially none**; the
-  deflation thesis does not survive the supply change and is an open decision (see `CLAUDE.md`).
+  — see §6. ⛔ **That ≈1.01M figure came from the DEAD fixed-token schedule and no longer holds**;
+  under dollar-priced packs the four-tier burn depends on where the token trades, which is why
+  **no burn percentage and no contraction multiple is published at all.** ⚠ The direction is
+  counter-intuitive and is the reason: **if the token appreciates, a $12 pack costs FEWER tokens,
+  so pack-driven burn FALLS as the price rises.** The site publishes **live burn and live studio
+  totals** read from the chain — facts at the moment of reading, not forecasts.
+  ⚠ The line here previously measured this "against a 33M cap"; the cap is **3,300,000** (the 33M
+  direction was reversed 2026-08-02).
 
 ## 5 · Games — WAGERS, and where 22 lenses are earned ✅
 

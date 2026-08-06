@@ -21,7 +21,18 @@
   //    practice pull when the token isn't live or there's no wallet. ──
   const W = () => window.RipWallet || null;
   const onchainRip = () => !!(W() && W().isLive() && W().hasWallet());
-  const packBurn = () => Math.max(1, ((window.RIPMASTER_CHAIN || {}).packBurn) || 350);
+  /* ⚠ THE FALLBACK IS A SECOND SOURCE OF TRUTH AND MUST AGREE WITH chain-config. It was `|| 350`
+   * here and in cabinet.html while the config said 125 — three literals for one price, and the
+   * two nobody edits are the ones that ship a wrong number. `npm run test:name` asserts every
+   * fallback equals chain-config.packBurn, which is the only reason a bare literal is safe here
+   * (these are separate shipped files; there is nothing to import). */
+  const packBurn = () => Math.max(1, ((window.RIPMASTER_CHAIN || {}).packBurn) || 125);
+  /* ⛔ THE SPLIT IS EXACT IN WEI, SO THE RECEIPT MUST NOT ROUND IT. PackSink computes
+   * `burned = amount*5000/10000` and `toTreasury = amount - burned`, i.e. no dust for any input.
+   * `Math.floor(cost/2)` printed "62 · 63" for a 125-token pack — a receipt claiming an
+   * asymmetric split the chain did not perform. It was invisible while the pack was 350 (an even
+   * number halves cleanly), so the display bug shipped hidden behind a round price. */
+  const halfStr = (n) => (n / 2).toFixed(1).replace(/\.0$/, '');
   let lastTx = null, practice = false, lastSplit = false;   // lastSplit: went through PackSink
 
   /* ── ⛔ THE REVEAL IS THE ONE CARD THAT HAS TO BE AN OBJECT ────────────────────────────────
@@ -120,7 +131,7 @@
                    : 'confirm the burn of ' + need + ' $3030 in your wallet…');
     const r = await w.payPack(need, step => showBusy(step === 'approve'
       ? 'approve ' + need + ' $3030 for the pack…'
-      : 'confirm the pack — ' + Math.floor(need / 2) + ' burns, ' + (need - Math.floor(need / 2)) + ' funds the studio…'));
+      : 'confirm the pack — ' + halfStr(need) + ' burns, ' + halfStr(need) + ' funds the studio…'));
     if (!r.ok) return ripBlocked(w.explain(r.reason));
     lastTx = r.tx; practice = false; lastSplit = !!r.split;
     busy = false;                           // release the status latch so rip() can run
@@ -245,9 +256,9 @@
       const banner = document.createElement('div'); banner.className = 'pack-tx';
       // ⚠ Say what actually happened, not what the economics doc says: with PackSink unwired the
       //   whole pack still burns, and claiming a studio split that didn't occur is a false receipt.
-      const half = Math.floor(packBurn() / 2);
+      const half = halfStr(packBurn());
       banner.innerHTML = '<span class="ic" data-ic="flame"></span> ' + (lastSplit
-        ? 'burned ' + half + ' $3030 · ' + (packBurn() - half) + ' to the studio'
+        ? 'burned ' + half + ' $3030 · ' + half + ' to the studio'
         : 'burned ' + packBurn() + ' $3030') +
         ' · <a href="' + W().explorerTx(lastTx) + '" target="_blank" rel="noopener noreferrer">view tx ↗</a>';
       reveal.prepend(banner);

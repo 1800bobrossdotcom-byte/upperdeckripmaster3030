@@ -933,8 +933,33 @@
     const wp=surge?WEAP[WEAP.length-1]:WEAP[Math.min(WEAP.length,s.weapon)-1];           // surge fires the top gun regardless of tier
     const base=s.isMe?meAimHeading():s.h; const home=s.isMe?(G.lock||(surge?nearestFoe(s):null)):null;
     const sp=s.zoom?54:BOLTSPD, dmgM=(s.zoom?1.5:1)*(s.cardDmg||1)*(surge?1.6:1);        // zoomed precision + staked-card damage + surge
-    for(const off of wp.bolts){ const a=base+off+(s.isMe?0:rnd(0.09,-0.09));    // bots spray a little → they miss more
-      G.bolts.push({ x:wpos(s.x+Math.cos(s.h)*0.7), y:wpos(s.y+Math.sin(s.h)*0.7), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser||surge, me:s.isMe, home, surge }); }
+    /* ── ⛔ THE GUNS ARE ON THE WINGS, AND THAT IS A VISIBILITY FIX, NOT A DETAIL ────────────
+     * Artist, 2026-08-06: *"I cannot see the gun shots from the gun."* Every barrel used to spawn
+     * its bolt at the SAME point — 0.7 ahead on the centreline — so all fire left the aircraft
+     * from one spot dead on the optical axis. Measured from the chase camera (CAM_BACK 2.4,
+     * CAM_H 1.2, and level flight puts the eye at exactly the ship's altitude): the tracer
+     * ribbon is end-on, so it foreshortens from 43 px to 3.3 px in 0.4 s while sitting on the
+     * vanishing point the whole way. The rounds were drawn — 20 bolts really do add 40 additive
+     * quads — they were just drawn along the one axis that projects to nothing.
+     * ⚑ Putting the barrels where the guns actually ARE fixes it geometrically rather than by
+     *   turning brightness up: a bolt leaving a wing root starts OFF the axis and converges on
+     *   the aim point, so it has real screen travel from the only angle the player ever watches
+     *   from. It also answers the literal complaint — the shots now come from the gun.
+     * ⚠ Gameplay-neutral by construction: only the ORIGIN moves, by at most SPAN. The heading,
+     *   speed, damage, lifetime and aim-assist are untouched, so lead and convergence are what
+     *   they were. */
+    const SPAN=0.34;                       // wing hardpoint half-span, against CRAFT 0.9
+    const offs=wp.bolts, mx=Math.max(...offs.map(Math.abs))||1;
+    /* ⚠ A SINGLE BARREL HAS NO SPREAD TO DERIVE A HARDPOINT FROM, and it is the weapon the
+     * player starts with — i.e. exactly the one the complaint is about. So the lone cannon
+     * ALTERNATES wings shot to shot, which is both what a twin-gun aircraft really does and the
+     * only way a one-bolt weapon is ever off-axis. */
+    const lat=offs.length===1 ? [((s.gunTick=(s.gunTick|0)+1)%2?1:-1)*SPAN] : offs.map(o=>o/mx*SPAN);
+    const cs=Math.cos(s.h), sn=Math.sin(s.h);
+    s.gunLat=lat;                          // the FX draws a muzzle flash at each hardpoint
+    for(let i=0;i<offs.length;i++){ const off=offs[i], a=base+off+(s.isMe?0:rnd(0.09,-0.09));  // bots spray a little → they miss more
+      const px=s.x+cs*0.7-sn*lat[i], py=s.y+sn*0.7+cs*lat[i];
+      G.bolts.push({ x:wpos(px), y:wpos(py), alt:s.alt, h:a, life:s.isMe?2.1:1.6, own:s, dmg:wp.dmg*dmgM, sp, laser:!!wp.laser||surge, me:s.isMe, home, surge }); }
     /* ⚠ EVERY ship stamps it, not only yours — a flash is how you spot who is shooting at you,
      *   and it was inside the `isMe` branch beside the recoil and the shake, which are genuinely
      *   yours alone. (It was also read by nothing at all until js/dogfight-gl.js drew it.) */
