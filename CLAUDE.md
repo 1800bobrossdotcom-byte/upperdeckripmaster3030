@@ -1301,13 +1301,88 @@ available)."* Replaces CLEAN SWEEP as `docs/HERO-UNLOCKS.md` #7; measurement in 
   sits on the position list at 320 and 390). **Moving `arm()` into `raceStarted` — which makes
   quitting during the lights cost your streak — passed all 45.** The claim was in the module header
   with nothing behind it; B10/B11 exist because of that, and now it fails 2.
-- ⛔ **UNRESOLVED AND THE ARTIST'S: THREE SEATS MAKES 35 HEROES.** `11 auction + 11 gacha + 11
-  earned` is the settled 33, and 33 is the deck (`tokenURI` 1–33), not a slogan. Three seats on one
-  title makes the earned tier 13. Options in HERO-UNLOCKS §4¾. ⚑ **So the ×3 is on NO public page
-  and no aggregate count was touched** — every "11 earned" is true under option A and false under
-  B, and printing "eleven earned titles" beside "one has three seats" is shipping a contradiction.
-  The condition change *is* published (it stands alone); the multiplicity waits. The game's result
-  screen says "three" and states no split, so it cannot be wrong about one.
+- ✅ **SETTLED 2026-08-06 — NINE TITLES, ELEVEN CARDS, 33 INTACT.** Three seats made the earned
+  tier 13 against a settled 11. The artist resolved it by redistributing: *"disperse the remaining
+  cards that are not in cloud race or riprocketer — and create ways for the players to redeem them
+  in dog fight, section 9, or the city."* CLOUD RACER 3 · RIP ROCKETER 2 · DOGFIGHT 2 · SECTION 9 2
+  · THE CITY 2 = **11 cards over 9 titles**, so **no aggregate on any public page moved** — "11
+  earned" was true before and is true now. That is why option A was worth holding for; option B
+  would have moved the gacha count on six generated surfaces and in the token model.
+- ⛔ **AND IT CAUGHT TWO TITLES POINTING AT A RETIRED CABINET.** THREE CUTS and NO SWORD were NEON
+  RONIN's, and **NEON RONIN has not existed since 2026-08-03** — THE CITY replaced it. Two of the
+  eleven ways to win a 1/1 named a game that is not in the arcade, in the document that tells
+  players how to win one. **"A surface nobody looks at rots", on the page with real value behind
+  it.** Their replacements are THE CITY's two, in the cabinet that replaced their cabinet.
+  ⚠ HOUSE MONEY (THE ARENA) and THE LONG COUNT (cross-game) went too, because the instruction named
+  three destinations and neither is one. **THE ARENA now carries no title and it is a live
+  cabinet** — flagged for the artist, not silently accepted.
+- ⚠ **THE COUNTING NOUN IS LOAD-BEARING NOW.** Eleven **cards** across nine **titles**. The
+  whitepaper heading said "The eleven earned titles" over a list that is now nine; it reads
+  "eleven earned cards, across nine titles". A page that says eleven and lists nine is the small
+  untruth that gets quoted back.
+
+## ⛔ EVERY DOGFIGHT AND SECTION 9 MATCH THREW AT THE FINAL WHISTLE — a deleted variable
+**Found by driving `endMatch()` for a title test, not by any check that existed.** The music pass
+(`422baff`, "the cabinets' own soundtracks are deleted") removed the `music` binding and left
+**five calls on it**:
+| where | effect |
+| --- | --- |
+| `dogfight.html` `endMatch()` | ⛔ threw before the ranking, the payout, the card winnings and the entire result overlay. **Every match.** |
+| `js/s9pc-ui.js` `result()` | ⛔ the same, in SECTION 9 |
+| `js/s9pc-app.js` `togglePause()` | `ui.music` undefined ⇒ **pausing threw**, so the overlay never showed |
+| `js/s9pc-ui.js` `btnAbort` | threw past `RipNet.setStatus` and `onAbort` |
+| `js/rrpc-app.js` | inside a `try/catch` — merely dead |
+- ⛔ **NOTHING COULD SEE IT, AND THE GAMES LOOK PERFECT UNTIL THE CLOCK HITS ZERO.** `test:reach` §0
+  compiles every shipped script with `new Function`, which **does not execute** — this file already
+  records that trap — so a ReferenceError on a line that only runs at the final whistle is
+  invisible to every static check here. `test:cab` drives the pages and never reaches the end of a
+  match. **The only thing that finds it is running the line.**
+- ⚑ **THE TWO FATAL ONES ARE THE BUSIEST LINE IN EACH GAME.** `G.over=true; G.mode='result';`
+  execute, *then* it throws — so the match stops and the result screen never builds. A player sees
+  the game freeze on the last frame with no podium, no winnings and no error they can read.
+- ✅ **`test:reach` §3d asserts no cabinet holds a music handle at all**, which is the right rule
+  rather than a heuristic: site music belongs to `theme.js` and persists across pages BY DESIGN, so
+  a game pausing it would be wrong even if the binding existed. Proved to bite with the exact
+  broken bytes from `git show 041deae:dogfight.html` — 1 failure, naming the file.
+- ⚑ **THE GENERALISATION: DELETING A FEATURE IS TWO JOBS.** Removing the thing, and removing what
+  called it. The music pass did the first, was tested, and shipped the second as five landmines.
+
+## ✅ SIX TITLES DISPERSED, AND ONE LEDGER — `js/title-ledger.js`, `npm run test:titles` (67)
+*Artist, 2026-08-06: "disperse the remaining cards that are not in cloud race or riprocketer — and
+create ways for the players to redeem them in dog fight, section 9, or the city."*
+- **DOGFIGHT** THE WIRE · DEAD STICK — **SECTION 9** ONE MAG · GHOST WALK — **THE CITY** DEAD AIR ·
+  BOTH ENDS. Detectors live in each cabinet (a feat is game logic); the LEDGER and the redeem panel
+  are shared (a claim is not, and three copies of the claim wording would drift — this repo's most
+  frequently paid bill).
+- ⛔ **REDEEM MEANS A CLAIM SLIP, NOT A MINT, AND THAT IS HERO-UNLOCKS §1 NOT A SHORTCUT.** Every
+  score here is localStorage, so a browser that reports "I did it" to a contract hands out eleven
+  1/1s to whoever reads the source first. The chain mints only against a `kind 2` voucher a human
+  signed. ⚑ **That inverts the problem: because a person verifies the recorded run, the ledger does
+  not have to be trustworthy — it has to be LEGIBLE.** The panel prints the title, the rule and the
+  evidence the game measured, says out loud that the studio is the judge, and never asks for a key.
+- ⛔ **THE BADGE ONLY EXISTS ONCE SOMETHING IS CLEARED.** A permanent REDEEM control on a page where
+  nothing has been earned is a button that goes nowhere — `theme.js` records that as the one
+  failure worse than absence — and one more fixed element fighting for a corner, which `banner.js`
+  and the music pill have each cost a day. Asserted in both directions on all four cabinets.
+- ⚑ **DEAD AIR IS MEASURED AND THE NUMBER CHOSE THE RULE.** The glide ratio is a flat **8.2 : 1** at
+  every altitude (⚠ CLAUDE.md's recorded ~11:1 was stale), so a 40 m cap buys **328 m and no more**
+  — 300 m spends 91% of the physical maximum, and there is no climbing out of trouble because
+  going over 40 m **voids** the window rather than pausing it (the streak's abandonment hole, in
+  another shape). From five random city points a straight glide ran 327 · 327 · 327 · 311 · **190**
+  — two of five hit a building — so it is won by reading the city first, which is the one thing the
+  bird is for.
+- ⚑ **BOTH ENDS MATCHES BY OBJECT IDENTITY, NOT BY KIND.** Kinds repeat and a rival can drop an
+  identical card a metre away; the title says *that same card*. It is also the only title that makes
+  you play two animals, which is `CITY-GAME.md`'s "layers, not skins" claim as a condition.
+- ⚑ **GHOST WALK IS PER LIFE, NOT PER ROUND.** Measured once per round it is satisfied by being shot
+  at in the opening seconds and then opening every fight yourself. `shotAt` resets on respawn.
+- ⚠ **THE WIRE DOES NOT REQUIRE THE WIN** (the condition is the route and the clean sheet); DEAD
+  STICK does, because refusing the escape button only means something if you still came first.
+- ⚠ **FOUR SABOTAGES BIT**: pausing the glide instead of voiding it fails 2; matching BOTH ENDS on
+  kind fails 2; an always-visible badge fails 4; the restored `music.pause()` fails 1.
+- ⚠ **§D EXISTS BECAUSE THE FOUR NON-CITY TITLES WERE `built ≠ reachable`.** §C proves the ledger
+  loads on those pages and says nothing about whether either game can ever CALL `award()`. Driving
+  the real `endMatch()` is what proved the detector — and is what found the music bug above.
 
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,

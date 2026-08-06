@@ -632,7 +632,7 @@ window.CityApp = (function () {
   };
 
   const me = { x: 0, y: 6, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, onGround: false,
-               speed: 0, flapT: 0, beat: 0, alt: 0,
+               speed: 0, flapT: 0, beat: 0, alt: 0, flaps: 0,
                roll: 0, rollV: 0, pitch: 0, spd: 70 };   // jet state: a spring, not a lerp
   const keys = Object.create(null);
   addEventListener('keydown', e => { const k = e.key.toLowerCase(); keys[k] = true;
@@ -864,12 +864,25 @@ window.CityApp = (function () {
        * out-run the bird and land ahead of it, which is neither funny nor useful — and the joke
        * IS the mechanic: you cannot place it precisely, you have to fly over the spot. */
       const d = drops.drop(me.x, me.y, me.z, me.vx, me.vz);
+      /* BOTH ENDS matches the card by OBJECT IDENTITY, so the reference has to be handed over at
+       * the moment it is released — kinds repeat, and a rival can drop an identical card a metre
+       * away. The title says "that same card". */
+      if (d && titles) titles.plant(d, CREATURE);
       says(d ? ('DROPPED ' + d.kind.name) : 'POUCH EMPTY — fly low over a card to pick one up');
       return d;
     }
     const d = drops.dropCarried(me);
     says(d ? ('DROPPED ' + d.kind.name) : 'NOTHING TO DROP — take one off the ground or off a rival');
     return d;
+  }
+
+  /* One snapshot a frame. `alt` is height above the ground BENEATH you — the city already derives
+   * it from the collider — which is the only reading of "40 m up" that means the same thing over
+   * the river and over a hill. */
+  function stepTitles() {
+    if (!titles) return;
+    titles.step({ x: me.x, z: me.z, alt: me.alt, onGround: me.onGround, flaps: me.flaps || 0,
+      creature: CREATURE, mode: MODE, carried: drops ? drops.carried : null });
   }
 
   function readInput() {
@@ -939,6 +952,7 @@ window.CityApp = (function () {
    *   is destroyed outright and rebuilt identically when you turn round. A cache here would be a
    *   second source of truth for the shape of the world. */
   let ready = false, bounds = null, collide = null, LEVEL = null, drops = null, ops = null, rides = null;
+  let titles = null;
   const NEAR_R = 2;                    // chunks: 5 x 5 full-detail = 600 m of city you can land on
   const REGION = 4;                    // chunks per side of a horizon region
   const FAR_R = 2;                     // regions: 5 x 5 = 20 x 20 chunks = 2.4 km of visible city
@@ -1210,6 +1224,13 @@ window.CityApp = (function () {
     /* ⚑ CARS — artist, 2026-08-04. Same shape as the drops and the firefight: its own module,
      * handed the one collider, failing open to a city with no cars in it. */
     rides = window.CityRides ? CityRides.create(app, world, { collide }) : null;
+    /* ⚑ THE TWO EARNED TITLES (docs/HERO-UNLOCKS.md #8/#9). Same shape as the drops and the cars:
+     * its own module, handed a plain snapshot once a frame, failing open to a city with no titles
+     * in it. The LEDGER is `js/title-ledger.js`, shared with DOGFIGHT and SECTION 9 — a claim is
+     * not game logic and three copies of it would drift. */
+    titles = window.CityTitles ? CityTitles.create({
+      award: (id, ev) => { try { if (window.RipTitles) RipTitles.award(id, ev); } catch (e) {} },
+    }) : null;
     ops = window.CityOps
       ? CityOps.create(app, world, { collide, moveBody, camera: cam,
           onKill: (x, y, z) => { if (drops) drops.drop(x, y, z, 0, 0); } })
@@ -1255,6 +1276,12 @@ window.CityApp = (function () {
     if (ops) { ops.setTrigger(IN.fire); ops.setAds(IN.ads); }
     stepOps(dt);
     stepDash(dt);          // ⛔ inside step(), so `_step(n)` advances it too
+    /* ⛔ BEFORE THE EARLY RETURNS. `step()` returns early for a car and for the jet, so anything
+     * hung off the end of it silently stops running in two of the four bodies — and DEAD AIR has
+     * to keep watching in every body, because leaving the bird is one of the things that BREAKS a
+     * glide. Sampling here reads last frame's `alt`/`onGround`, which is consistent frame to frame
+     * and is what a displacement measurement needs. */
+    stepTitles();
     /* ⛔ DRIVING REPLACES THE BODY'S STEP, NOT THE MODE. You are still an animal or an operative —
      * `targetable` and `armed` are untouched — you are simply in a car, so the car integrates and
      * the body rides along at its seat. Making this a fourth MODE would have put a loophole in the
@@ -1283,6 +1310,10 @@ window.CityApp = (function () {
     me.beat = Math.max(0, me.beat - dt * 3.4);          // the visual settle after a beat
     if (wantFlap && me.flapT <= 0) {
       me.flapT = FLY.flapEvery; me.beat = 1;
+      /* ⚑ COUNTED, NOT INFERRED. DEAD AIR turns on "not a single wingbeat", and reading that back
+       * out of `flapT` or `beat` is a guess that a dropped frame can get wrong in either
+       * direction. One increment at the one place a beat happens cannot. */
+      me.flaps = (me.flaps || 0) + 1;
       me.vy += me.onGround ? FLY.flapV * 1.25 : FLY.flapV;   // the launch beat is the bigger one
       if (!me.onGround) { me.vx += hx * FLY.flapFwd; me.vz += hz * FLY.flapFwd; }
       me.onGround = false;
@@ -2287,6 +2318,7 @@ window.CityApp = (function () {
     },
     setMode, setCreature, cycleMode, get mode() { return MODE; },
     get drops() { return drops; }, _act() { return doAction(); },
+    get titles() { return titles; },
     /* ⛔ THE FIREFIGHT, EXPOSED SO THE OBSERVER RULE IS A MEASUREMENT. `ops.targets(player)` is the
      * only place a target list is built, so a driver can put a bird next to four operatives and
      * assert it never appears in one — which is the difference between an ethos and a comment. */

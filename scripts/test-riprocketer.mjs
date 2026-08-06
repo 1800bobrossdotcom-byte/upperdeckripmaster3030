@@ -619,7 +619,50 @@ console.log('\n── 10 · THE COMBO CAMERA AND THE EXPOSURE SMEAR ────
   await lo.close();
 }
 
-console.log('\n── 11 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
+console.log('\n── 11 · THE TWO EARNED-TITLE CONDITIONS — docs/HERO-UNLOCKS.md ────────────────');
+/* NEVER STILL (clear a tier without the FLOW chain lapsing, and without dying) and COLD BARREL
+ * (clear a tier having fired only while OVERDRIVE was lit) are claimed against a voucher a human
+ * signs — nothing here gates a mint. What these assertions protect is that the two flags mean
+ * what the published condition says, because THREE earlier drafts of these titles were measured
+ * and thrown away: one impossible (overdrive cannot be held past 4.2 s on a 10.2 s cycle), one
+ * free (a wave-scoped overdrive share is banked at 100% by a bot that just holds the trigger),
+ * and one unclaimable (an every-KILL version loses to an incidental ram at 99%).
+ * ⚠ Each assertion drives the flag to BOTH states. "The flag is false" is trivially true of a
+ *   flag nothing ever sets, which is exactly how a dead title would look. */
+{
+  const t = await page.evaluate(() => {
+    const G = __rrpc.G, s = G.ship, out = {};
+    const arm = () => { s.alive = true; s.inv = 0; s.iframe = 0; s.od = 0; s.odCd = 0;
+      s.fireT = -99; s.flow = 0; s.flowT = 0;
+      G.stat.tierOdOnly = true; G.stat.tierFlowOk = true; G.stat.flowRun = 0; G.stat.flowHeld = 0; };
+
+    // COLD BARREL — a shot with overdrive DOWN breaks it; a shot with overdrive LIT does not.
+    arm(); RRGame.fire(G);                    out.shotCold = G.stat.tierOdOnly;
+    arm(); s.od = 3; s.fireT = -99; RRGame.fire(G); out.shotHot  = G.stat.tierOdOnly;
+
+    // NEVER STILL — the chain survives a dash, and DYING ends it.
+    arm(); RRGame.dash(G, 1);
+    for (let i = 0; i < 20; i++) __rrpc._step(1, 1 / 120);
+    out.flowAlive = G.stat.tierFlowOk; out.flowN = s.flow;
+    // let it lapse on its own: FLOW_WIN is 1.15 s, so two seconds with no input drops it
+    for (let i = 0; i < 260; i++) __rrpc._step(1, 1 / 120);
+    out.flowLapsed = G.stat.tierFlowOk; out.held = +G.stat.flowHeld.toFixed(2);
+    return out;
+  });
+  ok(t.shotCold === false, 'COLD BARREL: firing with OVERDRIVE down breaks the tier',
+    'tierOdOnly ' + t.shotCold);
+  ok(t.shotHot === true, '…and firing with OVERDRIVE lit does NOT — the flag is not just always false',
+    'tierOdOnly ' + t.shotHot);
+  ok(t.flowAlive === true && t.flowN >= 1, 'NEVER STILL: a dash keeps the chain alive',
+    'flow ' + t.flowN + ' ok ' + t.flowAlive);
+  /* ⛔ the load-bearing half: the chain must LAPSE on its own, and banking the stretch is what
+   * puts a number on a screen capture for the judge to read. */
+  ok(t.flowLapsed === false && t.held > 0,
+    '…and letting it run out lapses the tier AND banks the stretch that was held',
+    'ok ' + t.flowLapsed + ' · held ' + t.held + 's');
+}
+
+console.log('\n── 12 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
 ok(errs.length === 0, 'no page errors', errs.slice(0, 3).join(' | ') || 'clean');
 
 await br.close();
