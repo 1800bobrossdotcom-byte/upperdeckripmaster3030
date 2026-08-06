@@ -33,11 +33,20 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
 const has = f => argv.includes(f);
-const arg = f => argv[argv.indexOf(f) + 1];
+/* ⛔ `indexOf` RETURNS −1 WHEN THE FLAG IS ABSENT, AND −1 + 1 IS 0. The first version read
+ *   `argv[0]` as the value of a `--id` nobody passed, so a plain `--verify` filtered the list
+ *   against Number('--verify') = NaN and matched NOTHING. It then printed "0/0 retrievable" and
+ *   "✓ safe to write on-chain" — a green light from a check that checked nothing, over the one
+ *   decision this file exists to gate. Return undefined when the flag is absent. */
+const arg = f => { const i = argv.indexOf(f); return i < 0 ? undefined : argv[i + 1]; };
 
 const MAN = JSON.parse(readFileSync(join(ROOT, 'cards/hero/cids.json'), 'utf8'));
-const IDS = Object.keys(MAN.cids).map(Number).sort((a, b) => a - b)
-  .filter(id => !arg('--id') || Number(arg('--id')) === id);
+const ONE = arg('--id') === undefined ? null : Number(arg('--id'));
+const ALL = Object.keys(MAN.cids).map(Number).sort((a, b) => a - b);
+const IDS = ONE === null ? ALL : ALL.filter(id => id === ONE);
+/* ⛔ AND AN EMPTY SET MUST NEVER REACH THE VERDICT. "every image is live" is trivially true of no
+ *   images, which is exactly how the bug above produced its reassurance. Refuse instead. */
+if (!IDS.length) { console.error(`⛔ no cards selected (${ALL.length} in the manifest) — refusing to report on an empty set`); process.exit(1); }
 
 /* Gateways to ask. ⚠ MORE THAN ONE, AND NONE OF THEM PINATA'S. A dedicated gateway will serve
  * content it is itself pinning even when nothing else on the network can reach it, so asking only
