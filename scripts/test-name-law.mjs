@@ -30,7 +30,7 @@
  *        filename is innocent. No string search will ever find it, so the assets whose PIXELS
  *        carry the retired name are listed by hand and any reference to one is a failure.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -258,10 +258,37 @@ const DEPLOY_RE = /deploy multicurve "([^"]*)" "([^"]*)"/g;
  *   neither is a string anyone pastes into a terminal. Failing on them would train the reader to
  *   ignore this section, which is worse than not having it. */
 const PLACEHOLDER = a => a === '' || /^[…<]/.test(a);
-for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
+/* ⛔ THE FILE LIST WAS HAND-PICKED AND MISSED THE LAUNCH RUNBOOK. It read TESTNET.md,
+ *   TOKEN-MATH.md and CLAUDE.md — while SIX files carry a `deploy multicurve` line, and the three
+ *   it skipped included **docs/LAUNCH-CHECKLIST.md**, i.e. the document actually open on launch
+ *   night, on the one step that cannot be undone. ⚑ This is the recorded hand-picked-list failure
+ *   verbatim ("a hand-picked list of pairs stops covering the layout the moment the layout
+ *   moves" — the cabinet overlap check that omitted the one pair that collides). A list of files
+ *   that must be right is exactly the kind of list that must be DERIVED. */
+const DEPLOY_DOCS = [
+  ...readdirSync(join(ROOT, 'docs')).filter(f => f.endsWith('.md')).map(f => 'docs/' + f),
+  ...readdirSync(ROOT).filter(f => f.endsWith('.md')),
+].filter(f => /deploy multicurve/.test(readFileSync(join(ROOT, f), 'utf8')));
+/* ⛔ AND A DEAD FILE MAY NOT CARRY A LIVE WEAPON. TOKEN-MATH.md is banner-marked stale, and it was
+ *   still holding a runnable deploy command whose name, symbol and preset had all been fixed
+ *   while `--image` still pointed at `./cards/art/<hero>.png` — a path that resolves to nothing,
+ *   in the placeholder deck task #71 deletes. A HALF-UPDATED command is more dangerous than a
+ *   wholly stale one: the three things a reader spot-checks are all correct, so it reads as
+ *   current. ⚑ And "marked dead" is not protection when the banner covers only NUMBERS and the
+ *   hazard is a COMMAND — a reader obeying the banner exactly would still paste it. So the
+ *   command was removed rather than corrected (the standing rule is that a doc silently edited
+ *   to look current is worse than one plainly marked dead), and its ABSENCE is now the assertion. */
+const DEAD_DOCS = { 'docs/TOKEN-MATH.md': 'banner-marked stale — must not carry a runnable deploy command' };
+for (const [file, why] of Object.entries(DEAD_DOCS)) {
+  ok(!DEPLOY_DOCS.includes(file), `${file} carries NO deploy command — ${why}`);
+}
+ok(DEPLOY_DOCS.length > 0, `deploy commands found to check  (${DEPLOY_DOCS.join(', ')})`);
+ok(DEPLOY_DOCS.includes('docs/LAUNCH-CHECKLIST.md'),
+  '…including the LAUNCH-CHECKLIST, the runbook open on the night');
+for (const file of DEPLOY_DOCS) {
   const src = readFileSync(join(ROOT, file), 'utf8');
   const hits = [...src.matchAll(DEPLOY_RE)].filter(h => !PLACEHOLDER(h[1]) && !PLACEHOLDER(h[2]));
-  ok(hits.length > 0, `${file} — carries a real deploy command to check`);
+  if (!hits.length) continue;                  // template-only (MECHANICS.md's "<NAME>" "<SYMBOL>")
   for (const h of hits) {
     ok(h[1] === TOKEN_NAME, `${file} — name() is exactly "${TOKEN_NAME}"  (found "${h[1]}")`);
     ok(h[2] === TOKEN_SYMBOL, `${file} — symbol() is exactly "${TOKEN_SYMBOL}"  (found "${h[2]}")`);
@@ -490,16 +517,39 @@ console.log('\n── generators may not write the retired name into what they e
    *   argument was wrong — a checker that fires on the note describing its own fix gets muted,
    *   and then it is not a checker (the same lesson the <style> stripper above records). So the
    *   fenced code blocks are pulled out first and only those are asserted on. */
-  const testnet = readFileSync(join(ROOT, 'docs/TESTNET.md'), 'utf8');
-  const fenced = [...testnet.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(m => m[1]).join('\n');
-  const imageArgs = [...fenced.matchAll(/--image\s+(\S+)/g)].map(m => m[1]);
-  ok(imageArgs.length > 0, `the deploy command carries an --image to check  (${imageArgs.join(', ') || 'NONE'})`);
-  for (const art of DEAD_ART) {
-    ok(!imageArgs.some(a => a.includes(art)),
-       `--image does not hand the CLI ${art} as the token's permanent fallback art`);
+  /* ⛔ AND IT CHECKED ONE DOC OUT OF THREE. This pin read only TESTNET.md, while the same
+   *   `--image` flag appears in LAUNCH-CHECKLIST.md — the document actually open on launch night —
+   *   and in TOKEN-MATH.md, which carried a THIRD answer: `./cards/art/<hero>.png`. That path
+   *   resolves to nothing (`<hero>` is a literal placeholder) and points into the PLACEHOLDER
+   *   deck being clean-slated by task #71. ⚑ Checking one of three is how the other two rot back
+   *   in — this file's own recorded lesson, from the `#nogl` panels and the four cabinet names.
+   *   So every doc is swept for fenced deploy commands and each one is held to the same bar. */
+  const docFiles = readdirSync(join(ROOT, 'docs')).filter(f => f.endsWith('.md'))
+    .map(f => ['docs/' + f, readFileSync(join(ROOT, 'docs', f), 'utf8')]);
+  const imageArgs = [];                       // [file, path]
+  for (const [file, src] of docFiles) {
+    const fenced = [...src.matchAll(/```[a-z]*\n([\s\S]*?)```/g)].map(m => m[1]).join('\n');
+    for (const m of fenced.matchAll(/--image\s+(\S+)/g)) imageArgs.push([file, m[1]]);
   }
-  ok(imageArgs.some(a => a.includes('media/site/mark-')),
-     'the deploy command hands the CLI the generated mark');
+  ok(imageArgs.length > 0,
+    `a deploy command carries an --image to check  (${imageArgs.map(a => a[1]).join(', ') || 'NONE'})`);
+  for (const art of DEAD_ART) {
+    const hit = imageArgs.find(a => a[1].includes(art));
+    ok(!hit, `no --image hands the CLI ${art} as the token's permanent fallback art`,
+      hit ? `${hit[0]} → ${hit[1]}` : 'clear');
+  }
+  ok(imageArgs.every(a => a[1].includes('media/site/mark-')),
+    'EVERY --image in every doc hands the CLI the generated mark',
+    imageArgs.map(a => a[1]).join(', '));
+  /* ⛔ AND THE PATH HAS TO RESOLVE. `--image` is what SuperRare's flow calls "the initial fallback
+   *   metadata" — the token's PERMANENT art, frozen at deploy. A path that does not exist is not
+   *   caught by any name check, because there is no name in it to be wrong: the CLI simply fails
+   *   at 11 PM, or worse, uploads whatever a shell glob happened to match. The file is on disk or
+   *   the assertion fails. This is the cheapest possible check and nothing was doing it. */
+  for (const [file, p] of imageArgs) {
+    const rel = p.replace(/^\.\//, '');
+    ok(existsSync(join(ROOT, rel)), `…and ${p} exists on disk  (${file})`);
+  }
 
   /* ⛔ THE RUNBOOK NAMED THE TOKEN `upperdeckripmaster3030` UNTIL 2026-08-02 — on the one step
    *   that is irreversible, in the document read once, at 11 PM, under pressure. */
