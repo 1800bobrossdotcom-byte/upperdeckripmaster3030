@@ -1,5 +1,5 @@
-// Vercel serverless function — pin the 33 hero images to IPFS using the PINATA_JWT set in the
-// Vercel project env.
+// Vercel serverless function — pin the 33 hero images to IPFS using the Pinata credential set in
+// the Vercel project env (see auth() below — several names are accepted).
 //
 //   GET  /api/pin                  -> { ready, total, env }        cheap; changes nothing
 //   POST /api/pin?from=0&count=3   -> pins that slice, returns { next }
@@ -7,7 +7,7 @@
 // ⛔ THE KEY NEVER LEAVES THE SERVER AND NEVER ENTERS A REPO. That is the whole reason this
 //    exists rather than a CLI flag: scripts/pin-heroes.mjs --pin is the right tool when you are
 //    at your own machine, and this is the right tool when you are not. Nothing here echoes the
-//    JWT, and the only thing it can be pointed at is the list in cards/hero/cids.json.
+//    credential, and the only thing it can be pointed at is the list in cards/hero/cids.json.
 //
 // ⚑ WHAT BOUNDS THE ABUSE IS THE FIXED, IDEMPOTENT ACTION SET, NOT A SECRET. This endpoint takes
 //    no file, no URL and no id from the caller — only a slice of a list it reads out of its own
@@ -30,6 +30,25 @@
 
 const PINATA = 'https://api.pinata.cloud/pinning/pinFileToIPFS';
 
+/* ⛔ READ THE NAME THAT IS ACTUALLY SET, DO NOT DICTATE ONE. The first version required exactly
+ *   `PINATA_JWT` and reported `ready:false` against a deployment that had the credential all
+ *   along, as `PINATA_JWT_SECRET_ACCESS_TOKEN` — Pinata's own dashboard wording. A missing
+ *   credential and a differently-named one are indistinguishable from the outside and lead to
+ *   completely different actions, so the endpoint accepts every plausible name rather than
+ *   sending someone to re-issue a key that was already correct. (The `env` list in the GET
+ *   response is what made this diagnosable in one request instead of a guess.)
+ * ⚠ Pinata takes EITHER a bearer JWT or the api-key/secret pair, so both are supported: whichever
+ *   half of the dashboard the artist copied from, it works. Values are never logged or returned. */
+function auth() {
+  const E = process.env;
+  const jwt = E.PINATA_JWT || E.PINATA_JWT_SECRET_ACCESS_TOKEN || E.PINATA_SECRET_ACCESS_TOKEN ||
+              E.PINATA_API_JWT || E.PINATA_TOKEN || '';
+  if (jwt) return { headers: { authorization: `Bearer ${jwt}` }, via: 'jwt' };
+  const k = E.PINATA_API_KEY || '', s = E.PINATA_API_SECRET || E.PINATA_SECRET_API_KEY || '';
+  if (k && s) return { headers: { pinata_api_key: k, pinata_secret_api_key: s }, via: 'api-key' };
+  return null;
+}
+
 const site = req => `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers['x-forwarded-host'] || req.headers.host}`;
 
 async function get(url, ms) {
@@ -43,7 +62,7 @@ async function get(url, ms) {
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
-  const JWT = process.env.PINATA_JWT || '';
+  const AUTH = auth();
   const base = site(req);
 
   const man = await get(`${base}/cards/hero/cids.json`, 8000);
@@ -56,13 +75,15 @@ export default async function handler(req, res) {
    *   wrong", which are different problems with different fixes. */
   if (req.method !== 'POST') {
     return res.status(200).json({
-      ready: !!JWT, total: ids.length, ids,
+      ready: !!AUTH, via: AUTH ? AUTH.via : null, total: ids.length, ids,
       env: Object.keys(process.env).filter(k => /PINATA/i.test(k)).sort(),
       note: 'POST ?from=&count= to pin a slice; verify in the browser, not here',
     });
   }
 
-  if (!JWT) return res.status(500).json({ error: 'PINATA_JWT is not set on this deployment', env: [] });
+  if (!AUTH) return res.status(500).json({
+    error: 'no Pinata credential on this deployment — set PINATA_JWT (or PINATA_API_KEY + PINATA_API_SECRET) and REDEPLOY',
+    env: Object.keys(process.env).filter(k => /PINATA/i.test(k)).sort() });
 
   const from = Math.max(0, parseInt(req.query.from, 10) || 0);
   /* ⚠ A CEILING, NOT A SUGGESTION. A caller asking for all 33 in one slice would reproduce
@@ -86,7 +107,7 @@ export default async function handler(req, res) {
     fd.append('pinataOptions', JSON.stringify({ cidVersion: 0 }));
 
     try {
-      const r = await fetch(PINATA, { method: 'POST', headers: { authorization: `Bearer ${JWT}` }, body: fd });
+      const r = await fetch(PINATA, { method: 'POST', headers: AUTH.headers, body: fd });
       const j = await r.json();
       if (!r.ok || !j.IpfsHash) { failed.push({ id, why: `${r.status} ${JSON.stringify(j).slice(0, 140)}` }); continue; }
       /* ⛔ THE SERVICE'S ANSWER MUST MATCH WHAT WE COMPUTED FROM THE FILE. If it does not it

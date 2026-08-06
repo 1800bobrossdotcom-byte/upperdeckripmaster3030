@@ -158,13 +158,13 @@
       const pre = await (await fetch('/api/pin', { cache: 'no-store' })).json();
       if (pre.error) { say('⛔ ' + pre.error, 'bad'); return; }
       if (!pre.ready) {
-        say('⛔ PINATA_JWT is NOT set on this deployment', 'bad');
+        say('⛔ no Pinata credential on this deployment', 'bad');
         say('   env vars matching /PINATA/: ' + (pre.env.length ? pre.env.join(', ') : '(none)'), 'bad');
         say('   ⚑ Setting it in the Vercel project is not enough — an env change does not reach a', 'bad');
         say('     deployment that is already built. Set it, then REDEPLOY, then reload this page.', 'bad');
         return;
       }
-      say('✓ PINATA_JWT is set · ' + pre.total + ' heroes to pin', 'ok');
+      say('✓ credential present (' + pre.via + ') · ' + pre.total + ' heroes to pin', 'ok');
 
       /* ⛔ THE CLIENT DRIVES THE LOOP because a serverless function has a wall clock and 33
          uploads do not fit inside it. Small slices also mean progress is visible: a single long
