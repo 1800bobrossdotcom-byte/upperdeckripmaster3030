@@ -232,6 +232,120 @@ console.log('\n── 4 · THE CARD ACTUALLY TURNS OVER ────────
   await ctx.close();
 }
 
+console.log('\n── 5 · THE CARD PAGE IS A CARD ────────────────────────────────────────────────');
+/* Artist, 2026-08-06, pointing at a card page reached from a pull and one opened directly:
+ * *"this is the wrong viewer for the card — should be like the way we see the plate proof cards
+ * with lighting and card texture / 3d fx. that is done correct in the binder / folder viewer."*
+ * The 196 card pages were the last flat surface on the site: a CSS-tilted <img> in a .card div.
+ * `cards/card-stage.js` mounts the same `CardView` the binder and the forge use.
+ *
+ * ⚠ PUMP rAF FROM INSIDE THE PAGE. CardView proves ink over a 240-FRAME budget, and this
+ *   container delivers 6-8 real frames in ten seconds — so a wall-clock wait reports a viewer
+ *   that never resolved, which reads exactly like a broken mount and is the harness. Recorded
+ *   twice already in CLAUDE.md; this is the third place it bites. */
+const pump = (page, n) => page.evaluate(async (n) => {
+  for (let i = 0; i < n; i++) await new Promise(r => requestAnimationFrame(r));
+}, n).catch(() => {});
+
+{
+  const { ctx, page, errs } = await visit('/cards/joy-blast.html');
+  await page.waitForTimeout(6000);
+  await pump(page, 300);
+  await page.waitForTimeout(1500);
+  const s = await page.evaluate(() => {
+    const st = document.getElementById('cvStage');
+    const cv = st && st.querySelector('canvas');
+    const card = document.getElementById('card');
+    let sd = 0;
+    if (cv) {
+      const t = document.createElement('canvas'); t.width = 100; t.height = 150;
+      const x = t.getContext('2d'); x.drawImage(cv, 0, 0, 100, 150);
+      const d = x.getImageData(0, 0, 100, 150).data;
+      let n = 0, sum = 0, sq = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        n++; sum += l; sq += l * l;
+      }
+      const m = sum / n; sd = Math.sqrt(sq / n - m * m);
+    }
+    return { stage: !!st, canvas: !!cv, view: !!window.__cardStageView, sd: +sd.toFixed(1),
+             flatHidden: card ? getComputedStyle(card).visibility === 'hidden' : null,
+             backStillInDom: !!document.getElementById('b-title'),
+             aligned: (st && card) ? (Math.abs(st.offsetLeft - card.offsetLeft) < 2 &&
+                                      Math.abs(st.offsetWidth - card.offsetWidth) < 2) : false };
+  });
+  ok(s.stage && s.canvas && s.view, 'a card page mounts the press viewer');
+  /* ⚠ "not blank" is NOT "alpha > 0" — the press stock is near-white and a paper-coloured canvas
+   *   is fully opaque and completely empty. A card is a picture, and a picture has tonal range. */
+  ok(s.sd > 25, 'and it prints a real card, not a sheet of paper', 'sd ' + s.sd);
+  ok(s.aligned, 'the stage sits on the flat card\'s own box');
+  ok(s.flatHidden, 'the flat CSS card steps aside once the press has proved it printed');
+  /* ⛔ HIDDEN, NEVER REMOVED: cardnav.js and the chain readers write into a dozen ids that live
+   *   inside the card BACK. Removing the element would take the page's data plumbing with it. */
+  ok(s.backStillInDom, '…but the card back stays in the DOM, so the page keeps its plumbing');
+  ok(errs.length === 0, 'no page errors', errs.slice(0, 2).join(' | ') || 'clean');
+  await ctx.close();
+}
+
+/* ⛔ AND THE SABOTAGE — the only assertion in this block that could ever have failed.
+ *
+ * ⚠ IT SABOTAGES `CardView.mount`, NOT `HeroCard.build`, AND THAT CHANGE IS THE WHOLE LESSON.
+ *   Two earlier versions patched the press itself: one polled for `window.HeroCard` (the poll
+ *   loses to a page that presses at DOMContentLoaded), one patched on assignment. BOTH left the
+ *   press healthy — measured ink true, sd 64.2, i.e. a perfectly good card — while three
+ *   assertions reported the fail-open guard as broken. **A sabotage that does not engage proves
+ *   nothing, and here it proved the opposite of the truth.**
+ * ⚑ So it breaks the exact contract `cards/card-stage.js` depends on and cannot verify from the
+ *   outside: a `mount()` that RESOLVES A CONTROLLER over a canvas with nothing on it. That is
+ *   not hypothetical — it is what mount actually did under a dead press, which is why this
+ *   module checks the pixels itself rather than trusting the resolve. */
+const deadView = () => {
+  const t = setInterval(() => {
+    if (!window.CardView || !window.CardView.mount) return;
+    clearInterval(t);
+    window.CardView.mount = (o) => {
+      const cv = document.createElement('canvas');
+      cv.width = 300; cv.height = 450;
+      cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+      // paper-white and completely empty: fully OPAQUE, so "alpha > 0" would call this a card
+      const x = cv.getContext('2d');
+      x.fillStyle = '#f2ece0'; x.fillRect(0, 0, cv.width, cv.height);
+      if (o && o.box) o.box.appendChild(cv);
+      return Promise.resolve({ show() {}, flip() { return true; }, destroy() {} });
+    };
+  }, 4);
+};
+
+{
+  const ctx = await br.newContext({ viewport: { width: 1000, height: 900 }, deviceScaleFactor: 1 });
+  await ctx.addInitScript(() => { try { localStorage.setItem('urm_admin_ok', '1'); } catch {} });
+  await ctx.addInitScript(deadView);
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  await page.goto(`http://127.0.0.1:${PORT}/cards/joy-blast.html`, { waitUntil: 'load', timeout: 60000 });
+  await page.waitForTimeout(4000);
+  const s = await page.evaluate(() => {
+    const card = document.getElementById('card');
+    const img = card && card.querySelector('.face.front img');
+    return { stage: !!document.getElementById('cvStage'),
+             view: !!window.__cardStageView,
+             flatVisible: card ? getComputedStyle(card).visibility !== 'hidden' : false,
+             /* ⚑ THE PROPERTY THAT MATTERS IS THAT IT CANNOT DO HARM, not that it was tidied
+              *   away: a leftover stage is only a bug if it can swallow a tap meant for the
+              *   card underneath, so THAT is what gets asserted. */
+             inert: (() => { const st = document.getElementById('cvStage');
+               return !st || getComputedStyle(st).pointerEvents === 'none'; })(),
+             art: !!(img && img.getAttribute('src')) };
+  });
+  ok(!s.view, 'a viewer that resolves over an EMPTY canvas never takes the card page over');
+  ok(s.flatVisible && s.art,
+    '⛔ THE CARD IS STILL THERE — the flat card stands when nothing was printed');
+  ok(s.inert, 'and nothing is left that can swallow a tap meant for the card');
+  ok(errs.length === 0, 'it fails quietly', errs.slice(0, 2).join(' | ') || 'clean');
+  await ctx.close();
+}
+
 await br.close();
 srv.close();
 console.log(`\n${pass} passed, ${fail} failed`);
