@@ -18,7 +18,7 @@ import { join } from 'node:path';
 const ROOT = '/home/user/upperdeckripmaster3030';
 const TOKEN = '0xdc47e98b35Da73956fa7cCD450f8feEA746Ec83C';
 const SINK  = '0x1234567890AbcdEF1234567890aBcdef12345678';
-const TREAS = '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F';
+const TREAS = '0x432D71bA14D2602B566dD9e3e098E24859d166c9';
 const ACCT  = '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F';
 const E18   = 10n ** 18n;
 

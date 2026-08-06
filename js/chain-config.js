@@ -24,15 +24,25 @@ window.RIPMASTER_CHAIN = {
   // pack ≈ 5,700 test RARE (the rehearsal wallet was funded accordingly).
   packBurn: 350,
   /* ── TREASURY (artist directive) ────────────────────────────────────────────────────────
-   * The studio wallet. A PUBLIC ADDRESS is not a credential — this is the same wallet that
-   * already appears in docs/TESTNET.md and docs/LENS-REHEARSAL.md as owner()/deployer, so it
-   * is recorded here rather than hidden.
-   * ⚠ IT IS ALSO THE DEPLOYER AND CONTRACT OWNER, and those are different risk profiles: a
-   * treasury accumulates a balance worth stealing, while an owner key can repoint every card.
-   * CLAUDE.md already makes this argument for keeping the claim signer separate from the owner;
-   * the same reasoning says a treasury should be its own address. Worth changing before real
-   * money flows through it — it is one config line now and a migration later. */
-  treasury: '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F',
+   * The studio wallet. A PUBLIC ADDRESS is not a credential, and this one has to be public
+   * anyway: it ships to the browser and it is the address collectors verify the split against.
+   *
+   * ⛔ THIS VALUE BECOMES PackSink's `treasury` CONSTRUCTOR ARGUMENT, WHICH IS `immutable`.
+   * Half of every pack and half of every game rake go here, permanently. A wrong address is not
+   * a setting to change later — it is a redeploy, and every split paid in the meantime is gone.
+   *
+   * ⚠ IT WAS THE SEPOLIA DEPLOYER (0x5C3b…d89F) UNTIL 2026-08-06. That is the
+   * testnet wallet; on mainnet it would have sent studio revenue to a testnet-era address while
+   * js/eth-play.js was already paying the arcade fee to the SuperRare wallet — two destinations
+   * for one studio's money. Artist's call: use the SuperRare-account wallet, so all studio
+   * revenue lands in one place and matches the identity that deploys the edition.
+   *
+   * ⚠ RESIDUAL RISK, STATED RATHER THAN SOLVED: this is ALSO the deploy wallet and the contract
+   * owner, and those are three different risk profiles in one key — a treasury accumulates a
+   * balance worth stealing, an owner key can repoint every card, a deployer signs at launch.
+   * The note that used to live here argued for splitting them and that argument still stands.
+   * It is one config line until PackSink is deployed, and a migration afterwards. */
+  treasury: '0x432D71bA14D2602B566dD9e3e098E24859d166c9',
   /* Pack purchase split — half burns, half funds the studio. See docs/TREASURY.md for why this
    * CANNOT be done as two client-side transactions. */
   packSplit: { burn: 0.50, treasury: 0.50 },

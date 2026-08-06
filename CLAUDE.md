@@ -1509,6 +1509,35 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ⛔ TWO WALLETS, AND THE TREASURY WAS POINTING AT THE TESTNET ONE
+**Artist, 2026-08-06.** There are two, and conflating them is a permanent mistake:
+| wallet | role |
+| --- | --- |
+| `0x5C3bc6dD…35d89F` | **SEPOLIA** deployer — the rehearsal wallet, testnet only |
+| `0x432D71bA…59d166c9` | **MAINNET SuperRare-account wallet** — deploys the edition, owns the lens |
+- ⛔ **`chain-config.treasury` WAS THE SEPOLIA WALLET, AND IT BECOMES PackSink's `immutable`
+  TREASURY ARGUMENT.** On mainnet that pays half of every pack and half of every game rake to a
+  testnet-era address, **permanently** — a redeploy, not a setting. ✅ Now
+  `0x432D71bA…59d166c9` (artist's call).
+- ⚑ **THE TELL WAS A CONTRADICTION NOBODY HAD LOOKED AT: `js/eth-play.js` was ALREADY paying the
+  Base arcade fee to `0x432D…66c9` while `chain-config` sent pack revenue to `0x5C3b…d89F`.** Two
+  destinations for one studio's money, in one repo, and nothing compared them. **When two places
+  both configure "where our money goes", diff them — agreement is not the default.**
+- ⚑ **THE GOLDEN RULE MAKES THE DEPLOY WALLET NON-NEGOTIABLE:** the edition must be deployed from
+  the exact wallet connected to the verified SuperRare account or the drop is never associated
+  with the artist profile. `docs/DEPLOY-LENS.md` named the **Sepolia** wallet for deployer/owner
+  until today — the runbook would have forfeited SuperRare.com surfacing.
+- ✅ **PINNED BY ADDRESS in `npm run test:name` (110)** — not by "is it non-empty", because an
+  empty check passes on *any* wrong address, which is the entire failure mode. It also asserts it
+  is **not** the Sepolia wallet and **is** EIP-55 checksummed (same account, different string, and
+  string drift is this file's whole subject). Proved to bite: reverting fails 2, both named.
+- ⚠ **RESIDUAL RISK, STATED NOT SOLVED:** the chosen wallet is treasury **and** deployer **and**
+  contract owner — three risk profiles in one key. `chain-config`'s own comment argued for
+  splitting them and that argument still stands; it is one config line until PackSink is deployed
+  and a migration afterwards. ✅ The artist did choose a **separate claim signer** from the owner,
+  which is the other half of the same argument. ⚠ **That signer address is still needed** — it
+  should be a fresh wallet, and `setClaimSigner` can rotate it later.
+
 ## ⛔ P0 IS MEASURED: **≈$0.08**, AND IT KILLED THE PACK SCHEDULE — `docs/PACK-PRICING.md`
 **SuperRare, 2026-08-06, off the live mainnet CLI previews at the full 3,300,000 supply:
 low-demand preset · ZERO initial RARE liquidity · NO creator allocation.** Opens ≈**$0.08 per

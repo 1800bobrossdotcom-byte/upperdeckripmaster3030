@@ -18,7 +18,11 @@ This exists because `docs/ARTIST-REVENUE.md` records that SuperRare has publishe
 the creator revenue model on a Liquid Edition. **This is income the project controls outright and
 does not have to wait on an answer for.**
 
-Treasury wallet: `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` (`chain-config.treasury`).
+Treasury wallet: `0x432D71bA14D2602B566dD9e3e098E24859d166c9` (`chain-config.treasury`) — the artist's
+SuperRare-account wallet, chosen 2026-08-06.
+⛔ **This is PackSink's `immutable` treasury argument.** A wrong value is a redeploy, not a setting.
+⚠ It was `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` (the **Sepolia** deployer) until then; that
+would have paid mainnet studio revenue to a testnet-era wallet.
 
 ---
 
