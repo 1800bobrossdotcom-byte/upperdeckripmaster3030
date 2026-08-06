@@ -74,11 +74,27 @@ window.RIPMASTER_CHAIN = {
   /* How many packs/antes one `approve` should cover, so a player isn't signing an approval before
    * every rip. NOT unlimited on purpose — see the note in js/wallet.js. */
   approveBatch: 12,
-  // CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md)
+  /* CORS-open public RPCs (sandboxed iframes need any/null-origin CORS; see docs/RESEARCH-NOTES.md).
+   *
+   * ⛔ TWO OF THE THREE HERE WERE DEAD ON LAUNCH NIGHT AND THE FAILOVER HID IT. Ankr answers
+   *   every request with "authenticate with an API key" and Cloudflare with "cannot fulfill
+   *   request" — both as HTTP 200 carrying a JSON-RPC `error` object. Callers here check
+   *   `if (j.result)` rather than catching, so they correctly fell through and the site read fine
+   *   off the one survivor. ⚑ That is the trap: a working fallback chain and a broken fallback
+   *   chain look identical from the outside, right up until the survivor throttles and the whole
+   *   site reads as a token with no supply and no holders. Depth you have never exercised is
+   *   depth you do not have.
+   * ⚠ Verified 2026-08-06 by an eth_call against the live edition, not by reputation: all four
+   *   returned the SAME totalSupply and all four send `access-control-allow-origin: *`. Agreement
+   *   across independent endpoints is the check — one lying is visible, all four lying is not a
+   *   failure mode worth designing against.
+   * ⚠ Rejected in the same sweep, so nobody re-adds them: llamarpc and blockpi (521), flashbots
+   *   (eth_call not whitelisted — it is a relay, not a read node), 1rpc (plan limit reached). */
   rpcs: [
     "https://ethereum-rpc.publicnode.com",
-    "https://cloudflare-eth.com",
-    "https://rpc.ankr.com/eth",
+    "https://eth.drpc.org",
+    "https://rpc.mevblocker.io",
+    "https://eth.merkle.io",
   ],
   // Pure Liquid Edition: just the ERC-20 token + its render contract. No ballot/vault
   // contracts (see docs/LAUNCH-ARCHITECTURE.md). Fill these after the Sepolia deploy
