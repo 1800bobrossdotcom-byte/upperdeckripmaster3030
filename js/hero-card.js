@@ -875,7 +875,7 @@ uniform float uSplit;        // how much load the spot inks take off the process
 uniform vec4 uPress;         // x screen freq · y roller bands · z roller phase · w starve
 uniform vec4 uDmg;           // x burn · y tear · z dot gain · w edge wear
 uniform vec4 uFoilP;         // x grating cycles · y thin film · z sheen · w patch cycles
-uniform vec2 uPar;           // x parallax gain · y type depth
+uniform vec2 uPar;           // x parallax gain · y how hard lifted layers shade below
 /* ⛔ THE LOOP LIVES IN Z — artist, 2026-08-04: "have the animations live in z space and be
  * looping." Four depths through the card's thickness, one per element of the composition, and the
  * press cycle drives them. THIS SUPERSEDES the stillness decision recorded in §3 of the brief: I
@@ -992,7 +992,36 @@ vec2 zuv(vec2 u, float z) { return (u - 0.5) / (1.0 + z) + 0.5; }
 /* how much of an element's depth is spent on magnification rather than travel. ⚠ FILE SCOPE on
  * purpose: the name's INK and the name's RELIEF are sampled in two different functions, and the
  * two must use the same number or the emboss separates from the letter it belongs to. */
-const float ZS = 0.18;
+/* ⚑ MORE DEPTH — artist, 2026-08-06. 0.18 kept the perspective term almost invisible, which was
+ * right while the separation was a constant offset and wrong now that it is parallax: perspective
+ * is how you tell WHICH layer is nearer, and without it the stack reads as pieces at one height. */
+const float ZS = 0.34;
+
+/* ── ⛔ A LAYER THAT STANDS PROUD CASTS A SHADOW ─────────────────────────────────────────────
+ * Artist, 2026-08-06: *"more z depth - drop shadows on z depth would be cool."* It is the single
+ * strongest depth cue there is, and it is the honest one: a piece of card lifted off the sheet
+ * throws the key light's shadow onto whatever is under it. Parallax only tells you about depth
+ * when you MOVE; a shadow tells you while the card is dead still, which is most of the time.
+ * ⚑ THE GEOMETRY IS NOT A STYLE CHOICE. Displacement = height x tan(incidence), so the shadow
+ *   slides AWAY FROM THE KEY at a distance set by how high the layer sits — the same uKeyDir the
+ *   foil and the paper tooth already answer, so moving the light moves the shadows with it. A
+ *   shadow with a hardcoded offset is a drop-shadow filter; this is a cast shadow.
+ * ⚠ AND THE PENUMBRA GROWS WITH HEIGHT. A contact shadow is sharp and a lifted one is soft —
+ *   that softening is most of what the eye reads as "how far above". Three taps rather than one,
+ *   spread along the light's own axis, which is where a real penumbra spreads.
+ * ⚠ It darkens by MULTIPLYING, never by mixing toward a colour: this sheet is ink on paper and a
+ *   shadow removes light, it does not add grey. Same rule as the ink itself. */
+float castShadow(sampler2D m, vec2 uv, int ch, vec2 dir, float z) {
+  float soft = 0.010 + 0.055 * z;
+  float a = 0.0;
+  for (int k = 0; k < 5; k++) {
+    vec2 o = uv - dir * z - dir * soft * float(k);
+    vec4 t = texture(m, o);
+    float v = ch == 0 ? t.r : (ch == 1 ? t.g : t.b);
+    a += v;
+  }
+  return clamp(a / 5.0, 0.0, 1.0);
+}
 
 vec3 artAt(vec2 u, vec2 par) {
   /* ── ⛔ "THESE ARE NOT SEPARATED LAYERS IT IS JUST ZOOMING IN" ───────────────────────────
@@ -1096,16 +1125,26 @@ vec3 artAt(vec2 u, vec2 par) {
      *   print it always was — byte-identical, which is what keeps the base honest. */
     vec4 cut = texture(uComp2, u);
     c = texture(uPigC, uFig).rgb;                       // the sheet the cuts are lifted off
-    vec2 fB = uFig + (par + vec2(-0.052, -0.030)) * uElemZ[1];
-    vec2 fM = uFig + (par + vec2( 0.061,  0.038)) * uElemZ[3];
-    vec2 fN = uFig + (par + vec2(-0.044,  0.066)) * uElemZ[5];
+    /* ⚑ MORE TRAVEL. These were 0.05 and read as a nudge; at 0.11 a lifted piece clearly stands
+     * somewhere else from the sheet it came off. */
+    vec2 fB = uFig + (par + vec2(-0.112, -0.065)) * uElemZ[1];
+    vec2 fM = uFig + (par + vec2( 0.130,  0.082)) * uElemZ[3];
+    vec2 fN = uFig + (par + vec2(-0.095,  0.142)) * uElemZ[5];
+    vec2 ldir = normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20;
+    /* Back to front. Each layer SHADOWS what is already down, then is laid on top — so a shadow
+     * can never fall on the piece casting it, and a near layer shades the far ones as it must. */
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 0, ldir, uElemZ[1]) * (1.0 - step(0.5, cut.r)));
     c = mix(c, texture(uPigC, fB).rgb, step(0.5, cut.r));
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 1, ldir, uElemZ[3]) * (1.0 - step(0.5, cut.g)));
     c = mix(c, texture(uPigC, fM).rgb, step(0.5, cut.g));
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 2, ldir, uElemZ[5]) * (1.0 - step(0.5, cut.b)));
     c = mix(c, texture(uPigC, fN).rgb, step(0.5, cut.b));
   } else {
     c = texture(uPigA, uG * vec2(0.30, 0.20) + vec2(0.20, 0.34)).rgb;
     vec3 mid = texture(uPigB, uM * vec2(-1.90, 1.25) + vec2(1.42, -0.16)).rgb;
     c = mix(c, mid, texture(uComp, uM).r);
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp, u, 1, normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20,
+                                   uElemZ[2]) * (1.0 - texture(uComp, uF).g));
     c = mix(c, texture(uPigC, uFig).rgb, texture(uComp, uF).g);
   }
 
@@ -1125,13 +1164,16 @@ vec3 artAt(vec2 u, vec2 par) {
    *   is dark. That is a recorded, expensive bug in this exact file. A fourth channel of data
    *   gets a fourth channel of ANOTHER texture. */
   if (uNPig > 3) {
+    vec2 ldir2 = normalize(vec2(cos(uKeyDir.x), sin(uKeyDir.x))) * 0.20;
     vec3 wash = texture(uPigD, uW * vec2(0.11, 0.075) + vec2(0.62, 0.11)).rgb;
+    c *= mix(1.0, 1.0 - (1.0 - 0.42) * uPar.y, castShadow(uComp2, u, 0, ldir2, uElemZ[3]));
     c = mix(c, wash, texture(uComp2, uW).r * 0.72);
     /* turned against the sheet: a strip laid square to the trim reads as a panel, not a scrap */
     vec2 uSr = mat2(0.87, -0.49, 0.49, 0.87) * (uS * vec2(3.40, 2.15)) + vec2(0.13, 0.71);
     vec3 strip = texture(uPigE, uSr).rgb;
     c = mix(c, strip, texture(uComp2, uS).g);
     vec3 inset = texture(uPigF, (uI - vec2(0.52, 0.63)) * vec2(2.55, 1.90) + vec2(0.50, 0.46)).rgb;
+    c *= mix(1.0, 1.0 - (1.0 - 0.30) * uPar.y, castShadow(uComp2, u, 2, ldir2, uElemZ[5]) * (1.0 - texture(uComp2, uI).b));
     c = mix(c, inset, texture(uComp2, uI).b);
   }
 
@@ -1858,6 +1900,7 @@ void main(void) {
          * starve, on the binder, the deck, lens3d and the field cards. The forge pushes its own
          * base through applyAll; the site keeps the card as it prints. */
         press: 1,        // the impression's own character: 0 = a clean pull, 1 = as it printed
+        shadow: 1,       // how hard the lifted layers shade what is under them
         sprites: 0,      // how many hand-drawn loops are struck on the sheet (0..4)
         spriteRate: 1,   // loops per press revolution
         /* ⛔ WHICH WAY UP IT IS SITTING IS A PERSISTENT HALF-TURN, NOT A BOOLEAN AND NOT AN
@@ -2083,7 +2126,7 @@ void main(void) {
          * by the stack it reaches ~0.29 at LAYERS 2.5, i.e. a near layer sweeps a third of the
          * card across a far one as you turn it. ⚠ At LAYERS 0 this is the old value times zero:
          * the base card has no depth and no parallax, which is what a flat print is. */
-        gl.uniform2f(u.par, (0.030 + 0.020 * S.depth) * (1.0 + 3.6 * S.stack), 1.0);
+        gl.uniform2f(u.par, (0.030 + 0.020 * S.depth) * (1.0 + 6.2 * S.stack), S.shadow);
         gl.uniform1f(u.seed, (seed % 997) / 997);
         gl.uniform1f(u.backRGB, backIsDesigned ? 1.0 : 0.0);
         gl.uniform1f(u.regGain, S.regGain);
@@ -2197,6 +2240,9 @@ void main(void) {
          * ⚠ Rebuilding the sheet is a texture upload, so it happens on a SETTING change and never
          *   per frame — the frame index is a uniform, which is the whole reason it is one sheet
          *   with cells rather than a texture per frame. */
+        /* how hard a lifted layer shades what is beneath it. 0 removes the shadows entirely,
+         * which is also the control the acceptance measurement uses. */
+        setShadow: v => { S.shadow = clamp(v, 0, 1.6); },
         setSprites: o => {
           o = o || {};
           const n = Math.max(0, Math.min(4, o.count === undefined ? S.sprites : (o.count | 0)));
@@ -2444,6 +2490,7 @@ void main(void) {
           phase: S.phase, period: S.period, spin: S.spin,
           motion: MOTION.key, motionKey: S.motionKey, stack: S.stack, arrive: S.arrive,
           inks: S.inks, pigs: S.pigs, press: S.press, marks: MARKS,
+          shadow: S.shadow,
           sprites: S.sprites, spriteKind: SPRITE && SPRITE.kind,
           spriteFrames: SPRITE && SPRITE.frames, spriteRate: S.spriteRate,
           faceUp: !S.faceTurn, faceTurn: S.faceTurn,
