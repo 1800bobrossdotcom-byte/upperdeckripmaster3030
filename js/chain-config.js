@@ -114,7 +114,12 @@ window.RIPMASTER_CHAIN = {
      * WALLET-FREE embed. ⛔ NOT the site root: index.html loads pack.js and js/wallet.js, and
      * framing that inside a marketplace is what SuperRare's security team flagged. The Sepolia
      * renderer pointed at the root of the RETIRED domain and nobody noticed for three weeks. */
-    renderContract:"0xeAbdfb01644B6df6de39437d7bB441b4069F3Fe2",
+    /* ⚠ SUPERSEDED 2026-08-06, and the reason is worth keeping: 0xeAbdfb01… published
+     *   "Burned % 0" because `pctBps / 100` is an integer divide and pctBps was 1. Replaced by
+     *   0x3175419A…, wired with setRenderContract and read back off the EDITION rather than
+     *   trusted from here — which is the standing rule, and the rule that caught this file
+     *   carrying a superseded Sepolia renderer once already. */
+    renderContract:"0x3175419A532e3e6adC5a31DbEE6A3C2F08745E9D",
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
