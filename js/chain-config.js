@@ -24,15 +24,30 @@ window.RIPMASTER_CHAIN = {
   // pack ≈ 5,700 test RARE (the rehearsal wallet was funded accordingly).
   packBurn: 350,
   /* ── TREASURY (artist directive) ────────────────────────────────────────────────────────
-   * The studio wallet. A PUBLIC ADDRESS is not a credential — this is the same wallet that
-   * already appears in docs/TESTNET.md and docs/LENS-REHEARSAL.md as owner()/deployer, so it
-   * is recorded here rather than hidden.
-   * ⚠ IT IS ALSO THE DEPLOYER AND CONTRACT OWNER, and those are different risk profiles: a
-   * treasury accumulates a balance worth stealing, while an owner key can repoint every card.
-   * CLAUDE.md already makes this argument for keeping the claim signer separate from the owner;
-   * the same reasoning says a treasury should be its own address. Worth changing before real
-   * money flows through it — it is one config line now and a migration later. */
-  treasury: '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F',
+   * The studio wallet. A PUBLIC ADDRESS is not a credential, and this one has to be public
+   * anyway: it ships to the browser and it is the address collectors verify the split against.
+   *
+   * ⛔ THIS VALUE BECOMES PackSink's `treasury` CONSTRUCTOR ARGUMENT, WHICH IS `immutable`.
+   * Half of every pack and half of every game rake go here, permanently. A wrong address is not
+   * a setting to change later — it is a redeploy, and every split paid in the meantime is gone.
+   *
+   * ⚠ IT WAS THE SEPOLIA DEPLOYER (0x5C3b…d89F) UNTIL 2026-08-06. That is the
+   * testnet wallet; on mainnet it would have sent studio revenue to a testnet-era address while
+   * js/eth-play.js was already paying the arcade fee to the SuperRare wallet — two destinations
+   * for one studio's money. Artist's call: use the SuperRare-account wallet, so all studio
+   * revenue lands in one place and matches the identity that deploys the edition.
+   *
+   * ✅ AND IT IS A COLD WALLET — artist's call, 2026-08-06. This is a Ledger address that signs
+   * NOTHING here, which is what makes it free: `_split()` PUSHES with `token.transfer(treasury,…)`
+   * and `flush()` is permissionless, so the treasury is a pure RECEIVER. Cold storage costs the
+   * mechanism nothing and removes the one key whose balance only ever grows.
+   * ⚑ THE WALLET IT REPLACED WAS THE OPPOSITE PROFILE: the SuperRare account wallet must be HOT
+   * (it signs the edition deploy, it connects to sites, it owns the lens). Putting a
+   * monotonically-accumulating slug behind a hot key is the combination worth avoiding, and
+   * `immutable` means deploy day was the only moment it was free to change.
+   * ⚠ The DEPLOY wallet is a separate question and is unaffected: the edition must still be
+   * deployed from the SuperRare-account wallet or the drop never associates with the profile. */
+  treasury: '0x8455cF296e1265b494605207e97884813De21950',
   /* Pack purchase split — half burns, half funds the studio. See docs/TREASURY.md for why this
    * CANNOT be done as two client-side transactions. */
   packSplit: { burn: 0.50, treasury: 0.50 },

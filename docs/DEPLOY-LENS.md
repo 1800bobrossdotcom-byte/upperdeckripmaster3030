@@ -17,7 +17,7 @@ Sepolia, and break it there.
 
 | | what it does | should be |
 |---|---|---|
-| **deployer / owner** | admin — can retarget the renderer, register card art | your SuperRare-linked wallet, `0x5C3bc6dD…35d89F` |
+| **deployer / owner** | admin — can retarget the renderer, register card art | ⛔ **MAINNET: `0x432D71bA14D2602B566dD9e3e098E24859d166c9`** — the SuperRare-account wallet. ⚠ This table said `0x5C3bc6dD…35d89F` until 2026-08-06; that is the **Sepolia** wallet. SuperRare's golden rule is that the edition must be deployed from the exact wallet connected to the verified account, or the drop is not associated with the artist profile. |
 | **claim signer** | signs hero vouchers all season | **a different wallet** |
 
 They *can* be the same address and the contract will work. Don't. The signer is a hot key

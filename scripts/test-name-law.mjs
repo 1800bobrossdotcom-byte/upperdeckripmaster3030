@@ -284,6 +284,44 @@ for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
   ok(!badPreset, `${file} — every pasteable deploy command uses --curve-preset low-demand`,
     badPreset ? 'found ' + badPreset[1] : 'low-demand');
 }
+/* ── ⛔ THE TREASURY IS A DEPLOY-TIME PERMANENT TOO ───────────────────────────────────────────
+ * `chain-config.treasury` becomes PackSink's `treasury` constructor argument, which is
+ * `immutable`: half of every pack and half of every game rake go there forever, and a wrong
+ * value is a redeploy rather than a setting.
+ * ⚠ IT WAS THE SEPOLIA DEPLOYER UNTIL 2026-08-06 — on mainnet that would have paid studio
+ *   revenue to a testnet-era wallet, while js/eth-play.js was already paying the arcade fee to
+ *   the SuperRare wallet. Two destinations for one studio's money, and nothing was checking.
+ * ⚑ Pinned by ADDRESS, not by "is it non-empty": an empty check passes on any wrong address,
+ *   which is the whole failure mode. Same argument as name(), symbol() and the curve preset. */
+{
+  const STUDIO_WALLET  = '0x8455cF296e1265b494605207e97884813De21950';   // COLD Ledger — receives, never signs
+  const DEPLOY_WALLET  = '0x432D71bA14D2602B566dD9e3e098E24859d166c9';   // SuperRare account — HOT, deploys
+  const SEPOLIA_WALLET = '0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F';   // testnet deployer
+  const cfg = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  const m = cfg.match(/treasury:\s*'(0x[0-9a-fA-F]{40})'/);
+  ok(!!m, 'chain-config declares a treasury address');
+  ok(m && m[1] === STUDIO_WALLET,
+    'chain-config.treasury is the studio wallet (PackSink immutable arg)', m ? m[1] : 'none');
+  ok(m && m[1] !== SEPOLIA_WALLET,
+    '…and is NOT the Sepolia deployer', m && m[1] === SEPOLIA_WALLET ? 'STILL SEPOLIA' : 'ok');
+  /* ⛔ AND NOT THE DEPLOY WALLET — that is the whole point of a cold treasury. The deploy wallet
+   *   must be hot (it signs the edition, it connects to SuperRare, it owns the lens); a balance
+   *   that only ever grows must not sit behind it. Asserting "not empty" or even "is the studio
+   *   wallet" would both pass on the hot one, so the separation gets its own assertion. */
+  ok(m && m[1] !== DEPLOY_WALLET,
+    '…and is NOT the hot deploy wallet — the treasury is COLD',
+    m && m[1] === DEPLOY_WALLET ? 'TREASURY IS THE DEPLOY KEY' : 'separate');
+  /* One destination for studio money: the Base arcade fee must agree with the treasury. */
+  const ep = readFileSync(join(ROOT, 'js/eth-play.js'), 'utf8');
+  const h = ep.match(/const HANGAR = '(0x[0-9a-fA-F]{40})'/);
+  ok(h && h[1] === STUDIO_WALLET,
+    'js/eth-play.js pays the arcade fee to the SAME cold wallet', h ? h[1] : 'none');
+  /* ⚠ Checksummed, because a lowercase or mixed-case variant is the same account on-chain but a
+   *   different STRING here, and this file's whole job is string drift. */
+  ok(m && /[A-F]/.test(m[1]) && /[a-f]/.test(m[1]),
+    '…and is EIP-55 checksummed, not lowercased');
+}
+
 {
   const meta = JSON.parse(readFileSync(join(ROOT, 'token-metadata.json'), 'utf8'));
   ok(meta.name === TOKEN_NAME, `token-metadata.json name  — "${meta.name}"`);

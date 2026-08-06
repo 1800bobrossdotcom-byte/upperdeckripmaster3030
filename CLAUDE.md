@@ -73,7 +73,8 @@ This SUPERSEDES the old "NAME LAW".**
 the clearance joke. ⛔ It no longer appears on new surfaces; see the directive above.
 
 ## 💰 REVENUE: half of every pack and every game rake funds the studio
-**Artist directive.** Treasury `0x5C3b…d89F`. `docs/TREASURY.md` is canonical.
+**Artist directive.** Treasury `0x8455cF29…De21950` — a **COLD (Ledger)** wallet that signs
+nothing. ⚠ It was `0x5C3b…d89F` (the **SEPOLIA** wallet) until 2026-08-06. `docs/TREASURY.md` is canonical.
 - **A pack no longer burns in full**: 50% burns, 50% to the studio. **The game rake's 5%/5% is
   the same 50/50 ratio**, so ONE contract does both — `contracts/PackSink.sol`, `buyPack()` and
   `payRake()` over a shared `_split()`, separate events only so pack revenue and game revenue
@@ -1508,6 +1509,54 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
 - ✅ **Verified by round-trip, which is the only test that matters here**: dial thirteen settings
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
+
+## ⛔ TWO WALLETS, AND THE TREASURY WAS POINTING AT THE TESTNET ONE
+**Artist, 2026-08-06.** There are two, and conflating them is a permanent mistake:
+| wallet | role |
+| --- | --- |
+| `0x5C3bc6dD…35d89F` | **SEPOLIA** deployer — the rehearsal wallet, testnet only |
+| `0x432D71bA…59d166c9` | **MAINNET SuperRare-account wallet** — deploys the edition, owns the lens |
+- ⛔ **`chain-config.treasury` WAS THE SEPOLIA WALLET, AND IT BECOMES PackSink's `immutable`
+  TREASURY ARGUMENT.** On mainnet that pays half of every pack and half of every game rake to a
+  testnet-era address, **permanently** — a redeploy, not a setting. ✅ Now
+  `0x432D71bA…59d166c9` (artist's call).
+- ⚑ **THE TELL WAS A CONTRADICTION NOBODY HAD LOOKED AT: `js/eth-play.js` was ALREADY paying the
+  Base arcade fee to `0x432D…66c9` while `chain-config` sent pack revenue to `0x5C3b…d89F`.** Two
+  destinations for one studio's money, in one repo, and nothing compared them. **When two places
+  both configure "where our money goes", diff them — agreement is not the default.**
+- ⚑ **THE GOLDEN RULE MAKES THE DEPLOY WALLET NON-NEGOTIABLE:** the edition must be deployed from
+  the exact wallet connected to the verified SuperRare account or the drop is never associated
+  with the artist profile. `docs/DEPLOY-LENS.md` named the **Sepolia** wallet for deployer/owner
+  until today — the runbook would have forfeited SuperRare.com surfacing.
+- ✅ **PINNED BY ADDRESS in `npm run test:name` (110)** — not by "is it non-empty", because an
+  empty check passes on *any* wrong address, which is the entire failure mode. It also asserts it
+  is **not** the Sepolia wallet and **is** EIP-55 checksummed (same account, different string, and
+  string drift is this file's whole subject). Proved to bite: reverting fails 2, both named.
+- ✅ **AND THEN THE ARTIST WENT COLD, WHICH IS THE RIGHT ANSWER — `0x8455cF29…De21950` (Ledger).**
+  *"the funds raked should go to a cold wallet vs. a hotwallet."* He was right, and the reason it
+  is free is structural: ⚑ **THE TREASURY SIGNS NOTHING.** `_split()` PUSHES with
+  `token.transfer(treasury, …)` and `flush()` is permissionless, so it is a pure RECEIVER —
+  cold storage costs the mechanism zero. Verified in `PackSink.sol` before agreeing, not assumed.
+  ⚑ **The wallet it replaced was the exact opposite profile**: the SuperRare account wallet MUST be
+  hot (it signs the deploy, connects to sites, owns the lens). A balance that only ever grows,
+  behind a key used constantly, is the one combination worth avoiding — and `immutable` meant
+  deploy day was the only moment it was free to fix.
+  ⚠ **`deploy-sink`'s bytecode guard is on the TOKEN argument, not the treasury**, so a hardware
+  EOA with no code is not rejected. Checked, because it would have been a nasty surprise.
+  ⚠ **A hardware EOA, not a Safe, deliberately:** an EOA has the same address on Base as on
+  mainnet, so ONE wallet covers both `chain-config.treasury` (mainnet packs + rake) and
+  `js/eth-play.js`'s `HANGAR` (Base arcade fee). A Safe does not share an address across chains
+  without being deployed to each.
+- ✅ **THE DEPLOY WALLET IS UNAFFECTED AND STAYS HOT** — the edition must still be deployed from
+  `0x432D71bA…59d166c9` or the drop never associates with the SuperRare profile. Treasury and
+  deployer are now genuinely different keys, which is what the config's old comment asked for.
+- ✅ **FOUR ASSERTIONS, EACH PROVED TO BITE SEPARATELY** (`test:name` 120): treasury **is** the cold
+  wallet · is **not** the Sepolia deployer · is **not** the hot deploy wallet · and
+  `js/eth-play.js` pays the arcade fee to the **same** cold wallet, so the studio has ONE
+  destination. ⚑ The third is the one that matters most and could not be folded into the others:
+  "not empty" and even "is the studio wallet" would both have passed on the hot key.
+- ⚠ **STILL NEEDED: the claim signer address.** The artist chose it separate from the owner (the
+  other half of the same argument). It should be a fresh wallet; `setClaimSigner` rotates it later.
 
 ## ⛔ P0 IS MEASURED: **≈$0.08**, AND IT KILLED THE PACK SCHEDULE — `docs/PACK-PRICING.md`
 **SuperRare, 2026-08-06, off the live mainnet CLI previews at the full 3,300,000 supply:

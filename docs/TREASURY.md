@@ -18,7 +18,16 @@ This exists because `docs/ARTIST-REVENUE.md` records that SuperRare has publishe
 the creator revenue model on a Liquid Edition. **This is income the project controls outright and
 does not have to wait on an answer for.**
 
-Treasury wallet: `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` (`chain-config.treasury`).
+Treasury wallet: `0x8455cF296e1265b494605207e97884813De21950` (`chain-config.treasury`) — a **COLD
+(Ledger) wallet**, artist's call 2026-08-06.
+⚑ **It signs nothing.** `_split()` PUSHES with `token.transfer(treasury,…)` and `flush()` is
+permissionless, so the treasury is a pure RECEIVER — cold storage costs the mechanism nothing.
+⛔ **The deploy wallet is a SEPARATE, HOT wallet** (`0x432D71bA14D2602B566dD9e3e098E24859d166c9`, the
+SuperRare account): it signs the edition, connects to SuperRare and owns the lens. A balance that
+only ever grows must not sit behind that key.
+⛔ **This is PackSink's `immutable` treasury argument.** A wrong value is a redeploy, not a setting.
+⚠ It was `0x5C3bc6dD6d5b9913d267527275dD95ceB235d89F` (the **Sepolia** deployer) until then; that
+would have paid mainnet studio revenue to a testnet-era wallet.
 
 ---
 

@@ -16,7 +16,13 @@
  */
 (() => {
   const BASE = { id: 8453, hex: '0x2105', name: 'Base', rpcs: ['https://mainnet.base.org'], explorer: 'https://basescan.org' };
-  const HANGAR = '0x432D71bA14D2602B566dD9e3e098E24859d166c9';   // creator wallet — the coin box
+  /* ⚑ THE SAME COLD WALLET AS chain-config.treasury, on purpose — one destination for studio
+   * money. It was the SuperRare account wallet while the treasury was the SEPOLIA one, i.e.
+   * two different wallets collecting revenue in one repo with nothing comparing them.
+   * ⚠ It never signs: it is only ever a `to:` here and a `payTo()` the seat door reads back,
+   * so a Ledger address works exactly as well as a hot one. An EOA has the same address on
+   * Base as on mainnet, which is why one wallet can cover both paths (a Safe would not). */
+  const HANGAR = '0x8455cF296e1265b494605207e97884813De21950';   // creator wallet — the coin box (COLD)
   const PLAY_USD = 1.00, PLAYS_PER = 4, WAGER_MAX_USD = 3.00, WAGER_STEP_USD = 0.25;
   const W = () => window.RipWallet || null;
   const LSK = 'urm_eth_plays_v1', LSP = 'urm_ethusd_v1';
