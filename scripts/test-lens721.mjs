@@ -297,5 +297,151 @@ console.log('\n── tiers: the render reads your balance ──');
     ok(await call(sel('setTiers(uint256[4])') + encUint(1n) + encUint(2n) + encUint(3n) + encUint(4n))));
 }
 
+/* ── THE MARKET READ — what makes this a LIQUID lens ──────────────────────────────────────────
+ * The contract read exactly one of SuperRare's documented inputs (balances) until now. These
+ * tests care about the same two things the tier tests do — that the numbers are exactly right,
+ * and that NONE of it can ever break the artwork. There are three external calls behind this
+ * instead of one, so there are three more ways to take all 100 cards offline, and every one of
+ * them is exercised here against a token built to misbehave.                                  */
+console.log('\n── the market read: burn, price, liquidity ──');
+{
+  const LIQC = out.contracts[SRC_M].MockLiquid;
+  const depL = await evm.runCall({ caller:DEPLOYER, to:undefined, data:hexToBytes('0x'+LIQC.evm.bytecode.object), gasLimit:30000000n, block:BLOCK });
+  const LIQ = depL.createdAddress;
+  const E18 = 10n ** 18n;
+  const MAXS = 3_030_000n * E18;                       // MockLiquid's cap, minted whole into the pool
+
+  const words = r => { const h = bytesToHex(r.execResult.returnValue).replace(/^0x/,'');
+    return h.length ? h.match(/.{64}/g) : []; };
+  const asU = w => BigInt('0x' + w);
+  // ⚠ int24 arrives SIGN-EXTENDED to 32 bytes, so a negative tick is a huge unsigned word.
+  //   Reading it unsigned would silently turn -13500 into ~1.16e77 and the assert would still run.
+  const asI = w => { const v = BigInt('0x' + w); return v >= (1n << 255n) ? v - (1n << 256n) : v; };
+  const at = async (fn, arg='') => words(await call(sel(fn) + arg));
+  const burnBps = async () => Number(asU((await at('burnBps()'))[0]));
+  const liqCall = async (data) => evm.runCall({ caller:DEPLOYER, to:LIQ, data:hexToBytes(data), gasLimit:30000000n, block:BLOCK });
+
+  // point the lens at a token that is BOTH an ERC-20 and a curve — the real edition's shape
+  await call(sel('setEdition(address)') + encAddr(LIQ.toString()));
+  /* ⚠ RESET THE LADDER. The block above ends by proving setTiers ACCEPTS an ascending table, and
+   *   the one it hands over is [1,2,3,4] WEI — so every wallet with a dust balance is Inferno from
+   *   that line onward. Inheriting it read as a tier bug in this block and was left-over state
+   *   from the previous one. A test block that depends on where the last one stopped is a test
+   *   block that breaks when somebody reorders them. */
+  await call(sel('setTiers(uint256[4])')
+    + encUint(350n * E18) + encUint(3_500n * E18) + encUint(35_000n * E18) + encUint(350_000n * E18));
+
+  t('a full pool has burned nothing', (await burnBps()) === 0, 'got ' + await burnBps());
+
+  /* One tier-I pack out of a 3,030,000 cap = 350/3030000 = 1.155 bps, which floors to 1. The
+   * point of BASIS POINTS rather than whole percent is exactly this: a single pack has to move
+   * the number, or the most important event in the economy rounds to nothing. */
+  await liqCall(sel('burnFromSupply(uint256)') + encUint(350n * E18));
+  t('one 350-token pack registers at all', (await burnBps()) === 1, 'got ' + await burnBps());
+
+  // take it to a round 10% so the arithmetic is checkable by eye
+  await liqCall(sel('setCurrentSupply(uint256)') + encUint(MAXS * 90n / 100n));
+  t('10% burned reads 1000 bps', (await burnBps()) === 1000, 'got ' + await burnBps());
+
+  const snap = await at('marketSnapshot()');
+  t('marketSnapshot is live', asU(snap[0]) === 1n);
+  t('  ...and carries the same burn', Number(asU(snap[1])) === 1000, 'got ' + asU(snap[1]));
+  t('  ...and word0 is rarePerToken, not the tick', asU(snap[2]) === E18, 'got ' + asU(snap[2]));
+  t('  ...and the tick survives as a NEGATIVE number', asI(snap[3]) === -13500n, 'got ' + asI(snap[3]));
+  t('  ...and liquidity comes through', asU(snap[4]) === E18, 'got ' + asU(snap[4]));
+
+  /* ⚑ lensState is the page's one round-trip. The assertion that matters is not that it answers
+   *   but that it answers CONSISTENTLY with the individual reads — four calls that disagree is
+   *   the bug it exists to prevent. */
+  /* ⚠ FUND THE CARD'S ACTUAL OWNER, READ OFF THE CHAIN — do not assume it. Hero 7 is minted to
+   *   ALICE and then TRANSFERRED away by the transfer block, so hard-coding ALICE here funded a
+   *   wallet that no longer holds the card. `tierOfHolder(ALICE)` was a correct 2 the whole time
+   *   while the CARD read 0, which looks exactly like a broken tier and is a broken assumption.
+   *   Reading the owner keeps this true however the blocks are ordered. */
+  const owner7 = '0x' + bytesToHex((await call(sel('ownerOf(uint256)') + encUint(7))).execResult.returnValue).slice(-40);
+  await liqCall(sel('mint(address,uint256)') + encAddr(owner7) + encUint(3_500n * E18));
+  /* ⚠ CARD 7 IS THE MINTED HERO (voucher block, to ALICE); 34 is a FIELD card that can never be
+   *   minted here at all. Getting these the wrong way round is what the first run of this block
+   *   did, and every failure it produced looked like a contract bug. */
+  const st34 = await at('lensState(uint256)', encUint(34));
+  t('lensState says live', asU(st34[0]) === 1n);
+  t('  an unminted card has no tier and is not minted', Number(asU(st34[1])) === 0 && asU(st34[3]) === 0n);
+  t('  and it still reports the burn', Number(asU(st34[2])) === 1000, 'got ' + asU(st34[2]));
+
+  /* ⚠ THE TIER ON A CARD IS ITS OWNER'S — so funding ALICE must move the card SHE holds and must
+   *   leave the unminted one at zero. Both halves, or "everything reads 0" would pass. */
+  const st7 = await at('lensState(uint256)', encUint(7));
+  t('a minted card reports its OWNER as minted', asU(st7[3]) === 1n);
+  t('  ...and carries that owner\'s tier — 3,500 is Ember', Number(asU(st7[1])) === 2, 'got ' + asU(st7[1]));
+  t('  ...while the unminted card beside it still reads 0', Number(asU(st34[1])) === 0);
+
+  const uri = decStr(bytesToHex((await call(sel('tokenURI(uint256)') + encUint(7))).execResult.returnValue));
+  const json = JSON.parse(Buffer.from(uri.split(',')[1], 'base64').toString('utf8'));
+  const trait = n => (json.attributes.find(a => a.trait_type === n) || {}).value;
+  t('the burn reaches the CARD metadata', trait('Burned bps') === 1000, 'got ' + trait('Burned bps'));
+  t('  ...alongside the holding tier', trait('Holding') === 'Ember' && trait('Tier') === 2);
+  /* ⚠ Price and tick are deliberately NOT baked in: metadata is read LATE, and a stale price is a
+   *   lie where a stale burn is merely a floor. Assert the absence, or the next edit adds them. */
+  t('  ...and NO price or tick is baked into cached metadata',
+    trait('Price') === undefined && trait('Market Tick') === undefined && trait('Tick') === undefined);
+
+  /* ── now break it, four ways, and require the artwork to survive every one ── */
+  const rendersAnyway = async label => {
+    t(`  ${label}: tokenURI still renders`, ok(await call(sel('tokenURI(uint256)') + encUint(7))));
+    t(`  ${label}: burnBps answers 0 rather than reverting`, (await burnBps()) === 0, 'got ' + await burnBps());
+  };
+
+  /* ⛔ A CAP UNDER THE LIVE SUPPLY IS THE DANGEROUS ONE — it underflows, and an underflow in
+   *   0.8.x REVERTS. js/lens-state.js refuses the same state for the same reason: a burn figure
+   *   derived from it is a false claim, and a false burn on a collector's card is worse than none. */
+  await liqCall(sel('setCurrentSupply(uint256)') + encUint(MAXS + 1n));
+  await rendersAnyway('supply above the cap');
+  const bad = await at('marketSnapshot()');
+  t('  supply above the cap reports NOT live — it does not publish a wrong burn', asU(bad[0]) === 0n);
+
+  /* ⛔ AN ASTRONOMICAL CAP OVERFLOWS THE MULTIPLICATION, and in 0.8.x that REVERTS. An
+   *   unlimited-supply ERC-20 returning type(uint256).max is the realistic shape. This was the
+   *   last remaining way for the market read to throw and it was found by re-reading the
+   *   function — every other failure path already returned neutral, so nothing pointed at it. */
+  await liqCall(sel('setCurrentSupply(uint256)') + encUint(0n));
+  await liqCall(sel('setMaxTotalSupply(uint256)') + encUint((1n << 256n) - 1n));
+  t('  a cap of type(uint256).max does not overflow the bps maths', ok(await call(sel('burnBps()'))));
+  t('  ...and tokenURI still renders', ok(await call(sel('tokenURI(uint256)') + encUint(7))));
+  /* ⚠ Assert the VALUE, not just that it answered: everything burned but nothing minted is 100%,
+   *   i.e. 10000 bps. A guard that returns a wrong number is not a guard. */
+  t('  ...and still reports the RIGHT number — all of it burned is 10000 bps',
+    Number(asU((await at('burnBps()'))[0])) === 10000, 'got ' + asU((await at('burnBps()'))[0]));
+
+  // a zero cap would divide by zero
+  await liqCall(sel('setCurrentSupply(uint256)') + encUint(0n));
+  await liqCall(sel('setMaxTotalSupply(uint256)') + encUint(0n));
+  await rendersAnyway('a zero cap');
+
+  /* ⚑ THE INTERFACE-SEPARATION CLAIM, TESTED. IERC20Balance and IEditionMarket are deliberately
+   *   two interfaces so a plain ERC-20 with balanceOf and no curve still tiers correctly. Folding
+   *   them into one would make every market call a new way for tierOfHolder — and therefore
+   *   tokenURI — to fail. MockBurnToken is exactly that token: balances, no market. */
+  const TOKC2 = out.contracts[SRC_T].MockBurnToken;
+  const depT2 = await evm.runCall({ caller:DEPLOYER, to:undefined, data:hexToBytes('0x'+TOKC2.evm.bytecode.object), gasLimit:30000000n, block:BLOCK });
+  const PLAIN = depT2.createdAddress;
+  await evm.runCall({ caller:DEPLOYER, to:PLAIN, data:hexToBytes(sel('mint(address,uint256)') + encAddr(ALICE) + encUint(35_000n * E18)), gasLimit:30000000n, block:BLOCK });
+  await call(sel('setEdition(address)') + encAddr(PLAIN.toString()));
+  await rendersAnyway('an ERC-20 with no market surface');
+  const plainTier = Number(BigInt(bytesToHex((await call(sel('tierOfHolder(address)') + encAddr(ALICE))).execResult.returnValue)));
+  t('  ...and the TIER still works on it — 35,000 is Flame', plainTier === 3, 'got ' + plainTier);
+
+  // and the two already-known hostile shapes, now against three calls instead of one
+  const HOSTC2 = out.contracts[SRC_H].HostileToken;
+  const depH2 = await evm.runCall({ caller:DEPLOYER, to:undefined, data:hexToBytes('0x'+HOSTC2.evm.bytecode.object), gasLimit:30000000n, block:BLOCK });
+  await call(sel('setEdition(address)') + encAddr(depH2.createdAddress.toString()));
+  await rendersAnyway('a token that reverts on everything');
+
+  await call(sel('setEdition(address)') + encAddr('0x000000000000000000000000000000000000dEaD'));
+  await rendersAnyway('an EOA pasted in as the edition');
+
+  await call(sel('setEdition(address)') + encAddr('0x0000000000000000000000000000000000000000'));
+  await rendersAnyway('no edition at all');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

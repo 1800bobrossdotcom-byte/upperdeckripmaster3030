@@ -489,6 +489,19 @@
   "type": "function"
  },
  {
+  "inputs": [],
+  "name": "burnBps",
+  "outputs": [
+   {
+    "internalType": "uint256",
+    "name": "",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
   "inputs": [
    {
     "internalType": "uint256",
@@ -742,6 +755,55 @@
   "type": "function"
  },
  {
+  "inputs": [
+   {
+    "internalType": "uint256",
+    "name": "id",
+    "type": "uint256"
+   }
+  ],
+  "name": "lensState",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "live",
+    "type": "bool"
+   },
+   {
+    "internalType": "uint8",
+    "name": "tier",
+    "type": "uint8"
+   },
+   {
+    "internalType": "uint256",
+    "name": "burnBps_",
+    "type": "uint256"
+   },
+   {
+    "internalType": "bool",
+    "name": "minted",
+    "type": "bool"
+   },
+   {
+    "internalType": "uint256",
+    "name": "rarePerToken",
+    "type": "uint256"
+   },
+   {
+    "internalType": "int24",
+    "name": "tick",
+    "type": "int24"
+   },
+   {
+    "internalType": "uint128",
+    "name": "liquidity",
+    "type": "uint128"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
   "inputs": [],
   "name": "lovebeingMinted",
   "outputs": [
@@ -768,6 +830,39 @@
     "internalType": "uint256",
     "name": "",
     "type": "uint256"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "marketSnapshot",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "live",
+    "type": "bool"
+   },
+   {
+    "internalType": "uint256",
+    "name": "burnBps_",
+    "type": "uint256"
+   },
+   {
+    "internalType": "uint256",
+    "name": "rarePerToken",
+    "type": "uint256"
+   },
+   {
+    "internalType": "int24",
+    "name": "tick",
+    "type": "int24"
+   },
+   {
+    "internalType": "uint128",
+    "name": "liquidity",
+    "type": "uint128"
    }
   ],
   "stateMutability": "view",

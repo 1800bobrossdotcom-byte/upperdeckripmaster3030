@@ -1,8 +1,8 @@
 # The lens contract — every function, and what is actually on-chain
 
 `contracts/Ripmaster3030Lens721.sol` · `Ripmaster3030Lens721 is ERC721, EIP712` · solc 0.8.24 viaIR
-· **16,153 B deployed · 0 warnings · 55/55 (`npm run test:lens`)** — all three measured 2026-08-05,
-not carried forward from a note.
+· **17,536 B deployed · 0 warnings · 89/89 (`npm run test:lens`)** — all three measured 2026-08-06,
+not carried forward from a note. 7,040 B spare against the 24,576 B contract-size limit.
 
 One contract is both the **renderer** and the **ERC-721**. That is SuperRare's own
 `LiquidLensMintable721SVGExample` pattern, not our invention.
@@ -17,7 +17,7 @@ Read live off Sepolia with `npm run preflight` (keyless, `eth_call` only) on 202
 | --- | --- | --- | --- |
 | **$UR3030 edition** (rehearsal ERC-20) | SuperRare's, via Rare CLI | `0xdc47e98b…Ec83C` | ✅ **live on Sepolia** — rehearsal only |
 | **Ripmaster3030Renderer** (edition passthrough) | `contracts/Ripmaster3030Renderer.sol` | `0x948E6330…de903` | ✅ **live on Sepolia** — verified as `edition.renderContract()` |
-| **Ripmaster3030Lens721** ← *this document* | `contracts/Ripmaster3030Lens721.sol` | — | ⛔ **NOT DEPLOYED ANYWHERE.** Built, 55/55, `chain-config.lens721: ""` |
+| **Ripmaster3030Lens721** ← *this document* | `contracts/Ripmaster3030Lens721.sol` | — | ⛔ **NOT DEPLOYED ANYWHERE.** Built, 89/89, `chain-config.lens721: ""` |
 | **PackSink** (50/50 split) | `contracts/PackSink.sol` | — | ⛔ **NOT DEPLOYED.** 51/51, 1,773 B, `packSink: ""` |
 | **$3030 launch token** | SuperRare's, artist types `name`/`symbol` | — | ⛔ **NOT DEPLOYED.** Mainnet, artist's SuperRare-linked wallet |
 | CardVault | `contracts/CardVault.sol` | — | **retired** — old ERC-1155 design, kept for history only |
@@ -85,7 +85,10 @@ correct and pinned — **the tested route was the one nobody is sent down.**
 | `tierOfHolder(address)` | `uint8` | **0–4 — the staking read.** That wallet's `$3030` balance mapped to a tier. ⚠ Cannot revert (see below). |
 | `tierOf(uint256 id)` | `uint8` | The tier a CARD renders at — i.e. its owner's. Unminted ⇒ 0. |
 | `tierName(uint8)` | `string` | `pure`. Ash · Spark · Ember · Flame · Inferno. |
-| `edition()` | `address` | The `$3030` ERC-20 the tiers read. `address(0)` ⇒ **tiers off**. |
+| `burnBps()` | `uint256` | **Burn progress, 0…10000 bps.** `maxTotalSupply − totalSupply` over the cap. 0 when the edition is unset or mute. ⚠ Cannot revert. |
+| `marketSnapshot()` | `(live, burnBps, rarePerToken, tick, liquidity)` | **The whole market read in one call.** `live == false` ⇒ every other field is meaningless. ⚠ Cannot revert. |
+| `lensState(uint256 id)` | `(live, tier, burnBps, minted, rarePerToken, tick, liquidity)` | **One eth_call for the live card page** — replaces four round-trips, and the numbers are read at one block so they cannot disagree. ⚠ Cannot revert. |
+| `edition()` | `address` | The `$3030` ERC-20 the tiers **and the market read** point at. `address(0)` ⇒ **both off**. |
 | `tierAt(uint256 i)` | `uint256` | Threshold `i`, in the token's base units. |
 | `owner()` · `claimSigner()` · `editionRenderer()` | `address` | Admin, voucher signer, passthrough target. |
 | `collectionName()` · `collectionDescription()` | `string` | |
@@ -212,6 +215,53 @@ second was found by a test rather than by reasoning:
 Both are asserted in `npm run test:lens` against a deliberately reverting `HostileToken` and
 against a bare EOA. ⚠ The cost of guard 2 is that a wrong `edition` **fails silently** — which is
 why `lens-cli.mjs tiers --edition` refuses an address with no bytecode.
+
+---
+
+## The market read — what makes this a *Liquid* lens
+
+Added 2026-08-06. Until then the contract read exactly **one** of SuperRare's documented inputs
+(*"price, supply, liquidity, burn progress, balances"*) — balances. The edition's passthrough
+renderer read the market, but that is the **edition's** card; nothing per-lens. A card in this deck
+could say nothing about the market it lives in.
+
+`_market()` reads `maxTotalSupply` · `totalSupply` · `getMarketState()` off the same `edition`
+address the tiers use, and surfaces as `burnBps()`, `marketSnapshot()` and `lensState(id)`.
+
+### ⛔ Three external calls means three more ways to take the deck offline
+
+Every guard on `tierOfHolder` applies here and there are more of them, because this is reached from
+`tokenURI` too. All five are asserted, and **three were proved by sabotage** — deleting the guard
+and watching the suite fail by name:
+
+| guard | what it stops | proved |
+| --- | --- | --- |
+| `edition.code.length == 0` | an EOA pasted in as the edition — not catchable by `try/catch` | ✅ |
+| `max == 0` | division by zero on a token that returns no cap | ✅ **delete it ⇒ `tokenURI still renders` FAILS** |
+| `supply > max` | **underflow ⇒ revert**, and a false burn figure | ✅ **delete it ⇒ `tokenURI` reverts, `burnBps` returns 3.5e76** |
+| `max > type(uint256).max / 10_000` | **overflow ⇒ revert** on a token reporting an astronomical cap | ✅ **delete it ⇒ `tokenURI` reverts.** Found by re-reading the function, not by a failing test — every other path already returned neutral, so nothing pointed at it |
+| per-call `try/catch` | a token that reverts on any one of the three | ✅ |
+
+⚑ The sabotage output is the argument: the assertion that fails is *"tokenURI still renders"*. A
+missing guard here does not produce a wrong number on one card — it takes **all 100 cards'
+metadata offline at once**, on a marketplace, permanently as far as any cache is concerned.
+
+### ⚑ Two interfaces, on purpose
+
+`IERC20Balance` (just `balanceOf`) and `IEditionMarket` (the curve) are deliberately separate. The
+tier read must keep working against a plain ERC-20 with no curve at all. Folding them into one
+interface would compile fine and make every market call a *new way for `tierOfHolder` to fail* —
+and `tierOfHolder` is called from `tokenURI`. Asserted: a token with balances and no market surface
+still tiers correctly (35,000 ⇒ Flame) while `burnBps()` answers 0.
+
+### ⚑ Why only `Burned` is baked into metadata
+
+Marketplaces cache `tokenURI` hard and refetch on their own schedule, so **any attribute here is a
+number that will be read late.** Burn is monotonic — it only rises — so a stale burn reads as *"at
+least this much"*, which is true. A stale **price** or **tick** is a lie about what the token is
+worth right now. So `Burned bps` is an attribute; price, tick and liquidity live only on
+`lensState()`/`marketSnapshot()`, which the live page reads directly and immediately. A test asserts
+no price or tick has crept into the metadata.
 
 ### ⚠ Owner-dependent metadata is not cacheable
 

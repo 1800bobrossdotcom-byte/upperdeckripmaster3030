@@ -8,13 +8,13 @@
  *   node scripts/lens-cli.mjs cards   --at 0x… [--from cards/hero/cids.json]
  *   node scripts/lens-cli.mjs voucher --at 0x… --to 0x… --id 7 --kind 1 [--hours 72]
  *   node scripts/lens-cli.mjs claim   --at 0x… --to 0x… --id 7 --kind 1 --deadline N --sig 0x…
- *   node scripts/lens-cli.mjs tiers   --at 0x… [--edition 0x…] [--set a,b,c,d] [--of 0x…]
+ *   node scripts/lens-cli.mjs tiers   --at 0x… [--edition 0x…] [--set a,b,c,d] [--of 0x…] [--card N]
  *
  *   node scripts/lens-cli.mjs sink        --at 0x…            (read-only, NO KEY)
  *   node scripts/lens-cli.mjs deploy-sink [--token 0x…] [--treasury 0x…]
  *
  * ⚑ AND THE TIER SYSTEM HAD THE SAME HOLE, FOUND 2026-08-05. Staking is BUILT and tested
- *   (55/55) — `tierOfHolder` reads the holder's $3030 and `tokenURI` prints it — but the ABI
+ *   (89/89) — `tierOfHolder` reads the holder's $3030 and `tokenURI` prints it — but the ABI
  *   here carried none of it, so `setEdition`, THE ONE CALL THAT TURNS THE FEATURE ON, had no
  *   scripted caller and no step in docs/DEPLOY-LENS.md. A lens deployed from either documented
  *   route would render every card at tier 0 (`edition == address(0)`) with nothing to say so.
@@ -95,6 +95,10 @@ const ABI = parseAbi([
   'function tierName(uint8) view returns (string)',
   'function setEdition(address)',
   'function setTiers(uint256[4])',
+  // ── the market read: what makes this a LIQUID lens rather than a balance check
+  'function burnBps() view returns (uint256)',
+  'function marketSnapshot() view returns (bool,uint256,uint256,int24,uint128)',
+  'function lensState(uint256) view returns (bool,uint8,uint256,bool,uint256,int24,uint128)',
 ]);
 
 const SINK_ABI = parseAbi([
@@ -356,8 +360,29 @@ async function tiers() {
     const raw = await c.read.tierAt([BigInt(i)]);
     console.log(`  tier ${i + 1}  ${String(formatEther(raw)).padStart(12)}  ${await c.read.tierName(i + 1)}`);
   }
+  /* ⚑ THE MARKET HALF. `live` false is not an error — it is what an unset or mute edition looks
+   *   like, and the contract is built to return exactly that rather than revert, because a revert
+   *   in this read would take the metadata of all 100 cards offline at once. */
+  const [mLive, mBurn, mRpt, mTick, mLiq] = await c.read.marketSnapshot();
+  console.log('\nmarket');
+  if (!mLive) {
+    console.log('  ⛔ NOT LIVE — the edition is unset, has no bytecode, or does not answer.');
+    console.log('     Cards render with Burned bps 0. This is the safe failure, not a crash.');
+  } else {
+    console.log(`  burned   ${(Number(mBurn) / 100).toFixed(2)}%  (${mBurn} bps — this is what reaches card metadata)`);
+    console.log(`  price    ${formatEther(mRpt)} RARE per 3030`);
+    console.log(`  tick     ${mTick}`);
+    console.log(`  depth    ${formatEther(mLiq)}${mLiq === 0n ? '   ⚠ no liquidity in the book' : ''}`);
+  }
+
   const who = val('of');
   if (who) console.log(`\n${who}\n  tier ${await c.read.tierOfHolder(who)} · ${await c.read.tierName(await c.read.tierOfHolder(who))}`);
+  const card = val('card');
+  if (card) {
+    const [lLive, lTier, lBurn, lMinted] = await c.read.lensState([BigInt(card)]);
+    console.log(`\ncard ${card}  (one eth_call — what the live page reads)`);
+    console.log(`  ${lMinted ? 'minted' : 'unminted'} · holding ${await c.read.tierName(lTier)} (tier ${lTier}) · burned ${lBurn} bps · market ${lLive ? 'live' : 'not live'}`);
+  }
   if (off) console.log('\nnext:\n  node scripts/lens-cli.mjs tiers --at ' + at + ' --edition ' + ((CFG.contracts || {}).liquidEdition || '0x<the $3030 token>'));
 }
 

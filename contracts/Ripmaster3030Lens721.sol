@@ -17,6 +17,26 @@ interface IERC20Balance {
 }
 
 /**
+ * The rest of the edition's read surface — the part that makes this a *Liquid* lens rather than
+ * an ERC-721 that happens to read a balance.
+ *
+ * ⚠ DELIBERATELY SEPARATE FROM IERC20Balance, AND THAT SEPARATION IS LOAD-BEARING. The tier read
+ *   must keep working against a plain ERC-20 that has `balanceOf` and none of this. Folding them
+ *   into one interface would not break compilation — it would make every market call a *possible*
+ *   new way for `tierOfHolder` to fail, and `tierOfHolder` is called from `tokenURI`. Two
+ *   interfaces, two independently guarded reads, one address.
+ */
+interface IEditionMarket {
+    function totalSupply() external view returns (uint256);
+    function maxTotalSupply() external view returns (uint256);
+    /// (rarePerToken, tokenPerRare, sqrtPriceX96, currentTick, liquidity, currentSupply)
+    function getMarketState()
+        external
+        view
+        returns (uint256, uint256, uint160, int24, uint128, uint256);
+}
+
+/**
  *  ripmaster3030studios — the LENS collection.
  *
  *  Every card in the 100-card deck is a lens: a render keyed by card id. This contract is
@@ -294,6 +314,113 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
         return "Inferno";
     }
 
+    /* ── THE MARKET READ — what makes this a LIQUID lens ──────────────────────────────────────
+     * SuperRare names the inputs a lens may use: "price, supply, liquidity, burn progress,
+     * balances". Until now this contract read exactly one of them (balances). The edition's own
+     * passthrough renderer read the market, but that is the EDITION's card — nothing per-lens.
+     * So a card in this deck could not say anything about the market it lives in.
+     *
+     * ⛔ EVERY GUARD ON `tierOfHolder` APPLIES HERE, AND MORE OF THEM, because this is three
+     *   external calls instead of one and it is reached from `tokenURI`. A revert here would take
+     *   the metadata of ALL 100 CARDS offline at once, on a marketplace, permanently as far as any
+     *   cache is concerned. Hence: the extcodesize check that try/catch cannot cover, a try/catch
+     *   per call, and `live` left false on any failure so callers get the same neutral answer they
+     *   get before an edition is ever set.
+     */
+    struct Market {
+        bool live;              // did the whole read succeed?
+        uint256 burnBps;        // basis points of the mint permanently burned, 0…10000
+        uint256 rarePerToken;   // word0 of getMarketState — verified word order, see ILiquid
+        int24 tick;
+        uint128 liquidity;
+    }
+
+    function _market() internal view returns (Market memory m) {
+        if (edition == address(0) || edition.code.length == 0) return m;   // m.live == false
+
+        uint256 max;
+        try IEditionMarket(edition).maxTotalSupply() returns (uint256 v) { max = v; } catch { return m; }
+        /* ⚠ A zero cap is not "nothing burned", it is a token that does not answer this question —
+         *   and dividing by it would revert, which is the one thing this function may never do. */
+        if (max == 0) return m;
+
+        uint256 supply;
+        try IEditionMarket(edition).totalSupply() returns (uint256 v) { supply = v; } catch { return m; }
+        /* ⚠ SUPPLY ABOVE THE CAP IS NONSENSE, AND THE HONEST ANSWER IS SILENCE. js/lens-state.js
+         *   records the same guard for the same reason: a "burned" figure derived from a cap that
+         *   sits under the live supply is a false claim, and a false burn number on a collector's
+         *   card is worse than no number. Underflow would revert; this returns neutral instead. */
+        if (supply > max) return m;
+        /* ⛔ AND THE MULTIPLICATION ITSELF CAN OVERFLOW, WHICH REVERTS IN 0.8.x. A token reporting
+         *   an astronomical cap — an unlimited-supply ERC-20 returning type(uint256).max, say —
+         *   makes `diff * 10_000` wrap, and a revert here takes all 100 cards offline. Found by
+         *   re-reading this function, not by a failing test: every OTHER guard returns neutral, so
+         *   this one line was the last remaining way for the market read to throw. Above the
+         *   threshold, divide first — `max / 10_000` is then still enormous, so nothing rounds to
+         *   zero and no precision that matters is lost. */
+        uint256 diff = max - supply;
+        m.burnBps = max > type(uint256).max / 10_000
+            ? diff / (max / 10_000)
+            : (diff * 10_000) / max;
+
+        /* ⚑ The price half is allowed to fail on its own without costing us the burn figure. A
+         *   plain ERC-20 with a cap but no curve still has a real, publishable burn. */
+        try IEditionMarket(edition).getMarketState()
+            returns (uint256 rpt, uint256, uint160, int24 t, uint128 liq, uint256)
+        {
+            m.rarePerToken = rpt;
+            m.tick = t;
+            m.liquidity = liq;
+        } catch {}
+
+        m.live = true;
+    }
+
+    /// Basis points of the mint permanently burned, 0…10000. 0 when the edition is unset or mute.
+    function burnBps() public view returns (uint256) {
+        return _market().burnBps;
+    }
+
+    /// The whole market read in one call. `live` false ⇒ every other field is meaningless.
+    function marketSnapshot()
+        external
+        view
+        returns (bool live, uint256 burnBps_, uint256 rarePerToken, int24 tick, uint128 liquidity)
+    {
+        Market memory m = _market();
+        return (m.live, m.burnBps, m.rarePerToken, m.tick, m.liquidity);
+    }
+
+    /**
+     * Everything the live card page needs about one lens, in ONE eth_call.
+     *
+     * ⚑ WHY THIS EXISTS: the page was making four round-trips (ownerOf, tierOf, and two supply
+     *   reads against the edition) to draw one card, and a card in a sandboxed marketplace frame
+     *   is exactly where a round-trip is most likely to be blocked or slow. One call also means
+     *   the four numbers cannot disagree with each other — they are read at one block, which a
+     *   sequence of four calls does not guarantee.
+     * ⚠ `tier` is the OWNER's holding. An unminted card has no owner and therefore no tier, which
+     *   is 0 — the same answer as an owner holding nothing, and deliberately so: the card does not
+     *   report on a person who has not arrived.
+     */
+    function lensState(uint256 id)
+        external
+        view
+        returns (
+            bool live,
+            uint8 tier,
+            uint256 burnBps_,
+            bool minted,
+            uint256 rarePerToken,
+            int24 tick,
+            uint128 liquidity
+        )
+    {
+        Market memory m = _market();
+        address who = _ownerOf(id);
+        return (m.live, tierOfHolder(who), m.burnBps, who != address(0), m.rarePerToken, m.tick, m.liquidity);
+    }
+
     // ── rendering ────────────────────────────────────────────────────────────────────────
     /// The EDITION's display — delegated to the passthrough renderer.
     function tokenURI() external view returns (string memory) {
@@ -341,6 +468,16 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
          *   2026-08-01 — the pack schedule is TIERED, not a calendar), and this string would have
          *   gone on-chain in the metadata of all 100 cards. Caught before deploy. */
         uint8 tier = tierOf(id);
+        /* ⚑ BURN IS THE ONE MARKET NUMBER THAT BELONGS IN CACHED METADATA, and the reason is the
+         *   caching itself. Marketplaces cache tokenURI hard and refetch on their own schedule, so
+         *   any attribute here is a number that will be READ LATE. Burn is monotonic — it only
+         *   ever rises — so a stale burn reads as "at least this much", which is true. A stale
+         *   PRICE or TICK reads as a lie about what the token is worth right now, and that is why
+         *   they are exposed on `lensState()`/`marketSnapshot()` for the live page instead of
+         *   being baked in here. Same reasoning that already exposes the tier twice.
+         * ⚑ It is also the one that means something in this project: the token burns so the art
+         *   can live. Basis points, so a partial pack still moves it. */
+        uint256 burned = _market().burnBps;
         string memory attrs = string(
             abi.encodePacked(
                 ',"attributes":[',
@@ -349,6 +486,7 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
                 '{"trait_type":"Card","value":', idStr, "},",
                 '{"trait_type":"Holding","value":"', tierName(tier), '"},',
                 '{"trait_type":"Tier","value":', uint256(tier).toString(), "},",
+                '{"trait_type":"Burned bps","value":', burned.toString(), "},",
                 '{"trait_type":"Minted","value":"', _ownerOf(id) == address(0) ? "no" : "yes", '"}]}'
             )
         );
