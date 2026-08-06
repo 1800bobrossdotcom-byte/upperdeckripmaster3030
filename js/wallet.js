@@ -438,6 +438,19 @@
   const buyUrl = () => isLive()
     ? `${srHost()}/liquid-editions/${wantChainId()}/${token()}`
     : 'https://superrare.com';
+  /* ⛔ THE POOL IS NOT AN ADDRESS, SO IT DOES NOT GO THROUGH explorerAddr(). A Uniswap v4 pool is
+   *   a 32-byte id into the singleton PoolManager, not a contract — `/address/0x7943…ab6` is a
+   *   dead page. This builds the market link from the ONE declaration in chain-config, so the
+   *   66-character hex exists in the repo exactly once.
+   * ⚠ Returns '' when no pool is configured, and every caller must treat '' as "no market yet"
+   *   and show nothing. A chart button that goes to a blank DexScreener search is worse than no
+   *   chart button — `theme.js` records the rule: a control that goes nowhere is the one failure
+   *   worse than absence. */
+  const chartUrl = () => {
+    const m = (CFG().market || {});
+    const id = String(m.poolId || '').trim();
+    return /^0x[0-9a-fA-F]{64}$/.test(id) ? (m.chartHost || '') + id : '';
+  };
   const explorerAddr = a => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/address/${a}`;
   const explorerTx = h => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/tx/${h}`;
 
@@ -461,7 +474,7 @@
     hasWallet: () => !!injected() || !!wcProjectId(),
     hasInjected: () => !!injected(),
     hasWalletConnect: () => !!wcProjectId(),
-    isLive, buyUrl, explorerAddr, explorerTx,
+    isLive, buyUrl, chartUrl, explorerAddr, explorerTx,
     chainName: () => (CHAINS[wantChainId()] || {}).name || ('chain ' + wantChainId()),
     /* ⛔ WHERE THE WALLET ACTUALLY IS, WHICH IS NOT WHAT chainName() ANSWERS. chainName() reports
      *   the CONFIGURED chain, and the ledger printed it under the heading "The house" — i.e. it

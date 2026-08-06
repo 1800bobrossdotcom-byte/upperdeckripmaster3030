@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>wire the lens · ripmaster3030studios</title>
+<script src="/gate.js"></script>
+<script src="js/chain-config.js"></script>
+<style>
+  :root{ color-scheme:dark; }
+  body{ margin:0; padding:26px 18px 60px; background:#02120a; color:#d9ffe9;
+        font:14px/1.6 'Courier New',monospace; }
+  h1{ font-size:17px; letter-spacing:.14em; color:#2bff80; margin:0 0 4px; }
+  .sub{ color:#5fcf8f; font-size:12px; margin-bottom:20px; }
+  .card{ max-width:840px; border:1px solid #16663c; border-radius:10px; padding:18px;
+         background:linear-gradient(180deg,#04180e,#020d07); }
+  .step{ display:flex; gap:11px; margin-bottom:13px; }
+  .step .n{ flex:none; width:22px; height:22px; border-radius:50%; background:#0a2a18; color:#2bff80;
+            display:grid; place-items:center; font-size:11px; border:1px solid #1c7a48; }
+  .step p{ margin:0; }
+  .args{ margin:14px 0; border:1px dashed #1c7a48; border-radius:8px; padding:11px 13px; font-size:12px; }
+  .args div{ display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
+  .args .k{ color:#5fcf8f; } .args .v{ color:#ffd23b; word-break:break-all; }
+  button{ font:inherit; cursor:pointer; padding:11px 16px; border-radius:8px; min-height:44px;
+    border:1px solid #1c7a48; background:#0a2a18; color:#2bff80; }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  #log{ white-space:pre-wrap; margin-top:18px; padding:13px; border:1px solid #123; border-radius:8px;
+        background:#010806; font-size:12.5px; min-height:44px; max-height:55vh; overflow:auto; }
+  .ok{ color:#2bff80; } .bad{ color:#ff4b3a; } .warn{ color:#ffd23b; } .dim{ color:#5fcf8f; }
+</style>
+</head>
+<body>
+<h1>◈ wire the lens ◈</h1>
+<div class="sub">SuperRare: “if they want to use a lens it has to be the entry point that they register with setRenderContract”</div>
+<div class="card">
+  <div class="step"><span class="n">1</span><p><b>Point the lens at the current renderer.</b> The lens still delegates its edition passthrough to the <i>superseded</i> renderer — the one that published <code>Burned % 0</code>. <b>This must land first:</b> the moment the lens becomes the entry point, whatever it delegates to becomes the token page, so doing step 2 first would put the wrong numbers back on SuperRare.</p></div>
+  <div class="step"><span class="n">2</span><p><b>Register the lens as the render contract.</b> <code>setRenderContract(lens)</code> on the edition. This is the change SuperRare named — the lens becomes the entry point, and it passes through to the renderer rather than being replaced by it.</p></div>
+  <div class="step"><span class="n">3</span><p><b>Read it back.</b> The edition's <code>tokenURI()</code> must still return the market card <i>through</i> the lens, with the corrected burn figures.</p></div>
+
+  <div class="args">
+    <div><span class="k">edition</span><span class="v" id="a-ed">…</span></div>
+    <div><span class="k">lens721 — becomes the entry point</span><span class="v" id="a-lens">…</span></div>
+    <div><span class="k">renderer — the lens passes through to this</span><span class="v" id="a-rend">…</span></div>
+    <div><span class="k">edition.renderContract() now</span><span class="v" id="a-cur">reading…</span></div>
+    <div><span class="k">lens.editionRenderer() now</span><span class="v" id="a-del">reading…</span></div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap">
+    <button id="s1">① Point the lens at the renderer</button>
+    <button id="s2" disabled>② Register the lens</button>
+    <button id="s3">③ Read it back</button>
+  </div>
+</div>
+<div id="log">ready. wallet connects on the first transaction.</div>
+
+<script>
+(() => {
+  const SEL = { setEditionRenderer: '0xa9a3451b', setRenderContract: '0x8415d213',
+                renderContract: '0x173db2e5', editionRenderer: '0xcb13db35',
+                owner: '0x8da5cb5b', tokenURI0: '0x3c130d90' };
+  const EDITION = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33';
+  const LENS    = '0xe2d11bC2f0122Be198a6e102fD2567888878e138';
+  const RENDER  = '0x3175419A532e3e6adC5a31DbEE6A3C2F08745E9D';
+
+  const CFG = window.RIPMASTER_CHAIN || {};
+  const RPCS = CFG.rpcs || [];
+  const log = document.getElementById('log');
+  const say = (m, c) => { log.innerHTML += `\n<span class="${c || ''}">${m}</span>`; log.scrollTop = log.scrollHeight; };
+  const eq = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+  const pad = a => a.slice(2).toLowerCase().padStart(64, '0');
+
+  document.getElementById('a-ed').textContent = EDITION;
+  document.getElementById('a-lens').textContent = LENS;
+  document.getElementById('a-rend').textContent = RENDER;
+
+  async function rpc(method, params) {
+    for (const url of RPCS) {
+      try {
+        const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+        const j = await r.json();
+        if (j.result !== undefined) return j.result;
+        if (j.error) return null;
+      } catch {}
+    }
+    return null;
+  }
+  const call = (to, data, from) => rpc('eth_call', [from ? { from, to, data } : { to, data }, 'latest']);
+  const A = h => h && h !== '0x' ? '0x' + h.slice(-40) : null;
+
+  let CUR = null, DEL = null, OWNER = null;
+  async function refresh() {
+    CUR = A(await call(EDITION, SEL.renderContract));
+    DEL = A(await call(LENS, SEL.editionRenderer));
+    OWNER = A(await call(LENS, SEL.owner));
+    document.getElementById('a-cur').textContent = CUR || '⛔ unreadable';
+    document.getElementById('a-del').textContent = DEL || '⛔ unreadable';
+    /* ⛔ STEP 2 STAYS LOCKED UNTIL STEP 1 HAS LANDED, and it is read from the CHAIN rather than
+       remembered from a click. Registering the lens while it still delegates to the superseded
+       renderer would push `Burned % 0` back onto the token page — a visible regression, published
+       by a fix. The ordering is the whole risk here, so it is enforced rather than documented. */
+    document.getElementById('s2').disabled = !eq(DEL, RENDER);
+    if (eq(CUR, LENS)) say('✓ the lens is ALREADY the edition\'s render contract', 'ok');
+    if (eq(DEL, RENDER)) say('✓ the lens delegates to the current renderer — ② unlocked', 'ok');
+    else say('⚠ the lens still delegates to ' + DEL + ' — run ① first', 'warn');
+  }
+  refresh();
+
+  async function wallet() {
+    const eth = window.ethereum;
+    if (!eth) { say('⛔ no wallet in this browser', 'bad'); return null; }
+    const [from] = await eth.request({ method: 'eth_requestAccounts' });
+    /* ⛔ PIN MAINNET EXPLICITLY, never via the site's ensureChain(). */
+    try { await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x1' }] }); } catch {}
+    const on = await eth.request({ method: 'eth_chainId' });
+    if (parseInt(on, 16) !== 1) { say(`⛔ wallet is on chain ${parseInt(on, 16)}, not mainnet`, 'bad'); return null; }
+    if (OWNER && !eq(from, OWNER)) {
+      say(`⛔ connected as ${from}`, 'bad');
+      say(`   both contracts are owned by ${OWNER} — switch to it`, 'bad');
+      return null;
+    }
+    return { eth, from };
+  }
+
+  /* ⛔ SIMULATE BEFORE SENDING. Both calls are onlyOwner and both revert cleanly for anyone else;
+     eth_call surfaces that for free instead of costing a failed transaction. */
+  async function send(label, to, data) {
+    const w = await wallet(); if (!w) return;
+    const sim = await call(to, data, w.from);
+    if (sim === null) { say(`⛔ ${label} would revert — not sending`, 'bad'); return; }
+    say(`${label} — confirm in your wallet…`);
+    try {
+      const tx = await w.eth.request({ method: 'eth_sendTransaction', params: [{ from: w.from, to, data }] });
+      say('tx ' + tx, 'ok');
+      say('https://etherscan.io/tx/' + tx, 'dim');
+      say('when it confirms, reload this page so the guards re-read the chain.', 'dim');
+    } catch (e) { say('⛔ ' + (e.message || e), 'bad'); }
+  }
+
+  document.getElementById('s1').onclick = () =>
+    send('lens.setEditionRenderer(renderer)', LENS, SEL.setEditionRenderer + pad(RENDER));
+  document.getElementById('s2').onclick = () =>
+    send('edition.setRenderContract(lens)', EDITION, SEL.setRenderContract + pad(LENS));
+
+  document.getElementById('s3').onclick = async () => {
+    log.textContent = 'reading the chain…';
+    await refresh();
+    /* ⛔ THE ASSERTION IS THE RENDERED METADATA, NOT THE POINTER. Two correct addresses can still
+       produce a broken page — the edition now calls tokenURI() ON THE LENS, and if that path
+       reverts the token has no media at all. Decode what a marketplace would actually fetch. */
+    const t = await call(EDITION, SEL.tokenURI0);
+    if (!t) { say('⛔ edition.tokenURI() REVERTS — the token page has no media', 'bad'); return; }
+    try {
+      const off = parseInt(t.slice(2, 66), 16) * 2;
+      const len = parseInt(t.slice(2 + off, 2 + off + 64), 16);
+      const body = t.slice(2 + off + 64, 2 + off + 64 + len * 2);
+      const bytes = Uint8Array.from((body.match(/../g) || []).map(b => parseInt(b, 16)));
+      const uri = new TextDecoder('utf-8').decode(bytes);
+      const j = JSON.parse(new TextDecoder('utf-8').decode(
+        Uint8Array.from(atob(uri.split(',')[1]), c => c.charCodeAt(0))));
+      const g = k => (j.attributes || []).find(a => a.trait_type === k);
+      say(`\nedition.tokenURI() → ${JSON.stringify(j.name)}`, 'ok');
+      say(`  Burned ${g('Burned') && g('Burned').value} · Burned % ${g('Burned %') && g('Burned %').value}`,
+          g('Burned %') && Number(g('Burned %').value) > 0 ? 'ok' : 'warn');
+      say(`  animation_url present: ${!!j.animation_url} · image present: ${!!j.image}`, 'ok');
+      if (eq(CUR, LENS)) say('\n✓ the lens is the entry point and it renders. Tell SuperRare.', 'ok');
+    } catch (e) { say('⚠ could not decode tokenURI(): ' + e.message, 'warn'); }
+  };
+})();
+</script>
+</body>
+</html>

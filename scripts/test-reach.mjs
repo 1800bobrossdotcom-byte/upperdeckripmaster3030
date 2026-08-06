@@ -465,6 +465,24 @@ const ORPHAN_OK = {
    *   this file's own distinction between a decision and an oversight. */
   'deploy-sink.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
   'deploy-lens.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
+  /* ⚠ THE ONE OPERATOR TOOL THAT IS CURRENTLY SHIPPING, and it ships on purpose: the artist
+   *   drives it from the DEPLOYED site, because that is where /api/pin and its PINATA_JWT live.
+   *   .vercelignore'ing it would take the button away from the only person who can press it.
+   * ⚑ Unlike the other three it carries no bytecode — `setCards` is `onlyOwner`, so a stranger
+   *   pressing Publish gets a revert and nothing else. The counterfeit-lens exposure that put
+   *   deploy-lens.html behind .vercelignore has no analogue here.
+   * ⛔ IT JOINS THEM IN .vercelignore THE MOMENT THE 33 ARE PUBLISHED. Written down because a
+   *   temporary exception with no stated end is just an exception. */
+  'deploy-cards.html': 'an operator tool — unlinked; ships only until setCards lands, then .vercelignore\u0027d',
+  /* ⚠ Ships alongside deploy-cards.html and for the same reason — the artist drives it from the
+   *   live site — and leaves the same way once the 33 are minted. It sends no bytecode and grants
+   *   nothing: claimHero verifies an EIP-712 signature from claimSigner, so a stranger opening
+   *   this page can produce vouchers only the contract will reject. */
+  'mint-heroes.html': 'an operator tool — unlinked; ships until the heroes are minted, then .vercelignore\u0027d',
+  /* ⚠ Ships until the two wiring transactions land, same as the other operator consoles, and
+   *   leaves the same way. It sends no bytecode and grants nothing: both calls are onlyOwner and
+   *   both were verified to revert for a stranger before this shipped. */
+  'wire-lens.html': 'an operator tool — unlinked; ships until the lens is registered, then .vercelignore\u0027d',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
   /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
    * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
@@ -514,6 +532,17 @@ t(`all ${CARD_PAGES.length} card pages are reachable from the deck index`, cardO
 for (const [f] of TEXT) {
   if (!f.endsWith('.html')) continue;
   if (f === 'index.html') continue;      // the domain itself is the only real root
+  /* ⛔ THE HERO LENSES ARE REACHED FROM THE CHAIN, NOT FROM THE SITE — same class as
+   *   superrare.html, which is allow-listed for exactly this reason. Each token's on-chain
+   *   `animation_url` is https://www.…/cards/hero/<id>.html, so the inbound link lives in
+   *   contract storage where no crawler of ours can see it. Requiring a site link would push
+   *   toward adding a decorative one to satisfy a test, which is worse than the exemption.
+   * ⚠ NOT a blanket pass for the directory: only the 33 numbered lens pages are exempt, so a
+   *   stray file dropped in cards/hero/ is still an orphan and still fails.
+   * ⚑ They are NOT unreachable in practice — /cards/<1–33> redirects here, which is what makes
+   *   `external_url` resolve too. That routing is asserted in test:name, not by pretending a
+   *   link exists. */
+  if (/^cards\/hero\/([1-9]|[12][0-9]|3[0-3])\.html$/.test(f)) continue;
   if (ORPHAN_OK[f] || CARD_PAGES.includes(f)) continue;
   const nav = navigatorsOf(f);
   t(`${f} is navigated to by something`, nav.length > 0, nav.slice(0, 3).join(', ') || 'NO INBOUND LINK');

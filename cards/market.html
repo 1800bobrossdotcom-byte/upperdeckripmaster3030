@@ -134,6 +134,9 @@
     font-family:var(--fat); text-transform:uppercase; letter-spacing:.05em; }
   .pk .tag.forged{ background:var(--acid); color:#180016; }
   .pk .tag.listed{ background:var(--amber); color:#241a00; }
+  /* ⚠ Deliberately the quietest of the three: it reports a fact about how a card arrived, it is
+     not a warning, and a loud badge on a free pull would read as an error on the card itself. */
+  .pk .tag.practice{ background:rgba(2,16,9,.88); color:#5fcf8f; border:1px solid var(--phosdim); }
 
   /* page-turn leaf */
   .leaf{ position:absolute; top:0; bottom:0; width:50%; z-index:20; pointer-events:none; transform-origin:left center;
@@ -182,6 +185,10 @@
   .listing .act button.buy{ border-color:var(--amber); color:var(--amber); }
   .listing .act button.cancel{ border-color:var(--acid); color:var(--acid); }
   .board-empty{ grid-column:1/-1; text-align:center; color:#5fcf8f; font-style:italic; padding:30px 8px; }
+  /* ⚠ 16px floor — this is prose, and `mobile.css` took prose under 16px to zero site-wide. */
+  .archived-note{ text-align:center; color:#5fcf8f; opacity:.75; font-size:var(--t-body,16px);
+    line-height:1.6; max-width:58ch; margin:10px auto 0; padding:0 12px; }
+  .archived-note[hidden]{ display:none; }
   .mkt-h{ display:flex; justify-content:space-between; align-items:baseline; margin-top:20px; }
   .mkt-h .n{ font-family:var(--fat); font-size:var(--t-fine,12px); letter-spacing:.1em; text-transform:uppercase; color:var(--amber); }
   .mkt-note{ font-size:var(--t-body,11.5px); line-height:1.65; color:var(--ink); margin-top:8px; }
@@ -266,6 +273,7 @@
         <span class="where" id="where">page 1</span>
         <button id="next">turn ahead ►</button>
       </div>
+      <p class="archived-note" id="archived" hidden></p>
     </div>
 
     <!-- MARKET -->
@@ -286,6 +294,8 @@
   <!-- CARD SHEET -->
   <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 
+<script src="../js/card-stats.js"></script>
+<script src="../js/deck-source.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -310,16 +320,54 @@
     renderBurned(); say('🔥 '+n+' $3030 burned — '+why); };
   function renderBurned(){ const el = $('burned'); el.innerHTML = '<span class="ic" data-ic="flame"></span> '+burnedTotal()+' $3030 burned on this device'; window.RipIcons && RipIcons.hydrate(el); }
 
+  /* ⛔ `deck-manifest.json` CARRIES AN `href` OF `card.html?n=N` AND THAT PAGE DOES NOT EXIST.
+   *   Nothing in the repo serves it — `cards/deck.html` opens one of the hundred in an IN-PAGE
+   *   viewer (`CardStarfield.open`), so it never needed a per-card URL and the field was never
+   *   read by anything. Trusting it here would have put a 404 behind "View card" on all 100.
+   *   ⚑ A dead field in shipped DATA is the same trap as a stale note in shipped code: it looks
+   *   authoritative, it costs nothing to believe, and the only thing that finds it is following
+   *   it. The honest destination for one of the hundred is the deck itself.
+   * ⚠ A retired-set card still HAS a page (`cards/<slug>.html`, 196 of them), so it keeps it. */
+  const viewHref = c => (c && /^\d+$/.test(String(c.slug))) ? 'deck.html' : (c.slug + '.html');
+
   // resolve a vault entry {slug}|{forged} → card object
   function resolve(e, bs, fb){ if(!e) return null; return e.forged ? fb.get(e.forged) : bs.get(e.slug); }
 
+  /* ⛔ MY CARDS RESOLVES AGAINST THE HUNDRED ONLY — artist, on the live site: *"it is showing old
+   *   cards and prefilled when I already bought cards."* The DECK/LEGACY split above fixed the
+   *   shelf, the grid and the full-set view, and this is the FOURTH surface — the DEFAULT TAB,
+   *   the one he opened. It went through `bySlug()`, which includes LEGACY by design, so every
+   *   practice pull of the retired 196 resolved and rendered as a card he owned: a full bench
+   *   before he had bought anything.
+   * ⚑ AND THE 196 ARE NOT CARDS. `cards/deck.html`'s header states it outright — `manifest.json`
+   *   is THE INK, the source pictures the press prints FROM, *"not cards, do not present it as
+   *   cards"*. Presenting them as a collection is that rule broken on the page whose whole
+   *   subject is what you own. ⚠ Same shape as this repo's recorded "checking one of five is how
+   *   the other four rot back in": the fix named three views and the default one was not among
+   *   them.
+   * ⚠ NOTHING IS WIPED, AND THAT IS NOT A COMPROMISE. `urm_*` is never destroyed here — the rows
+   *   stay in localStorage exactly as written, LEGACY still resolves them everywhere a card must
+   *   be NAMED (an open listing, a trade already posted), and only the OWNERSHIP claim changes.
+   *   They are counted and said out loud rather than silently dropped, because a card
+   *   disappearing off your own shelf with no explanation is the same defect from the other side.
+   * ⚑ `deckOnly` is a Map of the hundred, NOT `bySlug()` minus LEGACY — building it from DECK
+   *   means a card can only ever be owned because it is in the deck, rather than because it
+   *   failed to be in a list. */
+  function archivedCount(){
+    const deck=new Set(DECK.map(c=>c.slug)), fb=forgedById(); let n=0;
+    for(const e of vault()){
+      if(e && e.forged){ if(!fb.has(e.forged)) n++; continue; }
+      if(e && e.slug && !deck.has(e.slug)) n++;
+    }
+    return n;
+  }
   // owned distinct cards, with counts + a stable ref
   function ownedCards(){
-    const bs=bySlug(), fb=forgedById(), counts=new Map(), order=[];
-    for(const e of vault()){ const c=resolve(e,bs,fb); if(!c) continue;
+    const deckOnly=new Map(DECK.map(c=>[c.slug,c])), fb=forgedById(), counts=new Map(), order=[];
+    for(const e of vault()){ const c=resolve(e,deckOnly,fb); if(!c) continue;
       const key = e.forged?('f:'+e.forged):('s:'+e.slug);
-      if(!counts.has(key)){ counts.set(key,{ card:c, ref:e.forged?{forged:e.forged}:{slug:e.slug}, key, n:0 }); order.push(key); }
-      counts.get(key).n++; }
+      if(!counts.has(key)){ counts.set(key,{ card:c, ref:e.forged?{forged:e.forged}:{slug:e.slug}, key, n:0, practice:0 }); order.push(key); }
+      const o=counts.get(key); o.n++; if(e && e.p) o.practice++; }
     return order.map(k=>counts.get(k));
   }
   function ownedKeySet(){ const s=new Set(); for(const o of ownedCards()) s.add(o.key); return s; }
@@ -342,7 +390,13 @@
     if(!cell) return `<div class="pk empty" aria-hidden="true"></div>`;
     const c=cell.card, ghost=cell.mode==='ghost';
     const forged = cell.ref && cell.ref.forged;
-    const tag = forged?'<span class="tag forged">forged</span>' : (listed.has(cell.key)&&!ghost?'<span class="tag listed">listed</span>':'');
+    /* ⚠ PRACTICE IS ONLY CLAIMED WHEN EVERY COPY IS ONE. A card pulled once for free and once for
+     *   real is a card you own; badging it "practice" would be the false half of the truth, and
+     *   this is the tab whose entire job is telling you what you actually have. */
+    const prac = !ghost && !forged && cell.practice > 0 && cell.practice === cell.n
+      ? '<span class="tag practice">practice</span>' : '';
+    const tag = forged?'<span class="tag forged">forged</span>'
+      : (listed.has(cell.key)&&!ghost?'<span class="tag listed">listed</span>' : prac);
     const cnt = (!ghost && cell.n>1)?`<span class="cnt">×${cell.n}</span>`:'';
     return `<div class="pk ${ghost?'ghost':''}" data-key="${cell.key}">
       <div class="sheen"></div>${tag}${cnt}
@@ -365,6 +419,17 @@
     $('where').textContent = total>1 ? `leaves ${spread+1}${R?'–'+(spread+2):''} / ${total}` : (L.length?`${L.length} card${L.length>1?'s':''}`:'empty');
     $('prev').disabled = spread<=0 || turning;
     $('next').disabled = spread+2>=total || turning;
+    /* ⚠ SAY WHAT IS NOT BEING SHOWN. Entries that no longer name a card of the hundred are kept
+     *   in localStorage and simply stop counting as ownership — but a shelf that quietly got
+     *   shorter is the same complaint from the other side, so the count is stated plainly on the
+     *   view it was removed from, and only there. */
+    const arch = view==='mine' ? archivedCount() : 0;
+    const an = $('archived');
+    if (an) {
+      an.hidden = !arch;
+      an.textContent = arch ? arch + ' pre-launch practice card' + (arch>1?'s':'')
+        + ' from the retired set are archived on this device — they are not part of the hundred.' : '';
+    }
     bindPockets();
   }
   function bindPockets(){
@@ -415,7 +480,7 @@
             <button class="warm" data-do="sell">✚ List for sale</button>
             <button class="warm" data-do="trade">⇄ List for trade</button>
             <button data-do="send">✉ Send / gift</button>
-            <a href="${c.href || (c.slug + '.html')}">◈ View card</a>
+            <a href="${viewHref(c)}">◈ View card</a>
           </div></div>`;
     }
     $('scrim').classList.add('show');
@@ -561,14 +626,9 @@
    *   the bench of every card a collector had already pulled. This repo's standing rule is that
    *   the `urm_*` keys are never wiped, and a card vanishing from your own shelf is that rule
    *   broken with an audience. LEGACY is never rendered as available stock. */
-  Promise.all([
-    fetch('deck-manifest.json').then(r=>r.ok?r.json():null).catch(()=>null),
-    fetch('manifest.json').then(r=>r.ok?r.json():null).catch(()=>null)
-  ]).then(([d, old])=>{
-    DECK   = (d && (d.cards||d)) || [];
-    LEGACY = (old && (old.cards||old)) || [];
-    go();
-  }).catch(()=>{ DECK=[]; LEGACY=[]; go(); });
+  Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(function(r){
+    DECK = r[0] || []; LEGACY = r[1] || []; go();
+  }).catch(function(){ DECK=[]; LEGACY=[]; go(); });
 })();
 </script>
 <script src="../theme.js"></script>

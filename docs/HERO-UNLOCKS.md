@@ -90,6 +90,29 @@ part that took the thought; the **numbers** are the part to argue about.
 | 8 | **DEAD AIR** | THE CITY | As the bird, cover **300 m in one unbroken glide** — not a single wingbeat — and **never more than 40 m above the ground beneath you**. | ⚑ Measured on the shipping build. The glide ratio is a flat **8.2 : 1** at every altitude, so 40 m of height is **328 m** of glide and no more: 300 m spends 91% of the physical maximum. You cannot climb out of trouble and you cannot go over anything — and **2 of 5 straight lines from random city points hit a building** (190 m and 311 m against 327 m in the clear). So it is won by READING THE CITY before you commit, which is the one thing the bird is for. |
 | 9 | **BOTH ENDS** | THE CITY | In one unbroken visit: **plant a card from the air as the bird, then take that same card back as the squirrel.** | ⚑ The only title that makes you play two animals. `docs/CITY-GAME.md`'s claim is that the animals are **layers, not skins** — the bird sees everything and cannot place precisely, the squirrel owns the vertical and cannot cover ground. This is that claim as a condition: you drop it where you can only guess, then you have to go and physically get it, on foot, up whatever it landed on. ⚠ Rival squirrels take loose cards, so the clock is somebody else's. |
 
+⛔ **STATUS 2026-08-06 — WHAT THE GAME CAN ACTUALLY AWARD IS `js/title-ledger.js`, AND IT NOW
+CARRIES TWO OF THE FIVE.** The safest of the three resolutions was taken: nothing that works was
+deleted, and the two slots that were **already dead** became the points unlock and the combo one.
+
+**Live, with detectors and tests:** THE WIRE · DEAD STICK (dogfight.html) · ONE MAG · GHOST WALK
+(`js/s9pc-game.js`) · **TWO MILLION FEET · COLD BARREL** (`js/rrpc-app.js`) · THE STREAK ×3
+(`js/crpc-ui.js`) · DEAD AIR · BOTH ENDS (`js/city-app.js`) — **9 titles, 11 cards**, so
+`11 auction + 11 gacha + 11 earned = 33` is untouched and no public aggregate moved.
+
+⛔ **THE DEFECT THIS FIXED, AND IT WAS LIVE.** OPEN AIR and THE FACILITY IS CLOSED were listed in
+the ledger while `riprocketer.html` **did not load `js/title-ledger.js` at all** — two titles
+printed on the redeem surface that nothing could ever award. `test:reach` proves modules parse and
+`test:cab` proves pages lay out; neither can see a script that was never included. That is why
+those two were the safe slots to spend: they were the only ones costing nothing to replace.
+
+⚠ **STILL PROPOSED, NOT LIVE — the other three of the artist's five.** ABOVE THE WEATHER (5M),
+ESCAPE VELOCITY (10M) and NEVER STILL are in the table below and are **not** published on any
+public page, because the budget is 11 cards and the seven other titles spend nine of them. Landing
+them means deleting titles that work — THE WIRE, DEAD STICK or ONE MAG — and leaving a cabinet
+with none. **That is the artist's call and it is not free**, so it waits rather than being taken
+quietly. The measurement is already done and `js/rrpc-game.js` already tracks `tierFlowOk`, so
+whichever way it goes the work is ledger entries plus a detector.
+
 ⛔ **THE TWO PASSES OVER-SUBSCRIBED THE SAME BUDGET, AND THE ARITHMETIC IS WHY THIS LIST SHRANK.**
 The earned tier is **11 CARDS**, because `11 auction + 11 gacha + 11 earned = 33` and the 33 is
 settled. Two independent passes on 2026-08-06 each spent that budget: one gave THE STREAK three

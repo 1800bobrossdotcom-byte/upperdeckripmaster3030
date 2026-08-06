@@ -824,8 +824,48 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * applies to EVERY domain the project serves — including the destination — so a bare
    * `/:path*` -> the new host would bounce the new host to itself forever. The scope is the
    * whole safety of this rule and it is invisible until the day the domain is attached. */
-  ok(red.length > 0 && red.every(r => (r.has || []).some(h => h.type === 'host')),
-    '…and every redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⚠ THE RULE IS ABOUT CROSS-HOST REDIRECTS, NOT ALL REDIRECTS, and the original wording
+   *   conflated them. A redirect whose destination is an ABSOLUTE URL moves the visitor to
+   *   another host and MUST be scoped, or it applies to every domain the project serves —
+   *   including the destination — and bounces forever. A same-origin PATH redirect
+   *   (/cards/7 -> /cards/hero/7.html) cannot do that: it never changes host, so a host scope
+   *   would buy nothing and there is nothing to loop against as long as the destination does
+   *   not match another source, which is asserted separately below.
+   * ⛔ Narrowed deliberately and only this far. The outage was caused by an absolute redirect
+   *   aimed at the live host; that case is still covered by BOTH assertions here. */
+  /* ⛔ AN INVALID `source` DOES NOT DEGRADE — IT FAILS THE WHOLE DEPLOYMENT. Vercel parses these
+   *   with path-to-regexp, which REJECTS capturing groups inside a `:param(...)` pattern. I wrote
+   *   `/cards/:id(([1-9]|...))` and the build stopped dead: the site kept serving the previous
+   *   commit, so every push afterwards silently did nothing and the only symptom was a 404 on the
+   *   new files. ⚑ That is far worse than a broken redirect — a bad rule breaks one path, a bad
+   *   SOURCE breaks every deploy after it, and nothing on the site changes to tell you.
+   * ⚠ Checked without adding a dependency: the rule is exactly "no capturing group inside a
+   *   param pattern", i.e. every `(` after the first must open `(?:`. */
+  const badSrc = red.filter(r => {
+    const m = /:[A-Za-z][A-Za-z0-9_]*\((.*)\)$/.exec(r.source);
+    return m && /\((?!\?[:=!])/.test(m[1]);
+  });
+  ok(badSrc.length === 0,
+    'every redirect `source` parses — no capturing group inside a :param() pattern — '
+    + (badSrc.length ? '⛔ INVALID, THE WHOLE DEPLOY WILL FAIL: ' + badSrc.map(r => r.source).join(', ') : 'clear'));
+
+  const crossHost = red.filter(r => /^https?:\/\//.test(r.destination));
+  const samePath = red.filter(r => !/^https?:\/\//.test(r.destination));
+  ok(crossHost.length > 0 && crossHost.every(r => (r.has || []).some(h => h.type === 'host')),
+    '…and every CROSS-HOST redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⛔ A SAME-ORIGIN REDIRECT LOOPS IF ITS DESTINATION MATCHES ANY SOURCE. Run the sources
+   *   against the destinations rather than eyeballing them — the whole lesson of the outage was
+   *   that asserting a rule EXISTS is not the same as running it. */
+  const srcRe = s => new RegExp('^' + s
+      .replace(/\/:[a-zA-Z]+\(\(?([^)]*)\)?\)/g, (_m, g) => '/(?:' + g.replace(/\)$/, '') + ')')
+      .replace(/\/:[a-zA-Z]+\*/g, '/.*')
+      .replace(/\/:[a-zA-Z]+/g, '/[^/]+') + '$');
+  const selfLoop = samePath.filter(r => samePath.some(o => {
+    try { return srcRe(o.source).test(r.destination.replace(/:([a-zA-Z]+)/g, '1')); } catch { return false; }
+  }));
+  ok(selfLoop.length === 0,
+    '…and no same-origin redirect lands on another redirect\'s source — '
+    + (selfLoop.length ? '⛔ LOOP: ' + selfLoop.map(r => r.source + ' -> ' + r.destination).join(', ') : 'clear'));
 
   /* ⛔ AND HOST-SCOPED IS NOT ENOUGH — THIS IS THE ONE THAT TOOK THE SITE DOWN, 2026-08-05.
    * A `www -> apex` rule lived here and was perfectly host-scoped. It still looped, because the
@@ -847,7 +887,8 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
   /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an
    * identity change, not a link-breaking one. It also protects any `animation_url` already
    * pointing at the old host. */
-  ok(red.every(r => /:path\*/.test(r.destination)), '…and it preserves the path');
+  ok(crossHost.every(r => /:path\*/.test(r.destination)),
+    '…and every cross-host redirect preserves the path');
 
   /* ══ ⛔ THE CACHE RULE THAT MADE THE WHOLE CARD SURFACE A WEEK STALE — 2026-08-05 ═══════════
    * Artist: *"the cards are not updated on site."* They were not. The deploy was correct, every
@@ -1205,6 +1246,45 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
     ok(outsidePool === 0, 'the pack never offers a hero reserved for an auction or a game title',
       `${outsidePool} pulls came from outside the gacha eleven`);
   }
+}
+
+/* ═══ THE LIVE MARKET ══════════════════════════════════════════════════════════════════════════
+ * ⛔ A CHART LINK IS A CLAIM ABOUT WHICH MARKET IS OURS. Point it at the wrong pool and the site
+ *   sends its own collectors to somebody else's token, from the front page, with the studio's
+ *   name above it. That is the `protocol.rare` lesson — "a wrong reserve token is not a typo" —
+ *   applied to the one surface a visitor actually clicks.
+ * ⚑ THE POOL ID IS 32 BYTES, NOT 20. A Uniswap v4 pool is a hash of its key into the singleton
+ *   PoolManager, not a contract, so this repo's usual `^0x[0-9a-fA-F]{40}$` address check would
+ *   REJECT a perfectly correct value — and an address pasted here would PASS one. The length is
+ *   the discriminator and it is asserted in both directions.
+ * ⚠ What cannot be checked offline is that the pool's baseToken is our edition. It was verified
+ *   against DexScreener's API when it was added (baseToken 0x1D4bcbb5…47A33 = contracts
+ *   .liquidEdition, quoteToken = protocol.rare, symbol `3030`), and that is a one-time proof, not
+ *   a standing guard — so the assertion here is the SHAPE plus the single-declaration rule. */
+console.log('\n── the market link points at one pool, declared once ──');
+{
+  /* ⚠ EVALUATED, NOT REGEXED — the same way this file reads the config everywhere else, so the
+   *   parser here cannot drift from what actually ships to a browser. */
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  let CHAIN = null;
+  try { CHAIN = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({}); } catch {}
+  const m = ((CHAIN || {}).market || {});
+  const id = String(m.poolId || '').trim();
+  ok(/^0x[0-9a-fA-F]{64}$/.test(id),
+    'market.poolId is a 32-byte Uniswap v4 pool id', id || 'EMPTY');
+  ok(!/^0x[0-9a-fA-F]{40}$/.test(id),
+    '…and NOT a 20-byte contract address pasted into a pool field', String(id.length - 2) + ' hex chars');
+  /* ⛔ ONE COPY. The link is BUILT from the id (RipWallet.chartUrl), so the 66-character hex must
+   *   appear in the config exactly once — a second literal is a second thing to get wrong and
+   *   nothing on screen would look different. */
+  const copies = (cfgSrc.match(new RegExp(id, 'gi')) || []).length;
+  ok(copies === 1, 'the pool id is declared exactly once in chain-config', copies + ' copies');
+  ok(!/dexscreener\.com\/[a-z]+\/0x[0-9a-fA-F]{64}/.test(cfgSrc),
+    '…and no full chart URL is hard-coded beside it');
+  /* the wallet builds it, and refuses to build one from a malformed id */
+  const w = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  ok(/chartUrl/.test(w) && /\{64\}/.test(w),
+    'js/wallet.js builds the chart link and validates the id length');
 }
 
 console.log(`\n${checks - fails} passed, ${fails} failed.`);

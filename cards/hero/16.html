@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ripmaster3030studios &#183; parchment &#183; №16</title>
+<meta name="robots" content="noindex">
+<!-- HERO LENS 16. Framed by the token's animation_url. Stands alone: no gate, no
+     storage, no parent-window assumptions. The BASE art is the IPFS-pinned asset that also
+     sits in the metadata as image — this page is how it is displayed, not where it lives. -->
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:'Courier New',ui-monospace,monospace;-webkit-text-size-adjust:100%}
+  body{display:flex;align-items:center;justify-content:center;perspective:1200px}
+  /* Lock 2:3 and fit whatever frames us. Which side binds depends on the FRAME's aspect —
+     height:100% together with max-width:100% is the trap: the clamp wins, aspect-ratio
+     yields, and the card stretches (0.571 instead of 0.667 in a 320x560 slot). */
+  .scene{position:relative;aspect-ratio:2/3;margin:auto}
+  @media (min-aspect-ratio:2/3){ .scene{height:100%;width:auto} }
+  @media (max-aspect-ratio:2/3){ .scene{width:100%;height:auto} }
+  @supports not (aspect-ratio:2/3){ .scene{height:100%;width:66.667vh;max-width:100%} }
+  .card{position:absolute;inset:0;transform-style:preserve-3d;cursor:pointer;
+    transition:transform .6s cubic-bezier(.5,1.4,.4,1);
+    transform:rotateY(calc(var(--px,0)*13deg + var(--flip,0deg))) rotateX(calc(var(--py,0)*-13deg))}
+  .card.flipped{--flip:180deg}
+  .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    border-radius:14px;overflow:hidden;background:#000;box-shadow:0 18px 44px -12px #000}
+  .back{transform:rotateY(180deg)}
+  /* ---- front: base art, then the artist's extra layers on top ---- */
+  .front>img.base{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .layers{position:absolute;inset:0}
+  .foil{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+    background:linear-gradient(115deg,transparent 34%,rgba(120,255,200,.30) 46%,rgba(255,120,220,.26) 54%,transparent 66%);
+    transform:translateX(calc(var(--px,0)*7%))}
+  .glare{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.4;
+    background:radial-gradient(38% 26% at calc(50% + var(--px,0)*32%) calc(38% + var(--py,0)*30%),rgba(255,255,255,.6),transparent 70%)}
+  /* offline / gateway-dead: never a blank card, always a legible one */
+  .miss{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+    padding:8%;color:#8fe6bd;font-size:3.4cqw;background:repeating-linear-gradient(45deg,#06140d,#06140d 8px,#04100a 8px,#04100a 16px)}
+  .front.dead .miss{display:flex}
+  /* ---- back: the stats plate, self-contained (no external images) ---- */
+  .back{background:#e9dfc4;color:#221a08}
+  .plate{position:absolute;inset:3.5%;border:2px solid #221a08;border-radius:7px;padding:4% 5%;
+    display:flex;flex-direction:column;gap:2.4%;background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,.028) 0 2px,transparent 2px 4px),#f3ead2}
+  .bt{font-family:'Arial Black',Arial,sans-serif;font-size:5.4cqw;line-height:1.05;text-transform:uppercase}
+  .bteam{font-size:2.7cqw;letter-spacing:.18em;text-transform:uppercase;color:#6b5312}
+  .brule{height:2px;background:#221a08;opacity:.75}
+  .vit{display:grid;grid-template-columns:1fr 1fr;gap:1.5% 5%;font-size:3cqw}
+  .vit div{display:flex;justify-content:space-between;border-bottom:1px dotted rgba(34,26,8,.4)}
+  .vit .k{color:#6b5312;text-transform:uppercase;letter-spacing:.05em}
+  .vit .v{font-weight:700}
+  .lore{font-size:2.9cqw;line-height:1.45;flex:1 1 auto;overflow:hidden}
+  .foot{font-size:2.4cqw;letter-spacing:.05em;color:#6b5312;display:flex;justify-content:space-between;gap:4%}
+  .scene{container-type:size}
+  @supports not (width:1cqw){
+    .bt{font-size:5.4vw}.bteam{font-size:2.7vw}.vit{font-size:3vw}.lore{font-size:2.9vw}
+    .foot{font-size:2.4vw}.miss{font-size:3.4vw} }
+  .hint{position:absolute;left:0;right:0;bottom:1.5%;text-align:center;font-size:2.4cqw;
+    color:rgba(190,255,215,.5);pointer-events:none}
+  @supports not (width:1cqw){ .hint{font-size:2.4vw} }
+  @media (prefers-reduced-motion:reduce){ .card{transition:none} }
+</style>
+</head>
+<body>
+<div class="scene" id="scene">
+  <div class="card" id="card">
+    <div class="face front" id="front">
+      <img class="base" id="base" src="https://ipfs.io/ipfs/Qmd3mNH42EgbYinHUvAUuQF5iSm87qT7uYSKNicbUxuzBV" alt="parchment">
+      <div class="miss">№16<br>parchment<br><small>base art offline</small></div>
+      <div class="layers"></div>
+      <div class="foil"></div><div class="glare"></div>
+    </div>
+    <div class="face back">
+      <div class="plate">
+        <div>
+          <div class="bteam">ripmaster3030studios &#9733; genesis</div>
+          <div class="bt">parchment</div>
+        </div>
+        <div class="brule"></div>
+        <div class="vit">
+          <div><span class="k">Card</span><span class="v">&#8470;16</span></div>
+          <div><span class="k">Rarity</span><span class="v">hero 1/1</span></div>
+          <div><span class="k">Base ATK</span><span class="v">—</span></div>
+          <div><span class="k">Base DEF</span><span class="v">—</span></div>
+          <div><span class="k">Amplifier</span><span class="v">—</span></div>
+          <div><span class="k">Edition</span><span class="v">1 of 1</span></div>
+        </div>
+        <div class="brule"></div>
+        <div class="lore"></div>
+        <div class="foot"><span>$3030 &#183; SuperRare Liquid Edition</span><span>NFA</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="hint">tap to flip &#8634;</div>
+</div>
+<script>
+(function(){
+  // Every one of these can throw in a sandboxed frame. None of them may take the card down.
+  try {
+    var root=document.documentElement, scene=document.getElementById('scene'), card=document.getElementById('card');
+    var drag=false, moved=0;
+    scene.addEventListener('pointerdown',function(){drag=true;moved=0;});
+    addEventListener('pointerup',function(){ if(drag&&moved<8) card.classList.toggle('flipped'); drag=false; });
+    scene.addEventListener('pointermove',function(e){
+      var r=scene.getBoundingClientRect();
+      var nx=((e.clientX-r.left)/r.width)*2-1, ny=((e.clientY-r.top)/r.height)*2-1;
+      moved+=Math.abs(nx)+Math.abs(ny);
+      root.style.setProperty('--px',nx.toFixed(3)); root.style.setProperty('--py',ny.toFixed(3));
+    },{passive:true});
+    scene.addEventListener('pointerleave',function(){ root.style.setProperty('--px',0); root.style.setProperty('--py',0); });
+  } catch(e){}
+  // Gateway chain: one dead gateway is not a dead card. Last resort is a legible plate,
+  // never a blank frame — and the marketplace still has the image field regardless.
+  try {
+    var img=document.getElementById('base'), alt=["https://cloudflare-ipfs.com/ipfs/Qmd3mNH42EgbYinHUvAUuQF5iSm87qT7uYSKNicbUxuzBV","https://dweb.link/ipfs/Qmd3mNH42EgbYinHUvAUuQF5iSm87qT7uYSKNicbUxuzBV","16.webp"], i=0;
+    img.addEventListener('error',function(){
+      if(i<alt.length){ img.src=alt[i++]; }
+      else { document.getElementById('front').classList.add('dead'); }
+    });
+  } catch(e){}
+})();
+</script>
+</body>
+</html>

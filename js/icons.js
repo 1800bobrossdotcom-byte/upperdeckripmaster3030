@@ -29,6 +29,7 @@
     trophy: '<path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4v1a3 3 0 0 0 3 3M17 5h3v1a3 3 0 0 1-3 3M9.5 13.5 9 18h6l-.5-4.5M8 21h8"/>',
     back:   '<path d="M15 5l-7 7 7 7"/>',
     clock:  '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    chart:  '<path d="M4 19V5M4 19h16"/><path d="M7.5 15.5l3.5-4 3 2.5 4.5-6"/><circle cx="11" cy="11.5" r=".9" fill="currentColor" stroke="none"/><circle cx="14" cy="14" r=".9" fill="currentColor" stroke="none"/>',
     joystick: '<circle cx="12" cy="6" r="2.5"/><path d="M12 8.5v6"/><rect x="6" y="14.5" width="12" height="5" rx="2"/>',
   };
   const svg = (name, size) => {

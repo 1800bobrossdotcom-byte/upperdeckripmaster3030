@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>mint the heroes · ripmaster3030studios</title>
+<script src="/gate.js"></script>
+<script src="js/chain-config.js"></script>
+<style>
+  :root{ color-scheme:dark; }
+  body{ margin:0; padding:26px 18px 60px; background:#02120a; color:#d9ffe9;
+        font:14px/1.6 'Courier New',monospace; }
+  h1{ font-size:17px; letter-spacing:.14em; color:#2bff80; margin:0 0 4px; }
+  .sub{ color:#5fcf8f; font-size:12px; margin-bottom:20px; }
+  .card{ max-width:820px; border:1px solid #16663c; border-radius:10px; padding:18px;
+         background:linear-gradient(180deg,#04180e,#020d07); }
+  .step{ display:flex; gap:11px; margin-bottom:13px; }
+  .step .n{ flex:none; width:22px; height:22px; border-radius:50%; background:#0a2a18; color:#2bff80;
+            display:grid; place-items:center; font-size:11px; border:1px solid #1c7a48; }
+  .step p{ margin:0; }
+  .args{ margin:14px 0; border:1px dashed #1c7a48; border-radius:8px; padding:11px 13px; font-size:12px; }
+  .args div{ display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
+  .args .k{ color:#5fcf8f; } .args .v{ color:#ffd23b; word-break:break-all; }
+  button{ font:inherit; cursor:pointer; padding:11px 16px; border-radius:8px; min-height:44px;
+    border:1px solid #1c7a48; background:#0a2a18; color:#2bff80; }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  input{ font:inherit; background:#010806; color:#ffd23b; border:1px solid #1c7a48; border-radius:8px;
+         padding:9px 11px; min-height:44px; }
+  #log{ white-space:pre-wrap; margin-top:18px; padding:13px; border:1px solid #123; border-radius:8px;
+        background:#010806; font-size:12.5px; min-height:44px; max-height:55vh; overflow:auto; }
+  .ok{ color:#2bff80; } .bad{ color:#ff4b3a; } .warn{ color:#ffd23b; } .dim{ color:#5fcf8f; }
+  .ids{ display:flex; flex-wrap:wrap; gap:6px; margin:12px 0; }
+  .ids label{ display:inline-flex; align-items:center; gap:5px; border:1px solid #123; border-radius:6px;
+              padding:5px 8px; font-size:11.5px; min-height:32px; cursor:pointer; }
+  .ids label.on{ border-color:#2bff80; color:#2bff80; }
+  .ids label.done{ opacity:.35; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<h1>◈ mint the heroes ◈</h1>
+<div class="sub">a hero exists only once a voucher is signed and redeemed — there is no owner mint</div>
+<div class="card">
+  <div class="step"><span class="n">1</span><p><b>Sign vouchers</b> with the <b>claim-signer</b> wallet. This is a signature, not a transaction: free, no gas, nothing on-chain. Each voucher names one card, one recipient and an expiry.</p></div>
+  <div class="step"><span class="n">2</span><p><b>Redeem</b> them. <code>claimHero</code> is permissionless — <i>anyone</i> holding a valid voucher can send it, which is the point: the studio never pays gas for a collector's claim. One transaction per card.</p></div>
+  <div class="step"><span class="n">3</span><p>Vouchers survive a wallet switch (stored locally, and downloadable), so you can sign as the signer and redeem as anyone.</p></div>
+
+  <div class="args">
+    <div><span class="k">lens721</span><span class="v" id="a-lens">…</span></div>
+    <div><span class="k">claimSigner (must sign)</span><span class="v" id="a-signer">reading…</span></div>
+    <div><span class="k">EIP-712 domain</span><span class="v">ripmaster3030studios · v1 · chain 1</span></div>
+    <div><span class="k">recipient</span><span class="v"><input id="to" size="42" placeholder="0x… who receives the cards"></span></div>
+  </div>
+
+  <div class="ids" id="ids"></div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center">
+    <button id="pick11">select 1–11 (the auction set)</button>
+    <button id="sign">① Sign vouchers</button>
+    <button id="claim">② Redeem</button>
+    <button id="save">⤓ save vouchers</button>
+    <button id="scan">↻ refresh minted</button>
+  </div>
+</div>
+<div id="log">ready.</div>
+
+<script>
+(() => {
+  const SEL = { owner: '0x8da5cb5b', claimSigner: '0xd8ee36cb', ownerOf: '0x6352211e', claimHero: '0xb93d3385' };
+  const LENS = '0xe2d11bC2f0122Be198a6e102fD2567888878e138';
+
+  const CFG = window.RIPMASTER_CHAIN || {};
+  const RPCS = CFG.rpcs || [];
+  const log = document.getElementById('log');
+  const say = (m, c) => { log.innerHTML += `\n<span class="${c || ''}">${m}</span>`; log.scrollTop = log.scrollHeight; };
+  const KEY = 'urm_hero_vouchers';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } };
+  const save = v => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} };
+  let V = load(), MINTED = {};
+
+  document.getElementById('a-lens').textContent = LENS;
+
+  async function rpc(method, params) {
+    for (const url of RPCS) {
+      try {
+        const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+        const j = await r.json();
+        if (j.result !== undefined) return j.result;
+        if (j.error) return null;
+      } catch {}
+    }
+    return null;
+  }
+  const call = data => rpc('eth_call', [{ to: LENS, data }, 'latest']);
+  const pad = n => n.toString(16).padStart(64, '0');
+  const eq = (a, b) => a && b && a.toLowerCase() === b.toLowerCase();
+
+  let SIGNER = null;
+  (async () => {
+    const s = await call(SEL.claimSigner);
+    SIGNER = s && s !== '0x' ? '0x' + s.slice(-40) : null;
+    document.getElementById('a-signer').textContent = SIGNER || '⛔ could not read';
+    await scan();
+  })();
+
+  /* ⛔ ASK THE CHAIN WHICH ARE MINTED, EVERY TIME. `claimHero` reverts with AlreadyMinted, so a
+     stale idea of what exists costs a failed transaction and its gas — and after a wallet switch
+     or a reload the page's own memory is the least trustworthy source available. */
+  async function scan() {
+    MINTED = {};
+    for (let id = 1; id <= 33; id++) {
+      const r = await call(SEL.ownerOf + pad(id));
+      if (r && r !== '0x' && BigInt(r) !== 0n) MINTED[id] = '0x' + r.slice(-40);
+    }
+    paint();
+    const n = Object.keys(MINTED).length;
+    say(`${n}/33 minted on-chain` + (n ? ': ' + Object.keys(MINTED).join(', ') : ''), n ? 'ok' : 'dim');
+  }
+
+  const box = document.getElementById('ids');
+  function paint() {
+    box.innerHTML = '';
+    for (let id = 1; id <= 33; id++) {
+      const l = document.createElement('label');
+      const done = !!MINTED[id];
+      l.className = done ? 'done' : (V[id] ? 'on' : '');
+      l.innerHTML = `<input type="checkbox" value="${id}" ${done ? 'disabled' : ''}>${id}${done ? ' ✓' : V[id] ? ' ✎' : ''}`;
+      box.appendChild(l);
+    }
+  }
+  const picked = () => [...box.querySelectorAll('input:checked:not(:disabled)')].map(i => Number(i.value));
+
+  document.getElementById('pick11').onclick = () => {
+    box.querySelectorAll('input').forEach(i => { if (!i.disabled) i.checked = Number(i.value) <= 11; });
+  };
+  document.getElementById('scan').onclick = scan;
+  document.getElementById('save').onclick = () => {
+    const blob = new Blob([JSON.stringify(V, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'hero-vouchers.json'; a.click();
+  };
+
+  async function wallet() {
+    const eth = window.ethereum;
+    if (!eth) { say('⛔ no wallet in this browser', 'bad'); return null; }
+    const [from] = await eth.request({ method: 'eth_requestAccounts' });
+    /* ⛔ PIN MAINNET EXPLICITLY, never through the site's ensureChain(). The chainId is INSIDE the
+       EIP-712 domain, so a voucher signed on the wrong chain is not merely useless — it is a
+       silently invalid signature that only fails later, at the redeemer's expense. */
+    try { await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x1' }] }); }
+    catch { say('⚠ set your wallet to Ethereum mainnet', 'warn'); }
+    const on = await eth.request({ method: 'eth_chainId' });
+    if (parseInt(on, 16) !== 1) { say(`⛔ wallet is on chain ${parseInt(on, 16)}, not mainnet`, 'bad'); return null; }
+    return { eth, from };
+  }
+
+  /* ── ① sign ───────────────────────────────────────────────────────────────────────────── */
+  document.getElementById('sign').onclick = async () => {
+    const to = document.getElementById('to').value.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { say('⛔ enter a recipient address', 'bad'); return; }
+    const ids = picked();
+    if (!ids.length) { say('⛔ select at least one card', 'bad'); return; }
+    const w = await wallet(); if (!w) return;
+    /* ⛔ THE SIGNER IS CHECKED BEFORE ANY PROMPT. claimHero compares ECDSA.recover against
+       claimSigner, so a voucher signed by the wrong account is valid-looking, costs nothing to
+       produce, and fails only when somebody spends gas redeeming it. Signing eleven of those and
+       discovering it at redemption is the expensive version of this mistake. */
+    if (SIGNER && !eq(w.from, SIGNER)) {
+      say(`⛔ connected as ${w.from}`, 'bad');
+      say(`   the contract's claimSigner is ${SIGNER} — switch to it before signing`, 'bad');
+      return;
+    }
+    /* 72 hours. A voucher is bearer paper: long enough to redeem calmly, short enough that one
+       left in a screenshot stops working. */
+    const deadline = Math.floor(Date.now() / 1000) + 72 * 3600;
+    const domain = { name: 'ripmaster3030studios', version: '1', chainId: 1, verifyingContract: LENS };
+    const types = { Claim: [ { name: 'to', type: 'address' }, { name: 'id', type: 'uint256' },
+                             { name: 'kind', type: 'uint8' }, { name: 'deadline', type: 'uint256' } ] };
+    for (const id of ids) {
+      /* ⚠ `kind` is NOT enforced by the contract — it is bound into the digest and emitted on
+         HeroClaimed, so it is a permanent label on how this card entered the world, not a rule.
+         1 = gacha pack-claim, 2 = earned game title. The auction eleven are issued by the studio,
+         so they carry 1. Stated because a number nobody can explain later is worse than no number. */
+      const kind = 1;
+      const msg = { to, id: String(id), kind, deadline: String(deadline) };
+      try {
+        const sig = await w.eth.request({ method: 'eth_signTypedData_v4',
+          params: [w.from, JSON.stringify({ types: { EIP712Domain: [
+            { name: 'name', type: 'string' }, { name: 'version', type: 'string' },
+            { name: 'chainId', type: 'uint256' }, { name: 'verifyingContract', type: 'address' } ],
+            ...types }, primaryType: 'Claim', domain, message: msg })] });
+        V[id] = { to, id, kind, deadline, sig };
+        save(V); paint();
+        say(`✓ ${id} signed`, 'ok');
+      } catch (e) { say(`⛔ ${id}: ${(e.message || e).slice(0, 90)}`, 'bad'); return; }
+    }
+    say(`\n${ids.length} voucher(s) held locally. ⤓ save them before switching wallets.`, 'dim');
+  };
+
+  /* ── ② redeem ─────────────────────────────────────────────────────────────────────────── */
+  document.getElementById('claim').onclick = async () => {
+    const have = Object.values(V).filter(v => !MINTED[v.id]);
+    if (!have.length) { say('⛔ no unredeemed vouchers — sign some first', 'bad'); return; }
+    const w = await wallet(); if (!w) return;
+    say(`redeeming ${have.length} voucher(s) from ${w.from} — one transaction each`);
+    for (const v of have) {
+      /* claimHero(address to, uint256 id, uint8 kind, uint256 deadline, bytes sig) — the bytes
+         argument is dynamic, so its offset is 5 words in and its length precedes the body. */
+      const body = v.sig.slice(2);
+      const data = SEL.claimHero
+        + v.to.slice(2).padStart(64, '0') + pad(v.id) + pad(v.kind) + pad(v.deadline)
+        + pad(5 * 32) + pad(body.length / 2)
+        + body + '0'.repeat((64 - body.length % 64) % 64);
+      try {
+        /* ⛔ SIMULATE FIRST. Every failure mode here is a revert with a named error — expired,
+           already minted, spent, bad signature — and eth_call surfaces which one for free.
+           Sending eleven transactions to find out is the version that costs money. */
+        const sim = await rpc('eth_call', [{ from: w.from, to: LENS, data }, 'latest']);
+        if (sim === null) { say(`⛔ ${v.id}: would revert — re-sign (wrong signer, expired, or already claimed)`, 'bad'); continue; }
+        const tx = await w.eth.request({ method: 'eth_sendTransaction', params: [{ from: w.from, to: LENS, data }] });
+        say(`✓ ${v.id} → ${tx}`, 'ok');
+      } catch (e) { say(`⛔ ${v.id}: ${(e.message || e).slice(0, 110)}`, 'bad'); }
+    }
+    say('\nwhen they confirm, press ↻ refresh minted.', 'dim');
+  };
+})();
+</script>
+</body>
+</html>

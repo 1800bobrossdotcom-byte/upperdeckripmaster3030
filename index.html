@@ -858,6 +858,12 @@
 
     <div class="btns">
       <a class="btn gold" id="buyLink" href="https://superrare.com" target="_blank" rel="noopener noreferrer"><span class="ic" data-ic="coin"></span> Buy $3030 ↗</a>
+      <!-- ⚑ THE MARKET. The edition graduated to a Uniswap v4 pool, which docs/ECONOMIC-FLOW.md
+           carried as "timing unknown" since 2026-08-01 — so a live chart is a new fact about the
+           token, not decoration. ⛔ IT REMOVES ITSELF IF NO POOL IS CONFIGURED (see the boot script
+           at the foot of this file): a chart button that opens a blank search is the failure
+           `theme.js` records as worse than absence. -->
+      <a class="btn ghost alt" id="chartLink" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="ic" data-ic="chart"></span> Chart ↗</a>
       <a class="btn ghost" href="#how">◈ How it works</a>
       <a class="btn ghost alt" href="whitepaper.html">§ Whitepaper · NFA</a>
     </div>
@@ -1196,7 +1202,7 @@
       <div class="ticker" id="ticker">▓ 100 living lenses + Lovebeing · every burn is permanent · the pack is open ▓</div>
       <div class="credit">song produced by lovebeing &amp; sean, an unhoused friend from the street</div>
       <div class="credit">3030 forever · a bow to <strong>DELTRON 3030</strong> — Dan the Automator × Del the Funky Homosapien × Kid Koala</div>
-      <a href="https://superrare.com">superrare</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a> · <a href="audit.html">audit</a> · <a href="artist.html">the artist</a> · buy the ticket, take the ride
+      <a href="https://superrare.com">superrare</a> · <a id="chartFoot" href="#" target="_blank" rel="noopener noreferrer" hidden>chart</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a> · <a href="audit.html">audit</a> · <a href="artist.html">the artist</a> · buy the ticket, take the ride
     </footer>
   </div>
 
@@ -1329,6 +1335,15 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
      Tavern Ledger wallet control. */
   (() => { const a = document.getElementById('buyLink');
     if (a && window.RipWallet) a.href = window.RipWallet.buyUrl();
+    /* ⚠ SHOWN ONLY IF THERE IS A MARKET TO SHOW. Both links start `hidden` and are revealed here,
+       never the other way round — a page that ships them visible and hides them on failure shows
+       a dead control for however long the script takes, and shows it forever if the script never
+       runs at all. Same reason the launch countdown asserts "not rendered" rather than "hidden". */
+    const chart = window.RipWallet && window.RipWallet.chartUrl ? window.RipWallet.chartUrl() : '';
+    if (chart) ['chartLink', 'chartFoot'].forEach(id => {
+      const el = document.getElementById(id); if (!el) return;
+      el.href = chart; el.hidden = false;
+    });
     if (window.RipTavern) RipTavern.mount('#tavern'); })();
 </script>
 <script src="theme.js"></script>

@@ -59,3 +59,10 @@ models/cards/alley-trio/*.glb
 deploy-render.html
 deploy-sink.html
 deploy-lens.html
+# ⚑ deploy-cards.html shipped BRIEFLY and on purpose — it had to, because /api/pin and its
+# credential live on the deployment, so the artist drove it from the live site. setCards landed
+# 2026-08-06 (33/33 exact, image and animation_url on every hero), so the exception has reached
+# the end it was written with. A temporary exception with no stated end is just an exception.
+# ⚠ test-reach.mjs still allow-lists it as an orphan and that entry stays correct: a file that
+#   does not ship cannot be linked from anything.
+deploy-cards.html
