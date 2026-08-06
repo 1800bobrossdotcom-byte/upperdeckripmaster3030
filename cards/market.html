@@ -294,6 +294,8 @@
   <!-- CARD SHEET -->
   <div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
 
+<script src="../js/card-stats.js"></script>
+<script src="../js/deck-source.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -317,6 +319,16 @@
   const burn = (n, why) => { try { localStorage.setItem('urm_burned', String(burnedTotal()+n)); } catch {}
     renderBurned(); say('🔥 '+n+' $3030 burned — '+why); };
   function renderBurned(){ const el = $('burned'); el.innerHTML = '<span class="ic" data-ic="flame"></span> '+burnedTotal()+' $3030 burned on this device'; window.RipIcons && RipIcons.hydrate(el); }
+
+  /* ⛔ `deck-manifest.json` CARRIES AN `href` OF `card.html?n=N` AND THAT PAGE DOES NOT EXIST.
+   *   Nothing in the repo serves it — `cards/deck.html` opens one of the hundred in an IN-PAGE
+   *   viewer (`CardStarfield.open`), so it never needed a per-card URL and the field was never
+   *   read by anything. Trusting it here would have put a 404 behind "View card" on all 100.
+   *   ⚑ A dead field in shipped DATA is the same trap as a stale note in shipped code: it looks
+   *   authoritative, it costs nothing to believe, and the only thing that finds it is following
+   *   it. The honest destination for one of the hundred is the deck itself.
+   * ⚠ A retired-set card still HAS a page (`cards/<slug>.html`, 196 of them), so it keeps it. */
+  const viewHref = c => (c && /^\d+$/.test(String(c.slug))) ? 'deck.html' : (c.slug + '.html');
 
   // resolve a vault entry {slug}|{forged} → card object
   function resolve(e, bs, fb){ if(!e) return null; return e.forged ? fb.get(e.forged) : bs.get(e.slug); }
@@ -468,7 +480,7 @@
             <button class="warm" data-do="sell">✚ List for sale</button>
             <button class="warm" data-do="trade">⇄ List for trade</button>
             <button data-do="send">✉ Send / gift</button>
-            <a href="${c.href || (c.slug + '.html')}">◈ View card</a>
+            <a href="${viewHref(c)}">◈ View card</a>
           </div></div>`;
     }
     $('scrim').classList.add('show');
@@ -614,14 +626,9 @@
    *   the bench of every card a collector had already pulled. This repo's standing rule is that
    *   the `urm_*` keys are never wiped, and a card vanishing from your own shelf is that rule
    *   broken with an audience. LEGACY is never rendered as available stock. */
-  Promise.all([
-    fetch('deck-manifest.json').then(r=>r.ok?r.json():null).catch(()=>null),
-    fetch('manifest.json').then(r=>r.ok?r.json():null).catch(()=>null)
-  ]).then(([d, old])=>{
-    DECK   = (d && (d.cards||d)) || [];
-    LEGACY = (old && (old.cards||old)) || [];
-    go();
-  }).catch(()=>{ DECK=[]; LEGACY=[]; go(); });
+  Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(function(r){
+    DECK = r[0] || []; LEGACY = r[1] || []; go();
+  }).catch(function(){ DECK=[]; LEGACY=[]; go(); });
 })();
 </script>
 <script src="../theme.js"></script>

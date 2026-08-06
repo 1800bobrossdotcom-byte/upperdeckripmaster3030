@@ -66,7 +66,26 @@
     card = card || {};
     var seed = Number(card.seed);
     if (!isFinite(seed)) seed = 3030;
-    var r = rng(seed ^ 0x5BD1E995);
+    /* ⛔ THE DECK'S SEEDS ARE NOT UNIQUE, SO THE SEED ALONE CANNOT IDENTIFY A CARD. Measured on
+     *   `cards/deck.json`: **14 distinct seeds across the hundred**, and cards 1–7 all carry
+     *   `seed=57916`. Keying the vitals on the seed by itself therefore handed seven different
+     *   cards the SAME ATK, the SAME DEF and the SAME trigger — which was already live on their
+     *   backs. It is the failure this file's own note is trying to prevent one level up ("two
+     *   mythics" are supposed to differ); the guard was written against the rarity budget and the
+     *   collision came from the input.
+     * ⚑ THE ID IS MIXED IN, NOT SUBSTITUTED FOR THE SEED, and that ordering is the whole fix. The
+     *   seed still decides the character of the roll, so a card whose recipe changes still gets
+     *   new vitals; the id only guarantees that two cards can never BE the same roll. `id` is
+     *   authored, stable and unique by construction — it is the card's number in the set.
+     * ⚠ NOT THE SLUG AND NOT THE INDEX. The slug is a string the artist may rename, and an index
+     *   into a manifest moves the moment the deck is re-sorted — either would make a card's
+     *   vitals change without the card changing, which is the property this file exists to hold.
+     * ⚠ Deterministic as before: no clock, no entropy, same numbers on every machine. This is a
+     *   one-time reshuffle of PLACEHOLDER vitals (the file says so below), not a live balance
+     *   change — and authored atk/def still win outright. */
+    var id = Number(card.id);
+    if (!isFinite(id)) id = 0;
+    var r = rng((((seed ^ 0x5BD1E995) >>> 0) + id * 0x9E3779B1) >>> 0);
     var tier = String(card.rarity || 'common').toLowerCase();
     var b = BUDGET[tier] || BUDGET.common;
     var total = b[0] + Math.floor(r() * (b[1] - b[0] + 1));

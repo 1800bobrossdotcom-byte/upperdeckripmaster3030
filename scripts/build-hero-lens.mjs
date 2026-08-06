@@ -203,9 +203,18 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
 `;
 }
 
-const FILE_RE2 = /^\s*(\d{1,3})\s*[-–—]\s*(.+?)\s*\.(html?|gif|png)$/i;
+const FILE_RE2 = /^\s*(\d{1,3})\s*[-–—]\s*(.+?)\s*\.(html?|gif|png|webp)$/i;
 const cidPath = join(heroDir, 'cids.json');
-const CIDS = existsSync(cidPath) ? JSON.parse(readFileSync(cidPath, 'utf8')) : {};
+/* ⛔ THE GENERATOR AND THE FILE DISAGREED ABOUT THE SHAPE, AND THE COST WAS SILENT. This read
+ *   `{ "7": "Qm…" }` — the shape written in this file's own header — while scripts/hero-cids.mjs
+ *   emits `{ cids: {...}, cidv1: {...}, files: {...} }`. Every lookup returned undefined, so all
+ *   33 reported UNPINNED and every lens page would have been built with NO gateway chain: local
+ *   copy only, i.e. a card that dies with the website. That is the exact failure the ipfs base
+ *   exists to prevent, arrived at by a key name.
+ * ⚑ Nothing errors when two files disagree about a shape — one side just reads undefined
+ *   forever. Accept both, and assert the count below rather than trusting either. */
+const CIDRAW = existsSync(cidPath) ? JSON.parse(readFileSync(cidPath, 'utf8')) : {};
+const CIDS = CIDRAW.cids || CIDRAW;
 
 const byNum = new Map();
 for (const f of readdirSync(dir)) {
@@ -213,12 +222,41 @@ for (const f of readdirSync(dir)) {
   const number = +m[1]; if (number > HERO_MAX) continue;   // 34+ are field cards (ingest-deck.mjs)
   const ext = extname(f).toLowerCase();
   const e = byNum.get(number) || { number, title: m[2].trim(), base: null, overlay: null, size: 0 };
-  if (ext === '.gif' || ext === '.png') { e.base = f; e.size = statSync(join(dir, f)).size; }
+  if (ext === '.gif' || ext === '.png' || ext === '.webp') { e.base = f; e.size = statSync(join(dir, f)).size; }
   else { e.overlay = f; }
   e.title = e.title || m[2].trim();
   byNum.set(number, e);
 }
-const rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+let rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+
+/* ⛔ WITHOUT THIS THE 33 HAD NO LENS PAGES AT ALL, AND EVERY MINTED HERO'S `animation_url`
+ *   FRAMED A 404. The builder only ever looked for hand-authored "07 - TITLE.gif" files in the
+ *   repo root; none were ever written, so it printed "no hero sources" and exited 0 — a clean
+ *   run that produced nothing, which is why nobody caught it. Meanwhile setCards published the
+ *   art and eleven heroes minted, all pointing at pages that did not exist.
+ * ⚑ The base art and the titles were never missing — they were in cards/deck-manifest.json the
+ *   whole time, which is the same source hero-cids.mjs and build-cards-blob.mjs already read.
+ *   Deriving from it means one list, no filename convention to get wrong, and a hand-authored
+ *   file still WINS: an artist who writes "07 - TITLE.html" overrides the generated card, which
+ *   is the whole point of the hero tier.
+ * ⚠ Only fills GAPS. It must never overwrite an authored source. */
+const manPath = join(rootDir, 'cards', 'deck-manifest.json');
+if (existsSync(manPath)) {
+  const heroes = (JSON.parse(readFileSync(manPath, 'utf8')).cards || [])
+    .filter(c => c.band === 'hero' && +c.id >= 1 && +c.id <= HERO_MAX);
+  let filled = 0;
+  for (const c of heroes) {
+    const n = +c.id, e = byNum.get(n);
+    if (e && e.base) continue;                         // authored art wins
+    const art = join(rootDir, 'cards', c.art || '');
+    if (!c.art || !existsSync(art)) continue;
+    byNum.set(n, { number: n, title: c.title || String(n), base: art,
+                   overlay: e ? e.overlay : null, size: statSync(art).size, fromManifest: true });
+    filled++;
+  }
+  if (filled) console.log(`deck-manifest supplied base art for ${filled} hero(es)`);
+  rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+}
 
 const MB = b => (b / 1048576).toFixed(1) + ' MB';
 if (!rows.length) {
@@ -255,12 +293,16 @@ mkdirSync(heroDir, { recursive: true });
  *   wrong on the card for a week" are different things. Neither file ships to the CDN, and both
  *   write strings that end up on-chain: `npm run test:name` skipping `scripts/` is exactly why
  *   this survived, which is why the test now sweeps generator OUTPUT as well. */
-const SITE = 'https://ripmaster3030studios.com';
+/* ⚠ www, NOT the apex. The platform serves `www` as Production and 308s the apex to it, and the
+ *   on-chain lensBaseUrl is already https://www.… — so an apex string here is one hop off the
+ *   truth on every card, for no reason. */
+const SITE = 'https://www.ripmaster3030studios.com';
 for (const r of rows) {
   const cid = CIDS[r.number] || CIDS[String(r.number)] || null;
   const ext = r.base ? extname(r.base).toLowerCase() : '.gif';
   let localName = null;
-  if (r.base) { localName = `${r.number}${ext}`; copyFileSync(join(dir, r.base), join(heroDir, localName)); }
+  const baseAbs = r.base ? (isAbsolute(r.base) ? r.base : join(dir, r.base)) : null;
+  if (baseAbs) { localName = `${r.number}${ext}`; copyFileSync(baseAbs, join(heroDir, localName)); }
 
   // Preference order for the DISPLAY source, most durable first. The metadata `image` is
   // always the ipfs:// URI when we have one — that is the copy that must outlive us.
@@ -268,8 +310,8 @@ for (const r of rows) {
   if (cid) for (const g of GATEWAYS) chain.push(g + cid);
   if (localName) chain.push(localName);
   if (INLINE && r.base) {
-    const mime = ext === '.png' ? 'image/png' : 'image/gif';
-    chain.push(`data:${mime};base64,` + readFileSync(join(dir, r.base)).toString('base64'));
+    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/gif';
+    chain.push(`data:${mime};base64,` + readFileSync(baseAbs).toString('base64'));
   }
   const baseSrc = chain[0] || '';
   const overlay = r.overlay ? readFileSync(join(dir, r.overlay), 'utf8') : '';
@@ -285,7 +327,11 @@ for (const r of rows) {
     animation_url: `${SITE}/cards/hero/${r.number}.html`,
     external_url: `${SITE}/cards/${r.number}`,
     attributes: [
-      { trait_type: 'Deck', value: 'Season I' },
+      /* ⛔ THIS SAID 'Season I'. Seasons were killed on 2026-08-01 — the pack schedule is TIERED —
+       *   and the CONTRACT's copy of this string was caught and changed to 'Genesis' before
+       *   deploy. The GENERATOR was left armed, which is this repo's most-repeated defect:
+       *   patching output and leaving the thing that writes it. */
+      { trait_type: 'Deck', value: 'Genesis' },
       { trait_type: 'Class', value: 'Hero 1/1' },
       { trait_type: 'Card', value: r.number },
       { trait_type: 'Live Lens', value: r.overlay ? 'yes' : 'no' },

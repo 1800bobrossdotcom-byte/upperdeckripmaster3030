@@ -907,11 +907,27 @@
    * frame. ⚠ COALESCED: at 120 Hz the sim can queue a dozen 'fire' events between two frames, and
    * playing all of them is a buzz rather than a shot. One of each kind per frame, and the loudest
    * events win the frame. */
+  /* ── ⚑ THE EARNED TITLES — see docs/HERO-UNLOCKS.md and js/title-ledger.js ─────────────────
+   * ⛔ THIS CABINET COULD NOT AWARD ANYTHING UNTIL NOW. The ledger listed two RIP ROCKETER titles
+   *   and `riprocketer.html` did not load `js/title-ledger.js` at all, so both sat on the redeem
+   *   surface permanently unclaimable — `built ≠ reachable`, on the one surface that hands out
+   *   1/1s. The two dead slots are what these two took.
+   * ⚠ Fails open exactly like every other cabinet's wrapper: no ledger, no throw, no behaviour
+   *   change. Nothing here gates a mint — the studio signs the voucher after watching a capture,
+   *   so this only records that the condition was seen. */
+  function ttAward(id, ev) { try { if (window.RipTitles) RipTitles.award(id, ev); } catch (e) {} }
+
   function playEvents() {
     if (!G.ev.length) return;
     const seen = Object.create(null);
     for (const k of G.ev) seen[k] = (seen[k] || 0) + 1;
     G.ev.length = 0;
+    /* COLD BARREL — read off the tier that just COMPLETED. `G.tierDone` is stamped in buildWave
+     * one line before the flags reset, which is the only instant the answer still exists. */
+    if (seen.tierdone && G.tierDone && G.tierDone.odOnly) {
+      ttAward('coldbarrel', { tier: G.tierDone.tier, wave: G.wave, score: G.score,
+        overdrives: G.stat.overdrives, kills: G.stat.kills, odKills: G.stat.odKills });
+    }
     if (seen.die) { noise(0.45, 0.4); blip(140, 38, 0.42, 'sawtooth', 0.22); blip(66, 30, 0.5, 'sine', 0.2); }
     else if (seen.rip) { blip(180, 1500, 0.5, 'sine', 0.16); blip(90, 40, 0.5, 'sawtooth', 0.14); }
     else if (seen.hurt) { noise(0.15, 0.26); blip(240, 60, 0.2, 'sawtooth', 0.16); }
@@ -2032,6 +2048,17 @@
     $('overScore').textContent = e.score.toLocaleString('en-US');
     $('overBest').textContent = best.toLocaleString('en-US');
     const acc = G.shots ? Math.round(G.hits / G.shots * 100) : 0;
+    /* TWO MILLION FEET. The bar is a MEASURED one: a full clear of the whole facility — all
+     * sixteen waves, TIER I to IV — scores about 688,876 at strong play, so two million is the
+     * endless run past the building, around wave 38. See docs/HERO-UNLOCKS.md §4.
+     * ⚠ It sits BELOW `const acc` deliberately. The first version of this block read `acc` two
+     * lines above its own declaration — a temporal dead zone, which `new Function` compiles
+     * happily because compiling is not executing, and which would have thrown at exactly the
+     * moment a player finished a two-million run. Fifth sighting of TDZ in this repo. */
+    if (e.score >= 2000000) {
+      ttAward('twomillion', { score: e.score, wave: G.wave, chain: G.bestChain,
+        accuracy: acc, flowHeld: +Math.max(G.stat.flowHeld || 0, G.stat.flowRun || 0).toFixed(1) });
+    }
     $('overTag').textContent = idx === 0 ? '★ NEW HIGH SCORE ★' : idx >= 0 ? ('you made #' + (idx + 1) + ' on the board') : 'the formation got you';
     /* ── ⚑ THE TITLE LINE, AND IT EXISTS BECAUSE A HUMAN IS THE JUDGE ─────────────────────────
      * docs/HERO-UNLOCKS.md: the earned tier cannot be self-serve — every score here lives in
@@ -2182,6 +2209,20 @@
      * had never moved — every combo assertion would measure the rig at rest and pass or fail for
      * the wrong reason. `_camStep` advances the camera the same deterministic way, and rAF being
      * stalled in this container is then irrelevant to both halves. */
+    /* ⚑ THE EVENT PUMP, and it exists because the TITLE DETECTORS LIVE HERE. `playEvents` runs on
+     * the render frame, not in `_step`, so a probe that pushes an event and steps the simulation
+     * drains nothing and reports a working detector as dead — which is exactly what happened the
+     * first time this was driven. rAF stalls in a headless container, so waiting for a real frame
+     * measures the container. This is the same argument as `_step` and `_camStep`, one layer out. */
+    _pump() {
+      /* both halves of the frame's "react to state" step, in the order the real update runs them:
+       * the over-screen check sits directly after playEvents() and is where the score title is
+       * awarded, so a pump that drained events but never showed the over screen would report the
+       * score detector as dead for the same reason the first version reported the tier one dead. */
+      playEvents();
+      if (G.mode === 'over' && !overShown) showOver();
+      return { over: overShown, titles: (window.RipTitles ? window.RipTitles.TITLES.length : 0) };
+    },
     _camStep(n, dt) {
       const h = dt || 1 / 60;
       for (let i = 0; i < (n || 1); i++) stepCamera(h);

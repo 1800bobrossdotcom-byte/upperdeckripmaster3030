@@ -824,8 +824,32 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * applies to EVERY domain the project serves — including the destination — so a bare
    * `/:path*` -> the new host would bounce the new host to itself forever. The scope is the
    * whole safety of this rule and it is invisible until the day the domain is attached. */
-  ok(red.length > 0 && red.every(r => (r.has || []).some(h => h.type === 'host')),
-    '…and every redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⚠ THE RULE IS ABOUT CROSS-HOST REDIRECTS, NOT ALL REDIRECTS, and the original wording
+   *   conflated them. A redirect whose destination is an ABSOLUTE URL moves the visitor to
+   *   another host and MUST be scoped, or it applies to every domain the project serves —
+   *   including the destination — and bounces forever. A same-origin PATH redirect
+   *   (/cards/7 -> /cards/hero/7.html) cannot do that: it never changes host, so a host scope
+   *   would buy nothing and there is nothing to loop against as long as the destination does
+   *   not match another source, which is asserted separately below.
+   * ⛔ Narrowed deliberately and only this far. The outage was caused by an absolute redirect
+   *   aimed at the live host; that case is still covered by BOTH assertions here. */
+  const crossHost = red.filter(r => /^https?:\/\//.test(r.destination));
+  const samePath = red.filter(r => !/^https?:\/\//.test(r.destination));
+  ok(crossHost.length > 0 && crossHost.every(r => (r.has || []).some(h => h.type === 'host')),
+    '…and every CROSS-HOST redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⛔ A SAME-ORIGIN REDIRECT LOOPS IF ITS DESTINATION MATCHES ANY SOURCE. Run the sources
+   *   against the destinations rather than eyeballing them — the whole lesson of the outage was
+   *   that asserting a rule EXISTS is not the same as running it. */
+  const srcRe = s => new RegExp('^' + s
+      .replace(/\/:[a-zA-Z]+\(\(?([^)]*)\)?\)/g, (_m, g) => '/(?:' + g.replace(/\)$/, '') + ')')
+      .replace(/\/:[a-zA-Z]+\*/g, '/.*')
+      .replace(/\/:[a-zA-Z]+/g, '/[^/]+') + '$');
+  const selfLoop = samePath.filter(r => samePath.some(o => {
+    try { return srcRe(o.source).test(r.destination.replace(/:([a-zA-Z]+)/g, '1')); } catch { return false; }
+  }));
+  ok(selfLoop.length === 0,
+    '…and no same-origin redirect lands on another redirect\'s source — '
+    + (selfLoop.length ? '⛔ LOOP: ' + selfLoop.map(r => r.source + ' -> ' + r.destination).join(', ') : 'clear'));
 
   /* ⛔ AND HOST-SCOPED IS NOT ENOUGH — THIS IS THE ONE THAT TOOK THE SITE DOWN, 2026-08-05.
    * A `www -> apex` rule lived here and was perfectly host-scoped. It still looped, because the
@@ -847,7 +871,8 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
   /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an
    * identity change, not a link-breaking one. It also protects any `animation_url` already
    * pointing at the old host. */
-  ok(red.every(r => /:path\*/.test(r.destination)), '…and it preserves the path');
+  ok(crossHost.every(r => /:path\*/.test(r.destination)),
+    '…and every cross-host redirect preserves the path');
 
   /* ══ ⛔ THE CACHE RULE THAT MADE THE WHOLE CARD SURFACE A WEEK STALE — 2026-08-05 ═══════════
    * Artist: *"the cards are not updated on site."* They were not. The deploy was correct, every

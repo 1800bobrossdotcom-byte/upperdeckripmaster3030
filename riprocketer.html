@@ -362,6 +362,11 @@
 <!-- the engine: MIT, UMD global `pc`, no build step -->
 <script src="vendor/playcanvas/playcanvas.min.js"></script>
 <!-- rules · renderer · driver -->
+<!-- ⛔ THIS WAS MISSING, AND IT IS WHY RIP ROCKETER COULD NOT AWARD A TITLE. The ledger listed
+     two titles for this cabinet and this page never loaded it, so both sat on the redeem surface
+     permanently unclaimable. `test:reach` asserts modules PARSE and `test:cab` asserts pages lay
+     out; neither can see a script that was never included. -->
+<script src="js/title-ledger.js"></script>
 <script src="js/rrpc-game.js"></script>
 <script src="js/rrpc-fx.js"></script>
 <script src="js/rrpc-app.js"></script>

@@ -10,6 +10,16 @@
       ],
       "destination": "https://ripmaster3030studios.com/:path*",
       "permanent": true
+    },
+    {
+      "source": "/cards/:id(([1-9]|[12][0-9]|3[0-3]))",
+      "destination": "/cards/hero/:id.html",
+      "permanent": false
+    },
+    {
+      "source": "/cards/:id((3[4-9]|[4-9][0-9]|100))",
+      "destination": "/cards/",
+      "permanent": false
     }
   ],
   "headers": [

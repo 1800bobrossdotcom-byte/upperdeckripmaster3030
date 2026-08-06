@@ -119,7 +119,13 @@
   document.getElementById('check').onclick = async () => {
     const at = deployed || prompt('PackSink address (0x…)');
     if (!/^0x[0-9a-fA-F]{40}$/.test(at || '')) { log('not an address.', 'bad'); return; }
-    const rpcs = ['https://ethereum-rpc.publicnode.com', 'https://cloudflare-eth.com', 'https://rpc.ankr.com/eth'];
+    /* ⚠ THE WORKAROUND DIED WITH ITS BUG. This hard-coded its own RPC list because chain-config
+     *   pointed at SEPOLIA and the verify step would have read a different chain than the one it
+     *   had just written to. The mainnet flip landed on 2026-08-06, so the reason is gone — and
+     *   the frozen copy had rotted into a liability: two of its three endpoints (cloudflare, ankr)
+     *   now answer every request with a JSON-RPC error inside an HTTP 200, leaving this page one
+     *   survivor deep. chain-config's list is mainnet, four endpoints, and verified live. */
+    const rpcs = (window.RIPMASTER_CHAIN || {}).rpcs || ['https://ethereum-rpc.publicnode.com'];
     const call = async data => { for (const r of rpcs) { try {
       const j = await (await fetch(r, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: at, data }, 'latest'] }) })).json();

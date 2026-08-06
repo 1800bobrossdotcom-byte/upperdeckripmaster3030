@@ -601,6 +601,16 @@ window.RRGame = (function () {
      * banner is the deadest time this game has. Reaching a new tier is the only moment the ascent
      * is a fact rather than a background, so it gets the banner and the wave number stands aside. */
     const newTier = spec.tier !== G.lastTier;
+    /* ⛔ THE COMPLETED TIER IS RECORDED BEFORE THE FLAGS RESET, WHICH IS THE WHOLE ORDERING.
+     * Entering tier N means tier N−1's four waves were cleared, and at THIS instant the flags
+     * still hold that tier's answer — one line later they do not. A detector reading them after
+     * the reset would award the title to everybody, every tier, forever.
+     * ⚠ `G.lastTier >= 1` because the very first buildWave also sees `newTier` (tier 1 against
+     *   lastTier 0) and that is the START of a run, not the completion of anything. */
+    if (newTier && G.lastTier >= 1) {
+      G.tierDone = { tier: G.lastTier, flowOk: G.stat.tierFlowOk, odOnly: G.stat.tierOdOnly };
+      G.ev.push('tierdone');
+    }
     /* ⚠ A NEW TIER IS A CLEAN SHEET FOR THE CHAIN TITLE, and the reset belongs here rather than
      * in `start()`: the attempt is scoped to ONE tier, so failing tier II must not lock you out
      * of claiming it on tier III in the same run. */
@@ -1732,6 +1742,7 @@ window.RRGame = (function () {
     G.bullets.length = 0; G.pops.length = 0; G.pows.length = 0;
     G.emps.length = 0; G.scroll = 0; G.scrollK = 1; G.scrollV = SCROLL_BASE;
     G.surge = 0; G.tier = 1; G.lastTier = 0; G.nextSite = 14; G.siteId = 0;
+    G.tierDone = null;                       // the last COMPLETED tier's title flags
     G.captive = null;
     const shieldMax = SHIP.SHIELD + Math.max(0, Math.round((G.loadout.shield || 0) * 0.5));
     Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0,
