@@ -312,6 +312,60 @@ for (const file of ['docs/TESTNET.md', 'docs/TOKEN-MATH.md', 'CLAUDE.md']) {
     '…and is NOT the hot deploy wallet — the treasury is COLD',
     m && m[1] === DEPLOY_WALLET ? 'TREASURY IS THE DEPLOY KEY' : 'separate');
   /* One destination for studio money: the Base arcade fee must agree with the treasury. */
+  /* ⛔ THE CLAIM SIGNER IS A FOURTH WALLET AND MUST NOT BE THE OWNER. It is a HOT key that signs
+   *   hero vouchers all season; the owner can repoint every card in the deck. If the signer leaks
+   *   and it is also the owner, the whole collection goes with it. `lens-cli verify` warns when
+   *   they match, but a warning printed after the fact is not a guard — the runbook is pinned here
+   *   so the wrong pair cannot reach the constructor in the first place.
+   * ⚠ Fixable via setClaimSigner (unlike the treasury), so this is a quality gate, not a
+   *   catastrophe gate — which is exactly why it is worth automating rather than remembering. */
+  /* ⛔ AND THE FIRST VERSION OF THIS CHECK WAS A TAUTOLOGY. It declared `const SIGNER = '0x42A6…'`
+   *   and then asserted `SIGNER !== DEPLOY_WALLET` — two literals this file writes itself, so the
+   *   only edit that could ever fail it is an edit to this file. Every doc could name the wrong
+   *   address and it would print three green ticks. Same shape as the redirect outage's test,
+   *   which asserted that a host scope EXISTED rather than running it against the live hosts.
+   * ⚑ SO THE ADDRESS IS READ OUT OF EACH POSITION THE ARTIST ACTUALLY TYPES FROM, and every one
+   *   has to agree. The failure this guards is not "someone forgets the signer" — it is the
+   *   copy-paste trap that has already bitten this project twice (the deploy command carrying the
+   *   old name and symbol; `--image` pointing at the retired wordmark): one of four surfaces gets
+   *   updated and the other three keep the old value, and the one nobody reread is the one open
+   *   at 11 PM. Four positions, four extractions, one assertion each. */
+  {
+    const SIGNER = '0x42A6baD4Ba3e6A3Ac5E14935F55Ee1ACfBCeb049';
+    const rb = readFileSync(join(ROOT, 'docs/DEPLOY-LENS.md'), 'utf8');
+    const lc = readFileSync(join(ROOT, 'docs/LAUNCH-CHECKLIST.md'), 'utf8');
+    const ADDR = /0x[0-9a-fA-F]{40}/;
+    /* Each entry: the line that carries the signer, and how the artist meets it. */
+    const seats = [
+      ['DEPLOY-LENS `--signer` flag (Route B, the string typed at the CLI)',
+        (rb.match(/--signer\s+(0x[0-9a-fA-F]{40})/) || [])[1]],
+      ['DEPLOY-LENS constructor arg 4 (Route A, pasted into Remix)',
+        ((rb.split('\n').find(l => /claimSigner_/.test(l)) || '').match(ADDR) || [])[0]],
+      ['DEPLOY-LENS wallet table, claim-signer row',
+        ((rb.split('\n').find(l => /^\|.*claim signer/i.test(l)) || '').match(ADDR) || [])[0]],
+      ['LAUNCH-CHECKLIST address table, claim-signer row',
+        ((lc.split('\n').find(l => /^\|.*claim signer/i.test(l)) || '').match(ADDR) || [])[0]],
+    ];
+    for (const [where, got] of seats) {
+      ok(got === SIGNER, `claim signer — ${where}`, got || 'NOT FOUND');
+    }
+    /* ⛔ AND THE SEPARATION IS ASSERTED AGAINST WHAT THE DOCS SAY, not against my own constants.
+     *   The signer is a HOT key that signs vouchers all season; the owner can repoint every card
+     *   in the deck. If they are the same address and it leaks, the whole collection goes with
+     *   it. `lens-cli verify` warns when they match — but a warning printed after the deploy is
+     *   not a guard. ⚠ Fixable later via setClaimSigner (unlike the treasury's immutable args),
+     *   so this is a quality gate rather than a catastrophe gate; it is automated precisely
+     *   because "we'll remember to use a different wallet" is the kind of thing nobody does at
+     *   11 PM with a countdown running. */
+    const typed = seats.map(s => s[1]).filter(Boolean);
+    ok(typed.length > 0 && typed.every(a => a.toLowerCase() !== DEPLOY_WALLET.toLowerCase()),
+      '…and no signer position carries the owner/deploy wallet',
+      typed.find(a => a.toLowerCase() === DEPLOY_WALLET.toLowerCase()) || 'separate');
+    ok(typed.length > 0 && typed.every(a => a.toLowerCase() !== STUDIO_WALLET.toLowerCase()),
+      '…nor the cold treasury — a signer has to sign, so it cannot be cold',
+      typed.find(a => a.toLowerCase() === STUDIO_WALLET.toLowerCase()) || 'separate');
+  }
+
   const ep = readFileSync(join(ROOT, 'js/eth-play.js'), 'utf8');
   const h = ep.match(/const HANGAR = '(0x[0-9a-fA-F]{40})'/);
   ok(h && h[1] === STUDIO_WALLET,
