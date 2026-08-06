@@ -40,6 +40,7 @@ contract Ripmaster3030Renderer {
         uint256 supplyWhole;   // live totalSupply, whole tokens
         uint256 maxWhole;      // maxTotalSupply, whole tokens
         uint256 burnedWhole;   // permanently burned = max − live (mint-once, burns never re-mint)
+        uint256 burnedFrac;    // …and its two decimals. A pack burns 62.5, so halves are REAL here
         uint256 pctBps;        // burned fraction of the mint, in basis points (0..10000)
         uint256 perRareInt;    // integer part of $3030 per RARE
         uint256 perRareFrac;   // two-decimal fraction of $3030 per RARE
@@ -128,6 +129,11 @@ contract Ripmaster3030Renderer {
         // burn getter; see docs/RESEARCH-NOTES.md). Computed in wei, mul-before-div.
         uint256 burnedWei = maxSupply > currentSupply ? maxSupply - currentSupply : 0;
         s.burnedWhole = burnedWei / 1e18;
+        /* ⛔ A PACK BURNS 62.5 TOKENS, SO THE HALF IS NOT ROUNDING NOISE — IT IS A PACK.
+         *   `burnedWei / 1e18` printed 312 for a true 312.5, i.e. 4.99 packs where five had been
+         *   ripped, on the token's own page. Two decimals, mul-before-div, same shape as
+         *   perRareCenti twenty lines down. */
+        s.burnedFrac = (burnedWei % 1e18) * 100 / 1e18;
         s.pctBps = maxSupply == 0 ? 0 : (burnedWei * 10_000) / maxSupply;   // 0..10000
 
         // tokenPerRare ($3030 per RARE) is word1 — order verified on the live
@@ -211,11 +217,18 @@ contract Ripmaster3030Renderer {
         );
         string memory attrs = string(
             abi.encodePacked(
-                '{"trait_type":"Burned","value":', s.burnedWhole.toString(), "},",
+                '{"trait_type":"Burned","value":', _dec2(s.burnedWhole, s.burnedFrac), "},",
                 '{"trait_type":"Live Supply","value":', s.supplyWhole.toString(), "},",
                 '{"trait_type":"Max Supply","value":', s.maxWhole.toString(), "},",
                 '{"trait_type":"3030 per RARE","value":"', _dec2(s.perRareInt, s.perRareFrac), '"},',
-                '{"trait_type":"Burned %","value":', (s.pctBps / 100).toString(), "},",
+                /* ⛔ `pctBps / 100` IS AN INTEGER DIVIDE AND IT PUBLISHED A LIE. pctBps was 1 —
+                 *   one basis point, entirely correct — and 1/100 truncates to 0, so the live
+                 *   token page read "Burned % 0" while 312.5 had permanently burned. That is the
+                 *   single number the deflation claim rests on, saying nothing had happened, on
+                 *   the flagship surface. ⚑ It only shows up BELOW 1%, which is exactly where a
+                 *   launch spends its first weeks, and it would have healed itself later — the
+                 *   worst kind, because by the time anyone could notice it would be gone. */
+                '{"trait_type":"Burned %","value":', _dec2(s.pctBps / 100, s.pctBps % 100), "},",
                 '{"trait_type":"Market Tick","value":"', _tickStr(s.tick), '"}]}'
             )
         );
@@ -253,7 +266,7 @@ contract Ripmaster3030Renderer {
             abi.encodePacked(
                 '<g font-family="monospace" fill="#d9ffe9">',
                 '<text x="40" y="358" font-size="20">BURNED</text>',
-                '<text x="560" y="358" text-anchor="end" font-size="20">', s.burnedWhole.toString(), " / ", s.maxWhole.toString(), "</text>",
+                '<text x="560" y="358" text-anchor="end" font-size="20">', _dec2(s.burnedWhole, s.burnedFrac), " / ", s.maxWhole.toString(), "</text>",
                 '<rect x="40" y="378" width="520" height="26" rx="13" fill="#0a2a1a"/>',
                 '<rect x="40" y="378" width="', barW.toString(), '" height="26" rx="13" fill="#ff5a3c"/>',
                 '<text x="300" y="397" text-anchor="middle" font-size="15" fill="#04120a">', (s.pctBps / 100).toString(), '% BURNED</text>'
