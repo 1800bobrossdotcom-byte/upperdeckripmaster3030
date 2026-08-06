@@ -833,6 +833,22 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    *   not match another source, which is asserted separately below.
    * ⛔ Narrowed deliberately and only this far. The outage was caused by an absolute redirect
    *   aimed at the live host; that case is still covered by BOTH assertions here. */
+  /* ⛔ AN INVALID `source` DOES NOT DEGRADE — IT FAILS THE WHOLE DEPLOYMENT. Vercel parses these
+   *   with path-to-regexp, which REJECTS capturing groups inside a `:param(...)` pattern. I wrote
+   *   `/cards/:id(([1-9]|...))` and the build stopped dead: the site kept serving the previous
+   *   commit, so every push afterwards silently did nothing and the only symptom was a 404 on the
+   *   new files. ⚑ That is far worse than a broken redirect — a bad rule breaks one path, a bad
+   *   SOURCE breaks every deploy after it, and nothing on the site changes to tell you.
+   * ⚠ Checked without adding a dependency: the rule is exactly "no capturing group inside a
+   *   param pattern", i.e. every `(` after the first must open `(?:`. */
+  const badSrc = red.filter(r => {
+    const m = /:[A-Za-z][A-Za-z0-9_]*\((.*)\)$/.exec(r.source);
+    return m && /\((?!\?[:=!])/.test(m[1]);
+  });
+  ok(badSrc.length === 0,
+    'every redirect `source` parses — no capturing group inside a :param() pattern — '
+    + (badSrc.length ? '⛔ INVALID, THE WHOLE DEPLOY WILL FAIL: ' + badSrc.map(r => r.source).join(', ') : 'clear'));
+
   const crossHost = red.filter(r => /^https?:\/\//.test(r.destination));
   const samePath = red.filter(r => !/^https?:\/\//.test(r.destination));
   ok(crossHost.length > 0 && crossHost.every(r => (r.has || []).some(h => h.type === 'host')),
