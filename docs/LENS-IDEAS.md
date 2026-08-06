@@ -165,6 +165,126 @@ decision, not a build task.
 
 ---
 
+---
+
+# The lens in the GAMES
+
+⛔ **Start from the measurement: no game consults the lens at all.** The only chain read in any
+game file is `eth_getBlockByNumber` — the latest block's **gas ratio** — in `js/card-powers.js` and
+`js/rrpc-app.js`. Cards come from `localStorage`. The single genuinely on-chain thing in a match is
+the **rake burn**, and that is the ERC-20, not the lens.
+
+So everything below is unbuilt, and the surface it would read is now live: `tierOfHolder` ·
+`burnBps` · `marketSnapshot` · `heldFor` · `lensState(id)`.
+
+### ⛔ THE STANDING RULE FOR GAMES, AND IT IS SHARPER THAN FOR CARDS
+
+**A balance is borrowable, so it may never touch a STAT.** Flash-borrow $3030 for one block,
+snapshot a tier, play the match. On a card that gates only a colour this does not matter — it is
+said out loud in the contract. In a game that keeps a score it is cheating with extra steps.
+
+So: **holding may drive how you LOOK. It may never drive what you DO.** The one lens input immune
+to this is **tenure** (`heldFor`), because time cannot be lent — which makes it the only input that
+could ever gate something that counts.
+
+### ⛔ AND A FINDING WORTH ACTING ON: `amp` IS A STAT MULTIPLIER DRIVEN BY NETWORK CONGESTION
+
+`RipPowers.loadout()` scales **damage, fire rate, shields, speed and score** by
+`amp ∈ [0.75, 1.7]`, derived from `gasUsed/gasLimit` of the latest Ethereum block. So how hard your
+gun hits drifts by up to **2.3×** with how busy the chain happens to be that minute — something no
+player perceives, controls, or can plan around. It is shared, so it is not *unfair* between
+players; it is **noise in the number that decides how a weapon feels.**
+
+⚠ And `js/card-powers.js`'s own header calls it *"LIVE $3030 market activity read straight off the
+chain."* It is not — it is network weather on any chain the config points at.
+`docs/CARD-POWER-MAPPING.md` describes it correctly; the code comment does not.
+
+Two honest ways out, and they are a real choice:
+- **Drive it from actual $3030 state** (burn, liquidity) — keeps the mechanic, makes the sentence
+  true, and ties the games to the token instead of to Ethereum's traffic.
+- **Take it off stats entirely** and let the chain drive weather instead (below) — the cleanest,
+  because it stops a number nobody can see from deciding a fight.
+
+---
+
+## 1 · The burn is the one **shared world state** — and it is the strongest link available
+
+**Reads** `burnBps()`. Global, monotonic, permanent, and **identical for every player**.
+**Does** in THE CITY it drives the print pass — the ink, the sky, the light. As the community
+burns, the city changes *for everyone*, and it never changes back.
+**Why it is the best of these** every other input is personal, so it makes a private game.
+This one is the only number in the project that is *the same for all of us and cannot be undone*.
+It turns a single-player walking sim into a place with a shared history, for one `eth_call`.
+It also finally makes deflation something you can **see** rather than read in a whitepaper.
+**Anti-casino check** pays nobody, buys nobody anything, competes with nobody. Clean.
+**Acceptance** the pass's measured parameters track `burnBps` monotonically, and two clients at the
+same block render the same city.
+
+## 2 · A photograph is stamped with the chain at the instant of the shot
+
+**Reads** `burnBps()` + block number, once, at the shutter.
+**Does** THE CITY's core hook — *"a photograph you take becomes a card"* — is still unbuilt. When it
+lands, the card it produces should carry **the state of the token at the moment it was taken**.
+Two identical photographs of the same corner, a week apart, are **different cards**.
+**Why it is the most on-ethos idea here** the artist's frame is anticipation and the anti-casino
+position is that *the prize is a thing you MADE*. A photograph stamped with a moment that can never
+recur is exactly that: provenance as art rather than as a certificate. It is also the only thing in
+the project that would make a *generated* card genuinely unrepeatable.
+**Acceptance** two shots of the same framing at different burn states differ measurably, and the
+stamp is recoverable from the card.
+
+## 3 · A staked hero should be **real** — games trust `localStorage` completely
+
+**Reads** `lensState(id).minted` / `ownerOf(id)`.
+**Does** today a staked card is a `localStorage` entry, so devtools grants anyone any card. That is
+fine while nothing counts — and `docs/SEATS.md` already says a seat is advisory. It stops being
+fine the moment a **leaderboard or a title claim** depends on it, and the earned titles already
+exist.
+⚑ **The right shape is the one the collector seat already uses:** verify what can be verified and
+**label** the rest, rather than pretending. Heroes 1–33 can be checked with `ownerOf`; field cards
+are vault-only by design and should be shown as `verified: false`, exactly like the collector door
+does when `lens721` is unset.
+**Acceptance** a hand-edited vault entry for a hero shows as unverified; a genuinely held one
+verifies. No card is silently rejected — this labels, it does not lock people out.
+
+## 4 · Holding drives your kit's **finish**, never your numbers
+
+**Reads** `tierOfHolder(player)`.
+**Does** the same treatment the cards got today, on the thing you are flying or wearing: the foil
+on the craft, the finish on the operative's kit, the trail. Ash → Inferno is a material, not a buff.
+**Why** it is the standing rule above, applied. It is also the only way holding can appear in a
+game at all without becoming pay-to-win.
+**Acceptance** stats are byte-identical across all five tiers; the render is not.
+
+## 5 · You burned **N of the M**
+
+**Reads** `burnBps()` for the global figure; the player's own rips are already local.
+**Does** show a player their own contribution to the permanent number. Not a score, not a rank —
+a **stake in something that outlasts the session**.
+**Why** *"the tangible prize is the having-done-it"*, stated as arithmetic. It is also the honest
+version of a progress bar: the thing it measures is real and cannot be taken back.
+
+## 6 · Tenure could gate what a balance never could — and probably still should not gate a title
+
+`heldFor` is unfakeable, so it is the **only** lens input that could safely gate something that
+counts. Worth stating clearly, because the temptation will be to spend it on the eleven titles.
+⛔ **It should not be.** The titles are **feats** — *"each is a named feat in a named cabinet"* —
+and **waiting is not a feat.** Tenure gating a title would quietly turn the one thing in this
+project that cannot be bought into the one thing that can be *outlasted*, which is nearly the same
+failure wearing a different hat. Spend it on a cosmetic, or on nothing.
+
+---
+
+### ⛔ Anti-patterns, for the games specifically
+
+| never | why |
+| --- | --- |
+| **Deflation as difficulty** | "More burned ⇒ harder / rarer" makes the community's burning *punish* the players, and it is a treadmill nobody opted into. |
+| **Holding on any stat** | Borrowable for one block. See the standing rule. |
+| **A payout of any kind** | The whole position. The win is a title, a lens, a moment. |
+| **Gating play behind a balance** | The arcade already has three doors and practice is open to all. Keep it that way. |
+| **Silent chain influence** | If the chain changes the game, the game must SAY so. `amp` has moved every weapon in the arcade for months and nothing on screen mentions it. |
+
 ## How to judge any new idea
 
 Four questions, from `docs/DESIGN-SYSTEM.md` §4 — a brief missing any of them produces the default:

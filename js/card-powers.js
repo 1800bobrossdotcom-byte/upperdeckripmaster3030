@@ -2,8 +2,23 @@
  *
  * Your cards are an ARMORY. Stake them into a game and they arm you: each card
  * amplifies your craft/operative (damage, fire-rate, shields, speed, score) and
- * can ACTIVATE specific guns and power-ups — and the whole thing flexes with LIVE
- * $3030 market activity read straight off the chain. Hotter chain = hotter cards.
+ * can ACTIVATE specific guns and power-ups — and the whole thing flexes with live
+ * CHAIN HEAT. Hotter chain = hotter cards.
+ *
+ * ⛔ "CHAIN HEAT" IS THE LATEST BLOCK'S GAS RATIO — IT IS NOT $3030, AND THIS LINE SAID IT WAS.
+ *   `pollMarket` reads `eth_getBlockByNumber` and divides gasUsed by gasLimit. That is network
+ *   weather on whatever chain `chain-config` points at; it has nothing to do with this token's
+ *   price, supply, liquidity or burn. `docs/CARD-POWER-MAPPING.md` describes it correctly and
+ *   this header did not — the file's own first paragraph was the wrong one, which is the surface
+ *   a reader trusts most.
+ * ⚠ AND IT IS A STAT MULTIPLIER. `amp` scales damage, fire rate, shields, speed and score by up
+ *   to 2.3x end to end, so how hard your gun hits drifts with how busy Ethereum is that minute —
+ *   something no player perceives, controls or can plan around. It is SHARED, so it is not unfair
+ *   between players; it is noise in the number that decides how a weapon feels. Whether to drive
+ *   it from real $3030 state or take it off stats entirely is an open design question:
+ *   `docs/LENS-IDEAS.md` § "the lens in the GAMES".
+ * ⚠ No game reads the LENS at all — not tierOfHolder, not burnBps, not lensState. The staking
+ *   tier, the burn and the market are invisible in every cabinet. Also that document.
  * The $3030 ante is the WAGER (net-zero — winner takes the pot); your staked cards
  * ride along and transfer to the winner. You can lose them, but they're never burned. ikyk.
  *
