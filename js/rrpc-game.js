@@ -293,6 +293,10 @@ window.RRGame = (function () {
 
     /* THE DASH — offensive movement, and the first half of "fast combos for movement". */
     DASH_V: 27, DASH_T: 0.17, DASH_CD: 0.30, DASH_I: 0.10,
+    /* how long a refused dash stays asked-for. Longer than ROLL_T (0.42) on purpose — see the
+     * buffer note in stepShip: the whole point is that a dash asked for DURING a roll lands as
+     * the roll ends, which is the FLOW chain the game is built to reward. */
+    DASH_BUF: 0.50,
 
     /* THE DEFENCE ROLL — the brief asked for this by name. i-frames are the point: 0.30 s of the
      * 0.42 s roll is invulnerable, so a read beats a bullet. It is also the ONLY way to delete
@@ -410,7 +414,7 @@ window.RRGame = (function () {
       ship: { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0, inv: 2,
               iframe: 0, dual: false, ripped: false, gun: 1, rapid: 0, fireT: 0,
               shield: SHIP.SHIELD, shieldMax: SHIP.SHIELD, sinceHit: 0,
-              dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
+              dash: 0, dashCd: 0, dashDir: 0, dashBuf: 0, dashBufDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
               flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0 },
       enemies: [], bullets: [], ebullets: [], pops: [], beams: [], pows: [],
       /* THE FACILITY. `scroll` is world distance climbed at the facade's depth; `scrollK` is the
@@ -1179,8 +1183,22 @@ window.RRGame = (function () {
       if (s.rollCd > 0) s.rollCd -= h;
 
       // ── the two new verbs. Edge-triggered by the driver; the simulation owns the rules.
-      if (input.dash) doDash(G, input.dashDir || (input.right ? 1 : input.left ? -1 : (s.vx >= 0 ? 1 : -1)));
       if (input.roll) doRoll(G, input.rollDir || (input.right ? 1 : input.left ? -1 : (Math.abs(s.vx) > 0.6 ? Math.sign(s.vx) : 0)));
+      /* ── ⛔ THE DASH IS BUFFERED, AND IT IS WHAT MAKES ROLL → DASH A COMBO RATHER THAN A RACE ──
+       * `doDash` refuses while `rollT > 0` — correctly; a barrel roll is a committed 0.42 s and a
+       * dash out of the middle of one would cancel the animation the i-frames are read from. But
+       * FLOW exists to reward exactly that chain, so "ask during a roll and lose the input" makes
+       * the game's own combo depend on releasing a key at the right millisecond.
+       * ⚑ IT BECAME LOAD-BEARING WHEN THE ROLL BUTTON CAME OFF (artist, 2026-08-06: *"I don't
+       *   believe we need the roll button either"*). On touch a tap now rolls and a double tap is
+       *   two taps — so the dash request ALWAYS lands mid-roll, by construction, and without this
+       *   the double tap the artist asked for by name would be swallowed every single time by the
+       *   gesture that precedes it. `DASH_BUF` outlasts a roll on purpose, so the dash fires as
+       *   the roll ends: you tap-tap, and the ship rolls and comes out of it dashing.
+       * ⚠ It is a BUFFER, not a queue — a later request overwrites an earlier one rather than
+       *   stacking, so holding a gesture down can never bank dashes to spend later. */
+      if (input.dash) { s.dashBuf = SHIP.DASH_BUF; s.dashBufDir = input.dashDir || (input.right ? 1 : input.left ? -1 : (s.vx >= 0 ? 1 : -1)); }
+      if (s.dashBuf > 0) { s.dashBuf -= h; if (doDash(G, s.dashBufDir)) s.dashBuf = 0; }
 
       const ax = (input.right ? 1 : 0) - (input.left ? 1 : 0);
       const ay = (input.up ? 1 : 0) - (input.down ? 1 : 0);
@@ -1656,7 +1674,7 @@ window.RRGame = (function () {
     Object.assign(G.ship, { x: 0, y: F.SHIPY, vx: 0, vy: 0, roll: 0, pitch: 0, alive: true, respawn: 0,
       inv: 1.4, iframe: 0, dual: false, ripped: false, rapid: 0, fireT: 0,
       shield: shieldMax, shieldMax, sinceHit: 0,
-      dash: 0, dashCd: 0, dashDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
+      dash: 0, dashCd: 0, dashDir: 0, dashBuf: 0, dashBufDir: 0, rollT: 0, rollCd: 0, rollDir: 0, spin: 0, drawT: 0,
       flow: 0, flowT: 0, od: 0, odCd: 0, odPeak: 0,
       // ⚑ you OPEN on the tri, not the twin. "The best ship and guns in the universe" cannot
       //   start below the second rung of its own ladder.

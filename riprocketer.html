@@ -42,13 +42,13 @@
   CONTROLS  ◀ ▶ ▲ ▼ fly · SPC fire (autofire is on) · SHIFT/K/Z defence roll · Q/E or a genuine
             double-tap of ◀ / ▶ dash · B burn · P pause.
 
-  ⛔ THE TOUCH SCHEME IS GESTURES NOW (artist, 2026-08-06). The FIRE pad is deleted — it duplicated
-  a default that was already on — and the dash, which had NO touch binding at all despite being
-  half of the FLOW/OVERDRIVE loop this game is built around, is a double-tap on either side of the
-  screen. Hold that second tap and the same gesture becomes a DRAWN PATH: the ship flies to your
-  fingertip at ~1.9× top speed along the line you draw. ROLL and BURN keep their pads and the
-  reasons are written next to them. Full argument: the block above the input in js/rrpc-app.js.
-            Touch: drag to fly · double-tap a side to dash · hold it to draw · ROLL · BURN.
+  ⛔ THE TOUCH SCHEME IS GESTURES NOW (artist, 2026-08-06). FIRE and ROLL are both deleted; BURN is
+  the only pad left. Tapping is the whole vocabulary and it escalates: TAP rolls toward the side you
+  tapped, TAP TWICE brings the ship out of that roll DASHING, and holding the second tap turns it
+  into a DRAWN PATH — the ship flies to your fingertip at ~1.9× top speed along the line you draw.
+  The dash had NO touch binding at all before this, despite being half of the FLOW/OVERDRIVE loop
+  the game is built around. Full argument: the block above the input in js/rrpc-app.js.
+            Touch: drag to fly · tap rolls · tap twice dashes · hold the 2nd draws · BURN.
 
   Query params
     ?q=low|mid|high  force a quality tier      ?post=0     engine post stack off
@@ -124,6 +124,15 @@
     justify-content:center; align-items:center; pointer-events:none; padding:8px 14px; border-radius:999px; max-width:96vw;
     background:rgba(2,10,6,.5); border:1px solid rgba(43,255,128,.2); }
   .key{ display:inline-flex; align-items:center; gap:5px; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:#bfe9d3; }
+  /* ⛔ `.key` IS A FLEX CONTAINER, SO A SENTENCE INSIDE ONE BREAKS PER WORD-GROUP, NOT PER LINE.
+     The touch legend is prose with <b> in it; as flex items its separators ended up orphaned on
+     their own lines — "DRAG TO FLY ·" / "TAP" / "TO ROLL" — which reads as a broken layout rather
+     than as an instruction. Found by looking at the frame; nothing measured it, because every box
+     involved was the size it said it was. Text wants to be text. */
+  .keyline{ display:inline; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase;
+    color:#bfe9d3; line-height:1.7; text-align:center; }
+  .keyline b{ font-family:var(--fat); color:var(--amber); }
+  @media (hover:hover){ .keyline{ display:none; } }
   .key kbd{ font-family:var(--fat); font-size:9.5px; min-width:18px; text-align:center; padding:3px 5px; border-radius:5px;
     color:#031; background:linear-gradient(180deg,#bfffd8,#2bff80 60%,#0fae56); border:1px solid #063; box-shadow:0 2px 0 #063; }
   @media (hover:none){ .key.desk{ display:none; } } @media (hover:hover){ .key.touch{ display:none; } }
@@ -137,14 +146,15 @@
      control, which is what it always should have been: the start screen calls it "the answer to
      everything". `⌁ auto` is removed from the toggle row on a coarse pointer in the same breath;
      with no manual trigger left, switching autofire off would silently disarm the player. */
-  .pad.bomb{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px + var(--urm-banner, 0px)); width:66px; height:66px;
+  .pad.bomb{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px + var(--urm-banner, 0px)); width:78px; height:78px;
     background:radial-gradient(circle at 40% 34%,#ffc7f4,#ff2ad9 60%,#7a0a5c); border:2px solid #4a0636; box-shadow:0 0 18px rgba(255,42,217,.5); color:#fff; }
-  /* ROLL keeps its pad rather than becoming a gesture, and it is the one control that did: a
-     defensive move you have to discover is a defensive move nobody uses, and the only tap-shaped
-     gesture left is the FIRST HALF of the double tap — binding it there would fire a roll before
-     every dash and `doDash` refuses while a roll is live. See the note in js/rrpc-app.js. */
-  .pad.roll{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px + var(--urm-banner, 0px)); width:92px; height:92px;
-    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0b5a66); border:2px solid #063f47; box-shadow:0 0 22px rgba(39,247,228,.55); color:#022; }
+  /* ⛔ AND THE ROLL PAD IS GONE TOO (artist, 2026-08-06: "I don't believe we need the roll button
+     either"). A TAP rolls now — toward the side you tapped — so the move that used to be a 92px
+     circle in one corner is the whole free half of the glass, and it has a direction the pad never
+     had. Tap twice and the ship comes out of the roll dashing; that combo is the FLOW chain this
+     game is built to reward, and it is one motion. See js/rrpc-app.js.
+     ⚠ BURN is the last pad and stays one: it is a CONSUMABLE, and an accidental gesture that
+     spends a screen-clear you were saving is a different kind of mistake from an accidental roll. */
   .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
   #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
     background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
@@ -251,7 +261,6 @@
     <button class="tg" id="tgAuto">⌁ auto</button><button class="tg" id="tgSfx">◉ sfx</button><button class="tg" id="tgPause">⏸ pause</button>
   </div>
   <div class="pad bomb" id="tBomb">BURN</div>
-  <div class="pad roll" id="tRoll">ROLL</div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
   <div class="stickui" id="drawRing"></div>
   <div class="controls" id="controls" style="display:none">
@@ -261,7 +270,7 @@
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>B</kbd> burn</span>
     <span class="key desk"><kbd>P</kbd> pause</span>
-    <span class="key touch">drag to fly · <b>double-tap a side</b> to dash · <b>hold it</b> to draw a path</span>
+    <span class="keyline">drag to fly · <b>tap</b> rolls · <b>tap twice</b> dashes · <b>hold the 2nd</b> draws a path</span>
   </div>
 
   <div class="ov show" id="ovStart">
@@ -270,8 +279,8 @@
       <div class="tag">ripmaster3030studios</div>
       <div class="sub">A formation of <b>trading cards</b> flies in, locks up, and starts breaking off to dive at you. It never stops. Shoot the ones coming for you — they're worth <b>three times</b> the ones sitting still.</div>
       <div class="rules">
-        <div><b>THE ROLL.</b> <i>SHIFT</i> barrel-rolls. You are <i>invulnerable</i> through it and the shock deletes every bullet near you. It is the answer to everything — learn it first.</div>
-        <div><b>THE DASH.</b> Double-tap <i>◀ ◀</i> / <i>▶ ▶</i> (or <i>Q</i> / <i>E</i>) — <b>on a phone, double-tap either side of the screen</b>. Chain a dash into a roll into a dash and you build <i>FLOW</i> — three links lights <i>OVERDRIVE</i>: faster guns, harder hits, more speed. Moving well <i>is</i> shooting well.</div>
+        <div><b>THE ROLL.</b> <i>SHIFT</i> barrel-rolls — <b>on a phone, just tap</b>, either side. You are <i>invulnerable</i> through it and the shock deletes every bullet near you. It is the answer to everything — learn it first.</div>
+        <div><b>THE DASH.</b> Double-tap <i>◀ ◀</i> / <i>▶ ▶</i> (or <i>Q</i> / <i>E</i>) — <b>on a phone, tap the same side twice</b> and the ship comes out of its roll dashing. Chain a dash into a roll into a dash and you build <i>FLOW</i> — three links lights <i>OVERDRIVE</i>: faster guns, harder hits, more speed. Moving well <i>is</i> shooting well. <b>Two of the three links are one double tap.</b></div>
         <div><b>DRAW A PATH.</b> Touch only. Double-tap and <i>keep your finger down</i> — the ship stops being steered and starts being <i>led</i>, flying to your fingertip at nearly twice top speed along whatever line you draw. Lift off and you have the stick back. It is faster than anything else you have; it also puts your own finger on top of the ship.</div>
         <div><b>SHIELDS.</b> <i>◈◈◈</i>. A hit costs a pip, not a rig, and pips come back if you stay clean. Only a hit with no pips left takes a life.</div>
         <div><b>THE CHAIN.</b> Every hit raises it, every missed shot halves it. Up to <i>×6</i>. Hosing the screen is the losing strategy.</div>
@@ -286,9 +295,9 @@
         <span class="key desk"><kbd>◀◀</kbd><kbd>▶▶</kbd> / <kbd>Q</kbd><kbd>E</kbd> dash</span>
         <span class="key desk"><kbd>SPC</kbd> fire</span>
         <span class="key touch">drag anywhere to fly · always shooting</span>
-        <span class="key touch">double-tap left / right to dash</span>
-        <span class="key touch">…and hold to draw a fast path</span>
-        <span class="key touch">ROLL · BURN under your thumb</span>
+        <span class="key touch">tap either side to roll</span>
+        <span class="key touch">tap twice to roll into a dash</span>
+        <span class="key touch">…hold the second tap to draw a fast path</span>
       </div>
       <!-- ⛔ "LAUNCH" IS DELIBERATELY NOT IN THE PAID BUTTON'S LABEL, and it is not a style choice.
            `scripts/debug-games.mjs` drives every game by clicking the first button matching

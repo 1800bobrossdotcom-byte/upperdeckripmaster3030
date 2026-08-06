@@ -3,7 +3,15 @@
  *
  * Artist, 2026-08-06: *"double tap on either side to go fast side to side. take the gun button
  * off and have it always shooting. take off unnessary buttons. let finger draw fast paths with
- * double tap. lets get wild cool on mobile controls for this game."*
+ * double tap. lets get wild cool on mobile controls for this game."* — and, on seeing it,
+ * *"I don't believe we need the roll button either."*
+ *
+ * THE SCHEME, and it is one thing that escalates:
+ *      drag                → fly (the anchor-following stick, unchanged)
+ *      tap                 → ROLL, toward the side you tapped
+ *      tap tap             → that roll, and the ship comes OUT of it DASHING
+ *      tap tap + hold      → …and then draws a fast path to wherever the finger goes
+ *      BURN                → the only button left, because it spends a consumable
  *
  * ⛔ WHY THIS FILE HAS TO EXIST, AND IT IS THE REPO'S OWN HEADLINE ONE LEVEL IN. `test:reach` §1b
  *   asserts a cabinet REGISTERS pointer handlers and `test:cab` asserts its pads are on screen and
@@ -105,7 +113,7 @@ const reset = async (x = 0) => {
     const s = __rrpc.G.ship;
     s.x = px; s.y = -3.05; s.vx = 0; s.vy = 0; s.alive = true; s.inv = 0; s.iframe = 0;
     s.dash = 0; s.dashCd = 0; s.rollT = 0; s.rollCd = 0; s.respawn = 0;
-    s.drawT = 0; s.flow = 0; s.flowT = 0; s.od = 0; s.odCd = 0;
+    s.drawT = 0; s.flow = 0; s.flowT = 0; s.od = 0; s.odCd = 0; s.dashBuf = 0;
     s.shield = s.shieldMax; __rrpc.G.stat.dashes = 0; __rrpc.G.stat.rolls = 0;
   }, x);
   return page.evaluate(() => __rrpc._touch());
@@ -121,10 +129,12 @@ const guns = await page.evaluate(() => {
   const before = __rrpc.G.shots;
   const r = __rrpc._step(240, 1 / 120);          // two seconds, no input at all
   return { pads: t.pads, autofire: t.autofire, coarse: t.coarse,
-    fireBtn: !!document.getElementById('tFire'), autoTg: !!document.getElementById('tgAuto'),
+    fireBtn: !!document.getElementById('tFire'), rollBtn: !!document.getElementById('tRoll'),
+    autoTg: !!document.getElementById('tgAuto'),
     shots: r.shots - before, bolts: r.bolts };
 });
 ok(guns.fireBtn === false, 'there is no FIRE pad in the document at all', guns.pads);
+ok(guns.rollBtn === false, '…and no ROLL pad either — BURN is the only button left', guns.pads);
 ok(guns.coarse === true, 'the page knows it is on a coarse pointer', 'coarse ' + guns.coarse);
 ok(guns.autoTg === false, '…so the `⌁ auto` toggle is removed too — it could only disarm you now',
   'tgAuto present: ' + guns.autoTg);
@@ -132,21 +142,54 @@ ok(guns.shots > 0 && guns.bolts > 0,
   'and the ship fires for two seconds with NOTHING touching the screen',
   guns.shots + ' volleys · ' + guns.bolts + ' bolts in flight');
 
-console.log('\n── 2 · DOUBLE-TAP EITHER SIDE, GO FAST THAT WAY ───────────────────────────────');
-/* The artist's first sentence, and the verb that had no touch binding whatsoever. */
+console.log('\n── 2 · TAP ROLLS · TAP TWICE ROLLS INTO A DASH ────────────────────────────────');
+/* The artist's first sentence — the verb that had no touch binding whatsoever — plus the roll,
+ * which lost its pad on 2026-08-06 and had to become the FIRST HALF of the same gesture.
+ * ⛔ THE ONE THAT MATTERS IS THAT BOTH LAND. `doDash` refuses while a roll is live, so before
+ *   SHIP.DASH_BUF existed this exact sequence produced a roll and silently ate the dash — i.e.
+ *   removing the button would have removed the feature the artist asked for by name, and the
+ *   only visible symptom would have been a dash that "sometimes doesn't work". */
+for (const [side, x, sign] of [['left', W * 0.22, -1], ['right', W * 0.78, 1]]) {
+  await cold();
+  const b = await reset();
+  await tap(x, H * 0.55);
+  const one = await page.evaluate(() => ({ t: __rrpc._touch(), s: __rrpc._step(6, 1 / 120) }));
+  ok(one.t.rolls - b.rolls === 1 && one.s.rolls === 1,
+    `a single tap on the ${side} ROLLS — the pad's job, on the whole half of the glass`,
+    'gesture +' + (one.t.rolls - b.rolls) + ' · sim ' + one.s.rolls + ' · rollT ' + one.s.rollT);
+  ok(Math.sign(one.s.vx) === sign,
+    `…and it carries a DIRECTION the pad never had`, 'vx ' + one.s.vx + ' u/s');
+  ok(one.t.dashes - b.dashes === 0, '…and one tap is not yet a dash',
+    'dashes +' + (one.t.dashes - b.dashes));
+}
+
 for (const [side, x, sign] of [['left', W * 0.22, -1], ['right', W * 0.78, 1]]) {
   await cold();
   const base = await reset();
   await dbl(x, H * 0.55);
-  /* ⚠ MEASURE THE PEAK AND THE DISPLACEMENT, NOT THE VELOCITY WHENEVER THE PROBE GOT ROUND TO
-   *   LOOKING. A dash is a 27 u/s IMPULSE decaying on a 0.125 s time constant, so reading `vx`
-   *   0.35 s later gives 1.65 u/s and reads exactly like a dash that never fired. The first
-   *   version of this assertion did precisely that and failed on a correct build. */
+  /* ⚠ MEASURE THE PEAK INSIDE THE DASH'S OWN WINDOW, NOT WHENEVER THE PROBE GOT ROUND TO LOOKING.
+   *   A dash is a 27 u/s IMPULSE decaying on a 0.125 s time constant, so reading `vx` a third of a
+   *   second later gives 1.65 u/s and looks exactly like a dash that never fired — the first
+   *   version did that and failed on a correct build. And now the ROLL comes first and the dash is
+   *   buffered behind it, so the window has to span both: ROLL_T 0.42 s then DASH_BUF releases it.
+   *   Sampling on `s.dash > 0` is what tells the dash's 27 apart from the roll's own 19. */
   const r = await page.evaluate(() => {
-    const g = __rrpc.G, x0 = g.ship.x; let peak = 0;
-    for (let i = 0; i < 24; i++) { const s = __rrpc._step(1, 1 / 120); if (Math.abs(s.vx) > Math.abs(peak)) peak = s.vx; }
-    return { t: __rrpc._touch(), peak: +peak.toFixed(2), dx: +(g.ship.x - x0).toFixed(2), dashes: g.stat.dashes };
+    const g = __rrpc.G, x0 = g.ship.x;
+    let peak = 0, rollPeak = 0, dashTicks = 0;
+    for (let i = 0; i < 96; i++) {
+      const s = __rrpc._step(1, 1 / 120);
+      if (s.dash > 0) { dashTicks++; if (Math.abs(s.vx) > Math.abs(peak)) peak = s.vx; }
+      else if (s.rollT > 0 && Math.abs(s.vx) > Math.abs(rollPeak)) rollPeak = s.vx;
+    }
+    return { t: __rrpc._touch(), peak: +peak.toFixed(2), rollPeak: +rollPeak.toFixed(2),
+      dashTicks, dx: +(g.ship.x - x0).toFixed(2), dashes: g.stat.dashes, rolls: g.stat.rolls };
   });
+  ok(r.rolls === 1, `a double-tap on the ${side} rolls first`, 'rolls ' + r.rolls
+    + ' · peak in the roll ' + r.rollPeak + ' u/s');
+  ok(r.dashes >= 1 && r.dashTicks > 0,
+    `…and the DASH SURVIVES THE ROLL rather than being swallowed by it`,
+    'stat.dashes ' + r.dashes + ' · ' + r.dashTicks + ' ticks of dash after a roll that refuses '
+    + 'dashes for its whole 0.42 s');
   ok(r.t.dashes - base.dashes === 1, `a double-tap on the ${side} is RECOGNISED as a double tap`,
     'gestures +' + (r.t.dashes - base.dashes));
   /* ⚑ TWO COUNTERS ON PURPOSE. `_touch().dashes` counts the GESTURE, `stat.dashes` counts what the
@@ -156,8 +199,8 @@ for (const [side, x, sign] of [['left', W * 0.22, -1], ['right', W * 0.78, 1]]) 
   ok(Math.sign(r.peak) === sign && Math.abs(r.peak) > 20,
     `…and the ship is genuinely thrown ${side}, far past anything the stick can reach`,
     'peak ' + r.peak + ' u/s against a 9.8 u/s stick ceiling');
-  ok(Math.sign(r.dx) === sign && Math.abs(r.dx) > 1.5,
-    `…and it is DISTANCE, not a twitch — a fifth of the field in 0.2 s`,
+  ok(Math.sign(r.dx) === sign && Math.abs(r.dx) > 2.5,
+    `…and it is DISTANCE, not a twitch — the roll and the dash together`,
     'moved ' + r.dx + ' units of a ' + 12.6 + '-unit field');
 }
 
@@ -168,17 +211,31 @@ console.log('\n── 3 · …AND STEERING IS NOT A DASH ───────�
  *   double-tap test of two presses inside 260 ms is TOO LOOSE": a probe merely pumping ◀/▶ to keep
  *   rAF alive accumulated three dashes and lit OVERDRIVE without asking). A tap needs BOTH halves:
  *   it neither travelled nor lingered. */
+/* ⛔ AND THE FLICK HAS TO BE FAST OR THIS ASSERTION DOES NOT BITE. The first version awaited each
+ *   CDP command, so a "brisk" drag took ~900 ms of wall clock — comfortably past TAP_T, which
+ *   means the TIME half rejected it on its own and the DISTANCE half was never exercised. Proved
+ *   by deleting `p.moved < TAP_SLOP` from the recogniser: the suite stayed at 35/35 on a build
+ *   where every quick steering flick becomes a dash. Pipelined, the same drag is ~5 ms over 130 px
+ *   — short enough to be a tap on time alone, which is the case that matters. */
 await cold();
 let base = await reset();
 for (let i = 0; i < 6; i++) {                      // brisk steering flicks, thumb never still
-  await send('touchStart', [{ x: W * 0.3, y: H * 0.6 }]);
-  for (let k = 1; k <= 5; k++) await send('touchMove', [{ x: W * 0.3 + k * 26, y: H * 0.6 }]);
-  await send('touchEnd', []);
+  const seq = [send('touchStart', [{ x: W * 0.3, y: H * 0.6 }])];
+  for (let k = 1; k <= 5; k++) seq.push(send('touchMove', [{ x: W * 0.3 + k * 26, y: H * 0.6 }]));
+  seq.push(send('touchEnd', []));
+  await Promise.all(seq);
 }
 const drags = await page.evaluate(() => ({ t: __rrpc._touch(), s: __rrpc._step(8, 1 / 120) }));
 ok(drags.t.dashes - base.dashes === 0 && drags.s.dashes === 0,
   'six brisk steering drags in a row produce ZERO dashes',
   'gestures +' + (drags.t.dashes - base.dashes) + ' · sim ' + drags.s.dashes);
+/* ⚑ AND ZERO ROLLS, WHICH IS THE NEW HALF AND THE MORE DANGEROUS ONE. With the pad gone a tap is
+ *   the roll, and steering is a press on the same glass — a recogniser that let a drag through
+ *   would barrel-roll the ship every time the player steered, which is unplayable rather than
+ *   merely wrong. It is also why the roll can never fire on an unqualified pointerdown. */
+ok(drags.t.rolls - base.rolls === 0 && drags.s.rolls === 0,
+  '…and ZERO rolls — steering must never be mistaken for the defensive move',
+  'gestures +' + (drags.t.rolls - base.rolls) + ' · sim ' + drags.s.rolls);
 
 await cold(); base = await reset();
 await tap(W * 0.3, H * 0.6); await wait(500); await tap(W * 0.3, H * 0.6);
@@ -209,8 +266,9 @@ ok(on.draws - base.draws === 1 && on.dashes - base.dashes === 1,
  *   where the finger has moved to. So the assertion is arrival, not motion — "it moved" is
  *   satisfied by any drift at all. Drawn from the left third to the right third of the glass. */
 const target = await page.evaluate(x => __rrpc._field(x, 195).x, W * 0.80);
-for (let k = 1; k <= 14; k++) {
-  await send('touchMove', [{ x: W * (0.30 + 0.5 * k / 14), y: H * 0.5 }]);
+for (let k = 1; k <= 14; k += 2) {
+  await Promise.all([send('touchMove', [{ x: W * (0.30 + 0.5 * k / 14), y: H * 0.5 }]),
+                     send('touchMove', [{ x: W * (0.30 + 0.5 * (k + 1) / 14), y: H * 0.5 }])]);
   await page.evaluate(() => __rrpc._step(9, 1 / 120));
 }
 const drawn = await page.evaluate(() => __rrpc._step(60, 1 / 120));
@@ -219,6 +277,32 @@ ok(Math.abs(drawn.x - target) < 0.9,
   'ship x ' + drawn.x + ' vs finger ' + target.toFixed(2) + ' (Δ' + Math.abs(drawn.x - target).toFixed(2) + ')');
 ok(drawn.drawT > 0, '…and it reports the mode to the renderer while the finger is down',
   'drawT ' + drawn.drawT);
+/* ⛔ AND THE INK IS ASSERTED BY COUNTING WHAT IT EMITS, NOT BY LOOKING. The line the finger draws
+ *   is the mode's only feedback — during a draw your own fingertip is on top of the ship — so an
+ *   ink that silently drew nothing would be this repo's muzzle-flash failure again: correct,
+ *   committed, described as done, invisible. ⚠ `fx.counts()` CANNOT answer it: the ship's own
+ *   afterimage brightens during a draw too, so the additive quad count rises either way. That was
+ *   measured (+11 quads) and taken as proof, and it was a confounded measurement that happened to
+ *   agree. `ink` counts the ribbon segments themselves.
+ * ⚠ The drive is DELIBERATELY grouped rather than batched: twelve touchMoves dispatched at once
+ *   make Chrome fire `pointercancel` and end the draw — measured, `drawing:false` and `ink:0` on a
+ *   healthy build — while awaiting each one gives ~6 points/second, which is a crawl no finger
+ *   makes. Neither is a real drag, and both read as a broken feature. */
+/* ⛔ AND THE RING MAY NOT POINT SOMEWHERE THE SHIP CANNOT GO. Draw to the top of the glass and the
+ *   simulation clamps the target into the ship's lane (F.YBOT…F.YTOP, the lower third, so you can
+ *   never stand inside the formation) — but the CURSOR did not, and sat in the formation with the
+ *   ship stopped 1.8 units below it. Every number was right and the picture said the control was
+ *   broken. Found by looking at a frame, which is why this assertion exists at all. */
+await send('touchMove', [{ x: W * 0.6, y: 4 }]);            // as high as the glass goes
+const high = await page.evaluate(() => ({ t: __rrpc._touch(), top: window.RRGame.F.YTOP }));
+ok(high.t.dy <= high.top + 0.001,
+  'drawing off the top of the screen pins the target to the ship\'s own ceiling',
+  'target y ' + high.t.dy + ' vs the lane top ' + high.top);
+const inked = await page.evaluate(() => __rrpc._touch());
+ok(inked.inkPts >= 4, 'the drawn line has real points in it, not just the one the tap started with',
+  inked.inkPts + ' points buffered');
+ok(inked.ink >= 3, '…and the renderer is emitting the line as ribbon segments',
+  inked.ink + ' segments on the last frame');
 await send('touchEnd', []);
 const off = await page.evaluate(() => ({ t: __rrpc._touch(), s: __rrpc._step(30, 1 / 120) }));
 ok(off.t.drawing === false && off.s.drawT <= 0,
@@ -265,23 +349,38 @@ console.log('\n── 6 · THE STICK REACHES WHAT THE KEYBOARD REACHES ───
  *   where that was answered: the anchor fix made full deflection ASKABLE, this makes it worth
  *   asking for. Derived from the drag, not tuned — see RRGame.seek. */
 const sc = await page.evaluate(() => window.RRGame._selfCheck());
+/* ⛔ THE LOAD-BEARING ONE IS THE DRIVEN RUN, AND THE FIRST VERSION OF THIS SECTION HAD ONLY THE
+ *   DERIVATION. `_selfCheck` runs `seek` out on its own — so it proves the ARITHMETIC and says
+ *   nothing about whether `stepShip` calls it. Proved: reverting the stick branch to the plain
+ *   lerp left the suite at **35/35**, i.e. the whole section passed on the build it exists to
+ *   catch. An assertion is only as good as the thing it actually points at, which is this repo's
+ *   own recorded lesson from `test:reach`'s MODES table. Below, a real thumb at full deflection
+ *   for half a second, read off the real loop: 9.77 with the fix, 6.44 without. */
+await cold(); await reset(-6.0);
+await send('touchStart', [{ x: W * 0.30, y: H * 0.55 }]);
+await send('touchMove', [{ x: W * 0.30 + 240, y: H * 0.55 }]);
+const live = await page.evaluate(() => __rrpc._step(60, 1 / 120));
+await send('touchEnd', []);
+ok(live.vx >= sc.keyTop * 0.97,
+  'a REAL thumb at full deflection reaches what the keyboard reaches, measured on the game loop',
+  'live stick ' + live.vx + ' u/s vs key ' + sc.keyTop + ' u/s');
 ok(sc.stickTop >= sc.keyTop * 0.97,
-  'the stick and the keyboard settle at the same speed, run out on the real loop',
-  'stick ' + sc.stickTop + ' vs key ' + sc.keyTop + ' u/s');
+  '…and the derivation agrees with the drive rather than standing in for it',
+  'derived ' + sc.stickTop + ' u/s');
 ok(sc.stickTopRaw < sc.keyTop * 0.75,
   '…and the uncompensated lerp this replaces genuinely did not — the gap was real, not a rounding',
   'was ' + sc.stickTopRaw + ' u/s, i.e. ' + (100 * sc.stickTopRaw / sc.keyTop).toFixed(0) + '% of a keyboard');
 ok(sc.drawTop > sc.keyTop * 1.7, 'and a drawn path is the fast one by design',
   'draw ' + sc.drawTop + ' u/s = ' + (sc.drawTop / sc.keyTop).toFixed(2) + '× the keyboard');
 
-console.log('\n── 7 · THE TWO PADS THAT SURVIVED ARE REACHABLE, AND THE ROLL ROLLS ───────────');
+console.log('\n── 7 · BURN IS THE LAST PAD, AND A SECOND THUMB ROLLS ON THE PRESS ────────────');
 /* ⚠ `test:cab`'s rule: a rectangle is a layout fact, whether the press LANDS is the question the
- *   player asks — so it is elementFromPoint, and then the verb itself. And ROLL stays a button on
- *   purpose: the only tap-shaped gesture left is the FIRST HALF of the double tap, so binding the
- *   roll there would fire a roll before every dash and `doDash` refuses while one is live. */
+ *   player asks — so it is elementFromPoint, and then the verb itself. BURN stays a button because
+ *   it is a CONSUMABLE: an accidental roll costs a cooldown, an accidental burn costs a
+ *   screen-clear you were saving. */
 const padr = await page.evaluate(() => {
   const out = {};
-  for (const id of ['tRoll', 'tBomb']) {
+  for (const id of ['tBomb']) {
     const el = document.getElementById(id);
     if (!el) { out[id] = { ok: false, why: 'absent' }; continue; }
     const b = el.getBoundingClientRect();
@@ -292,20 +391,32 @@ const padr = await page.evaluate(() => {
   }
   return out;
 });
-for (const id of ['tRoll', 'tBomb']) {
+for (const id of ['tBomb']) {
   const p = padr[id];
   ok(p.w >= 44 && p.h >= 44 && p.onScreen, `#${id} is on screen and clears the 44px tap floor`,
     p.w + '×' + p.h + (p.onScreen ? '' : ' OFF SCREEN'));
   ok(p.hits === true, `…and a press at its centre actually lands on it`, 'elementFromPoint → ' + p.got);
 }
+/* ⛔ THE LONE-THUMB ROLL FIRES ON RELEASE AND THE SECOND-FINGER ROLL FIRES ON THE PRESS, and the
+ *   split is not an inconsistency — it is the only way to have both. The very first press on the
+ *   glass is how STEERING begins, so it cannot roll; a press that lands while a thumb is already
+ *   flying cannot be steering, so it can, and a panic button should not wait for a release.
+ *   Measured here as latency: the second finger rolls with the simulation not yet stepped. */
 await cold(); await reset();
 {
-  const b = await page.evaluate(() => { const r = document.getElementById('tRoll').getBoundingClientRect();
-    return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
-  await tap(b.x, b.y);
+  await send('touchStart', [{ x: W * 0.2, y: H * 0.6, id: 10 }]);         // thumb 1 flies
+  await send('touchMove', [{ x: W * 0.2 + 120, y: H * 0.6, id: 10 }]);
+  const b = await page.evaluate(() => __rrpc._touch());
+  await send('touchStart', [{ x: W * 0.2 + 120, y: H * 0.6, id: 10 }, { x: W * 0.85, y: H * 0.4, id: 20 }]);
+  const onPress = await page.evaluate(() => __rrpc._touch());            // BEFORE any release
+  ok(onPress.rolls - b.rolls === 1,
+    'a second thumb rolls on the PRESS, with no release and no simulation step in between',
+    'gestures +' + (onPress.rolls - b.rolls));
   const r = await page.evaluate(() => __rrpc._step(6, 1 / 120));
-  ok(r.rolls >= 1 && r.rollT > 0, 'tapping ROLL rolls — the verb, not the rectangle',
+  ok(r.rolls >= 1 && r.rollT > 0, '…and the simulation is actually rolling',
     'rolls ' + r.rolls + ' · rollT ' + r.rollT + ' s');
+  await send('touchEnd', [{ x: W * 0.85, y: H * 0.4, id: 20 }]);
+  await send('touchEnd', []);
 }
 
 console.log('\n── 8 · THE STEERING THUMB KEEPS ITS STICK WHILE THE OTHER DRAWS ───────────────');
@@ -339,7 +450,37 @@ ok(back.t.drawing === false && back.t.stick === true,
 ok(back.s.vx > 3, '…which is a live control, not just a flag', 'vx ' + back.s.vx + ' u/s');
 await send('touchEnd', []);
 
-console.log('\n── 9 · NOTHING THREW DOING ANY OF IT ──────────────────────────────────────────');
+console.log('\n── 9 · …AND IT WORKS WITH THE GAME ACTUALLY RUNNING ───────────────────────────');
+/* ⛔ EVERYTHING ABOVE RAN UNDER `?hold=1`, WHICH IS A LAB. That is the right way to measure a
+ *   gesture — it removes the container's rAF stalls from the reading — but "works with the clock
+ *   off" is not the claim anyone cares about. A pointer handler on a live page is queued behind a
+ *   full 3D frame: measured on THIS page at ~60 fps over 80 taps, `performance.now()` inside the
+ *   handler ran **45–148 ms behind `e.timeStamp`**, a 103 ms spread against a 300 ms window. So
+ *   the last case is the same double tap on a page that is rendering, with nothing held. */
+{
+  const p2 = await ctx.newPage();
+  const c2 = await ctx.newCDPSession(p2);
+  const s2 = (t, pts) => c2.send('Input.dispatchTouchEvent',
+    { type: t, touchPoints: pts.map(q => ({ x: q.x, y: q.y, id: 1 })) });
+  await p2.goto(`http://127.0.0.1:${PORT}/riprocketer.html`, { waitUntil: 'load', timeout: 90000 });
+  await p2.waitForFunction(() => window.__rrpc && window.__rrpc._touch, null, { timeout: 90000 });
+  await p2.evaluate(() => __rrpc.start(false));
+  await p2.waitForTimeout(4000);
+  const b0 = await p2.evaluate(() => __rrpc._touch());
+  await Promise.all([s2('touchStart', [{ x: 200, y: 250 }]), s2('touchEnd', []),
+                     s2('touchStart', [{ x: 200, y: 250 }]), s2('touchEnd', [])]);
+  await p2.waitForTimeout(900);
+  const b1 = await p2.evaluate(() => ({ t: __rrpc._touch(), dashes: __rrpc.G.stat.dashes,
+    held: __rrpc._step(0, 1 / 120).held }));
+  ok(b1.held === false, 'the second page is running the real rAF clock, nothing held',
+    'held ' + b1.held);
+  ok(b1.t.dashes - b0.dashes >= 1 && b1.dashes >= 1,
+    'a double tap on a LIVE, rendering page still dashes — the timing is not a lab artefact',
+    'gestures +' + (b1.t.dashes - b0.dashes) + ' · sim ' + b1.dashes);
+  await p2.close();
+}
+
+console.log('\n── 10 · NOTHING THREW DOING ANY OF IT ─────────────────────────────────────────');
 ok(errs.length === 0, 'no page errors', errs.slice(0, 3).join(' | ') || 'clean');
 
 await br.close();
