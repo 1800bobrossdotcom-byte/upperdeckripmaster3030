@@ -1509,6 +1509,40 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ✅ THE CARD PAGE IS A CARD — `cards/card-stage.js`, `npm run test:press` (16 → 26)
+*Artist, 2026-08-06, pointing at two screenshots: "this is the wrong viewer for the card — should
+be like the way we see the plate proof cards with lighting and card texture / 3d fx … that is done
+correct in the binder / folder viewer."* **Both were CARD PAGES** — the first is just the one you
+land on after a pull — and they were the last flat surface on the site: a CSS-tilted `<img>` in a
+`.card` div, no press, no material, no room. They now mount the same `CardView` the binder and the
+forge use. Measured on a driven page: **sd 63.5 against the press's own 63.7.**
+- ⚠ **THE FLAT CARD IS HIDDEN, NEVER REMOVED.** `visibility:hidden` keeps its box — which is what
+  the stage is measured from on every resize — and keeps the card BACK in the document, where
+  `cardnav.js` and the chain readers write `#b-live`, `#b-wl`, `#b-burn` and a dozen more ids.
+  Removing the element would take the page's data plumbing with it, silently.
+- ⛔ **`CardView.mount` RESOLVING IS NOT PROOF A CARD WAS PRINTED, and believing it was reproduced
+  this repo's ONE fail-open violation in a new file, on 196 pages.** Driven against a mount that
+  hands back a controller over an empty canvas, the module hid a perfectly good flat card behind
+  nothing. **The pixels are checked HERE now**, before anything is taken away. ⚠ "Not blank" is not
+  "alpha > 0" — the stock is near-white, so a paper-coloured canvas is fully opaque and completely
+  empty; the test is tonal VARIANCE. ⚑ And the stage is `pointer-events:none` until a card prints,
+  because **"it removes itself" is a weaker property than "it cannot swallow a tap"**.
+- ⛔ **TWO SABOTAGES PROVED NOTHING BEFORE THE THIRD ONE BIT — and both wrong answers accused the
+  product.** Patching `HeroCard.build` by POLLING loses the race to a page that presses at
+  `DOMContentLoaded` (`/cards/` and the binder press later, which is why the same sabotage works
+  there); patching on ASSIGNMENT did not kill the render either. Both left the press healthy —
+  **measured ink true, sd 64.2, a perfectly good card** — while three assertions reported the guard
+  as broken. ⚑ **A sabotage that does not engage proves the OPPOSITE of the truth.** The one that
+  works breaks the exact contract this module depends on and cannot verify from outside: a
+  `mount()` that resolves over an empty canvas.
+- ⚠ **`?flat` opts out**, same as the binder — the press CROPS and SCREENS, so it is a treatment
+  and not a reproduction, and the drawings stay reachable as drawn.
+- ⚠ **PUMP rAF FROM INSIDE THE PAGE.** `CardView` proves ink over a **240-frame** budget and this
+  container delivers 6–8 real frames in ten seconds, so a wall-clock wait reports a viewer that
+  never resolved — which reads exactly like a broken mount and is the harness. Third sighting.
+- ⚠ Not patched into `lovebeing.html` on purpose: it is embedded as an **iframe on the home page**,
+  where the module no-ops anyway, so the five extra modules would download to do nothing.
+
 ## ♪ THE SITE MUSIC IS STREAMED, NOT HELD — `theme.js`, `npm run test:theme` (29)
 *Artist, 2026-08-06: "incorporate this album now by this artist as the streaming music persistent
 throughout the website experience. removing the smiling man song by me and sean."*
