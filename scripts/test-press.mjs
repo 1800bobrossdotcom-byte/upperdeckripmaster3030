@@ -434,8 +434,38 @@ console.log('\n── 6 · THE PACK REVEAL IS A LIVE PRESS, DRIVEN FROM THE ROOT
         const m = sum / n; sd = Math.sqrt(Math.max(0, sq / n - m * m));
       } catch (e) {}
     }
+    /* ⛔ THE FAN IS MEASURED FOR INK, NOT FOR A PRESS STAMP — and the distinction is the whole
+     *   point of the assertion. This used to count `data-pressed`, which is the mark
+     *   `CardPress.grid` leaves. That was the right proxy while the pack pulled the 196 SOURCE
+     *   PICTURES, where pressing is what turns a picture into a card.
+     * ⛔ THE HUNDRED ARRIVE ALREADY PRINTED. `cards/art/deck/<n>.webp` is a real sheet off
+     *   `npm run deck:bake`, so the pack deliberately does NOT press the fan — running a pressed
+     *   sheet back through the press prints a separation OF a separation, at a seed taken from
+     *   the filename and with plates nobody chose. It renders, which is what makes it dangerous.
+     * ⚑ So the property being defended is unchanged and the measurement follows it: every card
+     *   in the fan must be a REAL CARD rather than a blank, whichever way it got there. Tonal
+     *   VARIANCE is that test — the stock is near-white, so "not blank" is not "alpha > 0"; a
+     *   paper-coloured rectangle is fully opaque and completely empty. */
+    const fanInk = [...document.querySelectorAll('.fcard img')].filter(im => {
+      try {
+        if (!im.naturalWidth) return false;
+        const c = document.createElement('canvas');
+        c.width = 24; c.height = 36;
+        const g = c.getContext('2d');
+        g.drawImage(im, 0, 0, 24, 36);
+        const d = g.getImageData(0, 0, 24, 36).data;
+        let lo = 255, hi = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (l < lo) lo = l;
+          if (l > hi) hi = l;
+        }
+        return (hi - lo) > 24;
+      } catch (e) { return false; }
+    }).length;
     return { live: !!(box && box.classList.contains('live')), canvas: !!cv,
              sd: +sd.toFixed(1),
+             fanInk: fanInk,
              fanPressed: [...document.querySelectorAll('.fcard img')]
                .filter(i => i.getAttribute('data-pressed')).length,
              fanTotal: document.querySelectorAll('.fcard img').length };
@@ -449,8 +479,10 @@ console.log('\n── 6 · THE PACK REVEAL IS A LIVE PRESS, DRIVEN FROM THE ROOT
   ok(s.canvas && s.live,
     '⛔ THE REVEAL IS THE PRESS, NOT A POSTER — a live card mounted and took the box');
   ok(s.sd > 20, 'and there is ink on it', 'sd ' + s.sd);
-  ok(s.fanPressed === s.fanTotal && s.fanTotal > 0,
-    'every card in the fan printed too', s.fanPressed + '/' + s.fanTotal);
+  ok(s.fanInk === s.fanTotal && s.fanTotal > 0,
+    'every card in the fan is a real card, not a blank',
+    s.fanInk + '/' + s.fanTotal + ' with ink · ' + s.fanPressed + ' pressed here (the hundred '
+    + 'arrive already printed, so 0 is correct for them)');
   ok(errs.length === 0, 'and the page is clean', errs.slice(0, 2).join(' | ') || 'no errors');
   await ctx.close();
 }
