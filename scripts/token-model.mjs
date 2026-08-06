@@ -13,7 +13,7 @@
 // is EXACTLY LINEAR IN RESERVE:  P = P0 + a*R,  a = ln(M)/cap,  P(f) = P0 * M^f.
 // The true per-preset curve must be confirmed with `rare liquid-edition ... --preview`.
 //
-// THE TOKEN stays a cheap micro-token (cap 3.3M, P0 = $0.08 MEASURED off the mainnet preview).
+// THE TOKEN stays a cheap micro-token (cap 3.03M; P0 $0.08 was measured at the OLD 3.3M cap).
 // THE PACK is the one premium action and is priced in DOLLARS — $10/$12/$15/$20 across the four
 // tiers — so every rip is a real buy-and-burn of a hundred-odd tokens, NOT a token reprice.
 // ⛔ The token count per pack is DERIVED from the live price at each tier open and then LOCKED
@@ -52,8 +52,17 @@
  * `TOKEN-MATH.md` both described a ~10,000 RARE seed at deploy while this script printed reserve
  * = 0. **Zero was right.** There is no bid below spot on day one; the first seller walks the
  * curve down alone. That is a real property of the launch and is now stated rather than argued. */
-const CAP        = 3_300_000;    // maxTotalSupply ($3030), minted once, burns permanent
-const P0_USD     = 0.08;        // ⚑ MEASURED: mainnet CLI preview, low-demand preset, 3.3M supply
+const CAP        = 3_030_000;    // maxTotalSupply ($3030), minted once, burns permanent
+/* ⛔ THIS NUMBER WAS MEASURED AT A SUPPLY WE NO LONGER SHIP. SuperRare's mainnet preview gave
+ *   $0.08 against 3,300,000; the cap is 3,030,000 as of launch day. Whether the CLI's opening
+ *   price moves with the cap is NOT something to reason out from here — the preset defines the
+ *   curve and the supply is spread across it, and the only honest way to know is to read it off
+ *   `--preview` at the real cap. Until that is done every dollar figure below, INCLUDING the
+ *   tier-I pack of 125 tokens, is provisional.
+ * ⚠ The label on this constant said "MEASURED" while the thing it was measured against had
+ *   changed — which is this project's most-repeated failure shape, on the number the pack price
+ *   is derived from. Left labelled honestly rather than silently carried forward. */
+const P0_USD     = 0.08;        // ⚠ measured at the SUPERSEDED 3.3M cap — re-read at 3.03M
 const SEED_RARE  = 0;           // zero initial RARE liquidity (SuperRare's recommendation)
 const CREATOR_ALLOC = 0;        // no creator allocation
 const CURVE      = 'low-demand';
@@ -137,7 +146,7 @@ const line = () => console.log('─'.repeat(80));
 
 console.log('\n$3030 TOKEN MODEL');
 console.log(`cap ${CAP.toLocaleString()} · P0 ${fmt(P0,2)} RARE · M ${M} (ASSUMED) · RARE≈$${RARE_USD} · sell-fraction ${SELL_FRAC}`);
-console.log(`curve ${CURVE} · seed ${SEED_RARE} RARE · creator alloc ${CREATOR_ALLOC} · P0 $${P0_USD}/token (MEASURED, mainnet preview)`);
+console.log(`curve ${CURVE} · seed ${SEED_RARE} RARE · creator alloc ${CREATOR_ALLOC} · P0 $${P0_USD}/token ⚠ measured at the SUPERSEDED 3.3M cap — re-read --preview at ${fmt(CAP,0)}`);
 console.log(`pack TIER I = $${TIERS[0].usd} = ${packTok(TIERS[0].usd)} $3030 at the open → ${packTok(TIERS[0].usd)/2} burned / ${packTok(TIERS[0].usd)/2} to the studio`);
 
 // 1. price schedule — the SAME launch-size pack (350 tok) costs more $ as the token appreciates

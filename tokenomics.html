@@ -266,10 +266,10 @@
 
   <h2><span class="n">01</span>At a glance</h2>
   <div class="statgrid">
-    <div class="stat"><b>3.3M</b><span>supply cap (mint-once)</span></div>
+    <div class="stat"><b>3.03M</b><span>supply cap (mint-once)</span></div>
     <div class="stat"><b>~$0.08</b><span>opening price / token</span></div>
     <div class="stat"><b>M ≈ 10</b><span>demand multiple*</span></div>
-    <div class="stat"><b>~$2.6M</b><span>full-curve FDV*</span></div>
+    <div class="stat"><b>~$2.4M</b><span>full-curve FDV*</span></div>
   </div>
   <p style="margin-top:14px" class="fine">*The opening price is <b>measured</b> — SuperRare's live mainnet
   <code>--preview</code> on the <code>low-demand</code> preset at the full 3.3M supply. <b>M is not</b>: the
@@ -288,18 +288,18 @@
 
   <h2><span class="n">03</span>Price schedule</h2>
   <p>The opening price is <b>measured, not modelled</b>: SuperRare ran the live mainnet previews against
-  the full 3,300,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
+  the full 3,030,000 supply on the <b>low-demand</b> preset, with <b>no initial RARE liquidity</b> and
   <b>no creator allocation</b>. It opens at about <b>$0.08 per $3030</b>, with 30% of supply in the
   gentlest $0.08–$0.16 band. Everything below is priced off that.</p>
   <p>⚑ The pack column runs the <b>other</b> way to the old one, and that is the important part: the pack
   is a fixed <b>$10</b>, so a rising token buys <b>fewer</b> tokens per pack — and burns fewer.</p>
   <table><tr><th>f (sold)</th><th>spot ($)</th><th>$3030 in a $10 pack</th><th>burned per pack</th><th>FDV ($)</th></tr>
-    <tr><td>0.00 (launch)</td><td><b>$0.0800</b></td><td><b>125</b></td><td><b>62.5</b></td><td>$264,000</td></tr>
-    <tr><td>0.10</td><td>$0.1007</td><td>99</td><td>49.5</td><td>$332,349</td></tr>
-    <tr><td>0.25</td><td>$0.1423</td><td>70</td><td>35.0</td><td>$469,472</td></tr>
-    <tr><td>0.50</td><td>$0.2530</td><td>40</td><td>20.0</td><td>$834,835</td></tr>
-    <tr><td>0.75</td><td>$0.4499</td><td>22</td><td>11.0</td><td>$1,484,584</td></tr>
-    <tr><td>1.00 (full)</td><td>$0.8000</td><td>13</td><td>6.3</td><td>$2,640,000</td></tr></table>
+    <tr><td>0.00 (launch)</td><td><b>$0.0800</b></td><td><b>125</b></td><td><b>62.5</b></td><td>$242,400</td></tr>
+    <tr><td>0.10</td><td>$0.1007</td><td>99</td><td>49.5</td><td>$305,164</td></tr>
+    <tr><td>0.25</td><td>$0.1423</td><td>70</td><td>35.0</td><td>$431,055</td></tr>
+    <tr><td>0.50</td><td>$0.2530</td><td>40</td><td>20.0</td><td>$766,536</td></tr>
+    <tr><td>0.75</td><td>$0.4499</td><td>22</td><td>11.0</td><td>$1,363,115</td></tr>
+    <tr><td>1.00 (full)</td><td>$0.8000</td><td>13</td><td>6.3</td><td>$2,424,000</td></tr></table>
   <p class="fine">⚠ Only the launch row is measured. The rest assume a demand multiple of 10 over the whole
   curve, which the preview did <b>not</b> give us — treat every row below the first as illustration, not
   forecast. FDV is the <b>token</b> line and is unchanged by the pack size.</p>
@@ -308,9 +308,9 @@
   <p>The pack price does not appear here, because it does not move: it is a dollar target. What moves is
   how many tokens a pack takes off the curve, and therefore how much it burns.</p>
   <table><tr><th>M</th><th>spot@100%</th><th>tokens in a $10 pack @0</th><th>@50%</th><th>@100%</th><th>FDV@100%</th></tr>
-    <tr><td>3 (flat)</td><td>$0.2400</td><td>125</td><td>72</td><td>42</td><td>$792,000</td></tr>
-    <tr><td><b>10 (assumed)</b></td><td>$0.8000</td><td>125</td><td>40</td><td>13</td><td>$2,640,000</td></tr>
-    <tr><td>30 (steep)</td><td>$2.4000</td><td>125</td><td>23</td><td>4</td><td>$7,920,000</td></tr></table>
+    <tr><td>3 (flat)</td><td>$0.2400</td><td>125</td><td>72</td><td>42</td><td>$727,200</td></tr>
+    <tr><td><b>10 (assumed)</b></td><td>$0.8000</td><td>125</td><td>40</td><td>13</td><td>$2,424,000</td></tr>
+    <tr><td>30 (steep)</td><td>$2.4000</td><td>125</td><td>23</td><td>4</td><td>$7,272,000</td></tr></table>
 
   <h2><span class="n">05</span>Slippage &amp; steady growth</h2>
   <p>Price-impact at launch is exact: <code>impact = a·ΔR / P0</code>.</p>
@@ -359,7 +359,7 @@
   <table><tr><th>metric</th><th>value</th><th>note</th></tr>
     <tr><td>Burned so far</td><td><b>read live</b></td><td><code>maxTotalSupply() − totalSupply()</code>, from the chain</td></tr>
     <tr><td>To the studio, so far</td><td><b>read live</b></td><td>the other half of every pack — revenue, not destroyed</td></tr>
-    <tr><td>Cap (mint-once)</td><td><b>3,300,000</b></td><td>minted once; burns never re-mint</td></tr>
+    <tr><td>Cap (mint-once)</td><td><b>3,030,000</b></td><td>minted once; burns never re-mint</td></tr>
     <tr><td>Invariant</td><td>Σ 🔥 ≤ cap ✓</td><td>supply only ever falls</td></tr></table>
   <p><b>We do not publish a target burn percentage, and that is deliberate.</b> A pack is priced in
   <b>dollars</b>, so the number of tokens it burns depends on what a token costs that day — and it moves
@@ -382,7 +382,7 @@
       are <b>permanent</b> (no re-mint). The whole model is built on that.</li>
     <li><b>Effective M</b> — back the real end/start multiple out of the preset's curves via <code>--preview</code>. Pick the steadiest slope.</li>
     <li><b>Sell-fraction</b> — is the whole cap sold on the curve, or is some reserved? FDV / RARE-to-fill / slippage scale with it.</li>
-    <li><b>Opening price</b> — calibrate the multicurve against the 3.3M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
+    <li><b>Opening price</b> — calibrate the multicurve against the 3.03M supply with SuperRare (see <a href="audit.html">Audit</a>).</li>
     <li><b>RARE seed floor</b> — read <code>minRareLiquidityWei()</code>; confirm the seed with the cohort.</li>
     <li><b>Live RARE/USD</b> — the $ columns assume $0.02; re-peg P0 on deploy day.</li>
     <li><b>Chain</b> — deploy on an L2 (or batch actions) so micro-actions aren't gas-dominated.</li>

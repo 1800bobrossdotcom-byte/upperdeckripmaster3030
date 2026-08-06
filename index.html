@@ -839,10 +839,14 @@
         <span class="d-t">Play the games</span>
         <span class="d-s">Six games, in this browser. Practice is free.</span>
       </a>
-      <a class="door d-cards" href="cards/">
+      <!-- ⚠ THIS POINTED AT `cards/` AND MUST NOT. Artist, 2026-08-06, hours before launch:
+           *"only the 100 cards need to be shown."* `cards/` is the 196 PLACEHOLDERS the press
+           prints from; it came off test:reach's walk list on that call. The hundred live at
+           cards/deck.html, and the primary card door has to be the real one. -->
+      <a class="door d-cards" href="cards/deck.html">
         <span class="d-ic ic" data-ic="cards" data-ic-size="26"></span>
         <span class="d-t">See the cards</span>
-        <span class="d-s">100 living lenses. Open the folder and pull one.</span>
+        <span class="d-s">All 100 living lenses. Open one and pull it.</span>
       </a>
       <!-- pack.js binds this exact id; the ad banners further down re-fire it by clicking it -->
       <button class="door d-rip" id="packOpen" type="button">
@@ -995,12 +999,6 @@
       <div class="sec-t" id="cards-t">The cards</div>
       <div class="sec-s">100 living lenses · every one reads the chain</div>
       <div class="tiles">
-        <a class="tile2" href="cards/" style="--gc:43,255,128">
-          <span class="t-ic ic" data-ic="cards" data-ic-size="24"></span>
-          <span class="t-nm">The deck</span>
-          <span class="t-tg">every card, one wall</span>
-          <span class="t-go">▸</span>
-        </a>
         <a class="tile2" href="cards/binder.html" style="--gc:255,210,59">
           <span class="t-ic ic" data-ic="cards" data-ic-size="24"></span>
           <span class="t-nm">The folder</span>
@@ -1049,7 +1047,7 @@
       <div class="steps">
         <div class="card"><h3><b>1</b> The token</h3>
           <p><strong>$3030</strong> is the fuel — one ERC-20 on <strong>SuperRare Liquid Editions</strong>.
-          Minted once (3,300,000), the whole supply in the pool on day one, <strong>no team pre-mint</strong>.
+          Minted once (3,030,000), the whole supply in the pool on day one, <strong>no team pre-mint</strong>.
           Buy it and sell it back on the curve any time.</p></div>
         <div class="card"><h3><b>2</b> Rip a pack</h3>
           <p>Seven cards for about <strong>$10</strong> of $3030, in one transaction:

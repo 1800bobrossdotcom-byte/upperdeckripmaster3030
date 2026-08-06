@@ -14,7 +14,7 @@ pack schedule everywhere it still appears.
 | preset | **low-demand** ⚠ every deploy command said `medium-demand` until 2026-08-06 |
 | initial RARE liquidity | **0** |
 | creator allocation | **0** |
-| supply | 3,300,000 (unchanged) |
+| supply | ⚠ **3,030,000** as of 2026-08-06 — the preview below was run at 3,300,000 |
 | **opening price** | **≈ $0.08 per $3030** — *measured, not assumed* |
 | supply in the gentlest band | 30% sits in $0.08–$0.16 |
 
@@ -98,7 +98,7 @@ projection to check either one. `js/lens-state.js` already reads the first of th
 
 ## 4 · What this does NOT change
 
-- Supply stays **3,300,000**; the 50/50 split stays; `PackSink.sol` is unchanged — it enforces a
+- Supply is **3,030,000** (changed on launch day; the preview below predates it); the 50/50 split stays; `PackSink.sol` is unchanged — it enforces a
   split, not a price, so no contract edit follows from any of this.
 - The tier allotments (1,600 / 1,100 / 600 / 260) and the sell-out trigger are unchanged.
 - Burns remain permanent and mint-once.

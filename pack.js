@@ -49,9 +49,16 @@
    *   unless the press proves it printed, so on any failure the poster is simply still there.
    *   Clearing it on success would trade a guaranteed picture for a hoped-for one. */
   let viewer = null;
+  /* ⚑ A CARD OF THE HUNDRED IS SHOWN BY ITS RECIPE, NOT ITS PICTURE. `cards/art/deck/<n>.webp` is
+   *   already a pressed sheet; handing it in as `card:` would press a separation OF a separation,
+   *   seeded off the filename instead of the card's own seed and with plates nobody chose. It
+   *   renders — that is what makes it dangerous. See js/card-recipe.js.
+   * ⚠ The picture branch is KEPT, not dead: it is the fallback if `deck.json` did not load, and
+   *   the flat sheet is still the right thing to put in front of someone in that case. */
   const cardRec = (list, i) => {
     const c = (list || [])[i];
     if (!c) return null;
+    if (c.recipe) return { recipe: c.recipe };
     return { art: 'cards/' + c.art, title: (c.title || '').toUpperCase(),
              rarity: c.rarity || 'common' };
   };
@@ -68,7 +75,10 @@
   const mountViewer = (list) => {
     const box = document.getElementById('pvCard');
     if (!box || !window.CardView || viewer) return;
-    CardView.mount({ box, base: 'cards/', card: cardRec(list, cur) }).then(v => {
+    const rec = cardRec(list, cur) || {};
+    CardView.mount(rec.recipe
+      ? { box, base: 'cards/', recipe: rec.recipe }
+      : { box, base: 'cards/', card: rec }).then(v => {
       if (!v) return;                        // the press never printed — the poster stands
       viewer = v;
       box.classList.add('live');
@@ -86,7 +96,21 @@
     '.pack-tx a{ color:#2bff80; }';
   document.head.appendChild(pstyle);
 
-  fetch('cards/manifest.json').then(r => r.json()).then(m => { DECK = m.cards || []; }).catch(() => {});
+  /* ⛔ THE PACK PULLS FROM THE HUNDRED — artist, 2026-08-06, hours before launch: *"only the 100
+   *   cards need to be shown."* It used to pull from `cards/manifest.json`, the 196 PLACEHOLDERS,
+   *   so the site's central mechanic — the rip, the pull, the reveal — handed out stand-ins.
+   * ⛔ THAT MANIFEST IS STILL FETCHED, JUST NOT BY THIS. It is the PIGMENT: `js/card-press.js`
+   *   `pool()` reads it to resolve the six plate slugs every one of the hundred names. Ink, not
+   *   cards — see cards/deck.html's header.
+   * ⚑ THE RECIPES COME TOO, and they are what make the reveal a real card: a card of the hundred
+   *   is a RECIPE, and re-pressing its baked sheet would print a separation of a separation. */
+  fetch('cards/deck-manifest.json').then(r => r.json()).then(m => {
+    DECK = (m && m.cards) || [];
+    return fetch('cards/deck.json').then(r => (r.ok ? r.json() : null)).catch(() => null);
+  }).then(rec => {
+    const R = (rec && rec.cards) || {};
+    DECK = DECK.map(c => Object.assign({}, c, { recipe: (R[String(c.id)] || {}).q || null }));
+  }).catch(() => {});
 
   const rnd = n => Math.floor(Math.random() * n);
   const pickTier = () => {
@@ -95,13 +119,20 @@
     for (const [k, w] of Object.entries(WEIGHTS)) { if ((x -= w) < 0) return k; }
     return 'common';
   };
+  /* ⛔ THE TIER WEIGHTING IS OFF FOR THE HUNDRED, AND LEAVING IT ON WOULD HAVE BEEN A LIE THAT
+   *   STILL RAN. `WEIGHTS` speaks the 196's vocabulary — common/uncommon/rare/mythic/prizm — and
+   *   the hundred speak a different one: mythic 44 · legendary 45 · uncommon 5 · epic 4 ·
+   *   common 2. `rare` and `prizm` match NOTHING, so `pickTier` would pick a tier, find an empty
+   *   pool, and silently fall through to `DECK` — i.e. weighting that reads as deliberate and is
+   *   uniform in fact, for most draws.
+   * ⚑ SO THE DRAW IS UNIFORM AND SAYS SO. The hundred's scarcity is AUTHORED into the set (the
+   *   artist chose each card's rarity), and re-weighting an already-authored distribution would
+   *   count it twice. The rarity string still drives the frame, the glow and the caption.
+   * ⚠ A pull can repeat a card; the practice pull always could, and on-device cards are not
+   *   ownership — the honesty strip on the modal says exactly that. */
   const pull = n => {
     const out = [];
-    for (let i = 0; i < n; i++) {
-      const tier = pickTier();
-      const pool = DECK.filter(c => c.rarity === tier);
-      out.push((pool.length ? pool : DECK)[rnd((pool.length ? pool : DECK).length)]);
-    }
+    for (let i = 0; i < n && DECK.length; i++) out.push(DECK[rnd(DECK.length)]);
     return out.filter(Boolean);
   };
 
@@ -191,7 +222,15 @@
     // the pull is YOURS: pulls join the on-device collection the arena plays from
     try {
       const v = JSON.parse(localStorage.getItem('urm_vault') || '[]');
-      cards.forEach(c => v.push({ slug: c.slug }));
+      /* ⚠ THE VAULT KEEPS ITS SHAPE, AND `n` IS ADDITIVE. Eight surfaces read `urm_vault` and all
+       *   of them key on `{slug}` resolved against cards/manifest.json — battle, market, ronin,
+       *   crpc, s9, dogfight, rrpc, session. Changing the shape hours before launch would take
+       *   card→power out of six cabinets silently, which is a bigger regression than the one
+       *   being fixed. A slug they cannot resolve already behaves the same way an unknown slug
+       *   always has (`bySlug.get()` → undefined → filtered out), so nothing throws.
+       * ⚑ `n` is the hundred's own number, written alongside so a resolver can be added later
+       *   without a migration — the entries written tonight will already carry what it needs. */
+      cards.forEach(c => v.push(c.id != null ? { slug: c.slug, n: c.id } : { slug: c.slug }));
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
     if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $3030 burned on-chain · cards saved in-browser';
@@ -214,19 +253,31 @@
         document.head.appendChild(s);
       });
       inject('js/hero-card.js').then(() => inject('js/card-back.js'))
-        .then(() => inject('js/card-press.js')).then(() => inject('js/card-view.js'))
+        .then(() => inject('js/card-press.js'))
+        /* ⛔ BEFORE card-view, AND NOT OPTIONAL NOW THAT THE PULL IS THE HUNDRED. `card-view`
+         *   routes `recipe:` to `CardRecipe`; with the module missing it falls through to the
+         *   picture path and presses the baked sheet — a card of a card, silently. */
+        .then(() => inject('js/card-recipe.js'))
+        .then(() => inject('js/card-view.js'))
         /* ⚑ THE STARFIELD VIEWER — artist, 2026-08-06: *"pack rip should use that one too - the
          *   one with the starfield."* Same module the folder and `cards/deck.html` open, so a
          *   card pulled out of a pack and a card pulled out of a sleeve are the same object in
          *   the same room. Injected here with the rest, i.e. only once somebody has ripped. */
         .then(() => inject('js/card-starfield.js')).then(() => {
         if (!window.CardPress) return;
-        CardPress.grid('.fcard img', img => {
-          const b = img.closest('.fcard');
-          const c = list[+(b && b.dataset.i)] || {};
-          return { art: img.getAttribute('src'), title: (c.title || '').toUpperCase(),
-                   rarity: c.rarity || 'common' };
-        }, { base: 'cards/', onDone: repaintIfCurrent });
+        /* ⛔ NEVER PRESS THE FAN WHEN THE PULL IS THE HUNDRED. Those thumbnails are already
+         *   pressed sheets off `npm run deck:bake`; running them through the press again prints a
+         *   card OF a card — wrong seed, wrong plates, and it renders, so nothing reports it. The
+         *   fan stays exactly as baked. (The press is still right for the 196, which are source
+         *   pictures — that is why this is a branch and not a deletion.) */
+        if (!list.some(c => c && c.recipe)) {
+          CardPress.grid('.fcard img', img => {
+            const b = img.closest('.fcard');
+            const c = list[+(b && b.dataset.i)] || {};
+            return { art: img.getAttribute('src'), title: (c.title || '').toUpperCase(),
+                     rarity: c.rarity || 'common' };
+          }, { base: 'cards/', onDone: repaintIfCurrent });
+        }
         mountViewer(list);
       }).catch(() => {});
     };
@@ -329,12 +380,20 @@
    *   what you get; the iframe is what you get instead of nothing. */
   function zoomIn() {
     if (window.CardStarfield && cards.length) {
-      const items = cards.map((c, i) => ({
-        card: cardRec(cards, i),
-        title: c.title || '',
-        meta: [c.rarity, 'pull ' + (i + 1) + ' of ' + cards.length].filter(Boolean).join(' · '),
-        href: c.slug ? 'cards/' + c.slug + '.html' : '',
-      }));
+      const items = cards.map((c, i) => {
+        const rec = cardRec(cards, i) || {};
+        return {
+          recipe: rec.recipe || null,
+          card: rec.recipe ? null : rec,
+          title: c.title || '',
+          meta: [c.id != null ? '№ ' + c.id + ' of 100' : null, c.rarity,
+                 c.band === 'hero' ? 'hero 1/1' : (c.band === 'field' ? 'field lens' : null),
+                 'pull ' + (i + 1) + ' of ' + cards.length].filter(Boolean).join(' · '),
+          /* ⚠ NO href FOR ONE OF THE HUNDRED. Their `slug` is the NUMBER, so `cards/7.html` does
+           *   not exist — the old rule would have put a 404 behind "open the card page →". */
+          href: (!rec.recipe && c.slug && !/^\d+$/.test(String(c.slug))) ? 'cards/' + c.slug + '.html' : '',
+        };
+      });
       if (window.CardStarfield.open({ items, index: cur, base: 'cards/' })) return;
     }
     openZoom();

@@ -41,7 +41,7 @@ says a whitelisted artist may use **either** the guided create flow **or** the R
 CLI, and `name` and `symbol` are **positional arguments you type**:
 
 ```bash
-rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3300000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
+rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3030000 --curve-preset low-demand --description "A card and game studio on SuperRare Liquid Editions. 100 handmade cards (33 hero 1/1s, 67 field lenses) and six playable cabinets. Half of every pack burns, half funds the studio. The token burns so the art can live. Not financial advice, who gives a rip." --image ./media/site/mark-1024.png
 ```
 
 This is **better** than the assisted path, because `--preview` prints the whole thing without
@@ -89,7 +89,11 @@ artist profile.** That one is not fixed by redeploying anything else.
 
 ## ✅ P0 IS MEASURED — and it changed the preset and the pack price
 
-**Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the full 3,300,000 supply.
+⚠ **MEASURED AT 3,300,000 — AND THE CAP IS NOW 3,030,000, SO RE-READ IT.** Whether the CLI's
+opening price moves with the cap is not something to reason out; read it off `--preview` at the
+real cap before `--yes`. Everything below, including tier I = 125 tokens, is provisional until then.
+
+**Settled 2026-08-06** off SuperRare's live mainnet CLI previews at the then-current supply.
 This section used to say P0 was the one number nobody had measured. It is measured now, and the
 prediction it made — "an order of magnitude low" — was right: the answer is **4×**.
 
@@ -119,10 +123,20 @@ seller walks the curve down alone. Say it plainly; do not let a collector discov
 
 ---
 
-## Supply: 3,300,000
+## Supply: 3,030,000
 
-Settled by the artist 2026-08-02, reversing the 33,000,000 direction. Run `npm run model`;
-`scripts/token-model.mjs` is the only source.
+⛔ **CHANGED ON LAUNCH DAY, 2026-08-06** — artist: *"mainnet plan should be 3,030,000 tokens
+$3030"*. The supply and the ticker are now the same number, which is the version of this decision
+that explains itself to a stranger. It also returns to the figure the project started from, before
+the 33,000,000 detour and the 3,300,000 correction.
+
+Run `npm run model`; `scripts/token-model.mjs` is the **only** declaration, and `npm run test:name`
+reads the cap out of it to check every deploy command and every public page. There is deliberately
+no second copy of this number anywhere.
+
+⛔ **`maxTotalSupply` IS FROZEN AT DEPLOY.** `--total-supply 3030000` must be on the command line;
+the CLI's silent default is **1,000,000**, which is exactly how the Sepolia edition ended up with a
+cap nobody chose.
 
 ⚠ **The old cap table that lived here has been removed.** Every figure in it (1,014,375 burned,
 30.7%, 1.44×, 44.4%) assumed a **$0.02** token and a fixed **350–1,200** tokens per pack. Both
@@ -167,9 +181,12 @@ degrades deliberately rather than pretending. That is safe, but it means **the s
 of the code** until they land.
 
 - [ ] **`PackSink`** — the atomic 50/50 splitter. Empty ⇒ every pack burns 100% and the studio is
-      paid nothing, while the pages say half funds the studio. `node scripts/lens-cli.mjs
-      deploy-sink`, then paste into `chain-config.contracts.packSink`.
+      paid nothing, while the pages say half funds the studio. Full sequence: **runbook step 4**.
       ⚠ Both constructor addresses are `immutable`. A wrong treasury is a redeploy, not a setting.
+      ⚑ **Blocked on the edition** — `token` is the edition address, so this cannot be deployed to
+      mainnet until the edition is. On Sepolia it can be rehearsed today.
+      ⚑ `node scripts/lens-cli.mjs sink-check` answers every reason to abort **with no key and no
+      gas**, including the one nothing used to check: whether the token can actually `burn`.
 - [ ] **`Ripmaster3030Lens721`** — render-by-id + voucher mint. Empty ⇒ the collector seat door
       falls back to the local vault and marks itself `verified:false`. See `docs/DEPLOY-LENS.md`;
       Remix is the recommended route (the key never leaves MetaMask).
@@ -238,8 +255,28 @@ Decide this early, while it's a plan rather than a scramble.
 1. `--preview` the deploy. **Read `name` and `symbol` back. Stop if either is wrong.**
 2. `--yes`. Read `name()` off the deployed contract. **Stop if it is wrong.**
 3. Deploy + set the render contract; confirm the token page renders the site.
-4. Deploy `PackSink` and the lens; paste all addresses into `js/chain-config.js`; push; confirm
-   live. `RipWallet.hasSink()` should now report the split is real.
+4. **`PackSink` — four steps, and it CANNOT start before step 2.** Its `token` argument is the
+   edition and it is `immutable`, so until the edition exists there is nothing to point it at.
+   ⚑ The gap is not dangerous, only work: the site is still on Sepolia at this point, so **no one
+   can buy a pack in the window between the edition landing and the sink landing.**
+   - 4a. `node scripts/lens-cli.mjs sink-check` — **no key, no gas.** Proves the token has
+     bytecode, that it really exposes `burn(uint256)` (PackSink calls it inside `_split`; a token
+     without it bricks the contract forever), that the treasury is an EOA, and that both match
+     `chain-config`. Do this BEFORE holding a key.
+   - 4b. Deploy. **Remix is the recommended route** — `contracts/PackSink.sol` has *zero* imports,
+     so unlike the lens there is nothing to flatten: paste the file, solc **0.8.24 + optimizer 200
+     runs**, Injected Provider, constructor `(token, treasury)`. ~2,000 bytes, 0 warnings.
+     CLI alternative: `node scripts/lens-cli.mjs deploy-sink` (refuses to run if either argument
+     disagrees with `chain-config`; `--force` to override deliberately).
+   - 4c. `node scripts/lens-cli.mjs sink --at 0x…` — keyless read-back of both `immutable` args.
+     ⚠ **Read them. This is the last moment either one can be wrong for free.**
+   - 4d. Paste into `chain-config.contracts.packSink`. That ONE edit turns the split on site-wide;
+     `RipWallet.hasSink()` then reports it as real.
+   Then the lens, per `docs/DEPLOY-LENS.md`. Push; confirm live.
+   ⛔ **`npm run test:name` FAILS if `network` is `mainnet` while `packSink` is empty**, so this
+   cannot be silently skipped — the pages state the 50/50 split as fact, and an empty slot means
+   every pack burns 100% with the studio paid nothing. Deploy it, or change the copy. Shipping
+   resolves neither.
 5. Smoke test: buy → rip → burn. Confirm `totalSupply` moves.
 6. Lift the gate.
 7. Countdown flips itself at `03:11Z` — no manual step. (Verified: `npm run test:launch` skews the

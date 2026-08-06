@@ -371,7 +371,7 @@ who receives it, the curve mechanism or any DEX graduation, or how the opening p
   ```
   npm install -g @rareprotocol/rare-cli          # Node 22+
   rare configure --chain sepolia --private-key-ref op://…   # 1Password ref; key NOT stored plaintext
-  rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3300000 --curve-preset low-demand --description "…" --image ./media/site/mark-1024.png
+  rare liquid-edition deploy multicurve "ripmaster3030" "3030" --preview --chain mainnet --total-supply 3030000 --curve-preset low-demand --description "…" --image ./media/site/mark-1024.png
   ```
   ⛔ **`--total-supply` IS NOT OPTIONAL AND WAS MISSING FROM EVERY RUNBOOK UNTIL 2026-08-06.**
   Run for real, the preview came back `Max total supply: 1000000` — the CLI's silent default —

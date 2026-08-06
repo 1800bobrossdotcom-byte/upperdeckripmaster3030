@@ -184,7 +184,7 @@ S.push(slide('HOW A CARD IS MADE', `
 S.push(slide('THE ECONOMY', `
   <h1>One edition. Minted once. It only shrinks.</h1>
   <div class="grid4">
-    <div class="cell"><div class="num sm">3,300,000</div><div class="ct">SUPPLY · mint-once</div></div>
+    <div class="cell"><div class="num sm">3,030,000</div><div class="ct">SUPPLY · mint-once</div></div>
     <div class="cell"><div class="num sm">4 TIERS</div><div class="ct">1,600 → 1,100 → 600 → 260 packs</div></div>
     <div class="cell"><div class="num sm">live</div><div class="ct">burn read on-chain — no percentage is forecast</div></div>
     <div class="cell"><div class="num sm">50 / 50</div><div class="ct">every pack — half burned, half funds the studio</div></div>

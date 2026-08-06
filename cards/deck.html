@@ -111,7 +111,15 @@
       the deck, screened at its own angle and pulled with the plates slightly wrong. Tap a card to
       run its press.</p>
     <nav class="decknav">
-      <a class="hot" href="./">◆ the pack</a>
+      <!-- ⛔ THIS POINTED AT THE CURRENT DIRECTORY, WHICH IS NOT THE PACK. From `cards/`, a
+           dot-slash resolves to `cards/index.html` — the 196 PLACEHOLDER pictures — so the button
+           labelled "the pack" took a visitor to the stand-ins. The pack is the modal on the site
+           root. Two bugs in one attribute: a wrong destination, and (since 2026-08-06) the last
+           route to a surface the artist asked not to show.
+           ⚠ Written without spelling the attribute out: `test:reach` reads href= out of the RAW
+             source, so a comment quoting one IS a link as far as the sweep is concerned. Second
+             time today — see the same note in the tile builder below. -->
+      <a class="hot" href="../">◆ the pack</a>
       <a href="binder.html">▤ the folder</a>
       <!-- ⛔ NO FORGE DOOR — artist, 2026-08-06. The plate-proof console is his alone and is in
            `.vercelignore`, so this was a 404 as well as an invitation. -->
