@@ -149,6 +149,26 @@ date.**
 ## ✅ SUPPLY SETTLED: **3,300,000** (artist, 2026-08-02) — the 33,000,000 direction is REVERSED
 **Run `npm run model` for the live numbers; `scripts/token-model.mjs` is the only source.**
 
+> # ⛔ THE CAP IS STILL 3,300,000. EVERY PERCENTAGE BELOW IS DEAD (2026-08-06)
+> **The pack is a DOLLAR target now — `docs/PACK-PRICING.md` is canonical. Jump to
+> "⛔ THE PACK IS A DOLLAR TARGET" further down this file.**
+>
+> The table below assumes 350→1,200 TOKENS per pack against a $0.02 token. SuperRare's live
+> mainnet previews measured the open at **≈$0.08**, so those token counts price a tier-I pack at
+> ~$28. The schedule is **$10 / $12 / $15 / $20**, and tier I is **125 tokens**.
+>
+> ⛔ **So 30.7% · 1.44× · 44.4% are not just stale, they are UNPUBLISHABLE.** `npm run test:name`
+> asserts their **ABSENCE** from every public page — the pins named three lines further down are
+> INVERTED now. ⚑ And the direction is counter-intuitive, which is why no percentage is published
+> at all: **if the token appreciates, a $12 pack costs FEWER tokens, so pack-driven burn FALLS as
+> the price rises.** A number printed on a page would drift away from the truth with nobody
+> editing anything. The site publishes LIVE burn and studio totals instead — facts at the moment
+> of reading, not forecasts.
+>
+> ⚠ **Kept, not deleted, because it is the reasoning that chose 3.3M** — and because the
+> mirror-image argument below (burn and treasury are the same arithmetic under a 50/50 split) is
+> still true and still load-bearing. It is the NUMBERS that died with the price, not the logic.
+
 ⚑ **THE DECISION RESTED ON ONE FACT, and it is worth keeping at the front of the head: the pack
 burn is denominated in TOKENS PER PACK (350 → 1,200), so the four-tier total is a FIXED
 1,014,375 whatever the cap is.** The cap changes nothing except what fraction that is:
@@ -156,7 +176,7 @@ burn is denominated in TOKENS PER PACK (350 → 1,200), so the four-tier total i
 | cap | four-tier burn | % of mint | contraction | studio slug as % of surviving float |
 | --- | --- | --- | --- | --- |
 | 33,000,000 | 1,014,375 | 3.1% | 1.03× — none | ~3.2% |
-| **3,300,000 ← SETTLED** | 1,014,375 | **30.7%** | **1.44× — material** | ⛔ **44.4%** |
+| **3,300,000 ← SETTLED** | 1,014,375 | ~~30.7%~~ | ~~1.44×~~ | ~~44.4%~~ ⛔ dead, see banner |
 | 3,030,000 (original) | 1,014,375 | 33.5% | 1.50× | ~50% |
 
 ⛔ **THE COST IS THE MIRROR IMAGE OF THE BENEFIT, and it must never be quoted separately.** The
@@ -176,8 +196,12 @@ indefensible there; at 3.3M it is a tuning question rather than a different prod
 
 ⚠ Regenerated with the new cap: `tokenomics.html`, `whitepaper.html/pdf`, `audit.html`,
 `index.html`, `docs/TREASURY.md`, `docs/CURVE-TARGET.md`, `scripts/burn-milestones.mjs`.
-`npm run test:name` now pins the derived figures (30.7% · 1.44× · 44.4%) so a cap edit that
-misses the percentages fails the build.
+⛔ **The line that used to sit here — "`npm run test:name` now pins the derived figures
+(30.7% · 1.44× · 44.4%)" — WAS TRUE AND IS NOW EXACTLY BACKWARDS.** Those pins are INVERTED: the
+suite asserts those figures are ABSENT from every public page. Left visible rather than quietly
+deleted, because a sentence describing a test's behaviour is itself a surface that rots, and this
+one rotted into the most dangerous shape available — a claim that the build is protecting a number
+it is in fact forbidding.
 
 ### ⚠ Historical — the 33M reasoning, kept because it is why 3.3M was chosen
 **Artist directive at the time: an indie game company with a live 33,000,000 supply.**
@@ -251,7 +275,10 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
     while reading like one of the hardest. Replaced with the light-strips (0.96 s, the biggest
     verb on that track). **Check the number before publishing the rule.**
   - ⚠ Economics do not move: all 33 mint as 1/1s either way. This is distribution, not supply.
-- **Packs:** ~$7 escalating buy-and-burn, ~3,560 over 4 seasons (S1 1,600 → S4 260).
+- **Packs:** escalating buy-and-burn, ~3,560 over 4 tiers (I 1,600 → IV 260). ⛔ **The price is a
+  DOLLAR target — $10 / $12 / $15 / $20, tier I = 125 $3030 at the measured $0.08 open.** The old
+  "~$7 / 350 tokens" is dead; `docs/PACK-PRICING.md` is canonical and `js/chain-config.js`
+  `packBurn` is pinned to its tier-I row by `npm run test:name`.
 - **Games:** wager **$3030 + cards** into a pot; a **small ~10% rake burns** (deflationary,
   real on-chain via `js/wager-payout.js`), the rest + cards pay the **podium 1st/2nd/3rd
   (50/30/20), 1st the most** (1v1 = winner-take-pot). Cards transfer, never burned in-game.
@@ -1236,6 +1263,51 @@ level in again.
 - ⛔ **AND `git checkout -- <file>` REVERTED MY OWN UNCOMMITTED WORK during the sabotage sweep.** A
   sabotage harness that restores with git destroys everything unstaged in the same file. **Commit
   before sabotaging**, and restore from the bytes you read rather than from the index.
+
+## ⛔ CLOUD RACER'S TITLE IS A STREAK NOW — `js/cr-streak.js`, `npm run test:crstreak` (47)
+*Artist, 2026-08-06: "for cloud racer win 33 races in a row unlock a hero card (3x this is
+available)."* Replaces CLEAN SWEEP as `docs/HERO-UNLOCKS.md` #7; measurement in its §4½.
+- ⛔ **"IN A ROW" IS ONLY A RULE IF LEAVING COSTS YOU THE STREAK.** Count at the flag and the title
+  silently becomes *"win 33 races, retrying whenever one goes badly"* — watch the first corner,
+  reload if the 0.99 bot gets you. That is the treadmill HERO-UNLOCKS rule 1 forbids, and **nothing
+  reports a tab that went away.** So the ledger **arms at the green light** and only a finish
+  disarms it; a live marker at the next load is an abandoned race. **Reloading to dodge a loss and
+  taking the loss are the same event.** ⚠ The countdown is deliberately OUTSIDE that window —
+  nothing has happened yet, so leaving cannot be dodging anything.
+- ⛔ **CHECK THE NUMBER BEFORE PUBLISHING THE RULE — and the number says this is a CONCENTRATION
+  test, not a skill test.** Driven on `crpc-game.js` under node with its own `botInput` at skill
+  1.0 as the pilot: **win rate 100%**. The cliff is vertical — 1.00 → 100%, 0.99 → 95%, 0.98 →
+  47.5%, 0.97 → 5%, 0.96 → **0%** — so the title is **free or impossible** with almost no band
+  between. For anyone who can win, 33 in a row is **~22 minutes of not losing focus**, which brushes
+  rule 1. ⚑ **This is the braking-title lesson with the sign flipped**: that one *sounded* hard and
+  was free; this one is genuinely demanding of attention and genuinely undemanding of pace. Say
+  both halves rather than let "33" imply a difficulty it does not carry.
+- ⚑ **THE RACE FORGIVES THE MISTAKES A PLAYER RECOGNISES AND PUNISHES THE ONE THEY DO NOT.**
+  Injecting discrete blunders: **missing a brake point is entirely free** (eight of them, still
+  100%), a barrier clip costs nothing until the third, but **lifting for nothing once costs a fifth
+  of your wins** (100% → 80%). The skill it actually tests is *trusting the grip*.
+- ⛔ **THE LOBBY HAD TO BE PINNED, AND THE SOFT SETTING IS ALSO THE FAST ONE.** Field and laps are
+  player-chosen: 4·2 is **15.6 min** and absorbs **3** clips; 6·3 is 21.9 min and absorbs **2**.
+  Floor at 6·3, and a FLOOR not an equality — 8·5 is longer and more forgiving, so it counts. ⚠
+  **Practice counts, and that is rule 2 not kindness**: requiring the ante puts 33 rakes between a
+  player and the title, i.e. a criterion money reaches.
+- ⛔ **`mount()` RUNS TWICE AND `recover()` IS DESTRUCTIVE.** crpc-ui self-mounts on
+  DOMContentLoaded *and* is called as `CRUI.ready()` by crpc-app. The second run found no marker,
+  reported no break and **repainted the explanation away** — the reset was correct throughout, only
+  the sentence saying why was lost, which is the half the player needs. Latched now. **Both mounts
+  are correct in isolation**; only the test found it.
+- ⚠ **FOUR SABOTAGES, AND THE THIRD PROVED A GAP RATHER THAN A GUARD.** Deleting the abandonment
+  break fails 4; unpinning the lobby fails 5; removing `.h-tl`'s wrap fails 2 (the fourth capsule
+  sits on the position list at 320 and 390). **Moving `arm()` into `raceStarted` — which makes
+  quitting during the lights cost your streak — passed all 45.** The claim was in the module header
+  with nothing behind it; B10/B11 exist because of that, and now it fails 2.
+- ⛔ **UNRESOLVED AND THE ARTIST'S: THREE SEATS MAKES 35 HEROES.** `11 auction + 11 gacha + 11
+  earned` is the settled 33, and 33 is the deck (`tokenURI` 1–33), not a slogan. Three seats on one
+  title makes the earned tier 13. Options in HERO-UNLOCKS §4¾. ⚑ **So the ×3 is on NO public page
+  and no aggregate count was touched** — every "11 earned" is true under option A and false under
+  B, and printing "eleven earned titles" beside "one has three seats" is shipping a contradiction.
+  The condition change *is* published (it stands alone); the multiplicity waits. The game's result
+  screen says "three" and states no split, so it cannot be wrong about one.
 
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
@@ -2923,6 +2995,103 @@ anywhere it can be quoted back at the studio.
   renderer on the dev environment and the SuperRare token page renders the live site in its
   media slot.** The port-into-SuperRare plan is no longer theoretical; repeat on mainnet at
   launch.
+
+## ⛔ THE PACK PRICE WAS APPROVED, WRITTEN INTO THE DOCS, AND NEVER INTO THE CODE
+*Autopilot pass, 2026-08-06.* `docs/PACK-PRICING.md` had said 125 tokens since the artist approved
+the new ladder. `js/chain-config.js` still said **`packBurn: 350`** — the $7-era number, about
+**$28** at the measured $0.08 open, against an approved tier-I price of **$10**. The site would
+have charged it.
+- ⚑ **A DECISION RECORDED ONLY IN PROSE IS NOT IMPLEMENTED, and the docs are not what runs.** This
+  is the file's own "a surface nobody looks at rots" with the sign flipped: the surface everybody
+  looked at (the pricing doc, rewritten and reviewed the same day) was right, and the one nobody
+  reopened after the decision was the one that ships to the browser. **When a decision lands, the
+  question is not "is it written down" but "what executes it".**
+- ⛔ **THE `|| 350` FALLBACKS WERE A SECOND AND THIRD SOURCE OF TRUTH.** `pack.js` and
+  `cabinet.html` each hard-code the price as a fallback; they are separate shipped files with
+  nothing to import, so the literal is unavoidable — what is avoidable is it DISAGREEING. Coupled
+  by a test now, the same instrument as the `city-ops`/`s9pc` weapon tables.
+- ⛔ **AN ODD PRICE EXPOSED A DISPLAY BUG THAT HAD SHIPPED HIDDEN BEHIND A ROUND ONE.** PackSink
+  computes `burned = amount*5000/10000` and `toTreasury = amount - burned`, so the halves are
+  **exact in wei for every input, no dust, by construction**. The UI used `Math.floor(cost/2)`,
+  which prints **"62 · 63"** for a 125-token pack — a receipt claiming an asymmetric split the
+  chain did not perform. At 350 it halved cleanly and looked correct. ⚑ **Only an odd tier price
+  could ever have surfaced it, which means the bug was latent behind a number chosen for other
+  reasons entirely.**
+- ⚠ **AND MY OWN FIX AND ITS TEST BOTH MISSED THE THIRD SITE.** I fixed the two flooring sites I
+  had open and wrote the assertion naming their variables (`cost`, `packBurn()`). `pack.js` floors
+  the same quantity a third time under the name `need`, in the **approve prompt** — the busiest
+  screen in the flow. The fix passed its own test while still printing "62 burns, 63 funds the
+  studio". ⚑ **Match a SHAPE, not a NAME: a shape covers the site you forgot, a name covers only
+  the sites you already had in mind.** Third recorded instance of the hand-picked-list failure,
+  committed inside a test written to prevent it.
+- ⚠ The expected count is **read out of `PACK-PRICING.md`'s tier-I row**, not restated in the test
+  — restating it would make the test a third copy of the fact with its own way to go stale. Tier I
+  only: II–IV are re-derived from the live price when each opens, so they are scenario, not fact.
+
+## ⛔ THREE MORE GUARDS THAT WERE PASSING WITHOUT CHECKING ANYTHING
+- ⛔ **THE CLAIM-SIGNER GUARD WAS A TAUTOLOGY.** It declared `const SIGNER = '0x42A6…'` and then
+  asserted `SIGNER !== DEPLOY_WALLET` — **two literals the test writes itself**, so the only edit
+  that could ever fail it was an edit to the test. Every doc could name the wrong address and it
+  printed three green ticks. Same shape as the redirect outage's check, which asserted a host
+  scope EXISTED rather than running it against the live hosts. ⚑ The address is now **extracted
+  from each of the four positions the artist types from** — the `--signer` flag, constructor arg 4,
+  and the wallet tables in both runbooks — and all four must agree.
+- ⛔ **`--image` HAD THREE ANSWERS AND THE PIN CHECKED ONE.** It is the token's **permanent
+  fallback art**, frozen at deploy beside `name()`. `docs/TOKEN-MATH.md` — banner-marked stale —
+  carried a **half-updated** deploy command: right name, right symbol, right preset, while
+  `--image` still pointed at `./cards/art/<hero>.png`, a literal placeholder resolving to nothing
+  inside the deck task #71 deletes. ⚑ **A half-updated command is more dangerous than a wholly
+  stale one — the three things a reader spot-checks are all correct, so it reads as current.**
+  ⚑ And **"marked dead" is not protection when the banner covers only NUMBERS and the hazard is a
+  runnable COMMAND**: a reader obeying the banner exactly would still paste it. Removed rather than
+  corrected — the rule "a doc silently edited to look current is worse than one plainly marked
+  dead" says keep the file dead, not keep the weapon in it. **New: every `--image` must EXIST ON
+  DISK** — a missing path has no name in it to be wrong, so no name check could ever catch it.
+- ⛔ **THE DEPLOY-COMMAND FILE LIST WAS HAND-PICKED AND MISSED THE LAUNCH RUNBOOK.** It read
+  TESTNET / TOKEN-MATH / CLAUDE.md while **six** files carry a `deploy multicurve` line — and the
+  three it skipped included **`docs/LAUNCH-CHECKLIST.md`**, the document open at 11 PM on the one
+  irreversible step. Its **curve preset** (a deploy-time permanent) was unchecked by construction.
+  Derived from `docs/` + root now.
+
+## ✅ THE MAINNET FLIP IS NINE FIELDS — `npm run test:name` makes it a checklist
+Task #72 reads as one edit and is nine: `network`, `chainId`, `label`, the RPC list,
+`protocol.liquidFactory`, `protocol.rare`, `contracts.liquidEdition`, `contracts.renderContract`,
+plus `packSink`/`lens721` once they exist.
+- ⛔ **A PARTIAL FLIP DOES NOT ERROR.** `chainId` alone drives `wantChainId()` in `js/wallet.js`,
+  which decides the network a collector's wallet is **forced onto**, which SuperRare host
+  `buyUrl()` points at (testnet ids go to `dev.superrare.co`), and every explorer link on the site.
+  So `network:"mainnet"` with the Sepolia chainId left behind is a mainnet-branded site that herds
+  people onto a testnet — nothing thrown. And a stale edition address still passes `isLive()`,
+  which only tests an address's **shape**, so every read quietly returns nothing.
+- ⚑ The redirect outage's shape again — settings each defensible alone, wrong in composition — so
+  it takes that fix's instrument: **derive the expectation from what the config CLAIMS to be**, and
+  check every other field against the claim. The config is **evaluated, not regexed**, so the
+  parser cannot drift from what ships. Written while the answer is still `sepolia`, because a guard
+  added after the flip guards nothing. Proved by flipping `network` alone: **7 named failures**.
+- ⚠ **ONE VALUE IT CANNOT CHECK AND NOBODY SHOULD GUESS: mainnet RARE.** The repo records it only
+  truncated (`0xba5BDe66…6350`). A wrong reserve token is not a typo — it is the pool pointing at
+  the wrong asset. The test asserts only that it stopped being the Sepolia one, and prints an
+  action to get the real value.
+
+## ⚑ `npm run test:all` — the `&&` chain hides twenty-five results
+`npm test` chains 26 suites with `&&`, so **one failure halts it and the tail of the log looks like
+a clean finish** (this file already records reporting "green" twice off such a run). Reading npm's
+exit code fixes the reporting; it does not fix that one failure hides the other twenty-five.
+`scripts/test-all.mjs` runs each suite independently, never short-circuits, and **writes its JSON
+as it goes** so a run killed part-way still reports what it finished. Exit code = number of failed
+suites.
+- ⚠ **A backgrounded `npm test` whose exit code is written AFTER the chain yields nothing when it
+  is killed** — the file never appears. That is how the first attempt at this was lost.
+- ⛔ **KILLED TEST RUNS LEAVE ORPHANS THAT COMPETE FOR THE CPU.** Two SIGTERM'd `npm test` chains
+  left a live `npm test` tree with its own Chrome processes running **alongside** the new runner —
+  load average 7.8 on a container whose suites are already documented as flaking under load
+  (`test:ronin`, `test:cardlayers`). ⚑ **A flake chased under self-inflicted contention is a
+  phantom.** Kill orphans **by PID walking the tree**, never `pkill -f` — the recorded trap is that
+  it matches the bash command line running it. Also found: a stale `until ! pgrep -f 'npm test'`
+  waiter from an earlier session, spinning forever because **it matched itself**.
+- ✅ Under that load the whole board still came back green, including both known-flaky suites
+  (`ronin` 58/58, `cardlayers` 147/147) — passing under contention is stronger evidence than
+  passing idle.
 
 ## Pending
 - Clean-slate the placeholder deck (plan in the launch dossier / `docs`); Aug-6 launch PDF

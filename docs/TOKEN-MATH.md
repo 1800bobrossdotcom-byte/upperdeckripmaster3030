@@ -344,13 +344,26 @@ dumped) and recycle a share into liquidity (§5).
 
 ## 8. Endpoints + pre-mainnet verification
 
-**Deploy / wire (Rare CLI):**
-```
-rare liquid-edition deploy multicurve "ripmaster3030" "3030" \
-  --curve-preset low-demand --description "…" --image ./cards/art/<hero>.png --preview
-rare liquid-edition status            --contract 0x…
-rare liquid-edition set-render-contract --contract 0x… --render-contract 0x…
-```
+**Deploy / wire (Rare CLI):** ⛔ **THE DEPLOY COMMAND HAS BEEN REMOVED FROM THIS FILE.**
+It lives in **`docs/LAUNCH-CHECKLIST.md`** (mainnet) and **`docs/TESTNET.md`** (Sepolia), which
+are the two documents that are kept current and are pinned by `npm run test:name`.
+
+> ⚑ **Why removed rather than corrected: this file is DEAD, and it was carrying a live weapon.**
+> The command that stood here had been *half* updated — the right name, the right symbol and the
+> right `low-demand` preset — while still handing `--image ./cards/art/<hero>.png`. That path is
+> a placeholder that resolves to nothing, and `cards/art/` is the **placeholder deck being
+> clean-slated** (task #71). ⛔ **A half-updated command is more dangerous than a wholly stale
+> one**, because the three things a reader would spot-check are all correct, so it reads as
+> current. `--image` is what SuperRare's own flow calls *"the initial fallback metadata"* — the
+> token's **permanent** fallback art. It is a deploy-time permanent, and the blockquote below it
+> still said `medium-demand` / 3,030,000 / 350-token packs, contradicting the command directly
+> above it in the same file.
+>
+> The standing rule here is that a doc silently edited to look current is worse than one plainly
+> marked dead — so this file stays dead. But "marked dead" is not protection when the banner
+> covers only NUMBERS and the hazard is a **runnable command**: a reader obeying the banner
+> exactly would still copy it. So the command is gone and only the pointer remains.
+
 `rare mcp serve` exposes all of this over MCP.
 
 > **Provisional — co-designed with SuperRare.** Only the `medium-demand` preset is

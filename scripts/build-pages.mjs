@@ -459,7 +459,10 @@ const whitepaper = `
     <li><b>ESCAPE VELOCITY</b> · <i>Rip Rocketer</i> — post a run of <b>10,000,000 points</b>, about <b>wave 121</b>. Held open to a stated date if nobody takes it.</li>
     <li><b>NEVER STILL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier without the FLOW chain ever lapsing</b>, and without dying.</li>
     <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
-    <li><b>CLEAN SWEEP</b> · <i>Cloud Racer</i> — win a race having taken <b>every light-strip, every lap</b>.</li>
+    <!-- ⚠ #7 was CLEAN SWEEP (every light-strip, every lap) until 2026-08-06; the artist replaced
+         the condition. The ×3 he set alongside it is NOT printed here on purpose — it would make
+         "eleven earned" on this same page false. See docs/HERO-UNLOCKS.md §4¾, unresolved. -->
+    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
     <li><b>THREE CUTS</b> · <i>Neon Ronin</i> — win a duel where <b>every landed hit was part of a combo</b>.</li>
     <li><b>HOUSE MONEY</b> · <i>The Arena</i> — take first on the podium <b>three times running</b>, never folding.</li>
     <li><b>THE LONG COUNT</b> · <i>any five cabinets</i> — hold a <b>first-place finish in five different games</b>.</li>

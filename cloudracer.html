@@ -152,7 +152,11 @@
   #hud{ position:fixed; inset:0; bottom:var(--urm-banner, 0px); pointer-events:none; z-index:5; }
   .cap{ background:rgba(255,255,255,.82); border:1.5px solid rgba(13,34,51,.16); border-radius:12px;
     padding:7px 11px; box-shadow:0 6px 18px rgba(20,50,80,.18); }
-  .h-tl{ position:absolute; top:50px; left:16px; display:flex; gap:9px; align-items:flex-start; }
+  /* ⚠ WRAPS, and the cap is what makes that possible. Four capsules do not fit beside `.pos` on a
+     narrow phone; without the wrap the fourth one runs under the position list and then off the
+     glass. `50vw` rather than `100vw − 32px` because `.pos` owns the other half of this row. */
+  .h-tl{ position:absolute; top:50px; left:16px; display:flex; gap:9px; align-items:flex-start;
+    flex-wrap:wrap; max-width:min(52vw, 420px); }
   .h-spd{ position:absolute; bottom:18px; right:20px; text-align:right; }
   .h-spd .n{ font-family:var(--fat); font-size:56px; line-height:.86; color:#0d2233; }
   .h-spd .u{ font-size:11px; letter-spacing:.28em; color:#2b7fa8; }
@@ -189,6 +193,19 @@
   .tier .pips{ display:flex; gap:3px; margin-top:4px; }
   .tier .pips i{ display:block; width:13px; height:6px; border-radius:3px; background:rgba(13,34,51,.16); }
   .tier .pips i.on{ background:linear-gradient(90deg,#ff8a1a,#ff2ad9); }
+  /* ── THE STREAK chip. ⚠ This is a FOURTH capsule in `.h-tl`, which is a flex ROW pinned at
+     left:16px against `.pos` pinned at right:16px — the exact shape of the "a width cap tuned to
+     two buttons breaks when a third arrives" failure this project has already paid for twice. So
+     the row WRAPS rather than overflowing, and the chip is one short line rather than a block.
+     Measured at 320×568 · 390×844 · 844×390 · 740×360 · 1280×800 before it shipped.
+     ⚠ It sets `display`, so it must also say what hidden means — see the note above `.tell`. */
+  .streak{ font-size:10px; line-height:1.45; display:block; }
+  .streak[hidden]{ display:none; }
+  .streak .sl{ color:#2b7fa8; letter-spacing:.16em; }
+  .streak .sn{ font-family:var(--fat); font-size:17px; color:#b8007e; letter-spacing:0; }
+  .streak .sn small{ font-size:10px; color:#2b7fa8; font-family:inherit; }
+  .streak.off{ opacity:.72; }
+  .streak.off .sx{ font-size:9px; color:#7f95a6; letter-spacing:.04em; }
   /* ⚠ WAS bottom:36%, WHICH IS EXACTLY WHERE THE POD IS. An in-race capture had the LIFT lamp
    * painted across the craft it was warning about. The chase camera keeps the pod low in frame;
    * the lamp belongs above it, in the empty sky band. */
@@ -260,6 +277,28 @@
   .back:hover{ color:#b8007e; }
   .prize{ font-family:var(--fat); font-size:28px; margin:6px 0; color:#0d2233; }
   .prizeSub{ font-size:12px; color:#33556c; }
+  /* ── THE STREAK, on the result and in the lobby. Four states because four different things can
+     have happened, and "nothing changed" is one of them — a counter that only speaks when it
+     moves leaves the player guessing whether the race counted at all. */
+  .streakLine{ font-size:12px; line-height:1.5; margin:8px 0 2px; padding:8px 11px; border-radius:10px;
+    background:rgba(43,127,168,.08); border:1.5px solid rgba(13,34,51,.14); color:#33556c; }
+  .streakLine:empty{ display:none; }
+  .streakLine b{ color:#0d2233; }
+  .streakLine .q{ display:block; margin-top:4px; font-size:11px; color:#5b7a90; }
+  .streakLine.on{ background:rgba(15,174,86,.10); border-color:rgba(15,174,86,.34); }
+  .streakLine.on b{ color:#0b6b38; }
+  .streakLine.brk{ background:rgba(255,58,58,.09); border-color:rgba(200,0,0,.30); }
+  .streakLine.brk b{ color:#9c1010; }
+  .streakLine.hit{ background:linear-gradient(90deg,rgba(255,138,26,.16),rgba(255,42,217,.16));
+    border-color:#b8007e; }
+  .streakLine.hit b{ color:#b8007e; }
+  .streakLine.off{ opacity:.8; font-size:11px; }
+  .lobStreak{ font-size:11.5px; line-height:1.55; color:#33556c; margin:4px 0 2px; padding:7px 10px;
+    border-radius:10px; background:rgba(43,127,168,.07); border:1px solid rgba(13,34,51,.12); text-align:left; }
+  .lobStreak[hidden]{ display:none; }
+  .lobStreak b{ color:#0d2233; }
+  .lobStreak .brk{ color:#9c1010; }
+  .lobStreak .q{ display:block; margin-top:3px; font-size:10.5px; color:#5b7a90; }
   .board{ margin:12px 0; font-size:12px; }
   .board .r{ display:flex; justify-content:space-between; padding:4px 8px; border-radius:6px; }
   .board .r.me{ background:rgba(255,210,59,.34); color:#5a3d00; font-family:var(--fat); }
@@ -287,6 +326,10 @@
     <div class="cap tier"><div class="tl">TIER <b id="tierN">1</b></div><div class="pips" id="tierPips"></div></div>
     <div class="cap" style="font-size:11px;line-height:1.5"><div style="color:#2b7fa8;letter-spacing:.14em">BEST LAP</div>
       <div style="font-family:var(--fat);font-size:17px"><span id="bestT">—</span><small style="font-size:10px">s</small></div></div>
+    <!-- THE STREAK. Rule 3 of the earned titles is "legible before you start" — a prize nobody
+         can aim at is a lottery with extra steps — so the count is on screen while you race it,
+         and it says plainly when the lobby you picked does not qualify. -->
+    <div class="cap streak" id="streakChip" hidden></div>
   </div>
   <div class="pos cap" id="posList"></div>
   <div class="boost">
@@ -335,6 +378,7 @@
     <div id="cardGrid"></div>
     <div class="cardsInfo" id="cardsInfo">0 owned</div>
     <div class="pot" id="potLine"></div>
+    <div class="lobStreak" id="lobStreak" hidden></div>
     <div id="arenaLobby" style="max-width:440px;margin:8px auto 4px;width:100%"></div>
     <div><button class="go" id="btnAnte">🔥 Ante up &amp; race</button></div>
     <div><button class="go alt" id="btnPractice">▶ Practice race (no stakes)</button></div>
@@ -350,6 +394,7 @@
     <div class="tag" id="resTag"></div>
     <div class="prize" id="prizeBig"></div>
     <div class="prizeSub" id="prizeSub"></div>
+    <div class="streakLine" id="streakLine"></div>
     <div class="wonCards" id="wonCards"></div>
     <div class="board" id="board"></div>
     <div class="mininote" id="scaNote"></div>
@@ -375,6 +420,8 @@
 
 <script src="vendor/playcanvas/playcanvas.min.js"></script>
 <script src="js/crpc-game.js"></script>
+<!-- the ledger behind the earned title. Before crpc-ui.js, which arms and settles it. -->
+<script src="js/cr-streak.js"></script>
 <script src="js/crpc-ui.js"></script>
 <script src="js/crpc-app.js"></script>
   <script src="theme.js"></script>
