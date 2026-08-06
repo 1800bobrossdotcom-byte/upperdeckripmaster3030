@@ -170,5 +170,147 @@
     return _cache[slug];
   }
 
-  global.CardBack = { fromElement: fromElement, forCard: forCard };
+  /* ══ ⛔ THE HUNDRED HAVE NO PAGE, SO THEY HAD NO BACK ═══════════════════════════════════════
+   * Artist, 2026-08-06: *"make sure all cards named have backs of cards with stats - not seeing
+   * those."*
+   *
+   * ⛔ `forCard` ABOVE FETCHES `base + slug + '.html'`, AND A CARD OF THE HUNDRED HAS NO SUCH
+   *   PAGE. Its `slug` is its NUMBER, so it asked for `cards/7.html`, got a 404, resolved `null`
+   *   and fell back to the press's generated stand-in — which deliberately carries NO WORDS AT
+   *   ALL (js/hero-card.js names no font, so canvas text would silently differ per platform).
+   *   Turned over, a card of the hundred showed rules and a roundel and told you nothing. That is
+   *   the whole of what the artist could not see. Nothing errored, nothing 404'd visibly, and
+   *   every layer behaved exactly as designed.
+   *
+   * ⚑ THE DESIGN IS NOT REDRAWN — IT IS BORROWED. This file's own rule is that the vintage back
+   *   is finished work and must be RASTERISED rather than reimplemented, because a redraw is a
+   *   second copy that drifts and the copy that rots is the one nobody opens. So the TEMPLATE is
+   *   a real card page's `.face.back`, fetched once, with only its per-card FIELDS overwritten.
+   *   Edit `cards/cardback.css` or the back markup and the hundred follow automatically, because
+   *   they are printing the same DOM through the same stylesheet.
+   * ⚠ Which page is the template does not matter and must not be hardcoded: it is whichever card
+   *   `cards/manifest.json` lists first, so the clean-slate cannot orphan it.
+   */
+  var _tpl = null;
+  function template(base) {
+    if (_tpl) return _tpl;
+    _tpl = fetch(base + 'manifest.json')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (m) {
+        var rows = !m ? [] : (Array.isArray(m) ? m : (m.cards || []));
+        var slug = (rows[0] || {}).slug;
+        if (!slug) return null;
+        return fetch(base + slug + '.html').then(function (r) { return r.ok ? r.text() : null; });
+      })
+      .then(function (html) {
+        if (!html) return null;
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var back = doc.querySelector('.face.back');
+        if (!back) return null;
+        var inline = [].slice.call(doc.querySelectorAll('style')).map(function (s) { return s.textContent; });
+        var links = [].slice.call(doc.querySelectorAll('link[rel="stylesheet"]')).map(function (l) {
+          var href = l.getAttribute('href') || '';
+          return /^(https?:|\/)/.test(href) ? href : base + href;
+        });
+        return Promise.all(links.map(function (u) {
+          return fetch(u).then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; });
+        })).then(function (sheets) {
+          return { back: back, css: sheets.join('\n') + '\n' + inline.join('\n') };
+        });
+      }).catch(function () { return null; });
+    return _tpl;
+  }
+
+  function txt(root, sel, v) {
+    var el = root.querySelector(sel);
+    if (el) el.textContent = v;
+  }
+  /* the vitals are label/value pairs, so a value is found BY ITS LABEL rather than by position —
+   * a positional index silently prints the rarity into the edition slot the day a row moves */
+  function vital(root, label, v) {
+    var rows = [].slice.call(root.querySelectorAll('.vb-vit'));
+    for (var i = 0; i < rows.length; i++) {
+      var k = rows[i].querySelector('.k'), val = rows[i].querySelector('.v');
+      if (k && val && k.textContent.trim().toLowerCase() === label.toLowerCase()) {
+        val.textContent = v; return;
+      }
+    }
+  }
+
+  function forDeckCard(card, opts) {
+    var o = opts || {};
+    if (!card || card.id == null) return Promise.resolve(null);
+    var key = 'deck-' + card.id;
+    if (_cache[key]) return _cache[key];
+    var base = (o.base === undefined) ? BASE + 'cards/' : o.base;
+
+    _cache[key] = template(base).then(function (t) {
+      if (!t) return null;
+      var S = (global.CardStats ? CardStats.of(card) : null) || {};
+      var host = document.createElement('div');
+      host.setAttribute('aria-hidden', 'true');
+      host.style.cssText = 'position:absolute;left:-99999px;top:0;width:520px;height:780px;'
+        + 'pointer-events:none;';
+      var live = document.importNode(t.back, true);
+      [].slice.call(live.querySelectorAll('img')).forEach(function (im) {
+        var s = im.getAttribute('src') || '';
+        if (!/^(https?:|data:|\/)/.test(s)) im.setAttribute('src', new URL(base + s, location.href).href);
+      });
+
+      var title = String(card.title || card.name || '').trim();
+      txt(live, '#b-title', title);
+      txt(live, '#b-title-a', title);
+      txt(live, '.vb-num', String(card.id));
+      txt(live, '#b-atk', String(S.atk));
+      txt(live, '#b-def', String(S.def));
+      txt(live, '#b-trig', S.trigger + ' ⚡');
+      txt(live, '#b-rarity', S.rarity);
+      vital(live, 'Edition', S.edition);
+      vital(live, 'Debut', S.debut);
+      txt(live, '#b-why', S.why);
+
+      /* ⛔ THE STATISTICS TABLE IS THE THING HE ASKED FOR, so it is filled explicitly rather than
+       *   left carrying the template card's numbers. A back showing another card's ATK is worse
+       *   than a back showing none — it is wrong rather than empty, and it looks authored. */
+      var rows = live.querySelectorAll('.vb-stats tbody tr');
+      for (var i = 0; i < rows.length; i++) {
+        var td = rows[i].querySelectorAll('td');
+        if (td.length >= 3) {
+          td[0].textContent = String(S.atk);
+          td[1].textContent = String(S.def);
+          td[2].textContent = String(S.sum);
+        }
+      }
+      /* the first row is the TIER the card was struck in, not a season — seasons are dead */
+      var th = live.querySelector('.vb-stats tbody tr th');
+      if (th) th.textContent = 'TIER I';
+
+      /* ⚠ The trivia and the lore belong to the template's card. Leaving them would print another
+       *   card's biography under this one's name — the most confidently wrong thing on the sheet. */
+      var fact = live.querySelector('#b-fact');
+      if (fact) {
+        fact.innerHTML = '';
+        var b = document.createElement('b');
+        b.style.letterSpacing = '.08em';
+        b.textContent = '◉ ' + (card.band === 'hero' ? 'GENESIS SET' : 'FIELD LENS');
+        fact.appendChild(b);
+        fact.appendChild(document.createElement('br'));
+        fact.appendChild(document.createTextNode(
+          card.band === 'hero'
+            ? 'One of the 33. Minted 1/1 — eleven go to auction, eleven ride in packs, eleven are earned.'
+            : 'One of the 67. The contract renders this card without any mint, so it exists whether or not anyone owns it.'));
+      }
+      txt(live, '#b-lore', S.placeholder
+        ? 'Vitals are provisional — derived from this card\'s own seed, stable everywhere, and the artist\'s to overwrite.'
+        : '');
+
+      host.appendChild(live);
+      document.body.appendChild(host);
+      return fromElement(live, { w: o.w || 520, h: o.h || 780, css: t.css })
+        .then(function (cv) { try { host.remove(); } catch (e) {} return cv; });
+    }).catch(function () { return null; });
+    return _cache[key];
+  }
+
+  global.CardBack = { fromElement: fromElement, forCard: forCard, forDeckCard: forDeckCard };
 })(window);
