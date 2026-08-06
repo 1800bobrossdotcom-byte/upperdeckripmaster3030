@@ -221,6 +221,29 @@
      *   shipping dark, and there the copy and the code agree. */
     var CFG = window.RIPMASTER_CHAIN || {};
     if (!split && CFG.network === 'mainnet') return ripStale();
+    /* ⛔ SAY WHAT THE WALLET IS ABOUT TO SAY, BEFORE IT SAYS IT. MetaMask shows "This is a
+     *   deceptive request … the contract is untrusted" on the approve, because Blockaid flags
+     *   approvals to contracts with no transaction history and PackSink was deployed hours ago
+     *   with zero calls. It is a REPUTATION heuristic — it has not analysed the code and found
+     *   anything — but a collector cannot know that, and a red banner they were not warned about
+     *   is indistinguishable from the phish it is designed to catch.
+     * ⚑ THIS IS THIS FILE'S OWN RULE, ONE STEP FURTHER. It already names each of the two prompts
+     *   because "an unexplained second prompt reads as a scam". An unexplained WARNING reads worse.
+     * ⛔ IT DOES NOT TELL ANYONE TO DISMISS THE WARNING — that would be teaching the exact reflex
+     *   phishing needs, which is the reason superrare.html is wallet-free in the first place. It
+     *   states why the flag appears, prints the address so they can check it themselves, and says
+     *   the cap is finite. Trust is earned by being checkable, not by being reassuring. */
+    if (split) {
+      var sinkAddr = (CFG.contracts || {}).packSink || '';
+      showBusy('two prompts: approve, then pay.');
+      reveal.innerHTML = '<div class="pack-note">' +
+        '<b>Your wallet may warn that this contract is “untrusted”.</b> It is new — deployed for ' +
+        'this launch, with almost no history — and wallets flag anything they do not recognise. ' +
+        'Check it yourself: <br><code style="word-break:break-all">' + esc(sinkAddr) + '</code><br>' +
+        'It has no owner and no admin, and the only tokens it can move are the ones you send it. ' +
+        'The cap is <b>' + (need * 12) + ' $3030</b> — twelve packs, not unlimited.' +
+        '</div>';
+    }
     showBusy(split ? 'approve ' + need + ' $3030 for the pack…'
                    : 'confirm the burn of ' + need + ' $3030 in your wallet…');
     const r = await w.payPack(need, step => showBusy(step === 'approve'
