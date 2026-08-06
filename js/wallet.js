@@ -48,6 +48,37 @@
   const sink = () => ((CFG().contracts || {}).packSink || '').trim();
   const hasSink = () => isAddr(sink());
 
+  /* ⛔ THE ORIGIN A WALLET IS TOLD WE ARE MUST BE THE ORIGIN THE COLLECTOR IS STANDING ON.
+   *   This was written down as the apex while the platform serves `www` as Production and 308s
+   *   the apex to it. Both resolve, so nothing looked broken — but `metadata.url` is not a link,
+   *   it is the IDENTITY shown in the approval sheet, and WalletConnect's domain verification
+   *   compares it against the origin the session proposal came from. A disagreement surfaces in
+   *   the wallet as "cannot verify", on a phone, at the exact moment we are asking to be trusted.
+   *   Same class as the retired-name mismatch recorded at the metadata block below, one host
+   *   string deep — and the apex icon really does 308, so a wallet that will not follow a
+   *   redirect on an image shows the sheet with no icon at all.
+   * ⚑ DERIVED, NOT WRITTEN DOWN, and that is the point: the recorded plan is to make the apex
+   *   Production and let `www` redirect the other way, and that flip must not need an edit here.
+   * ⚑ A SHAPE, NOT A HAND-PICKED LIST OF HOSTS — this repo has paid three times for a list that
+   *   stopped covering the thing it described. Any host under the studio's own registrable
+   *   domain passes; anything else (a preview build, a clone, a sandboxed frame where hostname
+   *   is empty) falls back to the canonical rather than naming itself inside somebody's wallet.
+   * ⛔ AND THE RETIRED DOMAIN IS DELIBERATELY *NOT* IN IT — `npm run test:name` caught me putting
+   *   it there. Letting it derive would print the retired studio name inside a wallet approval
+   *   sheet, which is the precise surface the name law was written for. It costs nothing: the old
+   *   domain forwards, so nobody is standing on it when they connect, and if they somehow are,
+   *   naming the LIVE studio is the honest answer rather than the stale one.
+   * ⚠ Always emitted as https — the site is https-only, and http in an approval sheet reads
+   *   wrong even where it would technically be where you are. */
+  const SITE_HOST = /(^|\.)ripmaster3030studios\.com$/;
+  function siteOrigin() {
+    try {
+      const h = String(location.hostname || '');
+      if (SITE_HOST.test(h)) return 'https://' + h;
+    } catch {}
+    return 'https://ripmaster3030studios.com';
+  }
+
   let provider = null;   // active EIP-1193 provider (injected or WalletConnect)
   let kind = null;       // 'injected' | 'walletconnect'
   let account = null;
@@ -112,8 +143,8 @@
         metadata: {
           name: 'ripmaster3030studios',
           description: 'A liquid trading-card game on SuperRare Liquid Editions.',
-          url: 'https://ripmaster3030studios.com',
-          icons: ['https://ripmaster3030studios.com/media/site/mark-512.png'],
+          url: siteOrigin(),                                   // ⚑ the host you are ON — see above
+          icons: [siteOrigin() + '/media/site/mark-512.png'],
         },
       });
       await wc.enable();                       // opens the QR modal

@@ -226,7 +226,13 @@ pin('index.html', 'twitter:image" content="https://ripmaster3030studios.com/medi
 pin('scripts/build-pages.mjs', 'media/site/og-1200x630.png',
     'the four generated pages inherit it from the shell, not from a hand-edit');
 pin('js/wallet.js', "name: 'ripmaster3030studios'", 'the WalletConnect sheet names the live studio');
-pin('js/wallet.js', "url: 'https://ripmaster3030studios.com'", 'and points at the live domain');
+/* ⚠ WAS `url: 'https://ripmaster3030studios.com'` — a hard-coded APEX while the platform serves
+ *   `www` as Production. The sheet is now derived from the host the collector is actually on
+ *   (js/wallet.js `siteOrigin()`), so what this pins is the FALLBACK: an origin the site does not
+ *   recognise must land on the live domain, never on whatever host served the page. The
+ *   derivation itself is driven at a real studio host in `npm run test:wc` §3b. */
+pin('js/wallet.js', "return 'https://ripmaster3030studios.com';",
+    'and falls back to the live domain when the origin is unrecognised');
 pin('js/session.js', 'Take a seat in the ripmaster3030studios arena', 'the SIWE statement matches the site');
 pin('api/lore.js', `lore-keeper for "${LIVE}"`, 'generated lore names the live studio');
 /* ⚠ Pinned to the PREFIX, not a filename. The assertion is "it shows the generated mark", and
