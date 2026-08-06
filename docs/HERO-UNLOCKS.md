@@ -346,7 +346,7 @@ card numbers, and every hero title is still `______`.
 
 | ids | route | who hands it over |
 | --- | --- | --- |
-| **1 – 11** | **AUCTION** | sold on SuperRare |
+| **1 – 11** | **AUCTION** | sold on SuperRare — **0.1 ETH reserve, all eleven** (artist, 2026-08-06) |
 | **12 – 22** | **GACHA** | pulled from a pack — `GACHA_IDS` in `pack.js` |
 | **23 – 33** | **EARNED** | the nine titles in this document, eleven seats |
 
@@ -365,3 +365,19 @@ loudly rather than silently over-issuing.
 against a human-signed `kind 1` voucher, so the studio sees the card a claim names before it
 exists. The pack simply must not OFFER what was never its to offer — and until 2026-08-06 it
 offered all 33 at a rate that would have handed out ~8,224 of the eleven that exist.
+
+### ⚑ The auction reserve — 0.1 ETH, uniform
+
+Artist, 2026-08-06: *"the cards for auction will all be .1 eth reserves."* Eleven cards, one
+reserve, so the floor for the whole auction tier is **1.1 ETH**.
+
+⚑ **UNIFORM IS A POSITION, NOT A SHORTCUT.** Pricing the eleven differently would be the studio
+publishing its own ranking of the set before a single collector had seen them — and the deck's
+scarcity is already authored into the cards (each carries its own rarity). One reserve says the
+ranking is the market's to make, which is the same argument that made the pack draw uniform rather
+than re-weighting an already-weighted set.
+
+⚠ **NOT PUBLISHED ANYWHERE YET, DELIBERATELY.** `docs/` does not ship (`.vercelignore`), so this
+is recorded and not announced. A reserve price is a commercial commitment and putting it on
+index/whitepaper is a separate decision the artist should make on purpose rather than inherit from
+a passing line in a chat. The public pages currently say "11 auctioned on SuperRare" and no price.
