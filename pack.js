@@ -164,15 +164,35 @@
   const GACHA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];   // 11 — auction 1–11, earned 23–33
   const GACHA_PER_PACK = GACHA_IDS.length / 3560;   // eleven of them over the four tiers' packs
   const isHero = c => c && c.band === 'hero';
-  const isGacha = c => isHero(c) && GACHA_IDS.indexOf(Number(c.id)) >= 0;
+  /* ⛔ RESERVE BY ID, NOT BY BAND — `band` IS A MANIFEST FIELD AND A MANIFEST FIELD CAN GO
+   *   MISSING. Keyed on `band`, a deck served without it made nothing a hero, so the reserved
+   *   filter matched nothing and the pack offered all eleven auction cards and all eleven earned
+   *   ones. Simulated: 22 reserved ids handed out. The id cannot go missing — it is what the
+   *   pack, the manifest, the recipe and `setCards` all address a card by.
+   * ⚑ AND IT IS THE KEY THE CHAIN ALREADY USES. Ripmaster3030Lens721 has HERO_MAX = 33 and
+   *   claimHero refuses anything above it, so "1–33 is a hero" is enforced on-chain, not just
+   *   asserted here. Verified against the live manifest: ids 1–33 are exactly the 33 heroes and
+   *   every id above 33 is a field card. */
+  const HERO_MAX = 33;                                  // mirrors the lens contract's own constant
+  const idOf = c => Number(c && c.id);
+  const isGacha = c => GACHA_IDS.indexOf(idOf(c)) >= 0;
+  const reserved = c => { const n = idOf(c); return n >= 1 && n <= HERO_MAX && !isGacha(c); };
   const pull = n => {
     const field = DECK.filter(c => !isHero(c));
     /* ⛔ THE GACHA ELEVEN, NOT EVERY HERO. Drawing from all 33 would offer cards reserved for the
      *   auctions and the game titles — the same 1/1 promised down two routes. */
     const heroes = DECK.filter(isGacha);
-    /* Fall back to the whole deck only if the manifest carried no bands at all — otherwise an
-     * empty `field` would silently produce an empty pack. */
-    const pool = field.length ? field : DECK;
+    /* ⛔ THE FALLBACK WAS THE HOLE, AND THE MAIN PATH BEING CORRECT IS WHY IT WAS INVISIBLE.
+     *   `field.length ? field : DECK` exists so a manifest that carried no bands still produces a
+     *   pack instead of an empty one — reasonable, and it hands out THE WHOLE DECK, auction 1–11
+     *   and earned 23–33 included. Simulated: with a deck of heroes only it offered all eleven
+     *   auction cards. 400,000 packs down the normal path never offered one, so every measurement
+     *   said this was safe.
+     * ⚑ THE RULE IS A PROPERTY OF THE CARD, NOT OF WHICH BRANCH YOU LANDED ON. Reserved ids are
+     *   removed from the pool itself, so there is no path — fallback, future edit, or a manifest
+     *   shaped in a way nobody predicted — that can offer one. A guard on the happy path only
+     *   guards the happy path. */
+    const pool = (field.length ? field : DECK).filter(c => !reserved(c));
     const out = [];
     for (let i = 0; i < n && pool.length; i++) out.push(pool[rnd(pool.length)]);
     /* At most ONE, and only sometimes. Replaces a field card rather than lengthening the pack, so

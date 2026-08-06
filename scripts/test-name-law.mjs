@@ -1245,7 +1245,55 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
       `${wrongSize} packs came out the wrong size`);
     ok(outsidePool === 0, 'the pack never offers a hero reserved for an auction or a game title',
       `${outsidePool} pulls came from outside the gacha eleven`);
+
+    /* ⛔ THE ASSERTION ABOVE COUNTS BY `band`, AND THAT IS EXACTLY HOW THE LEAK HID. A manifest
+     *   served without `band` makes nothing a hero — so `hs` is empty, `outsidePool` stays 0, and
+     *   a pack cheerfully offering all eleven auction cards scores green. Simulated and confirmed
+     *   before this was written: 22 reserved ids handed out, zero assertions fired.
+     * ⚑ COUNT BY ID, AND DRIVE THE SHAPES NOBODY PLANS FOR. Ids 1–33 are the heroes — verified
+     *   against the manifest, and the key the LENS CONTRACT itself uses (HERO_MAX = 33). A card's
+     *   id cannot go missing; a band can.
+     * ⚠ The empty-pack case is a PASS, not a failure: handed a deck with nothing legal in it the
+     *   pack must refuse rather than reach for something reserved. */
+    const RESERVED = new Set([...Array(11)].map((_, i) => i + 1)
+                       .concat([...Array(11)].map((_, i) => i + 23)));
+    const SHAPES = [
+      ['the live deck',      DECK],
+      ['no bands at all',    DECK.map(c => Object.assign({}, c, { band: undefined }))],
+      ['every band wrong',   DECK.map(c => Object.assign({}, c, { band: 'field' }))],
+      ['heroes only',        DECK.filter(c => Number(c.id) <= 33)],
+      ['auction ids only',   DECK.filter(c => Number(c.id) <= 11)],
+      ['ids as strings',     DECK.map(c => Object.assign({}, c, { id: String(c.id) }))],
+    ];
+    for (const [label, deck] of SHAPES) {
+      const p2 = fn(deck, n => Math.floor(Math.random() * n)).pull;
+      const leaked = new Set();
+      for (let i = 0; i < 3000; i++)
+        for (const c of p2(SIZE)) if (RESERVED.has(Number(c.id))) leaked.add(Number(c.id));
+      ok(leaked.size === 0, `no reserved id is offered — ${label}`,
+        leaked.size ? '⛔ handed out ' + [...leaked].sort((a, b) => a - b).join(',') : 'clean');
+    }
   }
+}
+
+/* ── THE GAMES CANNOT AWARD A 1/1 ────────────────────────────────────────────────────────────
+ * ⚑ A PACK IS NOT THE ONLY WAY A CARD REACHES SOMEBODY. Every cabinet wagers cards into a pot and
+ *   pays them out, and they all read `cards/manifest.json` — the 196 PLACEHOLDERS — while the
+ *   hero 1/1s live in `cards/deck-manifest.json`. That separation is what makes a game unable to
+ *   hand out an auction card, and it is currently true by ACCIDENT of which file each reads.
+ *   Asserted here so merging the two pools has to be a decision rather than a slip. */
+{
+  const ph = JSON.parse(readFileSync(join(ROOT, 'cards/manifest.json'), 'utf8')).cards || [];
+  const deck = JSON.parse(readFileSync(join(ROOT, 'cards/deck-manifest.json'), 'utf8')).cards || [];
+  const heroSlugs = new Set(deck.filter(c => Number(c.id) <= 33).map(c => String(c.slug)));
+  ok(!ph.some(c => c.band === 'hero'), 'the games\' card pool contains no hero band',
+    String(ph.filter(c => c.band === 'hero').length) + ' found');
+  ok(!ph.some(c => Number(c.id) >= 1 && Number(c.id) <= 33),
+    '…and no entry carrying a hero id (1–33)',
+    String(ph.filter(c => Number(c.id) >= 1 && Number(c.id) <= 33).length) + ' found');
+  const clash = ph.filter(c => heroSlugs.has(String(c.slug)));
+  ok(clash.length === 0, '…and no slug collides with one of the 33',
+    clash.length ? '⛔ ' + clash.slice(0, 4).map(c => c.slug).join(', ') : 'clean');
 }
 
 /* ═══ THE LIVE MARKET ══════════════════════════════════════════════════════════════════════════
