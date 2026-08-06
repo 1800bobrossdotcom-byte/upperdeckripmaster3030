@@ -2104,7 +2104,34 @@ window.CityApp = (function () {
    * (now undersized, reallocated-or-not) target, and a rectangular block of the frame showed STALE
    * CONTENT from an older frame with a hard straight edge down the middle of the sky.
    * ⚠ It reads as a rendering fault in the effect and is a lifecycle mistake in the caller. */
+  /* ── THE SHARED BURN ──────────────────────────────────────────────────────────────────────
+   * The city's print pass reads the $3030 edition's burn — the ONE number every player has in
+   * common. `js/lens-state.js` does the eth_call, proves its own decoding and hands back a 0..1
+   * dial; all this does is forward it.
+   *
+   * ⚑ IT READS THE EDITION, NOT THE LENS, WHICH IS WHY IT WORKS TODAY. Burn is
+   *   `maxTotalSupply - totalSupply` on the ERC-20, and that contract is deployed and live —
+   *   `chain-config.contracts.lens721` being empty costs nothing here. The one shared-world input
+   *   available is also the one that needs no un-deployed contract.
+   *
+   * ⚠ FAILS OPEN AT EVERY STEP, and silently. No LensState, no chain-config, a blocked RPC, a
+   *   sandboxed frame, a reverted read — the burn stays 0 and the city renders exactly as it does
+   *   with no network at all. A world that looks different when the network is having a bad day
+   *   is a world nobody can trust their eyes in.
+   * ⚠ Slow on purpose. Burn moves when somebody rips a pack, not per frame, and this is a game
+   *   loop: a poll that fights the frame budget to watch a number that changes hourly is a bug.
+   *   LensState clamps to its own MIN_POLL regardless. */
+  function startSharedBurn() {
+    try {
+      if (!window.LensState || !window.CityInk || !CityInk.setBurn) return;
+      LensState.watch(function (state, dials) {
+        if (dials && typeof dials.burn === 'number') CityInk.setBurn(dials.burn);
+      }, { every: 120000 });
+    } catch (e) { /* the city does not care */ }
+  }
+
   ink = window.CityInk ? CityInk.attach(app, cam) : false;
+  startSharedBurn();
   syncHud();
   /* ⚠ AND AT BOOT, because the mode is restored from localStorage — reload while in SECTION 9
    *   and `setMode` never runs, so the prompt would never be shown on the one entry path where
