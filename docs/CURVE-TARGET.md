@@ -1,5 +1,17 @@
 # CURVE TARGET — corrected Sepolia redeploy spec ($3030)
 
+> ⛔ **SUPERSEDED IN PART, 2026-08-06 — read `docs/PACK-PRICING.md` first.**
+> SuperRare ran the live mainnet CLI previews: the edition opens at **≈$0.08 per $3030** on the
+> **low-demand** preset with **zero initial RARE liquidity** and **no creator allocation** — 4× the
+> $0.02 this document's figures assume. Consequently the **350–1,200 token pack amounts are dead**
+> (350 tokens is a $28 pack), packs are priced in **dollars** ($10/$12/$15/$20, token count locked
+> at each tier open), and **no burn percentage is published** — the site reports live burn and
+> studio totals instead. Every token-count, burn-%, contraction and slug-% figure below is
+> therefore **stale**.
+> ⚠ **Banner-marked rather than silently patched**, deliberately: a doc quietly edited to look
+> current is worse than one plainly marked. The 50/50 split, the tier allotments and the mint-once
+> semantics are all **unchanged** and still correct here.
+
 *The exact parameters to build the next Sepolia curve around, and a line-by-line
 reconciliation of the SuperRare audit. Item 2 (the curve) is the only one that
 needs SuperRare's side to build; items 1/3/4/5 are already fixed in this repo.*

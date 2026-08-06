@@ -1509,6 +1509,59 @@ grid separates the bands by hue, the deck counts per band, and the record carrie
   off their defaults, save to № 7, navigate to a different card, load № 7 back from the grid, and
   require every value plus all three plates to return. `✓ every setting came back`.
 
+## ⛔ P0 IS MEASURED: **≈$0.08**, AND IT KILLED THE PACK SCHEDULE — `docs/PACK-PRICING.md`
+**SuperRare, 2026-08-06, off the live mainnet CLI previews at the full 3,300,000 supply:
+low-demand preset · ZERO initial RARE liquidity · NO creator allocation.** Opens ≈**$0.08 per
+$3030**, 30% of supply in the gentlest $0.08–$0.16 band.
+- ⛔ **THE ASSUMPTION WAS $0.02 AND THE TRUTH IS 4× THAT.** `docs/STATE-OF-PLAY.md` §6 had this
+  flagged as *"the number nothing has measured … upstream of the entire pack economy"* and
+  predicted "an order of magnitude above" from two independent data points. **It was right.** The
+  whole pack schedule was resting on it.
+- ⛔ **THE 350–1,200 TOKEN PACK AMOUNTS ARE DEAD.** At $0.08, 350 tokens is a **$28** pack, not the
+  $7 the site had published since March. **Packs are priced in DOLLARS now — $10/$12/$15/$20** —
+  and the token count is derived from the live price when a tier opens and **LOCKED for that
+  tier**. Tier I = **125 $3030**, 62.5 burned / 62.5 to the studio.
+  ⚑ Lock-at-open is the only rule that works: recomputing per purchase makes the pack a moving
+  target mid-tier and makes "1,600 packs" unpriceable; never recomputing lets a 3× appreciation
+  turn a $12 pack into a $36 one.
+- ⛔ **NO BURN PERCENTAGE IS PUBLISHED, AND THE 30.7% PIN IS INVERTED.** Holding 30.7% needs ~570
+  gross tokens/pack ≈ **$46**. ⚑ **Confirmed from BOTH directions, which is the strongest evidence
+  this project has had on any number:** SuperRare derived 570 from the preview; our own model gives
+  1,014,375 ÷ 3,560 packs ÷ 0.50 = **570.0**, × $0.08 = **$45.60**.
+  ⚑ **So 30.7% was never a property of the design — it was a property of a $0.02 token.** And the
+  drift runs the way nobody expects: **the pack is a dollar target, so a RISING token buys FEWER
+  tokens and burns LESS.** A percentage on a page would go stale with nobody editing anything.
+  ✅ `npm run test:name`'s three pins now assert the **ABSENCE** of 30.7% / 1.44× / 44.4% and the
+  **PRESENCE** of live-reading language — both directions, since "no percentage" is trivially
+  satisfied by a page that says nothing about the burn at all.
+- ⚠ **AND THE PIN ONLY COVERED `tokenomics.html`.** The first version left whitepaper, audit,
+  artist and the front page free to keep publishing a $7 pack with the suite green. It loops all
+  five now. **Checking one of five is how the other four rot back in.**
+- ⛔ **IT ALSO CAUGHT A DEPLOY-TIME DEFAULT NOBODY WOULD HAVE LOOKED AT: the staking ladder.**
+  `Ripmaster3030Lens721.sol` seeds `tierAt = [350, 3_500, 35_000, 350_000]` with a comment saying
+  the rungs mean *"one pack, ten, a hundred, a thousand"*. At the measured price **the first rung
+  is $28 — nearly three packs — and the comment beside it would have been false on the day it
+  shipped.** Re-anchored to **125 / 1,250 / 12,500 / 125,000**. ✅ `setTiers` exists, so this was
+  correctable rather than permanent — but the default is what deploys if nobody checks.
+  ⚠ **And the ANCHOR ITSELF is now launch-time only**: a pack stops being a fixed token count after
+  tier I, so say "125", not "one pack", once tier II opens.
+- ✅ **THE RESERVE-SEED CONTRADICTION IS SETTLED.** Two docs recorded a ~10,000 RARE seed while the
+  model printed **0**. **Zero was right** — there is no bid below spot on day one, so the first
+  seller walks the curve down alone. Say it out loud rather than let it be discovered.
+- ⚠ **`M` (end/start over the whole curve) IS STILL ASSUMED AT 10.** The preview gave the opening
+  price and the first band, not the full curve. **Nothing M-derived may be quoted as measured** —
+  FDV at full, RARE-to-fill and the sensitivity table are labelled illustration.
+- ⚠ **STILL THE ARTIST'S:** $10/$12/$15/$20 is SuperRare's recommendation and replaces a **$7**
+  figure *he* set. It needs his yes before launch.
+- ⚠ **`docs/TREASURY.md` and `docs/CURVE-TARGET.md` are BANNER-MARKED, not patched** — the split,
+  the allotments and mint-once are still correct there; every token-count and percentage is stale.
+  A doc quietly edited to look current is worse than one plainly marked.
+- ⛔ **`docs/MAINNET-PREFLIGHT.md` — SuperRare requires ONE FRESH-WALLET MAINNET TEST before public
+  launch:** approval flow, exact PackSink price enforcement, true supply-reducing burn, 50/50
+  split, card mint/render, all six games. ⚠ **A fresh wallet is the whole point and the easiest
+  step to skip** — the artist's wallet has approvals, a vault and a warm cache, and cannot fail the
+  way a collector's will. ⚠ Gates 2, 4 and 5 are blocked until PackSink + Lens721 are deployed.
+
 ## ✅ THE CARD PAGE IS A CARD — `cards/card-stage.js`, `npm run test:press` (16 → 26)
 *Artist, 2026-08-06, pointing at two screenshots: "this is the wrong viewer for the card — should
 be like the way we see the plate proof cards with lighting and card texture / 3d fx … that is done

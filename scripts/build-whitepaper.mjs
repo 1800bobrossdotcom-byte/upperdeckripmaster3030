@@ -88,7 +88,7 @@ S.push(slide('TL;DR — read this first', `
       <li>On-chain this is exactly <b>one thing</b>: a SuperRare <b>Liquid Edition</b> — the ERC-20 <b>$3030</b> on a bonding curve in <b>RARE</b>, <b>minted once</b>, burns permanent.</li>
       <li>The <b>100-card deck is the artwork</b> — <b>every card is a lens</b> (a render that reads the live market + burn). No ERC-1155, no per-copy editions.</li>
       <li><b>33 hero cards mint as 1/1s</b> (11 auctioned on SuperRare, 11 pulled from packs, 11 earned in the games); the other <b>67 are render-only lenses</b>, mintable later.</li>
-      <li>Packs <b>burn</b> the token — supply contracts <b>≈1.44×</b> (3.3M → ~2.29M, 30.7% of the mint destroyed) — but <b>the cards survive</b>. The token burns so the art can live.</li>
+      <li>Packs <b>burn</b> the token — supply only ever falls, and we publish the <b>live</b> burn rather than a forecast — but <b>the cards survive</b>. The token burns so the art can live.</li>
       <li><b>No team pre-mint. No hidden fees.</b> The studio takes a stated cut — half of every pack and half of the 10% game rake; the rest burns. Plus <b>Lovebeing</b>, the holder lens every wallet carries.</li>
     </ul>
     <div class="callout">
@@ -105,16 +105,16 @@ S.push(slide('The game', `
   <div class="cols">
     <ul class="bullets">
       <li><b>The field</b> — all 100 cards are live lenses, five tiers (Common → Prizm). <b>Rarity is set by community vote</b> (the Rarity Court), not decreed.</li>
-      <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of ~350 $3030 — half burned, half to the studio</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
+      <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of about $10 of $3030 — half burned, half to the studio</b>; you pull <b>field cards</b> and, rarely, a <b>gacha lens claim</b>.</li>
       <li><b>The 33 hero lenses</b> — <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim → mint the 1/1) + <b>11 earned</b> (clear a named feat → one-of-a-kind game title → mint). One owner each.</li>
       <li><b>Play &amp; wager</b> — the games ante $3030 (<b>net-zero wagers</b> — winner takes the pot) and let you stake your cards, which transfer (never burned).</li>
-      <li><b>The burn-down</b> — packs deflate the token ≈1.44×; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
+      <li><b>The burn-down</b> — packs deflate the token permanently; <b>nothing retires</b>. Scarcity is dwindling allotments + rarity votes + compression.</li>
     </ul>
     <div class="statwrap">
       <div class="stat"><b>100</b><span>living lens cards</span></div>
       <div class="stat"><b>33</b><span>minted hero 1/1s</span></div>
       <div class="stat"><b>67</b><span>render-only field cards</span></div>
-      <div class="stat"><b>1.44×</b><span>token contraction</span></div>
+      <div class="stat"><b>live</b><span>burn, read on-chain</span></div>
     </div>
   </div>`, C.phos));
 
@@ -144,7 +144,7 @@ S.push(slide('The economy · where every token goes', `
     <div class="mm burn">
       <div class="mm-h">🔥 BURNS (on-chain, real)</div>
       <ul>
-        <li>every pack — <b>in full</b> (~350/rip)</li>
+        <li>every pack — <b>half of it</b> (125 tokens at the $0.08 open)</li>
         <li>voluntary conviction burns</li>
         <li>tier-end <b>compression</b> costs</li>
         <li>irreversible, public, final</li>
@@ -171,25 +171,25 @@ S.push(slide('The economy · where every token goes', `
   <p class="fine">There is no toll wallet, no creator-cut contract, no house pool. One ERC-20 + one renderer+721 lens contract (a tiny mint footprint — 33 hero 1/1s); the chain is the receipt.</p>`, C.red));
 
 // 6 — packs
-S.push(slide('Packs · a $7 premium, escalating', `
+S.push(slide('Packs · a $10 premium, escalating', `
   <h2>The one premium ritual — a real buy-and-burn.</h2>
   <div class="cols">
     <ul class="bullets">
-      <li>A pack is a site-guided <b>buy of ~350 $3030 ≈ $7</b> (seven cards, ~$1 a card), <b>split half-burn / half-studio</b> — see docs/TREASURY.md for why that split has to be one atomic call.</li>
+      <li>A pack is a site-guided <b>buy of about $10 of $3030</b> (seven cards, ~$1.40 a card), <b>split half-burn / half-studio</b> — see docs/TREASURY.md for why that split has to be one atomic call.</li>
       <li>Your 7 pulls derive from your burn tx; your collection is your rip history + holdings — <b>not</b> a token reprice, FDV unchanged.</li>
-      <li><b>Within a tier:</b> price walks a line from base → ceil as the allotment sells (Tier I 350 → 525 tokens).</li>
+      <li><b>Priced in dollars:</b> the token amount is set from the live price when a tier opens and <b>locked for that tier</b> (Tier I = 125 $3030 at the $0.08 open).</li>
       <li><b>Across tiers:</b> the <b>allotment dwindles</b> and the floor rises — the pack count is bounded by the <b>tier allotment</b>, not card supply.</li>
       <li>Sell out the allotment and that tier <b>closes</b>; the next opens. A tier opens on <b>sell-out, not on a date</b> — site-enforced and auditable from the burn txs.</li>
     </ul>
     <table class="tbl">
       <tr><th>Tier</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
-      <tr><td>Tier I</td><td>1,600 packs</td><td>$7.00</td></tr>
-      <tr><td>Tier II</td><td>1,100 packs</td><td>$9.00</td></tr>
-      <tr><td>Tier III</td><td>600 packs</td><td>$12.00</td></tr>
-      <tr><td>Tier IV</td><td>260 packs</td><td>$16.00</td></tr>
+      <tr><td>Tier I</td><td>1,600 packs</td><td>$10</td></tr>
+      <tr><td>Tier II</td><td>1,100 packs</td><td>$12</td></tr>
+      <tr><td>Tier III</td><td>600 packs</td><td>$15</td></tr>
+      <tr><td>Tier IV</td><td>260 packs</td><td>$20</td></tr>
     </table>
   </div>
-  <p class="fine">*Floor priced at the launch spot ($0.02); token appreciation rides on top. ≈3,560 packs total; full sellout ≈ 1,014,375 🔥 burned + 1,014,375 to the studio. Recalibrated to the live token price at each tier open.</p>`, C.acid));
+  <p class="fine">*The pack is priced in <b>dollars</b>; the token amount is derived from the live price at each tier open and locked for that tier. ≈3,560 packs total. We do <b>not</b> publish a target burn percentage — see docs/PACK-PRICING.md.</p>`, C.acid));
 
 // 7 — tiers + compression
 S.push(slide('Lenses · minting &amp; compression', `

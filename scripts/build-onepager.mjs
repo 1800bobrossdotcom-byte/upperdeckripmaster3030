@@ -13,7 +13,7 @@
  *   with the model is worse than no one-pager: it is the document a stranger will believe.
  *
  * ⛔ THE "BEFORE YOU BUY" BLOCK IS NOT OPTIONAL AND NOT A FOOTNOTE. `docs/TREASURY.md` and
- *   token-model.mjs both refuse to state the 30.7% burn without the 44.4% studio slug beside it,
+ *   token-model.mjs both refuse to state a burn figure without the studio slug beside it,
  *   because they are the SAME arithmetic — the 50/50 split sends an identical number of tokens to
  *   the fire and to the studio. A first-contact document that printed only the flattering half
  *   would be the single most misleading artifact this project could produce.
@@ -33,13 +33,13 @@ const chromiumPath = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium-119
 /* ── the figures, and then the proof that they are still true ─────────────────────────────── */
 const F = {
   cap: '3,300,000',
-  packTok: '350',
-  packUsd: '$7',
+  packTok: '125',
+  packUsd: '$10',
   tiers: '1,600 → 1,100 → 600 → 260',
-  burnTok: '1,014,375',
-  burnPct: '30.7%',
-  contraction: '1.44×',
-  slugPct: '44.4%',
+  burnTok: 'read live',
+  burnPct: 'not published',
+  contraction: 'not published',
+  slugPct: 'read live',
   float: '2,285,625',
   livePrice: '16.78',
 };
@@ -146,7 +146,7 @@ that one sentence.</p>
       <li><b>33 hero 1/1s:</b> 11 auctioned · 11 pulled from packs · <b>11 earned</b> by named feats in the games.</li>
       <li><b>67 field lenses</b> render whether or not anyone has minted them.</li>
       <li><b>Lovebeing</b> — one per wallet, non-transferable, non-burnable.</li>
-      <li><b>Holding changes the art.</b> The lens reads your balance: <span class="mono">350 / 3,500 / 35,000 / 350,000</span> = Ash · Spark · Ember · Flame · Inferno — one pack, ten, a hundred, a thousand. <b>The art acknowledges you. It does not pay you.</b></li>
+      <li><b>Holding changes the art.</b> The lens reads your balance: <span class="mono">125 / 1,250 / 12,500 / 125,000</span> = Ash · Spark · Ember · Flame · Inferno — one pack, ten, a hundred, a thousand. <b>The art acknowledges you. It does not pay you.</b></li>
     </ul>
   </section>
 
