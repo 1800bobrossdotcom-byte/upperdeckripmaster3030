@@ -365,7 +365,7 @@ frame and seed are left alone">RESET TO BASE</button>
 
     <div class="grp">
       <label>WHAT IT SAYS</label>
-      <input type="text" id="tName" maxlength="22" placeholder="PLATE PROOF" aria-label="card name">
+      <input type="text" id="tName" maxlength="22" placeholder="card name — leave blank for none" aria-label="card name">
       <input type="text" id="tSub" maxlength="28" placeholder="a second line (optional)" aria-label="second line">
       <div class="note" id="tNote">set from committed outlines — <strong>no font ships and none is
         named</strong>. 68 glyphs: A–Z, 0–9 and punctuation; anything else is quietly dropped.</div>
@@ -784,7 +784,12 @@ frame and seed are left alone">RESET TO BASE</button>
       return HeroCard.build({ canvas: cv, seed: seed, type: r[1], rarity: rar,
         pigment: POOL.map(function (c) { return c.art; }),
         pigmentExact: exact,
-        name: Q.get('name') || 'PLATE PROOF', sub: Q.get('sub') || '' });
+        /* ⛔ `has`, NOT `||` — artist, 2026-08-06: *"I don't want plate proof writing on all of
+         * them, I can't remove it."* He could not: an empty box fell through `||` straight back
+         * to the placeholder, so BLANK WAS UNREPRESENTABLE and every card in the deck was going to
+         * carry the same two words. `Q.has` distinguishes "no name was ever chosen" (a fresh
+         * forge, which still gets the placeholder) from "the name was deliberately cleared". */
+        name: Q.has('name') ? Q.get('name') : 'PLATE PROOF', sub: Q.get('sub') || '' });
     }).then(function (c) {
       if (!c) return;                                    // fails open — the panel stays up
       ctrl = c;
@@ -982,7 +987,7 @@ frame and seed are left alone">RESET TO BASE</button>
     clearTimeout(tT);
     tT = setTimeout(function () {
       if (!ctrl) return;
-      ctrl.setText({ name: tName.value || 'PLATE PROOF', sub: tSub.value || '' });
+      ctrl.setText({ name: tName.value, sub: tSub.value });
       readout(); stamp();
     }, 180);
   }
@@ -1678,7 +1683,10 @@ frame and seed are left alone">RESET TO BASE</button>
       var sel = document.getElementById(S.id);
       if (sel && sel.value) q.set(S.k, sel.value);
     });
-    if (tName && tName.value) q.set('name', tName.value);
+    /* ⚠ ALWAYS SET, even when empty. Omitting an empty name puts the URL back in the state a
+     *   fresh forge is in, so the placeholder returns on reload and the clearing is undone —
+     *   silently, one navigation later. An empty value is a CHOICE and has to be written down. */
+    if (tName) q.set('name', tName.value);
     if (tSub && tSub.value) q.set('sub', tSub.value);
     q.set('rarity', RARITY);
     /* ⚑ EVERY DIAL, NOT JUST THE ONES THAT EXISTED FIRST. A URL that carries seven of nine
