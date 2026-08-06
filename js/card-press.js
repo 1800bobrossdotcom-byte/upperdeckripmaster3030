@@ -132,25 +132,29 @@
    *   same picture is a blur of one image, and it is the likeliest accident here because the
    *   card is itself in the pool. Filtered by art path, and the fallback keeps the roles
    *   distinct rather than failing. */
-  /* ⛔ THE CALLER'S ART PATH IS RELATIVE TO THE CALLER, NOT TO US — and that is why the pack
-   * reveal on index.html was a flat poster while cards/proof.html pressed perfectly.
-   * `pool()` resolves every manifest path against `base` ("cards/"); the FIGURE plate did not,
-   * because it is taken from the card the CALLER handed in. From a page inside cards/ that is
-   * correct and it is what the old comment here promised. From the ROOT — index.html, where the
-   * pack lives — "art/x.webp" resolves to /art/x.webp, which 404s.
+  /* ⛔ `base` RESOLVES THE MANIFEST. IT MUST NEVER TOUCH `card.art`. ─────────────────────────
+   * The two paths arrive from different places and only one of them is ours to resolve:
+   *   · `pool(base)` reads cards/manifest.json, whose `art` is written relative to THAT file,
+   *     so every pooled path needs `base` in front of it. Ground and mid come from there.
+   *   · `card.art` is handed in by the CALLER and is already resolved against the caller's own
+   *     document — `pack.js` passes "cards/"+art from the root, `binder`/`lens3d`/`card-stage`
+   *     pass an absolute URL, `cards/index.html` passes the `<img src>` off its own page.
+   *     The FIGURE plate comes from there. Prefixing it a second time is a 404.
    * ⛔ AND A 404 ON ONE PLATE TAKES THE WHOLE CARD DOWN: HeroCard.build is atomic on its first
    *   three images, so it returns null, CardPress.live returns null, CardView resolves null and
-   *   the fail-open guard leaves the flat poster standing. Every layer behaved exactly as
-   *   designed and the artist saw a card with no press on it — "this is still the wrong viewer
-   *   for the card pull, it doesn't show the fx of the card."
-   * ⚑ Nothing errored anywhere. The guard that makes a missing press harmless is the same guard
-   *   that makes a missing press SILENT, which is why this needed driving rather than reading. */
-  function resolveArt(u, base) {
-    if (!u) return u;
-    return /^(https?:|\/|\.)/.test(u) ? u : (base || '') + u;
-  }
-  function platesFor(card, list, base) {
-    var me = idOf(card), art = resolveArt((card && card.art) || '', base);
+   *   the fail-open guard leaves the flat poster standing. That is what shipped between
+   *   a8efd46 and this commit: a `resolveArt()` helper that prefixed `base` onto the caller's
+   *   path too, so the pack asked for /cards/cards/art/<card>.webp and the reveal AND all seven
+   *   fan bakes went flat on index.html at once.
+   * ⚑ AND THE VERIFICATION THAT MISSED IT DROVE `CardPress.live` WITH A MANIFEST-SHAPED RECORD
+   *   ("art/x.webp") RATHER THAN THE ONE `pack.js` ACTUALLY BUILDS ("cards/art/x.webp"). Both
+   *   run; only one of them is the call site. Same rule the sabotage notes record — a check that
+   *   does not reproduce the real bytes proves nothing, and it proves it convincingly.
+   * ⚑ Nothing errored anywhere, twice. The guard that makes a missing press harmless is the same
+   *   guard that makes a missing press SILENT, which is why this needs driving, not reading.
+   * ⚠ `npm run test:press` now drives the pack's own record through the press from the ROOT. */
+  function platesFor(card, list) {
+    var me = idOf(card), art = (card && card.art) || '';
     var others = (list || []).filter(function (c) { return idOf(c) !== me; });
     if (!others.length) return [art, art, art];
     var s = seedFor(card), a = (s ^ 0x9E3779B9) >>> 0;
@@ -220,7 +224,7 @@
       var list = r[0], spec = r[1];
       var first = o.card || list[0];
       if (!first) return null;
-      var plates = platesFor(first, list, base);
+      var plates = platesFor(first, list);
       return global.HeroCard.build({
         canvas: canvas, seed: seedFor(first), type: spec,
         rarity: (first && first.rarity) || 'common',
@@ -259,7 +263,7 @@
           dressBack(card);
           try { press.reseed(seedFor(card)); } catch (e) {}
           try { press.setText({ name: card.title || card.name || '', sub: card.sub || '' }); } catch (e) {}
-          return press.setPigment(platesFor(card, list, base)).catch(function () { return false; });
+          return press.setPigment(platesFor(card, list)).catch(function () { return false; });
         }
         return {
           press: press,
