@@ -14,7 +14,7 @@
  *   node scripts/lens-cli.mjs deploy-sink [--token 0x…] [--treasury 0x…]
  *
  * ⚑ AND THE TIER SYSTEM HAD THE SAME HOLE, FOUND 2026-08-05. Staking is BUILT and tested
- *   (89/89) — `tierOfHolder` reads the holder's $3030 and `tokenURI` prints it — but the ABI
+ *   (98/98) — `tierOfHolder` reads the holder's $3030 and `tokenURI` prints it — but the ABI
  *   here carried none of it, so `setEdition`, THE ONE CALL THAT TURNS THE FEATURE ON, had no
  *   scripted caller and no step in docs/DEPLOY-LENS.md. A lens deployed from either documented
  *   route would render every card at tier 0 (`edition == address(0)`) with nothing to say so.
@@ -98,7 +98,9 @@ const ABI = parseAbi([
   // ── the market read: what makes this a LIQUID lens rather than a balance check
   'function burnBps() view returns (uint256)',
   'function marketSnapshot() view returns (bool,uint256,uint256,int24,uint128)',
-  'function lensState(uint256) view returns (bool,uint8,uint256,bool,uint256,int24,uint128)',
+  'function lensState(uint256) view returns (bool,uint8,uint256,bool,uint256,int24,uint128,uint256)',
+  'function heldFor(uint256) view returns (uint256)',
+  'function heldSince(uint256) view returns (uint64)',
 ]);
 
 const SINK_ABI = parseAbi([
@@ -379,9 +381,13 @@ async function tiers() {
   if (who) console.log(`\n${who}\n  tier ${await c.read.tierOfHolder(who)} · ${await c.read.tierName(await c.read.tierOfHolder(who))}`);
   const card = val('card');
   if (card) {
-    const [lLive, lTier, lBurn, lMinted] = await c.read.lensState([BigInt(card)]);
+    const [lLive, lTier, lBurn, lMinted, , , , lHeld] = await c.read.lensState([BigInt(card)]);
+    const days = Number(lHeld) / 86400;
     console.log(`\ncard ${card}  (one eth_call — what the live page reads)`);
     console.log(`  ${lMinted ? 'minted' : 'unminted'} · holding ${await c.read.tierName(lTier)} (tier ${lTier}) · burned ${lBurn} bps · market ${lLive ? 'live' : 'not live'}`);
+    /* ⚑ Tenure is with the CURRENT owner and resets on transfer — it is not lifetime provenance
+     *   and must never be printed as if it were. */
+    console.log(`  held by this owner for ${days < 1 ? Number(lHeld) + ' s' : days.toFixed(1) + ' days'}${lMinted ? '' : '  (unminted — no tenure)'}`);
   }
   if (off) console.log('\nnext:\n  node scripts/lens-cli.mjs tiers --at ' + at + ' --edition ' + ((CFG.contracts || {}).liquidEdition || '0x<the $3030 token>'));
 }

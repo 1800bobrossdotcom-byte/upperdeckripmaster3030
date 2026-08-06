@@ -443,5 +443,50 @@ console.log('\n── the market read: burn, price, liquidity ──');
   await rendersAnyway('no edition at all');
 }
 
+/* ── TENURE — the input that cannot be bought ─────────────────────────────────────────────────
+ * A balance is a snapshot and can be flash-borrowed for one block, which is why the tier is only
+ * ever spent on something aesthetic. Time cannot be borrowed. These assert the two things that
+ * make it trustworthy: it STARTS at the mint (not at 1970) and it RESETS on a transfer.        */
+console.log('\n── tenure: held-since, which no wallet can fake ──');
+{
+  const LATER = (secs) => ({ header: { ...BLOCK.header, timestamp: NOW + BigInt(secs) } });
+  const callAt = async (data, blk, caller = DEPLOYER) =>
+    evm.runCall({ caller, to: ADDR, data: hexToBytes(data), gasLimit: 30000000n, block: blk });
+  const num = r => { const h = bytesToHex(r.execResult.returnValue); return (!h || h === '0x') ? -1n : BigInt(h); };
+  const heldFor = async (id, blk = BLOCK) => num(await callAt(sel('heldFor(uint256)') + encUint(id), blk));
+  const heldSince = async id => num(await call(sel('heldSince(uint256)') + encUint(id)));
+
+  /* ⛔ THE MINT MUST STAMP IT. Stamping only TRANSFERS is the obvious way to write this and it is
+   *   wrong in the worst direction: a never-transferred card would read heldSince 0, i.e. held
+   *   since 1970 — the OLDEST card in the deck rather than the newest. */
+  t('the mint stamped hero 7', (await heldSince(7)) === NOW, 'got ' + await heldSince(7));
+  t('an unminted field card has no tenure', (await heldSince(34)) === 0n);
+  t('  ...and heldFor answers 0 rather than a huge number', (await heldFor(34)) === 0n,
+    'got ' + await heldFor(34));
+
+  t('tenure is 0 in the block it was minted in', (await heldFor(7)) === 0n, 'got ' + await heldFor(7));
+  t('a day later it is 86,400 seconds', (await heldFor(7, LATER(86400))) === 86400n,
+    'got ' + await heldFor(7, LATER(86400)));
+
+  /* ⚠ AND A TRANSFER RESETS IT. This is tenure with the CURRENT owner, not lifetime provenance —
+   *   a card that gets passed around keeps arriving wet, which is the whole point. */
+  const OWNER7 = '0x' + bytesToHex((await call(sel('ownerOf(uint256)') + encUint(7))).execResult.returnValue).slice(-40);
+  const CAROL = '0x4444444444444444444444444444444444444444';
+  await evm.stateManager.putAccount(new Address(hexToBytes(OWNER7)), new Account(0n, 10n ** 20n));
+  const moved = await callAt(
+    sel('transferFrom(address,address,uint256)') + encAddr(OWNER7) + encAddr(CAROL) + encUint(7),
+    LATER(86400), new Address(hexToBytes(OWNER7)));
+  t('the card transfers', ok(moved), revertOf(moved));
+  t('  ...and the new owner\'s tenure starts from zero', (await heldFor(7, LATER(86400))) === 0n,
+    'got ' + await heldFor(7, LATER(86400)));
+  t('  ...not from the original mint', (await heldSince(7)) === NOW + 86400n,
+    'got ' + await heldSince(7));
+
+  /* ⚠ A clock that runs BACKWARDS (a reorg, or a test harness) must not underflow into a
+   *   near-infinite tenure. Assert the guard, not the happy path. */
+  t('a timestamp before the stamp reads 0, not an underflow',
+    (await heldFor(7, BLOCK)) === 0n, 'got ' + await heldFor(7, BLOCK));
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

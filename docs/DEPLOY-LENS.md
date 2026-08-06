@@ -107,7 +107,7 @@ Faster if you're comfortable with a key in your shell. Same result.
 
 ```bash
 npm install                                  # pulls solc, viem, OZ from package.json
-npm run test:lens                            # 89/89 locally BEFORE spending gas
+npm run test:lens                            # 98/98 locally BEFORE spending gas
 
 export PRIVATE_KEY=0x…                       # your shell only. never commit, never paste in chat
 node scripts/lens-cli.mjs deploy \

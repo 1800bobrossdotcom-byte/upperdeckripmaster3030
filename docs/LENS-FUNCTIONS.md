@@ -1,8 +1,8 @@
 # The lens contract — every function, and what is actually on-chain
 
 `contracts/Ripmaster3030Lens721.sol` · `Ripmaster3030Lens721 is ERC721, EIP712` · solc 0.8.24 viaIR
-· **17,536 B deployed · 0 warnings · 89/89 (`npm run test:lens`)** — all three measured 2026-08-06,
-not carried forward from a note. 7,040 B spare against the 24,576 B contract-size limit.
+· **17,546 B deployed · 0 warnings · 98/98 (`npm run test:lens`)** — all three measured 2026-08-06,
+not carried forward from a note. 7,030 B spare against the 24,576 B contract-size limit.
 
 One contract is both the **renderer** and the **ERC-721**. That is SuperRare's own
 `LiquidLensMintable721SVGExample` pattern, not our invention.
@@ -17,7 +17,7 @@ Read live off Sepolia with `npm run preflight` (keyless, `eth_call` only) on 202
 | --- | --- | --- | --- |
 | **$UR3030 edition** (rehearsal ERC-20) | SuperRare's, via Rare CLI | `0xdc47e98b…Ec83C` | ✅ **live on Sepolia** — rehearsal only |
 | **Ripmaster3030Renderer** (edition passthrough) | `contracts/Ripmaster3030Renderer.sol` | `0x948E6330…de903` | ✅ **live on Sepolia** — verified as `edition.renderContract()` |
-| **Ripmaster3030Lens721** ← *this document* | `contracts/Ripmaster3030Lens721.sol` | — | ⛔ **NOT DEPLOYED ANYWHERE.** Built, 89/89, `chain-config.lens721: ""` |
+| **Ripmaster3030Lens721** ← *this document* | `contracts/Ripmaster3030Lens721.sol` | — | ⛔ **NOT DEPLOYED ANYWHERE.** Built, 98/98, `chain-config.lens721: ""` |
 | **PackSink** (50/50 split) | `contracts/PackSink.sol` | — | ⛔ **NOT DEPLOYED.** 51/51, 1,773 B, `packSink: ""` |
 | **$3030 launch token** | SuperRare's, artist types `name`/`symbol` | — | ⛔ **NOT DEPLOYED.** Mainnet, artist's SuperRare-linked wallet |
 | CardVault | `contracts/CardVault.sol` | — | **retired** — old ERC-1155 design, kept for history only |
@@ -87,7 +87,9 @@ correct and pinned — **the tested route was the one nobody is sent down.**
 | `tierName(uint8)` | `string` | `pure`. Ash · Spark · Ember · Flame · Inferno. |
 | `burnBps()` | `uint256` | **Burn progress, 0…10000 bps.** `maxTotalSupply − totalSupply` over the cap. 0 when the edition is unset or mute. ⚠ Cannot revert. |
 | `marketSnapshot()` | `(live, burnBps, rarePerToken, tick, liquidity)` | **The whole market read in one call.** `live == false` ⇒ every other field is meaningless. ⚠ Cannot revert. |
-| `lensState(uint256 id)` | `(live, tier, burnBps, minted, rarePerToken, tick, liquidity)` | **One eth_call for the live card page** — replaces four round-trips, and the numbers are read at one block so they cannot disagree. ⚠ Cannot revert. |
+| `lensState(uint256 id)` | `(live, tier, burnBps, minted, rarePerToken, tick, liquidity, heldSeconds)` | **One eth_call for the live card page** — replaces four round-trips, and the numbers are read at one block so they cannot disagree. ⚠ Cannot revert. ⚑ Needs **no wallet**: it resolves the card's owner itself, so a sandboxed media-slot frame can read the tier without asking anyone to connect. |
+| `heldFor(uint256 id)` | `uint256` | **Seconds the CURRENT owner has held it.** 0 if unminted. Resets on transfer — tenure, not lifetime provenance. |
+| `heldSince(uint256 id)` | `uint64` | The raw stamp. Set on mint *and* every transfer. |
 | `edition()` | `address` | The `$3030` ERC-20 the tiers **and the market read** point at. `address(0)` ⇒ **both off**. |
 | `tierAt(uint256 i)` | `uint256` | Threshold `i`, in the token's base units. |
 | `owner()` · `claimSigner()` · `editionRenderer()` | `address` | Admin, voucher signer, passthrough target. |
@@ -262,6 +264,27 @@ least this much"*, which is true. A stale **price** or **tick** is a lie about w
 worth right now. So `Burned bps` is an attribute; price, tick and liquidity live only on
 `lensState()`/`marketSnapshot()`, which the live page reads directly and immediately. A test asserts
 no price or tick has crept into the metadata.
+
+### ⚑ Tenure — the one input that cannot be bought
+
+A balance is a **snapshot**: flash-borrowable for a single block, which is why the tier may only
+ever be spent on something aesthetic. CLAUDE.md's own note says the fix is *"held-over-time,
+off-chain"* — but it is available **on-chain** for one `SSTORE` in a function that is already
+writing storage, and on-chain beats a server nobody can audit.
+
+**There is no transaction that gives you a year of tenure.** Balance says what you can afford;
+tenure says what you actually did — which is the artist's position exactly (*"the tangible prize is
+the having-done-it"*).
+
+The render idea it unlocks: **ink cures.** A sheet off the press is wet — dense, glossy, liable to
+offset onto whatever it touches — and it sets over hours and days into a matte, stable print. So a
+card that just changed hands renders *wet* and settles as it is held. Real property of a real
+print, moves one way, and no amount of money makes it move faster.
+
+⚠ Two traps, both asserted: the stamp must be set **on the mint** as well as on transfers (stamping
+only transfers makes a never-transferred card read as *held since 1970* — the oldest card in the
+deck rather than the newest), and a clock that runs backwards must read 0 rather than underflow
+into a near-infinite tenure.
 
 ### ⚠ Owner-dependent metadata is not cacheable
 

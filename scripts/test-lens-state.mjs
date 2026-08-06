@@ -51,8 +51,14 @@ ok(SEL['maxTotalSupply()'] === '0x2ab4d052', 'maxTotalSupply() is 0x2ab4d052');
 ok(!Object.values(SEL).includes('0xd5abeb01'),
    'maxSupply() 0xd5abeb01 must NOT appear — it reverts on this edition');
 ok(SEL['getMarketState()'] === '0xd8165743', 'getMarketState() is 0xd8165743');
-// the three calls the card actually needs, no more: every extra call is another way to be slow
-ok(Object.keys(SEL).length === 3, 'exactly three reads');
+/* The calls the card actually needs, no more: every extra call is another way to be slow.
+ * ⚑ THREE ON THE EDITION + ONE ON THE LENS. The fourth is `lensState(id)`, and it is a read of a
+ *   DIFFERENT CONTRACT — the 721 rather than the ERC-20 — which is why it is worth counting
+ *   separately rather than letting this number drift upward unremarked. It needs no wallet: the
+ *   contract resolves the card's owner itself, so the card learns who holds it without asking the
+ *   viewer to connect anything, which is the only reason a tier read can ship in the media slot. */
+ok(Object.keys(SEL).length === 4, 'exactly four reads — three on the edition, one on the lens');
+ok(SEL['lensState(uint256)'] === '0x9fa9fc54', 'lensState(uint256) is 0x9fa9fc54');
 
 head('2. static state — what ships when the frame blocks the network');
 const S = LensState.STATIC;

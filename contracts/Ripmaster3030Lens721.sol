@@ -119,6 +119,20 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     string public externalUrl;      // e.g. https://ripmaster3030studios.com
     string public lensBaseUrl;      // e.g. https://ripmaster3030studios.com/cards/hero/
 
+    /* ── TENURE — the one input that cannot be bought, borrowed, or faked ─────────────────────
+     * ⛔ THIS CLOSES THE ACKNOWLEDGED HOLE IN THE TIER DESIGN. A BALANCE IS A SNAPSHOT: it can be
+     *   flash-borrowed for one block, so it is only ever safe to spend on something purely
+     *   aesthetic. CLAUDE.md's own note says the fix is "held-over-time, OFF-CHAIN" — but it is
+     *   available on-chain for one SSTORE in a function that is already writing storage, and
+     *   on-chain is strictly better than a server nobody can audit.
+     * ⚑ TIME IS NOT LENDABLE. There is no transaction that gives you a year of tenure, which is
+     *   exactly the artist's position — "the tangible prize is the having-done-it". Balance says
+     *   what you can afford; tenure says what you actually did.
+     * ⚠ Set on MINT and on every transfer, so it means "held by the CURRENT owner since". It is
+     *   not lifetime provenance and must never be described as such.
+     * uint64 because seconds since 1970 overflow it in the year 584,942,417,355. */
+    mapping(uint256 => uint64) public heldSince;
+
     mapping(uint256 => Card) private _cards;
     mapping(bytes32 => bool) public voucherUsed;
     mapping(address => uint256) public lovebeingOf;   // wallet => its Lovebeing id (0 = none)
@@ -264,6 +278,11 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     {
         address from = _ownerOf(tokenId);
         if (isLovebeing(tokenId) && from != address(0)) revert Soulbound();
+        /* ⚠ STAMPED ON EVERY OWNERSHIP CHANGE, INCLUDING THE MINT — the mint IS the start of the
+         *   first owner's tenure, and skipping it would make a never-transferred card read as
+         *   held since 1970, i.e. the oldest card in the deck. The single most likely way to get
+         *   this wrong is to only stamp transfers. */
+        heldSince[tokenId] = uint64(block.timestamp);
         return super._update(to, tokenId, auth);
     }
 
@@ -301,6 +320,23 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
     /// The tier a CARD currently renders at — i.e. its owner's. Unminted cards are tier 0.
     function tierOf(uint256 id) public view returns (uint8) {
         return tierOfHolder(_ownerOf(id));
+    }
+
+    /**
+     * Seconds the CURRENT owner has held this card. 0 if it has never been minted.
+     *
+     * ⚑ THE RENDER USE IS THAT INK CURES. A sheet off the press is wet — dense, glossy, liable to
+     *   offset onto whatever it touches — and it sets over hours and days into a matte, stable
+     *   print. So a card that just changed hands can render WET and settle as it is held. That is
+     *   a real property of a real print, it moves in one direction, and no amount of money makes
+     *   it move faster.
+     * ⚠ Tenure with the CURRENT owner, not lifetime provenance: it resets on every transfer, by
+     *   design. A card that has been passed around is a card that keeps arriving wet.
+     */
+    function heldFor(uint256 id) public view returns (uint256) {
+        uint64 since = heldSince[id];
+        if (since == 0 || block.timestamp <= since) return 0;
+        return block.timestamp - since;
     }
 
     /* The ladder is anchored on the pack (~350 $3030), so a holder can say what they hold in
@@ -413,12 +449,14 @@ contract Ripmaster3030Lens721 is ERC721, EIP712 {
             bool minted,
             uint256 rarePerToken,
             int24 tick,
-            uint128 liquidity
+            uint128 liquidity,
+            uint256 heldSeconds
         )
     {
         Market memory m = _market();
         address who = _ownerOf(id);
-        return (m.live, tierOfHolder(who), m.burnBps, who != address(0), m.rarePerToken, m.tick, m.liquidity);
+        return (m.live, tierOfHolder(who), m.burnBps, who != address(0),
+                m.rarePerToken, m.tick, m.liquidity, heldFor(id));
     }
 
     // ── rendering ────────────────────────────────────────────────────────────────────────

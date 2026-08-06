@@ -42,7 +42,16 @@
   var SEL = {
     'totalSupply()':     '0x18160ddd',
     'maxTotalSupply()':  '0x2ab4d052',
-    'getMarketState()':  '0xd8165743'
+    'getMarketState()':  '0xd8165743',
+    /* ── THE LENS's OWN READ. Everything above is the EDITION; this one is the 721.
+     * ⚑ IT NEEDS NO WALLET, AND THAT IS WHY IT IS ALLOWED HERE AT ALL. `lensState(id)` resolves
+     *   the card's OWNER on-chain and reports THAT wallet's tier — so the card knows who holds it
+     *   without asking the viewer to connect anything. A frame that asks for a wallet is
+     *   indistinguishable from one that has been swapped for a malicious frame (SuperRare's
+     *   security team flagged exactly this), so a read that needed `eth_accounts` could not ship
+     *   in the media slot. This one is a plain eth_call over fetch: it can show state and it
+     *   cannot move anything. */
+    'lensState(uint256)': '0x9fa9fc54'
   };
 
   /* ── display conventions ───────────────────────────────────────────────────────────────────
@@ -75,7 +84,7 @@
   /* The resting card. Every dial neutral, `live:false`. A caller that renders this must look
    * exactly like a good static card, because in a hostile frame this is what ships. */
   var STATIC = Object.freeze({
-    live: false, reason: 'no-read',
+    live: false, reason: 'no-read', tier: null,
     supply: null, maxSupply: null, burned: null, burnFrac: null,
     rarePerToken: null, tokenPerRare: null, tick: null, liquidity: null,
     orderOk: null, at: 0
@@ -93,6 +102,10 @@
     var c = chain || {};
     return {
       edition: o.edition || (c.contracts && c.contracts.liquidEdition) || '',
+      /* Empty until the 721 is deployed — `hold` then stays 0, which is Ash, which is what an
+       * unheld card looks like anyway. Nothing to special-case downstream. */
+      lens: o.lens || (c.contracts && c.contracts.lens721) || '',
+      card: o.card || 0,
       rpcs: o.rpcs || c.rpcs || [],
       timeout: o.timeout || DEFAULT_TIMEOUT,
       conv: o.conv || CONV,
@@ -153,6 +166,23 @@
     if (!cfg.edition || !cfg.rpcs.length || typeof fetch !== 'function')
       return Promise.resolve(fail('no-config'));
 
+    /* ⛔ THE TIER READ IS DELIBERATELY NOT IN THE Promise.all BELOW. `lens721` is empty until the
+     *   contract is deployed, and a card must not lose its BURN dial because its tier happens to
+     *   be unknowable. Folded in, an unset lens would reject the whole read and walk every RPC
+     *   retrying it. Separate, optional, and it resolves to null without costing anything. */
+    function readTier(rpc) {
+      if (!cfg.lens || !cfg.card) return Promise.resolve(null);
+      var id = Number(cfg.card).toString(16);
+      while (id.length < 64) id = '0' + id;
+      return call(rpc, cfg.lens, SEL['lensState(uint256)'] + id, cfg.timeout).then(function (hex) {
+        var h = (hex || '').replace(/^0x/, '');
+        if (h.length < 7 * 64) return null;            // not the lens, or a reverted read
+        // (live, tier, burnBps, minted, rarePerToken, tick, liquidity) — tier is word 1
+        var t = parseInt(h.slice(64, 128), 16);
+        return (t >= 0 && t <= 4) ? t : null;
+      }).catch(function () { return null; });
+    }
+
     var i = 0;
     function attempt() {
       if (i >= cfg.rpcs.length) return fail('unreachable');
@@ -163,7 +193,8 @@
         call(rpc, cfg.edition, SEL['getMarketState()'], cfg.timeout)
       ]).then(function (r) {
         var st = decode(r[0], r[1], r[2]);
-        return st || attempt();
+        if (!st) return attempt();
+        return readTier(rpc).then(function (t) { st.tier = t; return st; });
       }).catch(function () { return attempt(); });
     }
 
@@ -231,7 +262,10 @@
    */
   function derive(state, o) {
     var cfg = cfgOf(o), C = cfg.conv || CONV;
-    var d = { live: false, burn: 0, price: 0.5, depth: 0.5, orderOk: null };
+    var d = { live: false, burn: 0, price: 0.5, depth: 0.5, hold: 0, orderOk: null };
+    /* ⚑ HOLD SURVIVES A DEAD MARKET READ. The tier comes off a different contract, so a card
+     *   whose edition is unreachable can still know who holds it. Set before the early return. */
+    if (state && typeof state.tier === 'number') d.hold = clamp01(state.tier / 4);
     if (!state || !state.live) return d;
     d.live = true; d.orderOk = state.orderOk;
 
