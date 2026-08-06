@@ -11,7 +11,8 @@
  *   node scripts/lens-cli.mjs tiers   --at 0x… [--edition 0x…] [--set a,b,c,d] [--of 0x…] [--card N]
  *
  *   node scripts/lens-cli.mjs sink        --at 0x…            (read-only, NO KEY)
- *   node scripts/lens-cli.mjs deploy-sink [--token 0x…] [--treasury 0x…]
+ *   node scripts/lens-cli.mjs deploy-sink [--token 0x…] [--treasury 0x…] [--force]
+ *   node scripts/lens-cli.mjs sink-check  [--token 0x…]      (read-only, NO KEY — preflight)
  *
  * ⚑ AND THE TIER SYSTEM HAD THE SAME HOLE, FOUND 2026-08-05. Staking is BUILT and tested
  *   (98/98) — `tierOfHolder` reads the holder's $3030 and `tokenURI` prints it — but the ABI
@@ -419,6 +420,41 @@ async function sink() {
   console.log('  that ONE edit is what turns the 50/50 split on across the whole site.');
 }
 
+/* ⛔ CAN THIS TOKEN ACTUALLY BURN? If it cannot, PackSink is bricked the moment it is deployed —
+ *   every `buyPack` reverts inside `_split`, and the contract is `immutable`, so the only remedy
+ *   is a redeploy. Nothing checked this before; "has bytecode" says a contract is there, not that
+ *   it is a burnable ERC-20.
+ * ⚑ THE DISCRIMINATOR IS THE REVERT *DATA*, AND IT WAS TESTED BEFORE IT WAS TRUSTED. Simulating
+ *   `burn(1e18)` from an address holding nothing reverts either way, so "it reverted" proves
+ *   nothing — but a function that EXISTS reverts through its own logic and returns decodable
+ *   error data, while an ABSENT one falls off the dispatch table and returns EMPTY data.
+ *   Measured on Sepolia: the edition gives `0xe450d38c…` (OZ v5 ERC20InsufficientBalance, i.e. it
+ *   ran), the render contract gives nothing at all.
+ * ⚠ AND AN EOA IS THE TRAP THIS HAS TO SURVIVE: `eth_call` to an address with no code always
+ *   SUCCEEDS and returns `0x`, so a naive "did it revert" test scores a wallet as a perfect token.
+ *   The bytecode check above is what closes that, which is why both live here together.
+ * ⚠ `burn(0)` is useless as a probe — this edition rejects zero, and so does the control. */
+async function canBurn(token) {
+  const probe = '0x000000000000000000000000000000000000dEaD';
+  try {
+    await pub.call({ account: probe, to: token,
+      data: '0x42966c68' + (10n ** 18n).toString(16).padStart(64, '0') });
+    return { ok: true, how: 'burn() returned without reverting' };
+  } catch (e) {
+    /* ⚠ WALK THE CAUSE CHAIN, DO NOT GUESS A DEPTH. viem wraps the raw revert in
+     *   CallExecutionError → ExecutionRevertedError → RpcRequestError, and the data only appears
+     *   on the THIRD. My first version read `e.cause.data`, found undefined, and reported the live
+     *   edition's burn as missing — an alarming wrong answer where the whole point is to be right
+     *   about an immutable argument. A fixed path through somebody else's error shape is the
+     *   hand-picked-list failure again; the shape is "somewhere in the chain there is hex". */
+    let hex = '';
+    for (let c = e, i = 0; c && i < 8 && !hex; c = c.cause, i++)
+      hex = (/^0x[0-9a-fA-F]{8,}$/.exec(String(c.data ?? '')) || [])[0] || '';
+    if (hex) return { ok: true, how: `burn() ran and reverted with data ${hex.slice(0, 10)}… (it exists)` };
+    return { ok: false, how: 'burn() reverted with NO data — the function is not there' };
+  }
+}
+
 async function deploySink() {
   const token = val('token') || (CFG.contracts || {}).liquidEdition || die('--token required');
   const treasury = val('treasury') || CFG.treasury || die('--treasury required');
@@ -428,6 +464,31 @@ async function deploySink() {
   if (!/^0x[0-9a-fA-F]{40}$/.test(treasury)) die('treasury is not an address: ' + treasury);
   const tCode = await pub.getBytecode({ address: token });
   if (!tCode || tCode === '0x') die(`token ${token} has NO BYTECODE — that is a wallet, not the edition`);
+
+  /* ⛔ AND BOTH ARGUMENTS ARE CROSS-CHECKED AGAINST chain-config, WHICH IS THE ONLY PLACE EITHER
+   *   ONE IS PINNED. `npm run test:name` asserts chain-config.treasury IS the cold wallet, is NOT
+   *   the Sepolia deployer and is NOT the hot deploy wallet — four assertions, each proved to
+   *   bite. All of that protection evaporates the moment somebody types `--treasury` here, because
+   *   until now the flag was checked for SHAPE and nothing else, and a wrong-but-well-formed
+   *   address is exactly the failure that has no symptom until the studio's revenue is gone.
+   * ⚑ An override stays possible — it has to, or a second sink could never be deployed — but it
+   *   must be DELIBERATE. `--force` is the difference between choosing and mistyping. */
+  const wantTok = ((CFG.contracts || {}).liquidEdition || '').toLowerCase();
+  const wantTre = (CFG.treasury || '').toLowerCase();
+  const forced = argv.includes('--force');
+  const drift = [];
+  if (wantTok && token.toLowerCase() !== wantTok) drift.push(`token    ${token}\n         chain-config says ${wantTok}`);
+  if (wantTre && treasury.toLowerCase() !== wantTre) drift.push(`treasury ${treasury}\n         chain-config says ${wantTre}`);
+  if (drift.length && !forced) {
+    console.error('\n⛔ CONSTRUCTOR ARGUMENT DISAGREES WITH js/chain-config.js — and it is `immutable`:\n');
+    drift.forEach(d => console.error('  ' + d + '\n'));
+    die('re-run with --force if this is deliberate, or fix chain-config first');
+  }
+  if (drift.length) console.log('⚠ --force: deploying against addresses chain-config does not name\n');
+
+  const burn = await canBurn(token);
+  console.log(`burnable ${burn.ok ? '✓' : '⛔'} ${burn.how}`);
+  if (!burn.ok) die('PackSink calls token.burn() inside _split — every buyPack would revert forever');
 
   const { account, client } = wallet();
   const bal = await pub.getBalance({ address: account.address });
@@ -447,7 +508,49 @@ async function deploySink() {
   }
 }
 
-const CMDS = { verify, deploy, wire, cards, voucher, claim, tiers, sink, 'deploy-sink': deploySink };
+/* ⚑ EVERY REASON TO ABORT A DEPLOY, KNOWABLE WITH NO KEY AND NO GAS — the same move
+ *   `npm run preflight` makes for the edition. Both constructor arguments are `immutable`, so the
+ *   cheap half of this deploy is the half worth doing twice; there is no "fix it after". */
+async function sinkCheck() {
+  const token = val('token') || (CFG.contracts || {}).liquidEdition || die('--token required');
+  const treasury = val('treasury') || CFG.treasury || die('--treasury required');
+  console.log(`chain    ${CHAIN.name} (${CHAIN.id})\ntoken    ${token}\ntreasury ${treasury}\n`);
+
+  let bad = 0;
+  const chk = (c, m, d) => { if (!c) bad++; console.log(`  ${c ? 'ok  ' : '⛔  '} ${m}${d ? '  — ' + d : ''}`); };
+
+  chk(/^0x[0-9a-fA-F]{40}$/.test(token), 'token is a well-formed address');
+  chk(/^0x[0-9a-fA-F]{40}$/.test(treasury), 'treasury is a well-formed address');
+  const code = await pub.getBytecode({ address: token });
+  chk(!!code && code !== '0x', 'token has bytecode (it is a contract, not a wallet)');
+  /* ⚠ The treasury is asserted to have NO code, which is the opposite test and deliberate: it is
+   *   a hardware EOA (cold, signs nothing), and an EOA has the same address on every chain — which
+   *   is what lets ONE wallet serve mainnet packs and the Base arcade fee. */
+  const tre = await pub.getBytecode({ address: treasury });
+  chk(!tre || tre === '0x', 'treasury is an EOA, as designed (cold wallet, receives only)');
+  chk(treasury.toLowerCase() === String(CFG.treasury || '').toLowerCase(),
+    'treasury is the one chain-config pins', CFG.treasury || 'chain-config has none');
+  chk(token.toLowerCase() === String((CFG.contracts || {}).liquidEdition || '').toLowerCase(),
+    'token is the edition chain-config names', (CFG.contracts || {}).liquidEdition || 'none');
+
+  const burn = await canBurn(token);
+  chk(burn.ok, 'token really exposes burn(uint256) — PackSink calls it inside _split', burn.how);
+  /* A burn that only MOVES tokens is not a burn. SuperRare's gate 3 is "true supply-reducing", so
+   * read the supply here — it is one call, and it is the number the whole deflation claim rests on. */
+  try {
+    const ts = await pub.readContract({ address: token,
+      abi: parseAbi(['function totalSupply() view returns (uint256)']), functionName: 'totalSupply' });
+    console.log(`\n  totalSupply now ${formatEther(ts)} — a real burn must make this FALL`);
+  } catch {}
+
+  console.log(bad
+    ? `\n⛔ ${bad} problem(s). Both constructor args are immutable — do not deploy.\n`
+    : `\n✓ clear to deploy:  node scripts/lens-cli.mjs deploy-sink\n`);
+  process.exit(bad ? 1 : 0);
+}
+
+const CMDS = { verify, deploy, wire, cards, voucher, claim, tiers, sink,
+  'deploy-sink': deploySink, 'sink-check': sinkCheck };
 if (!CMDS[cmd]) {
   console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('*/')[0].replace(/^#!.*\n/, ''));
   process.exit(cmd ? 1 : 0);
