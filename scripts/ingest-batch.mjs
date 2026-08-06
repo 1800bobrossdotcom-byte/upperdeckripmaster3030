@@ -236,7 +236,9 @@ function buildGallery() {
         <a class="hot" href="deck.html">✦ THE HUNDRED · the real deck</a>
         <a href="binder.html">▤ the folder</a>
         <a href="binder.html#hero-34">✎ the artist's cards</a>
-        <a href="proof.html">⚙ the forge</a>
+        <!-- ⛔ NO FORGE DOOR — artist, 2026-08-06: the plate-proof console is his alone. It is in
+             `.vercelignore` now, so this link would have been a 404 as well as an invitation.
+             ⚠ Removed from the GENERATOR and the output in the same pass, on purpose. -->
       </div>
       <!-- ⛔ KEEP THIS IN STEP WITH cards/index.html. This generator emits that page, so a nav
            fixed only in the output is a nav this script re-breaks the next time it runs — the

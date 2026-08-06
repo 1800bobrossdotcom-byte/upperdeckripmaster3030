@@ -15,11 +15,18 @@
          cards/deck-manifest.json the hundred, as baked sheets (what this page shows)
          cards/manifest.json      the ink. Not cards. Do not present it as cards.
 
-  ⚑ A CARD HERE IS A LINK TO ITS OWN PRESS RUN. The thumbnail is a real sheet pulled off the
-     press by `npm run deck:bake`; clicking it opens `proof.html?<q>`, which re-prints that exact
-     card live from its recipe. That is the same path the artist uses to load a saved card, and
-     `npm run test:deck` boots all 100 through it — so the picture and the link can never drift
-     apart into "the thumbnail looks right and the card is gone".
+  ⚑ A CARD HERE OPENS ITS OWN PRESS RUN. The thumbnail is a real sheet pulled off the press by
+     `npm run deck:bake`; clicking it opens the STARFIELD VIEWER (`js/card-starfield.js`) — the
+     same viewer the folder and the pack rip use — and prints that exact card live from its
+     recipe in `deck.json`. So the picture and the card can never drift apart into "the thumbnail
+     looks right and the card is gone".
+  ⛔ IT USED TO OPEN `proof.html?<q>` — THE FORGE — and the artist reported that on 2026-08-06 as
+     *"the wrong viewer."* He was right twice over: it handed every visitor the authoring console
+     with its five-screen control rail, and that page is no longer deployed at all (it is in
+     `.vercelignore`, because *"no one should have access to the plate proof console except me"*).
+     ⚠ `npm run test:deck` still boots all 100 through `proof.html?<q>` LOCALLY, which is correct
+       — it is testing that every recipe prints, and the forge is where a recipe is authored.
+       What changed is what a VISITOR gets, not what the recipe is.
 
   ⚠ FAILS OPEN. No manifest, no images, no JS ⇒ the page says the deck is being printed rather
      than showing an empty grid. Nothing here can make the site worse by being absent.
@@ -27,8 +34,16 @@
 <link rel="icon" href="../media/site/mark-32.png">
 <link rel="stylesheet" href="../mobile.css">
 <script src="../gate.js"></script>
-<script src="../js/theme.js" defer></script>
-<script src="../js/sfx.js" defer></script>
+<!-- ⛔ `../theme.js` AND `../sfx.js`, NOT `../js/…` — BOTH LIVE AT THE REPO ROOT. This page asked
+     for them under `js/` and had been getting TWO 404s: no site music and no SFX on the deck,
+     silently, since the file was written. Every other page gets it right (`cards/index.html`,
+     `cards/binder.html`, `index.html` all load `../theme.js`).
+     ⚑ Found by DRIVING the page and reading the server's 404 log, not by any check that exists —
+       `test:theme` asserts the page carries a theme.js TAG, and it does. A text match cannot see
+       a request that 404s, which is the same gap that hid the whole card surface being a week
+       stale behind a Cache-Control header, and `section9-theme.mp3` pointing at nothing. -->
+<script src="../theme.js" defer></script>
+<script src="../sfx.js" defer></script>
 <style>
   *{box-sizing:border-box;margin:0}
   body{font-family:'Courier New',ui-monospace,monospace;background:#120a1e;color:#f6ecc9;
@@ -62,10 +77,16 @@
   .bandnote{text-align:center;font-size:var(--t-small,13px);color:#3a2f10;margin:-4px 0 14px;
     max-width:66ch;margin-inline:auto;line-height:1.5}
   .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+  /* ⚠ A TILE IS A <button> NOW (it opens the viewer, it does not navigate), so the four
+     properties a UA sets on buttons and not on anchors have to be said out loud: the font does
+     NOT inherit, text centres, and the width collapses to the content. Without `width:100%` the
+     grid cell keeps its track and the tile shrinks inside it — a hundred small cards floating in
+     a hundred correct boxes, which reads as a broken layout rather than a missing reset. */
   .tile{position:relative;display:flex;flex-direction:column;border-radius:10px;
     background:#f6ecc9;border:3px solid #000;text-decoration:none;color:#111;padding:5%;
     box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);
-    transition:transform .12s ease,box-shadow .12s ease;min-height:44px}
+    transition:transform .12s ease,box-shadow .12s ease;min-height:44px;
+    font:inherit;text-align:left;width:100%;cursor:pointer;-webkit-appearance:none;appearance:none}
   .tile:hover,.tile:focus{transform:translateY(-3px) scale(1.03);
     box-shadow:0 16px 34px rgba(0,0,0,.55);z-index:3;outline:none}
   .tile-art{position:relative;aspect-ratio:2/3;border:2px solid #000;border-radius:5px;
@@ -92,7 +113,8 @@
     <nav class="decknav">
       <a class="hot" href="./">◆ the pack</a>
       <a href="binder.html">▤ the folder</a>
-      <a href="proof.html">⚙ the forge</a>
+      <!-- ⛔ NO FORGE DOOR — artist, 2026-08-06. The plate-proof console is his alone and is in
+           `.vercelignore`, so this was a 404 as well as an invitation. -->
       <a href="../arcade.html">▶ the arcade</a>
     </nav>
   </header>
@@ -103,6 +125,22 @@
 <p class="foot">Each thumbnail is a real sheet. The card you open is re-printed live from its
   recipe, so it is the same card here, in the folder and in a token's media slot.<br>
   <strong>NFA</strong> — an experimental art token; it can go to zero.</p>
+
+<!-- ⚑ THE VIEWER, AND IT IS THE SAME ONE THE FOLDER USES. `gfx-post` is here only for
+     `dprCap`/`deviceTier` — the supersampling floor that decides whether a card at this size
+     aliases into speckle; `card-back` gives the card a real back to turn over onto; `card-recipe`
+     is what makes one of the HUNDRED printable at all (a deck card is a recipe, not a picture).
+     ⚠ Loaded normally rather than injected on first click, unlike the landing page: this IS the
+       deck, so anybody here came to look at cards, and paying the fetch at click time would put
+       a stall exactly on the gesture. The landing page pays it lazily because a visitor there has
+       not asked for a card yet. -->
+<script src="../js/gfx-post.js"></script>
+<script src="../js/hero-card.js"></script>
+<script src="../js/card-back.js"></script>
+<script src="../js/card-press.js"></script>
+<script src="../js/card-recipe.js"></script>
+<script src="../js/card-view.js"></script>
+<script src="../js/card-starfield.js"></script>
 
 <script>
 /* Read the deck, draw the deck. ⚠ Fails open at every step: a missing manifest, a missing image
@@ -132,12 +170,19 @@
       .catch(function () { return null; })
       .then(function (recipes) { draw(cards, recipes); });
   }).catch(function () {
-    host.innerHTML = '<p class="empty">The deck is being printed. ' +
-      '<a href="proof.html" style="color:#111">Watch the press ↗</a></p>';
+    /* ⚠ NO LINK OUT OF THE FAILURE. It used to offer "Watch the press ↗" into the forge — a
+     *   console the public may not have, and a page that is no longer deployed. A dead end that
+     *   says what happened beats a door that 404s. */
+    host.innerHTML = '<p class="empty">The deck is being printed — check back shortly.</p>';
   });
 
   function draw(cards, recipes) {
     host.textContent = '';
+    /* ⚑ THE WHOLE DECK IS THE SET YOU OPEN INTO, IN THE ORDER IT IS DRAWN. Opening card 7 and
+     * then pressing ▶ should walk the hundred, not dead-end on one card — the folder's viewer
+     * has always worked that way and this is the same viewer. Built as the tiles are built, so
+     * the arrows can never disagree with the grid. */
+    var SET = [];
     BAND.forEach(function (b) {
       var mine = cards.filter(function (c) { return c.band === b.key; })
         .sort(function (a, z) { return a.id - z.id; });
@@ -155,14 +200,42 @@
 
       var g = document.createElement('div'); g.className = 'grid';
       mine.forEach(function (c) {
-        /* ⚑ THE LINK IS THE CARD'S OWN RECIPE. Opening a tile re-prints that exact card on the
-         * live press — the same URL the forge's "load it back" uses, and the one test:deck
-         * drives for all 100. */
+        /* ⛔ A TILE OPENS THE STARFIELD VIEWER — IT NO LONGER OPENS THE FORGE.
+         * Artist, 2026-08-06: *"all the cards when clicking go to the wrong viewer they go to
+         * the proof page"*, then *"the right viewer when clicked is the viewer used in the
+         * folder viewer."* Every tile used to be an anchor to `proof.html?<recipe>`, i.e. the
+         * ⚠ (written without the attribute spelled out: `test:reach`'s `navigatorsOf` reads
+         *   `href=` out of the raw source, so a comment that quotes one reads as a live door and
+         *   fails the assertion that nothing links the forge.)
+         * plate-proof CONSOLE with its five-screen control rail — the artist's authoring tool,
+         * handed to every visitor as the way to look at a card. It is not deployed any more
+         * (`.vercelignore`), so that href is a 404 as well as the wrong page.
+         * ⚑ THE RECIPE IS STILL THE THING THAT OPENS, WHICH IS THE PROPERTY WORTH KEEPING. This
+         *   page's own header promises "the picture and the link can never drift apart"; the
+         *   viewer prints from `deck.json`'s recipe, not from the thumbnail, so that survives —
+         *   only the surface it prints INTO changed. `js/card-recipe.js` explains why the bake
+         *   cannot be pressed as if it were a source picture.
+         * ⚠ A BUTTON, NOT AN ANCHOR. There is no URL to go to, and an `<a href="#">` that opens
+         *   a dialog is a link that lies to the middle-click, the status bar and the screen
+         *   reader. The tile keeps its whole hit area and its 44px floor. */
         var q = recipes && recipes.cards && recipes.cards[String(c.id)] &&
                 recipes.cards[String(c.id)].q;
-        var a = document.createElement('a');
+        var a = document.createElement(q ? 'button' : 'a');
         a.className = 'tile';
-        a.href = q ? ('proof.html?' + q) : 'proof.html';
+        if (q) {
+          a.type = 'button';
+          a.dataset.i = String(SET.length);
+          SET.push({ recipe: q, title: c.title || ('CARD ' + c.id),
+                     meta: '№ ' + c.id + ' of 100 · ' + String(c.rarity || '').toUpperCase() +
+                           ' · ' + (c.band === 'hero' ? 'hero 1/1' : 'field lens') });
+        }
+        else {
+          /* ⚠ NO RECIPE, NO VIEWER — and it says so by going nowhere rather than opening an
+           *   empty press. `deck.json` is optional here (the tiles draw from deck-manifest), so
+           *   this is the real fail-open path, not a hypothetical one. */
+          a.href = '#'; a.setAttribute('aria-disabled', 'true');
+          a.addEventListener('click', function (e) { e.preventDefault(); });
+        }
         a.setAttribute('aria-label', 'card ' + c.id + (c.title ? ' — ' + c.title : ''));
 
         var art = document.createElement('div'); art.className = 'tile-art';
@@ -190,6 +263,18 @@
         g.appendChild(a);
       });
       host.appendChild(g);
+    });
+
+    /* ⚠ ONE DELEGATED HANDLER, ATTACHED AFTER THE GRID EXISTS. A hundred listeners to do one
+     *   thing is a hundred things to remove; and `SET` is closed over here, so the handler
+     *   cannot outlive the grid it describes.
+     * ⚠ FAILS OPEN: no viewer module (blocked script, no WebGL2 further down) ⇒ the press is
+     *   simply never opened and the deck is the gallery it already was. Nothing is taken away
+     *   from the page by the viewer being absent. */
+    host.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('.tile[data-i]') : null;
+      if (!t || !window.CardStarfield) return;
+      CardStarfield.open({ items: SET, index: +t.dataset.i || 0, base: '' });
     });
   }
 })();
