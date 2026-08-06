@@ -479,6 +479,10 @@ const ORPHAN_OK = {
    *   nothing: claimHero verifies an EIP-712 signature from claimSigner, so a stranger opening
    *   this page can produce vouchers only the contract will reject. */
   'mint-heroes.html': 'an operator tool — unlinked; ships until the heroes are minted, then .vercelignore\u0027d',
+  /* ⚠ Ships until the two wiring transactions land, same as the other operator consoles, and
+   *   leaves the same way. It sends no bytecode and grants nothing: both calls are onlyOwner and
+   *   both were verified to revert for a stranger before this shipped. */
+  'wire-lens.html': 'an operator tool — unlinked; ships until the lens is registered, then .vercelignore\u0027d',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
   /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
    * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
