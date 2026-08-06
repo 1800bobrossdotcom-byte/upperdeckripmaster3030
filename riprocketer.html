@@ -40,7 +40,15 @@
   the simulation half (the climb, the emplacements, the new enemy types) is in js/rrpc-game.js.
 
   CONTROLS  ◀ ▶ ▲ ▼ fly · SPC fire (autofire is on) · SHIFT/K/Z defence roll · Q/E or a genuine
-            double-tap of ◀ / ▶ dash · B burn · P pause. Touch: floating stick, FIRE, ROLL, BURN.
+            double-tap of ◀ / ▶ dash · B burn · P pause.
+
+  ⛔ THE TOUCH SCHEME IS GESTURES NOW (artist, 2026-08-06). The FIRE pad is deleted — it duplicated
+  a default that was already on — and the dash, which had NO touch binding at all despite being
+  half of the FLOW/OVERDRIVE loop this game is built around, is a double-tap on either side of the
+  screen. Hold that second tap and the same gesture becomes a DRAWN PATH: the ship flies to your
+  fingertip at ~1.9× top speed along the line you draw. ROLL and BURN keep their pads and the
+  reasons are written next to them. Full argument: the block above the input in js/rrpc-app.js.
+            Touch: drag to fly · double-tap a side to dash · hold it to draw · ROLL · BURN.
 
   Query params
     ?q=low|mid|high  force a quality tier      ?post=0     engine post stack off
@@ -122,20 +130,35 @@
   .pad{ position:fixed; z-index:6; display:none; border-radius:50%; pointer-events:auto; user-select:none; -webkit-user-select:none; touch-action:none;
     align-items:center; justify-content:center; font-family:var(--fat); font-size:11px; letter-spacing:.05em; color:#031; }
   .pad.on{ filter:brightness(1.35); transform:scale(.94); }
-  .pad.fire{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px + var(--urm-banner, 0px)); width:92px; height:92px;
-    background:radial-gradient(circle at 40% 34%,#ffd7c7,#ff6b57 60%,#c0281a); border:2px solid #5c0a12; box-shadow:0 0 22px rgba(255,90,60,.55); color:#fff; }
+  /* ⛔ THE FIRE PAD IS GONE (artist, 2026-08-06: "take the gun button off and have it always
+     shooting"). Autofire has been the default since this build shipped and the rate limiter lives
+     in the simulation, so a 92px button in the best corner of the screen existed only to duplicate
+     the default state. ROLL inherits that corner and its size — it is now the primary thumb
+     control, which is what it always should have been: the start screen calls it "the answer to
+     everything". `⌁ auto` is removed from the toggle row on a coarse pointer in the same breath;
+     with no manual trigger left, switching autofire off would silently disarm the player. */
   .pad.bomb{ right:calc(var(--bez) + 28px); bottom:calc(var(--bez) + 122px + var(--urm-banner, 0px)); width:66px; height:66px;
     background:radial-gradient(circle at 40% 34%,#ffc7f4,#ff2ad9 60%,#7a0a5c); border:2px solid #4a0636; box-shadow:0 0 18px rgba(255,42,217,.5); color:#fff; }
-  /* ROLL gets its own pad rather than a gesture: a defensive move you have to discover is a
-     defensive move nobody uses. Left of FIRE so it falls under the same thumb. */
-  .pad.roll{ right:calc(var(--bez) + 112px); bottom:calc(var(--bez) + 22px + var(--urm-banner, 0px)); width:72px; height:72px;
-    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0b5a66); border:2px solid #063f47; box-shadow:0 0 20px rgba(39,247,228,.5); color:#022; }
+  /* ROLL keeps its pad rather than becoming a gesture, and it is the one control that did: a
+     defensive move you have to discover is a defensive move nobody uses, and the only tap-shaped
+     gesture left is the FIRST HALF of the double tap — binding it there would fire a roll before
+     every dash and `doDash` refuses while a roll is live. See the note in js/rrpc-app.js. */
+  .pad.roll{ right:calc(var(--bez) + 14px); bottom:calc(var(--bez) + 16px + var(--urm-banner, 0px)); width:92px; height:92px;
+    background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 60%,#0b5a66); border:2px solid #063f47; box-shadow:0 0 22px rgba(39,247,228,.55); color:#022; }
   .stickui{ position:fixed; z-index:6; display:none; pointer-events:none; border-radius:50%; }
   #stickBase{ width:120px; height:120px; margin:-60px 0 0 -60px; border:2px solid rgba(39,247,228,.55);
     background:radial-gradient(circle, rgba(39,247,228,.10), rgba(39,247,228,.03) 68%, transparent);
     box-shadow:0 0 24px rgba(39,247,228,.25), inset 0 0 18px rgba(39,247,228,.18); }
   #stickNub{ width:52px; height:52px; margin:-26px 0 0 -26px; background:radial-gradient(circle at 40% 34%,#d8fffb,#27f7e4 62%,#0e5a68);
     border:1px solid #0a4a44; box-shadow:0 0 16px rgba(39,247,228,.6); }
+  /* THE DRAWN PATH's cursor. Magenta, because it is the one hue the stick is not — the two modes
+     have to be distinguishable at a glance while a thumb is sitting on top of both of them. */
+  #drawRing{ width:76px; height:76px; margin:-38px 0 0 -38px; border:2px solid rgba(255,42,217,.75);
+    background:radial-gradient(circle, rgba(255,42,217,.16), transparent 66%);
+    box-shadow:0 0 26px rgba(255,42,217,.5), inset 0 0 16px rgba(255,42,217,.28);
+    animation:drawPulse .9s ease-in-out infinite; }
+  @keyframes drawPulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.12); opacity:1; } }
+  @media (prefers-reduced-motion:reduce){ #drawRing{ animation:none; } }
   @media (hover:none){ .pad{ display:flex; } }
   .toggles{ position:fixed; z-index:6; top:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; }
   .tg{ pointer-events:auto; cursor:pointer; font-family:var(--fat); font-size:10px; letter-spacing:.06em; text-transform:uppercase;
@@ -229,8 +252,8 @@
   </div>
   <div class="pad bomb" id="tBomb">BURN</div>
   <div class="pad roll" id="tRoll">ROLL</div>
-  <div class="pad fire" id="tFire">FIRE</div>
   <div class="stickui" id="stickBase"></div><div class="stickui" id="stickNub"></div>
+  <div class="stickui" id="drawRing"></div>
   <div class="controls" id="controls" style="display:none">
     <span class="key desk"><kbd>◀</kbd><kbd>▶</kbd><kbd>▲</kbd><kbd>▼</kbd> fly</span>
     <span class="key desk"><kbd>SHIFT</kbd> roll</span>
@@ -238,7 +261,7 @@
     <span class="key desk"><kbd>SPC</kbd> fire</span>
     <span class="key desk"><kbd>B</kbd> burn</span>
     <span class="key desk"><kbd>P</kbd> pause</span>
-    <span class="key touch">stick · ROLL · hold FIRE · BURN</span>
+    <span class="key touch">drag to fly · <b>double-tap a side</b> to dash · <b>hold it</b> to draw a path</span>
   </div>
 
   <div class="ov show" id="ovStart">
@@ -248,7 +271,8 @@
       <div class="sub">A formation of <b>trading cards</b> flies in, locks up, and starts breaking off to dive at you. It never stops. Shoot the ones coming for you — they're worth <b>three times</b> the ones sitting still.</div>
       <div class="rules">
         <div><b>THE ROLL.</b> <i>SHIFT</i> barrel-rolls. You are <i>invulnerable</i> through it and the shock deletes every bullet near you. It is the answer to everything — learn it first.</div>
-        <div><b>THE DASH.</b> Double-tap <i>◀ ◀</i> / <i>▶ ▶</i> (or <i>Q</i> / <i>E</i>). Chain a dash into a roll into a dash and you build <i>FLOW</i> — three links lights <i>OVERDRIVE</i>: faster guns, harder hits, more speed. Moving well <i>is</i> shooting well.</div>
+        <div><b>THE DASH.</b> Double-tap <i>◀ ◀</i> / <i>▶ ▶</i> (or <i>Q</i> / <i>E</i>) — <b>on a phone, double-tap either side of the screen</b>. Chain a dash into a roll into a dash and you build <i>FLOW</i> — three links lights <i>OVERDRIVE</i>: faster guns, harder hits, more speed. Moving well <i>is</i> shooting well.</div>
+        <div><b>DRAW A PATH.</b> Touch only. Double-tap and <i>keep your finger down</i> — the ship stops being steered and starts being <i>led</i>, flying to your fingertip at nearly twice top speed along whatever line you draw. Lift off and you have the stick back. It is faster than anything else you have; it also puts your own finger on top of the ship.</div>
         <div><b>SHIELDS.</b> <i>◈◈◈</i>. A hit costs a pip, not a rig, and pips come back if you stay clean. Only a hit with no pips left takes a life.</div>
         <div><b>THE CHAIN.</b> Every hit raises it, every missed shot halves it. Up to <i>×6</i>. Hosing the screen is the losing strategy.</div>
         <div><b>THE RIP.</b> The magenta one opens a beam and steals your ship. Kill it <i>while it's diving</i> and you get the ship back alongside you — <i>DOUBLE RIG</i>, twice the guns. Kill it parked and your ship dies with it.</div>
@@ -261,7 +285,10 @@
         <span class="key desk"><kbd>SHIFT</kbd> defence roll</span>
         <span class="key desk"><kbd>◀◀</kbd><kbd>▶▶</kbd> / <kbd>Q</kbd><kbd>E</kbd> dash</span>
         <span class="key desk"><kbd>SPC</kbd> fire</span>
-        <span class="key touch">left thumb: stick · ROLL · hold FIRE</span>
+        <span class="key touch">drag anywhere to fly · always shooting</span>
+        <span class="key touch">double-tap left / right to dash</span>
+        <span class="key touch">…and hold to draw a fast path</span>
+        <span class="key touch">ROLL · BURN under your thumb</span>
       </div>
       <!-- ⛔ "LAUNCH" IS DELIBERATELY NOT IN THE PAID BUTTON'S LABEL, and it is not a style choice.
            `scripts/debug-games.mjs` drives every game by clicking the first button matching

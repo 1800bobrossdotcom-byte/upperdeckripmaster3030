@@ -431,7 +431,7 @@
   // ── input ───────────────────────────────────────────────────────────────────────────────────
   const keys = Object.create(null);
   const input = { left: false, right: false, up: false, down: false, fire: false, stick: false, sx: 0, sy: 0,
-    dash: false, dashDir: 0, roll: false, rollDir: 0 };
+    dash: false, dashDir: 0, roll: false, rollDir: 0, draw: false, dx: 0, dy: 0 };
   /* ── THE TWO NEW VERBS, EDGE-TRIGGERED ──────────────────────────────────────────────────────
    * ⚑ They MUST be edges, not held states, and the reason is the fixed 1/120 s tick: `RRGame.step`
    *   burns up to 16 sub-ticks against the SAME input object, so a held flag would fire the move
@@ -484,16 +484,144 @@
   });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-  let touchFire = false, dragging = false;
+  /* ══ ⛔ THE TOUCH SCHEME: ONE FINGER FLIES, THE TAPS ARE THE VERBS ══════════════════════════════
+   * Artist, 2026-08-06: *"double tap on either side to go fast side to side. take the gun button
+   * off and have it always shooting. take off unnessary buttons. let finger draw fast paths with
+   * double tap. lets get wild cool on mobile controls for this game."*
+   *
+   * ⛔ THE DASH DID NOT EXIST ON A PHONE AT ALL, AND IT IS HALF THE GAME. rrpc-game.js's SHIP
+   *   block answers a brief that asked for "fast combos for movement" with DASH → ROLL → FLOW →
+   *   OVERDRIVE, and the start screen tells the player that *"moving well is shooting well"*. On
+   *   a keyboard the dash is double-tap ◀◀/▶▶ or Q/E. On touch there was **no input bound to it
+   *   in any form** — so the FLOW chain needed two verbs and a thumb could reach one, and
+   *   OVERDRIVE (the whole reward loop) was unreachable on the device most people open this on.
+   *   Nothing errored and nothing looked wrong; the mode was simply absent. That is this repo's
+   *   own `built ≠ reachable`, and the same shape as THE CITY having no touch input at all.
+   *
+   * ⚑ SO THE DOUBLE TAP IS THE WHOLE VOCABULARY, AND IT IS *ONE* THING TO LEARN: **double-tap =
+   *   go fast.** Let go and it is a DASH burst toward the half of the screen you tapped; keep the
+   *   second tap down and the same gesture becomes a DRAWN PATH — the ship leaves the stick behind
+   *   and flies to wherever your fingertip is, at ~1.9× top speed, tracing whatever line you draw.
+   *   Two verbs, one gesture, because they are the same idea at two durations. A player who never
+   *   discovers the hold still gets the dash the artist asked for by name.
+   * ⚑ AND THE DASH FIRES ON THE SECOND *PRESS*, NOT THE SECOND RELEASE. Waiting for the release
+   *   would put the tap-vs-hold decision in front of the most time-critical move in the game —
+   *   up to TAP_T of latency on a dodge. Pressing is unambiguous: the gesture is already a double
+   *   tap by then, and whether the finger lifts only decides if a drawn path follows it.
+   *
+   * ⚠ A TAP IS A PRESS THAT NEITHER TRAVELLED NOR LINGERED, and it needs BOTH halves. Steering is
+   *   a continuous drag on this same glass: with only a time limit, every quick flick of the stick
+   *   ends in a "tap" and the ship dashes whenever you steer briskly; with only a distance limit,
+   *   parking your thumb still and lifting it does the same. This is the keyboard's own recorded
+   *   lesson (`DTAP`/`TAP_MAX` above: *"a double-tap test of two presses inside 260 ms is too
+   *   loose"*) restated for a surface where the held-and-dragging case is the DEFAULT, not the
+   *   exception.
+   * ⚠ The first tap of a pair still spawns the stick for its ~150 ms, and that is harmless BY
+   *   CONSTRUCTION rather than by luck: a tap mid-glass is zero deflection, and a tap inside the
+   *   edge margin deflects toward that edge — which is the same direction as the dash that tap is
+   *   about to produce. The nudge can only ever agree with the gesture.
+   */
+  let dragging = false;
+  /* ⛔ THE FIRE PAD IS GONE AND `⌁ auto` GOES WITH IT ON A THUMB. Autofire has always defaulted on
+   *   and the rate limiter lives in the simulation, so the pad was a 92 px button whose entire job
+   *   was to duplicate the default — while eating the bottom-right corner and one of two thumbs.
+   * ⚠ But the TOGGLE cannot survive its button: with FIRE removed, switching autofire off on a
+   *   phone leaves a ship with no way to shoot at all and no way to find out why. A control that
+   *   can silently disarm the player is worse than no control (theme.js's rule, other way up), so
+   *   on a coarse pointer it is not offered and `toggleAuto` refuses. */
+  const COARSE = (() => { try { return matchMedia('(hover:none)').matches; } catch (e) { return false; } })();
+  const TAP_T = 0.20, TAP_SLOP = 18, DTAP_T = 0.30, DTAP_R = 120;
+  /* ⚠ THE MOMENT THE FINGER TOUCHED, NOT THE MOMENT THE HANDLER RAN. `performance.now()` read
+   * inside a pointer handler is when the main thread got round to the event, and this cabinet is
+   * a full 3D frame with a post stack on it — a hitch pushes that reading late by however long
+   * the frame took. Both ends of a 300 ms window then carry a frame of jitter, which makes the
+   * dash HARDER TO TRIGGER THE MORE THERE IS ON SCREEN: precisely the moments it exists for, and
+   * a defect that would only ever show up on a busy wave on a slow phone, i.e. nowhere anyone
+   * looks. `e.timeStamp` shares performance.now()'s time origin, so it is the same clock read at
+   * the right instant. (The KEYBOARD double-tap above still reads the handler clock; same
+   * argument applies, but changing desktop timing is not this pass.) */
+  const evT = e => (e.timeStamp > 0 ? e.timeStamp * 0.001 : performance.now() * 0.001);
+  const ptrs = new Map();
+  const lastTap = { t: -9, x: 0, y: 0 };
   const stick = { id: null, cx: 0, cy: 0, x: 0, y: 0 };
-  const sB = $('stickBase'), sN = $('stickNub');
+  const draw = { id: null, x: 0, y: 0, px: 0, py: 0, t: 0 };
+  const sB = $('stickBase'), sN = $('stickNub'), dR = $('drawRing');
+  let dashes = 0, draws = 0;                       // for __rrpc._touch(), i.e. so a probe can see
+                                                   // the gesture fire rather than infer it
   function stickShow(x, y) { sB.style.display = 'block'; sN.style.display = 'block';
     sB.style.left = x + 'px'; sB.style.top = y + 'px'; sN.style.left = x + 'px'; sN.style.top = y + 'px'; }
   function stickHide() { sB.style.display = 'none'; sN.style.display = 'none'; stick.id = null; stick.x = 0; stick.y = 0; }
+
+  /* ── ⛔ SCREEN → FIELD, THROUGH THE NOMINAL CAMERA AND NEVER THE LIVE ONE ────────────────────
+   * The live camera drifts with the ship (`drift = ship.x * 0.055`), shakes, and punches its fov
+   * during a dash. Reading the drawn target off it would close a loop — ship moves ⇒ camera
+   * drifts ⇒ the fingertip maps somewhere else ⇒ ship moves — with a positive gain and the
+   * player's finger held still. So the projection is the CABINET's, computed from CAM's own
+   * constants: exact for a perspective camera (fov is vertical here), stable by definition, and
+   * it agrees with the recorded framing — CAM.y ± tan(21°)·11.4 is the y ∈ [−4.53, +4.23] band
+   * written down in rrpc-game.js's F block.
+   * ⚠ `Math.max(…, F.X)` is the portrait guard. At 844×390 the visible half-width is 9.5 units
+   *   against a 6.3-unit field, so the map is direct and your finger is literally on the ship. At
+   *   390×844 it is 2.0 — two thirds of the field would be unreachable — so there it stretches to
+   *   the field instead of lying about being direct. (js/orient.js veils portrait on this page,
+   *   so that branch is a belt, not the design.) */
+  function fieldAt(px, py) {
+    const r = ov.getBoundingClientRect();
+    const w = Math.max(1, r.width), h = Math.max(1, r.height);
+    const hy = Math.tan(CAM.fov * 0.5 * Math.PI / 180) * CAM.z;
+    return { x: (((px - r.left) / w) * 2 - 1) * Math.max(hy * (w / h), F.X),
+             y: CAM.y + (1 - ((py - r.top) / h) * 2) * hy };
+  }
+  /* THE INK. The path the finger draws is drawn, in the field, as a ribbon the ship then flies
+   * along — the one piece of this that is purely "wild cool" and it is also the only feedback
+   * that says the mode is on while your fingertip is covering the ship. Presentation only; it
+   * lives here beside the input that produces it and the renderer just consumes the buffer. */
+  const PATH_N = 26, path = [];
+  for (let i = 0; i < PATH_N; i++) path.push({ x: 0, y: 0, t: -9 });
+  let pathI = 0;
+  function pushPath(x, y, t) {
+    const p = path[pathI = (pathI + 1) % PATH_N];
+    if (Math.abs(p.x - x) + Math.abs(p.y - y) < 0.02 && t - p.t < 0.5) { pathI = (pathI + PATH_N - 1) % PATH_N; return; }
+    p.x = x; p.y = y; p.t = t;
+  }
+  function drawStart(e, now) {
+    if (draw.id !== null) return;
+    draw.id = e.pointerId; draw.t = now; draws++;
+    /* ⚠ the stick is DIMMED, not hidden. Hiding it means `stickHide()` drops `stick.id`, and the
+     * other thumb — which may well still be down and steering — would be ignored for the rest of
+     * its press. Priority belongs in readInput, where it is one line, not in the teardown. */
+    sB.style.opacity = sN.style.opacity = '.22';
+    if (dR) dR.style.display = 'block';
+    drawMove(e, now);
+  }
+  function drawMove(e, now) {
+    const p = fieldAt(e.clientX, e.clientY);
+    draw.x = p.x; draw.y = p.y; draw.px = e.clientX; draw.py = e.clientY;
+    if (dR) { dR.style.left = e.clientX + 'px'; dR.style.top = e.clientY + 'px'; }
+    pushPath(p.x, p.y, now);
+  }
+  function drawEnd() {
+    draw.id = null;
+    sB.style.opacity = sN.style.opacity = '1';
+    if (dR) dR.style.display = 'none';
+  }
+
   ov.style.pointerEvents = 'auto';
   ov.addEventListener('pointerdown', e => {
     if (e.pointerType === 'mouse') { dragging = true; mouseSteer(e); return; }
     e.preventDefault();
+    const now = evT(e);
+    ptrs.set(e.pointerId, { t: now, x: e.clientX, y: e.clientY, moved: 0 });
+    if (now - lastTap.t < DTAP_T && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < DTAP_R) {
+      /* ── THE DOUBLE TAP. Direction is the half of the screen it landed in, which is the artist's
+       * words exactly — "either side" — and it is the only mapping that works with either thumb
+       * and with the ship anywhere on the field. */
+      lastTap.t = -9;
+      wantDash(e.clientX < innerWidth * 0.5 ? -1 : 1);
+      dashes++;
+      drawStart(e, now);
+      return;
+    }
     /* ⛔ THE ANCHOR IS INSET FROM THE EDGES, AND THAT IS THE HALF THAT ACTUALLY FIXED IT.
      *   Measured: a thumb landing 20 px from the left edge and dragging to the edge reached
      *   **sx −0.29** — 29% of top speed — against −1.00 for the same drag mid-screen. The
@@ -502,7 +630,7 @@
      *   edge means the full 56 px of travel always physically exists.
      * ⚠ A touch inside that margin therefore starts already deflected — which is right, not a
      *   side effect: you put your thumb on the far left of the screen, you are asking to go left. */
-    if (stick.id === null) {
+    if (stick.id === null && draw.id === null) {
       const R = 56;
       const cx = clamp(e.clientX, R, innerWidth - R), cy = clamp(e.clientY, R, innerHeight - R);
       stick.id = e.pointerId; stick.cx = cx; stick.cy = cy;
@@ -512,7 +640,6 @@
       sN.style.left = (cx + dx) + 'px'; sN.style.top = (cy + dy) + 'px';
     }
   });
-  ov.addEventListener('pointermove', e => { if (dragging && e.pointerType === 'mouse') mouseSteer(e); });
   /* ── ⛔ THE ANCHOR FOLLOWS, SO FULL SPEED IS ALWAYS REACHABLE ─────────────────────────────
    * Artist, 2026-08-05: *"on mobile we cannot move fast like we can on desktop."*
    *
@@ -532,7 +659,14 @@
    * ⚠ It must NOT re-centre when you come back inside the rim, or the stick would follow you home
    *   and neutral would move every time you eased off. Only the saturating case moves it. */
   addEventListener('pointermove', e => {
-    if (e.pointerType === 'mouse' || e.pointerId !== stick.id) return;
+    if (e.pointerType === 'mouse') { if (dragging) mouseSteer(e); return; }
+    const now = evT(e);
+    /* how far this press has travelled from where it landed — half of what makes a tap a tap.
+     * MAX, not current distance: a flick out and back is a drag, not a press that stayed put. */
+    const p = ptrs.get(e.pointerId);
+    if (p) p.moved = Math.max(p.moved, Math.hypot(e.clientX - p.x, e.clientY - p.y));
+    if (e.pointerId === draw.id) { drawMove(e, now); return; }
+    if (e.pointerId !== stick.id) return;
     const R = 56, dz = 10;
     let dx = e.clientX - stick.cx, dy = e.clientY - stick.cy;
     const m = Math.hypot(dx, dy);
@@ -546,7 +680,18 @@
     stick.x = m < dz ? 0 : clamp(dx / R, -1, 1); stick.y = m < dz ? 0 : clamp(dy / R, -1, 1);
     sN.style.left = (stick.cx + dx) + 'px'; sN.style.top = (stick.cy + dy) + 'px';
   });
-  function ptrEnd(e) { if (e.pointerType === 'mouse') { dragging = false; return; } if (e.pointerId === stick.id) stickHide(); }
+  function ptrEnd(e) {
+    if (e.pointerType === 'mouse') { dragging = false; return; }
+    const p = ptrs.get(e.pointerId); ptrs.delete(e.pointerId);
+    if (p) {
+      const now = evT(e);
+      const tap = now - p.t < TAP_T && p.moved < TAP_SLOP;
+      lastTap.t = tap ? now : -9;              // a drag CLEARS the window rather than merely
+      lastTap.x = p.x; lastTap.y = p.y;        // failing to open one — see the TAP note above
+    }
+    if (e.pointerId === draw.id) drawEnd();
+    if (e.pointerId === stick.id) stickHide();
+  }
   addEventListener('pointerup', ptrEnd); addEventListener('pointercancel', ptrEnd);
   /* Mouse steer is ABSOLUTE and it is why the handedness note above matters in practice: the x of
    * the cursor maps straight to the x of the ship with no sign flip anywhere. If that ever needs a
@@ -558,23 +703,37 @@
     el.addEventListener('pointerdown', e => { e.preventDefault(); el.classList.add('on'); dn(); });
     ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { el.classList.remove('on'); up(); }));
   }
-  bindPad($('tFire'), () => { touchFire = true; }, () => { touchFire = false; });
   bindPad($('tBomb'), () => { useBomb(); }, () => {});
-  /* ROLL on touch. The stick already owns the left thumb and FIRE the right, so the roll gets its
-   * own pad rather than a gesture — a defensive move you have to discover is a defensive move
-   * nobody uses. Direction comes from wherever the stick is pushed. */
-  bindPad($('tRoll'), () => { pend.roll = 1; pend.rollDir = stick.x > 0.25 ? 1 : stick.x < -0.25 ? -1 : 0; }, () => {});
+  /* ⚑ ROLL KEEPS ITS PAD, AND IT IS THE ONE JUDGEMENT CALL IN THE "TAKE OFF UNNECESSARY BUTTONS"
+   *   PASS. Every other control here became a gesture or went away; this one did not, for two
+   *   reasons. (a) It is the game's answer to everything — the start screen says *"learn it
+   *   first"* — and a defensive move you have to discover is a defensive move nobody uses. (b)
+   *   The only tap-shaped gesture left is a SINGLE tap, and a single tap is the first half of the
+   *   double tap: binding the roll to it would fire a roll before every dash, and `doDash` refuses
+   *   while `rollT > 0`, so the dash the artist asked for by name would be eaten by the gesture
+   *   meant to sit beside it. Deferring the roll until the double-tap window closed would put
+   *   300 ms of latency on the one move that has to beat a bullet.
+   * Direction comes from wherever the stick — or the drawn path — is pushed. */
+  bindPad($('tRoll'), () => {
+    const px = draw.id !== null ? clamp((draw.x - G.ship.x) * 0.6, -1, 1) : stick.x;
+    pend.roll = 1; pend.rollDir = px > 0.25 ? 1 : px < -0.25 ? -1 : 0;
+  }, () => {});
 
   function readInput() {
     input.left = !!(keys.ArrowLeft || keys.a); input.right = !!(keys.ArrowRight || keys.d);
     input.up = !!(keys.ArrowUp || keys.w); input.down = !!(keys.ArrowDown || keys.s);
     /* AUTOFIRE. Galaga is a hold-to-fire game and the rate limiter is in the simulation; making
-     * the player mash for it just converts a pacing decision into a wrist injury. Space/click/pad
-     * all hold, and the default is ON — you are always shooting unless you say otherwise. */
-    input.fire = AUTOFIRE || !!keys[' '] || touchFire || dragging;
-    if (stick.id !== null) { input.stick = true; input.sx = stick.x; input.sy = stick.y; }
-    else if (mouseX !== null && dragging) { input.stick = true; input.sx = clamp((mouseX - G.ship.x) * 0.5, -1, 1); input.sy = 0; }
-    else input.stick = false;
+     * the player mash for it just converts a pacing decision into a wrist injury. Space/click all
+     * hold, and the default is ON — you are always shooting unless you say otherwise, and on a
+     * thumb you cannot say otherwise at all (the FIRE pad and the `⌁ auto` toggle are both gone). */
+    input.fire = AUTOFIRE || !!keys[' '] || dragging;
+    /* THE DRAWN PATH OUTRANKS THE STICK, and it has to be a priority rather than a teardown: the
+     * other thumb may still be holding the stick down, and it must get its steering back intact
+     * the instant the drawing finger lifts. */
+    if (draw.id !== null) { input.draw = true; input.dx = draw.x; input.dy = draw.y; input.stick = false; }
+    else if (stick.id !== null) { input.draw = false; input.stick = true; input.sx = stick.x; input.sy = stick.y; }
+    else if (mouseX !== null && dragging) { input.draw = false; input.stick = true; input.sx = clamp((mouseX - G.ship.x) * 0.5, -1, 1); input.sy = 0; }
+    else { input.draw = false; input.stick = false; }
     // consume the pending edges exactly once per frame — see the note on wantDash/wantRoll
     input.dash = !!pend.dash; input.dashDir = pend.dashDir;
     input.roll = !!pend.roll; input.rollDir = pend.rollDir;
@@ -1350,9 +1509,35 @@
   for (let i = 0; i < TRAIL_N; i++) trail.push({ x: 0, y: 0, on: 0 });
   function pushTrail(s) {
     const hot = (s.dash > 0 ? 1 : 0) + (s.rollT > 0 ? 0.9 : 0) + (s.od > 0 ? 0.55 : 0)
+      + (s.drawT > 0 ? 1 : 0)
       + clamp((Math.abs(s.vx) - 6) / 12, 0, 0.7);
     const p = trail[trailI = (trailI + 1) % TRAIL_N];
     p.x = s.x; p.y = s.y; p.on = clamp(hot, 0, 1);
+  }
+  /* ── THE DRAWN PATH, AS INK ──────────────────────────────────────────────────────────────────
+   * The line your finger is making, in the field, ahead of the ship that is flying it. It is the
+   * only feedback the drawn-path mode gets — during it your own fingertip is sitting on top of
+   * the ship, which is the mode's honest cost (see SHIP.DRAW_* in rrpc-game.js) — so without this
+   * the screen says nothing at all about why the ship suddenly moves differently.
+   * ⚠ It fades on WALL-CLOCK age, not on buffer position: a finger held still emits no new points
+   * (pushPath collapses them), so an index-based fade would leave a permanent bright dot. */
+  function drawPath(t) {
+    if (G.ship.drawT <= 0) return;
+    for (let i = 1; i < PATH_N; i++) {
+      const a = path[(pathI + i) % PATH_N], b = path[(pathI + i + 1) % PATH_N];
+      const age = t - Math.max(a.t, b.t);
+      if (a.t < 0 || b.t < 0 || age > 0.55) continue;
+      const k = 1 - age / 0.55;
+      const c = fx.hsl(292 + k * 46, 1, 0.62);
+      fx.ribbon(fx.A, fx.C_DOT, a.x, a.y, 0, b.x, b.y, 0, 0.05 + k * 0.09,
+        c[0], c[1], c[2], (k * k * 170) | 0);
+    }
+    // the head of the line: where the ship is being led, so the leash reads as a destination
+    const h = path[pathI];
+    if (h.t >= 0 && t - h.t < 0.55) {
+      const c = fx.hsl(300, 1, 0.7);
+      fx.billboard(fx.A, fx.C_RING, h.x, h.y, 0, 0.42 + 0.08 * Math.sin(t * 14), c[0], c[1], c[2], 150);
+    }
   }
   function drawTrail(s) {
     for (let i = 1; i < TRAIL_N; i++) {
@@ -1372,7 +1557,7 @@
     const rigs = s.dual ? [[craft, -0.62], [craft2, 0.62]] : [[craft, 0]];
     craft2.enabled = !!s.dual && s.alive;
     craft.enabled = s.alive;
-    if (s.alive) { pushTrail(s); drawTrail(s); }
+    if (s.alive) { pushTrail(s); drawTrail(s); drawPath(t); }
     if (!s.alive) {
       // the captive, parked in the ripper's slot: your ship, held, visibly waiting to be fetched
       if (G.captive && G.ripper) {
@@ -1668,10 +1853,14 @@
     else if (G.mode === 'pause') { G.mode = 'play'; $('tgPause').textContent = '⏸ pause'; }
   }
   function toggleSfx() { sfxOn = !sfxOn; $('tgSfx').classList.toggle('off', !sfxOn); }
-  function toggleAuto() { AUTOFIRE = !AUTOFIRE; $('tgAuto').classList.toggle('off', !AUTOFIRE); }
+  /* ⚠ THE ONE CONTROL THAT CAN DISARM YOU. With the FIRE pad gone there is no manual trigger on a
+   * thumb, so switching autofire off there leaves a ship that cannot shoot and no way to work out
+   * why. It is removed from the row rather than left as a trap — and refused here as well, because
+   * the row is also reachable by keyboard. */
+  function toggleAuto() { if (COARSE) return; AUTOFIRE = !AUTOFIRE; $('tgAuto').classList.toggle('off', !AUTOFIRE); }
   if ($('tgPause')) $('tgPause').onclick = togglePause;
   if ($('tgSfx')) $('tgSfx').onclick = toggleSfx;
-  if ($('tgAuto')) $('tgAuto').onclick = toggleAuto;
+  if ($('tgAuto')) { $('tgAuto').onclick = toggleAuto; if (COARSE) $('tgAuto').remove(); }
 
   app.start();
 
@@ -1693,6 +1882,31 @@
     counts: () => fx.counts(),
     fps: () => { const s = fpsWin.slice().sort((a, b) => a - b); return { med: s[s.length >> 1], mean: fpsWin.reduce((x, y) => x + y, 0) / (fpsWin.length || 1), n: fpsWin.length }; },
     start: staked => startGame(staked),
+    /* ⚑ THE GESTURE STATE, READ BACK. `test:reach` can prove the handlers EXIST and CLAUDE.md's
+     * own record is that this is not the same question — THE CITY registered every pointer
+     * handler while the controls were unusable, and the ledge bug had `test:reach` green while
+     * the squirrel could not move. A gesture recogniser is exactly that shape: it either fired or
+     * it did not, and only a driven probe can tell. `dashes`/`draws` count the gesture, not the
+     * simulation, so a probe can tell "the double tap was not recognised" from "it was recognised
+     * and the sim refused it on cooldown" — two different bugs that look identical from outside. */
+    _touch: () => ({ dashes, draws, drawing: draw.id !== null, stick: stick.id !== null,
+      dx: +draw.x.toFixed(2), dy: +draw.y.toFixed(2), autofire: AUTOFIRE, coarse: COARSE,
+      pads: ['tRoll', 'tBomb', 'tFire'].map(id => id + ':' + (document.getElementById(id) ? 'y' : 'n')).join(' ') }),
+    _field: (x, y) => fieldAt(x, y),
+    /* ⚠ THE CLOCK A PROBE CAN TRUST, and it is `__city._step`'s twin for the same recorded
+     * reason: this container stalls rAF (6-8 real frames in 10.5 s measured), so a wall-clock
+     * drive of a gesture reports a ship that never moved and reads as a dead control. Load the
+     * page with `?hold=1` first — that stops the rAF path stepping the simulation, so this is the
+     * ONLY clock and a measurement is repeatable rather than a race with the container. */
+    _step(n, dt) {
+      const h = dt || 1 / 120;
+      for (let i = 0; i < (n || 1); i++) { readInput(); RRGame.step(G, h, input); }
+      const s = G.ship;
+      return { x: +s.x.toFixed(3), y: +s.y.toFixed(3), vx: +s.vx.toFixed(3), vy: +s.vy.toFixed(3),
+        dash: +s.dash.toFixed(3), rollT: +s.rollT.toFixed(3), drawT: +s.drawT.toFixed(3),
+        flow: s.flow, od: +s.od.toFixed(2), dashes: G.stat.dashes, rolls: G.stat.rolls,
+        bolts: G.bullets.filter(b => b.live).length, shots: G.shots, held: !!HOLD };
+    },
     /* ⚑ THE HANDEDNESS CHECK. Three known world points through the live camera. This is the test
      * that Section 9's port did not have, and CLAUDE.md records that its absence cost three
      * separate bug reports for one defect. Run it first if input ever disagrees with the picture. */
