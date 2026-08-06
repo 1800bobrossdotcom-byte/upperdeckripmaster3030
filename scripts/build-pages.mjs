@@ -443,29 +443,37 @@ const whitepaper = `
   <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
   emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
 
-  <h3 id="titles">The eleven earned titles</h3>
+  <h3 id="titles">The eleven earned cards, across nine titles</h3>
   <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
   <b>named feat in a named cabinet</b> — printed here in full, because a prize nobody can aim at is a
   lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
-  closed.</b> One owner, forever.</p>
+  closed.</b> One owner each — except <b>THE STREAK</b>, which has <b>three seats</b>, so the first
+  three pilots to do it each take their own 1/1. Nine titles, eleven cards.</p>
   <!-- A LIST, NOT A TABLE. The shell's th,td are white-space:nowrap, so a sentence per row would
        force the whole thing into a sideways scroll on a phone — the exact shape the mobile pass
-       just spent a day removing. Long prose belongs in a list; tables are for numbers. -->
+       just spent a day removing. Long prose belongs in a list; tables are for numbers.
+       ⚠ THE COUNTING NOUN IS LOAD-BEARING: eleven CARDS across nine TITLES. Saying "eleven
+       titles" over a list of nine is a small untruth on the page buyers read. See
+       docs/HERO-UNLOCKS.md §4¾ — and note NEON RONIN's two titles went with the cabinet the
+       artist retired on 2026-08-03, replaced by THE CITY's two. -->
   <ul>
     <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
     <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
+    <!-- ⛔ NINE TITLES, ELEVEN CARDS. Two passes on 2026-08-06 each spent the same 11-card
+         earned budget — three seats on THE STREAK plus two THE CITY titles from one, five
+         points/combo cards from the other — and together they wanted 16. The set below is the
+         resolution that keeps 11 auction + 11 gacha + 11 earned = 33 intact, so no aggregate
+         on this page moves. ⚠ DOGFIGHT owns no title as a result; that is a regression on this
+         file's own "every cabinet owns one" rule and is recorded, with three ways to reverse it,
+         in docs/HERO-UNLOCKS.md §4. Do not quietly re-add a title here — it breaks the 33. -->
     <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is roughly <b>wave 38</b>.</li>
     <li><b>ABOVE THE WEATHER</b> · <i>Rip Rocketer</i> — post a run of <b>5,000,000 points</b>, about <b>wave 75</b>.</li>
     <li><b>ESCAPE VELOCITY</b> · <i>Rip Rocketer</i> — post a run of <b>10,000,000 points</b>, about <b>wave 121</b>. Held open to a stated date if nobody takes it.</li>
     <li><b>NEVER STILL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier without the FLOW chain ever lapsing</b>, and without dying.</li>
     <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
-    <!-- ⚠ #7 was CLEAN SWEEP (every light-strip, every lap) until 2026-08-06; the artist replaced
-         the condition. The ×3 he set alongside it is NOT printed here on purpose — it would make
-         "eleven earned" on this same page false. See docs/HERO-UNLOCKS.md §4¾, unresolved. -->
     <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
-    <li><b>THREE CUTS</b> · <i>Neon Ronin</i> — win a duel where <b>every landed hit was part of a combo</b>.</li>
-    <li><b>HOUSE MONEY</b> · <i>The Arena</i> — take first on the podium <b>three times running</b>, never folding.</li>
-    <li><b>THE LONG COUNT</b> · <i>any five cabinets</i> — hold a <b>first-place finish in five different games</b>.</li>
+    <li><b>DEAD AIR</b> · <i>The City</i> — as the bird, cover <b>300 m in one unbroken glide</b> — no wingbeat — <b>never more than 40 m above the ground</b>. The glide is 8.2 : 1, so 40 m buys you 328 m and not a metre more.</li>
+    <li><b>BOTH ENDS</b> · <i>The City</i> — <b>plant a card from the air as the bird, then take that same card back as the squirrel</b>, in one visit.</li>
   </ul>
   <p><b>Nothing on that list can be bought.</b> No title is unlocked by holding more $3030, ripping more
   packs, or burning more of anything — every one is a thing you did with your hands. That is

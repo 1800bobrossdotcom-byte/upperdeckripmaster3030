@@ -73,28 +73,53 @@ the best submission) and is noted per-title below where it fits.
 an honest position for a card-and-game studio handing out its own titles; it would be a dishonest
 one if it were dressed up as an oracle. State it plainly on the page.
 
-## 4 · THE ELEVEN — *for the artist to strike, rename or re-rank*
+## 4 · THE NINE TITLES / ELEVEN CARDS — *for the artist to strike, rename or re-rank*
 
 ⚠ Names are in the studio's voice and are the easiest thing to change. The **conditions** are the
 part that took the thought; the **numbers** are the part to argue about.
 
 | # | Title | Game | The condition | Why it is hard |
 |---|---|---|---|---|
-| 1 | **THE WIRE** | DOGFIGHT | Pass **every boost gate on the map** in a single match without taking a hit. | The gates are placed apart on purpose and high gates (alt ≥ 5) are left in deliberately. Flying the whole route means never straightening up, and the energy model taxes every climb — you are spending the speed you need to dodge with. |
+| 1 | **GHOST WALK** | SECTION 9 | Take a round on **any baked level** (ARCADE PIT · THE VAULT · ROOFTOP) **without ever being the first to fire**. | The bots bake cover from `MAP.solids` and score positions by whether line-of-sight to your eye is blocked. Letting them shoot first means winning every fight from behind their own plan. |
 | 2 | **TWO MILLION FEET** | RIP ROCKETER | Post a run of **2,000,000 points**. | ⚑ Measured off the shipping `KIND` table and `waveSpec`, not guessed. A full clear of the whole facility — TIER I to TIER IV, all sixteen waves — scores about **688,876** at strong play. Two million is **wave 38**: you beat the building and then survived twenty-two waves of what comes after it. |
 | 3 | **ABOVE THE WEATHER** | RIP ROCKETER | Post a run of **5,000,000 points**. | **Wave 75** at strong play, **wave 43** if you play the perfect ceiling (every kill on a diver, ×6 chain, 100% accuracy). Past TIER IV the wave table stops escalating and simply keeps coming — 40 craft a wave, forever. This is the one that stops being about the fight and starts being about attention. |
-| 4 | **GHOST WALK** | SECTION 9 | Take a round on **any baked level** (ARCADE PIT · THE VAULT · ROOFTOP) **without ever being the first to fire**. | The bots bake cover from `MAP.solids` and score positions by whether line-of-sight to your eye is blocked. Letting them shoot first means winning every fight from behind their own plan. |
-| 5 | **ESCAPE VELOCITY** | RIP ROCKETER | Post a run of **10,000,000 points**. | **Wave 121** at strong play, **wave 76** at the ceiling. ⚠ Stated plainly because it should be: this is hours in a single sitting and it may go unclaimed for a long time. It is the set's **uncontested variant** — if nobody takes it, the studio states a date and awards it to the highest verified run rather than leaving a card dead forever. |
-| 6 | **NEVER STILL** | RIP ROCKETER | Clear **one whole TIER — four waves — without the FLOW chain ever lapsing**, and without dying. | FLOW decays `FLOW_WIN` 1.15 s after the last dash or roll, and a dash comes off cooldown every 0.47 s, so holding it means a movement input at least every second for **23–30 seconds** (measured tier length) while a wave dives at you. ⛔ **Dying breaks the chain** — the decay only runs while you are alive, so without that rule a bot died three times and still 'held' it. Measured: a tireless flow-chaser holds it indefinitely while alive, and the first death is what ends the attempt. |
+| 4 | **ESCAPE VELOCITY** | RIP ROCKETER | Post a run of **10,000,000 points**. | **Wave 121** at strong play, **wave 76** at the ceiling. ⚠ Stated plainly because it should be: this is hours in a single sitting and it may go unclaimed for a long time. It is the set's **uncontested variant** — if nobody takes it, the studio states a date and awards it to the highest verified run rather than leaving a card dead forever. |
+| 5 | **NEVER STILL** | RIP ROCKETER | Clear **one whole TIER — four waves — without the FLOW chain ever lapsing**, and without dying. | FLOW decays `FLOW_WIN` 1.15 s after the last dash or roll, and a dash comes off cooldown every 0.47 s, so holding it means a movement input at least every second for **23–30 seconds** (measured tier length) while a wave dives at you. ⛔ **Dying breaks the chain** — the decay only runs while you are alive, so without that rule a bot died three times and still 'held' it. Measured: a tireless flow-chaser holds it indefinitely while alive, and the first death is what ends the attempt. |
+| 6 | **COLD BARREL** | RIP ROCKETER | Clear **one whole TIER having fired only while OVERDRIVE was lit.** | ⚑ OVERDRIVE runs 4.2 s on a 10.2 s cycle — a hard **41.2% ceiling**, measured live at 41.9% — so this gives up nearly six-tenths of your firing window while the formation keeps diving. Cost, measured: firing only in overdrive reached **wave 6 against wave 13** for the same bot firing freely, and scored 21,525 against 111,095. ⚠ It keys on the SHOT, not the kill: a ram or a rip kills something outside the window, which measured out at 99% and would have made a 'every kill' version defeated by an accident the player never chose. A silent gun is also the thing a judge can actually see on a capture. |
 | 7 | **THE STREAK** ⚑×3 | CLOUD RACER | **Win 33 races in a row.** 6 pilots · 3 laps or longer, practice or for keeps. Finish anywhere but first — or leave a race once the lights have gone green — and the count returns to zero. **Three seats**, so the first three pilots to do it each take a 1/1. | Artist's rule, 2026-08-06. ⚠ It is a test of **concentration**, not of pace, and §4½ below measures exactly how much of each. Live in the game: `js/cr-streak.js`, `npm run test:crstreak` (47). |
-| 8 | **THREE CUTS** | NEON RONIN | Win a duel where **every landed hit was part of a combo** (TEMPEST, CREST WAVE or DRAGON KICK). | The combos are recent-attack strings — slash·slash·slash, punch·kick·slash, punch·kick. Landing only combo hits means never throwing the panic button, against an opponent whose blocks reset your sequence. |
-| 9 | **COLD BARREL** | RIP ROCKETER | Clear **one whole TIER having fired only while OVERDRIVE was lit.** | ⚑ OVERDRIVE runs 4.2 s on a 10.2 s cycle — a hard **41.2% ceiling**, measured live at 41.9% — so this gives up nearly six-tenths of your firing window while the formation keeps diving. Cost, measured: firing only in overdrive reached **wave 6 against wave 13** for the same bot firing freely, and scored 21,525 against 111,095. ⚠ It keys on the SHOT, not the kill: a ram or a rip kills something outside the window, which measured out at 99% and would have made a 'every kill' version defeated by an accident the player never chose. A silent gun is also the thing a judge can actually see on a capture. |
-| 10 | **HOUSE MONEY** | THE ARENA | Take **first place on the podium three times running** without folding once. | 1st/2nd/3rd pays 50/30/20 and folding is always available. Three in a row without taking the exit is a run where you were never allowed to be careful. |
-| 11 | **THE LONG COUNT** | *cross-game* | Hold a **first-place finish in five different cabinets** — five of the eight, your choice which. | The only title that cannot be won by being excellent at one thing. It is the studio's own shape: a card and game studio, not a game studio with cards. **Best candidate for the uncontested variant** — state a date, award it to the broadest verified run. |
+| 8 | **DEAD AIR** | THE CITY | As the bird, cover **300 m in one unbroken glide** — not a single wingbeat — and **never more than 40 m above the ground beneath you**. | ⚑ Measured on the shipping build. The glide ratio is a flat **8.2 : 1** at every altitude, so 40 m of height is **328 m** of glide and no more: 300 m spends 91% of the physical maximum. You cannot climb out of trouble and you cannot go over anything — and **2 of 5 straight lines from random city points hit a building** (190 m and 311 m against 327 m in the clear). So it is won by READING THE CITY before you commit, which is the one thing the bird is for. |
+| 9 | **BOTH ENDS** | THE CITY | In one unbroken visit: **plant a card from the air as the bird, then take that same card back as the squirrel.** | ⚑ The only title that makes you play two animals. `docs/CITY-GAME.md`'s claim is that the animals are **layers, not skins** — the bird sees everything and cannot place precisely, the squirrel owns the vertical and cannot cover ground. This is that claim as a condition: you drop it where you can only guess, then you have to go and physically get it, on foot, up whatever it landed on. ⚠ Rival squirrels take loose cards, so the clock is somebody else's. |
 
-**Coverage:** DOGFIGHT ×1 · SECTION 9 ×1 · **RIP ROCKETER ×5** · CLOUD RACER ×1 · NEON RONIN ×1 ·
-THE ARENA ×1 · cross-game ×1. Every cabinet still owns at least one.
-⚠ Eleven **titles**, thirteen **cards** — see §4¾, which is unresolved.
+⛔ **THE TWO PASSES OVER-SUBSCRIBED THE SAME BUDGET, AND THE ARITHMETIC IS WHY THIS LIST SHRANK.**
+The earned tier is **11 CARDS**, because `11 auction + 11 gacha + 11 earned = 33` and the 33 is
+settled. Two independent passes on 2026-08-06 each spent that budget: one gave THE STREAK three
+seats and named two new THE CITY titles; the other turned five cards into the points ladder and
+the two RIP ROCKETER combo titles. Together they wanted 16 cards for an 11-card tier.
+
+**Coverage — 9 titles, 11 cards, and the arithmetic closes:** RIP ROCKETER ×5 · CLOUD RACER ×1
+**with three seats** · THE CITY ×2 · SECTION 9 ×1 = **11 earned heroes**, so
+`11 auction + 11 gacha + 11 earned` = **33** is untouched and **no aggregate on any public page
+moves**.
+
+⛔ **THE COST, STATED LOUDLY BECAUSE IT IS A REGRESSION AND IT IS THE ARTIST'S TO REVERSE:
+DOGFIGHT NOW OWNS NO TITLE.** The principle this file has carried until today — *every cabinet
+with a scoreboard owns at least one* — no longer holds. It is the direct price of the artist's
+own two directives (five cards to points/combos, three seats on THE STREAK) meeting a fixed 11.
+Retired to pay for it: THE WIRE and DEAD STICK (DOGFIGHT), ONE MAG (SECTION 9), OPEN AIR and THE
+FACILITY IS CLOSED (RIP ROCKETER), THREE CUTS and NO SWORD (NEON RONIN, a retired cabinet),
+HOUSE MONEY (THE ARENA) and THE LONG COUNT (cross-game). **All nine are good conditions and are
+kept in §4¾'s drawer, not deleted.**
+
+⚠ **Three ways to give DOGFIGHT its card back, with the exact cost of each — pick one:**
+1. **Drop the 5,000,000 rung.** The ladder becomes 2M → 10M, RIP ROCKETER ×4, and THE WIRE comes
+   back. Cheapest fix; costs the middle rung, which is the least distinct of the three.
+2. **Drop a seat from THE STREAK.** Two seats instead of three frees one card and brings THE WIRE
+   back with every cabinet covered. Costs the artist's own ×3.
+3. **Leave it.** DOGFIGHT is covered by the compression into THE CITY anyway — its mode lives
+   there — so the cabinet without a title is arguably not a cabinet without a presence.
+
+RIP ROCKETER ×2 · THE CITY ×2 · CLOUD RACER ×1 **with three seats** = **11 earned heroes**, so
+`11 auction + 11 gacha + 11 earned` = **33** is untouched. §4¾ records how it got here.
 
 ## 4½ · THE STREAK, measured — and it is not the shape it looks like
 
@@ -215,33 +240,44 @@ the eleven while reading like one of the hardest. **A condition that merely soun
 than no condition** — it hands out a 1/1 for nothing and teaches players the bar is decoration.
 Every number in this table should be checked against the game the way that one was.
 
-## 4¾ · ⛔ UNRESOLVED: THREE SEATS ON #7 MAKES 35 HEROES, NOT 33
+## 4¾ · ✅ RESOLVED — option A, and the artist's redistribution is what paid for it
 
-**The ×3 collides with a settled number and something has to give. This is the artist's call and
-nothing has been published either way.**
+*Artist, 2026-08-06: **"push the updates for the extra cards … disperse the remaining cards that
+are not in cloud race or riprocketer — and create ways for the players to redeem them in dog
+fight, section 9, or the city."** That settles both halves at once.*
 
-Eleven titles at one card each is eleven earned heroes, and `11 auction + 11 gacha + 11 earned`
-is the 2026-08-01 directive that makes the genesis set **33**. Give #7 three seats and the earned
-tier is **13 cards**, so the set is **35** — and 33 is not a slogan, it is the deck: `tokenURI`
-ids 1–33 are the heroes, 34–100 the render-only field cards.
+Three seats on #7 makes the earned tier **13 cards** against a settled **11**, and 33 is not a
+slogan — it is the deck (`tokenURI` ids 1–33 are the heroes, 34–100 the render-only field cards).
+The instruction above resolves it by naming exactly three homes for everything that is not CLOUD
+RACER's or RIP ROCKETER's, and **six cards is precisely what fits**:
 
-Three ways out, in the order they cost least:
-
-| | split | what it costs |
+| game | titles | cards |
 | --- | --- | --- |
-| **A** | 11 auction · 11 gacha · **11 earned (9 titles, one ×3)** | Strike **two** titles. Nothing else moves, 33 holds. THE LONG COUNT (#11) is already flagged in §4 as the softest, and #7 replaced CLEAN SWEEP. **Which two go is authorship.** |
-| **B** | 11 auction · **9 gacha** · **13 earned (11 titles, one ×3)** | Keep every title. Changes the gacha count, which he settled and did not ask to reopen. |
-| **C** | leave 33, drop the ×3 | Discards half the directive. Recorded only for completeness. |
+| CLOUD RACER | THE STREAK | **3** (three seats) |
+| RIP ROCKETER | OPEN AIR · THE FACILITY IS CLOSED | 2 |
+| DOGFIGHT | THE WIRE · DEAD STICK | 2 |
+| SECTION 9 | ONE MAG · GHOST WALK | 2 |
+| THE CITY | DEAD AIR · BOTH ENDS | 2 |
+| | **9 titles** | **11 cards** ✅ |
 
-⛔ **What has NOT been done, deliberately.** No public page states the ×3 and no aggregate count
-has been touched — `index.html`, `whitepaper.html`, `tokenomics.html`, the PDF, the one-pager and
-the SuperRare brief all still read **"11 earned"**, which is true under A and false under B. The
-condition change *is* published, because it stands on its own and the old one was superseded. A
-page that says "eleven earned" beside "one of them is available three times" is publishing a
-contradiction, and that is worse than publishing late.
+⚑ **So no aggregate on any public page changes.** "11 earned" was true before and is true now;
+what changed is that eleven cards are awarded across nine titles instead of eleven. That is the
+whole reason option A was worth holding out for — option B would have moved the gacha count on
+six generated surfaces and in the token model.
 
-⚠ The game itself already says **three**, on the Cloud Racer result screen only. That surface
-states no split, so it cannot be wrong about one.
+⛔ **FOUR TITLES WERE STRUCK, AND ONLY TWO OF THOSE WERE A JUDGEMENT CALL.**
+- **THREE CUTS** and **NO SWORD** were NEON RONIN's, and ⚑ **NEON RONIN HAS NOT EXISTED SINCE
+  2026-08-03** — the artist retired it and THE CITY replaced that cabinet. Two of the eleven
+  titles had been pointing at a game that is not in the arcade, in a document nobody had reopened
+  since. **That is this project's own "a surface nobody looks at rots", on the page that tells
+  players how to win a 1/1.** Removing them executes a decision already made; the two CITY titles
+  are their replacements, in the cabinet that replaced their cabinet.
+- **HOUSE MONEY** (THE ARENA) and **THE LONG COUNT** (cross-game) are the judgement call, and they
+  went because the instruction named three destinations and neither is one of them.
+  ⚠ **THE ARENA NOW HAS NO TITLE — flagging it, because it is a live cabinet** and the old
+  coverage rule was "every cabinet with a scoreboard owns at least one". Say the word and
+  HOUSE MONEY comes back; it would need a card from somewhere, and the honest source is one of
+  THE CITY's two.
 
 ⛔ **Deliberately NOT here, and why:**
 - **Nothing tied to the Rarity Court.** Court votes are burns, so a court-based title would be
@@ -260,8 +296,9 @@ states no split, so it cannot be wrong about one.
 3. **Rule 4** — first-claimant-takes-it, versus holding a few titles open to a stated date.
    ⚑ Partly answered: #7 now has three seats. Whether any other title should is open.
 4. **The names.** Written in the studio's voice; easiest thing in here to replace.
-5. ⛔ **§4¾ — where the two extra earned cards come from.** Blocking for any public page that
-   states the split. Nothing has been published either way.
+5. ✅ **§4¾ — settled 2026-08-06.** Nine titles, eleven cards, 33 intact. ⚠ The live question
+   left inside it: **THE ARENA now carries no title.** It is a shipping cabinet with a scoreboard,
+   and the old coverage rule said every such cabinet owns one.
 6. ⚠ **§4½ — whether THE STREAK should carry a per-race rider.** As stated it is 22 minutes of
    concentration at a 100% win rate. *Every one of the 33 also clean — no barrier contact* would
    make it a skill test; it would also no longer be only his rule.
@@ -277,21 +314,21 @@ generated from the two build scripts except index.html.
 way, so no burn, float, treasury or curve figure is affected. This is a distribution change, not a
 supply change.
 
-### 6b · 2026-08-06 — what THE STREAK changed on the site, and what it deliberately did not
+### 6b · 2026-08-06 — the titles list is now nine, and the ×3 is public
 
-✅ **Changed.** The Cloud Racer entry in the public titles list (`scripts/build-pages.mjs` §titles
-and the generated `whitepaper.html#titles`) now reads THE STREAK rather than CLEAN SWEEP. The old
-condition was superseded by the artist, so leaving it up was publishing a rule nobody can win.
+✅ **Published.** `scripts/build-pages.mjs` §titles and the generated `whitepaper.html#titles` now
+carry the nine titles, with THE STREAK marked as holding **three seats**. THE ARENA and the
+cross-game title are gone from the list; NEON RONIN's two are gone with the cabinet.
 
-⛔ **NOT changed, and this is §4¾'s doing, not an oversight.** The **×3** is not on any public page
-and no aggregate count has been touched. Every "11 earned" on the site — `index.html` rite §4,
-`build-pages.mjs` (whitepaper body, tokenomics, hero panel), `build-whitepaper.mjs` (PDF),
-`build-onepager.mjs`, `build-sr-brief.mjs`, `token-model.mjs` — is **true under option A and false
-under option B**, and until that is called, printing "eleven earned titles" next to "one of them
-has three seats" would be shipping a contradiction on the page the token's buyers read.
-⚑ The number to change, when it is called, is `SEATS` in `js/cr-streak.js` (already 3) plus the
-titles list and whichever aggregate the chosen option moves. The game's result screen is the only
-shipped surface that currently says "three", and it states no split, so it cannot be wrong.
+✅ **No aggregate moved, and that is the point of option A.** Every "11 earned" on the site —
+`index.html` rite §4, `build-pages.mjs` (whitepaper body, tokenomics, hero panel),
+`build-whitepaper.mjs` (PDF), `build-onepager.mjs`, `build-sr-brief.mjs`, `token-model.mjs` — was
+true before and is true now. Eleven cards, awarded across nine titles.
+
+⚠ **The one sentence that had to change is the counting noun.** "The eleven earned titles" is now
+false as a *title* count and true as a *card* count, and the page must not blur the two: it reads
+**eleven cards across nine titles** and says which one has three seats. A page that says
+"eleven titles" while listing nine is the kind of small untruth that gets quoted back.
 
 ✅ **Swept.** `CLEAN SWEEP` survived in exactly two places — `scripts/build-pages.mjs` and the
 `whitepaper.html` it generates — and both are done. **The generator was edited and the page
