@@ -250,15 +250,33 @@
     }
   }
 
+  /* ⛔ A BALANCE THAT CANNOT BE READ IS NOT A BALANCE OF ZERO, AND CONFLATING THEM COST THE
+   *   ARTIST A LAUNCH-NIGHT PANIC. `eth_call` is routed through the CONNECTED WALLET, so if the
+   *   wallet sits on a different chain than the token, it queries an address with no code there,
+   *   the node answers `0x`, `BigInt('0x')` THROWS, the catch swallows it and the purse prints a
+   *   confident `0`. Measured: the mainnet edition queried on Sepolia returns exactly `0x`.
+   * ⚑ He held 355.49 $3030 and the site said 0 — the reassuring wrong answer, which is this
+   *   project's most-repeated failure shape. `ok` now distinguishes "you have none" from "I could
+   *   not see", and every caller is expected to render them differently.
+   * ⚠ AND THE MATH TRUNCATED. `wei / 10n**18n` is INTEGER division, so 355.49 displayed as 355 —
+   *   a purse that quietly rounds a holder's balance down. Scaled before dividing. */
   async function balance(who) {
     const acct = who || account;
-    if (!acct || !isLive()) return { wei: 0n, tokens: 0 };
+    if (!acct || !isLive()) return { wei: 0n, tokens: 0, ok: false, reason: 'not-live' };
     try {
       const data = '0x70a08231' + '000000000000000000000000' + acct.slice(2);
       const res = await req('eth_call', [{ to: token(), data }, 'latest']);
-      const wei = BigInt(res || '0x0');
-      return { wei, tokens: Number(wei / (10n ** 18n)) };
-    } catch { return { wei: 0n, tokens: 0 }; }
+      if (!res || res === '0x') {
+        /* No code at that address on whatever chain the wallet is on. */
+        const on = await currentChain();
+        return { wei: 0n, tokens: 0, ok: false,
+                 reason: on && on !== wantChainId() ? 'wrong-chain' : 'no-token', chain: on };
+      }
+      const wei = BigInt(res);
+      return { wei, tokens: Number((wei * 10000n) / (10n ** 18n)) / 10000, ok: true };
+    } catch (e) {
+      return { wei: 0n, tokens: 0, ok: false, reason: 'read-failed' };
+    }
   }
 
   // the site's one real transaction: burn $3030 (a rip, or an arena ante)
@@ -445,6 +463,15 @@
     hasWalletConnect: () => !!wcProjectId(),
     isLive, buyUrl, explorerAddr, explorerTx,
     chainName: () => (CHAINS[wantChainId()] || {}).name || ('chain ' + wantChainId()),
+    /* ⛔ WHERE THE WALLET ACTUALLY IS, WHICH IS NOT WHAT chainName() ANSWERS. chainName() reports
+     *   the CONFIGURED chain, and the ledger printed it under the heading "The house" — i.e. it
+     *   told a collector standing on Sepolia that they were on Ethereum, then showed them a zero
+     *   balance. Two facts, one label. These are separate calls now. */
+    walletChain: currentChain,
+    walletChainName: async () => {
+      const id = await currentChain();
+      return id ? ((CHAINS[id] || {}).name || ('chain ' + id)) : null;
+    },
     on: cb => { listeners.push(cb); return () => { const i = listeners.indexOf(cb); if (i >= 0) listeners.splice(i, 1); }; },
     explain: reason => ({
       'no-wallet': 'No wallet found. Install MetaMask, or use WalletConnect on mobile.',

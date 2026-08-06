@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>deploy PackSink · ripmaster3030studios</title>
+<script src="/gate.js"></script>
+<script src="js/chain-config.js"></script>
+<script src="js/wallet.js"></script>
+<style>
+  :root{ color-scheme:dark; }
+  body{ margin:0; padding:26px 18px 60px; background:#02120a; color:#d9ffe9;
+        font:14px/1.6 'Courier New',monospace; }
+  h1{ font-size:17px; letter-spacing:.14em; color:#2bff80; margin:0 0 4px; }
+  .sub{ color:#5fcf8f; font-size:12px; margin-bottom:20px; }
+  .card{ max-width:720px; border:1px solid #16663c; border-radius:10px; padding:18px;
+         background:linear-gradient(180deg,#04180e,#020d07); }
+  .step{ display:flex; gap:11px; margin-bottom:13px; }
+  .step .n{ flex:none; width:22px; height:22px; border-radius:50%; background:#0a2a18; color:#2bff80;
+            display:grid; place-items:center; font-size:11px; border:1px solid #1c7a48; }
+  .step p{ margin:0; }
+  .args{ margin:14px 0; border:1px dashed #1c7a48; border-radius:8px; padding:11px 13px; font-size:12px; }
+  .args div{ display:flex; justify-content:space-between; gap:14px; padding:3px 0; }
+  .args .k{ color:#5fcf8f; } .args .v{ color:#ffd23b; word-break:break-all; }
+  button,.lnk{ font:inherit; cursor:pointer; padding:11px 16px; border-radius:8px; min-height:44px;
+    border:1px solid #1c7a48; background:#0a2a18; color:#2bff80; text-decoration:none; display:inline-flex; align-items:center; }
+  button:disabled{ opacity:.5; cursor:default; }
+  #log{ white-space:pre-wrap; margin-top:18px; padding:13px; border:1px solid #123; border-radius:8px;
+        background:#010806; font-size:12.5px; min-height:44px; }
+  .ok{ color:#2bff80; } .bad{ color:#ff4b3a; } .warn{ color:#ffd23b; }
+</style>
+</head>
+<body>
+<h1>◈ deploy PackSink ◈</h1>
+<div class="sub">the atomic 50/50 splitter — half of every pack burns, half funds the studio</div>
+<div class="card">
+  <div class="step"><span class="n">1</span><p><b>Deploy</b> — sends <code>contracts/PackSink.sol</code> from YOUR wallet on <b>Ethereum mainnet</b>. ~2 KB, no owner, no admin, no upgrade, no pause.</p></div>
+  <div class="step"><span class="n">2</span><p><b>Verify</b> — reads <code>token()</code> and <code>treasury()</code> back off the chain and diffs them against <code>chain-config</code>. <b>Both are <code>immutable</code></b>; this is the last moment either can be wrong for free.</p></div>
+  <div class="step"><span class="n">3</span><p><b>Send me the address.</b> It goes into <code>chain-config.contracts.packSink</code> — that one edit turns the split on across the whole site.</p></div>
+
+  <!-- ⚑ THE TWO FROZEN ARGUMENTS, SHOWN BEFORE THE BUTTON. A wrong treasury is not a setting to
+       change later, it is every pack's studio half going somewhere nobody controls. Printed here
+       so the decision is made with eyes open rather than buried in a blob. -->
+  <div class="args">
+    <div><span class="k">token (burns half)</span><span class="v" id="a-token">…</span></div>
+    <div><span class="k">treasury (studio half)</span><span class="v" id="a-tre">…</span></div>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap">
+    <button id="go">⚡ Deploy PackSink</button>
+    <button id="check">✓ Verify</button>
+  </div>
+</div>
+<div id="log">ready. wallet connects on deploy.</div>
+
+<script>
+(() => {
+  const BLOB = '0x60c0346100cd57601f6106ed38819003918201601f19168301916001600160401b038311848410176100d15780849260409485528339810103126100cd57610052602061004b836100e5565b92016100e5565b906001600160a01b039081169081159081156100c2575b506100b05760805260a0526040516105f390816100fa82396080518181816075015281816101910152610390015260a0518181816101ec0152818161030201526104570152f35b60405163d92e233d60e01b8152600490fd5b90508216155f610069565b5f80fd5b634e487b7160e01b5f52604160045260245ffd5b51906001600160a01b03821682036100cd5756fe6080604090808252600480361015610015575f80fd5b5f3560e01c91826361d027b3146102f0575081636b9f96ea1461016a57816385cf61ef14610127578163a37a9fc01461010b578163dc45bfb3146100a8575063fc0c546a14610062575f80fd5b346100a4575f3660031901126100a457517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b5f80fd5b9050346100a45760203660031901126100a4576101067f9d1019f98b2c4c4c900eb1c689572c03a55b611cf70b0b0124888e8522b238d29135926100eb8461037f565b91519485526020850152604084015233929081906060820190565b0390a2005b82346100a4575f3660031901126100a457602090516113888152f35b9050346100a45760203660031901126100a4576101067fb14c5b48ad7efe46b5bdd83d5e357bc572c4650e06bf8d01b3d4cf22ab9a3f119135926100eb8461037f565b82346100a4575f3660031901126100a45780516370a0823160e01b815230838201526020917f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168383602481845afa9283156102a7575f936102c1575b5082156102b157815163a9059cbb60e01b81526001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016868201908152602081018590529091859183919082905f90829060400103925af19081156102a7575f9161027a575b501561026b577fed1eeda1fde9cc22a2ecf41efc0d6cf519c1d95184b36b93b4cd4877881488ee935051908152a1005b516312171d8360e31b81528390fd5b61029a9150843d86116102a0575b6102928183610331565b810190610367565b8561023b565b503d610288565b82513d5f823e3d90fd5b8151631f2a200560e01b81528590fd5b9092508381813d83116102e9575b6102d98183610331565b810103126100a4575191856101cf565b503d6102cf565b346100a4575f3660031901126100a4577f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b90601f8019910116810190811067ffffffffffffffff82111761035357604052565b634e487b7160e01b5f52604160045260245ffd5b908160209103126100a4575180151581036100a45790565b5f9181156105ab5760018060a01b037f0000000000000000000000000000000000000000000000000000000000000000169260408051946323b872dd60e01b8652600492338488015230602488015285604488015260209687816064815f875af19081156105a1575f91610584575b50156105755761138886026113871987820401610562576127109004968787039287841161054f57888498816104da575b14159384610441575b50505050610434575050565b516312171d8360e31b8152fd5b855163a9059cbb60e01b81526001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001688820190815260208101929092529394508291849182908790829060400103925af19283156104cf57926104b2575b5050155f808080610428565b6104c89250803d106102a0576102928183610331565b5f806104a6565b8451903d90823e3d90fd5b9050813b156100a4578551630852cd8d60e31b81528781018b90525f8160248183875af1801561054557908b9291610513575b5061041f565b67ffffffffffffffff91955080925011610532578552885f935f61050d565b604187634e487b7160e01b5f525260245ffd5b87513d5f823e3d90fd5b601186634e487b7160e01b5f525260245ffd5b601185634e487b7160e01b5f525260245ffd5b5050516312171d8360e31b8152fd5b61059b9150883d8a116102a0576102928183610331565b5f6103ee565b84513d5f823e3d90fd5b604051631f2a200560e01b8152600490fdfea26469706673582212204ca61397437e71fabb3d962e46fb1e704b353ec2829d65f756533559312bf7b264736f6c634300081800330000000000000000000000001d4bcbb505182a49303cc3b23eff1e3157147a330000000000000000000000008455cf296e1265b494605207e97884813de21950';
+  const TOKEN = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33';
+  const TREASURY = '0x8455cF296e1265b494605207e97884813De21950';
+  let deployed = null;
+
+  const log = (m, cls) => { const el = document.getElementById('log');
+    el.innerHTML += '\n' + (cls ? '<span class="' + cls + '">' + m + '</span>' : m); };
+  const W = () => window.RipWallet;
+  document.getElementById('a-token').textContent = TOKEN;
+  document.getElementById('a-tre').textContent = TREASURY;
+
+  /* ⛔ MAINNET, PINNED. Not ensureChain() — that reads chain-config, and this page must not
+   *   silently follow a config that could still be pointed anywhere. The renderer page shipped
+   *   with exactly that bug and would have herded the wallet onto a testnet. */
+  async function mainnet(w) {
+    const cid = await w.request('eth_chainId', []);
+    if (parseInt(cid, 16) === 1) return true;
+    log('switching wallet to Ethereum mainnet…');
+    try { await w.request('wallet_switchEthereumChain', [{ chainId: '0x1' }]); }
+    catch { log('could not switch — do it in MetaMask and retry.', 'bad'); return false; }
+    const again = await w.request('eth_chainId', []);
+    if (parseInt(again, 16) !== 1) { log('still not on mainnet — aborting.', 'bad'); return false; }
+    return true;
+  }
+
+  document.getElementById('go').onclick = async () => {
+    const btn = document.getElementById('go'); btn.disabled = true;
+    try {
+      const w = W();
+      if (!w || !w.hasWallet()) { log('no wallet found — open this in a browser with MetaMask.', 'bad'); btn.disabled = false; return; }
+      if (!w.isConnected()) { log('connecting…'); const c = await w.connect('injected'); if (!c.ok) { log(w.explain(c.reason), 'bad'); btn.disabled = false; return; } }
+      if (!await mainnet(w)) { btn.disabled = false; return; }
+      const acct = w.account();
+      const gasEst = BigInt(await w.request('eth_estimateGas', [{ from: acct, data: BLOB }]).catch(() => '0x7a120'));
+      const gasLim = gasEst * 115n / 100n;
+      log('gas ' + gasLim + ' — deploying from ' + acct + ', confirm in your wallet…');
+      const tx = await w.request('eth_sendTransaction', [{ from: acct, data: BLOB, gas: '0x' + gasLim.toString(16) }]);
+      log('tx sent: ' + tx + '\nwaiting for the receipt…');
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 4000));
+        const rec = await w.request('eth_getTransactionReceipt', [tx]).catch(() => null);
+        if (rec) {
+          if (rec.status !== '0x1') { log('deploy REVERTED — send me the tx hash.', 'bad'); btn.disabled = false; return; }
+          deployed = rec.contractAddress;
+          log('✓ DEPLOYED at ' + deployed, 'ok');
+          log('now press Verify, then send me that address.');
+          try { await navigator.clipboard.writeText(deployed); log('(copied to clipboard)', 'ok'); } catch {}
+          btn.disabled = false; return;
+        }
+        log('…still mining (' + ((i + 1) * 4) + 's)');
+      }
+      log('no receipt after 4 min — check the tx on etherscan.io', 'bad');
+    } catch (e) { log('error: ' + (e && e.message || e), 'bad'); }
+    btn.disabled = false;
+  };
+
+  /* ⛔ READ BOTH IMMUTABLES BACK OFF THE CHAIN. The deploy's own success message proves a
+   *   transaction landed, not that it landed with the right arguments — the distinction this
+   *   whole launch has been paying for. Mainnet RPCs are named explicitly rather than taken from
+   *   chain-config, so the verify step cannot end up querying a different chain than the deploy. */
+  document.getElementById('check').onclick = async () => {
+    const at = deployed || prompt('PackSink address (0x…)');
+    if (!/^0x[0-9a-fA-F]{40}$/.test(at || '')) { log('not an address.', 'bad'); return; }
+    const rpcs = ['https://ethereum-rpc.publicnode.com', 'https://cloudflare-eth.com', 'https://rpc.ankr.com/eth'];
+    const call = async data => { for (const r of rpcs) { try {
+      const j = await (await fetch(r, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: at, data }, 'latest'] }) })).json();
+      if (j.result) return j.result; } catch {} } return null; };
+    log('reading ' + at + ' …');
+    const t = await call('0xfc0c546a');      // token()
+    const tr = await call('0x61d027b3');     // treasury()
+    if (!t || !tr) { log('unreadable — is that the right address?', 'bad'); return; }
+    const gotT = '0x' + t.slice(26), gotTr = '0x' + tr.slice(26);
+    const okT = gotT.toLowerCase() === TOKEN.toLowerCase();
+    const okTr = gotTr.toLowerCase() === TREASURY.toLowerCase();
+    log('token()    ' + gotT + '  ' + (okT ? '✓ matches chain-config' : '⛔ DOES NOT MATCH'), okT ? 'ok' : 'bad');
+    log('treasury() ' + gotTr + '  ' + (okTr ? '✓ matches chain-config' : '⛔ DOES NOT MATCH'), okTr ? 'ok' : 'bad');
+    log(okT && okTr ? '✓ both immutables correct — send me ' + at : '⛔ DO NOT USE THIS DEPLOY — redeploy.', okT && okTr ? 'ok' : 'bad');
+  };
+})();
+</script>
+</body>
+</html>

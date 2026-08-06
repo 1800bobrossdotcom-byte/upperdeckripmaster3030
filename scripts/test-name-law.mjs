@@ -36,6 +36,18 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DEAD = 'upperdeckripmaster3030';
+
+/* EIP-55: hex digits are upper-cased where the corresponding nibble of keccak256(lowercase addr)
+ * is >= 8. Implemented against viem's keccak so the test has no hand-rolled hash in it. */
+import { keccak256, toHex } from 'viem';
+const checksum = (addr) => {
+  const lower = addr.toLowerCase().replace(/^0x/, '');
+  const h = keccak256(toHex(lower)).replace(/^0x/, '');
+  let out = '0x';
+  for (let i = 0; i < 40; i++) out += parseInt(h[i], 16) >= 8 ? lower[i].toUpperCase() : lower[i];
+  return out;
+};
+
 const LIVE = 'ripmaster3030studios';
 
 /* ⛔ THE CAP HAS ONE DECLARATION AND EVERY DEPLOY COMMAND IS CHECKED AGAINST IT.
@@ -1078,6 +1090,71 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
         '⛔ LAUNCH GATE: on mainnet contracts.packSink must be DEPLOYED — empty means every pack burns 100% while index/tokenomics/whitepaper state a 50/50 split as fact (task #89)',
         sink || 'EMPTY');
     }
+  }
+}
+
+/* ── THE RENDERER'S COMPILED BYTES ────────────────────────────────────────────────────────────
+ * ⛔ THIS IS THE SURFACE THE NAME LAW NEVER CHECKED, AND IT NEARLY SHIPPED THE RETIRED NAME
+ *   PERMANENTLY. `contracts/` is skipped by the sweep because it does not go to the CDN — but a
+ *   render contract DRAWS. On 2026-08-06, hours after the token deployed, the renderer source
+ *   still wrote `upperdeckripmaster3030` into the on-chain SVG's own <text> and into the
+ *   animation_url HTML byline, and `deploy-render.html` shipped a pre-compiled blob carrying
+ *   those strings plus `UR3030 per RARE` and the Sepolia edition address.
+ * ⚑ NONE OF IT HAS A SETTER. `setMeta`/`setAnimationUrl` change the constructor strings; the SVG
+ *   text and the byline are compiled into the bytecode. Deploy is the last moment they are free.
+ * ⚑ AND THE CHECK IS ON THE COMPILED BYTES, NOT THE .sol. Reading the source is not the same as
+ *   reading what deploys — that gap is exactly how the stale blob survived a rename that touched
+ *   258 files. Decode the blob the page will actually send. */
+{
+  console.log('\n── the renderer contract, and the bytes deploy-render.html will send ──');
+  const sol = readFileSync(join(ROOT, 'contracts/Ripmaster3030Renderer.sol'), 'utf8');
+  const solCode = sol.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  ok(!/upperdeckripmaster3030/.test(solCode),
+    'Ripmaster3030Renderer.sol draws no retired name (comments exempt)');
+
+  const page = readFileSync(join(ROOT, 'deploy-render.html'), 'utf8');
+  const m = /const BLOB = '0x([0-9a-f]+)'/.exec(page);
+  ok(!!m, 'deploy-render.html carries a deployment blob');
+  if (m) {
+    const bytes = Buffer.from(m[1], 'hex').toString('latin1');
+    ok(!bytes.includes('upperdeckripmaster3030'), 'the blob contains no retired studio name');
+    ok(!bytes.includes('UR3030'), 'the blob contains no retired ticker');
+    ok(bytes.includes(LIVE), `the blob names the live studio (${LIVE})`);
+    /* ⛔ THE ONE THAT MATTERS MOST FOR SUPERRARE. index.html loads pack.js and js/wallet.js, so
+     *   an animation_url pointing at the site ROOT puts wallet code inside a marketplace iframe —
+     *   the exact thing their security team flagged, and why the wallet-free superrare.html
+     *   exists. The Sepolia renderer was set to the root and it went unnoticed for three weeks. */
+    ok(bytes.includes('/superrare.html'),
+      'the animation_url frames the WALLET-FREE embed, not the site root');
+    ok(!/ripmaster3030studios\.com\/"/.test(bytes) && !bytes.includes('upperdeckripmaster3030.com'),
+      '…and not the retired domain');
+    /* The edition the renderer is bolted to is a constructor arg and cannot be changed after. */
+    ok(bytes.toLowerCase().includes('\x1dK\xcb\xb5'.toLowerCase()) || /1d4bcbb505182a49303cc3b23eff1e3157147a33/i.test(m[1]),
+      'the blob is bolted to the MAINNET edition 0x1D4bcbb5…47A33');
+  }
+  ok(/const TOKEN = '0x1D4bcbb505182a49303CC3B23EfF1E3157147A33'/.test(page),
+    'deploy-render.html points at the mainnet edition');
+}
+
+/* ── EVERY ADDRESS IN chain-config IS EIP-55 CHECKSUMMED ──────────────────────────────────────
+ * ⛔ TWO OF THEM WERE NOT, AND BOTH WERE THE ONES I TYPED THE CASING OF RATHER THAN COPYING —
+ *   renderContract and packSink, added on launch night. RPCs ignore case, so nothing broke and
+ *   nothing ever would have; that is precisely why it needs a test. A mixed-case address whose
+ *   checksum does NOT validate is the signal that a human retyped it, which is the one operation
+ *   that can silently transpose a character. Some tooling (viem among it) rejects them outright.
+ * ⚑ The treasury already had a bespoke checksum assertion. Generalised to the whole file, because
+ *   a hand-picked list of addresses to check is this repo's most-repeated failure. */
+{
+  console.log('\n── every address in chain-config is EIP-55 checksummed ──');
+  const src = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  /* Only MIXED-case addresses carry a checksum; an all-lower or all-upper one is unchecksummed
+   * by convention rather than wrong, so requiring mixed case is the actual claim. */
+  const found = [...src.matchAll(/(\w+)\s*:\s*"(0x[0-9a-fA-F]{40})"/g)];
+  ok(found.length >= 5, `chain-config carries addresses to check`, String(found.length));
+  for (const [, key, addr] of found) {
+    const mixed = /[a-f]/.test(addr.slice(2)) && /[A-F]/.test(addr.slice(2));
+    ok(mixed && checksum(addr) === addr,
+      `chain-config.${key} is a valid EIP-55 checksummed address`, addr);
   }
 }
 

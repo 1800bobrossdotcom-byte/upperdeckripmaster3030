@@ -169,6 +169,13 @@
      cards — which have no card page — were still offering a link to one. Any rule that sets
      display has to say what hidden means, or hidden stops meaning anything. */
   #vlink[hidden]{display:none}
+  #vflip{display:inline-flex;align-items:center;justify-content:center;min-height:var(--tap,44px);
+    margin-top:2px;padding:0 14px;font-family:var(--mono);font-size:var(--t-ui,9px);letter-spacing:.12em;
+    text-transform:uppercase;cursor:pointer;border-radius:7px;background:rgba(2,16,9,.85);
+    border:1px solid rgba(255,210,59,.45);color:var(--amber)}
+  /* ⚠ `display:inline-flex` beats the user agent's `[hidden]{display:none}` — the rule two lines
+     up exists because this page already shipped that exact bug on #vlink. */
+  #vflip[hidden]{display:none}
   #vmode{margin-top:2px;font-size:var(--t-tag,9px);letter-spacing:.12em;text-transform:uppercase;color:#4e9d73}
   /* the card in flight — a plain image travelling from its pocket to the middle of the warp */
   .ghost{position:fixed;z-index:110;margin:0;border-radius:7px;object-fit:cover;pointer-events:none;
@@ -251,6 +258,14 @@
   <div id="vmeta">
     <div id="vttl">—</div><div id="vnum">—</div>
     <a id="vlink" href="#" hidden>open the card page →</a>
+    <!-- ⛔ THE FOLDER HAD NO WAY TO TURN A CARD OVER. `.flip` on this page is the PAGE-TURN
+         control (◀ ▶ through the binder), and the card viewer carried no flip at all — so the
+         designed back existed and was unreachable here, on the surface built for handling cards.
+         Artist, 2026-08-06: *"not seeing those."* `cards/deck.html` and the pack rip both had
+         one; this is the third caller catching up.
+         ⚠ Hidden until a live press exists: turning over a flat <img> does nothing, and a button
+           that does nothing is this repo's one recorded failure worse than absence. -->
+    <button id="vflip" type="button" hidden>⇄ back</button>
     <div id="vmode">flat</div>
   </div>
 </div>
@@ -268,6 +283,10 @@
 <!-- ⚑ REQUIRED NOW THAT THE FOLDER HOLDS THE HUNDRED. A deck card is a RECIPE, and card-view
      routes `recipe:` here; without this file it silently falls through to the picture path and
      presses the baked sheet — a card of a card. -->
+<!-- ⚑ THE VITALS. The hundred carry no ATK/DEF/amplifier of their own, so `CardStats`
+     derives them from each card's own seed — deterministic, identical on every machine.
+     `js/card-back.js` reads it to fill the designed back's statistics table. -->
+<script src="../js/card-stats.js"></script>
 <script src="../js/card-recipe.js"></script>
 <script src="../js/card-view.js"></script>
 <!-- ⚑ AFTER card3d.js on purpose. Site3D hands its engine load to Card3D.engine when that file
@@ -485,7 +504,17 @@
           .then(p => { if (!p) return;              // fails open — card3d's plate stands
                        press = p; window.__press = p;   // handle for the harness
                        try { ctrl.destroy(); ctrl = null; } catch (e) {}
-                       $('vmode').textContent = 'the press · pressed'; });
+                       $('vmode').textContent = 'the press · pressed';
+                       /* the card can be turned over only now that there is an object to turn */
+                       const fb = $('vflip');
+                       if (fb) {
+                         fb.hidden = false;
+                         fb.onclick = () => {
+                           let up = true;
+                           try { up = press.flip(); } catch (e) {}
+                           fb.textContent = up ? '⇄ back' : '⇄ front';
+                         };
+                       } });
       }
     }).catch(() => { $('vmode').textContent = 'flat (engine blocked)'; });
   }

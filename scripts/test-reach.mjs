@@ -458,6 +458,13 @@ const ORPHAN_OK = {
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool, deliberately unlinked',
+  /* ⚑ Same class as deploy-render.html: an operator tool the artist opens by URL on launch night.
+   *   Deliberately NOT linked from the site — it sends a contract deployment from the studio's own
+   *   wallet, and a button for that sitting in public navigation is an invitation to a collector
+   *   to press something that will only ever fail for them. Allow-listed WITH THE REASON, which is
+   *   this file's own distinction between a decision and an oversight. */
+  'deploy-sink.html': 'an operator tool, deliberately unlinked',
+  'deploy-lens.html': 'an operator tool, deliberately unlinked',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
   /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
    * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
