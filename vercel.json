@@ -1,18 +1,4 @@
 {
-  "//installCommand": [
-    "⛔ THE DEPLOY WAS INSTALLING 130 MB OF TEST TOOLING IT NEVER RUNS. This site has no build",
-    "step — the pages are static and the four generated ones are committed — but a project with a",
-    "package.json still gets an install, and npm installs devDependencies by default. Those are",
-    "solc (a WASM compiler), the whole ethereumjs stack and viem: used by scripts/ only, which",
-    ".vercelignore does not even upload.",
-    "⚑ CHECKED BEFORE CHANGING, because getting this wrong breaks live features rather than",
-    "slowing them: of the five serverless functions, only api/lore.js imports a package at all",
-    "(@anthropic-ai/sdk, the one entry in `dependencies`). presence, signal, scores and pin use",
-    "Node built-ins. So --omit=dev installs exactly what the deployment runs.",
-    "⚠ NOT CLAIMED AS THE CAUSE OF THE SLOW DEPLOYS — that has not been measured from here and the",
-    "build log is the only place it could be. It is waste on every deploy either way."
-  ],
-  "installCommand": "npm install --omit=dev",
   "redirects": [
     {
       "source": "/:path*",
