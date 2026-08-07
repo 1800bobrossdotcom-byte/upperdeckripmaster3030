@@ -125,6 +125,17 @@ ok(RT.award('nonsense', {}) === null, 'an unknown id invents nothing');
   ok(RT.seatState('twomillion') === 'closed' && RT.seatState('wire') === 'open',
     'A23 a typo in the roster closes nothing it did not name', RT.seatState('wire'));
   ok(seatsOf('streak') === 2, 'A24 …and the roster can never change how many seats a title HAS');
+
+  /* ⚑ THE CARD IDS. HERO-UNLOCKS: 1-11 auction, 12-22 gacha, 23-33 EARNED. A voucher signs an id
+   * into its digest, so an id outside the band mints a card that was sold or pulled from a pack —
+   * and it cannot be undone afterwards. Eleven seats, eleven ids, one each. */
+  const ids = RT.TITLES.flatMap(t => t.cards || []);
+  ok(ids.length === RT.cards(), 'A25 one card id per seat, eleven in all', ids.length + ' vs ' + RT.cards());
+  ok(ids.every(n => n >= 23 && n <= 33), 'A26 every earned id is inside the 23-33 band — never an auction or gacha card',
+    ids.join(','));
+  ok(new Set(ids).size === ids.length, 'A27 …and no two titles mint the same card');
+  ok(RT.TITLES.every(t => (t.cards || []).length === t.seats),
+    'A28 a title with two seats names two cards — otherwise the second winner has nothing to mint');
 }
 mem();
 RT._mem({ getItem() { throw new Error('opaque'); }, setItem() { throw new Error('x'); }, removeItem() { throw new Error('x'); } });

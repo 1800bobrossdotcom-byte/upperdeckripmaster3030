@@ -183,8 +183,18 @@
         /* the chain is the authority on whether it still needs minting */
         return mintedBy(next.id).then(function (owner) {
           if (owner) return null;                       // already theirs — nothing to press
+          /* ⚠ NAME IT FROM THE CARD ID IF THE VOUCHER DID NOT NAME THE TITLE. The id is the one
+           * field that cannot be wrong — it is inside the signature — so it is the better key, and
+           * a hand-pasted row that forgot `title` still shows the right words. */
           var nm = '';
-          try { if (root.RipTitles && next.title && RipTitles.byId[next.title]) nm = RipTitles.byId[next.title].name; } catch (e) {}
+          try {
+            var T = root.RipTitles;
+            if (T) {
+              var t = (next.title && T.byId[next.title]) ||
+                T.TITLES.filter(function (x) { return (x.cards || []).indexOf(+next.id) >= 0; })[0];
+              if (t) nm = t.name;
+            }
+          } catch (e) {}
           show(next, nm);
           return next;
         });
