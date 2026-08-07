@@ -2558,6 +2558,61 @@ shared shortcut**, because a shared shortcut proves the shortcut.
   — its gesture window is this container's own recorded timing trap. A single failure there is not a
   regression until it reproduces.
 
+## ⛔ A TITLE IS A 1/1 AND THE LEDGER HANDED IT TO EVERY BROWSER — `data/titles-claimed.json`
+*Artist, 2026-08-07: "the awards need to only be claimed once… riprocketer I cleared 2 million
+earlier, so I earned a 1/1. now someone earned 7 million+ and then the same 2 million award was
+given to them."*
+- ⛔ **THE CAUSE IS STRUCTURAL, NOT A BUG IN `award()`.** `js/title-ledger.js` is per-BROWSER, so
+  every browser starts at zero and re-issues the whole set. **Idempotence inside one browser is not
+  scarcity across all of them** — and `award()` had been *correctly* idempotent since the day it
+  shipped, with a comment saying so. Every assertion in `test:titles` passed throughout, because
+  each one only ever looked at a single browser.
+- ⚑ **THE ROSTER OF TAKEN SEATS IS A COMMITTED FILE, NOT AN ENDPOINT, and that is not laziness.**
+  There is nothing for a player to send: the claim is verified by a person off-site, so the only
+  write that ever happens is the studio's, at the moment it signs a `kind 2` voucher — and a commit
+  is a write it already knows how to make. It cannot be down. ⛔ **The load-bearing half is that a
+  CLIENT CAN NEVER WRITE IT**: if a browser could close a title, one visitor could lock everyone out
+  of all eleven cards in an afternoon, which is strictly worse than the bug being fixed.
+- ⚠ **`closed` IS DERIVED AT PAINT TIME AND NEVER STORED.** The roster loads async and a run can
+  finish first; baking the answer into the record would freeze whichever side won the race. Third
+  sighting of that rule — `CardView.flip()` kept a `faceUp` flag beside the angle and the flag lied.
+  ⚠ And **UNREAD is a third state**, not a synonym for open: collapsing it means either promising a
+  card that is gone or refusing one that is not.
+- ⛔ **A CLOSED TITLE PRINTS NO CLAIM SLIP.** A slip is an instruction to go and post a capture;
+  issuing one for a minted card sends a collector to do work for nothing and they would rightly read
+  the reply as the studio going back on it. It still says the run happened — pretending otherwise
+  would be lying about something the player just watched.
+- ✅ **RIP ROCKETER GAINS `ABOVE THE WEATHER` — 7,000,000** (artist's number; the name is
+  HERO-UNLOCKS §4's own, drafted there at 5M). ⚠ **A 7M run passes 2M on the way, so BOTH fire, and
+  that is correct**: whether a seat is left is not RIP ROCKETER's business, and suppressing the lower
+  award inside the game would put the scarcity rule in the one place that cannot see it.
+- ⛔ **THE BUDGET IS ELEVEN CARDS AND IT DID NOT MOVE. THE STREAK went 3 seats → 2** — HERO-UNLOCKS
+  §4¾'s own named option for freeing exactly one card, and the only one that **deletes no published
+  title**; deleting one would be the studio taking a prize back. **TEN titles, ELEVEN cards**, and
+  the test asserts the CARD count, because that is the number that is settled.
+- ⛔ **AND `whitepaper.html` PRINTED THE WIRE AND GHOST WALK TWICE** — eleven `<li>` for nine titles,
+  which read as though the count matched the card total by design. Nobody had ever counted it.
+
+### ✅ THE CARD POPS UP TO BE MINTED — `js/hero-claim.js`
+*Artist: "you need to have the card pop up for them to mint when winning one too."*
+- ⛔ **THE LEDGER HANDED OUT A PIECE OF PAPER.** Everything after the claim slip happened off the
+  site, so the one moment this project is built around — the reveal, a card that is YOURS — never
+  happened for the tier that is hardest to reach.
+- ⚑ **A VOUCHER IS NOT A SECRET AND IS PUBLISHED LIKE ANY OTHER STATIC FILE.** The recipient is
+  inside the signed EIP-712 digest, so a published voucher authorises exactly one thing: minting
+  THAT id to THAT wallet. `claimHero` being permissionless is what makes that safe — a stranger can
+  only pay the gas on the winner's behalf. `data/hero-vouchers.json`.
+- ⛔ **IT MINTS THROUGH THE SAME CONTRACT AND THE SAME `claimHero` AS EVERY OTHER LENS**, because a
+  hero surfaces on the edition's SuperRare page only by being an id on `Ripmaster3030Lens721`. A
+  second entry point would produce a token that exists and never appears there — nothing would
+  error. Coupled by `test:titles` §E (selector, address source, and **no hard-coded address at all**
+  in the shipped module: the config is the authority, per the `renderContract` rule).
+- ⚠ **THE BROWSER STILL AWARDS NOTHING.** It shows a card the studio already signed for; a player who
+  edits their localStorage sees exactly what they saw before — nothing.
+- ⚠ **STILL NEEDED FROM THE ARTIST** (nothing here can invent them): the two wallet addresses, which
+  card ids 23–33 each title maps to, the artist's SECOND cleared title, and the signatures — a key
+  never comes near this repo.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
