@@ -749,6 +749,7 @@
 <script src="../js/cbpc-fight.js"></script>
 <script src="../js/card-fight.js"></script>
 <script src="../js/wallet-ui.js"></script>
+<script src="../js/leaderboard.js"></script>
 <script src="arena-net.js"></script>
 <script src="../js/card-stats.js"></script>
 <script src="../js/deck-source.js"></script>
@@ -856,8 +857,7 @@
 
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
-    const bySlug = playIndex(), fById = forgedById();
-    hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(c => c && !isHero(c));
+    hand = ownedHand();          // ⚑ ONE definition of "what you can stake" — see ownedHand()
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
       $('handInfo').textContent = '0 in your folder';
@@ -1346,7 +1346,9 @@
   let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {}, lobby = null;
   let walletState = { connected: false, address: null, balance: 0 };
 
-  function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
+  /* ⚠ NEVER 'you' — that is the label on YOUR OWN ROW, and publishing it as a name is what made
+   *   every ripper in the lobby look identical. RipNet.handle() resolves it in one place. */
+  function netHandle(){ try { return net.handle(); } catch { return 'a ripper'; } }
   // your lobby identity. Signing the tavern ledger (connecting a wallet) upgrades it:
   // your presence shows your REAL $3030 purse + a verified seal, and your stakes
   // become real on-chain burns. Unsigned = practice chips.
@@ -1367,8 +1369,19 @@
    * ⚑ So it is one rule on both sides, which is also why it is easy to say on the page: THE ARENA
    *   IS A FIELD-CARD GAME. Heroes are not stock and they are not chips.
    * ⚠ Filtered out of the HAND, not out of the VAULT — renderVault() reads the vault directly, so
-   *   a hero you own still shows on your shelf. It is unplayable here, not hidden. */
-  function ownedHand(){ const bySlug = deckIndex(), fById = forgedById();
+   *   a hero you own still shows on your shelf. It is unplayable here, not hidden.
+   *
+   * ⛔ AND IT RESOLVED AGAINST `deckIndex()` — THE HUNDRED **PLUS THE 196 RETIRED PLACEHOLDERS**.
+   *   Artist, 2026-08-07, on the PvP pot picker: "showing wrong cards." It was: the tray listed
+   *   cartoon stand-ins from the old set, sixty of them, because `openPvp()` fills its hand from
+   *   here while the house game fills its hand from `playIndex()` (the hundred only). Two
+   *   functions answering the SAME question — what can this player stake — and disagreeing.
+   * ⚑ AND THE RULE WAS ALREADY WRITTEN, FOUR LINES ABOVE `playIndex()`: *"ownership resolves
+   *   against the HUNDRED ONLY (playIndex), while the FULL index still resolves anywhere a card
+   *   must merely be NAMED or KEPT."* It was applied to `renderHand` and not to this, which is
+   *   this repo's own recorded failure — **a recorded lesson protects the line it was written on
+   *   and nothing else.** There is one definition now and both callers use it. */
+  function ownedHand(){ const bySlug = playIndex(), fById = forgedById();
     return vault().map(e => resolveEntry(e, bySlug, fById)).filter(c => c && !isHero(c)); }
 
   function toastMini(msg){
@@ -1562,7 +1575,11 @@
     if (!net){ const p = $('lobbyPanel'); if (p) p.style.display = 'none'; return; }
     const hIn = $('lobHandle');
     if (hIn){ hIn.value = netHandle();
-      hIn.onchange = () => { const val = (hIn.value || '').trim().slice(0, 24) || 'you'; net.setHandle(val); hIn.value = net.me().handle; toastMini('handle set — ' + net.me().handle); };
+      /* ⚠ CLEARING THE BOX USED TO WRITE 'you' TO localStorage — which every tab shares, so one
+         keystroke renamed the whole browser on every page, permanently. setHandle() now refuses
+         an empty or reserved name and keeps the one you had; the field is re-synced from it. */
+      hIn.onchange = () => { net.setHandle(hIn.value); hIn.value = net.me().handle;
+        toastMini('handle set — ' + net.me().handle); };
     }
     lobby = window.ArenaLobby ? ArenaLobby.mount('#lobList', { mode: 'challenge', header: false, onChallenge: id => {
       if (busy){ toastMini('finish this fight first'); return; }
@@ -1670,11 +1687,17 @@
     DECK = r[0] || []; LEGACY = r[1] || [];
     if (!DECK.length) throw 0;
     renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby(); initWallet();
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS. Without redrawing, a collector whose
+     * retired cards were just migrated sits looking at the empty hand they arrived with. */
+    addEventListener('urm:vault-fixed', () => { try { renderVault(); deal(); } catch (e) {} });
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });
 })();
 </script>
+<script>window.RIPCHAL_OWN = true;   /* the arena handles its OWN incoming challenges — js/challenge-ui.js stays out of the way for game==="arena" only */</script>
+<script src="../js/challenge-ui.js"></script>
+<script src="../js/vault-fix.js"></script>
 <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
 <script>

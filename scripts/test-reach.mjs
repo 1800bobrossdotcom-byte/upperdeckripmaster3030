@@ -1040,5 +1040,32 @@ head('7 · the sitemap lists every cabinet');
   for (const c of CABINETS.concat(['arcade.html'])) t(`sitemap.xml lists ${c}`, sm.includes('/' + c + '<'));
 }
 
+/* ── §7  RipDeck.load()'s base must match the CALLING PAGE's depth ───────────────────────────
+ * ⛔ EVERY CABINET BROKE AT ONCE ON THIS. `RipDeck.load(base)` fetches `base + 'deck-manifest.json'`
+ *   RELATIVE TO THE PAGE. `cards/battle.html` passes '' because the manifests sit beside it;
+ *   copying that call verbatim into dogfight/section9/cloudracer/riprocketer/ronin — all at the
+ *   ROOT — made it fetch `/deck-manifest.json`, a 404 swallowed by the loader's own catch. The
+ *   deck came back EMPTY and the pickers told players holding a full folder "deck manifest
+ *   missing" and "no cards yet". Nothing threw; the failure was a silent [].
+ * ⚑ Guards the VALUE, not the symptom: a root-depth caller must pass 'cards/', a caller under
+ *   /cards/ must pass ''. */
+head('§7  the deck loader is called with the right base for the page');
+{
+  const callers = [];
+  for (const [rel, src] of TEXT) {
+    if (!/\.(js|html)$/.test(rel)) continue;
+    const m = [...src.matchAll(/RipDeck\.load\(\s*'([^']*)'\s*\)/g)];
+    if (m.length) callers.push({ rel, bases: m.map(x => x[1]) });
+  }
+  t('§7 something calls RipDeck.load', callers.length > 0, callers.length + ' file(s)');
+  for (const c of callers) {
+    /* `js/*.js` modules are loaded BY root pages, so they are root-depth too; only files under
+       cards/ sit beside the manifests. */
+    const want = c.rel.startsWith('cards/') ? '' : 'cards/';
+    t(`§7 ${c.rel} passes ${JSON.stringify(want)}`,
+      c.bases.every(b => b === want), 'found ' + JSON.stringify(c.bases));
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

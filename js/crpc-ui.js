@@ -28,7 +28,12 @@
   const liveToken = () => { try { return window.RipWallet && RipWallet.isLive(); } catch (e) { return false; } };
   const myHandle = () => { try { return (window.RipNet && RipNet.me && RipNet.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch (e) { return 'you'; } };
   function loadDeck() {
-    return fetch('cards/manifest.json').then(r => r.json())
+    /* ⛔ READ `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS — ON A SURFACE THAT WAGERS CARDS.
+   * Artist, 2026-08-07: "no one can properly play / wager / ante right now" and "for all game
+   * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
+   * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
+   * because a 1/1 is not a chip. */
+    return (window.RipDeck ? RipDeck.load('cards/').then(cs => ({ cards: (cs||[]).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)) })) : Promise.reject())
       .then(m => { DECK = m.cards || []; bySlug = new Map(DECK.map(c => [c.slug, c])); }).catch(() => {});
   }
 
@@ -416,6 +421,11 @@
       cv.addEventListener('touchend', end); cv.addEventListener('touchcancel', end);
     }
     loadDeck().then(() => { buildGrid(); initNet(); });
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS GRID IS DRAWN. Measured on the live
+     * site: the vault migrated correctly and the picker still read "no cards yet — rip a
+     * pack", because the grid had already been built from the un-migrated rows. Repairing
+     * the DATA and never redrawing the DISPLAY is a fix the player cannot see. */
+    addEventListener('urm:vault-fixed', () => { try { loadDeck().then(buildGrid); } catch (e) {} });
     if (window.RipWallet) { try { RipWallet.on(() => refreshPot()); } catch (e) {} }
   }
 

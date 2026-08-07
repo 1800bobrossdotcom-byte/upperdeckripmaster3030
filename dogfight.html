@@ -384,7 +384,12 @@
 <script src="js/wallet-ui.js"></script>
 <script src="js/eth-play.js"></script>
 <script src="js/df-net.js"></script>
+<script src="js/leaderboard.js"></script>
+<script src="js/card-stats.js"></script>
+<script src="js/deck-source.js"></script>
+<script src="js/vault-fix.js"></script>
 <script src="cards/arena-net.js"></script>
+<script src="js/challenge-ui.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
@@ -464,12 +469,27 @@
   function vault(){ try{ return JSON.parse(localStorage.getItem('urm_vault')||'[]'); }catch{ return []; } }
   function saveVault(v){ try{ localStorage.setItem('urm_vault', JSON.stringify(v.slice(-400))); }catch{} }
   function ownedSlugs(){ return vault().map(e=>e&&e.slug).filter(s=>s&&bySlug.has(s)); }
-  function loadDeck(){ return fetch('cards/manifest.json').then(r=>r.json()).then(m=>{ DECK=(m.cards||[]);
+  /* ⛔ THIS FETCHED `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS. Artist, 2026-08-07, on
+   *   this very picker: "showing wrong cards" and "no one can properly play / wager / ante right
+   *   now." `cards/battle.html` recorded this exact defect and fixed it — *"the arena is where you
+   *   STAKE a card, so it was asking a player to wager the stand-ins"* — and DOGFIGHT, which also
+   *   stakes cards into a pot, was never touched. **A recorded lesson protects the file it was
+   *   written in and nothing else**, for the third time today.
+   * ⚑ `RipDeck.load` is the one join that returns the hundred WITH vitals (atk/def/trigger derived
+   *   from each card's seed), which is what this grid reads. ⛔ And heroes are filtered out for the
+   *   same reason the arena filters them: the 33 are not chips, so a 1/1 cannot be wagered into a
+   *   pot and lost on a dogfight. */
+  function loadDeck(){ return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject()).then(cards=>{
+    DECK=(cards||[]).filter(c=>{ const n=Number(c.id); return !(n>=1&&n<=33); });
+    if(!DECK.length) throw 0;
     bySlug=new Map(DECK.map(c=>[c.slug,c]));
     // craft images: your owned, else the front of the deck
     const own=ownedSlugs(); const pool=(own.length?own:DECK.slice(0,16).map(c=>c.slug));
     pool.slice(0,16).forEach(sl=>{ const c=bySlug.get(sl); if(!c)return; const im=new Image(); im.src='cards/'+c.art; craftImgs.push({im,rar:c.rarity}); });
     buildGrid(); }).catch(()=>{ $('cardsInfo').textContent='deck manifest missing — rip a pack first'; }); }
+  /* ⚠ the vault repair is async and lands after the grid is drawn — redraw, or a pilot whose
+     retired cards were just migrated sits looking at the empty tray they arrived with. */
+  addEventListener('urm:vault-fixed', ()=>{ try{ loadDeck(); }catch(e){} });
 
   // ── SFX / music ──
   let AC=null, sfxOn=true; const ac=()=>AC||(AC=new(window.AudioContext||window.webkitAudioContext)());
@@ -529,7 +549,11 @@
   /* true when any seat at the table is the house — read by the pot maths and by the copy */
   let houseAtTable=false;
   let roster=[];
-  if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
+  /* ⛔ THIS PUBLISHED THE LITERAL STRING "you" TO EVERY OTHER PLAYER. It read localStorage
+     directly, which is empty until somebody sets a handle, so the `|| 'you'` fired for everyone —
+     and RipNet.join() then overwrote the real per-tab name with it. RipNet.handle() is the
+     resolver; it never returns 'you'. */
+  if(window.RipNet){ try{ RipNet.join({ handle:RipNet.handle(), cards:vault().length, balance:0,
       address:(window.RipWallet&&RipWallet.account())||undefined });
     const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
     RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); });
@@ -543,7 +567,7 @@
   /* true only when a signed-in wallet can actually put $3030 on the line — see the ante gate */
   let myAnteLive=false;
   const ethW={ usdEach:0 };                                  // ETH side-pot pledge per pilot (≤ $3)
-  function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
+  function myHandle(){ try{ return RipNet.handle(); }catch{ return 'a ripper'; } }
 
   function buildGrid(){
     const own=ownedSlugs(); const groups=new Map();
@@ -1354,6 +1378,9 @@
     const ranked = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp));
     let winner = ranked[0];
     const iWon = winner && winner.isMe; commsRnd(iWon?'win':'lose', iWon?'#0e5a68':'#7a1e2a');
+    /* ⚑ TOP RIPPERS: a dogfight has no points, so the score IS the kill count — the number this
+     * game ranks its own table by, which is the only honest thing to put on a board. */
+    if(window.RipBoard){ try{ const me=G.ships.find(x=>x.isMe); if(me&&me.kills>0) RipBoard.post('dogfight', me.kills); }catch(e){} }
     /* ⛔ THE WIRE does NOT require the win — the condition is the route and the clean sheet, and
      * adding "and win" would be a second bar nobody wrote down. DEAD STICK does require it,
      * because refusing the escape button only means anything if you still came first. */

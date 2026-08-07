@@ -2367,6 +2367,96 @@ other."* Two halves, and only the first was the one I was asked about.
   pattern as `__city` / `__rrpc`. **Proved to bite** by splicing the defect line **verbatim out of
   git** (not retyped): **34.1% of every card the old build staked was a 1/1.**
 
+## ⛔ EVERY PLAYER WAS CALLED "you", AND THE HARNESS WAS SPEAKING THE CLIENT'S LANGUAGE
+*Artist, 2026-08-07, three reports in a row: "you shows for both players" · "showing wrong cards" ·
+"inability to play other players."* Three separate causes, and the third one turned out to be mine.
+- ⛔ **"you" WAS ON THE WIRE, NOT IN THE DISPLAY.** `dogfight.html` and `js/s9pc-ui.js` joined with
+  `RipNet.join({ handle: localStorage.getItem('urm_net_handle') || 'you' })` — and that key is
+  EMPTY for anyone who never set a handle, so the `|| 'you'` fired for everybody. `join()` then
+  spread it over `me`, **overwriting the real per-tab name**, and `announce()`/`kvBeat` published
+  it. Every ripper in every lobby was "you", on the one screen whose whole job is telling people
+  apart. ⚑ `'you'` is a LABEL FOR YOUR OWN ROW; publishing it as a name is the bug.
+- ⛔ **AND `setHandle` PERSISTED IT.** Clearing the handle box wrote `'you'` to **localStorage,
+  which every tab of a browser shares** — so one keystroke renamed the whole browser, on every
+  page, permanently. That is why the artist's lobby showed three rippers with three different card
+  counts and one name.
+- ⚑ **THE FIX IS A CHOKEPOINT, NOT SIX EDITS.** `join()` and `setHandle()` now REFUSE an empty or
+  reserved name, `RipNet.handle()` is the one resolver every page calls, and a **one-time eviction
+  at load** clears an already-poisoned key — guarding the writers does nothing for a browser that
+  is already wrong.
+- ⛔ **AND TWENTY GONZO NAMES IS NOT AN IDENTITY SPACE.** With 20, a six-player room collides more
+  often than not; the very first run of the repair brought up two tabs both called *"Godzilla's
+  Accountant"*. Auto-assigned handles carry the tab's own id, and `arena-lobby.js` **also breaks
+  duplicates at render**, because two people may deliberately type the same word.
+- ⛔ **"SHOWING WRONG CARDS" WAS TWO FUNCTIONS ANSWERING ONE QUESTION DIFFERENTLY.** `openPvp()`
+  filled its tray from `ownedHand()`, which resolved against `deckIndex()` — the hundred **plus the
+  196 RETIRED placeholders** — while the house game used `playIndex()`, the hundred only. ⚑ **The
+  rule was already written four lines above `playIndex()`** (*"ownership resolves against the
+  HUNDRED ONLY"*) and had been applied to `renderHand` and not to this. **A recorded lesson
+  protects the line it was written on and nothing else.** One definition now; both callers use it.
+  Measured: 30 vault rows → 10 playable, 0 placeholders, nothing deleted from the shelf.
+- ⛔ **THE THIRD REPORT FOUND A REAL BUG IN A GAME NOBODY REPORTED — AND MY FIRST MEASUREMENT WAS
+  WRONG IN THE ACCUSING DIRECTION.** I drove two dogfight tabs, both seeking, each seeing the
+  other, and neither ever matched — which looked exactly like broken matchmaking. **It was my
+  harness.** `api/signal.js` returns `msgs`; my fake server returned `messages`, because I copied
+  its shape from `scripts/test-city-net.mjs`. With the real key, dogfight pairs correctly, both
+  sides, by name.
+  ⛔ **AND THAT IS WHERE THE REAL DEFECT WAS: `js/city-net.js` READ `j.messages`.** So every offer,
+  answer and ICE candidate arrived and was dropped, and **THE CITY's peer-to-peer motion has never
+  worked against the deployed API** — you see people on the roster (that is `/api/presence`, a
+  different endpoint) and never see them move. `js/df-net.js` read `msgs` and was right all along.
+  ⛔ **`npm run test:citynet` SCORED 10/10 THROUGHOUT, BECAUSE ITS IN-MEMORY SERVER RETURNED
+  `messages` TOO** — the harness had been written to match the CLIENT rather than the shipped
+  handler, so three green ticks meant the two halves of the harness agreed with each other. ⚑ This
+  repo's own rule, paid for again and at full price: **a harness that reimplements the thing it
+  tests proves the harness.** The key is now **derived from `api/signal.js`'s source and asserted
+  against every client that reads it**, so a second consumer cannot pick a different name.
+  ⚠ **Proved to bite** by restoring the one word: **6 failures**, including *"the data channel is
+  OPEN"* and 0 peers on both sides.
+- ⚠ **WHAT IS NOT A BUG AND IS THE ARTIST'S CALL:** dogfight's roster is `mode:'table'`, so it has
+  no challenge button — the only route to a human game there is **both people pressing SEEK at the
+  same moment**. The mechanism works; there is simply no way to invite a NAMED person into a
+  dogfight the way there is in the arena. That is a design gap, not a defect.
+- ⚠ And the arena sabotage broke the moment its own fix was committed: `git show HEAD:` returns the
+  CORRECTED file, so the check silently became a no-op that still printed green. It finds the
+  commit that REMOVED the defect and reads its parent now. **A sabotage that stops reproducing
+  proves nothing, loudly.**
+
+## ✅ TOP RIPPERS IS GLOBAL AND PER GAME — `api/scores.js` + `js/leaderboard.js`
+*Artist, 2026-08-07: "top rippers for each game need to be shown" · "show the address as the
+player".* His own **3,975,083** was sitting on a board that read **"RIPPER"**.
+- ⛔ **THE BOARD WAS `localStorage` AND IT EXISTED IN ONE GAME.** `js/rrpc-app.js` kept
+  `urm_rr_scores` in the player's own browser, so TOP RIPPERS listed exactly one person — you — and
+  the other five cabinets had no board at all. **A high score nobody else can see is a diary
+  entry.** "RIPPER" was `getName()`'s fallback for a browser that never set a handle.
+- ⚑ **ONE SORTED SET PER GAME, ON THE KV THAT ALREADY RUNS PRESENCE** — no new service and no new
+  failure mode. No KV ⇒ 503 ⇒ every board falls back to the local list it always had, because a
+  cabinet showing an empty board because a function is cold reads as *"nobody has ever played
+  this"*, which is the worst thing a scoreboard can say.
+- ⛔ **THE ZSET MEMBER IS THE IDENTITY, AND MY FIRST VERSION HAD IT WRONG.** I wrote
+  `{name, addr}` as the member — which folds the NAME into the identity, so changing your handle
+  or posting the same address in different casing mints a SECOND row and one player appears twice.
+  The member is the case-folded key; a small hash beside it holds what to draw. ⚠ The address is
+  **displayed checksummed and keyed lowercase**, because those are two different jobs.
+- ⚑ **`GT` KEEPS YOUR BEST, NOT YOUR LAST.** A board a bad run can knock you off is a board that
+  punishes playing again.
+- ⛔ **AND THE HARNESS HID THAT ASSERTION FROM ITSELF.** The fake Redis ignored `EX`, so the
+  per-identity throttle key never expired and every post after the first was refused — meaning "a
+  lower score does not demote you" passed **without ever reaching the GT branch**. Two green ticks
+  measuring a throttle. Fixed, and only then did 4,000,000 actually take. *A harness that
+  reimplements the thing it tests proves the harness* — third time this week, and the second in
+  one session.
+- ⚑ **AUTO-MOUNT, BECAUSE WIRING SIX PAGES BY HAND IS SIX CHANCES TO FORGET ONE** — which is
+  exactly how RIP ROCKETER ended up the only game with a panel. The module finds `#topRippers`, or
+  inserts a board after the lobby roster, and does nothing at all on a page with neither.
+- ⚠ **IT IS A SCOREBOARD, NOT AN ORACLE, AND IT SAYS SO IN ITS OWN HEADER.** Every score is
+  computed in the player's browser, so the board is exactly as trustworthy as the client. Fine for
+  a wall of names, and the reason **nothing of value may ever key on it**: the earned 1/1s hang off
+  a human-signed `kind 2` voucher, and a board row is a claim, not evidence — the same thing
+  `js/title-ledger.js` says about itself.
+- ⚠ **DOGFIGHT AND SECTION 9 POST KILLS, NOT POINTS**, because that is the number those games rank
+  their own tables by; inventing a score formula for a board would be inventing a fact.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

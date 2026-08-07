@@ -163,6 +163,27 @@ console.log('\n§D  the hand — a 1/1 cannot be staked either');
   await ctx.close();
 }
 
+console.log('\n§D2  the pot picker deals the HUNDRED, not the 196 retired placeholders');
+{
+  /* ⛔ Artist, 2026-08-07, on the PvP tray: "showing wrong cards." `openPvp()` filled its hand
+   *   from `ownedHand()`, which resolved against `deckIndex()` — the hundred PLUS the retired
+   *   set — while the house game used `playIndex()` (the hundred only). Two functions answering
+   *   the same question and disagreeing, with the rule already written above `playIndex()`. */
+  const legacy = JSON.parse(await readFile(join(ROOT, 'cards/manifest.json'), 'utf8'));
+  const LEG = (legacy.cards || legacy).slice(0, 20).map(c => ({ slug: String(c.slug) }));
+  const real = FIELD.slice(0, 10).map(c => ({ slug: c.slug, n: c.id }));
+  const { ctx } = await arena([...LEG, ...real]); const page = (await ctx.pages())[0];
+  const r = await page.evaluate(() => { const A = window.__arena;
+    const h = A.hand();
+    return { vault: A.vault().length, hand: h.length,
+      ids: h.map(c => Number(c.id)),
+      stray: h.filter(c => !(Number(c.id) >= 34 && Number(c.id) <= 100)).length }; });
+  ok(r.vault === 30, 'the vault still holds all 30 rows — nothing is deleted', r.vault + ' rows');
+  ok(r.hand === 10, 'but only the 10 real cards are playable', r.hand + ' playable');
+  ok(r.stray === 0, 'zero retired placeholders reach the tray', r.stray + ' stray');
+  await ctx.close();
+}
+
 console.log('\n§E  the retroactive repair — and what it must NOT take');
 {
   const auction = CARDS.find(c => Number(c.id) === 3);
@@ -216,27 +237,26 @@ console.log('\n§F  proved to bite — the defect line taken verbatim from git')
 {
   const path = join(ROOT, 'cards/battle.html');
   const live = await readFile(path, 'utf8');
-  /* ⛔ THIS READ `git show HEAD:` AND WORKED EXACTLY ONCE — while the fix was still uncommitted.
-   *   The moment the fix landed, HEAD stopped carrying the defect, so the recovery returned
-   *   nothing... and `String.replace(re, undefined)` splices the literal text "undefined" into the
-   *   file, which still differs from `live` and still breaks `pick`, so **three of the four
-   *   assertions below went on passing** while the one thing §F exists to do was not happening.
-   *   That is this repo's own recorded trap — *a sabotage that does not reproduce the original
-   *   bytes proves nothing* — one turn worse, because it proves it convincingly.
-   * ⚑ A SHA IS THE ONE REFERENCE THAT CANNOT DRIFT. `HEAD` names a different commit every time
-   *   anybody commits; the commit that carried the defect is the same commit forever. Its child
-   *   is the fix ("The arena was handing out 1/1s — roughly one a game, free"). */
-  const DEFECT_AT = '26cfa2c^';
-  const orig = (await import('node:child_process')).execSync(`git show ${DEFECT_AT}:cards/battle.html`,
+  /* ⚠ THE DEFECT IS NO LONGER AT HEAD — it was fixed and committed, so `git show HEAD:` returns
+   *   the CORRECT file and the sabotage silently becomes a no-op that still prints green. Find
+   *   the commit that REMOVED the line and read its parent, so this keeps biting however far the
+   *   history moves on. A sabotage that stops reproducing proves nothing, loudly. */
+  const { execSync } = await import('node:child_process');
+  const sha = execSync(`git log -S'pick(DECK, mode)' --format=%H -- cards/battle.html`,
+    { cwd: ROOT }).toString().trim().split('\n')[0];
+  ok(!!sha, 'found the commit that removed the defect', sha.slice(0, 8) || 'none');
+  const orig = execSync(`git show ${sha}^:cards/battle.html`,
     { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString();
   /* ⚠ THE DEFECT IS LIFTED OUT OF GIT, NOT RETYPED — this repo has recorded a sabotage that did
    *   not reproduce the original bytes and therefore proved nothing. Only the one line is spliced
    *   back, so the read hook survives and the check can still see what the house staked. */
   const bad = (orig.match(/^.*pick\(DECK, mode\);.*$/m) || [])[0];
-  ok(!!bad, `the original defect line was recovered from git (${DEFECT_AT})`, (bad || '').trim().slice(0, 60));
-  /* ⛔ AND IT REFUSES RATHER THAN SUBSTITUTING. Without this the whole section runs on the string
-   *   "undefined" and reports green — the failure above, which is the only way this can go wrong. */
-  if (!bad) throw new Error('§F cannot run: the defect line is not in ' + DEFECT_AT);
+  ok(!!bad, `the original defect line was recovered from git (${sha.slice(0, 8)}^)`, (bad || '').trim().slice(0, 60));
+  /* ⛔ AND IT REFUSES RATHER THAN SUBSTITUTING. `String.replace(re, undefined)` splices the literal
+   *   text "undefined", which still differs from `live` and still breaks pick() — so three of the
+   *   four assertions here went on passing while the one thing §F exists to do was not happening.
+   *   That is the recorded trap one turn worse: it proves the opposite, convincingly. */
+  if (!bad) throw new Error('§F cannot run: no defect line in ' + sha.slice(0, 8) + '^');
   const broken = live.replace(/^.*pick\(stock\(\), mode\);.*$/m, bad);
   ok(broken !== live, 'and spliced into the current build');
   await writeFile(path, broken);

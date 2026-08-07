@@ -79,6 +79,8 @@ const cleanRec = b => {
  * kind of move it is. `cid` threads a call to its answer, so a client can tell "they accepted
  * MY challenge" from "they accepted somebody else's" without holding any server-side session. */
 const ID = /^p_[a-z0-9]{4,20}$/;
+/* the only destinations a challenge may name — mirrored by js/challenge-ui.js's GAMES table */
+const GAMES = ['arena', 'dogfight', 'section9', 'city', 'cloudracer', 'riprocketer'];
 const cleanCh = (c, fromId) => {
   if (!c || typeof c !== 'object') return null;
   const cid = S(c.cid, 40), to = S(c.to, 24), kind = S(c.kind, 8);
@@ -88,7 +90,15 @@ const cleanCh = (c, fromId) => {
    * client post a challenge signed with somebody else's id — the roster would show a face-off
    * nobody asked for, addressed to a stranger, and the named "challenger" would never know. */
   if (to === fromId) return null;                    // challenging yourself is a loop, not a move
-  return { cid, to, kind, from: fromId, fromHandle: S(c.fromHandle, 32).trim(), t: Date.now() };
+  /* ⚑ THE ENVELOPE CARRIES THE GAME. Artist, 2026-08-07: "we need challenge buttons for any
+   * player to any game at any time." A challenge that does not name a destination can only mean
+   * "the arena", which is the limitation being removed — and both sides must agree on where they
+   * are going or they end up in different rooms. Validated against a fixed list so a bad client
+   * cannot send anyone to an arbitrary URL. */
+  const game = S(c.game, 16);
+  if (game && !GAMES.includes(game)) return null;
+  return { cid, to, kind, from: fromId, fromHandle: S(c.fromHandle, 32).trim(),
+    ...(game ? { game } : {}), t: Date.now() };
 };
 
 async function post(ch) {

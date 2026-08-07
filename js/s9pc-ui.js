@@ -88,9 +88,11 @@ window.S9PCUI = (function () {
 
     // ── net roster + seats ──────────────────────────────────────────────────────────────────
     let roster = [];
-    const myHandle = () => { try { return (window.RipNet && RipNet.me && RipNet.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch (e) { return 'you'; } };
+    const myHandle = () => { try { return RipNet.handle(); } catch (e) { return 'a ripper'; } };
     if (window.RipNet) { try {
-      RipNet.join({ handle: (localStorage.getItem('urm_net_handle') || 'you'), cards: vault().length, balance: 0 });
+      /* ⛔ same defect as dogfight.html: reading localStorage directly published "you" for every
+         player who had never set a handle. RipNet.handle() never returns it. */
+      RipNet.join({ handle: RipNet.handle(), cards: vault().length, balance: 0 });
       const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode: 'table', header: true }) : null;
       // Seats: holder / collector / visitor all land in this one lobby (js/session.js). Practice
       // stays open to everyone — a seat is what lets you be matched against PEOPLE.
@@ -314,6 +316,9 @@ window.S9PCUI = (function () {
       const ranked = G.ents.slice().sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
       const winner = ranked[0], iWon = winner && winner.isMe;
       const myRank = ranked.findIndex(e => e.isMe);
+      /* ⚑ TOP RIPPERS: same as dogfight — the board ranks by the number the game itself ranks by. */
+      if (window.RipBoard) { try { const me = ranked.find(e => e.isMe);
+        if (me && me.kills > 0) RipBoard.post('section9', me.kills); } catch (e) {} }
       const P = WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);
       const onPodium = P.myPlace >= 0;
       let wonSlugs = [];
@@ -394,10 +399,21 @@ window.S9PCUI = (function () {
 
     // ── deck ────────────────────────────────────────────────────────────────────────────────
     function loadDeck() {
-      return fetch('cards/manifest.json').then(r => r.json()).then(m => { DECK = (m.cards || []); bySlug = new Map(DECK.map(c => [c.slug, c])); buildGrid(); })
+      /* ⛔ READ `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS — ON A SURFACE THAT WAGERS CARDS.
+   * Artist, 2026-08-07: "no one can properly play / wager / ante right now" and "for all game
+   * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
+   * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
+   * because a 1/1 is not a chip. */
+      return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject())
+        .then(cs => { DECK = (cs || []).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)); bySlug = new Map(DECK.map(c => [c.slug, c])); buildGrid(); })
         .catch(() => { $('cardsInfo').textContent = 'deck manifest missing — rip a pack first'; });
     }
     loadDeck().then(refreshPot);
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS GRID IS DRAWN. Measured on the live
+     * site: the vault migrated correctly and the picker still read "no cards yet — rip a
+     * pack", because the grid had already been built from the un-migrated rows. Repairing
+     * the DATA and never redrawing the DISPLAY is a fix the player cannot see. */
+    addEventListener('urm:vault-fixed', () => { try { loadDeck(); } catch (e) {} });
     if (window.RipPowers) { RipPowers.pollMarket().then(() => { if (!game || game.G.mode === 'lobby') buildGrid(); });
       setInterval(() => { RipPowers.pollMarket().then(() => { if (!game || game.G.mode === 'lobby') buildGrid(); }); }, 45000); }
     if (window.RipTavern) { try { RipTavern.mount('#tavern'); } catch (e) {} }

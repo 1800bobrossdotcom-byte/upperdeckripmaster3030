@@ -124,7 +124,16 @@ window.CityNet = (function () {
       if (stopped) return;
       fetch(SIGNAL + '?room=' + encodeURIComponent(ROOM) + '&me=' + encodeURIComponent(ME))
         .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (j) { (j && j.messages || []).forEach(handle); })
+        /* ⛔ THIS READ `j.messages` AND `api/signal.js` RETURNS `msgs`. Every offer, answer and ICE
+         * candidate arrived and was dropped on the floor, so THE CITY's peer-to-peer motion has
+         * never worked against the deployed API — you saw people on the roster (that is
+         * /api/presence, a different endpoint) and never saw them move.
+         * ⛔ AND `npm run test:citynet` WAS GREEN THE WHOLE TIME BECAUSE ITS IN-MEMORY SERVER
+         * RETURNED `messages` TOO — the harness had been written to match the CLIENT instead of
+         * the shipped handler, so it proved the two halves of the harness agreed with each other.
+         * This repo's own rule, paid for again: a harness that reimplements the thing it tests
+         * proves the harness. `js/df-net.js` reads `msgs` and was correct all along. */
+        .then(function (j) { (j && j.msgs || []).forEach(handle); })
         .catch(function () {});
     }
 
