@@ -243,6 +243,9 @@
   /* the wallet control and the artist's shout button share one row instead of stacking two
      full-width blocks between the wordmark and the first thing you can actually do */
   .hrow{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px 14px; margin-top:10px; }
+  /* the live pool-depth line — a reading, so it is quiet type and it is absent unless it read */
+  .mkt-depth{ margin:9px auto 0; max-width:60ch; text-align:center; font-family:var(--mono);
+    font-size:var(--t-fine,12px); letter-spacing:.04em; color:var(--phosdim); }
   /* ⚠ A SHORT VIEWPORT IS A DIFFERENT PROBLEM FROM A NARROW ONE, and the masthead is where the
      two diverge: every row in it is cheap horizontally and expensive vertically, so a phone held
      sideways pays for the whole stack at once. `test:cab` records the same lesson from the other
@@ -879,6 +882,12 @@
            token, not decoration. ⛔ IT REMOVES ITSELF IF NO POOL IS CONFIGURED (see the boot script
            at the foot of this file): a chart button that opens a blank search is the failure
            `theme.js` records as worse than absence. -->
+      <!-- ⚑ SWAP SITS NEXT TO BUY BECAUSE IT IS THE SAME ERRAND IN THE CURRENCY PEOPLE HAVE.
+           BUY goes to SuperRare (the edition's own collect page, still the canonical surface);
+           this goes to Uniswap with $3030 already selected, so someone holding ETH is one screen
+           away instead of three. Both ship `hidden` and are revealed by the boot script only when
+           a token is configured — a swap screen with no token in it is a dead control. -->
+      <a class="btn ghost alt" id="swapLink" href="#" target="_blank" rel="noopener noreferrer" hidden>⇄ Swap on Uniswap ↗</a>
       <a class="btn ghost alt" id="chartLink" href="#" target="_blank" rel="noopener noreferrer" hidden><span class="ic" data-ic="chart"></span> Chart ↗</a>
       <a class="btn ghost" href="#how">◈ How it works</a>
       <!-- ⚑ IN THE SECOND ROW, NOT A FOURTH DOOR. The three doors above are the things a stranger
@@ -888,6 +897,12 @@
       <a class="btn ghost" href="updates.html">✦ Updates</a>
       <a class="btn ghost alt" href="whitepaper.html">§ Whitepaper · NFA</a>
     </div>
+    <!-- ⛔ A FACT AT THE MOMENT OF READING, NOT A FORECAST. There are two $3030 pools — one priced
+         in RARE, one in ETH — and which of them can fill you changes with the liquidity in it. So
+         this line is READ from the pools when the page loads and is absent when the read fails,
+         rather than a sentence someone typed that quietly stops being true. Same rule that keeps
+         a burn percentage off every page on this site. -->
+    <p class="mkt-depth" id="mktDepth" hidden></p>
 
     <!-- ⚠ THE SHOUT BUTTON AND THE WALLET SIT BELOW THE DOORS, NOT ABOVE THEM. They were the two
          rows between the wordmark and the first real action, which made a TOY the first pressable
@@ -1180,7 +1195,7 @@
       <div class="ticker" id="ticker">▓ 100 living lenses + Lovebeing · every burn is permanent · the pack is open ▓</div>
       <div class="credit">song produced by lovebeing &amp; sean, an unhoused friend from the street</div>
       <div class="credit">3030 forever · a bow to <strong>DELTRON 3030</strong> — Dan the Automator × Del the Funky Homosapien × Kid Koala</div>
-      <a href="updates.html">updates</a> · <a href="https://superrare.com">superrare</a> · <a href="https://x.com/RipMaster3030" target="_blank" rel="noopener noreferrer">𝕏 @RipMaster3030</a> · <a id="chartFoot" href="#" target="_blank" rel="noopener noreferrer" hidden>chart</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a> · <a href="audit.html">audit</a> · <a href="artist.html">the artist</a> · buy the ticket, take the ride
+      <a href="updates.html">updates</a> · <a href="https://superrare.com">superrare</a> · <a href="https://x.com/RipMaster3030" target="_blank" rel="noopener noreferrer">𝕏 @RipMaster3030</a> · <a id="swapFoot" href="#" target="_blank" rel="noopener noreferrer" hidden>swap</a> · <a id="chartFoot" href="#" target="_blank" rel="noopener noreferrer" hidden>chart</a> · <a href="whitepaper.html">whitepaper</a> · <a href="tokenomics.html">tokenomics</a> · <a href="audit.html">audit</a> · <a href="artist.html">the artist</a> · buy the ticket, take the ride
     </footer>
   </div>
 
@@ -1322,6 +1337,34 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
       const el = document.getElementById(id); if (!el) return;
       el.href = chart; el.hidden = false;
     });
+    /* ⛔ THE SWAP ROUTE EXISTS BECAUSE ALMOST NOBODY HOLDS RARE. The edition's graduated pool is
+       priced in RARE, so "buy $3030" through it is really "buy RARE, then buy $3030" — a step
+       that loses people. The artist opened a $3030/ETH pool on 2026-08-07 to end that.
+       ⚑ THE LINK IS BUILT FROM THE TOKEN, NOT FROM A POOL, and that is the safety property: the
+       router chooses the venue, so it cannot fill from a pool with nothing in it. On the day the
+       ETH pool was created it held two sells and $5 of volume against $291,830 in the RARE pool. */
+    const swap = window.RipWallet && window.RipWallet.swapUrl ? window.RipWallet.swapUrl() : '';
+    if (swap) ['swapLink', 'swapFoot'].forEach(id => {
+      const el = document.getElementById(id); if (!el) return;
+      el.href = swap; el.hidden = false;
+    });
+    /* ⚠ AND THE DEPTH LINE IS READ, NEVER PRINTED. Which pair is worth trading changes the moment
+       liquidity moves, and a sentence baked into this page would go stale with nobody editing
+       anything — the same reason no burn percentage is published anywhere on this site. The read
+       is fire-and-forget: the buttons above already exist and work without it, so a blocked fetch
+       costs the page nothing but the extra line. */
+    const line = document.getElementById('mktDepth');
+    if (line && window.RipWallet && window.RipWallet.marketDepth) {
+      window.RipWallet.marketDepth().then(r => {
+        if (!r.live) return;                       // no reading ⇒ say nothing, not "unknown"
+        const usd = n => '$' + Math.round(n).toLocaleString('en-US');
+        const deep = r.pools.filter(p => p.usd > 0);
+        if (!deep.length) return;
+        line.textContent = 'deepest right now: ' + deep.map(p => p.quote + ' ' + usd(p.usd)).join(' · ')
+          + ' — read from the pools just now';
+        line.hidden = false;
+      }).catch(() => {});
+    }
     if (window.RipTavern) RipTavern.mount('#tavern'); })();
 </script>
 <script src="theme.js"></script>

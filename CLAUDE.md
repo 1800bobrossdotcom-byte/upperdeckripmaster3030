@@ -679,6 +679,32 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
 
+## ⛔ THERE ARE TWO $3030 POOLS NOW, AND THE NEW ONE WAS EMPTY — `market.pools[]`
+*Artist, 2026-08-07: "we added this liquidity pool … help make this easy to use on site" ·
+"I created this pool."* A **$3030/ETH** Uniswap v4 pool beside the SuperRare curve's graduated
+**$3030/RARE** one.
+- ⚑ **THE ASK IS RIGHT AND THE OBVIOUS IMPLEMENTATION IS HARMFUL.** Almost nobody holds RARE, so
+  "buy $3030" through the graduated pool is really *buy RARE, then buy $3030* — a step that loses
+  people, and exactly what an ETH pair fixes. ⛔ **But measured the minute it was made, it held
+  nothing**: 0 buys / 2 sells, **$5.24** of 24 h volume, **−78.7%** price, no indexed liquidity at
+  all — against **$291,830** and $60,637 in the RARE pool. **A link into the empty one is a worse
+  failure than no link**, because nothing errors: the page works, the swap goes through, and the
+  collector eats the fill.
+- ⛔ **SO THE SITE READS DEPTH AND DECIDES; THE CONFIG DOES NOT PICK A WINNER.** A hard-coded
+  choice is wrong the day the ETH pool is funded, **and nobody would have edited anything to make
+  it wrong** — the same drift that is the whole reason this project publishes no burn percentage.
+  `RipWallet.marketDepth()` reads both pools at load and the front page prints what it found;
+  when the read fails the line is **absent**, never "unknown". Driven both ways.
+- ⚑ **THE SWAP LINK IS BUILT FROM THE TOKEN, NEVER FROM A POOL ID, AND THAT IS A SAFETY PROPERTY
+  RATHER THAN A CONVENIENCE.** Uniswap's router chooses the venue, so a token-keyed link *cannot*
+  fill from a pool with nothing in it; a pool-keyed one aims a collector at one specific market.
+  `test:name` asserts no pool id ever reaches the swap host.
+- ⚠ **BOTH IDS WERE VERIFIED AGAINST THE TOKEN BEFORE EITHER WAS PUBLISHED** — baseToken
+  `0x1D4bcbb5…47A33` on both, the standard the first pool and `protocol.rare` were held to. **A
+  buy link is a claim about which market is ours.** ⚠ And they are asserted to be DIFFERENT pools:
+  two ids differing by one character in 66 hex digits is a paste error the eye cannot catch, and
+  it would offer a choice between one pool and itself.
+
 ## ✅ THE UPDATES LOG — `updates.json` → `updates.html`, `npm run shots`, `npm run test:updates` (27)
 *Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them postable
 blurbs for social … with each one include a screenshot."*

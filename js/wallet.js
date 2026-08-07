@@ -446,10 +446,63 @@
    *   and show nothing. A chart button that goes to a blank DexScreener search is worse than no
    *   chart button — `theme.js` records the rule: a control that goes nowhere is the one failure
    *   worse than absence. */
-  const chartUrl = () => {
+  /* Every configured market, in one place, each carrying the two links that can be built from it
+   * without asking the network anything. ⚠ A malformed id yields NO pool rather than a broken
+   * link — same rule as before: a control that goes nowhere is worse than an absent one. */
+  const markets = () => {
     const m = (CFG().market || {});
-    const id = String(m.poolId || '').trim();
-    return /^0x[0-9a-fA-F]{64}$/.test(id) ? (m.chartHost || '') + id : '';
+    return (m.pools || [])
+      .filter(p => /^0x[0-9a-fA-F]{64}$/.test(String((p || {}).id || '').trim()))
+      .map(p => ({
+        id: String(p.id).trim(),
+        quote: String(p.quote || '').trim() || '?',
+        chart: (m.chartHost || '') + String(p.id).trim(),
+        pool: (m.poolHost || '') + String(p.id).trim(),
+      }));
+  };
+  /* Back-compat: one chart link, the first configured market. Callers that want a specific pair
+   * use markets(). */
+  const chartUrl = () => (markets()[0] || {}).chart || '';
+  /* ⛔ BUILT FROM THE TOKEN, NEVER FROM A POOL ID, and that is a safety property rather than a
+   *   convenience. Uniswap's router picks the venue, so a swap link cannot be aimed at a pool with
+   *   nothing in it — which is exactly the failure mode of the ETH pair on the day it was made.
+   * ⚠ Returns '' when there is no edition configured, so a caller shows nothing rather than
+   *   opening a swap screen with no token in it. */
+  const swapUrl = () => {
+    const m = (CFG().market || {});
+    const t = token();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(String(t || '').trim())) return '';
+    const host = m.swapHost || 'https://app.uniswap.org/swap';
+    return `${host}?chain=ethereum&outputCurrency=${t}`;
+  };
+  /* Read the live depth of every market, so a page can route people to the pool that can actually
+   * fill them instead of to whichever one somebody typed first. ⚠ FAILS OPEN AND SAYS SO: on any
+   * error it returns the configured order untouched with `live:false`, and the caller keeps the
+   * static links. It never blocks a render — nothing here is awaited before a button exists. */
+  const marketDepth = async () => {
+    const m = (CFG().market || {});
+    const list = markets();
+    const api = String(m.depthApi || '').trim();
+    if (!api || !list.length || typeof fetch !== 'function') return { live: false, pools: list };
+    try {
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const t = ctl ? setTimeout(() => ctl.abort(), 6000) : null;
+      const r = await fetch(api + list.map(p => p.id).join(','),
+        ctl ? { signal: ctl.signal } : undefined);
+      if (t) clearTimeout(t);
+      if (!r.ok) return { live: false, pools: list };
+      const j = await r.json();
+      const by = new Map((j.pairs || []).map(p => [String(p.pairAddress || '').toLowerCase(), p]));
+      const out = list.map(p => {
+        const d = by.get(p.id.toLowerCase());
+        /* ⚠ liquidity may be ABSENT rather than zero on a pool the indexer has not measured yet,
+         *   and treating absent as 0 is right here: unknown depth is not depth you can trade. */
+        const usd = d && d.liquidity && isFinite(+d.liquidity.usd) ? +d.liquidity.usd : 0;
+        return { ...p, usd, price: d ? +d.priceUsd : null, vol24: d && d.volume ? +d.volume.h24 : null };
+      });
+      out.sort((a, b) => b.usd - a.usd);
+      return { live: true, pools: out };
+    } catch { return { live: false, pools: list }; }
   };
   const explorerAddr = a => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/address/${a}`;
   const explorerTx = h => `${(CHAINS[wantChainId()] || {}).explorer || 'https://etherscan.io'}/tx/${h}`;
@@ -474,7 +527,7 @@
     hasWallet: () => !!injected() || !!wcProjectId(),
     hasInjected: () => !!injected(),
     hasWalletConnect: () => !!wcProjectId(),
-    isLive, buyUrl, chartUrl, explorerAddr, explorerTx,
+    isLive, buyUrl, chartUrl, swapUrl, markets, marketDepth, explorerAddr, explorerTx,
     chainName: () => (CHAINS[wantChainId()] || {}).name || ('chain ' + wantChainId()),
     /* ⛔ WHERE THE WALLET ACTUALLY IS, WHICH IS NOT WHAT chainName() ANSWERS. chainName() reports
      *   the CONFIGURED chain, and the ledger printed it under the heading "The house" — i.e. it

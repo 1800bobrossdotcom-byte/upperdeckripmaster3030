@@ -187,9 +187,37 @@ window.RIPMASTER_CHAIN = {
    * ⚠ ONE DECLARATION. `chart` is BUILT from `poolId` at read time (see RipWallet.chartUrl) rather
    *   than stored beside it, because two copies of a 66-character hex string is two chances to
    *   ship a link to the wrong market and no way to notice. */
+  /* ⛔ TWO POOLS NOW, ONE TOKEN, AND THEY ARE NOT INTERCHANGEABLE (artist, 2026-08-07: "we added
+   *    this liquidity pool"). Both are Uniswap v4 on mainnet and both have baseToken
+   *    0x1D4bcbb5…47A33 — checked, in the same way `rare` and the first pool were, because a buy
+   *    link is a claim about which market is ours:
+   *      RARE  0x7943d0d1…  the SuperRare curve's graduated pool. Depth lives here.
+   *      ETH   0x9a7e4306…  created 2026-08-07 02:37Z. The pair most people can actually use.
+   * ⚑ THE ETH PAIR IS THE RIGHT IDEA AND IS NOT AUTOMATICALLY THE RIGHT LINK. Almost nobody holds
+   *   RARE, so "buy $3030" through the RARE pool means buy RARE first — a step that loses people.
+   *   But at the moment it was created the ETH pool held nothing: two sells, $5.24 of volume, and
+   *   a 78.7% price move, against $291,830 of liquidity and $60,637 of volume in the RARE pool.
+   *   **Sending a collector into the empty one is a worse failure than making them find Uniswap
+   *   themselves**, because the link works, the swap goes through, and the fill is terrible.
+   * ⛔ SO THE SITE READS DEPTH AND DECIDES, RATHER THAN THIS FILE PICKING A WINNER. A hard-coded
+   *   choice is wrong the day the ETH pool is funded and nobody would edit anything to make it
+   *   wrong — the same drift that made this project refuse to publish a burn percentage. Order
+   *   here is only the fallback when the read fails, so the deepest pool as of today leads. */
   market: {
-    poolId: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6",
+    pools: [
+      { id: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6", quote: "RARE" },
+      { id: "0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7", quote: "ETH" },
+    ],
     chartHost: "https://dexscreener.com/ethereum/",
+    /* read-only, no key, CORS-open — the same shape as the embed's chain reads: it can show
+     * state and it cannot move anything, and the page degrades to static copy when blocked. */
+    depthApi:  "https://api.dexscreener.com/latest/dex/pairs/ethereum/",
+    /* ⚠ THE SWAP LINK IS BUILT FROM THE TOKEN, NOT THE POOL. Uniswap's swap UI routes by currency
+     *   and finds the venue itself, so it cannot be pointed at a specific v4 pool — and that is
+     *   the behaviour we want: the router will not fill from an empty pool. The pool ids above
+     *   are for the CHART, which is a claim about a specific market. */
+    swapHost:  "https://app.uniswap.org/swap",
+    poolHost:  "https://app.uniswap.org/explore/pools/ethereum/",
   },
 
   protocol: {

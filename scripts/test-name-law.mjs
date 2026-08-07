@@ -1309,7 +1309,7 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
  *   against DexScreener's API when it was added (baseToken 0x1D4bcbb5…47A33 = contracts
  *   .liquidEdition, quoteToken = protocol.rare, symbol `3030`), and that is a one-time proof, not
  *   a standing guard — so the assertion here is the SHAPE plus the single-declaration rule. */
-console.log('\n── the market link points at one pool, declared once ──');
+console.log('\n── the markets: every pool declared once, and the swap keyed on the token ──');
 {
   /* ⚠ EVALUATED, NOT REGEXED — the same way this file reads the config everywhere else, so the
    *   parser here cannot drift from what actually ships to a browser. */
@@ -1317,22 +1317,49 @@ console.log('\n── the market link points at one pool, declared once ──')
   let CHAIN = null;
   try { CHAIN = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({}); } catch {}
   const m = ((CHAIN || {}).market || {});
-  const id = String(m.poolId || '').trim();
-  ok(/^0x[0-9a-fA-F]{64}$/.test(id),
-    'market.poolId is a 32-byte Uniswap v4 pool id', id || 'EMPTY');
-  ok(!/^0x[0-9a-fA-F]{40}$/.test(id),
-    '…and NOT a 20-byte contract address pasted into a pool field', String(id.length - 2) + ' hex chars');
-  /* ⛔ ONE COPY. The link is BUILT from the id (RipWallet.chartUrl), so the 66-character hex must
-   *   appear in the config exactly once — a second literal is a second thing to get wrong and
-   *   nothing on screen would look different. */
-  const copies = (cfgSrc.match(new RegExp(id, 'gi')) || []).length;
-  ok(copies === 1, 'the pool id is declared exactly once in chain-config', copies + ' copies');
+  const pools = m.pools || [];
+  ok(pools.length >= 1, 'chain-config declares at least one market', pools.length + ' pools');
+  for (const p of pools) {
+    const id = String((p || {}).id || '').trim();
+    ok(/^0x[0-9a-fA-F]{64}$/.test(id),
+      `${p.quote} pool is a 32-byte Uniswap v4 pool id`, id.slice(0, 12) + '…' || 'EMPTY');
+    ok(!/^0x[0-9a-fA-F]{40}$/.test(id),
+      `…and NOT a 20-byte contract address pasted into a ${p.quote} pool field`);
+    /* ⛔ ONE COPY EACH. The links are BUILT from the ids, so a 66-character hex must appear in the
+     *   config exactly once — a second literal is a second thing to get wrong and nothing on
+     *   screen would look different. */
+    const copies = (cfgSrc.match(new RegExp(id, 'gi')) || []).length;
+    ok(copies === 1, `the ${p.quote} pool id is declared exactly once`, copies + ' copies');
+  }
+  /* ⛔ AND THE TWO POOLS MUST NOT BE THE SAME MARKET WEARING TWO LABELS. Two ids that differ by a
+   *   character is a paste error the eye cannot see in 66 hex digits, and it would make the site
+   *   offer a choice between one pool and itself. */
+  const ids = pools.map(p => String((p || {}).id || '').toLowerCase());
+  ok(new Set(ids).size === ids.length, 'every declared pool is a DIFFERENT pool');
+  const quotes = pools.map(p => String((p || {}).quote || '').toUpperCase());
+  ok(new Set(quotes).size === quotes.length && quotes.every(Boolean),
+    '…and each names its own quote asset', quotes.join(' · '));
   ok(!/dexscreener\.com\/[a-z]+\/0x[0-9a-fA-F]{64}/.test(cfgSrc),
-    '…and no full chart URL is hard-coded beside it');
-  /* the wallet builds it, and refuses to build one from a malformed id */
+    'no full chart URL is hard-coded beside an id');
+  /* ⛔ THE SWAP LINK IS BUILT FROM THE TOKEN, NOT FROM A POOL, and that is a SAFETY property, not
+   *   a style one: Uniswap's router picks the venue, so a token-keyed link cannot fill from a pool
+   *   with nothing in it. A pool id reaching the swap host would aim collectors at one specific
+   *   market — which, on the day the ETH pool was created, held $5 of volume. */
+  ok(!new RegExp(String(m.swapHost || 'app\\.uniswap\\.org/swap').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      + '[^"\']*0x[0-9a-fA-F]{64}').test(cfgSrc),
+    'no pool id is pasted into the swap host');
   const w = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
   ok(/chartUrl/.test(w) && /\{64\}/.test(w),
     'js/wallet.js builds the chart link and validates the id length');
+  ok(/swapUrl/.test(w) && /outputCurrency/.test(w) && /\{40\}/.test(w),
+    '…and builds the swap link from the TOKEN, validated as a 20-byte address');
+  /* ⚑ BOTH DIRECTIONS. "No hard-coded pool in the swap link" is trivially satisfied by a page with
+   *   no swap route at all, which is the state this replaced. */
+  const idx = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  ok(/id="swapLink"/.test(idx) && /RipWallet\.swapUrl/.test(idx),
+    'index.html carries a swap route and fills it from the wallet');
+  ok(/id="mktDepth"/.test(idx) && /marketDepth\(\)/.test(idx),
+    '…and reads which pool has depth rather than printing an answer');
 }
 
 /* ── THE STUDIO'S X ACCOUNT ───────────────────────────────────────────────────────────────────
