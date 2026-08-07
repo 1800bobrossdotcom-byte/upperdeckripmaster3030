@@ -216,13 +216,27 @@ console.log('\n§F  proved to bite — the defect line taken verbatim from git')
 {
   const path = join(ROOT, 'cards/battle.html');
   const live = await readFile(path, 'utf8');
-  const orig = (await import('node:child_process')).execSync('git show HEAD:cards/battle.html',
+  /* ⛔ THIS READ `git show HEAD:` AND WORKED EXACTLY ONCE — while the fix was still uncommitted.
+   *   The moment the fix landed, HEAD stopped carrying the defect, so the recovery returned
+   *   nothing... and `String.replace(re, undefined)` splices the literal text "undefined" into the
+   *   file, which still differs from `live` and still breaks `pick`, so **three of the four
+   *   assertions below went on passing** while the one thing §F exists to do was not happening.
+   *   That is this repo's own recorded trap — *a sabotage that does not reproduce the original
+   *   bytes proves nothing* — one turn worse, because it proves it convincingly.
+   * ⚑ A SHA IS THE ONE REFERENCE THAT CANNOT DRIFT. `HEAD` names a different commit every time
+   *   anybody commits; the commit that carried the defect is the same commit forever. Its child
+   *   is the fix ("The arena was handing out 1/1s — roughly one a game, free"). */
+  const DEFECT_AT = '26cfa2c^';
+  const orig = (await import('node:child_process')).execSync(`git show ${DEFECT_AT}:cards/battle.html`,
     { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }).toString();
   /* ⚠ THE DEFECT IS LIFTED OUT OF GIT, NOT RETYPED — this repo has recorded a sabotage that did
    *   not reproduce the original bytes and therefore proved nothing. Only the one line is spliced
    *   back, so the read hook survives and the check can still see what the house staked. */
   const bad = (orig.match(/^.*pick\(DECK, mode\);.*$/m) || [])[0];
-  ok(!!bad, 'the original defect line was recovered from git', (bad || '').trim().slice(0, 60));
+  ok(!!bad, `the original defect line was recovered from git (${DEFECT_AT})`, (bad || '').trim().slice(0, 60));
+  /* ⛔ AND IT REFUSES RATHER THAN SUBSTITUTING. Without this the whole section runs on the string
+   *   "undefined" and reports green — the failure above, which is the only way this can go wrong. */
+  if (!bad) throw new Error('§F cannot run: the defect line is not in ' + DEFECT_AT);
   const broken = live.replace(/^.*pick\(stock\(\), mode\);.*$/m, bad);
   ok(broken !== live, 'and spliced into the current build');
   await writeFile(path, broken);

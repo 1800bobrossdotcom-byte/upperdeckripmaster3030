@@ -1335,5 +1335,91 @@ console.log('\n── the market link points at one pool, declared once ──')
     'js/wallet.js builds the chart link and validates the id length');
 }
 
+/* ── THE STUDIO'S X ACCOUNT ───────────────────────────────────────────────────────────────────
+ * ⛔ THE HANDLE IS NOT THE NAME, and that is the whole reason this block exists. The studio, the
+ *    domain and the wordmark are `ripmaster3030studios` — a string this repo put in 258 files and
+ *    then spent two days chasing. The account is `@RipMaster3030`. So the one string a hand
+ *    reaches for is the WRONG one here, and it fails in the worst available way: `x.com/<anything>`
+ *    is a valid URL that renders as a working link and lands on somebody else's page or a 404.
+ *    Nothing errors, nothing 404s in our own logs, and the surface it is on is a footer.
+ *    ⚑ Same shape as the token's own `name()` vs `symbol()` split, one level out.
+ * ⚑ THERE IS NO SHARED INCLUDE. index.html and superrare.html are hand-authored and the four
+ *   public pages come from a generator, so the literal is unavoidable in at least three places —
+ *   exactly `packBurn`'s `|| 350` fallbacks. What is avoidable is it DISAGREEING. */
+console.log('\n── the X account is one handle, and it is not the studio name ──');
+{
+  const HANDLE = 'RipMaster3030';
+  /* Every OTHER x.com account this site is allowed to link: the artist's own, and the three
+   * credited in the artist page's colophon. Anything not on this list is a typo or an account
+   * nobody decided to link — both are failures, and both are invisible by inspection. */
+  const KNOWN = new Set(['_lovebeing_', 'creamydreamy', 'takenstheorem', 'tyaagnliu']);
+
+  const gen = readFileSync(join(ROOT, 'scripts/build-pages.mjs'), 'utf8');
+  const decl = /^const X_HANDLE\s*=\s*'([^']*)'/m.exec(stripComments(gen, false));
+  ok(!!decl && decl[1] === HANDLE,
+    `scripts/build-pages.mjs declares the handle once — ${decl ? decl[1] : 'ABSENT'}`);
+
+  /* ⛔ THE ROUTING CHECK, and it is the one that bites: does every x.com link on the site point at
+   *   an account somebody actually chose? Matched case-INSENSITIVELY because X routes that way, so
+   *   `x.com/ripmaster3030` really is the same account — the failure mode is a different SEQUENCE
+   *   of characters (`ripmaster3030studios`, `RipMaster3030Studios`), not a different case. */
+  const strays = [];
+  const spelling = [];
+  const carriers = new Set();
+  for (const p of walk(ROOT)) {
+    const rel = relative(ROOT, p);
+    const src = readFileSync(p, 'utf8');
+    if (!/x\.com\/|twitter\.com\//i.test(src)) continue;
+    const code = stripComments(src, MARKUP.has(extname(p)));
+    for (const m of code.matchAll(/(?:https?:\/\/)?(?:www\.)?(x|twitter)\.com\/([A-Za-z0-9_]+)/gi)) {
+      const [, host, who] = m;
+      if (who.toLowerCase() === HANDLE.toLowerCase()) {
+        carriers.add(rel);
+        if (who !== HANDLE) spelling.push(`${rel} — ${who}`);
+        if (host.toLowerCase() === 'twitter') spelling.push(`${rel} — twitter.com/${who}`);
+        continue;
+      }
+      if (!KNOWN.has(who.toLowerCase())) strays.push(`${rel} — ${host}.com/${who}`);
+    }
+  }
+  ok(strays.length === 0,
+    `every x.com link on the site names a chosen account${strays.length ? ' — ' + strays.slice(0, 6).join(' · ') : ''}`);
+  /* Presentation, not routing: one spelling, one host, so the handle reads the same everywhere. */
+  ok(spelling.length === 0,
+    `…and the studio handle is spelled @${HANDLE} on x.com everywhere${spelling.length ? ' — ' + spelling.slice(0, 6).join(' · ') : ''}`);
+
+  /* ⚑ BOTH DIRECTIONS. "No wrong handle" is trivially satisfied by a site that links no account at
+   *   all, which is the state this was added to leave. These are the surfaces that must carry it:
+   *   the front page, the four generated pages (via their shared footer) and the token-page embed,
+   *   which is a collector's only route off superrare.com. */
+  for (const page of ['index.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html', 'superrare.html']) {
+    ok(carriers.has(page), `${page} links the studio account`);
+  }
+  /* ⛔ AND THE GENERATOR IS CHECKED WITH THE OUTPUT. Patching only the four HTML files leaves
+   *   build-pages.mjs armed to put the old state back on the next run — restyle-backs.mjs's
+   *   failure, which this file already records happening four times.
+   * ⚠ THE FIRST VERSION OF THIS WAS A TAUTOLOGY AND PASSED ON A SABOTAGED BUILD. It asked whether
+   *   `x.com/${X_HANDLE}` appears anywhere in the file — and `X_URL`'s own DECLARATION contains
+   *   that exact text, so hard-coding every use site still matched the declaration and scored
+   *   green. Same shape as the claim-signer guard this file already records: a check that reads
+   *   the thing it is checking against. The declaration lines are removed first now, so what is
+   *   left is use sites only. */
+  const genUses = stripComments(gen, false)
+    .replace(/^const X_HANDLE\s*=.*$/m, '').replace(/^const X_URL\s*=.*$/m, '');
+  ok(!new RegExp(`x\\.com/${HANDLE}|@${HANDLE}`, 'i').test(genUses),
+    '…and no use site in the generator re-types the handle as a literal');
+  ok(/\$\{X_URL\}/.test(genUses) && /@\$\{X_HANDLE\}/.test(genUses),
+    '…and it does emit both the footer link and the twitter:site tag from the declaration');
+
+  /* THE FUNCTIONAL HALF. Without `twitter:site` every share of every page on this domain is
+   * attributed to nobody — the reason a site declares a handle in the first place, and a meta tag
+   * is this file's canonical example of a surface nobody looks at. */
+  const metaPages = ['index.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html'];
+  const missing = metaPages.filter(f => !new RegExp(
+    `<meta name="twitter:site" content="@${HANDLE}">`).test(readFileSync(join(ROOT, f), 'utf8')));
+  ok(missing.length === 0,
+    `twitter:site is @${HANDLE} on all ${metaPages.length} share surfaces${missing.length ? ' — missing on ' + missing.join(', ') : ''}`);
+}
+
 console.log(`\n${checks - fails} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);

@@ -121,9 +121,22 @@ async function visit(url, { sabotage } = {}) {
 }
 
 console.log('\n── 1 · A DEAD PRESS MUST NOT COST A SINGLE CARD ───────────────────────────────');
-for (const [url, sel, label] of [['/cards/', '.tile-art img', 'the deck browser'],
-                                 ['/cards/binder.html', '.pk img', "the folder's pockets"]]) {
+/* ⛔ THE FOLDER OPENS ON `collected` AND A FRESH CONTEXT HAS COLLECTED NOTHING, so this measured
+ *   `0/0` — nine empty sleeves, correctly, because the binder became a COLLECTION rather than a
+ *   catalogue (artist: "the binder should show only the cards I've collected"). ⚑ The `s.n > 0`
+ *   half is what turned that into a loud failure instead of a vacuous pass, which is the whole
+ *   reason it is there: **"every card survived" is trivially true of no cards.** The catalogue
+ *   chip is opened first so the assertion has a subject again. */
+for (const [url, sel, label, reveal] of [
+  ['/cards/', '.tile-art img', 'the deck browser', null],
+  ['/cards/binder.html', '.pk img', "the folder's pockets", '.chip[data-src="hundred"]'],
+]) {
   const { ctx, page, errs } = await visit(url, { sabotage: true });
+  if (reveal) {
+    await page.waitForSelector(reveal, { timeout: 30000 });
+    await page.click(reveal);
+    await page.waitForTimeout(1500);
+  }
   await page.waitForTimeout(22000);
   const s = await page.evaluate(INK, sel);
   ok(s.n > 0 && s.alive === s.n,
@@ -150,6 +163,32 @@ console.log('\n── 2 · …AND A HEALTHY PRESS MUST STILL VISIBLY PRESS ─�
   ok(s.n > 0 && s.alive === s.n,
     '…and every pressed tile carries a picture, not a blank',
     `${s.alive}/${s.n}`);
+  await ctx.close();
+}
+
+/* ⛔ AND THE FOLDER MUST *NOT* PRESS — the opposite claim, on purpose, because that is what makes
+ *   §1's binder case structural rather than guarded. `art/deck/<n>.webp` IS ALREADY A PRESSED
+ *   SHEET (`npm run deck:bake`), so running it back through the press prints a separation OF a
+ *   separation, seeded from the FILENAME rather than the card's own recipe and with plates nobody
+ *   chose — and it renders, so nothing looks broken; it is simply a different card in the pocket
+ *   than the one the viewer opens. `pressPockets()` returns early for exactly this reason.
+ * ⚑ Asserted BOTH ways in one place: cards on screen, zero of them pressed. Without the first
+ *   half "nothing is pressed" is trivially true of an empty folder, which is the state that broke
+ *   §1 in the first place. If the hundred ever stop arriving pre-baked, this is what fails. */
+{
+  const { ctx, page } = await visit('/cards/binder.html');
+  await page.waitForSelector('.chip[data-src="hundred"]', { timeout: 30000 });
+  await page.click('.chip[data-src="hundred"]');
+  await page.waitForTimeout(9000);
+  const r = await page.evaluate(() => {
+    const imgs = [...document.querySelectorAll('.pk img')];
+    return { n: imgs.length, shown: imgs.filter(i => i.complete && i.naturalWidth > 2).length,
+             pressed: imgs.filter(i => i.hasAttribute('data-pressed')).length, press: !!window.CardPress };
+  });
+  ok(r.press && r.n > 0 && r.shown === r.n,
+    'the folder fills its pockets from the baked sheets', `${r.shown}/${r.n} shown, CardPress present`);
+  ok(r.pressed === 0,
+    '…and presses none of them — a baked sheet must not be pressed twice', r.pressed + ' pressed');
   await ctx.close();
 }
 

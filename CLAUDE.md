@@ -679,6 +679,98 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
 
+## ⛔ THE X HANDLE IS NOT THE STUDIO NAME — `@RipMaster3030`, pinned in `test:name` (206)
+*Artist, 2026-08-06: "here is our x for website: https://x.com/RipMaster3030"*
+- ⛔ **THE STRING THIS REPO PUT IN 258 FILES IS THE WRONG ONE HERE.** The studio, the domain and the
+  wordmark are `ripmaster3030studios`; the account is `@RipMaster3030`. ⚑ **That is the token's own
+  `name()`/`symbol()` split, one level out** — and it fails in the worst available way, because
+  `x.com/<anything>` is a valid URL that renders as a working link and lands on somebody else's
+  page or a 404. Nothing throws, nothing 404s in our own logs, and the surface it sits on is a
+  footer. **The likeliest mistake is the name, and the name is what a hand reaches for.**
+- ⚑ **THE FUNCTIONAL HALF IS THE META TAG, NOT THE LINK.** Without `twitter:site` every share of
+  every page on this domain is attributed to nobody — which is the reason a site declares a handle
+  at all. It is on all five share surfaces, and a meta tag is this file's canonical example of a
+  surface nobody looks at, so it is asserted rather than remembered.
+- ⚠ **NOT A FIFTH FUNNEL BUTTON, AND NOT AN EMBEDDED TIMELINE.** The front page was just rebuilt so
+  the first three things you can press are play · cards · pack; an account is identity, not a
+  funnel step, so it goes in the footer of every page. A timeline would be a third-party script on
+  every surface, and it is flatly impossible on `superrare.html`, which must stay script-free —
+  a good enough reason not to load one anywhere.
+- ⚑ **IT DOES GO IN THE EMBED.** A collector meets `superrare.html` inside the token's media slot
+  with no other route to the studio, so the account belongs beside the two site links.
+- ⛔ **AND MY OWN GENERATOR CHECK WAS A TAUTOLOGY THAT PASSED ON A SABOTAGED BUILD.** It asked
+  whether `x.com/${X_HANDLE}` appears in `build-pages.mjs` — and `X_URL`'s **own declaration line**
+  contains that exact text, so hard-coding every use site still matched the declaration and scored
+  green. **Same shape as the claim-signer guard already recorded here: a check that reads the thing
+  it is checking against.** The declaration lines are stripped first now, so what is left is use
+  sites only, and both directions are asserted — "no literal" is trivially satisfied by deleting
+  every use. Nine sabotages, all nine named the file.
+- ⚠ **CASE IS COSMETIC, CHARACTERS ARE NOT, and the test says which is which.** X routes
+  case-insensitively, so `x.com/ripmaster3030` really is the same account; `ripmaster3030studios`
+  is not. The routing check matches case-insensitively against an allow-list of accounts somebody
+  chose (the studio, the artist's own, the three credited in the colophon) — anything else fails,
+  naming the file. Spelling and host are a separate, honestly-labelled presentation assertion.
+- ⛔ **THE EMBED'S BUTTONS WERE 42 px — TWO UNDER THE FLOOR, ON ALL THREE.** `npm run mobile` took
+  taps under 44 px to zero across nine pages and `superrare.html` was not one of them, because it is
+  deliberately self-contained (no `mobile.css`, no scripts). ⚑ **The standard reached everywhere it
+  was enforced and nowhere it was not** — the same shape as the rename, in CSS. 14 px of padding,
+  measured back to exactly 44, not derived.
+- ⚠ **`scripts/test-all.mjs` WAS TWO SQUARES SHORT** (`challenge`, `arena`) and its own §0 guard
+  caught it — which is why that guard exists: *a board with a square missing reads as complete.*
+
+### ⛔ AND RUNNING THE BOARD BEFORE DEPLOYING FOUND TWO BROKEN INSTRUMENTS
+- ⛔ **`test:arena`'s SABOTAGE READ `git show HEAD:` AND THEREFORE WORKED EXACTLY ONCE** — while
+  its own fix was still uncommitted. The moment the fix landed, `HEAD` stopped carrying the defect,
+  the recovery returned `undefined`, and **`String.replace(re, undefined)` splices the literal text
+  `"undefined"` into the file** — which still differs from the original and still breaks `pick`, so
+  **three of §F's four assertions went on passing** and it even reported a plausible 35.0%.
+  ⚑ **That is this repo's recorded trap one turn worse: a sabotage that does not reproduce the
+  original bytes proves nothing, and this one proved it convincingly.** ✅ Pinned to the commit
+  (`26cfa2c^`) — **a sha is the one reference that cannot drift**, where `HEAD` names something new
+  every time anybody commits — and it now THROWS rather than substituting. 23/23, 35.3% on the
+  real bytes.
+- ⛔ **`test:cab`'s 44 px TAP FLOOR FLAGGED TWO LINKS INSIDE A SENTENCE, AND THE OBVIOUS FIX MADE
+  ONE OF THEM UNPRESSABLE.** `cards/battle.html`'s rules panel gained two prose links (the routes to
+  a hero); pad the hit rect and cancel it with a negative margin — the standard technique — and at
+  320×568 they wrap onto adjacent lines, the second paints later, and **`elementFromPoint` at the
+  FIRST link's centre returns the SECOND.** ⚑ **A link that takes zero presses is strictly worse
+  than a small one, and the arithmetic says there is no middle**: 14 px of letterform in a ~20 px
+  line box needs 15 px either side, so a 44 px box MUST reach into the lines above and below.
+  ✅ The exemption belongs in the sweep and is **WCAG 2.5.8's own** — a target "in a sentence or
+  block of text". ⛔ **Implemented as a SHAPE, not a class list** (does the anchor's parent hold
+  ≥20 letters of its own text?), because a hand-picked exemption list is the failure recorded three
+  times in this file — and the 20 is load-bearing: the footer's `·` separators are text nodes too,
+  so a lower bar would hand back the four 12–14 px nav links the block exists to fix.
+  ⚠ **AND IT HAD BEEN FIRING BY ACCIDENT.** Identical bytes: flagged in a loaded board run, clean
+  standalone — the sweep skips anything with no `offsetParent`, so *which panel happened to be on
+  screen* decided the result. **A rule that fires sometimes is the phantom-regression shape this
+  repo keeps paying for.** Stated, it fires never, and the exemption is proved to DISCRIMINATE
+  inside the test (prose 144 letters · nav row 0) — otherwise "no control is under 44 px" is
+  trivially true of a sweep that exempts everything. 298 → 299.
+- ⛔ **`test:press` MEASURED `0/0` ON THE FOLDER — AND ITS `s.n > 0` HALF IS THE ONLY REASON THAT
+  WAS A FAILURE INSTEAD OF A PASS.** The binder became a COLLECTION (*"the binder should show only
+  the cards I've collected"*), so it opens on `collected`, and a fresh test context has collected
+  nothing: nine empty sleeves, correctly. ⚑ **"Every card survived" is trivially true of no
+  cards** — the same vacuity that has now bitten three separate suites in one day. The catalogue
+  chip is opened first, so the assertion has a subject again.
+  ⚑ **AND THE PROPERTY IT GUARDS HAS BECOME STRUCTURAL, WHICH IS STRONGER.** Driven: 18 cards
+  shown, `CardPress` present, **0 pressed** — `pressPockets()` returns early because
+  `art/deck/<n>.webp` **is already a pressed sheet**, and pressing it again prints a separation OF
+  a separation, seeded from the FILENAME instead of the card's recipe. It renders, so nothing
+  looks broken; it is simply a different card in the pocket than the one the viewer opens. That is
+  now asserted in both directions in one place.
+  ⚠ **I ALMOST FILED A PHANTOM BUG ON THE WAY.** My first probe read `.pocket` — the class is
+  `.pk` — and reported **zero cards in the folder, no errors, no 404s**, which is word for word the
+  artist's own past complaint and looked entirely credible. **Fourth recorded instance of a probe
+  mistake reported as a product bug.** Check the selector against the markup before believing a
+  zero.
+- ⚠ **`ronin` 56/58 in the board, 58/58 standalone** — the recorded flake, confirmed as one. Both
+  failures were its timing-dependent assertions and nothing ronin-related was touched.
+- ⚑ **THE PATTERN ACROSS ALL THREE IS ONE SENTENCE: A CHECK WHOSE SUBJECT MOVED KEEPS REPORTING.**
+  The arena's sabotage lost its bytes and reported green; the tap sweep gained a subject it was
+  never written for and reported red only under load; the press suite lost its subject entirely and
+  said so. **Only the third behaved well, and only because somebody had written `n > 0`.**
+
 ## ⛔ THE FRONT PAGE PUT EVERYTHING IT MAKES BELOW EVERYTHING IT EXPLAINS
 *Artist, 2026-08-06: "call them games instead of cabinets. there are 6 games … do a site sweep for
 text updates. condense site. look at ui/ux flow. make it more of a funnel — get into the games and

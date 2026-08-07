@@ -50,6 +50,19 @@ const NAV = [
  *    the bitmaps — a name also travels as its own words with anything at all between them. The
  *    test now matches on the retired FIRST WORD, so `RIPMASTER 3030 STUDIOS` still passes and
  *    nothing led by the dead word can. */
+/* ⛔ THE STUDIO'S X HANDLE IS NOT THE STUDIO'S NAME, and every instinct in this repo is to type
+ *    the name. The studio, the domain and the wordmark are `ripmaster3030studios`; the account is
+ *    `@RipMaster3030`. That is the same split the token already carries between `name()` and
+ *    `symbol()`, one level out — and `ripmaster3030studios` is the string that appears in 258
+ *    files, so it is the one a hand reaches for.
+ * ⚑ ONE DECLARATION FOR THESE FOUR PAGES, and a literal everywhere else — index.html and
+ *   superrare.html are hand-authored with nothing to import, exactly like `packBurn`'s fallbacks.
+ *   The literal is unavoidable; what is avoidable is it DISAGREEING, so `npm run test:name` pins
+ *   the handle on every surface that carries it and fails on any other x.com account that is not
+ *   the artist's own or one of the three credited in the artist page's colophon. */
+const X_HANDLE = 'RipMaster3030';
+const X_URL = `https://x.com/${X_HANDLE}`;
+
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -69,6 +82,8 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@${X_HANDLE}">
+<meta name="twitter:creator" content="@${X_HANDLE}">
 <meta name="twitter:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png">
 <meta name="twitter:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <link rel="stylesheet" href="/mobile.css">
@@ -315,7 +330,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
     <footer class="foot">
       <span>$3030 · a game token, not an investment</span>
-      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
+      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a> · <a href="${X_URL}" target="_blank" rel="noopener">𝕏 @${X_HANDLE}</a></span>
       <span>ripmaster3030studios.com</span>
     </footer>
   </div>

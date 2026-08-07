@@ -586,6 +586,19 @@
        letterform — the box grows and the anchor stays 13px tall inside it. `inline-flex` makes
        the element its own hit box. */
     a.back{ display:inline-flex; align-items:center; min-height:44px; }
+    /* ⛔ A LINK INSIDE A SENTENCE CANNOT BE 44px, AND TRYING COST ONE OF THEM EVERY PRESS.
+       `.rules` gained two prose links on 2026-08-06 and they measure 14px tall, which the tap
+       sweep correctly flags. The obvious fix — pad the hit rect, cancel it with a negative margin
+       — was built and MEASURED: at 320×568 the two links wrap onto adjacent lines, the second
+       paints later, and `elementFromPoint` at the FIRST link's centre returned the SECOND.
+       ⚑ A link that takes zero presses is strictly worse than a small one, and the arithmetic
+         says it is unavoidable: reaching 44px needs 15px either side of a 14px letterform in a
+         ~20px line box, so the box MUST reach into the line above and below. There is no padding
+         that is both big enough and small enough.
+       ✅ So the exemption is in the sweep, where it belongs, and it is the same one WCAG 2.5.8
+         makes for a target "in a sentence or block of text" — see scripts/test-cabinets.mjs.
+       ⚠ Both destinations are reachable from this page without these links (the nav row), so
+         they are a convenience inside a sentence, not the only route to anything. */
   }
 </style>
   <script src="/gate.js"></script>

@@ -140,7 +140,12 @@
     position:relative; display:inline-flex; align-items:center; gap:8px; overflow:hidden;
     text-decoration:none; font-family:var(--fat); cursor:pointer;
     font-size:11.5px; letter-spacing:.13em; text-indent:.13em; text-transform:uppercase;
-    padding:13px 22px; border-radius:12px; color:#eafff2;
+    /* ⚠ 13px HERE MEASURED 42px TALL — two under the 44px tap floor the rest of the site was
+       taken to on every one of nine pages by `npm run mobile`. This page missed that pass because
+       it is deliberately self-contained (no mobile.css, no scripts of any kind), so the standard
+       reached everywhere it was enforced and nowhere it was not. Measured, not derived: 14px
+       puts all three buttons at exactly 44. */
+    padding:14px 22px; border-radius:12px; color:#eafff2;
     border:1px solid rgba(var(--bc),.5);
     background:linear-gradient(180deg, rgba(var(--bc),.16), rgba(2,14,8,.72) 60%, rgba(1,8,5,.85));
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 0 0 1px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.45),
@@ -276,6 +281,11 @@
     <div class="btns">
       <a class="btn" href="https://ripmaster3030studios.com" target="_blank" rel="noopener noreferrer">Enter the studio ↗</a>
       <a class="btn alt" href="https://ripmaster3030studios.com/arcade.html" target="_blank" rel="noopener noreferrer">The arcade ↗</a>
+      <!-- ⚑ A collector meets this page inside the token's media slot and has no other route to
+           the studio, so the account belongs here as much as the two site links do. It is a plain
+           <a> and stays one: this page must remain script-free (npm run test:embed), which rules
+           out an embedded timeline here and is a good enough reason not to load one anywhere. -->
+      <a class="btn alt" href="https://x.com/RipMaster3030" target="_blank" rel="noopener noreferrer">𝕏 @RipMaster3030</a>
     </div>
 
     <!-- ⛔ THE "THIS PAGE WILL NEVER ASK FOR YOUR WALLET" REASSURANCE IS GONE (artist, 2026-08-06).
