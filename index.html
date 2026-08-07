@@ -244,8 +244,13 @@
      full-width blocks between the wordmark and the first thing you can actually do */
   .hrow{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px 14px; margin-top:10px; }
   /* the live pool-depth line — a reading, so it is quiet type and it is absent unless it read */
-  .mkt-depth{ margin:9px auto 0; max-width:60ch; text-align:center; font-family:var(--mono);
+  .mkt-depth{ margin:9px auto 0; max-width:66ch; text-align:center; font-family:var(--mono);
     font-size:var(--t-fine,12px); letter-spacing:.04em; color:var(--phosdim); }
+  /* ⚠ 44px on BOTH axes — a thumb is round, and these are the only controls on the page whose
+     label is generated, so their width is whatever the number happens to be. */
+  .mkt-depth a{ color:var(--phos); text-decoration:none; border-bottom:1px dotted currentColor;
+    display:inline-flex; align-items:center; min-height:44px; padding:0 4px; }
+  .mkt-depth a:hover, .mkt-depth a:focus-visible{ color:#8bffbb; }
   /* ⚠ A SHORT VIEWPORT IS A DIFFERENT PROBLEM FROM A NARROW ONE, and the masthead is where the
      two diverge: every row in it is cheap horizontally and expensive vertically, so a phone held
      sideways pays for the whole stack at once. `test:cab` records the same lesson from the other
@@ -1357,11 +1362,24 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
     if (line && window.RipWallet && window.RipWallet.marketDepth) {
       window.RipWallet.marketDepth().then(r => {
         if (!r.live) return;                       // no reading ⇒ say nothing, not "unknown"
-        const usd = n => '$' + Math.round(n).toLocaleString('en-US');
-        const deep = r.pools.filter(p => p.usd > 0);
-        if (!deep.length) return;
-        line.textContent = 'deepest right now: ' + deep.map(p => p.quote + ' ' + usd(p.usd)).join(' · ')
-          + ' — read from the pools just now';
+        const usd = n => n >= 1 ? '$' + Math.round(n).toLocaleString('en-US') : 'no liquidity yet';
+        /* ⛔ EVERY POOL IS NAMED, NOT JUST THE DEEP ONE. The first version filtered to pools with
+           depth, which quietly hid the pair the studio had just opened — the artist made the ETH
+           pool and would have found no mention of it anywhere on the page. Saying "ETH — no
+           liquidity yet" is the honest version and it is more useful than silence: it tells a
+           buyer why the swap routed elsewhere, and it tells the studio the pool needs funding.
+           ⚑ Each name LINKS TO ITS OWN POOL on Uniswap — this is the one place a pool id belongs,
+           because here the pool itself is the destination rather than a route to fill through. */
+        const frag = document.createDocumentFragment();
+        r.pools.forEach((p, i) => {
+          if (i) frag.append(document.createTextNode('  ·  '));
+          const a = document.createElement('a');
+          a.href = p.pool; a.target = '_blank'; a.rel = 'noopener noreferrer';
+          a.textContent = p.quote + ' ' + usd(p.usd);
+          frag.append(a);
+        });
+        line.textContent = '';
+        line.append(document.createTextNode('pools, read just now: '), frag);
         line.hidden = false;
       }).catch(() => {});
     }

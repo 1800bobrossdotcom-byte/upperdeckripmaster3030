@@ -1353,6 +1353,13 @@ console.log('\n── the markets: every pool declared once, and the swap keyed 
     'js/wallet.js builds the chart link and validates the id length');
   ok(/swapUrl/.test(w) && /outputCurrency/.test(w) && /\{40\}/.test(w),
     '…and builds the swap link from the TOKEN, validated as a 20-byte address');
+  /* ⛔ AND IT NAMES BOTH SIDES. `outputCurrency` alone says what you are buying and nothing about
+   *   what you are paying with, so Uniswap opened on whatever input it chose and routed itself —
+   *   which is not the ETH pair the studio opened, and the artist said so: "swap on uniswap
+   *   doesn't take you to the eth pool". A swap link missing its input is a link to a different
+   *   errand. */
+  ok(/inputCurrency/.test(w), '…and names the INPUT side too, or it is not the ETH pair');
+  ok(/poolUrl/.test(w), 'js/wallet.js can link a pool DIRECTLY, for the pool itself as destination');
   /* ⚑ BOTH DIRECTIONS. "No hard-coded pool in the swap link" is trivially satisfied by a page with
    *   no swap route at all, which is the state this replaced. */
   const idx = readFileSync(join(ROOT, 'index.html'), 'utf8');

@@ -468,12 +468,29 @@
    *   nothing in it — which is exactly the failure mode of the ETH pair on the day it was made.
    * ⚠ Returns '' when there is no edition configured, so a caller shows nothing rather than
    *   opening a swap screen with no token in it. */
-  const swapUrl = () => {
+  /* ⛔ BOTH SIDES, NOT JUST THE OUTPUT. The first version set `outputCurrency` alone, which says
+   *   what you are buying and NOTHING about what you are paying with — so Uniswap opened on
+   *   whatever input it felt like and chose its own route, and the artist's reply was exactly
+   *   right: "swap on uniswap doesn't take you to the eth pool". Naming the input is what makes
+   *   it the ETH pair. `ETH` is the native sentinel Uniswap's swap UI takes for mainnet.
+   * ⚑ IT IS STILL KEYED ON CURRENCIES RATHER THAN ON A POOL ID, and that is the part worth
+   *   keeping: the router picks the venue, so if the ETH pool is empty the swap routes some other
+   *   way instead of filling at a ruinous price inside it. Aiming at a specific pool would remove
+   *   that. Use poolUrl() when the pool ITSELF is the destination. */
+  const swapUrl = (quote) => {
     const m = (CFG().market || {});
     const t = token();
     if (!/^0x[0-9a-fA-F]{40}$/.test(String(t || '').trim())) return '';
     const host = m.swapHost || 'https://app.uniswap.org/swap';
-    return `${host}?chain=ethereum&outputCurrency=${t}`;
+    const inp = String(quote || m.swapInput || 'ETH').trim().toUpperCase();
+    return `${host}?chain=ethereum&inputCurrency=${encodeURIComponent(inp)}&outputCurrency=${t}`;
+  };
+  /* The pool page itself — for looking at a market or adding to it, which is a different errand
+   * from buying and is the one place a pool id belongs. '' when that pair is not configured. */
+  const poolUrl = (quote) => {
+    const q = String(quote || '').trim().toUpperCase();
+    const hit = markets().find(p => p.quote.toUpperCase() === q);
+    return hit ? hit.pool : '';
   };
   /* Read the live depth of every market, so a page can route people to the pool that can actually
    * fill them instead of to whichever one somebody typed first. ⚠ FAILS OPEN AND SAYS SO: on any
@@ -527,7 +544,7 @@
     hasWallet: () => !!injected() || !!wcProjectId(),
     hasInjected: () => !!injected(),
     hasWalletConnect: () => !!wcProjectId(),
-    isLive, buyUrl, chartUrl, swapUrl, markets, marketDepth, explorerAddr, explorerTx,
+    isLive, buyUrl, chartUrl, swapUrl, poolUrl, markets, marketDepth, explorerAddr, explorerTx,
     chainName: () => (CHAINS[wantChainId()] || {}).name || ('chain ' + wantChainId()),
     /* ⛔ WHERE THE WALLET ACTUALLY IS, WHICH IS NOT WHAT chainName() ANSWERS. chainName() reports
      *   the CONFIGURED chain, and the ledger printed it under the heading "The house" — i.e. it
