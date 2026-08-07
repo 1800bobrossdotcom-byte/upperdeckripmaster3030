@@ -401,11 +401,16 @@ window.S9PCUI = (function () {
    * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
    * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
    * because a 1/1 is not a chip. */
-      return (window.RipDeck ? RipDeck.load('') : Promise.reject())
+      return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject())
         .then(cs => { DECK = (cs || []).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)); bySlug = new Map(DECK.map(c => [c.slug, c])); buildGrid(); })
         .catch(() => { $('cardsInfo').textContent = 'deck manifest missing — rip a pack first'; });
     }
     loadDeck().then(refreshPot);
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS GRID IS DRAWN. Measured on the live
+     * site: the vault migrated correctly and the picker still read "no cards yet — rip a
+     * pack", because the grid had already been built from the un-migrated rows. Repairing
+     * the DATA and never redrawing the DISPLAY is a fix the player cannot see. */
+    addEventListener('urm:vault-fixed', () => { try { loadDeck(); } catch (e) {} });
     if (window.RipPowers) { RipPowers.pollMarket().then(() => { if (!game || game.G.mode === 'lobby') buildGrid(); });
       setInterval(() => { RipPowers.pollMarket().then(() => { if (!game || game.G.mode === 'lobby') buildGrid(); }); }, 45000); }
     if (window.RipTavern) { try { RipTavern.mount('#tavern'); } catch (e) {} }

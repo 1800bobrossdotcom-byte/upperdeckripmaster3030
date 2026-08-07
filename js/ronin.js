@@ -35,7 +35,7 @@
    * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
    * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
    * because a 1/1 is not a chip. */
-  function loadDeck() { return (window.RipDeck ? RipDeck.load('') : Promise.reject())
+  function loadDeck() { return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject())
     .then(cs => { DECK = (cs || []).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)); bySlug = new Map(DECK.map(c => [c.slug, c])); }).catch(() => {}); }
 
   // ── roster: archetypes + card unlock rules ──

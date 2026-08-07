@@ -55,6 +55,12 @@
     return m ? Number(m[1]) : null;
   }
 
+  /* ⚠ `base` IS RELATIVE TO THE CALLING PAGE, AND THAT BIT EVERY CABINET AT ONCE. `cards/*.html`
+   *   pass '' because the manifests sit beside them; a page at the ROOT (dogfight, section9,
+   *   cloudracer, riprocketer, ronin) must pass 'cards/' or the fetch 404s into the catch below
+   *   and the deck comes back EMPTY — which surfaces as "deck manifest missing" or "no cards yet"
+   *   on a player who has a full folder. Copying battle.html's call verbatim to a root page is
+   *   exactly how that happened. */
   function load(base) {
     if (_hundred) return _hundred;
     _hundred = Promise.all([j(base, 'deck-manifest.json'), j(base, 'deck.json')])

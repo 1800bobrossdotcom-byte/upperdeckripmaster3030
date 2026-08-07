@@ -478,7 +478,7 @@
    *   from each card's seed), which is what this grid reads. ⛔ And heroes are filtered out for the
    *   same reason the arena filters them: the 33 are not chips, so a 1/1 cannot be wagered into a
    *   pot and lost on a dogfight. */
-  function loadDeck(){ return (window.RipDeck ? RipDeck.load('') : Promise.reject()).then(cards=>{
+  function loadDeck(){ return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject()).then(cards=>{
     DECK=(cards||[]).filter(c=>{ const n=Number(c.id); return !(n>=1&&n<=33); });
     if(!DECK.length) throw 0;
     bySlug=new Map(DECK.map(c=>[c.slug,c]));
