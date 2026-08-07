@@ -102,20 +102,44 @@
 
     const roster = () => [...players.values()].sort((a, b) =>
       (a.me ? -1 : b.me ? 1 : 0) || b.balance - a.balance);          // you, then everyone else
-    const pushLobby = () => emit('lobby', roster());
+    /* ⚠ AND COALESCE THE REPAINT REGARDLESS. Presence is bursty by nature — a beat, a join and a
+     * status change can land in the same tick — and each one used to rewrite the whole list.
+     * One frame, one render: defence in depth behind the storm fix above, and it also stops a
+     * roster of a dozen people repainting a dozen times a second on a phone. */
+    let lobbyQ = 0;
+    const pushLobby = () => {
+      if (lobbyQ) return;
+      lobbyQ = (typeof requestAnimationFrame === 'function')
+        ? requestAnimationFrame(() => { lobbyQ = 0; emit('lobby', roster()); })
+        : setTimeout(() => { lobbyQ = 0; emit('lobby', roster()); }, 16);
+    };
 
     // presence heartbeat + receive
     const announce = () => bc && bc.postMessage({ t: 'hi', p: { id: me.id, handle: me.handle, balance: me.balance, cards: me.cards, status: me.status, verified: me.verified, address: me.address } });
     if (bc) bc.onmessage = e => {
       const m = e.data || {};
-      if (m.t === 'hi' && m.p && m.p.id !== me.id) { players.set(m.p.id, { ...m.p, lastSeen: Date.now() }); announce(); pushLobby(); }
+      /* ⛔ THIS WAS AN INFINITE ANNOUNCE STORM. A says hi → B stores it and says hi BACK → A
+       * stores it and says hi back → forever, as fast as the event loop allows, with every round
+       * calling pushLobby() and rewriting the roster's innerHTML. Artist, 2026-08-07: "the players
+       * are flashing really fast on and off" — and his screenshot caught the list blank mid-
+       * rewrite while the header still said 3 online.
+       * ⚑ THE REPLY IS ONLY FOR SOMEONE NEW. That is the whole point of answering a hi: to tell a
+       * tab that just opened who is already here. Once both sides know each other there is nothing
+       * left to say, so the ping-pong has no second lap. */
+      if (m.t === 'hi' && m.p && m.p.id !== me.id) {
+        const isNew = !players.has(m.p.id);
+        players.set(m.p.id, { ...m.p, lastSeen: Date.now() });
+        if (isNew) announce();
+        pushLobby();
+      }
       else if (m.t === 'bye' && m.p) { players.delete(m.p); pushLobby(); }
       /* ⚠ SAME (cid, kind) DEDUP AS THE WIRE. Two tabs of one browser are on BOTH transports, so
        * without this every same-device challenge raises the toast twice. */
       else if (m.t === 'challenge' && m.to === me.id && fresh(m.cid + ':call')) {
-        emit('challenge', { id: m.cid, from: players.get(m.from) || { handle: m.fromHandle, id: m.from } }); }
+        emit('challenge', { id: m.cid, game: m.game || 'arena',
+          from: players.get(m.from) || { handle: m.fromHandle, id: m.from } }); }
       else if (m.t === 'accept' && m.to === me.id && fresh((m.cid || m.from) + ':accept')) {
-        pending = null; startMatch(players.get(m.from), m.oppStack); }
+        pending = null; startMatch(players.get(m.from), m.oppStack, m.game || 'arena'); }
       else if (m.t === 'decline' && m.to === me.id && fresh((m.cid || m.from) + ':decline')) {
         pending = null; emit('reply', { kind: 'decline', from: players.get(m.from) || { id: m.from, handle: m.fromHandle || 'a ripper' } }); }
     };
@@ -143,9 +167,10 @@
       for (const raw of (list || [])) {
         let m = raw; if (typeof m === 'string') { try { m = JSON.parse(m); } catch { continue; } }
         if (!m || !m.cid || !m.kind || !fresh(m.cid + ':' + m.kind)) continue;
-        if (m.kind === 'call') emit('challenge', { id: m.cid, from: whoIs(m), remote: true });
+        if (m.kind === 'call') emit('challenge', { id: m.cid, from: whoIs(m), game: m.game || 'arena', remote: true });
         else if (!pending || pending.cid !== m.cid) continue;   // an answer to a call we did not make
-        else if (m.kind === 'accept') { const who = whoIs(m); pending = null; startMatch(who, null); }
+        else if (m.kind === 'accept') { const who = whoIs(m); const g = m.game || (pending && pending.game) || 'arena';
+          pending = null; startMatch(who, null, g); }
         else { const who = whoIs(m); pending = null; emit('reply', { kind: 'decline', from: who }); }
       }
     }
@@ -165,7 +190,14 @@
         kvLive = true; let changed = false;
         for (const p of (j.players || [])) {
           if (!p || p.id === me.id) continue;
-          players.set(p.id, { ...p, remote: true, lastSeen: Date.now() }); changed = true;
+          /* ⚠ `changed` used to be set for EVERY remote record on EVERY beat, so the roster
+           * repainted every 5 s whether or not anything had actually moved. Compare the fields the
+           * roster actually draws. */
+          const was = players.get(p.id);
+          if (!was || was.handle !== p.handle || was.status !== p.status ||
+              was.balance !== p.balance || was.cards !== p.cards || was.game !== p.game ||
+              was.verified !== p.verified || !!was.seek !== !!p.seek) changed = true;
+          players.set(p.id, { ...p, remote: true, lastSeen: Date.now() });
         }
         if (changed) pushLobby();
         takeInbox(j.inbox);
@@ -196,7 +228,8 @@
       if (changed) pushLobby();
     }, 4000);
 
-    function startMatch(opponent, oppStack) { me.status = 'battling'; emit('match', { opponent, oppStack: oppStack || null }); }
+    function startMatch(opponent, oppStack, game) { me.status = 'battling';
+      emit('match', { opponent, oppStack: oppStack || null, game: game || 'arena' }); }
 
     return {
       /* ⛔ A CALLER MUST NOT BE ABLE TO CLOBBER THE HANDLE WITH NOTHING. Every tab is born with a
@@ -231,17 +264,19 @@
        * machine; the wire reaches anyone. Sending over both and de-duplicating on arrival is one
        * line cheaper than deciding per-recipient which one to use — and a decision like that is
        * exactly what was wrong here, because `remote` is a flag that can simply be missing. */
-      challenge(id) {
+      /* ⚑ `game` names where the fight happens. Omitted = the arena, so every existing caller
+       * keeps working unchanged. */
+      challenge(id, game) {
         const target = players.get(id); if (!target) return;
-        const cid = 'c_' + uid(); pending = { cid, id };
-        if (bc) bc.postMessage({ t: 'challenge', to: id, from: me.id, fromHandle: me.handle, cid });
-        wire({ cid, to: id, kind: 'call', fromHandle: me.handle });
+        const cid = 'c_' + uid(); pending = { cid, id, game: game || 'arena' };
+        if (bc) bc.postMessage({ t: 'challenge', to: id, from: me.id, fromHandle: me.handle, cid, game: game || 'arena' });
+        wire({ cid, to: id, kind: 'call', fromHandle: me.handle, game: game || 'arena' });
         return cid;
       },
       accept(ch) {
         if (!ch || !ch.from) return;
         if (bc) bc.postMessage({ t: 'accept', to: ch.from.id, from: me.id, cid: ch.id, oppStack: null });
-        if (ch.id) wire({ cid: ch.id, to: ch.from.id, kind: 'accept', fromHandle: me.handle });
+        if (ch.id) wire({ cid: ch.id, to: ch.from.id, kind: 'accept', fromHandle: me.handle, game: ch.game || 'arena' });
         startMatch(ch.from, null);
       },
       decline(ch) {
@@ -274,7 +309,7 @@
     me() { return this._a().me(); },
     /* the one place a page should ask "what am I called" — never `localStorage || 'you'` */
     handle() { try { return this._a().me().handle || 'a ripper'; } catch (e) { return 'a ripper'; } },
-    challenge(id) { return this._a().challenge(id); },
+    challenge(id, game) { return this._a().challenge(id, game); },
     accept(ch) { return this._a().accept(ch); },
     decline(ch) { return this._a().decline(ch); },
     pending() { const a = this._a(); return a.pending ? a.pending() : null; },

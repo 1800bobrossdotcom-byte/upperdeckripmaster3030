@@ -1673,11 +1673,17 @@
     DECK = r[0] || []; LEGACY = r[1] || [];
     if (!DECK.length) throw 0;
     renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby(); initWallet();
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS. Without redrawing, a collector whose
+     * retired cards were just migrated sits looking at the empty hand they arrived with. */
+    addEventListener('urm:vault-fixed', () => { try { renderVault(); deal(); } catch (e) {} });
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });
 })();
 </script>
+<script>window.RIPCHAL_OWN = true;   /* the arena handles its OWN incoming challenges — js/challenge-ui.js stays out of the way for game==="arena" only */</script>
+<script src="../js/challenge-ui.js"></script>
+<script src="../js/vault-fix.js"></script>
 <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
 <script>

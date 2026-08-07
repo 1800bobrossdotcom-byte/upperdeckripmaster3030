@@ -451,7 +451,12 @@
    * blank. Each decode re-uploads the atlas once; twelve uploads, then never again. */
   let deckNames = [];
   function loadDeck() {
-    fetch('cards/manifest.json').then(r => r.json()).then(m => {
+    /* ⛔ READ `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS — ON A SURFACE THAT WAGERS CARDS.
+   * Artist, 2026-08-07: "no one can properly play / wager / ante right now" and "for all game
+   * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
+   * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
+   * because a 1/1 is not a chip. */
+    (window.RipDeck ? RipDeck.load('').then(cs => ({ cards: (cs||[]).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)) })) : Promise.reject()).then(m => {
       const deck = m.cards || [], bySlug = new Map(deck.map(c => [c.slug, c]));
       let owned = [];
       try { owned = JSON.parse(localStorage.getItem('urm_vault') || '[]').map(e => bySlug.get(e.slug)).filter(Boolean); } catch (e) {}

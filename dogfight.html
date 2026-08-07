@@ -384,7 +384,11 @@
 <script src="js/wallet-ui.js"></script>
 <script src="js/eth-play.js"></script>
 <script src="js/df-net.js"></script>
+<script src="js/card-stats.js"></script>
+<script src="js/deck-source.js"></script>
+<script src="js/vault-fix.js"></script>
 <script src="cards/arena-net.js"></script>
+<script src="js/challenge-ui.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/card-hover.js"></script>
 <script src="js/arena-lobby.js"></script>
@@ -464,12 +468,27 @@
   function vault(){ try{ return JSON.parse(localStorage.getItem('urm_vault')||'[]'); }catch{ return []; } }
   function saveVault(v){ try{ localStorage.setItem('urm_vault', JSON.stringify(v.slice(-400))); }catch{} }
   function ownedSlugs(){ return vault().map(e=>e&&e.slug).filter(s=>s&&bySlug.has(s)); }
-  function loadDeck(){ return fetch('cards/manifest.json').then(r=>r.json()).then(m=>{ DECK=(m.cards||[]);
+  /* ⛔ THIS FETCHED `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS. Artist, 2026-08-07, on
+   *   this very picker: "showing wrong cards" and "no one can properly play / wager / ante right
+   *   now." `cards/battle.html` recorded this exact defect and fixed it — *"the arena is where you
+   *   STAKE a card, so it was asking a player to wager the stand-ins"* — and DOGFIGHT, which also
+   *   stakes cards into a pot, was never touched. **A recorded lesson protects the file it was
+   *   written in and nothing else**, for the third time today.
+   * ⚑ `RipDeck.load` is the one join that returns the hundred WITH vitals (atk/def/trigger derived
+   *   from each card's seed), which is what this grid reads. ⛔ And heroes are filtered out for the
+   *   same reason the arena filters them: the 33 are not chips, so a 1/1 cannot be wagered into a
+   *   pot and lost on a dogfight. */
+  function loadDeck(){ return (window.RipDeck ? RipDeck.load('') : Promise.reject()).then(cards=>{
+    DECK=(cards||[]).filter(c=>{ const n=Number(c.id); return !(n>=1&&n<=33); });
+    if(!DECK.length) throw 0;
     bySlug=new Map(DECK.map(c=>[c.slug,c]));
     // craft images: your owned, else the front of the deck
     const own=ownedSlugs(); const pool=(own.length?own:DECK.slice(0,16).map(c=>c.slug));
     pool.slice(0,16).forEach(sl=>{ const c=bySlug.get(sl); if(!c)return; const im=new Image(); im.src='cards/'+c.art; craftImgs.push({im,rar:c.rarity}); });
     buildGrid(); }).catch(()=>{ $('cardsInfo').textContent='deck manifest missing — rip a pack first'; }); }
+  /* ⚠ the vault repair is async and lands after the grid is drawn — redraw, or a pilot whose
+     retired cards were just migrated sits looking at the empty tray they arrived with. */
+  addEventListener('urm:vault-fixed', ()=>{ try{ loadDeck(); }catch(e){} });
 
   // ── SFX / music ──
   let AC=null, sfxOn=true; const ac=()=>AC||(AC=new(window.AudioContext||window.webkitAudioContext)());

@@ -97,6 +97,13 @@
     document.head.appendChild(s);
   }
 
+  /* ⚠ THE HREF IS A REAL DESTINATION EVEN WITHOUT JS — the picker upgrades it, it does not
+   *   create it, so a middle-click or a blocked module still lands somewhere sensible. */
+  function vsHref(p) {
+    var w = WHERE[p.game] || { href: 'cards/battle.html' };
+    return w.href + '?vs=' + encodeURIComponent(p.id);
+  }
+
   function render(players) {
     var list = (players || []).filter(function (p) { return p && p.handle; });
     /* ⛔ AN EMPTY ROOM RENDERS NOTHING. "0 online" is a worse thing to publish than silence — it
@@ -121,17 +128,27 @@
        *   `?vs=` is validated there against the same pattern the server validates — matching it
        *   here too means a malformed roster row renders a name and simply no sword, rather than
        *   a button that leads to an arena that quietly ignores it. */
-      var can = p.game === 'arena' && p.status !== 'battling' && /^p_[a-z0-9]{4,20}$/.test(p.id || '');
+      /* ⛔ ANY PLAYER, ANY GAME. This used to offer the ⚔ only to rippers already in the arena,
+       *   because a challenge could only mean "the arena" — the artist's "challenge buttons for any
+       *   player to any game at any time" is exactly that limitation removed. Anyone online who is
+       *   not mid-fight can be called out, into whichever game the picker chooses. */
+      var can = p.status !== 'battling' && /^p_[a-z0-9]{4,20}$/.test(p.id || '');
       return '<span class="on-p' + (seek ? ' seek' : '') + '">' +
         '<a class="on-go" href="' + esc(w.href) + '">' + (seek ? '⚔ ' : '') + esc(p.handle) +
         ' <small>' + esc(w.label) + '</small></a>' +
-        (can ? '<a class="on-vs" href="cards/battle.html?vs=' + encodeURIComponent(p.id) +
-          '" title="challenge ' + esc(p.handle) + '" aria-label="challenge ' + esc(p.handle) + '">⚔</a>' : '') +
+        (can ? '<a class="on-vs" href="' + esc(vsHref(p)) + '" data-id="' + esc(p.id) +
+          '" data-h="' + esc(p.handle) + '" title="challenge ' + esc(p.handle) +
+          '" aria-label="challenge ' + esc(p.handle) + '">⚔</a>' : '') +
         '</span>';
     }).join('');
 
     EL.className = 'on-now live';
     EL.innerHTML = head + '<div class="on-row">' + rows + '</div>';
+    /* the picker, when it is loaded — otherwise the plain href above stands */
+    if (global.RipChallengeUI) EL.querySelectorAll('a.on-vs').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault();
+        global.RipChallengeUI.pick(a.dataset.id, a.dataset.h); });
+    });
   }
 
   function poll() {
