@@ -2072,6 +2072,17 @@
      * lines above its own declaration — a temporal dead zone, which `new Function` compiles
      * happily because compiling is not executing, and which would have thrown at exactly the
      * moment a player finished a two-million run. Fifth sighting of TDZ in this repo. */
+    /* ⛔ TWO BARS, NOT ONE BAR TWICE — artist, 2026-08-07: "I cleared 2 million earlier, so I earned
+     * a 1/1. now someone earned 7 million+ and then the same 2 million award was given to them."
+     * TWO MILLION FEET is ONE seat and it is gone; a bigger run is a title of its own, and
+     * `js/title-ledger.js` is what closes the first. ⚠ A 7,000,000 run passes 2,000,000 on the way,
+     * so BOTH fire — that is correct and the ledger sorts it out: the closed one shows TAKEN, the
+     * open one prints a claim slip. Suppressing the lower award here would be the wrong place to
+     * decide it, because whether a seat is left is not RIP ROCKETER's business. */
+    if (e.score >= 7000000) {
+      ttAward('abovetheweather', { score: e.score, wave: G.wave, chain: G.bestChain,
+        accuracy: acc, flowHeld: +Math.max(G.stat.flowHeld || 0, G.stat.flowRun || 0).toFixed(1) });
+    }
     if (e.score >= 2000000) {
       ttAward('twomillion', { score: e.score, wave: G.wave, chain: G.bestChain,
         accuracy: acc, flowHeld: +Math.max(G.stat.flowHeld || 0, G.stat.flowRun || 0).toFixed(1) });

@@ -38,15 +38,21 @@ function mem() {
 // ═══ A · THE LEDGER ════════════════════════════════════════════════════════════════════════════
 head('A · the ledger');
 mem();
-ok(RT.TITLES.length === 9, 'nine titles', RT.TITLES.length + '');
+/* ⛔ TEN TITLES, ELEVEN CARDS — and the CARD count is the one that is settled. Artist, 2026-08-07,
+ * added ABOVE THE WEATHER (7,000,000) because TWO MILLION FEET is a 1/1 that is already taken and a
+ * bigger run is not a second copy of a smaller title. The budget is fixed at eleven, so THE STREAK
+ * went from three seats to two — HERO-UNLOCKS §4¾'s own named option for freeing exactly one card,
+ * and the only one that deletes no published title. */
+ok(RT.TITLES.length === 10, 'ten titles', RT.TITLES.length + '');
+ok(RT.cards() === 11, 'ELEVEN CARDS — the number that is actually settled', RT.cards() + '');
 ok(RT.cards() === 11, 'eleven CARDS — the counting noun that the whitepaper got wrong', RT.cards() + '');
-ok(RT.byId.streak.seats === 3, 'THE STREAK holds the three seats');
+ok(RT.byId.streak.seats === 2, 'THE STREAK holds two seats — the card that paid for ABOVE THE WEATHER');
 ok(RT.TITLES.filter(t => t.seats > 1).length === 1, 'and it is the only multi-seat title');
 {
   const games = {}; RT.TITLES.forEach(t => { games[t.game] = (games[t.game] || 0) + 1; });
   ok(games.DOGFIGHT === 2 && games['SECTION 9'] === 2 && games['THE CITY'] === 2 &&
-     games['RIP ROCKETER'] === 2 && games['CLOUD RACER'] === 1,
-    'A5 the artist\'s dispersal: DOGFIGHT 2 · SECTION 9 2 · THE CITY 2 · RIP ROCKETER 2 · CLOUD RACER 1',
+     games['RIP ROCKETER'] === 3 && games['CLOUD RACER'] === 1,
+    'A5 the artist\'s dispersal: DOGFIGHT 2 · SECTION 9 2 · THE CITY 2 · RIP ROCKETER 3 · CLOUD RACER 1',
     JSON.stringify(games));
   ok(!Object.keys(games).includes('NEON RONIN'),
     'A6 ⛔ nothing points at NEON RONIN — the cabinet was retired 2026-08-03');
@@ -66,6 +72,61 @@ ok(RT.award('nonsense', {}) === null, 'an unknown id invents nothing');
   ok(/studio verifies/.test(s) && !/private key|wallet address|seed/i.test(s),
     'A12 …and it asks for a recording, never for a key');
 }
+
+/* ══ §A2  A TITLE CAN ONLY BE GIVEN ONCE ══════════════════════════════════════════════════════
+ * ⛔ Artist, 2026-08-07: "the awards need to only be claimed once… I cleared 2 million earlier, so
+ *    I earned a 1/1. now someone earned 7 million+ and then the same 2 million award was given to
+ *    them." He is right, and the cause was structural rather than a bug in award(): this ledger is
+ *    per-BROWSER, so every browser began at zero and re-issued the whole set. **Idempotence inside
+ *    one browser is not scarcity across all of them** — and every assertion above passed throughout,
+ *    because each one only ever looked at a single browser.
+ * ⚑ The roster of taken seats is a file the STUDIO commits when it signs a voucher. A client can
+ *   never write it, which is the load-bearing half: if a browser could close a title, one visitor
+ *   could lock everyone out of all eleven cards in an afternoon. */
+{
+  mem();
+  const seatsOf = id => RT.byId[id].seats;
+  ok(!RT.roster().loaded && RT.seatState('twomillion') === 'unread',
+    'A13 before the roster lands a seat is UNREAD — not open, and not closed', RT.seatState('twomillion'));
+
+  RT.setRoster({ taken: { twomillion: 1 } });
+  ok(RT.seatState('twomillion') === 'closed' && RT.seatsOpen('twomillion') === 0,
+    'A14 a taken 1/1 is CLOSED', RT.seatState('twomillion'));
+  ok(RT.seatState('abovetheweather') === 'open',
+    'A15 …and the bigger bar beside it is still open — a 7,000,000 run is a title, not a second copy of a 2,000,000 one');
+
+  /* the exact sequence the artist reported: somebody posts 7.3M, which passes BOTH bars */
+  RT.award('twomillion', { score: 7300000 });
+  RT.award('abovetheweather', { score: 7300000 });
+  ok(RT.status('twomillion').redeemable === false,
+    'A16 ⛔ the closed title is NOT redeemable, even though the run cleared its bar');
+  ok(RT.status('abovetheweather').redeemable === true,
+    'A17 …and the open one is');
+  const closedSlip = RT.slip('twomillion'), openSlip = RT.slip('abovetheweather');
+  ok(/CLOSED/.test(closedSlip) && !/studio verifies/.test(closedSlip),
+    'A18 a closed title prints NO CLAIM SLIP — sending a collector to post a capture for a minted card is the promise that cannot be kept',
+    closedSlip.split('\n')[0]);
+  ok(/You did the thing/.test(closedSlip),
+    'A19 …but it still says the run happened, because it did');
+  ok(/studio verifies/.test(openSlip), 'A20 the open title still prints a real claim');
+
+  /* ⚠ SEATS ARE COUNTED, NOT BOOLEAN. THE STREAK has two: one taken must leave one open, or a
+   *   multi-seat title would close on its first claimant and the whole point of seats is gone. */
+  RT.setRoster({ taken: { streak: 1 } });
+  ok(RT.seatState('streak') === 'open' && RT.seatsOpen('streak') === 1,
+    'A21 one of THE STREAK\'s two seats taken leaves ONE open', RT.seatsOpen('streak') + ' open');
+  RT.setRoster({ taken: { streak: 2 } });
+  ok(RT.seatState('streak') === 'closed', 'A22 …and both taken closes it');
+
+  /* ⚠ A ROSTER THAT NAMES SOMETHING THAT IS NOT A TITLE, OR MORE SEATS THAN EXIST, MUST NOT MOVE
+   *   ANY OTHER TITLE. It is a hand-edited file committed under time pressure at the moment a
+   *   voucher is signed, which is exactly when a typo happens. */
+  RT.setRoster({ taken: { nonsense: 4, twomillion: 99 } });
+  ok(RT.seatState('twomillion') === 'closed' && RT.seatState('wire') === 'open',
+    'A23 a typo in the roster closes nothing it did not name', RT.seatState('wire'));
+  ok(seatsOf('streak') === 2, 'A24 …and the roster can never change how many seats a title HAS');
+}
+mem();
 RT._mem({ getItem() { throw new Error('opaque'); }, setItem() { throw new Error('x'); }, removeItem() { throw new Error('x'); } });
 let threw = false;
 try { RT.award('ghost', {}); RT.cleared('ghost'); RT.all(); RT.slip('ghost'); } catch (e) { threw = true; }
@@ -188,7 +249,7 @@ for (const page of ['dogfight.html', 'section9.html', 'city.html', 'cloudracer.h
         lists: (ov ? ov.querySelectorAll('.rt-li').length : 0) };
     });
     ok(panel.open && panel.slip, `${page} the panel opens with the claim slip`);
-    ok(panel.lists === 9, `${page} …and lists all nine titles`, panel.lists + '');
+    ok(panel.lists === 10, `${page} …and lists all ten titles`, panel.lists + '');
     ok(panel.judge, `${page} …and says out loud that the studio is the judge, not the browser`);
   }
   ok(errs.length === 0, `${page} no page errors`, errs.join(' | ') || 'clean');
@@ -266,6 +327,64 @@ head('D · DOGFIGHT and SECTION 9 — the detectors actually fire');
   ok(r.hasTT, 'D6 SECTION 9 exposes its tracker', JSON.stringify(r.tt));
   ok(errs.length === 0, 'D7 section9: no page errors', errs.join(' | ') || 'clean');
   await ctx.close();
+}
+
+/* ══ §E  THE CARD MINTS DOWN THE SAME PATH AS EVERY OTHER LENS ════════════════════════════════
+ * Artist, 2026-08-07: "be sure that it mints just like the other lenses, to the superrare page."
+ * ⛔ THE ONLY WAY THAT CAN BE TRUE IS IF IT IS THE SAME CONTRACT AND THE SAME FUNCTION. A hero card
+ *    surfaces on the edition's SuperRare page because it is an id on `Ripmaster3030Lens721`, whose
+ *    renderer the edition points at — so a second contract, or a second mint entry point, would
+ *    produce a token that exists and never appears there. Nothing would error; it would simply not
+ *    be on the page, which is this repo's whole recorded genre.
+ * ⚑ Coupled by a TEST rather than a shared import, the same instrument that pins the city-ops and
+ *   s9pc weapon tables: the collector page cannot import the studio console, and a copied selector
+ *   is exactly the thing that drifts. */
+{
+  const hc = await readFile(join(ROOT, 'js/hero-claim.js'), 'utf8');
+  const mh = await readFile(join(ROOT, 'mint-heroes.html'), 'utf8');
+  const cfg = await readFile(join(ROOT, 'js/chain-config.js'), 'utf8');
+
+  const selOf = s => (s.match(/claimHero:\s*'(0x[0-9a-f]{8})'/) || [])[1];
+  ok(selOf(hc) && selOf(hc) === selOf(mh),
+    'E1 the pop-up calls the SAME claimHero selector the studio console does', selOf(hc) + ' vs ' + selOf(mh));
+
+  /* ⛔ AND IT MUST READ THE ADDRESS FROM chain-config, NOT CARRY ITS OWN. mint-heroes.html hard-codes
+   *   the lens because it is a one-off console; a shipped module that hard-coded it would keep
+   *   pointing at the old contract the day the config moves — the recorded `renderContract` trap
+   *   ("always read it, never trust a note") one layer out. */
+  ok(/contracts\s*&&\s*cfg\.contracts\.lens721|cfg\.contracts\s*&&\s*cfg\.contracts\.lens721/.test(hc.replace(/\s+/g, ' ')) ||
+     /contracts\s*\|\|\s*\{\}\)\.lens721/.test(hc) || /cfg\.contracts.*lens721/.test(hc),
+    'E2 …and reads the lens address out of chain-config rather than carrying its own copy');
+  ok(!/0x[0-9a-fA-F]{40}/.test(hc),
+    'E3 ⛔ js/hero-claim.js contains NO hard-coded address at all',
+    (hc.match(/0x[0-9a-fA-F]{40}/) || ['none'])[0]);
+
+  const lens = (cfg.match(/lens721:\s*"(0x[0-9a-fA-F]{40})"/) || [])[1];
+  const consoleLens = (mh.match(/const LENS = '(0x[0-9a-fA-F]{40})'/) || [])[1];
+  ok(lens && consoleLens && lens.toLowerCase() === consoleLens.toLowerCase(),
+    'E4 the config and the console name the SAME lens, so both mints land on one contract',
+    lens + ' vs ' + consoleLens);
+
+  /* ⚠ A voucher is published, so the file has to be safe to serve — and the one thing that would
+   *   make it unsafe is a key in it. Asserted rather than remembered. */
+  const vj = JSON.parse(await readFile(join(ROOT, 'data/hero-vouchers.json'), 'utf8'));
+  /* ⚠ THE `_`-PREFIXED KEYS ARE THE FILE'S OWN INSTRUCTIONS AND ARE STRIPPED FIRST. Without that
+   *   this failed on the sentence "NEVER paste a private key anywhere near this repo" — a checker
+   *   crying wolf at the note explaining the rule it enforces, which is exactly how test:name's
+   *   comment-stripper came to exist. A checker that fires on its own documentation gets muted. */
+  const payload = {}; for (const k in vj) if (k[0] !== '_') payload[k] = vj[k];
+  const raw = JSON.stringify(payload).replace(/"sig":\s*"0x[0-9a-fA-F]+"/g, '');
+  ok(!/private|secret|mnemonic|0x[0-9a-f]{64}(?![0-9a-f])/i.test(raw),
+    'E5 data/hero-vouchers.json carries signatures and never a key');
+  ok(vj.vouchers && typeof vj.vouchers === 'object', 'E6 …and it parses with a vouchers map',
+    Object.keys(vj.vouchers).length + ' wallets');
+
+  const cl = JSON.parse(await readFile(join(ROOT, 'data/titles-claimed.json'), 'utf8'));
+  const ids = Object.keys(cl.taken || {});
+  ok(ids.length > 0 && ids.every(id => RT.byId[id]),
+    'E7 every id in the claimed roster is a real title', ids.join(' '));
+  ok(Object.entries(cl.taken).every(([id, n]) => n <= RT.byId[id].seats),
+    'E8 …and no title is recorded as more taken than it has seats');
 }
 
 await br.close(); srv.close();
