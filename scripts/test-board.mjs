@@ -192,19 +192,22 @@ head('§B  js/leaderboard.js — the unit, and the arcade panel');
     'B2 every game NAMES what its number is', JSON.stringify(r.units));
   ok(r.chips.length === 6, 'B3 the arcade menu shows a chip per game — including THE CITY, which has no lobby',
     r.chips.map(c => c[0]).join(' '));
-  ok(r.small === 0, 'B4 …and every chip clears 44px on BOTH axes',
-    r.chips.map(c => c[1] + 'x' + c[2]).join(' '));
+  /* ⚠ "NOTHING IS UNDER 44px" IS TRIVIALLY TRUE OF A PANEL THAT RENDERED NO CHIPS — proved by the
+   *   sabotage, where this passed with 0 measured. The count is part of the claim. */
+  ok(r.chips.length === 6 && r.small === 0, 'B4 …and every chip clears 44px on BOTH axes',
+    r.chips.map(c => c[1] + 'x' + c[2]).join(' ') || 'no chips rendered');
   ok(/top rippers/i.test(r.hd) && /·/.test(r.hd), 'B5 the header carries the unit', JSON.stringify(r.hd));
 
   const sw = await page.evaluate(async () => {
     const before = (document.querySelector('#topRippers .lb-hd') || {}).textContent;
     const c = [...document.querySelectorAll('#topRippers .lb-chip')].find(b => b.dataset.g === 'city');
+    if (!c) return { err: 'no city chip', before };
     c.click();
     await new Promise(t => setTimeout(t, 300));
     return { before, after: (document.querySelector('#topRippers .lb-hd') || {}).textContent,
       on: (document.querySelector('#topRippers .lb-chip.on') || {}).dataset?.g };
   });
-  ok(sw.on === 'city' && sw.after !== sw.before,
+  ok(!sw.err && sw.on === 'city' && sw.after !== sw.before,
     'B6 pressing a chip actually changes the board', JSON.stringify(sw));
   ok(!errs.length, 'B7 no page errors on the arcade menu', errs.join(' | ') || 'clean');
   await ctx.close();
@@ -325,8 +328,13 @@ head('§C  every cabinet POSTS — driven through its own shipping settle');
    *   it breaks the streak; in a PvP push both stacks and the ante come back, so nothing happened.
    *   A single "a tie always breaks" would make the board disagree with the screen the player just
    *   read — which is this file's whole subject. */
+  /* ⚠ EVERY PROBE RETURNS `{err}` RATHER THAN THROWING. An `evaluate` that throws rejects the whole
+   *   script — no FAIL line, no total, which reads exactly like a clean run. That is a recorded
+   *   failure in this repo (a sabotage that CRASHES the harness has proved nothing), and it is the
+   *   likeliest outcome the moment a sabotage removes the very function being reached for. */
   const rule = await page.evaluate(() => {
     const A = window.__arena, out = {};
+    if (!A || typeof A.streakSettle !== 'function') return { err: 'no streakSettle' };
     const st = () => { try { return +localStorage.getItem('urm_ar_streak') || 0; } catch { return -1; } };
     localStorage.removeItem('urm_ar_streak'); localStorage.removeItem('urm_ar_best');
     A.streakSettle('win', true); A.streakSettle('win', true); A.streakSettle('win', true);
@@ -338,15 +346,16 @@ head('§C  every cabinet POSTS — driven through its own shipping settle');
     out.best = +localStorage.getItem('urm_ar_best') || 0;
     return out;
   });
-  ok(rule.three === 3, 'C13 THE ARENA counts wins in a row', 'streak=' + rule.three);
-  ok(rule.afterPvpPush === 3, 'C14 a PvP push does not break it — both stacks came back', 'streak=' + rule.afterPvpPush);
-  ok(rule.afterHouseTie === 0, 'C15 …but a tie against the HOUSE does, because it takes your stake', 'streak=' + rule.afterHouseTie);
-  ok(rule.afterLoss === 0 && rule.best === 3, 'C16 a loss resets it and the BEST survives', JSON.stringify(rule));
+  ok(!rule.err && rule.three === 3, 'C13 THE ARENA counts wins in a row', rule.err || ('streak=' + rule.three));
+  ok(!rule.err && rule.afterPvpPush === 3, 'C14 a PvP push does not break it — both stacks came back', 'streak=' + rule.afterPvpPush);
+  ok(!rule.err && rule.afterHouseTie === 0, 'C15 …but a tie against the HOUSE does, because it takes your stake', 'streak=' + rule.afterHouseTie);
+  ok(!rule.err && rule.afterLoss === 0 && rule.best === 3, 'C16 a loss resets it and the BEST survives', JSON.stringify(rule));
 
   /* ⚠ AND THE RULE BEING RIGHT SAYS NOTHING ABOUT WHETHER slam() CALLS IT — the exact gap that let
    *   `RRGame.seek` pass a suite while `stepShip` never invoked it. So one REAL slam is played:
    *   cards picked out of the hand, SLAM pressed, the face-off's own continue button clicked. */
   const played = await page.evaluate(async () => {
+    if (!window.__arena || typeof window.__arena.streakSettle !== 'function') return { err: 'no streakSettle' };
     try { localStorage.removeItem('urm_ar_streak'); localStorage.removeItem('urm_ar_best'); } catch {}
     window.__posts.length = 0;
     const before = { streak: localStorage.getItem('urm_ar_streak'), best: localStorage.getItem('urm_ar_best') };
@@ -367,13 +376,21 @@ head('§C  every cabinet POSTS — driven through its own shipping settle');
       if (d) { d.click(); break; }
     }
     await new Promise(t => setTimeout(t, 600));
-    return { before, posts: window.__posts.slice(),
-      streak: localStorage.getItem('urm_ar_streak'), log: (document.getElementById('log') || {}).textContent || '' };
+    const afterSlam = { posts: window.__posts.slice(), streak: localStorage.getItem('urm_ar_streak') };
+    /* ⛔ AND THE POST IS ASSERTED SEPARATELY, BECAUSE THE OUTCOME OF A REAL SLAM IS NOT OURS TO
+     *   CHOOSE. `best > 0` only exists after a WIN, and the player wins 89.7-95.5% — so requiring
+     *   the single driven game to post would be an assertion with a ~1-in-10 failure rate, i.e. a
+     *   flake dressed as a regression. The two halves compose and neither is chancy: the slam
+     *   REACHES the settle (above), and the settle POSTS on a win (here). */
+    window.__posts.length = 0;
+    window.__arena.streakSettle('win', true);
+    return { before, ...afterSlam, winPosts: window.__posts.slice(),
+      log: (document.getElementById('log') || {}).textContent || '' };
   });
   ok(!played.err && played.streak !== null && played.streak !== played.before.streak,
     'C17 a REAL slam settles the streak — the call site, not the function', JSON.stringify({ err: played.err, streak: played.streak }));
-  ok(!played.err && (played.posts || []).some(p => p[0] === 'arena'),
-    'C18 …and posts it to the board', JSON.stringify(played.posts || played));
+  ok(!played.err && (played.winPosts || []).some(p => p[0] === 'arena'),
+    'C18 …and a settled win posts it to the board', JSON.stringify(played.winPosts || played));
   ok(!errs.length, 'C19 the arena: no page errors', errs.join(' | ') || 'clean');
   await ctx.close();
 }

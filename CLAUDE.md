@@ -2511,6 +2511,23 @@ shared shortcut**, because a shared shortcut proves the shortcut.
   the box by OVERLAPPING the lines above and below, which is `#modes` swallowing the SECTION 9 chip
   in miniature. They are chips on their own row now, which also makes the two real ways to get a
   hero findable instead of buried mid-paragraph.
+- ✅ **THREE SABOTAGES, EACH FROM THE EXACT PRE-CHANGE BYTES (`git show HEAD~1:`), EACH NAMING WHAT
+  BROKE.** The old `crpc-ui.js` + `city-app.js` fail **5** — and C11's detail is the sharpest evidence
+  this project has produced for a silent defect: *the glide really happened* (`best: 125.4`) and
+  nothing was posted. The old `battle.html` fails **7**; the old `arcade.html` + `leaderboard.js`
+  fail **6**.
+- ⛔ **AND TWO OF THE THREE CRASHED THE HARNESS BEFORE THEY FAILED IT.** Removing `streakSettle` and
+  removing the chips both made an `evaluate` throw, which rejects the whole script — **no FAIL line,
+  no total, which reads exactly like a clean run**. Recorded here once already for `test:forge`; it
+  is now a rule with teeth: **every probe returns `{err}` and never throws**, because the moment a
+  sabotage removes the thing being reached for is precisely when the harness must still speak.
+- ⚠ **AND `B4` PASSED ON THE SABOTAGED BUILD** — "no chip is under 44px" is trivially true of a panel
+  that rendered no chips. Same shape as "nothing is covered" being trivially true of a control that
+  is not drawn. The count is part of the claim now.
+- ⚠ **C18 WAS AN ASSERTION WITH A ONE-IN-TEN FAILURE RATE.** It required the single driven SLAM to
+  post, but `best > 0` only exists after a WIN and the player wins 89.7–95.5% — so roughly one run
+  in ten would have reported a flake as a regression. Split: the slam REACHES the settle, and the
+  settle POSTS on a win. Two deterministic halves that compose.
 - ⚠ `test:rr` flaked **6 failures** immediately after a heavy suite and came back **75/75** standalone
   — its gesture window is this container's own recorded timing trap. A single failure there is not a
   regression until it reproduces.
