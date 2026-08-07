@@ -298,6 +298,13 @@
     if (S && sl) {
       const r = S.settle(myRank === 0, raceCfg || { players: wager.players, laps: wager.laps });
       armed = false;
+      /* ⚑ THE BOARD POSTS THE STREAK, BECAUSE IT IS THE NUMBER THIS GAME ALREADY RANKS ITSELF BY.
+       * A lap time cannot go on a shared board without inventing a comparison — laps and fields are
+       * player-chosen, so two times are not the same measurement — and "races won" is a treadmill
+       * anyone out-sits. `best` is the one number the cabinet already prints, already keeps and
+       * already builds an earned title out of. `GT` on the server keeps it, so a broken streak
+       * never costs you your place; posting it after EVERY settle is idempotent for that reason. */
+      try { if (window.RipBoard && r.best > 0) RipBoard.post('cloudracer', r.best); } catch (e) {}
       if (!r.counting) {
         sl.className = 'streakLine off';
         sl.innerHTML = `This race did not count toward <b>THE STREAK</b> — it runs at <b>${S.PIN.players} pilots · ${S.PIN.laps} laps</b> or longer.`;

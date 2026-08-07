@@ -179,8 +179,19 @@ console.log('\n§D2  the pot picker deals the HUNDRED, not the 196 retired place
       ids: h.map(c => Number(c.id)),
       stray: h.filter(c => !(Number(c.id) >= 34 && Number(c.id) <= 100)).length }; });
   ok(r.vault === 30, 'the vault still holds all 30 rows — nothing is deleted', r.vault + ' rows');
-  ok(r.hand === 10, 'but only the 10 real cards are playable', r.hand + ' playable');
-  ok(r.stray === 0, 'zero retired placeholders reach the tray', r.stray + ' stray');
+  /* ⛔ THIS ASSERTION READ `r.hand === 10` AND IT WAS DESCRIBING A BROKEN BUILD. It was written
+   *   while `js/vault-fix.js` could not fetch its manifest — `RipDeck.load('')` copied verbatim to
+   *   a root page 404'd into a swallowed catch, fixed in 908348f — so the repair never ran here and
+   *   the 20 retired rows were merely HIDDEN. With the fetch working they are MIGRATED one-for-one
+   *   into real cards, which is the whole point of that module, so all 30 rows are playable and
+   *   nothing was taken off anybody's shelf.
+   * ⚑ THE RULE WAS NEVER THE COUNT — it is `stray`, and `stray` passed throughout: no retired
+   *   placeholder reaches the tray. A count is a proxy for a rule, and a proxy rots when the thing
+   *   underneath it improves. Both halves are asserted now, in the terms the product uses. */
+  ok(r.hand === 30, 'every row is playable — the retired 20 were MIGRATED, not hidden', r.hand + ' playable');
+  ok(r.stray === 0, 'and zero retired placeholders reach the tray — the rule this always meant', r.stray + ' stray');
+  ok(r.ids.every(n => n >= 34 && n <= 100), 'every card in the tray is a real FIELD card',
+    'ids ' + r.ids.slice(0, 8).join(','));
   await ctx.close();
 }
 

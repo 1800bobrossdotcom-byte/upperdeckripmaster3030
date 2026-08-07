@@ -2483,6 +2483,81 @@ player".* His own **3,975,083** was sitting on a board that read **"RIPPER"**.
 - ⚠ **DOGFIGHT AND SECTION 9 POST KILLS, NOT POINTS**, because that is the number those games rank
   their own tables by; inventing a score formula for a board would be inventing a fact.
 
+### ⛔ AND IT SHIPPED WITH THREE OF THE SIX POSTING — `npm run test:board` (37)
+**CLOUD RACER and THE ARENA both MOUNTED a board and neither had anything on the other end of it.**
+Both have a lobby roster, so the auto-mount found a host and drew *"be the first to sign"* — forever,
+on a live site. ⚑ **A board that can never fill and a board nobody has played are the same picture**,
+which is the whole reason this needed a driven suite: `test:reach` was green (the module is
+reachable), `test:cab` was green (the panel is on screen and clear of everything), and neither can
+see whether the end of a run REACHES `RipBoard.post`. §C drives all six through their own shipping
+settle — `showOver()`, `endMatch()`, `result()`, `CRUI.finish()`, a real SLAM, and a real glide flown
+by the real bird — with `post` intercepted before the module loads. **Six games, six routes, no
+shared shortcut**, because a shared shortcut proves the shortcut.
+- ⚑ **EVERY NUMBER IS ONE THE GAME ALREADY RANKS ITSELF BY, and for the two new ones that took
+  choosing rather than inventing.** CLOUD RACER posts **the streak** — a lap time cannot go on a
+  shared board without inventing a comparison (laps and field size are player-chosen, so two times
+  are not the same measurement) and "races won" is a treadmill anyone out-sits; the streak is
+  already printed, already kept, and is what its earned title is made of. THE ARENA posts **wins in
+  a row** for the mirror reason: the player wins **89.7–95.5%** of slams, so "most cards won" ranks
+  whoever pressed SLAM the most, while a streak dies on the first loss (20 in a row ≈ p 0.12).
+- ⛔ **THE ARENA'S TIE RULE IS READ OFF THE ROOM, NOT HARD-CODED, AND THE TWO ROOMS DISAGREE ON
+  PURPOSE.** Against the house a tie takes your stake, so it breaks the streak; a PvP push returns
+  both stacks and the ante, so nothing happened. A single "a tie always breaks" would have made the
+  board contradict the screen the player just read.
+- ⛔ **THE CITY IS THE ONE CABINET WITH NOTHING TO SCORE, AND THAT IS THE DESIGN.** No match, no
+  clock, no end — `js/city-net.js`'s own note says merging a persistent world with a scored match
+  would put a loophole in the observer rule shaped like a jet — so the board does **not** count
+  kills, which in a firefight that never finishes is a treadmill rather than a feat. It counts **the
+  glide `js/city-titles.js` already measures for DEAD AIR**: one unbroken line, no wingbeat, never
+  above 40 m. Measured, not invented — the ratio is a flat 8.2:1, so 328 m is the physical maximum
+  and two of five straight lines from a random point hit a building. **A board of metres is a board
+  of who read the city.** Driven: a real bird glided **125 m** and the metres posted are the metres
+  the detector measured.
+- ⛔ **AND THE CITY HAS NO LOBBY TO HANG A BOARD ON, WHICH IS NOT A REASON FOR IT NOT TO HAVE ONE.**
+  A board there would have to become in-game furniture, and this repo has twice paid for a fixed
+  element fighting for a corner. ✅ **All six live on `arcade.html` as well** — one panel, a chip per
+  game, remembered — because the menu is where you look before you choose. **One board, not six
+  stacked:** the funnel pass fought to SHORTEN that column and six would put ~500 px back into it.
+- ⛔ **A BARE NUMBER ON A SCOREBOARD IS A RIDDLE.** "12" beside a name on DOGFIGHT's board could be
+  kills, matches, points or minutes, and the first three boards shipped exactly that. Each game
+  names what it counts, **once**, in one table, so the header and the number cannot disagree.
+- ⚠ **AND THE SUITE'S OWN FAKE REDIS HAD TO HONOUR `EX`** — without it the per-identity throttle key
+  never expired, every post after the first was refused, and *"a lower score does not demote you"*
+  passed **without ever reaching the GT branch**. *A harness that reimplements the thing it tests
+  proves the harness*, for the fourth time in a week; the shipped ESM handler is imported and only
+  its `fetch` is replaced.
+- ⛔ **IT ALSO FOUND A STALE ASSERTION IN `test:arena` THAT WAS DESCRIBING A BROKEN BUILD.** §D2 read
+  `hand === 10` — written while `js/vault-fix.js` could not fetch its manifest (`RipDeck.load('')`
+  on a root page, fixed in `908348f`), so the repair never ran and the 20 retired rows were merely
+  HIDDEN. With the fetch working they are **migrated one-for-one**, which is the module's whole
+  point, so all 30 are playable. ⚑ **The rule was never the count — it is `stray`, and `stray` passed
+  throughout.** A count is a proxy for a rule, and a proxy rots when the thing underneath it improves.
+- ⚠ **AND TWO INLINE LINKS IN THE ARENA'S OWN RULE COPY WERE 105×14 AND 113×14** against that
+  cabinet's 44 px floor. The usual patch — padding plus a negative margin on an inline link — buys
+  the box by OVERLAPPING the lines above and below, which is `#modes` swallowing the SECTION 9 chip
+  in miniature. They are chips on their own row now, which also makes the two real ways to get a
+  hero findable instead of buried mid-paragraph.
+- ✅ **THREE SABOTAGES, EACH FROM THE EXACT PRE-CHANGE BYTES (`git show HEAD~1:`), EACH NAMING WHAT
+  BROKE.** The old `crpc-ui.js` + `city-app.js` fail **5** — and C11's detail is the sharpest evidence
+  this project has produced for a silent defect: *the glide really happened* (`best: 125.4`) and
+  nothing was posted. The old `battle.html` fails **7**; the old `arcade.html` + `leaderboard.js`
+  fail **6**.
+- ⛔ **AND TWO OF THE THREE CRASHED THE HARNESS BEFORE THEY FAILED IT.** Removing `streakSettle` and
+  removing the chips both made an `evaluate` throw, which rejects the whole script — **no FAIL line,
+  no total, which reads exactly like a clean run**. Recorded here once already for `test:forge`; it
+  is now a rule with teeth: **every probe returns `{err}` and never throws**, because the moment a
+  sabotage removes the thing being reached for is precisely when the harness must still speak.
+- ⚠ **AND `B4` PASSED ON THE SABOTAGED BUILD** — "no chip is under 44px" is trivially true of a panel
+  that rendered no chips. Same shape as "nothing is covered" being trivially true of a control that
+  is not drawn. The count is part of the claim now.
+- ⚠ **C18 WAS AN ASSERTION WITH A ONE-IN-TEN FAILURE RATE.** It required the single driven SLAM to
+  post, but `best > 0` only exists after a WIN and the player wins 89.7–95.5% — so roughly one run
+  in ten would have reported a flake as a regression. Split: the slam REACHES the settle, and the
+  settle POSTS on a win. Two deterministic halves that compose.
+- ⚠ `test:rr` flaked **6 failures** immediately after a heavy suite and came back **75/75** standalone
+  — its gesture window is this container's own recorded timing trap. A single failure there is not a
+  regression until it reproduces.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:

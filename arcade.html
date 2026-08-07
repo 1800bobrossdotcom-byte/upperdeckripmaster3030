@@ -177,6 +177,15 @@
 
     </div>
 
+    <!-- ⛔ EVERY GAME'S BOARD, ON THE PAGE YOU CHOOSE A GAME FROM. Five cabinets have a lobby or a
+         game-over screen to hang a board on; THE CITY has neither — it drops you into 3.8 km of
+         world and never stops — so its board would have to become in-game furniture, and this repo
+         has twice paid for a fixed element fighting for a corner. `js/leaderboard.js` fills this
+         with a chip per game and ONE board, rather than six stacked: the funnel pass fought to
+         SHORTEN this column and six boards would put ~500px back into it.
+         ⚠ Empty and inert without the module — the div is the whole opt-in. -->
+    <div id="topRippers" style="max-width:440px;margin:26px auto 0;width:100%"></div>
+
     <div class="foot">Every game runs on your $3030 deck · <a href="index.html">rip a pack</a> to load up · <a href="cards/deck.html">the deck</a></div>
   </div>
 
@@ -191,5 +200,6 @@
 <script src="cards/arena-net.js" defer></script>
 <script src="js/challenge-ui.js" defer></script>
 <script src="js/online-now.js" defer></script>
+<script src="js/leaderboard.js" defer></script>
 </body>
 </html>
