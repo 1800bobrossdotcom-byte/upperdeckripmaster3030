@@ -384,6 +384,7 @@
 <script src="js/wallet-ui.js"></script>
 <script src="js/eth-play.js"></script>
 <script src="js/df-net.js"></script>
+<script src="js/leaderboard.js"></script>
 <script src="js/card-stats.js"></script>
 <script src="js/deck-source.js"></script>
 <script src="js/vault-fix.js"></script>
@@ -1377,6 +1378,9 @@
     const ranked = G.ships.slice().sort((a,b)=> (b.kills-a.kills) || (a.deaths-b.deaths) || (b.hp-a.hp));
     let winner = ranked[0];
     const iWon = winner && winner.isMe; commsRnd(iWon?'win':'lose', iWon?'#0e5a68':'#7a1e2a');
+    /* ⚑ TOP RIPPERS: a dogfight has no points, so the score IS the kill count — the number this
+     * game ranks its own table by, which is the only honest thing to put on a board. */
+    if(window.RipBoard){ try{ const me=G.ships.find(x=>x.isMe); if(me&&me.kills>0) RipBoard.post('dogfight', me.kills); }catch(e){} }
     /* ⛔ THE WIRE does NOT require the win — the condition is the route and the clean sheet, and
      * adding "and win" would be a second bar nobody wrote down. DEAD STICK does require it,
      * because refusing the escape button only means anything if you still came first. */

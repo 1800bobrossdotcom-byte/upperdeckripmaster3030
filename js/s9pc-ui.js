@@ -316,6 +316,9 @@ window.S9PCUI = (function () {
       const ranked = G.ents.slice().sort((a, b) => (b.kills - a.kills) || (a.deaths - b.deaths));
       const winner = ranked[0], iWon = winner && winner.isMe;
       const myRank = ranked.findIndex(e => e.isMe);
+      /* ⚑ TOP RIPPERS: same as dogfight — the board ranks by the number the game itself ranks by. */
+      if (window.RipBoard) { try { const me = ranked.find(e => e.isMe);
+        if (me && me.kills > 0) RipBoard.post('section9', me.kills); } catch (e) {} }
       const P = WagerPayout.compute(wager.ante, wager.players, wager.cards, myRank);
       const onPodium = P.myPlace >= 0;
       let wonSlugs = [];

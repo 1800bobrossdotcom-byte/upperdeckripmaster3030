@@ -2279,6 +2279,41 @@ other."* Two halves, and only the first was the one I was asked about.
   commit that REMOVED the defect and reads its parent now. **A sabotage that stops reproducing
   proves nothing, loudly.**
 
+## ✅ TOP RIPPERS IS GLOBAL AND PER GAME — `api/scores.js` + `js/leaderboard.js`
+*Artist, 2026-08-07: "top rippers for each game need to be shown" · "show the address as the
+player".* His own **3,975,083** was sitting on a board that read **"RIPPER"**.
+- ⛔ **THE BOARD WAS `localStorage` AND IT EXISTED IN ONE GAME.** `js/rrpc-app.js` kept
+  `urm_rr_scores` in the player's own browser, so TOP RIPPERS listed exactly one person — you — and
+  the other five cabinets had no board at all. **A high score nobody else can see is a diary
+  entry.** "RIPPER" was `getName()`'s fallback for a browser that never set a handle.
+- ⚑ **ONE SORTED SET PER GAME, ON THE KV THAT ALREADY RUNS PRESENCE** — no new service and no new
+  failure mode. No KV ⇒ 503 ⇒ every board falls back to the local list it always had, because a
+  cabinet showing an empty board because a function is cold reads as *"nobody has ever played
+  this"*, which is the worst thing a scoreboard can say.
+- ⛔ **THE ZSET MEMBER IS THE IDENTITY, AND MY FIRST VERSION HAD IT WRONG.** I wrote
+  `{name, addr}` as the member — which folds the NAME into the identity, so changing your handle
+  or posting the same address in different casing mints a SECOND row and one player appears twice.
+  The member is the case-folded key; a small hash beside it holds what to draw. ⚠ The address is
+  **displayed checksummed and keyed lowercase**, because those are two different jobs.
+- ⚑ **`GT` KEEPS YOUR BEST, NOT YOUR LAST.** A board a bad run can knock you off is a board that
+  punishes playing again.
+- ⛔ **AND THE HARNESS HID THAT ASSERTION FROM ITSELF.** The fake Redis ignored `EX`, so the
+  per-identity throttle key never expired and every post after the first was refused — meaning "a
+  lower score does not demote you" passed **without ever reaching the GT branch**. Two green ticks
+  measuring a throttle. Fixed, and only then did 4,000,000 actually take. *A harness that
+  reimplements the thing it tests proves the harness* — third time this week, and the second in
+  one session.
+- ⚑ **AUTO-MOUNT, BECAUSE WIRING SIX PAGES BY HAND IS SIX CHANCES TO FORGET ONE** — which is
+  exactly how RIP ROCKETER ended up the only game with a panel. The module finds `#topRippers`, or
+  inserts a board after the lobby roster, and does nothing at all on a page with neither.
+- ⚠ **IT IS A SCOREBOARD, NOT AN ORACLE, AND IT SAYS SO IN ITS OWN HEADER.** Every score is
+  computed in the player's browser, so the board is exactly as trustworthy as the client. Fine for
+  a wall of names, and the reason **nothing of value may ever key on it**: the earned 1/1s hang off
+  a human-signed `kind 2` voucher, and a board row is a claim, not evidence — the same thing
+  `js/title-ledger.js` says about itself.
+- ⚠ **DOGFIGHT AND SECTION 9 POST KILLS, NOT POINTS**, because that is the number those games rank
+  their own tables by; inventing a score formula for a board would be inventing a fact.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
