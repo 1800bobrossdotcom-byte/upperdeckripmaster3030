@@ -317,6 +317,46 @@ console.log('\n§E  the front-page strip — the ⚔ is a link, and this module 
 }
 
 // ════════ §F  sabotage: put the original bytes back ══════════════════════════════════════════
+console.log('\n§G  every ripper has a NAME — nobody is "you"');
+{
+  /* ⛔ `dogfight.html` and `js/s9pc-ui.js` joined with `localStorage.getItem('urm_net_handle')
+   *   || 'you'` — empty for anyone who never set one — and RipNet.join() then OVERWROTE the real
+   *   per-tab name with it. Artist, 2026-08-07: the lobby showed three rippers, all called "you".
+   *   `setHandle` also persisted 'you' when the box was cleared, and localStorage is shared by
+   *   every tab, so one keystroke renamed the whole browser on every page, permanently. */
+  const ctxs = [];
+  const named = [];
+  for (let i = 0; i < 2; i++) {
+    const ctx = await br.newContext({ viewport: { width: 1100, height: 800 } });
+    await ctx.addInitScript(() => { try {
+      localStorage.setItem('urm_admin_ok', '1');
+      localStorage.setItem('urm_net_handle', 'you');      // the poisoned state, verbatim
+    } catch {} });
+    const page = await ctx.newPage();
+    await page.goto(`http://127.0.0.1:${PORT}/cards/battle.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForFunction(() => window.RipNet && RipNet.me && RipNet.me().id, null, { timeout: 30000 });
+    named.push(await page.evaluate(() => ({ h: RipNet.me().handle,
+      stored: localStorage.getItem('urm_net_handle'), viaHandle: RipNet.handle() })));
+    ctxs.push(ctx);
+  }
+  ok(named.every(n => !/^you$/i.test(n.h)), 'a poisoned handle is evicted at load',
+    named.map(n => JSON.stringify(n.h)).join(' · '));
+  ok(named.every(n => n.stored === null), '…and the poison is removed from localStorage, not just ignored');
+  /* ⚠ 20 gonzo names means a six-player room collides better than half the time, so an
+     auto-assigned handle carries the tab's own id — measured colliding on the first run. */
+  ok(named[0].h !== named[1].h, 'two tabs get DISTINCT names', named[0].h + ' vs ' + named[1].h);
+  ok(named.every(n => n.viaHandle === n.h && !/^you$/i.test(n.viaHandle)),
+    'RipNet.handle() — the one resolver every page should use — never returns "you"');
+  /* ⛔ and the callers that published it are pinned, because a chokepoint only helps if nobody
+     routes around it. */
+  for (const f of ['dogfight.html', 'js/s9pc-ui.js']) {
+    const src = await readFile(join(ROOT, f), 'utf8');
+    ok(!/RipNet\.join\(\{[^}]*localStorage\.getItem\('urm_net_handle'\)/s.test(src),
+      `${f} no longer joins with a raw localStorage handle`);
+  }
+  for (const ctx of ctxs) await ctx.close();
+}
+
 console.log('\n§F  proved to bite — the shipped-yesterday challenge(), restored verbatim');
 {
   const { execSync } = await import('node:child_process');

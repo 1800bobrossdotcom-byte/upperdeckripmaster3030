@@ -529,7 +529,11 @@
   /* true when any seat at the table is the house — read by the pot maths and by the copy */
   let houseAtTable=false;
   let roster=[];
-  if(window.RipNet){ try{ RipNet.join({ handle:(localStorage.getItem('urm_net_handle')||'you'), cards:vault().length, balance:0,
+  /* ⛔ THIS PUBLISHED THE LITERAL STRING "you" TO EVERY OTHER PLAYER. It read localStorage
+     directly, which is empty until somebody sets a handle, so the `|| 'you'` fired for everyone —
+     and RipNet.join() then overwrote the real per-tab name with it. RipNet.handle() is the
+     resolver; it never returns 'you'. */
+  if(window.RipNet){ try{ RipNet.join({ handle:RipNet.handle(), cards:vault().length, balance:0,
       address:(window.RipWallet&&RipWallet.account())||undefined });
     const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode:'table', header:true }) : null;
     RipNet.setStatus('seeking'); RipNet.onLobby(ps=>{ roster=(ps||[]).filter(p=>!p.me); if(alobby) alobby.update(ps||[]); refreshPot(); });
@@ -543,7 +547,7 @@
   /* true only when a signed-in wallet can actually put $3030 on the line — see the ante gate */
   let myAnteLive=false;
   const ethW={ usdEach:0 };                                  // ETH side-pot pledge per pilot (≤ $3)
-  function myHandle(){ try{ return (window.RipNet&&RipNet.me&&RipNet.me().handle)||localStorage.getItem('urm_net_handle')||'you'; }catch{ return 'you'; } }
+  function myHandle(){ try{ return RipNet.handle(); }catch{ return 'a ripper'; } }
 
   function buildGrid(){
     const own=ownedSlugs(); const groups=new Map();

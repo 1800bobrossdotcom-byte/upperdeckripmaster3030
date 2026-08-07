@@ -59,8 +59,30 @@
   const ses = { get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
     set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} } };
   const myId = ses.get('urm_net_sid') || (() => { const v = uid(); ses.set('urm_net_sid', v); return v; })();
+
+  /* ⛔ ONE-TIME REPAIR: EVICT A POISONED HANDLE. `dogfight.html` and `js/s9pc-ui.js` joined with
+   *   `localStorage.getItem('urm_net_handle') || 'you'`, and `setHandle` used to persist 'you'
+   *   when the box was cleared — so browsers are carrying `urm_net_handle = "you"` right now, and
+   *   localStorage is SHARED BY EVERY TAB. Guarding the writers stops it happening again and does
+   *   nothing for a key that is already wrong: the artist's own lobby showed THREE rippers, all
+   *   called "you", which is the one thing a roster exists not to do.
+   * ⚠ It clears rather than renames. The line below then falls through to the per-tab gonzo
+   *   handle, so each tab gets a distinct name immediately and anyone who deliberately chose a
+   *   real name keeps it — only the reserved word is evicted. */
+  (() => { const h = (store.get('urm_net_handle') || '').trim();
+    if (h && /^you$/i.test(h)) { try { localStorage.removeItem('urm_net_handle'); } catch (e) {} }
+    const sh = (ses.get('urm_net_shandle') || '').trim();
+    if (sh && /^you$/i.test(sh)) { try { sessionStorage.removeItem('urm_net_shandle'); } catch (e) {} } })();
+
+  /* ⛔ TWENTY NAMES IS NOT AN IDENTITY SPACE. An auto-assigned handle is drawn from HANDLES, and
+   *   with 20 of them a six-player room collides better than half the time (birthday problem) —
+   *   two people rendered identically, which is the exact complaint the poisoned "you" produced
+   *   and would have kept producing after it was fixed. Measured: two fresh tabs came up as
+   *   "Godzilla's Accountant" twice on the first run of the repair.
+   * ⚠ The suffix is the TAB's own id, so it is stable for that tab and unique by construction —
+   *   and it is only added to a name nobody chose. A handle you type is used exactly as typed. */
   const myHandle = store.get('urm_net_handle') || ses.get('urm_net_shandle')
-    || (() => { const v = pick(HANDLES); ses.set('urm_net_shandle', v); return v; })();
+    || (() => { const v = pick(HANDLES) + ' ' + myId.slice(-3); ses.set('urm_net_shandle', v); return v; })();
   let me = { id: myId, handle: myHandle, balance: 0, cards: 0, status: 'idle', bot: false, me: true };
 
   const listeners = { lobby: [], challenge: [], match: [], reply: [] };
@@ -177,10 +199,28 @@
     function startMatch(opponent, oppStack) { me.status = 'battling'; emit('match', { opponent, oppStack: oppStack || null }); }
 
     return {
-      join(profile) { me = { ...me, ...(profile || {}), id: myId, me: true }; players.set(me.id, me); announce(); pushLobby(); },
+      /* ⛔ A CALLER MUST NOT BE ABLE TO CLOBBER THE HANDLE WITH NOTHING. Every tab is born with a
+       * real name (localStorage → sessionStorage → a random gonzo handle), and `dogfight.html`
+       * and `js/s9pc-ui.js` both joined with `localStorage.getItem('urm_net_handle') || 'you'` —
+       * which is EMPTY for anyone who has never set one, so they published the literal string
+       * "you" over the wire. Every player looked like "you" to every other player, on the one
+       * screen whose entire job is telling people apart.
+       * ⚑ `'you'` IS A UI LABEL FOR YOUR OWN ROW, NEVER A NAME. Rejecting it here is the single
+       * chokepoint: six pages read a handle and any one of them can be written carelessly again,
+       * but they all arrive through this function. */
+      join(profile) {
+        const p = Object.assign({}, profile || {});
+        if (!p.handle || !String(p.handle).trim() || /^you$/i.test(String(p.handle).trim())) delete p.handle;
+        me = { ...me, ...p, id: myId, me: true }; players.set(me.id, me); announce(); pushLobby(); },
       setStatus(s) { me.status = s; players.set(me.id, me); announce(); pushLobby(); },
       setSeek(v) { me.seek = !!v; },           // pvp matchmaking flag, carried by the KV heartbeat
-      setHandle(h) { me.handle = (h == null ? '' : String(h)).trim().slice(0, 24) || me.handle;
+      /* ⚠ AND CLEARING THE BOX MUST NOT PERSIST "you" EITHER. `battle.html` defaulted an empty
+       * field to 'you' and then wrote it to localStorage — which is SHARED BY EVERY TAB, so one
+       * careless keystroke renamed the whole browser to "you", permanently, on every page. An
+       * empty or reserved name keeps the name you already had. */
+      setHandle(h) {
+        const t = (h == null ? '' : String(h)).trim().slice(0, 24);
+        me.handle = (!t || /^you$/i.test(t)) ? me.handle : t;
         store.set('urm_net_handle', me.handle); ses.set('urm_net_shandle', me.handle); players.set(me.id, me); announce(); pushLobby(); },
       me: () => me,
       /* ⛔ EVERY CHALLENGE IS NOW A REAL ONE. The `target.bot` branches are gone with the
@@ -232,6 +272,8 @@
     setSeek(v) { return this._a().setSeek(v); },
     setHandle(h) { return this._a().setHandle(h); },
     me() { return this._a().me(); },
+    /* the one place a page should ask "what am I called" — never `localStorage || 'you'` */
+    handle() { try { return this._a().me().handle || 'a ripper'; } catch (e) { return 'a ripper'; } },
     challenge(id) { return this._a().challenge(id); },
     accept(ch) { return this._a().accept(ch); },
     decline(ch) { return this._a().decline(ch); },

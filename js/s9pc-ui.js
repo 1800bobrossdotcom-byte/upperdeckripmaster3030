@@ -88,9 +88,11 @@ window.S9PCUI = (function () {
 
     // ── net roster + seats ──────────────────────────────────────────────────────────────────
     let roster = [];
-    const myHandle = () => { try { return (window.RipNet && RipNet.me && RipNet.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch (e) { return 'you'; } };
+    const myHandle = () => { try { return RipNet.handle(); } catch (e) { return 'a ripper'; } };
     if (window.RipNet) { try {
-      RipNet.join({ handle: (localStorage.getItem('urm_net_handle') || 'you'), cards: vault().length, balance: 0 });
+      /* ⛔ same defect as dogfight.html: reading localStorage directly published "you" for every
+         player who had never set a handle. RipNet.handle() never returns it. */
+      RipNet.join({ handle: RipNet.handle(), cards: vault().length, balance: 0 });
       const alobby = window.ArenaLobby ? ArenaLobby.mount('#arenaLobby', { mode: 'table', header: true }) : null;
       // Seats: holder / collector / visitor all land in this one lobby (js/session.js). Practice
       // stays open to everyone — a seat is what lets you be matched against PEOPLE.

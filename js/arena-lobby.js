@@ -75,6 +75,23 @@ window.ArenaLobby = (function () {
     (document.head || document.documentElement).appendChild(s);
   }
 
+  /* ⛔ AND TWO PLAYERS MAY DELIBERATELY PICK THE SAME NAME. This roster's whole job is telling
+   *   people apart, so a duplicate handle has to be broken at RENDER as well as at assignment —
+   *   otherwise the fix depends on nobody ever typing the same word as somebody else. `dupes` is
+   *   the set of handles appearing more than once in the list being drawn; only those rows get a
+   *   short id tag, so an unambiguous name is never decorated. */
+  let dupes = new Set();
+  function markDupes(list) {
+    const seen = new Map();
+    (list || []).forEach(p => { const h = String((p && p.handle) || '').toLowerCase().trim();
+      if (h) seen.set(h, (seen.get(h) || 0) + 1); });
+    dupes = new Set([...seen.entries()].filter(([, n]) => n > 1).map(([h]) => h));
+  }
+  const shownName = p => {
+    const h = String((p && p.handle) || '').trim();
+    return (dupes.has(h.toLowerCase()) && p && p.id) ? h + ' ·' + String(p.id).slice(-3) : h;
+  };
+
   function rowHtml(p, mode) {
     const st = p.status || 'idle';
     const seal = p.verified ? '<span class="al-seal" title="signed the ledger — stakes real $3030">⚜</span>' : '';
@@ -88,7 +105,7 @@ window.ArenaLobby = (function () {
     else action = '<span class="al-pill ' + st + '">' + (st === 'battling' ? 'fighting' : st === 'seeking' ? 'ready' : 'idle') + '</span>';
     return '<div class="al-row ' + st + (p.me ? ' me' : '') + (p.verified ? ' signed' : '') + '">' +
       '<span class="al-orb ' + st + '" title="' + st + '"></span>' + av +
-      '<div class="al-body"><div class="al-nm">' + esc(p.handle) + seal + '</div>' +
+      '<div class="al-body"><div class="al-nm">' + esc(shownName(p)) + seal + '</div>' +
       '<div class="al-meta"><b>' + ((p.balance || 0).toLocaleString('en-US')) + '</b> $3030 · ' + (p.cards || 0) + ' cards' + wl + live + '</div></div>' +
       action + '</div>';
   }
@@ -103,6 +120,7 @@ window.ArenaLobby = (function () {
     const showHead = opts.header !== false;
     function update(players) {
       const list = players || [];
+      markDupes(list);                 // ⚠ before any row is drawn
       const rank = p => (p.me ? 0 : p.status === 'seeking' ? 1 : p.status === 'battling' ? 3 : p.bot ? 4 : 2);
       const sorted = list.slice().sort((a, b) => rank(a) - rank(b));
       const online = list.length, seeking = list.filter(p => !p.me && p.status === 'seeking').length;
