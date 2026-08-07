@@ -1,0 +1,23 @@
+{
+  "_": "ISSUED kind-2 VOUCHERS — the studio's signature saying 'this wallet may mint this hero 1/1'. `js/hero-claim.js` reads this, and when a connected wallet has an unminted voucher here the CARD POPS UP with a MINT button. Artist, 2026-08-07: 'you need to have the card pop up for them to mint when winning one too.'",
+
+  "_why_publishing_a_voucher_is_safe": "A voucher is NOT a secret and must not be treated as one. The recipient address is inside the signed EIP-712 digest, so a published voucher authorises exactly one thing: minting THAT id to THAT wallet. Anyone may broadcast it — `claimHero` is permissionless on purpose — and the card still lands with the winner. The only thing a stranger can do with it is pay the gas on the winner's behalf, which is a favour, not an attack. What a voucher can never do is send the card somewhere else.",
+
+  "_what_it_cannot_do": "It cannot mint an id that is already minted (claimHero reverts AlreadyMinted), it cannot be edited (the signature covers every field), and it cannot be forged (the contract recovers the claim signer). So this file is safe to serve from a CDN and worthless to steal.",
+
+  "_how_to_add_one": [
+    "1. Confirm the seat is genuinely open in data/titles-claimed.json — an earned title is a 1/1 and this is the only place that knows it.",
+    "2. Sign the voucher with the CLAIM SIGNER key: `node scripts/lens-cli.mjs voucher --to <wallet> --id <cardId> --kind 2` (or the deploy console). kind 2 IS the game-title kind.",
+    "3. Paste the row below, add the same seat to data/titles-claimed.json, and commit BOTH in one commit — a signed voucher whose seat is not recorded is how one title gets awarded twice.",
+    "4. NEVER paste a private key anywhere near this repo. The signature is the only thing that belongs here."
+  ],
+
+  "_row_shape": {
+    "<wallet, lowercase>": [
+      { "id": "hero card id 23-33", "kind": 2, "deadline": "unix seconds", "sig": "0x…65 bytes", "title": "title id from js/title-ledger.js", "note": "what they did" }
+    ]
+  },
+
+  "updated": "2026-08-07",
+  "vouchers": {}
+}

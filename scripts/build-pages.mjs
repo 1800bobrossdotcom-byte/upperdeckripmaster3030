@@ -389,7 +389,7 @@ const whitepaper = `
     <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers —
       <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim from a pack → mint the 1/1)
       + <b>11 earned</b> (clear a stated feat in the games → signed voucher → mint). One owner each,
-      and the eleven feats are named in §06 — they are not a mystery box.</li>
+      and the ten titles behind those eleven earned cards are named in §06 — not a mystery box.</li>
     <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
     <li><b>The burn</b> — packs retire token supply permanently without touching the reserve, so backing
@@ -467,12 +467,23 @@ const whitepaper = `
   <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
   emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
 
-  <h3 id="titles">The eleven earned cards, across nine titles</h3>
+  <h3 id="titles">The eleven earned cards, across ten titles</h3>
   <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
   <b>named feat in a named game</b> — printed here in full, because a prize nobody can aim at is a
   lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
-  closed.</b> One owner each — except <b>THE STREAK</b>, which has <b>three seats</b>, so the first
-  three pilots to do it each take their own 1/1. Nine titles, eleven cards.</p>
+  closed — for good.</b> One owner each — except <b>THE STREAK</b>, which has <b>two seats</b>. Ten
+  titles, eleven cards.</p>
+  <!-- ⛔ "AND THEN IT IS CLOSED" HAD TO BECOME TRUE IN CODE, not only on this page. Artist,
+       2026-08-07: "the awards need to only be claimed once… I cleared 2 million earlier, so I
+       earned a 1/1. now someone earned 7 million+ and then the same 2 million award was given to
+       them." The ledger is per-browser, so every browser started from zero and re-issued the whole
+       set — idempotence inside one browser is not scarcity across all of them. The studio's roster
+       of taken seats is data/titles-claimed.json and js/title-ledger.js reads it.
+       BACKTICKS ARE FORBIDDEN IN THIS FILE: every page here is built inside a template literal, so
+       one in a comment ends the string. Eleventh sighting of that trap in this repo. -->
+  <p class="mininote">A title that has been taken shows as <b>TAKEN</b> in the game and prints no
+  claim slip. Clearing a closed bar still says you cleared it — it just does not promise a card that
+  already has an owner.</p>
   <!-- A LIST, NOT A TABLE. The shell's th,td are white-space:nowrap, so a sentence per row would
        force the whole thing into a sideways scroll on a phone — the exact shape the mobile pass
        just spent a day removing. Long prose belongs in a list; tables are for numbers.
@@ -481,9 +492,10 @@ const whitepaper = `
        docs/HERO-UNLOCKS.md §4¾ — and note NEON RONIN's two titles went with the cabinet the
        artist retired on 2026-08-03, replaced by THE CITY's two. -->
   <ul>
-    <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
-    <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <!-- ⛔ THIS LIST MUST MATCH js/title-ledger.js, WHICH IS THE ONE THAT CAN ACTUALLY AWARD.
+    <!-- ⛔ THE WIRE AND GHOST WALK WERE PRINTED TWICE — once here and once below the note — so this
+         list showed ELEVEN entries for what were nine titles, and read as though the count matched
+         the card total by design. Nobody had counted it. Duplicates removed 2026-08-07.
+         ⛔ THIS LIST MUST MATCH js/title-ledger.js, WHICH IS THE ONE THAT CAN ACTUALLY AWARD.
          On 2026-08-06 two concurrent passes disagreed: the doc retired five titles for a points
          ladder while the ledger shipped detectors for the old set. The page printed conditions
          no cabinet could award, with real 1/1 cards behind them — the worst direction for this
@@ -495,9 +507,10 @@ const whitepaper = `
     <li><b>DEAD STICK</b> · <i>Dogfight</i> — win a match having <b>never pressed boost</b>.</li>
     <li><b>ONE MAG</b> · <i>Section 9</i> — win a round with <b>more kills than reloads</b>.</li>
     <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it.</li>
+    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it. <b>Taken — this seat is closed.</b></li>
+    <li><b>ABOVE THE WEATHER</b> · <i>Rip Rocketer</i> — post a run of <b>7,000,000 points</b>. Past the facility, past the wave table: 40 craft a wave, forever, and the only thing left to lose is attention.</li>
     <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
-    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
+    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero. <b>Two seats.</b></li>
     <li><b>DEAD AIR</b> · <i>The City</i> — as the bird, cover <b>300 m in one unbroken glide</b> — no wingbeat — <b>never more than 40 m above the ground</b>.</li>
     <li><b>BOTH ENDS</b> · <i>The City</i> — <b>plant a card from the air as the bird, then take that same card back as the squirrel</b>, in one visit.</li>
   </ul>
