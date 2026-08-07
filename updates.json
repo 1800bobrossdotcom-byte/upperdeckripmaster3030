@@ -1,0 +1,184 @@
+[
+  {
+    "id": "x-account",
+    "date": "2026-08-07",
+    "title": "The studio has an X account",
+    "href": "https://x.com/RipMaster3030",
+    "blurb": "we're on X now — @RipMaster3030. shipping notes, card drops, and whatever the games do next. the studio is ripmaster3030studios; the account is @RipMaster3030.\n\nripmaster3030studios.com",
+    "alt": "The ripmaster3030studios front page: the foil wordmark over three doors — play, the cards, rip a pack.",
+    "shot": {
+      "url": "/index.html",
+      "settle": 6000
+    }
+  },
+  {
+    "id": "arena-67",
+    "date": "2026-08-06",
+    "title": "The arena deals the 67, and never a 1/1",
+    "href": "cards/battle.html",
+    "blurb": "the arena deals the 67 field cards. you cannot win a 1/1 there and you cannot stake one — a hero comes from ripping a pack or earning a title, and nothing else. if you hold one it stays on your shelf.\n\nripmaster3030studios.com/cards/battle.html",
+    "alt": "THE ARENA: the wager bench, the stack you commit, and the rule printed on the page — the 33 are not in this room.",
+    "shot": {
+      "url": "/cards/battle.html",
+      "settle": 6000
+    }
+  },
+  {
+    "id": "folder-collection",
+    "date": "2026-08-06",
+    "title": "The folder is a collection, not a catalogue",
+    "href": "cards/binder.html",
+    "blurb": "the folder shows what you have actually pulled — nine pockets to a page, empty sleeves where cards aren't filed yet. the whole hundred are still one chip away. a binder that shows you everything isn't a binder.\n\nripmaster3030studios.com/cards/binder.html",
+    "alt": "The folder: nine-pocket pages, some sleeves filled with cards you have pulled and some still empty.",
+    "shot": {
+      "url": "/cards/binder.html",
+      "seed": "localStorage.setItem('urm_vault', JSON.stringify([41,44,47,52,58,63,66,74,77,84,90,94].map(n=>({slug:String(n),n:n,p:1}))));",
+      "steps": [
+        {
+          "wait": 11000
+        }
+      ],
+      "settle": 6000
+    }
+  },
+  {
+    "id": "the-hundred",
+    "date": "2026-08-06",
+    "title": "The hundred",
+    "href": "cards/deck.html",
+    "blurb": "the deck is 100 cards: 33 hero 1/1s and 67 field cards. every one is a lens — a render keyed by card id, drawn from on-chain state, so the card answers the market it lives in.\n\nripmaster3030studios.com/cards/deck.html",
+    "alt": "The deck browser: the hundred as a wall of cards, heroes and field cards banded apart.",
+    "shot": {
+      "url": "/cards/deck.html",
+      "steps": [
+        {
+          "wait": 11000
+        }
+      ],
+      "settle": 6000
+    }
+  },
+  {
+    "id": "card-is-a-print",
+    "date": "2026-08-06",
+    "title": "Every card is a print now",
+    "href": "cards/field.html?n=47",
+    "blurb": "every card page is a real print now — four-colour separation, paper tooth, foil that moves with the light, on the same press the folder and the pack reveal use. it turns over onto its own back.\n\nripmaster3030studios.com/cards/",
+    "alt": "A card page: the card lit in its room, printed rather than photographed.",
+    "shot": {
+      "url": "/cards/field.html?n=47",
+      "steps": [
+        {
+          "wait": 13000
+        }
+      ],
+      "settle": 7000
+    }
+  },
+  {
+    "id": "pack-in-dollars",
+    "date": "2026-08-06",
+    "title": "Packs are priced in dollars",
+    "href": "tokenomics.html",
+    "blurb": "packs are a dollar target, not a token count: $10 / $12 / $15 / $20 across four tiers. half of every pack burns, half funds the studio. a tier opens when the one before it sells out — no dates. NFA.",
+    "alt": "The tokenomics page: the pack ladder and where the money goes.",
+    "shot": {
+      "url": "/tokenomics.html",
+      "steps": [
+        {
+          "wait": 1500
+        },
+        {
+          "scroll": 900
+        }
+      ],
+      "settle": 3000
+    }
+  },
+  {
+    "id": "the-city",
+    "date": "2026-08-06",
+    "title": "THE CITY",
+    "href": "city.html",
+    "blurb": "THE CITY is 3.84 km of generated city and you fly it as a bird. or take it as a squirrel, a cat, a dog — each one gets a different layer of the same place. nothing chases you.\n\nripmaster3030studios.com/city.html",
+    "alt": "THE CITY seen from the air: the river, the street grid and the towers of a generated city.",
+    "shot": {
+      "url": "/city.html",
+      "steps": [
+        {
+          "wait": 14000
+        },
+        {
+          "eval": "(()=>{const c=window.__city,b=c&&c._me;if(!b)return;b.y=165;b.vy=0;b.yaw=2.30;b.spd=b.speed=17;b.pitch=-0.10;b.onGround=false;c._step&&c._step(90,1/60);})()"
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "eval": "document.querySelectorAll('.hud, .toggles').forEach(e=>e.style.display='none')"
+        },
+        {
+          "wait": 1200
+        },
+        {
+          "eval": "(()=>{const c=window.__city;c&&c._step&&c._step(30,1/60);})()"
+        }
+      ],
+      "settle": 4000
+    }
+  },
+  {
+    "id": "six-games",
+    "date": "2026-08-06",
+    "title": "Six games, and they're on the front page",
+    "href": "arcade.html",
+    "blurb": "six games, all in a browser, all free to play: THE CITY, RIP ROCKETER, CLOUD RACER, DOGFIGHT, SECTION 9, THE ARENA. your cards carry powers into them.\n\nripmaster3030studios.com/arcade.html",
+    "alt": "The arcade: the ARCADE wordmark over the shelf, captioned six games, your deck is the machine.",
+    "shot": {
+      "url": "/arcade.html",
+      "steps": [
+        {
+          "wait": 3500
+        }
+      ],
+      "settle": 3000
+    }
+  },
+  {
+    "id": "front-page-funnel",
+    "date": "2026-08-06",
+    "title": "The front page is a door, not a poster",
+    "href": "index.html",
+    "blurb": "rebuilt the front page around the three things you can actually do: play, look at the cards, rip a pack. the first thing you can press used to be 3,516px down a phone. it's about 430 now.\n\nripmaster3030studios.com",
+    "alt": "The front page: three doors — play the games, the cards, rip a pack — directly under the wordmark.",
+    "shot": {
+      "url": "/index.html",
+      "steps": [
+        {
+          "wait": 4000
+        },
+        {
+          "scroll": 372
+        }
+      ],
+      "settle": 4000
+    }
+  },
+  {
+    "id": "token-live",
+    "date": "2026-08-06",
+    "title": "$3030 is live",
+    "href": "tokenomics.html",
+    "blurb": "$3030 is live — a SuperRare Liquid Edition, mint-once, 3,030,000 cap. packs buy and burn it, and every burn is permanent. it is a game token, not an investment, and it can go to zero. NFA.\n\nripmaster3030studios.com/tokenomics.html",
+    "alt": "The tokenomics page: supply, the burn, and where a pack's money goes.",
+    "shot": {
+      "url": "/tokenomics.html",
+      "steps": [
+        {
+          "wait": 1500
+        }
+      ],
+      "settle": 3000
+    }
+  }
+]

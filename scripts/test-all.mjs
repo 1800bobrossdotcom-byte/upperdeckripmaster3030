@@ -35,7 +35,7 @@ const SUITES = [
   'name', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
   'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
-  'challenge', 'arena',
+  'challenge', 'arena', 'updates',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list
@@ -69,7 +69,14 @@ const arg = (flag) => {
 };
 const only = arg('--only')?.split(',').map((s) => s.trim()).filter(Boolean);
 const skip = (arg('--skip')?.split(',').map((s) => s.trim()).filter(Boolean)) || [];
-const TIMEOUT = Number(arg('--timeout') || 600) * 1000;
+/* ⛔ 600 WAS A FALSE-RED WAITING TO HAPPEN, AND IT HAPPENED. `press` prints 38/38 and is then
+ *   SIGKILLed at the ceiling — the board reports FAIL for a suite in which every assertion
+ *   passed, which is the reassuring-wrong-answer this file exists to prevent, with the sign
+ *   flipped. That suite waits 22s per sabotage visit by design (a dead press has to be given the
+ *   whole budget it would have had) and was already sitting at 578s before anything was added to
+ *   it. A ceiling one bad container-minute above the slowest suite is not a guard, it is a
+ *   coin flip. 900 still catches a genuine hang; it does not catch a slow honest run. */
+const TIMEOUT = Number(arg('--timeout') || 900) * 1000;
 const OUT = arg('--out') || join(ROOT, 'test-results.json');
 
 const list = SUITES.filter((s) => (!only || only.includes(s)) && !skip.includes(s));

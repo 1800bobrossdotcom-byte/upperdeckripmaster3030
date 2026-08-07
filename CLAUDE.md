@@ -679,7 +679,58 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
 
-## ⛔ THE X HANDLE IS NOT THE STUDIO NAME — `@RipMaster3030`, pinned in `test:name` (206)
+## ✅ THE UPDATES LOG — `updates.json` → `updates.html`, `npm run shots`, `npm run test:updates` (27)
+*Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them postable
+blurbs for social … with each one include a screenshot."*
+- ⚑ **ONE RECORD DRIVES FOUR THINGS — the forge's lesson applied to prose.** `updates.json` holds
+  the date, title, blurb and shot; that row becomes the entry on the page, the string the COPY
+  button puts on the clipboard, the character count beside it, and the filename `npm run shots`
+  writes. As four lists they drift, and **the drift here is the expensive kind: the thing that goes
+  stale is the sentence somebody POSTS.**
+- ⛔ **THE BLURB IS THE POST, VERBATIM** — not a summary a human then rewrites. What is printed is
+  exactly what lands on the clipboard, asserted as an EXACT string rather than "contains", because
+  a copy that drops the trailing link or eats the blank line is a different post. The count is
+  shown because a blurb that has quietly grown past 280 is refused at the moment somebody tries to
+  send it, and the natural reaction — truncate — ships a wrong post.
+- ⛔ **THE SHOTS ARE CAPTURED FROM THE LIVE PAGES, NEVER COMPOSED** (`scripts/capture-updates.mjs`).
+  A picture OF a feature is a claim about it; a shot of the page IS the feature — DESIGN-SYSTEM §1,
+  the same argument that makes `npm run mark` cut the wordmark out of the live foil. The capture is
+  a script rather than a note for `npm run cc0`'s reason: **a shot nobody can retake rots the day
+  the page changes.** Only the site's own floating transport (`#soundBar`, `#sfxToggle`) is hidden
+  — that is furniture, and the line is "remove the chrome", never "arrange the picture".
+- ⛔ **THE RECORDED HUE ROTATION DID NOT REPRODUCE, AND IT DECIDED THE WHOLE APPROACH.** This file
+  says the screenshot path rotates hue on CANVAS content (green came out magenta), which would make
+  every game shot unpublishable. Driven with one known colour on a DOM box, a 2D canvas and a WebGL
+  canvas in a single frame under `--use-gl=angle --use-angle=swiftshader`: **all three read back
+  43,255,128 exactly.** The note predates this flag set. The capture re-runs the check per shot
+  rather than trusting the paragraph.
+- ⛔ **TEN FULL-WIDTH PNGs IS A SEVEN-MEGABYTE PAGE**, on the one page whose whole job is showing
+  people things — the suite measured **5 of 10 shots undecoded**. Chromium encodes WebP itself, so
+  the same browser that takes the shot re-encodes it: **7 MB → 1.27 MB**, no new dependency, and
+  the fine mono type survives (⚠ JPEG would not — every frame is small light type on near-black).
+- ⚠ **AND THE FIRST "UNDECODED" READING WAS THE PROBE.** The shots are `loading="lazy"` and the
+  test jumped to the bottom, skipping every image in the middle. **Walk the page; a reader does.**
+- ⛔ **FAIL OPEN, FOR A COPY BUTTON, MEANS SELECTING THE TEXT.** `navigator.clipboard` is absent on
+  an insecure origin and can be refused by policy, and the failure that matters is a button that
+  animates, says COPIED and put nothing anywhere — then the post goes out empty. It selects the
+  blurb and says so. **That sabotage is the only assertion in the suite that means anything**;
+  "does copy work" was never the question.
+- ⚠ **TWO CARD TITLES IN THE DECK NAME REAL LIVING ARTISTS** — card 10 and card 29. That is the
+  artist's own deck and his call, but a studio-authored promo shot is a different act from a card
+  in the set, so the folder shot was re-framed to a part-filled collection that excludes them.
+  **Flagged to the artist, not silently worked around.**
+- ⚠ **A FRESH CONTEXT HAS COLLECTED NOTHING**, so the folder shot needed a seeded vault written
+  before the page runs — an `eval` step cannot do it, the page has already read the vault. That
+  also made the shot truer: some sleeves filled, some empty, which is what the blurb says.
+- ⛔ **AND `test-all.mjs`'s 600 s CEILING WAS A FALSE RED WAITING TO HAPPEN.** `press` printed
+  **38/38** and was then SIGKILLed at the limit — the board reporting FAIL for a suite in which
+  every assertion passed, which is this file's own reassuring-wrong-answer with the sign flipped.
+  It waits 22 s per sabotage visit **by design** (a dead press must be given the whole budget it
+  would have had) and was already at 578 s before anything was added. **A ceiling one bad
+  container-minute above the slowest suite is a coin flip, not a guard.** 900 s catches a genuine
+  hang and not a slow honest run. Board: **30/30, 2,047 assertions.**
+
+## ⛔ THE X HANDLE IS NOT THE STUDIO NAME — `@RipMaster3030`, pinned in `test:name` (207)
 *Artist, 2026-08-06: "here is our x for website: https://x.com/RipMaster3030"*
 - ⛔ **THE STRING THIS REPO PUT IN 258 FILES IS THE WRONG ONE HERE.** The studio, the domain and the
   wordmark are `ripmaster3030studios`; the account is `@RipMaster3030`. ⚑ **That is the token's own

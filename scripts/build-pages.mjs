@@ -14,7 +14,7 @@
 // cards do NOT retire/ash.
 // Strong NFA / "all memes are memes" throughout.
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +22,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const NAV = [
   { slug: 'index.html', label: 'Home' },
+  { slug: 'updates.html', label: 'Updates' },
   { slug: 'artist.html', label: 'Artist' },
   { slug: 'whitepaper.html', label: 'Whitepaper' },
   { slug: 'tokenomics.html', label: 'Tokenomics' },
@@ -823,7 +824,130 @@ const artist = `
  * ⚠ Nothing else linked those URLs, so no route is broken by their going. */
 
 // ─────────────────────────── write ───────────────────────────
+/* ── THE UPDATES LOG ──────────────────────────────────────────────────────────────────────────
+ * *Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them
+ * postable blurbs for social … with each one include a screenshot."*
+ *
+ * ⚑ ONE RECORD DRIVES FOUR THINGS, which is the forge's lesson applied to prose: `updates.json`
+ *   holds the date, the title, the blurb and the shot, and that single row becomes the entry on
+ *   the page, the text the COPY button puts on the clipboard, the character count beside it, and
+ *   the filename `npm run shots` writes. As four separate lists they drift — and the drift here is
+ *   the expensive kind, because the thing that goes stale is the sentence somebody POSTS.
+ * ⛔ THE BLURB IS THE POST, VERBATIM. Not a summary of an entry that a human then rewrites: what
+ *   is on the page is exactly what lands on the clipboard, so what you read is what you send.
+ *   That is why the count is shown — a blurb that has quietly grown past 280 is one nobody
+ *   notices until it is refused, and a truncated post is a wrong post.
+ * ⚠ SCREENSHOTS ARE CAPTURED FROM THE LIVE PAGES by `scripts/capture-updates.mjs`, never drawn.
+ *   A picture OF a feature is a claim about it; a shot of the page is the feature — DESIGN-SYSTEM
+ *   §1, the same argument that makes `npm run mark` cut the wordmark from the live foil. */
+const updatesData = JSON.parse(readFileSync(join(ROOT, 'updates.json'), 'utf8'));
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const longDate = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} ${d}, ${y}`;
+};
+
+const updates = `
+<p class="lede">What we shipped, newest first — each one written to be posted as it stands.
+Press <b>COPY</b> and it is on your clipboard, exactly as printed. The picture under each one is a
+screenshot of the page it describes, taken from the live site rather than drawn.</p>
+
+<div class="uplog">
+${updatesData.map((u) => `  <article class="upd" id="${esc(u.id)}">
+    <div class="upd-head">
+      <time datetime="${esc(u.date)}">${longDate(u.date)}</time>
+      <h3>${esc(u.title)}</h3>
+    </div>
+    <a class="upd-shot" href="${esc(u.href)}"${/^https?:/.test(u.href) ? ' target="_blank" rel="noopener"' : ''}>
+      <img src="media/updates/${esc(u.id)}.webp" width="1200" height="675" loading="lazy"
+           alt="${esc(u.alt)}"></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="${esc(u.blurb)}">${esc(u.blurb).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>')}</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="${esc(u.id)}">COPY</button>
+        <span class="upd-count">${[...u.blurb].length} / 280</span>
+        <a class="upd-go" href="${esc(u.href)}"${/^https?:/.test(u.href) ? ' target="_blank" rel="noopener"' : ''}>see it ↗</a>
+      </div>
+    </div>
+  </article>`).join('\n')}
+</div>
+
+<p class="mininote">⚑ <b>The log is a data file, not a page.</b> A new entry is a row in
+<code>updates.json</code> and a run of <code>npm&nbsp;run&nbsp;shots</code>, which drives the page
+it names and captures it at 1200×675 — the size a social card is cropped to. Nothing here is
+hand-composed, so an entry cannot describe a screen that no longer exists.</p>
+
+<style>
+  .uplog{ display:grid; gap:30px; margin-top:20px; }
+  .upd{ border:1px solid var(--phosdeep); border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(4,20,11,.86), rgba(1,10,6,.92)); }
+  .upd-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; padding:14px 16px 10px; }
+  .upd-head time{ font-family:var(--mono); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--amber); }
+  .upd-head h3{ margin:0; font-family:var(--fat); font-size:var(--t-h3,19px); letter-spacing:.02em;
+    color:#eafff2; }
+  /* ⚠ the shot carries its own intrinsic 1200×675, so the box is reserved before it loads and the
+     page does not jump under a reader's thumb as ten screenshots arrive */
+  .upd-shot{ display:block; border-block:1px solid var(--phosdeep); background:#01100a; }
+  .upd-shot img{ display:block; width:100%; height:auto; }
+  .upd-post{ padding:14px 16px 16px; }
+  .upd-blurb{ margin:0; font-family:var(--mono); font-size:var(--t-body,15px); line-height:1.62;
+    color:var(--text); white-space:normal; }
+  .upd-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:12px; }
+  .upd-copy{ font-family:var(--fat); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:#01130a; cursor:pointer; min-height:44px; padding:0 18px;
+    border-radius:11px; border:1px solid #01130a;
+    background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56);
+    box-shadow:0 3px 0 #06331d; transition:transform .1s, box-shadow .1s; }
+  /* ⛔ THE PRESS HAS TO TRAVEL, NOT JUST GLOW. A hover sheen is not an affordance on a phone —
+     index.html's button pass records that as the thing every button on this site now answers. */
+  .upd-copy:active{ transform:translateY(3px); box-shadow:0 0 0 #06331d; }
+  .upd-copy[data-done]{ background:linear-gradient(180deg,#ffe89a,var(--amber) 60%,#c48f00); }
+  .upd-count{ font-family:var(--mono); font-size:var(--t-fine,12px); color:var(--phosdim); }
+  .upd-go{ font-family:var(--mono); font-size:var(--t-fine,12px); margin-left:auto;
+    display:inline-flex; align-items:center; min-height:44px; }
+  @media (max-width:560px){ .upd-go{ margin-left:0; } }
+</style>
+<script>
+/* ⛔ FAIL OPEN, AND FOR A COPY BUTTON THAT MEANS SELECTING THE TEXT RATHER THAN DOING NOTHING.
+ *   navigator.clipboard is unavailable on an insecure origin and can be refused outright by a
+ *   permission policy — and a button that reports nothing is the failure theme.js records as worse
+ *   than no button at all. When the write fails the blurb is SELECTED, so ⌘C still works and the
+ *   label says so. The text comes from data-post, i.e. the same string the page printed. */
+(function () {
+  var log = document.querySelector('.uplog');
+  if (!log) return;
+  log.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.upd-copy') : null;
+    if (!b) return;
+    var art = document.getElementById(b.getAttribute('data-for'));
+    var p = art && art.querySelector('.upd-blurb');
+    if (!p) return;
+    var txt = p.getAttribute('data-post') || p.textContent;
+    var done = function (label) {
+      b.textContent = label; b.setAttribute('data-done', '1');
+      setTimeout(function () { b.textContent = 'COPY'; b.removeAttribute('data-done'); }, 2200);
+    };
+    var select = function () {
+      try {
+        var r = document.createRange(); r.selectNodeContents(p);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (e2) {}
+      done('SELECTED — ⌘C');
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () { done('COPIED'); }, select);
+      } else select();
+    } catch (e3) { select(); }
+  });
+})();
+</script>`;
+
 const pages = [
+  { slug: 'updates.html', title: 'Updates', kicker: 'what we shipped · newest first',
+    subtitle: 'A running log of what shipped on ripmaster3030studios — each entry written to be posted as it stands, with a screenshot of the page it describes.',
+    accent: 'var(--phos)', body: updates },
   { slug: 'artist.html', title: 'The Artist', kicker: 'Gianni Arone · lovebeing · @_lovebeing_',
     subtitle: 'The multidisciplinary artist behind ripmaster3030studios — and the 1/1 at the top of the deck.',
     accent: 'var(--acid)', body: artist },

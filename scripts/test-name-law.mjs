@@ -1392,7 +1392,8 @@ console.log('\n── the X account is one handle, and it is not the studio name
    *   all, which is the state this was added to leave. These are the surfaces that must carry it:
    *   the front page, the four generated pages (via their shared footer) and the token-page embed,
    *   which is a collector's only route off superrare.com. */
-  for (const page of ['index.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html', 'superrare.html']) {
+  for (const page of ['index.html', 'updates.html', 'whitepaper.html', 'tokenomics.html', 'audit.html',
+                      'artist.html', 'superrare.html']) {
     ok(carriers.has(page), `${page} links the studio account`);
   }
   /* ⛔ AND THE GENERATOR IS CHECKED WITH THE OUTPUT. Patching only the four HTML files leaves
@@ -1414,7 +1415,7 @@ console.log('\n── the X account is one handle, and it is not the studio name
   /* THE FUNCTIONAL HALF. Without `twitter:site` every share of every page on this domain is
    * attributed to nobody — the reason a site declares a handle in the first place, and a meta tag
    * is this file's canonical example of a surface nobody looks at. */
-  const metaPages = ['index.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html'];
+  const metaPages = ['index.html', 'updates.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html'];
   const missing = metaPages.filter(f => !new RegExp(
     `<meta name="twitter:site" content="@${HANDLE}">`).test(readFileSync(join(ROOT, f), 'utf8')));
   ok(missing.length === 0,

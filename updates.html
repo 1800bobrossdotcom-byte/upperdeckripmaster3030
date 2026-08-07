@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Transparent Whitepaper · ripmaster3030studios</title>
-<meta name="description" content="What the game is, how the token works, where every $3030 goes, and the risks — in the open, for frens.">
+<title>Updates · ripmaster3030studios</title>
+<meta name="description" content="A running log of what shipped on ripmaster3030studios — each entry written to be posted as it stands, with a screenshot of the page it describes.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/media/site/mark-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/media/site/mark-180.png">
-<link rel="canonical" href="https://ripmaster3030studios.com/whitepaper.html">
+<link rel="canonical" href="https://ripmaster3030studios.com/updates.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="ripmaster3030studios">
-<meta property="og:title" content="Transparent Whitepaper · ripmaster3030studios">
-<meta property="og:description" content="What the game is, how the token works, where every $3030 goes, and the risks — in the open, for frens.">
-<meta property="og:url" content="https://ripmaster3030studios.com/whitepaper.html">
+<meta property="og:title" content="Updates · ripmaster3030studios">
+<meta property="og:description" content="A running log of what shipped on ripmaster3030studios — each entry written to be posted as it stands, with a screenshot of the page it describes.">
+<meta property="og:url" content="https://ripmaster3030studios.com/updates.html">
 <meta property="og:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -243,9 +243,9 @@
     <a class="brand" href="index.html">◂ Ripmaster 3030</a>
     <nav class="topnav">
       <a href="index.html">Home</a>
-      <a href="updates.html">Updates</a>
+      <a href="updates.html" class="on">Updates</a>
       <a href="artist.html">Artist</a>
-      <a href="whitepaper.html" class="on">Whitepaper</a>
+      <a href="whitepaper.html">Whitepaper</a>
       <a href="tokenomics.html">Tokenomics</a>
       <a href="audit.html">Audit</a>
     </nav>
@@ -259,231 +259,277 @@
     if(n&&n.scrollIntoView){try{n.scrollIntoView({inline:'center',block:'nearest'});}catch(e){}}})();</script>
   <div class="wrap">
     <header class="hero">
-      <div class="kick">ripmaster3030studios · $3030 · NFA</div>
-      <h1>Transparent Whitepaper</h1>
-      <p class="sub">What the game is, how the token works, where every $3030 goes, and the risks — in the open, for frens.</p>
+      <div class="kick">what we shipped · newest first</div>
+      <h1>Updates</h1>
+      <p class="sub">A running log of what shipped on ripmaster3030studios — each entry written to be posted as it stands, with a screenshot of the page it describes.</p>
     </header>
     
-  <div class="cta" style="margin:-8px 0 4px"><a class="btn" href="whitepaper.pdf" target="_blank" rel="noopener">📄 Download the PDF deck</a>
-    <a class="btn cy" href="tokenomics.html">📈 Tokenomics</a>
-    <a class="btn cy" href="audit.html">🛡 Our audit notes</a></div>
+<p class="lede">What we shipped, newest first — each one written to be posted as it stands.
+Press <b>COPY</b> and it is on your clipboard, exactly as printed. The picture under each one is a
+screenshot of the page it describes, taken from the live site rather than drawn.</p>
 
-  <h2><span class="n">01</span>TL;DR</h2>
-  <p>ripmaster3030studios is a <b>liquid trading-card game</b> that is, on-chain, one primitive:
-  a SuperRare <b>Liquid Edition</b> — a single <b>ERC-20</b> token (<b>$3030</b>) priced by a bonding
-  curve in <b>RARE</b> on Uniswap-v4. The <b>100-card deck</b> is the <b>artwork</b>, and <b>every card is a
-  LENS</b> — a render that reads the live market + burn. <b>33 hero cards</b> mint as <b>1/1 lenses</b>
-  (<b>11 auctioned on SuperRare</b>, 11 pulled from packs, 11 earned in the games); the other <b>67 field cards</b> are <b>render-only lenses</b>
-  (live on-chain, <b>unminted</b>) that you collect and can mint later. Packs <b>burn</b> the token — supply
-  <b>only falls</b> — every rip retires supply for good while the RARE reserve stays put, so
-  <b>each surviving token is backed by more</b>. Ripping pays the holders. <i>The token burns
-  so the art can live.</i> The studio takes a <b>stated</b> cut — half of every pack and half of the 10% game rake fund the studio; the rest burns. No team pre-mint, no hidden fees.</p>
+<div class="uplog">
+  <article class="upd" id="x-account">
+    <div class="upd-head">
+      <time datetime="2026-08-07">Aug 7, 2026</time>
+      <h3>The studio has an X account</h3>
+    </div>
+    <a class="upd-shot" href="https://x.com/RipMaster3030" target="_blank" rel="noopener">
+      <img src="media/updates/x-account.webp" width="1200" height="675" loading="lazy"
+           alt="The ripmaster3030studios front page: the foil wordmark over three doors — play, the cards, rip a pack."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="we're on X now — @RipMaster3030. shipping notes, card drops, and whatever the games do next. the studio is ripmaster3030studios; the account is @RipMaster3030.
 
-  <h3>The stack — one edition, one lens contract</h3>
-  <div class="cols3">
-    <div class="card house"><div class="co-h">$3030 · ERC-20</div>
-      <p style="margin:0">The <b>edition</b>. One token on a Uniswap-v4 + Doppler
-      multicurve, reserve in RARE — chartable like any ERC-20. Buy it, sell it, <b>burn</b> it.
-      <b>Minted once</b>; burns are <b>permanent</b>. In SuperRare's words: <i>"the token is not separate
-      from the art."</i></p></div>
-    <div class="card creator"><div class="co-h">The render — every card is a lens</div>
-      <p style="margin:0">A <b>lens</b> is a render <b>keyed by card id</b> in one
-      renderer+721 contract, reading price, supply, and <b>burn</b> live. A card is a live lens <b>before</b>
-      any token exists for it — so field cards are lenses today, unminted.</p></div>
-    <div class="card burn"><div class="co-h">Lenses · ERC-721</div>
-      <p style="margin:0">The <b>owned</b> layer. <b>33 hero 1/1s</b> minted now, plus
-      <b>Lovebeing</b>, the holder lens every $3030 wallet carries. The 67 field cards mint <b>later</b>,
-      against the same render — so they stay lenses, never turning to static art.</p></div>
-  </div>
-  <p class="fine"><b>No ERC-1155, no per-copy editions, no flood of mints.</b> The on-chain footprint is
-  deliberately tiny — 33 hero 1/1s now — while all 100 cards are live lenses. Your field-card collection is
-  a site-layer collectible (chain-readable) until you choose to mint it.</p>
+ripmaster3030studios.com">we're on X now — @RipMaster3030. shipping notes, card drops, and whatever the games do next. the studio is ripmaster3030studios; the account is @RipMaster3030.<br><br>ripmaster3030studios.com</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="x-account">COPY</button>
+        <span class="upd-count">185 / 280</span>
+        <a class="upd-go" href="https://x.com/RipMaster3030" target="_blank" rel="noopener">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="arena-67">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>The arena deals the 67, and never a 1/1</h3>
+    </div>
+    <a class="upd-shot" href="cards/battle.html">
+      <img src="media/updates/arena-67.webp" width="1200" height="675" loading="lazy"
+           alt="THE ARENA: the wager bench, the stack you commit, and the rule printed on the page — the 33 are not in this room."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="the arena deals the 67 field cards. you cannot win a 1/1 there and you cannot stake one — a hero comes from ripping a pack or earning a title, and nothing else. if you hold one it stays on your shelf.
 
-  <div class="callout cy"><div class="co-h">This is transparency, not a pitch.</div>
-    <p>$3030 is a collectible game token, not an investment. It can go to zero. The cards are art,
-    parody, and memes. Play for the fun of it — see <a href="#legal">Legal &amp; NFA</a>.</p></div>
+ripmaster3030studios.com/cards/battle.html">the arena deals the 67 field cards. you cannot win a 1/1 there and you cannot stake one — a hero comes from ripping a pack or earning a title, and nothing else. if you hold one it stays on your shelf.<br><br>ripmaster3030studios.com/cards/battle.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="arena-67">COPY</button>
+        <span class="upd-count">244 / 280</span>
+        <a class="upd-go" href="cards/battle.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="folder-collection">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>The folder is a collection, not a catalogue</h3>
+    </div>
+    <a class="upd-shot" href="cards/binder.html">
+      <img src="media/updates/folder-collection.webp" width="1200" height="675" loading="lazy"
+           alt="The folder: nine-pocket pages, some sleeves filled with cards you have pulled and some still empty."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="the folder shows what you have actually pulled — nine pockets to a page, empty sleeves where cards aren't filed yet. the whole hundred are still one chip away. a binder that shows you everything isn't a binder.
 
-  <h2><span class="n">02</span>The game</h2>
-  <ul>
-    <li><b>The field</b> — 100 cards, all live lenses, five tiers (Common → Prizm). <b>Rarity is set by
-      community vote</b> (the Rarity Court), not decreed.</li>
-    <li><b>Rip &amp; collect</b> — a pack is a guided <b>buy of about $10 of $3030 — half burned, half to the studio</b>; you pull
-      <b>field cards</b> and, rarely, a <b>gacha lens claim</b>. Your collection = your rip history + holdings.</li>
-    <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers —
-      <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim from a pack → mint the 1/1)
-      + <b>11 earned</b> (clear a stated feat in the games → signed voucher → mint). One owner each,
-      and the eleven feats are named in §06 — they are not a mystery box.</li>
-    <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
-      supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
-    <li><b>The burn</b> — packs retire token supply permanently without touching the reserve, so backing
-      per surviving token rises. <b>Nothing retires</b>. Scarcity comes from
-      dwindling pack allotments, rarity votes, and <b>compression</b> (corner a field card's copies → 1/1).</li>
-  </ul>
+ripmaster3030studios.com/cards/binder.html">the folder shows what you have actually pulled — nine pockets to a page, empty sleeves where cards aren't filed yet. the whole hundred are still one chip away. a binder that shows you everything isn't a binder.<br><br>ripmaster3030studios.com/cards/binder.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="folder-collection">COPY</button>
+        <span class="upd-count">254 / 280</span>
+        <a class="upd-go" href="cards/binder.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="the-hundred">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>The hundred</h3>
+    </div>
+    <a class="upd-shot" href="cards/deck.html">
+      <img src="media/updates/the-hundred.webp" width="1200" height="675" loading="lazy"
+           alt="The deck browser: the hundred as a wall of cards, heroes and field cards banded apart."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="the deck is 100 cards: 33 hero 1/1s and 67 field cards. every one is a lens — a render keyed by card id, drawn from on-chain state, so the card answers the market it lives in.
 
-  <h2><span class="n">03</span>The token · $3030</h2>
-  <div class="statgrid">
-    <div class="stat"><b>3.03M</b><span>hard cap (mint-once)</span></div>
-    <div class="stat"><b>~$0.08</b><span>opening / token*</span></div>
-    <div class="stat"><b>RARE</b><span>reserve currency</span></div>
-    <div class="stat"><b>~$2.4M</b><span>full-curve FDV*</span></div>
-  </div>
-  <p style="margin-top:14px">The token is a <b>cheap micro-token</b> on a <b>Uniswap-v4 pool</b> with liquidity placed as a
-  <b>Doppler multicurve</b>. Supply is capped at <b>3,030,000</b> and <b>minted once</b> into the pool at
-  launch — burns are <b>permanent</b> and never re-mint. It opens at about <b>$0.08 per $3030</b>, which is
-  <b>measured, not modelled</b>: SuperRare ran the live mainnet previews at the full supply on the
-  <b>low-demand</b> preset, with no initial RARE liquidity and no creator allocation.</p>
-  <p class="fine">*Only the opening price is measured. The full-curve FDV above assumes a demand multiple of
-  10 across the whole curve, which the preview did <b>not</b> give us — it is <b>illustration, not
-  forecast</b>, and it is an <b>artist-scale niche edition, by choice</b>. See
-  <a href="tokenomics.html">Tokenomics</a> §03.</p>
+ripmaster3030studios.com/cards/deck.html">the deck is 100 cards: 33 hero 1/1s and 67 field cards. every one is a lens — a render keyed by card id, drawn from on-chain state, so the card answers the market it lives in.<br><br>ripmaster3030studios.com/cards/deck.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="the-hundred">COPY</button>
+        <span class="upd-count">217 / 280</span>
+        <a class="upd-go" href="cards/deck.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="card-is-a-print">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>Every card is a print now</h3>
+    </div>
+    <a class="upd-shot" href="cards/field.html?n=47">
+      <img src="media/updates/card-is-a-print.webp" width="1200" height="675" loading="lazy"
+           alt="A card page: the card lit in its room, printed rather than photographed."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="every card page is a real print now — four-colour separation, paper tooth, foil that moves with the light, on the same press the folder and the pack reveal use. it turns over onto its own back.
 
-  <h2><span class="n">04</span>The economy · where every token goes</h2>
-  <p>One direction: <b>the fire</b>. There is no toll wallet, no creator-cut contract, no house
-  pool — the only on-chain spend is a burn of the one token.</p>
-  <div class="cols3">
-    <div class="card burn"><div class="co-h">🔥 Burns (on-chain, real)</div>
-      <ul><li>every pack — <b>in full</b> (~350/rip)</li><li>voluntary conviction burns</li>
-      <li><b>compression</b> costs</li><li>all irreversible, all public</li></ul></div>
-    <div class="card creator"><div class="co-h">📈 The curve (on-chain, real)</div>
-      <ul><li>buys deepen the RARE reserve</li><li>sells walk back down it</li>
-      <li><b>mint-once</b> — burns never re-mint</li><li>read it live: <code>getMarketState()</code></li></ul></div>
-    <div class="card house"><div class="co-h">🃏 Site-layer (signal, honest)</div>
-      <ul><li>rarity votes, wagers, trades, binder</li><li>field-card pulls (render-only lenses)</li>
-      <li>no tokens burned — <b>only packs burn</b></li></ul></div>
-  </div>
+ripmaster3030studios.com/cards/">every card page is a real print now — four-colour separation, paper tooth, foil that moves with the light, on the same press the folder and the pack reveal use. it turns over onto its own back.<br><br>ripmaster3030studios.com/cards/</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="card-is-a-print">COPY</button>
+        <span class="upd-count">226 / 280</span>
+        <a class="upd-go" href="cards/field.html?n=47">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="pack-in-dollars">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>Packs are priced in dollars</h3>
+    </div>
+    <a class="upd-shot" href="tokenomics.html">
+      <img src="media/updates/pack-in-dollars.webp" width="1200" height="675" loading="lazy"
+           alt="The tokenomics page: the pack ladder and where the money goes."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="packs are a dollar target, not a token count: $10 / $12 / $15 / $20 across four tiers. half of every pack burns, half funds the studio. a tier opens when the one before it sells out — no dates. NFA.">packs are a dollar target, not a token count: $10 / $12 / $15 / $20 across four tiers. half of every pack burns, half funds the studio. a tier opens when the one before it sells out — no dates. NFA.</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="pack-in-dollars">COPY</button>
+        <span class="upd-count">198 / 280</span>
+        <a class="upd-go" href="tokenomics.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="the-city">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>THE CITY</h3>
+    </div>
+    <a class="upd-shot" href="city.html">
+      <img src="media/updates/the-city.webp" width="1200" height="675" loading="lazy"
+           alt="THE CITY seen from the air: the river, the street grid and the towers of a generated city."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="THE CITY is 3.84 km of generated city and you fly it as a bird. or take it as a squirrel, a cat, a dog — each one gets a different layer of the same place. nothing chases you.
 
-  <h2><span class="n">05</span>Packs · a $10 premium, escalating</h2>
-  <p>A pack is the one <b>premium</b> action, and it uses only native curve operations: the site walks
-  you through <b>buying about $10 worth of $3030</b> — <b>half burns, half funds the studio</b>, in one
-  atomic call. It is <b>not</b> a token reprice —
-  FDV is unchanged — and every rip is a real buy-and-burn, the engine of steady pressure, not a pump. The
-  schedule (site-enforced, auditable from the burn txs) escalates <b>within</b> a tier (base→ceil as
-  the allotment sells) and <b>across</b> tiers (the allotment dwindles and the floor rises). The pack count
-  is bounded by the <b>burn budget, not card supply</b>.</p>
-  <table><tr><th>Tier</th><th>Pack allotment</th><th>Base ≈ $*</th></tr>
-    <tr><td>Tier I</td><td>1,600 packs</td><td>$10</td></tr>
-    <tr><td>Tier II</td><td>1,100 packs</td><td>$12</td></tr>
-    <tr><td>Tier III</td><td>600 packs</td><td>$15</td></tr>
-    <tr><td>Tier IV</td><td>260 packs</td><td>$20</td></tr></table>
-  <p class="fine">*The pack is a <b>dollar target</b>, not a token count: the number of $3030 it takes is fixed
-  from the live price when a tier opens and locked for that tier. At the measured $0.08 open a Tier I pack is
-  <b>125 $3030</b>. ⚑ It runs the way you would not expect — a <b>rising</b> token buys <b>fewer</b> tokens
-  per pack, so it burns fewer. ≈3,560 packs total. See <a href="tokenomics.html">Tokenomics</a>.</p>
+ripmaster3030studios.com/city.html">THE CITY is 3.84 km of generated city and you fly it as a bird. or take it as a squirrel, a cat, a dog — each one gets a different layer of the same place. nothing chases you.<br><br>ripmaster3030studios.com/city.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="the-city">COPY</button>
+        <span class="upd-count">211 / 280</span>
+        <a class="upd-go" href="city.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="six-games">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>Six games, and they're on the front page</h3>
+    </div>
+    <a class="upd-shot" href="arcade.html">
+      <img src="media/updates/six-games.webp" width="1200" height="675" loading="lazy"
+           alt="The arcade: the ARCADE wordmark over the shelf, captioned six games, your deck is the machine."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="six games, all in a browser, all free to play: THE CITY, RIP ROCKETER, CLOUD RACER, DOGFIGHT, SECTION 9, THE ARENA. your cards carry powers into them.
 
-  <h2><span class="n">06</span>Lenses, minting &amp; the Compression rite</h2>
-  <p>Every card is a lens — a render keyed by id — so the deck exists as art from day one. What changes over
-  time is <b>who owns a token</b>:</p>
-  <div class="cols3">
-    <div class="card house"><div class="co-h">33 hero lenses · minted now</div>
-      <p style="margin:0"><b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull a claim from a pack
-      → mint) + <b>11 earned</b> (clear a named feat → signed voucher → mint). Real <b>1/1 ERC-721</b>
-      tokens, wallet-signed. One owner each.</p></div>
-    <div class="card creator"><div class="co-h">67 field lenses · render-only</div>
-      <p style="margin:0"><b>Live on-chain, unminted</b> (readable via the CLI). Collect their
-      copies from packs; <b>compress</b> (own every copy) into a <b>1/1</b>. Mint them for real <b>later</b>,
-      against the same render — they stay lenses, never static art.</p></div>
-    <div class="card burn"><div class="co-h">Lovebeing · the holder lens</div>
-      <p style="margin:0">The 1/1 marquee, <b>distributed to every $3030 holder</b> — one per
-      wallet regardless of balance, <b>non-transferable</b>, <b>non-burnable</b>. Hold the token, you carry it.
-      Never minted per-person.</p></div>
-  </div>
-  <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
-  emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
+ripmaster3030studios.com/arcade.html">six games, all in a browser, all free to play: THE CITY, RIP ROCKETER, CLOUD RACER, DOGFIGHT, SECTION 9, THE ARENA. your cards carry powers into them.<br><br>ripmaster3030studios.com/arcade.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="six-games">COPY</button>
+        <span class="upd-count">188 / 280</span>
+        <a class="upd-go" href="arcade.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="front-page-funnel">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>The front page is a door, not a poster</h3>
+    </div>
+    <a class="upd-shot" href="index.html">
+      <img src="media/updates/front-page-funnel.webp" width="1200" height="675" loading="lazy"
+           alt="The front page: three doors — play the games, the cards, rip a pack — directly under the wordmark."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="rebuilt the front page around the three things you can actually do: play, look at the cards, rip a pack. the first thing you can press used to be 3,516px down a phone. it's about 430 now.
 
-  <h3 id="titles">The eleven earned cards, across nine titles</h3>
-  <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
-  <b>named feat in a named game</b> — printed here in full, because a prize nobody can aim at is a
-  lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
-  closed.</b> One owner each — except <b>THE STREAK</b>, which has <b>three seats</b>, so the first
-  three pilots to do it each take their own 1/1. Nine titles, eleven cards.</p>
-  <!-- A LIST, NOT A TABLE. The shell's th,td are white-space:nowrap, so a sentence per row would
-       force the whole thing into a sideways scroll on a phone — the exact shape the mobile pass
-       just spent a day removing. Long prose belongs in a list; tables are for numbers.
-       ⚠ THE COUNTING NOUN IS LOAD-BEARING: eleven CARDS across nine TITLES. Saying "eleven
-       titles" over a list of nine is a small untruth on the page buyers read. See
-       docs/HERO-UNLOCKS.md §4¾ — and note NEON RONIN's two titles went with the cabinet the
-       artist retired on 2026-08-03, replaced by THE CITY's two. -->
-  <ul>
-    <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
-    <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <!-- ⛔ THIS LIST MUST MATCH js/title-ledger.js, WHICH IS THE ONE THAT CAN ACTUALLY AWARD.
-         On 2026-08-06 two concurrent passes disagreed: the doc retired five titles for a points
-         ladder while the ledger shipped detectors for the old set. The page printed conditions
-         no cabinet could award, with real 1/1 cards behind them — the worst direction for this
-         particular error to run. Page follows CODE until the ledger changes; the pending
-         points/combo ladder is proposed in docs/HERO-UNLOCKS.md §4 and is NOT published here
-         until something can award it. ⚠ Do not edit this list to match the doc — edit the
-         ledger first, then this. -->
-    <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
-    <li><b>DEAD STICK</b> · <i>Dogfight</i> — win a match having <b>never pressed boost</b>.</li>
-    <li><b>ONE MAG</b> · <i>Section 9</i> — win a round with <b>more kills than reloads</b>.</li>
-    <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it.</li>
-    <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
-    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
-    <li><b>DEAD AIR</b> · <i>The City</i> — as the bird, cover <b>300 m in one unbroken glide</b> — no wingbeat — <b>never more than 40 m above the ground</b>.</li>
-    <li><b>BOTH ENDS</b> · <i>The City</i> — <b>plant a card from the air as the bird, then take that same card back as the squirrel</b>, in one visit.</li>
-  </ul>
-  <p><b>Nothing on that list can be bought.</b> No title is unlocked by holding more $3030, ripping more
-  packs, or burning more of anything — every one is a thing you did with your hands. That is
-  deliberate: a balance can be borrowed for the length of one block, and a feat cannot.</p>
-  <div class="callout amber"><b>How a title is actually awarded, stated plainly.</b> You record the run,
-  you post it, the studio verifies it and signs a voucher, and <b>you</b> mint the card to <b>your</b>
-  wallet and pay the gas — the studio never holds it for you. <b>And the studio is the judge.</b> Every
-  score in these games lives in your own browser and can be edited in seconds, so a machine cannot
-  referee this and we are not going to pretend one does. A card studio handing out its own titles is
-  an honest arrangement; dressing it up as an oracle would not be.</div>
+ripmaster3030studios.com">rebuilt the front page around the three things you can actually do: play, look at the cards, rip a pack. the first thing you can press used to be 3,516px down a phone. it's about 430 now.<br><br>ripmaster3030studios.com</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="front-page-funnel">COPY</button>
+        <span class="upd-count">213 / 280</span>
+        <a class="upd-go" href="index.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+  <article class="upd" id="token-live">
+    <div class="upd-head">
+      <time datetime="2026-08-06">Aug 6, 2026</time>
+      <h3>$3030 is live</h3>
+    </div>
+    <a class="upd-shot" href="tokenomics.html">
+      <img src="media/updates/token-live.webp" width="1200" height="675" loading="lazy"
+           alt="The tokenomics page: supply, the burn, and where a pack's money goes."></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="$3030 is live — a SuperRare Liquid Edition, mint-once, 3,030,000 cap. packs buy and burn it, and every burn is permanent. it is a game token, not an investment, and it can go to zero. NFA.
 
-  <h2><span class="n">07</span>Steady, not a pump</h2>
-  <ul>
-    <li><b>Un-pullable liquidity</b> — the RARE reserve lives in the pool, not a yankable LP. Sells walk down the curve.</li>
-    <li><b>No team pre-mint</b> — nothing minted at genesis to dump.</li>
-    <li><b>Mint-once, buy-and-burn</b> — supply is minted once; RARE flows in on every buy, tokens vanish on
-      every pack burn and never re-mint; a shrinking float on a deepening reserve.</li>
-    <li><b>Adding liquidity</b> — seed real RARE at deploy and let every buy deepen the reserve organically; the curve itself is the standing liquidity.</li>
-  </ul>
-  <div class="callout amber"><div class="co-h">What this is NOT.</div>
-    <p>Not a promise the price goes up. Net supply moves with <b>buys − burns</b> — the sign is not guaranteed.
-    Deflationary <i>pressure</i> is a goal, not a floor. Read the real trajectory live from <code>totalSupply()</code>.</p></div>
+ripmaster3030studios.com/tokenomics.html">$3030 is live — a SuperRare Liquid Edition, mint-once, 3,030,000 cap. packs buy and burn it, and every burn is permanent. it is a game token, not an investment, and it can go to zero. NFA.<br><br>ripmaster3030studios.com/tokenomics.html</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="token-live">COPY</button>
+        <span class="upd-count">230 / 280</span>
+        <a class="upd-go" href="tokenomics.html">see it ↗</a>
+      </div>
+    </div>
+  </article>
+</div>
 
-  <h2><span class="n">08</span>Transparency</h2>
-  <ul>
-    <li><b>One contract surface</b> — the edition + a renderer+721 lens contract. A deliberately tiny mint
-      footprint (33 hero 1/1s), nothing else to trust or exploit.</li>
-    <li><b>Reproducible model</b> — <code>scripts/token-model.mjs</code> re-derives every number here.</li>
-    <li><b>Legible actions</b> — packs and conviction burns are burn txs on the one token; hero-lens mints are
-      wallet-signed. The chain is the receipt.</li>
-    <li><b>Testnet first</b> — a full Sepolia dress rehearsal before any mainnet deploy.</li>
-  </ul>
+<p class="mininote">⚑ <b>The log is a data file, not a page.</b> A new entry is a row in
+<code>updates.json</code> and a run of <code>npm&nbsp;run&nbsp;shots</code>, which drives the page
+it names and captures it at 1200×675 — the size a social card is cropped to. Nothing here is
+hand-composed, so an entry cannot describe a screen that no longer exists.</p>
 
-  <h2><span class="n">09</span>Risks</h2>
-  <ul>
-    <li><b>The token can go to zero.</b> Experimental and highly volatile — only spend what you can lose entirely.</li>
-    <li><b>Smart-contract risk.</b> Code can have bugs. Assume unaudited unless a published audit says otherwise (<a href="audit.html">Audit</a>).</li>
-    <li><b>Liquidity &amp; slippage.</b> A thin market moves price hard; you may not exit at the quoted price.</li>
-    <li><b>Design risk.</b> Game economies can behave unexpectedly, even when tuned and modeled.</li>
-    <li><b>Dependency risk.</b> The 721 lens mints run through SuperRare's assisted setup (or our own CLI-deployed
-      lens contract) — scope and timing are not solely in our hands.</li>
-    <li><b>Site-layer honesty.</b> Rarity votes, wagers, trades, and field-card pulls are community signal /
-      render-only on the site, not on-chain settlement. Only packs burn; only hero-lens mints are owned tokens.</li>
-    <li><b>Regulatory &amp; key risk.</b> Rules vary and change; a lost key is lost funds.</li>
-  </ul>
-
-  <h2 id="legal"><span class="n">10</span>Legal &amp; NFA</h2>
-  <p><b>Not financial advice.</b> Nothing here or on ripmaster3030studios.com is financial, investment, legal,
-  or tax advice, nor an offer or solicitation to buy or sell any asset. <b>$3030</b> is an experimental,
-  volatile utility/collectible <b>game token</b> intended for play and collecting — <b>not an investment
-  contract</b> and <b>not a security</b>. There is <b>no promise, guarantee, or expectation of profit, value,
-  liquidity, or future development</b>. You may lose everything you put in.</p>
-  <p><b>All memes are memes.</b> The cards, characters, names, and imagery are works of <b>art, parody, satire,
-  and commentary</b> — transformative by intent. Any resemblance to real people, brands, or trademarks is used
-  as cultural reference and critique, not endorsement or affiliation. The project will review and, where
-  appropriate, retire content in response to good-faith legal requests.</p>
-  <p><b>Do your own research.</b> Crypto assets and smart contracts carry risk, including total loss and bugs.
-  Interact at your own risk, comply with the laws of your jurisdiction, and consult your own qualified
-  professionals. By acquiring or using $3030 you accept these risks and that the artist, contributors, and
-  SuperRare make <b>no warranties</b> of any kind.</p>
-  <p class="fine">— Gianni Arone (lovebeing · @_lovebeing_) · SuperRare Liquid Editions, Cohort 1 · $3030</p>
+<style>
+  .uplog{ display:grid; gap:30px; margin-top:20px; }
+  .upd{ border:1px solid var(--phosdeep); border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(4,20,11,.86), rgba(1,10,6,.92)); }
+  .upd-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; padding:14px 16px 10px; }
+  .upd-head time{ font-family:var(--mono); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--amber); }
+  .upd-head h3{ margin:0; font-family:var(--fat); font-size:var(--t-h3,19px); letter-spacing:.02em;
+    color:#eafff2; }
+  /* ⚠ the shot carries its own intrinsic 1200×675, so the box is reserved before it loads and the
+     page does not jump under a reader's thumb as ten screenshots arrive */
+  .upd-shot{ display:block; border-block:1px solid var(--phosdeep); background:#01100a; }
+  .upd-shot img{ display:block; width:100%; height:auto; }
+  .upd-post{ padding:14px 16px 16px; }
+  .upd-blurb{ margin:0; font-family:var(--mono); font-size:var(--t-body,15px); line-height:1.62;
+    color:var(--text); white-space:normal; }
+  .upd-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:12px; }
+  .upd-copy{ font-family:var(--fat); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:#01130a; cursor:pointer; min-height:44px; padding:0 18px;
+    border-radius:11px; border:1px solid #01130a;
+    background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56);
+    box-shadow:0 3px 0 #06331d; transition:transform .1s, box-shadow .1s; }
+  /* ⛔ THE PRESS HAS TO TRAVEL, NOT JUST GLOW. A hover sheen is not an affordance on a phone —
+     index.html's button pass records that as the thing every button on this site now answers. */
+  .upd-copy:active{ transform:translateY(3px); box-shadow:0 0 0 #06331d; }
+  .upd-copy[data-done]{ background:linear-gradient(180deg,#ffe89a,var(--amber) 60%,#c48f00); }
+  .upd-count{ font-family:var(--mono); font-size:var(--t-fine,12px); color:var(--phosdim); }
+  .upd-go{ font-family:var(--mono); font-size:var(--t-fine,12px); margin-left:auto;
+    display:inline-flex; align-items:center; min-height:44px; }
+  @media (max-width:560px){ .upd-go{ margin-left:0; } }
+</style>
+<script>
+/* ⛔ FAIL OPEN, AND FOR A COPY BUTTON THAT MEANS SELECTING THE TEXT RATHER THAN DOING NOTHING.
+ *   navigator.clipboard is unavailable on an insecure origin and can be refused outright by a
+ *   permission policy — and a button that reports nothing is the failure theme.js records as worse
+ *   than no button at all. When the write fails the blurb is SELECTED, so ⌘C still works and the
+ *   label says so. The text comes from data-post, i.e. the same string the page printed. */
+(function () {
+  var log = document.querySelector('.uplog');
+  if (!log) return;
+  log.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.upd-copy') : null;
+    if (!b) return;
+    var art = document.getElementById(b.getAttribute('data-for'));
+    var p = art && art.querySelector('.upd-blurb');
+    if (!p) return;
+    var txt = p.getAttribute('data-post') || p.textContent;
+    var done = function (label) {
+      b.textContent = label; b.setAttribute('data-done', '1');
+      setTimeout(function () { b.textContent = 'COPY'; b.removeAttribute('data-done'); }, 2200);
+    };
+    var select = function () {
+      try {
+        var r = document.createRange(); r.selectNodeContents(p);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (e2) {}
+      done('SELECTED — ⌘C');
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () { done('COPIED'); }, select);
+      } else select();
+    } catch (e3) { select(); }
+  });
+})();
+</script>
     <div class="ribbon"><b>NFA · all memes are memes.</b> $3030 is an experimental, volatile
       collectible <b>game token</b> — not an investment, not a security, no promise of value, and it can go
       to zero. The cards are art, parody, and commentary. Nothing here is financial, legal, or tax advice.

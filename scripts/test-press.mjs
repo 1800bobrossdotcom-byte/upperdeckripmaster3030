@@ -179,7 +179,7 @@ console.log('\n── 2 · …AND A HEALTHY PRESS MUST STILL VISIBLY PRESS ─�
   const { ctx, page } = await visit('/cards/binder.html');
   await page.waitForSelector('.chip[data-src="hundred"]', { timeout: 30000 });
   await page.click('.chip[data-src="hundred"]');
-  await page.waitForTimeout(9000);
+  await page.waitForTimeout(6000);            // measured: the pockets fill well inside this
   const r = await page.evaluate(() => {
     const imgs = [...document.querySelectorAll('.pk img')];
     return { n: imgs.length, shown: imgs.filter(i => i.complete && i.naturalWidth > 2).length,
