@@ -204,9 +204,15 @@ window.RIPMASTER_CHAIN = {
    *   wrong — the same drift that made this project refuse to publish a burn percentage. Order
    *   here is only the fallback when the read fails, so the deepest pool as of today leads. */
   market: {
+    /* ⚠ THREE, NOT TWO — the USDC pool was found by asking the INDEXER what pairs exist for this
+     *   token rather than by collecting links as they were mentioned. Nobody had named it. That is
+     *   the right way round: a market exists whether or not anyone told the site about it, and a
+     *   pool the site does not know about is one it can never route around. Every id here was
+     *   checked to carry baseToken 0x1D4bcbb5…47A33 before it was written down. */
     pools: [
       { id: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6", quote: "RARE" },
       { id: "0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7", quote: "ETH" },
+      { id: "0x597a6772ea18e45803ecf070193d2314934c3b604badf6c62851babf2b530d9c", quote: "USDC" },
     ],
     chartHost: "https://dexscreener.com/ethereum/",
     /* read-only, no key, CORS-open — the same shape as the embed's chain reads: it can show
