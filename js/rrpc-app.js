@@ -2177,6 +2177,11 @@
     counts: () => fx.counts(),
     fps: () => { const s = fpsWin.slice().sort((a, b) => a - b); return { med: s[s.length >> 1], mean: fpsWin.reduce((x, y) => x + y, 0) / (fpsWin.length || 1), n: fpsWin.length }; },
     start: staked => startGame(staked),
+    /* ⚑ THE END OF A RUN, DRIVABLE. `showOver()` is where the score is banked and posted to the
+     * global board, and nothing outside this file could reach it — so "does RIP ROCKETER actually
+     * post" was a question only a text match could answer, and this repo's whole record is that a
+     * text match cannot see whether a line RUNS. Same hook `__df._ttEnd` gives DOGFIGHT. */
+    _over: () => showOver(),
     /* ⚑ THE GESTURE STATE, READ BACK. `test:reach` can prove the handlers EXIST and CLAUDE.md's
      * own record is that this is not the same question — THE CITY registered every pointer
      * handler while the controls were unusable, and the ledge bug had `test:reach` green while

@@ -672,9 +672,19 @@
            discovered as a disappointment. -->
       <p class="rules" style="margin-top:9px"><b style="color:var(--amber)">The 33 are not in this
       room.</b> The arena deals the <b>67 field cards</b>. You cannot win a 1/1 here and you cannot
-      stake one — a hero comes from <a href="../index.html#rip">ripping a pack</a> or from
-      <a href="../whitepaper.html#titles">earning a title</a>, and nothing else. If you hold one it
-      stays on your shelf; it just does not come to the table.</p>
+      stake one — a hero comes from ripping a pack or from earning a title, and nothing else. If
+      you hold one it stays on your shelf; it just does not come to the table.</p>
+      <!-- ⛔ THE TWO ROUTES WERE INLINE LINKS INSIDE THAT SENTENCE, AND A LINE OF PROSE IS 14px
+           TALL. `test:cab` caught them at 105×14 and 113×14 against this cabinet's own 44px floor
+           — the one page here you play with a thumb. ⚠ The usual patch (padding + negative margin
+           on an inline link) buys the box by OVERLAPPING the lines above and below, which is the
+           `#modes`-over-the-SECTION-9-chip failure in miniature: a hit surface bigger than the
+           thing you can see. They are chips on their own row instead, which clears the floor and
+           makes the two ways to actually get a hero findable rather than buried mid-paragraph. -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+        <a class="mode" href="../index.html#rip">rip a pack</a>
+        <a class="mode" href="../whitepaper.html#titles">the earned titles</a>
+      </div>
     </div>
 
     <div class="gas">
@@ -1232,8 +1242,43 @@
       removeOwned(selected); if (ante > 0) setTokens(tokens() - ante);
       log += `Dead even — ties go to the house, stake and all.`;
     }
+    log += streakSettle(outcome, true);          // ties go to the house, stake and all
     $('log').innerHTML = log; $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager(); busy = false; $('dealBtn').disabled = false; updateSlam();
+  }
+
+  /* ⛔ THE ARENA'S BOARD COUNTS WINS IN A ROW, NOT CARDS TAKEN, AND THE DIFFERENCE IS THE WHOLE
+   *   POINT. A cumulative haul is a treadmill — the player wins 89.7–95.5% of slams (measured, see
+   *   the rule above), so "most cards won" ranks whoever pressed SLAM the most times, which is a
+   *   clock, not a feat. A streak DIES on the first loss or push, so 20 in a row is ~p 0.12 and 30
+   *   is ~0.04: the same shape as CLOUD RACER's title, and the same reason it discriminates.
+   * ⚑ AND THE NUMBER IS ON SCREEN BEFORE IT IS ON THE BOARD. A board showing a figure the game
+   *   never prints is a riddle — the player has no way to learn what it counts or where theirs
+   *   came from. It rides in the log line the slam already writes.
+   * ⛔ A TIE BREAKS IT AGAINST THE HOUSE AND NOT AGAINST A PLAYER, AND THAT IS NOT AN INCONSISTENCY
+   *   — IT IS THE ROOM'S OWN RULE, READ OFF THE ROOM. Ties go to the house, stake and all, so a
+   *   push there is a loss wearing another word; a PvP push returns both stacks and the ante, so
+   *   nothing happened. Hard-coding "a tie always breaks" would have made the board disagree with
+   *   the screen the player just read, which is the whole class of defect this file keeps paying
+   *   for. The caller states which room it is because only the caller knows.
+   * ⚑ Both rooms feed ONE streak: it is "wins in a row in THE ARENA", and splitting it would give
+   *   the same cabinet two boards measuring the same verb. */
+  function arNum(k){ try { const v = parseInt(localStorage.getItem(k), 10); return isFinite(v) && v > 0 ? v : 0; } catch { return 0; } }
+  function arSet(k, v){ try { localStorage.setItem(k, String(v)); } catch {} }
+  function streakSettle(outcome, tieBreaks){
+    if (outcome === 'tie' && !tieBreaks) return '';        // a push returned everything — nothing happened
+    const was = arNum('urm_ar_streak');
+    const n = outcome === 'win' ? was + 1 : 0;
+    arSet('urm_ar_streak', n);
+    const best = Math.max(arNum('urm_ar_best'), n);
+    if (best > arNum('urm_ar_best')) arSet('urm_ar_best', best);
+    /* posted after every slam, not only on a new best: `GT` on the server keeps the higher of the
+     * two, so this is idempotent — and it is what heals a board row for somebody whose first post
+     * was lost to a cold function or no network. */
+    try { if (window.RipBoard && best > 0) RipBoard.post('arena', best); } catch (e) {}
+    if (n > 1) return ` <b class="b">${n}</b> in a row.`;
+    if (!n && was > 1) return ` Streak broken — you were on <b class="b">${was}</b>.`;
+    return '';
   }
 
   // vault (localStorage). Entries store only the slug — art and title resolve
@@ -1562,6 +1607,7 @@
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
       log += `Dead even — both keep their cards${burn ? `, and the ${burn} $3030 ante is returned` : ''}.`;
     }
+    log += streakSettle(outcome, false);         // a PvP push returns both stacks and the ante
     $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();
     busy = false; $('dealBtn').disabled = false; updateSlam();
@@ -1680,7 +1726,7 @@
    *   precisely the question `test:cab` and `test:reach` could not answer while the arena was
    *   giving away 1/1s. Reads only; it exposes no way to write a card that `collect()` would not
    *   already refuse, and nothing here is authoritative — the chain mints only against a voucher. */
-  window.__arena = { DECK: () => DECK, stock, pick, isHero, resolveOppStack, collect,
+  window.__arena = { DECK: () => DECK, stock, pick, isHero, resolveOppStack, collect, streakSettle,
                      hand: () => hand, vault };
 
   Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(r => {

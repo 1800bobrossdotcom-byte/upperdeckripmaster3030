@@ -5,6 +5,7 @@
  *
  *   RipBoard.mount(el, 'riprocketer')     draw the live top ten into a container
  *   RipBoard.post('riprocketer', score)   record a run, then redraw every mounted board
+ *   RipBoard.panel(el)                    all six boards behind a chip row (the arcade menu)
  *   RipBoard.label()                      who you are, as the board will show you
  *
  * ⛔ THE BOARD WAS localStorage AND IT LIVED IN ONE GAME. `js/rrpc-app.js` kept `urm_rr_scores` in
@@ -28,6 +29,20 @@ window.RipBoard = (function () {
   var API = '/api/scores';
   var mounts = [];                 // {el, game}
   var LOCAL = 'urm_board_';        // per-game local fallback, and the offline record
+
+  /* ⛔ A BARE NUMBER ON A SCOREBOARD IS NOT A FACT, IT IS A RIDDLE. "12" beside a name on
+   *   DOGFIGHT's board could be kills, matches, points or minutes, and the reader has no way to
+   *   find out — the first three boards shipped exactly that. Each game therefore names what it
+   *   counts, ONCE, here, so the header and the number can never disagree.
+   * ⚑ AND EVERY ONE OF THESE IS A NUMBER THE GAME ALREADY RANKS ITSELF BY — kills in the two
+   *   shooters, points in RIP ROCKETER, the streak CLOUD RACER's own earned title is made of, the
+   *   metres THE CITY's DEAD AIR detector already measures. Inventing a score formula so a board
+   *   could exist would be inventing a fact; picking the number already on screen is not. */
+  var UNITS = { riprocketer: 'points', dogfight: 'kills', section9: 'kills',
+    cloudracer: 'wins in a row', arena: 'wins in a row', city: 'metres, one glide' };
+  var TITLES = { riprocketer: 'RIP ROCKETER', dogfight: 'DOGFIGHT', section9: 'SECTION 9',
+    cloudracer: 'CLOUD RACER', arena: 'THE ARENA', city: 'THE CITY' };
+  var ALL = ['riprocketer', 'cloudracer', 'city', 'dogfight', 'section9', 'arena'];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -70,9 +85,12 @@ window.RipBoard = (function () {
   function draw(m, rows) {
     if (!m.el) return;
     var a = addr(), mine = a ? a.toLowerCase() : handle();
+    var unit = UNITS[m.game] ? ' · ' + UNITS[m.game] : '';
     /* ⚠ Reuses the cabinets' own `.lb-*` classes so each board keeps that game's styling rather
      *   than importing a seventh look into a page that already has one. */
-    m.el.innerHTML = '<div class="lb-hd">top rippers</div>' + rowsHtml(rows || [], mine);
+    m.el.innerHTML = '<div class="lb-hd">top rippers' + esc(unit) + '</div>' +
+      (m.chips || '') + rowsHtml(rows || [], mine);
+    if (m.chips) wireChips(m);
   }
 
   function refresh(game) {
@@ -95,14 +113,82 @@ window.RipBoard = (function () {
     }));
   }
 
+  /* ⚠ the cabinets style `.lb-*` themselves; only riprocketer.html happened to define them, so a
+   *   minimal fallback ships here for the five that did not — scoped to #topRippers so it can
+   *   never override a game's own board.
+   * ⚠ THE CHIPS CARRY THE 44px FLOOR ON BOTH AXES. They are buttons on a phone, and this repo has
+   *   already shipped a 44-tall / 35-wide target once by asking about one dimension only. */
+  function css() {
+    if (document.getElementById('rb-css')) return;
+    var st = document.createElement('style'); st.id = 'rb-css';
+    st.textContent = '#topRippers .lb-hd{text-align:center;font-family:"Arial Black",Arial,sans-serif;' +
+      'font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#ffd23b;margin-bottom:6px}' +
+      '#topRippers .lb-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:4px 8px;' +
+      'border-radius:6px;align-items:baseline;font-size:12.5px;font-family:"Courier New",monospace}' +
+      '#topRippers .lb-row.me{background:rgba(255,210,59,.16);border:1px solid rgba(255,210,59,.45)}' +
+      '#topRippers .lb-rank{color:#6fdca0;font-family:"Arial Black",Arial,sans-serif}' +
+      '#topRippers .lb-nm{color:#d9ffe9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '#topRippers .lb-sc{color:#2bff80;font-family:"Courier New",monospace}' +
+      '#topRippers .lb-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 10px}' +
+      '#topRippers .lb-chip{min-height:44px;min-width:44px;padding:6px 12px;border-radius:999px;' +
+      'border:1px solid #16663c;background:#04180e;color:#7fd8a8;font:11px/1.2 "Courier New",monospace;' +
+      'letter-spacing:.08em;text-transform:uppercase;cursor:pointer}' +
+      '#topRippers .lb-chip.on{border-color:#ffd23b;color:#ffd23b;background:#1b1405}' +
+      '#topRippers .lb-chip:hover,#topRippers .lb-chip:focus-visible{color:#2bff80;outline:none}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+
   function mount(el, game) {
     if (typeof el === 'string') el = document.querySelector(el);
     if (!el || !game) return { refresh: function () {} };
+    css();
     var m = { el: el, game: game };
     mounts.push(m);
     draw(m, lget(game));            // paint the known board immediately, then correct it
     refresh(game);
     return { refresh: function () { return refresh(game); } };
+  }
+
+  /* ⛔ THE CITY HAS NO LOBBY TO HANG A BOARD ON, AND THAT IS NOT A REASON FOR IT NOT TO HAVE ONE.
+   *   Five cabinets have a roster or a game-over screen; THE CITY drops you straight into 3.8 km
+   *   of world and never stops, so a board there would have to become in-game furniture — and
+   *   this repo has twice paid for a fixed element fighting for a corner (banner.js over the
+   *   games' controls, the music pill winning the hit test over the flap button).
+   * ⚑ SO ALL SIX BOARDS LIVE ON THE MENU AS WELL, WHICH IS WHERE YOU LOOK BEFORE YOU CHOOSE. One
+   *   panel with a chip per game, not six stacked boards: the arcade page is a scrolling column
+   *   the funnel pass fought to SHORTEN, and six boards would put ~500px back into it.
+   * ⚠ The chosen chip is remembered, because the game you want the board for is the game you play. */
+  var PICK = 'urm_board_pick';
+  function chipsHtml(games, cur) {
+    return '<div class="lb-chips">' + games.map(function (g) {
+      return '<button type="button" class="lb-chip' + (g === cur ? ' on' : '') + '" data-g="' + esc(g) +
+        '"' + (g === cur ? ' aria-current="true"' : '') + '>' + esc(TITLES[g] || g) + '</button>';
+    }).join('') + '</div>';
+  }
+  function wireChips(m) {
+    m.el.querySelectorAll('.lb-chip').forEach(function (b) {
+      b.addEventListener('click', function () {
+        m.game = b.dataset.g;
+        try { localStorage.setItem(PICK, m.game); } catch (e) {}
+        m.chips = chipsHtml(m.games, m.game);
+        draw(m, lget(m.game));          // the known board immediately, then correct it
+        refresh(m.game);
+      });
+    });
+  }
+  function panel(el, games) {
+    if (typeof el === 'string') el = document.querySelector(el);
+    if (!el) return { refresh: function () {} };
+    css();
+    games = (games && games.length) ? games : ALL;
+    var cur = '';
+    try { cur = localStorage.getItem(PICK) || ''; } catch (e) {}
+    if (games.indexOf(cur) < 0) cur = games[0];
+    var m = { el: el, game: cur, games: games, chips: chipsHtml(games, cur) };
+    mounts.push(m);
+    draw(m, lget(cur));
+    refresh(cur);
+    return { refresh: function () { return refresh(m.game); } };
   }
 
   function post(game, score) {
@@ -141,8 +227,12 @@ window.RipBoard = (function () {
     return null;
   }
   function autoMount() {
-    var g = gameHere(); if (!g) return;
+    var g = gameHere();
     var el = document.getElementById('topRippers');
+    /* ⚑ A PAGE THAT IS NOT A CABINET BUT ASKS FOR A BOARD GETS ALL SIX — that is arcade.html, and
+     *   it is the only home THE CITY has. Opting in is one empty div, so a new surface needs no
+     *   edit here. */
+    if (!g) { if (el) { css(); panel(el, ALL); } return; }
     if (!el) {
       var host = document.getElementById('arenaLobby') || document.getElementById('lobList');
       if (!host) return;                       // nothing to hang it on — leave the page alone
@@ -151,25 +241,12 @@ window.RipBoard = (function () {
       el.style.cssText = 'margin-top:12px';
       host.parentNode.insertBefore(el, host.nextSibling);
     }
-    /* ⚠ the cabinets style `.lb-*` themselves; only riprocketer.html happened to define them, so
-     *   a minimal fallback ships here for the five that did not — scoped to #topRippers so it can
-     *   never override a game's own board. */
-    if (!document.getElementById('rb-css')) {
-      var st = document.createElement('style'); st.id = 'rb-css';
-      st.textContent = '#topRippers .lb-hd{text-align:center;font-family:"Arial Black",Arial,sans-serif;' +
-        'font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#ffd23b;margin-bottom:6px}' +
-        '#topRippers .lb-row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:4px 8px;' +
-        'border-radius:6px;align-items:baseline;font-size:12.5px;font-family:"Courier New",monospace}' +
-        '#topRippers .lb-row.me{background:rgba(255,210,59,.16);border:1px solid rgba(255,210,59,.45)}' +
-        '#topRippers .lb-rank{color:#6fdca0;font-family:"Arial Black",Arial,sans-serif}' +
-        '#topRippers .lb-nm{color:#d9ffe9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-        '#topRippers .lb-sc{color:#2bff80;font-family:"Courier New",monospace}';
-      (document.head || document.documentElement).appendChild(st);
-    }
+    css();
     mount(el, g);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', autoMount);
   else autoMount();
 
-  return { mount: mount, post: post, refresh: refresh, label: label, game: gameHere, _addr: addr };
+  return { mount: mount, panel: panel, post: post, refresh: refresh, label: label,
+    game: gameHere, units: UNITS, games: ALL, _addr: addr };
 })();
