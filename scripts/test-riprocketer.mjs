@@ -699,11 +699,23 @@ console.log('\n── 12 · THE TWO TITLES THIS CABINET CAN AWARD ────�
     return out;
   });
   ok(t.ledger === true, 'riprocketer.html LOADS the ledger — the script that was missing', 'RipTitles ' + t.ledger);
-  ok(t.titles === 9 && t.cards === 11,
-    'nine titles, eleven cards — 11 auction + 11 gacha + 11 earned = 33 is untouched',
-    t.titles + ' titles · ' + t.cards + ' cards');
-  ok(JSON.stringify(t.rr) === JSON.stringify(['twomillion', 'coldbarrel']),
-    'and this cabinet owns the two that replaced the pair nothing could award', JSON.stringify(t.rr));
+  /* ⛔ THIS SAID `titles === 9` AND `['twomillion','coldbarrel']` UNTIL 2026-08-08, AND BOTH WENT
+   *   STALE THE DAY `ABOVE THE WEATHER` LANDED. That title was added to close the re-issue hole
+   *   (a 7,000,000 run passes 2,000,000 on the way, so both fire, which is correct) — it made the
+   *   ledger TEN titles and gave this cabinet a THIRD. `js/title-ledger.js` has carried all ten
+   *   since; only the assertion was left behind, so the board has been red on two counts that
+   *   were simply out of date. Verified against the ledger, not adjusted to make a test pass.
+   * ⚑ THE CARD COUNT IS THE ONE THAT IS SETTLED AND IT DID NOT MOVE — eleven, because THE STREAK
+   *   went 3 seats → 2 to pay for the new title. CLAUDE.md's own line: "TEN titles, ELEVEN cards,
+   *   and the test asserts the CARD count, because that is the number that is settled." A title
+   *   count is a proxy; the budget is the rule. */
+  ok(t.cards === 11,
+    'ELEVEN CARDS — 11 auction + 11 gacha + 11 earned = 33 is untouched, whatever the title count',
+    t.cards + ' cards');
+  ok(t.titles === 10, 'ten titles, which is what the ledger actually defines', t.titles + ' titles');
+  ok(JSON.stringify(t.rr) === JSON.stringify(['twomillion', 'abovetheweather', 'coldbarrel']),
+    'and this cabinet owns three — the two that replaced the pair nothing could award, plus ABOVE THE WEATHER',
+    JSON.stringify(t.rr));
   /* ⚑ BOTH DIRECTIONS ON EACH. "Not awarded" is trivially true of a detector that never fires —
    * which is precisely the bug this section exists because of. */
   ok(t.coldDenied === true, 'COLD BARREL is DENIED on a tier where the gun was fired cold');
