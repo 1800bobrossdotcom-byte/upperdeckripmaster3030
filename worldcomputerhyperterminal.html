@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WORLD COMPUTER HYPERTERMINAL · ripmaster3030studios</title>
+<meta name="description" content="A market terminal that shows its working. Live chain conditions, $3030's own state, and a flow-versus-price screen across memecoin pools — with the test that fails most of them.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="WORLD COMPUTER HYPERTERMINAL">
+<meta property="og:description" content="A market terminal that shows its working — and says 'no edge' when that is the answer.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/worldcomputerhyperterminal.html">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ THE TERMINAL ══════════════════════════════════════════════════════════════════════════
+
+  ⛔ IT SHOWS ITS WORKING, AND THAT IS THE PRODUCT. Every dashboard in this corner of the
+     internet prints a green number and hopes. This one prints the number, the cost it has to
+     beat, and the robustness test that usually kills it — because the studio already refuses to
+     publish a burn percentage on the grounds that a printed figure drifts into a lie with
+     nobody editing anything. The same rule cannot stop at tokenomics.
+
+  ⚑ THE SPLIT: heavy analysis (tens of thousands of logs per pool) runs offline in
+     `npm run terminal` and lands in `data/terminal.json`; the page reads that and adds LIVE
+     spot calls for the things that change by the minute. That split is honest only if the page
+     says how old the measurement is — so it does, at the top, in the largest type on the page.
+
+  ⛔ NO WALLET. Read-only `eth_call` over `fetch`, nothing signed, no connect button. Same
+     reasoning as `superrare.html`: a page that asks for a wallet to show you a chart is
+     teaching a reflex that phishing needs.
+
+  ⚠ EVERY LIVE CELL HAS THREE STATES, NEVER TWO: a value, "reading…", and a NAMED failure. An
+     em-dash under a live label is indistinguishable from a zero, a dead contract or a bug, and
+     this project has already had that exact defect reported from a phone.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --ok:#63e6a0;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+
+  header{border-bottom:1px solid var(--line);padding:22px 0 16px;margin-bottom:22px}
+  h1{font-size:clamp(19px,4.4vw,30px);letter-spacing:.10em;margin:0 0 6px;line-height:1.15}
+  h1 .b{color:var(--hot)}
+  .sub{color:var(--dim);font-size:var(--t-body,15px);line-height:1.55;max-width:64ch;margin:0}
+  .age{margin-top:14px;font-size:clamp(13px,2.6vw,15px);letter-spacing:.04em}
+  .age b{color:var(--hot)}
+  .age.stale b{color:var(--warn)}
+  .age.dead b{color:var(--bad)}
+
+  h2{font-size:13px;letter-spacing:.20em;color:var(--dim);margin:34px 0 12px;font-weight:600}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+  .cell{border:1px solid var(--line);padding:12px 13px;background:#0a0e11}
+  .cell .k{font-size:12px;letter-spacing:.13em;color:var(--dim);margin-bottom:7px}
+  .cell .v{font-size:clamp(17px,3.4vw,23px);line-height:1.1;word-break:break-word}
+  .cell .n{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.4}
+  .v.miss{color:var(--bad);font-size:14px;line-height:1.35}
+
+  .scroll{overflow-x:auto;border:1px solid var(--line);background:#0a0e11}
+  table{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+  th,td{padding:9px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th{font-size:12px;letter-spacing:.13em;color:var(--dim);font-weight:600;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:0}
+  .pos{color:var(--ok)} .neg{color:var(--bad)} .mut{color:var(--dim)}
+  .tag{font-size:12px;letter-spacing:.09em;padding:3px 7px;border:1px solid currentColor;display:inline-block}
+  .tag.no{color:var(--dim)} .tag.yes{color:var(--ok)} .tag.err{color:var(--bad)}
+
+  .note{border-left:2px solid var(--line);padding:2px 0 2px 15px;margin:16px 0;color:var(--dim);
+        font-size:var(--t-body,15px);line-height:1.65;max-width:72ch}
+  .note b{color:var(--ink)}
+  .note.hard{border-left-color:var(--bad)}
+  .note.key{border-left-color:var(--hot)}
+  footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);
+         font-size:var(--t-body,15px);line-height:2.1}
+  /* ⚠ 44px on BOTH axes — a thumb is round. Inline footer links are in a sentence, so they take
+     the WCAG 2.5.8 prose exemption on width and buy their height from the line-height above. */
+  footer a{display:inline-block;padding:9px 6px;min-width:44px;min-height:44px;line-height:26px;text-align:center}
+  footer a{color:var(--dim)}
+  @media (max-width:520px){ th,td{padding:9px 8px;font-size:12px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>WORLD COMPUTER <span class="b">HYPERTERMINAL</span></h1>
+  <p class="sub">A market terminal that shows its working. Chain conditions and $3030's state are read live;
+  the pool screen is measured offline across tens of thousands of logs. Every figure carries the cost it has
+  to beat and the test that usually kills it.</p>
+  <div class="age" id="age">reading&hellip;</div>
+</header>
+
+<h2>CHAIN CONDITIONS · LIVE</h2>
+<div class="grid" id="chains">
+  <div class="cell"><div class="k">ETHEREUM GAS</div><div class="v" id="l1gas">reading…</div><div class="n" id="l1note"></div></div>
+  <div class="cell"><div class="k">A SWAP COSTS</div><div class="v" id="l1swap">reading…</div><div class="n">180k gas, mainnet</div></div>
+  <div class="cell"><div class="k">BASE GAS</div><div class="v" id="bgas">reading…</div><div class="n" id="bnote"></div></div>
+  <div class="cell"><div class="k">BLOCK</div><div class="v" id="blk">reading…</div><div class="n" id="blknote"></div></div>
+</div>
+
+<div class="note key">⚑ <b>Gas is no longer the constraint anyone assumes.</b> At the levels above, a mainnet swap
+costs cents, which means the binding cost on a small trade is the <b>pool fee</b>, not the chain. That inverts the
+usual advice and it is why the screen below is denominated in the round trip a pool charges.</div>
+
+<h2>$3030 · READ FROM THE CONTRACT, AT MEASURE TIME</h2>
+<div class="grid" id="ours"></div>
+
+<h2>FLOW VS PRICE · DOES ORDER FLOW LEAD THE CHART</h2>
+<div class="note">For each pool: net token flow out of the pool in one window, against the price return in the
+<i>next</i> window. A positive <b>spread</b> means wallets accumulating predicted a rise. The bar is
+<b>two</b> tests, and the second is the one that fails things.</div>
+
+<div class="scroll">
+  <table id="board">
+    <thead><tr>
+      <th>POOL</th><th>TYPE</th><th>ROUND TRIP</th><th>BEST</th><th>CORR</th>
+      <th>SPREAD</th><th>TRIM 5%</th><th>WINDOWS</th><th>VERDICT</th>
+    </tr></thead>
+    <tbody><tr><td colspan="9" class="mut">reading…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="note hard">⛔ <b>The trim is the test that matters.</b> A spread is an average, so a handful of violent
+windows can carry all of it while the other 95% contribute nothing — and you cannot identify those windows in
+advance, so an edge made of them is not a strategy. One pool here measured <b>+1.05pp</b> against a 0.60% round
+trip and looked tradeable; dropping the largest 5% of moves took it to <b>+0.38pp</b>. Without the trim, this
+terminal would have reported it as a trade.</div>
+
+<div class="note">⚠ <b>"No edge" is the usual answer and it is the honest one.</b> A screen that always finds
+something is a screen that is fitting noise. The value of this table is the days it says nothing.</div>
+
+<h2>METHOD</h2>
+<div class="note"><b>Flow is measured as balance delta, not "buys".</b> Under Uniswap v4 the tokens live in a
+singleton and a swap settles through flash accounting, so the visible transfer may be pool↔router rather than
+pool↔trader and it changes with whichever router was used. Classifying a transfer as a buy needs a list of every
+router on mainnet and is wrong the day a new one ships. A balance delta needs none of that.</div>
+<div class="note"><b>Price comes from the pool's own events</b> — v3 <code>Swap.sqrtPriceX96</code>, v2
+<code>Sync</code> reserves — so it is executed state, not an index quote.</div>
+<div class="note"><b>Reads that fail say so.</b> Every cell above has three states: a value, reading, and a named
+failure. An em-dash under a live label is indistinguishable from a zero, a dead contract or a bug.</div>
+
+<footer>
+  <b>ripmaster3030studios</b> · a card and game studio ·
+  <a href="/">home</a> · <a href="/arcade.html">arcade</a> · <a href="/tokenomics.html">tokenomics</a> ·
+  <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+  Not financial advice. $3030 is an experimental art token and can go to zero. Nothing here is a recommendation
+  to buy or sell anything, and the screen is a measurement of the past.
+</footer>
+
+</div>
+
+<script src="js/chain-config.js"></script>
+<script src="theme.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var CFG = window.RIPMASTER_CHAIN || {};
+  var RPCS = (CFG.rpcs || []).slice();
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (n, d) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d }); };
+
+  /* ⚠ Walk the list and RACE nothing — a stalled endpoint must not hold the page. AbortController
+     rather than AbortSignal.timeout, which is too new to assume. */
+  function rpc(method, params) {
+    var i = 0;
+    function attempt() {
+      if (i >= RPCS.length) return Promise.reject(new Error('no endpoint answered'));
+      var url = RPCS[i++], ctl = new AbortController();
+      var t = setTimeout(function () { ctl.abort(); }, 4000);
+      return fetch(url, { method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { clearTimeout(t); if (j.error || j.result == null) throw new Error('rpc'); return j.result; })
+        .catch(function () { clearTimeout(t); return attempt(); });
+    }
+    return attempt();
+  }
+  var miss = function (el, why) { el.className = 'v miss'; el.textContent = why; };
+  /* ⛔ RETRYING AND ADMITTING FAILURE ARE TWO DIFFERENT SCHEDULES. Four endpoints at 4s each is
+     sixteen seconds of "reading…", which is indistinguishable from a hung page — this studio has
+     already had that reported from a phone. So the label tells the truth at 9s and the reads carry
+     on underneath it; a later success simply overwrites the message. Admitting failure costs
+     nothing and the tile still heals. */
+  var settled = {};
+  var say = function (el, txt) { if (!settled[el.id]) { el.className = 'v miss'; el.textContent = txt; } };
+  var done = function (el, txt) { settled[el.id] = 1; el.className = 'v'; el.textContent = txt; };
+  setTimeout(function () {
+    ['l1gas', 'l1swap', 'blk', 'bgas'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && /reading/.test(el.textContent)) say(el, 'slow — still trying');
+    });
+  }, 9000);
+
+  /* ── live: gas, block ── */
+  Promise.all([rpc('eth_gasPrice', []), rpc('eth_getBlockByNumber', ['latest', false])]).then(function (r) {
+    var gwei = parseInt(r[0], 16) / 1e9;
+    done($('l1gas'), gwei.toFixed(3) + ' gwei');
+    var used = parseInt(r[1].gasUsed, 16), lim = parseInt(r[1].gasLimit, 16);
+    $('l1note').textContent = (100 * used / lim).toFixed(0) + '% full · base ' + (parseInt(r[1].baseFeePerGas || '0x0', 16) / 1e9).toFixed(3);
+    done($('blk'), parseInt(r[1].number, 16).toLocaleString());
+    $('blknote').textContent = 'ethereum mainnet';
+    done($('l1swap'), '$' + (gwei * 1e-9 * 180000 * 1920).toFixed(4));
+  }).catch(function () {
+    miss($('l1gas'), 'chain unreachable from here');
+    miss($('l1swap'), 'chain unreachable from here');
+    miss($('blk'), 'chain unreachable from here');
+  });
+
+  fetch('https://mainnet.base.org', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_gasPrice', params: [] }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var g = parseInt(j.result, 16) / 1e9;
+      done($('bgas'), g.toFixed(6) + ' gwei');
+      $('bnote').textContent = 'a swap ≈ $' + (g * 1e-9 * 180000 * 1920).toFixed(6);
+    })
+    .catch(function () { miss($('bgas'), 'base unreachable from here'); });
+
+  /* ── the measured dataset ── */
+  fetch('data/terminal.json', { cache: 'no-cache' }).then(function (r) {
+    if (!r.ok) throw new Error('missing'); return r.json();
+  }).then(function (d) {
+    var mins = (Date.now() - new Date(d.measuredAt).getTime()) / 60000;
+    var age = $('age');
+    var when = mins < 90 ? Math.round(mins) + ' minutes ago'
+      : mins < 2880 ? (mins / 60).toFixed(1) + ' hours ago' : (mins / 1440).toFixed(1) + ' days ago';
+    /* ⚠ "measured" covers the $3030 panel AND the pool screen — both come from this snapshot.
+       Only the CHAIN CONDITIONS row is live. Saying "pool screen" alone would let a reader assume
+       the token figures were current, which is the quiet kind of wrong. */
+    age.innerHTML = 'snapshot measured <b>' + when + '</b> · block ' + d.block.toLocaleString() +
+      ' · ' + d.days + '-day window · chain conditions above are live';
+    /* ⛔ A dashboard whose age is invisible lies quietly the first time the cron stops. */
+    if (mins > 1440) age.className = 'age dead';
+    else if (mins > 240) age.className = 'age stale';
+
+    var o = d.ours || {};
+    var cells = o.err ? [['$3030', 'unreadable: ' + o.err, '']] : [
+      ['SUPPLY', fmt(o.totalSupply, 0), 'of ' + fmt(o.maxSupply, 0) + ' max'],
+      ['BURNED', fmt(o.burned, 0), 'permanent, from packs'],
+      ['STILL IN THE CURVE', o.inPool ? (100 - o.reachedHolders).toFixed(2) + '%' : '—', 'unsold inventory, not liquidity'],
+      ['REACHED HOLDERS', o.reachedHolders + '%', 'what has actually left the curve'],
+      ['TREASURY', fmt(o.treasury, 0), 'cold, receive-only'],
+    ];
+    $('ours').innerHTML = cells.map(function (c) {
+      return '<div class="cell"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+        '</div><div class="n">' + c[2] + '</div></div>';
+    }).join('');
+
+    var tb = $('board').querySelector('tbody');
+    tb.innerHTML = (d.board || []).map(function (r) {
+      if (r.err) return '<tr><td>' + r.name + '</td><td colspan="7" class="mut">' + r.err +
+        '</td><td><span class="tag err">UNMEASURED</span></td></tr>';
+      var hs = (r.horizons || []).filter(function (h) { return !h.thin && h.spread != null; });
+      var b = hs.slice().sort(function (x, y) { return (y.trim5 == null ? -9 : y.trim5) - (x.trim5 == null ? -9 : x.trim5); })[0];
+      if (!b) return '<tr><td>' + r.name + '</td><td colspan="7" class="mut">too few windows</td>' +
+        '<td><span class="tag err">UNMEASURED</span></td></tr>';
+      var sc = function (v) { return '<span class="' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'mut') + '">' +
+        (v > 0 ? '+' : '') + Number(v).toFixed(3) + 'pp</span>'; };
+      return '<tr><td>' + r.name + ' <span class="mut">' + (r.sym || '') + '</span></td>' +
+        '<td>' + r.kind + '</td><td>' + r.roundTripPct.toFixed(2) + '%</td>' +
+        '<td>' + b.min + 'm</td>' +
+        '<td class="' + (b.corr > 0 ? 'pos' : 'neg') + '">' + (b.corr > 0 ? '+' : '') + b.corr + '</td>' +
+        '<td>' + sc(b.spread) + '</td><td>' + (b.trim5 == null ? '<span class="mut">n/a</span>' : sc(b.trim5)) + '</td>' +
+        '<td class="mut">' + b.n + '</td>' +
+        '<td>' + (r.tradeable ? '<span class="tag yes">CLEARS</span>' : '<span class="tag no">NO EDGE</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="mut">no pools measured</td></tr>';
+  }).catch(function () {
+    /* ⚠ Named, never a dash. */
+    $('age').innerHTML = '<b>the measured dataset could not be loaded</b> — run <code>npm run terminal</code>';
+    $('age').className = 'age dead';
+    $('ours').innerHTML = '<div class="cell"><div class="v miss">dataset missing</div></div>';
+    $('board').querySelector('tbody').innerHTML =
+      '<tr><td colspan="9" class="v miss">dataset missing — the live cells above still work</td></tr>';
+  });
+})();
+</script>
+</body>
+</html>
