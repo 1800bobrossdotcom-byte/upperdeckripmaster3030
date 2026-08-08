@@ -31,6 +31,17 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCREEN = join(ROOT, 'data/terminal.json');
 const LEDGER = join(ROOT, 'data/hunt.json');
+/* ⛔ THE LEDGER AND THE HEARTBEAT ARE DIFFERENT FILES BECAUSE THEY CHANGE AT DIFFERENT RATES.
+ *   `hunt.json` is PUBLISHED — the site fetches it — so it should change when something HAPPENED:
+ *   a position opened, closed, or swept. `passes` and `updatedAt` change every five minutes
+ *   forever, and writing them into the published file meant every single tick produced a commit
+ *   whose entire diff was a timestamp. ⚑ That is not a tidiness complaint: a history where the
+ *   signal ("a trade closed") is buried under three hundred heartbeats is a history nobody reads,
+ *   and the deployed page can only ever be as fresh as the last deploy anyway, so the timestamp
+ *   was never live on the site to begin with.
+ * ⚠ The heartbeat is gitignored and therefore ABSENT in production, so anything reading it must
+ *   treat missing as normal rather than as a failure. */
+const BEAT = join(ROOT, 'data/hunt.live.json');
 const cs = ['https://gateway.tenderly.co/public/mainnet', 'https://eth.drpc.org']
   .map(u => createPublicClient({ chain: mainnet, transport: http(u, { timeout: 25000, retryCount: 1 }) }));
 const c = cs[0];
@@ -47,9 +58,24 @@ const P = {
   maxOpen: 3,
 };
 
-const load = () => existsSync(LEDGER) ? JSON.parse(readFileSync(LEDGER, 'utf8'))
-  : { startedAt: new Date().toISOString(), open: [], closed: [], sweptEth: 0, skipped: 0, passes: 0 };
-const save = l => { mkdirSync(dirname(LEDGER), { recursive: true }); writeFileSync(LEDGER, JSON.stringify(l, null, 1)); };
+const load = () => {
+  const base = { startedAt: new Date().toISOString(), open: [], closed: [], sweptEth: 0, skipped: 0, passes: 0 };
+  let l = base;
+  try { if (existsSync(LEDGER)) l = Object.assign({}, base, JSON.parse(readFileSync(LEDGER, 'utf8'))); } catch {}
+  try { if (existsSync(BEAT)) Object.assign(l, JSON.parse(readFileSync(BEAT, 'utf8'))); } catch {}
+  return l;
+};
+/* Split on write: the published ledger only when its own contents moved, the heartbeat always. */
+const save = l => {
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  const pub = { startedAt: l.startedAt, open: l.open, closed: l.closed, sweptEth: l.sweptEth };
+  const now = JSON.stringify(pub, null, 1);
+  let was = null; try { was = readFileSync(LEDGER, 'utf8'); } catch {}
+  /* ⚠ compare the PUBLISHED shape, not the whole object — otherwise the counters reintroduce the
+   *   churn this split exists to remove, and it would do so silently. */
+  if (was !== now) writeFileSync(LEDGER, now);
+  writeFileSync(BEAT, JSON.stringify({ passes: l.passes, skipped: l.skipped, updatedAt: l.updatedAt }, null, 1));
+};
 
 /* Live mark, from the pool's own state — not an index quote. */
 async function priceOf(pool) {
