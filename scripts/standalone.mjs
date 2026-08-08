@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+/* ripmaster3030studios — STANDALONE GAME EXPORT.  `npm run standalone [game|all]`
+ *
+ * Builds a crypto-free, self-contained copy of a cabinet into `build/standalone/<game>/`,
+ * ready to drop on itch.io, Newgrounds, r/WebGames or Show HN.
+ *
+ * ⛔ WHY CRYPTO-FREE IS THE WHOLE POINT, AND NOT A COMPROMISE. The site has 31 holders and the
+ *   games have never been shown anywhere a stranger already is. Game portals bury — and their
+ *   communities brigade — anything that mentions a token, so shipping the arcade with a wallet
+ *   in it converts the one genuine asset this studio owns into a reason to be ignored. The
+ *   studio name and one link in the credits is the whole ask. **The token is discovered second,
+ *   by somebody who already likes the game.**
+ *
+ * ⚑ THE STRIP LIST IS A DENY-LIST OF MODULES, NOT A TEXT SCRUB. Deleting the word "3030" out of
+ *   a build would leave the calls to `RipWallet` in place and break the game silently; removing
+ *   the SCRIPT TAG removes the capability, and every one of these modules is already written to
+ *   fail open (that is a standing rule in this repo), so the game degrades to itself.
+ * ⚠ Which is a claim that has to be PROVEN per game, not assumed — `npm run test:standalone`
+ *   drives every build and asserts it still boots, renders and takes input with none of them.
+ */
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, cpSync, statSync } from 'node:fs';
+import { join, dirname, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const OUT = join(ROOT, 'build/standalone');
+
+/* Everything that reaches for a wallet, our API, our chain, or somebody else's audio. */
+const STRIP = [
+  'js/chain-config.js', 'js/wallet.js', 'js/wallet-ui.js', 'js/session.js', 'js/eth-play.js',
+  'js/lens-state.js', 'js/hero-claim.js', 'js/title-ledger.js', 'js/leaderboard.js',
+  'js/vault-fix.js', 'js/challenge-ui.js', 'cards/arena-net.js', 'js/city-net.js',
+  'js/arena-lobby.js',
+  /* ⛔ `js/wager-payout.js` IS NOT ON THIS LIST AND MUST NOT GO BACK ON IT. I stripped it in the
+   *   first pass because "wager" sounds like money; it is pure podium arithmetic (1st/2nd/3rd,
+   *   ordinals) and reads `RipWallet` only through `splitLive()`, which returns false when the
+   *   wallet is absent. Removing it threw `WagerPayout is not defined` at DOGFIGHT's result
+   *   screen — i.e. the game played fine and then died at the final whistle, which is precisely
+   *   the deleted-`music`-binding failure this repo already has on record. Caught by the suite,
+   *   not by reading. **Strip by CAPABILITY, never by the sound of a filename.** */
+  'theme.js',      // streams somebody else's album — not ours to redistribute in a download
+  '/gate.js',      // the pre-launch veil has no meaning off-site
+];
+
+/* ⛔ SOURCE PATCHES, AND EACH ONE THROWS IF ITS ANCHOR IS GONE. A silent `String.replace` that
+ *   matches nothing is this repo's recorded worst case — the edit does not happen and nothing
+ *   says so — so a missed anchor is a build failure, not a warning. */
+const PATCHES = [
+  { file: 'js/card-powers.js',
+    find: `CFG.rpcs || ['https://ethereum-sepolia-rpc.publicnode.com']`,
+    to:   `CFG.rpcs || []   /* standalone: no chain, no fallback */`,
+    why:  'card-powers falls back to a hardcoded SEPOLIA rpc when chain-config is absent — which ' +
+          'is exactly the state of every standalone build, so it phones a testnet on load' },
+  { file: 'js/rrpc-app.js',
+    find: `CFG.rpcs || ['https://ethereum-sepolia-rpc.publicnode.com']`,
+    to:   `CFG.rpcs || []   /* standalone: no chain, no fallback */`,
+    why:  'the same hardcoded SEPOLIA fallback, second site — RIP ROCKETER phoned a testnet from ' +
+          'a crypto-free build until the suite caught the request' },
+];
+/* ⚠ AND THIS IS A LIVE-SITE FINDING, NOT JUST AN EXPORT ONE. Both fallbacks fire whenever
+ *   `window.RIPMASTER_CHAIN` is missing — so on the real mainnet site, any load where
+ *   chain-config.js fails to arrive sends the page to a SEPOLIA endpoint and reads a testnet as
+ *   though it were the market. It is a 404-on-one-script away, and nothing would say so. */
+
+const GAMES = {
+  city:        { file: 'city.html',        title: 'THE CITY' },
+  cloudracer:  { file: 'cloudracer.html',  title: 'CLOUD RACER' },
+  riprocketer: { file: 'riprocketer.html', title: 'RIP ROCKETER' },
+  dogfight:    { file: 'dogfight.html',    title: 'DOGFIGHT' },
+  section9:    { file: 'section9.html',    title: 'SECTION 9' },
+};
+
+const CREDIT = (title) => `
+<!-- ripmaster3030studios — ${title}. Standalone build, no account, no network, nothing to install. -->
+<div id="sa-credit" style="position:fixed;left:8px;bottom:6px;z-index:2147483000;font:11px/1.4 ui-monospace,Menlo,monospace;color:#8a8f98;opacity:.72;pointer-events:auto">
+  <a href="https://www.ripmaster3030studios.com" target="_blank" rel="noopener"
+     style="color:#8a8f98;text-decoration:none">ripmaster3030studios</a>
+</div>`;
+
+/* Pull every same-origin asset an HTML file names, follow one level into its scripts, and copy
+ * only those. ⚠ A blanket copy of the repo would sweep 31 MB of card art and the contracts into
+ * a game download; a hand-written list would go stale the first time a game gains a module. */
+function assetsOf(html, seen = new Set()) {
+  const out = new Set();
+  const add = p => { if (p && !/^(https?:|data:|#|mailto:)/.test(p)) out.add(p.replace(/^\.?\//, '').split('?')[0]); };
+  for (const m of html.matchAll(/(?:src|href)\s*=\s*"([^"]+)"/g)) add(m[1]);
+  for (const m of html.matchAll(/["'`](?:\.\/)?((?:js|vendor|models|media|art|cards|audio|fonts)\/[A-Za-z0-9_\-./]+\.[a-z0-9]{2,5})["'`]/g)) add(m[1]);
+  return out;
+}
+
+function build(key) {
+  const g = GAMES[key];
+  const src = join(ROOT, g.file);
+  if (!existsSync(src)) return { key, ok: false, why: 'missing ' + g.file };
+  let html = readFileSync(src, 'utf8');
+
+  /* 1 — remove the script tags, and count what actually matched so a rename cannot silently
+   *     leave a wallet in the build. */
+  let removed = [];
+  for (const s of STRIP) {
+    const re = new RegExp(`[ \\t]*<script[^>]*src="${s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"[^>]*>\\s*</script>[ \\t]*\\r?\\n?`, 'g');
+    if (re.test(html)) { html = html.replace(re, ''); removed.push(s); }
+  }
+  /* 2 — the site's own nav/footer links point back at pages that do not exist in the export. */
+  html = html.replace(/<a\b[^>]*href="(?:\/|\.\/)?(?:index\.html|cards\/[^"]*|arcade\.html|whitepaper\.html|tokenomics\.html|updates\.html)"[^>]*>[\s\S]*?<\/a>/g, '');
+  /* 3 — the credit line, which is the entire funnel. */
+  html = html.replace(/<\/body>/i, CREDIT(g.title) + '\n</body>');
+
+  const dir = join(OUT, key);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'index.html'), html);
+
+  /* 4 — copy the assets the surviving markup names, one level deep through the scripts. */
+  const want = assetsOf(html);
+  for (const f of [...want]) {
+    if (!/\.(js|mjs)$/.test(f)) continue;
+    const p = join(ROOT, f);
+    if (existsSync(p)) for (const d of assetsOf(readFileSync(p, 'utf8'))) want.add(d);
+  }
+  let copied = 0, bytes = 0, missing = [], patched = [];
+  for (const f of want) {
+    if (STRIP.some(s => f === s.replace(/^\//, ''))) continue;
+    /* ⛔ NEVER COPY ANOTHER PAGE. The asset sweep follows `cards/…` and sibling paths out of the
+     *   scripts, which dragged battle.html, deck.html, market.html, dogfight.html and
+     *   riprocketer.html into the exports — whole other cabinets, each carrying the wallet this
+     *   build exists to remove. The entry document is written by hand above; nothing else is a
+     *   document. Found by the suite flagging "a wallet hook in cards/battle.html" inside a
+     *   build that had, correctly, stripped its own. */
+    if (/\.html?$/i.test(f)) continue;
+    const from = join(ROOT, f), to = join(dir, f);
+    if (!existsSync(from)) { missing.push(f); continue; }
+    if (statSync(from).isDirectory()) continue;
+    mkdirSync(dirname(to), { recursive: true });
+    const p = PATCHES.find(x => x.file === f);
+    if (p) {
+      const s = readFileSync(from, 'utf8');
+      if (!s.includes(p.find)) throw new Error(`patch anchor missing in ${f} — ${p.why}`);
+      writeFileSync(to, s.split(p.find).join(p.to));
+      patched.push(f);
+    } else cpSync(from, to);
+    copied++; bytes += statSync(from).size;
+  }
+  return { key, ok: true, removed, copied, bytes, missing, patched, dir };
+}
+
+const arg = (process.argv[2] || 'all').toLowerCase();
+const keys = arg === 'all' ? Object.keys(GAMES) : [arg];
+if (keys.some(k => !GAMES[k])) { console.log('  games: ' + Object.keys(GAMES).join(' · ') + ' · all'); process.exit(1); }
+
+console.log('\n  STANDALONE EXPORT — crypto-free, self-contained\n');
+for (const k of keys) {
+  const r = build(k);
+  if (!r.ok) { console.log(`  ⛔ ${k}: ${r.why}`); continue; }
+  console.log(`  ${k.padEnd(12)} ${String(r.copied).padStart(3)} files  ${(r.bytes / 1048576).toFixed(1)} MB   stripped ${r.removed.length} modules`);
+  if (r.missing.length) console.log(`     ⚠ ${r.missing.length} referenced asset(s) not found: ${r.missing.slice(0, 3).join(', ')}${r.missing.length > 3 ? '…' : ''}`);
+}
+console.log(`\n  → ${OUT}`);
+console.log('  ⚠ Run `npm run test:standalone` before shipping — a build that boots is not a build that PLAYS.\n');
