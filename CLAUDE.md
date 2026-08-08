@@ -2819,8 +2819,33 @@ The whole token experience is **very Dadaist** — parody the crypto/KOL/meme-co
 culture as art, safely (generic archetypes, clearly satire, never deceptive).
 
 ## Working notes
-- **Git:** develop on `claude/superrare-trading-cards-71ajcx` → push, then fast-forward
-  `main` (`git fetch . claude/superrare-trading-cards-71ajcx:main` → push main). Commit
+- ## ⛔ `main` IS NOT THE DEPLOY BRANCH — PUSHING TO IT SHIPS NOTHING (measured 2026-08-08)
+  **Vercel's Production Deployment tracks `claude/superrare-trading-cards-71ajcx`**, and the
+  project overview says so in as many words: *"To update your Production Deployment, push to the
+  `claude/superrare-trading-cards-71ajcx` branch."* A push to `main` builds fine and lands as a
+  **Preview**. `www.ripmaster3030studios.com` is served by the Production deployment only.
+  - ⛔ **SO A CORRECT, GREEN, FAST-FORWARDED `main` CAN BE TEN COMMITS AHEAD OF THE LIVE SITE AND
+    NOTHING ANYWHERE REPORTS IT.** Measured: production was serving `d869c61` while `main` was at
+    `5f297af` — **10 commits, 29 hours, every one of them built and Ready as a Preview.** The
+    commit that publishes the contract address (`daa47f9`) was on `main` and absent from the live
+    page the whole time.
+  - ⚑ **EVERY SIGNAL POINTED THE REASSURING WAY, WHICH IS THIS FILE'S OWN RECURRING SHAPE.** The
+    push succeeded, the build went green in 19 s, the dashboard said **Ready**, `git log
+    origin/main` looked perfect. **The only thing that was wrong was the word next to it —
+    `Preview`, not `Production`.**
+  - ⚠ **AND I TOLD THE ARTIST "it goes live when this branch merges to main", which was reasoning
+    from the convention rather than from a measurement.** The check that would have caught it cost
+    one command: *is a commit already on `main` visible on the live page?* `caAddr` was in main's
+    `index.html` twice and absent from production — that one grep settles it in seconds.
+  - ✅ **THE CHECK, BEFORE CLAIMING ANYTHING IS DEPLOYED:** fetch the live URL and diff it against
+    the commit you think is live. `curl -sI` for `last-modified`, and grep the page for a string
+    only the new commit contains. **A deploy is not "pushed", it is "served".**
+  - ⚠ **`git fetch . <branch>:main` → push main is still worth doing** — it keeps `main` a true
+    mirror — but it is **bookkeeping, not shipping.** Shipping is a push to
+    `claude/superrare-trading-cards-71ajcx`, or *Promote to Production* on an existing Preview.
+- **Git:** develop on `claude/superrare-trading-cards-71ajcx` → push (⚑ **this is what deploys**),
+  then fast-forward `main` (`git fetch . claude/superrare-trading-cards-71ajcx:main` → push main)
+  so the mirror stays current. Commit
   trailers: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` +
   `Claude-Session:`. Never put the model id in committed artifacts.
 - **Card LENS (live in NEON RONIN):** `js/ronin-morph.js` (**RoninMorph**) is a seeded generative
