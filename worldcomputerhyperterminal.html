@@ -68,6 +68,12 @@
   .scroll{overflow-x:auto;border:1px solid var(--line);background:#0a0e11}
   table{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
   th,td{padding:9px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  /* ⛔ 44px comes from the ANCHOR, not from a negative margin. Padding a link and cancelling it
+     with a negative margin is the standard trick and it makes the link UNPRESSABLE when rows
+     wrap — recorded in this repo after two prose links in a rules panel resolved to each other
+     under elementFromPoint. Here the anchor simply sets the row height. */
+  td a{display:inline-block;padding:12px 0;line-height:20px;text-decoration:none;min-width:44px}
+  td:first-child{padding-top:0;padding-bottom:0}
   th{font-size:12px;letter-spacing:.13em;color:var(--dim);font-weight:600;text-align:right}
   th:first-child,td:first-child{text-align:left}
   tbody tr:last-child td{border-bottom:0}
@@ -114,6 +120,13 @@ usual advice and it is why the screen below is denominated in the round trip a p
 
 <h2>$3030 · READ FROM THE CONTRACT, AT MEASURE TIME</h2>
 <div class="grid" id="ours"></div>
+
+<h2>THE HUNT · PAPER RECORD</h2>
+<div class="grid" id="hunt"></div>
+<div class="note">⚑ <b>The bots trade only what the screen below passes</b>, and the record is published whether
+it flatters us or not. Every rule here is backtested with no forward track record — this ledger is that record
+being built in public, at a cost of zero. A ledger reading &minus;4% after two hundred trades is worth more than
+any backtest, and it is the only thing that should ever justify real money.</div>
 
 <h2>FLOW VS PRICE · DOES ORDER FLOW LEAD THE CHART</h2>
 <div class="note">For each pool: net token flow out of the pool in one window, against the price return in the
@@ -257,6 +270,32 @@ failure. An em-dash under a live label is indistinguishable from a zero, a dead 
         '</div><div class="n">' + c[2] + '</div></div>';
     }).join('');
 
+    /* ── the paper record ── */
+    fetch('data/hunt.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (h) {
+        var el = $('hunt'); if (!el) return;
+        if (!h) { el.innerHTML = '<div class="cell"><div class="k">RECORD</div><div class="v miss">' +
+          'ledger not published yet</div><div class="n">run npm run hunt</div></div>'; return; }
+        var closed = h.closed || [], win = closed.filter(function (t) { return t.pnlPct > 0; });
+        var days = (Date.now() - new Date(h.startedAt).getTime()) / 86400000;
+        var avg = closed.length ? closed.reduce(function (a, t) { return a + t.pnlPct; }, 0) / closed.length : 0;
+        /* ⛔ WIN RATE OF ZERO TRADES IS NOT 0%, IT IS UNDEFINED. Printing "0% win" on an empty
+           ledger reads as a losing bot rather than a patient one, and this project has been bitten
+           three times by a statistic that is trivially true of an empty set. */
+        var cells = [
+          ['CLOSED TRADES', closed.length, days.toFixed(1) + ' days live'],
+          ['WIN RATE', closed.length ? (win.length / closed.length * 100).toFixed(1) + '%' : 'no trades yet',
+            closed.length ? win.length + ' of ' + closed.length : 'the screen has passed nothing'],
+          ['AVERAGE TRADE', closed.length ? (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%' : '—',
+            'after the pool round trip'],
+          ['OPEN NOW', (h.open || []).length, (h.open || []).map(function (o) { return o.name; }).join(' ') || 'flat'],
+          ['SWEPT TO TREASURY', (h.sweptEth || 0).toFixed(5) + ' ETH', 'half of every realised win, one-way'],
+        ];
+        el.innerHTML = cells.map(function (c) {
+          return '<div class="cell"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+            '</div><div class="n">' + c[2] + '</div></div>'; }).join('');
+      }).catch(function () {});
+
     var tb = $('board').querySelector('tbody');
     tb.innerHTML = (d.board || []).map(function (r) {
       if (r.err) return '<tr><td>' + r.name + '</td><td colspan="7" class="mut">' + r.err +
@@ -267,7 +306,8 @@ failure. An em-dash under a live label is indistinguishable from a zero, a dead 
         '<td><span class="tag err">UNMEASURED</span></td></tr>';
       var sc = function (v) { return '<span class="' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'mut') + '">' +
         (v > 0 ? '+' : '') + Number(v).toFixed(3) + 'pp</span>'; };
-      return '<tr><td>' + r.name + ' <span class="mut">' + (r.sym || '') + '</span></td>' +
+      return '<tr><td><a href="https://dexscreener.com/ethereum/' + r.pool + '" style="color:inherit">' +
+        r.name + '</a> <span class="mut">' + (r.sym || '') + '</span></td>' +
         '<td>' + r.kind + '</td><td>' + r.roundTripPct.toFixed(2) + '%</td>' +
         '<td>' + b.min + 'm</td>' +
         '<td class="' + (b.corr > 0 ? 'pos' : 'neg') + '">' + (b.corr > 0 ? '+' : '') + b.corr + '</td>' +
