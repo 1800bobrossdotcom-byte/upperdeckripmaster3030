@@ -173,6 +173,59 @@ until the float is an order of magnitude larger.
 
 ---
 
+## 2½ · ✅ BUILT: THE MARKET MAKER'S CONSOLE — `npm run mm`, `npm run test:mm` (53)
+
+*Artist, 2026-08-08: "how do we build trading bots to trade up our chart" → declined; this is
+the version that quotes both sides instead of only buying, and it is built.*
+
+```
+npm run mm book                       all three pools: price, fee, hook, hazards
+npm run mm quote --eth 0.5            size a two-sided range, with the risk stated
+npm run mm quote --usd 1000 --width 25
+```
+
+- ⚑ **THE POOL PARAMETERS ARE PROVEN, NOT FETCHED.** A v4 pool id **is**
+  `keccak256(abi.encode(PoolKey))`, so re-hashing (currency0, currency1, fee, tickSpacing, hooks)
+  reproduces the id and **proves the fee offline — no RPC, nobody to take at their word.** The
+  console refuses any pool whose params do not reproduce its id, and the test proves the check
+  discriminates by lying about the fee (9000 → 3000) and requiring the hash to break.
+- ⛔ **AND THAT IS HOW THE 89.898% POOL GOT DELISTED TODAY.** `0x597a6772…30d9c` was in
+  `chain-config.market.pools[]`, priced 59% under market, with a swap fee of **89.898%** that is
+  **immutable in the PoolKey — it can never become a market.** Empty, which is the only reason
+  nobody was hurt. Removed. ⚠ **The console still carries it, flagged `delisted`**, because a
+  hazard deleted from the config is a hazard the tooling can no longer recognise.
+- ⛔ **THE CONSOLE QUOTES AROUND THE REFERENCE PRICE AND REFUSES ON SKEW.** This pool was
+  initialized 254× above the real market; a range centred on a stale local tick is a standing
+  offer at a price nobody else holds. Over `--maxSkew` (10% default) it refuses and says why.
+- ⛔ **IT SIGNS NOTHING AND HOLDS NO KEY.** Minting a v4 position is `modifyLiquidities` behind
+  Permit2 with native ETH as currency0 — real money, no audit. It computes the position and
+  prints it; a human posts it. ⚑ **The stronger reason: an LP position can lose money while
+  working perfectly.** Automating entry before anyone has watched one round-trip is how you learn
+  that at scale instead of at a sensible size.
+- ⛔ **A BUG I SHIPPED AND THE TEST CAUGHT: I sized the deposit at the REFERENCE tick, not the
+  POOL's.** Both are legal inputs and both print a plausible position — the wrong one asked for
+  **91% more $3030** than the AMM would take (8,487 vs 4,449 on 0.5 ETH). It would have been
+  rejected at the Uniswap UI with nothing in the output looking wrong. The range is centred on
+  the reference; **the split is taken at the pool's own tick**, and §D asserts the two differ.
+- ⚠ **AND THE TEST CAUGHT A TYPO IN ITSELF.** I hand-wrote the USDC tick as `0xfb4bc5`, which is
+  −308,283, not −309,435 — off by 1,152 ticks, ~12% of price, and close enough to look right.
+  It is derived now (`-309435 & 0xffffff`). **A magic hex constant in a test is a place for
+  exactly that to hide.**
+- ⚑ **VALUE CONSERVATION IS ASSERTED, WHICH IS THE RISK DISCLOSURE AS A TEST.** The all-ETH
+  boundary must be worth MORE than the deposit and the all-$3030 boundary LESS. A position that
+  showed a gain at both ends would mean the maths is wrong, not that the trade is free.
+
+**Live, right now**, on 0.5 ETH at ±20%: post **0.5 ETH + 4,449 $3030** ($1,363) over
+**$0.0727 … $0.10906**. Up 20% → 0.738 ETH, no tokens (sold into strength). Down 20% → 15,942
+tokens, no ETH (bought the whole way down).
+
+⛔ **AND THE HONEST NUMBER, WHICH THE CONSOLE PRINTS RATHER THAN BURIES: 0.9% of today's $2,783
+is $25/day IF THIS POOL CAPTURED ALL THE VOLUME, AND TODAY THE VOLUME IS IN THE RARE POOL.**
+Depth here does not move volume here — a router picks this pool only when it quotes better.
+**Treat it as a ceiling to be earned, never as a yield.**
+
+---
+
 ## 3 · THE KILL LIST — by name
 
 - ⛔ **The Bankr swarm / fee-recycling loop.** Arithmetic: 1.75% paid, 0.665% returned, **−1.085¢

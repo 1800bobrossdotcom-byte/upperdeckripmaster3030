@@ -804,6 +804,42 @@ Real circulating mcap **$7,065** against a headline FDV of $269,201. Buy-side de
   Tier traits on all 100 cards) while **`heldFor` is NOT** — it exists only in `lensState()` — and
   **no live page shows either.** The staking ladder ships on every card, unadvertised.
 
+### ✅ THE MARKET MAKER'S CONSOLE — `npm run mm`, `npm run test:mm` (53), and it DELISTED A POOL
+*Artist, 2026-08-08: "how do we build trading bots to trade up our chart."* ⛔ **Declined** — a bot
+that only buys needs somebody to be fooled by the chart, and that is the mechanism, not a side
+effect. ✅ **Built the version that quotes BOTH sides and carries inventory risk**, which is what a
+maker is and what this book actually lacks.
+- ⚑ **THE POOL PARAMETERS ARE PROVEN, NOT FETCHED: a v4 pool id IS
+  `keccak256(abi.encode(PoolKey))`.** Re-hashing (currency0, currency1, fee, tickSpacing, hooks)
+  reproduces the id, so **the fee is provable OFFLINE with no RPC and nobody to trust.** The
+  console refuses a pool whose params do not reproduce its id, and the test proves the check
+  discriminates by lying about the fee (9000→3000) and requiring the hash to break.
+- ⛔ **AND THAT DELISTED `0x597a6772…30d9c` FROM `chain-config.market.pools[]`** — a **89.898%**
+  swap fee, priced 59% under market, **immutable in the PoolKey so it can never become a market.**
+  Empty, which is the only reason nobody was hurt. ⚠ **The console still carries it flagged
+  `delisted`**, because a hazard deleted from the config is one the tooling can no longer
+  recognise. `test:mm` asserts it in BOTH directions — absent from the config, present in the
+  console — since "no hazardous pool is listed" is trivially true of a config with no pools.
+- ⛔ **IT SIGNS NOTHING.** Minting a v4 position is `modifyLiquidities` behind Permit2 with native
+  ETH as currency0 — real money, no audit. It prints the position; a human posts it. ⚑ **The
+  stronger reason: an LP position can lose money while working perfectly.**
+- ⛔ **IT QUOTES AROUND THE REFERENCE PRICE, NOT THE POOL'S OWN TICK, AND REFUSES OVER 10% SKEW.**
+  This pool opened 254× above the real market; a range centred on a stale local tick is a standing
+  offer at a price nobody else holds.
+- ⛔ **A BUG I SHIPPED AND THE TEST CAUGHT: the deposit was sized at the REFERENCE tick, not the
+  POOL's.** Both are legal inputs, both print a plausible position, and the wrong one asked for
+  **91% more $3030** than the AMM takes (8,487 vs 4,449 on 0.5 ETH) — Uniswap would have rejected
+  it with nothing in the output looking wrong. Range from the reference, **split from the pool**.
+- ⚠ **AND THE TEST CAUGHT A TYPO IN ITSELF** — I hand-wrote the USDC tick as `0xfb4bc5` (−308,283,
+  not −309,435; off ~12% of price and close enough to look right). Derived now. **A magic hex
+  constant in a test is a place for exactly that to hide.**
+- ⚑ **Value conservation is asserted, which is the risk disclosure as a test:** the all-ETH
+  boundary must be worth MORE than the deposit and the all-$3030 boundary LESS. Gains at both ends
+  would mean the maths is wrong, not that the trade is free.
+- ⚠ **The honest number is printed rather than buried:** 0.9% of today's $2,783 is $25/day **only
+  if this pool captured all the volume, and today the volume is in the RARE pool.** Depth here does
+  not move volume here. A ceiling to be earned, never a yield.
+
 ### ⛔ A SWARM FARMING FEES ON A BASE TOKEN LOSES MONEY BY ARITHMETIC — before any ethics argument
 *Artist, asking for clarity: "would we be launching a token on base via bankr with swarms that
 then push buys / fees / txns / burns to the main l1 $3030?"* **No, and the reason that settles it

@@ -209,10 +209,19 @@ window.RIPMASTER_CHAIN = {
      *   the right way round: a market exists whether or not anyone told the site about it, and a
      *   pool the site does not know about is one it can never route around. Every id here was
      *   checked to carry baseToken 0x1D4bcbb5…47A33 before it was written down. */
+    /* ⛔ THE USDC POOL WAS DELISTED 2026-08-08 AND MUST NOT COME BACK.
+     *   `0x597a6772…30d9c` carries a **89.898% swap fee** (fee field 898980, tickSpacing 8990)
+     *   and was initialized at tick -309,435 — pricing $3030 at $0.0365, about 59% under the
+     *   real market. It is empty, and that is the only reason nobody has been hurt by it.
+     *   ⚑ THE FEE IS NOT AN OPINION: a v4 pool id IS `keccak256(abi.encode(PoolKey))`, so
+     *   re-hashing (currency0, currency1, fee, tickSpacing, hooks) reproduces the id exactly —
+     *   the fee is PROVABLE offline, with no RPC and nobody to take at their word. It is
+     *   immutable in the PoolKey, so this pool can never become a market. Delisted permanently.
+     *   ⚠ `npm run test:mm` proves each `fee` below against its own id and refuses anything
+     *   over 1%, so re-adding it fails the board rather than shipping quietly. */
     pools: [
-      { id: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6", quote: "RARE" },
-      { id: "0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7", quote: "ETH" },
-      { id: "0x597a6772ea18e45803ecf070193d2314934c3b604badf6c62851babf2b530d9c", quote: "USDC" },
+      { id: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6", quote: "RARE", fee: 0 },
+      { id: "0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7", quote: "ETH", fee: 9000 },
     ],
     chartHost: "https://dexscreener.com/ethereum/",
     /* read-only, no key, CORS-open — the same shape as the embed's chain reads: it can show
