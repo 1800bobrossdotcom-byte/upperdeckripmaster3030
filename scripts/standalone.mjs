@@ -73,8 +73,12 @@ const PATCHES = [
  *   genuinely missing is left EMPTY and reported, rather than invented: the arcade menu has
  *   already once described a game that was not the one that shipped, and a listing is a promise
  *   to a stranger who has not played it yet. */
+/* ⚠ `hold: true` KEEPS A GAME IN THE TABLE AND OUT OF THE BUILD. Deleting the entry would work
+ *   and would also delete what the tooling knows about it — the same argument that kept the
+ *   delisted 89.898% pool in the market-maker console. `npm run standalone city` still builds it
+ *   by name for testing; only `all` skips it. Lifting the hold is deleting one word. */
 const GAMES = {
-  city: { file: 'city.html', title: 'THE CITY',
+  city: { file: 'city.html', title: 'THE CITY', hold: 'artist: not ready yet (2026-08-08)',
     blurb: 'Explore a 3.8 km generated city as a bird, a squirrel, a cat or a dog. No timer, no score, nothing chasing you — fly the river, climb the towers, and find the places only your animal can reach.' },
   cloudracer: { file: 'cloudracer.html', title: 'CLOUD RACER',
     blurb: 'Anti-grav pod racing on a white sky-circuit. Take the inside line, earn your boost, tuck into the slipstream and take the podium.' },
@@ -227,10 +231,12 @@ async function trace(keys) {
 }
 
 const arg = (process.argv[2] || 'all').toLowerCase();
-const keys = arg === 'all' ? Object.keys(GAMES) : [arg];
+const keys = arg === 'all' ? Object.keys(GAMES).filter(k => !GAMES[k].hold) : [arg];
+const held = Object.entries(GAMES).filter(([k, g]) => g.hold && !keys.includes(k));
 if (keys.some(k => !GAMES[k])) { console.log('  games: ' + Object.keys(GAMES).join(' · ') + ' · all'); process.exit(1); }
 
 console.log('\n  STANDALONE EXPORT — crypto-free, self-contained\n');
+for (const [k, g] of held) console.log(`  ${k.padEnd(12)} ⏸ HELD BACK — ${g.hold}`);
 for (const k of keys) {
   const r = build(k);
   if (!r.ok) { console.log(`  ⛔ ${k}: ${r.why}`); continue; }
