@@ -106,8 +106,12 @@ to the wei; 182,535 swaps):
 - The accumulation signal is **real**: corr **+0.294** at 5 min, **75% up-rate** after heavy
   accumulation, decaying to nothing by 3 h — the shape of a genuine microstructure edge.
 - Its top-minus-bottom quintile spread is **1.4–1.8 points**. The round trip is **2.11**. It clears
-  a one-way cost and loses to a round trip. ⛔ **The 1% per leg is what eats it**, not the absence
-  of an edge.
+  a one-way cost and loses to a round trip.
+  ⛔ **The conclusion originally drawn here — "the 1% per leg is what eats it, not the absence of an
+  edge" — IS FALSE, and it is left visible rather than deleted because it was wrong for a whole
+  evening and the reasoning that produced it was clean.** The fee sweep below moves the recent
+  regime from −8.31% to −4.79% at an essentially free venue. Both statements were measured; the
+  first was measured over a period in which the edge existed.
 - Walk-forward replay of the bot's own `decide()` (`npm run timetravel`): whole sample 59.5% win,
   +22.82%, $41.59 swept — but **last 10 days −6.28%, last 7 −7.13%, last 5 −3.46%**, win rate
   decayed 59.5% → ~42%. The entire gain came from the first nine days.
