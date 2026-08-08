@@ -761,6 +761,49 @@ finding.**
   ⚠ **Gated on one unverified fact**: whether Bankr's router can fill a **v4 pool quoted in RARE**.
   Unknowable from the docs; §5 has the $5 quote that settles it.
 
+### ⛔ 31 HOLDERS. 97.38% OF SUPPLY HAS NEVER LEFT THE CURVE — `docs/CAPITAL.md`
+*Artist: "I genuinely am looking at novel integrations to accelerate the growth of capital for the
+chart, token, edition, and liquidity."* **The measurement that answers it:** PoolManager holds
+**2,943,363 of 3,022,687 — 97.38%.** Ever reached a human: **79,324 $3030 across 31 wallets.**
+Real circulating mcap **$7,065** against a headline FDV of $269,201. Buy-side depth **$7,622**.
+- ⛔ **"$269,421 OF LIQUIDITY" IS 97% UNSOLD INVENTORY** — DexScreener adds both sides and the token
+  side is $261,794 of stock never sold. ⚑ **This file predicted the trap** (*"under mint-once most
+  of totalSupply is unsold inventory still inside the AMM"*) and nobody had put the number to it.
+- ⚑ **SO THE CHART IS NOT A MARKET SIGNAL, IT IS THREE PEOPLE** — top three wallets hold 26.1% /
+  17.8% / 17.8% of the float; the treasury is #6 at 4.9%. "1 buy vs 10 sells" is eleven trades.
+  ⚑ **THE CURVE IS A PRIMARY SALE THAT IS 2.6% COMPLETE**, so the only test that matters is *does
+  it get tokens out of the curve into real hands*. **The pack schedule is the distribution plan —
+  tier I is 200,000 $3030 off $16,000, 2.5× everything ever distributed — and it is 0% executed
+  because `pack.js:228` tells a short visitor to go buy somewhere else.** The binding constraint is
+  PEOPLE: at 31 holders, thirty collectors is +97%.
+- ⛔ **THE THREE POOLS ARE NOT INTERCHANGEABLE AND TWO ARE HAZARDS. Read from `extsload` slot 6,
+  validated against DexScreener (my RARE tick gives 7.3427 vs their 7.3429):**
+  **RARE fee `0`** — immutable in the PoolKey, every fee taken by hook `0x8Ff56609…` via
+  return-delta, so **an external LP there earns nothing forever**; that answers from the chain a
+  question this file carried as "ask SuperRare". ✅ But the hook's low bits are `0x20CC` and
+  **`beforeAddLiquidity` is OFF — it cannot refuse liquidity.**
+  ⛔ **USDC `0x597a6772…` HAS AN 89.898% SWAP FEE and is priced 59% below market, and it is in
+  `chain-config.market.pools[]` right now.** Empty, which is the only reason nobody was hurt.
+  **Delist, and assert every configured pool's fee off its own `Initialize` log.**
+  ⚠ `marketDepth()` sorts on `liquidity.usd`, which is 97% inventory — route by `base`/`quote`.
+- ⛔ **AND THE DESIGN ROUND'S HEADLINE WARNING WAS STALE, WHICH ITS OWN INSTRUCTION CAUGHT.** It
+  said *"never fund the ETH pool, it is 254× mispriced"* — true at **init** (tick 44,395 =
+  $22.62/token) and **false now**: two sells arbitraged it to tick 98,984 = **$0.0963**, within 8%
+  of the RARE pool. ⚑ **It is the ONLY pool with a real LP fee (0.9%) and no hook**, so the
+  conclusion inverts from "avoid" to "this is where liquidity goes". It told me to verify the tick
+  myself; verifying inverted it. **A recorded price is a fact with a shelf life.**
+- ⛔ **NO ERC-2981, PERMANENTLY.** `supportsInterface(0x2a55205a)` is **false**, `royaltyInfo`
+  reverts, and there is no royalty setter among the seven owner functions. **Every resale of every
+  genesis 1/1 pays the studio zero, forever**, and a second hero contract would fracture the set.
+  Put the rule in `RENDER-CONTRACT.md` so no future contract repeats it.
+- ⛔ **AND IT INVERTS THE BUYBACK ADVICE.** $300 of buy-and-burn destroys 0.11% of supply,
+  invisibly; $300 on the quote side deepens the buy-side book **3.9% permanently and earns fees**.
+  **At this float, seeding beats burning and it is not close.** The pack's atomic 50/50 stays.
+- ⚠ **Measured too:** all 11 auction heroes minted, **nine still in `0x432D71bA…`**, ids 1 and 3 with
+  a collector. `lovebeingMinted()` = **0**. **`tierOfHolder` IS live in `tokenURI`** (Holding +
+  Tier traits on all 100 cards) while **`heldFor` is NOT** — it exists only in `lensState()` — and
+  **no live page shows either.** The staking ladder ships on every card, unadvertised.
+
 ### ⛔ A SWARM FARMING FEES ON A BASE TOKEN LOSES MONEY BY ARITHMETIC — before any ethics argument
 *Artist, asking for clarity: "would we be launching a token on base via bankr with swarms that
 then push buys / fees / txns / burns to the main l1 $3030?"* **No, and the reason that settles it

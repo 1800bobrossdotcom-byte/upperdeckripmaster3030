@@ -90,6 +90,58 @@ not eligible for even that.
 
 ---
 
+## 0¼. ⛔ THE NUMBER THAT REFRAMES EVERY OTHER NUMBER IN THIS FILE: **31 HOLDERS**
+
+Read off-chain 2026-08-08, authoritative (`totalSupply` and the v4 PoolManager's `balanceOf`,
+not an indexer's summary):
+
+| | |
+| --- | --- |
+| `totalSupply` | 3,022,687.5 |
+| held by the v4 **PoolManager** | **2,943,363 — 97.38% of all supply** |
+| **actually distributed** | **79,324 $3030 — 2.62%, across 31 wallets** |
+| real circulating market cap | ⛔ **$7,065** |
+| headline "FDV" | $269,201 |
+| **buy-side depth (the RARE in the pool)** | ⛔ **$7,622** |
+| burned | 7,312 — **9.2% of everything ever distributed** |
+
+⛔ **"$269,421 OF LIQUIDITY" IS 97% UNSOLD INVENTORY.** DexScreener's liquidity figure adds both
+sides of the pool, and this pool's token side is 2,939,529 $3030 ≈ **$261,794 of stock that has
+never been sold**. The quote side — the money that would actually buy your token back — is
+**628,417 RARE ≈ $7,622**. ⚑ **`CLAUDE.md` predicted this exact trap** in the treasury note:
+*"under mint-once most of `totalSupply` is unsold inventory still inside the AMM."* It was right,
+and nobody had put the number to it.
+
+⛔ **AND EVERY MAGNITUDE I QUOTED EARLIER IN THIS DOCUMENT USED THE WRONG DENOMINATOR.** "$36/day
+of fees against a $270k token" is a sentence about a token that does not exist. Against **$7,065
+of real distribution**, the same $300 of fees the artist collected is **4.2% of the entire float**.
+Small numbers are not small here — the whole thing is small, and that cuts both ways.
+
+### ⚑ SO THE CURVE IS NOT A MARKET. IT IS A PRIMARY SALE THAT IS 2.6% COMPLETE.
+
+That single reframe changes what every mechanism is for. There is no float to speak of, no
+holder base to incentivise, and almost nothing to "recycle". **The question is not how to make
+the chart move — it is how to get tokens out of the curve and into real hands.**
+
+- **A buy walks UP the curve by construction.** With 31 holders there is no overhang of
+  impatient bag-holders creating resistance — the seller of last resort is the curve itself.
+- **"10 sells vs 1 buy" is 31 wallets, and the top three hold 62% of the float** (26.1% · 17.8% ·
+  17.8%). ⚑ **The chart is not a market signal at this size; it is three people.**
+  ⚠ The treasury is #6 with **4.9% of circulating** — the concentration `CLAUDE.md` flags is real
+  and its true denominator is this one, not 3.2% and not 44.4%.
+- ⛔ **AND IT INVERTS THE BUYBACK RECOMMENDATION IN §4-C.** $300 spent on buy-and-burn destroys
+  ~3,370 tokens out of 3.02M — **0.11% of supply, invisible.** The same $300 added to the RARE
+  side of the pool **deepens the entire buy-side book by 3.9%**, permanently, and then earns fees
+  on every trade. **At this size, seeding the quote side beats burning, and it is not close.**
+  Burning is the right policy for a token with a float; this one has $7k.
+- ✅ **AND IT SIZES THE PACKS PROPERLY, WHICH IS THE REAL HEADLINE.** One sold-out tier I is
+  **1,600 × 125 = 200,000 $3030 — 2.5× everything ever distributed** — off **$16,000** of demand.
+  ⚑ **The pack schedule is not a side feature. It is the distribution plan, it is already built,
+  and it is 0% executed.** Every mechanism below should be judged on one question: *does it get
+  tokens out of the curve?*
+
+---
+
 ## 0½. ⛔ "ARE WE LAUNCHING A TOKEN ON BASE VIA BANKR WITH SWARMS THAT PUSH BUYS / FEES / BURNS TO L1 $3030?"
 
 **No. That is not the proposal, and I would argue against it.** Three things are bundled in
