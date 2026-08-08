@@ -244,6 +244,26 @@
      full-width blocks between the wordmark and the first thing you can actually do */
   .hrow{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px 14px; margin-top:10px; }
   /* the live pool-depth line — a reading, so it is quiet type and it is absent unless it read */
+  /* the contract address strip — a plate, not a sentence: it is a thing you copy */
+  .ca{ display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px 12px;
+    margin:14px auto 0; max-width:min(94vw,720px); padding:10px 14px; border-radius:12px;
+    border:1px solid var(--phosdeep); background:rgba(4,20,11,.7); }
+  .ca-lbl{ font-family:var(--fat); font-size:var(--t-tag,10px); letter-spacing:.16em;
+    text-transform:uppercase; color:var(--amber); }
+  /* ⚠ `anywhere` and not `break-all`: the address must be able to wrap on a 320px phone, and it
+     must never be ELIDED — a shortened address is one somebody re-types wrong. */
+  .ca-addr{ font-family:var(--mono); font-size:var(--t-fine,12px); color:var(--text);
+    overflow-wrap:anywhere; user-select:all; -webkit-user-select:all; }
+  .ca-copy{ font-family:var(--fat); font-size:var(--t-tag,10px); letter-spacing:.14em;
+    text-transform:uppercase; color:#01130a; cursor:pointer; min-height:44px; padding:0 16px;
+    border-radius:10px; border:1px solid #01130a;
+    background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56);
+    box-shadow:0 3px 0 #06331d; transition:transform .1s, box-shadow .1s; }
+  .ca-copy:active{ transform:translateY(3px); box-shadow:0 0 0 #06331d; }
+  .ca-copy[data-done]{ background:linear-gradient(180deg,#ffe89a,var(--amber) 60%,#c48f00); }
+  .ca-scan{ font-family:var(--mono); font-size:var(--t-fine,12px); color:var(--phos);
+    text-decoration:none; border-bottom:1px dotted currentColor;
+    display:inline-flex; align-items:center; min-height:44px; padding:0 4px; }
   .mkt-depth{ margin:9px auto 0; max-width:66ch; text-align:center; font-family:var(--mono);
     font-size:var(--t-fine,12px); letter-spacing:.04em; color:var(--phosdim); }
   /* ⚠ 44px on BOTH axes — a thumb is round, and these are the only controls on the page whose
@@ -907,6 +927,21 @@
          this line is READ from the pools when the page loads and is absent when the read fails,
          rather than a sentence someone typed that quietly stops being true. Same rule that keeps
          a burn percentage off every page on this site. -->
+    <!-- ⛔ THE CONTRACT ADDRESS, BECAUSE PASTING IT INTO A DEX IS HOW MOST PEOPLE ACTUALLY BUY.
+         A token search by name returns impostors; the address is the only unambiguous answer, and
+         a site that does not publish its own is asking collectors to trust a search result.
+         ⚑ EMPTY IN THE MARKUP AND FILLED FROM `chain-config` — never typed here. A token address
+         printed on a page is a claim about which asset to buy, and a second copy is a second
+         chance to send somebody to a different one. `npm run test:name` fails if a literal
+         appears in this file.
+         ⚠ SHOWN IN FULL, WRAPPED RATHER THAN TRUNCATED. A shortened address is one somebody
+         re-types wrong; the COPY button carries the whole thing either way. -->
+    <div class="ca" id="caBox" hidden>
+      <span class="ca-lbl">$3030 contract</span>
+      <code class="ca-addr" id="caAddr"></code>
+      <button type="button" class="ca-copy" id="caCopy">COPY</button>
+      <a class="ca-scan" id="caScan" href="#" target="_blank" rel="noopener noreferrer">Etherscan ↗</a>
+    </div>
     <p class="mkt-depth" id="mktDepth" hidden></p>
 
     <!-- ⚠ THE SHOUT BUTTON AND THE WALLET SIT BELOW THE DOORS, NOT ABOVE THEM. They were the two
@@ -1354,6 +1389,37 @@ a.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.prev
       const el = document.getElementById(id); if (!el) return;
       el.href = swap; el.hidden = false;
     });
+    /* ⛔ THE CONTRACT ADDRESS, FILLED FROM THE CONFIG AND NEVER TYPED INTO THIS FILE. Pasting a
+       contract into a DEX is how most people buy, and a token search returns impostors — so the
+       address is the only unambiguous answer a site can give. It is also the single string here
+       where being wrong costs a visitor money, which is why there is exactly one copy of it.
+       ⚑ COPY FAILS OPEN BY SELECTING. navigator.clipboard is absent on an insecure origin and can
+       be refused by policy; a button that animates, says COPIED and put nothing anywhere would
+       have somebody paste whatever was already on their clipboard into a swap. */
+    const ca = window.RipWallet && window.RipWallet.token ? window.RipWallet.token() : '';
+    if (ca) {
+      const box = document.getElementById('caBox');
+      const addr = document.getElementById('caAddr');
+      const scan = document.getElementById('caScan');
+      const btn = document.getElementById('caCopy');
+      if (addr) addr.textContent = ca;
+      if (scan && window.RipWallet.explorerAddr) scan.href = window.RipWallet.explorerAddr(ca);
+      if (btn) btn.addEventListener('click', () => {
+        const done = t => { btn.textContent = t; btn.setAttribute('data-done', '1');
+          setTimeout(() => { btn.textContent = 'COPY'; btn.removeAttribute('data-done'); }, 2200); };
+        const select = () => {
+          try { const r = document.createRange(); r.selectNodeContents(addr);
+            const s = getSelection(); s.removeAllRanges(); s.addRange(r); } catch (e) {}
+          done('SELECTED');
+        };
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText)
+            navigator.clipboard.writeText(ca).then(() => done('COPIED'), select);
+          else select();
+        } catch (e) { select(); }
+      });
+      if (box) box.hidden = false;
+    }
     /* ⚠ AND THE DEPTH LINE IS READ, NEVER PRINTED. Which pair is worth trading changes the moment
        liquidity moves, and a sentence baked into this page would go stale with nobody editing
        anything — the same reason no burn percentage is published anywhere on this site. The read

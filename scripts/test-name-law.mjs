@@ -1367,6 +1367,28 @@ console.log('\n── the markets: every pool declared once, and the swap keyed 
     'index.html carries a swap route and fills it from the wallet');
   ok(/id="mktDepth"/.test(idx) && /marketDepth\(\)/.test(idx),
     '…and reads which pool has depth rather than printing an answer');
+
+  /* ⛔ THE CONTRACT ADDRESS IS PUBLISHED, AND IT IS PUBLISHED EXACTLY ONCE. Pasting a contract
+   *   into a DEX is how most people buy — a token search returns impostors — so a site that does
+   *   not print its own address is asking collectors to trust a search result. It is also the one
+   *   string on the page where being wrong costs a visitor money, so the markup ships EMPTY and
+   *   is filled from `chain-config`: a second copy is a second chance to send somebody to a
+   *   different asset, and nothing on screen would look different.
+   * ⚑ BOTH DIRECTIONS. "No literal" is trivially satisfied by not publishing the address at all,
+   *   which is the state this replaced. */
+  const tok = String((((CHAIN || {}).contracts) || {}).liquidEdition || '').trim();
+  ok(/^0x[0-9a-fA-F]{40}$/.test(tok), 'the edition address is configured', tok || 'EMPTY');
+  ok(tok === checksum(tok), '…and is EIP-55 checksummed, since it is printed for people to copy');
+  ok(/id="caAddr"/.test(idx) && /RipWallet\.token\(\)/.test(idx),
+    'index.html publishes the contract address, filled from the config');
+  ok(!new RegExp(tok, 'i').test(idx),
+    '…and never as a literal in the page — one declaration, no second copy');
+  /* a control that reports success having copied nothing would have somebody paste whatever was
+   * already on their clipboard into a swap — the failure this whole strip exists to prevent */
+  ok(/id="caCopy"/.test(idx) && /clipboard/.test(idx) && /selectNodeContents/.test(idx),
+    '…with a COPY that falls open to selecting rather than claiming success');
+  const w2 = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  ok(/token:\s*\(\)\s*=>/.test(w2), 'js/wallet.js exposes the address for display');
 }
 
 /* ── THE STUDIO'S X ACCOUNT ───────────────────────────────────────────────────────────────────

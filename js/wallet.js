@@ -534,6 +534,11 @@
     connect, disconnect, ensureChain, balance, burn,
     payPack, payRake, payTreasury, allowance, waitTx,
     treasury: () => String(CFG().treasury || '').trim(),
+    /* ⛔ THE CONTRACT ADDRESS, FOR DISPLAY, FROM THE ONE DECLARATION. A token address printed on a
+     *   site is a claim about which token to buy, and a second copy of it is a second chance to
+     *   send somebody to a different asset — the mistake nobody notices until money has moved.
+     *   '' when nothing is configured, so a caller shows no control rather than an empty one. */
+    token: () => (isLive() ? token() : ''),
     hasSink,                    // false ⇒ payPack/payRake fall back to a 100% burn
     sink: () => sink(),
     splitPct: () => (CFG().packSplit || { burn: 0.5, treasury: 0.5 }),
