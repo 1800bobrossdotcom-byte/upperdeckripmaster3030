@@ -162,13 +162,26 @@ async function step(book, verbose) {
   saveBook(book); return book;
 }
 
-function report() {
+/* ⛔ AN OPEN POSITION MUST BE MARKED, OR THE REPORT LIES BY THE SIZE OF THE POSITION. The first
+ *   version summed CASH only and printed "-50.00%" while the book was down about 4% — the missing
+ *   half was 4,624 FWA sitting in an open trade. A number that wrong is worse than no number: it
+ *   reads as a catastrophe and would get the bot switched off mid-trade. Mark it, and label the
+ *   mark as a mark. */
+async function report() {
   const b = loadBook();
   const wins = b.trades.filter(t => t.pnlPct > 0);
+  let mark = 0;
+  if (b.fwa > 0) {
+    const head = Number(await cs[0].getBlockNumber());
+    const s = await logs(SWAP, PM, head - 600, head, { id: POOL });
+    if (s.ok && s.out.length) mark = b.fwa * priceOf(s.out[s.out.length - 1].args.sqrtPriceX96);
+  }
   console.log(`\n  PAPER BOOK  (spends nothing, signs nothing)`);
-  console.log(`  working    ${b.eth.toFixed(6)} ETH${b.fwa ? ` + ${b.fwa.toFixed(0)} FWA open` : ''}`);
+  console.log(`  working    ${b.eth.toFixed(6)} ETH${b.fwa ? ` + ${b.fwa.toFixed(0)} FWA open, marked at ${mark.toFixed(6)} ETH` : ''}`);
+  if (b.fwa > 0 && !mark) console.log(`  ⚠ the open position could NOT be marked — the total below is cash only and understates it`);
   console.log(`  swept      ${b.swept.toFixed(6)} ETH → ${TREASURY}  ⚑ push-only, never returns`);
-  console.log(`  total      ${(b.eth + b.swept).toFixed(6)} ETH from ${b.startEth} start  = ${(((b.eth + b.swept) / b.startEth - 1) * 100).toFixed(2)}%`);
+  const equity = b.eth + b.swept + mark;
+  console.log(`  total      ${equity.toFixed(6)} ETH from ${b.startEth} start  = ${((equity / b.startEth - 1) * 100).toFixed(2)}%${mark ? '   (includes the open position at the current tick)' : ''}`);
   console.log(`  trades     ${b.trades.length}${b.trades.length ? `, ${wins.length} green = ${(wins.length / b.trades.length * 100).toFixed(1)}% win` : ''}`);
   if (b.halted) console.log('  ⛔ HALTED — the book halved.');
   for (const t of b.trades.slice(-8)) console.log(`     ${t.at.slice(5, 16)}  ${t.why.padEnd(11)} ${(t.pnlPct >= 0 ? '+' : '') + t.pnlPct}%  skim ${t.skim}`);
@@ -177,7 +190,7 @@ function report() {
 }
 
 const cmd = process.argv[2] || 'once';
-if (cmd === 'report') report();
+if (cmd === 'report') await report();
 else if (cmd === 'once') { const b = await step(loadBook(), true); saveBook(b); }
 else if (cmd === 'paper') {
   console.log(`  FWA/ETH paper bot · stake ${P.stake} ETH · tp +${P.tpPct * 100}% sl −${P.slPct * 100}% · ${P.hoursUTC[0]}–${P.hoursUTC[P.hoursUTC.length - 1]}h UTC`);
