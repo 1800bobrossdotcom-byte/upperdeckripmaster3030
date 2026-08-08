@@ -840,6 +840,27 @@ maker is and what this book actually lacks.
   if this pool captured all the volume, and today the volume is in the RARE pool.** Depth here does
   not move volume here. A ceiling to be earned, never a yield.
 
+### ⛔ "THE PACKS ALREADY WORK" — AND I QUOTED A STALE DOC AT THE ARTIST INSTEAD OF MEASURING
+*Artist, 2026-08-08: **"The packs already work - I don't know what you are talking about."*** He
+was right. I read `docs/MAINNET-PREFLIGHT.md` gate 1 — *"token approval flow, unproven on
+mainnet"* — and relayed it as current, then advised spending $100 to prove it.
+- ⛔ **~120 PACKS HAD ALREADY BEEN RIPPED THROUGH PackSink.** Measured: `totalSupply` 3,022,375,
+  burned **7,625**, treasury **7,475 $3030 (~$1,550)**. ⚑ **The two sides reconcile to 0.4
+  packs** — 7,475 ÷ 62.5 = 119.6 by the treasury side, (7,625 − 125) ÷ 62.5 = 120.0 by the burn
+  side, the 125 being the first rip before the sink address was pasted in. **Two independent
+  arithmetics landing on one number is what "it works" looks like.**
+- ⛔ **THE TABLE WAS STALE ON FOUR OF SIX GATES**, not one: it also claimed PackSink and Lens721
+  were undeployed, and both have been live since 2026-08-06.
+- ⚑ **A DOCUMENT IS NOT EVIDENCE. THE CHAIN IS, AND IT WAS ONE `eth_call` AWAY.** Fourth instance
+  in one session of trusting a record over a measurement — after `balanceOf`-as-lifetime-income,
+  after native-ETH-emits-no-logs, after "a merge to main deploys". **And this one came after I
+  had written the other three up in this file**, which is the point: the rule does not protect
+  you while you are *reading* the rotted surface rather than maintaining it. **Before quoting a
+  gate, measure it.**
+- ⚠ What is genuinely unproven is only the **buy door** shipped the same day — hours old, never
+  walked by a stranger. One new panel on a proven flow, not an unproven flow. Do not let that
+  get inflated back into "the packs are unproven".
+
 ### ⛔ A SWARM FARMING FEES ON A BASE TOKEN LOSES MONEY BY ARITHMETIC — before any ethics argument
 *Artist, asking for clarity: "would we be launching a token on base via bankr with swarms that
 then push buys / fees / txns / burns to the main l1 $3030?"* **No, and the reason that settles it
