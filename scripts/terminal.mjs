@@ -47,8 +47,13 @@ const V3 = parseAbi(['function fee() view returns (uint24)', 'function token0() 
 const V2 = parseAbi(['function getReserves() view returns (uint112,uint112,uint32)']);
 const ERC = parseAbi(['function symbol() view returns (string)', 'function decimals() view returns (uint8)', 'function totalSupply() view returns (uint256)', 'function balanceOf(address) view returns (uint256)']);
 
-/* The board. Add a row and it appears on the page — one list, no second place to edit. */
-const WATCH = [
+/* The board. Add a row and it appears on the page — one list, no second place to edit.
+ * ⚠ THESE SIX ARE ALL 0.30% POOLS AND FIVE OF THEM CANNOT BE TRADED BY ANYONE. `npm run edge`
+ *   measured the average move against each pool's own toll: PEPE 0.12×, SHIB 0.18×, and even at a
+ *   four-hour hold PEPE only reaches 0.60×. A perfect forecaster loses money in those. They stay
+ *   on the board because the page is a RESEARCH terminal and "this market is untradeable" is a
+ *   finding worth showing — but they are no longer the whole universe. */
+const MANUAL = [
   { name: 'PEPE', pool: '0xa43fe16908251ee70ef74718545e4fe6c5ccec9f' },
   { name: 'BITCOIN', pool: '0x25392d7129040710f152174af5019004a6f9b18d' },
   { name: 'WOJAK', pool: '0xcaa3a16f8440f85303afaab1992f2b97d12469b1' },
@@ -56,6 +61,26 @@ const WATCH = [
   { name: 'MOG', pool: '0x7832310cd0de39c4ce0a635f34d9a4b5b47fd434' },
   { name: 'ANDY', pool: '0xa1bf0e900fb272089c9fd299ea14bfccb1d1c2c0' },
 ];
+
+/* ⛔ A HAND-TYPED UNIVERSE ROTS, AND THIS ONE HAD ROTTED INTO SIX POOLS WHERE NO SIGNAL CAN PAY.
+ *   The board now ABSORBS whatever `npm run edge` says clears its own toll at some horizon, so the
+ *   universe follows the market instead of following whoever last edited this file. Each row
+ *   carries where it came from and the arithmetic that admitted it, because "why is this on the
+ *   board" is exactly the question a stale list can never answer. */
+const EDGE_FILE = join(ROOT, 'data/edge-ethereum.json');
+let derived = [];
+try {
+  const e = JSON.parse(readFileSync(EDGE_FILE, 'utf8'));
+  derived = (e.rows || [])
+    .filter(r => r.crossMin != null)
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, Number(process.env.EDGE_N || 6))
+    .map(r => ({ name: `${r.sym}·${(r.feeBps / 100).toFixed(2)}%`, pool: r.pool, src: 'edge',
+      ratio: r.ratio, crossMin: r.crossMin, feeBps: r.feeBps }));
+} catch { /* no screen yet — the manual list still stands, and the page says how old it is */ }
+const seenPool = new Set();
+const WATCH = [...derived, ...MANUAL.map(m => ({ ...m, src: 'manual' }))]
+  .filter(p => !seenPool.has(p.pool.toLowerCase()) && seenPool.add(p.pool.toLowerCase()));
 
 const DAYS = Number(process.env.DAYS || 10);
 const SEC = 12.042;

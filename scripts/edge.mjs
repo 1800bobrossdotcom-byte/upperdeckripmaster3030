@@ -25,6 +25,16 @@
  *
  * ⚠ Mean |move| is symmetric and a coin flip captures none of it. Do not read the top of this
  *   table as a shortlist of trades. Read it as the only places worth spending a backtest on.
+ *
+ * ⛔ AND THE FIRST VERSION LEFT GAS OUT ENTIRELY, WHICH AT THIS SIZE IS NOT A ROUNDING ERROR. A
+ *   swap is ~150k gas; two of them is a round trip, and on a $20 notional that is a percentage,
+ *   not a fee. ⚠ I nearly published "2.9% on Ethereum" from a 1 gwei assumption — the live number
+ *   was 0.0339 gwei and the true cost 0.097%, a 30× error in the alarming direction. MEASURED, not
+ *   assumed, and read live on every run: gas is the one input here that moves three orders of
+ *   magnitude between a quiet Sunday and a mint, so a constant would be wrong almost always.
+ *   ⚑ It is also why the size matters more than anything else on this page: gas is FIXED per
+ *   trade, so it falls as a share of notional. The same pool that is untradeable at $20 can be
+ *   fine at $200 for no reason but arithmetic.
  */
 import { createPublicClient, http, parseAbi, parseAbiItem } from 'viem';
 import { mainnet, base } from 'viem/chains';
@@ -45,6 +55,9 @@ const SECS = IS_BASE ? 2 : 12.042;
 const TOPN = Number(process.env.TOPN || 60);
 const MINLIQ = Number(process.env.MINLIQ || 150000);
 const HZ = (process.env.HZ || '15,60,240,720').split(',').map(Number);
+const STAKE_ETH = Number(process.env.STAKE_ETH || 0.01);
+const ETH_USD = Number(process.env.ETH_USD || 1914.72);
+const GAS_UNITS = BigInt(process.env.GAS_UNITS || 150000);   // one router swap, warm
 
 const SWAP3 = parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)');
 const V3 = parseAbi(['function fee() view returns (uint24)', 'function token0() view returns (address)', 'function token1() view returns (address)']);
@@ -94,6 +107,11 @@ async function candidates() {
     .sort((a, b) => b.vol - a.vol).slice(0, TOPN);
 }
 
+/* ⚠ LIVE, because this is the input that moves 300× and a stale constant is a wrong verdict. */
+const gasPrice = await c.getGasPrice();
+const gasEthPerSwap = Number(gasPrice * GAS_UNITS) / 1e18;
+const gasPct = (2 * gasEthPerSwap / STAKE_ETH) * 100;        // round trip, as % of notional
+
 const head = Number(await c.getBlockNumber());
 const from = head - Math.round(HOURS * 3600 / SECS);
 const perBucket = Math.max(1, Math.round(BUCKET * 60 / SECS));
@@ -112,8 +130,9 @@ async function tape(pool) {
   return { out, fails };
 }
 
-console.log(`\n  THE EDGE SCREEN · ${CHAIN} · ${HOURS}h of tape in ${BUCKET}-minute buckets · size 0.01 ETH`);
-console.log(`  ⚑ the bar is the FEE: at this size the book says impact is zero, so round trip = 2 × fee.\n`);
+console.log(`\n  THE EDGE SCREEN · ${CHAIN} · ${HOURS}h of tape in ${BUCKET}-minute buckets · size ${STAKE_ETH} ETH`);
+console.log(`  toll = 2 × fee  +  2 × gas.  Impact is ZERO at this size (the book walks the curve and says so).`);
+console.log(`  gas now ${(Number(gasPrice) / 1e9).toFixed(4)} gwei → ${gasEthPerSwap.toFixed(8)} ETH/swap = ${gasPct.toFixed(3)}% round trip on ${STAKE_ETH} ETH ($${(STAKE_ETH * ETH_USD).toFixed(0)})\n`);
 const cands = await candidates();
 console.log(`  ${cands.length} pools over $${(MINLIQ / 1000).toFixed(0)}k liquidity\n`);
 if (!cands.length) { console.log('  ⚠ the index returned nothing — a failed read, not an absence of pools.\n'); process.exit(0); }
@@ -139,7 +158,10 @@ for (const p of cands) {
      *   here" into the sharper and more useful "no edge here BELOW N hours". */
     let volQ = 0;
     for (const l of sw) volQ += Math.abs(Number(quoteIs0 ? l.args.amount0 : l.args.amount1)) / 10 ** dq;
-    const cost = Number(fee) / 5000;                                               // round trip %
+    /* ⛔ THE TOLL IS THE FEE **PLUS GAS**. Two swaps of fee, two swaps of gas, and at 0.01 ETH the
+     *   gas half is the same order as the fee half — leaving it out flattered every pool equally
+     *   and flattered the CHEAP pools most, which is precisely the ranking this file produces. */
+    const cost = Number(fee) / 5000 + gasPct;                                      // round trip %
     const madAt = mins => {
       const per = Math.max(1, Math.round(mins * 60 / SECS));
       const byB = new Map();
@@ -161,8 +183,11 @@ for (const p of cands) {
     if (!base || base.ratio == null) { rows.push({ ...p, fee: Number(fee), err: 'too few buckets' }); continue; }
     /* the shortest horizon at which the average move finally clears the toll */
     const cross = ladder.find(x => x.ratio != null && x.ratio >= 1);
+    /* quoteIs0 + decimals ride along so the LIVE page can price this pool from one slot0 read
+     * instead of re-deriving what has already been measured. ⚠ Which side is the quote is the
+     * exact thing `npm run resting` got wrong by assuming; it is never inferred twice. */
     rows.push({ ...p, fee: Number(fee), swaps: sw.length, volQ, ladder, crossMin: cross ? cross.min : null,
-      madPct: base.mad, costPct: cost, ratio: base.ratio, fails });
+      madPct: base.mad, costPct: cost, ratio: base.ratio, fails, quoteIs0, dq, dt: null, t0, t1 });
   } catch (e) { rows.push({ ...p, err: String(e.shortMessage || e.message).slice(0, 34) }); }
 }
 
@@ -191,13 +216,18 @@ console.log(`  ⚑ TRADEABLE FROM is the shortest holding period whose average m
 console.log(`     toll. It is the single most useful number here, because it is not a forecast — it`);
 console.log(`     is an arithmetic floor on how long a position has to be held in THIS pool to have`);
 console.log(`     any chance at all. A bot scalping under that number is paying to play.`);
+console.log(`  ⚠ GAS IS LIVE AND IT IS ${gasPct.toFixed(3)}% OF THIS TRADE RIGHT NOW. It is fixed per trade, so it`);
+console.log(`     shrinks as a share of a bigger one — every verdict above is a verdict about ${STAKE_ETH} ETH`);
+console.log(`     at ${(Number(gasPrice) / 1e9).toFixed(3)} gwei, and re-runs with either one different.`);
 if (best) console.log(`  ⚠ Best here: ${best.sym} ${(best.fee / 10000).toFixed(2)}% — ratio ${best.ratio.toFixed(2)} at ${hz(BUCKET)}, clears at ${best.crossMin == null ? 'no measured horizon' : hz(best.crossMin)}.\n`);
 
 const OUT = process.env.JSON || join(ROOT, `data/edge-${CHAIN}.json`);
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, JSON.stringify({ chain: CHAIN, hours: HOURS, bucketMin: BUCKET, readAt: new Date().toISOString(),
+  stakeEth: STAKE_ETH, gasGwei: +(Number(gasPrice) / 1e9).toFixed(5), gasPctRoundTrip: +gasPct.toFixed(4),
   rows: ok.map(r => ({ sym: r.sym, pool: r.pool, dex: r.dex, feeBps: r.fee / 100, costPct: +r.costPct.toFixed(4),
     madPct: +r.madPct.toFixed(4), ratio: +r.ratio.toFixed(3), crossMin: r.crossMin, swaps: r.swaps,
     ladder: r.ladder.map(l => ({ min: l.min, ratio: l.ratio == null ? null : +l.ratio.toFixed(3) })),
+    quoteIs0: r.quoteIs0, dq: r.dq, t0: r.t0, t1: r.t1, feeOnlyPct: +(r.fee / 5000).toFixed(4),
     liqUsd: Math.round(r.liq) })) }, null, 1));
 console.log(`  wrote ${OUT}\n`);

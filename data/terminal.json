@@ -1,17 +1,17 @@
 {
- "measuredAt": "2026-08-08T22:29:09.223Z",
- "block": 25713230,
+ "measuredAt": "2026-08-08T23:43:26.129Z",
+ "block": 25713596,
  "days": 10,
  "chains": {
   "ethereum": {
-   "gwei": 0.064059,
-   "baseFeeGwei": 0.064059,
-   "fullPct": 38,
-   "swapUsd": 0.0221
+   "gwei": 0.030758,
+   "baseFeeGwei": 0.030758,
+   "fullPct": 89.3,
+   "swapUsd": 0.0106
   },
   "base": {
    "gwei": 0.006,
-   "head": 49719400,
+   "head": 49721629,
    "swapUsd": 0.002073
   }
  },
@@ -25,102 +25,382 @@
  },
  "board": [
   {
-   "name": "PEPE",
-   "pool": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
-   "sym": "PEPE",
-   "kind": "v2",
-   "feePct": 0.3,
-   "roundTripPct": 0.6,
-   "priceWeth": 1.4926986375783299e-9,
-   "swaps": 4404,
-   "poolTransfers": 4410,
+   "name": "UNI·0.05%",
+   "pool": "0xfaa318479b7755b2dbfdd34dc306cb28b420ad12",
+   "src": "edge",
+   "ratio": 1.068,
+   "crossMin": 15,
+   "feeBps": 5,
+   "sym": "UNI",
+   "kind": "v3",
+   "feePct": 0.05,
+   "roundTripPct": 0.1,
+   "priceWeth": 0.0020865565591800203,
+   "swaps": 19439,
+   "poolTransfers": 19494,
    "horizons": [
     {
      "min": 5,
      "n": 2868,
-     "corr": 0.307,
-     "spread": 0.068,
-     "trim2": 0.046,
-     "trim5": 0.031,
-     "trim10": 0.016
+     "corr": 0.014,
+     "spread": 0.014,
+     "trim2": -0.003,
+     "trim5": -0.003,
+     "trim10": 0.001
     },
     {
      "min": 15,
      "n": 955,
-     "corr": 0.204,
-     "spread": 0.153,
-     "trim2": 0.112,
-     "trim5": 0.091,
-     "trim10": 0.068
+     "corr": 0.015,
+     "spread": 0.019,
+     "trim2": -0.018,
+     "trim5": -0.051,
+     "trim10": -0.055
     },
     {
      "min": 30,
      "n": 480,
-     "corr": 0.138,
-     "spread": 0.155,
-     "trim2": 0.115,
-     "trim5": 0.103,
-     "trim10": 0.07
+     "corr": 0.015,
+     "spread": -0.028,
+     "trim2": -0.07,
+     "trim5": -0.015,
+     "trim10": -0.074
     },
     {
      "min": 60,
      "n": 238,
-     "corr": 0.049,
-     "spread": 0.088,
-     "trim2": 0.09,
-     "trim5": 0.072,
-     "trim10": 0.091
+     "corr": 0.006,
+     "spread": -0.014,
+     "trim2": -0.138,
+     "trim5": -0.062,
+     "trim10": -0.068
     }
    ],
    "tradeable": false,
    "gaps": 0
   },
   {
-   "name": "BITCOIN",
+   "name": "BITCOIN·0.30%",
    "pool": "0x25392d7129040710f152174af5019004a6f9b18d",
+   "src": "edge",
+   "ratio": 0.937,
+   "crossMin": 60,
+   "feeBps": 30,
    "sym": "BITCOIN",
    "kind": "v3",
    "feePct": 0.3,
    "roundTripPct": 0.6,
-   "priceWeth": 0.00000781219851592264,
-   "swaps": 4253,
-   "poolTransfers": 4287,
+   "priceWeth": 0.000007808875112177412,
+   "swaps": 4250,
+   "poolTransfers": 4284,
    "horizons": [
     {
      "min": 5,
      "n": 2867,
-     "corr": 0.215,
-     "spread": 0.09,
-     "trim2": 0.039,
-     "trim5": 0.03,
-     "trim10": 0.014
+     "corr": 0.083,
+     "spread": 0.08,
+     "trim2": 0.03,
+     "trim5": 0.014,
+     "trim10": 0.013
     },
     {
      "min": 15,
      "n": 955,
-     "corr": 0.22,
-     "spread": 0.182,
-     "trim2": 0.038,
-     "trim5": 0.011,
-     "trim10": 0.013
+     "corr": 0.23,
+     "spread": 0.242,
+     "trim2": 0.02,
+     "trim5": 0.043,
+     "trim10": 0.012
     },
     {
      "min": 30,
      "n": 480,
-     "corr": 0.093,
-     "spread": 0.405,
-     "trim2": 0.037,
-     "trim5": 0.113,
+     "corr": 0.129,
+     "spread": 0.161,
+     "trim2": -0.041,
+     "trim5": -0.073,
+     "trim10": -0.056
+    },
+    {
+     "min": 60,
+     "n": 238,
+     "corr": -0.081,
+     "spread": 0.441,
+     "trim2": -0.054,
+     "trim5": 0.124,
+     "trim10": 0.035
+    }
+   ],
+   "tradeable": false,
+   "gaps": 0
+  },
+  {
+   "name": "LINK·0.05%",
+   "pool": "0x5d4f3c6fa16908609bac31ff148bd002aa6b8c83",
+   "src": "edge",
+   "ratio": 0.466,
+   "crossMin": 240,
+   "feeBps": 5,
+   "sym": "LINK",
+   "kind": "v3",
+   "feePct": 0.05,
+   "roundTripPct": 0.1,
+   "priceWeth": 0.004330623745198709,
+   "swaps": 7524,
+   "poolTransfers": 7554,
+   "horizons": [
+    {
+     "min": 5,
+     "n": 2868,
+     "corr": 0.079,
+     "spread": 0.021,
+     "trim2": 0.014,
+     "trim5": 0.013,
+     "trim10": 0.011
+    },
+    {
+     "min": 15,
+     "n": 955,
+     "corr": 0.021,
+     "spread": 0.016,
+     "trim2": 0.013,
+     "trim5": 0.019,
+     "trim10": 0.015
+    },
+    {
+     "min": 30,
+     "n": 480,
+     "corr": 0.079,
+     "spread": 0.039,
+     "trim2": 0.024,
+     "trim5": 0.008,
+     "trim10": 0.006
+    },
+    {
+     "min": 60,
+     "n": 238,
+     "corr": 0.052,
+     "spread": 0.019,
+     "trim2": 0.001,
+     "trim5": 0.015,
+     "trim10": -0.02
+    }
+   ],
+   "tradeable": false,
+   "gaps": 0
+  },
+  {
+   "name": "UNI·0.30%",
+   "pool": "0xd0fc8ba7e267f2bc56044a7715a489d851dc6d78",
+   "src": "edge",
+   "ratio": 0.43,
+   "crossMin": 240,
+   "feeBps": 30,
+   "sym": "UNI",
+   "kind": "v3",
+   "feePct": 0.3,
+   "roundTripPct": 0.6,
+   "priceWeth": 4.004893752072104e-12,
+   "swaps": 1231,
+   "poolTransfers": 1258,
+   "horizons": [
+    {
+     "min": 5,
+     "n": 2860,
+     "corr": 0.14,
+     "spread": 0.116,
+     "trim2": 0.08,
+     "trim5": 0.066,
+     "trim10": 0.038
+    },
+    {
+     "min": 15,
+     "n": 953,
+     "corr": 0.17,
+     "spread": 0.233,
+     "trim2": 0.186,
+     "trim5": 0.142,
+     "trim10": 0.102
+    },
+    {
+     "min": 30,
+     "n": 479,
+     "corr": 0.109,
+     "spread": 0.147,
+     "trim2": 0.144,
+     "trim5": 0.06,
      "trim10": 0.064
     },
     {
      "min": 60,
      "n": 238,
-     "corr": 0.168,
-     "spread": 0.687,
-     "trim2": 0.559,
-     "trim5": 0.387,
-     "trim10": 0.09
+     "corr": -0.052,
+     "spread": -0.241,
+     "trim2": -0.167,
+     "trim5": -0.122,
+     "trim10": -0.174
+    }
+   ],
+   "tradeable": false,
+   "gaps": 0
+  },
+  {
+   "name": "ENA·0.30%",
+   "pool": "0xc3db44adc1fcdfd5671f555236eae49f4a8eea18",
+   "src": "edge",
+   "ratio": 0.368,
+   "crossMin": 240,
+   "feeBps": 30,
+   "sym": "ENA",
+   "kind": "v3",
+   "feePct": 0.3,
+   "roundTripPct": 0.6,
+   "priceWeth": 0.000046944928829474986,
+   "swaps": 2935,
+   "poolTransfers": 3204,
+   "horizons": [
+    {
+     "min": 5,
+     "n": 2866,
+     "corr": 0.193,
+     "spread": 0.117,
+     "trim2": 0.095,
+     "trim5": 0.08,
+     "trim10": 0.058
+    },
+    {
+     "min": 15,
+     "n": 955,
+     "corr": 0.126,
+     "spread": 0.128,
+     "trim2": 0.1,
+     "trim5": 0.08,
+     "trim10": 0.08
+    },
+    {
+     "min": 30,
+     "n": 480,
+     "corr": 0.081,
+     "spread": 0.132,
+     "trim2": 0.061,
+     "trim5": -0.004,
+     "trim10": -0.037
+    },
+    {
+     "min": 60,
+     "n": 238,
+     "corr": 0.068,
+     "spread": 0.079,
+     "trim2": -0.015,
+     "trim5": -0.043,
+     "trim10": -0.001
+    }
+   ],
+   "tradeable": false,
+   "gaps": 0
+  },
+  {
+   "name": "UNI·0.30%",
+   "pool": "0x3470447f3cecffac709d3e783a307790b0208d60",
+   "src": "edge",
+   "ratio": 0.352,
+   "crossMin": 240,
+   "feeBps": 30,
+   "sym": "UNI",
+   "kind": "v3",
+   "feePct": 0.3,
+   "roundTripPct": 0.6,
+   "priceWeth": 4.008951580127276e-12,
+   "swaps": 4509,
+   "poolTransfers": 4618,
+   "horizons": [
+    {
+     "min": 5,
+     "n": 2860,
+     "corr": 0.204,
+     "spread": 0.155,
+     "trim2": 0.134,
+     "trim5": 0.115,
+     "trim10": 0.086
+    },
+    {
+     "min": 15,
+     "n": 953,
+     "corr": 0.114,
+     "spread": 0.18,
+     "trim2": 0.144,
+     "trim5": 0.137,
+     "trim10": 0.126
+    },
+    {
+     "min": 30,
+     "n": 479,
+     "corr": 0.047,
+     "spread": 0.105,
+     "trim2": 0.08,
+     "trim5": 0.035,
+     "trim10": 0.021
+    },
+    {
+     "min": 60,
+     "n": 238,
+     "corr": -0.012,
+     "spread": 0.038,
+     "trim2": -0.065,
+     "trim5": -0.071,
+     "trim10": -0.06
+    }
+   ],
+   "tradeable": false,
+   "gaps": 0
+  },
+  {
+   "name": "PEPE",
+   "pool": "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f",
+   "src": "manual",
+   "sym": "PEPE",
+   "kind": "v2",
+   "feePct": 0.3,
+   "roundTripPct": 0.6,
+   "priceWeth": 1.4902579379432668e-9,
+   "swaps": 4411,
+   "poolTransfers": 4417,
+   "horizons": [
+    {
+     "min": 5,
+     "n": 2864,
+     "corr": 0.257,
+     "spread": 0.07,
+     "trim2": 0.048,
+     "trim5": 0.029,
+     "trim10": 0.013
+    },
+    {
+     "min": 15,
+     "n": 954,
+     "corr": 0.215,
+     "spread": 0.139,
+     "trim2": 0.111,
+     "trim5": 0.082,
+     "trim10": 0.054
+    },
+    {
+     "min": 30,
+     "n": 480,
+     "corr": 0.147,
+     "spread": 0.157,
+     "trim2": 0.114,
+     "trim5": 0.12,
+     "trim10": 0.071
+    },
+    {
+     "min": 60,
+     "n": 238,
+     "corr": 0.078,
+     "spread": 0.116,
+     "trim2": 0.138,
+     "trim5": 0.089,
+     "trim10": 0.127
     }
    ],
    "tradeable": false,
@@ -129,49 +409,50 @@
   {
    "name": "WOJAK",
    "pool": "0xcaa3a16f8440f85303afaab1992f2b97d12469b1",
+   "src": "manual",
    "sym": "wojak",
    "kind": "v2",
    "feePct": 0.3,
    "roundTripPct": 0.6,
-   "priceWeth": 3.115314033294447e-11,
-   "swaps": 2777,
-   "poolTransfers": 2777,
+   "priceWeth": 3.136127419060387e-11,
+   "swaps": 2781,
+   "poolTransfers": 2781,
    "horizons": [
     {
      "min": 5,
-     "n": 2866,
-     "corr": -0.033,
-     "spread": 0.033,
-     "trim2": 0.026,
-     "trim5": 0.015,
-     "trim10": 0.005
+     "n": 2868,
+     "corr": -0.034,
+     "spread": 0.023,
+     "trim2": 0.018,
+     "trim5": 0.014,
+     "trim10": 0.009
     },
     {
      "min": 15,
      "n": 955,
-     "corr": 0.015,
-     "spread": 0.121,
-     "trim2": 0.048,
-     "trim5": 0.027,
-     "trim10": 0.001
+     "corr": -0.043,
+     "spread": 0,
+     "trim2": -0.006,
+     "trim5": -0.018,
+     "trim10": 0.024
     },
     {
      "min": 30,
      "n": 480,
-     "corr": -0.044,
-     "spread": 0.072,
-     "trim2": -0.03,
-     "trim5": -0.001,
-     "trim10": 0.022
+     "corr": 0.003,
+     "spread": -0.081,
+     "trim2": 0.018,
+     "trim5": 0.129,
+     "trim10": 0.082
     },
     {
      "min": 60,
      "n": 238,
-     "corr": -0.158,
-     "spread": -0.628,
-     "trim2": -0.766,
-     "trim5": -0.484,
-     "trim10": -0.168
+     "corr": -0.118,
+     "spread": -0.12,
+     "trim2": -0.126,
+     "trim5": 0.011,
+     "trim10": 0.029
     }
    ],
    "tradeable": false,
@@ -180,49 +461,50 @@
   {
    "name": "SPX6900",
    "pool": "0x52c77b0cb827afbad022e6d6caf2c44452edbc39",
+   "src": "manual",
    "sym": "SPX",
    "kind": "v2",
    "feePct": 0.3,
    "roundTripPct": 0.6,
-   "priceWeth": 0.0001705319897431007,
-   "swaps": 3067,
-   "poolTransfers": 3070,
+   "priceWeth": 0.00017001348867489005,
+   "swaps": 3066,
+   "poolTransfers": 3069,
    "horizons": [
     {
      "min": 5,
-     "n": 2867,
-     "corr": 0.259,
+     "n": 2865,
+     "corr": 0.229,
      "spread": 0.076,
-     "trim2": 0.051,
-     "trim5": 0.04,
-     "trim10": 0.024
+     "trim2": 0.048,
+     "trim5": 0.037,
+     "trim10": 0.021
     },
     {
      "min": 15,
-     "n": 955,
-     "corr": 0.232,
-     "spread": 0.15,
-     "trim2": 0.114,
-     "trim5": 0.092,
-     "trim10": 0.071
+     "n": 954,
+     "corr": 0.216,
+     "spread": 0.166,
+     "trim2": 0.106,
+     "trim5": 0.09,
+     "trim10": 0.063
     },
     {
      "min": 30,
      "n": 480,
-     "corr": 0.112,
-     "spread": 0.11,
-     "trim2": 0.039,
-     "trim5": 0.032,
-     "trim10": 0.046
+     "corr": 0.109,
+     "spread": 0.088,
+     "trim2": 0.107,
+     "trim5": 0.05,
+     "trim10": 0.014
     },
     {
      "min": 60,
      "n": 238,
-     "corr": 0.047,
-     "spread": 0.085,
-     "trim2": 0.077,
-     "trim5": 0.137,
-     "trim10": 0.074
+     "corr": 0.003,
+     "spread": 0.028,
+     "trim2": -0.047,
+     "trim5": 0.093,
+     "trim10": 0.066
     }
    ],
    "tradeable": false,
@@ -231,6 +513,7 @@
   {
    "name": "MOG",
    "pool": "0x7832310cd0de39c4ce0a635f34d9a4b5b47fd434",
+   "src": "manual",
    "sym": "Mog",
    "kind": "v3",
    "feePct": 1,
@@ -240,49 +523,50 @@
   {
    "name": "ANDY",
    "pool": "0xa1bf0e900fb272089c9fd299ea14bfccb1d1c2c0",
+   "src": "manual",
    "sym": "ANDY",
    "kind": "v2",
    "feePct": 0.3,
    "roundTripPct": 0.6,
-   "priceWeth": 2.938829162017206e-9,
-   "swaps": 1719,
-   "poolTransfers": 1720,
+   "priceWeth": 2.9280143774150723e-9,
+   "swaps": 1715,
+   "poolTransfers": 1716,
    "horizons": [
     {
      "min": 5,
-     "n": 2864,
-     "corr": 0.079,
-     "spread": 0.068,
-     "trim2": 0.015,
-     "trim5": 0.013,
-     "trim10": 0.005
+     "n": 2868,
+     "corr": 0.069,
+     "spread": 0.069,
+     "trim2": 0.019,
+     "trim5": 0.01,
+     "trim10": 0.003
     },
     {
      "min": 15,
-     "n": 954,
-     "corr": 0.068,
-     "spread": 0.073,
-     "trim2": 0.069,
-     "trim5": 0.059,
-     "trim10": 0.021
+     "n": 955,
+     "corr": 0.142,
+     "spread": 0.143,
+     "trim2": 0.07,
+     "trim5": 0.047,
+     "trim10": 0.015
     },
     {
      "min": 30,
      "n": 480,
-     "corr": 0.168,
-     "spread": 0.255,
-     "trim2": 0.208,
-     "trim5": 0.091,
-     "trim10": 0.089
+     "corr": -0.062,
+     "spread": 0.281,
+     "trim2": 0.177,
+     "trim5": 0.105,
+     "trim10": 0.115
     },
     {
      "min": 60,
      "n": 238,
-     "corr": -0.086,
-     "spread": 0.201,
-     "trim2": 0.169,
-     "trim5": 0.31,
-     "trim10": 0.133
+     "corr": 0.009,
+     "spread": 0.333,
+     "trim2": 0.274,
+     "trim5": 0.272,
+     "trim10": 0.102
     }
    ],
    "tradeable": false,
