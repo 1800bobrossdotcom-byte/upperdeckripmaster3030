@@ -705,6 +705,47 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
   two ids differing by one character in 66 hex digits is a paste error the eye cannot catch, and
   it would offer a choice between one pool and itself.
 
+### ⛔ AND THE STUDIO RECEIVES NO TRADING FEES AT ALL — measured 2026-08-08, `docs/BANKR-SWARM.md`
+*Artist: "research bankr bot … since we bring in trading fees, repopulating those fees, and then
+trading upwards in swarm movement."* **The premise is four words long and it is false.** Read off
+mainnet before designing anything on it: treasury `0x8455cF29…De21950` holds **0 RARE and 0 WETH**
+— the two assets a Uniswap v4 LP fee on these pools would arrive as. Its entire balance is
+**7,100 $3030 (≈$632) of PACK SPLITS**, and 7,250 $3030 (≈$646) has burned.
+- ⚑ **A ZERO HERE IS PROOF OF ZERO RECEIVED, NOT OF A WITHDRAWAL**, and only because the treasury
+  is a cold Ledger that **signs nothing** — the property `docs/TREASURY.md` chose for custody
+  reasons is what makes its balance a readable ledger of lifetime income. `_split()` PUSHES to it
+  and nothing can push back out.
+- ⚑ **THIS CLOSES A QUESTION THIS FILE HAS CARRIED AS OPEN SINCE JULY** — *"SuperRare's public
+  docs do NOT state … the buy/sell fee split and who receives it. Ask them."* We no longer need
+  to: whatever the curve charges, **it does not come here.** `ECONOMIC-FLOW.md` line 29 was right
+  all along — *"no treasury, no team unlock, **no fee wallet**"*.
+- ⛔ **AND BANKR CANNOT CREATE ONE FOR $3030, EVER.** Its 0.665% creator share exists only for
+  tokens **launched through Bankr**, and the fee beneficiary is fixed **at deployment**. $3030 was
+  deployed by SuperRare's multicurve factory on mainnet; `GET /token-launches/0x1D4bcbb5…/fees`
+  returns **404 — not launched via Bankr**. There is no onboarding path. A fee stream is not
+  something the token has and we forgot to collect; it would have to be BUILT, on Base, as a new
+  thing (`BANKR-SWARM.md` §4-D/E).
+- ⛔ **THE REAL FINDING IS THE ORDER BOOK, NOT THE PLUMBING: 24 h volume $5,440 on 1 BUY AND 10
+  SELLS.** Even at Bankr's best case that is **$36/day**, and no fee architecture manufactures a
+  second buyer — it moves the studio's own money between pockets and pays gas for the trip.
+  ⚠ Also measured: **only ONE of the three pools in `market.pools[]` is indexed at all** (RARE,
+  $269k liquidity). The ETH and USDC pools show no activity, so `marketDepth()` deciding by depth
+  is doing exactly the job it was written for.
+- ⛔ **A STUDIO-FUNDED SWARM THAT BUYS TO MOVE THE PRICE IS REFUSED, AND THE REASON IS THIS REPO'S
+  OWN.** It is market manipulation (wash trading too, if the wallets trade each other, which also
+  falsifies the volume the site prints). ⚑ **But the narrower reason is fatal first: a project
+  that will not publish "30.7%" because a printed number might drift into a lie cannot run bots
+  whose entire function is to mislead.** The ethos line is *"parody the casino … never
+  deceptive"*; a swarm that manufactures price action **is** the casino. **The word survives, the
+  target changes** — point it at DISTRIBUTION and at the GAMES.
+- ✅ **WHAT DOES INTEGRATE, and neither needs a fee stream:** Bankr's router is **token-keyed, not
+  pool-keyed**, so it is structurally incapable of filling from the empty ETH pool — the same
+  safety property that made the site's swap link name the token. And `POST /partner/wallets`
+  provisions a real on-chain identity per player, which is the honest swarm and answers
+  `SEATS.md`'s own admission that *"a seat is advisory."* ⚠ Both are CUSTODIAL and must say so.
+  ⚠ **Gated on one unverified fact**: whether Bankr's router can fill a **v4 pool quoted in RARE**.
+  Unknowable from the docs; §5 has the $5 quote that settles it.
+
 ## ✅ THE UPDATES LOG — `updates.json` → `updates.html`, `npm run shots`, `npm run test:updates` (27)
 *Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them postable
 blurbs for social … with each one include a screenshot."*
