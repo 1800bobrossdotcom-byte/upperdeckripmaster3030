@@ -320,6 +320,79 @@ function amountsFor(budget0, poolTick, tickLower, tickUpper) {
   };
 }
 
+/* ── BID — single-sided ETH, the only shape that works with ETH and no $3030 ─────────────
+ * ⚑ A TWO-SIDED QUOTE NEEDS BOTH ASSETS. With only ETH the honest instrument is a range placed
+ *   entirely on the far side of spot, holding ETH and nothing else until price reaches it — a
+ *   standing BID. It is a limit order, publicly visible on-chain, and it is the one thing this
+ *   book is short of: total quote-side depth is under $8,000.
+ * ⚑ AND IT IS THE OPPOSITE OF WHAT WAS ASKED FOR ORIGINALLY, WHICH IS WHY IT IS WORTH SAYING
+ *   OUT LOUD: a buy spends $100 once and it is gone. A bid puts the same $100 under the market
+ *   permanently, earns 0.9% on anything that crosses it, and if nobody ever sells into it you
+ *   still have your ETH. It does not push a price up. It catches a price coming down.
+ * ⚠ TICK DIRECTION IS THE TRAP. currency0 is ETH and currency1 is $3030, so P = $3030-per-ETH
+ *   and a CHEAPER $3030 is a HIGHER tick. A bid therefore sits ABOVE the current tick while
+ *   sitting BELOW the current dollar price. Get it backwards and you have posted an ask. */
+async function bid(args) {
+  const p = POOLS.find(x => x.key === 'ETH');
+  if (poolId(p).toLowerCase() !== p.id.toLowerCase()) return console.log('  ⛔ pool params do not reproduce the id — refusing');
+  const refs = await usdRefs();
+  const s = await slot0(p.id);
+  if (!refs.tokenUsd || !refs.ethUsd) return console.log('  ⛔ no reference price — refusing to size blind.');
+
+  const near = Number(args.near || 5);    // top of the bid, % below reference
+  const far  = Number(args.far  || 30);   // bottom of the bid, % below reference
+  if (!(far > near)) return console.log('  ⛔ --far must be deeper than --near');
+
+  const ethBudget = args.eth ? Number(args.eth) : (Number(args.usd || 100) / refs.ethUsd);
+  const refPx = refs.tokenUsd;
+  const poolPx = refs.ethUsd / humanPrice(s.tick, p);
+
+  const edge = px => priceToTick(refs.ethUsd / px);
+  let tLo = align(Math.min(edge(refPx * (1 - near / 100)), edge(refPx * (1 - far / 100))), p.spacing, -1);
+  let tHi = align(Math.max(edge(refPx * (1 - near / 100)), edge(refPx * (1 - far / 100))), p.spacing, +1);
+
+  console.log(`\n  A STANDING BID — ETH only, no $3030 required\n`);
+  console.log(`  reference $3030 ${usd(refPx)}   this pool ${usd(poolPx)}   your capital ${fmt(ethBudget, 6)} ETH (${usd(ethBudget * refs.ethUsd)})`);
+
+  /* ⛔ THE WHOLE POSITION MUST SIT BELOW SPOT OR IT IS NOT A BID. If the pool's tick is already
+   *   inside the range, part of it is an ASK and the first trade sells your ETH into a falling
+   *   market at a price you did not choose. Refuse rather than silently post a hybrid. */
+  if (s.tick >= tLo) {
+    console.log(`\n  ⛔ REFUSING: the pool tick (${s.tick}) is already inside this range.`);
+    console.log(`     The pool prices $3030 at ${usd(poolPx)} against a reference of ${usd(refPx)}, so a bid`);
+    console.log(`     ${near}% down is not actually below this pool's market. Use a deeper --near.\n`);
+    return;
+  }
+
+  const sa = tickToSqrt(tLo), sb = tickToSqrt(tHi);
+  const L = ethBudget * (sa * sb) / (sb - sa);
+  const tokensIfFilled = L * (sb - sa);            // all currency1 once price passes tHi
+  const avgFill = ethBudget * refs.ethUsd / tokensIfFilled;
+
+  console.log(`\n  THE BID`);
+  console.log(`     buys between  ${usd(refPx * (1 - far / 100))} and ${usd(refPx * (1 - near / 100))} per $3030   (ticks ${tLo} … ${tHi})`);
+  console.log(`     you post      ${fmt(ethBudget, 6)} ETH   and ZERO $3030`);
+  console.log(`     if fully hit  you end up holding ~${fmt(tokensIfFilled, 0)} $3030 at an average of ${usd(avgFill)}`);
+  console.log(`     if never hit  you still hold your ${fmt(ethBudget, 6)} ETH — a bid is not a purchase`);
+  console.log(`     it earns      0.9% of anything that trades through the range, while it is in range`);
+
+  console.log(`\n  WHAT IT DOES TO THE BOOK`);
+  const depth = refs.liqQuoteUsd || 0;
+  console.log(`     buy-side depth today            ${usd(depth)}`);
+  console.log(`     this adds                       ${usd(ethBudget * refs.ethUsd)}  (+${depth ? (ethBudget * refs.ethUsd / depth * 100).toFixed(1) : '?'}%)`);
+  console.log(`     ⚑ and it is concentrated: spread over ${near}–${far}% instead of the whole curve,`);
+  console.log(`        so within that band it is far deeper than the same money added flat.`);
+
+  console.log(`\n  ⚠ THE HONEST PART`);
+  console.log(`     This does not raise the price and is not meant to. It is a public offer to BUY`);
+  console.log(`     lower. If it fills you own $3030 bought on the way down, which is exactly the`);
+  console.log(`     position a maker is paid to take — and at 10 sells to 1 buy it is the leg to`);
+  console.log(`     plan for. Size it as money you are content to convert into the token.\n`);
+  console.log(`  TO POST: Uniswap → Pool → New → v4 → ETH/$3030 → 0.9% → range above, ETH only.`);
+  console.log(`     token ${TOKEN}`);
+  console.log(`     ⚠ Re-run \`npm run mm book\` first — the tick moves.\n`);
+}
+
 /* ── main ──────────────────────────────────────────────────────────────────────────────── */
 const IS_MAIN = process.argv[1] && process.argv[1].endsWith('mm.mjs');
 const argv = IS_MAIN ? process.argv.slice(2) : [];
@@ -332,7 +405,14 @@ if (IS_MAIN) {
   try {
     if (cmd === 'book') await book();
     else if (cmd === 'quote') await quote(args);
-    else { console.log('  usage: mm book | mm quote [--pool ETH] [--eth N | --usd N] [--width 20] [--maxSkew 10]'); process.exit(1); }
+    else if (cmd === 'bid') await bid(args);
+    else {
+      console.log('  usage:');
+      console.log('    mm book                                     price, fee and hazards on every pool');
+      console.log('    mm quote [--eth N|--usd N] [--width 20]     two-sided range (needs ETH *and* $3030)');
+      console.log('    mm bid   [--usd 100] [--near 5] [--far 30]  ETH-only standing bid below spot');
+      process.exit(1);
+    }
   } catch (e) {
     console.error('  ⛔', e.shortMessage || e.message);
     process.exit(1);
