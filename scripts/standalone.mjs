@@ -62,12 +62,28 @@ const PATCHES = [
  *   chain-config.js fails to arrive sends the page to a SEPOLIA endpoint and reads a testnet as
  *   though it were the market. It is a 404-on-one-script away, and nothing would say so. */
 
+/* ⛔ THE META DESCRIPTION SHIPS THE TICKER, AND IT IS THE ONE STRING A PORTAL SCRAPES.
+ *   The cabinets' own `<meta name="description">` read "Ante $3030 and stake your cards…" — so a
+ *   build that had correctly stripped every wallet module still introduced itself to itch.io as a
+ *   crypto game, in the single sentence that becomes the listing blurb. My BANNED list missed it
+ *   because it hunts CAPABILITY (rpc urls, connect paths, the contract address) and this is
+ *   PROSE. Both matter, for different reasons: capability is what phones home, prose is what gets
+ *   you buried.
+ * ⚠ These are the cabinets' own words with the ante clauses removed — not new copy. Anything
+ *   genuinely missing is left EMPTY and reported, rather than invented: the arcade menu has
+ *   already once described a game that was not the one that shipped, and a listing is a promise
+ *   to a stranger who has not played it yet. */
 const GAMES = {
-  city:        { file: 'city.html',        title: 'THE CITY' },
-  cloudracer:  { file: 'cloudracer.html',  title: 'CLOUD RACER' },
-  riprocketer: { file: 'riprocketer.html', title: 'RIP ROCKETER' },
-  dogfight:    { file: 'dogfight.html',    title: 'DOGFIGHT' },
-  section9:    { file: 'section9.html',    title: 'SECTION 9' },
+  city: { file: 'city.html', title: 'THE CITY',
+    blurb: 'Explore a 3.8 km generated city as a bird, a squirrel, a cat or a dog. No timer, no score, nothing chasing you — fly the river, climb the towers, and find the places only your animal can reach.' },
+  cloudracer: { file: 'cloudracer.html', title: 'CLOUD RACER',
+    blurb: 'Anti-grav pod racing on a white sky-circuit. Take the inside line, earn your boost, tuck into the slipstream and take the podium.' },
+  riprocketer: { file: 'riprocketer.html', title: 'RIP ROCKETER',
+    blurb: 'Galaga on acid. A formation of trading cards flies in, breaks out and dives at you. Rip it back.' },
+  dogfight: { file: 'dogfight.html', title: 'DOGFIGHT',
+    blurb: 'A contained-arena dogfight. Fly a hand-built craft into a winner-takes-all melee — most frags takes the podium.' },
+  section9: { file: 'section9.html', title: 'SECTION 9',
+    blurb: 'A tactical arena shooter. Six maps, real cover, bots that flank and suppress, and a time-to-kill long enough that positioning beats reflexes.' },
 };
 
 const CREDIT = (title) => `
@@ -103,7 +119,13 @@ function build(key) {
   }
   /* 2 — the site's own nav/footer links point back at pages that do not exist in the export. */
   html = html.replace(/<a\b[^>]*href="(?:\/|\.\/)?(?:index\.html|cards\/[^"]*|arcade\.html|whitepaper\.html|tokenomics\.html|updates\.html)"[^>]*>[\s\S]*?<\/a>/g, '');
-  /* 3 — the credit line, which is the entire funnel. */
+  /* 3 — the meta description a portal will scrape. Replaced, never patched around. */
+  const esc = s => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const metaRe = /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i;
+  const meta = `<meta name="description" content="${esc(g.blurb)}">`;
+  html = metaRe.test(html) ? html.replace(metaRe, meta)
+                           : html.replace(/<\/head>/i, '  ' + meta + '\n</head>');
+  /* 4 — the credit line, which is the entire funnel. */
   html = html.replace(/<\/body>/i, CREDIT(g.title) + '\n</body>');
 
   const dir = join(OUT, key);

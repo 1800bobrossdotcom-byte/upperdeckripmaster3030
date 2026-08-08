@@ -78,6 +78,19 @@ for (const g of GAMES) {
   ok(!hits.length, 'no wallet, no chain config, no contract address anywhere in the build', hits[0] || 'clean');
   ok(/ripmaster3030studios\.com/.test(html), 'the studio credit link survives — this is the whole funnel');
 
+  /* ⛔ THE PROSE A PORTAL SCRAPES IS A SEPARATE SURFACE FROM THE CODE IT RUNS, AND IT SHIPPED
+   *   WRONG. The cabinets' own meta description said "Ante $3030 and stake your cards" — so a
+   *   build with every wallet module correctly removed still introduced itself to itch.io as a
+   *   crypto game, in the exact sentence that becomes the listing blurb. Capability is what
+   *   phones home; prose is what gets you buried. Assert BOTH. */
+  const desc = (html.match(/<meta\s+name="description"\s+content="([^"]*)"/i) || [])[1] || '';
+  ok(desc.length > 40, 'it has a description at all — a portal listing needs one', `${desc.length} chars`);
+  ok(!/\$?\b3030\b|ante|stake|token|wallet|crypto|mint|NFT/i.test(desc),
+    'and the description a portal scrapes mentions no token, ante or wallet', desc.slice(0, 60) + '…');
+  const title = (html.match(/<title>([^<]*)<\/title>/i) || [])[1] || '';
+  ok(!/\$?\b3030\b(?!studios)/i.test(title.replace(/ripmaster3030studios/gi, '')),
+    'nor does the <title>', title);
+
   /* §B/C/D — drive it. */
   const pg = await br.newPage();
   const errs = [], offsite = [];
