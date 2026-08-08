@@ -761,6 +761,31 @@ finding.**
   ⚠ **Gated on one unverified fact**: whether Bankr's router can fill a **v4 pool quoted in RARE**.
   Unknowable from the docs; §5 has the $5 quote that settles it.
 
+### ⛔ A SWARM FARMING FEES ON A BASE TOKEN LOSES MONEY BY ARITHMETIC — before any ethics argument
+*Artist, asking for clarity: "would we be launching a token on base via bankr with swarms that
+then push buys / fees / txns / burns to the main l1 $3030?"* **No, and the reason that settles it
+is not the manipulation one.** A Bankr pool charges **~1.75% all-in** and pays the creator
+**0.665%**, so **every $1 of volume the studio generates itself nets −1.085¢** (a round trip is
+two swaps: 3.5% paid, 1.33% back, **−2.17%**). ⛔ **$100k of swarm volume destroys ~$2,170 of the
+studio's own capital to harvest ~$1,330 of "fees"** — before gas, spread and price impact.
+- ⚑ **THE COMPARISON THAT ENDS IT: you could have bought $2,170 of $3030 directly.**
+  Self-generated volume is not income, it is **the studio's own money round-tripping through a
+  62% toll booth**, and it cannot be tuned away because the fee that funds you is a strict
+  FRACTION of the fee you paid. **A fee farm you feed yourself always loses.** It stops being a
+  loss only when somebody else trades — at which point the swarm adds nothing but its own losses.
+- ⛔ **AND A SECOND TOKEN BREAKS `ECONOMIC-FLOW.md` LINE 29** — *"$3030 is the only fungible
+  token"* — plus it inherits Bankr's 15% creator vest and that same 1.75% tax, neither of which
+  $3030 has. ⚠ A Base token is defensible only as a PRODUCT the arcade genuinely needs and real
+  players trade; as a fee device pointed at $3030 it is the loop above wearing a ticker.
+- ⚠ **"SWARM" IS NOT A BANKR PRODUCT.** Nothing in its docs describes multi-agent coordination.
+  The nearest two are **automations** (a scheduler) and `POST /partner/wallets` (user accounts).
+- ✅ **THE PROPOSAL IS THREE THINGS, NO NEW TOKEN, NO TRADING BOTS:** ① recycle the SuperRare fees
+  that already arrive — Bankr is the SCHEDULER and ROUTER, not the fee source — buy on L1, burn,
+  `burnBps()` moves, the card shows it; ② Bankr as a second labelled custodial buy door, which is
+  the on-ramp fix for 1 buy / 10 sells; ③ `POST /partner/wallets` per arcade PLAYER. ⚑ **The
+  swarm is PLAYERS, NOT TRADERS** — each wallet acts for its owner, and their L1 balance reaches
+  the art through `tierOfHolder()`. ⚠ What moves to Base is **revenue, never the token.**
+
 ### ⛔ DON'T BRIDGE THE TOKEN — BRIDGE THE MONEY. And the lens is already connected.
 *Artist: "don't tokens sometimes launch a base pair? since this is on l1 mainnet can we connect
 them somehow with the lens?"* ⚑ **The tension behind the question is real and worth naming: the

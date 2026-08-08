@@ -90,6 +90,85 @@ not eligible for even that.
 
 ---
 
+## 0½. ⛔ "ARE WE LAUNCHING A TOKEN ON BASE VIA BANKR WITH SWARMS THAT PUSH BUYS / FEES / BURNS TO L1 $3030?"
+
+**No. That is not the proposal, and I would argue against it.** Three things are bundled in
+that sentence and they have to come apart, because two of them are bad and one is good.
+
+### ⛔ THE SWARM-FARMS-FEES LOOP IS A MONEY INCINERATOR, AND THIS IS ARITHMETIC, NOT ETHICS
+
+Set the manipulation question aside completely for a moment — the mechanism does not work on
+its own terms. A Bankr pool charges **~1.75% all-in** per swap and pays the creator **0.665%**:
+
+| per $1 of volume you generate yourself | |
+| --- | --- |
+| paid into the pool | **−1.75¢** |
+| returned to you as creator fees | **+0.665¢** |
+| **net** | ⛔ **−1.085¢** |
+
+The other 1.085¢ is gone — Bankr protocol 0.475%, BNKR buyback 0.2375%, Doppler ~0.0875%, and
+0.285% locked into the pool as LP. **A round trip is two swaps: 3.5% paid, 1.33% back, −2.17%.**
+
+⛔ **So $100,000 of swarm-generated volume destroys ~$2,170 of the studio's own capital to
+harvest ~$1,330 in "fees" — before gas, before spread, before price impact.** Then you spend
+that $1,330 buying $3030.
+
+⚑ **THE COMPARISON THAT ENDS IT: you could have bought $2,170 of $3030 directly.** Self-generated
+volume is not income. It is **the studio's own money making a round trip through a 62% toll
+booth**, and every version of this idea has that toll in it. It cannot be tuned away, because
+the fee that funds you is a strict fraction of the fee you paid. **A fee farm you feed yourself
+always loses.**
+
+⚠ It only stops being a loss when **somebody else** is trading — at which point the fee is real
+income and the swarm is doing nothing except adding its own losses on top.
+
+### ⛔ AND A SECOND TOKEN BREAKS THE ONE SENTENCE THE PROJECT IS BUILT ON
+
+`docs/ECONOMIC-FLOW.md` line 29: *"`$3030` is the only fungible token."* A Base token means two
+things to defend, two charts, two stories, and the obvious reading from outside — that the art
+token was the warm-up. It also inherits Bankr's 15% creator vest and that same 1.75% swap tax,
+neither of which $3030 has. ⚠ **If a Base token is ever launched it should be because the arcade
+genuinely needs its own currency and real players will trade it — a product decision that
+stands on its own.** As a fee-harvesting device pointed at $3030, it is the loop above wearing a
+ticker.
+
+### ⚠ AND "SWARM" IS NOT A BANKR PRODUCT
+
+Worth saying plainly since the word is doing a lot of work: **Bankr has no swarm primitive.**
+Nothing in its documentation describes multi-agent coordination. The two things that come
+closest are **automations** (scheduled orders — 20 concurrent on Club) and the **partnership
+API** (`POST /partner/wallets`, many wallets each with its own key). Neither is a trading
+collective; one is a scheduler, the other is user accounts.
+
+### ✅ SO WHAT IS THE PROPOSAL — three independent things, no new token, no trading bots
+
+**None of these requires a Bankr launch and none of them trades on the studio's behalf.**
+
+```
+1. RECYCLE        SuperRare fees you ALREADY earn  ──►  Bankr automation (schedule)
+   (the flywheel)      ──►  buy $3030 on L1  ──►  burn  ──►  burnBps() moves  ──►  the card shows it
+                       ⚑ Bankr is the SCHEDULER and ROUTER here. Not the fee source. No token launched.
+
+2. DISTRIBUTE     Bankr as a second, labelled, custodial buy door.
+                       "buy $25 of 0x1D4bcbb5… on ethereum" — one sentence instead of
+                       get RARE → find a v4 pool → swap. Fixes 1 buy / 10 sells at the on-ramp.
+
+3. IDENTIFY       POST /partner/wallets — one wallet per arcade PLAYER.
+   (the "swarm")       Real on-chain identity, so the rake settles and the podium pays.
+                       ⚑ THE SWARM IS PLAYERS, NOT TRADERS. Each wallet acts for its owner.
+                       Their L1 $3030 balance then shows up in the art via tierOfHolder().
+```
+
+⚑ **Leg 1 is the literal thing that was asked for — fees in, buys and burns out — and it needs
+no Base token and no bots.** The fee source already exists (SuperRare's). Bankr's only job is to
+convert and schedule it, which is what its cross-chain swap and automations are for.
+
+⚠ **The one thing that does move to Base is REVENUE, not the token** — x402 endpoint income and
+the arcade coin box, both already Base-native, converted to L1 $3030 buys in a single
+cross-chain call. See §4½.
+
+---
+
 ## 1. What Bankr actually is (verified against the docs, 2026-08-08)
 
 Bankr is **infrastructure for self-sustaining AI agents** — custodied wallets, a trading
