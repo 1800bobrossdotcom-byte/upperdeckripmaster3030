@@ -121,6 +121,15 @@ usual advice and it is why the screen below is denominated in the round trip a p
 <h2>$3030 · READ FROM THE CONTRACT, AT MEASURE TIME</h2>
 <div class="grid" id="ours"></div>
 
+<h2>ROUTING SAFETY · WHERE NOT TO TRADE</h2>
+<div class="note hard">⛔ <b>The FWA/ETH pool at 0.855% is a seller trap.</b> Measured against the live quoter,
+same block: selling 1,000&nbsp;FWA there returns <b>0.009385&nbsp;ETH</b>; the main pool returns
+<b>0.009984</b> — <b>6.0% worse</b> for the identical trade. And it only permits selling: a buy of any size
+<b>reverts</b>, which is exactly why the 7.2% price gap has never been arbitraged away. It is not an
+opportunity, it is a cage, and it took 92 swaps in the last 24 hours.
+<br><br>⚑ <b>Always route through the token, never a pool id.</b> A router picks the venue and cannot fill from
+a pool that refuses the trade; a pool-keyed link aims you at one specific market and this is what that costs.</div>
+
 <h2>THE HUNT · PAPER RECORD</h2>
 <div class="grid" id="hunt"></div>
 <div class="note">⚑ <b>The bots trade only what the screen below passes</b>, and the record is published whether
