@@ -35,7 +35,7 @@ const SUITES = [
   'name', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
   'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
-  'challenge', 'arena', 'updates', 'board', 'mm', 'onramp', 'standalone',
+  'challenge', 'arena', 'updates', 'board', 'mm', 'onramp', 'standalone', 'rewards',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list
