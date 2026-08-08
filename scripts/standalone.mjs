@@ -19,7 +19,7 @@
  *   drives every build and asserts it still boots, renders and takes input with none of them.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, cpSync, statSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -166,6 +166,66 @@ function build(key) {
   return { key, ok: true, removed, copied, bytes, missing, patched, dir };
 }
 
+/* ⛔ STATIC ANALYSIS CANNOT SEE A COMPUTED PATH, AND FOUR OF FIVE BUILDS SHIPPED BROKEN BECAUSE
+ *   OF IT. `assetsOf` matches string literals, so `cards/art/deck/${n}.webp` and anything named
+ *   inside a fetched JSON manifest is invisible to it — DOGFIGHT and RIP ROCKETER went out
+ *   missing the CARD ART, which is what those games are about. It passed every check I had
+ *   because the games fail open: a 404 throws nothing, renders nothing, and looks fine.
+ * ⚑ SO THE SWEEP IS EMPIRICAL NOW. Serve the build, PLAY it, write down every request that 404s,
+ *   copy exactly those, and go again until a pass adds nothing. What the game asks for is not a
+ *   guess about the game — it is the game. */
+async function trace(keys) {
+  const { createServer } = await import('node:http');
+  const { createRequire } = await import('node:module');
+  const { chromium } = createRequire(import.meta.url)(
+    '/opt/node22/lib/node_modules/playwright/node_modules/playwright-core/index.js');
+  const MT = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css',
+    '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp4': 'video/mp4', '.svg': 'image/svg+xml',
+    '.glb': 'model/gltf-binary', '.skn': 'application/octet-stream', '.wld': 'application/octet-stream',
+    '.mp3': 'audio/mpeg', '.gif': 'image/gif', '.bin': 'application/octet-stream' };
+  let SERVE = '', missed = [];
+  const srv = createServer((q, r) => {
+    let p = q.url.split('?')[0]; if (p === '/') p = '/index.html';
+    const f = join(SERVE, decodeURIComponent(p));
+    if (!existsSync(f) || !extname(f)) { missed.push(p.replace(/^\//, '')); r.writeHead(404); return r.end('x'); }
+    r.writeHead(200, { 'content-type': MT[extname(f)] || 'application/octet-stream' }); r.end(readFileSync(f));
+  });
+  await new Promise(z => srv.listen(8092, z));
+  const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+    args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const out = {};
+  for (const k of keys) {
+    SERVE = join(OUT, k);
+    let added = 0;
+    for (let pass = 0; pass < 3; pass++) {
+      missed = [];
+      const pg = await br.newPage({ viewport: { width: 1280, height: 720 } });
+      await pg.goto('http://localhost:8092/index.html', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await pg.waitForTimeout(4000);
+      for (const sel of ['#btnPractice', '#btnStart', '#btnPlay']) {
+        const el = await pg.$(sel).catch(() => null);
+        if (el && await el.isVisible().catch(() => false)) { await el.click().catch(() => {}); break; }
+      }
+      await pg.waitForTimeout(3500);
+      await pg.keyboard.press('Space').catch(() => {});
+      await pg.keyboard.down('KeyW').catch(() => {}); await pg.waitForTimeout(1800);
+      await pg.keyboard.up('KeyW').catch(() => {}); await pg.waitForTimeout(1200);
+      await pg.close();
+      const want = [...new Set(missed)].filter(f => !/^(gate\.js|favicon)/.test(f));
+      let got = 0;
+      for (const f of want) {
+        const from = join(ROOT, f); if (!existsSync(from) || statSync(from).isDirectory()) continue;
+        const to = join(OUT, k, f); mkdirSync(dirname(to), { recursive: true });
+        cpSync(from, to); got++; added++;
+      }
+      if (!got) break;
+    }
+    out[k] = added;
+  }
+  await br.close(); srv.close();
+  return out;
+}
+
 const arg = (process.argv[2] || 'all').toLowerCase();
 const keys = arg === 'all' ? Object.keys(GAMES) : [arg];
 if (keys.some(k => !GAMES[k])) { console.log('  games: ' + Object.keys(GAMES).join(' · ') + ' · all'); process.exit(1); }
@@ -177,5 +237,12 @@ for (const k of keys) {
   console.log(`  ${k.padEnd(12)} ${String(r.copied).padStart(3)} files  ${(r.bytes / 1048576).toFixed(1)} MB   stripped ${r.removed.length} modules`);
   if (r.missing.length) console.log(`     ⚠ ${r.missing.length} referenced asset(s) not found: ${r.missing.slice(0, 3).join(', ')}${r.missing.length > 3 ? '…' : ''}`);
 }
+/* ⚑ THE TRACE PASS. Nothing above it can see a computed path; this can, because it asks the
+ * running game. */
+console.log('\n  tracing what each build actually REQUESTS (playing it, not parsing it)…');
+const traced = await trace(keys.filter(k => GAMES[k]));
+for (const [k, n] of Object.entries(traced))
+  console.log(`  ${k.padEnd(12)} ${n ? `+${n} assets static analysis could not see` : 'nothing missing'}`);
+
 console.log(`\n  → ${OUT}`);
 console.log('  ⚠ Run `npm run test:standalone` before shipping — a build that boots is not a build that PLAYS.\n');
