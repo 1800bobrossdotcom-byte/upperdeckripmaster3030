@@ -222,7 +222,27 @@ async function tick() {
     return say(`EXIT ${why} ${(pnl * 100).toFixed(2)}%${skim ? ` · skimmed ${skim.toFixed(5)} ETH to treasury` : ''}`);
   }
 
-  /* ── flat: should we enter? ── */
+  /* ── flat, but the wallet already holds a bag? ADOPT IT RATHER THAN IGNORE IT. ──
+   * ⛔ The bot being "flat" while the wallet holds $100 of the token is the worst of both states:
+   *   nothing is managing the real exposure and the bot is looking for more. Adoption gives the
+   *   existing position a take-profit and a clock. The cost basis comes from `flow:wallet` if the
+   *   operator passes it; absent that, the CURRENT price is used and that is stated out loud —
+   *   an adopted bag with an invented entry would report a fictional P&L. */
+  if (acct) {
+    const held = await pub.readContract({ address: FWA, abi: ERC, functionName: 'balanceOf', args: [acct.address] });
+    if (held > parseEther('1') && !st.pos) {
+      const basis = Number(process.env.BASIS_ETH || 0);
+      st.pos = { entryPx: basis > 0 ? basis / Number(formatUnits(held, 18)) : sig.px, stake: basis || Number(formatUnits(held, 18)) * sig.px,
+        block: head, fwa: Number(formatUnits(held, 18)), adopted: true, basisKnown: basis > 0 };
+      save(st);
+      say(`⚑ ADOPTED an existing bag of ${Number(formatUnits(held, 18)).toFixed(0)} FWA${basis > 0 ? ` at a stated basis of ${basis} ETH` : ' — no BASIS_ETH given, so P&L is measured FROM NOW, not from your real entry'}`);
+      note({ ev: 'adopt', fwa: formatUnits(held, 18), basisKnown: basis > 0 });
+      return;
+    }
+  }
+
+  if (RAILS.manageOnly) return say('manage-only: holding no position and not opening one');
+
   const day = new Date().toISOString().slice(0, 10);
   const spent = st.spent[day] || 0;
   const stake = Math.min(RAILS.maxPerTrade, RAILS.maxPerDay - spent);

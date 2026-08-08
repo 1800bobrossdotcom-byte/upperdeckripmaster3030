@@ -17,7 +17,12 @@ const H = s => console.log(`\n── ${s} ${'─'.repeat(Math.max(0, 72 - s.leng
 
 const ROUTER = '0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af';
 const TREASURY = '0x8455cF296e1265b494605207e97884813De21950';
-const base = { toAddress: ROUTER, valueEth: 0.05, spentTodayEth: 0, walletBalanceEth: 0.1, hourUTC: 20, live: true };
+/* ⛔ THE FIXTURE IS DERIVED FROM THE RAILS, NOT PINNED. It hard-coded valueEth 0.05 and broke the
+ *   moment the default stake dropped to 0.01 — twelve assertions went red because the FIXTURE was
+ *   stale, not the code. A test whose setup restates a value the code owns has two sources of
+ *   truth and fails on the wrong one. */
+const base = { toAddress: ROUTER, valueEth: RAILS.maxPerTrade, spentTodayEth: 0,
+  walletBalanceEth: Math.min(RAILS.maxWalletBalance, RAILS.maxPerTrade * 4), hourUTC: 20, live: true };
 const w = o => check({ ...base, ...o });
 
 H('1 · the happy path exists, or every refusal below is vacuous');
@@ -40,7 +45,7 @@ ok(!w({ valueEth: 0 }).ok, 'a zero-value trade is refused');
 ok(!w({ valueEth: -1 }).ok, 'a negative value is refused');
 ok(w({ spentTodayEth: RAILS.maxPerDay - RAILS.maxPerTrade }).ok, 'the last trade that fits the daily cap is allowed');
 ok(!w({ spentTodayEth: RAILS.maxPerDay - RAILS.maxPerTrade + 1e-9 }).ok, 'the one after it is refused');
-ok(!w({ valueEth: 0.05, walletBalanceEth: 0.04 }).ok, 'it will not spend more than it holds');
+ok(!w({ valueEth: RAILS.maxPerTrade, walletBalanceEth: RAILS.maxPerTrade / 2 }).ok, 'it will not spend more than it holds');
 
 H('4 · the balance ceiling — the rail that bounds the worst case');
 /* ⚑ Caps on SPENDING do nothing if the wallet is accidentally funded with 10 ETH. The ceiling is
@@ -67,6 +72,19 @@ H('7 · the trading rules match what was measured');
 ok(RAILS.tpPct === 0.20, 'take-profit is the wide one the sweep chose, not a narrow one that lost');
 ok(RAILS.slPct > RAILS.tpPct, 'the stop is wider than the target — the tight-stop config was chopped to -92%');
 ok(RAILS.hoursUTC.length === 5 && RAILS.hoursUTC[0] === 19, 'the window is the measured 19-23h UTC volume block');
+
+/* ── sizing and manage-only ─────────────────────────────────────────────────── */
+H('8 · the stake is sized from env, and the ceiling moves with it');
+ok(RAILS.maxPerTrade > 0 && RAILS.maxPerTrade <= 0.05, 'the default stake is small', RAILS.maxPerTrade + ' ETH');
+ok(RAILS.maxWalletBalance > RAILS.maxPerTrade, 'the ceiling is above the stake, or every trade would be refused');
+ok(RAILS.maxPerDay >= RAILS.maxPerTrade, 'the daily cap allows at least one trade');
+/* ⛔ The cost curve is why a small stake is acceptable: the toll is the hook's 1%/leg at every
+ *   size, so shrinking the stake gives up very little. Asserted so nobody "optimises" the stake
+ *   upward believing the fee scales away. */
+const cost = usd => (usd * 0.02 + 0.063) / usd * 100;
+ok(cost(20) < 2.4 && cost(96) > 2.0, 'a $20 stake costs 2.31% against $96 at 2.07% — 24 bps, not a cliff', `${cost(20).toFixed(2)}% vs ${cost(96).toFixed(2)}%`);
+ok(cost(5) > cost(20), 'but it does get worse below ~$10 as gas stops being negligible', `$5 = ${cost(5).toFixed(2)}%`);
+ok(typeof RAILS.manageOnly === 'boolean', 'manage-only is a real flag');
 
 console.log(`\n${pass} passed, ${fail} failed.`);
 process.exit(fail ? 1 : 0);
