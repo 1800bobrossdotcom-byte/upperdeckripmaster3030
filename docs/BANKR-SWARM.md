@@ -9,28 +9,63 @@
 
 ---
 
-## 0. ⛔ THE MEASUREMENT THAT DECIDES EVERYTHING, AND IT WAS TAKEN FIRST
+## 0. ⛔ I GOT THIS WRONG FIRST, AND THE MISTAKE IS WORTH MORE THAN THE ANSWER
 
-The ask rests on four words — *"since we bring in trading fees"*. That is the premise, so it
-is the thing to check before designing anything on top of it.
+The ask rests on four words — *"since we bring in trading fees"* — so I checked it before
+designing on top of it, and reported back that **the studio receives no trading fees at all.**
 
-**The studio brings in no trading fees. Not few — zero.**
+**That was wrong. The artist has received $300+ in ETH in fees. He is right and I was not.**
 
-| read | value | what it means |
-| --- | --- | --- |
-| `treasury.balanceOf(RARE)` | **0** | a Uniswap v4 LP fee on a RARE-quoted pool arrives as RARE. None ever has. |
-| `treasury.balanceOf(WETH)` | **0** | nor as WETH. |
-| `treasury` ETH (mainnet) | 0.000376 | dust. |
-| `treasury` ETH (Base) | 0.0000089 | dust. |
-| `treasury.balanceOf($3030)` | **7,100** ≈ $632 | ⚑ **this is the studio's entire revenue to date, and it is pack splits — not trading.** |
-| `totalSupply` | 3,022,750 | 7,250 $3030 burned ≈ $646. |
+⛔ **THE ERROR WAS NOT THE WRONG WALLET. IT WAS MEASURING THE WRONG QUANTITY.** I read
+`balanceOf` on two addresses and reported the answer as lifetime income. **A balance is a
+STOCK; a fee stream is a FLOW, and a balance cannot see money that arrived and left.** The
+reasoning that made it feel safe is in the original note and is where the rot is: *"the
+treasury is a cold Ledger that signs nothing, so a zero balance is proof of zero received."*
+That inference is **true of the cold wallet and of nothing else** — and I quietly extended it
+to `0x432D71bA…59d166c9`, a **hot wallet with 4,605 transactions**, where it is worthless.
 
-Treasury `0x8455cF29…De21950` is a cold Ledger that, by design, **signs nothing** — so nothing
-has ever left it. A zero balance is therefore proof of zero received, not proof of a
-withdrawal. ⚑ **`docs/ECONOMIC-FLOW.md` line 29 said this all along** — *"no treasury, no team
-unlock, **no fee wallet**"* — and `CLAUDE.md` has carried *"SuperRare's public docs do NOT
-state … the buy/sell fee split and who receives it"* as an open question since July. It is not
-open any more. Whatever the SuperRare curve charges, it does not land here.
+⚑ **AND THE LOG SCAN THAT WAS SUPPOSED TO CATCH THAT WAS BLIND BY CONSTRUCTION.** I then
+scanned ERC-20 `Transfer` events for WETH and RARE — and **native ETH emits no logs at all.**
+The artist's own words were *"$300 in **eth**"*. So the one instrument I reached for to fix a
+stock/flow error could not see the asset in question. Two independent methods, both
+structurally incapable of seeing the thing, **both returning zero, which reads as corroboration.**
+
+⚑ **THIS IS THIS REPO'S OWN RECORDED FAILURE, IN A NEW PLACE: the reassuring answer arrived
+first and nothing errored.** Same shape as the four dead RPCs answering HTTP 200 with an error
+body, and as `test:cab`'s headline — *every static assertion passed while the game was
+unplayable.* A measurement that returns a clean zero is not the same as a measurement that
+looked.
+
+### What the scan DID turn up, and it is real
+
+Scanning WETH inflows since launch block 25,697,191 did find movement — including
+**0.0188 WETH (~$83) into the cold treasury** at block 25,697,588, ~80 minutes after launch,
+**which is not there now.** A cold wallet whose balance went up and back to zero is by itself
+proof that the "signs nothing" premise no longer describes reality. I stopped there rather
+than keep forensically reconstructing the artist's own wallets from a container.
+
+### ⚠ What is now measured, what is corrected, and the one thing needed
+
+| | status |
+| --- | --- |
+| studio receives trading fees | ✅ **YES — $300+, artist-confirmed.** My "zero" is retracted. |
+| which address receives them | ⚠ **OPEN — and it is the one input every automation below needs.** |
+| the rate they arrive at | ⚠ open — see the decay note below |
+| Bankr can pay creator fees on $3030 | ⛔ **No, and this is unaffected** — §2, and it turns on the launch record, not on any balance |
+| 24 h volume · buys/sells | ✅ $5,440 · **1 buy / 10 sells** — unaffected |
+| burn to date | ✅ 7,250 $3030 (≈$646) |
+| treasury `$3030` | ✅ 7,100 (≈$632), pack splits |
+
+⚠ **AND THE $300 HAS A DATE ON IT, WHICH CHANGES WHAT IT PREDICTS.** `CLAUDE.md` records the
+RARE pool doing **$60,637 of volume** on launch day. Today it is **$5,440** — about **1/11th**.
+Fees are a percentage of volume, so *the same fee rate that produced $300 in launch week
+produces roughly a tenth of that now.* **$300 earned is a fact; $300/week is not a forecast.**
+⚑ Which is why the sell-pressure finding below survives the correction intact and is still the
+thing that matters most: **fee income is a function of the volume, and the volume is one buyer.**
+
+**⛔ ACTION, and everything in §4 is blocked on it: name the address the fees land on.** Given
+it, `eth_getBalance` deltas plus a log scan give an exact per-day figure in one pass, and a
+Bankr automation can be pointed at it. Without it, this document is guessing at its own input.
 
 ### And the market it would be recycling into
 
@@ -107,25 +142,31 @@ permanently and irreversibly.
 
 ---
 
-## 2. ⛔ WHY THE FLYWHEEL HAS NO FUEL — three independent blockers, any one of them fatal
+## 2. ⛔ THE FEES ARE REAL — AND BANKR STILL CANNOT PAY THEM, FOR A REASON THAT IS NOT ABOUT MONEY
+
+With §0 corrected, the picture is: **there IS a fee stream (SuperRare's), and Bankr's fee
+engine is a separate thing that $3030 cannot enter.** Those are two different statements and
+conflating them is what produced the wrong answer the first time.
 
 **(a) $3030 is not a Bankr token and can never become one.** The fee beneficiary is set *at
-deployment*. $3030 was deployed on 2026-08-06 by SuperRare's multicurve factory
-(`0x25f993C2…29540`) on Ethereum mainnet, block 25,697,191. There is no Bankr launch record to
-attach a beneficiary to. `GET /token-launches/0x1D4bcbb5…/fees` will return **404 — "Token was
-not launched via Bankr."** There is no onboarding path; the docs are explicit that
-*"tokens launched earlier keep the schedule they launched with."*
+deployment*. $3030 was deployed 2026-08-06 by SuperRare's multicurve factory
+(`0x25f993C2…29540`) on mainnet, block 25,697,191. There is no Bankr launch record to attach a
+beneficiary to. `GET /token-launches/0x1D4bcbb5…/fees` returns **404 — "Token was not launched
+via Bankr."** No onboarding path exists; the docs are explicit that *"tokens launched earlier
+keep the schedule they launched with."*
 
-**(b) The SuperRare pool's fees do not come to us either.** Measured in §0: 0 RARE, 0 WETH,
-forever. So there is no *existing* fee stream to recycle, from Bankr or from anywhere.
+⚑ **THIS IS A RECORD-KEEPING FACT, NOT A BALANCE, WHICH IS WHY IT SURVIVED THE CORRECTION.**
+It is the one claim in the original note that did not depend on reading a wallet — and it is
+the load-bearing one. **Bankr's 0.665% is not available to $3030 under any configuration.**
 
-**(c) Even if both were solved, the volume is $5,440/day.** 0.665% of that is **$36/day**, and
-it would be earned by charging our own collectors an extra 1.75% on every trade.
+**(b) So Bankr is not the fee SOURCE here. SuperRare already is.** That inverts the whole
+design and improves it: we do not need Bankr to *earn*. We need it to **route, schedule and
+execute** what SuperRare already pays — which is exactly what its swap API and automations do,
+and which needs no launch record at all. ⚑ **The flywheel in the ask is available today; it
+just runs on SuperRare's fees rather than Bankr's.**
 
-⚑ **THE HONEST RESTATEMENT: the flywheel Bankr sells is real, and $3030 is standing outside it.
-A fee stream is not something the token *has* and we forgot to collect — it is something that
-would have to be BUILT, on Base, inside Bankr, as a new thing.** §4-D and §4-E are the two ways
-to do that. Everything else in §4 is worth doing anyway and does not need a fee stream at all.
+**(c) The constraint that remains is volume, and it is the real one.** Fees are a percentage of
+$5,440/day and falling. Nothing in §4 changes that, and §4's ranking reflects it.
 
 ---
 
@@ -285,6 +326,91 @@ that I would not take.** Not a recommendation.
 
 ---
 
+## 4½. A BASE PAIR, AND WIRING IT TO THE LENS — the artist's two questions
+
+> *"don't tokens sometimes launch a base pair? since this is on l1 mainnet can we connect them
+> somehow with the lens?"*
+
+### ⚑ THE TENSION IS REAL AND WORTH NAMING BEFORE ANSWERING: the arcade wants Base, the art wants L1
+
+They are not the same economy and never were. **The arcade already lives on Base** —
+`js/eth-play.js` takes the $1 coin slot in Base ETH straight to the hangar wallet, because a
+25¢ game on L1 would cost more in gas than the game. **The art lives on L1** — the edition, the
+renderer, the lens, the SuperRare profile, the whole `getMarketState()` read. Yes, tokens
+routinely launch a Base pair, and the reason is exactly this: Base is where small transactions
+are affordable.
+
+### ⛔ BUT BRIDGING $3030 TO BASE IS THE ONE MOVE I WOULD ARGUE HARDEST AGAINST
+
+It is mechanically easy — $3030 is a plain ERC-20, so the canonical OP-Stack bridge mints an
+`OptimismMintableERC20` on Base backed 1:1 by locked L1 tokens, and you pool that. The problem
+is what it does to the book:
+
+- **It splits liquidity that is already thin.** $269k of depth and $5,440/day across *two*
+  chains is two shallow markets instead of one adequate one.
+- ⛔ **And the arbitrage that normally re-joins a split market cannot run here.** Closing a gap
+  means bridging — **7 days** on the canonical bridge, or a fast-bridge fee — so a price
+  divergence *persists* instead of being arbed out in a block. **Two prices for one token, for
+  a week at a time, is a worse failure than the empty-ETH-pool problem** the site already
+  reads depth to avoid, because there is no router that can route around it.
+- ⛔ **And the lens goes blind to it.** `getMarketState()` is an L1 call on the L1 edition. A
+  Base pool is not in it, so the card would keep rendering the L1 market while trading happened
+  somewhere it cannot see. **The artwork would be telling a partial truth by construction.**
+
+### ✅ SO: PUT THE MONEY ON BASE AND LEAVE THE TOKEN ON L1
+
+Bankr's swap takes `fromChain` and `toChain` **independently** — that is the whole trick, and
+it is why no bridged token is needed:
+
+```jsonc
+{ "fromChain":"base",     "fromToken":"<USDC on Base>",
+  "toChain":"ethereum",   "toToken":"0x1D4bcbb505182a49303CC3B23EfF1E3157147A33",
+  "amount":"250", "slippageBps":300, "minBuyAmount":"<from /wallet/swap-quote>" }
+```
+
+Base-side earnings (x402 revenue, arcade coin box, anything Bankr-native) buy L1 $3030 in **one
+call**, on a schedule, and burn it. **Earn where it is cheap, hold the market where the art
+is.** One token, one price, one pool, no bridge, and the treasury is the only party that ever
+crosses chains — not every player.
+
+### ✅ AND THE LENS IS ALREADY CONNECTED — the connection is the burn
+
+I checked what the deployed lens can actually read (`contracts/Ripmaster3030Lens721.sol`). Its
+entire view of the world is four calls: `totalSupply`, `maxTotalSupply`, `getMarketState()`,
+and `balanceOf(who)` — surfaced as `burnBps()`, `marketSnapshot()`, `lensState(id)` and
+`tierOfHolder()`.
+
+⛔ **A mainnet contract cannot read Base. There is no L1←L2 read** — OP Stack messaging is L2→L1
+withdrawals behind a 7-day challenge window with an explicit prove/finalize, which is not a
+thing metadata can call. So the question becomes: *what L1 number can Base activity move?*
+
+⚑ **`burnBps()` is `(maxTotalSupply − totalSupply)`, and a burn is an L1 event no matter whose
+money paid for it.** Base revenue → cross-chain buy → burn on L1 → **the number the lens
+already renders moves.** No oracle, no bridge, no new contract, no trust assumption. **The
+Base economy proves itself on L1 by destroying supply, and the card shows it because it was
+always showing it.** That is the connection, and it exists today.
+
+⚑ **Second live wire, already built: `tierOfHolder()`.** Ash · Spark · Ember · Flame · Inferno
+read `balanceOf` on the L1 edition. **If §4-B provisions player wallets and those wallets hold
+$3030 on L1, the arcade's players appear in the artwork as tiers.** The game connects to the
+lens through the holder, with nothing new deployed.
+
+⛔ **AND THE THIRD OPTION IS CLOSED, WHICH IS USEFUL TO KNOW.** An owner-written stat
+(`setBaseVolume(...)` etc.) would be the obvious way to post Base numbers onto L1 — **the lens
+has no such setter.** Its writers are `setCards`, `setUrls`, `setDescription`, `setTiers`,
+`setEdition`, `setEditionRenderer`, `setClaimSigner`. Adding one means **deploying a new lens**,
+and the current one is live with heroes minted against it.
+⚠ **That closure is a good outcome, not a limitation.** An owner-written number is a *printed*
+number — the exact thing this project refuses on every public page because it drifts with
+nobody editing anything. The lens reads facts. A cross-chain oracle (LayerZero/CCIP) would
+technically work and buys a trusted dependency that can die, per update, to display a figure
+the burn already implies.
+
+**Answer, in one line: don't bridge the token — bridge the money, and let the burn carry the
+signal onto the card.**
+
+---
+
 ## 5. ⛔ THE ONE UNKNOWN THAT GATES §4-A, AND THE EXACT TEST
 
 **Can Bankr's router fill a Uniswap v4 pool, quoted in RARE, on Ethereum mainnet?**
@@ -319,25 +445,30 @@ standard applies to a router exactly as it applies to a URL.
 
 ## 6. Recommendation
 
-**Do A and D. Test A first, because it is free and it is gated. Take B to the artist as a
-custody decision. Do C only as a written, published policy. Do not do E. Do not do §3 at all.**
-
-Ordered by what it costs to find out:
+**The flywheel the ask describes is available, and it runs on SuperRare's fees, not Bankr's.**
+Fees land (address TBC) → Bankr automation converts on a published schedule → buy $3030 on L1 →
+burn → `burnBps()` moves → the card shows it. Every leg of that exists today; none of it needs
+a Bankr launch, a bridged token, or a new contract.
 
 | | move | cost | blocked on |
 | --- | --- | --- | --- |
-| 1 | Run the §5 quote | $0 | an API key |
-| 2 | **D** — x402 on `api/lore.js` | $0 under 1k req/mo | nothing |
-| 3 | **A** — Bankr as a second, labelled buy door | $20/mo Club | §5 passing |
-| 4 | **C** — write the buyback policy down before automating it | $0 | artist |
-| 5 | **B** — player wallets | Club + partner quota | artist (custody) |
-| 6 | **E** — Base arcade token | a second token | artist — I would not |
+| 0 | ⛔ **Name the fee-recipient address** | $0 | **artist — everything else waits on this** |
+| 1 | Run the §5 quote (can the router fill a v4/RARE pool?) | $0 | an API key |
+| 2 | **D** — x402 on `api/lore.js`, USDC on Base | $0 under 1k req/mo | nothing |
+| 3 | **C** — write the buyback policy down, *then* automate it | $0 | artist |
+| 4 | **A** — Bankr as a second, labelled, custodial buy door | $20/mo Club | §5 passing |
+| 5 | **B** — player wallets → real arcade identity → holder tiers | Club + partner quota | artist (custody) |
+| 6 | ⛔ **Bridging $3030 to Base** | splits a thin book two ways for 7 days at a time | — I would not |
+| 7 | ⛔ **E** — a second, Bankr-launched Base token | breaks "the only fungible token" | artist — I would not |
 
-⚑ **And the honest closing note, because it is the finding rather than a caveat: none of this
-changes 1 buy and 10 sells.** Bankr is a distribution and settlement tool. It makes the token
-easier to buy and it can give the arcade real on-chain identity — both genuinely worth having.
-It does not create demand, and a design that quietly assumes it will is the same wrong answer
-as §3 wearing better clothes.
+⚑ **The closing note survives the correction, and §0 sharpened it rather than softening it.**
+The fees are real, and they are a percentage of volume that has fallen from $60,637/day to
+$5,440/day on **1 buy against 10 sells**. Recycling them is worth doing and is honest. But a
+fee stream is downstream of trading, so **an architecture that recycles fees harder cannot
+outrun the thing generating them.** Bankr is distribution and settlement — it makes the token
+reachable in one sentence instead of three steps, and it can give the arcade a real on-chain
+identity. It does not create demand, and a design that quietly assumes it will is §3 wearing
+better clothes.
 
 ---
 
