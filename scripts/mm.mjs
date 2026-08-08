@@ -31,7 +31,7 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  createPublicClient, http, keccak256, encodeAbiParameters, encodePacked, parseAbiItem,
+  createPublicClient, http, keccak256, encodeAbiParameters, encodePacked, parseAbiItem, formatEther,
 } from 'viem';
 import { mainnet } from 'viem/chains';
 
@@ -458,6 +458,178 @@ async function watch(args) {
   return 1;
 }
 
+/* ══ scan ═══════════════════════════════════════════════════════════════════════════════════
+ * `mm scan --pool 0x…` — take ANY v4 pool id and answer the one question that decides whether
+ * money may go into it: CAN AN OUTSIDE LP EARN HERE.
+ *
+ * ⛔ THIS EXISTS BECAUSE `book` COULD NOT HAVE ANSWERED IT FOR A POOL SOMEBODY SENDS YOU. Its
+ *   POOLS table is three pools typed in by hand. A link arrives in a DM, the chart is up 78% on
+ *   $1.6M of daily volume, and there is nothing here that can look at it.
+ * ⛔ AND THE ANSWER IS NOT ON THE CHART. Measured on the FWA/ETH pool 2026-08-08: the PoolKey fee
+ *   is 0 and IMMUTABLE, an `afterSwapReturnDelta` hook takes the cut instead, and the `fee` field
+ *   on 1,729 consecutive real swaps reads 0 — so the pool pays its LPs nothing while showing the
+ *   busiest tape on the page. `beforeAddLiquidity` is OFF, which is the trap rather than the
+ *   mercy: THE HOOK CANNOT REFUSE YOUR LIQUIDITY. You can fund it and earn zero and nothing errors.
+ *   Our own $3030/RARE pool is the same shape, so this is a pattern, not one bad actor.
+ *
+ * ⚑ THE FEE IS TAKEN FROM REAL SWAPS, NOT FROM slot0. slot0's lpFee reads 0 for a hooked pool AND
+ *   for a genuinely free one, so it cannot tell them apart. The v4 `Swap` event carries the fee
+ *   ACTUALLY APPLIED to that swap, which also resolves the dynamic-fee case (fee == 0x800000)
+ *   that no static read can.
+ * ⚑ AND THE KEY IS PROVEN, NOT TRUSTED: a v4 pool id IS keccak256(abi.encode(PoolKey)). The
+ *   Initialize log is only a HINT until the rehash reproduces the id. It refuses to report a pool
+ *   whose key does not.
+ */
+
+/* ⛔ chain-config's FIRST RPC DOES NOT SERVE eth_getLogs, AND IT ANSWERS EVERYTHING ELSE FINE.
+ *   Measured: publicnode rejects eth_getLogs outright ("Invalid parameters"), merkle answers
+ *   "the method does not exist". Those two are rpcs[0] and rpcs[3]. So a log-based reader that
+ *   takes the house default gets NOTHING and — if it catches its own errors, which the first
+ *   version of this did — reports a clean zero. That is indistinguishable from "no such pool".
+ *   These endpoints are for LOGS ONLY; chain-config's list stays what the browser uses for
+ *   eth_call, where it is correct and CORS-open. */
+const LOG_RPCS = [
+  'https://eth.drpc.org',
+  'https://gateway.tenderly.co/public/mainnet',
+  ...CFG.rpcs,
+];
+
+/* Pick an endpoint by DEMONSTRATING it serves logs, never by assuming. */
+async function logClient() {
+  const probe = parseAbiItem('event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)');
+  for (const url of LOG_RPCS) {
+    const c = createPublicClient({ chain: mainnet, transport: http(url, { timeout: 20000, retryCount: 0 }) });
+    try {
+      const head = await c.getBlockNumber();
+      await c.getLogs({ address: PM, event: probe, fromBlock: head - 50n, toBlock: head });
+      return { c, url, head };
+    } catch { /* try the next one — and if they ALL fail, say so rather than return empty */ }
+  }
+  throw new Error('no RPC in the list serves eth_getLogs — this is a MEASUREMENT FAILURE, not a finding about the pool');
+}
+
+/* The low 14 bits of a hook's ADDRESS are its permissions — v4 mines the address for them. */
+const HOOK_FLAGS = [
+  [13, 'beforeInitialize'], [12, 'afterInitialize'],
+  [11, 'beforeAddLiquidity'], [10, 'afterAddLiquidity'],
+  [9, 'beforeRemoveLiquidity'], [8, 'afterRemoveLiquidity'],
+  [7, 'beforeSwap'], [6, 'afterSwap'], [5, 'beforeDonate'], [4, 'afterDonate'],
+  [3, 'beforeSwapReturnDelta'], [2, 'afterSwapReturnDelta'],
+  [1, 'afterAddLiquidityReturnDelta'], [0, 'afterRemoveLiquidityReturnDelta'],
+];
+export const hookPowers = (addr) => {
+  const b = BigInt(addr) & 0x3fffn;
+  return {
+    bits: b,
+    on: HOOK_FLAGS.filter(([i]) => (b >> BigInt(i)) & 1n).map(([, n]) => n),
+    canRefuseLiquidity: !!((b >> 11n) & 1n),
+    canTakeTheFee: !!((b >> 3n) & 1n) || !!((b >> 2n) & 1n),
+  };
+};
+
+export async function scan(a = {}) {
+  const id = String(a.pool || a.id || '').toLowerCase();
+  if (!/^0x[0-9a-f]{64}$/.test(id)) return console.log('  usage: mm scan --pool 0x<64 hex>');
+
+  const { c, url, head } = await logClient();
+  console.log(`\n  SCAN ${id}`);
+  console.log(`  logs via ${url}   head ${head}\n`);
+
+  /* 1 — the key. DexScreener's creation timestamp is a HINT that narrows the search; the rehash
+   *     is the proof. If the hint is absent we widen out from head instead. */
+  let hintBlock = null, ds = null;
+  try {
+    const r = await fetch(`https://api.dexscreener.com/latest/dex/pairs/ethereum/${id}`,
+      { signal: AbortSignal.timeout(9000) });
+    ds = (await r.json())?.pairs?.[0] || null;
+    if (ds?.pairCreatedAt) hintBlock = Number(head) - Math.round((Date.now() - ds.pairCreatedAt) / 1000 / 12.02);
+  } catch { /* the hint is optional */ }
+  if (ds) console.log(`  indexed as ${ds.baseToken?.symbol}/${ds.quoteToken?.symbol}  $${ds.priceUsd}  24h vol $${Number(ds.volume?.h24 || 0).toLocaleString()}  liq $${Number(ds.liquidity?.usd || 0).toLocaleString()}`);
+
+  const INIT = parseAbiItem('event Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1, uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)');
+  let ev = null, windows = 0, errs = 0;
+  const centre = hintBlock || Number(head);
+  outer:
+  for (let d = 0; d <= 400000; d += 3000) {
+    for (const s of (d === 0 ? [0] : [-d, d])) {
+      const lo = BigInt(Math.max(21000000, centre + s - 1500)), hi = BigInt(Math.max(21001000, centre + s + 1500));
+      if (hi > head) continue;
+      windows++;
+      try {
+        const L = await c.getLogs({ address: PM, event: INIT, args: { id }, fromBlock: lo, toBlock: hi });
+        if (L.length) { ev = L[0]; break outer; }
+      } catch (e) { errs++; }
+    }
+  }
+  /* ⛔ "not found" and "every request failed" ARE DIFFERENT OUTCOMES and conflating them is how
+   *   the first version of this reported a clean zero on eight straight errors. */
+  if (!ev) {
+    console.log(`  ⛔ Initialize log not found in ${windows} windows (${errs} of them errored).`);
+    console.log(errs === windows
+      ? '     EVERY window errored — this is a measurement failure. Do not read it as "no such pool".'
+      : '     Searched ±400k blocks around the creation hint. Widen the search or pass a better hint.');
+    return;
+  }
+  const k = ev.args;
+  const rehash = keccak256(encodeAbiParameters(
+    [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }, { type: 'int24' }, { type: 'address' }],
+    [k.currency0, k.currency1, k.fee, k.tickSpacing, k.hooks]));
+  if (rehash.toLowerCase() !== id) {
+    console.log(`  ⛔ REFUSING TO REPORT: the Initialize log's key rehashes to ${rehash}, not to the id.`);
+    return;
+  }
+  const dyn = Number(k.fee) === 0x800000;
+  console.log(`\n  ── PoolKey (block ${ev.blockNumber}, PROVEN — rehash reproduces the id) ──`);
+  console.log(`     currency0    ${k.currency0}${/^0x0{40}$/i.test(k.currency0) ? '  (native ETH)' : ''}`);
+  console.log(`     currency1    ${k.currency1}`);
+  console.log(`     fee          ${k.fee}${dyn ? '  ← DYNAMIC: the hook sets it per swap' : `  = ${(Number(k.fee) / 10000).toFixed(4)}%  (IMMUTABLE — it can never change)`}`);
+  console.log(`     tickSpacing  ${k.tickSpacing}`);
+  console.log(`     hooks        ${k.hooks}`);
+
+  const h = hookPowers(k.hooks);
+  if (h.bits === 0n) console.log('                  none ✅ a plain pool — the LP fee reaches LPs');
+  else {
+    console.log(`                  bits 0x${h.bits.toString(16).toUpperCase()} · ${h.on.join(' · ')}`);
+    console.log(`     ${h.canTakeTheFee ? '⛔ can TAKE the whole fee (return-delta)' : '✅ cannot take the fee via return-delta'}`);
+    console.log(`     ${h.canRefuseLiquidity ? '⚠ can REFUSE your liquidity (beforeAddLiquidity)' : '⚠ CANNOT refuse your liquidity — you may fund it and earn nothing, silently'}`);
+  }
+
+  /* 2 — the fee ACTUALLY CHARGED, off real swaps, plus whether anyone LPs here at all. */
+  const SWAP = parseAbiItem('event Swap(bytes32 indexed id, address indexed sender, int128 amount0, int128 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick, uint24 fee)');
+  const MODL = parseAbiItem('event ModifyLiquidity(bytes32 indexed id, address indexed sender, int24 tickLower, int24 tickUpper, int256 liquidityDelta, bytes32 salt)');
+  const span = Number(a.blocks || 3000);
+  let swaps = [], scanned = 0, swErr = 0;
+  for (let i = 0; i * 500 < span; i++) {
+    const hi = head - BigInt(i * 500), lo = hi - 499n;
+    try { swaps.push(...await c.getLogs({ address: PM, event: SWAP, args: { id }, fromBlock: lo, toBlock: hi })); scanned += 500; }
+    catch { swErr++; }
+  }
+  console.log(`\n  ── ${scanned} blocks (~${(scanned * 12.02 / 3600).toFixed(1)} h)${swErr ? `, ${swErr} windows errored` : ''} ──`);
+  if (!scanned) { console.log('     ⛔ every window errored — the tape is UNREAD, not empty.'); return; }
+  console.log(`     swaps        ${swaps.length}`);
+  if (swaps.length) {
+    const applied = [...new Set(swaps.map(s => Number(s.args.fee)))].sort((x, y) => x - y);
+    console.log(`     fee applied  ${applied.map(f => `${f} = ${(f / 10000).toFixed(4)}%`).join(' | ')}   ← measured on real swaps`);
+    let v0 = 0n; for (const s of swaps) { const x = s.args.amount0; v0 += x < 0n ? -x : x; }
+    console.log(`     |amount0|    ${Number(formatEther(v0)).toFixed(5)}  over the window`);
+  }
+  let lps = null;
+  try { lps = await c.getLogs({ address: PM, event: MODL, args: { id }, fromBlock: head - BigInt(Math.min(span, 8000)), toBlock: head }); }
+  catch { /* leave null — unknown is not zero */ }
+  console.log(`     LP events    ${lps === null ? 'unreadable (NOT zero)' : lps.length}`);
+
+  /* 3 — the verdict, in one line, which is the entire point of the command. */
+  const appliedMax = swaps.length ? Math.max(...swaps.map(s => Number(s.args.fee))) : null;
+  console.log('\n  ── CAN AN OUTSIDE LP EARN HERE? ──');
+  if (appliedMax === null)
+    console.log('     UNKNOWN — no swaps in the window. Nothing traded, so nothing was charged. Widen --blocks.');
+  else if (appliedMax === 0)
+    console.log(`     ⛔ NO. Every one of ${swaps.length} real swaps was charged 0.${h.canTakeTheFee ? ' The hook takes its cut by return-delta instead.' : ''}\n        Liquidity here earns nothing and takes the full inventory risk. This is the whole trap.`);
+  else
+    console.log(`     ✅ YES — ${(appliedMax / 10000).toFixed(4)}% is charged on real swaps and no return-delta hook is skimming it.`);
+  console.log('');
+}
+
 /* ── main ──────────────────────────────────────────────────────────────────────────────── */
 const IS_MAIN = process.argv[1] && process.argv[1].endsWith('mm.mjs');
 const argv = IS_MAIN ? process.argv.slice(2) : [];
@@ -469,6 +641,7 @@ for (let i = 1; i < argv.length; i++) {
 if (IS_MAIN) {
   try {
     if (cmd === 'book') await book();
+    else if (cmd === 'scan') await scan(args);
     else if (cmd === 'quote') await quote(args);
     else if (cmd === 'bid') await bid(args);
     /* ⚠ EXIT CODE IS THE PRODUCT for `watch` — cron reads it, nobody reads the text. */
@@ -476,6 +649,7 @@ if (IS_MAIN) {
     else {
       console.log('  usage:');
       console.log('    mm book                                     price, fee and hazards on every pool');
+    console.log('    mm scan --pool 0x… [--blocks 3000]          ANY v4 pool: can an outside LP earn there?');
       console.log('    mm quote [--eth N|--usd N] [--width 20]     two-sided range (needs ETH *and* $3030)');
       console.log('    mm bid   [--usd 100] [--near 5] [--far 30]  ETH-only standing bid below spot');
       console.log('    mm watch [--lower T --upper T]              keyless daily check; exit 1 = look at it');
