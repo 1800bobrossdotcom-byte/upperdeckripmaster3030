@@ -34,17 +34,25 @@
 (function (root) {
   'use strict';
 
-  /* The nine, and the SEATS column is load-bearing: THE STREAK has three (artist, 2026-08-06), so
-   * eleven cards are awarded across nine titles. Anything that prints a count must use `cards()`,
-   * not `TITLES.length` — that confusion is exactly what the whitepaper heading got wrong. */
+  /* TEN TITLES, ELEVEN CARDS, and the SEATS column is what makes those different numbers. Anything
+   * that prints a count must use `cards()`, not `TITLES.length` — that confusion is exactly what the
+   * whitepaper heading got wrong.
+   * ⚑ `cards` IS WHICH HERO IDS THE TITLE MINTS, and the earned band is 23-33 (HERO-UNLOCKS: 1-11
+   *   auction, 12-22 gacha, 23-33 earned). Eleven seats, eleven ids, allocated in list order so the
+   *   map is derivable rather than remembered — `npm run test:titles` asserts the band, that every
+   *   id is distinct, and that the count equals `cards()`.
+   * ⚠ WHICH ART GOES WITH WHICH FEAT IS THE ARTIST'S TO SWAP, and nothing is frozen until a voucher
+   *   is SIGNED against an id — the id is inside the digest, so after that it cannot move. Swap
+   *   before signing, never after. ⚠ Card 29 is titled after a real living artist; that pairing in
+   *   particular is his call, not a default to inherit. */
   const TITLES = [
-    { id: 'wire',     name: 'THE WIRE',              game: 'DOGFIGHT',    seats: 1,
+    { id: 'wire',     name: 'THE WIRE',              game: 'DOGFIGHT',    seats: 1, cards: [23],
       cond: 'Pass every boost gate on the map in one match without taking a hit.' },
-    { id: 'deadstick', name: 'DEAD STICK',           game: 'DOGFIGHT',    seats: 1,
+    { id: 'deadstick', name: 'DEAD STICK',           game: 'DOGFIGHT',    seats: 1, cards: [24],
       cond: 'Win a match having never pressed boost.' },
-    { id: 'onemag',   name: 'ONE MAG',               game: 'SECTION 9',   seats: 1,
+    { id: 'onemag',   name: 'ONE MAG',               game: 'SECTION 9',   seats: 1, cards: [25],
       cond: 'Win a round with more kills than reloads.' },
-    { id: 'ghost',    name: 'GHOST WALK',            game: 'SECTION 9',   seats: 1,
+    { id: 'ghost',    name: 'GHOST WALK',            game: 'SECTION 9',   seats: 1, cards: [26],
       cond: 'Take a round on a baked level without ever being the first to fire.' },
     /* ⛔ THESE TWO REPLACED OPEN AIR AND THE FACILITY IS CLOSED, AND THE REASON IS NOT TASTE.
      * Those two were listed here and `riprocketer.html` did not load this file at all, so nothing
@@ -53,26 +61,26 @@
      * the budget is fixed at 11 cards, so the two slots that were already dead are the only ones
      * that can change without deleting a title that works. See docs/HERO-UNLOCKS.md §4.
      * ⚠ Both are MEASURED, not guessed — the conditions and their costs are in that doc. */
-    { id: 'twomillion', name: 'TWO MILLION FEET',    game: 'RIP ROCKETER', seats: 1,
+    { id: 'twomillion', name: 'TWO MILLION FEET',    game: 'RIP ROCKETER', seats: 1, cards: [27],
       cond: 'Post a run of 2,000,000 points — clearing the whole facility scores about 690,000.' },
     /* ⛔ ADDED 2026-08-07, AND IT IS THE ANSWER TO A REAL REPORT. Artist: "riprocketer I cleared 2
      * million earlier, so I earned a 1/1. now someone earned 7 million+ and then the same 2 million
      * award was given to them." TWO MILLION FEET is ONE seat and it is gone; a bigger run is not a
      * second copy of a smaller title, it is a bar of its own. The name is HERO-UNLOCKS §4's own
      * (drafted there at 5,000,000); the artist's number is 7,000,000, so that is the bar. */
-    { id: 'abovetheweather', name: 'ABOVE THE WEATHER', game: 'RIP ROCKETER', seats: 1,
+    { id: 'abovetheweather', name: 'ABOVE THE WEATHER', game: 'RIP ROCKETER', seats: 1, cards: [28],
       cond: 'Post a run of 7,000,000 points — past the facility, past the wave table, on attention alone.' },
-    { id: 'coldbarrel', name: 'COLD BARREL',         game: 'RIP ROCKETER', seats: 1,
+    { id: 'coldbarrel', name: 'COLD BARREL',         game: 'RIP ROCKETER', seats: 1, cards: [29],
       cond: 'Clear one whole tier having fired only while OVERDRIVE was lit.' },
     /* ⚠ THREE SEATS BECAME TWO, and that is what pays for ABOVE THE WEATHER. The tier's budget is a
      * fixed ELEVEN cards, so a tenth title has to be funded from somewhere — and HERO-UNLOCKS §4¾
      * already names this as the option that frees exactly one card. It removes no published title:
      * deleting one would be the studio taking a prize back, and nothing here had claimed a seat. */
-    { id: 'streak',   name: 'THE STREAK',            game: 'CLOUD RACER', seats: 2,
+    { id: 'streak',   name: 'THE STREAK',            game: 'CLOUD RACER', seats: 2, cards: [30, 31],
       cond: 'Win 33 races in a row — 6 pilots, 3 laps or longer.' },
-    { id: 'deadair',  name: 'DEAD AIR',              game: 'THE CITY',    seats: 1,
+    { id: 'deadair',  name: 'DEAD AIR',              game: 'THE CITY',    seats: 1, cards: [32],
       cond: 'As the bird: 300 m in one unbroken glide, no wingbeat, never above 40 m.' },
-    { id: 'bothends', name: 'BOTH ENDS',             game: 'THE CITY',    seats: 1,
+    { id: 'bothends', name: 'BOTH ENDS',             game: 'THE CITY',    seats: 1, cards: [33],
       cond: 'Plant a card from the air as the bird, then take that same card back as the squirrel.' },
   ];
   const byId = {};
@@ -200,6 +208,10 @@
       'ripmaster3030studios — EARNED TITLE CLAIM',
       'title:   ' + t.name + (t.seats > 1 ? '  (' + t.seats + ' seats, ' + seatsOpen(id) + ' open)' : ''),
       'game:    ' + t.game,
+      /* ⚑ THE CARD ID IS ON THE SLIP because it is what the voucher is SIGNED AGAINST — the id is
+       * inside the EIP-712 digest, so the run, the slip and the signature all have to name the same
+       * one, and the only way to guarantee that is for the player's copy to carry it too. */
+      'card:    #' + t.cards.join(' / #') + '  (the earned band is 23-33)',
       'rule:    ' + t.cond,
       'cleared: ' + r.at,
       ev ? 'measured: ' + ev : '',
@@ -340,7 +352,8 @@
       TITLES.map(x => { const c = cleared(x.id), s = seatState(x.id);
         const tag = s === 'closed' ? 'TAKEN' : (c ? 'CLEARED' : 'OPEN');
         return '<div class="rt-li ' + (s === 'closed' ? 'gone' : c ? 'on' : 'off') + '"><span class="rt-s">' +
-          tag + '</span><b>' + esc(x.name) + '</b> · ' + esc(x.game) + ' · ' + esc(SEATLINE(x)) +
+          tag + '</span><b>' + esc(x.name) + '</b> · ' + esc(x.game) + ' · card #' + x.cards.join(' / #') +
+          ' · ' + esc(SEATLINE(x)) +
           '<br><span style="color:#4a6376">' + esc(x.cond) + '</span></div>'; }).join('') +
       '</div>';
     ovEl.hidden = false;
