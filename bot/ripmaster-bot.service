@@ -1,0 +1,25 @@
+# /etc/systemd/system/ripmaster-bot.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now ripmaster-bot
+#   journalctl -u ripmaster-bot -f
+[Unit]
+Description=ripmaster3030studios FWA/ETH daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bot
+WorkingDirectory=/opt/ripmaster/bot
+ExecStart=/usr/bin/node /opt/ripmaster/bot/run.mjs
+Restart=always
+RestartSec=15
+# ⛔ The key is read from bot/.env by the process itself, never passed on the command line —
+#    a command line is visible to every user on the box via `ps`.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/ripmaster/bot
+
+[Install]
+WantedBy=multi-user.target

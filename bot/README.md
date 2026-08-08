@@ -58,3 +58,67 @@ Every rule in here is **backtested and none is forward-tested**. The best in-sam
 scored 69.5% win / +9,459% and then **50.0% win / −60%** on the out-of-sample half, and simply
 holding beat every rule in every out-of-sample window tested. `npm run bot paper` is running the
 identical decision logic against live data and spending nothing. Read `npm run bot report` first.
+
+---
+
+# the VPS version — `run.mjs` (recommended over the cron)
+
+⛔ **`api/tick.js` only buys.** A Vercel cron is stateless: each invocation is a fresh process with
+no memory of an open position, so take-profit, stop-loss and the timeout have nowhere to live. As
+written it would enter and never exit, which is not a bot. `run.mjs` is one long-running process
+that holds the position, so it does both sides. Use it unless you specifically want the hosted one.
+
+It also removes the two things that made the hosted route awkward: no cron-tier minimum, and the
+key sits in a file on a box you control rather than in a hosting dashboard.
+
+## setup, on any $5/month box
+
+```sh
+sudo adduser --system --group bot
+sudo mkdir -p /opt/ripmaster && sudo chown bot:bot /opt/ripmaster
+sudo -u bot git clone https://github.com/1800bobrossdotcom-byte/upperdeckripmaster3030 /opt/ripmaster/repo
+sudo -u bot ln -s /opt/ripmaster/repo/bot /opt/ripmaster/bot
+cd /opt/ripmaster/bot && sudo -u bot npm install        # viem only
+
+sudo -u bot cp .env.example .env
+sudo -u bot nano .env                                   # paste the key, leave LIVE commented out
+sudo chmod 600 .env                                     # ⛔ nobody else on the box reads it
+```
+
+Run it in the foreground first and watch a full window (19:00–23:00 UTC):
+
+```sh
+sudo -u bot node run.mjs
+```
+
+You want lines like `no signal · accumulation -215161 vs cut 623184`. That is it working.
+
+Then install the service:
+
+```sh
+sudo cp ripmaster-bot.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now ripmaster-bot
+journalctl -u ripmaster-bot -f
+```
+
+## before it can sell
+
+⛔ Buying needs no approval — the input is native ETH. **Selling does**: FWA must be approved to
+Permit2, and Permit2 must authorise the router. Miss either and the sell reverts *at the moment you
+are trying to take profit or stop a loss*. The daemon checks both before it ever opens a position
+and refuses to buy something it has not proved it can sell. Set them once:
+
+```sh
+LIVE=1 node run.mjs approve
+```
+
+## going live
+
+1. Fund the wallet with **0.05–0.1 ETH** of working capital. ⚠ Above **0.20 ETH** the rails refuse
+   to operate — an over-funded bot is the risk, not the protection.
+2. Watch the dry run for several days. `node run.mjs report`.
+3. Only then uncomment `LIVE=1` in `.env` and `sudo systemctl restart ripmaster-bot`.
+
+⚠ Every rule in here is backtested and none is forward-tested. The best in-sample configuration
+scored 69.5% win / +9,459% and then **50.0% win / −60%** out of sample, and holding beat every rule
+in every out-of-sample window. The dry run is not a formality.
