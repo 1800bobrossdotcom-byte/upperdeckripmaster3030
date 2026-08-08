@@ -393,6 +393,71 @@ async function bid(args) {
   console.log(`     ⚠ Re-run \`npm run mm book\` first — the tick moves.\n`);
 }
 
+/* ── WATCH — the keyless daily check, and the honest amount of automation this book needs ──
+ * ⚑ AT $465 A DAY THERE IS ALMOST NOTHING TO AUTOMATE. A posted range mostly sits; rebalancing
+ *   matters when price leaves it, and at this volume that is rare. So the automation worth having
+ *   is not a trading loop — it is a READ that says whether a human is needed, and says nothing
+ *   the rest of the time. No key, no signing, nothing to compromise.
+ * ⚠ ONE SHOT, NOT A DAEMON, so cron owns the schedule. EXIT CODE IS THE SIGNAL: 0 = nothing to
+ *   do, 1 = look at it. That makes `npm run mm watch || notify-me` the whole integration.
+ *   ⛔ Silence must mean "checked and fine", never "the check died" — so an unreachable chain or
+ *   a missing reference price EXITS 1 and says so, rather than exiting 0 having measured nothing. */
+async function watch(args) {
+  const flags = [];
+  const refs = await usdRefs();
+  if (!refs.tokenUsd || !refs.ethUsd) {
+    console.log('  ⛔ ATTENTION — no reference price (DexScreener/Coinbase unreachable).');
+    console.log('     Exiting 1: a check that could not run is not a passing check.');
+    return 1;
+  }
+  const eth = POOLS.find(p => p.key === 'ETH');
+  const rare = POOLS.find(p => p.key === 'RARE');
+  const [se, sr] = [await slot0(eth.id), await slot0(rare.id)];
+  const ethTokUsd = refs.ethUsd / humanPrice(se.tick, eth);
+  const skew = (ethTokUsd - refs.tokenUsd) / refs.tokenUsd * 100;
+
+  console.log(`\n  $3030 WATCH   ${usd(refs.tokenUsd)}   24h vol ${usd(refs.vol24)}   bid depth ${usd(refs.liqQuoteUsd)}`);
+  console.log(`  ETH pool ${usd(ethTokUsd)} (${skew >= 0 ? '+' : ''}${skew.toFixed(1)}% vs reference)   tick ${se.tick}`);
+
+  /* A posted position, if you tell it where. Ticks are what Uniswap shows on the position page. */
+  const lo = args.lower !== undefined ? Number(args.lower) : null;
+  const hi = args.upper !== undefined ? Number(args.upper) : null;
+  if (lo !== null && hi !== null) {
+    const inRange = se.tick > lo && se.tick < hi;
+    const pxAt = t => refs.ethUsd / Math.pow(1.0001, t);
+    console.log(`  your range   ticks ${lo}…${hi}  =  ${usd(pxAt(hi))} … ${usd(pxAt(lo))} per $3030`);
+    if (inRange) {
+      const across = (se.tick - lo) / (hi - lo);
+      console.log(`  ✅ IN RANGE — ${(across * 100).toFixed(0)}% across it, earning ${eth.fee / 10000}% on anything that trades`);
+      /* ⚠ Near an edge is worth a nudge BEFORE it stops earning, not after. */
+      if (across < 0.1 || across > 0.9) flags.push(`position is ${(across < 0.1 ? 'near the low' : 'near the high')} edge — it will stop earning if price keeps going`);
+    } else {
+      const side = se.tick <= lo ? 'ABOVE your range (all $3030 sold for ETH)' : 'BELOW it (all ETH converted to $3030)';
+      flags.push(`OUT OF RANGE — price is ${side}; the position earns nothing until it comes back or you re-post`);
+      console.log(`  ⛔ OUT OF RANGE — ${side}`);
+    }
+  } else {
+    console.log(`  (pass --lower/--upper with your position's ticks to have it checked too)`);
+  }
+
+  /* ⛔ THE SKEW GUARD, SAME BAR AS `quote`. This pool opened 254x above the real market; if it
+   *   drifts again a posted range is quoting a price nobody else holds. */
+  if (Math.abs(skew) > 10) flags.push(`the ETH pool is ${Math.abs(skew).toFixed(1)}% from the reference — a range here is quoting a stale market`);
+  /* ⚠ A pool nobody trades earns nothing, and that is worth SAYING rather than leaving as a
+   *   reassuring silence — it is the actual state of this book most days. */
+  if (!refs.vol24) flags.push('24h volume is zero across every indexed pool');
+  /* Any hazardous pool creeping back into the published config. */
+  for (const p of POOLS) if (LISTED.has(p.id.toLowerCase()) && p.fee / 10000 > 1)
+    flags.push(`${p.key} pool (${p.fee / 10000}% fee) is published in chain-config — delist it`);
+
+  console.log('');
+  if (!flags.length) { console.log('  ✅ nothing needs a human today.\n'); return 0; }
+  console.log('  ⛔ ATTENTION:');
+  for (const f of flags) console.log('     · ' + f);
+  console.log('');
+  return 1;
+}
+
 /* ── main ──────────────────────────────────────────────────────────────────────────────── */
 const IS_MAIN = process.argv[1] && process.argv[1].endsWith('mm.mjs');
 const argv = IS_MAIN ? process.argv.slice(2) : [];
@@ -406,11 +471,14 @@ if (IS_MAIN) {
     if (cmd === 'book') await book();
     else if (cmd === 'quote') await quote(args);
     else if (cmd === 'bid') await bid(args);
+    /* ⚠ EXIT CODE IS THE PRODUCT for `watch` — cron reads it, nobody reads the text. */
+    else if (cmd === 'watch') process.exit(await watch(args));
     else {
       console.log('  usage:');
       console.log('    mm book                                     price, fee and hazards on every pool');
       console.log('    mm quote [--eth N|--usd N] [--width 20]     two-sided range (needs ETH *and* $3030)');
       console.log('    mm bid   [--usd 100] [--near 5] [--far 30]  ETH-only standing bid below spot');
+      console.log('    mm watch [--lower T --upper T]              keyless daily check; exit 1 = look at it');
       process.exit(1);
     }
   } catch (e) {
