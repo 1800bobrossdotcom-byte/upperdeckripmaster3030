@@ -32,9 +32,13 @@ const blocks=[...px.keys()].sort((a,b)=>a-b);
 const priceAt=b=>{let i=0,j=blocks.length-1,best=blocks[0];
   while(i<=j){const m=(i+j)>>1; if(blocks[m]<=b){best=blocks[m];i=m+1}else j=m-1;} return px.get(best);};
 
+/* ⛔ THE PERIOD IS THE POINT NOW. corr +0.294 was measured over the WHOLE sample, most of which
+ *   was the 15-day emission programme. Whether the signal still predicts is a different question
+ *   from whether it ever did. */
+const P0 = Number(process.env.FROM || 0);
 function test(winBlocks,label){
   const rows=[];
-  for(let b=lo;b+2*winBlocks<=hi;b+=winBlocks){
+  for(let b=Math.max(lo,P0);b+2*winBlocks<=hi;b+=winBlocks){
     let net=0;
     for(const [tb,dir,v] of tr){ if(tb<b)continue; if(tb>=b+winBlocks)break; net+=dir*v; }
     const p0=priceAt(b+winBlocks), p1=priceAt(b+2*winBlocks);

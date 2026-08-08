@@ -63,7 +63,11 @@ const LO = swaps[0][0], HI = swaps[swaps.length - 1][0];
 const SEC = Number(process.env.BLOCK_SEC || 12.042080);   // measured across the sample, not assumed
 const timeAt = b => new Date((T0 + (b - LO) * SEC) * 1000);
 
-const P = { ...PARAMS, stake: Number(process.env.STAKE_ETH || 0.01) };
+/* ⛔ LEG_COST IS THE WHOLE QUESTION NOW. The main pool charges 1.0194% a leg via its hook; the
+ *   hookless external pools charge 0.855-0.86%; an empty 0.01% pool exists. Sweeping it answers
+ *   "at what venue fee does this strategy stop losing" with a number instead of a hope. */
+const P = { ...PARAMS, stake: Number(process.env.STAKE_ETH || 0.01),
+  legCost: Number(process.env.LEG_COST || PARAMS.legCost) };
 const WIN = P.bucketBlocks * P.histBuckets;
 const START = Number(process.env.START_ETH || 0.1);
 

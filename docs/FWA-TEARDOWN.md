@@ -115,6 +115,48 @@ to the wei; 182,535 swaps):
   substantially the emission distribution itself. When 1% of supply a day stopped arriving, the
   signal lost its subject. Not a mysterious decay — a mechanism that was switched off.
 
-✅ **The one thing that would revive all of it**, from TokenWorks on 08-06: *"Eventually we may open
-up external pools to deepen liquidity that will not have this fee."* A 1.4–1.8 point edge against a
-0.3% pool is a business. Against 2.11% it is not. **Watch for an external pool.**
+⛔ **AND THE "EXTERNAL POOL WILL REVIVE IT" THESIS IS FALSE — I HELD IT ALL EVENING AND THE
+SWEEP I BUILT TO PROVE IT DISPROVED IT.** TokenWorks said on 08-06 that external pools "will not
+have this fee", and the reasoning was clean: a 1.4–1.8 point edge loses to a 2.11% round trip and
+clears a 0.3% one. Two measurements killed it.
+
+**First, the external pools already exist.** `npm run poolwatch` swept the token's whole life and
+found **twelve** FWA venues, not one. Three are hookless with real depth and real flow:
+
+| fee | hook | liquidity | swaps/24h | |
+| --- | --- | --- | --- | --- |
+| 0.000% | **SKIMS** | 7.92e22 | 3,386 | the main pool — the hook takes 1% a leg |
+| 0.855% | none | 7.84e21 | 92 | `0xe008f37a…` |
+| 0.860% | none | 6.49e21 | 110 | `0x845a8909…` |
+| 0.850% | none | 6.84e21 | 2 | |
+| 0.010% | none | **0** | 0 | `0x6a4fe51c…` — exists, empty |
+
+**Second, and decisively: the fee was never the binding constraint.** Sweeping `LEG_COST` through
+the walk-forward replay:
+
+| round trip | whole 19 days | last 10 days |
+| --- | --- | --- |
+| 2.11% | +22.82% | **−8.31%** |
+| 1.72% | +24.39% | −7.66% |
+| 0.60% | +27.22% | −5.77% |
+| **0.02%** | +28.45% | **−4.79%** |
+
+At an essentially free venue the recent regime still loses. Fees cost ~5.6 points over the whole
+sample — real, and not the cause.
+
+⛔ **THE CAUSE IS THAT THE SIGNAL STOPPED PREDICTING.** Correlation of flow with the next window's
+return, by period:
+
+| | ~5 min | ~15 min | ~1 h |
+| --- | --- | --- | --- |
+| whole sample | **+0.294** | +0.222 | +0.214 |
+| last 10 days | −0.014 | −0.113 | −0.163 |
+| last 4 days | −0.010 | −0.071 | −0.060 |
+
+It has gone to zero and slightly negative; at 1 h over the last 10 days it has **inverted**
+(heaviest accumulation → −0.519%, heaviest selling → +4.011%). ⚑ Which closes the loop with §2's
+emission cliff: **1% of supply a day arriving looks exactly like a crowd accumulating.** The signal
+was measuring the distribution programme. It ended on 08-04 and the signal lost its subject.
+
+⚠ **So the trigger to go live is NOT an external pool.** It is the edge returning, which is a
+measurable thing and not a scheduled one. Cheaper losing is still losing.
