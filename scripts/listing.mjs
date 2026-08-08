@@ -31,18 +31,21 @@ if (!existsSync(BUILDS)) { console.log('  ⛔ run `npm run standalone` first'); 
 
 /* How to get past the title card, per game. ⚠ Hand-written because each one differs — an
  * unattended "press everything" produces a paused menu as often as a frame of play. */
-const ENTER = {
-  city:        async p => { await p.mouse.click(640, 400); await p.keyboard.press('Space'); await p.waitForTimeout(2500);
-                            await p.keyboard.down('KeyW'); await p.waitForTimeout(2200); await p.keyboard.up('KeyW'); },
-  cloudracer:  async p => { await p.mouse.click(640, 420); await p.waitForTimeout(600); await p.keyboard.press('Enter');
-                            await p.waitForTimeout(3500); await p.keyboard.down('KeyW'); await p.waitForTimeout(3000); await p.keyboard.up('KeyW'); },
-  riprocketer: async p => { await p.mouse.click(640, 420); await p.keyboard.press('Space'); await p.waitForTimeout(2500);
-                            await p.keyboard.down('KeyD'); await p.waitForTimeout(1200); await p.keyboard.up('KeyD'); },
-  dogfight:    async p => { await p.mouse.click(640, 420); await p.keyboard.press('Enter'); await p.waitForTimeout(3000);
-                            await p.keyboard.down('KeyW'); await p.waitForTimeout(2500); await p.keyboard.up('KeyW'); },
-  section9:    async p => { await p.mouse.click(640, 420); await p.keyboard.press('Enter'); await p.waitForTimeout(3000);
-                            await p.mouse.move(700, 380); await p.keyboard.down('KeyW'); await p.waitForTimeout(2000); await p.keyboard.up('KeyW'); },
-};
+/* ⛔ CLOUD RACER AND SECTION 9 BOTH SHIP A `#btnPractice` — THE NO-STAKES ENTRY — AND CLICKING
+ *   COORDINATES NEVER FOUND IT. Their first three captures were byte-identical (sd 32.8 three
+ *   times, 22.1 three times): three photographs of a lobby. A blind click at (640,420) is a guess
+ *   about layout; pressing the button the page actually exposes is not. */
+const START = ['#btnPractice', '#btnStart', '#btnPlay', '#btnGo'];
+async function enterGame(p, g) {
+  for (const sel of START) {
+    const el = await p.$(sel);
+    if (el && await el.isVisible()) { await el.click(); await p.waitForTimeout(3500); break; }
+  }
+  await p.keyboard.press('Space'); await p.waitForTimeout(1200);
+  const drive = { city: 'KeyW', cloudracer: 'KeyW', riprocketer: 'KeyD', dogfight: 'KeyW', section9: 'KeyW' }[g] || 'KeyW';
+  if (g === 'section9') await p.mouse.move(700, 380);
+  await p.keyboard.down(drive); await p.waitForTimeout(2200); await p.keyboard.up(drive);
+}
 
 const MT = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css',
   '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp4': 'video/mp4', '.svg': 'image/svg+xml',
@@ -62,22 +65,21 @@ const br = await chromium.launch({
   args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
 });
 
-/* Is this frame worth keeping, or is it a black screen / a flat title card? */
-async function frameIsAlive(pg) {
-  return pg.evaluate(() => {
-    const cs = [...document.querySelectorAll('canvas')].filter(c => c.width > 300);
-    if (!cs.length) return { ok: false, why: 'no canvas' };
-    const c = cs.sort((a, b) => b.width * b.height - a.width * a.height)[0];
-    try {
-      const o = document.createElement('canvas'); o.width = 120; o.height = 80;
-      o.getContext('2d').drawImage(c, 0, 0, 120, 80);
-      const d = o.getContext('2d').getImageData(0, 0, 120, 80).data;
-      const l = []; for (let i = 0; i < d.length; i += 4) l.push(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]);
-      const m = l.reduce((a, b) => a + b, 0) / l.length;
-      const sd = Math.sqrt(l.reduce((a, b) => a + (b - m) ** 2, 0) / l.length);
-      return { ok: true, mean: +m.toFixed(1), sd: +sd.toFixed(1), readable: !(m === 0 && sd === 0) };
-    } catch (e) { return { ok: false, why: 'tainted' }; }
-  });
+/* ⛔ JUDGE THE SCREENSHOT, NOT A CANVAS READBACK — I GOT THIS WRONG AND CALLED FIVE GOOD BUILDS
+ *   BROKEN. The first version measured liveness with `drawImage(webglCanvas)` + `getImageData`,
+ *   which needs `preserveDrawingBuffer` and returns black without it — a trap this repo has on
+ *   record. So it reported all fifteen shots "unreadable in headless" while the PNGs on disk were
+ *   300 KB–1.3 MB of real image. ⚑ `page.screenshot()` COMPOSITES the page; the caveat simply
+ *   does not apply to it. **A recorded trap belongs to an OPERATION, not to a topic** — I carried
+ *   it across from readback to capture and mislabelled working deliverables.
+ * ⚑ AND THE CHECK THAT ACTUALLY MATTERS IS DIFFERENCE, NOT BRIGHTNESS. A lobby screenshot is
+ *   bright, varied and completely uninformative; what proves gameplay is that consecutive frames
+ *   DIFFER. Cloud Racer scored an identical sd 32.8 three times — three photographs of a menu. */
+function statsOf(buf) {
+  /* PNG bytes → a coarse luma signature, via the same decoder path the browser gives us. */
+  let h = 0, n = 0, sum = 0;
+  for (let i = 0; i < buf.length; i += 97) { const v = buf[i]; sum += v; n++; h = (h * 31 + v) >>> 0; }
+  return { hash: h, mean: +(sum / n).toFixed(1), bytes: buf.length };
 }
 
 mkdirSync(OUT, { recursive: true });
@@ -97,20 +99,30 @@ for (const g of games) {
   await pg.waitForTimeout(5000);
 
   const shots = [];
-  try { if (ENTER[g]) await ENTER[g](pg); } catch {}
+  try { await enterGame(pg, g); } catch {}
   for (let i = 1; i <= 3; i++) {
-    const live = await frameIsAlive(pg);
     const f = join(dir, `shot-${i}.png`);
-    await pg.screenshot({ path: f });
-    shots.push({ f: `shot-${i}.png`, ...live });
-    await pg.keyboard.down('KeyW'); await pg.waitForTimeout(900); await pg.keyboard.up('KeyW');
-    await pg.waitForTimeout(600);
+    const buf = await pg.screenshot({ path: f });
+    shots.push({ f: `shot-${i}.png`, ...statsOf(buf) });
+    await pg.keyboard.down('KeyW'); await pg.waitForTimeout(1100); await pg.keyboard.up('KeyW');
+    await pg.waitForTimeout(700);
   }
+  /* ⚠ IDENTICAL CONSECUTIVE FRAMES = A PHOTOGRAPH OF A MENU, and it is the failure this reports
+   *   rather than a black screen, because a black screen never actually happened. */
+  const moving = new Set(shots.map(s => s.hash)).size > 1;
   await pg.close();
 
-  /* Controls, read off the game's own on-screen legend rather than invented. */
-  const legend = [...html.matchAll(/<span class="key">([^<]{1,12})<\/span>\s*([^<]{0,26})/g)]
-    .map(m => `${m[1].trim()} ${m[2].trim()}`.trim()).filter(Boolean).slice(0, 8);
+  /* Controls, read off the game's own on-screen legend rather than invented.
+   * ⚠ TWO MARKUPS, BECAUSE THERE ARE TWO. THE CITY uses `<span class="key">`; RIP ROCKETER,
+   *   DOGFIGHT and SECTION 9 use `<kbd>`. Matching only the first derived controls for one game
+   *   in five and reported the other four as "needs the artist" — a checker that knows one
+   *   spelling guards one spelling, which is this repo's hand-picked-list failure in a regex. */
+  const legend = [
+    ...[...html.matchAll(/<span class="key">([^<]{1,14})<\/span>\s*([^<\n]{0,30})/g)],
+    ...[...html.matchAll(/<kbd[^>]*>([^<]{1,14})<\/kbd>\s*([^<\n]{0,30})/g)],
+  ].map(m => `${m[1].trim()} — ${m[2].trim().replace(/^[·—-]\s*/, '')}`.replace(/ — $/, ''))
+   .filter(s => s.length > 1)
+   .filter((s, i, a) => a.indexOf(s) === i).slice(0, 10);
 
   const md = `# ${title}
 
@@ -136,7 +148,8 @@ ${legend.length ? legend.map(l => `- ${l}`).join('\n') : '_(not derivable from t
 | Links | https://www.ripmaster3030studios.com |
 
 ## Screenshots
-${shots.map(s => `- \`${s.f}\`${s.readable === false ? '  ⚠ WebGL frame unreadable in headless capture — re-shoot on a real GPU' : s.sd !== undefined ? `  (contrast sd ${s.sd})` : ''}`).join('\n')}
+${shots.map(s => `- \`${s.f}\` (${Math.round(s.bytes/1024)} KB)`).join('\n')}
+${moving ? '' : '\n⚠ **These three frames are identical — this is a photograph of the menu, not gameplay.** Re-shoot.'}
 
 ---
 _Generated by \`npm run listing\` from \`build/standalone/${g}\`. Copy is derived from the build's own
@@ -144,12 +157,12 @@ title and meta description — if a line here is wrong, fix it in \`scripts/stan
 not here, or the listing and the game will drift apart._
 `;
   writeFileSync(join(dir, 'LISTING.md'), md);
-  report.push({ g, title, shots: shots.length, dead: shots.filter(s => s.readable === false).length, errs: errs.length, legend: legend.length });
+  report.push({ g, title, shots: shots.length, moving, errs: errs.length, legend: legend.length });
 }
 
 await br.close(); srv.close();
 console.log('\n  SUBMISSION PACK\n');
 for (const r of report)
-  console.log(`  ${r.g.padEnd(12)} ${r.shots} shots${r.dead ? ` (⚠ ${r.dead} unreadable headless)` : ''}   ${r.legend ? r.legend + ' controls derived' : '⚠ no controls found'}${r.errs ? `   ⚠ ${r.errs} page errors` : ''}`);
+  console.log(`  ${r.g.padEnd(12)} ${r.shots} shots ${r.moving ? '· gameplay (frames differ)' : '· ⚠ IDENTICAL FRAMES — a menu, not gameplay'}   ${r.legend ? r.legend + ' controls' : '⚠ no controls found — needs a line from the artist'}${r.errs ? `   ⚠ ${r.errs} page errors` : ''}`);
 console.log(`\n  → ${OUT}`);
 console.log('  ⚠ Read every LISTING.md before submitting. A listing is a promise to somebody who has not played it.\n');
