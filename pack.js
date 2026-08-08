@@ -34,6 +34,13 @@
    * number halves cleanly), so the display bug shipped hidden behind a round price. */
   const halfStr = (n) => (n / 2).toFixed(1).replace(/\.0$/, '');
   let lastTx = null, practice = false, lastSplit = false;   // lastSplit: went through PackSink
+  /* ⚠ DECLARED UP HERE WITH THE REST OF THE STATE, NOT BESIDE THE FUNCTION THAT USES IT. `close()`
+   *   and `startRip()` both call stopNeedPoll(), which READS this binding; a `let` further down
+   *   the file is in its temporal dead zone until module init reaches it. Safe today only because
+   *   both callers are event handlers — and "safe because of when it happens to be called" is
+   *   exactly the shape of the four TDZ failures this repo has already paid for, each of which
+   *   took a whole module down at parse time with the probe reporting "not ready". */
+  let needPoll = null;
 
   /* ── ⛔ THE REVEAL IS THE ONE CARD THAT HAS TO BE AN OBJECT ────────────────────────────────
    * Artist, 2026-08-05: *"we need the same cardviewer used in the proof.html with the
@@ -215,6 +222,7 @@
 
   // decide: real on-chain rip (burn $3030) or a practice pull
   async function startRip() {
+    stopNeedPoll();                    // a retry must not race the watcher that may have queued it
     lastTx = null; practice = true;
     if (onchainRip()) return onchainStart();
     rip();
@@ -305,13 +313,79 @@
 
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
-  function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $3030';
-    const costs = (W() && W().hasSink && W().hasSink())
+  /* ⛔ THIS WAS THE FRONT DOOR OF THE ENTIRE DISTRIBUTION PLAN AND IT WAS A DEAD END.
+   *   It read the balance, found it short, and said "Buy some on SuperRare, then rip" — at the
+   *   one moment a visitor has decided they want a pack. The pack schedule is 3,560 packs and
+   *   tier I alone is 200,000 $3030 off $16,000, which is 2.5x everything the token has ever
+   *   distributed; every one of those sales has to walk through this function. Sending somebody
+   *   away to work out for themselves how many $3030 a pack costs, in a unit they do not think
+   *   in, on a market that quotes in RARE, is where the funnel was losing them.
+   * ⚑ THE RIP IS A BUY NOW: it names the shortfall, prices it in DOLLARS, opens an EXACT-OUTPUT
+   *   swap pre-filled with the amount, and then WATCHES THE BALANCE so the rip continues by
+   *   itself when the tokens land. No copy-pasting a number between two tabs.
+   * ⚠ FAILS OPEN AT EVERY STEP: no swapUrl (token unconfigured) ⇒ the old copy, unchanged. No
+   *   price ⇒ the token count without a dollar figure. No poll ⇒ the Try again button still works.
+   *   Nothing here can make the panel worse than the dead end it replaced. */
+  function stopNeedPoll() { if (needPoll) { clearInterval(needPoll); needPoll = null; } }
+  function ripNeedTokens(have, need) { busy = false; stopNeedPoll();
+    if (title) title.textContent = 'one step first';
+    const w = W();
+    const short = Math.max(0, need - have);
+    /* ⚠ A CUSHION, BECAUSE AN EXACT FILL IS THE ONE THAT SENDS THEM ROUND THE LOOP AGAIN. Price
+     *   moves between opening the swap and signing it, and slippage is subtracted from the OUTPUT
+     *   on an exact-input leg — so buying precisely the shortfall lands a few tokens short and
+     *   drops the collector back on this same panel, having already paid. 5% and a floor of 1. */
+    const buyAmt = Math.max(short + 1, Math.ceil(short * 1.05));
+    const url = (w && w.swapUrl) ? w.swapUrl(null, buyAmt) : '';
+    const costs = (w && w.hasSink && w.hasSink())
       ? 'costs <b>' + need + ' $3030</b> — half burned, half to the studio'
       : 'burns <b>' + need + ' $3030</b>';
+
+    if (!url) {   // token unconfigured — the panel this replaced, verbatim
+      reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
+        have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); return; }
+
     reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
-      have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
+      have.toLocaleString('en-US') + '</b>, so you need <b>' + short.toLocaleString('en-US') +
+      '</b> more.<span id="ripUsd"></span></div>' +
+      '<div class="pack-cta">' +
+        '<a class="btn gold" id="ripBuy" href="' + url + '" target="_blank" rel="noopener noreferrer">' +
+          '$ Buy ' + buyAmt.toLocaleString('en-US') + ' $3030 ↗</a>' +
+        '<button type="button" class="btn" id="ripRetry">↻ I have them — rip</button>' +
+        '<button type="button" class="btn alt" id="ripPractice">Practice pull</button></div>' +
+      '<div class="pack-note" id="ripWatch" style="opacity:.75"></div>';
+    wireCta();
+
+    /* The dollar figure, because the pack is a DOLLAR target and $3030 is not a unit anyone
+     * budgets in. Live read; absent rather than guessed if the market is unreachable. */
+    if (w && w.marketDepth) w.marketDepth().then(d => {
+      const px = ((d && d.pools) || []).map(p => p && p.price).find(v => v > 0);
+      const el = document.getElementById('ripUsd');
+      if (px && el) el.innerHTML = ' That is about <b>$' + (buyAmt * px).toFixed(2) + '</b>.';
+    }).catch(() => {});
+
+    /* ⚑ THE WATCH IS THE HALF THAT MAKES IT ONE ERRAND INSTEAD OF TWO. They buy in another tab;
+     *   this one notices and rips. Without it the collector has to come back, remember which
+     *   button, and press it — and the whole point was to stop asking them to carry state. */
+    const watch = document.getElementById('ripWatch');
+    /* ⚠ PAINTED BEFORE THE FIRST TICK, NOT ON IT. The interval is 3 s, so setting this only inside
+     *   the callback leaves three seconds of blank space under the button — exactly the window in
+     *   which somebody decides nothing is happening and closes the tab. Same rule as the embed's
+     *   em-dash: a silent surface is indistinguishable from a broken one. */
+    if (watch) watch.textContent = 'watching for the tokens to arrive…';
+    let ticks = 0;
+    needPoll = setInterval(async () => {
+      if (!modal.classList.contains('show')) return stopNeedPoll();
+      if (++ticks > 150) { stopNeedPoll(); if (watch) watch.textContent = ''; return; }   // ~7.5 min
+      try {
+        const b = await w.balance();
+        if (b && b.ok && b.tokens >= need) { stopNeedPoll(); startRip(); }
+        else if (watch) watch.textContent = 'watching for the tokens to arrive…';
+      } catch {}
+    }, 3000);
+  }
   function close() {
+    stopNeedPoll();                    // …and so is a balance poll behind one
     dropViewer();                      // a press rendering behind a closed modal is a battery bill
     if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
     modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {}

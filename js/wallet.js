@@ -477,13 +477,22 @@
    *   keeping: the router picks the venue, so if the ETH pool is empty the swap routes some other
    *   way instead of filling at a ruinous price inside it. Aiming at a specific pool would remove
    *   that. Use poolUrl() when the pool ITSELF is the destination. */
-  const swapUrl = (quote) => {
+  /* ⚑ `want` PRE-FILLS AN EXACT-OUTPUT SWAP, WHICH IS WHAT TURNS A LINK INTO AN ON-RAMP. Sending
+   *   somebody to an empty swap box and asking them to work out how many $3030 a pack costs is
+   *   where the pack funnel has been losing people: the answer is a number they do not have, in a
+   *   unit they do not think in. `exactField=output` makes Uniswap solve for the input instead.
+   * ⚠ It stays TOKEN-KEYED — `want` only sets an amount, never a pool — so the router still picks
+   *   the venue and still cannot fill from a pool with nothing in it. */
+  const swapUrl = (quote, want) => {
     const m = (CFG().market || {});
     const t = token();
     if (!/^0x[0-9a-fA-F]{40}$/.test(String(t || '').trim())) return '';
     const host = m.swapHost || 'https://app.uniswap.org/swap';
     const inp = String(quote || m.swapInput || 'ETH').trim().toUpperCase();
-    return `${host}?chain=ethereum&inputCurrency=${encodeURIComponent(inp)}&outputCurrency=${t}`;
+    let u = `${host}?chain=ethereum&inputCurrency=${encodeURIComponent(inp)}&outputCurrency=${t}`;
+    const n = Number(want);
+    if (Number.isFinite(n) && n > 0) u += `&exactField=output&exactAmount=${Math.ceil(n)}`;
+    return u;
   };
   /* The pool page itself — for looking at a market or adding to it, which is a different errand
    * from buying and is the one place a pool id belongs. '' when that pair is not configured. */
