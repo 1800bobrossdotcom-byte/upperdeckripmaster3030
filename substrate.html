@@ -14,6 +14,10 @@
 <link rel="icon" href="favicon.svg">
 <link rel="stylesheet" href="mobile.css">
 <script src="/gate.js"></script>
+<!-- ⚠ ABSOLUTE PATH, for the same reason the footer's studio link is: this page is also served at
+     the root of 3030.ripmaster3030studios.com, where a relative "js/…" resolves against that host.
+     `js/check3030.js` is loaded the same way by 3030.html and by scripts/drain.mjs. -->
+<script src="/js/crypt3030.js"></script>
 
 <!--
   ══ 3030 — THE SUBSTRATE OMNI DATA LAYER ══════════════════════════════════════════════════════
@@ -123,6 +127,30 @@
   .run b{color:var(--hot);font-weight:400}
   .run i{color:var(--dim);font-style:normal;margin-right:7px}
 
+  /* ── the cipher layer ──
+   * ⚠ 44px on every control. This page was not in `npm run mobile`'s nine and the embed's buttons
+   *   shipped two pixels under the floor for exactly that reason — the standard reaches where it
+   *   is enforced and nowhere else. */
+  .no{color:var(--bad)}
+  .cf{display:grid;gap:10px;margin:0 0 4px}
+  .cf label{display:block;font-size:var(--t-tag,12px);letter-spacing:.14em;color:var(--dim)}
+  .cf input{display:block;width:100%;box-sizing:border-box;margin-top:6px;min-height:44px;
+            font:inherit;font-size:var(--t-body,16px);letter-spacing:.01em;padding:10px 12px;
+            color:var(--ink);background:#070a0d;border:1px solid var(--line);border-radius:3px}
+  .cf input:focus{outline:0;border-color:var(--hot)}
+  .cf button{min-height:44px;padding:11px 18px;font:inherit;font-size:var(--t-body,16px);
+             letter-spacing:.10em;color:#07090c;background:var(--hot);border:0;border-radius:3px;
+             cursor:pointer;justify-self:start}
+  .cf button:disabled{background:#2b332a;color:var(--dim);cursor:default}
+  .cfout{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .cfout .r{display:grid;grid-template-columns:170px 1fr;gap:8px 14px;padding:7px 0;
+            font-size:var(--t-fine,13px);line-height:1.6;border-bottom:1px solid #121a15}
+  .cfout .r:last-child{border-bottom:0}
+  .cfout .r>span:first-child{color:var(--dim);letter-spacing:.13em}
+  .cfout .hx{word-break:break-all;color:var(--cool)}
+  .cfout .yes{color:var(--ok)} .cfout .nope{color:var(--bad)}
+  @media(max-width:560px){ .cfout .r{grid-template-columns:1fr;gap:2px} }
+
   /* ── verify ── */
   #verify .v{font-size:var(--t-body,16px);line-height:1.6}
   .tick{color:var(--ok)} .cross{color:var(--bad)}
@@ -203,6 +231,54 @@
     is concealed and there is no key — <b>the cipher is the register you read in</b>. That is what
     makes this encryption rather than obfuscation: the plaintext has been public the whole time,
     in a reading nobody performs.</p>
+
+  <!-- ══ THE CIPHER LAYER ═══════════════════════════════════════════════════════════════════
+       ⛔ THIS SECTION EXISTS TO SAY NO. The section above ends on "the cipher is the register you
+          read in", which is true and is a metaphor — and the very next question anybody asks is
+          whether 3030 can encrypt something for real. It cannot, it never will, and a page that
+          leaves that ambiguous is one that eventually gets someone to put a secret on a public
+          chain. So the refusal is the headline and the contribution is the small print, not the
+          other way round.
+       ⚑ AND THE CONTRIBUTION IS REAL, WHICH IS WHY IT IS WORTH THE SPACE. AES-GCM's one
+          catastrophic failure is nonce reuse, it is almost always caused by two machines each
+          thinking they own the counter, and a 3030 height is a counter nobody hands out.
+       ⚠ EVERYTHING HERE RUNS IN THE BROWSER AND IS THROWN AWAY. No passphrase, plaintext or key
+          leaves the page — there is nothing to send it to, and this page has no wallet and no
+          backend by design. -->
+  <h2>THE CIPHER LAYER — WHAT THE CHAIN ADDS TO AES, AND WHAT IT CANNOT</h2>
+  <div class="panel">
+    <p style="margin:0 0 12px"><b class="no"><span class="pn">·</span> cannot keep a secret.</b> Every byte it reads is
+      already public, and a key derived from public data is a key everybody has. Nothing on this
+      page will ever encrypt anything <em>for</em> you.</p>
+    <p class="note" style="margin:0 0 14px">What it does contribute is narrower and real.
+      <b>AES-256-GCM has one catastrophic failure mode</b> — reuse a nonce under one key and the
+      XOR of both messages falls out, along with the authentication subkey, after which an attacker
+      can forge tags for messages you never wrote. It is almost always caused by two machines each
+      believing they own the counter. <b>A <span class="pn">·</span> height is a counter every party agrees on without
+      coordinating</b>, because a block is a pure function of blocks that are already final. The
+      chain supplies ordering, freshness and binding. <b>You bring the secret.</b></p>
+    <div class="cf">
+      <label>YOUR OWN SECRET · never leaves this page, 16 characters or the module refuses
+        <input id="cfKey" type="text" autocomplete="off" spellcheck="false"
+               placeholder="a passphrase you already had — not one the chain can compute"></label>
+      <!-- ⚠ THE DEFAULT IS LONG ON PURPOSE AND THE SHORT ONE WAS A MEASUREMENT BUG ON DISPLAY.
+           At 29 characters the ciphertext is 45 bytes, and entropy is bounded by the SAMPLE — 45
+           draws cannot show 256 symbols — so the first thing every visitor saw was the detector
+           correctly shrugging, and a census split (4.4% space) that was pure small-sample noise
+           against a true 0.39%. The panel's own claim needs a sample big enough to carry it.
+           ⛔ AND LENGTHENING IT ONCE WAS NOT ENOUGH. The second try landed at 126 bytes — two
+           short of the detector's 128-byte floor — so the panel went on printing a verdict about
+           its own sample size. 157 bytes now, sized by measuring rather than by counting
+           characters in my head. -->
+      <label>MESSAGE
+        <input id="cfMsg" type="text" autocomplete="off" spellcheck="false"
+               value="wave small part of wave large, omnidirectional fluid. this is joy, and it is why there is music on every page. the same language, read twice."></label>
+      <button id="cfGo" type="button">SEAL IT AT THE HEAD</button>
+    </div>
+    <div id="cfOut" class="cfout" hidden></div>
+    <p class="note" id="cfWhy" style="margin:12px 0 0">Sealing runs entirely in your browser through
+      WebCrypto. The result is discarded when you leave.</p>
+  </div>
 
   <h2>THE GHOST TEXT — LANGUAGE FOUND INSIDE THE MACHINE LANGUAGE</h2>
   <div class="runs" id="runs"></div>
@@ -338,6 +414,7 @@
 
     drawSheet(head);
     drawDuality(head);
+    cipherPanel(d);
     drawRuns(head);
   }
 
@@ -391,6 +468,122 @@
     }
     $('dualHex').innerHTML = hex.trim();
     $('dualTxt').innerHTML = txt;
+  }
+
+  /* ── 3½ · the cipher layer ──────────────────────────────────────────────────────────────
+   *
+   * ⛔ IT SEALS AT THE LIVE HEAD, NOT AT A MADE-UP HEIGHT, AND THAT IS THE ONLY REASON THIS IS A
+   *   DEMONSTRATION RATHER THAN A TOY. The nonce printed below is `nonce(head.height, 0)` and the
+   *   AAD is the head's own hash, so what a reader sees is the chain supplying the two values the
+   *   argument is about. A hard-coded height would have illustrated the sentence and proved
+   *   nothing.
+   *
+   * ⛔ AND IT RUNS THE FAILING CASE ITSELF. Claiming "the ciphertext is bound to this block" and
+   *   then only ever showing a successful decrypt is the shape this repo keeps paying for: an
+   *   assertion satisfied by a function that always says the same thing. So it opens the message
+   *   twice — once at the head, once one block later — and prints both outcomes. If the second
+   *   one ever succeeded, the panel would say so.
+   *
+   * ⚑ THE CENSUS ALREADY SEES ENCRYPTION AND DOES NOT NEED A NEW AXIS — measured here, live.
+   *   Uniform bytes are 1/256 zero, 95/256 printable-ASCII and 160/256 everything else, so
+   *   ciphertext reads as ~0.4% space against a chain that is ~67% space. I was going to add an
+   *   entropy field to the census for this and it would have FORKED EVERY HASH to measure
+   *   something the three existing counts already separate by two orders of magnitude. The panel
+   *   classifies the real ciphertext with the deriver's own rule and prints what it got.
+   *
+   * ⚠ FAIL OPEN, AND FOR THIS CONTROL THAT MEANS THE BUTTON MUST BE ABLE TO DIE. `crypto.subtle`
+   *   is absent on an insecure origin and can be refused by policy; a SEAL button that animates
+   *   and produces nothing is worse than no button — `theme.js` paid for that lesson. If the
+   *   module or WebCrypto is missing, the control is removed and the paragraph says why.        */
+  function cipherPanel(d){
+    var go = $('cfGo'), out = $('cfOut'), why = $('cfWhy');
+    var C = window.Crypt3030, subtle = window.crypto && window.crypto.subtle;
+    var head = d && d.blocks && d.blocks[d.blocks.length - 1];
+    /* ⛔ THE NAME IS READ, NEVER TYPED — and I typed it four times writing this section before
+     *   `test:substrate` §C caught every one. The page's whole design is that the next rename
+     *   costs one constant in the deriver, and prose is exactly where a name quietly re-enters:
+     *   two of the four were in visible copy and two were inside JS string concatenation, which
+     *   no amount of looking at the rendered page would have shown.
+     * ⚠ FILLED BEFORE THE GUARD BELOW, not after. The guard removes the CONTROL and leaves the
+     *   two paragraphs standing, so filling afterwards would leave a stray "·" in the copy on
+     *   exactly the path where something has already gone wrong. */
+    var NAME = (d && d.protocol && d.protocol.name) || '';
+    Array.prototype.forEach.call(document.querySelectorAll('.pn'), function(el){ el.textContent = NAME; });
+    if(!C || !subtle || !head){
+      var cf = document.querySelector('.cf'); if(cf) cf.remove();
+      if(out) out.remove();
+      if(why) why.innerHTML = !head ? 'The derivation could not be read, so there is no head to seal against.'
+        : !C ? 'The cipher module did not load, so this control has removed itself rather than sit here doing nothing.'
+        : 'Your browser will not expose WebCrypto here — <code>crypto.subtle</code> is absent outside a '
+          + 'secure origin. Nothing on this page will hand-roll a cipher to work around that.';
+      return;
+    }
+    var H = head.height, BH = head.hash;
+    why.innerHTML = 'Sealing runs entirely in your browser through WebCrypto, at ' + NAME + ' height <b>'
+      + H + '</b>, bound to head <code>' + BH.slice(0, 12) + '…</code>. The result is discarded when you leave.';
+
+    go.addEventListener('click', function(){
+      var secret = $('cfKey').value, msg = $('cfMsg').value || '';
+      out.hidden = false;
+      var row = function(k, v, cls){ return '<div class="r"><span>' + k + '</span><span class="'
+        + (cls || '') + '">' + v + '</span></div>'; };
+      if(secret.length < 16){
+        /* ⛔ THE REFUSAL IS THE PRODUCT. A 15-character passphrase would produce a key that works
+         *   perfectly and protects very little, and there would be nothing on screen to notice. */
+        out.innerHTML = row('REFUSED', 'a secret of at least 16 characters, and it must be one you already '
+          + 'had. ' + (secret.length ? 'That one is ' + secret.length + ' characters.'
+                                     : 'The field is empty.'), 'nope');
+        return;
+      }
+      go.disabled = true; go.textContent = 'SEALING…';
+      C.deriveKey(secret, BH, 'substrate-demo').then(function(key){
+        return C.seal(key, msg, H, 0, BH, 'demo').then(function(s){
+          /* both directions, computed — never claimed */
+          var here = C.open(key, s.ciphertext, H, 0, BH, 'demo')
+            .then(function(p){ return new TextDecoder().decode(p); }, function(){ return null; });
+          var next = C.open(key, s.ciphertext, H + 1, 0, BH, 'demo')
+            .then(function(){ return true; }, function(){ return false; });
+          return Promise.all([here, next]).then(function(r){ return { s: s, back: r[0], nextOk: r[1] }; });
+        });
+      }).then(function(o){
+        var ct = o.s.ciphertext, n = ct.length;
+        /* the deriver's own classifier, on the real ciphertext bytes */
+        var sp = 0, sg = 0;
+        for(var i = 0; i < n; i++){ var b = ct[i]; if(b === 0) sp++; else if(b >= 0x20 && b <= 0x7e) sg++; }
+        var mk = n - sp - sg, p = function(x){ return (100 * x / n).toFixed(1) + '%'; };
+        var chainSpace = D && D.totals ? pct(D.totals.space, D.totals.bytes) : '~67%';
+        var e = C.entropy(ct);
+        out.innerHTML =
+          row('NONCE · 96 BIT', C.bytesToHex(o.s.nonce), 'hx') +
+          row('', 'the high 8 bytes are ' + NAME + ' height ' + H + '. Nobody handed that number out and '
+              + 'nobody can quietly rewind it — that is the whole contribution.') +
+          row('CIPHERTEXT', C.bytesToHex(ct).slice(0, 96) + (n > 48 ? '…' : '')
+              + ' <span style="color:var(--dim)">(' + n + ' bytes = ' + (n - 16) + ' + a 128-bit tag)</span>', 'hx') +
+          row('OPENS AT ' + H, o.back === msg ? '✓ ' + esc(o.back) : '✕ it did not come back', o.back === msg ? 'yes' : 'nope') +
+          row('OPENS AT ' + (H + 1), o.nextOk ? '✓ — which would mean the binding is broken'
+              : '✕ tag fails. The message decrypts at its own block or not at all.', o.nextOk ? 'nope' : 'yes') +
+          row('ENTROPY', n < 64
+              ? n + ' bytes — <b>too short to measure honestly.</b> A sample cannot show more symbols '
+                + 'than it has draws, so this would be a reading of the sample and not of the data. '
+                + 'Lengthen the message.'
+              : e.toFixed(3) + ' bits/byte — ' + C.looksEncrypted(ct).verdict) +
+          /* ⚠ THE EXPECTATION IS PRINTED BESIDE THE MEASUREMENT, because on a short ciphertext the
+           *   measured split is noise and a reader has no way to tell. Uniform bytes are 1/256
+           *   zero, 95/256 printable-ASCII and 160/256 everything else — 0.39 / 37.11 / 62.50 —
+           *   and the sample converges to it. Printing only the measurement would invite somebody
+           *   to quote 4.4% as a property of ciphertext. */
+          row('IN THE CENSUS', 'space <b>' + p(sp) + '</b> · sigil ' + p(sg) + ' · mark ' + p(mk)
+              + ' <span style="color:var(--dim)">(uniform bytes converge to 0.4 · 37.1 · 62.5; '
+              + n + ' bytes is a small sample)</span><br>against a chain that is <b>' + chainSpace
+              + '</b> space. <b>The census already sees encryption without reading it</b> — two '
+              + 'orders of magnitude apart on the first count — and it needed no new axis to do it.');
+        go.disabled = false; go.textContent = 'SEAL IT AT THE HEAD';
+      }, function(err){
+        /* ⚠ name the failure. A control that fails silently is the one this section argues against. */
+        out.innerHTML = row('FAILED', esc(String(err && err.message || err)), 'nope');
+        go.disabled = false; go.textContent = 'SEAL IT AT THE HEAD';
+      });
+    });
   }
 
   /* ── 4 · the ghost text ─────────────────────────────────────────────────────────────────── */

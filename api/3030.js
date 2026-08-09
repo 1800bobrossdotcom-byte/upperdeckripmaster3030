@@ -137,7 +137,12 @@ export default async function handler(req, res) {
   const ageSec = c.derivedAt ? Math.round((Date.now() - new Date(c.derivedAt).getTime()) / 1000) : null;
   const base = {
     ok: true,
-    protocol: c.protocol || PROTOCOL, version: c.version, layer: '00',
+    /* ⛔ `protocol` IS AN OBJECT IN THE DERIVATION, and the live response rendered it as
+     *   "[object Object]" the moment anyone concatenated it. Serve the NAME as `protocol` — the
+     *   field a caller will print — and keep the whole record beside it under its own key. */
+    protocol: (c.protocol && c.protocol.name) || ' 3030'.trim(),
+    protocolRecord: c.protocol || PROTOCOL,
+    version: c.version, layer: (c.protocol && c.protocol.layer) || '00',
     genesis: c.genesis || GENESIS,
     height: blocks.length,
     head: head ? head.hash : null,
