@@ -36,6 +36,14 @@ const SUITES = [
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
   'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
   'challenge', 'arena', 'updates', 'board', 'mm', 'onramp', 'standalone', 'rewards', 'flow', 'bot',
+  /* ⛔ FIVE SQUARES WERE MISSING FROM THE BOARD, ON A BOARD WHOSE OWN §0 COMMENT SAYS A MISSING
+   * SQUARE READS AS COMPLETE. `substrate`, `substrate:attack`, `drain` and `api3030` were written
+   * over the preceding days and never added to the `npm test` chain, so §0 — which compares this
+   * list AGAINST that chain — agreed with itself and reported a full board. **A guard that checks
+   * two lists against each other is blind to anything absent from both.** All five are hermetic
+   * (no network, and `substrate`'s only https strings are a defanged URL fixture), so there is no
+   * cost argument for leaving them off. */
+  'substrate', 'substrate:attack', 'drain', 'api3030', 'crypt',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list
@@ -48,7 +56,13 @@ const SUITES = [
 const CHAIN = (() => {
   try {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-    return [...String(pkg.scripts?.test || '').matchAll(/\btest:([a-z0-9-]+)/g)].map((m) => m[1]);
+    /* ⚠ THE COLON IS IN THE CHARACTER CLASS BECAUSE A SUITE NAME CAN CONTAIN ONE, and without it
+     * this guard could not see its own newest square: `npm run test:substrate:attack` parsed as
+     * `substrate`, producing a duplicate the chain already had and never producing
+     * `substrate:attack` at all — so the reconciliation reported the attack suite as "on the
+     * board, not in the chain" while it was sitting in the chain being misread. **A parser that
+     * cannot express the thing it parses reports the absence of what it cannot see.** */
+    return [...String(pkg.scripts?.test || '').matchAll(/\btest:([a-z0-9:-]+)/g)].map((m) => m[1]);
   } catch { return null; }
 })();
 if (CHAIN && CHAIN.length) {
