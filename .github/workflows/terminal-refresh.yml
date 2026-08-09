@@ -64,14 +64,24 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      - name: is this the daily slot
+        id: clock
+        run: echo "daily=$([ "$(date -u +%H)" = "03" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       - name: measure the pool screen
         run: node scripts/terminal.mjs
         # ⚠ Deliberately NOT `continue-on-error`. A failed measurement must leave the previous
         #   snapshot in place and turn the run red, because the page's age label will then tell the
         #   truth on its own. Writing a partial file would be worse than writing nothing.
 
+      # ⛔ THE EDGE LADDER WAS ON NO SCHEDULE AT ALL, and a page shipped a claim that it refreshed.
+      #    `toll.html`'s deck IS data/edge-*.json, and this step only ever ran on a manual dispatch
+      #    — so the game advertised a live deck that would have frozen the day it launched. Worse
+      #    than the six-hour cadence, because that one was merely slow.
+      # ⚠ It is DAILY rather than hourly because it is a ~50-minute job over two chains, against a
+      #    ~70-second one. Cadence follows cost; the page now states each one separately.
       - name: regenerate the edge ladder
-        if: github.event_name == 'workflow_dispatch' && inputs.full
+        if: (github.event_name == 'workflow_dispatch' && inputs.full) || fromJSON(steps.clock.outputs.daily)
         run: |
           node scripts/edge.mjs
           CHAIN=base node scripts/edge.mjs
