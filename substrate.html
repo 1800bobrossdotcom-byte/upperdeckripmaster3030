@@ -192,6 +192,12 @@
   <div class="bar" id="bar" aria-hidden="true"><span class="s" style="width:67%"></span><span class="g" style="width:13%"></span><span class="m" style="width:20%"></span></div>
   <div class="keys" id="keys"></div>
   <p class="note" style="margin-top:14px" id="glyphNote">reading…</p>
+  <!-- ⛔ THE SHEETS ARE POINTS, NOT A SEQUENCE OF READINGS. Each census is a vector — four byte
+       classes plus three formation shares — so a sheet is a POSITION and the chain is a path
+       through that space. That makes one question answerable that a table of percentages cannot
+       even ask: does the composition go SOMEWHERE, or does it move and come back? Path length
+       against endpoint distance settles it, and it needs no new data. -->
+  <p class="note" style="margin-top:10px" id="pathNote">measuring…</p>
 
   <h2>FORMATIONS — THE STRUCTURE ABOVE THE BYTE</h2>
   <div class="keys" id="forms"></div>
@@ -377,15 +383,33 @@
      * (10/40) is carried in the data too and named on the page, but quoting it as "the price"
      * is the error this page had to correct after publishing it. */
     var g = (d.gas && d.gas.standard) || { space: 4, mark: 16 };
+    /* ⛔ A PUBLISHED AVERAGE WITH NO STATED SPREAD READS AS A CONSTANT, and this one is not close
+     * to constant. Measured across the six sheets: SPACE runs 0.5694 to 0.7089 — a FOURTEEN-POINT
+     * swing between adjacent Ethereum blocks — so the single headline figure is the mean of a
+     * quantity that moves, and a reader was being invited to take it as a property of the chain.
+     * ⚑ The range is not a caveat bolted on; it is the finding. The composition BREATHES. */
+    var per = function(k){ return (d.blocks || []).map(function(b){
+      return b.census.counts[k] / (b.census.bytes || 1); }); };
+    /* ⚠ THE DECIMALS FOLLOW THE MAGNITUDE, because one place turned the GLYPH range into
+     *   "0.0–0.0%" — a span that rounds away to nothing reads as a broken measurement, which is
+     *   this page's own em-dash rule applied to a rounding choice. The real range there is
+     *   0.010–0.031%, which is a threefold swing and worth seeing. */
+    var span = function(k){ var v = per(k); if(!v.length) return '';
+      var lo = 100 * Math.min.apply(null, v), hi = 100 * Math.max.apply(null, v);
+      var dp = hi < 1 ? 3 : 1;
+      return '<br><span style="color:var(--dim)">per sheet ' + lo.toFixed(dp) + '–'
+           + hi.toFixed(dp) + '% across ' + v.length + ' — this is a mean, not a constant</span>'; };
+    var KEY = ['space','sigil','glyph','mark'];
     $('keys').innerHTML = [
       ['#141a20', 'SPACE',  t.space, '0x00 — the paper. ' + g.space + ' gas each.'],
       ['#e0ff4f', 'SIGIL',  t.sigil, '0x20–0x7E — ASCII, a mark that also reads as language. ' + g.mark + ' gas each.'],
       ['#6fd3ff', 'GLYPH',  t.glyph, 'multi-byte UTF-8 — every other writing system. ' + g.mark + ' gas each.'],
       ['#39463c', 'MARK',   t.mark,  'everything else — opaque ink. ' + g.mark + ' gas each.']
-    ].map(function(r){
+    ].map(function(r, i){
       return '<div class="key"><div><span class="sw" style="background:' + r[0] + '"></span>' +
         '<span class="n">' + pct(r[2], tot) + '</span></div>' +
-        '<div class="d"><b>' + r[1] + '</b> · ' + comma(r[2]) + ' bytes<br>' + esc(r[3]) + '</div></div>';
+        '<div class="d"><b>' + r[1] + '</b> · ' + comma(r[2]) + ' bytes<br>' + esc(r[3])
+        + span(KEY[i]) + '</div></div>';
     }).join('');
 
     /* ⛔ THE MONOLINGUAL FINDING IS STATED, NOT BURIED. A near-zero GLYPH share looks like a
@@ -393,6 +417,45 @@
      * anything beside an ASCII byte and reported 0.93% — Coptic next to Tibetan next to a
      * private-use codepoint, i.e. noise. Requiring two consecutive same-script glyphs took it to
      * this. The rejected count is shown so the correction is visible rather than asserted. */
+    /* ── the sheets as points, and the chain as a path between them ────────────────────────
+     * ⚑ SEVEN AXES, ALL SHARES, and the normalisation is the whole reason the number means
+     *   anything: on raw counts a big sheet and a small one are far apart because one is BIGGER,
+     *   so "distance" would be measuring block size wearing a different name.
+     * ⚑ PATH LENGTH ÷ ENDPOINT DISTANCE IS THE STATISTIC because it needs no threshold. ≈1 means
+     *   the composition went somewhere and stayed; ≫1 means it wandered and came back, i.e. it is
+     *   stationary and the headline percentages are means of a moving quantity rather than
+     *   constants. Measured over these sheets it is well above 1.
+     * ⚠ AND THE SAMPLE SIZE IS PRINTED, because six sheets is six steps. This is enough to say
+     *   the composition MOVES — a 14-point swing between adjacent blocks is not noise at these
+     *   byte counts — and not enough to characterise how it moves over a day. Say the first and
+     *   not the second. */
+    (function(){
+      var bs = d.blocks || [];
+      if (bs.length < 3) { $('pathNote').textContent =
+        'Fewer than three sheets in this derivation — not enough to say anything about how the composition moves.'; return; }
+      var vec = function(b){ var t = b.census.bytes || 1, f = b.census.form, w = f.words || 1;
+        return [b.census.counts.space/t, b.census.counts.sigil/t, b.census.counts.glyph/t,
+                b.census.counts.mark/t, f.rules/w, f.addresses/w, f.selectors/w]; };
+      var dist = function(a, b){ var s = 0; for (var i = 0; i < a.length; i++) s += (a[i]-b[i])*(a[i]-b[i]); return Math.sqrt(s); };
+      var pts = bs.map(vec), path = 0;
+      for (var i = 1; i < pts.length; i++) path += dist(pts[i-1], pts[i]);
+      var ends = dist(pts[0], pts[pts.length-1]);
+      var sp = bs.map(function(b){ return b.census.counts.space / (b.census.bytes || 1); });
+      var lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
+      var ratio = ends > 0 ? path / ends : Infinity;
+      $('pathNote').innerHTML = 'Each sheet is also a <b>point</b> — seven axes, all shares — and the '
+        + 'chain is a path between them. Over these ' + bs.length + ' sheets the path is <b>'
+        + path.toFixed(3) + '</b> long and the two ends are <b>' + ends.toFixed(3) + '</b> apart, a ratio of <b>'
+        + (isFinite(ratio) ? ratio.toFixed(1) + '×' : '∞') + '</b>. '
+        + (ratio > 2
+            ? 'It <b>wanders and returns</b> rather than drifting, so the percentages above are means of a '
+              + 'quantity that moves: the paper alone runs ' + (100*lo).toFixed(1) + '–' + (100*hi).toFixed(1)
+              + '% between adjacent Ethereum blocks. <b>The substrate breathes.</b>'
+            : 'It is <b>drifting</b> rather than wandering — the composition is going somewhere over this span.')
+        + ' <span style="color:var(--dim)">' + (bs.length - 1) + ' steps is enough to say the composition '
+        + 'moves and not enough to say where it goes over a day.</span>';
+    })();
+
     $('glyphNote').innerHTML = 'The chain is <b>effectively monolingual</b>. ' +
       comma(t.glyph) + ' bytes of multi-byte text survived the filter and ' + comma(t.chanceGlyphs) +
       ' candidates were rejected as chance — random bytes form valid UTF-8 about 2.9% of the time, ' +
