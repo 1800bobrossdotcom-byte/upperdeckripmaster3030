@@ -27,6 +27,12 @@ const mk = (o) => ({
   firstBlock: o.fb ?? 1000, lastBlock: o.lb ?? 1010,
   isContract: o.c === undefined ? true : o.c, codeSize: o.cs || 900,
   priorHits: o.prior, priorChecked: o.prior !== null,
+  sweep: o.sweep === undefined ? null : o.sweep,
+});
+/* a sweep result: N of M approvers had tokens leave, and where they landed */
+const SW = (moved, checked, topCount, transfers, dests) => ({
+  checked, movedOut: moved, transfers, topDestination: '0xdead',
+  topDestinationCount: topCount, distinctDestinations: dests,
 });
 
 console.log('\n── the ranking separates a drainer from infrastructure ──');
@@ -70,8 +76,45 @@ ok(drainerCapped.score < drainer.score,
   'UNLIMITED: exact-amount approvals score lower than blanket ones',
   `${drainer.score} → ${drainerCapped.score}`);
 
+console.log('\n── the SWEEP is the term that turns suspicion into evidence ──');
+/* ⛔ Everything else measures a POSTURE — somebody is collecting authorisations. The sweep
+ *   observes a CONSEQUENCE: after those wallets approved, tokens left them. A router's users each
+ *   receive their own output; they do not all pay one address. */
+const base    = mk({ v: 22, t: 5, unl: 22, n: 22, fb: 1000, lb: 1030, cs: 600, prior: 0 });
+const noSweep = score({ ...base, sweep: SW(1, 22, 1, 2, 2) });
+const funnel  = score({ ...base, sweep: SW(17, 22, 18, 20, 2) });
+/* ⛔ THE CASE THE FIRST VERSION GOT WRONG, AND ONLY LIVE DATA CAUGHT. A router's approvers ALL
+ *   have tokens leave — 111/111 on Base — because that is what a swap does. The outflow fans out
+ *   to many pools. Scoring the outflow itself fired on every router on the chain. */
+const routerFlow = score({ ...mk({ v: 90, t: 60, unl: 20, n: 120, fb: 1000, lb: 1600,
+  cs: 24497, prior: 219 }), sweep: SW(88, 90, 6, 140, 71) });
+const diffuse = score({ ...base, sweep: SW(17, 22, 3, 20, 16) });
+
+ok(funnel.score > noSweep.score,
+  'a FUNNEL — victims drained to one address — scores far higher than no outflow',
+  `${noSweep.score} → ${funnel.score}`);
+ok(diffuse.score <= noSweep.score + 5,
+  'but an outflow that FANS OUT scores nothing — that is a router being used',
+  `${noSweep.score} vs ${diffuse.score}`);
+ok(funnel.score - diffuse.score >= 40,
+  'concentration, not movement, is what carries the signal',
+  `funnel ${funnel.score} vs diffuse ${diffuse.score}`);
+ok(routerFlow.score < 35,
+  'a real router with 88/90 approvers drained stays NOISE',
+  `${routerFlow.score} — the live case that falsified the first version`);
+ok(JSON.stringify(funnel.reasons).includes('FUNNEL'),
+  'the funnel is named in the evidence, with its counts');
+ok(JSON.stringify(diffuse.reasons).includes('fans out'),
+  'and a fanned-out flow says so, so the reader knows the check ran',
+  diffuse.reasons.slice(-1)[0]);
+/* ⚠ THE HONEST INNOCENT READING: a migration contract moves everyone's tokens to one place BY
+ *   DESIGN and with consent. It scores high here and it should — the tool queues it for a human,
+ *   which is exactly the contract it makes. */
+ok(funnel.score >= 60, 'a consented migration would ALSO score high, and that is the tool working',
+  `${funnel.score} — queued for a human, not judged`);
+
 console.log('\n── it never renders a verdict ──');
-const words = JSON.stringify([drainer, nftDrain, router, newLegit, quiet]).toLowerCase();
+const words = JSON.stringify([drainer, nftDrain, router, newLegit, quiet, diffuse, funnel, routerFlow]).toLowerCase();
 /* ⛔ THE TOOL EMITS EVIDENCE, NEVER AN ACCUSATION. A feed that publishes "scam" against an
  *   address is defamatory when wrong, unfalsifiable to the person named, and cannot be retracted
  *   from the people who read it. Asserted, because a comment does not survive a hurried edit. */

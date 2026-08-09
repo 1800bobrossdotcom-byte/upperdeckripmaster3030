@@ -45,6 +45,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /* ── topics ───────────────────────────────────────────────────────────────────────────────── */
 const T_APPROVAL = '0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925';
 const T_APPROVAL_FOR_ALL = '0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31';
+const T_TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
 
 const CHAINS = {
   ethereum: {
@@ -198,7 +199,58 @@ async function screen(chain, log) {
     } catch { c.priorHits = null; c.priorChecked = false; }
   }
 
+  /* ⚠ ONLY FOR THE CANDIDATES THAT ALREADY LOOK LIKE SOMETHING — one extra call each, and the
+   * window runs from the burst to the head so a sweep that happened after the approvals is seen. */
+  for (const c of cands.slice(0, 10)) {
+    c.sweep = await sweepCheck(chain, c, c.firstBlock, head);
+  }
+
   return { chain, head, from, span, events: logs.length, missed, spenders: by.size, cands };
+}
+
+/* ── ⛔ THE SWEEP — the difference between suspicion and evidence ─────────────────────────────
+ *
+ * Everything above measures INTENT-SHAPED BEHAVIOUR: somebody is collecting authorisations. That
+ * is worth a look and it is not proof of anything — a protocol collects authorisations too.
+ *
+ * ⚑ BUT A DRAINER DOES NOT COLLECT APPROVALS FOR THEIR OWN SAKE. IT SWEEPS. So the confirming
+ *   question is answerable from the same logs: after those wallets approved this spender, **did
+ *   tokens leave those exact wallets, and did they land in one place?** An approval burst followed
+ *   by the approvers' balances moving to a common destination is not a shape any legitimate
+ *   protocol produces — a router's users each receive their own output, they do not all pay one
+ *   address.
+ *
+ * ⚠ THE `from` TOPIC IS INDEXED, so the victim set can be pushed into the filter as an OR and the
+ *   node does the work. This is one call per candidate, not one per victim.
+ * ⚠ STILL NOT AN ACCUSATION. A high sweep share is reported as a COUNT — "17 of 22 approvers had
+ *   tokens leave, 15 to one address" — and the reader concludes. There are innocent readings
+ *   (a migration contract moves everyone's tokens to a new one, by design, with consent). */
+async function sweepCheck(chain, cand, fromBlock, toBlock) {
+  const owners = [...cand.owners];
+  if (!owners.length) return null;
+  const pad = (a) => '0x' + a.slice(2).padStart(64, '0');
+  /* the OR list is capped: a node will refuse an unbounded topic array */
+  const victims = owners.slice(0, 120).map(pad);
+  try {
+    const logs = await rpc(chain, 'eth_getLogs', [{
+      fromBlock: hex(fromBlock), toBlock: hex(toBlock),
+      topics: [T_TRANSFER, victims],
+    }]);
+    const moved = new Set(), dest = new Map();
+    for (const l of logs) {
+      if (!l.topics || l.topics.length < 3) continue;
+      const from = addrOf(l.topics[1]), to = addrOf(l.topics[2]);
+      if (to === '0x0000000000000000000000000000000000000000') continue;
+      moved.add(from);
+      dest.set(to, (dest.get(to) || 0) + 1);
+    }
+    const top = [...dest.entries()].sort((a, b) => b[1] - a[1])[0] || null;
+    return {
+      checked: victims.length, movedOut: moved.size, transfers: logs.length,
+      topDestination: top ? top[0] : null, topDestinationCount: top ? top[1] : 0,
+      distinctDestinations: dest.size,
+    };
+  } catch { return null; }
 }
 
 /* ⛔ THE SCORE IS A QUEUE POSITION, NOT A VERDICT. Each term is a COUNT the reader can check, and
@@ -244,7 +296,48 @@ function score(c) {
     reasons.push('history unread');           // ⚠ scored neutral: unknown is not suspicious
   }
 
-  return { score: Math.max(0, Math.min(100, s)), reasons };
+  /* ⛔ THE SWEEP TERM DOMINATES EVERYTHING ELSE, because it is the only one that observes a
+   *   CONSEQUENCE rather than a posture. Approvals are a plan; a sweep is what happened. */
+  /* ⛔ "TOKENS LEFT THE APPROVERS" IS NOT A SIGNAL — IT IS WHAT AN APPROVAL IS FOR, and the live
+   *   run is what proved it. Every router on Base came back 111/111, 92/92, 86/88: you approve a
+   *   router and it moves your tokens, because that is a swap. Scoring the sweep itself fired on
+   *   everything and separated nothing.
+   *   ⚠ My fixtures passed because I built them to match the hypothesis — the concentration was
+   *     baked into every sweeping case I invented. **A test written from the same belief as the
+   *     code confirms the belief.** Only real data disagreed.
+   * ✅ THE SIGNAL IS CONCENTRATION, NOT MOVEMENT. A router's users each receive their own output
+   *   and the tokens fan out to many pools; a collector's victims all pay ONE address. So the
+   *   points come from WHERE the tokens landed, and a diffuse sweep now scores nothing at all. */
+  const w = c.sweep;
+  if (w && w.checked && w.transfers) {
+    const share = w.movedOut / w.checked;
+    const conc = w.topDestinationCount / w.transfers;
+    const fan = w.distinctDestinations / Math.max(1, w.movedOut);   // ~1 = everyone their own way
+    if (share >= 0.4 && w.movedOut >= 5 && conc >= 0.5 && w.distinctDestinations <= 4) {
+      s += 55;
+      reasons.push(`FUNNEL: ${w.movedOut}/${w.checked} approvers drained, ` +
+                   `${w.topDestinationCount}/${w.transfers} to ONE address`);
+    } else if (share >= 0.4 && w.movedOut >= 5 && conc >= 0.3 && fan <= 0.35) {
+      s += 25;
+      reasons.push(`concentrated outflow: ${w.movedOut}/${w.checked} moved, ` +
+                   `${w.distinctDestinations} destinations`);
+    } else if (share >= 0.4 && w.movedOut >= 5) {
+      /* ⚠ STATED AND SCORED ZERO. The outflow happened and it fanned out — which is what using a
+       * router looks like. Printing it keeps the reader from thinking the check did not run. */
+      reasons.push(`outflow fans out (${w.distinctDestinations} destinations) — router-shaped`);
+    } else {
+      reasons.push(`no outflow yet (${w.movedOut}/${w.checked} moved)`);
+    }
+  }
+
+  /* ⛔ NOT CLAMPED TO 100, AND THE TEST IS WHAT FORCED THAT. A funnel — every victim's tokens
+   *   landing on ONE address — is the strongest evidence this tool can produce, and with a
+   *   ceiling of 100 it scored identically to a diffuse sweep. **The top of the queue is exactly
+   *   where ranking matters most**, so a cap that saturates there defeats the purpose.
+   * ⚑ The number is a QUEUE POSITION, not a percentage, and capping it at 100 was importing a
+   *   percentage's shape into something that is not one. The bands (LOOK / watch / noise) are the
+   *   reader-facing summary; the raw score only orders the list. */
+  return { score: Math.max(0, s), reasons };
 }
 
 /* ── run ──────────────────────────────────────────────────────────────────────────────────── */
@@ -274,7 +367,7 @@ if (isMain) {
           spender: c.spender, approvers: c.owners.size, events: c.n,
           unlimited: c.unlimited, forAll: c.forAll, tokens: c.tokens.size,
           blocks: [c.firstBlock, c.lastBlock], isContract: c.isContract, codeSize: c.codeSize,
-          priorHits: c.priorHits, priorChecked: c.priorChecked,
+          priorHits: c.priorHits, priorChecked: c.priorChecked, sweep: c.sweep || null,
           score: sc.score, reasons: sc.reasons,
         };
       }).sort((a, b) => b.score - a.score);
