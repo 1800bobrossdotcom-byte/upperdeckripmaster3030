@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3030 · check an approval before you sign it</title>
+<meta name="description" content="Paste the contract you are about to approve. 3030 reads Ethereum and Base and tells you what it sees — how many wallets approved it, whether it has any history, and where their tokens went afterwards.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="3030 · check an approval before you sign it">
+<meta property="og:description" content="A drainer does not steal tokens — it collects approvals and sweeps later. The plan is on-chain before the theft is.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/3030.html">
+<meta property="og:image" content="https://www.ripmaster3030studios.com/media/site/og-1200x630.png">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ 3030 — ONE PRODUCT ════════════════════════════════════════════════════════════════════════
+
+  ⛔ THIS PAGE EXISTS BECAUSE FOUR PAGES WERE SECRETLY ONE. The terminal asks what a trade costs,
+     pool check asks whether a venue is safe, the drain screen asks whether an approval is safe,
+     the reading asks what is in the bytes. **All four answer "should I sign this?"** They were
+     built as four products because they were built on four different days.
+
+  ⛔ AND THE LOOKUP IS THE DIFFERENCE BETWEEN INTERESTING AND USEFUL. The screen BROADCASTS what
+     it found; a person with a transaction in front of them needs to ask about THAT ONE ADDRESS.
+     Same scorer, same evidence, pointed at the thing the visitor is actually worried about.
+
+  ⛔ ONE SCORER, IN `js/check3030.js`. This page loads it with a <script src>; `scripts/drain.mjs`
+     READS THAT FILE and evaluates it. The score a visitor sees and the score the hourly screen
+     writes into the ledger come from identical bytes. Two scorers is two answers to one question.
+
+  ⛔ NO WALLET, EVER. Read-only `eth_getLogs` / `eth_getCode` over `fetch`. Nothing is signed,
+     there is no connect button, and a page that asks for a wallet in order to tell you a wallet
+     is unsafe is teaching the exact reflex the attack needs.
+
+  ⚠ IT NEVER ACCUSES. Counts and a plain-language reading of them; the conclusion is the reader's.
+     A new protocol, an airdrop claim and a token migration all look like a drainer for their
+     first hour. The page says so where a person deciding whether to sign can read it.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620; --panel:#0b0f13;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --ok:#63e6a0; --cool:#6fd3ff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:940px;margin:0 auto;padding:0 16px}
+
+  header{padding:34px 0 24px}
+  .kick{font-size:var(--t-tag,12px);letter-spacing:.24em;color:var(--dim);margin:0 0 14px}
+  h1{font-size:clamp(25px,6.2vw,46px);letter-spacing:.01em;line-height:1.08;margin:0 0 16px}
+  h1 b{color:var(--hot);font-weight:inherit}
+  .lede{font-size:var(--t-lede,18px);line-height:1.5;max-width:58ch;margin:0;color:var(--dim)}
+  h2{font-size:var(--t-fine,13px);letter-spacing:.20em;color:var(--dim);margin:46px 0 14px;font-weight:600}
+  p{font-size:var(--t-body,16px);line-height:1.6;max-width:66ch}
+  .note{color:var(--dim)}
+
+  /* ── the lookup: the hero ── */
+  .ask{border:1px solid var(--hot);border-radius:5px;padding:20px;background:var(--panel)}
+  .ask label{display:block;font-size:var(--t-tag,12px);letter-spacing:.16em;color:var(--dim);margin-bottom:10px}
+  .askrow{display:flex;gap:9px;flex-wrap:wrap}
+  #addr{flex:1 1 320px;min-width:0;min-height:48px;padding:0 13px;font-family:var(--mono);
+        font-size:var(--t-body,16px);background:#060809;color:var(--ink);
+        border:1px solid var(--line);border-radius:3px}
+  #addr:focus{outline:none;border-color:var(--hot)}
+  button{font-family:var(--mono);font-size:var(--t-ui,14px);letter-spacing:.08em;min-height:48px;
+    padding:0 20px;border:1px solid var(--hot);background:var(--hot);color:#07090c;
+    border-radius:3px;cursor:pointer;font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+  button.ghost{background:transparent;color:var(--dim);border-color:var(--line);font-weight:400}
+  .egs{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+  .egs span{font-size:var(--t-fine,13px);color:var(--dim)}
+  .egs button{min-height:44px;padding:0 12px;font-size:var(--t-fine,13px)}
+
+  #answer{margin-top:16px}
+  .verdict{border:1px solid var(--line);border-radius:4px;padding:18px 20px;background:var(--panel)}
+  .verdict.LOOK{border-color:var(--bad)}
+  .verdict.WATCH{border-color:var(--warn)}
+  .verdict.QUIET{border-color:var(--ok)}
+  .verdict .top{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px}
+  .verdict .b{font-size:clamp(24px,6vw,38px);letter-spacing:.06em;line-height:1}
+  .verdict.LOOK .b{color:var(--bad)} .verdict.WATCH .b{color:var(--warn)} .verdict.QUIET .b{color:var(--ok)}
+  .verdict .sc{font-size:var(--t-body,16px);color:var(--dim)}
+  .verdict .say{font-size:var(--t-body,16px);line-height:1.6;margin:0 0 14px;max-width:62ch}
+  .ev{list-style:none;margin:0;padding:0;border-top:1px solid var(--line);padding-top:12px}
+  .ev li{font-size:var(--t-body,16px);line-height:1.6;color:var(--dim);padding-left:16px;position:relative}
+  .ev li:before{content:'·';position:absolute;left:4px;color:var(--line)}
+  .ev li.k{color:var(--ink)}
+  .chainline{font-size:var(--t-fine,13px);color:var(--dim);margin:12px 0 0}
+  .working{color:var(--dim);font-size:var(--t-body,16px);line-height:1.6}
+  .bad{color:var(--bad)}
+
+  /* ── feed + ledger ── */
+  .row{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:12px 14px;
+       margin-bottom:8px;display:grid;grid-template-columns:56px 1fr;gap:13px;align-items:start}
+  .row .s{font-size:clamp(18px,3.8vw,24px);line-height:1}
+  .row.LOOK .s{color:var(--bad)} .row.WATCH .s{color:var(--warn)} .row.QUIET .s{color:var(--dim)}
+  .row .a{font-size:var(--t-body,16px);word-break:break-all;margin-bottom:5px}
+  .row .r{font-size:var(--t-body,16px);color:var(--dim);line-height:1.55}
+  .empty{border:1px dashed var(--line);border-radius:3px;padding:18px;color:var(--dim);
+         font-size:var(--t-body,16px);line-height:1.55}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+  .st{border:1px solid var(--line);background:var(--panel);padding:12px 14px;border-radius:3px}
+  .st .k{font-size:var(--t-tag,12px);letter-spacing:.16em;color:var(--dim);display:block;margin-bottom:5px}
+  .st .v{font-size:clamp(19px,4.2vw,26px)}
+  .st .d{font-size:var(--t-body,16px);color:var(--dim);margin-top:4px;line-height:1.45}
+
+  .also{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .also a{display:block;border:1px solid var(--line);background:var(--panel);border-radius:3px;
+          padding:15px 17px;text-decoration:none;color:var(--ink);min-height:44px}
+  /* ⚠ :active TOO, NOT JUST :hover AND :focus. You cannot hover a finger — on touch the only
+   * event a tap reliably produces is :active, so a hover-only affordance simply does not exist on
+   * a phone. This repo took its hover-only count to zero once already; a new page must not put
+   * one back. */
+  .also a:hover,.also a:focus,.also a:active{border-color:var(--hot)}
+  .also .t{font-size:var(--t-body,16px);letter-spacing:.04em;margin-bottom:6px}
+  .also .d{font-size:var(--t-body,16px);color:var(--dim);line-height:1.5}
+  footer{border-top:1px solid var(--line);margin-top:48px;padding:20px 0;color:var(--dim);
+         font-size:var(--t-body,16px);line-height:1.7}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="kick">RIPMASTER3030STUDIOS · ETHEREUM + BASE</p>
+    <h1>A drainer doesn't steal tokens.<br><b>It collects approvals.</b></h1>
+    <p class="lede">The theft is one transaction. The plan is hours of them, and it is public the
+      whole time. Paste the contract you are about to approve and 3030 will read both chains and
+      tell you what it sees.</p>
+  </header>
+
+  <div class="ask">
+    <label for="addr">THE CONTRACT YOU ARE ABOUT TO APPROVE</label>
+    <div class="askrow">
+      <input id="addr" type="text" spellcheck="false" autocomplete="off"
+             placeholder="0x… the spender address" aria-label="the spender address to check">
+      <button id="go">CHECK IT</button>
+    </div>
+    <div class="egs">
+      <span>try:</span>
+      <button class="ghost" data-eg="0x000000000022d473030f116ddee9f6b43ac78ba3">a router everyone uses</button>
+      <button class="ghost" data-eg="0x7b5feedcc6b65d69b643078789538e3a862f27c1">one the screen flagged</button>
+    </div>
+    <div id="answer"></div>
+  </div>
+
+  <h2>WHAT IT IS LOOKING AT</h2>
+  <p>Four things, and the last one is the only one that watches a <em>consequence</em> rather than
+    a posture.</p>
+  <ul class="ev" style="border-top:0;padding-top:0;max-width:66ch">
+    <li class="k"><b>BURST</b> — how many separate wallets approved it, and how fast. A protocol
+      accumulates users; a campaign arrives all at once.</li>
+    <li class="k"><b>HISTORY</b> — whether it was taking approvals a day earlier. A router has done
+      this every day for years. This is <em>computed</em>, not looked up on a list, so it cannot be
+      wrong about an address nobody thought to name.</li>
+    <li class="k"><b>SPREAD</b> — how many different tokens. Seventy is router behaviour and scores
+      it <em>down</em>.</li>
+    <li class="k"><b>FUNNEL</b> — where those wallets' tokens went afterwards. A router's users each
+      receive their own output; a collector's victims all pay one address.</li>
+  </ul>
+  <p class="note">That last one had to be learned the hard way. The first version scored the
+    outflow <em>itself</em> — and every router on Base came back 111 of 111, because approving a
+    router and having it move your tokens <em>is a swap</em>. It fired on everything and separated
+    nothing. <b>Movement is not the signal. Concentration is.</b></p>
+
+  <h2>WHAT THE HOURLY SCREEN FOUND</h2>
+  <div id="board"><div class="empty">reading…</div></div>
+  <p class="note" id="boardNote"></p>
+
+  <h2>THE LEDGER</h2>
+  <p>A flag with no follow-up is an opinion. Everything that clears the bar is written down once,
+    <b>with its evidence frozen at that block</b>, and every later pass appends what changed.
+    Nothing is ever rewritten.</p>
+  <div class="stats" id="ledger"></div>
+
+  <h2>THE SAME CHAINS, READ OTHER WAYS</h2>
+  <div class="also">
+    <a href="worldcomputerhyperterminal.html"><div class="t">WHAT A TRADE COSTS</div>
+      <div class="d">Fee plus gas plus impact, before you make it. Read from the chain, not an index.</div></a>
+    <a href="poolcheck.html"><div class="t">IS THIS POOL REAL</div>
+      <div class="d">Any pool's fee and depth, proved from its own id rather than taken on trust.</div></a>
+    <a href="substrate.html"><div class="t">WHAT IS IN THE BYTES</div>
+      <div class="d">Three quarters of both chains is empty space, and the protocol prices it a
+        quarter of what a mark costs.</div></a>
+  </div>
+
+  <h2>WHAT THIS WILL NOT TELL YOU</h2>
+  <p><b>It never calls anything a scam</b> — not here, not in the data, not in the feed. It reports
+    counts and what they usually mean.</p>
+  <p class="note">A brand new protocol, an airdrop claim, a token migration and a popular mint all
+    look exactly like a drainer for the first hour of their lives. A migration contract really does
+    move everyone's tokens to one address, by design and with consent, and it scores high here.
+    <b>A high score means find out what this is before you sign it</b> — from a source that is not
+    this page. And a quiet score is not a guarantee: a contract with no history yet has nothing to
+    be unusual about.</p>
+
+  <footer>
+    3030 · <a href="index.html">ripmaster3030studios</a> ·
+    <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+    Read-only. Nothing here signs, sends or approves anything, and there is no connect button.
+    Every figure is a count taken from public logs. <b>Nothing on this page is an accusation.</b>
+  </footer>
+</div>
+
+<script src="js/check3030.js"></script>
+<script>
+(function(){
+  var C = window.Check3030;
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s).replace(/[<>&]/g,function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]; }); }
+  function comma(n){ return Number(n).toLocaleString(); }
+  function short(a){ return a.slice(0,10)+'…'+a.slice(-6); }
+
+  var T_APPROVAL='0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925';
+  var T_FORALL='0x17307eab39ab6107e8899845ad3d59bd9653f200f220920489ca2b5937696c31';
+  var T_TRANSFER='0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+  var CHAINS={
+    ethereum:{label:'Ethereum',span:900,back:6000,
+      rpcs:['https://ethereum-rpc.publicnode.com','https://eth.drpc.org','https://rpc.mevblocker.io']},
+    base:{label:'Base',span:3000,back:40000,
+      rpcs:['https://mainnet.base.org','https://base-rpc.publicnode.com','https://base.drpc.org']}
+  };
+  var hex=function(n){ return '0x'+n.toString(16); };
+  var numOf=function(h){ return parseInt(h,16); };
+  var addrOf=function(t){ return '0x'+t.slice(26).toLowerCase(); };
+
+  /* ⚠ RACE, ABORT, AND NEVER TRUST HTTP 200 — a dead RPC answers 200 with a JSON-RPC error body,
+   * and a fetch with no timeout hangs forever after the others have already failed. */
+  function rpc(chain, method, params){
+    var body=JSON.stringify({jsonrpc:'2.0',id:1,method:method,params:params});
+    var one=function(u){
+      var ac=new AbortController(), t=setTimeout(function(){ac.abort();},18000);
+      return fetch(u,{method:'POST',signal:ac.signal,headers:{'content-type':'application/json'},body:body})
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if(j.error||j.result===undefined) throw new Error('rpc'); return j.result; })
+        .finally(function(){ clearTimeout(t); });
+    };
+    return Promise.allSettled(CHAINS[chain].rpcs.map(one)).then(function(rs){
+      for(var i=0;i<rs.length;i++) if(rs[i].status==='fulfilled') return rs[i].value;
+      throw new Error(CHAINS[chain].label+' unreachable from here');
+    });
+  }
+
+  /* the same four reads the hourly screen makes, pointed at one address */
+  async function checkOne(chain, spender){
+    var head=numOf(await rpc(chain,'eth_blockNumber',[]));
+    var cfg=CHAINS[chain], from=head-cfg.span;
+    var pad='0x'+spender.slice(2).padStart(64,'0');
+
+    var logs=await rpc(chain,'eth_getLogs',[{fromBlock:hex(from),toBlock:hex(head),
+      topics:[[T_APPROVAL,T_FORALL],null,pad]}]);
+
+    var owners=new Set(), tokens=new Set(), unlimited=0, forAll=0;
+    var first=Infinity,last=0;
+    var HUGE=(BigInt(1)<<BigInt(200));
+    for(var i=0;i<logs.length;i++){
+      var l=logs[i]; if(!l.topics||l.topics.length<3) continue;
+      owners.add(addrOf(l.topics[1])); tokens.add((l.address||'').toLowerCase());
+      var bn=numOf(l.blockNumber); first=Math.min(first,bn); last=Math.max(last,bn);
+      if(l.topics[0].toLowerCase()===T_FORALL){ if(/1$/.test((l.data||'').trim())) forAll++; }
+      else { try{ if(BigInt(l.data)>=HUGE) unlimited++; }catch(e){} }
+    }
+
+    var cand={owners:owners,tokens:tokens,unlimited:unlimited,forAll:forAll,n:logs.length,
+      firstBlock:first===Infinity?head:first,lastBlock:last||head};
+
+    try{
+      var code=await rpc(chain,'eth_getCode',[spender,'latest']);
+      cand.isContract=!!code&&code!=='0x'; cand.codeSize=cand.isContract?(code.length-2)/2:0;
+    }catch(e){ cand.isContract=null; cand.codeSize=null; }
+
+    try{
+      var back=await rpc(chain,'eth_getLogs',[{fromBlock:hex(from-cfg.back),
+        toBlock:hex(from-cfg.back+400),topics:[[T_APPROVAL,T_FORALL],null,pad]}]);
+      cand.priorHits=back.length; cand.priorChecked=true;
+    }catch(e){ cand.priorHits=null; cand.priorChecked=false; }
+
+    if(owners.size){
+      try{
+        var vic=[...owners].slice(0,120).map(function(a){ return '0x'+a.slice(2).padStart(64,'0'); });
+        var out=await rpc(chain,'eth_getLogs',[{fromBlock:hex(cand.firstBlock),toBlock:hex(head),
+          topics:[T_TRANSFER,vic]}]);
+        var moved=new Set(), dest=new Map();
+        for(var k=0;k<out.length;k++){
+          var o=out[k]; if(!o.topics||o.topics.length<3) continue;
+          var to=addrOf(o.topics[2]);
+          if(to==='0x0000000000000000000000000000000000000000') continue;
+          moved.add(addrOf(o.topics[1])); dest.set(to,(dest.get(to)||0)+1);
+        }
+        var top=[...dest.entries()].sort(function(a,b){return b[1]-a[1];})[0]||null;
+        cand.sweep={checked:vic.length,movedOut:moved.size,transfers:out.length,
+          topDestination:top?top[0]:null,topDestinationCount:top?top[1]:0,
+          distinctDestinations:dest.size};
+      }catch(e){ cand.sweep=null; }
+    }
+
+    var s=C.score(cand);
+    return {chain:chain,head:head,span:cfg.span,cand:cand,score:s.score,reasons:s.reasons,
+      approvers:owners.size};
+  }
+
+  async function run(spender){
+    $('answer').innerHTML='<p class="working">reading Ethereum and Base…</p>';
+    var names=Object.keys(CHAINS), out=[];
+    var rs=await Promise.allSettled(names.map(function(n){ return checkOne(n,spender); }));
+    for(var i=0;i<rs.length;i++){
+      if(rs[i].status==='fulfilled') out.push(rs[i].value);
+      else out.push({chain:names[i],error:(rs[i].reason&&rs[i].reason.message)||'could not read'});
+    }
+    var live=out.filter(function(r){ return !r.error; });
+    if(!live.length){
+      /* ⛔ A FAILED READ IS NOT A PASS, AND MUST NEVER LOOK LIKE ONE. */
+      $('answer').innerHTML='<div class="verdict"><p class="say bad">Neither chain could be read '+
+        'from here, so <b>nothing was checked</b>. That is not a clean result — try again.</p></div>';
+      return;
+    }
+    var best=live.slice().sort(function(a,b){ return b.score-a.score; })[0];
+    var bd=C.band(best.score);
+    $('answer').innerHTML=
+      '<div class="verdict '+bd+'">'+
+        '<div class="top"><span class="b">'+bd+'</span>'+
+        '<span class="sc">score '+best.score+' · strongest signal on '+esc(CHAINS[best.chain].label)+'</span></div>'+
+        '<p class="say">'+esc(C.verdict(best.score,true))+'</p>'+
+        '<ul class="ev">'+best.reasons.map(function(r){
+          var k=/FUNNEL|ESTABLISHED|burst|concentrated/.test(r)?' class="k"':'';
+          return '<li'+k+'>'+esc(r)+'</li>';
+        }).join('')+'</ul>'+
+        '<p class="chainline">'+out.map(function(r){
+          return esc(CHAINS[r.chain].label)+': '+(r.error?esc(r.error)
+            :(r.approvers+' approvers in the last '+comma(r.span)+' blocks · score '+r.score));
+        }).join(' &nbsp;·&nbsp; ')+'</p>'+
+      '</div>';
+  }
+
+  function valid(a){ return /^0x[0-9a-fA-F]{40}$/.test(a.trim()); }
+  function submit(){
+    var a=$('addr').value.trim();
+    if(!valid(a)){
+      $('answer').innerHTML='<div class="verdict"><p class="say bad">That is not an address. '+
+        'It should be <b>0x</b> followed by 40 hex characters.</p></div>';
+      return;
+    }
+    $('go').disabled=true;
+    run(a.toLowerCase()).catch(function(e){
+      $('answer').innerHTML='<div class="verdict"><p class="say bad">The check could not finish — '+
+        esc(e.message)+'. <b>Nothing was checked.</b></p></div>';
+    }).finally(function(){ $('go').disabled=false; });
+  }
+  $('go').addEventListener('click',submit);
+  $('addr').addEventListener('keydown',function(e){ if(e.key==='Enter') submit(); });
+  [].forEach.call(document.querySelectorAll('[data-eg]'),function(b){
+    b.addEventListener('click',function(){ $('addr').value=b.getAttribute('data-eg'); submit(); });
+  });
+  /* deep link: /3030.html?a=0x… so a wallet or a bot can hand somebody a checked link */
+  var q=new URLSearchParams(location.search).get('a');
+  if(q&&valid(q)){ $('addr').value=q; submit(); }
+
+  /* ── the hourly screen's own findings ───────────────────────────────────────────────────── */
+  fetch('data/drain.json',{cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(d){
+      var rows=[];
+      for(var c in (d.chains||{})){
+        var ch=d.chains[c]; if(ch.error||!ch.rows) continue;
+        ch.rows.forEach(function(r){ r.chain=c; rows.push(r); });
+      }
+      rows.sort(function(a,b){ return b.score-a.score; });
+      var top=rows.filter(function(r){ return r.score>=35; }).slice(0,6);
+      $('board').innerHTML = top.length ? top.map(function(r){
+        return '<div class="row '+C.band(r.score)+'"><div class="s">'+r.score+'</div><div>'+
+          '<div class="a"><a href="?a='+esc(r.spender)+'">'+esc(short(r.spender))+'</a>'+
+          ' <span style="color:var(--dim)">· '+esc(r.chain)+'</span></div>'+
+          '<div class="r">'+esc((r.reasons||[]).join(' · '))+'</div></div></div>';
+      }).join('')
+      : '<div class="empty">Nothing cleared the bar in the last window. That is the common case, '+
+        'and it is the point — a screen that always finds something is fitting noise.</div>';
+      var mins=(Date.now()-Date.parse(d.generatedAt))/60000;
+      var ev=0; for(var c2 in (d.chains||{})) ev+=(d.chains[c2].events||0);
+      $('boardNote').textContent='Last pass '+(mins<90?Math.max(0,Math.round(mins))+' min':Math.round(mins/60)+' h')+
+        ' ago · '+comma(ev)+' approval events read. Runs hourly.';
+    })
+    .catch(function(e){
+      $('board').innerHTML='<div class="empty">the hourly feed could not be read — '+esc(e.message)+
+        '. The check above reads the chain directly and still works.</div>';
+    });
+
+  fetch('data/drain-ledger.json',{cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(function(l){
+      var es=l.entries||[];
+      var followed=es.filter(function(e){ return (e.revisits||[]).length>0; }).length;
+      var grew=es.filter(function(e){ return (e.revisits||[]).some(function(r){ return r.newApprovers>0; }); }).length;
+      $('ledger').innerHTML=[
+        ['FLAGGED',es.length,'written down, evidence frozen at that block'],
+        ['FOLLOWED UP',followed,'revisited on a later pass'],
+        ['STILL COLLECTING',grew,'took more approvals after being flagged'],
+        ['UPDATED',l.updatedAt?l.updatedAt.slice(0,16).replace('T',' ')+'Z':'never','appended, never rewritten']
+      ].map(function(r){
+        return '<div class="st"><span class="k">'+r[0]+'</span><span class="v">'+r[1]+
+               '</span><div class="d">'+esc(r[2])+'</div></div>';
+      }).join('');
+    })
+    .catch(function(e){
+      $('ledger').innerHTML='<div class="empty">the ledger could not be read — '+esc(e.message)+'</div>';
+    });
+})();
+</script>
+</body>
+</html>

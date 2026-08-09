@@ -253,92 +253,17 @@ async function sweepCheck(chain, cand, fromBlock, toBlock) {
   } catch { return null; }
 }
 
-/* ⛔ THE SCORE IS A QUEUE POSITION, NOT A VERDICT. Each term is a COUNT the reader can check, and
- * the output prints every count beside the score so the ranking can be disagreed with. */
-function score(c) {
-  const reasons = [];
-  let s = 0;
-  const victims = c.owners.size;
-  if (victims >= 25) { s += 40; reasons.push(`${victims} distinct approvers`); }
-  else if (victims >= 10) { s += 25; reasons.push(`${victims} distinct approvers`); }
-  else if (victims >= 5) { s += 12; reasons.push(`${victims} distinct approvers`); }
-  else reasons.push(`${victims} distinct approvers`);
-
-  const unl = c.unlimited + c.forAll;
-  const unlShare = c.n ? unl / c.n : 0;
-  if (unlShare >= 0.8 && unl >= 5) { s += 25; reasons.push(`${(100 * unlShare).toFixed(0)}% unlimited`); }
-  else if (unlShare >= 0.5 && unl >= 3) { s += 12; reasons.push(`${(100 * unlShare).toFixed(0)}% unlimited`); }
-
-  if (c.forAll >= 3) { s += 15; reasons.push(`${c.forAll} setApprovalForAll(true)`); }
-
-  /* a BURST — many victims inside a narrow block range — is the shape that separates a drainer
-   * from a protocol that is simply popular */
-  const width = Math.max(1, c.lastBlock - c.firstBlock + 1);
-  const density = victims / width;
-  if (victims >= 5 && density >= 0.5) { s += 20; reasons.push(`burst: ${victims} in ${width} blocks`); }
-
-  if (c.isContract === false) { s += 10; reasons.push('spender is an EOA, not a contract'); }
-  if (c.isContract && c.codeSize && c.codeSize < 500) { s += 8; reasons.push(`tiny contract (${c.codeSize}B)`); }
-
-  /* ⛔ TOKEN SPREAD IS A ROUTER SIGNAL, NOT A DRAINER SIGNAL, AND SCORING IT UP WAS BACKWARDS.
-   *   A router touches 73 tokens in twenty minutes because that is its job. A drainer sweeps
-   *   whatever its victims happened to hold — a handful. High spread now scores DOWN. */
-  if (c.tokens.size >= 25) { s -= 25; reasons.push(`${c.tokens.size} tokens — router-like spread`); }
-  else if (c.tokens.size >= 3 && c.tokens.size <= 12) { s += 6; reasons.push(`${c.tokens.size} tokens`); }
-
-  /* ⛔ THE AGE TERM, and it is the one that separates. Established = seen taking approvals a day
-   *   before this window even opened. */
-  if (c.priorChecked && c.priorHits > 0) {
-    s -= 45; reasons.push(`ESTABLISHED — ${c.priorHits} approvals a day earlier`);
-  } else if (c.priorChecked && c.priorHits === 0) {
-    s += 18; reasons.push('no approvals in the day-earlier sample');
-  } else {
-    reasons.push('history unread');           // ⚠ scored neutral: unknown is not suspicious
-  }
-
-  /* ⛔ THE SWEEP TERM DOMINATES EVERYTHING ELSE, because it is the only one that observes a
-   *   CONSEQUENCE rather than a posture. Approvals are a plan; a sweep is what happened. */
-  /* ⛔ "TOKENS LEFT THE APPROVERS" IS NOT A SIGNAL — IT IS WHAT AN APPROVAL IS FOR, and the live
-   *   run is what proved it. Every router on Base came back 111/111, 92/92, 86/88: you approve a
-   *   router and it moves your tokens, because that is a swap. Scoring the sweep itself fired on
-   *   everything and separated nothing.
-   *   ⚠ My fixtures passed because I built them to match the hypothesis — the concentration was
-   *     baked into every sweeping case I invented. **A test written from the same belief as the
-   *     code confirms the belief.** Only real data disagreed.
-   * ✅ THE SIGNAL IS CONCENTRATION, NOT MOVEMENT. A router's users each receive their own output
-   *   and the tokens fan out to many pools; a collector's victims all pay ONE address. So the
-   *   points come from WHERE the tokens landed, and a diffuse sweep now scores nothing at all. */
-  const w = c.sweep;
-  if (w && w.checked && w.transfers) {
-    const share = w.movedOut / w.checked;
-    const conc = w.topDestinationCount / w.transfers;
-    const fan = w.distinctDestinations / Math.max(1, w.movedOut);   // ~1 = everyone their own way
-    if (share >= 0.4 && w.movedOut >= 5 && conc >= 0.5 && w.distinctDestinations <= 4) {
-      s += 55;
-      reasons.push(`FUNNEL: ${w.movedOut}/${w.checked} approvers drained, ` +
-                   `${w.topDestinationCount}/${w.transfers} to ONE address`);
-    } else if (share >= 0.4 && w.movedOut >= 5 && conc >= 0.3 && fan <= 0.35) {
-      s += 25;
-      reasons.push(`concentrated outflow: ${w.movedOut}/${w.checked} moved, ` +
-                   `${w.distinctDestinations} destinations`);
-    } else if (share >= 0.4 && w.movedOut >= 5) {
-      /* ⚠ STATED AND SCORED ZERO. The outflow happened and it fanned out — which is what using a
-       * router looks like. Printing it keeps the reader from thinking the check did not run. */
-      reasons.push(`outflow fans out (${w.distinctDestinations} destinations) — router-shaped`);
-    } else {
-      reasons.push(`no outflow yet (${w.movedOut}/${w.checked} moved)`);
-    }
-  }
-
-  /* ⛔ NOT CLAMPED TO 100, AND THE TEST IS WHAT FORCED THAT. A funnel — every victim's tokens
-   *   landing on ONE address — is the strongest evidence this tool can produce, and with a
-   *   ceiling of 100 it scored identically to a diffuse sweep. **The top of the queue is exactly
-   *   where ranking matters most**, so a cap that saturates there defeats the purpose.
-   * ⚑ The number is a QUEUE POSITION, not a percentage, and capping it at 100 was importing a
-   *   percentage's shape into something that is not one. The bands (LOOK / watch / noise) are the
-   *   reader-facing summary; the raw score only orders the list. */
-  return { score: Math.max(0, s), reasons };
-}
+/* ⛔ THE SCORER LIVES IN `js/check3030.js` AND THIS FILE READS IT — it does not import a copy and
+ * it does not reimplement one. So the score a visitor sees when they paste an address into
+ * `3030.html` and the score this screen writes into the ledger come from IDENTICAL BYTES.
+ * ⚑ Reading the shipped file is stronger than sharing a module would be, because the thing under
+ *   test is the file that actually ships to the browser. This repo has paid twice for a harness
+ *   that reimplemented the thing it was testing and therefore only proved the harness.
+ * ⚠ It is a classic script rather than ESM because `test:reach` §0 compiles every shipped browser
+ *   script with `new Function`, where an `export` keyword is a SyntaxError. */
+const shim = {};
+new Function('window', readFileSync(join(ROOT, 'js/check3030.js'), 'utf8'))(shim);
+const { score, band, verdict } = shim.Check3030;
 
 /* ── ⛔ THE LEDGER — a flag with no follow-up is an opinion ───────────────────────────────────
  *
@@ -485,4 +410,4 @@ if (isMain) {
   console.log('    a drainer for the first hour of their lives. Check before you say anything.\n');
 }
 
-export { screen, score, KNOWN };
+export { screen, score, band, verdict, KNOWN };

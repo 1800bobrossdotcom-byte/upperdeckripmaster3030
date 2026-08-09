@@ -54,6 +54,16 @@ ok(newLegit.score < 60, 'a NEW protocol with router-like spread does not reach L
   `${newLegit.score} — the honest false positive, damped not denied`);
 ok(quiet.score < 35, 'three approvals to an established spender is noise', `${quiet.score}`);
 
+/* ⛔ AND NOTHING SEEN MUST SCORE NOTHING. The live lookup found this: a Base-only contract
+ *   checked against Ethereum has zero approvers there, and still scored 28 — +18 for "no
+ *   approvals in the day-earlier sample" and +10 for being an EOA. **Points for the absence of
+ *   evidence.** An inert address must not read as mildly interesting. */
+const nothing = score(mk({ v: 0, t: 0, n: 0, c: false, prior: 0 }));
+ok(nothing.score === 0, 'an address with NO approvers scores exactly zero',
+  `${nothing.score} — ${nothing.reasons[0]}`);
+ok(/nothing to judge/.test(nothing.reasons.join(' ')),
+  'and says there was nothing to judge, rather than implying it passed');
+
 console.log('\n── each term is load-bearing (remove it and the separation collapses) ──');
 /* history */
 const drainerAged = score(mk({ v: 30, t: 6, unl: 30, n: 30, fb: 1000, lb: 1020, cs: 400, prior: 200 }));

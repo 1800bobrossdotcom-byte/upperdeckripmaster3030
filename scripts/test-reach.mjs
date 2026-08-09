@@ -476,7 +476,14 @@ const ORPHAN_OK = {
    * ⛔ SAME TERMS AS toll.html AND substrate.html: it gets linked from wherever it is actually
    *   sold from, or it gets deleted. A product page nobody can reach sells nothing, so this
    *   exemption is a decision with an end, not a place to leave it. */
-  'drain.html': 'THE DRAIN SCREEN — a product page for a desk, outside the collector funnel',
+  /* ⛔ ONE PRODUCT NOW. `3030.html` is the whole thing — the lookup, the hourly feed and the
+   *   ledger — and it is what 3030.ripmaster3030studios.com serves. Its reader is a person with a
+   *   transaction in front of them or a desk with a duty of care, not a collector, so it stays out
+   *   of the play/cards/pack funnel that pass fought to keep to three doors.
+   * ⚠ drain.html is a 302 to it in vercel.json rather than a deletion: that link was already
+   *   shared, and a URL that resolved once should keep resolving. */
+  '3030.html': 'THE PRODUCT — lookup + feed + ledger; served at 3030.ripmaster3030studios.com',
+  'drain.html': 'SUPERSEDED by 3030.html — kept as a redirect because the link was shared',
   /* ⚑ THE COMPOSING FRAME. It composes a plate and deliberately cannot press one — the contract
    *   does not exist, because the decision it turns on (page or chart?) is not settleable on a
    *   screen. Linking it now would put a door on a room with no floor.
