@@ -518,10 +518,41 @@ export async function derive({ sheets = 6, log = () => {} } = {}) {
   return { blocks, ethHead, baseHead };
 }
 
+/* ⛔ THE GHOST TEXT IS ARBITRARY TEXT WRITTEN BY STRANGERS, AND THIS PAGE REPUBLISHES IT.
+ *
+ * That is the whole point of the reading — and it means whatever a stranger paid gas to inscribe
+ * gets rendered on a studio surface, verbatim, with the studio's name around it. A real run in
+ * one sample was `{"url":"https://x.com/i/api/graphql/…"}`.
+ *
+ * ⚑ FOUND BY `npm run test:name`, WHICH GUARDS SOMETHING ELSE ENTIRELY. Its rule is that every
+ *   x.com link on the site must name an account somebody chose; the ghost text tripped it, and
+ *   the real defect it exposed is bigger than the one it was written for — **an unfiltered
+ *   republication channel from anyone with a wallet.** A phishing URL costs a few cents of
+ *   calldata to place where this page will pick it up.
+ *
+ * ✅ URLS ARE DEFANGED, NOT DROPPED. Dropping them would edit the census's own evidence; the
+ *   point is that language is down there, and a URL is language. So the SHAPE survives and the
+ *   destination does not: `https://` → `hxxps://`, and a bare host loses its dot. That is the
+ *   long-standing convention in security writing for exactly this reason — quoting a hostile
+ *   string without arming it.
+ * ⚠ The runs are a DISPLAY SAMPLE and are outside the block hash (see the attack suite's GREY
+ *   HAT section), so defanging them changes no chain and invalidates nothing already derived. */
+function defang(t) {
+  /* ⚠ TWO GAPS IN THE FIRST VERSION, AND BOTH ARE WHAT A PLACER WOULD USE. It required 2+
+   * characters before the dot, so `x.com` — the exact host in the string that exposed this —
+   * sailed through; and it defanged schemes by swapping `t` for `x`, which does nothing to
+   * `ws://` or `wss://`. Proved by running the real string through it. Now: ANY scheme is broken
+   * at the `://`, and a single-character host is still a host. */
+  return t
+    .replace(/([a-z][a-z0-9+.-]*):\/\//gi, (_, sc) => `${sc.replace(/t/gi, 'x')}[://]`)
+    .replace(/\b([a-z0-9-]+)\.(com|net|org|io|xyz|co|app|link|me|ru|cn|gg|to|sh|dev|fi|info|top|site|online)\b/gi,
+             (_, a, b) => `${a}[.]${b}`);
+}
+
 function dedupe(runs) {
   const seen = new Map();
   for (const r of runs) {
-    const k = r.trim();
+    const k = defang(r.trim());
     if (k.length < MIN_RUN) continue;
     seen.set(k, (seen.get(k) || 0) + 1);
   }

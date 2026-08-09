@@ -151,6 +151,48 @@ console.log('\n── B · the shipped chain ──');
     'L1 prints the sheet and L2 types on it, in every block');
 }
 
+/* ═══ B2 · THE GHOST TEXT IS SOMEBODY ELSE'S WRITING, AND WE REPUBLISH IT ═════════════════════
+ * ⛔ THE READING RENDERS ARBITRARY TEXT THAT STRANGERS PAID GAS TO INSCRIBE, on a studio surface,
+ *   with the studio's name around it. **A phishing URL costs a few cents of calldata to place
+ *   where this page will pick it up.** One real sample carried
+ *   `{"url":"https://x.com/i/api/graphql/…"}`.
+ * ⚑ FOUND BY `test:name`, WHICH GUARDS SOMETHING ELSE — its rule is that every x.com link on the
+ *   site names an account somebody chose. The defect it exposed is far bigger than the one it was
+ *   written for: an unfiltered republication channel from anyone with a wallet.
+ * ✅ Defanged, not dropped — dropping would edit the census's own evidence, and the point is that
+ *   language is down there. The shape survives; the destination does not. */
+console.log('\n── B2 · republished text is defanged ──');
+{
+  const runs = DATA.blocks.flatMap(b => (b.runs || []).map(r => r.text));
+  const live = runs.filter(t => /[a-z]+:\/\/(?!\[)/i.test(t)
+    || /(?<!\[)\.(com|net|org|io|xyz|co|app|link|me|ru|cn|gg|to|sh|dev|info|top|site|online)\b/i.test(t));
+  ok(live.length === 0, 'no shipped ghost-text run carries a live URL',
+    live.length ? live[0].slice(0, 60) : `${runs.length} runs clean`);
+
+  /* ⛔ AND THE CHECK MUST HAVE A SUBJECT. A sample with no URLs in it passes the assertion above
+   *   trivially, which is exactly what happened on the re-derive that followed the fix — 0 live
+   *   and 0 defanged, proving nothing. So the defanger is exercised DIRECTLY, on the real string
+   *   that exposed the problem plus the two shapes that defeated the first version of it. */
+  const src = readFileSync(join(ROOT, 'scripts/substrate.mjs'), 'utf8');
+  const m = /function defang\(t\) \{[\s\S]*?\n\}/.exec(src);
+  ok(!!m, 'the defanger is present in the deriver');
+  const defang = new Function('t', `return (function(){${m[0]}; return defang(t);})()`);
+  const hostile = [
+    ['{"url":"https://x.com/i/api/graphql/abc"}', 'the real string that exposed this'],
+    ['visit claim-airdrop.xyz now', 'a bare host with no scheme'],
+    ['wss://relay.example.net', 'a scheme with no letter t — defeated the first version'],
+    ['http://a.io/drain', 'a ONE-character host — also defeated the first version'],
+  ];
+  for (const [t, why] of hostile) {
+    const out = defang(t);
+    const stillLive = /[a-z]+:\/\/(?!\[)/i.test(out)
+      || /(?<!\[)\.(com|net|org|io|xyz)\b/i.test(out);
+    ok(!stillLive, `defanged: ${why}`, out.slice(0, 52));
+  }
+  ok(defang('relaydepository') === 'relaydepository',
+    'and ordinary found text is left exactly as it was', 'the evidence is not edited');
+}
+
 /* ═══ C · THE NAME LIVES IN ONE PLACE ═══════════════════════════════════════════════════════
  * ⛔ THE 2026-08-01 RENAME TOUCHED 258 FILES AND WAS STILL WRONG ON 200+ LIVE SURFACES A DAY
  *   LATER. The artist floated three names for this layer before settling on 3030, so the cost
