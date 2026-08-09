@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SET A PLATE · 3030</title>
+<meta name="description" content="Set type into a fixed frame — 8 lines of 32 cells, 256 bytes. The transaction is the press.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="SET A PLATE · 3030">
+<meta property="og:description" content="Eight lines of thirty-two cells. The space you pay for leaves a mark; the space you do not leaves nothing.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/sheet.html">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ SET A PLATE ═══════════════════════════════════════════════════════════════════════════════
+
+  The composing frame. 8 lines of 32 cells, 256 bytes, the ABI word as the measure.
+
+  ⛔ THIS PAGE COMPOSES. IT DOES NOT PRESS, AND IT SAYS SO ON ITS FACE. The press contract does
+     not exist yet — the one decision it turns on (does the plate read as a page or as a chart?)
+     is not settleable on a screen, so no Solidity should exist until three plates have been
+     printed at card size and looked at on a bench. A page with a dead PRESS button would be
+     `theme.js`'s recorded worst failure: a control that does nothing is worse than an absent one.
+
+  ⛔ NO WALLET. Nothing signed, no connect button, no injected provider. There is nothing here to
+     approve and nothing to send.
+
+  ⛔ THE RENDERER IS `js/sheet.js` AND IT IS THE SAME FILE `npm run sheet` USES — that script
+     READS this one rather than importing a copy. Two renderers is two pictures for one plate,
+     and the one that drifts is the one nobody is looking at.
+
+  ⚑ THE URL IS THE RECORD. The plate is base64url in the query string, so a plate is its own
+     permalink and reloads exactly — the forge's rule (`cards/proof.html`), for the forge's
+     reason: a saved thing that cannot be reloaded from the thing you shared is a thing you
+     cannot reproduce.
+
+  ⛔ THE METER NEVER QUOTES ONE GAS SCHEDULE AS "THE" PRICE. Intrinsic calldata gas is
+     max(standard, floor), and this project has already published the floor as the protocol's
+     price and had to retract it. Both are shown, both are named, and the TOKEN COUNT — which is
+     identical under either and is what the picture is actually built on — is the headline.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620; --panel:#0b0f13;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --paper:#e7dfcd;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+  header{border-bottom:1px solid var(--line);padding:22px 0 16px;margin-bottom:20px}
+  h1{font-size:clamp(19px,4.4vw,30px);letter-spacing:.10em;margin:0 0 8px}
+  h1 .b{color:var(--hot)}
+  .sub{color:var(--dim);font-size:var(--t-lede,17px);line-height:1.55;max-width:64ch;margin:0}
+  h2{font-size:var(--t-fine,13px);letter-spacing:.20em;color:var(--dim);margin:30px 0 12px;font-weight:600}
+  p{font-size:var(--t-body,16px);line-height:1.6;max-width:70ch}
+  .note{color:var(--dim)}
+
+  .cols{display:grid;grid-template-columns:1fr 340px;gap:22px;align-items:start}
+  @media(max-width:860px){ .cols{grid-template-columns:1fr} }
+
+  /* ── the composing stick ── */
+  #frame{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:14px;
+         overflow-x:auto;outline:none}
+  #frame:focus-within{border-color:var(--hot)}
+  .row{display:flex;gap:0;white-space:nowrap}
+  .cell{width:17px;height:26px;display:grid;place-items:center;font-size:13px;
+        border-right:1px solid rgba(255,255,255,.03);color:var(--paper);cursor:text}
+  .cell.z{color:#26302a}
+  .cell.slug{color:var(--warn)}
+  .cell.cur{background:var(--hot);color:#07090c}
+  .rule{opacity:.45}
+
+  /* ── the meter ── */
+  .meter{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin:0 0 12px}
+  .m{border:1px solid var(--line);background:var(--panel);padding:10px 12px;border-radius:3px}
+  .m .k{font-size:var(--t-tag,12px);letter-spacing:.14em;color:var(--dim);display:block;margin-bottom:5px}
+  .m .v{font-size:clamp(16px,3.2vw,21px)}
+  .m .d{font-size:var(--t-fine,13px);color:var(--dim);margin-top:4px;line-height:1.45}
+
+  #stage{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:12px;
+         position:sticky;top:12px}
+  #stage svg{display:block;width:100%;height:auto}
+
+  .bar{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 0}
+  button,.btn{font-family:var(--mono);font-size:var(--t-ui,14px);letter-spacing:.06em;
+    min-height:44px;padding:0 15px;border:1px solid var(--line);background:#0e1319;color:var(--ink);
+    border-radius:3px;cursor:pointer}
+  button:hover,button:focus{border-color:var(--hot);color:var(--hot)}
+  button:active{transform:translateY(1px)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:var(--t-fine,13px);color:var(--dim)}
+  .legend b{color:var(--ink);font-weight:400}
+  footer{border-top:1px solid var(--line);margin-top:44px;padding:18px 0;color:var(--dim);
+         font-size:var(--t-body,16px);line-height:1.7}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1><span class="b">SET</span> A PLATE</h1>
+    <p class="sub">Eight lines of thirty-two cells. Two hundred and fifty-six bytes, the ABI word
+      as the measure. Type to ink a cell; the arrow keys move the carriage without inking.
+      <b>A cell you leave alone is paper. A space you type is paid for, and leaves a mark.</b></p>
+  </header>
+
+  <div class="cols">
+    <div>
+      <h2>THE COMPOSING STICK</h2>
+      <div id="frame" tabindex="0" role="textbox" aria-multiline="true" aria-label="the composing stick — type to set the plate"></div>
+      <div class="legend">
+        <span><b style="color:#26302a">·</b> paper — unwritten, 1 token</span>
+        <span><b style="color:var(--paper)">A</b> type — 4 tokens</span>
+        <span><b style="color:var(--warn)">▚</b> slug — a byte with no readable face</span>
+        <span><b>␣</b> paid blank — a blind emboss</span>
+      </div>
+      <div class="bar">
+        <button id="bClear">CLEAR</button>
+        <button id="bLink">COPY THE LINK</button>
+        <button id="bSvg">DOWNLOAD THE SVG</button>
+      </div>
+
+      <h2>THE MEASURE</h2>
+      <div class="meter" id="meter"></div>
+      <p class="note" id="gasNote">…</p>
+    </div>
+
+    <div>
+      <h2>THE PULL</h2>
+      <div id="stage">…</div>
+      <p class="note" style="font-size:var(--t-fine,13px);margin-top:10px">The picture is drawn
+        from the bytes alone — no lighting, no foil, nothing that moves. The die is a fixed 2:3
+        card, so the ragged edge is a margin and never the outline of the object.</p>
+    </div>
+  </div>
+
+  <h2>WHAT THIS PAGE DOES NOT DO</h2>
+  <p class="note"><b>It does not press.</b> The contract does not exist yet, on purpose: the one
+    thing this design turns on — whether a plate reads as a page or as a chart — cannot be settled
+    on a screen, so nothing gets written in Solidity until plates have been printed at card size
+    and looked at on a bench. There is no wallet on this page, nothing to sign and nothing to
+    approve. Compose a plate, keep the link, and it will still be exactly this plate later.</p>
+
+  <footer>
+    3030 · <a href="substrate.html">the reading</a> ·
+    <a href="https://www.ripmaster3030studios.com/">ripmaster3030studios</a> ·
+    <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+    Read-only. Nothing here signs, sends or approves anything.
+    Experimental art project — <b>NFA</b>.
+  </footer>
+</div>
+
+<script src="js/sheet.js"></script>
+<script>
+(function(){
+  var S = window.Sheet;
+  var $ = function(id){ return document.getElementById(id); };
+  if(!S){ $('stage').textContent = 'the renderer (js/sheet.js) did not load — nothing can be set.'; return; }
+
+  var CAP = S.CAP, COLS = S.COLS, ROWS = S.ROWS;
+  var bytes = new Uint8Array(CAP);
+  var cur = 0;
+
+  /* ── the URL is the record ─────────────────────────────────────────────────────────────── */
+  function b64url(u8){
+    var s = ''; for(var i=0;i<u8.length;i++) s += String.fromCharCode(u8[i]);
+    return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  function unb64url(t){
+    try{
+      var s = atob(t.replace(/-/g,'+').replace(/_/g,'/'));
+      var a = new Uint8Array(CAP);
+      for(var i=0;i<Math.min(s.length,CAP);i++) a[i] = s.charCodeAt(i) & 0xff;
+      return a;
+    }catch(e){ return null; }
+  }
+  /* ⚠ TRAILING PAPER IS TRIMMED FROM THE LINK, NEVER FROM THE PLATE. A plate is always 256
+   * bytes; the URL just does not need to carry the zeros at the end of it. */
+  function trimmed(){
+    var n = CAP; while(n > 0 && bytes[n-1] === 0) n--;
+    return bytes.slice(0, n);
+  }
+  function syncUrl(){
+    var t = b64url(trimmed());
+    var u = location.pathname + (t ? '?p=' + t : '');
+    history.replaceState(null, '', u);
+  }
+
+  /* ── draw the stick ────────────────────────────────────────────────────────────────────── */
+  function drawFrame(){
+    var h = [];
+    for(var r=0;r<ROWS;r++){
+      var blank = true;
+      for(var c=0;c<COLS;c++) if(bytes[r*COLS+c] !== 0) blank = false;
+      h.push('<div class="row' + (blank ? ' rule' : '') + '">');
+      for(var c2=0;c2<COLS;c2++){
+        var i = r*COLS+c2, v = bytes[i], k = S.classOf(v);
+        var cls = 'cell' + (v===0 ? ' z' : '') + (k===S.SLUG ? ' slug' : '') + (i===cur ? ' cur' : '');
+        var ch = v===0 ? '·' : (v===0x20 ? '␣' : (k===S.SLUG ? '▚' : String.fromCharCode(v)));
+        h.push('<span class="' + cls + '" data-i="' + i + '">' +
+               (ch==='<'?'&lt;':ch==='&'?'&amp;':ch) + '</span>');
+      }
+      h.push('</div>');
+    }
+    $('frame').innerHTML = h.join('');
+  }
+
+  /* ── the meter ─────────────────────────────────────────────────────────────────────────── */
+  function drawMeter(st){
+    var g = S.gasOf(bytes);
+    $('meter').innerHTML = [
+      ['TOKENS', g.tokens + ' / ' + (CAP*4), 'the protocol’s own calldata weight — 1 per paper cell, 4 per written one. Identical under both fee schedules, which is why the picture is built on it.'],
+      ['INKED',  (st.counts.type + st.counts.slug) + ' cells', st.counts.type + ' type · ' + st.counts.slug + ' slug · ' + st.paidBlanks + ' paid blank'],
+      ['PAPER',  st.counts.space + ' cells', 'left alone, and costing a quarter of a written cell'],
+      ['LINES',  st.narrowest + '–' + st.widest, 'of ' + S.BLOCK_W + ' units · ' + st.rules + ' rules · ' + st.tintBlocks + ' tint blocks']
+    ].map(function(r){
+      return '<div class="m"><span class="k">' + r[0] + '</span><span class="v">' + r[1] +
+             '</span><div class="d">' + r[2] + '</div></div>';
+    }).join('');
+    /* ⛔ BOTH SCHEDULES, NEITHER CALLED "THE" PRICE. */
+    $('gasNote').innerHTML = 'Calldata gas for this plate is <b>' + g.standard.toLocaleString() +
+      '</b> under the standard schedule (4 per zero byte, 16 per non-zero) and <b>' +
+      g.floor.toLocaleString() + '</b> under EIP-7623’s floor (10 per token). Intrinsic gas is ' +
+      'the <em>larger</em> of the two, and which one binds depends on how much work the press does ' +
+      '— so neither is "the price", and execution is not included in either. ' +
+      '<b>The ratio between a space and a mark is exactly four under both</b>, which is the number ' +
+      'the picture is built on.';
+  }
+
+  function render(){
+    var out = S.plate(bytes);
+    $('stage').innerHTML = out.svg;
+    drawFrame();
+    drawMeter(out.stats);
+    syncUrl();
+  }
+
+  /* ── input ─────────────────────────────────────────────────────────────────────────────── */
+  $('frame').addEventListener('keydown', function(e){
+    var k = e.key;
+    if(k === 'ArrowRight'){ cur = Math.min(CAP-1, cur+1); }
+    else if(k === 'ArrowLeft'){ cur = Math.max(0, cur-1); }
+    else if(k === 'ArrowDown'){ cur = Math.min(CAP-1, cur+COLS); }
+    else if(k === 'ArrowUp'){ cur = Math.max(0, cur-COLS); }
+    else if(k === 'Home'){ cur = cur - (cur % COLS); }
+    else if(k === 'End'){ cur = cur - (cur % COLS) + COLS - 1; }
+    else if(k === 'Enter'){ cur = Math.min(CAP-1, cur - (cur % COLS) + COLS); }
+    else if(k === 'Backspace'){
+      /* ⚠ BACKSPACE RETURNS A CELL TO PAPER — it does not delete-and-shift. The frame is fixed;
+       * a cell is a position on the plate, not a character in a stream. */
+      cur = Math.max(0, cur-1); bytes[cur] = 0;
+    }
+    else if(k === 'Delete'){ bytes[cur] = 0; }
+    else if(k.length === 1){
+      var code = k.charCodeAt(0);
+      if(code >= 0x20 && code <= 0x7e){ bytes[cur] = code; cur = Math.min(CAP-1, cur+1); }
+      else return;
+    }
+    else return;
+    e.preventDefault();
+    render();
+  });
+
+  /* ⛔ A CLICK MUST NOT REBUILD THE FRAME, AND THAT IS WHY THE STICK ATE EVERY KEYSTROKE.
+   *   The first version called `render()` inside pointerdown, which replaces `innerHTML` — so the
+   *   node under the cursor was destroyed WHILE THE CLICK WAS STILL RESOLVING, and Chromium's own
+   *   focus resolution, running after the handler, landed on `body` instead of the frame.
+   *   `activeElement` empty, keydown count **0**, and not one error anywhere: the stick looked
+   *   completely alive and silently swallowed everything typed into it.
+   *   ⚑ Calling `.focus()` explicitly does not fix it — you cannot win that race, you have to not
+   *     start it. `preventDefault()` stops the browser's focus handling, the focus is set by hand,
+   *     and only the CURSOR CLASS moves. The frame is rebuilt when a byte changes, never on a
+   *     press that only moves the carriage.
+   *   ⚠ Found by driving the page and reading `activeElement`, not by reading the code — the code
+   *     looked right, and my first fix (focus unconditionally) was aimed at the wrong cause and
+   *     changed nothing. */
+  function paintCursor(){
+    var prev = $('frame').querySelector('.cell.cur');
+    if(prev) prev.classList.remove('cur');
+    var next = $('frame').querySelector('[data-i="' + cur + '"]');
+    if(next) next.classList.add('cur');
+  }
+  $('frame').addEventListener('pointerdown', function(e){
+    e.preventDefault();
+    $('frame').focus();
+    var t = e.target.closest && e.target.closest('[data-i]');
+    if(!t) return;                       // a press off a cell still focuses; it just moves nothing
+    cur = +t.getAttribute('data-i');
+    paintCursor();
+  });
+
+  /* ── controls ──────────────────────────────────────────────────────────────────────────── */
+  $('bClear').addEventListener('click', function(){
+    bytes = new Uint8Array(CAP); cur = 0; render(); $('frame').focus();
+  });
+
+  /* ⛔ FAIL OPEN FOR A COPY BUTTON MEANS SELECTING THE TEXT. `navigator.clipboard` is absent on an
+   * insecure origin and can be refused by policy, and the failure that matters is a button that
+   * says COPIED and put nothing anywhere. Recorded already for the updates log. */
+  $('bLink').addEventListener('click', function(){
+    var url = location.href, btn = this, old = btn.textContent;
+    var done = function(m){ btn.textContent = m; setTimeout(function(){ btn.textContent = old; }, 1400); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){ done('COPIED'); }, function(){ fallback(); });
+    } else fallback();
+    function fallback(){
+      var i = document.createElement('input');
+      i.value = url; document.body.appendChild(i); i.select();
+      done('SELECTED — COPY IT');
+      setTimeout(function(){ i.remove(); }, 3000);
+    }
+  });
+
+  $('bSvg').addEventListener('click', function(){
+    var svg = S.plate(bytes).svg;
+    var a = document.createElement('a');
+    a.href = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    a.download = 'plate.svg'; a.click();
+  });
+
+  /* ── boot: the URL, or an empty stick ──────────────────────────────────────────────────── */
+  var q = new URLSearchParams(location.search).get('p');
+  if(q){ var got = unb64url(q); if(got) bytes = got; }
+  render();
+  $('frame').focus();
+})();
+</script>
+</body>
+</html>

@@ -876,7 +876,13 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    *   Production, a redirect here that matches EITHER of them is aimed at the host serving the
    *   site. So the test is not "is it scoped" but "what does the scope actually MATCH" — the
    *   regex is run against the live hosts rather than eyeballed. */
-  const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com'];
+  /* ⚠ THE SUBDOMAIN IS A LIVE HOST TOO, from the day it resolves. `3030.` serves the reading at
+   * its own root via a REWRITE (vercel.json). It is listed here so that any future redirect
+   * aimed at it fails this test the same way an apex/www redirect does — a host that serves the
+   * site is a host nothing may bounce, and a subdomain nobody added to this list is exactly the
+   * surface that goes dark without anything reporting it. */
+  const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com',
+                      '3030.ripmaster3030studios.com'];
   const aimedAtLive = red.flatMap(r => (r.has || [])
     .filter(h => h.type === 'host')
     .flatMap(h => LIVE_HOSTS.filter(host => { try { return new RegExp('^(?:' + h.value + ')$').test(host); } catch { return false; } })));

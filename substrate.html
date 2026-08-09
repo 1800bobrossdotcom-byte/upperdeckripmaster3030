@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>3030 · the substrate omni data layer</title>
+<meta name="description" content="A layer derived from Ethereum and Base rather than voted on. Every calldata byte is a space, a sigil or a mark — and three quarters of both chains is empty space.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="3030 · the substrate omni data layer">
+<meta property="og:description" content="Layer 00. Not below Ethereum and Base — inside them. The zero byte both are mostly made of.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/substrate.html">
+<meta property="og:image" content="https://www.ripmaster3030studios.com/media/site/og-1200x630.png">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ 3030 — THE SUBSTRATE OMNI DATA LAYER ══════════════════════════════════════════════════════
+
+  Artist, 2026-08-09: *"eth prints a substrate and then each sigil and space or mark is on chain
+  — so all typing, data input, the mundane code, all the typing each is an individual component
+  of a larger work of live encryption — since is dually using the same language to encrypt."*
+
+  ⛔ THE PAGE'S JOB IS TO SHOW THAT THIS IS A DESCRIPTION, NOT A METAPHOR. Every claim on it is
+     something the chain says about itself:
+       · three quarters of all calldata is the zero byte — a census, not a figure of speech
+       · the protocol charges 4 gas for a space and 16 for a mark — its own fee schedule,
+         and the 4x ratio has survived two repricings (it was 17x before 2019)
+       · the same byte is instruction and glyph — 0x60 is PUSH1 and it is a backtick
+     If a reader finishes this page thinking we made a poetic comparison, the page failed.
+
+  ⛔ NO WALLET. Read-only `eth_call`/`eth_blockNumber` over `fetch`, nothing signed, no connect
+     button. Same reasoning as superrare.html: a page that asks for a wallet to show you a
+     reading is teaching the exact reflex phishing needs.
+
+  ⚑ THE SPLIT. The heavy derivation (every calldata byte of ~40 blocks across two chains) runs
+     offline in `npm run substrate` and lands in `data/substrate.json`; this page reads that and
+     adds LIVE head calls for the two things that move by the minute. That split is only honest
+     if the page says how old the reading is — so it does, near the top, and it goes amber and
+     then red rather than quietly ageing.
+
+  ⚠ EVERY LIVE CELL HAS THREE STATES, NEVER TWO: a value, "reading…", and a NAMED failure. An
+     em-dash under a live label is indistinguishable from a zero, a dead contract or a bug, and
+     this project has had that exact defect reported from a phone.
+
+  ⛔ THE PROTOCOL NAME IS NEVER TYPED IN THIS FILE. It is read from data/substrate.json and
+     written into the DOM at runtime. The 2026-08-01 rename touched 258 files and was still
+     wrong on 200+ live surfaces a day later because the name had been typed everywhere instead
+     of read from somewhere; the artist said a name might come later, then settled on 3030, so
+     the cost of changing it again is one constant in scripts/substrate.mjs.
+     ⚠ `npm run test:substrate` asserts the literal does not appear in the body of this file.
+     The <title> and the social meta tags ARE hard-coded and are the deliberate exception —
+     a crawler reads them before any script runs, so a runtime-only title is no title at all.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620; --panel:#0b0f13;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --ok:#63e6a0; --cool:#6fd3ff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+  header{border-bottom:1px solid var(--line);padding:22px 0 16px;margin-bottom:8px}
+  h1{font-size:clamp(19px,4.4vw,32px);letter-spacing:.10em;margin:0 0 8px;line-height:1.15}
+  h1 .b{color:var(--hot)}
+  .sub{color:var(--dim);font-size:var(--t-lede,17px);line-height:1.55;max-width:66ch;margin:0}
+  .age{margin-top:14px;font-size:var(--t-body,16px);letter-spacing:.04em;color:var(--dim)}
+  .age b{color:var(--ok)} .age.stale b{color:var(--warn)} .age.dead b{color:var(--bad)}
+  h2{font-size:var(--t-fine,13px);letter-spacing:.20em;color:var(--dim);margin:38px 0 12px;font-weight:600}
+  p{font-size:var(--t-body,16px);line-height:1.6;max-width:70ch;color:var(--ink)}
+  .note{color:var(--dim)}
+  .panel{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:14px 16px}
+
+  /* ── the stack ── */
+  .stack{display:grid;gap:8px;margin:0}
+  .rung{display:grid;grid-template-columns:56px 1fr;gap:14px;align-items:baseline;
+        border:1px solid var(--line);background:var(--panel);padding:12px 14px;border-radius:3px}
+  .rung .id{font-size:19px;letter-spacing:.06em;color:var(--dim)}
+  .rung.here{border-color:var(--hot)}
+  .rung.here .id{color:var(--hot)}
+  .rung .ch{font-size:var(--t-body,16px);letter-spacing:.08em}
+  .rung .ro{color:var(--dim);font-size:var(--t-body,16px);margin-top:3px;line-height:1.5}
+
+  /* ── head ── */
+  .head{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+  .cell{border:1px solid var(--line);background:var(--panel);padding:12px 14px;border-radius:3px}
+  .cell .k{font-size:var(--t-tag,12px);letter-spacing:.16em;color:var(--dim);display:block;margin-bottom:6px}
+  .cell .v{font-size:clamp(15px,3vw,19px);letter-spacing:.02em;word-break:break-all}
+  .cell .v.wait{color:var(--dim)} .cell .v.err{color:var(--bad);font-size:var(--t-fine,13px);line-height:1.45}
+
+  /* ── census ── */
+  .bar{display:flex;height:34px;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:0 0 10px}
+  .bar span{display:block;height:100%}
+  .bar .s{background:#141a20} .bar .g{background:var(--hot)} .bar .m{background:#39463c}
+  .keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+  .key{border:1px solid var(--line);background:var(--panel);padding:11px 13px;border-radius:3px}
+  .key .sw{display:inline-block;width:11px;height:11px;margin-right:8px;vertical-align:baseline;border:1px solid var(--line)}
+  .key .n{font-size:clamp(17px,3.4vw,22px);letter-spacing:.02em}
+  .key .d{color:var(--dim);font-size:var(--t-body,16px);line-height:1.5;margin-top:5px}
+
+  /* ── the sheet ── */
+  #sheetWrap{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:10px}
+  #sheet{display:block;width:100%;height:auto;image-rendering:pixelated}
+  .cap{color:var(--dim);font-size:var(--t-body,16px);line-height:1.55;margin:8px 2px 0}
+
+  /* ── duality ── */
+  .dual{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .dual>div{padding:12px 14px;min-width:0}
+  .dual>div+div{border-left:1px solid var(--line)}
+  .dual h3{font-size:var(--t-tag,12px);letter-spacing:.16em;color:var(--dim);margin:0 0 8px;font-weight:600}
+  .dual pre{margin:0;font-size:var(--t-fine,13px);line-height:1.75;white-space:pre-wrap;word-break:break-all}
+  .dual .z{color:#2f3a33} .dual .g{color:var(--hot)} .dual .m{color:#7e8c80}
+  @media(max-width:640px){ .dual{grid-template-columns:1fr} .dual>div+div{border-left:0;border-top:1px solid var(--line)} }
+
+  /* ── ghost text ── */
+  .runs{display:flex;flex-wrap:wrap;gap:6px}
+  .run{border:1px solid var(--line);background:var(--panel);border-radius:2px;padding:6px 9px;
+       font-size:var(--t-fine,13px);letter-spacing:.02em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .run b{color:var(--hot);font-weight:400}
+  .run i{color:var(--dim);font-style:normal;margin-right:7px}
+
+  /* ── verify ── */
+  #verify .v{font-size:var(--t-body,16px);line-height:1.6}
+  .tick{color:var(--ok)} .cross{color:var(--bad)}
+  code{color:var(--cool);font-size:var(--t-fine,13px);word-break:break-all}
+
+  footer{border-top:1px solid var(--line);margin-top:46px;padding:18px 0;color:var(--dim);font-size:var(--t-body,16px);line-height:1.7}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1><span class="b" id="pName">·</span> <span id="pTitle">the substrate omni data layer</span></h1>
+    <p class="sub">A layer derived from Ethereum and Base rather than voted on. Every transaction
+      carries calldata; every byte of it is a <b>space</b>, a <b>sigil</b> or a <b>mark</b>. Three
+      quarters of both chains is empty space — and the protocol charges four times more for a mark
+      than for a space. This page reads that out loud.</p>
+    <p class="age" id="age">reading the derivation…</p>
+  </header>
+
+  <h2>THE STACK</h2>
+  <div class="stack" id="stack"></div>
+  <p class="note" style="margin-top:12px">Layer <b id="layerId">00</b> is not <em>below</em> the
+    other two. It is <em>inside</em> them: <b>00</b> is the zero byte, and the zero byte is most
+    of what both chains are made of. Nothing here is secured by anything but Ethereum and Base —
+    a block on this layer is a pure function of blocks they have already finalised, so it adds no
+    trust assumption and it cannot settle anything of its own.</p>
+
+  <h2>THE HEAD</h2>
+  <div class="head">
+    <div class="cell"><span class="k">HEIGHT</span><span class="v wait" id="hHeight">reading…</span></div>
+    <div class="cell"><span class="k">HEAD HASH</span><span class="v wait" id="hHash">reading…</span></div>
+    <div class="cell"><span class="k">L1 · ETHEREUM</span><span class="v wait" id="hEth">reading…</span></div>
+    <div class="cell"><span class="k">L2 · BASE</span><span class="v wait" id="hBase">reading…</span></div>
+  </div>
+
+  <h2>THE CENSUS — WHAT THE TYPING IS MADE OF</h2>
+  <div class="bar" id="bar" aria-hidden="true"><span class="s" style="width:67%"></span><span class="g" style="width:13%"></span><span class="m" style="width:20%"></span></div>
+  <div class="keys" id="keys"></div>
+  <p class="note" style="margin-top:14px" id="glyphNote">reading…</p>
+
+  <h2>FORMATIONS — THE STRUCTURE ABOVE THE BYTE</h2>
+  <div class="keys" id="forms"></div>
+  <p class="note" style="margin-top:14px">A byte census says what the typing is <em>made of</em>
+    and nothing about how it is <em>set</em>. The ABI lays every argument on a 32-byte grid — the
+    closest thing the chain has to a typographic measure — and once the grid is visible the
+    substrate stops being a field of dots and becomes a page with lines on it.
+    <b>These are shapes, not declarations:</b> calldata is untyped bytes, so a word that looks
+    like an address may be a small number that happens to sit in the same place. They are counted
+    and named as shapes, never as claims about what a call does.</p>
+
+  <p class="note" style="margin-top:14px"><b>The protocol prices paper cheaper than ink, by
+    exactly four.</b> A real transaction pays <b>4 gas for a space and 16 for a mark</b>. There is
+    a second schedule — EIP-7623's floor, 10 and 40 — but it only binds on a transaction that is
+    almost pure data, and almost nothing this census counts is that. Measured both ways by slope,
+    because a single-point reading is contaminated by the gas estimator's own buffer: against a
+    target with heavy execution, <b>4.032</b> and <b>16.127</b> gas per byte; against a bare
+    transfer, 10.020 and 40.346.
+    <br><br>
+    <b>The ratio is exactly four under both, and that is the fact that does not move.</b> It is
+    also one the protocol has deliberately kept: before 2019 a mark cost 68 gas against a space's
+    4 — a ratio of <b>seventeen</b>. EIP-2028 took 68 down to 16 and left 4 alone, landing on
+    four. EIP-7623 later scaled both by two and a half and preserved it again. <b>Ethereum has
+    re-priced the relationship between space and mark twice, and settled on four both times.</b></p>
+
+  <h2>THE SHEET — ONE ETHEREUM BLOCK, EVERY BYTE</h2>
+  <div id="sheetWrap"><canvas id="sheet" width="240" height="120"></canvas></div>
+  <p class="cap" id="sheetCap">drawing…</p>
+
+  <h2>THE DUALITY — ONE READING, TWO REGISTERS</h2>
+  <div class="dual">
+    <div><h3>WHAT THE MACHINE READS</h3><pre id="dualHex">…</pre></div>
+    <div><h3>WHAT A PERSON READS</h3><pre id="dualTxt">…</pre></div>
+  </div>
+  <p class="note" style="margin-top:12px">The same bytes, twice. <code>0x60</code> is PUSH1 to the
+    machine and a backtick to a reader; <code>0x20</code> is a stack operand and a space. Nothing
+    is concealed and there is no key — <b>the cipher is the register you read in</b>. That is what
+    makes this encryption rather than obfuscation: the plaintext has been public the whole time,
+    in a reading nobody performs.</p>
+
+  <h2>THE GHOST TEXT — LANGUAGE FOUND INSIDE THE MACHINE LANGUAGE</h2>
+  <div class="runs" id="runs"></div>
+  <p class="cap" id="runsCap">reading…</p>
+
+  <h2>VERIFY IT YOURSELF</h2>
+  <div class="panel" id="verify">
+    <p class="v" id="vLine">recomputing the head…</p>
+    <p class="note" style="margin:10px 0 0">A block is
+      <code>sha256( prev ‖ ethHash ‖ baseHash… ‖ census )</code>. Your browser just recomputed the
+      whole chain from the source hashes in the file — no RPC, no library, <code>crypto.subtle</code>.
+      This is why the layer needs no validators: there is nothing to disagree about, so
+      <b>verification replaces consensus</b>. If a byte of the census were wrong, the hash would
+      not land and this line would say so.</p>
+  </div>
+
+  <footer>
+    <!-- ⚠ ABSOLUTE, because this page is also served at the ROOT of 3030.ripmaster3030studios.com.
+         A relative "index.html" there resolves to the subdomain's own root, which is this page —
+         a link back to the studio that lands on the reading again. -->
+    <span id="fName">·</span> · a reading of Ethereum and Base, by
+    <a href="https://www.ripmaster3030studios.com/">ripmaster3030studios</a> ·
+    <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+    Read-only. Nothing here signs, sends or approves anything, and there is no connect button.
+    Experimental art project — <b>NFA</b>.
+  </footer>
+</div>
+
+<script>
+/* ── the reading ────────────────────────────────────────────────────────────────────────────
+ * ⚠ Everything below fails NAMED. A cell may say a value, "reading…", or what went wrong —
+ *   never an em-dash, which is indistinguishable from a zero or a dead contract.            */
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var D = null;
+
+  function fail(el, why){ if(!el) return; el.className = 'v err'; el.textContent = why; }
+  function set(el, v){ if(!el) return; el.className = 'v'; el.textContent = v; }
+
+  /* ── 1 · the derivation ─────────────────────────────────────────────────────────────────── */
+  fetch('data/substrate.json', { cache: 'no-store' })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(d){ D = d; render(d); return verify(d); })
+    .catch(function(e){
+      $('age').className = 'age dead';
+      $('age').innerHTML = 'the derivation could not be read — <b>' + esc(e.message) + '</b>';
+      ['hHeight','hHash'].forEach(function(id){ fail($(id), 'derivation unavailable'); });
+      $('sheetCap').textContent = 'the sheet cannot be drawn: the derivation could not be read.';
+      $('runsCap').textContent  = 'no ghost text: the derivation could not be read.';
+      $('vLine').innerHTML = '<span class="cross">✕</span> nothing to verify — the derivation could not be read.';
+    });
+
+  function esc(s){ return String(s).replace(/[<>&]/g, function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]; }); }
+  function pct(n, t){ return t ? (100 * n / t).toFixed(2) + '%' : 'no bytes'; }
+  function comma(n){ return Number(n).toLocaleString(); }
+
+  function render(d){
+    /* ⛔ THE NAME COMES FROM THE DATA, NEVER FROM THIS FILE. */
+    var P = d.protocol || {};
+    $('pName').textContent  = P.name  || '(unnamed)';
+    $('pTitle').textContent = P.title || '';
+    $('fName').textContent  = P.name  || '(unnamed)';
+    $('layerId').textContent = P.layer || '00';
+    document.title = (P.name || '') + ' · ' + (P.title || '');
+
+    /* the stack */
+    $('stack').innerHTML = (P.stack || []).map(function(r){
+      var here = r.chain === P.name;
+      return '<div class="rung' + (here ? ' here' : '') + '">' +
+        '<div class="id">' + esc(r.id) + '</div>' +
+        '<div><div class="ch">' + esc(r.chain) + '</div>' +
+        '<div class="ro">' + esc(r.role) + '</div></div></div>';
+    }).join('');
+
+    /* age — amber then red, because a reading that quietly ages is a reading that lies */
+    var mins = (Date.now() - Date.parse(d.derivedAt)) / 60000;
+    var a = $('age');
+    a.className = 'age' + (mins > 1440 ? ' dead' : mins > 180 ? ' stale' : '');
+    a.innerHTML = 'derived <b>' + (mins < 90 ? Math.max(0, Math.round(mins)) + ' min'
+                 : Math.round(mins / 60) + ' h') + ' ago</b> · ' +
+                 comma(d.totals.bytes) + ' bytes across ' + d.blocks.length + ' sheets' +
+                 (mins > 180 ? ' · re-run <code>npm run substrate</code>' : '');
+
+    var head = d.blocks[d.blocks.length - 1];
+    set($('hHeight'), String(head.height));
+    set($('hHash'), head.hash.slice(0, 20) + '…');
+    $('hHash').title = head.hash;
+
+    /* census */
+    var t = d.totals, tot = t.bytes || 1;
+    var bar = $('bar');
+    bar.children[0].style.width = (100 * t.space / tot) + '%';
+    bar.children[1].style.width = (100 * t.sigil / tot) + '%';
+    bar.children[2].style.width = (100 * t.mark  / tot) + '%';
+    /* ⚠ THE STANDARD SCHEDULE, because that is what a real transaction pays. The floor
+     * (10/40) is carried in the data too and named on the page, but quoting it as "the price"
+     * is the error this page had to correct after publishing it. */
+    var g = (d.gas && d.gas.standard) || { space: 4, mark: 16 };
+    $('keys').innerHTML = [
+      ['#141a20', 'SPACE',  t.space, '0x00 — the paper. ' + g.space + ' gas each.'],
+      ['#e0ff4f', 'SIGIL',  t.sigil, '0x20–0x7E — ASCII, a mark that also reads as language. ' + g.mark + ' gas each.'],
+      ['#6fd3ff', 'GLYPH',  t.glyph, 'multi-byte UTF-8 — every other writing system. ' + g.mark + ' gas each.'],
+      ['#39463c', 'MARK',   t.mark,  'everything else — opaque ink. ' + g.mark + ' gas each.']
+    ].map(function(r){
+      return '<div class="key"><div><span class="sw" style="background:' + r[0] + '"></span>' +
+        '<span class="n">' + pct(r[2], tot) + '</span></div>' +
+        '<div class="d"><b>' + r[1] + '</b> · ' + comma(r[2]) + ' bytes<br>' + esc(r[3]) + '</div></div>';
+    }).join('');
+
+    /* ⛔ THE MONOLINGUAL FINDING IS STATED, NOT BURIED. A near-zero GLYPH share looks like a
+     * broken detector unless the page says it is the result. It is: the first filter kept
+     * anything beside an ASCII byte and reported 0.93% — Coptic next to Tibetan next to a
+     * private-use codepoint, i.e. noise. Requiring two consecutive same-script glyphs took it to
+     * this. The rejected count is shown so the correction is visible rather than asserted. */
+    $('glyphNote').innerHTML = 'The chain is <b>effectively monolingual</b>. ' +
+      comma(t.glyph) + ' bytes of multi-byte text survived the filter and ' + comma(t.chanceGlyphs) +
+      ' candidates were rejected as chance — random bytes form valid UTF-8 about 2.9% of the time, ' +
+      'so a naive scan reports a chain full of scripts nobody typed. What is actually written ' +
+      'here is ASCII: machine identifiers, English, and hex.';
+
+    /* formations */
+    var f = t, W = f.words || 1;
+    $('forms').innerHTML = [
+      ['WORD',     f.words,     'the 32-byte ABI grid — the line every argument is set on', null],
+      ['RULE',     f.rules,     'a word of pure zero — the blank line, the widest whitespace the chain has', 100 * f.rules / W],
+      ['ADDRESS',  f.addresses, 'twelve zeros then twenty bytes — the shape of an address; a proper noun', 100 * f.addresses / W],
+      ['SELECTOR', f.selectors, 'the first four bytes of a call — a hash fragment, so pure ink', null]
+    ].map(function(r){
+      return '<div class="key"><div><span class="n">' + comma(r[1]) + '</span>' +
+        (r[3] !== null ? ' <span class="d" style="display:inline">· ' + r[3].toFixed(1) + '% of lines</span>' : '') +
+        '</div><div class="d"><b>' + r[0] + '</b><br>' + esc(r[2]) + '</div></div>';
+    }).join('');
+
+    drawSheet(head);
+    drawDuality(head);
+    drawRuns(head);
+  }
+
+  /* ── 2 · the sheet ──────────────────────────────────────────────────────────────────────
+   * ⚑ WHAT MOVES AND WHY IT PHYSICALLY MOVED (DESIGN-SYSTEM §4): nothing animates on its own.
+   *   The sheet advances when a BLOCK LANDS — that is the press, and it is the one thing here
+   *   with its own reason to move. A decorative crawl would be exactly the default this studio
+   *   has rejected three times.
+   * ⚠ The cells are drawn from the CENSUS, not from a random fill: the counts are exact, so the
+   *   proportion of paper to ink on screen is the block's real proportion. A shuffled layout
+   *   would be a picture OF a block; this is the block's composition.                        */
+  function drawSheet(b){
+    var cv = $('sheet'), ctx = cv.getContext('2d');
+    if(!ctx){ $('sheetCap').textContent = 'the sheet needs a 2D canvas, which this browser refused.'; return; }
+    var c = b.census.counts, tot = b.census.bytes;
+    if(!tot){ $('sheetCap').textContent = 'this sheet carried no calldata at all — an empty impression.'; return; }
+    var W = 240, H = 120, cells = W * H;
+    cv.width = W; cv.height = H;
+    var nS = Math.round(cells * c.space / tot), nG = Math.round(cells * c.sigil / tot);
+    var img = ctx.createImageData(W, H);
+    /* deterministic scatter: same block → same sheet, so a reload is not a new artwork */
+    var seed = parseInt(b.hash.slice(0, 8), 16) >>> 0;
+    var rnd = function(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    var order = new Array(cells);
+    for(var i = 0; i < cells; i++) order[i] = i;
+    for(var i = cells - 1; i > 0; i--){ var j = (rnd() * (i + 1)) | 0; var tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
+    var COL = { s: [20, 26, 32], g: [224, 255, 79], m: [57, 70, 60] };
+    for(var k = 0; k < cells; k++){
+      var col = k < nS ? COL.s : k < nS + nG ? COL.g : COL.m;
+      var p = order[k] * 4;
+      img.data[p] = col[0]; img.data[p+1] = col[1]; img.data[p+2] = col[2]; img.data[p+3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    $('sheetCap').innerHTML = 'Ethereum block <b>' + comma(b.sheet.number) + '</b> and the ' +
+      b.impressions.length + ' Base blocks that landed under it — ' + comma(tot) +
+      ' bytes of calldata, one cell each, in their true proportion. The dark field is ' +
+      pct(c.space, tot) + ' of it, and it is not background: <b>it is the substrate</b>.';
+  }
+
+  /* ── 3 · the duality — the same bytes twice ─────────────────────────────────────────────── */
+  function drawDuality(b){
+    var runs = (b.runs || []).filter(function(r){ return /[A-Za-z]{3}/.test(r.text); });
+    var pick = (runs[0] && runs[0].text) || (b.runs && b.runs[0] && b.runs[0].text) || '';
+    if(!pick){ $('dualHex').textContent = $('dualTxt').textContent = 'this sheet carried no printable run.'; return; }
+    pick = pick.slice(0, 96);
+    var hex = '', txt = '';
+    for(var i = 0; i < pick.length; i++){
+      var code = pick.charCodeAt(i);
+      hex += '<span class="g">' + code.toString(16).padStart(2, '0') + '</span> ';
+      txt += '<span class="g">' + esc(pick[i]) + '</span>';
+    }
+    $('dualHex').innerHTML = hex.trim();
+    $('dualTxt').innerHTML = txt;
+  }
+
+  /* ── 4 · the ghost text ─────────────────────────────────────────────────────────────────── */
+  function drawRuns(b){
+    var rs = b.runs || [];
+    if(!rs.length){ $('runs').innerHTML = ''; $('runsCap').textContent = 'this sheet carried no printable run of four or more bytes.'; return; }
+    $('runs').innerHTML = rs.map(function(r){
+      return '<span class="run" title="' + esc(r.text) + '"><i>' + r.n + '×</i><b>' + esc(r.text) + '</b></span>';
+    }).join('');
+    /* ⚠ SAY WHAT WAS DROPPED. A silent truncation reads as "this is all there was". */
+    $('runsCap').innerHTML = 'Runs of four or more printable bytes, found inside calldata nobody ' +
+      'wrote as text. This sheet had <b>' + comma(b.runsTotal) + '</b>; the ' + rs.length +
+      ' most repeated are shown. Every one was typed by somebody into a system, paid for in gas, ' +
+      'and is now permanent.';
+  }
+
+  /* ── 5 · verify, in the browser, with no library ─────────────────────────────────────────
+   * ⛔ THE PAGE PROVES ITS OWN CHAIN RATHER THAN ASSERTING IT. It recomputes every hash from the
+   *   source hashes in the file. It does NOT re-read the chains — so what it proves is that the
+   *   census and the linkage are self-consistent, which is exactly what it says and no more.  */
+  async function verify(d){
+    var el = $('vLine');
+    if(!(window.crypto && crypto.subtle)){
+      el.innerHTML = '<span class="cross">✕</span> this browser has no <code>crypto.subtle</code>, ' +
+        'so the chain cannot be recomputed here. It is still verifiable — just not from this page.';
+      return;
+    }
+    try{
+      var enc = new TextEncoder();
+      var sha = async function(s){
+        var h = await crypto.subtle.digest('SHA-256', enc.encode(s));
+        return Array.from(new Uint8Array(h)).map(function(x){ return x.toString(16).padStart(2, '0'); }).join('');
+      };
+      var prev = d.genesis, bad = null;
+      for(var i = 0; i < d.blocks.length; i++){
+        var b = d.blocks[i];
+        if(b.prev !== prev){ bad = 'block ' + b.height + ' does not link to the one before it'; break; }
+        /* ⛔ LENGTH-PREFIXED FIELDS, NUL-SEPARATED — and both halves must match
+         * scripts/substrate.mjs exactly or this page reports a healthy chain as broken (which is
+         * what happened while the deriver held an INVISIBLE literal 0x00 and this line joined on
+         * a space). The `len:` prefix is not decoration: without it two different field lists can
+         * produce one string, which `npm run test:substrate:attack` §B1 demonstrated against the
+         * previous version. `npm run test:substrate` extracts the framing from both files and
+         * requires them to agree, because two copies of one fact drift. */
+        var parts = [prev, b.sheet.hash].concat(b.impressions.map(function(x){ return x.hash; }));
+        parts.push(b.canonical);
+        var h = await sha(parts.map(function(p){
+          var s = String(p); return s.length + ':' + s;
+        }).join('\x00'));
+        if(h !== b.hash){ bad = 'block ' + b.height + ' does not hash to its recorded value'; break; }
+        prev = h;
+      }
+      el.innerHTML = bad
+        ? '<span class="cross">✕</span> ' + esc(bad) + ' — this chain is not self-consistent.'
+        : '<span class="tick">✓</span> recomputed all <b>' + d.blocks.length + '</b> blocks from ' +
+          'genesis <code>' + d.genesis.slice(0, 16) + '…</code> to head <code>' + prev.slice(0, 16) +
+          '…</code>. Every link and every census holds.';
+    }catch(e){
+      el.innerHTML = '<span class="cross">✕</span> verification could not run — <b>' + esc(e.message) + '</b>';
+    }
+  }
+
+  /* ── 6 · the live heads ─────────────────────────────────────────────────────────────────
+   * ⚠ RACE, DO NOT SEQUENCE, AND ABORT. Endpoints walked one at a time on a bad mobile
+   *   connection is most of a minute of "reading…", and a fetch with no timeout hangs forever
+   *   after the others have already failed. Both are recorded defects in this repo.
+   * ⚠ A dead RPC answers HTTP 200 with a JSON-RPC error body, so `r.ok` is not the check.    */
+  var RPCS = {
+    hEth:  ['https://ethereum-rpc.publicnode.com','https://eth.drpc.org','https://rpc.mevblocker.io','https://eth.merkle.io'],
+    hBase: ['https://mainnet.base.org','https://base-rpc.publicnode.com','https://base.drpc.org']
+  };
+  function head(id, urls, label){
+    var body = JSON.stringify({ jsonrpc:'2.0', id:1, method:'eth_blockNumber', params:[] });
+    var one = function(u){
+      var ac = new AbortController(), t = setTimeout(function(){ ac.abort(); }, 9000);
+      return fetch(u, { method:'POST', signal:ac.signal, headers:{'content-type':'application/json'}, body:body })
+        .then(function(r){ return r.json(); })
+        .then(function(j){ if(!j.result) throw new Error('rpc error'); return parseInt(j.result,16); })
+        .finally(function(){ clearTimeout(t); });
+    };
+    Promise.allSettled(urls.map(one)).then(function(rs){
+      for(var i=0;i<rs.length;i++) if(rs[i].status==='fulfilled'){ set($(id), comma(rs[i].value)); return; }
+      /* ⛔ NAME THE FAILURE. "chain unreachable from here" is a fact; an em-dash is a mystery. */
+      fail($(id), label + ' unreachable from here');
+    });
+  }
+  head('hEth',  RPCS.hEth,  'ethereum');
+  head('hBase', RPCS.hBase, 'base');
+})();
+</script>
+</body>
+</html>

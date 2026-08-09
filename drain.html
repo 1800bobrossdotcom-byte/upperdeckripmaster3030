@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>THE DRAIN SCREEN · approvals, before the theft</title>
+<meta name="description" content="A wallet drainer collects approvals before it steals. That is visible on-chain, hours early, on Ethereum and Base. A ranked queue with the working shown — and never an accusation.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="THE DRAIN SCREEN">
+<meta property="og:description" content="A drainer does not steal tokens. It collects approvals, and sweeps later. The plan is on-chain before the theft is.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/drain.html">
+<meta property="og:image" content="https://www.ripmaster3030studios.com/media/site/og-1200x630.png">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ THE DRAIN SCREEN — the product page ═══════════════════════════════════════════════════════
+
+  ⛔ THIS IS A PRODUCT PAGE FOR A DESK, NOT A COLLECTOR. The reader is an exchange, a wallet or a
+     compliance team. They do not want a story; they want to know whether the queue is worth their
+     analyst's morning. So the page leads with THE DISCRIMINATION — two flags that look identical
+     and score sixty points apart — because that single comparison is the entire product and every
+     other claim on the page is downstream of it.
+
+  ⛔ IT NEVER ACCUSES, AND THAT IS THE SELLING POINT RATHER THAN A DISCLAIMER. A feed that
+     publishes "scam" against an address is a liability to the desk that buys it: defamatory when
+     wrong, unfalsifiable to the person named, unretractable from the people who read it. What is
+     sellable is a ranked queue with the counts attached. `npm run test:drain` asserts the tool
+     cannot emit the words; this page repeats the rule where a buyer can read it.
+
+  ⚑ THE LEDGER IS THE PROOF AND IT IS THE PART THAT CANNOT BE FAKED. A backtest is an argument; a
+     dated append-only record of what was flagged and what happened next is evidence. This repo
+     already owns the cautionary example — a trading bot whose README says "backtested, never
+     forward-tested" and whose paper book still reads 0 trades.
+
+  ⛔ NO WALLET. Read-only over `fetch`, nothing signed, no connect button.
+  ⚠ EVERY LIVE CELL HAS THREE STATES: a value, "reading…", and a NAMED failure. Never an em-dash.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620; --panel:#0b0f13;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --ok:#63e6a0; --cool:#6fd3ff;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+
+  header{padding:30px 0 20px;border-bottom:1px solid var(--line)}
+  .kicker{font-size:var(--t-tag,12px);letter-spacing:.22em;color:var(--dim);margin:0 0 12px}
+  h1{font-size:clamp(23px,5.6vw,42px);letter-spacing:.02em;line-height:1.1;margin:0 0 14px}
+  h1 b{color:var(--hot);font-weight:inherit}
+  .lede{font-size:var(--t-lede,18px);line-height:1.5;max-width:60ch;margin:0;color:var(--ink)}
+  .lede b{color:var(--hot);font-weight:inherit}
+  h2{font-size:var(--t-fine,13px);letter-spacing:.20em;color:var(--dim);margin:44px 0 14px;font-weight:600}
+  p{font-size:var(--t-body,16px);line-height:1.6;max-width:68ch}
+  .note{color:var(--dim)}
+  .age{margin-top:16px;font-size:var(--t-body,16px);color:var(--dim)}
+  .age b{color:var(--ok)} .age.stale b{color:var(--warn)} .age.dead b{color:var(--bad)}
+
+  /* ── the comparison: the whole product in one figure ── */
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0}
+  @media(max-width:720px){ .vs{grid-template-columns:1fr} }
+  .card{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:16px 18px}
+  .card.hit{border-color:var(--bad)}
+  .card.pass{border-color:var(--line)}
+  .card .band{font-size:var(--t-tag,12px);letter-spacing:.18em;margin:0 0 10px}
+  .card.hit .band{color:var(--bad)} .card.pass .band{color:var(--dim)}
+  .card .sc{font-size:clamp(34px,9vw,58px);line-height:1;letter-spacing:-.02em}
+  .card.hit .sc{color:var(--bad)} .card.pass .sc{color:var(--dim)}
+  .card .who{font-size:var(--t-body,16px);color:var(--dim);margin:8px 0 14px;word-break:break-all}
+  .card ul{list-style:none;margin:0;padding:0}
+  .card li{font-size:var(--t-body,16px);line-height:1.6;color:var(--dim);padding-left:15px;position:relative}
+  .card li:before{content:'·';position:absolute;left:3px;color:var(--line)}
+  .card li.key{color:var(--ink)}
+  .card.hit li.key{color:var(--bad)}
+  .pull{border-left:2px solid var(--hot);padding:2px 0 2px 16px;margin:18px 0;
+        font-size:var(--t-body,16px);line-height:1.55;max-width:64ch}
+
+  /* ── live board ── */
+  .row{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:13px 15px;margin-bottom:9px;
+       display:grid;grid-template-columns:64px 1fr;gap:14px;align-items:start}
+  .row .s{font-size:clamp(19px,4vw,26px);line-height:1}
+  .row.look .s{color:var(--bad)} .row.watch .s{color:var(--warn)} .row.noise .s{color:var(--dim)}
+  .row .a{font-size:var(--t-body,16px);word-break:break-all;margin-bottom:6px}
+  .row .r{font-size:var(--t-body,16px);color:var(--dim);line-height:1.6}
+  .empty{border:1px dashed var(--line);border-radius:3px;padding:20px;color:var(--dim);
+         font-size:var(--t-body,16px);line-height:1.55}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .st{border:1px solid var(--line);background:var(--panel);padding:13px 15px;border-radius:3px}
+  .st .k{font-size:var(--t-tag,12px);letter-spacing:.16em;color:var(--dim);display:block;margin-bottom:6px}
+  .st .v{font-size:clamp(20px,4.4vw,28px)}
+  .st .d{font-size:var(--t-body,16px);color:var(--dim);margin-top:5px;line-height:1.45}
+
+  table{width:100%;border-collapse:collapse;font-size:var(--t-body,16px);margin:0}
+  th{text-align:left;color:var(--dim);font-weight:600;letter-spacing:.1em;font-size:var(--t-tag,12px);
+     padding:0 10px 9px 0;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+  td.n{color:var(--hot)} td.x{color:var(--dim)}
+  .scroll{overflow-x:auto}
+
+  .cta{border:1px solid var(--hot);border-radius:4px;padding:20px 22px;margin:8px 0 0}
+  .cta h3{margin:0 0 10px;font-size:var(--t-body,16px);letter-spacing:.08em;color:var(--hot);font-weight:600}
+  footer{border-top:1px solid var(--line);margin-top:48px;padding:20px 0;color:var(--dim);
+         font-size:var(--t-body,16px);line-height:1.7}
+  footer a{color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="kicker">RIPMASTER3030STUDIOS · ETHEREUM + BASE</p>
+    <h1>A drainer doesn't steal tokens.<br><b>It collects approvals.</b></h1>
+    <p class="lede">The theft is one transaction. <b>The plan is hours of them</b> — a burst of
+      wallets each authorising the same new contract, long before anything moves. That is public,
+      on-chain, and almost nobody is watching it. This reads both chains every hour and ranks who
+      is collecting.</p>
+    <p class="age" id="age">reading the last screen…</p>
+  </header>
+
+  <h2>WHY IT ISN'T DROWNING IN ROUTERS</h2>
+  <p>Every honest version of this idea dies the same way: <b>Uniswap takes approvals from everyone
+    too.</b> So does every bridge, marketplace and aggregator. A screen that ranks by "who is
+    collecting authorisations" returns infrastructure forever and wastes the analyst it was built
+    for.</p>
+  <p class="note">These two were flagged in the same window, on the same chain, minutes apart. Both
+    are brand new. Both took a burst of approvals from dozens of wallets. Both had those wallets'
+    tokens leave afterwards. <b>One is worth waking somebody up for and one is a router being
+    used</b> — and the only thing separating them is where the tokens went.</p>
+
+  <div class="vs">
+    <div class="card hit">
+      <p class="band">◤ LOOK</p>
+      <div class="sc">141</div>
+      <p class="who">0x7b5feedcc6b65d69b643078789538e3a862f27c1 · base</p>
+      <ul>
+        <li>52 distinct wallets approved it</li>
+        <li>inside 34 blocks — about a minute</li>
+        <li>489-byte contract</li>
+        <li>no approvals at all a day earlier</li>
+        <li class="key">52 of 52 drained · 51 of 51 transfers to ONE address</li>
+      </ul>
+    </div>
+    <div class="card pass">
+      <p class="band">◤ DAMPED</p>
+      <div class="sc">78</div>
+      <p class="who">0x96116c5c5c760bffc0d06017f96dbbbf25621ada · base</p>
+      <ul>
+        <li>87 distinct wallets approved it</li>
+        <li>inside 34 blocks — about a minute</li>
+        <li>7,743-byte contract</li>
+        <li>no approvals at all a day earlier</li>
+        <li class="key">outflow fanned out across 69 destinations</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="pull"><b>A router's users each receive their own output.</b> A collector's victims all
+    pay one address. Movement is not the signal — <b>concentration is</b>.</p>
+
+  <p class="note">That distinction was not a design decision, it was a correction. The first
+    version scored the outflow itself and every router on Base came back 111/111, 92/92, 86/88 —
+    because approving a router and having it move your tokens <em>is a swap</em>. It fired on
+    everything and separated nothing. The regression case is now permanent in the suite: a router
+    with 88 of 90 approvers drained across 71 destinations must score zero. It does.</p>
+
+  <h2>LIVE — THE LAST SCREEN</h2>
+  <div id="board"><div class="empty">reading…</div></div>
+  <p class="note" id="boardNote"></p>
+
+  <h2>THE LEDGER</h2>
+  <p>A flag with no follow-up is an opinion. Every candidate that clears the bar is written down
+    once, <b>with its evidence frozen at that block</b>, and every later pass appends what changed.
+    Nothing is ever rewritten — a record you can edit after the fact is not a record.</p>
+  <div class="stats" id="ledger"></div>
+  <div class="scroll" style="margin-top:14px"><table id="ledgerTable"></table></div>
+
+  <h2>WHAT IT WILL NOT DO</h2>
+  <p><b>It never calls anything a scam.</b> Not in the output, not in the data file, not in the
+    API. It emits counts and the reader concludes.</p>
+  <p class="note">That is not caution, it is the product working. A new protocol launching, an
+    airdrop claim, a token migration and a popular mint all look exactly like a drainer for the
+    first hour of their lives — a migration contract genuinely does move everyone's tokens to one
+    address, by design and with consent, and it scores high here. <b>A feed that publishes
+    accusations is a liability to the desk that buys it.</b> A ranked queue with the working shown
+    is a tool. The test suite asserts the words "scam", "drainer", "malicious", "fraud", "thief",
+    "criminal" and "stolen" cannot appear in any reason string the tool produces.</p>
+
+  <h2>HOW IT WORKS, IN FOUR LINES</h2>
+  <div class="scroll">
+    <table>
+      <tr><th>signal</th><th>what it measures</th><th>why it discriminates</th></tr>
+      <tr><td class="n">BURST</td><td>distinct approvers per block of span</td>
+          <td class="x">a protocol accumulates users; a campaign arrives all at once</td></tr>
+      <tr><td class="n">HISTORY</td><td>approvals to this spender a day before the window</td>
+          <td class="x">computed, not listed — it cannot be wrong about an address nobody named</td></tr>
+      <tr><td class="n">SPREAD</td><td>how many distinct tokens were approved</td>
+          <td class="x">wide spread is router behaviour and scores <em>down</em></td></tr>
+      <tr><td class="n">FUNNEL</td><td>where the approvers' tokens landed afterwards</td>
+          <td class="x">the only term that observes a consequence rather than a posture</td></tr>
+    </table>
+  </div>
+  <p class="note" style="margin-top:14px">No indexer, no archive node, no third-party API — public
+    event logs over public RPCs, on two chains, hourly. Nothing signs anything and there is no key
+    in the system.</p>
+
+  <div class="cta">
+    <h3>THE FEED</h3>
+    <p style="margin:0 0 10px">The ranked queue, the evidence behind every row, and the ledger of
+      what happened after each flag — as JSON, hourly, both chains.</p>
+    <p class="note" style="margin:0">Early access while the ledger builds its first weeks of
+      forward record. <a href="https://x.com/RipMaster3030">@RipMaster3030</a></p>
+  </div>
+
+  <footer>
+    <a href="index.html">ripmaster3030studios</a> ·
+    <a href="substrate.html">the reading</a> ·
+    <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+    Read-only. Nothing here signs, sends or approves anything, and there is no connect button.
+    Every figure on this page is a count taken from public logs.
+    <b>Nothing on this page is an accusation.</b>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s).replace(/[<>&]/g,function(c){ return ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]; }); }
+  function comma(n){ return Number(n).toLocaleString(); }
+  function short(a){ return a.slice(0,10) + '…' + a.slice(-6); }
+
+  /* ⚠ Both files are fetched independently: the board can render when the ledger is missing and
+   * the other way round. A page that goes blank because one of two files 404s is a page that
+   * fails harder than either failure warrants. */
+  fetch('data/drain.json', { cache:'no-store' })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(board)
+    .catch(function(e){
+      $('age').className = 'age dead';
+      $('age').innerHTML = 'the last screen could not be read — <b>' + esc(e.message) + '</b>';
+      $('board').innerHTML = '<div class="empty">the live board is unavailable: ' +
+        esc(e.message) + '. The comparison above is a recorded result and still stands.</div>';
+    });
+
+  function board(d){
+    var mins = (Date.now() - Date.parse(d.generatedAt)) / 60000;
+    var a = $('age');
+    a.className = 'age' + (mins > 240 ? ' dead' : mins > 90 ? ' stale' : '');
+    a.innerHTML = 'last screen <b>' + (mins < 90 ? Math.max(0,Math.round(mins)) + ' min'
+                : Math.round(mins/60) + ' h') + ' ago</b> · ' +
+                Object.keys(d.chains||{}).length + ' chains · runs hourly';
+
+    var rows = [];
+    for (var c in (d.chains||{})) {
+      var ch = d.chains[c];
+      if (ch.error || !ch.rows) continue;
+      ch.rows.forEach(function(r){ r.chain = c; rows.push(r); });
+    }
+    rows.sort(function(x,y){ return y.score - x.score; });
+    var top = rows.filter(function(r){ return r.score >= 35; }).slice(0, 8);
+
+    if (!top.length) {
+      /* ⚑ AN EMPTY BOARD IS A RESULT, NOT A FAULT — and saying so is what stops a quiet hour
+       * reading as a broken feed. */
+      $('board').innerHTML = '<div class="empty">Nothing cleared the bar in the last window. ' +
+        'That is the common case and it is the point — a screen that always finds something is ' +
+        'fitting noise.</div>';
+    } else {
+      $('board').innerHTML = top.map(function(r){
+        var band = r.score >= 60 ? 'look' : r.score >= 35 ? 'watch' : 'noise';
+        return '<div class="row ' + band + '"><div class="s">' + r.score + '</div><div>' +
+          '<div class="a">' + esc(short(r.spender)) + ' <span style="color:var(--dim)">· ' + esc(r.chain) + '</span></div>' +
+          '<div class="r">' + esc((r.reasons||[]).join(' · ')) + '</div></div></div>';
+      }).join('');
+    }
+    var scanned = 0;
+    for (var c2 in (d.chains||{})) scanned += (d.chains[c2].events || 0);
+    $('boardNote').innerHTML = comma(scanned) + ' approval events read in the last pass. ' +
+      'Scores are queue positions, not percentages, and not verdicts.';
+  }
+
+  fetch('data/drain-ledger.json', { cache:'no-store' })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(ledger)
+    .catch(function(e){
+      $('ledger').innerHTML = '<div class="empty">the ledger could not be read — ' + esc(e.message) +
+        '</div>';
+    });
+
+  function ledger(l){
+    var es = l.entries || [];
+    var followed = es.filter(function(e){ return (e.revisits||[]).length > 0; }).length;
+    var grew = es.filter(function(e){ return (e.revisits||[]).some(function(r){ return r.newApprovers > 0; }); }).length;
+    $('ledger').innerHTML = [
+      ['ENTRIES', es.length, 'flagged and written down, evidence frozen at that block'],
+      ['WITH FOLLOW-UP', followed, 'revisited on a later pass'],
+      ['STILL COLLECTING', grew, 'took more approvals after they were flagged'],
+      ['UPDATED', l.updatedAt ? l.updatedAt.slice(0,16).replace('T',' ') + 'Z' : 'never', 'appended, never rewritten']
+    ].map(function(r){
+      return '<div class="st"><span class="k">' + r[0] + '</span><span class="v">' + r[1] +
+             '</span><div class="d">' + esc(r[2]) + '</div></div>';
+    }).join('');
+
+    if (!es.length) {
+      $('ledgerTable').innerHTML = '<tr><td class="x">The ledger is empty. It fills as the hourly ' +
+        'screen runs — and an empty ledger says so rather than showing an invented row.</td></tr>';
+      return;
+    }
+    var rows = es.slice().sort(function(a,b){ return b.flag.score - a.flag.score; }).slice(0, 12);
+    $('ledgerTable').innerHTML =
+      '<tr><th>score</th><th>spender</th><th>at flag</th><th>since</th></tr>' +
+      rows.map(function(e){
+        var last = (e.revisits||[]).slice(-1)[0];
+        return '<tr><td class="n">' + e.flag.score + '</td>' +
+          '<td>' + esc(short(e.spender)) + '<br><span class="x">' + esc(e.chain) + ' · block ' + comma(e.openedBlock) + '</span></td>' +
+          '<td class="x">' + esc((e.flag.reasons||[]).slice(0,3).join(' · ')) + '</td>' +
+          '<td class="x">' + (last
+            ? comma(last.newApprovers) + ' new approvers over ' + comma(last.blocksSince) + ' blocks'
+            : 'not yet revisited') + '</td></tr>';
+      }).join('');
+  }
+})();
+</script>
+</body>
+</html>
