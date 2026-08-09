@@ -442,44 +442,93 @@
       var ends = dist(pts[0], pts[pts.length-1]);
       var sp = bs.map(function(b){ return b.census.counts.space / (b.census.bytes || 1); });
       var lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
-      /* ⛔ THE RATIO NEEDS A BASELINE OR IT IS A NUMBER WITH NO SCALE, AND THE FIRST VERSION OF
-       *   THIS LINE PRINTED A VERDICT WITHOUT ONE. It said "it wanders and returns" at 6.9× and
-       *   then, one derivation later on the very next window, "it is drifting" at 1.8× — the same
-       *   page confidently asserting opposite things an hour apart, from five steps. That is this
-       *   project's own recurring failure with a new number attached: a confident reading of a
-       *   sample too small to carry it.
-       * ✅ THE BASELINE IS A PURE RANDOM WALK, and its median ratio is exactly √steps — verified
-       *   by simulation in 7 dimensions at 3/5/9/19/39 steps, matching √n to within 1.5% every
-       *   time, so it is a formula rather than a table. The 90% band is √n × [0.70, 1.70], also
-       *   stable across that whole range.
-       * ⚑ WHICH SETTLES BOTH OBSERVATIONS AND THEY ARE NOT THE SAME: 1.8× at 5 steps is the 16th
-       *   percentile of a random walk — utterly ordinary, no drift to report — while 6.9× is the
-       *   99.9th, i.e. genuinely mean-reverting. Two windows cannot tell "the composition
-       *   sometimes snaps back hard" from "one tail draw", so the page names the percentile band
-       *   and refuses the verdict outside it. */
+      /* ⛔ THE ENDPOINT RATIO IS THE WRONG STATISTIC AND IT TOOK TWO REWRITES TO SEE IT.
+       *   v1 printed a bare ratio and a verdict: "it wanders and returns" at 6.9×, then "it is
+       *   drifting" at 1.8× one derivation later — the same page asserting opposite things an hour
+       *   apart, from five steps.
+       *   v2 gave it a baseline (a random walk's median ratio is exactly √steps, simulated in 7
+       *   dimensions at 3/5/9/19/39 steps and matching to within 1.5% every time). Better, and
+       *   still built on TWO POINTS: path ÷ endpoint distance is large whenever the first and last
+       *   sheet happen to land near each other, which at small n is mostly luck.
+       * ✅ v3 USES ALL THE PAIRS. Mean reversion means consecutive STEPS point against each other,
+       *   so the statistic is the lag-1 cosine over every adjacent pair — 22 of them at 24 sheets
+       *   instead of 2 endpoints. 0 is a random walk, −1 a perfect zig-zag, +1 a straight line.
+       * ⚑ AND IT IS SIGNIFICANCE-TESTED IN THE PAGE, by shuffling the step ORDER: under the null
+       *   the steps are exchangeable, so the fraction of shuffles at least this anticorrelated IS
+       *   the p-value. No table, no threshold anybody chose.
+       * ⚠ THE SHUFFLE IS SEEDED FROM THE HEAD HASH, deliberately. `Math.random` would print a
+       *   slightly different p on every reload, and this page's own sheet is seeded for exactly
+       *   that reason — a reload is not a new reading. */
+      var sub = function(a, b){ return a.map(function(x, i){ return x - b[i]; }); };
+      var dot = function(a, b){ var s = 0; for (var i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+      var nrm = function(a){ return Math.sqrt(dot(a, a)); };
+      var steps = []; for (var k = 1; k < pts.length; k++) steps.push(sub(pts[k], pts[k-1]));
+      var cosAt = function(arr){ var acc = 0, m = 0;
+        for (var i = 1; i < arr.length; i++){ var na = nrm(arr[i-1]), nb = nrm(arr[i]);
+          if (na > 0 && nb > 0){ acc += dot(arr[i-1], arr[i]) / (na * nb); m++; } }
+        return m ? acc / m : 0; };
+      var obs = cosAt(steps), pairs = Math.max(0, steps.length - 1);
+      var seed = parseInt(bs[bs.length-1].hash.slice(0, 8), 16) >>> 0;
+      var rnd = function(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+      /* ⛔ THE TAIL HAS TO FOLLOW THE SIGN, AND THE FIRST VERSION ONLY EVER COUNTED THE
+       *   ANTICORRELATED ONE. That is the right test for mean reversion and the WRONG one for
+       *   drift: on a synthetic chain drifting monotonically on every axis, observed +1.00 — the
+       *   maximum possible — the count of shuffles "at least this anticorrelated" should have been
+       *   all 4,000, and it came back as **2**, pure floating-point noise around an exact tie. The
+       *   verdict still read "steps agree", i.e. the right answer reached by accident, which is the
+       *   most expensive kind of correct. Count the tail the observation is actually in. */
+      var TRIALS = 4000, worse = 0, wantLow = obs < 0;
+      for (var t = 0; t < TRIALS; t++){
+        var sh = steps.slice();
+        for (var i = sh.length - 1; i > 0; i--){ var j = (rnd() * (i + 1)) | 0; var tmp = sh[i]; sh[i] = sh[j]; sh[j] = tmp; }
+        var c = cosAt(sh);
+        if (wantLow ? c <= obs : c >= obs) worse++;
+      }
+      var pv = worse / TRIALS;
+      /* ⛔ TWO STATISTICS, BECAUSE THEY SEE DIFFERENT THINGS AND I NEARLY DELETED THE USEFUL ONE.
+       *   The permutation test above answers "does the ORDER of the steps matter" — it is exact for
+       *   alternation and **structurally blind to drift**, because shuffling a sequence of near
+       *   identical steps produces the same statistic. Driven on a synthetic chain drifting
+       *   monotonically on all seven axes it reports 3,998 of 4,000, i.e. nothing, at an observed
+       *   correlation of +1.00. That is not a bug; it is the test's subject.
+       *   The endpoint ratio is the opposite: blind to alternation ORDER, sharp on net displacement.
+       *   A random walk's median is exactly √steps (simulated in 7-D at 3/5/9/19/39 steps, matching
+       *   to within 1.5%), and its middle 90% is √n × [0.70, 1.70].
+       * ⚑ So the page prints both and says which answers which. Together they separate all three
+       *   shapes; either alone mistakes one for another. */
       var ratio = ends > 0 ? path / ends : Infinity;
-      var steps = pts.length - 1, base = Math.sqrt(steps);
+      var steps_n = pts.length - 1, base = Math.sqrt(steps_n);
       var lo90 = base * 0.70, hi90 = base * 1.70;
-      var verdict = !isFinite(ratio)
-        ? 'the two ends landed on the same point, which at this sample size is a coincidence rather than a result'
-        : ratio > hi90
-          ? 'That is <b>above</b> the band, so over this window the composition <b>moved and came back</b> — '
-            + 'it is snapping back to where it started rather than going anywhere.'
-          : ratio < lo90
-            ? 'That is <b>below</b> the band, so over this window the composition is <b>going somewhere</b> '
-              + 'rather than milling about.'
-            : 'That is <b>inside</b> the band, so this window is <b>indistinguishable from a random walk</b> — '
-              + 'the composition moves, and nothing here says it is heading anywhere.';
+      var alternates = pairs >= 6 && obs < 0 && pv <= 0.01;
+      var went = !isFinite(ratio) ? 'nowhere' : ratio < lo90 ? 'somewhere' : ratio > hi90 ? 'nowhere' : 'unclear';
+      var verdict = pairs < 6
+        ? 'Too few steps to test either question on this window.'
+        : (alternates && went === 'nowhere')
+          ? '<b>It swings and snaps back.</b> The composition moves hard between blocks, against '
+            + 'itself each time, and after all of it ends up where it started.'
+          : (went === 'somewhere')
+            ? '<b>It is going somewhere</b> over this window — the ends are further apart than a '
+              + 'random walk of the same steps would manage.'
+            : alternates
+              ? '<b>It alternates</b> — consecutive steps oppose each other — but the ends are no '
+                + 'further apart than chance, so where it is heading is not settled here.'
+              : 'Neither test finds structure: this window is <b>indistinguishable from a random walk</b>.';
       $('pathNote').innerHTML = 'Each sheet is also a <b>point</b> — seven axes, all shares — and the '
-        + 'chain is a path between them. Over these ' + bs.length + ' sheets the path is <b>'
-        + path.toFixed(3) + '</b> long and the two ends are <b>' + ends.toFixed(3) + '</b> apart: a ratio of <b>'
-        + (isFinite(ratio) ? ratio.toFixed(1) + '×' : '∞') + '</b> against a pure random walk\'s <b>'
-        + base.toFixed(1) + '×</b> (√' + steps + '), whose middle 90% runs ' + lo90.toFixed(1) + '–'
-        + hi90.toFixed(1) + '×. ' + verdict
+        + 'chain is a path between them, which lets two different questions be asked of it.<br>'
+        + '<b>Does the order matter?</b> Consecutive steps have a lag-1 correlation of <b>'
+        + obs.toFixed(2) + '</b> over ' + pairs + ' pairs '
+        + '<span style="color:var(--dim)">(0 = a random walk · −1 = a perfect zig-zag)</span>, and <b>'
+        + worse.toLocaleString() + ' of ' + TRIALS.toLocaleString() + '</b> shuffles of those same '
+        + 'steps go as far in that direction. <span style="color:var(--dim)">This test is exact for '
+        + 'alternation and blind to drift — shuffling near-identical steps changes nothing.</span><br>'
+        + '<b>Did it go anywhere?</b> The path is <b>' + path.toFixed(2) + '</b> long and the ends are <b>'
+        + ends.toFixed(3) + '</b> apart, a ratio of <b>' + (isFinite(ratio) ? ratio.toFixed(1) + '×' : '∞')
+        + '</b> against a random walk\'s <b>' + base.toFixed(1) + '×</b> (√' + steps_n + ', middle 90% '
+        + lo90.toFixed(1) + '–' + hi90.toFixed(1) + '×). <span style="color:var(--dim)">This one is '
+        + 'sharp on displacement and blind to the order.</span><br>' + verdict
         + ' <span style="color:var(--dim)">The paper alone runs ' + (100*lo).toFixed(1) + '–'
-        + (100*hi).toFixed(1) + '% between adjacent Ethereum blocks, so the percentages above are means of a '
-        + 'quantity that moves. ' + steps + ' steps is enough to say that and not enough to characterise it — '
-        + 'consecutive derivations have read 6.9× and 1.8× on this same statistic.</span>';
+        + (100*hi).toFixed(1) + '% between adjacent Ethereum blocks, so the percentages above are '
+        + 'means of a quantity that moves a great deal.</span>';
     })();
 
     $('glyphNote').innerHTML = 'The chain is <b>effectively monolingual</b>. ' +

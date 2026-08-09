@@ -440,7 +440,18 @@ export function deriveHash(prevHash, ethHash, baseHashes, census) {
 /* ── build ────────────────────────────────────────────────────────────────────────────────── */
 async function block(n, full) { return rpc(n.chain, 'eth_getBlockByNumber', [hex(n.number), full]); }
 
-export async function derive({ sheets = 6, log = () => {} } = {}) {
+/* ⛔ SIX SHEETS WAS TOO SHORT TO SAY ANYTHING, AND THE PAGE PROVED IT BY CONTRADICTING ITSELF.
+ * The census reading on `substrate.html` treats each sheet as a point and the chain as a path
+ * through composition space. At six sheets that is FIVE steps, and the statistic read 6.9× on one
+ * derivation and 1.8× on the next — the page confidently naming opposite behaviours an hour apart.
+ * ⚑ 24 SHEETS IS 23 STEPS AND COSTS 38 SECONDS, measured, against 10s for six. The hourly job it
+ *   runs in already spends 100s on the pool screen, so there was never a cost reason for six; it
+ *   was a default nobody revisited. 10.1M bytes of calldata across 24 Ethereum blocks and ~145
+ *   Base blocks — roughly five minutes of both chains.
+ * ⚠ 24 IS THE CLI'S OWN CEILING and the default now matches it, which means the ceiling is doing
+ *   no work. Raise both together if a longer window is ever wanted; the Base walk is
+ *   `sheets * 12 + 20` blocks fetched one at a time, so the cost is linear and visible. */
+export async function derive({ sheets = 24, log = () => {} } = {}) {
   const ethHead = num(await rpc('ethereum', 'eth_blockNumber', []));
   const baseHead = num(await rpc('base', 'eth_blockNumber', []));
   log(`ethereum head ${ethHead.toLocaleString()} · base head ${baseHead.toLocaleString()}`);
@@ -564,7 +575,7 @@ function dedupe(runs) {
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMain) {
   const arg = (k, d) => { const i = process.argv.indexOf(`--${k}`); return i > 0 ? process.argv[i + 1] : d; };
-  const sheets = Math.max(1, Math.min(24, parseInt(arg('sheets', '6'), 10) || 6));
+  const sheets = Math.max(1, Math.min(24, parseInt(arg('sheets', '24'), 10) || 24));
   console.log(`\n══ ${PROTOCOL.name} · ${PROTOCOL.title} ══\n`);
   const t0 = Date.now();
   const { blocks, ethHead, baseHead } = await derive({ sheets, log: (m) => console.log('  ' + m) });
