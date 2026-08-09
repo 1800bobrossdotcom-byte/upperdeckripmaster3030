@@ -428,7 +428,7 @@ export const SEP = '\x00';
  *   `['0xAA','0xBB']` → `4:0xAA␀4:0xBB` · `['0xAA␀0xBB']` → `9:0xAA␀0xBB`.
  * ⚠ Length is in UTF-16 code units, which for hex and the canonical string equals bytes; the
  *   assertion below refuses anything else rather than letting the two definitions drift. */
-const frame = (parts) => parts.map((p) => {
+export const frame = (parts) => parts.map((p) => {
   const s = String(p);
   return `${s.length}:${s}`;
 }).join(SEP);
