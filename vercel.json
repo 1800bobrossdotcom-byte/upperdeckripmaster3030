@@ -1,4 +1,17 @@
 {
+  "_comment_rewrites": "3030.ripmaster3030studios.com serves the reading at its own root. ⛔ A REWRITE, NEVER A REDIRECT — a redirect would bounce the visitor to the apex and the subdomain would vanish from the address bar, which is the whole point of having it. ⚠ ONLY '/' is rewritten: the page fetches data/substrate.json, mobile.css and favicon.svg relatively, so rewriting everything would break every asset on the subdomain. ⚠ It cannot loop, because the destination '/substrate.html' is not '/' and so never re-matches. ⚠ THIS FILE TOOK THE SITE DARK ONCE (docs/DNS-AND-DOMAIN.md §4½): apex↔www belongs to the platform and nothing else, and a host-scoped rule aimed at a live host is a 50-hop loop. npm run test:name runs every redirect's host regex against the live host list — now including this subdomain — and fails if any matches.",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "3030\\.ripmaster3030studios\\.com"
+        }
+      ],
+      "destination": "/substrate.html"
+    }
+  ],
   "redirects": [
     {
       "source": "/:path*",
