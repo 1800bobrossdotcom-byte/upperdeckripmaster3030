@@ -463,6 +463,13 @@ const ORPHAN_OK = {
    *   badge; when the artist says it is ready it joins arcade.html, and if he says it is not, it
    *   goes. Written down because that is this file's own distinction between a decision and drift. */
   'toll.html': 'STEALTH BETA — deliberately unlinked and noindex until the artist promotes it',
+  /* ⚑ THE READING, unlinked pending ONE artist decision — whether it belongs in the funnel at
+   *   all. It is wallet-free, read-only and holds no stake, so an early visitor can lose nothing
+   *   but time; and it is not a game, so it does not belong on arcade.html by default.
+   * ⛔ IT GETS LINKED OR IT GETS DELETED — the same terms toll.html is held to above. An
+   *   exception with no stated end is just an orphan wearing a badge. See docs/SUBSTRATE-3030.md
+   *   §"Open, and the artist's" item 4. */
+  'substrate.html': 'THE READING — unlinked until the artist decides whether it enters the funnel',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
