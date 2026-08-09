@@ -57,10 +57,53 @@ const MINLIQ = Number(process.env.MINLIQ || 150000);
 const HZ = (process.env.HZ || '15,60,240,720').split(',').map(Number);
 const STAKE_ETH = Number(process.env.STAKE_ETH || 0.01);
 const ETH_USD = Number(process.env.ETH_USD || 1914.72);
-const GAS_UNITS = BigInt(process.env.GAS_UNITS || 150000);   // one router swap, warm
+/* ⛔ 150,000 WAS A GUESS AND IT UNDERSTATED THE ROUND TRIP BY 1.7×. Measured with `estimateGas`
+ *   against the live Aerodrome Slipstream router on Base: BUY 265,647 · SELL 244,398 · and a
+ *   one-off APPROVE of 60,773. A round trip is 510,045 gas, not 300,000.
+ *   ⚑ It is not a rounding error at this size: it is what pushed the best Base pool's 15-minute
+ *   ratio from 1.572 to 0.695 — from "a perfect forecaster profits" to "a perfect forecaster
+ *   loses". A guessed constant in the denominator of every verdict is the whole ballgame.
+ * ⚠ Still an estimate, and still per-chain-generic. A receipt's gasUsed will differ, and the sell
+ *   leg's number in particular depends on how many initialized ticks the swap crosses. */
+const GAS_BUY = BigInt(process.env.GAS_BUY || 265647);
+const GAS_SELL = BigInt(process.env.GAS_SELL || 244398);
+const GAS_UNITS = GAS_BUY + GAS_SELL;                        // one ROUND TRIP, both legs
 
 const SWAP3 = parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)');
-const V3 = parseAbi(['function fee() view returns (uint24)', 'function token0() view returns (address)', 'function token1() view returns (address)']);
+const V3 = parseAbi(['function fee() view returns (uint24)', 'function token0() view returns (address)', 'function token1() view returns (address)', 'function factory() view returns (address)', 'function tickSpacing() view returns (int24)']);
+const ROUTER = parseAbi(['function factory() view returns (address)']);
+
+/* ⛔ TWO WAYS A POOL CAN TOP THIS TABLE AND BE UNTRADEABLE, both found by adversarial review of an
+ *   earlier run, both silent:
+ *   (a) A DYNAMIC FEE. Aerodrome Slipstream pools can move their fee — one read 75, another 375,
+ *       minutes apart. `fee()` sampled once is a snapshot presented as a constant, and the toll is
+ *       the denominator of every verdict here.
+ *   (b) NO ROUTER THAT CAN REACH IT. The screen's own top-ratio pool was spawned by a factory the
+ *       canonical router does not recognise: 703 swaps in 30k blocks, every one from a bespoke bot
+ *       contract, no retail router present. Ranking it first is pointing at a market you cannot
+ *       trade — the FWA "5.36% arb" mistake in a new costume. */
+const KNOWN_ROUTERS = IS_BASE
+  ? { '0x2626664c2603336E57B271c5C0b26F421741e481': 'uniswap-v3',
+      '0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5': 'aerodrome-slipstream' }
+  : { '0xE592427A0AEce92De3Edee1F18E0157C05861564': 'uniswap-v3' };
+/* ⛔ AND A FAILED READ MUST NOT BECOME A VERDICT. The first version let an unreachable router
+ *   silently produce an empty factory set, so EVERY pool came back "NO KNOWN ROUTER" — a definite
+ *   negative manufactured out of a network error, printed with total confidence. That is this
+ *   project's most expensive recurring failure (a clean zero from a measurement that never looked)
+ *   and it took ten minutes to reproduce it here. `routableKnown` separates "checked, not routable"
+ *   from "could not check", and the table prints different words for each. */
+const routableFactories = new Map();
+let routerReads = 0;
+for (const [r, name] of Object.entries(KNOWN_ROUTERS)) {
+  for (const cl of cs) {
+    try {
+      const f = await cl.readContract({ address: r, abi: ROUTER, functionName: 'factory' });
+      routableFactories.set(f.toLowerCase(), name); routerReads++; break;
+    } catch {}
+  }
+}
+const routableKnown = routerReads > 0;
+if (!routableKnown) console.log(`  ⚠ could not read any router's factory — routability is UNKNOWN below, not "no"\n`);
 const ERC = parseAbi(['function decimals() view returns (uint8)']);
 
 const QUOTES = new Set(Object.keys(IS_BASE
@@ -109,8 +152,8 @@ async function candidates() {
 
 /* ⚠ LIVE, because this is the input that moves 300× and a stale constant is a wrong verdict. */
 const gasPrice = await c.getGasPrice();
-const gasEthPerSwap = Number(gasPrice * GAS_UNITS) / 1e18;
-const gasPct = (2 * gasEthPerSwap / STAKE_ETH) * 100;        // round trip, as % of notional
+const gasEthRoundTrip = Number(gasPrice * GAS_UNITS) / 1e18;
+const gasPct = (gasEthRoundTrip / STAKE_ETH) * 100;          // round trip, as % of notional
 
 const head = Number(await c.getBlockNumber());
 const from = head - Math.round(HOURS * 3600 / SECS);
@@ -132,7 +175,7 @@ async function tape(pool) {
 
 console.log(`\n  THE EDGE SCREEN · ${CHAIN} · ${HOURS}h of tape in ${BUCKET}-minute buckets · size ${STAKE_ETH} ETH`);
 console.log(`  toll = 2 × fee  +  2 × gas.  Impact is ZERO at this size (the book walks the curve and says so).`);
-console.log(`  gas now ${(Number(gasPrice) / 1e9).toFixed(4)} gwei → ${gasEthPerSwap.toFixed(8)} ETH/swap = ${gasPct.toFixed(3)}% round trip on ${STAKE_ETH} ETH ($${(STAKE_ETH * ETH_USD).toFixed(0)})\n`);
+console.log(`  gas now ${(Number(gasPrice) / 1e9).toFixed(4)} gwei · ${GAS_UNITS} units/round trip (measured, not assumed) → ${gasEthRoundTrip.toFixed(8)} ETH = ${gasPct.toFixed(3)}% on ${STAKE_ETH} ETH ($${(STAKE_ETH * ETH_USD).toFixed(0)})\n`);
 const cands = await candidates();
 console.log(`  ${cands.length} pools over $${(MINLIQ / 1000).toFixed(0)}k liquidity\n`);
 if (!cands.length) { console.log('  ⚠ the index returned nothing — a failed read, not an absence of pools.\n'); process.exit(0); }
@@ -144,12 +187,33 @@ for (const p of cands) {
       c.readContract({ address: p.pool, abi: V3, functionName: 'fee' }),
       c.readContract({ address: p.pool, abi: V3, functionName: 'token0' }),
       c.readContract({ address: p.pool, abi: V3, functionName: 'token1' })]);
+    /* (a) ⚠ SAMPLED IN WALL-CLOCK, NOT HISTORICALLY. Reading fee() at head-43200 is an ARCHIVE
+     *   query; a public endpoint refuses it, and 88 refusals rate-limited the whole run into
+     *   skipping 41 of 44 pools. The second sample is taken AFTER the tape fetch below, which
+     *   naturally spans seconds and blocks.
+     *   ⚠ And the label is honest about what that proves: "not observed to change" over two reads
+     *   is not immutability. The factory has an owner; a fixed reading is a fact about today. */
+    const feeSamples = new Set([Number(fee)]);
+    /* (b) can a router this project would actually use even reach it? */
+    let routedBy = null, routeChecked = false;
+    if (routableKnown) {
+      for (const cl of cs) {
+        try {
+          const f = (await cl.readContract({ address: p.pool, abi: V3, functionName: 'factory' })).toLowerCase();
+          routedBy = routableFactories.get(f) || null; routeChecked = true; break;
+        } catch {}
+      }
+    }
     const quoteIs0 = QUOTES.has(t0.toLowerCase());
     if (!quoteIs0 && !QUOTES.has(t1.toLowerCase())) continue;      // no quote, no comparable price
     const dq = Number(await c.readContract({ address: quoteIs0 ? t0 : t1, abi: ERC, functionName: 'decimals' }).catch(() => 18));
 
     const { out: sw, fails } = await tape(p.pool);
-    if (sw.length < 20) { rows.push({ ...p, fee: Number(fee), err: `${sw.length} swaps` }); continue; }
+    /* the second fee sample — seconds and blocks after the first, for free */
+    try { feeSamples.add(Number(await c.readContract({ address: p.pool, abi: V3, functionName: 'fee' }))); } catch {}
+    const feeDynamic = feeSamples.size > 1;
+    const feeUse = Math.max(...feeSamples);          // price the WORST fee seen, never the friendliest
+    if (sw.length < 20) { rows.push({ ...p, fee: feeUse, err: `${sw.length} swaps` }); continue; }
 
     /* ⚑ THE HORIZON IS A DIAL, AND IT IS THE ONLY ONE THAT MOVES THE BAR. The toll is fixed per
      *   round trip; the move grows with holding time — roughly √t for anything near a random walk.
@@ -161,7 +225,7 @@ for (const p of cands) {
     /* ⛔ THE TOLL IS THE FEE **PLUS GAS**. Two swaps of fee, two swaps of gas, and at 0.01 ETH the
      *   gas half is the same order as the fee half — leaving it out flattered every pool equally
      *   and flattered the CHEAP pools most, which is precisely the ranking this file produces. */
-    const cost = Number(fee) / 5000 + gasPct;                                      // round trip %
+    const cost = feeUse / 5000 + gasPct;                                           // round trip %
     const madAt = mins => {
       const per = Math.max(1, Math.round(mins * 60 / SECS));
       const byB = new Map();
@@ -186,7 +250,8 @@ for (const p of cands) {
     /* quoteIs0 + decimals ride along so the LIVE page can price this pool from one slot0 read
      * instead of re-deriving what has already been measured. ⚠ Which side is the quote is the
      * exact thing `npm run resting` got wrong by assuming; it is never inferred twice. */
-    rows.push({ ...p, fee: Number(fee), swaps: sw.length, volQ, ladder, crossMin: cross ? cross.min : null,
+    rows.push({ ...p, fee: feeUse, feeNow: Number(fee), feeDynamic, feeSeen: [...feeSamples].sort((a, b) => a - b),
+      routedBy, routeChecked, swaps: sw.length, volQ, ladder, crossMin: cross ? cross.min : null,
       madPct: base.mad, costPct: cost, ratio: base.ratio, fails, quoteIs0, dq, dt: null, t0, t1 });
   } catch (e) { rows.push({ ...p, err: String(e.shortMessage || e.message).slice(0, 34) }); }
 }
@@ -199,7 +264,11 @@ console.log(`  ${'token'.padEnd(10)} ${'dex'.padEnd(10)} ${'fee'.padStart(6)} ${
 for (const r of ok.slice(0, 30)) {
   const cells = HZ.map(h => { const x = r.ladder.find(l => l.min === h);
     return (x && x.ratio != null ? x.ratio.toFixed(2) : '·').padStart(11); }).join(' ');
-  const verdict = r.crossMin == null ? '⛔ never, at any horizon measured' : `⚑ ${hz(r.crossMin)}`;
+  let verdict = r.crossMin == null ? '⛔ never, at any horizon measured' : `⚑ ${hz(r.crossMin)}`;
+  /* a pool no router reaches is not a market, whatever its ratio says */
+  if (!r.routeChecked) verdict += ' ⚠ route unchecked';
+  else if (!r.routedBy) verdict = '⛔ NO KNOWN ROUTER';
+  else if (r.feeDynamic) verdict += ' ⚠ dyn fee';
   console.log(`  ${r.sym.slice(0, 9).padEnd(10)} ${String(r.dex).slice(0, 9).padEnd(10)} ${((r.fee / 10000).toFixed(2) + '%').padStart(6)} ${(r.costPct.toFixed(3) + '%').padStart(7)}  ${cells}  ${verdict.padStart(15)}`);
 }
 const bad = rows.filter(r => r.err);
@@ -229,5 +298,6 @@ writeFileSync(OUT, JSON.stringify({ chain: CHAIN, hours: HOURS, bucketMin: BUCKE
     madPct: +r.madPct.toFixed(4), ratio: +r.ratio.toFixed(3), crossMin: r.crossMin, swaps: r.swaps,
     ladder: r.ladder.map(l => ({ min: l.min, ratio: l.ratio == null ? null : +l.ratio.toFixed(3) })),
     quoteIs0: r.quoteIs0, dq: r.dq, t0: r.t0, t1: r.t1, feeOnlyPct: +(r.fee / 5000).toFixed(4),
+    feeDynamic: r.feeDynamic, feeSeen: r.feeSeen, routedBy: r.routedBy, routeChecked: r.routeChecked,
     liqUsd: Math.round(r.liq) })) }, null, 1));
 console.log(`  wrote ${OUT}\n`);
