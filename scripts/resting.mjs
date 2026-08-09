@@ -52,7 +52,15 @@ const RPCS = CHAIN === 'base'
   : ['https://gateway.tenderly.co/public/mainnet', 'https://eth.drpc.org'];
 const cs = RPCS.map(u => createPublicClient({ chain: CHAIN === 'base' ? base : mainnet, transport: http(u, { timeout: 30000, retryCount: 1 }) }));
 const c = cs[0];
-const PM = '0x000000000004444c5dc75cB358380D2e3dE08A90';
+/* ⛔ THE v4 POOLMANAGER IS A DIFFERENT ADDRESS ON EVERY CHAIN, and this file hard-coded mainnet's
+ *   while accepting CHAIN=base. Verified: mainnet 0x0000…08A90 has 24,009 bytes and NO CODE on
+ *   Base; Base's is 0x498581fF…52b2b, same 24,009 bytes. ⚑ It threw rather than lying, which is
+ *   the only reason this is a bug report instead of a wrong book — an `extsload` against an
+ *   address with no code returns "0x", and a reader that treated that as zero would have printed
+ *   a confident empty pool. */
+const PM = (CHAIN === 'base')
+  ? '0x498581fF718922c3f8e6A244956aF099B2652b2b'
+  : '0x000000000004444c5dc75cB358380D2e3dE08A90';
 const V4_FROM = CHAIN === 'base' ? 25350988n : 21688329n;      // PoolManager deploy block
 const isV4 = ARG.length === 66;
 
@@ -105,8 +113,49 @@ if (isV4) {
    * event — indexed by id, one filtered query over the whole of v4's history, ~0.5 s.
    * ⚑ And it is PROVEN, not trusted: re-hashing the key must reproduce the id. Same standard
    *   `npm run mm` holds its own table to. */
-  const [ini] = (await c.getLogs({ address: PM, event: INIT4, args: { id: ARG }, fromBlock: V4_FROM, toBlock: 'latest' }).catch(() => []));
-  if (!ini) { console.log(`\n  ⛔ no Initialize event for this id — cannot learn which side is the quote,\n     and a book printed without that is upside down half the time. Refusing to guess.\n`); process.exit(1); }
+  /* ⛔ AND `.catch(() => [])` TURNED A REFUSED QUERY INTO A FACT ABOUT THE POOL. The first version
+   *   printed "no Initialize event for this id" — a statement about the POOL — when the truth was
+   *   that nobody had looked. Third time tonight this exact shape appeared.
+   * ⛔ THEN THE HONEST VERSION REVEALED A HARD LIMIT: both Base endpoints cap eth_getLogs at
+   *   10,000 blocks (5.5 hours of Base), so scanning v4's 24M-block history needs 2,400 queries.
+   *   Log-scanning for a v4 pool key is not viable on a free endpoint and no chunk size fixes it.
+   * ⚑ SO THE INDEX SAYS WHERE TO LOOK AND THE CHAIN SAYS WHAT IS TRUE — the discipline used
+   *   everywhere else here. DexScreener's `pairCreatedAt` narrows 24M blocks to one 10k window;
+   *   the PoolKey found there is then PROVEN by re-hashing to the id. A wrong hint cannot produce
+   *   a wrong answer, only a failed search. */
+  const SPAN = CHAIN === 'base' ? 10000 : 9000;
+  let ini = null, tried = 0, errored = 0, hintBlock = null;
+  try {
+    const j = await (await fetch(`https://api.dexscreener.com/latest/dex/pairs/${CHAIN}/${ARG}`,
+      { signal: AbortSignal.timeout(12000) })).json();
+    const pr = (j && (j.pair || (j.pairs || [])[0])) || null;
+    if (pr && pr.pairCreatedAt) {
+      const secs = CHAIN === 'base' ? 2 : 12.042;
+      const nowB = head, ago = (Date.now() - Number(pr.pairCreatedAt)) / 1000;
+      hintBlock = Math.max(Number(V4_FROM), Math.floor(nowB - ago / secs));
+    }
+  } catch { /* no hint is not an error — the fallback below still runs */ }
+
+  const windows = [];
+  if (hintBlock) for (const d of [0, -1, 1, -2, 2, -3, 3]) windows.push(hintBlock + d * SPAN);
+  for (let b = head; b > Number(V4_FROM) && windows.length < 40; b -= SPAN) windows.push(b - SPAN);
+  for (const lo of windows) {
+    if (ini) break;
+    const a = BigInt(Math.max(Number(V4_FROM), Math.floor(lo)));
+    const b = a + BigInt(SPAN) > BigInt(head) ? BigInt(head) : a + BigInt(SPAN);
+    let ok = false;
+    for (const cl of cs) {
+      try { const g = await cl.getLogs({ address: PM, event: INIT4, args: { id: ARG }, fromBlock: a, toBlock: b });
+        ok = true; if (g && g.length) { ini = g[0]; } break; } catch {}
+    }
+    tried++; if (!ok) errored++;
+  }
+  if (!ini) {
+    console.log(errored === tried
+      ? `\n  ⛔ all ${tried} log windows FAILED to read — a failure to look, not a fact about the pool.\n`
+      : `\n  ⛔ searched ${tried} windows${hintBlock ? ' around the indexed creation block' : ' back from head'} and found\n     no Initialize for this id on ${CHAIN}. ⚠ Free endpoints cap getLogs at ${SPAN} blocks, so this is\n     a NARROW search, not an exhaustive one — it is "not found here", never "does not exist".\n`);
+    process.exit(1);
+  }
   const a = ini.args;
   const rehash = keccak256(encodeAbiParameters(
     [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }, { type: 'int24' }, { type: 'address' }],
