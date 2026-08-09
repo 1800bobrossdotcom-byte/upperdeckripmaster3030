@@ -956,6 +956,70 @@ more in gas than the game) **and the ART wants L1** (edition, renderer, lens, Su
   PRINTED number — the exact thing this project refuses on every public page because it drifts
   with nobody editing anything. **The lens reads facts; let the burn carry the signal.**
 
+## ⛔ THE CIPHER LAYER — `js/crypt3030.js`, `npm run test:crypt` (44). THE HEADLINE IS THE REFUSAL
+*Artist: "how can this data layer work as encryption layer for ethereum and base / how can it have
+aes-256 gcm as an embedded layer."* Live on `substrate.html`, sealing at the real head.
+- ⛔ **3030 CANNOT KEEP A SECRET AND NOTHING ON A PUBLIC CHAIN CAN.** Every byte it reads is
+  already public, so a key derived only from chain data is a key everybody has — and it would
+  work perfectly, with nothing to notice. That sentence is the module's first paragraph AND is
+  inside the exported object, so it survives being copied out of the file. `deriveKey` **refuses
+  a secret under 16 chars** rather than producing a key-shaped thing that protects nothing.
+- ⚑ **THE CONTRIBUTION IS NARROW AND IT IS REAL: AES-GCM has ONE catastrophic failure and the
+  chain fixes exactly that one.** Reuse a nonce under a key and the XOR of both messages falls
+  out along with the auth subkey, after which an attacker forges tags for messages you never
+  wrote — and it is almost always two machines each believing they own the counter. **A 3030
+  height is a monotone counter every party agrees on without coordinating.** The AAD binds a
+  ciphertext to a POSITION: it decrypts at its block or it fails the tag.
+  ⚑ **§5 PERFORMS THE FOOTGUN RATHER THAN ASSERTING IT** — two messages at one counter, and the
+  harness recovers the second from the first with no key; then the same pair at distinct counters
+  leaks nothing. A paragraph about a footgun is a paragraph.
+- ⛔ **THE DETECTOR SHIPPED WITH THE WRONG STATISTIC AND THE PAGE IS WHAT FOUND IT.** The bar was
+  an absolute **7.5 bits/byte**, and entropy is bounded by the SAMPLE — n bytes show at most n
+  symbols, ceiling `log2(min(n,256))`. At 126 bytes that ceiling is **6.98**, so the bar was
+  *arithmetically unreachable* and the live panel called real AES-GCM ciphertext *"structured,
+  consistent with ABI padding"* in confident prose. ⚠ The 64-byte floor made it incoherent rather
+  than safe: every sample from 64 to ~180 bytes was guaranteed to fail whatever it held.
+  ✅ **Normalise against the bound instead of tuning around it** — `h / log2(min(n,256))`, floor
+  **128**, bar **0.82**, both from 400 draws per size against this repo's own source as the
+  hardest structured case (at n=64 real prose reached 0.806 and overlapped; at n≥128 it does not).
+  At a realistic 248 bytes: ciphertext **0.897**, the same text unsealed **0.470**.
+  ⚠ **Every prior assertion used samples ≥4 KB. A detector tested only at the easy size is one
+  with an untested operating range** — and the page's own default sat inside it.
+- ⚑ **THE CENSUS ALREADY SEES ENCRYPTION AND NEEDED NO NEW AXIS — which is why the planned entropy
+  field was NOT added.** It would have **forked every hash** to measure something the existing
+  three counts separate by two orders of magnitude: uniform bytes are 1/256 zero, so ciphertext
+  reads **~0.4% space** against a chain that is **65.6%**. The panel classifies the real ciphertext
+  with the deriver's own rule and prints measured beside expected, because on a short sample the
+  measurement is noise and a reader cannot tell.
+- ⛔ **A SABOTAGE KILLED THE HARNESS AND THAT READ AS A CLEAN RUN.** Dropping the AAD from `seal`
+  alone makes every `open` reject, so the first unguarded `await` took the process down — **no ✕,
+  no total, invisible through a grep.** Every await is guarded and two process handlers make
+  silence impossible. Five sabotages, all five named. ⚠ `CRYPT_SRC` points the suite at a mutated
+  COPY, so a sabotage can never `git checkout` away uncommitted work.
+- ⚠ **`test:substrate` §C caught me hard-coding the protocol name FOUR times** writing this — twice
+  in visible copy and twice inside JS string concatenation, which looking at the rendered page
+  cannot show. Filled at runtime, and **before** the fail-open guard, so the removal path leaves
+  no stray `·`.
+
+### ⛔ THE API ANNOUNCED HEIGHT 6 AND 404'd ON BLOCK 6 — and the deriver was on no schedule
+- ⛔ **`height` WAS `blocks.length`.** Blocks number from 0, so a six-block chain heads at 5: the
+  API served `height: 6`, and `GET ?height=6` — the next thing anybody does — returned 404 with
+  `available: {from:0, to:5}`, the server contradicting itself in one breath. **The deriver had
+  been printing `height 5` for the identical chain all along** and nobody had put them side by
+  side. ⚑ **A COUNT AND AN INDEX ARE DIFFERENT NUMBERS**; `height` is the head's own number and
+  `blockCount` has its own name. ⚠ Not `blocks` — that key is already the ARRAY.
+- ⛔ **AND THE TEST THAT SHOULD HAVE CAUGHT IT WAS PASSING *BECAUSE* OF IT.** *"ndjson is one block
+  per line"* compared a line COUNT to `height`, true only while `height` was secretly the count.
+  **Wrong semantics do not stay put — they get read by the next thing written, which then looks
+  like corroboration.** Every other assertion passed too, because each tested one field alone and
+  **the bug lives in the RELATIONSHIP between two of them.** The new assertion is the round trip.
+- ⛔ **`npm run substrate` WAS ON NO SCHEDULE — this repo's own headline defect, one file over, in
+  the workflow written for it.** `/api/3030` served `ageSeconds: 11535` (3.2 h) while the page
+  underneath correctly narrated its own decay. **Honest is not fresh.** ⚑ It costs **10 seconds**,
+  measured — the six-hour-cadence lesson again, where caution was invented and paid for on the one
+  surface that shows. ⚠ And the publish guard watched **one of two artefacts**, which is how the
+  second rots; it checks both ages now.
+
 ## ✅ THE UPDATES LOG — `updates.json` → `updates.html`, `npm run shots`, `npm run test:updates` (27)
 *Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them postable
 blurbs for social … with each one include a screenshot."*
