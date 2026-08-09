@@ -23,9 +23,13 @@ name: terminal refresh
 
 on:
   schedule:
-    # every 6 hours, UTC. Scheduled runs on shared runners can be delayed; the page states its own
-    # age, so a late run degrades to a visibly older number rather than to a silent lie.
-    - cron: '17 */6 * * *'
+    # ⛔ WAS EVERY 6 HOURS AND THAT WAS THE WRONG NUMBER, not a wrong mechanism. The page leads with
+    #    "snapshot measured N minutes ago" in its largest type, so a 6-hour cadence advertises its
+    #    own decay for five and a half of them — the artist read 75 minutes as broken, and he was
+    #    right about the experience even though the job was working perfectly.
+    # ⚑ The run takes ~70 SECONDS. There was never a cost reason for six hours; I picked it out of
+    #    caution and the caution was paid for in the one place it shows.
+    - cron: '9 * * * *'
   workflow_dispatch:
     inputs:
       full:
