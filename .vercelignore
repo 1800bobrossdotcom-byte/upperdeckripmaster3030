@@ -8,6 +8,13 @@ CLAUDE.md
 *.md
 docs/
 scripts/
+# ⛔ ONE EXCEPTION, AND IT IS LOAD-BEARING. `api/3030.js` imports `deriveHash` and `frame` from the
+#   deriver so the API cannot drift from what wrote the chain. With `scripts/` excluded the import
+#   resolves locally and NOT on Vercel, so every test passed and production answered
+#   FUNCTION_INVOCATION_FAILED — a 500 that no local run can reproduce.
+# ⚠ The alternative was copying two pure functions into the handler, which is the second hash
+#   implementation this whole design exists to avoid.
+!scripts/substrate.mjs
 contracts/
 build/
 .claude/
