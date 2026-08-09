@@ -876,11 +876,24 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    *   Production, a redirect here that matches EITHER of them is aimed at the host serving the
    *   site. So the test is not "is it scoped" but "what does the scope actually MATCH" — the
    *   regex is run against the live hosts rather than eyeballed. */
-  /* ⚠ THE SUBDOMAIN IS A LIVE HOST TOO, from the day it resolves. `3030.` serves the reading at
-   * its own root via a REWRITE (vercel.json). It is listed here so that any future redirect
-   * aimed at it fails this test the same way an apex/www redirect does — a host that serves the
-   * site is a host nothing may bounce, and a subdomain nobody added to this list is exactly the
-   * surface that goes dark without anything reporting it. */
+  /* ⚠ THE SUBDOMAIN IS A LIVE HOST TOO, from the day it resolves — listed so a future CROSS-HOST
+   * redirect aimed at it fails the same way an apex/www one does.
+   * ⛔ AND THE COMMENT HERE USED TO SAY IT "serves the reading at its own root via a REWRITE",
+   * WHICH WAS NEVER TRUE. `vercel.json` rewrites are evaluated AFTER the filesystem check, and `/`
+   * matches `index.html`, so that rule could not fire on the one path it named. The subdomain
+   * quietly served the studio home page for its whole life while a rule in the config described
+   * the behaviour somebody intended. **A note describing a mechanism that was never built is worse
+   * than no note**, because it stops the next person looking. The rewrite is deleted; the root is
+   * a same-host redirect to `/check.html` now, and it is CHECK rather than `3030.html` because
+   * CHECK is the tool and `3030.html` is one of its answers.
+   * ⛔ WHICH REQUIRED NARROWING THE GUARD BELOW, AND THE NARROWING IS THE POINT, NOT A CONCESSION.
+   * The 2026-08-05 outage was a `www -> apex` rule fighting the platform's own `apex -> www`: two
+   * HOSTS bouncing a visitor between them, fifty hops, a dark site. A same-host, path-only
+   * redirect cannot do that — the visitor never leaves the host, and whether its destination is
+   * itself a source is a question `selfLoop` above already runs for real. So this check now applies
+   * to CROSS-HOST redirects only, which is exactly the class that caused the outage, and stays
+   * absolute for them. ⚠ Widening it back to all redirects would forbid the only mechanism that
+   * can serve a subdomain root at all. */
   /* ⛔ vercel.json HAS A STRICT SCHEMA AND AN UNKNOWN TOP-LEVEL KEY FAILS THE BUILD — SILENTLY,
    * AS FAR AS GIT IS CONCERNED. A `_comment_rewrites` key was added to explain a rewrite (JSON
    * has no comments, so one was invented) and it errored **six consecutive deploys**. Every push
@@ -904,11 +917,11 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
 
   const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com',
                       '3030.ripmaster3030studios.com'];
-  const aimedAtLive = red.flatMap(r => (r.has || [])
+  const aimedAtLive = red.filter(r => /^https?:\/\//i.test(String(r.destination || ''))).flatMap(r => (r.has || [])
     .filter(h => h.type === 'host')
     .flatMap(h => LIVE_HOSTS.filter(host => { try { return new RegExp('^(?:' + h.value + ')$').test(host); } catch { return false; } })));
   ok(aimedAtLive.length === 0,
-    '…and NONE of them matches a live host, so it cannot fight the platform\'s own apex/www rule — '
+    '…and no CROSS-HOST redirect matches a live host, so none can fight the platform\'s own apex/www rule — '
     + (aimedAtLive.length ? '⛔ REDIRECT LOOP: this config redirects ' + aimedAtLive.join(' + ')
        + ', which the platform is already redirecting. That is a dark site.' : 'clear'));
   /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an

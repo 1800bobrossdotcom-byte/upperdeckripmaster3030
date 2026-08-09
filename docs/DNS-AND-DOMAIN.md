@@ -176,15 +176,40 @@ shipped is exact and this repo still owns nothing but the old-domain forward.
 
 ---
 
-## 4¾ · The `3030.` subdomain — a REWRITE, and the key that broke six builds
+## 4¾ · The `3030.` subdomain — the rewrite that could never fire
 
-`3030.ripmaster3030studios.com` serves the reading at its own root.
+`3030.ripmaster3030studios.com/` now redirects to **`/check.html`** — CHECK, the tool. Every other
+path on the subdomain serves normally, so `3030.ripmaster3030studios.com/substrate.html` works and
+so does every asset.
 
-⛔ **A REWRITE, NEVER A REDIRECT.** A redirect bounces the visitor to the apex and the subdomain
-vanishes from the address bar, which is the only reason to have one. Only `/` is rewritten — the
-page fetches `data/substrate.json`, `mobile.css` and `favicon.svg` relatively, so rewriting
-everything would break every asset on the subdomain. It cannot loop: the destination
-`/substrate.html` is not `/` and never re-matches the source.
+⛔ **IT WAS A REWRITE FOR ITS WHOLE LIFE AND THE REWRITE NEVER RAN ONCE.** `vercel.json` rewrites
+are evaluated **after** the filesystem check, and `/` matches `index.html` — so a rewrite whose
+source is `/` is shadowed by the very file it was written to replace. The subdomain quietly served
+the studio home page from the day it resolved. Nothing errored, nothing 404'd, the rule looked
+correct in the config, and the verification step below (*"200, not 308 … should name the reading"*)
+returned 200 and the wrong title, which nobody re-read.
+⚑ **A NOTE DESCRIBING A MECHANISM THAT WAS NEVER BUILT IS WORSE THAN NO NOTE**, because it stops
+the next person looking. This section, `vercel.json` and `test:name` all described the rewrite;
+none of the three could have detected that it does nothing.
+
+⛔ **SO IT IS A REDIRECT, AND THE OLD ARGUMENT AGAINST ONE DOES NOT APPLY.** The reason recorded
+here was that "a redirect bounces the visitor to the apex and the subdomain vanishes from the
+address bar" — true of a CROSS-HOST redirect, and this one is not: it is a same-host path change,
+so the visitor stays on `3030.ripmaster3030studios.com`. It cannot loop; `/check.html` is not a
+source of any rule, and `test:name`'s `selfLoop` check runs every source regex against every
+same-origin destination to prove it rather than assert it.
+⚠ **It goes to CHECK, not to `3030.html`.** CHECK is the tool the seven pages were compressed
+into; `3030.html` is one of the answers it routes to. A door should open onto the thing, not onto
+one of its rooms.
+⚠ **`permanent: false`.** A permanent redirect is cached by the browser indefinitely, and this repo
+has already lost a week of card updates to one cache header. Whatever the subdomain root should
+serve next, it must be changeable in one deploy.
+⛔ **AND THE LOOP GUARD HAD TO BE NARROWED TO ALLOW THIS, DELIBERATELY.** `test:name` forbade any
+redirect scoped to a live host — written after the 2026-08-05 outage, where a `www -> apex` rule
+fought the platform's own `apex -> www` and curl gave up at fifty hops. That is a CROSS-HOST
+failure; a same-host path redirect cannot produce it. The check now applies to cross-host redirects
+only and stays absolute for them. **Proved to bite in both directions before shipping:** restoring
+the exact outage rule fails it by name, and a same-host rule pointing at itself fails `selfLoop`.
 
 ### Setting it up
 
@@ -198,12 +223,14 @@ everything would break every asset on the subdomain. It cannot loop: the destina
    ⚠ **The dashboard is the authority.** It now issues a per-project target
    (`…​.vercel-dns-016.com`) rather than the legacy `cname.vercel-dns.com`; both work, the
    printed one is preferred. Host is `3030`, not the full domain — Namecheap appends the rest.
-4. Verify: `curl -sI https://3030.ripmaster3030studios.com/ | head -3` → **200**, not 308. Then
-   `curl -s … | grep -o "<title>.*</title>"` should name the reading, not the home page.
+4. Verify: `curl -sI https://3030.ripmaster3030studios.com/` → **307**, `location: /check.html`.
+   ⚠ The old step here asked for **200, not 308** and for a title naming the reading. It returned
+   200 with the home page's title for months and nobody re-read it. **Check the title, not just the
+   status** — a 200 serving the wrong document is the failure this whole section exists about.
 
 ### ⛔ AND THE KEY THAT FAILED SIX DEPLOYS IN A ROW
 
-The rewrite above was shipped with a `_comment_rewrites` key beside it, because JSON has no
+The rewrite it replaced was shipped with a `_comment_rewrites` key beside it, because JSON has no
 comments and one was invented to explain the reasoning.
 
 **`vercel.json` has a strict schema and an unknown top-level key fails the build.** Six consecutive
