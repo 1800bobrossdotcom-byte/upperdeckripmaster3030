@@ -225,6 +225,59 @@ them.** `test:substrate` asserts the page never says "L0".
 
 ---
 
+## ⛔ THE ASYMMETRY IS REAL, AND IT IS THE ARCHITECTURE — measured 2026-08-09
+
+*Artist: "we create a base lens · that is a ghost lense 3030 lens · that mirrors the l1 lense · and
+then the 3030 lense is the full recursive composite lense."* Whether that trinity can exist turns
+on one question, and it has a definite answer.
+
+**BASE CAN READ ETHEREUM SYNCHRONOUSLY. ETHEREUM CANNOT READ BASE.**
+
+The OP-Stack `L1Block` predeploy at `0x4200000000000000000000000000000000000015` exposes the
+latest L1 header to any Base contract as ordinary state: `number()`, `timestamp()`, `hash()`,
+`basefee()`, `blobBaseFee()`. **Verified in both directions**, the standard every address in this
+repo is held to — Base reported L1 block **25,714,638** with hash `0x89b38c57ae80…8612a`, and
+Ethereum returns that exact hash at that exact block.
+
+⚑ **It is not an oracle and it is not a bridge.** The value is in the L2's own state, derived from
+L1 during block derivation, so a Base contract reading it inherits Ethereum's ordering with no new
+trust assumption. That is the strongest possible form of this and it is available today.
+
+⛔ **THE REVERSE DOES NOT EXIST.** An L1 contract cannot read Base state at render time: OP-Stack
+messaging is L2→L1 withdrawals behind a prove/finalize challenge window measured in days, not a
+call a `tokenURI` can make. CLAUDE.md already recorded this; it is now measured rather than
+recalled.
+
+### ⚑ So the trinity resolves, and the constraint is productive rather than limiting
+
+| lens | chain | can see |
+| --- | --- | --- |
+| **the L1 lens** — `Ripmaster3030Lens721`, deployed | Ethereum | Ethereum only. **Blind to Base by construction.** |
+| **the ghost lens** — to build | Base | **Both.** Base natively, Ethereum through `L1Block`. |
+| **the 3030 lens** — the composite | — | see below |
+
+⚑ **THE GHOST LENS IS THE ONLY ONE THAT CAN SEE BOTH CHAINS, AND THAT IS THE WORK RATHER THAN A
+WORKAROUND.** It matches the substrate's own layering exactly: **the sheet cannot see what is
+printed on it; the impression can see the sheet.** A lens on Base looking back at Ethereum is
+structurally the same gesture as an impression looking back at its own paper.
+
+### ⛔ AND THE LAG IS THE GHOST — *artist: "old data"*
+
+He spotted it immediately. `L1Block` runs **~5 blocks / ~60 seconds behind** the Ethereum head, so
+a Base lens renders **Ethereum as it was a minute ago**. That is not an error bar to apologise for:
+it is a physical property of the system, it is the same reason starlight shows a star that has
+already moved, and it is exactly the kind of cause `DESIGN-SYSTEM §4` demands — *what moves, and
+why it physically moved*. **A ghost sees the past. This one is measured, and it is late by
+construction.**
+
+⚠ **WHAT IS STILL OPEN, and it is the hard one:** whether a "full recursive composite" can be
+on-chain at all, given L1's blindness. The honest candidates are (a) the composite lives on Base,
+where both reads exist; (b) the composite is explicitly a READING, which is what the 3030 layer
+already is; (c) an attestation is committed to L1, which adds a trusted signer and must say so.
+**Not decided here** — see the recommendation this section was written to feed.
+
+---
+
 ## ⚠ What this is NOT — the limits, stated before anyone else states them
 
 - **It cannot settle anything.** No transactions, no accounts, no writable state. It is a
