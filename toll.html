@@ -20,9 +20,13 @@
   URL, promoted to nobody.
 
   ⛔ EVERY CARD IS A REAL POOL AND EVERY NUMBER ON IT WAS MEASURED. The deck is
-     data/edge-*.json, written by `npm run edge` and refreshed every six hours by
-     .github/workflows/terminal-refresh.yml. Nothing here is invented, simulated or balanced
-     for difficulty — the split between playable pools and traps is whatever the market is.
+     data/edge-*.json, written by `npm run edge` and regenerated DAILY by
+     .github/workflows/terminal-refresh.yml (the terminal's own snapshot runs hourly; this is a
+     ~50-minute two-chain job, so cadence follows cost). Nothing here is invented, simulated or
+     balanced for difficulty — the split between playable pools and traps is whatever the market is.
+  ⛔ AND IT WAS ON NO SCHEDULE AT ALL WHEN THIS PAGE FIRST SHIPPED, while the copy claimed a
+     refresh. A game advertising a live deck that would freeze on launch day is the exact failure
+     this studio keeps writing down.
 
   ⚑ WHY THIS IS A GAME AND NOT A QUIZ: the player is shown exactly what a chart shows — pair,
      venue, liquidity, fee — and asked the question a chart cannot answer. The reveal is the
@@ -204,7 +208,7 @@ numbers come up.</p>
 </div><!-- /cols -->
 
 <div class="note">⛔ <b>Nothing here is invented.</b> The deck is the same measurement file that drives
-our <a href="worldcomputerhyperterminal.html">market terminal</a>, refreshed every six hours. The
+our <a href="worldcomputerhyperterminal.html">market terminal</a>, regenerated daily. The
 mix of tradeable pools and traps is whatever the market is that day — it is not balanced for
 difficulty, and some days it is mostly traps.</div>
 

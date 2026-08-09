@@ -1,6 +1,7 @@
 {
  "version": 1,
- "opened": 4,
+ "opened": 5,
+ "updatedAt": "2026-08-09T12:04:18.310Z",
  "entries": [
   {
    "chain": "base",
@@ -37,6 +38,13 @@
      "at": "2026-08-09T11:24:10.248Z",
      "block": 49742647,
      "blocksSince": 0,
+     "newApprovals": 0,
+     "newApprovers": 0
+    },
+    {
+     "at": "2026-08-09T11:50:45.948Z",
+     "block": 49743445,
+     "blocksSince": 798,
      "newApprovals": 0,
      "newApprovers": 0
     },
@@ -88,6 +96,13 @@
      "newApprovers": 0
     },
     {
+     "at": "2026-08-09T11:50:45.948Z",
+     "block": 49743445,
+     "blocksSince": 798,
+     "newApprovals": 0,
+     "newApprovers": 0
+    },
+    {
      "at": "2026-08-09T12:04:18.310Z",
      "block": 49743844,
      "blocksSince": 1197,
@@ -122,7 +137,7 @@
      "87 distinct approvers",
      "burst: 87 in 34 blocks",
      "no approvals in the day-earlier sample",
-     "outflow fans out (69 destinations) — router-shaped"
+     "outflow fans out (69 destinations) \u2014 router-shaped"
     ]
    },
    "revisits": [
@@ -130,6 +145,13 @@
      "at": "2026-08-09T11:24:10.248Z",
      "block": 49742647,
      "blocksSince": 0,
+     "newApprovals": 0,
+     "newApprovers": 0
+    },
+    {
+     "at": "2026-08-09T11:50:45.948Z",
+     "block": 49743445,
+     "blocksSince": 798,
      "newApprovals": 0,
      "newApprovers": 0
     },
@@ -173,7 +195,38 @@
     ]
    },
    "revisits": []
+  },
+  {
+   "chain": "ethereum",
+   "spender": "0x5fa47134927130e60b4bd40ffe527d32ebdeba08",
+   "openedAt": "2026-08-09T11:50:45.948Z",
+   "openedBlock": 25717225,
+   "flag": {
+    "score": 143,
+    "approvers": 63,
+    "unlimited": 0,
+    "forAll": 0,
+    "tokens": 2,
+    "codeSize": 0,
+    "isContract": false,
+    "priorHits": 0,
+    "sweep": {
+     "checked": 63,
+     "movedOut": 29,
+     "transfers": 53,
+     "topDestination": "0x7d9d8290a6183e0c8fc3de31fc5175ffdd818c6b",
+     "topDestinationCount": 29,
+     "distinctDestinations": 2
+    },
+    "reasons": [
+     "63 distinct approvers",
+     "burst: 63 in 97 blocks",
+     "spender is an EOA, not a contract",
+     "no approvals in the day-earlier sample",
+     "FUNNEL: 29/63 approvers drained, 29/53 to ONE address"
+    ]
+   },
+   "revisits": []
   }
- ],
- "updatedAt": "2026-08-09T12:04:18.310Z"
+ ]
 }
