@@ -1,3 +1,38 @@
+> # ⛔ RE-VERIFIED 2026-08-09 — TWO THINGS IN THIS FILE ARE WRONG
+>
+> **① THE FLAGSHIP MECHANISM DOES NOT WORK.** §4½'s *"Base-side earnings buy L1 $3030 in ONE call"*
+> is this document's best idea and it fails today. Bankr routes cross-chain via Relay, and Relay
+> refuses **every** $3030 quote with `SWAP_IMPACT_TOO_HIGH ~105%` — Base ETH→L1 $3030, Base
+> USDC→L1 $3030, and even same-chain mainnet ETH→$3030.
+> ⚑ **Controls prove it is the TOKEN, not the route:** Base ETH→mainnet **RARE** quotes fine
+> (−1.05%) and Base ETH→mainnet **ETH** quotes fine (−0.08%). At $3.83 Relay returns 37.1 $3030
+> while still reporting 100.85% impact — so it has no usable price for $3030 and its guard rejects
+> anything larger. ✅ It fails CLOSED, which is the good failure. ⚠ But anyone building on that
+> paragraph would discover this at execution.
+> ✅ **The TWO-call path is measured working:** Base ETH → mainnet RARE via Relay, then RARE →
+> $3030 via a v4-aware aggregator.
+>
+> **② THE STATED REASON FOR REFUSING A BANKR TOKEN IS FACTUALLY FALSE — strike it.** §0½ and §4-E
+> say a Bankr token *"inherits Bankr's 15% creator vest and that same 1.75% swap tax, neither of
+> which $3030 has."* The vest half is true. **The tax half is not.** Measured on $3030's own
+> graduated RARE pool: **~1.79% one-way, 3.57–3.70% round trip**, flat from $0.10 to $100 —
+> therefore a FEE, not impact. On-chain the PoolKey fee is **0** and the entire charge is taken by
+> hook `0x8Ff5660951C974f4806F0bEF9A32bcf35d3aE0cC`. **$3030 already taxes swaps marginally MORE
+> than Bankr does.**
+> ⚑ The right reasons to refuse a second token are untouched — ECONOMIC-FLOW line 29, and the 85%
+> locked-liquidity arithmetic. This particular reason should not be repeated.
+>
+> **③ NEWLY MEASURED, and the repo had none of it:** the partner-key schedule is **1.2% total
+> (creator 57%, Bankr 36.1%) with NO vest** — and even capturing creator AND all of Bankr's share
+> it returns 1.117¢ on 1.2¢ paid, i.e. **−0.166% round trip. A fee farm you feed yourself always
+> loses**, under the most favourable arrangement Bankr documents. Bankr's launchpad deploys to
+> **Robinhood Chain by default (48–49 of 50 live launches)** and **cannot deploy to Ethereum
+> mainnet at all**, so leg E was never available on $3030's chain. ~750 launches/day.
+> ✅ **And the 404 now DISCRIMINATES:** the prior unauthenticated 404 proved nothing. Controls —
+> LINKR and MEGA, real Bankr launches — return HTTP 200 with full fee objects; $3030 returns 404
+> with and without a key, and the endpoint 400s on a malformed address, so it parses what it is
+> given. $3030 is definitively not a Bankr token and no onboarding path exists.
+
 # BANKR × $3030 — trading agents, fee recycling, and what a "swarm" can honestly be
 
 *Research + integration design. Nothing here is built. Every number was measured on
