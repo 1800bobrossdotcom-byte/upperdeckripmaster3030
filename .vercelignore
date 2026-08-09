@@ -7,7 +7,11 @@
 CLAUDE.md
 *.md
 docs/
-scripts/
+# ⛔ `scripts/*` AND NOT `scripts/`, AND THE DIFFERENCE IS WHY THE API 500'd TWICE. .vercelignore
+#   follows gitignore semantics, where a negation CANNOT re-include a file whose parent DIRECTORY
+#   is excluded. `scripts/` + `!scripts/substrate.mjs` is a no-op — it reads like an exception and
+#   does nothing. `scripts/*` excludes the contents instead of the directory, so the negation bites.
+scripts/*
 # ⛔ ONE EXCEPTION, AND IT IS LOAD-BEARING. `api/3030.js` imports `deriveHash` and `frame` from the
 #   deriver so the API cannot drift from what wrote the chain. With `scripts/` excluded the import
 #   resolves locally and NOT on Vercel, so every test passed and production answered

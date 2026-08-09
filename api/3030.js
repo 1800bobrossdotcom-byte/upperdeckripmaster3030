@@ -31,21 +31,29 @@
  * ⚠ CORS is open because a public census that a browser cannot read is not public.
  */
 import { createHash } from 'node:crypto';
-/* ⛔ `readFileSync(join(process.cwd(), 'data', 'substrate.json'))` WORKS LOCALLY AND NOT IN A
- *   LAMBDA. Vercel bundles a function by TRACING its imports; a path assembled at runtime is
- *   invisible to that trace, so the file is simply not in the deployment and the handler dies at
- *   cold start with FUNCTION_INVOCATION_FAILED. Every local test passed — the difference is not
- *   the code, it is what got packed.
- * ⚑ A static import is the fix AND the guarantee: the bundler cannot miss what it can see. */
-import SUBSTRATE from '../data/substrate.json' with { type: 'json' };
+/* ⛔ THREE WAYS TO GET THE DERIVATION INTO A LAMBDA AND I TRIED THE WRONG TWO FIRST.
+ *   1. `readFileSync(process.cwd()+'/data/…')` — Vercel bundles by TRACING IMPORTS, so a path
+ *      assembled at runtime is invisible and the file is never packed.
+ *   2. `import … with { type: 'json' }` — import attributes are Node-version dependent, and a
+ *      syntax the runtime does not know is a cold-start crash, not a graceful failure.
+ *   3. ✅ FETCH IT. `data/substrate.json` is already served as a public static asset (verified
+ *      200), so the function reads it over its own origin. Nothing to bundle, no syntax to gamble
+ *      on, and the data can refresh without redeploying the function. */
+let CACHE = null, CACHE_AT = 0;
+async function load(req) {
+  if (CACHE && Date.now() - CACHE_AT < 30000) return CACHE;
+  const host = (req && req.headers && (req.headers['x-forwarded-host'] || req.headers.host))
+    || process.env.VERCEL_URL || 'www.ripmaster3030studios.com';
+  const r = await fetch('https://' + host + '/data/substrate.json', { cache: 'no-store' });
+  if (!r.ok) throw new Error('derivation fetch ' + r.status);
+  CACHE = await r.json(); CACHE_AT = Date.now();
+  return CACHE;
+}
 import { deriveHash, frame, GENESIS, PROTOCOL, SEP } from '../scripts/substrate.mjs';
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
-function chain() {
-  if (!SUBSTRATE || !SUBSTRATE.blocks) throw new Error('no derivation in the bundle');
-  return SUBSTRATE;
-}
+
 
 const send = (res, code, body) => {
   res.setHeader('access-control-allow-origin', '*');
@@ -111,16 +119,16 @@ export function walk(c) {
   return { ok: true, checked, head: prev };
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return send(res, 204, {});
   if (req.method !== 'GET') return send(res, 405, { ok: false, error: 'GET only' });
 
   let c;
-  try { c = chain(); }
+  try { c = await load(req); }
   catch (e) {
     /* ⛔ a missing derivation is a failure to LOOK, and it says so — it is not an empty chain. */
     return send(res, 503, { ok: false, error: 'the derivation is not readable on this deployment',
-      detail: 'data/substrate.json missing or unparseable — run `npm run substrate`. This says nothing about the source chains.' });
+      detail: String(e && e.message || e) + ' — data/substrate.json could not be read. This says nothing about the source chains.' });
   }
 
   const q = req.query || {};
