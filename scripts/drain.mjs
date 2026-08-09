@@ -36,7 +36,7 @@
  *   compliance desk; a feed that publishes accusations is a liability to one. What an exchange,
  *   a wallet or a compliance team can actually use is a ranked queue with the working shown.
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -340,6 +340,81 @@ function score(c) {
   return { score: Math.max(0, s), reasons };
 }
 
+/* ── ⛔ THE LEDGER — a flag with no follow-up is an opinion ───────────────────────────────────
+ *
+ * A screen that prints a ranked list every hour and never looks back produces nothing anyone can
+ * evaluate. **The product is not the flag, it is the flag plus what happened next.** So every
+ * candidate that clears the floor is recorded once, with the evidence as it stood at that block,
+ * and every later run REVISITS the open entries and appends what has changed.
+ *
+ * ⚑ THAT IS ALSO THE ONLY HONEST WAY TO EARN THE CLAIM. This repo's own bot README says every
+ *   rule in it is backtested and none is forward-tested, and the paper book sits at 0 trades. A
+ *   ledger built in public, at a cost of zero, is what turns "does this screen work" from an
+ *   argument into a number a stranger can read.
+ *
+ * ⚠ APPEND-ONLY ON THE EVIDENCE. A revisit adds a row; it never rewrites what was said at flag
+ *   time. A record that can be edited after the fact is not a record — and the temptation to
+ *   quietly fix a bad call is exactly what it exists to remove.
+ * ⚠ AND IT STILL NEVER CONCLUDES. `outcome` is derived from counts on read, not stored as a
+ *   judgement: a funnel that kept growing and one that went quiet are both just numbers here. */
+const LEDGER = join(ROOT, 'data/drain-ledger.json');
+const FLOOR = 60;                        // the LOOK band — only these are worth following
+
+function loadLedger() {
+  try { return JSON.parse(readFileSync(LEDGER, 'utf8')); }
+  catch { return { version: 1, opened: 0, entries: [] }; }
+}
+
+async function ledgerPass(chain, rows, head, log) {
+  const led = loadLedger();
+  const byKey = new Map(led.entries.map((e) => [e.chain + ':' + e.spender, e]));
+  const now = new Date().toISOString();
+  let opened = 0, revisited = 0;
+
+  /* open new entries */
+  for (const r of rows.filter((x) => x.score >= FLOOR)) {
+    const key = chain + ':' + r.spender;
+    if (byKey.has(key)) continue;
+    const e = {
+      chain, spender: r.spender, openedAt: now, openedBlock: head,
+      flag: { score: r.score, approvers: r.approvers, unlimited: r.unlimited, forAll: r.forAll,
+              tokens: r.tokens, codeSize: r.codeSize, isContract: r.isContract,
+              priorHits: r.priorHits, sweep: r.sweep, reasons: r.reasons },
+      revisits: [],
+    };
+    led.entries.push(e); byKey.set(key, e); opened++;
+    log(`  + opened ${r.spender}  score ${r.score}`);
+  }
+
+  /* revisit the open ones — what happened AFTER we flagged it */
+  /* ⚠ NOT THE ONES OPENED IN THIS RUN. A revisit at +0 blocks measures nothing and puts a row in
+   * the record that looks like follow-up and is not — which is exactly the kind of padding that
+   * makes a track record unreadable later. An entry gets its first revisit on the NEXT pass. */
+  const open = led.entries.filter((e) =>
+    e.chain === chain && e.revisits.length < 24 && e.openedBlock < head);
+  for (const e of open.slice(0, 8)) {
+    try {
+      const pad = '0x' + e.spender.slice(2).padStart(64, '0');
+      /* how many MORE approvals has it taken since we flagged it? */
+      const since = await rpc(chain, 'eth_getLogs', [{
+        fromBlock: hex(e.openedBlock), toBlock: hex(head),
+        topics: [[T_APPROVAL, T_APPROVAL_FOR_ALL], null, pad],
+      }]);
+      const owners = new Set(since.map((l) => addrOf(l.topics[1])));
+      e.revisits.push({ at: now, block: head, blocksSince: head - e.openedBlock,
+                        newApprovals: since.length, newApprovers: owners.size });
+      revisited++;
+    } catch { /* a revisit that cannot read is simply not appended — never a fabricated row */ }
+  }
+
+  led.opened = led.entries.length;
+  led.updatedAt = now;
+  mkdirSync(dirname(LEDGER), { recursive: true });
+  writeFileSync(LEDGER, JSON.stringify(led, null, 1));
+  log(`  ledger: ${opened} opened, ${revisited} revisited, ${led.entries.length} total`);
+  return led;
+}
+
 /* ── run ──────────────────────────────────────────────────────────────────────────────────── */
 /* ⛔ `endsWith('drain.mjs')` IS TRUE OF `test-drain.mjs`, so importing the scorer from the test
  * fired a full two-chain network screen before a single assertion ran — minutes of RPC to import
@@ -396,7 +471,15 @@ if (isMain) {
 
   mkdirSync(join(ROOT, 'data'), { recursive: true });
   writeFileSync(join(ROOT, 'data/drain.json'), JSON.stringify(out, null, 1));
-  console.log('\n  → data/drain.json');
+
+  /* the ledger runs for every chain that read successfully */
+  for (const [name, r] of Object.entries(out.chains)) {
+    if (r.error || !r.rows) continue;
+    console.log(`\n  ── ${CHAINS[name].label} ledger ──`);
+    await ledgerPass(name, r.rows, r.head, (m) => console.log(m));
+  }
+
+  console.log('\n  → data/drain.json · data/drain-ledger.json');
   console.log('\n  ⚠ EVERY ROW IS A QUEUE POSITION FOR A HUMAN, NOT A VERDICT. A new protocol, an');
   console.log('    airdrop claim, a migration contract and a popular mint all look exactly like');
   console.log('    a drainer for the first hour of their lives. Check before you say anything.\n');
