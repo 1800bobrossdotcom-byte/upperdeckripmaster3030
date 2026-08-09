@@ -105,13 +105,11 @@
 
 <header>
   <h1>WORLD COMPUTER <span class="b">HYPERTERMINAL</span></h1>
-  <p class="sub">A market terminal that shows its working. Chain conditions and $3030's state are read live;
-  the pool screen is measured offline across tens of thousands of logs. Every figure carries the cost it has
-  to beat and the test that usually kills it.</p>
+  <p class="sub">What a market costs before you trade it. Read from the chain, not from an index.</p>
   <div class="age" id="age">reading&hellip;</div>
 </header>
 
-<h2>CHAIN CONDITIONS · LIVE</h2>
+<h2>NOW</h2>
 <div class="grid" id="chains">
   <div class="cell"><div class="k">ETHEREUM GAS</div><div class="v" id="l1gas">reading…</div><div class="n" id="l1note"></div></div>
   <div class="cell"><div class="k">A SWAP COSTS</div><div class="v" id="l1swap">reading…</div><div class="n">180k gas, mainnet</div></div>
@@ -119,38 +117,12 @@
   <div class="cell"><div class="k">BLOCK</div><div class="v" id="blk">reading…</div><div class="n" id="blknote"></div></div>
 </div>
 
-<div class="note key">⚑ <b>Gas is no longer the constraint anyone assumes — but it is not zero either.</b> At the levels
-above a mainnet swap costs cents, so on a small trade the binding cost is the <b>pool fee</b>, not the chain.
-That inverts the usual advice. ⚠ It also inverts back the moment gas moves: the toll below is
-<b>2&nbsp;×&nbsp;fee&nbsp;+&nbsp;2&nbsp;×&nbsp;gas</b>, recomputed live from the number in that first tile, because gas
-is the one input here that swings three orders of magnitude between a quiet Sunday and a mint.</div>
-
-<h2>THE TOLL · WHAT A ROUND TRIP COSTS RIGHT NOW</h2>
+<h2>THE TOLL · A ROUND TRIP, RIGHT NOW</h2>
 <div class="grid" id="toll"></div>
-<div class="note">⚑ <b>Price impact is not in this table because at this size it is zero.</b> Walking the real
-depth curve — every initialized tick, read from the pool's own bitmap — a 0.01&nbsp;ETH round trip in a 0.30%
-pool costs <b>0.600%</b>, which is exactly twice the fee to three decimals. The curve does not bend until far
-past anything this treasury can trade, so the entire cost is fee plus gas, and both are <i>choices</i>.</div>
+<div class="note">Toll is <b>2 × fee + 2 × gas</b>. Impact is zero at these sizes — the depth curve says so.
+Gas is fixed per trade, so it shrinks as a share of a bigger one. <a href="poolcheck.html">Check any pool →</a></div>
 
-<h2>$3030 · READ FROM THE CONTRACT, AT MEASURE TIME</h2>
-<div class="grid" id="ours"></div>
-
-<h2>ROUTING SAFETY · A CORRECTION WE OWE</h2>
-<div class="note hard">⛔ <b>This page called the FWA/ETH 0.855% pool a “seller trap”. That was wrong, and the
-retraction is the more useful finding.</b> The evidence was real — a buy of any size reverted, and one quote
-came back 6.0% worse than the main pool — but both facts had an innocent explanation that a single quote at a
-single size cannot distinguish from a cage.
-<br><br>⚑ <b>It is a standing limit bid.</b> A Uniswap position whose range sits entirely on one side of spot
-holds only <i>one</i> asset, so it can only trade one way. This one is a single position at
-[115670,&nbsp;120314] holding nothing but ETH: it cannot sell, which is why every buy reverted, and it exists
-to <b>buy</b> FWA as the price falls into it. In 4.2 hours it absorbed 912,255&nbsp;FWA for 8.12&nbsp;ETH.
-<br><br>⚠ And the 6% was one quote at one size. <b>Size-weighted across the 43 fills it actually took, the
-discount is 0.17%.</b> A trap that pays 0.17% under the mid is not a trap, it is a market maker.
-<br><br>⚑ <b>The routing advice survives its own justification, and stands:</b> always route through the token,
-never a pool id. A router picks the venue and cannot fill from a pool that will not trade; a pool-keyed link
-aims a person at one specific market whether or not it can serve them.</div>
-
-<h2>LIVE SCAN · THE PAGE MEASURING WHILE YOU WATCH</h2>
+<h2>LIVE · READ IN FRONT OF YOU</h2>
 <div class="grid" id="scanhead"></div>
 <div class="scroll" style="margin-top:10px">
   <table id="scan">
@@ -161,22 +133,11 @@ aims a person at one specific market whether or not it can serve them.</div>
     <tbody><tr><td colspan="9" class="mut">waiting for the screen&hellip;</td></tr></tbody>
   </table>
 </div>
-<div class="note">⚑ <b>This table is not a replay.</b> The page reads every pool's own <code>slot0</code> —
-one batched call per chain, every five seconds — and accumulates what it sees. <b>MOVED / WATCHED</b> is total
-absolute movement over exactly the time this tab has been open: a measurement your browser took, not a number
-baked into a file. Leave it open and it sharpens.
-<br><br>⛔ <b>It is deliberately not extrapolated to an hour.</b> An early version divided by elapsed time and
-printed <i>1142% per hour</i> off forty-four seconds of watching — arithmetically correct, completely false, and
-it would have been the biggest number on the page. <b>vs TOLL</b> is the dimensionless version: how many round
-trips the observed movement would have paid for, which assumes nothing about the future.
-<br><br>⚠ <b>It is a lower bound.</b> Sampling every five seconds cannot see what happens between samples, so
-the real movement is always at least this. And the column stays muted until it has <b>eight readings across at
-least five minutes</b> — a count alone cannot tell that eight samples in twenty seconds is still nothing.</div>
+<div class="note">Every pool's own <code>slot0</code>, one batched call per chain, every five seconds.
+<b>MOVED / WATCHED</b> is what this browser saw since you opened it — not extrapolated, and muted until it
+has eight readings across five minutes.</div>
 
-<h2>THE HORIZON LADDER · HOW LONG YOU HAVE TO HOLD BEFORE THE TOLL IS PAYABLE</h2>
-<div class="note">For each pool: the average absolute price move over a window, divided by that pool's own round
-trip. Above <b>1.00</b> a <i>perfect</i> forecaster breaks even. Below it, <b>nobody</b> makes money at any skill
-level — which is the useful half, because it deletes markets from the search instead of adding hope to it.</div>
+<h2>CAN IT BE TRADED AT ALL</h2>
 <div class="scroll">
   <table id="ladder">
     <thead><tr>
@@ -185,31 +146,19 @@ level — which is the useful half, because it deletes markets from the search i
     <tbody><tr><td colspan="8" class="mut">reading…</td></tr></tbody>
   </table>
 </div>
-<div class="note hard">⛔ <b>Necessary, never sufficient — do not read the top of that table as trades.</b> An
-absolute move is symmetric and a coin flip collects none of it; you only keep it if you can call the direction,
-and every directional signal this studio has measured has failed out of sample. What the ratio proves is the
-negative: a market whose average move is smaller than its own toll cannot be traded by anyone.
-<br><br>⚑ <b>And it is why the memecoin work went nowhere.</b> PEPE's average 15-minute move is <b>0.12×</b> its
-own toll and even a four-hour hold only reaches 0.60×. That was not a near miss or a weak signal. It was
-arithmetic, and it was measurable before a single backtest was run.</div>
-<div class="note">⚑ <b>The controlled experiment is the same token at different fees.</b> UNI trades in four
-Uniswap pools — same asset, same 72 hours, same price action — and the ratio runs from <b>2.36</b> in the 0.05%
-pool to <b>0.26</b> in a 0.30% one. ⚠ The obvious objection is that the cheap pool is thinner and thin pools
-twitch more. It does not hold: that pool's <i>raw</i> movement sits in the middle of the others. The whole gap
-is the toll.</div>
+<div class="note">Average move ÷ that pool's own toll. Above <b>1.00</b> a perfect forecaster breaks even;
+below it <b>nobody</b> makes money at any skill level. ⚠ Necessary, not sufficient — an average move is
+symmetric and a coin flip collects none of it.</div>
 
-<h2>THE HUNT · PAPER RECORD</h2>
+<h2>$3030</h2>
+<div class="grid" id="ours"></div>
+
+<h2>THE HUNT · PAPER RECORD, PUBLISHED EITHER WAY</h2>
 <div class="grid" id="hunt"></div>
-<div class="note">⚑ <b>The bots trade only what the screen below passes</b>, and the record is published whether
-it flatters us or not. Every rule here is backtested with no forward track record — this ledger is that record
-being built in public, at a cost of zero. A ledger reading &minus;4% after two hundred trades is worth more than
-any backtest, and it is the only thing that should ever justify real money.</div>
+<div class="note">Backtested rules with no forward track record — this ledger is that record being built in
+public. A screen that always finds something is fitting noise; the value is the days it says nothing.</div>
 
-<h2>FLOW VS PRICE · DOES ORDER FLOW LEAD THE CHART</h2>
-<div class="note">For each pool: net token flow out of the pool in one window, against the price return in the
-<i>next</i> window. A positive <b>spread</b> means wallets accumulating predicted a rise. The bar is
-<b>two</b> tests, and the second is the one that fails things.</div>
-
+<h2>FLOW VS PRICE</h2>
 <div class="scroll">
   <table id="board">
     <thead><tr>
@@ -219,34 +168,22 @@ any backtest, and it is the only thing that should ever justify real money.</div
     <tbody><tr><td colspan="9" class="mut">reading…</td></tr></tbody>
   </table>
 </div>
+<div class="note hard">⛔ <b>The trim is the test that kills things.</b> A spread is an average, so a handful
+of violent windows can carry all of it. One pool here read <b>+1.05pp</b> and looked tradeable; dropping the
+largest 5% of moves took it to <b>+0.38pp</b>.</div>
 
-<div class="note hard">⛔ <b>The trim is the test that matters.</b> A spread is an average, so a handful of violent
-windows can carry all of it while the other 95% contribute nothing — and you cannot identify those windows in
-advance, so an edge made of them is not a strategy. One pool here measured <b>+1.05pp</b> against a 0.60% round
-trip and looked tradeable; dropping the largest 5% of moves took it to <b>+0.38pp</b>. Without the trim, this
-terminal would have reported it as a trade.</div>
-
-<div class="note">⚠ <b>"No edge" is the usual answer and it is the honest one.</b> A screen that always finds
-something is a screen that is fitting noise. The value of this table is the days it says nothing.</div>
-
-<h2>METHOD</h2>
-<div class="note"><b>Flow is measured as balance delta, not "buys".</b> Under Uniswap v4 the tokens live in a
-singleton and a swap settles through flash accounting, so the visible transfer may be pool↔router rather than
-pool↔trader and it changes with whichever router was used. Classifying a transfer as a buy needs a list of every
-router on mainnet and is wrong the day a new one ships. A balance delta needs none of that.</div>
-<div class="note"><b>Price comes from the pool's own events</b> — v3 <code>Swap.sqrtPriceX96</code>, v2
-<code>Sync</code> reserves — so it is executed state, not an index quote.</div>
-<div class="note"><b>Reads that fail say so.</b> Every cell above has three states: a value, reading, and a named
-failure. An em-dash under a live label is indistinguishable from a zero, a dead contract or a bug.</div>
+<div class="note">Flow is measured as <b>balance delta</b>, not "buys" — under v4 a swap settles through a
+singleton, so classifying transfers needs a list of every router and is wrong the day a new one ships.
+Price comes from the pool's own events. Every live cell has three states: a value, reading, and a named
+failure — never a dash.</div>
 
 <footer>
   <b>ripmaster3030studios</b> · a card and game studio ·
-  <a href="/">home</a> · <a href="/arcade.html">arcade</a> · <a href="/tokenomics.html">tokenomics</a> ·
-  <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
-  Not financial advice. $3030 is an experimental art token and can go to zero. Nothing here is a recommendation
-  to buy or sell anything, and the screen is a measurement of the past.
+  <a href="/">home</a> · <a href="/poolcheck.html">pool check</a> · <a href="/arcade.html">arcade</a> ·
+  <a href="/tokenomics.html">tokenomics</a> · <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+  Not financial advice. $3030 is an experimental art token and can go to zero. The screen is a measurement
+  of the past.
 </footer>
-
 </div>
 
 <script src="js/chain-config.js"></script>

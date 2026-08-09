@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>POOL CHECK · ripmaster3030studios</title>
+<meta name="description" content="Paste a Uniswap v3-style pool address and find out what it will actually cost you — the real toll, the executable depth, whether any router can reach it, and whether it is a husk that succeeds and returns nothing.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="POOL CHECK">
+<meta property="og:description" content="Before you send money to a pool: the toll, the real depth, and whether a router can even reach it.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/poolcheck.html">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+
+<!--
+  ══ POOL CHECK ════════════════════════════════════════════════════════════════════════════
+
+  ⛔ THE THING THIS EXISTS FOR: a pool can take your money, succeed, and hand back almost
+     nothing. Measured on Base — a swap of $9.57 returned $2.15 with a SUCCESSFUL receipt and
+     no revert. Nothing in a wallet or a chart warns you. Price and volume are the OUTPUT of a
+     market; what decides whether you can trade it is the toll, the executable depth, and
+     whether a router can reach the pool at all. None of those are published anywhere.
+
+  ⚑ EVERY NUMBER IS READ FROM THE POOL, NOT FROM AN INDEX. The depth curve is reconstructed
+     from the pool's own tick BITMAP — every initialized tick, at this block — and the quote is
+     produced by walking that curve with the same arithmetic the pool runs. No indexer, no
+     quoter call, nobody to trust.
+
+  ⛔ NO WALLET. Read-only eth_call over fetch. Nothing signed, no connect button. A page that
+     asks for a wallet to show you a chart is teaching the reflex phishing needs.
+
+  ⚠ Exact for this pool at this block. It cannot see the next block, a searcher in front of
+     you, or a router splitting your fill. A quote is a measurement, not a promise.
+-->
+<style>
+  :root{
+    --bg:#08090b; --panel:#0c0e11; --ink:#eaeee8; --dim:#7d8b80; --line:#181f1b;
+    --hot:#d8ff45; --warn:#ffb648; --bad:#ff6257; --ok:#5fe39b;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);
+            -webkit-font-smoothing:antialiased}
+  body{padding:0 0 80px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+
+  header{padding:44px 0 26px}
+  h1{font-size:clamp(22px,5vw,34px);letter-spacing:.14em;margin:0 0 10px;font-weight:600}
+  h1 .b{color:var(--hot)}
+  .sub{color:var(--dim);font-size:var(--t-body,15px);line-height:1.6;max-width:60ch;margin:0}
+
+  /* ── the one control ─────────────────────────────────────────────────────────────────── */
+  form{margin:26px 0 8px;display:grid;gap:10px;grid-template-columns:1fr auto auto auto;align-items:stretch}
+  input,select,button{font-family:var(--mono);font-size:15px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);padding:0 14px;min-height:52px;border-radius:2px}
+  input{width:100%;letter-spacing:.02em}
+  input:focus,select:focus{outline:none;border-color:var(--hot)}
+  input::placeholder{color:#4d5a50}
+  button{background:var(--hot);color:#0a0c08;border-color:var(--hot);font-weight:600;
+    letter-spacing:.10em;cursor:pointer;padding:0 26px;min-width:112px}
+  button:active{transform:translateY(1px)}
+  button[disabled]{opacity:.45;cursor:default}
+  @media (max-width:720px){ form{grid-template-columns:1fr 1fr} input{grid-column:1/-1} button{grid-column:1/-1} }
+
+  .egs{color:var(--dim);font-size:13px;line-height:2.2;margin:2px 0 30px}
+  .egs a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--line);
+    display:inline-block;padding:8px 2px;min-height:44px;line-height:28px}
+  .egs a:hover{color:var(--hot);border-color:var(--hot)}
+
+  /* ── verdict ─────────────────────────────────────────────────────────────────────────── */
+  .verdict{border:1px solid var(--line);border-left-width:3px;background:var(--panel);
+    padding:20px 22px;margin:0 0 14px;display:none}
+  .verdict.on{display:block}
+  .verdict .big{font-size:clamp(17px,3.6vw,24px);line-height:1.25;letter-spacing:.02em}
+  .verdict .why{color:var(--dim);font-size:var(--t-body,15px);line-height:1.65;margin-top:10px;max-width:70ch}
+  .verdict.good{border-left-color:var(--ok)}   .verdict.good .big{color:var(--ok)}
+  .verdict.warn{border-left-color:var(--warn)} .verdict.warn .big{color:var(--warn)}
+  .verdict.bad{border-left-color:var(--bad)}   .verdict.bad .big{color:var(--bad)}
+
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:14px 0}
+  .cell{border:1px solid var(--line);background:var(--panel);padding:14px 15px}
+  .cell .k{font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:9px}
+  .cell .v{font-size:clamp(16px,3.2vw,21px);line-height:1.15;word-break:break-word}
+  .cell .n{font-size:12px;color:var(--dim);margin-top:7px;line-height:1.5}
+  .v.no{color:var(--bad);font-size:15px;line-height:1.4}
+  .v.yes{color:var(--ok)} .v.mid{color:var(--warn)}
+
+  h2{font-size:11px;letter-spacing:.22em;color:var(--dim);margin:30px 0 10px;font-weight:600}
+  .scroll{overflow-x:auto;border:1px solid var(--line);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:520px;font-size:13px}
+  th,td{padding:10px 13px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.14em;color:var(--dim);font-weight:600}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:0}
+  .pos{color:var(--ok)} .neg{color:var(--bad)} .mut{color:var(--dim)}
+
+  .note{border-left:2px solid var(--line);padding:1px 0 1px 15px;margin:16px 0;color:var(--dim);
+        font-size:var(--t-body,15px);line-height:1.7;max-width:74ch}
+  .note b{color:var(--ink)}
+  .note.hard{border-left-color:var(--bad)}
+  .note.key{border-left-color:var(--hot)}
+  #out{display:none} #out.on{display:block}
+  .stat{color:var(--dim);font-size:13px;min-height:22px;margin:0 0 18px;letter-spacing:.03em}
+  .stat b{color:var(--hot)}
+  footer{margin-top:54px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);
+         font-size:var(--t-body,15px);line-height:2.1}
+  footer a{color:var(--dim);display:inline-block;padding:9px 6px;min-width:44px;min-height:44px;
+    line-height:26px;text-align:center}
+  @media (max-width:520px){ th,td{padding:9px 9px;font-size:12px} .wrap{padding:0 15px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>POOL <span class="b">CHECK</span></h1>
+  <p class="sub">Paste a Uniswap v3-style pool and find out what it will actually cost you — before you
+  send anything. Read from the pool's own storage at this block, never from an index. No wallet, nothing
+  signed.</p>
+</header>
+
+<form id="f" autocomplete="off">
+  <input id="addr" placeholder="0x… pool address" spellcheck="false" aria-label="pool address">
+  <select id="chain" aria-label="chain"><option value="ethereum">ethereum</option><option value="base">base</option></select>
+  <select id="size" aria-label="trade size">
+    <option value="0.01">0.01</option><option value="0.1" selected>0.1</option>
+    <option value="1">1</option><option value="10">10</option>
+    <option value="100">100</option><option value="1000">1000</option>
+  </select>
+  <button id="go" type="submit">CHECK</button>
+</form>
+<div class="egs">
+  <span id="unit">size is in the pool's quote asset</span> · try:
+  <a href="#" data-p="0x11950d141EcB863F01007AdD7D1A342041227b58" data-c="ethereum">PEPE/WETH 0.3%</a> ·
+  <a href="#" data-p="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" data-c="ethereum">USDC/WETH 0.05%</a> ·
+  <a href="#" data-p="0xfaa318479b7755b2dbfdd34dc306cb28b420ad12" data-c="ethereum">UNI/WETH 0.05%</a>
+</div>
+
+<div class="stat" id="stat"></div>
+
+<div class="verdict" id="verdict"><div class="big" id="vbig"></div><div class="why" id="vwhy"></div></div>
+
+<div id="out">
+  <div class="grid" id="facts"></div>
+
+  <h2>WHAT IT COSTS YOU · ROUND TRIP AT THIS SIZE</h2>
+  <div class="grid" id="cost"></div>
+  <div class="note">Gas is <b>fixed per trade</b>, so it is a bigger share of a small one — the same pool can
+  be fine at 1 ETH and hopeless at 0.01. That is why the size selector sits next to the address.</div>
+
+  <h2>THE REAL FILL · WALKED DOWN THE POOL'S OWN CURVE</h2>
+  <div class="scroll"><table id="ladder"><thead><tr>
+    <th>SIZE</th><th>YOU GET</th><th>AVG PRICE</th><th>SLIPPAGE</th><th>ROUND TRIP</th>
+  </tr></thead><tbody></tbody></table></div>
+  <div class="note">Not a spot price — the pool's own arithmetic, tick by tick, including the part of the
+  curve your order eats.</div>
+
+  <h2>THE BOOK · WHERE MONEY IS ACTUALLY WAITING</h2>
+  <div class="scroll"><table id="depth"><thead><tr>
+    <th>BAND</th><th>BID DEPTH</th><th>ASK DEPTH</th>
+  </tr></thead><tbody></tbody></table></div>
+  <div class="note">A range entirely on one side of spot holds one asset, so it can only trade one way —
+  <b>a limit order somebody placed with real money and did not announce.</b></div>
+</div>
+
+<div class="note hard">⛔ <b>Why this exists.</b> A pool can accept your swap, succeed, and return almost
+nothing. Measured on Base: <b>$9.57 in, $2.15 out — successful receipt, no revert.</b> Nothing warns you.</div>
+
+<div class="note">⚠ Exact for this pool at this block. It reads the chain; it does not predict it. Not
+financial advice. Built by a card and game studio — the same instruments run our
+<a href="worldcomputerhyperterminal.html">market terminal</a>.</div>
+
+<footer>
+  <b>ripmaster3030studios</b> · a card and game studio ·
+  <a href="/">home</a> · <a href="/worldcomputerhyperterminal.html">terminal</a> ·
+  <a href="/arcade.html">arcade</a> · <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+  Not financial advice. Read-only. Nothing here signs anything or asks for a wallet.
+</footer>
+</div>
+
+<script src="theme.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var RPC = {
+    ethereum: ['https://gateway.tenderly.co/public/mainnet', 'https://eth.drpc.org'],
+    base: ['https://mainnet.base.org', 'https://base.drpc.org']
+  };
+  /* Bid and ask are defined relative to the QUOTE, so the quote is NAMED, never inferred from address
+     ordering — WETH is 0xC02a… and sorts after most tokens, so "token0 is the quote" is false far more
+     often than true. Guessing it prints the whole book upside down. */
+  var QUOTES = {
+    ethereum: { '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'WETH',
+                '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC',
+                '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT' },
+    base:     { '0x4200000000000000000000000000000000000006': 'WETH',
+                '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC' }
+  };
+  /* factories the canonical routers actually report — a pool from anywhere else cannot be reached by a
+     router this studio would use, whatever its numbers look like */
+  var ROUTERS = {
+    ethereum: { '0x1f98431c8ad98523631ae4a59f267346ea31f984': 'uniswap-v3' },
+    base:     { '0x33128a8fc17869897dce68ed026d694621f6fdfd': 'uniswap-v3',
+                '0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a': 'aerodrome-slipstream' }
+  };
+  var SEL = { slot0:'0x3850c7bd', token0:'0x0dfe1681', token1:'0xd21220a7', fee:'0xddca3f43',
+              spacing:'0xd0c93a7c', liq:'0x1a686502', factory:'0xc45a0155',
+              bitmap:'0x5339c296', ticks:'0xf30dba93', dec:'0x313ce567', sym:'0x95d89b41' };
+
+  var say = function (t) { $('stat').innerHTML = t; };
+  function hex(n, bits) {                       // two's complement, 32-byte word
+    var v = BigInt(n); if (v < 0n) v += (1n << BigInt(bits || 256));
+    return v.toString(16).padStart(64, '0');
+  }
+  function post(url, body, ms) {
+    var ctl = new AbortController(), t = setTimeout(function () { ctl.abort(); }, ms || 12000);
+    return fetch(url, { method:'POST', signal:ctl.signal, headers:{'content-type':'application/json'},
+      body: JSON.stringify(body) }).then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(t); return j; })
+      .catch(function (e) { clearTimeout(t); throw e; });
+  }
+  /* ⛔ JSON-RPC BATCHING DOES NOT WORK ON FREE ENDPOINTS AND FAILS IN TWO DIFFERENT SHAPES.
+     Measured: tenderly rate-limits and returns a SINGLE error object where an array was asked for;
+     drpc answers "Batch of more than 3 requests are not allowed on free plan" — an array in which
+     every entry is an error. Neither is a fact about the pool.
+     ⚑ MULTICALL3 is the right transport and it is not a workaround: one eth_call aggregates any
+     number of reads, so a 370-read book is ONE request instead of 370, on every provider. */
+  var MC3 = '0xcA11bde05977b3631167028862bE2a173976CA11';
+  var pad = function (h) { h = h.replace(/^0x/,''); return '0'.repeat(64 - h.length % 64 || 0) + h; };
+  function encAggregate3(calls) {
+    /* aggregate3((address,bool,bytes)[]) — nested dynamic encoding, written out rather than
+       pulled in, because a library for one function is a dependency for one function. */
+    var n = calls.length, offs = [], bodies = [], cursor = n * 32;
+    calls.forEach(function (c) {
+      var data = c.data.replace(/^0x/,'');
+      var padded = data + '0'.repeat((64 - data.length % 64) % 64);
+      var body = hex(BigInt(c.to)) + hex(0) /* allowFailure=false? no: */ ;
+      body = hex(BigInt(c.to)) + hex(1) + hex(96) + hex(data.length/2) + padded;
+      offs.push(cursor); bodies.push(body); cursor += body.length/2;
+    });
+    return '0x82ad56cb' + hex(32) + hex(n) + offs.map(function (o) { return hex(o); }).join('') + bodies.join('');
+  }
+  function decAggregate3(hexr, n) {
+    if (!hexr || hexr === '0x') return new Array(n).fill(null);
+    var b = hexr.slice(2);
+    var arrAt = parseInt(b.slice(0, 64), 16) * 2;
+    var len = parseInt(b.slice(arrAt, arrAt + 64), 16);
+    var base = arrAt + 64, out = [];
+    for (var i = 0; i < len; i++) {
+      var off = parseInt(b.slice(base + i*64, base + i*64 + 64), 16) * 2 + base;
+      var ok = parseInt(b.slice(off, off + 64), 16) === 1;
+      var dOff = parseInt(b.slice(off + 64, off + 128), 16) * 2 + off;
+      var dLen = parseInt(b.slice(dOff, dOff + 64), 16) * 2;
+      out.push(ok && dLen ? '0x' + b.slice(dOff + 64, dOff + 64 + dLen) : null);
+    }
+    return out;
+  }
+  function rpc1(chain, body) {
+    var eps = RPC[chain], i = 0;
+    function go() {
+      if (i >= eps.length) return Promise.reject(new Error('rpc'));
+      return post(eps[i++], body, 20000).then(function (j) {
+        if (!j || j.error || j.result == null) throw new Error('rpc');
+        return j.result;
+      }).catch(go);
+    }
+    return go();
+  }
+  /* returns results aligned with `calls`; a null entry means THAT read failed, never that the
+     value is zero. `ok` reports whether the transport itself worked at all. */
+  function batch(chain, calls) {
+    var plain = calls.filter(function (c) { return !c.m; });
+    var meta  = calls.map(function (c, i) { return c.m ? i : -1; }).filter(function (i) { return i >= 0; });
+    var jobs = [];
+    for (var i = 0; i < plain.length; i += 400) jobs.push(plain.slice(i, i + 400));
+    var p = jobs.reduce(function (acc, ch) {
+      return acc.then(function (all) {
+        return rpc1(chain, { jsonrpc:'2.0', id:1, method:'eth_call',
+          params:[{ to: MC3, data: encAggregate3(ch) }, 'latest'] })
+          .then(function (r) { return all.concat(decAggregate3(r, ch.length)); })
+          .catch(function () { return all.concat(new Array(ch.length).fill(null)); });
+      });
+    }, Promise.resolve([]));
+    return p.then(function (res) {
+      var out = [], k = 0;
+      calls.forEach(function (c) { out.push(c.m ? undefined : res[k++]); });
+      return Promise.all(meta.map(function (i) {
+        return rpc1(chain, { jsonrpc:'2.0', id:1, method: calls[i].m, params: calls[i].p || [] })
+          .catch(function () { return null; })
+          .then(function (v) { out[i] = v; });
+      })).then(function () { return out; });
+    });
+  }
+  var num = function (h) { return h ? BigInt(h) : 0n; };
+  /* ⚠ the tick is a SIGNED 24-bit field inside a 32-byte word. Read unsigned, every price below 1.0
+     comes back as ~1.7e7 and the page reports nonsense with total confidence. */
+  function i24(word) { var t = parseInt(word.slice(-6), 16); return t >= 0x800000 ? t - 0x1000000 : t; }
+  function str(h) {                              // symbol(): string, or bytes32 on old tokens
+    if (!h || h === '0x') return '?';
+    try {
+      var b = h.slice(2);
+      if (b.length > 128) {
+        var len = parseInt(b.slice(64, 128), 16), s = '';
+        for (var i = 0; i < len; i++) s += String.fromCharCode(parseInt(b.substr(128 + i*2, 2), 16));
+        return s.replace(/[^\x20-\x7e]/g, '') || '?';
+      }
+      var t = ''; for (var j = 0; j < 32; j++) { var c = parseInt(b.substr(j*2,2),16); if (c) t += String.fromCharCode(c); }
+      return t.replace(/[^\x20-\x7e]/g, '') || '?';
+    } catch (e) { return '?'; }
+  }
+
+  var LN = Math.log(1.0001), sq = function (t) { return Math.pow(1.0001, t/2); };
+
+  function run(pool, chain, stakeEth) {
+    $('out').className = ''; $('verdict').className = 'verdict';
+    say('reading the pool…');
+    var P = { pool: pool, chain: chain, stake: stakeEth };
+    var mk = function (d) { return { to: pool, data: d }; };
+    return batch(chain, [mk(SEL.slot0), mk(SEL.token0), mk(SEL.token1), mk(SEL.fee),
+                         mk(SEL.spacing), mk(SEL.liq), mk(SEL.factory),
+                         { m:'eth_gasPrice' }])
+      .then(function (r) {
+        /* ⛔ ALL-NULL MEANS THE ENDPOINTS REFUSED US, NOT THAT THIS IS NOT A POOL. The first
+           version threw 'not-v3' on a rate limit and told the user a definite thing about their
+           pool that it had never actually looked at. */
+        if (r.slice(0,7).every(function (x) { return !x; })) throw new Error('unread');
+        if (!r[0] || r[0] === '0x') throw new Error('not-v3');
+        P.tick = i24(r[0].slice(2, 66+0).slice(64, 128) ? r[0].slice(2).slice(64,128) : '0');
+        P.tick = i24(r[0].slice(2).slice(64, 128));
+        P.t0 = '0x' + r[1].slice(-40); P.t1 = '0x' + r[2].slice(-40);
+        P.fee = Number(num(r[3])); P.spacing = Number(num(r[4])); P.L0 = num(r[5]);
+        P.factory = r[6] ? '0x' + r[6].slice(-40) : null;
+        P.gas = Number(num(r[7])) / 1e9;
+        var q0 = QUOTES[chain][P.t0.toLowerCase()], q1 = QUOTES[chain][P.t1.toLowerCase()];
+        if (!q0 && !q1) throw new Error('no-quote');
+        P.quoteIs0 = !!q0; P.quote = q0 || q1;
+        P.tokAddr = P.quoteIs0 ? P.t1 : P.t0;
+        P.routedBy = P.factory ? (ROUTERS[chain][P.factory.toLowerCase()] || null) : null;
+        P.routeChecked = !!P.factory;
+        say('reading token metadata…');
+        return batch(chain, [{to:P.t0,data:SEL.dec},{to:P.t1,data:SEL.dec},{to:P.tokAddr,data:SEL.sym}]);
+      })
+      .then(function (r) {
+        P.d0 = r[0] ? Number(num(r[0])) : 18;
+        P.d1 = r[1] ? Number(num(r[1])) : 18;
+        P.sym = str(r[2]);
+        /* ── the bitmap: the whole legal tick range, so nothing is cut off one side ── */
+        var comp = function (t) { return Math.floor(t / P.spacing); };
+        var lo = comp(-887272) >> 8, hi = comp(887272) >> 8;
+        if (hi - lo + 1 > 1400) { var here = comp(P.tick) >> 8; lo = Math.max(lo, here - 700); hi = Math.min(hi, lo + 1399); P.clamped = true; }
+        P.words = []; for (var w = lo; w <= hi; w++) P.words.push(w);
+        say('walking ' + P.words.length + ' bitmap words…');
+        var calls = P.words.map(function (w) { return { to: pool, data: SEL.bitmap + hex(w) }; });
+        var chunks = []; for (var i = 0; i < calls.length; i += 120) chunks.push(calls.slice(i, i+120));
+        return chunks.reduce(function (acc, ch) {
+          return acc.then(function (all) { return batch(chain, ch).then(function (r) { return all.concat(r); }); });
+        }, Promise.resolve([]));
+      })
+      .then(function (bits) {
+        P.init = [];
+        bits.forEach(function (b, i) {
+          if (!b || b === '0x') return;
+          var v = BigInt(b); if (v === 0n) return;
+          for (var k = 0; k < 256; k++) if ((v >> BigInt(k)) & 1n) P.init.push(((P.words[i] << 8) + k) * P.spacing);
+        });
+        P.init.sort(function (a, b) { return a - b; });
+        if (P.init.length < 2) throw new Error('empty');
+        say('reading ' + P.init.length + ' initialized ticks…');
+        var calls = P.init.map(function (t) { return { to: pool, data: SEL.ticks + hex(t) }; });
+        var chunks = []; for (var i = 0; i < calls.length; i += 120) chunks.push(calls.slice(i, i+120));
+        return chunks.reduce(function (acc, ch) {
+          return acc.then(function (all) { return batch(chain, ch).then(function (r) { return all.concat(r); }); });
+        }, Promise.resolve([]));
+      })
+      .then(function (nets) {
+        var net = {}; P.fails = 0;
+        P.init.forEach(function (t, i) {
+          if (!nets[i] || nets[i] === '0x') { P.fails++; return; }
+          /* ⛔ liquidityNet is int128 but the ABI SIGN-EXTENDS it across the whole 32-byte word, so
+             a negative value arrives as ~2^256. Subtracting 2^128 from that leaves ~1e77 garbage —
+             which showed up as a liquidity residue of 1e79 rather than as an error. MASK to 128
+             bits first, THEN sign-extend. viem does this for the CLI; hand-rolled decoding does not
+             get it for free. */
+          var w = nets[i].slice(2).slice(64, 128);        // liquidityNet, int128
+          var v = BigInt('0x' + w) & ((1n << 128n) - 1n);
+          if (v >= (1n << 127n)) v -= (1n << 128n);
+          net[t] = v;
+        });
+        /* reconstruct L over every span, from the pool's own reported active liquidity */
+        P.spans = [];
+        var L = P.L0, prev = P.tick;
+        P.init.filter(function (t) { return t > P.tick; }).forEach(function (t) {
+          P.spans.push({ lo: prev, hi: t, L: L }); L += (net[t] || 0n); prev = t;
+        });
+        P.endUp = L;
+        L = P.L0; prev = P.tick;
+        P.init.filter(function (t) { return t <= P.tick; }).sort(function (a,b){return b-a;}).forEach(function (t) {
+          P.spans.push({ lo: t, hi: prev, L: L }); L -= (net[t] || 0n); prev = t;
+        });
+        P.endDown = L;
+        P.closes = (P.endUp === 0n && P.endDown === 0n);
+        window.__pc = { endUp:String(P.endUp), endDown:String(P.endDown), ticks:P.init.length, fails:P.fails, L0:String(P.L0) };
+        render(P);
+        say('');
+      });
+  }
+
+  function render(P) {
+    var d0 = P.d0, d1 = P.d1;
+    var amt0 = function (s) { return Number(s.L) * (1/sq(s.lo) - 1/sq(s.hi)); };
+    var amt1 = function (s) { return Number(s.L) * (sq(s.hi) - sq(s.lo)); };
+    var UP = P.spans.filter(function(s){return s.lo>=P.tick;}).sort(function(a,b){return a.lo-b.lo;});
+    var DOWN = P.spans.filter(function(s){return s.hi<=P.tick;}).sort(function(a,b){return b.hi-a.hi;});
+
+    /* the pool's own arithmetic, cancellation-free. A LINEAR partial fill returns the same average
+       price at every size, which is precisely what a book is not. */
+    function walk(amountIn, dir) {
+      var dIn = dir > 0 ? d1 : d0, dOut = dir > 0 ? d0 : d1;
+      var left = amountIn * (1 - P.fee/1e6) * Math.pow(10, dIn), out = 0, t = P.tick;
+      var path = dir > 0 ? UP : DOWN;
+      for (var i = 0; i < path.length; i++) {
+        var s = path[i], L = Number(s.L);
+        var inCap = dir > 0 ? amt1(s) : amt0(s), outCap = dir > 0 ? amt0(s) : amt1(s);
+        if (!(L > 0) || !(inCap > 0) || !isFinite(inCap)) { t = dir > 0 ? s.hi : s.lo; continue; }
+        if (left >= inCap) { left -= inCap; out += outCap; t = dir > 0 ? s.hi : s.lo; continue; }
+        if (dir > 0) { var sA = sq(s.lo), sB = sA + left/L; out += left/(sA*sB); t = 2*Math.log(sB)/LN; }
+        else { var sB2 = sq(s.hi), den = 1 + sB2*left/L; out += sB2*sB2*left/den; t = 2*Math.log(sB2/den)/LN; }
+        left = 0; break;
+      }
+      return { got: out / Math.pow(10, dOut), unfilled: left / Math.pow(10, dIn) };
+    }
+    var buy  = function (q)  { return walk(q,  P.quoteIs0 ? -1 : +1); };
+    var sell = function (tk) { return walk(tk, P.quoteIs0 ? +1 : -1); };
+
+    var raw = Math.pow(1.0001, P.tick) * Math.pow(10, d0 - d1);
+    var SPOT = P.quoteIs0 ? 1/raw : raw;
+    var gasEth = P.gas * 1e-9 * 510045;                   // measured round trip, both legs
+    var gasPct = gasEth / P.stake * 100;
+    var feePct = P.fee / 5000;
+    var toll = feePct + gasPct;
+
+    /* ── the fill ladder ── */
+    var sizes = [P.stake/10, P.stake, P.stake*10].filter(function (x) { return x > 0; });
+    var tb = $('ladder').querySelector('tbody'); tb.innerHTML = '';
+    var rt = null;
+    sizes.forEach(function (s) {
+      var b = buy(s);
+      if (b.unfilled > s * 0.001) {
+        tb.innerHTML += '<tr><td>' + s.toPrecision(3) + ' ' + P.quote + '</td><td colspan="4" class="neg">only ' +
+          ((1 - b.unfilled/s)*100).toFixed(1) + '% of this fills — the pool runs out</td></tr>';
+        return;
+      }
+      var avg = s / b.got, slip = (avg/SPOT - 1) * 100;
+      var back = sell(b.got), r = (back.got/s - 1) * 100;
+      if (Math.abs(s - P.stake) < 1e-12) rt = r;
+      tb.innerHTML += '<tr><td>' + s.toPrecision(3) + ' ' + P.quote + '</td>' +
+        '<td>' + (b.got < 1 ? b.got.toPrecision(5) : Math.round(b.got).toLocaleString()) + ' ' + P.sym + '</td>' +
+        '<td class="mut">' + (avg < 1e-4 ? avg.toExponential(3) : avg.toPrecision(5)) + '</td>' +
+        '<td>' + (slip >= 0 ? '+' : '') + slip.toFixed(3) + '%</td>' +
+        '<td class="' + (r > -1 ? 'mut' : 'neg') + '">' + r.toFixed(3) + '%</td></tr>';
+    });
+
+    /* ── the book ── */
+    var above = P.spans.filter(function(s){return s.lo>=P.tick;});
+    var below = P.spans.filter(function(s){return s.hi<=P.tick;});
+    var bidS = P.quoteIs0 ? above : below, askS = P.quoteIs0 ? below : above;
+    var bidQ = function (s) { return P.quoteIs0 ? amt0(s)/Math.pow(10,d0) : amt1(s)/Math.pow(10,d1); };
+    var askT = function (s) { return P.quoteIs0 ? amt1(s)/Math.pow(10,d1) : amt0(s)/Math.pow(10,d0); };
+    var pctOf = function (t) { var r2 = Math.pow(1.0001, t - P.tick); return ((P.quoteIs0 ? 1/r2 : r2) - 1) * 100; };
+    var db = $('depth').querySelector('tbody'); db.innerHTML = '';
+    [0.5, 1, 2, 5, 10, 25].forEach(function (p) {
+      var b = bidS.filter(function(s){return Math.abs(pctOf(P.quoteIs0?s.lo:s.hi))<=p;}).reduce(function(a,s){return a+bidQ(s);},0);
+      var a = askS.filter(function(s){return Math.abs(pctOf(P.quoteIs0?s.hi:s.lo))<=p;}).reduce(function(x,s){return x+askT(s);},0);
+      db.innerHTML += '<tr><td>±' + p + '%</td><td>' + b.toLocaleString(undefined,{maximumFractionDigits:4}) + ' ' + P.quote +
+        '</td><td>' + a.toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + P.sym + '</td></tr>';
+    });
+
+    /* ── facts ── */
+    var cell = function (k, v, n, cls) {
+      return '<div class="cell"><div class="k">' + k + '</div><div class="v ' + (cls||'') + '">' + v +
+        '</div><div class="n">' + (n||'') + '</div></div>';
+    };
+    $('facts').innerHTML =
+      cell('PAIR', P.sym + ' / ' + P.quote, P.chain + ' · v3-shaped · sizes below are in ' + P.quote) +
+      cell('POOL FEE', (P.fee/10000).toFixed(3) + '%', 'per leg, read from the pool') +
+      cell('ROUTER CAN REACH IT',
+        !P.routeChecked ? 'unknown' : P.routedBy ? 'yes' : 'NO',
+        !P.routeChecked ? 'the factory did not read — this is "could not check", not "no"'
+          : P.routedBy ? 'factory is ' + P.routedBy : 'factory ' + P.factory + ' — no canonical router uses it',
+        !P.routeChecked ? 'mid' : P.routedBy ? 'yes' : 'no') +
+      cell('THE BOOK', P.init.length + ' ticks',
+        P.closes ? '✓ liquidity closes to zero both ways — every tick was read'
+                 : '⚠ did not close — ' + (P.fails ? P.fails + ' reads failed' : 'ticks may be missing'));
+
+    $('cost').innerHTML =
+      cell('TOTAL TOLL', toll.toFixed(3) + '%', 'on ' + P.stake + ' ' + P.quote + ', round trip') +
+      cell('FEE HALF', feePct.toFixed(3) + '%', 'two legs at ' + (P.fee/10000).toFixed(3) + '%') +
+      cell('GAS HALF', gasPct.toFixed(3) + '%', P.gas.toFixed(4) + ' gwei · fixed per trade, so it shrinks with size') +
+      cell('REAL ROUND TRIP', rt == null ? 'unfillable' : rt.toFixed(3) + '%', 'buy then sell straight back, measured', rt == null ? 'no' : (rt > -1 ? '' : 'no'));
+
+    /* ── verdict ─────────────────────────────────────────────────────────────────────────
+       ⛔ THE HUSK TEST IS THE WHOLE POINT: a round trip far worse than the toll means the pool
+          took the trade and gave back nothing, WITHOUT reverting. */
+    var v = $('verdict'), big = $('vbig'), why = $('vwhy');
+    var husk = rt != null && rt < -25;
+    if (husk) {
+      v.className = 'verdict bad on';
+      big.textContent = '⛔ DO NOT TRADE THIS POOL';
+      why.innerHTML = 'A round trip at ' + P.stake + ' ' + P.quote + ' comes back <b>' + rt.toFixed(1) +
+        '%</b> against a stated toll of ' + toll.toFixed(3) + '%. The pool will accept the swap and it will ' +
+        '<b>succeed</b> — you simply will not get your money back. Nothing in a wallet warns you about this.';
+    } else if (P.routeChecked && !P.routedBy) {
+      v.className = 'verdict bad on';
+      big.textContent = '⛔ NO ROUTER CAN REACH THIS POOL';
+      why.innerHTML = 'Its factory is <b>' + P.factory + '</b>, which no canonical router recognises. ' +
+        'Whatever its price says, you cannot trade here through normal means — pools like this are reached ' +
+        'only by bespoke bot contracts.';
+    } else if (!P.closes) {
+      v.className = 'verdict warn on';
+      big.textContent = '⚠ THE BOOK DID NOT READ CLEANLY';
+      why.innerHTML = 'Liquidity did not close to zero past the last tick' +
+        (P.fails ? ' and ' + P.fails + ' reads failed' : '') + ', so the depth below is incomplete. ' +
+        'A partial book prints exactly like a whole one — treat these numbers as unverified and retry.';
+    } else if (toll > 1) {
+      v.className = 'verdict warn on';
+      big.textContent = '⚠ EXPENSIVE AT THIS SIZE — ' + toll.toFixed(2) + '% ROUND TRIP';
+      why.innerHTML = 'You need the price to move more than <b>' + toll.toFixed(2) + '%</b> in your favour just ' +
+        'to break even. ' + (gasPct > feePct ? 'Most of that is <b>gas</b>, which is fixed per trade — a larger ' +
+        'order pays the same gas and a smaller share of it.' : 'Most of that is the pool fee — a cheaper fee tier ' +
+        'on the same token is often sitting right next to this one.');
+    } else {
+      v.className = 'verdict good on';
+      big.textContent = '✓ TRADEABLE — ' + toll.toFixed(3) + '% ROUND TRIP';
+      why.innerHTML = 'The pool reads cleanly, a router can reach it, and a round trip at ' + P.stake + ' ' +
+        P.quote + ' costs <b>' + toll.toFixed(3) + '%</b>. ⚠ That is the cost of trading, not a reason to — ' +
+        'the price still has to move further than that in your favour, and this page has no opinion on whether it will.';
+    }
+    var u = document.getElementById('unit');
+    if (u) u.textContent = 'size in ' + P.quote;
+    $('out').className = 'on';
+  }
+
+  function fail(e) {
+    var m = String(e && e.message || e);
+    var v = $('verdict'); v.className = 'verdict bad on';
+    $('vbig').textContent = '⛔ COULD NOT READ THIS POOL';
+    $('vwhy').innerHTML =
+      m === 'unread' ? 'Every read came back empty, so the endpoints refused us — <b>this says nothing about the pool.</b> Free RPCs rate-limit hard. Wait a moment and press CHECK again.'
+      : m === 'not-v3' ? 'It does not answer <code>slot0()</code>, so it is not a Uniswap v3-shaped pool. v2 pairs and v4 pools are not readable here — v4 lives inside a singleton and a hook can change the fee or refuse the trade outright.'
+      : m === 'no-quote' ? 'Neither side of this pool is a quote asset this page knows (WETH, USDC, USDT). Bid and ask are defined <i>relative to the quote</i>, so without one the book cannot be labelled — and printing it the wrong way up would be worse than printing nothing.'
+      : m === 'empty' ? 'The bitmap came back with no initialized ticks. Either the pool has never had liquidity, or the endpoint refused the reads.'
+      : 'The reads did not complete: <b>' + m + '</b>. That is a failure to look, not a fact about the pool — try again or switch chain.';
+    say('');
+  }
+
+  $('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = $('addr').value.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { $('addr').focus(); say('that is not a 40-hex address'); return; }
+    $('go').disabled = true; $('out').className = ''; $('verdict').className = 'verdict';
+    run(a, $('chain').value, parseFloat($('size').value))
+      .catch(fail)
+      .then(function () { $('go').disabled = false; });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.egs a'), function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      $('addr').value = el.getAttribute('data-p'); $('chain').value = el.getAttribute('data-c');
+      $('f').dispatchEvent(new Event('submit'));
+    });
+  });
+  /* deep link: ?p=0x…&c=base */
+  var q = new URLSearchParams(location.search);
+  if (q.get('p')) { $('addr').value = q.get('p'); if (q.get('c')) $('chain').value = q.get('c');
+    $('f').dispatchEvent(new Event('submit')); }
+})();
+</script>
+</body>
+</html>
