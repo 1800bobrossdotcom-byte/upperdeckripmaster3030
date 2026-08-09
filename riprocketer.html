@@ -234,6 +234,18 @@
   #nogl a{ color:var(--lime); }
 </style>
   <script src="js/leaderboard.js"></script>
+<!-- ⛔ THIS CABINET WAS IN THE CHALLENGE PICKER AND COULD NOT RECEIVE ONE. `js/challenge-ui.js`'s
+     GAMES table lists riprocketer, and `api/presence.js` accepts it as a destination — so a player
+     could name RIP ROCKETER, the invitation was sent and validated, the recipient arrived here, and
+     there was no listener on the page. Nothing errors: the challenge sits in a mailbox and expires,
+     and the challenger learns nothing. That is the exact hazard the "arena only" rule used to
+     prevent, left behind in one of six games when the artist's "any player, any game" removed it.
+     ⚠ BOTH TAGS, IN THIS ORDER. `challenge-ui.js` fails open when `window.RipNet` is absent — it
+     returns from `boot()` and registers nothing — so adding it alone would have looked like a fix
+     and changed nothing at all. `cards/arena-net.js` is what supplies RipNet, and every other
+     cabinet loads the pair together. -->
+<script src="cards/arena-net.js"></script>
+<script src="js/challenge-ui.js"></script>
 <script src="js/card-stats.js"></script>
 <script src="js/deck-source.js"></script>
 <script src="js/vault-fix.js"></script>

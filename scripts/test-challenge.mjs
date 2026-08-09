@@ -20,6 +20,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';   /* the coupling checks below read source, not fixtures */
 import { extname, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -307,9 +308,58 @@ console.log('\n§E  the front-page strip — the ⚔ is a link, and this module 
   ok(zulu && zulu.h >= 44 && zulu.w >= 44, 'the ⚔ clears the 44px tap floor on BOTH axes',
     zulu && zulu.w + '×' + zulu.h);
   const xray = chips.find(c => /XRAY/.test(c.name));
-  /* ⛔ AN INVITATION THAT CANNOT BE SEEN IS WORSE THAN NO BUTTON. Somebody in THE CITY has no
-     challenge listener, so their mailbox would just expire — their chip takes you to them. */
-  ok(xray && !xray.vs && xray.go === 'city.html', 'somebody in another game is NOT offered a challenge', xray && xray.go);
+  /* ⛔ THIS ASSERTION USED TO READ THE OPPOSITE AND IT WAS STALE, NOT WRONG WHEN WRITTEN. It said
+     "somebody in another game is NOT offered a challenge", because a challenge could only mean the
+     arena and an invitation nobody can see is worse than no button. The artist then asked for
+     "challenge buttons for any player to any game at any time", `js/online-now.js` dropped the
+     arena-only condition, and this line went on asserting the retired rule — a red square for days
+     about a change that was deliberate. **A check whose subject moved keeps reporting**, and this
+     is the second one found in the same hour.
+     ⚑ THE CURRENT RULE IS `status !== 'battling'`, so the pair to assert is idle-anywhere YES and
+     mid-fight NO — the ⚔ is a link into a picker, and the recipient is reachable in whatever game
+     they are in. */
+  ok(xray && xray.vs && xray.go === 'city.html',
+    'a ripper idle in ANOTHER game is challengeable — any player, any game', xray && (xray.go + ' → ' + xray.vs));
+  /* ⛔ AND THE RETIRED RULE'S REAL SUCCESSOR, WHICH IS WHAT ACTUALLY KEEPS "ANY GAME" SAFE: every
+     game the picker can NAME must be a page that can RECEIVE one. Dropping "arena only" removed a
+     constraint and put nothing in its place, and the gap was live — `riprocketer.html` was in
+     `challenge-ui.js`'s GAMES table and in `api/presence.js`'s allow-list, and loaded neither
+     `challenge-ui.js` nor `cards/arena-net.js`. A challenge sent there was accepted by the server,
+     delivered to a mailbox, and watched by nobody.
+     ⚠ BOTH SCRIPTS, because `boot()` returns early when `window.RipNet` is absent — a page with the
+     UI and no transport registers nothing and looks exactly like a page that is wired.
+     ⚠ And the two GAMES lists are coupled here too: the server refuses any destination not on its
+     list, so a picker offering a seventh game would send an invitation the API rejects. */
+  {
+    const src = readFileSync(join(ROOT, 'js/challenge-ui.js'), 'utf8');
+    const table = (src.match(/var GAMES = \[([\s\S]*?)\];/) || [])[1] || '';
+    const games = [...table.matchAll(/key:\s*'([a-z0-9]+)'[\s\S]*?href:\s*'([^']+)'/g)]
+      .map(m => ({ key: m[1], href: m[2] }));
+    ok(games.length >= 6, 'the picker\'s GAMES table parses', games.length + ' games');
+    /* ⛔ STRIP COMMENTS AND MATCH A <script src>, NOT A BARE STRING — AND I LEARNED THAT BY
+       WRITING THE BUG. The first version tested `/challenge-ui\.js/.test(html)`, and the fix I
+       had just made to `riprocketer.html` added an HTML COMMENT explaining why those two tags are
+       there. Removing both tags then left the comment behind, the regex matched it, and the guard
+       reported the page as wired while it was deaf. **A mention is not a load** — recorded in this
+       repo about `js/dfpc-fx.js` naming the retired renderer inside the comment saying it is
+       retired, and reproduced here in the same hour I read it. Proved to bite only after this. */
+    const bare = (h) => h.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+    const loads = (h, f) => new RegExp('<script[^>]+src=["\'][^"\']*' + f + '["\']').test(bare(h));
+    const deaf = games.filter(g => {
+      let html = ''; try { html = readFileSync(join(ROOT, g.href), 'utf8'); } catch { return true; }
+      return !loads(html, 'challenge-ui\\.js') || !loads(html, 'arena-net\\.js');
+    }).map(g => g.key + ' (' + g.href + ')');
+    ok(deaf.length === 0,
+      '⛔ every game the picker can name can RECEIVE a challenge — UI and transport both loaded',
+      deaf.length ? 'DEAF: ' + deaf.join(', ') : games.map(g => g.key).join(' · '));
+    const server = (readFileSync(join(ROOT, 'api/presence.js'), 'utf8')
+      .match(/const GAMES = \[([^\]]*)\]/) || [])[1] || '';
+    const srvKeys = [...server.matchAll(/'([a-z0-9]+)'/g)].map(m => m[1]);
+    const unroutable = games.map(g => g.key).filter(k => !srvKeys.includes(k));
+    ok(unroutable.length === 0,
+      '…and the server accepts every one of them as a destination',
+      unroutable.length ? '⛔ the API would refuse: ' + unroutable.join(', ') : srvKeys.length + ' keys agree');
+  }
   const yank = chips.find(c => /YANKEE/.test(c.name));
   ok(yank && !yank.vs, 'nor is somebody already mid-fight');
   ok(writes === 0, 'and the front page still never heartbeats — a reader is not a player', 'POSTs=' + writes);

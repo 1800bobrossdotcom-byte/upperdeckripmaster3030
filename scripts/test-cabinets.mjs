@@ -415,20 +415,46 @@ head('3 · THE ARENA is reachable and does not slide sideways in portrait');
     taps.bad.length ? taps.bad.length + ' under: ' + taps.bad.slice(0, 6).join(' · ') : 'all clear');
   /* ⛔ AND THE EXEMPTION IS PROVED TO DISCRIMINATE, INSIDE THE TEST. An exemption nobody measures
    *   is a hole: "no control is under 44px" is trivially true of a sweep that exempts everything.
-   *   ⚠ Measured with querySelector rather than off `taps.exempt`, deliberately — `exempt` only
-   *     lists what happened to be ON SCREEN, which is the state-dependence this whole block was
-   *     just rewritten to stop relying on. These two elements are in the DOM either way. */
-  const disc = await page.evaluate(() => {
-    const letters = (el) => {
-      const p = el && el.parentElement; if (!p) return null;
+   *
+   * ⛔ IT USED TO MEASURE `.rules a` AND `a.back`, AND THAT BROKE — NOT THE PRODUCT, THE CHECK.
+   *   The two prose links in the rules panel were the whole reason this exemption exists; a later
+   *   pass moved them out of the paragraph into chips on their own row (recorded in CLAUDE.md, and
+   *   the right call — it also made the two routes to a hero findable instead of buried
+   *   mid-sentence). `.rules` now holds ZERO anchors, so `querySelector` returned null, `letters`
+   *   returned null, and the suite reported a FAILURE about a defect that does not exist. It ran
+   *   red on the board for days. **A CHECK WHOSE SUBJECT MOVED KEEPS REPORTING** — this repo's own
+   *   headline, and the first version of this very block was written to escape a milder form of it.
+   *
+   * ✅ SO IT STOPPED POINTING AT PAGE COPY. Two nodes are INJECTED — one link inside a real
+   *   sentence, one in a "·"-joined nav row — and the predicate is run on those. The subject is now
+   *   the RULE, which cannot be edited away by a copy change, and the assertion means the same
+   *   thing on every page and every viewport.
+   * ⚠ AND IT MUST BE THE SWEEP'S OWN PREDICATE, NOT A SECOND COPY OF IT. The old block reimplemented
+   *   `proseAround` a few lines below the original — two definitions of one rule, which is how the
+   *   thing under test drifts away from the thing being tested. The function is passed in as source
+   *   and both call sites evaluate the same string.
+   * ⚠ The live picture is still reported beside it, so a run where the sweep exempts EVERYTHING is
+   *   visible rather than hidden behind a synthetic pass. */
+  const PROSE_FN = `(el) => { const p = el.parentElement; if (!p) return 0;
       let own = ''; for (const n of p.childNodes) if (n.nodeType === 3) own += n.textContent;
-      return (own.match(/[A-Za-z]/g) || []).length;
-    };
-    return { prose: letters(document.querySelector('.rules a')), nav: letters(document.querySelector('a.back')) };
-  });
+      return (own.match(/[A-Za-z]/g) || []).length; }`;
+  const disc = await page.evaluate((src) => {
+    const proseAround = eval(src);
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-9999px;top:0';
+    host.innerHTML = '<p id="__pp">This is an ordinary sentence of running text with '
+      + '<a href="#" id="__pa">a link</a> sitting inside it.</p>'
+      + '<nav id="__np"><a href="#" id="__na">one</a> · <a href="#">two</a> · <a href="#">three</a></nav>';
+    document.body.appendChild(host);
+    const prose = proseAround(document.getElementById('__pa'));
+    const nav   = proseAround(document.getElementById('__na'));
+    host.remove();
+    return { prose, nav };
+  }, PROSE_FN);
   t('…and that exemption is a sentence test, not a blanket pass for links',
-    disc.prose !== null && disc.prose >= 20 && disc.nav !== null && disc.nav < 20,
-    `a link in prose sees ${disc.prose} letters · a link in the nav row sees ${disc.nav}`);
+    disc.prose >= 20 && disc.nav < 20,
+    `an injected link in prose sees ${disc.prose} letters · one in a "·" nav row sees ${disc.nav}`
+    + ` — and on this page the sweep exempted ${taps.exempt.length} of ${taps.exempt.length + taps.bad.length} sub-44px controls`);
   await ctx.close();
 }
 
