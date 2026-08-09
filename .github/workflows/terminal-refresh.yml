@@ -1,0 +1,103 @@
+# ripmaster3030studios — KEEP THE TERMINAL'S SNAPSHOT FRESH
+#
+# ⛔ THE PAGE WAS HONEST ABOUT BEING STALE AND THAT IS NOT THE SAME AS BEING FRESH. The terminal
+#    prints "snapshot measured N minutes ago" in the largest type on the page, which is why the
+#    staleness was noticed at all — but NOTHING refreshed it. No cron, no workflow, no scheduler
+#    anywhere in the repo. `data/terminal.json` only ever changed when a human ran the script and
+#    pushed, so its age climbed forever and the honest label just narrated the decay.
+#
+# ⚑ WHY A GITHUB ACTION AND NOT A VERCEL CRON OR AN AGENT. The measurement pulls tens of thousands
+#    of logs per pool — far past a serverless function's budget — and it has to COMMIT its result,
+#    which a serverless function cannot do. It also needs no judgement: it is a deterministic script
+#    over public RPCs, so putting a language model on the schedule would add cost, latency and a
+#    way to be wrong, to a job that is `node` and `git push`.
+#
+# ⛔ IT PUSHES TO THE BRANCH VERCEL ACTUALLY SERVES, WHICH IS NOT `main`. The project's Production
+#    Deployment tracks `claude/superrare-trading-cards-71ajcx`; a push to `main` builds green and
+#    lands as a Preview, which is how this repo once ran ten commits and twenty-nine hours ahead of
+#    the live site with every signal saying success.
+#
+# ⚠ It commits ONLY when the data actually changed, so a quiet market does not fill the history
+#   with empty commits — the same rule the hunt ledger was split for.
+name: terminal refresh
+
+on:
+  schedule:
+    # every 6 hours, UTC. Scheduled runs on shared runners can be delayed; the page states its own
+    # age, so a late run degrades to a visibly older number rather than to a silent lie.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'also regenerate the edge ladder (slow, ~50 min)'
+        type: boolean
+        default: false
+
+# least privilege: this job writes code and nothing else.
+permissions:
+  contents: write
+
+concurrency:
+  # ⚠ Two of these running at once would race on the same files and one would clobber the other's
+  #   measurement. Never cancel-in-progress: a half-finished run that gets killed mid-write is
+  #   exactly how a truncated dataset reaches the page.
+  group: terminal-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/superrare-trading-cards-71ajcx
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: measure the pool screen
+        run: node scripts/terminal.mjs
+        # ⚠ Deliberately NOT `continue-on-error`. A failed measurement must leave the previous
+        #   snapshot in place and turn the run red, because the page's age label will then tell the
+        #   truth on its own. Writing a partial file would be worse than writing nothing.
+
+      - name: regenerate the edge ladder
+        if: github.event_name == 'workflow_dispatch' && inputs.full
+        run: |
+          node scripts/edge.mjs
+          CHAIN=base node scripts/edge.mjs
+
+      - name: commit only if something moved
+        run: |
+          git config user.name  "ripmaster3030 terminal"
+          git config user.email "noreply@ripmaster3030studios.com"
+          git add data/terminal.json data/edge-ethereum.json data/edge-base.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "no change — the market was quiet or the read matched. Not committing."
+            exit 0
+          fi
+          git commit -m "terminal: scheduled snapshot $(date -u +%Y-%m-%dT%H:%MZ)
+
+          Measured by .github/workflows/terminal-refresh.yml, not by hand. The page prints this
+          file's own measuredAt, so if this stops running the site says so in its largest type."
+          # ⚠ Rebase before pushing: a human may have pushed to this branch since checkout, and
+          #   clobbering a real commit to publish a data refresh is not a trade worth making.
+          for i in 1 2 3 4; do
+            git pull --rebase origin claude/superrare-trading-cards-71ajcx && git push origin HEAD:claude/superrare-trading-cards-71ajcx && break
+            sleep $((2 ** i))
+          done
+
+      - name: say what it published
+        run: |
+          node -e "
+            const d = require('./data/terminal.json');
+            const age = (Date.now() - new Date(d.measuredAt)) / 60000;
+            console.log('measuredAt', d.measuredAt, '| block', d.block, '|', (d.board||[]).length, 'pools |',
+              (d.board||[]).filter(r => r.tradeable).length, 'clearing the bar');
+            if (age > 30) { console.error('⛔ the file this run produced is already ' + age.toFixed(0) + ' minutes old'); process.exit(1); }
+          "
