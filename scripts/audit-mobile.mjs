@@ -65,6 +65,7 @@ const PAGES = [
    * page whose mobile defects are invisible, which is how superrare.html shipped 42px buttons
    * on all three of its controls while every enforced surface passed. */
   { name: 'substrate', url: 'substrate.html', settle: 3500 },
+  { name: 'drain', url: 'drain.html', settle: 3000 },
   { name: 'whitepaper', url: 'whitepaper.html', settle: 2500 },
   { name: 'tokenomics', url: 'tokenomics.html', settle: 2500 },
   { name: 'audit', url: 'audit.html', settle: 2500 },

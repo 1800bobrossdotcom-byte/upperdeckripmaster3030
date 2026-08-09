@@ -470,6 +470,18 @@ const ORPHAN_OK = {
    *   exception with no stated end is just an orphan wearing a badge. See docs/SUBSTRATE-3030.md
    *   §"Open, and the artist's" item 4. */
   'substrate.html': 'THE READING — unlinked until the artist decides whether it enters the funnel',
+  /* ⚑ THE PRODUCT PAGE for the drain screen. Its reader is an exchange, a wallet or a compliance
+   *   desk — not a collector — so it does not belong in the studio's play/cards/pack funnel, and
+   *   putting it there would dilute the three doors that pass fought to establish.
+   * ⛔ SAME TERMS AS toll.html AND substrate.html: it gets linked from wherever it is actually
+   *   sold from, or it gets deleted. A product page nobody can reach sells nothing, so this
+   *   exemption is a decision with an end, not a place to leave it. */
+  'drain.html': 'THE DRAIN SCREEN — a product page for a desk, outside the collector funnel',
+  /* ⚑ THE COMPOSING FRAME. It composes a plate and deliberately cannot press one — the contract
+   *   does not exist, because the decision it turns on (page or chart?) is not settleable on a
+   *   screen. Linking it now would put a door on a room with no floor.
+   * ⛔ SAME TERMS: it gets linked when there is something to press, or it goes with the idea. */
+  'sheet.html': 'SET A PLATE — composes only; unlinked until there is a press to link it to',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
