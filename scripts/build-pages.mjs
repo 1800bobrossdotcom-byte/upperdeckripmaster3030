@@ -331,7 +331,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
     <footer class="foot">
       <span>$3030 · a game token, not an investment</span>
-      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a> · <a href="${X_URL}" target="_blank" rel="noopener">𝕏 @${X_HANDLE}</a></span>
+      <span><a href="index.html">home</a> · <a href="worldcomputerhyperterminal.html">terminal</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a> · <a href="${X_URL}" target="_blank" rel="noopener">𝕏 @${X_HANDLE}</a></span>
       <span>ripmaster3030studios.com</span>
     </footer>
   </div>
