@@ -881,6 +881,27 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * aimed at it fails this test the same way an apex/www redirect does — a host that serves the
    * site is a host nothing may bounce, and a subdomain nobody added to this list is exactly the
    * surface that goes dark without anything reporting it. */
+  /* ⛔ vercel.json HAS A STRICT SCHEMA AND AN UNKNOWN TOP-LEVEL KEY FAILS THE BUILD — SILENTLY,
+   * AS FAR AS GIT IS CONCERNED. A `_comment_rewrites` key was added to explain a rewrite (JSON
+   * has no comments, so one was invented) and it errored **six consecutive deploys**. Every push
+   * succeeded, every commit looked clean, `git log` was perfect, and production went on serving a
+   * commit from before the first of them. The pages 404'd and nothing in this repo said why.
+   * ⚑ THIS IS THIS FILE'S OWN RECORDED RULE, PAID FOR AGAIN: *a deploy is not "pushed", it is
+   *   "served".* The tell was one click away in the dashboard — six red rows against green ones
+   *   for every scheduled snapshot commit.
+   * ⚠ THE EXPLANATION NOW LIVES IN docs/DNS-AND-DOMAIN.md, where prose belongs. A config file
+   *   with a schema is not a place to write to the reader. */
+  {
+    const OK_KEYS = new Set(['version', 'name', 'alias', 'scope', 'env', 'build', 'builds',
+      'routes', 'cleanUrls', 'rewrites', 'redirects', 'headers', 'trailingSlash', 'regions',
+      'functions', 'github', 'public', 'crons', 'images', 'framework', 'installCommand',
+      'buildCommand', 'devCommand', 'outputDirectory', 'ignoreCommand', 'git', 'cron']);
+    const bad = Object.keys(vj).filter(k => !OK_KEYS.has(k));
+    ok(bad.length === 0,
+      'vercel.json carries no unknown top-level key — one is a FAILED BUILD, not a warning',
+      bad.length ? '⛔ ' + bad.join(', ') + ' — the deploy will error and the site will serve the previous commit' : Object.keys(vj).join(', '));
+  }
+
   const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com',
                       '3030.ripmaster3030studios.com'];
   const aimedAtLive = red.flatMap(r => (r.has || [])

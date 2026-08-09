@@ -173,3 +173,51 @@ shipped is exact and this repo still owns nothing but the old-domain forward.
   comment on it.
 - **The git repository does not move.** `upperdeckripmaster3030` is the repo and npm identifier, not
   a hostname; renaming it breaks clone URLs to buy nothing.
+
+---
+
+## 4¾ · The `3030.` subdomain — a REWRITE, and the key that broke six builds
+
+`3030.ripmaster3030studios.com` serves the reading at its own root.
+
+⛔ **A REWRITE, NEVER A REDIRECT.** A redirect bounces the visitor to the apex and the subdomain
+vanishes from the address bar, which is the only reason to have one. Only `/` is rewritten — the
+page fetches `data/substrate.json`, `mobile.css` and `favicon.svg` relatively, so rewriting
+everything would break every asset on the subdomain. It cannot loop: the destination
+`/substrate.html` is not `/` and never re-matches the source.
+
+### Setting it up
+
+1. **Vercel first, DNS second.** If DNS points at Vercel before Vercel knows the domain, visitors
+   get a **certificate error** — and browsers remember those. A 404 is recoverable; a bad cert is
+   not, quickly.
+2. Project → **Settings → Domains → Add** → `3030.ripmaster3030studios.com`.
+   ⛔ **Choose "No Redirect".** Vercel offers to redirect a new subdomain to the primary domain by
+   default, and that undoes the rewrite before it is ever evaluated.
+3. Namecheap → **Advanced DNS** → add the `CNAME` **exactly as the Vercel dashboard prints it**.
+   ⚠ **The dashboard is the authority.** It now issues a per-project target
+   (`…​.vercel-dns-016.com`) rather than the legacy `cname.vercel-dns.com`; both work, the
+   printed one is preferred. Host is `3030`, not the full domain — Namecheap appends the rest.
+4. Verify: `curl -sI https://3030.ripmaster3030studios.com/ | head -3` → **200**, not 308. Then
+   `curl -s … | grep -o "<title>.*</title>"` should name the reading, not the home page.
+
+### ⛔ AND THE KEY THAT FAILED SIX DEPLOYS IN A ROW
+
+The rewrite above was shipped with a `_comment_rewrites` key beside it, because JSON has no
+comments and one was invented to explain the reasoning.
+
+**`vercel.json` has a strict schema and an unknown top-level key fails the build.** Six consecutive
+commits errored. Every push succeeded, every commit looked clean, `git log` was perfect — and
+production went on serving a commit from before the first of them, so three new pages 404'd with
+nothing in the repo saying why.
+
+⚑ **This file's own §4½ rule, paid for again: a deploy is not "pushed", it is "served".** The tell
+was one click away — six red rows in the dashboard against a green one for every scheduled
+snapshot commit in between.
+✅ `npm run test:name` now checks every top-level key in `vercel.json` against the known set and
+fails naming the offender. **A config file with a schema is not a place to write to the reader**;
+the reasoning lives here instead, which is why this section exists.
+
+*The removed note read:*
+
+> 3030.ripmaster3030studios.com serves the reading at its own root. ⛔ A REWRITE, NEVER A REDIRECT — a redirect would bounce the visitor to the apex and the subdomain would vanish from the address bar, which is the whole point of having it. ⚠ ONLY '/' is rewritten: the page fetches data/substrate.json, mobile.css and favicon.svg relatively, so rewriting everything would break every asset on the subdo…
