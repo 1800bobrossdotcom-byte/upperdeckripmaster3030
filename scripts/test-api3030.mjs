@@ -46,20 +46,26 @@ let v=await call({verify:'1'});
 ok(v.body.verification&&v.body.verification.ok===true,`clean chain verifies — ${v.body.verification.checked} links`);
 
 console.log('\n── ⛔ SABOTAGE · can verify catch a lie? ──');
-copyFileSync('data/substrate.json','/tmp/sub.bak');
-try{
-  const j=JSON.parse(readFileSync('data/substrate.json','utf8'));
-  // flip ONE character of one block's census — the sort of tamper a server would do silently
-  j.blocks[1].census.counts.space += 1;   // a single tampered count, the silent kind
-  writeFileSync('data/substrate.json',JSON.stringify(j));
-  const mod=await import('../api/3030.js?bust='+Date.now());
-  const r=await new Promise(res=>{let code=0;mod.default({method:'GET',query:{verify:'1'}},
-    {setHeader(){},status(c){code=c;return this;},send(bd){let v=bd; if(typeof bd==='string'){try{v=JSON.parse(bd);}catch{}} res({code,body:v});}});});
-  const vv=r.body.verification;
-  ok(vv && vv.ok===false, 'a tampered canonical string is CAUGHT');
-  ok(vv && vv.break && vv.break.height!=null, `…and it NAMES the break: height ${vv&&vv.break&&vv.break.height} · ${vv&&vv.break&&vv.break.reason}`);
-  ok(vv && vv.break && vv.break.expected && vv.break.got, '…with both hashes, so a caller can look');
-}finally{ copyFileSync('/tmp/sub.bak','data/substrate.json'); }
+/* ⛔ THE FILE-MUTATION SABOTAGE STOPPED WORKING when the handler moved to a STATIC import — ESM
+ *   caches JSON by specifier, so re-importing with a cache-buster on the parent still resolves the
+ *   same child. A sabotage that cannot reach the code proves nothing, and this one would have gone
+ *   on printing green. `walk` is exported and driven directly on a tampered in-memory chain, which
+ *   is the detector itself rather than a filesystem trick. */
+{
+  const { walk } = await import('../api/3030.js');
+  const clean = JSON.parse(JSON.stringify((await import('../data/substrate.json',{with:{type:'json'}})).default));
+  ok(walk(clean).ok === true, `the untampered chain still verifies — ${walk(clean).checked} links`);
+  const bad = JSON.parse(JSON.stringify(clean));
+  bad.blocks[1].census.counts.space += 1;      // one incremented count, the silent kind
+  const v = walk(bad);
+  ok(v.ok === false, 'a single tampered byte-count is CAUGHT');
+  ok(v.break && v.break.height != null, `…and it NAMES the break: height ${v.break && v.break.height} · ${v.break && v.break.reason}`);
+  ok(v.break && v.break.expected && v.break.got, '…with both hashes, so a caller can look');
+  const bad2 = JSON.parse(JSON.stringify(clean));
+  bad2.blocks[2].prev = '0'.repeat(64);
+  const v2 = walk(bad2);
+  ok(v2.ok === false && v2.break.reason === 'parent mismatch', 'a re-parented block is caught as a PARENT break, not a hash break');
+}
 
 console.log('\n── stream ──');
 let s=await call({format:'ndjson'});

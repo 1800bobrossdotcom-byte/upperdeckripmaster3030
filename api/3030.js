@@ -30,21 +30,21 @@
  *   say how stale rather than be quietly served as current.
  * ⚠ CORS is open because a public census that a browser cannot read is not public.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+/* ⛔ `readFileSync(join(process.cwd(), 'data', 'substrate.json'))` WORKS LOCALLY AND NOT IN A
+ *   LAMBDA. Vercel bundles a function by TRACING its imports; a path assembled at runtime is
+ *   invisible to that trace, so the file is simply not in the deployment and the handler dies at
+ *   cold start with FUNCTION_INVOCATION_FAILED. Every local test passed — the difference is not
+ *   the code, it is what got packed.
+ * ⚑ A static import is the fix AND the guarantee: the bundler cannot miss what it can see. */
+import SUBSTRATE from '../data/substrate.json' with { type: 'json' };
 import { deriveHash, frame, GENESIS, PROTOCOL, SEP } from '../scripts/substrate.mjs';
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
-/* ⚠ read once per cold start, not per request: the file is ~1,700 lines and identical for every
- *   caller between derivations. A re-read per request is I/O for no new information. */
-let CACHE = null;
 function chain() {
-  if (CACHE) return CACHE;
-  const p = join(process.cwd(), 'data', 'substrate.json');
-  CACHE = JSON.parse(readFileSync(p, 'utf8'));
-  return CACHE;
+  if (!SUBSTRATE || !SUBSTRATE.blocks) throw new Error('no derivation in the bundle');
+  return SUBSTRATE;
 }
 
 const send = (res, code, body) => {
@@ -92,7 +92,7 @@ function recipe(b) {
 
 /* ⛔ REPORT THE FIRST BREAK, NOT A BOOLEAN. "valid: false" over a six-block chain tells a caller
  *   nothing they can act on; the height and the two hashes tell them exactly where to look. */
-function walk(c) {
+export function walk(c) {
   const blocks = c.blocks || [];
   let prev = c.genesis || GENESIS, checked = 0;
   for (const b of blocks) {
