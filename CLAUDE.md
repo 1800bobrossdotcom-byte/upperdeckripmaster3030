@@ -72,6 +72,24 @@ This SUPERSEDES the old "NAME LAW".**
 *Historical note:* **upperdeckripmaster3030** was one word on purpose — it amplified the meme and
 the clearance joke. ⛔ It no longer appears on new surfaces; see the directive above.
 
+## ⛔ THE TREASURY HAS SIGNED 699 TRANSACTIONS — "signs nothing" is false (measured 2026-08-09)
+> `0x8455cF29…De21950` reads **nonce 554 on Ethereum and 145 on Base**. This file and
+> `js/chain-config.js` both describe it as *"a COLD (Ledger) wallet that signs nothing"* and
+> *"a pure RECEIVER"*. As a description of that key, that is not true.
+> ⚑ **BE FAIR ABOUT WHAT THIS DOES AND DOES NOT MEAN.** A Ledger that signs 699 times is STILL a
+> hardware wallet — "cold" (the key never touches an internet-connected machine) may be entirely
+> intact, and nothing here shows otherwise. And it does **not** break PackSink: `_split()` PUSHES
+> and `flush()` is permissionless, so the design never *needs* the treasury to sign. The mechanism
+> is unharmed.
+> ⛔ **What IS broken is the premise, and the premise is what future decisions get made against.**
+> "It signs nothing, so cold storage costs the mechanism zero" was the argument for choosing this
+> address; the second clause survives and the first does not. An address accumulating every pack's
+> studio half, behind a key in active use, is a different risk profile from a pure receiver — and
+> the difference should be a decision, not an assumption nobody rechecked.
+> ⚠ **FOR THE ARTIST, not answerable from here:** is this the Ledger? What are the 699 signatures?
+> If it is a hot key, the cold-wallet decision of 2026-08-06 has not actually been executed.
+> ⚑ Found by an adversarial pass, not by any check in the repo — nothing asserts a nonce.
+
 ## 💰 REVENUE: half of every pack and every game rake funds the studio
 **Artist directive.** Treasury `0x8455cF29…De21950` — a **COLD (Ledger)** wallet that signs
 nothing. ⚠ It was `0x5C3b…d89F` (the **SEPOLIA** wallet) until 2026-08-06. `docs/TREASURY.md` is canonical.
@@ -146,7 +164,23 @@ date.**
 - ⚠ `index.html`'s CSS class names are still `.season`/`.seasons` — cosmetic only, left to avoid
   churn; the markup and copy say Tier.
 
-## ✅ SUPPLY SETTLED: **3,300,000** (artist, 2026-08-02) — the 33,000,000 direction is REVERSED
+## ⛔ THE LIVE CAP IS **3,030,000**, NOT 3,300,000 — read from the chain 2026-08-09
+> `maxTotalSupply()` on the deployed edition returns **3,030,000**. It is frozen at deploy and it
+> is what every shipped surface already says: `index.html`, `whitepaper.html`, `tokenomics.html`,
+> `js/chain-config.js` and `scripts/token-model.mjs` (`CAP = 3_030_000`) all agree with the
+> contract. **Production is correct. THIS FILE was the stale surface**, and it was stale on the
+> single most important number in the project.
+> ⚑ Reconciled two ways at the same block, which is what makes it a measurement rather than a read:
+> `totalSupply` 3,022,375 · burned 7,625 · treasury 7,475 $3030 → **119.6 packs by the treasury
+> side, 120.0 by the burn side.**
+> ⚠ The section below records the REASONING that chose a 3.3M cap and it is kept for that, exactly
+> as the 33M section beneath it is kept. **Every figure in it that derives from 3,300,000 describes
+> a token that was never deployed.** Do not quote one at anybody.
+> ⛔ And this is the project's own rule turned on its own memory: *before quoting a gate, measure
+> it.* Fifth recorded instance — after `balanceOf`-as-lifetime-income, native-ETH-emits-no-logs,
+> "a merge to main deploys", and the stale MAINNET-PREFLIGHT table.
+
+## ⚠ Historical — SUPPLY "SETTLED" AT 3,300,000 (artist, 2026-08-02); the deploy used 3,030,000
 **Run `npm run model` for the live numbers; `scripts/token-model.mjs` is the only source.**
 
 > # ⛔ THE CAP IS STILL 3,300,000. EVERY PERCENTAGE BELOW IS DEAD (2026-08-06)
@@ -275,7 +309,12 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
     while reading like one of the hardest. Replaced with the light-strips (0.96 s, the biggest
     verb on that track). **Check the number before publishing the rule.**
   - ⚠ Economics do not move: all 33 mint as 1/1s either way. This is distribution, not supply.
-- **Packs:** escalating buy-and-burn, ~3,560 over 4 tiers (I 1,600 → IV 260). ⛔ **The price is a
+- **Packs:** escalating buy-and-burn, ~3,560 over 4 tiers (I 1,600 → IV 260).
+  ⚑ **TIER I IS LIVE AND 7.5% EXECUTED — measured 2026-08-09: 120 packs, ~$1,196 of a $16,000
+  designed raise, $14,804 remaining.** ⛔ And the note that used to say the door was shut
+  (*"`pack.js:228` tells a short visitor to go buy somewhere else"*) is DEAD: `pack.js` was rebuilt
+  into an exact-output buy that names the shortfall in dollars. Quoting the old line at the artist
+  would have argued the studio's largest live funding mechanism was broken when it is running. ⛔ **The price is a
   DOLLAR target — $10 / $12 / $15 / $20, tier I = 125 $3030 at the measured $0.08 open.** The old
   "~$7 / 350 tokens" is dead; `docs/PACK-PRICING.md` is canonical and `js/chain-config.js`
   `packBurn` is pinned to its tier-I row by `npm run test:name`.
