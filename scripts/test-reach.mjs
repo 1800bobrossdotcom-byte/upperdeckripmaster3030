@@ -455,6 +455,14 @@ head('1b · the city can actually be played by a thumb');
  * still fails. See docs/REACHABILITY.md for why each of these three is deliberate. */
 head('2 · no shipped page is an orphan (deliberate ones are allow-listed with a reason)');
 const ORPHAN_OK = {
+  /* ⚑ STEALTH BETA, and unlinked ON PURPOSE rather than by oversight. It is a playable game whose
+   *   whole deck is live measurement, shipped to be pressure-tested by people handed the URL
+   *   before it goes near the funnel. It carries `noindex`, it is absent from the sitemap, and it
+   *   asks for no wallet and holds no stake — so an early visitor can lose nothing but time.
+   * ⛔ IT GETS LINKED OR IT GETS DELETED. A "beta" with no stated end is just an orphan wearing a
+   *   badge; when the artist says it is ready it joins arcade.html, and if he says it is not, it
+   *   goes. Written down because that is this file's own distinction between a decision and drift. */
+  'toll.html': 'STEALTH BETA — deliberately unlinked and noindex until the artist promotes it',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
