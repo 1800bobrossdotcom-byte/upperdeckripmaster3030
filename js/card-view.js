@@ -162,7 +162,12 @@
           };
         });
       }
-      return CardPress.live({ canvas: cv, base: o.base, card: o.card });
+      /* ⚠ THE DESIGNED BACK IS OPT-OUTABLE, because it is not free: it fetches the card's own
+       *   PAGE, every stylesheet that page links, and rasterises a 520×780 foreignObject — to
+       *   prepare a face that a viewer with no way to flip will never show. A hero card has no
+       *   `cards/<n>.html`, so mounting one in a side panel 404s twice per card for nothing.
+       *   Callers that CAN flip leave this alone and keep the back. */
+      return CardPress.live({ canvas: cv, base: o.base, card: o.card, backs: o.backs });
     }
 
     box.__cardview = sourceFor().then(function (P) {
