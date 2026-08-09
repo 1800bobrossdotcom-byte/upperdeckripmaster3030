@@ -36,18 +36,39 @@
  *   ETH PRINTS. Three quarters of every byte ever typed into these chains is empty space, and
  *   that is a measurement (block 25,714,463: 75.18%), not a figure of speech.
  *
- * ⛔ AND THE PROTOCOL ITSELF ALREADY PRICES PAPER CHEAPER THAN INK, BY EXACTLY FOUR. Under
- *   EIP-7623 calldata is priced in TOKENS — a zero byte costs 1, a non-zero byte costs 4, at
- *   10 gas per token. So the chain charges 10 gas for a space and 40 for a mark. **This is not
- *   our metaphor imposed on the chain; it is the chain's own fee schedule, and the artwork is
- *   just reading it out loud.**
- *   ⚑ MEASURED BY SLOPE, AND THE FIRST MEASUREMENT WAS WRONG IN THE PLAUSIBLE DIRECTION. A
- *     single-point `eth_estimateGas` difference gives 11.09 and 41.15 gas/byte — ratio 3.71×,
- *     close enough to 4 to look like a real deviation worth explaining. It is the ESTIMATOR'S
- *     OWN BUFFER, not the protocol. Two points (1,000 and 5,000 bytes) and take the slope: the
- *     constant cancels and both chains return **10.1282 and 40.5240 gas/byte, ratio 4.0011×**.
- *     ⚠ So do not "correct" the 4× to 3.71× after re-measuring at one point. The instrument is
- *       buffered; the protocol is not.
+ * ⛔ AND THE PROTOCOL ITSELF ALREADY PRICES PAPER CHEAPER THAN INK, BY EXACTLY FOUR. **This is
+ *   not our metaphor imposed on the chain; it is the chain's own fee schedule.**
+ *
+ *   ⛔ THERE ARE TWO SCHEDULES AND I PUBLISHED THE WRONG ONE FIRST. Intrinsic gas is
+ *     `max(standard, floor)`:
+ *       STANDARD  4 gas per zero byte, 16 per non-zero      ← what a REAL transaction pays
+ *       FLOOR     10 per token; zero = 1 token, non-zero = 4 → 10 and 40  (EIP-7623)
+ *     The floor only wins when `24*nonzero + 6*zero > execution gas`, i.e. on a transaction that
+ *     is almost pure data. **The census reads real transactions, which have execution, so the
+ *     schedule that applies to almost everything it counts is 4 and 16.** My first measurement
+ *     was taken on a bare value transfer — correct for that transaction, and published as though
+ *     it were the protocol's price for everything. It is not.
+ *   ⚑ MEASURED BOTH WAYS, against a target with heavy execution and one with none:
+ *       lens `tokenURI` (~311k gas of execution):  4.032 and 16.127 gas/byte  → standard binds
+ *       bare transfer (no execution):             10.020 and 40.346 gas/byte  → floor binds
+ *   ✅ **THE RATIO IS EXACTLY 4x UNDER BOTH, AND THAT IS THE DURABLE CLAIM** — the one number
+ *     that does not depend on which schedule binds. It is also the number the protocol has
+ *     deliberately preserved through two repricings: before EIP-2028 (Istanbul, 2019) a non-zero
+ *     byte cost 68 against a zero byte's 4, a ratio of **17x**; Istanbul took 68 to 16 and left
+ *     4 alone, landing on 4x; EIP-7623's floor then multiplied both by 2.5 and preserved it
+ *     again. **Ethereum has re-priced the relationship between space and mark twice and settled
+ *     on four.**
+ *   ⚠ ALWAYS MEASURE BY SLOPE, NEVER AT ONE POINT. A single `eth_estimateGas` difference gives
+ *     ~3.71× rather than 4× — that is the ESTIMATOR'S OWN BUFFER, not the protocol. Two points
+ *     and take the slope; the constant cancels. So do not "correct" 4× down to 3.71× after
+ *     re-measuring at one point: the instrument is buffered, the protocol is not.
+ *
+ *   ⛔ TWO ERRORS IN ONE NUMBER, AND THE SECOND SURVIVED THE FIRST FIX. The slope corrected the
+ *     estimator's buffer and left the schedule wrong, so the result LOOKED rigorous — a clean
+ *     4.0011× off a careful two-point measurement — while describing a transaction shape almost
+ *     nothing on either chain has. **A measurement can be precise, reproducible and answering
+ *     the wrong question.** The tell was available: the target was a bare value transfer, which
+ *     is not what a census of real calldata is counting.
  *
  * ══ THE DUALITY — why "encryption" is the right word and not decoration ═══════════════════════
  *
@@ -282,9 +303,12 @@ function formations(bytes) {
   return f;
 }
 
-/* Gas the PROTOCOL charges per byte class (EIP-7623: 1 token per zero byte, 4 per non-zero,
- * 10 gas per token). Measured by slope against both chains — see the header. */
-const GAS = { [SPACE]: 10, [SIGIL]: 40, [GLYPH]: 40, [MARK]: 40 };
+/* What the PROTOCOL charges per byte class. ⚠ TWO SCHEDULES — `max(standard, floor)` — and the
+ * standard one is what almost every real transaction pays. Both measured by slope; see header. */
+const GAS = {
+  standard: { [SPACE]: 4,  [SIGIL]: 16, [GLYPH]: 16, [MARK]: 16 },
+  floor:    { [SPACE]: 10, [SIGIL]: 40, [GLYPH]: 40, [MARK]: 40 },
+};
 
 /* ⚑ A RUN OF PRINTABLE BYTES IS THE GHOST TEXT — the place the dual reading stops being a claim
  * and becomes visible. Four is the shortest run that is more often language than coincidence:
@@ -550,7 +574,15 @@ if (isMain) {
     derivedAt: new Date().toISOString(),
     /* ⚠ THE PRICE IS CARRIED IN THE DATA, MEASURED BY SLOPE — see the header. It is a protocol
      * fact, not a reading of these particular blocks, so it does not change per run. */
-    gas: { space: GAS[SPACE], mark: GAS[MARK], ratio: 4, method: 'EIP-7623 token pricing, verified by two-point eth_estimateGas slope on both chains' },
+    /* ⚠ BOTH SCHEDULES ARE CARRIED, because publishing one as "the price" is the error this
+     * section exists to correct. `ratio` is the durable fact — it is 4 under both. */
+    gas: {
+      standard: { space: GAS.standard[SPACE], mark: GAS.standard[MARK], applies: 'any transaction with meaningful execution — i.e. almost everything this census counts' },
+      floor:    { space: GAS.floor[SPACE],    mark: GAS.floor[MARK],    applies: 'EIP-7623 floor, binds only on near-pure-data transactions' },
+      ratio: 4,
+      history: 'pre-Istanbul 4 vs 68 = 17x; EIP-2028 took 68 to 16, landing on 4x; EIP-7623 scaled both 2.5x and preserved it',
+      method: 'two-point eth_estimateGas slope against a heavy-execution target (4.032 / 16.127) and a bare transfer (10.020 / 40.346)',
+    },
     sources: { ethereum: { head: ethHead, role: 'substrate' }, base: { head: baseHead, role: 'impression' } },
     totals: tot,
     blocks,

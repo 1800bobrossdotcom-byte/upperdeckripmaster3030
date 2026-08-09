@@ -123,7 +123,25 @@ console.log('\n── B · the shipped chain ──');
    *   page's own headline has gone stale and this is where it should be caught. */
   ok(spacePct > 55 && spacePct < 90, 'the substrate really is most of the typing',
     spacePct.toFixed(2) + '% space');
-  ok(DATA.gas && DATA.gas.ratio === 4, 'the measured price ratio is carried in the data', 'a mark costs 4× a space');
+  /* ⛔ BOTH SCHEDULES, BECAUSE PUBLISHING ONE AS "THE PRICE" IS THE ERROR THIS ASSERTS AGAINST.
+   *   Intrinsic calldata gas is max(standard, floor). The floor (10/40) binds only on a
+   *   near-pure-data transaction; a real one pays the standard 4/16. The first version of this
+   *   page published the floor as the protocol's price — a precise, reproducible measurement of
+   *   the wrong transaction shape. The RATIO is the durable fact: it is 4 under both. */
+  ok(DATA.gas && DATA.gas.ratio === 4, 'the durable ratio is carried', 'a mark costs 4× a space');
+  ok(DATA.gas.standard && DATA.gas.standard.space === 4 && DATA.gas.standard.mark === 16,
+    'the STANDARD schedule is carried — what a real transaction pays', '4 and 16');
+  ok(DATA.gas.floor && DATA.gas.floor.space === 10 && DATA.gas.floor.mark === 40,
+    'the FLOOR schedule is carried too, and named as the floor', '10 and 40');
+  ok(DATA.gas.standard.mark / DATA.gas.standard.space === 4
+     && DATA.gas.floor.mark / DATA.gas.floor.space === 4,
+    'the ratio is 4× under BOTH schedules — the claim that survives either', 'this is why it is the one published');
+  /* ⚠ AND THE PAGE MUST QUOTE THE STANDARD ONE. "Both are carried" is trivially satisfied by a
+   *   page that still prints the floor. */
+  ok(/gas && d\.gas\.standard/.test(HTML) || /d\.gas\.standard/.test(HTML),
+    'the page reads the STANDARD schedule, not the floor');
+  ok(!/charges 10 gas for a space and 40 for a mark/.test(HTML),
+    'the retracted claim does not survive anywhere on the page');
 
   /* the sheet/impression pairing is the "omni" claim — it must actually span both chains */
   const withImp = B.filter(b => b.impressions.length > 0).length;

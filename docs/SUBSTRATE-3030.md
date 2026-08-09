@@ -39,23 +39,44 @@ padding. That is the artist's "substrate" as a census rather than a figure of sp
 
 ### 2 · The protocol already prices paper cheaper than ink — by exactly four
 
-⛔ **This is the strongest fact in the piece and it was sitting in the fee schedule the whole
-time.** Under EIP-7623 calldata is charged in *tokens*: a zero byte costs 1, a non-zero byte
-costs 4, at 10 gas per token. So Ethereum charges **10 gas for a space and 40 for a mark**.
+⛔ **This is the strongest fact in the piece, and I got the number wrong the first time.**
 
-⚑ **MEASURED BY SLOPE, AND THE FIRST MEASUREMENT WAS WRONG IN THE PLAUSIBLE DIRECTION.** A
-single-point `eth_estimateGas` difference gives 11.09 and 41.15 gas/byte — a ratio of **3.71×**,
-close enough to 4 to look like a real deviation worth explaining. It is the estimator's own
-buffer, not the protocol. Two points (1,000 and 5,000 bytes), take the slope, and the constant
-cancels: **10.1282 and 40.5240 gas/byte, ratio 4.0011×**, identical on both chains.
-⚠ **Do not "correct" the 4× back to 3.71× after re-measuring at one point.** The instrument is
-buffered; the chain is not.
+Intrinsic calldata gas is `max(standard, floor)`:
 
-⚑ **AND THE RATIO HAS A HISTORY, WHICH IS BETTER THAN A CONSTANT.** Before EIP-2028 (Istanbul,
-2019) a non-zero byte cost 68 gas against a zero byte's 4 — **17×**. The chain *re-priced the
-relationship between space and mark*, and it did so to make data cheaper. That is a real event in
-Ethereum's history, and it is the kind of detail that makes the reading feel discovered rather
-than imposed.
+| schedule | space | mark | when it binds |
+| --- | --- | --- | --- |
+| **standard** | **4** | **16** | any transaction with meaningful execution — **almost everything this census counts** |
+| floor (EIP-7623) | 10 | 40 | only when `24·nonzero + 6·zero > execution gas`, i.e. a near-pure-data transaction |
+
+⚑ **Measured both ways by slope**, against a target with heavy execution and one with none:
+
+```
+lens tokenURI (~311k gas of execution):   4.032 and 16.127 gas/byte   → standard binds
+bare value transfer (no execution):      10.020 and 40.346 gas/byte   → floor binds
+```
+
+⛔ **I PUBLISHED 10 AND 40 AS "THE PROTOCOL'S PRICE" AND IT WAS THE FLOOR.** The measurement was
+taken on a bare value transfer — correct for that transaction, wrong as a general claim, and wrong
+in exactly the direction that flatters the story. Found by an adversarial review, not by any check
+in this repo.
+
+⚠ **AND IT IS TWO ERRORS IN ONE NUMBER, WHERE THE SECOND SURVIVED THE FIRST FIX.** The first pass
+read 3.71× at a single point; switching to a two-point slope corrected the estimator's buffer and
+produced a clean 4.0011×, which *looked* rigorous — and was still measuring a transaction shape
+almost nothing on either chain has. **A measurement can be precise, reproducible, and answering
+the wrong question.** The tell was there: the target was a bare transfer, and a census of real
+calldata is not counting bare transfers.
+
+✅ **THE RATIO IS EXACTLY 4× UNDER BOTH SCHEDULES, AND THAT IS THE DURABLE CLAIM** — the one number
+that does not depend on which schedule binds. It is also one the protocol has deliberately kept
+through two repricings:
+
+- **before EIP-2028** (Istanbul, 2019): a mark cost **68** against a space's 4 — a ratio of **17×**
+- **EIP-2028** took 68 down to 16 and left 4 alone → **4×**
+- **EIP-7623** later scaled both by 2.5 (to 10 and 40) → **4× again**
+
+⚑ **Ethereum has re-priced the relationship between space and mark twice, and settled on four both
+times.** That is a better fact than the one it replaced.
 
 ### 3 · The same byte is instruction and glyph
 

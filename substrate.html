@@ -25,7 +25,8 @@
   ⛔ THE PAGE'S JOB IS TO SHOW THAT THIS IS A DESCRIPTION, NOT A METAPHOR. Every claim on it is
      something the chain says about itself:
        · three quarters of all calldata is the zero byte — a census, not a figure of speech
-       · the protocol charges 10 gas for a space and 40 for a mark — EIP-7623's own schedule
+       · the protocol charges 4 gas for a space and 16 for a mark — its own fee schedule,
+         and the 4x ratio has survived two repricings (it was 17x before 2019)
        · the same byte is instruction and glyph — 0x60 is PUSH1 and it is a backtick
      If a reader finishes this page thinking we made a poetic comparison, the page failed.
 
@@ -175,11 +176,18 @@
     and named as shapes, never as claims about what a call does.</p>
 
   <p class="note" style="margin-top:14px"><b>The protocol prices paper cheaper than ink, by
-    exactly four.</b> Under EIP-7623 calldata is charged in tokens — a zero byte costs one, a
-    non-zero byte costs four, at 10 gas each. So a space is 10 gas and a mark is 40, on both
-    chains. Measured by taking the slope between 1,000 and 5,000 bytes rather than a single
-    difference: a one-point reading gives 3.71×, which is the gas estimator's own buffer and not
-    the chain. The slope returns <b>4.0011×</b>.</p>
+    exactly four.</b> A real transaction pays <b>4 gas for a space and 16 for a mark</b>. There is
+    a second schedule — EIP-7623's floor, 10 and 40 — but it only binds on a transaction that is
+    almost pure data, and almost nothing this census counts is that. Measured both ways by slope,
+    because a single-point reading is contaminated by the gas estimator's own buffer: against a
+    target with heavy execution, <b>4.032</b> and <b>16.127</b> gas per byte; against a bare
+    transfer, 10.020 and 40.346.
+    <br><br>
+    <b>The ratio is exactly four under both, and that is the fact that does not move.</b> It is
+    also one the protocol has deliberately kept: before 2019 a mark cost 68 gas against a space's
+    4 — a ratio of <b>seventeen</b>. EIP-2028 took 68 down to 16 and left 4 alone, landing on
+    four. EIP-7623 later scaled both by two and a half and preserved it again. <b>Ethereum has
+    re-priced the relationship between space and mark twice, and settled on four both times.</b></p>
 
   <h2>THE SHEET — ONE ETHEREUM BLOCK, EVERY BYTE</h2>
   <div id="sheetWrap"><canvas id="sheet" width="240" height="120"></canvas></div>
@@ -289,7 +297,10 @@
     bar.children[0].style.width = (100 * t.space / tot) + '%';
     bar.children[1].style.width = (100 * t.sigil / tot) + '%';
     bar.children[2].style.width = (100 * t.mark  / tot) + '%';
-    var g = d.gas || { space: 10, mark: 40 };
+    /* ⚠ THE STANDARD SCHEDULE, because that is what a real transaction pays. The floor
+     * (10/40) is carried in the data too and named on the page, but quoting it as "the price"
+     * is the error this page had to correct after publishing it. */
+    var g = (d.gas && d.gas.standard) || { space: 4, mark: 16 };
     $('keys').innerHTML = [
       ['#141a20', 'SPACE',  t.space, '0x00 — the paper. ' + g.space + ' gas each.'],
       ['#e0ff4f', 'SIGIL',  t.sigil, '0x20–0x7E — ASCII, a mark that also reads as language. ' + g.mark + ' gas each.'],
