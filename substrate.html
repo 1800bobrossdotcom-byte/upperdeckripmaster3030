@@ -442,18 +442,44 @@
       var ends = dist(pts[0], pts[pts.length-1]);
       var sp = bs.map(function(b){ return b.census.counts.space / (b.census.bytes || 1); });
       var lo = Math.min.apply(null, sp), hi = Math.max.apply(null, sp);
+      /* ⛔ THE RATIO NEEDS A BASELINE OR IT IS A NUMBER WITH NO SCALE, AND THE FIRST VERSION OF
+       *   THIS LINE PRINTED A VERDICT WITHOUT ONE. It said "it wanders and returns" at 6.9× and
+       *   then, one derivation later on the very next window, "it is drifting" at 1.8× — the same
+       *   page confidently asserting opposite things an hour apart, from five steps. That is this
+       *   project's own recurring failure with a new number attached: a confident reading of a
+       *   sample too small to carry it.
+       * ✅ THE BASELINE IS A PURE RANDOM WALK, and its median ratio is exactly √steps — verified
+       *   by simulation in 7 dimensions at 3/5/9/19/39 steps, matching √n to within 1.5% every
+       *   time, so it is a formula rather than a table. The 90% band is √n × [0.70, 1.70], also
+       *   stable across that whole range.
+       * ⚑ WHICH SETTLES BOTH OBSERVATIONS AND THEY ARE NOT THE SAME: 1.8× at 5 steps is the 16th
+       *   percentile of a random walk — utterly ordinary, no drift to report — while 6.9× is the
+       *   99.9th, i.e. genuinely mean-reverting. Two windows cannot tell "the composition
+       *   sometimes snaps back hard" from "one tail draw", so the page names the percentile band
+       *   and refuses the verdict outside it. */
       var ratio = ends > 0 ? path / ends : Infinity;
+      var steps = pts.length - 1, base = Math.sqrt(steps);
+      var lo90 = base * 0.70, hi90 = base * 1.70;
+      var verdict = !isFinite(ratio)
+        ? 'the two ends landed on the same point, which at this sample size is a coincidence rather than a result'
+        : ratio > hi90
+          ? 'That is <b>above</b> the band, so over this window the composition <b>moved and came back</b> — '
+            + 'it is snapping back to where it started rather than going anywhere.'
+          : ratio < lo90
+            ? 'That is <b>below</b> the band, so over this window the composition is <b>going somewhere</b> '
+              + 'rather than milling about.'
+            : 'That is <b>inside</b> the band, so this window is <b>indistinguishable from a random walk</b> — '
+              + 'the composition moves, and nothing here says it is heading anywhere.';
       $('pathNote').innerHTML = 'Each sheet is also a <b>point</b> — seven axes, all shares — and the '
         + 'chain is a path between them. Over these ' + bs.length + ' sheets the path is <b>'
-        + path.toFixed(3) + '</b> long and the two ends are <b>' + ends.toFixed(3) + '</b> apart, a ratio of <b>'
-        + (isFinite(ratio) ? ratio.toFixed(1) + '×' : '∞') + '</b>. '
-        + (ratio > 2
-            ? 'It <b>wanders and returns</b> rather than drifting, so the percentages above are means of a '
-              + 'quantity that moves: the paper alone runs ' + (100*lo).toFixed(1) + '–' + (100*hi).toFixed(1)
-              + '% between adjacent Ethereum blocks. <b>The substrate breathes.</b>'
-            : 'It is <b>drifting</b> rather than wandering — the composition is going somewhere over this span.')
-        + ' <span style="color:var(--dim)">' + (bs.length - 1) + ' steps is enough to say the composition '
-        + 'moves and not enough to say where it goes over a day.</span>';
+        + path.toFixed(3) + '</b> long and the two ends are <b>' + ends.toFixed(3) + '</b> apart: a ratio of <b>'
+        + (isFinite(ratio) ? ratio.toFixed(1) + '×' : '∞') + '</b> against a pure random walk\'s <b>'
+        + base.toFixed(1) + '×</b> (√' + steps + '), whose middle 90% runs ' + lo90.toFixed(1) + '–'
+        + hi90.toFixed(1) + '×. ' + verdict
+        + ' <span style="color:var(--dim)">The paper alone runs ' + (100*lo).toFixed(1) + '–'
+        + (100*hi).toFixed(1) + '% between adjacent Ethereum blocks, so the percentages above are means of a '
+        + 'quantity that moves. ' + steps + ' steps is enough to say that and not enough to characterise it — '
+        + 'consecutive derivations have read 6.9× and 1.8× on this same statistic.</span>';
     })();
 
     $('glyphNote').innerHTML = 'The chain is <b>effectively monolingual</b>. ' +
@@ -616,6 +642,12 @@
         var mk = n - sp - sg, p = function(x){ return (100 * x / n).toFixed(1) + '%'; };
         var chainSpace = D && D.totals ? pct(D.totals.space, D.totals.bytes) : '~67%';
         var e = C.entropy(ct);
+        /* ⚠ DECLARED HERE, ABOVE THE ASSIGNMENT — my first version put these two `var`s in the
+         *   middle of the `row(...) + row(...)` expression, which is a SyntaxError, and the whole
+         *   inline script stopped parsing. The page then rendered its static markup and nothing
+         *   else: no census keys, no path line, no panel. ⛔ Nothing 404s and the layout still
+         *   looks like a page — the same class as the backtick-in-a-shader trap this repo has
+         *   now hit ten times. `new Function` on the inline block is what named it. */
         out.innerHTML =
           row('NONCE · 96 BIT', C.bytesToHex(o.s.nonce), 'hx') +
           row('', 'the high 8 bytes are ' + NAME + ' height ' + H + '. Nobody handed that number out and '
@@ -632,14 +664,41 @@
               : e.toFixed(3) + ' bits/byte — ' + C.looksEncrypted(ct).verdict) +
           /* ⚠ THE EXPECTATION IS PRINTED BESIDE THE MEASUREMENT, because on a short ciphertext the
            *   measured split is noise and a reader has no way to tell. Uniform bytes are 1/256
-           *   zero, 95/256 printable-ASCII and 160/256 everything else — 0.39 / 37.11 / 62.50 —
-           *   and the sample converges to it. Printing only the measurement would invite somebody
-           *   to quote 4.4% as a property of ciphertext. */
-          row('IN THE CENSUS', 'space <b>' + p(sp) + '</b> · sigil ' + p(sg) + ' · mark ' + p(mk)
-              + ' <span style="color:var(--dim)">(uniform bytes converge to 0.4 · 37.1 · 62.5; '
-              + n + ' bytes is a small sample)</span><br>against a chain that is <b>' + chainSpace
-              + '</b> space. <b>The census already sees encryption without reading it</b> — two '
-              + 'orders of magnitude apart on the first count — and it needed no new axis to do it.');
+           *   zero, 95/256 printable-ASCII and 160/256 everything else — 0.39 / 37.11 / 62.50.
+           * ⛔ AND "SMALL SAMPLE" WITHOUT A NUMBER IS NOT A CAVEAT, IT IS A SHRUG. One seal came
+           *   back sigil 49.7% against an expected 37.1 and read like the page contradicting
+           *   itself. It was an honest draw — 200 seals measure 0.41 / 37.37 / 62.22 against
+           *   0.39 / 37.11 / 62.50, so the classifier is unbiased — but a reader cannot know that
+           *   from one row. The binomial spread is printed per count instead.
+           * ⚑ AND IT MAKES THE REAL POINT SHARPER THAN THE PROSE DID: at 157 bytes sigil carries
+           *   ±3.9 points while SPACE carries ±0.5, because the spread of a share collapses as the
+           *   share goes to zero. **The space count is the one that discriminates precisely
+           *   BECAUSE it is the tightest** — 0.4 ± 0.5 against a chain at 65%, with no overlap
+           *   available at any sample size. The other two are supporting detail and now say so. */
+          /* ⛔ COUNTS, NOT PERCENTAGES, AND THE THIRD ATTEMPT IS THE ONE THAT IS CORRECT.
+           *   (1) A bare split invited somebody to quote one draw as a property of ciphertext.
+           *   (2) So I added a ± — and the Wald spread DEGENERATES AT THE BOUNDARY: with zero
+           *       zero-bytes it printed "0.0% ±0.0", i.e. perfect certainty, which is the exact
+           *       opposite of what a zero observation means. Publishing that would have been a
+           *       real statistical error dressed as rigour.
+           *   (3) A 157-byte sample does not need a confidence interval, it needs the comparison
+           *       made CONCRETE: how many zero bytes are in it, how many uniform bytes would give,
+           *       and how many a real chain block of the same length would. Three integers, no
+           *       estimator to get wrong, and the argument reads itself.
+           * ⚑ THE SPACE COUNT IS THE WHOLE ARGUMENT and the other two are decoration — which is
+           *   why they are stated plainly and not defended. Sigil/mark swing ±4 points at this
+           *   length; space cannot, because a share near zero has almost nowhere to move. */
+          row('IN THE CENSUS',
+              '<b>' + sp + ' of ' + n + ' bytes are 0x00.</b> Uniform bytes would give about '
+              + (n / 256).toFixed(1) + '; <b>a chain block of this length would give about '
+              + Math.round(n * (D && D.totals ? D.totals.space / D.totals.bytes : 0.656)) + '</b>.'
+              + '<br><span style="color:var(--dim)">the rest: sigil ' + p(sg) + ' · mark ' + p(mk)
+              + ' — uniform bytes converge to 37.1 · 62.5, and at ' + n + ' bytes one draw swings '
+              + 'about ±4 points, so read those two loosely.</span>'
+              + '<br><b>The census already sees encryption without reading it.</b> It is the space '
+              + 'count that does the work: the chain is <b>' + chainSpace + '</b> space and '
+              + 'ciphertext is essentially none, two orders of magnitude with nothing in between. '
+              + 'It needed no new axis.');
         go.disabled = false; go.textContent = 'SEAL IT AT THE HEAD';
       }, function(err){
         /* ⚠ name the failure. A control that fails silently is the one this section argues against. */
