@@ -123,7 +123,7 @@
 </header>
 
 <form id="f" autocomplete="off">
-  <input id="addr" placeholder="0x… pool address" spellcheck="false" aria-label="pool address">
+  <input id="addr" placeholder="0x… v3 pool address or v4 pool id" spellcheck="false" aria-label="pool address">
   <select id="chain" aria-label="chain"><option value="ethereum">ethereum</option><option value="base">base</option></select>
   <select id="size" aria-label="trade size">
     <option value="0.01">0.01</option><option value="0.1" selected>0.1</option>
@@ -207,6 +207,18 @@ financial advice. Built by a card and game studio — the same instruments run o
     base:     { '0x33128a8fc17869897dce68ed026d694621f6fdfd': 'uniswap-v3',
                 '0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a': 'aerodrome-slipstream' }
   };
+  /* ⚑ v4 KEEPS EVERY POOL INSIDE ONE SINGLETON, so there is no per-pool address to call and the
+     storage slots need keccak256 — which a page should not ship a hash implementation for. Uniswap
+     deploys StateView, a read-only wrapper that takes the POOL ID directly. Verified live on both
+     chains (3,531 bytes each) against real pools before being wired in. */
+  var STATEVIEW = { ethereum:'0x7fFE42C4a5DEeA5b0feC41C94C136Cf115597227',
+                    base:'0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71' };
+  /* ⛔ I WROTE BOTH OF THESE FROM MEMORY AND BOTH WERE WRONG — 0x0c11dedd and 0x9dcf5c86 against
+     the real 0xc815641c and 0xfa6793d5. This repo already records that exact failure once
+     ("writing the two selectors from memory got BOTH wrong"); this is the second time. A wrong
+     selector does not error — it hits the fallback or returns another function's data, and the
+     page renders a confident wrong number. Derived with toFunctionSelector, not recalled. */
+  var SV = { slot0:'0xc815641c', liq:'0xfa6793d5' };   // getSlot0(bytes32) · getLiquidity(bytes32)
   var SEL = { slot0:'0x3850c7bd', token0:'0x0dfe1681', token1:'0xd21220a7', fee:'0xddca3f43',
               spacing:'0xd0c93a7c', liq:'0x1a686502', factory:'0xc45a0155',
               bitmap:'0x5339c296', ticks:'0xf30dba93', dec:'0x313ce567', sym:'0x95d89b41' };
@@ -314,6 +326,89 @@ financial advice. Built by a card and game studio — the same instruments run o
   }
 
   var LN = Math.log(1.0001), sq = function (t) { return Math.pow(1.0001, t/2); };
+
+  /* v4: chain for the facts that decide safety, index ONLY for the pair's identity — and the page
+     says which is which rather than blending them. */
+  function runV4(id, chain, stake) {
+    var P = { pool:id, chain:chain, stake:stake, v4:true };
+    var sv = STATEVIEW[chain];
+    say('reading the singleton…');
+    return batch(chain, [{ to:sv, data:SV.slot0 + id.slice(2) },
+                         { to:sv, data:SV.liq   + id.slice(2) },
+                         { m:'eth_gasPrice' }])
+      .then(function (r) {
+        if (!r[0]) throw new Error('unread-v4');
+        var b = r[0].slice(2);
+        P.tick = i24(b.slice(64, 128));
+        /* ⛔ protocolFee IS TWO PACKED 12-BIT FIELDS, not a number. Both pools returned 4097000,
+           which is (1000 << 12) | 1000 — 0.10% each direction. Printing the packed word made it
+           look like a nonsense value AND left the protocol fee out of the toll entirely, so the
+           page UNDERSTATED the cost of every v4 pool. It is a real charge on top of lpFee. */
+        var pf = Number(BigInt('0x' + b.slice(128, 192)));
+        P.pf0 = pf & 0xfff; P.pf1 = (pf >> 12) & 0xfff;      // hundredths of a bip, per direction
+        P.fee = Number(BigInt('0x' + b.slice(192, 256)));       // lpFee, read from the chain
+        P.L0 = r[1] ? BigInt(r[1]) : 0n;
+        P.gas = Number(num(r[2])) / 1e9;
+        return fetch('https://api.dexscreener.com/latest/dex/pairs/' + chain + '/' + id,
+          { signal: AbortSignal.timeout(12000) }).then(function (x) { return x.json(); }).catch(function () { return null; });
+      })
+      .then(function (j) {
+        var pr = j && (j.pair || (j.pairs || [])[0]);
+        /* ⚠ the index does not know every v4 pool — it had never heard of $3030's own. Say
+           "not indexed" rather than printing "?", which reads like a failed read of the chain. */
+        P.sym = pr && pr.baseToken ? pr.baseToken.symbol : 'not indexed';
+        P.quote = pr && pr.quoteToken ? pr.quoteToken.symbol : 'not indexed';
+        P.unindexed = !pr;
+        P.liqUsd = pr && pr.liquidity ? Number(pr.liquidity.usd || 0) : null;
+        P.vol24 = pr && pr.volume ? Number(pr.volume.h24 || 0) : null;
+        renderV4(P); say('');
+      });
+  }
+
+  function renderV4(P) {
+    var cell = function (k, v, n, cls) {
+      return '<div class="cell"><div class="k">' + k + '</div><div class="v ' + (cls||'') + '">' + v +
+        '</div><div class="n">' + (n||'') + '</div></div>'; };
+    /* lpFee and protocolFee are both in hundredths of a bip. A round trip pays each ONCE per leg,
+       in opposite directions, so the protocol side is pf0 + pf1 rather than 2 × either. */
+    var feePct = P.fee / 5000, protoPct = (P.pf0 + P.pf1) / 10000;
+    var gasPct = (P.gas * 1e-9 * 510045) / P.stake * 100;
+    var toll = feePct + protoPct + gasPct;
+    $('facts').innerHTML =
+      cell('PAIR', P.unindexed ? 'not indexed' : P.sym + ' / ' + P.quote,
+        P.chain + ' · Uniswap v4 · ' + (P.unindexed ? 'no index entry — every number below is still read from the chain' : 'pair name from the index, everything else from the chain')) +
+      cell('POOL FEE', (P.fee / 10000).toFixed(3) + '%', 'lpFee' + ((P.pf0 || P.pf1) ? ' + protocol ' + (P.pf0/10000).toFixed(3) + '% / ' + (P.pf1/10000).toFixed(3) + '% per direction' : '') + ' · read from StateView') +
+      cell('ACTIVE LIQUIDITY', P.L0 === 0n ? 'ZERO' : String(P.L0).slice(0, 12) + '…',
+        P.L0 === 0n ? 'nothing is quoting AT this price — a trade jumps to the next initialized tick'
+                    : 'liquidity in range at the current tick', P.L0 === 0n ? 'no' : '') +
+      cell('INDEXED LIQUIDITY', P.liqUsd == null ? 'unknown' : '$' + Math.round(P.liqUsd).toLocaleString(),
+        P.vol24 == null ? 'index unavailable' : '$' + Math.round(P.vol24).toLocaleString() + ' 24h volume · index figure, not measured');
+    $('cost').innerHTML =
+      cell('TOTAL TOLL', toll.toFixed(3) + '%', 'on ' + P.stake + (P.unindexed ? '' : ' ' + P.quote) + ', round trip') +
+      cell('FEE HALF', (feePct + protoPct).toFixed(3) + '%', 'lp ' + feePct.toFixed(3) + '% + protocol ' + protoPct.toFixed(3) + '%, both legs') +
+      cell('GAS HALF', gasPct.toFixed(3) + '%', P.gas.toFixed(4) + ' gwei · fixed per trade') +
+      cell('DEPTH CURVE', 'not read', 'v4 needs the PoolKey for tick spacing — see the note below', 'mid');
+    $('ladder').querySelector('tbody').innerHTML =
+      '<tr><td colspan="5" class="mut">v4 fill ladder needs the pool\'s tickSpacing, which lives in the PoolKey rather than in state. Not read — so not shown.</td></tr>';
+    $('depth').querySelector('tbody').innerHTML =
+      '<tr><td colspan="3" class="mut">same reason. `npm run resting` reads the v4 book from a terminal today.</td></tr>';
+    var v = $('verdict'), big = $('vbig'), why = $('vwhy');
+    if (P.L0 === 0n) {
+      v.className = 'verdict bad on'; big.textContent = '⛔ NO LIQUIDITY AT THE CURRENT PRICE';
+      why.innerHTML = 'Active liquidity is <b>zero</b> at tick ' + P.tick + '. Nothing is quoting here, so any trade ' +
+        'skips to the next initialized tick and fills at a price that has nothing to do with the one displayed. ' +
+        'The fee alone is <b>' + (P.fee/10000).toFixed(3) + '%</b> per leg.';
+    } else if (toll > 1) {
+      v.className = 'verdict warn on'; big.textContent = '⚠ EXPENSIVE — ' + toll.toFixed(2) + '% ROUND TRIP';
+      why.innerHTML = 'The price must move more than <b>' + toll.toFixed(2) + '%</b> in your favour to break even. ' +
+        '⚠ v4 pools can carry a HOOK that takes a further cut outside the pool fee — this page has not read it.';
+    } else {
+      v.className = 'verdict good on'; big.textContent = '✓ ' + toll.toFixed(3) + '% ROUND TRIP';
+      why.innerHTML = 'Fee and liquidity read from the chain. ⚠ v4 pools can carry a HOOK that takes a further ' +
+        'cut outside the pool fee, and this page has not read it — treat this as a floor on the cost, not the total.';
+    }
+    $('out').className = 'on';
+  }
 
   function run(pool, chain, stakeEth) {
     $('out').className = ''; $('verdict').className = 'verdict';
@@ -497,7 +592,7 @@ financial advice. Built by a card and game studio — the same instruments run o
                  : '⚠ did not close — ' + (P.fails ? P.fails + ' reads failed' : 'ticks may be missing'));
 
     $('cost').innerHTML =
-      cell('TOTAL TOLL', toll.toFixed(3) + '%', 'on ' + P.stake + ' ' + P.quote + ', round trip') +
+      cell('TOTAL TOLL', toll.toFixed(3) + '%', 'on ' + P.stake + (P.unindexed ? '' : ' ' + P.quote) + ', round trip') +
       cell('FEE HALF', feePct.toFixed(3) + '%', 'two legs at ' + (P.fee/10000).toFixed(3) + '%') +
       cell('GAS HALF', gasPct.toFixed(3) + '%', P.gas.toFixed(4) + ' gwei · fixed per trade, so it shrinks with size') +
       cell('REAL ROUND TRIP', rt == null ? 'unfillable' : rt.toFixed(3) + '%', 'buy then sell straight back, measured', rt == null ? 'no' : (rt > -1 ? '' : 'no'));
@@ -549,7 +644,8 @@ financial advice. Built by a card and game studio — the same instruments run o
     var v = $('verdict'); v.className = 'verdict bad on';
     $('vbig').textContent = '⛔ COULD NOT READ THIS POOL';
     $('vwhy').innerHTML =
-      m === 'unread' ? 'Every read came back empty, so the endpoints refused us — <b>this says nothing about the pool.</b> Free RPCs rate-limit hard. Wait a moment and press CHECK again.'
+      m === 'unread-v4' ? 'StateView returned nothing for this id on this chain. Either the id is from the other chain, or the endpoint refused the read — <b>this says nothing about the pool.</b>'
+      : m === 'unread' ? 'Every read came back empty, so the endpoints refused us — <b>this says nothing about the pool.</b> Free RPCs rate-limit hard. Wait a moment and press CHECK again.'
       : m === 'not-v3' ? 'It does not answer <code>slot0()</code>, so it is not a Uniswap v3-shaped pool. v2 pairs and v4 pools are not readable here — v4 lives inside a singleton and a hook can change the fee or refuse the trade outright.'
       : m === 'no-quote' ? 'Neither side of this pool is a quote asset this page knows (WETH, USDC, USDT). Bid and ask are defined <i>relative to the quote</i>, so without one the book cannot be labelled — and printing it the wrong way up would be worse than printing nothing.'
       : m === 'empty' ? 'The bitmap came back with no initialized ticks. Either the pool has never had liquidity, or the endpoint refused the reads.'
@@ -560,9 +656,10 @@ financial advice. Built by a card and game studio — the same instruments run o
   $('f').addEventListener('submit', function (e) {
     e.preventDefault();
     var a = $('addr').value.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { $('addr').focus(); say('that is not a 40-hex address'); return; }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x[0-9a-fA-F]{64}$/.test(a)) {
+      $('addr').focus(); say('paste a 40-hex v3 pool address or a 64-hex v4 pool id'); return; }
     $('go').disabled = true; $('out').className = ''; $('verdict').className = 'verdict';
-    run(a, $('chain').value, parseFloat($('size').value))
+    (a.length === 66 ? runV4 : run)(a, $('chain').value, parseFloat($('size').value))
       .catch(fail)
       .then(function () { $('go').disabled = false; });
   });
