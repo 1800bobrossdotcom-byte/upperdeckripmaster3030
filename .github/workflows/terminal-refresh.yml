@@ -17,8 +17,12 @@
 #    lands as a Preview, which is how this repo once ran ten commits and twenty-nine hours ahead of
 #    the live site with every signal saying success.
 #
-# ⚠ It commits ONLY when the data actually changed, so a quiet market does not fill the history
-#   with empty commits — the same rule the hunt ledger was split for.
+# ⚠ It commits ONLY when the data actually changed. ⛔ THAT RULE NOW BITES MUCH LESS THAN ITS
+#   COMMENT IMPLIES, and saying so beats leaving a note that describes yesterday: it was written
+#   when the only artefact was the pool screen, which really can be identical across a quiet hour.
+#   The substrate re-derives over new blocks every run, so in practice this commits hourly. The
+#   check is kept because it still catches a run that measured nothing at all — but do not read
+#   "commits only on change" as "the history stays sparse".
 name: terminal refresh
 
 on:
@@ -68,6 +72,18 @@ jobs:
         id: clock
         run: echo "daily=$([ "$(date -u +%H)" = "03" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+      # ⛔ THE SUBSTRATE DERIVATION WAS ON NO SCHEDULE EITHER, AND IT IS THE SAME DEFECT THIS FILE
+      #    WAS WRITTEN FOR, ONE FILE OVER. `substrate.html` prints its own age and goes amber then
+      #    red — honest, and honest is not fresh. `/api/3030` was serving `ageSeconds: 11535`
+      #    (3.2 hours) while the page underneath it correctly narrated the decay. Nothing refreshed
+      #    it because `npm run substrate` was only ever run by hand.
+      # ⚑ IT COSTS 10 SECONDS. Measured, not estimated — the same discovery as the six-hour cadence
+      #    above, where the caution was invented and then paid for on the one surface that shows.
+      # ⚠ It runs FIRST because it is the cheap one: if the pool screen fails, the substrate has
+      #    already been re-derived and the commit step still has something true to publish.
+      - name: re-derive the substrate
+        run: node scripts/substrate.mjs
+
       - name: measure the pool screen
         run: node scripts/terminal.mjs
         # ⚠ Deliberately NOT `continue-on-error`. A failed measurement must leave the previous
@@ -90,7 +106,7 @@ jobs:
         run: |
           git config user.name  "ripmaster3030 terminal"
           git config user.email "noreply@ripmaster3030studios.com"
-          git add data/terminal.json data/edge-ethereum.json data/edge-base.json 2>/dev/null || true
+          git add data/terminal.json data/substrate.json data/edge-ethereum.json data/edge-base.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "no change — the market was quiet or the read matched. Not committing."
             exit 0
@@ -106,12 +122,23 @@ jobs:
             sleep $((2 ** i))
           done
 
+      # ⛔ IT CHECKS BOTH FILES, because a guard that watches one of two artefacts is how the second
+      #    one rots — this workflow existed for three days measuring only the pool screen while the
+      #    substrate aged past three hours beside it. "Checking one of N is how the other N−1 rot
+      #    back in" is this repo's most frequently paid bill.
       - name: say what it published
         run: |
           node -e "
+            const mins = (t) => (Date.now() - new Date(t)) / 60000;
+            let bad = [];
             const d = require('./data/terminal.json');
-            const age = (Date.now() - new Date(d.measuredAt)) / 60000;
-            console.log('measuredAt', d.measuredAt, '| block', d.block, '|', (d.board||[]).length, 'pools |',
+            console.log('terminal  ', d.measuredAt, '| block', d.block, '|', (d.board||[]).length, 'pools |',
               (d.board||[]).filter(r => r.tradeable).length, 'clearing the bar');
-            if (age > 30) { console.error('⛔ the file this run produced is already ' + age.toFixed(0) + ' minutes old'); process.exit(1); }
+            if (mins(d.measuredAt) > 30) bad.push('terminal.json is ' + mins(d.measuredAt).toFixed(0) + ' minutes old');
+            const s = require('./data/substrate.json');
+            const head = (s.blocks||[])[(s.blocks||[]).length-1];
+            console.log('substrate ', s.derivedAt, '| height', head ? head.height : '?', '|',
+              (s.blocks||[]).length, 'sheets |', (s.totals||{}).bytes, 'bytes typed');
+            if (mins(s.derivedAt) > 30) bad.push('substrate.json is ' + mins(s.derivedAt).toFixed(0) + ' minutes old');
+            if (bad.length) { console.error('⛔ ' + bad.join('; ')); process.exit(1); }
           "

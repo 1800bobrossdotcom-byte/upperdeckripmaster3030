@@ -23,7 +23,20 @@ console.log('\n── the head ──');
 let h=await call({});
 ok(h.code===200,'200');
 ok(h.body.protocol&&h.body.layer==='00',`protocol ${h.body.protocol} layer ${h.body.layer}`);
-ok(typeof h.body.height==='number'&&h.body.height>0,`height ${h.body.height}`);
+ok(typeof h.body.height==='number'&&h.body.height>=0,`height ${h.body.height}`);
+/* ⛔ THE ASSERTION THAT WAS MISSING, AND THE MOST OBVIOUS CALL ANYBODY MAKES: read `height` off
+ *   the head and ask for that block. It 404'd in production — `height` was `blocks.length` (6)
+ *   while blocks number from 0, so the head was at 5 and the API contradicted itself in the same
+ *   breath, answering with `available: {from:0, to:5}`. A COUNT AND AN INDEX ARE DIFFERENT
+ *   NUMBERS, and every existing assertion passed throughout because each tested one field in
+ *   isolation. The bug only exists in the RELATIONSHIP between two of them. */
+{
+  const round = await call({ height: String(h.body.height) });
+  ok(round.code===200 && round.body.block && round.body.block.hash===h.body.head,
+    `⛔ THE HEAD'S OWN height ROUND-TRIPS: GET ?height=${h.body.height} returns the head block`);
+  ok(h.body.blockCount === h.body.height + 1,
+    `a count and an index are different numbers, and both are served: ${h.body.blockCount} blocks, head at height ${h.body.height}`);
+}
 ok(/^[0-9a-f]{64}$/.test(h.body.genesis||''),'genesis is a sha256');
 ok(/^[0-9a-f]{64}$/.test(h.body.head||''),'head is a sha256');
 ok(h.body.ageSeconds!=null,`states its own age: ${h.body.ageSeconds}s — a caller cannot ask a JSON file how old it is`);
@@ -70,7 +83,10 @@ console.log('\n── ⛔ SABOTAGE · can verify catch a lie? ──');
 console.log('\n── stream ──');
 let s=await call({format:'ndjson'});
 const lines=String(s.body).trim().split('\n');
-ok(lines.length===h.body.height,`ndjson is one block per line (${lines.length})`);
+/* ⚠ THIS ASSERTION WAS PASSING BECAUSE OF THE BUG. It compared a line COUNT against `height`, and
+ *   it only held while `height` was secretly the count. Wrong semantics do not stay in one place —
+ *   they get read by the next thing written, which then looks like corroboration. */
+ok(lines.length===h.body.blockCount,`ndjson is one block per line (${lines.length})`);
 ok(JSON.parse(lines[0]).preimage,'…each line carries its own preimage');
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail?1:0);

@@ -144,7 +144,19 @@ export default async function handler(req, res) {
     protocolRecord: c.protocol || PROTOCOL,
     version: c.version, layer: (c.protocol && c.protocol.layer) || '00',
     genesis: c.genesis || GENESIS,
-    height: blocks.length,
+    /* ⛔ `height` WAS `blocks.length` AND THAT MADE THE MOST OBVIOUS CALL AGAINST THIS API FAIL.
+     *   Blocks are numbered from 0, so a six-block chain has a head at height 5 — the API said
+     *   `height: 6`, and `GET ?height=6`, which is what anybody does next, returned 404 with a
+     *   `available: {from:0, to:5}` that reads like the server contradicting itself. The deriver
+     *   had been printing `height 5` for the same chain the whole time.
+     * ⚑ A COUNT AND AN INDEX ARE DIFFERENT NUMBERS and calling both "height" is how one of them
+     *   ends up wrong. Height is the head's own number, the one `?height=` takes; the count gets
+     *   its own field and its own name.
+     * ⚠ `blockCount`, NOT `blocks` — the default response already carries `blocks` as the ARRAY,
+     *   so a count under that key would be the same field meaning two things depending on which
+     *   endpoint you called. That is the bug above wearing a different hat. */
+    height: head ? head.height : null,
+    blockCount: blocks.length,
     head: head ? head.hash : null,
     /* ⚠ state the age in the payload. A caller cannot ask a JSON file how old it is. */
     derivedAt: c.derivedAt || null, ageSeconds: ageSec,
