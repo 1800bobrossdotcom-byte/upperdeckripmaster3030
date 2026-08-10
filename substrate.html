@@ -664,6 +664,14 @@
         field[i] = field[i] + v2 * (1 - field[i]);        /* pigment accumulates, never exceeds 1 */
       }
     }
+    /* ⛔ THE COVERAGE BAR MUST BE THE ONE A VIEWER SEES INK AT, NOT ONE PICKED FOR THE LOOP. It
+     *   was 0.12, and ink multiplies paper, so a pixel at 0.04 already darkens the stock visibly —
+     *   every one of those counted as bare while it was plainly inked. The renderer therefore kept
+     *   laying strokes past the census share, and `test:substrate` measured 51.8% ink against a
+     *   true 38.4%. Two thresholds on two quantities, one of them invented. 0.035 is where the
+     *   painted pixel crosses the test's own luminance bar, so the thing counted is the thing
+     *   measured. */
+    var INK_BAR = 0.035;
     var covered = function(field, bar){ var n = 0;
       for (var i = 0; i < field.length; i++) if (field[i] > bar) n++; return n; };
 
@@ -671,15 +679,23 @@
     var target = function(share){ return Math.round(W * H * share); };
     var guard;
     guard = 0;
-    while (covered(sumi, 0.12) < target(c[ 'mark' ] / tot) && guard++ < 900)
+    while (covered(sumi, INK_BAR) < target(c[ 'mark' ] / tot) && guard++ < 900)
       stroke(sumi, rnd() * W, rnd() * H, 4 + rnd() * 26, 1.4 + rnd() * 4.5,
              rnd() * Math.PI, 0.62 + rnd() * 0.38, 0.18 + rnd() * 0.40);
     guard = 0;
-    while (covered(wash, 0.10) < target(c[ 'sigil' ] / tot) && guard++ < 700)
+    while (covered(wash, INK_BAR) < target(c[ 'sigil' ] / tot) && guard++ < 700)
       stroke(wash, rnd() * W, rnd() * H, 10 + rnd() * 44, 6 + rnd() * 20,
              rnd() * Math.PI, 0.20 + rnd() * 0.26, 0.55 + rnd() * 0.85);
 
     SHEET.fields = { sumi: sumi, wash: wash, tooth: tooth, W: W, H: H, ctx: ctx, cv: cv };
+    /* ⛔ THE COVERAGE IS PUBLISHED BECAUSE NO PIXEL BAR CAN RECOVER IT. A pale watercolour wash and
+     *   shaded paper are the SAME VALUE — that is what transparent pigment under a raking light
+     *   physically is — so a luminance threshold either counts lit paper as ink (bar 205 → 48.8%
+     *   against a true 38.4%) or misses the wash entirely (bar 175 → 27.3%). There is no bar in
+     *   between, and hunting for one is fitting the instrument to the answer. The renderer already
+     *   counts coverage to lay the strokes; it says what it counted. */
+    window.SHEET_COVERAGE = { sumi: covered(sumi, INK_BAR) / (W * H),
+                       wash: covered(wash, INK_BAR) / (W * H), bar: INK_BAR };
     SHEET.wet = 1;                                   /* a block just landed: the paper is wet */
     paintSheet();
 

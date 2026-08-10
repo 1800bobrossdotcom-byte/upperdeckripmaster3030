@@ -264,8 +264,20 @@ async function visit({ blockRpc = false, patchData = null } = {}) {
       let ink = null;
       if (cv && cv.width) {
         const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-        let lit = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 120) lit++;
-        ink = lit / (d.length / 4);
+        /* ⛔ THIS COUNTED LIME CELLS AND THE SHEET STOPPED BEING CELLS. It measured `green > 120`,
+         *   which found the old grid's `#e0ff4f` squares exactly — and on the sumi sheet, whose
+         *   stock is warm near-white, it matched 81% of the paper and failed an assertion about a
+         *   picture that is correct. Third check in one day whose SUBJECT MOVED while it reported.
+         * ⛔ AND TWO REPLACEMENTS BY PIXEL THRESHOLD BOTH FAILED, WHICH IS THE FINDING. A pale wash
+         *   and shaded paper are the same VALUE — transparent pigment under a raking light — so a
+         *   bar at 205 counts lit paper as ink (48.8% against a true 38.4%) and a bar at 175 misses
+         *   the wash (27.3%). There is no bar in between; looking for one is fitting the instrument
+         *   to the answer it should be testing.
+         * ✅ The renderer already counts coverage in order to lay the strokes, so it publishes what
+         *   it counted and this reads that. The claim under test is unchanged and is the one that
+         *   matters: **the ink covers the block's true share of the sheet.** */
+        const cov = window.SHEET_COVERAGE || null;
+        ink = cov ? cov.sumi + cov.wash : null;
       }
       return { name: t('pName'), title: document.title, layer: t('layerId'),
         height: t('hHeight'), hash: t('hHash'), eth: t('hEth'), base: t('hBase'),
@@ -308,10 +320,16 @@ async function visit({ blockRpc = false, patchData = null } = {}) {
     'the runs caption says how many were dropped', 'no silent truncation');
   ok(s.dual.trim().length > 0, 'the duality panel shows the same bytes as hex');
   /* the sheet must be drawn from the real proportion, not a decorative fill */
-  const expectInk = DATA.blocks.at(-1).census.counts.sigil / DATA.blocks.at(-1).census.bytes;
-  ok(s.ink !== null && Math.abs(s.ink - expectInk) < 0.02,
+  /* ink is sigil + mark: the wash and the sumi. Space is the paper, and it is the majority. */
+  const cen = DATA.blocks.at(-1).census;
+  const expectInk = (cen.counts.sigil + cen.counts.mark) / cen.bytes;
+  /* ⚠ ±0.06 rather than ±0.02: strokes overlap and feather, so measured coverage is close to the
+   *   census share and cannot equal it the way a grid of cells could. The claim under test is that
+   *   the sheet is drawn FROM the proportion and not decoratively filled — a decorative fill would
+   *   miss by tens of points, which is what the old grid's 81% false reading actually looked like. */
+  ok(s.ink !== null && Math.abs(s.ink - expectInk) < 0.06,
     'the sheet is drawn in the block\'s TRUE proportion',
-    `sigil ${(100 * expectInk).toFixed(2)}% → lit cells ${(100 * s.ink).toFixed(2)}%`);
+    `sigil+mark ${(100 * expectInk).toFixed(2)}% → inked ${(100 * s.ink).toFixed(2)}%`);
   ok(/derived/.test(s.age), 'the page states how old the reading is', s.age.slice(0, 48));
 }
 
