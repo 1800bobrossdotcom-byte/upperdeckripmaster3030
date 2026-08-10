@@ -49,7 +49,12 @@ const ANSWERS = [...(RAIL_SRC.match(/var ANSWER_OF = \{([^}]*)\}/) || [,''])[1]
 const SURFACES = [...DOORS.map(d => d.file), ...ANSWERS.map(a => a.file)];
 
 console.log('\n── A · the module is the list ──');
-ok(DOORS.length >= 5, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
+/* ⚠ FOUR SINCE PLATE WAS RETIRED (2026-08-10). The floor is a guard against the rail silently
+ *   emptying, not a target — it was 5 and is 4 because `sheet.html` was removed on purpose, not
+ *   lost. Every remaining door answers a question a visitor actually has; PLATE asked them to
+ *   compose 256 bytes it could not press. ⛔ Do not raise this back to 5 to "fix" a red bar —
+ *   that is how a retired surface gets resurrected by a test nobody re-read. */
+ok(DOORS.length >= 4, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
 ok(ANSWERS.length >= 2, `and ${ANSWERS.length} answers that belong to a door`,
   ANSWERS.map(a => a.file + '→' + a.owner).join(' · '));
 

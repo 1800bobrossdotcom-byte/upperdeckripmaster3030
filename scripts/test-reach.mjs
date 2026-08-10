@@ -488,7 +488,6 @@ const ORPHAN_OK = {
    *   does not exist, because the decision it turns on (page or chart?) is not settleable on a
    *   screen. Linking it now would put a door on a room with no floor.
    * ⛔ SAME TERMS: it gets linked when there is something to press, or it goes with the idea. */
-  'sheet.html': 'SET A PLATE — composes only; unlinked until there is a press to link it to',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',

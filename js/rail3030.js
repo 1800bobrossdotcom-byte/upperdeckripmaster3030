@@ -50,9 +50,17 @@
     { file: 'check.html',      label: 'CHECK',     sub: 'know before you sign' },
     { file: 'worldcomputerhyperterminal.html', label: 'TERMINAL', sub: 'what a market costs now' },
     { file: 'toll.html',       label: 'TOLL',      sub: 'the game' },
-    { file: 'substrate.html',  label: 'SUBSTRATE', sub: 'eth + base as one surface' },
-    { file: 'sheet.html',      label: 'PLATE',     sub: 'the composing frame' }
+    { file: 'substrate.html',  label: 'SUBSTRATE', sub: 'eth + base as one surface' }
   ];
+  /* ⛔ PLATE IS RETIRED (2026-08-10). `sheet.html` was a composing frame: you typed 256 bytes into
+   *   8 lines of 32 cells and it could not press them, because the press contract does not exist.
+   *   Its own header said it existed to settle ONE question — "does the plate read as a page or as
+   *   a chart?" — and SUBSTRATE now answers it by setting a real Ethereum block on the same 32-byte
+   *   measure, every cell a real byte. The experiment concluded; the answer shipped into the door
+   *   next to it. ⚑ Every other door here answers a question a visitor actually has; this one asked
+   *   them to compose bytes they could never send, which is the "menu, not a tool" failure CHECK's
+   *   own copy is about. The URL still resolves — it redirects to SUBSTRATE — because a shared link
+   *   should keep working. */
   /* ⚠ `3030.html` and `poolcheck.html` are ANSWERS, not doors — CHECK routes to them once it knows
    *   what you pasted. They are marked as belonging to CHECK rather than given a slot of their own,
    *   because a menu listing every internal destination is the "menu, not a tool" failure CHECK's
