@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="mobile.css">
 <script src="/gate.js"></script>
 <script src="/js/rail3030.js"></script>
+<script src="/js/poolfind.js"></script>
 
 <!--
   ══ POOL CHECK ════════════════════════════════════════════════════════════════════════════
@@ -104,6 +105,19 @@
   .note.hard{border-left-color:var(--bad)}
   .note.key{border-left-color:var(--hot)}
   #out{display:none} #out.on{display:block}
+  /* the pool picker — the answer to arriving with a token name instead of a pool address */
+  .found{margin:14px 0 0;border:1px solid var(--line);border-radius:2px;background:var(--panel)}
+  .fh{font-size:var(--t-micro,12px);color:var(--dim);padding:11px 13px;border-bottom:1px solid var(--line);
+    line-height:1.6}
+  .frows{display:flex;flex-wrap:wrap;gap:0}
+  /* ⚠ 44px ON BOTH AXES — a thumb is round, and this is the control a visitor reaches for first. */
+  .fr{display:flex;gap:11px;align-items:center;min-height:46px;padding:8px 13px;flex:1 1 260px;
+    background:none;border:0;border-top:1px solid var(--line);color:var(--ink);cursor:pointer;
+    font-family:var(--mono);text-align:left;font-size:var(--t-micro,12px)}
+  .fr:hover,.fr:focus{background:rgba(224,255,79,.06);outline:none}
+  .fr .ff{color:var(--hot);min-width:44px}
+  .fr .fq{color:var(--ink)}
+  .fr .fa{color:var(--dim);opacity:.75;margin-left:auto}
   .stat{color:var(--dim);font-size:13px;min-height:22px;margin:0 0 18px;letter-spacing:.03em}
   .stat b{color:var(--hot)}
   footer{margin-top:54px;padding-top:20px;border-top:1px solid var(--line);color:var(--dim);
@@ -124,7 +138,7 @@
 </header>
 
 <form id="f" autocomplete="off">
-  <input id="addr" placeholder="0x… v3 pool address or v4 pool id" spellcheck="false" aria-label="pool address">
+  <input id="addr" placeholder="a token name, a token address, or a pool" spellcheck="false" aria-label="token or pool">
   <select id="chain" aria-label="chain"><option value="ethereum">ethereum</option><option value="base">base</option></select>
   <select id="size" aria-label="trade size">
     <option value="0.01">0.01</option><option value="0.1" selected>0.1</option>
@@ -135,9 +149,19 @@
 </form>
 <div class="egs">
   <span id="unit">size is in the pool's quote asset</span> · try:
-  <a href="#" data-p="0x11950d141EcB863F01007AdD7D1A342041227b58" data-c="ethereum">PEPE/WETH 0.3%</a> ·
-  <a href="#" data-p="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" data-c="ethereum">USDC/WETH 0.05%</a> ·
-  <a href="#" data-p="0xfaa318479b7755b2dbfdd34dc306cb28b420ad12" data-c="ethereum">UNI/WETH 0.05%</a>
+  <a href="#" data-p="pepe" data-c="ethereum">pepe</a> ·
+  <a href="#" data-p="wbtc" data-c="ethereum">wbtc</a> ·
+  <a href="#" data-p="link" data-c="ethereum">link</a> ·
+  <a href="#" data-p="usdc" data-c="base">usdc on base</a>
+</div>
+
+<!-- ⛔ THE PICKER IS THE PRODUCT CHANGE. Asking for a pool address made the tool depend on the
+     visitor already having done the search it exists to replace — the artist's words: "copy pasting
+     pool addresses that no one knows off hand or how to search for." The factory knows every pool
+     for a token, so the tool asks it. -->
+<div class="found" id="found" hidden>
+  <div class="fh" id="foundHead"></div>
+  <div class="frows" id="foundRows"></div>
 </div>
 
 <div class="stat" id="stat"></div>
@@ -225,6 +249,11 @@ financial advice. Built by a card and game studio — the same instruments run o
               bitmap:'0x5339c296', ticks:'0xf30dba93', dec:'0x313ce567', sym:'0x95d89b41' };
 
   var say = function (t) { $('stat').innerHTML = t; };
+  /* ⚠ THE LABEL IS WHATEVER WAS TYPED and it is written with innerHTML — a token "name" is user
+     input, so it is escaped at every use. This page takes a string from a stranger and prints it
+     back, which is the one shape that turns a lookup into a script injection. */
+  var esc = function (t) { return String(t).replace(/[<>&"]/g, function (c) {
+    return ({ '<':'&lt;', '>':'&gt;', '&':'&amp;', '"':'&quot;' })[c]; }); };
   function hex(n, bits) {                       // two's complement, 32-byte word
     var v = BigInt(n); if (v < 0n) v += (1n << BigInt(bits || 256));
     return v.toString(16).padStart(64, '0');
@@ -654,14 +683,95 @@ financial advice. Built by a card and game studio — the same instruments run o
     say('');
   }
 
+  /* ── FINDING THE POOLS FOR A TOKEN ────────────────────────────────────────────────────────
+     ⛔ THE OLD HANDLER REFUSED ANYTHING THAT WAS NOT ALREADY A POOL — "paste a 40-hex v3 pool
+        address or a 64-hex v4 pool id" — which is the tool demanding that the visitor has already
+        done the search it exists to do. `js/poolfind.js` asks the v3 factory instead.
+     ⚠ A 40-hex string is ambiguous and must be RESOLVED, NOT ASSUMED: `slot0()` answering means a
+       pool, and anything else is treated as a token. Guessing wrong in the pool direction gives a
+       decode error on a token; guessing wrong the other way silently searches for pools that pair
+       a pool with WETH. */
+  function poolsFor(token, chain) {
+    var F = window.PoolFind;
+    return F.find(token, chain, function (to, data) {
+      return rpc1(chain, { jsonrpc:'2.0', id:1, method:'eth_call', params:[{ to:to, data:data }, 'latest'] });
+    });
+  }
+
+  function showFound(label, chain, res) {
+    var rows = $('foundRows'); rows.innerHTML = '';
+    if (!res.pools.length) {
+      /* ⛔ "NO POOLS" IS A CLAIM ABOUT A MARKET AND MUST NOT BE OVERSTATED. This looked at Uniswap
+         v3 only — our own $3030 trades on v4 and would report zero here — so it says what it
+         looked at. A tool that says "no market" when it means "not in the place I looked" is the
+         reassuring-wrong-answer this project keeps paying for. */
+      $('foundHead').innerHTML = 'No Uniswap <b>v3</b> pools for ' + esc(label) + ' on ' + chain +
+        ' — that is what was looked at, not a statement that it has no market. It may trade on v4, ' +
+        'on another chain, or somewhere with no pool at all. Paste a v4 pool id if you have one.';
+      $('found').hidden = false; return;
+    }
+    $('foundHead').innerHTML = '<b>' + res.pools.length + '</b> pool' + (res.pools.length > 1 ? 's' : '') +
+      ' for ' + esc(label) + ' on ' + chain + ' · asked the Uniswap v3 factory directly, no index · ' +
+      'pick one and it is read at this block';
+    res.pools.forEach(function (p) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'fr';
+      b.innerHTML = '<span class="ff">' + p.feePct + '%</span>' +
+        '<span class="fq">vs ' + esc(p.quote) + '</span>' +
+        '<span class="fa">' + p.pool.slice(0, 10) + '…' + p.pool.slice(-4) + '</span>';
+      b.addEventListener('click', function () {
+        $('addr').value = p.pool;
+        $('go').disabled = true; $('out').className = ''; $('verdict').className = 'verdict';
+        run(p.pool, chain, parseFloat($('size').value)).catch(fail)
+          .then(function () { $('go').disabled = false; });
+      });
+      rows.appendChild(b);
+    });
+    $('found').hidden = false;
+  }
+
   $('f').addEventListener('submit', function (e) {
     e.preventDefault();
-    var a = $('addr').value.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x[0-9a-fA-F]{64}$/.test(a)) {
-      $('addr').focus(); say('paste a 40-hex v3 pool address or a 64-hex v4 pool id'); return; }
-    $('go').disabled = true; $('out').className = ''; $('verdict').className = 'verdict';
-    (a.length === 66 ? runV4 : run)(a, $('chain').value, parseFloat($('size').value))
-      .catch(fail)
+    var a = $('addr').value.trim(), chain = $('chain').value;
+    $('found').hidden = true;
+    if (!a) { $('addr').focus(); say('type a token name, a token address, or a pool'); return; }
+
+    /* a v4 pool id is unambiguous */
+    if (/^0x[0-9a-fA-F]{64}$/.test(a)) {
+      $('go').disabled = true; $('out').className = ''; $('verdict').className = 'verdict';
+      return void runV4(a, chain, parseFloat($('size').value)).catch(fail)
+        .then(function () { $('go').disabled = false; });
+    }
+
+    var F = window.PoolFind, r = F && F.resolve(a, chain);
+    if (!r) {
+      say('“' + a + '” is not an address and is not a name this page knows — paste a token address');
+      $('addr').focus(); return;
+    }
+
+    $('go').disabled = true;
+    if (!F.isAddr(a)) {                                   /* a NAME can only mean a token */
+      say('finding the pools for ' + a + '…');
+      return void poolsFor(r.addr, chain).then(function (res) { say(''); showFound(a, chain, res); })
+        .catch(function () { fail(new Error('rpc')); })
+        .then(function () { $('go').disabled = false; });
+    }
+
+    /* 40 hex: ask the chain which it is rather than guessing */
+    say('reading the chain…');
+    rpc1(chain, { jsonrpc:'2.0', id:1, method:'eth_call',
+                  params:[{ to:a, data:'0x3850c7bd' }, 'latest'] })          /* slot0() */
+      .then(function (hex) {
+        if (hex && hex !== '0x' && hex.length > 66) {                        /* it is a pool */
+          say(''); $('out').className = ''; $('verdict').className = 'verdict';
+          return run(a, chain, parseFloat($('size').value)).catch(fail);
+        }
+        throw new Error('not a pool');
+      })
+      .catch(function () {
+        return poolsFor(a, chain).then(function (res) { say(''); showFound(a, chain, res); })
+          .catch(function () { fail(new Error('rpc')); });
+      })
       .then(function () { $('go').disabled = false; });
   });
   Array.prototype.forEach.call(document.querySelectorAll('.egs a'), function (el) {
