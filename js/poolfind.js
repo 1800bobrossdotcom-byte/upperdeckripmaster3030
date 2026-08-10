@@ -137,8 +137,79 @@
     });
   }
 
+  /* ── THE LONG TAIL ────────────────────────────────────────────────────────────────────────
+     ⛔ THE REGISTRY WAS NEVER GOING TO BE ENOUGH. Artist: *"not pulling up token names like fwa
+        mog etc"* — and thirteen hand-verified rows cannot cover a chain where a new token is
+        deployed every minute. A longer hand-maintained list is the failure this repo pays for
+        most often, so the answer is not more rows.
+
+     ⛔ AND THERE IS NO ON-CHAIN ANSWER TO "WHAT IS MOG". `symbol()` reads forwards from an
+        address; nothing reverses it, because a symbol is not unique and was never meant to be an
+        identifier. Name resolution REQUIRES an index — the honest move is to use one only for the
+        part that cannot be derived, and to keep everything downstream on-chain.
+
+     ⛔ SO IT RETURNS CANDIDATES AND NEVER PICKS. Searching `fwa` finds THREE tokens of that name
+        on Ethereum alone — $1,103,847, $30,538 and $0 of liquidity. Auto-resolving a name to one
+        address is exactly the impostor trap `index.html` already warns about in its own contract
+        block: *"a token search by name returns impostors; the address is the only unambiguous
+        answer."* Every candidate is shown with its address and its depth, and a person chooses.
+     ⚠ Sorted by liquidity because that is the one signal that separates the real one from the
+        copies — but it is DISPLAYED, never applied as a filter. Hiding the $0 FWA would hide the
+        very thing that makes the choice legible. */
+  function search(query, getJson) {
+    var q = String(query || '').trim().replace(/^\$/, '');
+    if (!q) return Promise.resolve([]);
+    var url = 'https://api.dexscreener.com/latest/dex/search?q=' + encodeURIComponent(q);
+    return getJson(url).then(function (j) {
+      var pairs = (j && j.pairs) || [], by = {}, i, p, k, c;
+      for (i = 0; i < pairs.length; i++) {
+        p = pairs[i];
+        if (!p || !p.baseToken || !p.baseToken.address) continue;
+        var chain = p.chainId === 'ethereum' ? 'ethereum' : (p.chainId === 'base' ? 'base' : null);
+        if (!chain) continue;                       /* only chains this tool can actually read */
+        k = chain + ':' + p.baseToken.address.toLowerCase();
+        c = by[k] || (by[k] = { chain: chain, addr: p.baseToken.address,
+              sym: p.baseToken.symbol || '?', name: p.baseToken.name || '', liq: 0, pairs: 0 });
+        c.liq += (p.liquidity && p.liquidity.usd) || 0;
+        c.pairs++;
+      }
+      var out = [];
+      for (k in by) if (Object.prototype.hasOwnProperty.call(by, k)) out.push(by[k]);
+      /* ⚠ AN EXACT SYMBOL MATCH RANKS ABOVE A SUBSTRING ONE. Searching "mog" should not put
+         "MOGCOIN" above "MOG" merely because it is deeper. */
+      var ql = q.toLowerCase();
+      out.sort(function (a, b) {
+        var ax = a.sym.toLowerCase() === ql ? 1 : 0, bx = b.sym.toLowerCase() === ql ? 1 : 0;
+        return (bx - ax) || (b.liq - a.liq);
+      });
+      return out.slice(0, 8);
+    }).catch(function () { return []; });          /* the index being down is not a fact about a token */
+  }
+
+  /* ⛔ WHATEVER THE INDEX SAID, THE CHAIN IS ASKED BEFORE ANYTHING IS READ. One `symbol()` call
+     confirms the address really is the thing that was searched for, so a bad or stale index row
+     can never put a stranger in front of pools for a token they did not ask about. This is the
+     line between "an index told us" and "we checked". */
+  function confirmSymbol(addr, call) {
+    return call(addr, '0x95d89b41').then(function (hex) {
+      if (!hex || hex === '0x') return null;
+      var h = hex.replace(/^0x/, ''), out = '';
+      if (h.length === 64) {                                   /* bytes32 symbol (old tokens) */
+        for (var i = 0; i < 64; i += 2) {
+          var v = parseInt(h.substr(i, 2), 16);
+          if (v) out += String.fromCharCode(v);
+        }
+        return out.trim() || null;
+      }
+      var len = parseInt(h.slice(64, 128), 16) || 0;            /* abi string */
+      for (var j = 0; j < len; j++) out += String.fromCharCode(parseInt(h.substr(128 + j * 2, 2), 16));
+      return out.trim() || null;
+    }).catch(function () { return null; });
+  }
+
   root.PoolFind = {
     FACTORY: FACTORY, QUOTES: QUOTES, FEES: FEES, TOKENS: TOKENS,
-    isAddr: isAddr, resolve: resolve, plan: plan, find: find
+    isAddr: isAddr, resolve: resolve, plan: plan, find: find,
+    search: search, confirmSymbol: confirmSymbol
   };
 })(typeof window !== 'undefined' ? window : this);

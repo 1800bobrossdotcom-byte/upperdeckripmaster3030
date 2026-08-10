@@ -138,7 +138,7 @@
 </header>
 
 <form id="f" autocomplete="off">
-  <input id="addr" placeholder="a token name, a token address, or a pool" spellcheck="false" aria-label="token or pool">
+  <input id="addr" placeholder="mog · a token address · or a pool" spellcheck="false" aria-label="token or pool">
   <select id="chain" aria-label="chain"><option value="ethereum">ethereum</option><option value="base">base</option></select>
   <select id="size" aria-label="trade size">
     <option value="0.01">0.01</option><option value="0.1" selected>0.1</option>
@@ -691,6 +691,56 @@ financial advice. Built by a card and game studio — the same instruments run o
        pool, and anything else is treated as a token. Guessing wrong in the pool direction gives a
        decode error on a token; guessing wrong the other way silently searches for pools that pair
        a pool with WETH. */
+  /* the index is called from the browser directly — it sends access-control-allow-origin: * —
+     so no proxy of ours sits between a visitor and a public lookup. */
+  function getJson(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+
+  /* ⛔ IT SHOWS CANDIDATES AND NEVER PICKS. Searching `fwa` finds THREE tokens of that name on
+     Ethereum — $1,103,847, $30,538 and $0 of liquidity — and `wojak` finds two within 25% of each
+     other. Resolving a name to ONE address is the impostor trap this site's own front page warns
+     about: "a token search by name returns impostors; the address is the only unambiguous answer."
+     So every candidate carries its address and its depth, and a person chooses.
+     ⚠ The $0 row is shown, not filtered. Hiding it would hide the very thing that makes the
+     choice legible. */
+  function showTokens(query, cands) {
+    $('foundHead').innerHTML = '<b>' + cands.length + '</b> token' + (cands.length > 1 ? 's' : '') +
+      ' named “' + esc(query) + '”. <b>A name is not an identifier</b> — anyone may deploy a token ' +
+      'called anything, so pick by address and depth, not by the name you searched. Liquidity is ' +
+      'what the index reports across all its pairs; the address is confirmed on-chain before it is read.';
+    var rows = $('foundRows'); rows.innerHTML = '';
+    cands.forEach(function (c) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'fr';
+      var liq = c.liq >= 1000 ? '$' + Math.round(c.liq / 1000) + 'k' : '$' + Math.round(c.liq);
+      b.innerHTML = '<span class="ff">' + esc(c.sym) + '</span>' +
+        '<span class="fq">' + esc(c.chain) + ' · ' + liq + '</span>' +
+        '<span class="fa">' + c.addr.slice(0, 10) + '…' + c.addr.slice(-4) + '</span>';
+      b.addEventListener('click', function () {
+        $('chain').value = c.chain;
+        $('go').disabled = true;
+        say('confirming ' + esc(c.sym) + ' on-chain…');
+        /* ⛔ WHATEVER THE INDEX SAID, THE CHAIN IS ASKED. One symbol() call is the line between
+           "an index told us" and "we checked" — a stale or hostile row can never put somebody in
+           front of pools for a token they did not ask for. */
+        window.PoolFind.confirmSymbol(c.addr, function (to, data) {
+          return rpc1(c.chain, { jsonrpc:'2.0', id:1, method:'eth_call',
+                                 params:[{ to:to, data:data }, 'latest'] });
+        }).then(function (sym) {
+          if (!sym) { say('that address did not answer symbol() — it may not be a token'); return; }
+          say('');
+          return poolsFor(c.addr, c.chain).then(function (res) {
+            showFound(sym + ' (' + c.addr.slice(0, 10) + '…)', c.chain, res); });
+        }).catch(function () { fail(new Error('rpc')); })
+          .then(function () { $('go').disabled = false; });
+      });
+      rows.appendChild(b);
+    });
+    $('found').hidden = false;
+  }
+
   function poolsFor(token, chain) {
     var F = window.PoolFind;
     return F.find(token, chain, function (to, data) {
@@ -744,16 +794,30 @@ financial advice. Built by a card and game studio — the same instruments run o
     }
 
     var F = window.PoolFind, r = F && F.resolve(a, chain);
-    if (!r) {
-      say('“' + a + '” is not an address and is not a name this page knows — paste a token address');
-      $('addr').focus(); return;
-    }
 
     $('go').disabled = true;
     if (!F.isAddr(a)) {                                   /* a NAME can only mean a token */
-      say('finding the pools for ' + a + '…');
-      return void poolsFor(r.addr, chain).then(function (res) { say(''); showFound(a, chain, res); })
-        .catch(function () { fail(new Error('rpc')); })
+      /* ⚑ THE VERIFIED REGISTRY ANSWERS FIRST. Thirteen rows whose addresses were read off the
+         chain cost no third party and cannot be spoofed, so `pepe` and `weth` never touch an
+         index. Everything else — mog, fwa, wojak, the long tail that is most of a chain — needs
+         one, because NOTHING ON-CHAIN REVERSES A SYMBOL. */
+      if (r) {
+        say('finding the pools for ' + esc(a) + '…');
+        return void poolsFor(r.addr, chain).then(function (res) { say(''); showFound(a, chain, res); })
+          .catch(function () { fail(new Error('rpc')); })
+          .then(function () { $('go').disabled = false; });
+      }
+      say('searching for ' + esc(a) + '…');
+      return void F.search(a, getJson).then(function (cands) {
+        say('');
+        if (!cands.length) {
+          $('foundHead').innerHTML = 'Nothing found for <b>' + esc(a) + '</b> on Ethereum or Base. ' +
+            'That is what the search returned, not proof the token does not exist — paste its ' +
+            'address and this page will read it either way.';
+          $('foundRows').innerHTML = ''; $('found').hidden = false; return;
+        }
+        showTokens(a, cands);
+      }).catch(function () { fail(new Error('rpc')); })
         .then(function () { $('go').disabled = false; });
     }
 
