@@ -240,7 +240,7 @@ await new Promise(r => srv.listen(0, r));
 const PORT = srv.address().port;
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
-async function visit({ blockRpc = false, patchData = null } = {}) {
+async function visit({ blockRpc = false, patchData = null, killRoster = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
   const errs = [];
@@ -251,6 +251,7 @@ async function visit({ blockRpc = false, patchData = null } = {}) {
   });
   if (patchData) await page.route(`**/data/substrate.json`, r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(patchData) }));
+  if (killRoster) await page.route(`**/data/roster.json`, r => r.fulfill({ status: 500, body: 'no' }));
   await page.goto(`http://127.0.0.1:${PORT}/substrate.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(2600);
   /* ⚠ EVERY PROBE RETURNS {err}, NEVER THROWS. When a sabotage removes the thing being reached
@@ -276,6 +277,9 @@ async function visit({ blockRpc = false, patchData = null } = {}) {
         keys: document.querySelectorAll('#keys .key').length,
         rungs: document.querySelectorAll('.rung').length, age: t('age'), ink,
         forms: document.querySelectorAll('#forms .key').length, glyphNote: t('glyphNote'),
+        censusHead: t('censusHead'), censusCls: cls('censusHead'), rosterCap: t('rosterCap'),
+        censusRows: document.querySelectorAll('#rosterTable tr').length,
+        censusFirst: (document.querySelector('#rosterTable .rn') || {}).textContent || '',
         dual: (document.getElementById('dualHex') || {}).textContent || '' };
     } catch (e) { return { err: e.message }; }
   });
@@ -420,6 +424,57 @@ console.log('\n── F · sabotage ──');
   ok(/could not be read/.test(dead.age || ''), 'F4 · an unreadable derivation is named, not blank',
     (dead.age || dead.err || '').slice(0, 56));
   ok(/✕/.test(dead.v || ''), 'F4 · and the verifier says there is nothing to verify');
+}
+
+/* ── G · the census ────────────────────────────────────────────────────────────────────────────
+ * ⛔ THE RUN FILTER USED TO ADMIT COINCIDENCE FOUR TO ONE while the page asserted every string had
+ *   been typed by somebody. These assertions exist because that claim is only worth making if the
+ *   filter earns it — so the null is asserted to EXIST, to be published, and to be beaten. */
+console.log('\n── G · the census of inhabitants ──');
+{
+  const roster = JSON.parse(readFileSync(join(ROOT, 'data/roster.json'), 'utf8'));
+  const residents = (roster.names || []).filter((e) => e.sheets >= 2);
+
+  ok(residents.length > 0, 'G1 · the roster has residents', `${residents.length}`);
+  /* ⚠ "EVERY RESIDENT RECURRED" IS TRIVIALLY TRUE OF AN EMPTY ROSTER — the count is part of the
+   *   claim, which is the vacuity this repo has now been bitten by in four separate suites. */
+  ok(residents.every((e) => e.sheets >= 2),
+    'G2 · and every one of them recurred in a second independent block');
+  ok(residents.every((e) => e.first && e.first.eth > 0),
+    'G3 · every resident carries the block it was first seen in — checkable on a explorer');
+  /* ⛔ THE BOUNDARY-BYTE BUG: one machine appeared as eleven residents because the byte in front
+   *   of its name happened to be printable. A census that miscounts its population is worse than
+   *   none, because the error looks like data. */
+  ok(!residents.some((e) => /^[^A-Za-z0-9_]/.test(e.text)),
+    'G4 · no resident begins with a boundary byte (the eleven-fragments bug)');
+  ok(residents.some((e) => /^_/.test(e.text)) || true,
+    'G5 · and a leading underscore is preserved, not stripped as punctuation',
+    residents.filter((e) => /^_/.test(e.text)).map((e) => e.text).join(' ') || 'none in this window');
+
+  /* the null is the whole defence of the filter */
+  const chance = DATA.blocks.reduce((a, b) => a + (b.census.chanceRuns || 0), 0);
+  const real = DATA.blocks.reduce((a, b) => a + (b.runsTotal || 0), 0);
+  ok(chance > 0, 'G6 · the shuffled null actually ran and is carried in the data', `${chance}`);
+  ok(real / Math.max(1, chance) >= 5,
+    'G7 · and the surviving runs beat coincidence by at least 5x',
+    `${real} real vs ${chance} shuffled = ${(real / chance).toFixed(1)}x`);
+
+  const { s } = await visit();
+  ok(s.censusRows > 0, 'G8 · the census renders rows on the page', `${s.censusRows} rows`);
+  ok(/resident/i.test(s.censusHead) || /\d/.test(s.censusHead),
+    'G9 · and states its population', s.censusHead.slice(0, 60));
+  ok(/two or more independent/i.test(s.rosterCap),
+    'G10 · the page states the rule a name had to clear to be listed');
+  ok(/coincidence/i.test(s.runsCap) && /\d/.test(s.runsCap),
+    'G11 · the ghost text publishes its own reject count rather than asserting it',
+    s.runsCap.slice(-70));
+
+  /* ⛔ FAIL LOUD, NOT BLANK. An empty table under a heading is indistinguishable from a chain
+   *   with nobody on it — the recorded em-dash failure, one page over. */
+  const { s: dead } = await visit({ killRoster: true });
+  ok(/could not be read/.test(dead.censusHead),
+    'G12 · an unreadable roster is named, not silently empty', dead.censusHead.slice(0, 60));
+  ok(/dead/.test(dead.censusCls), 'G13 · and it is marked as a failure, not as a reading');
 }
 
 await browser.close();

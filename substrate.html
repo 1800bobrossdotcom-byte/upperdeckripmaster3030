@@ -127,6 +127,17 @@
        font-size:var(--t-fine,13px);letter-spacing:.02em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .run b{color:var(--hot);font-weight:400}
   .run i{color:var(--dim);font-style:normal;margin-right:7px}
+  /* ⚠ THE CENSUS IS A TABLE BECAUSE IT IS A LEDGER, not a tag cloud — a resident has a count, a
+     span of blocks and a first sighting, and those are columns. ⚠ It scrolls inside its own box:
+     the page body must never scroll sideways, and a name here can be 60 characters of Vercel
+     project id. */
+  .roster{width:100%;border-collapse:collapse;margin-top:12px;display:block;overflow-x:auto;
+    white-space:nowrap}
+  .roster td{padding:5px 10px 5px 0;font-size:var(--t-mono,13px);vertical-align:baseline}
+  .roster tr:nth-child(odd){background:rgba(255,255,255,.02)}
+  .roster .rn{color:var(--hot);white-space:pre}
+  .roster .rb,.roster .rx{color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+  .roster .rf{color:var(--dim);font-size:var(--t-micro,12px)}
 
   /* ── the cipher layer ──
    * ⚠ 44px on every control. This page was not in `npm run mobile`'s nine and the embed's buttons
@@ -287,6 +298,17 @@
       WebCrypto. The result is discarded when you leave.</p>
   </div>
 
+  <!-- ⛔ THE CENSUS COMES BEFORE THE GHOST TEXT, and the order is the argument. The run list is a
+       SAMPLE of what is down there in one block; the census is the POPULATION, and a name only
+       enters it by recurring in a second, independent Ethereum block — a bar coincidence cannot
+       clear. The strongest thing on this page should not be the eighth thing on it. -->
+  <h2>THE CENSUS — EVERY MACHINE THAT HAS WRITTEN ITS OWN NAME INTO THE CHAIN</h2>
+  <div class="panel" id="census">
+    <p class="v" id="censusHead">reading the roster…</p>
+    <table class="roster" id="rosterTable"></table>
+    <p class="note" id="rosterCap" style="margin:12px 0 0"></p>
+  </div>
+
   <h2>THE GHOST TEXT — LANGUAGE FOUND INSIDE THE MACHINE LANGUAGE</h2>
   <div class="runs" id="runs"></div>
   <p class="cap" id="runsCap">reading…</p>
@@ -324,6 +346,45 @@
 
   function fail(el, why){ if(!el) return; el.className = 'v err'; el.textContent = why; }
   function set(el, v){ if(!el) return; el.className = 'v'; el.textContent = v; }
+
+  /* ── 1a · the census ────────────────────────────────────────────────────────────────────────
+   * ⚠ A SEPARATE FETCH ON PURPOSE, AND IT FAILS ALONE. The roster accumulates across derives and
+   *   the derivation is one snapshot; binding them into one file would mean the whole reading
+   *   goes dark whenever the roster is mid-write, and would re-publish the entire census on every
+   *   hourly commit. ⚠ The census section states its own failure rather than sitting empty — an
+   *   empty table under a heading is indistinguishable from a chain with nobody on it. */
+  fetch('data/roster.json', { cache: 'no-store' })
+    .then(function(r){ if(!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(renderCensus)
+    .catch(function(e){
+      set($('censusHead'), '');
+      $('censusHead').className = 'v dead';
+      $('censusHead').innerHTML = 'the census could not be read — <b>' + esc(e.message) + '</b>';
+    });
+
+  function renderCensus(R){
+    var res = (R.names || []).filter(function(e){ return e.sheets >= 2; });
+    $('censusHead').innerHTML = '<b>' + comma(res.length) + '</b> residents · ' +
+      comma(R.provisional || 0) + ' provisional · ' + comma(R.derives || 0) +
+      (R.derives === 1 ? ' reading' : ' readings');
+    /* ⚠ CAPPED, AND THE CAP IS STATED — the recorded rule is that a silent truncation reads as
+     *   "this is all there was", and this table is the one place that would be a lie about a
+     *   POPULATION rather than about a sample. */
+    var SHOW = 40;
+    $('rosterTable').innerHTML = res.slice(0, SHOW).map(function(e){
+      return '<tr><td class="rb">' + e.sheets + '</td>' +
+             '<td class="rx">' + comma(e.n) + '×</td>' +
+             '<td class="rn">' + esc(e.text.length > 58 ? e.text.slice(0, 57) + '…' : e.text) + '</td>' +
+             '<td class="rf">first seen in block ' + comma(e.first && e.first.eth) + '</td></tr>';
+    }).join('');
+    $('rosterCap').innerHTML = 'A <b>resident</b> is a run of seven or more typed characters that ' +
+      'has turned up in <b>two or more independent Ethereum blocks</b> — mined by different people ' +
+      'out of different transactions. Coincidence has no reason to repeat, which is why this bar is ' +
+      'far harder than the one below it and why the roster, rather than the run list, is the real ' +
+      'reading. Showing ' + Math.min(SHOW, res.length) + ' of ' + comma(res.length) +
+      ', ordered by how much of the chain they appear in. Nobody meant any of it to be read, and ' +
+      'every character of it was paid for in gas.';
+  }
 
   /* ── 1 · the derivation ─────────────────────────────────────────────────────────────────── */
   fetch('data/substrate.json', { cache: 'no-store' })
@@ -765,11 +826,21 @@
     $('runs').innerHTML = rs.map(function(r){
       return '<span class="run" title="' + esc(r.text) + '"><i>' + r.n + '×</i><b>' + esc(r.text) + '</b></span>';
     }).join('');
-    /* ⚠ SAY WHAT WAS DROPPED. A silent truncation reads as "this is all there was". */
-    $('runsCap').innerHTML = 'Runs of four or more printable bytes, found inside calldata nobody ' +
-      'wrote as text. This sheet had <b>' + comma(b.runsTotal) + '</b>; the ' + rs.length +
+    /* ⚠ SAY WHAT WAS DROPPED. A silent truncation reads as "this is all there was".
+     * ⛔ AND SAY WHAT SURVIVED A NULL. The sentence that stood here — "Every one was typed by
+     *   somebody into a system, paid for in gas, and is now permanent" — was **false for 80.1%
+     *   of what this section displayed**, because the bar was four printable bytes and four
+     *   printable bytes happen constantly inside a hash. The claim is only worth making if the
+     *   filter earns it, so the filter's own reject count is printed beside the survivors — the
+     *   same contract the glyph line above already keeps. */
+    var ch = (b.census && b.census.chanceRuns) || 0;
+    $('runsCap').innerHTML = 'Runs of seven or more typed characters, found inside calldata ' +
+      'nobody wrote as text. This sheet had <b>' + comma(b.runsTotal) + '</b>; the ' + rs.length +
       ' most repeated are shown. Every one was typed by somebody into a system, paid for in gas, ' +
-      'and is now permanent.';
+      'and is now permanent. That claim is tested rather than asserted: shuffling this sheet’s ' +
+      'own bytes — same composition, structure destroyed — and running the identical extractor ' +
+      'leaves <b>' + comma(ch) + '</b>, so what is above stands about ' +
+      (ch ? (b.runsTotal / ch).toFixed(0) : '∞') + '× clear of coincidence.';
   }
 
   /* ── 5 · verify, in the browser, with no library ─────────────────────────────────────────

@@ -107,7 +107,7 @@
  *   eventually") before he settled on 3030 — so the rename cost is designed to be one edit, and
  *   `npm run test:substrate` asserts the page never hard-codes it.
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -310,17 +310,105 @@ const GAS = {
   floor:    { [SPACE]: 10, [SIGIL]: 40, [GLYPH]: 40, [MARK]: 40 },
 };
 
-/* ⚑ A RUN OF PRINTABLE BYTES IS THE GHOST TEXT — the place the dual reading stops being a claim
- * and becomes visible. Four is the shortest run that is more often language than coincidence:
- * random bytes give a printable run of 4 about (95/256)^4 ≈ 1.9% of the time per position, and
- * the ABI's own padding makes long zero runs far more common than long printable ones. */
-const MIN_RUN = 4;
+/* ⛔ FOUR WAS THE LENGTH AT WHICH COINCIDENCE OUTNUMBERS LANGUAGE FOUR TO ONE, AND THE COMMENT
+ *   THAT USED TO SIT HERE SAID SO WHILE THE CODE SHIPPED FOUR ANYWAY. Measured across the 24
+ *   published sheets: 428 distinct strings, 9,652 occurrences, and **80.1% of them were
+ *   printable FRAGMENTS OF HASHES** — `^'y1d#` appears 512 times and nobody typed it; it is six
+ *   bytes of some recurring constant that happen to fall in 0x20–0x7E. The page rendered those
+ *   beside `awjcdp_facil1` at equal weight under the sentence *"Every one was typed by somebody
+ *   into a system, paid for in gas"* — **false for four fifths of what it displayed.**
+ *
+ * ⚑ THIS IS THE GLYPH FILTER'S OWN LESSON, ONE LAYER UP, AND THE FILE ALREADY KNEW IT. A glyph
+ *   survives only inside a run of ≥2 sharing a script band, and the rejects are counted and
+ *   PUBLISHED as `chanceGlyphs`, because a naive scan reports a chain full of scripts nobody
+ *   typed. A sigil run needs the same treatment: it survives only if it looks TYPED rather than
+ *   drawn uniformly from all 95 printable bytes.
+ *
+ * ⚠ AND THE BAR IS NOT ARGUED, IT IS MEASURED. `chanceRuns` shuffles each transaction's OWN
+ *   bytes and runs **the identical extractor** over the result — same composition, structure
+ *   destroyed — so the null is the chain's real byte mix rather than a uniform model that does
+ *   not describe it (65% of this chain is 0x00, which no uniform model captures). Published
+ *   beside the survivors: a filter whose reject count nobody can see is one you take on faith.
+ *
+ * ⚠ ONE ALPHABET TEST, NOT A WORD LIST. An identifier is drawn from `[A-Za-z0-9_.:/-]` — 67 of
+ *   the 95 printable bytes, so a chance byte lands there 70.5% of the time and a chance run
+ *   rarely lands there throughout. A dictionary would have been a hand-picked list, which is
+ *   this repo's most frequently paid bill. */
+/* ⚑ SEVEN IS MEASURED, NOT ARGUED — swept against the shuffled null over three live sheets:
+ *
+ *     MIN_RUN    survivors    null    ratio    distinct names
+ *        6          552        102     5.4x         144
+ *        7          495         34    14.6x         144   ← the knee
+ *        8          426         28    15.2x         138
+ *       10          416         28    14.9x         137
+ *       12          252         28     9.0x         131
+ *
+ *   Six to seven cuts coincidence by THREE TIMES and costs **zero distinct names** — the same
+ *   vocabulary, with a third of the noise gone, which is the definition of a free bar. Eight buys
+ *   0.6x more ratio and costs six real names, and the names are the product, so it is not taken.
+ *   Past ten the ratio falls again as the filter starts eating language instead of chance.
+ * ⚠ Each sweep row reads DIFFERENT live blocks, so small differences between adjacent rows are
+ *   not meaningful; the 3x cliff at seven is far outside that noise and is what the choice rests
+ *   on. Overridable by env ONLY so the sweep can be re-run against fresh chain data. */
+const MIN_RUN = Number(process.env.RUN_MIN) || 7;
+/* ⛔ THE SPACE BELONGS IN THE TYPED ALPHABET, AND LEAVING IT OUT NEARLY COST THE BEST FIND IN THE
+ *   CORPUS. The most typed character in written English is the space; excluding it scored
+ *   `If eligible, connect your wallet and click Claim to interact` — a lure somebody paid gas to
+ *   inscribe — at 0.83, indistinguishable from a hash fragment, while `bc_o3dj3qk8` scored 1.00.
+ *   **The filter was rejecting language for being language.** One character costs the null almost
+ *   nothing (1 of the 95 printable bytes) and it is what lets the bar rise to 0.9, which is where
+ *   `hz&EDza` and its family finally fall out. Widen the alphabet, THEN tighten the threshold. */
+const TYPED = /[A-Za-z0-9_.:/ -]/;
+/* ⚠ THE LENGTH ESCAPE IS LOAD-BEARING AND IT IS NOT A FUDGE. `0x0000…0000` written out as text
+ *   is 42 characters with exactly ONE letter in it, so a letters≥2 rule alone rejects the zero
+ *   address — a string somebody unambiguously typed. Long AND wholly in the alphabet is its own
+ *   evidence: chance does not hold that alphabet for twelve bytes. */
+function isTyped(s) {
+  if (s.length < MIN_RUN) return false;
+  let good = 0, letters = 0;
+  for (const ch of s) { if (TYPED.test(ch)) good++; if (ch >= 'A' && ch <= 'z' && /[A-Za-z]/.test(ch)) letters++; }
+  const frac = good / s.length;
+  if (frac < 0.9) return false;
+  return letters >= 2 || (s.length >= 12 && frac >= 0.95);
+}
+
+/* ⛔ ONE EXTRACTOR, CALLED TWICE. The null must run the SAME code as the reading or it measures
+ *   the harness — this repo has paid for that four times (`test:citynet` returning `messages`,
+ *   the scores fake-Redis ignoring `EX`). Real bytes and shuffled bytes go through this. */
+function collectRuns(buf, glyphAt) {
+  const out = [];
+  let run = '';
+  const n = buf.length;
+  for (let i = 0; i < n;) {
+    const g = glyphAt && glyphAt.get(i);
+    if (g) { run += String.fromCodePoint(g.cp); i += g.len; continue; }
+    const b = buf[i];
+    if (b >= 0x20 && b <= 0x7e) run += String.fromCharCode(b);
+    else { if (isTyped(run)) out.push(run); run = ''; }
+    i++;
+  }
+  if (isTyped(run)) out.push(run);
+  return out;
+}
+
+/* ⚠ SEEDED, NOT `Math.random`. A derive is re-run by a cron and re-read by a browser; a null
+ *   that lands on a different number every run is a number nobody can check against the file. */
+function shuffled(buf, seed) {
+  const a = buf.slice();
+  let s = seed >>> 0;
+  const next = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (next() * (i + 1)) | 0;
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
 
 function readCalldata(txs) {
   const counts = { [SPACE]: 0, [SIGIL]: 0, [GLYPH]: 0, [MARK]: 0 };
   const form = { words: 0, selectors: 0, rules: 0, addresses: 0 };
   const runs = [];
-  let bytes = 0, chanceGlyphs = 0;
+  let bytes = 0, chanceGlyphs = 0, chanceRuns = 0;
 
   for (const t of txs) {
     const d = t.input || t.data || '0x';
@@ -349,23 +437,27 @@ function readCalldata(txs) {
     const glyphAt = new Map();
     for (const h of keep) glyphAt.set(h.i, h);
 
-    let run = '';
+    /* ⚠ THE CENSUS IS WHAT THE BLOCK HASH COMMITS TO — this loop counts and nothing else, and it
+     * is deliberately unchanged. The run filter moved out from under it precisely so that
+     * sharpening the reading can never move a number the chain is signed over. */
     for (let i = 0; i < n;) {
       const g = glyphAt.get(i);
-      if (g) {
-        counts[GLYPH] += g.len; bytes += g.len;
-        run += String.fromCodePoint(g.cp);
-        i += g.len; continue;
-      }
-      const k = classify(buf[i]);
-      counts[k]++; bytes++;
-      if (k === SIGIL) run += String.fromCharCode(buf[i]);
-      else { if (run.length >= MIN_RUN) runs.push(run); run = ''; }
+      if (g) { counts[GLYPH] += g.len; bytes += g.len; i += g.len; continue; }
+      counts[classify(buf[i])]++; bytes++;
       i++;
     }
-    if (run.length >= MIN_RUN) runs.push(run);
+
+    for (const r of collectRuns(buf, glyphAt)) runs.push(r);
+
+    /* ⛔ THE NULL, FROM THE CHAIN'S OWN BYTES. Shuffling preserves the composition exactly and
+     * destroys every structure, so whatever the identical extractor still finds is coincidence
+     * by construction. Seeded on the length so the number is reproducible from the file.
+     * ⚠ No glyph map for the null, and that is correct rather than lazy: the glyph filter demands
+     *   ≥2 CONSECUTIVE glyphs of one script, and a shuffle is precisely the operation that makes
+     *   adjacency impossible — so a shuffled stream's glyph map is empty by construction. */
+    for (const r of collectRuns(shuffled(buf, n), null)) chanceRuns++;
   }
-  return { counts, bytes, runs, form, chanceGlyphs };
+  return { counts, bytes, runs, form, chanceGlyphs, chanceRuns };
 }
 
 /* ── canonical form: what the hash actually commits to ────────────────────────────────────── */
@@ -504,6 +596,9 @@ export async function derive({ sheets = 24, log = () => {} } = {}) {
       /* ⚠ CARRIED, NOT HIDDEN: what the naive glyph scan would have claimed before the adjacency
        * filter. A correction you cannot see is a correction nobody can check. */
       chanceGlyphs: sheet.chanceGlyphs + imp.chanceGlyphs,
+      /* ⚠ THE SAME CORRECTION FOR THE SAME REASON, one layer up: what the run scan would have
+       * claimed had its bar been coincidence-shaped. Carried, not hidden. */
+      chanceRuns: sheet.chanceRuns + imp.chanceRuns,
     };
     const baseHashes = mine.map((b) => b.hash);
     const hash = deriveHash(prev, eb.hash, baseHashes, census);
@@ -560,15 +655,123 @@ function defang(t) {
              (_, a, b) => `${a}[.]${b}`);
 }
 
+/* ⛔ A RUN'S EDGES ARE AN ARTIFACT OF WHERE THE PRINTABLE STRETCH HAPPENED TO START, NOT PART OF
+ *   THE NAME — and left alone it shatters one inhabitant into eleven. The first census printed
+ *   `#bc_o3dj3qk8`, `>bc_o3dj3qk8`, `"bc_o3dj3qk8`, `7bc_o3dj3qk8`, `Obc_o3dj3qk8`, `;bc_o3dj3qk8`,
+ *   `pbc_o3dj3qk8`, `[bc_o3dj3qk8`, `ybc_o3dj3qk8` and `fbc_o3dj3qk8` as ten separate residents.
+ *   They are one machine, and the byte in front of it is the last byte of a hash. **A census that
+ *   miscounts its own population is worse than no census**, because the error looks like data.
+ * ⚠ Strip only what an identifier can never begin or end with. A LEADING UNDERSCORE SURVIVES —
+ *   `_binancewallet` is a naming convention, not a boundary byte — which is why the class is
+ *   `[^A-Za-z0-9_]` and not `[^A-Za-z0-9]`.
+ * ⚠ A COMMA SPLITS A LIST AND NEVER A SENTENCE. `bc_q5s8mbyr,bc_mnip` is two names; `For users in
+ *   Asia, on-site assistance` is one string that happens to contain a comma. The discriminator is
+ *   the SPACE: prose has spaces, an identifier list does not. */
+function normalise(s) {
+  return s.replace(/^[^A-Za-z0-9_]+/, '').replace(/[^A-Za-z0-9_]+$/, '');
+}
+function nameParts(s) {
+  const t = normalise(s.trim());
+  if (!t) return [];
+  return (t.includes(' ') ? [t] : t.split(',')).map(normalise).filter(Boolean);
+}
+
 function dedupe(runs) {
   const seen = new Map();
   for (const r of runs) {
-    const k = defang(r.trim());
-    if (k.length < MIN_RUN) continue;
-    seen.set(k, (seen.get(k) || 0) + 1);
+    for (const part of nameParts(r)) {
+      /* ⚠ RE-TESTED AFTER TRIMMING, because stripping can take a run under the bar — and defang
+       * runs LAST, since it inserts brackets that would fail the alphabet test it must not. */
+      if (!isTyped(part)) continue;
+      const k = defang(part);
+      seen.set(k, (seen.get(k) || 0) + 1);
+    }
   }
   return [...seen.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
     .map(([text, n]) => ({ text, n }));
+}
+
+/* ── THE CENSUS OF INHABITANTS ─────────────────────────────────────────────────────────────
+ *
+ * ⚑ THE READING FOUND SOMETHING BETTER THAN FOUND POETRY: the text of Ethereum is machines
+ *   saying their own names. `awjcdp_facil1` appears in every sheet read so far. There is a
+ *   `bc_*` family with eleven members — one system's naming scheme, written across the chain.
+ *   `base-app`. `ProdSystem`. `Card-Debit-ePOS`, which is a debit terminal, on Ethereum, forever.
+ *   Nobody meant any of it to be read. All of it was paid for in gas.
+ *
+ * ⛔ A NAME EARNS ITS PLACE BY RECURRING IN A SECOND BLOCK, AND THAT IS THE WHOLE DEFENCE.
+ *   Coincidence has no reason to repeat: a run that survives `isTyped` once may still be a lucky
+ *   slice of a hash, but the same slice landing in a DIFFERENT Ethereum block, mined by different
+ *   people out of different transactions, is not luck. This is a far harder bar than the ghost
+ *   text's and it costs nothing to apply — which is why the roster, not the run list, is the
+ *   thing worth building a product on.
+ *
+ * ⚠ IT IS APPEND-ONLY AND IT ACCUMULATES, like `data/drain-ledger.json`. Consecutive derives read
+ *   DISJOINT block ranges — the chain makes ~300 blocks an hour and this reads 24 — so a name's
+ *   sheet count really is a count of distinct blocks, never the same block counted twice.
+ * ⚠ SINGLETONS ARE HELD FOR A DAY, THEN DROPPED. Without a prune the file grows without bound on
+ *   exactly the entries the ≥2 rule already says are not evidence; with a prune of one derive, a
+ *   name that recurs weekly could never accumulate. 24 derives is the compromise and it is stated
+ *   rather than silent.
+ * ⚠ The text stored here is already DEFANGED — it comes through `dedupe`, so the republication
+ *   guard applies to the roster for free. That is deliberate: this file is the one most likely to
+ *   be read by something other than the page. */
+const ROSTER_KEEP = 24;
+
+function mergeRoster(blocks, derivedAt) {
+  const path = join(ROOT, 'data/roster.json');
+  let prev = { derives: 0, names: [] };
+  if (existsSync(path)) { try { prev = JSON.parse(readFileSync(path, 'utf8')); } catch { /* start clean */ } }
+  const derive = (prev.derives || 0) + 1;
+
+  const map = new Map();
+  for (const e of prev.names || []) map.set(e.text, e);
+
+  for (const b of blocks) {
+    const where = { height: b.height, eth: b.sheet.number, at: new Date(b.sheet.timestamp * 1000).toISOString() };
+    for (const r of b.runs || []) {
+      let e = map.get(r.text);
+      if (!e) { e = { text: r.text, n: 0, sheets: 0, first: where, last: where, derive }; map.set(r.text, e); }
+      e.n += r.n; e.sheets += 1; e.last = where; e.derive = derive;
+    }
+  }
+
+  /* ⛔ THE UNDERSCORE IS AMBIGUOUS AND ONLY THE ROSTER CAN RESOLVE IT. A leading `_` is a real
+   *   naming convention (`_binancewallet`) AND a boundary byte a hash can end with, and nothing
+   *   about the string itself says which. But if stripping it lands on a name **already resident
+   *   in its own right**, the question is settled: `_bc_o3dj3qk8` beside `bc_o3dj3qk8` is one
+   *   machine counted twice, not two machines. Fold only in that case; a `_name` with no bare
+   *   twin keeps its underscore. */
+  for (const [text, e] of [...map]) {
+    if (!text.startsWith('_')) continue;
+    const bare = map.get(text.slice(1));
+    if (!bare) continue;
+    bare.n += e.n; bare.sheets += e.sheets;
+    if (e.derive > bare.derive) { bare.derive = e.derive; bare.last = e.last; }
+    map.delete(text);
+  }
+
+  const names = [...map.values()]
+    .filter((e) => e.sheets >= 2 || derive - e.derive < ROSTER_KEEP)
+    .sort((a, b) => b.sheets - a.sheets || b.n - a.n);
+  const residents = names.filter((e) => e.sheets >= 2);
+
+  const out = {
+    protocol: PROTOCOL.name,
+    title: 'the census of inhabitants — every machine that has written its own name into the chain',
+    /* ⚠ THE RULE IS IN THE FILE, not only in the page that draws it. A reader who fetches this
+     * directly must be able to see what a row had to do to be here. */
+    rule: 'a name is a run of >=7 typed characters found in calldata; it becomes a RESIDENT only ' +
+          'once it recurs in a second, independent Ethereum block',
+    updated: derivedAt,
+    derives: derive,
+    residents: residents.length,
+    provisional: names.length - residents.length,
+    names,
+  };
+  mkdirSync(join(ROOT, 'data'), { recursive: true });
+  writeFileSync(path, JSON.stringify(out, null, 1));
+  return out;
 }
 
 /* ── run ──────────────────────────────────────────────────────────────────────────────────── */
@@ -631,5 +834,13 @@ if (isMain) {
   };
   mkdirSync(join(ROOT, 'data'), { recursive: true });
   writeFileSync(join(ROOT, 'data/substrate.json'), JSON.stringify(out, null, 1));
-  console.log(`\n  → data/substrate.json  (${(Date.now() - t0) / 1000 | 0}s)\n`);
+
+  const roster = mergeRoster(blocks, out.derivedAt);
+  console.log(`\n  ── the census of inhabitants ──`);
+  console.log(`  residents    ${String(roster.residents).padStart(6)}   seen in two or more independent blocks`);
+  console.log(`  provisional  ${String(roster.provisional).padStart(6)}   seen once — held ${ROSTER_KEEP} derives, then dropped`);
+  for (const e of roster.names.filter((x) => x.sheets >= 2).slice(0, 6))
+    console.log(`    ${String(e.sheets).padStart(4)} blocks  ${e.text.slice(0, 52)}`);
+
+  console.log(`\n  → data/substrate.json · data/roster.json  (${(Date.now() - t0) / 1000 | 0}s)\n`);
 }
