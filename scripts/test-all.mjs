@@ -43,7 +43,7 @@ const SUITES = [
    * two lists against each other is blind to anything absent from both.** All five are hermetic
    * (no network, and `substrate`'s only https strings are a defanged URL fixture), so there is no
    * cost argument for leaving them off. */
-  'substrate', 'substrate:attack', 'drain', 'api3030', 'crypt', 'rail',
+  'substrate', 'substrate:attack', 'drain', 'check', 'api3030', 'crypt', 'rail',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list

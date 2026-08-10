@@ -58,6 +58,24 @@
   input,select,button{font-family:var(--mono);font-size:15px;border:1px solid var(--line);
     background:var(--panel);color:var(--ink);padding:0 14px;min-height:54px;border-radius:2px}
   input{width:100%} input:focus,select:focus{outline:none;border-color:var(--hot)}
+  /* the live shelf — the answer to arriving with nothing in your hands */
+  .live{margin:14px 0 0;border:1px solid var(--line);border-radius:2px;background:var(--panel)}
+  .lh{font-size:var(--t-micro,12px);letter-spacing:.14em;color:var(--dim);padding:10px 12px;
+    border-bottom:1px solid var(--line);text-transform:uppercase}
+  .lrows{display:flex;flex-direction:column}
+  /* ⚠ 44px FLOOR ON BOTH AXES — a thumb is round, and this row is the only control on the page a
+     visitor is meant to reach for before they have typed anything. */
+  .lr{display:flex;gap:10px;align-items:center;min-height:46px;padding:7px 12px;text-align:left;
+    background:none;border:0;border-top:1px solid var(--line);color:var(--ink);cursor:pointer;
+    font-family:var(--mono);width:100%}
+  .lr:first-child{border-top:0}
+  .lr:hover,.lr:focus{background:rgba(224,255,79,.05);outline:none}
+  .lr .s{min-width:42px;font-size:var(--t-micro,12px);letter-spacing:.08em}
+  .lr .s.hi{color:var(--warn)} .lr .s.lo{color:var(--dim)}
+  .lr .a{color:var(--hot);font-size:var(--t-micro,12px)}
+  .lr .w{color:var(--dim);font-size:var(--t-micro,12px);flex:1;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .lr .c{color:var(--dim);font-size:var(--t-micro,12px);opacity:.7}
   input::placeholder{color:#4d5a50}
   button{background:var(--hot);color:#0a0c08;border-color:var(--hot);font-weight:600;
     letter-spacing:.1em;cursor:pointer;padding:0 26px;min-width:110px}
@@ -120,6 +138,19 @@
   <a href="#" data-a="0x1D4bcbb505182a49303CC3B23EfF1E3157147A33" data-c="ethereum">a token</a> ·
   <a href="#" data-a="0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7" data-c="ethereum">a v4 pool id</a> ·
   <a href="#" data-a="0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af" data-c="ethereum">a spender</a>
+</div>
+
+<!-- ⛔ THE COLD START WAS THE WHOLE COMPLAINT: "you have to copy and paste pools from multiple
+     windows, not sophisticated, very 1996." A bare input box demands the visitor ALREADY HOLD the
+     thing to paste, which means leaving for another window to get it — and the four `try:` links
+     above are frozen fixtures, which is the page admitting the problem and answering it with
+     furniture. The screen already runs hourly and already produces exactly this: twenty ranked
+     spenders per chain and ten live pools. It was making people go and fetch input it had on disk.
+     ⚠ ABSENT, NEVER EMPTY, when the files cannot be read — a shelf captioned "0 things worth
+     checking" says the chain is quiet, which is a claim, where silence says nothing. -->
+<div class="live" id="live" hidden>
+  <div class="lh">on the chain right now · <span id="liveAge">…</span> · tap one, nothing to paste</div>
+  <div class="lrows" id="liveRows"></div>
 </div>
 
 <div class="stat" id="stat"></div>
@@ -272,6 +303,63 @@ reads the chain, it does not predict it. Not financial advice.</div>
     }
     run(a, $('chain').value);
   });
+  /* ── THE LIVE SHELF ────────────────────────────────────────────────────────────────────────
+     ⚑ THE TWO SOURCES ARE THE ONES THAT ALREADY RUN ON A SCHEDULE, read rather than recomputed:
+       `data/drain.json` is the hourly approval screen (the same scorer this page uses, so a row
+       here and the reading it opens cannot disagree) and `data/terminal.json` is the live pool
+       board. Nothing new is fetched from a chain to build this.
+     ⛔ IT NEVER ACCUSES, and that constraint is sharper here than anywhere else on the site,
+       because a shelf is an EDITORIAL act — putting an address on a studio page under a heading
+       is a claim about it in a way that answering a question somebody asked is not. Rows say what
+       was counted and how it ranked; the word "flagged" is the strongest used, and the reading it
+       opens carries the same refusal. */
+  function ago(iso) {
+    var m = Math.max(0, (Date.now() - new Date(iso).getTime()) / 60000);
+    return m < 90 ? Math.round(m) + ' min ago' : Math.round(m / 60) + ' h ago';
+  }
+  function shelfRow(o) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'lr';
+    b.setAttribute('data-a', o.addr); b.setAttribute('data-c', o.chain);
+    b.innerHTML = '<span class="s ' + (o.hi ? 'hi' : 'lo') + '">' + o.tag + '</span>' +
+      '<span class="a">' + o.addr.slice(0, 10) + '…' + o.addr.slice(-4) + '</span>' +
+      '<span class="w">' + o.why + '</span>' +
+      '<span class="c">' + o.chain + '</span>';
+    b.addEventListener('click', function () {
+      $('addr').value = o.addr; $('chain').value = o.chain; run(o.addr, o.chain);
+    });
+    return b;
+  }
+  (function shelf() {
+    var got = [];
+    var j = function (u) { return fetch(u, { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); }).catch(function () { return null; }); };
+    Promise.all([j('data/drain.json'), j('data/terminal.json')]).then(function (res) {
+      var D = res[0], T = res[1], age = (D && D.generatedAt) || (T && T.measuredAt);
+      if (D && D.chains) Object.keys(D.chains).forEach(function (c) {
+        (D.chains[c].rows || []).slice(0, 3).forEach(function (r) {
+          if (!r.spender || !(r.score > 0)) return;
+          got.push({ addr: r.spender, chain: c, tag: r.score, hi: r.score >= 60,
+            why: (r.reasons && r.reasons[0]) || 'ranked by the hourly screen' });
+        });
+      });
+      /* ⚠ POOLS ARE THE HALF THE COMPLAINT NAMED — "copy and paste POOLS from multiple windows" —
+         so they are on the shelf even though they carry no score, and they are labelled by what
+         they are rather than given a number that would read as a ranking. */
+      if (T && T.board) T.board.slice(0, 4).forEach(function (p) {
+        if (!p.pool) return;
+        got.push({ addr: p.pool, chain: p.chain || 'ethereum', tag: 'pool', hi: false,
+          why: (p.name || p.sym || 'a live pool') + (p.feePct ? ' · ' + p.feePct + '% fee' : '') });
+      });
+      if (!got.length) return;                       /* absent, never an empty shelf */
+      got.sort(function (a, b) { return (b.tag === 'pool' ? -1 : b.tag) - (a.tag === 'pool' ? -1 : a.tag); });
+      var rows = $('liveRows');
+      got.slice(0, 8).forEach(function (o) { rows.appendChild(shelfRow(o)); });
+      $('liveAge').textContent = age ? 'screened ' + ago(age) : 'from the last screen';
+      $('live').hidden = false;
+    });
+  })();
+
   Array.prototype.forEach.call(document.querySelectorAll('.egs a'), function (el) {
     el.addEventListener('click', function (ev) {
       ev.preventDefault();
