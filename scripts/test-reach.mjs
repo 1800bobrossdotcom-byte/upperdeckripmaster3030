@@ -462,18 +462,18 @@ const ORPHAN_OK = {
    * ⛔ IT GETS LINKED OR IT GETS DELETED. A "beta" with no stated end is just an orphan wearing a
    *   badge; when the artist says it is ready it joins arcade.html, and if he says it is not, it
    *   goes. Written down because that is this file's own distinction between a decision and drift. */
-  'toll.html': 'STEALTH BETA — deliberately unlinked and noindex until the artist promotes it',
   /* ⚑ THE READING, unlinked pending ONE artist decision — whether it belongs in the funnel at
    *   all. It is wallet-free, read-only and holds no stake, so an early visitor can lose nothing
    *   but time; and it is not a game, so it does not belong on arcade.html by default.
-   * ⛔ IT GETS LINKED OR IT GETS DELETED — the same terms toll.html is held to above. An
+   * ⛔ IT GETS LINKED OR IT GETS DELETED — and toll.html, which used to be the example held
+   * here, is the case that proves those are the real terms: it was deleted (artist, 2026-08-09). An
    *   exception with no stated end is just an orphan wearing a badge. See docs/SUBSTRATE-3030.md
    *   §"Open, and the artist's" item 4. */
   'substrate.html': 'THE READING — unlinked until the artist decides whether it enters the funnel',
   /* ⚑ THE PRODUCT PAGE for the drain screen. Its reader is an exchange, a wallet or a compliance
    *   desk — not a collector — so it does not belong in the studio's play/cards/pack funnel, and
    *   putting it there would dilute the three doors that pass fought to establish.
-   * ⛔ SAME TERMS AS toll.html AND substrate.html: it gets linked from wherever it is actually
+   * ⛔ SAME TERMS AS substrate.html: it gets linked from wherever it is actually
    *   sold from, or it gets deleted. A product page nobody can reach sells nothing, so this
    *   exemption is a decision with an end, not a place to leave it. */
   /* ⛔ ONE PRODUCT NOW. `3030.html` is the whole thing — the lookup, the hourly feed and the

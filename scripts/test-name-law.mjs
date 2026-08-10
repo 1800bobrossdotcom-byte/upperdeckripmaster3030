@@ -161,6 +161,30 @@ function stripComments(src, isHTML) {
 
 console.log('\n── the retired name may not appear outside a comment ──');
 const all = walk(ROOT);
+
+/* ⛔ NO SHIPPED FILE MAY CARRY A MERGE CONFLICT MARKER, and this guard exists because the absence
+ *   of it was proved expensive in the only way that counts: `check.html` went through a merge with
+ *   THREE unresolved markers in it and `npm run test:check` scored **22/22 on that file**. A
+ *   browser recovers from stray text and an unclosed tag, so the shelf still rendered, the taps
+ *   still measured 46px, and every assertion in a suite written that same hour reported green on a
+ *   broken build. Nothing else here can see it: the name sweep looks for one string, `test:reach`
+ *   §0 compiles JS (and markers inside HTML are not JS), and a driven probe only fails if the
+ *   damage happens to reach the thing being probed.
+ * ⚠ THE SWEEP WALKS EVERY SHIPPED FILE, not a hand-picked list — the hand-picked-list failure is
+ *   this repo's most frequently paid bill, and a marker can land in any file a merge touches.
+ * ⚠ Anchored to line starts, because `=======` is legitimate prose in a comment rule and
+ *   `<<<<<<<` appears in no honest context at column zero. */
+{
+  const bad = [];
+  for (const p of all) {
+    const rel = relative(ROOT, p);
+    let src; try { src = readFileSync(p, 'utf8'); } catch { continue; }
+    if (/^<{7} |^={7}$|^>{7} /m.test(src)) bad.push(rel);
+  }
+  ok(bad.length === 0, 'no shipped file carries an unresolved merge conflict',
+    bad.length ? '⛔ ' + bad.join(', ') : all.length + ' files clean');
+}
+
 const hits = [];
 for (const p of all) {
   const rel = relative(ROOT, p);

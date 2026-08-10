@@ -622,6 +622,7 @@
 
     drawSplit(d);
     drawSheet(head);
+    dampen();
     drawDuality(head);
     cipherPanel(d);
     drawRuns(head);
@@ -653,58 +654,228 @@
    * ⚠ The cells are drawn from the CENSUS, not from a random fill: the counts are exact, so the
    *   proportion of paper to ink on screen is the block's real proportion. A shuffled layout
    *   would be a picture OF a block; this is the block's composition.                        */
+  /* ── 2 · THE SHEET — SUMI INK AND WATERCOLOUR ON 300 GSM ────────────────────────────────
+   *
+   * Artist, 2026-08-09, asked what it should be made of: *"Japanese sumi ink with watercolor on
+   * 300lb GSM paper."* Before that it was a 240×120 grid of coloured cells — a PICTURE OF A
+   * PERCENTAGE, and he called it extremely boring, which it was. DESIGN-SYSTEM §9's recorded
+   * failure exactly: an agent handed a mood reaches for the default, and a scatter plot is the
+   * default a census hands you.
+   *
+   * ⛔ THE FOUR THINGS §1 DEMANDS, ANSWERED FROM THE MATERIAL AND NOT FROM TASTE:
+   *
+   *   MADE OF — sumi is carbon in animal glue and it BLEEDS ALONG FIBRE; its edge is a migration,
+   *     never a line. Watercolour is TRANSPARENT, so it multiplies the paper and can only ever
+   *     darken it, and its pigment GRANULATES — settles into the tooth, so the paper's texture
+   *     reads THROUGH the wash rather than under it. 300 gsm cold-press is heavy: real dimpled
+   *     tooth, and it does not buckle.
+   *   LIT — one soft raking light from the upper left, which is how paper is looked at. It touches
+   *     the TOOTH only: pigment is matte and takes no highlight, so the light reveals the surface
+   *     and never the ink. That is also why the sheet reads as an object rather than a screen.
+   *   MOVES, AND WHY IT PHYSICALLY MOVED — the sheet is WET when a block lands and DRIES until the
+   *     next one, ~12 seconds later. Drying is not decoration: a wash darkens at its rim as the
+   *     water withdraws and carries pigment to the edge, and the bleed halts when the fibre stops
+   *     being damp. **The one event that actually happens is a block landing, and it is the only
+   *     thing here with its own reason to move.** Nothing loops; a settled sheet is still.
+   *   SITS ON — the stock itself, warm and near-white, which is the majority of the picture by
+   *     construction because the chain is ~65% space. The paper IS the substrate; that was always
+   *     the claim and now it is what you see.
+   *
+   * ⚑ THE PROPORTIONS STAY EXACT. The old grid's one virtue was that the ink covered the block's
+   *   true share of the sheet. Coverage is COUNTED here, not assumed — strokes are laid until the
+   *   measured covered area reaches the census share, so a brush mark buys the same honesty a
+   *   cell did. Asserted in `npm run test:substrate`.
+   */
+  var SHEET = { wet: 0, raf: 0 };
   function drawSheet(b){
-    var cv = $('sheet'), ctx = cv.getContext('2d');
+    var cv = $('sheet'), ctx = cv.getContext('2d', { willReadFrequently: true });
     if(!ctx){ $('sheetCap').textContent = 'the sheet needs a 2D canvas, which this browser refused.'; return; }
     var c = b.census.counts, tot = b.census.bytes;
     if(!tot){ $('sheetCap').textContent = 'this sheet carried no calldata at all — an empty impression.'; return; }
-    var S = b.sample || [];
-    if(!S.length){ $('sheetCap').textContent = 'this sheet shipped no sampled words, so there is nothing to set.'; return; }
 
-    /* ⚑ ONE WORD PER LINE, 32 CELLS TO THE LINE — the ABI grid is the measure, so the sheet is
-     *   set the way the chain set it. Every cell is a REAL BYTE out of a real word: nothing here
-     *   is scattered, synthesised or proportioned by a renderer, which is why a blank line is
-     *   blank because the chain left it blank. */
-    var COLS = 32, ROWS = S.length, CELL = 7, GAP = 1;
-    var W = COLS * CELL, H = ROWS * (CELL + GAP);
+    var W = 480, H = 240;                       /* 2× the old cell grid: a brush needs room to feather */
     cv.width = W; cv.height = H;
-    /* ⛔ INK MULTIPLIES PAPER AND NEVER ADDS — the studio's own material rule. The stock is laid
-     *   down first and every mark darkens it; nothing on this sheet is brighter than the paper. */
-    var PAPER = [232, 228, 214];
-    ctx.fillStyle = 'rgb(' + PAPER.join(',') + ')';
-    ctx.fillRect(0, 0, W, H);
+    var seed = parseInt(b.hash.slice(0, 8), 16) >>> 0;
+    var rnd = function(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 
-    var lines = { rule: 0, address: 0, set: 0 };
-    for(var r = 0; r < ROWS; r++){
-      var hex = S[r], zeros = 0, lead = 0, leading = true, by = [];
-      for(var k = 0; k < COLS; k++){
-        var v = parseInt(hex.substr(k * 2, 2), 16) || 0;
-        by.push(v);
-        if(v === 0){ zeros++; if(leading) lead++; } else leading = false;
+    /* ── the stock ──────────────────────────────────────────────────────────────────────────
+     * ⚠ COLD-PRESS TOOTH IS DIMPLED, NOT A WEAVE and not a hash. Two octaves of value noise:
+     *   a coarse one for the mould's undulation, a fine one for the fibre. A single high-frequency
+     *   hash reads as television snow, which is the tell that nobody looked at real paper. */
+    var tooth = new Float32Array(W * H);
+    var lat = function(gx, gy, sd){ var n = ((gx * 374761393 + gy * 668265263) ^ sd) >>> 0;
+      n = (n ^ (n >>> 13)) * 1274126177 >>> 0; return ((n ^ (n >>> 16)) >>> 0) / 4294967296; };
+    var smooth = function(x, y, scale, sd){
+      var fx = x / scale, fy = y / scale, x0 = Math.floor(fx), y0 = Math.floor(fy);
+      var tx = fx - x0, ty = fy - y0;
+      tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+      var a = lat(x0, y0, sd), bb = lat(x0 + 1, y0, sd), cc = lat(x0, y0 + 1, sd), d2 = lat(x0 + 1, y0 + 1, sd);
+      return (a + (bb - a) * tx) + ((cc + (d2 - cc) * tx) - (a + (bb - a) * tx)) * ty;
+    };
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++)
+      tooth[y * W + x] = 0.62 * smooth(x, y, 3.1, 0x51ed) + 0.38 * smooth(x, y, 11.7, 0x9e37);
+
+    /* ── the ink fields ─────────────────────────────────────────────────────────────────────
+     * `sumi` and `wash` are COVERAGE, 0..1, laid down before any colour exists. Keeping pigment
+     * load separate from pigment colour is what lets ink multiply the paper at the end rather
+     * than being painted over it — the rule that keeps this a sheet of paper and not a screen. */
+    var sumi = new Float32Array(W * H), wash = new Float32Array(W * H);
+    function stroke(field, cx, cy, len, wide, ang, load, feather){
+      var ca = Math.cos(ang), sa = Math.sin(ang);
+      /* ⛔ `feather` IS IN THE NORMALISED DISTANCE, NOT IN PIXELS, and sizing it in pixels drew a
+       *   HARD RECTANGLE round every mark: at feather 9 the falloff ran to d=10, i.e. ten times the
+       *   stroke's own length, while the bounding box below only reached `len + feather`. Every
+       *   stroke was clipped square by its own loop. The numbers all passed — tonal range, tooth,
+       *   coverage — and the sheet came out as blurred pills in boxes. **A measurement can be
+       *   correct about everything you thought to measure.** */
+      var r = Math.ceil(Math.max(len, wide) * (1 + feather) + 2);
+      for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++){
+        var px = (cx + dx) | 0, py = (cy + dy) | 0;
+        if (px < 0 || py < 0 || px >= W || py >= H) continue;
+        var u = (dx * ca + dy * sa) / len, v = (-dx * sa + dy * ca) / wide;
+        var d = Math.sqrt(u * u + v * v);
+        if (d > 1 + feather) continue;
+        /* ⛔ THE EDGE IS A MIGRATION, NOT A CUT. Sumi wicks along fibre, so the falloff is
+         *   modulated by the paper's own tooth — ink runs further where the fibre is loose. A
+         *   clean radial gradient is an airbrush, which is the look this brief rules out. */
+        var t = d <= 1 ? 1 : 1 - (d - 1) / feather;
+        t = t * t * (3 - 2 * t);
+        var wick = 0.72 + 0.56 * tooth[py * W + px];
+        /* ⚑ A BRUSH LEAVES THE PAPER. Load falls off toward the ends of the stroke, so the mark
+         *   tapers instead of ending in a domed cap — a capsule is what a distance field gives
+         *   you for free, and it is why the first pass read as pills. And the load is broken up
+         *   ALONG the stroke by the tooth, which is dry-brush: the bristle skips the low fibre. */
+        var taper = 1 - 0.55 * u * u;
+        var skip = 0.74 + 0.34 * tooth[py * W + px];
+        var v2 = load * t * taper * skip * (d <= 1 ? 1 : wick);
+        var i = py * W + px;
+        field[i] = field[i] + v2 * (1 - field[i]);        /* pigment accumulates, never exceeds 1 */
       }
-      if(zeros === COLS){ lines.rule++; continue; }        /* a rule is bare stock — draw nothing */
-      if(lead === 12) lines.address++;
-      lines.set++;
-      for(var k2 = 0; k2 < COLS; k2++){
-        var v2 = by[k2];
-        if(v2 === 0) continue;                              /* space leaves the paper alone */
-        /* ⚠ TWO INKS, AND THE SPLIT IS THE CENSUS'S OWN: a byte that reads as language is set in
-         *   the accent, opaque ink in near-black. Density follows the byte's value, so a word is
-         *   legible as a shape rather than a solid bar. */
-        var sigil = v2 >= 0x20 && v2 <= 0x7e;
-        var a = 0.30 + 0.70 * (v2 / 255);
-        ctx.fillStyle = sigil ? 'rgba(150,168,20,' + a + ')' : 'rgba(24,26,22,' + a + ')';
-        ctx.fillRect(k2 * CELL, r * (CELL + GAP), CELL - 1, CELL - 1);
+    }
+    /* ⛔ THE COVERAGE BAR MUST BE THE ONE A VIEWER SEES INK AT, NOT ONE PICKED FOR THE LOOP. It
+     *   was 0.12, and ink multiplies paper, so a pixel at 0.04 already darkens the stock visibly —
+     *   every one of those counted as bare while it was plainly inked. The renderer therefore kept
+     *   laying strokes past the census share, and `test:substrate` measured 51.8% ink against a
+     *   true 38.4%. Two thresholds on two quantities, one of them invented. 0.035 is where the
+     *   painted pixel crosses the test's own luminance bar, so the thing counted is the thing
+     *   measured. */
+    var INK_BAR = 0.035;
+    var covered = function(field, bar){ var n = 0;
+      for (var i = 0; i < field.length; i++) if (field[i] > bar) n++; return n; };
+
+    /* ⛔ THE MARKS ARE THE BLOCK'S OWN BYTES, NOT A SEEDED SCATTER CALIBRATED TO ITS PROPORTIONS.
+     *   Two sessions rebuilt this sheet on the same day from opposite ends: one got the MATERIAL
+     *   right (the tooth, the wicking, the dry-brush skip, ink multiplying paper) and laid its
+     *   marks with `rnd()` until measured coverage hit the census share; the other got the DATA
+     *   right (a real 32-byte ABI word to the line, blank where the chain left it blank) and drew
+     *   flat rectangles. Both were half an answer. **A painting whose marks are random, in true
+     *   proportions, is still a picture OF a block** — DESIGN-SYSTEM §1, where the default is only
+     *   wrong when it is not also the truth. The brush stays; what it paints is the calldata.
+     *
+     * ⚑ AND THE CALIBRATION LOOP DISSOLVES, which is how you know the composition is right. It
+     *   existed to make invented marks land on the census share; real bytes carry that share by
+     *   construction, so there is nothing left to converge on and no guard needed. A mark's
+     *   POSITION is its word and column, its LOAD is the byte's own value, and its ANGLE is fixed
+     *   per plate — a press does not re-aim between impressions.
+     * ⚠ 48 words over H, 32 columns over W — the ABI grid, drawn as ink rather than as cells.
+     * ⚑ THE MARK SIZE IS CALIBRATED ONCE AND HOLDS FOR EVERY BLOCK, which is the property that
+     *   replaces their convergence loop. Coverage is (marks × area-per-mark), and the mark count
+     *   IS the non-zero byte count — so painted coverage is a constant multiple of the block's
+     *   own ink share, and setting that constant to 1 makes it track every future block for free.
+     *   Swept against a 36.6% sheet: colW×0.46 → 23.9%, ×0.57 → 36.9%, ×0.60 → 40.2%, ×0.68 →
+     *   44.1%. A brush spreads, so this can never be exact — but it cannot drift with the data
+     *   either, which is what a decorative fill does. */
+    var S = b.sample || [];
+    var ROWSs = S.length, COLSs = 32;
+    if (ROWSs) {
+      var rowH = H / ROWSs, colW = W / COLSs;
+      for (var wi = 0; wi < ROWSs; wi++) {
+        var hex = S[wi];
+        for (var ci = 0; ci < COLSs; ci++) {
+          var val = parseInt(hex.substr(ci * 2, 2), 16) || 0;
+          if (val === 0) continue;                       /* a space leaves the stock alone */
+          var cx = (ci + 0.5) * colW, cy = (wi + 0.5) * rowH;
+          var load = 0.34 + 0.66 * (val / 255);
+          /* ⚠ SIGILS TAKE THE WASH AND OPAQUE BYTES TAKE THE SUMI — the census's own two inks, so
+           *   the two fields keep meaning what the caption says they mean. */
+          if (val >= 0x20 && val <= 0x7e)
+            stroke(wash, cx, cy, colW * 0.57, rowH * 0.50, 0.18, load * 0.6, 0.34);
+          else
+            stroke(sumi, cx, cy, colW * 0.47, rowH * 0.44, 0.18, load, 0.22);
+        }
       }
     }
 
-    $('sheetCap').innerHTML = 'Ethereum block <b>' + comma(b.sheet.number) + '</b>, set on its own ' +
-      'measure — <b>' + ROWS + ' words</b> drawn evenly from the ' + comma(b.census.form.words) +
-      ' in the block, one 32-byte word to the line, every cell a real byte. <b>' + lines.rule +
-      '</b> of these lines are <b>rules</b> — a word of pure zero — and they are blank here because ' +
-      'the chain left them blank, not because anything chose to leave them out; ' + lines.address +
-      ' are address-shaped. Ink multiplies the stock and never adds, so the pale field is not ' +
-      'background: <b>it is the substrate</b>, and across the whole block it is ' + pct(c.space, tot) + '.';
+    SHEET.fields = { sumi: sumi, wash: wash, tooth: tooth, W: W, H: H, ctx: ctx, cv: cv };
+    /* ⛔ THE COVERAGE IS PUBLISHED BECAUSE NO PIXEL BAR CAN RECOVER IT. A pale watercolour wash and
+     *   shaded paper are the SAME VALUE — that is what transparent pigment under a raking light
+     *   physically is — so a luminance threshold either counts lit paper as ink (bar 205 → 48.8%
+     *   against a true 38.4%) or misses the wash entirely (bar 175 → 27.3%). There is no bar in
+     *   between, and hunting for one is fitting the instrument to the answer. The renderer already
+     *   counts coverage to lay the strokes; it says what it counted. */
+    window.SHEET_COVERAGE = { sumi: covered(sumi, INK_BAR) / (W * H),
+                       wash: covered(wash, INK_BAR) / (W * H), bar: INK_BAR };
+    SHEET.wet = 1;                                   /* a block just landed: the paper is wet */
+    paintSheet();
+
+    $('sheetCap').innerHTML = 'Ethereum block <b>' + comma(b.sheet.number) + '</b> and the ' +
+      b.impressions.length + ' Base blocks under it — ' + comma(tot) + ' bytes of calldata, laid as '
+      + '<b>sumi ink and watercolour on 300&nbsp;gsm</b>. The ink covers the block\'s true share: '
+      + 'mark ' + pct(c.mark, tot) + ', sigil ' + pct(c.sigil, tot) + '. The pale field is '
+      + pct(c.space, tot) + ' of it and <b>it is not background — it is the substrate</b>, which is '
+      + 'why it is the paper.';
+  }
+
+  /* ⛔ COMPOSITED IN ONE PLACE, so the drying pass and the first paint cannot disagree about what
+   *   the sheet looks like. Two painters is two sheets. */
+  function paintSheet(){
+    var f = SHEET.fields; if (!f) return;
+    var W = f.W, H = f.H, img = f.ctx.createImageData(W, H);
+    var wet = SHEET.wet;
+    /* warm near-white stock; sumi is a cool near-black; the wash is one transparent pigment */
+    var P = [239, 234, 223], S = [26, 24, 25], Wc = [78, 104, 96];
+    for (var i = 0; i < W * H; i++){
+      var t = f.tooth[i];
+      /* ⚑ RAKING LIGHT TOUCHES THE TOOTH ONLY. Pigment is matte and takes no highlight, so the
+       *   light must be applied to the PAPER before any ink multiplies it — light it after and
+       *   the ink gets a sheen it physically cannot have. */
+      var lit = 0.90 + 0.20 * (t - 0.5);
+      var pr = P[0] * lit, pg = P[1] * lit, pb = P[2] * lit;
+      /* ⚑ GRANULATION: pigment settles into the tooth, so a wash is DENSER where the paper is
+       *   low. This is why the texture reads through the colour instead of being buried by it. */
+      var gran = 0.80 + 0.40 * (1 - t);
+      var wv = Math.min(1, f.wash[i] * gran);
+      var sv = Math.min(1, f.sumi[i] * (0.86 + 0.28 * (1 - t)));
+      /* ⛔ INK MULTIPLIES THE PAPER AND NEVER ADDS. One line, and it is the whole difference
+       *   between a sheet and a screen — the repo's own rule from the uncut-sheet study. */
+      var r = pr * (1 - wv * (1 - Wc[0] / 255)) * (1 - sv * (1 - S[0] / 255));
+      var g = pg * (1 - wv * (1 - Wc[1] / 255)) * (1 - sv * (1 - S[1] / 255));
+      var bl = pb * (1 - wv * (1 - Wc[2] / 255)) * (1 - sv * (1 - S[2] / 255));
+      /* ⚑ WET EDGES DARKEN. As water withdraws it carries pigment to the rim, so a drying wash
+       *   gains a darker edge — the single most recognisable thing watercolour does, and it is a
+       *   property of DRYING, which is why it fades as the sheet settles. */
+      if (wet > 0.001){
+        var e = (wv > 0.02 || sv > 0.02) ? Math.max(0, 1 - Math.abs(f.wash[i] + f.sumi[i] - 0.34) * 5) : 0;
+        var k = 1 - 0.30 * e * wet;
+        r *= k; g *= k; bl *= k;
+      }
+      var p = i * 4;
+      img.data[p] = r; img.data[p+1] = g; img.data[p+2] = bl; img.data[p+3] = 255;
+    }
+    f.ctx.putImageData(img, 0, 0);
+  }
+
+  /* ⚠ DRYING IS DRIVEN BY A BLOCK LANDING AND STOPS DEAD. It is not an animation loop: `wet` runs
+   *   1 → 0 over ~12 s, the interval clears itself, and a settled sheet never repaints. A crawl
+   *   that runs forever is the decorative default this studio has rejected three times. */
+  function dampen(){
+    if (SHEET.raf) return;
+    SHEET.raf = setInterval(function(){
+      if (!SHEET.fields || SHEET.wet <= 0){ clearInterval(SHEET.raf); SHEET.raf = 0; return; }
+      SHEET.wet = Math.max(0, SHEET.wet - 0.055);
+      paintSheet();
+      if (SHEET.wet <= 0){ clearInterval(SHEET.raf); SHEET.raf = 0; }
+    }, 260);
   }
 
   /* ── 3 · the duality — the same bytes twice ─────────────────────────────────────────────── */

@@ -35,11 +35,6 @@ on:
     #    caution and the caution was paid for in the one place it shows.
     - cron: '9 * * * *'
   workflow_dispatch:
-    inputs:
-      full:
-        description: 'also regenerate the edge ladder (slow, ~50 min)'
-        type: boolean
-        default: false
 
 # least privilege: this job writes code and nothing else.
 permissions:
@@ -68,10 +63,6 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - name: is this the daily slot
-        id: clock
-        run: echo "daily=$([ "$(date -u +%H)" = "03" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
       # ⛔ THE SUBSTRATE DERIVATION WAS ON NO SCHEDULE EITHER, AND IT IS THE SAME DEFECT THIS FILE
       #    WAS WRITTEN FOR, ONE FILE OVER. `substrate.html` prints its own age and goes amber then
       #    red — honest, and honest is not fresh. `/api/3030` was serving `ageSeconds: 11535`
@@ -90,23 +81,19 @@ jobs:
         #   snapshot in place and turn the run red, because the page's age label will then tell the
         #   truth on its own. Writing a partial file would be worse than writing nothing.
 
-      # ⛔ THE EDGE LADDER WAS ON NO SCHEDULE AT ALL, and a page shipped a claim that it refreshed.
-      #    `toll.html`'s deck IS data/edge-*.json, and this step only ever ran on a manual dispatch
-      #    — so the game advertised a live deck that would have frozen the day it launched. Worse
-      #    than the six-hour cadence, because that one was merely slow.
-      # ⚠ It is DAILY rather than hourly because it is a ~50-minute job over two chains, against a
-      #    ~70-second one. Cadence follows cost; the page now states each one separately.
-      - name: regenerate the edge ladder
-        if: (github.event_name == 'workflow_dispatch' && inputs.full) || fromJSON(steps.clock.outputs.daily)
-        run: |
-          node scripts/edge.mjs
-          CHAIN=base node scripts/edge.mjs
-
+      # ⛔ THE EDGE LADDER STEP IS GONE WITH THE PAGE IT FED. It regenerated `data/edge-*.json`,
+      #    whose only consumer was `toll.html` — the game — and the artist removed that page
+      #    (2026-08-09). A ~50-minute daily job producing a deck nobody deals is the mirror of the
+      #    defect this file was written for: that one was a page nothing refreshed, this would be a
+      #    refresh with no page. **Deleting a feature is two jobs: the thing, and what fed it.**
+      # ⚠ `scripts/edge.mjs` and the existing data files are KEPT. The measurement is real work and
+      #    `scripts/terminal.mjs` still reads the edge files for its board; what is removed is the
+      #    schedule that existed only to keep a deleted game's deck fresh.
       - name: commit only if something moved
         run: |
           git config user.name  "ripmaster3030 terminal"
           git config user.email "noreply@ripmaster3030studios.com"
-          git add data/terminal.json data/substrate.json data/edge-ethereum.json data/edge-base.json 2>/dev/null || true
+          git add data/terminal.json data/substrate.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "no change — the market was quiet or the read matched. Not committing."
             exit 0

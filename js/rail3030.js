@@ -46,10 +46,12 @@
    *   has to declare "I am the substrate" is a page that can declare it wrong — and the wrong one
    *   marked current is worse than none marked, because it tells the visitor they are somewhere
    *   they are not. */
+  /* ⛔ TOLL IS GONE — artist, 2026-08-09: *"remove toll."* It was the one door in this rail that
+   *   was a GAME rather than a tool, and the rail is for the things that answer a question you
+   *   asked. Deleting a feature is two jobs: the page AND everything that called it or fed it. */
   var DOORS = [
     { file: 'check.html',      label: 'CHECK',     sub: 'know before you sign' },
     { file: 'worldcomputerhyperterminal.html', label: 'TERMINAL', sub: 'what a market costs now' },
-    { file: 'toll.html',       label: 'TOLL',      sub: 'the game' },
     { file: 'substrate.html',  label: 'SUBSTRATE', sub: 'eth + base as one surface' }
   ];
   /* ⛔ PLATE IS RETIRED (2026-08-10). `sheet.html` was a composing frame: you typed 256 bytes into

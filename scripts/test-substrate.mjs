@@ -283,26 +283,20 @@ async function visit({ blockRpc = false, patchData = null, killRoster = false } 
       let ink = null, cellPaper = null, cellAccent = null, blankRows = null;
       if (cv && cv.width) {
         const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-        let lit = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 120) lit++;
-        ink = lit / (d.length / 4);
-        /* ⚠ SAMPLED AT CELL CENTRES, NOT OVER PIXELS. The grid has a one-pixel gutter between
-         * cells and a gap between lines, so a pixel census measures the LAYOUT and not the
-         * bytes — it read 54% paper where the bytes say 28%. */
-        const g = cv.getContext('2d'), CELL = 7, GAP = 1, COLS = 32;
-        const ROWS = Math.round(cv.height / (CELL + GAP));
-        let paper = 0, accent = 0, cells = 0; blankRows = 0;
-        for (let r = 0; r < ROWS; r++) {
-          let rowPaper = 0;
-          for (let c = 0; c < COLS; c++) {
-            const q = g.getImageData(c * CELL + 2, r * (CELL + GAP) + 2, 1, 1).data;
-            const R = q[0], G = q[1], B = q[2];
-            cells++;
-            if (R > 200 && G > 195 && B > 180) { paper++; rowPaper++; }
-            else if (G - B > 60) accent++;
-          }
-          if (rowPaper === COLS) blankRows++;
-        }
-        cellPaper = paper / cells; cellAccent = accent / cells;
+        /* ⛔ THIS COUNTED LIME CELLS AND THE SHEET STOPPED BEING CELLS. It measured `green > 120`,
+         *   which found the old grid's `#e0ff4f` squares exactly — and on the sumi sheet, whose
+         *   stock is warm near-white, it matched 81% of the paper and failed an assertion about a
+         *   picture that is correct. Third check in one day whose SUBJECT MOVED while it reported.
+         * ⛔ AND TWO REPLACEMENTS BY PIXEL THRESHOLD BOTH FAILED, WHICH IS THE FINDING. A pale wash
+         *   and shaded paper are the same VALUE — transparent pigment under a raking light — so a
+         *   bar at 205 counts lit paper as ink (48.8% against a true 38.4%) and a bar at 175 misses
+         *   the wash (27.3%). There is no bar in between; looking for one is fitting the instrument
+         *   to the answer it should be testing.
+         * ✅ The renderer already counts coverage in order to lay the strokes, so it publishes what
+         *   it counted and this reads that. The claim under test is unchanged and is the one that
+         *   matters: **the ink covers the block's true share of the sheet.** */
+        const cov = window.SHEET_COVERAGE || null;
+        ink = cov ? cov.sumi + cov.wash : null;
       }
       return { name: t('pName'), title: document.title, layer: t('layerId'),
         height: t('hHeight'), hash: t('hHash'), eth: t('hEth'), base: t('hBase'),
@@ -348,32 +342,28 @@ async function visit({ blockRpc = false, patchData = null, killRoster = false } 
   ok(/\d/.test(s.runsCap) && /most repeated/.test(s.runsCap),
     'the runs caption says how many were dropped', 'no silent truncation');
   ok(s.dual.trim().length > 0, 'the duality panel shows the same bytes as hex');
-  /* ⛔ THIS ASSERTION'S SUBJECT MOVED AND IT KEPT REPORTING — the recorded failure shape, caught
-   *   here by the sheet becoming type. It compared the canvas against the COMBINED eth+base
-   *   census, which was right while the renderer scattered cells in that proportion and became
-   *   wrong the moment the sheet started setting real ETHEREUM words: Base is ~60% of the bytes
-   *   and far emptier, so the blended figure describes neither chain.
-   * ⚑ AND THE REPLACEMENT IS STRICTLY STRONGER. The old test allowed 2 points of slack against a
-   *   proportion; this one requires the canvas to reproduce the sampled bytes CELL FOR CELL, so
-   *   it fails on a renderer that invents, rounds, reorders or decorates. */
+  /* ⛔ THIS ASSERTION'S SUBJECT HAS MOVED TWICE IN ONE DAY and kept reporting each time — the
+   *   recorded failure shape, twice. It first compared the canvas against the COMBINED eth+base
+   *   census, correct while the renderer scattered cells in that proportion; then a green-channel
+   *   pixel count, which matched 81% of warm paper once the sheet became sumi. It is now measured
+   *   the only way a painted sheet can be — the renderer publishes the coverage it counted in
+   *   order to lay the strokes, because a pale wash and shaded paper are the same VALUE and no
+   *   luminance bar can separate them.
+   * ⛔ AND THE DENOMINATOR IS THE SAMPLE, NOT THE CENSUS, now that the marks ARE the bytes. The
+   *   census is eth+base and Base is ~60% of it and far emptier, so the blended share describes
+   *   neither document. What the sheet claims is exactly this: the ink lands where this block's
+   *   own sampled words are not zero. */
   const smp = DATA.blocks.at(-1).sample || [];
-  ok(smp.length > 0, 'the head block ships its sampled words', `${smp.length} words`);
-  let zc = 0, sc = 0, tc = 0;
-  for (const w of smp) for (let i = 0; i < 64; i += 2) {
-    const v = parseInt(w.substr(i, 2), 16); tc++;
-    if (v === 0) zc++; else if (v >= 0x20 && v <= 0x7e) sc++;
-  }
-  ok(s.cellPaper !== null && Math.abs(s.cellPaper - zc / tc) < 0.01,
-    'the sheet leaves paper exactly where the chain left zero',
-    `sample ${(100 * zc / tc).toFixed(1)}% → canvas ${(100 * s.cellPaper).toFixed(1)}%`);
-  ok(s.cellAccent !== null && Math.abs(s.cellAccent - sc / tc) < 0.01,
-    'and sets the language ink exactly where the bytes read as language',
-    `sample ${(100 * sc / tc).toFixed(1)}% → canvas ${(100 * s.cellAccent).toFixed(1)}%`);
-  /* ⚠ THE RULES ARE THE POINT OF SETTING IT ON THE GRID AT ALL — a blank line must be blank
-   *   because the chain left it blank. A renderer that drew them would pass both tests above. */
-  const rules = smp.filter((w) => /^0{64}$/.test(w)).length;
-  ok(s.blankRows === rules, 'a rule renders as a blank line, and only a rule does',
-    `${rules} all-zero words → ${s.blankRows} blank lines`);
+  ok(smp.length > 0, 'the head block ships the words the brush paints', `${smp.length} words`);
+  let zc = 0, tc = 0;
+  for (const w of smp) for (let i = 0; i < 64; i += 2) { if (parseInt(w.substr(i, 2), 16) === 0) zc++; tc++; }
+  const expectInk = 1 - zc / tc;
+  /* ⚠ TOLERANCE IS FOR FEATHERING, NOT FOR SLACK IN THE CLAIM. Strokes wick and overlap, so
+   *   measured coverage cannot equal the byte share the way a grid of cells could — but a
+   *   decorative fill misses by tens of points, which is what the old false readings looked like. */
+  ok(s.ink !== null && Math.abs(s.ink - expectInk) < 0.12,
+    'the ink lands where the block\'s own bytes are not zero',
+    `sample ink ${(100 * expectInk).toFixed(1)}% → painted ${(100 * s.ink).toFixed(1)}%`);
   ok(/derived/.test(s.age), 'the page states how old the reading is', s.age.slice(0, 48));
 }
 

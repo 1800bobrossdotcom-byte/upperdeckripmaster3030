@@ -49,12 +49,21 @@ const ANSWERS = [...(RAIL_SRC.match(/var ANSWER_OF = \{([^}]*)\}/) || [,''])[1]
 const SURFACES = [...DOORS.map(d => d.file), ...ANSWERS.map(a => a.file)];
 
 console.log('\n── A · the module is the list ──');
-/* ⚠ FOUR SINCE PLATE WAS RETIRED (2026-08-10). The floor is a guard against the rail silently
- *   emptying, not a target — it was 5 and is 4 because `sheet.html` was removed on purpose, not
- *   lost. Every remaining door answers a question a visitor actually has; PLATE asked them to
- *   compose 256 bytes it could not press. ⛔ Do not raise this back to 5 to "fix" a red bar —
- *   that is how a retired surface gets resurrected by a test nobody re-read. */
-ok(DOORS.length >= 4, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
+/* ⚠ THREE SINCE TOLL AND PLATE WERE BOTH RETIRED (2026-08-10, two sessions, same diagnosis from
+ *   different ends): TOLL because "only one of five asked you anything", PLATE because it asked
+ *   you to compose 256 bytes it could not press. The floor is a guard against the rail silently
+ *   emptying, not a target. ⛔ Do not raise it to make a red bar go away — that is how a retired
+ *   surface gets resurrected by a test nobody re-read. */
+ok(DOORS.length >= 3, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
+/* ⛔ AND EVERY DOOR MUST OPEN ONTO A FILE THAT EXISTS — which is the PROPERTY, where "there are
+ *   five of them" was a number somebody picked. Removing a page took the count down and failed a
+ *   threshold while nothing was wrong; a door left pointing at a deleted page would have passed
+ *   it. A rail that offers a 404 is worse than one door short. */
+{
+  const gone = [...DOORS, ...ANSWERS].map(d => d.file).filter(f => !existsSync(join(ROOT, f)));
+  ok(gone.length === 0, '…and every door and answer opens onto a file that exists',
+    gone.length ? '⛔ 404: ' + gone.join(', ') : DOORS.length + ' doors + ' + ANSWERS.length + ' answers');
+}
 ok(ANSWERS.length >= 2, `and ${ANSWERS.length} answers that belong to a door`,
   ANSWERS.map(a => a.file + '→' + a.owner).join(' · '));
 
@@ -166,13 +175,17 @@ console.log('\n── E · a phone, where a fixed rail usually breaks something 
 /* ── F · ⛔ SABOTAGE — a guard that never engages guards nothing ───────────────────────────── */
 console.log('\n── F · sabotage ──');
 {
-  const target = join(ROOT, 'toll.html');
+  /* ⚠ THE SABOTAGE TARGET IS NAMED HERE AND IT OUTLIVED ITS FILE ONCE ALREADY. It pointed at
+     `toll.html`, which the artist removed on 2026-08-09, and the suite died on ENOENT — loudly,
+     because the process handlers added for exactly this print the tally with the cause instead of
+     exiting silently. Any door will do; it is the guard being exercised, not the page. */
+  const target = join(ROOT, DOORS[DOORS.length - 1].file);
   const orig = readFileSync(target, 'utf8');
   try {
     writeFileSync(target, orig.replace(/\s*<script[^>]+src=["'][^"']*rail3030\.js["']><\/script>/, ''));
-    const r = await read('toll.html');
+    const r = await read(DOORS[DOORS.length - 1].file);
     ok(!r.rail, 'removing the tag from one surface leaves it with no rail — the check has something to see',
-      r.rail ? '⛔ still mounted, so §C/§D cannot be measuring what they claim' : 'toll.html went dark');
+      r.rail ? '⛔ still mounted, so §C/§D cannot be measuring what they claim' : DOORS[DOORS.length - 1].file + ' went dark');
   } finally {
     /* restore from the BYTES READ, never from git — this repo has lost uncommitted work to a
      * harness that restored with `git checkout --`. */

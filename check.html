@@ -103,6 +103,22 @@
   .pane iframe{display:block;width:100%;height:900px;border:0;background:#07090c}
   @media (max-width:520px){ .pane iframe{height:700px} }
 
+  /* ── ⛔ THE ANSWER TAKES THE PAGE ─────────────────────────────────────────────────────
+     The result is what the tool is for and it was rendering at the same weight as a caption,
+     under an essay four times its size. These rules do one thing: make the reading the largest,
+     first and most obvious object below the input, and give the explanation the smallest. */
+  .why{margin:26px 0 0;border-top:1px solid var(--line);padding-top:14px}
+  .why>summary{cursor:pointer;color:var(--dim);font-size:13px;letter-spacing:.06em;
+               list-style:none;padding:11px 0;min-height:44px;display:flex;align-items:center}
+  .why>summary::-webkit-details-marker{display:none}
+  .why>summary::before{content:"+ ";color:var(--hot);margin-right:8px}
+  .why[open]>summary::before{content:"− "}
+  .why>summary:hover,.why>summary:focus{color:var(--ink)}
+  /* ⚠ the reading is given room to BE large; an empty state must still collapse to nothing, or
+     the page opens with a hole in it where an answer has not been asked for yet. */
+  #pane:not([hidden]){min-height:min(72vh,720px)}
+  #pane iframe{min-height:min(68vh,680px)}
+  .stat:empty,.what:empty{display:none}
   .note{border-left:2px solid var(--line);padding:1px 0 1px 15px;margin:20px 0;color:var(--dim);
     font-size:var(--t-body,15px);line-height:1.7;max-width:76ch}
   .note b{color:var(--ink)} .note.hard{border-left-color:var(--bad)} .note.key{border-left-color:var(--hot)}
@@ -162,6 +178,18 @@
   <iframe id="paneframe" title="reading" loading="lazy"></iframe>
 </div>
 
+<!-- ⛔ THE ESSAY WAS ABOVE THE ANSWER AND FOUR TIMES ITS SIZE. ~250 words explaining the tool sat
+     between the input and the doors, while the result rendered as a 13px grey line. That is
+     `index.html`'s recorded failure — everything it makes below everything it explains — one level
+     in, and it is why the page could feel unusable with every number on it correct.
+     ⚑ NOTHING IS DELETED. The paragraphs are the reason to trust the readings — the shared-engine
+     claim, the never-accuses rule, the exact-for-this-block caveat — and a condensation that drops
+     those is the one this repo warns about. They fold behind a line instead.
+     ⚠ `<details>` rather than a JS toggle: it opens with no script, it is keyboard-reachable and
+     findable by the browser's own in-page search, and it cannot break the way a control whose
+     handler failed to bind can. -->
+<details class="why">
+  <summary>why this exists, what it will not do, and where the numbers come from</summary>
 <div class="note hard">⛔ <b>Why one input.</b> Seven pages each answered a fragment of the same
 question — <i>is this thing about to cost me something</i> — and every one of them required you to
 already know which fragment you needed. That is a menu, not a tool. A pool that succeeds and returns
@@ -184,12 +212,13 @@ you conclude — a new protocol, an airdrop claim, a token migration and a popul
 drainer for the first hour of their lives. ⚠ And every reading is exact for <i>this block</i>: it
 reads the chain, it does not predict it. Not financial advice.</div>
 
-<h2 style="font-size:12px;letter-spacing:.22em;color:var(--dim);margin:30px 0 10px">THE REST OF IT</h2>
-<div class="tools">
-  <a class="tool" href="worldcomputerhyperterminal.html"><div class="t">THE TERMINAL</div><div class="d">what a market costs right now — gas, tolls, a live scan, refreshed hourly</div></a>
-  <a class="tool" href="toll.html"><div class="t">THE TOLL <span style="color:var(--warn)">· beta</span></div><div class="d">the game — call a real pool tradeable or trap before the numbers come up</div></a>
-  <a class="tool" href="substrate.html"><div class="t">THE SUBSTRATE</div><div class="d">a reading of Ethereum and Base as one surface</div></a>
-</div>
+</details>
+
+<!-- ⛔ THE TOOL GRID IS GONE AND THAT IS THE POINT OF HAVING A RAIL. Four cards at the bottom
+     naming the other surfaces was a MENU — the exact thing the first paragraph above criticises —
+     and since `js/rail3030.js` those same doors are at the top of every page including this one.
+     Two menus for one set of destinations is the drift this studio keeps paying for; the rail is
+     the one that is asserted identical everywhere, so the grid is the copy that goes. -->
 
 <footer>
   <b>ripmaster3030studios</b> · a card and game studio ·
