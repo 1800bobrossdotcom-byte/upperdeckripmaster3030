@@ -49,7 +49,16 @@ const ANSWERS = [...(RAIL_SRC.match(/var ANSWER_OF = \{([^}]*)\}/) || [,''])[1]
 const SURFACES = [...DOORS.map(d => d.file), ...ANSWERS.map(a => a.file)];
 
 console.log('\n── A · the module is the list ──');
-ok(DOORS.length >= 5, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
+ok(DOORS.length >= 3, `the rail declares ${DOORS.length} doors`, DOORS.map(d => d.label).join(' · '));
+/* ⛔ AND EVERY DOOR MUST OPEN ONTO A FILE THAT EXISTS — which is the property, where "there are
+ *   five of them" was a number I picked. Removing `toll.html` took the count to four and failed a
+ *   threshold while nothing was actually wrong; a door left pointing at a deleted page would have
+ *   passed it. A rail that offers a 404 is worse than one door short. */
+{
+  const gone = [...DOORS, ...ANSWERS].map(d => d.file).filter(f => !existsSync(join(ROOT, f)));
+  ok(gone.length === 0, '…and every door and answer opens onto a file that exists',
+    gone.length ? '⛔ 404: ' + gone.join(', ') : DOORS.length + ' doors + ' + ANSWERS.length + ' answers');
+}
 ok(ANSWERS.length >= 2, `and ${ANSWERS.length} answers that belong to a door`,
   ANSWERS.map(a => a.file + '→' + a.owner).join(' · '));
 
@@ -161,13 +170,17 @@ console.log('\n── E · a phone, where a fixed rail usually breaks something 
 /* ── F · ⛔ SABOTAGE — a guard that never engages guards nothing ───────────────────────────── */
 console.log('\n── F · sabotage ──');
 {
-  const target = join(ROOT, 'toll.html');
+  /* ⚠ THE SABOTAGE TARGET IS NAMED HERE AND IT OUTLIVED ITS FILE ONCE ALREADY. It pointed at
+     `toll.html`, which the artist removed on 2026-08-09, and the suite died on ENOENT — loudly,
+     because the process handlers added for exactly this print the tally with the cause instead of
+     exiting silently. Any door will do; it is the guard being exercised, not the page. */
+  const target = join(ROOT, DOORS[DOORS.length - 1].file);
   const orig = readFileSync(target, 'utf8');
   try {
     writeFileSync(target, orig.replace(/\s*<script[^>]+src=["'][^"']*rail3030\.js["']><\/script>/, ''));
-    const r = await read('toll.html');
+    const r = await read(DOORS[DOORS.length - 1].file);
     ok(!r.rail, 'removing the tag from one surface leaves it with no rail — the check has something to see',
-      r.rail ? '⛔ still mounted, so §C/§D cannot be measuring what they claim' : 'toll.html went dark');
+      r.rail ? '⛔ still mounted, so §C/§D cannot be measuring what they claim' : DOORS[DOORS.length - 1].file + ' went dark');
   } finally {
     /* restore from the BYTES READ, never from git — this repo has lost uncommitted work to a
      * harness that restored with `git checkout --`. */

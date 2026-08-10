@@ -417,7 +417,7 @@ reads them before any script runs, so a runtime-only title is no title.
    Ethereum blocks; the derivation is linear in blocks and the data file is not small.
 4. **Whether this is linked from the front page.** Currently unlinked, and allow-listed in
    `test:reach`'s `ORPHAN_OK` **with a reason and a stated end** — it gets linked or it gets
-   deleted, the same terms `toll.html` is held to.
+   deleted, the same terms `toll.html *(removed 2026-08-09 — the rail is for tools, and it was a game)*` is held to.
 
 ---
 
