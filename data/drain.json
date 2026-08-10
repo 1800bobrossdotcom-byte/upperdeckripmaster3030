@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-10T22:53:00.716Z",
+ "generatedAt": "2026-08-10T23:50:38.075Z",
  "allowlist": [
   "Permit2 (Uniswap)",
   "UniversalRouter (Uniswap)",
@@ -20,663 +20,666 @@
  ],
  "chains": {
   "ethereum": {
-   "head": 25727707,
-   "from": 25727587,
-   "events": 3651,
+   "head": 25727992,
+   "from": 25727872,
+   "events": 3895,
    "missed": 0,
-   "spenders": 404,
+   "spenders": 362,
    "rows": [
     {
      "spender": "0xd0f1fc820695c8000cc11c86092576fb1d4fe50a",
-     "approvers": 48,
-     "events": 50,
+     "approvers": 27,
+     "events": 27,
      "unlimited": 0,
-     "forAll": 48,
+     "forAll": 26,
      "tokens": 1,
      "blocks": [
-      25727587,
-      25727707
+      25727876,
+      25727992
      ],
      "isContract": true,
      "codeSize": 1794,
      "priorHits": 0,
      "priorChecked": true,
      "sweep": {
-      "checked": 48,
-      "movedOut": 46,
-      "transfers": 404,
+      "checked": 27,
+      "movedOut": 25,
+      "transfers": 245,
       "topDestination": "0x000000000000000000000000000000000000dead",
-      "topDestinationCount": 380,
+      "topDestinationCount": 230,
       "distinctDestinations": 13
      },
-     "score": 123,
+     "score": 98,
      "reasons": [
-      "48 distinct approvers",
+      "27 distinct approvers",
       "96% unlimited",
-      "48 setApprovalForAll(true)",
+      "26 setApprovalForAll(true)",
       "no approvals in the day-earlier sample",
-      "concentrated outflow: 46/48 moved, 13 destinations"
+      "outflow fans out (13 destinations) — router-shaped"
      ]
     },
     {
-     "spender": "0x4313c378cc91ea583c91387b9216e2c03096b27f",
-     "approvers": 34,
-     "events": 60,
+     "spender": "0x00000000000e56073987eaf8694fe54fca2f53de",
+     "approvers": 9,
+     "events": 13,
      "unlimited": 0,
-     "forAll": 0,
-     "tokens": 12,
+     "forAll": 13,
+     "tokens": 2,
      "blocks": [
-      25727608,
-      25727707
+      25727936,
+      25727992
      ],
      "isContract": true,
-     "codeSize": 2227,
-     "priorHits": 54,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 34,
-      "movedOut": 34,
-      "transfers": 56,
-      "topDestination": "0x000000000004444c5dc75cb358380d2e3de08a90",
-      "topDestinationCount": 25,
-      "distinctDestinations": 11
-     },
-     "score": 26,
-     "reasons": [
-      "34 distinct approvers",
-      "12 tokens",
-      "ESTABLISHED — 54 approvals a day earlier",
-      "concentrated outflow: 34/34 moved, 11 destinations"
-     ]
-    },
-    {
-     "spender": "0x4d2fb5f8ec243fde4df1a9678b82238570c7e0e4",
-     "approvers": 11,
-     "events": 33,
-     "unlimited": 33,
-     "forAll": 0,
-     "tokens": 3,
-     "blocks": [
-      25727589,
-      25727687
-     ],
-     "isContract": true,
-     "codeSize": 123,
-     "priorHits": 15,
+     "codeSize": 24495,
+     "priorHits": 0,
      "priorChecked": true,
      "sweep": null,
-     "score": 19,
+     "score": 70,
      "reasons": [
-      "11 distinct approvers",
+      "9 distinct approvers",
       "100% unlimited",
-      "tiny contract (123B)",
-      "3 tokens",
-      "ESTABLISHED — 15 approvals a day earlier"
+      "13 setApprovalForAll(true)",
+      "no approvals in the day-earlier sample"
+     ]
+    },
+    {
+     "spender": "0xf2538dc29de79fc6936853d46c99e5d04d3869e3",
+     "approvers": 8,
+     "events": 8,
+     "unlimited": 8,
+     "forAll": 0,
+     "tokens": 1,
+     "blocks": [
+      25727876,
+      25727907
+     ],
+     "isContract": false,
+     "codeSize": 0,
+     "priorHits": 0,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 65,
+     "reasons": [
+      "8 distinct approvers",
+      "100% unlimited",
+      "spender is an EOA, not a contract",
+      "no approvals in the day-earlier sample"
      ]
     },
     {
      "spender": "0x777777777777aec03fd955926dbf81597e66834c",
-     "approvers": 94,
-     "events": 177,
+     "approvers": 72,
+     "events": 138,
      "unlimited": 0,
      "forAll": 0,
      "tokens": 2,
      "blocks": [
-      25727587,
-      25727707
+      25727875,
+      25727992
      ],
      "isContract": true,
      "codeSize": 15118,
-     "priorHits": 307,
+     "priorHits": 314,
      "priorChecked": true,
      "sweep": {
-      "checked": 94,
-      "movedOut": 93,
-      "transfers": 230,
+      "checked": 72,
+      "movedOut": 72,
+      "transfers": 179,
       "topDestination": "0x4b742ad5ca91969e82aefb80072ae59121a3d72a",
-      "topDestinationCount": 109,
-      "distinctDestinations": 111
+      "topDestinationCount": 87,
+      "distinctDestinations": 80
      },
      "score": 15,
      "reasons": [
-      "94 distinct approvers",
-      "burst: 94 in 121 blocks",
-      "ESTABLISHED — 307 approvals a day earlier",
-      "outflow fans out (111 destinations) — router-shaped"
-     ]
-    },
-    {
-     "spender": "0x69460570c93f9de5e2edbc3052bf10125f0ca22d",
-     "approvers": 14,
-     "events": 14,
-     "unlimited": 13,
-     "forAll": 0,
-     "tokens": 8,
-     "blocks": [
-      25727593,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 5208,
-     "priorHits": 18,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 11,
-     "reasons": [
-      "14 distinct approvers",
-      "93% unlimited",
-      "8 tokens",
-      "ESTABLISHED — 18 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x80a64c6d7f12c47b7c66c5b4e20e72bc1fcd5d9e",
-     "approvers": 20,
-     "events": 29,
-     "unlimited": 29,
-     "forAll": 0,
-     "tokens": 1,
-     "blocks": [
-      25727619,
-      25727691
-     ],
-     "isContract": true,
-     "codeSize": 797,
-     "priorHits": 6,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 5,
-     "reasons": [
-      "20 distinct approvers",
-      "100% unlimited",
-      "ESTABLISHED — 6 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
-     "approvers": 58,
-     "events": 131,
-     "unlimited": 0,
-     "forAll": 0,
-     "tokens": 4,
-     "blocks": [
-      25727587,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 8628,
-     "priorHits": 295,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 58,
-      "movedOut": 55,
-      "transfers": 521,
-      "topDestination": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
-      "topDestinationCount": 126,
-      "distinctDestinations": 152
-     },
-     "score": 1,
-     "reasons": [
-      "58 distinct approvers",
-      "4 tokens",
-      "ESTABLISHED — 295 approvals a day earlier",
-      "outflow fans out (152 destinations) — router-shaped"
+      "72 distinct approvers",
+      "burst: 72 in 118 blocks",
+      "ESTABLISHED — 314 approvals a day earlier",
+      "outflow fans out (80 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0xccc88a9d1b4ed6b0eaba998850414b24f1c315be",
-     "approvers": 73,
-     "events": 97,
-     "unlimited": 6,
+     "approvers": 64,
+     "events": 93,
+     "unlimited": 5,
      "forAll": 0,
      "tokens": 29,
      "blocks": [
-      25727588,
-      25727707
+      25727875,
+      25727992
      ],
      "isContract": true,
      "codeSize": 7746,
-     "priorHits": 217,
+     "priorHits": 195,
      "priorChecked": true,
      "sweep": {
-      "checked": 73,
-      "movedOut": 65,
-      "transfers": 149,
+      "checked": 64,
+      "movedOut": 60,
+      "transfers": 107,
       "topDestination": "0xb92fe925dc43a0ecde6c8b1a2709c170ec4fff4f",
-      "topDestinationCount": 68,
-      "distinctDestinations": 28
+      "topDestinationCount": 92,
+      "distinctDestinations": 12
      },
-     "score": 0,
+     "score": 15,
      "reasons": [
-      "73 distinct approvers",
-      "burst: 73 in 120 blocks",
+      "64 distinct approvers",
+      "burst: 64 in 118 blocks",
       "29 tokens — router-like spread",
-      "ESTABLISHED — 217 approvals a day earlier",
-      "outflow fans out (28 destinations) — router-shaped"
+      "ESTABLISHED — 195 approvals a day earlier",
+      "concentrated outflow: 60/64 moved, 12 destinations"
+     ]
+    },
+    {
+     "spender": "0xf9280799c85d376e0425f6fb38e4a674e8bedb56",
+     "approvers": 19,
+     "events": 19,
+     "unlimited": 19,
+     "forAll": 0,
+     "tokens": 3,
+     "blocks": [
+      25727882,
+      25727978
+     ],
+     "isContract": true,
+     "codeSize": 23049,
+     "priorHits": 16,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 11,
+     "reasons": [
+      "19 distinct approvers",
+      "100% unlimited",
+      "3 tokens",
+      "ESTABLISHED — 16 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
+     "approvers": 54,
+     "events": 127,
+     "unlimited": 0,
+     "forAll": 0,
+     "tokens": 5,
+     "blocks": [
+      25727872,
+      25727992
+     ],
+     "isContract": true,
+     "codeSize": 8628,
+     "priorHits": 303,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 54,
+      "movedOut": 51,
+      "transfers": 354,
+      "topDestination": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
+      "topDestinationCount": 115,
+      "distinctDestinations": 82
+     },
+     "score": 1,
+     "reasons": [
+      "54 distinct approvers",
+      "5 tokens",
+      "ESTABLISHED — 303 approvals a day earlier",
+      "outflow fans out (82 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x7ec8a30a34b86927dc77b302603d1d53e640bef7",
-     "approvers": 52,
-     "events": 65,
+     "approvers": 69,
+     "events": 87,
      "unlimited": 0,
      "forAll": 0,
-     "tokens": 34,
+     "tokens": 26,
      "blocks": [
-      25727589,
-      25727707
+      25727886,
+      25727987
      ],
      "isContract": true,
      "codeSize": 352,
-     "priorHits": 203,
+     "priorHits": 198,
      "priorChecked": true,
      "sweep": {
-      "checked": 52,
-      "movedOut": 52,
-      "transfers": 202,
-      "topDestination": "0x7311d146231f4fcfdea648e3cc0210493b70aefe",
-      "topDestinationCount": 33,
-      "distinctDestinations": 87
+      "checked": 69,
+      "movedOut": 69,
+      "transfers": 286,
+      "topDestination": "0x85c8a1e6f99eb58573f012baf2b0132d3d4bf08e",
+      "topDestinationCount": 65,
+      "distinctDestinations": 93
      },
      "score": 0,
      "reasons": [
-      "52 distinct approvers",
+      "69 distinct approvers",
+      "burst: 69 in 102 blocks",
       "tiny contract (352B)",
-      "34 tokens — router-like spread",
-      "ESTABLISHED — 203 approvals a day earlier",
-      "outflow fans out (87 destinations) — router-shaped"
-     ]
-    },
-    {
-     "spender": "0x0000000000001ff3684f28c67538d4d072c22734",
-     "approvers": 47,
-     "events": 229,
-     "unlimited": 24,
-     "forAll": 0,
-     "tokens": 43,
-     "blocks": [
-      25727588,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 1009,
-     "priorHits": 448,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 47,
-      "movedOut": 39,
-      "transfers": 649,
-      "topDestination": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
-      "topDestinationCount": 67,
-      "distinctDestinations": 225
-     },
-     "score": 0,
-     "reasons": [
-      "47 distinct approvers",
-      "43 tokens — router-like spread",
-      "ESTABLISHED — 448 approvals a day earlier",
-      "outflow fans out (225 destinations) — router-shaped"
+      "26 tokens — router-like spread",
+      "ESTABLISHED — 198 approvals a day earlier",
+      "outflow fans out (93 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x40aa958dd87fc8305b97f2ba922cddca374bcd7f",
-     "approvers": 42,
-     "events": 80,
-     "unlimited": 62,
+     "approvers": 50,
+     "events": 77,
+     "unlimited": 45,
      "forAll": 0,
-     "tokens": 31,
+     "tokens": 35,
      "blocks": [
-      25727591,
-      25727703
+      25727880,
+      25727991
      ],
      "isContract": true,
      "codeSize": 2133,
-     "priorHits": 281,
+     "priorHits": 207,
      "priorChecked": true,
      "sweep": {
-      "checked": 42,
-      "movedOut": 36,
-      "transfers": 230,
-      "topDestination": "0x8f10b468b06c6fd214b65f87778827f7d113f996",
-      "topDestinationCount": 35,
-      "distinctDestinations": 86
+      "checked": 50,
+      "movedOut": 38,
+      "transfers": 146,
+      "topDestination": "0x163f3103de041d25464e2c8a4f8f3187ec1856e0",
+      "topDestinationCount": 32,
+      "distinctDestinations": 63
      },
      "score": 0,
      "reasons": [
-      "42 distinct approvers",
-      "78% unlimited",
-      "31 tokens — router-like spread",
-      "ESTABLISHED — 281 approvals a day earlier",
-      "outflow fans out (86 destinations) — router-shaped"
-     ]
-    },
-    {
-     "spender": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
-     "approvers": 41,
-     "events": 66,
-     "unlimited": 4,
-     "forAll": 0,
-     "tokens": 27,
-     "blocks": [
-      25727587,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 5176,
-     "priorHits": 138,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 41,
-      "movedOut": 37,
-      "transfers": 178,
-      "topDestination": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
-      "topDestinationCount": 49,
-      "distinctDestinations": 60
-     },
-     "score": 0,
-     "reasons": [
-      "41 distinct approvers",
-      "27 tokens — router-like spread",
-      "ESTABLISHED — 138 approvals a day earlier",
-      "outflow fans out (60 destinations) — router-shaped"
-     ]
-    },
-    {
-     "spender": "0x1e0049783f008a0085193e00003d00cd54003c71",
-     "approvers": 34,
-     "events": 67,
-     "unlimited": 3,
-     "forAll": 24,
-     "tokens": 46,
-     "blocks": [
-      25727587,
-      25727704
-     ],
-     "isContract": true,
-     "codeSize": 3190,
-     "priorHits": 145,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 34,
-      "movedOut": 13,
-      "transfers": 55,
-      "topDestination": "0x000000000000000000000000000000000000dead",
-      "topDestinationCount": 10,
-      "distinctDestinations": 24
-     },
-     "score": 0,
-     "reasons": [
-      "34 distinct approvers",
-      "24 setApprovalForAll(true)",
-      "46 tokens — router-like spread",
-      "ESTABLISHED — 145 approvals a day earlier",
-      "no outflow yet (13/34 moved)"
+      "50 distinct approvers",
+      "58% unlimited",
+      "35 tokens — router-like spread",
+      "ESTABLISHED — 207 approvals a day earlier",
+      "outflow fans out (63 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x1111113ccf1426a8e30e2bff5e005d929bf6a90a",
-     "approvers": 25,
-     "events": 228,
-     "unlimited": 44,
+     "approvers": 44,
+     "events": 975,
+     "unlimited": 276,
      "forAll": 0,
-     "tokens": 13,
+     "tokens": 18,
      "blocks": [
-      25727592,
-      25727705
+      25727872,
+      25727991
      ],
      "isContract": true,
      "codeSize": 5619,
-     "priorHits": 3918,
+     "priorHits": 3036,
      "priorChecked": true,
-     "sweep": null,
+     "sweep": {
+      "checked": 44,
+      "movedOut": 43,
+      "transfers": 1308,
+      "topDestination": "0x8063d4faf54bf8c898dc6ddc689c76ab12b4614a",
+      "topDestinationCount": 329,
+      "distinctDestinations": 117
+     },
      "score": 0,
      "reasons": [
-      "25 distinct approvers",
-      "ESTABLISHED — 3918 approvals a day earlier"
+      "44 distinct approvers",
+      "ESTABLISHED — 3036 approvals a day earlier",
+      "outflow fans out (117 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+     "approvers": 28,
+     "events": 45,
+     "unlimited": 6,
+     "forAll": 0,
+     "tokens": 21,
+     "blocks": [
+      25727879,
+      25727992
+     ],
+     "isContract": true,
+     "codeSize": 5176,
+     "priorHits": 110,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 28,
+      "movedOut": 25,
+      "transfers": 158,
+      "topDestination": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+      "topDestinationCount": 39,
+      "distinctDestinations": 47
+     },
+     "score": 0,
+     "reasons": [
+      "28 distinct approvers",
+      "ESTABLISHED — 110 approvals a day earlier",
+      "outflow fans out (47 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0x0000000000001ff3684f28c67538d4d072c22734",
+     "approvers": 27,
+     "events": 136,
+     "unlimited": 14,
+     "forAll": 0,
+     "tokens": 33,
+     "blocks": [
+      25727875,
+      25727992
+     ],
+     "isContract": true,
+     "codeSize": 1009,
+     "priorHits": 461,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 27,
+      "movedOut": 23,
+      "transfers": 465,
+      "topDestination": "0x0889e9327b98d7d1be3c301a4585ff3330502c9a",
+      "topDestinationCount": 72,
+      "distinctDestinations": 165
+     },
+     "score": 0,
+     "reasons": [
+      "27 distinct approvers",
+      "33 tokens — router-like spread",
+      "ESTABLISHED — 461 approvals a day earlier",
+      "outflow fans out (165 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0x1e0049783f008a0085193e00003d00cd54003c71",
+     "approvers": 26,
+     "events": 38,
+     "unlimited": 7,
+     "forAll": 20,
+     "tokens": 25,
+     "blocks": [
+      25727872,
+      25727987
+     ],
+     "isContract": true,
+     "codeSize": 3190,
+     "priorHits": 69,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 26,
+      "movedOut": 6,
+      "transfers": 26,
+      "topDestination": "0x6e3b39ae89e153792df33342a4f4c69cf4977331",
+      "topDestinationCount": 4,
+      "distinctDestinations": 16
+     },
+     "score": 0,
+     "reasons": [
+      "26 distinct approvers",
+      "71% unlimited",
+      "20 setApprovalForAll(true)",
+      "25 tokens — router-like spread",
+      "ESTABLISHED — 69 approvals a day earlier",
+      "no outflow yet (6/26 moved)"
      ]
     },
     {
      "spender": "0x0439e60f02a8900a951603950d8d4527f400c3f1",
-     "approvers": 19,
-     "events": 27,
+     "approvers": 15,
+     "events": 19,
      "unlimited": 0,
      "forAll": 0,
-     "tokens": 8,
+     "tokens": 7,
      "blocks": [
-      25727589,
-      25727704
+      25727872,
+      25727988
      ],
      "isContract": true,
      "codeSize": 6000,
-     "priorHits": 49,
+     "priorHits": 77,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
-      "19 distinct approvers",
-      "8 tokens",
-      "ESTABLISHED — 49 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x8157a9d65807521fbb8db8f37eeecefdd247e9b1",
-     "approvers": 18,
-     "events": 48,
-     "unlimited": 16,
-     "forAll": 0,
-     "tokens": 15,
-     "blocks": [
-      25727593,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 1610,
-     "priorHits": 218,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "18 distinct approvers",
-      "ESTABLISHED — 218 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
-     "approvers": 17,
-     "events": 29,
-     "unlimited": 0,
-     "forAll": 0,
-     "tokens": 9,
-     "blocks": [
-      25727588,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 2400,
-     "priorHits": 102,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "17 distinct approvers",
-      "9 tokens",
-      "ESTABLISHED — 102 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x337685fdab40d39bd02028545a4ffa7d287cc3e2",
-     "approvers": 17,
-     "events": 35,
-     "unlimited": 4,
-     "forAll": 0,
-     "tokens": 8,
-     "blocks": [
-      25727591,
-      25727707
-     ],
-     "isContract": true,
-     "codeSize": 8840,
-     "priorHits": 47,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "17 distinct approvers",
-      "8 tokens",
-      "ESTABLISHED — 47 approvals a day earlier"
+      "15 distinct approvers",
+      "7 tokens",
+      "ESTABLISHED — 77 approvals a day earlier"
      ]
     },
     {
      "spender": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
      "approvers": 14,
-     "events": 35,
-     "unlimited": 5,
+     "events": 60,
+     "unlimited": 12,
      "forAll": 0,
-     "tokens": 8,
+     "tokens": 7,
      "blocks": [
-      25727594,
-      25727707
+      25727875,
+      25727991
      ],
      "isContract": true,
      "codeSize": 15623,
-     "priorHits": 130,
+     "priorHits": 101,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
       "14 distinct approvers",
-      "8 tokens",
-      "ESTABLISHED — 130 approvals a day earlier"
+      "7 tokens",
+      "ESTABLISHED — 101 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2",
+     "approvers": 14,
+     "events": 23,
+     "unlimited": 0,
+     "forAll": 0,
+     "tokens": 7,
+     "blocks": [
+      25727876,
+      25727990
+     ],
+     "isContract": true,
+     "codeSize": 2400,
+     "priorHits": 101,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "14 distinct approvers",
+      "7 tokens",
+      "ESTABLISHED — 101 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0x337685fdab40d39bd02028545a4ffa7d287cc3e2",
+     "approvers": 11,
+     "events": 17,
+     "unlimited": 2,
+     "forAll": 0,
+     "tokens": 5,
+     "blocks": [
+      25727876,
+      25727981
+     ],
+     "isContract": true,
+     "codeSize": 8840,
+     "priorHits": 28,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "11 distinct approvers",
+      "5 tokens",
+      "ESTABLISHED — 28 approvals a day earlier"
      ]
     },
     {
      "spender": "0x6a000f20005980200259b80c5102003040001068",
-     "approvers": 9,
-     "events": 13,
-     "unlimited": 2,
+     "approvers": 11,
+     "events": 14,
+     "unlimited": 3,
      "forAll": 0,
      "tokens": 6,
      "blocks": [
-      25727605,
-      25727707
+      25727892,
+      25727992
      ],
      "isContract": true,
      "codeSize": 24562,
-     "priorHits": 35,
+     "priorHits": 34,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "11 distinct approvers",
+      "6 tokens",
+      "ESTABLISHED — 34 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0x667701e51b4d1ca244f17c78f7ab8744b4c99f9b",
+     "approvers": 9,
+     "events": 19,
+     "unlimited": 1,
+     "forAll": 0,
+     "tokens": 2,
+     "blocks": [
+      25727875,
+      25727975
+     ],
+     "isContract": true,
+     "codeSize": 21776,
+     "priorHits": 24,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
       "9 distinct approvers",
-      "6 tokens",
-      "ESTABLISHED — 35 approvals a day earlier"
+      "ESTABLISHED — 24 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0xb300000b72deaeb607a12d5f54773d1c19c7028d",
+     "approvers": 8,
+     "events": 13,
+     "unlimited": 8,
+     "forAll": 0,
+     "tokens": 8,
+     "blocks": [
+      25727875,
+      25727968
+     ],
+     "isContract": true,
+     "codeSize": 180,
+     "priorHits": 52,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "8 distinct approvers",
+      "62% unlimited",
+      "tiny contract (180B)",
+      "8 tokens",
+      "ESTABLISHED — 52 approvals a day earlier"
      ]
     }
    ]
   },
   "base": {
-   "head": 49806543,
-   "from": 49805943,
-   "events": 22457,
+   "head": 49808272,
+   "from": 49807672,
+   "events": 22921,
    "missed": 0,
-   "spenders": 486,
+   "spenders": 468,
    "rows": [
     {
-     "spender": "0xd8ba9d1a99fc21f0eca24e9b85737c28a194a4e2",
-     "approvers": 37,
-     "events": 234,
-     "unlimited": 0,
-     "forAll": 0,
-     "tokens": 55,
-     "blocks": [
-      49806067,
-      49806526
-     ],
-     "isContract": true,
-     "codeSize": 2227,
-     "priorHits": 0,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 33,
-     "reasons": [
-      "37 distinct approvers",
-      "55 tokens — router-like spread",
-      "no approvals in the day-earlier sample"
-     ]
-    },
-    {
      "spender": "0x1d7f97d26ae2c01f9b01fc252b73cf0db3397e95",
-     "approvers": 92,
-     "events": 92,
-     "unlimited": 92,
+     "approvers": 111,
+     "events": 111,
+     "unlimited": 111,
      "forAll": 0,
      "tokens": 1,
      "blocks": [
-      49805943,
-      49806541
+      49807682,
+      49808272
      ],
      "isContract": false,
      "codeSize": 0,
-     "priorHits": 5,
+     "priorHits": 3,
      "priorChecked": true,
      "sweep": {
-      "checked": 92,
+      "checked": 111,
       "movedOut": 2,
-      "transfers": 2,
+      "transfers": 5,
       "topDestination": "0x1d7f97d26ae2c01f9b01fc252b73cf0db3397e95",
-      "topDestinationCount": 2,
+      "topDestinationCount": 5,
       "distinctDestinations": 1
      },
      "score": 30,
      "reasons": [
-      "92 distinct approvers",
+      "111 distinct approvers",
       "100% unlimited",
       "spender is an EOA, not a contract",
-      "ESTABLISHED — 5 approvals a day earlier",
-      "no outflow yet (2/92 moved)"
+      "ESTABLISHED — 3 approvals a day earlier",
+      "no outflow yet (2/111 moved)"
      ]
     },
     {
-     "spender": "0xbf849d99e3182cb9c8654c797d404c339d93b146",
-     "approvers": 52,
-     "events": 189,
-     "unlimited": 0,
+     "spender": "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43",
+     "approvers": 112,
+     "events": 181,
+     "unlimited": 98,
      "forAll": 0,
-     "tokens": 4,
+     "tokens": 16,
      "blocks": [
-      49805945,
-      49806538
+      49807681,
+      49808271
      ],
      "isContract": true,
-     "codeSize": 21359,
-     "priorHits": 202,
+     "codeSize": 23581,
+     "priorHits": 124,
      "priorChecked": true,
      "sweep": {
-      "checked": 52,
-      "movedOut": 52,
-      "transfers": 397,
-      "topDestination": "0xbf849d99e3182cb9c8654c797d404c339d93b146",
-      "topDestinationCount": 126,
-      "distinctDestinations": 15
+      "checked": 112,
+      "movedOut": 112,
+      "transfers": 346,
+      "topDestination": "0x1578447d91958c6c4e4a241bc87685ee0ec466dc",
+      "topDestinationCount": 79,
+      "distinctDestinations": 108
      },
-     "score": 26,
+     "score": 7,
      "reasons": [
-      "52 distinct approvers",
-      "4 tokens",
-      "ESTABLISHED — 202 approvals a day earlier",
-      "concentrated outflow: 52/52 moved, 15 destinations"
+      "112 distinct approvers",
+      "54% unlimited",
+      "ESTABLISHED — 124 approvals a day earlier",
+      "outflow fans out (108 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0x008758ebbfae8d8587f21148bea9cc0fc6432382",
+     "approvers": 17,
+     "events": 17,
+     "unlimited": 17,
+     "forAll": 0,
+     "tokens": 1,
+     "blocks": [
+      49807696,
+      49808172
+     ],
+     "isContract": true,
+     "codeSize": 4270,
+     "priorHits": 12,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 5,
+     "reasons": [
+      "17 distinct approvers",
+      "100% unlimited",
+      "ESTABLISHED — 12 approvals a day earlier"
      ]
     },
     {
      "spender": "0x28dcf4abc65a3e0971602bdbaa95f14ceec09a2a",
-     "approvers": 29,
-     "events": 32,
+     "approvers": 28,
+     "events": 30,
      "unlimited": 0,
      "forAll": 0,
      "tokens": 1,
      "blocks": [
-      49806003,
-      49806480
+      49807675,
+      49808096
      ],
      "isContract": true,
      "codeSize": 45,
@@ -685,434 +688,438 @@
      "sweep": null,
      "score": 3,
      "reasons": [
-      "29 distinct approvers",
+      "28 distinct approvers",
       "tiny contract (45B)",
       "ESTABLISHED — 3 approvals a day earlier"
      ]
     },
     {
      "spender": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
-     "approvers": 77,
-     "events": 122,
-     "unlimited": 1,
+     "approvers": 72,
+     "events": 106,
+     "unlimited": 0,
      "forAll": 0,
-     "tokens": 4,
+     "tokens": 3,
      "blocks": [
-      49805943,
-      49806536
+      49807673,
+      49808265
      ],
      "isContract": true,
      "codeSize": 8628,
-     "priorHits": 80,
+     "priorHits": 69,
      "priorChecked": true,
      "sweep": {
-      "checked": 77,
-      "movedOut": 76,
-      "transfers": 359,
+      "checked": 72,
+      "movedOut": 70,
+      "transfers": 289,
       "topDestination": "0x4cd00e387622c35bddb9b4c962c136462338bc31",
-      "topDestinationCount": 119,
-      "distinctDestinations": 70
+      "topDestinationCount": 103,
+      "distinctDestinations": 60
      },
      "score": 1,
      "reasons": [
-      "77 distinct approvers",
-      "4 tokens",
-      "ESTABLISHED — 80 approvals a day earlier",
-      "outflow fans out (70 destinations) — router-shaped"
+      "72 distinct approvers",
+      "3 tokens",
+      "ESTABLISHED — 69 approvals a day earlier",
+      "outflow fans out (60 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
-     "approvers": 58,
-     "events": 96,
-     "unlimited": 3,
+     "approvers": 39,
+     "events": 45,
+     "unlimited": 1,
      "forAll": 0,
-     "tokens": 10,
+     "tokens": 6,
      "blocks": [
-      49805947,
-      49806538
+      49807672,
+      49808271
      ],
      "isContract": true,
      "codeSize": 15623,
-     "priorHits": 34,
+     "priorHits": 26,
      "priorChecked": true,
-     "sweep": {
-      "checked": 58,
-      "movedOut": 57,
-      "transfers": 204,
-      "topDestination": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
-      "topDestinationCount": 91,
-      "distinctDestinations": 61
-     },
+     "sweep": null,
      "score": 1,
      "reasons": [
-      "58 distinct approvers",
-      "10 tokens",
-      "ESTABLISHED — 34 approvals a day earlier",
-      "outflow fans out (61 destinations) — router-shaped"
+      "39 distinct approvers",
+      "6 tokens",
+      "ESTABLISHED — 26 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0xbe6d8f0d05cc4be24d5167a3ef062215be6d18a5",
+     "approvers": 28,
+     "events": 71,
+     "unlimited": 11,
+     "forAll": 0,
+     "tokens": 12,
+     "blocks": [
+      49807681,
+      49808267
+     ],
+     "isContract": true,
+     "codeSize": 9908,
+     "priorHits": 52,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 1,
+     "reasons": [
+      "28 distinct approvers",
+      "12 tokens",
+      "ESTABLISHED — 52 approvals a day earlier"
      ]
     },
     {
      "spender": "0x698cb2b6dd822994581fea6ea4fc755d1363a92f",
-     "approvers": 31,
-     "events": 42,
-     "unlimited": 2,
+     "approvers": 25,
+     "events": 38,
+     "unlimited": 1,
      "forAll": 0,
-     "tokens": 7,
+     "tokens": 5,
      "blocks": [
-      49805971,
-      49806468
+      49807686,
+      49808265
      ],
      "isContract": true,
      "codeSize": 9908,
-     "priorHits": 26,
+     "priorHits": 18,
      "priorChecked": true,
      "sweep": null,
      "score": 1,
      "reasons": [
-      "31 distinct approvers",
-      "7 tokens",
-      "ESTABLISHED — 26 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43",
-     "approvers": 118,
-     "events": 225,
-     "unlimited": 100,
-     "forAll": 0,
-     "tokens": 16,
-     "blocks": [
-      49805955,
-      49806543
-     ],
-     "isContract": true,
-     "codeSize": 23581,
-     "priorHits": 89,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 118,
-      "movedOut": 118,
-      "transfers": 1308,
-      "topDestination": "0xad01c20d5886137e056775af56915de824c8fce5",
-      "topDestinationCount": 119,
-      "distinctDestinations": 332
-     },
-     "score": 0,
-     "reasons": [
-      "118 distinct approvers",
-      "ESTABLISHED — 89 approvals a day earlier",
-      "outflow fans out (332 destinations) — router-shaped"
+      "25 distinct approvers",
+      "5 tokens",
+      "ESTABLISHED — 18 approvals a day earlier"
      ]
     },
     {
      "spender": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
-     "approvers": 107,
-     "events": 181,
+     "approvers": 104,
+     "events": 177,
      "unlimited": 1,
      "forAll": 0,
-     "tokens": 61,
+     "tokens": 49,
      "blocks": [
-      49805947,
-      49806543
+      49807675,
+      49808272
      ],
      "isContract": true,
      "codeSize": 5176,
-     "priorHits": 218,
+     "priorHits": 173,
      "priorChecked": true,
      "sweep": {
-      "checked": 107,
-      "movedOut": 106,
-      "transfers": 583,
-      "topDestination": "0xf460643e47122425c128ebc69490c58be699b9da",
-      "topDestinationCount": 159,
-      "distinctDestinations": 49
+      "checked": 104,
+      "movedOut": 104,
+      "transfers": 187,
+      "topDestination": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+      "topDestinationCount": 145,
+      "distinctDestinations": 22
      },
      "score": 0,
      "reasons": [
-      "107 distinct approvers",
-      "61 tokens — router-like spread",
-      "ESTABLISHED — 218 approvals a day earlier",
-      "outflow fans out (49 destinations) — router-shaped"
+      "104 distinct approvers",
+      "49 tokens — router-like spread",
+      "ESTABLISHED — 173 approvals a day earlier",
+      "concentrated outflow: 104/104 moved, 22 destinations"
      ]
     },
     {
      "spender": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
-     "approvers": 93,
-     "events": 273,
-     "unlimited": 57,
+     "approvers": 97,
+     "events": 247,
+     "unlimited": 53,
      "forAll": 0,
-     "tokens": 43,
+     "tokens": 44,
      "blocks": [
-      49805945,
-      49806540
+      49807675,
+      49808271
      ],
      "isContract": true,
      "codeSize": 17891,
-     "priorHits": 169,
+     "priorHits": 149,
      "priorChecked": true,
      "sweep": {
-      "checked": 93,
-      "movedOut": 75,
-      "transfers": 189,
-      "topDestination": "0xf646f54867099892faebb8c54b86a4379d8b4f81",
-      "topDestinationCount": 26,
-      "distinctDestinations": 51
+      "checked": 97,
+      "movedOut": 77,
+      "transfers": 295,
+      "topDestination": "0x20f6ee51340adeed01a59b0e65cb3703f3dc860c",
+      "topDestinationCount": 29,
+      "distinctDestinations": 92
      },
      "score": 0,
      "reasons": [
-      "93 distinct approvers",
-      "43 tokens — router-like spread",
-      "ESTABLISHED — 169 approvals a day earlier",
-      "outflow fans out (51 destinations) — router-shaped"
+      "97 distinct approvers",
+      "44 tokens — router-like spread",
+      "ESTABLISHED — 149 approvals a day earlier",
+      "outflow fans out (92 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x2626664c2603336e57b271c5c0b26f421741e481",
-     "approvers": 88,
-     "events": 293,
-     "unlimited": 57,
+     "approvers": 80,
+     "events": 281,
+     "unlimited": 60,
      "forAll": 0,
      "tokens": 59,
      "blocks": [
-      49805952,
-      49806543
+      49807675,
+      49808272
      ],
      "isContract": true,
      "codeSize": 24497,
-     "priorHits": 186,
+     "priorHits": 200,
      "priorChecked": true,
      "sweep": {
-      "checked": 88,
-      "movedOut": 86,
-      "transfers": 585,
+      "checked": 80,
+      "movedOut": 78,
+      "transfers": 408,
       "topDestination": "0x29183f918920a2aef0115a9c7374945589968aea",
-      "topDestinationCount": 120,
-      "distinctDestinations": 133
+      "topDestinationCount": 122,
+      "distinctDestinations": 111
      },
      "score": 0,
      "reasons": [
-      "88 distinct approvers",
+      "80 distinct approvers",
       "59 tokens — router-like spread",
-      "ESTABLISHED — 186 approvals a day earlier",
-      "outflow fans out (133 destinations) — router-shaped"
+      "ESTABLISHED — 200 approvals a day earlier",
+      "outflow fans out (111 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x0000000000001ff3684f28c67538d4d072c22734",
-     "approvers": 75,
-     "events": 200,
-     "unlimited": 6,
+     "approvers": 79,
+     "events": 208,
+     "unlimited": 8,
      "forAll": 0,
-     "tokens": 72,
+     "tokens": 67,
      "blocks": [
-      49805945,
-      49806541
+      49807672,
+      49808269
      ],
      "isContract": true,
      "codeSize": 1009,
-     "priorHits": 150,
+     "priorHits": 112,
      "priorChecked": true,
      "sweep": {
-      "checked": 75,
-      "movedOut": 73,
-      "transfers": 628,
+      "checked": 79,
+      "movedOut": 79,
+      "transfers": 598,
       "topDestination": "0x7747f8d2a76bd6345cc29622a946a929647f2359",
-      "topDestinationCount": 92,
-      "distinctDestinations": 154
+      "topDestinationCount": 110,
+      "distinctDestinations": 118
      },
      "score": 0,
      "reasons": [
-      "75 distinct approvers",
-      "72 tokens — router-like spread",
-      "ESTABLISHED — 150 approvals a day earlier",
-      "outflow fans out (154 destinations) — router-shaped"
-     ]
-    },
-    {
-     "spender": "0xe1f8cd9ac4e4a65f54f38a5cdafca44f6dd68b53",
-     "approvers": 62,
-     "events": 956,
-     "unlimited": 89,
-     "forAll": 0,
-     "tokens": 30,
-     "blocks": [
-      49805945,
-      49806540
-     ],
-     "isContract": true,
-     "codeSize": 24542,
-     "priorHits": 1161,
-     "priorChecked": true,
-     "sweep": {
-      "checked": 62,
-      "movedOut": 62,
-      "transfers": 9164,
-      "topDestination": "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
-      "topDestinationCount": 1548,
-      "distinctDestinations": 312
-     },
-     "score": 0,
-     "reasons": [
-      "62 distinct approvers",
-      "30 tokens — router-like spread",
-      "ESTABLISHED — 1161 approvals a day earlier",
-      "outflow fans out (312 destinations) — router-shaped"
+      "79 distinct approvers",
+      "67 tokens — router-like spread",
+      "ESTABLISHED — 112 approvals a day earlier",
+      "outflow fans out (118 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0x827922686190790b37229fd06084350e74485b72",
-     "approvers": 33,
-     "events": 5373,
-     "unlimited": 81,
+     "approvers": 58,
+     "events": 5160,
+     "unlimited": 111,
      "forAll": 0,
-     "tokens": 24,
+     "tokens": 25,
      "blocks": [
-      49805943,
-      49806543
+      49807672,
+      49808272
      ],
      "isContract": true,
      "codeSize": 24542,
-     "priorHits": 3275,
+     "priorHits": 3226,
      "priorChecked": true,
-     "sweep": null,
+     "sweep": {
+      "checked": 58,
+      "movedOut": 58,
+      "transfers": 11111,
+      "topDestination": "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+      "topDestinationCount": 2496,
+      "distinctDestinations": 296
+     },
      "score": 0,
      "reasons": [
-      "33 distinct approvers",
-      "ESTABLISHED — 3275 approvals a day earlier"
+      "58 distinct approvers",
+      "25 tokens — router-like spread",
+      "ESTABLISHED — 3226 approvals a day earlier",
+      "outflow fans out (296 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0xbf849d99e3182cb9c8654c797d404c339d93b146",
+     "approvers": 50,
+     "events": 165,
+     "unlimited": 0,
+     "forAll": 0,
+     "tokens": 2,
+     "blocks": [
+      49807676,
+      49808067
+     ],
+     "isContract": true,
+     "codeSize": 21359,
+     "priorHits": 116,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 50,
+      "movedOut": 50,
+      "transfers": 345,
+      "topDestination": "0xbf849d99e3182cb9c8654c797d404c339d93b146",
+      "topDestinationCount": 110,
+      "distinctDestinations": 19
+     },
+     "score": 0,
+     "reasons": [
+      "50 distinct approvers",
+      "ESTABLISHED — 116 approvals a day earlier",
+      "outflow fans out (19 destinations) — router-shaped"
+     ]
+    },
+    {
+     "spender": "0xe1f8cd9ac4e4a65f54f38a5cdafca44f6dd68b53",
+     "approvers": 44,
+     "events": 1235,
+     "unlimited": 41,
+     "forAll": 0,
+     "tokens": 26,
+     "blocks": [
+      49807680,
+      49808272
+     ],
+     "isContract": true,
+     "codeSize": 24542,
+     "priorHits": 990,
+     "priorChecked": true,
+     "sweep": {
+      "checked": 44,
+      "movedOut": 44,
+      "transfers": 10399,
+      "topDestination": "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+      "topDestinationCount": 2030,
+      "distinctDestinations": 293
+     },
+     "score": 0,
+     "reasons": [
+      "44 distinct approvers",
+      "26 tokens — router-like spread",
+      "ESTABLISHED — 990 approvals a day earlier",
+      "outflow fans out (293 destinations) — router-shaped"
      ]
     },
     {
      "spender": "0xbeeff2490feffa212fac2f6553682c219e6a8845",
-     "approvers": 31,
-     "events": 34,
+     "approvers": 38,
+     "events": 43,
      "unlimited": 0,
      "forAll": 0,
      "tokens": 1,
      "blocks": [
-      49805947,
-      49806533
+      49807675,
+      49808261
      ],
      "isContract": true,
      "codeSize": 21808,
-     "priorHits": 26,
+     "priorHits": 23,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
-      "31 distinct approvers",
-      "ESTABLISHED — 26 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x57df6092665eb6058de53939612413ff4b09114e",
-     "approvers": 29,
-     "events": 76,
-     "unlimited": 10,
-     "forAll": 0,
-     "tokens": 21,
-     "blocks": [
-      49805944,
-      49806534
-     ],
-     "isContract": true,
-     "codeSize": 1610,
-     "priorHits": 35,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "29 distinct approvers",
-      "ESTABLISHED — 35 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0xcaf22ce31298cf2bf1d152862f80216478ad7c67",
-     "approvers": 25,
-     "events": 43,
-     "unlimited": 0,
-     "forAll": 0,
-     "tokens": 13,
-     "blocks": [
-      49805976,
-      49806542
-     ],
-     "isContract": true,
-     "codeSize": 23759,
-     "priorHits": 32,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "25 distinct approvers",
-      "ESTABLISHED — 32 approvals a day earlier"
+      "38 distinct approvers",
+      "ESTABLISHED — 23 approvals a day earlier"
      ]
     },
     {
      "spender": "0xccc88a9d1b4ed6b0eaba998850414b24f1c315be",
-     "approvers": 24,
-     "events": 34,
-     "unlimited": 1,
+     "approvers": 30,
+     "events": 55,
+     "unlimited": 0,
      "forAll": 0,
-     "tokens": 19,
+     "tokens": 28,
      "blocks": [
-      49805943,
-      49806521
+      49807697,
+      49808265
      ],
      "isContract": true,
      "codeSize": 7746,
-     "priorHits": 45,
+     "priorHits": 30,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "30 distinct approvers",
+      "28 tokens — router-like spread",
+      "ESTABLISHED — 30 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0x57df6092665eb6058de53939612413ff4b09114e",
+     "approvers": 24,
+     "events": 77,
+     "unlimited": 15,
+     "forAll": 0,
+     "tokens": 15,
+     "blocks": [
+      49807682,
+      49808268
+     ],
+     "isContract": true,
+     "codeSize": 1610,
+     "priorHits": 27,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
       "24 distinct approvers",
-      "ESTABLISHED — 45 approvals a day earlier"
+      "ESTABLISHED — 27 approvals a day earlier"
+     ]
+    },
+    {
+     "spender": "0xcaf22ce31298cf2bf1d152862f80216478ad7c67",
+     "approvers": 18,
+     "events": 46,
+     "unlimited": 0,
+     "forAll": 0,
+     "tokens": 25,
+     "blocks": [
+      49807690,
+      49808264
+     ],
+     "isContract": true,
+     "codeSize": 23759,
+     "priorHits": 24,
+     "priorChecked": true,
+     "sweep": null,
+     "score": 0,
+     "reasons": [
+      "18 distinct approvers",
+      "25 tokens — router-like spread",
+      "ESTABLISHED — 24 approvals a day earlier"
      ]
     },
     {
      "spender": "0x416ec2ca21a38cbcfeacd6a14532b3f348356d23",
      "approvers": 17,
-     "events": 60,
+     "events": 97,
      "unlimited": 0,
      "forAll": 0,
-     "tokens": 13,
+     "tokens": 12,
      "blocks": [
-      49805950,
-      49806522
+      49807703,
+      49808271
      ],
      "isContract": true,
      "codeSize": 1878,
-     "priorHits": 62,
+     "priorHits": 40,
      "priorChecked": true,
      "sweep": null,
      "score": 0,
      "reasons": [
       "17 distinct approvers",
-      "ESTABLISHED — 62 approvals a day earlier"
-     ]
-    },
-    {
-     "spender": "0x901ac099c159be0a896c7a0161afed2cb1f305a9",
-     "approvers": 16,
-     "events": 49,
-     "unlimited": 0,
-     "forAll": 0,
-     "tokens": 1,
-     "blocks": [
-      49805986,
-      49806518
-     ],
-     "isContract": true,
-     "codeSize": 45,
-     "priorHits": 15,
-     "priorChecked": true,
-     "sweep": null,
-     "score": 0,
-     "reasons": [
-      "16 distinct approvers",
-      "tiny contract (45B)",
-      "ESTABLISHED — 15 approvals a day earlier"
+      "12 tokens",
+      "ESTABLISHED — 40 approvals a day earlier"
      ]
     }
    ]
