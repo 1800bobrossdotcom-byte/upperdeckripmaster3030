@@ -286,7 +286,22 @@ function scanGlyphs(bytes) {
  * ⚠ THESE ARE SHAPES, NOT DECLARATIONS. Calldata is untyped bytes; a word that LOOKS like an
  *   address may be a number that happens to be small. So they are counted and named as shapes —
  *   never as "this call transfers to X", which would be a claim the bytes do not carry.        */
-function formations(bytes) {
+/* ⛔ THE SHEET WAS A RANDOM SCATTER OF CELLS WHILE THE SECTION TWO BELOW IT ARGUED THAT THE GRID
+ *   IS THE WHOLE POINT — *"once the grid is visible the substrate stops being a field of dots and
+ *   becomes a page with lines on it."* The art contradicted the thesis in the same document, and
+ *   drew a picture OF a block rather than the block. So a sample of REAL WORDS now ships with
+ *   every block: the page is set from the chain's own bytes, on the chain's own measure, and a
+ *   rule renders blank because the chain left it blank — not because a renderer decided to.
+ *
+ * ⚑ RESERVOIR SAMPLING, SEEDED. The words must be drawn uniformly from the WHOLE block or the
+ *   page is a reading of whichever transaction happened to be first — and the total is not known
+ *   until the walk is over, which is exactly what a reservoir is for. Seeded, because a sheet
+ *   that reshuffles on every derive is a new artwork every hour rather than a reading of a block.
+ * ⚠ A WORD IS STORED WHOLE OR NOT AT ALL. Half a word is not a line, and a truncated address
+ *   would render as a shape the chain never set. */
+const SAMPLE_WORDS = 48;
+
+function formations(bytes, reservoir) {
   const f = { words: 0, selectors: 0, rules: 0, addresses: 0 };
   if (bytes.length >= 4) f.selectors = 1;
   const body = bytes.length >= 4 ? bytes.subarray(4) : bytes.subarray(0, 0);
@@ -299,6 +314,12 @@ function formations(bytes) {
     }
     if (zeros === 32) f.rules++;
     else if (lead === 12) f.addresses++;
+
+    if (reservoir) {
+      const seen = ++reservoir.seen;
+      const slot = seen <= SAMPLE_WORDS ? seen - 1 : (reservoir.rnd() * seen) | 0;
+      if (slot < SAMPLE_WORDS) reservoir.words[slot] = Array.from(body.subarray(w, w + 32));
+    }
   }
   return f;
 }
@@ -409,6 +430,10 @@ function readCalldata(txs) {
   const form = { words: 0, selectors: 0, rules: 0, addresses: 0 };
   const runs = [];
   let bytes = 0, chanceGlyphs = 0, chanceRuns = 0;
+  /* ⚠ SEEDED FROM A CONSTANT, not from time or from the data — the sample must be reproducible by
+   * anyone re-deriving the same blocks, which is the property the whole page rests on. */
+  let rs = 0x9e3779b9;
+  const reservoir = { seen: 0, words: [], rnd: () => (rs = (rs * 1664525 + 1013904223) >>> 0) / 4294967296 };
 
   for (const t of txs) {
     const d = t.input || t.data || '0x';
@@ -417,7 +442,7 @@ function readCalldata(txs) {
     const buf = new Uint8Array(n);
     for (let k = 0; k < n; k++) buf[k] = parseInt(d.slice(2 + k * 2, 4 + k * 2), 16) || 0;
 
-    const f = formations(buf);
+    const f = formations(buf, reservoir);
     form.words += f.words; form.selectors += f.selectors;
     form.rules += f.rules; form.addresses += f.addresses;
 
@@ -457,7 +482,11 @@ function readCalldata(txs) {
      *   adjacency impossible — so a shuffled stream's glyph map is empty by construction. */
     for (const r of collectRuns(shuffled(buf, n), null)) chanceRuns++;
   }
-  return { counts, bytes, runs, form, chanceGlyphs, chanceRuns };
+  /* hex, because the page reads this straight into a canvas and JSON arrays of 32 numbers would
+   * triple the file for the same 32 bytes */
+  const sample = reservoir.words.filter(Boolean)
+    .map((w) => w.map((b) => b.toString(16).padStart(2, '0')).join(''));
+  return { counts, bytes, runs, form, chanceGlyphs, chanceRuns, sample };
 }
 
 /* ── canonical form: what the hash actually commits to ────────────────────────────────────── */
@@ -617,10 +646,18 @@ export async function derive({ sheets = 24, log = () => {} } = {}) {
        * truncation reads as "this is all there was". */
       runs: dedupe([...sheet.runs, ...imp.runs]).slice(0, 48),
       runsTotal: sheet.runs.length + imp.runs.length,
+      /* ⚠ THE ETHEREUM SHEET'S WORDS, NOT BASE'S — this is the page the L1 block set, and mixing
+       * the impression's lines into it would print two documents on one sheet. */
+      sample: sheet.sample,
       canonical: canonical(census),
     });
     prev = hash;
   }
+  /* ⚠ ONLY THE HEAD CARRIES ITS WORDS. The sheet drawn on the page is always the head, and 48
+   * words on all 24 blocks doubled the file to 227 KB — on an artefact a cron rewrites and
+   * commits every hour, which is 5 MB of git objects a day to ship 23 pages nothing draws.
+   * A block without a sample says so on its face rather than rendering an empty frame. */
+  for (const b of blocks.slice(0, -1)) delete b.sample;
   return { blocks, ethHead, baseHead };
 }
 

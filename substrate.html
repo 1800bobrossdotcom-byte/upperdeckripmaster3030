@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>3030 · the substrate omni data layer</title>
-<meta name="description" content="A layer derived from Ethereum and Base rather than voted on. Every calldata byte is a space, a sigil or a mark — and three quarters of both chains is empty space.">
+<meta name="description" content="A layer derived from Ethereum and Base rather than voted on. Every calldata byte is a space, a sigil or a mark — and the two chains are not the same document: Ethereum runs 47% empty, Base 69%.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@RipMaster3030">
 <meta property="og:title" content="3030 · the substrate omni data layer">
@@ -177,10 +177,18 @@
 
   <header>
     <h1><span class="b" id="pName">·</span> <span id="pTitle">the substrate omni data layer</span></h1>
+    <!-- ⛔ "THREE QUARTERS OF BOTH CHAINS IS EMPTY SPACE" WAS FALSE OF ONE OF THEM, and averaging
+         them hid the better finding. Measured over 24 sheets: Ethereum is 47.2% space, Base is
+         69.3%, and Base is the emptier of the two in 20 of 24. Their spreads differ as much as
+         their means — Ethereum runs 28.0–74.4% sheet to sheet, Base a narrow 61.4–73.9%. The
+         blended 62.6% describes neither chain and is the kind of number that sounds like a
+         measurement while being an artefact of adding two documents together. -->
     <p class="sub">A layer derived from Ethereum and Base rather than voted on. Every transaction
-      carries calldata; every byte of it is a <b>space</b>, a <b>sigil</b> or a <b>mark</b>. Three
-      quarters of both chains is empty space — and the protocol charges four times more for a mark
-      than for a space. This page reads that out loud.</p>
+      carries calldata; every byte of it is a <b>space</b>, a <b>sigil</b> or a <b>mark</b>. The
+      substrate and the impression are different documents — <b id="ledeEth">Ethereum</b> is dense
+      and wildly variable, <b id="ledeBase">Base</b> is consistently, overwhelmingly blank — and
+      the protocol charges four times more for a mark than for a space. This page reads that
+      out loud.</p>
     <p class="age" id="age">reading the derivation…</p>
   </header>
 
@@ -612,10 +620,29 @@
         '</div><div class="d"><b>' + r[0] + '</b><br>' + esc(r[2]) + '</div></div>';
     }).join('');
 
+    drawSplit(d);
     drawSheet(head);
     drawDuality(head);
     cipherPanel(d);
     drawRuns(head);
+  }
+
+  /* ── 1b · the two documents ─────────────────────────────────────────────────────────────────
+   * ⛔ READ PER CHAIN, NEVER BLENDED. The census carried on each block is eth+base together, and
+   *   quoting it as "the chains" states a number true of neither: Base is ~60% of the bytes, so
+   *   the blend is mostly a reading of Base wearing both names. The Ethereum half is `b.sheet`;
+   *   Base is what is left when you subtract it, which is the only place the split exists. */
+  function drawSplit(d){
+    var eS = 0, eT = 0, bS = 0, bT = 0;
+    d.blocks.forEach(function(b){
+      eS += b.sheet.counts.space; eT += b.sheet.bytes;
+      bS += b.census.counts.space - b.sheet.counts.space;
+      bT += b.census.bytes - b.sheet.bytes;
+    });
+    if(!eT || !bT) return;
+    var e = $('ledeEth'), s = $('ledeBase');
+    if(e) e.textContent = 'Ethereum, ' + pct(eS, eT) + ' empty,';
+    if(s) s.textContent = 'Base, ' + pct(bS, bT) + ' empty,';
   }
 
   /* ── 2 · the sheet ──────────────────────────────────────────────────────────────────────
@@ -631,27 +658,53 @@
     if(!ctx){ $('sheetCap').textContent = 'the sheet needs a 2D canvas, which this browser refused.'; return; }
     var c = b.census.counts, tot = b.census.bytes;
     if(!tot){ $('sheetCap').textContent = 'this sheet carried no calldata at all — an empty impression.'; return; }
-    var W = 240, H = 120, cells = W * H;
+    var S = b.sample || [];
+    if(!S.length){ $('sheetCap').textContent = 'this sheet shipped no sampled words, so there is nothing to set.'; return; }
+
+    /* ⚑ ONE WORD PER LINE, 32 CELLS TO THE LINE — the ABI grid is the measure, so the sheet is
+     *   set the way the chain set it. Every cell is a REAL BYTE out of a real word: nothing here
+     *   is scattered, synthesised or proportioned by a renderer, which is why a blank line is
+     *   blank because the chain left it blank. */
+    var COLS = 32, ROWS = S.length, CELL = 7, GAP = 1;
+    var W = COLS * CELL, H = ROWS * (CELL + GAP);
     cv.width = W; cv.height = H;
-    var nS = Math.round(cells * c.space / tot), nG = Math.round(cells * c.sigil / tot);
-    var img = ctx.createImageData(W, H);
-    /* deterministic scatter: same block → same sheet, so a reload is not a new artwork */
-    var seed = parseInt(b.hash.slice(0, 8), 16) >>> 0;
-    var rnd = function(){ seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    var order = new Array(cells);
-    for(var i = 0; i < cells; i++) order[i] = i;
-    for(var i = cells - 1; i > 0; i--){ var j = (rnd() * (i + 1)) | 0; var tmp = order[i]; order[i] = order[j]; order[j] = tmp; }
-    var COL = { s: [20, 26, 32], g: [224, 255, 79], m: [57, 70, 60] };
-    for(var k = 0; k < cells; k++){
-      var col = k < nS ? COL.s : k < nS + nG ? COL.g : COL.m;
-      var p = order[k] * 4;
-      img.data[p] = col[0]; img.data[p+1] = col[1]; img.data[p+2] = col[2]; img.data[p+3] = 255;
+    /* ⛔ INK MULTIPLIES PAPER AND NEVER ADDS — the studio's own material rule. The stock is laid
+     *   down first and every mark darkens it; nothing on this sheet is brighter than the paper. */
+    var PAPER = [232, 228, 214];
+    ctx.fillStyle = 'rgb(' + PAPER.join(',') + ')';
+    ctx.fillRect(0, 0, W, H);
+
+    var lines = { rule: 0, address: 0, set: 0 };
+    for(var r = 0; r < ROWS; r++){
+      var hex = S[r], zeros = 0, lead = 0, leading = true, by = [];
+      for(var k = 0; k < COLS; k++){
+        var v = parseInt(hex.substr(k * 2, 2), 16) || 0;
+        by.push(v);
+        if(v === 0){ zeros++; if(leading) lead++; } else leading = false;
+      }
+      if(zeros === COLS){ lines.rule++; continue; }        /* a rule is bare stock — draw nothing */
+      if(lead === 12) lines.address++;
+      lines.set++;
+      for(var k2 = 0; k2 < COLS; k2++){
+        var v2 = by[k2];
+        if(v2 === 0) continue;                              /* space leaves the paper alone */
+        /* ⚠ TWO INKS, AND THE SPLIT IS THE CENSUS'S OWN: a byte that reads as language is set in
+         *   the accent, opaque ink in near-black. Density follows the byte's value, so a word is
+         *   legible as a shape rather than a solid bar. */
+        var sigil = v2 >= 0x20 && v2 <= 0x7e;
+        var a = 0.30 + 0.70 * (v2 / 255);
+        ctx.fillStyle = sigil ? 'rgba(150,168,20,' + a + ')' : 'rgba(24,26,22,' + a + ')';
+        ctx.fillRect(k2 * CELL, r * (CELL + GAP), CELL - 1, CELL - 1);
+      }
     }
-    ctx.putImageData(img, 0, 0);
-    $('sheetCap').innerHTML = 'Ethereum block <b>' + comma(b.sheet.number) + '</b> and the ' +
-      b.impressions.length + ' Base blocks that landed under it — ' + comma(tot) +
-      ' bytes of calldata, one cell each, in their true proportion. The dark field is ' +
-      pct(c.space, tot) + ' of it, and it is not background: <b>it is the substrate</b>.';
+
+    $('sheetCap').innerHTML = 'Ethereum block <b>' + comma(b.sheet.number) + '</b>, set on its own ' +
+      'measure — <b>' + ROWS + ' words</b> drawn evenly from the ' + comma(b.census.form.words) +
+      ' in the block, one 32-byte word to the line, every cell a real byte. <b>' + lines.rule +
+      '</b> of these lines are <b>rules</b> — a word of pure zero — and they are blank here because ' +
+      'the chain left them blank, not because anything chose to leave them out; ' + lines.address +
+      ' are address-shaped. Ink multiplies the stock and never adds, so the pale field is not ' +
+      'background: <b>it is the substrate</b>, and across the whole block it is ' + pct(c.space, tot) + '.';
   }
 
   /* ── 3 · the duality — the same bytes twice ─────────────────────────────────────────────── */

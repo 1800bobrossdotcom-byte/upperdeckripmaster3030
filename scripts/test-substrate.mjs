@@ -119,10 +119,28 @@ console.log('\n── B · the shipped chain ──');
     `${t.words.toLocaleString()} words · ${t.rules.toLocaleString()} rules ` +
     `(${(100 * t.rules / t.words).toFixed(1)}% of lines are pure zero)`);
   const spacePct = 100 * t.space / t.bytes;
-  /* ⚑ THE CLAIM ON THE PAGE IS "THREE QUARTERS". If a future reading drifts far from that, the
-   *   page's own headline has gone stale and this is where it should be caught. */
-  ok(spacePct > 55 && spacePct < 90, 'the substrate really is most of the typing',
+  ok(spacePct > 45 && spacePct < 90, 'the substrate really is most of the typing',
     spacePct.toFixed(2) + '% space');
+  /* ⛔ AND IT MUST BE READ PER CHAIN. The page used to say "three quarters of BOTH chains is empty
+   *   space", which was false of one of them: measured over 24 sheets Ethereum runs 47.2% space
+   *   and Base 69.3%, and Base is the emptier of the two in 20 of 24. Base carries ~60% of the
+   *   bytes, so the blended figure is largely a reading of Base wearing both names — a number
+   *   that sounds like a measurement and describes neither document. */
+  let eS = 0, eT = 0, bS = 0, bT = 0;
+  for (const b of DATA.blocks) {
+    eS += b.sheet.counts.space; eT += b.sheet.bytes;
+    bS += b.census.counts.space - b.sheet.counts.space;
+    bT += b.census.bytes - b.sheet.bytes;
+  }
+  const ePct = 100 * eS / eT, bPct = 100 * bS / bT;
+  ok(bPct > ePct, 'the impression is emptier than the substrate — two documents, not one',
+    `ethereum ${ePct.toFixed(1)}% vs base ${bPct.toFixed(1)}% space`);
+  /* ⚠ COMMENTS STRIPPED FIRST — the note recording this correction necessarily quotes the phrase
+   *   it corrects, and a checker that fires on the explanation of its own fix gets muted. Same
+   *   exemption `test:name` makes, and for the same reason. */
+  const VISIBLE = HTML.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  ok(!/quarters of both chains/i.test(VISIBLE),
+    'and the page no longer averages them into a claim true of neither');
   /* ⛔ BOTH SCHEDULES, BECAUSE PUBLISHING ONE AS "THE PRICE" IS THE ERROR THIS ASSERTS AGAINST.
    *   Intrinsic calldata gas is max(standard, floor). The floor (10/40) binds only on a
    *   near-pure-data transaction; a real one pays the standard 4/16. The first version of this
@@ -262,11 +280,29 @@ async function visit({ blockRpc = false, patchData = null, killRoster = false } 
       const t = (id) => (document.getElementById(id) || {}).textContent || '';
       const cls = (id) => (document.getElementById(id) || {}).className || '';
       const cv = document.getElementById('sheet');
-      let ink = null;
+      let ink = null, cellPaper = null, cellAccent = null, blankRows = null;
       if (cv && cv.width) {
         const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
         let lit = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 1] > 120) lit++;
         ink = lit / (d.length / 4);
+        /* ⚠ SAMPLED AT CELL CENTRES, NOT OVER PIXELS. The grid has a one-pixel gutter between
+         * cells and a gap between lines, so a pixel census measures the LAYOUT and not the
+         * bytes — it read 54% paper where the bytes say 28%. */
+        const g = cv.getContext('2d'), CELL = 7, GAP = 1, COLS = 32;
+        const ROWS = Math.round(cv.height / (CELL + GAP));
+        let paper = 0, accent = 0, cells = 0; blankRows = 0;
+        for (let r = 0; r < ROWS; r++) {
+          let rowPaper = 0;
+          for (let c = 0; c < COLS; c++) {
+            const q = g.getImageData(c * CELL + 2, r * (CELL + GAP) + 2, 1, 1).data;
+            const R = q[0], G = q[1], B = q[2];
+            cells++;
+            if (R > 200 && G > 195 && B > 180) { paper++; rowPaper++; }
+            else if (G - B > 60) accent++;
+          }
+          if (rowPaper === COLS) blankRows++;
+        }
+        cellPaper = paper / cells; cellAccent = accent / cells;
       }
       return { name: t('pName'), title: document.title, layer: t('layerId'),
         height: t('hHeight'), hash: t('hHash'), eth: t('hEth'), base: t('hBase'),
@@ -274,6 +310,7 @@ async function visit({ blockRpc = false, patchData = null, killRoster = false } 
         runsCap: t('runsCap'), sheetCap: t('sheetCap'),
         /* ⚠ SCOPED — `.key` is shared by the census and the formations, so a bare selector
          * counts both and reports 8 where the claim is about 4. */
+        cellPaper, cellAccent, blankRows,
         keys: document.querySelectorAll('#keys .key').length,
         rungs: document.querySelectorAll('.rung').length, age: t('age'), ink,
         forms: document.querySelectorAll('#forms .key').length, glyphNote: t('glyphNote'),
@@ -311,11 +348,32 @@ async function visit({ blockRpc = false, patchData = null, killRoster = false } 
   ok(/\d/.test(s.runsCap) && /most repeated/.test(s.runsCap),
     'the runs caption says how many were dropped', 'no silent truncation');
   ok(s.dual.trim().length > 0, 'the duality panel shows the same bytes as hex');
-  /* the sheet must be drawn from the real proportion, not a decorative fill */
-  const expectInk = DATA.blocks.at(-1).census.counts.sigil / DATA.blocks.at(-1).census.bytes;
-  ok(s.ink !== null && Math.abs(s.ink - expectInk) < 0.02,
-    'the sheet is drawn in the block\'s TRUE proportion',
-    `sigil ${(100 * expectInk).toFixed(2)}% → lit cells ${(100 * s.ink).toFixed(2)}%`);
+  /* ⛔ THIS ASSERTION'S SUBJECT MOVED AND IT KEPT REPORTING — the recorded failure shape, caught
+   *   here by the sheet becoming type. It compared the canvas against the COMBINED eth+base
+   *   census, which was right while the renderer scattered cells in that proportion and became
+   *   wrong the moment the sheet started setting real ETHEREUM words: Base is ~60% of the bytes
+   *   and far emptier, so the blended figure describes neither chain.
+   * ⚑ AND THE REPLACEMENT IS STRICTLY STRONGER. The old test allowed 2 points of slack against a
+   *   proportion; this one requires the canvas to reproduce the sampled bytes CELL FOR CELL, so
+   *   it fails on a renderer that invents, rounds, reorders or decorates. */
+  const smp = DATA.blocks.at(-1).sample || [];
+  ok(smp.length > 0, 'the head block ships its sampled words', `${smp.length} words`);
+  let zc = 0, sc = 0, tc = 0;
+  for (const w of smp) for (let i = 0; i < 64; i += 2) {
+    const v = parseInt(w.substr(i, 2), 16); tc++;
+    if (v === 0) zc++; else if (v >= 0x20 && v <= 0x7e) sc++;
+  }
+  ok(s.cellPaper !== null && Math.abs(s.cellPaper - zc / tc) < 0.01,
+    'the sheet leaves paper exactly where the chain left zero',
+    `sample ${(100 * zc / tc).toFixed(1)}% → canvas ${(100 * s.cellPaper).toFixed(1)}%`);
+  ok(s.cellAccent !== null && Math.abs(s.cellAccent - sc / tc) < 0.01,
+    'and sets the language ink exactly where the bytes read as language',
+    `sample ${(100 * sc / tc).toFixed(1)}% → canvas ${(100 * s.cellAccent).toFixed(1)}%`);
+  /* ⚠ THE RULES ARE THE POINT OF SETTING IT ON THE GRID AT ALL — a blank line must be blank
+   *   because the chain left it blank. A renderer that drew them would pass both tests above. */
+  const rules = smp.filter((w) => /^0{64}$/.test(w)).length;
+  ok(s.blankRows === rules, 'a rule renders as a blank line, and only a rule does',
+    `${rules} all-zero words → ${s.blankRows} blank lines`);
   ok(/derived/.test(s.age), 'the page states how old the reading is', s.age.slice(0, 48));
 }
 
