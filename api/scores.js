@@ -30,7 +30,7 @@ const KEEP = 25;                 // how many the set holds; the page asks for ~1
 const MAX = 1e12;                // an upper bound so one client cannot park Infinity at the top
 /* mirrors GAMES in api/presence.js and js/challenge-ui.js — an unknown game is refused rather
  * than silently creating a key nobody will ever read. */
-const GAMES = ['arena', 'dogfight', 'section9', 'city', 'cloudracer', 'riprocketer'];
+const GAMES = ['arena', 'dogfight', 'section9', 'city', 'cloudracer', 'riprocketer', 'pull'];
 
 async function kv(cmd) {
   const { url, tok } = env();

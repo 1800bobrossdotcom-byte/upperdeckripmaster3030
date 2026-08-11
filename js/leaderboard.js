@@ -39,10 +39,11 @@ window.RipBoard = (function () {
    *   metres THE CITY's DEAD AIR detector already measures. Inventing a score formula so a board
    *   could exist would be inventing a fact; picking the number already on screen is not. */
   var UNITS = { riprocketer: 'points', dogfight: 'kills', section9: 'kills',
-    cloudracer: 'wins in a row', arena: 'wins in a row', city: 'metres, one glide' };
+    cloudracer: 'wins in a row', arena: 'wins in a row', city: 'metres, one glide',
+    pull: 'best run' };
   var TITLES = { riprocketer: 'RIP ROCKETER', dogfight: 'DOGFIGHT', section9: 'SECTION 9',
-    cloudracer: 'CLOUD RACER', arena: 'THE ARENA', city: 'THE CITY' };
-  var ALL = ['riprocketer', 'cloudracer', 'city', 'dogfight', 'section9', 'arena'];
+    cloudracer: 'CLOUD RACER', arena: 'THE ARENA', city: 'THE CITY', pull: 'THE PULL' };
+  var ALL = ['riprocketer', 'cloudracer', 'city', 'dogfight', 'section9', 'arena', 'pull'];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -220,7 +221,8 @@ window.RipBoard = (function () {
    *   is inserted after the lobby roster, which is where a player is already looking for names.
    * ⚠ Does nothing at all on a page with neither, so a document or a card page is untouched. */
   var GAMES = { 'dogfight.html': 'dogfight', 'section9.html': 'section9', 'city.html': 'city',
-    'cloudracer.html': 'cloudracer', 'riprocketer.html': 'riprocketer', 'battle.html': 'arena' };
+    'cloudracer.html': 'cloudracer', 'riprocketer.html': 'riprocketer', 'battle.html': 'arena',
+    'pull.html': 'pull' };
   function gameHere() {
     var p = location.pathname;
     for (var k in GAMES) if (p.indexOf(k) >= 0) return GAMES[k];

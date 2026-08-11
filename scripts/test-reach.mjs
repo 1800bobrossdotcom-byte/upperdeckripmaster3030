@@ -488,6 +488,12 @@ const ORPHAN_OK = {
    *   does not exist, because the decision it turns on (page or chart?) is not settleable on a
    *   screen. Linking it now would put a door on a room with no floor.
    * ⛔ SAME TERMS: it gets linked when there is something to press, or it goes with the idea. */
+  /* ⚑ A DISPOSABLE PROTOTYPE, UNLINKED ON PURPOSE — artist, 2026-08-07: "lets try it." THE PULL is
+   *   a roguelike deckbuilder built to be PLAYED and then shipped, folded into THE ARENA, or thrown
+   *   away. `cards/proof.html` was built the same way for the same reason. ⚠ This entry is the
+   *   difference between a decision and an oversight; when it ships, this line is what should be
+   *   deleted first — and if the page is ever killed instead, delete the page, not the reason. */
+  'pull.html': 'a prototype the artist opens by URL — nothing links it until it is decided',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',

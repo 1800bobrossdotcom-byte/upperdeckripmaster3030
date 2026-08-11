@@ -187,14 +187,19 @@ head('§B  js/leaderboard.js — the unit, and the arcade panel');
     out.hd = (document.querySelector('#topRippers .lb-hd') || {}).textContent || '';
     return out;
   });
-  ok(r.games.length === 6, 'B1 the module knows all six cabinets', r.games.join(' '));
+  /* ⚠ DERIVED, NOT HARD-CODED AT SIX. This read `=== 6` and broke the day THE PULL was added — a
+   *   count is a proxy for a rule, and a proxy rots the moment the thing under it grows. The rule
+   *   is that the module knows EVERY game and names a unit for each. */
+  ok(r.games.length >= 6 && new Set(r.games).size === r.games.length,
+    'B1 the module knows every cabinet, with no duplicates', r.games.length + ': ' + r.games.join(' '));
   ok(Object.values(r.units).every(Boolean) && new Set(Object.values(r.units)).size >= 3,
     'B2 every game NAMES what its number is', JSON.stringify(r.units));
-  ok(r.chips.length === 6, 'B3 the arcade menu shows a chip per game — including THE CITY, which has no lobby',
+  ok(r.chips.length === r.games.length && r.chips.some(c => c[0] === 'city'),
+    'B3 the arcade menu shows a chip per game — including THE CITY, which has no lobby',
     r.chips.map(c => c[0]).join(' '));
   /* ⚠ "NOTHING IS UNDER 44px" IS TRIVIALLY TRUE OF A PANEL THAT RENDERED NO CHIPS — proved by the
    *   sabotage, where this passed with 0 measured. The count is part of the claim. */
-  ok(r.chips.length === 6 && r.small === 0, 'B4 …and every chip clears 44px on BOTH axes',
+  ok(r.chips.length === r.games.length && r.small === 0, 'B4 …and every chip clears 44px on BOTH axes',
     r.chips.map(c => c[1] + 'x' + c[2]).join(' ') || 'no chips rendered');
   ok(/top rippers/i.test(r.hd) && /·/.test(r.hd), 'B5 the header carries the unit', JSON.stringify(r.hd));
 
@@ -399,7 +404,12 @@ head('§C  every cabinet POSTS — driven through its own shipping settle');
 head('§D  what actually left the browser');
 {
   const games = new Set(posted.map(p => p.game));
-  ok(games.size >= 6, 'D1 all six games reached /api/scores over the wire, not just the local list',
+  /* ⚠ NAMED, NOT COUNTED — §C drives these six end-to-end and THE PULL has its own suite. A count
+   *   would have gone green on the wrong six the moment a seventh game existed. */
+  const DRIVEN = ['riprocketer', 'dogfight', 'section9', 'cloudracer', 'city', 'arena'];
+  const missing = DRIVEN.filter(g => !games.has(g));
+  ok(missing.length === 0, 'D1 every cabinet §C drives reached /api/scores over the wire, not just ' +
+    'the local list', missing.length ? 'missing ' + missing.join(' ') :
     [...games].sort().join(' ') + `  (${posted.length} posts)`);
   ok(posted.every(p => p.score > 0 && typeof p.game === 'string'),
     'D2 every post carries a game and a real score', posted.length + ' posts');
