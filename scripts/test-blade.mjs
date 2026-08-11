@@ -353,6 +353,111 @@ head('§B  two bots, identical but for where they aim');
     D(tRand.t) + 's mean, ' + tRand.capped + ' capped');
 }
 
+// ══ §E  THE STEEL — what a sword does that a pointer does not ══════════════════════════════════
+head('§E  blade physics: lag, follow-through, weight, and a shutter that is a duration');
+{
+  const ST = (await import('node:fs')).readFileSync(join(ROOT, 'js/blade-steel.js'), 'utf8');
+  globalThis.BladeSteel = undefined; (0, eval)(ST);
+  const S = globalThis.BladeSteel;
+  const dt = 1 / 120, deg = r => r * 180 / Math.PI;
+  ok(!!S, 'E1 js/blade-steel.js loads');
+
+  /* ⛔ NOTHING MOVES ON ITS OWN. Same assertion the wordmark rig and the hero card both carry, for
+   * the same reason: a rig that idles is animating, and the acceptance for all three was "dead
+   * still until you touch it". */
+  {
+    const q = S.create({ aim: 0 });
+    let m = 0;
+    for (let i = 0; i < 900; i++) { q.step(dt); m = Math.max(m, Math.abs(q.blade)); }
+    ok(m === 0 && q.settled(), 'E2 at rest the blade is EXACTLY still', m.toExponential(1));
+  }
+
+  /* the four properties that separate steel from a cursor */
+  const run = (target, n) => {
+    const q = S.create({ aim: 0 }); q.point(target);
+    let lag = 0, over = 0, crossed = false, arrive = null, still = null, lagT = 0, handT = 0, hv = 0;
+    for (let i = 0; i < (n || 1400); i++) {
+      q.step(dt); const st = q.state;
+      if (Math.abs(st.lag) > lag) { lag = Math.abs(st.lag); lagT = st.t; }
+      if (Math.abs(st.handVel) > hv) { hv = Math.abs(st.handVel); handT = st.t; }
+      if (!crossed && Math.abs(S.delta(q.blade, target)) < 0.02) crossed = true;
+      if (crossed) over = Math.max(over, S.delta(q.hand, q.blade));
+      if (!arrive && Math.abs(S.delta(q.blade, target)) < 0.0873) arrive = st.t;
+      if (!still && Math.abs(st.vel) < 0.02 && Math.abs(q.lag) < 0.005) still = st.t;
+    }
+    return { lag: deg(lag), over: deg(over), arrive, still, lagT, handT };
+  };
+  const r90 = run(Math.PI / 2);
+  ok(r90.lag > 8 && r90.lag < 26,
+    'E3 the tip LAGS the wrist — visible weight, and never enough to disagree with what was scored',
+    D(r90.lag) + ' deg');
+  /* ⛔ THE HONESTY ASSERTION. The RULE scores the line the FINGER drew; the player watches the
+   * BLADE. If they stay apart, the game scores one thing and shows another — the first build sat
+   * at 56 degrees of lag and did exactly that. */
+  ok(r90.arrive != null && r90.arrive < 0.20,
+    'E4 …and the blade agrees with the drawn line fast enough that the picture cannot lie',
+    D(r90.arrive) + 's to within 5 deg');
+  ok(r90.lagT > r90.handT,
+    'E5 the lag peaks AFTER the wrist does — it trails, it does not lead',
+    'lag ' + D(r90.lagT) + 's vs wrist ' + D(r90.handT) + 's');
+  ok(r90.over > 2,
+    'E6 it OVERSHOOTS and rings back — follow-through, the thing that dies if you over-damp it',
+    D(r90.over) + ' deg');
+  ok(r90.still != null && r90.still < 0.8, 'E7 …and it settles rather than ringing forever',
+    D(r90.still) + 's');
+  /* ⛔ WEIGHT IS A FUNCTION OF SPEED, AND THE WRIST HAS A TOP SPEED — so the lag GROWS with demand
+   * and then PLATEAUS. The first version of this assertion required it to keep growing (small <
+   * 90deg < 166deg) and failed at 18.665 = 18.665, which was the test being wrong about the model
+   * rather than the model being wrong: past HAND_RATE the wrist is saturated and asking for more
+   * cannot move it faster. ⚑ The plateau is the speed limit made observable, so it is asserted
+   * rather than tuned away — without it, a flick of the thumb would fling the sword arbitrarily
+   * fast and the weight would be a lie at exactly the moment it matters. */
+  const small = run(0.17), big = run(2.9);
+  ok(small.lag < r90.lag * 0.5,
+    'E8 a small ask lags far less than a big one — that is what makes it feel heavy',
+    D(small.lag) + ' vs ' + D(r90.lag) + ' deg');
+  ok(Math.abs(big.lag - r90.lag) < 0.5,
+    'E8b …and past the wrist\'s top speed the lag PLATEAUS, because a wrist cannot go faster',
+    D(r90.lag) + ' deg at 90 deg of demand, ' + D(big.lag) + ' at 166 deg');
+
+  /* ⛔ THE SHUTTER IS A DURATION, NOT A SAMPLE COUNT, and the first version measured 33.5 deg at
+   * 240 fps, 27.1 at 120, 19.4 at 60 and **0.0 at 30** — the smear vanished entirely on the
+   * machines that need it most, because ageing every sample before pruning empties the buffer to
+   * one entry whenever dt > TRAIL_S/2. One point is not a path. */
+  const arcAt = d => {
+    const q = S.create({ aim: 0 }); q.swing(1, 1);
+    let best = 0;
+    for (let i = 0; i < Math.ceil(0.6 / d); i++) {
+      q.step(d);
+      const a = q.path(0), b = q.path(1);
+      if (a && b) best = Math.max(best, Math.abs(S.delta(a.ang, b.ang)));
+    }
+    return deg(best);
+  };
+  const arcs = [1 / 240, 1 / 120, 1 / 60, 1 / 30].map(arcAt);
+  ok(arcs.every(a => a > 12),
+    'E9 the smear exists at EVERY frame rate — 30 fps included',
+    arcs.map(a => D(a)).join(' / ') + ' deg at 240/120/60/30 fps');
+  ok(Math.max(...arcs) / Math.min(...arcs) < 1.8,
+    'E10 …and it is the same picture, within a bounded factor, on every device',
+    'spread ' + D(Math.max(...arcs) / Math.min(...arcs)) + 'x');
+
+  /* a cut is an IMPULSE, so a second cut inherits the first one's momentum */
+  {
+    const q = S.create({ aim: 0 });
+    q.swing(1, 1); for (let i = 0; i < 4; i++) q.step(dt);
+    const v1 = Math.abs(q.state.vel);
+    q.swing(1, 1); q.step(dt);
+    ok(Math.abs(q.state.vel) > v1,
+      'E11 a cut is a torque, not a keyframe — a second one compounds instead of restarting',
+      D(v1) + ' -> ' + D(Math.abs(q.state.vel)) + ' rad/s');
+  }
+  /* the seam. A raw b-a whips the sword the long way round on an ordinary horizontal cut. */
+  ok(Math.abs(S.delta(3.10, -3.10)) < 0.09,
+    'E12 the shortest way round is taken across the +/-pi seam, so a cut never whips a full circle',
+    D(S.delta(3.10, -3.10)) + ' rad');
+}
+
 // ══ §C  THE GEOMETRY CONTRACT — read off the shipped GLB ═══════════════════════════════════════
 head('§C  models/blade.glb, read directly (no Blender needed)');
 {
@@ -485,7 +590,13 @@ head('§D  blade.html on a phone');
       for (const deg of [0, 45, 90, 135]) {
         const a = deg * Math.PI / 180;
         v.aim = a;
-        v.step(0.001);
+        /* ⚠ LET THE STEEL ARRIVE FIRST. This used to set the aim and read the blade one
+         * millisecond later, which was correct while the blade WAS the cursor. It is a spring now
+         * — measured at 0.117 s to come within 5 degrees of the drawn line — so reading it
+         * immediately measures where the sword was a moment ago and reports the convention as
+         * broken. The convention assertion is unchanged and still the one that matters; only the
+         * moment it is read moved. */
+        for (let i = 0; i < 60; i++) v.step(1 / 120);
         const hand = v.hand;
         const dir = hand.getWorldTransform().transformVector(new pc.Vec3(0, 1, 0));
         const R = v.cam.right, U = v.cam.up;

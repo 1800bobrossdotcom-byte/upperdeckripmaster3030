@@ -223,6 +223,78 @@
     keyLight.setLocalPosition(0, 0.55, 0);
     hand.addChild(keyLight);
 
+    /* ── THE SMEAR. ⛔ NOT A QUAD PINNED TO THE CURRENT ANGLE — that is a decoration, and it is
+     * what the first build drew. This is a RIBBON SWEPT BETWEEN SUCCESSIVE POSITIONS OF THE EDGE,
+     * rebuilt every frame from `steel.trail`, which records where the blade actually WAS. The
+     * distinction is the whole of DESIGN-SYSTEM §1: a picture OF motion versus the motion itself.
+     * Two properties fall out for free rather than being tuned in:
+     *   · it is exactly as long as the swing was fast, because it is a path and not a length
+     *   · it VANISHES at rest, because a still blade has no path — asserted, not hoped
+     * ⚠ Only the outer part of the blade is swept. The grip barely moves, so including it drags a
+     *   solid fan across the frame instead of a smear off the tip. */
+    const SMEAR_IN = 0.55, SMEAR_OUT = 1.00;
+    const smearMat = glow([0.60, 0.86, 1.0], 1);
+    smearMat.emissiveVertexColor = true;         // fade along the trail; no-ops harmlessly if absent
+    smearMat.update();
+    let smear = null, smearMesh = null;
+    try {
+      smearMesh = new pc.Mesh(app.graphicsDevice);
+      smearMesh.clear(true, false);
+      smear = new pc.Entity('smear');
+      smear.addComponent('render', {
+        meshInstances: [new pc.MeshInstance(smearMesh, smearMat)] });
+      hand.parent.addChild(smear);              // the camera's frame, same as the hand
+      smear.enabled = false;
+    } catch (e) { smear = null; }
+
+    const _pos = [], _col = [], _idx = [];
+    function buildSmear() {
+      if (!smear || !steel) return;
+      const tr = steel.state.trail;
+      /* ⚠ TWO samples minimum, and they must actually DIFFER — a stationary blade fills the buffer
+       * with identical angles, and sweeping between two identical positions emits degenerate
+       * triangles that render as a hairline seam rather than nothing. */
+      let span = 0;
+      for (let i = 1; i < tr.length; i++) span += Math.abs(root.BladeSteel.delta(tr[i - 1].ang, tr[i].ang));
+      if (tr.length < 2 || span < 0.02) { smear.enabled = false; return; }
+      _pos.length = 0; _col.length = 0; _idx.length = 0;
+      /* how hard the edge is travelling, 0..1 — the SAME number the key light reads, so the room
+       * and the smear can never disagree about one swing. */
+      const fade = Math.min(1, steel.tipSpeed(1) / 24);
+      if (fade < 0.08) { smear.enabled = false; return; }
+      const hx = 0.14, hy = -0.28;
+      /* a FIXED number of segments across a FIXED slice of time — see `path()` in blade-steel.js */
+      const N = 12;
+      for (let i = 0; i <= N; i++) {
+        const p = steel.path(i / N);
+        if (!p) { smear.enabled = false; return; }
+        const phi = rollFor(p.ang);
+        const dx = -Math.sin(phi), dy = Math.cos(phi);
+        const z = -0.76 - p.reach * 0.19;
+        _pos.push(hx + dx * SMEAR_IN, hy + dy * SMEAR_IN, z,
+                  hx + dx * SMEAR_OUT, hy + dy * SMEAR_OUT, z);
+        /* older = dimmer. The newest sample is the bright edge of the smear, which is where the
+         * blade IS, so the trail reads as trailing rather than as a glowing fan. */
+        /* ⚠ THE FADE IS CUBED AND SCALED BY HOW HARD YOU SWUNG. Additive blending has no upper
+         * stop, so a linear fade on a 90-degree arc at arm's length is a white-out — measured, it
+         * covered the top half of the frame. A slow move must leave almost nothing behind it. */
+        const k = i / N;
+        const a = Math.round(210 * k * k * k * fade);
+        _col.push(a, a, a, 255, a, a, a, 255);
+      }
+      for (let i = 0; i < N; i++) {
+        const b = i * 2;
+        _idx.push(b, b + 1, b + 3, b, b + 3, b + 2);
+      }
+      try {
+        smearMesh.setPositions(_pos);
+        smearMesh.setColors32(_col);
+        smearMesh.setIndices(_idx);
+        smearMesh.update(pc.PRIMITIVE_TRIANGLES);
+        smear.enabled = true;
+      } catch (e) { smear.enabled = false; }
+    }
+
     // ── FX: the streak, the clash, the guard ────────────────────────────────────────────────────
     const streakMat = glow([0.75, 0.95, 1.0], 0);
     const streak = prim('plane', streakMat, 1, 1, 1);
@@ -336,8 +408,14 @@
 
     // ── per-frame state driven by the page ──────────────────────────────────────────────────────
     let aim = -Math.PI / 2;          // the line the finger last drew; default straight up
-    let swing = 0, swingFrom = 0, swingTo = 0;
     let shake = 0, lurch = 0, hurtFlash = 0;
+    /* ⛔ THE BLADE IS NO LONGER TOLD WHERE TO BE. `js/blade-steel.js` owns the angle: the finger
+     * aims a WRIST, and the steel hangs off it on a torsional spring, so it lags going out and
+     * follows through coming back. Measured at 18.7 deg peak lag and 8.63 deg of overshoot, and
+     * agreeing with the drawn line inside 0.117 s — see that file's sweep table for why those
+     * three numbers are the ones. ⚠ Fails open: no module, and the blade tracks the finger exactly
+     * as it did before, which is worse-looking and still entirely playable. */
+    const steel = (root.BladeSteel && root.BladeSteel.create({ aim: aim })) || null;
     const _q = new pc.Quat(), _c = new pc.Color();
 
     /* ⚑ WHERE THE TWO BLADES MEET, so the clash spark lands on the crossing rather than at some
@@ -355,7 +433,14 @@
       const before = G.hp;
       const res = game.act(kind, aim == null ? 0 : aim);
       if (kind === 'slash') {
-        swingFrom = aim - 0.55; swingTo = aim + 0.55; swing = 0;
+        /* ⚑ A CUT IS AN IMPULSE THROUGH THE WRIST, so it composes with whatever the blade is
+         * already doing — a second cut inherits the first one's momentum instead of restarting a
+         * fixed 0.16 s animation. The DIRECTION comes from which side of the wrist the drawn line
+         * fell, so the sword cuts the way your thumb went rather than always the same way. */
+        if (steel) {
+          const side = root.BladeSteel.delta(steel.state.blade, aim);
+          steel.swing(side >= 0 ? 1 : -1, 1);
+        }
         streakT = 1; streakA = aim;
       }
       if (kind === 'parry') guardT = 1;
@@ -381,8 +466,10 @@
       game.step(dt);
       if (G.hp < hp0) { hurtFlash = 1; shake = Math.min(1, shake + 0.7); }
 
+      // ── the steel. The finger aims the wrist; the spring decides where the blade actually is.
+      if (steel) { steel.point(aim); steel.step(dt); }
+
       // decay
-      swing = Math.min(1, swing + dt / 0.16);
       streakT = Math.max(0, streakT - dt / 0.20);
       guardT = Math.max(0, guardT - dt / 0.22);
       clashT = Math.max(0, clashT - dt / 0.26);
@@ -390,15 +477,18 @@
       lurch = Math.max(0, lurch - dt / 0.26);
       hurtFlash = Math.max(0, hurtFlash - dt / 0.45);
 
-      // ── the player's blade: roll to the drawn line, sweeping through it on a slash ────────────
-      const held = swing >= 1 ? aim : lerp(swingFrom, swingTo, swing < 0 ? 0 : swing);
-      const roll = rollFor(held);
-      hand.setLocalEulerAngles(0, 0, roll * 180 / Math.PI);
-      /* the blade THRUSTS on the swing and settles back — a cut has a reach, and without it the
+      // ── the player's blade: wherever the STEEL ended up, not wherever the finger is ───────────
+      const held = steel ? steel.state.blade : aim;
+      const reach = steel ? steel.state.reach : 0;
+      hand.setLocalEulerAngles(0, 0, rollFor(held) * 180 / Math.PI);
+      /* the blade THRUSTS on the cut and settles back — a cut has a reach, and without it the
        * sword only ever rotates, which reads as a windscreen wiper. */
-      const push = Math.sin(clamp(swing, 0, 1) * Math.PI) * 0.16;
-      hand.setLocalPosition(0.14, -0.28, -0.76 - push);
-      keyLight.light.intensity = 4.4 + 2.6 * Math.sin(clamp(swing, 0, 1) * Math.PI) + clashT * 3.0;
+      hand.setLocalPosition(0.14, -0.28, -0.76 - reach * 0.19);
+      /* ⚑ THE KEY LIGHT IS ON THE BLADE, so how hard you swung is how hard the room is lit. One
+       * value feeds the light, the trail and the blur, which is what stops them disagreeing about
+       * the same swing. */
+      const edge = steel ? Math.min(1, steel.tipSpeed(1) / 26) : 0;
+      keyLight.light.intensity = 4.4 + 3.4 * edge + clashT * 3.0;
 
       // ── the foes ─────────────────────────────────────────────────────────────────────────────
       const seen = new Set();
@@ -432,7 +522,11 @@
         const heat = clamp(1 - left / TELE, 0, 1);
         const armed = left <= TELE * 1.6;
         if (opened) {
-          _c.set(0.10, 0.55, 0.75);                        // answered: it goes cold and drops
+          /* ⛔ AN ANSWERED BLADE GOES OUT — IT DOES NOT CHANGE SIDES. The first version took it to
+           * a bright cyan, which is the PLAYER's colour, so turning an enemy blade made it look
+           * like your own and the light-against-dark read collapsed at the exact moment the player
+           * most needs to know what happened. Dim and desaturated: it is spent, not friendly. */
+          _c.set(0.13, 0.09, 0.18);
         } else {
           _c.set(lerp(0.30, 1.25, heat), lerp(0.06, 0.92, heat * heat), lerp(0.45, 0.80, heat));
         }
@@ -441,7 +535,7 @@
         r.bm.update();
         /* the same value, as a light — see the note where it is built */
         r.light.light.color.set(Math.min(1, _c.r), Math.min(1, _c.g), Math.min(1, _c.b));
-        r.light.light.intensity = (opened ? 0.4 : 0.45 + 3.2 * heat * heat) + fl * 2;
+        r.light.light.intensity = (opened ? 0.18 : 0.45 + 3.2 * heat * heat) + fl * 2;
 
         /* raised to its LINE once it is armed; carried low before that. The snap to the arc is
          * the tell that this is the one to answer next. */
@@ -458,6 +552,8 @@
         const f = G.foes.find(x => x.id === id);
         if (f && f.dead && r.dead >= 1) dropRig(id);
       }
+
+      buildSmear();
 
       // ── FX. Present only while they are firing; brightness rides the EMISSIVE. ──────────────
       streak.enabled = streakT > 0.001;
@@ -519,6 +615,8 @@
       /* exposed for test:blade — the screen-angle convention is the one thing here that can be 90°
        * wrong while rendering perfectly, so it has to be askable rather than inferable. */
       rollFor,
+      get steel() { return steel; },
+      smearOn() { return !!(smear && smear.enabled); },
       hurt() { return hurtFlash; },
     };
   }
