@@ -84,10 +84,24 @@ ok('carries the NFA disclaimer', /\bNFA\b/.test(html));
  *   and DOGFIGHT off the grid and back. A hand-written count on a page inside somebody else's
  *   marketplace is exactly the surface nobody reopens, so it is read off the arcade instead. */
 const arcade = readFileSync(join(ROOT, 'arcade.html'), 'utf8');
+/* ⛔ THIS SAID "DERIVED, NOT TRUSTED" AND WAS NEITHER — IT NAMED THE SIX PAGES.
+ *   The old matcher was `href="((?:city|riprocketer|cloudracer|section9|dogfight|cards\/battle)
+ *   \.html)"`, i.e. a hand-picked list of exactly the cabinets that existed when it was written.
+ *   THE LIGHT joined the shelf on 2026-08-11 and the count stayed at 6, so the check reported the
+ *   CORRECTED embed as wrong and would have reported a stale one as right the moment a game was
+ *   added and the embed left alone — the precise failure it exists to catch, inverted.
+ * ⚑ Match the SHAPE, not the NAMES. `<a class="cab" href="…">` is what a cabinet IS on that page,
+ *   it is what test:reach compares its roster against, and it cannot go stale when the roster
+ *   moves. CLAUDE.md records this same lesson from the pack-price fix — "a shape covers the site
+ *   you forgot, a name covers only the sites you already had in mind" — and from the two `$7`
+ *   pins defeated by a hyphen and a full stop. Fourth recorded instance, and like the third it was
+ *   committed inside a test written to prevent exactly it.
+ * ⚠ Comments stripped first, for the reason two lines down: this file's own note names the
+ *   retired cabinets, and an unstripped scan would count them. */
 const cabinets = new Set(
-  [...arcade.matchAll(/href="((?:city|riprocketer|cloudracer|section9|dogfight|cards\/battle)\.html)"/g)]
+  [...arcade.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<a\s[^>]*class="cab"[^>]*href="([^"]+)"/g)]
     .map(m => m[1]));
-const WORD = { 4: 'four', 5: 'five', 6: 'six', 7: 'seven' };
+const WORD = { 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 9: 'nine' };
 /* ⚠ COMMENTS STRIPPED, AND I WALKED INTO THIS WRITING IT. The note above records that the page
  *   USED to say "Five games" — so the first version of this check matched its own explanation and
  *   reported the corrected page as still wrong. Fourth sighting of that trap in this repo and the

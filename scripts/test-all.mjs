@@ -44,6 +44,7 @@ const SUITES = [
    * (no network, and `substrate`'s only https strings are a defanged URL fixture), so there is no
    * cost argument for leaving them off. */
   'substrate', 'substrate:attack', 'drain', 'check', 'poolfind', 'api3030', 'crypt', 'rail', 'apiterm',
+  'pull', 'blade',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list

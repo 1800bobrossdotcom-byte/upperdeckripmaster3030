@@ -16,6 +16,10 @@
   const P = {
     rocket: '<path d="M12 2.5c2.7 2 4 5.2 4 8.2l-.8 4.6H8.8L8 10.7c0-3 1.3-6.2 4-8.2z"/><circle cx="12" cy="9.4" r="1.7"/><path d="M8.2 13.2 5.4 15.8l.5 3 2.8-1.7M15.8 13.2l2.8 2.6-.5 3-2.8-1.7"/><path d="M10.4 18.8c.4 1.4 1.6 2.7 1.6 2.7s1.2-1.3 1.6-2.7"/>',
     swords: '<path d="M14.5 3.5 21 3l-.5 6.5-8 8"/><path d="M9.5 3.5 3 3l.5 6.5 8 8"/><path d="M6.5 17.5 4 20M17.5 17.5 20 20M13 15l3 3M11 15l-3 3"/>',
+    /* ⚠ ONE blade, where `swords` is two crossed — THE LIGHT and THE ARENA are different games and
+     * must not share a mark. CLAUDE.md records DOGFIGHT and CLOUD RACER shipping the same icon on
+     * the one shelf whose entire job is telling the games apart. */
+    blade:  '<path d="M12 2.3 14.2 8.6V14h-4.4V8.6z"/><path d="M7.4 14.6h9.2"/><path d="M12 14.6v4.3"/><circle cx="12" cy="20.3" r="1.3"/>',
     cards:  '<rect x="8.5" y="4" width="10" height="14" rx="2"/><path d="M5.5 7.5 4 9.2a2 2 0 0 0-.4 2.6l4.3 6.6"/>',
     target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
     crosshair: '<circle cx="12" cy="12" r="7.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',

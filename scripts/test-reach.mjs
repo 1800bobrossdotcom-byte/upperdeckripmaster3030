@@ -185,7 +185,7 @@ const arcade = R('arcade.html');
  *   findable-from-where-you-are. A fixed count asserted the inventory NUMBER and would have had
  *   to be edited either way — it could never have caught the thing that was actually wrong. */
 const CABINETS = ['city.html', 'riprocketer.html', 'cloudracer.html', 'cards/battle.html',
-                  'dogfight.html', 'section9.html'];
+                  'dogfight.html', 'section9.html', 'blade.html'];
 /* ⚠ STILL ASSERTED FROM THE CITY TOO, and that is not a duplicate. The mode bar is the SEAM — the
  * city is where these two share a world — and the route existed there the whole time they were off
  * the shelf. Deleting it now to tidy a number is the same mistake with the sign flipped. */

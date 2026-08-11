@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THE LIGHT · ripmaster3030studios</title>
+<meta name="theme-color" content="#05060a">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<!--
+  THE LIGHT — light against dark, a sword duel for a phone.
+
+  Artist, 2026-08-07: "have a game that is light sword fighting the dark, over the shoulder cam -
+  made specifically for phone. control is double tap and drag for slashing, blocking, fast movement
+  the finger is the sword and you fight the other on coming swords, as you battle through" — then:
+  "build in playcanvas and blender."
+
+  THREE FILES, AND THE SPLIT IS THE POINT:
+    js/blade-game.js    every RULE, pure and seeded, no DOM and no engine. `npm run test:blade`
+                        drives thousands of exchanges through it under node.
+    js/blade-view.js    every PIXEL. PlayCanvas, over the shoulder, geometry from Blender via
+                        models/blade.glb (scripts/blender/build-blade.py, `npm run blade`).
+    this file           the SCREEN a thumb touches: the gesture stream, the HUD, the two overlays.
+
+  ⛔ PORTRAIT, AND THERE IS DELIBERATELY NO js/orient.js VEIL. Every other cabinet here demands
+     landscape because every other cabinet is a wide game. This one was asked for "specifically for
+     phone", it is played one-handed with a thumb, and the fight runs UP the screen — a portrait
+     phone is the shape it wants. THE ARENA and arcade.html had their veils removed for the same
+     reason, and CLAUDE.md records the cost of the other choice: a page behind a veil is a page
+     whose defects are invisible and unreachable at the same time.
+
+  ⛔ AND THE GESTURE RECOGNISER IS NOT IN THIS FILE. It is `BladeGame.classify` / `.arcOf`, taking
+     plain numbers. RIP ROCKETER's touch pass records why: a recogniser buried in a pointer handler
+     can only be tested by dispatching synthetic touches through a driver, and that driver is
+     slower than the window it is measuring — so the harness ends up measuring itself, and the
+     distance half of the tap test was never exercised at all. All this file does is collect
+     (x0, y0, x1, y1, gap) and hand them over.
+
+  ⚠ NFA. An experimental art token and a free arcade; nothing here pays out.
+-->
+<link rel="stylesheet" href="mobile.css">
+<style>
+  :root{
+    --ink:#e8eef5; --dim:#7d8ba0; --hot:#8fe4ff; --dark:#b06cff; --bad:#ff5470;
+    --pad: env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#05060a;color:var(--ink);
+    font-family:"Courier New",ui-monospace,monospace;overflow:hidden;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none!important}   /* the UA rule loses to any display: — recorded three times */
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+  /* ⛔ THE GLASS IS THE CONTROL AND IT COVERS EVERYTHING. There is no stick, no fire button and no
+     pad: the whole screen is where you draw. Anything that wants a tap sits ABOVE it and says so;
+     everything else must not steal one. `touch-action:none` or the browser eats a drag as a
+     scroll and the sword simply never moves. */
+  #glass{position:fixed;inset:0;touch-action:none;z-index:5}
+
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:6;padding:10px 12px;
+    display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;align-items:center;gap:10px}
+  #hpwrap{flex:1;height:10px;border:1px solid #26303f;background:#0a0d14;position:relative;overflow:hidden}
+  #hp{position:absolute;inset:0;width:100%;transform-origin:left center;
+    background:linear-gradient(90deg,#3ec8ff,#8fe4ff);transition:transform .12s linear}
+  #hp.low{background:linear-gradient(90deg,#ff3d63,#ff8fa3)}
+  .tag{font-size:var(--t-label,12px);letter-spacing:.14em;color:var(--dim)}
+  .num{font-size:var(--t-body,15px);color:var(--ink)}
+  #combo{color:var(--hot);opacity:0;transition:opacity .18s}
+  #combo.on{opacity:1}
+  #say{margin-top:auto;margin-bottom:calc(14px + var(--pad));text-align:center;
+    font-size:var(--t-label,12px);letter-spacing:.16em;color:var(--dim);min-height:1.2em}
+  #say.good{color:var(--hot)}
+  #say.bad{color:var(--bad)}
+
+  /* the hit flash: the one thing that has to be unmistakable at arm's length */
+  #flash{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;
+    background:radial-gradient(ellipse at center,rgba(255,60,90,0) 35%,rgba(255,40,80,.55) 100%)}
+
+  /* ⛔ THE VEIL SCROLLS AND THE PANEL CENTRES ITSELF WITH `margin:auto` — AND THE FIRST VERSION
+     DID NEITHER, WHICH PUT **BEGIN** OFF THE BOTTOM OF A 390×844 PHONE. The lobby rendered, the
+     button existed, it was visible and enabled, and it was simply outside the viewport: the game
+     the artist asked for could not be started on the device it was made for. ⚑ `body` is
+     `overflow:hidden` (correct — the glass must not scroll), so a fixed veil with content taller
+     than the screen has nowhere to put the overflow and just clips it.
+     ⚠ `align-items:center` + `overflow:auto` is the trap, not the fix: when the content is taller
+     than the box, centring pushes the top out of reach of the scroller. `flex-start` + `margin:
+     auto` centres when it fits and clips nothing when it does not. */
+  .veil{position:fixed;inset:0;z-index:20;background:rgba(4,5,9,.94);
+    display:flex;align-items:flex-start;justify-content:center;
+    padding:22px 22px calc(22px + var(--pad));overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .panel{max-width:32rem;width:100%;text-align:center;margin:auto}
+  .panel h1{font-size:clamp(28px,9vw,54px);letter-spacing:.18em;margin:0 0 4px}
+  .panel h1 .lt{color:var(--hot)}
+  .panel p{font-size:var(--t-body,15px);line-height:1.62;color:#b9c4d4;margin:.7em 0}
+  .panel .sub{color:var(--dim);font-size:var(--t-label,12px);letter-spacing:.16em;margin-bottom:1.4em}
+  table.keys{width:100%;border-collapse:collapse;margin:1.1em 0;font-size:var(--t-body,15px)}
+  table.keys td{padding:9px 6px;border-top:1px solid #1b2330;text-align:left;vertical-align:top}
+  table.keys td.k{color:var(--hot);white-space:nowrap;width:11.5em;letter-spacing:.06em}
+  /* ⛔ A TWO-COLUMN TABLE IS A DESKTOP SHAPE. At 390px the 11.5em gesture column is ~330px of the
+     viewport and the description wraps to two or three words a line — a wall of ribbon on the one
+     screen that has to teach the game's only rule. It STACKS below 560px: the gesture is a heading
+     and the sentence gets the full width. ⚠ `width` and `white-space` both have to be undone —
+     leaving either keeps the cell's old shape and the fix looks like it did nothing. */
+  @media (max-width: 560px) {
+    table.keys, table.keys tbody, table.keys tr, table.keys td { display:block; width:auto }
+    table.keys td { border-top:0; padding:2px 0 }
+    table.keys tr { border-top:1px solid #1b2330; padding:11px 0 }
+    table.keys td.k { white-space:normal; width:auto; margin-bottom:2px }
+  }
+  .btn{display:inline-block;min-height:44px;min-width:44px;padding:12px 26px;margin:6px 5px;
+    border:1px solid #2b3646;background:#0b0f17;color:var(--ink);cursor:pointer;
+    font:inherit;font-size:var(--t-body,15px);letter-spacing:.14em;
+    box-shadow:3px 3px 0 #1b2330;transition:transform .06s,box-shadow .06s}
+  .btn:active{transform:translate(3px,3px);box-shadow:0 0 0 #1b2330}
+  .btn.go{border-color:var(--hot);color:var(--hot);box-shadow:3px 3px 0 #17384a}
+  a.btn{text-decoration:none}
+  .fine{font-size:var(--t-label,12px);color:var(--dim);letter-spacing:.06em;margin-top:1.2em}
+  .toggles{position:fixed;left:12px;bottom:calc(12px + var(--pad));z-index:8;display:flex;gap:6px}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<div id="glass"></div>
+
+<div id="hud" hidden>
+  <div class="row">
+    <span class="tag">WAVE <span class="num" id="wave">1</span></span>
+    <div id="hpwrap"><div id="hp"></div></div>
+    <span class="tag">SCORE <span class="num" id="score">0</span></span>
+  </div>
+  <div class="row"><span class="tag" id="combo">×<span id="comboN">2</span> CHAIN</span></div>
+  <div id="say"></div>
+</div>
+<div id="flash"></div>
+
+<div class="veil" id="lobby">
+  <div class="panel">
+    <h1><span class="lt">THE LIGHT</span></h1>
+    <div class="sub">your finger is the sword</div>
+    <!-- ⛔ THE ONE RULE FIRST, THEN THE BUTTON, THEN EVERYTHING ELSE. Two reasons, and the second
+         is a measurement. (a) Every other thing in this game is discoverable by pressing the
+         glass; this one is not, and a player who never learns it experiences a correct swipe being
+         punished — which reads as a broken game rather than a rule they missed. (b) The rules used
+         to sit ABOVE the button and pushed it off a 390×844 phone entirely. index.html's own funnel
+         pass is the precedent: the first pressable thing was 3,516 px down, and nothing about the
+         page looked wrong. The action goes above the fold; the detail goes under it. -->
+    <p><strong>Cut <span class="lt">across</span> the oncoming blade, not along it.</strong><br>
+    Every blade is a <em>line</em>. Drag parallel to their edge and yours slides off — and theirs
+    does not.</p>
+    <button class="btn go" id="go">BEGIN</button>
+    <a class="btn" href="arcade.html">← ARCADE</a>
+    <table class="keys">
+      <tr><td class="k">drag</td><td>SLASH along the line your finger draws</td></tr>
+      <tr><td class="k">double&#8209;tap</td><td>PARRY — timing, not direction. It only catches a
+        blade at the moment it lands, and a miss burns your guard.</td></tr>
+      <tr><td class="k">double&#8209;tap, then&nbsp;drag</td><td>STEP — get out of it. Always works,
+        which is why it costs stamina and opens nobody up.</td></tr>
+    </table>
+    <p>A blade heats from violet to white as it arrives — that is your clock. Answer one and its
+    owner is <span class="lt">open</span> for a beat; a slash inside that beat is what kills.
+    <strong>Read, deflect, strike.</strong></p>
+    <div class="fine">NFA · free to play · nothing here pays out</div>
+  </div>
+</div>
+
+<div class="veil" id="over" hidden>
+  <div class="panel">
+    <h1 id="overTitle">CUT DOWN</h1>
+    <div class="sub" id="overSub">&nbsp;</div>
+    <table class="keys" id="overStats"></table>
+    <button class="btn go" id="again">AGAIN</button>
+    <a class="btn" href="arcade.html">← ARCADE</a>
+    <div id="topRippers"></div>
+  </div>
+</div>
+
+<div class="veil" id="nogl" hidden>
+  <div class="panel">
+    <h2>This game needs WebGL 2</h2>
+    <p>THE LIGHT renders through PlayCanvas, which has no software fallback — so rather than show
+    you a black rectangle, it says so.</p>
+    <!-- ⚠ THIS PANEL PROMISES NOTHING. Every cabinet in this arcade is a PlayCanvas build, so
+         there is no game here to send this visitor to. CLAUDE.md records shipping the opposite
+         once — a #nogl panel that promised two games which also need WebGL 2 — and the lesson was
+         that admitting there is nowhere to send them beats sending them to another black
+         rectangle. `npm run test:reach` §4b asserts it. -->
+    <p>If you are on an older browser, or on a machine with GPU acceleration switched off, that is
+    the thing to change. The rest of the site works fine without it.</p>
+    <a class="btn" href="cards/">THE CARDS</a>
+    <a class="btn" href="./">← HOME</a>
+  </div>
+</div>
+
+<div class="toggles" id="toggles"></div>
+
+<script src="/gate.js"></script>
+<script src="vendor/playcanvas/playcanvas.min.js"></script>
+<script src="js/gfx-post.js"></script>
+<script src="js/blade-game.js"></script>
+<script src="js/blade-view.js"></script>
+<script src="js/leaderboard.js"></script>
+<script src="js/game-toggles.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const cv = $('gl'), glass = $('glass');
+  const B = window.BladeGame;
+
+  let game = null, view = null, raf = 0, last = 0, running = false;
+
+  /* ── THE GESTURE STREAM. Collect, hand to BladeGame.classify, act. Nothing is decided here. ──
+   * ⚠ `gap` is the time from the previous pointer UP to this pointer DOWN, which is what makes a
+   *   double-tap a double-tap. Measured off the EVENT's own timeStamp rather than a clock read
+   *   inside the handler: RIP ROCKETER measured that lag live at 45 ms min / 77 p50 / 148 max
+   *   against a 300 ms window — a constant lag cancels in a difference, that variance does not,
+   *   and it goes wrong exactly when there is most on screen. */
+  let p = null, lastUp = -1e9;
+  const LOG = [];              // the last 40 verbs the glass produced — see the note in up()
+
+  function down(e) {
+    if (!running) return;
+    /* ⛔ THE STATE IS SET **BEFORE** THE CAPTURE, AND THE CAPTURE IS GUARDED — the other order
+     * shipped for an hour and silently ate whole gestures. `setPointerCapture` THROWS
+     * ("No active pointer with the given id is found") whenever the pointer is no longer active
+     * by the time the handler runs — a finger lifted inside the same task, a pointer already
+     * captured elsewhere, a synthetic event. With the call first, that throw returns from `down`
+     * before `p` is assigned, so the following move and up find nothing and the sword does not
+     * move. ⚑ There is no error a player can see: the screen simply ignores them, which is word
+     * for word the artist's own past report about another cabinet. Capture is a CONVENIENCE (it
+     * keeps the drag alive if the finger leaves the element); the gesture is the product. */
+    p = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY,
+      gap: e.timeStamp - lastUp, moved: 0 };
+    try { if (e.pointerId != null && glass.setPointerCapture) glass.setPointerCapture(e.pointerId); }
+    catch (err) { /* capture is optional; the gesture is not */ }
+    e.preventDefault();
+  }
+  function move(e) {
+    if (!p || !running) return;
+    p.x1 = e.clientX; p.y1 = e.clientY;
+    p.moved = Math.hypot(p.x1 - p.x0, p.y1 - p.y0);
+    /* ⚑ THE BLADE FOLLOWS THE FINGER BEFORE YOU COMMIT, and that is what makes "the finger is the
+     * sword" true rather than a slogan: you can lay your line over theirs and SEE whether it
+     * crosses, then let go. Without it the drag is a blind guess and the angle rule is unfair. */
+    if (view && p.moved > 8) view.aim = B.arcOf(p);
+    e.preventDefault();
+  }
+  function up(e) {
+    if (!p || !running) { p = null; return; }
+    p.x1 = e.clientX; p.y1 = e.clientY;
+    const kind = B.classify(p);
+    if (kind && view) {
+      const res = view.act(kind, B.arcOf(p));
+      /* ⛔ WHAT THE GLASS CLASSIFIED IS RECORDED SEPARATELY FROM WHAT THE RULES DID WITH IT, and
+       * they are genuinely different questions. `stat.steps` counts SUCCESSFUL steps, so a step
+       * that arrived and was refused (no stamina, guard burned) is indistinguishable from a
+       * gesture that never reached the page at all — and `test:blade` read exactly that as a dead
+       * input path. ⚑ Same reason `window.__arena` and `__city` exist here: everything that
+       * decides is inside an IIFE, so nothing can ask it a question from outside. */
+      LOG.push({ kind: kind, ok: !!(res && res.ok), why: res && res.why });
+      if (LOG.length > 40) LOG.shift();
+      say(res);
+    }
+    lastUp = e.timeStamp;
+    p = null;
+    e.preventDefault();
+  }
+  glass.addEventListener('pointerdown', down);
+  glass.addEventListener('pointermove', move);
+  glass.addEventListener('pointerup', up);
+  glass.addEventListener('pointercancel', () => { p = null; });
+
+  /* ── SAY WHAT HAPPENED. A player who cannot tell a deflect from a lucky miss cannot learn the
+   * angle rule, and this game is nothing but that rule. `slid` prints the ACTUAL angle so the
+   * lesson is a number and not a vibe. */
+  const sayEl = $('say');
+  function say(r) {
+    if (!r) return;
+    let t = '', cls = '';
+    if (r.kind === 'slash' && r.killed) { t = 'CUT DOWN'; cls = 'good'; }
+    else if (r.kind === 'slash' && r.deflected) { t = 'TURNED IT · ' + r.delta + '° ACROSS'; cls = 'good'; }
+    else if (r.kind === 'slash' && r.why === 'slid') { t = 'SLID OFF · ONLY ' + r.delta + '° ACROSS'; cls = 'bad'; }
+    else if (r.kind === 'slash' && r.why === 'air') { t = 'AIR'; cls = ''; }
+    else if (r.kind === 'parry' && r.ok) { t = 'CAUGHT IT'; cls = 'good'; }
+    else if (r.kind === 'parry') { t = 'TOO EARLY'; cls = 'bad'; }
+    else if (r.kind === 'step' && r.ok) { t = 'STEP'; cls = ''; }
+    else if (r.kind === 'step') { t = 'NO WIND LEFT'; cls = 'bad'; }
+    sayEl.textContent = t; sayEl.className = cls;
+  }
+
+  // ── HUD ───────────────────────────────────────────────────────────────────────────────────────
+  const hpEl = $('hp'), waveEl = $('wave'), scoreEl = $('score'),
+    comboEl = $('combo'), comboN = $('comboN'), flash = $('flash');
+  let shownScore = 0;
+  function hud() {
+    const S = game.state;
+    const f = Math.max(0, S.hp / B.HP);
+    hpEl.style.transform = 'scaleX(' + f + ')';
+    hpEl.classList.toggle('low', f <= 0.34);
+    waveEl.textContent = S.wave;
+    shownScore += (S.score - shownScore) * 0.28;
+    if (Math.abs(S.score - shownScore) < 1) shownScore = S.score;
+    scoreEl.textContent = Math.round(shownScore);
+    comboEl.classList.toggle('on', S.combo >= 2);
+    comboN.textContent = S.combo;
+    flash.style.opacity = view ? (view.hurt() * 0.85).toFixed(3) : 0;
+  }
+
+  // ── the loop. ONE clock: the page steps the view, the view steps the rules. ──────────────────
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (!running) return;
+    const dt = Math.min(0.05, (now - last) / 1000 || 0);
+    last = now;
+    view.step(dt);
+    hud();
+    if (game.state.over) end();
+  }
+
+  function start() {
+    game = B.create({ seed: (Date.now() ^ (Math.random() * 1e9)) >>> 0 });
+    if (!view) {
+      view = window.BladeView && BladeView.mount({ canvas: cv, game });
+      if (!view) { $('lobby').hidden = true; $('nogl').hidden = false; return; }
+      window.__blade = { game: () => game, view: () => view, log: LOG,
+        act: (k, a) => say(view.act(k, a)) };
+    } else {
+      /* a fresh duel needs fresh rules, and the view holds a reference to the old ones — so it is
+       * torn down and remounted rather than quietly kept. A view stepping a finished game reads as
+       * a frozen screen with a live HUD. */
+      view.destroy();
+      view = BladeView.mount({ canvas: cv, game });
+      if (!view) { $('nogl').hidden = false; return; }
+      window.__blade = { game: () => game, view: () => view, log: LOG,
+        act: (k, a) => say(view.act(k, a)) };
+    }
+    shownScore = 0;
+    $('lobby').hidden = true; $('over').hidden = true; $('hud').hidden = false;
+    sayEl.textContent = ''; sayEl.className = '';
+    running = true; last = performance.now();
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+
+  function end() {
+    running = false;
+    const S = game.state;
+    $('hud').hidden = true;
+    $('overTitle').textContent = 'CUT DOWN';
+    $('overSub').textContent = 'wave ' + S.wave + ' · ' + S.score + ' points';
+    const st = S.stat;
+    const rows = [
+      ['blades turned', st.deflects],
+      ['parried', st.parries ? st.deflects + ' of ' + st.parries + ' guards caught' : '0'],
+      ['slid off', st.slid],
+      ['cut down', st.kills],
+      ['longest chain', S.bestCombo],
+    ];
+    $('overStats').innerHTML = rows.map(r =>
+      '<tr><td class="k">' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('');
+    /* the board. ⚠ SCORE, not waves: waves are a function of how long you survived and a player
+     * who turtles outlasts a player who fights. Score only moves when you answer something. */
+    try { if (window.RipBoard && S.score > 0) RipBoard.post('blade', S.score); } catch (e) {}
+    $('over').hidden = false;
+  }
+
+  $('go').addEventListener('click', start);
+  $('again').addEventListener('click', start);
+
+  /* ⚠ mount ONCE up front purely to answer "does this browser have WebGL 2" before the visitor
+   * reads a page of rules for a game they cannot run. The probe is torn straight back down. */
+  (function probe() {
+    let ok = false;
+    /* ⚠ A THROWAWAY CANVAS, NOT `#gl` — see the note in js/blade-view.js. Asking `#gl` for a
+     * context here creates the one it keeps forever, and PlayCanvas then inherits a context it
+     * did not configure. The whole scene rendered black and nothing anywhere said why. */
+    try { ok = !!document.createElement('canvas').getContext('webgl2'); } catch (e) { ok = false; }
+    if (!ok || !window.pc || !window.BladeView || !B) {
+      $('lobby').hidden = true; $('nogl').hidden = false;
+    }
+  })();
+})();
+</script>
+<script src="theme.js"></script>
+<script src="js/sfx.js" defer></script>
+</body></html>

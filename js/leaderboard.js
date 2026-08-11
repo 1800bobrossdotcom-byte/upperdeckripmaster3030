@@ -40,10 +40,10 @@ window.RipBoard = (function () {
    *   could exist would be inventing a fact; picking the number already on screen is not. */
   var UNITS = { riprocketer: 'points', dogfight: 'kills', section9: 'kills',
     cloudracer: 'wins in a row', arena: 'wins in a row', city: 'metres, one glide',
-    pull: 'best run' };
+    pull: 'best run', blade: 'points' };
   var TITLES = { riprocketer: 'RIP ROCKETER', dogfight: 'DOGFIGHT', section9: 'SECTION 9',
-    cloudracer: 'CLOUD RACER', arena: 'THE ARENA', city: 'THE CITY', pull: 'THE PULL' };
-  var ALL = ['riprocketer', 'cloudracer', 'city', 'dogfight', 'section9', 'arena', 'pull'];
+    cloudracer: 'CLOUD RACER', arena: 'THE ARENA', city: 'THE CITY', pull: 'THE PULL', blade: 'THE LIGHT' };
+  var ALL = ['riprocketer', 'cloudracer', 'city', 'dogfight', 'section9', 'arena', 'pull', 'blade'];
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -222,7 +222,13 @@ window.RipBoard = (function () {
    * ⚠ Does nothing at all on a page with neither, so a document or a card page is untouched. */
   var GAMES = { 'dogfight.html': 'dogfight', 'section9.html': 'section9', 'city.html': 'city',
     'cloudracer.html': 'cloudracer', 'riprocketer.html': 'riprocketer', 'battle.html': 'arena',
-    'pull.html': 'pull' };
+    'pull.html': 'pull', 'blade.html': 'blade' };
+  /* ⚠ A PAGE MISSING FROM THIS MAP DOES NOT GET *NO* BOARD — `gameHere()` returns null and the
+   *   panel falls back to the first game in ALL, so THE LIGHT's result screen showed RIP
+   *   ROCKETER's leaderboard. Nothing errored and the panel looked completely normal; it was
+   *   simply somebody else's board. Caught by `test:blade` noticing the page fetch
+   *   `/api/scores?game=riprocketer`. A default that is a real, plausible value is worse than an
+   *   empty one — there is nothing on screen to look wrong. */
   function gameHere() {
     var p = location.pathname;
     for (var k in GAMES) if (p.indexOf(k) >= 0) return GAMES[k];

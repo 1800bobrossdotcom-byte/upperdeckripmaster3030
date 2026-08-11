@@ -28,9 +28,15 @@ const env = () => ({
 const PREFIX = 'urms:';          // urms:<game> → ZSET member=identity, score=points
 const KEEP = 25;                 // how many the set holds; the page asks for ~10
 const MAX = 1e12;                // an upper bound so one client cannot park Infinity at the top
-/* mirrors GAMES in api/presence.js and js/challenge-ui.js — an unknown game is refused rather
- * than silently creating a key nobody will ever read. */
-const GAMES = ['arena', 'dogfight', 'section9', 'city', 'cloudracer', 'riprocketer', 'pull'];
+/* An unknown game is refused rather than silently creating a key nobody will ever read.
+ * ⚠ THIS IS A SUPERSET OF api/presence.js's GAMES, NOT A MIRROR OF IT, and the comment here said
+ *   "mirrors" until 2026-08-11 — it stopped being true the moment THE PULL was added and nothing
+ *   noticed, which is this repo's own recurring shape. The two lists answer different questions:
+ *   presence is WHO IS IN A LOBBY, so a solo cabinet must not appear in it (a visitor registering
+ *   there inflates the roster and sends the first real challenger to somebody playing alone);
+ *   this list is WHAT HAS A SCOREBOARD, and a solo cabinet plainly does. THE PULL and THE LIGHT
+ *   are here and correctly absent there. */
+const GAMES = ['arena', 'dogfight', 'section9', 'city', 'cloudracer', 'riprocketer', 'pull', 'blade'];
 
 async function kv(cmd) {
   const { url, tok } = env();

@@ -2038,6 +2038,136 @@ create ways for the players to redeem them in dog fight, section 9, or the city.
   loads on those pages and says nothing about whether either game can ever CALL `award()`. Driving
   the real `endMatch()` is what proved the detector — and is what found the music bug above.
 
+## ⚔ THE LIGHT — the seventh game. `blade.html`, `npm run blade`, `npm run test:blade` (67)
+*Artist, 2026-08-07: "have a game that is light sword fighting the dark, over the shoulder cam -
+made specifically for phone. control is double tap and drag for slashing, blocking, fast movement
+the finger is the sword and you fight the other on coming swords, as you battle through" — then:
+"build in playcanvas and blender."*
+- **THREE FILES, AND THE SPLIT IS THE POINT.** `js/blade-game.js` every RULE (pure, seeded, no DOM,
+  no engine); `js/blade-view.js` every PIXEL (PlayCanvas, over the shoulder); `blade.html` the glass
+  a thumb touches. §A/§B drive tens of thousands of exchanges under node against the SHIPPING rules.
+  Geometry: `scripts/blender/build-blade.py` → `models/blade.glb`, five named parts.
+- ⛔ **"THE FINGER IS THE SWORD" HAS ONE CONSEQUENCE THAT DECIDES EVERYTHING: THE DIRECTION HAS TO
+  MATTER.** A game where any swipe answers any attack is Fruit Ninja — satisfying, and not sword
+  fighting, because the hand makes no decision. So a blade cuts along a **LINE** and you answer it
+  by cutting **ACROSS** that line; drag parallel and yours slides off. ⚑ **Measured, not asserted**:
+  a bot that always cuts perpendicular turns **100.0%** of blades, one that swipes at random
+  **66.8%** (against 66.7% predicted from the 30° gate), one that cuts along the line **0.0%**.
+  The consequence a player feels: the perpendicular bot survives every duel; the blind one dies at
+  **10.5s** mean, on the same seeds with the same verbs.
+- ⚑ **THE TELEGRAPH IS MATERIAL, NOT HUD** — an oncoming blade heats violet→white and its own light
+  brings its carrier out of the black, so ANGLE and TIMING are read off one object at arm's length.
+  A timer bar would put two halves of one read in two places on the screen.
+- ⛔ **A DEFLECTED FOE WAS PERMANENTLY INERT, AND IT TURNED THE GAME INTO A STILL LIFE.** `landed` is
+  set by every answer and was cleared only by the loop that skips `landed` foes. Turn a blade and
+  fail to follow up and it never attacked again, `threat()` skipped it, and it could not be killed
+  because the opening had closed. **The player became immortal with a full HP bar and no error.**
+  ⚑ **Every §A assertion passed throughout, and the reason is the shape of the tests**: each one
+  answers a blade and then immediately kills it, so not one ever lived through the state that
+  breaks. Found by asking "does a player who stops defending actually die" and getting `false` after
+  200 simulated seconds. **A deflect buys a BEAT, it does not delete someone** — they stagger, they
+  recover, they come again, which is also what makes the open window worth spending a slash on.
+- ⛔ **BLADES ARRIVED ON ONE INSTANT.** `seedWave` gave every foe `at = t + TELEGRAPH`, so six landed
+  together — one gesture answers one line, so five of six were unanswerable BY CONSTRUCTION and the
+  player would have experienced **a correct read being punished**. Staggered now, and **the gap IS
+  the difficulty and the only difficulty**: damage/health/blade-speed change what a mistake costs,
+  the gap changes how much time you have to READ. It floors above the strike window.
+
+### ⛔ A CANVAS HAS ONE CONTEXT FOR ITS LIFETIME — the whole scene rendered BLACK
+`blade.html` and `blade-view.js` each probed WebGL2 with `cv.getContext('webgl2')` **on the canvas
+they then handed to PlayCanvas**. The first `getContext` creates the context a canvas keeps forever;
+every later call — including the engine's, with its own attributes — gets that first one back and
+the attributes are silently ignored. **Nothing threw. The app ticked, `frame` advanced, ten
+drawables were present, enabled and in front of a correctly-aimed camera, both lights were on, the
+canvas was 390×844 — and the frame was black.**
+- ⚑ **THE PROBE THAT CRACKED IT WAS A CONSTANT: A RED CLEAR COLOUR WAS STILL BLACK.** That deletes
+  the scene, the materials and the camera from the question in one shot. THE CITY records the
+  identical signature one layer up (a constant-red shader drawing black, from a viewport one pixel
+  wide): **when two failures look identical, delete one of them.**
+- ⚠ Ask a **throwaway** canvas whether the browser can do WebGL 2. The capability question is about
+  the browser; it is not about that element.
+- ⛔ **AND AN ADDITIVE MATERIAL AT OPACITY 0 IS NOT INVISIBLE — IT IS FULLY VISIBLE.** Additive
+  blending is `src·1 + dst·1`; alpha is not in that equation. All three flash planes therefore sat
+  on the scene at full brightness from the first frame and the game rendered as a **white-out**.
+  Gate on `enabled`; carry the fade on the EMISSIVE, which additive does read.
+- ⚑ **BOTH WERE INVISIBLE TO EVERY NUMBER IN THE SUITE** — geometry, camera, screen-angle
+  convention, gestures, score, death, board post — because **none of them is a picture**. Only
+  looking found them, and only after driving the page. Same family as DOGFIGHT rendering an empty
+  sky for two commits while every physics measurement passed.
+
+### ⛔ THE BLENDER SIDE: TWO SILENT DEFECTS, AND THE RUNNER EXISTS FOR EXACTLY THESE
+- ⛔ **`bpy.ops.object.join()` JOINS BY SELECTION.** The selection left standing by the hilt's join
+  was still live when the foe joined, so **`hilt` was swallowed into `foe` and vanished** — four
+  parts out of a five-part contract, Blender reporting "Finished glTF 2.0 export", right file size,
+  and the only thing anywhere that said otherwise was the number of PART lines. `kit.Part`
+  accumulates into one named mesh without ever touching selection; nothing here uses `join()`.
+- ⛔ **`kit.post()` + `rotation_euler` ORBITS A PART, IT DOES NOT TURN IT.** The rotation is about the
+  OBJECT origin, so a grip authored at y −0.10 and turned 90° about x came out at z −0.10 — right
+  shape, wrong place, no error. Cylinders that must run along another axis are generated along it.
+- ✅ **`npm run blade` asserts the five names AND two measurements**, because the two ways this
+  geometry can be wrong while completely present are both numeric: **the origin is at the grip**
+  (every arc is drawn by rotating the blade NODE, so a mid-blade origin swings it like a propeller —
+  visible only IN MOTION) and **both blades are the same length** (a duel where one weapon is
+  secretly longer is one nobody can read, and it is experienced as "the timing is off").
+  Proved to bite: dropping the hilt names it; a mid-blade origin fails the pivot check while the
+  length check stays green — the "present but wrong" case a name check can never see.
+
+### ⚠ AND FOUR HARNESS/PAGE DEFECTS WORTH KEEPING
+- ⛔ **`setPointerCapture` THROWS, AND IT RAN BEFORE THE GESTURE STATE WAS SET.** It rejects whenever
+  the pointer is no longer active by the time the handler runs, so the throw returned from
+  `pointerdown` before `p` was assigned and the following move/up found nothing. **Whole gestures
+  vanished with no error a player could see** — word for word the artist's own past report about
+  another cabinet. Capture is a convenience; the gesture is the product. State first, capture
+  guarded.
+- ⛔ **BEGIN WAS OFF THE BOTTOM OF A 390×844 PHONE.** The lobby rendered, the button was visible and
+  enabled, and it was simply outside the viewport — the game asked for "specifically for phone"
+  could not be started on a phone. `body` is `overflow:hidden`, so a fixed veil taller than the
+  screen just clips. ⚠ `align-items:center` + `overflow:auto` is the trap, not the fix: centring
+  pushes the top out of the scroller's reach. `flex-start` + `margin:auto`, and **the action goes
+  above the fold, the detail under it** (index.html's funnel pass, in miniature).
+- ⛔ **`stat.steps` COUNTS SUCCESSFUL STEPS, so a step that ARRIVED and was correctly REFUSED is
+  indistinguishable from one that never reached the page.** The suite read that as a dead input path
+  and I nearly went looking for a bug in the pointer handler. `__blade.log` records what the glass
+  CLASSIFIED; what the rules did with it is a separate question. Same reason `__arena` and `__city`
+  exist: everything that decides is inside an IIFE and nothing can ask it from outside.
+- ⛔ **A MEASUREMENT WHOSE SAMPLE SIZE DEPENDS ON THE THING BEING MEASURED MUST POOL AT THE BOTTOM.**
+  Averaging a per-duel deflect rate reported the random bot at **51.4%** against a true **66.8%** —
+  a blind swiper dies fast, so each duel contributed a handful of attempts and the mean of forty
+  tiny noisy rates was nowhere near the rate. Verified against the rule in isolation
+  (`crosses(random, random)` over 400k draws = 66.5%), which is what said the HARNESS was at fault
+  and not the game. ⚠ And the perfect bot is SUPPOSED to be immortal, so its survival time is the
+  harness's own loop bound — comparing means reported 120s vs 120s and called it a null result.
+  **A capped measurement that reports the cap as a result looks like a finding.**
+
+### ⛔ SIX GAMES → SEVEN, AND THE GUARD THAT SAID "DERIVED, NOT TRUSTED" WAS NEITHER
+`test:embed`'s game-count check matched an `href="…"` alternation naming city / riprocketer /
+cloudracer / section9 / dogfight / cards-battle — **a hand-picked list of exactly the cabinets that
+existed when it was written**, under a comment claiming the number was read off the arcade rather
+than trusted. THE
+LIGHT joined the shelf and the count stayed at 6, so it reported the CORRECTED embed as wrong and
+would have reported a stale one as right the moment a game was added and the embed left alone —
+**the precise failure it exists to catch, inverted.** ⚑ **Match the SHAPE, not the NAMES**:
+`<a class="cab" href="…">` is what a cabinet IS on that page. Fourth recorded instance of the
+hand-picked-list failure, and like the third it was committed inside a test written to prevent it.
+- ⚠ Updated with it: `index.html` (three meta descriptions, the section title, two prose lines, the
+  marquee), `arcade.html` (description + subtitle), `superrare.html`, `studio3d.html`, `sitemap.xml`,
+  and `test:reach`'s `CABINETS` — which compares the shelf to the roster as a **SET**, so it needed
+  the new page and not a new number.
+- ⛔ **AND `js/leaderboard.js`'s PAGE MAP HAD NO ENTRY FOR THE NEW GAME, so `gameHere()` returned
+  null and the result screen showed RIP ROCKETER's board.** Nothing errored and the panel looked
+  entirely normal; it was simply somebody else's leaderboard. Caught by the suite noticing the page
+  fetch `/api/scores?game=riprocketer`. **A default that is a real, plausible value is worse than an
+  empty one — there is nothing on screen to look wrong.**
+- ⚠ `api/scores.js`'s GAMES is a **superset** of `api/presence.js`'s, not a mirror, and its comment
+  claimed "mirrors" until today. They answer different questions: presence is WHO IS IN A LOBBY (a
+  solo cabinet must not appear, or it inflates the roster and sends the first real challenger to
+  somebody playing alone); scores is WHAT HAS A SCOREBOARD, and a solo cabinet plainly does.
+- ⚠ **NOT DONE, and deliberately: THE LIGHT carries no earned hero title.** The eleven cards over
+  nine titles are settled and re-cutting them is authorship. ⚠ **Art direction is the artist's** —
+  the framing, the palette and whether a player's own shoulder belongs in frame at all (the first
+  build put the foe mesh 0.44 m from the lens "seen from behind" and it owned the middle of the
+  screen; DESIGN-SYSTEM §1, the default is only right when it is also the truth).
+
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
 every file was on the origin, `curl` returned the new bytes, and the newest commit was live.
