@@ -1,7 +1,7 @@
 {
  "version": 1,
- "opened": 74,
- "updatedAt": "2026-08-19T10:48:57.008Z",
+ "opened": 76,
+ "updatedAt": "2026-08-19T11:46:42.395Z",
  "entries": [
   {
    "chain": "base",
@@ -8119,6 +8119,63 @@
      "27 distinct approvers",
      "100% unlimited",
      "no approvals in the day-earlier sample"
+    ]
+   },
+   "revisits": []
+  },
+  {
+   "chain": "ethereum",
+   "spender": "0x343c4a60eaefa48ba2cfeb6646069d34cd35b521",
+   "openedAt": "2026-08-19T11:46:41.952Z",
+   "openedBlock": 25788941,
+   "flag": {
+    "score": 78,
+    "approvers": 19,
+    "unlimited": 54,
+    "forAll": 0,
+    "tokens": 1,
+    "codeSize": 0,
+    "isContract": false,
+    "priorHits": 0,
+    "sweep": null,
+    "reasons": [
+     "19 distinct approvers",
+     "100% unlimited",
+     "spender is an EOA, not a contract",
+     "no approvals in the day-earlier sample"
+    ]
+   },
+   "revisits": []
+  },
+  {
+   "chain": "ethereum",
+   "spender": "0x7ec8a30a34b86927dc77b302603d1d53e640bef7",
+   "openedAt": "2026-08-19T11:46:41.952Z",
+   "openedBlock": 25788941,
+   "flag": {
+    "score": 61,
+    "approvers": 61,
+    "unlimited": 0,
+    "forAll": 0,
+    "tokens": 28,
+    "codeSize": 352,
+    "isContract": true,
+    "priorHits": 0,
+    "sweep": {
+     "checked": 61,
+     "movedOut": 61,
+     "transfers": 250,
+     "topDestination": "0x9be5fa417f1fcdd96a25e7fbf13850c7b1d07516",
+     "topDestinationCount": 19,
+     "distinctDestinations": 122
+    },
+    "reasons": [
+     "61 distinct approvers",
+     "burst: 61 in 115 blocks",
+     "tiny contract (352B)",
+     "28 tokens — router-like spread",
+     "no approvals in the day-earlier sample",
+     "outflow fans out (122 destinations) — router-shaped"
     ]
    },
    "revisits": []
