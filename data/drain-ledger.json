@@ -1,7 +1,7 @@
 {
  "version": 1,
- "opened": 81,
- "updatedAt": "2026-08-19T17:46:58.012Z",
+ "opened": 83,
+ "updatedAt": "2026-08-19T18:52:56.715Z",
  "entries": [
   {
    "chain": "base",
@@ -8187,6 +8187,13 @@
      "blocksSince": 1794,
      "newApprovals": 4,
      "newApprovers": 2
+    },
+    {
+     "at": "2026-08-19T18:52:44.944Z",
+     "block": 25791063,
+     "blocksSince": 2122,
+     "newApprovals": 4,
+     "newApprovers": 2
     }
    ]
   },
@@ -8263,6 +8270,13 @@
      "blocksSince": 1794,
      "newApprovals": 330,
      "newApprovers": 182
+    },
+    {
+     "at": "2026-08-19T18:52:44.944Z",
+     "block": 25791063,
+     "blocksSince": 2122,
+     "newApprovals": 343,
+     "newApprovers": 195
     }
    ]
   },
@@ -8372,6 +8386,13 @@
      "blocksSince": 866,
      "newApprovals": 51,
      "newApprovers": 42
+    },
+    {
+     "at": "2026-08-19T18:52:44.944Z",
+     "block": 25791063,
+     "blocksSince": 1194,
+     "newApprovals": 57,
+     "newApprovers": 47
     }
    ]
   },
@@ -8424,6 +8445,61 @@
      "109 distinct approvers",
      "no approvals in the day-earlier sample",
      "concentrated outflow: 109/109 moved, 26 destinations"
+    ]
+   },
+   "revisits": []
+  },
+  {
+   "chain": "ethereum",
+   "spender": "0xc35fb86f962ea955751a793a007b5cdd44f798d7",
+   "openedAt": "2026-08-19T18:52:44.944Z",
+   "openedBlock": 25791063,
+   "flag": {
+    "score": 68,
+    "approvers": 30,
+    "unlimited": 0,
+    "forAll": 0,
+    "tokens": 1,
+    "codeSize": 0,
+    "isContract": false,
+    "priorHits": 0,
+    "sweep": null,
+    "reasons": [
+     "30 distinct approvers",
+     "spender is an EOA, not a contract",
+     "no approvals in the day-earlier sample"
+    ]
+   },
+   "revisits": []
+  },
+  {
+   "chain": "base",
+   "spender": "0x663dc15d3c1ac63ff12e45ab68fea3f0a883c251",
+   "openedAt": "2026-08-19T18:52:56.715Z",
+   "openedBlock": 50188104,
+   "flag": {
+    "score": 139,
+    "approvers": 774,
+    "unlimited": 0,
+    "forAll": 0,
+    "tokens": 6,
+    "codeSize": 2733,
+    "isContract": true,
+    "priorHits": 0,
+    "sweep": {
+     "checked": 120,
+     "movedOut": 120,
+     "transfers": 614,
+     "topDestination": "0x6c561b446416e1a00e8e93e221854d6ea4171372",
+     "topDestinationCount": 382,
+     "distinctDestinations": 3
+    },
+    "reasons": [
+     "774 distinct approvers",
+     "burst: 774 in 600 blocks",
+     "6 tokens",
+     "no approvals in the day-earlier sample",
+     "FUNNEL: 120/120 approvers drained, 382/614 to ONE address"
     ]
    },
    "revisits": []
