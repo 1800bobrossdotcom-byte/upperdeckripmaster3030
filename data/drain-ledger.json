@@ -1,7 +1,7 @@
 {
  "version": 1,
- "opened": 192,
- "updatedAt": "2026-09-23T22:41:26.399Z",
+ "opened": 193,
+ "updatedAt": "2026-09-23T23:41:46.767Z",
  "entries": [
   {
    "chain": "base",
@@ -14397,6 +14397,13 @@
      "blocksSince": 152937,
      "newApprovals": 277,
      "newApprovers": 248
+    },
+    {
+     "at": "2026-09-23T23:41:43.325Z",
+     "block": 26043517,
+     "blocksSince": 153237,
+     "newApprovals": 277,
+     "newApprovers": 248
     }
    ]
   },
@@ -16094,6 +16101,37 @@
     "reasons": [
      "25 distinct approvers",
      "tiny contract (45B)",
+     "no approvals in the day-earlier sample"
+    ]
+   },
+   "revisits": []
+  },
+  {
+   "chain": "ethereum",
+   "spender": "0x54c4237f0b277b57bca8363570b31241d66e5584",
+   "openedAt": "2026-09-23T23:41:43.325Z",
+   "openedBlock": 26043517,
+   "flag": {
+    "score": 73,
+    "approvers": 16,
+    "unlimited": 0,
+    "forAll": 0,
+    "tokens": 1,
+    "codeSize": 0,
+    "isContract": false,
+    "priorHits": 0,
+    "sweep": {
+     "checked": 16,
+     "movedOut": 0,
+     "transfers": 0,
+     "topDestination": null,
+     "topDestinationCount": 0,
+     "distinctDestinations": 0
+    },
+    "reasons": [
+     "16 distinct approvers",
+     "burst: 16 in 12 blocks",
+     "spender is an EOA, not a contract",
      "no approvals in the day-earlier sample"
     ]
    },
