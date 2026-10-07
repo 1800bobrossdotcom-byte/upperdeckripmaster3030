@@ -495,6 +495,15 @@ const ORPHAN_OK = {
    *   deleted first — and if the page is ever killed instead, delete the page, not the reason. */
   'pull.html': 'a prototype the artist opens by URL — nothing links it until it is decided',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
+  /* ⚑ THE SHARE CABINET IS AN ORPHAN BY DESIGN, and it is the same shape as superrare.html one
+   *   platform over: it is reached from a LINK CARD IN A SOCIAL FEED, not from the site. Linking
+   *   it from the arcade would put two doors to one game next to each other and leave a visitor
+   *   choosing between a cabinet and a cut-down of it for no reason they could see.
+   * ⚠ It is NOT unreachable: the arcade already carries riprocketer.html, so the game has a door
+   *   here; this page has a door THERE. Allow-listed with the reason, which is this file's own
+   *   distinction between a decision and an oversight.
+   * ⚠ And it is generated — `npm run play`, asserted current by `npm run test:play`. */
+  'play.html': 'the social share cabinet — reached from a link card in a feed, not from the site',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
   /* ⚑ Same class as deploy-render.html: an operator tool the artist opens by URL on launch night.

@@ -665,21 +665,50 @@
    *   390×844 it is 2.0 — two thirds of the field would be unreachable — so there it stretches to
    *   the field instead of lying about being direct. (js/orient.js veils portrait on this page,
    *   so that branch is a belt, not the design.) */
+  /* ── ⛔ PORTRAIT FRAMES THE FIELD'S WIDTH, OR TWO THIRDS OF THE GAME IS OFF SCREEN ──────────
+   * `fov` is VERTICAL, so the visible half-width is `tan(fov/2)·z·aspect`. Measured against the
+   * 6.3-unit playable half-width: a landscape phone shows 9.47 and a desktop 7.00 — both fine —
+   * and **390×844 shows 2.02, i.e. 32% of the field.** The ship still flies to ±6.3, so in
+   * portrait it simply leaves the picture while the simulation says it is in bounds. Nothing
+   * errors; the game is just unplayable in the orientation a phone is held in.
+   * ⚑ THE FIX IS TO FRAME THE WIDTH when the viewport is too narrow to carry it vertically.
+   *   PlayCanvas's `horizontalFov` makes `fov` the HORIZONTAL angle, so the field's width is
+   *   what is guaranteed and the surplus goes into HEIGHT — which is what a vertical shooter
+   *   wants on a tall screen: you see further up the facility you are climbing.
+   * ⚠ ONE DEFINITION, and that is the load-bearing part. This fact has SIX consumers — the
+   *   camera, the touch mapping, its inverse, the facade, the far silhouette and the flash quad
+   *   — and the recorded failure in this repo is two representations of one fact disagreeing.
+   *   It reads only the VIEWPORT, never the ship, so it cannot close the feedback loop that
+   *   keeps `fieldAt` on nominal camera constants.
+   * ⚠ NOTHING THAT SHIPS TODAY MOVES. The switch happens below aspect 1.53; a desktop is 1.60
+   *   and a landscape phone 2.16, so both stay on the vertical path with identical numbers. */
+  const WIDE = 1.06;                       // a little air past the field's edge
+  function frameOf(w, h) {
+    const a = Math.max(0.05, w / Math.max(1, h));
+    const hv = Math.tan(CAM.fov * Math.PI / 360) * CAM.z;
+    if (hv * a >= F.X * WIDE) return { hw: hv * a, hh: hv, horiz: false, fov: CAM.fov, a: a };
+    const hw = F.X * WIDE;
+    return { hw: hw, hh: hw / a, horiz: true, a: a,
+             fov: 2 * Math.atan(hw / CAM.z) * 180 / Math.PI };
+  }
+  /* the live frame, off the overlay's own box — the one element whose size IS the viewport. */
+  function frameNow() { const r = ov.getBoundingClientRect(); return frameOf(r.width, r.height); }
+
   function fieldAt(px, py) {
     const r = ov.getBoundingClientRect();
     const w = Math.max(1, r.width), h = Math.max(1, r.height);
-    const hy = Math.tan(CAM.fov * 0.5 * Math.PI / 180) * CAM.z;
-    return { x: (((px - r.left) / w) * 2 - 1) * Math.max(hy * (w / h), F.X),
-             y: CAM.y + (1 - ((py - r.top) / h) * 2) * hy };
+    const f = frameOf(w, h);
+    return { x: (((px - r.left) / w) * 2 - 1) * f.hw,
+             y: CAM.y + (1 - ((py - r.top) / h) * 2) * f.hh };
   }
   /* fieldAt's inverse, so the ring can be put back exactly where the clamped target really is.
-   * Same nominal camera, so the round trip is exact for any point the ship can actually reach. */
+   * Same frame, so the round trip is exact for any point the ship can actually reach. */
   function screenAt(fx_, fy_) {
     const r = ov.getBoundingClientRect();
     const w = Math.max(1, r.width), h = Math.max(1, r.height);
-    const hy = Math.tan(CAM.fov * 0.5 * Math.PI / 180) * CAM.z;
-    return { x: r.left + (fx_ / Math.max(hy * (w / h), F.X) * 0.5 + 0.5) * w,
-             y: r.top + (0.5 - (fy_ - CAM.y) / hy * 0.5) * h };
+    const f = frameOf(w, h);
+    return { x: r.left + (fx_ / f.hw * 0.5 + 0.5) * w,
+             y: r.top + (0.5 - (fy_ - CAM.y) / f.hh * 0.5) * h };
   }
   /* THE INK. The path the finger draws is drawn, in the field, as a ribbon the ship then flies
    * along — the one piece of this that is purely "wild cool" and it is also the only feedback
@@ -1083,8 +1112,12 @@
   /* the visible half-extent of a plane at depth z. Vertical fov is fixed, so halfH does not depend
    * on the window's aspect and halfW does — which is why the facade's column count is computed and
    * clamped rather than assumed. */
-  const TAN_H = Math.tan(CAM.fov * Math.PI / 360);
-  function halfAt(z) { return TAN_H * (CAM.z - z); }
+  /* ⚠ LIVE, not a const — the facade and the far silhouette are sized to COVER the screen, and
+   * in portrait the frame is taller than the vertical fov alone describes. A frozen TAN_H left
+   * the wall short at the top and bottom of a phone held upright: the one failure mode where the
+   * sky shows through the building you are climbing. */
+  function tanH() { const f = frameNow(); return f.hh / CAM.z; }
+  function halfAt(z) { return tanH() * (CAM.z - z); }
 
   const LZ_FAR = -26, LZ_WALL = RRGame.EZ;      // the wall's depth is the simulation's own EZ
   const PH = 2.4, PW = 2.6;                      // plate pitch on the facade
@@ -1810,7 +1843,7 @@
   /* the combo camera's own smoothed state, and the previous frame's camera — the smear is a
    * DIFFERENCE, so it needs somewhere to remember where the camera was. `h` is the world
    * half-height at z=0, which is what carries the fov and the dolly in one number. */
-  let comboK = 0, comboLead = 0, smearLen = 0;
+  let comboK = 0, comboLead = 0, smearLen = 0, camHoriz = false;
   const camPrev = { x: 0, y: CAM.y, h: Math.tan(CAM.fov * Math.PI / 360) * CAM.z };
   /* ⚠ NEITHER OF THESE EXISTED IN THE ENGINE BUILD, and the new movement system is what made the
    * first one matter: a dash now punches the FOV and a roll spins the ship, which are exactly the
@@ -1873,9 +1906,18 @@
    * and it costs one lerp: the periphery accelerates outward faster than the centre, so the same
    * scroll rate reads as more. Kept small (42° → ~46°) and SMOOTHED — an fov that steps is a
    * visible pop, and a big one is nausea. It is a lens change, never a roll or a shake. */
-  const wantFov = CAM.fov + (!REDUCE && G.mode === 'play' && G.ship.alive
+  /* ⚠ THE PUNCH IS A DELTA ON WHATEVER THE FRAME CHOSE, not on CAM.fov. In portrait the base is
+   * the HORIZONTAL angle (~60.8°) rather than the vertical 42°, so adding the dash's 4.2 to the
+   * wrong base would narrow the lens into the field instead of widening it — the ship would fly
+   * off the side of the screen exactly when it is moving fastest. */
+  const fr = frameNow();
+  const wantFov = fr.fov + (!REDUCE && G.mode === 'play' && G.ship.alive
     ? (G.ship.dash > 0 ? 4.2 : 0) + (G.ship.od > 0 ? 1.8 : 0) + clamp((Math.abs(G.ship.vx) - 7) * 0.22, 0, 1.6) : 0);
+  /* snap rather than lerp when the FRAME itself changed — a rotation is not a dash, and easing
+   * across a 19° base change reads as the lens sagging for a second after you turn the phone. */
+  if (camHoriz !== fr.horiz) { camFov = wantFov; camHoriz = fr.horiz; }
   camFov += (wantFov - camFov) * Math.min(1, dt * 9);
+  cam.camera.horizontalFov = fr.horiz;
   cam.camera.fov = camFov;
 
   /* ── ⚑ THE SMEAR IS MEASURED OFF THE CAMERA, AFTER IT HAS MOVED ─────────────────────────────
@@ -1887,8 +1929,12 @@
    *   looks like a broken shader and never reads as motion. The camera the smear measures is the
    *   camera without its jitter: shake is sensor rattle, not travel. */
   if (smearOn) {
-    const halfH = Math.tan(camFov * Math.PI / 360) * camZ;      // world half-height at z=0
-    const halfW = halfH * Math.max(0.05, OW / Math.max(1, OH));
+    /* the exposure is in UV, so it needs BOTH half-extents — and which one `fov` describes
+     * depends on the frame. Reading `tan(fov/2)` as a half-height in portrait would scale the
+     * smear by the aspect squared. */
+    const _t = Math.tan(camFov * Math.PI / 360) * camZ;
+    const halfW = fr.horiz ? _t : _t * fr.a;
+    const halfH = fr.horiz ? _t / fr.a : _t;
     const sx = camX - jx, sy = camY - jy;
     /* a camera moving +x slides the world −x across the sensor, hence the sign. UV is 0..1, so a
      * world displacement is divided by the FULL extent, which is twice the half-extent. */
@@ -1966,7 +2012,7 @@
      * which is the one moment you need to see. */
     if (M.flash && G.flash > 0.01) {
       const k = G.flash, c = fx.hsl(G.market.hue + 300, 1, 0.5);
-      const cz = CAM.z - 0.6, hh = Math.tan(CAM.fov * Math.PI / 360) * 0.6, hw = hh * (OW / Math.max(1, OH));
+      const fr = frameNow(), cz = CAM.z - 0.6, hh = (fr.hh / CAM.z) * 0.6, hw = (fr.hw / CAM.z) * 0.6;
       fx.oriented(fx.A, fx.C_FLAT, 0, CAM.y, cz, hw * 1.3, 0, 0, 0, hh * 1.3, 0,
         c[0], c[1], c[2], (k * 90) | 0);
     }
@@ -2221,6 +2267,10 @@
        * and a future "just a little yaw" would break the control silently. */
       rot: cam.getEulerAngles().data ? Array.from(cam.getEulerAngles().data).map(v => +v.toFixed(3))
         : [+cam.getEulerAngles().x.toFixed(3), +cam.getEulerAngles().y.toFixed(3), +cam.getEulerAngles().z.toFixed(3)],
+      /* the FRAME, because "is the field on screen" is the question portrait broke and a
+       * screenshot cannot answer it — the ship is simply absent, which looks like a dead game. */
+      hw: +frameNow().hw.toFixed(3), hh: +frameNow().hh.toFixed(3), horiz: frameNow().horiz,
+      fieldX: RRGame.F.X,
       smear: smearOn, taps: SMEAR_TAPS, shutter: POST.shutter, len: +smearLen.toFixed(6),
       dither: ditherOn, reduce: REDUCE }),
     _field: (x, y) => fieldAt(x, y),
