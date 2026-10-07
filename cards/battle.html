@@ -586,6 +586,19 @@
        letterform — the box grows and the anchor stays 13px tall inside it. `inline-flex` makes
        the element its own hit box. */
     a.back{ display:inline-flex; align-items:center; min-height:44px; }
+    /* ⛔ A LINK INSIDE A SENTENCE CANNOT BE 44px, AND TRYING COST ONE OF THEM EVERY PRESS.
+       `.rules` gained two prose links on 2026-08-06 and they measure 14px tall, which the tap
+       sweep correctly flags. The obvious fix — pad the hit rect, cancel it with a negative margin
+       — was built and MEASURED: at 320×568 the two links wrap onto adjacent lines, the second
+       paints later, and `elementFromPoint` at the FIRST link's centre returned the SECOND.
+       ⚑ A link that takes zero presses is strictly worse than a small one, and the arithmetic
+         says it is unavoidable: reaching 44px needs 15px either side of a 14px letterform in a
+         ~20px line box, so the box MUST reach into the line above and below. There is no padding
+         that is both big enough and small enough.
+       ✅ So the exemption is in the sweep, where it belongs, and it is the same one WCAG 2.5.8
+         makes for a target "in a sentence or block of text" — see scripts/test-cabinets.mjs.
+       ⚠ Both destinations are reachable from this page without these links (the nav row), so
+         they are a convenience inside a sentence, not the only route to anything. */
   }
 </style>
   <script src="/gate.js"></script>
@@ -654,6 +667,24 @@
       <b>gone</b> from your binder if you lose (in this prototype, all of it saved in your
       browser). No cards, no deal. <span class="omen">Ties go to the house.
       The house always eats.</span></p>
+      <!-- ⛔ SAY THE RULE ON THE PAGE, because a player who knows the arena cannot produce a 1/1
+           will not grind it hoping for one — and a rule nobody can read is a rule that gets
+           discovered as a disappointment. -->
+      <p class="rules" style="margin-top:9px"><b style="color:var(--amber)">The 33 are not in this
+      room.</b> The arena deals the <b>67 field cards</b>. You cannot win a 1/1 here and you cannot
+      stake one — a hero comes from ripping a pack or from earning a title, and nothing else. If
+      you hold one it stays on your shelf; it just does not come to the table.</p>
+      <!-- ⛔ THE TWO ROUTES WERE INLINE LINKS INSIDE THAT SENTENCE, AND A LINE OF PROSE IS 14px
+           TALL. `test:cab` caught them at 105×14 and 113×14 against this cabinet's own 44px floor
+           — the one page here you play with a thumb. ⚠ The usual patch (padding + negative margin
+           on an inline link) buys the box by OVERLAPPING the lines above and below, which is the
+           `#modes`-over-the-SECTION-9-chip failure in miniature: a hit surface bigger than the
+           thing you can see. They are chips on their own row instead, which clears the floor and
+           makes the two ways to actually get a hero findable rather than buried mid-paragraph. -->
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+        <a class="mode" href="../index.html#rip">rip a pack</a>
+        <a class="mode" href="../whitepaper.html#titles">the earned titles</a>
+      </div>
     </div>
 
     <div class="gas">
@@ -713,6 +744,7 @@
 
 <script src="../js/icons.js"></script>
 <script src="../js/chain-config.js"></script>
+<script src="../js/hero-claim.js" defer></script>
 <script src="../js/wallet.js"></script>
 <script src="../js/card-hover.js"></script>
 <script src="../js/arena-lobby.js"></script>
@@ -728,16 +760,43 @@
 <script src="../js/cbpc-fight.js"></script>
 <script src="../js/card-fight.js"></script>
 <script src="../js/wallet-ui.js"></script>
+<script src="../js/leaderboard.js"></script>
 <script src="arena-net.js"></script>
+<script src="../js/card-stats.js"></script>
+<script src="../js/deck-source.js"></script>
 <script>
 (() => {
   const TRIGGERS = ['GAS STORM','STILL AIR','BURN WAVE','MOON CANDLE','RUG WIND','DEEP WATER','BLOCK OMEN','WHALE SONG'];
   const RC = { common:'--common', uncommon:'--uncommon', rare:'--rare', mythic:'--mythic', prizm:'--prizm' };
   const $ = id => document.getElementById(id);
-  let DECK = [], hand = [], houseStack = [], selected = [], mode = 3, gas = TRIGGERS[0], busy = false;
+  let DECK = [], LEGACY = [], hand = [], houseStack = [], selected = [], mode = 3, gas = TRIGGERS[0], busy = false;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const rnd = n => Math.floor(Math.random()*n);
   const pick = (arr, k) => { const c=[...arr]; const out=[]; while(out.length<k && c.length) out.push(c.splice(rnd(c.length),1)[0]); return out; };
+
+  /* ⛔ THE ARENA IS A FIELD-CARD GAME. THE 33 ARE NOT IN ITS STOCK, AND THAT IS THE WHOLE RULE.
+   *   Artist, 2026-08-06: "make sure if we play the house in the gacha pack arena that it is hard
+   *   to win 1/33 cards" — then, minutes later, "I had just won like 3 more 1/1 rare cards."
+   *   He had. The house drew from the WHOLE deck and a win handed you everything it staked.
+   * ⚑ MEASURED, on the shipped scoring, 200,000 games per row. The house picks at random; a player
+   *   stakes their BEST cards, so the player wins 89.7%-95.5% of the time. At the 3-card stake that
+   *   is 0.94 heroes PER GAME; at the 7-card stake, 2.12. The designed path is 11 gacha heroes over
+   *   3,560 packs — one per 323.6 packs, about $3,236 at a $10 tier-I pack. The arena was handing
+   *   one over roughly every game, free, in seconds.
+   * ⛔ AND THE BANDS LEAKED EQUALLY: ~0.27 auction and ~0.27 earned cards per game. The auction
+   *   eleven are being SOLD on SuperRare; the earned eleven are supposed to cost a named feat that
+   *   a human verified before signing a voucher. Neither is a difficulty question, so neither is
+   *   tuned here — they are simply not stock.
+   * ⚑ AND NEITHER ARE THE GACHA ELEVEN. `pack.js` may offer 12-22 because a pack is the designed
+   *   gacha path and costs money; a free, repeatable, ~90%-win game cannot be a second source of
+   *   the same eleven cards at ANY rate, because grinding would dominate paying instantly. One
+   *   rule, stated once: THE ARENA NEVER CREATES A HERO.
+   * ⚠ HERO_MAX mirrors Ripmaster3030Lens721's own constant, and the key is the ID — not the band
+   *   string, which a deck served without it makes silently absent. Same key pack.js reserves on. */
+  const HERO_MAX = 33;
+  const isHero = c => { const n = Number(c && c.id); return n >= 1 && n <= HERO_MAX; };
+  /* everything the arena is allowed to HAND OUT. Never DECK. */
+  const stock = () => DECK.filter(c => !isHero(c));
 
   // wager modes (pog stacks): pairings 1/2/3, combos 3/4/7
   const MODES = [[1,'Single'],[2,'Pair'],[3,'Trips'],[4,'Quad'],[7,'Full Slam']];
@@ -772,15 +831,47 @@
   }
 
   function forgedById(){ try { return new Map(JSON.parse(localStorage.getItem('urm_forged')||'[]').map(f=>[f.id,f])); } catch { return new Map(); } }
-  function resolveEntry(e, bySlug, fById){ return e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null; }
+  /* ⛔ THE VAULT IS PRUNED AND SAVED BACK — `renderVault()` drops any entry that does not resolve
+   *   and WRITES THE RESULT TO localStorage. So an index that does not know about a card does not
+   *   merely hide it: opening this page once DESTROYS it, permanently, on the one screen where a
+   *   collector keeps what they pulled. Switching DECK to the hundred without this would have
+   *   deleted every card ripped before the deck changed — the standing rule here is that the
+   *   `urm_*` keys are never wiped, and this is that rule with teeth.
+   * ⚑ THE RETIRED 196 RESOLVE, THEY DO NOT DEAL. `DECK` is the hundred and is the only thing the
+   *   hand, the gallery and the shelf are built FROM; `LEGACY` exists so an old save still finds
+   *   its card. `npm run test:cardlayers` §3 seeds a vault from `cards/manifest.json`, which is
+   *   how this was caught — it timed out waiting for a hand that could no longer exist.
+   * ⚠ LEGACY first so the hundred win any future slug collision (a Map keeps the last write). */
+  function deckIndex(){ return new Map([...LEGACY, ...DECK].map(c => [c.slug, c])); }
+  /* ⛔ AND RESOLVING IS NOT OWNING — artist, on the live arena: *"still showing old cards in
+   *   battle."* `deckIndex()` above exists so an old save is never DESTROYED by the prune, and it
+   *   did that job; but `renderHand()` built the folder from the same map, so all 196 retired
+   *   cards a player had ever practice-pulled came back as their collection — "81 in your folder,
+   *   73 kinds" of the ink the press prints from.
+   * ⚑ THE SPLIT IS THE FIX AND IT IS THE BENCH'S, VERBATIM: ownership resolves against the
+   *   HUNDRED ONLY (`playIndex`), while the FULL index still resolves anywhere a card must merely
+   *   be NAMED or KEPT. `cards/market.html` settled this on the artist's *"it is showing old cards
+   *   and prefilled when I already bought cards"* — the arena is the fifth surface of the same
+   *   defect, and taking a different decision here would make two pages disagree about what a
+   *   player owns.
+   * ⚑ BUILT FROM DECK, NOT `deckIndex()` MINUS LEGACY — a card can then only be playable because
+   *   it IS in the deck, rather than because it failed to be in a list. */
+  function playIndex(){ return new Map(DECK.map(c => [c.slug, c])); }
+  /* ⚠ CARRY THE ROW'S PROVENANCE THROUGH THE RESOLVE. `p` marks a free practice pull, and it was
+   *   being dropped here — which is why nothing on the site could tell a practice card from one
+   *   somebody burned $3030 for, even though pack.js has written the flag since the artist first
+   *   raised it. The flag existed and nothing read it. */
+  function resolveEntry(e, bySlug, fById){
+    const c = e && (e.forged ? fById.get(e.forged) : bySlug.get(e.slug)) || null;
+    return c && e.p ? Object.assign({}, c, { practice: 1 }) : c;
+  }
 
   function renderHand(animate){
     // you play what you OWN: the hand is your collection, every copy its own pog
-    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
-    hand = vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean);
+    hand = ownedHand();          // ⚑ ONE definition of "what you can stake" — see ownedHand()
     if (!hand.length){
       $('handRow').innerHTML = '<a class="btn" style="grid-column:1/-1;justify-self:center;text-decoration:none" href="../index.html">✦ No cards — rip a pack to get cards</a>';
-      $('handInfo').textContent = '0 owned';
+      $('handInfo').textContent = '0 in your folder';
       selected = []; updateSlam(); return;
     }
     // compress multiples: one tile per unique card with a ×N badge (declutter the grid)
@@ -809,9 +900,19 @@
        * idempotent (Card3D.engine caches its promise), so every later trigger is free. */
       if (selected.length && window.CardFight && CardFight.warm) CardFight.warm('../');
     });
-    if (window.CardHover) CardHover.bind($('handRow'), el => { const c = DECK.find(x => x.slug === el.dataset.slug); if (!c) return null;
+    if (window.CardHover) CardHover.bind($('handRow'), el => { const c = deckIndex().get(el.dataset.slug); if (!c) return null;
       const surge = c.trigger === gas; return { art: c.art, title: c.title, rarity: c.rarity, atk: c.atk, def: c.def, trigger: c.trigger + (surge ? ' ⚡' : ''), color: `var(${RC[c.rarity] || '--common'})` }; });
-    $('handInfo').textContent = `${hand.length} owned · ${gArr.length} kinds · ${selected.length}/${mode} staked`;
+    /* ⛔ "OWNED" WAS DOING WORK IT HAS NOT EARNED, AND THE ARTIST CAUGHT IT: "I don't own 81
+     *   cards." Two things were wrong in one word. Free practice pulls were counted the same as
+     *   paid rips — his own recorded complaint, "prefilled when I already bought cards" — and
+     *   NOTHING IN THIS VAULT IS OWNED ON-CHAIN ANYWAY. These are local rows in one browser; the
+     *   only cards that exist as tokens are the eleven 1/1s. Saying "owned" on a page that also
+     *   talks about staking real value is the small untruth that gets quoted back.
+     * ⚑ Practice cards stay PLAYABLE — the arena is free, and taking them away to make a number
+     *   honest would be fixing the wrong end. They are labelled, not removed. */
+    const prac = hand.filter(c => c.practice).length;
+    $('handInfo').textContent = `${hand.length} in your folder · ${gArr.length} kinds` +
+      (prac ? ` · ${prac} practice` : '') + ` · ${selected.length}/${mode} staked`;
   }
 
   function renderHouse(reveal){
@@ -854,7 +955,7 @@
     $('verdict').className = 'verdict'; $('verdict').textContent = '';
     $('youScore').textContent = '0'; $('houseScore').textContent = '0';
     $('log').innerHTML = hand.length
-      ? `Your cards: <b class="b">${hand.length}</b> owned. Stake <b class="b">${mode}</b> and slam — win and collect, lose and they're gone.`
+      ? `Your cards: <b class="b">${hand.length}</b> in your folder. Stake <b class="b">${mode}</b> and slam — win and collect, lose and they're gone.`
       : `No cards, no deal. <b class="b">Rip a pack</b> to get cards. (Voting in the gallery needs no cards — only tokens.)`;
     updateSlam();
   }
@@ -1119,7 +1220,7 @@
     if (busy || selected.length !== mode) return;
     busy = true; updateSlam(); $('dealBtn').disabled = true;
     const you = selected.map(i => hand[i]);
-    houseStack = pick(DECK, mode);                       // the house commits from the whole deck
+    houseStack = pick(stock(), mode);                    // ⛔ stock(), never DECK — see the rule above
     const P = power(you), Q = power(houseStack);
     const outcome = P.total > Q.total ? 'win' : (P.total < Q.total ? 'lose' : 'tie');
     const ante = Math.max(0, Math.min(tokenWager, tokens()));
@@ -1142,8 +1243,43 @@
       removeOwned(selected); if (ante > 0) setTokens(tokens() - ante);
       log += `Dead even — ties go to the house, stake and all.`;
     }
+    log += streakSettle(outcome, true);          // ties go to the house, stake and all
     $('log').innerHTML = log; $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager(); busy = false; $('dealBtn').disabled = false; updateSlam();
+  }
+
+  /* ⛔ THE ARENA'S BOARD COUNTS WINS IN A ROW, NOT CARDS TAKEN, AND THE DIFFERENCE IS THE WHOLE
+   *   POINT. A cumulative haul is a treadmill — the player wins 89.7–95.5% of slams (measured, see
+   *   the rule above), so "most cards won" ranks whoever pressed SLAM the most times, which is a
+   *   clock, not a feat. A streak DIES on the first loss or push, so 20 in a row is ~p 0.12 and 30
+   *   is ~0.04: the same shape as CLOUD RACER's title, and the same reason it discriminates.
+   * ⚑ AND THE NUMBER IS ON SCREEN BEFORE IT IS ON THE BOARD. A board showing a figure the game
+   *   never prints is a riddle — the player has no way to learn what it counts or where theirs
+   *   came from. It rides in the log line the slam already writes.
+   * ⛔ A TIE BREAKS IT AGAINST THE HOUSE AND NOT AGAINST A PLAYER, AND THAT IS NOT AN INCONSISTENCY
+   *   — IT IS THE ROOM'S OWN RULE, READ OFF THE ROOM. Ties go to the house, stake and all, so a
+   *   push there is a loss wearing another word; a PvP push returns both stacks and the ante, so
+   *   nothing happened. Hard-coding "a tie always breaks" would have made the board disagree with
+   *   the screen the player just read, which is the whole class of defect this file keeps paying
+   *   for. The caller states which room it is because only the caller knows.
+   * ⚑ Both rooms feed ONE streak: it is "wins in a row in THE ARENA", and splitting it would give
+   *   the same cabinet two boards measuring the same verb. */
+  function arNum(k){ try { const v = parseInt(localStorage.getItem(k), 10); return isFinite(v) && v > 0 ? v : 0; } catch { return 0; } }
+  function arSet(k, v){ try { localStorage.setItem(k, String(v)); } catch {} }
+  function streakSettle(outcome, tieBreaks){
+    if (outcome === 'tie' && !tieBreaks) return '';        // a push returned everything — nothing happened
+    const was = arNum('urm_ar_streak');
+    const n = outcome === 'win' ? was + 1 : 0;
+    arSet('urm_ar_streak', n);
+    const best = Math.max(arNum('urm_ar_best'), n);
+    if (best > arNum('urm_ar_best')) arSet('urm_ar_best', best);
+    /* posted after every slam, not only on a new best: `GT` on the server keeps the higher of the
+     * two, so this is idempotent — and it is what heals a board row for somebody whose first post
+     * was lost to a cold function or no network. */
+    try { if (window.RipBoard && best > 0) RipBoard.post('arena', best); } catch (e) {}
+    if (n > 1) return ` <b class="b">${n}</b> in a row.`;
+    if (!n && was > 1) return ` Streak broken — you were on <b class="b">${was}</b>.`;
+    return '';
   }
 
   // vault (localStorage). Entries store only the slug — art and title resolve
@@ -1151,9 +1287,21 @@
   // knows (renamed or voted off) is pruned instead of showing a broken thumb.
   function vault(){ try { return JSON.parse(localStorage.getItem('urm_vault')||'[]'); } catch { return []; } }
   function saveVault(v){ try { localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200))); } catch {} }
+  /* ⛔ THIS WROTE `{slug}` AND NOTHING ELSE, AND THAT IS WHY THE EXISTING REPAIR COULD NOT SEE
+   *   ARENA CARDS. `pack.js`'s healVault() keys on `row.n`; an arena row has no `n`, so
+   *   `RESERVED_N(undefined)` is false and every hero ever won off the house was invisible to the
+   *   one function written to find exactly this. `pack.js`'s own comment — "THIS FILE IS THE ONLY
+   *   WRITER OF urm_vault ROWS CARRYING n" — was true, and the conclusion drawn from it was not.
+   * ⚑ The row now carries the ID and its SOURCE. `n` is what every band rule in this project keys
+   *   on, and `src` is what lets a repair tell a legitimately pack-pulled gacha hero from one the
+   *   arena handed over — a distinction that is impossible to make after the fact from a slug.
+   * ⚠ And the filter here is belt-and-braces on top of stock(): a card cannot be collected if it
+   *   is one of the 33, whatever produced it. Two independent guards, because this is the line
+   *   that writes to a collector's shelf. */
   function collect(cards){
     const v = vault();
-    cards.forEach(c => v.push({slug:c.slug}));
+    (cards || []).forEach(c => { if (!c || isHero(c)) return;
+      v.push(c.id != null ? { slug: c.slug, n: c.id, src: 'arena' } : { slug: c.slug, src: 'arena' }); });
     saveVault(v); renderVault();
   }
   function removeOwned(indices){
@@ -1162,13 +1310,23 @@
     renderVault();
   }
   function renderVault(){
-    const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
+    /* ⚠ THE PRUNE STILL USES THE FULL INDEX, AND THAT IS LOAD-BEARING. This function WRITES ITS
+     *   RESULT BACK to localStorage, so pruning against the hundred would not hide a retired card
+     *   — it would DELETE it, permanently, on the one screen where a collector keeps what they
+     *   pulled. Resolve wide, play narrow. */
+    const bySlug = deckIndex(), fById = forgedById();
+    const play = playIndex();
     const v = vault();
     const clean = v.filter(e => resolveEntry(e, bySlug, fById));
     if (clean.length !== v.length) saveVault(clean);
-    $('vaultCnt').textContent = clean.length;
-    $('vaultMini').innerHTML = clean.slice(-8).reverse().map(e => {
-      const c = resolveEntry(e, bySlug, fById);
+    /* ⚑ SAID OUT LOUD, NOT SILENTLY DROPPED. A card vanishing off your own shelf with no
+     *   explanation is the same defect from the other side — the bench states the archived count
+     *   for exactly this reason, so the arena states it too. */
+    const playable = clean.filter(e => resolveEntry(e, play, fById)).length;
+    const archived = clean.length - playable;
+    $('vaultCnt').textContent = playable + (archived ? ' (+' + archived + ' archived)' : '');
+    $('vaultMini').innerHTML = clean.filter(e => resolveEntry(e, play, fById)).slice(-8).reverse().map(e => {
+      const c = resolveEntry(e, play, fById);
       return `<img src="${c.art}" alt="" title="${c.title}" loading="lazy" onerror="this.remove()">`;
     }).join('');
   }
@@ -1234,7 +1392,9 @@
   let seeking = false, lobbyPlayers = [], curChallenge = null, pvpSel = [], walletRefresh = () => {}, lobby = null;
   let walletState = { connected: false, address: null, balance: 0 };
 
-  function netHandle(){ try { return (net && net.me && net.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } }
+  /* ⚠ NEVER 'you' — that is the label on YOUR OWN ROW, and publishing it as a name is what made
+   *   every ripper in the lobby look identical. RipNet.handle() resolves it in one place. */
+  function netHandle(){ try { return net.handle(); } catch { return 'a ripper'; } }
   // your lobby identity. Signing the tavern ledger (connecting a wallet) upgrades it:
   // your presence shows your REAL $3030 purse + a verified seal, and your stakes
   // become real on-chain burns. Unsigned = practice chips.
@@ -1248,8 +1408,27 @@
   const statusWord = s => s === 'seeking' ? 'seeking a fight' : s === 'battling' ? 'mid-battle' : 'idle';
   function liveToken(){ try { const a = ((window.RIPMASTER_CHAIN || {}).contracts || {}).liquidEdition || '';
     return /^0x[0-9a-fA-F]{40}$/.test(a) && !/^0x0+$/.test(a); } catch { return false; } }
-  function ownedHand(){ const bySlug = new Map(DECK.map(c => [c.slug, c])), fById = forgedById();
-    return vault().map(e => resolveEntry(e, bySlug, fById)).filter(Boolean); }
+  /* ⛔ THE MIRROR OF THE SAME HAZARD: A 1/1 MUST NOT BE STAKEABLE EITHER. Closing only the
+   *   winning side leaves a collector able to LOSE a legitimately pulled hero to the house on a
+   *   coin flip — and the house is not a person, so it is not transferred to anyone, it is simply
+   *   gone. This project's standing rule is that cards transfer and are never destroyed in a game.
+   * ⚑ So it is one rule on both sides, which is also why it is easy to say on the page: THE ARENA
+   *   IS A FIELD-CARD GAME. Heroes are not stock and they are not chips.
+   * ⚠ Filtered out of the HAND, not out of the VAULT — renderVault() reads the vault directly, so
+   *   a hero you own still shows on your shelf. It is unplayable here, not hidden.
+   *
+   * ⛔ AND IT RESOLVED AGAINST `deckIndex()` — THE HUNDRED **PLUS THE 196 RETIRED PLACEHOLDERS**.
+   *   Artist, 2026-08-07, on the PvP pot picker: "showing wrong cards." It was: the tray listed
+   *   cartoon stand-ins from the old set, sixty of them, because `openPvp()` fills its hand from
+   *   here while the house game fills its hand from `playIndex()` (the hundred only). Two
+   *   functions answering the SAME question — what can this player stake — and disagreeing.
+   * ⚑ AND THE RULE WAS ALREADY WRITTEN, FOUR LINES ABOVE `playIndex()`: *"ownership resolves
+   *   against the HUNDRED ONLY (playIndex), while the FULL index still resolves anywhere a card
+   *   must merely be NAMED or KEPT."* It was applied to `renderHand` and not to this, which is
+   *   this repo's own recorded failure — **a recorded lesson protects the line it was written on
+   *   and nothing else.** There is one definition now and both callers use it. */
+  function ownedHand(){ const bySlug = playIndex(), fById = forgedById();
+    return vault().map(e => resolveEntry(e, bySlug, fById)).filter(c => c && !isHero(c)); }
 
   function toastMini(msg){
     let t = $('miniToast'); if (!t){ t = document.createElement('div'); t.id = 'miniToast'; t.className = 'mini-toast'; document.body.appendChild(t); }
@@ -1275,15 +1454,23 @@
   function hideToast(){ $('lobToast').classList.remove('show'); curChallenge = null; clearTimeout(onIncoming._t); }
 
   // resolve an opponent's stack (rarity hints from the net layer, or unknown) into real deck cards
+  /* ⛔ THIS ONE IS WORSE THAN THE HOUSE, BECAUSE IT INVENTS CARDS NOBODY OWNED. The wire carries
+   *   only RARITY HINTS, so the opponent's actual cards are reconstructed here — and it
+   *   reconstructed them from the whole DECK, heroes included. Winning a face-off therefore did
+   *   not TRANSFER a 1/1 from another collector, it CREATED one out of a rarity string.
+   * ⚠ Same `stock()` as the house, and for the same reason: nothing the arena materialises may be
+   *   one of the 33. A hero a real opponent genuinely holds is not expressible on this wire at
+   *   all — the hint is a rarity, not an id — so nothing legitimate is lost by excluding them. */
   function resolveOppStack(oppStack, n){
-    const byRar = {}; DECK.forEach(c => { (byRar[c.rarity] = byRar[c.rarity] || []).push(c); });
+    const S = stock(); if (!S.length) return [];
+    const byRar = {}; S.forEach(c => { (byRar[c.rarity] = byRar[c.rarity] || []).push(c); });
     const hints = (oppStack && oppStack.length) ? oppStack : Array.from({ length: n }, () => ({}));
     const out = [];
     for (const h of hints.slice(0, n)){
-      const pool = (h.rarity && byRar[h.rarity] && byRar[h.rarity].length) ? byRar[h.rarity] : DECK;
+      const pool = (h.rarity && byRar[h.rarity] && byRar[h.rarity].length) ? byRar[h.rarity] : S;
       out.push(pool[rnd(pool.length)]);
     }
-    while (out.length < n && DECK.length) out.push(DECK[rnd(DECK.length)]);
+    while (out.length < n) out.push(S[rnd(S.length)]);
     return out;
   }
 
@@ -1421,6 +1608,7 @@
       v.className = 'verdict tie'; v.textContent = 'PUSH · CARDS STAND';
       log += `Dead even — both keep their cards${burn ? `, and the ${burn} $3030 ante is returned` : ''}.`;
     }
+    log += streakSettle(outcome, false);         // a PvP push returns both stacks and the ante
     $('log').innerHTML = log; window.RipIcons && RipIcons.hydrate($('log')); $('youScore').textContent = P.total; $('houseScore').textContent = Q.total;
     selected = []; renderHand(); renderTokenWager();
     busy = false; $('dealBtn').disabled = false; updateSlam();
@@ -1434,7 +1622,11 @@
     if (!net){ const p = $('lobbyPanel'); if (p) p.style.display = 'none'; return; }
     const hIn = $('lobHandle');
     if (hIn){ hIn.value = netHandle();
-      hIn.onchange = () => { const val = (hIn.value || '').trim().slice(0, 24) || 'you'; net.setHandle(val); hIn.value = net.me().handle; toastMini('handle set — ' + net.me().handle); };
+      /* ⚠ CLEARING THE BOX USED TO WRITE 'you' TO localStorage — which every tab shares, so one
+         keystroke renamed the whole browser on every page, permanently. setHandle() now refuses
+         an empty or reserved name and keeps the one you had; the field is re-synced from it. */
+      hIn.onchange = () => { net.setHandle(hIn.value); hIn.value = net.me().handle;
+        toastMini('handle set — ' + net.me().handle); };
     }
     lobby = window.ArenaLobby ? ArenaLobby.mount('#lobList', { mode: 'challenge', header: false, onChallenge: id => {
       if (busy){ toastMini('finish this fight first'); return; }
@@ -1447,9 +1639,36 @@
     $('ltNo').onclick = () => { if (!curChallenge) return; net.decline(curChallenge); hideToast(); };
     net.onLobby(renderLobby);
     net.onChallenge(onIncoming);
+    /* ⚠ A REFUSAL HAS TO BE SAID OUT LOUD. Until the inbox existed the challenger got nothing
+       back under any outcome, so "they said no" and "the message never arrived" looked the same
+       — which is the shape of the bug this whole path was rewritten to fix. */
+    net.onReply(r => { if (r && r.kind === 'decline') toastMini((r.from && r.from.handle || 'they') + ' passed'); });
     net.onMatch(m => { hideToast(); openPvp(m.opponent, m.oppStack); });
     net.join(myProfile());
     addEventListener('focus', pushProfile);
+    callOut();
+  }
+
+  /* ── ?vs=<player id> — arriving from the front page with somebody already in mind ───────────
+   * ⛔ THE CHALLENGE IS SENT FROM HERE, NOT FROM THE PAGE THE NAME WAS ON. js/online-now.js is
+   *   read-only by design: a visitor reading the front page is not a player, and registering them
+   *   as one to send a challenge would put a body in the roster that is not in the room. So the
+   *   ⚔ on a name is a LINK — it brings you to the arena, where you are a player, and the arena
+   *   issues the challenge. That also means the reply has somewhere to land.
+   * ⚠ It waits for the target to appear in the roster rather than firing blind, because
+   *   `net.challenge(id)` returns undefined for an unknown id and would otherwise be a button
+   *   press with no message and no explanation. If they are gone, say so. */
+  function callOut(){
+    let vs = '';
+    try { vs = new URLSearchParams(location.search).get('vs') || ''; } catch {}
+    if (!/^p_[a-z0-9]{4,20}$/.test(vs)) return;
+    if (net.me().id === vs) return;                       // your own link, back to yourself
+    const t0 = Date.now();
+    const look = setInterval(() => {
+      const p = lobbyPlayers.find(x => x.id === vs && !x.me);
+      if (p){ clearInterval(look); net.challenge(vs); toastMini('calling out ' + p.handle + '…'); return; }
+      if (Date.now() - t0 > 9000){ clearInterval(look); toastMini('that ripper has left the room'); }
+    }, 400);
   }
 
   // ── the Tavern Ledger (wallet) + the identity bridge into the lobby ──
@@ -1495,14 +1714,37 @@
   $('reroll').onclick = () => { if(!busy) rollGas(); };
 
   // boot
-  fetch('manifest.json').then(r => r.json()).then(m => {
-    DECK = m.cards;
+  /* ⛔ THIS READ `manifest.json` — the 196 PLACEHOLDERS, the ink the press prints FROM. The arena
+   *   is where you STAKE a card, so it was asking a player to wager the stand-ins. `RipDeck.load`
+   *   is the one join that returns the hundred WITH vitals: this page reads `c.atk`, `c.def` and
+   *   `c.trigger` on every card, and the hundred carry none of their own — `js/card-stats.js`
+   *   derives them from each card's seed, which lives in `deck.json`, not in the manifest. Any
+   *   single-file load here is a deck with no stats or the wrong cards; there is no version of
+   *   this that is one fetch. */
+  /* ⚑ A DEV HOOK, THE SAME PATTERN `__city` AND `__rrpc` ALREADY USE HERE, AND IT EXISTS FOR A
+   *   REASON THIS FILE PAID FOR: everything that decides what the arena can hand out lives inside
+   *   this IIFE, so no driven check could ever ask "what did the house just stake?" — and that is
+   *   precisely the question `test:cab` and `test:reach` could not answer while the arena was
+   *   giving away 1/1s. Reads only; it exposes no way to write a card that `collect()` would not
+   *   already refuse, and nothing here is authoritative — the chain mints only against a voucher. */
+  window.__arena = { DECK: () => DECK, stock, pick, isHero, resolveOppStack, collect, streakSettle,
+                     hand: () => hand, vault };
+
+  Promise.all([RipDeck.load(''), RipDeck.legacy('')]).then(r => {
+    DECK = r[0] || []; LEGACY = r[1] || [];
+    if (!DECK.length) throw 0;
     renderModes(); rollGas(); renderVault(); renderTokenWager(); deal(); initLobby(); initWallet();
+    /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS. Without redrawing, a collector whose
+     * retired cards were just migrated sits looking at the empty hand they arrived with. */
+    addEventListener('urm:vault-fixed', () => { try { renderVault(); deal(); } catch (e) {} });
   }).catch(() => {
     $('log').innerHTML = '<span style="color:var(--magenta)">Could not load the deck manifest. Rip a card page first, then come back.</span>';
   });
 })();
 </script>
+<script>window.RIPCHAL_OWN = true;   /* the arena handles its OWN incoming challenges — js/challenge-ui.js stays out of the way for game==="arena" only */</script>
+<script src="../js/challenge-ui.js"></script>
+<script src="../js/vault-fix.js"></script>
 <script src="../theme.js"></script>
   <script src="../sfx.js"></script>
 <script>

@@ -20,14 +20,37 @@ curve, the real name, the real PackSink and the real treasury are in the same tr
 
 ## Readiness — what is already proved, and what only the artist can do
 
+> ## ⛔ THIS TABLE WAS STALE ON FOUR OF ITS SIX GATES AND I READ IT OUT AS CURRENT (2026-08-08)
+> *Artist: **"The packs already work — I don't know what you are talking about."*** He was right.
+> I quoted gate 1's *"unproven on mainnet"* back at him **while ~120 packs had already been ripped
+> through PackSink**, and told him to spend $100 proving something the chain had proved 120 times.
+> ⚑ **A DOCUMENT IS NOT EVIDENCE. THE CHAIN IS, AND IT WAS ONE `eth_call` AWAY.** This is the same
+> failure as reading `balanceOf` and calling it lifetime income, and as telling him a merge to
+> `main` would deploy — **fourth in one session, and this one after I had already written the
+> other three up.** `MAINNET-PREFLIGHT.md` is exactly the "surface nobody reopens" `CLAUDE.md`
+> warns about, and the warning did not save me because I was *reading* the rotted surface, not
+> maintaining it. **Before quoting a gate, measure it.**
+
+**Measured on mainnet 2026-08-08** — `totalSupply` 3,022,375 · burned **7,625** · treasury
+**7,475 $3030 (~$1,550)**. ⚑ **The two sides agree to 0.4 packs**: 7,475 ÷ 62.5 = 119.6 packs by
+the treasury side, (7,625 − 125) ÷ 62.5 = 120.0 by the burn side, the 125 being the first rip
+which burned 100% before PackSink's address was pasted in. **Two independent arithmetics landing
+on the same number is what "it works" looks like.**
+
 | gate | state | blocked on |
 | --- | --- | --- |
-| 1 · token approval flow | ⏳ code ready, unproven on mainnet | the mainnet edition + a fresh wallet holding real $3030 |
-| 2 · exact PackSink price | ⏳ **contract + price both ready** | **PackSink not deployed (task #89)** |
-| 3 · supply-reducing burn | ✅ *proved on Sepolia* — 1,300 burned, `totalSupply` fell and never came back (`npm run preflight`) | repeating it on mainnet |
-| 4 · 50/50 studio split | ⏳ `PackSink.sol` 1,773 bytes, **51/51 EVM tests**, halves exact in wei for every input | **PackSink not deployed (task #89)** |
-| 5 · card mint / render | ⏳ `Ripmaster3030Lens721` **99/99 tests**, flattens byte-identical for Remix | **Lens721 not deployed (task #89)** |
+| 1 · token approval flow | ✅ **PROVED ~120× ON MAINNET** — every rip approves then pays | nothing |
+| 2 · exact PackSink price | ✅ **PROVED** — 125/pack, and the two sides reconcile to 0.4 packs | nothing |
+| 3 · supply-reducing burn | ✅ **PROVED ON MAINNET** — `totalSupply` 3,030,000 → 3,022,375, permanent | nothing |
+| 4 · 50/50 studio split | ✅ **PROVED** — `0x384936Ee…6018E` live; treasury holds 7,475 of pack halves | nothing |
+| 5 · card mint / render | ✅ **DEPLOYED + PROVED** — `0xe2d11bC2…e138`; 11 heroes minted, `tokenURI(40)` renders an unminted field card | nothing |
 | 6 · all six games | ✅ **pre-checked — `npm run test:gate6`** | a real phone (task #73); the rest is confirmation |
+
+⚠ **WHAT IS GENUINELY UNPROVEN IS NARROWER, AND MUST NOT BE INFLATED BACK INTO THE TABLE.** Not
+the packs — those work. Only the **buy door** added on 2026-08-08 (`ripNeedTokens` → exact-output
+swap + balance watcher), which is hours old and has never been walked by a stranger. That is one
+new panel on a proven flow, not an unproven flow. `npm run test:onramp` (22) drives it, including
+the fail-open path.
 
 ⚑ **GATE 6 IS THE ONLY ONE THAT NEEDS NO WALLET, NO CONTRACT AND NO CHAIN**, which is why it is
 the one that could be taken off the list in advance. `npm run test:gate6` drives all six cabinets

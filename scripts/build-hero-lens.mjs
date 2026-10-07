@@ -86,6 +86,17 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
      storage, no parent-window assumptions. The BASE art is the IPFS-pinned asset that also
      sits in the metadata as image — this page is how it is displayed, not where it lives. -->
 <style>
+  /* ⚑ THE STARFIELD, lifted from the folder's viewer and the pack rip UNCHANGED — opening a
+     card from the folder, pulling one from a pack, and meeting one in the token's media slot
+     should be the same event. Plain 2D on purpose: this page also runs the press's WebGL
+     context, and a full-screen bloom chain behind the subject is the most expensive thing here
+     by a wide margin. */
+  .warp{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;display:block}
+  .scene{z-index:1}
+  /* The press mounts here — a sibling laid over the card's box, never a child of .card, which
+     carries its own rotateY/rotateX. A canvas inside it would be turned twice. */
+  #cvStage{position:absolute;inset:0;z-index:2;opacity:0;pointer-events:none;
+           transition:opacity .25s ease-out}
   html,body{margin:0;height:100%;background:#000;overflow:hidden;
     font-family:'Courier New',ui-monospace,monospace;-webkit-text-size-adjust:100%}
   body{display:flex;align-items:center;justify-content:center;perspective:1200px}
@@ -140,7 +151,9 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
 </style>
 </head>
 <body>
+<canvas class="warp" id="warp" aria-hidden="true"></canvas>
 <div class="scene" id="scene">
+  <div id="cvStage" aria-hidden="true"></div>
   <div class="card" id="card">
     <div class="face front" id="front">
       <img class="base" id="base" src="${esc(baseSrc)}" alt="${esc(title)}">
@@ -196,6 +209,109 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
       else { document.getElementById('front').classList.add('dead'); }
     });
   } catch(e){}
+
+  /* ── the starfield ──────────────────────────────────────────────────────────────────────
+   * Runs whether or not anything below it loads — it is CSS and 2D canvas and needs no engine,
+   * so a card that falls all the way back to the flat plate still arrives out of a warp. */
+  try {
+    var cv=document.getElementById('warp'), ctx=cv&&cv.getContext('2d');
+    if(ctx){
+      var slow=matchMedia('(prefers-reduced-motion:reduce)').matches;
+      var dpr=Math.min(devicePixelRatio||1,1.25);
+      var N=matchMedia('(max-width:760px)').matches?170:300, SPEED=slow?3.1:6.2;
+      var w=0,h=0,cx=0,cy=0,stars=[],raf=0;
+      function size(){ w=innerWidth;h=innerHeight;cx=w/2;cy=h/2;
+        cv.width=w*dpr;cv.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); }
+      function spawn(){ return {x:(Math.random()*2-1)*w,y:(Math.random()*2-1)*h,z:Math.random()*w||1}; }
+      function frame(){
+        ctx.fillStyle='rgba(1,8,4,0.34)'; ctx.fillRect(0,0,w,h);
+        for(var n=0;n<stars.length;n++){ var s=stars[n], pz=s.z; s.z-=SPEED;
+          if(s.z<=1){ stars[n]=spawn(); stars[n].z=w; continue; }
+          var k=130/s.z, pk=130/pz, a=Math.min(1,(1-s.z/w)*1.4);
+          ctx.strokeStyle='rgba('+(205+Math.floor(a*50))+',255,225,'+a.toFixed(2)+')';
+          ctx.lineWidth=Math.max(0.4,(1-s.z/w)*2.6);
+          ctx.beginPath(); ctx.moveTo(cx+s.x*pk,cy+s.y*pk); ctx.lineTo(cx+s.x*k,cy+s.y*k); ctx.stroke(); }
+        raf=requestAnimationFrame(frame);
+      }
+      size(); stars=[]; for(var q=0;q<N;q++) stars.push(spawn()); frame();
+      addEventListener('resize',size,{passive:true});
+      /* ⚠ A HIDDEN TAB SHOULD NOT BE RUNNING A STARFIELD. A media slot scrolled out of view in a
+         marketplace is exactly that case, and it is on somebody else's page. */
+      document.addEventListener('visibilitychange',function(){
+        if(document.hidden){ cancelAnimationFrame(raf); raf=0; } else if(!raf){ size(); frame(); }
+      });
+    }
+  } catch(e){}
+
+  /* ── ⛔ THE PRESS — proof.html's viewer, on the token's own page ─────────────────────────
+   * Artist: *"the viewers here need to have the same awesome ability as the proof.html viewer
+   * with turning ability graphics etc, losing all the fx."* This page was the last flat card
+   * in the project: a CSS-tilted <img>, no press, no room, no material.
+   *
+   * ⛔ THE HUNDRED ARE RECIPES, NOT PICTURES, AND GUESSING WRONG DOES NOT ERROR. Every one of
+   *   1–33 has an entry in cards/deck.json carrying its seed, its six plate slugs and every dial
+   *   the artist set. Passing this card's flat art in as 'card:' instead would press a
+   *   SEPARATION OF A SEPARATION at a seed derived from the filename — a card that renders
+   *   beautifully and is a different card. js/card-view.js states this in as many words; the
+   *   caller says which it has and never infers it.
+   *
+   * ⚑ ADDITIVE, NEVER SUBSTITUTIVE. The flat plate above already works — it walks a gateway
+   *   chain down to a local copy and then to a legible plate. Nothing here removes it until a
+   *   real sheet has printed, because this repo's one fail-open violation was exactly that:
+   *   swapping a working card for the press's output before knowing the press produced anything.
+   * ⚠ Absolute /js/ and /cards/ paths: this page is framed from a data: URL at an opaque origin,
+   *   so a relative path resolves against something we do not control. */
+  try {
+    if (/[?&]flat\b/.test(location.search)) return;
+    var MODS=['/js/gfx-post.js','/js/hero-card.js','/js/card-back.js','/js/card-press.js',
+              '/js/card-recipe.js','/js/card-view.js'];
+    var loaded=0;
+    function next(){
+      if(loaded>=MODS.length){ press(); return; }
+      var s=document.createElement('script'); s.src=MODS[loaded++];
+      s.onload=next; s.onerror=next;          // resolve either way; a missing module just removes it
+      document.head.appendChild(s);
+    }
+    function press(){
+      if(!window.CardView||!window.CardRecipe) return;   // flat card stands
+      fetch('/cards/deck.json',{cache:'force-cache'}).then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){
+          var rec=d&&d.cards&&d.cards['${number}'];
+          if(!rec||!rec.q) return;
+          var stage=document.getElementById('cvStage'), card=document.getElementById('card');
+          return CardView.mount({box:stage, recipe:rec.q, base:'/cards/'}).then(function(v){
+            /* ⛔ A CONTROLLER IS NOT A PRINTED CARD. mount() resolving is not evidence that ink
+             *   landed — driven against a press that clears to nothing it still hands one back.
+             *   Check the pixels here, before anything is taken away.
+             * ⚠ "NOT BLANK" IS NOT "ALPHA > 0": the stock is near-white, so a paper-coloured
+             *   canvas is fully opaque and completely empty. The test is tonal VARIANCE. */
+            if(!v) return;
+            var cvs=stage.querySelector('canvas');
+            if(!cvs||!printed(cvs)){ try{v.destroy();}catch(e){} return; }
+            stage.style.opacity='1'; stage.style.pointerEvents='auto';
+            /* visibility, not display — the stage is inset:0 against this box. */
+            card.style.visibility='hidden';
+            window.__heroView=v;
+            var hint=document.querySelector('.hint');
+            if(hint){ hint.textContent='tap to turn \u21ba  \u00b7  drag to tilt'; }
+            var flip=function(e){ if(e){e.preventDefault();e.stopPropagation();} try{v.flip();}catch(err){} };
+            stage.addEventListener('dblclick',flip);
+            addEventListener('keydown',function(e){ if(e.key==='f'||e.key==='F') flip(); });
+          });
+        }).catch(function(){});
+    }
+    function printed(c){
+      try{
+        var g=document.createElement('canvas'), n=48; g.width=n; g.height=n;
+        var x=g.getContext('2d',{willReadFrequently:true}); if(!x) return true;
+        x.drawImage(c,0,0,n,n);
+        var p=x.getImageData(0,0,n,n).data, s=0, s2=0, m=n*n;
+        for(var i=0;i<p.length;i+=4){ var l=(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114); s+=l; s2+=l*l; }
+        var mean=s/m; return Math.sqrt(Math.max(0,s2/m-mean*mean))>4;
+      }catch(e){ return true; }      // cross-origin or no 2D — do not punish the press for it
+    }
+    next();
+  } catch(e){}
 })();
 </script>
 </body>
@@ -203,9 +319,18 @@ function shell({ number, title, baseSrc, fallbacks, overlay, meta }) {
 `;
 }
 
-const FILE_RE2 = /^\s*(\d{1,3})\s*[-–—]\s*(.+?)\s*\.(html?|gif|png)$/i;
+const FILE_RE2 = /^\s*(\d{1,3})\s*[-–—]\s*(.+?)\s*\.(html?|gif|png|webp)$/i;
 const cidPath = join(heroDir, 'cids.json');
-const CIDS = existsSync(cidPath) ? JSON.parse(readFileSync(cidPath, 'utf8')) : {};
+/* ⛔ THE GENERATOR AND THE FILE DISAGREED ABOUT THE SHAPE, AND THE COST WAS SILENT. This read
+ *   `{ "7": "Qm…" }` — the shape written in this file's own header — while scripts/hero-cids.mjs
+ *   emits `{ cids: {...}, cidv1: {...}, files: {...} }`. Every lookup returned undefined, so all
+ *   33 reported UNPINNED and every lens page would have been built with NO gateway chain: local
+ *   copy only, i.e. a card that dies with the website. That is the exact failure the ipfs base
+ *   exists to prevent, arrived at by a key name.
+ * ⚑ Nothing errors when two files disagree about a shape — one side just reads undefined
+ *   forever. Accept both, and assert the count below rather than trusting either. */
+const CIDRAW = existsSync(cidPath) ? JSON.parse(readFileSync(cidPath, 'utf8')) : {};
+const CIDS = CIDRAW.cids || CIDRAW;
 
 const byNum = new Map();
 for (const f of readdirSync(dir)) {
@@ -213,12 +338,41 @@ for (const f of readdirSync(dir)) {
   const number = +m[1]; if (number > HERO_MAX) continue;   // 34+ are field cards (ingest-deck.mjs)
   const ext = extname(f).toLowerCase();
   const e = byNum.get(number) || { number, title: m[2].trim(), base: null, overlay: null, size: 0 };
-  if (ext === '.gif' || ext === '.png') { e.base = f; e.size = statSync(join(dir, f)).size; }
+  if (ext === '.gif' || ext === '.png' || ext === '.webp') { e.base = f; e.size = statSync(join(dir, f)).size; }
   else { e.overlay = f; }
   e.title = e.title || m[2].trim();
   byNum.set(number, e);
 }
-const rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+let rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+
+/* ⛔ WITHOUT THIS THE 33 HAD NO LENS PAGES AT ALL, AND EVERY MINTED HERO'S `animation_url`
+ *   FRAMED A 404. The builder only ever looked for hand-authored "07 - TITLE.gif" files in the
+ *   repo root; none were ever written, so it printed "no hero sources" and exited 0 — a clean
+ *   run that produced nothing, which is why nobody caught it. Meanwhile setCards published the
+ *   art and eleven heroes minted, all pointing at pages that did not exist.
+ * ⚑ The base art and the titles were never missing — they were in cards/deck-manifest.json the
+ *   whole time, which is the same source hero-cids.mjs and build-cards-blob.mjs already read.
+ *   Deriving from it means one list, no filename convention to get wrong, and a hand-authored
+ *   file still WINS: an artist who writes "07 - TITLE.html" overrides the generated card, which
+ *   is the whole point of the hero tier.
+ * ⚠ Only fills GAPS. It must never overwrite an authored source. */
+const manPath = join(rootDir, 'cards', 'deck-manifest.json');
+if (existsSync(manPath)) {
+  const heroes = (JSON.parse(readFileSync(manPath, 'utf8')).cards || [])
+    .filter(c => c.band === 'hero' && +c.id >= 1 && +c.id <= HERO_MAX);
+  let filled = 0;
+  for (const c of heroes) {
+    const n = +c.id, e = byNum.get(n);
+    if (e && e.base) continue;                         // authored art wins
+    const art = join(rootDir, 'cards', c.art || '');
+    if (!c.art || !existsSync(art)) continue;
+    byNum.set(n, { number: n, title: c.title || String(n), base: art,
+                   overlay: e ? e.overlay : null, size: statSync(art).size, fromManifest: true });
+    filled++;
+  }
+  if (filled) console.log(`deck-manifest supplied base art for ${filled} hero(es)`);
+  rows = [...byNum.values()].sort((a, b) => a.number - b.number);
+}
 
 const MB = b => (b / 1048576).toFixed(1) + ' MB';
 if (!rows.length) {
@@ -255,12 +409,16 @@ mkdirSync(heroDir, { recursive: true });
  *   wrong on the card for a week" are different things. Neither file ships to the CDN, and both
  *   write strings that end up on-chain: `npm run test:name` skipping `scripts/` is exactly why
  *   this survived, which is why the test now sweeps generator OUTPUT as well. */
-const SITE = 'https://ripmaster3030studios.com';
+/* ⚠ www, NOT the apex. The platform serves `www` as Production and 308s the apex to it, and the
+ *   on-chain lensBaseUrl is already https://www.… — so an apex string here is one hop off the
+ *   truth on every card, for no reason. */
+const SITE = 'https://www.ripmaster3030studios.com';
 for (const r of rows) {
   const cid = CIDS[r.number] || CIDS[String(r.number)] || null;
   const ext = r.base ? extname(r.base).toLowerCase() : '.gif';
   let localName = null;
-  if (r.base) { localName = `${r.number}${ext}`; copyFileSync(join(dir, r.base), join(heroDir, localName)); }
+  const baseAbs = r.base ? (isAbsolute(r.base) ? r.base : join(dir, r.base)) : null;
+  if (baseAbs) { localName = `${r.number}${ext}`; copyFileSync(baseAbs, join(heroDir, localName)); }
 
   // Preference order for the DISPLAY source, most durable first. The metadata `image` is
   // always the ipfs:// URI when we have one — that is the copy that must outlive us.
@@ -268,8 +426,8 @@ for (const r of rows) {
   if (cid) for (const g of GATEWAYS) chain.push(g + cid);
   if (localName) chain.push(localName);
   if (INLINE && r.base) {
-    const mime = ext === '.png' ? 'image/png' : 'image/gif';
-    chain.push(`data:${mime};base64,` + readFileSync(join(dir, r.base)).toString('base64'));
+    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/gif';
+    chain.push(`data:${mime};base64,` + readFileSync(baseAbs).toString('base64'));
   }
   const baseSrc = chain[0] || '';
   const overlay = r.overlay ? readFileSync(join(dir, r.overlay), 'utf8') : '';
@@ -285,7 +443,11 @@ for (const r of rows) {
     animation_url: `${SITE}/cards/hero/${r.number}.html`,
     external_url: `${SITE}/cards/${r.number}`,
     attributes: [
-      { trait_type: 'Deck', value: 'Season I' },
+      /* ⛔ THIS SAID 'Season I'. Seasons were killed on 2026-08-01 — the pack schedule is TIERED —
+       *   and the CONTRACT's copy of this string was caught and changed to 'Genesis' before
+       *   deploy. The GENERATOR was left armed, which is this repo's most-repeated defect:
+       *   patching output and leaving the thing that writes it. */
+      { trait_type: 'Deck', value: 'Genesis' },
       { trait_type: 'Class', value: 'Hero 1/1' },
       { trait_type: 'Card', value: r.number },
       { trait_type: 'Live Lens', value: r.overlay ? 'yes' : 'no' },

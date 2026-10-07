@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WORLD COMPUTER HYPERTERMINAL · ripmaster3030studios</title>
+<meta name="description" content="A market terminal that shows its working. Live chain conditions, $3030's own state, and a flow-versus-price screen across memecoin pools — with the test that fails most of them.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@RipMaster3030">
+<meta property="og:title" content="WORLD COMPUTER HYPERTERMINAL">
+<meta property="og:description" content="A market terminal that shows its working — and says 'no edge' when that is the answer.">
+<meta property="og:url" content="https://www.ripmaster3030studios.com/worldcomputerhyperterminal.html">
+<link rel="icon" href="favicon.svg">
+<link rel="stylesheet" href="mobile.css">
+<script src="/gate.js"></script>
+<script src="/js/rail3030.js"></script>
+
+<!--
+  ══ THE TERMINAL ══════════════════════════════════════════════════════════════════════════
+
+  ⛔ IT SHOWS ITS WORKING, AND THAT IS THE PRODUCT. Every dashboard in this corner of the
+     internet prints a green number and hopes. This one prints the number, the cost it has to
+     beat, and the robustness test that usually kills it — because the studio already refuses to
+     publish a burn percentage on the grounds that a printed figure drifts into a lie with
+     nobody editing anything. The same rule cannot stop at tokenomics.
+
+  ⚑ THE SPLIT: heavy analysis (tens of thousands of logs per pool) runs offline in
+     `npm run terminal` and lands in `data/terminal.json`; the page reads that and adds LIVE
+     spot calls for the things that change by the minute. That split is honest only if the page
+     says how old the measurement is — so it does, at the top, in the largest type on the page.
+
+  ⛔ NO WALLET. Read-only `eth_call` over `fetch`, nothing signed, no connect button. Same
+     reasoning as `superrare.html`: a page that asks for a wallet to show you a chart is
+     teaching a reflex that phishing needs.
+
+  ⚠ EVERY LIVE CELL HAS THREE STATES, NEVER TWO: a value, "reading…", and a NAMED failure. An
+     em-dash under a live label is indistinguishable from a zero, a dead contract or a bug, and
+     this project has already had that exact defect reported from a phone.
+-->
+<style>
+  :root{
+    --bg:#07090c; --ink:#e8ede6; --dim:#8ea08c; --line:#1c2620;
+    --hot:#e0ff4f; --warn:#ffb648; --bad:#ff6b5e; --ok:#63e6a0;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono)}
+  body{padding:0 0 96px;-webkit-text-size-adjust:100%}
+  a{color:var(--hot)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+
+  header{border-bottom:1px solid var(--line);padding:22px 0 16px;margin-bottom:22px}
+  h1{font-size:clamp(19px,4.4vw,30px);letter-spacing:.10em;margin:0 0 6px;line-height:1.15}
+  h1 .b{color:var(--hot)}
+  .sub{color:var(--dim);font-size:var(--t-body,15px);line-height:1.55;max-width:64ch;margin:0}
+  .age{margin-top:14px;font-size:clamp(13px,2.6vw,15px);letter-spacing:.04em}
+  .age b{color:var(--hot)}
+  .age.stale b{color:var(--warn)}
+  .age.dead b{color:var(--bad)}
+
+  h2{font-size:13px;letter-spacing:.20em;color:var(--dim);margin:34px 0 12px;font-weight:600}
+  .grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+  .cell{border:1px solid var(--line);padding:12px 13px;background:#0a0e11}
+  .cell .k{font-size:12px;letter-spacing:.13em;color:var(--dim);margin-bottom:7px}
+  .cell .v{font-size:clamp(17px,3.4vw,23px);line-height:1.1;word-break:break-word}
+  .cell .n{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.4}
+  .v.miss{color:var(--bad);font-size:14px;line-height:1.35}
+
+  .scroll{overflow-x:auto;border:1px solid var(--line);background:#0a0e11}
+  table{border-collapse:collapse;width:100%;min-width:720px;font-size:13px}
+  th,td{padding:9px 11px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+  /* ⛔ 44px comes from the ANCHOR, not from a negative margin. Padding a link and cancelling it
+     with a negative margin is the standard trick and it makes the link UNPRESSABLE when rows
+     wrap — recorded in this repo after two prose links in a rules panel resolved to each other
+     under elementFromPoint. Here the anchor simply sets the row height. */
+  td a{display:inline-block;padding:12px 0;line-height:20px;text-decoration:none;min-width:44px}
+  td:first-child{padding-top:0;padding-bottom:0}
+  th{font-size:12px;letter-spacing:.13em;color:var(--dim);font-weight:600;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  tbody tr:last-child td{border-bottom:0}
+  .pos{color:var(--ok)} .neg{color:var(--bad)} .mut{color:var(--dim)}
+  /* a row that just moved lights briefly — the page is reading, and you can see which one changed.
+     ⚠ Colour only, never layout: a row that resizes on every tick makes the table unreadable. */
+  tbody tr.hot td{background:#111a12;transition:background .35s}
+  tbody tr td{transition:background 1.2s}
+  @media (prefers-reduced-motion:reduce){ tbody tr td{transition:none} }
+  .tag{font-size:12px;letter-spacing:.09em;padding:3px 7px;border:1px solid currentColor;display:inline-block}
+  .tag.no{color:var(--dim)} .tag.yes{color:var(--ok)} .tag.err{color:var(--bad)}
+
+  .note{border-left:2px solid var(--line);padding:2px 0 2px 15px;margin:16px 0;color:var(--dim);
+        font-size:var(--t-body,15px);line-height:1.65;max-width:72ch}
+  .note b{color:var(--ink)}
+  .note.hard{border-left-color:var(--bad)}
+  .note.key{border-left-color:var(--hot)}
+  footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);
+         font-size:var(--t-body,15px);line-height:2.1}
+  /* ⚠ 44px on BOTH axes — a thumb is round. Inline footer links are in a sentence, so they take
+     the WCAG 2.5.8 prose exemption on width and buy their height from the line-height above. */
+  footer a{display:inline-block;padding:9px 6px;min-width:44px;min-height:44px;line-height:26px;text-align:center}
+  footer a{color:var(--dim)}
+  @media (max-width:520px){ th,td{padding:9px 8px;font-size:12px} }
+
+  /* ── the size input: the one control that turns this page from a display into a tool ── */
+  .sz{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px}
+  .sz label{font-size:12px;letter-spacing:.18em;color:var(--dim)}
+  .szpre{color:var(--dim);margin-right:-6px}
+  .sz input{width:150px;min-height:44px;padding:10px 12px;font:inherit;font-size:17px;
+    color:var(--ink);background:#070a0d;border:1px solid var(--line);border-radius:3px}
+  .sz input:focus{outline:0;border-color:var(--hot)}
+  .szq{display:flex;gap:6px}
+  .szq button{min-height:44px;min-width:52px;padding:0 12px;font:inherit;font-size:13px;
+    letter-spacing:.08em;color:var(--dim);background:transparent;border:1px solid var(--line);
+    border-radius:3px;cursor:pointer}
+  .szq button:hover,.szq button:focus{color:var(--hot);border-color:var(--hot)}
+  .szt{width:100%;border-collapse:collapse;margin:14px 0 0;font-size:13px}
+  .szt th{text-align:left;font-weight:600;letter-spacing:.14em;font-size:11px;color:var(--dim);
+    border-bottom:1px solid var(--line);padding:8px 10px 8px 0}
+  .szt td{padding:9px 10px 9px 0;border-bottom:1px solid #121a15;vertical-align:baseline}
+  .szt td.big{font-size:16px}
+  .szt .gasheavy{color:var(--warn)}
+  @media(max-width:640px){ .szt{display:block;overflow-x:auto;white-space:nowrap} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>WORLD COMPUTER <span class="b">HYPERTERMINAL</span></h1>
+  <p class="sub">What a market costs before you trade it. Read from the chain, not from an index.</p>
+  <div class="age" id="age">reading&hellip;</div>
+</header>
+
+<h2>NOW</h2>
+<div class="grid" id="chains">
+  <div class="cell"><div class="k">ETHEREUM GAS</div><div class="v" id="l1gas">reading…</div><div class="n" id="l1note"></div></div>
+  <div class="cell"><div class="k">A SWAP COSTS</div><div class="v" id="l1swap">reading…</div><div class="n">180k gas, mainnet</div></div>
+  <div class="cell"><div class="k">BASE GAS</div><div class="v" id="bgas">reading…</div><div class="n" id="bnote"></div></div>
+  <div class="cell"><div class="k">BLOCK</div><div class="v" id="blk">reading…</div><div class="n" id="blknote"></div></div>
+</div>
+
+<h2>THE TOLL · WHAT IT COSTS <em>YOU</em></h2>
+<!-- ⛔ THIS PAGE ANSWERED NOBODY'S QUESTION. Artist, 2026-08-09: *"toll substrate and terminal seem
+     to be more gimmicky than tools."* Measured across the five surfaces — inputs a visitor can
+     actually type into: CHECK 2, TERMINAL 0, TOLL 0, PLATE 0, SUBSTRATE 2 (and those two only
+     drive a cipher demonstration). **Only CHECK asked you anything.** A tool takes your question;
+     everything else here displayed an answer to nobody's, at 1,035 words.
+     ⚑ AND THE ANSWER IT WITHHELD WAS ALREADY IN THE DATA. `roundTripPct` is 2 × fee — the FEE half
+     of the toll — and `chains.<chain>.swapUsd` is the gas half, and the page printed them in two
+     different sections and never added them. Gas is a FIXED dollar amount per trade, so the toll
+     as a PERCENTAGE is a function of your size and of nothing else: at $10 the gas is most of it,
+     at $10,000 it is a rounding error. **That number is different for every pool and nobody
+     publishes it.**
+     ⚠ The crossover is the honest headline: the size at which the fee half overtakes the gas half,
+     `2·swapUsd ÷ (roundTripPct/100)`. Below it you are mostly paying the network; above it you are
+     mostly paying the pool. It is derived, so it cannot drift from the two numbers it is made of. -->
+<div class="sz">
+  <label for="szIn">YOUR TRADE SIZE</label>
+  <span class="szpre">$</span><input id="szIn" type="text" inputmode="decimal" value="1000"
+    autocomplete="off" spellcheck="false" aria-label="trade size in dollars">
+  <span class="szq">
+    <button type="button" data-sz="25">25</button><button type="button" data-sz="100">100</button>
+    <button type="button" data-sz="1000">1k</button><button type="button" data-sz="10000">10k</button>
+  </span>
+</div>
+<div class="grid" id="toll"></div>
+<table class="szt" id="szBoard"><thead><tr><th>POOL</th><th>FEE</th><th>GAS</th>
+  <th>TOTAL ON YOUR SIZE</th><th>GAS STOPS DOMINATING AT</th></tr></thead><tbody></tbody></table>
+<div class="note">Toll is <b>2 × fee + 2 × gas</b>. Impact is zero at these sizes — the depth curve says so.
+Gas is fixed per trade, so it shrinks as a share of a bigger one. <a href="poolcheck.html">Check any pool →</a></div>
+
+<h2>LIVE · READ IN FRONT OF YOU</h2>
+<div class="grid" id="scanhead"></div>
+<div class="scroll" style="margin-top:10px">
+  <table id="scan">
+    <thead><tr>
+      <th>POOL</th><th>CHAIN</th><th>FEE</th><th>TOLL NOW</th><th>PRICE</th>
+      <th>Δ LAST</th><th>SEEN</th><th>MOVED / WATCHED</th><th>vs TOLL</th>
+    </tr></thead>
+    <tbody><tr><td colspan="9" class="mut">waiting for the screen&hellip;</td></tr></tbody>
+  </table>
+</div>
+<div class="note">Every pool's own <code>slot0</code>, one batched call per chain, every five seconds.
+<b>MOVED / WATCHED</b> is what this browser saw since you opened it — not extrapolated, and muted until it
+has eight readings across five minutes.</div>
+
+<h2>CAN IT BE TRADED AT ALL</h2>
+<div class="scroll">
+  <table id="ladder">
+    <thead><tr>
+      <th>POOL</th><th>CHAIN</th><th>FEE</th><th>TOLL</th><th>15m</th><th>1h</th><th>4h</th><th>TRADEABLE FROM</th>
+    </tr></thead>
+    <tbody><tr><td colspan="8" class="mut">reading…</td></tr></tbody>
+  </table>
+</div>
+<div class="note">Average move ÷ that pool's own toll. Above <b>1.00</b> a perfect forecaster breaks even;
+below it <b>nobody</b> makes money at any skill level. ⚠ Necessary, not sufficient — an average move is
+symmetric and a coin flip collects none of it.</div>
+
+<h2>$3030</h2>
+<div class="grid" id="ours"></div>
+
+<h2>THE HUNT · PAPER RECORD, PUBLISHED EITHER WAY</h2>
+<div class="grid" id="hunt"></div>
+<div class="note">Backtested rules with no forward track record — this ledger is that record being built in
+public. A screen that always finds something is fitting noise; the value is the days it says nothing.</div>
+
+<h2>FLOW VS PRICE</h2>
+<div class="scroll">
+  <table id="board">
+    <thead><tr>
+      <th>POOL</th><th>TYPE</th><th>ROUND TRIP</th><th>BEST</th><th>CORR</th>
+      <th>SPREAD</th><th>TRIM 5%</th><th>WINDOWS</th><th>VERDICT</th>
+    </tr></thead>
+    <tbody><tr><td colspan="9" class="mut">reading…</td></tr></tbody>
+  </table>
+</div>
+<div class="note hard">⛔ <b>The trim is the test that kills things.</b> A spread is an average, so a handful
+of violent windows can carry all of it. One pool here read <b>+1.05pp</b> and looked tradeable; dropping the
+largest 5% of moves took it to <b>+0.38pp</b>.</div>
+
+<div class="note">Flow is measured as <b>balance delta</b>, not "buys" — under v4 a swap settles through a
+singleton, so classifying transfers needs a list of every router and is wrong the day a new one ships.
+Price comes from the pool's own events. Every live cell has three states: a value, reading, and a named
+failure — never a dash.</div>
+
+<footer>
+  <b>ripmaster3030studios</b> · a card and game studio ·
+  <a href="/">home</a> · <a href="/poolcheck.html">pool check</a> · <a href="/arcade.html">arcade</a> ·
+  <a href="/tokenomics.html">tokenomics</a> · <a href="https://x.com/RipMaster3030">@RipMaster3030</a><br>
+  Not financial advice. $3030 is an experimental art token and can go to zero. The screen is a measurement
+  of the past.
+</footer>
+</div>
+
+<script src="js/chain-config.js"></script>
+<script src="theme.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var CFG = window.RIPMASTER_CHAIN || {};
+  var RPCS = (CFG.rpcs || []).slice();
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (n, d) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: d == null ? 2 : d }); };
+
+  /* ⚠ Walk the list and RACE nothing — a stalled endpoint must not hold the page. AbortController
+     rather than AbortSignal.timeout, which is too new to assume. */
+  function rpc(method, params) {
+    var i = 0;
+    function attempt() {
+      if (i >= RPCS.length) return Promise.reject(new Error('no endpoint answered'));
+      var url = RPCS[i++], ctl = new AbortController();
+      var t = setTimeout(function () { ctl.abort(); }, 4000);
+      return fetch(url, { method: 'POST', signal: ctl.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: method, params: params }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { clearTimeout(t); if (j.error || j.result == null) throw new Error('rpc'); return j.result; })
+        .catch(function () { clearTimeout(t); return attempt(); });
+    }
+    return attempt();
+  }
+  var miss = function (el, why) { el.className = 'v miss'; el.textContent = why; };
+  /* ⛔ RETRYING AND ADMITTING FAILURE ARE TWO DIFFERENT SCHEDULES. Four endpoints at 4s each is
+     sixteen seconds of "reading…", which is indistinguishable from a hung page — this studio has
+     already had that reported from a phone. So the label tells the truth at 9s and the reads carry
+     on underneath it; a later success simply overwrites the message. Admitting failure costs
+     nothing and the tile still heals. */
+  var settled = {};
+  var say = function (el, txt) { if (!settled[el.id]) { el.className = 'v miss'; el.textContent = txt; } };
+  var done = function (el, txt) { settled[el.id] = 1; el.className = 'v'; el.textContent = txt; };
+  setTimeout(function () {
+    ['l1gas', 'l1swap', 'blk', 'bgas'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && /reading/.test(el.textContent)) say(el, 'slow — still trying');
+    });
+  }, 9000);
+
+  /* ── live: gas, block ──
+     ⚑ GAS IS NOT DECORATION HERE, IT IS A TERM IN EVERY VERDICT BELOW. A swap is ~150k gas and a
+        round trip is two of them, so on a $19 notional the gas half of the toll is the same order
+        as the fee half — and at $190 it is a tenth of that. The toll table and the scan both read
+        these two numbers, which is why they are computed once and published on GAS. */
+  var GAS = { l1: null, base: null, ethUsd: 1914.72 };
+  var GAS_UNITS = 150000;
+  var gasWaiters = [];
+  function onGas(f) { gasWaiters.push(f); if (GAS.l1 != null) f(); }
+  function gasReady() { gasWaiters.forEach(function (f) { try { f(); } catch (e) {} }); }
+
+  Promise.all([rpc('eth_gasPrice', []), rpc('eth_getBlockByNumber', ['latest', false])]).then(function (r) {
+    var gwei = parseInt(r[0], 16) / 1e9;
+    GAS.l1 = gwei;
+    done($('l1gas'), gwei.toFixed(3) + ' gwei');
+    var used = parseInt(r[1].gasUsed, 16), lim = parseInt(r[1].gasLimit, 16);
+    $('l1note').textContent = (100 * used / lim).toFixed(0) + '% full · base ' + (parseInt(r[1].baseFeePerGas || '0x0', 16) / 1e9).toFixed(3);
+    done($('blk'), parseInt(r[1].number, 16).toLocaleString());
+    $('blknote').textContent = 'ethereum mainnet';
+    done($('l1swap'), '$' + (gwei * 1e-9 * 180000 * GAS.ethUsd).toFixed(4));
+    gasReady(); paintToll();
+  }).catch(function () {
+    miss($('l1gas'), 'chain unreachable from here');
+    miss($('l1swap'), 'chain unreachable from here');
+    miss($('blk'), 'chain unreachable from here');
+    paintToll();
+  });
+
+  fetch('https://mainnet.base.org', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_gasPrice', params: [] }) })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var g = parseInt(j.result, 16) / 1e9;
+      GAS.base = g;
+      done($('bgas'), g.toFixed(6) + ' gwei');
+      $('bnote').textContent = 'a swap ≈ $' + (g * 1e-9 * 180000 * GAS.ethUsd).toFixed(6);
+      gasReady(); paintToll();
+    })
+    .catch(function () { miss($('bgas'), 'base unreachable from here'); paintToll(); });
+
+  /* round-trip gas as a % of notional: two swaps, fixed cost, so it SHRINKS with size */
+  function gasPct(chain, stakeEth) {
+    var g = chain === 'base' ? GAS.base : GAS.l1;
+    if (g == null) return null;
+    return (2 * g * 1e-9 * GAS_UNITS / stakeEth) * 100;
+  }
+  function tollPct(chain, feeBps, stakeEth) {
+    var gp = gasPct(chain, stakeEth);
+    return gp == null ? null : (feeBps / 100) * 2 + gp;      // feeBps is in basis points ×100
+  }
+
+  /* ── THE TOLL, LIVE ────────────────────────────────────────────────────────────────────────
+     ⛔ THE POINT OF THIS PANEL IS THAT THE ANSWER DEPENDS ON THE SIZE, and nobody ever says so.
+        Gas is fixed per trade, so it is a percentage that falls as the trade grows: the same pool
+        that cannot be traded at $19 is fine at $190 for no reason except arithmetic. Showing one
+        stake would hide the only lever the operator actually controls. */
+  function paintToll() {
+    var el = $('toll'); if (!el) return;
+    var mk = function (k, v, n, bad) {
+      return '<div class="cell"><div class="k">' + k + '</div><div class="v' + (bad ? ' miss' : '') + '">' +
+        v + '</div><div class="n">' + n + '</div></div>';
+    };
+    var g1 = gasPct('ethereum', 0.01), gb = gasPct('base', 0.01);
+    var g1b = gasPct('ethereum', 0.1);
+    var out = '';
+    out += g1 == null
+      ? mk('GAS · $19 TRADE', 'ethereum unreachable', 'the toll cannot be computed without it', 1)
+      : mk('GAS · $19 TRADE', g1.toFixed(3) + '%', 'ethereum, round trip, 2 × 150k gas');
+    out += g1b == null
+      ? mk('GAS · $190 TRADE', 'ethereum unreachable', 'same reason', 1)
+      : mk('GAS · $190 TRADE', g1b.toFixed(3) + '%', 'ten times the size, a tenth of the gas cost');
+    out += gb == null
+      ? mk('GAS · BASE, $19', 'base unreachable', 'named, never a dash', 1)
+      : mk('GAS · BASE, $19', gb.toFixed(3) + '%', 'why the arcade already takes Base ETH');
+    if (g1 != null) {
+      /* the cheapest fee tier whose toll a 1h move could plausibly clear is a DERIVED fact, so it
+         is labelled as arithmetic rather than as advice */
+      out += mk('0.05% POOL, $19', ((0.05 * 2) + g1).toFixed(3) + '%', 'fee 0.100% + gas ' + g1.toFixed(3) + '%');
+      out += mk('0.30% POOL, $19', ((0.30 * 2) + g1).toFixed(3) + '%', 'fee 0.600% + gas ' + g1.toFixed(3) + '%');
+    }
+    el.innerHTML = out;
+  }
+  paintToll();
+
+  /* ══ THE LIVE SCAN ═══════════════════════════════════════════════════════════════════════════
+     ⛔ THE PAGE MEASURES, IT DOES NOT REPLAY. Everything else here is a snapshot with a timestamp
+        on it; this rotates through the pools reading each one's own `slot0` and accumulates what
+        it sees, so MOVED/HOUR is a statistic THIS BROWSER produced starting when the tab opened.
+     ⚠ IT IS A LOWER BOUND AND IT SAYS SO. Sampling every few seconds cannot see the wiggles
+        between samples, so the true movement is always at least this. An undercount that is
+        labelled an undercount is useful; one that is presented as the truth is not.
+     ⚠ AND TWO READINGS ARE NOT A STATISTIC. The rate column stays muted until it has six, because
+        "moved 4%/hour" off one pair of samples is noise wearing a decimal point — this project has
+        been bitten three separate times by a number that is trivially true of a tiny sample. */
+  var BASE_RPCS = ['https://mainnet.base.org', 'https://base.drpc.org'];
+  var SLOT0 = '0x3850c7bd', DECIMALS = '0x313ce567';
+  var scan = [], scanAt = 0, scanErrs = 0, scanOk = 0, startedAt = Date.now();
+
+  /* ⛔ ONE REQUEST PER CHAIN PER SWEEP, NOT ONE PER POOL. Rotating pool-by-pool at 2.6 s meant a
+     14-pool board took 36 seconds to come round, so every row sat on "1/6 samples" for four
+     minutes and the live column — the entire point of the panel — was empty for most of a visit.
+     JSON-RPC takes an ARRAY of calls, so a whole chain is one POST. ⚑ It is also the courteous
+     shape: fourteen requests every few seconds to a free public endpoint is how a page gets rate
+     limited into looking broken.
+     ⚠ Batching is not universal, so a failed batch falls back to single calls rather than blanking
+     the board — a page that only works against a generous endpoint is a page that mostly does not. */
+  function endpointsFor(chain) { return chain === 'base' ? BASE_RPCS : RPCS; }
+  function post(url, payload, ms) {
+    var ctl = new AbortController();
+    var t = setTimeout(function () { ctl.abort(); }, ms || 5000);
+    return fetch(url, { method: 'POST', signal: ctl.signal, headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { clearTimeout(t); return j; })
+      .catch(function (e) { clearTimeout(t); throw e; });
+  }
+  /* returns an array of results (or null per entry) aligned with `calls` */
+  function batchCall(chain, calls) {
+    var eps = endpointsFor(chain), i = 0;
+    function go() {
+      if (i >= eps.length) return Promise.reject(new Error('no endpoint answered'));
+      var url = eps[i++];
+      var payload = calls.map(function (c, k) {
+        return { jsonrpc: '2.0', id: k + 1, method: 'eth_call', params: [{ to: c.to, data: c.data }, 'latest'] };
+      });
+      return post(url, payload, 6000).then(function (j) {
+        if (!Array.isArray(j)) throw new Error('not a batch');
+        var out = new Array(calls.length).fill(null);
+        j.forEach(function (r) { var k = (r && r.id ? r.id : 0) - 1; if (k >= 0 && r && !r.error) out[k] = r.result; });
+        return out;
+      }).catch(function () { return go(); });
+    }
+    return go().catch(function () {
+      /* single-call fallback, same endpoints, so one ungenerous provider is not the end of it */
+      return Promise.all(calls.map(function (c) {
+        var k = 0;
+        function one() {
+          if (k >= eps.length) return null;
+          return post(eps[k++], { jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: c.to, data: c.data }, 'latest'] }, 5000)
+            .then(function (j) { return (j && !j.error && j.result != null) ? j.result : one(); })
+            .catch(function () { return one(); });
+        }
+        return one();
+      }));
+    });
+  }
+  /* ⚠ THE TICK IS A SIGNED 24-BIT FIELD inside a 32-byte word. Reading it unsigned turns every
+     price below 1.0 into about 1.7e7 and the whole table reports nonsense with total confidence —
+     the exact defect this repo hit once already in `npm run mm`. */
+  function tickFrom(hex) {
+    var w = hex.slice(2 + 64, 2 + 128);
+    var t = parseInt(w.slice(-6), 16);
+    if (t >= 0x800000) t -= 0x1000000;
+    return t;
+  }
+  var pctBetween = function (a, b, quoteIs0) {
+    var p = (Math.pow(1.0001, b - a) - 1) * 100;
+    return quoteIs0 ? -p : p;                  // quote as currency0 ⇒ a higher tick is a CHEAPER token
+  };
+
+  function paintScan() {
+    var head = $('scanhead');
+    if (head) {
+      var mins = (Date.now() - startedAt) / 60000;
+      var cur = scan[scanAt % (scan.length || 1)];
+      head.innerHTML =
+        '<div class="cell"><div class="k">SCANNING</div><div class="v" style="font-size:16px">' +
+        (scan.length ? (sweeping ? '▸ sweeping…' : '· sweep ' + scanAt) : 'no screen loaded') +
+        '</div><div class="n">' + scan.length + ' pools, one batched call per chain</div></div>' +
+        '<div class="cell"><div class="k">READS</div><div class="v">' + scanOk + '</div><div class="n">' +
+        (scanErrs ? scanErrs + ' failed — named, not hidden' : 'no failures') + '</div></div>' +
+        '<div class="cell"><div class="k">WATCHING FOR</div><div class="v">' +
+        (mins < 1 ? Math.round(mins * 60) + 's' : mins.toFixed(1) + 'm') +
+        '</div><div class="n">this browser, this session</div></div>';
+    }
+    var tb = $('scan') && $('scan').querySelector('tbody'); if (!tb) return;
+    if (!scan.length) { tb.innerHTML = '<tr><td colspan="9" class="mut">no screen loaded — run npm run edge</td></tr>'; return; }
+    tb.innerHTML = scan.map(function (p) {
+      var toll = tollPct(p.chain, p.feeBps, 0.01);
+      var seen = p.at ? Math.round((Date.now() - p.at) / 1000) + 's' : '—';
+      var d = p.dLast == null ? '<span class="mut">—</span>'
+        : '<span class="' + (p.dLast > 0 ? 'pos' : p.dLast < 0 ? 'neg' : 'mut') + '">' +
+          (p.dLast > 0 ? '+' : '') + p.dLast.toFixed(4) + '%</span>';
+      /* ⛔ DO NOT EXTRAPOLATE. The first version divided the movement seen so far by the elapsed
+         hours and printed "1142%/hour" off forty-four seconds of watching — a 100× extrapolation
+         dressed as a measurement, and it would have been the largest number on the page. What is
+         actually known is: how far this pool moved, over exactly this long. So that is what it
+         says, and the comparison is dimensionless — the observed movement against the toll, which
+         needs no assumption about the future at all.
+         ⚠ Both a sample floor AND a TIME floor: eight readings inside twenty seconds still tell
+         you nothing about a market, and a count alone cannot see that. */
+      var mins = p.obs > 1 ? (p.lastAt - p.firstAt) / 60000 : 0;
+      var ripe = p.obs >= 8 && mins >= 5;
+      var rateCell = !ripe
+        ? '<span class="mut">' + (p.obs || 0) + '/8 · ' + (mins < 1 ? Math.round(mins * 60) + 's' : mins.toFixed(0) + 'm') + '/5m</span>'
+        : p.absMove.toFixed(3) + '% <span class="mut">/ ' + (mins < 60 ? mins.toFixed(0) + 'm' : (mins / 60).toFixed(1) + 'h') + '</span>';
+      var vs = (!ripe || toll == null) ? '<span class="mut">—</span>'
+        : (p.absMove / toll >= 1 ? '<span class="tag yes">' + (p.absMove / toll).toFixed(2) + '×</span>'
+                                 : '<span class="tag no">' + (p.absMove / toll).toFixed(2) + '×</span>');
+      var hot = p.flash && (Date.now() - p.flash) < 2200;
+      return '<tr' + (hot ? ' class="hot"' : '') + '><td>' + p.sym + ' <span class="mut">' + p.dex + '</span></td>' +
+        '<td class="mut">' + p.chain + '</td>' +
+        '<td>' + (p.feeBps / 100).toFixed(3) + '%</td>' +
+        '<td>' + (toll == null ? '<span class="mut">gas unread</span>' : toll.toFixed(3) + '%') + '</td>' +
+        '<td>' + (p.err ? '<span class="neg">' + p.err + '</span>' : p.tick == null ? '<span class="mut">…</span>' : 'tick ' + p.tick) + '</td>' +
+        '<td>' + d + '</td><td class="mut">' + seen + '</td>' +
+        '<td>' + rateCell + '</td><td>' + vs + '</td></tr>';
+    }).join('');
+  }
+
+  var sweeping = false;
+  function step() {
+    if (!scan.length || sweeping) return;
+    sweeping = true; scanAt++;
+    var byChain = {};
+    scan.forEach(function (p) { (byChain[p.chain] = byChain[p.chain] || []).push(p); });
+    var jobs = Object.keys(byChain).map(function (ch) {
+      var ps = byChain[ch];
+      return batchCall(ch, ps.map(function (p) { return { to: p.pool, data: SLOT0 }; }))
+        .then(function (res) {
+          var now = Date.now();
+          ps.forEach(function (p, k) {
+            var hex = res[k];
+            if (!hex || hex.length < 130) {
+              /* ⚠ A FAILED READ IS NOT A FLAT PRICE. Left unmarked, a dead endpoint reads as the
+                 calmest market on the board — which is the shape of wrong answer this whole page
+                 exists to refuse. */
+              p.err = 'read failed'; scanErrs++; return;
+            }
+            var t = tickFrom(hex);
+            if (p.tick != null) {
+              var mv = pctBetween(p.tick, t, p.quoteIs0);
+              p.dLast = mv;
+              p.absMove = (p.absMove || 0) + Math.abs(mv);
+              if (mv !== 0) p.flash = now;
+            }
+            if (p.firstAt == null) p.firstAt = now;
+            p.lastAt = now; p.at = now; p.tick = t; p.obs = (p.obs || 0) + 1; p.err = null;
+            scanOk++;
+          });
+        })
+        .catch(function () { ps.forEach(function (p) { p.err = 'chain unreachable'; }); scanErrs++; });
+    });
+    Promise.all(jobs).then(function () { sweeping = false; paintScan(); });
+  }
+
+  /* Load both chains' screens and start rotating. ⚠ Fails open: no file ⇒ the panel says so and
+     every other panel on the page is untouched. */
+  Promise.all(['data/edge-ethereum.json', 'data/edge-base.json'].map(function (u) {
+    return fetch(u, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  })).then(function (fs) {
+    fs.forEach(function (d) {
+      if (!d || !d.rows) return;
+      d.rows.filter(function (r) { return r.crossMin != null; })
+        .sort(function (a, b) { return b.ratio - a.ratio; })
+        .slice(0, 7)
+        .forEach(function (r) {
+          scan.push({ sym: r.sym, dex: r.dex, pool: r.pool, chain: d.chain, feeBps: r.feeBps,
+            quoteIs0: !!r.quoteIs0, tick: null, obs: 0, absMove: 0 });
+        });
+    });
+    paintScan();
+    if (scan.length) { step(); setInterval(step, 5000); setInterval(paintScan, 1000); }
+
+    /* ── the horizon ladder, from the same two files ── */
+    var lb = $('ladder') && $('ladder').querySelector('tbody'); if (!lb) return;
+    var all = [];
+    fs.forEach(function (d) { if (d && d.rows) d.rows.forEach(function (r) { all.push({ r: r, chain: d.chain }); }); });
+    if (!all.length) {
+      lb.innerHTML = '<tr><td colspan="8" class="v miss">no screen published yet — run <code>npm run edge</code></td></tr>';
+      return;
+    }
+    all.sort(function (a, b) { return b.r.ratio - a.r.ratio; });
+    var at = function (r, m) { var x = (r.ladder || []).filter(function (l) { return l.min === m; })[0]; return x && x.ratio != null ? x.ratio : null; };
+    var cell = function (v) {
+      if (v == null) return '<span class="mut">·</span>';
+      return '<span class="' + (v >= 1 ? 'pos' : 'mut') + '">' + v.toFixed(2) + '</span>';
+    };
+    lb.innerHTML = all.slice(0, 22).map(function (x) {
+      var r = x.r;
+      var from = r.crossMin == null ? '<span class="tag no">never measured</span>'
+        : '<span class="tag yes">' + (r.crossMin >= 60 ? (r.crossMin / 60) + 'h' : r.crossMin + 'm') + '</span>';
+      return '<tr><td>' + r.sym + ' <span class="mut">' + r.dex + '</span></td>' +
+        '<td class="mut">' + x.chain + '</td>' +
+        '<td>' + (r.feeBps / 100).toFixed(3) + '%</td>' +
+        '<td>' + r.costPct.toFixed(3) + '%</td>' +
+        '<td>' + cell(at(r, 15)) + '</td><td>' + cell(at(r, 60)) + '</td><td>' + cell(at(r, 240)) + '</td>' +
+        '<td>' + from + '</td></tr>';
+    }).join('');
+  });
+
+  /* ── the measured dataset ── */
+  fetch('data/terminal.json', { cache: 'no-cache' }).then(function (r) {
+    if (!r.ok) throw new Error('missing'); return r.json();
+  }).then(function (d) {
+    var mins = (Date.now() - new Date(d.measuredAt).getTime()) / 60000;
+    var age = $('age');
+    var when = mins < 90 ? Math.round(mins) + ' minutes ago'
+      : mins < 2880 ? (mins / 60).toFixed(1) + ' hours ago' : (mins / 1440).toFixed(1) + ' days ago';
+    /* ⚠ "measured" covers the $3030 panel AND the pool screen — both come from this snapshot.
+       Only the CHAIN CONDITIONS row is live. Saying "pool screen" alone would let a reader assume
+       the token figures were current, which is the quiet kind of wrong. */
+    age.innerHTML = 'snapshot measured <b>' + when + '</b> · block ' + d.block.toLocaleString() +
+      ' · ' + d.days + '-day window · chain conditions above are live';
+    /* ⛔ A dashboard whose age is invisible lies quietly the first time the cron stops. */
+    if (mins > 1440) age.className = 'age dead';
+    else if (mins > 240) age.className = 'age stale';
+
+    var o = d.ours || {};
+    var cells = o.err ? [['$3030', 'unreadable: ' + o.err, '']] : [
+      ['SUPPLY', fmt(o.totalSupply, 0), 'of ' + fmt(o.maxSupply, 0) + ' max'],
+      ['BURNED', fmt(o.burned, 0), 'permanent, from packs'],
+      ['STILL IN THE CURVE', o.inPool ? (100 - o.reachedHolders).toFixed(2) + '%' : '—', 'unsold inventory, not liquidity'],
+      ['REACHED HOLDERS', o.reachedHolders + '%', 'what has actually left the curve'],
+      ['TREASURY', fmt(o.treasury, 0), 'cold, receive-only'],
+    ];
+    $('ours').innerHTML = cells.map(function (c) {
+      return '<div class="cell"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+        '</div><div class="n">' + c[2] + '</div></div>';
+    }).join('');
+
+    /* ── the paper record ── */
+    fetch('data/hunt.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (h) {
+        var el = $('hunt'); if (!el) return;
+        if (!h) { el.innerHTML = '<div class="cell"><div class="k">RECORD</div><div class="v miss">' +
+          'ledger not published yet</div><div class="n">run npm run hunt</div></div>'; return; }
+        var closed = h.closed || [], win = closed.filter(function (t) { return t.pnlPct > 0; });
+        var days = (Date.now() - new Date(h.startedAt).getTime()) / 86400000;
+        var avg = closed.length ? closed.reduce(function (a, t) { return a + t.pnlPct; }, 0) / closed.length : 0;
+        /* ⛔ WIN RATE OF ZERO TRADES IS NOT 0%, IT IS UNDEFINED. Printing "0% win" on an empty
+           ledger reads as a losing bot rather than a patient one, and this project has been bitten
+           three times by a statistic that is trivially true of an empty set. */
+        var cells = [
+          ['CLOSED TRADES', closed.length, days.toFixed(1) + ' days live'],
+          ['WIN RATE', closed.length ? (win.length / closed.length * 100).toFixed(1) + '%' : 'no trades yet',
+            closed.length ? win.length + ' of ' + closed.length : 'the screen has passed nothing'],
+          ['AVERAGE TRADE', closed.length ? (avg >= 0 ? '+' : '') + avg.toFixed(2) + '%' : '—',
+            'after the pool round trip'],
+          ['OPEN NOW', (h.open || []).length, (h.open || []).map(function (o) { return o.name; }).join(' ') || 'flat'],
+          ['SWEPT TO TREASURY', (h.sweptEth || 0).toFixed(5) + ' ETH', 'half of every realised win, one-way'],
+        ];
+        el.innerHTML = cells.map(function (c) {
+          return '<div class="cell"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+            '</div><div class="n">' + c[2] + '</div></div>'; }).join('');
+      }).catch(function () {});
+
+    /* ── ⛔ WHAT IT COSTS YOU — the toll's two halves, finally added together ─────────────
+     * `roundTripPct` is 2 × fee and scales with your size; `swapUsd` is the gas for ONE swap and
+     * does not. Printing them in separate sections let a reader assume the published percentage
+     * was the whole toll. On a $25 trade through a 0.30% pool it is less than half of it.
+     * ⚠ Sorted by TOTAL COST ON YOUR SIZE, not by fee. ⛔ I WROTE HERE THAT THE ORDER CHANGES AS
+     *   YOU TYPE AND THE DATA SAYS IT DOES NOT — every row on today's board is on Ethereum, so the
+     *   gas term is the same constant for all of them and the ranking stays fee-ordered at every
+     *   size. It reorders only across CHAINS, where Base gas is ~17x cheaper. Corrected rather than
+     *   left, because a comment that promises a behaviour the page does not show is the note-that-
+     *   describes-a-mechanism-nobody-built failure, and this repo has paid for it twice today.
+     * ⚑ THE REAL FINDING IS THE PERCENTAGE, AND IT IS BIG: the same 0.05% pool costs **0.38% of a
+     *   $25 trade and 0.11% of a $1,000 one** — nearly 4x the published fee at the small size,
+     *   because the gas half is larger than the fee half there. That is the number a reader cannot
+     *   get from the fee column and could not get anywhere on this page before.
+     * ⚠ The gas figure comes from the row's own chain, never a single global — Base gas is ~17×
+     *   cheaper than Ethereum's here, so one number would be wrong for most of the board. */
+    function costs() {
+      var raw = String(($('szIn') || {}).value || '').replace(/[^0-9.]/g, '');
+      var size = Number(raw);
+      var body = $('szBoard').querySelector('tbody');
+      if (!(size > 0)) {                     /* named, never a dash — the page's own standing rule */
+        body.innerHTML = '<tr><td colspan="5" class="mut">enter a size above and this fills in</td></tr>';
+        return;
+      }
+      var rows = (d.board || []).filter(function (r) { return !r.err && r.roundTripPct != null; })
+        .map(function (r) {
+          var ch = (d.chains || {})[r.chain || 'ethereum'] || (d.chains || {}).ethereum || {};
+          var gas = 2 * Number(ch.swapUsd || 0);          /* a round trip is two swaps */
+          var fee = size * (r.roundTripPct / 100);
+          var tot = fee + gas;
+          return { r: r, gas: gas, fee: fee, tot: tot, pct: 100 * tot / size,
+                   /* the size at which the fee half overtakes the gas half */
+                   cross: r.roundTripPct > 0 ? gas / (r.roundTripPct / 100) : Infinity };
+        }).sort(function (a, b) { return a.tot - b.tot; });
+      var usd = function (v) { return '$' + (v < 1 ? v.toFixed(3) : v.toFixed(2)); };
+      body.innerHTML = rows.map(function (x) {
+        var heavy = x.gas > x.fee;
+        return '<tr><td>' + x.r.name + '</td>' +
+          '<td class="mut">' + usd(x.fee) + '</td>' +
+          '<td class="' + (heavy ? 'gasheavy' : 'mut') + '">' + usd(x.gas) + (heavy ? ' ◂ more than the fee' : '') + '</td>' +
+          '<td class="big"><b>' + usd(x.tot) + '</b> <span class="mut">' + x.pct.toFixed(2) + '% of your trade</span></td>' +
+          '<td class="mut">' + (isFinite(x.cross) ? usd(x.cross) : 'never') + '</td></tr>';
+      }).join('') || '<tr><td colspan="5" class="mut">no pools measured</td></tr>';
+    }
+    if ($('szIn')) {
+      $('szIn').addEventListener('input', costs);
+      var q = document.querySelector('.szq');
+      if (q) q.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-sz]'); if (!b) return;
+        $('szIn').value = b.getAttribute('data-sz'); costs();
+      });
+      costs();
+    }
+
+    var tb = $('board').querySelector('tbody');
+    tb.innerHTML = (d.board || []).map(function (r) {
+      if (r.err) return '<tr><td>' + r.name + '</td><td colspan="7" class="mut">' + r.err +
+        '</td><td><span class="tag err">UNMEASURED</span></td></tr>';
+      var hs = (r.horizons || []).filter(function (h) { return !h.thin && h.spread != null; });
+      var b = hs.slice().sort(function (x, y) { return (y.trim5 == null ? -9 : y.trim5) - (x.trim5 == null ? -9 : x.trim5); })[0];
+      if (!b) return '<tr><td>' + r.name + '</td><td colspan="7" class="mut">too few windows</td>' +
+        '<td><span class="tag err">UNMEASURED</span></td></tr>';
+      var sc = function (v) { return '<span class="' + (v > 0 ? 'pos' : v < 0 ? 'neg' : 'mut') + '">' +
+        (v > 0 ? '+' : '') + Number(v).toFixed(3) + 'pp</span>'; };
+      return '<tr><td><a href="https://dexscreener.com/ethereum/' + r.pool + '" style="color:inherit">' +
+        r.name + '</a> <span class="mut">' + (r.sym || '') + '</span></td>' +
+        '<td>' + r.kind + '</td><td>' + r.roundTripPct.toFixed(2) + '%</td>' +
+        '<td>' + b.min + 'm</td>' +
+        '<td class="' + (b.corr > 0 ? 'pos' : 'neg') + '">' + (b.corr > 0 ? '+' : '') + b.corr + '</td>' +
+        '<td>' + sc(b.spread) + '</td><td>' + (b.trim5 == null ? '<span class="mut">n/a</span>' : sc(b.trim5)) + '</td>' +
+        '<td class="mut">' + b.n + '</td>' +
+        '<td>' + (r.tradeable ? '<span class="tag yes">CLEARS</span>' : '<span class="tag no">NO EDGE</span>') + '</td></tr>';
+    }).join('') || '<tr><td colspan="9" class="mut">no pools measured</td></tr>';
+  }).catch(function () {
+    /* ⚠ Named, never a dash. */
+    $('age').innerHTML = '<b>the measured dataset could not be loaded</b> — run <code>npm run terminal</code>';
+    $('age').className = 'age dead';
+    $('ours').innerHTML = '<div class="cell"><div class="v miss">dataset missing</div></div>';
+    $('board').querySelector('tbody').innerHTML =
+      '<tr><td colspan="9" class="v miss">dataset missing — the live cells above still work</td></tr>';
+  });
+})();
+</script>
+</body>
+</html>

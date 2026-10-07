@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ripmaster3030studios &#183; prince prince &#183; №22</title>
+<meta name="robots" content="noindex">
+<!-- HERO LENS 22. Framed by the token's animation_url. Stands alone: no gate, no
+     storage, no parent-window assumptions. The BASE art is the IPFS-pinned asset that also
+     sits in the metadata as image — this page is how it is displayed, not where it lives. -->
+<style>
+  /* ⚑ THE STARFIELD, lifted from the folder's viewer and the pack rip UNCHANGED — opening a
+     card from the folder, pulling one from a pack, and meeting one in the token's media slot
+     should be the same event. Plain 2D on purpose: this page also runs the press's WebGL
+     context, and a full-screen bloom chain behind the subject is the most expensive thing here
+     by a wide margin. */
+  .warp{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;display:block}
+  .scene{z-index:1}
+  /* The press mounts here — a sibling laid over the card's box, never a child of .card, which
+     carries its own rotateY/rotateX. A canvas inside it would be turned twice. */
+  #cvStage{position:absolute;inset:0;z-index:2;opacity:0;pointer-events:none;
+           transition:opacity .25s ease-out}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;
+    font-family:'Courier New',ui-monospace,monospace;-webkit-text-size-adjust:100%}
+  body{display:flex;align-items:center;justify-content:center;perspective:1200px}
+  /* Lock 2:3 and fit whatever frames us. Which side binds depends on the FRAME's aspect —
+     height:100% together with max-width:100% is the trap: the clamp wins, aspect-ratio
+     yields, and the card stretches (0.571 instead of 0.667 in a 320x560 slot). */
+  .scene{position:relative;aspect-ratio:2/3;margin:auto}
+  @media (min-aspect-ratio:2/3){ .scene{height:100%;width:auto} }
+  @media (max-aspect-ratio:2/3){ .scene{width:100%;height:auto} }
+  @supports not (aspect-ratio:2/3){ .scene{height:100%;width:66.667vh;max-width:100%} }
+  .card{position:absolute;inset:0;transform-style:preserve-3d;cursor:pointer;
+    transition:transform .6s cubic-bezier(.5,1.4,.4,1);
+    transform:rotateY(calc(var(--px,0)*13deg + var(--flip,0deg))) rotateX(calc(var(--py,0)*-13deg))}
+  .card.flipped{--flip:180deg}
+  .face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    border-radius:14px;overflow:hidden;background:#000;box-shadow:0 18px 44px -12px #000}
+  .back{transform:rotateY(180deg)}
+  /* ---- front: base art, then the artist's extra layers on top ---- */
+  .front>img.base{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .layers{position:absolute;inset:0}
+  .foil{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+    background:linear-gradient(115deg,transparent 34%,rgba(120,255,200,.30) 46%,rgba(255,120,220,.26) 54%,transparent 66%);
+    transform:translateX(calc(var(--px,0)*7%))}
+  .glare{position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;opacity:.4;
+    background:radial-gradient(38% 26% at calc(50% + var(--px,0)*32%) calc(38% + var(--py,0)*30%),rgba(255,255,255,.6),transparent 70%)}
+  /* offline / gateway-dead: never a blank card, always a legible one */
+  .miss{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+    padding:8%;color:#8fe6bd;font-size:3.4cqw;background:repeating-linear-gradient(45deg,#06140d,#06140d 8px,#04100a 8px,#04100a 16px)}
+  .front.dead .miss{display:flex}
+  /* ---- back: the stats plate, self-contained (no external images) ---- */
+  .back{background:#e9dfc4;color:#221a08}
+  .plate{position:absolute;inset:3.5%;border:2px solid #221a08;border-radius:7px;padding:4% 5%;
+    display:flex;flex-direction:column;gap:2.4%;background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,.028) 0 2px,transparent 2px 4px),#f3ead2}
+  .bt{font-family:'Arial Black',Arial,sans-serif;font-size:5.4cqw;line-height:1.05;text-transform:uppercase}
+  .bteam{font-size:2.7cqw;letter-spacing:.18em;text-transform:uppercase;color:#6b5312}
+  .brule{height:2px;background:#221a08;opacity:.75}
+  .vit{display:grid;grid-template-columns:1fr 1fr;gap:1.5% 5%;font-size:3cqw}
+  .vit div{display:flex;justify-content:space-between;border-bottom:1px dotted rgba(34,26,8,.4)}
+  .vit .k{color:#6b5312;text-transform:uppercase;letter-spacing:.05em}
+  .vit .v{font-weight:700}
+  .lore{font-size:2.9cqw;line-height:1.45;flex:1 1 auto;overflow:hidden}
+  .foot{font-size:2.4cqw;letter-spacing:.05em;color:#6b5312;display:flex;justify-content:space-between;gap:4%}
+  .scene{container-type:size}
+  @supports not (width:1cqw){
+    .bt{font-size:5.4vw}.bteam{font-size:2.7vw}.vit{font-size:3vw}.lore{font-size:2.9vw}
+    .foot{font-size:2.4vw}.miss{font-size:3.4vw} }
+  .hint{position:absolute;left:0;right:0;bottom:1.5%;text-align:center;font-size:2.4cqw;
+    color:rgba(190,255,215,.5);pointer-events:none}
+  @supports not (width:1cqw){ .hint{font-size:2.4vw} }
+  @media (prefers-reduced-motion:reduce){ .card{transition:none} }
+</style>
+</head>
+<body>
+<canvas class="warp" id="warp" aria-hidden="true"></canvas>
+<div class="scene" id="scene">
+  <div id="cvStage" aria-hidden="true"></div>
+  <div class="card" id="card">
+    <div class="face front" id="front">
+      <img class="base" id="base" src="https://ipfs.io/ipfs/QmW1aaFMfqyp8zsuaYCSFyLo9VRi3aCdGsD9tJqttv4pCf" alt="prince prince">
+      <div class="miss">№22<br>prince prince<br><small>base art offline</small></div>
+      <div class="layers"></div>
+      <div class="foil"></div><div class="glare"></div>
+    </div>
+    <div class="face back">
+      <div class="plate">
+        <div>
+          <div class="bteam">ripmaster3030studios &#9733; genesis</div>
+          <div class="bt">prince prince</div>
+        </div>
+        <div class="brule"></div>
+        <div class="vit">
+          <div><span class="k">Card</span><span class="v">&#8470;22</span></div>
+          <div><span class="k">Rarity</span><span class="v">hero 1/1</span></div>
+          <div><span class="k">Base ATK</span><span class="v">—</span></div>
+          <div><span class="k">Base DEF</span><span class="v">—</span></div>
+          <div><span class="k">Amplifier</span><span class="v">—</span></div>
+          <div><span class="k">Edition</span><span class="v">1 of 1</span></div>
+        </div>
+        <div class="brule"></div>
+        <div class="lore"></div>
+        <div class="foot"><span>$3030 &#183; SuperRare Liquid Edition</span><span>NFA</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="hint">tap to flip &#8634;</div>
+</div>
+<script>
+(function(){
+  // Every one of these can throw in a sandboxed frame. None of them may take the card down.
+  try {
+    var root=document.documentElement, scene=document.getElementById('scene'), card=document.getElementById('card');
+    var drag=false, moved=0;
+    scene.addEventListener('pointerdown',function(){drag=true;moved=0;});
+    addEventListener('pointerup',function(){ if(drag&&moved<8) card.classList.toggle('flipped'); drag=false; });
+    scene.addEventListener('pointermove',function(e){
+      var r=scene.getBoundingClientRect();
+      var nx=((e.clientX-r.left)/r.width)*2-1, ny=((e.clientY-r.top)/r.height)*2-1;
+      moved+=Math.abs(nx)+Math.abs(ny);
+      root.style.setProperty('--px',nx.toFixed(3)); root.style.setProperty('--py',ny.toFixed(3));
+    },{passive:true});
+    scene.addEventListener('pointerleave',function(){ root.style.setProperty('--px',0); root.style.setProperty('--py',0); });
+  } catch(e){}
+  // Gateway chain: one dead gateway is not a dead card. Last resort is a legible plate,
+  // never a blank frame — and the marketplace still has the image field regardless.
+  try {
+    var img=document.getElementById('base'), alt=["https://cloudflare-ipfs.com/ipfs/QmW1aaFMfqyp8zsuaYCSFyLo9VRi3aCdGsD9tJqttv4pCf","https://dweb.link/ipfs/QmW1aaFMfqyp8zsuaYCSFyLo9VRi3aCdGsD9tJqttv4pCf","22.webp"], i=0;
+    img.addEventListener('error',function(){
+      if(i<alt.length){ img.src=alt[i++]; }
+      else { document.getElementById('front').classList.add('dead'); }
+    });
+  } catch(e){}
+
+  /* ── the starfield ──────────────────────────────────────────────────────────────────────
+   * Runs whether or not anything below it loads — it is CSS and 2D canvas and needs no engine,
+   * so a card that falls all the way back to the flat plate still arrives out of a warp. */
+  try {
+    var cv=document.getElementById('warp'), ctx=cv&&cv.getContext('2d');
+    if(ctx){
+      var slow=matchMedia('(prefers-reduced-motion:reduce)').matches;
+      var dpr=Math.min(devicePixelRatio||1,1.25);
+      var N=matchMedia('(max-width:760px)').matches?170:300, SPEED=slow?3.1:6.2;
+      var w=0,h=0,cx=0,cy=0,stars=[],raf=0;
+      function size(){ w=innerWidth;h=innerHeight;cx=w/2;cy=h/2;
+        cv.width=w*dpr;cv.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); }
+      function spawn(){ return {x:(Math.random()*2-1)*w,y:(Math.random()*2-1)*h,z:Math.random()*w||1}; }
+      function frame(){
+        ctx.fillStyle='rgba(1,8,4,0.34)'; ctx.fillRect(0,0,w,h);
+        for(var n=0;n<stars.length;n++){ var s=stars[n], pz=s.z; s.z-=SPEED;
+          if(s.z<=1){ stars[n]=spawn(); stars[n].z=w; continue; }
+          var k=130/s.z, pk=130/pz, a=Math.min(1,(1-s.z/w)*1.4);
+          ctx.strokeStyle='rgba('+(205+Math.floor(a*50))+',255,225,'+a.toFixed(2)+')';
+          ctx.lineWidth=Math.max(0.4,(1-s.z/w)*2.6);
+          ctx.beginPath(); ctx.moveTo(cx+s.x*pk,cy+s.y*pk); ctx.lineTo(cx+s.x*k,cy+s.y*k); ctx.stroke(); }
+        raf=requestAnimationFrame(frame);
+      }
+      size(); stars=[]; for(var q=0;q<N;q++) stars.push(spawn()); frame();
+      addEventListener('resize',size,{passive:true});
+      /* ⚠ A HIDDEN TAB SHOULD NOT BE RUNNING A STARFIELD. A media slot scrolled out of view in a
+         marketplace is exactly that case, and it is on somebody else's page. */
+      document.addEventListener('visibilitychange',function(){
+        if(document.hidden){ cancelAnimationFrame(raf); raf=0; } else if(!raf){ size(); frame(); }
+      });
+    }
+  } catch(e){}
+
+  /* ── ⛔ THE PRESS — proof.html's viewer, on the token's own page ─────────────────────────
+   * Artist: *"the viewers here need to have the same awesome ability as the proof.html viewer
+   * with turning ability graphics etc, losing all the fx."* This page was the last flat card
+   * in the project: a CSS-tilted <img>, no press, no room, no material.
+   *
+   * ⛔ THE HUNDRED ARE RECIPES, NOT PICTURES, AND GUESSING WRONG DOES NOT ERROR. Every one of
+   *   1–33 has an entry in cards/deck.json carrying its seed, its six plate slugs and every dial
+   *   the artist set. Passing this card's flat art in as 'card:' instead would press a
+   *   SEPARATION OF A SEPARATION at a seed derived from the filename — a card that renders
+   *   beautifully and is a different card. js/card-view.js states this in as many words; the
+   *   caller says which it has and never infers it.
+   *
+   * ⚑ ADDITIVE, NEVER SUBSTITUTIVE. The flat plate above already works — it walks a gateway
+   *   chain down to a local copy and then to a legible plate. Nothing here removes it until a
+   *   real sheet has printed, because this repo's one fail-open violation was exactly that:
+   *   swapping a working card for the press's output before knowing the press produced anything.
+   * ⚠ Absolute /js/ and /cards/ paths: this page is framed from a data: URL at an opaque origin,
+   *   so a relative path resolves against something we do not control. */
+  try {
+    if (/[?&]flat/.test(location.search)) return;
+    var MODS=['/js/gfx-post.js','/js/hero-card.js','/js/card-back.js','/js/card-press.js',
+              '/js/card-recipe.js','/js/card-view.js'];
+    var loaded=0;
+    function next(){
+      if(loaded>=MODS.length){ press(); return; }
+      var s=document.createElement('script'); s.src=MODS[loaded++];
+      s.onload=next; s.onerror=next;          // resolve either way; a missing module just removes it
+      document.head.appendChild(s);
+    }
+    function press(){
+      if(!window.CardView||!window.CardRecipe) return;   // flat card stands
+      fetch('/cards/deck.json',{cache:'force-cache'}).then(function(r){ return r.ok?r.json():null; })
+        .then(function(d){
+          var rec=d&&d.cards&&d.cards['22'];
+          if(!rec||!rec.q) return;
+          var stage=document.getElementById('cvStage'), card=document.getElementById('card');
+          return CardView.mount({box:stage, recipe:rec.q, base:'/cards/'}).then(function(v){
+            /* ⛔ A CONTROLLER IS NOT A PRINTED CARD. mount() resolving is not evidence that ink
+             *   landed — driven against a press that clears to nothing it still hands one back.
+             *   Check the pixels here, before anything is taken away.
+             * ⚠ "NOT BLANK" IS NOT "ALPHA > 0": the stock is near-white, so a paper-coloured
+             *   canvas is fully opaque and completely empty. The test is tonal VARIANCE. */
+            if(!v) return;
+            var cvs=stage.querySelector('canvas');
+            if(!cvs||!printed(cvs)){ try{v.destroy();}catch(e){} return; }
+            stage.style.opacity='1'; stage.style.pointerEvents='auto';
+            /* visibility, not display — the stage is inset:0 against this box. */
+            card.style.visibility='hidden';
+            window.__heroView=v;
+            var hint=document.querySelector('.hint');
+            if(hint){ hint.textContent='tap to turn ↺  ·  drag to tilt'; }
+            var flip=function(e){ if(e){e.preventDefault();e.stopPropagation();} try{v.flip();}catch(err){} };
+            stage.addEventListener('dblclick',flip);
+            addEventListener('keydown',function(e){ if(e.key==='f'||e.key==='F') flip(); });
+          });
+        }).catch(function(){});
+    }
+    function printed(c){
+      try{
+        var g=document.createElement('canvas'), n=48; g.width=n; g.height=n;
+        var x=g.getContext('2d',{willReadFrequently:true}); if(!x) return true;
+        x.drawImage(c,0,0,n,n);
+        var p=x.getImageData(0,0,n,n).data, s=0, s2=0, m=n*n;
+        for(var i=0;i<p.length;i+=4){ var l=(p[i]*0.299+p[i+1]*0.587+p[i+2]*0.114); s+=l; s2+=l*l; }
+        var mean=s/m; return Math.sqrt(Math.max(0,s2/m-mean*mean))>4;
+      }catch(e){ return true; }      // cross-origin or no 2D — do not punish the press for it
+    }
+    next();
+  } catch(e){}
+})();
+</script>
+</body>
+</html>

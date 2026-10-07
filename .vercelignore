@@ -7,7 +7,18 @@
 CLAUDE.md
 *.md
 docs/
-scripts/
+# ⛔ `scripts/*` AND NOT `scripts/`, AND THE DIFFERENCE IS WHY THE API 500'd TWICE. .vercelignore
+#   follows gitignore semantics, where a negation CANNOT re-include a file whose parent DIRECTORY
+#   is excluded. `scripts/` + `!scripts/substrate.mjs` is a no-op — it reads like an exception and
+#   does nothing. `scripts/*` excludes the contents instead of the directory, so the negation bites.
+scripts/*
+# ⛔ ONE EXCEPTION, AND IT IS LOAD-BEARING. `api/3030.js` imports `deriveHash` and `frame` from the
+#   deriver so the API cannot drift from what wrote the chain. With `scripts/` excluded the import
+#   resolves locally and NOT on Vercel, so every test passed and production answered
+#   FUNCTION_INVOCATION_FAILED — a 500 that no local run can reproduce.
+# ⚠ The alternative was copying two pure functions into the handler, which is the second hash
+#   implementation this whole design exists to avoid.
+!scripts/substrate.mjs
 contracts/
 build/
 .claude/
@@ -66,3 +77,6 @@ deploy-lens.html
 # ⚠ test-reach.mjs still allow-lists it as an orphan and that entry stays correct: a file that
 #   does not ship cannot be linked from anything.
 deploy-cards.html
+
+# The executor is its own Vercel project — never build or serve it from the site.
+bot/

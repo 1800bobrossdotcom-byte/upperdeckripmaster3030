@@ -161,6 +161,30 @@ function stripComments(src, isHTML) {
 
 console.log('\n── the retired name may not appear outside a comment ──');
 const all = walk(ROOT);
+
+/* ⛔ NO SHIPPED FILE MAY CARRY A MERGE CONFLICT MARKER, and this guard exists because the absence
+ *   of it was proved expensive in the only way that counts: `check.html` went through a merge with
+ *   THREE unresolved markers in it and `npm run test:check` scored **22/22 on that file**. A
+ *   browser recovers from stray text and an unclosed tag, so the shelf still rendered, the taps
+ *   still measured 46px, and every assertion in a suite written that same hour reported green on a
+ *   broken build. Nothing else here can see it: the name sweep looks for one string, `test:reach`
+ *   §0 compiles JS (and markers inside HTML are not JS), and a driven probe only fails if the
+ *   damage happens to reach the thing being probed.
+ * ⚠ THE SWEEP WALKS EVERY SHIPPED FILE, not a hand-picked list — the hand-picked-list failure is
+ *   this repo's most frequently paid bill, and a marker can land in any file a merge touches.
+ * ⚠ Anchored to line starts, because `=======` is legitimate prose in a comment rule and
+ *   `<<<<<<<` appears in no honest context at column zero. */
+{
+  const bad = [];
+  for (const p of all) {
+    const rel = relative(ROOT, p);
+    let src; try { src = readFileSync(p, 'utf8'); } catch { continue; }
+    if (/^<{7} |^={7}$|^>{7} /m.test(src)) bad.push(rel);
+  }
+  ok(bad.length === 0, 'no shipped file carries an unresolved merge conflict',
+    bad.length ? '⛔ ' + bad.join(', ') : all.length + ' files clean');
+}
+
 const hits = [];
 for (const p of all) {
   const rel = relative(ROOT, p);
@@ -824,8 +848,48 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    * applies to EVERY domain the project serves — including the destination — so a bare
    * `/:path*` -> the new host would bounce the new host to itself forever. The scope is the
    * whole safety of this rule and it is invisible until the day the domain is attached. */
-  ok(red.length > 0 && red.every(r => (r.has || []).some(h => h.type === 'host')),
-    '…and every redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⚠ THE RULE IS ABOUT CROSS-HOST REDIRECTS, NOT ALL REDIRECTS, and the original wording
+   *   conflated them. A redirect whose destination is an ABSOLUTE URL moves the visitor to
+   *   another host and MUST be scoped, or it applies to every domain the project serves —
+   *   including the destination — and bounces forever. A same-origin PATH redirect
+   *   (/cards/7 -> /cards/hero/7.html) cannot do that: it never changes host, so a host scope
+   *   would buy nothing and there is nothing to loop against as long as the destination does
+   *   not match another source, which is asserted separately below.
+   * ⛔ Narrowed deliberately and only this far. The outage was caused by an absolute redirect
+   *   aimed at the live host; that case is still covered by BOTH assertions here. */
+  /* ⛔ AN INVALID `source` DOES NOT DEGRADE — IT FAILS THE WHOLE DEPLOYMENT. Vercel parses these
+   *   with path-to-regexp, which REJECTS capturing groups inside a `:param(...)` pattern. I wrote
+   *   `/cards/:id(([1-9]|...))` and the build stopped dead: the site kept serving the previous
+   *   commit, so every push afterwards silently did nothing and the only symptom was a 404 on the
+   *   new files. ⚑ That is far worse than a broken redirect — a bad rule breaks one path, a bad
+   *   SOURCE breaks every deploy after it, and nothing on the site changes to tell you.
+   * ⚠ Checked without adding a dependency: the rule is exactly "no capturing group inside a
+   *   param pattern", i.e. every `(` after the first must open `(?:`. */
+  const badSrc = red.filter(r => {
+    const m = /:[A-Za-z][A-Za-z0-9_]*\((.*)\)$/.exec(r.source);
+    return m && /\((?!\?[:=!])/.test(m[1]);
+  });
+  ok(badSrc.length === 0,
+    'every redirect `source` parses — no capturing group inside a :param() pattern — '
+    + (badSrc.length ? '⛔ INVALID, THE WHOLE DEPLOY WILL FAIL: ' + badSrc.map(r => r.source).join(', ') : 'clear'));
+
+  const crossHost = red.filter(r => /^https?:\/\//.test(r.destination));
+  const samePath = red.filter(r => !/^https?:\/\//.test(r.destination));
+  ok(crossHost.length > 0 && crossHost.every(r => (r.has || []).some(h => h.type === 'host')),
+    '…and every CROSS-HOST redirect is scoped to a host, so it cannot loop — '+(hosts || 'NO HOST CONDITION'));
+  /* ⛔ A SAME-ORIGIN REDIRECT LOOPS IF ITS DESTINATION MATCHES ANY SOURCE. Run the sources
+   *   against the destinations rather than eyeballing them — the whole lesson of the outage was
+   *   that asserting a rule EXISTS is not the same as running it. */
+  const srcRe = s => new RegExp('^' + s
+      .replace(/\/:[a-zA-Z]+\(\(?([^)]*)\)?\)/g, (_m, g) => '/(?:' + g.replace(/\)$/, '') + ')')
+      .replace(/\/:[a-zA-Z]+\*/g, '/.*')
+      .replace(/\/:[a-zA-Z]+/g, '/[^/]+') + '$');
+  const selfLoop = samePath.filter(r => samePath.some(o => {
+    try { return srcRe(o.source).test(r.destination.replace(/:([a-zA-Z]+)/g, '1')); } catch { return false; }
+  }));
+  ok(selfLoop.length === 0,
+    '…and no same-origin redirect lands on another redirect\'s source — '
+    + (selfLoop.length ? '⛔ LOOP: ' + selfLoop.map(r => r.source + ' -> ' + r.destination).join(', ') : 'clear'));
 
   /* ⛔ AND HOST-SCOPED IS NOT ENOUGH — THIS IS THE ONE THAT TOOK THE SITE DOWN, 2026-08-05.
    * A `www -> apex` rule lived here and was perfectly host-scoped. It still looped, because the
@@ -836,18 +900,59 @@ for (const page of ['whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.
    *   Production, a redirect here that matches EITHER of them is aimed at the host serving the
    *   site. So the test is not "is it scoped" but "what does the scope actually MATCH" — the
    *   regex is run against the live hosts rather than eyeballed. */
-  const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com'];
-  const aimedAtLive = red.flatMap(r => (r.has || [])
+  /* ⚠ THE SUBDOMAIN IS A LIVE HOST TOO, from the day it resolves — listed so a future CROSS-HOST
+   * redirect aimed at it fails the same way an apex/www one does.
+   * ⛔ AND THE COMMENT HERE USED TO SAY IT "serves the reading at its own root via a REWRITE",
+   * WHICH WAS NEVER TRUE. `vercel.json` rewrites are evaluated AFTER the filesystem check, and `/`
+   * matches `index.html`, so that rule could not fire on the one path it named. The subdomain
+   * quietly served the studio home page for its whole life while a rule in the config described
+   * the behaviour somebody intended. **A note describing a mechanism that was never built is worse
+   * than no note**, because it stops the next person looking. The rewrite is deleted; the root is
+   * a same-host redirect to `/check.html` now, and it is CHECK rather than `3030.html` because
+   * CHECK is the tool and `3030.html` is one of its answers.
+   * ⛔ WHICH REQUIRED NARROWING THE GUARD BELOW, AND THE NARROWING IS THE POINT, NOT A CONCESSION.
+   * The 2026-08-05 outage was a `www -> apex` rule fighting the platform's own `apex -> www`: two
+   * HOSTS bouncing a visitor between them, fifty hops, a dark site. A same-host, path-only
+   * redirect cannot do that — the visitor never leaves the host, and whether its destination is
+   * itself a source is a question `selfLoop` above already runs for real. So this check now applies
+   * to CROSS-HOST redirects only, which is exactly the class that caused the outage, and stays
+   * absolute for them. ⚠ Widening it back to all redirects would forbid the only mechanism that
+   * can serve a subdomain root at all. */
+  /* ⛔ vercel.json HAS A STRICT SCHEMA AND AN UNKNOWN TOP-LEVEL KEY FAILS THE BUILD — SILENTLY,
+   * AS FAR AS GIT IS CONCERNED. A `_comment_rewrites` key was added to explain a rewrite (JSON
+   * has no comments, so one was invented) and it errored **six consecutive deploys**. Every push
+   * succeeded, every commit looked clean, `git log` was perfect, and production went on serving a
+   * commit from before the first of them. The pages 404'd and nothing in this repo said why.
+   * ⚑ THIS IS THIS FILE'S OWN RECORDED RULE, PAID FOR AGAIN: *a deploy is not "pushed", it is
+   *   "served".* The tell was one click away in the dashboard — six red rows against green ones
+   *   for every scheduled snapshot commit.
+   * ⚠ THE EXPLANATION NOW LIVES IN docs/DNS-AND-DOMAIN.md, where prose belongs. A config file
+   *   with a schema is not a place to write to the reader. */
+  {
+    const OK_KEYS = new Set(['version', 'name', 'alias', 'scope', 'env', 'build', 'builds',
+      'routes', 'cleanUrls', 'rewrites', 'redirects', 'headers', 'trailingSlash', 'regions',
+      'functions', 'github', 'public', 'crons', 'images', 'framework', 'installCommand',
+      'buildCommand', 'devCommand', 'outputDirectory', 'ignoreCommand', 'git', 'cron']);
+    const bad = Object.keys(vj).filter(k => !OK_KEYS.has(k));
+    ok(bad.length === 0,
+      'vercel.json carries no unknown top-level key — one is a FAILED BUILD, not a warning',
+      bad.length ? '⛔ ' + bad.join(', ') + ' — the deploy will error and the site will serve the previous commit' : Object.keys(vj).join(', '));
+  }
+
+  const LIVE_HOSTS = ['ripmaster3030studios.com', 'www.ripmaster3030studios.com',
+                      '3030.ripmaster3030studios.com'];
+  const aimedAtLive = red.filter(r => /^https?:\/\//i.test(String(r.destination || ''))).flatMap(r => (r.has || [])
     .filter(h => h.type === 'host')
     .flatMap(h => LIVE_HOSTS.filter(host => { try { return new RegExp('^(?:' + h.value + ')$').test(host); } catch { return false; } })));
   ok(aimedAtLive.length === 0,
-    '…and NONE of them matches a live host, so it cannot fight the platform\'s own apex/www rule — '
+    '…and no CROSS-HOST redirect matches a live host, so none can fight the platform\'s own apex/www rule — '
     + (aimedAtLive.length ? '⛔ REDIRECT LOOP: this config redirects ' + aimedAtLive.join(' + ')
        + ', which the platform is already redirecting. That is a dark site.' : 'clear'));
   /* Path-preserving, because CLAUDE.md's decision is that old URLs keep resolving: this is an
    * identity change, not a link-breaking one. It also protects any `animation_url` already
    * pointing at the old host. */
-  ok(red.every(r => /:path\*/.test(r.destination)), '…and it preserves the path');
+  ok(crossHost.every(r => /:path\*/.test(r.destination)),
+    '…and every cross-host redirect preserves the path');
 
   /* ══ ⛔ THE CACHE RULE THAT MADE THE WHOLE CARD SURFACE A WEEK STALE — 2026-08-05 ═══════════
    * Artist: *"the cards are not updated on site."* They were not. The deploy was correct, every
@@ -1204,7 +1309,237 @@ console.log('\n── the mainnet flip: every chain-scoped field must agree with
       `${wrongSize} packs came out the wrong size`);
     ok(outsidePool === 0, 'the pack never offers a hero reserved for an auction or a game title',
       `${outsidePool} pulls came from outside the gacha eleven`);
+
+    /* ⛔ THE ASSERTION ABOVE COUNTS BY `band`, AND THAT IS EXACTLY HOW THE LEAK HID. A manifest
+     *   served without `band` makes nothing a hero — so `hs` is empty, `outsidePool` stays 0, and
+     *   a pack cheerfully offering all eleven auction cards scores green. Simulated and confirmed
+     *   before this was written: 22 reserved ids handed out, zero assertions fired.
+     * ⚑ COUNT BY ID, AND DRIVE THE SHAPES NOBODY PLANS FOR. Ids 1–33 are the heroes — verified
+     *   against the manifest, and the key the LENS CONTRACT itself uses (HERO_MAX = 33). A card's
+     *   id cannot go missing; a band can.
+     * ⚠ The empty-pack case is a PASS, not a failure: handed a deck with nothing legal in it the
+     *   pack must refuse rather than reach for something reserved. */
+    const RESERVED = new Set([...Array(11)].map((_, i) => i + 1)
+                       .concat([...Array(11)].map((_, i) => i + 23)));
+    const SHAPES = [
+      ['the live deck',      DECK],
+      ['no bands at all',    DECK.map(c => Object.assign({}, c, { band: undefined }))],
+      ['every band wrong',   DECK.map(c => Object.assign({}, c, { band: 'field' }))],
+      ['heroes only',        DECK.filter(c => Number(c.id) <= 33)],
+      ['auction ids only',   DECK.filter(c => Number(c.id) <= 11)],
+      ['ids as strings',     DECK.map(c => Object.assign({}, c, { id: String(c.id) }))],
+    ];
+    for (const [label, deck] of SHAPES) {
+      const p2 = fn(deck, n => Math.floor(Math.random() * n)).pull;
+      const leaked = new Set();
+      for (let i = 0; i < 3000; i++)
+        for (const c of p2(SIZE)) if (RESERVED.has(Number(c.id))) leaked.add(Number(c.id));
+      ok(leaked.size === 0, `no reserved id is offered — ${label}`,
+        leaked.size ? '⛔ handed out ' + [...leaked].sort((a, b) => a - b).join(',') : 'clean');
+    }
   }
+}
+
+/* ── THE GAMES CANNOT AWARD A 1/1 ────────────────────────────────────────────────────────────
+ * ⚑ A PACK IS NOT THE ONLY WAY A CARD REACHES SOMEBODY. Every cabinet wagers cards into a pot and
+ *   pays them out, and they all read `cards/manifest.json` — the 196 PLACEHOLDERS — while the
+ *   hero 1/1s live in `cards/deck-manifest.json`. That separation is what makes a game unable to
+ *   hand out an auction card, and it is currently true by ACCIDENT of which file each reads.
+ *   Asserted here so merging the two pools has to be a decision rather than a slip. */
+{
+  const ph = JSON.parse(readFileSync(join(ROOT, 'cards/manifest.json'), 'utf8')).cards || [];
+  const deck = JSON.parse(readFileSync(join(ROOT, 'cards/deck-manifest.json'), 'utf8')).cards || [];
+  const heroSlugs = new Set(deck.filter(c => Number(c.id) <= 33).map(c => String(c.slug)));
+  ok(!ph.some(c => c.band === 'hero'), 'the games\' card pool contains no hero band',
+    String(ph.filter(c => c.band === 'hero').length) + ' found');
+  ok(!ph.some(c => Number(c.id) >= 1 && Number(c.id) <= 33),
+    '…and no entry carrying a hero id (1–33)',
+    String(ph.filter(c => Number(c.id) >= 1 && Number(c.id) <= 33).length) + ' found');
+  const clash = ph.filter(c => heroSlugs.has(String(c.slug)));
+  ok(clash.length === 0, '…and no slug collides with one of the 33',
+    clash.length ? '⛔ ' + clash.slice(0, 4).map(c => c.slug).join(', ') : 'clean');
+}
+
+/* ═══ THE LIVE MARKET ══════════════════════════════════════════════════════════════════════════
+ * ⛔ A CHART LINK IS A CLAIM ABOUT WHICH MARKET IS OURS. Point it at the wrong pool and the site
+ *   sends its own collectors to somebody else's token, from the front page, with the studio's
+ *   name above it. That is the `protocol.rare` lesson — "a wrong reserve token is not a typo" —
+ *   applied to the one surface a visitor actually clicks.
+ * ⚑ THE POOL ID IS 32 BYTES, NOT 20. A Uniswap v4 pool is a hash of its key into the singleton
+ *   PoolManager, not a contract, so this repo's usual `^0x[0-9a-fA-F]{40}$` address check would
+ *   REJECT a perfectly correct value — and an address pasted here would PASS one. The length is
+ *   the discriminator and it is asserted in both directions.
+ * ⚠ What cannot be checked offline is that the pool's baseToken is our edition. It was verified
+ *   against DexScreener's API when it was added (baseToken 0x1D4bcbb5…47A33 = contracts
+ *   .liquidEdition, quoteToken = protocol.rare, symbol `3030`), and that is a one-time proof, not
+ *   a standing guard — so the assertion here is the SHAPE plus the single-declaration rule. */
+console.log('\n── the markets: every pool declared once, and the swap keyed on the token ──');
+{
+  /* ⚠ EVALUATED, NOT REGEXED — the same way this file reads the config everywhere else, so the
+   *   parser here cannot drift from what actually ships to a browser. */
+  const cfgSrc = readFileSync(join(ROOT, 'js/chain-config.js'), 'utf8');
+  let CHAIN = null;
+  try { CHAIN = new Function('window', cfgSrc + '; return window.RIPMASTER_CHAIN;')({}); } catch {}
+  const m = ((CHAIN || {}).market || {});
+  const pools = m.pools || [];
+  ok(pools.length >= 1, 'chain-config declares at least one market', pools.length + ' pools');
+  for (const p of pools) {
+    const id = String((p || {}).id || '').trim();
+    ok(/^0x[0-9a-fA-F]{64}$/.test(id),
+      `${p.quote} pool is a 32-byte Uniswap v4 pool id`, id.slice(0, 12) + '…' || 'EMPTY');
+    ok(!/^0x[0-9a-fA-F]{40}$/.test(id),
+      `…and NOT a 20-byte contract address pasted into a ${p.quote} pool field`);
+    /* ⛔ ONE COPY EACH. The links are BUILT from the ids, so a 66-character hex must appear in the
+     *   config exactly once — a second literal is a second thing to get wrong and nothing on
+     *   screen would look different. */
+    const copies = (cfgSrc.match(new RegExp(id, 'gi')) || []).length;
+    ok(copies === 1, `the ${p.quote} pool id is declared exactly once`, copies + ' copies');
+  }
+  /* ⛔ AND THE TWO POOLS MUST NOT BE THE SAME MARKET WEARING TWO LABELS. Two ids that differ by a
+   *   character is a paste error the eye cannot see in 66 hex digits, and it would make the site
+   *   offer a choice between one pool and itself. */
+  const ids = pools.map(p => String((p || {}).id || '').toLowerCase());
+  ok(new Set(ids).size === ids.length, 'every declared pool is a DIFFERENT pool');
+  const quotes = pools.map(p => String((p || {}).quote || '').toUpperCase());
+  ok(new Set(quotes).size === quotes.length && quotes.every(Boolean),
+    '…and each names its own quote asset', quotes.join(' · '));
+  ok(!/dexscreener\.com\/[a-z]+\/0x[0-9a-fA-F]{64}/.test(cfgSrc),
+    'no full chart URL is hard-coded beside an id');
+  /* ⛔ THE SWAP LINK IS BUILT FROM THE TOKEN, NOT FROM A POOL, and that is a SAFETY property, not
+   *   a style one: Uniswap's router picks the venue, so a token-keyed link cannot fill from a pool
+   *   with nothing in it. A pool id reaching the swap host would aim collectors at one specific
+   *   market — which, on the day the ETH pool was created, held $5 of volume. */
+  ok(!new RegExp(String(m.swapHost || 'app\\.uniswap\\.org/swap').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      + '[^"\']*0x[0-9a-fA-F]{64}').test(cfgSrc),
+    'no pool id is pasted into the swap host');
+  const w = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  ok(/chartUrl/.test(w) && /\{64\}/.test(w),
+    'js/wallet.js builds the chart link and validates the id length');
+  ok(/swapUrl/.test(w) && /outputCurrency/.test(w) && /\{40\}/.test(w),
+    '…and builds the swap link from the TOKEN, validated as a 20-byte address');
+  /* ⛔ AND IT NAMES BOTH SIDES. `outputCurrency` alone says what you are buying and nothing about
+   *   what you are paying with, so Uniswap opened on whatever input it chose and routed itself —
+   *   which is not the ETH pair the studio opened, and the artist said so: "swap on uniswap
+   *   doesn't take you to the eth pool". A swap link missing its input is a link to a different
+   *   errand. */
+  ok(/inputCurrency/.test(w), '…and names the INPUT side too, or it is not the ETH pair');
+  ok(/poolUrl/.test(w), 'js/wallet.js can link a pool DIRECTLY, for the pool itself as destination');
+  /* ⚑ BOTH DIRECTIONS. "No hard-coded pool in the swap link" is trivially satisfied by a page with
+   *   no swap route at all, which is the state this replaced. */
+  const idx = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  ok(/id="swapLink"/.test(idx) && /RipWallet\.swapUrl/.test(idx),
+    'index.html carries a swap route and fills it from the wallet');
+  ok(/id="mktDepth"/.test(idx) && /marketDepth\(\)/.test(idx),
+    '…and reads which pool has depth rather than printing an answer');
+
+  /* ⛔ THE CONTRACT ADDRESS IS PUBLISHED, AND IT IS PUBLISHED EXACTLY ONCE. Pasting a contract
+   *   into a DEX is how most people buy — a token search returns impostors — so a site that does
+   *   not print its own address is asking collectors to trust a search result. It is also the one
+   *   string on the page where being wrong costs a visitor money, so the markup ships EMPTY and
+   *   is filled from `chain-config`: a second copy is a second chance to send somebody to a
+   *   different asset, and nothing on screen would look different.
+   * ⚑ BOTH DIRECTIONS. "No literal" is trivially satisfied by not publishing the address at all,
+   *   which is the state this replaced. */
+  const tok = String((((CHAIN || {}).contracts) || {}).liquidEdition || '').trim();
+  ok(/^0x[0-9a-fA-F]{40}$/.test(tok), 'the edition address is configured', tok || 'EMPTY');
+  ok(tok === checksum(tok), '…and is EIP-55 checksummed, since it is printed for people to copy');
+  ok(/id="caAddr"/.test(idx) && /RipWallet\.token\(\)/.test(idx),
+    'index.html publishes the contract address, filled from the config');
+  ok(!new RegExp(tok, 'i').test(idx),
+    '…and never as a literal in the page — one declaration, no second copy');
+  /* a control that reports success having copied nothing would have somebody paste whatever was
+   * already on their clipboard into a swap — the failure this whole strip exists to prevent */
+  ok(/id="caCopy"/.test(idx) && /clipboard/.test(idx) && /selectNodeContents/.test(idx),
+    '…with a COPY that falls open to selecting rather than claiming success');
+  const w2 = readFileSync(join(ROOT, 'js/wallet.js'), 'utf8');
+  ok(/token:\s*\(\)\s*=>/.test(w2), 'js/wallet.js exposes the address for display');
+}
+
+/* ── THE STUDIO'S X ACCOUNT ───────────────────────────────────────────────────────────────────
+ * ⛔ THE HANDLE IS NOT THE NAME, and that is the whole reason this block exists. The studio, the
+ *    domain and the wordmark are `ripmaster3030studios` — a string this repo put in 258 files and
+ *    then spent two days chasing. The account is `@RipMaster3030`. So the one string a hand
+ *    reaches for is the WRONG one here, and it fails in the worst available way: `x.com/<anything>`
+ *    is a valid URL that renders as a working link and lands on somebody else's page or a 404.
+ *    Nothing errors, nothing 404s in our own logs, and the surface it is on is a footer.
+ *    ⚑ Same shape as the token's own `name()` vs `symbol()` split, one level out.
+ * ⚑ THERE IS NO SHARED INCLUDE. index.html and superrare.html are hand-authored and the four
+ *   public pages come from a generator, so the literal is unavoidable in at least three places —
+ *   exactly `packBurn`'s `|| 350` fallbacks. What is avoidable is it DISAGREEING. */
+console.log('\n── the X account is one handle, and it is not the studio name ──');
+{
+  const HANDLE = 'RipMaster3030';
+  /* Every OTHER x.com account this site is allowed to link: the artist's own, and the three
+   * credited in the artist page's colophon. Anything not on this list is a typo or an account
+   * nobody decided to link — both are failures, and both are invisible by inspection. */
+  const KNOWN = new Set(['_lovebeing_', 'creamydreamy', 'takenstheorem', 'tyaagnliu']);
+
+  const gen = readFileSync(join(ROOT, 'scripts/build-pages.mjs'), 'utf8');
+  const decl = /^const X_HANDLE\s*=\s*'([^']*)'/m.exec(stripComments(gen, false));
+  ok(!!decl && decl[1] === HANDLE,
+    `scripts/build-pages.mjs declares the handle once — ${decl ? decl[1] : 'ABSENT'}`);
+
+  /* ⛔ THE ROUTING CHECK, and it is the one that bites: does every x.com link on the site point at
+   *   an account somebody actually chose? Matched case-INSENSITIVELY because X routes that way, so
+   *   `x.com/ripmaster3030` really is the same account — the failure mode is a different SEQUENCE
+   *   of characters (`ripmaster3030studios`, `RipMaster3030Studios`), not a different case. */
+  const strays = [];
+  const spelling = [];
+  const carriers = new Set();
+  for (const p of walk(ROOT)) {
+    const rel = relative(ROOT, p);
+    const src = readFileSync(p, 'utf8');
+    if (!/x\.com\/|twitter\.com\//i.test(src)) continue;
+    const code = stripComments(src, MARKUP.has(extname(p)));
+    for (const m of code.matchAll(/(?:https?:\/\/)?(?:www\.)?(x|twitter)\.com\/([A-Za-z0-9_]+)/gi)) {
+      const [, host, who] = m;
+      if (who.toLowerCase() === HANDLE.toLowerCase()) {
+        carriers.add(rel);
+        if (who !== HANDLE) spelling.push(`${rel} — ${who}`);
+        if (host.toLowerCase() === 'twitter') spelling.push(`${rel} — twitter.com/${who}`);
+        continue;
+      }
+      if (!KNOWN.has(who.toLowerCase())) strays.push(`${rel} — ${host}.com/${who}`);
+    }
+  }
+  ok(strays.length === 0,
+    `every x.com link on the site names a chosen account${strays.length ? ' — ' + strays.slice(0, 6).join(' · ') : ''}`);
+  /* Presentation, not routing: one spelling, one host, so the handle reads the same everywhere. */
+  ok(spelling.length === 0,
+    `…and the studio handle is spelled @${HANDLE} on x.com everywhere${spelling.length ? ' — ' + spelling.slice(0, 6).join(' · ') : ''}`);
+
+  /* ⚑ BOTH DIRECTIONS. "No wrong handle" is trivially satisfied by a site that links no account at
+   *   all, which is the state this was added to leave. These are the surfaces that must carry it:
+   *   the front page, the four generated pages (via their shared footer) and the token-page embed,
+   *   which is a collector's only route off superrare.com. */
+  for (const page of ['index.html', 'updates.html', 'whitepaper.html', 'tokenomics.html', 'audit.html',
+                      'artist.html', 'superrare.html']) {
+    ok(carriers.has(page), `${page} links the studio account`);
+  }
+  /* ⛔ AND THE GENERATOR IS CHECKED WITH THE OUTPUT. Patching only the four HTML files leaves
+   *   build-pages.mjs armed to put the old state back on the next run — restyle-backs.mjs's
+   *   failure, which this file already records happening four times.
+   * ⚠ THE FIRST VERSION OF THIS WAS A TAUTOLOGY AND PASSED ON A SABOTAGED BUILD. It asked whether
+   *   `x.com/${X_HANDLE}` appears anywhere in the file — and `X_URL`'s own DECLARATION contains
+   *   that exact text, so hard-coding every use site still matched the declaration and scored
+   *   green. Same shape as the claim-signer guard this file already records: a check that reads
+   *   the thing it is checking against. The declaration lines are removed first now, so what is
+   *   left is use sites only. */
+  const genUses = stripComments(gen, false)
+    .replace(/^const X_HANDLE\s*=.*$/m, '').replace(/^const X_URL\s*=.*$/m, '');
+  ok(!new RegExp(`x\\.com/${HANDLE}|@${HANDLE}`, 'i').test(genUses),
+    '…and no use site in the generator re-types the handle as a literal');
+  ok(/\$\{X_URL\}/.test(genUses) && /@\$\{X_HANDLE\}/.test(genUses),
+    '…and it does emit both the footer link and the twitter:site tag from the declaration');
+
+  /* THE FUNCTIONAL HALF. Without `twitter:site` every share of every page on this domain is
+   * attributed to nobody — the reason a site declares a handle in the first place, and a meta tag
+   * is this file's canonical example of a surface nobody looks at. */
+  const metaPages = ['index.html', 'updates.html', 'whitepaper.html', 'tokenomics.html', 'audit.html', 'artist.html'];
+  const missing = metaPages.filter(f => !new RegExp(
+    `<meta name="twitter:site" content="@${HANDLE}">`).test(readFileSync(join(ROOT, f), 'utf8')));
+  ok(missing.length === 0,
+    `twitter:site is @${HANDLE} on all ${metaPages.length} share surfaces${missing.length ? ' — missing on ' + missing.join(', ') : ''}`);
 }
 
 console.log(`\n${checks - fails} passed, ${fails} failed.`);

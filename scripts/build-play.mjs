@@ -78,12 +78,27 @@ export async function buildPlay() {
     '<meta property="og:image" content="' + SITE + '/media/site/play-card.png">',
     'title + description');
 
-  // 2 · the two veils. Neither belongs on a page a stranger arrives at from a post.
-  s = cut(s, '  <script src="/gate.js"></script>\n', '', 'gate.js');
-  s = cut(s, '  <script src="js/orient.js"></script>\n', '', 'orient.js');
-
-  // 3 · no wallet on a surface reached from a social link
-  s = cut(s, '<script src="js/wallet.js"></script>\n', '', 'wallet.js');
+  /* 2 · the modules a stranger arriving from a post must not meet.
+   * ⛔ MATCHED BY SHAPE, NOT BY EXACT BYTES, and that is not tidiness — the first version pinned
+   *   `'  <script src="/gate.js"></script>\n'` with its two leading spaces, and the very next
+   *   merge from main unindented that tag while adding six modules. The generator stopped dead,
+   *   which is the good outcome; a looser `.replace()` would have matched nothing, changed
+   *   nothing, said nothing and shipped a share page with the pre-launch veil on it. This repo's
+   *   recorded form of that lesson is the pack price: match a SHAPE, because a shape covers the
+   *   spelling you did not think of. */
+  for (const [src, why] of [
+    ['/gate.js', 'the pre-launch veil — a stranger would meet a password field'],
+    ['js/orient.js', 'the "turn it sideways" veil, on the one orientation a feed guarantees'],
+    ['js/wallet.js', 'no wallet on a surface reached from a social link'],
+    /* ⚠ guarded (`root.RipWallet && …`) so it degrades rather than throwing — but a claim flow on
+     * a page whose whole promise is "no sign-up, no wallet, nothing to buy" is the dead-control
+     * failure this project already names: a button that goes nowhere is worse than no button. */
+    ['js/hero-claim.js', 'the hero claim flow belongs on the real site, behind a wallet'],
+  ]) {
+    const re = new RegExp('[ \\t]*<script src="' + src.replace(/[/.]/g, '\\$&') + '"[^>]*></script>\\n?');
+    if (!re.test(s)) throw new Error('build-play: no <script src="' + src + '"> to drop — ' + why);
+    s = s.replace(re, '');
+  }
 
   // 4 · the start screen. One line, one button — a feed did not come for a manual.
   const rulesStart = s.indexOf('      <div class="rules">');

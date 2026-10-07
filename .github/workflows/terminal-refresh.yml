@@ -1,0 +1,131 @@
+# ripmaster3030studios — KEEP THE TERMINAL'S SNAPSHOT FRESH
+#
+# ⛔ THE PAGE WAS HONEST ABOUT BEING STALE AND THAT IS NOT THE SAME AS BEING FRESH. The terminal
+#    prints "snapshot measured N minutes ago" in the largest type on the page, which is why the
+#    staleness was noticed at all — but NOTHING refreshed it. No cron, no workflow, no scheduler
+#    anywhere in the repo. `data/terminal.json` only ever changed when a human ran the script and
+#    pushed, so its age climbed forever and the honest label just narrated the decay.
+#
+# ⚑ WHY A GITHUB ACTION AND NOT A VERCEL CRON OR AN AGENT. The measurement pulls tens of thousands
+#    of logs per pool — far past a serverless function's budget — and it has to COMMIT its result,
+#    which a serverless function cannot do. It also needs no judgement: it is a deterministic script
+#    over public RPCs, so putting a language model on the schedule would add cost, latency and a
+#    way to be wrong, to a job that is `node` and `git push`.
+#
+# ⛔ IT PUSHES TO THE BRANCH VERCEL ACTUALLY SERVES, WHICH IS NOT `main`. The project's Production
+#    Deployment tracks `claude/superrare-trading-cards-71ajcx`; a push to `main` builds green and
+#    lands as a Preview, which is how this repo once ran ten commits and twenty-nine hours ahead of
+#    the live site with every signal saying success.
+#
+# ⚠ It commits ONLY when the data actually changed. ⛔ THAT RULE NOW BITES MUCH LESS THAN ITS
+#   COMMENT IMPLIES, and saying so beats leaving a note that describes yesterday: it was written
+#   when the only artefact was the pool screen, which really can be identical across a quiet hour.
+#   The substrate re-derives over new blocks every run, so in practice this commits hourly. The
+#   check is kept because it still catches a run that measured nothing at all — but do not read
+#   "commits only on change" as "the history stays sparse".
+name: terminal refresh
+
+on:
+  schedule:
+    # ⛔ WAS EVERY 6 HOURS AND THAT WAS THE WRONG NUMBER, not a wrong mechanism. The page leads with
+    #    "snapshot measured N minutes ago" in its largest type, so a 6-hour cadence advertises its
+    #    own decay for five and a half of them — the artist read 75 minutes as broken, and he was
+    #    right about the experience even though the job was working perfectly.
+    # ⚑ The run takes ~70 SECONDS. There was never a cost reason for six hours; I picked it out of
+    #    caution and the caution was paid for in the one place it shows.
+    - cron: '9 * * * *'
+  workflow_dispatch:
+
+# least privilege: this job writes code and nothing else.
+permissions:
+  contents: write
+
+concurrency:
+  # ⚠ Two of these running at once would race on the same files and one would clobber the other's
+  #   measurement. Never cancel-in-progress: a half-finished run that gets killed mid-write is
+  #   exactly how a truncated dataset reaches the page.
+  group: terminal-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/superrare-trading-cards-71ajcx
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --no-audit --no-fund
+
+      # ⛔ THE SUBSTRATE DERIVATION WAS ON NO SCHEDULE EITHER, AND IT IS THE SAME DEFECT THIS FILE
+      #    WAS WRITTEN FOR, ONE FILE OVER. `substrate.html` prints its own age and goes amber then
+      #    red — honest, and honest is not fresh. `/api/3030` was serving `ageSeconds: 11535`
+      #    (3.2 hours) while the page underneath it correctly narrated the decay. Nothing refreshed
+      #    it because `npm run substrate` was only ever run by hand.
+      # ⚑ IT COSTS 10 SECONDS. Measured, not estimated — the same discovery as the six-hour cadence
+      #    above, where the caution was invented and then paid for on the one surface that shows.
+      # ⚠ It runs FIRST because it is the cheap one: if the pool screen fails, the substrate has
+      #    already been re-derived and the commit step still has something true to publish.
+      - name: re-derive the substrate
+        run: node scripts/substrate.mjs
+
+      - name: measure the pool screen
+        run: node scripts/terminal.mjs
+        # ⚠ Deliberately NOT `continue-on-error`. A failed measurement must leave the previous
+        #   snapshot in place and turn the run red, because the page's age label will then tell the
+        #   truth on its own. Writing a partial file would be worse than writing nothing.
+
+      # ⛔ THE EDGE LADDER STEP IS GONE WITH THE PAGE IT FED. It regenerated `data/edge-*.json`,
+      #    whose only consumer was `toll.html` — the game — and the artist removed that page
+      #    (2026-08-09). A ~50-minute daily job producing a deck nobody deals is the mirror of the
+      #    defect this file was written for: that one was a page nothing refreshed, this would be a
+      #    refresh with no page. **Deleting a feature is two jobs: the thing, and what fed it.**
+      # ⚠ `scripts/edge.mjs` and the existing data files are KEPT. The measurement is real work and
+      #    `scripts/terminal.mjs` still reads the edge files for its board; what is removed is the
+      #    schedule that existed only to keep a deleted game's deck fresh.
+      - name: commit only if something moved
+        run: |
+          git config user.name  "ripmaster3030 terminal"
+          git config user.email "noreply@ripmaster3030studios.com"
+          git add data/terminal.json data/substrate.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "no change — the market was quiet or the read matched. Not committing."
+            exit 0
+          fi
+          git commit -m "terminal: scheduled snapshot $(date -u +%Y-%m-%dT%H:%MZ)
+
+          Measured by .github/workflows/terminal-refresh.yml, not by hand. The page prints this
+          file's own measuredAt, so if this stops running the site says so in its largest type."
+          # ⚠ Rebase before pushing: a human may have pushed to this branch since checkout, and
+          #   clobbering a real commit to publish a data refresh is not a trade worth making.
+          for i in 1 2 3 4; do
+            git pull --rebase origin claude/superrare-trading-cards-71ajcx && git push origin HEAD:claude/superrare-trading-cards-71ajcx && break
+            sleep $((2 ** i))
+          done
+
+      # ⛔ IT CHECKS BOTH FILES, because a guard that watches one of two artefacts is how the second
+      #    one rots — this workflow existed for three days measuring only the pool screen while the
+      #    substrate aged past three hours beside it. "Checking one of N is how the other N−1 rot
+      #    back in" is this repo's most frequently paid bill.
+      - name: say what it published
+        run: |
+          node -e "
+            const mins = (t) => (Date.now() - new Date(t)) / 60000;
+            let bad = [];
+            const d = require('./data/terminal.json');
+            console.log('terminal  ', d.measuredAt, '| block', d.block, '|', (d.board||[]).length, 'pools |',
+              (d.board||[]).filter(r => r.tradeable).length, 'clearing the bar');
+            if (mins(d.measuredAt) > 30) bad.push('terminal.json is ' + mins(d.measuredAt).toFixed(0) + ' minutes old');
+            const s = require('./data/substrate.json');
+            const head = (s.blocks||[])[(s.blocks||[]).length-1];
+            console.log('substrate ', s.derivedAt, '| height', head ? head.height : '?', '|',
+              (s.blocks||[]).length, 'sheets |', (s.totals||{}).bytes, 'bytes typed');
+            if (mins(s.derivedAt) > 30) bad.push('substrate.json is ' + mins(s.derivedAt).toFixed(0) + ' minutes old');
+            if (bad.length) { console.error('⛔ ' + bad.join('; ')); process.exit(1); }
+          "

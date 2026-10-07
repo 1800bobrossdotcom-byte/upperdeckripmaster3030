@@ -34,6 +34,13 @@
    * number halves cleanly), so the display bug shipped hidden behind a round price. */
   const halfStr = (n) => (n / 2).toFixed(1).replace(/\.0$/, '');
   let lastTx = null, practice = false, lastSplit = false;   // lastSplit: went through PackSink
+  /* ⚠ DECLARED UP HERE WITH THE REST OF THE STATE, NOT BESIDE THE FUNCTION THAT USES IT. `close()`
+   *   and `startRip()` both call stopNeedPoll(), which READS this binding; a `let` further down
+   *   the file is in its temporal dead zone until module init reaches it. Safe today only because
+   *   both callers are event handlers — and "safe because of when it happens to be called" is
+   *   exactly the shape of the four TDZ failures this repo has already paid for, each of which
+   *   took a whole module down at parse time with the probe reporting "not ready". */
+  let needPoll = null;
 
   /* ── ⛔ THE REVEAL IS THE ONE CARD THAT HAS TO BE AN OBJECT ────────────────────────────────
    * Artist, 2026-08-05: *"we need the same cardviewer used in the proof.html with the
@@ -110,7 +117,13 @@
   }).then(rec => {
     const R = (rec && rec.cards) || {};
     DECK = DECK.map(c => Object.assign({}, c, { recipe: (R[String(c.id)] || {}).q || null }));
+    if (window.RipVaultFix) RipVaultFix.heal();
   }).catch(() => {});
+
+  /* ⛔ THE VAULT REPAIR MOVED TO `js/vault-fix.js`, AND THE MOVE *IS* THE FIX. It lived here, and
+   * only `index.html` loads this file — so it had never run on the arena, the binder, the bench or
+   * the deck, i.e. every page where a collector actually looks at a card. One copy, loaded by all
+   * of them, rather than a repair most of the site never received. */
 
   const rnd = n => Math.floor(Math.random() * n);
   const pickTier = () => {
@@ -164,15 +177,35 @@
   const GACHA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];   // 11 — auction 1–11, earned 23–33
   const GACHA_PER_PACK = GACHA_IDS.length / 3560;   // eleven of them over the four tiers' packs
   const isHero = c => c && c.band === 'hero';
-  const isGacha = c => isHero(c) && GACHA_IDS.indexOf(Number(c.id)) >= 0;
+  /* ⛔ RESERVE BY ID, NOT BY BAND — `band` IS A MANIFEST FIELD AND A MANIFEST FIELD CAN GO
+   *   MISSING. Keyed on `band`, a deck served without it made nothing a hero, so the reserved
+   *   filter matched nothing and the pack offered all eleven auction cards and all eleven earned
+   *   ones. Simulated: 22 reserved ids handed out. The id cannot go missing — it is what the
+   *   pack, the manifest, the recipe and `setCards` all address a card by.
+   * ⚑ AND IT IS THE KEY THE CHAIN ALREADY USES. Ripmaster3030Lens721 has HERO_MAX = 33 and
+   *   claimHero refuses anything above it, so "1–33 is a hero" is enforced on-chain, not just
+   *   asserted here. Verified against the live manifest: ids 1–33 are exactly the 33 heroes and
+   *   every id above 33 is a field card. */
+  const HERO_MAX = 33;                                  // mirrors the lens contract's own constant
+  const idOf = c => Number(c && c.id);
+  const isGacha = c => GACHA_IDS.indexOf(idOf(c)) >= 0;
+  const reserved = c => { const n = idOf(c); return n >= 1 && n <= HERO_MAX && !isGacha(c); };
   const pull = n => {
     const field = DECK.filter(c => !isHero(c));
     /* ⛔ THE GACHA ELEVEN, NOT EVERY HERO. Drawing from all 33 would offer cards reserved for the
      *   auctions and the game titles — the same 1/1 promised down two routes. */
     const heroes = DECK.filter(isGacha);
-    /* Fall back to the whole deck only if the manifest carried no bands at all — otherwise an
-     * empty `field` would silently produce an empty pack. */
-    const pool = field.length ? field : DECK;
+    /* ⛔ THE FALLBACK WAS THE HOLE, AND THE MAIN PATH BEING CORRECT IS WHY IT WAS INVISIBLE.
+     *   `field.length ? field : DECK` exists so a manifest that carried no bands still produces a
+     *   pack instead of an empty one — reasonable, and it hands out THE WHOLE DECK, auction 1–11
+     *   and earned 23–33 included. Simulated: with a deck of heroes only it offered all eleven
+     *   auction cards. 400,000 packs down the normal path never offered one, so every measurement
+     *   said this was safe.
+     * ⚑ THE RULE IS A PROPERTY OF THE CARD, NOT OF WHICH BRANCH YOU LANDED ON. Reserved ids are
+     *   removed from the pool itself, so there is no path — fallback, future edit, or a manifest
+     *   shaped in a way nobody predicted — that can offer one. A guard on the happy path only
+     *   guards the happy path. */
+    const pool = (field.length ? field : DECK).filter(c => !reserved(c));
     const out = [];
     for (let i = 0; i < n && pool.length; i++) out.push(pool[rnd(pool.length)]);
     /* At most ONE, and only sometimes. Replaces a field card rather than lengthening the pack, so
@@ -189,6 +222,7 @@
 
   // decide: real on-chain rip (burn $3030) or a practice pull
   async function startRip() {
+    stopNeedPoll();                    // a retry must not race the watcher that may have queued it
     lastTx = null; practice = true;
     if (onchainRip()) return onchainStart();
     rip();
@@ -279,13 +313,79 @@
 
   function ripBlocked(msg) { busy = false; if (title) title.textContent = 'hold up';
     reveal.innerHTML = '<div class="pack-note">' + esc(msg) + '</div>' + ctaRow(); wireCta(); }
-  function ripNeedTokens(have, need) { busy = false; if (title) title.textContent = 'need more $3030';
-    const costs = (W() && W().hasSink && W().hasSink())
+  /* ⛔ THIS WAS THE FRONT DOOR OF THE ENTIRE DISTRIBUTION PLAN AND IT WAS A DEAD END.
+   *   It read the balance, found it short, and said "Buy some on SuperRare, then rip" — at the
+   *   one moment a visitor has decided they want a pack. The pack schedule is 3,560 packs and
+   *   tier I alone is 200,000 $3030 off $16,000, which is 2.5x everything the token has ever
+   *   distributed; every one of those sales has to walk through this function. Sending somebody
+   *   away to work out for themselves how many $3030 a pack costs, in a unit they do not think
+   *   in, on a market that quotes in RARE, is where the funnel was losing them.
+   * ⚑ THE RIP IS A BUY NOW: it names the shortfall, prices it in DOLLARS, opens an EXACT-OUTPUT
+   *   swap pre-filled with the amount, and then WATCHES THE BALANCE so the rip continues by
+   *   itself when the tokens land. No copy-pasting a number between two tabs.
+   * ⚠ FAILS OPEN AT EVERY STEP: no swapUrl (token unconfigured) ⇒ the old copy, unchanged. No
+   *   price ⇒ the token count without a dollar figure. No poll ⇒ the Try again button still works.
+   *   Nothing here can make the panel worse than the dead end it replaced. */
+  function stopNeedPoll() { if (needPoll) { clearInterval(needPoll); needPoll = null; } }
+  function ripNeedTokens(have, need) { busy = false; stopNeedPoll();
+    if (title) title.textContent = 'one step first';
+    const w = W();
+    const short = Math.max(0, need - have);
+    /* ⚠ A CUSHION, BECAUSE AN EXACT FILL IS THE ONE THAT SENDS THEM ROUND THE LOOP AGAIN. Price
+     *   moves between opening the swap and signing it, and slippage is subtracted from the OUTPUT
+     *   on an exact-input leg — so buying precisely the shortfall lands a few tokens short and
+     *   drops the collector back on this same panel, having already paid. 5% and a floor of 1. */
+    const buyAmt = Math.max(short + 1, Math.ceil(short * 1.05));
+    const url = (w && w.swapUrl) ? w.swapUrl(null, buyAmt) : '';
+    const costs = (w && w.hasSink && w.hasSink())
       ? 'costs <b>' + need + ' $3030</b> — half burned, half to the studio'
       : 'burns <b>' + need + ' $3030</b>';
+
+    if (!url) {   // token unconfigured — the panel this replaced, verbatim
+      reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
+        have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); return; }
+
     reveal.innerHTML = '<div class="pack-note">A rip ' + costs + '. You hold <b>' +
-      have.toLocaleString('en-US') + '</b>. Buy some on SuperRare, then rip.</div>' + ctaRow(); wireCta(); }
+      have.toLocaleString('en-US') + '</b>, so you need <b>' + short.toLocaleString('en-US') +
+      '</b> more.<span id="ripUsd"></span></div>' +
+      '<div class="pack-cta">' +
+        '<a class="btn gold" id="ripBuy" href="' + url + '" target="_blank" rel="noopener noreferrer">' +
+          '$ Buy ' + buyAmt.toLocaleString('en-US') + ' $3030 ↗</a>' +
+        '<button type="button" class="btn" id="ripRetry">↻ I have them — rip</button>' +
+        '<button type="button" class="btn alt" id="ripPractice">Practice pull</button></div>' +
+      '<div class="pack-note" id="ripWatch" style="opacity:.75"></div>';
+    wireCta();
+
+    /* The dollar figure, because the pack is a DOLLAR target and $3030 is not a unit anyone
+     * budgets in. Live read; absent rather than guessed if the market is unreachable. */
+    if (w && w.marketDepth) w.marketDepth().then(d => {
+      const px = ((d && d.pools) || []).map(p => p && p.price).find(v => v > 0);
+      const el = document.getElementById('ripUsd');
+      if (px && el) el.innerHTML = ' That is about <b>$' + (buyAmt * px).toFixed(2) + '</b>.';
+    }).catch(() => {});
+
+    /* ⚑ THE WATCH IS THE HALF THAT MAKES IT ONE ERRAND INSTEAD OF TWO. They buy in another tab;
+     *   this one notices and rips. Without it the collector has to come back, remember which
+     *   button, and press it — and the whole point was to stop asking them to carry state. */
+    const watch = document.getElementById('ripWatch');
+    /* ⚠ PAINTED BEFORE THE FIRST TICK, NOT ON IT. The interval is 3 s, so setting this only inside
+     *   the callback leaves three seconds of blank space under the button — exactly the window in
+     *   which somebody decides nothing is happening and closes the tab. Same rule as the embed's
+     *   em-dash: a silent surface is indistinguishable from a broken one. */
+    if (watch) watch.textContent = 'watching for the tokens to arrive…';
+    let ticks = 0;
+    needPoll = setInterval(async () => {
+      if (!modal.classList.contains('show')) return stopNeedPoll();
+      if (++ticks > 150) { stopNeedPoll(); if (watch) watch.textContent = ''; return; }   // ~7.5 min
+      try {
+        const b = await w.balance();
+        if (b && b.ok && b.tokens >= need) { stopNeedPoll(); startRip(); }
+        else if (watch) watch.textContent = 'watching for the tokens to arrive…';
+      } catch {}
+    }, 3000);
+  }
   function close() {
+    stopNeedPoll();                    // …and so is a balance poll behind one
     dropViewer();                      // a press rendering behind a closed modal is a battery bill
     if (zoomEl) { zoomEl.remove(); zoomEl = null; modal.querySelector('.pack-inner').classList.remove('recede'); }
     modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); try { vid.pause(); } catch {}
@@ -326,7 +426,20 @@
        *   always has (`bySlug.get()` → undefined → filtered out), so nothing throws.
        * ⚑ `n` is the hundred's own number, written alongside so a resolver can be added later
        *   without a migration — the entries written tonight will already carry what it needs. */
-      cards.forEach(c => v.push(c.id != null ? { slug: c.slug, n: c.id } : { slug: c.slug }));
+      /* ⛔ A PRACTICE PULL AND A PAID RIP WROTE THE SAME ROW — artist, on the bench: *"prefilled
+       *   when I already bought cards."* Every free practice pull landed in the vault
+       *   indistinguishable from a pack he burned $3030 for, so the shelf was full before he
+       *   bought anything and the purchase read as nothing.
+       * ⚑ `p` IS ADDITIVE, exactly like `n` above: eight surfaces key on `{slug}` and none of
+       *   them look at unknown fields, so nothing needs a migration and nothing else moves.
+       * ⚠ IT ONLY MARKS ROWS WRITTEN FROM NOW ON — a row already in the vault carries no
+       *   provenance and none can be invented for it. That is a limit, not a fix, and the honest
+       *   thing is to say so rather than back-fill a guess about which pulls were paid for. */
+      cards.forEach(c => {
+        const row = c.id != null ? { slug: c.slug, n: c.id } : { slug: c.slug };
+        if (practice) row.p = 1;
+        v.push(row);
+      });
       localStorage.setItem('urm_vault', JSON.stringify(v.slice(-200)));
     } catch {}
     if (title) title.textContent = practice ? 'practice pull · no on-chain burn' : 'your pull · $3030 burned on-chain · cards saved in-browser';

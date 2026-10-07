@@ -1,0 +1,92 @@
+# ripmaster3030studios — THE DRAIN SCREEN, ON A CLOCK
+#
+# ⛔ THE LEDGER IS THE PRODUCT, AND A LEDGER ONLY EXISTS IF SOMETHING RUNS. A screen that a human
+#    remembers to run produces a handful of anecdotes; a screen on a clock produces a record with
+#    dates on it, and a record is the only thing that can ever answer "does this work". This repo
+#    already has the cautionary version: `bot/README.md` says every rule in it is backtested and
+#    none forward-tested, and the paper book has been sitting at **0 trades** since it was written.
+#    Reading public logs costs nothing, so there is no excuse for the same outcome here.
+#
+# ⚑ HOURLY, AND OFFSET FROM THE TERMINAL'S JOB. terminal-refresh runs at :09; this runs at :39, so
+#    the two never contend for the same branch or race on a push.
+#
+# ⛔ IT PUSHES TO THE BRANCH VERCEL ACTUALLY SERVES, WHICH IS NOT `main`. Production tracks
+#    `claude/superrare-trading-cards-71ajcx`; a push to `main` builds green and lands as a Preview.
+#    ⚠ THIS JOB CANNOT RUN UNTIL scripts/drain.mjs IS ON THAT BRANCH. It is checked out from there,
+#      so until the work lands the workflow will fail on a missing file — which is the correct
+#      failure, loudly, rather than a job that silently watches nothing.
+#
+# ⚠ NO KEY, NO WALLET, NO SIGNING. This reads public event logs over public RPCs. There is nothing
+#   here that could move a token even if the runner were compromised.
+name: drain watch
+
+on:
+  schedule:
+    - cron: '39 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # ⚠ Two runs at once would race on data/drain-ledger.json and one would clobber the other's
+  #   appended revisits. Never cancel-in-progress: a run killed mid-write is how a truncated
+  #   ledger reaches the page, and this file is append-only precisely so it can be trusted.
+  group: drain-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/superrare-trading-cards-71ajcx
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - run: npm ci --no-audit --no-fund
+
+      # ⚠ Deliberately NOT continue-on-error. A failed screen must leave the previous ledger in
+      #   place and turn the run red. Appending a partial pass would put a fabricated gap in a
+      #   record whose whole value is that it was not edited after the fact.
+      - name: screen both chains and append the ledger
+        run: node scripts/drain.mjs
+
+      - name: commit only if something moved
+        run: |
+          git config user.name  "ripmaster3030 drain"
+          git config user.email "noreply@ripmaster3030studios.com"
+          git add data/drain.json data/drain-ledger.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "nothing new and nothing to revisit. Not committing."
+            exit 0
+          fi
+          git commit -m "drain: scheduled screen $(date -u +%Y-%m-%dT%H:%MZ)
+
+          Measured by .github/workflows/drain-watch.yml, not by hand. Counts only —
+          nothing in this file is an accusation and the tool cannot make one."
+          # ⚠ Rebase before pushing: the terminal job and a human both push to this branch.
+          for i in 1 2 3 4; do
+            git pull --rebase origin claude/superrare-trading-cards-71ajcx && git push origin HEAD:claude/superrare-trading-cards-71ajcx && break
+            sleep $((2 ** i))
+          done
+
+      - name: say what it found
+        run: |
+          node -e "
+            const l = require('./data/drain-ledger.json');
+            const open = l.entries.length;
+            const followed = l.entries.filter(e => e.revisits.length > 0).length;
+            const grew = l.entries.filter(e =>
+              e.revisits.some(r => r.newApprovers > 0)).length;
+            console.log(open + ' entries | ' + followed + ' with follow-up | ' + grew +
+              ' still taking approvals after they were flagged');
+            // ⚠ A ledger that never opens anything is indistinguishable from a broken screen.
+            //   This does not fail the run — most hours are genuinely quiet — but it says so.
+            if (!open) console.log('⚠ the ledger is empty. Quiet hour, or the screen stopped working.');
+          "

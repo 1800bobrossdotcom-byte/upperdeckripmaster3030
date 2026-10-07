@@ -371,22 +371,90 @@ head('3 · THE ARENA is reachable and does not slide sideways in portrait');
    *   challenge buttons at 32, the wager chips at 28, the name field at 28 and the four nav links
    *   at 12–14. ⚑ Asserted here rather than left to the audit because `npm run mobile` reports and
    *   never fails; this is the cabinet you play with a thumb, so the floor is a build condition.
-   *   Proved to bite: removing the `@media (pointer:coarse)` block fails this with 23 named. */
+   *   Proved to bite: removing the `@media (pointer:coarse)` block fails this with 23 named.
+   * ⛔ A LINK INSIDE A SENTENCE IS EXEMPT, AND THE EXEMPTION IS THE STANDARD'S OWN. WCAG 2.5.8
+   *   excludes a target that is "in a sentence or block of text", because 44px is arithmetically
+   *   impossible there: 14px of letterform in a ~20px line box needs 15px either side, so the hit
+   *   box MUST reach into the line above and below. That was BUILT AND MEASURED on `.rules`'s two
+   *   prose links — at 320×568 they wrap onto adjacent lines and `elementFromPoint` at the first
+   *   link's centre returned the SECOND. **A link that takes zero presses is strictly worse than a
+   *   small one**, which is why this is an exemption and not a CSS fix.
+   * ⚠ AND IT HAD BEEN HAPPENING BY ACCIDENT. The two links were flagged in a loaded board run and
+   *   NOT in a standalone one on identical bytes — the sweep skips anything with no `offsetParent`,
+   *   so whether a panel happened to be on screen decided the result. A rule that fires sometimes
+   *   is the phantom-regression shape this repo keeps paying for; stated, it fires never.
+   * ⛔ THE TEST IS THE PROSE, NOT A LIST OF CLASSES. A hand-picked exemption list is the failure
+   *   recorded three times in CLAUDE.md. The shape: does the anchor's PARENT hold real words of
+   *   its own? ⚠ 20 LETTERS, because the footer's " · " separators are text nodes too — a
+   *   separator is not a sentence, and exempting a " · "-joined nav row would give back exactly
+   *   the four 12–14px nav links this block was written to fix. Both directions asserted below. */
   const taps = await page.evaluate(() => {
-    const bad = [];
+    const bad = [], exempt = [];
+    /* letters in the parent's OWN text nodes — not its anchors', or every link is its own sentence */
+    const proseAround = (el) => {
+      const p = el.parentElement; if (!p) return 0;
+      let own = '';
+      for (const n of p.childNodes) if (n.nodeType === 3) own += n.textContent;
+      return (own.match(/[A-Za-z]/g) || []).length;
+    };
     for (const el of document.querySelectorAll('button, a, input, [role=button], .btn, .tchip, .mode')) {
       const s = getComputedStyle(el);
       if (s.display === 'none' || s.visibility === 'hidden' || !el.offsetParent) continue;
       const b = el.getBoundingClientRect();
       if (b.width < 4 || b.height < 4) continue;                 // not a control, an inline marker
-      if (b.height < 44)
-        bad.push(((el.id || el.className || el.tagName) + '').toString().slice(0, 18) +
-                 ' ' + Math.round(b.width) + '×' + Math.round(b.height));
+      if (b.height >= 44) continue;
+      const label = ((el.id || el.className || el.tagName) + '').toString().slice(0, 18) +
+                    ' ' + Math.round(b.width) + '×' + Math.round(b.height);
+      const words = el.tagName === 'A' ? proseAround(el) : 0;
+      if (words >= 20) exempt.push(label + ' (in ' + words + ' letters of prose)');
+      else bad.push(label);
     }
-    return bad;
+    return { bad, exempt };
   });
-  t('every control clears the 44px tap floor', taps.length === 0,
-    taps.length ? taps.length + ' under: ' + taps.slice(0, 6).join(' · ') : 'all clear');
+  t('every control clears the 44px tap floor', taps.bad.length === 0,
+    taps.bad.length ? taps.bad.length + ' under: ' + taps.bad.slice(0, 6).join(' · ') : 'all clear');
+  /* ⛔ AND THE EXEMPTION IS PROVED TO DISCRIMINATE, INSIDE THE TEST. An exemption nobody measures
+   *   is a hole: "no control is under 44px" is trivially true of a sweep that exempts everything.
+   *
+   * ⛔ IT USED TO MEASURE `.rules a` AND `a.back`, AND THAT BROKE — NOT THE PRODUCT, THE CHECK.
+   *   The two prose links in the rules panel were the whole reason this exemption exists; a later
+   *   pass moved them out of the paragraph into chips on their own row (recorded in CLAUDE.md, and
+   *   the right call — it also made the two routes to a hero findable instead of buried
+   *   mid-sentence). `.rules` now holds ZERO anchors, so `querySelector` returned null, `letters`
+   *   returned null, and the suite reported a FAILURE about a defect that does not exist. It ran
+   *   red on the board for days. **A CHECK WHOSE SUBJECT MOVED KEEPS REPORTING** — this repo's own
+   *   headline, and the first version of this very block was written to escape a milder form of it.
+   *
+   * ✅ SO IT STOPPED POINTING AT PAGE COPY. Two nodes are INJECTED — one link inside a real
+   *   sentence, one in a "·"-joined nav row — and the predicate is run on those. The subject is now
+   *   the RULE, which cannot be edited away by a copy change, and the assertion means the same
+   *   thing on every page and every viewport.
+   * ⚠ AND IT MUST BE THE SWEEP'S OWN PREDICATE, NOT A SECOND COPY OF IT. The old block reimplemented
+   *   `proseAround` a few lines below the original — two definitions of one rule, which is how the
+   *   thing under test drifts away from the thing being tested. The function is passed in as source
+   *   and both call sites evaluate the same string.
+   * ⚠ The live picture is still reported beside it, so a run where the sweep exempts EVERYTHING is
+   *   visible rather than hidden behind a synthetic pass. */
+  const PROSE_FN = `(el) => { const p = el.parentElement; if (!p) return 0;
+      let own = ''; for (const n of p.childNodes) if (n.nodeType === 3) own += n.textContent;
+      return (own.match(/[A-Za-z]/g) || []).length; }`;
+  const disc = await page.evaluate((src) => {
+    const proseAround = eval(src);
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:-9999px;top:0';
+    host.innerHTML = '<p id="__pp">This is an ordinary sentence of running text with '
+      + '<a href="#" id="__pa">a link</a> sitting inside it.</p>'
+      + '<nav id="__np"><a href="#" id="__na">one</a> · <a href="#">two</a> · <a href="#">three</a></nav>';
+    document.body.appendChild(host);
+    const prose = proseAround(document.getElementById('__pa'));
+    const nav   = proseAround(document.getElementById('__na'));
+    host.remove();
+    return { prose, nav };
+  }, PROSE_FN);
+  t('…and that exemption is a sentence test, not a blanket pass for links',
+    disc.prose >= 20 && disc.nav < 20,
+    `an injected link in prose sees ${disc.prose} letters · one in a "·" nav row sees ${disc.nav}`
+    + ` — and on this page the sweep exempted ${taps.exempt.length} of ${taps.exempt.length + taps.bad.length} sub-44px controls`);
   await ctx.close();
 }
 

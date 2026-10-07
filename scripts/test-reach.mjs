@@ -185,7 +185,7 @@ const arcade = R('arcade.html');
  *   findable-from-where-you-are. A fixed count asserted the inventory NUMBER and would have had
  *   to be edited either way — it could never have caught the thing that was actually wrong. */
 const CABINETS = ['city.html', 'riprocketer.html', 'cloudracer.html', 'cards/battle.html',
-                  'dogfight.html', 'section9.html'];
+                  'dogfight.html', 'section9.html', 'blade.html'];
 /* ⚠ STILL ASSERTED FROM THE CITY TOO, and that is not a duplicate. The mode bar is the SEAM — the
  * city is where these two share a world — and the route existed there the whole time they were off
  * the shelf. Deleting it now to tidy a number is the same mistake with the sign flipped. */
@@ -455,6 +455,45 @@ head('1b · the city can actually be played by a thumb');
  * still fails. See docs/REACHABILITY.md for why each of these three is deliberate. */
 head('2 · no shipped page is an orphan (deliberate ones are allow-listed with a reason)');
 const ORPHAN_OK = {
+  /* ⚑ STEALTH BETA, and unlinked ON PURPOSE rather than by oversight. It is a playable game whose
+   *   whole deck is live measurement, shipped to be pressure-tested by people handed the URL
+   *   before it goes near the funnel. It carries `noindex`, it is absent from the sitemap, and it
+   *   asks for no wallet and holds no stake — so an early visitor can lose nothing but time.
+   * ⛔ IT GETS LINKED OR IT GETS DELETED. A "beta" with no stated end is just an orphan wearing a
+   *   badge; when the artist says it is ready it joins arcade.html, and if he says it is not, it
+   *   goes. Written down because that is this file's own distinction between a decision and drift. */
+  /* ⚑ THE READING, unlinked pending ONE artist decision — whether it belongs in the funnel at
+   *   all. It is wallet-free, read-only and holds no stake, so an early visitor can lose nothing
+   *   but time; and it is not a game, so it does not belong on arcade.html by default.
+   * ⛔ IT GETS LINKED OR IT GETS DELETED — and toll.html, which used to be the example held
+   * here, is the case that proves those are the real terms: it was deleted (artist, 2026-08-09). An
+   *   exception with no stated end is just an orphan wearing a badge. See docs/SUBSTRATE-3030.md
+   *   §"Open, and the artist's" item 4. */
+  'substrate.html': 'THE READING — unlinked until the artist decides whether it enters the funnel',
+  /* ⚑ THE PRODUCT PAGE for the drain screen. Its reader is an exchange, a wallet or a compliance
+   *   desk — not a collector — so it does not belong in the studio's play/cards/pack funnel, and
+   *   putting it there would dilute the three doors that pass fought to establish.
+   * ⛔ SAME TERMS AS substrate.html: it gets linked from wherever it is actually
+   *   sold from, or it gets deleted. A product page nobody can reach sells nothing, so this
+   *   exemption is a decision with an end, not a place to leave it. */
+  /* ⛔ ONE PRODUCT NOW. `3030.html` is the whole thing — the lookup, the hourly feed and the
+   *   ledger — and it is what 3030.ripmaster3030studios.com serves. Its reader is a person with a
+   *   transaction in front of them or a desk with a duty of care, not a collector, so it stays out
+   *   of the play/cards/pack funnel that pass fought to keep to three doors.
+   * ⚠ drain.html is a 302 to it in vercel.json rather than a deletion: that link was already
+   *   shared, and a URL that resolved once should keep resolving. */
+  '3030.html': 'THE PRODUCT — lookup + feed + ledger; served at 3030.ripmaster3030studios.com',
+  'drain.html': 'SUPERSEDED by 3030.html — kept as a redirect because the link was shared',
+  /* ⚑ THE COMPOSING FRAME. It composes a plate and deliberately cannot press one — the contract
+   *   does not exist, because the decision it turns on (page or chart?) is not settleable on a
+   *   screen. Linking it now would put a door on a room with no floor.
+   * ⛔ SAME TERMS: it gets linked when there is something to press, or it goes with the idea. */
+  /* ⚑ A DISPOSABLE PROTOTYPE, UNLINKED ON PURPOSE — artist, 2026-08-07: "lets try it." THE PULL is
+   *   a roguelike deckbuilder built to be PLAYED and then shipped, folded into THE ARENA, or thrown
+   *   away. `cards/proof.html` was built the same way for the same reason. ⚠ This entry is the
+   *   difference between a decision and an oversight; when it ships, this line is what should be
+   *   deleted first — and if the page is ever killed instead, delete the page, not the reason. */
+  'pull.html': 'a prototype the artist opens by URL — nothing links it until it is decided',
   'superrare.html': 'the token animation_url target — reached from the chain, not from the site',
   /* ⚑ THE SHARE CABINET IS AN ORPHAN BY DESIGN, and it is the same shape as superrare.html one
    *   platform over: it is reached from a LINK CARD IN A SOCIAL FEED, not from the site. Linking
@@ -483,6 +522,15 @@ const ORPHAN_OK = {
    * ⛔ IT JOINS THEM IN .vercelignore THE MOMENT THE 33 ARE PUBLISHED. Written down because a
    *   temporary exception with no stated end is just an exception. */
   'deploy-cards.html': 'an operator tool — unlinked; ships only until setCards lands, then .vercelignore\u0027d',
+  /* ⚠ Ships alongside deploy-cards.html and for the same reason — the artist drives it from the
+   *   live site — and leaves the same way once the 33 are minted. It sends no bytecode and grants
+   *   nothing: claimHero verifies an EIP-712 signature from claimSigner, so a stranger opening
+   *   this page can produce vouchers only the contract will reject. */
+  'mint-heroes.html': 'an operator tool — unlinked; ships until the heroes are minted, then .vercelignore\u0027d',
+  /* ⚠ Ships until the two wiring transactions land, same as the other operator consoles, and
+   *   leaves the same way. It sends no bytecode and grants nothing: both calls are onlyOwner and
+   *   both were verified to revert for a stranger before this shipped. */
+  'wire-lens.html': 'an operator tool — unlinked; ships until the lens is registered, then .vercelignore\u0027d',
   'cards/deck3d.html': 'a redirect kept alive because that URL was already shared',
   /* ⚠ RETIRED, NOT DELETED. NEON RONIN lost its cabinet to THE CITY on 2026-08-03 (artist's call).
    * The page and its 13 fighters are left on disk and still resolve, because a URL that has been
@@ -532,6 +580,17 @@ t(`all ${CARD_PAGES.length} card pages are reachable from the deck index`, cardO
 for (const [f] of TEXT) {
   if (!f.endsWith('.html')) continue;
   if (f === 'index.html') continue;      // the domain itself is the only real root
+  /* ⛔ THE HERO LENSES ARE REACHED FROM THE CHAIN, NOT FROM THE SITE — same class as
+   *   superrare.html, which is allow-listed for exactly this reason. Each token's on-chain
+   *   `animation_url` is https://www.…/cards/hero/<id>.html, so the inbound link lives in
+   *   contract storage where no crawler of ours can see it. Requiring a site link would push
+   *   toward adding a decorative one to satisfy a test, which is worse than the exemption.
+   * ⚠ NOT a blanket pass for the directory: only the 33 numbered lens pages are exempt, so a
+   *   stray file dropped in cards/hero/ is still an orphan and still fails.
+   * ⚑ They are NOT unreachable in practice — /cards/<1–33> redirects here, which is what makes
+   *   `external_url` resolve too. That routing is asserted in test:name, not by pretending a
+   *   link exists. */
+  if (/^cards\/hero\/([1-9]|[12][0-9]|3[0-3])\.html$/.test(f)) continue;
   if (ORPHAN_OK[f] || CARD_PAGES.includes(f)) continue;
   const nav = navigatorsOf(f);
   t(`${f} is navigated to by something`, nav.length > 0, nav.slice(0, 3).join(', ') || 'NO INBOUND LINK');
@@ -1027,6 +1086,33 @@ head('7 · the sitemap lists every cabinet');
 {
   const sm = R('sitemap.xml');
   for (const c of CABINETS.concat(['arcade.html'])) t(`sitemap.xml lists ${c}`, sm.includes('/' + c + '<'));
+}
+
+/* ── §7  RipDeck.load()'s base must match the CALLING PAGE's depth ───────────────────────────
+ * ⛔ EVERY CABINET BROKE AT ONCE ON THIS. `RipDeck.load(base)` fetches `base + 'deck-manifest.json'`
+ *   RELATIVE TO THE PAGE. `cards/battle.html` passes '' because the manifests sit beside it;
+ *   copying that call verbatim into dogfight/section9/cloudracer/riprocketer/ronin — all at the
+ *   ROOT — made it fetch `/deck-manifest.json`, a 404 swallowed by the loader's own catch. The
+ *   deck came back EMPTY and the pickers told players holding a full folder "deck manifest
+ *   missing" and "no cards yet". Nothing threw; the failure was a silent [].
+ * ⚑ Guards the VALUE, not the symptom: a root-depth caller must pass 'cards/', a caller under
+ *   /cards/ must pass ''. */
+head('§7  the deck loader is called with the right base for the page');
+{
+  const callers = [];
+  for (const [rel, src] of TEXT) {
+    if (!/\.(js|html)$/.test(rel)) continue;
+    const m = [...src.matchAll(/RipDeck\.load\(\s*'([^']*)'\s*\)/g)];
+    if (m.length) callers.push({ rel, bases: m.map(x => x[1]) });
+  }
+  t('§7 something calls RipDeck.load', callers.length > 0, callers.length + ' file(s)');
+  for (const c of callers) {
+    /* `js/*.js` modules are loaded BY root pages, so they are root-depth too; only files under
+       cards/ sit beside the manifests. */
+    const want = c.rel.startsWith('cards/') ? '' : 'cards/';
+    t(`§7 ${c.rel} passes ${JSON.stringify(want)}`,
+      c.bases.every(b => b === want), 'found ' + JSON.stringify(c.bases));
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -16,6 +16,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -38,6 +39,24 @@ const ok = (cond, msg, detail) => {
 const roster = new Map();                 // id -> record (with a stamp)
 const inbox = new Map();                  // room|id -> [msg]
 const body = req => new Promise(r => { let b=''; req.on('data',c=>b+=c); req.on('end',()=>r(b)); });
+
+/* ⛔ PIN THE WIRE KEY AGAINST THE SHIPPED HANDLER, because this suite has already been defeated
+ *   by exactly this: js/city-net.js read `j.messages`, api/signal.js sends `msgs`, and the fake
+ *   server above was written to match the CLIENT — so three green ticks meant the harness agreed
+ *   with itself while THE CITY's peer motion could not work in production for a single second.
+ * ⚑ Derived from api/signal.js's own source, and checked against EVERY client that reads it, so a
+ *   second consumer written tomorrow cannot quietly pick a different name. */
+{
+  const sig = readFileSync(join(ROOT, 'api/signal.js'), 'utf8');
+  const key = (sig.match(/res\.status\(200\)\.json\(\{\s*ok:\s*true,\s*(\w+)/) || [])[1];
+  ok(!!key, 'api/signal.js names its response array', key || 'unparsed');
+  for (const f of ['js/city-net.js', 'js/df-net.js']) {
+    const src = readFileSync(join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');   // comments are history
+    const reads = [...src.matchAll(/j\s*&&\s*j\.(\w+)\s*\|\|\s*\[\]/g)].map(m => m[1]);
+    ok(reads.length > 0 && reads.every(r => r === key),
+      `${f} reads the key the server actually sends`, `reads ${reads.join(',') || 'nothing'} · server sends ${key}`);
+  }
+}
 
 const srv = createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -64,7 +83,11 @@ const srv = createServer(async (req, res) => {
     const k = u.searchParams.get('room') + '|' + u.searchParams.get('me');
     const msgs = inbox.get(k) || []; inbox.set(k, []);
     res.writeHead(200, {'content-type':'application/json'});
-    return res.end(JSON.stringify({ ok:true, messages: msgs }));
+    /* ⛔ THIS SAID `messages` AND THE SHIPPED `api/signal.js` SAYS `msgs`. The harness had been
+     * written to match the CLIENT (js/city-net.js, which read `messages`) rather than the real
+     * handler — so this suite scored 10/10 for months while THE CITY's peer motion could not work
+     * in production at all. The key is the server's now, and it is asserted below. */
+    return res.end(JSON.stringify({ ok:true, msgs }));
   }
 
   let f = p.endsWith('/') ? p + 'index.html' : p;

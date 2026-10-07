@@ -450,8 +450,16 @@
    * neither arrives the generated cells already in the atlas stand in — the formation is never
    * blank. Each decode re-uploads the atlas once; twelve uploads, then never again. */
   let deckNames = [];
+  /* ⚠ THE VAULT REPAIR IS ASYNC AND LANDS AFTER THIS RUNS — re-read, or a player whose retired
+   * cards were just migrated flies with the default deck instead of their own. */
+  addEventListener('urm:vault-fixed', () => { try { loadDeck(); } catch (e) {} });
   function loadDeck() {
-    fetch('cards/manifest.json').then(r => r.json()).then(m => {
+    /* ⛔ READ `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS — ON A SURFACE THAT WAGERS CARDS.
+   * Artist, 2026-08-07: "no one can properly play / wager / ante right now" and "for all game
+   * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
+   * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
+   * because a 1/1 is not a chip. */
+    (window.RipDeck ? RipDeck.load('cards/').then(cs => ({ cards: (cs||[]).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)) })) : Promise.reject()).then(m => {
       const deck = m.cards || [], bySlug = new Map(deck.map(c => [c.slug, c]));
       let owned = [];
       try { owned = JSON.parse(localStorage.getItem('urm_vault') || '[]').map(e => bySlug.get(e.slug)).filter(Boolean); } catch (e) {}
@@ -2066,14 +2074,23 @@
   function lbLoad() { try { return JSON.parse(localStorage.getItem('urm_rr_scores') || '[]'); } catch (e) { return []; } }
   function lbSave(a) { try { localStorage.setItem('urm_rr_scores', JSON.stringify(a.slice(0, 10))); } catch (e) {} }
   function getName() { try { return (localStorage.getItem('urm_net_handle') || 'RIPPER').slice(0, 14) || 'RIPPER'; } catch (e) { return 'RIPPER'; } }
+  /* ⛔ THIS BOARD WAS localStorage, SO "TOP RIPPERS" LISTED EXACTLY ONE PERSON — YOU — and the
+   *   other five cabinets had no board at all. Artist, 2026-08-07: "top rippers for each game need
+   *   to be shown" / "show the address as the player"; his own 3,975,083 sat on a board reading
+   *   "RIPPER", because `getName()` falls back to that when no handle was ever set.
+   * ⚑ `js/leaderboard.js` is the global one, on the KV that already runs presence, and it shows a
+   *   connected WALLET ADDRESS as the name — the only durable identity here. It falls back to this
+   *   game's own local list when the API is unreachable, so the panel is never blank. */
   function lbRender(el, hi) {
     if (!el) return;
+    if (window.RipBoard) return;                  // the shared board owns this element now
     const a = lbLoad();
     if (!a.length) { el.innerHTML = '<div class="lb-hd">top rippers</div><div class="lb-row"><span class="lb-rank">—</span><span class="lb-nm">be the first to sign</span><span class="lb-sc"></span></div>'; return; }
     el.innerHTML = '<div class="lb-hd">top rippers</div>' + a.map((e, i) =>
       '<div class="lb-row' + (i === hi ? ' me' : '') + '"><span class="lb-rank">' + (i + 1) + '</span><span class="lb-nm">'
       + esc(e.name) + '</span><span class="lb-sc">' + (e.score || 0).toLocaleString('en-US') + '</span></div>').join('');
   }
+  if (window.RipBoard) { RipBoard.mount($('lbGate'), 'riprocketer'); RipBoard.mount($('lbOver'), 'riprocketer'); }
   lbRender($('lbGate'), -1);
 
   function startGame(staked) {
@@ -2101,6 +2118,17 @@
      * lines above its own declaration — a temporal dead zone, which `new Function` compiles
      * happily because compiling is not executing, and which would have thrown at exactly the
      * moment a player finished a two-million run. Fifth sighting of TDZ in this repo. */
+    /* ⛔ TWO BARS, NOT ONE BAR TWICE — artist, 2026-08-07: "I cleared 2 million earlier, so I earned
+     * a 1/1. now someone earned 7 million+ and then the same 2 million award was given to them."
+     * TWO MILLION FEET is ONE seat and it is gone; a bigger run is a title of its own, and
+     * `js/title-ledger.js` is what closes the first. ⚠ A 7,000,000 run passes 2,000,000 on the way,
+     * so BOTH fire — that is correct and the ledger sorts it out: the closed one shows TAKEN, the
+     * open one prints a claim slip. Suppressing the lower award here would be the wrong place to
+     * decide it, because whether a seat is left is not RIP ROCKETER's business. */
+    if (e.score >= 7000000) {
+      ttAward('abovetheweather', { score: e.score, wave: G.wave, chain: G.bestChain,
+        accuracy: acc, flowHeld: +Math.max(G.stat.flowHeld || 0, G.stat.flowRun || 0).toFixed(1) });
+    }
     if (e.score >= 2000000) {
       ttAward('twomillion', { score: e.score, wave: G.wave, chain: G.bestChain,
         accuracy: acc, flowHeld: +Math.max(G.stat.flowHeld || 0, G.stat.flowRun || 0).toFixed(1) });
@@ -2127,6 +2155,8 @@
       + 's</b> · overdrives <b>' + (st.overdrives || 0)
       + '</b> · kills in overdrive <b>' + odShare + '%</b></span>';
     lbRender($('lbOver'), idx); lbRender($('lbGate'), -1);
+    /* ⚑ the run also goes to the GLOBAL board — this is the only place that knows the final score */
+    if (window.RipBoard) { try { RipBoard.post('riprocketer', Math.floor(G.score)); } catch (e) {} }
     const ni = $('lbName');
     if (ni) { ni.value = getName();
       ni.oninput = () => { const v = (ni.value || '').trim().slice(0, 14) || 'RIPPER';
@@ -2204,6 +2234,11 @@
     counts: () => fx.counts(),
     fps: () => { const s = fpsWin.slice().sort((a, b) => a - b); return { med: s[s.length >> 1], mean: fpsWin.reduce((x, y) => x + y, 0) / (fpsWin.length || 1), n: fpsWin.length }; },
     start: staked => startGame(staked),
+    /* ⚑ THE END OF A RUN, DRIVABLE. `showOver()` is where the score is banked and posted to the
+     * global board, and nothing outside this file could reach it — so "does RIP ROCKETER actually
+     * post" was a question only a text match could answer, and this repo's whole record is that a
+     * text match cannot see whether a line RUNS. Same hook `__df._ttEnd` gives DOGFIGHT. */
+    _over: () => showOver(),
     /* ⚑ THE GESTURE STATE, READ BACK. `test:reach` can prove the handlers EXIST and CLAUDE.md's
      * own record is that this is not the same question — THE CITY registered every pointer
      * handler while the controls were unusable, and the ledge bug had `test:reach` green while

@@ -30,7 +30,13 @@
   const ownedSlugs = () => vault().map(e => e && e.slug).filter(s => bySlug.has(s));
   const liveToken = () => { try { return window.RipWallet && RipWallet.isLive(); } catch { return false; } };
   const myHandle = () => { try { return (window.RipNet && RipNet.me && RipNet.me().handle) || localStorage.getItem('urm_net_handle') || 'you'; } catch { return 'you'; } };
-  function loadDeck() { return fetch('cards/manifest.json').then(r => r.json()).then(m => { DECK = m.cards || []; bySlug = new Map(DECK.map(c => [c.slug, c])); }).catch(() => {}); }
+  /* ⛔ READ `cards/manifest.json` — THE RETIRED 196 PLACEHOLDERS — ON A SURFACE THAT WAGERS CARDS.
+   * Artist, 2026-08-07: "no one can properly play / wager / ante right now" and "for all game
+   * wagers". `cards/battle.html` recorded and fixed this exact defect long ago; every other
+   * cabinet kept the old read. RipDeck.load() is the hundred WITH vitals, and the 33 are filtered
+   * because a 1/1 is not a chip. */
+  function loadDeck() { return (window.RipDeck ? RipDeck.load('cards/') : Promise.reject())
+    .then(cs => { DECK = (cs || []).filter(c => !(Number(c.id) >= 1 && Number(c.id) <= 33)); bySlug = new Map(DECK.map(c => [c.slug, c])); }).catch(() => {}); }
 
   // ── roster: archetypes + card unlock rules ──
   const ARCH = {

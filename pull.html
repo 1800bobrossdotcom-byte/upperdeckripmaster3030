@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THE PULL · ripmaster3030studios</title>
+<meta name="robots" content="noindex">
+<!--
+  ⛔ PROTOTYPE. UNLINKED ON PURPOSE — nothing on the site points here, `test:reach` allow-lists it
+     with this reason, and it is meant to be played and then either shipped, folded into THE ARENA
+     or thrown away. `cards/proof.html` was built the same way for the same reason: a disposable
+     thing you can actually hold beats a document describing one.
+
+  ⚑ THE BRIEF, per DESIGN-SYSTEM §9 — the half two rejected wordmarks skipped:
+     MADE OF · card stock and printed cards. The table is a binder page; the hand is a fan of real
+       pressed art off the deck; the score readout is a mechanical counter, not a digital one.
+     LIT     · the site's two torches — warm key upper-left, green room fill. A card catches a
+       specular as it lifts out of the fan, which is how you know it is selected without a tick.
+     MOVES, AND WHY IT PHYSICALLY MOVED · a selected card LIFTS (a thumb pushing it out of a
+       pocket); scoring runs LEFT TO RIGHT card by card, because that is a dealer counting a hand
+       and it is where the whole dopamine of this genre lives; the counter ROLLS rather than
+       jumping, because a mechanical counter cannot teleport.
+     SITS ON · near-black stock, the same ground every other cabinet uses.
+     ACCEPTANCE · a run is 8 antes in under ~12 minutes · two seeds give different shops · same
+       seed + same plays = identical score · no card 1-33 ever enters a run · every control clears
+       44px on both axes at 390x844 · the run posts to TOP RIPPERS.
+
+  ⚠ DOM AND CSS, NO WEBGL. Deliberate, and it is the reason this cabinet exists: every other game
+    here requires WebGL 2 and two thumbs. This one runs on anything, one-handed, in sixty seconds.
+-->
+<link rel="icon" href="media/site/mark-32.png">
+<style>
+  :root{
+    --lime:#2bff80; --amber:#ffd23b; --magenta:#ff2ad9; --ink:#d9ffe9; --dim:#7fd8a8;
+    --bg:#04100a; --panel:#071a10; --line:#12563180;
+    --common:#8aa0b0; --uncommon:#6fdca0; --rare:#4bb8ff; --mythic:#c47bff; --prizm:#ffd23b;
+    --fat:'Arial Black',Arial,sans-serif; --mono:'Courier New',monospace;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--mono);
+    /* the two torches: a warm key upper-left and a green room, the site's own light */
+    background-image:radial-gradient(120vw 80vh at 8% -10%, rgba(255,180,60,.14), transparent 60%),
+                     radial-gradient(100vw 90vh at 100% 110%, rgba(43,255,128,.10), transparent 60%);
+    background-attachment:fixed;
+    -webkit-text-size-adjust:100%; overflow-x:hidden;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);}
+  .wrap{max-width:760px;margin:0 auto;padding:10px 12px 22px;min-height:100%;display:flex;flex-direction:column}
+
+  /* ── masthead ─────────────────────────────────────────────────────────────── */
+  .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .nm{font-family:var(--fat);font-size:clamp(16px,5vw,22px);letter-spacing:.16em;color:var(--amber);
+    text-transform:uppercase}
+  .nm small{display:block;font:10px/1.4 var(--mono);letter-spacing:.2em;color:var(--dim);
+    text-transform:uppercase;margin-top:2px}
+  .back{color:var(--dim);text-decoration:none;font-size:11px;letter-spacing:.12em;
+    min-height:44px;display:inline-flex;align-items:center;padding:0 6px}
+  .back:hover,.back:focus-visible{color:var(--lime);outline:none}
+
+  /* ── the ante board ───────────────────────────────────────────────────────── */
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px}
+  .brow{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+  .lab{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  .big{font-family:var(--fat);font-size:clamp(20px,7vw,30px);letter-spacing:.03em;color:var(--lime);
+    font-variant-numeric:tabular-nums}
+  .big.short{color:var(--amber)}
+  .tgt{font-family:var(--fat);font-size:clamp(14px,4.4vw,18px);color:var(--ink);font-variant-numeric:tabular-nums}
+  .bar{height:8px;border-radius:99px;background:#0d2a1b;overflow:hidden;margin-top:8px;border:1px solid var(--line)}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lime),var(--amber));
+    transition:width .45s cubic-bezier(.2,.9,.2,1)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chip{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:5px 9px;border-radius:99px;
+    border:1px solid var(--line);color:var(--dim);background:#04160d}
+  .chip b{color:var(--ink)}
+
+  /* ── house rules held ─────────────────────────────────────────────────────── */
+  .rules{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;min-height:0}
+  .rule{font-size:10px;letter-spacing:.08em;padding:6px 9px;border-radius:8px;
+    border:1px solid #6b4a00;background:#1b1405;color:var(--amber);text-transform:uppercase}
+  .rule.hit{animation:ruleHit .5s ease}
+  @keyframes ruleHit{0%{transform:translateY(0)}30%{transform:translateY(-6px);
+    box-shadow:0 6px 18px rgba(255,210,59,.4)}100%{transform:translateY(0)}}
+
+  /* ── the pull readout ─────────────────────────────────────────────────────── */
+  .stage{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    padding:14px 0 8px;min-height:150px;text-align:center}
+  .setnm{font-family:var(--fat);font-size:clamp(15px,5vw,22px);letter-spacing:.12em;color:var(--magenta);
+    text-transform:uppercase;min-height:26px}
+  .calc{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:6px;flex-wrap:wrap}
+  .calc .c{font-family:var(--fat);font-size:clamp(18px,6vw,26px);color:#4bb8ff;font-variant-numeric:tabular-nums}
+  .calc .x{color:var(--dim);font-size:13px}
+  .calc .m{font-family:var(--fat);font-size:clamp(18px,6vw,26px);color:var(--magenta);font-variant-numeric:tabular-nums}
+  .tot{font-family:var(--fat);font-size:clamp(22px,8vw,36px);color:var(--lime);margin-top:4px;
+    font-variant-numeric:tabular-nums;min-height:38px}
+  .tot.pop{animation:totPop .45s cubic-bezier(.2,1.4,.3,1)}
+  @keyframes totPop{0%{transform:scale(.85);opacity:.4}100%{transform:scale(1);opacity:1}}
+  .hintline{font-size:11.5px;color:var(--dim);margin-top:6px;min-height:17px}
+
+  /* ── the hand ─────────────────────────────────────────────────────────────── */
+  /* ⛔ A GRID, NOT A WRAPPING FLEX ROW. Eight cards at the 44px floor plus gaps is 380px and a
+     390px phone has 366px of content width, so the row MUST break — and left to flex it broke 7+1,
+     which reads as a mistake rather than a layout. Four and four is a binder page. */
+  .hand{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;justify-items:center;
+    margin-top:6px;max-width:340px;margin-left:auto;margin-right:auto}
+  @media(min-width:560px){.hand{grid-template-columns:repeat(8,minmax(0,1fr));max-width:560px}}
+  /* ⚠ THE CARD IS THE TAP TARGET AND IT IS 58px WIDE — well past the 44px floor on BOTH axes,
+       which is the number this repo has shipped wrong twice by checking only one. */
+  .card{position:relative;width:100%;max-width:64px;min-width:44px;aspect-ratio:2/3;border-radius:6px;overflow:hidden;
+    border:1.5px solid var(--rc,#2a4a38);background:#06110b;cursor:pointer;padding:0;
+    transition:transform .16s cubic-bezier(.2,.9,.2,1), box-shadow .16s, border-color .16s;
+    transform:translateY(0)}
+  .card img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+  .card .n{position:absolute;left:0;bottom:0;right:0;font:bold 9px/1.5 var(--mono);text-align:center;
+    background:linear-gradient(transparent,rgba(2,8,5,.92));color:var(--ink);pointer-events:none}
+  /* the lift: a thumb pushing a card out of its pocket, and the specular is how you know */
+  .card.sel{transform:translateY(-14px);border-color:var(--amber);
+    box-shadow:0 10px 22px rgba(0,0,0,.6), 0 0 0 1px var(--amber), 0 -2px 14px rgba(255,210,59,.45)}
+  /* ⛔ A SELECTED CARD THAT WILL NOT SCORE HAS TO LOOK LIKE ONE. Only the matching subset pays, so
+     without this the player taps five cards, sees one number, and has no way to learn WHY — and
+     "play five to score two" is a real move that must be legible before it is spent, not after. */
+  .card.sel.dead{opacity:.42;filter:grayscale(.7);border-color:#5a4a2a;box-shadow:none;
+    transform:translateY(-7px)}
+  .card.sel.dead::after{content:'—';position:absolute;inset:0;display:grid;place-items:center;
+    font:bold 15px/1 var(--fat);color:#ffd23b;text-shadow:0 1px 4px #000}
+  .card:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+  .card.gone{transform:translateY(-40px) scale(.9);opacity:0;transition:all .3s ease}
+  .card.count{animation:countPop .3s ease}
+  @keyframes countPop{0%{transform:translateY(-14px)}40%{transform:translateY(-30px) scale(1.12);
+    box-shadow:0 14px 28px rgba(0,0,0,.7),0 0 0 2px var(--lime)}100%{transform:translateY(-14px)}}
+
+  /* ── controls ─────────────────────────────────────────────────────────────── */
+  .ctl{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+  .btn{min-height:48px;min-width:96px;padding:0 18px;border-radius:10px;border:1.5px solid var(--lime);
+    background:var(--lime);color:#04150c;font:bold 13px/1 var(--fat);letter-spacing:.12em;
+    text-transform:uppercase;cursor:pointer;box-shadow:0 4px 0 #0c7a3c;
+    transition:transform .08s, box-shadow .08s}
+  .btn:active{transform:translateY(4px);box-shadow:0 0 0 #0c7a3c}
+  .btn.alt{background:transparent;color:var(--dim);border-color:#2a4a38;box-shadow:0 4px 0 #12281c}
+  .btn.alt:active{box-shadow:0 0 0 #12281c}
+  .btn[disabled]{opacity:.38;cursor:default;box-shadow:none;transform:none}
+
+  /* ── overlays ─────────────────────────────────────────────────────────────── */
+  .ov{position:fixed;inset:0;z-index:40;background:rgba(3,9,6,.93);display:flex;align-items:center;
+    justify-content:center;padding:16px;overflow:auto}
+  .pan{width:min(560px,96vw);background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:16px;text-align:center}
+  .pan h2{font-family:var(--fat);font-size:clamp(18px,6vw,26px);letter-spacing:.1em;margin:0 0 2px;
+    color:var(--amber);text-transform:uppercase}
+  .pan .sub{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .offers{display:grid;gap:8px;grid-template-columns:1fr}
+  @media(min-width:520px){.offers{grid-template-columns:repeat(3,1fr)}}
+  .offer{min-height:88px;padding:12px;border-radius:10px;border:1.5px solid #6b4a00;background:#150f04;
+    color:var(--amber);cursor:pointer;text-align:left;font:inherit}
+  .offer b{display:block;font-family:var(--fat);font-size:12.5px;letter-spacing:.1em;margin-bottom:4px}
+  .offer span{font-size:11.5px;color:#d8c48a;line-height:1.45}
+  .offer:active{transform:translateY(2px)}
+  .offer.card-offer{border-color:#1a6b3f;background:#04160d;color:var(--lime)}
+  .offer.card-offer span{color:var(--dim)}
+  .offer.taken{opacity:.35;pointer-events:none}
+  .sect{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);margin:14px 0 6px;
+    text-align:left}
+  .runlog{max-height:26vh;overflow:auto;text-align:left;font-size:11.5px;color:var(--dim);
+    border-top:1px solid var(--line);margin-top:12px;padding-top:8px}
+  .runlog div{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+  .nfa{font-size:10.5px;color:#5e9c7c;margin-top:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="nm">THE PULL<small>a run, a deck, and no payout</small></div>
+    <a class="back" href="arcade.html">◄ arcade</a>
+  </div>
+
+  <div class="board">
+    <div class="brow">
+      <div><div class="lab">ante <b id="anteN">1</b> of 8</div><div class="big" id="scored">0</div></div>
+      <div style="text-align:right"><div class="lab">beat</div><div class="tgt" id="target">200</div></div>
+    </div>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="chips">
+      <span class="chip">pulls <b id="plays">4</b></span>
+      <span class="chip">tosses <b id="tosses">3</b></span>
+      <span class="chip">deck <b id="deckLeft">16</b></span>
+      <span class="chip">seed <b id="seedN">1</b></span>
+    </div>
+    <div class="rules" id="held"></div>
+  </div>
+
+  <div class="stage">
+    <div class="setnm" id="setNm">pick up to five</div>
+    <div class="calc"><span class="c" id="cChips">0</span><span class="x">×</span><span class="m" id="cMult">0</span></div>
+    <div class="tot" id="cTotal"></div>
+    <div class="hintline" id="hint">tap cards to lift them out of the fan</div>
+  </div>
+
+  <div class="hand" id="hand"></div>
+
+  <div class="ctl">
+    <button class="btn" id="btnPull" disabled>PULL</button>
+    <button class="btn alt" id="btnToss" disabled>TOSS</button>
+    <button class="btn alt" id="btnSort">SORT</button>
+  </div>
+
+  <div class="nfa">Nothing here pays out. No tokens are wagered, burned or won — the run is the
+  prize. <b>NFA.</b> · <span id="deckNote">loading the deck…</span></div>
+</div>
+
+<div class="ov" id="ovShop" hidden><div class="pan">
+  <h2 id="shopH">ANTE CLEARED</h2>
+  <div class="sub" id="shopSub"></div>
+  <div class="sect">take one house rule</div>
+  <div class="offers" id="ruleOffers"></div>
+  <div class="sect">or add one card to the deck</div>
+  <div class="offers" id="cardOffers"></div>
+  <div class="ctl"><button class="btn" id="btnNext">NEXT ANTE ▸</button></div>
+</div></div>
+
+<div class="ov" id="ovOver" hidden><div class="pan">
+  <h2 id="overH">THE HOUSE KEEPS THE TABLE</h2>
+  <div class="sub" id="overSub"></div>
+  <div class="big" id="overScore" style="font-size:clamp(26px,10vw,44px)">0</div>
+  <div class="runlog" id="overLog"></div>
+  <div class="ctl">
+    <button class="btn" id="btnAgain">NEW RUN</button>
+    <a class="btn alt" href="arcade.html" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none">ARCADE</a>
+  </div>
+  <div id="topRippers" style="margin-top:14px"></div>
+</div></div>
+
+<script src="/gate.js"></script>
+<script src="js/chain-config.js"></script>
+<script src="js/deck-source.js"></script>
+<script src="js/card-stats.js"></script>
+<script src="js/pull-game.js"></script>
+<script src="js/leaderboard.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var G = null, DECK = [], SEL = [], BUSY = false, SEED = 1;
+  var RC = { common:'--common', uncommon:'--uncommon', rare:'--rare', mythic:'--mythic', prizm:'--prizm' };
+  var byId = {};
+  var fmt = function (n) { return (n || 0).toLocaleString('en-US'); };
+
+  /* ⚠ ART IS A FLAT TILE, NOT THE PRESS. `CardPress` builds a four-colour separation per card and
+   *   there are EIGHT on screen at once that change every pull — eight live WebGL presses is the
+   *   context-exhaustion bug `card-view.js` already records, for a thumbnail the size of a thumb.
+   *   The press belongs on the card you are looking AT; the fan is a fan. */
+  /* ⛔ THE MANIFEST'S OWN `art`, NOT A PATH BUILT FROM THE ID. Driving the real page 404'd on
+     `cards/art/52.webp` — the field is `art/deck/52.webp`, so an id-built path is a guess that
+     happens to look right. `battle.html` already does `'cards/' + c.art` for this reason. */
+  function art(c) { return c && c.art ? 'cards/' + c.art : ''; }
+
+  function seedFrom() {
+    var q = new URLSearchParams(location.search).get('seed');
+    if (q && /^\d+$/.test(q)) return (+q) >>> 0;
+    return (Math.floor(Math.random() * 1e9)) >>> 0;
+  }
+
+  function start(seed) {
+    SEED = seed >>> 0 || 1;
+    G = PullGame.create({ seed: SEED, deck: DECK, owned: owned() });
+    SEL = [];
+    $('ovOver').hidden = true; $('ovShop').hidden = true;
+    paint();
+  }
+  function owned() {
+    try { return (JSON.parse(localStorage.getItem('urm_vault') || '[]') || [])
+      .map(function (r) { return r && r.slug; }).filter(Boolean); } catch (e) { return []; }
+  }
+
+  function paint() {
+    if (!G) return;
+    var S = G.state;
+    $('anteN').textContent = Math.min(S.ante + 1, 8);
+    $('scored').textContent = fmt(S.scored);
+    $('scored').className = 'big' + (S.scored < S.target ? ' short' : '');
+    $('target').textContent = fmt(S.target);
+    $('bar').style.width = Math.min(100, 100 * S.scored / S.target) + '%';
+    $('plays').textContent = S.plays;
+    $('tosses').textContent = S.tosses;
+    $('deckLeft').textContent = S.deck.length;
+    $('seedN').textContent = SEED;
+    $('held').innerHTML = S.held.map(function (id) {
+      var r = PullGame.ruleById[id];
+      return '<span class="rule" data-r="' + id + '" title="' + r.text + '">' + r.name + '</span>';
+    }).join('');
+    paintHand();
+    paintCalc();
+  }
+
+  function paintHand() {
+    var S = G.state;
+    $('hand').innerHTML = S.hand.map(function (c, i) {
+      return '<button type="button" class="card' + (SEL.indexOf(i) >= 0 ? ' sel' : '') + '" data-i="' + i + '"' +
+        ' style="--rc:var(' + (RC[c.rarity] || '--common') + ')"' +
+        ' aria-pressed="' + (SEL.indexOf(i) >= 0) + '"' +
+        ' aria-label="card ' + c.id + ', ' + (c.title || '') + ', ' + c.rarity + '">' +
+        '<img src="' + art(c) + '" alt="" loading="lazy" onerror="this.style.opacity=.12">' +
+        '<span class="n">' + c.id + '</span></button>';
+    }).join('');
+    [].forEach.call($('hand').querySelectorAll('.card'), function (el) {
+      el.onclick = function () { toggle(+el.dataset.i); };
+    });
+  }
+
+  function toggle(i) {
+    if (BUSY) return;
+    var at = SEL.indexOf(i);
+    if (at >= 0) SEL.splice(at, 1);
+    else { if (SEL.length >= PullGame.SET_MAX) return; SEL.push(i); }
+    paintHand(); paintCalc();
+  }
+
+  /* the live readout — you can see what a pull is worth BEFORE you spend it, which is the whole
+     decision in this genre. A hidden number would make the choice a guess. */
+  function paintCalc() {
+    var S = G.state;
+    var can = SEL.length > 0 && S.plays > 0 && !S.shopping && !S.over;
+    $('btnPull').disabled = !can;
+    $('btnToss').disabled = !(SEL.length > 0 && S.tosses > 0 && !S.shopping && !S.over);
+    if (!SEL.length) {
+      $('setNm').textContent = 'pick up to five';
+      $('cChips').textContent = '0'; $('cMult').textContent = '0'; $('cTotal').textContent = '';
+      $('hint').textContent = S.plays ? 'tap cards to lift them out of the fan' : 'no pulls left';
+      $('btnPull').textContent = 'PULL';
+      return;
+    }
+    var r = G.preview(SEL);
+    /* mark the ones that actually count */
+    var S2 = G.state;
+    [].forEach.call($('hand').querySelectorAll('.card.sel'), function (el) {
+      var c = S2.hand[+el.dataset.i];
+      el.classList.toggle('dead', !!c && r.scoringIds.indexOf(+c.id) < 0);
+    });
+    $('setNm').textContent = r.set.name;
+    $('cChips').textContent = fmt(r.chips);
+    $('cMult').textContent = (r.x !== 1 ? (r.mult + ' ×' + r.x) : r.mult);
+    $('cTotal').textContent = fmt(r.total);
+    $('btnPull').textContent = 'PULL  ' + fmt(r.total);
+    var need = Math.max(0, S.target - S.scored);
+    var dead = SEL.length - r.scoring.length;
+    $('hint').textContent = (dead > 0 ? (dead + ' card' + (dead > 1 ? 's' : '') + ' will not score · ') : '') +
+      (r.total >= need ? 'this clears the ante' : (fmt(need - r.total) + ' short after this'));
+  }
+
+  /* ⛔ SCORING RUNS LEFT TO RIGHT, ONE CARD AT A TIME, and it is the single most important
+   *   animation in the game — it is a dealer counting a hand, and it is where every game in this
+   *   genre puts its dopamine. A total that simply appears is arithmetic; a total that ARRIVES is
+   *   a game. ⚠ It is also why BUSY exists: input during the count would let you queue a second
+   *   pull against a score that has not landed. */
+  function doPull() {
+    if (BUSY || !SEL.length) return;
+    BUSY = true;
+    var els = SEL.map(function (i) { return $('hand').querySelector('[data-i="' + i + '"]'); });
+    var step = 0;
+    (function tick() {
+      if (step < els.length) {
+        if (els[step]) { els[step].classList.remove('count'); void els[step].offsetWidth; els[step].classList.add('count'); }
+        step++;
+        setTimeout(tick, 130);
+        return;
+      }
+      var before = G.state.scored;
+      var r = G.pull(SEL);
+      SEL = [];
+      $('cTotal').classList.remove('pop'); void $('cTotal').offsetWidth; $('cTotal').classList.add('pop');
+      if (r) {
+        $('setNm').textContent = r.set.name;
+        $('cTotal').textContent = '+' + fmt(r.total);
+        // the house rules that actually fired, so the build is legible rather than magic
+        r.fired.forEach(function (f) {
+          var el = $('held').querySelector('[data-r="' + f.id + '"]');
+          if (el) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+        });
+      }
+      roll(before, G.state.scored);
+      setTimeout(function () { BUSY = false; after(); }, 420);
+    })();
+  }
+
+  /* the counter ROLLS, because a mechanical counter cannot teleport */
+  function roll(from, to) {
+    var t0 = 0, D = 420;
+    function frame(ts) {
+      if (!t0) t0 = ts;
+      var k = Math.min(1, (ts - t0) / D), e = 1 - Math.pow(1 - k, 3);
+      $('scored').textContent = fmt(Math.round(from + (to - from) * e));
+      $('bar').style.width = Math.min(100, 100 * (from + (to - from) * e) / G.state.target) + '%';
+      if (k < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function after() {
+    var S = G.state;
+    paint();
+    if (S.shopping) return shop();
+    if (S.over) return over();
+  }
+
+  function shop() {
+    var S = G.state;
+    $('shopH').textContent = 'ANTE ' + (S.ante + 1) + ' CLEARED';
+    $('shopSub').textContent = fmt(S.scored) + ' against ' + fmt(S.target);
+    $('ruleOffers').innerHTML = S.offers.rules.map(function (r) {
+      return '<button class="offer" data-rule="' + r.id + '"><b>' + r.name + '</b><span>' + r.text + '</span></button>';
+    }).join('') || '<div class="chip">taken</div>';
+    $('cardOffers').innerHTML = S.offers.cards.map(function (c) {
+      return '<button class="offer card-offer" data-card="' + c.id + '"><b>#' + c.id + ' ' +
+        (c.title || '') + '</b><span>' + c.rarity + (c.yours ? ' · from your binder' : '') + '</span></button>';
+    }).join('') || '<div class="chip">taken</div>';
+    [].forEach.call($('ovShop').querySelectorAll('[data-rule]'), function (el) {
+      el.onclick = function () { if (G.takeRule(el.dataset.rule)) { markTaken('ruleOffers', el); paint(); } };
+    });
+    [].forEach.call($('ovShop').querySelectorAll('[data-card]'), function (el) {
+      el.onclick = function () { if (G.takeCard(el.dataset.card)) { markTaken('cardOffers', el); paint(); } };
+    });
+    $('ovShop').hidden = false;
+  }
+  function markTaken(box, el) {
+    [].forEach.call($(box).querySelectorAll('.offer'), function (x) { x.classList.add('taken'); });
+    el.classList.remove('taken'); el.style.borderColor = 'var(--lime)';
+  }
+
+  function over() {
+    var S = G.state;
+    $('overH').textContent = S.ante >= 8 ? 'YOU CLEARED THE TABLE' : 'THE HOUSE KEEPS THE TABLE';
+    $('overSub').textContent = 'ante ' + Math.min(S.ante + 1, 8) + ' · seed ' + SEED;
+    $('overScore').textContent = fmt(S.best);
+    $('overLog').innerHTML = S.log.slice(-14).map(function (l) {
+      return '<div><span>ante ' + l.ante + ' · ' + l.set + ' (' + l.n + ')</span><b>' + fmt(l.total) + '</b></div>';
+    }).join('');
+    /* ⚑ the run posts to the shared board like every other cabinet — and what it posts is the
+       score, which is the number this game already ranks itself by. */
+    try { if (window.RipBoard && S.best > 0) RipBoard.post('pull', S.best); } catch (e) {}
+    try { if (window.RipBoard) RipBoard.mount($('topRippers'), 'pull'); } catch (e) {}
+    $('ovOver').hidden = false;
+  }
+
+  // ── wiring ──────────────────────────────────────────────────────────────────
+  $('btnPull').onclick = doPull;
+  $('btnToss').onclick = function () { if (!BUSY && G.toss(SEL)) { SEL = []; paint(); } };
+  $('btnSort').onclick = function () {
+    var S = G.state;
+    // sort by number; a second press sorts by rarity — the two things a set can be made of
+    S.hand.sort($('btnSort').dataset.by === 'r'
+      ? function (a, b) { return (+a.id) - (+b.id); }
+      : function (a, b) { var o = ['common','uncommon','rare','mythic','prizm'];
+          return (o.indexOf(a.rarity) - o.indexOf(b.rarity)) || (+a.id) - (+b.id); });
+    $('btnSort').dataset.by = $('btnSort').dataset.by === 'r' ? 'n' : 'r';
+    SEL = []; paint();
+  };
+  $('btnNext').onclick = function () { G.nextAnte(); $('ovShop').hidden = true; paint(); };
+  $('btnAgain').onclick = function () { start(seedFrom()); };
+
+  document.addEventListener('keydown', function (e) {
+    if (BUSY || !G) return;
+    if (e.key === 'Enter') { e.preventDefault(); if (!$('btnPull').disabled) doPull(); }
+    else if (e.key === ' ') { e.preventDefault(); if (!$('btnToss').disabled) $('btnToss').click(); }
+    else if (/^[1-8]$/.test(e.key)) { e.preventDefault(); toggle(+e.key - 1); }
+  });
+
+  // ── boot ────────────────────────────────────────────────────────────────────
+  /* ⛔ `cards/`, NOT `''`. RipDeck.load's base is PAGE-RELATIVE and this page is at the ROOT — the
+     recorded defect (test:reach §7) is that `''` was copied verbatim from a page inside cards/ to
+     a root page, 404'd, and fell into a swallowed catch that read as "no cards yet". */
+  (window.RipDeck ? RipDeck.load('cards/') : Promise.reject())
+    .then(function (cs) {
+      /* ⚑ THE VITALS RIDE ALONG. `CardStats.of()` derives ATK/DEF/TRIGGER from the card's seed —
+         the same numbers printed on its back — and THE PULL scores chips off ATK+DEF and matches
+         sets on TRIGGER. Enriched HERE rather than inside the rules module so `pull-game.js` stays
+         pure and node-runnable; it falls back to rarity if the vitals never arrive. */
+      DECK = (cs || []).map(function (c) {
+        try { var v = window.CardStats ? CardStats.of(c) : null;
+          return v ? Object.assign({}, c, { atk: v.atk, def: v.def, trigger: v.trigger }) : c; }
+        catch (e) { return c; }
+      });
+      DECK.forEach(function (c) { byId[c.id] = c; });
+      var field = PullGame.stock(DECK);
+      $('deckNote').textContent = field.length + ' field cards in the pool · the 33 heroes are not in this deck';
+      if (!field.length) throw 0;
+      start(seedFrom());
+    })
+    .catch(function () {
+      $('deckNote').textContent = 'the deck did not load — reload, or open the arcade';
+      $('setNm').textContent = 'no deck';
+      $('hint').textContent = 'cards/deck-manifest.json did not answer';
+    });
+
+  window.__pull = { get game() { return G; }, start: start, sel: function () { return SEL; },
+    toggle: toggle, pull: doPull, deck: function () { return DECK; } };
+})();
+</script>
+</body>
+</html>

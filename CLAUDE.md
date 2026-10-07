@@ -72,6 +72,24 @@ This SUPERSEDES the old "NAME LAW".**
 *Historical note:* **upperdeckripmaster3030** was one word on purpose — it amplified the meme and
 the clearance joke. ⛔ It no longer appears on new surfaces; see the directive above.
 
+## ⛔ THE TREASURY HAS SIGNED 699 TRANSACTIONS — "signs nothing" is false (measured 2026-08-09)
+> `0x8455cF29…De21950` reads **nonce 554 on Ethereum and 145 on Base**. This file and
+> `js/chain-config.js` both describe it as *"a COLD (Ledger) wallet that signs nothing"* and
+> *"a pure RECEIVER"*. As a description of that key, that is not true.
+> ⚑ **BE FAIR ABOUT WHAT THIS DOES AND DOES NOT MEAN.** A Ledger that signs 699 times is STILL a
+> hardware wallet — "cold" (the key never touches an internet-connected machine) may be entirely
+> intact, and nothing here shows otherwise. And it does **not** break PackSink: `_split()` PUSHES
+> and `flush()` is permissionless, so the design never *needs* the treasury to sign. The mechanism
+> is unharmed.
+> ⛔ **What IS broken is the premise, and the premise is what future decisions get made against.**
+> "It signs nothing, so cold storage costs the mechanism zero" was the argument for choosing this
+> address; the second clause survives and the first does not. An address accumulating every pack's
+> studio half, behind a key in active use, is a different risk profile from a pure receiver — and
+> the difference should be a decision, not an assumption nobody rechecked.
+> ⚠ **FOR THE ARTIST, not answerable from here:** is this the Ledger? What are the 699 signatures?
+> If it is a hot key, the cold-wallet decision of 2026-08-06 has not actually been executed.
+> ⚑ Found by an adversarial pass, not by any check in the repo — nothing asserts a nonce.
+
 ## 💰 REVENUE: half of every pack and every game rake funds the studio
 **Artist directive.** Treasury `0x8455cF29…De21950` — a **COLD (Ledger)** wallet that signs
 nothing. ⚠ It was `0x5C3b…d89F` (the **SEPOLIA** wallet) until 2026-08-06. `docs/TREASURY.md` is canonical.
@@ -146,7 +164,23 @@ date.**
 - ⚠ `index.html`'s CSS class names are still `.season`/`.seasons` — cosmetic only, left to avoid
   churn; the markup and copy say Tier.
 
-## ✅ SUPPLY SETTLED: **3,300,000** (artist, 2026-08-02) — the 33,000,000 direction is REVERSED
+## ⛔ THE LIVE CAP IS **3,030,000**, NOT 3,300,000 — read from the chain 2026-08-09
+> `maxTotalSupply()` on the deployed edition returns **3,030,000**. It is frozen at deploy and it
+> is what every shipped surface already says: `index.html`, `whitepaper.html`, `tokenomics.html`,
+> `js/chain-config.js` and `scripts/token-model.mjs` (`CAP = 3_030_000`) all agree with the
+> contract. **Production is correct. THIS FILE was the stale surface**, and it was stale on the
+> single most important number in the project.
+> ⚑ Reconciled two ways at the same block, which is what makes it a measurement rather than a read:
+> `totalSupply` 3,022,375 · burned 7,625 · treasury 7,475 $3030 → **119.6 packs by the treasury
+> side, 120.0 by the burn side.**
+> ⚠ The section below records the REASONING that chose a 3.3M cap and it is kept for that, exactly
+> as the 33M section beneath it is kept. **Every figure in it that derives from 3,300,000 describes
+> a token that was never deployed.** Do not quote one at anybody.
+> ⛔ And this is the project's own rule turned on its own memory: *before quoting a gate, measure
+> it.* Fifth recorded instance — after `balanceOf`-as-lifetime-income, native-ETH-emits-no-logs,
+> "a merge to main deploys", and the stale MAINNET-PREFLIGHT table.
+
+## ⚠ Historical — SUPPLY "SETTLED" AT 3,300,000 (artist, 2026-08-02); the deploy used 3,030,000
 **Run `npm run model` for the live numbers; `scripts/token-model.mjs` is the only source.**
 
 > # ⛔ THE CAP IS STILL 3,300,000. EVERY PERCENTAGE BELOW IS DEAD (2026-08-06)
@@ -275,7 +309,12 @@ schedule actually burns. Fix the script's summary when the new numbers are chose
     while reading like one of the hardest. Replaced with the light-strips (0.96 s, the biggest
     verb on that track). **Check the number before publishing the rule.**
   - ⚠ Economics do not move: all 33 mint as 1/1s either way. This is distribution, not supply.
-- **Packs:** escalating buy-and-burn, ~3,560 over 4 tiers (I 1,600 → IV 260). ⛔ **The price is a
+- **Packs:** escalating buy-and-burn, ~3,560 over 4 tiers (I 1,600 → IV 260).
+  ⚑ **TIER I IS LIVE AND 7.5% EXECUTED — measured 2026-08-09: 120 packs, ~$1,196 of a $16,000
+  designed raise, $14,804 remaining.** ⛔ And the note that used to say the door was shut
+  (*"`pack.js:228` tells a short visitor to go buy somewhere else"*) is DEAD: `pack.js` was rebuilt
+  into an exact-output buy that names the shortfall in dollars. Quoting the old line at the artist
+  would have argued the studio's largest live funding mechanism was broken when it is running. ⛔ **The price is a
   DOLLAR target — $10 / $12 / $15 / $20, tier I = 125 $3030 at the measured $0.08 open.** The old
   "~$7 / 350 tokens" is dead; `docs/PACK-PRICING.md` is canonical and `js/chain-config.js`
   `packBurn` is pinned to its tier-I row by `npm run test:name`.
@@ -457,10 +496,56 @@ and performs WalletConnect burns — it is **NOT** for embedding.
   exact reflex phishing needs.
 - **Read-only `eth_call` over `fetch` is allowed** — it can show state, it cannot move anything,
   and the page degrades to static copy when blocked (which it will be in a sandboxed frame).
-- Guarded by **`npm run test:embed`** — 17 assertions; fails if any wallet identifier or any
+- Guarded by **`npm run test:embed`** — 25 assertions; fails if any wallet identifier or any
   `<script src>` reappears. A comment does not survive a hurried edit; a failing test does.
 - ⚑ Selector trap: `maxTotalSupply()` is **`0x2ab4d052`**. `0xd5abeb01` is `maxSupply()`, a
   different function that **reverts** on this edition. Verified against the chain, not guessed.
+
+### ⛔ AND ITS TWO LIVE NUMBERS RAN ON ONE RPC WITH NOTHING BEHIND IT
+*Artist, 2026-08-06, from a phone: "token balance not showing on mobile."* Both chain-read cells
+were em-dashes while the two hardcoded ones (100 cards, 33 heroes) rendered fine.
+- ⚑ **DRIVEN BEFORE CHANGING ANYTHING, WHICH IS WHAT NAMED THE HALF THAT WAS BROKEN.** The page at
+  1280×800, 390×844 (iPhone UA), 360×800 (Android UA) and inside a **sandboxed iframe at an opaque
+  origin** — the actual SuperRare case — renders `3,023,437 / 10,029` in every one. **The em-dash
+  state reproduces only when the request fails.** So the code was never the problem and no amount
+  of reading it would have found this.
+- ⛔ **`var RPC = '…publicnode.com'` — ONE ENDPOINT, NO FALLBACK, ON THE ONE SURFACE SUPERRARE
+  RENDERS.** `js/chain-config.js` has carried **four** since two of three were found dead, and
+  `js/lens-state.js` walks the whole list before reporting `unreachable`. ⚑ **The embed could not
+  inherit that and nobody noticed the gap**: no `<script src>` is the security property, so the
+  value is inlined — and the inlining **copied the ADDRESS but not the LIST**. The site fails over;
+  the embed had one URL and a shrug.
+- ⛔ **AND `test:embed` WAS WATCHING THAT EXACT LINE WHILE MISSING IT.** It pinned the endpoint's
+  NETWORK — the right question after the mainnet flip — and had **no opinion about how many there
+  were**. A guard written against a value can be blind to the value's arity. It now asserts ≥3
+  endpoints, no duplicates, all on the config's network, **that something actually walks the list**
+  (four urls read by code that only uses `[0]` passes every other assertion and fails identically
+  in production), that it retries, and that it states the failure. Proved to bite against
+  `git show HEAD:superrare.html`: **5 named failures**.
+- ⚑ **ONE BATCH, ONE ENDPOINT, ONE BLOCK.** Racing the two reads independently could take the
+  supply from one provider and the cap from another — and `burned` is the SUBTRACTION of the two.
+  The cap is frozen at deploy so it is harmless today, which is exactly the kind of thing that is
+  fine until it is not. ⚠ **Race, do not sequence**: four endpoints walked one at a time on a bad
+  mobile connection is most of a minute of em-dashes, i.e. the reported symptom with better
+  internals. ⚠ And a fetch with **no timeout can hang forever**, so one stalled endpoint would keep
+  the whole race pending after the other three had already failed — `AbortController`, not
+  `AbortSignal.timeout`, which is too new to assume inside somebody else's frame.
+- ⛔ **RETRYING AND ADMITTING FAILURE ARE TWO DIFFERENT SCHEDULES, and conflating them was my first
+  version.** A media slot is long-lived, so quitting after one attempt turns a blip into a
+  permanent blank; but staying silent for the whole ladder is ~80 s of unexplained dashes. **The
+  label tells the truth at ~20 s and the reading carries on underneath it**, so a later success
+  overwrites it — admitting the failure costs nothing and the tile still heals. Measured: dead at
+  first, network returns, **label goes back to "read from the contract" and the numbers appear.**
+- ⛔ **A MYSTERY DASH IS WORSE THAN A SENTENCE.** An em-dash under *"live supply · read from the
+  contract"* is a promise with nothing behind it — indistinguishable from a supply of zero, a dead
+  contract or a bug — and it is why this had to be reported by hand instead of reporting itself.
+  It now reads *"chain unreachable from here"*. Same rule as `theme.js`'s buried button: **a
+  control that does nothing is worse than an absent one.**
+- ⚠ **WHAT IS STILL NOT KNOWN, and it is not knowable from here:** *which* cause blocked his
+  phone — carrier DNS, a content blocker, a rate limit, a moment of no signal. Four endpoints plus
+  retry is the fix for all of them, and the new label is what will name the next one.
+- ⚠ Cache-Control on `/superrare.html` resolves to `must-revalidate` (checked against the live
+  host, not assumed), so this reaches a phone on the next load — no repeat of the week-stale cards.
 
 ## ⛔ THREE DEPLOY-TIME PERMANENTS WERE STILL WRONG ON 2026-08-02 — four days out
 Found while wiring the Sepolia run. None was reachable by any check that existed, because
@@ -632,6 +717,451 @@ back to `www`; curl gave up at fifty hops. Runbook: `docs/DNS-AND-DOMAIN.md` §4
 - ⚠ Chromium here cannot use the agent proxy for outbound TLS (`ERR_CONNECTION_RESET`), so a live
   headless visit is not available. Serving the repo at the deployed commit is byte-equivalent and
   answers the same question; `curl` reaches the real host fine and is what proves the redirect.
+
+## ⛔ THERE ARE TWO $3030 POOLS NOW, AND THE NEW ONE WAS EMPTY — `market.pools[]`
+*Artist, 2026-08-07: "we added this liquidity pool … help make this easy to use on site" ·
+"I created this pool."* A **$3030/ETH** Uniswap v4 pool beside the SuperRare curve's graduated
+**$3030/RARE** one.
+- ⚑ **THE ASK IS RIGHT AND THE OBVIOUS IMPLEMENTATION IS HARMFUL.** Almost nobody holds RARE, so
+  "buy $3030" through the graduated pool is really *buy RARE, then buy $3030* — a step that loses
+  people, and exactly what an ETH pair fixes. ⛔ **But measured the minute it was made, it held
+  nothing**: 0 buys / 2 sells, **$5.24** of 24 h volume, **−78.7%** price, no indexed liquidity at
+  all — against **$291,830** and $60,637 in the RARE pool. **A link into the empty one is a worse
+  failure than no link**, because nothing errors: the page works, the swap goes through, and the
+  collector eats the fill.
+- ⛔ **SO THE SITE READS DEPTH AND DECIDES; THE CONFIG DOES NOT PICK A WINNER.** A hard-coded
+  choice is wrong the day the ETH pool is funded, **and nobody would have edited anything to make
+  it wrong** — the same drift that is the whole reason this project publishes no burn percentage.
+  `RipWallet.marketDepth()` reads both pools at load and the front page prints what it found;
+  when the read fails the line is **absent**, never "unknown". Driven both ways.
+- ⚑ **THE SWAP LINK IS BUILT FROM THE TOKEN, NEVER FROM A POOL ID, AND THAT IS A SAFETY PROPERTY
+  RATHER THAN A CONVENIENCE.** Uniswap's router chooses the venue, so a token-keyed link *cannot*
+  fill from a pool with nothing in it; a pool-keyed one aims a collector at one specific market.
+  `test:name` asserts no pool id ever reaches the swap host.
+- ⚠ **BOTH IDS WERE VERIFIED AGAINST THE TOKEN BEFORE EITHER WAS PUBLISHED** — baseToken
+  `0x1D4bcbb5…47A33` on both, the standard the first pool and `protocol.rare` were held to. **A
+  buy link is a claim about which market is ours.** ⚠ And they are asserted to be DIFFERENT pools:
+  two ids differing by one character in 66 hex digits is a paste error the eye cannot catch, and
+  it would offer a choice between one pool and itself.
+
+### ⛔ I REPORTED "THE STUDIO RECEIVES NO TRADING FEES" AND IT WAS WRONG — `docs/BANKR-SWARM.md`
+*Artist: "research bankr bot … since we bring in trading fees…"* → my answer: the premise is
+false, treasury holds 0 RARE and 0 WETH. → *Artist: **"no I genuinely have received over 300
+dollars in eth from trading fees."*** He has. **The fee stream is real and the retraction is the
+finding.**
+- ⛔ **THE ERROR WAS THE QUANTITY, NOT THE WALLET. I read `balanceOf` and reported it as lifetime
+  income — a BALANCE IS A STOCK AND A FEE STREAM IS A FLOW.** A balance cannot see money that
+  arrived and left. ⚑ **And the sentence that made it feel rigorous is where the rot was**:
+  *"the treasury is a cold Ledger that signs nothing, so a zero balance is proof of zero
+  received."* That is true of the COLD wallet and of nothing else — and I silently extended it to
+  `0x432D71bA…59d166c9`, a **hot wallet with 4,605 transactions**, where it is worthless.
+- ⛔ **THEN THE INSTRUMENT I REACHED FOR TO FIX IT WAS BLIND BY CONSTRUCTION.** I scanned ERC-20
+  `Transfer` logs for WETH and RARE — and **native ETH emits no logs.** The artist's own words
+  were *"$300 in **eth**"*. **Two independent methods, both structurally incapable of seeing the
+  asset, both returning zero — which reads as corroboration.** Same shape as the four dead RPCs
+  answering HTTP 200 with an error body: **the reassuring answer arrived first and nothing
+  errored.** ⚑ *A measurement that returns a clean zero is not the same as a measurement that
+  looked* — and the tell was available: the scan found **0.0188 WETH into the cold treasury 80
+  minutes after launch that is not there now**, i.e. the "signs nothing" premise had already
+  stopped describing reality.
+- ⚠ **SO THE OPEN QUESTION REOPENS, NARROWER: WHICH ADDRESS RECEIVES THEM.** That is the one
+  input every automation needs and nothing here can invent it. Given it, balance deltas plus a
+  log scan give an exact per-day figure in one pass.
+- ⚠ **AND THE $300 HAS A DATE ON IT.** Launch day did **$60,637** of volume; today is **$5,440**
+  — a tenth. Fees are a percentage of volume, so **$300 earned is a fact and $300/week is not a
+  forecast.** The sell-pressure finding survives intact and is still the one that matters: **an
+  architecture that recycles fees harder cannot outrun the thing generating them.**
+- ⛔ **AND BANKR CANNOT CREATE ONE FOR $3030, EVER — this half is unaffected, because it turns on
+  a RECORD rather than a balance.** Its 0.665% creator share exists only for
+  tokens **launched through Bankr**, and the fee beneficiary is fixed **at deployment**. $3030 was
+  deployed by SuperRare's multicurve factory on mainnet; `GET /token-launches/0x1D4bcbb5…/fees`
+  returns **404 — not launched via Bankr**. There is no onboarding path.
+  ⚑ **SO BANKR IS NOT THE FEE SOURCE — SUPERRARE ALREADY IS, AND THAT INVERTS THE DESIGN FOR THE
+  BETTER.** We do not need Bankr to EARN. We need it to **route, schedule and execute** what
+  SuperRare already pays, which is what its cross-chain swap and automations do and which needs
+  no launch record. **The flywheel in the ask is available today.**
+- ⛔ **THE REAL CONSTRAINT IS THE ORDER BOOK, NOT THE PLUMBING: 24 h volume $5,440 on 1 BUY AND 10
+  SELLS.** No fee architecture manufactures a second buyer.
+  ⚠ Also measured: **only ONE of the three pools in `market.pools[]` is indexed at all** (RARE,
+  $269k liquidity). The ETH and USDC pools show no activity, so `marketDepth()` deciding by depth
+  is doing exactly the job it was written for.
+- ⛔ **A STUDIO-FUNDED SWARM THAT BUYS TO MOVE THE PRICE IS REFUSED, AND THE REASON IS THIS REPO'S
+  OWN.** It is market manipulation (wash trading too, if the wallets trade each other, which also
+  falsifies the volume the site prints). ⚑ **But the narrower reason is fatal first: a project
+  that will not publish "30.7%" because a printed number might drift into a lie cannot run bots
+  whose entire function is to mislead.** The ethos line is *"parody the casino … never
+  deceptive"*; a swarm that manufactures price action **is** the casino. **The word survives, the
+  target changes** — point it at DISTRIBUTION and at the GAMES.
+- ✅ **WHAT DOES INTEGRATE, and neither needs a fee stream:** Bankr's router is **token-keyed, not
+  pool-keyed**, so it is structurally incapable of filling from the empty ETH pool — the same
+  safety property that made the site's swap link name the token. And `POST /partner/wallets`
+  provisions a real on-chain identity per player, which is the honest swarm and answers
+  `SEATS.md`'s own admission that *"a seat is advisory."* ⚠ Both are CUSTODIAL and must say so.
+  ⚠ **Gated on one unverified fact**: whether Bankr's router can fill a **v4 pool quoted in RARE**.
+  Unknowable from the docs; §5 has the $5 quote that settles it.
+
+### ⛔ 31 HOLDERS. 97.38% OF SUPPLY HAS NEVER LEFT THE CURVE — `docs/CAPITAL.md`
+*Artist: "I genuinely am looking at novel integrations to accelerate the growth of capital for the
+chart, token, edition, and liquidity."* **The measurement that answers it:** PoolManager holds
+**2,943,363 of 3,022,687 — 97.38%.** Ever reached a human: **79,324 $3030 across 31 wallets.**
+Real circulating mcap **$7,065** against a headline FDV of $269,201. Buy-side depth **$7,622**.
+- ⛔ **"$269,421 OF LIQUIDITY" IS 97% UNSOLD INVENTORY** — DexScreener adds both sides and the token
+  side is $261,794 of stock never sold. ⚑ **This file predicted the trap** (*"under mint-once most
+  of totalSupply is unsold inventory still inside the AMM"*) and nobody had put the number to it.
+- ⚑ **SO THE CHART IS NOT A MARKET SIGNAL, IT IS THREE PEOPLE** — top three wallets hold 26.1% /
+  17.8% / 17.8% of the float; the treasury is #6 at 4.9%. "1 buy vs 10 sells" is eleven trades.
+  ⚑ **THE CURVE IS A PRIMARY SALE THAT IS 2.6% COMPLETE**, so the only test that matters is *does
+  it get tokens out of the curve into real hands*. **The pack schedule is the distribution plan —
+  tier I is 200,000 $3030 off $16,000, 2.5× everything ever distributed — and it is 0% executed
+  because `pack.js:228` tells a short visitor to go buy somewhere else.** The binding constraint is
+  PEOPLE: at 31 holders, thirty collectors is +97%.
+- ⛔ **THE THREE POOLS ARE NOT INTERCHANGEABLE AND TWO ARE HAZARDS. Read from `extsload` slot 6,
+  validated against DexScreener (my RARE tick gives 7.3427 vs their 7.3429):**
+  **RARE fee `0`** — immutable in the PoolKey, every fee taken by hook `0x8Ff56609…` via
+  return-delta, so **an external LP there earns nothing forever**; that answers from the chain a
+  question this file carried as "ask SuperRare". ✅ But the hook's low bits are `0x20CC` and
+  **`beforeAddLiquidity` is OFF — it cannot refuse liquidity.**
+  ⛔ **USDC `0x597a6772…` HAS AN 89.898% SWAP FEE and is priced 59% below market, and it is in
+  `chain-config.market.pools[]` right now.** Empty, which is the only reason nobody was hurt.
+  **Delist, and assert every configured pool's fee off its own `Initialize` log.**
+  ⚠ `marketDepth()` sorts on `liquidity.usd`, which is 97% inventory — route by `base`/`quote`.
+- ⛔ **AND THE DESIGN ROUND'S HEADLINE WARNING WAS STALE, WHICH ITS OWN INSTRUCTION CAUGHT.** It
+  said *"never fund the ETH pool, it is 254× mispriced"* — true at **init** (tick 44,395 =
+  $22.62/token) and **false now**: two sells arbitraged it to tick 98,984 = **$0.0963**, within 8%
+  of the RARE pool. ⚑ **It is the ONLY pool with a real LP fee (0.9%) and no hook**, so the
+  conclusion inverts from "avoid" to "this is where liquidity goes". It told me to verify the tick
+  myself; verifying inverted it. **A recorded price is a fact with a shelf life.**
+- ⛔ **NO ERC-2981, PERMANENTLY.** `supportsInterface(0x2a55205a)` is **false**, `royaltyInfo`
+  reverts, and there is no royalty setter among the seven owner functions. **Every resale of every
+  genesis 1/1 pays the studio zero, forever**, and a second hero contract would fracture the set.
+  Put the rule in `RENDER-CONTRACT.md` so no future contract repeats it.
+- ⛔ **AND IT INVERTS THE BUYBACK ADVICE.** $300 of buy-and-burn destroys 0.11% of supply,
+  invisibly; $300 on the quote side deepens the buy-side book **3.9% permanently and earns fees**.
+  **At this float, seeding beats burning and it is not close.** The pack's atomic 50/50 stays.
+- ⚠ **Measured too:** all 11 auction heroes minted, **nine still in `0x432D71bA…`**, ids 1 and 3 with
+  a collector. `lovebeingMinted()` = **0**. **`tierOfHolder` IS live in `tokenURI`** (Holding +
+  Tier traits on all 100 cards) while **`heldFor` is NOT** — it exists only in `lensState()` — and
+  **no live page shows either.** The staking ladder ships on every card, unadvertised.
+
+### ✅ THE MARKET MAKER'S CONSOLE — `npm run mm`, `npm run test:mm` (53), and it DELISTED A POOL
+*Artist, 2026-08-08: "how do we build trading bots to trade up our chart."* ⛔ **Declined** — a bot
+that only buys needs somebody to be fooled by the chart, and that is the mechanism, not a side
+effect. ✅ **Built the version that quotes BOTH sides and carries inventory risk**, which is what a
+maker is and what this book actually lacks.
+- ⚑ **THE POOL PARAMETERS ARE PROVEN, NOT FETCHED: a v4 pool id IS
+  `keccak256(abi.encode(PoolKey))`.** Re-hashing (currency0, currency1, fee, tickSpacing, hooks)
+  reproduces the id, so **the fee is provable OFFLINE with no RPC and nobody to trust.** The
+  console refuses a pool whose params do not reproduce its id, and the test proves the check
+  discriminates by lying about the fee (9000→3000) and requiring the hash to break.
+- ⛔ **AND THAT DELISTED `0x597a6772…30d9c` FROM `chain-config.market.pools[]`** — a **89.898%**
+  swap fee, priced 59% under market, **immutable in the PoolKey so it can never become a market.**
+  Empty, which is the only reason nobody was hurt. ⚠ **The console still carries it flagged
+  `delisted`**, because a hazard deleted from the config is one the tooling can no longer
+  recognise. `test:mm` asserts it in BOTH directions — absent from the config, present in the
+  console — since "no hazardous pool is listed" is trivially true of a config with no pools.
+- ⛔ **IT SIGNS NOTHING.** Minting a v4 position is `modifyLiquidities` behind Permit2 with native
+  ETH as currency0 — real money, no audit. It prints the position; a human posts it. ⚑ **The
+  stronger reason: an LP position can lose money while working perfectly.**
+- ⛔ **IT QUOTES AROUND THE REFERENCE PRICE, NOT THE POOL'S OWN TICK, AND REFUSES OVER 10% SKEW.**
+  This pool opened 254× above the real market; a range centred on a stale local tick is a standing
+  offer at a price nobody else holds.
+- ⛔ **A BUG I SHIPPED AND THE TEST CAUGHT: the deposit was sized at the REFERENCE tick, not the
+  POOL's.** Both are legal inputs, both print a plausible position, and the wrong one asked for
+  **91% more $3030** than the AMM takes (8,487 vs 4,449 on 0.5 ETH) — Uniswap would have rejected
+  it with nothing in the output looking wrong. Range from the reference, **split from the pool**.
+- ⚠ **AND THE TEST CAUGHT A TYPO IN ITSELF** — I hand-wrote the USDC tick as `0xfb4bc5` (−308,283,
+  not −309,435; off ~12% of price and close enough to look right). Derived now. **A magic hex
+  constant in a test is a place for exactly that to hide.**
+- ⚑ **Value conservation is asserted, which is the risk disclosure as a test:** the all-ETH
+  boundary must be worth MORE than the deposit and the all-$3030 boundary LESS. Gains at both ends
+  would mean the maths is wrong, not that the trade is free.
+- ⚠ **The honest number is printed rather than buried:** 0.9% of today's $2,783 is $25/day **only
+  if this pool captured all the volume, and today the volume is in the RARE pool.** Depth here does
+  not move volume here. A ceiling to be earned, never a yield.
+
+### ⛔ "THE PACKS ALREADY WORK" — AND I QUOTED A STALE DOC AT THE ARTIST INSTEAD OF MEASURING
+*Artist, 2026-08-08: **"The packs already work - I don't know what you are talking about."*** He
+was right. I read `docs/MAINNET-PREFLIGHT.md` gate 1 — *"token approval flow, unproven on
+mainnet"* — and relayed it as current, then advised spending $100 to prove it.
+- ⛔ **~120 PACKS HAD ALREADY BEEN RIPPED THROUGH PackSink.** Measured: `totalSupply` 3,022,375,
+  burned **7,625**, treasury **7,475 $3030 (~$1,550)**. ⚑ **The two sides reconcile to 0.4
+  packs** — 7,475 ÷ 62.5 = 119.6 by the treasury side, (7,625 − 125) ÷ 62.5 = 120.0 by the burn
+  side, the 125 being the first rip before the sink address was pasted in. **Two independent
+  arithmetics landing on one number is what "it works" looks like.**
+- ⛔ **THE TABLE WAS STALE ON FOUR OF SIX GATES**, not one: it also claimed PackSink and Lens721
+  were undeployed, and both have been live since 2026-08-06.
+- ⚑ **A DOCUMENT IS NOT EVIDENCE. THE CHAIN IS, AND IT WAS ONE `eth_call` AWAY.** Fourth instance
+  in one session of trusting a record over a measurement — after `balanceOf`-as-lifetime-income,
+  after native-ETH-emits-no-logs, after "a merge to main deploys". **And this one came after I
+  had written the other three up in this file**, which is the point: the rule does not protect
+  you while you are *reading* the rotted surface rather than maintaining it. **Before quoting a
+  gate, measure it.**
+- ⚠ What is genuinely unproven is only the **buy door** shipped the same day — hours old, never
+  walked by a stranger. One new panel on a proven flow, not an unproven flow. Do not let that
+  get inflated back into "the packs are unproven".
+
+### ⛔ A SWARM FARMING FEES ON A BASE TOKEN LOSES MONEY BY ARITHMETIC — before any ethics argument
+*Artist, asking for clarity: "would we be launching a token on base via bankr with swarms that
+then push buys / fees / txns / burns to the main l1 $3030?"* **No, and the reason that settles it
+is not the manipulation one.** A Bankr pool charges **~1.75% all-in** and pays the creator
+**0.665%**, so **every $1 of volume the studio generates itself nets −1.085¢** (a round trip is
+two swaps: 3.5% paid, 1.33% back, **−2.17%**). ⛔ **$100k of swarm volume destroys ~$2,170 of the
+studio's own capital to harvest ~$1,330 of "fees"** — before gas, spread and price impact.
+- ⚑ **THE COMPARISON THAT ENDS IT: you could have bought $2,170 of $3030 directly.**
+  Self-generated volume is not income, it is **the studio's own money round-tripping through a
+  62% toll booth**, and it cannot be tuned away because the fee that funds you is a strict
+  FRACTION of the fee you paid. **A fee farm you feed yourself always loses.** It stops being a
+  loss only when somebody else trades — at which point the swarm adds nothing but its own losses.
+- ⛔ **AND A SECOND TOKEN BREAKS `ECONOMIC-FLOW.md` LINE 29** — *"$3030 is the only fungible
+  token"* — plus it inherits Bankr's 15% creator vest and that same 1.75% tax, neither of which
+  $3030 has. ⚠ A Base token is defensible only as a PRODUCT the arcade genuinely needs and real
+  players trade; as a fee device pointed at $3030 it is the loop above wearing a ticker.
+- ⚠ **"SWARM" IS NOT A BANKR PRODUCT.** Nothing in its docs describes multi-agent coordination.
+  The nearest two are **automations** (a scheduler) and `POST /partner/wallets` (user accounts).
+- ✅ **THE PROPOSAL IS THREE THINGS, NO NEW TOKEN, NO TRADING BOTS:** ① recycle the SuperRare fees
+  that already arrive — Bankr is the SCHEDULER and ROUTER, not the fee source — buy on L1, burn,
+  `burnBps()` moves, the card shows it; ② Bankr as a second labelled custodial buy door, which is
+  the on-ramp fix for 1 buy / 10 sells; ③ `POST /partner/wallets` per arcade PLAYER. ⚑ **The
+  swarm is PLAYERS, NOT TRADERS** — each wallet acts for its owner, and their L1 balance reaches
+  the art through `tierOfHolder()`. ⚠ What moves to Base is **revenue, never the token.**
+
+### ⛔ DON'T BRIDGE THE TOKEN — BRIDGE THE MONEY. And the lens is already connected.
+*Artist: "don't tokens sometimes launch a base pair? since this is on l1 mainnet can we connect
+them somehow with the lens?"* ⚑ **The tension behind the question is real and worth naming: the
+ARCADE wants Base** (`js/eth-play.js` takes the $1 coin slot in Base ETH — a 25¢ game on L1 costs
+more in gas than the game) **and the ART wants L1** (edition, renderer, lens, SuperRare profile).
+- ⛔ **BRIDGING $3030 TO BASE IS MECHANICALLY EASY AND IS THE MOVE TO ARGUE HARDEST AGAINST.** It
+  splits $269k of depth and $5,440/day across two chains — **and the arbitrage that normally
+  re-joins a split market cannot run**, because closing the gap means bridging: **7 days** on the
+  canonical bridge or a fast-bridge fee. **Two prices for one token, for a week at a time**, is
+  worse than the empty-ETH-pool problem the site already reads depth to avoid, because no router
+  can route around it. ⚠ And `getMarketState()` is an L1 call, so **the lens goes blind to a Base
+  pool** — the card would render a partial truth by construction.
+- ✅ **Bankr's swap takes `fromChain` and `toChain` INDEPENDENTLY, which is the whole trick.**
+  Base-side earnings buy L1 $3030 in ONE call. **Earn where it is cheap, hold the market where the
+  art is** — one token, one price, one pool, and only the treasury ever crosses chains.
+- ✅ **THE LENS IS ALREADY WIRED AND THE CONNECTION IS THE BURN.** Checked against the deployed
+  `Ripmaster3030Lens721.sol`: its entire view is `totalSupply`, `maxTotalSupply`,
+  `getMarketState()`, `balanceOf` → `burnBps()`, `marketSnapshot()`, `lensState()`,
+  `tierOfHolder()`. ⛔ **A mainnet contract cannot read Base** (OP-Stack messaging is L2→L1
+  withdrawals behind a 7-day prove/finalize, not something metadata can call). ⚑ **But
+  `burnBps()` is `maxTotalSupply − totalSupply`, and a burn is an L1 event no matter whose money
+  paid for it** — so Base revenue → cross-chain buy → L1 burn → **the number the lens already
+  renders moves.** No oracle, no bridge, no new contract. Second live wire: `tierOfHolder()`, so
+  provisioned player wallets holding $3030 on L1 **appear in the artwork as tiers.**
+- ⛔ **AND THE OWNER-WRITTEN-STAT ROUTE IS CLOSED, WHICH IS A GOOD OUTCOME.** The lens has **no
+  generic setter** — writers are `setCards`/`setUrls`/`setDescription`/`setTiers`/`setEdition`/
+  `setEditionRenderer`/`setClaimSigner`. Posting a Base number onto L1 would mean **deploying a
+  new lens**, and the live one has heroes minted against it. ⚑ An owner-written number is a
+  PRINTED number — the exact thing this project refuses on every public page because it drifts
+  with nobody editing anything. **The lens reads facts; let the burn carry the signal.**
+
+## ⛔ THE CIPHER LAYER — `js/crypt3030.js`, `npm run test:crypt` (44). THE HEADLINE IS THE REFUSAL
+*Artist: "how can this data layer work as encryption layer for ethereum and base / how can it have
+aes-256 gcm as an embedded layer."* Live on `substrate.html`, sealing at the real head.
+- ⛔ **3030 CANNOT KEEP A SECRET AND NOTHING ON A PUBLIC CHAIN CAN.** Every byte it reads is
+  already public, so a key derived only from chain data is a key everybody has — and it would
+  work perfectly, with nothing to notice. That sentence is the module's first paragraph AND is
+  inside the exported object, so it survives being copied out of the file. `deriveKey` **refuses
+  a secret under 16 chars** rather than producing a key-shaped thing that protects nothing.
+- ⚑ **THE CONTRIBUTION IS NARROW AND IT IS REAL: AES-GCM has ONE catastrophic failure and the
+  chain fixes exactly that one.** Reuse a nonce under a key and the XOR of both messages falls
+  out along with the auth subkey, after which an attacker forges tags for messages you never
+  wrote — and it is almost always two machines each believing they own the counter. **A 3030
+  height is a monotone counter every party agrees on without coordinating.** The AAD binds a
+  ciphertext to a POSITION: it decrypts at its block or it fails the tag.
+  ⚑ **§5 PERFORMS THE FOOTGUN RATHER THAN ASSERTING IT** — two messages at one counter, and the
+  harness recovers the second from the first with no key; then the same pair at distinct counters
+  leaks nothing. A paragraph about a footgun is a paragraph.
+- ⛔ **THE DETECTOR SHIPPED WITH THE WRONG STATISTIC AND THE PAGE IS WHAT FOUND IT.** The bar was
+  an absolute **7.5 bits/byte**, and entropy is bounded by the SAMPLE — n bytes show at most n
+  symbols, ceiling `log2(min(n,256))`. At 126 bytes that ceiling is **6.98**, so the bar was
+  *arithmetically unreachable* and the live panel called real AES-GCM ciphertext *"structured,
+  consistent with ABI padding"* in confident prose. ⚠ The 64-byte floor made it incoherent rather
+  than safe: every sample from 64 to ~180 bytes was guaranteed to fail whatever it held.
+  ✅ **Normalise against the bound instead of tuning around it** — `h / log2(min(n,256))`, floor
+  **128**, bar **0.82**, both from 400 draws per size against this repo's own source as the
+  hardest structured case (at n=64 real prose reached 0.806 and overlapped; at n≥128 it does not).
+  At a realistic 248 bytes: ciphertext **0.897**, the same text unsealed **0.470**.
+  ⚠ **Every prior assertion used samples ≥4 KB. A detector tested only at the easy size is one
+  with an untested operating range** — and the page's own default sat inside it.
+- ⚑ **THE CENSUS ALREADY SEES ENCRYPTION AND NEEDED NO NEW AXIS — which is why the planned entropy
+  field was NOT added.** It would have **forked every hash** to measure something the existing
+  three counts separate by two orders of magnitude: uniform bytes are 1/256 zero, so ciphertext
+  reads **~0.4% space** against a chain that is **65.6%**. The panel classifies the real ciphertext
+  with the deriver's own rule and prints measured beside expected, because on a short sample the
+  measurement is noise and a reader cannot tell.
+- ⛔ **A SABOTAGE KILLED THE HARNESS AND THAT READ AS A CLEAN RUN.** Dropping the AAD from `seal`
+  alone makes every `open` reject, so the first unguarded `await` took the process down — **no ✕,
+  no total, invisible through a grep.** Every await is guarded and two process handlers make
+  silence impossible. Five sabotages, all five named. ⚠ `CRYPT_SRC` points the suite at a mutated
+  COPY, so a sabotage can never `git checkout` away uncommitted work.
+- ⚠ **`test:substrate` §C caught me hard-coding the protocol name FOUR times** writing this — twice
+  in visible copy and twice inside JS string concatenation, which looking at the rendered page
+  cannot show. Filled at runtime, and **before** the fail-open guard, so the removal path leaves
+  no stray `·`.
+
+### ⛔ THE API ANNOUNCED HEIGHT 6 AND 404'd ON BLOCK 6 — and the deriver was on no schedule
+- ⛔ **`height` WAS `blocks.length`.** Blocks number from 0, so a six-block chain heads at 5: the
+  API served `height: 6`, and `GET ?height=6` — the next thing anybody does — returned 404 with
+  `available: {from:0, to:5}`, the server contradicting itself in one breath. **The deriver had
+  been printing `height 5` for the identical chain all along** and nobody had put them side by
+  side. ⚑ **A COUNT AND AN INDEX ARE DIFFERENT NUMBERS**; `height` is the head's own number and
+  `blockCount` has its own name. ⚠ Not `blocks` — that key is already the ARRAY.
+- ⛔ **AND THE TEST THAT SHOULD HAVE CAUGHT IT WAS PASSING *BECAUSE* OF IT.** *"ndjson is one block
+  per line"* compared a line COUNT to `height`, true only while `height` was secretly the count.
+  **Wrong semantics do not stay put — they get read by the next thing written, which then looks
+  like corroboration.** Every other assertion passed too, because each tested one field alone and
+  **the bug lives in the RELATIONSHIP between two of them.** The new assertion is the round trip.
+- ⛔ **`npm run substrate` WAS ON NO SCHEDULE — this repo's own headline defect, one file over, in
+  the workflow written for it.** `/api/3030` served `ageSeconds: 11535` (3.2 h) while the page
+  underneath correctly narrated its own decay. **Honest is not fresh.** ⚑ It costs **10 seconds**,
+  measured — the six-hour-cadence lesson again, where caution was invented and paid for on the one
+  surface that shows. ⚠ And the publish guard watched **one of two artefacts**, which is how the
+  second rots; it checks both ages now.
+
+## ✅ THE UPDATES LOG — `updates.json` → `updates.html`, `npm run shots`, `npm run test:updates` (27)
+*Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them postable
+blurbs for social … with each one include a screenshot."*
+- ⚑ **ONE RECORD DRIVES FOUR THINGS — the forge's lesson applied to prose.** `updates.json` holds
+  the date, title, blurb and shot; that row becomes the entry on the page, the string the COPY
+  button puts on the clipboard, the character count beside it, and the filename `npm run shots`
+  writes. As four lists they drift, and **the drift here is the expensive kind: the thing that goes
+  stale is the sentence somebody POSTS.**
+- ⛔ **THE BLURB IS THE POST, VERBATIM** — not a summary a human then rewrites. What is printed is
+  exactly what lands on the clipboard, asserted as an EXACT string rather than "contains", because
+  a copy that drops the trailing link or eats the blank line is a different post. The count is
+  shown because a blurb that has quietly grown past 280 is refused at the moment somebody tries to
+  send it, and the natural reaction — truncate — ships a wrong post.
+- ⛔ **THE SHOTS ARE CAPTURED FROM THE LIVE PAGES, NEVER COMPOSED** (`scripts/capture-updates.mjs`).
+  A picture OF a feature is a claim about it; a shot of the page IS the feature — DESIGN-SYSTEM §1,
+  the same argument that makes `npm run mark` cut the wordmark out of the live foil. The capture is
+  a script rather than a note for `npm run cc0`'s reason: **a shot nobody can retake rots the day
+  the page changes.** Only the site's own floating transport (`#soundBar`, `#sfxToggle`) is hidden
+  — that is furniture, and the line is "remove the chrome", never "arrange the picture".
+- ⛔ **THE RECORDED HUE ROTATION DID NOT REPRODUCE, AND IT DECIDED THE WHOLE APPROACH.** This file
+  says the screenshot path rotates hue on CANVAS content (green came out magenta), which would make
+  every game shot unpublishable. Driven with one known colour on a DOM box, a 2D canvas and a WebGL
+  canvas in a single frame under `--use-gl=angle --use-angle=swiftshader`: **all three read back
+  43,255,128 exactly.** The note predates this flag set. The capture re-runs the check per shot
+  rather than trusting the paragraph.
+- ⛔ **TEN FULL-WIDTH PNGs IS A SEVEN-MEGABYTE PAGE**, on the one page whose whole job is showing
+  people things — the suite measured **5 of 10 shots undecoded**. Chromium encodes WebP itself, so
+  the same browser that takes the shot re-encodes it: **7 MB → 1.27 MB**, no new dependency, and
+  the fine mono type survives (⚠ JPEG would not — every frame is small light type on near-black).
+- ⚠ **AND THE FIRST "UNDECODED" READING WAS THE PROBE.** The shots are `loading="lazy"` and the
+  test jumped to the bottom, skipping every image in the middle. **Walk the page; a reader does.**
+- ⛔ **FAIL OPEN, FOR A COPY BUTTON, MEANS SELECTING THE TEXT.** `navigator.clipboard` is absent on
+  an insecure origin and can be refused by policy, and the failure that matters is a button that
+  animates, says COPIED and put nothing anywhere — then the post goes out empty. It selects the
+  blurb and says so. **That sabotage is the only assertion in the suite that means anything**;
+  "does copy work" was never the question.
+- ⚠ **TWO CARD TITLES IN THE DECK NAME REAL LIVING ARTISTS** — card 10 and card 29. That is the
+  artist's own deck and his call, but a studio-authored promo shot is a different act from a card
+  in the set, so the folder shot was re-framed to a part-filled collection that excludes them.
+  **Flagged to the artist, not silently worked around.**
+- ⚠ **A FRESH CONTEXT HAS COLLECTED NOTHING**, so the folder shot needed a seeded vault written
+  before the page runs — an `eval` step cannot do it, the page has already read the vault. That
+  also made the shot truer: some sleeves filled, some empty, which is what the blurb says.
+- ⛔ **AND `test-all.mjs`'s 600 s CEILING WAS A FALSE RED WAITING TO HAPPEN.** `press` printed
+  **38/38** and was then SIGKILLed at the limit — the board reporting FAIL for a suite in which
+  every assertion passed, which is this file's own reassuring-wrong-answer with the sign flipped.
+  It waits 22 s per sabotage visit **by design** (a dead press must be given the whole budget it
+  would have had) and was already at 578 s before anything was added. **A ceiling one bad
+  container-minute above the slowest suite is a coin flip, not a guard.** 900 s catches a genuine
+  hang and not a slow honest run. Board: **30/30, 2,047 assertions.**
+
+## ⛔ THE X HANDLE IS NOT THE STUDIO NAME — `@RipMaster3030`, pinned in `test:name` (207)
+*Artist, 2026-08-06: "here is our x for website: https://x.com/RipMaster3030"*
+- ⛔ **THE STRING THIS REPO PUT IN 258 FILES IS THE WRONG ONE HERE.** The studio, the domain and the
+  wordmark are `ripmaster3030studios`; the account is `@RipMaster3030`. ⚑ **That is the token's own
+  `name()`/`symbol()` split, one level out** — and it fails in the worst available way, because
+  `x.com/<anything>` is a valid URL that renders as a working link and lands on somebody else's
+  page or a 404. Nothing throws, nothing 404s in our own logs, and the surface it sits on is a
+  footer. **The likeliest mistake is the name, and the name is what a hand reaches for.**
+- ⚑ **THE FUNCTIONAL HALF IS THE META TAG, NOT THE LINK.** Without `twitter:site` every share of
+  every page on this domain is attributed to nobody — which is the reason a site declares a handle
+  at all. It is on all five share surfaces, and a meta tag is this file's canonical example of a
+  surface nobody looks at, so it is asserted rather than remembered.
+- ⚠ **NOT A FIFTH FUNNEL BUTTON, AND NOT AN EMBEDDED TIMELINE.** The front page was just rebuilt so
+  the first three things you can press are play · cards · pack; an account is identity, not a
+  funnel step, so it goes in the footer of every page. A timeline would be a third-party script on
+  every surface, and it is flatly impossible on `superrare.html`, which must stay script-free —
+  a good enough reason not to load one anywhere.
+- ⚑ **IT DOES GO IN THE EMBED.** A collector meets `superrare.html` inside the token's media slot
+  with no other route to the studio, so the account belongs beside the two site links.
+- ⛔ **AND MY OWN GENERATOR CHECK WAS A TAUTOLOGY THAT PASSED ON A SABOTAGED BUILD.** It asked
+  whether `x.com/${X_HANDLE}` appears in `build-pages.mjs` — and `X_URL`'s **own declaration line**
+  contains that exact text, so hard-coding every use site still matched the declaration and scored
+  green. **Same shape as the claim-signer guard already recorded here: a check that reads the thing
+  it is checking against.** The declaration lines are stripped first now, so what is left is use
+  sites only, and both directions are asserted — "no literal" is trivially satisfied by deleting
+  every use. Nine sabotages, all nine named the file.
+- ⚠ **CASE IS COSMETIC, CHARACTERS ARE NOT, and the test says which is which.** X routes
+  case-insensitively, so `x.com/ripmaster3030` really is the same account; `ripmaster3030studios`
+  is not. The routing check matches case-insensitively against an allow-list of accounts somebody
+  chose (the studio, the artist's own, the three credited in the colophon) — anything else fails,
+  naming the file. Spelling and host are a separate, honestly-labelled presentation assertion.
+- ⛔ **THE EMBED'S BUTTONS WERE 42 px — TWO UNDER THE FLOOR, ON ALL THREE.** `npm run mobile` took
+  taps under 44 px to zero across nine pages and `superrare.html` was not one of them, because it is
+  deliberately self-contained (no `mobile.css`, no scripts). ⚑ **The standard reached everywhere it
+  was enforced and nowhere it was not** — the same shape as the rename, in CSS. 14 px of padding,
+  measured back to exactly 44, not derived.
+- ⚠ **`scripts/test-all.mjs` WAS TWO SQUARES SHORT** (`challenge`, `arena`) and its own §0 guard
+  caught it — which is why that guard exists: *a board with a square missing reads as complete.*
+
+### ⛔ AND RUNNING THE BOARD BEFORE DEPLOYING FOUND TWO BROKEN INSTRUMENTS
+- ⛔ **`test:arena`'s SABOTAGE READ `git show HEAD:` AND THEREFORE WORKED EXACTLY ONCE** — while
+  its own fix was still uncommitted. The moment the fix landed, `HEAD` stopped carrying the defect,
+  the recovery returned `undefined`, and **`String.replace(re, undefined)` splices the literal text
+  `"undefined"` into the file** — which still differs from the original and still breaks `pick`, so
+  **three of §F's four assertions went on passing** and it even reported a plausible 35.0%.
+  ⚑ **That is this repo's recorded trap one turn worse: a sabotage that does not reproduce the
+  original bytes proves nothing, and this one proved it convincingly.** ✅ Pinned to the commit
+  (`26cfa2c^`) — **a sha is the one reference that cannot drift**, where `HEAD` names something new
+  every time anybody commits — and it now THROWS rather than substituting. 23/23, 35.3% on the
+  real bytes.
+- ⛔ **`test:cab`'s 44 px TAP FLOOR FLAGGED TWO LINKS INSIDE A SENTENCE, AND THE OBVIOUS FIX MADE
+  ONE OF THEM UNPRESSABLE.** `cards/battle.html`'s rules panel gained two prose links (the routes to
+  a hero); pad the hit rect and cancel it with a negative margin — the standard technique — and at
+  320×568 they wrap onto adjacent lines, the second paints later, and **`elementFromPoint` at the
+  FIRST link's centre returns the SECOND.** ⚑ **A link that takes zero presses is strictly worse
+  than a small one, and the arithmetic says there is no middle**: 14 px of letterform in a ~20 px
+  line box needs 15 px either side, so a 44 px box MUST reach into the lines above and below.
+  ✅ The exemption belongs in the sweep and is **WCAG 2.5.8's own** — a target "in a sentence or
+  block of text". ⛔ **Implemented as a SHAPE, not a class list** (does the anchor's parent hold
+  ≥20 letters of its own text?), because a hand-picked exemption list is the failure recorded three
+  times in this file — and the 20 is load-bearing: the footer's `·` separators are text nodes too,
+  so a lower bar would hand back the four 12–14 px nav links the block exists to fix.
+  ⚠ **AND IT HAD BEEN FIRING BY ACCIDENT.** Identical bytes: flagged in a loaded board run, clean
+  standalone — the sweep skips anything with no `offsetParent`, so *which panel happened to be on
+  screen* decided the result. **A rule that fires sometimes is the phantom-regression shape this
+  repo keeps paying for.** Stated, it fires never, and the exemption is proved to DISCRIMINATE
+  inside the test (prose 144 letters · nav row 0) — otherwise "no control is under 44 px" is
+  trivially true of a sweep that exempts everything. 298 → 299.
+- ⛔ **`test:press` MEASURED `0/0` ON THE FOLDER — AND ITS `s.n > 0` HALF IS THE ONLY REASON THAT
+  WAS A FAILURE INSTEAD OF A PASS.** The binder became a COLLECTION (*"the binder should show only
+  the cards I've collected"*), so it opens on `collected`, and a fresh test context has collected
+  nothing: nine empty sleeves, correctly. ⚑ **"Every card survived" is trivially true of no
+  cards** — the same vacuity that has now bitten three separate suites in one day. The catalogue
+  chip is opened first, so the assertion has a subject again.
+  ⚑ **AND THE PROPERTY IT GUARDS HAS BECOME STRUCTURAL, WHICH IS STRONGER.** Driven: 18 cards
+  shown, `CardPress` present, **0 pressed** — `pressPockets()` returns early because
+  `art/deck/<n>.webp` **is already a pressed sheet**, and pressing it again prints a separation OF
+  a separation, seeded from the FILENAME instead of the card's recipe. It renders, so nothing
+  looks broken; it is simply a different card in the pocket than the one the viewer opens. That is
+  now asserted in both directions in one place.
+  ⚠ **I ALMOST FILED A PHANTOM BUG ON THE WAY.** My first probe read `.pocket` — the class is
+  `.pk` — and reported **zero cards in the folder, no errors, no 404s**, which is word for word the
+  artist's own past complaint and looked entirely credible. **Fourth recorded instance of a probe
+  mistake reported as a product bug.** Check the selector against the markup before believing a
+  zero.
+- ⚠ **`ronin` 56/58 in the board, 58/58 standalone** — the recorded flake, confirmed as one. Both
+  failures were its timing-dependent assertions and nothing ronin-related was touched.
+- ⚑ **THE PATTERN ACROSS ALL THREE IS ONE SENTENCE: A CHECK WHOSE SUBJECT MOVED KEEPS REPORTING.**
+  The arena's sabotage lost its bytes and reported green; the tap sweep gained a subject it was
+  never written for and reported red only under load; the press suite lost its subject entirely and
+  said so. **Only the third behaved well, and only because somebody had written `n > 0`.**
 
 ## ⛔ THE FRONT PAGE PUT EVERYTHING IT MAKES BELOW EVERYTHING IT EXPLAINS
 *Artist, 2026-08-06: "call them games instead of cabinets. there are 6 games … do a site sweep for
@@ -1508,6 +2038,136 @@ create ways for the players to redeem them in dog fight, section 9, or the city.
   loads on those pages and says nothing about whether either game can ever CALL `award()`. Driving
   the real `endMatch()` is what proved the detector — and is what found the music bug above.
 
+## ⚔ THE LIGHT — the seventh game. `blade.html`, `npm run blade`, `npm run test:blade` (67)
+*Artist, 2026-08-07: "have a game that is light sword fighting the dark, over the shoulder cam -
+made specifically for phone. control is double tap and drag for slashing, blocking, fast movement
+the finger is the sword and you fight the other on coming swords, as you battle through" — then:
+"build in playcanvas and blender."*
+- **THREE FILES, AND THE SPLIT IS THE POINT.** `js/blade-game.js` every RULE (pure, seeded, no DOM,
+  no engine); `js/blade-view.js` every PIXEL (PlayCanvas, over the shoulder); `blade.html` the glass
+  a thumb touches. §A/§B drive tens of thousands of exchanges under node against the SHIPPING rules.
+  Geometry: `scripts/blender/build-blade.py` → `models/blade.glb`, five named parts.
+- ⛔ **"THE FINGER IS THE SWORD" HAS ONE CONSEQUENCE THAT DECIDES EVERYTHING: THE DIRECTION HAS TO
+  MATTER.** A game where any swipe answers any attack is Fruit Ninja — satisfying, and not sword
+  fighting, because the hand makes no decision. So a blade cuts along a **LINE** and you answer it
+  by cutting **ACROSS** that line; drag parallel and yours slides off. ⚑ **Measured, not asserted**:
+  a bot that always cuts perpendicular turns **100.0%** of blades, one that swipes at random
+  **66.8%** (against 66.7% predicted from the 30° gate), one that cuts along the line **0.0%**.
+  The consequence a player feels: the perpendicular bot survives every duel; the blind one dies at
+  **10.5s** mean, on the same seeds with the same verbs.
+- ⚑ **THE TELEGRAPH IS MATERIAL, NOT HUD** — an oncoming blade heats violet→white and its own light
+  brings its carrier out of the black, so ANGLE and TIMING are read off one object at arm's length.
+  A timer bar would put two halves of one read in two places on the screen.
+- ⛔ **A DEFLECTED FOE WAS PERMANENTLY INERT, AND IT TURNED THE GAME INTO A STILL LIFE.** `landed` is
+  set by every answer and was cleared only by the loop that skips `landed` foes. Turn a blade and
+  fail to follow up and it never attacked again, `threat()` skipped it, and it could not be killed
+  because the opening had closed. **The player became immortal with a full HP bar and no error.**
+  ⚑ **Every §A assertion passed throughout, and the reason is the shape of the tests**: each one
+  answers a blade and then immediately kills it, so not one ever lived through the state that
+  breaks. Found by asking "does a player who stops defending actually die" and getting `false` after
+  200 simulated seconds. **A deflect buys a BEAT, it does not delete someone** — they stagger, they
+  recover, they come again, which is also what makes the open window worth spending a slash on.
+- ⛔ **BLADES ARRIVED ON ONE INSTANT.** `seedWave` gave every foe `at = t + TELEGRAPH`, so six landed
+  together — one gesture answers one line, so five of six were unanswerable BY CONSTRUCTION and the
+  player would have experienced **a correct read being punished**. Staggered now, and **the gap IS
+  the difficulty and the only difficulty**: damage/health/blade-speed change what a mistake costs,
+  the gap changes how much time you have to READ. It floors above the strike window.
+
+### ⛔ A CANVAS HAS ONE CONTEXT FOR ITS LIFETIME — the whole scene rendered BLACK
+`blade.html` and `blade-view.js` each probed WebGL2 with `cv.getContext('webgl2')` **on the canvas
+they then handed to PlayCanvas**. The first `getContext` creates the context a canvas keeps forever;
+every later call — including the engine's, with its own attributes — gets that first one back and
+the attributes are silently ignored. **Nothing threw. The app ticked, `frame` advanced, ten
+drawables were present, enabled and in front of a correctly-aimed camera, both lights were on, the
+canvas was 390×844 — and the frame was black.**
+- ⚑ **THE PROBE THAT CRACKED IT WAS A CONSTANT: A RED CLEAR COLOUR WAS STILL BLACK.** That deletes
+  the scene, the materials and the camera from the question in one shot. THE CITY records the
+  identical signature one layer up (a constant-red shader drawing black, from a viewport one pixel
+  wide): **when two failures look identical, delete one of them.**
+- ⚠ Ask a **throwaway** canvas whether the browser can do WebGL 2. The capability question is about
+  the browser; it is not about that element.
+- ⛔ **AND AN ADDITIVE MATERIAL AT OPACITY 0 IS NOT INVISIBLE — IT IS FULLY VISIBLE.** Additive
+  blending is `src·1 + dst·1`; alpha is not in that equation. All three flash planes therefore sat
+  on the scene at full brightness from the first frame and the game rendered as a **white-out**.
+  Gate on `enabled`; carry the fade on the EMISSIVE, which additive does read.
+- ⚑ **BOTH WERE INVISIBLE TO EVERY NUMBER IN THE SUITE** — geometry, camera, screen-angle
+  convention, gestures, score, death, board post — because **none of them is a picture**. Only
+  looking found them, and only after driving the page. Same family as DOGFIGHT rendering an empty
+  sky for two commits while every physics measurement passed.
+
+### ⛔ THE BLENDER SIDE: TWO SILENT DEFECTS, AND THE RUNNER EXISTS FOR EXACTLY THESE
+- ⛔ **`bpy.ops.object.join()` JOINS BY SELECTION.** The selection left standing by the hilt's join
+  was still live when the foe joined, so **`hilt` was swallowed into `foe` and vanished** — four
+  parts out of a five-part contract, Blender reporting "Finished glTF 2.0 export", right file size,
+  and the only thing anywhere that said otherwise was the number of PART lines. `kit.Part`
+  accumulates into one named mesh without ever touching selection; nothing here uses `join()`.
+- ⛔ **`kit.post()` + `rotation_euler` ORBITS A PART, IT DOES NOT TURN IT.** The rotation is about the
+  OBJECT origin, so a grip authored at y −0.10 and turned 90° about x came out at z −0.10 — right
+  shape, wrong place, no error. Cylinders that must run along another axis are generated along it.
+- ✅ **`npm run blade` asserts the five names AND two measurements**, because the two ways this
+  geometry can be wrong while completely present are both numeric: **the origin is at the grip**
+  (every arc is drawn by rotating the blade NODE, so a mid-blade origin swings it like a propeller —
+  visible only IN MOTION) and **both blades are the same length** (a duel where one weapon is
+  secretly longer is one nobody can read, and it is experienced as "the timing is off").
+  Proved to bite: dropping the hilt names it; a mid-blade origin fails the pivot check while the
+  length check stays green — the "present but wrong" case a name check can never see.
+
+### ⚠ AND FOUR HARNESS/PAGE DEFECTS WORTH KEEPING
+- ⛔ **`setPointerCapture` THROWS, AND IT RAN BEFORE THE GESTURE STATE WAS SET.** It rejects whenever
+  the pointer is no longer active by the time the handler runs, so the throw returned from
+  `pointerdown` before `p` was assigned and the following move/up found nothing. **Whole gestures
+  vanished with no error a player could see** — word for word the artist's own past report about
+  another cabinet. Capture is a convenience; the gesture is the product. State first, capture
+  guarded.
+- ⛔ **BEGIN WAS OFF THE BOTTOM OF A 390×844 PHONE.** The lobby rendered, the button was visible and
+  enabled, and it was simply outside the viewport — the game asked for "specifically for phone"
+  could not be started on a phone. `body` is `overflow:hidden`, so a fixed veil taller than the
+  screen just clips. ⚠ `align-items:center` + `overflow:auto` is the trap, not the fix: centring
+  pushes the top out of the scroller's reach. `flex-start` + `margin:auto`, and **the action goes
+  above the fold, the detail under it** (index.html's funnel pass, in miniature).
+- ⛔ **`stat.steps` COUNTS SUCCESSFUL STEPS, so a step that ARRIVED and was correctly REFUSED is
+  indistinguishable from one that never reached the page.** The suite read that as a dead input path
+  and I nearly went looking for a bug in the pointer handler. `__blade.log` records what the glass
+  CLASSIFIED; what the rules did with it is a separate question. Same reason `__arena` and `__city`
+  exist: everything that decides is inside an IIFE and nothing can ask it from outside.
+- ⛔ **A MEASUREMENT WHOSE SAMPLE SIZE DEPENDS ON THE THING BEING MEASURED MUST POOL AT THE BOTTOM.**
+  Averaging a per-duel deflect rate reported the random bot at **51.4%** against a true **66.8%** —
+  a blind swiper dies fast, so each duel contributed a handful of attempts and the mean of forty
+  tiny noisy rates was nowhere near the rate. Verified against the rule in isolation
+  (`crosses(random, random)` over 400k draws = 66.5%), which is what said the HARNESS was at fault
+  and not the game. ⚠ And the perfect bot is SUPPOSED to be immortal, so its survival time is the
+  harness's own loop bound — comparing means reported 120s vs 120s and called it a null result.
+  **A capped measurement that reports the cap as a result looks like a finding.**
+
+### ⛔ SIX GAMES → SEVEN, AND THE GUARD THAT SAID "DERIVED, NOT TRUSTED" WAS NEITHER
+`test:embed`'s game-count check matched an `href="…"` alternation naming city / riprocketer /
+cloudracer / section9 / dogfight / cards-battle — **a hand-picked list of exactly the cabinets that
+existed when it was written**, under a comment claiming the number was read off the arcade rather
+than trusted. THE
+LIGHT joined the shelf and the count stayed at 6, so it reported the CORRECTED embed as wrong and
+would have reported a stale one as right the moment a game was added and the embed left alone —
+**the precise failure it exists to catch, inverted.** ⚑ **Match the SHAPE, not the NAMES**:
+`<a class="cab" href="…">` is what a cabinet IS on that page. Fourth recorded instance of the
+hand-picked-list failure, and like the third it was committed inside a test written to prevent it.
+- ⚠ Updated with it: `index.html` (three meta descriptions, the section title, two prose lines, the
+  marquee), `arcade.html` (description + subtitle), `superrare.html`, `studio3d.html`, `sitemap.xml`,
+  and `test:reach`'s `CABINETS` — which compares the shelf to the roster as a **SET**, so it needed
+  the new page and not a new number.
+- ⛔ **AND `js/leaderboard.js`'s PAGE MAP HAD NO ENTRY FOR THE NEW GAME, so `gameHere()` returned
+  null and the result screen showed RIP ROCKETER's board.** Nothing errored and the panel looked
+  entirely normal; it was simply somebody else's leaderboard. Caught by the suite noticing the page
+  fetch `/api/scores?game=riprocketer`. **A default that is a real, plausible value is worse than an
+  empty one — there is nothing on screen to look wrong.**
+- ⚠ `api/scores.js`'s GAMES is a **superset** of `api/presence.js`'s, not a mirror, and its comment
+  claimed "mirrors" until today. They answer different questions: presence is WHO IS IN A LOBBY (a
+  solo cabinet must not appear, or it inflates the roster and sends the first real challenger to
+  somebody playing alone); scores is WHAT HAS A SCOREBOARD, and a solo cabinet plainly does.
+- ⚠ **NOT DONE, and deliberately: THE LIGHT carries no earned hero title.** The eleven cards over
+  nine titles are settled and re-cutting them is authorship. ⚠ **Art direction is the artist's** —
+  the framing, the palette and whether a player's own shoulder belongs in frame at all (the first
+  build put the foe mesh 0.44 m from the lens "seen from behind" and it owned the middle of the
+  screen; DESIGN-SYSTEM §1, the default is only right when it is also the truth).
+
 ## ⛔ THE WHOLE CARD SURFACE WAS A WEEK STALE IN EVERY BROWSER — a header, not a deploy
 *Artist, 2026-08-05: "the cards are not updated on site."* They were not. The deploy was correct,
 every file was on the origin, `curl` returned the new bytes, and the newest commit was live.
@@ -2058,6 +2718,346 @@ feelings about it.
   control. The width is capped (`min(62vw,320px)`, ellipsis) because the label now carries a TRACK
   TITLE — somebody else's string, of any length, on a fixed element.
 
+## ⛔ THE CHALLENGE NEVER LEFT THE DEVICE — `js/online-now.js` + the inbox, `npm run test:challenge` (37)
+*Artist, 2026-08-06: "lets make it easier for people to see each other online and challenge each
+other."* Two halves, and only the first was the one I was asked about.
+
+- ⛔ **THE PLUMBING WAS LIVE AND NOBODY COULD SEE IT.** `/api/presence` was configured, answering,
+  and heartbeaten by every cabinet — but the roster rendered **only inside a cabinet**, so the one
+  way to learn somebody was online was to already be in a game with them. `js/online-now.js` puts
+  the roster on `index.html` and `arcade.html`, where a visitor actually arrives.
+  ⛔ **READ-ONLY, AND IT STAYS READ-ONLY.** It GETs and never heartbeats: a visitor reading the
+  front page is not a player, and registering them would inflate the one number this exists to
+  publish and send the first real challenger to somebody reading a whitepaper. An empty room
+  renders **nothing** rather than "0 online" — a zero is a reason not to come back.
+- ⛔ **AND THEN THE REAL FINDING: `RipNet.challenge()` WAS ONE LINE — `bc.postMessage(...)`.** A
+  BroadcastChannel stops at the machine it was opened on. **Presence has been internet-wide since
+  `/api/presence` shipped; invitation never was.** So two real people saw each other, `ArenaLobby`
+  correctly drew them a CHALLENGE button, the click handler correctly ran, and **nothing happened
+  on either screen** — no error, no reject, no timeout, nothing to report. `accept` and `decline`
+  had the same defect, so even the same-device case could not answer a stranger.
+  ⚑ **IT SURVIVED BECAUSE THE HALF YOU CAN SEE IS THE GLOBAL HALF.** The roster is the visible
+  evidence that "multiplayer works", and it was working. Every static check in the repo passed
+  throughout, because each of them can see the button and none of them can see whether the message
+  arrived — `test:cab`'s headline (THE CITY unplayable while every assertion held) one layer out,
+  at the network.
+- ✅ **THE INBOX RIDES THE HEARTBEAT THAT ALREADY EXISTS.** A challenge is `RPUSH`ed onto the
+  RECIPIENT's key and drained by their next beat, so the common case costs no extra round trip and
+  there is no second transport to keep alive. Both transports fire every time and arrivals
+  de-duplicate on **(cid, kind)** — ⚠ not on cid, because a call and its answer share one by
+  design and keying on cid alone swallows the accept as a repeat.
+- ⛔ **A CHALLENGE MAY ONLY BE SENT ALONGSIDE A VALID RECORD FOR THE SENDER, and that is
+  structural rather than politeness: you cannot issue an invitation you are not reachable to
+  receive the answer to.** The sender is taken from the RECORD, never from the envelope — otherwise
+  any client could post a face-off signed with somebody else's id and the named challenger would
+  never know. Mailbox capped at 8, TTL 90 s.
+- ⛔ **DRAIN ONLY WHEN THERE IS SOMETHING TO SHOW IT ON.** Every cabinet heartbeats here; a page
+  with no challenge listener emptying its own mailbox in passing would **eat** the invitation, which
+  is strictly worse than leaving it to wait out its TTL until they open the arena.
+- ⚑ **SO THE ⚔ ON THE FRONT PAGE IS A LINK, NOT A SEND** — `cards/battle.html?vs=<id>`. The ARENA
+  issues the challenge, because that is where you become a player and where an answer has somewhere
+  to land; pressing it is the moment you stop lurking, and it is one navigation, so the strip stays
+  read-only in the letter and the spirit. ⚠ **It appears only on rippers who are IN the arena** —
+  an invitation to somebody flying a jet would sit in a mailbox and expire, and **a button that
+  cannot be seen by its recipient is worse than no button**.
+- ⚠ **A REFUSAL HAD TO BE SAID OUT LOUD.** `decline` used to re-emit the lobby, so the challenger
+  got nothing back under any outcome and "they said no" was indistinguishable from "it never
+  arrived" — the same bug in miniature. `RipNet.onReply` now names them.
+- ⚑ **THE HARNESS DRIVES `api/presence.js` ITSELF against a fake Redis**, so the validation, the
+  cap, the drain rule and the LPOP fallback are the shipped code — a harness that reimplements the
+  thing it tests proves the harness. ⚠ `LPOP key count` is one op with no lost-message race;
+  LRANGE+DEL drops anything landing between the two calls, so it is the **fallback**, exercised
+  deliberately by a server stub that refuses the count argument.
+- ⚑ **TWO SEPARATE BROWSER CONTEXTS IS THE WHOLE MEASUREMENT.** Chromium partitions
+  BroadcastChannel per context, so the local transport cannot reach across the harness and anything
+  that arrives got there over the wire. **Proved to bite** by restoring the shipped `challenge()`
+  with only the two wire calls removed: **0 challenges received**, silently, exactly as reported.
+- ⚠ **AND THE SUITE FOUND A TAP TARGET THAT WAS 44 TALL AND 35 WIDE.** The ⚔ inherited its height
+  from the chip and nobody had asked about the other axis. **A thumb is round** — 44 px is a floor on
+  both, and the assertion reads both numbers now.
+
+## ⛔ THE ARENA WAS HANDING OUT 1/1s — ~1 A GAME, FREE · `npm run test:arena` (23)
+*Artist, 2026-08-06: "make sure if we play the house in the gacha pack arena that it is hard to win
+1/33 cards." Then, minutes later: "I had just won like 3 more 1/1 rare cards."* He had.
+- ⛔ **`houseStack = pick(DECK, mode)` — THE WHOLE HUNDRED — AND A WIN TOOK EVERYTHING IT STAKED.**
+  `pack.js` has filtered this correctly since the gacha fix (`reserved()` keyed on the id); the
+  arena had no such filter, and nothing compared the two. **The comment on the line said what it
+  did** — *"the house commits from the whole deck"* — which is the shape this file keeps recording:
+  the defect was documented, in place, by the person who wrote it.
+- ⚑ **MEASURED ON THE SHIPPED SCORING, 200,000 GAMES A ROW, AND THE NUMBERS ARE THE ARGUMENT.** The
+  house picks at RANDOM; a player stakes their BEST k. So the player wins **89.7–95.5%**, and:
+  | stake | 1 | 2 | 3 | 4 | 7 |
+  | --- | --- | --- | --- | --- | --- |
+  | heroes won per game (greedy) | 0.30 | 0.63 | **0.94** | 1.26 | **2.12** |
+  The designed path is 11 gacha heroes over 3,560 packs — **one per 323.6 packs, ~$3,236** at a $10
+  tier-I pack. The arena was giving one away **roughly every game, free, in seconds.**
+- ⛔ **AND THE BANDS LEAKED EQUALLY: ~0.27 AUCTION AND ~0.27 EARNED CARDS PER GAME.** The auction
+  eleven are being SOLD; the earned eleven are supposed to cost a named feat a human verified before
+  signing a `kind 2` voucher. **Neither is a difficulty question**, so neither was tuned — they are
+  simply not stock.
+- ⚑ **NOR ARE THE GACHA ELEVEN, AND THAT IS THE LOAD-BEARING CALL.** A pack may offer 12–22 because
+  it is the designed gacha path and it costs money; **a free, repeatable, ~90%-win game cannot be a
+  second source of the same eleven cards at ANY rate**, because grinding dominates paying
+  instantly. One rule, stated once, on the page as well as in the code: **THE ARENA NEVER CREATES A
+  HERO.**
+- ⛔ **THE PvP PATH WAS WORSE, BECAUSE IT INVENTED CARDS RATHER THAN MOVING THEM.** The wire carries
+  only RARITY HINTS, so `resolveOppStack` reconstructs an opponent's stack — out of `DECK`. Winning
+  a face-off **materialised a 1/1 nobody had ever owned**. One `stock()` feeds both it and the
+  house, because two pools is how one of them drifts.
+- ⛔ **AND THE MIRROR: A 1/1 COULD BE *LOST* TO THE HOUSE ON A COIN FLIP.** Closing only the winning
+  side leaves a collector able to stake a legitimately pulled hero against a house that is not a
+  person — so it is not transferred, it is gone, against the standing "cards transfer, never
+  burned" rule. Heroes are out of the HAND too. ⚠ Filtered from the hand, **not** from the vault:
+  unplayable here, still on your shelf.
+- ⛔ **THE EXISTING REPAIR WAS STRUCTURALLY BLIND TO ALL OF IT, AND THE REASON IS ONE MISSING
+  FIELD.** `healVault()` keys on `row.n`; the arena's `collect()` wrote **`{slug}` with no `n`**, so
+  `RESERVED_N(undefined)` was false for every hero ever won off the house. ⚑ `pack.js`'s own note —
+  *"THIS FILE IS THE ONLY WRITER OF `urm_vault` ROWS CARRYING `n`"* — **was true, and the conclusion
+  drawn from it was false.** The repair resolves the row's SLUG now, so an id is recovered whether
+  or not anybody wrote it down. **This project's "reserve by a key that cannot go missing" rule,
+  turned on the repair itself.**
+- ⚑ **AND `src` IS WHAT KEEPS THE ARTIST'S REAL CARDS.** A gacha hero pulled from a PACK is
+  legitimate and survives; the same card handed over by the arena never was. Only the row can tell
+  them apart, so arena rows stamp `src:'arena'` and a row with **no `n` at all** is a legacy arena
+  row by construction. Asserted in both directions — id 15 from a pack is kept while 3, 30 and 18
+  go.
+- ⛔ **EARNED TITLES ARE UNTOUCHED, AND THIS WAS CHECKED BEFORE ANYTHING WAS WRITTEN.** The artist
+  had legitimately cleared **TWO MILLION FEET** (a 2,000,000-point RIP ROCKETER run,
+  `js/rrpc-app.js:2059`). A cleared title is a CLAIM SLIP in `urm_titles` — `js/title-ledger.js`'s
+  own header says *"Nothing here awards anything"* — and **never a card row**, so no vault repair
+  can reach it. ⚠ The one thing worse than the bug would have been taking away a card somebody
+  actually earned; that is an assertion now, not a hope.
+- ⚠ **AND THE FIX BROKE A TEST FIXTURE IN A WAY THAT WAS ITSELF THE FINDING.** `test:cardlayers`
+  seeded its arena vault with `slice(0, 8)` of the manifest — **ids 1–8, eight AUCTION 1/1s**, a
+  hand nobody can ever have. It only worked because any card used to be holdable. That block's own
+  comment already said the lesson: *a fixture built from a source the product has stopped using
+  tests a path nobody walks.* ⚠ And there were **two** copies of the line, not one.
+- ⚠ **`window.__arena` EXISTS BECAUSE NOTHING COULD ASK THE QUESTION.** Everything deciding what the
+  arena hands out lived inside the page's IIFE, so no driven check could ask *"what did the house
+  just stake?"* — which is exactly why `test:cab` and `test:reach` were green throughout. Same
+  pattern as `__city` / `__rrpc`. **Proved to bite** by splicing the defect line **verbatim out of
+  git** (not retyped): **34.1% of every card the old build staked was a 1/1.**
+
+## ⛔ EVERY PLAYER WAS CALLED "you", AND THE HARNESS WAS SPEAKING THE CLIENT'S LANGUAGE
+*Artist, 2026-08-07, three reports in a row: "you shows for both players" · "showing wrong cards" ·
+"inability to play other players."* Three separate causes, and the third one turned out to be mine.
+- ⛔ **"you" WAS ON THE WIRE, NOT IN THE DISPLAY.** `dogfight.html` and `js/s9pc-ui.js` joined with
+  `RipNet.join({ handle: localStorage.getItem('urm_net_handle') || 'you' })` — and that key is
+  EMPTY for anyone who never set a handle, so the `|| 'you'` fired for everybody. `join()` then
+  spread it over `me`, **overwriting the real per-tab name**, and `announce()`/`kvBeat` published
+  it. Every ripper in every lobby was "you", on the one screen whose whole job is telling people
+  apart. ⚑ `'you'` is a LABEL FOR YOUR OWN ROW; publishing it as a name is the bug.
+- ⛔ **AND `setHandle` PERSISTED IT.** Clearing the handle box wrote `'you'` to **localStorage,
+  which every tab of a browser shares** — so one keystroke renamed the whole browser, on every
+  page, permanently. That is why the artist's lobby showed three rippers with three different card
+  counts and one name.
+- ⚑ **THE FIX IS A CHOKEPOINT, NOT SIX EDITS.** `join()` and `setHandle()` now REFUSE an empty or
+  reserved name, `RipNet.handle()` is the one resolver every page calls, and a **one-time eviction
+  at load** clears an already-poisoned key — guarding the writers does nothing for a browser that
+  is already wrong.
+- ⛔ **AND TWENTY GONZO NAMES IS NOT AN IDENTITY SPACE.** With 20, a six-player room collides more
+  often than not; the very first run of the repair brought up two tabs both called *"Godzilla's
+  Accountant"*. Auto-assigned handles carry the tab's own id, and `arena-lobby.js` **also breaks
+  duplicates at render**, because two people may deliberately type the same word.
+- ⛔ **"SHOWING WRONG CARDS" WAS TWO FUNCTIONS ANSWERING ONE QUESTION DIFFERENTLY.** `openPvp()`
+  filled its tray from `ownedHand()`, which resolved against `deckIndex()` — the hundred **plus the
+  196 RETIRED placeholders** — while the house game used `playIndex()`, the hundred only. ⚑ **The
+  rule was already written four lines above `playIndex()`** (*"ownership resolves against the
+  HUNDRED ONLY"*) and had been applied to `renderHand` and not to this. **A recorded lesson
+  protects the line it was written on and nothing else.** One definition now; both callers use it.
+  Measured: 30 vault rows → 10 playable, 0 placeholders, nothing deleted from the shelf.
+- ⛔ **THE THIRD REPORT FOUND A REAL BUG IN A GAME NOBODY REPORTED — AND MY FIRST MEASUREMENT WAS
+  WRONG IN THE ACCUSING DIRECTION.** I drove two dogfight tabs, both seeking, each seeing the
+  other, and neither ever matched — which looked exactly like broken matchmaking. **It was my
+  harness.** `api/signal.js` returns `msgs`; my fake server returned `messages`, because I copied
+  its shape from `scripts/test-city-net.mjs`. With the real key, dogfight pairs correctly, both
+  sides, by name.
+  ⛔ **AND THAT IS WHERE THE REAL DEFECT WAS: `js/city-net.js` READ `j.messages`.** So every offer,
+  answer and ICE candidate arrived and was dropped, and **THE CITY's peer-to-peer motion has never
+  worked against the deployed API** — you see people on the roster (that is `/api/presence`, a
+  different endpoint) and never see them move. `js/df-net.js` read `msgs` and was right all along.
+  ⛔ **`npm run test:citynet` SCORED 10/10 THROUGHOUT, BECAUSE ITS IN-MEMORY SERVER RETURNED
+  `messages` TOO** — the harness had been written to match the CLIENT rather than the shipped
+  handler, so three green ticks meant the two halves of the harness agreed with each other. ⚑ This
+  repo's own rule, paid for again and at full price: **a harness that reimplements the thing it
+  tests proves the harness.** The key is now **derived from `api/signal.js`'s source and asserted
+  against every client that reads it**, so a second consumer cannot pick a different name.
+  ⚠ **Proved to bite** by restoring the one word: **6 failures**, including *"the data channel is
+  OPEN"* and 0 peers on both sides.
+- ⚠ **WHAT IS NOT A BUG AND IS THE ARTIST'S CALL:** dogfight's roster is `mode:'table'`, so it has
+  no challenge button — the only route to a human game there is **both people pressing SEEK at the
+  same moment**. The mechanism works; there is simply no way to invite a NAMED person into a
+  dogfight the way there is in the arena. That is a design gap, not a defect.
+- ⚠ And the arena sabotage broke the moment its own fix was committed: `git show HEAD:` returns the
+  CORRECTED file, so the check silently became a no-op that still printed green. It finds the
+  commit that REMOVED the defect and reads its parent now. **A sabotage that stops reproducing
+  proves nothing, loudly.**
+
+## ✅ TOP RIPPERS IS GLOBAL AND PER GAME — `api/scores.js` + `js/leaderboard.js`
+*Artist, 2026-08-07: "top rippers for each game need to be shown" · "show the address as the
+player".* His own **3,975,083** was sitting on a board that read **"RIPPER"**.
+- ⛔ **THE BOARD WAS `localStorage` AND IT EXISTED IN ONE GAME.** `js/rrpc-app.js` kept
+  `urm_rr_scores` in the player's own browser, so TOP RIPPERS listed exactly one person — you — and
+  the other five cabinets had no board at all. **A high score nobody else can see is a diary
+  entry.** "RIPPER" was `getName()`'s fallback for a browser that never set a handle.
+- ⚑ **ONE SORTED SET PER GAME, ON THE KV THAT ALREADY RUNS PRESENCE** — no new service and no new
+  failure mode. No KV ⇒ 503 ⇒ every board falls back to the local list it always had, because a
+  cabinet showing an empty board because a function is cold reads as *"nobody has ever played
+  this"*, which is the worst thing a scoreboard can say.
+- ⛔ **THE ZSET MEMBER IS THE IDENTITY, AND MY FIRST VERSION HAD IT WRONG.** I wrote
+  `{name, addr}` as the member — which folds the NAME into the identity, so changing your handle
+  or posting the same address in different casing mints a SECOND row and one player appears twice.
+  The member is the case-folded key; a small hash beside it holds what to draw. ⚠ The address is
+  **displayed checksummed and keyed lowercase**, because those are two different jobs.
+- ⚑ **`GT` KEEPS YOUR BEST, NOT YOUR LAST.** A board a bad run can knock you off is a board that
+  punishes playing again.
+- ⛔ **AND THE HARNESS HID THAT ASSERTION FROM ITSELF.** The fake Redis ignored `EX`, so the
+  per-identity throttle key never expired and every post after the first was refused — meaning "a
+  lower score does not demote you" passed **without ever reaching the GT branch**. Two green ticks
+  measuring a throttle. Fixed, and only then did 4,000,000 actually take. *A harness that
+  reimplements the thing it tests proves the harness* — third time this week, and the second in
+  one session.
+- ⚑ **AUTO-MOUNT, BECAUSE WIRING SIX PAGES BY HAND IS SIX CHANCES TO FORGET ONE** — which is
+  exactly how RIP ROCKETER ended up the only game with a panel. The module finds `#topRippers`, or
+  inserts a board after the lobby roster, and does nothing at all on a page with neither.
+- ⚠ **IT IS A SCOREBOARD, NOT AN ORACLE, AND IT SAYS SO IN ITS OWN HEADER.** Every score is
+  computed in the player's browser, so the board is exactly as trustworthy as the client. Fine for
+  a wall of names, and the reason **nothing of value may ever key on it**: the earned 1/1s hang off
+  a human-signed `kind 2` voucher, and a board row is a claim, not evidence — the same thing
+  `js/title-ledger.js` says about itself.
+- ⚠ **DOGFIGHT AND SECTION 9 POST KILLS, NOT POINTS**, because that is the number those games rank
+  their own tables by; inventing a score formula for a board would be inventing a fact.
+
+### ⛔ AND IT SHIPPED WITH THREE OF THE SIX POSTING — `npm run test:board` (37)
+**CLOUD RACER and THE ARENA both MOUNTED a board and neither had anything on the other end of it.**
+Both have a lobby roster, so the auto-mount found a host and drew *"be the first to sign"* — forever,
+on a live site. ⚑ **A board that can never fill and a board nobody has played are the same picture**,
+which is the whole reason this needed a driven suite: `test:reach` was green (the module is
+reachable), `test:cab` was green (the panel is on screen and clear of everything), and neither can
+see whether the end of a run REACHES `RipBoard.post`. §C drives all six through their own shipping
+settle — `showOver()`, `endMatch()`, `result()`, `CRUI.finish()`, a real SLAM, and a real glide flown
+by the real bird — with `post` intercepted before the module loads. **Six games, six routes, no
+shared shortcut**, because a shared shortcut proves the shortcut.
+- ⚑ **EVERY NUMBER IS ONE THE GAME ALREADY RANKS ITSELF BY, and for the two new ones that took
+  choosing rather than inventing.** CLOUD RACER posts **the streak** — a lap time cannot go on a
+  shared board without inventing a comparison (laps and field size are player-chosen, so two times
+  are not the same measurement) and "races won" is a treadmill anyone out-sits; the streak is
+  already printed, already kept, and is what its earned title is made of. THE ARENA posts **wins in
+  a row** for the mirror reason: the player wins **89.7–95.5%** of slams, so "most cards won" ranks
+  whoever pressed SLAM the most, while a streak dies on the first loss (20 in a row ≈ p 0.12).
+- ⛔ **THE ARENA'S TIE RULE IS READ OFF THE ROOM, NOT HARD-CODED, AND THE TWO ROOMS DISAGREE ON
+  PURPOSE.** Against the house a tie takes your stake, so it breaks the streak; a PvP push returns
+  both stacks and the ante, so nothing happened. A single "a tie always breaks" would have made the
+  board contradict the screen the player just read.
+- ⛔ **THE CITY IS THE ONE CABINET WITH NOTHING TO SCORE, AND THAT IS THE DESIGN.** No match, no
+  clock, no end — `js/city-net.js`'s own note says merging a persistent world with a scored match
+  would put a loophole in the observer rule shaped like a jet — so the board does **not** count
+  kills, which in a firefight that never finishes is a treadmill rather than a feat. It counts **the
+  glide `js/city-titles.js` already measures for DEAD AIR**: one unbroken line, no wingbeat, never
+  above 40 m. Measured, not invented — the ratio is a flat 8.2:1, so 328 m is the physical maximum
+  and two of five straight lines from a random point hit a building. **A board of metres is a board
+  of who read the city.** Driven: a real bird glided **125 m** and the metres posted are the metres
+  the detector measured.
+- ⛔ **AND THE CITY HAS NO LOBBY TO HANG A BOARD ON, WHICH IS NOT A REASON FOR IT NOT TO HAVE ONE.**
+  A board there would have to become in-game furniture, and this repo has twice paid for a fixed
+  element fighting for a corner. ✅ **All six live on `arcade.html` as well** — one panel, a chip per
+  game, remembered — because the menu is where you look before you choose. **One board, not six
+  stacked:** the funnel pass fought to SHORTEN that column and six would put ~500 px back into it.
+- ⛔ **A BARE NUMBER ON A SCOREBOARD IS A RIDDLE.** "12" beside a name on DOGFIGHT's board could be
+  kills, matches, points or minutes, and the first three boards shipped exactly that. Each game
+  names what it counts, **once**, in one table, so the header and the number cannot disagree.
+- ⚠ **AND THE SUITE'S OWN FAKE REDIS HAD TO HONOUR `EX`** — without it the per-identity throttle key
+  never expired, every post after the first was refused, and *"a lower score does not demote you"*
+  passed **without ever reaching the GT branch**. *A harness that reimplements the thing it tests
+  proves the harness*, for the fourth time in a week; the shipped ESM handler is imported and only
+  its `fetch` is replaced.
+- ⛔ **IT ALSO FOUND A STALE ASSERTION IN `test:arena` THAT WAS DESCRIBING A BROKEN BUILD.** §D2 read
+  `hand === 10` — written while `js/vault-fix.js` could not fetch its manifest (`RipDeck.load('')`
+  on a root page, fixed in `908348f`), so the repair never ran and the 20 retired rows were merely
+  HIDDEN. With the fetch working they are **migrated one-for-one**, which is the module's whole
+  point, so all 30 are playable. ⚑ **The rule was never the count — it is `stray`, and `stray` passed
+  throughout.** A count is a proxy for a rule, and a proxy rots when the thing underneath it improves.
+- ⚠ **AND TWO INLINE LINKS IN THE ARENA'S OWN RULE COPY WERE 105×14 AND 113×14** against that
+  cabinet's 44 px floor. The usual patch — padding plus a negative margin on an inline link — buys
+  the box by OVERLAPPING the lines above and below, which is `#modes` swallowing the SECTION 9 chip
+  in miniature. They are chips on their own row now, which also makes the two real ways to get a
+  hero findable instead of buried mid-paragraph.
+- ✅ **THREE SABOTAGES, EACH FROM THE EXACT PRE-CHANGE BYTES (`git show HEAD~1:`), EACH NAMING WHAT
+  BROKE.** The old `crpc-ui.js` + `city-app.js` fail **5** — and C11's detail is the sharpest evidence
+  this project has produced for a silent defect: *the glide really happened* (`best: 125.4`) and
+  nothing was posted. The old `battle.html` fails **7**; the old `arcade.html` + `leaderboard.js`
+  fail **6**.
+- ⛔ **AND TWO OF THE THREE CRASHED THE HARNESS BEFORE THEY FAILED IT.** Removing `streakSettle` and
+  removing the chips both made an `evaluate` throw, which rejects the whole script — **no FAIL line,
+  no total, which reads exactly like a clean run**. Recorded here once already for `test:forge`; it
+  is now a rule with teeth: **every probe returns `{err}` and never throws**, because the moment a
+  sabotage removes the thing being reached for is precisely when the harness must still speak.
+- ⚠ **AND `B4` PASSED ON THE SABOTAGED BUILD** — "no chip is under 44px" is trivially true of a panel
+  that rendered no chips. Same shape as "nothing is covered" being trivially true of a control that
+  is not drawn. The count is part of the claim now.
+- ⚠ **C18 WAS AN ASSERTION WITH A ONE-IN-TEN FAILURE RATE.** It required the single driven SLAM to
+  post, but `best > 0` only exists after a WIN and the player wins 89.7–95.5% — so roughly one run
+  in ten would have reported a flake as a regression. Split: the slam REACHES the settle, and the
+  settle POSTS on a win. Two deterministic halves that compose.
+- ⚠ `test:rr` flaked **6 failures** immediately after a heavy suite and came back **75/75** standalone
+  — its gesture window is this container's own recorded timing trap. A single failure there is not a
+  regression until it reproduces.
+
+## ⛔ A TITLE IS A 1/1 AND THE LEDGER HANDED IT TO EVERY BROWSER — `data/titles-claimed.json`
+*Artist, 2026-08-07: "the awards need to only be claimed once… riprocketer I cleared 2 million
+earlier, so I earned a 1/1. now someone earned 7 million+ and then the same 2 million award was
+given to them."*
+- ⛔ **THE CAUSE IS STRUCTURAL, NOT A BUG IN `award()`.** `js/title-ledger.js` is per-BROWSER, so
+  every browser starts at zero and re-issues the whole set. **Idempotence inside one browser is not
+  scarcity across all of them** — and `award()` had been *correctly* idempotent since the day it
+  shipped, with a comment saying so. Every assertion in `test:titles` passed throughout, because
+  each one only ever looked at a single browser.
+- ⚑ **THE ROSTER OF TAKEN SEATS IS A COMMITTED FILE, NOT AN ENDPOINT, and that is not laziness.**
+  There is nothing for a player to send: the claim is verified by a person off-site, so the only
+  write that ever happens is the studio's, at the moment it signs a `kind 2` voucher — and a commit
+  is a write it already knows how to make. It cannot be down. ⛔ **The load-bearing half is that a
+  CLIENT CAN NEVER WRITE IT**: if a browser could close a title, one visitor could lock everyone out
+  of all eleven cards in an afternoon, which is strictly worse than the bug being fixed.
+- ⚠ **`closed` IS DERIVED AT PAINT TIME AND NEVER STORED.** The roster loads async and a run can
+  finish first; baking the answer into the record would freeze whichever side won the race. Third
+  sighting of that rule — `CardView.flip()` kept a `faceUp` flag beside the angle and the flag lied.
+  ⚠ And **UNREAD is a third state**, not a synonym for open: collapsing it means either promising a
+  card that is gone or refusing one that is not.
+- ⛔ **A CLOSED TITLE PRINTS NO CLAIM SLIP.** A slip is an instruction to go and post a capture;
+  issuing one for a minted card sends a collector to do work for nothing and they would rightly read
+  the reply as the studio going back on it. It still says the run happened — pretending otherwise
+  would be lying about something the player just watched.
+- ✅ **RIP ROCKETER GAINS `ABOVE THE WEATHER` — 7,000,000** (artist's number; the name is
+  HERO-UNLOCKS §4's own, drafted there at 5M). ⚠ **A 7M run passes 2M on the way, so BOTH fire, and
+  that is correct**: whether a seat is left is not RIP ROCKETER's business, and suppressing the lower
+  award inside the game would put the scarcity rule in the one place that cannot see it.
+- ⛔ **THE BUDGET IS ELEVEN CARDS AND IT DID NOT MOVE. THE STREAK went 3 seats → 2** — HERO-UNLOCKS
+  §4¾'s own named option for freeing exactly one card, and the only one that **deletes no published
+  title**; deleting one would be the studio taking a prize back. **TEN titles, ELEVEN cards**, and
+  the test asserts the CARD count, because that is the number that is settled.
+- ⛔ **AND `whitepaper.html` PRINTED THE WIRE AND GHOST WALK TWICE** — eleven `<li>` for nine titles,
+  which read as though the count matched the card total by design. Nobody had ever counted it.
+
+### ✅ THE CARD POPS UP TO BE MINTED — `js/hero-claim.js`
+*Artist: "you need to have the card pop up for them to mint when winning one too."*
+- ⛔ **THE LEDGER HANDED OUT A PIECE OF PAPER.** Everything after the claim slip happened off the
+  site, so the one moment this project is built around — the reveal, a card that is YOURS — never
+  happened for the tier that is hardest to reach.
+- ⚑ **A VOUCHER IS NOT A SECRET AND IS PUBLISHED LIKE ANY OTHER STATIC FILE.** The recipient is
+  inside the signed EIP-712 digest, so a published voucher authorises exactly one thing: minting
+  THAT id to THAT wallet. `claimHero` being permissionless is what makes that safe — a stranger can
+  only pay the gas on the winner's behalf. `data/hero-vouchers.json`.
+- ⛔ **IT MINTS THROUGH THE SAME CONTRACT AND THE SAME `claimHero` AS EVERY OTHER LENS**, because a
+  hero surfaces on the edition's SuperRare page only by being an id on `Ripmaster3030Lens721`. A
+  second entry point would produce a token that exists and never appears there — nothing would
+  error. Coupled by `test:titles` §E (selector, address source, and **no hard-coded address at all**
+  in the shipped module: the config is the authority, per the `renderContract` rule).
+- ⚠ **THE BROWSER STILL AWARDS NOTHING.** It shows a card the studio already signed for; a player who
+  edits their localStorage sees exactly what they saw before — nothing.
+- ⚠ **STILL NEEDED FROM THE ARTIST** (nothing here can invent them): the two wallet addresses, which
+  card ids 23–33 each title maps to, the artist's SECOND cleared title, and the signatures — a key
+  never comes near this repo.
+
 ## Artist ethos (in the artist's own frame)
 The trading card is the form — a **size** before it's anything (palm, phone, two sides:
 a front that shows, a back that tells; sometimes it holds data and powers). Lineage:
@@ -2073,8 +3073,33 @@ The whole token experience is **very Dadaist** — parody the crypto/KOL/meme-co
 culture as art, safely (generic archetypes, clearly satire, never deceptive).
 
 ## Working notes
-- **Git:** develop on `claude/superrare-trading-cards-71ajcx` → push, then fast-forward
-  `main` (`git fetch . claude/superrare-trading-cards-71ajcx:main` → push main). Commit
+- ## ⛔ `main` IS NOT THE DEPLOY BRANCH — PUSHING TO IT SHIPS NOTHING (measured 2026-08-08)
+  **Vercel's Production Deployment tracks `claude/superrare-trading-cards-71ajcx`**, and the
+  project overview says so in as many words: *"To update your Production Deployment, push to the
+  `claude/superrare-trading-cards-71ajcx` branch."* A push to `main` builds fine and lands as a
+  **Preview**. `www.ripmaster3030studios.com` is served by the Production deployment only.
+  - ⛔ **SO A CORRECT, GREEN, FAST-FORWARDED `main` CAN BE TEN COMMITS AHEAD OF THE LIVE SITE AND
+    NOTHING ANYWHERE REPORTS IT.** Measured: production was serving `d869c61` while `main` was at
+    `5f297af` — **10 commits, 29 hours, every one of them built and Ready as a Preview.** The
+    commit that publishes the contract address (`daa47f9`) was on `main` and absent from the live
+    page the whole time.
+  - ⚑ **EVERY SIGNAL POINTED THE REASSURING WAY, WHICH IS THIS FILE'S OWN RECURRING SHAPE.** The
+    push succeeded, the build went green in 19 s, the dashboard said **Ready**, `git log
+    origin/main` looked perfect. **The only thing that was wrong was the word next to it —
+    `Preview`, not `Production`.**
+  - ⚠ **AND I TOLD THE ARTIST "it goes live when this branch merges to main", which was reasoning
+    from the convention rather than from a measurement.** The check that would have caught it cost
+    one command: *is a commit already on `main` visible on the live page?* `caAddr` was in main's
+    `index.html` twice and absent from production — that one grep settles it in seconds.
+  - ✅ **THE CHECK, BEFORE CLAIMING ANYTHING IS DEPLOYED:** fetch the live URL and diff it against
+    the commit you think is live. `curl -sI` for `last-modified`, and grep the page for a string
+    only the new commit contains. **A deploy is not "pushed", it is "served".**
+  - ⚠ **`git fetch . <branch>:main` → push main is still worth doing** — it keeps `main` a true
+    mirror — but it is **bookkeeping, not shipping.** Shipping is a push to
+    `claude/superrare-trading-cards-71ajcx`, or *Promote to Production* on an existing Preview.
+- **Git:** develop on `claude/superrare-trading-cards-71ajcx` → push (⚑ **this is what deploys**),
+  then fast-forward `main` (`git fetch . claude/superrare-trading-cards-71ajcx:main` → push main)
+  so the mirror stays current. Commit
   trailers: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` +
   `Claude-Session:`. Never put the model id in committed artifacts.
 - **Card LENS (live in NEON RONIN):** `js/ronin-morph.js` (**RoninMorph**) is a seeded generative

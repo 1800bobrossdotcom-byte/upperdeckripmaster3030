@@ -14,7 +14,7 @@
 // cards do NOT retire/ash.
 // Strong NFA / "all memes are memes" throughout.
 
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,6 +22,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const NAV = [
   { slug: 'index.html', label: 'Home' },
+  { slug: 'updates.html', label: 'Updates' },
   { slug: 'artist.html', label: 'Artist' },
   { slug: 'whitepaper.html', label: 'Whitepaper' },
   { slug: 'tokenomics.html', label: 'Tokenomics' },
@@ -50,6 +51,19 @@ const NAV = [
  *    the bitmaps — a name also travels as its own words with anything at all between them. The
  *    test now matches on the retired FIRST WORD, so `RIPMASTER 3030 STUDIOS` still passes and
  *    nothing led by the dead word can. */
+/* ⛔ THE STUDIO'S X HANDLE IS NOT THE STUDIO'S NAME, and every instinct in this repo is to type
+ *    the name. The studio, the domain and the wordmark are `ripmaster3030studios`; the account is
+ *    `@RipMaster3030`. That is the same split the token already carries between `name()` and
+ *    `symbol()`, one level out — and `ripmaster3030studios` is the string that appears in 258
+ *    files, so it is the one a hand reaches for.
+ * ⚑ ONE DECLARATION FOR THESE FOUR PAGES, and a literal everywhere else — index.html and
+ *   superrare.html are hand-authored with nothing to import, exactly like `packBurn`'s fallbacks.
+ *   The literal is unavoidable; what is avoidable is it DISAGREEING, so `npm run test:name` pins
+ *   the handle on every surface that carries it and fails on any other x.com account that is not
+ *   the artist's own or one of the three credited in the artist page's colophon. */
+const X_HANDLE = 'RipMaster3030';
+const X_URL = `https://x.com/${X_HANDLE}`;
+
 const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -69,6 +83,8 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@${X_HANDLE}">
+<meta name="twitter:creator" content="@${X_HANDLE}">
 <meta name="twitter:image" content="https://ripmaster3030studios.com/media/site/og-1200x630.png">
 <meta name="twitter:image:alt" content="ripmaster3030studios — the studio wordmark in holographic foil">
 <link rel="stylesheet" href="/mobile.css">
@@ -315,7 +331,7 @@ const shell = ({ slug, title, kicker, subtitle, accent, body }) => `<!doctype ht
       Do your own research. Full terms on the <a href="whitepaper.html#legal">whitepaper</a>.</div>
     <footer class="foot">
       <span>$3030 · a game token, not an investment</span>
-      <span><a href="index.html">home</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a></span>
+      <span><a href="index.html">home</a> · <a href="check.html">check</a> · <a href="worldcomputerhyperterminal.html">terminal</a> · <a href="whitepaper.pdf" target="_blank" rel="noopener">whitepaper pdf</a> · <a href="https://superrare.com" target="_blank" rel="noopener">superrare</a> · <a href="${X_URL}" target="_blank" rel="noopener">𝕏 @${X_HANDLE}</a></span>
       <span>ripmaster3030studios.com</span>
     </footer>
   </div>
@@ -373,7 +389,7 @@ const whitepaper = `
     <li><b>The 33 hero lenses</b> — a <b>genesis set</b> that persists across all four tiers —
       <b>11 auctioned</b> (bid on SuperRare) + <b>11 gacha</b> (pull the claim from a pack → mint the 1/1)
       + <b>11 earned</b> (clear a stated feat in the games → signed voucher → mint). One owner each,
-      and the eleven feats are named in §06 — they are not a mystery box.</li>
+      and the ten titles behind those eleven earned cards are named in §06 — not a mystery box.</li>
     <li><b>Play &amp; wager</b> — the games ante $3030 (<b>wagers</b> that transfer to the winner, net-zero to
       supply) and let you stake your cards. Your staked cards arm real in-game power.</li>
     <li><b>The burn</b> — packs retire token supply permanently without touching the reserve, so backing
@@ -451,12 +467,23 @@ const whitepaper = `
   <p><b>Nothing turns to ash.</b> The deck <b>survives</b> — cards are never destroyed by the burn. Scarcity is
   emergent: dwindling pack allotments, community rarity votes, and voluntary compression.</p>
 
-  <h3 id="titles">The eleven earned cards, across nine titles</h3>
+  <h3 id="titles">The eleven earned cards, across ten titles</h3>
   <p>Eleven of the 33 heroes are not for sale at any price. They are <b>titles</b>, and each one is a
   <b>named feat in a named game</b> — printed here in full, because a prize nobody can aim at is a
   lottery with extra steps. <b>First player to clear one and show the run takes it, and then it is
-  closed.</b> One owner each — except <b>THE STREAK</b>, which has <b>three seats</b>, so the first
-  three pilots to do it each take their own 1/1. Nine titles, eleven cards.</p>
+  closed — for good.</b> One owner each — except <b>THE STREAK</b>, which has <b>two seats</b>. Ten
+  titles, eleven cards.</p>
+  <!-- ⛔ "AND THEN IT IS CLOSED" HAD TO BECOME TRUE IN CODE, not only on this page. Artist,
+       2026-08-07: "the awards need to only be claimed once… I cleared 2 million earlier, so I
+       earned a 1/1. now someone earned 7 million+ and then the same 2 million award was given to
+       them." The ledger is per-browser, so every browser started from zero and re-issued the whole
+       set — idempotence inside one browser is not scarcity across all of them. The studio's roster
+       of taken seats is data/titles-claimed.json and js/title-ledger.js reads it.
+       BACKTICKS ARE FORBIDDEN IN THIS FILE: every page here is built inside a template literal, so
+       one in a comment ends the string. Eleventh sighting of that trap in this repo. -->
+  <p class="mininote">A title that has been taken shows as <b>TAKEN</b> in the game and prints no
+  claim slip. Clearing a closed bar still says you cleared it — it just does not promise a card that
+  already has an owner.</p>
   <!-- A LIST, NOT A TABLE. The shell's th,td are white-space:nowrap, so a sentence per row would
        force the whole thing into a sideways scroll on a phone — the exact shape the mobile pass
        just spent a day removing. Long prose belongs in a list; tables are for numbers.
@@ -465,9 +492,10 @@ const whitepaper = `
        docs/HERO-UNLOCKS.md §4¾ — and note NEON RONIN's two titles went with the cabinet the
        artist retired on 2026-08-03, replaced by THE CITY's two. -->
   <ul>
-    <li><b>THE WIRE</b> · <i>Dogfight</i> — pass <b>every boost gate on the map</b> in one match without taking a hit.</li>
-    <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <!-- ⛔ THIS LIST MUST MATCH js/title-ledger.js, WHICH IS THE ONE THAT CAN ACTUALLY AWARD.
+    <!-- ⛔ THE WIRE AND GHOST WALK WERE PRINTED TWICE — once here and once below the note — so this
+         list showed ELEVEN entries for what were nine titles, and read as though the count matched
+         the card total by design. Nobody had counted it. Duplicates removed 2026-08-07.
+         ⛔ THIS LIST MUST MATCH js/title-ledger.js, WHICH IS THE ONE THAT CAN ACTUALLY AWARD.
          On 2026-08-06 two concurrent passes disagreed: the doc retired five titles for a points
          ladder while the ledger shipped detectors for the old set. The page printed conditions
          no cabinet could award, with real 1/1 cards behind them — the worst direction for this
@@ -479,9 +507,10 @@ const whitepaper = `
     <li><b>DEAD STICK</b> · <i>Dogfight</i> — win a match having <b>never pressed boost</b>.</li>
     <li><b>ONE MAG</b> · <i>Section 9</i> — win a round with <b>more kills than reloads</b>.</li>
     <li><b>GHOST WALK</b> · <i>Section 9</i> — take a round on a baked level <b>without ever being the first to fire</b>.</li>
-    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it.</li>
+    <li><b>TWO MILLION FEET</b> · <i>Rip Rocketer</i> — post a run of <b>2,000,000 points</b>. Clearing the whole facility scores about 690,000, so this is the endless run past it. <b>Taken — this seat is closed.</b></li>
+    <li><b>ABOVE THE WEATHER</b> · <i>Rip Rocketer</i> — post a run of <b>7,000,000 points</b>. Past the facility, past the wave table: 40 craft a wave, forever, and the only thing left to lose is attention.</li>
     <li><b>COLD BARREL</b> · <i>Rip Rocketer</i> — clear <b>a whole tier having fired only while OVERDRIVE was lit</b>. Overdrive is up 41% of the time.</li>
-    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero.</li>
+    <li><b>THE STREAK</b> · <i>Cloud Racer</i> — win <b>33 races in a row</b>, 6 pilots · 3 laps or longer. Come second, or leave a race once it has started, and the count goes back to zero. <b>Two seats.</b></li>
     <li><b>DEAD AIR</b> · <i>The City</i> — as the bird, cover <b>300 m in one unbroken glide</b> — no wingbeat — <b>never more than 40 m above the ground</b>.</li>
     <li><b>BOTH ENDS</b> · <i>The City</i> — <b>plant a card from the air as the bird, then take that same card back as the squirrel</b>, in one visit.</li>
   </ul>
@@ -808,7 +837,130 @@ const artist = `
  * ⚠ Nothing else linked those URLs, so no route is broken by their going. */
 
 // ─────────────────────────── write ───────────────────────────
+/* ── THE UPDATES LOG ──────────────────────────────────────────────────────────────────────────
+ * *Artist, 2026-08-07: "keep an updates and what we shipped log … on the website … make them
+ * postable blurbs for social … with each one include a screenshot."*
+ *
+ * ⚑ ONE RECORD DRIVES FOUR THINGS, which is the forge's lesson applied to prose: `updates.json`
+ *   holds the date, the title, the blurb and the shot, and that single row becomes the entry on
+ *   the page, the text the COPY button puts on the clipboard, the character count beside it, and
+ *   the filename `npm run shots` writes. As four separate lists they drift — and the drift here is
+ *   the expensive kind, because the thing that goes stale is the sentence somebody POSTS.
+ * ⛔ THE BLURB IS THE POST, VERBATIM. Not a summary of an entry that a human then rewrites: what
+ *   is on the page is exactly what lands on the clipboard, so what you read is what you send.
+ *   That is why the count is shown — a blurb that has quietly grown past 280 is one nobody
+ *   notices until it is refused, and a truncated post is a wrong post.
+ * ⚠ SCREENSHOTS ARE CAPTURED FROM THE LIVE PAGES by `scripts/capture-updates.mjs`, never drawn.
+ *   A picture OF a feature is a claim about it; a shot of the page is the feature — DESIGN-SYSTEM
+ *   §1, the same argument that makes `npm run mark` cut the wordmark from the live foil. */
+const updatesData = JSON.parse(readFileSync(join(ROOT, 'updates.json'), 'utf8'));
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const longDate = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} ${d}, ${y}`;
+};
+
+const updates = `
+<p class="lede">What we shipped, newest first — each one written to be posted as it stands.
+Press <b>COPY</b> and it is on your clipboard, exactly as printed. The picture under each one is a
+screenshot of the page it describes, taken from the live site rather than drawn.</p>
+
+<div class="uplog">
+${updatesData.map((u) => `  <article class="upd" id="${esc(u.id)}">
+    <div class="upd-head">
+      <time datetime="${esc(u.date)}">${longDate(u.date)}</time>
+      <h3>${esc(u.title)}</h3>
+    </div>
+    <a class="upd-shot" href="${esc(u.href)}"${/^https?:/.test(u.href) ? ' target="_blank" rel="noopener"' : ''}>
+      <img src="media/updates/${esc(u.id)}.webp" width="1200" height="675" loading="lazy"
+           alt="${esc(u.alt)}"></a>
+    <div class="upd-post">
+      <p class="upd-blurb" data-post="${esc(u.blurb)}">${esc(u.blurb).replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>')}</p>
+      <div class="upd-act">
+        <button type="button" class="upd-copy" data-for="${esc(u.id)}">COPY</button>
+        <span class="upd-count">${[...u.blurb].length} / 280</span>
+        <a class="upd-go" href="${esc(u.href)}"${/^https?:/.test(u.href) ? ' target="_blank" rel="noopener"' : ''}>see it ↗</a>
+      </div>
+    </div>
+  </article>`).join('\n')}
+</div>
+
+<p class="mininote">⚑ <b>The log is a data file, not a page.</b> A new entry is a row in
+<code>updates.json</code> and a run of <code>npm&nbsp;run&nbsp;shots</code>, which drives the page
+it names and captures it at 1200×675 — the size a social card is cropped to. Nothing here is
+hand-composed, so an entry cannot describe a screen that no longer exists.</p>
+
+<style>
+  .uplog{ display:grid; gap:30px; margin-top:20px; }
+  .upd{ border:1px solid var(--phosdeep); border-radius:14px; overflow:hidden;
+    background:linear-gradient(180deg, rgba(4,20,11,.86), rgba(1,10,6,.92)); }
+  .upd-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; padding:14px 16px 10px; }
+  .upd-head time{ font-family:var(--mono); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:var(--amber); }
+  .upd-head h3{ margin:0; font-family:var(--fat); font-size:var(--t-h3,19px); letter-spacing:.02em;
+    color:#eafff2; }
+  /* ⚠ the shot carries its own intrinsic 1200×675, so the box is reserved before it loads and the
+     page does not jump under a reader's thumb as ten screenshots arrive */
+  .upd-shot{ display:block; border-block:1px solid var(--phosdeep); background:#01100a; }
+  .upd-shot img{ display:block; width:100%; height:auto; }
+  .upd-post{ padding:14px 16px 16px; }
+  .upd-blurb{ margin:0; font-family:var(--mono); font-size:var(--t-body,15px); line-height:1.62;
+    color:var(--text); white-space:normal; }
+  .upd-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:12px; }
+  .upd-copy{ font-family:var(--fat); font-size:var(--t-tag,11px); letter-spacing:.14em;
+    text-transform:uppercase; color:#01130a; cursor:pointer; min-height:44px; padding:0 18px;
+    border-radius:11px; border:1px solid #01130a;
+    background:linear-gradient(180deg,#8bffbb,var(--phos) 60%,#0fae56);
+    box-shadow:0 3px 0 #06331d; transition:transform .1s, box-shadow .1s; }
+  /* ⛔ THE PRESS HAS TO TRAVEL, NOT JUST GLOW. A hover sheen is not an affordance on a phone —
+     index.html's button pass records that as the thing every button on this site now answers. */
+  .upd-copy:active{ transform:translateY(3px); box-shadow:0 0 0 #06331d; }
+  .upd-copy[data-done]{ background:linear-gradient(180deg,#ffe89a,var(--amber) 60%,#c48f00); }
+  .upd-count{ font-family:var(--mono); font-size:var(--t-fine,12px); color:var(--phosdim); }
+  .upd-go{ font-family:var(--mono); font-size:var(--t-fine,12px); margin-left:auto;
+    display:inline-flex; align-items:center; min-height:44px; }
+  @media (max-width:560px){ .upd-go{ margin-left:0; } }
+</style>
+<script>
+/* ⛔ FAIL OPEN, AND FOR A COPY BUTTON THAT MEANS SELECTING THE TEXT RATHER THAN DOING NOTHING.
+ *   navigator.clipboard is unavailable on an insecure origin and can be refused outright by a
+ *   permission policy — and a button that reports nothing is the failure theme.js records as worse
+ *   than no button at all. When the write fails the blurb is SELECTED, so ⌘C still works and the
+ *   label says so. The text comes from data-post, i.e. the same string the page printed. */
+(function () {
+  var log = document.querySelector('.uplog');
+  if (!log) return;
+  log.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.upd-copy') : null;
+    if (!b) return;
+    var art = document.getElementById(b.getAttribute('data-for'));
+    var p = art && art.querySelector('.upd-blurb');
+    if (!p) return;
+    var txt = p.getAttribute('data-post') || p.textContent;
+    var done = function (label) {
+      b.textContent = label; b.setAttribute('data-done', '1');
+      setTimeout(function () { b.textContent = 'COPY'; b.removeAttribute('data-done'); }, 2200);
+    };
+    var select = function () {
+      try {
+        var r = document.createRange(); r.selectNodeContents(p);
+        var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      } catch (e2) {}
+      done('SELECTED — ⌘C');
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(function () { done('COPIED'); }, select);
+      } else select();
+    } catch (e3) { select(); }
+  });
+})();
+</script>`;
+
 const pages = [
+  { slug: 'updates.html', title: 'Updates', kicker: 'what we shipped · newest first',
+    subtitle: 'A running log of what shipped on ripmaster3030studios — each entry written to be posted as it stands, with a screenshot of the page it describes.',
+    accent: 'var(--phos)', body: updates },
   { slug: 'artist.html', title: 'The Artist', kicker: 'Gianni Arone · lovebeing · @_lovebeing_',
     subtitle: 'The multidisciplinary artist behind ripmaster3030studios — and the 1/1 at the top of the deck.',
     accent: 'var(--acid)', body: artist },

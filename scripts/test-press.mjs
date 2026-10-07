@@ -121,9 +121,22 @@ async function visit(url, { sabotage } = {}) {
 }
 
 console.log('\n── 1 · A DEAD PRESS MUST NOT COST A SINGLE CARD ───────────────────────────────');
-for (const [url, sel, label] of [['/cards/', '.tile-art img', 'the deck browser'],
-                                 ['/cards/binder.html', '.pk img', "the folder's pockets"]]) {
+/* ⛔ THE FOLDER OPENS ON `collected` AND A FRESH CONTEXT HAS COLLECTED NOTHING, so this measured
+ *   `0/0` — nine empty sleeves, correctly, because the binder became a COLLECTION rather than a
+ *   catalogue (artist: "the binder should show only the cards I've collected"). ⚑ The `s.n > 0`
+ *   half is what turned that into a loud failure instead of a vacuous pass, which is the whole
+ *   reason it is there: **"every card survived" is trivially true of no cards.** The catalogue
+ *   chip is opened first so the assertion has a subject again. */
+for (const [url, sel, label, reveal] of [
+  ['/cards/', '.tile-art img', 'the deck browser', null],
+  ['/cards/binder.html', '.pk img', "the folder's pockets", '.chip[data-src="hundred"]'],
+]) {
   const { ctx, page, errs } = await visit(url, { sabotage: true });
+  if (reveal) {
+    await page.waitForSelector(reveal, { timeout: 30000 });
+    await page.click(reveal);
+    await page.waitForTimeout(1500);
+  }
   await page.waitForTimeout(22000);
   const s = await page.evaluate(INK, sel);
   ok(s.n > 0 && s.alive === s.n,
@@ -150,6 +163,32 @@ console.log('\n── 2 · …AND A HEALTHY PRESS MUST STILL VISIBLY PRESS ─�
   ok(s.n > 0 && s.alive === s.n,
     '…and every pressed tile carries a picture, not a blank',
     `${s.alive}/${s.n}`);
+  await ctx.close();
+}
+
+/* ⛔ AND THE FOLDER MUST *NOT* PRESS — the opposite claim, on purpose, because that is what makes
+ *   §1's binder case structural rather than guarded. `art/deck/<n>.webp` IS ALREADY A PRESSED
+ *   SHEET (`npm run deck:bake`), so running it back through the press prints a separation OF a
+ *   separation, seeded from the FILENAME rather than the card's own recipe and with plates nobody
+ *   chose — and it renders, so nothing looks broken; it is simply a different card in the pocket
+ *   than the one the viewer opens. `pressPockets()` returns early for exactly this reason.
+ * ⚑ Asserted BOTH ways in one place: cards on screen, zero of them pressed. Without the first
+ *   half "nothing is pressed" is trivially true of an empty folder, which is the state that broke
+ *   §1 in the first place. If the hundred ever stop arriving pre-baked, this is what fails. */
+{
+  const { ctx, page } = await visit('/cards/binder.html');
+  await page.waitForSelector('.chip[data-src="hundred"]', { timeout: 30000 });
+  await page.click('.chip[data-src="hundred"]');
+  await page.waitForTimeout(6000);            // measured: the pockets fill well inside this
+  const r = await page.evaluate(() => {
+    const imgs = [...document.querySelectorAll('.pk img')];
+    return { n: imgs.length, shown: imgs.filter(i => i.complete && i.naturalWidth > 2).length,
+             pressed: imgs.filter(i => i.hasAttribute('data-pressed')).length, press: !!window.CardPress };
+  });
+  ok(r.press && r.n > 0 && r.shown === r.n,
+    'the folder fills its pockets from the baked sheets', `${r.shown}/${r.n} shown, CardPress present`);
+  ok(r.pressed === 0,
+    '…and presses none of them — a baked sheet must not be pressed twice', r.pressed + ' pressed');
   await ctx.close();
 }
 
@@ -434,11 +473,37 @@ console.log('\n── 6 · THE PACK REVEAL IS A LIVE PRESS, DRIVEN FROM THE ROOT
         const m = sum / n; sd = Math.sqrt(Math.max(0, sq / n - m * m));
       } catch (e) {}
     }
+    /* ⛔ THE FAN'S CLAIM IS "IT SHOWS A PICTURE", NOT "IT WAS PRESSED", AND THE DIFFERENCE IS THE
+     *   WHOLE POINT NOW. A card of the hundred is a RECIPE and its thumbnail is ALREADY a pressed
+     *   sheet off `npm run deck:bake`; running it through the press again prints a card OF a
+     *   card — wrong seed, wrong plates — and it RENDERS, so nothing reports it. `pack.js`
+     *   correctly skips the fan press for a recipe pull. An assertion that demands `data-pressed`
+     *   therefore demands the defect, which is how this suite would have argued for it. */
+    const fan = [...document.querySelectorAll('.fcard img')];
+    const range = (el) => {
+      try {
+        const t = document.createElement('canvas'); t.width = 40; t.height = 60;
+        const x = t.getContext('2d'); x.drawImage(el, 0, 0, 40, 60);
+        const d = x.getImageData(0, 0, 40, 60).data;
+        let lo = 255, hi = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] <= 8) continue;
+          const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (l < lo) lo = l;
+          if (l > hi) hi = l;
+        }
+        return hi - lo;
+      } catch (e) { return -1; }
+    };
     return { live: !!(box && box.classList.contains('live')), canvas: !!cv,
              sd: +sd.toFixed(1),
-             fanPressed: [...document.querySelectorAll('.fcard img')]
-               .filter(i => i.getAttribute('data-pressed')).length,
-             fanTotal: document.querySelectorAll('.fcard img').length };
+             /* ⚠ Read off the SHIPPED surface rather than a test hook: the hundred are served
+              *  from cards/art/deck/<n>.webp and the 196 placeholders are not, so the path IS
+              *  the discriminator and it cannot drift from what the page actually pulled. */
+             recipePull: fan.some(i => /\/art\/deck\//.test(i.getAttribute('src') || '')),
+             fanPressed: fan.filter(i => i.getAttribute('data-pressed')).length,
+             fanAlive: fan.filter(i => range(i) > 24).length,
+             fanTotal: fan.length };
   });
   const artMisses = [...new Set(missed)].filter(p => /\/(art|cards)\//.test(p));
 
@@ -449,9 +514,52 @@ console.log('\n── 6 · THE PACK REVEAL IS A LIVE PRESS, DRIVEN FROM THE ROOT
   ok(s.canvas && s.live,
     '⛔ THE REVEAL IS THE PRESS, NOT A POSTER — a live card mounted and took the box');
   ok(s.sd > 20, 'and there is ink on it', 'sd ' + s.sd);
-  ok(s.fanPressed === s.fanTotal && s.fanTotal > 0,
-    'every card in the fan printed too', s.fanPressed + '/' + s.fanTotal);
+  ok(s.fanAlive === s.fanTotal && s.fanTotal > 0,
+    'every card in the fan carries a picture', s.fanAlive + '/' + s.fanTotal + ' with tonal range');
+  /* ⛔ BOTH DIRECTIONS, AND THE SECOND ONE IS THE NEW RULE. "Nothing is re-pressed" is trivially
+   *   satisfied by a fan of blank rectangles, which is why it is asserted only alongside the ink
+   *   above; and "the fan is pressed" would demand a card OF a card for a recipe pull. So the
+   *   claim is conditional on which deck the pack drew from, and both branches are real: the
+   *   hundred are served as baked sheets, the 196 placeholders are source pictures and DO press. */
+  ok(s.recipePull ? s.fanPressed === 0 : s.fanPressed === s.fanTotal,
+    s.recipePull
+      ? '⛔ …and the hundred are NOT re-pressed — a baked sheet through the press is a card of a card'
+      : 'and the placeholder pull still presses, because those are source pictures',
+    s.fanPressed + '/' + s.fanTotal + ' pressed · ' + (s.recipePull ? 'recipe pull' : 'picture pull'));
   ok(errs.length === 0, 'and the page is clean', errs.slice(0, 2).join(' | ') || 'no errors');
+
+  /* ── ⛔ AND THE 404 GUARD ABOVE STOPPED BITING THE DAY THE PULL BECAME THE HUNDRED ──────────
+   * A card of the hundred is shown by its RECIPE, so the reveal no longer reaches `platesFor` at
+   * all — and the assertions above went on passing with the double-prefix defect restored
+   * verbatim. **A guard that cannot fail is not a guard**, and it fails in the reassuring
+   * direction: the suite reports the bug as fixed.
+   * ⚑ THE PICTURE PATH IS STILL SHIPPED AND STILL REACHABLE — `pack.js` keeps it deliberately
+   *   ("the fallback if deck.json did not load"), so this drives THAT branch rather than a
+   *   synthetic call: the exact record `cardRec` builds from the root when a card has no recipe.
+   * ⚠ Run in the reveal's own page, so the modules, the base and the document are the real ones. */
+  const plates = await page.evaluate(async () => {
+    if (!window.CardPress) return { skip: 'no CardPress' };
+    const m = await fetch('cards/manifest.json').then(r => r.json()).catch(() => null);
+    const c = m && (m.cards || m)[0];
+    if (!c) return { skip: 'no manifest' };
+    // byte-for-byte what pack.js's cardRec returns for a card with no recipe
+    const rec = { art: 'cards/' + c.art, title: (c.title || '').toUpperCase(),
+                  rarity: c.rarity || 'common' };
+    const cv = document.createElement('canvas');
+    cv.width = 300; cv.height = 450;
+    const P = await CardPress.live({ canvas: cv, base: 'cards/', card: rec }).catch(() => null);
+    return { built: !!(P && P.press), asked: rec.art };
+  });
+  if (plates.skip) {
+    ok(false, 'the picture path could be driven', plates.skip);
+  } else {
+    const doubled = [...new Set(missed)].filter(p => /\/cards\/cards\//.test(p));
+    ok(plates.built,
+      '⛔ THE PICTURE PATH STILL PRESSES FROM THE ROOT — base must not touch the caller\'s art',
+      plates.asked + (plates.built ? ' → built' : ' → NULL, the figure plate did not load'));
+    ok(doubled.length === 0, '…and nothing asked for /cards/cards/',
+      doubled.slice(0, 2).join(' , ') || 'no double-prefixed request');
+  }
   await ctx.close();
 }
 

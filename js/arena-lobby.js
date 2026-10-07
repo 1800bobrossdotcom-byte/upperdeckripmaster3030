@@ -56,6 +56,8 @@ window.ArenaLobby = (function () {
         "padding:8px 12px;border-radius:8px;border:2px solid #3a0a2f;color:#12040f;white-space:nowrap;",
         "background:linear-gradient(180deg,#ff9cf0,#ff2ad9 60%,#a10c86);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 3px 0 #3a0a2f;}",
       ".al-act:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 1px 0 #3a0a2f;}",
+      /* ⚠ 44px on BOTH axes — a thumb is round, and this repo has already shipped a 44x35 target. */
+      ".al-act.mini{min-width:44px;min-height:44px;padding:0;margin-left:6px;font-size:15px;display:inline-grid;place-items:center;}",
       ".al-act.seek{background:linear-gradient(180deg,#8bffbb,#2bff80 60%,#0fae56);border-color:#01130a;color:#02120a;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 3px 0 #01130a;animation:alGlow 1.2s ease-in-out infinite;}",
       "@keyframes alGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.22)}}",
       ".al-act:disabled{filter:grayscale(.7) brightness(.65);cursor:not-allowed;}",
@@ -75,6 +77,23 @@ window.ArenaLobby = (function () {
     (document.head || document.documentElement).appendChild(s);
   }
 
+  /* ⛔ AND TWO PLAYERS MAY DELIBERATELY PICK THE SAME NAME. This roster's whole job is telling
+   *   people apart, so a duplicate handle has to be broken at RENDER as well as at assignment —
+   *   otherwise the fix depends on nobody ever typing the same word as somebody else. `dupes` is
+   *   the set of handles appearing more than once in the list being drawn; only those rows get a
+   *   short id tag, so an unambiguous name is never decorated. */
+  let dupes = new Set();
+  function markDupes(list) {
+    const seen = new Map();
+    (list || []).forEach(p => { const h = String((p && p.handle) || '').toLowerCase().trim();
+      if (h) seen.set(h, (seen.get(h) || 0) + 1); });
+    dupes = new Set([...seen.entries()].filter(([, n]) => n > 1).map(([h]) => h));
+  }
+  const shownName = p => {
+    const h = String((p && p.handle) || '').trim();
+    return (dupes.has(h.toLowerCase()) && p && p.id) ? h + ' ·' + String(p.id).slice(-3) : h;
+  };
+
   function rowHtml(p, mode) {
     const st = p.status || 'idle';
     const seal = p.verified ? '<span class="al-seal" title="signed the ledger — stakes real $3030">⚜</span>' : '';
@@ -85,10 +104,20 @@ window.ArenaLobby = (function () {
     if (p.me) action = '<span class="al-you">◈ YOU</span>';
     else if (mode === 'challenge') action = '<button class="al-act' + (st === 'seeking' ? ' seek' : '') + '" data-id="' + esc(p.id) + '"' +
       (st === 'battling' ? ' disabled' : '') + '><span class="ic" data-ic="swords"></span> ' + (st === 'seeking' ? 'answer' : 'challenge') + '</button>';
-    else action = '<span class="al-pill ' + st + '">' + (st === 'battling' ? 'fighting' : st === 'seeking' ? 'ready' : 'idle') + '</span>';
+    /* ⛔ `table` MODE DREW A STATUS PILL AND NOTHING ELSE, which is why every cabinet except the
+     *   arena had no way to invite a named person — the only route to a human game was both people
+     *   pressing SEEK at the same moment and hoping. Artist: "we need challenge buttons for any
+     *   player to any game at any time." The pill stays (it is real information) and a ⚔ sits
+     *   beside it, wired to the shared picker. ⚠ Only when RipChallengeUI is actually loaded: a
+     *   button that cannot send is worse than the pill on its own. */
+    else action = '<span class="al-pill ' + st + '">' + (st === 'battling' ? 'fighting' : st === 'seeking' ? 'ready' : 'idle') + '</span>' +
+      (window.RipChallengeUI && st !== 'battling'
+        ? '<button class="al-act mini" data-id="' + esc(p.id) + '" data-h="' + esc(p.handle) +
+          '" title="challenge ' + esc(p.handle) + '" aria-label="challenge ' + esc(p.handle) + '">⚔</button>'
+        : '');
     return '<div class="al-row ' + st + (p.me ? ' me' : '') + (p.verified ? ' signed' : '') + '">' +
       '<span class="al-orb ' + st + '" title="' + st + '"></span>' + av +
-      '<div class="al-body"><div class="al-nm">' + esc(p.handle) + seal + '</div>' +
+      '<div class="al-body"><div class="al-nm">' + esc(shownName(p)) + seal + '</div>' +
       '<div class="al-meta"><b>' + ((p.balance || 0).toLocaleString('en-US')) + '</b> $3030 · ' + (p.cards || 0) + ' cards' + wl + live + '</div></div>' +
       action + '</div>';
   }
@@ -103,6 +132,7 @@ window.ArenaLobby = (function () {
     const showHead = opts.header !== false;
     function update(players) {
       const list = players || [];
+      markDupes(list);                 // ⚠ before any row is drawn
       const rank = p => (p.me ? 0 : p.status === 'seeking' ? 1 : p.status === 'battling' ? 3 : p.bot ? 4 : 2);
       const sorted = list.slice().sort((a, b) => rank(a) - rank(b));
       const online = list.length, seeking = list.filter(p => !p.me && p.status === 'seeking').length;
@@ -115,6 +145,10 @@ window.ArenaLobby = (function () {
       el.innerHTML = head + '<div class="al-list">' + rows + '</div>';
       if (mode === 'challenge' && typeof opts.onChallenge === 'function') {
         el.querySelectorAll('.al-act').forEach(b => b.onclick = () => opts.onChallenge(b.dataset.id));
+      } else {
+        el.querySelectorAll('.al-act.mini').forEach(b => b.onclick = () => {
+          if (window.RipChallengeUI) RipChallengeUI.pick(b.dataset.id, b.dataset.h);
+        });
       }
       if (window.RipIcons) RipIcons.hydrate(el);
     }

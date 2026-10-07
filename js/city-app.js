@@ -879,10 +879,32 @@ window.CityApp = (function () {
   /* One snapshot a frame. `alt` is height above the ground BENEATH you — the city already derives
    * it from the collider — which is the only reading of "40 m up" that means the same thing over
    * the river and over a hill. */
+  /* ⛔ THE CITY IS THE ONE CABINET WITH NOTHING TO SCORE, AND THAT IS DELIBERATE — there is no
+   *   match, no clock and no end, and `js/city-net.js`'s own note says merging a persistent world
+   *   with a scored match would put a loophole in the observer rule shaped like a jet. So the
+   *   board does NOT count kills: an operative in this city is in a firefight that never finishes,
+   *   and a running kill total is a treadmill, not a feat.
+   * ⚑ WHAT IT COUNTS IS THE GLIDE, which is the number `js/city-titles.js` ALREADY measures for
+   *   DEAD AIR — one unbroken glide, no wingbeat, never above 40 m. It is the bird, it is the
+   *   thing this game is about, and it is measured rather than invented: the glide ratio is a flat
+   *   8.2:1, so the 40 m cap makes 328 m the physical maximum and two of five straight lines from
+   *   a random point hit a building. A board of metres is therefore a board of who read the city.
+   * ⚠ POSTED WHEN THE WINDOW CLOSES, NOT PER FRAME. `best` climbs continuously during a glide;
+   *   posting it live would be ~60 requests a second, and the number is not final until the glide
+   *   has actually ended. The floor keeps junk off the board — a 12 m hop between two roofs is not
+   *   a glide anybody wants to read about. */
+  const GLIDE_FLOOR = 60;               // metres — below this it is a hop, not a line
+  let glideWasLive = false, glidePosted = 0;
   function stepTitles() {
     if (!titles) return;
     titles.step({ x: me.x, z: me.z, alt: me.alt, onGround: me.onGround, flaps: me.flaps || 0,
       creature: CREATURE, mode: MODE, carried: drops ? drops.carried : null });
+    const g = titles.glide;
+    if (glideWasLive && !g.live && g.best >= GLIDE_FLOOR && g.best > glidePosted) {
+      glidePosted = g.best;
+      try { if (window.RipBoard) RipBoard.post('city', Math.round(g.best)); } catch (e) {}
+    }
+    glideWasLive = g.live;
   }
 
   function readInput() {

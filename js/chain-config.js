@@ -114,7 +114,12 @@ window.RIPMASTER_CHAIN = {
      * WALLET-FREE embed. ⛔ NOT the site root: index.html loads pack.js and js/wallet.js, and
      * framing that inside a marketplace is what SuperRare's security team flagged. The Sepolia
      * renderer pointed at the root of the RETIRED domain and nobody noticed for three weeks. */
-    renderContract:"0xeAbdfb01644B6df6de39437d7bB441b4069F3Fe2",
+    /* ⚠ SUPERSEDED 2026-08-06, and the reason is worth keeping: 0xeAbdfb01… published
+     *   "Burned % 0" because `pctBps / 100` is an integer divide and pctBps was 1. Replaced by
+     *   0x3175419A…, wired with setRenderContract and read back off the EDITION rather than
+     *   trusted from here — which is the standing rule, and the rule that caught this file
+     *   carrying a superseded Sepolia renderer once already. */
+    renderContract:"0x3175419A532e3e6adC5a31DbEE6A3C2F08745E9D",
     // Phase-2 combined renderer + 721 lens contract. Empty until it's deployed — the
     // collector seat door (js/session.js) falls back to the local vault and marks itself
     // unverified rather than pretending a localStorage array is proof of ownership.
@@ -160,6 +165,76 @@ window.RIPMASTER_CHAIN = {
     "https://mainnet.base.org",
   ],
   // Sepolia Liquid Factory + RARE, from the starter kit (verified July 2026):
+  /* ✦ THE LIVE MARKET — the edition graduated to a DEX, which docs/ECONOMIC-FLOW.md had carried
+   * as "timing unknown" since 2026-08-01. Uniswap **v4**, reserve in RARE, on Ethereum mainnet.
+   *
+   * ⛔ THIS IS A POOL ID, NOT AN ADDRESS — 32 bytes / 66 characters, where an address is 20 / 42.
+   *   A v4 pool is not a contract: liquidity lives in the singleton PoolManager and a pool is
+   *   identified by the hash of its key. So it must never be fed to `explorerAddr()`, and any
+   *   check that validates it with the repo's usual `^0x[0-9a-fA-F]{40}$` will reject a perfectly
+   *   correct value. It is a market identifier and nothing else.
+   *
+   * ⚑ VERIFIED IN BOTH DIRECTIONS BEFORE IT WAS PUBLISHED, which is the standard `protocol.rare`
+   *   set when it was the one value the repo held only truncated. DexScreener's API for this pool
+   *   returns baseToken 0x1D4bcbb5…47A33 — EXACTLY `contracts.liquidEdition` — with name
+   *   `ripmaster3030` and symbol `3030`, and quoteToken 0xba5BDe66…296350, EXACTLY
+   *   `protocol.rare`. A chart link is a claim about which market is ours; pasting one without
+   *   checking is how a site sends its own collectors to somebody else's token.
+   * ⚑ AND IT CONFIRMED THE OPEN. It priced at $0.07957 against the ≈$0.08 SuperRare measured off
+   *   the mainnet `--preview`, and an FDV of $241,118 against `npm run model`'s $242,400 — inside
+   *   0.5%. The number the whole pack schedule was re-derived from is the number the market made.
+   *
+   * ⚠ ONE DECLARATION. `chart` is BUILT from `poolId` at read time (see RipWallet.chartUrl) rather
+   *   than stored beside it, because two copies of a 66-character hex string is two chances to
+   *   ship a link to the wrong market and no way to notice. */
+  /* ⛔ TWO POOLS NOW, ONE TOKEN, AND THEY ARE NOT INTERCHANGEABLE (artist, 2026-08-07: "we added
+   *    this liquidity pool"). Both are Uniswap v4 on mainnet and both have baseToken
+   *    0x1D4bcbb5…47A33 — checked, in the same way `rare` and the first pool were, because a buy
+   *    link is a claim about which market is ours:
+   *      RARE  0x7943d0d1…  the SuperRare curve's graduated pool. Depth lives here.
+   *      ETH   0x9a7e4306…  created 2026-08-07 02:37Z. The pair most people can actually use.
+   * ⚑ THE ETH PAIR IS THE RIGHT IDEA AND IS NOT AUTOMATICALLY THE RIGHT LINK. Almost nobody holds
+   *   RARE, so "buy $3030" through the RARE pool means buy RARE first — a step that loses people.
+   *   But at the moment it was created the ETH pool held nothing: two sells, $5.24 of volume, and
+   *   a 78.7% price move, against $291,830 of liquidity and $60,637 of volume in the RARE pool.
+   *   **Sending a collector into the empty one is a worse failure than making them find Uniswap
+   *   themselves**, because the link works, the swap goes through, and the fill is terrible.
+   * ⛔ SO THE SITE READS DEPTH AND DECIDES, RATHER THAN THIS FILE PICKING A WINNER. A hard-coded
+   *   choice is wrong the day the ETH pool is funded and nobody would edit anything to make it
+   *   wrong — the same drift that made this project refuse to publish a burn percentage. Order
+   *   here is only the fallback when the read fails, so the deepest pool as of today leads. */
+  market: {
+    /* ⚠ THREE, NOT TWO — the USDC pool was found by asking the INDEXER what pairs exist for this
+     *   token rather than by collecting links as they were mentioned. Nobody had named it. That is
+     *   the right way round: a market exists whether or not anyone told the site about it, and a
+     *   pool the site does not know about is one it can never route around. Every id here was
+     *   checked to carry baseToken 0x1D4bcbb5…47A33 before it was written down. */
+    /* ⛔ THE USDC POOL WAS DELISTED 2026-08-08 AND MUST NOT COME BACK.
+     *   `0x597a6772…30d9c` carries a **89.898% swap fee** (fee field 898980, tickSpacing 8990)
+     *   and was initialized at tick -309,435 — pricing $3030 at $0.0365, about 59% under the
+     *   real market. It is empty, and that is the only reason nobody has been hurt by it.
+     *   ⚑ THE FEE IS NOT AN OPINION: a v4 pool id IS `keccak256(abi.encode(PoolKey))`, so
+     *   re-hashing (currency0, currency1, fee, tickSpacing, hooks) reproduces the id exactly —
+     *   the fee is PROVABLE offline, with no RPC and nobody to take at their word. It is
+     *   immutable in the PoolKey, so this pool can never become a market. Delisted permanently.
+     *   ⚠ `npm run test:mm` proves each `fee` below against its own id and refuses anything
+     *   over 1%, so re-adding it fails the board rather than shipping quietly. */
+    pools: [
+      { id: "0x7943d0d19a67d2185de840d8cf057b21f67b60bf442a4a727f66551ac1cd7ab6", quote: "RARE", fee: 0 },
+      { id: "0x9a7e4306112ddeb2527bcc97b73c74624d5c65aca9fccfae4e389cf061192ca7", quote: "ETH", fee: 9000 },
+    ],
+    chartHost: "https://dexscreener.com/ethereum/",
+    /* read-only, no key, CORS-open — the same shape as the embed's chain reads: it can show
+     * state and it cannot move anything, and the page degrades to static copy when blocked. */
+    depthApi:  "https://api.dexscreener.com/latest/dex/pairs/ethereum/",
+    /* ⚠ THE SWAP LINK IS BUILT FROM THE TOKEN, NOT THE POOL. Uniswap's swap UI routes by currency
+     *   and finds the venue itself, so it cannot be pointed at a specific v4 pool — and that is
+     *   the behaviour we want: the router will not fill from an empty pool. The pool ids above
+     *   are for the CHART, which is a claim about a specific market. */
+    swapHost:  "https://app.uniswap.org/swap",
+    poolHost:  "https://app.uniswap.org/explore/pools/ethereum/",
+  },
+
   protocol: {
     // Mainnet multicurve factory — the `Factory:` line the deploy printed, 2026-08-06.
     liquidFactory: "0x25f993C222fE5e891128a782A5168f1C78629540",

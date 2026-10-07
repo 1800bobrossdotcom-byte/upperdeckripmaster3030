@@ -32,9 +32,19 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
  * the order is deliberate (cheap text checks first, driven browser suites after), and a derived
  * list would silently pick up any future `test:something` that is not part of the gate. */
 const SUITES = [
-  'name', 'launch', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
+  'name', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
   'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
+  'challenge', 'arena', 'updates', 'board', 'mm', 'onramp', 'standalone', 'rewards', 'flow', 'bot',
+  /* ⛔ FIVE SQUARES WERE MISSING FROM THE BOARD, ON A BOARD WHOSE OWN §0 COMMENT SAYS A MISSING
+   * SQUARE READS AS COMPLETE. `substrate`, `substrate:attack`, `drain` and `api3030` were written
+   * over the preceding days and never added to the `npm test` chain, so §0 — which compares this
+   * list AGAINST that chain — agreed with itself and reported a full board. **A guard that checks
+   * two lists against each other is blind to anything absent from both.** All five are hermetic
+   * (no network, and `substrate`'s only https strings are a defanged URL fixture), so there is no
+   * cost argument for leaving them off. */
+  'substrate', 'substrate:attack', 'drain', 'check', 'poolfind', 'api3030', 'crypt', 'rail', 'apiterm',
+  'pull', 'blade',
 ];
 /* ⛔ §0 — THE LIST ABOVE AND `npm test` MUST NAME THE SAME SUITES, AND THE LIST STAYS LITERAL.
  * Keeping it literal is right (see the note above: the order is deliberate and a derived list
@@ -47,7 +57,13 @@ const SUITES = [
 const CHAIN = (() => {
   try {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-    return [...String(pkg.scripts?.test || '').matchAll(/\btest:([a-z0-9-]+)/g)].map((m) => m[1]);
+    /* ⚠ THE COLON IS IN THE CHARACTER CLASS BECAUSE A SUITE NAME CAN CONTAIN ONE, and without it
+     * this guard could not see its own newest square: `npm run test:substrate:attack` parsed as
+     * `substrate`, producing a duplicate the chain already had and never producing
+     * `substrate:attack` at all — so the reconciliation reported the attack suite as "on the
+     * board, not in the chain" while it was sitting in the chain being misread. **A parser that
+     * cannot express the thing it parses reports the absence of what it cannot see.** */
+    return [...String(pkg.scripts?.test || '').matchAll(/\btest:([a-z0-9:-]+)/g)].map((m) => m[1]);
   } catch { return null; }
 })();
 if (CHAIN && CHAIN.length) {
@@ -68,7 +84,14 @@ const arg = (flag) => {
 };
 const only = arg('--only')?.split(',').map((s) => s.trim()).filter(Boolean);
 const skip = (arg('--skip')?.split(',').map((s) => s.trim()).filter(Boolean)) || [];
-const TIMEOUT = Number(arg('--timeout') || 600) * 1000;
+/* ⛔ 600 WAS A FALSE-RED WAITING TO HAPPEN, AND IT HAPPENED. `press` prints 38/38 and is then
+ *   SIGKILLed at the ceiling — the board reports FAIL for a suite in which every assertion
+ *   passed, which is the reassuring-wrong-answer this file exists to prevent, with the sign
+ *   flipped. That suite waits 22s per sabotage visit by design (a dead press has to be given the
+ *   whole budget it would have had) and was already sitting at 578s before anything was added to
+ *   it. A ceiling one bad container-minute above the slowest suite is not a guard, it is a
+ *   coin flip. 900 still catches a genuine hang; it does not catch a slow honest run. */
+const TIMEOUT = Number(arg('--timeout') || 900) * 1000;
 const OUT = arg('--out') || join(ROOT, 'test-results.json');
 
 const list = SUITES.filter((s) => (!only || only.includes(s)) && !skip.includes(s));
