@@ -504,6 +504,12 @@ const ORPHAN_OK = {
    *   distinction between a decision and an oversight.
    * ⚠ And it is generated — `npm run play`, asserted current by `npm run test:play`. */
   'play.html': 'the social share cabinet — reached from a link card in a feed, not from the site',
+  /* ⚑ The same page declaring a PLAYER card instead of a link card, i.e. the one mechanism that
+   *   runs a page inside the X timeline. Two files rather than one flag because `play.html` is
+   *   already POSTED and working: changing its card type to gamble on a per-domain allowlist
+   *   would risk the proven surface to chase an unproven one. Orphan for the same reason as
+   *   play.html, one step further out — nothing on the site should link EITHER. */
+  'feed.html': 'the player-card variant of the share cabinet — framed by X, never linked from here',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
   /* ⚑ Same class as deploy-render.html: an operator tool the artist opens by URL on launch night.

@@ -139,13 +139,85 @@ export async function buildPlay() {
   return s;
 }
 
+/* ── feed.html — THE PLAYER CARD, i.e. the literal in-feed ask ───────────────────────────────
+ * Artist, after posting `play.html`: *"not playing in feed"* · *"clicking it takes you to the site"*.
+ * Correct, and the card was doing exactly what a `summary_large_image` can do. The only mechanism
+ * that renders a running page INSIDE the timeline is `twitter:card = player`, which frames a URL
+ * you nominate at a size you declare.
+ *
+ * ⚑ THE HARD HALF IS ALREADY PROVEN, AND IT IS THE HALF NOBODY CHECKS. Driven at 480×480 in a
+ *   genuine cross-origin iframe AND in a sandboxed one at an opaque origin — the worst case, where
+ *   `localStorage` THROWS and every same-origin fetch fails — this game boots, reaches `play`,
+ *   frames the whole ±6.3 field (hw 6.68, horizontally, so the portrait fix carries to a square),
+ *   puts the ship on screen at BOTH field edges, answers a real touch drag (ship 0.00 → 3.52, one
+ *   roll registered) and throws nothing. Every localStorage touch on this path was already inside
+ *   a try/catch and `theme.js` already bails on `window.self !== window.top`. **A player card that
+ *   X renders would work.** `npm run test:play` §7 is that measurement, kept.
+ *
+ * ⛔ WHETHER X RENDERS IT IS NOT OURS TO DECIDE, AND THIS FILE MUST NOT PRETEND OTHERWISE. The
+ *   player card is historically allowlisted per domain and X's own Cards documentation is gone, so
+ *   there is no current reference to check against and no approval we can self-serve. The honest
+ *   position: it costs four meta tags, it cannot make anything worse, and it may simply be ignored.
+ *
+ * ⛔ WHICH IS WHY THIS IS A SEPARATE FILE AND `play.html` IS UNTOUCHED. The link card is POSTED and
+ *   WORKING — changing its card type to gamble on an allowlist would put the one proven surface at
+ *   risk to chase an unproven one. Two files, two cards, and the already-shared URL keeps behaving
+ *   exactly as it does today.
+ * ⚑ It is DERIVED from buildPlay() rather than parallel to it, so the share build has one set of
+ *   anchors and cannot drift into two cabinets — `restyle-backs.mjs`, again.
+ * ⚠ `twitter:image` STAYS. X's own docs name it the fallback for clients that cannot render the
+ *   iframe, so an ignored player card degrades to the large-image card we already ship rather than
+ *   to nothing. That is the whole reason this is safe to post.
+ * ⚠ The player points at THIS page. X's guidance is that a player URL be a bare page rather than a
+ *   site — and that is what this already is: the game, full screen, no chrome. */
+const FEED = 480;   // square. Measured good at 480×480; the field frames by WIDTH at that aspect.
+
+export async function buildFeed() {
+  let s = await buildPlay();
+
+  s = cut(s,
+    '<title>RIP ROCKETER — play it here</title>',
+    '<title>RIP ROCKETER — play it in the post</title>',
+    'feed title');
+
+  s = cut(s,
+    '<link rel="canonical" href="' + SITE + '/play.html">',
+    '<link rel="canonical" href="' + SITE + '/feed.html">',
+    'feed canonical');
+
+  s = cut(s,
+    '<!-- ⚑ THE CARD IS THE WHOLE DELIVERY MECHANISM. `summary_large_image` is what the viral\n' +
+    '     Minecraft-on-X post actually used (verified off its own meta tags) — one tap from the\n' +
+    '     feed opens the game full-screen in X\'s in-app browser. `player` would run it INSIDE the\n' +
+    '     timeline but is historically allowlisted and documented as video-only. -->\n' +
+    '<meta name="twitter:card" content="summary_large_image">',
+    '<!-- ⚑ THE PLAYER CARD — the only mechanism that runs a page INSIDE the X timeline. Proven to\n' +
+    '     survive the frame: driven at 480×480 cross-origin AND sandboxed at an opaque origin, this\n' +
+    '     game boots, plays, frames the whole field and answers touch, with nothing thrown.\n' +
+    '     ⛔ Whether X RENDERS it is gated per domain and not ours to decide. `twitter:image` below\n' +
+    '     is X\'s documented fallback, so an ignored player card degrades to the same large-image\n' +
+    '     card `play.html` ships — which is what makes this safe to post. -->\n' +
+    '<meta name="twitter:card" content="player">\n' +
+    '<meta name="twitter:player" content="' + SITE + '/feed.html">\n' +
+    '<meta name="twitter:player:width" content="' + FEED + '">\n' +
+    '<meta name="twitter:player:height" content="' + FEED + '">',
+    'feed card type');
+
+  s = s.split(SITE + '/play.html').join(SITE + '/feed.html');
+  if (s.includes('/play.html')) throw new Error('build-play: a play.html url survived into feed.html');
+
+  return s;
+}
+
 /* ⛔ ONLY WRITE WHEN RUN DIRECTLY. `test:play` imports `buildPlay()` to assert the shipped file
  * IS this script's output — and if importing it WROTE that file first, the comparison would
  * write-then-compare and pass on every build, including a drifted one. That is the tautology
  * this project already shipped once in the claim-signer guard: a test whose only failing edit
  * is an edit to the test. */
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-  const out = await buildPlay();
-  await writeFile(join(ROOT, 'play.html'), out, 'utf8');
-  console.log('✦ play.html  (' + (out.length / 1024).toFixed(1) + ' KB)');
+  for (const [name, fn] of [['play.html', buildPlay], ['feed.html', buildFeed]]) {
+    const out = await fn();
+    await writeFile(join(ROOT, name), out, 'utf8');
+    console.log('✦ ' + name.padEnd(10) + ' (' + (out.length / 1024).toFixed(1) + ' KB)');
+  }
 }

@@ -34,7 +34,11 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SUITES = [
   'name', 'lens', 'embed', 'pack', 'split', 'lens-state', 'rig', 'hero', 'sheet',
   's9cast', 'guns', 'gunsfx', 'cardlayers', 'gfxfx', 'ronin', 'roninart', 'pickups', 'press',
-  'theme', 'forge', 'reach', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
+  /* ⚠ `play` was in the `npm test` chain and MISSING FROM THIS BOARD, and §0 below had been
+   * reporting it — nobody had run the guard since the share cabinet shipped. That is the §0
+   * comment's own subject with the sign flipped: the check worked, and a check nobody runs is a
+   * check that is not running. */
+  'theme', 'forge', 'reach', 'play', 'cab', 'rr', 'crstreak', 'titles', 'city', 'citynet',
   'challenge', 'arena', 'updates', 'board', 'mm', 'onramp', 'standalone', 'rewards', 'flow', 'bot',
   /* ⛔ FIVE SQUARES WERE MISSING FROM THE BOARD, ON A BOARD WHOSE OWN §0 COMMENT SAYS A MISSING
    * SQUARE READS AS COMPLETE. `substrate`, `substrate:attack`, `drain` and `api3030` were written
