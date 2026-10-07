@@ -138,4 +138,66 @@ const br = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-11
   console.log('✦ media/site/play-card.png     1200×628  ' + (png.length / 1024).toFixed(0) + ' KB');
   await ctx.close();
 }
+// ── 3 · SECTION 9's card: a real frame of a real firefight ─────────────────────────────────
+/* ⚑ Same rule as the RIP ROCKETER card and as `npm run mark`: shot from the LIVE game, never
+ *   composed. A picture OF a feature is a claim about it; a shot of the thing IS it.
+ * ⛔ AND IT HAS TO BE A MATCH, NOT THE LOBBY. The lobby is a logo and a button — it says nothing
+ *   about what the game is, and an empty arena is what a card of a shooter must not be. The path
+ *   is the real one a player walks: Practice → the controls card → Start. */
+{
+  const ctx = await br.newContext({ viewport: { width: 1200, height: 628 }, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  await page.goto(`http://127.0.0.1:${PORT}/s9feed.html`, { waitUntil: 'load', timeout: 120000 });
+  await page.waitForFunction(() => document.getElementById('btnPractice'), null, { timeout: 90000 });
+  await page.waitForTimeout(4000);
+  await page.evaluate(() => document.getElementById('btnPractice').click());
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => { const b = document.getElementById('gh-start'); if (b) b.click(); });
+  await page.waitForTimeout(12000);          // the world streams in; it is a heavy cabinet
+  /* ⚠ face something. A shooter card framing an empty wall is the "it was not slow, it was
+   * EMPTY" brief all over again — so turn until bodies are in frame, using the game's own state
+   * rather than a guessed yaw. */
+  const aimed = await page.evaluate(() => {
+    const g = window.__s9game; if (!g || !g.G) return 'no game';
+    const G = G0 => G0, S = g.G;
+    const me = S.me || (S.ents && S.ents[0]);
+    const foes = (S.ents || S.bots || []).filter(e => e && e !== me && e.alive !== false);
+    if (!me || !foes.length) return 'no foes yet: ' + (S.ents ? S.ents.length : '?');
+    let best = null, bd = 1e9;
+    for (const f of foes) { const d = Math.hypot(f.x - me.x, f.z - me.z);
+      if (d > 6 && d < bd) { bd = d; best = f; } }
+    if (!best) return 'none in range';
+    me.yaw = Math.atan2(best.x - me.x, best.z - me.z);
+    me.pitch = 0;
+    return 'facing a foe at ' + bd.toFixed(1) + 'm';
+  });
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => {
+    document.querySelectorAll('.toggles,#soundBar,.gh-ov').forEach(e => e.style.display = 'none');
+    const d = document.createElement('div');
+    d.innerHTML =
+      '<div style="position:fixed;inset:0;z-index:9000;pointer-events:none;' +
+      'background:linear-gradient(90deg,rgba(2,4,10,.96) 0%,rgba(2,4,10,.92) 38%,rgba(2,4,10,.45) 60%,transparent 78%)"></div>' +
+      '<div style="position:fixed;left:54px;top:50%;transform:translateY(-50%);z-index:9001;max-width:540px">' +
+      '<div style="font-family:\'Arial Black\',Arial,sans-serif;font-size:13px;letter-spacing:.30em;' +
+      'color:#27f7e4;text-transform:uppercase;margin-bottom:16px">ripmaster3030studios</div>' +
+      '<div style="font-family:\'Arial Black\',Arial,sans-serif;font-size:52px;line-height:.95;' +
+      'color:#d9ffe9;text-shadow:0 0 30px rgba(39,247,228,.45)">SECTION&nbsp;9</div>' +
+      '<div style="font-family:\'Arial Black\',Arial,sans-serif;font-size:19px;letter-spacing:.16em;' +
+      'color:#7fd8a8;margin-top:8px;text-transform:uppercase">taskforce supergame</div>' +
+      '<div style="font-family:\'Courier New\',monospace;font-size:19px;line-height:1.5;color:#d9ffe9;' +
+      'margin-top:20px;text-shadow:0 2px 6px #000">Drop into a <b style="color:#ffd23b">walled arena</b>' +
+      ' and rack up frags. Infinite respawns.</div>' +
+      '<div style="font-family:\'Arial Black\',Arial,sans-serif;font-size:15px;letter-spacing:.08em;' +
+      'color:#2bff80;margin-top:18px;text-transform:uppercase">▶ tap to drop in · free · no sign-up</div>' +
+      '</div>';
+    document.body.appendChild(d);
+  });
+  await page.waitForTimeout(500);
+  const png = await page.screenshot({ type: 'png' });
+  await writeFile(join(ROOT, 'media/site/s9-card.png'), png);
+  console.log('✦ media/site/s9-card.png       1200×628  ' + (png.length / 1024).toFixed(0) + ' KB  (' + aimed + ')');
+  await ctx.close();
+}
+
 await br.close(); srv.close();

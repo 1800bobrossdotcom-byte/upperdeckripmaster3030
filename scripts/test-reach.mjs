@@ -510,6 +510,10 @@ const ORPHAN_OK = {
    *   would risk the proven surface to chase an unproven one. Orphan for the same reason as
    *   play.html, one step further out — nothing on the site should link EITHER. */
   'feed.html': 'the player-card variant of the share cabinet — framed by X, never linked from here',
+  /* ⚑ SECTION 9's player card. Same orphan-by-design argument, and the same one-free-door shape:
+   *   the ante, the staking grid, the pot and the seat box are hidden (never removed — the
+   *   driver writes to all of them), so what a stranger gets is free practice and nothing else. */
+  's9feed.html': 'the SECTION 9 player card — framed by X, never linked from here',
   'cabinet.html': 'the sandbox-safe embed fallback, reached from superrare.html only',
   'deploy-render.html': 'an operator tool — unlinked AND .vercelignore\u0027d after the deploys landed',
   /* ⚑ Same class as deploy-render.html: an operator tool the artist opens by URL on launch night.

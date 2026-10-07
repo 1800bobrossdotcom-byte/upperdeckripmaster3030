@@ -44,7 +44,8 @@ const srv = createServer(async (req, res) => {
   const q = new URL(req.url, 'http://x').searchParams;
   if (p === '/__parent') {
     const sb = q.get('sandbox') === '1' ? ' sandbox="allow-scripts"' : '';
-    const child = q.get('sabotage') ? '/__sabotage?k=' + q.get('sabotage') : '/feed.html';
+    const child = q.get('s9') ? '/s9feed.html'
+      : q.get('sabotage') ? '/__sabotage?k=' + q.get('sabotage') : '/feed.html';
     res.writeHead(200, { 'content-type': 'text/html' });
     return res.end('<!doctype html><title>p</title><body style="margin:0;background:#111">'
       + `<iframe src="http://localhost:${PORT}${child}" width="480" height="480"`
@@ -297,6 +298,59 @@ async function framed(sandbox, sabotage) {
   } catch (e) { await ctx.close().catch(() => {}); return { err: String(e.message || e).slice(0, 140), errs }; }
 }
 
+/* SECTION 9 is a much heavier cabinet and its lobby needs two presses (Practice → the controls
+ * card → Start), so it gets its own driver rather than bending the one above. */
+async function framedS9() {
+  const ctx = await br.newContext({ viewport: { width: 600, height: 640 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  const errs = []; page.on('pageerror', e => errs.push(e.message.slice(0, 150)));
+  try {
+    await page.goto(`http://127.0.0.1:${PORT}/__parent?s9=1`, { waitUntil: 'load', timeout: 120000 });
+    let fr = null;
+    for (let i = 0; i < 80 && !fr; i++) {
+      fr = page.frames().find(f => f !== page.mainFrame() && /s9feed\.html/.test(f.url()));
+      if (!fr) await page.waitForTimeout(250);
+    }
+    if (!fr) throw new Error('no child frame');
+    await fr.waitForFunction(() => document.getElementById('btnPractice'), null, { timeout: 90000 });
+    await page.waitForTimeout(5000);
+    const m = await fr.evaluate(() => {
+      const o = {};
+      o.gate = !!document.getElementById('urm-gate');
+      o.orient = !!document.getElementById('ripOrient');
+      o.RipWallet = !!window.RipWallet; o.RipSession = !!window.RipSession;
+      o.ethereum = !!window.ethereum;
+      o.missingIds = ['btnAnte', 'anteVal', 'cardsVal', 'cardGrid', 'cardsInfo', 'potLine',
+                      'roster', 'pickN', 'buildNote', 'lobNote'].filter(id => !document.getElementById(id));
+      const vis = id => { const e = document.getElementById(id);
+        return e ? getComputedStyle(e).display !== 'none' : null; };
+      o.wagerHidden = vis('btnAnte') === false && vis('lobNote') === false;
+      o.visibleText = (document.getElementById('ovLobby') || document.body).innerText || '';
+      o.vpH = innerHeight;
+      return o;
+    });
+    await fr.evaluate(() => document.getElementById('btnPractice').click());
+    await page.waitForTimeout(2500);
+    Object.assign(m, await fr.evaluate(() => {
+      const b = document.getElementById('gh-start');
+      if (!b) return { startPinned: false, startTop: null };
+      const r = b.getBoundingClientRect();
+      return { startPinned: r.top >= 0 && r.bottom <= innerHeight && r.width > 0,
+               startTop: Math.round(r.top) };
+    }));
+    await fr.evaluate(() => { const b = document.getElementById('gh-start'); if (b) b.click(); });
+    await page.waitForTimeout(11000);
+    Object.assign(m, await fr.evaluate(() => ({
+      lobbyAfter: !!document.querySelector('#ovLobby.show'),
+      started: !!window.__s9game && !document.querySelector('#ovLobby.show'),
+      hudVisible: [...document.querySelectorAll('.hud')]
+        .filter(e => getComputedStyle(e).display !== 'none').length,
+    })));
+    await ctx.close();
+    return { m, errs };
+  } catch (e) { await ctx.close().catch(() => {}); return { err: String(e.message || e).slice(0, 150), errs }; }
+}
+
 for (const [sandbox, label] of [[false, 'CROSS-ORIGIN (what a player card does)'],
                                 [true, 'SANDBOXED, OPAQUE ORIGIN (the worst case)']]) {
   const r = await framed(sandbox, null);
@@ -339,6 +393,64 @@ console.log('\n── 9 · THE CLAIM THIS PAGE MAKES IS THE CLAIM IT CAN KEEP �
  * card cannot keep — you tap it and X opens the game in its in-app browser. The page's own copy
  * must not repeat that: `play.html` may promise a tap, never an in-feed frame. */
 ok(!/in[- ]feed/i.test(html), 'play.html never promises "in feed" — it is a link card and says so');
+
+console.log('\n── 10 · SECTION 9 IN THE FRAME ────────────────────────────────────────────────');
+/* The second cabinet. ⛔ The wallet is deliberately NOT in here — see build-play.mjs's block for
+ * the measurement (`window.ethereum` is false in a third-party iframe, so injected wallets are
+ * structurally unreachable) and for the reason this repo has refused wallet-in-embed twice. */
+{
+  const s9 = await readFile(join(ROOT, 's9feed.html'), 'utf8');
+  const { buildS9Feed } = await import('./build-play.mjs').catch(() => ({}));
+  ok(!!buildS9Feed && (await buildS9Feed()) === s9,
+    's9feed.html IS what scripts/build-play.mjs produces right now');
+  for (const [re, what] of [
+    [/<meta name="twitter:card" content="player">/, 'the player card'],
+    [new RegExp('<meta name="twitter:player" content="https://[^"]+/s9feed\\.html">'), 'twitter:player'],
+    [/<meta name="twitter:image" content="https:\/\/[^"]+s9-card\.png">/, 'the image fallback'],
+  ]) ok(re.test(s9), 's9feed.html carries ' + what);
+  const card = await stat(join(ROOT, 'media/site/s9-card.png')).catch(() => null);
+  ok(card && card.size > 40 * 1024 && card.size < 5 * 1024 * 1024,
+    'media/site/s9-card.png exists and is a real image',
+    card ? (card.size / 1024).toFixed(0) + ' KB' : 'MISSING — the card would render blank');
+  /* ⛔ THE ONE FOUND BY LOOKING AT THE FRAME. js/s9pc-ui.js picks #lobNote off wallet state, so
+   * with RipWallet dropped it falls into the "Connect a wallet (sign the ledger) to ante real
+   * $3030" branch — a dead instruction, in a timeline, on the surface where asking for a wallet
+   * is indistinguishable from a phish. And the lobby's own copy still sold an ante that is gone.
+   * Both are asserted on the RENDERED frame below, not on the source, because the note is
+   * written by JS at runtime and a text match on the file cannot see it. */
+  for (const [src, why] of [['js/wallet.js', 'the wallet'], ['js/session.js', 'the SIWE seat'],
+                            ['js/orient.js', 'the sideways veil'], ['gate.js', 'the pre-launch veil']])
+    ok(!new RegExp('<script src="[^"]*' + src.replace(/[/.]/g, '\\$&') + '"').test(s9),
+      's9feed.html drops ' + why);
+
+  const r = await framedS9();
+  if (r.err) { ok(false, 'SECTION 9 runs in a 480×480 frame', r.err); }
+  else {
+    ok(!r.m.gate && !r.m.orient, 'no veil reached the frame');
+    ok(!r.m.RipWallet && !r.m.RipSession && !r.m.ethereum,
+      'no wallet module and no injected provider in the frame',
+      'ethereum=' + r.m.ethereum + ' (3p iframes never get one)');
+    /* ⚑ HIDDEN, NOT REMOVED — the driver writes to every one of these and deleting them throws
+     * inside the lobby, which would fail in the one way nobody sees from the arcade. */
+    ok(r.m.missingIds.length === 0,
+      'every id js/s9pc-ui.js writes to is STILL in the document',
+      r.m.missingIds.length ? 'MISSING: ' + r.m.missingIds.join(',') : 'all present');
+    ok(r.m.wagerHidden, '…and the ante / staking / pot / roster are hidden');
+    /* ⛔ the dead instruction, asserted on what a reader actually SEES. */
+    ok(!/connect a wallet/i.test(r.m.visibleText),
+      '…and nothing in the frame tells a stranger to connect a wallet',
+      (r.m.visibleText.match(/.{0,46}onnect a wallet.{0,30}/) || ['clean'])[0]);
+    ok(!/antes/i.test(r.m.visibleText),
+      '…and the copy no longer sells an ante this build does not offer');
+    /* ⚠ NOT "the button exists" — it did, 2.3 screens down. The question is whether it is on
+     * screen without scrolling, which is what a reader handed a game by a feed will do. */
+    ok(r.m.startPinned, 'the START control is on screen at scroll 0, pinned over the controls',
+      'top ' + r.m.startTop + ' of ' + r.m.vpH);
+    ok(r.m.started, '…and pressing it actually starts the match', 'lobby gone: ' + !r.m.lobbyAfter);
+    ok(r.m.hudVisible >= 1, '…with the HUD up', r.m.hudVisible + ' blocks');
+    ok(r.errs.length === 0, '…and nothing threw', r.errs.slice(0, 2).join(' | ') || 'clean');
+  }
+}
 
 await br.close();
 srv.close();
